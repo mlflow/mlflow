@@ -5,6 +5,7 @@ sidebar_position: 2
 
 import TOCInline from "@theme/TOCInline";
 import { APILink } from "@site/src/components/APILink";
+import { Table } from "@site/src/components/Table";
 
 # 🤗 Transformers within MLflow
 
@@ -63,7 +64,7 @@ Similarly, if your use case requires the use of raw tensor outputs or processing
 model components directly as a `dict` by calling <APILink fn="mlflow.transformers.load_model" /> and specify the `return_type` argument as 'components'.
 :::
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>Pipeline Type</th>
@@ -148,7 +149,7 @@ model components directly as a `dict` by calling <APILink fn="mlflow.transformer
       <td>pd.DataFrame (dtypes: \{'label': str, 'score': double})</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 \* A collection of these inputs can also be passed. The standard required key names are 'sequences' and 'candidate_labels', but these may vary.
 Check the input requirements for the architecture that you're using to ensure that the correct dictionary key names are provided.

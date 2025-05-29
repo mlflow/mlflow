@@ -1,4 +1,5 @@
 import { APILink } from "@site/src/components/APILink";
+import { Table } from "@site/src/components/Table";
 
 # DSPy Optimizer Autologging
 
@@ -25,7 +26,7 @@ mlflow.dspy.autolog(log_compiles=True, log_evals=True, log_traces_from_compile=T
 ...
 ```
 
-<table>
+<Table>
     <thead>
         <tr>
             <th>Target</th>
@@ -66,7 +67,7 @@ mlflow.dspy.autolog(log_compiles=True, log_evals=True, log_traces_from_compile=T
             <td>If set to `True`, a MLflow run is created for each `Evaluate.__call__` call, and metrics and artifacts for the evaluation are logged.</td>
         </tr>
     </tbody>
-</table>
+</Table>
 
 ## Example Code of DSPy Optimizer Autologging
 

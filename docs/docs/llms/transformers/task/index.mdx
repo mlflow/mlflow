@@ -6,6 +6,7 @@ sidebar_label: Task
 import TOCInline from "@theme/TOCInline";
 import Link from "@docusaurus/Link";
 import { APILink } from "@site/src/components/APILink";
+import { Table } from "@site/src/components/Table";
 
 # Tasks in MLflow Transformers Flavor
 
@@ -82,7 +83,7 @@ This feature is only available in MLflow 2.11.0 and above. Also, the `llm/v1/cha
 
 ### Input and Output Formats
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>Task</th>
@@ -111,7 +112,7 @@ This feature is only available in MLflow 2.11.0 and above. Also, the `llm/v1/cha
       <td>Returns a list of [Embedding](https://platform.openai.com/docs/api-reference/embeddings/object) object. Additionally, the model returns `usage` field, which contains the number of tokens used for the embeddings generation.</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 :::note
 The Completion API is considered as legacy, but it is still supported in MLflow for backward compatibility. We recommend using the Chat API for compatibility with the latest APIs from OpenAI and other model providers.

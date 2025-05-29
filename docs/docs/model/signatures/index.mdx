@@ -6,6 +6,7 @@ sidebar_position: 1
 import Link from "@docusaurus/Link";
 import { NotebookDownloadButton } from "@site/src/components/NotebookDownloadButton";
 import { APILink } from "@site/src/components/APILink";
+import { Table } from "@site/src/components/Table";
 
 # MLflow Model Signatures and Input Examples Guide
 
@@ -117,7 +118,7 @@ Column-based signatures support data primitives defined within the <APILink fn="
 - boolean
 - datetime
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>Input (Python)</th>
@@ -148,7 +149,7 @@ Column-based signatures support data primitives defined within the <APILink fn="
     </tr>
 
   </tbody>
-</table>
+</Table>
 
 :::note
 
@@ -181,7 +182,7 @@ with _AnyType_ type for the field. (e.g. `ModelSignature(Schema([ColSpec(AnyType
 
 Additional examples for composite data types can be seen by viewing the [signature examples notebook](/model/notebooks/signature_examples).
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>Input (Python)</th>
@@ -221,13 +222,13 @@ Additional examples for composite data types can be seen by viewing the [signatu
     </tr>
 
   </tbody>
-</table>
+</Table>
 
 #### Optional Column
 
 Columns that contain _None_ or _np.nan_ values within the input data will be inferred as _optional_ (i.e. _required=False_)
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>Input (Python)</th>
@@ -256,14 +257,14 @@ Columns that contain _None_ or _np.nan_ values within the input data will be inf
     </tr>
 
   </tbody>
-</table>
+</Table>
 
 :::note
 Nested arrays can contain an empty list, and it does not make the column _optional_ as it represents an empty set (∅). In such case,
 the schema will be inferred from the other elements of the list, assuming they have homogeneous types. If you want to make a column optional,
 pass _None_ instead.
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>Input (Python)</th>
@@ -295,7 +296,7 @@ pass _None_ instead.
       </td>
     </tr>
   </tbody>
-</table>
+</Table>
 :::
 
 ### Tensor-based Signatures
@@ -325,7 +326,7 @@ signature:
 
 Tensor-based schemas support [numpy data types](https://numpy.org/devdocs/user/basics.types.html).
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>Input (Python)</th>
@@ -359,7 +360,7 @@ Tensor-based schemas support [numpy data types](https://numpy.org/devdocs/user/b
     </tr>
 
   </tbody>
-</table>
+</Table>
 
 :::note
   Tensor-based schemas do not support optional inputs. You can pass an array with _None_ or _np.nan_ values,
@@ -1101,7 +1102,7 @@ with mlflow.start_run():
 
 Example files logged by MLflow:
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>File name</th>
@@ -1135,7 +1136,7 @@ Example files logged by MLflow:
       <td>JSON-serialized version of the input example with one of the predefined keys (``dataframe_split``, ``instances``, ``inputs`` or ``dataframe_records``) that mlflow scoring server requires when [querying a deployed model endpoint](/deployment/deploy-model-locally#local-inference-server-spec).</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 :::note
 Prior to MLflow 2.16.0, dictionary input example was converted to Pandas DataFrame format when saving. In later versions, the input

@@ -4,6 +4,7 @@ sidebar_position: 4
 ---
 
 import { APILink } from "@site/src/components/APILink";
+import { Table } from "@site/src/components/Table";
 
 # MLflow PythonModel Guide
 
@@ -339,7 +340,7 @@ MLflow still uses the inferred signature based on the type hints, and raises a w
 
 The table below illustrates how type hints map to given schemas in model signatures:
 
-<table>
+<Table>
     <thead>
         <tr>
             <th>Type hint</th>
@@ -372,7 +373,7 @@ The table below illustrates how type hints map to given schemas in model signatu
             <td>Schema([ColSpec(type=Object([...]))]) # properties based on the pydantic model fields</td>
         </tr>
     </tbody>
-</table>
+</Table>
 
 :::warning
 Pydantic objects cannot be used in the `infer_signature` function. To use pydantic objects as model inputs, you must define the type hints

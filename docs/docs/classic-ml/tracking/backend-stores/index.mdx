@@ -1,5 +1,6 @@
 import Link from "@docusaurus/Link";
 import { APILink } from "@site/src/components/APILink";
+import { Table } from "@site/src/components/Table";
 
 # Backend Stores
 
@@ -66,7 +67,7 @@ for permanently removing Run metadata and artifacts for deleted runs.
 
 You can inject some [SQLAlchemy connection pooling options](https://docs.sqlalchemy.org/en/latest/core/pooling.html) using environment variables.
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>MLflow Environment Variable</th>
@@ -87,7 +88,7 @@ You can inject some [SQLAlchemy connection pooling options](https://docs.sqlalch
       <td>`max_overflow`</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 ## MySQL SSL Options
 

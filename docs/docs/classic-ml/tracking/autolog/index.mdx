@@ -4,6 +4,7 @@ sidebar_position: 1
 
 import TOCInline from "@theme/TOCInline";
 import { APILink } from "@site/src/components/APILink";
+import { Table } from "@site/src/components/Table";
 
 # Automatic Logging with MLflow Tracking
 
@@ -136,7 +137,7 @@ As an example, try running the [Keras/TensorFlow example](https://github.com/mlf
 
 Autologging captures the following information:
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>Framework</th>
@@ -162,7 +163,7 @@ Autologging captures the following information:
       <td>--</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 If no active run exists when `autolog()` captures data, MLflow will automatically create a run to log information to.
 Also, MLflow will then automatically end the run once training ends via calls to `tf.keras.fit()`.
@@ -175,7 +176,7 @@ Call the generic autolog function <APILink fn="mlflow.lightgbm.autolog" /> befor
 
 Autologging captures the following information:
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>Framework</th>
@@ -194,7 +195,7 @@ Autologging captures the following information:
       <td>[MLflow Model](/ml/model) (LightGBM model) with model signature on training end; feature importance; input example;</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 If early stopping is activated, metrics at the best iteration will be logged as an extra step/iteration.
 
@@ -204,7 +205,7 @@ Call the generic autolog function <APILink fn="mlflow.paddle.autolog" /> before 
 
 Autologging captures the following information:
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>Framework</th>
@@ -223,7 +224,7 @@ Autologging captures the following information:
       <td>[MLflow Model](/ml/model) (Paddle model) with model signature on training end</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 ### PySpark \{#autolog-pyspark}
 
@@ -232,7 +233,7 @@ See example usage with [PySpark](https://github.com/mlflow/mlflow/tree/master/ex
 
 Autologging for pyspark ml estimators captures the following information:
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>Metrics</th>
@@ -258,7 +259,7 @@ Autologging for pyspark ml estimators captures the following information:
     </tr>
 
   </tbody>
-</table>
+</Table>
 
 ### PyTorch \{#autolog-pytorch}
 
@@ -267,7 +268,7 @@ Note that currently, PyTorch autologging supports only models trained using PyTo
 
 Autologging is triggered on calls to `pytorch_lightning.trainer.Trainer.fit` and captures the following information:
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>Framework/module</th>
@@ -293,7 +294,7 @@ Autologging is triggered on calls to `pytorch_lightning.trainer.Trainer.fit` and
       <td>Model summary on training start; [MLflow Model](/ml/model) (PyTorch model) on training end; Best PyTorch model checkpoint, if training stops due to early stopping callback.</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 If no active run exists when `autolog()` captures data, MLflow will automatically create a run to log information, ending the run once
 the call to `pytorch_lightning.trainer.Trainer.fit()` completes.
@@ -314,7 +315,7 @@ See example usage [here](https://github.com/mlflow/mlflow/tree/master/examples/s
 
 Autologging for estimators (e.g. [LinearRegression](https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html)) and meta estimators (e.g. [Pipeline](https://scikit-learn.org/stable/modules/generated/sklearn.pipeline.Pipeline.html)) creates a single run and logs:
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>Metrics</th>
@@ -336,7 +337,7 @@ Autologging for estimators (e.g. [LinearRegression](https://scikit-learn.org/sta
     </tr>
 
   </tbody>
-</table>
+</Table>
 
 Autologging for parameter search estimators (e.g. [GridSearchCV](https://scikit-learn.org/stable/modules/generated/sklearn.model_selection.GridSearchCV.html)) creates a single parent run and nested child runs
 
@@ -349,7 +350,7 @@ Autologging for parameter search estimators (e.g. [GridSearchCV](https://scikit-
 
 containing the following data:
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>Run type</th>
@@ -393,7 +394,7 @@ containing the following data:
     </tr>
 
   </tbody>
-</table>
+</Table>
 
 ### Spark \{#autolog-spark}
 
@@ -405,7 +406,7 @@ log statements. Note that autologging of Spark ML (MLlib) models is not yet supp
 
 Autologging captures the following information:
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>Framework</th>
@@ -424,7 +425,7 @@ Autologging captures the following information:
       <td>--</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 :::note
 
@@ -442,7 +443,7 @@ Call the generic autolog function <APILink fn="mlflow.statsmodels.autolog" /> be
 
 Autologging captures the following information:
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>Framework</th>
@@ -461,7 +462,7 @@ Autologging captures the following information:
       <td>[MLflow Model](/ml/model) (statsmodels.base.wrapper.ResultsWrapper) on training end</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 :::note
 
@@ -475,7 +476,7 @@ Call the generic autolog function <APILink fn="mlflow.xgboost.autolog" /> before
 
 Autologging captures the following information:
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>Framework</th>
@@ -494,6 +495,6 @@ Autologging captures the following information:
       <td>[MLflow Model](/ml/model) (XGBoost model) with model signature on training end; feature importance; input example</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 If early stopping is activated, metrics at the best iteration will be logged as an extra step/iteration.
