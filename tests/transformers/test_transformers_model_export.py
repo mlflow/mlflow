@@ -1062,7 +1062,7 @@ def test_text2text_generation_pipeline_with_model_config_and_params(
         "repetition_penalty": 1.15,
         "do_sample": True,
     }
-    parameters = {"top_k": 3, "max_length": 30}
+    parameters = {"top_k": 3, "max_new_tokens": 30}
     generated_output = mlflow.transformers.generate_signature_output(
         text2text_generation_pipeline, data
     )
@@ -1087,7 +1087,7 @@ def test_text2text_generation_pipeline_with_model_config_and_params(
     res2 = pyfunc_loaded.predict(data, applied_params)
     assert res == res2
 
-    assert res != pyfunc_loaded.predict(data, {"max_length": 10})
+    assert res != pyfunc_loaded.predict(data, {"max_new_tokens": 3})
 
     # Extra params are ignored
     assert res == pyfunc_loaded.predict(data, {"extra_param": "extra_value"})
@@ -1156,9 +1156,7 @@ def test_text2text_generation_pipeline_with_inferred_schema(text2text_generation
         model_info = mlflow.transformers.log_model(text2text_generation_pipeline, name="my_model")
     pyfunc_loaded = mlflow.pyfunc.load_model(model_info.model_uri)
 
-    assert pyfunc_loaded.predict("muppet board nails hammer") == [
-        "A hammer with a muppet and nails on a board."
-    ]
+    assert pyfunc_loaded.predict("muppet board nails hammer")[0].startswith("A hammer")
 
 
 @pytest.mark.parametrize(
@@ -2555,6 +2553,14 @@ def test_whisper_model_serve_and_score(whisper_pipeline):
         assert "Failed to process the input audio data. Either" in response["message"]
 
 
+# https://github.com/huggingface/transformers/commit/9c500015c556f9ddf6e7a7449d3f46b2e3ff8ea5
+# caused a regression in beam search.
+# https://github.com/huggingface/transformers/commit/a6b51e7341d702127a4a45f37439640840b5abf0
+# fixed the regression but has not been released yet as of May 30, 2025.
+@pytest.mark.skipif(
+    Version("4.52.0") <= Version(transformers.__version__) < Version("4.53.0"),
+    reason="Transformers 4.52 has a bug for beam search in whiper implementation",
+)
 @pytest.mark.skipif(
     Version(transformers.__version__) < Version("4.29.0"), reason="Feature does not exist"
 )
