@@ -137,7 +137,7 @@ def _register_model(
         (run_id, artifact_path) = RunsArtifactRepository.parse_runs_uri(model_uri)
         runs_artifact_repo = RunsArtifactRepository(model_uri)
         #
-        if runs_artifact_repo._is_directory(artifact_path):
+        if runs_artifact_repo._is_directory(""):
             # First check if run has artifact at artifact_path,
             # if so use the run's artifact location as source
             source = RunsArtifactRepository.get_underlying_uri(model_uri)
