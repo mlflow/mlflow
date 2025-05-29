@@ -146,6 +146,8 @@ jobs:
       - uses: ./.github/actions/setup-java
         with:
           java-version: ${{ matrix.java }}
+      - run: |
+          echo "MLFLOW_DOCKER_OPENJDK_VERSION=${{ matrix.java }}" >> $GITHUB_ENV
       - name: Install mlflow & test dependencies
         run: |
           pip install -U pip wheel setuptools
@@ -193,6 +195,8 @@ jobs:
       - uses: ./.github/actions/setup-java
         with:
           java-version: ${{ matrix.java }}
+      - run: |
+          echo "MLFLOW_DOCKER_OPENJDK_VERSION=${{ matrix.java }}" >> $GITHUB_ENV
       - name: Install mlflow & test dependencies
         run: |
           pip install -U pip wheel setuptools
