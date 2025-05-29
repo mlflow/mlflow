@@ -3688,6 +3688,7 @@ def test_log_langchain_model_with_prompt():
     Version(langchain.__version__) < Version("0.2.0"),
     reason="Feature not existing",
 )
+@pytest.mark.repeat(50)
 def test_predict_with_callbacks_with_tracing(monkeypatch):
     # Simulate the model serving environment
     monkeypatch.setenv("IS_IN_DB_MODEL_SERVING_ENV", "true")
