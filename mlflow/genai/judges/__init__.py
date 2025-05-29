@@ -3,7 +3,6 @@ from mlflow.genai.judges.databricks import (
     is_context_sufficient,
     is_correct,
     is_grounded,
-    is_relevant_to_query,
     is_safe,
     meets_guidelines,
 )

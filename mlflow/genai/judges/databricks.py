@@ -1,5 +1,5 @@
 from functools import wraps
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 from mlflow.entities.assessment import Feedback
 
@@ -25,21 +25,41 @@ def requires_databricks_agents(func):
 
 
 @requires_databricks_agents
-def is_context_relevant(
-    *, request: str, context: dict[str, str], name: Optional[str] = None
-) -> Feedback:
+def is_context_relevant(*, request: str, context: Any, name: Optional[str] = None) -> Feedback:
     """
     LLM judge determines whether the given context is relevant to the input request.
 
     Args:
         request: Input to the application to evaluate, user's question or query.
-        context: A single dictionary containing a "content" key with a string value.
-            E.g. ``{"content": "The capital of France is Paris."}``
+        context: Context to evaluate the relevance to the request.
+            Supports any JSON-serializable object.
         name: Optional name for overriding the default name of the returned feedback.
 
     Returns:
         A :py:class:`mlflow.entities.assessment.Feedback~` object with a "yes" or "no" value
         indicating whether the context is relevant to the request.
+
+    Example:
+
+        The following example shows how to evaluate whether a document retrieved by a
+        retriever is relevant to the user's question.
+
+        .. code-block:: python
+
+            from mlflow.genai.judges import is_context_relevant
+
+            feedback = is_context_relevant(
+                request="What is the capital of France?",
+                context="Paris is the capital of France.",
+            )
+            print(feedback.value)  # "yes"
+
+            feedback = is_context_relevant(
+                request="What is the capital of France?",
+                context="Paris is known for its Eiffel Tower.",
+            )
+            print(feedback.value)  # "no"
+
     """
     from databricks.agents.evals.judges import chunk_relevance
 
@@ -55,7 +75,7 @@ def is_context_relevant(
 def is_context_sufficient(
     *,
     request: str,
-    context: list[dict[str, str]],
+    context: Any,
     expected_facts: list[str],
     expected_response: Optional[str] = None,
     name: Optional[str] = None,
@@ -65,8 +85,7 @@ def is_context_sufficient(
 
     Args:
         request: Input to the application to evaluate, user's question or query.
-        context: Context to evaluate the response against. It must be a list of dictionaries,
-            each containing a "content" key with a string value.
+        context: Context to evaluate the sufficiency of. Supports any JSON-serializable object.
         expected_facts: A list of expected facts that should be present in the context.
         expected_response: The expected response from the application. Optional.
         name: Optional name for overriding the default name of the returned feedback.
@@ -74,6 +93,25 @@ def is_context_sufficient(
     Returns:
         A :py:class:`mlflow.entities.assessment.Feedback~` object with a "yes" or "no"
         value indicating whether the context is sufficient to answer the request.
+
+    Example:
+
+        The following example shows how to evaluate whether the documents returned by a
+        retriever gives sufficient context to answer the user's question.
+
+        .. code-block:: python
+
+            from mlflow.genai.judges import is_context_sufficient
+
+            feedback = is_context_sufficient(
+                request="What is the capital of France?",
+                context=[
+                    {"content": "Paris is the capital of France."},
+                    {"content": "Paris is known for its Eiffel Tower."},
+                ],
+                expected_facts=["Paris is the capital of France."],
+            )
+            print(feedback.value)  # "yes"
     """
     from databricks.agents.evals.judges import context_sufficiency
 
@@ -122,7 +160,7 @@ def is_correct(
 
 @requires_databricks_agents
 def is_grounded(
-    *, request: str, response: str, context: list[dict[str, str]], name: Optional[str] = None
+    *, request: str, response: str, context: Any, name: Optional[str] = None
 ) -> Feedback:
     """
     LLM judge determines whether the given response is grounded in the given context.
@@ -130,13 +168,31 @@ def is_grounded(
     Args:
         request: Input to the application to evaluate, user's question or query.
         response: The response from the application to evaluate.
-        context: Context to evaluate the response against. It must be a list of dictionaries,
-            each containing a "content" key with a string value.
+        context: Context to evaluate the response against. Supports any JSON-serializable object.
         name: Optional name for overriding the default name of the returned feedback.
 
     Returns:
         A :py:class:`mlflow.entities.assessment.Feedback~` object with a "yes" or "no"
         value indicating whether the response is grounded in the context.
+
+    Example:
+
+        The following example shows how to evaluate whether the response is grounded in
+        the context.
+
+        .. code-block:: python
+
+            from mlflow.genai.judges import is_grounded
+
+            feedback = is_grounded(
+                request="What is the capital of France?",
+                response="Paris",
+                context=[
+                    {"content": "Paris is the capital of France."},
+                    {"content": "Paris is known for its Eiffel Tower."},
+                ],
+            )
+            print(feedback.value)  # "yes"
     """
     from databricks.agents.evals.judges import groundedness
 
@@ -149,47 +205,31 @@ def is_grounded(
 
 
 @requires_databricks_agents
-def is_relevant_to_query(*, request: str, response: str, name: Optional[str] = None) -> Feedback:
-    """
-    LLM judge determines whether the given response is relevant to the input request.
-
-    Args:
-        request: Input to the application to evaluate, user's question or query.
-        response: The response from the application to evaluate.
-        name: Optional name for overriding the default name of the returned feedback.
-
-    Returns:
-        A :py:class:`mlflow.entities.assessment.Feedback~` object with a "yes" or "no"
-        value indicating whether the response is relevant to the request.
-    """
-    from databricks.agents.evals.judges import relevance_to_query
-
-    return relevance_to_query(
-        request=request,
-        response=response,
-        assessment_name=name,
-    )
-
-
-@requires_databricks_agents
-def is_safe(*, request: str, response: str, name: Optional[str] = None) -> Feedback:
+def is_safe(*, content: str, name: Optional[str] = None) -> Feedback:
     """
     LLM judge determines whether the given response is safe.
 
     Args:
-        request: Input to the application to evaluate, user's question or query.
-        response: The response text from the application to evaluate.
+        content: Text content to evaluate for safety.
         name: Optional name for overriding the default name of the returned feedback.
 
     Returns:
         A :py:class:`mlflow.entities.assessment.Feedback~` object with a "yes" or "no"
         value indicating whether the response is safe.
+
+    Example:
+
+        .. code-block:: python
+
+            from mlflow.genai.judges import is_safe
+
+            feedback = is_safe(content="I am a happy person.")
+            print(feedback.value)  # "yes"
     """
     from databricks.agents.evals.judges import safety
 
     return safety(
-        request=request,
-        response=response,
+        response=content,
         assessment_name=name,
     )
 
@@ -197,29 +237,49 @@ def is_safe(*, request: str, response: str, name: Optional[str] = None) -> Feedb
 @requires_databricks_agents
 def meets_guidelines(
     *,
-    request: str,
-    response: str,
     guidelines: Union[str, list[str]],
+    context: dict[str, Any],
     name: Optional[str] = None,
 ) -> Feedback:
     """
     LLM judge determines whether the given response meets the given guideline(s).
 
     Args:
-        request: Input to the application to evaluate, user's question or query.
-        response: The response from the application to evaluate.
         guidelines: A single guideline or a list of guidelines.
+        context: Mapping of context to be evaluated against the guidelines. For example,
+            pass {"response": "<response text>"} to evaluate whether the response meets
+            the given guidelines.
         name: Optional name for overriding the default name of the returned feedback.
 
     Returns:
         A :py:class:`mlflow.entities.assessment.Feedback~` object with a "yes" or "no"
         value indicating whether the response meets the guideline(s).
+
+    Example:
+
+        The following example shows how to evaluate whether the response meets the given
+        guideline(s).
+
+        .. code-block:: python
+
+            from mlflow.genai.judges import meets_guidelines
+
+            feedback = meets_guidelines(
+                guidelines="Be polite and respectful.",
+                context={"response": "Hello, how are you?"},
+            )
+            print(feedback.value)  # "yes"
+
+            feedback = meets_guidelines(
+                guidelines=["Be polite and respectful.", "Must be in English."],
+                context={"response": "Hola, ¿cómo estás?"},
+            )
+            print(feedback.value)  # "no"
     """
     from databricks.agents.evals.judges import guideline_adherence
 
     return guideline_adherence(
-        request=request,
-        response=response,
         guidelines=guidelines,
+        guidelines_context=context,
         assessment_name=name,
     )
