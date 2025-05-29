@@ -4,7 +4,7 @@ import uuid
 from pathlib import Path
 from typing import Literal
 
-import numpy
+import numpy as np
 import sklearn
 from pyspark.sql import SparkSession
 from sklearn.linear_model import LinearRegression
@@ -21,9 +21,9 @@ def check(run_id: str, version: Literal["2", "3"], tmp_path: Path) -> None:
     model_uri = f"runs:/{run_id}/model"
     assert Model.load(model_uri).run_id == run_id
     model = mlflow.sklearn.load_model(model_uri)
-    numpy.testing.assert_array_equal(model.predict([[1, 2]]), [3.0])
+    np.testing.assert_array_equal(model.predict([[1, 2]]), [3.0])
     model = mlflow.pyfunc.load_model(model_uri)
-    numpy.testing.assert_array_equal(model.predict([[1, 2]]), [3.0])
+    np.testing.assert_array_equal(model.predict([[1, 2]]), [3.0])
     # Model registration
     mv = mlflow.register_model(model_uri, "model")
     mlflow.pyfunc.load_model(f"models:/{mv.name}/{mv.version}")
@@ -51,8 +51,8 @@ def check(run_id: str, version: Literal["2", "3"], tmp_path: Path) -> None:
     # Model evaluation
     eval_res = mlflow.models.evaluate(
         model=model_uri,
-        data=numpy.array([[1, 2]]),
-        targets=numpy.array([3]),
+        data=np.array([[1, 2]]),
+        targets=np.array([3]),
         model_type="regressor",
     )
     assert "mean_squared_error" in eval_res.metrics
@@ -85,7 +85,7 @@ def test_mlflow_2_x_comp(tmp_path: Path) -> None:
             # Use mlflow 2.x
             "--with=mlflow<3.0",
             # Pin numpy and sklearn versions to ensure the model can be loaded
-            f"--with=numpy=={numpy.__version__}",
+            f"--with=numpy=={np.__version__}",
             f"--with=scikit-learn=={sklearn.__version__}",
             "python",
             "-I",  # Use the isolated mode to ignore mlflow in the repository
