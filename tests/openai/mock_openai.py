@@ -49,7 +49,7 @@ def chat_response(payload: ChatCompletionRequest):
     }
 
 
-def _make_chat_stream_chunk(content):
+def _make_chat_stream_chunk(content, include_usage: bool = False):
     return {
         "id": "chatcmpl-123",
         "object": "chat.completion.chunk",
@@ -73,7 +73,9 @@ def _make_chat_stream_chunk(content):
             "prompt_tokens": 9,
             "completion_tokens": 12,
             "total_tokens": 21,
-        },
+        }
+        if include_usage
+        else None,
     }
 
 
@@ -89,9 +91,11 @@ def _make_chat_stream_chunk_empty_choices():
     }
 
 
-async def chat_response_stream():
-    yield _make_chat_stream_chunk("Hello")
-    yield _make_chat_stream_chunk(" world")
+async def chat_response_stream(include_usage: bool = False):
+    # OpenAI Chat Completion stream only includes usage in the last chunk
+    # if {"stream_options": {"include_usage": True}} is specified in the request.
+    yield _make_chat_stream_chunk("Hello", include_usage=False)
+    yield _make_chat_stream_chunk(" world", include_usage=include_usage)
 
 
 async def chat_response_stream_empty_choices():
@@ -108,7 +112,12 @@ async def chat(payload: ChatCompletionRequest):
                 f"data: {json.dumps(d)}\n\n" async for d in chat_response_stream_empty_choices()
             )
         else:
-            content = (f"data: {json.dumps(d)}\n\n" async for d in chat_response_stream())
+            content = (
+                f"data: {json.dumps(d)}\n\n"
+                async for d in chat_response_stream(
+                    include_usage=(payload.stream_options or {}).get("include_usage", False)
+                )
+            )
 
         return StreamingResponse(
             content,

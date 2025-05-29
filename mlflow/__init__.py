@@ -61,6 +61,7 @@ from mlflow.utils.logging_utils import _configure_mlflow_loggers
 
 # Lazily load mlflow flavors to avoid excessive dependencies.
 anthropic = LazyLoader("mlflow.anthropic", globals(), "mlflow.anthropic")
+ag2 = LazyLoader("mlflow.ag2", globals(), "mlflow.ag2")
 autogen = LazyLoader("mlflow.autogen", globals(), "mlflow.autogen")
 bedrock = LazyLoader("mlflow.bedrock", globals(), "mlflow.bedrock")
 catboost = LazyLoader("mlflow.catboost", globals(), "mlflow.catboost")
@@ -111,6 +112,7 @@ if TYPE_CHECKING:
     # Do not move this block above the lazy-loaded modules above.
     # All the lazy-loaded modules above must be imported here for code completion to work in IDEs.
     from mlflow import (  # noqa: F401
+        ag2,
         anthropic,
         autogen,
         bedrock,
@@ -159,9 +161,11 @@ if MLFLOW_CONFIGURE_LOGGING.get() is True:
 # Core modules required for mlflow-tracing
 from mlflow.tracing.assessment import (
     delete_assessment,
+    get_assessment,
     log_assessment,
     log_expectation,
     log_feedback,
+    override_feedback,
     update_assessment,
 )
 from mlflow.tracing.fluent import (
@@ -212,11 +216,13 @@ __all__ = [
     "trace",
     "update_current_trace",
     # Assessment APIs
+    "get_assessment",
     "delete_assessment",
     "log_assessment",
     "update_assessment",
     "log_expectation",
     "log_feedback",
+    "override_feedback",
 ]
 
 # Only import these modules when mlflow or mlflow-skinny is installed i.e. not importing them

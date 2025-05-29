@@ -4,9 +4,10 @@ import threading
 from dataclasses import dataclass, field
 from typing import Generator, Optional
 
-from mlflow.entities import LiveSpan, Trace, TraceData, TraceInfoV2
+from mlflow.entities import LiveSpan, Trace, TraceData, TraceInfo
 from mlflow.environment_variables import MLFLOW_TRACE_TIMEOUT_SECONDS
 from mlflow.tracing.utils.timeout import get_trace_cache_with_timeout
+from mlflow.tracing.utils.truncation import truncate_request_response_preview
 
 _logger = logging.getLogger(__name__)
 
@@ -15,7 +16,7 @@ _logger = logging.getLogger(__name__)
 # Dict[str, Span] is used instead of TraceData to allow access by span_id.
 @dataclass
 class _Trace:
-    info: TraceInfoV2
+    info: TraceInfo
     span_dict: dict[str, LiveSpan] = field(default_factory=dict)
 
     def to_mlflow_trace(self) -> Trace:
@@ -23,6 +24,18 @@ class _Trace:
         for span in self.span_dict.values():
             # Convert LiveSpan, mutable objects, into immutable Span objects before persisting.
             trace_data.spans.append(span.to_immutable_span())
+
+        # If request/response preview is already set by users via `mlflow.update_current_trace`,
+        # we don't override it with the truncated version.
+        if self.info.request_preview is None:
+            self.info.request_preview = truncate_request_response_preview(
+                trace_data.request, role="user"
+            )
+        if self.info.response_preview is None:
+            self.info.response_preview = truncate_request_response_preview(
+                trace_data.response, role="assistant"
+            )
+
         return Trace(self.info, trace_data)
 
     def get_root_span(self) -> Optional[LiveSpan]:
@@ -49,39 +62,26 @@ class InMemoryTraceManager:
         return cls._instance
 
     def __init__(self):
-        # In-memory cache to store request_id -> _Trace mapping.
+        # In-memory cache to store trace_od -> _Trace mapping.
         self._traces = get_trace_cache_with_timeout()
 
-        # Store mapping between OpenTelemetry trace ID and MLflow request ID
-        self._trace_id_to_request_id: dict[int, str] = {}
+        # Store mapping between OpenTelemetry trace ID and MLflow trace ID
+        self._otel_id_to_mlflow_trace_id: dict[int, str] = {}
         self._lock = threading.Lock()  # Lock for _traces
 
-    def register_trace(self, trace_id: int, trace_info: TraceInfoV2):
+    def register_trace(self, otel_trace_id: int, trace_info: TraceInfo):
         """
         Register a new trace info object to the in-memory trace registry.
 
         Args:
-            trace_id: The trace ID for the new trace.
+            otel_trace_id: The OpenTelemetry trace ID for the new trace.
             trace_info: The trace info object to be stored.
         """
         # Check for a new timeout setting whenever a new trace is created.
         self._check_timeout_update()
         with self._lock:
-            self._traces[trace_info.request_id] = _Trace(trace_info)
-            self._trace_id_to_request_id[trace_id] = trace_info.request_id
-
-    def update_trace_info(self, trace_info: TraceInfoV2):
-        """
-        Update the trace info object in the in-memory trace registry.
-
-        Args:
-            trace_info: The updated trace info object to be stored.
-        """
-        with self._lock:
-            if trace_info.request_id not in self._traces:
-                _logger.debug(f"Trace data with request ID {trace_info.request_id} not found.")
-                return
-            self._traces[trace_info.request_id].info = trace_info
+            self._traces[trace_info.trace_id] = _Trace(trace_info)
+            self._otel_id_to_mlflow_trace_id[otel_trace_id] = trace_info.trace_id
 
     def register_span(self, span: LiveSpan):
         """
@@ -99,30 +99,30 @@ class InMemoryTraceManager:
             trace_data_dict[span.span_id] = span
 
     @contextlib.contextmanager
-    def get_trace(self, request_id: str) -> Generator[Optional[_Trace], None, None]:
+    def get_trace(self, trace_id: str) -> Generator[Optional[_Trace], None, None]:
         """
-        Yield the trace info for the given request_id.
+        Yield the trace info for the given trace ID..
         This is designed to be used as a context manager to ensure the trace info is accessed
         with the lock held.
         """
         with self._lock:
-            yield self._traces.get(request_id)
+            yield self._traces.get(trace_id)
 
-    def get_span_from_id(self, request_id: str, span_id: str) -> Optional[LiveSpan]:
+    def get_span_from_id(self, trace_id: str, span_id: str) -> Optional[LiveSpan]:
         """
-        Get a span object for the given request_id and span_id.
+        Get a span object for the given trace_id and span_id.
         """
         with self._lock:
-            trace = self._traces.get(request_id)
+            trace = self._traces.get(trace_id)
 
         return trace.span_dict.get(span_id) if trace else None
 
-    def get_root_span_id(self, request_id) -> Optional[str]:
+    def get_root_span_id(self, trace_id) -> Optional[str]:
         """
         Get the root span ID for the given trace ID.
         """
         with self._lock:
-            trace = self._traces.get(request_id)
+            trace = self._traces.get(trace_id)
 
         if trace:
             for span in trace.span_dict.values():
@@ -131,27 +131,28 @@ class InMemoryTraceManager:
 
         return None
 
-    def get_request_id_from_trace_id(self, trace_id: int) -> Optional[str]:
+    def get_mlflow_trace_id_from_otel_id(self, otel_trace_id: int) -> Optional[str]:
         """
-        Get the request ID for the given trace ID.
+        Get the MLflow trace ID for the given OpenTelemetry trace ID.
         """
-        return self._trace_id_to_request_id.get(trace_id)
+        return self._otel_id_to_mlflow_trace_id.get(otel_trace_id)
 
-    def set_request_metadata(self, request_id: str, key: str, value: str):
+    def set_trace_metadata(self, trace_id: str, key: str, value: str):
         """
-        Set the request metadata for the given request ID.
+        Set the trace metadata for the given request ID.
         """
-        with self.get_trace(request_id) as trace:
+        with self.get_trace(trace_id) as trace:
             if trace:
-                trace.info.request_metadata[key] = value
+                trace.info.trace_metadata[key] = value
 
-    def pop_trace(self, trace_id: int) -> Optional[Trace]:
+    def pop_trace(self, otel_trace_id: int) -> Optional[Trace]:
         """
-        Pop the trace data for the given id and return it as a ready-to-publish Trace object.
+        Pop trace data for the given OpenTelemetry trace ID and
+        return it as a ready-to-publish Trace object.
         """
         with self._lock:
-            request_id = self._trace_id_to_request_id.pop(trace_id, None)
-            trace = self._traces.pop(request_id, None)
+            mlflow_trace_id = self._otel_id_to_mlflow_trace_id.pop(otel_trace_id, None)
+            trace = self._traces.pop(mlflow_trace_id, None)
         return trace.to_mlflow_trace() if trace else None
 
     def _check_timeout_update(self):

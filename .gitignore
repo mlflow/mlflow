@@ -3,6 +3,7 @@ mlruns/
 mlartifacts/
 outputs/
 mlruns.db
+mlflow.db
 **/basic_auth.db
 
 # Mac

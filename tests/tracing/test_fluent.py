@@ -307,30 +307,23 @@ def test_trace_stream(wrap_sync_func):
     assert len(trace.data.spans[4].events) == 3
 
 
-def test_trace_with_databricks_tracking_uri(
-    databricks_tracking_uri, async_logging_enabled, mock_store, monkeypatch
-):
+def test_trace_with_databricks_tracking_uri(databricks_tracking_uri, monkeypatch):
     monkeypatch.setenv("MLFLOW_EXPERIMENT_NAME", "test")
     monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
     monkeypatch.setattr(mlflow.tracking.context.default_context, "_get_source_name", lambda: "test")
 
-    mock_experiment = mock.MagicMock()
-    mock_experiment.experiment_id = "test_experiment_id"
-    monkeypatch.setattr(
-        mock_store, "get_experiment_by_name", mock.MagicMock(return_value=mock_experiment)
-    )
-
     model = DefaultTestModel()
 
-    with mock.patch(
-        "mlflow.tracing.client.TracingClient._upload_trace_data"
-    ) as mock_upload_trace_data:
+    with (
+        mock.patch(
+            "mlflow.tracing.client.TracingClient._upload_trace_data"
+        ) as mock_upload_trace_data,
+        mock.patch("mlflow.tracing.client._get_store") as mock_get_store,
+    ):
         model.predict(2, 5)
-        if async_logging_enabled:
-            mlflow.flush_trace_async_logging(terminate=True)
+        mlflow.flush_trace_async_logging(terminate=True)
 
-    mock_store.start_trace.assert_called_once()
-    mock_store.end_trace.assert_called_once()
+    mock_get_store().start_trace_v3.assert_called_once()
     mock_upload_trace_data.assert_called_once()
 
 
@@ -1274,6 +1267,89 @@ def test_update_current_trace():
     assert traces[0].info.status == "OK"
     tags = {k: v for k, v in traces[0].info.tags.items() if not k.startswith("mlflow.")}
     assert tags == expected_tags
+
+
+def test_update_current_trace_with_client_request_id():
+    """Test that update_current_trace correctly handles client_request_id parameter."""
+    from mlflow.tracing.trace_manager import InMemoryTraceManager
+
+    # Test updating during span execution
+    with mlflow.start_span("test_span") as span:
+        # Update with both tags and client_request_id
+        mlflow.update_current_trace(tags={"operation": "test"}, client_request_id="req-12345")
+
+        # Check in-memory trace during execution
+        trace_manager = InMemoryTraceManager.get_instance()
+        with trace_manager.get_trace(span.trace_id) as trace:
+            assert trace.info.client_request_id == "req-12345"
+            tags = {k: v for k, v in trace.info.tags.items() if not k.startswith("mlflow.")}
+            assert tags["operation"] == "test"
+
+    # Test with tags only
+    with mlflow.start_span("test_span_2") as span:
+        mlflow.update_current_trace(tags={"operation": "tags_only"})
+
+        trace_manager = InMemoryTraceManager.get_instance()
+        with trace_manager.get_trace(span.trace_id) as trace:
+            assert trace.info.client_request_id is None
+            tags = {k: v for k, v in trace.info.tags.items() if not k.startswith("mlflow.")}
+            assert tags["operation"] == "tags_only"
+
+    # Test with client_request_id only
+    with mlflow.start_span("test_span_3") as span:
+        mlflow.update_current_trace(client_request_id="req-67890")
+
+        trace_manager = InMemoryTraceManager.get_instance()
+        with trace_manager.get_trace(span.trace_id) as trace:
+            assert trace.info.client_request_id == "req-67890"
+
+
+def test_update_current_trace_client_request_id_overwrites():
+    """Test that client_request_id can be overwritten by subsequent calls."""
+    from mlflow.tracing.trace_manager import InMemoryTraceManager
+
+    with mlflow.start_span("overwrite_test") as span:
+        # First set
+        mlflow.update_current_trace(client_request_id="req-initial")
+
+        # Overwrite with new value
+        mlflow.update_current_trace(client_request_id="req-updated")
+
+        # Check during execution
+        trace_manager = InMemoryTraceManager.get_instance()
+        with trace_manager.get_trace(span.trace_id) as trace:
+            # Should have the updated value, not the initial one
+            assert trace.info.client_request_id == "req-updated"
+
+
+def test_update_current_trace_client_request_id_stringification():
+    """Test that client_request_id is stringified when it's not a string."""
+    from mlflow.tracing.trace_manager import InMemoryTraceManager
+
+    test_cases = [
+        (123, "123"),
+        (45.67, "45.67"),
+        (True, "True"),
+        (False, "False"),
+        (None, None),  # None should remain None
+        (["list", "value"], "['list', 'value']"),
+        ({"dict": "value"}, "{'dict': 'value'}"),
+    ]
+
+    for input_value, expected_output in test_cases:
+        with mlflow.start_span(f"stringification_test_{input_value}") as span:
+            if input_value is None:
+                # None should not update the client_request_id
+                mlflow.update_current_trace(client_request_id=input_value)
+                trace_manager = InMemoryTraceManager.get_instance()
+                with trace_manager.get_trace(span.trace_id) as trace:
+                    assert trace.info.client_request_id is None
+            else:
+                mlflow.update_current_trace(client_request_id=input_value)
+                trace_manager = InMemoryTraceManager.get_instance()
+                with trace_manager.get_trace(span.trace_id) as trace:
+                    assert trace.info.client_request_id == expected_output
+                    assert isinstance(trace.info.client_request_id, str)
 
 
 @skip_when_testing_trace_sdk

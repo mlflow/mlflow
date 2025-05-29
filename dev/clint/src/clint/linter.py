@@ -36,7 +36,7 @@ def ignore_map(code: str) -> dict[str, set[int]]:
         if tok.type != tokenize.COMMENT:
             continue
         if m := DISABLE_COMMENT_REGEX.search(tok.string):
-            mapping.setdefault(m.group(1), set()).add(tok.start[0])
+            mapping.setdefault(m.group(1), set()).add(tok.start[0] - 1)
     return mapping
 
 
@@ -57,15 +57,15 @@ def _is_set_active_model(node: ast.AST) -> bool:
 class Violation:
     rule: rules.Rule
     path: Path
-    lineno: int
-    col_offset: int
+    loc: Location
     cell: int | None = None
 
     def __str__(self):
         # Use the same format as ruff
         cell_loc = f"cell {self.cell}:" if self.cell is not None else ""
         return (
-            f"{self.path}:{cell_loc}{self.lineno}:{self.col_offset}: "
+            # Since `Location` is 0-indexed, lineno and col_offset are incremented by 1
+            f"{self.path}:{cell_loc}{self.loc + Location(1, 1)}: "
             f"{self.rule.id}: {self.rule.message} "
             f"See dev/clint/README.md for instructions on ignoring this rule ({self.rule.name})."
         )
@@ -91,9 +91,15 @@ class Location:
     lineno: int
     col_offset: int
 
+    def __str__(self):
+        return f"{self.lineno}:{self.col_offset}"
+
     @classmethod
     def from_node(cls, node: ast.AST) -> "Location":
-        return cls(node.lineno, node.col_offset + 1)
+        return cls(node.lineno - 1, node.col_offset)
+
+    def __add__(self, other: Location) -> Location:
+        return Location(self.lineno + other.lineno, self.col_offset + other.col_offset)
 
 
 @dataclass
@@ -110,36 +116,97 @@ _CODE_BLOCK_HEADER_REGEX = re.compile(r"^\.\.\s+code-block::\s*py(thon)?")
 _CODE_BLOCK_OPTION_REGEX = re.compile(r"^:\w+:")
 
 
-def _iter_code_blocks(docstring: str) -> Iterator[CodeBlock]:
-    code_block_loc: Location | None = None
-    code_lines: list[str] = []
+def _get_header_indent(s: str) -> int | None:
+    if _CODE_BLOCK_HEADER_REGEX.match(s.lstrip()):
+        return _get_indent(s)
+    return None
 
-    for idx, line in enumerate(docstring.split("\n")):
+
+def _iter_code_blocks(s: str) -> Iterator[CodeBlock]:
+    code_block_loc: Location | None = None
+    header_indent: int | None = None
+    code_lines: list[str] = []
+    line_iter = enumerate(s.splitlines())
+    while t := next(line_iter, None):
+        idx, line = t
         if code_block_loc:
             indent = _get_indent(line)
-            # Are we still in the code block?
-            if 0 < indent <= code_block_loc.col_offset:
+            # If we encounter a non-blank line with an indent less than the code block header
+            # we are done parsing the code block. Here's an example:
+            #
+            # .. code-block:: python
+            #
+            #     print("hello")     # indent > header_indent
+            #                        # blank
+            # <non-blank>            # non-blank and indent <= header_indent
+            if line.strip() and indent <= header_indent:
                 code = textwrap.dedent("\n".join(code_lines))
                 yield CodeBlock(code=code, loc=code_block_loc)
 
                 code_block_loc = None
                 code_lines.clear()
+                # It's possible that another code block follows the current one
+                header_indent = _get_header_indent(line)
                 continue
 
-            # .. code-block:: python
-            #     :option:           <- code block may have options
-            #     :another-option:   <-
-            #
-            #     import mlflow      <- code body starts from here
-            #     ...
-            if not _CODE_BLOCK_OPTION_REGEX.match(line.lstrip()):
-                code_lines.append(line)
+            code_lines.append(line)
 
+        elif header_indent is not None:
+            # Advance the iterator to the code body
+            #
+            # .. code-block:: python
+            #     :option:            # we're here
+            #     :another-option:    # skip
+            #                         # skip
+            #     import mlflow       # stop here
+            #     ...
+            while True:
+                if line.strip() and not _CODE_BLOCK_OPTION_REGEX.match(line.lstrip()):
+                    # We are at the first line of the code block
+                    code_lines.append(line)
+                    break
+                idx, line = next(line_iter, (None, None))
+
+            code_block_loc = Location(idx, _get_indent(line))
         else:
-            if _CODE_BLOCK_HEADER_REGEX.match(line.lstrip()):
-                code_block_loc = Location(idx, _get_indent(line) + 1)
+            header_indent = _get_header_indent(line)
 
     # The docstring ends with a code block
+    if code_lines:
+        code = textwrap.dedent("\n".join(code_lines))
+        yield CodeBlock(code=code, loc=code_block_loc)
+
+
+_MD_OPENING_FENCE_REGEX = re.compile(r"^(`{3,})\s*python\s*$")
+
+
+def _iter_md_code_blocks(s: str) -> Iterator[CodeBlock]:
+    """
+    Iterates over code blocks in a Markdown string.
+    """
+    code_block_loc: Location | None = None
+    code_lines: list[str] = []
+    closing_fence: str | None = None
+    line_iter = enumerate(s.splitlines())
+    while t := next(line_iter, None):
+        idx, line = t
+        if code_block_loc:
+            if line.strip() == closing_fence:
+                code = textwrap.dedent("\n".join(code_lines))
+                yield CodeBlock(code=code, loc=code_block_loc)
+
+                code_block_loc = None
+                code_lines.clear()
+                closing_fence = None
+                continue
+
+            code_lines.append(line)
+
+        elif m := _MD_OPENING_FENCE_REGEX.match(line.lstrip()):
+            closing_fence = m.group(1)
+            code_block_loc = Location(idx + 1, _get_indent(line))
+
+    # Code block at EOF
     if code_lines:
         code = textwrap.dedent("\n".join(code_lines))
         yield CodeBlock(code=code, loc=code_block_loc)
@@ -205,7 +272,13 @@ def _find_artifact_path_index(call_path: tuple[str, str]) -> int | None:
 
 class Linter(ast.NodeVisitor):
     def __init__(
-        self, *, path: Path, config: Config, ignore: dict[str, set[int]], cell: int | None = None
+        self,
+        *,
+        path: Path,
+        config: Config,
+        ignore: dict[str, set[int]],
+        cell: int | None = None,
+        offset: Location | None = None,
     ):
         """
         Lints a Python file.
@@ -215,6 +288,7 @@ class Linter(ast.NodeVisitor):
             config: Linter configuration declared within the pyproject.toml file.
             ignore: Mapping of rule name to line numbers to ignore.
             cell: Index of the cell being linted in a Jupyter notebook.
+            offset: Offset to apply to the line and column numbers of the violations.
         """
         self.stack: list[ast.AST] = []
         self.path = path
@@ -227,6 +301,7 @@ class Linter(ast.NodeVisitor):
         self.is_mlflow_init_py = path == Path("mlflow", "__init__.py")
         self.imported_modules: set[str] = set()
         self.lazy_modules: dict[str, Location] = {}
+        self.offset = offset or Location(0, 0)
 
     def _check(self, loc: Location, rule: rules.Rule) -> None:
         if (lines := self.ignore.get(rule.name)) and loc.lineno in lines:
@@ -235,8 +310,7 @@ class Linter(ast.NodeVisitor):
             Violation(
                 rule,
                 self.path,
-                loc.lineno,
-                loc.col_offset,
+                loc + self.offset,
                 self.cell,
             )
         )
@@ -254,7 +328,7 @@ class Linter(ast.NodeVisitor):
 
     def _no_rst(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         if (n := self._docstring(node)) and (PARAM_REGEX.search(n.s) or RETURN_REGEX.search(n.s)):
-            self._check(n, rules.NoRst())
+            self._check(Location.from_node(n), rules.NoRst())
 
     def _is_in_function(self) -> bool:
         return self.stack and isinstance(self.stack[-1], (ast.FunctionDef, ast.AsyncFunctionDef))
@@ -314,6 +388,22 @@ class Linter(ast.NodeVisitor):
             and self.stack[-1].name.startswith("test_")
         )
 
+    @classmethod
+    def visit_example(cls, path: Path, config: Config, example: CodeBlock) -> list[Violation]:
+        try:
+            tree = ast.parse(example.code)
+        except SyntaxError:
+            return [Violation(rules.ExampleSyntaxError(), path, example.loc)]
+
+        linter = cls(
+            path=path,
+            config=config,
+            ignore=ignore_map(example.code),
+            offset=example.loc,
+        )
+        linter.visit(tree)
+        return [v for v in linter.violations if v.rule.name in config.example_rules]
+
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         self.stack.append(node)
         self._no_rst(node)
@@ -327,14 +417,8 @@ class Linter(ast.NodeVisitor):
     ) -> None:
         if docstring_node := self._docstring(node):
             for code_block in _iter_code_blocks(docstring_node.value):
-                try:
-                    ast.parse(code_block.code)
-                except SyntaxError:
-                    loc = Location(
-                        docstring_node.lineno + code_block.loc.lineno,
-                        code_block.loc.col_offset,
-                    )
-                    self._check(loc, rules.ExampleSyntaxError())
+                code_block.loc.lineno += docstring_node.lineno - 1
+                self.violations.extend(Linter.visit_example(self.path, self.config, code_block))
 
     def _param_mismatch(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         # TODO: Remove this guard clause to enforce the docstring param checks for all functions
@@ -608,7 +692,12 @@ def _lint_cell(path: Path, config: Config, cell: dict[str, Any], index: int) -> 
 
     if not src.strip():
         violations.append(
-            Violation(rules.EmptyNotebookCell(), path, lineno=1, col_offset=1, cell=index)
+            Violation(
+                rules.EmptyNotebookCell(),
+                path,
+                Location(0, 0),
+                cell=index,
+            )
         )
     return violations
 
@@ -621,6 +710,14 @@ def lint_file(path: Path, config: Config) -> list[Violation]:
             for idx, cell in enumerate(cells, start=1):
                 violations.extend(_lint_cell(path, config, cell, idx))
             return violations
+    elif path.suffix in {".rst", ".md", ".mdx"}:
+        violations = []
+        code_blocks = (
+            _iter_code_blocks(code) if path.suffix == ".rst" else _iter_md_code_blocks(code)
+        )
+        for code_block in code_blocks:
+            violations.extend(Linter.visit_example(path, config, code_block))
+        return violations
     else:
         linter = Linter(path=path, config=config, ignore=ignore_map(code))
         linter.visit(ast.parse(code))

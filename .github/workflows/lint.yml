@@ -50,14 +50,12 @@ jobs:
           uv pip install --system -r requirements/lint-requirements.txt
           dev/install-taplo.sh
           dev/install-typos.sh
-          mkdir -p /tmp/conftest/bin
-          curl -s -L "https://github.com/open-policy-agent/conftest/releases/download/v0.56.0/conftest_0.56.0_Linux_x86_64.tar.gz" | tar -xz -C /tmp/conftest/bin
-          echo "/tmp/conftest/bin" >> $GITHUB_PATH
+          dev/install-conftest.sh
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Install pre-commit hooks
         run: |
-          pre-commit install
+          pre-commit install --install-hooks
       - name: Run pre-commit
         id: pre-commit
         env:
