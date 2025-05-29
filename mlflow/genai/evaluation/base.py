@@ -10,7 +10,7 @@ from mlflow.genai.evaluation.utils import (
     _convert_to_legacy_eval_set,
 )
 from mlflow.genai.scorers import Scorer
-from mlflow.genai.scorers.builtin_scorers import GENAI_CONFIG_NAME
+from mlflow.genai.scorers.builtin_scorers import GENAI_CONFIG_NAME, BuiltInScorer
 from mlflow.genai.scorers.validation import valid_data_for_builtin_scorers, validate_scorers
 from mlflow.genai.utils.trace_utils import convert_predict_fn
 from mlflow.models.evaluation.base import (
@@ -229,10 +229,11 @@ def evaluate(
 
     is_managed_dataset = isinstance(data, EvaluationDataset)
 
-    builtin_scorers, _ = validate_scorers(scorers)
+    scorers = validate_scorers(scorers)
     # convert into a pandas dataframe with current evaluation set schema
     df = data.to_df() if is_managed_dataset else _convert_to_legacy_eval_set(data)
 
+    builtin_scorers = [scorer for scorer in scorers if isinstance(scorer, BuiltInScorer)]
     valid_data_for_builtin_scorers(df, builtin_scorers, predict_fn)
 
     # "request" column must exist after conversion

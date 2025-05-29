@@ -28,7 +28,7 @@ def test_validate_scorers_valid():
     def custom_scorer(inputs, outputs):
         return 1.0
 
-    builtin, custom = validate_scorers(
+    scorers = validate_scorers(
         [
             retrieval_relevance,
             correctness,
@@ -37,10 +37,8 @@ def test_validate_scorers_valid():
         ]
     )
 
-    assert len(builtin) == 3
-    assert all(isinstance(scorer, BuiltInScorer) for scorer in builtin)
-    assert len(custom) == 1
-    assert isinstance(custom[0], Scorer)
+    assert len(scorers) == 4
+    assert all(isinstance(scorer, Scorer) for scorer in scorers)
 
 
 def test_validate_scorers_legacy_metric():
@@ -55,10 +53,9 @@ def test_validate_scorers_legacy_metric():
         return 1.0
 
     with mock.patch("mlflow.genai.scorers.validation._logger") as mock_logger:
-        builtin, custom = validate_scorers([legacy_metric_1, legacy_metric_2])
+        scorers = validate_scorers([legacy_metric_1, legacy_metric_2])
 
-    assert len(builtin) == 0
-    assert len(custom) == 2
+    assert len(scorers) == 2
     mock_logger.warning.assert_called_once()
     assert "legacy_metric_1" in mock_logger.warning.call_args[0][0]
 

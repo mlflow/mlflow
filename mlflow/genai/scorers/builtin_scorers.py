@@ -113,7 +113,7 @@ class RetrievalRelevance(BuiltInScorer):
         if len(chunk_feedbacks) == 0:
             return None
 
-        avg = sum(1.0 if f.value == "yes" else 0 for f in chunk_feedbacks) / len(chunk_feedbacks)
+        avg = sum(f.value == "yes" for f in chunk_feedbacks) / len(chunk_feedbacks)
         return Feedback(
             name=self.name,
             value=avg,
