@@ -76,8 +76,7 @@ def _optimize_sequential(
         except (Exception, KeyboardInterrupt) as e:
             state = TrialState.FAIL
             func_err = e
-            func_err_fail_exc_info = sys.exc_info()
-
+            func_err_fail_exc_info = traceback.format_exc()
         try:
             frozen_trial, warning_message = optuna.study._tell._tell_with_warning(
                 study=study,
@@ -89,26 +88,24 @@ def _optimize_sequential(
         except Exception:
             frozen_trial = study._storage.get_trial(trial._trial_id)
             warning_message = None
-            raise
-        finally:
-            if frozen_trial.state == TrialState.COMPLETE:
-                study._log_completed_trial(frozen_trial)
-            elif frozen_trial.state == TrialState.PRUNED:
-                logger.info("Trial {} pruned. {}".format(frozen_trial._trial_id, str(func_err)))
-                mlflow_client.set_terminated(frozen_trial._trial_id, status="KILLED")
-            elif frozen_trial.state == TrialState.FAIL:
-                error_message = None
-                if func_err is not None:
-                    error_message = func_err_fail_exc_info
-                elif warning_message is not None:
-                    error_message = warning_message
 
-                with tempfile.TemporaryDirectory() as tmp_dir:
-                    path = Path(tmp_dir, "error_message.txt")
-                    path.write_text(error_message)
-                    # Log the file as an artifact in the active MLflow run
-                    mlflow_client.log_artifact(frozen_trial._trial_id, path)
-                    mlflow_client.set_terminated(frozen_trial._trial_id, status="FAILED")
+        if frozen_trial.state == TrialState.COMPLETE:
+            study._log_completed_trial(frozen_trial)
+        elif frozen_trial.state == TrialState.PRUNED:
+            logger.info("Trial {} pruned. {}".format(frozen_trial._trial_id, str(func_err)))
+            mlflow_client.set_terminated(frozen_trial._trial_id, status="KILLED")
+        elif frozen_trial.state == TrialState.FAIL:
+            error_message = None
+            if func_err is not None:
+                error_message = func_err_fail_exc_info
+            elif warning_message is not None:
+                error_message = warning_message
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                path = Path(tmp_dir, "error_message.txt")
+                path.write_text(error_message)
+                # Log the file as an artifact in the active MLflow run
+                mlflow_client.log_artifact(frozen_trial._trial_id, path)
+                mlflow_client.set_terminated(frozen_trial._trial_id, status="FAILED")
 
         if (
                 frozen_trial.state == TrialState.FAIL
@@ -169,8 +166,8 @@ class MlflowSparkStudy(Study):
             self._mlflow_tracking_env = mlflow.get_tracking_uri
         else:
             self._mlflow_tracking_env = mlflow_tracking_uri
-        self.mlflow_client = MlflowClient(self._mlflow_tracking_env)
         mlflow.set_tracking_uri(self._mlflow_tracking_env)
+        self.mlflow_client = MlflowClient()
 
         self._study = optuna.create_study(
             study_name=self.study_name, sampler=self.sampler, storage=self._storage
@@ -207,7 +204,7 @@ class MlflowSparkStudy(Study):
             from mlflow.optuna.storage import MlflowStorage
 
             mlflow.set_tracking_uri(mlflow_tracking_env)
-            mlflow_client = MlflowClient(mlflow_tracking_env)
+            mlflow_client = MlflowClient()
 
             storage = MlflowStorage(experiment_id=experiment_id)
             study = optuna.load_study(study_name=study_name, sampler=sampler, storage=storage)
@@ -246,10 +243,10 @@ class MlflowSparkStudy(Study):
                     job_group_id, job_group_description, interruptOnCancel=True
                 )
         try:
-            input_df.mapInPandas(
+            input_df = input_df.mapInPandas(
                 func=run_task_on_executor_pd,
                 schema="error string",
-            ).collect()
+            )
         except KeyboardInterrupt as e:
             if self._is_spark_connect_mode:
                 self.spark.interruptTag(trial_tag)

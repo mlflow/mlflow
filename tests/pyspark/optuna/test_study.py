@@ -9,6 +9,7 @@ from optuna.samplers import TPESampler
 from packaging.version import Version
 
 import mlflow
+from mlflow.exceptions import ExecutionException
 from mlflow.pyspark.optuna.study import MlflowSparkStudy
 
 from tests.pyfunc.test_spark import get_spark_session
@@ -73,9 +74,10 @@ def test_study_optimize_run(setup_storage):
         x = trial.suggest_float("x", -10, 10)
         return (x - 2) ** 2
 
-    mlflow_study.optimize(objective, n_trials=4)
+    mlflow_study.optimize(objective, n_trials=8, n_jobs=4)
     assert sorted(mlflow_study.best_params.keys()) == ["x"]
-    np.testing.assert_allclose(mlflow_study.best_params["x"], 2.672964698525508, rtol=1e-6)
+    assert len(mlflow_study.trials)==8
+    np.testing.assert_allclose(mlflow_study.best_params["x"], 5.426412865334919, rtol=1e-6)
 
 
 @pytest.mark.usefixtures("setup_storage", "spark")
@@ -91,7 +93,7 @@ def test_study_with_failed_objective(setup_storage):
         raise ValueError()
 
     with pytest.raises(
-        pyspark.sql.utils.PythonException,
+            ExecutionException,
         match="Optimization run for Optuna MlflowSparkStudy failed",
     ):
         mlflow_study.optimize(fail_objective, n_trials=4)

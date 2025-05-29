@@ -24,6 +24,7 @@ from mlflow.version import IS_TRACING_SDK_ONLY
 from tests.autologging.fixtures import enable_test_mode
 from tests.helper_functions import get_safe_port
 from tests.tracing.helper import purge_traces
+from tests.optuna.test_storage import setup_storage
 
 if not IS_TRACING_SDK_ONLY:
     from mlflow.tracking._tracking_service.utils import _use_tracking_uri
