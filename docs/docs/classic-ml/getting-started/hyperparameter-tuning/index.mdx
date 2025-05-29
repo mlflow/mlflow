@@ -185,7 +185,7 @@ def objective(params):
         )
 
         # Log the trained model
-        mlflow.tensorflow.log_model(result["model"], "model", signature=signature)
+        mlflow.tensorflow.log_model(result["model"], name="model", signature=signature)
 
         # Log training curves as artifacts
         import matplotlib.pyplot as plt
@@ -487,7 +487,7 @@ with mlflow.start_run():
     # Log your model to Unity Catalog
     mlflow.tensorflow.log_model(
         model,
-        "wine-quality-model",
+        name="wine-quality-model",
         registered_model_name="main.default.wine_quality_predictor",
     )
 
@@ -566,7 +566,7 @@ response = client.predict(
 - **A/B Testing**: Compare model versions in production using MLflow's model registry
 - **CI/CD Integration**: Automate model training and deployment with GitHub Actions or similar
 
-### Scale Your Infrastructure with a [Tracking Server](/ml/getting-started-tracking-server-overview)
+### Scale Your Infrastructure with a [Tracking Server](/ml/getting-started/tracking-server-overview)
 - **MLflow on Kubernetes**: Deploy MLflow tracking server on K8s for team collaboration
 - **Database Backend**: Use PostgreSQL or MySQL instead of file-based storage
 - **Artifact Storage**: Configure S3, Azure Blob, or GCS for model artifacts

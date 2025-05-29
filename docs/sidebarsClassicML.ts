@@ -20,10 +20,6 @@ const sidebarsClassicML: SidebarsConfig = {
         },
         {
           type: 'doc',
-          id: 'getting-started/intro-quickstart/index',
-        },
-        {
-          type: 'doc',
           id: 'getting-started/running-notebooks/index',
         },
         {
@@ -32,27 +28,27 @@ const sidebarsClassicML: SidebarsConfig = {
           items: [
             {
                 type: 'doc',
-                id: 'getting-started/logging-first-model/step1-tracking-server/index',
+                id: 'getting-started/logging-first-model/step1-tracking-server',
             },
             {
                 type: 'doc',
-                id: 'getting-started/logging-first-model/step2-mlflow-client/index',
+                id: 'getting-started/logging-first-model/step2-mlflow-client',
             },
             {
                 type: 'doc',
-                id: 'getting-started/logging-first-model/step3-create-experiment/index',
+                id: 'getting-started/logging-first-model/step3-create-experiment',
             },
             {
                 type: 'doc',
-                id: 'getting-started/logging-first-model/step4-experiment-search/index',
+                id: 'getting-started/logging-first-model/step4-experiment-search',
             },
             {
                 type: 'doc',
-                id: 'getting-started/logging-first-model/step5-synthetic-data/index',
+                id: 'getting-started/logging-first-model/step5-synthetic-data',
             },
             {
                 type: 'doc',
-                id: 'getting-started/logging-first-model/step6-logging-a-run/index',
+                id: 'getting-started/logging-first-model/step6-logging-a-run',
             },
           ],
           link: {
@@ -70,15 +66,15 @@ const sidebarsClassicML: SidebarsConfig = {
           items: [
             {
                 type: 'doc',
-                id: 'getting-started/registering-first-model/step1-register-model/index',
+                id: 'getting-started/registering-first-model/step1-register-model',
             },
             {
                 type: 'doc',
-                id: 'getting-started/registering-first-model/step2-explore-registered-model/index',
+                id: 'getting-started/registering-first-model/step2-explore-registered-model',
             },
             {
                 type: 'doc',
-                id: 'getting-started/registering-first-model/step3-load-model/index'
+                id: 'getting-started/registering-first-model/step3-load-model'
             }
           ],
           link: {
