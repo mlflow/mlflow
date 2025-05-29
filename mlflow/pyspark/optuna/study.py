@@ -163,7 +163,7 @@ class MlflowSparkStudy(Study):
         # check whether the SparkConnect mode
         self._is_spark_connect_mode = is_spark_connect_mode()
         if mlflow_tracking_uri is None:
-            self._mlflow_tracking_env = mlflow.get_tracking_uri
+            self._mlflow_tracking_env = mlflow.get_tracking_uri()
         else:
             self._mlflow_tracking_env = mlflow_tracking_uri
         mlflow.set_tracking_uri(self._mlflow_tracking_env)
@@ -243,7 +243,7 @@ class MlflowSparkStudy(Study):
                     job_group_id, job_group_description, interruptOnCancel=True
                 )
         try:
-            input_df = input_df.mapInPandas(
+            result_df = input_df.mapInPandas(
                 func=run_task_on_executor_pd,
                 schema="error string",
             )
@@ -255,10 +255,10 @@ class MlflowSparkStudy(Study):
             logger.debug("MlflowSparkStudy optimize terminated by user.")
             self.mlflow_client.set_terminated(self._study_id, "KILLED")
             raise e
-        if "error" in input_df.columns:
-            error_count = input_df.filter(col("error") != "").count()
+        if "error" in result_df.columns:
+            error_count = result_df.filter(col("error") != "").count()
             if error_count > 0:
-                first_non_null_value = input_df.select(first("error", ignorenulls=True)).first()[0]
+                first_non_null_value = result_df.select(first("error", ignorenulls=True)).first()[0]
                 self.mlflow_client.set_terminated(self._study_id, "KILLED")
                 raise ExecutionException(
                     f"Optimization run for Optuna MlflowSparkStudy failed. "
