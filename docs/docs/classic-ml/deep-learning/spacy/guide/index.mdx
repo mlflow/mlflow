@@ -21,7 +21,7 @@ nlp = spacy.load("en_core_web_sm")
 
 # Log the model to MLflow
 with mlflow.start_run():
-    mlflow.spacy.log_model(nlp, "spacy_model")
+    mlflow.spacy.log_model(nlp, name="spacy_model")
 ```
 
 <details>
@@ -74,10 +74,10 @@ nlp.get_pipe("textcat").add_label("NEGATIVE")
 
 with mlflow.start_run():
     # Log model - PyFunc flavor added automatically
-    mlflow.spacy.log_model(nlp, "text_classifier")
+    model_info = mlflow.spacy.log_model(nlp, "text_classifier")
 
 # Load and use for inference
-loaded_model = mlflow.pyfunc.load_model("runs:/<run_id>/text_classifier")
+loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
 
 # Prepare input data as DataFrame
 test_data = pd.DataFrame({"text": ["This is great!", "This is terrible!"]})
@@ -151,7 +151,7 @@ def mlflow_logger():
         def finalize():
             """Called by spaCy after training completion."""
             # Log the final trained model
-            mlflow.spacy.log_model(nlp, "trained_model")
+            mlflow.spacy.log_model(nlp, name="trained_model")
             mlflow.end_run()
 
         return log_step, finalize
@@ -299,12 +299,10 @@ import spacy
 nlp = spacy.load("en_core_web_sm")
 
 # Save with MLflow
-with mlflow.start_run() as run:
-    mlflow.spacy.log_model(nlp, "spacy_model")
-    run_id = run.info.run_id
+model_info = mlflow.spacy.log_model(nlp, name="spacy_model")
 
 # Load back in native spaCy format
-loaded_nlp = mlflow.spacy.load_model(f"runs:/{run_id}/spacy_model")
+loaded_nlp = mlflow.spacy.load_model(model_info.model_uri)
 
 # Use the loaded model
 doc = loaded_nlp("This is a test sentence.")
@@ -318,7 +316,7 @@ for token in doc:
   #### Native spaCy Loading
   ```python
   # Full spaCy functionality - all pipeline components
-  nlp = mlflow.spacy.load_model("runs:/<run_id>/model")
+  nlp = mlflow.spacy.load_model(model_info.model_uri)
 
   # Access all spaCy features
   doc = nlp("Analyze this text completely.")
@@ -329,7 +327,7 @@ for token in doc:
   #### PyFunc Loading (Text Classification Only)
   ```python
   # Simplified interface for text classification
-  classifier = mlflow.pyfunc.load_model("runs:/<run_id>/model")
+  classifier = mlflow.pyfunc.load_model(model_info.model_uri)
 
   # DataFrame input required
   import pandas as pd
@@ -382,10 +380,9 @@ else:
     signature = None
 
 # Log model with signature
-with mlflow.start_run():
-    mlflow.spacy.log_model(
-        nlp, "spacy_model", signature=signature, input_example=sample_input
-    )
+mlflow.spacy.log_model(
+    nlp, name="spacy_model", signature=signature, input_example=sample_input
+)
 ```
 
 <details>
@@ -410,8 +407,7 @@ with mlflow.start_run():
   signature = ModelSignature(inputs=input_schema, outputs=output_schema)
 
   # Log model with manual signature
-  with mlflow.start_run():
-      mlflow.spacy.log_model(nlp, "model", signature=signature)
+  mlflow.spacy.log_model(nlp, name="model", signature=signature)
   ```
 
   Manual signatures are useful when:
@@ -501,7 +497,7 @@ with mlflow.start_run():
     mlflow.log_metric("component_accuracy", correct_predictions / total_predictions)
 
     # Log model with custom component
-    mlflow.spacy.log_model(nlp, "custom_sentiment_model")
+    mlflow.spacy.log_model(nlp, name="custom_sentiment_model")
 
     # Log evaluation results as artifact
     import json
@@ -576,7 +572,7 @@ Track experiments across different languages and models:
                       )
 
                       # Log the model
-                      mlflow.spacy.log_model(nlp, f"{lang}_model")
+                      mlflow.spacy.log_model(nlp, name=f"{lang}_model")
 
                       results[lang] = {"entities": entities, "tokens": len(doc)}
 
@@ -690,7 +686,7 @@ def optimize_pipeline_configuration():
                 )
 
                 # Log model
-                mlflow.spacy.log_model(nlp, "pipeline_model")
+                mlflow.spacy.log_model(nlp, name="pipeline_model")
 
                 # Track best configuration
                 if performance_score > best_score:
@@ -733,21 +729,23 @@ with mlflow.start_run() as run:
     sample_input = pd.DataFrame({"text": ["Sample text for classification"]})
 
     # Log model with dependencies
-    mlflow.spacy.log_model(
+    model_info = mlflow.spacy.log_model(
         nlp,
-        "spacy_model",
+        name="spacy_model",
         input_example=sample_input,
         pip_requirements=["spacy>=3.0.0"],
     )
 
-    model_uri = f"runs:/{run.info.run_id}/spacy_model"
+    model_uri = (
+        model_info.model_uri
+    )  # The format of this attribute is 'models:/<model_id>'
 ```
 
 Then deploy the model using the MLflow CLI:
 
 ```bash
 # Serve the model locally (for text classification models with PyFunc flavor)
-mlflow models serve -m runs:/<run_id>/spacy_model -p 5000
+mlflow models serve -m models:/<model_id> -p 5000
 
 # Test the deployment
 curl http://localhost:5000/invocations \
@@ -762,13 +760,13 @@ curl http://localhost:5000/invocations \
 
   ```bash
   # Specify environment manager
-  mlflow models serve -m runs:/<run_id>/spacy_model -p 5000 --env-manager conda
+  mlflow models serve -m models:/<model_id> -p 5000 --env-manager conda
 
   # Enable MLServer for enhanced performance
-  mlflow models serve -m runs:/<run_id>/spacy_model -p 5000 --enable-mlserver
+  mlflow models serve -m models:/<model_id> -p 5000 --enable-mlserver
 
   # Set custom host for network access
-  mlflow models serve -m runs:/<run_id>/spacy_model -p 5000 --host 0.0.0.0
+  mlflow models serve -m models:/<model_id> -p 5000 --host 0.0.0.0
   ```
 
   For production deployments, consider:

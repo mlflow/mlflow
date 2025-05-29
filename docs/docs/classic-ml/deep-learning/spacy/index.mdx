@@ -9,7 +9,7 @@ import { CardGroup, PageCard } from "@site/src/components/Card";
 # MLflow spaCy Integration
 
 **spaCy** is the leading industrial-strength natural language processing library, designed from the ground up for production use.
-Created by Explosion AI, spaCy combines cutting-edge research with practical engineering to deliver fast, accurate, and scalable
+Created by Explosion AI, [spaCy](https://spacy.io/) combines cutting-edge research with practical engineering to deliver fast, accurate, and scalable
 NLP solutions that power everything from chatbots and content analysis to document processing and knowledge extraction systems.
 
 What makes spaCy exceptional is its **production-first philosophy** - unlike academic NLP libraries, spaCy is built for real-world
@@ -59,8 +59,7 @@ nlp = spacy.load("en_core_web_sm")
 # ... customize and train your model
 
 # Log to MLflow with one line
-with mlflow.start_run():
-    mlflow.spacy.log_model(nlp, "spacy_model")
+model_info = mlflow.spacy.log_model(nlp, name="spacy_model")
 ```
 
 <details>
@@ -94,12 +93,13 @@ MLflow's spaCy integration provides specialized support for text classification 
 import mlflow
 
 # For models with TextCategorizer components
-with mlflow.start_run():
-    # Automatic PyFunc flavor for text classification models
-    mlflow.spacy.log_model(text_classifier, "classifier")
+# Automatic PyFunc flavor for text classification models
+model_info = mlflow.spacy.log_model(text_classifier, name="classifier")
 
 # Load and use for inference
-loaded_model = mlflow.pyfunc.load_model("runs:/<run_id>/classifier")
+loaded_model = mlflow.pyfunc.load_model(
+    model_info.model_uri
+)  # The format of 'model_uri' is 'models:/<model_id>'
 predictions = loaded_model.predict(test_dataframe)
 ```
 
@@ -141,7 +141,7 @@ Deep integration with spaCy's training system through custom MLflow loggers:
                   mlflow.log_metrics(metrics, step=step)
 
           def finalize():
-              mlflow.spacy.log_model(nlp, "trained_model")
+              mlflow.spacy.log_model(nlp, name="trained_model")
               mlflow.end_run()
 
           return log_step, finalize
@@ -164,10 +164,10 @@ Multiple loading options for different use cases:
 
 ```python
 # Native spaCy format - full functionality
-nlp = mlflow.spacy.load_model("runs:/<run_id>/model")
+nlp = mlflow.spacy.load_model("models:/<model_id>")
 
 # PyFunc format - for deployment and inference
-predictor = mlflow.pyfunc.load_model("runs:/<run_id>/model")
+predictor = mlflow.pyfunc.load_model("models:/<model_id>")
 ```
 
 ## Real-World Applications

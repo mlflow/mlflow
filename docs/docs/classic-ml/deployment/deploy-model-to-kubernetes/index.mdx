@@ -38,7 +38,7 @@ The essential step to deploy an MLflow model to Kubernetes is to build a Docker 
     import mlflow
 
     mlflow.models.build_docker(
-        model_uri=f"runs:/{run_id}/model",
+        model_uri=f"models:/{model_id}",
         name="<image_name>",
         enable_mlserver=True,
     )

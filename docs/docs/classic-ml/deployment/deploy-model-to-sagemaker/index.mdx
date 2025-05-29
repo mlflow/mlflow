@@ -51,7 +51,7 @@ This role should also be assumable by the user performing the deployment. Learn 
 #### Create an MLflow Model
 
 Before deploying, you must have an MLflow Model. If you don't have one, you can create a sample scikit-learn model by following the [MLflow Tracking Quickstart](/ml/getting-started).
-Remember to note down the model URI, such as `runs:/<run_id>/<artifact_path>` (or `models:/<model_name>/<model_version>` if you registered the model in the
+Remember to note down the model URI, such as `models:/<model_id>` (or `models:/<model_name>/<model_version>` if you registered the model in the
 [MLflow Model Registry](/ml/model-registry)).
 
 ### Step 1: Test your model locally
@@ -62,7 +62,7 @@ the model in a Docker container with an identical image and environment configur
 for pre-deployment testing.
 
 ```bash
-mlflow deployments run-local -t sagemaker -m runs:/<run_id>/model -p 5000
+mlflow deployments run-local -t sagemaker -m models:/<model_id> -p 5000
 ```
 
 You can then test the model by sending a POST request to the endpoint:
@@ -77,7 +77,7 @@ The <Link to="/api_reference/cli.html#mlflow-sagemaker-build-and-push-container"
 command builds a Docker image compatible with SageMaker and uploads it to ECR.
 
 ```bash
-$ mlflow sagemaker build-and-push-container  -m runs:/<run_id>/model
+$ mlflow sagemaker build-and-push-container  -m models:/<model_id>
 ```
 
 Alternatively, you can create a custom Docker image using the
@@ -113,5 +113,3 @@ You have two options for deploying a model to SageMaker: using the CLI or the Py
   This step-by-step tutorial demonstrates how to deploy a model to SageMaker using MLflow Python APIs from a Databricks notebook.
 - [Managing Your Machine Learning Lifecycle with MLflow and Amazon SageMaker](https://aws.amazon.com/blogs/machine-learning/managing-your-machine-learning-lifecycle-with-mlflow-and-amazon-sagemaker) -
   This comprehensive tutorial covers integrating the entire MLflow lifecycle with SageMaker, from model training to deployment.
-
-## Troubleshooting

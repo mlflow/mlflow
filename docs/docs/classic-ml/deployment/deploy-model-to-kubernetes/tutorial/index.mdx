@@ -247,7 +247,7 @@ Remember to use the `enable-mlserver` flag, which instructs MLflow to use MLServ
 same manner as it would in Kubernetes.
 
 ```bash
-mlflow models serve -m runs:/<run_id_for_your_best_run>/model -p 1234 --enable-mlserver
+mlflow models serve -m models:/<model_id_for_your_best_iteration> -p 1234 --enable-mlserver
 ```
 
 This command starts a local server listening on port 1234. You can send a request to the server using `curl` command:
