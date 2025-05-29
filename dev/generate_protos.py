@@ -60,6 +60,7 @@ uc_proto_files = [
     "databricks_filesystem_service.proto",
     "unity_catalog_oss_messages.proto",
     "unity_catalog_oss_service.proto",
+    "unity_catalog_prompt_service.proto",
 ]
 tracing_proto_files = [
     "databricks_trace_server.proto",
