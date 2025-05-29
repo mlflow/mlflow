@@ -47,8 +47,12 @@ async def main() -> None:
     packages, versions = list(zip(*distributions))
     package_length = get_longest_string_length(packages)
     version_length = get_longest_string_length(versions)
-    release_timestamp_length = len("Release Timestamp")
-    print("Package".ljust(package_length), "Version".ljust(version_length), "Release Timestamp")
+    release_timestamp_length = get_longest_string_length(release_dates)
+    print(
+        "Package".ljust(package_length),
+        "Version".ljust(version_length),
+        "Release Timestamp".ljust(release_timestamp_length),
+    )
     print("-" * (package_length + version_length + release_timestamp_length + 2))
     for package, version, release_date in sorted(
         zip(packages, versions, release_dates),
