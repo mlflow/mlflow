@@ -22,7 +22,7 @@ from mlflow import MlflowClient
 from mlflow.exceptions import ExecutionException
 from mlflow.optuna.storage import MlflowStorage
 
-logger = logging.getLogger(__name__)
+_logger = logging.getLogger(__name__)
 
 
 def is_spark_connect_mode() -> bool:
@@ -45,7 +45,7 @@ def _optimize_sequential(
 ) -> None:
     """
     Run optimization sequentially. It is modified from _optimize_sequential in optuna
-    (https://github.com/optuna/optuna/blob/master/optuna/study/_optimize.py)
+    (https://github.com/optuna/optuna/blob/e1e30e7150047e5f582b8fef1eeb65386cb1c4c1/optuna/study/_optimize.py#L121)
     """
     i_trial = 0
     time_start = datetime.datetime.now()
@@ -92,7 +92,7 @@ def _optimize_sequential(
         if frozen_trial.state == TrialState.COMPLETE:
             study._log_completed_trial(frozen_trial)
         elif frozen_trial.state == TrialState.PRUNED:
-            logger.info("Trial {} pruned. {}".format(frozen_trial._trial_id, str(func_err)))
+            _logger.info("Trial {} pruned. {}".format(frozen_trial._trial_id, str(func_err)))
             mlflow_client.set_terminated(frozen_trial._trial_id, status="KILLED")
         elif frozen_trial.state == TrialState.FAIL:
             error_message = None
@@ -139,9 +139,7 @@ class MlflowSparkStudy(Study):
         study_name = "spark_mlflow_storage"
 
         storage = MlflowStorage(experiment_id=experiment_id)
-        mlflow_study = MlflowSparkStudy(
-            study_name, storage, mlflow_tracking_uri=mlflow.get_tracking_uri()
-        )
+        mlflow_study = MlflowSparkStudy(study_name, storage)
         mlflow_study.optimize(objective, n_trials=4)
     """
 
@@ -247,14 +245,14 @@ class MlflowSparkStudy(Study):
                 func=run_task_on_executor_pd,
                 schema="error string",
             )
-        except KeyboardInterrupt as e:
+        except KeyboardInterrupt:
             if self._is_spark_connect_mode:
                 self.spark.interruptTag(trial_tag)
             else:
                 self.spark.sparkContext.cancelJobGroup(trial_tag)
-            logger.debug("MlflowSparkStudy optimize terminated by user.")
+            _logger.debug("MlflowSparkStudy optimize terminated by user.")
             self.mlflow_client.set_terminated(self._study_id, "KILLED")
-            raise e
+            raise
         if "error" in result_df.columns:
             error_count = result_df.filter(col("error") != "").count()
             if error_count > 0:
