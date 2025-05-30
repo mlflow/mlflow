@@ -67,12 +67,13 @@ def register_model(
             waits for five minutes. Specify 0 or None to skip waiting.
         tags: A dictionary of key-value pairs that are converted into
             :py:class:`mlflow.entities.model_registry.ModelVersionTag` objects.
-        env_pack: If specified, the model dependencies will first be installed into the current Python
-            environment, and then the complete environment will be packaged and included in the
-            registered model artifacts. This is useful when deploying the model to a serving
-            environment like Databricks Model Serving.
+        env_pack: If specified, the model dependencies will first be installed into the current
+            Python environment, and then the complete environment will be packaged and included
+            in the registered model artifacts. This is useful when deploying the model to a
+            serving environment like Databricks Model Serving.
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
+
     Returns:
         Single :py:class:`mlflow.entities.model_registry.ModelVersion` object created by
         backend.
@@ -182,7 +183,7 @@ def _register_model(
     model_id = _parse_model_id_if_present(model_uri) if not model_id else model_id
 
     if env_pack == "databricks_model_serving":
-        eprint(f"Packing environment for Databricks Model Serving...")
+        eprint("Packing environment for Databricks Model Serving...")
         with pack_env_for_databricks_model_serving(
             model_uri,
             enforce_pip_requirements=True,
@@ -238,7 +239,9 @@ def _register_model(
 
     if env_pack == "databricks_model_serving":
         eprint(
-            f"Staging model {create_version_response.name} version {create_version_response.version} for Databricks Model Serving..."
+            f"Staging model {create_version_response.name} "
+            f"version {create_version_response.version} "
+            "for Databricks Model Serving..."
         )
         stage_model_for_databricks_model_serving(
             model_name=create_version_response.name,

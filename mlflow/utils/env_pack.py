@@ -3,10 +3,11 @@ import subprocess
 import sys
 import tarfile
 import tempfile
-import yaml
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Literal, Generator
+from typing import Generator, Literal
+
+import yaml
 
 from mlflow.artifacts import download_artifacts
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -24,7 +25,8 @@ _SUPPORTED_CLIENT_IMAGE_MAJOR_VERSIONS_FOR_MODEL_SERVING = (2, 3)
 
 def _tar(root_path: Path, tar_path: Path) -> tarfile.TarFile:
     """
-    Package all files under root_path into a tar at tar_path, excluding __pycache__, *.pyc, and wheels_info.json.
+    Package all files under root_path into a tar at tar_path, excluding __pycache__, *.pyc, and
+    wheels_info.json.
     """
 
     def exclude(tarinfo: tarfile.TarInfo):
@@ -55,7 +57,8 @@ def pack_env_for_databricks_model_serving(
         enforce_pip_requirements: Whether to enforce pip requirements installation.
 
     Yields:
-        str: The path to the local artifacts directory containing the model artifacts and environment.
+        str: The path to the local artifacts directory containing the model artifacts and
+            environment.
 
     Example:
         >>> with pack_env_for_databricks_model_serving("models:/my-model/1") as artifacts_dir:
@@ -65,17 +68,19 @@ def pack_env_for_databricks_model_serving(
     dbr_version = DatabricksRuntimeVersion.parse()
     if (
         not dbr_version.is_client_image
-        or dbr_version.major
-        not in _SUPPORTED_CLIENT_IMAGE_MAJOR_VERSIONS_FOR_MODEL_SERVING
+        or dbr_version.major not in _SUPPORTED_CLIENT_IMAGE_MAJOR_VERSIONS_FOR_MODEL_SERVING
     ):
         raise ValueError(
-            f"Serverless environment of versions {_SUPPORTED_CLIENT_IMAGE_MAJOR_VERSIONS_FOR_MODEL_SERVING} is required when packing environment for Databricks Model Serving. Current version: {dbr_version}"
+            f"Serverless environment of versions "
+            f"{_SUPPORTED_CLIENT_IMAGE_MAJOR_VERSIONS_FOR_MODEL_SERVING} is required when packing "
+            f"environment for Databricks Model Serving. Current version: {dbr_version}"
         )
 
     with tempfile.TemporaryDirectory() as temp_dir:
-        # Download model artifacts. Keep this separate from temp_dir to avoid noise in packaged artifacts.
+        # Download model artifacts. Keep this separate from temp_dir to avoid noise in packaged
+        # artifacts.
         local_artifacts_dir = Path(download_artifacts(artifact_uri=model_uri))
-        
+
         # Check runtime version consistency
         # We read the MLmodel file directly instead of using Model.to_dict() because to_dict() adds
         # the current runtime version via get_databricks_runtime_version(), which would prevent us
@@ -85,12 +90,13 @@ def pack_env_for_databricks_model_serving(
             model_dict = yaml.safe_load(f)
         if "databricks_runtime" not in model_dict:
             raise ValueError(
-                f"Model must have been created in a Databricks runtime environment. "
-                f"Missing 'databricks_runtime' field in MLmodel file."
+                "Model must have been created in a Databricks runtime environment. "
+                "Missing 'databricks_runtime' field in MLmodel file."
             )
         if model_dict["databricks_runtime"] != get_databricks_runtime_version():
             raise ValueError(
-                f"Runtime version mismatch. Model was created with runtime {model_dict['databricks_runtime']}, "
+                f"Runtime version mismatch. Model was created with runtime "
+                f"{model_dict['databricks_runtime']}, "
                 f"but current runtime is {get_databricks_runtime_version()}"
             )
 

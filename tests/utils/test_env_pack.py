@@ -3,9 +3,9 @@ import sys
 import tarfile
 from pathlib import Path
 from unittest import mock
-import yaml
 
 import pytest
+import yaml
 
 from mlflow.utils import env_pack
 from mlflow.utils.databricks_utils import DatabricksRuntimeVersion
@@ -48,10 +48,10 @@ def test_tar_function_path_handling(tmp_path):
         assert names == {".", "./test.txt"}
 
 
-def test_pack_env_for_databricks_model_serving_pip_requirements(
-    tmp_path, mock_dbr_version
-):
-    """Test that pack_env_for_databricks_model_serving correctly handles pip requirements installation."""
+def test_pack_env_for_databricks_model_serving_pip_requirements(tmp_path, mock_dbr_version):
+    """Test that pack_env_for_databricks_model_serving correctly handles pip requirements
+    installation.
+    """
     # Mock download_artifacts to return a path
     mock_artifacts_dir = tmp_path / "artifacts"
     mock_artifacts_dir.mkdir()
@@ -60,10 +60,12 @@ def test_pack_env_for_databricks_model_serving_pip_requirements(
     # Create MLmodel file with correct runtime version
     mlmodel_path = mock_artifacts_dir / "MLmodel"
     mlmodel_path.write_text(
-        yaml.dump({
-            "databricks_runtime": "client.2.0",
-            "flavors": {"python_function": {"model_path": "model.pkl"}},
-        })
+        yaml.dump(
+            {
+                "databricks_runtime": "client.2.0",
+                "flavors": {"python_function": {"model_path": "model.pkl"}},
+            }
+        )
     )
 
     with (
@@ -72,7 +74,9 @@ def test_pack_env_for_databricks_model_serving_pip_requirements(
             return_value=str(mock_artifacts_dir),
         ),
         mock.patch("subprocess.run") as mock_run,
-        mock.patch("mlflow.utils.env_pack.get_databricks_runtime_version", return_value="client.2.0"),
+        mock.patch(
+            "mlflow.utils.env_pack.get_databricks_runtime_version", return_value="client.2.0"
+        ),
     ):
         # Mock subprocess.run to simulate successful pip install
         mock_run.return_value = mock.Mock(returncode=0)
@@ -83,13 +87,9 @@ def test_pack_env_for_databricks_model_serving_pip_requirements(
             artifacts_path = Path(artifacts_dir)
             assert artifacts_path.exists()
             assert (artifacts_path / env_pack._ARTIFACT_PATH).exists()
+            assert (artifacts_path / env_pack._ARTIFACT_PATH / env_pack._MODEL_VERSION_TAR).exists()
             assert (
-                artifacts_path / env_pack._ARTIFACT_PATH / env_pack._MODEL_VERSION_TAR
-            ).exists()
-            assert (
-                artifacts_path
-                / env_pack._ARTIFACT_PATH
-                / env_pack._MODEL_ENVIRONMENT_TAR
+                artifacts_path / env_pack._ARTIFACT_PATH / env_pack._MODEL_ENVIRONMENT_TAR
             ).exists()
 
             # Verify subprocess.run was called with correct arguments
@@ -109,9 +109,7 @@ def test_pack_env_for_databricks_model_serving_pip_requirements(
             assert kwargs["text"] is True
 
 
-def test_pack_env_for_databricks_model_serving_pip_requirements_error(
-    tmp_path, mock_dbr_version
-):
+def test_pack_env_for_databricks_model_serving_pip_requirements_error(tmp_path, mock_dbr_version):
     """Test that pack_env_for_databricks_model_serving correctly handles pip install errors."""
     # Mock download_artifacts to return a path
     mock_artifacts_dir = tmp_path / "artifacts"
@@ -121,10 +119,12 @@ def test_pack_env_for_databricks_model_serving_pip_requirements_error(
     # Create MLmodel file with correct runtime version
     mlmodel_path = mock_artifacts_dir / "MLmodel"
     mlmodel_path.write_text(
-        yaml.dump({
-            "databricks_runtime": "client.2.0",
-            "flavors": {"python_function": {"model_path": "model.pkl"}},
-        })
+        yaml.dump(
+            {
+                "databricks_runtime": "client.2.0",
+                "flavors": {"python_function": {"model_path": "model.pkl"}},
+            }
+        )
     )
 
     with (
@@ -134,17 +134,17 @@ def test_pack_env_for_databricks_model_serving_pip_requirements_error(
         ),
         mock.patch("subprocess.run") as mock_run,
         mock.patch("mlflow.utils.env_pack.eprint") as mock_eprint,
-        mock.patch("mlflow.utils.env_pack.get_databricks_runtime_version", return_value="client.2.0"),
+        mock.patch(
+            "mlflow.utils.env_pack.get_databricks_runtime_version", return_value="client.2.0"
+        ),
     ):
         mock_run.return_value = mock.Mock(
             returncode=1,
             stdout="ERROR: Could not find a version that satisfies the requirement invalid-package",
         )
-        mock_run.side_effect = subprocess.CalledProcessError(
-            1, "pip install", "Error message"
-        )
+        mock_run.side_effect = subprocess.CalledProcessError(1, "pip install", "Error message")
 
-        with pytest.raises(subprocess.CalledProcessError):
+        with pytest.raises(subprocess.CalledProcessError, match="Error message"):
             with env_pack.pack_env_for_databricks_model_serving(
                 "models:/test/1", enforce_pip_requirements=True
             ):
@@ -173,23 +173,31 @@ def test_pack_env_for_databricks_model_serving_unsupported_version():
 
 
 def test_pack_env_for_databricks_model_serving_runtime_version_check(temp_dir, mock_dbr_version):
-    """Test that pack_env_for_databricks_model_serving correctly checks runtime version compatibility."""
+    """Test that pack_env_for_databricks_model_serving correctly checks runtime version
+    compatibility.
+    """
     # Mock download_artifacts to return a path
     mock_artifacts_dir = temp_dir / "artifacts"
     mock_artifacts_dir.mkdir()
-    
+
     # Create MLmodel file with different runtime version
     mlmodel_path = mock_artifacts_dir / "MLmodel"
     mlmodel_path.write_text(
-        yaml.dump({
-            "databricks_runtime": "client.3.0",  # Different from mock_dbr_version
-            "flavors": {"python_function": {"model_path": "model.pkl"}},
-        })
+        yaml.dump(
+            {
+                "databricks_runtime": "client.3.0",  # Different from mock_dbr_version
+                "flavors": {"python_function": {"model_path": "model.pkl"}},
+            }
+        )
     )
 
     with (
-        mock.patch("mlflow.utils.env_pack.download_artifacts", return_value=str(mock_artifacts_dir)),
-        mock.patch("mlflow.utils.env_pack.get_databricks_runtime_version", return_value="client.2.0"),
+        mock.patch(
+            "mlflow.utils.env_pack.download_artifacts", return_value=str(mock_artifacts_dir)
+        ),
+        mock.patch(
+            "mlflow.utils.env_pack.get_databricks_runtime_version", return_value="client.2.0"
+        ),
     ):
         with pytest.raises(ValueError, match="Runtime version mismatch"):
             with env_pack.pack_env_for_databricks_model_serving("models:/test-model/1"):
@@ -201,16 +209,22 @@ def test_pack_env_for_databricks_model_serving_missing_runtime_version(temp_dir,
     # Mock download_artifacts to return a path
     mock_artifacts_dir = temp_dir / "artifacts"
     mock_artifacts_dir.mkdir()
-    
+
     # Create MLmodel file without databricks_runtime field
     mlmodel_path = mock_artifacts_dir / "MLmodel"
     mlmodel_path.write_text(
-        yaml.dump({
-            "flavors": {"python_function": {"model_path": "model.pkl"}},
-        })
+        yaml.dump(
+            {
+                "flavors": {"python_function": {"model_path": "model.pkl"}},
+            }
+        )
     )
 
-    with mock.patch("mlflow.utils.env_pack.download_artifacts", return_value=str(mock_artifacts_dir)):
-        with pytest.raises(ValueError, match="Model must have been created in a Databricks runtime environment"):
+    with mock.patch(
+        "mlflow.utils.env_pack.download_artifacts", return_value=str(mock_artifacts_dir)
+    ):
+        with pytest.raises(
+            ValueError, match="Model must have been created in a Databricks runtime environment"
+        ):
             with env_pack.pack_env_for_databricks_model_serving("models:/test-model/1"):
                 pass

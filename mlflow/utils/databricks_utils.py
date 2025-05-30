@@ -1431,6 +1431,6 @@ def stage_model_for_databricks_model_serving(model_name: str, model_version: str
         json={
             "model_name": model_name,
             "model_version": model_version,
-        }
+        },
     )
     augmented_raise_for_status(response)
