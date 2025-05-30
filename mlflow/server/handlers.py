@@ -1438,12 +1438,13 @@ def gateway_proxy_handler():
     method = request.method
     # validate gateway_path
     if method == "GET":
-        if gateway_path not in ["api/2.0/endpoints/"]:
+        if gateway_path.strip("/") != "api/2.0/endpoints":
             raise MlflowException(
                 message=f"Invalid gateway_path: {gateway_path} for method: {method}. ",
                 error_code=INVALID_PARAMETER_VALUE,
             )
     elif method == "POST":
+        # For POST, gateway_path must be in the form of "gateway/{name}/invocations"
         splits = gateway_path.split("/")
         if len(splits) != 3:
             raise MlflowException(
