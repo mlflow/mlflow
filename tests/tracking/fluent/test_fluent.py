@@ -2110,6 +2110,29 @@ def test_set_active_model_env_var_precedence(monkeypatch):
     assert mlflow.get_active_model_id() is None
 
 
+def test_clear_active_model_disregards_env_vars(monkeypatch):
+    """Test that clear_active_model() properly clears environment variables."""
+    # Set both environment variables
+    monkeypatch.setenv(_MLFLOW_ACTIVE_MODEL_ID.name, "legacy-model-id")
+    monkeypatch.setenv(MLFLOW_ACTIVE_MODEL_ID.name, "public-model-id")
+
+    # mimic the behavior when mlflow is imported - should pick up public variable
+    _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext())
+    assert mlflow.get_active_model_id() == "public-model-id"
+
+    # Clear the active model - should disregard environment variables
+    mlflow.clear_active_model()
+    assert mlflow.get_active_model_id() is None
+
+    # Verify that environment variables are unset by clear_active_model
+    assert MLFLOW_ACTIVE_MODEL_ID.get() is None
+    assert _MLFLOW_ACTIVE_MODEL_ID.get() is None
+
+    # Even after creating a new context, should remain None
+    _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext())
+    assert mlflow.get_active_model_id() is None
+
+
 def test_set_active_model_link_traces():
     set_active_model(name="test_model")
     model_id = mlflow.get_active_model_id()
