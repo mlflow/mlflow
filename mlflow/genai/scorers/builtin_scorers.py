@@ -358,7 +358,10 @@ class GuidelineAdherence(BuiltInScorer):
             name="english_guidelines",
             global_guidelines=["The response must be in English"],
         )
-        feedback = english(outputs="The capital of France is Paris.")
+        feedback = english(
+            inputs={"question": "What is the capital of France?"},
+            outputs="The capital of France is Paris.",
+        )
         print(feedback)
 
     Example (with evaluate):
