@@ -70,3 +70,40 @@ def test_evaluation_example_str():
         Example justification: This is a justification
         """
     assert re.sub(r"\s+", "", example3_expected) == re.sub(r"\s+", "", example3)
+
+
+def test_scorer_serialization():
+    """Test that Scorer class can be serialized and deserialized."""
+    from mlflow.genai.scorers import Scorer, scorer
+    
+    # Test 1: Simple scorer with decorator
+    @scorer
+    def simple_scorer(outputs):
+        return outputs == "correct"
+    
+    serialized = simple_scorer.model_dump()
+    assert "name" in serialized
+    assert serialized["name"] == "simple_scorer"
+    assert "__call___source" in serialized
+    assert "outputs == \"correct\"" in serialized["__call___source"]
+    
+    # Test 2: Scorer with custom name and aggregations
+    @scorer(name="custom", aggregations=["mean", "max"])
+    def custom_scorer(inputs, outputs):
+        return len(outputs) > len(inputs)
+    
+    serialized = custom_scorer.model_dump()
+    assert serialized["name"] == "custom"
+    assert serialized["aggregations"] == ["mean", "max"]
+    assert "len(outputs) > len(inputs)" in serialized["__call___source"]
+    
+    # Test 3: Direct Scorer subclass
+    class MyScorer(Scorer):
+        def __call__(self, *, outputs):
+            return True
+    
+    my_scorer = MyScorer(name="my_scorer")
+    serialized = my_scorer.model_dump()
+    assert serialized["name"] == "my_scorer"
+    assert "__call___source" in serialized
+    assert "return True" in serialized["__call___source"]
