@@ -2089,7 +2089,7 @@ def test_set_active_model_public_env_var(monkeypatch):
 
 
 def test_set_active_model_env_var_precedence(monkeypatch):
-    """Test that _MLFLOW_ACTIVE_MODEL_ID takes precedence over MLFLOW_ACTIVE_MODEL_ID."""
+    """Test that MLFLOW_ACTIVE_MODEL_ID takes precedence over _MLFLOW_ACTIVE_MODEL_ID."""
     # Set both environment variables
     monkeypatch.setenv(_MLFLOW_ACTIVE_MODEL_ID.name, "legacy-model-id")
     monkeypatch.setenv(MLFLOW_ACTIVE_MODEL_ID.name, "public-model-id")
@@ -2097,16 +2097,16 @@ def test_set_active_model_env_var_precedence(monkeypatch):
     # mimic the behavior when mlflow is imported
     _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext())
 
-    # Legacy variable should take precedence
-    assert mlflow.get_active_model_id() == "legacy-model-id"
-
-    # Clean up legacy variable, should fallback to public variable
-    monkeypatch.delenv(_MLFLOW_ACTIVE_MODEL_ID.name)
-    _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext())
+    # Public variable should take precedence
     assert mlflow.get_active_model_id() == "public-model-id"
 
-    # Clean up public variable
+    # Clean up public variable, should fallback to legacy variable
     monkeypatch.delenv(MLFLOW_ACTIVE_MODEL_ID.name)
+    _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext())
+    assert mlflow.get_active_model_id() == "legacy-model-id"
+
+    # Clean up legacy variable
+    monkeypatch.delenv(_MLFLOW_ACTIVE_MODEL_ID.name)
     _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext())
     assert mlflow.get_active_model_id() is None
 
@@ -2134,12 +2134,12 @@ def test_get_active_model_id_from_env_utility():
     ):
         assert _get_active_model_id_from_env() == "legacy-id"
 
-    # Test with both variables set - legacy should take precedence
+    # Test with both variables set - public should take precedence
     with (
         mock.patch.object(_MLFLOW_ACTIVE_MODEL_ID, "get", return_value="legacy-id"),
         mock.patch.object(MLFLOW_ACTIVE_MODEL_ID, "get", return_value="public-id"),
     ):
-        assert _get_active_model_id_from_env() == "legacy-id"
+        assert _get_active_model_id_from_env() == "public-id"
 
 
 def test_set_active_model_link_traces():

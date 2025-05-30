@@ -3308,25 +3308,25 @@ def _get_active_model_id_from_env() -> Optional[str]:
 
     This utility function reads the active model ID from environment variables with the following
     precedence order:
-    1. _MLFLOW_ACTIVE_MODEL_ID (legacy internal variable) - takes precedence if set
-    2. MLFLOW_ACTIVE_MODEL_ID (public variable) - used as fallback
+    1. MLFLOW_ACTIVE_MODEL_ID (public variable) - takes precedence if set
+    2. _MLFLOW_ACTIVE_MODEL_ID (legacy internal variable) - used as fallback
 
     Historical Context:
     The _MLFLOW_ACTIVE_MODEL_ID environment variable was originally created for internal MLflow
-    use only. With the introduction of MLFLOW_ACTIVE_MODEL_ID as the public API, we maintain
-    backward compatibility by preferentially reading from the legacy variable when both are set.
-    This ensures existing internal MLflow code and systems continue to work as expected.
+    use only. With the introduction of MLFLOW_ACTIVE_MODEL_ID as the public API, we prioritize
+    the public variable to encourage migration to the public interface while maintaining
+    backward compatibility by falling back to the legacy variable when only it is set.
 
     Returns:
         The active model ID if found in environment variables, otherwise None.
     """
-    # Check legacy internal variable first for backward compatibility
-    legacy_model_id = _MLFLOW_ACTIVE_MODEL_ID.get()
-    if legacy_model_id is not None:
-        return legacy_model_id
+    # Check public variable first to prioritize the public API
+    public_model_id = MLFLOW_ACTIVE_MODEL_ID.get()
+    if public_model_id is not None:
+        return public_model_id
 
-    # Fallback to public environment variable
-    return MLFLOW_ACTIVE_MODEL_ID.get()
+    # Fallback to legacy internal variable for backward compatibility
+    return _MLFLOW_ACTIVE_MODEL_ID.get()
 
 
 _ACTIVE_MODEL_CONTEXT = ThreadLocalVariable(default_factory=lambda: ActiveModelContext())
