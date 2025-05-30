@@ -1,5 +1,5 @@
 import { render, screen } from '../../common/utils/TestUtils.react18';
-import HomePage from './HomePage';
+import ExperimentHome from './ExperimentPage';
 
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
@@ -46,8 +46,8 @@ describe('HomePage', () => {
       <Provider store={createMockStore({ ...defaultMockState, ...state })}>
         <MemoryRouter initialEntries={[initialPath]}>
           <Routes>
-            <Route path="/:experimentId" element={<HomePage />} />
-            <Route path="*" element={<HomePage />} />
+            <Route path="/:experimentId" element={<ExperimentHome />} />
+            <Route path="*" element={<ExperimentHome />} />
           </Routes>
         </MemoryRouter>
       </Provider>,
