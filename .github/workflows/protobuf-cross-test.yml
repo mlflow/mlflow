@@ -35,6 +35,7 @@ env:
   MLFLOW_CONDA_HOME: /usr/share/miniconda
   SPARK_LOCAL_IP: localhost
   PYTHONUTF8: "1"
+  PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
 
 jobs:
   core_tests:

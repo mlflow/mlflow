@@ -26,7 +26,7 @@ _EXCLUDED_MESSAGE_SENDERS = ["chat_manager", "checking_agent"]
 _logger = logging.getLogger(__name__)
 
 
-FLAVOR_NAME = "autogen"
+FLAVOR_NAME = "ag2"
 
 
 @dataclass
@@ -64,7 +64,7 @@ def _catch_exception(func):
     return wrapper
 
 
-class MlflowAutogenLogger(BaseLogger):
+class MlflowAg2Logger(BaseLogger):
     def __init__(self):
         self._chat_state = ChatState()
 
@@ -89,8 +89,8 @@ class MlflowAutogenLogger(BaseLogger):
             )
         if hasattr(agent, "register_function"):
 
-            def patched(original, _self, function_map):
-                original(_self, function_map)
+            def patched(original, _self, function_map, **kwargs):
+                original(_self, function_map, **kwargs)
                 # Wrap the newly registered tools to start and end a span around its invocation.
                 for name, f in function_map.items():
                     if f is not None:

@@ -4,7 +4,7 @@ import json
 import logging
 import re
 from dataclasses import dataclass
-from typing import Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.entities.span import Span, SpanType
@@ -14,6 +14,9 @@ from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.protos.service_pb2 import Trace as ProtoTrace
+
+if TYPE_CHECKING:
+    from mlflow.entities.assessment import Assessment
 
 _logger = logging.getLogger(__name__)
 
@@ -129,7 +132,10 @@ class Trace(_MlflowObject):
             return value
 
     def search_spans(
-        self, span_type: Optional[SpanType] = None, name: Optional[Union[str, re.Pattern]] = None
+        self,
+        span_type: Optional[SpanType] = None,
+        name: Optional[Union[str, re.Pattern]] = None,
+        span_id: Optional[str] = None,
     ) -> list[Span]:
         """
         Search for spans that match the given criteria within the trace.
@@ -137,6 +143,7 @@ class Trace(_MlflowObject):
         Args:
             span_type: The type of the span to search for.
             name: The name of the span to search for. This can be a string or a regular expression.
+            span_id: The ID of the span to search for.
 
         Returns:
             A list of spans that match the given criteria.
@@ -224,7 +231,63 @@ class Trace(_MlflowObject):
                     error_code=INVALID_PARAMETER_VALUE,
                 )
 
-        return [span for span in self.data.spans if _match_name(span) and _match_type(span)]
+        def _match_id(span: Span) -> bool:
+            if span_id is None:
+                return True
+            else:
+                return span.span_id == span_id
+
+        return [
+            span
+            for span in self.data.spans
+            if _match_name(span) and _match_type(span) and _match_id(span)
+        ]
+
+    def search_assessments(
+        self,
+        name: Optional[str] = None,
+        *,
+        span_id: Optional[str] = None,
+        all: bool = False,
+        type: Optional[Literal["expectation", "feedback"]] = None,
+    ) -> list["Assessment"]:
+        """
+        Get assessments for a given name / span ID. By default, this only returns assessments
+        that are valid (i.e. have not been overridden by another assessment). To return all
+        assessments, specify `all=True`.
+
+        Args:
+            name: The name of the assessment to get. If not provided, this will match
+                all assessment names.
+            span_id: The span ID to get assessments for.
+                If not provided, this will match all spans.
+            all: If True, return all assessments regardless of validity.
+            type: The type of assessment to get (one of "feedback" or "expectation").
+                If not provided, this will match all assessment types.
+
+        Returns:
+            A list of assessments that meet the given conditions.
+        """
+
+        def validate_type(assessment: Assessment) -> bool:
+            from mlflow.entities.assessment import Expectation, Feedback
+
+            if type == "expectation":
+                return isinstance(assessment, Expectation)
+            elif type == "feedback":
+                return isinstance(assessment, Feedback)
+
+            return True
+
+        return [
+            assessment
+            for assessment in self.info.assessments
+            if (name is None or assessment.name == name)
+            and (span_id is None or assessment.span_id == span_id)
+            # valid defaults to true, so Nones are valid
+            and (all or assessment.valid in (True, None))
+            and (type is None or validate_type(assessment))
+        ]
 
     @staticmethod
     def pandas_dataframe_columns() -> list[str]:

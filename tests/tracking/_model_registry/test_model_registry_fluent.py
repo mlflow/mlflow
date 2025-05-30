@@ -1,3 +1,6 @@
+import os
+import subprocess
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -268,3 +271,51 @@ def test_set_model_version_tag():
     )
     mv = MlflowClient().get_model_version("Model 1", "1")
     assert mv.tags == {"key": "value"}
+
+
+def test_register_model_with_2_x_model(tmp_path: Path):
+    tracking_uri = (tmp_path / "tracking").as_uri()
+    mlflow.set_tracking_uri(tracking_uri)
+    artifact_location = (tmp_path / "artifacts").as_uri()
+    exp_id = mlflow.create_experiment("test", artifact_location=artifact_location)
+    mlflow.set_experiment(experiment_id=exp_id)
+    code = """
+import sys
+import mlflow
+
+assert mlflow.__version__.startswith("2."), mlflow.__version__
+
+with mlflow.start_run() as run:
+    model_info = mlflow.pyfunc.log_model(
+        python_model=lambda *args: None,
+        artifact_path="model",
+        # When `python_model` is a function, either `input_example` or `pip_requirements`
+        # must be provided.
+        pip_requirements=["mlflow"],
+    )
+    assert model_info.model_uri.startswith("runs:/")
+    out = sys.argv[1]
+    with open(out, "w") as f:
+        f.write(model_info.model_uri)
+"""
+    out = tmp_path / "output.txt"
+    # Log a model using MLflow 2.x
+    subprocess.check_call(
+        [
+            "uv",
+            "run",
+            "--isolated",
+            "--no-project",
+            "--with",
+            "mlflow<3",
+            "python",
+            "-I",
+            "-c",
+            code,
+            out,
+        ],
+        env=os.environ.copy() | {"UV_INDEX_STRATEGY": "unsafe-first-match"},
+    )
+    # Register the model with MLflow 3.x
+    model_uri = out.read_text().strip()
+    mlflow.register_model(model_uri, "model")

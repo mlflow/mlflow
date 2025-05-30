@@ -1,0 +1,221 @@
+syntax = "proto2";
+
+package mlflow.unitycatalog;
+
+import "databricks.proto";
+import "scalapb/scalapb.proto";
+import "unity_catalog_prompt_messages.proto";
+
+option java_package = "com.databricks.api.proto.managedcatalog";
+option java_generate_equals_and_hash = true;
+option py_generic_services = true;
+option (scalapb.options) = {
+  flat_package: true,
+};
+
+
+service UnityCatalogPromptService {
+  rpc CreatePrompt (CreatePromptRequest) returns (CreatePromptResponse) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/unity-catalog/prompts"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "(Unity Catalog) Create Prompt",
+    };
+  }
+
+  rpc UpdatePrompt (UpdatePromptRequest) returns (UpdatePromptResponse) {
+    option (rpc) = {
+      endpoints: [{
+        method: "PATCH",
+        path: "/mlflow/unity-catalog/prompts/{name}"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "(Unity Catalog) Update Prompt",
+    };
+  }
+
+  rpc DeletePrompt (DeletePromptRequest) returns (DeletePromptResponse) {
+    option (rpc) = {
+      endpoints: [{
+        method: "DELETE",
+        path: "/mlflow/unity-catalog/prompts/{name}"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "(Unity Catalog) Delete Prompt",
+    };
+  }
+
+  rpc GetPrompt (GetPromptRequest) returns (GetPromptResponse) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/unity-catalog/prompts/{name}"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "(Unity Catalog) Get Prompt",
+    };
+  }
+
+  rpc SearchPrompts (SearchPromptsRequest) returns (SearchPromptsResponse) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/unity-catalog/prompts/search"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "(Unity Catalog) Search Prompts",
+    };
+  }
+
+  rpc CreatePromptVersion (CreatePromptVersionRequest) returns (CreatePromptVersionResponse) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/unity-catalog/prompts/{name}/versions"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "(Unity Catalog) Create Prompt Version",
+    };
+  }
+
+  rpc UpdatePromptVersion (UpdatePromptVersionRequest) returns (UpdatePromptVersionResponse) {
+    option (rpc) = {
+      endpoints: [{
+        method: "PATCH",
+        path: "/mlflow/unity-catalog/prompts/{name}/versions/{version}"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "(Unity Catalog) Update Prompt Version",
+    };
+  }
+
+  rpc DeletePromptVersion (DeletePromptVersionRequest) returns (DeletePromptVersionResponse) {
+    option (rpc) = {
+      endpoints: [{
+        method: "DELETE",
+        path: "/mlflow/unity-catalog/prompts/{name}/versions/{version}"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "(Unity Catalog) Delete Prompt Version",
+    };
+  }
+
+  rpc GetPromptVersion (GetPromptVersionRequest) returns (GetPromptVersionResponse) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/unity-catalog/prompts/{name}/versions/{version}"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "(Unity Catalog) Get Prompt Version",
+    };
+  }
+
+  rpc SearchPromptVersions (SearchPromptVersionsRequest) returns (SearchPromptVersionsResponse) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/unity-catalog/prompts/{name}/versions"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "(Unity Catalog) Search Prompt Versions",
+    };
+  }
+
+  rpc SetPromptAlias (SetPromptAliasRequest) returns (SetPromptAliasResponse) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/unity-catalog/prompts/{name}/aliases/{alias}"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "(Unity Catalog) Set Prompt Alias",
+    };
+  }
+
+  rpc DeletePromptAlias (DeletePromptAliasRequest) returns (DeletePromptAliasResponse) {
+    option (rpc) = {
+      endpoints: [{
+        method: "DELETE",
+        path: "/mlflow/unity-catalog/prompts/{name}/aliases/{alias}"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "(Unity Catalog) Delete Prompt Alias",
+    };
+  }
+
+  rpc GetPromptVersionByAlias (GetPromptVersionByAliasRequest) returns (GetPromptVersionByAliasResponse) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/unity-catalog/prompts/{name}/versions/by-alias/{alias}"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "(Unity Catalog) Get Prompt Version By Alias",
+    };
+  }
+
+  rpc SetPromptTag (SetPromptTagRequest) returns (SetPromptTagResponse) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/unity-catalog/prompts/{name}/tags"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "(Unity Catalog) Set Prompt Tag",
+    };
+  }
+
+  rpc DeletePromptTag (DeletePromptTagRequest) returns (DeletePromptTagResponse) {
+    option (rpc) = {
+      endpoints: [{
+        method: "DELETE",
+        path: "/mlflow/unity-catalog/prompts/{name}/tags/{key}"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "(Unity Catalog) Delete Prompt Tag",
+    };
+  }
+
+  rpc SetPromptVersionTag (SetPromptVersionTagRequest) returns (SetPromptVersionTagResponse) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/unity-catalog/prompts/{name}/versions/{version}/tags"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "(Unity Catalog) Set Prompt Version Tag",
+    };
+  }
+
+  rpc DeletePromptVersionTag (DeletePromptVersionTagRequest) returns (DeletePromptVersionTagResponse) {
+    option (rpc) = {
+      endpoints: [{
+        method: "DELETE",
+        path: "/mlflow/unity-catalog/prompts/{name}/versions/{version}/tags/{key}"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "(Unity Catalog) Delete Prompt Version Tag",
+    };
+  }
+}

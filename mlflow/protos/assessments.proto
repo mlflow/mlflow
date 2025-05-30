@@ -130,4 +130,14 @@ message Assessment {
   // Additional metadata describing the assessment and store additional information,
   // such as the chunk relevance chunk_index. This metadata is required to be JSON-serializable.
   map<string, string> metadata = 13;
+
+  // The ID of the assessment which this assessment overrides.
+  optional string overrides = 14;
+
+  // Whether this assessment is valid (i.e. has not been superseded)
+  // defaults to true, and is set to false if a new superseding assessment
+  // is created.
+  optional bool valid = 15 [
+    default = true
+  ];
 }

@@ -45,6 +45,7 @@ from mlflow.protos.service_pb2 import (
     DeleteTraceTag,
     EndTrace,
     FinalizeLoggedModel,
+    GetAssessmentRequest,
     GetExperiment,
     GetExperimentByName,
     GetLoggedModel,
@@ -608,6 +609,23 @@ class RestStore(AbstractStore):
             req_body,
             endpoint=get_set_trace_tag_endpoint(request_id, is_databricks=False),
         )
+
+    def get_assessment(self, trace_id: str, assessment_id: str) -> Assessment:
+        """
+        Get an assessment entity from the backend store.
+        """
+        is_databricks = self._is_databricks_tracking_uri()
+        req_body = message_to_json(
+            GetAssessmentRequest(trace_id=trace_id, assessment_id=assessment_id)
+        )
+        response_proto = self._call_endpoint(
+            GetAssessmentRequest,
+            req_body,
+            endpoint=get_single_assessment_endpoint(
+                trace_id, assessment_id, is_databricks=is_databricks
+            ),
+        )
+        return Assessment.from_proto(response_proto.assessment)
 
     def create_assessment(self, assessment: Assessment) -> Assessment:
         """

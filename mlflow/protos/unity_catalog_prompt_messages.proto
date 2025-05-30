@@ -1,0 +1,208 @@
+syntax = "proto2";
+
+package mlflow.unitycatalog;
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+import "databricks.proto";
+import "scalapb/scalapb.proto";
+
+option java_package = "com.databricks.api.proto.managedcatalog";
+option java_generate_equals_and_hash = true;
+option py_generic_services = true;
+option (scalapb.options) = {
+  flat_package: true,
+};
+
+
+// Common message types
+message PromptInfo {
+  optional string name = 1;
+  optional string description = 2;
+  optional google.protobuf.Timestamp creation_timestamp = 3;
+  optional google.protobuf.Timestamp last_updated_timestamp = 4;
+  repeated PromptTag tags = 5;
+  repeated PromptAlias aliases = 6;
+}
+
+message PromptVersionInfo {
+  optional string name = 1;
+  optional string version = 2;
+  optional string description = 3;
+  optional string template = 4;
+  optional google.protobuf.Timestamp creation_timestamp = 5;
+  optional google.protobuf.Timestamp last_updated_timestamp = 6;
+  repeated PromptTag tags = 7;
+  repeated PromptAlias aliases = 8;
+}
+
+message PromptTag {
+  required string key = 1;
+  required string value = 2;
+}
+
+message PromptAlias {
+  required string alias = 1;
+  required string version = 2;
+}
+
+// Request/Response messages
+message CreatePromptRequest {
+  required string name = 1;
+  optional string description = 2;
+  optional string template = 3;
+  repeated PromptTag tags = 4;
+}
+
+message CreatePromptResponse {
+  required PromptInfo prompt = 1;
+}
+
+message UpdatePromptRequest {
+  required string name = 1;
+  optional string description = 2;
+  repeated PromptTag tags = 3;
+}
+
+message UpdatePromptResponse {
+  required PromptInfo prompt = 1;
+}
+
+message DeletePromptRequest {
+  required string name = 1;
+}
+
+message DeletePromptResponse {
+}
+
+message GetPromptRequest {
+  required string name = 1;
+}
+
+message GetPromptResponse {
+  required PromptInfo prompt = 1;
+}
+
+message SearchPromptsRequest {
+  optional string filter = 1;
+  optional int32 max_results = 2;
+  optional string page_token = 3;
+}
+
+message SearchPromptsResponse {
+  repeated PromptInfo prompts = 1;
+  optional string next_page_token = 2;
+}
+
+message CreatePromptVersionRequest {
+  required string name = 1;
+  required string template = 2;
+  optional string description = 3;
+  repeated PromptTag tags = 4;
+}
+
+message CreatePromptVersionResponse {
+  required PromptVersionInfo prompt_version = 1;
+}
+
+message UpdatePromptVersionRequest {
+  required string name = 1;
+  required string version = 2;
+  optional string description = 3;
+  repeated PromptTag tags = 4;
+}
+
+message UpdatePromptVersionResponse {
+  required PromptVersionInfo prompt_version = 1;
+}
+
+message DeletePromptVersionRequest {
+  required string name = 1;
+  required string version = 2;
+}
+
+message DeletePromptVersionResponse {
+}
+
+message GetPromptVersionRequest {
+  required string name = 1;
+  required string version = 2;
+}
+
+message GetPromptVersionResponse {
+  required PromptVersionInfo prompt_version = 1;
+}
+
+message SearchPromptVersionsRequest {
+  required string name = 1;
+  optional string filter = 2;
+  optional int32 max_results = 3;
+  optional string page_token = 4;
+}
+
+message SearchPromptVersionsResponse {
+  repeated PromptVersionInfo prompt_versions = 1;
+  optional string next_page_token = 2;
+}
+
+message SetPromptAliasRequest {
+  required string name = 1;
+  required string alias = 2;
+  required string version = 3;
+}
+
+message SetPromptAliasResponse {
+}
+
+message DeletePromptAliasRequest {
+  required string name = 1;
+  required string alias = 2;
+}
+
+message DeletePromptAliasResponse {
+}
+
+message GetPromptVersionByAliasRequest {
+  required string name = 1;
+  required string alias = 2;
+}
+
+message GetPromptVersionByAliasResponse {
+  required PromptVersionInfo prompt_version = 1;
+}
+
+message SetPromptTagRequest {
+  required string name = 1;
+  required string key = 2;
+  required string value = 3;
+}
+
+message SetPromptTagResponse {
+}
+
+message DeletePromptTagRequest {
+  required string name = 1;
+  required string key = 2;
+}
+
+message DeletePromptTagResponse {
+}
+
+message SetPromptVersionTagRequest {
+  required string name = 1;
+  required string version = 2;
+  required string key = 3;
+  required string value = 4;
+}
+
+message SetPromptVersionTagResponse {
+}
+
+message DeletePromptVersionTagRequest {
+  required string name = 1;
+  required string version = 2;
+  required string key = 3;
+}
+
+message DeletePromptVersionTagResponse {
+}

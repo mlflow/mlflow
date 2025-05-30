@@ -1,6 +1,7 @@
 {
   "mlflow.anthropic": "api_reference/python_api/mlflow.anthropic.html",
   "mlflow.artifacts": "api_reference/python_api/mlflow.artifacts.html",
+  "mlflow.ag2": "api_reference/python_api/mlflow.ag2.html",
   "mlflow.autogen": "api_reference/python_api/mlflow.autogen.html",
   "mlflow.bedrock": "api_reference/python_api/mlflow.bedrock.html",
   "mlflow.catboost": "api_reference/python_api/mlflow.catboost.html",

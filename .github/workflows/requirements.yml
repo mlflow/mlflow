@@ -24,6 +24,7 @@ env:
   MLFLOW_CONDA_HOME: /usr/share/miniconda
   SPARK_LOCAL_IP: localhost
   PYTHON_VERSION: "3.10" # minimum supported version + 1
+  PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
 
 defaults:
   run:
@@ -51,6 +52,7 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh --skinny
+      - uses: ./.github/actions/show-versions
       - name: Run tests
         run: |
           ./dev/run-python-skinny-tests.sh
@@ -82,6 +84,7 @@ jobs:
           pip install '.[gateway]'
           # transformers doesn't support Keras 3 yet. tf-keras needs to be installed as a workaround.
           pip install tf-keras
+      - uses: ./.github/actions/show-versions
       - name: Run tests
         run: |
           source dev/setup-ssh.sh

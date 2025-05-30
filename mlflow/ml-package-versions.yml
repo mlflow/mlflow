@@ -768,16 +768,13 @@ llama_index:
       "< 0.11.0": ["pydantic<2"]
     run: pytest tests/llama_index/test_llama_index_autolog.py tests/llama_index/test_llama_index_tracer.py
 
-autogen:
+ag2:
   package_info:
-    pip_release: "autogen-agentchat"
-    # TODO: Uncomment this once we support autogen 0.4
-    # install_dev: |
-    #  pip install git+https://github.com/microsoft/autogen#subdirectory=python/packages/autogen-agentchat
+    pip_release: "ag2"
+    module_name: "autogen"
   autologging:
-    minimum: "0.2.36"
-    maximum: "0.2.40"
-    unsupported: [">=0.4"]
+    minimum: "0.7.0"
+    maximum: "0.9.0"
     python:
       "== dev": "3.10"
     requirements:
@@ -785,6 +782,26 @@ autogen:
           # Required to run tests/openai/mock_openai.py
           "fastapi",
           "uvicorn",
+          "openai",
+          "numpy<2",
+        ]
+    run: pytest tests/ag2
+
+autogen:
+  package_info:
+    pip_release: "autogen-agentchat"
+    module_name: "autogen_agentchat"
+  autologging:
+    minimum: "0.4.9"
+    maximum: "0.5.7"
+    python:
+      "== dev": "3.10"
+    requirements:
+      ">= 0.0.0": [
+          # Required to run tests/openai/mock_openai.py
+          "fastapi",
+          "uvicorn",
+          "autogen_ext",
         ]
     run: pytest tests/autogen
 
