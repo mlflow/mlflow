@@ -5,7 +5,7 @@ import Logo from "@site/static/images/mlflow-logo-white.svg";
 import { FooterMenuItem } from "../FooterMenuItem/FooterMenuItem";
 
 const footerVariants = cva(
-  "pb-150 flex flex-col pt-37 bg-linear-to-b from-brand-black to-brand-black bg-bottom bg-no-repeat bg-cover w-full",
+  "pb-150 flex flex-col pt-37 bg-linear-to-b from-brand-black to-brand-black bg-bottom bg-no-repeat bg-cover w-full bg-(--background-color-dark)",
   {
     variants: {
       variant: {

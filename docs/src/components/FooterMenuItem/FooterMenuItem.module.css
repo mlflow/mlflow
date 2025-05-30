@@ -1,14 +1,14 @@
-a {
+.link {
   color: white;
   font-size: 15px;
   font-weight: 500;
   text-decoration: none;
 }
 
-a:hover {
+.link:hover {
   text-decoration: none;
 }
 
-a:visited {
+.link:visited {
   color: white;
 }

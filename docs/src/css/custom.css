@@ -15,9 +15,15 @@
 /* Import DM Sans for body text and DM Mono for code */
 @import url("https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap");
 
+:root[data-theme="light"] {
+  --background-color: var(--background-color-light);
+}
+
 /* Apply fonts */
 :root {
-  --background-color: rgb(14, 20, 22);
+  --background-color-light: white;
+  --background-color-dark: rgb(14, 20, 22);
+  --background-color: var(--background-color-dark);
   background-color: var(--background-color);
 
   /* Font family variables */
@@ -541,7 +547,7 @@ html[data-theme='dark'] .menu__link--active {
 
 .pagination-nav__link .pagination-nav__label {
   font-size: var(--font-size-h5);
-  color: white;
+  color: var(--ifm-color-emphasis-hover);
 }
 
 .pagination-nav__link--next {
