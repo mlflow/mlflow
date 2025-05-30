@@ -71,6 +71,7 @@ def register_model(
             Python environment, and then the complete environment will be packaged and included
             in the registered model artifacts. This is useful when deploying the model to a
             serving environment like Databricks Model Serving.
+
             .. Note:: Experimental: This parameter may change or be removed in a future
                                     release without warning.
 
