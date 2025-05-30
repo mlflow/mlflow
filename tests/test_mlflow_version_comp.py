@@ -30,8 +30,8 @@ def check(run_id: str, version: Literal["2", "3"], tmp_path: Path) -> None:
     # List artifacts
     run_id = model_uri.split("/")[-2]
     # TODO: Add support to list model artifacts in MLflow 3.x
+    client = mlflow.MlflowClient()
     if version == "2":
-        client = mlflow.MlflowClient()
         assert len(client.list_artifacts(run_id=run_id)) == 1
         assert len(client.list_artifacts(run_id=run_id, path="model")) == 6
         assert len(client.list_artifacts(run_id=run_id, path="model/MLmodel")) == 0
