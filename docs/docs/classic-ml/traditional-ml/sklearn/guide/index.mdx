@@ -1,4 +1,6 @@
 import { APILink } from "@site/src/components/APILink";
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
 
 # Scikit-learn with MLflow
 
@@ -6,7 +8,7 @@ In this comprehensive guide, we'll walk you through how to use scikit-learn with
 
 ## Quick Start with Autologging
 
-The fastest way to get started is with MLflow's scikit-learn autologging. Enable comprehensive experiment tracking with a single line:
+The fastest way to get started is with MLflow's scikit-learn autologging. With just a single line of code, you can automatically track parameters, metrics, and models from your scikit-learn experiments. This approach requires no changes to your existing training code and captures everything you need for reproducible ML workflows.
 
 ```python
 import mlflow
@@ -28,26 +30,23 @@ X_train, X_test, y_train, y_test = train_test_split(
 with mlflow.start_run():
     model = RandomForestClassifier(n_estimators=100, max_depth=3, random_state=42)
     model.fit(X_train, y_train)
-    
+
     # Evaluation metrics are automatically captured
     train_score = model.score(X_train, y_train)
     test_score = model.score(X_test, y_test)
-    
+
     print(f"Training accuracy: {train_score:.3f}")
     print(f"Test accuracy: {test_score:.3f}")
 ```
 
-This simple example automatically logs:
-- All model parameters (`n_estimators`, `max_depth`, `random_state`, etc.)
-- Training metrics (accuracy, precision, recall, F1-score for classification)
-- The trained model with proper serialization
-- Model signature for deployment
+This simple example automatically logs all model parameters, training metrics, the trained model with proper serialization, and model signatures for deployment—all without any additional code.
 
 ## Understanding Autologging Behavior
 
-### What Gets Automatically Logged
+<Tabs>
+  <TabItem value="what-logged" label="What Gets Logged" default>
 
-MLflow's scikit-learn autologging captures comprehensive information about your training process:
+MLflow's scikit-learn autologging captures comprehensive information about your training process automatically. Here's exactly what gets tracked every time you train a model:
 
 | **Category** | **Information Captured** |
 |--------------|--------------------------|
@@ -56,33 +55,35 @@ MLflow's scikit-learn autologging captures comprehensive information about your 
 | **Tags** | Estimator class name and fully qualified class name |
 | **Artifacts** | Serialized model, model signature, metric information |
 
-### Supported Estimators
+The autologging system is designed to be comprehensive yet non-intrusive. It captures everything you need for reproducibility without requiring changes to your existing scikit-learn code.
 
-Autologging works with all major scikit-learn estimators:
+  </TabItem>
+  <TabItem value="supported" label="Supported Estimators">
 
+Autologging works seamlessly with virtually all scikit-learn estimators and workflows. The integration is designed to handle both simple models and complex meta-estimators:
+
+**Core Estimators:**
 - **All estimators** from `sklearn.utils.all_estimators()`
 - **Pipeline** objects with preprocessing and modeling steps
 - **Meta-estimators** like `GridSearchCV` and `RandomizedSearchCV`
 - **Ensemble methods** including `RandomForestClassifier`, `GradientBoostingRegressor`
 
-<details>
-  <summary>Excluded Estimators</summary>
+**Special Handling:**
+- Meta-estimators automatically create child runs for parameter search results
+- Pipeline stages are logged with their individual parameters and transformations
+- Cross-validation results are captured and organized for easy comparison
 
-  Some preprocessing and feature manipulation estimators are excluded from autologging to avoid cluttering experiments:
-  
-  - `sklearn.preprocessing.*` (unless part of a Pipeline)
-  - `sklearn.impute.*` 
-  - `sklearn.feature_extraction.*`
-  - `sklearn.feature_selection.*`
-  - `sklearn.compose.ColumnTransformer`
+Most preprocessing estimators (like scalers and transformers) are excluded from individual logging to avoid clutter, but they're still tracked when used within Pipeline objects.
 
-  These estimators are still logged when used within Pipeline objects.
+  </TabItem>
+</Tabs>
 
-</details>
+## Logging Approaches
 
-## Manual Logging for Fine-Grained Control
+<Tabs>
+  <TabItem value="manual" label="Manual Logging" default>
 
-For complete control over what gets logged, you can manually instrument your scikit-learn code:
+For complete control over what gets logged, you can manually instrument your scikit-learn code. This approach is ideal when you need custom metrics, specific artifact logging, or want to organize experiments in a particular way:
 
 ```python
 import mlflow
@@ -95,117 +96,99 @@ from mlflow.models import infer_signature
 
 # Generate sample data
 X, y = make_classification(n_samples=1000, n_features=20, n_classes=2, random_state=42)
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
 
 # Manual logging approach
 with mlflow.start_run():
     # Define hyperparameters
-    params = {
-        "C": 1.0,
-        "max_iter": 1000,
-        "solver": "lbfgs",
-        "random_state": 42
-    }
-    
+    params = {"C": 1.0, "max_iter": 1000, "solver": "lbfgs", "random_state": 42}
+
     # Log parameters
     mlflow.log_params(params)
-    
+
     # Train model
     model = LogisticRegression(**params)
     model.fit(X_train, y_train)
-    
+
     # Make predictions
     y_pred = model.predict(X_test)
-    y_prob = model.predict_proba(X_test)
-    
+
     # Calculate and log metrics
     metrics = {
         "accuracy": accuracy_score(y_test, y_pred),
-        "precision": precision_score(y_test, y_pred, average='weighted'),
-        "recall": recall_score(y_test, y_pred, average='weighted'),
-        "f1_score": f1_score(y_test, y_pred, average='weighted')
+        "precision": precision_score(y_test, y_pred, average="weighted"),
+        "recall": recall_score(y_test, y_pred, average="weighted"),
+        "f1_score": f1_score(y_test, y_pred, average="weighted"),
     }
     mlflow.log_metrics(metrics)
-    
+
     # Infer model signature
     signature = infer_signature(X_train, model.predict(X_train))
-    
+
     # Log the model
     mlflow.sklearn.log_model(
         sk_model=model,
-        artifact_path="model",
+        name="model",
         signature=signature,
-        input_example=X_train[:5]  # Sample input for documentation
+        input_example=X_train[:5],  # Sample input for documentation
     )
 ```
 
-### Advanced Manual Logging Patterns
+  </TabItem>
+  <TabItem value="post-training" label="Post-Training Metrics">
 
-<details>
-  <summary>Best Practices for Manual Logging</summary>
+One of MLflow's most powerful features is automatic capture of evaluation metrics after model training. This means any metrics you compute after training are automatically linked to your MLflow run, providing seamless tracking of model evaluation:
 
-  #### Structured Experiment Organization
-  ```python
-  # Use nested runs for model comparison
-  with mlflow.start_run(run_name="Model Comparison Experiment"):
-      models = {
-          "logistic_regression": LogisticRegression(),
-          "random_forest": RandomForestClassifier(),
-          "svm": SVC(probability=True)
-      }
-      
-      for model_name, model in models.items():
-          with mlflow.start_run(run_name=model_name, nested=True):
-              model.fit(X_train, y_train)
-              
-              # Log model-specific parameters
-              mlflow.log_params(model.get_params())
-              
-              # Evaluate and log metrics
-              y_pred = model.predict(X_test)
-              mlflow.log_metrics({
-                  "accuracy": accuracy_score(y_test, y_pred),
-                  "model_type": model_name
-              })
-              
-              # Log the model
-              mlflow.sklearn.log_model(model, f"{model_name}_model")
-  ```
+```python
+import mlflow
+from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.datasets import load_breast_cancer
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, roc_auc_score
 
-  #### Custom Artifact Logging
-  ```python
-  import matplotlib.pyplot as plt
-  from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
-  
-  with mlflow.start_run():
-      # Train model
-      model.fit(X_train, y_train)
-      y_pred = model.predict(X_test)
-      
-      # Create and save confusion matrix
-      cm = confusion_matrix(y_test, y_pred)
-      disp = ConfusionMatrixDisplay(confusion_matrix=cm)
-      fig, ax = plt.subplots(figsize=(8, 6))
-      disp.plot(ax=ax)
-      plt.savefig("confusion_matrix.png")
-      mlflow.log_artifact("confusion_matrix.png")
-      
-      # Log feature importance for tree-based models
-      if hasattr(model, 'feature_importances_'):
-          feature_importance = dict(zip(
-              [f"feature_{i}" for i in range(len(model.feature_importances_))],
-              model.feature_importances_
-          ))
-          mlflow.log_metrics(feature_importance)
-  ```
+# Enable autologging with post-training metrics
+mlflow.sklearn.autolog(log_post_training_metrics=True)
 
-</details>
+# Load data
+cancer = load_breast_cancer()
+X_train, X_test, y_train, y_test = train_test_split(
+    cancer.data, cancer.target, test_size=0.2, random_state=42
+)
 
-## Hyperparameter Tuning with MLflow
+with mlflow.start_run():
+    # Train model
+    model = GradientBoostingClassifier(n_estimators=100, random_state=42)
+    model.fit(X_train, y_train)
 
-MLflow provides exceptional support for scikit-learn's hyperparameter optimization tools, automatically creating child runs for parameter search experiments.
+    # Make predictions - this links predictions to the MLflow run
+    y_pred = model.predict(X_test)
+    y_proba = model.predict_proba(X_test)[:, 1]
 
-### GridSearchCV Integration
+    # These metric calls are automatically logged to MLflow!
+    accuracy = accuracy_score(y_test, y_pred)
+    auc_score = roc_auc_score(y_test, y_proba)
+
+    # Model scoring is also automatically captured
+    train_score = model.score(X_train, y_train)
+    test_score = model.score(X_test, y_test)
+
+    print(f"Accuracy: {accuracy:.3f}")
+    print(f"AUC Score: {auc_score:.3f}")
+```
+
+The post-training metrics feature intelligently detects when you're evaluating models and automatically logs those metrics with appropriate dataset context, making it easy to track performance across different evaluation datasets.
+
+  </TabItem>
+</Tabs>
+
+## Hyperparameter Tuning
+
+<Tabs>
+  <TabItem value="gridsearch" label="GridSearchCV" default>
+
+MLflow provides exceptional support for scikit-learn's hyperparameter optimization tools, automatically creating organized child runs for parameter search experiments. This makes it easy to track and compare different parameter combinations:
 
 ```python
 import mlflow
@@ -225,26 +208,21 @@ X_train, X_test, y_train, y_test = train_test_split(
 
 # Define parameter grid
 param_grid = {
-    'n_estimators': [50, 100, 200],
-    'max_depth': [5, 10, 15, None],
-    'min_samples_split': [2, 5, 10],
-    'min_samples_leaf': [1, 2, 4]
+    "n_estimators": [50, 100, 200],
+    "max_depth": [5, 10, 15, None],
+    "min_samples_split": [2, 5, 10],
+    "min_samples_leaf": [1, 2, 4],
 }
 
 with mlflow.start_run(run_name="Random Forest Hyperparameter Tuning"):
     # Create and fit GridSearchCV
     rf = RandomForestClassifier(random_state=42)
     grid_search = GridSearchCV(
-        rf, 
-        param_grid, 
-        cv=5, 
-        scoring='accuracy',
-        n_jobs=-1,
-        verbose=1
+        rf, param_grid, cv=5, scoring="accuracy", n_jobs=-1, verbose=1
     )
-    
+
     grid_search.fit(X_train, y_train)
-    
+
     # Best model evaluation
     best_score = grid_search.score(X_test, y_test)
     print(f"Best parameters: {grid_search.best_params_}")
@@ -252,19 +230,24 @@ with mlflow.start_run(run_name="Random Forest Hyperparameter Tuning"):
     print(f"Test score: {best_score:.3f}")
 ```
 
-### RandomizedSearchCV for Efficient Exploration
+MLflow automatically creates a parent run containing the overall search results and child runs for each parameter combination, making it easy to analyze which parameters work best.
+
+  </TabItem>
+  <TabItem value="randomsearch" label="RandomizedSearchCV">
+
+For more efficient hyperparameter exploration, especially with large parameter spaces, RandomizedSearchCV provides a great alternative. MLflow handles this just as seamlessly as GridSearchCV:
 
 ```python
 from sklearn.model_selection import RandomizedSearchCV
 from scipy.stats import randint, uniform
 
-# Define parameter distributions
+# Define parameter distributions for more efficient exploration
 param_distributions = {
-    'n_estimators': randint(50, 300),
-    'max_depth': randint(5, 20),
-    'min_samples_split': randint(2, 20),
-    'min_samples_leaf': randint(1, 10),
-    'max_features': uniform(0.1, 0.9)
+    "n_estimators": randint(50, 300),
+    "max_depth": randint(5, 20),
+    "min_samples_split": randint(2, 20),
+    "min_samples_leaf": randint(1, 10),
+    "max_features": uniform(0.1, 0.9),
 }
 
 with mlflow.start_run(run_name="Randomized Hyperparameter Search"):
@@ -274,123 +257,392 @@ with mlflow.start_run(run_name="Randomized Hyperparameter Search"):
         param_distributions,
         n_iter=50,  # Try 50 random combinations
         cv=5,
-        scoring='accuracy',
+        scoring="accuracy",
         random_state=42,
-        n_jobs=-1
+        n_jobs=-1,
     )
-    
+
     random_search.fit(X_train, y_train)
-    
+
     # MLflow automatically creates child runs for parameter combinations
     # The parent run contains the best model and overall results
 ```
 
-<details>
-  <summary>Understanding Hyperparameter Tracking</summary>
+The `max_tuning_runs` parameter in autolog controls how many of the best parameter combinations get their own child runs, helping you focus on the most promising results.
 
-  #### What Gets Logged for Parameter Search
+  </TabItem>
+</Tabs>
 
-  **Parent Run:**
-  - Best parameters from the search
-  - Best cross-validation score
-  - The best estimator as a model artifact
-  - Complete CV results as a JSON artifact
+## Model Evaluation with MLflow
 
-  **Child Runs (configurable with `max_tuning_runs`):**
-  - Individual parameter combinations
-  - Cross-validation scores for each combination
-  - Model artifacts for top-performing combinations
+<Tabs>
+  <TabItem value="mlflow-evaluate" label="MLflow Evaluate API" default>
 
-  #### Controlling Child Run Creation
-  ```python
-  # Control the number of child runs created
-  mlflow.sklearn.autolog(
-      max_tuning_runs=5,  # Only track top 5 parameter combinations
-      # max_tuning_runs=None,  # Track all combinations (can be expensive)
-      # max_tuning_runs=0,     # No child runs, only parent run
-  )
-  ```
-
-</details>
-
-## Post-Training Metrics Autologging
-
-One of MLflow's most powerful features is automatic capture of evaluation metrics after model training:
+MLflow provides a comprehensive evaluation API that automatically generates metrics, visualizations, and diagnostic tools for scikit-learn models:
 
 ```python
 import mlflow
-from sklearn.ensemble import GradientBoostingClassifier
-from sklearn.datasets import load_breast_cancer
+import pandas as pd
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.datasets import load_wine
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import accuracy_score, roc_auc_score, classification_report
+from mlflow.models import infer_signature
 
-# Enable autologging with post-training metrics
-mlflow.sklearn.autolog(log_post_training_metrics=True)
-
-# Load data
-cancer = load_breast_cancer()
+# Load data and train model
+wine = load_wine()
 X_train, X_test, y_train, y_test = train_test_split(
-    cancer.data, cancer.target, test_size=0.2, random_state=42
+    wine.data, wine.target, test_size=0.2, random_state=42
 )
 
+model = RandomForestClassifier(n_estimators=100, random_state=42)
+model.fit(X_train, y_train)
+
+# Create evaluation dataset
+eval_data = X_test.copy()
+eval_data = pd.DataFrame(eval_data, columns=wine.feature_names)
+eval_data["label"] = y_test
+
 with mlflow.start_run():
-    # Train model
-    model = GradientBoostingClassifier(n_estimators=100, random_state=42)
-    model.fit(X_train, y_train)
-    
-    # Make predictions - this links predictions to the MLflow run
-    y_pred = model.predict(X_test)
-    y_proba = model.predict_proba(X_test)[:, 1]
-    
-    # These metric calls are automatically logged to MLflow!
-    accuracy = accuracy_score(y_test, y_pred)
-    auc_score = roc_auc_score(y_test, y_proba)
-    
-    # Model scoring is also automatically captured
-    train_score = model.score(X_train, y_train)
-    test_score = model.score(X_test, y_test)
-    
-    print(f"Accuracy: {accuracy:.3f}")
-    print(f"AUC Score: {auc_score:.3f}")
+    # Log model with signature
+    signature = infer_signature(X_test, model.predict(X_test))
+    mlflow.sklearn.log_model(model, name="model", signature=signature)
+    model_uri = mlflow.get_artifact_uri("model")
+
+    # Comprehensive evaluation with MLflow
+    result = mlflow.evaluate(
+        model_uri,
+        eval_data,
+        targets="label",
+        model_type="classifier",  # or "regressor" for regression
+        evaluators=["default"],
+    )
+
+    # Access automatic metrics
+    print(f"Accuracy: {result.metrics['accuracy_score']:.3f}")
+    print(f"F1 Score: {result.metrics['f1_score']:.3f}")
+    print(f"ROC AUC: {result.metrics['roc_auc']:.3f}")
+
+    # Access generated artifacts
+    print("Generated artifacts:")
+    for artifact_name, path in result.artifacts.items():
+        print(f"  {artifact_name}: {path}")
 ```
 
-### How Post-Training Metrics Work
+**Automatic Generation Includes:**
 
-<details>
-  <summary>Understanding Automatic Metric Capture</summary>
+**Performance Metrics** such as accuracy, precision, recall, F1-score, ROC-AUC for classification. **Visualizations** including confusion matrix, ROC curve, precision-recall curve. **Feature Importance** with SHAP values and feature contribution analysis. **Model Artifacts** where all plots and diagnostic information are saved to MLflow.
 
-  #### Supported Metric Sources
-  - **sklearn.metrics functions**: All functions in the sklearn.metrics module
-  - **Model.score() methods**: Automatic capture of model scoring calls
-  - **Custom scorers**: Integration with sklearn's scorer system
+  </TabItem>
+  <TabItem value="regression-evaluation" label="Regression Evaluation">
 
-  #### Intelligent Dataset Naming
-  MLflow automatically detects dataset variable names:
-  ```python
-  # MLflow captures variable names for metric organization
-  validation_data = X_test
-  holdout_set = X_holdout
-  
-  # Metrics are logged with dataset context
-  val_accuracy = accuracy_score(y_test, model.predict(validation_data))
-  # Logged as: "accuracy_score_validation_data"
-  
-  holdout_accuracy = accuracy_score(y_holdout, model.predict(holdout_set))
-  # Logged as: "accuracy_score_holdout_set"
-  ```
+For scikit-learn regression models, MLflow automatically provides regression-specific metrics:
 
-  #### Metric Key Format
-  Metrics are logged with the format: `{metric_name}[-{call_index}]_{dataset_name}`
-  - Multiple calls to the same metric get indexed (e.g., `accuracy_score-2_test_data`)
-  - Dataset names are inferred from variable names in the calling scope
+```python
+from sklearn.datasets import fetch_california_housing
+from sklearn.linear_model import LinearRegression
 
-</details>
+# Load regression dataset
+housing = fetch_california_housing(as_frame=True)
+X_train, X_test, y_train, y_test = train_test_split(
+    housing.data, housing.target, test_size=0.2, random_state=42
+)
 
-## Model Serialization and Deployment
+# Train regression model
+reg_model = LinearRegression()
+reg_model.fit(X_train, y_train)
 
-MLflow supports multiple serialization formats for scikit-learn models, each with different trade-offs:
+# Create evaluation dataset
+eval_data = X_test.copy()
+eval_data["target"] = y_test
 
-### Serialization Formats
+with mlflow.start_run():
+    # Log and evaluate regression model
+    signature = infer_signature(X_train, reg_model.predict(X_train))
+    mlflow.sklearn.log_model(reg_model, name="model", signature=signature)
+    model_uri = mlflow.get_artifact_uri("model")
+
+    result = mlflow.evaluate(
+        model_uri,
+        eval_data,
+        targets="target",
+        model_type="regressor",
+        evaluators=["default"],
+    )
+
+    print(f"MAE: {result.metrics['mean_absolute_error']:.3f}")
+    print(f"RMSE: {result.metrics['root_mean_squared_error']:.3f}")
+    print(f"R² Score: {result.metrics['r2_score']:.3f}")
+```
+
+**Automatic Regression Metrics:**
+
+Mean Absolute Error (MAE), Mean Squared Error (MSE), and Root MSE provide error magnitude assessment. R² Score and Adjusted R² measure model fit quality. Mean Absolute Percentage Error (MAPE) shows relative error rates. Residual plots and distribution analysis help identify model assumptions violations.
+
+  </TabItem>
+  <TabItem value="custom-evaluation" label="Custom Metrics & Artifacts">
+
+Extend MLflow evaluation with custom metrics and visualizations specific to your scikit-learn models:
+
+```python
+from mlflow.models import make_metric
+import matplotlib.pyplot as plt
+import numpy as np
+import os
+
+
+def business_value_metric(predictions, targets, sample_weights=None):
+    """Custom business metric: value from correct predictions."""
+    # Assume $50 value per correct prediction, $20 cost per error
+    correct_predictions = (predictions == targets).sum()
+    incorrect_predictions = len(predictions) - correct_predictions
+
+    business_value = (correct_predictions * 50) - (incorrect_predictions * 20)
+    return business_value
+
+
+def create_feature_distribution_plot(eval_df, builtin_metrics, artifacts_dir):
+    """Create feature distribution plots for model analysis."""
+
+    # Select numeric features for distribution analysis
+    numeric_features = eval_df.select_dtypes(include=[np.number]).columns
+    numeric_features = [
+        col for col in numeric_features if col not in ["label", "prediction"]
+    ]
+
+    if len(numeric_features) > 0:
+        # Create subplot for feature distributions
+        n_features = min(6, len(numeric_features))  # Show up to 6 features
+        fig, axes = plt.subplots(2, 3, figsize=(15, 10))
+        axes = axes.flatten()
+
+        for i, feature in enumerate(numeric_features[:n_features]):
+            axes[i].hist(eval_df[feature], bins=30, alpha=0.7, edgecolor="black")
+            axes[i].set_title(f"Distribution of {feature}")
+            axes[i].set_xlabel(feature)
+            axes[i].set_ylabel("Frequency")
+
+        # Hide unused subplots
+        for i in range(n_features, len(axes)):
+            axes[i].set_visible(False)
+
+        plt.tight_layout()
+
+        plot_path = os.path.join(artifacts_dir, "feature_distributions.png")
+        plt.savefig(plot_path)
+        plt.close()
+
+        return {"feature_distributions": plot_path}
+
+    return {}
+
+
+# Create custom metric
+custom_business_value = make_metric(
+    eval_fn=business_value_metric, greater_is_better=True, name="business_value_score"
+)
+
+# Use custom metrics and artifacts
+result = mlflow.evaluate(
+    model_uri,
+    eval_data,
+    targets="label",
+    model_type="classifier",
+    extra_metrics=[custom_business_value],
+    custom_artifacts=[create_feature_distribution_plot],
+)
+
+print(f"Business Value Score: ${result.metrics['business_value_score']:.2f}")
+```
+
+  </TabItem>
+</Tabs>
+
+## Model Comparison and Selection
+
+<Tabs>
+  <TabItem value="model-comparison" label="MLflow Model Comparison" default>
+
+Use MLflow evaluate to systematically compare multiple scikit-learn models:
+
+```python
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.svm import SVC
+
+# Define models to compare
+sklearn_models = {
+    "random_forest": RandomForestClassifier(n_estimators=100, random_state=42),
+    "gradient_boosting": GradientBoostingClassifier(n_estimators=100, random_state=42),
+    "logistic_regression": LogisticRegression(random_state=42, max_iter=1000),
+    "svm": SVC(probability=True, random_state=42),
+}
+
+# Evaluate each model systematically
+comparison_results = {}
+
+for model_name, model in sklearn_models.items():
+    with mlflow.start_run(run_name=f"eval_{model_name}"):
+        # Train model
+        model.fit(X_train, y_train)
+
+        # Log model
+        signature = infer_signature(X_train, model.predict(X_train))
+        mlflow.sklearn.log_model(model, name="model", signature=signature)
+        model_uri = mlflow.get_artifact_uri("model")
+
+        # Comprehensive evaluation with MLflow
+        result = mlflow.evaluate(
+            model_uri,
+            eval_data,
+            targets="label",
+            model_type="classifier",
+            evaluators=["default"],
+        )
+
+        comparison_results[model_name] = result.metrics
+
+        # Log key metrics for comparison
+        mlflow.log_metrics(
+            {
+                "accuracy": result.metrics["accuracy_score"],
+                "f1": result.metrics["f1_score"],
+                "roc_auc": result.metrics["roc_auc"],
+                "precision": result.metrics["precision_score"],
+                "recall": result.metrics["recall_score"],
+            }
+        )
+
+# Create comparison summary
+import pandas as pd
+
+comparison_df = pd.DataFrame(comparison_results).T
+print("Model Comparison Summary:")
+print(comparison_df[["accuracy_score", "f1_score", "roc_auc"]].round(3))
+
+# Identify best model
+best_model = comparison_df["f1_score"].idxmax()
+print(f"\nBest model by F1 score: {best_model}")
+```
+
+  </TabItem>
+  <TabItem value="hyperparameter-eval" label="Hyperparameter Evaluation">
+
+Combine hyperparameter tuning with MLflow evaluation for comprehensive assessment:
+
+```python
+from sklearn.model_selection import ParameterGrid
+
+# Define parameter grid for Random Forest
+param_grid = {
+    "n_estimators": [50, 100, 200],
+    "max_depth": [5, 10, None],
+    "min_samples_split": [2, 5, 10],
+    "min_samples_leaf": [1, 2, 4],
+}
+
+# Evaluate each parameter combination
+grid_results = []
+
+for params in ParameterGrid(param_grid):
+    with mlflow.start_run(run_name=f"rf_grid_search"):
+        # Log parameters
+        mlflow.log_params(params)
+
+        # Train model with current parameters
+        model = RandomForestClassifier(**params, random_state=42)
+        model.fit(X_train, y_train)
+
+        # Log and evaluate
+        signature = infer_signature(X_train, model.predict(X_train))
+        mlflow.sklearn.log_model(model, name="model", signature=signature)
+        model_uri = mlflow.get_artifact_uri("model")
+
+        # MLflow evaluation
+        result = mlflow.evaluate(
+            model_uri,
+            eval_data,
+            targets="label",
+            model_type="classifier",
+            evaluators=["default"],
+        )
+
+        # Track results
+        grid_results.append(
+            {
+                **params,
+                "f1_score": result.metrics["f1_score"],
+                "roc_auc": result.metrics["roc_auc"],
+                "accuracy": result.metrics["accuracy_score"],
+            }
+        )
+
+        # Log selection metric
+        mlflow.log_metric("grid_search_score", result.metrics["f1_score"])
+
+# Find best parameters
+best_result = max(grid_results, key=lambda x: x["f1_score"])
+print(f"Best parameters: {best_result}")
+```
+
+  </TabItem>
+</Tabs>
+
+## Model Validation and Quality Gates
+
+Use MLflow's validation API to ensure scikit-learn model quality:
+
+```python
+from mlflow.models import MetricThreshold
+
+# First, evaluate your scikit-learn model
+result = mlflow.evaluate(model_uri, eval_data, targets="label", model_type="classifier")
+
+# Define quality thresholds for classification models
+quality_thresholds = {
+    "accuracy_score": MetricThreshold(threshold=0.85, greater_is_better=True),
+    "f1_score": MetricThreshold(threshold=0.80, greater_is_better=True),
+    "roc_auc": MetricThreshold(threshold=0.75, greater_is_better=True),
+}
+
+# Validate model meets quality standards
+try:
+    mlflow.validate_evaluation_results(
+        candidate_result=result,
+        validation_thresholds=quality_thresholds,
+    )
+    print("✅ Scikit-learn model meets all quality thresholds")
+except mlflow.exceptions.ModelValidationFailedException as e:
+    print(f"❌ Model failed validation: {e}")
+
+# Compare against baseline model (e.g., previous model version)
+baseline_result = mlflow.evaluate(
+    baseline_model_uri, eval_data, targets="label", model_type="classifier"
+)
+
+# Validate improvement over baseline
+improvement_thresholds = {
+    "f1_score": MetricThreshold(
+        threshold=0.02, greater_is_better=True  # Must be 2% better
+    ),
+}
+
+try:
+    mlflow.validate_evaluation_results(
+        candidate_result=result,
+        baseline_result=baseline_result,
+        validation_thresholds=improvement_thresholds,
+    )
+    print("✅ New model improves over baseline")
+except mlflow.exceptions.ModelValidationFailedException as e:
+    print(f"❌ Model doesn't improve sufficiently: {e}")
+```
+
+## Model Management
+
+<Tabs>
+  <TabItem value="serialization" label="Serialization & Formats" default>
+
+MLflow supports multiple serialization formats for scikit-learn models, each optimized for different deployment scenarios. Understanding these options helps you choose the right approach for your production needs:
 
 ```python
 import mlflow.sklearn
@@ -402,41 +654,49 @@ model.fit(X_train, y_train)
 # Cloudpickle format (default) - better cross-system compatibility
 mlflow.sklearn.log_model(
     sk_model=model,
-    artifact_path="cloudpickle_model",
-    serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE
+    name="cloudpickle_model",
+    serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE,
 )
 
 # Pickle format - faster but less portable
 mlflow.sklearn.log_model(
     sk_model=model,
-    artifact_path="pickle_model",
-    serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE
+    name="pickle_model",
+    serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE,
 )
 ```
 
-### Model Signatures for Production
+**Cloudpickle** is the default format because it provides better cross-system compatibility by identifying and packaging code dependencies with the serialized model. **Pickle** is faster but less portable across different environments.
 
-Model signatures describe input and output schemas, crucial for production deployment:
+  </TabItem>
+  <TabItem value="signatures" label="Model Signatures">
+
+Model signatures describe input and output schemas, providing crucial validation for production deployment. They help catch data compatibility issues early and ensure your models receive the correct input format:
 
 ```python
 from mlflow.models import infer_signature
 import pandas as pd
 
-# Create model signature
+# Create model signature automatically
 X_sample = X_train[:100]
 predictions = model.predict(X_sample)
 signature = infer_signature(X_sample, predictions)
 
-# Log model with signature
+# Log model with signature for production safety
 mlflow.sklearn.log_model(
     sk_model=model,
-    artifact_path="model_with_signature",
+    name="model_with_signature",
     signature=signature,
-    input_example=X_sample[:5]  # Include example for documentation
+    input_example=X_sample[:5],  # Include example for documentation
 )
 ```
 
-### Loading and Using Models
+Model signatures are automatically inferred when autologging is enabled, but you can also create them manually for more control over the schema validation process.
+
+  </TabItem>
+  <TabItem value="loading" label="Loading & Usage">
+
+MLflow provides flexible ways to load and use your saved models, depending on your deployment needs. You can load models as native scikit-learn objects or as generic Python functions:
 
 ```python
 # Load model in different ways
@@ -453,46 +713,21 @@ predictions = sklearn_model.predict(X_test)
 pyfunc_model = mlflow.pyfunc.load_model(f"runs:/{run_id}/model")
 predictions = pyfunc_model.predict(pd.DataFrame(X_test))
 
-# Load from model registry
-registered_model = mlflow.pyfunc.load_model("models:/MyModel/Production")
+# Load from model registry (production deployment)
+registered_model = mlflow.pyfunc.load_model("models:/MyModel@champion")
 ```
 
-<details>
-  <summary>Advanced Model Loading Patterns</summary>
+The PyFunc format is particularly useful for deployment scenarios where you need a consistent interface across different model types and frameworks.
 
-  #### Custom Prediction Functions
-  ```python
-  # Log model with custom predict function
-  mlflow.sklearn.log_model(
-      sk_model=model,
-      artifact_path="custom_predict_model",
-      pyfunc_predict_fn="predict_proba"  # Use predict_proba instead of predict
-  )
-  
-  # Supported custom functions: predict_proba, predict_log_proba, score
-  ```
+  </TabItem>
+</Tabs>
 
-  #### Batch Prediction Patterns
-  ```python
-  # Efficient batch prediction
-  def batch_predict(model, data, batch_size=1000):
-      predictions = []
-      for i in range(0, len(data), batch_size):
-          batch = data[i:i+batch_size]
-          batch_preds = model.predict(batch)
-          predictions.extend(batch_preds)
-      return np.array(predictions)
-  
-  # Load and use for batch processing
-  model = mlflow.sklearn.load_model(model_uri)
-  large_dataset_predictions = batch_predict(model, large_dataset)
-  ```
+## Production Deployment
 
-</details>
+<Tabs>
+  <TabItem value="registry" label="Model Registry" default>
 
-## Production Deployment Patterns
-
-### Model Registry Integration
+The Model Registry provides centralized model management with version control and alias-based deployment. This is essential for managing models from development through production deployment:
 
 ```python
 # Register model to MLflow Model Registry
@@ -505,9 +740,9 @@ client = MlflowClient()
 with mlflow.start_run():
     mlflow.sklearn.log_model(
         sk_model=model,
-        artifact_path="model",
+        name="model",
         registered_model_name="CustomerChurnModel",
-        signature=signature
+        signature=signature,
     )
 
 # Or register an existing model
@@ -515,134 +750,100 @@ run_id = "your_run_id"
 model_uri = f"runs:/{run_id}/model"
 
 # Register the model
-registered_model = mlflow.register_model(
-    model_uri=model_uri,
-    name="CustomerChurnModel"
+registered_model = mlflow.register_model(model_uri=model_uri, name="CustomerChurnModel")
+
+# Use aliases instead of deprecated stages for deployment management
+# Set aliases for different deployment environments
+client.set_registered_model_alias(
+    name="CustomerChurnModel",
+    alias="champion",  # Production model
+    version=registered_model.version,
 )
 
-# Transition model through stages
-client.transition_model_version_stage(
+client.set_registered_model_alias(
+    name="CustomerChurnModel",
+    alias="challenger",  # A/B testing model
+    version=registered_model.version,
+)
+
+# Use tags to track model status and metadata
+client.set_model_version_tag(
     name="CustomerChurnModel",
     version=registered_model.version,
-    stage="Staging"
+    key="validation_status",
+    value="approved",
+)
+
+client.set_model_version_tag(
+    name="CustomerChurnModel",
+    version=registered_model.version,
+    key="deployment_date",
+    value="2025-05-29",
 )
 ```
 
-### Serving Models with MLflow
+**Modern Model Registry Features:**
 
-<details>
-  <summary>Model Serving Options</summary>
+**Model Aliases** replace deprecated stages with flexible, named references. You can assign multiple aliases to any model version (e.g., `champion`, `challenger`, `shadow`), update aliases independently of model training for seamless deployments, and use them for A/B testing and gradual rollouts.
 
-  #### Local Model Serving
-  ```bash
-  # Serve model locally for testing
-  mlflow models serve \
-      -m "models:/CustomerChurnModel/Production" \
-      -p 5000 \
-      --no-conda
-  ```
+**Model Tags** provide rich metadata and status tracking. Track validation status with `validation_status: approved`, mark deployment readiness with `ready_for_prod: true`, and add team ownership with `team: data-science`.
 
-  #### REST API Deployment
-  ```python
-  # Deploy to cloud platforms
-  import mlflow.deployments
-  
-  # Deploy to SageMaker
-  mlflow.deployments.create_deployment(
-      name="customer-churn-model",
-      model_uri="models:/CustomerChurnModel/Production",
-      target_uri="sagemaker",
-      config={
-          "instance_type": "ml.m5.large",
-          "instance_count": 1,
-      }
-  )
-  ```
-
-  #### Batch Inference
-  ```python
-  # Load production model for batch processing
-  production_model = mlflow.pyfunc.load_model(
-      "models:/CustomerChurnModel/Production"
-  )
-  
-  # Process new data
-  new_customer_data = pd.read_csv("new_customers.csv")
-  churn_predictions = production_model.predict(new_customer_data)
-  
-  # Save results with metadata
-  results_df = new_customer_data.copy()
-  results_df['churn_probability'] = churn_predictions
-  results_df['prediction_timestamp'] = pd.Timestamp.now()
-  results_df.to_csv("churn_predictions.csv", index=False)
-  ```
-
-</details>
-
-## Advanced Configuration Options
-
-### Customizing Autologging Behavior
+**Environment-based Models** support mature MLOps workflows. Create separate registered models per environment: `dev.CustomerChurnModel`, `staging.CustomerChurnModel`, `prod.CustomerChurnModel`, and use <APILink fn="mlflow.client.MlflowClient.copy_model_version">`copy_model_version()`</APILink> to promote models across environments.
 
 ```python
-# Fine-tune autologging behavior
-mlflow.sklearn.autolog(
-    log_input_examples=True,        # Include input examples in logged models
-    log_model_signatures=True,      # Include model signatures
-    log_models=True,               # Log trained models
-    log_datasets=True,             # Log dataset information
-    max_tuning_runs=10,            # Limit hyperparameter search child runs
-    log_post_training_metrics=True, # Enable post-training metric capture
-    serialization_format="cloudpickle",  # Choose serialization format
-    registered_model_name="AutoModel",   # Auto-register models
-    pos_label=1,                   # Specify positive label for binary classification
-    extra_tags={"team": "data-science", "project": "customer-churn"}
+# Promote model from staging to production environment
+client.copy_model_version(
+    src_model_uri="models:/staging.CustomerChurnModel@candidate",
+    dst_name="prod.CustomerChurnModel",
 )
 ```
 
-### Environment and Dependency Management
+  </TabItem>
+  <TabItem value="serving" label="Model Serving">
 
-<details>
-  <summary>Managing Model Dependencies</summary>
+MLflow provides built-in model serving capabilities that make it easy to deploy your scikit-learn models as REST APIs. This is perfect for development, testing, and small-scale production deployments:
 
-  #### Custom Environment Configuration
-  ```python
-  import mlflow.sklearn
-  
-  # Custom conda environment
-  conda_env = {
-      "channels": ["conda-forge"],
-      "dependencies": [
-          "python=3.9",
-          "scikit-learn=1.3.0",
-          "pandas=2.0.0",
-          {"pip": ["custom-package==1.0.0"]}
-      ]
-  }
-  
-  # Log model with custom environment
-  mlflow.sklearn.log_model(
-      sk_model=model,
-      artifact_path="model_custom_env",
-      conda_env=conda_env,
-      pip_requirements=["additional-package==2.0.0"]
-  )
-  ```
+```bash
+# Serve model using alias for production deployment
+mlflow models serve \
+    -m "models:/CustomerChurnModel@champion" \
+    -p 5000 \
+    --no-conda
+```
 
-  #### Code Packaging
-  ```python
-  # Include custom code with model
-  mlflow.sklearn.log_model(
-      sk_model=model,
-      artifact_path="model_with_code",
-      code_paths=["src/preprocessing.py", "src/feature_engineering.py"]
-  )
-  ```
+**Deployment Best Practices:**
 
-</details>
+**Use aliases for production serving** by pointing to `@champion` or `@production` aliases instead of hard-coding version numbers. Implement **blue-green deployments** by updating aliases to switch traffic between model versions instantly. Ensure **model signatures** provide automatic input validation at serving time. Configure **environment variables** for serving endpoints with necessary authentication and configuration.
 
-## Pipeline Integration
+Once your model is served, you can make predictions by sending POST requests to the endpoint:
 
-Scikit-learn pipelines are first-class citizens in MLflow, providing end-to-end workflow tracking:
+```python
+import requests
+import json
+
+# Example prediction request
+data = {"inputs": [[1.2, 0.8, 3.4, 2.1]]}  # Feature values
+
+response = requests.post(
+    "http://localhost:5000/invocations",
+    headers={"Content-Type": "application/json"},
+    data=json.dumps(data),
+)
+
+predictions = response.json()
+```
+
+For larger production deployments, you can also deploy MLflow models to cloud platforms like AWS SageMaker, Azure ML, or deploy them as Docker containers for Kubernetes orchestration.
+
+  </TabItem>
+</Tabs>
+
+## Advanced Features
+
+<Tabs>
+  <TabItem value="pipelines" label="Pipeline Integration" default>
+
+Scikit-learn pipelines are first-class citizens in MLflow, providing end-to-end workflow tracking from data preprocessing through model training. This ensures reproducibility of your entire ML workflow:
 
 ```python
 import mlflow
@@ -652,321 +853,75 @@ from sklearn.feature_selection import SelectKBest, f_regression
 from sklearn.linear_model import LinearRegression
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import OneHotEncoder
-import pandas as pd
 
 # Enable autologging for pipelines
 mlflow.sklearn.autolog()
 
 # Create a complex preprocessing and modeling pipeline
-numeric_features = ['age', 'income', 'credit_score']
-categorical_features = ['occupation', 'location']
+numeric_features = ["age", "income", "credit_score"]
+categorical_features = ["occupation", "location"]
 
 # Preprocessing pipeline
-numeric_transformer = Pipeline(steps=[
-    ('scaler', StandardScaler()),
-    ('selector', SelectKBest(f_regression, k=2))
-])
+numeric_transformer = Pipeline(
+    steps=[("scaler", StandardScaler()), ("selector", SelectKBest(f_regression, k=2))]
+)
 
-categorical_transformer = Pipeline(steps=[
-    ('encoder', OneHotEncoder(drop='first', sparse_output=False))
-])
+categorical_transformer = Pipeline(
+    steps=[("encoder", OneHotEncoder(drop="first", sparse_output=False))]
+)
 
 # Combine preprocessing steps
 preprocessor = ColumnTransformer(
     transformers=[
-        ('num', numeric_transformer, numeric_features),
-        ('cat', categorical_transformer, categorical_features)
+        ("num", numeric_transformer, numeric_features),
+        ("cat", categorical_transformer, categorical_features),
     ]
 )
 
 # Complete pipeline with model
-pipeline = Pipeline(steps=[
-    ('preprocessor', preprocessor),
-    ('regressor', LinearRegression())
-])
+pipeline = Pipeline(
+    steps=[("preprocessor", preprocessor), ("regressor", LinearRegression())]
+)
 
 # Train pipeline - all steps are automatically logged
 with mlflow.start_run(run_name="Complete Pipeline Experiment"):
     pipeline.fit(X_train, y_train)
-    
+
     # Pipeline scoring is automatically captured
     train_score = pipeline.score(X_train, y_train)
     test_score = pipeline.score(X_test, y_test)
-    
+
     print(f"Pipeline R² score: {test_score:.3f}")
 ```
 
-### Advanced Pipeline Patterns
+MLflow automatically logs parameters from each pipeline stage, making it easy to understand exactly how your data was processed and which model parameters were used.
 
-<details>
-  <summary>Custom Pipeline Components</summary>
+  </TabItem>
+  <TabItem value="configuration" label="Autolog Configuration">
 
-  #### Custom Transformer Integration
-  ```python
-  from sklearn.base import BaseEstimator, TransformerMixin
-  
-  class CustomFeatureEngineer(BaseEstimator, TransformerMixin):
-      def __init__(self, feature_combinations=True):
-          self.feature_combinations = feature_combinations
-          
-      def fit(self, X, y=None):
-          return self
-          
-      def transform(self, X):
-          X_transformed = X.copy()
-          if self.feature_combinations:
-              # Create interaction features
-              X_transformed['age_income'] = X['age'] * X['income']
-              X_transformed['credit_per_age'] = X['credit_score'] / (X['age'] + 1)
-          return X_transformed
-  
-  # Use in pipeline
-  custom_pipeline = Pipeline([
-      ('custom_features', CustomFeatureEngineer(feature_combinations=True)),
-      ('scaler', StandardScaler()),
-      ('model', LinearRegression())
-  ])
-  
-  # MLflow automatically logs all pipeline parameters
-  with mlflow.start_run():
-      custom_pipeline.fit(X_train, y_train)
-  ```
-
-  #### Pipeline with Cross-Validation
-  ```python
-  from sklearn.model_selection import cross_val_score
-  
-  # Pipeline cross-validation with automatic logging
-  with mlflow.start_run(run_name="Pipeline Cross-Validation"):
-      # Cross-validation scores are automatically logged
-      cv_scores = cross_val_score(pipeline, X_train, y_train, cv=5, scoring='r2')
-      
-      # Fit final model
-      pipeline.fit(X_train, y_train)
-      
-      # Log additional metrics
-      mlflow.log_metrics({
-          "cv_mean_score": cv_scores.mean(),
-          "cv_std_score": cv_scores.std(),
-          "cv_scores": cv_scores.tolist()
-      })
-  ```
-
-</details>
-
-## Monitoring and Model Evaluation
-
-### Comprehensive Model Evaluation
+MLflow's autologging behavior can be customized to fit your specific workflow needs. Here are the key configuration options that control what gets logged and how:
 
 ```python
-import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.metrics import (
-    classification_report, confusion_matrix, roc_curve, auc,
-    precision_recall_curve, average_precision_score
+# Fine-tune autologging behavior
+mlflow.sklearn.autolog(
+    log_input_examples=True,  # Include input examples in logged models
+    log_model_signatures=True,  # Include model signatures
+    log_models=True,  # Log trained models
+    log_datasets=True,  # Log dataset information
+    max_tuning_runs=10,  # Limit hyperparameter search child runs
+    log_post_training_metrics=True,  # Enable post-training metric capture
+    serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_CLOUDPICKLE,
+    pos_label=1,  # Specify positive label for binary classification
+    extra_tags={"team": "data-science", "project": "customer-churn"},
 )
-import seaborn as sns
-
-def comprehensive_model_evaluation(model, X_test, y_test, class_names=None):
-    """Comprehensive evaluation with automatic MLflow logging."""
-    
-    with mlflow.start_run(run_name="Model Evaluation"):
-        # Predictions
-        y_pred = model.predict(X_test)
-        y_proba = model.predict_proba(X_test) if hasattr(model, 'predict_proba') else None
-        
-        # Basic metrics (automatically logged by post-training metrics)
-        from sklearn.metrics import accuracy_score, precision_score, recall_score
-        accuracy = accuracy_score(y_test, y_pred)
-        precision = precision_score(y_test, y_pred, average='weighted')
-        recall = recall_score(y_test, y_pred, average='weighted')
-        
-        # Classification report
-        report = classification_report(y_test, y_pred, target_names=class_names, output_dict=True)
-        
-        # Log per-class metrics
-        if class_names:
-            for class_name in class_names:
-                if class_name in report:
-                    mlflow.log_metrics({
-                        f"{class_name}_precision": report[class_name]['precision'],
-                        f"{class_name}_recall": report[class_name]['recall'],
-                        f"{class_name}_f1": report[class_name]['f1-score']
-                    })
-        
-        # Confusion matrix
-        cm = confusion_matrix(y_test, y_pred)
-        plt.figure(figsize=(8, 6))
-        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
-                    xticklabels=class_names, yticklabels=class_names)
-        plt.title('Confusion Matrix')
-        plt.ylabel('True Label')
-        plt.xlabel('Predicted Label')
-        plt.tight_layout()
-        plt.savefig('confusion_matrix.png', dpi=300, bbox_inches='tight')
-        mlflow.log_artifact('confusion_matrix.png')
-        plt.close()
-        
-        # ROC curve for binary classification
-        if y_proba is not None and len(np.unique(y_test)) == 2:
-            fpr, tpr, _ = roc_curve(y_test, y_proba[:, 1])
-            roc_auc = auc(fpr, tpr)
-            
-            plt.figure(figsize=(8, 6))
-            plt.plot(fpr, tpr, label=f'ROC Curve (AUC = {roc_auc:.3f})')
-            plt.plot([0, 1], [0, 1], 'k--', label='Random Classifier')
-            plt.xlabel('False Positive Rate')
-            plt.ylabel('True Positive Rate')
-            plt.title('ROC Curve')
-            plt.legend()
-            plt.grid(True)
-            plt.tight_layout()
-            plt.savefig('roc_curve.png', dpi=300, bbox_inches='tight')
-            mlflow.log_artifact('roc_curve.png')
-            plt.close()
-            
-            mlflow.log_metric('roc_auc', roc_auc)
-        
-        # Feature importance for applicable models
-        if hasattr(model, 'feature_importances_'):
-            feature_importance = model.feature_importances_
-            feature_names = [f'feature_{i}' for i in range(len(feature_importance))]
-            
-            # Log top features
-            importance_dict = dict(zip(feature_names, feature_importance))
-            sorted_features = sorted(importance_dict.items(), key=lambda x: x[1], reverse=True)
-            
-            # Log top 10 features
-            for i, (feature, importance) in enumerate(sorted_features[:10]):
-                mlflow.log_metric(f'feature_importance_{i+1}_{feature}', importance)
-            
-            # Plot feature importance
-            plt.figure(figsize=(10, 8))
-            indices = np.argsort(feature_importance)[-20:]  # Top 20 features
-            plt.barh(range(len(indices)), feature_importance[indices])
-            plt.yticks(range(len(indices)), [feature_names[i] for i in indices])
-            plt.xlabel('Feature Importance')
-            plt.title('Top 20 Feature Importances')
-            plt.tight_layout()
-            plt.savefig('feature_importance.png', dpi=300, bbox_inches='tight')
-            mlflow.log_artifact('feature_importance.png')
-            plt.close()
-
-# Usage
-comprehensive_model_evaluation(model, X_test, y_test, class_names=['Class 0', 'Class 1'])
 ```
 
-### Model Drift Detection
+These configuration options give you fine-grained control over the autologging behavior. **Dataset logging** tracks the data used for training and evaluation. **Input examples** and **signatures** are crucial for production deployment. **Max tuning runs** controls how many hyperparameter combinations get detailed tracking. **Extra tags** help organize experiments across teams and projects.
 
-<details>
-  <summary>Monitoring Model Performance Over Time</summary>
+  </TabItem>
+  <TabItem value="organization" label="Experiment Organization">
 
-  ```python
-  import pandas as pd
-  from scipy import stats
-  
-  def detect_model_drift(model, reference_data, new_data, threshold=0.05):
-      """Detect potential model drift using statistical tests."""
-      
-      with mlflow.start_run(run_name="Drift Detection"):
-          drift_results = {}
-          
-          # Feature distribution comparison
-          for i, column in enumerate(reference_data.columns):
-              ref_values = reference_data[column].dropna()
-              new_values = new_data[column].dropna()
-              
-              # Kolmogorov-Smirnov test
-              ks_stat, ks_p_value = stats.ks_2samp(ref_values, new_values)
-              
-              drift_results[f'{column}_ks_statistic'] = ks_stat
-              drift_results[f'{column}_ks_p_value'] = ks_p_value
-              drift_results[f'{column}_drift_detected'] = ks_p_value < threshold
-          
-          # Performance comparison
-          ref_predictions = model.predict(reference_data)
-          new_predictions = model.predict(new_data)
-          
-          # Prediction distribution comparison
-          pred_ks_stat, pred_ks_p_value = stats.ks_2samp(ref_predictions, new_predictions)
-          drift_results['prediction_ks_statistic'] = pred_ks_stat
-          drift_results['prediction_ks_p_value'] = pred_ks_p_value
-          drift_results['prediction_drift_detected'] = pred_ks_p_value < threshold
-          
-          # Log all drift metrics
-          mlflow.log_metrics(drift_results)
-          
-          # Create drift summary
-          drift_summary = {
-              'features_with_drift': sum(1 for k, v in drift_results.items() 
-                                       if k.endswith('_drift_detected') and v),
-              'total_features': len(reference_data.columns),
-              'prediction_drift': drift_results['prediction_drift_detected']
-          }
-          
-          mlflow.log_metrics(drift_summary)
-          
-          return drift_results
-  ```
-
-</details>
-
-## Error Handling and Debugging
-
-### Common Issues and Solutions
-
-<details>
-  <summary>Troubleshooting MLflow Scikit-learn Integration</summary>
-
-  #### Serialization Issues
-  ```python
-  # Handle custom objects that don't pickle well
-  from mlflow.sklearn import SERIALIZATION_FORMAT_CLOUDPICKLE
-  
-  try:
-      mlflow.sklearn.log_model(
-          sk_model=model,
-          artifact_path="model",
-          serialization_format=SERIALIZATION_FORMAT_CLOUDPICKLE
-      )
-  except Exception as e:
-      print(f"Cloudpickle failed: {e}")
-      # Fallback to regular pickle
-      mlflow.sklearn.log_model(
-          sk_model=model,
-          artifact_path="model",
-          serialization_format=mlflow.sklearn.SERIALIZATION_FORMAT_PICKLE
-      )
-  ```
-
-  #### Memory Management for Large Models
-  ```python
-  # For very large models, disable input examples and signatures
-  mlflow.sklearn.autolog(
-      log_input_examples=False,    # Disable to save memory
-      log_model_signatures=False,  # Disable for faster logging
-      log_models=True              # Still log the model
-  )
-  ```
-
-  #### Debugging Autologging
-  ```python
-  import logging
-  
-  # Enable debug logging
-  logging.getLogger("mlflow").setLevel(logging.DEBUG)
-  
-  # Check autologging status
-  from mlflow.sklearn import autolog
-  autolog_config = mlflow.sklearn.get_autologging_config()
-  print(f"Autologging enabled: {autolog_config}")
-  ```
-
-</details>
-
-## Best Practices and Tips
-
-### Experiment Organization
+Proper experiment organization is crucial for team collaboration and project management. MLflow provides several features to help you structure and categorize your experiments effectively:
 
 ```python
 # Organize experiments with descriptive names and tags
@@ -974,167 +929,33 @@ experiment_name = "Customer Churn Prediction - Q4 2024"
 mlflow.set_experiment(experiment_name)
 
 with mlflow.start_run(run_name="Baseline Random Forest"):
-    # Use consistent tagging
-    mlflow.set_tags({
-        "model_type": "ensemble",
-        "algorithm": "random_forest",
-        "dataset_version": "v2.1",
-        "feature_engineering": "standard",
-        "purpose": "baseline"
-    })
-    
+    # Use consistent tagging for easy filtering and organization
+    mlflow.set_tags(
+        {
+            "model_type": "ensemble",
+            "algorithm": "random_forest",
+            "dataset_version": "v2.1",
+            "feature_engineering": "standard",
+            "purpose": "baseline",
+        }
+    )
+
     # Train model
     model = RandomForestClassifier(n_estimators=100, random_state=42)
     model.fit(X_train, y_train)
 ```
 
-### Performance Optimization
+Consistent tagging and naming conventions make it much easier to find, compare, and understand experiments later. Consider establishing team-wide conventions for experiment names, tags, and run organization.
 
-<details>
-  <summary>Optimizing MLflow Performance</summary>
-
-  #### Efficient Logging Strategies
-  ```python
-  # Batch logging for better performance
-  from mlflow.utils.autologging_utils import MlflowAutologgingQueueingClient
-  
-  def efficient_experiment_logging():
-      client = MlflowAutologging QueueingClient()
-      
-      with mlflow.start_run():
-          # Queue multiple operations
-          client.log_params(run_id=mlflow.active_run().info.run_id, params=params)
-          client.log_metrics(run_id=mlflow.active_run().info.run_id, metrics=metrics)
-          
-          # Flush all at once
-          client.flush(synchronous=True)
-  ```
-
-  #### Selective Logging
-  ```python
-  # Only log what you need
-  mlflow.sklearn.autolog(
-      log_input_examples=False,      # Skip for faster logging
-      log_model_signatures=True,     # Keep for deployment
-      log_models=True,               # Essential for model tracking
-      log_post_training_metrics=False,  # Skip if not needed
-      max_tuning_runs=5              # Limit hyperparameter tracking
-  )
-  ```
-
-</details>
-
-## Integration with Other Tools
-
-### Jupyter Notebook Integration
-
-```python
-# Display MLflow runs in Jupyter
-from mlflow.tracking import MlflowClient
-import pandas as pd
-
-def display_experiment_results(experiment_name):
-    """Display experiment results in a formatted table."""
-    client = MlflowClient()
-    experiment = client.get_experiment_by_name(experiment_name)
-    
-    if experiment:
-        runs = client.search_runs(experiment_ids=[experiment.experiment_id])
-        
-        # Create summary DataFrame
-        results = []
-        for run in runs:
-            results.append({
-                'run_id': run.info.run_id[:8],
-                'status': run.info.status,
-                'accuracy': run.data.metrics.get('accuracy', 'N/A'),
-                'precision': run.data.metrics.get('precision', 'N/A'),
-                'model_type': run.data.tags.get('estimator_name', 'Unknown'),
-                'start_time': pd.to_datetime(run.info.start_time, unit='ms')
-            })
-        
-        df = pd.DataFrame(results)
-        return df.sort_values('accuracy', ascending=False)
-    
-    return pd.DataFrame()
-
-# Usage in Jupyter
-results_df = display_experiment_results("Customer Churn Prediction")
-print(results_df.head())
-```
-
-### CI/CD Integration
-
-<details>
-  <summary>Automated Model Training and Deployment</summary>
-
-  ```python
-  # Example CI/CD script
-  import os
-  import mlflow
-  from mlflow.tracking import MlflowClient
-  
-  def automated_model_training_pipeline():
-      """Automated training pipeline for CI/CD."""
-      
-      # Set MLflow tracking URI from environment
-      mlflow.set_tracking_uri(os.environ.get('MLFLOW_TRACKING_URI'))
-      
-      # Set experiment
-      experiment_name = f"automated_training_{os.environ.get('BUILD_NUMBER', 'local')}"
-      mlflow.set_experiment(experiment_name)
-      
-      with mlflow.start_run(run_name="Automated Training"):
-          # Add CI/CD tags
-          mlflow.set_tags({
-              "build_number": os.environ.get('BUILD_NUMBER', 'local'),
-              "git_commit": os.environ.get('GIT_COMMIT', 'unknown'),
-              "environment": os.environ.get('ENVIRONMENT', 'development')
-          })
-          
-          # Train model
-          model = train_model()  # Your training function
-          
-          # Evaluate model
-          metrics = evaluate_model(model)  # Your evaluation function
-          
-          # Quality gates
-          if metrics['accuracy'] > 0.85:
-              # Register model if it meets criteria
-              mlflow.sklearn.log_model(
-                  sk_model=model,
-                  artifact_path="model",
-                  registered_model_name="AutomatedModel"
-              )
-              
-              # Promote to staging if accuracy is high enough
-              if metrics['accuracy'] > 0.90:
-                  client = MlflowClient()
-                  latest_version = client.get_latest_versions(
-                      "AutomatedModel", stages=["None"]
-                  )[0]
-                  
-                  client.transition_model_version_stage(
-                      name="AutomatedModel",
-                      version=latest_version.version,
-                      stage="Staging"
-                  )
-          
-          return metrics
-  ```
-
-</details>
+  </TabItem>
+</Tabs>
 
 ## Conclusion
 
-MLflow's scikit-learn integration provides a comprehensive solution for experiment tracking, model management, and deployment in traditional machine learning workflows. Whether you're using simple autologging for quick experiments or implementing complex production pipelines with custom monitoring, MLflow scales to meet your needs.
+MLflow's scikit-learn integration provides a comprehensive solution for experiment tracking, model management, and deployment in traditional machine learning workflows. Whether you're using simple autologging for quick experiments or implementing complex production pipelines, MLflow scales to meet your needs.
 
-Key benefits of using MLflow with scikit-learn include:
+**Key benefits of using MLflow with scikit-learn:**
 
-- **Effortless Experiment Tracking**: One-line autologging captures everything you need
-- **Hyperparameter Optimization**: Built-in support for grid search with organized child runs
-- **Production-Ready Deployment**: Model registry integration with staging and approval workflows
-- **Comprehensive Evaluation**: Automatic post-training metrics and custom evaluation pipelines
-- **Team Collaboration**: Centralized experiment management with rich metadata and artifacts
+**Effortless Experiment Tracking** provides one-line autologging that captures everything you need for reproducible ML. **Hyperparameter Optimization** includes built-in support for grid search with organized child runs and easy comparison. **Comprehensive Evaluation** offers automatic metrics generation, visualizations, and SHAP analysis through `mlflow.evaluate()`. **Production-Ready Deployment** provides model registry integration with alias-based deployment and quality gates. **Team Collaboration** enables centralized experiment management with rich metadata and artifacts.
 
-The patterns and examples in this guide provide a solid foundation for building scalable, reproducible machine learning systems with scikit-learn and MLflow. Start with autologging for immediate benefits, then gradually adopt more advanced features as your needs grow.
+The patterns and examples in this guide provide a solid foundation for building scalable, reproducible machine learning systems with scikit-learn and MLflow. Start with autologging for immediate benefits, then gradually adopt more advanced features like model evaluation, registry, and custom configurations as your needs grow.

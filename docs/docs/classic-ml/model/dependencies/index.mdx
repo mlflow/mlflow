@@ -112,13 +112,12 @@ class CustomModel(mlflow.pyfunc.PythonModel):
 
 
 # Log the model
-with mlflow.start_run() as run:
-    mlflow.pyfunc.log_model(
-        python_model=CustomModel(),
-        name="model",
-        extra_pip_requirements=["pandas==2.0.3"],
-        input_example=input_data,
-    )
+mlflow.pyfunc.log_model(
+    python_model=CustomModel(),
+    name="model",
+    extra_pip_requirements=["pandas==2.0.3"],
+    input_example=input_data,
+)
 ```
 
 The extra dependencies will be added to `requirements.txt` as follows (and similarly to `conda.yaml`):
@@ -146,16 +145,15 @@ specify **pip_requirements** when logging the model. For example,
 import mlflow
 
 # Log the model
-with mlflow.start_run() as run:
-    mlflow.sklearn.log_model(
-        sk_model=model,
-        name="model",
-        pip_requirements=[
-            "mlflow-skinny==2.9.2",
-            "cloudpickle==2.5.8",
-            "scikit-learn==1.3.1",
-        ],
-    )
+mlflow.sklearn.log_model(
+    sk_model=model,
+    name="model",
+    pip_requirements=[
+        "mlflow-skinny==2.9.2",
+        "cloudpickle==2.5.8",
+        "scikit-learn==1.3.1",
+    ],
+)
 ```
 
 The manually defined dependencies will override the default ones MLflow detects from the model flavor library:

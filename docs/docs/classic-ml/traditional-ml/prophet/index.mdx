@@ -52,7 +52,7 @@ from prophet import Prophet
 from prophet.diagnostics import cross_validation, performance_metrics
 
 # Load your time series data
-df = pd.read_csv('your_timeseries_data.csv')
+df = pd.read_csv("your_timeseries_data.csv")
 
 with mlflow.start_run():
     # Create and fit Prophet model
@@ -62,35 +62,32 @@ with mlflow.start_run():
         holidays_prior_scale=10,
         yearly_seasonality=True,
         weekly_seasonality=True,
-        daily_seasonality=False
+        daily_seasonality=False,
     )
-    
+
     model.fit(df)
-    
+
     # Log model parameters automatically
-    mlflow.log_params({
-        'changepoint_prior_scale': 0.05,
-        'seasonality_prior_scale': 10,
-        'holidays_prior_scale': 10
-    })
-    
+    mlflow.log_params(
+        {
+            "changepoint_prior_scale": 0.05,
+            "seasonality_prior_scale": 10,
+            "holidays_prior_scale": 10,
+        }
+    )
+
     # Cross-validation and metrics
     cv_results = cross_validation(
-        model, 
-        initial='730 days', 
-        period='180 days', 
-        horizon='365 days'
+        model, initial="730 days", period="180 days", horizon="365 days"
     )
-    
+
     metrics = performance_metrics(cv_results)
-    avg_metrics = metrics[['mse', 'rmse', 'mae', 'mape']].mean().to_dict()
+    avg_metrics = metrics[["mse", "rmse", "mae", "mape"]].mean().to_dict()
     mlflow.log_metrics(avg_metrics)
-    
+
     # Log the model
     mlflow.prophet.log_model(
-        pr_model=model,
-        artifact_path="prophet_model",
-        input_example=df[['ds']].head()
+        pr_model=model, name="prophet_model", input_example=df[["ds"]].head()
     )
 ```
 
@@ -217,7 +214,7 @@ Our comprehensive developer guide covers the complete spectrum of Prophet-MLflow
   - 🎯 Understand seasonality configuration and parameter tuning
   - 🔧 Configure cross-validation for proper time series model evaluation
 
-  #### Advanced Techniques  
+  #### Advanced Techniques
   - 📅 Implement holiday and special event modeling for business calendars
   - 📈 Add custom seasonalities and external regressors for complex patterns
   - 🚀 Deploy Prophet models with MLflow's serving infrastructure

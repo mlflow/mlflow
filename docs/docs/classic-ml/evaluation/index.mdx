@@ -66,15 +66,15 @@ eval_data["target"] = y_test
 
 with mlflow.start_run():
     # Log model
-    mlflow.sklearn.log_model(model, "model")
-    
+    mlflow.sklearn.log_model(model, name="model")
+
     # Comprehensive evaluation with one line
     result = mlflow.evaluate(
         model="models:/my-model/1",
         data=eval_data,
         targets="target",
         model_type="classifier",
-        evaluators=["default"]
+        evaluators=["default"],
     )
 ```
 
@@ -127,41 +127,41 @@ MLflow supports multiple evaluation approaches to fit your workflow:
 Our comprehensive evaluation framework is organized into specialized areas, each designed for specific aspects of model assessment:
 
 <CardGroup>
-  <PageCard 
-    headerText="Model Evaluation" 
-    link="/ml/evaluation/model-eval" 
-    text="Core model evaluation workflows for classification and regression tasks with automated metrics, visualizations, and performance assessment." 
+  <PageCard
+    headerText="Model Evaluation"
+    link="/ml/evaluation/model-eval"
+    text="Core model evaluation workflows for classification and regression tasks with automated metrics, visualizations, and performance assessment."
   />
-  <PageCard 
-    headerText="Dataset Evaluation" 
-    link="/ml/evaluation/dataset-eval" 
-    text="Evaluate static datasets and pre-computed predictions without re-running models, perfect for batch processing and historical analysis." 
-  />
-</CardGroup>
-
-<CardGroup>
-  <PageCard 
-    headerText="Function Evaluation" 
-    link="/ml/evaluation/function-eval" 
-    text="Lightweight evaluation of Python functions and custom prediction logic without the overhead of model logging and registration." 
-  />
-  <PageCard 
-    headerText="Custom Metrics & Visualizations" 
-    link="/ml/evaluation/metrics-visualizations" 
-    text="Define domain-specific evaluation criteria, custom metrics, and specialized visualizations tailored to your business requirements." 
+  <PageCard
+    headerText="Dataset Evaluation"
+    link="/ml/evaluation/dataset-eval"
+    text="Evaluate static datasets and pre-computed predictions without re-running models, perfect for batch processing and historical analysis."
   />
 </CardGroup>
 
 <CardGroup>
-  <PageCard 
-    headerText="SHAP Integration" 
-    link="/ml/evaluation/shap" 
-    text="Deep model interpretation with SHAP values, feature importance analysis, and explainable AI capabilities for transparent ML." 
+  <PageCard
+    headerText="Function Evaluation"
+    link="/ml/evaluation/function-eval"
+    text="Lightweight evaluation of Python functions and custom prediction logic without the overhead of model logging and registration."
   />
-  <PageCard 
-    headerText="Plugin Evaluators" 
-    link="/ml/evaluation/plugin-evaluators" 
-    text="Extend evaluation capabilities with specialized plugins like Giskard for vulnerability scanning and Trubrics for advanced validation." 
+  <PageCard
+    headerText="Custom Metrics & Visualizations"
+    link="/ml/evaluation/metrics-visualizations"
+    text="Define domain-specific evaluation criteria, custom metrics, and specialized visualizations tailored to your business requirements."
+  />
+</CardGroup>
+
+<CardGroup>
+  <PageCard
+    headerText="SHAP Integration"
+    link="/ml/evaluation/shap"
+    text="Deep model interpretation with SHAP values, feature importance analysis, and explainable AI capabilities for transparent ML."
+  />
+  <PageCard
+    headerText="Plugin Evaluators"
+    link="/ml/evaluation/plugin-evaluators"
+    text="Extend evaluation capabilities with specialized plugins like Giskard for vulnerability scanning and Trubrics for advanced validation."
   />
 </CardGroup>
 

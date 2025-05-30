@@ -58,7 +58,7 @@ Ideal for custom training loops, advanced experimentation, or when you need prec
             mlflow.log_metrics({"train_loss": train_loss, "val_loss": val_loss}, step=epoch)
 
         # Log final model
-        mlflow.sklearn.log_model(model, "model")
+        mlflow.sklearn.log_model(model, name="model")
     ```
   </TabItem>
   <TabItem label="Java" value="java">

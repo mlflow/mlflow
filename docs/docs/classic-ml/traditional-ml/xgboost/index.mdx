@@ -64,11 +64,11 @@ dtrain = xgb.DMatrix(X_train, label=y_train)
 dtest = xgb.DMatrix(X_test, label=y_test)
 
 params = {
-    'objective': 'binary:logistic',
-    'max_depth': 6,
-    'learning_rate': 0.1,
-    'subsample': 0.8,
-    'colsample_bytree': 0.8
+    "objective": "binary:logistic",
+    "max_depth": 6,
+    "learning_rate": 0.1,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
 }
 
 # Train model - everything is automatically logged
@@ -76,9 +76,9 @@ model = xgb.train(
     params=params,
     dtrain=dtrain,
     num_boost_round=100,
-    evals=[(dtrain, 'train'), (dtest, 'eval')],
+    evals=[(dtrain, "train"), (dtest, "eval")],
     early_stopping_rounds=10,
-    verbose_eval=False
+    verbose_eval=False,
 )
 ```
 
@@ -185,7 +185,7 @@ Our comprehensive developer guide covers the complete spectrum of XGBoost-MLflow
   - 📊 Understand parameter logging for simple models and complex ensemble configurations
   - 🔧 Configure advanced logging parameters for custom training scenarios and callbacks
 
-  #### Advanced Techniques  
+  #### Advanced Techniques
   - 🔍 Implement comprehensive hyperparameter tuning with Optuna, GridSearchCV, and custom optimization
   - 📈 Leverage feature importance visualization for model interpretation and feature selection
   - 🚀 Deploy XGBoost models with MLflow's serving infrastructure for production use

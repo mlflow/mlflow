@@ -637,69 +637,9 @@ For API information, see <APILink fn="mlflow.sklearn">mlflow.sklearn</APILink>.
 
 ### Spark MLlib (`spark`)
 
-The `spark` model flavor enables exporting Spark MLlib models as MLflow Models.
+The full guide for using the `spark` flavor [can be viewed here](/ml/traditional-ml/sparkml/).
 
-The <APILink fn="mlflow.spark" /> module defines
-
-- <APILink fn="mlflow.spark.save_model">`save_model()`</APILink> to save a Spark MLlib model to a DBFS path.
-- <APILink fn="mlflow.spark.log_model">`log_model()`</APILink> to upload a Spark MLlib model to the tracking server.
-- <APILink fn="mlflow.spark.load_model">`load_model()`</APILink> to load MLflow Models with the ``spark`` flavor as Spark MLlib pipelines.
-
-MLflow Models produced by these functions contain the `python_function` flavor,
-allowing you to load them as generic Python functions via <APILink fn="mlflow.pyfunc.load_model" />.
-This loaded PyFunc model can only be scored with DataFrame input.
-When a model with the `spark` flavor is loaded as a Python function via <APILink fn="mlflow.pyfunc.load_model" />
-, a new [SparkContext](https://spark.apache.org/docs/latest/api/python/pyspark.html#pyspark.SparkContext)
-is created for model inference; additionally, the function converts all Pandas DataFrame inputs to
-Spark DataFrames before scoring. While this initialization overhead and format translation latency
-is not ideal for high-performance use cases, it enables you to easily deploy any
-[MLlib PipelineModel](http://spark.apache.org/docs/latest/api/python/pyspark.ml.html?highlight=pipelinemodel#pyspark.ml.Pipeline) to any production environment supported by MLflow
-(SageMaker, AzureML, etc).
-
-#### Spark MLlib pyfunc usage
-
-```python
-from pyspark.ml.classification import LogisticRegression
-from pyspark.ml.linalg import Vectors
-from pyspark.sql import SparkSession
-import mlflow
-
-# Prepare training data from a list of (label, features) tuples.
-spark = SparkSession.builder.appName("LogisticRegressionExample").getOrCreate()
-training = spark.createDataFrame(
-    [
-        (1.0, Vectors.dense([0.0, 1.1, 0.1])),
-        (0.0, Vectors.dense([2.0, 1.0, -1.0])),
-        (0.0, Vectors.dense([2.0, 1.3, 1.0])),
-        (1.0, Vectors.dense([0.0, 1.2, -0.5])),
-    ],
-    ["label", "features"],
-)
-
-# Create and fit a LogisticRegression instance
-lr = LogisticRegression(maxIter=10, regParam=0.01)
-lr_model = lr.fit(training)
-
-# Serialize the Model
-with mlflow.start_run():
-    model_info = mlflow.spark.log_model(lr_model, name="spark-model")
-
-# Load saved model
-lr_model_saved = mlflow.pyfunc.load_model(model_info.model_uri)
-
-# Make predictions on test data.
-# The DataFrame used in the predict method must be a Pandas DataFrame
-test = spark.createDataFrame(
-    [
-        (1.0, Vectors.dense([-1.0, 1.5, 1.3])),
-        (0.0, Vectors.dense([3.0, 2.0, -0.1])),
-        (1.0, Vectors.dense([0.0, 2.2, -1.5])),
-    ],
-    ["label", "features"],
-).toPandas()
-
-prediction = lr_model_saved.predict(test)
-```
+For more information, see <APILink fn="mlflow.spark">mlflow.spark</APILink>.
 
 ### TensorFlow (`tensorflow`)
 
@@ -2474,7 +2414,7 @@ print(f"\nPyfunc 'predict_interval':\n${loaded_pyfunc.predict(predict_conf)}")
 print(f"\nMLflow run id:\n{run.info.run_id}")
 ```
 
-When opening the MLflow runs detail page the serialized model artifact will show up, such as:
+When opening the MLflow models page the serialized model artifact will show up, such as:
 
 ![](/images/tracking_artifact_ui_custom_flavor.png)
 
@@ -2483,7 +2423,7 @@ the run id printed during execution of the previous block (for more details refe
 [Deploy MLflow models](https://mlflow.org/docs/latest/models.html#deploy-mlflow-models) section):
 
 ```bash
-mlflow models serve -m runs:/<run_id>/model --env-manager local --host 127.0.0.1
+mlflow models serve -m models:/<model_id> --env-manager local --host 127.0.0.1
 ```
 
 An example of requesting a prediction from the served model is shown below. The exogenous regressor
@@ -2581,7 +2521,7 @@ Example of using `uv` to create a virtual environment for prediction:
 import mlflow
 
 mlflow.models.predict(
-    model_uri="runs:/<run_id>/<model_path>",
+    model_uri="models:/<model_id>",
     input_data="your_data",
     env_manager="uv",
 )

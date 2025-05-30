@@ -71,7 +71,7 @@ Jupyter notebooks are excellent for AI development, but Models from Code require
 The `%%writefile` magic command captures cell contents and writes them to a file:
 
 ```python
-%%writefile "./hello.py"
+# %%writefile "./hello.py"  # Uncomment to create the file locally
 
 print("hello!")
 ```
@@ -129,12 +129,11 @@ import mlflow
 
 mlflow.set_experiment("Basic Model From Code")
 
-with mlflow.start_run():
-    model_info = mlflow.pyfunc.log_model(
-        python_model="basic.py",  # Path to your script
-        artifact_path="arithmetic_model",
-        input_example=[42.0, 24.0],
-    )
+model_info = mlflow.pyfunc.log_model(
+    python_model="basic.py",  # Path to your script
+    name="arithmetic_model",
+    input_example=[42.0, 24.0],
+)
 ```
 
 ### Using the Model
@@ -165,11 +164,14 @@ First, create a utility file with shared functions:
 # If running in a Jupyter notebook, uncomment the next line:
 # %%writefile "./calculator.py"
 
+
 def add(x, y):
     return x + y
 
+
 def multiply(x, y):
     return x * y
+
 
 def calculate_compound_interest(principal, rate, time):
     return principal * (1 + rate) ** time
@@ -191,16 +193,14 @@ from calculator import add, multiply, calculate_compound_interest
 class MathModel(PythonModel):
     def predict(self, context, model_input, params=None):
         operation = model_input.get("operation", "add")
-        
+
         if operation == "add":
             return add(model_input["x"], model_input["y"])
         elif operation == "multiply":
             return multiply(model_input["x"], model_input["y"])
         elif operation == "compound_interest":
             return calculate_compound_interest(
-                model_input["principal"], 
-                model_input["rate"], 
-                model_input["time"]
+                model_input["principal"], model_input["rate"], model_input["time"]
             )
         else:
             raise ValueError(f"Unknown operation: {operation}")
@@ -219,9 +219,9 @@ mlflow.set_experiment("Math Model From Code")
 with mlflow.start_run():
     model_info = mlflow.pyfunc.log_model(
         python_model="math_model.py",
-        artifact_path="math_model",
+        name="math_model",
         code_paths=["calculator.py"],  # Include dependency
-        input_example={"operation": "add", "x": 5, "y": 3}
+        input_example={"operation": "add", "x": 5, "y": 3},
     )
 ```
 
@@ -233,12 +233,11 @@ loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
 # Test different operations
 print(loaded_model.predict({"operation": "add", "x": 10, "y": 5}))  # 15
 print(loaded_model.predict({"operation": "multiply", "x": 4, "y": 7}))  # 28
-print(loaded_model.predict({
-    "operation": "compound_interest", 
-    "principal": 1000, 
-    "rate": 0.05, 
-    "time": 10
-}))  # 1628.89
+print(
+    loaded_model.predict(
+        {"operation": "compound_interest", "principal": 1000, "rate": 0.05, "time": 10}
+    )
+)  # 1628.89
 ```
 
 <div className="center-div" style={{ width: "80%" }}>
@@ -283,11 +282,11 @@ def get_area(input_data):
 
 # Define the prompt template
 prompt = PromptTemplate(
-    template="""You are a highly accomplished landscape designer providing suggestions 
-    for landscape design decisions in a particular geographic region. 
+    template="""You are a highly accomplished landscape designer providing suggestions
+    for landscape design decisions in a particular geographic region.
 
-    Your goal is to suggest low-maintenance hardscape and landscape options using 
-    materials and plants native to the specified region. Include a general cost 
+    Your goal is to suggest low-maintenance hardscape and landscape options using
+    materials and plants native to the specified region. Include a general cost
     estimate based on the square footage provided.
 
     Region: {region}
@@ -337,7 +336,7 @@ input_example = {
 with mlflow.start_run():
     model_info = mlflow.langchain.log_model(
         lc_model="landscape_advisor.py",  # Path to your script
-        artifact_path="landscape_chain",
+        name="landscape_chain",
         input_example=input_example,
     )
 ```
@@ -389,8 +388,10 @@ print(response)
 def predict(self, context, model_input):
     return pd.DataFrame(model_input)  # NameError: pd not defined
 
+
 # ✅ Good - imports included
 import pandas as pd
+
 
 def predict(self, context, model_input):
     return pd.DataFrame(model_input)
@@ -405,9 +406,9 @@ def predict(self, context, model_input):
 ```python
 mlflow.pyfunc.log_model(
     python_model="my_model.py",
-    artifact_path="model",
+    name="model",
     code_paths=["utils.py", "helpers/"],  # Include external files
-    extra_pip_requirements=["custom-package==1.0.0"]  # Manual requirements
+    extra_pip_requirements=["custom-package==1.0.0"],  # Manual requirements
 )
 ```
 
@@ -425,8 +426,10 @@ import tensorflow as tf
 import torch
 from sklearn.ensemble import RandomForestClassifier
 
+
 def predict(self, context, model_input):
     return {"result": model_input * 2}  # Only uses basic operations
+
 
 # ✅ Good - minimal imports
 def predict(self, context, model_input):
@@ -454,6 +457,7 @@ model = ChatOpenAI(api_key=api_key)
 
 # ✅ Good - environment variables
 import os
+
 model = ChatOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 ```
 
@@ -486,13 +490,13 @@ except Exception as e:
 class OptimizedModel(PythonModel):
     def __init__(self):
         self._expensive_resource = None
-    
+
     @property
     def expensive_resource(self):
         if self._expensive_resource is None:
             self._expensive_resource = load_expensive_model()
         return self._expensive_resource
-    
+
     def predict(self, context, model_input):
         return self.expensive_resource.predict(model_input)
 ```
@@ -504,9 +508,10 @@ class OptimizedModel(PythonModel):
 ```python
 def predict(self, context, model_input):
     operation = model_input.get("type", "simple")
-    
+
     if operation == "complex":
         import tensorflow as tf  # Only import when needed
+
         return self._tensorflow_predict(model_input)
     else:
         return self._simple_predict(model_input)
@@ -521,11 +526,11 @@ class ResourceManagedModel(PythonModel):
     def __enter__(self):
         self.connection = create_connection()
         return self
-    
+
     def __exit__(self, exc_type, exc_val, exc_tb):
-        if hasattr(self, 'connection'):
+        if hasattr(self, "connection"):
             self.connection.close()
-    
+
     def predict(self, context, model_input):
         # Use self.connection for predictions
         pass
@@ -544,9 +549,10 @@ class MyModel(mlflow.pyfunc.PythonModel):
     def predict(self, context, model_input):
         return model_input * 2
 
+
 # Log object instance
 model_instance = MyModel()
-mlflow.pyfunc.log_model(python_model=model_instance, artifact_path="model")
+mlflow.pyfunc.log_model(python_model=model_instance, name="model")
 ```
 
 ### After (Models from Code)
@@ -557,14 +563,16 @@ import mlflow
 from mlflow.pyfunc import PythonModel
 from mlflow.models import set_model
 
+
 class MyModel(PythonModel):
     def predict(self, context, model_input):
         return model_input * 2
 
+
 set_model(MyModel())
 
 # Log script path
-mlflow.pyfunc.log_model(python_model="my_model.py", artifact_path="model")
+mlflow.pyfunc.log_model(python_model="my_model.py", name="model")
 ```
 
 ## Best Practices Summary
