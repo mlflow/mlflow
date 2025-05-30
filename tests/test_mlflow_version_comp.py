@@ -1,3 +1,4 @@
+import os
 import subprocess
 import sys
 import uuid
@@ -57,11 +58,21 @@ def check(run_id: str, version: Literal["2", "3"], tmp_path: Path) -> None:
     )
     assert "mean_squared_error" in eval_res.metrics
     # Spark UDF
-    with SparkSession.builder.getOrCreate() as spark:
-        udf = mlflow.pyfunc.spark_udf(spark, model_uri, result_type="double", env_manager="local")
-        df = spark.createDataFrame([[1, 2]], ["col1", "col2"])
-        pred = df.select(udf("col1", "col2").alias("pred")).collect()
-        assert [row.pred for row in pred] == [3.0]
+    if os.name != "nt":
+        with SparkSession.builder.getOrCreate() as spark:
+            udf = mlflow.pyfunc.spark_udf(
+                spark,
+                model_uri,
+                result_type="double",
+                env_manager="local",
+            )
+            df = spark.createDataFrame([[1, 2]], ["col1", "col2"])
+            # This line fails with the following error on Windows:
+            #   File ".../pyspark\python\lib\pyspark.zip\pyspark\serializers.py", line 472, in loads
+            #     return cloudpickle.loads(obj, encoding=encoding)
+            # ModuleNotFoundError: No module named 'pandas'
+            pred = df.select(udf("col1", "col2").alias("pred")).collect()
+            assert [row.pred for row in pred] == [3.0]
 
 
 def test_mlflow_2_x_comp(tmp_path: Path) -> None:
