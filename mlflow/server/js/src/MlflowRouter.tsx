@@ -17,8 +17,8 @@ import { useInitializeExperimentRunColors } from './experiment-tracking/componen
  */
 const landingRoute = {
   path: '/',
-  element: createLazyRouteElement(() => import('./experiment-tracking/components/ExperimentPage')),
-  pageId: 'mlflow.experiments.list',
+  element: createLazyRouteElement(() => import('./experiment-tracking/components/HomePage')),
+  pageId: 'mlflow.experiment.list',
 };
 
 export const MlflowRouter = ({

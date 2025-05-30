@@ -10,7 +10,6 @@ import { searchExperimentsApi } from '../actions';
 import { DeepPartial } from 'redux';
 import { ReduxState } from '../../redux-types';
 import { ExperimentView } from './experiment-page/ExperimentView';
-import { ExperimentPage } from './experiment-page/ExperimentPage';
 
 jest.mock('./experiment-page/ExperimentView', () => ({
   ExperimentView: jest.fn(() => <div />),
