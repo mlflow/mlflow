@@ -1445,14 +1445,7 @@ def gateway_proxy_handler():
             )
     elif method == "POST":
         # For POST, gateway_path must be in the form of "gateway/{name}/invocations"
-        splits = gateway_path.split("/")
-        if len(splits) != 3:
-            raise MlflowException(
-                message=f"Invalid gateway_path: {gateway_path} for method: {method}",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-        first, _, third = splits
-        if not (first == "gateway" and third == "invocations"):
+        if not re.fullmatch(r"gateway/[^/]+/invocations", gateway_path.strip("/")):
             raise MlflowException(
                 message=f"Invalid gateway_path: {gateway_path} for method: {method}",
                 error_code=INVALID_PARAMETER_VALUE,
