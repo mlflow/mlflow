@@ -1,3 +1,4 @@
+import uuid
 from importlib import import_module
 from unittest import mock
 from unittest.mock import patch
@@ -10,9 +11,10 @@ from mlflow.entities.assessment import Expectation, Feedback
 from mlflow.entities.assessment_source import AssessmentSource
 from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
-from mlflow.genai.evaluation.base import _evaluate, _to_predict_fn
+from mlflow.genai.datasets import create_dataset
 from mlflow.genai.scorers.base import scorer
-from mlflow.genai.scorers.builtin_scorers import GENAI_CONFIG_NAME, safety
+from mlflow.genai.scorers.builtin_scorers import safety
+from mlflow.tracing.constant import TraceMetadataKey
 
 from tests.evaluate.test_evaluation import _DUMMY_CHAT_RESPONSE
 from tests.tracing.helper import get_traces
@@ -71,7 +73,7 @@ def test_evaluate_with_static_dataset():
         },
     ]
 
-    result = _evaluate(
+    result = mlflow.genai.evaluate(
         data=data,
         scorers=[exact_match, max_length, relevance, has_trace],
     )
@@ -90,6 +92,8 @@ def test_evaluate_with_static_dataset():
 @pytest.mark.skipif(not _IS_AGENT_SDK_V1, reason="Databricks Agent SDK v1 is required")
 @pytest.mark.parametrize("is_predict_fn_traced", [True, False])
 def test_evaluate_with_predict_fn(is_predict_fn_traced):
+    model_id = mlflow.set_active_model(name="test-model-id").model_id
+
     data = [
         {
             "inputs": {"question": "What is MLflow?"},
@@ -109,10 +113,11 @@ def test_evaluate_with_predict_fn(is_predict_fn_traced):
     model = TestModel()
     predict_fn = mlflow.trace(model.predict) if is_predict_fn_traced else model.predict
 
-    result = _evaluate(
+    result = mlflow.genai.evaluate(
         predict_fn=predict_fn,
         data=data,
         scorers=[exact_match, max_length, relevance, has_trace],
+        model_id=model_id,
     )
 
     metrics = result.metrics
@@ -124,6 +129,10 @@ def test_evaluate_with_predict_fn(is_predict_fn_traced):
     # Exact number of traces should be generated
     traces = get_traces()
     assert len(traces) == len(data)
+
+    # Check if the model_id is set in the traces
+    assert traces[0].info.trace_metadata[TraceMetadataKey.MODEL_ID] == model_id
+    assert traces[1].info.trace_metadata[TraceMetadataKey.MODEL_ID] == model_id
 
 
 @pytest.mark.skipif(not _IS_AGENT_SDK_V1, reason="Databricks Agent SDK v1 is required")
@@ -174,7 +183,7 @@ def test_evaluate_with_traces(pass_full_dataframe):
     if not pass_full_dataframe:
         data = data[["trace"]]
 
-    result = _evaluate(
+    result = mlflow.genai.evaluate(
         data=data,
         scorers=[exact_match, max_length, relevance, has_trace],
     )
@@ -187,6 +196,83 @@ def test_evaluate_with_traces(pass_full_dataframe):
 
     # Assessments should be added to the traces in-place and no new trace should be created
     assert len(get_traces()) == len(questions)
+
+
+@pytest.mark.skipif(not _IS_AGENT_SDK_V1, reason="Databricks Agent SDK v1 is required")
+def test_evaluate_with_managed_dataset():
+    class MockDatasetClient:
+        def __init__(self):
+            # dataset_id -> list of records
+            self.records = {}
+
+        def create_dataset(self, uc_table_name: str, experiment_ids: list[str]):
+            from databricks.agents.datasets import Dataset
+
+            dataset = Dataset(
+                dataset_id=str(uuid.uuid4()),
+                name=uc_table_name,
+                digest=None,
+                source_type="databricks-uc-table",
+            )
+            self.records[dataset.dataset_id] = []
+            return dataset
+
+        def list_dataset_records(self, dataset_id: str):
+            return self.records[dataset_id]
+
+        def batch_create_dataset_records(self, name: str, dataset_id: str, records):
+            self.records[dataset_id].extend(records)
+
+        def upsert_dataset_record_expectations(
+            self, name: str, dataset_id: str, record_id: str, expectations: list[dict]
+        ):
+            for record in self.records[dataset_id]:
+                if record.id == record_id:
+                    record.expectations.update(expectations)
+
+    mock_client = MockDatasetClient()
+    with (
+        mock.patch("databricks.rag_eval.datasets.api._get_client", return_value=mock_client),
+        mock.patch("databricks.rag_eval.datasets.entities._get_client", return_value=mock_client),
+    ):
+        dataset = create_dataset(uc_table_name="mlflow.managed.dataset", experiment_id="exp-123")
+        dataset.insert(
+            [
+                {
+                    "inputs": {"question": "What is MLflow?"},
+                    "expectations": {
+                        "expected_response": "MLflow is a tool for ML",
+                        "max_length": 100,
+                    },
+                },
+                {
+                    "inputs": {"question": "What is Spark?"},
+                    "expectations": {
+                        "expected_response": "Spark is a fast data processing engine",
+                        "max_length": 1,
+                    },
+                },
+            ]
+        )
+
+        result = mlflow.genai.evaluate(
+            data=dataset,
+            predict_fn=TestModel().predict,
+            scorers=[exact_match, max_length, relevance, has_trace],
+        )
+
+    metrics = result.metrics
+    assert metrics["metric/exact_match/average"] == 0.0
+    assert metrics["metric/max_length/average"] == 0.5
+    assert metrics["metric/relevance/relevance/average"] == 1.0
+    assert metrics["metric/has_trace/average"] == 1.0
+
+    run = mlflow.get_run(result.run_id)
+    # Dataset metadata should be added to the run
+    assert len(run.inputs.dataset_inputs) == 1
+    assert run.inputs.dataset_inputs[0].dataset.name == dataset.name
+    assert run.inputs.dataset_inputs[0].dataset.digest == dataset.digest
+    assert run.inputs.dataset_inputs[0].dataset.source_type == "databricks-uc-table"
 
 
 @mock.patch("mlflow.deployments.get_deploy_client")
@@ -214,7 +300,7 @@ def test_model_from_deployment_endpoint(mock_get_deploy_client):
         },
     ]
 
-    predict_fn = _to_predict_fn("endpoints:/chat")
+    predict_fn = mlflow.genai.to_predict_fn("endpoints:/chat")
 
     # predict_fn should be callable with a single input
     response = predict_fn(**data[0]["inputs"])
@@ -227,7 +313,7 @@ def test_model_from_deployment_endpoint(mock_get_deploy_client):
     mock_client.reset_mock()
 
     # Running evaluation
-    result = _evaluate(
+    result = mlflow.genai.evaluate(
         data=data,
         predict_fn=predict_fn,
         scorers=[has_trace],
@@ -258,46 +344,13 @@ def test_model_from_deployment_endpoint(mock_get_deploy_client):
     assert spans[0].outputs == _DUMMY_CHAT_RESPONSE
 
 
-def test_evaluate_passes_model_id_to_mlflow_evaluate():
-    # Tracking URI = databricks is required to use _evaluate()
-    mlflow.set_tracking_uri("databricks")
-    data = [
-        {"inputs": {"x": "bar"}, "outputs": "response from model"},
-        {"inputs": {"x": "qux"}, "outputs": "response from model"},
-    ]
-
-    with mock.patch("mlflow.models.evaluate") as mock_evaluate:
-
-        @mlflow.trace
-        def model(x):
-            return x
-
-        _evaluate(
-            data=data,
-            predict_fn=model,
-            model_id="test_model_id",
-            scorers=[safety],
-        )
-
-        # Verify the call was made with the right parameters
-        mock_evaluate.assert_called_once_with(
-            model=mock.ANY,
-            data=mock.ANY,
-            evaluator_config={GENAI_CONFIG_NAME: {"metrics": ["safety"]}},
-            model_type="databricks-agent",
-            extra_metrics=[],
-            model_id="test_model_id",
-            _called_from_genai_evaluate=True,
-        )
-
-
 @patch("mlflow.get_tracking_uri", return_value="databricks")
 def test_no_scorers(mock_get_tracking_uri):
     with pytest.raises(TypeError, match=r"evaluate\(\) missing 1 required positional"):
-        _evaluate(data=[{"inputs": "Hello", "outputs": "Hi"}])
+        mlflow.genai.evaluate(data=[{"inputs": "Hello", "outputs": "Hi"}])
 
     with pytest.raises(MlflowException, match=r"The `scorers` argument must be a list of"):
-        _evaluate(data=[{"inputs": "Hello", "outputs": "Hi"}], scorers=[])
+        mlflow.genai.evaluate(data=[{"inputs": "Hello", "outputs": "Hi"}], scorers=[])
 
 
 @pytest.mark.parametrize("pass_full_dataframe", [True, False])
@@ -316,4 +369,4 @@ def test_trace_input_can_contain_string_input(pass_full_dataframe):
         traces = traces[["trace"]]
 
     # Harness should run without an error
-    _evaluate(data=traces, scorers=[safety])
+    mlflow.genai.evaluate(data=traces, scorers=[safety])

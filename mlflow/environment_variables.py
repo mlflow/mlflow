@@ -825,3 +825,9 @@ MLFLOW_LOGGING_LEVEL = _EnvironmentVariable("MLFLOW_LOGGING_LEVEL", str, None)
 MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT = _BooleanEnvironmentVariable(
     "MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT", False
 )
+
+#: If True, MLflow locks both direct and transitive model dependencies when logging a model.
+#: (default: ``False``).
+MLFLOW_LOCK_MODEL_DEPENDENCIES = _BooleanEnvironmentVariable(
+    "MLFLOW_LOCK_MODEL_DEPENDENCIES", False
+)

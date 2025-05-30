@@ -139,8 +139,8 @@ def test_on_end():
 
     mock_exporter.export.assert_called_once_with((otel_span,))
     # Trace info should be updated according to the span attributes
-    assert trace_info.status == TraceStatus.OK
-    assert trace_info.execution_time_ms == 4
+    assert trace_info.state == TraceStatus.OK
+    assert trace_info.execution_duration == 4
 
     # Non-root span should not be exported
     mock_exporter.reset_mock()

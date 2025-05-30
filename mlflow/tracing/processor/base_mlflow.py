@@ -8,7 +8,7 @@ from opentelemetry.sdk.trace import Span as OTelSpan
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter
 
 from mlflow.entities.trace_info_v2 import TraceInfoV2
-from mlflow.entities.trace_status import TraceStatus
+from mlflow.entities.trace_state import TraceState
 from mlflow.tracing.constant import (
     MAX_CHARS_IN_TRACE_INFO_METADATA,
     TRACE_SCHEMA_VERSION,
@@ -20,6 +20,7 @@ from mlflow.tracing.constant import (
 )
 from mlflow.tracing.trace_manager import InMemoryTraceManager, _Trace
 from mlflow.tracing.utils import (
+    aggregate_usage_from_spans,
     deduplicate_span_names_in_place,
     get_otel_attribute,
     maybe_get_dependencies_schemas,
@@ -63,20 +64,20 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
                 is obtained from the global context, it won't be passed here so we should not rely
                 on it.
         """
-        request_id = self._trace_manager.get_request_id_from_trace_id(span.context.trace_id)
+        trace_id = self._trace_manager.get_mlflow_trace_id_from_otel_id(span.context.trace_id)
 
-        if not request_id and span.parent is not None:
+        if not trace_id and span.parent is not None:
             _logger.debug(
-                "Received a non-root span but the request ID is not found."
+                "Received a non-root span but the trace ID is not found."
                 "The trace has likely been halted due to a timeout expiration."
             )
             return
 
         if span.parent is None:
             trace_info = self._start_trace(span)
-            request_id = trace_info.request_id
+            trace_id = trace_info.trace_id
 
-        span.set_attribute(SpanAttributeKey.REQUEST_ID, json.dumps(request_id))
+        span.set_attribute(SpanAttributeKey.REQUEST_ID, json.dumps(trace_id))
 
     def _start_trace(self, root_span: OTelSpan) -> TraceInfoV2:
         raise NotImplementedError("Subclasses must implement this method.")
@@ -171,10 +172,10 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
         # The trace/span start time needs adjustment to exclude the latency of
         # the backend API call. We already adjusted the span start time in the
         # on_start method, so we reflect the same to the trace start time here.
-        trace.info.timestamp_ms = root_span.start_time // 1_000_000  # nanosecond to millisecond
-        trace.info.execution_time_ms = (root_span.end_time - root_span.start_time) // 1_000_000
-        trace.info.status = TraceStatus.from_otel_status(root_span.status)
-        trace.info.request_metadata.update(
+        trace.info.request_time = root_span.start_time // 1_000_000  # nanosecond to millisecond
+        trace.info.execution_duration = (root_span.end_time - root_span.start_time) // 1_000_000
+        trace.info.state = TraceState.from_otel_status(root_span.status)
+        trace.info.trace_metadata.update(
             {
                 TraceMetadataKey.INPUTS: self._truncate_metadata(
                     root_span.attributes.get(SpanAttributeKey.INPUTS)
@@ -184,6 +185,10 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
                 ),
             }
         )
+
+        # Aggregate token usage information from all spans
+        if usage := aggregate_usage_from_spans(trace.span_dict.values()):
+            trace.info.request_metadata[TraceMetadataKey.TOKEN_USAGE] = json.dumps(usage)
 
     def _truncate_metadata(self, value: Optional[str]) -> str:
         """Get truncated value of the attribute if it exceeds the maximum length."""

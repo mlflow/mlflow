@@ -58,12 +58,12 @@ class MlflowV2SpanExporter(SpanExporter):
                 _logger.debug(f"TraceInfo for span {span} not found. Skipping export.")
                 continue
 
-            _set_last_active_trace_id(trace.info.request_id)
+            _set_last_active_trace_id(trace.info.trace_id)
 
             # Store mapping from eval request ID to trace ID so that the evaluation
             # harness can access to the trace using mlflow.get_trace(eval_request_id)
             if eval_request_id := trace.info.tags.get(TraceTagKey.EVAL_REQUEST_ID):
-                _EVAL_REQUEST_ID_TO_TRACE_ID[eval_request_id] = trace.info.request_id
+                _EVAL_REQUEST_ID_TO_TRACE_ID[eval_request_id] = trace.info.trace_id
 
             if not maybe_get_request_id(is_evaluate=True):
                 # Display the trace in the UI if the trace is not generated from within

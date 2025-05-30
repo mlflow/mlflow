@@ -22,7 +22,7 @@ from tests.helper_functions import (
 
 _DSPY_VERSION = Version(importlib.metadata.version("dspy"))
 
-_DSPY_UNDER_2_6 = _DSPY_VERSION < Version("2.6.0rc1")
+_DSPY_UNDER_2_6 = _DSPY_VERSION < Version("2.6.0")
 
 _DSPY_2_6_23_OR_OLDER = _DSPY_VERSION <= Version("2.6.23")
 skip_if_2_6_23_or_older = pytest.mark.skipif(
@@ -132,6 +132,7 @@ def test_dspy_save_preserves_object_state():
             self.generate_answer = dspy.ChainOfThought(GenerateAnswer)
 
         def forward(self, question):
+            assert question == "What is 2 + 2?"
             context = self.retrieve(question).passages
             prediction = self.generate_answer(context=context, question=question)
             return dspy.Prediction(context=context, answer=prediction.answer)
@@ -231,6 +232,7 @@ def test_serving_logged_model(dummy_model):
             self.prog = dspy.ChainOfThought("question -> answer")
 
         def forward(self, question):
+            assert question == "What is 2 + 2?"
             return self.prog(question=question)
 
     dspy_model = CoT()
@@ -247,7 +249,7 @@ def test_serving_logged_model(dummy_model):
             dspy_model,
             name=artifact_path,
             signature=signature,
-            input_example=input_examples,
+            input_example=["What is 2 + 2?"],
         )
         model_uri = model_info.model_uri
     dspy.settings.configure(lm=None)
@@ -255,6 +257,48 @@ def test_serving_logged_model(dummy_model):
     response = pyfunc_serve_and_score_model(
         model_uri=model_uri,
         data=json.dumps(input_examples),
+        content_type="application/json",
+        extra_args=["--env-manager", "local"],
+    )
+
+    expect_status_code(response, 200)
+
+    json_response = json.loads(response.content)
+
+    assert _REASONING_KEYWORD in json_response["predictions"]
+    assert "answer" in json_response["predictions"]
+
+
+def test_log_model_multi_inputs(dummy_model):
+    class MultiInputCoT(dspy.Module):
+        def __init__(self):
+            super().__init__()
+            self.prog = dspy.ChainOfThought("question, hint -> answer")
+
+        def forward(self, question, hint):
+            assert question == "What is 2 + 2?"
+            assert hint == "Hint: 2 + 2 = ?"
+            return self.prog(question=question, hint=hint)
+
+    dspy_model = MultiInputCoT()
+
+    dspy.settings.configure(lm=dummy_model)
+
+    input_example = {"question": "What is 2 + 2?", "hint": "Hint: 2 + 2 = ?"}
+
+    with mlflow.start_run():
+        model_info = mlflow.dspy.log_model(
+            dspy_model,
+            name="model",
+            input_example=input_example,
+        )
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+    assert loaded_model.predict(input_example) == {"answer": "6", _REASONING_KEYWORD: "reason"}
+
+    response = pyfunc_serve_and_score_model(
+        model_uri=model_info.model_uri,
+        data=json.dumps({"inputs": [input_example]}),
         content_type="application/json",
         extra_args=["--env-manager", "local"],
     )
