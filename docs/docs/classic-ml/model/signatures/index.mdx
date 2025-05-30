@@ -27,13 +27,28 @@ Model signatures and input examples are foundational components that define how 
 
 Model signatures and input examples provide crucial benefits:
 
-<ul>
-  <li><strong>Consistency</strong>: Ensure all model interactions follow the same data format</li>
-  <li><strong>Validation</strong>: Catch data format errors before they reach your model</li>
-  <li><strong>Documentation</strong>: Serve as living documentation for model usage</li>
-  <li><strong>Deployment Safety</strong>: Enable MLflow deployment tools to validate requests automatically</li>
-  <li><strong>UI Integration</strong>: Allow MLflow UI to display clear model requirements</li>
-</ul>
+**• Consistency**: Ensure all model interactions follow the same data format
+**• Validation**: Catch data format errors before they reach your model
+**• Documentation**: Serve as living documentation for model usage
+**• Deployment Safety**: Enable MLflow deployment tools to validate requests automatically
+**• UI Integration**: Allow MLflow UI to display clear model requirements
+
+:::warning Databricks Unity Catalog Requirement
+**Model signatures are REQUIRED for registering models in Databricks Unity Catalog.** Unity Catalog enforces concrete type definitions for all registered models and will reject models without proper signatures. Always include a signature when logging models that you plan to register in Databricks environments.
+
+```python
+# ✅ Required for Databricks registration
+mlflow.sklearn.log_model(
+    model,
+    name="my_model",
+    input_example=X_sample,  # Generates required signature
+    signature=signature,  # Or provide explicit signature
+)
+
+# ❌ Will fail in Databricks Unity Catalog
+mlflow.sklearn.log_model(model, name="my_model")  # No signature
+```
+:::
 
 ## Quick Start: Adding Signatures to Your Models
 
@@ -58,9 +73,13 @@ with mlflow.start_run():
 ```
 
 MLflow automatically:
-1. Infers the signature from your input example
-2. Validates the model works with the example
-3. Stores both signature and example with your model
+1. **Infers the signature from your input example**
+2. **Validates the model works with the example**
+3. **Stores both signature and example with your model**
+
+:::info Automatic Signature Inference
+MLflow automatically generates model signatures when you provide an `input_example` during model logging. This works for all model flavors and is the recommended approach for most use cases.
+:::
 
 ## Understanding Model Signatures
 
@@ -88,11 +107,7 @@ input_schema = Schema(
 ```
 
 **Key Features:**
-<ul>
-  <li>Support for both tabular (DataFrame) and tensor (NumPy) data</li>
-  <li>Optional fields using <code>required=False</code></li>
-  <li>Rich data type support including arrays and objects</li>
-</ul>
+Support for both tabular (DataFrame) and tensor (NumPy) data, optional fields using `required=False`, and rich data type support including arrays and objects.
 
   </TabItem>
   <TabItem value="outputs" label="Outputs Schema">
@@ -140,12 +155,7 @@ signature = ModelSignature(
 ```
 
 **Common Parameters:**
-<ul>
-  <li><code>temperature</code>: Controls randomness in generation</li>
-  <li><code>max_length</code>/<code>max_tokens</code>: Limits output length</li>
-  <li><code>top_k</code>, <code>top_p</code>: Control sampling strategies</li>
-  <li><code>repetition_penalty</code>: Reduces repetitive outputs</li>
-</ul>
+`temperature` controls randomness in generation, `max_length`/`max_tokens` limits output length, `top_k` and `top_p` control sampling strategies, and `repetition_penalty` reduces repetitive outputs.
 
   </TabItem>
 </Tabs>
@@ -166,6 +176,533 @@ MLflow supports two primary signature types:
 np.array([[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [1, 2, 3]]])  # Shape: (2, 2, 3)
 ```
 
+## Type Hints for Model Signatures
+
+:::info Version Compatibility
+Type hint support was introduced in MLflow 2.20.0. If you are using an earlier version of MLflow, see [the Working with Signatures](#working-with-signatures) section.
+:::
+
+You can use Python type hints to automatically define model signatures and enable data validation. This provides a more Pythonic way to specify your model's interface while getting automatic validation and schema inference.
+
+<Tabs>
+  <TabItem value="type-hints-overview" label="Overview & Benefits" default>
+
+### Quick Start with Type Hints
+
+```python
+import mlflow
+from typing import List, Dict, Optional
+import pydantic
+
+
+class Message(pydantic.BaseModel):
+    role: str
+    content: str
+    metadata: Optional[Dict[str, str]] = None
+
+
+class CustomModel(mlflow.pyfunc.PythonModel):
+    def predict(self, model_input: List[Message]) -> List[str]:
+        # Signature automatically inferred from type hints!
+        return [msg.content for msg in model_input]
+
+
+# Log model - signature is auto-generated from type hints
+with mlflow.start_run():
+    mlflow.pyfunc.log_model(
+        name="chat_model",
+        python_model=CustomModel(),
+        input_example=[
+            {"role": "user", "content": "Hello"}
+        ],  # Validates against type hints
+    )
+```
+
+### Key Benefits
+
+**• Automatic Validation**: Input data validated against type hints at runtime
+**• Schema Inference**: Model signature automatically generated from type annotations
+**• Type Safety**: Catch type mismatches before they reach your model
+**• IDE Support**: Better autocomplete and error detection during development
+**• Documentation**: Type hints serve as self-documenting code
+**• Consistency**: Same validation for PythonModel instances and loaded PyFunc models
+
+### When to Use Type Hints
+
+**✅ Recommended for:**
+Complex data structures (chat messages, tool definitions, nested objects), models requiring strict input validation, teams using modern Python development practices, and GenAI and LLM applications with structured inputs.
+
+**⚠️ Consider alternatives for:**
+Simple tabular data (DataFrames work fine with input examples), legacy codebases without type hint adoption, and models with highly dynamic input structures.
+
+  </TabItem>
+  <TabItem value="supported-types" label="Supported Type Hints">
+
+### Input Type Requirements
+
+:::warning Signature Interface
+Input signatures must be `List[...]` since PythonModel expects batch data:
+
+```python
+# ✅ Correct - Always use List wrapper
+def predict(self, model_input: List[str]) -> List[str]:
+    ...
+
+
+def predict(self, model_input: List[Message]) -> List[Dict]:
+    ...
+
+
+# ❌ Incorrect - Missing List wrapper
+def predict(self, model_input: str) -> str:
+    ...
+
+
+def predict(self, model_input: Message) -> Dict:
+    ...
+```
+:::
+
+### Primitive Types
+
+```python
+List[str]  # String inputs
+List[int]  # Integer inputs
+List[float]  # Float inputs
+List[bool]  # Boolean inputs
+List[bytes]  # Binary data
+List[datetime.datetime]  # Timestamps
+```
+
+### Collection Types
+
+```python
+List[List[str]]  # Nested lists
+List[Dict[str, int]]  # Dictionaries
+List[Dict[str, List[str]]]  # Complex nested structures
+```
+
+### Union and Optional Types
+
+```python
+List[Union[int, str]]  # Multiple possible types (becomes AnyType)
+List[Optional[str]]  # Optional fields (in Pydantic models only)
+List[Any]  # Any type (no validation)
+```
+
+### Pydantic Models (Recommended)
+
+```python
+class UserData(pydantic.BaseModel):
+    name: str
+    age: int
+    email: Optional[str] = None  # Optional with default
+    preferences: List[str] = []  # List with default
+
+
+List[UserData]  # Clean, validated structure
+```
+
+### Type Hint to Schema Mapping
+
+| Type Hint | Generated Schema |
+|-----------|-----------------|
+| `List[str]` | `Schema([ColSpec(type=DataType.string)])` |
+| `List[List[str]]` | `Schema([ColSpec(type=Array(DataType.string))])` |
+| `List[Dict[str, str]]` | `Schema([ColSpec(type=Map(DataType.string))])` |
+| `List[Union[int, str]]` | `Schema([ColSpec(type=AnyType())])` |
+| `List[Message]` | `Schema([ColSpec(type=Object(...))])` |
+
+  </TabItem>
+  <TabItem value="pydantic-models" label="Pydantic Models">
+
+### Basic Pydantic Usage
+
+```python
+import pydantic
+from typing import Optional, List, Dict
+
+
+class Message(pydantic.BaseModel):
+    role: str
+    content: str
+    timestamp: Optional[str] = None
+
+
+class CustomModel(mlflow.pyfunc.PythonModel):
+    def predict(self, model_input: List[Message]) -> List[str]:
+        return [f"{msg.role}: {msg.content}" for msg in model_input]
+
+
+# Both work - automatic conversion
+model.predict([Message(role="user", content="Hi")])  # Pydantic object
+model.predict([{"role": "user", "content": "Hi"}])  # Dict (auto-converted)
+```
+
+### Complex Nested Models
+
+```python
+class FunctionParams(pydantic.BaseModel):
+    properties: Dict[str, str]
+    type: str = "object"
+    required: Optional[List[str]] = None
+
+
+class ToolDefinition(pydantic.BaseModel):
+    name: str
+    description: Optional[str] = None
+    parameters: Optional[FunctionParams] = None
+
+
+class ChatRequest(pydantic.BaseModel):
+    messages: List[Message]
+    tools: Optional[List[ToolDefinition]] = None
+    temperature: float = 0.7
+
+
+@mlflow.pyfunc.utils.pyfunc
+def advanced_predict(model_input: List[ChatRequest]) -> List[Dict[str, str]]:
+    results = []
+    for request in model_input:
+        # Type validation ensures request.messages exists and is properly typed
+        response = {"response": f"Processed {len(request.messages)} messages"}
+        if request.tools:
+            response["tools_count"] = str(len(request.tools))
+        results.append(response)
+    return results
+```
+
+### Flexible Base Classes
+
+```python
+class BaseMessage(pydantic.BaseModel):
+    model_config = pydantic.ConfigDict(extra="allow")  # Allow extra fields
+
+    role: str
+    content: str
+
+
+class SystemMessage(BaseMessage):
+    system_prompt: str
+
+
+class UserMessage(BaseMessage):
+    user_id: str
+
+
+@mlflow.pyfunc.utils.pyfunc
+def flexible_predict(model_input: List[BaseMessage]) -> List[str]:
+    # Input automatically converted to BaseMessage objects
+    # Extra fields from subclasses preserved
+    results = []
+    for msg in model_input:
+        result = f"{msg.role}: {msg.content}"
+        if hasattr(msg, "system_prompt"):
+            result += f" (system: {msg.system_prompt})"
+        elif hasattr(msg, "user_id"):
+            result += f" (user: {msg.user_id})"
+        results.append(result)
+    return results
+```
+
+### Pydantic Best Practices
+
+**Always provide defaults for optional fields:**
+```python
+# ✅ Good - Optional fields have defaults
+class Message(pydantic.BaseModel):
+    role: str
+    content: str
+    metadata: Optional[Dict[str, str]] = None
+    timestamp: Optional[str] = None
+
+
+# ❌ Bad - Optional field without default
+class Message(pydantic.BaseModel):
+    role: str
+    content: str
+    metadata: Optional[Dict[str, str]]  # Will cause validation errors
+```
+
+  </TabItem>
+  <TabItem value="validation-conversion" label="Validation & Conversion">
+
+### Automatic Data Validation
+
+Type hints enable automatic validation for both PythonModel instances and loaded PyFunc models:
+
+```python
+model = CustomModel()
+
+# ✅ Works: Pydantic objects
+input_data = [Message(role="user", content="Hello")]
+result = model.predict(input_data)
+
+# ✅ Works: Dictionaries (auto-converted to Pydantic objects)
+input_data = [{"role": "user", "content": "Hello"}]
+result = model.predict(input_data)
+
+# ❌ Fails: Missing required fields
+input_data = [{"role": "user"}]  # Missing 'content'
+model.predict(input_data)  # Raises validation error
+
+# ❌ Fails: Wrong data type
+input_data = ["hello"]  # Expected dict/Pydantic object
+model.predict(input_data)  # Raises validation error
+```
+
+### Data Conversion Examples
+
+```python
+# Input: Dictionary
+input_dict = {"role": "system", "content": "Hello", "metadata": {"source": "api"}}
+
+# Automatically converted to: Message object
+# Message(role="system", content="Hello", metadata={"source": "api"})
+
+# Works for nested structures too
+complex_input = {
+    "messages": [{"role": "user", "content": "Hi"}],
+    "tools": [{"name": "search", "description": "Web search"}],
+    "temperature": 0.5,
+}
+# Automatically converted to: ChatRequest object with nested Message and ToolDefinition objects
+```
+
+### Validation Error Examples
+
+```python
+# Missing required field
+try:
+    model.predict([{"role": "system"}])  # Missing 'content'
+except Exception as e:
+    print(e)
+    # Output: 1 validation error for Message
+    # content
+    #   Field required [type=missing, input_value={'role': 'system'}, input_type=dict]
+
+# Wrong data type
+try:
+    model.predict(["hello"])  # Expected dict/object
+except Exception as e:
+    print(e)
+    # Output: Failed to validate data against type hint `list[Message]`, invalid elements:
+    # [('hello', "Expecting example to be a dictionary or pydantic model instance...")]
+```
+
+### Validation Scope
+
+:::note Output Validation
+MLflow validates **input data** against type hints but does **not validate model output**. The output type hint is used only for model signature inference.
+:::
+
+  </TabItem>
+  <TabItem value="special-types" label="Special Type Hints">
+
+### TypeFromExample
+
+For cases where you want automatic type inference from your input example:
+
+```python
+from mlflow.types.type_hints import TypeFromExample
+
+
+class FlexibleModel(mlflow.pyfunc.PythonModel):
+    def predict(self, model_input: TypeFromExample):
+        # Type determined by input_example at logging time
+        return [
+            item.upper() if isinstance(item, str) else str(item) for item in model_input
+        ]
+
+
+# Input example determines the expected type
+with mlflow.start_run():
+    mlflow.pyfunc.log_model(
+        name="flexible_model",
+        python_model=FlexibleModel(),
+        input_example=["sample", "data"],  # Expects List[str]
+    )
+
+# At inference, validates against List[str] type
+loaded_model = mlflow.pyfunc.load_model(model_uri)
+result = loaded_model.predict(["hello", "world"])  # ✅ Works
+```
+
+### Legacy Type Hints (No Validation)
+
+These type hints work but don't provide validation or schema inference:
+
+```python
+# Supported but no validation
+def predict(self, model_input: pd.DataFrame) -> pd.DataFrame:
+    ...
+
+
+def predict(self, model_input: np.ndarray) -> np.ndarray:
+    ...
+
+
+def predict(self, model_input: scipy.sparse.csr_matrix):
+    ...
+
+
+# You must provide explicit signature or input_example
+with mlflow.start_run():
+    mlflow.pyfunc.log_model(
+        name="legacy_model",
+        python_model=model,
+        input_example=sample_dataframe,  # Required for legacy types
+    )
+```
+
+### Using @pyfunc Decorator
+
+For callable functions (not classes):
+
+```python
+from mlflow.pyfunc.utils import pyfunc
+
+
+@pyfunc
+def predict(model_input: List[Message]) -> List[str]:
+    return [msg.content for msg in model_input]
+
+
+# Same validation works as with PythonModel
+predict([{"role": "user", "content": "Hi"}])  # ✅ Auto-converts dict to Message
+predict(["hello"])  # ❌ Validation error
+```
+
+### Union Types Behavior
+
+```python
+# Union types become AnyType (no validation)
+def predict(self, model_input: List[Union[str, int]]) -> List[str]:
+    # MLflow infers this as List[AnyType] - no validation performed
+    return [str(item) for item in model_input]
+
+
+# Better approach: Use Pydantic discriminated unions for validation
+from typing import Literal
+
+
+class TextInput(pydantic.BaseModel):
+    type: Literal["text"] = "text"
+    content: str
+
+
+class NumberInput(pydantic.BaseModel):
+    type: Literal["number"] = "number"
+    value: int
+
+
+# Discriminated union with validation
+def predict(self, model_input: List[Union[TextInput, NumberInput]]) -> List[str]:
+    ...
+```
+
+  </TabItem>
+  <TabItem value="serving-deployment" label="Serving & Deployment">
+
+### Serving Models with Type Hints
+
+When serving models with type hints, **always use the `inputs` key** in your JSON request:
+
+```bash
+# Start local server
+mlflow models serve -m runs/<run_id>/model --env-manager local
+
+# Correct request format
+curl -X POST http://127.0.0.1:5000/invocations \
+  -H 'Content-Type: application/json' \
+  -d '{"inputs": [{"role": "user", "content": "Hello"}]}'
+
+# ❌ Incorrect - missing inputs wrapper
+curl -X POST http://127.0.0.1:5000/invocations \
+  -H 'Content-Type: application/json' \
+  -d '[{"role": "user", "content": "Hello"}]'
+```
+
+### Deployment Best Practices
+
+**Input Example Validation:**
+```python
+# Always provide input examples that match your type hints
+with mlflow.start_run():
+    model_info = mlflow.pyfunc.log_model(
+        name="chat_model",
+        python_model=CustomModel(),
+        input_example=[{"role": "user", "content": "test"}],  # Matches List[Message]
+    )
+
+# MLflow validates the input_example against type hints at logging time
+```
+
+**Testing Before Deployment:**
+```python
+# Test locally first
+model = CustomModel()
+test_input = [{"role": "user", "content": "test"}]
+
+# Verify validation works
+try:
+    result = model.predict(test_input)
+    print("✅ Validation passed")
+except Exception as e:
+    print(f"❌ Validation failed: {e}")
+
+# Test loaded model
+loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+result = loaded_model.predict(test_input)
+```
+
+### Production Considerations
+
+**Error Handling:**
+```python
+class RobustModel(mlflow.pyfunc.PythonModel):
+    def predict(self, model_input: List[Message]) -> List[str]:
+        try:
+            return [msg.content for msg in model_input]
+        except Exception as e:
+            # Log validation errors for monitoring
+            logger.error(f"Prediction failed: {e}")
+            raise
+```
+
+**Performance:**
+Type validation adds minimal overhead, Pydantic validation is highly optimized, and you should consider caching for repeated validation of similar structures.
+
+  </TabItem>
+</Tabs>
+
+### Type Hints Best Practices
+
+**Development Workflow:**
+```python
+# ✅ Recommended pattern
+class MyModel(mlflow.pyfunc.PythonModel):
+    def predict(self, model_input: List[MyPydanticModel]) -> List[str]:
+        # Clear type annotations
+        # Automatic validation
+        # Good IDE support
+        return [process(item) for item in model_input]
+```
+
+**Key Guidelines:**
+- Use Pydantic models for complex data structures
+- Set default values for optional fields in Pydantic models
+- Don't pass explicit `signature` parameter when using type hints
+- Always provide input examples that match your type hints
+- Use `TypeFromExample` when you want flexibility without explicit typing
+- Test validation locally before deployment
+
+:::warning Important Notes
+- **Never pass explicit `signature` parameter** when using type hints - MLflow will use the inferred signature and warn if they don't match
+- **Union types become AnyType** - use Pydantic discriminated unions for proper validation
+- **Input examples are required** for `TypeFromExample` and legacy type hints
+:::
+
 ## Data Types and Examples
 
 <Tabs>
@@ -173,13 +710,25 @@ np.array([[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [1, 2, 3]]])  # Shape: (2, 2, 3)
 
 ### Primitive Types
 
-| Python Type | MLflow Type | Example |
-|-------------|-------------|---------|
-| `str` | `string` | `"hello world"` |
-| `int` | `long` | `42` |
-| `float` | `double` | `3.14159` |
-| `bool` | `boolean` | `True` |
-| `datetime` | `datetime` | `pd.Timestamp("2023-01-01")` |
+**Python to MLflow type mappings:**
+
+:::note Type Restrictions
+Usage of these types support only scalar definitions or 1-dimensional Arrays. Mixed types are not permitted.
+:::
+
+| Python Type | MLflow Type | Example | Notes |
+|-------------|-------------|---------|--------|
+| `str` | `string` | `"hello world"` | |
+| `int` | `long` | `42` | 64-bit integers |
+| `np.int32` | `integer` | `np.int32(42)` | 32-bit integers |
+| `float` | `double` | `3.14159` | 64-bit floats |
+| `np.float32` | `float` | `np.float32(3.14)` | 32-bit floats |
+| `bool` | `boolean` | `True` | |
+| `np.bool_` | `boolean` | `np.bool_(True)` | NumPy boolean |
+| `datetime` | `datetime` | `pd.Timestamp("2023-01-01")` | |
+| `bytes` | `binary` | `b"binary data"` | |
+| `bytearray` | `binary` | `bytearray(b"data")` | |
+| `np.bytes_` | `binary` | `np.bytes_(b"data")` | NumPy bytes |
 
 ### Composite Types
 
@@ -211,6 +760,7 @@ pd.DataFrame(
 ### Compatibility Notes
 
 :::warning version compatibility
+**Version Requirements:**
 - **Array and Object types**: Require MLflow ≥ 2.10.0
 - **Spark ML vectors**: Require MLflow ≥ 2.15.0
 - **AnyType**: Requires MLflow ≥ 2.19.0
@@ -291,12 +841,18 @@ ParamSpec(
 
 ### Supported Parameter Types
 
-| MLflow Type | Python Type | Example Values |
-|-------------|-------------|----------------|
-| `string` | `str` | `"gpt-4"`, `"claude"` |
-| `long` | `int` | `100`, `512` |
-| `double` | `float` | `0.7`, `1.2` |
-| `boolean` | `bool` | `True`, `False` |
+**Parameters must be scalars or 1D arrays only.** Multi-dimensional arrays are not supported for inference parameters.
+
+| MLflow Type | Python Type | Scalar Example | 1D Array Example |
+|-------------|-------------|----------------|-------------------|
+| `string` | `str` | `"gpt-4"` | `["stop1", "stop2"]` |
+| `long` | `int` (64-bit) | `100` | `[100, 200, 300]` |
+| `integer` | `int` (32-bit) | `50` | `[10, 20, 30]` |
+| `double` | `float` (64-bit) | `0.7` | `[0.1, 0.5, 0.9]` |
+| `float` | `float` (32-bit) | `0.5` | `[0.1, 0.2, 0.3]` |
+| `boolean` | `bool` | `True` | `[True, False, True]` |
+| `datetime` | `datetime` | `datetime.now()` | `[datetime1, datetime2]` |
+| `binary` | `bytes` | `b"data"` | `[b"data1", b"data2"]` |
 
 ### Common Parameter Patterns
 
@@ -354,20 +910,16 @@ MLflow automatically validates inputs against your model signature when:
 ### Validation Rules
 
 **Input Validation:**
-<ul>
-  <li><strong>Required fields</strong>: Must be present or validation fails</li>
-  <li><strong>Optional fields</strong>: Can be missing without errors</li>
-  <li><strong>Extra fields</strong>: Ignored (not passed to model)</li>
-  <li><strong>Type conversion</strong>: Safe conversions applied when possible</li>
-</ul>
+- **Required fields**: Must be present or validation fails
+- **Optional fields**: Can be missing without errors
+- **Extra fields**: Ignored (not passed to model)
+- **Type conversion**: Safe conversions applied when possible
 
 **Parameter Validation:**
-<ul>
-  <li><strong>Type checking</strong>: Parameters must match specified types</li>
-  <li><strong>Shape validation</strong>: List parameters validated for correct shape</li>
-  <li><strong>Default values</strong>: Applied when parameters not provided</li>
-  <li><strong>Unknown parameters</strong>: Generate warnings but don't fail</li>
-</ul>
+- **Type checking**: Parameters must match specified types
+- **Shape validation**: List parameters validated for correct shape
+- **Default values**: Applied when parameters not provided
+- **Unknown parameters**: Generate warnings but don't fail
 
 ### Handling Common Issues
 
@@ -515,7 +1067,7 @@ client.create_model_version(name=model_name, source=mv.source, run_id=mv.run_id)
 
 ### GenAI Model Signatures
 
-For LangChain, OpenAI, and similar models, use dictionary-based signatures:
+For LangChain, OpenAI, and similar models, **signatures are automatically inferred when you provide an input example**:
 
 ```python
 # Input example for chat model
@@ -527,25 +1079,25 @@ input_example = [
     {"message": "Hi there"},  # name is missing (becomes optional)
 ]
 
-# Log model with automatic signature inference
+# Log model - signature auto-generated from input_example
 with mlflow.start_run():
     mlflow.langchain.log_model(
         chain,
         name="chat_model",
-        input_example=input_example,  # Signature auto-generated
+        input_example=input_example,  # Signature automatically inferred!
     )
 ```
 
 ### Models with Parameters
 
-Include inference parameters in your signature:
+Include inference parameters in your signature - **signatures are automatically inferred when both input and parameters are provided**:
 
 ```python
 # Input data and parameters
 input_data = "Translate to French: Hello world"
 params = {"temperature": 0.3, "max_tokens": 50, "stop_sequences": [".", "!"]}
 
-# Create signature with parameters
+# Create signature with parameters - automatically inferred
 signature = infer_signature(
     input_data, model.predict(input_data), params  # Include parameters in signature
 )
@@ -556,7 +1108,7 @@ with mlflow.start_run():
 
 ### Complex Data Structures
 
-Handle nested objects and arrays:
+Handle nested objects and arrays - **signatures automatically inferred from complex input examples**:
 
 ```python
 # Complex input structure
@@ -569,8 +1121,13 @@ input_example = {
     "context": {"device": "mobile", "location": None},  # Optional field
 }
 
-# Signature automatically handles nested structure
-signature = infer_signature(input_example)
+# Signature automatically handles nested structure when provided as input_example
+with mlflow.start_run():
+    mlflow.pyfunc.log_model(
+        python_model=custom_model,
+        name="complex_model",
+        input_example=input_example,  # Auto-infers complex nested schema
+    )
 ```
 
   </TabItem>
@@ -582,13 +1139,11 @@ Input examples serve multiple important purposes beyond signature inference:
 
 ### Benefits of Input Examples
 
-<ul>
-  <li><strong>Signature Inference</strong>: Automatically generate model signatures</li>
-  <li><strong>Model Validation</strong>: Verify model works during logging</li>
-  <li><strong>Dependency Detection</strong>: Help identify required packages</li>
-  <li><strong>Documentation</strong>: Show developers proper input format</li>
-  <li><strong>Deployment Testing</strong>: Validate REST endpoint payload format</li>
-</ul>
+**• Signature Inference**: Automatically generate model signatures
+**• Model Validation**: Verify model works during logging
+**• Dependency Detection**: Help identify required packages
+**• Documentation**: Show developers proper input format
+**• Deployment Testing**: Validate REST endpoint payload format
 
 ### Input Example Formats
 
@@ -998,4 +1553,4 @@ if model_info.signature != inferred:
 - [Signature Examples Notebook](/ml/model/notebooks/signature_examples) - Interactive examples
 - [Model API Documentation](/ml/model#model-api) - Complete API reference
 - [Deployment Guide](/ml/deployment) - Using signatures in production
-- [MLflow Model Format](/ml/model) - Technical specification
+- [MLflow Model Format](/ml/model#storage-format) - Technical specification

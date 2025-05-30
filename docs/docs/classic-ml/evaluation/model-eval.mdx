@@ -44,7 +44,7 @@ with mlflow.start_run():
     model_uri = mlflow.get_artifact_uri("model")
 
     # Comprehensive evaluation
-    result = mlflow.evaluate(
+    result = mlflow.models.evaluate(
         model_uri,
         eval_data,
         targets="label",
@@ -81,7 +81,7 @@ For classification tasks, MLflow automatically computes comprehensive metrics:
 
 ```python
 # Binary Classification
-result = mlflow.evaluate(
+result = mlflow.models.evaluate(
     model_uri,
     eval_data,
     targets="label",
@@ -133,7 +133,7 @@ with mlflow.start_run():
     mlflow.sklearn.log_model(reg_model, name="model", signature=signature)
     model_uri = mlflow.get_artifact_uri("model")
 
-    result = mlflow.evaluate(
+    result = mlflow.models.evaluate(
         model_uri,
         eval_data,
         targets="target",
@@ -166,7 +166,7 @@ Control which evaluators run during assessment:
 
 ```python
 # Run only default metrics (fastest)
-result = mlflow.evaluate(
+result = mlflow.models.evaluate(
     model_uri,
     eval_data,
     targets="label",
@@ -175,7 +175,7 @@ result = mlflow.evaluate(
 )
 
 # Include SHAP explainer for feature importance
-result = mlflow.evaluate(
+result = mlflow.models.evaluate(
     model_uri,
     eval_data,
     targets="label",
@@ -234,7 +234,7 @@ custom_accuracy = make_metric(
 )
 
 # Use in evaluation
-result = mlflow.evaluate(
+result = mlflow.models.evaluate(
     model_uri,
     eval_data,
     targets="label",
@@ -273,7 +273,7 @@ def create_residual_plot(eval_df, builtin_metrics, artifacts_dir):
 
 
 # Use custom artifact
-result = mlflow.evaluate(
+result = mlflow.models.evaluate(
     model_uri,
     eval_data,
     targets="target",
@@ -291,7 +291,7 @@ The evaluation result object provides comprehensive access to all generated metr
 
 ```python
 # Run evaluation
-result = mlflow.evaluate(model_uri, eval_data, targets="label", model_type="classifier")
+result = mlflow.models.evaluate(model_uri, eval_data, targets="label", model_type="classifier")
 
 # Access metrics
 print("All Metrics:")
@@ -342,7 +342,7 @@ for model_name, model in models.items():
         model_uri = mlflow.get_artifact_uri("model")
 
         # Evaluate model
-        result = mlflow.evaluate(
+        result = mlflow.models.evaluate(
             model_uri, eval_data, targets="label", model_type="classifier"
         )
 
@@ -393,7 +393,7 @@ def evaluate_with_cv(model, X, y, eval_data, cv_folds=5):
         mlflow.sklearn.log_model(model, name="model", signature=signature)
         model_uri = mlflow.get_artifact_uri("model")
 
-        result = mlflow.evaluate(
+        result = mlflow.models.evaluate(
             model_uri, eval_data, targets="label", model_type="classifier"
         )
 
@@ -444,7 +444,7 @@ def evaluate_and_select_best_model(
             mlflow.sklearn.log_model(model, name="model", signature=signature)
             model_uri = mlflow.get_artifact_uri("model")
 
-            result = mlflow.evaluate(
+            result = mlflow.models.evaluate(
                 model_uri, eval_data, targets="label", model_type="classifier"
             )
 
@@ -477,7 +477,7 @@ best_model, all_scores = evaluate_and_select_best_model(
 ## Model Validation and Quality Gates
 
 :::warning attention
-MLflow 2.18.0 has moved the model validation functionality from the <APILink fn="mlflow.evaluate" /> API
+MLflow 2.18.0 has moved the model validation functionality from the <APILink fn="mlflow.models.evaluate" /> API
 to a dedicated <APILink fn="mlflow.validate_evaluation_results" /> API. The relevant parameters, such as baseline_model,
 are deprecated and will be removed from the older API in future versions.
 :::
@@ -489,7 +489,7 @@ to assess the quality of your model against a baseline.
 from mlflow.models import MetricThreshold
 
 # Evaluate your model first
-result = mlflow.evaluate(model_uri, eval_data, targets="label", model_type="classifier")
+result = mlflow.models.evaluate(model_uri, eval_data, targets="label", model_type="classifier")
 
 # Define static performance thresholds
 static_thresholds = {
@@ -648,7 +648,7 @@ def comprehensive_model_evaluation(
         model_uri = mlflow.get_artifact_uri("model")
 
         # Comprehensive evaluation
-        result = mlflow.evaluate(
+        result = mlflow.models.evaluate(
             model_uri,
             eval_data,
             targets=targets,
@@ -671,7 +671,7 @@ Optimize evaluation for large datasets and complex models:
 
 ```python
 # Optimize evaluation performance
-result = mlflow.evaluate(
+result = mlflow.models.evaluate(
     model_uri,
     eval_data.sample(n=10000, random_state=42),  # Sample for faster evaluation
     targets="label",
@@ -707,7 +707,7 @@ def evaluate_in_batches(model_uri, large_eval_data, targets, batch_size=1000):
     )
 
     # Evaluate using static dataset approach
-    result = mlflow.evaluate(
+    result = mlflow.models.evaluate(
         data=final_eval_data,
         predictions="prediction",
         targets="target",
@@ -745,7 +745,7 @@ def reproducible_evaluation(model, eval_data, targets, random_seed=42):
         ).reset_index(drop=True)
 
         # Run evaluation
-        result = mlflow.evaluate(
+        result = mlflow.models.evaluate(
             model,
             eval_data_sorted,
             targets=targets,

@@ -69,7 +69,7 @@ with mlflow.start_run():
     mlflow.sklearn.log_model(model, name="model")
 
     # Comprehensive evaluation with one line
-    result = mlflow.evaluate(
+    result = mlflow.models.evaluate(
         model="models:/my-model/1",
         data=eval_data,
         targets="target",
@@ -88,13 +88,11 @@ with mlflow.start_run():
 
   #### Visual Diagnostics
   - 📊 **Performance Plots**: ROC curves, precision-recall curves, calibration plots
-  - 🔍 **Error Analysis**: Residual plots, prediction distributions, outlier detection
   - 📈 **Feature Importance**: SHAP values, permutation importance, feature interactions
 
   #### Model Explanations
-  - 🧠 **Global Explanations**: Overall model behavior and feature contributions
-  - 🔍 **Local Explanations**: Individual prediction explanations and decision paths
-  - ⚖️ **Fairness Analysis**: Bias detection across demographic groups and sensitive attributes
+  - 🧠 **Global Explanations**: Overall model behavior and feature contributions (with `shap`)
+  - 🔍 **Local Explanations**: Individual prediction explanations and decision paths (with `shap`)
 
 </details>
 
@@ -106,7 +104,7 @@ MLflow supports multiple evaluation approaches to fit your workflow:
   <summary>Comprehensive Evaluation Options</summary>
 
   #### Model Evaluation
-  - 🤖 **Logged Models**: Evaluate models stored in MLflow Model Registry
+  - 🤖 **Logged Models**: Evaluate models that have been logged to MLflow
   - 🔄 **Live Models**: Direct evaluation of in-memory model objects
   - 📦 **Pipeline Evaluation**: End-to-end assessment of preprocessing and modeling pipelines
 
@@ -206,16 +204,16 @@ Ready to elevate your model evaluation practices with MLflow? Choose the evaluat
   <summary>Quick Start Recommendations</summary>
 
   #### For Data Scientists
-  Start with **Model Evaluation** to understand comprehensive performance assessment, then explore **Custom Metrics** for domain-specific requirements.
+  Start with [Model Evaluation](model-eval) to understand comprehensive performance assessment, then explore **Custom Metrics** for domain-specific requirements.
 
   #### For ML Engineers
-  Begin with **Function Evaluation** for lightweight testing, then advance to **Model Validation** for production readiness assessment.
+  Begin with [Function Evaluation](function-eval) for lightweight testing, then advance to **Model Validation** for production readiness assessment.
 
   #### For ML Researchers
-  Explore **SHAP Integration** for model interpretability, then investigate **Plugin Evaluators** for specialized analysis capabilities.
+  Explore [SHAP Integration](shap) for model interpretability, then investigate **Plugin Evaluators** for specialized analysis capabilities.
 
   #### For Enterprise Teams
-  Start with **Model Validation** for governance requirements, then implement **Dataset Evaluation** for large-scale assessment workflows.
+  Start with [Model Validation](metrics-visualizations) for governance requirements, then implement [Dataset Evaluation](dataset-eval) for large-scale assessment workflows.
 
 </details>
 

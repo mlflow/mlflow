@@ -442,27 +442,27 @@ const sidebarsClassicML: SidebarsConfig = {
         items: [
             {
                 type: 'doc',
-                id: 'evaluation/function-eval/index',
+                id: 'evaluation/function-eval',
             },
             {
                 type: 'doc',
-                id: 'evaluation/dataset-eval/index',
+                id: 'evaluation/dataset-eval',
             },
             {
                 type: 'doc',
-                id: 'evaluation/model-eval/index',
+                id: 'evaluation/model-eval',
             },
             {
                 type: 'doc',
-                id: 'evaluation/metrics-visualizations/index',
+                id: 'evaluation/metrics-visualizations',
             },
             {
                 type: 'doc',
-                id: 'evaluation/shap/index',
+                id: 'evaluation/shap',
             },
             {
                 type: 'doc',
-                id: 'evaluation/plugin-evaluators/index',
+                id: 'evaluation/plugin-evaluators',
             },
         ],
         link: {
