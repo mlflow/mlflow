@@ -7,6 +7,7 @@ pagination_label: Trace Data Structure
 import { APILink } from "@site/src/components/APILink";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
+import { Table } from "@site/src/components/Table";
 
 # Trace Data Structure
 
@@ -107,7 +108,7 @@ The data that is contained in the `TraceInfo` object is used to populate the tra
 
 The primary components of MLflow <APILink fn="mlflow.entities.TraceInfo">`TraceInfo`</APILink> objects are listed below.
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>**Property**</th>
@@ -242,14 +243,14 @@ The primary components of MLflow <APILink fn="mlflow.entities.TraceInfo">`TraceI
       </td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 ## Trace Data
 
 The MLflow <APILink fn="mlflow.entities.trace_data.TraceData">`TraceData`</APILink> object is a `dataclass` object that holds the core of the trace data.
 This object contains the following elements:
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>**Property**</th>
@@ -268,7 +269,7 @@ This object contains the following elements:
       <td>For further information on the structure of Span objects, see the section below.</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 ## Span Schema
 
@@ -280,7 +281,7 @@ When you view your traces within the MLflow UI, you're looking at a collection o
 
 The sections below provide a detailed view of the structure of a span.
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>**Property**</th>
@@ -444,7 +445,7 @@ The sections below provide a detailed view of the structure of a span.
     </tr>
 
   </tbody>
-</table>
+</Table>
 
 ## Span Types
 
@@ -452,7 +453,7 @@ Span types are a way to categorize spans within a trace. By default, the span ty
 
 The following span types are available:
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>**Span Type**</th>
@@ -501,7 +502,7 @@ The following span types are available:
       <td>A default span type that is used when no other span type is specified.</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 To set a span type, you can pass the `span_type` parameter to the <APILink fn="mlflow.trace">`@mlflow.trace`</APILink> decorator or <APILink fn="mlflow.start_span" />
 context manager. When you are using [automatic tracing](/tracing/#automatic-tracing), the span type is automatically set by MLflow.
@@ -538,7 +539,7 @@ within the UI and downstream tasks such as evaluation.
 The `RETRIEVER` span type is used for operations involving retrieving data from a data store (for example, querying
 documents from a vector store). The `RETRIEVER` span type has the following schema:
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>**Property**</th>
@@ -587,7 +588,7 @@ documents from a vector store). The `RETRIEVER` span type has the following sche
     </tr>
 
   </tbody>
-</table>
+</Table>
 
 \* For example, both `[Document(page_content="Hello world", metadata={"doc_uri": "https://example.com"})]` and
 `[{"page_content": "Hello world", "metadata": {"doc_uri": "https://example.com"}}]` are valid outputs for a `RETRIEVER` span.
@@ -604,7 +605,7 @@ However, it is still important to have a common schema in order to enable certai
 conversation display), and to make authoring evaluation functions easier. To support this, we specify some
 custom attributes for standardized chat messages and tool definitions:
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>**Attribute Name**</th>
@@ -646,7 +647,7 @@ custom attributes for standardized chat messages and tool definitions:
       </td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 Please refer to the example below for a quick demonstration of how to use the utility functions described above, as well as
 how to retrieve them using the <APILink fn="mlflow.entities.Span.get_attribute">span.get_attribute()</APILink> function:

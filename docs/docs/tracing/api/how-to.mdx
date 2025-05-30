@@ -8,6 +8,7 @@ import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
 import TOCInline from "@theme/TOCInline";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
+import { Table } from "@site/src/components/Table";
 
 # Tracing SDK How-to Guides
 
@@ -46,7 +47,7 @@ Please refer to the [Manual Tracing](/tracing/api/manual-instrumentation) guide 
 
 Tags can be added to traces to provide additional metadata at the trace level. For example, you can attach a session ID to a trace to group traces by a conversation session. MLflow provides APIs to set and delete tags on traces. Select the right API based on whether you want to set tags on an active trace or on an already finished trace.
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>API / Method</th>
@@ -71,7 +72,7 @@ Tags can be added to traces to provide additional metadata at the trace level. F
       <td>Setting tags on a finished trace conveniently.</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 ### Setting Tags on an Active Trace
 

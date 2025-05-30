@@ -1,4 +1,5 @@
 import { APILink } from "@site/src/components/APILink";
+import { Table } from "@site/src/components/Table";
 
 # Tutorial: Getting Started with ChatModel
 
@@ -15,7 +16,7 @@ If you're already familiar with <APILink fn ="mlflow.pyfunc.PythonModel">`Python
 As GenAI applications grow more complex, mapping inputs, outputs, and parameters with a custom `PythonModel` can be challenging. `ChatModel`
 simplifies this by offering a structured, OpenAI-compatible schema for conversational AI models.
 
-<table>
+<Table>
   <thead>
     <tr>
       <th></th>
@@ -45,7 +46,7 @@ simplifies this by offering a structured, OpenAI-compatible schema for conversat
       <td>**High**. Deploying and integrating the custom PythonModel may not be straightforward. E.g., The model needs to handle Pandas DataFrames as MLflow converts input data to DataFrames before passing it to PythonModel.</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 ## What You'll Learn
 
@@ -343,7 +344,7 @@ detail in the next section.
 If you're familiar with configuring inference parameters for [PyFunc models](https://mlflow.org/blog/custom-pyfunc#parameterizing-the-custom-model),
 you will notice some key differences in how ChatModel handles parameters:
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>ChatModel</th>
@@ -364,7 +365,7 @@ you will notice some key differences in how ChatModel handles parameters:
       <td>Parameters must be explicitly defined in the model signature</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 In short, ChatModels make it easy to configure and use inference parameters, while also providing a standardized,
 OpenAI-compatible output format, but at the cost of some flexibility.

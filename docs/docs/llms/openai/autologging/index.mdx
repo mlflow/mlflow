@@ -5,6 +5,7 @@ sidebar_position: 2
 
 import TOCInline from "@theme/TOCInline";
 import { APILink } from "@site/src/components/APILink";
+import { Table } from "@site/src/components/Table";
 
 # MLflow OpenAI Autologging
 
@@ -74,7 +75,7 @@ autologging of other information by setting the corresponding parameters when ca
 
 The available options and their default values are shown below. To learn more about additional parameters, see the API documentation.
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>Target</th>
@@ -111,7 +112,7 @@ The available options and their default values are shown below. To learn more ab
       <td>If set to `True`, input examples from inference data are collected and logged along with OpenAI model artifacts during inference. This option is only available when `log_models` is enabled.</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 For example, to disable logging of traces, and instead enable model logging, run the following code:
 
