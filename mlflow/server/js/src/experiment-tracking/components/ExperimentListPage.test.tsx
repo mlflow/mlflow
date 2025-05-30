@@ -1,5 +1,5 @@
 import { render, screen } from '../../common/utils/TestUtils.react18';
-import ExperimentHome from './ExperimentPage';
+import ExperimentHome from './ExperimentListPage';
 
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
