@@ -19,6 +19,13 @@ const getPromptPagesRouteDefs = () => {
 
 export const getRouteDefs = () => [
   {
+    path: RoutePaths.experimentObservatory,
+    element: createLazyRouteElement(() => {
+      return import('./components/HomePage');
+    }),
+    pageId: 'mlflow.experiment.list',
+  },
+  {
     path: RoutePaths.experimentPageTabbed,
     element: createLazyRouteElement(() => {
       return import(/* webpackChunkName: "experimentPage" */ './components/ExperimentPage');
@@ -37,17 +44,23 @@ export const getRouteDefs = () => [
   },
   {
     path: RoutePaths.experimentPage,
-    element: createLazyRouteElement(() => import(/* webpackChunkName: "experimentPage" */ './components/ExperimentPage')),
+    element: createLazyRouteElement(
+      () => import(/* webpackChunkName: "experimentPage" */ './components/ExperimentPage'),
+    ),
     pageId: 'mlflow.experiment.details',
   },
   {
     path: RoutePaths.experimentPageSearch,
-    element: createLazyRouteElement(() => import(/* webpackChunkName: "experimentPage" */ './components/ExperimentPage')),
+    element: createLazyRouteElement(
+      () => import(/* webpackChunkName: "experimentPage" */ './components/ExperimentPage'),
+    ),
     pageId: 'mlflow.experiment.details.search',
   },
   {
     path: RoutePaths.compareExperimentsSearch,
-    element: createLazyRouteElement(() => import(/* webpackChunkName: "experimentPage" */ './components/ExperimentPage')),
+    element: createLazyRouteElement(
+      () => import(/* webpackChunkName: "experimentPage" */ './components/ExperimentPage'),
+    ),
     pageId: 'mlflow.experiment.compare',
   },
   {

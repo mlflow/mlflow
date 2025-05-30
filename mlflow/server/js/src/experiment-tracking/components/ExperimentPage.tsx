@@ -65,11 +65,6 @@ const HomePage = () => {
   return (
     <RequestStateWrapper requestIds={[searchRequestId.current]} customSpinner={loadingState}>
       <div css={{ display: 'flex', height: 'calc(100% - 60px)' }}>
-        {/* Left sidebar containing experiment list */}
-        <div css={{ height: '100%', paddingTop: 24, display: 'flex' }}>
-          <ExperimentListView activeExperimentIds={experimentIds || []} experiments={experiments} />
-        </div>
-
         {shouldRenderTabbedView && <ExperimentPageTabs />}
         {!shouldRenderTabbedView && (
           // Main content with the experiment view
