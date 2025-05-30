@@ -2245,9 +2245,12 @@ def spark_udf(
         if dbr_runtime_version == Version("15.4"):
             if spark.conf.get("spark.databricks.pyspark.udf.isolation.enabled").lower() == "true":
                 # The connected cluster is standard (shared) mode.
-                if spark.conf.get(
-                    "spark.databricks.safespark.archive.artifact.unpack.disabled"
-                ).lower() != "false":
+                if (
+                    spark.conf.get(
+                        "spark.databricks.safespark.archive.artifact.unpack.disabled"
+                    ).lower()
+                    != "false"
+                ):
                     raise MlflowException(
                         "Using 'mlflow.pyfunc.spark_udf' in remote Databricks Connect requires "
                         "Databricks cluster setting "

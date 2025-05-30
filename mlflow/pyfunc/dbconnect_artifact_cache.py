@@ -109,7 +109,9 @@ class DBConnectArtifactCache:
         archive_file_name = self._cache[cache_key]
 
         if session_id := os.environ.get("DB_SESSION_UUID"):
-            return f"/local_disk0/.ephemeral_nfs/artifacts/{session_id}/archives/{archive_file_name}"
+            return (
+                f"/local_disk0/.ephemeral_nfs/artifacts/{session_id}/archives/{archive_file_name}"
+            )
 
         # If 'DB_SESSION_UUID' environment variable does not exist, it means it is running
         # in a dedicated mode Spark cluster.
