@@ -30,7 +30,7 @@ If you haven't used MLflow Tracking before, we strongly recommend going through 
 <CardGroup>
   <PageCard
     headerText="MLflow Tracking Quickstart"
-    link="/ml/getting-started/intro-quickstart"
+    link="/ml/tracking/quickstart"
     text="A great place to start to learn the fundamentals of MLflow Tracking! Learn in 5 minutes how to log, register, and load a model for inference."
   />
 </CardGroup>
@@ -47,13 +47,13 @@ data science code, for example, a single `python train.py` execution. Each run r
 ### Experiments
 
 An experiment groups together runs for a specific task. You can create an experiment using the CLI, API, or UI.
-The MLflow API and UI also let you create and search for experiments. See [Organizing Runs into Experiments](/ml/tracking/tracking-api#organizing-runs-in-experiments)
+The MLflow API and UI also let you create and search for experiments. See [Organizing Runs into Experiments](/ml/tracking/tracking-api#experiment-organization)
 for more details on how to organize your runs into experiments.
 
 ## Tracking Runs \{#start-logging}
 
 [MLflow Tracking APIs](/ml/tracking/tracking-api) provide a set of functions to track your runs. For example, you can call <APILink fn="mlflow.start_run" /> to start a new run,
-then call [Logging Functions](/ml/tracking/tracking-api#tracking_logging_functions) such as <APILink fn="mlflow.log_param" /> and <APILink fn="mlflow.log_metric" /> to log parameters and metrics respectively.
+then call [Logging Functions](/ml/tracking/tracking-api) such as <APILink fn="mlflow.log_param" /> and <APILink fn="mlflow.log_metric" /> to log parameters and metrics respectively.
 Please visit the [Tracking API documentation](/ml/tracking/tracking-api) for more details about using these APIs.
 
 ```python
@@ -121,7 +121,7 @@ loaded_model = mlflow.pyfunc.load_model(f"models:/{best_model.model_id}")
 - **Flexible ordering**: Sort by multiple criteria to find the best models
 - **Direct model loading**: Use the new `models:/<model_id>` URI format for immediate model access
 
-For comprehensive examples and advanced search patterns, see the [Search Logged Models Guide](/ml/search-logged-models).
+For comprehensive examples and advanced search patterns, see the [Search Logged Models Guide](/ml/search/search-models).
 
 ### Querying Runs Programmatically \{#tracking_query_api}
 
@@ -296,7 +296,7 @@ and provides more direct model referencing.
 
 If the model is registered in the [MLflow Model Registry](/ml/model-registry),
 you can also refer the the model through a model URI of format: `models:/<model-name>/<model-version>`,
-see [MLflow Model Registry](/ml/model-registry/#model-uri) for details.
+see [MLflow Model Registry](/ml/model-registry) for details.
 
 #### [MLflow Tracking Server](/ml/tracking/server) (Optional) \{#tracking_server}
 
@@ -335,7 +335,7 @@ The following diagram and table show a few common setups for the MLflow Tracking
     </tr>
     <tr>
       <th>Tutorial</th>
-      <td>[QuickStart](/ml/getting-started/intro-quickstart)</td>
+      <td>[QuickStart](/ml/tracking/quickstart)</td>
       <td>[Tracking Experiments using a Local Database](/ml/tracking/tutorials/local-database)</td>
       <td>[Remote Experiment Tracking with MLflow Tracking Server](/ml/tracking/tutorials/remote-server)</td>
     </tr>
@@ -396,15 +396,15 @@ the basic setup and continue to the following materials for advanced configurati
 ### Can I launch multiple runs in parallel?
 
 Yes, MLflow supports launching multiple runs in parallel e.g. multi processing / threading.
-See [Launching Multiple Runs in One Program](/ml/tracking/tracking-api#launching-multiple-runs) for more details.
+See [Launching Multiple Runs in One Program](/ml/tracking/tracking-api#parallel-execution-strategies) for more details.
 
 ### How can I organize many MLflow Runs neatly?
 
 MLflow provides a few ways to organize your runs:
 
-- [Organize runs into experiments](/ml/tracking/tracking-api#organizing-runs-in-experiments) - Experiments are logical containers for your runs. You can create an experiment using the CLI, API, or UI.
-- [Create child runs](/ml/tracking/tracking-api#child_runs) - You can create child runs under a single parent run to group them together. For example, you can create a child run for each fold in a cross-validation experiment.
-- [Add tags to runs](/ml/tracking/tracking-api#adding-tags-to-runs) - You can associate arbitrary tags with each run, which allows you to filter and search runs based on tags.
+- [Organize runs into experiments](/ml/tracking/tracking-api#experiment-organization) - Experiments are logical containers for your runs. You can create an experiment using the CLI, API, or UI.
+- [Create child runs](/ml/tracking/tracking-api#hierarchical-runs-with-parent-child-relationships) - You can create child runs under a single parent run to group them together. For example, you can create a child run for each fold in a cross-validation experiment.
+- [Add tags to runs](/ml/tracking/tracking-api#smart-tagging-for-organization) - You can associate arbitrary tags with each run, which allows you to filter and search runs based on tags.
 
 ### Can I directly access remote storage without running the Tracking Server?
 
@@ -431,6 +431,6 @@ See [Backend Stores](/ml/tracking/backend-stores) and [Common Setups](#tracking_
 
 #### How to include additional description texts about the run?
 
-A system tag `mlflow.note.content` can be used to add descriptive note about this run. While the other [system tags](/ml/tracking/tracking-api#system_tags) are set automatically,
+A system tag `mlflow.note.content` can be used to add descriptive note about this run. While the other [system tags](/ml/tracking/tracking-api#system-tags-reference) are set automatically,
 this tag is **not set by default** and users can override it to include additional information about the run. The content will be displayed on the run's page under
 the Notes section.

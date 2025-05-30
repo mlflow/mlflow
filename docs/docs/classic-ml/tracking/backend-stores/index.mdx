@@ -14,7 +14,7 @@ The backend store is a core component in [MLflow Tracking](/ml/tracking) where M
 - Code version (only if you launch runs from an [MLflow Project](/ml/projects)).
 - Source file name (only if you launch runs from an [MLflow Project](/ml/projects)).
 
-Note that large model artifacts such as model weight files are stored in [artifact store](/ml/tracking/artifacts-stores).
+Note that large model artifacts such as model weight files are stored in [artifact store](/ml/tracking/artifact-stores).
 
 ## Configure Backend Store
 
@@ -37,7 +37,7 @@ MLflow supports the following types of tracking URI for backend stores:
 - HTTP server (specified as `https://my-server:5000`), which is a server hosting an [MLflow tracking server](/ml/tracking#tracking_server).
 - Databricks workspace (specified as `databricks` or as `databricks://<profileName>`, a [Databricks CLI profile](https://github.com/databricks/databricks-cli#installation)).
   Refer to Access the MLflow tracking server from outside Databricks [[AWS]](http://docs.databricks.com/applications/mlflow/access-hosted-tracking-server.html)
-  [[Azure]](http://docs.microsoft.com/azure/databricks/applications/mlflow/access-hosted-tracking-server), or [the quickstart](/ml/getting-started/intro-quickstart) to
+  [[Azure]](http://docs.microsoft.com/azure/databricks/applications/mlflow/access-hosted-tracking-server), or [the quickstart](/ml/tracking/quickstart) to
   easily get started with hosted MLflow on the Databricks Free Trial.
 
 :::warning database-requirements
