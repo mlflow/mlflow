@@ -2556,7 +2556,10 @@ def test_lock_model_requirements(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     model_info = mlflow.pyfunc.log_model(name="model", python_model=ExampleModel())
     pyfunc_model_path = _download_artifact_from_uri(model_info.model_uri, output_path=tmp_path)
     requirements_txt = next(Path(pyfunc_model_path).rglob("requirements.txt"))
-    assert "# Locked requirements" in requirements_txt.read_text()
+    requirements_txt_contents = requirements_txt.read_text()
+    assert "# Locked requirements" in requirements_txt_contents
+    assert "mlflow==" in requirements_txt_contents
+    assert "packaging==" in requirements_txt_contents
     # Check that pip can install the locked requirements
     subprocess.check_call(
         [
@@ -2572,7 +2575,10 @@ def test_lock_model_requirements(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     )
     # Check that conda environment can be created with the locked requirements
     conda_yaml = next(Path(pyfunc_model_path).rglob("conda.yaml"))
-    assert "# Locked requirements" in conda_yaml.read_text()
+    conda_yaml_contents = conda_yaml.read_text()
+    assert "# Locked requirements" in conda_yaml_contents
+    assert "mlflow==" in requirements_txt_contents
+    assert "packaging==" in conda_yaml_contents
     subprocess.check_call(
         [
             "conda",
@@ -2586,18 +2592,20 @@ def test_lock_model_requirements(monkeypatch: pytest.MonkeyPatch, tmp_path: Path
     )
 
 
-def test_lock_model_requirements_requirements(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+def test_lock_model_requirements_pip_requirements(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
     monkeypatch.setenv("MLFLOW_LOCK_MODEL_DEPENDENCIES", "true")
     model_info = mlflow.pyfunc.log_model(
         name="model",
         python_model=ExampleModel(),
-        pip_requirements=["uv"],
+        pip_requirements=["openai"],
     )
     pyfunc_model_path = _download_artifact_from_uri(model_info.model_uri, output_path=tmp_path)
     requirements_txt = next(Path(pyfunc_model_path).rglob("requirements.txt"))
     contents = requirements_txt.read_text()
     assert "# Locked requirements" in contents
-    assert "uv==" in contents
+    assert "mlflow==" in contents
+    assert "openai==" in contents
+    assert "httpx==" in contents
 
 
 def test_lock_model_requirements_extra_pip_requirements(
@@ -2607,26 +2615,30 @@ def test_lock_model_requirements_extra_pip_requirements(
     model_info = mlflow.pyfunc.log_model(
         name="model",
         python_model=ExampleModel(),
-        extra_pip_requirements=["uv"],
+        extra_pip_requirements=["openai"],
     )
     pyfunc_model_path = _download_artifact_from_uri(model_info.model_uri, output_path=tmp_path)
     requirements_txt = next(Path(pyfunc_model_path).rglob("requirements.txt"))
     contents = requirements_txt.read_text()
     assert "# Locked requirements" in contents
-    assert "uv==" in contents
+    assert "mlflow==" in contents
+    assert "openai==" in contents
+    assert "httpx==" in contents
 
 
 def test_lock_model_requirements_constraints(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
     constraints_file = tmp_path / "constraints.txt"
-    constraints_file.write_text("uv==0.7.8")
+    constraints_file.write_text("openai==1.82.0")
     monkeypatch.setenv("MLFLOW_LOCK_MODEL_DEPENDENCIES", "true")
     model_info = mlflow.pyfunc.log_model(
         name="model",
         python_model=ExampleModel(),
-        pip_requirements=["uv", f"-c {constraints_file}"],
+        pip_requirements=["openai", f"-c {constraints_file}"],
     )
     pyfunc_model_path = _download_artifact_from_uri(model_info.model_uri, output_path=tmp_path)
     requirements_txt = next(Path(pyfunc_model_path).rglob("requirements.txt"))
     contents = requirements_txt.read_text()
     assert "# Locked requirements" in contents
-    assert "uv==0.7.8" in contents
+    assert "mlflow==" in contents
+    assert "openai==1.82.0" in contents
+    assert "httpx==" in contents
