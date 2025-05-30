@@ -1435,11 +1435,30 @@ def gateway_proxy_handler():
             message="Deployments proxy request must specify a gateway_path.",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    request_type = request.method
+    method = request.method
+    # validate gateway_path
+    if method == "GET":
+        if gateway_path not in ["api/2.0/endpoints/"]:
+            raise MlflowException(
+                message=f"Invalid gateway_path: {gateway_path} for method: {method}. ",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+    elif method == "POST":
+        splits = gateway_path.split("/")
+        if len(splits) != 3:
+            raise MlflowException(
+                message=f"Invalid gateway_path: {gateway_path} for method: {method}. ",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+        first, _, third = splits
+        if not (first == "gateway" and third == "invocations"):
+            raise MlflowException(
+                message=f"Invalid gateway_path: {gateway_path} for method: {method}. ",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
     json_data = args.get("json_data", None)
-
-    response = requests.request(request_type, f"{target_uri}/{gateway_path}", json=json_data)
-
+    response = requests.request(method, f"{target_uri}/{gateway_path}", json=json_data)
     if response.status_code == 200:
         return response.json()
     else:
