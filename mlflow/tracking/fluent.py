@@ -3480,8 +3480,9 @@ def get_active_model_id() -> Optional[str]:
     """
     Get the active model ID. If no active model is set with ``set_active_model()``, the
     default active model is set using model ID from the environment variable
-    ``_MLFLOW_ACTIVE_MODEL_ID``. If neither is set, return None.
-    Note that this function only get the active model ID from the current thread.
+    ``MLFLOW_ACTIVE_MODEL_ID`` or the legacy environment variable ``_MLFLOW_ACTIVE_MODEL_ID``.
+    If neither is set, return None. Note that this function only get the active model ID from the
+    current thread.
 
     Returns:
         The active model ID if set, otherwise None.
@@ -3517,7 +3518,10 @@ def _get_active_model_id_global() -> Optional[str]:
 def clear_active_model() -> None:
     """
     Clear the active model. This will clear the active model previously set by
-    :py:func:`mlflow.set_active_model` from current thread. To temporarily switch
+    :py:func:`mlflow.set_active_model` or via the ``MLFLOW_ACTIVE_MODEL_ID`` environment variable
+    or the ``_MLFLOW_ACTIVE_MODEL_ID`` legacy environment variable.
+
+    from current thread. To temporarily switch
     the active model, use ``with mlflow.set_active_model(...)`` instead.
 
     .. code-block:: python
@@ -3540,11 +3544,11 @@ def clear_active_model() -> None:
             assert mlflow.get_active_model_id() == active_model.model_id
         assert mlflow.get_active_model_id() is None
     """
-    # reset the environment variable as well to avoid it being used when creating
+    # reset the environment variables as well to avoid them being used when creating
     # ActiveModelContext
-    # no lock here because this environment variable is not expected to be set outside
-    # of databricks serving environment
+    MLFLOW_ACTIVE_MODEL_ID.unset()
     _MLFLOW_ACTIVE_MODEL_ID.unset()
+
     # set_by_user is False because this API clears the state of active model
     # and MLflow might still set the active model in cases like `load_model`
     _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext(set_by_user=False))
