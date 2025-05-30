@@ -144,7 +144,10 @@ def test_pack_env_for_databricks_model_serving_pip_requirements_error(tmp_path, 
         )
         mock_run.side_effect = subprocess.CalledProcessError(1, "pip install", "Error message")
 
-        with pytest.raises(subprocess.CalledProcessError, match="Error message"):
+        with pytest.raises(
+            subprocess.CalledProcessError,
+            match="Command 'pip install' returned non-zero exit status 1.",
+        ):
             with env_pack.pack_env_for_databricks_model_serving(
                 "models:/test/1", enforce_pip_requirements=True
             ):
