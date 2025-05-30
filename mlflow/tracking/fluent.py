@@ -32,6 +32,7 @@ from mlflow.entities import (
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.environment_variables import (
     _MLFLOW_ACTIVE_MODEL_ID,
+    MLFLOW_ACTIVE_MODEL_ID,
     MLFLOW_ENABLE_ASYNC_LOGGING,
     MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING,
     MLFLOW_EXPERIMENT_ID,
@@ -3274,7 +3275,7 @@ class ActiveModelContext:
     """
 
     def __init__(self, model_id: Optional[str] = None, set_by_user: bool = False):
-        # use _MLFLOW_ACTIVE_MODEL_ID as the default value for model_id
+        # use active model ID from environment variables as the default value for model_id
         # so that for subprocesses the default _ACTIVE_MODEL_CONTEXT.model_id
         # is still valid, and we don't need to read from env var.
         self._set_by_user = set_by_user
@@ -3283,11 +3284,11 @@ class ActiveModelContext:
             # so that it can be used in the main process, since databricks serving
             # loads model from threads.
             with _active_model_id_env_lock:
-                self._model_id = model_id or _MLFLOW_ACTIVE_MODEL_ID.get()
+                self._model_id = model_id or _get_active_model_id_from_env()
                 if self._model_id:
                     _MLFLOW_ACTIVE_MODEL_ID.set(self._model_id)
         else:
-            self._model_id = model_id or _MLFLOW_ACTIVE_MODEL_ID.get()
+            self._model_id = model_id or _get_active_model_id_from_env()
 
     def __repr__(self):
         return f"ActiveModelContext(model_id={self.model_id}, set_by_user={self.set_by_user})"
@@ -3299,6 +3300,33 @@ class ActiveModelContext:
     @property
     def set_by_user(self) -> bool:
         return self._set_by_user
+
+
+def _get_active_model_id_from_env() -> Optional[str]:
+    """
+    Get the active model ID from environment variables, with proper precedence handling.
+
+    This utility function reads the active model ID from environment variables with the following
+    precedence order:
+    1. _MLFLOW_ACTIVE_MODEL_ID (legacy internal variable) - takes precedence if set
+    2. MLFLOW_ACTIVE_MODEL_ID (public variable) - used as fallback
+
+    Historical Context:
+    The _MLFLOW_ACTIVE_MODEL_ID environment variable was originally created for internal MLflow
+    use only. With the introduction of MLFLOW_ACTIVE_MODEL_ID as the public API, we maintain
+    backward compatibility by preferentially reading from the legacy variable when both are set.
+    This ensures existing internal MLflow code and systems continue to work as expected.
+
+    Returns:
+        The active model ID if found in environment variables, otherwise None.
+    """
+    # Check legacy internal variable first for backward compatibility
+    legacy_model_id = _MLFLOW_ACTIVE_MODEL_ID.get()
+    if legacy_model_id is not None:
+        return legacy_model_id
+
+    # Fallback to public environment variable
+    return MLFLOW_ACTIVE_MODEL_ID.get()
 
 
 _ACTIVE_MODEL_CONTEXT = ThreadLocalVariable(default_factory=lambda: ActiveModelContext())
