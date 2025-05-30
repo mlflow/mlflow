@@ -70,6 +70,6 @@ get_unpinned_actions(jobs) = unpinned_actions {
         step := job["steps"][_]
         step["uses"]
         not startswith(step["uses"], "./")
-        not regex.match("^[^@]+@[0-9a-f]{40}(\\s+.*)?$", step["uses"])
+        not regex.match("^[^@]+@[0-9a-f]{40}$", step["uses"])
     }
 }
