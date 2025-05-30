@@ -455,13 +455,13 @@ def infer_pip_requirements(model_uri, flavor, fallback=None, timeout=None, extra
         return fallback
 
 
-def _get_uv_envs_for_databricks() -> dict[str, str]:
+def _get_uv_options_for_databricks() -> tuple[list[str], dict[str, str]]:
     """
-    Fetches secrets to configure pip on Databricks, and returns them as environment variables for
-    uv. Returns an empty dictionary if not running in Databricks.
+    Retrieves the predefined secrets to configure `pip` for Databricks, and converts them into
+    command-line arguments and environment variables for `uv`.
 
     References:
-    - https://docs.databricks.com/aws/en/compute/serverless/dependencies#setup-using-the-secrets-cli-or-rest-api
+    - https://docs.databricks.com/aws/en/compute/serverless/dependencies#predefined-secret-scope-name
     - https://docs.astral.sh/uv/configuration/environment/#environment-variables
     """
     from mlflow.utils.databricks_utils import (
@@ -471,31 +471,37 @@ def _get_uv_envs_for_databricks() -> dict[str, str]:
     )
 
     if not is_in_databricks_runtime():
-        return {}
+        return [], {}
 
     try:
         dbutils = _get_dbutils()
     except _NoDbutilsError:
-        return {}
+        return [], {}
 
-    envs: dict[str, str] = {}
-    mapping = {
-        # secret key -> uv environment variable
-        "pip-index-url": "UV_INDEX_URL",
-        "pip-extra-index-urls": "UV_EXTRA_INDEX_URL",
-        "pip-cert": "SSL_CERT_FILE",
-    }
-    for secret_key, uv_env_var in mapping.items():
+    def get_secret(key: str) -> Optional[str]:
+        """
+        Retrieves a secret from the Databricks secrets scope.
+        """
         try:
-            val = dbutils.secrets.get(scope="databricks-package-management", key=secret_key)
+            return dbutils.secrets.get(scope="databricks-package-management", key=key)
         except Exception as e:
-            _logger.debug(f"Failed to fetch secret '{secret_key}': {e}")
-            continue  # If the secret is not found, skip setting this environment variable
+            _logger.debug(f"Failed to fetch secret '{key}': {e}")
+            return None
 
-        envs[uv_env_var] = val
+    args: list[str] = []
+    if url := get_secret("pip-index-url"):
+        args.append(f"--index-url={url}")
 
-    _logger.debug(f"Environment variables for `uv`: {envs}")
-    return envs
+    if urls := get_secret("pip-extra-index-urls"):
+        args.append(f"--extra-index-url={urls}")
+
+    # There is no command-line option for SSL_CERT_FILE in `uv`.
+    envs: dict[str, str] = {}
+    if cert := get_secret("pip-cert"):
+        envs["SSL_CERT_FILE"] = cert
+
+    _logger.debug(f"uv arguments and environment variables: {args}, {envs}")
+    return args, envs
 
 
 def _lock_requirements(
@@ -518,13 +524,14 @@ def _lock_requirements(
         tmp_dir_path = pathlib.Path(tmp_dir)
         in_file = tmp_dir_path / "requirements.in"
         in_file.write_text("\n".join(requirements))
-        out_file = tmp_dir_path / "requirements.txt"
+        out_file = tmp_dir_path / "requirements.out"
         constraints_opt: list = []
         if constraints:
             constraints_file = tmp_dir_path / "constraints.txt"
             constraints_file.write_text("\n".join(constraints))
             constraints_opt = [f"--constraints={constraints_file}"]
         try:
+            uv_options, uv_envs = _get_uv_options_for_databricks()
             out = subprocess.check_output(
                 [
                     uv_bin,
@@ -536,11 +543,12 @@ def _lock_requirements(
                     "--no-header",
                     f"--python-version={PYTHON_VERSION}",
                     f"--output-file={out_file}",
+                    *uv_options,
                     *constraints_opt,
                     in_file,
                 ],
                 stderr=subprocess.STDOUT,
-                env=os.environ.copy() | _get_uv_envs_for_databricks(),
+                env=os.environ.copy() | uv_envs,
                 text=True,
             )
             _logger.debug(f"Successfully compiled requirements with `uv`:\n{out}")
