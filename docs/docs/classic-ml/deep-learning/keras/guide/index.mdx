@@ -253,7 +253,7 @@ model = create_model()
 model.compile(optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"])
 model.fit(x_train, y_train, epochs=5)
 
-model_info = mlflow.keras.log_model(model, "model")
+model_info = mlflow.keras.log_model(model, name="model")
 
 # Load and use the model
 loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)

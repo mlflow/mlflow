@@ -24,7 +24,7 @@ This will enable MLflow to automatically log various information about your run,
 
 - **Metrics** - MLflow pre-selects a set of metrics to log, based on what model and library you use
 - **Parameters** - hyper params specified for the training, plus default values provided by the library if not explicitly set
-- **Model Signature** - logs [Model signature](/ml/model/signatures#model-signature) instance, which describes input and output schema of the model
+- **Model Signature** - logs [Model signature](/ml/model/signatures) instance, which describes input and output schema of the model
 - **Artifacts** - e.g. model checkpoints
 - **Dataset** - dataset object used for training (if applicable), such as _tensorflow.data.Dataset_
 
@@ -124,7 +124,7 @@ There are many more integrations that support autologging and the list of suppor
 for further guidance on whether autologging support is available for a given library.
 :::
 
-For flavors that automatically save models as an artifact, [additional files](/ml/models.html#storage-format) for dependency management are logged.
+For flavors that automatically save models as an artifact, [additional files](/ml/model#storage-format) for dependency management are logged.
 
 ### Keras/TensorFlow \{#autolog-keras}
 

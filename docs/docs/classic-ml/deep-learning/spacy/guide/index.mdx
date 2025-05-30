@@ -74,7 +74,7 @@ nlp.get_pipe("textcat").add_label("NEGATIVE")
 
 with mlflow.start_run():
     # Log model - PyFunc flavor added automatically
-    model_info = mlflow.spacy.log_model(nlp, "text_classifier")
+    model_info = mlflow.spacy.log_model(nlp, name="text_classifier")
 
 # Load and use for inference
 loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
@@ -609,7 +609,7 @@ Track different pipeline configurations and optimizations:
 import mlflow
 import spacy
 import time
-from itertools import product
+from itertools import combinations, product
 
 
 def optimize_pipeline_configuration():
@@ -622,8 +622,6 @@ def optimize_pipeline_configuration():
     # Test different combinations
     configurations = []
     for r in range(len(optional_components) + 1):
-        from itertools import combinations
-
         for combo in combinations(optional_components, r):
             config = base_components + list(combo)
             configurations.append(config)
