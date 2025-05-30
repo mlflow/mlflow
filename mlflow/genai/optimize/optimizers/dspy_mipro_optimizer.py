@@ -1,5 +1,8 @@
+import contextlib
+import io
 import logging
 import math
+import os
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 from mlflow.entities.model_registry import Prompt
@@ -30,7 +33,8 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
 
         _logger.info(
             f"Started optimizing prompt {prompt.uri}. "
-            "Please wait as this process typically takes several minutes..."
+            "Please wait as this process typically takes several minutes, "
+            "but can take longer with large datasets..."
         )
 
         input_fields = self._get_input_fields(train_data)
@@ -80,10 +84,28 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
 
         adapter = dspy.JSONAdapter()
         with dspy.context(lm=lm, adapter=adapter):
-            dspy_logger = logging.getLogger("dspy")
-            original_level = dspy_logger.level
-            dspy_logger.setLevel(logging.ERROR)
-            try:
+            if not self.optimizer_config.verbose:
+                # Redirect output to devnull if possible, otherwise use StringIO
+                output_sink = io.StringIO()
+                try:
+                    output_sink = open(os.devnull, "w")  # noqa: SIM115
+                except (OSError, IOError):
+                    pass
+
+                with output_sink:
+                    with (
+                        contextlib.redirect_stdout(output_sink),
+                        contextlib.redirect_stderr(output_sink),
+                    ):
+                        optimized_program = optimizer.compile(
+                            program,
+                            trainset=train_data,
+                            valset=eval_data,
+                            num_trials=self._get_num_trials(num_candidates),
+                            minibatch_size=self._get_minibatch_size(train_data, eval_data),
+                            requires_permission_to_run=False,
+                        )
+            else:
                 optimized_program = optimizer.compile(
                     program,
                     trainset=train_data,
@@ -92,9 +114,6 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
                     minibatch_size=self._get_minibatch_size(train_data, eval_data),
                     requires_permission_to_run=False,
                 )
-            finally:
-                # Restore original logging level
-                dspy_logger.setLevel(original_level)
 
             return self._format_optimized_prompt(
                 adapter=adapter,
