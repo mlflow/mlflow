@@ -7,6 +7,7 @@ const sidebarsClassicML: SidebarsConfig = {
       type: 'doc',
       id: 'index',
       className: 'sidebar-top-level-category',
+      label: 'MLflow',
     },
     {
       type: 'category',
@@ -104,64 +105,150 @@ const sidebarsClassicML: SidebarsConfig = {
             items: [
                 {
                     type: 'category',
-                    label: 'Hyperparameter Tuning with MLflow and Optuna',
+                    label: 'Tutorials 🎓',
                     items: [
                         {
-                            type: 'doc',
-                            id: 'traditional-ml/hyperparameter-tuning/part1-child-runs/index',
+                            type: 'category',
+                            label: 'Hyperparameter Tuning with MLflow and Optuna',
+                            items: [
+                                {
+                                    type: 'doc',
+                                    id: 'traditional-ml/tutorials/hyperparameter-tuning/part1-child-runs/index',
+                                },
+                                {
+                                    type: 'doc',
+                                    id: 'traditional-ml/tutorials/hyperparameter-tuning/part2-logging-plots/index',
+                                },
+                                {
+                                    type: 'doc',
+                                    id: 'traditional-ml/tutorials/hyperparameter-tuning/notebooks/index',
+                                    label: 'Notebooks',
+                                },
+                            ],
+                            link: {
+                                type: 'doc',
+                                id: 'traditional-ml/tutorials/hyperparameter-tuning/index',
+                            },
                         },
                         {
-                            type: 'doc',
-                            id: 'traditional-ml/hyperparameter-tuning/part2-logging-plots/index',
+                            type: 'category',
+                            label: 'Building Custom Python Function Models with MLflow',
+                            items: [
+                                {
+                                    type: 'doc',
+                                    id: 'traditional-ml/tutorials/creating-custom-pyfunc/part1-named-flavors/index',
+                                },
+                                {
+                                    type: 'doc',
+                                    id: 'traditional-ml/tutorials/creating-custom-pyfunc/part2-pyfunc-components/index',
+                                },
+                                {
+                                    type: 'category',
+                                    label: 'Notebooks',
+                                    items: [
+                                        {
+                                            type: 'doc',
+                                            id: 'traditional-ml/tutorials/creating-custom-pyfunc/notebooks/basic-pyfunc-ipynb',
+                                            label: 'Introduction to PythonModel',
+                                        },
+                                        {
+                                            type: 'doc',
+                                            id: 'traditional-ml/tutorials/creating-custom-pyfunc/notebooks/introduction-ipynb',
+                                            label: 'Custom Model Basics',
+                                        },
+                                        {
+                                            type: 'doc',
+                                            id: 'traditional-ml/tutorials/creating-custom-pyfunc/notebooks/override-predict-ipynb',
+                                            label: 'Customizing the `predict` method',
+                                        },
+                                    ],
+                                    link: {
+                                        type: 'doc',
+                                        id: 'traditional-ml/tutorials/creating-custom-pyfunc/notebooks/index'
+                                    }
+                                },
+                            ],
+                            link: {
+                                type: 'doc',
+                                id: 'traditional-ml/tutorials/creating-custom-pyfunc/index',
+                            }
                         },
                         {
-                            type: 'doc',
-                            id: 'traditional-ml/hyperparameter-tuning/notebooks/index',
-                            label: 'Notebooks',
+                            type: 'category',
+                            label: 'Serving Multiple Models on a Single Endpoint with a Custom PyFunc Model',
+                            items: [
+                                {
+                                    type: 'doc',
+                                    id: 'traditional-ml/tutorials/serving-multiple-models-with-pyfunc/notebooks/MME_Tutorial-ipynb',
+                                    label: 'Notebooks',
+                                },
+                            ],
+                            link: {
+                                type: 'doc',
+                                id: 'traditional-ml/tutorials/serving-multiple-models-with-pyfunc/index',
+                            },
                         },
-                    ],
-                    link: {
-                        type: 'doc',
-                        id: 'traditional-ml/hyperparameter-tuning/index',
-                    },
-                },
+                    ]
+                },                
                 {
                     type: 'category',
-                    label: 'Building Custom Python Function Models with MLflow',
+                    label: 'Scikit Learn',
                     items: [
                         {
                             type: 'doc',
-                            id: 'traditional-ml/creating-custom-pyfunc/part1-named-flavors/index',
-                        },
-                        {
-                            type: 'doc',
-                            id: 'traditional-ml/creating-custom-pyfunc/part2-pyfunc-components/index',
-                        },
-                        {
-                            type: 'doc',
-                            id: 'traditional-ml/creating-custom-pyfunc/notebooks/index',
-                            label: 'Notebooks',
+                            id: 'traditional-ml/sklearn/guide/index',
+                            label: 'Scikit Learn within MLflow'
                         },
                     ],
                     link: {
                         type: 'doc',
-                        id: 'traditional-ml/creating-custom-pyfunc/index',
+                        id: 'traditional-ml/sklearn/index'
                     }
                 },
                 {
                     type: 'category',
-                    label: 'Serving Multiple Models on a Single Endpoint with a Custom PyFunc Model',
+                    label: 'XGBoost',
                     items: [
                         {
                             type: 'doc',
-                            id: 'traditional-ml/serving-multiple-models-with-pyfunc/notebooks/index',
-                            label: 'Notebooks',
+                            id: 'traditional-ml/xgboost/guide/index',
+                            label: 'XGBoost within MLflow'
                         },
                     ],
                     link: {
                         type: 'doc',
-                        id: 'traditional-ml/serving-multiple-models-with-pyfunc/index',
+                        id: 'traditional-ml/xgboost/index'
+                    }
+                },
+                {
+                    type: 'category',
+                    label: 'SparkML',
+                    items: [
+                        {
+                            type: 'doc',
+                            id: 'traditional-ml/sparkml/guide/index',
+                            label: 'SparkML within MLflow',
+                        },
+                    ],
+                    link: {
+                        type: 'doc',
+                        id: 'traditional-ml/sparkml/index',
                     },
+                },
+                {
+                    type: 'category',
+                    label: 'Prophet',
+                    items: [
+                        {
+                            type: 'doc',
+                            id: 'traditional-ml/prophet/guide/index',
+                            label: 'Prophet within MLflow'
+                        },
+                    ],
+                    link: {
+                        type: 'doc',
+                        id: 'traditional-ml/prophet/index'
+                    }
                 },
             ],
             link: {
@@ -263,8 +350,8 @@ const sidebarsClassicML: SidebarsConfig = {
           label: 'MLflow Tracking 📈',
           items: [
             {
-              type: 'link',
-              href: '/ml/getting-started/intro-quickstart/',
+              type: 'doc',
+              id: 'tracking/quickstart/index',
               label: 'Quickstart ⚡',
             },
             {
@@ -355,23 +442,27 @@ const sidebarsClassicML: SidebarsConfig = {
         items: [
             {
                 type: 'doc',
-                id: 'evaluation/function-eval/index',
+                id: 'evaluation/function-eval',
             },
             {
                 type: 'doc',
-                id: 'evaluation/dataset-eval/index',
+                id: 'evaluation/dataset-eval',
             },
             {
                 type: 'doc',
-                id: 'evaluation/model-eval/index',
+                id: 'evaluation/model-eval',
             },
             {
                 type: 'doc',
-                id: 'evaluation/metrics-visualizations/index',
+                id: 'evaluation/metrics-visualizations',
             },
             {
                 type: 'doc',
-                id: 'evaluation/shap/index',
+                id: 'evaluation/shap',
+            },
+            {
+                type: 'doc',
+                id: 'evaluation/plugin-evaluators',
             },
         ],
         link: {
@@ -411,6 +502,11 @@ const sidebarsClassicML: SidebarsConfig = {
             id: 'deployment/index'
           }
         },
+        {
+            type: 'doc',
+            id: 'docker/index',
+            label: 'Docker'
+        }
       ],
     },
     {
@@ -421,14 +517,14 @@ const sidebarsClassicML: SidebarsConfig = {
       items: [
         {
           type: 'link',
-          href: 'tracking/#tracking-setup',
+          href: '/ml/tracking/#tracking-setup',
           label: 'Self-Hosting'
         },
-        {
-          type: 'link',
-          href: '#running-mlflow-anywhere',
-          label: 'Managed Services'
-        },
+        // {
+        //   type: 'link',
+        //   href: '#running-mlflow-anywhere',
+        //   label: 'Managed Services'
+        // },
         {
           type: 'doc',
           id: 'auth/index',

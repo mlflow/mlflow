@@ -149,7 +149,7 @@ print(response.json())
 The JSON input can also include an optional `params` field for passing additional parameters.
 Valid parameter types are `Union[DataType, List[DataType], None]`, where DataType
 is <APILink fn="mlflow.types.DataType">`MLflow data types`</APILink>. To pass parameters,
-a valid [Model Signature](/ml/model/signatures#model-signature) with `params` must be defined.
+a valid [Model Signature](/ml/model/signatures) with `params` must be defined.
 
 ```bash
 curl http://127.0.0.1:5000/invocations -H 'Content-Type: application/json' -d '{
@@ -295,7 +295,7 @@ auto scaling out of the box.
     <tr>
       <td>**Scalability**</td>
       <td>While FastAPI works well in a distributed environment in general, MLflow simply runs it with `uvicorn` and does not support holizontal scaling out of the box.</td>
-      <td>Additionally to the support for parallel inference as mentioned above, MLServer is used as the core inference server in Kubernetes-native frameworks such as [Seldon Core](https://docs.seldon.io/projects/seldon-core/en/latest/) and [KServe](https://kserve.github.io/website/) (formerly known as KFServing). By deploying [MLflow models to Kubernetes with MLServer](/deployment/deploy-model-to-kubernetes), you can leverage the advanced features of these frameworks such as autoscaling to achieve high scalability.</td>
+      <td>Additionally to the support for parallel inference as mentioned above, MLServer is used as the core inference server in Kubernetes-native frameworks such as [Seldon Core](https://docs.seldon.io/projects/seldon-core/en/latest/) and [KServe](https://kserve.github.io/website/) (formerly known as KFServing). By deploying [MLflow models to Kubernetes with MLServer](/ml/deployment/deploy-model-to-kubernetes), you can leverage the advanced features of these frameworks such as autoscaling to achieve high scalability.</td>
     </tr>
   </tbody>
 </table>

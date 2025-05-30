@@ -312,7 +312,7 @@ model = NeuralNetwork()
 
 # Train your model (code omitted for brevity)
 
-model_info = mlflow.pytorch.log_model(model, "model")
+model_info = mlflow.pytorch.log_model(model, name="model")
 
 # Load and use the model
 loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)

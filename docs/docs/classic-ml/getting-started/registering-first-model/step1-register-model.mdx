@@ -4,7 +4,7 @@ import { APILink } from "@site/src/components/APILink";
 
 Throughout this tutorial we will leverage a local tracking server and model registry for simplicity.
 However, for production use cases we recommend using a
-[remote tracking server](https://mlflow.org/docs/latest/tracking/tutorials/remote-server.html).
+[remote tracking server](/ml/tracking/tutorials/remote-server).
 
 ## Step 0: Install Dependencies
 
@@ -25,7 +25,7 @@ registering a given model via one of the below commands:
 
 MLflow has lots of model flavors. In the below example, we'll leverage scikit-learn's
 RandomForestRegressor to demonstrate the simplest way to register a model, but note that you
-can leverage any [supported model flavor](/model#models_built-in-model-flavors).
+can leverage any [supported model flavor](/ml/model#models_built-in-model-flavors).
 In the code snippet below, we start an mlflow run and train a random forest model. We then log some
 relevant hyper-parameters, the model mean-squared-error (MSE), and finally log and register the
 model itself.
@@ -76,7 +76,7 @@ Before moving on, let's highlight some important implementation notes.
 - To register a model, you can leverage the `registered_model_name` parameter in the <APILink fn="mlflow.sklearn.log_model" />
   or call <APILink fn="mlflow.register_model" /> after logging the model. Generally, we suggest the former because it's more
   concise.
-- [Model Signatures](/model/signatures)
+- [Model Signatures](/ml/model/signatures)
   provide validation for our model inputs and outputs. The `input_example` in `log_model()`
   automatically infers and logs a signature. Again, we suggest using this implementation because
   it's concise.

@@ -319,7 +319,7 @@ params.model LIKE "GPT%" AND params.batch_size = "2"
 
 Tags are metadata that typically provide additional context about the run. Tags can include values
 like user name, team, etc. They are logged manually via `mlflow.set_tag`
-or `mlflow.set_tags`. In addition, [system tags](/ml/tracking/tracking-api/#system_tags),
+or `mlflow.set_tags`. In addition, [system tags](/ml/tracking/tracking-api),
 such as `mlflow.user`, are automatically logged.
 
 To search for runs by filtering on tags, you must include the `tags` or `mlflow` prefixes in

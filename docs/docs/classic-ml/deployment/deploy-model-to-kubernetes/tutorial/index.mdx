@@ -12,9 +12,9 @@ by using local cluster emulation tools such as [Kind](https://kind.sigs.k8s.io/d
 
 This guide demonstrates how to use MLflow end-to-end for:
 
-- Training a linear regression model with [MLflow Tracking](/tracking).
+- Training a linear regression model with [MLflow Tracking](/ml/tracking).
 - Conducting hyper-parameter tuning to find the best model.
-- Packaging the model weights and dependencies as an [MLflow Model](/model).
+- Packaging the model weights and dependencies as an [MLflow Model](/ml/model).
 - Testing model serving locally with [mlserver](https://mlserver.readthedocs.io/en/latest/) using the <Link to="/api_reference/cli.html#mlflow-models-serve" target="_blank">mlflow models serve</Link> command.
 - Deploying the model to a Kubernetes cluster using [KServe](https://kserve.github.io/website/) with MLflow.
 
@@ -42,8 +42,8 @@ It offers advanced features that aid in operating large-scale machine learning s
 
 While KServe enables highly scalable and production-ready model serving, deploying your model there might require some effort.
 MLflow simplifies the process of deploying models to a Kubernetes cluster with KServe and MLServer. Additionally, it offers seamless **end-to-end model management**
-as a single place to manage the entire ML lifecycle. This includes [experiment tracking](/ml/tracking), [model packaging](/model),
-[versioning](/ml/model-registry), [evaluation](/model-evaluation), and [deployment](/ml/deployment), which we will cover in this tutorial.
+as a single place to manage the entire ML lifecycle. This includes [experiment tracking](/ml/tracking), [model packaging](/ml/model),
+[versioning](/ml/model-registry), [evaluation](/ml/evaluation), and [deployment](/ml/deployment), which we will cover in this tutorial.
 
 ## Step 1: Installing MLflow and Additional Dependencies
 
@@ -185,8 +185,7 @@ with mlflow.start_run(run_name="hyperparameter-tuning"):
 
 When you reopen the MLflow UI, you should notice that the run "hyperparameter-tuning" contains 5 child runs. MLflow utilizes parent-child relationship, which is particularly
 useful for grouping a set of runs, such as those in hyper parameter tuning. Here the auto-logging is enabled and MLflow automatically create child runs for the top 5 runs
-based on the `scoring` metric, which is negative mean absolute error in this example. You can also create parent and child runs manually, please refer to [Create Child Runs](/ml/tracking/tracking-api/#child_runs)
-for more details.
+based on the `scoring` metric, which is negative mean absolute error in this example.
 
 <div className="center-div" style={{ width: "80%" }}>
   ![](/images/deployment/hyper-parameter-tuning-ui.png)
@@ -203,7 +202,7 @@ You can check the best combination of hyperparameters by looking at the parent r
 In this example, the best model was `alpha=0.11714084185001972` and `l1_ratio=0.3599780644783639` (you may see different results).
 
 :::note
-To learn more about hyperparameter tuning with MLflow, please refer to [Hyperparameter Tuning with MLflow and Optuna](/ml/traditional-ml/hyperparameter-tuning-with-child-runs).
+To learn more about hyperparameter tuning with MLflow, please refer to [Hyperparameter Tuning with MLflow and Optuna](/ml/traditional-ml/tutorials/hyperparameter-tuning).
 :::
 
 ## Step 5: Packaging the Model and Dependencies

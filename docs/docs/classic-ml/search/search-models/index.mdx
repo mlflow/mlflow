@@ -134,7 +134,7 @@ for i, config in enumerate(model_configs):
         model_name = f"{config['model_type']}_model_{i}"
         mlflow.sklearn.log_model(
             model,
-            model_name,
+            name=model_name,
             signature=signature,
             input_example=input_example,
             registered_model_name=f"SearchGuide{config['model_type']}",
