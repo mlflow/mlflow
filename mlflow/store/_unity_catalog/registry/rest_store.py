@@ -1177,12 +1177,11 @@ class UcModelRegistryStore(BaseRestStore):
     def create_prompt(
         self,
         name: str,
-        template: str,
         description: Optional[str] = None,
         tags: Optional[dict[str, str]] = None,
     ) -> PromptInfo:
         """
-        Create a new prompt in Unity Catalog.
+        Create a new prompt in Unity Catalog (metadata only, no initial version).
         """
         from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
             CreatePromptRequest,
@@ -1195,13 +1194,12 @@ class UcModelRegistryStore(BaseRestStore):
         req_body = message_to_json(
             CreatePromptRequest(
                 name=name,
-                template=template,
                 description=description,
                 tags=mlflow_tags_to_proto(tags) if tags else None,
             )
         )
         response_proto = self._call_endpoint(CreatePromptRequest, req_body)
-        return proto_info_to_mlflow_prompt_info(response_proto.prompt, tags)
+        return proto_info_to_mlflow_prompt_info(response_proto.prompt, tags or {})
 
     def get_prompt(self, name: str, version: Optional[Union[str, int]] = None) -> Optional[Prompt]:
         """
@@ -1209,7 +1207,6 @@ class UcModelRegistryStore(BaseRestStore):
         """
         try:
             from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
-                GetPromptRequest,
                 GetPromptVersionByAliasRequest,
                 GetPromptVersionRequest,
             )
@@ -1218,30 +1215,21 @@ class UcModelRegistryStore(BaseRestStore):
             if version is None:
                 # Getting latest prompt version is not supported in Unity Catalog
                 raise NotImplementedError("Getting latest prompt version not yet supported in UC")
-            else:
-                try:
-                    version_num = int(version)
-                    req_body = message_to_json(
-                        GetPromptVersionRequest(name=name, version=str(version_num))
-                    )
-                    response_proto = self._call_endpoint(GetPromptVersionRequest, req_body)
-                except ValueError:
-                    req_body = message_to_json(
-                        GetPromptVersionByAliasRequest(name=name, alias=version)
-                    )
-                    response_proto = self._call_endpoint(GetPromptVersionByAliasRequest, req_body)
 
-            # Get prompt-level tags
-            prompt_tags = {}
             try:
-                prompt_req_body = message_to_json(GetPromptRequest(name=name))
-                prompt_response = self._call_endpoint(GetPromptRequest, prompt_req_body)
-                if prompt_response.prompt.tags:
-                    prompt_tags = {tag.key: tag.value for tag in prompt_response.prompt.tags}
-            except Exception:
-                pass
+                version_num = int(version)
+                req_body = message_to_json(
+                    GetPromptVersionRequest(name=name, version=str(version_num))
+                )
+                response_proto = self._call_endpoint(GetPromptVersionRequest, req_body)
+            except ValueError:
+                req_body = message_to_json(
+                    GetPromptVersionByAliasRequest(name=name, alias=version)
+                )
+                response_proto = self._call_endpoint(GetPromptVersionByAliasRequest, req_body)
 
-            return proto_to_mlflow_prompt(response_proto.prompt_version, prompt_tags)
+            # For UC, only use version-level tags - no need for separate prompt-level tags
+            return proto_to_mlflow_prompt(response_proto.prompt_version, prompt_tags={})
 
         except Exception as e:
             from mlflow.exceptions import MlflowException
@@ -1264,7 +1252,6 @@ class UcModelRegistryStore(BaseRestStore):
         Search for prompts in Unity Catalog.
         """
         from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
-            GetPromptRequest,
             SearchPromptsRequest,
         )
         from mlflow.store._unity_catalog.registry.utils import proto_info_to_mlflow_prompt_info
@@ -1280,16 +1267,8 @@ class UcModelRegistryStore(BaseRestStore):
         response_proto = self._call_endpoint(SearchPromptsRequest, req_body)
         prompts = []
         for prompt_info in response_proto.prompts:
-            # Get prompt-level tags
-            prompt_tags = {}
-            try:
-                prompt_req_body = message_to_json(GetPromptRequest(name=prompt_info.name))
-                prompt_response = self._call_endpoint(GetPromptRequest, prompt_req_body)
-                if prompt_response.prompt.tags:
-                    prompt_tags = {tag.key: tag.value for tag in prompt_response.prompt.tags}
-            except Exception:
-                pass
-            prompts.append(proto_info_to_mlflow_prompt_info(prompt_info, prompt_tags))
+            # For UC, only use the basic prompt info without extra tag fetching
+            prompts.append(proto_info_to_mlflow_prompt_info(prompt_info, {}))
 
         return PagedList(prompts, response_proto.next_page_token)
 
@@ -1316,7 +1295,6 @@ class UcModelRegistryStore(BaseRestStore):
         """
         from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
             CreatePromptVersionRequest,
-            GetPromptRequest,
         )
         from mlflow.store._unity_catalog.registry.utils import (
             mlflow_tags_to_proto,
@@ -1333,24 +1311,14 @@ class UcModelRegistryStore(BaseRestStore):
         )
         response_proto = self._call_endpoint(CreatePromptVersionRequest, req_body)
 
-        # Get prompt-level tags
-        prompt_tags = {}
-        try:
-            prompt_req_body = message_to_json(GetPromptRequest(name=name))
-            prompt_response = self._call_endpoint(GetPromptRequest, prompt_req_body)
-            if prompt_response.prompt.tags:
-                prompt_tags = {tag.key: tag.value for tag in prompt_response.prompt.tags}
-        except Exception:
-            pass
-
-        return proto_to_mlflow_prompt(response_proto.prompt_version, prompt_tags)
+        # For UC, only use version-level tags - no need for separate prompt-level tags
+        return proto_to_mlflow_prompt(response_proto.prompt_version, prompt_tags={})
 
     def get_prompt_version(self, name: str, version: Union[str, int]) -> Prompt:
         """
         Get a specific version of a prompt from Unity Catalog.
         """
         from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
-            GetPromptRequest,
             GetPromptVersionRequest,
         )
         from mlflow.store._unity_catalog.registry.utils import proto_to_mlflow_prompt
@@ -1358,17 +1326,8 @@ class UcModelRegistryStore(BaseRestStore):
         req_body = message_to_json(GetPromptVersionRequest(name=name, version=str(version)))
         response_proto = self._call_endpoint(GetPromptVersionRequest, req_body)
 
-        # Get prompt-level tags
-        prompt_tags = {}
-        try:
-            prompt_req_body = message_to_json(GetPromptRequest(name=name))
-            prompt_response = self._call_endpoint(GetPromptRequest, prompt_req_body)
-            if prompt_response.prompt.tags:
-                prompt_tags = {tag.key: tag.value for tag in prompt_response.prompt.tags}
-        except Exception:
-            pass
-
-        return proto_to_mlflow_prompt(response_proto.prompt_version, prompt_tags)
+        # For UC, only use version-level tags - no need for separate prompt-level tags
+        return proto_to_mlflow_prompt(response_proto.prompt_version, prompt_tags={})
 
     def delete_prompt_version(self, name: str, version: Union[str, int]) -> None:
         """
@@ -1408,7 +1367,6 @@ class UcModelRegistryStore(BaseRestStore):
         Get a prompt version by alias from Unity Catalog.
         """
         from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
-            GetPromptRequest,
             GetPromptVersionByAliasRequest,
         )
         from mlflow.store._unity_catalog.registry.utils import proto_to_mlflow_prompt
@@ -1416,14 +1374,5 @@ class UcModelRegistryStore(BaseRestStore):
         req_body = message_to_json(GetPromptVersionByAliasRequest(name=name, alias=alias))
         response_proto = self._call_endpoint(GetPromptVersionByAliasRequest, req_body)
 
-        # Get prompt-level tags
-        prompt_tags = {}
-        try:
-            prompt_req_body = message_to_json(GetPromptRequest(name=name))
-            prompt_response = self._call_endpoint(GetPromptRequest, prompt_req_body)
-            if prompt_response.prompt.tags:
-                prompt_tags = {tag.key: tag.value for tag in prompt_response.prompt.tags}
-        except Exception:
-            pass
-
-        return proto_to_mlflow_prompt(response_proto.prompt_version, prompt_tags)
+        # For UC, only use version-level tags - no need for separate prompt-level tags
+        return proto_to_mlflow_prompt(response_proto.prompt_version, prompt_tags={})

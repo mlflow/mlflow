@@ -2107,7 +2107,6 @@ def test_create_and_update_registered_model_print_job_url(mock_http, store):
 @mock_http_200
 def test_create_prompt_uc(mock_http, store, monkeypatch):
     name = "prompt1"
-    template = "Hello, {{name}}!"
     description = "A test prompt"
     tags = {"foo": "bar"}
     # Patch proto_info_to_mlflow_prompt_info to return a dummy PromptInfo
@@ -2115,7 +2114,7 @@ def test_create_prompt_uc(mock_http, store, monkeypatch):
         "mlflow.store._unity_catalog.registry.utils.proto_info_to_mlflow_prompt_info",
         return_value=PromptInfo(name, description, tags=tags),
     ) as proto_to_prompt:
-        store.create_prompt(name=name, template=template, description=description, tags=tags)
+        store.create_prompt(name=name, description=description, tags=tags)
         # Check that the endpoint was called correctly
         assert any(c[1]["endpoint"].endswith("/prompts") for c in mock_http.call_args_list)
         proto_to_prompt.assert_called()
