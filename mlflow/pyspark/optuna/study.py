@@ -208,8 +208,8 @@ class MlflowSparkStudy(Study):
             study = optuna.load_study(study_name=study_name, sampler=sampler, storage=storage)
             num_trials = sum(map(len, iterator))
 
+            error_message = None
             try:
-                error_messages = []
                 _optimize_sequential(
                     study=study,
                     func=func,
@@ -219,11 +219,9 @@ class MlflowSparkStudy(Study):
                     catch=catch,
                     callbacks=callbacks,
                 )
-                error_messages.append(None)
             except BaseException:
-                traceback_string = traceback.format_exc()
-                error_messages.append(traceback_string)
-            yield pd.DataFrame({"error": error_messages})
+                error_message = traceback.format_exc()
+            yield pd.DataFrame({"error": [error_message]})
 
         num_tasks = n_trials
         if n_jobs == -1:
