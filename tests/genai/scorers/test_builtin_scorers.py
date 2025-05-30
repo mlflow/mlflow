@@ -1,55 +1,17 @@
 from unittest.mock import call, patch
 
-import pytest
-
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.span import SpanType
-from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers import (
-    correctness,
-    guideline_adherence,
-    relevance_to_query,
-    retrieval_groundedness,
-    retrieval_relevance,
-    retrieval_sufficiency,
-    safety,
+    Correctness,
+    GuidelineAdherence,
+    RelevanceToQuery,
+    RetrievalGroundedness,
+    RetrievalRelevance,
+    RetrievalSufficiency,
+    Safety,
 )
-
-
-def test_builtin_scorer_block_mutations():
-    """Test that the built-in scorers are immutable."""
-    with pytest.raises(MlflowException, match=r"Built-in scorer fields are immutable"):
-        retrieval_groundedness.name = "new_name"
-
-
-@pytest.mark.parametrize(
-    ("scorer", "updates"),
-    [
-        (retrieval_relevance, {"name": "custom_name"}),
-        (retrieval_sufficiency, {"name": "custom_name"}),
-        (retrieval_groundedness, {"name": "custom_name"}),
-        (relevance_to_query, {"name": "custom_name"}),
-        (safety, {"name": "custom_name"}),
-        (correctness, {"name": "custom_name"}),
-        (
-            guideline_adherence,
-            {"name": "custom_name", "global_guidelines": ["Be polite", "Be kind"]},
-        ),
-    ],
-    ids=lambda x: x.__class__.__name__,
-)
-def test_configure_builtin_scorers(scorer, updates):
-    updated_scorer = scorer.with_config(**updates)
-
-    assert updated_scorer is not scorer  # with_config() should return a new instance
-    assert isinstance(updated_scorer, scorer.__class__)
-    for key, value in updates.items():
-        assert getattr(updated_scorer, key) == value
-
-    # Positional argument should not be allowed
-    with pytest.raises(TypeError, match=rf"{scorer.__class__.__name__}.with_config\(\) takes"):
-        scorer.with_config("custom_name")
 
 
 def test_retrieval_groundedness(sample_rag_trace):
@@ -57,7 +19,7 @@ def test_retrieval_groundedness(sample_rag_trace):
         "databricks.agents.evals.judges.groundedness",
         side_effect=lambda *args, **kwargs: Feedback(name="retrieval_groundedness", value="yes"),
     ) as mock_groundedness:
-        result = retrieval_groundedness(trace=sample_rag_trace)
+        result = RetrievalGroundedness()(trace=sample_rag_trace)
 
     mock_groundedness.assert_has_calls(
         [
@@ -103,7 +65,7 @@ def test_retrieval_relevance(sample_rag_trace):
     with patch(
         "databricks.agents.evals.judges.chunk_relevance", side_effect=mock_responses
     ) as mock_chunk_relevance:
-        results = retrieval_relevance(trace=sample_rag_trace)
+        results = RetrievalRelevance()(trace=sample_rag_trace)
 
     mock_chunk_relevance.assert_has_calls(
         [
@@ -164,7 +126,7 @@ def test_retrieval_relevance_handle_error_feedback(sample_rag_trace):
     with patch(
         "databricks.agents.evals.judges.chunk_relevance", side_effect=mock_responses
     ) as mock_chunk_relevance:
-        results = retrieval_relevance(trace=sample_rag_trace)
+        results = RetrievalRelevance()(trace=sample_rag_trace)
 
     assert mock_chunk_relevance.call_count == 2
     assert len(results) == 3
@@ -179,7 +141,7 @@ def test_retrieval_sufficiency(sample_rag_trace):
         "databricks.agents.evals.judges.context_sufficiency",
         side_effect=lambda *args, **kwargs: Feedback(name="retrieval_sufficiency", value="yes"),
     ) as mock_context_sufficiency:
-        result = retrieval_sufficiency(trace=sample_rag_trace)
+        result = RetrievalSufficiency()(trace=sample_rag_trace)
 
     mock_context_sufficiency.assert_has_calls(
         [
@@ -215,7 +177,7 @@ def test_retrieval_sufficiency(sample_rag_trace):
 
 def test_retrieval_sufficiency_with_custom_expectations(sample_rag_trace):
     with patch("databricks.agents.evals.judges.context_sufficiency") as mock_context_sufficiency:
-        retrieval_sufficiency(
+        RetrievalSufficiency()(
             trace=sample_rag_trace,
             expectations={"expected_facts": ["fact3"]},
         )
@@ -247,7 +209,7 @@ def test_retrieval_sufficiency_with_custom_expectations(sample_rag_trace):
 def test_guideline_adherence():
     # 1. Called with per-row guidelines
     with patch("databricks.agents.evals.judges.guideline_adherence") as mock_guideline_adherence:
-        guideline_adherence(
+        GuidelineAdherence()(
             outputs="answer",
             expectations={"guidelines": ["guideline1", "guideline2"]},
         )
@@ -259,7 +221,7 @@ def test_guideline_adherence():
     )
 
     # 2. Called with global guidelines
-    is_english = guideline_adherence.with_config(
+    is_english = GuidelineAdherence(
         name="is_english",
         global_guidelines=["The response should be in English."],
     )
@@ -281,7 +243,7 @@ def test_relevance_to_query():
             Feedback(name="relevance_to_query", value="yes", metadata={"chunk_index": 0})
         ],
     ) as mock_chunk_relevance:
-        result = relevance_to_query(
+        result = RelevanceToQuery()(
             inputs={"question": "query"},
             outputs="answer",
         )
@@ -300,7 +262,7 @@ def test_relevance_to_query():
 def test_safety():
     # String output
     with patch("databricks.agents.evals.judges.safety") as mock_safety:
-        safety(outputs="answer")
+        Safety()(outputs="answer")
 
     mock_safety.assert_called_once_with(
         response="answer",
@@ -309,7 +271,7 @@ def test_safety():
 
     # Non-string output
     with patch("databricks.agents.evals.judges.safety") as mock_safety:
-        safety(outputs={"answer": "yes", "reason": "This is a test"})
+        Safety()(outputs={"answer": "yes", "reason": "This is a test"})
 
     mock_safety.assert_called_once_with(
         response='{"answer": "yes", "reason": "This is a test"}',
@@ -319,7 +281,7 @@ def test_safety():
 
 def test_correctness():
     with patch("databricks.agents.evals.judges.correctness") as mock_correctness:
-        correctness(
+        Correctness()(
             inputs={"question": "query"},
             outputs="answer",
             expectations={"expected_facts": ["fact1", "fact2"]},
