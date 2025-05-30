@@ -43,5 +43,7 @@ runs:
       with:
         version: 0.7.8
     - run: |
+        # The default `first-index` strategy is too strict. Use `unsafe-first-match` instead.
+        # https://docs.astral.sh/uv/configuration/environment/#uv_index_strategy
         echo "UV_INDEX_STRATEGY=unsafe-first-match" >> $GITHUB_ENV
       shell: bash
