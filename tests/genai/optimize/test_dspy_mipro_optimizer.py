@@ -276,8 +276,8 @@ def test_extract_instructions():
 @pytest.mark.parametrize(
     "verbose",
     [
-        False,  # Should suppress output
-        True,  # Should show output
+        False,
+        True,
     ],
 )
 def test_optimize_with_verbose(
