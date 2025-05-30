@@ -33,7 +33,7 @@ eval_data["label"] = y_test
 with mlflow.start_run():
     # Log model
     signature = infer_signature(X_test, model.predict(X_test))
-    mlflow.sklearn.log_model(model, "model", signature=signature)
+    mlflow.sklearn.log_model(model, name="model", signature=signature)
     model_uri = mlflow.get_artifact_uri("model")
 
     # Evaluate with SHAP explanations enabled
@@ -43,7 +43,7 @@ with mlflow.start_run():
         targets="label",
         model_type="classifier",
         evaluators=["default"],
-        evaluator_config={"log_explainer": True}  # Enable SHAP logging
+        evaluator_config={"log_explainer": True},  # Enable SHAP logging
     )
 
     print("SHAP artifacts generated:")
@@ -92,10 +92,10 @@ Control how SHAP explanations are generated:
 ```python
 # Advanced SHAP configuration
 shap_config = {
-    "log_explainer": True,              # Save the explainer model
-    "explainer_type": "exact",          # Use exact SHAP values (slower but precise)
-    "max_error_examples": 100,          # Number of error cases to explain
-    "log_model_explanations": True      # Log individual prediction explanations
+    "log_explainer": True,  # Save the explainer model
+    "explainer_type": "exact",  # Use exact SHAP values (slower but precise)
+    "max_error_examples": 100,  # Number of error cases to explain
+    "log_model_explanations": True,  # Log individual prediction explanations
 }
 
 result = mlflow.evaluate(
@@ -104,7 +104,7 @@ result = mlflow.evaluate(
     targets="label",
     model_type="classifier",
     evaluators=["default"],
-    evaluator_config=shap_config
+    evaluator_config=shap_config,
 )
 ```
 
@@ -173,6 +173,7 @@ def interpret_shap_explanations(explanations, feature_names, sample_idx=0):
 
     return feature_importance
 
+
 # Usage
 feature_names = X_test.columns.tolist()
 top_features = interpret_shap_explanations(explanations, feature_names, sample_idx=0)
@@ -187,6 +188,7 @@ Compare feature importance across different models:
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 
+
 def compare_models_with_shap(models_dict, eval_data, targets):
     """Compare multiple models using SHAP explanations."""
 
@@ -200,7 +202,7 @@ def compare_models_with_shap(models_dict, eval_data, targets):
 
                 # Log model
                 signature = infer_signature(X_train, model.predict(X_train))
-                mlflow.sklearn.log_model(model, "model", signature=signature)
+                mlflow.sklearn.log_model(model, name="model", signature=signature)
                 model_uri = mlflow.get_artifact_uri("model")
 
                 # Evaluate with SHAP
@@ -209,31 +211,33 @@ def compare_models_with_shap(models_dict, eval_data, targets):
                     eval_data,
                     targets=targets,
                     model_type="classifier",
-                    evaluator_config={"log_explainer": True}
+                    evaluator_config={"log_explainer": True},
                 )
 
                 model_results[model_name] = {
-                    "accuracy": result.metrics['accuracy_score'],
-                    "artifacts": result.artifacts
+                    "accuracy": result.metrics["accuracy_score"],
+                    "artifacts": result.artifacts,
                 }
 
                 # Tag for easy comparison
                 mlflow.set_tag("model_type", model_name)
 
         # Log comparison summary
-        best_model = max(model_results.keys(), key=lambda k: model_results[k]["accuracy"])
-        mlflow.log_params({
-            "best_model": best_model,
-            "models_compared": len(models_dict)
-        })
+        best_model = max(
+            model_results.keys(), key=lambda k: model_results[k]["accuracy"]
+        )
+        mlflow.log_params(
+            {"best_model": best_model, "models_compared": len(models_dict)}
+        )
 
     return model_results
+
 
 # Compare models
 models = {
     "random_forest": RandomForestClassifier(n_estimators=100, random_state=42),
     "xgboost": xgb.XGBClassifier(random_state=42),
-    "logistic": LogisticRegression(random_state=42)
+    "logistic": LogisticRegression(random_state=42),
 }
 
 comparison_results = compare_models_with_shap(models, eval_data, "label")
@@ -272,7 +276,7 @@ def custom_shap_analysis(model, data, feature_names):
         plt.figure(figsize=(10, 8))
         shap.summary_plot(shap_values, data, feature_names=feature_names, show=False)
         plt.tight_layout()
-        plt.savefig("custom_shap_summary.png", dpi=300, bbox_inches='tight')
+        plt.savefig("custom_shap_summary.png", dpi=300, bbox_inches="tight")
         mlflow.log_artifact("custom_shap_summary.png")
         plt.close()
 
@@ -280,18 +284,23 @@ def custom_shap_analysis(model, data, feature_names):
         plt.figure(figsize=(10, 6))
         shap.waterfall_plot(shap_values[0], show=False)
         plt.tight_layout()
-        plt.savefig("shap_waterfall_first_prediction.png", dpi=300, bbox_inches='tight')
+        plt.savefig("shap_waterfall_first_prediction.png", dpi=300, bbox_inches="tight")
         mlflow.log_artifact("shap_waterfall_first_prediction.png")
         plt.close()
 
         # Log analysis summary
-        mlflow.log_params({
-            "top_feature": max(importance_dict.keys(), key=lambda k: importance_dict[k]),
-            "total_features": len(feature_names),
-            "samples_analyzed": len(data)
-        })
+        mlflow.log_params(
+            {
+                "top_feature": max(
+                    importance_dict.keys(), key=lambda k: importance_dict[k]
+                ),
+                "total_features": len(feature_names),
+                "samples_analyzed": len(data),
+            }
+        )
 
         return shap_values, importance_dict
+
 
 # Usage
 # shap_values, importance = custom_shap_analysis(model, X_test[:100], X_test.columns.tolist())
@@ -340,16 +349,20 @@ def batch_shap_explanations(model_uri, data_path, batch_size=1000):
         batch_results = []
         total_samples = 0
 
-        for chunk_idx, data_chunk in enumerate(pd.read_parquet(data_path, chunksize=batch_size)):
+        for chunk_idx, data_chunk in enumerate(
+            pd.read_parquet(data_path, chunksize=batch_size)
+        ):
             # Generate explanations for batch
             explanations = generate_explanations(model, data_chunk)
 
             # Store results
-            batch_results.append({
-                'batch_idx': chunk_idx,
-                'explanations': explanations,
-                'sample_count': len(data_chunk)
-            })
+            batch_results.append(
+                {
+                    "batch_idx": chunk_idx,
+                    "explanations": explanations,
+                    "sample_count": len(data_chunk),
+                }
+            )
 
             total_samples += len(data_chunk)
 
@@ -358,13 +371,16 @@ def batch_shap_explanations(model_uri, data_path, batch_size=1000):
                 print(f"Processed {total_samples} samples...")
 
         # Log batch processing summary
-        mlflow.log_params({
-            "total_batches": len(batch_results),
-            "total_samples": total_samples,
-            "batch_size": batch_size
-        })
+        mlflow.log_params(
+            {
+                "total_batches": len(batch_results),
+                "total_samples": total_samples,
+                "batch_size": batch_size,
+            }
+        )
 
         return batch_results
+
 
 def generate_explanations(model, data):
     """Generate SHAP explanations (placeholder - implement based on your model type)."""
@@ -400,12 +416,14 @@ def monitor_feature_importance_drift(current_explainer_uri, historical_importanc
         relative_drift = importance_drift / (historical_importance + 1e-8)
 
         # Log drift metrics
-        mlflow.log_metrics({
-            "max_importance_drift": np.max(importance_drift),
-            "avg_importance_drift": np.mean(importance_drift),
-            "max_relative_drift": np.max(relative_drift),
-            "features_with_high_drift": np.sum(relative_drift > 0.2)
-        })
+        mlflow.log_metrics(
+            {
+                "max_importance_drift": np.max(importance_drift),
+                "avg_importance_drift": np.mean(importance_drift),
+                "max_relative_drift": np.max(relative_drift),
+                "features_with_high_drift": np.sum(relative_drift > 0.2),
+            }
+        )
 
         # Log per-feature drift
         for i, drift in enumerate(importance_drift):
@@ -421,8 +439,9 @@ def monitor_feature_importance_drift(current_explainer_uri, historical_importanc
         return {
             "current_importance": current_importance,
             "importance_drift": importance_drift,
-            "high_drift_detected": high_drift_detected
+            "high_drift_detected": high_drift_detected,
         }
+
 
 # Usage
 # drift_results = monitor_feature_importance_drift(
@@ -447,7 +466,7 @@ def get_optimized_shap_config(dataset_size):
             "log_explainer": True,
             "explainer_type": "exact",
             "max_error_examples": 100,
-            "log_model_explanations": True
+            "log_model_explanations": True,
         }
     elif dataset_size < 50000:
         # Medium datasets - standard configuration
@@ -455,7 +474,7 @@ def get_optimized_shap_config(dataset_size):
             "log_explainer": True,
             "explainer_type": "permutation",
             "max_error_examples": 50,
-            "log_model_explanations": True
+            "log_model_explanations": True,
         }
     else:
         # Large datasets - optimized for speed
@@ -463,8 +482,9 @@ def get_optimized_shap_config(dataset_size):
             "log_explainer": True,
             "explainer_type": "permutation",
             "max_error_examples": 25,
-            "log_model_explanations": False
+            "log_model_explanations": False,
         }
+
 
 # Memory-efficient SHAP evaluation
 def memory_efficient_shap_evaluation(model_uri, eval_data, targets, sample_size=5000):
@@ -486,17 +506,20 @@ def memory_efficient_shap_evaluation(model_uri, eval_data, targets, sample_size=
             sampled_data,
             targets=targets,
             model_type="classifier",
-            evaluator_config=config
+            evaluator_config=config,
         )
 
         # Log sampling information
-        mlflow.log_params({
-            "original_dataset_size": len(eval_data),
-            "sampled_dataset_size": len(sampled_data),
-            "sampling_ratio": len(sampled_data) / len(eval_data)
-        })
+        mlflow.log_params(
+            {
+                "original_dataset_size": len(eval_data),
+                "sampled_dataset_size": len(sampled_data),
+                "sampling_ratio": len(sampled_data) / len(eval_data),
+            }
+        )
 
         return result
+
 
 # Usage
 # result = memory_efficient_shap_evaluation(model_uri, large_eval_data, "target")
@@ -564,20 +587,15 @@ def register_model_with_explainer(model_uri, explainer_uri, model_name):
 
     # Add tags to link them
     client.set_model_version_tag(
-        model_name, 
-        model_version.version, 
-        "explainer_model", 
-        explainer_name
+        model_name, model_version.version, "explainer_model", explainer_name
     )
 
     client.set_model_version_tag(
-        explainer_name,
-        explainer_version.version,
-        "base_model",
-        model_name
+        explainer_name, explainer_version.version, "base_model", model_name
     )
 
     return model_version, explainer_version
+
 
 # Usage
 # model_ver, explainer_ver = register_model_with_explainer(

@@ -291,7 +291,9 @@ The evaluation result object provides comprehensive access to all generated metr
 
 ```python
 # Run evaluation
-result = mlflow.models.evaluate(model_uri, eval_data, targets="label", model_type="classifier")
+result = mlflow.models.evaluate(
+    model_uri, eval_data, targets="label", model_type="classifier"
+)
 
 # Access metrics
 print("All Metrics:")
@@ -489,7 +491,9 @@ to assess the quality of your model against a baseline.
 from mlflow.models import MetricThreshold
 
 # Evaluate your model first
-result = mlflow.models.evaluate(model_uri, eval_data, targets="label", model_type="classifier")
+result = mlflow.models.evaluate(
+    model_uri, eval_data, targets="label", model_type="classifier"
+)
 
 # Define static performance thresholds
 static_thresholds = {
