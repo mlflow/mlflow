@@ -1,6 +1,6 @@
 ---
 sidebar_position: 5
-sidebar_label: Optimize Prompts
+sidebar_label: Optimize Prompts 🆕
 ---
 
 import { APILink } from "@site/src/components/APILink";
@@ -8,18 +8,27 @@ import { APILink } from "@site/src/components/APILink";
 # Optimize Prompts (Experimental)
 
 MLflow allows you to plug your prompts into advanced prompt optimization techniques through MLflow's unified interface using the <APILink fn="mlflow.genai.optimize_prompt" /> API.
-This feature helps you improve your prompts automatically by leveraging evaluation metrics and labeled data.
-Currently, DSPy's MIPROv2 algorithm is supported by this API.
+This feature helps you improve your prompts automatically by leveraging evaluation metrics and labeled data. Currently, [DSPy's MIPROv2 algorithm](https://dspy.ai/api/optimizers/MIPROv2/) is supported by this API.
 
-## Overview
+:::tip Key Benefits
+
+- **Unified Interface**: Access to the state-of-the-art prompt optimization algorithms through a neutral interface.
+- **Prompt Management**: Integrate with MLflow Prompt Registry to gain reusability, version control and lineage.
+- **Evaluation**: Evaluate prompt performance comprehensively with MLflow's evaluation features.
+
+:::
+
+## Optimization Overview
 
 In order to use <APILink fn="mlflow.genai.optimize_prompt" /> API, you need to prepare the following:
 
-1. An existing prompt registered in MLflow.
-2. A set of <APILink fn="mlflow.genai.Scorer">Scorer</APILink> objects that evaluate the quality of the prompt. See <APILink fn="mlflow.genai.scorer" /> for how to define a custom scorer.
-3. A set of training data and optionally validation data containing inputs and expected outputs.
+| Component | Definition | Example |
+|-----------|------------|---------|
+| **Registered Prompt** | A prompt registered in MLflow. See [Prompt Management](/prompts) for how to register a prompt. | <pre><code>mlflow.register_prompt(name="qa", template="Answer \{\{question\}\}")</code></pre> |
+| **Scorer Objects** | A set of <APILink fn="mlflow.genai.Scorer">Scorer</APILink> objects that evaluate the quality of the prompt. See <APILink fn="mlflow.genai.scorer" /> for how to define a custom scorer. | <pre><code>@scorer<br/>def exact_match(expectations: dict, outputs: dict)<br/>    return expectations == outputs</code></pre> |
+| **Training(+Validation) Data** | A set of training data and optionally validation data containing inputs and expected outputs. | \[\{"inputs": \{"question": "2+2"\}, "expectations": \{"answer": "4"\}}, \{"inputs": \{"question": "2+3"\}, "expectations": \{"answer": "5"\}\}\]|
 
-## Basic Usage
+## Getting Started
 
 Here's a simple example of optimizing a question-answering prompt:
 
@@ -34,26 +43,24 @@ Then, run the following code to register the initial prompt and optimize it.
 
 ```python
 import os
+from typing import Any
 import mlflow
 from mlflow.genai.scorers import scorer
 from mlflow.genai.optimize import OptimizerConfig, LLMParams
 
-os.environ["OPENAI_API_KEY"] = "sk-..."
+os.environ["OPENAI_API_KEY"] = "<YOUR_OPENAI_API_KEY>"
 
 
 # Define a custom scorer function to evaluate prompt performance with the @scorer decorator.
 # The scorer function for optimization can take inputs, outputs, and expectations.
 @scorer
-def exact_match(expectations, outputs) -> bool:
-    return expectations == outputs
+def exact_match(expectations: dict[str, Any], outputs: dict[str, Any]) -> bool:
+    return expectations["answer"] == outputs["answer"]
 
 
 # Register the initial prompt
 initial_template = """
-You are a mathematical calculation agent. Let's think step by step to answer the following question:
-
-Question: {{question}}
-
+Answer to this math question: {{question}}.
 Return the result in a JSON string in the format of {"answer": "xxx"}.
 """
 
@@ -133,12 +140,13 @@ result = mlflow.genai.optimize_prompt(
 print(result.prompt.uri)
 ```
 
+In the example above the average performance score increased from 0 to 0.5.
 After the optimization process is completed, you can visit the MLflow Prompt Registry page and see the optimized prompt.
 
 ![Optimized Prompt](/images/llms/optimize-prompt/registered_prompt.png)
 
 Note that the optimized prompt of <APILink fn="mlflow.genai.optimize_prompt" /> expects the output to be a JSON string.
-Therefore, you need to parse the output using `json.loads` in your application.
+Therefore, you need to parse the output using `json.loads` in your application. See [Load and Use the Prompt](/prompts#4-load-and-use-the-prompt) for how to load the optimized prompt.
 
 ```python
 import mlflow
@@ -162,8 +170,94 @@ def predict(question: str, prompt_uri: str) -> str:
 
 You can customize the optimization process using `OptimizerConfig`, which includes the following parameters:
 
-- `num_instruction_candidates`: The number of candidate instructions to try.
-- `max_few_show_examples`: The maximum number of examples to show in few-shot demonstrations.
-- `optimizer_llm`: The LLM to use for optimization.
+- **num_instruction_candidates**: The number of candidate instructions to try.
+- **max_few_show_examples**: The maximum number of examples to show in few-shot demonstrations.
+- **optimizer_llm**: The LLM to use for optimization.
 
 See <APILink fn="mlflow.genai.OptimizerConfig" /> for more details.
+
+## FAQ
+
+### What are the supported Dataset formats?
+
+The training and evaluation data for the <APILink fn="mlflow.genai.optimize_prompt" /> API can be a list of dictionaries, a pandas DataFrame, a spark DataFrame, or an <APILink fn="mlflow.genai.EvaluationDataset">mlflow.genai.EvaluationDataset</APILink>.
+In any case, the data needs to contain inputs and expectations columns that contains a dictionary of input fields and expected output fields.
+Each inputs or expectations dictionary can contain primitive types, lists, nested dictionaries, and Pydantic models. Data types are inferred from the first row of the dataset.
+
+```python
+# ✅ OK
+[
+    {
+        "inputs": {"question": "What is the capital of France?"},
+        "expectations": {"answer": "Paris"},
+    },
+]
+
+# ✅ OK
+[
+    {
+        "inputs": {"question": "What are the three largest cities of Japan?"},
+        "expectations": {"answer": ["Tokyo", "Osaka", "Nagoya"]},
+    },
+]
+
+# ✅ OK
+from pydantic import BaseModel
+
+
+class Country(BaseModel):
+    name: str
+    capital: str
+    population: int
+
+
+[
+    {
+        "inputs": {"question": "What is the capital of France?"},
+        "expectations": {
+            "answer": Country(name="France", capital="Paris", population=68000000)
+        },
+    },
+]
+
+# ❌ NG
+[
+    {
+        "inputs": "What is the capital of France?",
+        "expectations": "Paris",
+    },
+]
+```
+
+### How to combine multiple scorers?
+
+While the <APILink fn="mlflow.genai.optimize_prompt" /> API accepts multiple scorers, the optimizer needs to combine them into a single score during the optimization process.
+By default, the optimizer computes the total score of all scorers with numeric or boolean values.
+If you want to use a custom aggregation function or use scorers that return non-numeric values, you can pass a custom aggregation function to the `objective` parameter.
+
+```python
+@scorer
+def safeness(outputs: dict[str, Any]) -> bool:
+    return "death" not in outputs["answer"].lower()
+
+
+@scorer
+def relevance(expectations: dict[str, Any], outputs: dict[str, Any]) -> bool:
+    return expectations["answer"] in outputs["answer"]
+
+
+def objective(scores: dict[str, Any]) -> float:
+    if not scores["safeness"]:
+        return -1
+    return scores["relevance"]
+
+
+result = mlflow.genai.optimize_prompt(
+    target_llm_params=LLMParams(model_name="openai/gpt-4.1-mini"),
+    prompt=prompt,
+    train_data=train_data,
+    eval_data=eval_data,
+    scorers=[safeness, relevance],
+    objective=objective,
+)
+```
