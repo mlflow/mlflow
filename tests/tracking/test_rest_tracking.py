@@ -1968,6 +1968,12 @@ def test_gateway_proxy_handler_rejects_invalid_requests(mlflow_client):
             "Invalid gateway_path: hello/world for method: GET",
         )
 
+        # Unsupported method
+        response = requests.delete(
+            f"{patched_client.tracking_uri}/ajax-api/2.0/mlflow/gateway-proxy",
+        )
+        assert response.status_code == 405
+
 
 def test_upload_artifact_handler_rejects_invalid_requests(mlflow_client):
     def assert_response(resp, message_part):
