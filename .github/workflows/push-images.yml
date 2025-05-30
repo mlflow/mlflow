@@ -42,7 +42,7 @@ jobs:
             type=ref,event=tag
 
       - name: Build and Push Base Image
-        uses: docker/build-push-action@v3
+        uses: docker/build-push-action@ac9327eae2b366085ac7f6a2d02df8aa8ead720a # v3.3.0
         with:
           context: docker
           push: true
