@@ -14,14 +14,36 @@ try:
         EXPECTED_FACTS,
         EXPECTED_RESPONSE,
         GUIDELINES,
-        InputCategorical,
-        InputCategoricalList,
-        InputNumeric,
-        InputText,
-        InputTextList,
-        LabelSchema,
-        LabelSchemaType,
+        _InputCategorical,
+        _InputCategoricalList,
+        _InputNumeric,
+        _InputText,
+        _InputTextList,
+        _LabelSchema,
+        _LabelSchemaType,
     )
+
+    class InputCategorical(_InputCategorical):
+        """A single-select dropdown for collecting assessments from stakeholders."""
+
+    class InputCategoricalList(_InputCategoricalList):
+        """A multi-select dropdown for collecting assessments from stakeholders."""
+
+    class InputNumeric(_InputNumeric):
+        """A numeric input for collecting assessments from stakeholders."""
+
+    class InputText(_InputText):
+        """A free-form text box for collecting assessments from stakeholders."""
+
+    class InputTextList(_InputTextList):
+        """Like `Text`, but allows multiple entries."""
+
+    class LabelSchema(_LabelSchema):
+        """A label schema for collecting input from stakeholders."""
+
+    class LabelSchemaType(_LabelSchemaType):
+        """The type of label schema."""
+
 except ImportError:
     raise ImportError(
         "The `databricks-agents` package is required to use `mlflow.genai.label_schemas`. "
