@@ -1183,9 +1183,6 @@ class UcModelRegistryStore(BaseRestStore):
         """
         Create a new prompt in Unity Catalog (metadata only, no initial version).
         """
-        from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
-            CreatePromptRequest,
-        )
         from mlflow.store._unity_catalog.registry.utils import (
             mlflow_tags_to_proto,
             proto_info_to_mlflow_prompt_info,
@@ -1206,10 +1203,6 @@ class UcModelRegistryStore(BaseRestStore):
         Get prompt by name and version from Unity Catalog.
         """
         try:
-            from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
-                GetPromptVersionByAliasRequest,
-                GetPromptVersionRequest,
-            )
             from mlflow.store._unity_catalog.registry.utils import proto_to_mlflow_prompt
 
             if version is None:
@@ -1251,9 +1244,6 @@ class UcModelRegistryStore(BaseRestStore):
         """
         Search for prompts in Unity Catalog.
         """
-        from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
-            SearchPromptsRequest,
-        )
         from mlflow.store._unity_catalog.registry.utils import proto_info_to_mlflow_prompt_info
         from mlflow.store.entities.paged_list import PagedList
 
@@ -1276,10 +1266,6 @@ class UcModelRegistryStore(BaseRestStore):
         """
         Delete a prompt from Unity Catalog.
         """
-        from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
-            DeletePromptRequest,
-        )
-
         req_body = message_to_json(DeletePromptRequest(name=name))
         self._call_endpoint(DeletePromptRequest, req_body)
 
@@ -1293,9 +1279,6 @@ class UcModelRegistryStore(BaseRestStore):
         """
         Create a new version of an existing prompt in Unity Catalog.
         """
-        from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
-            CreatePromptVersionRequest,
-        )
         from mlflow.store._unity_catalog.registry.utils import (
             mlflow_tags_to_proto,
             proto_to_mlflow_prompt,
@@ -1318,9 +1301,6 @@ class UcModelRegistryStore(BaseRestStore):
         """
         Get a specific version of a prompt from Unity Catalog.
         """
-        from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
-            GetPromptVersionRequest,
-        )
         from mlflow.store._unity_catalog.registry.utils import proto_to_mlflow_prompt
 
         req_body = message_to_json(GetPromptVersionRequest(name=name, version=str(version)))
@@ -1333,10 +1313,6 @@ class UcModelRegistryStore(BaseRestStore):
         """
         Delete a specific version of a prompt from Unity Catalog.
         """
-        from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
-            DeletePromptVersionRequest,
-        )
-
         req_body = message_to_json(DeletePromptVersionRequest(name=name, version=str(version)))
         self._call_endpoint(DeletePromptVersionRequest, req_body)
 
@@ -1344,10 +1320,6 @@ class UcModelRegistryStore(BaseRestStore):
         """
         Set a tag on a prompt in Unity Catalog.
         """
-        from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
-            SetPromptTagRequest,
-        )
-
         req_body = message_to_json(SetPromptTagRequest(name=name, key=key, value=value))
         self._call_endpoint(SetPromptTagRequest, req_body)
 
@@ -1355,10 +1327,6 @@ class UcModelRegistryStore(BaseRestStore):
         """
         Delete a tag from a prompt in Unity Catalog.
         """
-        from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
-            DeletePromptTagRequest,
-        )
-
         req_body = message_to_json(DeletePromptTagRequest(name=name, key=key))
         self._call_endpoint(DeletePromptTagRequest, req_body)
 
@@ -1366,9 +1334,6 @@ class UcModelRegistryStore(BaseRestStore):
         """
         Get a prompt version by alias from Unity Catalog.
         """
-        from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
-            GetPromptVersionByAliasRequest,
-        )
         from mlflow.store._unity_catalog.registry.utils import proto_to_mlflow_prompt
 
         req_body = message_to_json(GetPromptVersionByAliasRequest(name=name, alias=alias))
