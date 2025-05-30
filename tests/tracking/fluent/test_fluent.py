@@ -2110,7 +2110,7 @@ def test_set_active_model_env_var_precedence(monkeypatch):
     assert mlflow.get_active_model_id() is None
 
 
-def test_clear_active_model_disregards_env_vars(monkeypatch):
+def test_clear_active_model_clears_env_vars(monkeypatch):
     """Test that clear_active_model() properly clears environment variables."""
     # Set both environment variables
     monkeypatch.setenv(_MLFLOW_ACTIVE_MODEL_ID.name, "legacy-model-id")
