@@ -531,7 +531,6 @@ def _lock_requirements(
                     "pip",
                     "compile",
                     "--color=never",
-                    "--index-strategy=unsafe-first-match",
                     "--universal",
                     "--no-annotate",
                     "--no-header",
