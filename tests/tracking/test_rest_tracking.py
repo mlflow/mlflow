@@ -1941,6 +1941,33 @@ def test_gateway_proxy_handler_rejects_invalid_requests(mlflow_client):
             "Deployments proxy request must specify a gateway_path.",
         )
 
+        response = requests.post(
+            f"{patched_client.tracking_uri}/ajax-api/2.0/mlflow/gateway-proxy",
+            json={"gateway_path": "foo/bar"},
+        )
+        assert_response(
+            response,
+            "Invalid gateway_path: foo/bar for method: POST",
+        )
+
+        response = requests.post(
+            f"{patched_client.tracking_uri}/ajax-api/2.0/mlflow/gateway-proxy",
+            json={"gateway_path": "foo/bar/baz"},
+        )
+        assert_response(
+            response,
+            "Invalid gateway_path: foo/bar/baz for method: POST",
+        )
+
+        response = requests.get(
+            f"{patched_client.tracking_uri}/ajax-api/2.0/mlflow/gateway-proxy",
+            params={"gateway_path": "hello/world"},
+        )
+        assert_response(
+            response,
+            "Invalid gateway_path: hello/world for method: GET",
+        )
+
 
 def test_upload_artifact_handler_rejects_invalid_requests(mlflow_client):
     def assert_response(resp, message_part):
