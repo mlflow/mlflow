@@ -8,7 +8,7 @@ from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers import (
     correctness,
-    guideline_adherence,
+    guidelines,
     relevance_to_query,
     retrieval_groundedness,
     retrieval_relevance,
@@ -33,7 +33,7 @@ def test_builtin_scorer_block_mutations():
         (safety, {"name": "custom_name"}),
         (correctness, {"name": "custom_name"}),
         (
-            guideline_adherence,
+            guidelines,
             {"name": "custom_name", "global_guidelines": ["Be polite", "Be kind"]},
         ),
     ],
@@ -244,10 +244,10 @@ def test_retrieval_sufficiency_with_custom_expectations(sample_rag_trace):
     )
 
 
-def test_guideline_adherence():
+def test_guidelines():
     # 1. Called with per-row guidelines
     with patch("databricks.agents.evals.judges.guideline_adherence") as mock_guideline_adherence:
-        guideline_adherence(
+        guidelines(
             outputs="answer",
             expectations={"guidelines": ["guideline1", "guideline2"]},
         )
@@ -259,9 +259,9 @@ def test_guideline_adherence():
     )
 
     # 2. Called with global guidelines
-    is_english = guideline_adherence.with_config(
+    is_english = guidelines.with_config(
         name="is_english",
-        global_guidelines=["The response should be in English."],
+        guidelines=["The response should be in English."],
     )
 
     with patch("databricks.agents.evals.judges.guideline_adherence") as mock_guideline_adherence:
