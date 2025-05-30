@@ -326,7 +326,8 @@ def log_model(
     run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
     run_root_artifact_uri = mlflow.get_artifact_uri()
     remote_model_path = None
-    if _should_use_mlflowdbfs(run_root_artifact_uri):
+    # if _should_use_mlflowdbfs(run_root_artifact_uri):
+    if False:
         remote_model_path = append_to_uri_path(run_root_artifact_uri, name, _SPARK_MODEL_PATH_SUB)
         mlflowdbfs_path = _mlflowdbfs_path(run_id, name)
         with databricks_utils.MlflowCredentialContext(
