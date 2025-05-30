@@ -137,7 +137,7 @@ With this setting, MLflow server works as a proxy for accessing remote artifacts
 
 :::warning important
 If you are using remote storage, you have to configure the credentials for the server to access the artifacts. Be aware of that The MLflow artifact proxied
-access service enables users to have an _assumed role of access to all artifacts_ that are accessible to the Tracking Server. Refer [Manage Access](/tracking/artifacts-stores#artifacts-stores-manage-access) for further details.
+access service enables users to have an _assumed role of access to all artifacts_ that are accessible to the Tracking Server. Refer [Manage Access](/ml/tracking/artifact-stores#artifacts-stores-manage-access) for further details.
 :::
 
 The tracking server resolves the uri `mlflow-artifacts:/` in tracking request from the client to an otherwise
@@ -173,7 +173,7 @@ If the MLflow server is _not configured_ with the `--serve-artifacts` option, th
 to the artifact store. It does not proxy these through the tracking server by default.
 
 For this reason, the client needs direct access to the artifact store. For instructions on setting up these credentials,
-see [Artifact Stores documentation](/ml/tracking/artifacts-stores#artifacts-stores-manage-access).
+see [Artifact Stores documentation](/ml/tracking/artifact-stores#artifacts-stores-manage-access).
 :::
 
 :::note

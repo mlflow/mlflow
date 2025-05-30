@@ -75,8 +75,8 @@ the following fields:
 
 - `time_created`: Date and time when the model was created, in UTC ISO 8601 format.
 - `run_id`: ID of the run that created the model, if the model was saved using [tracking](/ml/tracking).
-- `signature`: [model signature](/ml/model/signatures#model-signature) in JSON format.
-- `input_example`: reference to an artifact with [input example](/ml/model/signatures#input-example).
+- `signature`: [model signature](/ml/model/signatures) in JSON format.
+- `input_example`: reference to an artifact with [input example](/ml/model/signatures).
 - `databricks_runtime`: Databricks runtime version and type, if the model was trained in a Databricks notebook or job.
 - `mlflow_version`: The version of MLflow that was used to log the model.
 
@@ -87,7 +87,7 @@ These files can then be used to reinstall dependencies using `conda` or `virtual
 [How MLflow Model Records Dependencies](/ml/model/dependencies#how-mlflow-records-dependencies) for more details about these files.
 
 If a model input example is provided when logging the model, two additional files `input_example.json` and `serving_input_example.json` are logged.
-See [Model Input Example](/ml/model/signatures#input-example) for more details.
+See [Model Input Example](/ml/model/signatures) for more details.
 
 When logging a model, model metadata files (`MLmodel`, `conda.yaml`, `python_env.yaml`, `requirements.txt`) are copied to a subdirectory named `metadata`.
 For wheeled models, `original_requirements.txt` file is also copied.
@@ -1518,7 +1518,7 @@ will cause an `MlflowException` to be raised:
 
 ### Transformers (`transformers`)
 
-The full guide, including tutorials and detailed documentation for using the `transformers` flavor is available at [this location](/genai/transformers/).
+The full guide, including tutorials and detailed documentation for using the `transformers` flavor is available in the [GenAI Docs](/genai).
 
 ### SentenceTransformers (`sentence_transformers`)
 
@@ -1865,7 +1865,7 @@ to include in the `MLmodel` configuration file, as well as the code that can int
 contents of the model directory and the flavor's attributes. A detailed example of constructing a
 custom model flavor and its usage is shown below. New custom flavors not considered for official
 inclusion into MLflow should be introduced as separate GitHub repositories with documentation
-provided in the [Community Model Flavors](/ml/community-model-flavors) page.
+provided in the [Community Model Flavors](/ml/plugins) page.
 
 #### Example: Creating a custom "sktime" flavor
 
@@ -2705,7 +2705,7 @@ pyfunc_udf = mlflow.pyfunc.spark_udf(
 In addition to the built-in deployment tools, MLflow provides a pluggable <APILink fn="mlflow.deployments" />
 and <Link to="/api_reference/cli.html#mlflow-deployments" target="_blank">mlflow deployments CLI</Link> for deploying models to custom targets and environments.
 To deploy to a custom target, you must first install an appropriate third-party Python plugin. See the list of
-known community-maintained plugins [here](/ml/plugins#deployment-plugins).
+known community-maintained plugins [here](/ml/plugins).
 
 ### Commands
 
@@ -2736,6 +2736,6 @@ mlflow deployments help --help
 
 ## Community Model Flavors
 
-Go to the [Community Model Flavors](/ml/community-model-flavors)
+Go to the [Community Model Flavors](/ml/plugins)
 page to get an overview of other useful MLflow flavors, which are developed and
 maintained by the MLflow community.

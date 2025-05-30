@@ -502,6 +502,11 @@ const sidebarsClassicML: SidebarsConfig = {
             id: 'deployment/index'
           }
         },
+        {
+            type: 'doc',
+            id: 'docker/index',
+            label: 'Docker'
+        }
       ],
     },
     {
@@ -512,14 +517,14 @@ const sidebarsClassicML: SidebarsConfig = {
       items: [
         {
           type: 'link',
-          href: 'tracking/#tracking-setup',
+          href: '/ml/tracking/#tracking-setup',
           label: 'Self-Hosting'
         },
-        {
-          type: 'link',
-          href: '#running-mlflow-anywhere',
-          label: 'Managed Services'
-        },
+        // {
+        //   type: 'link',
+        //   href: '#running-mlflow-anywhere',
+        //   label: 'Managed Services'
+        // },
         {
           type: 'doc',
           id: 'auth/index',
