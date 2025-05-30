@@ -11,10 +11,22 @@ from typing import Any, Optional
 try:
     from databricks.agents.review_app import (
         Agent,
-        LabelingSession,
         ReviewApp,
+        _LabelingSession,
         get_review_app,
     )
+
+    class LabelingSession(_LabelingSession):
+        """A session for labeling items in the review app."""
+
+        def sync(self, to_dataset: str) -> None:
+            """Sync the traces and expectations from the labeling session to a dataset.
+
+            Args:
+                to_dataset: The dataset to sync expectations to.
+            """
+            return self.sync_expectations(to_dataset)
+
 except ImportError:
     raise ImportError(
         "The `databricks-agents` package is required to use `mlflow.genai.labeling`. "
