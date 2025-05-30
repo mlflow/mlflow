@@ -59,7 +59,6 @@ from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracking.fluent import (
     _ACTIVE_MODEL_CONTEXT,
     ActiveModelContext,
-    _get_active_model_id_from_env,
     _get_active_model_id_global,
     _get_experiment_id,
     _get_experiment_id_from_env,
@@ -2109,37 +2108,6 @@ def test_set_active_model_env_var_precedence(monkeypatch):
     monkeypatch.delenv(_MLFLOW_ACTIVE_MODEL_ID.name)
     _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext())
     assert mlflow.get_active_model_id() is None
-
-
-def test_get_active_model_id_from_env_utility():
-    """Test the _get_active_model_id_from_env utility function directly."""
-    # Test with no environment variables set
-    with (
-        mock.patch.object(_MLFLOW_ACTIVE_MODEL_ID, "get", return_value=None),
-        mock.patch.object(MLFLOW_ACTIVE_MODEL_ID, "get", return_value=None),
-    ):
-        assert _get_active_model_id_from_env() is None
-
-    # Test with only public variable set
-    with (
-        mock.patch.object(_MLFLOW_ACTIVE_MODEL_ID, "get", return_value=None),
-        mock.patch.object(MLFLOW_ACTIVE_MODEL_ID, "get", return_value="public-id"),
-    ):
-        assert _get_active_model_id_from_env() == "public-id"
-
-    # Test with only legacy variable set
-    with (
-        mock.patch.object(_MLFLOW_ACTIVE_MODEL_ID, "get", return_value="legacy-id"),
-        mock.patch.object(MLFLOW_ACTIVE_MODEL_ID, "get", return_value=None),
-    ):
-        assert _get_active_model_id_from_env() == "legacy-id"
-
-    # Test with both variables set - public should take precedence
-    with (
-        mock.patch.object(_MLFLOW_ACTIVE_MODEL_ID, "get", return_value="legacy-id"),
-        mock.patch.object(MLFLOW_ACTIVE_MODEL_ID, "get", return_value="public-id"),
-    ):
-        assert _get_active_model_id_from_env() == "public-id"
 
 
 def test_set_active_model_link_traces():
