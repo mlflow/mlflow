@@ -3,7 +3,9 @@ import { MlflowService } from '../../../sdk/MlflowService';
 import { useCallback, useRef, useState } from 'react';
 import { SearchExperimentsApiResponse } from '../../../types';
 
-type ExperimentListQueryKey = ['experiment_list', { searchFilter?: string; pageToken?: string }];
+export const ExperimentListQueryKeyHeader = 'experiment_list';
+
+type ExperimentListQueryKey = [typeof ExperimentListQueryKeyHeader, { searchFilter?: string; pageToken?: string }];
 
 const queryFn = ({ queryKey }: QueryFunctionContext<ExperimentListQueryKey>) => {
   const [, { searchFilter, pageToken }] = queryKey;
@@ -28,7 +30,7 @@ export const useExperimentListQuery = ({
     Error,
     SearchExperimentsApiResponse,
     ExperimentListQueryKey
-  >(['experiment_list', { searchFilter, pageToken: currentPageToken }], {
+  >([ExperimentListQueryKeyHeader, { searchFilter, pageToken: currentPageToken }], {
     queryFn,
     retry: false,
   });
