@@ -384,6 +384,7 @@ def log_model(
         tags=tags,
     )
     mlflow_model = Model(artifact_path=logged_model.artifact_location, run_id=run_id)
+    _logger.warning("☀️ Saving Spark ML model to %s", mlflow_model.artifact_uri)
     with TempDir() as tmp:
         tmp_model_metadata_dir = tmp.path()
         _save_model_metadata(
