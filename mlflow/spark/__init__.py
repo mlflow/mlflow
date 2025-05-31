@@ -299,27 +299,29 @@ def log_model(
         # to avoid another warning in Model.log
         artifact_path = None
 
-    if _is_spark_connect_model(spark_model):
-        return Model.log(
-            artifact_path=artifact_path,
-            name=name,
-            flavor=mlflow.spark,
-            spark_model=spark_model,
-            conda_env=conda_env,
-            code_paths=code_paths,
-            registered_model_name=registered_model_name,
-            signature=signature,
-            input_example=input_example,
-            await_registration_for=await_registration_for,
-            pip_requirements=pip_requirements,
-            extra_pip_requirements=extra_pip_requirements,
-            metadata=metadata,
-            params=params,
-            tags=tags,
-            model_type=model_type,
-            step=step,
-            model_id=model_id,
-        )
+    # What happens if we just call `log_model`?
+    if not _is_spark_connect_model(spark_model) and not isinstance(spark_model, PipelineModel):
+        spark_model = PipelineModel([spark_model])
+    return Model.log(
+        artifact_path=artifact_path,
+        name=name,
+        flavor=mlflow.spark,
+        spark_model=spark_model,
+        conda_env=conda_env,
+        code_paths=code_paths,
+        registered_model_name=registered_model_name,
+        signature=signature,
+        input_example=input_example,
+        await_registration_for=await_registration_for,
+        pip_requirements=pip_requirements,
+        extra_pip_requirements=extra_pip_requirements,
+        metadata=metadata,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
+    )
 
     if not isinstance(spark_model, PipelineModel):
         spark_model = PipelineModel([spark_model])
