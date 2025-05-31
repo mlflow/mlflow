@@ -214,7 +214,8 @@ jobs:
           REPOSITORY: ${{ github.repository }}
         run: |
           git apply /tmp/${RUN_ID}.diff
-          git commit -sam "Autoformat: https://github.com/${REPOSITORY}/actions/runs/${RUN_ID}"
+          git add .
+          git commit -sm "Autoformat: https://github.com/${REPOSITORY}/actions/runs/${RUN_ID}"
           echo "head_sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
           git push
 
