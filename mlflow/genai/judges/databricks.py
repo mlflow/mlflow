@@ -61,14 +61,13 @@ def is_context_relevant(*, request: str, context: Any, name: Optional[str] = Non
             print(feedback.value)  # "no"
 
     """
-    from databricks.agents.evals.judges import chunk_relevance
+    from databricks.agents.evals.judges import relevance_to_query
 
-    # NB: The `chunk_relevance` takes a list of context chunks and returns a list of feedbacks.
-    return chunk_relevance(
+    return relevance_to_query(
         request=request,
-        retrieved_context=[context],
+        response=str(context),
         assessment_name=name,
-    )[0]
+    )
 
 
 @requires_databricks_agents
