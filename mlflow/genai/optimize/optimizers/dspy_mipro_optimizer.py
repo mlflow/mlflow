@@ -84,28 +84,7 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
 
         adapter = dspy.JSONAdapter()
         with dspy.context(lm=lm, adapter=adapter):
-            if not self.optimizer_config.verbose:
-                # Redirect output to devnull if possible, otherwise use StringIO
-                output_sink = io.StringIO()
-                try:
-                    output_sink = open(os.devnull, "w")  # noqa: SIM115
-                except (OSError, IOError):
-                    pass
-
-                with output_sink:
-                    with (
-                        contextlib.redirect_stdout(output_sink),
-                        contextlib.redirect_stderr(output_sink),
-                    ):
-                        optimized_program = optimizer.compile(
-                            program,
-                            trainset=train_data,
-                            valset=eval_data,
-                            num_trials=self._get_num_trials(num_candidates),
-                            minibatch_size=self._get_minibatch_size(train_data, eval_data),
-                            requires_permission_to_run=False,
-                        )
-            else:
+            with self._redirect_logs():
                 optimized_program = optimizer.compile(
                     program,
                     trainset=train_data,
@@ -174,3 +153,24 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
 
         with dspy.context(lm=lm):
             return extractor(prompt=template).instruction
+
+    @contextlib.contextmanager
+    def _redirect_logs(self):
+        """Context manager for redirecting stdout/stderr based on verbose setting.
+        If verbose is False, redirects output to devnull or StringIO.
+        If verbose is True, doesn't redirect output.
+        """
+        if not self.optimizer_config.verbose:
+            try:
+                output_sink = open(os.devnull, "w")  # noqa: SIM115
+            except (OSError, IOError):
+                output_sink = io.StringIO()
+
+            with output_sink:
+                with (
+                    contextlib.redirect_stdout(output_sink),
+                    contextlib.redirect_stderr(output_sink),
+                ):
+                    yield
+        else:
+            yield
