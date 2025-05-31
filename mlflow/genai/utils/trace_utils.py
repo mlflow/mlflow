@@ -1,4 +1,3 @@
-import json
 import logging
 from typing import Any, Callable, Optional
 
@@ -8,7 +7,6 @@ import mlflow
 from mlflow.entities.span import Span, SpanType
 from mlflow.entities.trace import Trace
 from mlflow.genai.utils.data_validation import check_model_prediction
-from mlflow.tracing.utils import TraceJSONEncoder
 
 _logger = logging.getLogger(__name__)
 
@@ -62,16 +60,16 @@ class NoOpTracerPatcher:
 
 def parse_inputs_to_str(inputs: Any) -> str:
     """Parse the inputs to a request string compatible with the judges API"""
-    # If it is a single key dictionary, extract the value
-    if isinstance(inputs, dict) and len(inputs) == 1:
-        inputs = list(inputs.values())[0]
+    from databricks.rag_eval.utils import input_output_utils
 
-    return inputs if isinstance(inputs, str) else json.dumps(inputs, default=TraceJSONEncoder)
+    return input_output_utils.request_to_string(inputs)
 
 
 def parse_output_to_str(output: Any) -> str:
     """Parse the output to a string compatible with the judges API"""
-    return output if isinstance(output, str) else json.dumps(output, default=TraceJSONEncoder)
+    from databricks.rag_eval.utils import input_output_utils
+
+    return input_output_utils.response_to_string(output)
 
 
 def extract_retrieval_context_from_trace(trace: Optional[Trace]) -> dict[str, list]:

@@ -97,7 +97,7 @@ def test_trace_passed_to_builtin_scorers_correctly(sample_rag_trace):
     assert mock_groundedness.call_count == 2  # Called per retriever span
 
     mock_correctness.assert_called_once_with(
-        request="query",
+        request="{'question': 'query'}",
         response="answer",
         expected_facts=["fact1", "fact2"],
         expected_response="expected answer",
@@ -105,13 +105,13 @@ def test_trace_passed_to_builtin_scorers_correctly(sample_rag_trace):
     )
     mock_guideline.assert_called_once_with(
         guidelines=["write in english"],
-        guidelines_context={"response": "answer"},
+        guidelines_context={"request": "{'question': 'query'}", "response": "answer"},
         assessment_name="english",
     )
     mock_groundedness.assert_has_calls(
         [
             call(
-                request="query",
+                request="{'question': 'query'}",
                 response="answer",
                 retrieved_context=[
                     {"content": "content_1", "doc_uri": "url_1"},
@@ -120,7 +120,7 @@ def test_trace_passed_to_builtin_scorers_correctly(sample_rag_trace):
                 assessment_name="retrieval_groundedness",
             ),
             call(
-                request="query",
+                request="{'question': 'query'}",
                 response="answer",
                 retrieved_context=[
                     {"content": "content_3"},
