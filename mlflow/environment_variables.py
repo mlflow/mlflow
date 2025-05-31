@@ -774,11 +774,15 @@ MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT = _EnvironmentVariable(
     "MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT", int, 500
 )
 
+#: The default active LoggedModel ID. Traces created while this variable is set (unless overridden,
+#: e.g., by the `set_active_model()` API) will be associated with this LoggedModel ID.
+#: (default: ``None``)
+MLFLOW_ACTIVE_MODEL_ID = _EnvironmentVariable("MLFLOW_ACTIVE_MODEL_ID", str, None)
 
-#: Default active LoggedModel ID.
-#: This should only by used by MLflow internally, users should always use
-#: `set_active_model` to set the active LoggedModel, and should not set
-#: this environment variable directly.
+#: Legacy environment variable for setting the default active LoggedModel ID.
+#: This should only by used by MLflow internally. Users should use the
+#: public `MLFLOW_ACTIVE_MODEL_ID` environment variable or the `set_active_model`
+#: API to set the active LoggedModel, and should not set this environment variable directly.
 #: (default: ``None``)
 _MLFLOW_ACTIVE_MODEL_ID = _EnvironmentVariable("_MLFLOW_ACTIVE_MODEL_ID", str, None)
 
