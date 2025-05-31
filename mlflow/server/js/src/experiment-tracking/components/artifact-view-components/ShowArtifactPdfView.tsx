@@ -32,7 +32,13 @@ type Props = {
   getArtifact: FetchArtifactUnifiedFn;
 } & LoggedModelArtifactViewerProps;
 
-type State = any;
+type State = {
+  loading: boolean;
+  error?: any;
+  pdfData?: any;
+  currentPage: number;
+  numPages: number;
+};
 
 class ShowArtifactPdfView extends Component<Props, State> {
   state = {
