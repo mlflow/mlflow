@@ -13,6 +13,5 @@ __all__ = [
     "is_correct",
     "is_context_relevant",
     "is_context_sufficient",
-    "is_relevant_to_query",
     "meets_guidelines",
 ]
