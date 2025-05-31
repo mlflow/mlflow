@@ -30,7 +30,6 @@ Depends:
     R (>= 3.3.0)
 Imports:
     base64enc,
-    forge,
     fs,
     git2r,
     glue,
@@ -61,6 +60,7 @@ Suggests:
 Encoding: UTF-8
 RoxygenNote: 7.1.2
 Collate:
+    'cast-utils.R'
     'cli.R'
     'databricks-utils.R'
     'globals.R'

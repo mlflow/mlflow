@@ -29,10 +29,9 @@
 #'  must be one of "numeric", "integer", or "string".
 #' @param description Optional description for the parameter.
 #'
-#' @import forge
 #' @export
 mlflow_param <- function(name, default = NULL, type = NULL, description = NULL) {
-  target_type <- forge::cast_choice(
+  target_type <- cast_choice(
     type,
     c("numeric", "integer", "string"),
     allow_null = TRUE
@@ -43,10 +42,10 @@ mlflow_param <- function(name, default = NULL, type = NULL, description = NULL) 
 
   caster <- switch(
     target_type,
-    integer = forge::cast_nullable_scalar_integer,
-    double = forge::cast_nullable_scalar_double,
-    numeric = forge::cast_nullable_scalar_double,
-    forge::cast_nullable_string
+    integer = cast_nullable_scalar_integer,
+    double = cast_nullable_scalar_double,
+    numeric = cast_nullable_scalar_double,
+    cast_nullable_string
   )
 
   default <- tryCatch(
