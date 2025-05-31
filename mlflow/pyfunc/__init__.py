@@ -2079,6 +2079,11 @@ def spark_udf(
         When using Databricks Connect to connect to a remote Databricks cluster,
         the Databricks cluster must use runtime version >= 16, and if the 'prebuilt_env_uri'
         parameter is set, 'env_manager' parameter should not be set.
+        the Databricks cluster must use runtime version >= 15.4,and if the 'prebuilt_env_uri'
+        parameter is set, 'env_manager' parameter should not be set,
+        if the runtime version is 15.4 and the cluster is
+        standard access mode, the cluster need to configure
+        "spark.databricks.safespark.archive.artifact.unpack.disabled" to "false".
 
     .. note::
         Please be aware that when operating in Databricks Serverless,
@@ -2269,11 +2274,27 @@ def spark_udf(
             )
         # `udf_sandbox_info.runtime_version` format is like '<major_version>.<minor_version>'.
         # It's safe to apply `Version`.
-        if Version(udf_sandbox_info.runtime_version).major < 16:
+        dbr_runtime_version = Version(udf_sandbox_info.runtime_version)
+        if dbr_runtime_version < Version("15.4"):
             raise MlflowException(
                 "Using 'mlflow.pyfunc.spark_udf' in Databricks Serverless or in remote "
-                "Databricks Connect requires Databricks runtime version >= 16.0."
+                "Databricks Connect requires Databricks runtime version >= 15.4."
             )
+        if dbr_runtime_version == Version("15.4"):
+            if spark.conf.get("spark.databricks.pyspark.udf.isolation.enabled").lower() == "true":
+                # The connected cluster is standard (shared) mode.
+                if (
+                    spark.conf.get(
+                        "spark.databricks.safespark.archive.artifact.unpack.disabled"
+                    ).lower()
+                    != "false"
+                ):
+                    raise MlflowException(
+                        "Using 'mlflow.pyfunc.spark_udf' in remote Databricks Connect requires "
+                        "Databricks cluster setting "
+                        "'spark.databricks.safespark.archive.artifact.unpack.disabled' to 'false' "
+                        "if Databricks runtime version is 15.4"
+                    )
 
     nfs_root_dir = get_nfs_cache_root_dir()
     should_use_nfs = nfs_root_dir is not None
