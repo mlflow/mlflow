@@ -144,7 +144,7 @@ jobs:
       - if: steps.diff.outputs.r == 'true'
         working-directory: docs
         run: |
-          ./build-rdoc.sh
+          api_reference/build-rdoc.sh
       # ************************************************************************
       # Upload patch
       # ************************************************************************
