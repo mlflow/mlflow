@@ -30,7 +30,6 @@ Depends:
     R (>= 3.3.0)
 Imports:
     base64enc,
-    forge,
     fs,
     git2r,
     glue,
@@ -65,6 +64,7 @@ Collate:
     'databricks-utils.R'
     'globals.R'
     'imports.R'
+    'cast-utils.R'
     'logging.R'
     'mlflow-package.R'
     'model-crate.R'
