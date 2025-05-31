@@ -23,9 +23,9 @@ classifiers = [
   "Topic :: Software Development :: Libraries :: Python Modules",
   "License :: OSI Approved :: Apache Software License",
   "Operating System :: OS Independent",
-  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
   "Flask<4",
   "alembic<2,!=1.10.0",
@@ -154,7 +154,7 @@ exclude = ["tests", "tests.*"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py39"
+target-version = "py310"
 required-version = "0.9.3"
 force-exclude = true
 extend-include = ["*.ipynb"]
