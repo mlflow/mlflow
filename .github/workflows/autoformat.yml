@@ -142,7 +142,7 @@ jobs:
       # R
       # ************************************************************************
       - if: steps.diff.outputs.r == 'true'
-        working-directory: docs
+        working-directory: docs/api_reference
         run: |
           ./build-rdoc.sh
       # ************************************************************************
