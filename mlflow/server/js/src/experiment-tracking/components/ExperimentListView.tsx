@@ -15,13 +15,14 @@ import {
 } from '@databricks/design-system';
 import { List as VList, AutoSizer, ListRowRenderer } from 'react-virtualized';
 import 'react-virtualized/styles.css';
-import { Link, NavigateFunction } from '../../common/utils/RoutingUtils';
+import { Link } from '../../common/utils/RoutingUtils';
 import Routes from '../routes';
 import { CreateExperimentModal } from './modals/CreateExperimentModal';
 import { DeleteExperimentModal } from './modals/DeleteExperimentModal';
 import { RenameExperimentModal } from './modals/RenameExperimentModal';
 import { withRouterNext, WithRouterNextProps } from '../../common/utils/withRouterNext';
 import { ExperimentEntity } from '../types';
+import debounce from 'lodash/debounce';
 
 type Props = {
   activeExperimentIds: string[];
@@ -43,16 +44,34 @@ type State = {
 export class ExperimentListView extends Component<Props, State> {
   list?: VList = undefined;
 
-  state = {
-    checkedKeys: this.props.activeExperimentIds,
-    hidden: false,
-    searchInput: '',
-    showCreateExperimentModal: false,
-    showDeleteExperimentModal: false,
-    showRenameExperimentModal: false,
-    selectedExperimentId: '0',
-    selectedExperimentName: '',
-  };
+  // To avoid re-render on every key-stroke.
+  private updateUrlDebounced = debounce((searchInput: string) => {
+    const { location, navigate } = this.props;
+    const params = new URLSearchParams(location.search);
+    if (searchInput) {
+      params.set('searchExperiment', searchInput);
+    } else {
+      params.delete('searchExperiment');
+    }
+    navigate(`${location.pathname}?${params.toString()}`, { replace: true });
+  }, 1000);
+
+  // Read the query parameter "searchExperiment" on mount to initialize state.
+  constructor(props: Props) {
+    super(props);
+    const searchParams = new URLSearchParams(props.location.search);
+    const searchInput = searchParams.get('searchExperiment') || '';
+    this.state = {
+      checkedKeys: props.activeExperimentIds,
+      hidden: false,
+      searchInput,
+      showCreateExperimentModal: false,
+      showDeleteExperimentModal: false,
+      showRenameExperimentModal: false,
+      selectedExperimentId: '0',
+      selectedExperimentName: '',
+    };
+  }
 
   bindListRef = (ref: VList) => {
     this.list = ref;
@@ -74,9 +93,9 @@ export class ExperimentListView extends Component<Props, State> {
   };
 
   handleSearchInputChange: React.ChangeEventHandler<HTMLInputElement> = (event) => {
-    this.setState({
-      searchInput: event.target.value,
-    });
+    const nextValue = event.target.value;
+    this.setState({ searchInput: nextValue });
+    this.updateUrlDebounced(nextValue);
   };
 
   updateSelectedExperiment = (experimentId: string, experimentName: string) => {
@@ -85,6 +104,10 @@ export class ExperimentListView extends Component<Props, State> {
       selectedExperimentName: experimentName,
     });
   };
+
+  componentWillUnmount() {
+    this.updateUrlDebounced.cancel();
+  }
 
   handleCreateExperiment = () => {
     this.setState({
@@ -229,7 +252,7 @@ export class ExperimentListView extends Component<Props, State> {
   hide = () => this.setState({ hidden: true });
 
   render() {
-    const { hidden } = this.state;
+    const { hidden, searchInput } = this.state;
     const { activeExperimentIds, designSystemThemeApi } = this.props;
     const { theme } = designSystemThemeApi;
 
@@ -247,7 +270,6 @@ export class ExperimentListView extends Component<Props, State> {
       );
     }
 
-    const { searchInput } = this.state;
     const filteredExperiments = this.filterExperiments(searchInput);
 
     return (
