@@ -612,7 +612,7 @@ class MlflowClient:
     @require_prompt_registry
     @translate_prompt_exception
     def load_prompt(
-        self, name_or_uri: str, version: Optional[int] = None, allow_missing: bool = False
+        self, name_or_uri: str, version: Optional[str] = None, allow_missing: bool = False
     ) -> Prompt:
         """
         Load a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
@@ -631,7 +631,7 @@ class MlflowClient:
             prompt = client.load_prompt("my_prompt")
 
             # Load a specific version of the prompt by name and version
-            prompt = client.load_prompt("my_prompt", version=1)
+            prompt = client.load_prompt("my_prompt", version="1")
 
             # Load a specific version of the prompt by URI
             prompt = client.load_prompt("prompts:/my_prompt/1")
@@ -653,21 +653,18 @@ class MlflowClient:
             name = name_or_uri
 
         registry_client = self._get_registry_client()
-        try:
-            mv = (
-                registry_client.get_latest_versions(name, stages=ALL_STAGES)[0]
-                if version is None
-                else registry_client.get_model_version(name, version)
-            )
-        except MlflowException as exc:
-            if allow_missing and exc.error_code == "RESOURCE_DOES_NOT_EXIST":
+        prompt = registry_client.get_prompt(name, version)
+
+        if prompt is None:
+            if allow_missing:
                 return None
-            raise
+            version_str = version if version is not None else "latest"
+            raise MlflowException(
+                f"Prompt with name={name}, version={version_str} not found",
+                RESOURCE_DOES_NOT_EXIST,
+            )
 
-        # Fetch the prompt-level tags from the registered model
-        prompt_tags = registry_client.get_registered_model(name)._tags
-
-        return Prompt.from_model_version(mv, prompt_tags=prompt_tags)
+        return prompt
 
     @experimental
     @require_prompt_registry
