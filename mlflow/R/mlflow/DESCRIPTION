@@ -60,11 +60,11 @@ Suggests:
 Encoding: UTF-8
 RoxygenNote: 7.1.2
 Collate:
+    'cast-utils.R'
     'cli.R'
     'databricks-utils.R'
     'globals.R'
     'imports.R'
-    'cast-utils.R'
     'logging.R'
     'mlflow-package.R'
     'model-crate.R'
