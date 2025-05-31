@@ -151,8 +151,8 @@ jobs:
       - name: Create patch
         id: patch
         run: |
-          git add .
-          git diff --cached > ${{ github.run_id }}.diff
+          git add --intent-to-add .
+          git diff > ${{ github.run_id }}.diff
           reformatted=$([[ -s ${{ github.run_id }}.diff ]] && echo "true" || echo "false")
           echo "reformatted=$reformatted" >> $GITHUB_OUTPUT
 
