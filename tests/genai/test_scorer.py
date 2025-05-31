@@ -12,7 +12,7 @@ from mlflow.entities.assessment import FeedbackValue
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.evaluation import Assessment as LegacyAssessment
 from mlflow.genai import Scorer, scorer
-from mlflow.genai.scorers import correctness, guideline_adherence, retrieval_groundedness
+from mlflow.genai.scorers import correctness, guidelines, retrieval_groundedness
 
 if importlib.util.find_spec("databricks.agents") is None:
     pytest.skip(reason="databricks-agents is not installed", allow_module_level=True)
@@ -88,7 +88,7 @@ def test_trace_passed_to_builtin_scorers_correctly(sample_rag_trace):
             scorers=[
                 retrieval_groundedness,
                 correctness,
-                guideline_adherence.with_config(name="english"),
+                guidelines.with_config(name="english"),
             ],
         )
 
