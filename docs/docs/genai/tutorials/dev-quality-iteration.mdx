@@ -12,11 +12,18 @@ If you are working in the same notebook/environment as the first part of the tut
 
 :::
 
+:::info[Managed MLflow]
+
+For the best experience with all the features in this tutorial, we recommend using managed MLflow in Databricks. You can sign up for free [here](https://login.databricks.com/?destination_url=%2Fml%2Fexperiments-signup%3Fsource%3DTRY_MLFLOW&dbx_source=TRY_MLFLOW&signup_experience_step=EXPRESS). Not all of the features in this tutorial are currently available in the open-source version of MLflow.
+
+:::
+
 First, we will install the necessary packages.
 
 ```bash
-%pip install openai python-dotenv llama-index llama-index-llms-openai databricks-agents
-%pip install mlflow --upgrade --pre -q
+%pip install openai python-dotenv llama-index llama-index-llms-openai
+%pip install databricks-agents>=1.0.0rc2
+%pip install mlflow[databricks]>=3.1.0rc0
 %restart_python
 ```
 
@@ -403,10 +410,87 @@ agent = ReActAgent(llm=llm, tools=tools, system_prompt=system_prompt)
 
 </details>
 
-## Define Quality Criteria with Scorers
+Let's set an MLflow experiment to keep track of all the models, runs, and evaluations for this tutorial. We will also enable autologging for LlamaIndex agents to make sure all our calls to the agent are logged as traces.
 
+```python
+import mlflow
+
+mlflow.llama_index.autolog()
+mlflow.set_experiment("genai-tutorial-pt-2")
+```
+
+At this point, we have loaded the data and agent from the first part of the tutorial and are ready to start evaluating and iterating on the agent's quality.
+
+## Specify Quality Criteria with Scorers
+
+The first step in evaluating the agent's quality is to define the criteria we want to evaluate it against. This is important—we need to think seriously about what we want to evaluate before we start building out our evaluations. Optimizing our agent toward the wrong criteria will lead to a lot of wasted effort. Here are some questions worth considering before starting:
+
+- Is there a specific comparison we want to make? For example, we might want to compare using different models, or try different versions of tools.
+- What does it mean for one response to be "better" than another? If you were to design a rubric for comparing the quality of agent responses, what would it look like?
+- What kinds of responses would represent a critical _failure_ in the agent's behavior?
+
+For the purposes of this tutorial, let's suppose we have identified two candidate system prompts that we want to compare. Furthermore, we want to see if there is an appreciable improvement in the agent's behavior if we switch to the more expensive but more capable `gpt-4o` model.
 
 ### Define some Scorers
+
+There are many different criteria we could evaluate the agent against. At this early development stage, let's focus on a few fundamental criteria that the agent must get right.
+
+We want to make sure:
+- that the agent is helpful and actually addresses the customer's concern
+- that the agent communicates in the tone and style we expect—friendly, clear, and direct
+- that the agent uses its escalation and cancellation tools appropriately, and does not redundantly call both tools for the same request
+
+We can define these criteria as _scorers_ in MLflow. A scorer is a Python function that takes some combination of inputs, outputs, expectations, and traces of our agent runs, assesses them based on determinstic or LLM-based evaluation logic, and returns feedback with a score and an explanation of that score.
+
+MLlflow includes both built-in scorers and a framework for building custom scorers. We highlight a few different approaches to defining scorers.
+
+Note that we are only going to define and use scorers to evalaute static datasets of complete traces that include inputs and outputs. This has some clear advantages:
+
+- We can re-evaluate the traces with new or updated scorers without needing to repeatedly re-run the agent.
+- Separating out agent execution from evaluation can make it easier to debug issues with both.
+
+However, it is important to note that the `mlflow.genai.evaluate` function (discussed in more detail below) can take a `predict_fn` argument representing your agent, along with a dataset of inputs. This approach is particularly valuable as you iterate on your agent's code, as you would expect outputs to change across versions.
+
+#### Guideline Adherence
+
+The `guideline_adherence` scorer is a built-in scorer that checks if the agent's response adheres to a set of global guidelines. You can define these guidelines as natural language criteria. The scorer will return true or false (and an explanation) based on whether the agent's response adheres to the guidelines.
+
+Let's define a few guidelines for our agent. We will use the guidelines-based approach to define some scorers to assess:
+- whether the agent is friendly, clear, and direct
+- whether the agent addresses the customer directly ("Your order is being prepared") instead of using the third person ("Emma Wilson's order is being prepared")
+- whether the agent proactively offers a solution to the customer's concern, if relevant.
+
+We can define these guidelines as a list of strings and pass them to the `GuidelineAdherence` scorer.
+
+
+```python
+from mlflow.genai.scorers import GuidelineAdherence
+
+communication_guidelines = GuidelineAdherence().with_config(
+    name="communication_style",
+    global_guidelines=["Be friendly, clear, and direct. Avoid overly formal or robotic responses."]
+)
+
+direct_address = GuidelineAdherence().with_config(
+    name="direct_address",
+    global_guidelines=["Address customers directly (Your order is being prepared), not using the third person (Emma Wilson's order is being prepared)."]
+)
+
+proactive = GuidelineAdherence().with_config(
+    name="proactive",
+    global_guidelines=["If there is an obvious issue, such as the order being late, acknowledge it and offer a solution. There is no need to proactively offer a solution if the customer has no issues or is just asking for information."]
+)
+```
+
+#### Custom Scorer (Simple Heuristic)
+
+We can also define a custom scorer that uses a simple heuristic to evaluate the agent's response. In this case, we want to make sure that the agent does not unnecessarily call both the `cancel_order` and `escalate_to_human` tools for the same request. Inability to cancel an order because it is, for example, already out for delivery does not automatically warrant an escalation.
+
+This scorer parses the trace to check if the agent called both the `cancel_order` and `escalate_to_human` tools for the same request. If it did so, it returns `false`, indicating an inappropriate escalation. Otherwise, it returns `true`. No LLM judge is used here.
+
+We use the `@mlflow.genai.scorer` decorator to define the scorer. Custom scorers can be defined with any combination of `inputs`, `outputs`, `trace`, and `expectations` as arguments. In this case, we only use the `trace` argument; we parse the trace to check if the agent called both the `cancel_order` and `escalate_to_human` tools for the same request.
+
+The custom scorer returns an `mlflow.entities.Assessment` object, which contains the score, the source of the assessment, and the rationale for the score, or an error if the scorer fails.
 
 ```python
 from mlflow.entities import Assessment, AssessmentSource, Feedback
@@ -455,6 +539,14 @@ def appropriate_escalation(trace) -> Assessment:
             rationale="Appropriate behavior: Agent did not redundantly call both cancellation and escalation tools."
         )
 ```
+
+#### Custom Scorer (LLM-based)
+
+{/* Not sure if custom_prompt_judge should be used here based on the draft docs, but it looks like that comes from a seprate SDK */}
+
+We can also define a custom scorer that uses an LLM to evaluate the agent's response. In this case, we want to make sure that the agent's response is helpful and addresses the customer's concern.
+
+This scorer is quite similar to the `appropriate_escalation` scorer we defined above, but instead of using a simple heuristic, it uses an LLM to evaluate the agent's response. We also define this scorer to use `inputs` and `outputs` rather than the trace as arguments, as we do not need the intermediate steps (such as tools calls) to evaluate the agent's response.
 
 ```python
 from pydantic import BaseModel, Field
@@ -511,36 +603,94 @@ Provide score as decimal (e.g., 0.7, 0.85) based on overall helpfulness."""},
         )
 ```
 
-```python
-from mlflow.genai.scorers import guideline_adherence
+Let's walk through this scorer in a little more detail.
+- We define a Pydantic model to structure the LLM's response, as we will be using the `response_format` parameter to specify the model's output format.
+- We use the `@mlflow.genai.scorer` decorator to define the scorer.
+- We parse the inputs and outputs to get the user message and agent response.
+- We send the user message and agent response to the LLM, along with a system message detailing a scoring rubric, to an OpenAI model.
+- The LLM returns a score and a rationale for the score, based on the Pydantic model we defined.
+- We return the score and rationale as an `mlflow.entities.Assessment` object, which contains the score, the source of the assessment, and the rationale for the score, or an error if the scorer fails.
 
-communication_guidelines = guideline_adherence(
-    name="communication_style",
-    global_guidelines=["Be friendly, clear, and direct. Avoid overly formal or robotic responses."]
-)
-
-direct_address = guideline_adherence(
-    name="direct_address",
-    global_guidelines=["Address customers directly, not using the third person."]
-)
-
-proactive = guideline_adherence(
-    name="proactive",
-    global_guidelines=["If there is an obvious issue, such as the order being late, acknowledge it and offer a solution."]
-)
-```
+Now let's see how we can use these scorers.
 
 ### Call Scorers Directly for Quick Feedback
 
-```python
-trace_df = mlflow.search_traces(experiment_ids=[mlflow.get_experiment_by_name("/Users/daniel.liden@databricks.com/MLflow GenAI/mlflow3_e2e_2").experiment_id], max_results=1)
+We can call scorers directly to get quick feedback on the agent's behavior. This is useful for iterating on the scorers themselves, or for making quick checks on the agent's behavior during development. To see this in action, let's call on our agent, log a trace, and then evaluate the trace with the `appropriate_escalation` scorer.
 
-appropriate_escalation(trace_df.iloc[0].trace)$
+```python
+# This will log a trace, as we have enabled autologging for LlamaIndex agents
+await agent.run("I want to cancel order ORD-008")
+
+trace_df = mlflow.search_traces(experiment_ids=[mlflow.get_experiment_by_name("genai-tutorial-pt-2").experiment_id], max_results=1)
+
+# Pass the trace to the scorer
+appropriate_escalation(trace_df["trace"].iloc[0])
 ```
+
+In this case, the agent called both the `cancel_order` and `escalate_to_human` tools for the same request, so the scorer returns a feedback value of `False` and a rationalte stating "Inappropriate escalation: Agent called both cancel_order and escalate_to_human. Should either handle cancellation directly or escalate if customer is unhappy, not both."
+
+```python
+Assessment(
+    name='appropriate_escalation',
+    source=AssessmentSource(source_type='CODE', source_id='default'),
+    trace_id=None,
+    rationale='Inappropriate escalation: Agent called both cancel_order and escalate_to_human. Should either handle cancellation directly or escalate if customer is unhappy, not both.',
+    metadata=None,
+    span_id=None,
+    create_time_ms=1748723738170,
+    last_update_time_ms=1748723738170,
+    assessment_id=None,
+    error=None,
+    expectation=None,
+    feedback=Feedback(
+        name='feedback',
+        source=AssessmentSource(source_type='CODE', source_id='default'),
+        trace_id=None,
+        rationale=None,
+        metadata=None,
+        span_id=None,
+        create_time_ms=1748723738170,
+        last_update_time_ms=1748723738170,
+        assessment_id=None,
+        error=None,
+        expectation=None,
+        feedback=FeedbackValue(value=False, error=None),
+        overrides=None,
+        valid=True
+    ),
+    overrides=None,
+    valid=None
+)
+```
+
+Now that we have defined our scorers, let's see how we can use them with the `mlflow.genai.evaluate` function to systematically evaluate the agent's behavior.
 
 ## MLflow Evaluation
 
+The `mlflow.genai.evaluate` function is the main entry point for evaluating the agent's behavior. We can pass in a list of scorers and a dataset to evaluate and it will log the evaluation results to the corresponding traces.
+
+For example, here's how to evaluate our example trace on all of the scorers we defined above:
+
+```python
+mlflow.genai.evaluate(data=trace_df, scorers=[appropriate_escalation, communication_guidelines, direct_address, proactive, helpfulness])
+```
+
+Now we can view the evaluation results by opening the corresponding trace in the MLflow UI.
+
+![Evaluation Results](/images/genai/tutorials/dev-quality-iteration/_eval_trace_ui.png)
+
+But a single response does not give us a good sense of the agent's behavior. In the rest of this section, we will set up a structured experiment to compare different versions of our agent across a diverse set of inputs. We will:
+
+1. Define a set of inputs on which to evaluate the agent
+2. Run four different versions of our agent (two different system prompts, two different models) on each input, saving all of the traces
+3. Evaluate the traces with the scorers we defined above
+4. Compare the evaluation results across different versions of the agent
+
+Let's get started!
+
 ### Generate an Evaluation Dataset
+
+We will use a set of 20 different evaluation questions to evaluate the agent. These are fairly simple, manually-generated questions that we can use to evaluate the agent's behavior across a diverse set of inputs. They were chosen to cover a range of different scenarios (information requests, cancellation requests, delays, missing items, etc.) across orders with different statuses.
 
 ```python
 evaluation_questions = [
@@ -567,12 +717,23 @@ evaluation_questions = [
 ]
 ```
 
+This is one of many possible ways to define an evaluation dataset. You could, for example, use a dataset of production traces, optionally annotated by a human with ideal responses. You could also use AI-powered synthetic data generation tools to create realistic synthetic data. Regardless of the approach used, a good evaluation dataset should be _diverse_, _challenging_, and _representative_ of the kinds of inputs the agent will encounter in production.
+
 ### Set up our Experiment and Generate Traces
+
+Now that we have our scorers and our evaluation dataset, let's configure the additional system prompt and LLM we need in order to compare the different versions of our agent. We want to test two variables:
+
+- System prompt: Our original prompt vs. a more empathetic version focused on communication style and tone
+- Model: gpt-4o-mini vs. the more capable gpt-4o
+
+This gives us four agent variants to compare across our evaluation dataset.
+
+First, let's define the alternative system prompt and model:
+
 
 ```python
 from llama_index.llms.openai import OpenAI
-import time
-import logging
+
 
 system_prompt_2 = f"""You are a caring customer service representative for a food delivery platform. Your goal is to make every customer feel heard, valued, and supported in your response.
 
@@ -603,14 +764,25 @@ The current date and time is {CURRENT_DATETIME}.
 Remember: this single response is your opportunity to turn their concern into a positive experience with our platform.
 """
 
+llm_2 = OpenAI(model="gpt-4o")
+```
+
+Now we'll run each agent configuration on all 20 evaluation questions, generating traces for each combination.
+
+:::note[Execution Setup]
+
+We use `ThreadPoolExecutor` with isolated event loops as an extra precaution when running multiple agent instances sequentially. This ensures clean execution environments for each agent configuration. The key focus here is the systematic evaluation methodology—the execution setup is just being thorough about avoiding any potential conflicts.
+
+:::
+
+```python
+import time
+import logging
 
 logger = logging.getLogger("mlflow")
 logger.setLevel(logging.INFO)
 
 system_prompts = [system_prompt, system_prompt_2]
-
-llm = OpenAI(model="gpt-4o-mini")
-llm_2 = OpenAI(model="gpt-4o")
 
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
@@ -654,7 +826,30 @@ for i, agent_config in enumerate([(llm, system_prompts[0]), (llm, system_prompts
             print(f"  Evaluation completed with {len(traces)} traces")
 ```
 
+In this code block, we:
+
+- Define agent configurations: We create four combinations of models and prompts to test
+- Loop through configurations: For each agent variant, we create a separate MLflow run and model
+- Generate traces: Run each agent on all 20 evaluation questions, with autologging capturing each interaction as a trace
+- Evaluate traces: Apply all five scorers to the collected traces using mlflow.genai.evaluate
+
+:::tip[MLflow Models]
+
+If you worked through part 1 of this tutorial, you'll remember we talked about using `mlflow.set_active_model` to log traces, metrices, evaluations, etc., to specific models. In this case, we are setting a new active model for each model/prompt combination. This makes it easy for us to retrieve and compare the evaluation results and to keep our experiments well organized.
+
+![MLflow Models](/images/genai/tutorials/dev-quality-iteration/_models_ui.png)
+
+:::
+
+Now that we have our traces, we can retrieve and compare the evaluation results.
+
 ### Retrieve and Compare Evaluation Results
+
+We can view the logged models in the MLflow UI and easily see the average scores (and )
+
+We can retrieve the evaluation results for each model/prompt combination by searching for the models we logged, extracting the metrics from each model, and then comparing the results.
+
+First, we'll write a helper function to extract the metrics from each model.
 
 ```python
 def extract_model_metrics(model):
@@ -676,11 +871,19 @@ def extract_model_metrics(model):
         elif 'helpfulness' in key:
             # Now already 0-1 scale, no conversion needed
             parsed_metrics['helpfulness'] = value
-        elif 'overall_assessment' in key:
-            parsed_metrics['overall_adherence'] = value
+        elif 'communication_style' in key:
+            parsed_metrics['communication_style'] = value
+        elif 'direct_address' in key:
+            parsed_metrics['direct_address'] = value
+        elif 'proactive' in key:
+            parsed_metrics['proactive'] = value
     
     return parsed_metrics
+```
 
+Next, we will use the `mlflow.search_logged_models` function to retrieve the models we logged by name, and then use the `extract_model_metrics` function we defined above to extract the metrics from each model.
+
+```python
 # Load your 4 models
 agent_names = ["4o_mini_prompt_1", "4o_mini_prompt_2", "4o_prompt_1", "4o_prompt_2"]
 models_to_compare = []
@@ -698,4 +901,42 @@ comparison_df = pd.DataFrame([
 ])
 ```
 
+|model_name|appropriate_escalation|communication_style|helpfulness|proactive|direct_address|
+|---|---|---|---|---|---|
+|4o_mini_prompt_1|0.95|0.9|0.8400000000000001|0.7|0.5|
+|4o_mini_prompt_2|0.95|0.95|0.8|0.6|0.45|
+|4o_prompt_1|1|1|0.8700000000000001|0.8|0.4|
+|4o_prompt_2|1|0.95|0.8900000000000002|0.9|0.4|
+
+We can visualize these results right in the Databricks notebook if using managed MLflow.
+
 ![Evaluation Results](/images/genai/tutorials/dev-quality-iteration/_eval_results.png)
+
+We can see that the `4o_prompt_2` model, which uses the more empathetic system prompt and the `gpt-4o` model, appears to have the best overall performance, though only narrowly. None of the agents are perfect, particularly in the `direct_address` metric, suggesting that we may need to continue iterating on the agent's behavior. The agent configurations using the `gpt-4o` model are notably better in the `proactive` metric and modestly better in the `helpfulness` metric, suggesting that using a more capable model does have some benefits.
+
+## Logging Human Feedback
+
+Before we wrap up, let's briefly touch on one final way to use MLflow to improve the agent's behavior: logging human feedback. We can log human feedback on traces directly in the MLflow UI. We can log new feedback to existing assessments (for example, we can add a human rating to the `communication_style` assessment for a given trace); or we can create new kinds of assessment on the fly.
+
+In this example depicted below, we logged a human assessment of the `communication_style` assessment that contradicted the original assessment. This is crucial information—it can help us to better align our scoring logic with human expectations and provide a valuable source of additional feedback when iterating on the agent's behavior.
+
+![Human Feedback](/images/genai/tutorials/dev-quality-iteration/_human_feedback.png)
+
+There are several additional ways to log human feedback, including creating systematic labeling sessions, allowing domain experts to interact with the agent via a chat interface and give feedback, and using the `mlflow.log_feedback` API to programmatically log human feedback. For more details on these approaches, please consult the MLflow documentation.
+
+## Conclusion and Next Steps
+
+In this tutorial, we built a comprehensive evaluation framework for iterating on AI agent quality during development. We covered:
+
+- Defining Quality Criteria: We created multiple types of scorers to assess agent behavior—guideline adherence for communication style, custom heuristics for tool usage patterns, and LLM-based judges for helpfulness.
+- Systematic Evaluation: We used mlflow.genai.evaluate to run structured experiments comparing four agent configurations across 20 evaluation scenarios, generating 80 total traces with comprehensive scoring.
+- Results Analysis: We extracted and compared metrics across different model and prompt combinations, revealing that while the gpt-4o model with the empathetic prompt performed best overall, there's still room for improvement, particularly in direct customer addressing.
+- Human Feedback Integration: We showed how to log human assessments directly in the MLflow UI to validate and refine our automated scoring.
+
+What to Try Next
+
+- Improve Your Agent: Based on our results, the agents struggled most with direct addressing. Try refining your system prompts to explicitly emphasize using "your order" instead of "the customer's order."
+- Expand Your Metrics: Create new scorers for aspects we didn't cover—response length, professional language, or domain-specific requirements for your use case.
+- Iterate on Evaluation: Add more challenging scenarios to your evaluation dataset, or try generating synthetic evaluation data to test edge cases.
+
+In future tutorials, we will cover how to use MLflow to evaluate, monitor, and improve upon your deployed agent's quality in production.
