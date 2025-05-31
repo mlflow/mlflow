@@ -299,34 +299,37 @@ def log_model(
         # to avoid another warning in Model.log
         artifact_path = None
 
-    if _is_spark_connect_model(spark_model):
-        return Model.log(
-            artifact_path=artifact_path,
-            name=name,
-            flavor=mlflow.spark,
-            spark_model=spark_model,
-            conda_env=conda_env,
-            code_paths=code_paths,
-            registered_model_name=registered_model_name,
-            signature=signature,
-            input_example=input_example,
-            await_registration_for=await_registration_for,
-            pip_requirements=pip_requirements,
-            extra_pip_requirements=extra_pip_requirements,
-            metadata=metadata,
-            params=params,
-            tags=tags,
-            model_type=model_type,
-            step=step,
-            model_id=model_id,
-        )
+    # What happens if we just call `log_model`?
+    if not _is_spark_connect_model(spark_model) and not isinstance(spark_model, PipelineModel):
+        spark_model = PipelineModel([spark_model])
+    return Model.log(
+        artifact_path=artifact_path,
+        name=name,
+        flavor=mlflow.spark,
+        spark_model=spark_model,
+        conda_env=conda_env,
+        code_paths=code_paths,
+        registered_model_name=registered_model_name,
+        signature=signature,
+        input_example=input_example,
+        await_registration_for=await_registration_for,
+        pip_requirements=pip_requirements,
+        extra_pip_requirements=extra_pip_requirements,
+        metadata=metadata,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
+    )
 
     if not isinstance(spark_model, PipelineModel):
         spark_model = PipelineModel([spark_model])
     run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
     run_root_artifact_uri = mlflow.get_artifact_uri()
     remote_model_path = None
-    if _should_use_mlflowdbfs(run_root_artifact_uri):
+    # if _should_use_mlflowdbfs(run_root_artifact_uri):
+    if False:
         remote_model_path = append_to_uri_path(run_root_artifact_uri, name, _SPARK_MODEL_PATH_SUB)
         mlflowdbfs_path = _mlflowdbfs_path(run_id, name)
         with databricks_utils.MlflowCredentialContext(
@@ -384,6 +387,7 @@ def log_model(
         tags=tags,
     )
     mlflow_model = Model(artifact_path=logged_model.artifact_location, run_id=run_id)
+    _logger.warning("☀️ Saving Spark ML model to %s", mlflow_model.artifact_uri)
     with TempDir() as tmp:
         tmp_model_metadata_dir = tmp.path()
         _save_model_metadata(
