@@ -5,6 +5,7 @@ displayed_sidebar: docsSidebar
 
 import TOCInline from "@theme/TOCInline";
 import { APILink } from "@site/src/components/APILink";
+import { Table } from "@site/src/components/Table";
 
 # Community Model Flavors
 
@@ -172,7 +173,7 @@ endpoint using MLflow deployment tools.
 
 The following open-source libraries are currently supported:
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>Framework</th>
@@ -207,7 +208,7 @@ The following open-source libraries are currently supported:
       <td>Synthetic Data Generation</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 The interface design for the supported frameworks is similar to many of the existing built-in
 flavors. Particularly, the interface for utilizing the custom model loaded as a `pyfunc` flavor

@@ -1,4 +1,5 @@
 import { APILink } from "@site/src/components/APILink";
+import { Table } from "@site/src/components/Table";
 
 # MLflow Langchain Autologging
 
@@ -37,7 +38,7 @@ Once you have invoked the chain, you can view the logged traces and artifacts in
 
 MLflow LangChain autologging can log various information about the model and its inference. **By default, only trace logging is enabled**, but you can enable autologging of other information by setting the corresponding parameters when calling <APILink fn="mlflow.langchain.autolog" />. For other configurations, please refer to the API documentation.
 
-<table>
+<Table>
     <thead>
         <tr>
             <th>Target</th>
@@ -72,7 +73,7 @@ MLflow LangChain autologging can log various information about the model and its
             <td>If set to `True`, input examples from inference data are collected and logged along with LangChain model artifacts during inference. This option is only available when `log_models` is enabled.</td>
         </tr>
     </tbody>
-</table>
+</Table>
 
 For example, to disable logging of traces, and instead enable model logging, run the following code:
 
