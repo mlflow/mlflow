@@ -64,13 +64,17 @@ get_jobs_without_timeout(jobs) = jobs_without_timeout {
     }
 }
 
+is_step_unpinned(step) {
+    step["uses"]
+    not startswith(step["uses"], "./")
+    not regex.match("^[^@]+@[0-9a-f]{40}$", step["uses"])
+}
+
 get_unpinned_actions(jobs) = unpinned_actions {
     unpinned_actions := { step["uses"] |
         job := jobs[_]
         step := job["steps"][_]
-        step["uses"]
-        not startswith(step["uses"], "./")
-        not regex.match("^[^@]+@[0-9a-f]{40}$", step["uses"])
+        is_step_unpinned(step)
     }
 }
 
@@ -86,8 +90,6 @@ get_unpinned_actions_from_jobs_or_runs(doc) = unpinned_actions {
     not doc.jobs
     unpinned_actions := { step["uses"] |
         step := doc.runs.steps[_]
-        step["uses"]
-        not startswith(step["uses"], "./")
-        not regex.match("^[^@]+@[0-9a-f]{40}$", step["uses"])
+        is_step_unpinned(step)
     }
 }
