@@ -77,16 +77,16 @@ get_unpinned_actions_from_steps(steps) = unpinned_actions {
     }
 }
 
-get_unpinned_actions(doc) = unpinned_actions {
+get_unpinned_actions(action) = unpinned_actions {
     # For workflow files with jobs
-    doc.jobs
-    all_steps := [ step | job := doc.jobs[_]; step := job.steps[_] ]
+    action.jobs
+    all_steps := [ step | job := action.jobs[_]; step := job.steps[_] ]
     unpinned_actions := get_unpinned_actions_from_steps(all_steps)
 }
 
-get_unpinned_actions(doc) = unpinned_actions {
+get_unpinned_actions(action) = unpinned_actions {
     # For composite action files with runs
-    doc.runs.steps
-    not doc.jobs
-    unpinned_actions := get_unpinned_actions_from_steps(doc.runs.steps)
+    action.runs.steps
+    not action.jobs
+    unpinned_actions := get_unpinned_actions_from_steps(action.runs.steps)
 }
