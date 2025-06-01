@@ -6,6 +6,7 @@ import Link from "@docusaurus/Link";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 import { APILink } from "@site/src/components/APILink";
+import { Table } from "@site/src/components/Table";
 
 # Deploy MLflow Model as a Local Inference Server
 
@@ -74,7 +75,7 @@ payload in a dict with a dict key that specifies your payload format.
 If your model format is not supported above or you want to avoid transforming your input data to
 the required payload format, you can leverage the dict payload structures below.
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>Field</th>
@@ -120,7 +121,7 @@ the required payload format, you can leverage the dict payload structures below.
       </td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 ```python title="Example"
 # Prerequisite: serve a custom pyfunc OpenAI model (not mlflow.openai) on localhost:5678
@@ -172,7 +173,7 @@ for the model to score correctly. For complex data types, see [Encoding complex 
 If your payload is in a format that your mlflow served model will accept and it's in the supported
 models below, you can pass a raw payload dict.
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>Supported Request Format</th>
@@ -194,7 +195,7 @@ models below, you can pass a raw payload dict.
       </td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 † Note that the `model` argument **should not** be included when using the OpenAI APIs, due to its configuration being set by the MLflow model instance. All other parameters can be freely used, provided that they are defined within the `params` argument within the logged model signature.
 
@@ -260,7 +261,7 @@ inference server in Kubernetes-native frameworks like [Seldon Core](https://docs
 [KServe (formerly known as KFServing)](https://kserve.github.io/website), hence which provides advanced features such as canary deployment and
 auto scaling out of the box.
 
-<table>
+<Table>
   <thead>
     <tr>
       <th></th>
@@ -298,7 +299,7 @@ auto scaling out of the box.
       <td>Additionally to the support for parallel inference as mentioned above, MLServer is used as the core inference server in Kubernetes-native frameworks such as [Seldon Core](https://docs.seldon.io/projects/seldon-core/en/latest/) and [KServe](https://kserve.github.io/website/) (formerly known as KFServing). By deploying [MLflow models to Kubernetes with MLServer](/ml/deployment/deploy-model-to-kubernetes), you can leverage the advanced features of these frameworks such as autoscaling to achieve high scalability.</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 MLServer exposes the same scoring API through the `/invocations` endpoint.
 To deploy with MLServer, first install additional dependencies with `pip install mlflow[extras]`,
