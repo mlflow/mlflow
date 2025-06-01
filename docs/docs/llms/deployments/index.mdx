@@ -6,6 +6,7 @@ sidebar_label: Overview
 import { APILink } from "@site/src/components/APILink";
 import Link from "@docusaurus/Link";
 import useBaseUrl from "@docusaurus/useBaseUrl";
+import { Table } from "@site/src/components/Table";
 
 # MLflow AI Gateway
 
@@ -206,7 +207,7 @@ Each provider has its specific characteristics and configurations that are encap
 The table below presents supported corresponding endpoint type for each LLM provider within the MLflow AI Gateway.
 Note that ✅ mark does not mean all models from the provider are compatible with the endpoint types. For example, OpenAI provider supports all three endpoint types, but the model `gpt-4` is only compatible with the `llm/v1/chat` endpoint types.
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>Provider</th>
@@ -295,7 +296,7 @@ Note that ✅ mark does not mean all models from the provider are compatible wit
       <td>✅\*\*</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 § For full compatibility references for `OpenAI`, see the [OpenAI Model Compatibility Matrix](https://platform.openai.com/docs/models/model-endpoint-compatibility).
 
@@ -536,7 +537,7 @@ Each endpoint has the following configuration parameters:
 
 ###### OpenAI
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>Configuration Parameter</th>
@@ -577,11 +578,11 @@ Each endpoint has the following configuration parameters:
       <td>This is an optional field to specify the organization in OpenAI.</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 ###### MosaicML
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>Configuration Parameter</th>
@@ -598,11 +599,11 @@ Each endpoint has the following configuration parameters:
       <td>This is the API key for the MosaicML service.</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 ###### Cohere
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>Configuration Parameter</th>
@@ -619,11 +620,11 @@ Each endpoint has the following configuration parameters:
       <td>This is the API key for the Cohere service.</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 ###### HuggingFace Text Generation Inference
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>Configuration Parameter</th>
@@ -640,11 +641,11 @@ Each endpoint has the following configuration parameters:
       <td>This is the url of the Huggingface TGI Server.</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 ###### PaLM
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>Configuration Parameter</th>
@@ -661,11 +662,11 @@ Each endpoint has the following configuration parameters:
       <td>This is the API key for the PaLM service.</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 ###### AI21 Labs
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>Configuration Parameter</th>
@@ -682,11 +683,11 @@ Each endpoint has the following configuration parameters:
       <td>This is the API key for the AI21 Labs service.</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 ###### Anthropic
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>Configuration Parameter</th>
@@ -703,13 +704,13 @@ Each endpoint has the following configuration parameters:
       <td>This is the API key for the Anthropic service.</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 ###### Amazon Bedrock
 
 Top-level model configuration for Amazon Bedrock endpoints must be one of the following two supported authentication modes: _key-based_ or _role-based_.
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>Configuration Parameter</th>
@@ -726,7 +727,7 @@ Top-level model configuration for Amazon Bedrock endpoints must be one of the fo
       <td>An object with either the key-based or role-based schema below.</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 To use key-based authentication, define an Amazon Bedrock endpoint with the required fields below.
 
@@ -736,7 +737,7 @@ while for production deployments, a standard long-expiry IAM role is recommended
 If the authentication expires and a new set of keys need to be supplied, the endpoint must be recreated in order to persist the new keys.
 :::
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>Configuration Parameter</th>
@@ -771,12 +772,12 @@ If the authentication expires and a new set of keys need to be supplied, the end
       <td>Optional session token, if required.</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 Alternatively, for role-based authentication, an Amazon Bedrock endpoint can be defined and initialized with an a IAM Role ARN that is authorized to access Bedrock.
 The MLflow AI Gateway will attempt to assume this role with using the standard credential provider chain and will renew the role credentials if they have expired.
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>Configuration Parameter</th>
@@ -805,11 +806,11 @@ The MLflow AI Gateway will attempt to assume this role with using the standard c
       <td>The length of session to request.</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 ###### MLflow Model Serving
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>Configuration Parameter</th>
@@ -826,7 +827,7 @@ The MLflow AI Gateway will attempt to assume this role with using the standard c
       <td>This is the url of the MLflow Model Server.</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 Note that with MLflow model serving, the `name` parameter for the `model` definition is not used for validation and is only present for reference purposes. This alias can be
 useful for understanding a particular version or endpoint definition that was used that can be referenced back to a deployed model. You may choose any name that you wish, provided that
@@ -840,7 +841,7 @@ referred to as `azure`, while the other uses Azure Active Directory (Azure AD) i
 To match your user's interaction and security access requirements, adjust the `openai_api_type` parameter to represent the preferred security validation model.
 This will ensure seamless interaction and reliable security for your Azure-OpenAI integration.
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>Configuration Parameter</th>
@@ -887,11 +888,11 @@ This will ensure seamless interaction and reliable security for your Azure-OpenA
       <td>This is an optional field to specify the organization in OpenAI.</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 ###### Mistral
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>Configuration Parameter</th>
@@ -908,11 +909,11 @@ This will ensure seamless interaction and reliable security for your Azure-OpenA
       <td>This is the API key for the Mistral service.</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 ###### TogetherAI
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>Configuration Parameter</th>
@@ -929,11 +930,11 @@ This will ensure seamless interaction and reliable security for your Azure-OpenA
       <td>This is the API key for the TogetherAI service.</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 ###### Gemini
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>Configuration Parameter</th>
@@ -950,7 +951,7 @@ This will ensure seamless interaction and reliable security for your Azure-OpenA
       <td>This is the API key for the Gemini service.</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 An example configuration for Azure OpenAI is:
 
@@ -1002,7 +1003,7 @@ scales parameter values according to the provider's value ranges for that parame
 
 The standard parameters for completions endpoints with type `llm/v1/completions` are:
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>Query Parameter</th>
@@ -1049,13 +1050,13 @@ The standard parameters for completions endpoints with type `llm/v1/completions`
       <td>Sequences where the model should stop generating tokens and return the completion.</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 #### Chat
 
 The standard parameters for chat endpoints with type `llm/v1/chat` are:
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>Query Parameter</th>
@@ -1102,13 +1103,13 @@ The standard parameters for chat endpoints with type `llm/v1/chat` are:
       <td>Sequences where the model should stop generating tokens and return the chat completion.</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 ##### Messages \{#deployments-chat-message-structure}
 
 Each chat message is a string dictionary containing the following fields:
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>Field Name</th>
@@ -1131,13 +1132,13 @@ Each chat message is a string dictionary containing the following fields:
       <td>The message content.</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 #### Embeddings
 
 The standard parameters for completions endpoints with type `llm/v1/embeddings` are:
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>Query Parameter</th>
@@ -1156,7 +1157,7 @@ The standard parameters for completions endpoints with type `llm/v1/embeddings` 
       <td>A string or list of strings for which to generate embeddings.</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 ### Additional Query Parameters
 
@@ -1219,7 +1220,7 @@ Some providers support streaming responses. Streaming responses are useful when 
 receive responses as they are generated, rather than waiting for the entire response to be
 generated before receiving it. Streaming responses are supported by the following providers:
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>Provider</th>
@@ -1248,7 +1249,7 @@ generated before receiving it. Streaming responses are supported by the followin
       <td>✓</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 To enable streaming responses, set the `stream` parameter to `true` in your request. For example:
 
