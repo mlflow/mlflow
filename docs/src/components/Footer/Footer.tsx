@@ -1,6 +1,7 @@
 import { cva, type VariantProps, cx } from "class-variance-authority";
 
 import Logo from "@site/static/images/mlflow-logo-white.svg";
+import useBaseUrl from '@docusaurus/useBaseUrl';
 
 import { FooterMenuItem } from "../FooterMenuItem/FooterMenuItem";
 
@@ -24,10 +25,11 @@ export const Footer = ({ variant }: VariantProps<typeof footerVariants>) => {
         <Logo className="h-[36px] shrink-0" />
 
         <div className="flex flex-col md:flex-row gap-10">
-          <FooterMenuItem href="/">Product</FooterMenuItem>
-          <FooterMenuItem href="/releases">Releases</FooterMenuItem>
-          <FooterMenuItem href="/blog">Blog</FooterMenuItem>
-          <FooterMenuItem href="/docs/latest" data-noBrokenLinkCheck>
+          {/* these routes are on the main mlflow.org site, which is hosted in a different repo */}
+          <FooterMenuItem href="/" data-noBrokenLinkCheck>Product</FooterMenuItem>
+          <FooterMenuItem href="/releases" data-noBrokenLinkCheck>Releases</FooterMenuItem>
+          <FooterMenuItem href="/blog" data-noBrokenLinkCheck>Blog</FooterMenuItem>
+          <FooterMenuItem href={useBaseUrl("/")}>
             Docs
           </FooterMenuItem>
         </div>
