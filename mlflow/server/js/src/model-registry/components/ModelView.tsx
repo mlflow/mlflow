@@ -479,7 +479,6 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
                 data-testid="model-view-pagination-section"
                 css={{ width: '100%', alignItems: 'center', display: 'flex' }}
               >
-                <div css={{ flex: 1 }}>{shouldShowModelsNextUI() && <ModelsNextUIToggleSwitch />}</div>
                 <div css={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
                   <CursorPagination
                     componentId="codegen_mlflow_app_src_model-registry_components_modelview.tsx_646"

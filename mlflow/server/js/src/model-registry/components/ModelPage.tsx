@@ -73,12 +73,17 @@ type ModelPageImplProps = WithRouterNextProps<{ subpage: string }> & {
 export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPageImplState> {
   constructor(props: ModelPageImplProps) {
     super(props);
+    const urlState = this.getUrlState();
+    const persistedPageTokens = this.getPersistedPageTokens();
+    const maxResultsForTokens = this.getPersistedMaxResults();
+
     this.state = {
-      orderByKey: MODEL_VERSIONS_SEARCH_TIMESTAMP_FIELD,
-      orderByAsc: false,
-      currentPage: 1,
-      maxResultsSelection: this.getPersistedMaxResults(),
-      pageTokens: {},
+      orderByKey: urlState.orderByKey ?? MODEL_VERSIONS_SEARCH_TIMESTAMP_FIELD,
+      orderByAsc: urlState.orderByAsc === undefined ? false : urlState.orderByAsc === 'true',
+      currentPage:
+        urlState.page !== undefined && urlState.page in persistedPageTokens ? parseInt(urlState.page, 10) : 1,
+      maxResultsSelection: maxResultsForTokens,
+      pageTokens: persistedPageTokens,
       loading: true,
       error: undefined,
     };
@@ -96,25 +101,7 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
   criticalInitialRequestIds = [this.initSearchModelVersionsApiRequestId, this.initgetRegisteredModelApiRequestId];
 
   componentDidMount() {
-    const urlState = this.getUrlState();
-    const persistedPageTokens = this.getPersistedPageTokens();
-    const maxResultsForTokens = this.getPersistedMaxResults();
-    // eslint-disable-next-line react/no-did-mount-set-state
-    this.setState(
-      {
-        orderByKey: urlState.orderByKey ?? this.state.orderByKey,
-        orderByAsc: urlState.orderByAsc === undefined ? this.state.orderByAsc : urlState.orderByAsc === 'true',
-        currentPage:
-          urlState.page !== undefined && (urlState as any).page in persistedPageTokens
-            ? parseInt(urlState.page, 10)
-            : this.state.currentPage,
-        maxResultsSelection: maxResultsForTokens,
-        pageTokens: persistedPageTokens,
-      },
-      () => {
-        this.loadModelVersions(true);
-      },
-    );
+    this.loadModelVersions(true);
   }
 
   getUrlState(): UrlState {
@@ -129,15 +116,12 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
     };
   }
 
-  updateUrlWithState = (orderByAsc: any, page: any) => {
-    const urlParams = {};
-
+  updateUrlWithState = (orderByAsc: boolean, page: number) => {
+    const urlParams: Record<string, any> = {};
     if (orderByAsc === false) {
-      // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
       urlParams['orderByAsc'] = orderByAsc;
     }
     if (page && page !== 1) {
-      // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
       urlParams['page'] = page;
     }
     const newUrl = createMLflowRoutePath(
@@ -220,7 +204,7 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
     });
   };
 
-  loadPage = (page: any, isInitialLoading: any, loadModelMetadata = false) => {
+  loadPage = (page: number, isInitialLoading: boolean, loadModelMetadata = false) => {
     const { modelName } = this.props;
     const {
       pageTokens,
@@ -235,10 +219,10 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
       this.props
         .searchModelVersionsApi(
           filters_obj,
+          isInitialLoading ? this.initSearchModelVersionsApiRequestId : this.searchModelVersionsApiRequestId,
           this.state.maxResultsSelection,
           ModelPageImpl.getOrderByExpr(orderByKey, orderByAsc),
           pageTokens[page],
-          isInitialLoading ? this.initSearchModelVersionsApiRequestId : this.searchModelVersionsApiRequestId,
         )
         .then((r: any) => {
           this.updatePageState(page, r);

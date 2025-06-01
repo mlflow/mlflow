@@ -173,11 +173,11 @@ export const resolveFilterValue = (value: any, includeWildCard = false) => {
 export const SEARCH_MODEL_VERSIONS = 'SEARCH_MODEL_VERSIONS';
 
 export const searchModelVersionsApi = (
-  filterObj: any,
-  maxResults?: any,
-  orderBy?: any,
-  pageToken?: any,
-  id = getUUID(),
+  filterObj: Record<string, any>,
+  id: string = getUUID(),
+  maxResults?: number,
+  orderBy?: string,
+  pageToken?: string,
 ) => {
   const filter = Object.keys(filterObj)
     .map((key) => {
@@ -194,8 +194,8 @@ export const searchModelVersionsApi = (
     type: SEARCH_MODEL_VERSIONS,
     payload: Services.searchModelVersions({
       filter,
-      max_results: maxResults,
-      order_by: orderBy,
+      ...(maxResults !== undefined && maxResults > 0 ? { max_results: maxResults } : null),
+      ...(orderBy !== undefined ? { order_by: orderBy } : null),
       ...(pageToken ? { page_token: pageToken } : null),
     }),
     meta: { id },

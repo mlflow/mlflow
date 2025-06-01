@@ -6,6 +6,7 @@
  */
 
 import React from 'react';
+import type { ReactWrapper } from 'enzyme';
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
@@ -20,7 +21,8 @@ import { ModelRegistryRoutes } from '../routes';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 
 describe('ModelPage', () => {
-  let wrapper: any;
+  // @ts-expect-error TS(2709): Cannot use namespace 'ReactWrapper' as a type.
+  let wrapper: ReactWrapper;
   let instance;
   let minimalProps: any;
   let minimalStore: any;
@@ -33,7 +35,7 @@ describe('ModelPage', () => {
     minimalProps = {
       searchModelVersionsApi: jest.fn(() => Promise.resolve({})),
       getRegisteredModelDetailsApi: jest.fn(() => Promise.resolve({})),
-      navigate: navigate,
+      navigate,
     };
     const versions = [mockModelVersionDetailed('Model A', 1, Stages.PRODUCTION, ModelVersionStatus.READY)];
     minimalStore = mockStore({
