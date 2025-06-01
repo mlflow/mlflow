@@ -36,6 +36,7 @@ import type { WithRouterNextProps } from '../../common/utils/withRouterNext';
 import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../common/utils/ErrorUtils';
 import { ErrorCodes } from '../../common/constants';
+import { has } from 'lodash';
 
 type UrlState = {
   orderByKey?: string;
@@ -236,9 +237,14 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
         ),
       );
     }
-    return Promise.all(promiseValues).then((r) => {
-      this.setState({ loading: false });
-    });
+    return Promise.all(promiseValues)
+      .then(() => {
+        this.setState({ loading: false });
+      })
+      .catch((error) => {
+        this.setState({ loading: false, error });
+        this.resetHistoryState();
+      });
   };
 
   getNextPageTokenFromResponse(response: any) {
@@ -319,7 +325,6 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
         >
           {(loading: any, hasError: any, requests: any) => {
             if (hasError) {
-              this.resetHistoryState();
               if (Utils.shouldRender404(requests, [this.initgetRegisteredModelApiRequestId])) {
                 return (
                   <ErrorView

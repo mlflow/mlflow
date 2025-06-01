@@ -57,6 +57,10 @@ describe('ModelView', () => {
     global.fetch = jest.fn(() => Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }));
     navigateMock.mockClear();
     minimalProps = {
+      orderByKey: 'creation_timestamp',
+      orderByAsc: false,
+      currentPage: 1,
+      nextPageToken: null,
       model: mockRegisteredModelDetailed(
         mockModel.name,
         // @ts-expect-error TS(2345): Argument of type '{ name: any; creation_timestamp:... Remove this comment to see the full error message
@@ -113,9 +117,9 @@ describe('ModelView', () => {
   test('should render all model versions initially', () => {
     wrapper = createComponentInstance(minimalProps);
     expect(wrapper.find('div[role="cell"].model-version').length).toBe(3);
-    expect(wrapper.find('div[role="cell"].model-version').at(0).text()).toBe('Version 1');
+    expect(wrapper.find('div[role="cell"].model-version').at(0).text()).toBe('Version 3');
     expect(wrapper.find('div[role="cell"].model-version').at(1).text()).toBe('Version 2');
-    expect(wrapper.find('div[role="cell"].model-version').at(2).text()).toBe('Version 3');
+    expect(wrapper.find('div[role="cell"].model-version').at(2).text()).toBe('Version 1');
   });
   test('should render model version table with activeStageOnly when "Active" button is on', async () => {
     mockModelsNextUIDismissed();
