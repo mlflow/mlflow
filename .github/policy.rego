@@ -43,7 +43,7 @@ deny_jobs_without_timeout[msg] {
 }
 
 deny_unpinned_actions[msg] {
-    unpinned_actions := get_unpinned_actions_from_jobs_or_runs(input)
+    unpinned_actions := get_unpinned_actions(input)
     count(unpinned_actions) > 0
     msg := sprintf("The following actions are not pinned by full commit SHA: %s. Use the full commit SHA instead (e.g., actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683).",
         [concat(", ", unpinned_actions)])
@@ -77,14 +77,14 @@ get_unpinned_actions_from_steps(steps) = unpinned_actions {
     }
 }
 
-get_unpinned_actions_from_jobs_or_runs(doc) = unpinned_actions {
+get_unpinned_actions(doc) = unpinned_actions {
     # For workflow files with jobs
     doc.jobs
     all_steps := [ step | job := doc.jobs[_]; step := job.steps[_] ]
     unpinned_actions := get_unpinned_actions_from_steps(all_steps)
 }
 
-get_unpinned_actions_from_jobs_or_runs(doc) = unpinned_actions {
+get_unpinned_actions(doc) = unpinned_actions {
     # For composite action files with runs
     doc.runs.steps
     not doc.jobs
