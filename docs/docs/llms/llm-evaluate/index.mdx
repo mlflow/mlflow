@@ -6,6 +6,7 @@ import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 import { APILink } from "@site/src/components/APILink";
 import Link from "@docusaurus/Link";
+import { Table } from "@site/src/components/Table";
 
 # MLflow LLM Evaluation
 
@@ -717,7 +718,7 @@ When you want to use an endpoint **not** hosted by an MLflow AI Gateway or Datab
 
 The input data can be either of the following format when using an URI of the MLflow Deployment Endpoint as the model:
 
-<table>
+<Table>
     <thead>
         <tr>
             <th>Data Format</th>
@@ -795,7 +796,7 @@ The input data can be either of the following format when using an URI of the ML
             <td>Similarly to Pandas DataFrame input, the dictionary should have the correct request format for your model endpoint.</td>
         </tr>
     </tbody>
-</table>
+</Table>
 
 #### Passing Inference Parameters
 

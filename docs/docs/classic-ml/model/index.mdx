@@ -8,6 +8,7 @@ import TOCInline from "@theme/TOCInline";
 import { APILink } from "@site/src/components/APILink";
 import Link from "@docusaurus/Link";
 import useBaseUrl from "@docusaurus/useBaseUrl";
+import { Table } from "@site/src/components/Table";
 
 # MLflow Models
 
@@ -1008,7 +1009,7 @@ An example configuration for the `pyfunc` predict of a `pmdarima` model is shown
 prediction count of 100, a confidence interval calculation generation, no exogenous regressor elements, and a default
 alpha of `0.05`:
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>Index</th>
@@ -1023,7 +1024,7 @@ alpha of `0.05`:
       <td>True</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 :::warning
 The `Pandas DataFrame` passed to a `pmdarima` `pyfunc` flavor must only contain 1 row.
@@ -1062,7 +1063,7 @@ predictions = loaded_pyfunc.predict(prediction_conf)
 
 Output (`Pandas DataFrame`):
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>Index</th>
@@ -1097,7 +1098,7 @@ Output (`Pandas DataFrame`):
       <td>587.80309</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 :::warning
 Signature logging for `pmdarima` will not function correctly if `return_conf_int` is set to `True` from
@@ -1251,7 +1252,7 @@ retrieval from Diviner's APIs as `Pandas` `DataFrames`, rather than discrete pri
 To illustrate, let us assume we are forecasting hourly electricity consumption from major cities around the world.
 A sample of our input data looks like this:
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>country</th>
@@ -1310,7 +1311,7 @@ A sample of our input data looks like this:
       <td>19444.0</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 If we were to `fit` a model on this data, supplying the grouping keys as:
 
@@ -1333,7 +1334,7 @@ metrics table.
 To eliminate this issue for large-scale forecasting, the metrics and parameters for `diviner` are extracted as a
 grouping key indexed `Pandas DataFrame`, as shown below for example (float values truncated for visibility):
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>grouping_key_columns</th>
@@ -1393,7 +1394,7 @@ grouping key indexed `Pandas DataFrame`, as shown below for example (float value
       <td>0.159</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 There are two recommended means of logging the metrics and parameters from a `diviner` model :
 

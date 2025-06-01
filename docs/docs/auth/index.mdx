@@ -5,6 +5,7 @@ sidebar_position: 18
 import Link from "@docusaurus/Link";
 import TOCInline from "@theme/TOCInline";
 import { APILink } from "@site/src/components/APILink";
+import { Table } from "@site/src/components/Table";
 
 # MLflow Authentication
 
@@ -62,7 +63,7 @@ requests to the server via REST APIs.
 
 The available permissions are:
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>Permission</th>
@@ -102,7 +103,7 @@ The available permissions are:
       <td>No</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 The default permission for all users is `READ`. It can be changed in the [configuration](#configuration) file.
 
@@ -113,7 +114,7 @@ Otherwise, a `403 Forbidden` response will be returned.
 
 Required Permissions for accessing experiments:
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>API</th>
@@ -354,11 +355,11 @@ Required Permissions for accessing experiments:
       <td>can_read</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 Required Permissions for accessing registered models:
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>API</th>
@@ -589,11 +590,11 @@ Required Permissions for accessing registered models:
       <td>can_delete</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 MLflow Authentication introduces several new API endpoints to manage users and permissions.
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>API</th>
@@ -734,13 +735,13 @@ MLflow Authentication introduces several new API endpoints to manage users and p
       <td>can_manage</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 Some APIs will also have their behaviour modified.
 For example, the creator of an experiment will automatically be granted `MANAGE` permission
 on that experiment, so that the creator can grant or revoke other users' access to that experiment.
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>API</th>
@@ -821,7 +822,7 @@ on that experiment, so that the creator can grant or revoke other users' access 
       <td>Only returns registered models which the user has `READ` permission on.</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 ### Permissions Database
 
@@ -847,7 +848,7 @@ It is recommended that you update the default admin password as soon as possible
 
 The default admin user credentials are as follows:
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>Username</th>
@@ -860,7 +861,7 @@ The default admin user credentials are as follows:
       <td>`password1234`</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 Multiple admin users can exist by promoting other users to admin, using the `2.0/mlflow/users/update-admin` endpoint.
 
@@ -1018,7 +1019,7 @@ auth_client.create_user(username="username", password="password")
 
 Authentication configuration is located at `mlflow/server/auth/basic_auth.ini`:
 
-<table>
+<Table>
   <thead>
     <tr>
       <th>Variable</th>
@@ -1047,7 +1048,7 @@ Authentication configuration is located at `mlflow/server/auth/basic_auth.ini`:
       <td>Function to authenticate requests</td>
     </tr>
   </tbody>
-</table>
+</Table>
 
 Alternatively, assign the environment variable `MLFLOW_AUTH_CONFIG_PATH` to point
 to your custom configuration file.
