@@ -1,8 +1,3 @@
----
-sidebar_position: 4
-sidebar_label: Storage Optimization
----
-
 import { APILink } from "@site/src/components/APILink";
 import { Table } from "@site/src/components/Table";
 
@@ -12,7 +7,7 @@ import { Table } from "@site/src/components/Table";
 The features described in this guide are intended for advanced users familiar with Transformers and MLflow. Please understand the limitations and potential risks associated with these features before use.
 :::
 
-The [MLflow Transformers flavor](/llms/transformers) allows you to track various Transformers models in MLflow. However, logging large models such as Large Language Models (LLMs) can be resource-intensive
+The [MLflow Transformers flavor](/ml/deep-learning/transformers) allows you to track various Transformers models in MLflow. However, logging large models such as Large Language Models (LLMs) can be resource-intensive
 due to their size and memory requirements. This guide outlines MLflow's features for reducing memory and disk usage when logging models, enabling you to work with large models in resource-constrained environments.
 
 ## Overview
@@ -130,7 +125,7 @@ Please be aware of the following requirements and limitations when using this fe
 
 1. The checkpoint directory **must** contain a valid config.json file and the model weight files. If a tokenizer is required, its state file must also be present in the checkpoint directory. You can save the tokenizer state in your checkpoint directory by calling `tokenizer.save_pretrained("path/to/local/checkpoint")` method.
 2. You **must** specify the `task` argument with the appropriate task name that the model is designed for.
-3. MLflow may not accurately infer model dependencies in this mode. Please refer to [Managing Dependencies in MLflow Models](/model/dependencies) for more information on managing dependencies for your model.
+3. MLflow may not accurately infer model dependencies in this mode. Please refer to [Managing Dependencies in MLflow Models](/ml/model/dependencies) for more information on managing dependencies for your model.
 
 :::warning
 Ensure you specify the correct task argument, as an incompatible task will cause the model to **fail at the load time**. You can check the valid task type for your model on the HuggingFace Hub.
