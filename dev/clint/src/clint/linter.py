@@ -675,20 +675,42 @@ class Linter(ast.NodeVisitor):
 
 
 def _lint_cell(path: Path, config: Config, cell: dict[str, Any], index: int) -> list[Violation]:
+    violations = []
     type_ = cell.get("cell_type")
+
+    # Check for forbidden trace UI iframe in cell outputs
+    if outputs := cell.get("outputs"):
+        for output in outputs:
+            if data := output.get("data"):
+                for content_type, content in data.items():
+                    if isinstance(content, (str, list)):
+                        content_str = "".join(content) if isinstance(content, list) else content
+                        if "static-files/lib/notebook-trace-renderer/index.html" in content_str:
+                            violations.append(
+                                Violation(
+                                    rules.ForbiddenTraceUIInNotebook(),
+                                    path,
+                                    Location(0, 0),
+                                    cell=index,
+                                )
+                            )
+                            break
+            if violations:  # Stop checking after finding the first violation
+                break
+
     if type_ != "code":
-        return []
+        return violations
 
     src = "\n".join(cell.get("source", []))
     try:
         tree = ast.parse(src)
     except SyntaxError:
         # Ignore non-python cells such as `!pip install ...`
-        return []
+        return violations
 
     linter = Linter(path=path, config=config, ignore=ignore_map(src), cell=index)
     linter.visit(tree)
-    violations = linter.violations
+    violations.extend(linter.violations)
 
     if not src.strip():
         violations.append(
@@ -706,17 +728,6 @@ def lint_file(path: Path, config: Config) -> list[Violation]:
     code = path.read_text()
     if path.suffix == ".ipynb":
         violations = []
-
-        # Check for forbidden trace UI iframe in notebook content
-        if "static-files/lib/notebook-trace-renderer/index.html" in code:
-            violations.append(
-                Violation(
-                    rules.ForbiddenTraceUIInNotebook(),
-                    path,
-                    Location(0, 0),
-                )
-            )
-
         if cells := json.loads(code).get("cells"):
             for idx, cell in enumerate(cells, start=1):
                 violations.extend(_lint_cell(path, config, cell, idx))
