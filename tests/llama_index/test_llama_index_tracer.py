@@ -179,12 +179,12 @@ def test_trace_llm_chat(is_async):
         "message": {
             "role": "assistant",
             **output_content_json,
-            "additional_kwargs": expected_kwargs,
+            "additional_kwargs": {},
         },
         "raw": ANY,
         "delta": None,
         "logprobs": None,
-        "additional_kwargs": {},
+        "additional_kwargs": expected_kwargs,
     }
 
     attr = spans[0].attributes
@@ -323,18 +323,13 @@ def test_trace_llm_chat_stream():
     assert spans[0].inputs == {
         "messages": [{"role": "system", **content_json, "additional_kwargs": {}}]
     }
-    # `additional_kwargs` was broken until 0.1.30 release of llama-index-llms-openai
-    expected_kwargs = (
-        {"completion_tokens": 12, "prompt_tokens": 9, "total_tokens": 21}
-        if llama_oai_version >= Version("0.1.30")
-        else {}
-    )
+
     output_content_json = _get_llm_input_content_json("Hello world")
     assert spans[0].outputs == {
         "message": {
             "role": "assistant",
             **output_content_json,
-            "additional_kwargs": expected_kwargs,
+            "additional_kwargs": {},
         },
         "raw": ANY,
         "delta": " world",
