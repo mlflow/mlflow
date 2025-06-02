@@ -80,6 +80,7 @@ def optimize_prompt(
 
             import os
             import mlflow
+            from typing import Any
             from mlflow.genai.scorers import scorer
             from mlflow.genai.optimize import OptimizerConfig, LLMParams
 
@@ -87,7 +88,7 @@ def optimize_prompt(
 
 
             @scorer
-            def exact_match(expectations, outputs) -> bool:
+            def exact_match(expectations: dict[str, Any], outputs: dict[str, Any]) -> bool:
                 return expectations == outputs
 
 

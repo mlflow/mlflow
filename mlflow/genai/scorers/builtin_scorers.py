@@ -1,4 +1,3 @@
-from abc import abstractmethod
 from typing import Any, Optional, Union
 
 from mlflow.entities import Assessment
@@ -13,7 +12,6 @@ from mlflow.genai.utils.trace_utils import (
     parse_inputs_to_str,
     parse_output_to_str,
 )
-from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.utils.annotations import experimental
 
 GENAI_CONFIG_NAME = "databricks-agent"
@@ -26,25 +24,6 @@ class BuiltInScorer(Scorer):
     """
 
     required_columns: set[str] = set()
-
-    # Avoid direct mutation of built-in scorer fields like name. Overriding the default setting must
-    # be done through the `with_config` method. This is because the short-hand syntax like
-    # `mlflow.genai.scorers.chunk_relevance` returns a single instance rather than a new instance.
-    def __setattr__(self, name: str, value: Any) -> None:
-        raise MlflowException(
-            "Built-in scorer fields are immutable. Please use the `with_config` method to "
-            "get a new instance with the custom field values.",
-            error_code=BAD_REQUEST,
-        )
-
-    @abstractmethod
-    def with_config(self, **kwargs) -> "BuiltInScorer":
-        """
-        Get a new scorer instance with the given configuration, such as name, global guidelines.
-
-        Override this method with the appropriate config keys. This method must return the scorer
-        instance itself with the updated configuration.
-        """
 
     def validate_columns(self, columns: set[str]) -> None:
         missing_columns = self.required_columns - columns
@@ -61,18 +40,15 @@ class RetrievalRelevance(BuiltInScorer):
     You can invoke the scorer directly with a single input for testing, or pass it to
     `mlflow.genai.evaluate` for running full evaluation on a dataset.
 
-    Use `mlflow.genai.scorers.retrieval_relevance` to get an instance of this scorer with
-    default setting. You can override the setting by the :py:meth:`with_config` method.
-
     Example (direct usage):
 
     .. code-block:: python
 
         import mlflow
-        from mlflow.genai.scorers import retrieval_relevance
+        from mlflow.genai.scorers import RetrievalRelevance
 
         trace = mlflow.get_trace("<your-trace-id>")
-        feedbacks = retrieval_relevance(trace=trace)
+        feedbacks = RetrievalRelevance(name="my_retrieval_relevance")(trace=trace)
         print(feedbacks)
 
     Example (with evaluate):
@@ -82,7 +58,7 @@ class RetrievalRelevance(BuiltInScorer):
         import mlflow
 
         data = mlflow.search_traces(...)
-        result = mlflow.genai.evaluate(data=data, scorers=[retrieval_relevance])
+        result = mlflow.genai.evaluate(data=data, scorers=[RetrievalRelevance()])
     """
 
     name: str = "retrieval_relevance"
@@ -135,21 +111,14 @@ class RetrievalRelevance(BuiltInScorer):
         average = sum(f.value == "yes" for f in chunk_feedbacks) / len(chunk_feedbacks)
 
         span_level_feedback = Feedback(
-            name=self.name,
+            # NB: Adding a special suffix for span-level aggregation so that UI can distinguish
+            # it from the chunk-level score and render it on span correctly.
+            name=self.name + "/precision",
             value=average,
             source=chunk_feedbacks[0].source,
             span_id=span_id,
         )
         return [span_level_feedback] + chunk_feedbacks
-
-    def with_config(self, *, name: str = "retrieval_relevance") -> "RetrievalRelevance":
-        """
-        Get a new scorer instance with a specified name.
-
-        Args:
-            name: The name of the scorer. Default is "retrieval_relevance".
-        """
-        return RetrievalRelevance(name=name)
 
 
 @experimental
@@ -161,18 +130,15 @@ class RetrievalSufficiency(BuiltInScorer):
     You can invoke the scorer directly with a single input for testing, or pass it to
     `mlflow.genai.evaluate` for running full evaluation on a dataset.
 
-    Use `mlflow.genai.scorers.retrieval_sufficiency` to get an instance of this scorer with
-    default setting. You can override the setting by the :py:meth:`with_config` method.
-
     Example (direct usage):
 
     .. code-block:: python
 
         import mlflow
-        from mlflow.genai.scorers import retrieval_sufficiency
+        from mlflow.genai.scorers import RetrievalSufficiency
 
         trace = mlflow.get_trace("<your-trace-id>")
-        feedback = retrieval_sufficiency(trace=trace)
+        feedback = RetrievalSufficiency(name="my_retrieval_sufficiency")(trace=trace)
         print(feedback)
 
     Example (with evaluate):
@@ -182,7 +148,7 @@ class RetrievalSufficiency(BuiltInScorer):
         import mlflow
 
         data = mlflow.search_traces(...)
-        result = mlflow.genai.evaluate(data=data, scorers=[retrieval_sufficiency])
+        result = mlflow.genai.evaluate(data=data, scorers=[RetrievalSufficiency()])
     """
 
     name: str = "retrieval_sufficiency"
@@ -243,15 +209,6 @@ class RetrievalSufficiency(BuiltInScorer):
 
         return feedbacks
 
-    def with_config(self, *, name: str = "retrieval_sufficiency") -> "RetrievalSufficiency":
-        """
-        Get a new scorer instance with a specified name.
-
-        Args:
-            name: The name of the scorer. Default is "retrieval_sufficiency".
-        """
-        return RetrievalSufficiency(name=name)
-
 
 @experimental
 class RetrievalGroundedness(BuiltInScorer):
@@ -262,18 +219,15 @@ class RetrievalGroundedness(BuiltInScorer):
     You can invoke the scorer directly with a single input for testing, or pass it to
     `mlflow.genai.evaluate` for running full evaluation on a dataset.
 
-    Use `mlflow.genai.scorers.retrieval_groundedness` to get an instance of this scorer with
-    default setting. You can override the setting by the :py:meth:`with_config` method.
-
     Example (direct usage):
 
     .. code-block:: python
 
         import mlflow
-        from mlflow.genai.scorers import retrieval_groundedness
+        from mlflow.genai.scorers import RetrievalGroundedness
 
         trace = mlflow.get_trace("<your-trace-id>")
-        feedback = retrieval_groundedness(trace=trace)
+        feedback = RetrievalGroundedness(name="my_retrieval_groundedness")(trace=trace)
         print(feedback)
 
     Example (with evaluate):
@@ -283,7 +237,7 @@ class RetrievalGroundedness(BuiltInScorer):
         import mlflow
 
         data = mlflow.search_traces(...)
-        result = mlflow.genai.evaluate(data=data, scorers=[retrieval_groundedness])
+        result = mlflow.genai.evaluate(data=data, scorers=[RetrievalGroundedness()])
     """
 
     name: str = "retrieval_groundedness"
@@ -314,18 +268,6 @@ class RetrievalGroundedness(BuiltInScorer):
             feedbacks.append(feedback)
         return feedbacks
 
-    def with_config(self, *, name: str = "retrieval_groundedness") -> "RetrievalGroundedness":
-        """
-        Get a new scorer instance with a specified name.
-
-        Args:
-            name: The name of the scorer. Default is "retrieval_groundedness".
-
-        Returns:
-            The updated RetrievalGroundedness scorer instance.
-        """
-        return RetrievalGroundedness(name=name)
-
 
 @experimental
 class GuidelineAdherence(BuiltInScorer):
@@ -335,9 +277,6 @@ class GuidelineAdherence(BuiltInScorer):
 
     You can invoke the scorer directly with a single input for testing, or pass it to
     `mlflow.genai.evaluate` for running full evaluation on a dataset.
-
-    Use `mlflow.genai.scorers.guideline_adherence` to get an instance of this scorer with
-    default setting. You can override the setting by the :py:meth:`with_config` method.
 
     There are two different ways to specify judges, depending on the use case:
 
@@ -351,14 +290,17 @@ class GuidelineAdherence(BuiltInScorer):
     .. code-block:: python
 
         import mlflow
-        from mlflow.genai.scorers import guideline_adherence
+        from mlflow.genai.scorers import GuidelineAdherence
 
         # Create a global judge
-        english = guideline_adherence.with_config(
+        english = GuidelineAdherence(
             name="english_guidelines",
             global_guidelines=["The response must be in English"],
         )
-        feedback = english(outputs="The capital of France is Paris.")
+        feedback = english(
+            inputs={"question": "What is the capital of France?"},
+            outputs="The capital of France is Paris.",
+        )
         print(feedback)
 
     Example (with evaluate):
@@ -370,13 +312,13 @@ class GuidelineAdherence(BuiltInScorer):
     .. code-block:: python
 
         import mlflow
-        from mlflow.genai.scorers import guideline_adherence
+        from mlflow.genai.scorers import GuidelineAdherence
 
-        english = guideline_adherence.with_config(
+        english = GuidelineAdherence(
             name="english",
             global_guidelines=["The response must be in English"],
         )
-        clarify = guideline_adherence.with_config(
+        clarify = GuidelineAdherence(
             name="clarify",
             global_guidelines=["The response must be clear, coherent, and concise"],
         )
@@ -408,7 +350,7 @@ class GuidelineAdherence(BuiltInScorer):
     .. code-block:: python
 
         import mlflow
-        from mlflow.genai.scorers import guideline_adherence
+        from mlflow.genai.scorers import GuidelineAdherence
 
         data = [
             {
@@ -426,7 +368,7 @@ class GuidelineAdherence(BuiltInScorer):
                 },
             },
         ]
-        mlflow.genai.evaluate(data=data, scorers=[guideline_adherence])
+        mlflow.genai.evaluate(data=data, scorers=[GuidelineAdherence()])
     """
 
     name: str = "guideline_adherence"
@@ -442,6 +384,7 @@ class GuidelineAdherence(BuiltInScorer):
     def __call__(
         self,
         *,
+        inputs: dict[str, Any],
         outputs: Any,
         expectations: Optional[dict[str, Any]] = None,
     ) -> Assessment:
@@ -449,6 +392,7 @@ class GuidelineAdherence(BuiltInScorer):
         Evaluate adherence to specified guidelines.
 
         Args:
+            inputs: A dictionary of input data, e.g. {"question": "What is the capital of France?"}.
             outputs: The response from the model, e.g. "The capital of France is Paris."
             expectations: A dictionary of expectations for the response. This must contain either
                 `guidelines` key, which is used to evaluate the response against the guidelines
@@ -463,45 +407,17 @@ class GuidelineAdherence(BuiltInScorer):
         if not guidelines:
             raise MlflowException(
                 "Guidelines must be specified either in the `expectations` parameter or "
-                "by the `with_config` method of the scorer."
+                "by the `global_guidelines` attribute of the scorer."
             )
 
         return judges.meets_guidelines(
             guidelines=guidelines,
-            context={"response": outputs},
+            context={
+                "request": parse_inputs_to_str(inputs),
+                "response": parse_output_to_str(outputs),
+            },
             name=self.name,
         )
-
-    def with_config(
-        self,
-        *,
-        name: str = "guideline_adherence",
-        global_guidelines: Optional[list[str]] = None,
-    ) -> "GuidelineAdherence":
-        """
-        Get a new scorer instance with the given name and global guidelines.
-
-        Args:
-            name: The name of the scorer. Default is "guideline_adherence".
-            global_guidelines: A list of global guidelines to be used for evaluation.
-                If not provided, the scorer will use the per-row guidelines in the input dataset.
-
-        Returns:
-            The updated GuidelineAdherence scorer instance.
-
-        Example:
-
-        .. code-block:: python
-
-            from mlflow.genai.scorers import guideline_adherence
-
-            is_english = guideline_adherence.with_config(
-                name="is_english", global_guidelines=["The response must be in English"]
-            )
-
-            mlflow.genai.evaluate(data=data, scorers=[is_english])
-        """
-        return GuidelineAdherence(name=name, global_guidelines=global_guidelines)
 
 
 @experimental
@@ -513,17 +429,14 @@ class RelevanceToQuery(BuiltInScorer):
     You can invoke the scorer directly with a single input for testing, or pass it to
     `mlflow.genai.evaluate` for running full evaluation on a dataset.
 
-    Use `mlflow.genai.scorers.relevance_to_query` to get an instance of this scorer with
-    default setting. You can override the setting by the :py:meth:`with_config` method.
-
     Example (direct usage):
 
     .. code-block:: python
 
         import mlflow
-        from mlflow.genai.scorers import relevance_to_query
+        from mlflow.genai.scorers import RelevanceToQuery
 
-        assessment = relevance_to_query(
+        assessment = RelevanceToQuery(name="my_relevance_to_query")(
             inputs={"question": "What is the capital of France?"},
             outputs="The capital of France is Paris.",
         )
@@ -534,7 +447,7 @@ class RelevanceToQuery(BuiltInScorer):
     .. code-block:: python
 
         import mlflow
-        from mlflow.genai.scorers import relevance_to_query
+        from mlflow.genai.scorers import RelevanceToQuery
 
         data = [
             {
@@ -542,7 +455,7 @@ class RelevanceToQuery(BuiltInScorer):
                 "outputs": "The capital of France is Paris.",
             }
         ]
-        result = mlflow.genai.evaluate(data=data, scorers=[relevance_to_query])
+        result = mlflow.genai.evaluate(data=data, scorers=[RelevanceToQuery()])
     """
 
     name: str = "relevance_to_query"
@@ -567,15 +480,6 @@ class RelevanceToQuery(BuiltInScorer):
         feedback.metadata.pop("chunk_index", None)
         return feedback
 
-    def with_config(self, *, name: str = "relevance_to_query") -> "RelevanceToQuery":
-        """
-        Get a new scorer instance with a specified name.
-
-        Args:
-            name: The name of the scorer. Default is "relevance_to_query".
-        """
-        return RelevanceToQuery(name=name)
-
 
 @experimental
 class Safety(BuiltInScorer):
@@ -585,17 +489,14 @@ class Safety(BuiltInScorer):
     You can invoke the scorer directly with a single input for testing, or pass it to
     `mlflow.genai.evaluate` for running full evaluation on a dataset.
 
-    Use `mlflow.genai.scorers.safety` to get an instance of this scorer with
-    default setting. You can override the setting by the :py:meth:`with_config` method.
-
     Example (direct usage):
 
     .. code-block:: python
 
         import mlflow
-        from mlflow.genai.scorers import safety
+        from mlflow.genai.scorers import Safety
 
-        assessment = safety(outputs="The capital of France is Paris.")
+        assessment = Safety(name="my_safety")(outputs="The capital of France is Paris.")
         print(assessment)
 
     Example (with evaluate):
@@ -603,7 +504,7 @@ class Safety(BuiltInScorer):
     .. code-block:: python
 
         import mlflow
-        from mlflow.genai.scorers import safety
+        from mlflow.genai.scorers import Safety
 
         data = [
             {
@@ -611,7 +512,7 @@ class Safety(BuiltInScorer):
                 "outputs": "The capital of France is Paris.",
             }
         ]
-        result = mlflow.genai.evaluate(data=data, scorers=[safety])
+        result = mlflow.genai.evaluate(data=data, scorers=[Safety()])
     """
 
     name: str = "safety"
@@ -630,15 +531,6 @@ class Safety(BuiltInScorer):
         """
         return judges.is_safe(content=parse_output_to_str(outputs), name=self.name)
 
-    def with_config(self, *, name: str = "safety") -> "Safety":
-        """
-        Get a new scorer instance with a specified name.
-
-        Args:
-            name: The name of the scorer. Default is "safety".
-        """
-        return Safety(name=name)
-
 
 @experimental
 class Correctness(BuiltInScorer):
@@ -648,17 +540,14 @@ class Correctness(BuiltInScorer):
     You can invoke the scorer directly with a single input for testing, or pass it to
     `mlflow.genai.evaluate` for running full evaluation on a dataset.
 
-    Use `mlflow.genai.scorers.correctness` to get an instance of this scorer with
-    default setting. You can override the setting by the :py:meth:`with_config` method.
-
     Example (direct usage):
 
     .. code-block:: python
 
         import mlflow
-        from mlflow.genai.scorers import correctness
+        from mlflow.genai.scorers import Correctness
 
-        assessment = correctness(
+        assessment = Correctness(name="my_correctness")(
             inputs={
                 "question": "What is the difference between reduceByKey and groupByKey in Spark?"
             },
@@ -678,7 +567,7 @@ class Correctness(BuiltInScorer):
     .. code-block:: python
 
         import mlflow
-        from mlflow.genai.scorers import correctness
+        from mlflow.genai.scorers import Correctness
 
         data = [
             {
@@ -697,7 +586,7 @@ class Correctness(BuiltInScorer):
                 ],
             }
         ]
-        result = mlflow.genai.evaluate(data=data, scorers=[correctness])
+        result = mlflow.genai.evaluate(data=data, scorers=[Correctness()])
     """
 
     name: str = "correctness"
@@ -750,25 +639,6 @@ class Correctness(BuiltInScorer):
             name=self.name,
         )
 
-    def with_config(self, *, name: str = "correctness") -> "Correctness":
-        """
-        Get a new scorer instance with a specified name.
-
-        Args:
-            name: The new name of the scorer. Default is "correctness".
-        """
-        return Correctness(name=name)
-
-
-# === Shorthand for getting builtin scorer instances ===
-retrieval_groundedness = RetrievalGroundedness()
-retrieval_relevance = RetrievalRelevance()
-retrieval_sufficiency = RetrievalSufficiency()
-guideline_adherence = GuidelineAdherence()
-relevance_to_query = RelevanceToQuery()
-safety = Safety()
-correctness = Correctness()
-
 
 # === Shorthand for all builtin RAG scorers ===
 @experimental
@@ -788,10 +658,10 @@ def get_rag_scorers() -> list[BuiltInScorer]:
         result = mlflow.genai.evaluate(data=data, scorers=get_rag_scorers())
     """
     return [
-        retrieval_relevance,
-        retrieval_sufficiency,
-        retrieval_groundedness,
-        relevance_to_query,
+        RetrievalRelevance(),
+        RetrievalSufficiency(),
+        RetrievalGroundedness(),
+        RelevanceToQuery(),
     ]
 
 
@@ -819,9 +689,9 @@ def get_all_scorers() -> list[BuiltInScorer]:
         result = mlflow.genai.evaluate(data=data, scorers=get_all_scorers())
     """
     return get_rag_scorers() + [
-        guideline_adherence,
-        safety,
-        correctness,
+        GuidelineAdherence(),
+        Safety(),
+        Correctness(),
     ]
 
 

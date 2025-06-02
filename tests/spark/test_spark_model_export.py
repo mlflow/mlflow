@@ -53,15 +53,17 @@ from tests.store.artifact.constants import MODELS_ARTIFACT_REPOSITORY
 
 _logger = logging.getLogger(__name__)
 
+PYSPARK_VERSION = Version(pyspark.__version__)
+
 
 @pytest.fixture
 def spark_custom_env(tmp_path):
     conda_env = os.path.join(tmp_path, "conda_env.yml")
-    additional_pip_deps = ["/opt/mlflow", "pyspark", "pytest"]
-    if Version(pyspark.__version__) <= Version("3.3.2"):
+    additional_pip_deps = ["/opt/mlflow", f"pyspark=={PYSPARK_VERSION}", "pytest"]
+    if PYSPARK_VERSION < Version("3.4"):
         additional_pip_deps.extend(
             [
-                # Versions of PySpark <= 3.3.2 are incompatible with pandas >= 2
+                # Versions of PySpark < 3.4 are incompatible with pandas >= 2
                 "pandas<2",
                 # pandas<2.0 is incompatible with numpy>=2.0
                 "numpy<2.0",
@@ -337,7 +339,12 @@ def test_transformer_model_export(spark_model_transformer, model_path, spark_cus
     assert spark_model_transformer.predictions == preds2
 
 
-def test_model_deployment(spark_model_iris, model_path, spark_custom_env):
+def test_model_deployment(spark_model_iris, model_path, spark_custom_env, monkeypatch):
+    monkeypatch.setenv(
+        "MLFLOW_DOCKER_OPENJDK_VERSION",
+        "17" if PYSPARK_VERSION > Version("3.4.1") else "11",
+    )
+
     mlflow.spark.save_model(
         spark_model_iris.model,
         path=model_path,
