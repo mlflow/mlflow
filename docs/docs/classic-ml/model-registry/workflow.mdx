@@ -157,7 +157,7 @@ result = client.create_model_version(
 
 ### Databricks Unity Catalog Model Registry
 
-To use Databricks unity catalog model registry, set MLflow registry URI to `"databricks-uc"`, and set the two environmental variables
+To use the Databricks Unity Catalog model registry, set the MLflow registry URI to `"databricks-uc"`, and define the two environmental variables
 `"DATABRICKS_HOST"` and `"DATABRICKS_TOKEN"`. If you are using Databricks OAuth authentication, set the three environmental variables
 `"DATABRICKS_HOST"`, `"DATABRICKS_CLIENT_ID"` and `"DATABRICKS_CLIENT_SECRET"`. If you have configured your access auth within the
 `'~/.databrickscfg'` file, then you don't need to set above environmental variables. Instead, you can set the MLflow registry URI to

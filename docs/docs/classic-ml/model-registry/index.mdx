@@ -11,10 +11,10 @@ import TabItem from "@theme/TabItem";
 
 # MLflow Model Registry
 
-The MLflow Model Registry component is a centralized model store, set of APIs, and UI, to
-collaboratively manage the full lifecycle of an MLflow Model. It provides model lineage (which
-MLflow experiment and run produced the model), model versioning, model aliasing, model tagging, and
-annotations.
+The MLflow Model Registry is a centralized model store, set of APIs and a UI designed to
+collaboratively manage the full lifecycle of a model. It provides lineage (i.e., which
+MLflow experiment and run produced the model), versioning, aliasing, metadata tagging and
+annotation support to ensure that you have the full spectrum of information at every stage from development to production deployment.
 
 ## Why Model Registry?
 
@@ -72,7 +72,7 @@ The Model Registry introduces a few concepts that describe and facilitate the fu
       <td>Model Alias</td>
       <td>
       Model aliases allow you to assign a mutable, named reference to a particular version of a registered model. By assigning an alias to a specific model version,
-      you can use the alias to refer that model version via a model URI or the model registry API. For example, you can create an alias named **`champion`** that
+      you can use the alias to refer to that model version via a model URI or the model registry API. For example, you can create an alias named **`champion`** that
       points to version 1 of a model named **`MyModel`**. You can then refer to version 1 of **`MyModel`** by using the URI **`models:/MyModel@champion`**.
 
       Aliases are especially useful for deploying models. For example, you could assign a **`champion`** alias to the model version intended for production traffic
@@ -91,8 +91,8 @@ The Model Registry introduces a few concepts that describe and facilitate the fu
     <tr>
       <td>Annotations and Descriptions</td>
       <td>
-      You can annotate the top-level model and each version individually using Markdown, including description and any relevant information useful for the team such as algorithm
-      descriptions, dataset employed or methodology.
+      You can annotate the top-level model and each version individually using Markdown, including the description and any relevant information useful for the team such as algorithm
+      descriptions, datasets employed or the overall methodology involved in a given version's modeling approach.
       </td>
     </tr>
 
@@ -139,10 +139,10 @@ You can register models, track versions, add tags and descriptions, and transiti
 
       ![](/images/oss_registry_1_register.png)
 
-      2. Click the **Register Model** button, which will trigger a form to pop up.
+      2. Click the **Register Model** button, which will trigger a modal form to pop up.
 
-      3. In the **Model** dropdown menu on the form, you can either select "Create New Model", which creates a new registered model with your MLflow model as its initial version,
-        or select an existing registered model, which registers your model under it as a new version. The screenshot below demonstrates registering the MLflow model to a new registered
+      3. In the **Model** dropdown menu on the form, you can either select "Create New Model" (which creates a new registered model with your MLflow model as its initial version)
+        or select an existing registered model (which registers your model under it as a new version). The screenshot below demonstrates registering the MLflow model to a new registered
         model named `"iris_model_testing"`.
 
       ![](/images/oss_registry_2_dialog.png)
@@ -151,7 +151,7 @@ You can register models, track versions, add tags and descriptions, and transiti
   </Tabs>
 </details>
 
-To learn more about the OSS Model Registry, refer to the [tutorial on model registry](./tutorial).
+To learn more about the OSS Model Registry, refer to the [tutorial on the model registry](./tutorial).
 
 ### Model Resgitry in Databricks
 
