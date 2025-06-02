@@ -1,93 +1,30 @@
 ---
 sidebar_position: 15
 toc_max_heading_level: 4
+sidebar_label: Workflow
 ---
 
 import { APILink } from "@site/src/components/APILink";
 import Link from "@docusaurus/Link";
 
-# MLflow Model Registry
+# Model Registry Workflows
 
-The MLflow Model Registry component is a centralized model store, set of APIs, and UI, to
-collaboratively manage the full lifecycle of an MLflow Model. It provides model lineage (which
-MLflow experiment and run produced the model), model versioning, model aliasing, model tagging, and
-annotations.
+This guide walks you through using the MLflow Model Registry via both the UI and API. Learn how to register models, manage versions, apply aliases and tags, and organize your models for deployment.
 
-## Concepts
-
-The Model Registry introduces a few concepts that describe and facilitate the full lifecycle of an MLflow Model.
-
-<dl>
-  <dt>
-    #### Model
-  </dt>
-  <dd>
-    An MLflow Model is created from an experiment or run that is logged with one of the model flavor’s
-    **`mlflow.<model_flavor>.log_model()`** methods. Once logged, this model can then be registered with the Model Registry.
-  </dd>
-  <dt>
-    #### Registered Model
-  </dt>
-  <dd>
-    An MLflow Model can be registered with the Model Registry. A registered model has a unique name, contains versions, aliases, tags, and other metadata.
-  </dd>
-  <dt>
-    #### Model Version
-  </dt>
-  <dd>
-    Each registered model can have one or many versions. When a new model is added to the Model Registry, it is added as version 1. Each new model registered to
-    the same model name increments the version number. Model versions have tags, which can be useful for tracking attributes of the model version (e.g. _`pre_deploy_checks: "PASSED"`_)
-  </dd>
-  <dt>
-    #### Model URI
-  </dt>
-  <dd>
-    You can refer to the registered model by using a URI of this format: `models:/<model-name>/<model-version>`, e.g., if you have a registered model with name "MyModel" and version 1, the URI referring to the model is: `models:/MyModel/1`".
-  </dd>
-  <dt>
-    #### Model Alias \{#using-registered-model-aliases}
-  </dt>
-  <dd>
-    Model aliases allow you to assign a mutable, named reference to a particular version of a registered model. By assigning an alias to a specific model version,
-    you can use the alias to refer that model version via a model URI or the model registry API. For example, you can create an alias named **`champion`** that
-    points to version 1 of a model named **`MyModel`**. You can then refer to version 1 of **`MyModel`** by using the URI **`models:/MyModel@champion`**.
-
-    Aliases are especially useful for deploying models. For example, you could assign a **`champion`** alias to the model version intended for production traffic
-    and target this alias in production workloads. You can then update the model serving production traffic by reassigning the **`champion`** alias to a different model version.
-
-  </dd>
-  <dt>
-    #### Tags
-  </dt>
-  <dd>
-    Tags are key-value pairs that you associate with registered models and model versions, allowing you to label and categorize them by function or status. For example, you
-    could apply a tag with key **`"task"`** and value **`"question-answering"`** (displayed in the UI as **`task:question-answering`**) to registered models intended for question
-    answering tasks. At the model version level, you could tag versions undergoing pre-deployment validation with **`validation_status:pending`** and those cleared for deployment
-    with **`validation_status:approved`**.
-  </dd>
-  <dt>
-    #### Annotations and Descriptions
-  </dt>
-  <dd>
-    You can annotate the top-level model and each version individually using Markdown, including description and any relevant information useful for the team such as algorithm
-    descriptions, dataset employed or methodology.
-  </dd>
-</dl>
-
-## Model Registry Workflows
-
+:::note
 If running your own MLflow server, you must use a database-backed backend store in order to access
-the model registry via the UI or API. [See here](/tracking/backend-stores) for more information.
+the model registry via the UI or API. [See here](/ml/tracking/backend-stores) for more information.
+:::
 
 Before you can add a model to the Model Registry, you must log it using the `log_model` methods
 of the corresponding model flavors. Once a model has been logged, you can add, modify, update,
 or delete the model in the Model Registry through the UI or the API.
 
-### UI Workflow
+## UI Workflow
 
 This section demonstrates how to use the MLflow Model Registry UI to manage your MLflow models.
 
-#### Register a Model
+### Register a Model
 
 Follow the steps below to register your MLflow model in the Model Registry.
 
@@ -104,7 +41,7 @@ Follow the steps below to register your MLflow model in the Model Registry.
 
 ![](/images/oss_registry_2_dialog.png)
 
-#### Find Registered Models
+### Find Registered Models
 
 After you've registered your models in the Model Registry, you can navigate to them in the following ways.
 
@@ -116,7 +53,7 @@ After you've registered your models in the Model Registry, you can navigate to t
 
   ![](/images/oss_registry_3b_version.png)
 
-#### Deploy and Organize Models
+### Deploy and Organize Models
 
 You can deploy and organize your models in the Model Registry using model aliases and tags. To set aliases and tags for model versions in your registered model, navigate to the overview
 page of your registered model, such as the one below.
@@ -134,13 +71,13 @@ To learn more about a specific model version, navigate to the details page for t
 In this page, you can inspect model version details like the model signature, MLflow source run, and creation timestamp. You can also view and configure the version's aliases,
 tags, and description.
 
-### API Workflow
+## API Workflow
 
 An alternative way to interact with Model Registry is using the <Link to={"/api_reference/python_api/index.html"} target="\_blank">MLflow model flavor</Link>
 o <Link to={"/api_reference/python_api/mlflow.client.html"} target="\_blank">MLflow Client Tracking API</Link> interface. In particular, you can register a model during an
 MLflow experiment run or after all your experiment runs.
 
-#### Adding an MLflow Model to the Model Registry
+### Adding an MLflow Model to the Model Registry
 
 There are three programmatic ways to add a model to the registry. First, you can use the `mlflow.<model_flavor>.log_model()` method. For example, in your code:
 
@@ -218,9 +155,9 @@ result = client.create_model_version(
 )
 ```
 
-#### Databricks Unity Catalog Model Registry
+### Databricks Unity Catalog Model Registry
 
-To use Databricks unity catalog model registry, set MLflow registry URI to `"databricks-uc"`, and set the two environmental variables
+To use the Databricks Unity Catalog model registry, set the MLflow registry URI to `"databricks-uc"`, and define the two environmental variables
 `"DATABRICKS_HOST"` and `"DATABRICKS_TOKEN"`. If you are using Databricks OAuth authentication, set the three environmental variables
 `"DATABRICKS_HOST"`, `"DATABRICKS_CLIENT_ID"` and `"DATABRICKS_CLIENT_SECRET"`. If you have configured your access auth within the
 `'~/.databrickscfg'` file, then you don't need to set above environmental variables. Instead, you can set the MLflow registry URI to
@@ -265,7 +202,7 @@ import os
 mlflow.set_registry_uri("databricks-uc://my-databricks-shard1")
 ```
 
-#### OSS Unity Catalog Model Registry
+### OSS Unity Catalog Model Registry
 
 To use an [OSS Unity Catalog](https://www.unitycatalog.io/) server as your MLflow model registry, specify the UC server address in the
 MLflow registry URI in the format `"uc:http://localhost:8080"`. If your unity catalog server is configured to use authentication,
@@ -282,7 +219,7 @@ mlflow.set_registry_uri("uc:http://localhost:8080")
 os.environ["MLFLOW_UC_OSS_TOKEN"] = "<your OSS UC access token>"
 ```
 
-#### Deploy and Organize Models with Aliases and Tags
+### Deploy and Organize Models with Aliases and Tags
 
 Model aliases and tags help you deploy and organize your models in the Model Registry.
 
@@ -332,7 +269,7 @@ client.delete_model_version_tag("example-model", "1", "validation_status")
 
 For more details on alias and tag client APIs, see the <APILink fn="mlflow.client">`mlflow.client`</APILink> API documentation.
 
-#### Fetching an MLflow Model from the Model Registry
+### Fetching an MLflow Model from the Model Registry
 
 After you have registered an MLflow model, you can fetch that model using `mlflow.<model_flavor>.load_model()`, or more
 generally, <APILink fn="mlflow.pyfunc.load_model">`load_model()`</APILink>. You can use the loaded model for one off predictions or
@@ -372,7 +309,7 @@ Note that model alias assignments can be updated independently of your productio
 is reassigned to a new model version in the Model Registry, the next execution of this snippet will automatically pick up the new model
 version. This allows you to decouple model deployments from your inference workloads.
 
-#### Serving an MLflow Model from Model Registry
+### Serving an MLflow Model from Model Registry
 
 After you have registered an MLflow model, you can serve the model as a service on your host.
 
@@ -386,11 +323,11 @@ export MLFLOW_TRACKING_URI=http://localhost:5000
 mlflow models serve -m "models:/sk-learn-random-forest-reg-model@champion"
 ```
 
-#### Promoting an MLflow Model across environments
+### Promoting an MLflow Model across environments
 
 In mature DevOps and MLOps workflows, organizations use separate environments (typically, dev,
 staging, and prod) with access controls to enable quick development without compromising stability
-in production. In MLflow, you can use registered models and [MLflow Authentication](/auth) to
+in production. In MLflow, you can use registered models and [MLflow Authentication](/ml/auth) to
 express access-controlled environments for your MLflow models. For example, you can create registered
 models corresponding to each combination of environment and business problem (e.g.
 `prod.ml_team.revenue_forecasting`, `dev.ml_team.revenue_forecasting`) and configure permissions
@@ -438,7 +375,7 @@ client.update_model_version(
 )
 ```
 
-#### Renaming an MLflow Model
+### Renaming an MLflow Model
 
 As well as adding or updating a description of a specific version of the model, you can rename an existing registered model
 using <APILink fn="mlflow.client.MlflowClient.rename_registered_model">`rename_registered_model()`</APILink>.
@@ -451,7 +388,7 @@ client.rename_registered_model(
 )
 ```
 
-#### Listing and Searching MLflow Models
+### Listing and Searching MLflow Models
 
 :::warning important
 
@@ -523,7 +460,7 @@ This outputs:
 }
 ```
 
-#### Deleting MLflow Models
+### Deleting MLflow Models
 
 :::note
 Deleting registered models or model versions is irrevocable, so use it judiciously.
@@ -675,7 +612,7 @@ Mean squared error: 2548.07
 Coefficient of determination: 0.47
 ```
 
-#### Registering an Unsupported Machine Learning Model
+### Registering an Unsupported Machine Learning Model
 
 In some cases, you might use a machine learning framework without its built-in MLflow Model flavor support.
 For instance, the `vaderSentiment` library is a standard Natural Language Processing (NLP) library used
@@ -804,7 +741,7 @@ Created version '1' of model 'PyFuncVaderSentiments'.
 <This is INSANE! I can't believe it. How could you do such a horrible thing?> -- {'neg': 0.357, 'neu': 0.643, 'pos': 0.0, 'compound': -0.8034}
 ```
 
-#### Deprecated: Using Model Stages
+### Deprecated: Using Model Stages
 
 :::warning
 Model Stages are deprecated and will be removed in a future major release. To learn more about this deprecation, see our [migration guide](#migrating-from-stages) below.
@@ -894,7 +831,7 @@ for easier A/B testing and model rollout.
 **Set up separate environments for models**
 
 In mature DevOps and MLOps workflows, organizations use separate environments (typically, dev, staging, and prod) with
-access controls to enable quick development without compromising stability in production. With [MLflow Authentication](/auth),
+access controls to enable quick development without compromising stability in production. With [MLflow Authentication](/ml/auth),
 you can use registered models to express access-controlled environments for your MLflow models. For example, you can create
 registered models corresponding to each combination of environment and business problem (e.g. `prod.ml_team.revenue_forecasting`,
 `dev.ml_team.revenue_forecasting`) and configure permissions accordingly. Automate model retraining against your production
@@ -913,7 +850,7 @@ To set up separate environments and permissions for your model versions, create 
   to your environments with different prefixes.
 - For example, if you want three separate dev, staging, and production environments, you can set up
   `dev.ml_team.revenue_forecasting`, `staging.ml_team.revenue_forecasting`, and `prod.ml_team.revenue_forecasting` registered models.
-- Use [MLflow Authentication](/auth) to grant appropriate permissions on these models.
+- Use [MLflow Authentication](/ml/auth) to grant appropriate permissions on these models.
 
 **Transition models across environments**
 
