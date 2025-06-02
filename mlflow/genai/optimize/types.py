@@ -60,6 +60,7 @@ class OptimizerConfig:
         optimizer_llm: Optional LLM parameters for the teacher model. If not provided,
             the target LLM will be used as the teacher.
         algorithm: The optimization algorithm to use. Default: "DSPy/MIPROv2"
+        verbose: Whether to show optimizer logs during optimization. Default: False
     """
 
     num_instruction_candidates: int = 8
@@ -67,3 +68,4 @@ class OptimizerConfig:
     num_threads: int = field(default_factory=lambda: (multiprocessing.cpu_count() or 1) * 2 + 1)
     optimizer_llm: Optional[LLMParams] = None
     algorithm: str = "DSPy/MIPROv2"
+    verbose: bool = False

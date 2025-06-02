@@ -1,5 +1,8 @@
+import contextlib
+import io
 import logging
 import math
+import os
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 from mlflow.entities.model_registry import Prompt
@@ -30,7 +33,8 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
 
         _logger.info(
             f"Started optimizing prompt {prompt.uri}. "
-            "Please wait as this process typically takes several minutes..."
+            "Please wait as this process typically takes several minutes, "
+            "but can take longer with large datasets..."
         )
 
         input_fields = self._get_input_fields(train_data)
@@ -80,10 +84,7 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
 
         adapter = dspy.JSONAdapter()
         with dspy.context(lm=lm, adapter=adapter):
-            dspy_logger = logging.getLogger("dspy")
-            original_level = dspy_logger.level
-            dspy_logger.setLevel(logging.ERROR)
-            try:
+            with self._maybe_suppress_stdout_stderr():
                 optimized_program = optimizer.compile(
                     program,
                     trainset=train_data,
@@ -92,9 +93,6 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
                     minibatch_size=self._get_minibatch_size(train_data, eval_data),
                     requires_permission_to_run=False,
                 )
-            finally:
-                # Restore original logging level
-                dspy_logger.setLevel(original_level)
 
             return self._format_optimized_prompt(
                 adapter=adapter,
@@ -155,3 +153,24 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
 
         with dspy.context(lm=lm):
             return extractor(prompt=template).instruction
+
+    @contextlib.contextmanager
+    def _maybe_suppress_stdout_stderr(self):
+        """Context manager for redirecting stdout/stderr based on verbose setting.
+        If verbose is False, redirects output to devnull or StringIO.
+        If verbose is True, doesn't redirect output.
+        """
+        if not self.optimizer_config.verbose:
+            try:
+                output_sink = open(os.devnull, "w")  # noqa: SIM115
+            except (OSError, IOError):
+                output_sink = io.StringIO()
+
+            with output_sink:
+                with (
+                    contextlib.redirect_stdout(output_sink),
+                    contextlib.redirect_stderr(output_sink),
+                ):
+                    yield
+        else:
+            yield
