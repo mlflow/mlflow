@@ -705,11 +705,22 @@ def _lint_cell(path: Path, config: Config, cell: dict[str, Any], index: int) -> 
 def lint_file(path: Path, config: Config) -> list[Violation]:
     code = path.read_text()
     if path.suffix == ".ipynb":
+        violations = []
+
+        # Check for forbidden trace UI iframe in notebook content
+        if "static-files/lib/notebook-trace-renderer/index.html" in code:
+            violations.append(
+                Violation(
+                    rules.ForbiddenTraceUIInNotebook(),
+                    path,
+                    Location(0, 0),
+                )
+            )
+
         if cells := json.loads(code).get("cells"):
-            violations = []
             for idx, cell in enumerate(cells, start=1):
                 violations.extend(_lint_cell(path, config, cell, idx))
-            return violations
+        return violations
     elif path.suffix in {".rst", ".md", ".mdx"}:
         violations = []
         code_blocks = (
