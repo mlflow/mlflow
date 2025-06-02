@@ -278,6 +278,10 @@ def meets_guidelines(
     """
     from databricks.agents.evals.judges import guideline_adherence
 
+    # Ensure guidelines is a list, as the underlying databricks judge only accepts lists
+    if isinstance(guidelines, str):
+        guidelines = [guidelines]
+
     return guideline_adherence(
         guidelines=guidelines,
         guidelines_context=context,
