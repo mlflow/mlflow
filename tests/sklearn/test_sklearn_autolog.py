@@ -850,7 +850,6 @@ def test_parameter_search_estimators_produce_expected_outputs(
 
     # Check that each child run has a dataset input
     for cr in child_runs:
-        cr = client.get_run(cr.info.run_id)
         assert len(cr.inputs.dataset_inputs) == 1
 
     # Verify that the best max_tuning_runs of parameter search results
