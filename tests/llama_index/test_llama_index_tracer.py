@@ -334,12 +334,12 @@ def test_trace_llm_chat_stream():
         "message": {
             "role": "assistant",
             **output_content_json,
-            "additional_kwargs": {},
+            "additional_kwargs": expected_kwargs,
         },
         "raw": ANY,
         "delta": " world",
         "logprobs": None,
-        "additional_kwargs": expected_kwargs,
+        "additional_kwargs": {},
     }
 
     attr = spans[0].attributes
