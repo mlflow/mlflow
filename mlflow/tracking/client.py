@@ -668,7 +668,6 @@ class MlflowClient:
             return None, None, None
 
         import sqlparse
-        from sqlparse.sql import Comparison, Statement
         from sqlparse.tokens import Token as TokenType
 
         try:
@@ -690,32 +689,36 @@ class MlflowClient:
         remaining_comparisons = []
 
         # Process tokens to find catalog and schema comparisons
-        # Note: We can't use _join_in_comparison_tokens because it only works with dotted identifiers
         tokens = [t for t in parsed[0].tokens if not t.is_whitespace]
         i = 0
-        
+
         while i < len(tokens):
             # Look for pattern: identifier = value
-            if (i + 2 < len(tokens) and 
-                tokens[i].ttype == TokenType.Keyword and  # identifier (catalog/schema)
-                tokens[i + 1].ttype == TokenType.Operator.Comparison and  # =
-                tokens[i + 1].value == "="):
-                
+            if (
+                i + 2 < len(tokens)
+                and tokens[i].ttype == TokenType.Keyword  # identifier (catalog/schema)
+                and tokens[i + 1].ttype == TokenType.Operator.Comparison  # =
+                and tokens[i + 1].value == "="
+            ):
                 identifier = tokens[i].value.lower()
                 value_token = tokens[i + 2]
-                
+
                 # Extract the value
-                if hasattr(value_token, 'value'):
+                if hasattr(value_token, "value"):
                     value = value_token.value.strip("'\"")
                 else:
                     value = str(value_token).strip("'\"")
-                
+
                 if identifier == "catalog":
                     catalog_name = value
                     # Skip the three tokens we just processed
                     i += 3
                     # Skip following AND if present
-                    if i < len(tokens) and tokens[i].ttype == TokenType.Keyword and tokens[i].value.upper() == "AND":
+                    if (
+                        i < len(tokens)
+                        and tokens[i].ttype == TokenType.Keyword
+                        and tokens[i].value.upper() == "AND"
+                    ):
                         i += 1
                     continue
                 elif identifier == "schema":
@@ -723,10 +726,14 @@ class MlflowClient:
                     # Skip the three tokens we just processed
                     i += 3
                     # Skip following AND if present
-                    if i < len(tokens) and tokens[i].ttype == TokenType.Keyword and tokens[i].value.upper() == "AND":
+                    if (
+                        i < len(tokens)
+                        and tokens[i].ttype == TokenType.Keyword
+                        and tokens[i].value.upper() == "AND"
+                    ):
                         i += 1
                     continue
-            
+
             # Not a catalog/schema comparison, add to remaining tokens
             remaining_comparisons.append(str(tokens[i]))
             i += 1
