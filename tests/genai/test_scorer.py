@@ -251,7 +251,7 @@ def test_custom_scorer_allow_none_return():
     def dummy_scorer(inputs, outputs):
         return None
 
-    assert None == dummy_scorer.run(inputs={"question": "query"}, outputs="answer")
+    assert dummy_scorer.run(inputs={"question": "query"}, outputs="answer") is None
 
 
 def test_scorer_returns_feedback_with_error(sample_data):
