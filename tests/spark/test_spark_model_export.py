@@ -60,7 +60,7 @@ PYSPARK_VERSION = Version(pyspark.__version__)
 def spark_custom_env(tmp_path):
     conda_env = os.path.join(tmp_path, "conda_env.yml")
     additional_pip_deps = ["/opt/mlflow", f"pyspark=={PYSPARK_VERSION}", "pytest"]
-    if PYSPARK_VERSION <= Version("3.4"):
+    if PYSPARK_VERSION < Version("3.4"):
         additional_pip_deps.extend(
             [
                 # Versions of PySpark < 3.4 are incompatible with pandas >= 2
