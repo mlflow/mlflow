@@ -674,28 +674,40 @@ class Linter(ast.NodeVisitor):
                     self._check(loc, rules.LazyModule())
 
 
+def _has_trace_ui_content(output: dict[str, Any]) -> bool:
+    """Check if an output contains MLflow trace UI content."""
+    data = output.get("data")
+    if not data:
+        return False
+
+    for content_type, content in data.items():
+        if not isinstance(content, (str, list)):
+            continue
+
+        content_str = "".join(content) if isinstance(content, list) else content
+        if "static-files/lib/notebook-trace-renderer/index.html" in content_str:
+            return True
+
+    return False
+
+
 def _lint_cell(path: Path, config: Config, cell: dict[str, Any], index: int) -> list[Violation]:
     violations = []
     type_ = cell.get("cell_type")
 
     # Check for forbidden trace UI iframe in cell outputs
-    if outputs := cell.get("outputs"):
+    outputs = cell.get("outputs")
+    if outputs:
         for output in outputs:
-            if data := output.get("data"):
-                for content_type, content in data.items():
-                    if isinstance(content, (str, list)):
-                        content_str = "".join(content) if isinstance(content, list) else content
-                        if "static-files/lib/notebook-trace-renderer/index.html" in content_str:
-                            violations.append(
-                                Violation(
-                                    rules.ForbiddenTraceUIInNotebook(),
-                                    path,
-                                    Location(0, 0),
-                                    cell=index,
-                                )
-                            )
-                            break
-            if violations:  # Stop checking after finding the first violation
+            if _has_trace_ui_content(output):
+                violations.append(
+                    Violation(
+                        rules.ForbiddenTraceUIInNotebook(),
+                        path,
+                        Location(0, 0),
+                        cell=index,
+                    )
+                )
                 break
 
     if type_ != "code":
