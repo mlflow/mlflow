@@ -87,6 +87,7 @@ from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
     SearchPromptsResponse,
     SetPromptTagRequest,
     SetPromptTagResponse,
+    UnityCatalogSchema,
 )
 from mlflow.protos.unity_catalog_prompt_service_pb2 import UnityCatalogPromptService
 from mlflow.store._unity_catalog.lineage.constants import (
@@ -1269,22 +1270,48 @@ class UcModelRegistryStore(BaseRestStore):
         max_results: Optional[int] = None,
         order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
+        catalog_name: Optional[str] = None,
+        schema_name: Optional[str] = None,
     ) -> PagedList[PromptInfo]:
         """
         Search for prompts in Unity Catalog.
+        
+        Args:
+            filter_string: Additional filter string (after catalog/schema are removed)
+            max_results: Maximum number of results to return
+            order_by: List of fields to order by (not used in current implementation)
+            page_token: Token for pagination
+            catalog_name: Unity Catalog catalog name (for UC registries)
+            schema_name: Unity Catalog schema name (for UC registries)
         """
         from mlflow.store._unity_catalog.registry.utils import (
             proto_info_to_mlflow_prompt_info,
         )
         from mlflow.store.entities.paged_list import PagedList
-
-        req_body = message_to_json(
-            SearchPromptsRequest(
-                filter=filter_string,
-                max_results=max_results,
-                page_token=page_token,
+        
+        # Build the request with Unity Catalog schema if provided
+        if catalog_name and schema_name:
+            unity_catalog_schema = UnityCatalogSchema(
+                catalog_name=catalog_name,
+                schema_name=schema_name
             )
-        )
+            req_body = message_to_json(
+                SearchPromptsRequest(
+                    unity_catalog_schema=unity_catalog_schema,
+                    filter=filter_string,
+                    max_results=max_results,
+                    page_token=page_token,
+                )
+            )
+        else:
+            req_body = message_to_json(
+                SearchPromptsRequest(
+                    filter=filter_string,
+                    max_results=max_results,
+                    page_token=page_token,
+                )
+            )
+        
         response_proto = self._call_endpoint(SearchPromptsRequest, req_body)
         prompts = []
         for prompt_info in response_proto.prompts:

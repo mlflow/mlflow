@@ -565,7 +565,6 @@ class MlflowClient:
 
         return Prompt.from_model_version(mv, prompt_tags=prompt_tags)
 
-    @translate_prompt_exception
     @require_prompt_registry
     def search_prompts(
         self,
@@ -585,6 +584,10 @@ class MlflowClient:
                 An additional registry‐search expression to apply (e.g.
                 `"name LIKE 'my_prompt%'"`).  The prompt‐tag filter is always
                 applied internally.  Defaults to `None` (no extra filtering).
+                
+                For Unity Catalog registries, you must specify catalog and schema
+                using the format: `catalog = 'catalog_name' AND schema = 'schema_name'`.
+                Other filters are not currently supported for Unity Catalog.
             max_results (int):
                 The maximum number of prompts to return in one page.  Defaults
                 to `SEARCH_MAX_RESULTS_DEFAULT` (typically 1 000).
@@ -598,15 +601,90 @@ class MlflowClient:
                 entities representing prompt templates. Inspect the returned object's
                 `.token` attribute to fetch subsequent pages.
         """
-        fls = f"tag.`{IS_PROMPT_TAG_KEY}` = 'true'"
-        if filter_string:
-            fls = f"{fls} AND {filter_string}"
+        registry_client = self._get_registry_client()
+        
+        is_unity_catalog = is_databricks_unity_catalog_uri(self._registry_uri)
+        
+        if is_unity_catalog:
+            # For Unity Catalog, parse catalog and schema from filter string
+            if not filter_string:
+                raise MlflowException(
+                    "For Unity Catalog prompt registries, you must specify a filter with "
+                    "catalog and schema: catalog = 'catalog_name' AND schema = 'schema_name'",
+                    INVALID_PARAMETER_VALUE,
+                )
+            
+            catalog_name, schema_name, remaining_filter = self._parse_catalog_schema_filter(filter_string)
+            
+            if not catalog_name or not schema_name:
+                raise MlflowException(
+                    "For Unity Catalog prompt registries, you must specify both catalog and schema "
+                    "in the filter string: catalog = 'catalog_name' AND schema = 'schema_name'",
+                    INVALID_PARAMETER_VALUE,
+                )
+            
+            if remaining_filter:
+                raise MlflowException(
+                    f"Unity Catalog prompt search currently only supports catalog and schema filters. "
+                    f"Unsupported filter: {remaining_filter}",
+                    INVALID_PARAMETER_VALUE,
+                )
+            
+            # Call Unity Catalog store directly with structured parameters
+            return registry_client.store.search_prompts(
+                catalog_name=catalog_name,
+                schema_name=schema_name,
+                filter_string=remaining_filter,
+                max_results=max_results,
+                page_token=page_token,
+            )
+        else:
+            # For traditional registries, use existing prompt tag logic
+            fls = f"tag.`{IS_PROMPT_TAG_KEY}` = 'true'"
+            if filter_string:
+                fls = f"{fls} AND {filter_string}"
 
-        return self._get_registry_client().search_registered_models(
-            filter_string=fls,
-            max_results=max_results,
-            page_token=page_token,
-        )
+            return registry_client.search_registered_models(
+                filter_string=fls,
+                max_results=max_results,
+                page_token=page_token,
+            )
+
+    def _parse_catalog_schema_filter(self, filter_string: str) -> tuple[Optional[str], Optional[str], Optional[str]]:
+        """
+        Parse catalog and schema from filter string for Unity Catalog.
+        
+        Args:
+            filter_string: Filter string potentially containing catalog and schema
+            
+        Returns:
+            Tuple of (catalog_name, schema_name, remaining_filter)
+        """
+        if not filter_string:
+            return None, None, None
+            
+        # Patterns to match catalog and schema (case insensitive, single or double quotes)
+        catalog_pattern = r'catalog\s*=\s*[\'"]([^\'"]+)[\'"]'
+        schema_pattern = r'schema\s*=\s*[\'"]([^\'"]+)[\'"]'
+        
+        catalog_match = re.search(catalog_pattern, filter_string, re.IGNORECASE)
+        schema_match = re.search(schema_pattern, filter_string, re.IGNORECASE)
+        
+        catalog_name = catalog_match.group(1) if catalog_match else None
+        schema_name = schema_match.group(1) if schema_match else None
+        
+        # Remove catalog and schema parts from filter string to check for remaining filters
+        remaining_filter = filter_string
+        if catalog_match:
+            remaining_filter = remaining_filter.replace(catalog_match.group(0), '')
+        if schema_match:
+            remaining_filter = remaining_filter.replace(schema_match.group(0), '')
+            
+        # Clean up remaining filter (remove AND/OR connectors)
+        remaining_filter = re.sub(r'\s*(AND|OR)\s*', ' ', remaining_filter, flags=re.IGNORECASE).strip()
+        remaining_filter = remaining_filter if remaining_filter else None
+        
+        return catalog_name, schema_name, remaining_filter
 
     @experimental
     @require_prompt_registry
