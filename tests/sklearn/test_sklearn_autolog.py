@@ -848,6 +848,11 @@ def test_parameter_search_estimators_produce_expected_outputs(
         assert len(child_runs) == max_tuning_runs
         assert len(child_runs) + num_rest == num_total_results
 
+    # Check that each child run has a dataset input
+    for cr in child_runs:
+        cr = client.get_run(cr.info.run_id)
+        assert len(cr.inputs.dataset_inputs) == 1
+
     # Verify that the best max_tuning_runs of parameter search results
     # have a corresponding MLflow run with the expected data
     best_child_metrics = None
