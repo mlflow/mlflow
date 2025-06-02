@@ -7,7 +7,7 @@ from typing import Generator, Optional
 from mlflow.entities import LiveSpan, Trace, TraceData, TraceInfo
 from mlflow.environment_variables import MLFLOW_TRACE_TIMEOUT_SECONDS
 from mlflow.tracing.utils.timeout import get_trace_cache_with_timeout
-from mlflow.tracing.utils.truncation import truncate_request_response_preview
+from mlflow.tracing.utils.truncation import set_request_response_preview
 
 _logger = logging.getLogger(__name__)
 
@@ -25,17 +25,7 @@ class _Trace:
             # Convert LiveSpan, mutable objects, into immutable Span objects before persisting.
             trace_data.spans.append(span.to_immutable_span())
 
-        # If request/response preview is already set by users via `mlflow.update_current_trace`,
-        # we don't override it with the truncated version.
-        if self.info.request_preview is None:
-            self.info.request_preview = truncate_request_response_preview(
-                trace_data.request, role="user"
-            )
-        if self.info.response_preview is None:
-            self.info.response_preview = truncate_request_response_preview(
-                trace_data.response, role="assistant"
-            )
-
+        set_request_response_preview(self.info, trace_data)
         return Trace(self.info, trace_data)
 
     def get_root_span(self) -> Optional[LiveSpan]:
