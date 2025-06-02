@@ -187,7 +187,7 @@ class MlflowSparkStudy(Study):
         sampler = self.sampler
 
         def run_task_on_executor_pd(iterator):
-            import traceback # clint: disable=lazy-builtin-import)
+            import traceback  # clint: disable=lazy-builtin-import)
 
             import optuna
             import pandas as pd
