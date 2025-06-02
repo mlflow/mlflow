@@ -1420,6 +1420,27 @@ def search_datasets_impl(request_message):
         return _not_implemented()
 
 
+def _validate_gateway_path(method: str, gateway_path: str) -> None:
+    if not gateway_path:
+        raise MlflowException(
+            message="Deployments proxy request must specify a gateway_path.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    elif method == "GET":
+        if gateway_path.strip("/") != "api/2.0/endpoints":
+            raise MlflowException(
+                message=f"Invalid gateway_path: {gateway_path} for method: {method}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+    elif method == "POST":
+        # For POST, gateway_path must be in the form of "gateway/{name}/invocations"
+        if not re.fullmatch(r"gateway/[^/]+/invocations", gateway_path.strip("/")):
+            raise MlflowException(
+                message=f"Invalid gateway_path: {gateway_path} for method: {method}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+
 @catch_mlflow_exception
 def gateway_proxy_handler():
     target_uri = MLFLOW_DEPLOYMENTS_TARGET.get()
@@ -1428,18 +1449,10 @@ def gateway_proxy_handler():
         return {"endpoints": []}
 
     args = request.args if request.method == "GET" else request.json
-
     gateway_path = args.get("gateway_path")
-    if not gateway_path:
-        raise MlflowException(
-            message="Deployments proxy request must specify a gateway_path.",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
-    request_type = request.method
+    _validate_gateway_path(request.method, gateway_path)
     json_data = args.get("json_data", None)
-
-    response = requests.request(request_type, f"{target_uri}/{gateway_path}", json=json_data)
-
+    response = requests.request(request.method, f"{target_uri}/{gateway_path}", json=json_data)
     if response.status_code == 200:
         return response.json()
     else:
