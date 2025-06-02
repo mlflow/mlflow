@@ -24,7 +24,7 @@ def test_retrieval_groundedness(sample_rag_trace):
     mock_groundedness.assert_has_calls(
         [
             call(
-                request="query",
+                request="{'question': 'query'}",
                 response="answer",
                 retrieved_context=[
                     {"content": "content_1", "doc_uri": "url_1"},
@@ -33,7 +33,7 @@ def test_retrieval_groundedness(sample_rag_trace):
                 assessment_name="retrieval_groundedness",
             ),
             call(
-                request="query",
+                request="{'question': 'query'}",
                 response="answer",
                 retrieved_context=[{"content": "content_3"}],
                 assessment_name="retrieval_groundedness",
@@ -70,7 +70,7 @@ def test_retrieval_relevance(sample_rag_trace):
     mock_chunk_relevance.assert_has_calls(
         [
             call(
-                request="query",
+                request="{'question': 'query'}",
                 retrieved_context=[
                     {"content": "content_1", "doc_uri": "url_1"},
                     {"content": "content_2", "doc_uri": "url_2"},
@@ -78,7 +78,7 @@ def test_retrieval_relevance(sample_rag_trace):
                 assessment_name="retrieval_relevance",
             ),
             call(
-                request="query",
+                request="{'question': 'query'}",
                 retrieved_context=[{"content": "content_3"}],
                 assessment_name="retrieval_relevance",
             ),
@@ -146,7 +146,7 @@ def test_retrieval_sufficiency(sample_rag_trace):
     mock_context_sufficiency.assert_has_calls(
         [
             call(
-                request="query",
+                request="{'question': 'query'}",
                 retrieved_context=[
                     {"content": "content_1", "doc_uri": "url_1"},
                     {"content": "content_2", "doc_uri": "url_2"},
@@ -157,7 +157,7 @@ def test_retrieval_sufficiency(sample_rag_trace):
                 assessment_name="retrieval_sufficiency",
             ),
             call(
-                request="query",
+                request="{'question': 'query'}",
                 retrieved_context=[{"content": "content_3"}],
                 expected_response="expected answer",
                 expected_facts=["fact1", "fact2"],
@@ -185,7 +185,7 @@ def test_retrieval_sufficiency_with_custom_expectations(sample_rag_trace):
     mock_context_sufficiency.assert_has_calls(
         [
             call(
-                request="query",
+                request="{'question': 'query'}",
                 retrieved_context=[
                     {"content": "content_1", "doc_uri": "url_1"},
                     {"content": "content_2", "doc_uri": "url_2"},
@@ -196,7 +196,7 @@ def test_retrieval_sufficiency_with_custom_expectations(sample_rag_trace):
                 assessment_name="retrieval_sufficiency",
             ),
             call(
-                request="query",
+                request="{'question': 'query'}",
                 retrieved_context=[{"content": "content_3"}],
                 expected_response="expected answer",
                 expected_facts=["fact3"],
@@ -210,13 +210,14 @@ def test_guideline_adherence():
     # 1. Called with per-row guidelines
     with patch("databricks.agents.evals.judges.guideline_adherence") as mock_guideline_adherence:
         GuidelineAdherence()(
+            inputs={"question": "query"},
             outputs="answer",
             expectations={"guidelines": ["guideline1", "guideline2"]},
         )
 
     mock_guideline_adherence.assert_called_once_with(
         guidelines=["guideline1", "guideline2"],
-        guidelines_context={"response": "answer"},
+        guidelines_context={"request": "{'question': 'query'}", "response": "answer"},
         assessment_name="guideline_adherence",
     )
 
@@ -227,11 +228,14 @@ def test_guideline_adherence():
     )
 
     with patch("databricks.agents.evals.judges.guideline_adherence") as mock_guideline_adherence:
-        is_english(outputs="answer")
+        is_english(
+            inputs={"question": "query"},
+            outputs="answer",
+        )
 
     mock_guideline_adherence.assert_called_once_with(
         guidelines=["The response should be in English."],
-        guidelines_context={"response": "answer"},
+        guidelines_context={"request": "{'question': 'query'}", "response": "answer"},
         assessment_name="is_english",
     )
 
@@ -249,7 +253,7 @@ def test_relevance_to_query():
         )
 
     mock_chunk_relevance.assert_called_once_with(
-        request="query",
+        request="{'question': 'query'}",
         retrieved_context=["answer"],
         assessment_name="relevance_to_query",
     )
@@ -274,7 +278,7 @@ def test_safety():
         Safety()(outputs={"answer": "yes", "reason": "This is a test"})
 
     mock_safety.assert_called_once_with(
-        response='{"answer": "yes", "reason": "This is a test"}',
+        response="{'answer': 'yes', 'reason': 'This is a test'}",
         assessment_name="safety",
     )
 
@@ -288,7 +292,7 @@ def test_correctness():
         )
 
     mock_correctness.assert_called_once_with(
-        request="query",
+        request="{'question': 'query'}",
         response="answer",
         expected_facts=["fact1", "fact2"],
         expected_response=None,

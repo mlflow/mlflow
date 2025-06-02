@@ -295,7 +295,10 @@ class GuidelineAdherence(BuiltInScorer):
             name="english_guidelines",
             global_guidelines=["The response must be in English"],
         )
-        feedback = english(outputs="The capital of France is Paris.")
+        feedback = english(
+            inputs={"question": "What is the capital of France?"},
+            outputs="The capital of France is Paris.",
+        )
         print(feedback)
 
     Example (with evaluate):
@@ -379,6 +382,7 @@ class GuidelineAdherence(BuiltInScorer):
     def __call__(
         self,
         *,
+        inputs: dict[str, Any],
         outputs: Any,
         expectations: Optional[dict[str, Any]] = None,
     ) -> Assessment:
@@ -386,6 +390,7 @@ class GuidelineAdherence(BuiltInScorer):
         Evaluate adherence to specified guidelines.
 
         Args:
+            inputs: A dictionary of input data, e.g. {"question": "What is the capital of France?"}.
             outputs: The response from the model, e.g. "The capital of France is Paris."
             expectations: A dictionary of expectations for the response. This must contain either
                 `guidelines` key, which is used to evaluate the response against the guidelines
@@ -405,7 +410,10 @@ class GuidelineAdherence(BuiltInScorer):
 
         return judges.meets_guidelines(
             guidelines=guidelines,
-            context={"response": outputs},
+            context={
+                "request": parse_inputs_to_str(inputs),
+                "response": parse_output_to_str(outputs),
+            },
             name=self.name,
         )
 

@@ -12,9 +12,6 @@ on:
       - master
       - branch-[0-9]+.[0-9]+
 
-permissions:
-  contents: read
-
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
@@ -33,9 +30,11 @@ env:
 jobs:
   core:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/setup-python
 
       # Install mlflow-tracing SDK from the current directory
