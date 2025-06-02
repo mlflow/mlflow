@@ -1,3 +1,4 @@
+import sys
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -271,3 +272,41 @@ def test_extract_instructions():
     mock_forward.assert_called_once_with(prompt=template)
 
     assert result == "extracted system message"
+
+
+@pytest.mark.parametrize(
+    "verbose",
+    [
+        False,
+        True,
+    ],
+)
+def test_optimize_with_verbose(
+    mock_mipro, sample_data, sample_prompt, mock_extractor, verbose, capsys
+):
+    import dspy
+
+    mock_mipro.return_value.compile.side_effect = lambda *args, **kwargs: (
+        print("DSPy optimization progress")  # noqa: T201
+        or print("DSPy debug info", file=sys.stderr)  # noqa: T201
+        or dspy.Predict("input_text, language -> translation")
+    )
+
+    optimizer = _DSPyMIPROv2Optimizer(OptimizerConfig(verbose=verbose))
+
+    optimizer.optimize(
+        prompt=sample_prompt,
+        target_llm_params=LLMParams(model_name="agent/model"),
+        train_data=sample_data,
+        scorers=[sample_scorer],
+    )
+
+    captured = capsys.readouterr()
+    if verbose:
+        assert "DSPy optimization progress" in captured.out
+        assert "DSPy debug info" in captured.err
+    else:
+        assert "DSPy optimization progress" not in captured.out
+        assert "DSPy debug info" not in captured.err
+
+    mock_mipro.assert_called_once()
