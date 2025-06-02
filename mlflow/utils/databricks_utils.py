@@ -1242,8 +1242,8 @@ class DatabricksRuntimeVersion(NamedTuple):
     minor: int
 
     @classmethod
-    def parse(cls):
-        dbr_version = get_databricks_runtime_version()
+    def parse(cls, databricks_runtime: Optional[str] = None):
+        dbr_version = databricks_runtime or get_databricks_runtime_version()
         try:
             dbr_version_splits = dbr_version.split(".", maxsplit=2)
             if dbr_version_splits[0] == "client":

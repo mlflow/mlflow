@@ -93,11 +93,15 @@ def pack_env_for_databricks_model_serving(
                 "Model must have been created in a Databricks runtime environment. "
                 "Missing 'databricks_runtime' field in MLmodel file."
             )
-        if model_dict["databricks_runtime"] != get_databricks_runtime_version():
+
+        current_runtime = DatabricksRuntimeVersion.parse()
+        model_runtime = DatabricksRuntimeVersion.parse(model_dict["databricks_runtime"])
+        if current_runtime.major != model_runtime.major:
             raise ValueError(
                 f"Runtime version mismatch. Model was created with runtime "
-                f"{model_dict['databricks_runtime']}, "
-                f"but current runtime is {get_databricks_runtime_version()}"
+                f"{model_dict['databricks_runtime']} (major version {model_runtime.major}), "
+                f"but current runtime is {get_databricks_runtime_version()} "
+                f"(major version {current_runtime.major})"
             )
 
         if enforce_pip_requirements:

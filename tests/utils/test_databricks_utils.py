@@ -17,6 +17,7 @@ from mlflow.legacy_databricks_cli.configure.provider import (
 from mlflow.utils import databricks_utils
 from mlflow.utils.databricks_utils import (
     DatabricksConfigProvider,
+    DatabricksRuntimeVersion,
     check_databricks_secret_scope_access,
     get_databricks_host_creds,
     get_databricks_runtime_major_minor_version,
@@ -702,3 +703,65 @@ def test_print_databricks_deployment_job_url():
             mock_eprint.assert_called_once_with(
                 f"🔗 Linked deployment job to '{model_name}': {expected_url_no_workspace}"
             )
+
+
+def test_databricks_runtime_version_parse():
+    """Test that DatabricksRuntimeVersion.parse() correctly parses version strings."""
+    # Test client image versions
+    version = DatabricksRuntimeVersion.parse("client.2.0")
+    assert version.is_client_image is True
+    assert version.major == 2
+    assert version.minor == 0
+
+    version = DatabricksRuntimeVersion.parse("client.3.1")
+    assert version.is_client_image is True
+    assert version.major == 3
+    assert version.minor == 1
+
+    # Test non-client image versions
+    version = DatabricksRuntimeVersion.parse("13.2")
+    assert version.is_client_image is False
+    assert version.major == 13
+    assert version.minor == 2
+
+    version = DatabricksRuntimeVersion.parse("15.4")
+    assert version.is_client_image is False
+    assert version.major == 15
+    assert version.minor == 4
+
+
+def test_databricks_runtime_version_parse_default(monkeypatch):
+    """Test that DatabricksRuntimeVersion.parse() works without arguments."""
+    # Test with client image version
+    monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "client.2.0")
+    version = DatabricksRuntimeVersion.parse()
+    assert version.is_client_image is True
+    assert version.major == 2
+    assert version.minor == 0
+
+    # Test with non-client image version
+    monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "13.2")
+    version = DatabricksRuntimeVersion.parse()
+    assert version.is_client_image is False
+    assert version.major == 13
+    assert version.minor == 2
+
+    # Test with no environment variable set
+    monkeypatch.delenv("DATABRICKS_RUNTIME_VERSION")
+    with pytest.raises(Exception, match="Failed to parse databricks runtime version"):
+        DatabricksRuntimeVersion.parse()
+
+
+def test_databricks_runtime_version_parse_invalid():
+    """Test that DatabricksRuntimeVersion.parse() raises error for invalid version strings."""
+    with pytest.raises(Exception, match="Failed to parse databricks runtime version"):
+        DatabricksRuntimeVersion.parse("invalid")
+
+    with pytest.raises(Exception, match="Failed to parse databricks runtime version"):
+        DatabricksRuntimeVersion.parse("client")
+
+    with pytest.raises(Exception, match="Failed to parse databricks runtime version"):
+        DatabricksRuntimeVersion.parse("client.invalid")
+
+    with pytest.raises(Exception, match="Failed to parse databricks runtime version"):
+        DatabricksRuntimeVersion.parse("13")

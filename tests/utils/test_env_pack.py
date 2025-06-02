@@ -16,11 +16,10 @@ def mock_dbr_version():
     with mock.patch.object(
         DatabricksRuntimeVersion,
         "parse",
-        return_value=mock.Mock(
+        return_value=DatabricksRuntimeVersion(
             is_client_image=True,
             major=2,
             minor=0,
-            patch=0,
         ),
     ):
         yield
@@ -74,9 +73,6 @@ def test_pack_env_for_databricks_model_serving_pip_requirements(tmp_path, mock_d
             return_value=str(mock_artifacts_dir),
         ),
         mock.patch("subprocess.run") as mock_run,
-        mock.patch(
-            "mlflow.utils.env_pack.get_databricks_runtime_version", return_value="client.2.0"
-        ),
     ):
         # Mock subprocess.run to simulate successful pip install
         mock_run.return_value = mock.Mock(returncode=0)
@@ -134,9 +130,6 @@ def test_pack_env_for_databricks_model_serving_pip_requirements_error(tmp_path, 
         ),
         mock.patch("subprocess.run") as mock_run,
         mock.patch("mlflow.utils.env_pack.eprint") as mock_eprint,
-        mock.patch(
-            "mlflow.utils.env_pack.get_databricks_runtime_version", return_value="client.2.0"
-        ),
     ):
         mock_run.return_value = mock.Mock(
             returncode=1,
@@ -163,11 +156,10 @@ def test_pack_env_for_databricks_model_serving_unsupported_version():
     with mock.patch.object(
         DatabricksRuntimeVersion,
         "parse",
-        return_value=mock.Mock(
+        return_value=DatabricksRuntimeVersion(
             is_client_image=True,
             major=1,  # Unsupported version
             minor=0,
-            patch=0,
         ),
     ):
         with pytest.raises(ValueError, match="Serverless environment of versions"):
@@ -175,7 +167,7 @@ def test_pack_env_for_databricks_model_serving_unsupported_version():
                 pass
 
 
-def test_pack_env_for_databricks_model_serving_runtime_version_check(tmp_path, mock_dbr_version):
+def test_pack_env_for_databricks_model_serving_runtime_version_check(tmp_path, monkeypatch):
     """Test that pack_env_for_databricks_model_serving correctly checks runtime version
     compatibility.
     """
@@ -188,23 +180,39 @@ def test_pack_env_for_databricks_model_serving_runtime_version_check(tmp_path, m
     mlmodel_path.write_text(
         yaml.dump(
             {
-                "databricks_runtime": "client.3.0",  # Different from mock_dbr_version
+                "databricks_runtime": "client.3.0",  # Different major version
                 "flavors": {"python_function": {"model_path": "model.pkl"}},
             }
         )
     )
 
-    with (
-        mock.patch(
-            "mlflow.utils.env_pack.download_artifacts", return_value=str(mock_artifacts_dir)
-        ),
-        mock.patch(
-            "mlflow.utils.env_pack.get_databricks_runtime_version", return_value="client.2.0"
-        ),
+    # Set current runtime to client.2.0
+    monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "client.2.0")
+
+    with mock.patch(
+        "mlflow.utils.env_pack.download_artifacts", return_value=str(mock_artifacts_dir)
     ):
         with pytest.raises(ValueError, match="Runtime version mismatch"):
             with env_pack.pack_env_for_databricks_model_serving("models:/test-model/1"):
                 pass
+
+    # Test that same major version works
+    mlmodel_path.write_text(
+        yaml.dump(
+            {
+                "databricks_runtime": "client.2.1",  # Same major version
+                "flavors": {"python_function": {"model_path": "model.pkl"}},
+            }
+        )
+    )
+
+    with mock.patch(
+        "mlflow.utils.env_pack.download_artifacts", return_value=str(mock_artifacts_dir)
+    ):
+        with env_pack.pack_env_for_databricks_model_serving(
+            "models:/test-model/1"
+        ) as artifacts_dir:
+            assert Path(artifacts_dir).exists()
 
 
 def test_pack_env_for_databricks_model_serving_missing_runtime_version(tmp_path, mock_dbr_version):
