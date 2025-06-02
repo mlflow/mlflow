@@ -1,3 +1,4 @@
+import sys
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -286,7 +287,9 @@ def test_optimize_with_verbose(
     import dspy
 
     mock_mipro.return_value.compile.side_effect = lambda *args, **kwargs: (
-        print("DSPy optimization progress") or dspy.Predict("input_text, language -> translation")  # noqa: T201
+        print("DSPy optimization progress")  # noqa: T201
+        or print("DSPy debug info", file=sys.stderr)  # noqa: T201
+        or dspy.Predict("input_text, language -> translation")
     )
 
     optimizer = _DSPyMIPROv2Optimizer(OptimizerConfig(verbose=verbose))
@@ -301,7 +304,9 @@ def test_optimize_with_verbose(
     captured = capsys.readouterr()
     if verbose:
         assert "DSPy optimization progress" in captured.out
+        assert "DSPy debug info" in captured.err
     else:
         assert "DSPy optimization progress" not in captured.out
+        assert "DSPy debug info" not in captured.err
 
     mock_mipro.assert_called_once()

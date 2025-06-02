@@ -60,7 +60,7 @@ class OptimizerConfig:
         optimizer_llm: Optional LLM parameters for the teacher model. If not provided,
             the target LLM will be used as the teacher.
         algorithm: The optimization algorithm to use. Default: "DSPy/MIPROv2"
-        verbose: Whether to show detailed optimization progress. Default: False
+        verbose: Whether to show optimizer logs during optimization. Default: False
     """
 
     num_instruction_candidates: int = 8

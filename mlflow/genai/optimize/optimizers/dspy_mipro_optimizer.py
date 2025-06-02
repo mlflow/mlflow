@@ -84,7 +84,7 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
 
         adapter = dspy.JSONAdapter()
         with dspy.context(lm=lm, adapter=adapter):
-            with self._redirect_logs():
+            with self._maybe_suppress_stdout_stderr():
                 optimized_program = optimizer.compile(
                     program,
                     trainset=train_data,
@@ -155,7 +155,7 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
             return extractor(prompt=template).instruction
 
     @contextlib.contextmanager
-    def _redirect_logs(self):
+    def _maybe_suppress_stdout_stderr(self):
         """Context manager for redirecting stdout/stderr based on verbose setting.
         If verbose is False, redirects output to devnull or StringIO.
         If verbose is True, doesn't redirect output.
