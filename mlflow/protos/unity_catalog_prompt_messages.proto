@@ -46,6 +46,11 @@ message PromptAlias {
   required string version = 2;
 }
 
+message UnityCatalogSchema {
+  required string catalog_name = 1;
+  required string schema_name = 2;
+}
+
 // Request/Response messages
 message CreatePromptRequest {
   required string name = 1;
@@ -84,9 +89,13 @@ message GetPromptResponse {
 }
 
 message SearchPromptsRequest {
-  optional string filter = 1;
-  optional int32 max_results = 2;
-  optional string page_token = 3;
+  oneof location {
+    string experiment_id = 1;
+    UnityCatalogSchema unity_catalog_schema = 2;
+  }
+  optional string filter = 3;
+  optional int64 max_results = 4;
+  optional string page_token = 5;
 }
 
 message SearchPromptsResponse {
