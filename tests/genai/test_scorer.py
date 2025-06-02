@@ -246,6 +246,14 @@ def test_scorer_on_genai_evaluate(sample_data, scorer_return):
     assert any("metric/dummy_scorer" in metric for metric in results.metrics.keys())
 
 
+def test_custom_scorer_allow_none_return():
+    @scorer
+    def dummy_scorer(inputs, outputs):
+        return None
+
+    assert dummy_scorer.run(inputs={"question": "query"}, outputs="answer") is None
+
+
 def test_scorer_returns_feedback_with_error(sample_data):
     @scorer
     def dummy_scorer(inputs):

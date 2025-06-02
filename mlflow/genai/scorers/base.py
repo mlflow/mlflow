@@ -35,6 +35,8 @@ class Scorer(BaseModel):
                 isinstance(result, list)
                 and all(isinstance(item, (Assessment, LegacyAssessment)) for item in result)
             )
+            # Allow None to represent an empty assessment from the scorer.
+            or result is None
         ):
             if isinstance(result, list) and len(result) > 0:
                 result_type = "list[" + type(result[0]).__name__ + "]"
