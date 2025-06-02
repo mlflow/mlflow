@@ -692,7 +692,7 @@ def _has_trace_ui_content(output: dict[str, Any]) -> bool:
 
 
 def _lint_cell(path: Path, config: Config, cell: dict[str, Any], index: int) -> list[Violation]:
-    violations = []
+    violations: list[Violation] = []
     type_ = cell.get("cell_type")
 
     # Check for forbidden trace UI iframe in cell outputs
