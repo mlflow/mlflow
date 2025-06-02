@@ -1275,7 +1275,7 @@ class UcModelRegistryStore(BaseRestStore):
     ) -> PagedList[PromptInfo]:
         """
         Search for prompts in Unity Catalog.
-        
+
         Args:
             filter_string: Additional filter string (after catalog/schema are removed)
             max_results: Maximum number of results to return
@@ -1288,12 +1288,11 @@ class UcModelRegistryStore(BaseRestStore):
             proto_info_to_mlflow_prompt_info,
         )
         from mlflow.store.entities.paged_list import PagedList
-        
+
         # Build the request with Unity Catalog schema if provided
         if catalog_name and schema_name:
             unity_catalog_schema = UnityCatalogSchema(
-                catalog_name=catalog_name,
-                schema_name=schema_name
+                catalog_name=catalog_name, schema_name=schema_name
             )
             req_body = message_to_json(
                 SearchPromptsRequest(
@@ -1311,7 +1310,7 @@ class UcModelRegistryStore(BaseRestStore):
                     page_token=page_token,
                 )
             )
-        
+
         response_proto = self._call_endpoint(SearchPromptsRequest, req_body)
         prompts = []
         for prompt_info in response_proto.prompts:
