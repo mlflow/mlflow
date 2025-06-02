@@ -656,7 +656,7 @@ class MlflowClient:
         self, filter_string: str
     ) -> tuple[Optional[str], Optional[str], Optional[str]]:
         """
-        Parse catalog and schema from filter string for Unity Catalog.
+        Parse catalog and schema from filter string for Unity Catalog using SQL parsing.
 
         Args:
             filter_string: Filter string potentially containing catalog and schema
@@ -667,28 +667,80 @@ class MlflowClient:
         if not filter_string:
             return None, None, None
 
-        # Patterns to match catalog and schema (case insensitive, single or double quotes)
-        catalog_pattern = r'catalog\s*=\s*[\'"]([^\'"]+)[\'"]'
-        schema_pattern = r'schema\s*=\s*[\'"]([^\'"]+)[\'"]'
+        import sqlparse
+        from sqlparse.sql import Comparison, Statement
+        from sqlparse.tokens import Token as TokenType
 
-        catalog_match = re.search(catalog_pattern, filter_string, re.IGNORECASE)
-        schema_match = re.search(schema_pattern, filter_string, re.IGNORECASE)
+        try:
+            parsed = sqlparse.parse(filter_string)
+        except Exception as e:
+            raise MlflowException(
+                f"Error parsing filter string '{filter_string}': {e}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
 
-        catalog_name = catalog_match.group(1) if catalog_match else None
-        schema_name = schema_match.group(1) if schema_match else None
+        if len(parsed) != 1:
+            raise MlflowException(
+                f"Invalid filter string '{filter_string}'. Expected a single SQL expression.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
 
-        # Remove catalog and schema parts from filter string to check for remaining filters
-        remaining_filter = filter_string
-        if catalog_match:
-            remaining_filter = remaining_filter.replace(catalog_match.group(0), "")
-        if schema_match:
-            remaining_filter = remaining_filter.replace(schema_match.group(0), "")
+        catalog_name = None
+        schema_name = None
+        remaining_comparisons = []
 
-        # Clean up remaining filter (remove AND/OR connectors)
-        remaining_filter = re.sub(
-            r"\s*(AND|OR)\s*", " ", remaining_filter, flags=re.IGNORECASE
-        ).strip()
-        remaining_filter = remaining_filter if remaining_filter else None
+        # Process tokens to find catalog and schema comparisons
+        # Note: We can't use _join_in_comparison_tokens because it only works with dotted identifiers
+        tokens = [t for t in parsed[0].tokens if not t.is_whitespace]
+        i = 0
+        
+        while i < len(tokens):
+            # Look for pattern: identifier = value
+            if (i + 2 < len(tokens) and 
+                tokens[i].ttype == TokenType.Keyword and  # identifier (catalog/schema)
+                tokens[i + 1].ttype == TokenType.Operator.Comparison and  # =
+                tokens[i + 1].value == "="):
+                
+                identifier = tokens[i].value.lower()
+                value_token = tokens[i + 2]
+                
+                # Extract the value
+                if hasattr(value_token, 'value'):
+                    value = value_token.value.strip("'\"")
+                else:
+                    value = str(value_token).strip("'\"")
+                
+                if identifier == "catalog":
+                    catalog_name = value
+                    # Skip the three tokens we just processed
+                    i += 3
+                    # Skip following AND if present
+                    if i < len(tokens) and tokens[i].ttype == TokenType.Keyword and tokens[i].value.upper() == "AND":
+                        i += 1
+                    continue
+                elif identifier == "schema":
+                    schema_name = value
+                    # Skip the three tokens we just processed
+                    i += 3
+                    # Skip following AND if present
+                    if i < len(tokens) and tokens[i].ttype == TokenType.Keyword and tokens[i].value.upper() == "AND":
+                        i += 1
+                    continue
+            
+            # Not a catalog/schema comparison, add to remaining tokens
+            remaining_comparisons.append(str(tokens[i]))
+            i += 1
+
+        # Reconstruct remaining filter string by filtering out standalone AND tokens
+        if remaining_comparisons:
+            # Filter out standalone AND tokens and reconstruct properly
+            filtered_tokens = []
+            for token_str in remaining_comparisons:
+                if token_str.upper() != "AND":
+                    filtered_tokens.append(token_str)
+            remaining_filter = " ".join(filtered_tokens).strip() if filtered_tokens else None
+        else:
+            remaining_filter = None
 
         return catalog_name, schema_name, remaining_filter
 
