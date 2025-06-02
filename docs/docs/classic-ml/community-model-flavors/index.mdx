@@ -39,7 +39,7 @@ model.fit(data)
 # Log with MLflow
 with mlflow.start_run():
     community_flavor.log_model(model, "model_path")
-    
+
 # Load for inference
 loaded_model = community_flavor.load_model("model_uri")
 predictions = loaded_model.predict(new_data)
@@ -115,14 +115,12 @@ with mlflow.start_run():
     # Train KNN detector
     clf = KNN()
     clf.fit(X_train)
-    
+
     # Log model
     mlflavors.pyod.log_model(
-        pyod_model=clf,
-        artifact_path="anomaly_detector",
-        serialization_format="pickle"
+        pyod_model=clf, artifact_path="anomaly_detector", serialization_format="pickle"
     )
-    
+
     # Evaluate
     scores = clf.decision_function(X_test)
     mlflow.log_metric("mean_anomaly_score", scores.mean())
@@ -135,10 +133,8 @@ loaded_pyfunc = mlflavors.pyod.pyfunc.load_model(model_uri="model_uri")
 
 # Create configuration for inference
 import pandas as pd
-predict_conf = pd.DataFrame([{
-    "X": X_test,
-    "predict_method": "decision_function"
-}])
+
+predict_conf = pd.DataFrame([{"X": X_test, "predict_method": "decision_function"}])
 
 anomaly_scores = loaded_pyfunc.predict(predict_conf)[0]
 ```
@@ -166,11 +162,7 @@ df_iris = load_iris(as_frame=True)
 viz_iris = (
     alt.Chart(df_iris)
     .mark_circle(size=60)
-    .encode(
-        x="sepal_length:Q",
-        y="sepal_width:Q", 
-        color="target:N"
-    )
+    .encode(x="sepal_length:Q", y="sepal_width:Q", color="target:N")
     .properties(height=375, width=575)
     .interactive()
 )
@@ -181,7 +173,7 @@ with mlflow.start_run():
         model=viz_iris,
         artifact_path="iris_viz",
         style="vegalite",
-        input_example=df_iris.head(5)
+        input_example=df_iris.head(5),
     )
 ```
 
@@ -208,12 +200,12 @@ MODEL_FILE = "logistic_regression.json"
 with mlflow.start_run():
     with open(MODEL_FILE) as handler:
         model = json.load(handler)
-        
+
     # Log BigML model
     bigmlflow.log_model(
-        model, 
+        model,
         artifact_path="bigml_model",
-        registered_model_name="production_classifier"
+        registered_model_name="production_classifier",
     )
 
 # Load and use for inference
@@ -300,14 +292,14 @@ import mlflow_go_backend
 
 # Enable debug logging to see Go backend in action
 logging.basicConfig()
-logging.getLogger('mlflow_go_backend').setLevel(logging.DEBUG)
+logging.getLogger("mlflow_go_backend").setLevel(logging.DEBUG)
 
 # Enable Go implementation
 mlflow_go_backend.enable_go()
 
 # Get high-performance tracking store
 tracking_store = mlflow.tracking._tracking_service.utils._get_store(
-    'postgresql://user:pass@localhost:5432/mlflow'
+    "postgresql://user:pass@localhost:5432/mlflow"
 )
 
 # All operations now use Go backend
@@ -316,7 +308,7 @@ runs = tracking_store.search_runs([experiment.experiment_id], "")
 
 # Get high-performance model registry store
 model_registry_store = mlflow.tracking._model_registry.utils._get_store(
-    'postgresql://user:pass@localhost:5432/mlflow'
+    "postgresql://user:pass@localhost:5432/mlflow"
 )
 
 # Model registry operations also use Go backend
@@ -367,13 +359,14 @@ pip install mlflow-go-backend
 # Old command
 mlflow server --backend-store-uri postgresql://...
 
-# New command  
+# New command
 mlflow-go server --backend-store-uri postgresql://...
 ```
 
 **Step 3: Enable in Client Code**
 ```python
 import mlflow_go_backend
+
 mlflow_go_backend.enable_go()
 ```
 
@@ -396,7 +389,7 @@ print(f"Logged 1000 metrics in {duration:.2f} seconds")
 The MLflow Go Backend is actively seeking contributors:
 
 **Missing Endpoints:** Help implement remaining REST API endpoints in Go
-**Performance Optimization:** Improve existing Go implementations  
+**Performance Optimization:** Improve existing Go implementations
 **Testing:** Add test coverage for edge cases and performance scenarios
 **Documentation:** Improve setup and usage documentation
 
@@ -423,13 +416,16 @@ def save_model(model, path, **kwargs):
     """Save model to specified path with MLflow format"""
     pass
 
+
 def log_model(model, artifact_path, **kwargs):
     """Log model to current MLflow run"""
     pass
 
+
 def load_model(model_uri):
     """Load model from MLflow format"""
     pass
+
 
 def _load_pyfunc(path):
     """Load model as PyFunc for generic inference"""
@@ -450,42 +446,45 @@ from mlflow.utils.environment import _CONDA_ENV_FILE_NAME, _PYTHON_ENV_FILE_NAME
 FLAVOR_NAME = "sktime"
 SERIALIZATION_FORMAT_PICKLE = "pickle"
 
-def save_model(sktime_model, path, conda_env=None, 
-               serialization_format=SERIALIZATION_FORMAT_PICKLE):
+
+def save_model(
+    sktime_model, path, conda_env=None, serialization_format=SERIALIZATION_FORMAT_PICKLE
+):
     """Save sktime model in MLflow format"""
-    
+
     # Validate and prepare save path
     os.makedirs(path, exist_ok=True)
-    
+
     # Create MLflow model configuration
     mlflow_model = Model()
-    
+
     # Save the actual model
     model_data_subpath = "model.pkl"
     model_data_path = os.path.join(path, model_data_subpath)
-    
+
     with open(model_data_path, "wb") as f:
         pickle.dump(sktime_model, f)
-    
+
     # Add PyFunc flavor for generic inference
     pyfunc.add_to_model(
         mlflow_model,
         loader_module="custom_sktime_flavor",  # Your module name
         model_path=model_data_subpath,
         conda_env=_CONDA_ENV_FILE_NAME,
-        python_env=_PYTHON_ENV_FILE_NAME
+        python_env=_PYTHON_ENV_FILE_NAME,
     )
-    
+
     # Add custom flavor configuration
     mlflow_model.add_flavor(
         FLAVOR_NAME,
         pickled_model=model_data_subpath,
         sktime_version=sktime.__version__,
-        serialization_format=serialization_format
+        serialization_format=serialization_format,
     )
-    
+
     # Save MLmodel configuration file
     mlflow_model.save(os.path.join(path, MLMODEL_FILE_NAME))
+
 
 def log_model(sktime_model, artifact_path, **kwargs):
     """Log sktime model to current MLflow run"""
@@ -493,51 +492,52 @@ def log_model(sktime_model, artifact_path, **kwargs):
         artifact_path=artifact_path,
         flavor=custom_sktime_flavor,  # Your module reference
         sktime_model=sktime_model,
-        **kwargs
+        **kwargs,
     )
+
 
 def load_model(model_uri):
     """Load sktime model from MLflow format"""
     local_model_path = mlflow.artifacts.download_artifacts(model_uri)
-    
+
     # Read flavor configuration
     model_config = Model.load(os.path.join(local_model_path, MLMODEL_FILE_NAME))
     flavor_conf = model_config.flavors[FLAVOR_NAME]
-    
+
     # Load the pickled model
     model_path = os.path.join(local_model_path, flavor_conf["pickled_model"])
     with open(model_path, "rb") as f:
         return pickle.load(f)
 
+
 class SktimeModelWrapper:
     """PyFunc wrapper for sktime models"""
-    
+
     def __init__(self, sktime_model):
         self.sktime_model = sktime_model
-    
+
     def predict(self, context, model_input):
         """Predict using configuration DataFrame"""
         if len(model_input) != 1:
             raise ValueError("Configuration DataFrame must have exactly 1 row")
-        
+
         config = model_input.iloc[0].to_dict()
         predict_method = config.get("predict_method", "predict")
-        
+
         if predict_method == "predict":
             fh = config.get("fh", None)
             X = config.get("X", None)
             return self.sktime_model.predict(fh=fh, X=X)
-        
+
         elif predict_method == "predict_interval":
             fh = config.get("fh", None)
-            X = config.get("X", None) 
+            X = config.get("X", None)
             coverage = config.get("coverage", 0.9)
-            return self.sktime_model.predict_interval(
-                fh=fh, X=X, coverage=coverage
-            )
-        
+            return self.sktime_model.predict_interval(fh=fh, X=X, coverage=coverage)
+
         else:
             raise ValueError(f"Unsupported predict_method: {predict_method}")
+
 
 def _load_pyfunc(path):
     """Load model as PyFunc"""
@@ -561,8 +561,7 @@ forecaster.fit(y, X=X)
 # Log with custom flavor
 with mlflow.start_run():
     custom_sktime_flavor.log_model(
-        sktime_model=forecaster,
-        artifact_path="custom_forecaster"
+        sktime_model=forecaster, artifact_path="custom_forecaster"
     )
     model_uri = mlflow.get_artifact_uri("custom_forecaster")
 
@@ -574,12 +573,16 @@ native_predictions = loaded_model.predict(fh=[1, 2, 3])
 loaded_pyfunc = mlflow.pyfunc.load_model(model_uri)
 
 # Create configuration for PyFunc prediction
-config_df = pd.DataFrame([{
-    "predict_method": "predict_interval",
-    "fh": [1, 2, 3, 4],
-    "coverage": [0.9, 0.95],
-    "X": X.tail(4).values.tolist()  # JSON serializable
-}])
+config_df = pd.DataFrame(
+    [
+        {
+            "predict_method": "predict_interval",
+            "fh": [1, 2, 3, 4],
+            "coverage": [0.9, 0.95],
+            "X": X.tail(4).values.tolist(),  # JSON serializable
+        }
+    ]
+)
 
 pyfunc_predictions = loaded_pyfunc.predict(config_df)
 ```
@@ -596,14 +599,11 @@ mlflow models serve -m runs:/RUN_ID/custom_forecaster --host 127.0.0.1 --port 50
 import requests
 import pandas as pd
 
-config_df = pd.DataFrame([{
-    "predict_method": "predict",
-    "fh": [1, 2, 3, 4]
-}])
+config_df = pd.DataFrame([{"predict_method": "predict", "fh": [1, 2, 3, 4]}])
 
 response = requests.post(
     "http://127.0.0.1:5000/invocations",
-    json={"dataframe_split": config_df.to_dict(orient="split")}
+    json={"dataframe_split": config_df.to_dict(orient="split")},
 )
 
 predictions = response.json()
@@ -646,7 +646,7 @@ with mlflow.start_run():
         artifact_path="model",
         # Framework-specific parameters
         serialization_format="pickle",
-        custom_config={"param": "value"}
+        custom_config={"param": "value"},
     )
 
 # 3. Load for inference
@@ -668,13 +668,17 @@ import pandas as pd
 
 # Many community flavors use configuration DataFrames
 # for complex inference parameters
-config_df = pd.DataFrame([{
-    "predict_method": "predict_interval",  # What type of prediction
-    "fh": [1, 2, 3, 4],                   # Forecast horizon
-    "coverage": [0.9, 0.95],              # Confidence intervals
-    "X": exogenous_data.tolist(),         # Additional features
-    "custom_param": "value"               # Framework-specific options
-}])
+config_df = pd.DataFrame(
+    [
+        {
+            "predict_method": "predict_interval",  # What type of prediction
+            "fh": [1, 2, 3, 4],  # Forecast horizon
+            "coverage": [0.9, 0.95],  # Confidence intervals
+            "X": exogenous_data.tolist(),  # Additional features
+            "custom_param": "value",  # Framework-specific options
+        }
+    ]
+)
 
 # Use configuration with PyFunc model
 pyfunc_model = community_flavor.pyfunc.load_model(model_uri)
@@ -735,10 +739,12 @@ def save_model(model, path, serialization_format="pickle"):
     if serialization_format == "joblib":
         # Use joblib for sklearn-compatible models
         import joblib
+
         joblib.dump(model, os.path.join(path, "model.joblib"))
     elif serialization_format == "cloudpickle":
         # Use cloudpickle for complex models with custom objects
         import cloudpickle
+
         with open(os.path.join(path, "model.pkl"), "wb") as f:
             cloudpickle.dump(model, f)
 ```
