@@ -16,6 +16,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai import scorer
 from mlflow.genai.evaluation.utils import _convert_to_legacy_eval_set
 from mlflow.genai.scorers.builtin_scorers import safety
+from mlflow.utils.spark_utils import is_spark_connect_mode
 
 if importlib.util.find_spec("databricks.agents") is None:
     pytest.skip(reason="databricks-agents is not installed", allow_module_level=True)
@@ -23,16 +24,14 @@ if importlib.util.find_spec("databricks.agents") is None:
 
 @pytest.fixture(scope="module")
 def spark():
-    try:
-        from pyspark.sql import SparkSession
+    # databricks-agents installs databricks-connect
+    if is_spark_connect_mode():
+        pytest.skip("Local Spark Session is not supported when databricks-connect is installed.")
 
-        with SparkSession.builder.getOrCreate() as spark:
-            yield spark
-    except Exception as e:
-        # Spark might not be available in local environment.
-        if "GITHUB_ACTIONS" not in os.environ:
-            pytest.skip(f"Failed to create a spark session: {e}")
-        raise e
+    from pyspark.sql import SparkSession
+
+    with SparkSession.builder.getOrCreate() as spark:
+        yield spark
 
 
 def count_rows(data: Any) -> int:
