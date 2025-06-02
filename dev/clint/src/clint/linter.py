@@ -681,14 +681,11 @@ def _has_trace_ui_content(output: dict[str, Any]) -> bool:
         return False
 
     # Check only HTML outputs since trace UI content is only added to text/html
-    if html_content := data.get("text/html"):
-        if not isinstance(html_content, (str, list)):
-            return False
+    html = data.get("text/html")
+    if not html:
+        return False
 
-        content_str = "".join(html_content) if isinstance(html_content, list) else html_content
-        return "static-files/lib/notebook-trace-renderer/index.html" in content_str
-
-    return False
+    return any("static-files/lib/notebook-trace-renderer/index.html" in line for line in html)
 
 
 def _lint_cell(path: Path, config: Config, cell: dict[str, Any], index: int) -> list[Violation]:
