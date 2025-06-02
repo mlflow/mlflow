@@ -11,6 +11,7 @@ import mlflow
 from mlflow.exceptions import ExecutionException
 from mlflow.pyspark.optuna.study import MlflowSparkStudy
 
+from tests.optuna.test_storage import setup_storage  # noqa: F401
 from tests.pyfunc.test_spark import get_spark_session
 
 _logger = logging.getLogger(__name__)
