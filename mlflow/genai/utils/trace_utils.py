@@ -18,6 +18,7 @@ from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
 from mlflow.tracing.processor.base_mlflow import get_basic_trace_metadata
 from mlflow.tracing.provider import _get_trace_exporter
 from mlflow.tracing.utils import generate_trace_id_v3, maybe_get_request_id
+from mlflow.tracing.utils.truncation import truncate_request_response_preview
 
 _logger = logging.getLogger(__name__)
 
@@ -231,15 +232,22 @@ def copy_model_serving_trace_to_eval_run(trace_dict: dict[str, Any], experiment_
         by calling `mlflow.log_assessment()` API with the new trace ID.
 
     Args:
-        trace_dict: The trace dictionary returned from model serving endpoint.
+        trace_dict: The trace dictionary returned from model serving endpoint. This can be
+            either V2 or V3 trace.
         experiment_id: The ID of the experiment to copy the trace to.
 
     Returns:
-        The ID of the copied trace in the target experiment.
+        The ID of the copied trace in the target experiment. This must be V3 trace regardless
+        of the original trace version.
     """
+    new_trace_id = generate_trace_id_v3()
+
+    is_v2_trace = "request_id" in trace_dict["info"]
+
+    metadata_key = "request_preview" if is_v2_trace else "trace_metadata"
     # Add some important tags/metadata that are only available
     # in the evaluation context e.g. Run ID.
-    trace_metadata = {**trace_dict["info"].get("trace_metadata", {}), **get_basic_trace_metadata()}
+    trace_metadata = {**trace_dict["info"].get(metadata_key, {}), **get_basic_trace_metadata()}
     new_tags = {
         TraceTagKey.EVAL_REQUEST_ID: maybe_get_request_id(is_evaluate=True),
         # mlflow.artifactLocation tag should be removed because we create a new trace.
@@ -250,20 +258,13 @@ def copy_model_serving_trace_to_eval_run(trace_dict: dict[str, Any], experiment_
         },
     }
 
-    new_trace_id = generate_trace_id_v3()
-    new_trace_info = TraceInfo.from_dict(
-        {
-            **trace_dict["info"],
-            "trace_id": new_trace_id,
-            "trace_location": TraceLocation.from_experiment_id(experiment_id).to_dict(),
-            "tags": new_tags,
-            "trace_metadata": trace_metadata,
-            # NB: Not copying assessments for simplicity.
-            "assessments": [],
-            # NB: Workaround for the eval UI tries to fetch artifact using client request ID.
-            "client_request_id": None,
-        }
-    )
+    new_trace_info = TraceInfo.from_dict(trace_dict["info"])
+    new_trace_info.trace_id = new_trace_id
+    new_trace_info.trace_location = TraceLocation.from_experiment_id(experiment_id)
+    new_trace_info.tags = new_tags
+    new_trace_info.trace_metadata = trace_metadata
+    new_trace_info.assessments = []
+    new_trace_info.client_request_id = None
 
     def _copy_span_with_new_trace_id(span_dict: dict[str, Any]) -> Span:
         """Create a new span object with the new trace ID."""
@@ -272,6 +273,15 @@ def copy_model_serving_trace_to_eval_run(trace_dict: dict[str, Any], experiment_
 
     spans = [_copy_span_with_new_trace_id(span) for span in trace_dict["data"]["spans"]]
     new_trace = Trace(info=new_trace_info, data=TraceData(spans=spans))
+
+    # If the trace was v2, set request/response preview
+    if is_v2_trace:
+        new_trace_info.request_preview = truncate_request_response_preview(
+            new_trace.data.request, "user"
+        )
+        new_trace_info.response_preview = truncate_request_response_preview(
+            new_trace.data.response, "assistant"
+        )
 
     # Export trace to backend as if it was created in the current run.
     _get_trace_exporter()._export_trace(new_trace)

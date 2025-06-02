@@ -4,11 +4,14 @@ from unittest import mock
 import pytest
 
 import mlflow
+from mlflow.entities.trace_info import TraceInfo
 from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_TRACE_LOGGING
 from mlflow.genai.evaluation.base import to_predict_fn
 from mlflow.genai.utils.trace_utils import convert_predict_fn
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY
 
 from tests.evaluate.test_evaluation import _DUMMY_CHAT_RESPONSE
+from tests.tracing.helper import V2_TRACE_DICT
 
 
 @pytest.fixture
@@ -137,3 +140,41 @@ def test_to_predict_fn_pass_tracing_check(
     assert trace.data.spans[0].name == "rag"
     assert trace.data.spans[0].inputs == {"question": "query"}
     assert trace.data.spans[0].outputs == "answer"
+
+
+def test_to_predict_fn_return_v2_trace(sample_rag_trace, mock_deploy_client, mock_tracing_client):
+    mock_deploy_client.predict.return_value = {
+        **_DUMMY_CHAT_RESPONSE,
+        "databricks_output": {"trace": V2_TRACE_DICT},
+    }
+    messages = [
+        {"content": "You are a helpful assistant.", "role": "system"},
+        {"content": "What is Spark?", "role": "user"},
+    ]
+
+    predict_fn = to_predict_fn("endpoints:/chat")
+    response = predict_fn(messages=messages)
+
+    mock_deploy_client.predict.assert_called_once_with(
+        endpoint="chat",
+        inputs={
+            "messages": messages,
+            "databricks_options": {"return_trace": True},
+        },
+    )
+    assert response == _DUMMY_CHAT_RESPONSE  # Response should not contain databricks_output
+
+    # Trace from endpoint (sample_rag_trace) should be copied to the current experiment
+    mock_tracing_client.start_trace_v3.assert_called_once()
+    trace = mock_tracing_client.start_trace_v3.call_args[0][0]
+    # Copied trace should have a new trace ID (and v3)
+    isinstance(trace.info, TraceInfo)
+    assert trace.info.trace_id != sample_rag_trace.info.trace_id
+    assert trace.info.request_preview == '{"x": 2, "y": 5}'
+    assert trace.info.response_preview == "8"
+    assert trace.info.trace_metadata[TRACE_SCHEMA_VERSION_KEY] == "3"
+    assert len(trace.data.spans) == 2
+    assert trace.data.spans[0].name == "predict"
+    assert trace.data.spans[0].inputs == {"x": 2, "y": 5}
+    assert trace.data.spans[0].outputs == 8
+    mock_tracing_client._upload_trace_data.assert_called_once_with(mock.ANY, trace.data)

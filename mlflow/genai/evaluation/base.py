@@ -384,7 +384,6 @@ def to_predict_fn(endpoint_uri: str) -> Callable:
         try:
             # If the endpoint returns a trace, copy it to the current experiment.
             if trace_dict := result.pop("databricks_output", {}).get("trace"):
-                trace_id = trace_dict["info"]["trace_id"]
                 trace_id = copy_model_serving_trace_to_eval_run(trace_dict, experiment_id)
 
                 # This is required for the evaluation harness to find the trace.
