@@ -1,19 +1,15 @@
 import datetime
 import logging
-import sys
 import tempfile
 import traceback
 from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Optional
 
-
 import optuna
 from optuna import exceptions, pruners, samplers, storages
 from optuna.study import Study
-from optuna.trial import FrozenTrial
-from optuna.trial import TrialState
-
+from optuna.trial import FrozenTrial, TrialState
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, first
 
@@ -46,6 +42,7 @@ def _optimize_sequential(
     """
     Run optimization sequentially. It is modified from _optimize_sequential in optuna
     (https://github.com/optuna/optuna/blob/e1e30e7150047e5f582b8fef1eeb65386cb1c4c1/optuna/study/_optimize.py#L121)
+    Convert the nested call to one function and log the error messages to mlflow.
     """
     i_trial = 0
     time_start = datetime.datetime.now()
@@ -108,9 +105,9 @@ def _optimize_sequential(
                 mlflow_client.set_terminated(frozen_trial._trial_id, status="FAILED")
 
         if (
-                frozen_trial.state == TrialState.FAIL
-                and func_err is not None
-                and not isinstance(func_err, catch)
+            frozen_trial.state == TrialState.FAIL
+            and func_err is not None
+            and not isinstance(func_err, catch)
         ):
             raise func_err
 
@@ -147,7 +144,7 @@ class MlflowSparkStudy(Study):
         self,
         study_name: str,
         storage: MlflowStorage,
-        sampler: Optional["samplers.BaseSampler"] = None,
+        sampler: Optional[samplers.BaseSampler] = None,
         pruner: Optional[pruners.BasePruner] = None,
         mlflow_tracking_uri: Optional[str] = None,
     ):
@@ -160,10 +157,7 @@ class MlflowSparkStudy(Study):
 
         # check whether the SparkConnect mode
         self._is_spark_connect_mode = is_spark_connect_mode()
-        if mlflow_tracking_uri is None:
-            self._mlflow_tracking_env = mlflow.get_tracking_uri()
-        else:
-            self._mlflow_tracking_env = mlflow_tracking_uri
+        self._mlflow_tracking_env = mlflow_tracking_uri or mlflow.get_tracking_uri()
         mlflow.set_tracking_uri(self._mlflow_tracking_env)
         self.mlflow_client = MlflowClient()
 
@@ -194,6 +188,7 @@ class MlflowSparkStudy(Study):
 
         def run_task_on_executor_pd(iterator):
             import traceback
+
             import optuna
             import pandas as pd
 

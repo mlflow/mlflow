@@ -1,6 +1,5 @@
 import logging
 import os
-from unittest import mock
 
 import numpy as np
 import pyspark
@@ -54,6 +53,7 @@ spark.executor.extraJavaOptions="-Dio.netty.tryReflectionSetAccessible=true"
     with _get_spark_session_with_retry() as spark:
         yield spark
 
+
 @pytest.mark.usefixtures("setup_storage", "spark")
 def test_study_optimize_run(setup_storage):
     storage = setup_storage
@@ -69,7 +69,7 @@ def test_study_optimize_run(setup_storage):
 
     mlflow_study.optimize(objective, n_trials=8, n_jobs=4)
     assert sorted(mlflow_study.best_params.keys()) == ["x"]
-    assert len(mlflow_study.trials)==8
+    assert len(mlflow_study.trials) == 8
     np.testing.assert_allclose(mlflow_study.best_params["x"], 5.426412865334919, rtol=1e-6)
 
 
@@ -86,7 +86,7 @@ def test_study_with_failed_objective(setup_storage):
         raise ValueError()
 
     with pytest.raises(
-            ExecutionException,
+        ExecutionException,
         match="Optimization run for Optuna MlflowSparkStudy failed",
     ):
         mlflow_study.optimize(fail_objective, n_trials=4)
