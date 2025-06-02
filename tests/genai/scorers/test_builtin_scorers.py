@@ -3,6 +3,7 @@ from unittest.mock import call, patch
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.span import SpanType
+from mlflow.genai.judges import meets_guidelines
 from mlflow.genai.scorers import (
     Correctness,
     GuidelineAdherence,
@@ -241,6 +242,19 @@ def test_guideline_adherence():
         guidelines=["The response should be in English."],
         guidelines_context={"request": "{'question': 'query'}", "response": "answer"},
         assessment_name="is_english",
+    )
+
+    # 3. Test meets_guidelines judge with string input (should wrap in list)
+    with patch("databricks.agents.evals.judges.guideline_adherence") as mock_guideline_adherence:
+        meets_guidelines(
+            guidelines="Be polite and respectful.",
+            context={"response": "Hello, how are you?"},
+        )
+
+    mock_guideline_adherence.assert_called_once_with(
+        guidelines=["Be polite and respectful."],
+        guidelines_context={"response": "Hello, how are you?"},
+        assessment_name=None,
     )
 
 
