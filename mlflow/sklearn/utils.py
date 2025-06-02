@@ -852,7 +852,11 @@ def _create_child_runs_for_parameter_search(  # noqa: D417
         # Log how many child runs will be created vs omitted.
         _log_child_runs_info(max_tuning_runs, len(cv_results_df))
 
-    datasets = [DatasetInput(dataset, tags=[InputTag(key=MLFLOW_DATASET_CONTEXT, value="train")])]
+    datasets = [
+        DatasetInput(
+            dataset._to_mlflow_entity(), tags=[InputTag(key=MLFLOW_DATASET_CONTEXT, value="train")]
+        )
+    ]
     for _, result_row in cv_results_best_n_df.iterrows():
         tags_to_log = dict(child_tags) if child_tags else {}
         tags_to_log.update({MLFLOW_PARENT_RUN_ID: parent_run.info.run_id})
