@@ -13,7 +13,7 @@ from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets import create_dataset
 from mlflow.genai.scorers.base import scorer
-from mlflow.genai.scorers.builtin_scorers import safety
+from mlflow.genai.scorers.builtin_scorers import Safety
 from mlflow.tracing.constant import TraceMetadataKey
 
 from tests.evaluate.test_evaluation import _DUMMY_CHAT_RESPONSE
@@ -369,4 +369,4 @@ def test_trace_input_can_contain_string_input(pass_full_dataframe):
         traces = traces[["trace"]]
 
     # Harness should run without an error
-    mlflow.genai.evaluate(data=traces, scorers=[safety])
+    mlflow.genai.evaluate(data=traces, scorers=[Safety()])
