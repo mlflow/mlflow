@@ -135,6 +135,8 @@ class RetrievalRelevance(BuiltInScorer):
         average = sum(f.value == "yes" for f in chunk_feedbacks) / len(chunk_feedbacks)
 
         span_level_feedback = Feedback(
+            # NB: Adding a special suffix for span-level aggregation so that UI can distinguish
+            # it from the chunk-level score and render it on span correctly.
             name=self.name + "/precision",
             value=average,
             source=chunk_feedbacks[0].source,
