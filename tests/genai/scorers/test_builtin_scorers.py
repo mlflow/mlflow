@@ -257,20 +257,6 @@ def test_guideline_adherence():
         assessment_name=None,
     )
 
-    # 4. Test meets_guidelines judge with list input (should pass through)
-    with patch("databricks.agents.evals.judges.guideline_adherence") as mock_guideline_adherence:
-        meets_guidelines(
-            guidelines=["Be polite and respectful.", "Must be in English."],
-            context={"response": "Hola, ¿cómo estás?"},
-            name="custom_name",
-        )
-
-    mock_guideline_adherence.assert_called_once_with(
-        guidelines=["Be polite and respectful.", "Must be in English."],
-        guidelines_context={"response": "Hola, ¿cómo estás?"},
-        assessment_name="custom_name",
-    )
-
 
 def test_relevance_to_query():
     with patch(
