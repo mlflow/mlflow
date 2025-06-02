@@ -331,7 +331,6 @@ def mock_dbr_version():
             is_client_image=True,
             major=2,  # Supported version
             minor=0,
-            patch=0,
         ),
     ):
         yield

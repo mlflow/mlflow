@@ -175,12 +175,12 @@ def test_pack_env_for_databricks_model_serving_unsupported_version():
                 pass
 
 
-def test_pack_env_for_databricks_model_serving_runtime_version_check(temp_path, mock_dbr_version):
+def test_pack_env_for_databricks_model_serving_runtime_version_check(tmp_path, mock_dbr_version):
     """Test that pack_env_for_databricks_model_serving correctly checks runtime version
     compatibility.
     """
     # Mock download_artifacts to return a path
-    mock_artifacts_dir = temp_path / "artifacts"
+    mock_artifacts_dir = tmp_path / "artifacts"
     mock_artifacts_dir.mkdir()
 
     # Create MLmodel file with different runtime version
@@ -207,10 +207,10 @@ def test_pack_env_for_databricks_model_serving_runtime_version_check(temp_path, 
                 pass
 
 
-def test_pack_env_for_databricks_model_serving_missing_runtime_version(temp_path, mock_dbr_version):
+def test_pack_env_for_databricks_model_serving_missing_runtime_version(tmp_path, mock_dbr_version):
     """Test that pack_env_for_databricks_model_serving requires databricks_runtime field."""
     # Mock download_artifacts to return a path
-    mock_artifacts_dir = temp_path / "artifacts"
+    mock_artifacts_dir = tmp_path / "artifacts"
     mock_artifacts_dir.mkdir()
 
     # Create MLmodel file without databricks_runtime field
