@@ -87,7 +87,6 @@ def test_retrieval_relevance(sample_rag_trace):
 
     assert len(results) == 5  # 2 span-level feedbacks + 3 chunk-level feedbacks
     assert all(isinstance(f, Feedback) for f in results)
-    assert all(f.name == "retrieval_relevance" for f in results)
 
     retriever_span_ids = [
         s.span_id for s in sample_rag_trace.search_spans(span_type=SpanType.RETRIEVER)
@@ -95,20 +94,25 @@ def test_retrieval_relevance(sample_rag_trace):
 
     # First feedbacks is a span-level feedback for the first retriever span
     assert results[0].value == 0.5
+    assert results[0].name == "retrieval_relevance/precision"
     assert results[0].span_id == retriever_span_ids[0]
 
     # Second and third feedbacks are chunk-level feedbacks for the first retriever span
     assert results[1].value == "yes"
+    assert results[1].name == "retrieval_relevance"
     assert results[1].span_id == retriever_span_ids[0]
     assert results[2].value == "no"
+    assert results[2].name == "retrieval_relevance"
     assert results[2].span_id == retriever_span_ids[0]
 
     # Fourth result is a span-level feedback for the second retriever span
     assert results[3].value == 1.0
+    assert results[3].name == "retrieval_relevance/precision"
     assert results[3].span_id == retriever_span_ids[1]
 
     # Fifth result is a chunk-level feedback for the second retriever span
     assert results[4].value == "yes"
+    assert results[4].name == "retrieval_relevance"
     assert results[4].span_id == retriever_span_ids[1]
 
 
