@@ -3,10 +3,9 @@ import functools
 import json
 import logging
 import os
-import re
 import shutil
 from contextlib import contextmanager
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 import mlflow
 from mlflow.entities import Run
@@ -373,10 +372,29 @@ class UcModelRegistryStore(BaseRestStore):
     def _get_all_endpoints_from_method(self, method):
         return _METHOD_TO_ALL_INFO[method]
 
+    def _edit_endpoint_and_call(self, endpoint, method, req_body, name=None, version=None, key=None, alias=None, proto_name=None):
+        """
+        Handle path parameter substitution for Unity Catalog REST endpoints.
+        Similar to UC OSS store but with additional parameters for prompt operations.
+        """
+        # Substitute path parameters as needed
+        if name is not None:
+            endpoint = endpoint.replace("{name}", name)
+        if version is not None:
+            endpoint = endpoint.replace("{version}", str(version))
+        if key is not None:
+            endpoint = endpoint.replace("{key}", key)
+        if alias is not None:
+            endpoint = endpoint.replace("{alias}", alias)
+            
+        response_proto = self._get_response_from_method(proto_name)
+        return call_endpoint(
+            self.get_host_creds(), endpoint, method, req_body, response_proto
+        )
+
     def _call_endpoint(self, api, json_body, call_all_endpoints=False, extra_headers=None):
         """
-        Override the base _call_endpoint to handle path parameter substitution for
-        Unity Catalog endpoints that use REST-style paths with {name}, {version}, etc.
+        Simple endpoint calling for operations that don't need path parameter substitution.
         """
         response_proto = self._get_response_from_method(api)
 
@@ -387,34 +405,6 @@ class UcModelRegistryStore(BaseRestStore):
             )
         else:
             endpoint, method = self._get_endpoint_from_method(api)
-
-            # Handle path parameter substitution for Unity Catalog prompt endpoints
-            if json_body and "{" in endpoint and "}" in endpoint:
-                # Parse the JSON body to extract path parameters
-                body_dict = json.loads(json_body) if isinstance(json_body, str) else json_body
-
-                # Extract all path parameters from the endpoint template
-                path_param_names = re.findall(r"\{(\w+)\}", endpoint)
-
-                path_params = {}
-                for param_name in path_param_names:
-                    if param_name in body_dict:
-                        path_params[param_name] = body_dict[param_name]
-                        # For GET requests, remove path parameters from query parameters
-                        if method == "GET":
-                            del body_dict[param_name]
-
-                # Substitute path parameters into the endpoint URL
-                if path_params:
-                    endpoint = endpoint.format(**path_params)
-                    # For GET requests with modified body_dict, convert back to JSON
-                    if method == "GET" and body_dict:
-                        json_body = json.dumps(body_dict)
-                    elif method == "GET" and not body_dict:
-                        json_body = None
-                    # For non-GET requests, keep the original json_body since path params
-                    # are still needed in the request body for those methods
-
             return call_endpoint(
                 self.get_host_creds(), endpoint, method, json_body, response_proto, extra_headers
             )
@@ -1214,12 +1204,28 @@ class UcModelRegistryStore(BaseRestStore):
                 req_body = message_to_json(
                     GetPromptVersionRequest(name=name, version=str(version_num))
                 )
-                response_proto = self._call_endpoint(GetPromptVersionRequest, req_body)
+                endpoint, method = self._get_endpoint_from_method(GetPromptVersionRequest)
+                response_proto = self._edit_endpoint_and_call(
+                    endpoint=endpoint,
+                    method=method,
+                    req_body=req_body,
+                    name=name,
+                    version=version_num,
+                    proto_name=GetPromptVersionRequest,
+                )
             except ValueError:
                 req_body = message_to_json(
                     GetPromptVersionByAliasRequest(name=name, alias=version)
                 )
-                response_proto = self._call_endpoint(GetPromptVersionByAliasRequest, req_body)
+                endpoint, method = self._get_endpoint_from_method(GetPromptVersionByAliasRequest)
+                response_proto = self._edit_endpoint_and_call(
+                    endpoint=endpoint,
+                    method=method,
+                    req_body=req_body,
+                    name=name,
+                    alias=version,
+                    proto_name=GetPromptVersionByAliasRequest,
+                )
 
             # For UC, only use version-level tags - no need for separate prompt-level tags
             return proto_to_mlflow_prompt(response_proto.prompt_version, prompt_tags={})
@@ -1267,7 +1273,14 @@ class UcModelRegistryStore(BaseRestStore):
         Delete a prompt from Unity Catalog.
         """
         req_body = message_to_json(DeletePromptRequest(name=name))
-        self._call_endpoint(DeletePromptRequest, req_body)
+        endpoint, method = self._get_endpoint_from_method(DeletePromptRequest)
+        self._edit_endpoint_and_call(
+            endpoint=endpoint,
+            method=method,
+            req_body=req_body,
+            name=name,
+            proto_name=DeletePromptRequest,
+        )
 
     def create_prompt_version(
         self,
@@ -1277,7 +1290,7 @@ class UcModelRegistryStore(BaseRestStore):
         tags: Optional[dict[str, str]] = None,
     ) -> Prompt:
         """
-        Create a new version of an existing prompt in Unity Catalog.
+        Create a new prompt version in Unity Catalog.
         """
         from mlflow.store._unity_catalog.registry.utils import (
             mlflow_tags_to_proto,
@@ -1292,43 +1305,78 @@ class UcModelRegistryStore(BaseRestStore):
                 tags=mlflow_tags_to_proto(tags) if tags else None,
             )
         )
-        response_proto = self._call_endpoint(CreatePromptVersionRequest, req_body)
-
-        # For UC, only use version-level tags - no need for separate prompt-level tags
-        return proto_to_mlflow_prompt(response_proto.prompt_version, prompt_tags={})
+        endpoint, method = self._get_endpoint_from_method(CreatePromptVersionRequest)
+        response_proto = self._edit_endpoint_and_call(
+            endpoint=endpoint,
+            method=method,
+            req_body=req_body,
+            name=name,
+            proto_name=CreatePromptVersionRequest,
+        )
+        return proto_to_mlflow_prompt(response_proto.prompt_version, tags or {})
 
     def get_prompt_version(self, name: str, version: Union[str, int]) -> Prompt:
         """
-        Get a specific version of a prompt from Unity Catalog.
+        Get a specific prompt version from Unity Catalog.
         """
         from mlflow.store._unity_catalog.registry.utils import proto_to_mlflow_prompt
 
         req_body = message_to_json(GetPromptVersionRequest(name=name, version=str(version)))
-        response_proto = self._call_endpoint(GetPromptVersionRequest, req_body)
-
-        # For UC, only use version-level tags - no need for separate prompt-level tags
-        return proto_to_mlflow_prompt(response_proto.prompt_version, prompt_tags={})
+        endpoint, method = self._get_endpoint_from_method(GetPromptVersionRequest)
+        response_proto = self._edit_endpoint_and_call(
+            endpoint=endpoint,
+            method=method,
+            req_body=req_body,
+            name=name,
+            version=version,
+            proto_name=GetPromptVersionRequest,
+        )
+        return proto_to_mlflow_prompt(response_proto.prompt_version, {})
 
     def delete_prompt_version(self, name: str, version: Union[str, int]) -> None:
         """
-        Delete a specific version of a prompt from Unity Catalog.
+        Delete a specific prompt version from Unity Catalog.
         """
         req_body = message_to_json(DeletePromptVersionRequest(name=name, version=str(version)))
-        self._call_endpoint(DeletePromptVersionRequest, req_body)
+        endpoint, method = self._get_endpoint_from_method(DeletePromptVersionRequest)
+        self._edit_endpoint_and_call(
+            endpoint=endpoint,
+            method=method,
+            req_body=req_body,
+            name=name,
+            version=version,
+            proto_name=DeletePromptVersionRequest,
+        )
 
     def set_prompt_tag(self, name: str, key: str, value: str) -> None:
         """
         Set a tag on a prompt in Unity Catalog.
         """
         req_body = message_to_json(SetPromptTagRequest(name=name, key=key, value=value))
-        self._call_endpoint(SetPromptTagRequest, req_body)
+        endpoint, method = self._get_endpoint_from_method(SetPromptTagRequest)
+        self._edit_endpoint_and_call(
+            endpoint=endpoint,
+            method=method,
+            req_body=req_body,
+            name=name,
+            key=key,
+            proto_name=SetPromptTagRequest,
+        )
 
     def delete_prompt_tag(self, name: str, key: str) -> None:
         """
         Delete a tag from a prompt in Unity Catalog.
         """
         req_body = message_to_json(DeletePromptTagRequest(name=name, key=key))
-        self._call_endpoint(DeletePromptTagRequest, req_body)
+        endpoint, method = self._get_endpoint_from_method(DeletePromptTagRequest)
+        self._edit_endpoint_and_call(
+            endpoint=endpoint,
+            method=method,
+            req_body=req_body,
+            name=name,
+            key=key,
+            proto_name=DeletePromptTagRequest,
+        )
 
     def get_prompt_version_by_alias(self, name: str, alias: str) -> Prompt:
         """
@@ -1337,7 +1385,13 @@ class UcModelRegistryStore(BaseRestStore):
         from mlflow.store._unity_catalog.registry.utils import proto_to_mlflow_prompt
 
         req_body = message_to_json(GetPromptVersionByAliasRequest(name=name, alias=alias))
-        response_proto = self._call_endpoint(GetPromptVersionByAliasRequest, req_body)
-
-        # For UC, only use version-level tags - no need for separate prompt-level tags
-        return proto_to_mlflow_prompt(response_proto.prompt_version, prompt_tags={})
+        endpoint, method = self._get_endpoint_from_method(GetPromptVersionByAliasRequest)
+        response_proto = self._edit_endpoint_and_call(
+            endpoint=endpoint,
+            method=method,
+            req_body=req_body,
+            name=name,
+            alias=alias,
+            proto_name=GetPromptVersionByAliasRequest,
+        )
+        return proto_to_mlflow_prompt(response_proto.prompt_version, {})
