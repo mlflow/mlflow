@@ -1,11 +1,10 @@
 import base64
 import functools
-import json
 import logging
 import os
 import shutil
 from contextlib import contextmanager
-from typing import Any, Optional, Union
+from typing import Optional, Union
 
 import mlflow
 from mlflow.entities import Run
@@ -98,7 +97,9 @@ from mlflow.store._unity_catalog.registry.prompt_info import PromptInfo
 from mlflow.store.artifact.databricks_sdk_models_artifact_repo import (
     DatabricksSDKModelsArtifactRepository,
 )
-from mlflow.store.artifact.presigned_url_artifact_repo import PresignedUrlArtifactRepository
+from mlflow.store.artifact.presigned_url_artifact_repo import (
+    PresignedUrlArtifactRepository,
+)
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry.rest_store import BaseRestStore
 from mlflow.utils._spark_utils import _get_active_spark_session
@@ -246,7 +247,9 @@ def get_model_version_dependencies(model_dir):
         )
         dependencies.extend(
             _fetch_langchain_dependency_from_model_resources(
-                databricks_dependencies, ResourceType.FUNCTION.value, "DATABRICKS_UC_FUNCTION"
+                databricks_dependencies,
+                ResourceType.FUNCTION.value,
+                "DATABRICKS_UC_FUNCTION",
             )
         )
         dependencies.extend(
@@ -372,7 +375,17 @@ class UcModelRegistryStore(BaseRestStore):
     def _get_all_endpoints_from_method(self, method):
         return _METHOD_TO_ALL_INFO[method]
 
-    def _edit_endpoint_and_call(self, endpoint, method, req_body, name=None, version=None, key=None, alias=None, proto_name=None):
+    def _edit_endpoint_and_call(
+        self,
+        endpoint,
+        method,
+        req_body,
+        name=None,
+        version=None,
+        key=None,
+        alias=None,
+        proto_name=None,
+    ):
         """
         Handle path parameter substitution for Unity Catalog REST endpoints.
         Similar to UC OSS store but with additional parameters for prompt operations.
@@ -386,11 +399,9 @@ class UcModelRegistryStore(BaseRestStore):
             endpoint = endpoint.replace("{key}", key)
         if alias is not None:
             endpoint = endpoint.replace("{alias}", alias)
-            
+
         response_proto = self._get_response_from_method(proto_name)
-        return call_endpoint(
-            self.get_host_creds(), endpoint, method, req_body, response_proto
-        )
+        return call_endpoint(self.get_host_creds(), endpoint, method, req_body, response_proto)
 
     def _call_endpoint(self, api, json_body, call_all_endpoints=False, extra_headers=None):
         """
@@ -401,12 +412,21 @@ class UcModelRegistryStore(BaseRestStore):
         if call_all_endpoints:
             endpoints = self._get_all_endpoints_from_method(api)
             return call_endpoints(
-                self.get_host_creds(), endpoints, json_body, response_proto, extra_headers
+                self.get_host_creds(),
+                endpoints,
+                json_body,
+                response_proto,
+                extra_headers,
             )
         else:
             endpoint, method = self._get_endpoint_from_method(api)
             return call_endpoint(
-                self.get_host_creds(), endpoint, method, json_body, response_proto, extra_headers
+                self.get_host_creds(),
+                endpoint,
+                method,
+                json_body,
+                response_proto,
+                extra_headers,
             )
 
     # CRUD API for RegisteredModel objects
@@ -667,7 +687,10 @@ class UcModelRegistryStore(BaseRestStore):
         host_creds = self.get_tracking_host_creds()
         endpoint, method = _TRACKING_METHOD_TO_INFO[GetRun]
         response = http_request(
-            host_creds=host_creds, endpoint=endpoint, method=method, params={"run_id": run_id}
+            host_creds=host_creds,
+            endpoint=endpoint,
+            method=method,
+            params={"run_id": run_id},
         )
         try:
             verify_rest_response(response, endpoint)
@@ -1193,7 +1216,9 @@ class UcModelRegistryStore(BaseRestStore):
         Get prompt by name and version from Unity Catalog.
         """
         try:
-            from mlflow.store._unity_catalog.registry.utils import proto_to_mlflow_prompt
+            from mlflow.store._unity_catalog.registry.utils import (
+                proto_to_mlflow_prompt,
+            )
 
             if version is None:
                 # Getting latest prompt version is not supported in Unity Catalog
@@ -1214,9 +1239,7 @@ class UcModelRegistryStore(BaseRestStore):
                     proto_name=GetPromptVersionRequest,
                 )
             except ValueError:
-                req_body = message_to_json(
-                    GetPromptVersionByAliasRequest(name=name, alias=version)
-                )
+                req_body = message_to_json(GetPromptVersionByAliasRequest(name=name, alias=version))
                 endpoint, method = self._get_endpoint_from_method(GetPromptVersionByAliasRequest)
                 response_proto = self._edit_endpoint_and_call(
                     endpoint=endpoint,
@@ -1250,7 +1273,9 @@ class UcModelRegistryStore(BaseRestStore):
         """
         Search for prompts in Unity Catalog.
         """
-        from mlflow.store._unity_catalog.registry.utils import proto_info_to_mlflow_prompt_info
+        from mlflow.store._unity_catalog.registry.utils import (
+            proto_info_to_mlflow_prompt_info,
+        )
         from mlflow.store.entities.paged_list import PagedList
 
         req_body = message_to_json(
