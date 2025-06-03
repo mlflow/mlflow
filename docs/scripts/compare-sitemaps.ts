@@ -7,11 +7,13 @@ async function readSitemap(input: string): Promise<string> {
     const res = await fetch(input);
     if (!res.ok) {
       const responseBody = await res.text();
-      throw new Error(`Failed to fetch ${input}: ${res.status} ${res.statusText}. Response body: ${responseBody}`);
+      throw new Error(
+        `Failed to fetch ${input}: ${res.status} ${res.statusText}. Response body: ${responseBody}`
+      );
     }
     return await res.text();
   } else {
-    return await fs.readFile(input, "utf8");
+    return await fs.promises.readFile(input, "utf8");
   }
 }
 
