@@ -99,7 +99,12 @@ def test_decorator_scorer_serialization_format():
     assert "original_func_name" in serialized
     assert serialized["original_func_name"] == "test_scorer"
     assert "__call___signature" in serialized
-    assert "run_source" in serialized
+
+    # Check version metadata
+    assert "_mlflow_version" in serialized
+    assert "_serialization_version" in serialized
+    assert serialized["_serialization_version"] == "1.0"
+
     # Should not have builtin scorer fields
     assert "_builtin_scorer_class" not in serialized
 
@@ -115,10 +120,15 @@ def test_builtin_scorer_serialization_format():
     assert "_builtin_scorer_class" in serialized
     assert serialized["_builtin_scorer_class"] == "RelevanceToQuery"
     assert "required_columns" in serialized
+
+    # Check version metadata
+    assert "_mlflow_version" in serialized
+    assert "_serialization_version" in serialized
+    assert serialized["_serialization_version"] == "1.0"
+
     # Should not have decorator scorer fields
     assert "__call___source" not in serialized
     assert "original_func_name" not in serialized
-    assert "run_source" not in serialized
 
 
 # ============================================================================
