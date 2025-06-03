@@ -14,6 +14,8 @@ from mlflow.evaluation import Assessment as LegacyAssessment
 from mlflow.genai import Scorer, scorer
 from mlflow.genai.scorers import Correctness, GuidelineAdherence, RetrievalGroundedness
 
+from tests.tracing.helper import get_traces, purge_traces
+
 if importlib.util.find_spec("databricks.agents") is None:
     pytest.skip(reason="databricks-agents is not installed", allow_module_level=True)
 
@@ -310,3 +312,33 @@ def test_custom_scorer_does_not_overwrite_feedback_name_when_returning_list():
     )
     assert feedbacks[0].name == "big_question"
     assert feedbacks[1].name == "small_question"
+
+
+def test_custom_scorer_does_not_generate_traces_during_evaluation():
+    @scorer
+    def my_scorer(inputs, outputs):
+        with mlflow.start_span(name="scorer_trace") as span:
+            # Tracing is disabled during evaluation but this should not NPE
+            span.set_inputs(inputs)
+            span.set_outputs(outputs)
+        return 1
+
+    result = mlflow.genai.evaluate(
+        data=[{"inputs": {"question": "Hello"}, "outputs": "Hi!"}],
+        scorers=[my_scorer],
+    )
+    assert result.metrics["metric/my_scorer/average"] == 1
+    # One trace is generated for evaluation result, but no traces are generated for the scorer
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].data.spans[0].name != "scorer_trace"
+    purge_traces()
+
+    # When invoked directly, the scorer should generate traces
+    score = my_scorer(inputs={"question": "Hello"}, outputs="Hi!")
+    assert score == 1
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].data.spans[0].name == "scorer_trace"
+    assert traces[0].data.spans[0].inputs == {"question": "Hello"}
+    assert traces[0].data.spans[0].outputs == "Hi!"

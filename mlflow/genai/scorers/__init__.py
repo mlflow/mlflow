@@ -8,7 +8,6 @@ from mlflow.genai.scorers.builtin_scorers import (
     RetrievalSufficiency,
     Safety,
     get_all_scorers,
-    get_rag_scorers,
 )
 
 __all__ = [
@@ -22,5 +21,4 @@ __all__ = [
     "Scorer",
     "scorer",
     "get_all_scorers",
-    "get_rag_scorers",
 ]
