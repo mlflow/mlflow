@@ -180,3 +180,32 @@ def test_to_predict_fn_return_v2_trace(mock_deploy_client, mock_tracing_client):
     assert trace.data.spans[0].inputs == {"x": 2, "y": 5}
     assert trace.data.spans[0].outputs == 8
     mock_tracing_client._upload_trace_data.assert_called_once_with(mock.ANY, trace.data)
+
+
+def test_to_predict_fn_should_not_pass_databricks_options_to_fmapi(
+    mock_deploy_client, mock_tracing_client
+):
+    mock_deploy_client.get_endpoint.return_value = {
+        "endpoint_type": "FOUNDATION_MODEL_API",
+    }
+    mock_deploy_client.predict.return_value = _DUMMY_CHAT_RESPONSE
+    messages = [
+        {"content": "You are a helpful assistant.", "role": "system"},
+        {"content": "What is Spark?", "role": "user"},
+    ]
+
+    predict_fn = to_predict_fn("endpoints:/foundation-model-api")
+    response = predict_fn(messages=messages)
+
+    mock_deploy_client.predict.assert_called_once_with(
+        endpoint="foundation-model-api",
+        inputs={"messages": messages},
+    )
+    assert response == _DUMMY_CHAT_RESPONSE  # Response should not contain databricks_output
+
+    # Bare-minimum trace should be created when the endpoint does not return a trace
+    mock_tracing_client.start_trace_v3.assert_called_once()
+    trace = mock_tracing_client.start_trace_v3.call_args[0][0]
+    assert trace.info.request_preview == json.dumps({"messages": messages})
+    assert len(trace.data.spans) == 1
+    assert trace.data.spans[0].name == "predict"

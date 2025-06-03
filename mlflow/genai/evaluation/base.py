@@ -360,6 +360,11 @@ def to_predict_fn(endpoint_uri: str) -> Callable:
     client = get_deploy_client("databricks")
     experiment_id = _get_experiment_id()
     _, endpoint = _parse_model_uri(endpoint_uri)
+    endpoint_info = client.get_endpoint(endpoint)
+
+    # Databricks Foundation Model API does not allow passing "databricks_options" in the payload,
+    # so we need to handle this case separately.
+    is_fmapi = endpoint_info.get("endpoint_type") == "FOUNDATION_MODEL_API"
 
     # NB: Wrap the function to show better docstring and change signature to `model_inputs`
     #   to unnamed keyword arguments. This is necessary because we pass input samples as
@@ -368,7 +373,7 @@ def to_predict_fn(endpoint_uri: str) -> Callable:
         start_time = time.time()
         # Inject `{"databricks_options": {"return_trace": True}}` to the input payload
         # to return the trace in the response.
-        payload = {**kwargs, "databricks_options": {"return_trace": True}}
+        payload = kwargs if is_fmapi else {**kwargs, "databricks_options": {"return_trace": True}}
         result = client.predict(endpoint=endpoint, inputs=payload)
         end_time = time.time()
 
