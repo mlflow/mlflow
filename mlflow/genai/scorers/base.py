@@ -2,7 +2,7 @@ import functools
 import inspect
 from typing import Any, Callable, Literal, Optional, Union
 
-from pydantic import BaseModel, Field, PrivateAttr
+from pydantic import BaseModel, PrivateAttr
 
 from mlflow.entities import Assessment, Feedback
 from mlflow.entities.assessment import DEFAULT_FEEDBACK_NAME
@@ -14,7 +14,7 @@ from mlflow.utils.annotations import experimental
 class Scorer(BaseModel):
     name: str
     aggregations: Optional[list] = None
-    
+
     # Private attributes to store source code
     _run_source: Optional[str] = PrivateAttr(default=None)
     _call_source: Optional[str] = PrivateAttr(default=None)
@@ -24,82 +24,82 @@ class Scorer(BaseModel):
     def model_post_init(self, __context: Any) -> None:
         """Extract and store source code after initialization."""
         super().model_post_init(__context)
-        
+
         # Skip source code extraction for builtin scorers
         # Check if the instance is a subclass of builtin scorer (without importing it to avoid circular imports)
-        if hasattr(self.__class__, '__module__') and 'builtin_scorers' in self.__class__.__module__:
+        if hasattr(self.__class__, "__module__") and "builtin_scorers" in self.__class__.__module__:
             return
-            
+
         self._extract_source_code()
-    
+
     def _extract_source_code(self):
         """Extract source code for run and the original decorated function."""
         from mlflow.genai.scorers.utils import extract_function_body
-        
+
         # Extract run method source (always the same base implementation)
         try:
             run_body, _ = extract_function_body(self.run)
-            object.__setattr__(self, '_run_source', run_body)
+            object.__setattr__(self, "_run_source", run_body)
         except Exception:
             try:
                 run_source = inspect.getsource(self.run)
-                object.__setattr__(self, '_run_source', run_source)
+                object.__setattr__(self, "_run_source", run_source)
             except Exception:
                 # TODO: print a warning
-                object.__setattr__(self, '_run_source', None)
-        
+                object.__setattr__(self, "_run_source", None)
+
         # Extract original function source (for decorator-created scorers)
-        if hasattr(self, '_original_func') and self._original_func:
+        if hasattr(self, "_original_func") and self._original_func:
             try:
                 call_body, _ = extract_function_body(self._original_func)
-                object.__setattr__(self, '_call_source', call_body)
-                object.__setattr__(self, '_original_func_name', self._original_func.__name__)
+                object.__setattr__(self, "_call_source", call_body)
+                object.__setattr__(self, "_original_func_name", self._original_func.__name__)
             except Exception:
                 try:
                     call_source = inspect.getsource(self._original_func)
-                    object.__setattr__(self, '_call_source', call_source)
-                    object.__setattr__(self, '_original_func_name', self._original_func.__name__)
+                    object.__setattr__(self, "_call_source", call_source)
+                    object.__setattr__(self, "_original_func_name", self._original_func.__name__)
                 except Exception:
                     # TODO: print a warning
-                    object.__setattr__(self, '_call_source', None)
-                    object.__setattr__(self, '_original_func_name', None)
-            
+                    object.__setattr__(self, "_call_source", None)
+                    object.__setattr__(self, "_original_func_name", None)
+
             # Store the signature of the original function
             try:
                 signature = str(inspect.signature(self._original_func))
-                object.__setattr__(self, '_call_signature', signature)
+                object.__setattr__(self, "_call_signature", signature)
             except Exception:
-                object.__setattr__(self, '_call_signature', None)
+                object.__setattr__(self, "_call_signature", None)
 
     def model_dump(self, **kwargs) -> dict:
         """Override model_dump to include source code."""
         data = super().model_dump(**kwargs)
-        
+
         # For builtin scorers, store the class information instead of source code
         # We detect builtin scorers by checking if their module contains 'builtin_scorers'
-        # (e.g., 'mlflow.genai.scorers.builtin_scorers'). This approach allows us to use a simpler serialization 
+        # (e.g., 'mlflow.genai.scorers.builtin_scorers'). This approach allows us to use a simpler serialization
         # strategy: store class name + parameters instead of extracting and storing complex source code.
-        if hasattr(self.__class__, '__module__') and 'builtin_scorers' in self.__class__.__module__:
+        if hasattr(self.__class__, "__module__") and "builtin_scorers" in self.__class__.__module__:
             data["_builtin_scorer_class"] = self.__class__.__name__
             # Also include any additional fields like required_columns
-            if hasattr(self, 'required_columns'):
+            if hasattr(self, "required_columns"):
                 data["required_columns"] = self.required_columns
-        elif hasattr(self, '_original_func') and self._original_func:
+        elif hasattr(self, "_original_func") and self._original_func:
             # Add source code to the serialized data if available (for decorator-created scorers)
-            if hasattr(self, '_run_source') and self._run_source:
+            if hasattr(self, "_run_source") and self._run_source:
                 data["run_source"] = self._run_source
-            if hasattr(self, '_call_source') and self._call_source:
+            if hasattr(self, "_call_source") and self._call_source:
                 data["__call___source"] = self._call_source
-            if hasattr(self, '_call_signature') and self._call_signature:
+            if hasattr(self, "_call_signature") and self._call_signature:
                 data["__call___signature"] = self._call_signature
-            if hasattr(self, '_original_func_name') and self._original_func_name:
+            if hasattr(self, "_original_func_name") and self._original_func_name:
                 data["original_func_name"] = self._original_func_name
         else:
             # This is neither a builtin scorer nor a decorator scorer
             # Check if it's an unsupported direct subclass of Scorer
             base_call_method = Scorer.__call__
             current_call_method = self.__class__.__call__
-            
+
             # If the __call__ method has been overridden (not the base NotImplementedError one)
             # then this is likely a direct subclass, which we don't support for serialization
             if current_call_method is not base_call_method:
@@ -111,9 +111,9 @@ class Scorer(BaseModel):
                     f"Direct subclassing of Scorer is not supported for serialization. "
                     f"Please use the @scorer decorator instead."
                 )
-            
+
         return data
-    
+
     @classmethod
     def model_validate(cls, obj: Any) -> "Scorer":
         """Override model_validate to reconstruct scorer from source code."""
@@ -123,75 +123,73 @@ class Scorer(BaseModel):
             if builtin_class_name:
                 # Import and reconstruct the builtin scorer
                 from mlflow.genai.scorers import builtin_scorers
+
                 scorer_class = getattr(builtin_scorers, builtin_class_name)
-                
+
                 # Get the valid field names for this scorer class from its model fields
                 valid_fields = set(scorer_class.model_fields.keys())
-                
+
                 # Create instance with all the preserved data that matches valid fields
                 constructor_args = {k: v for k, v in obj.items() if k in valid_fields}
                 return scorer_class(**constructor_args)
-            
+
             # Extract source code fields for decorator-created scorers
             run_source = obj.pop("run_source", None)
             call_source = obj.pop("__call___source", None)
             call_signature = obj.pop("__call___signature", None)
             original_func_name = obj.pop("original_func_name", None)
-            
+
             # If we have the original function source, recreate the scorer using the decorator
             if call_source and call_signature and original_func_name:
                 # Recreate the original function
                 recreated_func = cls._recreate_function(
                     call_source, call_signature, original_func_name
                 )
-                
+
                 if recreated_func:
                     # Apply the scorer decorator to recreate the scorer
                     recreated_scorer = scorer(
-                        recreated_func,
-                        name=obj.get('name'),
-                        aggregations=obj.get('aggregations')
+                        recreated_func, name=obj.get("name"), aggregations=obj.get("aggregations")
                     )
                     return recreated_scorer
                 else:
-                    raise ValueError(
-                        "Failed to recreate function from source code. "
-                    )
-            
+                    raise ValueError("Failed to recreate function from source code. ")
+
             # If we reach here, the serialized data is invalid
             raise ValueError(
-                f"Invalid serialized scorer data. Expected either '_builtin_scorer_class' "
-                f"or source code fields ('__call___source', '__call___signature', 'original_func_name')."
+                "Invalid serialized scorer data. Expected either '_builtin_scorer_class' "
+                "or source code fields ('__call___source', '__call___signature', 'original_func_name')."
             )
-        
+
         return super().model_validate(obj)
-    
+
     @classmethod
     def _recreate_function(cls, source: str, signature: str, func_name: str) -> Optional[Callable]:
         """Recreate a function from its source code."""
         try:
             # Parse the signature to build the function definition
             import re
-            sig_match = re.match(r'\((.*?)\)', signature)
+
+            sig_match = re.match(r"\((.*?)\)", signature)
             if not sig_match:
                 return None
-                
+
             params_str = sig_match.group(1).strip()
-            
+
             # Build the function definition
             func_def = f"def {func_name}({params_str}):\n"
             # Indent the source code
-            indented_source = '\n'.join(f"    {line}" for line in source.split('\n'))
+            indented_source = "\n".join(f"    {line}" for line in source.split("\n"))
             func_def += indented_source
-            
+
             local_namespace = {}
-            
+
             # Execute the function definition in the local namespace
             exec(func_def, globals(), local_namespace)
-            
+
             # Return the recreated function
             return local_namespace[func_name]
-            
+
         except Exception:
             return None
 
@@ -486,20 +484,20 @@ def scorer(
     class CustomScorer(Scorer):
         # Store reference to the original function
         _original_func: Optional[Callable] = PrivateAttr(default=None)
-        
+
         def __init__(self, **data):
             super().__init__(**data)
-        
+
         def model_post_init(self, __context: Any) -> None:
             """Set the original function and extract source code."""
             # Set the original function first
             # Use object.__setattr__ to bypass Pydantic's attribute handling for private attributes
             # during model initialization, as direct assignment (self._original_func = func) may be
             # ignored or fail in this context
-            object.__setattr__(self, '_original_func', func)
+            object.__setattr__(self, "_original_func", func)
             # Now call the parent's model_post_init
             super().model_post_init(__context)
-        
+
         def __call__(self, *args, **kwargs):
             return func(*args, **kwargs)
 

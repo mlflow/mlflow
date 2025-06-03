@@ -64,4 +64,4 @@ def extract_function_body(func: Callable[..., Any]) -> tuple[str, int]:
     parsed_source = ast.parse(dedented_source)
     extractor.visit(parsed_source)
 
-    return extractor.function_body, extractor.indent_unit 
+    return extractor.function_body, extractor.indent_unit
