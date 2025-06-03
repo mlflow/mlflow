@@ -100,33 +100,13 @@ class MlflowFormatter(logging.Formatter):
 
 
 def _configure_mlflow_loggers(root_module_name):
-    logging.config.dictConfig(
-        {
-            "version": 1,
-            "disable_existing_loggers": False,
-            "formatters": {
-                "mlflow_formatter": {
-                    "()": MlflowFormatter,
-                    "format": LOGGING_LINE_FORMAT,
-                    "datefmt": LOGGING_DATETIME_FORMAT,
-                },
-            },
-            "handlers": {
-                "mlflow_handler": {
-                    "formatter": "mlflow_formatter",
-                    "class": "logging.StreamHandler",
-                    "stream": MLFLOW_LOGGING_STREAM,
-                },
-            },
-            "loggers": {
-                root_module_name: {
-                    "handlers": ["mlflow_handler"],
-                    "level": (MLFLOW_LOGGING_LEVEL.get() or "INFO").upper(),
-                    "propagate": False,
-                },
-            },
-        }
-    )
+    logger = logging.getLogger(root_module_name)
+    mlflow_formatter = MlflowFormatter(fmt=LOGGING_LINE_FORMAT, datefmt=LOGGING_DATETIME_FORMAT)
+    mlflow_handler = logging.StreamHandler(stream=MLFLOW_LOGGING_STREAM)
+    mlflow_handler.setFormatter(mlflow_formatter)
+    logger.addHandler(mlflow_handler)
+    logger.setLevel((MLFLOW_LOGGING_LEVEL.get() or "INFO").upper())
+    logger.propagate = False
 
 
 def eprint(*args, **kwargs):
