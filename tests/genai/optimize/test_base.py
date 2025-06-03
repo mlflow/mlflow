@@ -41,7 +41,12 @@ def sample_scorer(inputs, outputs, expectations):
 
 def test_optimize_prompt_basic(sample_prompt, sample_data):
     with patch(
-        "mlflow.genai.optimize.base._DSPyMIPROv2Optimizer.optimize", return_value="optimized"
+        "mlflow.genai.optimize.base._DSPyMIPROv2Optimizer.optimize",
+        return_value=Prompt(
+            name=sample_prompt.name,
+            template="optimized",
+            version=2,
+        ),
     ) as mock_optimizer:
         result = optimize_prompt(
             target_llm_params=LLMParams(model_name="test/model"),
