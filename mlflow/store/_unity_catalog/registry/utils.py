@@ -12,10 +12,10 @@ from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
     PromptTag as ProtoPromptTag,
 )
 from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
-    PromptVersionTag as ProtoPromptVersionTag,
+    PromptVersion as ProtoPromptVersion,
 )
 from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
-    PromptVersion as ProtoPromptVersion,
+    PromptVersionTag as ProtoPromptVersionTag,
 )
 from mlflow.store._unity_catalog.registry.prompt_info import PromptInfo
 
@@ -70,7 +70,9 @@ def proto_to_mlflow_prompt(
     This is used for get_prompt_version responses.
     """
     # Extract version tags
-    version_tags = proto_version_tags_to_mlflow_tags(proto_version.tags) if proto_version.tags else {}
+    version_tags = (
+        proto_version_tags_to_mlflow_tags(proto_version.tags) if proto_version.tags else {}
+    )
 
     # Extract aliases
     aliases = []
