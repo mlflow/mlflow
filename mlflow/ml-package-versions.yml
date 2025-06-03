@@ -633,7 +633,6 @@ langchain:
       ">=0.3": ["databricks-langchain"]
     pre_test: |
       # Installing both pyspark and databricks-connect causes a conflict
-      pip uninstall -y databricks-connect
       pip install --no-deps --force-reinstall pyspark
     run: |
       # Some dependencies above includes 'mlflow-skinny' but not full 'mlflow', such as databricks-vectorsearch.
@@ -676,7 +675,6 @@ langchain:
         ]
     pre_test: |
       # Installing both pyspark and databricks-connect causes a conflict
-      pip uninstall -y databricks-connect
       pip install --no-deps --force-reinstall pyspark
     run: |
       pytest tests/langchain/test_langchain_autolog.py
