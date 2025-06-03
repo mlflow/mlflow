@@ -106,6 +106,34 @@ from mlflow.utils.rest_utils import (
     verify_rest_response,
 )
 from mlflow.utils.uri import is_fuse_or_uc_volumes_uri
+from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
+    CreatePromptRequest,
+    CreatePromptResponse,
+    DeletePromptRequest,
+    DeletePromptResponse,
+    DeletePromptTagRequest,
+    DeletePromptTagResponse,
+    GetPromptRequest,
+    GetPromptResponse,
+    SearchPromptsRequest,
+    SearchPromptsResponse,
+    SetPromptTagRequest,
+    SetPromptTagResponse,
+    UnityCatalogSchema,
+)
+from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
+    Prompt as ProtoPrompt,
+)
+from mlflow.protos.unity_catalog_prompt_service_pb2 import UnityCatalogPromptService
+from mlflow.store._unity_catalog.lineage.constants import (
+    _DATABRICKS_LINEAGE_ID_HEADER,
+    _DATABRICKS_ORG_ID_HEADER,
+)
+from mlflow.store._unity_catalog.registry.prompt_info import PromptInfo
+from mlflow.store._unity_catalog.registry.utils import (
+    mlflow_tags_to_proto,
+    proto_info_to_mlflow_prompt_info,
+)
 
 _TRACKING_METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
 _METHOD_TO_INFO = extract_api_info_for_service(UcModelRegistryService, _REST_API_PATH_PREFIX)
@@ -321,6 +349,11 @@ class UcModelRegistryStore(BaseRestStore):
             SetModelVersionTagRequest: SetModelVersionTagResponse,
             DeleteModelVersionTagRequest: DeleteModelVersionTagResponse,
             GetModelVersionByAliasRequest: GetModelVersionByAliasResponse,
+            CreatePromptRequest: CreatePromptResponse,
+            SearchPromptsRequest: SearchPromptsResponse,
+            DeletePromptRequest: DeletePromptResponse,
+            SetPromptTagRequest: SetPromptTagResponse,
+            DeletePromptTagRequest: DeletePromptTagResponse,
         }
         return method_to_response[method]()
 
@@ -1082,3 +1115,125 @@ class UcModelRegistryStore(BaseRestStore):
         Does not wait for the model version to become READY as a successful creation will
         immediately place the model version in a READY state.
         """
+
+    # Prompt-related method overrides for UC
+
+    def create_prompt(
+        self,
+        name: str,
+        description: Optional[str] = None,
+        tags: Optional[dict[str, str]] = None,
+    ) -> PromptInfo:
+        """
+        Create a new prompt in Unity Catalog (metadata only, no initial version).
+        """
+        # Create a Prompt object with the provided fields
+        prompt_proto = ProtoPrompt()
+        prompt_proto.name = name
+        if description:
+            prompt_proto.description = description
+        if tags:
+            prompt_proto.tags.extend(mlflow_tags_to_proto(tags))
+
+        req_body = message_to_json(
+            CreatePromptRequest(
+                name=name,
+                prompt=prompt_proto,
+            )
+        )
+        response_proto = self._call_endpoint(CreatePromptRequest, req_body)
+        return proto_info_to_mlflow_prompt_info(response_proto.prompt, tags or {})
+
+    def search_prompts(
+        self,
+        filter_string: Optional[str] = None,
+        max_results: Optional[int] = None,
+        order_by: Optional[list[str]] = None,
+        page_token: Optional[str] = None,
+        catalog_name: Optional[str] = None,
+        schema_name: Optional[str] = None,
+    ) -> PagedList[PromptInfo]:
+        """
+        Search for prompts in Unity Catalog.
+
+        Args:
+            filter_string: Additional filter string (after catalog/schema are removed)
+            max_results: Maximum number of results to return
+            order_by: List of fields to order by (not used in current implementation)
+            page_token: Token for pagination
+            catalog_name: Unity Catalog catalog name (for UC registries)
+            schema_name: Unity Catalog schema name (for UC registries)
+        """
+        # Build the request with Unity Catalog schema if provided
+        if catalog_name and schema_name:
+            unity_catalog_schema = UnityCatalogSchema(
+                catalog_name=catalog_name, schema_name=schema_name
+            )
+            req_body = message_to_json(
+                SearchPromptsRequest(
+                    unity_catalog_schema=unity_catalog_schema,
+                    filter=filter_string,
+                    max_results=max_results,
+                    page_token=page_token,
+                )
+            )
+        else:
+            req_body = message_to_json(
+                SearchPromptsRequest(
+                    filter=filter_string,
+                    max_results=max_results,
+                    page_token=page_token,
+                )
+            )
+
+        response_proto = self._call_endpoint(SearchPromptsRequest, req_body)
+        prompts = []
+        for prompt_info in response_proto.prompts:
+            # For UC, only use the basic prompt info without extra tag fetching
+            prompts.append(proto_info_to_mlflow_prompt_info(prompt_info, {}))
+
+        return PagedList(prompts, response_proto.next_page_token)
+
+    def delete_prompt(self, name: str) -> None:
+        """
+        Delete a prompt from Unity Catalog.
+        """
+        req_body = message_to_json(DeletePromptRequest(name=name))
+        endpoint, method = self._get_endpoint_from_method(DeletePromptRequest)
+        self._edit_endpoint_and_call(
+            endpoint=endpoint,
+            method=method,
+            req_body=req_body,
+            name=name,
+            proto_name=DeletePromptRequest,
+        )
+
+    def set_prompt_tag(self, name: str, key: str, value: str) -> None:
+        """
+        Set a tag on a prompt in Unity Catalog.
+        """
+        req_body = message_to_json(SetPromptTagRequest(name=name, key=key, value=value))
+        endpoint, method = self._get_endpoint_from_method(SetPromptTagRequest)
+        self._edit_endpoint_and_call(
+            endpoint=endpoint,
+            method=method,
+            req_body=req_body,
+            name=name,
+            key=key,
+            proto_name=SetPromptTagRequest,
+        )
+
+    def delete_prompt_tag(self, name: str, key: str) -> None:
+        """
+        Delete a tag from a prompt in Unity Catalog.
+        """
+        req_body = message_to_json(DeletePromptTagRequest(name=name, key=key))
+        endpoint, method = self._get_endpoint_from_method(DeletePromptTagRequest)
+        self._edit_endpoint_and_call(
+            endpoint=endpoint,
+            method=method,
+            req_body=req_body,
+            name=name,
+            key=key,
+            proto_name=DeletePromptTagRequest,
+        )
