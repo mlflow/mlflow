@@ -421,6 +421,10 @@ const sidebars: SidebarsConfig = {
             },
             {
               type: 'doc',
+              id: "prompts/optimize-prompt",
+            },
+            {
+              type: 'doc',
               id: 'llms/prompt-engineering/index',
             }
           ]
