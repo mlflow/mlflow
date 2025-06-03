@@ -197,3 +197,11 @@ class RunInfo(_MlflowObject):
                 if isinstance(getattr(cls, p), (searchable_attribute, orderable_attribute))
             ]
         )
+
+    @classmethod
+    def from_dictionary(cls, the_dict) -> "RunInfo":
+        # To support loading runs created in 3.x, backfill `run_uuid` if it is not present
+        extra = {}
+        if "run_uuid" not in the_dict and (run_id := the_dict.get("run_id")) is not None:
+            extra["run_uuid"] = run_id
+        return super().from_dictionary(the_dict | extra)
