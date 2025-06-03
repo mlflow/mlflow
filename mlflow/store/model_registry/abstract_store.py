@@ -1,7 +1,7 @@
 import logging
 from abc import ABCMeta, abstractmethod
 from time import sleep, time
-from typing import Optional
+from typing import Optional, Union
 
 from mlflow.entities.model_registry import ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
@@ -528,4 +528,74 @@ class AbstractStore:
         Args:
             name: Name of the prompt.
             key: Tag key.
+        """
+
+    @abstractmethod
+    def get_prompt(self, name: str, version: Optional[Union[str, int]] = None):
+        """
+        Get prompt by name and version.
+
+        Args:
+            name: Name of the prompt.
+            version: Version number or alias. If None, gets latest version.
+
+        Returns:
+            A prompt object or None if not found.
+        """
+
+    @abstractmethod
+    def create_prompt_version(
+        self,
+        name: str,
+        template: str,
+        description: Optional[str] = None,
+        tags: Optional[dict[str, str]] = None,
+    ):
+        """
+        Create a new prompt version.
+
+        Args:
+            name: Name of the prompt.
+            template: Template content for the prompt version.
+            description: Description of the prompt version.
+            tags: Dictionary of tag key-value pairs.
+
+        Returns:
+            A prompt version object.
+        """
+
+    @abstractmethod
+    def get_prompt_version(self, name: str, version: Union[str, int]):
+        """
+        Get a specific prompt version.
+
+        Args:
+            name: Name of the prompt.
+            version: Version number.
+
+        Returns:
+            A prompt version object.
+        """
+
+    @abstractmethod
+    def delete_prompt_version(self, name: str, version: Union[str, int]) -> None:
+        """
+        Delete a prompt version.
+
+        Args:
+            name: Name of the prompt.
+            version: Version number.
+        """
+
+    @abstractmethod
+    def get_prompt_version_by_alias(self, name: str, alias: str):
+        """
+        Get a prompt version by alias.
+
+        Args:
+            name: Name of the prompt.
+            alias: Alias name.
+
+        Returns:
+            A prompt version object.
         """
