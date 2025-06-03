@@ -9,9 +9,6 @@ from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
     PromptAlias as ProtoPromptAlias,
 )
 from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
-    Prompt as ProtoPrompt,
-)
-from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
     PromptTag as ProtoPromptTag,
 )
 from mlflow.protos.unity_catalog_prompt_messages_pb2 import (

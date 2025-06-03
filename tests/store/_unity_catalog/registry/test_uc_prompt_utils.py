@@ -1,9 +1,12 @@
 from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
     Prompt as ProtoPrompt,
-    PromptVersion as ProtoPromptVersion,
-    PromptAlias as ProtoPromptAlias,
+)
+from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
     PromptTag as ProtoPromptTag,
+)
+from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
+    PromptVersion as ProtoPromptVersion,
 )
 from mlflow.store._unity_catalog.registry.prompt_info import PromptInfo
 from mlflow.store._unity_catalog.registry.utils import (
