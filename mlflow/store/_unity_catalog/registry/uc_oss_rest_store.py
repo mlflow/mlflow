@@ -50,7 +50,9 @@ from mlflow.utils.rest_utils import (
 )
 from mlflow.utils.uri import is_file_uri, is_fuse_or_uc_volumes_uri
 
-_METHOD_TO_INFO = extract_api_info_for_service(UnityCatalogService, _UC_OSS_REST_API_PATH_PREFIX)
+_METHOD_TO_INFO = extract_api_info_for_service(
+    UnityCatalogService, _UC_OSS_REST_API_PATH_PREFIX
+)
 _METHOD_TO_ALL_INFO = extract_all_api_info_for_service(
     UnityCatalogService, _UC_OSS_REST_API_PATH_PREFIX
 )
@@ -78,7 +80,9 @@ class UnityCatalogOssStore(BaseRestStore):
     """
 
     def __init__(self, store_uri):
-        super().__init__(get_host_creds=functools.partial(get_oss_host_creds, store_uri))
+        super().__init__(
+            get_host_creds=functools.partial(get_oss_host_creds, store_uri)
+        )
         self.tracking_uri = None  # OSS has no tracking URI
 
     def _get_response_from_method(self, method):
@@ -104,7 +108,9 @@ class UnityCatalogOssStore(BaseRestStore):
     def _get_all_endpoints_from_method(self, method):
         return _METHOD_TO_ALL_INFO[method]
 
-    def create_registered_model(self, name, tags=None, description=None, deployment_job_id=None):
+    def create_registered_model(
+        self, name, tags=None, description=None, deployment_job_id=None
+    ):
         """
         Create a new registered model in backend store.
 
@@ -320,13 +326,17 @@ class UnityCatalogOssStore(BaseRestStore):
         )
         return get_model_version_from_uc_oss_proto(registered_model_version)
 
-    def transition_model_version_stage(self, name, version, stage, archive_existing_versions):
+    def transition_model_version_stage(
+        self, name, version, stage, archive_existing_versions
+    ):
         raise NotImplementedError("Method not implemented")
 
     def delete_model_version(self, name, version):
         full_name = get_full_name_from_sc(name, None)
         version = int(version)
-        req_body = message_to_json(DeleteModelVersion(full_name=full_name, version=version))
+        req_body = message_to_json(
+            DeleteModelVersion(full_name=full_name, version=version)
+        )
         endpoint, method = _METHOD_TO_INFO[DeleteModelVersion]
         return self._edit_endpoint_and_call(
             endpoint=endpoint,
@@ -342,7 +352,9 @@ class UnityCatalogOssStore(BaseRestStore):
     def _get_model_version_endpoint_response(self, name, version):
         full_name = get_full_name_from_sc(name, None)
         version = int(version)
-        req_body = message_to_json(GetModelVersion(full_name=full_name, version=version))
+        req_body = message_to_json(
+            GetModelVersion(full_name=full_name, version=version)
+        )
         endpoint, method = _METHOD_TO_INFO[GetModelVersion]
         return self._edit_endpoint_and_call(
             endpoint=endpoint,
@@ -382,7 +394,9 @@ class UnityCatalogOssStore(BaseRestStore):
         _require_arg_unspecified(arg_name="order_by", arg_value=order_by)
         full_name = parse_model_name(filter_string)
         req_body = message_to_json(
-            ListModelVersions(full_name=full_name, page_token=page_token, max_results=max_results)
+            ListModelVersions(
+                full_name=full_name, page_token=page_token, max_results=max_results
+            )
         )
         endpoint, method = _METHOD_TO_INFO[ListModelVersions]
         response_proto = self._edit_endpoint_and_call(
@@ -393,7 +407,8 @@ class UnityCatalogOssStore(BaseRestStore):
             proto_name=ListModelVersions,
         )
         model_versions = [
-            get_model_version_search_from_uc_oss_proto(mvd) for mvd in response_proto.model_versions
+            get_model_version_search_from_uc_oss_proto(mvd)
+            for mvd in response_proto.model_versions
         ]
         return PagedList(model_versions, response_proto.next_page_token)
 
@@ -488,14 +503,18 @@ class UnityCatalogOssStore(BaseRestStore):
                 # paths is important as mlflow.artifacts.download_artifacts() can return
                 # a FUSE mounted path equivalent to the (remote) source path in some cases,
                 # e.g. return /dbfs/some/path for source dbfs:/some/path.
-                if not os.path.exists(source) and not is_fuse_or_uc_volumes_uri(local_model_dir):
+                if not os.path.exists(source) and not is_fuse_or_uc_volumes_uri(
+                    local_model_dir
+                ):
                     shutil.rmtree(local_model_dir)
 
     def _edit_endpoint_and_call(
         self, endpoint, method, req_body, full_name, proto_name, version=None
     ):
         if version is not None:
-            endpoint = endpoint.replace("{full_name}", full_name).replace("{version}", str(version))
+            endpoint = endpoint.replace("{full_name}", full_name).replace(
+                "{version}", str(version)
+            )
         else:
             endpoint = endpoint.replace("{full_name}", full_name)
         return call_endpoint(
