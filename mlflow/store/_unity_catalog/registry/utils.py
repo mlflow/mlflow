@@ -9,10 +9,13 @@ from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
     PromptAlias as ProtoPromptAlias,
 )
 from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
+    Prompt as ProtoPrompt,
+)
+from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
     PromptTag as ProtoPromptTag,
 )
 from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
-    PromptVersionInfo as ProtoPromptVersion,
+    PromptVersion as ProtoPromptVersion,
 )
 from mlflow.store._unity_catalog.registry.prompt_info import PromptInfo
 
@@ -28,12 +31,12 @@ def mlflow_tags_to_proto(tags: dict[str, str]) -> list[ProtoPromptTag]:
 
 
 def proto_info_to_mlflow_prompt_info(
-    proto_info,  # PromptInfo type from protobuf
+    proto_info,  # Prompt type from protobuf
     prompt_tags: Optional[dict[str, str]] = None,
 ) -> PromptInfo:
-    """Convert proto PromptInfo to MLflow PromptInfo entity.
+    """Convert proto Prompt to MLflow PromptInfo entity.
 
-    PromptInfo doesn't have template or version fields.
+    Prompt doesn't have template or version fields.
     This is used for create_prompt and search_prompts responses.
     """
     tags = proto_to_mlflow_tags(proto_info.tags) if proto_info.tags else {}
@@ -48,12 +51,12 @@ def proto_info_to_mlflow_prompt_info(
 
 
 def proto_to_mlflow_prompt(
-    proto_version,  # PromptVersionInfo type from protobuf
+    proto_version,  # PromptVersion type from protobuf
     prompt_tags: Optional[dict[str, str]] = None,
 ) -> Prompt:
-    """Convert proto PromptVersionInfo to MLflow prompt entity.
+    """Convert proto PromptVersion to MLflow prompt entity.
 
-    PromptVersionInfo has template and version fields.
+    PromptVersion has template and version fields.
     This is used for get_prompt_version responses.
     """
     # Extract version tags
