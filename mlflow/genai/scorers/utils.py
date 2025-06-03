@@ -1,0 +1,67 @@
+# This class is forked from https://github.com/unitycatalog/unitycatalog/blob/20dd3820be332ac04deec4e063099fb863eb3392/ai/core/src/unitycatalog/ai/core/utils/callable_utils.py
+import ast
+import inspect
+from textwrap import dedent
+from typing import Any, Callable
+
+FORBIDDEN_PARAMS = ["self", "cls"]
+
+
+class FunctionBodyExtractor(ast.NodeVisitor):
+    """
+    AST NodeVisitor class to extract the body of a function.
+    """
+
+    def __init__(self, func_name: str, source_code: str):
+        self.func_name = func_name
+        self.source_code = source_code
+        self.function_body = ""
+        self.indent_unit = 4
+        self.found = False
+
+    def visit_FunctionDef(self, node: ast.FunctionDef):
+        if not self.found and node.name == self.func_name:
+            self.found = True
+            self.extract_body(node)
+
+    def extract_body(self, node: ast.FunctionDef):
+        body = node.body
+        # Skip the docstring
+        if (
+            body
+            and isinstance(body[0], ast.Expr)
+            and isinstance(body[0].value, ast.Constant)
+            and isinstance(body[0].value.value, str)
+        ):
+            body = body[1:]
+
+        if not body:
+            return
+
+        start_lineno = body[0].lineno
+        end_lineno = body[-1].end_lineno
+
+        source_lines = self.source_code.splitlines(keepends=True)
+        function_body_lines = source_lines[start_lineno - 1 : end_lineno]
+
+        self.function_body = dedent("".join(function_body_lines)).rstrip("\n")
+
+        indents = [stmt.col_offset for stmt in body if stmt.col_offset is not None]
+        if indents:
+            self.indent_unit = min(indents)
+
+
+def extract_function_body(func: Callable[..., Any]) -> tuple[str, int]:
+    """
+    Extracts the body of a function as a string without the signature or docstring,
+    dedents the code, and returns the indentation unit used in the function (e.g., 2 or 4 spaces).
+    """
+    source_lines, _ = inspect.getsourcelines(func)
+    dedented_source = dedent("".join(source_lines))
+    func_name = func.__name__
+
+    extractor = FunctionBodyExtractor(func_name, dedented_source)
+    parsed_source = ast.parse(dedented_source)
+    extractor.visit(parsed_source)
+
+    return extractor.function_body, extractor.indent_unit 

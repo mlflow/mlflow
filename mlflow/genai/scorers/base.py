@@ -19,195 +19,181 @@ class Scorer(BaseModel):
     _run_source: Optional[str] = PrivateAttr(default=None)
     _call_source: Optional[str] = PrivateAttr(default=None)
     _call_signature: Optional[str] = PrivateAttr(default=None)
+    _original_func_name: Optional[str] = PrivateAttr(default=None)
 
     def model_post_init(self, __context: Any) -> None:
         """Extract and store source code after initialization."""
         super().model_post_init(__context)
         
         # Skip source code extraction for builtin scorers
-        # Check if the instance is a subclass of BuiltInScorer (without importing it to avoid circular imports)
+        # Check if the instance is a subclass of builtin scorer (without importing it to avoid circular imports)
         if hasattr(self.__class__, '__module__') and 'builtin_scorers' in self.__class__.__module__:
             return
             
         self._extract_source_code()
     
     def _extract_source_code(self):
-        """Extract source code for run and __call__ methods."""
+        """Extract source code for run and the original decorated function."""
         from mlflow.genai.scorers.utils import extract_function_body
         
-        # Extract run method source
+        # Extract run method source (always the same base implementation)
         try:
             run_body, _ = extract_function_body(self.run)
-            self._run_source = run_body
+            object.__setattr__(self, '_run_source', run_body)
         except Exception:
-            # Fallback to inspect.getsource if custom extraction fails
             try:
-                self._run_source = inspect.getsource(self.run)
+                run_source = inspect.getsource(self.run)
+                object.__setattr__(self, '_run_source', run_source)
             except Exception:
-                self._run_source = None
+                # TODO: print a warning
+                object.__setattr__(self, '_run_source', None)
         
-        # Extract __call__ method source
-        # Check if this scorer has an _original_func (from @scorer decorator)
+        # Extract original function source (for decorator-created scorers)
         if hasattr(self, '_original_func') and self._original_func:
             try:
                 call_body, _ = extract_function_body(self._original_func)
-                self._call_source = call_body
+                object.__setattr__(self, '_call_source', call_body)
+                object.__setattr__(self, '_original_func_name', self._original_func.__name__)
             except Exception:
                 try:
-                    self._call_source = inspect.getsource(self._original_func)
+                    call_source = inspect.getsource(self._original_func)
+                    object.__setattr__(self, '_call_source', call_source)
+                    object.__setattr__(self, '_original_func_name', self._original_func.__name__)
                 except Exception:
-                    self._call_source = None
-        else:
-            # Regular extraction for direct Scorer subclasses
-            call_method = self.__call__
+                    # TODO: print a warning
+                    object.__setattr__(self, '_call_source', None)
+                    object.__setattr__(self, '_original_func_name', None)
             
-            # Look for the wrapped function in the closure
-            if hasattr(call_method, '__closure__') and call_method.__closure__:
-                for cell in call_method.__closure__:
-                    try:
-                        cell_contents = cell.cell_contents
-                        if callable(cell_contents) and hasattr(cell_contents, '__name__'):
-                            # This might be the wrapped function
-                            call_body, _ = extract_function_body(cell_contents)
-                            self._call_source = call_body
-                            break
-                    except Exception:
-                        continue
-            
-            # If we didn't find the wrapped function, try the regular extraction
-            if not hasattr(self, '_call_source') or not self._call_source:
-                try:
-                    call_body, _ = extract_function_body(call_method)
-                    self._call_source = call_body
-                except Exception:
-                    # Fallback to inspect.getsource if custom extraction fails
-                    try:
-                        self._call_source = inspect.getsource(call_method)
-                    except Exception:
-                        self._call_source = None
-        
-        # Store the signature of __call__ for reconstruction
-        try:
-            self._call_signature = str(inspect.signature(self.__call__))
-        except Exception:
-            self._call_signature = None
+            # Store the signature of the original function
+            try:
+                signature = str(inspect.signature(self._original_func))
+                object.__setattr__(self, '_call_signature', signature)
+            except Exception:
+                object.__setattr__(self, '_call_signature', None)
 
     def model_dump(self, **kwargs) -> dict:
         """Override model_dump to include source code."""
         data = super().model_dump(**kwargs)
         
-        # Add source code to the serialized data if available
-        if hasattr(self, '_run_source') and self._run_source:
-            data["run_source"] = self._run_source
-        if hasattr(self, '_call_source') and self._call_source:
-            data["__call___source"] = self._call_source
-        if hasattr(self, '_call_signature') and self._call_signature:
-            data["__call___signature"] = self._call_signature
+        # For builtin scorers, store the class information instead of source code
+        # We detect builtin scorers by checking if their module contains 'builtin_scorers'
+        # (e.g., 'mlflow.genai.scorers.builtin_scorers'). This approach allows us to use a simpler serialization 
+        # strategy: store class name + parameters instead of extracting and storing complex source code.
+        if hasattr(self.__class__, '__module__') and 'builtin_scorers' in self.__class__.__module__:
+            data["_builtin_scorer_class"] = self.__class__.__name__
+            # Also include any additional fields like required_columns
+            if hasattr(self, 'required_columns'):
+                data["required_columns"] = self.required_columns
+        elif hasattr(self, '_original_func') and self._original_func:
+            # Add source code to the serialized data if available (for decorator-created scorers)
+            if hasattr(self, '_run_source') and self._run_source:
+                data["run_source"] = self._run_source
+            if hasattr(self, '_call_source') and self._call_source:
+                data["__call___source"] = self._call_source
+            if hasattr(self, '_call_signature') and self._call_signature:
+                data["__call___signature"] = self._call_signature
+            if hasattr(self, '_original_func_name') and self._original_func_name:
+                data["original_func_name"] = self._original_func_name
+        else:
+            # This is neither a builtin scorer nor a decorator scorer
+            # Check if it's an unsupported direct subclass of Scorer
+            base_call_method = Scorer.__call__
+            current_call_method = self.__class__.__call__
+            
+            # If the __call__ method has been overridden (not the base NotImplementedError one)
+            # then this is likely a direct subclass, which we don't support for serialization
+            if current_call_method is not base_call_method:
+                raise ValueError(
+                    f"Unsupported scorer type: {self.__class__.__name__}. "
+                    f"Scorer serialization only supports:\n"
+                    f"1. Builtin scorers (from mlflow.genai.scorers.builtin_scorers)\n"
+                    f"2. Decorator-created scorers (using @scorer decorator)\n"
+                    f"Direct subclassing of Scorer is not supported for serialization. "
+                    f"Please use the @scorer decorator instead."
+                )
             
         return data
     
     @classmethod
     def model_validate(cls, obj: Any) -> "Scorer":
-        """Override model_validate to reconstruct methods from source code."""
+        """Override model_validate to reconstruct scorer from source code."""
         if isinstance(obj, dict):
-            # Extract source code fields before creating instance
+            # Check if this is a builtin scorer
+            builtin_class_name = obj.pop("_builtin_scorer_class", None)
+            if builtin_class_name:
+                # Import and reconstruct the builtin scorer
+                from mlflow.genai.scorers import builtin_scorers
+                scorer_class = getattr(builtin_scorers, builtin_class_name)
+                
+                # Get the valid field names for this scorer class from its model fields
+                valid_fields = set(scorer_class.model_fields.keys())
+                
+                # Create instance with all the preserved data that matches valid fields
+                constructor_args = {k: v for k, v in obj.items() if k in valid_fields}
+                return scorer_class(**constructor_args)
+            
+            # Extract source code fields for decorator-created scorers
             run_source = obj.pop("run_source", None)
             call_source = obj.pop("__call___source", None)
             call_signature = obj.pop("__call___signature", None)
+            original_func_name = obj.pop("original_func_name", None)
             
-            # Check if this is a built-in scorer class
-            is_builtin = hasattr(cls, '__module__') and 'builtin_scorers' in cls.__module__
+            # If we have the original function source, recreate the scorer using the decorator
+            if call_source and call_signature and original_func_name:
+                # Recreate the original function
+                recreated_func = cls._recreate_function(
+                    call_source, call_signature, original_func_name
+                )
+                
+                if recreated_func:
+                    # Apply the scorer decorator to recreate the scorer
+                    recreated_scorer = scorer(
+                        recreated_func,
+                        name=obj.get('name'),
+                        aggregations=obj.get('aggregations')
+                    )
+                    return recreated_scorer
+                else:
+                    raise ValueError(
+                        "Failed to recreate function from source code. "
+                    )
             
-            # If we have source code and it's not a builtin scorer, use DynamicScorer
-            if call_source and call_signature and not is_builtin:
-                # Import here to avoid circular dependency
-                from mlflow.genai.scorers.base import DynamicScorer
-                
-                # Add private attributes to obj for DynamicScorer
-                obj['_run_source'] = run_source
-                obj['_call_source'] = call_source
-                obj['_call_signature'] = call_signature
-                
-                # Create a DynamicScorer instance
-                instance = DynamicScorer(**obj)
-                
-                # DynamicScorer will handle method reconstruction in its __init__
-                return instance
-            else:
-                # Create regular instance
-                instance = super().model_validate(obj)
-                
-                # Only set source code attributes if not a builtin scorer
-                if not is_builtin:
-                    try:
-                        # Store the source code in private attributes
-                        instance._run_source = run_source
-                        instance._call_source = call_source
-                        instance._call_signature = call_signature
-                    except Exception:
-                        # Some other immutable scorer - skip source code storage
-                        pass
-                
-                return instance
+            # If we reach here, the serialized data is invalid
+            raise ValueError(
+                f"Invalid serialized scorer data. Expected either '_builtin_scorer_class' "
+                f"or source code fields ('__call___source', '__call___signature', 'original_func_name')."
+            )
+        
         return super().model_validate(obj)
     
-    def _reconstruct_call_method(self):
-        """Reconstruct the __call__ method from stored source code."""
-        if not self._call_source or not self._call_signature:
-            return
-            
+    @classmethod
+    def _recreate_function(cls, source: str, signature: str, func_name: str) -> Optional[Callable]:
+        """Recreate a function from its source code."""
         try:
-            # Parse the signature to get parameter names
+            # Parse the signature to build the function definition
             import re
-            sig_match = re.match(r'\((.*?)\)', self._call_signature)
+            sig_match = re.match(r'\((.*?)\)', signature)
             if not sig_match:
-                return
+                return None
                 
-            params = [p.strip() for p in sig_match.group(1).split(',') if p.strip()]
-            param_str = ', '.join(params)
+            params_str = sig_match.group(1).strip()
             
             # Build the function definition
-            func_def = f"def __call__(self, {param_str}):\n"
-            
+            func_def = f"def {func_name}({params_str}):\n"
             # Indent the source code
-            indented_source = '\n'.join(f"    {line}" for line in self._call_source.split('\n'))
+            indented_source = '\n'.join(f"    {line}" for line in source.split('\n'))
             func_def += indented_source
             
-            # Create a namespace with necessary imports
-            namespace = {
-                'Feedback': Feedback,
-                'Assessment': Assessment,
-                'Union': Union,
-                'Optional': Optional,
-                'Any': Any,
-                'list': list,
-                'dict': dict,
-                'str': str,
-                'int': int,
-                'float': float,
-                'bool': bool,
-                'len': len,
-                'sum': sum,
-                'enumerate': enumerate,
-                're': __import__('re'),
-            }
+            local_namespace = {}
             
-            # Execute the function definition
-            exec(func_def, namespace)
+            # Execute the function definition in the local namespace
+            exec(func_def, globals(), local_namespace)
             
-            # Get the function from the namespace
-            call_func = namespace['__call__']
+            # Return the recreated function
+            return local_namespace[func_name]
             
-            # Create a bound method and set it on the instance
-            # Use object.__setattr__ to bypass pydantic's setattr
-            import types
-            bound_method = types.MethodType(call_func, self)
-            object.__setattr__(self, '__call__', bound_method)
-            
-        except Exception as e:
-            # If reconstruction fails, keep the original NotImplementedError behavior
-            import warnings
-            warnings.warn(f"Failed to reconstruct __call__ method: {e}")
+        except Exception:
+            return None
 
     def run(self, *, inputs=None, outputs=None, expectations=None, trace=None):
         from mlflow.evaluation import Assessment as LegacyAssessment
@@ -358,136 +344,6 @@ class Scorer(BaseModel):
 
 
 @experimental
-class DynamicScorer(Scorer):
-    """A scorer that can reconstruct its __call__ method from source code."""
-    
-    def __init__(self, **data):
-        # Extract source code fields if present and save them
-        run_source = data.pop('_run_source', None)
-        call_source = data.pop('_call_source', None)
-        call_signature = data.pop('_call_signature', None)
-        
-        # Now call parent init
-        super().__init__(**data)
-        
-        # Re-set the source code attributes after parent init
-        # Use object.__setattr__ to bypass any pydantic restrictions
-        if run_source is not None:
-            object.__setattr__(self, '_run_source', run_source)
-        if call_source is not None:
-            object.__setattr__(self, '_call_source', call_source)
-        if call_signature is not None:
-            object.__setattr__(self, '_call_signature', call_signature)
-        
-        # Set up the dynamic call method if we have source code
-        if self._call_source and self._call_signature:
-            self._setup_dynamic_call()
-    
-    def model_post_init(self, __context: Any) -> None:
-        """Override to prevent source code extraction for dynamic scorers."""
-        # Skip parent's model_post_init which would extract source code
-        # We already have the source code from deserialization
-        pass
-    
-    def _setup_dynamic_call(self):
-        """Set up the dynamic __call__ method from source code."""
-        if not self._call_source or not self._call_signature:
-            return
-            
-        try:
-            # Parse the signature to get parameter names
-            import re
-            sig_match = re.match(r'\((.*?)\)', self._call_signature)
-            if not sig_match:
-                return
-                
-            params_str = sig_match.group(1).strip()
-            
-            # Build a function that matches the expected signature
-            # Note: params_str already contains the parameter definitions
-            # Make sure to add * to enforce keyword-only parameters if not already present
-            if params_str and not params_str.startswith('*'):
-                func_def = f"def __call__(self, *, {params_str}):\n"
-            else:
-                func_def = f"def __call__(self, {params_str}):\n"
-            
-            # Indent the source code
-            indented_source = '\n'.join(f"    {line}" for line in self._call_source.split('\n'))
-            func_def += indented_source
-            
-            # Create a namespace with necessary imports
-            namespace = {
-                'Feedback': Feedback,
-                'Assessment': Assessment,
-                'Union': Union,
-                'Optional': Optional,
-                'Any': Any,
-                'list': list,
-                'dict': dict,
-                'str': str,
-                'int': int,
-                'float': float,
-                'bool': bool,
-                'len': len,
-                'sum': sum,
-                'enumerate': enumerate,
-                're': __import__('re'),
-            }
-            
-            # Execute the function definition
-            exec(func_def, namespace)
-            
-            # Get the function and bind it
-            import types
-            call_func = namespace['__call__']
-            bound_method = types.MethodType(call_func, self)
-            
-            # Use object.__setattr__ to bypass pydantic
-            object.__setattr__(self, '_dynamic_call_func', bound_method)
-            
-        except Exception as e:
-            import warnings
-            warnings.warn(f"Failed to set up dynamic call: {e}")
-
-    def __call__(
-        self, 
-        *, 
-        inputs: Any = None, 
-        outputs: Any = None, 
-        expectations: Optional[dict[str, Any]] = None, 
-        trace: Optional[Trace] = None
-    ) -> Union[int, float, bool, str, Feedback, list[Feedback]]:
-        """Call the dynamically loaded function with appropriate parameters."""
-        if hasattr(self, '_dynamic_call_func') and self._dynamic_call_func:
-            # Build kwargs with only the parameters the dynamic function expects
-            try:
-                sig = inspect.signature(self._dynamic_call_func)
-                kwargs = {}
-                all_params = {
-                    'inputs': inputs,
-                    'outputs': outputs,
-                    'expectations': expectations,
-                    'trace': trace
-                }
-                for param_name in sig.parameters:
-                    if param_name != 'self' and param_name in all_params:
-                        kwargs[param_name] = all_params[param_name]
-                        
-                # Call our dynamically loaded function
-                return self._dynamic_call_func(**kwargs)
-            except Exception as e:
-                raise
-        else:
-            # Fall back to parent's implementation
-            return super().__call__(
-                inputs=inputs, 
-                outputs=outputs, 
-                expectations=expectations, 
-                trace=trace
-            )
-
-
-@experimental
 def scorer(
     func=None,
     *,
@@ -633,7 +489,16 @@ def scorer(
         
         def __init__(self, **data):
             super().__init__(**data)
-            self._original_func = func
+        
+        def model_post_init(self, __context: Any) -> None:
+            """Set the original function and extract source code."""
+            # Set the original function first
+            # Use object.__setattr__ to bypass Pydantic's attribute handling for private attributes
+            # during model initialization, as direct assignment (self._original_func = func) may be
+            # ignored or fail in this context
+            object.__setattr__(self, '_original_func', func)
+            # Now call the parent's model_post_init
+            super().model_post_init(__context)
         
         def __call__(self, *args, **kwargs):
             return func(*args, **kwargs)
