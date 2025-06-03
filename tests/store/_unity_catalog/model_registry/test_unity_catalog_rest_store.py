@@ -2110,7 +2110,7 @@ def test_create_prompt_uc(mock_http, store, monkeypatch):
     tags = {"foo": "bar"}
     # Patch proto_info_to_mlflow_prompt_info to return a dummy PromptInfo
     with mock.patch(
-        "mlflow.store._unity_catalog.registry.utils.proto_info_to_mlflow_prompt_info",
+        "mlflow.store._unity_catalog.registry.rest_store.proto_info_to_mlflow_prompt_info",
         return_value=PromptInfo(name, description, tags=tags),
     ) as proto_to_prompt:
         store.create_prompt(name=name, description=description, tags=tags)
@@ -2123,7 +2123,7 @@ def test_create_prompt_uc(mock_http, store, monkeypatch):
 def test_search_prompts_uc(mock_http, store, monkeypatch):
     # Patch proto_info_to_mlflow_prompt_info to return a dummy PromptInfo
     with mock.patch(
-        "mlflow.store._unity_catalog.registry.utils.proto_info_to_mlflow_prompt_info",
+        "mlflow.store._unity_catalog.registry.rest_store.proto_info_to_mlflow_prompt_info",
         return_value=PromptInfo("prompt1", "test prompt"),
     ) as proto_to_prompt:
         store.search_prompts()
@@ -2167,7 +2167,7 @@ def test_search_prompts_with_results_uc(store, monkeypatch):
     with (
         mock.patch.object(store, "_call_endpoint", return_value=mock_response),
         mock.patch(
-            "mlflow.store._unity_catalog.registry.utils.proto_info_to_mlflow_prompt_info",
+            "mlflow.store._unity_catalog.registry.rest_store.proto_info_to_mlflow_prompt_info",
             side_effect=expected_prompts,
         ) as mock_converter,
     ):

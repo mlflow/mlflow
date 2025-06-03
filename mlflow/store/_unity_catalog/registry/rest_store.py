@@ -1242,3 +1242,30 @@ class UcModelRegistryStore(BaseRestStore):
             key=key,
             proto_name=DeletePromptTagRequest,
         )
+
+    def _edit_endpoint_and_call(self, endpoint, method, req_body, proto_name, **kwargs):
+        """
+        Edit endpoint URL with parameters and make the call.
+
+        Args:
+            endpoint: URL template with placeholders like {name}, {key}
+            method: HTTP method
+            req_body: Request body
+            proto_name: Protobuf message class for response
+            **kwargs: Parameters to substitute in the endpoint template
+        """
+        # Replace placeholders in endpoint with actual values
+        for key, value in kwargs.items():
+            if value is not None:
+                endpoint = endpoint.replace(f"{{{key}}}", str(value))
+
+        # Make the API call
+        from mlflow.utils.rest_utils import call_endpoint
+
+        return call_endpoint(
+            self.get_host_creds(),
+            endpoint=endpoint,
+            method=method,
+            json_body=req_body,
+            response_proto=self._get_response_from_method(proto_name),
+        )
