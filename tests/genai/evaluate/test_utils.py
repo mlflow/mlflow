@@ -121,8 +121,8 @@ def sample_spark_data(sample_pd_data, spark):
 def sample_spark_data_with_string_columns(sample_pd_data, spark):
     # Cast inputs and expectations columns to string
     df = sample_pd_data.copy()
-    df["inputs"] = df["inputs"].apply(lambda x: json.dumps(x))
-    df["expectations"] = df["expectations"].apply(lambda x: json.dumps(x))
+    df["inputs"] = df["inputs"].apply(json.dumps)
+    df["expectations"] = df["expectations"].apply(json.dumps)
     return spark.createDataFrame(df)
 
 
