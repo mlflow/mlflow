@@ -1,20 +1,25 @@
 from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
-    PromptInfo as ProtoPromptInfo,
+    Prompt as ProtoPrompt,
 )
 from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
     PromptTag as ProtoPromptTag,
 )
 from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
-    PromptVersionInfo as ProtoPromptVersion,
+    PromptVersion as ProtoPromptVersion,
+)
+from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
+    PromptVersionTag as ProtoPromptVersionTag,
 )
 from mlflow.store._unity_catalog.registry.prompt_info import PromptInfo
 from mlflow.store._unity_catalog.registry.utils import (
     mlflow_prompt_to_proto,
     mlflow_tags_to_proto,
+    mlflow_tags_to_proto_version_tags,
     proto_info_to_mlflow_prompt_info,
     proto_to_mlflow_prompt,
     proto_to_mlflow_tags,
+    proto_version_tags_to_mlflow_tags,
 )
 
 
@@ -51,7 +56,7 @@ def test_mlflow_tags_to_proto():
 
 def test_proto_info_to_mlflow_prompt_info():
     # Create test proto info
-    proto_info = ProtoPromptInfo(
+    proto_info = ProtoPrompt(
         name="test_prompt",
         description="Test prompt description",
         tags=[
@@ -83,11 +88,11 @@ def test_proto_to_mlflow_prompt():
     proto_version.description = "Test prompt"
     # Skip timestamp for now as it's a complex protobuf type
 
-    # Add tags
-    tag1 = ProtoPromptTag()
+    # Add version tags (use PromptVersionTag for prompt versions)
+    tag1 = ProtoPromptVersionTag()
     tag1.key = "key1"
     tag1.value = "value1"
-    tag2 = ProtoPromptTag()
+    tag2 = ProtoPromptVersionTag()
     tag2.key = "key2"
     tag2.value = "value2"
     proto_version.tags.extend([tag1, tag2])
@@ -139,3 +144,34 @@ def test_mlflow_prompt_to_proto():
     prompt = Prompt(name="test_prompt", version=1, template="Hello {{name}}!")
     proto_version = mlflow_prompt_to_proto(prompt)
     assert len(proto_version.tags) == 0
+
+
+def test_proto_version_tags_to_mlflow_tags():
+    # Test with empty tags
+    assert proto_version_tags_to_mlflow_tags([]) == {}
+
+    # Test with version tags
+    proto_tags = [
+        ProtoPromptVersionTag(key="key1", value="value1"),
+        ProtoPromptVersionTag(key="key2", value="value2"),
+    ]
+    expected = {"key1": "value1", "key2": "value2"}
+    assert proto_version_tags_to_mlflow_tags(proto_tags) == expected
+
+    # Test with None
+    assert proto_version_tags_to_mlflow_tags(None) == {}
+
+
+def test_mlflow_tags_to_proto_version_tags():
+    # Test with empty tags
+    assert mlflow_tags_to_proto_version_tags({}) == []
+
+    # Test with tags
+    tags = {"key1": "value1", "key2": "value2"}
+    proto_tags = mlflow_tags_to_proto_version_tags(tags)
+    assert len(proto_tags) == 2
+    assert all(isinstance(tag, ProtoPromptVersionTag) for tag in proto_tags)
+    assert {tag.key: tag.value for tag in proto_tags} == tags
+
+    # Test with None
+    assert mlflow_tags_to_proto_version_tags(None) == []

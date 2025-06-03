@@ -1,4 +1,4 @@
-import importlib
+import json
 import os
 from typing import Any, Literal
 from unittest.mock import patch
@@ -14,21 +14,32 @@ from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai import scorer
 from mlflow.genai.evaluation.utils import _convert_to_legacy_eval_set
-from mlflow.genai.scorers.builtin_scorers import safety
-
-if importlib.util.find_spec("databricks.agents") is None:
-    pytest.skip(reason="databricks-agents is not installed", allow_module_level=True)
+from mlflow.genai.scorers.builtin_scorers import Safety
+from mlflow.utils.spark_utils import is_spark_connect_mode
 
 
 @pytest.fixture(scope="module")
 def spark():
-    try:
-        from pyspark.sql import SparkSession
+    # databricks-agents installs databricks-connect
+    if is_spark_connect_mode():
+        pytest.skip("Local Spark Session is not supported when databricks-connect is installed.")
 
-        with SparkSession.builder.getOrCreate() as spark:
-            yield spark
-    except Exception as e:
-        pytest.skip(f"Failed to create a spark session: {e}")
+    from pyspark.sql import SparkSession
+
+    with SparkSession.builder.getOrCreate() as spark:
+        yield spark
+
+
+def count_rows(data: Any) -> int:
+    try:
+        from mlflow.utils.spark_utils import get_spark_dataframe_type
+
+        if isinstance(data, get_spark_dataframe_type()):
+            return data.count()
+    except Exception:
+        pass
+
+    return len(data)
 
 
 @pytest.fixture
@@ -59,6 +70,7 @@ def sample_dict_data_multiple():
         {
             "inputs": {"question": "What is MLflow?"},
             "outputs": "actual response for third question",
+            "expectations": {},
         },
     ]
 
@@ -105,12 +117,22 @@ def sample_spark_data(sample_pd_data, spark):
     return spark.createDataFrame(sample_pd_data)
 
 
+@pytest.fixture
+def sample_spark_data_with_string_columns(sample_pd_data, spark):
+    # Cast inputs and expectations columns to string
+    df = sample_pd_data.copy()
+    df["inputs"] = df["inputs"].apply(json.dumps)
+    df["expectations"] = df["expectations"].apply(json.dumps)
+    return spark.createDataFrame(df)
+
+
 _ALL_DATA_FIXTURES = [
     "sample_dict_data_single",
     "sample_dict_data_multiple",
     "sample_dict_data_multiple_with_custom_expectations",
     "sample_pd_data",
     "sample_spark_data",
+    "sample_spark_data_with_string_columns",
 ]
 
 
@@ -208,6 +230,34 @@ def test_convert_to_legacy_eval_set_has_no_errors(data_fixture, request):
     assert "expectations" in transformed_data.columns
 
 
+def test_convert_to_legacy_eval_raise_for_invalid_json_columns(spark):
+    # Data with invalid `inputs` column
+    df = spark.createDataFrame(
+        [
+            {"inputs": "invalid json", "expectations": '{"expected_response": "expected"}'},
+            {"inputs": "invalid json", "expectations": '{"expected_response": "expected"}'},
+        ]
+    )
+    with pytest.raises(MlflowException, match="Failed to parse `inputs` column."):
+        _convert_to_legacy_eval_set(df)
+
+    # Data with invalid `expectations` column
+    df = spark.createDataFrame(
+        [
+            {
+                "inputs": '{"question": "What is the capital of France?"}',
+                "expectations": "invalid expectations",
+            },
+            {
+                "inputs": '{"question": "What is the capital of Germany?"}',
+                "expectations": "invalid expectations",
+            },
+        ]
+    )
+    with pytest.raises(MlflowException, match="Failed to parse `expectations` column."):
+        _convert_to_legacy_eval_set(df)
+
+
 @pytest.mark.parametrize("data_fixture", _ALL_DATA_FIXTURES)
 def test_scorer_receives_correct_data(data_fixture, request):
     sample_data = request.getfixturevalue(data_fixture)
@@ -232,21 +282,22 @@ def test_scorer_receives_correct_data(data_fixture, request):
     )
 
     all_inputs, all_outputs, all_expectations, all_custom_expectations = zip(*received_args)
+    row_count = count_rows(sample_data)
     expected_inputs = [
         "What is Spark?",
         "How can you minimize data shuffling in Spark?",
         "What is MLflow?",
-    ][: len(sample_data)]
+    ][:row_count]
     expected_outputs = [
         "actual response for first question",
         "actual response for second question",
         "actual response for third question",
-    ][: len(sample_data)]
+    ][:row_count]
     expected_expectations = [
         "expected response for first question",
         "expected response for second question",
         None,
-    ][: len(sample_data)]
+    ][:row_count]
 
     assert set(all_inputs) == set(expected_inputs)
     assert set(all_outputs) == set(expected_outputs)
@@ -266,7 +317,7 @@ def test_input_is_required_if_trace_is_not_provided():
         with pytest.raises(MlflowException, match="inputs.*required"):
             mlflow.genai.evaluate(
                 data=pd.DataFrame({"outputs": ["Paris"]}),
-                scorers=[safety],
+                scorers=[Safety()],
             )
 
         mock_evaluate.assert_not_called()
@@ -275,7 +326,7 @@ def test_input_is_required_if_trace_is_not_provided():
             data=pd.DataFrame(
                 {"inputs": [{"question": "What is the capital of France?"}], "outputs": ["Paris"]}
             ),
-            scorers=[safety],
+            scorers=[Safety()],
         )
         mock_evaluate.assert_called_once()
 
@@ -290,7 +341,7 @@ def test_input_is_optional_if_trace_is_provided():
     with patch("mlflow.models.evaluate") as mock_evaluate:
         mlflow.genai.evaluate(
             data=pd.DataFrame({"trace": [trace]}),
-            scorers=[safety],
+            scorers=[Safety()],
         )
 
         mock_evaluate.assert_called_once()
@@ -349,11 +400,12 @@ def test_predict_fn_receives_correct_data(data_fixture, request):
     )
 
     received_args.pop(0)  # Remove the one-time prediction to check if a model is traced
-    assert len(received_args) == len(sample_data)
+    row_count = count_rows(sample_data)
+    assert len(received_args) == row_count
     expected_contents = [
         "What is Spark?",
         "How can you minimize data shuffling in Spark?",
         "What is MLflow?",
-    ][: len(sample_data)]
+    ][:row_count]
     # Using set because eval harness runs predict_fn in parallel
     assert set(received_args) == set(expected_contents)

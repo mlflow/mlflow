@@ -1,12 +1,16 @@
+import contextlib
+import io
 import logging
 import math
-from typing import TYPE_CHECKING, Any, Optional, Union
+import os
+from typing import TYPE_CHECKING, Optional
 
 from mlflow.entities.model_registry import Prompt
 from mlflow.exceptions import MlflowException
 from mlflow.genai.optimize.optimizers.dspy_optimizer import _DSPyOptimizer
 from mlflow.genai.optimize.types import OBJECTIVE_FN, LLMParams
 from mlflow.genai.scorers import Scorer
+from mlflow.tracking._model_registry.fluent import register_prompt
 
 if TYPE_CHECKING:
     import dspy
@@ -25,12 +29,13 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
         scorers: list[Scorer],
         objective: Optional[OBJECTIVE_FN] = None,
         eval_data: Optional["pd.DataFrame"] = None,
-    ) -> Union[str, list[dict[str, Any]]]:
+    ) -> Prompt:
         import dspy
 
         _logger.info(
             f"Started optimizing prompt {prompt.uri}. "
-            "Please wait as this process typically takes several minutes..."
+            "Please wait as this process typically takes several minutes, "
+            "but can take longer with large datasets..."
         )
 
         input_fields = self._get_input_fields(train_data)
@@ -80,10 +85,7 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
 
         adapter = dspy.JSONAdapter()
         with dspy.context(lm=lm, adapter=adapter):
-            dspy_logger = logging.getLogger("dspy")
-            original_level = dspy_logger.level
-            dspy_logger.setLevel(logging.ERROR)
-            try:
+            with self._maybe_suppress_stdout_stderr():
                 optimized_program = optimizer.compile(
                     program,
                     trainset=train_data,
@@ -92,15 +94,22 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
                     minibatch_size=self._get_minibatch_size(train_data, eval_data),
                     requires_permission_to_run=False,
                 )
-            finally:
-                # Restore original logging level
-                dspy_logger.setLevel(original_level)
 
-            return self._format_optimized_prompt(
-                adapter=adapter,
-                program=optimized_program,
-                input_fields=input_fields,
-            )
+        template = self._format_optimized_prompt(
+            adapter=adapter,
+            program=optimized_program,
+            input_fields=input_fields,
+        )
+
+        self._display_optimization_result(optimized_program)
+
+        return register_prompt(
+            name=prompt.name,
+            template=template,
+            version_metadata={
+                "overall_eval_score": getattr(optimized_program, "score", None),
+            },
+        )
 
     def _get_num_trials(self, num_candidates: int) -> int:
         # MAX(2*log(num_candidates), 3/2*num_candidates)
@@ -155,3 +164,32 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
 
         with dspy.context(lm=lm):
             return extractor(prompt=template).instruction
+
+    @contextlib.contextmanager
+    def _maybe_suppress_stdout_stderr(self):
+        """Context manager for redirecting stdout/stderr based on verbose setting.
+        If verbose is False, redirects output to devnull or StringIO.
+        If verbose is True, doesn't redirect output.
+        """
+        if not self.optimizer_config.verbose:
+            try:
+                output_sink = open(os.devnull, "w")  # noqa: SIM115
+            except (OSError, IOError):
+                output_sink = io.StringIO()
+
+            with output_sink:
+                with (
+                    contextlib.redirect_stdout(output_sink),
+                    contextlib.redirect_stderr(output_sink),
+                ):
+                    yield
+        else:
+            yield
+
+    def _display_optimization_result(self, program: "dspy.Predict"):
+        if hasattr(program, "score") and hasattr(program, "trial_logs"):
+            initial_score = program.trial_logs[1]["full_eval_score"]
+            _logger.info(
+                "Prompt optimization completed. Evaluation score changed "
+                f"from {initial_score} to {program.score}."
+            )

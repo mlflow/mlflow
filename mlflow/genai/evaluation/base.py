@@ -55,14 +55,14 @@ def evaluate(
     .. code-block:: python
 
         import mlflow
-        from mlflow.genai.scorers import correctness, safety
+        from mlflow.genai.scorers import Correctness, Safety
         import pandas as pd
 
         trace_df = mlflow.search_traces(model_id="<my-model-id>")
 
         mlflow.genai.evaluate(
             data=trace_df,
-            scorers=[correctness, safety],
+            scorers=[Correctness(), Safety()],
         )
 
     Built-in scorers will understand the model inputs, outputs, and other intermediate
@@ -86,7 +86,7 @@ def evaluate(
     .. code-block:: python
 
         import mlflow
-        from mlflow.genai.scorers import correctness
+        from mlflow.genai.scorers import Correctness
         import pandas as pd
 
         data = pd.DataFrame(
@@ -106,7 +106,7 @@ def evaluate(
 
         mlflow.genai.evaluate(
             data=data,
-            scorers=[correctness()],
+            scorers=[Correctness()],
         )
 
     **3. Pass `predict_fn` and input samples (and optionally expectations).**
@@ -119,7 +119,7 @@ def evaluate(
     .. code-block:: python
 
         import mlflow
-        from mlflow.genai.scorers import correctness, safety
+        from mlflow.genai.scorers import Correctness, Safety
         import openai
 
         # Create a dataframe with input samples
@@ -144,7 +144,7 @@ def evaluate(
         mlflow.genai.evaluate(
             data=data,
             predict_fn=predict_fn,
-            scorers=[correctness, safety],
+            scorers=[Correctness(), Safety()],
         )
 
     Args:

@@ -7,15 +7,7 @@ from mlflow.genai.scorers.builtin_scorers import (
     RetrievalRelevance,
     RetrievalSufficiency,
     Safety,
-    correctness,
     get_all_scorers,
-    get_rag_scorers,
-    guideline_adherence,
-    relevance_to_query,
-    retrieval_groundedness,
-    retrieval_relevance,
-    retrieval_sufficiency,
-    safety,
 )
 
 __all__ = [
@@ -28,13 +20,5 @@ __all__ = [
     "Safety",
     "Scorer",
     "scorer",
-    "correctness",
     "get_all_scorers",
-    "get_rag_scorers",
-    "guideline_adherence",
-    "relevance_to_query",
-    "retrieval_groundedness",
-    "retrieval_relevance",
-    "retrieval_sufficiency",
-    "safety",
 ]
