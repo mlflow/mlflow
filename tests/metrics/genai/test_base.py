@@ -95,18 +95,18 @@ def test_decorator_scorer_serialization_format():
     # Check required fields for decorator scorers
     assert serialized["name"] == "test_scorer"
     assert serialized["aggregations"] == ["mean"]
-    assert "__call___source" in serialized
+    assert "call_source" in serialized
     assert "original_func_name" in serialized
     assert serialized["original_func_name"] == "test_scorer"
-    assert "__call___signature" in serialized
+    assert "call_signature" in serialized
 
     # Check version metadata
-    assert "_mlflow_version" in serialized
-    assert "_serialization_version" in serialized
-    assert serialized["_serialization_version"] == "1.0"
+    assert "mlflow_version" in serialized
+    assert "serialization_version" in serialized
+    assert serialized["serialization_version"] == 1
 
     # Should not have builtin scorer fields
-    assert "_builtin_scorer_class" not in serialized
+    assert "builtin_scorer_class" not in serialized
 
 
 def test_builtin_scorer_serialization_format():
@@ -117,17 +117,17 @@ def test_builtin_scorer_serialization_format():
 
     # Check required fields for builtin scorers
     assert serialized["name"] == "relevance_to_query"
-    assert "_builtin_scorer_class" in serialized
-    assert serialized["_builtin_scorer_class"] == "RelevanceToQuery"
+    assert "builtin_scorer_class" in serialized
+    assert serialized["builtin_scorer_class"] == "RelevanceToQuery"
     assert "required_columns" in serialized
 
     # Check version metadata
-    assert "_mlflow_version" in serialized
-    assert "_serialization_version" in serialized
-    assert serialized["_serialization_version"] == "1.0"
+    assert "mlflow_version" in serialized
+    assert "serialization_version" in serialized
+    assert serialized["serialization_version"] == 1
 
     # Should not have decorator scorer fields
-    assert "__call___source" not in serialized
+    assert "call_source" not in serialized
     assert "original_func_name" not in serialized
 
 
@@ -401,8 +401,8 @@ def test_builtin_scorer_with_parameters_round_trip():
     serialized = tone_scorer.model_dump()
 
     # Verify serialization format includes all fields
-    assert "_builtin_scorer_class" in serialized
-    assert serialized["_builtin_scorer_class"] == "GuidelineAdherence"
+    assert "builtin_scorer_class" in serialized
+    assert serialized["builtin_scorer_class"] == "GuidelineAdherence"
     assert "global_guidelines" in serialized
     assert serialized["global_guidelines"] == [tone]
     assert serialized["name"] == "tone"
@@ -453,8 +453,8 @@ def test_scorer_serialization():
     serialized = simple_scorer.model_dump()
     assert "name" in serialized
     assert serialized["name"] == "simple_scorer"
-    assert "__call___source" in serialized
-    assert 'outputs == "correct"' in serialized["__call___source"]
+    assert "call_source" in serialized
+    assert 'outputs == "correct"' in serialized["call_source"]
 
     # Test 2: Scorer with custom name and aggregations
     @scorer(name="custom", aggregations=["mean", "max"])
@@ -464,7 +464,7 @@ def test_scorer_serialization():
     serialized = custom_scorer.model_dump()
     assert serialized["name"] == "custom"
     assert serialized["aggregations"] == ["mean", "max"]
-    assert "len(outputs) > len(inputs)" in serialized["__call___source"]
+    assert "len(outputs) > len(inputs)" in serialized["call_source"]
 
     # Test 3: Deserialization works
     deserialized = Scorer.model_validate(serialized)

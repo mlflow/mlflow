@@ -1,6 +1,7 @@
 import functools
 import inspect
 import logging
+from dataclasses import dataclass, asdict, fields
 from typing import Any, Callable, Literal, Optional, Union
 
 from pydantic import BaseModel, Field, PrivateAttr
@@ -14,7 +15,51 @@ from mlflow.utils.annotations import experimental
 _logger = logging.getLogger(__name__)
 
 # Serialization version for tracking changes to the serialization format
-_SERIALIZATION_VERSION = "1.0"
+_SERIALIZATION_VERSION = 1
+
+
+@dataclass
+class SerializedScorer:
+    """
+    Dataclass defining the serialization schema for Scorer objects.
+    """
+
+    # Core scorer fields
+    name: str
+    aggregations: Optional[list] = None
+
+    # Version metadata
+    mlflow_version: str = ""
+    serialization_version: int = _SERIALIZATION_VERSION
+
+    # Builtin scorer fields (for scorers from mlflow.genai.scorers.builtin_scorers)
+    builtin_scorer_class: Optional[str] = None
+    required_columns: Optional[set] = None
+    global_guidelines: Optional[list] = None  # For GuidelineAdherence scorer
+
+    # Decorator scorer fields (for @scorer decorated functions)
+    call_source: Optional[str] = None
+    call_signature: Optional[str] = None
+    original_func_name: Optional[str] = None
+
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        data = asdict(self)
+
+        # Remove None values to keep serialized data clean
+        cleaned_data = {k: v for k, v in data.items() if v is not None}
+
+        return cleaned_data
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "SerializedScorer":
+        # Get field names directly from the dataclass definition
+        valid_field_names = {field.name for field in fields(cls)}
+
+        # Extract only the valid fields
+        init_args = {key: value for key, value in data.items() if key in valid_field_names}
+
+        return cls(**init_args)
 
 
 @experimental
@@ -27,70 +72,32 @@ class Scorer(BaseModel):
     _call_signature: Optional[str] = PrivateAttr(default=None)
     _original_func_name: Optional[str] = PrivateAttr(default=None)
 
-    def model_post_init(self, __context: Any) -> None:
-        """Extract and store source code after initialization."""
-        super().model_post_init(__context)
-
-        # Skip source code extraction for builtin scorers
-        # Check if the instance is a subclass of builtin scorer (without importing it to avoid circular imports)
-        if hasattr(self.__class__, "__module__") and "builtin_scorers" in self.__class__.__module__:
-            return
-
-        self._extract_source_code()
-
-    def _extract_source_code(self):
-        """Extract source code for the original decorated function."""
-        from mlflow.genai.scorers.utils import extract_function_body
-
-        # Extract original function source (for decorator-created scorers)
-        if hasattr(self, "_original_func") and self._original_func:
-            try:
-                call_body, _ = extract_function_body(self._original_func)
-                object.__setattr__(self, "_call_source", call_body)
-                object.__setattr__(self, "_original_func_name", self._original_func.__name__)
-            except Exception:
-                try:
-                    call_source = inspect.getsource(self._original_func)
-                    object.__setattr__(self, "_call_source", call_source)
-                    object.__setattr__(self, "_original_func_name", self._original_func.__name__)
-                except Exception:
-                    _logger.warning("Failed to extract original function source code for scorer")
-                    object.__setattr__(self, "_call_source", None)
-                    object.__setattr__(self, "_original_func_name", None)
-
-            # Store the signature of the original function
-            try:
-                signature = str(inspect.signature(self._original_func))
-                object.__setattr__(self, "_call_signature", signature)
-            except Exception:
-                _logger.warning("Failed to extract original function signature for scorer")
-                object.__setattr__(self, "_call_signature", None)
-
     def model_dump(self, **kwargs) -> dict:
         """Override model_dump to include source code."""
-        data = super().model_dump(**kwargs)
+        base_data = super().model_dump(**kwargs)
 
-        # Add version metadata to all serialized scorers
-        data["_mlflow_version"] = mlflow.__version__
-        data["_serialization_version"] = _SERIALIZATION_VERSION
+        # Create serialized scorer with core fields
+        serialized = SerializedScorer(
+            name=self.name,
+            aggregations=self.aggregations,
+            mlflow_version=mlflow.__version__,
+            serialization_version=_SERIALIZATION_VERSION,
+        )
 
-        # For builtin scorers, store the class information instead of source code
-        # We detect builtin scorers by checking if their module contains 'builtin_scorers'
-        # (e.g., 'mlflow.genai.scorers.builtin_scorers'). This approach allows us to use a simpler serialization
-        # strategy: store class name + parameters instead of extracting and storing complex source code.
+        # Determine scorer type and populate appropriate fields
         if hasattr(self.__class__, "__module__") and "builtin_scorers" in self.__class__.__module__:
-            data["_builtin_scorer_class"] = self.__class__.__name__
-            # Also include any additional fields like required_columns
+            # Builtin scorer - store class information
+            serialized.builtin_scorer_class = self.__class__.__name__
             if hasattr(self, "required_columns"):
-                data["required_columns"] = self.required_columns
+                serialized.required_columns = self.required_columns
+            if hasattr(self, "global_guidelines"):
+                serialized.global_guidelines = self.global_guidelines
         elif hasattr(self, "_original_func") and self._original_func:
-            # Add source code to the serialized data if available (for decorator-created scorers)
-            if hasattr(self, "_call_source") and self._call_source:
-                data["__call___source"] = self._call_source
-            if hasattr(self, "_call_signature") and self._call_signature:
-                data["__call___signature"] = self._call_signature
-            if hasattr(self, "_original_func_name") and self._original_func_name:
-                data["original_func_name"] = self._original_func_name
+            # Decorator scorer - extract and store source code
+            source_info = self._extract_source_code_info()
+            serialized.call_source = source_info.get("call_source")
+            serialized.call_signature = source_info.get("call_signature")
+            serialized.original_func_name = source_info.get("original_func_name")
         else:
             # This is neither a builtin scorer nor a decorator scorer
             # Check if it's an unsupported direct subclass of Scorer
@@ -109,72 +116,118 @@ class Scorer(BaseModel):
                     f"Please use the @scorer decorator instead."
                 )
 
-        return data
+        return serialized.to_dict()
+
+    def _extract_source_code_info(self) -> dict:
+        """Extract source code information for the original decorated function."""
+        from mlflow.genai.scorers.utils import extract_function_body
+
+        result = {"call_source": None, "call_signature": None, "original_func_name": None}
+
+        # Extract original function source
+        try:
+            call_body, _ = extract_function_body(self._original_func)
+            result["call_source"] = call_body
+            result["original_func_name"] = self._original_func.__name__
+        except Exception:
+            try:
+                result["call_source"] = inspect.getsource(self._original_func)
+                result["original_func_name"] = self._original_func.__name__
+            except Exception:
+                _logger.warning("Failed to extract original function source code for scorer")
+
+        # Store the signature of the original function
+        try:
+            result["call_signature"] = str(inspect.signature(self._original_func))
+        except Exception:
+            _logger.warning("Failed to extract original function signature for scorer")
+
+        return result
 
     @classmethod
     def model_validate(cls, obj: Any) -> "Scorer":
         """Override model_validate to reconstruct scorer from source code."""
         if isinstance(obj, dict):
-            # Extract version metadata
-            mlflow_version = obj.pop("_mlflow_version", None)
-            serialization_version = obj.pop("_serialization_version", None)
+            # Parse the serialized data using our dataclass
+            try:
+                serialized = SerializedScorer.from_dict(obj)
+            except Exception as e:
+                raise ValueError(f"Failed to parse serialized scorer data: {e}")
 
             # Log version information for debugging
-            if mlflow_version:
-                _logger.debug(f"Deserializing scorer created with MLflow version: {mlflow_version}")
-            if serialization_version:
-                _logger.debug(f"Scorer serialization version: {serialization_version}")
+            if serialized.mlflow_version:
+                _logger.debug(
+                    f"Deserializing scorer created with MLflow version: {serialized.mlflow_version}"
+                )
+            if serialized.serialization_version:
+                _logger.debug(f"Scorer serialization version: {serialized.serialization_version}")
 
-            # Check if this is a builtin scorer
-            builtin_class_name = obj.pop("_builtin_scorer_class", None)
-            if builtin_class_name:
-                # Import and reconstruct the builtin scorer
-                from mlflow.genai.scorers import builtin_scorers
+            # Handle builtin scorers
+            if serialized.builtin_scorer_class:
+                return cls._reconstruct_builtin_scorer(serialized)
 
-                scorer_class = getattr(builtin_scorers, builtin_class_name)
+            # Handle decorator scorers
+            elif (
+                serialized.call_source
+                and serialized.call_signature
+                and serialized.original_func_name
+            ):
+                return cls._reconstruct_decorator_scorer(serialized)
 
-                # Get the valid field names for this scorer class from its model fields
-                valid_fields = set(scorer_class.model_fields.keys())
-
-                # Create instance with all the preserved data that matches valid fields
-                constructor_args = {k: v for k, v in obj.items() if k in valid_fields}
-                return scorer_class(**constructor_args)
-
-            # Extract source code fields for decorator-created scorers
-            call_source = obj.pop("__call___source", None)
-            call_signature = obj.pop("__call___signature", None)
-            original_func_name = obj.pop("original_func_name", None)
-
-            # If we have the original function source, recreate the scorer using the decorator
-            if call_source and call_signature and original_func_name:
-                # Recreate the original function
-                recreated_func = cls._recreate_function(
-                    call_source, call_signature, original_func_name
+            # Invalid serialized data
+            else:
+                raise ValueError(
+                    f"Invalid serialized scorer data. Expected either 'builtin_scorer_class' "
+                    f"or source code fields ('call_source', 'call_signature', 'original_func_name'). "
+                    f"Scorer was created with MLflow version: {serialized.mlflow_version or 'unknown'}, "
+                    f"serialization version: {serialized.serialization_version or 'unknown'}."
                 )
 
-                if recreated_func:
-                    # Apply the scorer decorator to recreate the scorer
-                    recreated_scorer = scorer(
-                        recreated_func, name=obj.get("name"), aggregations=obj.get("aggregations")
-                    )
-                    return recreated_scorer
-                else:
-                    raise ValueError(
-                        f"Failed to recreate function from source code. "
-                        f"Scorer was created with MLflow version: {mlflow_version or 'unknown'}, "
-                        f"serialization version: {serialization_version or 'unknown'}. "
-                        f"Current MLflow version: {mlflow.__version__}"
-                    )
+        return super().model_validate(obj)
 
-            # If we reach here, the serialized data is invalid
+    @classmethod
+    def _reconstruct_builtin_scorer(cls, serialized: SerializedScorer) -> "Scorer":
+        """Reconstruct a builtin scorer from serialized data."""
+        # Import and reconstruct the builtin scorer
+        from mlflow.genai.scorers import builtin_scorers
+
+        try:
+            scorer_class = getattr(builtin_scorers, serialized.builtin_scorer_class)
+        except AttributeError:
+            raise ValueError(f"Unknown builtin scorer class: {serialized.builtin_scorer_class}")
+
+        # Build constructor arguments from serialized data
+        constructor_args = {"name": serialized.name}
+
+        if serialized.aggregations is not None:
+            constructor_args["aggregations"] = serialized.aggregations
+
+        if serialized.required_columns is not None:
+            constructor_args["required_columns"] = serialized.required_columns
+
+        if serialized.global_guidelines is not None:
+            constructor_args["global_guidelines"] = serialized.global_guidelines
+
+        return scorer_class(**constructor_args)
+
+    @classmethod
+    def _reconstruct_decorator_scorer(cls, serialized: SerializedScorer) -> "Scorer":
+        """Reconstruct a decorator scorer from serialized data."""
+        # Recreate the original function from source code
+        recreated_func = cls._recreate_function(
+            serialized.call_source, serialized.call_signature, serialized.original_func_name
+        )
+
+        if not recreated_func:
             raise ValueError(
-                f"Invalid serialized scorer data. Expected either '_builtin_scorer_class' "
-                f"or source code fields ('__call___source', '__call___signature', 'original_func_name'). "
-                f"Scorer was created with MLflow version: {mlflow_version or 'unknown'}, "
-                f"serialization version: {serialization_version or 'unknown'}."
+                f"Failed to recreate function from source code. "
+                f"Scorer was created with MLflow version: {serialized.mlflow_version or 'unknown'}, "
+                f"serialization version: {serialized.serialization_version or 'unknown'}. "
+                f"Current MLflow version: {mlflow.__version__}"
             )
 
-        return super().model_validate(obj)
+        # Apply the scorer decorator to recreate the scorer
+        return scorer(recreated_func, name=serialized.name, aggregations=serialized.aggregations)
 
     @classmethod
     def _recreate_function(cls, source: str, signature: str, func_name: str) -> Optional[Callable]:
@@ -500,16 +553,11 @@ def scorer(
 
         def __init__(self, **data):
             super().__init__(**data)
-
-        def model_post_init(self, __context: Any) -> None:
-            """Set the original function and extract source code."""
-            # Set the original function first
+            # Set the original function reference
             # Use object.__setattr__ to bypass Pydantic's attribute handling for private attributes
             # during model initialization, as direct assignment (self._original_func = func) may be
             # ignored or fail in this context
             object.__setattr__(self, "_original_func", func)
-            # Now call the parent's model_post_init
-            super().model_post_init(__context)
 
         def __call__(self, *args, **kwargs):
             return func(*args, **kwargs)
