@@ -637,31 +637,7 @@ class Correctness(BuiltInScorer):
         )
 
 
-# === Shorthand for all builtin RAG scorers ===
-@experimental
-def get_rag_scorers() -> list[BuiltInScorer]:
-    """
-    Returns a list of built-in scorers for evaluating RAG models. Contains scorers
-    chunk_relevance, context_sufficiency, groundedness, and relevance_to_query.
-
-    Example:
-
-    .. code-block:: python
-
-        import mlflow
-        from mlflow.genai.scorers import get_rag_scorers
-
-        data = mlflow.search_traces(...)
-        result = mlflow.genai.evaluate(data=data, scorers=get_rag_scorers())
-    """
-    return [
-        RetrievalRelevance(),
-        RetrievalSufficiency(),
-        RetrievalGroundedness(),
-        RelevanceToQuery(),
-    ]
-
-
+# === Shorthand for getting preset of builtin scorers ===
 @experimental
 def get_all_scorers() -> list[BuiltInScorer]:
     """
@@ -685,10 +661,14 @@ def get_all_scorers() -> list[BuiltInScorer]:
         ]
         result = mlflow.genai.evaluate(data=data, scorers=get_all_scorers())
     """
-    return get_rag_scorers() + [
+    return [
         GuidelineAdherence(),
         Safety(),
         Correctness(),
+        RelevanceToQuery(),
+        RetrievalRelevance(),
+        RetrievalSufficiency(),
+        RetrievalGroundedness(),
     ]
 
 
