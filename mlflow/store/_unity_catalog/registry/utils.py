@@ -30,7 +30,9 @@ def mlflow_tags_to_proto(tags: dict[str, str]) -> list[ProtoPromptTag]:
     return [ProtoPromptTag(key=k, value=v) for k, v in tags.items()] if tags else []
 
 
-def proto_version_tags_to_mlflow_tags(proto_tags: list[ProtoPromptVersionTag]) -> dict[str, str]:
+def proto_version_tags_to_mlflow_tags(
+    proto_tags: list[ProtoPromptVersionTag],
+) -> dict[str, str]:
     """Convert proto prompt version tags to MLflow tags dictionary."""
     return {tag.key: tag.value for tag in proto_tags} if proto_tags else {}
 
