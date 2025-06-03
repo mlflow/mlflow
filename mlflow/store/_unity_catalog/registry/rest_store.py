@@ -11,7 +11,7 @@ from mlflow.entities import Run
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
+from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     MODEL_VERSION_OPERATION_READ_WRITE,
     CreateModelVersionRequest,
@@ -87,6 +87,11 @@ from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
     SearchPromptsResponse,
     SetPromptTagRequest,
     SetPromptTagResponse,
+    UnityCatalogSchema,
+)
+from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
+    Prompt as ProtoPrompt,
+    PromptVersion as ProtoPromptVersion,
 )
 from mlflow.protos.unity_catalog_prompt_service_pb2 import UnityCatalogPromptService
 from mlflow.store._unity_catalog.lineage.constants import (
@@ -94,6 +99,12 @@ from mlflow.store._unity_catalog.lineage.constants import (
     _DATABRICKS_ORG_ID_HEADER,
 )
 from mlflow.store._unity_catalog.registry.prompt_info import PromptInfo
+from mlflow.store._unity_catalog.registry.utils import (
+    mlflow_tags_to_proto,
+    mlflow_tags_to_proto_version_tags,
+    proto_info_to_mlflow_prompt_info,
+    proto_to_mlflow_prompt,
+)
 from mlflow.store.artifact.databricks_sdk_models_artifact_repo import (
     DatabricksSDKModelsArtifactRepository,
 )
@@ -1196,12 +1207,6 @@ class UcModelRegistryStore(BaseRestStore):
         """
         Create a new prompt in Unity Catalog (metadata only, no initial version).
         """
-        from mlflow.protos.unity_catalog_prompt_messages_pb2 import Prompt as ProtoPrompt
-        from mlflow.store._unity_catalog.registry.utils import (
-            mlflow_tags_to_proto,
-            proto_info_to_mlflow_prompt_info,
-        )
-
         # Create a Prompt object with the provided fields
         prompt_proto = ProtoPrompt()
         prompt_proto.name = name
@@ -1224,10 +1229,6 @@ class UcModelRegistryStore(BaseRestStore):
         Get prompt by name and version from Unity Catalog.
         """
         try:
-            from mlflow.store._unity_catalog.registry.utils import (
-                proto_to_mlflow_prompt,
-            )
-
             if version is None:
                 # Getting latest prompt version is not supported in Unity Catalog
                 raise NotImplementedError("Getting latest prompt version not yet supported in UC")
@@ -1262,9 +1263,6 @@ class UcModelRegistryStore(BaseRestStore):
             return proto_to_mlflow_prompt(response_proto.prompt_version, prompt_tags={})
 
         except Exception as e:
-            from mlflow.exceptions import MlflowException
-            from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
-
             if isinstance(e, MlflowException) and e.error_code == ErrorCode.Name(
                 RESOURCE_DOES_NOT_EXIST
             ):
@@ -1277,22 +1275,42 @@ class UcModelRegistryStore(BaseRestStore):
         max_results: Optional[int] = None,
         order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
+        catalog_name: Optional[str] = None,
+        schema_name: Optional[str] = None,
     ) -> PagedList[PromptInfo]:
         """
         Search for prompts in Unity Catalog.
-        """
-        from mlflow.store._unity_catalog.registry.utils import (
-            proto_info_to_mlflow_prompt_info,
-        )
-        from mlflow.store.entities.paged_list import PagedList
 
-        req_body = message_to_json(
-            SearchPromptsRequest(
-                filter=filter_string,
-                max_results=max_results,
-                page_token=page_token,
+        Args:
+            filter_string: Additional filter string (after catalog/schema are removed)
+            max_results: Maximum number of results to return
+            order_by: List of fields to order by (not used in current implementation)
+            page_token: Token for pagination
+            catalog_name: Unity Catalog catalog name (for UC registries)
+            schema_name: Unity Catalog schema name (for UC registries)
+        """
+        # Build the request with Unity Catalog schema if provided
+        if catalog_name and schema_name:
+            unity_catalog_schema = UnityCatalogSchema(
+                catalog_name=catalog_name, schema_name=schema_name
             )
-        )
+            req_body = message_to_json(
+                SearchPromptsRequest(
+                    unity_catalog_schema=unity_catalog_schema,
+                    filter=filter_string,
+                    max_results=max_results,
+                    page_token=page_token,
+                )
+            )
+        else:
+            req_body = message_to_json(
+                SearchPromptsRequest(
+                    filter=filter_string,
+                    max_results=max_results,
+                    page_token=page_token,
+                )
+            )
+
         response_proto = self._call_endpoint(SearchPromptsRequest, req_body)
         prompts = []
         for prompt_info in response_proto.prompts:
@@ -1325,14 +1343,6 @@ class UcModelRegistryStore(BaseRestStore):
         """
         Create a new prompt version in Unity Catalog.
         """
-        from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
-            PromptVersion as ProtoPromptVersion,
-        )
-        from mlflow.store._unity_catalog.registry.utils import (
-            mlflow_tags_to_proto_version_tags,
-            proto_to_mlflow_prompt,
-        )
-
         # Create a PromptVersion object with the provided fields
         prompt_version_proto = ProtoPromptVersion()
         prompt_version_proto.name = name
@@ -1362,8 +1372,6 @@ class UcModelRegistryStore(BaseRestStore):
         """
         Get a specific prompt version from Unity Catalog.
         """
-        from mlflow.store._unity_catalog.registry.utils import proto_to_mlflow_prompt
-
         req_body = message_to_json(GetPromptVersionRequest(name=name, version=str(version)))
         endpoint, method = self._get_endpoint_from_method(GetPromptVersionRequest)
         response_proto = self._edit_endpoint_and_call(
@@ -1425,8 +1433,6 @@ class UcModelRegistryStore(BaseRestStore):
         """
         Get a prompt version by alias from Unity Catalog.
         """
-        from mlflow.store._unity_catalog.registry.utils import proto_to_mlflow_prompt
-
         req_body = message_to_json(GetPromptVersionByAliasRequest(name=name, alias=alias))
         endpoint, method = self._get_endpoint_from_method(GetPromptVersionByAliasRequest)
         response_proto = self._edit_endpoint_and_call(
