@@ -6,7 +6,8 @@ from mlflow.entities.span import SpanType
 from mlflow.genai.judges import meets_guidelines
 from mlflow.genai.scorers import (
     Correctness,
-    GuidelineAdherence,
+    ExpectationsGuidelines,
+    Guidelines,
     RelevanceToQuery,
     RetrievalGroundedness,
     RetrievalRelevance,
@@ -211,10 +212,10 @@ def test_retrieval_sufficiency_with_custom_expectations(sample_rag_trace):
     )
 
 
-def test_guideline_adherence():
+def test_guidelines():
     # 1. Called with per-row guidelines
     with patch("databricks.agents.evals.judges.guideline_adherence") as mock_guideline_adherence:
-        GuidelineAdherence()(
+        ExpectationsGuidelines()(
             inputs={"question": "query"},
             outputs="answer",
             expectations={"guidelines": ["guideline1", "guideline2"]},
@@ -223,13 +224,13 @@ def test_guideline_adherence():
     mock_guideline_adherence.assert_called_once_with(
         guidelines=["guideline1", "guideline2"],
         guidelines_context={"request": "{'question': 'query'}", "response": "answer"},
-        assessment_name="guideline_adherence",
+        assessment_name="expectations_guidelines",
     )
 
     # 2. Called with global guidelines
-    is_english = GuidelineAdherence(
+    is_english = Guidelines(
         name="is_english",
-        global_guidelines=["The response should be in English."],
+        guidelines=["The response should be in English."],
     )
 
     with patch("databricks.agents.evals.judges.guideline_adherence") as mock_guideline_adherence:
