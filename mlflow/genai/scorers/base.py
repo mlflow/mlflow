@@ -93,7 +93,7 @@ class Scorer(BaseModel):
             serialized.call_signature = source_info.get("call_signature")
             serialized.original_func_name = source_info.get("original_func_name")
         else:
-            # This is neither a builtin scorer nor a decorator scorer
+            # BuiltInScorer overrides `model_dump`, so this is neither a builtin scorer nor a decorator scorer
             raise ValueError(
                 f"Unsupported scorer type: {self.__class__.__name__}. "
                 f"Scorer serialization only supports:\n"
@@ -117,11 +117,7 @@ class Scorer(BaseModel):
             result["call_source"] = call_body
             result["original_func_name"] = self._original_func.__name__
         except Exception:
-            try:
-                result["call_source"] = inspect.getsource(self._original_func)
-                result["original_func_name"] = self._original_func.__name__
-            except Exception:
-                _logger.warning("Failed to extract original function source code for scorer")
+            _logger.warning("Failed to extract original function source code for scorer")
 
         # Store the signature of the original function
         try:
@@ -149,7 +145,6 @@ class Scorer(BaseModel):
             if serialized.serialization_version:
                 _logger.debug(f"Scorer serialization version: {serialized.serialization_version}")
 
-            # Handle builtin scorers directly here instead of delegating
             if serialized.builtin_scorer_class:
                 return cls._reconstruct_builtin_scorer(serialized)
 

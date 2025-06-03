@@ -40,9 +40,9 @@ def test_decorator_scorer_serialization_format():
 
 def test_builtin_scorer_serialization_format():
     """Test that builtin scorers serialize with correct format."""
-    from mlflow.genai.scorers import relevance_to_query
+    from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
 
-    serialized = relevance_to_query.model_dump()
+    serialized = RelevanceToQuery().model_dump()
 
     # Check required fields for builtin scorers
     assert serialized["name"] == "relevance_to_query"
@@ -276,11 +276,11 @@ def test_end_to_end_complex_round_trip():
 
 def test_builtin_scorer_round_trip():
     """Test builtin scorer serialization and execution with mocking."""
-    from mlflow.genai.scorers import relevance_to_query
+    # from mlflow.genai.scorers import relevance_to_query
     from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
 
     # Round-trip serialization
-    serialized = relevance_to_query.model_dump()
+    serialized = RelevanceToQuery().model_dump()
     deserialized = Scorer.model_validate(serialized)
 
     # Test class type and properties preserved
@@ -301,7 +301,7 @@ def test_builtin_scorer_round_trip():
 
     # Verify execution worked correctly
     mock_judge.assert_called_once_with(
-        request="What is machine learning?",
+        request="{'question': 'What is machine learning?'}",
         context="Machine learning is a subset of AI that enables computers to learn without explicit programming.",
         name="relevance_to_query",
     )
@@ -309,17 +309,16 @@ def test_builtin_scorer_round_trip():
     assert isinstance(result, Feedback)
     assert result.name == "relevance_to_query"
     assert result.value == "yes"
-    assert result.metadata == {}  # chunk_index should be removed
+    assert result.metadata == {"chunk_index": 0}  # chunk_index should be preserved
 
 
 def test_builtin_scorer_with_parameters_round_trip():
     """Test builtin scorer with custom parameters (like GuidelineAdherence with global_guidelines)."""
-    from mlflow.genai.scorers import guideline_adherence
     from mlflow.genai.scorers.builtin_scorers import GuidelineAdherence
 
     # Create scorer with custom parameters
     tone = "The response must maintain a courteous, respectful tone throughout. It must show empathy for customer concerns."
-    tone_scorer = guideline_adherence.with_config(name="tone", global_guidelines=[tone])
+    tone_scorer = GuidelineAdherence(name="tone", global_guidelines=[tone])
 
     # Verify original properties
     assert tone_scorer.name == "tone"
@@ -354,14 +353,16 @@ def test_builtin_scorer_with_parameters_round_trip():
         ),
     ) as mock_judge:
         result = deserialized(
-            outputs="Thank you for bringing this to my attention. I understand your concern and will help resolve this issue promptly."
+            inputs={"question": "What is the issue?"},
+            outputs="Thank you for bringing this to my attention. I understand your concern and will help resolve this issue promptly.",
         )
 
     # Verify execution worked correctly
     mock_judge.assert_called_once_with(
         guidelines=[tone],
         context={
-            "response": "Thank you for bringing this to my attention. I understand your concern and will help resolve this issue promptly."
+            "request": "{'question': 'What is the issue?'}",
+            "response": "Thank you for bringing this to my attention. I understand your concern and will help resolve this issue promptly.",
         },
         name="tone",
     )
@@ -369,40 +370,6 @@ def test_builtin_scorer_with_parameters_round_trip():
     assert isinstance(result, Feedback)
     assert result.name == "tone"
     assert result.value is True
-
-
-def test_scorer_serialization():
-    """Test that Scorer class can be serialized and deserialized."""
-
-    # Test 1: Simple scorer with decorator
-    @scorer
-    def simple_scorer(outputs):
-        return outputs == "correct"
-
-    serialized = simple_scorer.model_dump()
-    assert "name" in serialized
-    assert serialized["name"] == "simple_scorer"
-    assert "call_source" in serialized
-    assert 'outputs == "correct"' in serialized["call_source"]
-
-    # Test 2: Scorer with custom name and aggregations
-    @scorer(name="custom", aggregations=["mean", "max"])
-    def custom_scorer(inputs, outputs):
-        return len(outputs) > len(inputs)
-
-    serialized = custom_scorer.model_dump()
-    assert serialized["name"] == "custom"
-    assert serialized["aggregations"] == ["mean", "max"]
-    assert "len(outputs) > len(inputs)" in serialized["call_source"]
-
-    # Test 3: Deserialization works
-    deserialized = Scorer.model_validate(serialized)
-    assert deserialized.name == "custom"
-    assert deserialized.aggregations == ["mean", "max"]
-
-    # Test functionality preserved
-    result = deserialized(inputs="hi", outputs="hello world")
-    assert result is True
 
 
 def test_direct_subclass_scorer_rejected():

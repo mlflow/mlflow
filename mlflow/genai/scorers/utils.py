@@ -9,8 +9,6 @@ from typing import Any, Callable, Optional
 
 _logger = logging.getLogger(__name__)
 
-FORBIDDEN_PARAMS = ["self", "cls"]
-
 
 # FunctionBodyExtractor class is forked from https://github.com/unitycatalog/unitycatalog/blob/20dd3820be332ac04deec4e063099fb863eb3392/ai/core/src/unitycatalog/ai/core/utils/callable_utils.py
 class FunctionBodyExtractor(ast.NodeVisitor):

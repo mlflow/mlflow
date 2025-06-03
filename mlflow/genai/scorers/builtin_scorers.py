@@ -1,11 +1,12 @@
 from typing import Any, Optional, Union
 import json
+from abc import abstractmethod
 
 import mlflow
 from mlflow.entities import Assessment
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.trace import Trace
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, BAD_REQUEST
 from mlflow.genai import judges
 from mlflow.genai.judges.databricks import requires_databricks_agents
 from mlflow.genai.scorers.base import Scorer, SerializedScorer, _SERIALIZATION_VERSION
@@ -49,7 +50,8 @@ class BuiltInScorer(Scorer):
             builtin_scorer_class=self.__class__.__name__,
         )
 
-        # Get the base Scorer class fields to exclude them from additional processing
+        # Serialize any additional fields from the scorer class that aren't in the base Scorer
+        # class.
         from mlflow.genai.scorers.base import Scorer
 
         base_model_fields = set(Scorer.model_fields.keys())
@@ -85,7 +87,6 @@ class BuiltInScorer(Scorer):
             except (TypeError, ValueError):
                 return False
 
-    @abstractmethod
     def with_config(self, **kwargs) -> "BuiltInScorer":
         """
         Get a new scorer instance with the given configuration, such as name, global guidelines.
@@ -93,6 +94,7 @@ class BuiltInScorer(Scorer):
         Override this method with the appropriate config keys. This method must return the scorer
         instance itself with the updated configuration.
         """
+        pass
 
     def validate_columns(self, columns: set[str]) -> None:
         missing_columns = self.required_columns - columns
