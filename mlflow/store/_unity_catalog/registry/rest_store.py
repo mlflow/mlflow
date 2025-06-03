@@ -9,7 +9,7 @@ from typing import Optional, Union
 import mlflow
 from mlflow.entities import Run
 from mlflow.entities.logged_model import LoggedModel
-from mlflow.entities.prompt import Prompt
+from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
@@ -77,8 +77,6 @@ from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
     DeletePromptTagResponse,
     DeletePromptVersionRequest,
     DeletePromptVersionResponse,
-    GetPromptRequest,
-    GetPromptResponse,
     GetPromptVersionByAliasRequest,
     GetPromptVersionByAliasResponse,
     GetPromptVersionRequest,
@@ -91,6 +89,8 @@ from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
 )
 from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
     Prompt as ProtoPrompt,
+)
+from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
     PromptVersion as ProtoPromptVersion,
 )
 from mlflow.protos.unity_catalog_prompt_service_pb2 import UnityCatalogPromptService
