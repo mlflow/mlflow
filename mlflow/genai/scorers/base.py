@@ -93,21 +93,14 @@ class Scorer(BaseModel):
             serialized.original_func_name = source_info.get("original_func_name")
         else:
             # This is neither a builtin scorer nor a decorator scorer
-            # Check if it's an unsupported direct subclass of Scorer
-            base_call_method = Scorer.__call__
-            current_call_method = self.__class__.__call__
-
-            # If the __call__ method has been overridden (not the base NotImplementedError one)
-            # then this is likely a direct subclass, which we don't support for serialization
-            if current_call_method is not base_call_method:
-                raise ValueError(
-                    f"Unsupported scorer type: {self.__class__.__name__}. "
-                    f"Scorer serialization only supports:\n"
-                    f"1. Builtin scorers (from mlflow.genai.scorers.builtin_scorers)\n"
-                    f"2. Decorator-created scorers (using @scorer decorator)\n"
-                    f"Direct subclassing of Scorer is not supported for serialization. "
-                    f"Please use the @scorer decorator instead."
-                )
+            raise ValueError(
+                f"Unsupported scorer type: {self.__class__.__name__}. "
+                f"Scorer serialization only supports:\n"
+                f"1. Builtin scorers (from mlflow.genai.scorers.builtin_scorers)\n"
+                f"2. Decorator-created scorers (using @scorer decorator)\n"
+                f"Direct subclassing of Scorer is not supported for serialization. "
+                f"Please use the @scorer decorator instead."
+            )
 
         return serialized.to_dict()
 
@@ -183,8 +176,10 @@ class Scorer(BaseModel):
     @classmethod
     def _reconstruct_decorator_scorer(cls, serialized: SerializedScorer) -> "Scorer":
         """Reconstruct a decorator scorer from serialized data."""
+        from mlflow.genai.scorers.utils import recreate_function
+
         # Recreate the original function from source code
-        recreated_func = cls._recreate_function(
+        recreated_func = recreate_function(
             serialized.call_source, serialized.call_signature, serialized.original_func_name
         )
 
@@ -197,37 +192,10 @@ class Scorer(BaseModel):
             )
 
         # Apply the scorer decorator to recreate the scorer
+        # Rather than serializing and deserializing the `run` method of `Scorer`, we recreate the
+        # Scorer using the original function and the `@scorer` decorator. This should be safe so long as
+        # `@scorer` is a stable API.
         return scorer(recreated_func, name=serialized.name, aggregations=serialized.aggregations)
-
-    @classmethod
-    def _recreate_function(cls, source: str, signature: str, func_name: str) -> Optional[Callable]:
-        """Recreate a function from its source code."""
-        try:
-            # Parse the signature to build the function definition
-            import re
-
-            sig_match = re.match(r"\((.*?)\)", signature)
-            if not sig_match:
-                return None
-
-            params_str = sig_match.group(1).strip()
-
-            # Build the function definition
-            func_def = f"def {func_name}({params_str}):\n"
-            # Indent the source code
-            indented_source = "\n".join(f"    {line}" for line in source.split("\n"))
-            func_def += indented_source
-
-            local_namespace = {}
-
-            # Execute the function definition in the local namespace
-            exec(func_def, globals(), local_namespace)
-
-            # Return the recreated function
-            return local_namespace[func_name]
-
-        except Exception:
-            return None
 
     def run(self, *, inputs=None, outputs=None, expectations=None, trace=None):
         from mlflow.evaluation import Assessment as LegacyAssessment
