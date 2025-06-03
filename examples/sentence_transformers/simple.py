@@ -11,7 +11,7 @@ example_sentences = ["This is a sentence.", "This is another sentence."]
 with mlflow.start_run():
     logged_model = mlflow.sentence_transformers.log_model(
         model=model,
-        artifact_path="sbert_model",
+        name="sbert_model",
         input_example=example_sentences,
     )
 

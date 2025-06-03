@@ -12,11 +12,13 @@ import importlib
 import json
 import logging
 import os
+import warnings
 import pathlib
 import re
 import shutil
 import string
 import sys
+import warnings
 from collections import namedtuple
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Optional, Union
@@ -1705,11 +1707,12 @@ def generate_signature_output(pipeline, data, model_config=None, params=None, fl
 
     from mlflow.transformers import signature
 
-    _logger.warning(
+    warnings.warn(
         "mlflow.transformers.generate_signature_output is deprecated and will be removed "
         "in a future release. "
         "Please use the input_example argument when logging a model "
-        "to infer the model signature automatically."
+        "to infer the model signature automatically.",
+        category=DeprecationWarning,
     )
     
     if not isinstance(pipeline, transformers.Pipeline):
