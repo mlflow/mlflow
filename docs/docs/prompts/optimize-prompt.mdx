@@ -170,9 +170,10 @@ def predict(question: str, prompt_uri: str) -> str:
 
 You can customize the optimization process using `OptimizerConfig`, which includes the following parameters:
 
-- **num_instruction_candidates**: The number of candidate instructions to try.
-- **max_few_show_examples**: The maximum number of examples to show in few-shot demonstrations.
-- **optimizer_llm**: The LLM to use for optimization.
+- **num_instruction_candidates**: The number of candidate instructions to try. Default: 6
+- **max_few_show_examples**: The maximum number of examples to show in few-shot demonstrations. Default: 6
+- **optimizer_llm**: The LLM to use for optimization. Default: None (uses target LLM)
+- **verbose**: Whether to show optimizer logs during optimization. Default: False
 
 See <APILink fn="mlflow.genai.OptimizerConfig" /> for more details.
 
