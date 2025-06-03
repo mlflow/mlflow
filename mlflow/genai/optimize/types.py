@@ -52,9 +52,9 @@ class OptimizerConfig:
     Args:
         num_instruction_candidates: Number of candidate instructions to generate
             during each optimization iteration. Higher values may lead to better
-            results but increase optimization time. Default: 8
+            results but increase optimization time. Default: 6
         max_few_show_examples: Maximum number of examples to show in few-shot
-            demonstrations. Default: 3
+            demonstrations. Default: 6
         num_threads: Number of threads to use for parallel optimization.
             Default: (number of CPU cores * 2 + 1)
         optimizer_llm: Optional LLM parameters for the teacher model. If not provided,
@@ -63,8 +63,8 @@ class OptimizerConfig:
         verbose: Whether to show optimizer logs during optimization. Default: False
     """
 
-    num_instruction_candidates: int = 8
-    max_few_show_examples: int = 3
+    num_instruction_candidates: int = 6
+    max_few_show_examples: int = 6
     num_threads: int = field(default_factory=lambda: (multiprocessing.cpu_count() or 1) * 2 + 1)
     optimizer_llm: Optional[LLMParams] = None
     algorithm: str = "DSPy/MIPROv2"
