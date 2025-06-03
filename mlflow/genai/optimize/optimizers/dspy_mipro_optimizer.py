@@ -3,13 +3,14 @@ import io
 import logging
 import math
 import os
-from typing import TYPE_CHECKING, Any, Optional, Union
+from typing import TYPE_CHECKING, Optional
 
 from mlflow.entities.model_registry import Prompt
 from mlflow.exceptions import MlflowException
 from mlflow.genai.optimize.optimizers.dspy_optimizer import _DSPyOptimizer
 from mlflow.genai.optimize.types import OBJECTIVE_FN, LLMParams
 from mlflow.genai.scorers import Scorer
+from mlflow.tracking._model_registry.fluent import register_prompt
 
 if TYPE_CHECKING:
     import dspy
@@ -28,7 +29,7 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
         scorers: list[Scorer],
         objective: Optional[OBJECTIVE_FN] = None,
         eval_data: Optional["pd.DataFrame"] = None,
-    ) -> Union[str, list[dict[str, Any]]]:
+    ) -> Prompt:
         import dspy
 
         _logger.info(
@@ -94,11 +95,21 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
                     requires_permission_to_run=False,
                 )
 
-            return self._format_optimized_prompt(
-                adapter=adapter,
-                program=optimized_program,
-                input_fields=input_fields,
-            )
+        template = self._format_optimized_prompt(
+            adapter=adapter,
+            program=optimized_program,
+            input_fields=input_fields,
+        )
+
+        self._display_optimization_result(optimized_program)
+
+        return register_prompt(
+            name=prompt.name,
+            template=template,
+            version_metadata={
+                "overall_eval_score": getattr(optimized_program, "score", None),
+            },
+        )
 
     def _get_num_trials(self, num_candidates: int) -> int:
         # MAX(2*log(num_candidates), 3/2*num_candidates)
@@ -174,3 +185,11 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
                     yield
         else:
             yield
+
+    def _display_optimization_result(self, program: "dspy.Predict"):
+        if hasattr(program, "score") and hasattr(program, "trial_logs"):
+            initial_score = program.trial_logs[1]["full_eval_score"]
+            _logger.info(
+                "Prompt optimization completed. Evaluation score changed "
+                f"from {initial_score} to {program.score}."
+            )
