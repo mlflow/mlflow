@@ -86,6 +86,90 @@ def is_shallow():
     )
 
 
+def batch_fetch_prs_graphql(pr_numbers: list[int]) -> dict[int, dict]:
+    """
+    Batch fetch PR data using GitHub GraphQL API.
+    Returns a dictionary mapping PR number to PR data.
+    """
+    if not pr_numbers:
+        return {}
+
+    # GitHub GraphQL has query size limits, so batch in chunks
+    MAX_PRS_PER_QUERY = 50  # Conservative limit to avoid query size issues
+    all_pr_data = {}
+
+    for i in range(0, len(pr_numbers), MAX_PRS_PER_QUERY):
+        chunk = pr_numbers[i : i + MAX_PRS_PER_QUERY]
+        chunk_data = _fetch_pr_chunk_graphql(chunk)
+        all_pr_data.update(chunk_data)
+
+    return all_pr_data
+
+
+def _fetch_pr_chunk_graphql(pr_numbers: list[int]) -> dict[int, dict]:
+    """
+    Fetch a chunk of PRs using GraphQL.
+    """
+    # Build GraphQL query with aliases for each PR
+    query_parts = [
+        "query($owner: String!, $repo: String!) {",
+        "  repository(owner: $owner, name: $repo) {",
+    ]
+
+    for i, pr_num in enumerate(pr_numbers):
+        query_parts.append(f"""    pr{i}: pullRequest(number: {pr_num}) {{
+      number
+      author {{
+        login
+      }}
+      labels(first: 100) {{
+        nodes {{
+          name
+        }}
+      }}
+    }}""")
+
+    query_parts.extend(["  }", "}"])
+    query = "\n".join(query_parts)
+
+    # GitHub GraphQL endpoint
+    url = "https://api.github.com/graphql"
+
+    # Headers with authentication
+    headers = {
+        "Authorization": f"Bearer {os.getenv('GITHUB_TOKEN')}",
+        "Content-Type": "application/json",
+    }
+
+    # Request payload
+    payload = {"query": query, "variables": {"owner": "mlflow", "repo": "mlflow"}}
+
+    print(f"Batch fetching {len(pr_numbers)} PRs with GraphQL...")
+    resp = requests.post(url, json=payload, headers=headers)
+    resp.raise_for_status()
+
+    data = resp.json()
+    if "errors" in data:
+        raise Exception(f"GraphQL errors: {data['errors']}")
+
+    # Extract PR data from response
+    repository_data = data["data"]["repository"]
+    pr_data = {}
+
+    for i, pr_num in enumerate(pr_numbers):
+        pr_info = repository_data.get(f"pr{i}")
+        if pr_info and pr_info.get("author"):
+            # Convert GraphQL response to format similar to REST API
+            pr_data[pr_num] = {
+                "user": {"login": pr_info["author"]["login"]},
+                "labels": [{"name": label["name"]} for label in pr_info["labels"]["nodes"]],
+            }
+        else:
+            print(f"Warning: Could not fetch data for PR #{pr_num}")
+
+    return pr_data
+
+
 @click.command(help="Update CHANGELOG.md")
 @click.option("--prev-version", required=True, help="Previous version")
 @click.option("--release-version", required=True, help="MLflow version to release.")
@@ -118,26 +202,33 @@ def main(prev_version, release_version, remote):
         text=True,
     )
     logs = [l[2:] for l in git_log_output.splitlines() if l.startswith("> ")]
-    prs = []
+
+    # Extract all PR numbers first
+    pr_numbers = []
+    log_to_pr_num = {}
     for log in logs:
         pr_num = extract_pr_num_from_git_log_entry(log)
-        if not pr_num:
-            continue
-        print(f"Fetching PR #{pr_num}...")
-        resp = requests.get(
-            f"https://api.github.com/repos/mlflow/mlflow/pulls/{pr_num}",
-            auth=("mlflow-app[bot]", os.getenv("GITHUB_TOKEN")),
-        )
-        resp.raise_for_status()
-        pr = resp.json()
-        prs.append(
-            PullRequest(
-                title=log.rsplit(maxsplit=1)[0],
-                number=pr_num,
-                author=pr["user"]["login"],
-                labels=[l["name"] for l in pr["labels"]],
+        if pr_num:
+            pr_numbers.append(pr_num)
+            log_to_pr_num[pr_num] = log
+
+    # Batch fetch all PR data using GraphQL
+    pr_data_map = batch_fetch_prs_graphql(pr_numbers)
+
+    # Create PullRequest objects
+    prs = []
+    for pr_num in pr_numbers:
+        if pr_num in pr_data_map:
+            log = log_to_pr_num[pr_num]
+            pr_data = pr_data_map[pr_num]
+            prs.append(
+                PullRequest(
+                    title=log.rsplit(maxsplit=1)[0],
+                    number=pr_num,
+                    author=pr_data["user"]["login"],
+                    labels=[l["name"] for l in pr_data["labels"]],
+                )
             )
-        )
 
     label_to_prs = defaultdict(list)
     author_to_prs = defaultdict(list)
