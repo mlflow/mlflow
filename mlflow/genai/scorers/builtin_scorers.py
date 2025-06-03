@@ -475,10 +475,7 @@ class RelevanceToQuery(BuiltInScorer):
         """
         request = parse_inputs_to_str(inputs)
         # NB: Reuse is_context_relevant judge to evaluate response
-        feedback = judges.is_context_relevant(request=request, context=outputs, name=self.name)
-        # drop chunk id metadata
-        feedback.metadata.pop("chunk_index", None)
-        return feedback
+        return judges.is_context_relevant(request=request, context=outputs, name=self.name)
 
 
 @experimental
