@@ -8,6 +8,8 @@ from mlflow.entities.model_registry.model_version_status import ModelVersionStat
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.registry_utils import has_prompt_tag
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, ErrorCode
+from mlflow.store._unity_catalog.registry.prompt_info import PromptInfo
+from mlflow.store.entities.paged_list import PagedList
 from mlflow.utils.annotations import developer_stable
 from mlflow.utils.logging_utils import eprint
 
@@ -458,3 +460,79 @@ class AbstractStore:
                 f"{entity_type} version creation failed for {entity_type.lower()} name: {mv.name} "
                 f"version: {mv.version} with status: {mv.status} and message: {mv.status_message}"
             )
+
+    # Prompt management methods
+
+    @abstractmethod
+    def create_prompt(
+        self,
+        name: str,
+        description: Optional[str] = None,
+        tags: Optional[dict[str, str]] = None,
+    ):
+        """
+        Create a new prompt (metadata only, no initial version).
+
+        Args:
+            name: Name of the prompt.
+            description: Description of the prompt.
+            tags: Dictionary of tag key-value pairs.
+
+        Returns:
+            A :py:class:`mlflow.store._unity_catalog.registry.prompt_info.PromptInfo` object.
+        """
+
+    @abstractmethod
+    def search_prompts(
+        self,
+        filter_string: Optional[str] = None,
+        max_results: Optional[int] = None,
+        order_by: Optional[list[str]] = None,
+        page_token: Optional[str] = None,
+        catalog_name: Optional[str] = None,
+        schema_name: Optional[str] = None,
+    ) -> PagedList[PromptInfo]:
+        """
+        Search for prompts that satisfy the filter criteria.
+
+        Args:
+            filter_string: Filter query string.
+            max_results: Maximum number of prompts desired.
+            order_by: List of column names with ASC|DESC annotation.
+            page_token: Token specifying the next page of results.
+            catalog_name: Unity Catalog catalog name (for UC registries).
+            schema_name: Unity Catalog schema name (for UC registries).
+
+        Returns:
+            A PagedList of prompt objects that satisfy the search expressions.
+        """
+
+    @abstractmethod
+    def delete_prompt(self, name: str) -> None:
+        """
+        Delete a prompt.
+
+        Args:
+            name: Name of the prompt to delete.
+        """
+
+    @abstractmethod
+    def set_prompt_tag(self, name: str, key: str, value: str) -> None:
+        """
+        Set a tag for a prompt.
+
+        Args:
+            name: Name of the prompt.
+            key: Tag key.
+            value: Tag value.
+        """
+
+    @abstractmethod
+    def delete_prompt_tag(self, name: str, key: str) -> None:
+        """
+        Delete a tag associated with a prompt.
+
+        Args:
+            name: Name of the prompt.
+            key: Tag key.
+        """

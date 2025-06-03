@@ -66,6 +66,7 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
 )
 from mlflow.protos.databricks_uc_registry_messages_pb2 import ModelVersion as ProtoModelVersion
 from mlflow.protos.service_pb2 import GetRun
+from mlflow.store._unity_catalog.registry.prompt_info import PromptInfo
 from mlflow.store._unity_catalog.registry.rest_store import (
     _DATABRICKS_LINEAGE_ID_HEADER,
     _DATABRICKS_ORG_ID_HEADER,
@@ -2100,3 +2101,113 @@ def test_create_and_update_registered_model_print_job_url(mock_http, store):
             name=name, description=description, deployment_job_id=deployment_job_id
         )
         mock_print_url.assert_called_once_with(model_name=name, job_id=deployment_job_id)
+
+
+@mock_http_200
+def test_create_prompt_uc(mock_http, store, monkeypatch):
+    name = "prompt1"
+    description = "A test prompt"
+    tags = {"foo": "bar"}
+    # Patch proto_info_to_mlflow_prompt_info to return a dummy PromptInfo
+    with mock.patch(
+        "mlflow.store._unity_catalog.registry.rest_store.proto_info_to_mlflow_prompt_info",
+        return_value=PromptInfo(name, description, tags=tags),
+    ) as proto_to_prompt:
+        store.create_prompt(name=name, description=description, tags=tags)
+        # Check that the endpoint was called correctly
+        assert any(c[1]["endpoint"].endswith("/prompts") for c in mock_http.call_args_list)
+        proto_to_prompt.assert_called()
+
+
+@mock_http_200
+def test_search_prompts_uc(mock_http, store, monkeypatch):
+    # Patch proto_info_to_mlflow_prompt_info to return a dummy PromptInfo
+    with mock.patch(
+        "mlflow.store._unity_catalog.registry.rest_store.proto_info_to_mlflow_prompt_info",
+        return_value=PromptInfo("prompt1", "test prompt"),
+    ) as proto_to_prompt:
+        store.search_prompts()
+        # Should call the correct endpoint for SearchPromptsRequest
+        assert any("/prompts" in c[1]["endpoint"] for c in mock_http.call_args_list)
+        # The utility function should NOT be called when there are no results (empty list)
+        assert proto_to_prompt.call_count == 0  # Correct behavior for empty results
+
+
+def test_search_prompts_with_results_uc(store, monkeypatch):
+    # Create mock protobuf objects
+    from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
+        Prompt as ProtoPrompt,
+    )
+    from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
+        PromptTag as ProtoPromptTag,
+    )
+    from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
+        SearchPromptsResponse,
+    )
+
+    # Create mock prompt data
+    mock_prompt_1 = ProtoPrompt(
+        name="test_prompt_1",
+        description="First test prompt",
+        tags=[ProtoPromptTag(key="env", value="dev")],
+    )
+    mock_prompt_2 = ProtoPrompt(name="test_prompt_2", description="Second test prompt")
+
+    # Create mock response
+    mock_response = SearchPromptsResponse(
+        prompts=[mock_prompt_1, mock_prompt_2], next_page_token="next_token_123"
+    )
+
+    # Expected conversion results
+    expected_prompts = [
+        PromptInfo("test_prompt_1", "First test prompt", tags={"env": "dev"}),
+        PromptInfo("test_prompt_2", "Second test prompt", tags={}),
+    ]
+
+    with (
+        mock.patch.object(store, "_call_endpoint", return_value=mock_response),
+        mock.patch(
+            "mlflow.store._unity_catalog.registry.rest_store.proto_info_to_mlflow_prompt_info",
+            side_effect=expected_prompts,
+        ) as mock_converter,
+    ):
+        # Call search_prompts
+        result = store.search_prompts(max_results=10)
+
+        # Verify conversion function was called twice (once for each result)
+        assert mock_converter.call_count == 2
+
+        # Verify the results
+        assert len(result) == 2
+        assert result.token == "next_token_123"
+        assert result[0].name == "test_prompt_1"
+        assert result[1].name == "test_prompt_2"
+
+
+@mock_http_200
+def test_delete_prompt_uc(mock_http, store, monkeypatch):
+    name = "prompt1"
+    store.delete_prompt(name=name)
+    # Should call the correct endpoint for DeletePromptRequest
+    assert any("/prompts" in c[1]["endpoint"] for c in mock_http.call_args_list)
+
+
+@mock_http_200
+def test_set_prompt_tag_uc(mock_http, store, monkeypatch):
+    name = "prompt1"
+    key = "env"
+    value = "prod"
+    store.set_prompt_tag(name=name, key=key, value=value)
+    # Should call the exact endpoint for SetPromptTagRequest with substituted path
+    expected_endpoint = f"/api/2.0/mlflow/unity-catalog/prompts/{name}/tags"
+    assert any(c[1]["endpoint"] == expected_endpoint for c in mock_http.call_args_list)
+
+
+@mock_http_200
+def test_delete_prompt_tag_uc(mock_http, store, monkeypatch):
+    name = "prompt1"
+    key = "env"
+    store.delete_prompt_tag(name=name, key=key)
+    # Should call the exact endpoint for DeletePromptTagRequest with substituted path
+    expected_endpoint = f"/api/2.0/mlflow/unity-catalog/prompts/{name}/tags/{key}"
+    assert any(c[1]["endpoint"] == expected_endpoint for c in mock_http.call_args_list)
