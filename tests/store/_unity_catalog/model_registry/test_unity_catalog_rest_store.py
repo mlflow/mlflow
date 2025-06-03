@@ -2208,7 +2208,7 @@ def test_search_prompts_uc(mock_http, store, monkeypatch):
 def test_search_prompts_with_results_uc(store, monkeypatch):
     # Create mock protobuf objects
     from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
-        PromptInfo as ProtoPromptInfo,
+        Prompt as ProtoPrompt,
     )
     from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
         PromptTag as ProtoPromptTag,
@@ -2218,12 +2218,12 @@ def test_search_prompts_with_results_uc(store, monkeypatch):
     )
 
     # Create mock prompt data
-    mock_prompt_1 = ProtoPromptInfo(
+    mock_prompt_1 = ProtoPrompt(
         name="test_prompt_1",
         description="First test prompt",
         tags=[ProtoPromptTag(key="env", value="dev")],
     )
-    mock_prompt_2 = ProtoPromptInfo(name="test_prompt_2", description="Second test prompt")
+    mock_prompt_2 = ProtoPrompt(name="test_prompt_2", description="Second test prompt")
 
     # Create mock response
     mock_response = SearchPromptsResponse(
