@@ -1,13 +1,15 @@
 from abc import abstractmethod
 from typing import Any, Optional, Union
+import json
 
+import mlflow
 from mlflow.entities import Assessment
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai import judges
 from mlflow.genai.judges.databricks import requires_databricks_agents
-from mlflow.genai.scorers.base import Scorer
+from mlflow.genai.scorers.base import Scorer, SerializedScorer, _SERIALIZATION_VERSION
 from mlflow.genai.utils.trace_utils import (
     extract_retrieval_context_from_trace,
     parse_inputs_to_str,
@@ -40,9 +42,6 @@ class BuiltInScorer(Scorer):
 
     def model_dump(self, **kwargs) -> dict:
         """Override model_dump to handle builtin scorer serialization."""
-        from mlflow.genai.scorers.base import SerializedScorer, _SERIALIZATION_VERSION
-        import mlflow
-
         # Create serialized scorer with core fields
         serialized = SerializedScorer(
             name=self.name,
@@ -83,8 +82,6 @@ class BuiltInScorer(Scorer):
         else:
             # Try JSON serialization as fallback
             try:
-                import json
-
                 json.dumps(value)
                 return True
             except (TypeError, ValueError):
