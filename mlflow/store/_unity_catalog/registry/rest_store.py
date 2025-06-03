@@ -9,7 +9,6 @@ from typing import Optional
 import mlflow
 from mlflow.entities import Run
 from mlflow.entities.logged_model import LoggedModel
-from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
@@ -66,9 +65,31 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
 )
 from mlflow.protos.databricks_uc_registry_service_pb2 import UcModelRegistryService
 from mlflow.protos.service_pb2 import GetRun, MlflowService
+from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
+    CreatePromptRequest,
+    CreatePromptResponse,
+    DeletePromptRequest,
+    DeletePromptResponse,
+    DeletePromptTagRequest,
+    DeletePromptTagResponse,
+    SearchPromptsRequest,
+    SearchPromptsResponse,
+    SetPromptTagRequest,
+    SetPromptTagResponse,
+    UnityCatalogSchema,
+)
+from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
+    Prompt as ProtoPrompt,
+)
+from mlflow.protos.unity_catalog_prompt_service_pb2 import UnityCatalogPromptService
 from mlflow.store._unity_catalog.lineage.constants import (
     _DATABRICKS_LINEAGE_ID_HEADER,
     _DATABRICKS_ORG_ID_HEADER,
+)
+from mlflow.store._unity_catalog.registry.prompt_info import PromptInfo
+from mlflow.store._unity_catalog.registry.utils import (
+    mlflow_tags_to_proto,
+    proto_info_to_mlflow_prompt_info,
 )
 from mlflow.store.artifact.databricks_sdk_models_artifact_repo import (
     DatabricksSDKModelsArtifactRepository,
@@ -107,34 +128,6 @@ from mlflow.utils.rest_utils import (
     verify_rest_response,
 )
 from mlflow.utils.uri import is_fuse_or_uc_volumes_uri
-from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
-    CreatePromptRequest,
-    CreatePromptResponse,
-    DeletePromptRequest,
-    DeletePromptResponse,
-    DeletePromptTagRequest,
-    DeletePromptTagResponse,
-    GetPromptRequest,
-    GetPromptResponse,
-    SearchPromptsRequest,
-    SearchPromptsResponse,
-    SetPromptTagRequest,
-    SetPromptTagResponse,
-    UnityCatalogSchema,
-)
-from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
-    Prompt as ProtoPrompt,
-)
-from mlflow.protos.unity_catalog_prompt_service_pb2 import UnityCatalogPromptService
-from mlflow.store._unity_catalog.lineage.constants import (
-    _DATABRICKS_LINEAGE_ID_HEADER,
-    _DATABRICKS_ORG_ID_HEADER,
-)
-from mlflow.store._unity_catalog.registry.prompt_info import PromptInfo
-from mlflow.store._unity_catalog.registry.utils import (
-    mlflow_tags_to_proto,
-    proto_info_to_mlflow_prompt_info,
-)
 
 _TRACKING_METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
 _METHOD_TO_INFO = {

@@ -462,7 +462,12 @@ class AbstractStore:
     # Prompt management methods
 
     @abstractmethod
-    def create_prompt(self, name: str, description: Optional[str] = None, tags: Optional[dict[str, str]] = None):
+    def create_prompt(
+        self,
+        name: str,
+        description: Optional[str] = None,
+        tags: Optional[dict[str, str]] = None,
+    ):
         """
         Create a new prompt (metadata only, no initial version).
 
