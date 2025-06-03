@@ -284,6 +284,6 @@ def copy_model_serving_trace_to_eval_run(trace_dict: dict[str, Any], experiment_
         )
 
     # Export trace to backend as if it was created in the current run.
-    _get_trace_exporter()._export_trace(new_trace)
+    _get_trace_exporter(force_start=True)._export_trace(new_trace)
 
     return new_trace_id

@@ -214,10 +214,16 @@ def _get_tracer(module_name: str):
     return _MLFLOW_TRACER_PROVIDER.get_tracer(module_name)
 
 
-def _get_trace_exporter():
+def _get_trace_exporter(force_start: bool = False):
     """
     Get the exporter instance that is used by the current tracer provider.
+
+    If force_enable is True, the exporter will be enabled even if tracing is
+    disabled or not started.
     """
+    if force_start and is_tracing_enabled() and not _MLFLOW_TRACER_PROVIDER_INITIALIZED.done:
+        enable()
+
     if _MLFLOW_TRACER_PROVIDER:
         processors = _MLFLOW_TRACER_PROVIDER._active_span_processor._span_processors
         # There should be only one processor used for MLflow tracing

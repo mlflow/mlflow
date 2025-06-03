@@ -142,7 +142,9 @@ def test_to_predict_fn_pass_tracing_check(
     assert trace.data.spans[0].outputs == "answer"
 
 
-def test_to_predict_fn_return_v2_trace(sample_rag_trace, mock_deploy_client, mock_tracing_client):
+def test_to_predict_fn_return_v2_trace(mock_deploy_client, mock_tracing_client):
+    mlflow.tracing.reset()
+
     mock_deploy_client.predict.return_value = {
         **_DUMMY_CHAT_RESPONSE,
         "databricks_output": {"trace": V2_TRACE_DICT},
@@ -169,7 +171,7 @@ def test_to_predict_fn_return_v2_trace(sample_rag_trace, mock_deploy_client, moc
     trace = mock_tracing_client.start_trace_v3.call_args[0][0]
     # Copied trace should have a new trace ID (and v3)
     isinstance(trace.info, TraceInfo)
-    assert trace.info.trace_id != sample_rag_trace.info.trace_id
+    assert trace.info.trace_id != V2_TRACE_DICT["info"]["request_id"]
     assert trace.info.request_preview == '{"x": 2, "y": 5}'
     assert trace.info.response_preview == "8"
     assert trace.info.trace_metadata[TRACE_SCHEMA_VERSION_KEY] == "3"
