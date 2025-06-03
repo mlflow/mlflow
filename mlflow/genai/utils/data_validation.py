@@ -55,8 +55,7 @@ def _validate_function_and_input_compatibility(
     # For other errors, show a generic error message
     raise MlflowException.invalid_parameter_value(
         "Failed to run the prediction function specified in the `predict_fn` "
-        "parameter. Please make sure that the input dictionary contains the "
-        f"keys that match with the `predict_fn` parameters. Error: {e}\n\n"
+        f"parameter. Input: {sample_input}. Error: {e}\n\n"
     ) from e
 
 
