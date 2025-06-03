@@ -119,8 +119,8 @@ def _deserialize_inputs_and_expectations_column(df: "pd.DataFrame") -> "pd.DataF
             continue
 
         try:
-            df[col] = df[col].apply(lambda x: json.loads(x))
-        except json.JSONDecodeError:
+            df[col] = df[col].apply(json.loads)
+        except json.JSONDecodeError as e:
             if col == "inputs":
                 msg = (
                     "The `inputs` column must be a valid JSON string of field names and values. "
@@ -131,7 +131,9 @@ def _deserialize_inputs_and_expectations_column(df: "pd.DataFrame") -> "pd.DataF
                     "The `expectations` column must be a valid JSON string of assessment names and "
                     "values. For example, `{'expected_facts': ['fact1', 'fact2']}`"
                 )
-            raise MlflowException.invalid_parameter_value(f"Failed to parse `{col}` column. {msg}")
+            raise MlflowException.invalid_parameter_value(
+                f"Failed to parse `{col}` column. Error: {e}\nHint: {msg}"
+            )
 
     return df
 
