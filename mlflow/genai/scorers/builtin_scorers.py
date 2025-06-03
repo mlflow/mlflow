@@ -25,6 +25,7 @@ class BuiltInScorer(Scorer):
     inherit from this class.
     """
 
+    name: str = "builtin_scorer"  # Default name, should be overridden by subclasses
     required_columns: set[str] = set()
 
     # Avoid direct mutation of built-in scorer fields like name. Overriding the default setting must
@@ -36,6 +37,99 @@ class BuiltInScorer(Scorer):
             "get a new instance with the custom field values.",
             error_code=BAD_REQUEST,
         )
+
+    def model_dump(self, **kwargs) -> dict:
+        """Override model_dump to handle builtin scorer serialization."""
+        from mlflow.genai.scorers.base import SerializedScorer, _SERIALIZATION_VERSION
+        import mlflow
+
+        # Create serialized scorer with core fields
+        serialized = SerializedScorer(
+            name=self.name,
+            aggregations=self.aggregations,
+            mlflow_version=mlflow.__version__,
+            serialization_version=_SERIALIZATION_VERSION,
+            builtin_scorer_class=self.__class__.__name__,
+        )
+
+        # Get the base Scorer class fields to exclude them from additional processing
+        from mlflow.genai.scorers.base import Scorer
+
+        base_model_fields = set(Scorer.model_fields.keys())
+
+        # Add any additional fields from this scorer class that aren't in the base Scorer
+        current_model_fields = set(self.__class__.model_fields.keys())
+        additional_fields = current_model_fields - base_model_fields
+
+        for field_name in additional_fields:
+            field_value = getattr(self, field_name)
+            if hasattr(serialized, field_name) and self._is_serializable(field_value):
+                setattr(serialized, field_name, field_value)
+
+        return serialized.to_dict()
+
+    def _is_serializable(self, value: Any) -> bool:
+        """Check if a value can be serialized to JSON."""
+        # Handle common types that should be serialized
+        if isinstance(value, (str, int, float, bool, type(None))):
+            return True
+        elif isinstance(value, (list, tuple)):
+            return all(self._is_serializable(item) for item in value)
+        elif isinstance(value, dict):
+            return all(isinstance(k, str) and self._is_serializable(v) for k, v in value.items())
+        elif isinstance(value, set):
+            # Sets will be converted to lists during serialization
+            return all(self._is_serializable(item) for item in value)
+        else:
+            # Try JSON serialization as fallback
+            try:
+                import json
+
+                json.dumps(value)
+                return True
+            except (TypeError, ValueError):
+                return False
+
+    @classmethod
+    def model_validate(cls, serialized_data) -> "BuiltInScorer":
+        """Override model_validate to handle builtin scorer reconstruction."""
+        from mlflow.genai.scorers.base import SerializedScorer
+
+        # If it's already a SerializedScorer, use it directly
+        if isinstance(serialized_data, SerializedScorer):
+            serialized = serialized_data
+        else:
+            # Otherwise parse it
+            serialized = SerializedScorer.from_dict(serialized_data)
+
+        from mlflow.genai.scorers import builtin_scorers
+
+        try:
+            scorer_class = getattr(builtin_scorers, serialized.builtin_scorer_class)
+        except AttributeError:
+            raise ValueError(f"Unknown builtin scorer class: {serialized.builtin_scorer_class}")
+
+        # Get the base Scorer class fields to exclude them from additional processing
+        from mlflow.genai.scorers.base import Scorer
+
+        base_model_fields = set(Scorer.model_fields.keys())
+
+        # Build constructor arguments starting with base fields
+        constructor_args = {"name": serialized.name}
+
+        if serialized.aggregations is not None:
+            constructor_args["aggregations"] = serialized.aggregations
+
+        # Add any additional fields that exist in the scorer class but not in base Scorer
+        scorer_model_fields = set(scorer_class.model_fields.keys())
+        additional_fields = scorer_model_fields - base_model_fields
+
+        for field_name in additional_fields:
+            field_value = getattr(serialized, field_name, None)
+            if field_value is not None:
+                constructor_args[field_name] = field_value
+
+        return scorer_class(**constructor_args)
 
     @abstractmethod
     def with_config(self, **kwargs) -> "BuiltInScorer":

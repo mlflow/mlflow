@@ -84,15 +84,8 @@ class Scorer(BaseModel):
             serialization_version=_SERIALIZATION_VERSION,
         )
 
-        # Determine scorer type and populate appropriate fields
-        if hasattr(self.__class__, "__module__") and "builtin_scorers" in self.__class__.__module__:
-            # Builtin scorer - store class information
-            serialized.builtin_scorer_class = self.__class__.__name__
-            if hasattr(self, "required_columns"):
-                serialized.required_columns = self.required_columns
-            if hasattr(self, "global_guidelines"):
-                serialized.global_guidelines = self.global_guidelines
-        elif hasattr(self, "_original_func") and self._original_func:
+        # Check if this is a decorator scorer
+        if hasattr(self, "_original_func") and self._original_func:
             # Decorator scorer - extract and store source code
             source_info = self._extract_source_code_info()
             serialized.call_source = source_info.get("call_source")
@@ -162,9 +155,11 @@ class Scorer(BaseModel):
             if serialized.serialization_version:
                 _logger.debug(f"Scorer serialization version: {serialized.serialization_version}")
 
-            # Handle builtin scorers
+            # Handle builtin scorers by delegating to BuiltInScorer
             if serialized.builtin_scorer_class:
-                return cls._reconstruct_builtin_scorer(serialized)
+                from mlflow.genai.scorers.builtin_scorers import BuiltInScorer
+
+                return BuiltInScorer.model_validate(serialized)
 
             # Handle decorator scorers
             elif (
@@ -184,31 +179,6 @@ class Scorer(BaseModel):
                 )
 
         return super().model_validate(obj)
-
-    @classmethod
-    def _reconstruct_builtin_scorer(cls, serialized: SerializedScorer) -> "Scorer":
-        """Reconstruct a builtin scorer from serialized data."""
-        # Import and reconstruct the builtin scorer
-        from mlflow.genai.scorers import builtin_scorers
-
-        try:
-            scorer_class = getattr(builtin_scorers, serialized.builtin_scorer_class)
-        except AttributeError:
-            raise ValueError(f"Unknown builtin scorer class: {serialized.builtin_scorer_class}")
-
-        # Build constructor arguments from serialized data
-        constructor_args = {"name": serialized.name}
-
-        if serialized.aggregations is not None:
-            constructor_args["aggregations"] = serialized.aggregations
-
-        if serialized.required_columns is not None:
-            constructor_args["required_columns"] = serialized.required_columns
-
-        if serialized.global_guidelines is not None:
-            constructor_args["global_guidelines"] = serialized.global_guidelines
-
-        return scorer_class(**constructor_args)
 
     @classmethod
     def _reconstruct_decorator_scorer(cls, serialized: SerializedScorer) -> "Scorer":
