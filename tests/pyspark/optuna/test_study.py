@@ -34,7 +34,7 @@ def _get_spark_session_with_retry(max_tries=3):
 # before any tests are executed. This ensures that the Hadoop filesystem
 # does not create its own SparkContext without the MLeap libraries required by
 # other tests.
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="module", autouse=True)
 def spark():
     if Version(pyspark.__version__) < Version("3.1"):
         spark_home = (
@@ -55,7 +55,6 @@ spark.executor.extraJavaOptions="-Dio.netty.tryReflectionSetAccessible=true"
         yield spark
 
 
-@pytest.mark.usefixtures("setup_storage", "spark")
 def test_study_optimize_run(setup_storage):
     storage = setup_storage
     study_name = "test-study"
@@ -74,7 +73,6 @@ def test_study_optimize_run(setup_storage):
     np.testing.assert_allclose(mlflow_study.best_params["x"], 5.426412865334919, rtol=1e-6)
 
 
-@pytest.mark.usefixtures("setup_storage", "spark")
 def test_study_with_failed_objective(setup_storage):
     storage = setup_storage
     study_name = "test-study"

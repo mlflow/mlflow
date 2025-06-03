@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Optional
 
 import optuna
+import pandas as pd
 from optuna import exceptions, pruners, samplers, storages
 from optuna.study import Study
 from optuna.trial import FrozenTrial, TrialState
@@ -187,15 +188,6 @@ class MlflowSparkStudy(Study):
         sampler = self.sampler
 
         def run_task_on_executor_pd(iterator):
-            import traceback  # clint: disable=lazy-builtin-import)
-
-            import optuna
-            import pandas as pd
-
-            import mlflow
-            from mlflow import MlflowClient
-            from mlflow.optuna.storage import MlflowStorage
-
             mlflow.set_tracking_uri(mlflow_tracking_env)
             mlflow_client = MlflowClient()
 
