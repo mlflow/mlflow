@@ -14,7 +14,7 @@ from mlflow.genai.optimize.types import (
     PromptOptimizationResult,
 )
 from mlflow.genai.scorers import Scorer
-from mlflow.tracking._model_registry.fluent import load_prompt, register_prompt
+from mlflow.tracking._model_registry.fluent import load_prompt
 from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
@@ -122,20 +122,13 @@ def optimize_prompt(
     if isinstance(prompt, str):
         prompt: Prompt = load_prompt(prompt)
 
-    optimized_prompt_template = optimzer.optimize(
+    optimized_prompt = optimzer.optimize(
         prompt=prompt,
         target_llm_params=target_llm_params,
         train_data=train_data,
         scorers=scorers,
         objective=objective,
         eval_data=eval_data,
-    )
-
-    optimized_prompt = register_prompt(
-        name=prompt.name,
-        # TODO: we should revisit the optimized template format
-        # once multi-turn messages are supported.
-        template=optimized_prompt_template,
     )
 
     return PromptOptimizationResult(prompt=optimized_prompt)

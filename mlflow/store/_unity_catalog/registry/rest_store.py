@@ -9,9 +9,9 @@ from typing import Optional, Union
 import mlflow
 from mlflow.entities import Run
 from mlflow.entities.logged_model import LoggedModel
-from mlflow.entities.model_registry.prompt import Prompt
+from mlflow.entities.prompt import Prompt
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
+from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     MODEL_VERSION_OPERATION_READ_WRITE,
     CreateModelVersionRequest,
@@ -66,47 +66,6 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
 )
 from mlflow.protos.databricks_uc_registry_service_pb2 import UcModelRegistryService
 from mlflow.protos.service_pb2 import GetRun, MlflowService
-from mlflow.store._unity_catalog.lineage.constants import (
-    _DATABRICKS_LINEAGE_ID_HEADER,
-    _DATABRICKS_ORG_ID_HEADER,
-)
-from mlflow.store.artifact.databricks_sdk_models_artifact_repo import (
-    DatabricksSDKModelsArtifactRepository,
-)
-from mlflow.store.artifact.presigned_url_artifact_repo import PresignedUrlArtifactRepository
-from mlflow.store.entities.paged_list import PagedList
-from mlflow.store.model_registry.rest_store import BaseRestStore
-from mlflow.utils._spark_utils import _get_active_spark_session
-from mlflow.utils._unity_catalog_utils import (
-    get_artifact_repo_from_storage_info,
-    get_full_name_from_sc,
-    is_databricks_sdk_models_artifact_repository_enabled,
-    model_version_from_uc_proto,
-    model_version_search_from_uc_proto,
-    registered_model_from_uc_proto,
-    registered_model_search_from_uc_proto,
-    uc_model_version_tag_from_mlflow_tags,
-    uc_registered_model_tag_from_mlflow_tags,
-)
-from mlflow.utils.databricks_utils import (
-    _print_databricks_deployment_job_url,
-    get_databricks_host_creds,
-    is_databricks_uri,
-)
-from mlflow.utils.mlflow_tags import (
-    MLFLOW_DATABRICKS_JOB_ID,
-    MLFLOW_DATABRICKS_JOB_RUN_ID,
-    MLFLOW_DATABRICKS_NOTEBOOK_ID,
-)
-from mlflow.utils.proto_json_utils import message_to_json, parse_dict
-from mlflow.utils.rest_utils import (
-    _REST_API_PATH_PREFIX,
-    extract_all_api_info_for_service,
-    extract_api_info_for_service,
-    http_request,
-    verify_rest_response,
-)
-from mlflow.utils.uri import is_fuse_or_uc_volumes_uri
 from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
     CreatePromptRequest,
     CreatePromptResponse,
@@ -146,6 +105,45 @@ from mlflow.store._unity_catalog.registry.utils import (
     proto_info_to_mlflow_prompt_info,
     proto_to_mlflow_prompt,
 )
+from mlflow.store.artifact.databricks_sdk_models_artifact_repo import (
+    DatabricksSDKModelsArtifactRepository,
+)
+from mlflow.store.artifact.presigned_url_artifact_repo import (
+    PresignedUrlArtifactRepository,
+)
+from mlflow.store.entities.paged_list import PagedList
+from mlflow.store.model_registry.rest_store import BaseRestStore
+from mlflow.utils._spark_utils import _get_active_spark_session
+from mlflow.utils._unity_catalog_utils import (
+    get_artifact_repo_from_storage_info,
+    get_full_name_from_sc,
+    is_databricks_sdk_models_artifact_repository_enabled,
+    model_version_from_uc_proto,
+    model_version_search_from_uc_proto,
+    registered_model_from_uc_proto,
+    registered_model_search_from_uc_proto,
+    uc_model_version_tag_from_mlflow_tags,
+    uc_registered_model_tag_from_mlflow_tags,
+)
+from mlflow.utils.databricks_utils import (
+    _print_databricks_deployment_job_url,
+    get_databricks_host_creds,
+    is_databricks_uri,
+)
+from mlflow.utils.mlflow_tags import (
+    MLFLOW_DATABRICKS_JOB_ID,
+    MLFLOW_DATABRICKS_JOB_RUN_ID,
+    MLFLOW_DATABRICKS_NOTEBOOK_ID,
+)
+from mlflow.utils.proto_json_utils import message_to_json, parse_dict
+from mlflow.utils.rest_utils import (
+    _REST_API_PATH_PREFIX,
+    extract_all_api_info_for_service,
+    extract_api_info_for_service,
+    http_request,
+    verify_rest_response,
+)
+from mlflow.utils.uri import is_fuse_or_uc_volumes_uri
 
 _TRACKING_METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
 _METHOD_TO_INFO = {
@@ -258,7 +256,9 @@ def get_model_version_dependencies(model_dir):
         )
         dependencies.extend(
             _fetch_langchain_dependency_from_model_resources(
-                databricks_dependencies, ResourceType.FUNCTION.value, "DATABRICKS_UC_FUNCTION"
+                databricks_dependencies,
+                ResourceType.FUNCTION.value,
+                "DATABRICKS_UC_FUNCTION",
             )
         )
         dependencies.extend(
@@ -641,7 +641,10 @@ class UcModelRegistryStore(BaseRestStore):
         host_creds = self.get_tracking_host_creds()
         endpoint, method = _TRACKING_METHOD_TO_INFO[GetRun]
         response = http_request(
-            host_creds=host_creds, endpoint=endpoint, method=method, params={"run_id": run_id}
+            host_creds=host_creds,
+            endpoint=endpoint,
+            method=method,
+            params={"run_id": run_id},
         )
         try:
             verify_rest_response(response, endpoint)
@@ -1384,3 +1387,30 @@ class UcModelRegistryStore(BaseRestStore):
             proto_name=GetPromptVersionByAliasRequest,
         )
         return proto_to_mlflow_prompt(response_proto.prompt_version, {})
+
+    def _edit_endpoint_and_call(self, endpoint, method, req_body, proto_name, **kwargs):
+        """
+        Edit endpoint URL with parameters and make the call.
+
+        Args:
+            endpoint: URL template with placeholders like {name}, {key}
+            method: HTTP method
+            req_body: Request body
+            proto_name: Protobuf message class for response
+            **kwargs: Parameters to substitute in the endpoint template
+        """
+        # Replace placeholders in endpoint with actual values
+        for key, value in kwargs.items():
+            if value is not None:
+                endpoint = endpoint.replace(f"{{{key}}}", str(value))
+
+        # Make the API call
+        from mlflow.utils.rest_utils import call_endpoint
+
+        return call_endpoint(
+            self.get_host_creds(),
+            endpoint=endpoint,
+            method=method,
+            json_body=req_body,
+            response_proto=self._get_response_from_method(proto_name),
+        )

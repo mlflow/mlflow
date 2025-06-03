@@ -67,6 +67,7 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
 )
 from mlflow.protos.databricks_uc_registry_messages_pb2 import ModelVersion as ProtoModelVersion
 from mlflow.protos.service_pb2 import GetRun
+from mlflow.store._unity_catalog.registry.prompt_info import PromptInfo
 from mlflow.store._unity_catalog.registry.rest_store import (
     _DATABRICKS_LINEAGE_ID_HEADER,
     _DATABRICKS_ORG_ID_HEADER,
@@ -2111,7 +2112,7 @@ def test_create_prompt_uc(mock_http, store, monkeypatch):
     tags = {"foo": "bar"}
     # Patch proto_info_to_mlflow_prompt_info to return a dummy PromptInfo
     with mock.patch(
-        "mlflow.store._unity_catalog.registry.utils.proto_info_to_mlflow_prompt_info",
+"mlflow.store._unity_catalog.registry.rest_store.proto_info_to_mlflow_prompt_info",
         return_value=PromptInfo(name, description, tags=tags),
     ) as proto_to_prompt:
         store.create_prompt(name=name, description=description, tags=tags)
@@ -2124,7 +2125,7 @@ def test_create_prompt_uc(mock_http, store, monkeypatch):
 def test_search_prompts_uc(mock_http, store, monkeypatch):
     # Patch proto_info_to_mlflow_prompt_info to return a dummy PromptInfo
     with mock.patch(
-        "mlflow.store._unity_catalog.registry.utils.proto_info_to_mlflow_prompt_info",
+"mlflow.store._unity_catalog.registry.rest_store.proto_info_to_mlflow_prompt_info",
         return_value=PromptInfo("prompt1", "test prompt"),
     ) as proto_to_prompt:
         store.search_prompts()
@@ -2168,7 +2169,7 @@ def test_search_prompts_with_results_uc(store, monkeypatch):
     with (
         mock.patch.object(store, "_call_endpoint", return_value=mock_response),
         mock.patch(
-            "mlflow.store._unity_catalog.registry.utils.proto_info_to_mlflow_prompt_info",
+"mlflow.store._unity_catalog.registry.rest_store.proto_info_to_mlflow_prompt_info",
             side_effect=expected_prompts,
         ) as mock_converter,
     ):
@@ -2222,7 +2223,7 @@ def test_create_prompt_version_uc(mock_http, store, monkeypatch):
     tags = {"env": "test"}
     # Patch proto_to_mlflow_prompt to return a dummy Prompt
     with mock.patch(
-        "mlflow.store._unity_catalog.registry.utils.proto_to_mlflow_prompt",
+        "mlflow.store._unity_catalog.registry.rest_store.proto_to_mlflow_prompt",
         return_value=Prompt(name, template, 1, tags=tags),
     ) as proto_to_prompt:
         store.create_prompt_version(name=name, template=template, description=description, tags=tags)
@@ -2237,7 +2238,7 @@ def test_get_prompt_uc(mock_http, store, monkeypatch):
     version = "1"
     # Patch proto_to_mlflow_prompt to return a dummy Prompt
     with mock.patch(
-        "mlflow.store._unity_catalog.registry.utils.proto_to_mlflow_prompt",
+        "mlflow.store._unity_catalog.registry.rest_store.proto_to_mlflow_prompt",
         return_value=Prompt(name, "Hello {name}!", 1),
     ) as proto_to_prompt:
         store.get_prompt(name=name, version=version)
@@ -2252,7 +2253,7 @@ def test_get_prompt_version_uc(mock_http, store, monkeypatch):
     version = "1"
     # Patch proto_to_mlflow_prompt to return a dummy Prompt
     with mock.patch(
-        "mlflow.store._unity_catalog.registry.utils.proto_to_mlflow_prompt",
+        "mlflow.store._unity_catalog.registry.rest_store.proto_to_mlflow_prompt",
         return_value=Prompt(name, "Hello {name}!", 1),
     ) as proto_to_prompt:
         store.get_prompt_version(name=name, version=version)
@@ -2276,7 +2277,7 @@ def test_get_prompt_version_by_alias_uc(mock_http, store, monkeypatch):
     alias = "latest"
     # Patch proto_to_mlflow_prompt to return a dummy Prompt
     with mock.patch(
-        "mlflow.store._unity_catalog.registry.utils.proto_to_mlflow_prompt",
+        "mlflow.store._unity_catalog.registry.rest_store.proto_to_mlflow_prompt",
         return_value=Prompt(name, "Hello {name}!", 1),
     ) as proto_to_prompt:
         store.get_prompt_version_by_alias(name=name, alias=alias)

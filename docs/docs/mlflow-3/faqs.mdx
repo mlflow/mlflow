@@ -2,11 +2,15 @@ import { APILink } from "@site/src/components/APILink";
 
 # FAQs
 
-#### Can MLflow 3.x load runs/models/traces logged with MLflow 2.x?
+#### Can MLflow 3.x load resources (runs, models, traces, etc.) created with MLflow 2.x?
 
-Yes, MLflow 3.x can load runs/models/traces logged with MLflow 2.x. However, the reverse is not true.
+Yes, MLflow 3.x can load resources such as runs, models, traces, and more that were created with MLflow 2.x. However, the reverse is not true.
 
-#### `load_model` throws a `ResourceNotFound` error when loading a model logged with MLflow 2.x. What's wrong?
+:::warning
+When testing MLflow 3.x, we strongly recommend using **a separate environment** to avoid conflicts with MLflow 2.x.
+:::
+
+#### `load_model` throws a `ResourceNotFound` error when loading a model created with MLflow 2.x. What's wrong?
 
 For example, the following code fails to load the model in MLflow 3.x since the model artifacts are NOT stored as run artifacts:
 
