@@ -6,11 +6,12 @@ async function readSitemap(input: string): Promise<string> {
   if (/^https?:\/\//.test(input)) {
     const res = await fetch(input);
     if (!res.ok) {
-      throw new Error(`Failed to fetch ${input}: ${res.status}`);
+      const responseBody = await res.text();
+      throw new Error(`Failed to fetch ${input}: ${res.status} ${res.statusText}. Response body: ${responseBody}`);
     }
     return await res.text();
   } else {
-    return fs.readFileSync(input, "utf8");
+    return await fs.readFile(input, "utf8");
   }
 }
 
@@ -38,7 +39,7 @@ function compareSitemaps(mapA: Map<string, string>, mapB: Map<string, string>) {
   const onlyInB: string[] = [];
   const inBoth: string[] = [];
 
-  for (const [url, originalUrl] of mapA) {
+  for (const [url, _] of mapA) {
     if (!mapB.has(url)) {
       onlyInA.push(url);
     } else {
