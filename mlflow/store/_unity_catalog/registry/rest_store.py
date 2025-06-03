@@ -1200,12 +1200,20 @@ class UcModelRegistryStore(BaseRestStore):
             mlflow_tags_to_proto,
             proto_info_to_mlflow_prompt_info,
         )
+        from mlflow.protos.unity_catalog_prompt_messages_pb2 import Prompt as ProtoPrompt
+
+        # Create a Prompt object with the provided fields
+        prompt_proto = ProtoPrompt()
+        prompt_proto.name = name
+        if description:
+            prompt_proto.description = description
+        if tags:
+            prompt_proto.tags.extend(mlflow_tags_to_proto(tags))
 
         req_body = message_to_json(
             CreatePromptRequest(
                 name=name,
-                description=description,
-                tags=mlflow_tags_to_proto(tags) if tags else None,
+                prompt=prompt_proto,
             )
         )
         response_proto = self._call_endpoint(CreatePromptRequest, req_body)
@@ -1318,16 +1326,24 @@ class UcModelRegistryStore(BaseRestStore):
         Create a new prompt version in Unity Catalog.
         """
         from mlflow.store._unity_catalog.registry.utils import (
-            mlflow_tags_to_proto,
+            mlflow_tags_to_proto_version_tags,
             proto_to_mlflow_prompt,
         )
+        from mlflow.protos.unity_catalog_prompt_messages_pb2 import PromptVersion as ProtoPromptVersion
+
+        # Create a PromptVersion object with the provided fields
+        prompt_version_proto = ProtoPromptVersion()
+        prompt_version_proto.name = name
+        prompt_version_proto.template = template
+        if description:
+            prompt_version_proto.description = description
+        if tags:
+            prompt_version_proto.tags.extend(mlflow_tags_to_proto_version_tags(tags))
 
         req_body = message_to_json(
             CreatePromptVersionRequest(
                 name=name,
-                template=template,
-                description=description,
-                tags=mlflow_tags_to_proto(tags) if tags else None,
+                prompt_version=prompt_version_proto,
             )
         )
         endpoint, method = self._get_endpoint_from_method(CreatePromptVersionRequest)
