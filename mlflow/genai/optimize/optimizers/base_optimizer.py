@@ -34,5 +34,5 @@ class _BaseOptimizer(abc.ABC):
             eval_data: Optional evaluation dataset.
 
         Returns:
-            The optimized prompt registered in the model registry as a new version.
+            The optimized prompt registered in the prompt registry as a new version.
         """

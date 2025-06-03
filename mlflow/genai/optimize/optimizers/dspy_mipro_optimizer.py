@@ -101,7 +101,7 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
             input_fields=input_fields,
         )
 
-        self._log_optimization_result(optimized_program)
+        self._display_optimization_result(optimized_program)
 
         return register_prompt(
             name=prompt.name,
@@ -186,7 +186,7 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
         else:
             yield
 
-    def _log_optimization_result(self, program: "dspy.Predict"):
+    def _display_optimization_result(self, program: "dspy.Predict"):
         if hasattr(program, "score") and hasattr(program, "trial_logs"):
             initial_score = program.trial_logs[1]["full_eval_score"]
             _logger.info(
