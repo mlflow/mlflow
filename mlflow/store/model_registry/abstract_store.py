@@ -5,6 +5,7 @@ from typing import Optional, Union
 
 from mlflow.entities.model_registry import ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
+from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.registry_utils import has_prompt_tag
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, ErrorCode
@@ -469,7 +470,7 @@ class AbstractStore:
         name: str,
         description: Optional[str] = None,
         tags: Optional[dict[str, str]] = None,
-    ):
+    ) -> PromptInfo:
         """
         Create a new prompt (metadata only, no initial version).
 
@@ -538,7 +539,7 @@ class AbstractStore:
         """
 
     @abstractmethod
-    def get_prompt(self, name: str, version: Optional[Union[str, int]] = None):
+    def get_prompt(self, name: str, version: Optional[Union[str, int]] = None) -> Optional[Prompt]:
         """
         Get prompt by name and version.
 
@@ -557,7 +558,7 @@ class AbstractStore:
         template: str,
         description: Optional[str] = None,
         tags: Optional[dict[str, str]] = None,
-    ):
+    ) -> Prompt:
         """
         Create a new prompt version.
 
@@ -572,7 +573,7 @@ class AbstractStore:
         """
 
     @abstractmethod
-    def get_prompt_version(self, name: str, version: Union[str, int]):
+    def get_prompt_version(self, name: str, version: Union[str, int]) -> Prompt:
         """
         Get a specific prompt version.
 
@@ -595,7 +596,7 @@ class AbstractStore:
         """
 
     @abstractmethod
-    def get_prompt_version_by_alias(self, name: str, alias: str):
+    def get_prompt_version_by_alias(self, name: str, alias: str) -> Prompt:
         """
         Get a prompt version by alias.
 
