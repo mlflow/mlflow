@@ -3,6 +3,7 @@ from unittest.mock import call, patch
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.span import SpanType
+from mlflow.genai.judges import meets_guidelines
 from mlflow.genai.scorers import (
     Correctness,
     GuidelineAdherence,
@@ -243,28 +244,38 @@ def test_guideline_adherence():
         assessment_name="is_english",
     )
 
+    # 3. Test meets_guidelines judge with string input (should wrap in list)
+    with patch("databricks.agents.evals.judges.guideline_adherence") as mock_guideline_adherence:
+        meets_guidelines(
+            guidelines="Be polite and respectful.",
+            context={"response": "Hello, how are you?"},
+        )
+
+    mock_guideline_adherence.assert_called_once_with(
+        guidelines=["Be polite and respectful."],
+        guidelines_context={"response": "Hello, how are you?"},
+        assessment_name=None,
+    )
+
 
 def test_relevance_to_query():
     with patch(
-        "databricks.agents.evals.judges.chunk_relevance",
-        return_value=[
-            Feedback(name="relevance_to_query", value="yes", metadata={"chunk_index": 0})
-        ],
-    ) as mock_chunk_relevance:
+        "databricks.agents.evals.judges.relevance_to_query",
+        return_value=Feedback(name="relevance_to_query", value="yes"),
+    ) as mock_relevance_to_query:
         result = RelevanceToQuery()(
             inputs={"question": "query"},
-            outputs="answer",
+            outputs={"answer": "answer"},
         )
 
-    mock_chunk_relevance.assert_called_once_with(
+    mock_relevance_to_query.assert_called_once_with(
         request="{'question': 'query'}",
-        retrieved_context=["answer"],
+        response=str({"answer": "answer"}),
         assessment_name="relevance_to_query",
     )
 
     assert result.name == "relevance_to_query"
     assert result.value == "yes"
-    assert result.metadata == {}  # chunk id should not be included in the metadata
 
 
 def test_safety():
