@@ -12,7 +12,7 @@ from mlflow.entities.assessment import FeedbackValue
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.evaluation import Assessment as LegacyAssessment
 from mlflow.genai import Scorer, scorer
-from mlflow.genai.scorers import Correctness, GuidelineAdherence, RetrievalGroundedness
+from mlflow.genai.scorers import Correctness, Guidelines, RetrievalGroundedness
 
 from tests.tracing.helper import get_traces, purge_traces
 
@@ -90,7 +90,7 @@ def test_trace_passed_to_builtin_scorers_correctly(sample_rag_trace):
             scorers=[
                 RetrievalGroundedness(name="retrieval_groundedness"),
                 Correctness(name="correctness"),
-                GuidelineAdherence(name="english"),
+                Guidelines(name="english", guidelines=["write in english"]),
             ],
         )
 
