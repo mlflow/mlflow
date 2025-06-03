@@ -12,7 +12,9 @@ from mlflow.entities.assessment import FeedbackValue
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.evaluation import Assessment as LegacyAssessment
 from mlflow.genai import Scorer, scorer
-from mlflow.genai.scorers import correctness, guideline_adherence, retrieval_groundedness
+from mlflow.genai.scorers import Correctness, GuidelineAdherence, RetrievalGroundedness
+
+from tests.tracing.helper import get_traces, purge_traces
 
 if importlib.util.find_spec("databricks.agents") is None:
     pytest.skip(reason="databricks-agents is not installed", allow_module_level=True)
@@ -86,9 +88,9 @@ def test_trace_passed_to_builtin_scorers_correctly(sample_rag_trace):
         mlflow.genai.evaluate(
             data=pd.DataFrame({"trace": [sample_rag_trace]}),
             scorers=[
-                retrieval_groundedness,
-                correctness,
-                guideline_adherence.with_config(name="english"),
+                RetrievalGroundedness(name="retrieval_groundedness"),
+                Correctness(name="correctness"),
+                GuidelineAdherence(name="english"),
             ],
         )
 
@@ -246,6 +248,14 @@ def test_scorer_on_genai_evaluate(sample_data, scorer_return):
     assert any("metric/dummy_scorer" in metric for metric in results.metrics.keys())
 
 
+def test_custom_scorer_allow_none_return():
+    @scorer
+    def dummy_scorer(inputs, outputs):
+        return None
+
+    assert dummy_scorer.run(inputs={"question": "query"}, outputs="answer") is None
+
+
 def test_scorer_returns_feedback_with_error(sample_data):
     @scorer
     def dummy_scorer(inputs):
@@ -302,3 +312,33 @@ def test_custom_scorer_does_not_overwrite_feedback_name_when_returning_list():
     )
     assert feedbacks[0].name == "big_question"
     assert feedbacks[1].name == "small_question"
+
+
+def test_custom_scorer_does_not_generate_traces_during_evaluation():
+    @scorer
+    def my_scorer(inputs, outputs):
+        with mlflow.start_span(name="scorer_trace") as span:
+            # Tracing is disabled during evaluation but this should not NPE
+            span.set_inputs(inputs)
+            span.set_outputs(outputs)
+        return 1
+
+    result = mlflow.genai.evaluate(
+        data=[{"inputs": {"question": "Hello"}, "outputs": "Hi!"}],
+        scorers=[my_scorer],
+    )
+    assert result.metrics["metric/my_scorer/average"] == 1
+    # One trace is generated for evaluation result, but no traces are generated for the scorer
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].data.spans[0].name != "scorer_trace"
+    purge_traces()
+
+    # When invoked directly, the scorer should generate traces
+    score = my_scorer(inputs={"question": "Hello"}, outputs="Hi!")
+    assert score == 1
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].data.spans[0].name == "scorer_trace"
+    assert traces[0].data.spans[0].inputs == {"question": "Hello"}
+    assert traces[0].data.spans[0].outputs == "Hi!"

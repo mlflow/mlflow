@@ -37,6 +37,7 @@ from mlflow.entities import (
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.environment_variables import (
     _MLFLOW_ACTIVE_MODEL_ID,
+    MLFLOW_ACTIVE_MODEL_ID,
     MLFLOW_EXPERIMENT_ID,
     MLFLOW_EXPERIMENT_NAME,
     MLFLOW_REGISTRY_URI,
@@ -2070,6 +2071,84 @@ def test_set_active_model_env_var(monkeypatch):
 
     assert mlflow.get_active_model_id() is None
     assert _MLFLOW_ACTIVE_MODEL_ID.get() is None
+
+
+@pytest.mark.parametrize("is_in_databricks_serving", [False, True])
+def test_set_active_model_public_env_var(monkeypatch, is_in_databricks_serving):
+    """Test that MLFLOW_ACTIVE_MODEL_ID (public env var) works correctly."""
+    with mock.patch(
+        "mlflow.tracking.fluent.is_in_databricks_model_serving_environment",
+        return_value=is_in_databricks_serving,
+    ) as mock_is_in_databricks:
+        assert mlflow.get_active_model_id() is None
+        assert _get_active_model_id_global() is None
+        assert MLFLOW_ACTIVE_MODEL_ID.get() is None
+
+        monkeypatch.setenv(MLFLOW_ACTIVE_MODEL_ID.name, "public-model-id")
+        # mimic the behavior when mlflow is imported
+        _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext())
+        assert mlflow.get_active_model_id() == "public-model-id"
+        assert _get_active_model_id_global() == "public-model-id"
+
+        # In Databricks Model Serving, the active model ID is stored in the
+        # _MLFLOW_ACTIVE_MODEL environment variable. Deleting the MLFLOW_ACTIVE_MODEL
+        # environment variable is insufficient to clear the active model ID. This is
+        # acceptable, since the guidance for users is to call clear_active_model() to clear
+        # the active model ID
+        clear_active_model()
+
+        assert mlflow.get_active_model_id() is None
+        assert _get_active_model_id_global() is None
+        assert MLFLOW_ACTIVE_MODEL_ID.get() is None
+
+        # Verify that Databricks model serving environment state was checked
+        assert mock_is_in_databricks.call_count >= 1
+
+
+def test_set_active_model_env_var_precedence(monkeypatch):
+    """Test that MLFLOW_ACTIVE_MODEL_ID takes precedence over _MLFLOW_ACTIVE_MODEL_ID."""
+    # Set both environment variables
+    monkeypatch.setenv(_MLFLOW_ACTIVE_MODEL_ID.name, "legacy-model-id")
+    monkeypatch.setenv(MLFLOW_ACTIVE_MODEL_ID.name, "public-model-id")
+
+    # mimic the behavior when mlflow is imported
+    _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext())
+
+    # Public variable should take precedence
+    assert mlflow.get_active_model_id() == "public-model-id"
+
+    # Clean up public variable, should fallback to legacy variable
+    monkeypatch.delenv(MLFLOW_ACTIVE_MODEL_ID.name)
+    _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext())
+    assert mlflow.get_active_model_id() == "legacy-model-id"
+
+    # Clean up legacy variable
+    monkeypatch.delenv(_MLFLOW_ACTIVE_MODEL_ID.name)
+    _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext())
+    assert mlflow.get_active_model_id() is None
+
+
+def test_clear_active_model_clears_env_vars(monkeypatch):
+    """Test that clear_active_model() properly clears environment variables."""
+    # Set both environment variables
+    monkeypatch.setenv(_MLFLOW_ACTIVE_MODEL_ID.name, "legacy-model-id")
+    monkeypatch.setenv(MLFLOW_ACTIVE_MODEL_ID.name, "public-model-id")
+
+    # mimic the behavior when mlflow is imported - should pick up public variable
+    _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext())
+    assert mlflow.get_active_model_id() == "public-model-id"
+
+    # Clear the active model - should disregard environment variables
+    mlflow.clear_active_model()
+    assert mlflow.get_active_model_id() is None
+
+    # Verify that environment variables are unset by clear_active_model
+    assert MLFLOW_ACTIVE_MODEL_ID.get() is None
+    assert _MLFLOW_ACTIVE_MODEL_ID.get() is None
+
+    # Even after creating a new context, should remain None
+    _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext())
+    assert mlflow.get_active_model_id() is None
 
 
 def test_set_active_model_link_traces():

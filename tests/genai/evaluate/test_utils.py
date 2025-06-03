@@ -15,8 +15,9 @@ from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai import scorer
 from mlflow.genai.evaluation.utils import _convert_to_legacy_eval_set
-from mlflow.genai.scorers.builtin_scorers import safety
+from mlflow.genai.scorers.builtin_scorers import Safety
 from mlflow.utils.spark_utils import is_spark_connect_mode
+
 
 if importlib.util.find_spec("databricks.agents") is None:
     pytest.skip(reason="databricks-agents is not installed", allow_module_level=True)
@@ -321,7 +322,7 @@ def test_input_is_required_if_trace_is_not_provided():
         with pytest.raises(MlflowException, match="inputs.*required"):
             mlflow.genai.evaluate(
                 data=pd.DataFrame({"outputs": ["Paris"]}),
-                scorers=[safety],
+                scorers=[Safety()],
             )
 
         mock_evaluate.assert_not_called()
@@ -330,7 +331,7 @@ def test_input_is_required_if_trace_is_not_provided():
             data=pd.DataFrame(
                 {"inputs": [{"question": "What is the capital of France?"}], "outputs": ["Paris"]}
             ),
-            scorers=[safety],
+            scorers=[Safety()],
         )
         mock_evaluate.assert_called_once()
 
@@ -345,7 +346,7 @@ def test_input_is_optional_if_trace_is_provided():
     with patch("mlflow.models.evaluate") as mock_evaluate:
         mlflow.genai.evaluate(
             data=pd.DataFrame({"trace": [trace]}),
-            scorers=[safety],
+            scorers=[Safety()],
         )
 
         mock_evaluate.assert_called_once()
