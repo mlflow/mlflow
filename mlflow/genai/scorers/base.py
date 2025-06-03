@@ -148,11 +148,9 @@ class Scorer(BaseModel):
             if serialized.serialization_version:
                 _logger.debug(f"Scorer serialization version: {serialized.serialization_version}")
 
-            # Handle builtin scorers by delegating to BuiltInScorer
+            # Handle builtin scorers directly here instead of delegating
             if serialized.builtin_scorer_class:
-                from mlflow.genai.scorers.builtin_scorers import BuiltInScorer
-
-                return BuiltInScorer.model_validate(serialized)
+                return cls._reconstruct_builtin_scorer(serialized)
 
             # Handle decorator scorers
             elif (
@@ -172,6 +170,34 @@ class Scorer(BaseModel):
                 )
 
         return super().model_validate(obj)
+
+    @classmethod
+    def _reconstruct_builtin_scorer(cls, serialized: SerializedScorer) -> "Scorer":
+        """Reconstruct a builtin scorer from serialized data."""
+        from mlflow.genai.scorers import builtin_scorers
+
+        try:
+            scorer_class = getattr(builtin_scorers, serialized.builtin_scorer_class)
+        except AttributeError:
+            raise ValueError(f"Unknown builtin scorer class: {serialized.builtin_scorer_class}")
+
+        # Build constructor arguments starting with base fields
+        constructor_args = {"name": serialized.name}
+
+        if serialized.aggregations is not None:
+            constructor_args["aggregations"] = serialized.aggregations
+
+        # Add any additional fields that exist in the scorer class but not in base Scorer
+        base_model_fields = set(cls.model_fields.keys())
+        scorer_model_fields = set(scorer_class.model_fields.keys())
+        additional_fields = scorer_model_fields - base_model_fields
+
+        for field_name in additional_fields:
+            field_value = getattr(serialized, field_name, None)
+            if field_value is not None:
+                constructor_args[field_name] = field_value
+
+        return scorer_class(**constructor_args)
 
     @classmethod
     def _reconstruct_decorator_scorer(cls, serialized: SerializedScorer) -> "Scorer":
