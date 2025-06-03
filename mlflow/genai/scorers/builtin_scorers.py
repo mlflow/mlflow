@@ -1,6 +1,5 @@
 from typing import Any, Optional, Union
 
-from mlflow.entities import Assessment
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
@@ -270,17 +269,13 @@ class RetrievalGroundedness(BuiltInScorer):
 
 
 @experimental
-class GuidelineAdherence(BuiltInScorer):
+class Guidelines(BuiltInScorer):
     """
     Guideline adherence evaluates whether the agent's response follows specific constraints
     or instructions provided in the guidelines.
 
     You can invoke the scorer directly with a single input for testing, or pass it to
     `mlflow.genai.evaluate` for running full evaluation on a dataset.
-
-    There are two different ways to specify judges, depending on the use case:
-
-    **1. Global Guidelines**
 
     If you want to evaluate all the response with a single set of guidelines, you can specify
     the guidelines in the `guidelines` parameter of this scorer.
@@ -290,12 +285,12 @@ class GuidelineAdherence(BuiltInScorer):
     .. code-block:: python
 
         import mlflow
-        from mlflow.genai.scorers import GuidelineAdherence
+        from mlflow.genai.scorers import Guidelines
 
         # Create a global judge
-        english = GuidelineAdherence(
+        english = Guidelines(
             name="english_guidelines",
-            global_guidelines=["The response must be in English"],
+            guidelines=["The response must be in English"],
         )
         feedback = english(
             inputs={"question": "What is the capital of France?"},
@@ -312,15 +307,15 @@ class GuidelineAdherence(BuiltInScorer):
     .. code-block:: python
 
         import mlflow
-        from mlflow.genai.scorers import GuidelineAdherence
+        from mlflow.genai.scorers import Guidelines
 
-        english = GuidelineAdherence(
+        english = Guidelines(
             name="english",
-            global_guidelines=["The response must be in English"],
+            guidelines=["The response must be in English"],
         )
-        clarify = GuidelineAdherence(
+        clarify = Guidelines(
             name="clarify",
-            global_guidelines=["The response must be clear, coherent, and concise"],
+            guidelines=["The response must be clear, coherent, and concise"],
         )
 
         data = [
@@ -334,23 +329,60 @@ class GuidelineAdherence(BuiltInScorer):
             },
         ]
         mlflow.genai.evaluate(data=data, scorers=[english, clarify])
+    """
 
-    **2. Per-Example Guidelines**
+    name: str = "guidelines"
+    guidelines: Union[str, list[str]]
+    required_columns: set[str] = {"inputs", "outputs"}
 
-    When you have a different set of guidelines for each example, you can specify the guidelines
-    in the `guidelines` field of the `expectations` column of the input dataset. Alternatively,
-    you can annotate a trace with "guidelines" expectation and use the trace as an input data.
+    def __call__(
+        self,
+        *,
+        inputs: dict[str, Any],
+        outputs: Any,
+    ) -> Feedback:
+        """
+        Evaluate adherence to specified guidelines.
+
+        Args:
+            inputs: A dictionary of input data, e.g. {"question": "What is the capital of France?"}.
+            outputs: The response from the model, e.g. "The capital of France is Paris."
+
+        Returns:
+            An :py:class:`mlflow.entities.assessment.Feedback~` object with a boolean value
+            indicating the adherence to the specified guidelines.
+        """
+        return judges.meets_guidelines(
+            guidelines=self.guidelines,
+            context={
+                "request": parse_inputs_to_str(inputs),
+                "response": parse_output_to_str(outputs),
+            },
+            name=self.name,
+        )
+
+
+@experimental
+class ExpectationsGuidelines(BuiltInScorer):
+    """
+    This scorer evaluates whether the agent's response follows specific constraints
+    or instructions provided for each row in the input dataset. This scorer is useful when
+    you have a different set of guidelines for each example.
+
+    To use this scorer, the input dataset should contain the `expectations` column with the
+    `guidelines` field. Then pass this scorer to `mlflow.genai.evaluate` for running full
+    evaluation on the input dataset.
 
     Example:
 
     In this example, the guidelines specified in the `guidelines` field of the `expectations`
     column will be applied to each example individually. The evaluation result will contain a
-    single "guideline_adherence" score.
+    single "expectations_guidelines" score.
 
     .. code-block:: python
 
         import mlflow
-        from mlflow.genai.scorers import GuidelineAdherence
+        from mlflow.genai.scorers import ExpectationsGuidelines
 
         data = [
             {
@@ -368,17 +400,15 @@ class GuidelineAdherence(BuiltInScorer):
                 },
             },
         ]
-        mlflow.genai.evaluate(data=data, scorers=[GuidelineAdherence()])
+        mlflow.genai.evaluate(data=data, scorers=[ExpectationsGuidelines()])
     """
 
-    name: str = "guideline_adherence"
-    global_guidelines: Optional[Union[str, list[str]]] = None
+    name: str = "expectations_guidelines"
     required_columns: set[str] = {"inputs", "outputs"}
 
     def validate_columns(self, columns: set[str]) -> None:
         super().validate_columns(columns)
-        # If no global guidelines are specified, the guidelines must exist in the input dataset
-        if not self.global_guidelines and "expectations/guidelines" not in columns:
+        if "expectations/guidelines" not in columns:
             raise MissingColumnsException(self.name, ["expectations/guidelines"])
 
     def __call__(
@@ -387,7 +417,7 @@ class GuidelineAdherence(BuiltInScorer):
         inputs: dict[str, Any],
         outputs: Any,
         expectations: Optional[dict[str, Any]] = None,
-    ) -> Assessment:
+    ) -> Feedback:
         """
         Evaluate adherence to specified guidelines.
 
@@ -400,14 +430,14 @@ class GuidelineAdherence(BuiltInScorer):
                 E.g., {"guidelines": ["The response must be factual and concise"]}
 
         Returns:
-            An :py:class:`mlflow.entities.assessment.Assessment~` object with a boolean value
+            An :py:class:`mlflow.entities.assessment.Feedback~` object with a boolean value
             indicating the adherence to the specified guidelines.
         """
-        guidelines = (expectations or {}).get("guidelines", self.global_guidelines)
+        guidelines = (expectations or {}).get("guidelines")
         if not guidelines:
             raise MlflowException(
-                "Guidelines must be specified either in the `expectations` parameter or "
-                "by the `global_guidelines` attribute of the scorer."
+                "Guidelines must be specified in the `expectations` parameter or "
+                "must be present in the trace."
             )
 
         return judges.meets_guidelines(
@@ -662,7 +692,7 @@ def get_all_scorers() -> list[BuiltInScorer]:
         result = mlflow.genai.evaluate(data=data, scorers=get_all_scorers())
     """
     return [
-        GuidelineAdherence(),
+        ExpectationsGuidelines(),
         Safety(),
         Correctness(),
         RelevanceToQuery(),
