@@ -2015,6 +2015,8 @@ class FileStore(AbstractStore):
         model_info_dict["lifecycle_stage"] = LifecycleStage.ACTIVE
         write_yaml(model_dir, FileStore.META_DATA_FILE_NAME, model_info_dict)
         mkdir(model_dir, FileStore.METRICS_FOLDER_NAME)
+        mkdir(model_dir, FileStore.PARAMS_FOLDER_NAME)
+        self.log_logged_model_params(model_id=model_id, params=params or [])
         self.set_logged_model_tags(model_id=model_id, tags=tags or [])
 
         return self.get_logged_model(model_id=model_id)
@@ -2146,8 +2148,8 @@ class FileStore(AbstractStore):
 
     def _make_persisted_model_dict(self, model: LoggedModel) -> dict[str, Any]:
         model_dict = model.to_dictionary()
-        model_dict.pop("tags", None)
-        model_dict.pop("metrics", None)
+        for field in ("tags", "params", "metrics"):
+            model_dict.pop(field, None)
         return model_dict
 
     def _get_model_dict(self, model_id: str) -> dict[str, Any]:
@@ -2198,8 +2200,7 @@ class FileStore(AbstractStore):
     def _get_model_info_from_dir(self, model_dir: str) -> dict[str, Any]:
         model_dict = FileStore._read_yaml(model_dir, FileStore.META_DATA_FILE_NAME)
         model_dict["tags"] = self._get_all_model_tags(model_dir)
-        for param in self._get_all_model_params(model_dir):
-            model_dict["params"][param.key] = param.value
+        model_dict["params"] = {p.key: p.value for p in self._get_all_model_params(model_dir)}
         model_dict["metrics"] = self._get_all_model_metrics(
             model_id=model_dict["model_id"], model_dir=model_dir
         )
