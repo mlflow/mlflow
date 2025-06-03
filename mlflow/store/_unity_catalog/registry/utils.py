@@ -17,6 +17,9 @@ from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
 from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
     PromptVersion as ProtoPromptVersion,
 )
+from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
+    PromptVersionTag as ProtoPromptVersionTag,
+)
 from mlflow.store._unity_catalog.registry.prompt_info import PromptInfo
 
 
@@ -28,6 +31,11 @@ def proto_to_mlflow_tags(proto_tags: list[ProtoPromptTag]) -> dict[str, str]:
 def mlflow_tags_to_proto(tags: dict[str, str]) -> list[ProtoPromptTag]:
     """Convert MLflow tags dictionary to proto tags."""
     return [ProtoPromptTag(key=k, value=v) for k, v in tags.items()] if tags else []
+
+
+def mlflow_tags_to_proto_version_tags(tags: dict[str, str]) -> list[ProtoPromptVersionTag]:
+    """Convert MLflow tags dictionary to proto version tags."""
+    return [ProtoPromptVersionTag(key=k, value=v) for k, v in tags.items()] if tags else []
 
 
 def proto_info_to_mlflow_prompt_info(

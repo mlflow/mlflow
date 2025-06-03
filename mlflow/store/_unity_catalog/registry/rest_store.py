@@ -9,6 +9,7 @@ from typing import Optional
 import mlflow
 from mlflow.entities import Run
 from mlflow.entities.logged_model import LoggedModel
+from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
@@ -136,10 +137,14 @@ from mlflow.store._unity_catalog.registry.utils import (
 )
 
 _TRACKING_METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
-_METHOD_TO_INFO = extract_api_info_for_service(UcModelRegistryService, _REST_API_PATH_PREFIX)
-_METHOD_TO_ALL_INFO = extract_all_api_info_for_service(
-    UcModelRegistryService, _REST_API_PATH_PREFIX
-)
+_METHOD_TO_INFO = {
+    **extract_api_info_for_service(UcModelRegistryService, _REST_API_PATH_PREFIX),
+    **extract_api_info_for_service(UnityCatalogPromptService, _REST_API_PATH_PREFIX),
+}
+_METHOD_TO_ALL_INFO = {
+    **extract_all_api_info_for_service(UcModelRegistryService, _REST_API_PATH_PREFIX),
+    **extract_all_api_info_for_service(UnityCatalogPromptService, _REST_API_PATH_PREFIX),
+}
 
 _logger = logging.getLogger(__name__)
 _DELTA_TABLE = "delta_table"
