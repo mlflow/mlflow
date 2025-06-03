@@ -71,6 +71,5 @@ class PromptInfo:
 
     def __repr__(self) -> str:
         return (
-            f"<PromptInfo: name='{self.name}', "
-            f"description='{self.description}', tags={self.tags}>"
+            f"<PromptInfo: name='{self.name}', description='{self.description}', tags={self.tags}>"
         )

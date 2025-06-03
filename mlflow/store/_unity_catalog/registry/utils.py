@@ -37,13 +37,9 @@ def proto_version_tags_to_mlflow_tags(
     return {tag.key: tag.value for tag in proto_tags} if proto_tags else {}
 
 
-def mlflow_tags_to_proto_version_tags(
-    tags: dict[str, str]
-) -> list[ProtoPromptVersionTag]:
+def mlflow_tags_to_proto_version_tags(tags: dict[str, str]) -> list[ProtoPromptVersionTag]:
     """Convert MLflow tags dictionary to proto prompt version tags."""
-    return (
-        [ProtoPromptVersionTag(key=k, value=v) for k, v in tags.items()] if tags else []
-    )
+    return [ProtoPromptVersionTag(key=k, value=v) for k, v in tags.items()] if tags else []
 
 
 def proto_info_to_mlflow_prompt_info(
@@ -77,9 +73,7 @@ def proto_to_mlflow_prompt(
     """
     # Extract version tags
     version_tags = (
-        proto_version_tags_to_mlflow_tags(proto_version.tags)
-        if proto_version.tags
-        else {}
+        proto_version_tags_to_mlflow_tags(proto_version.tags) if proto_version.tags else {}
     )
 
     # Extract aliases
@@ -112,9 +106,7 @@ def mlflow_prompt_to_proto(prompt: Prompt) -> ProtoPromptVersion:
 
     # Add version tags
     if prompt.version_metadata:
-        proto_version.tags.extend(
-            mlflow_tags_to_proto_version_tags(prompt.version_metadata)
-        )
+        proto_version.tags.extend(mlflow_tags_to_proto_version_tags(prompt.version_metadata))
 
     # Add aliases
     if prompt.aliases:
