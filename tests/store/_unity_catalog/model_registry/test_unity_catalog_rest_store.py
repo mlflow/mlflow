@@ -90,6 +90,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_DATABRICKS_NOTEBOOK_ID,
 )
 from mlflow.utils.proto_json_utils import message_to_json
+from mlflow.store._unity_catalog.registry.prompt_info import PromptInfo
 
 from tests.helper_functions import mock_http_200
 from tests.resources.data.dataset_source import SampleDatasetSource
