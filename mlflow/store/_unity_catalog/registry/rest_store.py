@@ -1196,11 +1196,11 @@ class UcModelRegistryStore(BaseRestStore):
         """
         Create a new prompt in Unity Catalog (metadata only, no initial version).
         """
+        from mlflow.protos.unity_catalog_prompt_messages_pb2 import Prompt as ProtoPrompt
         from mlflow.store._unity_catalog.registry.utils import (
             mlflow_tags_to_proto,
             proto_info_to_mlflow_prompt_info,
         )
-        from mlflow.protos.unity_catalog_prompt_messages_pb2 import Prompt as ProtoPrompt
 
         # Create a Prompt object with the provided fields
         prompt_proto = ProtoPrompt()
@@ -1325,11 +1325,13 @@ class UcModelRegistryStore(BaseRestStore):
         """
         Create a new prompt version in Unity Catalog.
         """
+        from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
+            PromptVersion as ProtoPromptVersion,
+        )
         from mlflow.store._unity_catalog.registry.utils import (
             mlflow_tags_to_proto_version_tags,
             proto_to_mlflow_prompt,
         )
-        from mlflow.protos.unity_catalog_prompt_messages_pb2 import PromptVersion as ProtoPromptVersion
 
         # Create a PromptVersion object with the provided fields
         prompt_version_proto = ProtoPromptVersion()
