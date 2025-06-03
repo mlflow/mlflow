@@ -20,7 +20,6 @@ EnvPackType = Literal["databricks_model_serving"]
 _ARTIFACT_PATH = "_databricks"
 _MODEL_VERSION_TAR = "model_version.tar"
 _MODEL_ENVIRONMENT_TAR = "model_environment.tar"
-_SUPPORTED_CLIENT_IMAGE_MAJOR_VERSIONS_FOR_MODEL_SERVING = (2, 3)
 
 
 def _tar(root_path: Path, tar_path: Path) -> tarfile.TarFile:
@@ -66,14 +65,10 @@ def pack_env_for_databricks_model_serving(
         ...     pass
     """
     dbr_version = DatabricksRuntimeVersion.parse()
-    if (
-        not dbr_version.is_client_image
-        or dbr_version.major not in _SUPPORTED_CLIENT_IMAGE_MAJOR_VERSIONS_FOR_MODEL_SERVING
-    ):
+    if not dbr_version.is_client_image:
         raise ValueError(
-            f"Serverless environment of versions "
-            f"{_SUPPORTED_CLIENT_IMAGE_MAJOR_VERSIONS_FOR_MODEL_SERVING} is required when packing "
-            f"environment for Databricks Model Serving. Current version: {dbr_version}"
+            f"Serverless environment is required when packing environment for Databricks Model "
+            f"Serving. Current version: {dbr_version}"
         )
 
     with tempfile.TemporaryDirectory() as temp_dir:

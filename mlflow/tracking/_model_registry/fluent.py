@@ -244,10 +244,17 @@ def _register_model(
             f"version {create_version_response.version} "
             "for Databricks Model Serving..."
         )
-        stage_model_for_databricks_model_serving(
-            model_name=create_version_response.name,
-            model_version=create_version_response.version,
-        )
+        try:
+            stage_model_for_databricks_model_serving(
+                model_name=create_version_response.name,
+                model_version=create_version_response.version,
+            )
+        except Exception as e:
+            eprint(
+                f"Failed to stage model for Databricks Model Serving: {e!s}. "
+                "The model was registered successfully and is available for serving, but may take "
+                "longer to deploy."
+            )
 
     return create_version_response
 

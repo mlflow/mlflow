@@ -152,17 +152,17 @@ def test_pack_env_for_databricks_model_serving_pip_requirements_error(tmp_path, 
 
 
 def test_pack_env_for_databricks_model_serving_unsupported_version():
-    """Test that pack_env_for_databricks_model_serving raises error for unsupported versions."""
+    """Test that pack_env_for_databricks_model_serving raises error for non-client image."""
     with mock.patch.object(
         DatabricksRuntimeVersion,
         "parse",
         return_value=DatabricksRuntimeVersion(
-            is_client_image=True,
-            major=1,  # Unsupported version
+            is_client_image=False,  # Not a client image
+            major=13,
             minor=0,
         ),
     ):
-        with pytest.raises(ValueError, match="Serverless environment of versions"):
+        with pytest.raises(ValueError, match="Serverless environment is required"):
             with env_pack.pack_env_for_databricks_model_serving("models:/test/1"):
                 pass
 
