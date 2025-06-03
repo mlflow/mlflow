@@ -36,7 +36,18 @@ class Task:
 
 
 class AsyncTraceExportQueue:
-    """A queue-based asynchronous tracing export processor."""
+    """A queue-based asynchronous tracing export processor. Implemented as a singleton"""
+
+    _instance_lock = threading.Lock()
+    _instance = None
+
+    @classmethod
+    def instance(cls):
+        if cls._instance is None:
+            with cls._instance_lock:
+                if cls._instance is None:
+                    cls._instance = AsyncTraceExportQueue()
+        return cls._instance
 
     def __init__(self):
         self._queue: Queue[Task] = Queue(maxsize=MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE.get())
@@ -51,6 +62,14 @@ class AsyncTraceExportQueue:
         self._active_tasks = set()
 
         self._last_full_queue_warning_time = None
+
+    @classmethod
+    def is_empty(cls) -> bool:
+        """Check if the queue is empty"""
+        if cls._instance is None:
+            return True
+
+        return cls._instance._queue.empty()
 
     def put(self, task: Task):
         """Put a new task to the queue for processing."""

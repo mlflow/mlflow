@@ -1,13 +1,13 @@
 import json
 import logging
+import time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
+from functools import wraps
 from typing import Optional, Sequence, Union
 
 import mlflow
-from mlflow.entities.assessment import (
-    Assessment,
-)
+from mlflow.entities.assessment import Assessment
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.span import NO_OP_SPAN_TRACE_ID
 from mlflow.entities.trace import Trace
@@ -21,6 +21,7 @@ from mlflow.exceptions import (
     MlflowTraceDataCorrupted,
     MlflowTraceDataException,
     MlflowTraceDataNotFound,
+    RestException,
 )
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
@@ -31,6 +32,7 @@ from mlflow.store.artifact.artifact_repository_registry import get_artifact_repo
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.export.async_export_queue import AsyncTraceExportQueue
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import TraceJSONEncoder, exclude_immutable_tags
 from mlflow.tracing.utils.artifact_utils import get_artifact_uri_for_trace
@@ -40,6 +42,49 @@ from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
 from mlflow.utils.uri import add_databricks_profile_info_to_artifact_uri, is_databricks_uri
 
 _logger = logging.getLogger(__name__)
+
+
+_PENDING_TRACE_MAX_RETRY_COUNT = 5
+
+
+def _retry_if_trace_is_pending_export(func):
+    """
+    If async logging is enabled, the trace might not be in the async export queue
+    and waiting to be flushed to the backend store. In that case, we need to wait
+    for the trace to be flushed to the backend store before calling backend API.
+    """
+
+    @wraps(func)
+    def wrapper(self, trace_id, *args, **kwargs):
+        # If async logging queue is empty, the trace is surely not in the pending state
+        if AsyncTraceExportQueue.is_empty():
+            return func(self, trace_id, *args, **kwargs)
+
+        interval = 1
+        retries = _PENDING_TRACE_MAX_RETRY_COUNT
+        error = None
+        while retries > 0:
+            try:
+                return func(self, trace_id, *args, **kwargs)
+            except RestException as e:
+                time.sleep(interval)
+                interval *= 2
+                retries -= 1
+                error = e
+
+                _logger.debug(
+                    f"Tracing {trace_id} is not found in the tracking server. It might "
+                    "not be exported to backend yet. Retrying..."
+                )
+
+        raise MlflowException(
+            f"Failed to call {func.__name__} API. The trace {trace_id} is not found in the "
+            "MLflow tracking server after waiting 30 seconds. Please make sure the correct "
+            "trace ID is provided.",
+            error_code=RESOURCE_DOES_NOT_EXIST,
+        ) from error
+
+    return wrapper
 
 
 class TracingClient:
@@ -152,39 +197,39 @@ class TracingClient:
             request_ids=request_ids,
         )
 
-    def get_trace_info(self, request_id, should_query_v3: bool = False) -> TraceInfoV2:
+    @_retry_if_trace_is_pending_export
+    def get_trace_info(self, trace_id) -> Union[TraceInfoV2, TraceInfo]:
         """
-        Get the trace info matching the ``request_id``.
+        Get the trace info matching the ``trace_id``.
 
         Args:
-            request_id: String id of the trace to fetch.
-            should_query_v3: If True, the backend store will query the V3 API for the trace info.
-                TODO: Remove this flag once the V3 API is the default in OSS.
+            trace_id: String id of the trace to fetch.
 
         Returns:
             TraceInfo object, of type ``mlflow.entities.trace_info.TraceInfo``.
         """
-        return self.store.get_trace_info(request_id, should_query_v3=should_query_v3)
+        return self.store.get_trace_info(
+            trace_id, should_query_v3=is_databricks_uri(self.tracking_uri)
+        )
 
-    def get_trace(self, request_id) -> Trace:
+    @_retry_if_trace_is_pending_export
+    def get_trace(self, trace_id) -> Trace:
         """
-        Get the trace matching the ``request_id``.
+        Get the trace matching the ``trace_id``.
 
         Args:
-            request_id: String id of the trace to fetch.
+            trace_id: String id of the trace to fetch.
 
         Returns:
             The fetched Trace object, of type ``mlflow.entities.Trace``.
         """
-        trace_info = self.get_trace_info(
-            request_id=request_id, should_query_v3=is_databricks_uri(self.tracking_uri)
-        )
+        trace_info = self.get_trace_info(trace_id=trace_id)
         try:
             trace_data = self._download_trace_data(trace_info)
         except MlflowTraceDataNotFound:
             raise MlflowException(
                 message=(
-                    f"Trace with ID {request_id} cannot be loaded because it is missing span data."
+                    f"Trace with ID {trace_id} cannot be loaded because it is missing span data."
                     " Please try creating or loading another trace."
                 ),
                 error_code=BAD_REQUEST,
@@ -192,13 +237,14 @@ class TracingClient:
         except MlflowTraceDataCorrupted:
             raise MlflowException(
                 message=(
-                    f"Trace with ID {request_id} cannot be loaded because its span data"
+                    f"Trace with ID {trace_id} cannot be loaded because its span data"
                     " is corrupted. Please try creating or loading another trace."
                 ),
                 error_code=BAD_REQUEST,
             ) from None  # Ensure the original spammy exception is not included in the traceback
         return Trace(trace_info, trace_data)
 
+    @_retry_if_trace_is_pending_export
     def get_online_trace_details(
         self,
         trace_id: str,
@@ -397,24 +443,25 @@ class TracingClient:
 
         return PagedList(traces, next_token)
 
-    def set_trace_tags(self, request_id, tags):
+    def set_trace_tags(self, trace_id, tags):
         """
         Set tags on the trace with the given request_id.
 
         Args:
-            request_id: The ID of the trace.
+            trace_id: The ID of the trace.
             tags: A dictionary of key-value pairs.
         """
         tags = exclude_immutable_tags(tags)
         for k, v in tags.items():
-            self.set_trace_tag(request_id, k, v)
+            self.set_trace_tag(trace_id, k, v)
 
-    def set_trace_tag(self, request_id, key, value):
+    @_retry_if_trace_is_pending_export
+    def set_trace_tag(self, trace_id, key, value):
         """
         Set a tag on the trace with the given trace ID.
 
         Args:
-            request_id: The ID of the trace to set the tag on.
+            trace_id: The ID of the trace to set the tag on.
             key: The string key of the tag. Must be at most 250 characters long, otherwise
                 it will be truncated when stored.
             value: The string value of the tag. Must be at most 250 characters long, otherwise
@@ -427,7 +474,7 @@ class TracingClient:
             )
 
         # Trying to set the tag on the active trace first
-        with InMemoryTraceManager.get_instance().get_trace(request_id) as trace:
+        with InMemoryTraceManager.get_instance().get_trace(trace_id) as trace:
             if trace:
                 trace.info.tags[key] = str(value)
                 return
@@ -435,34 +482,36 @@ class TracingClient:
         if key in IMMUTABLE_TAGS:
             _logger.warning(f"Tag '{key}' is immutable and cannot be set on a trace.")
         else:
-            self.store.set_trace_tag(request_id, key, str(value))
+            self.store.set_trace_tag(trace_id, key, str(value))
 
-    def delete_trace_tag(self, request_id, key):
+    @_retry_if_trace_is_pending_export
+    def delete_trace_tag(self, trace_id, key):
         """
         Delete a tag on the trace with the given trace ID.
 
         Args:
-            request_id: The ID of the trace to delete the tag from.
+            trace_id: The ID of the trace to delete the tag from.
             key: The string key of the tag. Must be at most 250 characters long, otherwise
                 it will be truncated when stored.
         """
         # Trying to delete the tag on the active trace first
-        with InMemoryTraceManager.get_instance().get_trace(request_id) as trace:
+        with InMemoryTraceManager.get_instance().get_trace(trace_id) as trace:
             if trace:
                 if key in trace.info.tags:
                     trace.info.tags.pop(key)
                     return
                 else:
                     raise MlflowException(
-                        f"Tag with key {key} not found in trace with ID {request_id}.",
+                        f"Tag with key {key} not found in trace with ID {trace_id}.",
                         error_code=RESOURCE_DOES_NOT_EXIST,
                     )
 
         if key in IMMUTABLE_TAGS:
             _logger.warning(f"Tag '{key}' is immutable and cannot be deleted on a trace.")
         else:
-            self.store.delete_trace_tag(request_id, key)
+            self.store.delete_trace_tag(trace_id, key)
 
+    @_retry_if_trace_is_pending_export
     def get_assessment(self, trace_id: str, assessment_id: str) -> Assessment:
         """
         Get an assessment entity from the backend store.
@@ -482,6 +531,7 @@ class TracingClient:
 
         return self.store.get_assessment(trace_id, assessment_id)
 
+    @_retry_if_trace_is_pending_export
     def log_assessment(self, trace_id: str, assessment: Assessment) -> Assessment:
         if not is_databricks_uri(self.tracking_uri):
             raise MlflowException(
@@ -511,6 +561,7 @@ class TracingClient:
 
         return self.store.create_assessment(assessment)
 
+    @_retry_if_trace_is_pending_export
     def update_assessment(
         self,
         trace_id: str,
@@ -541,6 +592,7 @@ class TracingClient:
             metadata=assessment.metadata,
         )
 
+    @_retry_if_trace_is_pending_export
     def delete_assessment(self, trace_id: str, assessment_id: str):
         """
         Delete an assessment associated with a trace.
