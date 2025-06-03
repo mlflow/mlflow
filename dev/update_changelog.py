@@ -89,7 +89,6 @@ def is_shallow():
 def batch_fetch_prs_graphql(pr_numbers: list[int]) -> list[PullRequest]:
     """
     Batch fetch PR data using GitHub GraphQL API.
-    Returns a list of PullRequest objects.
     """
     if not pr_numbers:
         return []
@@ -108,7 +107,7 @@ def batch_fetch_prs_graphql(pr_numbers: list[int]) -> list[PullRequest]:
 
 def _fetch_pr_chunk_graphql(pr_numbers: list[int]) -> list[PullRequest]:
     """
-    Fetch a chunk of PRs using GraphQL and return PullRequest objects.
+    Fetch a chunk of PRs using GraphQL.
     """
     # Build GraphQL query with aliases for each PR
     query_parts = [
@@ -141,7 +140,10 @@ def _fetch_pr_chunk_graphql(pr_numbers: list[int]) -> list[PullRequest]:
     print(f"Batch fetching {len(pr_numbers)} PRs with GraphQL...")
     resp = requests.post(
         "https://api.github.com/graphql",
-        json={"query": query, "variables": {"owner": "mlflow", "repo": "mlflow"}},
+        json={
+            "query": query,
+            "variables": {"owner": "mlflow", "repo": "mlflow"},
+        },
         headers=headers,
     )
     resp.raise_for_status()
@@ -208,9 +210,7 @@ def main(prev_version, release_version, remote):
         if pr_num := extract_pr_num_from_git_log_entry(log):
             pr_numbers.append(pr_num)
 
-    # Batch fetch all PR data using GraphQL and get PullRequest objects directly
     prs = batch_fetch_prs_graphql(pr_numbers)
-
     label_to_prs = defaultdict(list)
     author_to_prs = defaultdict(list)
     unlabelled_prs = []
