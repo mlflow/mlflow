@@ -1641,7 +1641,7 @@ def test_span_record_exception_invalid_type():
             span.record_exception(123)
 
 
-def test_combined_status_and_record_exception():
+def test_combined_state_and_record_exception():
     """Test using both status update and record_exception together."""
 
     @mlflow.trace
@@ -1650,8 +1650,8 @@ def test_combined_status_and_record_exception():
         span = mlflow.get_current_active_span()
         span.record_exception("Processing failed")
 
-        # Update trace status independently
-        mlflow.update_current_trace(status="ERROR", tags={"error_source": "processing"})
+        # Update trace state independently
+        mlflow.update_current_trace(state="ERROR", tags={"error_source": "processing"})
         return "result"
 
     test_function()
@@ -1659,11 +1659,11 @@ def test_combined_status_and_record_exception():
     # Check the trace
     trace = get_traces()[0]
 
-    # Verify trace status was set to ERROR
-    assert trace.info.status == TraceStatus.ERROR
+    # Verify trace state was set to ERROR
+    assert trace.info.state == TraceState.ERROR
     assert trace.info.tags["error_source"] == "processing"
 
-    # Verify span has exception event and ERROR status
+    # Verify span has exception event and ERROR state
     spans = trace.data.spans
     root_span = spans[0]
     assert root_span.status.status_code == SpanStatusCode.ERROR
