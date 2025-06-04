@@ -182,19 +182,21 @@ with mlflow.start_run():
     # Log the loss metric
     mlflow.log_metric("accuracy", accuracy)
 
-    # Set a tag that we can use to remind ourselves what this run was for
-    mlflow.set_tag("Training Info", "Basic LR model for iris data")
-
     # Infer the model signature
     signature = infer_signature(X_train, lr.predict(X_train))
 
-    # Log the model
+    # Log the model, which inherits the parameters and metric
     model_info = mlflow.sklearn.log_model(
         sk_model=lr,
         name="iris_model",
         signature=signature,
         input_example=X_train,
         registered_model_name="tracking-quickstart",
+    )
+
+    # Set a tag that we can use to remind ourselves what this model was for
+    mlflow.set_logged_model_tags(
+        model_info.model_id, {"Training Info": "Basic LR model for iris data"}
     )
 ```
 
@@ -274,7 +276,7 @@ The output of this code will look something like this:
   </tbody>
 </Table>
 
-## Step 6 - View the Run in the MLflow UI
+## Step 6 - View the Run and Model in the MLflow UI
 
 In order to see the results of our run, we can navigate to the MLflow UI. Since we have already started the Tracking Server at
 _http://localhost:8080_, we can simply navigate to that URL in our browser.
@@ -295,6 +297,20 @@ been highlighted below to show how and where this data is recorded within the UI
 <figure className="center-div" style={{ width: 1024, maxWidth: "100%", textAlign: "center" }}>
   ![MLflow UI Run view page](/images/tutorials/introductory/quickstart-tracking/quickstart-our-run.png)
   <figcaption>The run view page for our run</figcaption>
+</figure>
+
+Switch to the Models tab in the experiments page to view all the logged models under the Experiment, where you can see an entry for the logged model we just created ("iris_model").
+
+<figure className="center-div" style={{ width: 1024, maxWidth: "100%", textAlign: "center" }}>
+  ![MLflow UI Experiment view page models tab](/images/tutorials/introductory/quickstart-tracking/quickstart-our-experiment-models-tab.png)
+  <figcaption>The models tab of the MLflow Tracking page, showing a list of all models created</figcaption>
+</figure>
+
+Clicking on the name of the model will take you to the Logged Model page, with details on the logged model and its metadata.
+
+<figure className="center-div" style={{ width: 1024, maxWidth: "100%", textAlign: "center" }}>
+  ![MLflow UI Model view page](/images/tutorials/introductory/quickstart-tracking/quickstart-our-model.png)
+  <figcaption>The model view page for our logged model</figcaption>
 </figure>
 
 ## Conclusion

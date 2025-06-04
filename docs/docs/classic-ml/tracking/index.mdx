@@ -45,9 +45,13 @@ data science code, for example, a single `python train.py` execution. Each run r
 (various information about your run such as metrics, parameters, start and end times) and artifacts
 (output files from the run such as model weights, images, etc).
 
+### Models
+
+Models represent the trained machine learning artifacts that are produced during your runs. Logged Models contain their own metadata and artifacts similar to runs.
+
 ### Experiments
 
-An experiment groups together runs for a specific task. You can create an experiment using the CLI, API, or UI.
+An experiment groups together runs and models for a specific task. You can create an experiment using the CLI, API, or UI.
 The MLflow API and UI also let you create and search for experiments. See [Organizing Runs into Experiments](/ml/tracking/tracking-api#experiment-organization)
 for more details on how to organize your runs into experiments.
 
@@ -240,16 +244,22 @@ This new approach provides several advantages:
 MLflow offers the ability to track datasets that are associated with model training events. These metadata associated with the Dataset can be stored through the use of the <APILink fn="mlflow.log_input" /> API.
 To learn more, please visit the [MLflow data documentation](/ml/dataset/) to see the features available in this API.
 
-## Explore Runs and Results
+## Explore Runs, Models, and Results
 
 ### Tracking UI \{#tracking_ui}
 
-The Tracking UI lets you visually explore your experiments and runs, as shown on top of this page.
+The Tracking UI lets you visually explore your experiments, runs, and models, as shown on top of this page.
 
 - Experiment-based run listing and comparison (including run comparison across multiple experiments)
 - Searching for runs by parameter or metric value
 - Visualizing run metrics
 - Downloading run results (artifacts and metadata)
+
+These features are available for models as well, as shown below.
+<figure>
+  ![MLflow UI Experiment view page models tab](/images/tracking/tracking-models-ui.png)
+  <figcaption>A screenshot of the MLflow Tracking UI on the models tab, showing a list of models under the experiment.</figcaption>
+</figure>
 
 If you log runs to a local `mlruns` directory, run the following command in the directory above it,
 then access http://127.0.0.1:5000 in your browser.
