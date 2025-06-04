@@ -5,6 +5,7 @@ exposed in the :py:mod:`mlflow.tracking` module.
 """
 
 import logging
+import re
 from typing import Optional
 
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
@@ -489,190 +490,116 @@ class ModelRegistryClient:
         max_results: Optional[int] = None,
         order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
-        catalog_name: Optional[str] = None,
-        schema_name: Optional[str] = None,
     ):
         """
         Search for prompts in the registry.
 
-        This method delegates directly to the store, providing full Unity Catalog support
+        This method delegates directly to the store, providing Unity Catalog support
         when used with Unity Catalog registries.
 
         Args:
-            filter_string: Filter query string.
+            filter_string: Filter query string. For Unity Catalog registries, must include
+                catalog and schema: "catalog = 'catalog_name' AND schema = 'schema_name'".
+                For traditional registries, standard filter expressions are supported.
             max_results: Maximum number of prompts to return.
             order_by: List of column names with ASC|DESC annotation.
             page_token: Token specifying the next page of results.
-            catalog_name: Unity Catalog catalog name (for UC registries).
-            schema_name: Unity Catalog schema name (for UC registries).
 
         Returns:
             A PagedList of PromptInfo objects.
         """
-        from mlflow.exceptions import MlflowException
-        from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
         from mlflow.utils.uri import is_databricks_unity_catalog_uri
 
         is_unity_catalog = is_databricks_unity_catalog_uri(self.registry_uri)
 
         if is_unity_catalog:
-            # For Unity Catalog, use catalog/schema parameters or parse from filter
-            if catalog_name and schema_name:
-                # Direct parameters provided
-                return self.store.search_prompts(
-                    filter_string, max_results, order_by, page_token, catalog_name, schema_name
-                )
-            elif filter_string:
-                # Parse catalog and schema from filter string
-                parsed_catalog, parsed_schema, remaining_filter = self._parse_catalog_schema_filter(
-                    filter_string
-                )
+            # For Unity Catalog, parse catalog and schema from filter string
+            catalog_name, schema_name, remaining_filter = self._parse_catalog_schema_from_filter(
+                filter_string
+            )
 
-                if not parsed_catalog or not parsed_schema:
-                    raise MlflowException(
-                        "For Unity Catalog prompt registries, you must specify both catalog "
-                        "and schema either as parameters or in the filter string: "
-                        "catalog = 'catalog_name' AND schema = 'schema_name'",
-                        INVALID_PARAMETER_VALUE,
-                    )
-
-                if remaining_filter:
-                    raise MlflowException(
-                        f"Unity Catalog prompt search currently only supports catalog and schema "
-                        f"filters. Unsupported filter: {remaining_filter}",
-                        INVALID_PARAMETER_VALUE,
-                    )
-
-                return self.store.search_prompts(
-                    remaining_filter,
-                    max_results,
-                    order_by,
-                    page_token,
-                    parsed_catalog,
-                    parsed_schema,
-                )
-            else:
-                raise MlflowException(
-                    "For Unity Catalog prompt registries, you must specify catalog and schema "
-                    "either as parameters or in the filter string",
-                    INVALID_PARAMETER_VALUE,
-                )
+            return self.store.search_prompts(
+                filter_string=remaining_filter,
+                max_results=max_results,
+                order_by=order_by,
+                page_token=page_token,
+                catalog_name=catalog_name,
+                schema_name=schema_name,
+            )
         else:
-            # For traditional registries, use existing prompt tag logic
-            from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
+            # For traditional registries, delegate to our abstract store implementation
+            return self.store.search_prompts(
+                filter_string=filter_string,
+                max_results=max_results,
+                order_by=order_by,
+                page_token=page_token,
+                catalog_name=None,
+                schema_name=None,
+            )
 
-            if is_prompt_supported_registry(self.registry_uri):
-                # Adjust filter string to include or exclude prompts
-                fls = f"tag.`{IS_PROMPT_TAG_KEY}` = 'true'"
-                if filter_string:
-                    fls = f"{fls} AND {filter_string}"
-
-                return self.store.search_registered_models(fls, max_results, order_by, page_token)
-            else:
-                # Fall back to basic store search
-                return self.store.search_prompts(
-                    filter_string, max_results, order_by, page_token, catalog_name, schema_name
-                )
-
-    def _parse_catalog_schema_filter(
-        self, filter_string: str
+    def _parse_catalog_schema_from_filter(
+        self, filter_string: Optional[str]
     ) -> tuple[Optional[str], Optional[str], Optional[str]]:
         """
-        Parse catalog and schema from filter string for Unity Catalog using SQL parsing.
+        Parse catalog and schema from filter string for Unity Catalog using regex.
+
+        Expects filter format: "catalog = 'catalog_name' AND schema = 'schema_name'"
 
         Args:
-            filter_string: Filter string potentially containing catalog and schema
+            filter_string: Filter string containing catalog and schema
 
         Returns:
             Tuple of (catalog_name, schema_name, remaining_filter)
+
+        Raises:
+            MlflowException: If filter format is invalid for Unity Catalog
         """
-        if not filter_string:
-            return None, None, None
-
-        import sqlparse
-        from sqlparse.tokens import Token as TokenType
-
         from mlflow.exceptions import MlflowException
         from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
-        try:
-            parsed = sqlparse.parse(filter_string)
-        except Exception as e:
+        if not filter_string:
             raise MlflowException(
-                f"Error parsing filter string '{filter_string}': {e}",
-                error_code=INVALID_PARAMETER_VALUE,
+                "For Unity Catalog prompt registries, you must specify catalog and schema "
+                "in the filter string: \"catalog = 'catalog_name' AND schema = 'schema_name'\"",
+                INVALID_PARAMETER_VALUE,
             )
 
-        if len(parsed) != 1:
+        # Regex patterns to match catalog and schema specifications
+        catalog_pattern = r"catalog\s*=\s*['\"]([^'\"]+)['\"]"
+        schema_pattern = r"schema\s*=\s*['\"]([^'\"]+)['\"]"
+
+        catalog_match = re.search(catalog_pattern, filter_string, re.IGNORECASE)
+        schema_match = re.search(schema_pattern, filter_string, re.IGNORECASE)
+
+        if not catalog_match or not schema_match:
             raise MlflowException(
-                f"Invalid filter string '{filter_string}'. Expected a single SQL expression.",
-                error_code=INVALID_PARAMETER_VALUE,
+                "For Unity Catalog prompt registries, filter string must include both "
+                "catalog and schema in the format: "
+                "\"catalog = 'catalog_name' AND schema = 'schema_name'\". "
+                f"Got: {filter_string}",
+                INVALID_PARAMETER_VALUE,
             )
 
-        catalog_name = None
-        schema_name = None
-        remaining_comparisons = []
+        catalog_name = catalog_match.group(1)
+        schema_name = schema_match.group(1)
 
-        # Process tokens to find catalog and schema comparisons
-        tokens = [t for t in parsed[0].tokens if not t.is_whitespace]
-        i = 0
+        # Remove catalog and schema from filter string to get remaining filters
+        # First, normalize the filter by splitting on AND and rebuilding
+        # without catalog/schema parts
+        parts = re.split(r"\s+AND\s+", filter_string, flags=re.IGNORECASE)
+        remaining_parts = []
 
-        while i < len(tokens):
-            # Look for pattern: identifier = value
-            if (
-                i + 2 < len(tokens)
-                and tokens[i].ttype == TokenType.Keyword  # identifier (catalog/schema)
-                and tokens[i + 1].ttype == TokenType.Operator.Comparison  # =
-                and tokens[i + 1].value == "="
+        for part in parts:
+            part = part.strip()
+            # Skip parts that match catalog or schema patterns
+            if not (
+                re.match(catalog_pattern, part, re.IGNORECASE)
+                or re.match(schema_pattern, part, re.IGNORECASE)
             ):
-                identifier = tokens[i].value.lower()
-                value_token = tokens[i + 2]
+                remaining_parts.append(part)
 
-                # Extract the value
-                if hasattr(value_token, "value"):
-                    value = value_token.value.strip("'\"")
-                else:
-                    value = str(value_token).strip("'\"")
-
-                if identifier == "catalog":
-                    catalog_name = value
-                    # Skip the three tokens we just processed
-                    i += 3
-                    # Skip following AND if present
-                    if (
-                        i < len(tokens)
-                        and tokens[i].ttype == TokenType.Keyword
-                        and tokens[i].value.upper() == "AND"
-                    ):
-                        i += 1
-                    continue
-                elif identifier == "schema":
-                    schema_name = value
-                    # Skip the three tokens we just processed
-                    i += 3
-                    # Skip following AND if present
-                    if (
-                        i < len(tokens)
-                        and tokens[i].ttype == TokenType.Keyword
-                        and tokens[i].value.upper() == "AND"
-                    ):
-                        i += 1
-                    continue
-
-            # Not a catalog/schema comparison, add to remaining tokens
-            remaining_comparisons.append(str(tokens[i]))
-            i += 1
-
-        # Reconstruct remaining filter string by filtering out standalone AND tokens
-        if remaining_comparisons:
-            # Filter out standalone AND tokens and reconstruct properly
-            filtered_tokens = []
-            for token_str in remaining_comparisons:
-                if token_str.upper() != "AND":
-                    filtered_tokens.append(token_str)
-            remaining_filter = " ".join(filtered_tokens).strip() if filtered_tokens else None
-        else:
-            remaining_filter = None
+        # Rejoin the remaining parts
+        remaining_filter = " AND ".join(remaining_parts) if remaining_parts else None
 
         return catalog_name, schema_name, remaining_filter
 

@@ -583,8 +583,10 @@ class MlflowClient:
         Args:
             filter_string (Optional[str]):
                 An additional registry‐search expression to apply (e.g.
-                `"name LIKE 'my_prompt%'"`).  The prompt‐tag filter is always
-                applied internally.  Defaults to `None` (no extra filtering).
+                `"name LIKE 'my_prompt%'"`).  For Unity Catalog registries, must include
+                catalog and schema: "catalog = 'catalog_name' AND schema = 'schema_name'".
+                The prompt‐tag filter is always applied internally.  Defaults to `None`
+                (no extra filtering).
             max_results (int):
                 The maximum number of prompts to return in one page.  Defaults
                 to `SEARCH_MAX_RESULTS_DEFAULT` (typically 1 000).
@@ -598,15 +600,39 @@ class MlflowClient:
                 entities representing prompt templates. Inspect the returned object's
                 `.token` attribute to fetch subsequent pages.
         """
-        fls = f"tag.`{IS_PROMPT_TAG_KEY}` = 'true'"
-        if filter_string:
-            fls = f"{fls} AND {filter_string}"
+        from mlflow.store.entities.paged_list import PagedList
 
-        return self._get_registry_client().search_registered_models(
-            filter_string=fls,
+        registry_client = self._get_registry_client()
+
+        # Delegate to the store - each store handles its own implementation:
+        # - UC/RestStore: Parses catalog/schema from filter string internally and returns
+        #   PromptInfo objects
+        # - Traditional stores: Handle prompt tag filtering internally and return RegisteredModel
+        #   objects for backward compatibility
+        search_results = registry_client.search_prompts(
+            filter_string=filter_string,
             max_results=max_results,
             page_token=page_token,
         )
+
+        # Check if the results are PromptInfo objects (UC stores) or RegisteredModel objects
+        # (traditional stores)
+        from mlflow.store._unity_catalog.registry.prompt_info import PromptInfo
+
+        prompts = []
+        for result in search_results:
+            if isinstance(result, PromptInfo):
+                # UC store: convert PromptInfo to Prompt by getting the latest version
+                prompt = self.get_prompt(result.name)
+                if prompt:
+                    prompts.append(prompt)
+            else:
+                # Traditional store: result is a RegisteredModel with latest_versions
+                # Return it as-is for backward compatibility with existing tests
+                prompts.append(result)
+
+        # Return as PagedList maintaining the same token
+        return PagedList(prompts, search_results.token)
 
     @experimental
     @require_prompt_registry
@@ -5487,3 +5513,258 @@ class MlflowClient:
         return self._tracking_client.search_logged_models(
             experiment_ids, filter_string, datasets, max_results, order_by, page_token
         )
+
+    # Store-Direct Prompt Methods (Unity Catalog Compatible)
+
+    @experimental
+    @require_prompt_registry
+    @translate_prompt_exception
+    def create_prompt(
+        self,
+        name: str,
+        description: Optional[str] = None,
+        tags: Optional[dict[str, str]] = None,
+    ):
+        """
+        Create a new prompt in the registry.
+
+        This method delegates directly to the store, providing full Unity Catalog support
+        when used with Unity Catalog registries.
+
+        Args:
+            name: Name of the prompt.
+            description: Optional description of the prompt.
+            tags: Optional dictionary of prompt tags.
+
+        Returns:
+            A PromptInfo object for Unity Catalog stores.
+
+        Example:
+
+        .. code-block:: python
+
+            from mlflow import MlflowClient
+
+            client = MlflowClient()
+            prompt_info = client.create_prompt(
+                name="my_prompt", description="A sample prompt", tags={"category": "assistant"}
+            )
+        """
+        registry_client = self._get_registry_client()
+        return registry_client.create_prompt(name, description, tags)
+
+    @experimental
+    @require_prompt_registry
+    @translate_prompt_exception
+    def get_prompt(self, name: str, version: Optional[str] = None):
+        """
+        Get prompt by name and version or alias.
+
+        This method delegates directly to the store, providing full Unity Catalog support
+        when used with Unity Catalog registries.
+
+        Args:
+            name: Registered prompt name.
+            version: Registered prompt version or alias. If None, loads the latest version.
+
+        Returns:
+            A Prompt object, or None if not found.
+
+        Example:
+
+        .. code-block:: python
+
+            from mlflow import MlflowClient
+
+            client = MlflowClient()
+
+            # Get latest version
+            prompt = client.get_prompt("my_prompt")
+
+            # Get specific version
+            prompt = client.get_prompt("my_prompt", "1")
+
+            # Get by alias
+            prompt = client.get_prompt("my_prompt", "production")
+        """
+        registry_client = self._get_registry_client()
+        return registry_client.get_prompt(name, version)
+
+    @experimental
+    @require_prompt_registry
+    @translate_prompt_exception
+    def create_prompt_version(
+        self,
+        name: str,
+        template: str,
+        description: Optional[str] = None,
+        tags: Optional[dict[str, str]] = None,
+    ):
+        """
+        Create a new version of an existing prompt.
+
+        This method delegates directly to the store, providing full Unity Catalog support
+        when used with Unity Catalog registries.
+
+        Args:
+            name: Name of the prompt.
+            template: Template text of the prompt version.
+            description: Optional description of the prompt version.
+            tags: Optional dictionary of prompt version tags.
+
+        Returns:
+            A PromptVersion object for Unity Catalog stores.
+
+        Example:
+
+        .. code-block:: python
+
+            from mlflow import MlflowClient
+
+            client = MlflowClient()
+            prompt_version = client.create_prompt_version(
+                name="my_prompt",
+                template="Respond as a {{style}} assistant: {{query}}",
+                description="Added style parameter",
+                tags={"author": "alice"},
+            )
+        """
+        registry_client = self._get_registry_client()
+        return registry_client.create_prompt_version(name, template, description, tags)
+
+    @experimental
+    @require_prompt_registry
+    @translate_prompt_exception
+    def get_prompt_version(self, name: str, version: str):
+        """
+        Get a specific prompt version.
+
+        This method delegates directly to the store, providing full Unity Catalog support
+        when used with Unity Catalog registries.
+
+        Args:
+            name: Name of the prompt.
+            version: Version of the prompt.
+
+        Returns:
+            A PromptVersion object.
+
+        Example:
+
+        .. code-block:: python
+
+            from mlflow import MlflowClient
+
+            client = MlflowClient()
+            prompt_version = client.get_prompt_version("my_prompt", "1")
+        """
+        registry_client = self._get_registry_client()
+        return registry_client.get_prompt_version(name, version)
+
+    @experimental
+    @require_prompt_registry
+    @translate_prompt_exception
+    def delete_prompt_version(self, name: str, version: str) -> None:
+        """
+        Delete a specific prompt version.
+
+        This method delegates directly to the store, providing full Unity Catalog support
+        when used with Unity Catalog registries.
+
+        Args:
+            name: Name of the prompt.
+            version: Version of the prompt to delete.
+
+        Example:
+
+        .. code-block:: python
+
+            from mlflow import MlflowClient
+
+            client = MlflowClient()
+            client.delete_prompt_version("my_prompt", "1")
+        """
+        registry_client = self._get_registry_client()
+        return registry_client.delete_prompt_version(name, version)
+
+    @experimental
+    @require_prompt_registry
+    @translate_prompt_exception
+    def set_prompt_tag(self, name: str, key: str, value: str) -> None:
+        """
+        Set a tag on a prompt.
+
+        This method delegates directly to the store, providing full Unity Catalog support
+        when used with Unity Catalog registries.
+
+        Args:
+            name: Name of the prompt.
+            key: Tag key.
+            value: Tag value.
+
+        Example:
+
+        .. code-block:: python
+
+            from mlflow import MlflowClient
+
+            client = MlflowClient()
+            client.set_prompt_tag("my_prompt", "environment", "production")
+        """
+        registry_client = self._get_registry_client()
+        return registry_client.set_prompt_tag(name, key, value)
+
+    @experimental
+    @require_prompt_registry
+    @translate_prompt_exception
+    def delete_prompt_tag(self, name: str, key: str) -> None:
+        """
+        Delete a tag from a prompt.
+
+        This method delegates directly to the store, providing full Unity Catalog support
+        when used with Unity Catalog registries.
+
+        Args:
+            name: Name of the prompt.
+            key: Tag key to delete.
+
+        Example:
+
+        .. code-block:: python
+
+            from mlflow import MlflowClient
+
+            client = MlflowClient()
+            client.delete_prompt_tag("my_prompt", "environment")
+        """
+        registry_client = self._get_registry_client()
+        return registry_client.delete_prompt_tag(name, key)
+
+    @experimental
+    @require_prompt_registry
+    @translate_prompt_exception
+    def get_prompt_version_by_alias(self, name: str, alias: str):
+        """
+        Get a prompt version by alias.
+
+        This method delegates directly to the store, providing full Unity Catalog support
+        when used with Unity Catalog registries.
+
+        Args:
+            name: Name of the prompt.
+            alias: Alias of the prompt version.
+
+        Returns:
+            A PromptVersion object.
+
+        Example:
+
+        .. code-block:: python
+
+            from mlflow import MlflowClient
+
+            client = MlflowClient()
+            prompt_version = client.get_prompt_version_by_alias("my_prompt", "production")
+        """
+        registry_client = self._get_registry_client()
+        return registry_client.get_prompt_version_by_alias(name, alias)
