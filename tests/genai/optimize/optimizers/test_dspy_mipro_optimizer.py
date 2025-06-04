@@ -1,15 +1,16 @@
 import sys
+from contextlib import nullcontext
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
 
-from mlflow import register_prompt
-from mlflow.exceptions import MlflowException
-
 pytest.importorskip("dspy", minversion="2.6.0")
 
+import mlflow
+from mlflow import register_prompt
 from mlflow.entities.model_registry import Prompt
+from mlflow.exceptions import MlflowException
 from mlflow.genai.optimize.optimizers import _DSPyMIPROv2Optimizer
 from mlflow.genai.optimize.optimizers.utils.dspy_mipro_callback import _DSPyMIPROv2Callback
 from mlflow.genai.optimize.types import LLMParams, OptimizerConfig
@@ -323,6 +324,7 @@ def test_optimize_with_autolog(
     callbacks = []
 
     optimized_program = dspy.Predict("input_text, language -> translation")
+    optimized_program.score = 1.0
 
     def fn(*args, **kwargs):
         nonlocal callbacks
@@ -331,16 +333,22 @@ def test_optimize_with_autolog(
 
     mock_mipro.return_value.compile.side_effect = fn
 
-    optimizer.optimize(
-        prompt=sample_prompt,
-        target_llm_params=LLMParams(model_name="agent/model"),
-        train_data=sample_data,
-        scorers=[sample_scorer],
-        eval_data=sample_data,
-    )
+    context = mlflow.start_run() if autolog else nullcontext()
+    with context:
+        optimizer.optimize(
+            prompt=sample_prompt,
+            target_llm_params=LLMParams(model_name="agent/model"),
+            train_data=sample_data,
+            scorers=[sample_scorer],
+            eval_data=sample_data,
+        )
 
     if autolog:
         assert len(callbacks) == 1
         assert isinstance(callbacks[0], _DSPyMIPROv2Callback)
+        run = mlflow.last_active_run()
+        assert run is not None
+        assert run.data.metrics["final_eval_score"] == 1.0
+        assert run.data.params["optimized_prompt_uri"] == "prompts:/test_prompt/2"
     else:
         assert len(callbacks) == 0

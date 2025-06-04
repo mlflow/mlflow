@@ -10,7 +10,8 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.optimize.optimizers.dspy_optimizer import _DSPyOptimizer
 from mlflow.genai.optimize.types import OBJECTIVE_FN, LLMParams
 from mlflow.genai.scorers import Scorer
-from mlflow.tracking._model_registry.fluent import register_prompt
+from mlflow.tracking._model_registry.fluent import active_run, register_prompt
+from mlflow.tracking.fluent import log_metric, log_param
 
 if TYPE_CHECKING:
     import dspy
@@ -111,14 +112,19 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
             )
 
         self._display_optimization_result(optimized_program)
-
-        return register_prompt(
+        final_score = getattr(optimized_program, "score", None)
+        optimized_prompt = register_prompt(
             name=prompt.name,
             template=template,
             version_metadata={
-                "overall_eval_score": getattr(optimized_program, "score", None),
+                "overall_eval_score": final_score,
             },
         )
+
+        if self.optimizer_config.autolog:
+            self._log_optimization_result(final_score, optimized_prompt)
+
+        return optimized_prompt
 
     def _get_num_trials(self, num_candidates: int) -> int:
         # MAX(2*log(num_candidates), 3/2*num_candidates)
@@ -186,3 +192,14 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
                 "Prompt optimization completed. Evaluation score changed "
                 f"from {initial_score} to {program.score}."
             )
+
+    def _log_optimization_result(self, final_score: Optional[float], optimized_prompt: Prompt):
+        if not active_run():
+            return
+
+        if final_score:
+            log_metric(
+                "final_eval_score",
+                final_score,
+            )
+        log_param("optimized_prompt_uri", optimized_prompt.uri)
