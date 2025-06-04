@@ -1079,14 +1079,6 @@ def update_current_trace(
                     f"State must be either 'OK' or 'ERROR', but got '{value}'."
                 )
 
-            if isinstance(state, str):
-                try:
-                    state = TraceState(state)
-                except ValueError:
-                    raise _invalid_state_error(state)
-            elif not isinstance(state, TraceState):
-                raise _invalid_state_error(state)
-
             if state not in (TraceState.OK, TraceState.ERROR):
                 raise _invalid_state_error(state)
 
