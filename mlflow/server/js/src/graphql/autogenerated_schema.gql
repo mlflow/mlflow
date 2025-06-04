@@ -247,6 +247,7 @@ enum MlflowModelVersionDeploymentJobStateDeploymentJobRunState {
   SUCCEEDED
   FAILED
   PENDING
+  APPROVAL
 }
 
 input MlflowGetRunInput {

@@ -22,6 +22,7 @@ class MlflowModelVersionDeploymentJobStateDeploymentJobRunState(graphene.Enum):
     SUCCEEDED = 4
     FAILED = 5
     PENDING = 6
+    APPROVAL = 7
 
 
 class MlflowModelVersionStatus(graphene.Enum):
