@@ -6,7 +6,8 @@ from mlflow.entities.span import SpanType
 from mlflow.genai.judges import meets_guidelines
 from mlflow.genai.scorers import (
     Correctness,
-    GuidelineAdherence,
+    ExpectationsGuidelines,
+    Guidelines,
     RelevanceToQuery,
     RetrievalGroundedness,
     RetrievalRelevance,
@@ -211,10 +212,10 @@ def test_retrieval_sufficiency_with_custom_expectations(sample_rag_trace):
     )
 
 
-def test_guideline_adherence():
+def test_guidelines():
     # 1. Called with per-row guidelines
     with patch("databricks.agents.evals.judges.guideline_adherence") as mock_guideline_adherence:
-        GuidelineAdherence()(
+        ExpectationsGuidelines()(
             inputs={"question": "query"},
             outputs="answer",
             expectations={"guidelines": ["guideline1", "guideline2"]},
@@ -223,13 +224,13 @@ def test_guideline_adherence():
     mock_guideline_adherence.assert_called_once_with(
         guidelines=["guideline1", "guideline2"],
         guidelines_context={"request": "{'question': 'query'}", "response": "answer"},
-        assessment_name="guideline_adherence",
+        assessment_name="expectations_guidelines",
     )
 
     # 2. Called with global guidelines
-    is_english = GuidelineAdherence(
+    is_english = Guidelines(
         name="is_english",
-        global_guidelines=["The response should be in English."],
+        guidelines=["The response should be in English."],
     )
 
     with patch("databricks.agents.evals.judges.guideline_adherence") as mock_guideline_adherence:
@@ -260,25 +261,22 @@ def test_guideline_adherence():
 
 def test_relevance_to_query():
     with patch(
-        "databricks.agents.evals.judges.chunk_relevance",
-        return_value=[
-            Feedback(name="relevance_to_query", value="yes", metadata={"chunk_index": 0})
-        ],
-    ) as mock_chunk_relevance:
+        "databricks.agents.evals.judges.relevance_to_query",
+        return_value=Feedback(name="relevance_to_query", value="yes"),
+    ) as mock_relevance_to_query:
         result = RelevanceToQuery()(
             inputs={"question": "query"},
-            outputs="answer",
+            outputs={"answer": "answer"},
         )
 
-    mock_chunk_relevance.assert_called_once_with(
+    mock_relevance_to_query.assert_called_once_with(
         request="{'question': 'query'}",
-        retrieved_context=["answer"],
+        response=str({"answer": "answer"}),
         assessment_name="relevance_to_query",
     )
 
     assert result.name == "relevance_to_query"
     assert result.value == "yes"
-    assert result.metadata == {}  # chunk id should not be included in the metadata
 
 
 def test_safety():
