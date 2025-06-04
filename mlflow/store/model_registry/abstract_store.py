@@ -6,10 +6,9 @@ from typing import Optional, Union
 from mlflow.entities.model_registry import ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.entities.model_registry.prompt import Prompt
-from mlflow.entities.model_registry.registered_model_tag import RegisteredModelTag
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.registry_utils import has_prompt_tag
-from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, RESOURCE_DOES_NOT_EXIST, ErrorCode
+from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, ErrorCode
 from mlflow.store._unity_catalog.registry.prompt_info import PromptInfo
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.utils.annotations import developer_stable
@@ -590,6 +589,20 @@ class AbstractStore:
     def delete_prompt_version(self, name: str, version: Union[str, int]) -> None:
         """
         Delete a prompt version.
+
+        Args:
+            name: Name of the prompt.
+            version: Version number.
+
+        Returns:
+            None
+        """
+
+    def set_prompt_version_tag(
+        self, name: str, version: Union[str, int], key: str, value: str
+    ) -> None:
+        """
+        Set a tag for a prompt version.
 
         Args:
             name: Name of the prompt.
