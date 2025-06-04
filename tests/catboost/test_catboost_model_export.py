@@ -69,7 +69,11 @@ def iter_models():
     yield ModelWithData(model=model, inference_dataframe=X)
 
 
-@pytest.fixture(params=iter_models(), ids=["CatBoost", "CatBoostClassifier", "CatBoostRegressor"])
+@pytest.fixture(
+    scope="module",
+    params=iter_models(),
+    ids=["CatBoost", "CatBoostClassifier", "CatBoostRegressor"],
+)
 def cb_model(request):
     return request.param
 
