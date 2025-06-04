@@ -1462,14 +1462,12 @@ def test_update_current_trace_with_metadata():
     @mlflow.trace
     def f():
         mlflow.update_current_trace(
-            mlflow.update_current_trace(
-                metadata={
-                    "mlflow.source.name": "inference.py",
-                    "mlflow.source.git.commit": "1234567890",
-                    "mlflow.source.git.repoURL": "https://github.com/mlflow/mlflow",
-                    "non-string-metadata": 123,
-                },
-            )
+            metadata={
+                "mlflow.source.name": "inference.py",
+                "mlflow.source.git.commit": "1234567890",
+                "mlflow.source.git.repoURL": "https://github.com/mlflow/mlflow",
+                "non-string-metadata": 123,
+            },
         )
 
     f()

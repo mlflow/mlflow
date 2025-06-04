@@ -957,8 +957,8 @@ def update_current_trace(
         tags: A dictionary of tags to update the trace with Tags are designed for mutable values,
             that can be updated after the trace is created via MLflow UI or API.
         metadata: A dictionary of metadata to update the trace with. Metadata cannot be updated
-            once the trace is logged, and suitable for recording immutable values like git
-            commit hash of the source system.
+            once the trace is logged. It is suitable for recording immutable values like the
+            git hash of the application version that produced the trace.
         client_request_id: Client supplied request ID to associate with the trace. This is
             useful for linking the trace back to a specific request in your application or
             external system. If None, the client request ID is not updated.
@@ -1050,7 +1050,7 @@ def update_current_trace(
         )
         return
 
-    def _warn_non_string_values(d: dict[str, Any], field_name: str) -> dict[str, str]:
+    def _warn_non_string_values(d: dict[str, Any], field_name: str):
         non_string_items = {k: v for k, v in d.items() if not isinstance(v, str)}
         if non_string_items:
             _logger.warning(
