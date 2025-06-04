@@ -61,6 +61,9 @@ class OptimizerConfig:
             the target LLM will be used as the teacher.
         algorithm: The optimization algorithm to use. Default: "DSPy/MIPROv2"
         verbose: Whether to show optimizer logs during optimization. Default: False
+        autolog: Whether to log the optimization parameters, datasets and metrics.
+            If set to True, a MLflow run is automatically created to store them.
+            Default: False
     """
 
     num_instruction_candidates: int = 6
@@ -69,3 +72,4 @@ class OptimizerConfig:
     optimizer_llm: Optional[LLMParams] = None
     algorithm: str = "DSPy/MIPROv2"
     verbose: bool = False
+    autolog: bool = False
