@@ -509,9 +509,9 @@ class ModelRegistryClient:
         Returns:
             A PagedList of PromptInfo objects.
         """
-        from mlflow.utils.uri import is_databricks_unity_catalog_uri
         from mlflow.exceptions import MlflowException
         from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+        from mlflow.utils.uri import is_databricks_unity_catalog_uri
 
         is_unity_catalog = is_databricks_unity_catalog_uri(self.registry_uri)
 
@@ -530,8 +530,9 @@ class ModelRegistryClient:
 
                 if not parsed_catalog or not parsed_schema:
                     raise MlflowException(
-                        "For Unity Catalog prompt registries, you must specify both catalog and schema "
-                        "either as parameters or in the filter string: catalog = 'catalog_name' AND schema = 'schema_name'",
+                        "For Unity Catalog prompt registries, you must specify both catalog "
+                        "and schema either as parameters or in the filter string: "
+                        "catalog = 'catalog_name' AND schema = 'schema_name'",
                         INVALID_PARAMETER_VALUE,
                     )
 
@@ -543,7 +544,12 @@ class ModelRegistryClient:
                     )
 
                 return self.store.search_prompts(
-                    remaining_filter, max_results, order_by, page_token, parsed_catalog, parsed_schema
+                    remaining_filter,
+                    max_results,
+                    order_by,
+                    page_token,
+                    parsed_catalog,
+                    parsed_schema,
                 )
             else:
                 raise MlflowException(
@@ -560,7 +566,7 @@ class ModelRegistryClient:
                 fls = f"tag.`{IS_PROMPT_TAG_KEY}` = 'true'"
                 if filter_string:
                     fls = f"{fls} AND {filter_string}"
-                
+
                 return self.store.search_registered_models(fls, max_results, order_by, page_token)
             else:
                 # Fall back to basic store search
@@ -585,6 +591,7 @@ class ModelRegistryClient:
 
         import sqlparse
         from sqlparse.tokens import Token as TokenType
+
         from mlflow.exceptions import MlflowException
         from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 
