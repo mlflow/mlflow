@@ -12,7 +12,7 @@ from optuna import exceptions, pruners, samplers, storages
 from optuna.study import Study
 from optuna.trial import FrozenTrial, TrialState
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, first
+from pyspark.sql.functions import col
 
 import mlflow
 from mlflow import MlflowClient
@@ -242,14 +242,14 @@ class MlflowSparkStudy(Study):
             raise
         if "error" in result_df.columns:
             failed_runs = result_df.filter(col("error").isNotNull())
-            error_count = failed_runs.count()
-            if error_count > 0:
-                first_non_null_value = failed_runs.select(first("error")).first()[0]
+            error_rows = failed_runs.select("error").collect()
+            if len(error_rows) > 0:
+                first_non_null_value = error_rows[0][0]
                 self.mlflow_client.set_terminated(self._study_id, "KILLED")
                 raise ExecutionException(
                     f"Optimization run for Optuna MlflowSparkStudy failed. "
                     f"See full error details in the failed MLflow runs. "
-                    f"Number of failed runs: {error_count}. "
+                    f"Number of failed runs: {len(error_rows)}. "
                     f"First trial failure message: {first_non_null_value}"
                 )
         self.mlflow_client.set_terminated(self._study_id)
