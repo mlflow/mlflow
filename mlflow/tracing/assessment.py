@@ -291,7 +291,6 @@ def log_feedback(
     Returns:
         :py:class:`~mlflow.entities.Assessment`: The created feedback assessment.
     """
-
     assessment = Feedback(
         name=name,
         source=source,
