@@ -18,3 +18,4 @@ incremental<24.7.0
 # this is an extra dependency for the auth app which
 # is not included in the core mlflow requirements
 Flask-WTF<2
+databricks-agents>=1.0.0rc2
