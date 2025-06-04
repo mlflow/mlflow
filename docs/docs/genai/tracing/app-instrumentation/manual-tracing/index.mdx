@@ -5,7 +5,7 @@ import { APILink } from "@site/src/components/APILink";
 
 # Manual Tracing
 
-While MLflow's [automatic tracing](/tracing/app-instrumentation/automatic) provides instant observability for supported frameworks, manual tracing gives you complete control over how your GenAI applications are instrumented. This flexibility is essential for building production-ready applications that require detailed monitoring and debugging capabilities.
+While MLflow's [automatic tracing](/genai/tracing/app-instrumentation/automatic) provides instant observability for supported frameworks, manual tracing gives you complete control over how your GenAI applications are instrumented. This flexibility is essential for building production-ready applications that require detailed monitoring and debugging capabilities.
 
 ![Mix of auto and manual tracing](/images/llms/tracing/fluent-vs-client-tracing.png)
 
@@ -112,7 +112,7 @@ The high-level APIs provide an intuitive way to add tracing with minimal code ch
 
     Compatible with auto-tracing
 
-    [Learn more about decorators →](/tracing/app-instrumentation/manual-tracing/fluent-apis#decorator)
+    [Learn more about decorators →](/genai/tracing/app-instrumentation/manual-tracing/fluent-apis#decorator)
   </TabItem>
   <TabItem value="context-manager" label="Context Manager">
     **Best for**: Tracing code blocks and complex workflows
@@ -142,7 +142,7 @@ The high-level APIs provide an intuitive way to add tracing with minimal code ch
 
     Ideal for non-function code blocks
 
-    [Learn more about context managers →](/tracing/app-instrumentation/manual-tracing/fluent-apis#context-manager)
+    [Learn more about context managers →](/genai/tracing/app-instrumentation/manual-tracing/fluent-apis#context-manager)
   </TabItem>
 </Tabs>
 
@@ -177,40 +177,39 @@ client.end_span(
 client.end_trace(request_id=root_span.request_id)
 ```
 
-**When to Use Client APIs**:
+#### When to Use Client APIs
 
-Custom trace ID management
+Use the low-level client APIs when you need:
 
-Integration with existing observability systems
+1. 🏷️ **Custom trace ID management** for integration with existing systems
 
-Complex trace lifecycle requirements
+2. 🔗 **Integration with existing observability systems** that require specific trace formats
 
-Non-standard tracing patterns
+3. ⚙️ **Complex trace lifecycle requirements** beyond what decorators provide
 
-:::warning
-Client APIs require manual management of:
+4. 🎯 **Non-standard tracing patterns** for specialized use cases
 
-Parent-child relationships
+:::warning Important Considerations
+When using client APIs, you must manually manage:
 
-Span lifecycle (start/end)
-
-Exception handling
-
-Thread safety
+1. 👨‍👩‍👧‍👦 **Parent-child relationships** between spans
+2. ⏱️ **Span lifecycle** (properly starting and ending spans)
+3. 🚨 **Exception handling** for failed operations
+4. 🧵 **Thread safety** in multi-threaded applications
 :::
 
 [Learn more about client APIs →](/tracing/app-instrumentation/manual-tracing/log-level-api)
 
 ## API Comparison
 
-| Feature                    | Decorator        | Context Manager    | Client APIs            |
-| -------------------------- | ---------------- | ------------------ | ---------------------- |
-| **Automatic Parent-Child** | Yes              | Yes                | No - manual management |
-| **Exception Handling**     | Automatic        | Automatic          | Manual                 |
-| **Works with Auto-trace**  | Yes              | Yes                | No                     |
-| **Thread Safety**          | Automatic        | Automatic          | Manual                 |
-| **Custom Trace IDs**       | No               | No                 | Yes                    |
-| **Best For**               | Function tracing | Code block tracing | Advanced control       |
+| Feature                    | 🎭 Decorator        | 📦 Context Manager    | ⚙️ Client APIs            |
+| -------------------------- | ------------------ | -------------------- | ------------------------ |
+| **🔗 Automatic Parent-Child** | ✅ Yes              | ✅ Yes                | ❌ No - manual management |
+| **🚨 Exception Handling**     | ✅ Automatic        | ✅ Automatic          | 🔧 Manual                 |
+| **🤝 Works with Auto-trace**  | ✅ Yes              | ✅ Yes                | ❌ No                     |
+| **🧵 Thread Safety**          | ✅ Automatic        | ✅ Automatic          | 🔧 Manual                 |
+| **🏷️ Custom Trace IDs**       | ❌ No               | ❌ No                 | ✅ Yes                    |
+| **🎯 Best For**               | Function tracing   | Code block tracing   | Advanced control         |
 
 ## Common Patterns
 
@@ -294,15 +293,18 @@ def analyze_document(document: str):
     return {"entities": entities, "summary": summary}
 ```
 
-Available span types include:
-- `SpanType.CHAIN` - For multi-step workflows
-- `SpanType.LLM` - For language model calls
-- `SpanType.RETRIEVER` - For document/data retrieval
-- `SpanType.EMBEDDING` - For embedding generation
-- `SpanType.PARSER` - For data parsing operations
-- `SpanType.TOOL` - For tool/function calls
-- `SpanType.AGENT` - For agent operations
-- `SpanType.UNKNOWN` - For general operations
+Available span types help categorize and visualize your application components:
+
+1. 🔗 **`SpanType.CHAIN`** - Multi-step workflows and complex pipelines
+2. 🤖 **`SpanType.LLM`** - Language model calls and AI interactions
+3. 🔍 **`SpanType.RETRIEVER`** - Document search and data retrieval operations
+4. 🧮 **`SpanType.EMBEDDING`** - Vector embedding generation and processing
+5. 📄 **`SpanType.PARSER`** - Data parsing and transformation operations
+6. 🛠️ **`SpanType.TOOL`** - External tool calls and function executions
+7. 🎯 **`SpanType.AGENT`** - Autonomous agent decision-making and actions
+8. ❓ **`SpanType.UNKNOWN`** - General operations and custom components
+
+Choose the right span type to get meaningful visualizations and better insights into your application's behavior in the MLflow UI.
 
 ### Async and Streaming Support
 
@@ -410,15 +412,21 @@ def process_with_error_handling(data):
 
 ## Best Practices
 
-**Use descriptive span names**: Choose names that clearly describe what the span does, like "Extract PDF Text" rather than "Step 1".
+Follow these guidelines to get the most out of your tracing setup:
 
-**Add meaningful attributes**: Include metadata that helps with debugging and analysis, such as input sizes, processing times, and configuration parameters.
+1. 📝 **Use descriptive span names** - Choose names that clearly describe what the span does, like "Extract PDF Text" rather than "Step 1"
 
-**Organize spans hierarchically**: Use parent-child relationships to show the logical structure of your workflow.
+2. 🏷️ **Add meaningful attributes** - Include metadata that helps with debugging and analysis, such as input sizes, processing times, and configuration parameters
 
-**Handle errors gracefully**: Use try-catch blocks to capture error information in span attributes.
+3. 🏗️ **Organize spans hierarchically** - Use parent-child relationships to show the logical structure of your workflow
 
-**Combine with automatic tracing**: Use manual tracing to add context around automatically traced operations.
+4. 🚨 **Handle errors gracefully** - Use try-catch blocks to capture error information in span attributes
+
+5. 🤝 **Combine with automatic tracing** - Use manual tracing to add context around automatically traced operations
+
+6. 🔍 **Monitor performance patterns** - Track execution times and resource usage to identify optimization opportunities
+
+7. 🏷️ **Tag for organization** - Use consistent tagging strategies to group related traces and enable powerful filtering
 
 ## Next Steps
 

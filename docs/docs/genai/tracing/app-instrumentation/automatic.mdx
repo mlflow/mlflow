@@ -1,4 +1,3 @@
-import DatabricksCallout from "@site/src/components/DatabricksCallout"
 import Tabs from "@theme/Tabs"
 import TabItem from "@theme/TabItem"
 import { APILink } from "@site/src/components/APILink";
@@ -11,15 +10,11 @@ MLflow Tracing is integrated with various GenAI libraries and provides **one-lin
 
 ## Prerequisites
 
-<DatabricksCallout docsPath="/mlflow3/genai/tracing/app-instrumentation/automatic" />
-
 This guide requires the following packages:
 
-**mlflow>=3.1**: Core MLflow functionality with GenAI features and Databricks connectivity.
-
-**openai>=1.0.0**: Only required to run the [Basic Automatic Tracing Example](#basic-automatic-tracing-example) on this page (if using other LLM providers, install their respective SDKs instead)
-
-**Additional libraries**: Install specific libraries for the integrations you want to use
+1. 🔧 **mlflow>=3.1** - Core MLflow functionality with GenAI features
+2. 🤖 **openai>=1.0.0** - Only required for OpenAI examples (install other provider SDKs as needed)
+3. 📚 **Additional libraries** - Install specific libraries for the integrations you want to use
 
 Install the basic requirements:
 
@@ -111,7 +106,7 @@ print(response.choices[0].message.content)
 
 ## Supported Integrations
 
-Each integration automatically captures your application's logic and intermediate steps based on your implementation of the authoring framework / SDK. For a comprehensive list of all supported libraries and detailed documentation for each integration, please see the [MLflow Tracing Integrations page](/genai/tracing/integrations/index).
+Each integration automatically captures your application's logic and intermediate steps based on your implementation of the authoring framework / SDK. For a comprehensive list of all supported libraries and detailed documentation for each integration, please see the [MLflow Tracing Integrations page](/tracing/integrations/).
 
 Below are quick-start examples for some of the most popular integrations. Remember to install the necessary packages for each library you intend to use (e.g., `pip install openai langchain langgraph anthropic dspy`).
 
@@ -149,7 +144,7 @@ MLflow provides automatic tracing for many popular GenAI frameworks and librarie
     )
     ```
 
-    [Full OpenAI Integration Guide](/genai/tracing/integrations/openai)
+    [Full OpenAI Integration Guide](/tracing/integrations/openai)
   </TabItem>
   <TabItem value="langchain" label="LangChain">
     ```python
@@ -186,7 +181,7 @@ MLflow provides automatic tracing for many popular GenAI frameworks and librarie
     )
     ```
 
-    [Full LangChain Integration Guide](/genai/tracing/integrations/langchain)
+    [Full LangChain Integration Guide](/tracing/integrations/langchain)
   </TabItem>
   <TabItem value="langgraph" label="LangGraph">
     ```python
@@ -227,7 +222,7 @@ MLflow provides automatic tracing for many popular GenAI frameworks and librarie
     )
     ```
 
-    [Full LangGraph Integration Guide](/genai/tracing/integrations/langgraph)
+    [Full LangGraph Integration Guide](/tracing/integrations/langgraph)
   </TabItem>
   <TabItem value="anthropic" label="Anthropic">
     ```python
@@ -255,7 +250,7 @@ MLflow provides automatic tracing for many popular GenAI frameworks and librarie
     )
     ```
 
-    [Full Anthropic Integration Guide](/genai/tracing/integrations/anthropic)
+    [Full Anthropic Integration Guide](/tracing/integrations/anthropic)
   </TabItem>
   <TabItem value="dspy" label="DSPy">
     ```python
@@ -301,7 +296,7 @@ MLflow provides automatic tracing for many popular GenAI frameworks and librarie
     )
     ```
 
-    [Full DSPy Integration Guide](/genai/tracing/integrations/dspy)
+    [Full DSPy Integration Guide](/tracing/integrations/dspy)
   </TabItem>
   <TabItem value="bedrock" label="Amazon Bedrock">
     ```python
@@ -338,7 +333,7 @@ MLflow provides automatic tracing for many popular GenAI frameworks and librarie
     )
     ```
 
-    [Full Bedrock Integration Guide](/genai/tracing/integrations/bedrock)
+    [Full Bedrock Integration Guide](/tracing/integrations/bedrock)
   </TabItem>
   <TabItem value="autogen" label="AutoGen">
     ```python
@@ -409,7 +404,7 @@ MLflow provides automatic tracing for many popular GenAI frameworks and librarie
     )
     ```
 
-    [Full AutoGen Integration Guide](/genai/tracing/integrations/autogen)
+    [Full AutoGen Integration Guide](/tracing/integrations/autogen)
   </TabItem>
 </Tabs>
 
@@ -417,11 +412,9 @@ MLflow provides automatic tracing for many popular GenAI frameworks and librarie
 
 The `@mlflow.trace` decorator can be used in conjunction with auto tracing to create powerful, integrated traces. This is particularly useful for:
 
-**Complex workflows that involve multiple LLM calls**
-
-**Multi-agent systems where different agents use different LLM providers**
-
-**Chaining multiple LLM calls together with custom logic in between**
+1. 🔄 **Complex workflows** that involve multiple LLM calls
+2. 🤖 **Multi-agent systems** where different agents use different LLM providers
+3. 🔗 **Chaining multiple LLM calls** together with custom logic in between
 
 ### Basic Example
 
@@ -525,11 +518,11 @@ result = process_user_query("Tell me about the history of artificial intelligenc
 
 This example creates a single trace that includes:
 
-**A parent span for the entire `process_user_query` function**
+1. 📊 **A parent span** for the entire `process_user_query` function
 
-**Two child spans automatically created by the OpenAI autologging**:
-  - One for the analysis LLM call
-  - One for the response LLM call
+2. 🤖 **Two child spans** automatically created by the OpenAI autologging:
+   - One for the analysis LLM call
+   - One for the response LLM call
 
 ### Multi-Framework Example
 
@@ -584,21 +577,21 @@ result = multi_provider_workflow("Explain quantum computing")
 
 This example shows how to combine:
 
-**Direct OpenAI API calls**
+1. 🤖 **Direct OpenAI API calls** for language model interactions
 
-**LangChain chains**
+2. 🔗 **LangChain chains** for structured workflows
 
-**Custom logic between the calls**
+3. ⚙️ **Custom logic between the calls** for business-specific processing
 
 All of this is captured in a single trace, making it easy to:
 
-**Debug issues**
+1. 🐛 **Debug issues** by seeing exactly where problems occur
 
-**Monitor performance**
+2. ⚡ **Monitor performance** across all components
 
-**Understand the flow of the request**
+3. 🗺️ **Understand the flow of the request** through your system
 
-**Track which parts of the system are being used**
+4. 📊 **Track which parts of the system are being used** most frequently
 
 The trace visualization will show the complete hierarchy of spans, making it clear how the different components interact and how long each step takes.
 
@@ -636,19 +629,25 @@ mlflow.anthropic.autolog()
 
 ## Best Practices
 
-**Enable autolog early**: Call autolog functions before importing or using the target libraries to ensure all operations are captured.
+Follow these guidelines to get the most out of automatic tracing:
 
-**Combine with manual tracing**: Use the `@mlflow.trace` decorator to group related operations and add context to your traces.
+1. 🚀 **Enable autolog early** - Call autolog functions before importing or using the target libraries to ensure all operations are captured
 
-**Use appropriate configuration**: Customize autolog settings based on your needs (e.g., disable model logging in production for performance).
+2. 🔗 **Combine with manual tracing** - Use the `@mlflow.trace` decorator to group related operations and add context to your traces
 
-**Monitor trace volume**: In high-throughput applications, consider sampling or filtering to manage the volume of traces generated.
+3. ⚙️ **Use appropriate configuration** - Customize autolog settings based on your needs (e.g., disable model logging in production for performance)
+
+4. 📊 **Monitor trace volume** - In high-throughput applications, consider sampling or filtering to manage the volume of traces generated
+
+5. 🏷️ **Add meaningful tags** - Use trace tags to organize and filter your traces effectively
+
+6. 🔍 **Review traces regularly** - Use the MLflow UI to understand your application's behavior and identify optimization opportunities
 
 ## Next Steps
 
 **[Manual Tracing](/tracing/app-instrumentation/manual-tracing)**: Learn how to add custom tracing to your application logic
 
-**[Integration Guides](/genai/tracing/integrations/index)**: Explore detailed guides for specific libraries and frameworks
+**[Integration Guides](/tracing/integrations/)**: Explore detailed guides for specific libraries and frameworks
 
 **[Viewing Traces](/tracing/ui)**: Learn how to explore and analyze your traces in the MLflow UI
 

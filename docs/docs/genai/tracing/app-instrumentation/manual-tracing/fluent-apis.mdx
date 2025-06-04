@@ -13,13 +13,10 @@ In addition to the [Auto Tracing](/genai/tracing/app-instrumentation/automatic) 
 
 The <APILink fn="mlflow.trace" /> decorator allows you to create a span for any function. This approach provides a simple yet effective way to add tracing to your code with minimal effort:
 
-**MLflow detects the parent-child relationships** between functions, making it compatible with auto-tracing integrations.
-
-**Captures exceptions** during function execution and records them as span events.
-
-**Automatically logs the function's name, inputs, outputs, and execution time**.
-
-**Can be used alongside auto-tracing** features, such as `mlflow.openai.autolog`.
+- 🔗 **MLflow detects the parent-child relationships** between functions, making it compatible with auto-tracing integrations.
+- 🛡️ **Captures exceptions** during function execution and records them as span events.
+- 📊 **Automatically logs the function's name, inputs, outputs, and execution time**.
+- 🤝 **Can be used alongside auto-tracing** features, such as `mlflow.openai.autolog`.
 
 The @mlflow.trace decorator currently supports the following types of functions:
 
@@ -71,11 +68,9 @@ When a trace contains multiple spans with same name, MLflow appends an auto-incr
 
 The <APILink fn="mlflow.trace" /> decorator accepts following arguments to customize the span to be created:
 
-**`name` parameter** to override the span name from the default (the name of decorated function)
-
-**`span_type` parameter** to set the type of span. Set either one of built-in [Span Types](/tracing/data-model#span-types) or a string.
-
-**`attributes` parameter** to add custom attributes to the span.
+- 🏷️ **`name` parameter** to override the span name from the default (the name of decorated function)
+- 🎯 **`span_type` parameter** to set the type of span. Set either one of built-in [Span Types](/tracing/data-model#span-types) or a string.
+- 🏗️ **`attributes` parameter** to add custom attributes to the span.
 
 :::tip[Decorator Order]
 When combining `@mlflow.trace` with other decorators (e.g., from web frameworks), it's crucial for it to be the outermost. For a clear example of correct vs. incorrect ordering, please refer to [Using @mlflow.trace with Other Decorators](#using-mlflowtrace-with-other-decorators).
@@ -501,17 +496,17 @@ asyncio.run(async_pipeline(["item1", "item2", "item3"]))
 For advanced scenarios requiring complete control over trace lifecycle, MLflow provides low-level client APIs. These are recommended only when decorators and context managers don't meet your requirements.
 
 **Use client APIs for:**
-- Custom trace ID generation schemes
-- Integration with existing trace systems
-- Complex trace lifecycle management
-- Distributed tracing across services
-- Manual parent-child relationship control
+- 🔧 Custom trace ID generation schemes
+- 🔌 Integration with existing trace systems
+- 🎛️ Complex trace lifecycle management
+- 🌐 Distributed tracing across services
+- 👨‍💼 Manual parent-child relationship control
 
 **⚠️ Important Limitations:**
-- No automatic parent-child relationship detection
-- Manual exception handling required
-- Incompatible with auto-tracing integrations
-- Requires explicit span lifecycle management
+- ❌ No automatic parent-child relationship detection
+- 🛠️ Manual exception handling required
+- 🚫 Incompatible with auto-tracing integrations
+- 📋 Requires explicit span lifecycle management
 
 **Basic Example:**
 ```python
@@ -557,9 +552,9 @@ finally:
 ```
 
 **When to Use Different Approaches:**
-- **Decorators**: Simple function tracing, most common use case
-- **Context Managers**: Complex code blocks, manual input/output control
-- **Client APIs**: Custom trace IDs, distributed tracing, existing system integration
+- 🎯 **Decorators**: Simple function tracing, most common use case
+- 📦 **Context Managers**: Complex code blocks, manual input/output control
+- 🔧 **Client APIs**: Custom trace IDs, distributed tracing, existing system integration
 
 ## Advanced Patterns
 
@@ -853,28 +848,19 @@ results = tracer.batch_trace_operations(operations, "large_batch_process")
 
 ## Best Practices
 
-**Use descriptive span names**: Choose names that clearly describe what the span does, making traces easier to understand and debug.
-
-**Apply @mlflow.trace as the outermost decorator**: This ensures complete visibility into function execution when using multiple decorators.
-
-**Combine with auto-tracing**: Use manual spans to add context around automatically traced operations for comprehensive observability.
-
-**Set meaningful attributes**: Add custom attributes that help with debugging and analysis, such as model names, processing parameters, or business context.
-
-**Handle errors gracefully**: The decorator automatically captures exceptions, but you can add custom error handling and additional context as needed.
-
-**Choose the right approach**: Use decorators for simple cases, context managers for complex blocks, and client APIs only when you need full control.
-
-**Implement sampling for high-throughput**: Use conditional tracing and sampling strategies to balance observability with performance.
-
-**Propagate context in distributed systems**: Ensure trace context flows correctly across service boundaries.
+- 📝 **Use descriptive span names**: Choose names that clearly describe what the span does, making traces easier to understand and debug.
+- 🎯 **Apply `@mlflow.trace` as the outermost decorator**: This ensures complete visibility into function execution when using multiple decorators.
+- 🤝 **Combine with auto-tracing**: Use manual spans to add context around automatically traced operations for comprehensive observability.
+- 🏗️ **Set meaningful attributes**: Add custom attributes that help with debugging and analysis, such as model names, processing parameters, or business context.
+- 🛡️ **Handle errors gracefully**: The decorator automatically captures exceptions, but you can add custom error handling and additional context as needed.
+- 🎛️ **Choose the right approach**: Use decorators for simple cases, context managers for complex blocks, and client APIs only when you need full control.
+- ⚡ **Implement sampling for high-throughput**: Use conditional tracing and sampling strategies to balance observability with performance.
+- 🌐 **Propagate context in distributed systems**: Ensure trace context flows correctly across service boundaries.
 
 ## Next Steps
 
-**[Context Managers](/tracing/app-instrumentation/manual-tracing/fluent-apis#context-manager)**: Learn about using `mlflow.start_span()` for more flexible tracing
+**[Combining with Auto-Tracing](/genai/tracing/app-instrumentation/automatic#combining-manual-and-automatic-tracing)**: Mix automatic and manual tracing for optimal observability
 
-**[Combining with Auto-Tracing](/tracing/app-instrumentation/automatic#combining-manual-and-automatic-tracing)**: Mix automatic and manual tracing for optimal observability
+**[Trace Data Model](/genai/tracing/data-model)**: Understand the structure and components of MLflow traces
 
-**[Trace Data Model](/tracing/data-model)**: Understand the structure and components of MLflow traces
-
-**[Querying Traces](/tracing/api/search)**: Programmatically search and analyze your traces
+**[Querying Traces](/genai/tracing/search-traces)**: Programmatically search and analyze your traces

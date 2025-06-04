@@ -7,22 +7,17 @@ import { APILink } from "@site/src/components/APILink";
 
 <DatabricksCallout docsPage="/mlflow3/genai/tracing/manual-tracing/low-level-api" />
 
-The MLflow Client APIs provide direct, fine-grained control over trace lifecycle management. While the [high-level APIs](/tracing/app-instrumentation/manual-tracing/fluent-apis) handle most use cases elegantly, client APIs are essential for advanced scenarios requiring explicit control over trace creation, custom trace IDs, or integration with existing observability systems.
+The MLflow Client APIs provide direct, fine-grained control over trace lifecycle management. While the [high-level APIs](/genai/tracing/app-instrumentation/manual-tracing/fluent-apis) handle most use cases elegantly, client APIs are essential for advanced scenarios requiring explicit control over trace creation, custom trace IDs, or integration with existing observability systems.
 
-:::warning
-**Before You Begin**: We recommend using client APIs only when high-level APIs don't meet your requirements:
+:::warning Use With Caution
+**Before You Begin**: We recommend using client APIs **only when high-level APIs don't meet your requirements**:
 
-No automatic parent-child relationship detection
-
-Manual exception handling required
-
-Incompatible with auto-tracing integrations
-
-Full control over trace lifecycle
-
-Custom trace ID management
-
-Integration with existing systems
+- ❌ No automatic parent-child relationship detection
+- 🛠️ Manual exception handling required
+- 🚫 Incompatible with auto-tracing integrations
+- 🎛️ Full control over trace lifecycle
+- 🆔 Custom trace ID management
+- 🔌 Integration with existing systems
 :::
 
 ## Core Concepts
@@ -31,10 +26,10 @@ Integration with existing systems
 
 Every trace follows a strict lifecycle that must be managed explicitly:
 
-1. **Start Trace** - Create the root span
-2. **Start Span(s)** - Add child spans as needed
-3. **End Span(s)** - Close spans in reverse order (LIFO)
-4. **End Trace** - Complete the root span
+1. 🚀 **Start Trace** - Create the root span
+2. 📊 **Start Span(s)** - Add child spans as needed
+3. 🔚 **End Span(s)** - Close spans in reverse order (LIFO)
+4. ✅ **End Trace** - Complete the root span
 
 :::important
 **Golden Rule**: Every `start_trace` or `start_span` call must have a corresponding `end_trace` or `end_span` call. Failing to close spans will result in incomplete traces.
@@ -454,18 +449,14 @@ client.end_trace(
 
 ## Common Pitfalls
 
-:::warning
+:::warning Important Considerations
 **Avoid these common mistakes:**
 
-**Forgetting to end spans** - Always use try/finally or context managers
-
-**Incorrect parent-child relationships** - Double-check span IDs
-
-**Mixing high-level and low-level APIs** - They don't interoperate
-
-**Hardcoding trace IDs** - Always generate unique IDs
-
-**Ignoring thread safety** - Client APIs are not thread-safe by default
+- 🚫 **Forgetting to end spans** - Always use try/finally or context managers
+- 🔗 **Incorrect parent-child relationships** - Double-check span IDs
+- 🔀 **Mixing high-level and low-level APIs** - They don't interoperate
+- 🔐 **Hardcoding trace IDs** - Always generate unique IDs
+- 🧵 **Ignoring thread safety** - Client APIs are not thread-safe by default
 :::
 
 ## Advanced Patterns
@@ -635,49 +626,36 @@ client.end_trace(
 
 <Tabs>
   <TabItem value="use-for" label="Use Client APIs for" default>
-    **Custom trace ID generation schemes**
-
-    **Integration with existing trace systems**
-
-    **Complex trace lifecycle management**
-
-    **Advanced span hierarchies**
-
-    **Custom trace state management**
-
-    **Distributed tracing across services**
-
-    **Conditional or sampling-based tracing**
+    - 🆔 **Custom trace ID generation schemes**
+    - 🔌 **Integration with existing trace systems**
+    - 🎛️ **Complex trace lifecycle management**
+    - 🌳 **Advanced span hierarchies**
+    - 🗂️ **Custom trace state management**
+    - 🌐 **Distributed tracing across services**
+    - 🎯 **Conditional or sampling-based tracing**
   </TabItem>
   <TabItem value="avoid-for" label="Avoid Client APIs for">
-    **Simple function tracing** (use `@mlflow.trace`)
-
-    **Local Python applications** (use context managers)
-
-    **Quick prototyping** (use high-level APIs)
-
-    **Integration with auto-tracing**
-
-    **Standard workflow patterns** (use decorators)
+    - 🎯 **Simple function tracing** (use `@mlflow.trace`)
+    - 🏠 **Local Python applications** (use context managers)
+    - ⚡ **Quick prototyping** (use high-level APIs)
+    - 🤝 **Integration with auto-tracing**
+    - 🔄 **Standard workflow patterns** (use decorators)
   </TabItem>
 </Tabs>
 
 ## Performance Considerations
 
-**Batch Operations**: When creating many spans, consider batching operations to reduce overhead.
-
-**Memory Management**: Be mindful of keeping references to span objects - clean them up when done.
-
-**Network Calls**: Each start/end operation may result in network calls to the tracking server.
-
-**Thread Safety**: Use locks or thread-local storage when using client APIs in multi-threaded environments.
+- 📦 **Batch Operations**: When creating many spans, consider batching operations to reduce overhead.
+- 🧠 **Memory Management**: Be mindful of keeping references to span objects - clean them up when done.
+- 🌐 **Network Calls**: Each start/end operation may result in network calls to the tracking server.
+- 🧵 **Thread Safety**: Use locks or thread-local storage when using client APIs in multi-threaded environments.
 
 ## Next Steps
 
-**[High-Level APIs](/tracing/app-instrumentation/manual-tracing/fluent-apis)** - Simpler alternative for most use cases
+**[High-Level APIs](/genai/tracing/app-instrumentation/manual-tracing/fluent-apis)** - Simpler alternative for most use cases
 
-**[Automatic Tracing](/tracing/app-instrumentation/automatic)** - One-line tracing for supported frameworks
+**[Automatic Tracing](/genai/tracing/app-instrumentation/automatic)** - One-line tracing for supported frameworks
 
-**[Trace Data Model](/tracing/data-model)** - Understanding trace structure and components
+**[Trace Data Model](/genai/tracing/data-model)** - Understanding trace structure and components
 
-**[Querying Traces](/tracing/api/search)** - Programmatically search and analyze your traces
+**[Querying Traces](/genai/tracing/search-traces)** - Programmatically search and analyze your traces

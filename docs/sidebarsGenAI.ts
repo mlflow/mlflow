@@ -210,13 +210,17 @@ const sidebarsGenAI: SidebarsConfig = {
           items: [
             {
               type: 'doc',
-              id: 'tracing/concepts/trace/feedback',
+              id: 'tracing/concepts/trace-instrumentation'
             },
             {
               type: 'doc',
-              id: 'tracing/concepts/trace-instrumentation'
-            }
-          ]
+              id: 'tracing/concepts/trace/feedback',
+            },
+          ],
+          link: {
+            type: 'doc',
+            id: 'tracing/concepts/trace-instrumentation'
+          }
         },
         {
           type: 'doc',

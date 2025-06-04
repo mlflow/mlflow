@@ -170,24 +170,15 @@ View them in the MLflow UI at: http://127.0.0.1:5000
 
 ## Step 4: Explore traces in the MLflow UI
 
-1. **Open the MLflow UI**:
-   - If running locally: Navigate to http://127.0.0.1:5000
-   - If using remote server: Navigate to your MLflow server URL
+1. **Open the MLflow UI** by navigating to http://127.0.0.1:5000 (or your MLflow server URL)
 
-2. **Find your experiment**:
-   - Click on the "openai-tracing-quickstart" experiment
+2. **Click on the "openai-tracing-quickstart" experiment** from the experiments list
 
-3. **View the traces**:
-   - Click on the "Traces" tab
-   - You'll see a list of captured traces from your OpenAI API calls
+3. **Click on the "Traces" tab** to view all captured traces from your OpenAI API calls
 
-4. **Explore trace details**:
-   - Click on any trace to see detailed information including:
-     - Input messages and system prompts
-     - Model parameters (temperature, max_tokens, etc.)
-     - Output responses
-     - Execution time and token usage
-     - Complete request/response flow
+4. **Click on any individual trace** to open the detailed trace view
+
+5. **Explore the trace details** including input messages, system prompts, model parameters (temperature, max_tokens, etc.), output responses, execution time, token usage, and the complete request/response flow
 
 ![MLflow Traces UI](/images/llms/tracing/tracing-top.gif)
 
@@ -315,9 +306,9 @@ Learn [manual tracing techniques](/genai/tracing/app-instrumentation/manual-trac
 
 Congratulations! You've successfully:
 
-✅ Set up MLflow Tracing for a GenAI application
-✅ Enabled automatic tracing for OpenAI API calls
-✅ Generated and explored traces in the MLflow UI
-✅ Learned how to add custom tracing and metadata
+- ✅ Set up MLflow Tracing for a GenAI application
+- ✅ Enabled automatic tracing for OpenAI API calls
+- ✅ Generated and explored traces in the MLflow UI
+- ✅ Learned how to add custom tracing and metadata
 
 MLflow Tracing provides powerful observability for your GenAI applications, helping you monitor performance, debug issues, and understand user interactions. Continue exploring the advanced features to get the most out of your tracing setup!
