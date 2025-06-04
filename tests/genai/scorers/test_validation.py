@@ -5,13 +5,14 @@ import pytest
 
 import mlflow
 from mlflow.genai.evaluation.utils import _convert_to_legacy_eval_set
-from mlflow.genai.scorers.base import BuiltInScorer, Scorer, scorer
+from mlflow.genai.scorers.base import Scorer, scorer
 from mlflow.genai.scorers.builtin_scorers import (
-    chunk_relevance,
-    context_sufficiency,
-    correctness,
-    groundedness,
-    guideline_adherence,
+    Correctness,
+    ExpectationsGuidelines,
+    Guidelines,
+    RetrievalGroundedness,
+    RetrievalRelevance,
+    RetrievalSufficiency,
 )
 from mlflow.genai.scorers.validation import valid_data_for_builtin_scorers, validate_scorers
 
@@ -27,19 +28,17 @@ def test_validate_scorers_valid():
     def custom_scorer(inputs, outputs):
         return 1.0
 
-    builtin, custom = validate_scorers(
+    scorers = validate_scorers(
         [
-            chunk_relevance,
-            correctness,
-            guideline_adherence.with_config(global_guidelines=["Be polite", "Be kind"]),
+            RetrievalRelevance(),
+            Correctness(),
+            Guidelines(guidelines=["Be polite", "Be kind"]),
             custom_scorer,
         ]
     )
 
-    assert len(builtin) == 3
-    assert all(isinstance(scorer, BuiltInScorer) for scorer in builtin)
-    assert len(custom) == 1
-    assert isinstance(custom[0], Scorer)
+    assert len(scorers) == 4
+    assert all(isinstance(scorer, Scorer) for scorer in scorers)
 
 
 def test_validate_scorers_legacy_metric():
@@ -54,20 +53,19 @@ def test_validate_scorers_legacy_metric():
         return 1.0
 
     with mock.patch("mlflow.genai.scorers.validation._logger") as mock_logger:
-        builtin, custom = validate_scorers([legacy_metric_1, legacy_metric_2])
+        scorers = validate_scorers([legacy_metric_1, legacy_metric_2])
 
-    assert len(builtin) == 0
-    assert len(custom) == 2
+    assert len(scorers) == 2
     mock_logger.warning.assert_called_once()
     assert "legacy_metric_1" in mock_logger.warning.call_args[0][0]
 
 
-def test_validate_data(mock_logger):
+def test_validate_data(mock_logger, sample_rag_trace):
     data = pd.DataFrame(
         {
             "inputs": [{"question": "input1"}, {"question": "input2"}],
             "outputs": ["output1", "output2"],
-            "retrieved_context": [{"context": "context1"}, {"context": "context2"}],
+            "trace": [sample_rag_trace, sample_rag_trace],
         }
     )
 
@@ -75,21 +73,21 @@ def test_validate_data(mock_logger):
     valid_data_for_builtin_scorers(
         data=converted_date,
         builtin_scorers=[
-            chunk_relevance,
-            groundedness,
-            guideline_adherence.with_config(global_guidelines=["Be polite", "Be kind"]),
+            RetrievalRelevance(),
+            RetrievalGroundedness(),
+            Guidelines(guidelines=["Be polite", "Be kind"]),
         ],
     )
     mock_logger.info.assert_not_called()
 
 
-def test_validate_data_with_expectations(mock_logger):
+def test_validate_data_with_expectations(mock_logger, sample_rag_trace):
     """Test that expectations are unwrapped and validated properly"""
     data = pd.DataFrame(
         {
             "inputs": [{"question": "input1"}, {"question": "input2"}],
             "outputs": ["output1", "output2"],
-            "retrieved_context": ["context1", "context2"],
+            "trace": [sample_rag_trace, sample_rag_trace],
             "expectations": [
                 {"expected_response": "response1", "guidelines": ["Be polite", "Be kind"]},
                 {"expected_response": "response2", "guidelines": ["Be nice", "Be strong"]},
@@ -101,9 +99,9 @@ def test_validate_data_with_expectations(mock_logger):
     valid_data_for_builtin_scorers(
         data=converted_date,
         builtin_scorers=[
-            chunk_relevance,
-            context_sufficiency,  # requires expected_response in expectations
-            guideline_adherence,  # requires guidelines in expectations
+            RetrievalRelevance(),
+            RetrievalSufficiency(),  # requires expected_response in expectations
+            ExpectationsGuidelines(),  # requires guidelines in expectations
         ],
     )
     mock_logger.info.assert_not_called()
@@ -120,9 +118,7 @@ def test_global_guideline_adherence_does_not_require_expectations(mock_logger):
     converted_date = _convert_to_legacy_eval_set(data)
     valid_data_for_builtin_scorers(
         data=converted_date,
-        builtin_scorers=[
-            guideline_adherence.with_config(global_guidelines=["Be polite", "Be kind"])
-        ],
+        builtin_scorers=[Guidelines(guidelines=["Be polite", "Be kind"])],
     )
     mock_logger.info.assert_not_called()
 
@@ -147,12 +143,12 @@ def test_validate_data_with_correctness(expectations, mock_logger):
     converted_date = _convert_to_legacy_eval_set(data)
     valid_data_for_builtin_scorers(
         data=converted_date,
-        builtin_scorers=[correctness],
+        builtin_scorers=[Correctness()],
     )
 
     valid_data_for_builtin_scorers(
         data=pd.DataFrame({"inputs": ["input1"], "outputs": ["output1"]}),
-        builtin_scorers=[correctness],
+        builtin_scorers=[Correctness()],
     )
 
     mock_logger.info.assert_called_once()
@@ -168,16 +164,16 @@ def test_validate_data_missing_columns(mock_logger):
     valid_data_for_builtin_scorers(
         data=converted_date,
         builtin_scorers=[
-            chunk_relevance,
-            groundedness,
-            guideline_adherence.with_config(global_guidelines=["Be polite", "Be kind"]),
+            RetrievalRelevance(),
+            RetrievalGroundedness(),
+            Guidelines(guidelines=["Be polite", "Be kind"]),
         ],
     )
 
     mock_logger.info.assert_called_once()
     msg = mock_logger.info.call_args[0][0]
-    assert " - `outputs` column is required by [groundedness, guideline_adherence]." in msg
-    assert " - `retrieved_context` column is required by [chunk_relevance, groundedness]." in msg
+    assert " - `outputs` column is required by [guidelines]." in msg
+    assert " - `trace` column is required by [retrieval_relevance, retrieval_groundedness]." in msg
 
 
 def test_validate_data_with_trace(mock_logger):
@@ -194,9 +190,9 @@ def test_validate_data_with_trace(mock_logger):
     valid_data_for_builtin_scorers(
         data=converted_date,
         builtin_scorers=[
-            chunk_relevance,
-            groundedness,
-            guideline_adherence.with_config(global_guidelines=["Be polite", "Be kind"]),
+            RetrievalRelevance(),
+            RetrievalGroundedness(),
+            Guidelines(guidelines=["Be polite", "Be kind"]),
         ],
     )
     mock_logger.info.assert_not_called()
@@ -212,9 +208,9 @@ def test_validate_data_with_predict_fn(mock_logger):
         predict_fn=lambda x: x,
         builtin_scorers=[
             # Requires "outputs" but predict_fn will provide it
-            guideline_adherence.with_config(global_guidelines=["Be polite", "Be kind"]),
+            Guidelines(guidelines=["Be polite", "Be kind"]),
             # Requires "retrieved_context" but predict_fn will provide it
-            chunk_relevance,
+            RetrievalRelevance(),
         ],
     )
 

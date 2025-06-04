@@ -4,12 +4,13 @@ from typing import TYPE_CHECKING, Any, Callable, Optional
 
 import mlflow
 from mlflow.exceptions import MlflowException
+from mlflow.genai.datasets import EvaluationDataset
 from mlflow.genai.evaluation.utils import (
     _convert_scorer_to_legacy_metric,
     _convert_to_legacy_eval_set,
 )
 from mlflow.genai.scorers import Scorer
-from mlflow.genai.scorers.builtin_scorers import GENAI_CONFIG_NAME
+from mlflow.genai.scorers.builtin_scorers import GENAI_CONFIG_NAME, BuiltInScorer
 from mlflow.genai.scorers.validation import valid_data_for_builtin_scorers, validate_scorers
 from mlflow.genai.utils.trace_utils import convert_predict_fn
 from mlflow.models.evaluation.base import (
@@ -54,14 +55,14 @@ def evaluate(
     .. code-block:: python
 
         import mlflow
-        from mlflow.genai.scorers import correctness, safety
+        from mlflow.genai.scorers import Correctness, Safety
         import pandas as pd
 
         trace_df = mlflow.search_traces(model_id="<my-model-id>")
 
         mlflow.genai.evaluate(
             data=trace_df,
-            scorers=[correctness, safety],
+            scorers=[Correctness(), Safety()],
         )
 
     Built-in scorers will understand the model inputs, outputs, and other intermediate
@@ -85,7 +86,7 @@ def evaluate(
     .. code-block:: python
 
         import mlflow
-        from mlflow.genai.scorers import correctness
+        from mlflow.genai.scorers import Correctness
         import pandas as pd
 
         data = pd.DataFrame(
@@ -105,7 +106,7 @@ def evaluate(
 
         mlflow.genai.evaluate(
             data=data,
-            scorers=[correctness()],
+            scorers=[Correctness()],
         )
 
     **3. Pass `predict_fn` and input samples (and optionally expectations).**
@@ -118,7 +119,7 @@ def evaluate(
     .. code-block:: python
 
         import mlflow
-        from mlflow.genai.scorers import correctness, safety
+        from mlflow.genai.scorers import Correctness, Safety
         import openai
 
         # Create a dataframe with input samples
@@ -143,7 +144,7 @@ def evaluate(
         mlflow.genai.evaluate(
             data=data,
             predict_fn=predict_fn,
-            scorers=[correctness, safety],
+            scorers=[Correctness(), Safety()],
         )
 
     Args:
@@ -226,30 +227,21 @@ def evaluate(
             "Please set the tracking URI to Databricks."
         )
 
-    builtin_scorers, custom_scorers = validate_scorers(scorers)
+    is_managed_dataset = isinstance(data, EvaluationDataset)
 
-    evaluation_config = {
-        GENAI_CONFIG_NAME: {
-            "metrics": [],
-        }
-    }
-    for _scorer in builtin_scorers:
-        evaluation_config = _scorer.update_evaluation_config(evaluation_config)
-
-    extra_metrics = []
-    for _scorer in custom_scorers:
-        extra_metrics.append(_convert_scorer_to_legacy_metric(_scorer))
-
+    scorers = validate_scorers(scorers)
     # convert into a pandas dataframe with current evaluation set schema
-    data = _convert_to_legacy_eval_set(data)
+    df = data.to_df() if is_managed_dataset else _convert_to_legacy_eval_set(data)
 
-    valid_data_for_builtin_scorers(data, builtin_scorers, predict_fn)
+    builtin_scorers = [scorer for scorer in scorers if isinstance(scorer, BuiltInScorer)]
+    valid_data_for_builtin_scorers(df, builtin_scorers, predict_fn)
 
     # "request" column must exist after conversion
-    sample_input = data.iloc[0]["request"]
+    input_key = "inputs" if is_managed_dataset else "request"
+    sample_input = df.iloc[0][input_key]
 
     # Only check 'inputs' column when it is not derived from the trace object
-    if "trace" not in data.columns and not isinstance(sample_input, dict):
+    if "trace" not in df.columns and not isinstance(sample_input, dict):
         raise MlflowException.invalid_parameter_value(
             "The 'inputs' column must be a dictionary of field names and values. "
             "For example: {'query': 'What is MLflow?'}"
@@ -275,9 +267,12 @@ def evaluate(
 
         return mlflow.models.evaluate(
             model=predict_fn,
-            data=data,
-            evaluator_config=evaluation_config,
-            extra_metrics=extra_metrics,
+            # If the input dataset is a managed dataset, we pass the original dataset
+            # to the evaluate function to preserve metadata like dataset name.
+            data=data if is_managed_dataset else df,
+            evaluator_config={GENAI_CONFIG_NAME: {"metrics": []}},  # Turn off the default metrics
+            # Scorers are passed to the eval harness as extra metrics
+            extra_metrics=[_convert_scorer_to_legacy_metric(_scorer) for _scorer in scorers],
             model_type=GENAI_CONFIG_NAME,
             model_id=model_id,
             _called_from_genai_evaluate=True,

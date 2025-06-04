@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import pytest
 
-from mlflow.tracing.utils.truncation import truncate_request_response_preview
+from mlflow.tracing.utils.truncation import _get_truncated_preview
 
 
 @pytest.fixture(autouse=True)
@@ -24,7 +24,7 @@ def patch_max_length():
     ids=["short string", "short json", "long string", "none"],
 )
 def test_truncate_simple_string(input_str, expected):
-    assert truncate_request_response_preview(input_str, role="user") == expected
+    assert _get_truncated_preview(input_str, role="user") == expected
 
 
 def test_truncate_long_non_message_json():
@@ -34,27 +34,38 @@ def test_truncate_long_non_message_json():
             "b": "c" + "a" * 30,
         }
     )
-    result = truncate_request_response_preview(input_str, role="user")
+    result = _get_truncated_preview(input_str, role="user")
     assert len(result) == 50
     assert result.startswith('{"a": "b')
 
 
-def test_truncate_request_messages():
-    input_str = json.dumps(
-        {
-            "messages": [
-                {"role": "user", "content": "First"},
-                {"role": "assistant", "content": "Second"},
-                {"role": "user", "content": "Third" + "a" * 50},
-                {"role": "assistant", "content": "Fourth"},
-            ]
-        }
-    )
-    assert truncate_request_response_preview(input_str, role="assistant") == "Fourth"
+_TEST_MESSAGE_HISTORY = [
+    {"role": "user", "content": "First"},
+    {"role": "assistant", "content": "Second"},
+    {"role": "user", "content": "Third" + "a" * 50},
+    {"role": "assistant", "content": "Fourth"},
+]
+
+
+@pytest.mark.parametrize(
+    "input",
+    [
+        # ChatCompletion API
+        {"messages": _TEST_MESSAGE_HISTORY},
+        # Responses API
+        {"input": _TEST_MESSAGE_HISTORY},
+        # Responses Agent
+        {"request": {"input": _TEST_MESSAGE_HISTORY}},
+    ],
+    ids=["chat_completion", "responses", "responses_agent"],
+)
+def test_truncate_request_messages(input):
+    input_str = json.dumps(input)
+    assert _get_truncated_preview(input_str, role="assistant") == "Fourth"
     # Long content should be truncated
-    assert truncate_request_response_preview(input_str, role="user") == "Third" + "a" * 42 + "..."
+    assert _get_truncated_preview(input_str, role="user") == "Third" + "a" * 42 + "..."
     # If non-existing role is provided, return the last message
-    assert truncate_request_response_preview(input_str, role="system") == "Fourth"
+    assert _get_truncated_preview(input_str, role="system") == "Fourth"
 
 
 def test_truncate_request_choices():
@@ -70,13 +81,13 @@ def test_truncate_request_choices():
             "object": "chat.completions",
         }
     )
-    assert truncate_request_response_preview(input_str, role="assistant").startswith("First")
+    assert _get_truncated_preview(input_str, role="assistant").startswith("First")
 
 
 def test_truncate_multi_content_messages():
     # If text content exists, use it
     assert (
-        truncate_request_response_preview(
+        _get_truncated_preview(
             json.dumps(
                 {"messages": [{"role": "user", "content": [{"type": "text", "text": "a" * 60}]}]}
             ),
@@ -87,7 +98,7 @@ def test_truncate_multi_content_messages():
 
     # Ignore non text content
     assert (
-        truncate_request_response_preview(
+        _get_truncated_preview(
             json.dumps(
                 {
                     "messages": [
@@ -107,7 +118,7 @@ def test_truncate_multi_content_messages():
     )
 
     # If non-text content exists, truncate the full json as-is
-    assert truncate_request_response_preview(
+    assert _get_truncated_preview(
         json.dumps(
             {
                 "messages": [
@@ -125,3 +136,20 @@ def test_truncate_multi_content_messages():
         ),
         role="user",
     ).startswith('{"messages":')
+
+
+def test_truncate_responses_api_output():
+    input_str = json.dumps(
+        {
+            "output": [
+                {
+                    "type": "message",
+                    "id": "test",
+                    "role": "assistant",
+                    "content": [{"type": "output_text", "text": "a" * 60}],
+                }
+            ],
+        }
+    )
+
+    assert _get_truncated_preview(input_str, role="assistant") == "a" * 47 + "..."

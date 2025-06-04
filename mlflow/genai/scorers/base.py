@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from mlflow.entities import Assessment, Feedback
 from mlflow.entities.assessment import DEFAULT_FEEDBACK_NAME
 from mlflow.entities.trace import Trace
+from mlflow.tracing.provider import trace_disabled
 from mlflow.utils.annotations import experimental
 
 
@@ -15,6 +16,10 @@ class Scorer(BaseModel):
     name: str
     aggregations: Optional[list] = None
 
+    # NB: Disable tracing during the scorer call to avoid generating extra traces
+    #   during the evaluation. This should be added to `run` instead of `__call__`
+    #   so that users can still see traces when directly calling the scorer function.
+    @trace_disabled
     def run(self, *, inputs=None, outputs=None, expectations=None, trace=None):
         from mlflow.evaluation import Assessment as LegacyAssessment
 
@@ -35,6 +40,8 @@ class Scorer(BaseModel):
                 isinstance(result, list)
                 and all(isinstance(item, (Assessment, LegacyAssessment)) for item in result)
             )
+            # Allow None to represent an empty assessment from the scorer.
+            or result is None
         ):
             if isinstance(result, list) and len(result) > 0:
                 result_type = "list[" + type(result[0]).__name__ + "]"
@@ -161,17 +168,6 @@ class Scorer(BaseModel):
                 )
         """
         raise NotImplementedError("Implementation of __call__ is required for Scorer class")
-
-
-class BuiltInScorer(Scorer):
-    def update_evaluation_config(evaluation_config) -> dict:
-        """
-        The builtin scorer will take in an evaluation_config and return an updated version
-        of it as necessary to comply with the expected format for mlflow.evaluate().
-        More details about built-in judges can be found at
-        https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/llm-judge-reference
-        """
-        raise NotImplementedError("Please use an instance of BuiltInScorer")
 
 
 @experimental
