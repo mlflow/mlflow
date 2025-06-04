@@ -239,13 +239,14 @@ class MlflowSparkStudy(Study):
             self.mlflow_client.set_terminated(self._study_id, "KILLED")
             raise
         if "error" in result_df.columns:
-            error_count = result_df.filter(col("error") != "").count()
+            failed_runs = result_df.filter(col("error").isNotNull())
+            error_count = failed_runs.count()
             if error_count > 0:
-                first_non_null_value = result_df.select(first("error", ignorenulls=True)).first()[0]
+                first_non_null_value = failed_runs.select(first("error")).collect()
                 self.mlflow_client.set_terminated(self._study_id, "KILLED")
                 raise ExecutionException(
                     f"Optimization run for Optuna MlflowSparkStudy failed. "
-                    f"See full error details in the failed MLflow runs. "
+                    f"See full error details in the failed MLflow runs. Number of failed run: {error_count}"
                     f"First trial failure message: {first_non_null_value}"
                 )
         self.mlflow_client.set_terminated(self._study_id)
