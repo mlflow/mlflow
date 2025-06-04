@@ -1078,17 +1078,14 @@ def update_current_trace(
                     f"Status must be either 'OK' or 'ERROR', but got '{value}'."
                 )
 
-            # Convert string status to TraceStatus enum if needed
             if isinstance(status, str):
                 try:
                     status = TraceStatus(status)
                 except ValueError:
                     raise _invalid_status_error(status)
             elif not isinstance(status, TraceStatus):
-                # Handle invalid types (int, float, etc.)
                 raise _invalid_status_error(status)
 
-            # Validate that status is either OK or ERROR
             if status not in (TraceStatus.OK, TraceStatus.ERROR):
                 raise _invalid_status_error(status)
 
