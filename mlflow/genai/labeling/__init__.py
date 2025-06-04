@@ -63,21 +63,29 @@ def get_labeling_sessions() -> list[LabelingSession]:
     return get_review_app().get_labeling_sessions()
 
 
-def get_labeling_session(name: str) -> LabelingSession:
+def get_labeling_session(
+    name: Optional[str] = None, run_id: Optional[str] = None
+) -> LabelingSession:
     """Get a labeling session from the review app.
 
     Args:
         name: The name of the labeling session to get.
+        run_id: The mlflow run ID of the labeling session to get.
 
     Returns:
         LabelingSession: The labeling session.
     """
+    if name is None and run_id is None:
+        raise ValueError("Either `name` or `run_id` must be provided")
+    if name is not None and run_id is not None:
+        raise ValueError("Only one of `name` or `run_id` must be provided")
+
     labeling_sessions = get_labeling_sessions()
     labeling_session = next(
         (
             labeling_session
             for labeling_session in labeling_sessions
-            if labeling_session.name == name
+            if labeling_session.mlflow_run_id == run_id or labeling_session.name == name
         ),
         None,
     )
