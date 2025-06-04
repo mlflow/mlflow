@@ -151,6 +151,8 @@ jobs:
         run: |
           if [ "${{ matrix.package }}" = "pyspark" ]; then
             sed -i '/^pyspark/d' requirements/constraints.txt
+            git config user.name 'mlflow-app[bot]'
+            git config user.email 'mlflow-app[bot]@users.noreply.github.com'
             git add requirements/constraints.txt
             git commit -m "Remove pyspark constraints for testing"
           fi
@@ -206,6 +208,8 @@ jobs:
         run: |
           if [ "${{ matrix.package }}" = "pyspark" ]; then
             sed -i '/^pyspark/d' requirements/constraints.txt
+            git config user.name 'mlflow-app[bot]'
+            git config user.email 'mlflow-app[bot]@users.noreply.github.com'
             git add requirements/constraints.txt
             git commit -m "Remove pyspark constraints for testing"
           fi
