@@ -598,37 +598,6 @@ class AbstractStore:
             None
         """
 
-    def set_prompt_version_tag(
-        self, name: str, version: Union[str, int], key: str, value: str
-    ) -> None:
-        """
-        Set a tag for a prompt version.
-
-        Args:
-            name: Name of the prompt.
-            version: Version number.
-            key: Tag key.
-            value: Tag value.
-
-        Returns:
-            None
-        """
-        self.set_model_version_tag(name, version, ModelVersionTag(key=key, value=value))
-
-    def delete_prompt_version_tag(self, name: str, version: Union[str, int], key: str) -> None:
-        """
-        Delete a tag from a prompt version.
-
-        Args:
-            name: Name of the prompt.
-            version: Version number.
-            key: Tag key to delete.
-
-        Returns:
-            None
-        """
-        self.delete_model_version_tag(name, version, key)
-
     def set_prompt_alias(self, name: str, alias: str, version: Union[str, int]) -> None:
         """
         Set an alias for a prompt version.

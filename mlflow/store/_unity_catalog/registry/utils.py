@@ -25,16 +25,16 @@ def proto_to_mlflow_tags(proto_tags: list[ProtoPromptTag]) -> dict[str, str]:
     return {tag.key: tag.value for tag in proto_tags} if proto_tags else {}
 
 
+def mlflow_tags_to_proto(tags: dict[str, str]) -> list[ProtoPromptTag]:
+    """Convert MLflow tags dictionary to proto prompt tags."""
+    return [ProtoPromptTag(key=k, value=v) for k, v in tags.items()] if tags else []
+
+
 def proto_version_tags_to_mlflow_tags(
     proto_tags: list[ProtoPromptVersionTag],
 ) -> dict[str, str]:
     """Convert proto prompt version tags to MLflow tags dictionary."""
     return {tag.key: tag.value for tag in proto_tags} if proto_tags else {}
-
-
-def mlflow_tags_to_proto(tags: dict[str, str]) -> list[ProtoPromptTag]:
-    """Convert MLflow tags dictionary to proto prompt tags."""
-    return [ProtoPromptTag(key=k, value=v) for k, v in tags.items()] if tags else []
 
 
 def mlflow_tags_to_proto_version_tags(tags: dict[str, str]) -> list[ProtoPromptVersionTag]:
@@ -107,7 +107,7 @@ def mlflow_prompt_to_proto(prompt: Prompt) -> ProtoPromptVersion:
     if prompt.creation_timestamp:
         proto_version.creation_timestamp = prompt.creation_timestamp
 
-    # Add version tags using the version tag function
+    # Add version tags
     if prompt.version_metadata:
         proto_version.tags.extend(mlflow_tags_to_proto_version_tags(prompt.version_metadata))
 

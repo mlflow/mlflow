@@ -565,6 +565,7 @@ class MlflowClient:
 
         return Prompt.from_model_version(mv, prompt_tags=prompt_tags)
 
+    @translate_prompt_exception
     @require_prompt_registry
     def search_prompts(
         self,
