@@ -63,7 +63,7 @@ with mlflow.start_run():
     mlflow.sentence_transformers.log_model(
         model=model,
         name="semantic_encoder",
-        task="llm/v1/embeddings"  # Standardized MLflow embedding task
+        task="llm/v1/embeddings",  # Standardized MLflow embedding task
     )
 ```
 
@@ -121,24 +121,26 @@ from torch.utils.data import DataLoader
 
 # Track fine-tuning experiments
 with mlflow.start_run():
-    model = SentenceTransformer('all-MiniLM-L6-v2')
-    
+    model = SentenceTransformer("all-MiniLM-L6-v2")
+
     # Log training configuration
-    mlflow.log_params({
-        "base_model": "all-MiniLM-L6-v2",
-        "learning_rate": 2e-5,
-        "batch_size": 16,
-        "loss_function": "CosineSimilarityLoss"
-    })
-    
+    mlflow.log_params(
+        {
+            "base_model": "all-MiniLM-L6-v2",
+            "learning_rate": 2e-5,
+            "batch_size": 16,
+            "loss_function": "CosineSimilarityLoss",
+        }
+    )
+
     # Your fine-tuning code here...
-    
+
     # Log the fine-tuned model
     mlflow.sentence_transformers.log_model(
         model=model,
         name="domain_specific_encoder",
         signature=signature,
-        input_example=sample_texts
+        input_example=sample_texts,
     )
 ```
 
