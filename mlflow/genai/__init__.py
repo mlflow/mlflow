@@ -26,6 +26,15 @@ from mlflow.genai.datasets import (
     get_dataset,
 )
 from mlflow.genai.optimize import optimize_prompt
+from mlflow.genai.scheduled_scorers import (
+    ScheduledScorer,
+    add_scheduled_scorer,
+    update_scheduled_scorer,
+    delete_scheduled_scorer,
+    get_scheduled_scorer,
+    list_scheduled_scorers,
+    set_scheduled_scorers,
+)
 
 __all__ = [
     "evaluate",
@@ -38,6 +47,13 @@ __all__ = [
     "delete_dataset",
     "get_dataset",
     "optimize_prompt",
+    "ScheduledScorer",
+    "add_scheduled_scorer",
+    "update_scheduled_scorer",
+    "delete_scheduled_scorer",
+    "get_scheduled_scorer",
+    "list_scheduled_scorers",
+    "set_scheduled_scorers",
     # Labeling exports (only included when databricks-agents is installed)
     *(
         [
