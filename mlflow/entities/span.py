@@ -459,10 +459,6 @@ class LiveSpan(Span):
         """
         Record an exception on the span, adding an exception event and setting span status to ERROR.
 
-        This method follows the OpenTelemetry convention for recording exceptions by:
-        1. Adding an exception event with detailed exception information
-        2. Setting the span status to ERROR
-
         Args:
             exception: The exception to record. Can be an Exception instance or a string
                 describing the exception.

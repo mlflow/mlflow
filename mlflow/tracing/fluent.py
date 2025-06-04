@@ -964,9 +964,9 @@ def update_current_trace(
         response_preview: A preview of the response to be shown in the Trace list view in the UI.
             By default, MLflow will truncate the trace response naively by limiting the length.
             This parameter allows you to specify a custom preview string.
-        status: The status to set on the trace. Can be a TraceStatus enum value or string
-            (e.g., "OK", "ERROR"). This overrides the overall trace status without affecting
-            span status.
+        status: The status to set on the trace. Can be a TraceStatus enum value or string.
+            Only "OK" and "ERROR" are allowed. This overrides the overall trace status without
+            affecting the status of the current span.
 
     Example:
 
@@ -1072,9 +1072,26 @@ def update_current_trace(
         if response_preview:
             trace.info.response_preview = response_preview
         if status is not None:
+            # Define error message once
+            def _invalid_status_error(value):
+                return MlflowException.invalid_parameter_value(
+                    f"Status must be either 'OK' or 'ERROR', but got '{value}'."
+                )
+
             # Convert string status to TraceStatus enum if needed
             if isinstance(status, str):
-                status = TraceStatus(status)
+                try:
+                    status = TraceStatus(status)
+                except ValueError:
+                    raise _invalid_status_error(status)
+            elif not isinstance(status, TraceStatus):
+                # Handle invalid types (int, float, etc.)
+                raise _invalid_status_error(status)
+
+            # Validate that status is either OK or ERROR
+            if status not in (TraceStatus.OK, TraceStatus.ERROR):
+                raise _invalid_status_error(status)
+
             trace.info.status = status
 
         trace.info.tags.update(tags or {})

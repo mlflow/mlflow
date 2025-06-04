@@ -1548,6 +1548,41 @@ def test_update_current_trace_status_none():
             assert trace.info.tags["test"] == "value"
 
 
+def test_update_current_trace_status_validation():
+    """Test that status validation only allows OK or ERROR."""
+    with mlflow.start_span("test_span"):
+        # Valid statuses should work
+        mlflow.update_current_trace(status="OK")
+        mlflow.update_current_trace(status="ERROR")
+        mlflow.update_current_trace(status=TraceStatus.OK)
+        mlflow.update_current_trace(status=TraceStatus.ERROR)
+
+        # Invalid string status should raise an exception
+        with pytest.raises(
+            MlflowException, match=r"Status must be either 'OK' or 'ERROR', but got 'IN_PROGRESS'"
+        ):
+            mlflow.update_current_trace(status="IN_PROGRESS")
+
+        # Invalid enum status should raise an exception
+        with pytest.raises(
+            MlflowException,
+            match=r"Status must be either 'OK' or 'ERROR', but got 'TRACE_STATUS_UNSPECIFIED'",
+        ):
+            mlflow.update_current_trace(status=TraceStatus.UNSPECIFIED)
+
+        # Custom invalid string should raise an exception
+        with pytest.raises(
+            MlflowException, match=r"Status must be either 'OK' or 'ERROR', but got 'CUSTOM_STATUS'"
+        ):
+            mlflow.update_current_trace(status="CUSTOM_STATUS")
+
+        # Invalid types should raise an exception with a proper error message
+        with pytest.raises(
+            MlflowException, match=r"Status must be either 'OK' or 'ERROR', but got '123'"
+        ):
+            mlflow.update_current_trace(status=123)
+
+
 def test_span_record_exception_with_string():
     """Test record_exception method with string parameter."""
     with mlflow.start_span("test_span") as span:
