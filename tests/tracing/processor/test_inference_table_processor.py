@@ -5,7 +5,6 @@ import pytest
 
 from mlflow.entities.span import LiveSpan
 from mlflow.entities.trace_state import TraceState
-from mlflow.entities.trace_status import TraceStatus
 from mlflow.tracing.constant import (
     TRACE_SCHEMA_VERSION,
     TRACE_SCHEMA_VERSION_KEY,
@@ -69,7 +68,7 @@ def test_on_start(context_type):
         assert trace.info.experiment_id is None
         assert trace.info.timestamp_ms == 5
         assert trace.info.execution_time_ms is None
-        assert trace.info.status == TraceStatus.IN_PROGRESS
+        assert trace.info.state == TraceState.IN_PROGRESS
 
         if context_type == "mlflow":
             assert trace.info.request_metadata == {
@@ -140,7 +139,7 @@ def test_on_end():
 
     mock_exporter.export.assert_called_once_with((otel_span,))
     # Trace info should be updated according to the span attributes
-    assert trace_info.state == TraceStatus.OK
+    assert trace_info.state == TraceState.OK
     assert trace_info.execution_duration == 4
 
     # Non-root span should not be exported
@@ -150,8 +149,8 @@ def test_on_end():
     mock_exporter.export.assert_not_called()
 
 
-def test_on_end_preserves_user_set_trace_status():
-    """Test that explicitly set trace status is preserved when span ends."""
+def test_on_end_preserves_user_set_trace_state():
+    """Test that explicitly set trace state is preserved when span ends."""
     otel_span = create_mock_otel_span(
         name="foo",
         trace_id=_OTEL_TRACE_ID,
@@ -166,7 +165,7 @@ def test_on_end_preserves_user_set_trace_status():
     trace_manager = InMemoryTraceManager.get_instance()
     trace_manager.register_trace(_OTEL_TRACE_ID, trace_info)
 
-    # Explicitly set trace status to ERROR (user action)
+    # Explicitly set trace state to ERROR (user action)
     with trace_manager.get_trace(trace_id) as trace:
         trace.info.state = TraceState.ERROR
 
@@ -180,14 +179,14 @@ def test_on_end_preserves_user_set_trace_status():
 
     processor.on_end(otel_span)
 
-    # Trace status should remain ERROR (user-set), not be overwritten by span status (OK)
+    # Trace state should remain ERROR (user-set), not be overwritten by span status (OK)
     with trace_manager.get_trace(trace_id) as trace:
         assert trace.info.state == TraceState.ERROR
     assert trace_info.execution_duration == 4
 
 
-def test_on_end_updates_trace_status_when_in_progress():
-    """Test that trace status is updated from span when trace is still IN_PROGRESS."""
+def test_on_end_updates_trace_state_when_in_progress():
+    """Test that trace state is updated from span when trace is still IN_PROGRESS."""
     otel_span = create_mock_otel_span(
         name="foo",
         trace_id=_OTEL_TRACE_ID,
@@ -202,7 +201,7 @@ def test_on_end_updates_trace_status_when_in_progress():
     trace_manager = InMemoryTraceManager.get_instance()
     trace_manager.register_trace(_OTEL_TRACE_ID, trace_info)
 
-    # Trace status remains IN_PROGRESS (not explicitly set by user)
+    # Trace state remains IN_PROGRESS (not explicitly set by user)
     with trace_manager.get_trace(trace_id) as trace:
         assert trace.info.state == TraceState.IN_PROGRESS
 
@@ -216,7 +215,7 @@ def test_on_end_updates_trace_status_when_in_progress():
 
     processor.on_end(otel_span)
 
-    # Trace status should be updated to ERROR from span status
+    # Trace state should be updated to ERROR from span status
     with trace_manager.get_trace(trace_id) as trace:
         assert trace.info.state == TraceState.ERROR
     assert trace_info.execution_duration == 4
