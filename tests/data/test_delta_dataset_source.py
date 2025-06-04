@@ -21,7 +21,7 @@ def spark_session():
         # https://github.com/delta-io/delta/releases/tag/v4.0.0-final-rc1
         .config(
             "spark.jars.repositories",
-            "https://oss.sonatype.org/content/repositories/iodelta-1227",
+            "https://oss.sonatype.org/content/repositories/iodelta-1229",
         )
         .config("spark.jars.packages", "io.delta:delta-spark_2.13:4.0.0")
         .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
