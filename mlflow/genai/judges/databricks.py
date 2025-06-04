@@ -2,6 +2,23 @@ from functools import wraps
 from typing import Any, Optional, Union
 
 from mlflow.entities.assessment import Feedback
+from mlflow.genai.utils.enum_utils import StrEnum
+
+
+class CategoricalRating(StrEnum):
+    """A categorical rating for an assessment."""
+
+    YES = "yes"
+    NO = "no"
+    UNKNOWN = "unknown"
+
+    @classmethod
+    def _missing_(cls, value: str):
+        value = value.lower()
+        for member in cls:
+            if member == value:
+                return member
+        return cls.UNKNOWN
 
 
 def requires_databricks_agents(func):
