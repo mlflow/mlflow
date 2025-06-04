@@ -436,6 +436,49 @@ def test_log_feedback_and_exception_blocks_positional_args():
 
 
 @pytest.mark.parametrize("legacy_api", [True, False])
+@pytest.mark.parametrize(
+    "value",
+    [
+        {"accuracy": 0.95, "precision": 0.90},  # dict
+        [0.95, 0.90, 0.85],  # list
+        {"metrics": {"accuracy": 0.95}, "metadata": {"model": "test"}},  # nested dict
+        [{"name": "test"}, {"value": 123}],  # list of dicts
+        {"scores": [0.1, 0.2], "config": {"temperature": 0.7}},  # mixed dict with list
+    ],
+)
+def test_log_feedback_complex_values(store, tracking_uri, legacy_api, value):
+    """Test that log_feedback supports dict and list values as documented."""
+    if legacy_api:
+        mlflow.log_feedback(
+            trace_id="1234",
+            name="test_feedback",
+            value=value,
+            source=_LLM_ASSESSMENT_SOURCE,
+            rationale="Testing complex value support",
+            metadata={"test": "metadata"},
+        )
+    else:
+        feedback = Feedback(
+            name="test_feedback",
+            value=value,
+            source=_LLM_ASSESSMENT_SOURCE,
+            rationale="Testing complex value support",
+            metadata={"test": "metadata"},
+        )
+        mlflow.log_assessment(trace_id="1234", assessment=feedback)
+
+    assert store.create_assessment.call_count == 1
+    assessment = store.create_assessment.call_args[0][0]
+    assert assessment.name == "test_feedback"
+    assert assessment.trace_id == "1234"
+    assert assessment.feedback.value == value
+    assert assessment.source.source_type == AssessmentSourceType.LLM_JUDGE
+    assert assessment.source.source_id == "gpt-4o-mini"
+    assert assessment.rationale == "Testing complex value support"
+    assert assessment.metadata == {"test": "metadata"}
+
+
+@pytest.mark.parametrize("legacy_api", [True, False])
 def test_log_assessment_on_in_progress_trace(store, tracking_uri, legacy_api):
     @mlflow.trace
     def func(x: int, y: int) -> int:

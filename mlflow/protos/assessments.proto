@@ -75,12 +75,12 @@ message Expectation {
 message Feedback {
   // Value of the feedback-based assessment.
   // We use google.protobuf.Value to support a flexible schema of feedback values.
-  // Supported initial types:
+  // Supported types:
   // - Numeric values like integers or floats
   // - Boolean values
   // - Text value (can contain json text the user wishes to store, but it will only be searchable as text)
-  // - Non-empty list values containing only strings
-  // - Other values like structs, non-string lists etc. will be rejected for now
+  // - List values containing any of the above types
+  // - Struct/dict values with string keys and values of any of the above types
   optional google.protobuf.Value value = 2;
 
   // An error encountered while generating the feedback. Required if value is set to null.
