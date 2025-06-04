@@ -1498,6 +1498,179 @@ def test_update_current_trace_should_not_raise_during_model_logging():
     assert trace.info.tags["fruit"] == "apple"
 
 
+def test_update_current_trace_with_status():
+    """Test the status parameter in update_current_trace."""
+    from mlflow.tracing.trace_manager import InMemoryTraceManager
+
+    # Test with TraceStatus enum
+    with mlflow.start_span("test_span") as span:
+        mlflow.update_current_trace(status=TraceStatus.ERROR)
+
+        trace_manager = InMemoryTraceManager.get_instance()
+        with trace_manager.get_trace(span.trace_id) as trace:
+            assert trace.info.status == TraceStatus.ERROR
+
+    # Test with string status
+    with mlflow.start_span("test_span_2") as span:
+        mlflow.update_current_trace(status="OK")
+
+        trace_manager = InMemoryTraceManager.get_instance()
+        with trace_manager.get_trace(span.trace_id) as trace:
+            assert trace.info.status == TraceStatus.OK
+
+    # Test with combined parameters
+    with mlflow.start_span("test_span_3") as span:
+        mlflow.update_current_trace(
+            status="ERROR", tags={"error_type": "validation"}, client_request_id="req-123"
+        )
+
+        trace_manager = InMemoryTraceManager.get_instance()
+        with trace_manager.get_trace(span.trace_id) as trace:
+            assert trace.info.status == TraceStatus.ERROR
+            assert trace.info.tags["error_type"] == "validation"
+            assert trace.info.client_request_id == "req-123"
+
+
+def test_update_current_trace_status_none():
+    """Test that status=None doesn't change trace status."""
+    from mlflow.tracing.trace_manager import InMemoryTraceManager
+
+    with mlflow.start_span("test_span") as span:
+        # First set status to OK
+        mlflow.update_current_trace(status="OK")
+
+        # Then call with status=None - should not change status
+        mlflow.update_current_trace(status=None, tags={"test": "value"})
+
+        trace_manager = InMemoryTraceManager.get_instance()
+        with trace_manager.get_trace(span.trace_id) as trace:
+            assert trace.info.status == TraceStatus.OK
+            assert trace.info.tags["test"] == "value"
+
+
+def test_span_record_exception_with_string():
+    """Test record_exception method with string parameter."""
+    with mlflow.start_span("test_span") as span:
+        span.record_exception("Something went wrong")
+
+    # Check persisted trace
+    trace = get_traces()[0]
+    spans = trace.data.spans
+    test_span = spans[0]
+
+    # Verify span status is ERROR
+    assert test_span.status.status_code == SpanStatusCode.ERROR
+
+    # Verify exception event was added
+    exception_events = [event for event in test_span.events if "exception" in event.name.lower()]
+    assert len(exception_events) == 1
+
+    # Verify exception message is in the event
+    exception_event = exception_events[0]
+    assert "Something went wrong" in str(exception_event.attributes)
+
+
+def test_span_record_exception_with_exception():
+    """Test record_exception method with Exception parameter."""
+    test_exception = ValueError("Custom error message")
+
+    with mlflow.start_span("test_span") as span:
+        span.record_exception(test_exception)
+
+    # Check persisted trace
+    trace = get_traces()[0]
+    spans = trace.data.spans
+    test_span = spans[0]
+
+    # Verify span status is ERROR
+    assert test_span.status.status_code == SpanStatusCode.ERROR
+
+    # Verify exception event was added with proper exception details
+    exception_events = [event for event in test_span.events if "exception" in event.name.lower()]
+    assert len(exception_events) == 1
+
+    exception_event = exception_events[0]
+    event_attrs = str(exception_event.attributes)
+    assert "ValueError" in event_attrs
+    assert "Custom error message" in event_attrs
+
+
+def test_span_record_exception_invalid_type():
+    """Test record_exception method with invalid parameter type."""
+    with mlflow.start_span("test_span") as span:
+        with pytest.raises(
+            MlflowException,
+            match="The `exception` parameter must be an Exception instance or a string",
+        ):
+            span.record_exception(123)
+
+
+def test_combined_status_and_record_exception():
+    """Test using both status update and record_exception together."""
+
+    @mlflow.trace
+    def test_function():
+        # Get current span and record exception
+        span = mlflow.get_current_active_span()
+        span.record_exception("Processing failed")
+
+        # Update trace status independently
+        mlflow.update_current_trace(status="ERROR", tags={"error_source": "processing"})
+        return "result"
+
+    test_function()
+
+    # Check the trace
+    trace = get_traces()[0]
+
+    # Verify trace status was set to ERROR
+    assert trace.info.status == TraceStatus.ERROR
+    assert trace.info.tags["error_source"] == "processing"
+
+    # Verify span has exception event and ERROR status
+    spans = trace.data.spans
+    root_span = spans[0]
+    assert root_span.status.status_code == SpanStatusCode.ERROR
+
+    exception_events = [event for event in root_span.events if "exception" in event.name.lower()]
+    assert len(exception_events) == 1
+    assert "Processing failed" in str(exception_events[0].attributes)
+
+
+def test_span_record_exception_no_op_span():
+    """Test that record_exception works gracefully with NoOpSpan."""
+    # This should not raise an exception
+    from mlflow.entities.span import NoOpSpan
+
+    no_op_span = NoOpSpan()
+    no_op_span.record_exception("This should be ignored")
+
+    # Should not create any traces
+    assert get_traces() == []
+
+
+def test_update_current_trace_status_isolation():
+    """Test that status update doesn't affect span status."""
+    with mlflow.start_span("test_span") as span:
+        # Set span status to OK explicitly
+        span.set_status("OK")
+
+        # Update trace status to ERROR
+        mlflow.update_current_trace(status="ERROR")
+
+        # Span status should still be OK
+        assert span.status.status_code == SpanStatusCode.OK
+
+    # Check the final persisted trace
+    trace = get_traces()[0]
+    assert trace.info.status == TraceStatus.ERROR
+
+    # Verify span status remained OK despite trace status being ERROR
+    spans = trace.data.spans
+    test_span = spans[0]
+    assert test_span.status.status_code == SpanStatusCode.OK
+
+
 @skip_when_testing_trace_sdk
 def test_non_ascii_characters_not_encoded_as_unicode():
     with mlflow.start_span() as span:

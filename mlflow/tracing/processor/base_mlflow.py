@@ -174,7 +174,21 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
         # on_start method, so we reflect the same to the trace start time here.
         trace.info.request_time = root_span.start_time // 1_000_000  # nanosecond to millisecond
         trace.info.execution_duration = (root_span.end_time - root_span.start_time) // 1_000_000
-        trace.info.state = TraceState.from_otel_status(root_span.status)
+
+        # Update trace state from span status, unless the user explicitly set a different status
+        expected_state_from_span = TraceState.from_otel_status(root_span.status)
+
+        # Only preserve current trace state if it was explicitly set to something different
+        # from what the span status indicates (and it's not the initial IN_PROGRESS state)
+        if (
+            trace.info.state != TraceState.IN_PROGRESS
+            and trace.info.state != expected_state_from_span
+        ):
+            # User explicitly set trace status to something different - preserve it
+            pass
+        else:
+            # Default behavior: update trace state to match span status
+            trace.info.state = expected_state_from_span
         trace.info.trace_metadata.update(
             {
                 TraceMetadataKey.INPUTS: self._truncate_metadata(

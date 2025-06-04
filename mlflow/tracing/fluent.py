@@ -948,6 +948,7 @@ def update_current_trace(
     client_request_id: Optional[str] = None,
     request_preview: Optional[str] = None,
     response_preview: Optional[str] = None,
+    status: Optional[Union[TraceStatus, str]] = None,
 ):
     """
     Update the current active trace with the given options.
@@ -963,6 +964,9 @@ def update_current_trace(
         response_preview: A preview of the response to be shown in the Trace list view in the UI.
             By default, MLflow will truncate the trace response naively by limiting the length.
             This parameter allows you to specify a custom preview string.
+        status: The status to set on the trace. Can be a TraceStatus enum value or string
+            (e.g., "OK", "ERROR"). This overrides the overall trace status without affecting
+            span status.
 
     Example:
 
@@ -1067,6 +1071,11 @@ def update_current_trace(
             trace.info.request_preview = request_preview
         if response_preview:
             trace.info.response_preview = response_preview
+        if status is not None:
+            # Convert string status to TraceStatus enum if needed
+            if isinstance(status, str):
+                status = TraceStatus(status)
+            trace.info.status = status
 
         trace.info.tags.update(tags or {})
         if client_request_id is not None:
