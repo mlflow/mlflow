@@ -318,6 +318,94 @@ const sidebarsClassicML: SidebarsConfig = {
             },
             {
               type: 'category',
+              label: 'Transformers',
+              items: [
+                {
+                type: 'doc',
+                id: 'deep-learning/transformers/guide/index',
+                },
+                {
+                type: 'doc',
+                id: 'deep-learning/transformers/large-models/index',
+                label: 'Working with Large Transformers Models',
+                },
+                {
+                type: 'doc',
+                id: 'deep-learning/transformers/task/index',
+                label: 'Transformers Task Types'
+                },
+                {
+                type: 'category',
+                label: 'Tutorials',
+                items: [
+                  {
+                  type: 'doc',
+                  id: 'deep-learning/transformers/tutorials/conversational/conversational-model-ipynb',
+                  label: 'Introduction to Conversational Models',
+                  },
+                  {
+                  type: 'doc',
+                  id: 'deep-learning/transformers/tutorials/conversational/pyfunc-chat-model-ipynb',
+                  label: 'Custom Conversational Models',
+                  },
+                  {
+                  type: 'doc',
+                  id: 'deep-learning/transformers/tutorials/fine-tuning/transformers-fine-tuning-ipynb',
+                  label: 'Introduction to Fine Tuning',
+                  },
+                  {
+                  type: 'doc',
+                  id: 'deep-learning/transformers/tutorials/fine-tuning/transformers-peft-ipynb',
+                  label: 'Leveraging PEFT for Fine Tuning',
+                  },
+                  {
+                  type: 'doc',
+                  id: 'deep-learning/transformers/tutorials/audio-transcription/whisper-ipynb',
+                  label: 'Introduction to Audio Transcription',
+                  },
+                  {
+                  type: 'doc',
+                  id: 'deep-learning/transformers/tutorials/prompt-templating/prompt-templating-ipynb',
+                  label: 'Introduction to Prompt Templating',
+                  },
+                  {
+                  type: 'doc',
+                  id: 'deep-learning/transformers/tutorials/text-generation/text-generation-ipynb',
+                  label: 'Text Generation Models',
+                  },
+                  {
+                  type: 'doc',
+                  id: 'deep-learning/transformers/tutorials/translation/component-translation-ipynb',
+                  label: 'Translation Models',
+                  },
+                ],
+                link: {
+                    type: 'doc',
+                    id: 'deep-learning/transformers/tutorials/index',
+                }
+                },
+              ],
+              link: {
+                type: 'doc',
+                id: 'deep-learning/transformers/index',
+              },
+            },
+            {
+              type: 'category',
+              label: 'Sentence Transformers',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'deep-learning/sentence-transformers/guide/index',
+                }
+              ],
+              link: {
+                type: 'doc',
+                id: 'deep-learning/sentence-transformers/index',
+              }
+            },
+            {
+              type: 'category',
               label: 'spaCy',
               items: [
                 {

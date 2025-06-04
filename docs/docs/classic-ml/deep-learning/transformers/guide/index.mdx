@@ -1,8 +1,3 @@
----
-sidebar_label: Detailed Guide
-sidebar_position: 2
----
-
 import TOCInline from "@theme/TOCInline";
 import { APILink } from "@site/src/components/APILink";
 import { Table } from "@site/src/components/Table";
@@ -17,7 +12,7 @@ You can also use the <APILink fn="mlflow.transformers.load_model" /> function to
 Model with the `transformers` flavor in the native transformers formats.
 
 This page explains the detailed features and configurations of the MLflow `transformers` flavor. For the general introduction about the MLflow's Transformer integration,
-please refer to the [MLflow Transformers Flavor](/llms/transformers) page.
+please refer to the [MLflow Transformers Flavor](/ml/deep-learning/transformers) page.
 
 <TOCInline toc={toc} maxHeadingLevel={2} />
 
@@ -25,7 +20,7 @@ please refer to the [MLflow Transformers Flavor](/llms/transformers) page.
 
 ### Supported Transformers Pipeline types
 
-The `transformers` [python_function (pyfunc) model flavor](/model#pyfunc-model-flavor) simplifies
+The `transformers` [python_function (pyfunc) model flavor](/ml/model#pyfunc-model-flavor) simplifies
 and standardizes both the inputs and outputs of pipeline inference. This conformity allows for serving
 and batch inference by coercing the data structures that are required for `transformers` inference pipelines
 to formats that are compatible with json serialization and casting to Pandas DataFrames.
@@ -40,18 +35,18 @@ If the pipeline type being saved does not inherit from _TextGenerationPipeline_,
 any modification to the output returned from pipeline inference.
 :::
 
-:::warning attention
-Not all `transformers` pipeline types are supported. See the table below for the list of currently supported Pipeline
-types that can be loaded as `pyfunc`.
-
 In the current version, audio and text-based large language
 models are supported for use with `pyfunc`, while computer vision, multi-modal, timeseries,
 reinforcement learning, and graph models are only supported for native type loading via <APILink fn="mlflow.transformers.load_model" />
 
+:::warning attention
+Not all `transformers` pipeline types are supported. See the table below for the list of currently supported Pipeline
+types that can be loaded as `pyfunc`.
+
 Future releases of MLflow will introduce `pyfunc` support for these additional types.
 :::
 
-The table below shows the mapping of `transformers` pipeline types to the [python_function (pyfunc) model flavor](/model#pyfunc-model-flavor)
+The table below shows the mapping of `transformers` pipeline types to the [python_function (pyfunc) model flavor](/ml/model#pyfunc-model-flavor)
 data type inputs and outputs.
 
 :::warning important
@@ -268,7 +263,7 @@ including it in a `model_config` dict in `log_model()`. See [this section](#usin
 for more details on how to do this.
 :::
 
-For a more in-depth guide, check out the [Prompt Templating notebook](/llms/transformers/tutorials/prompt-templating/prompt-templating/)!
+For a more in-depth guide, check out the [Prompt Templating notebook](/ml/deep-learning/transformers/tutorials/prompt-templating/prompt-templating/)!
 
 ## Using model_config and Model Signature Params for Inference \{#using-model-config-and-model-signature-params-for-inference}
 
@@ -691,7 +686,7 @@ If you need to override the default behavior of how data is encoded, please save
 :::
 
 :::note
-Overriding the data type for a pipeline when loading as a [python_function (pyfunc) model flavor](/model#pyfunc-model-flavor) is not supported.
+Overriding the data type for a pipeline when loading as a [python_function (pyfunc) model flavor](/ml/model#pyfunc-model-flavor) is not supported.
 The value set for `torch_dtype` during `save_model()` or `log_model()` will persist when loading as _pyfunc_.
 :::
 
@@ -702,7 +697,7 @@ In order to use the bitrate transposition and conversion of the audio bytes data
 Installing this package directly from pypi (_pip install ffmpeg_) does not install the underlying _c_ dll's that are required to make _ffmpeg_ function.
 Please consult with the documentation at [the ffmpeg website](https://ffmpeg.org/download.html) for guidance on your given operating system.
 
-The Audio Pipeline types, when loaded as a [python_function (pyfunc) model flavor](/model#pyfunc-model-flavor) have three input types available:
+The Audio Pipeline types, when loaded as a [python_function (pyfunc) model flavor](/ml/model#pyfunc-model-flavor) have three input types available:
 
 - `str`
 
@@ -763,7 +758,7 @@ With PEFT, you can easily apply various optimization techniques like LoRA and QL
 For example, [LoRA (Low-Rank Adaptation)](https://huggingface.co/docs/peft/main/en/conceptual_guides/lora) is a method that approximate the weight updates of fine-tuning
 process with two smaller matrices through low-rank decomposition. LoRA typically shrinks the number of parameters to train to only 0.01% ~ a few % of the full model fine-tuning
 (depending on the configuration), which significantly accelerates the fine-tuning process and reduces the memory footprint, such that you can even
-[train a Mistral/Llama2 7B model on a single Nvidia A10G GPU in an hour](/llms/transformers/tutorials/fine-tuning/transformers-peft/).
+[train a Mistral/Llama2 7B model on a single Nvidia A10G GPU in an hour](/ml/deep-learning/transformers/tutorials/fine-tuning/transformers-peft/).
 By using PEFT, you can apply LoRA to your Transformers model with only a few lines of code:
 
 ```python
@@ -808,7 +803,7 @@ loaded_model = mlflow.transformers.load_model(model_info.model_uri)
 
 ### PEFT Models in MLflow Tutorial
 
-Check out the tutorial [Fine-Tuning Open-Source LLM using QLoRA with MLflow and PEFT](/llms/transformers/tutorials/fine-tuning/transformers-peft/)
+Check out the tutorial [Fine-Tuning Open-Source LLM using QLoRA with MLflow and PEFT](/ml/deep-learning/transformers/tutorials/fine-tuning/transformers-peft/)
 for a more in-depth guide on how to use PEFT with MLflow,
 
 ### Format of Saved PEFT Model
@@ -824,9 +819,9 @@ the model metadata, so that it can load the same base model when loading the PEF
 
 ### Limitations of PEFT Models in MLflow
 
-Since the model saving/loading behavior for PEFT models is similar to that of `save_pretrained=False`, [the same caveats](/llms/transformers/large-models#caveats-of-save-pretrained) apply to PEFT models.
+Since the model saving/loading behavior for PEFT models is similar to that of `save_pretrained=False`, [the same caveats](/ml/deep-learning/transformers/large-models#caveats-of-save-pretrained) apply to PEFT models.
 For example, the base model weight may be deleted or become private in the HuggingFace Hub, and PEFT models cannot be registered to the legacy Databricks Workspace Model Registry.
 
 To save the base model weight for PEFT models, you can use the <APILink fn="mlflow.transformers.persist_pretrained_model" /> API.
 This will download the base model weight from the HuggingFace Hub and save it to the artifact location, updating the metadata of the given PEFT model.
-Please refer to [this section](/llms/transformers/large-models#persist-pretrained-guide) for the detailed usage of this API.
+Please refer to [this section](/ml/deep-learning/transformers/large-models#persist-pretrained-guide) for the detailed usage of this API.

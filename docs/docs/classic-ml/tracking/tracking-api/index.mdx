@@ -135,6 +135,28 @@ Ideal for custom training loops, advanced experimentation, or when you need prec
 | <APILink fn="mlflow.log_artifacts" /> | Log entire directory | `mlflow.log_artifacts("./plots/")` |
 | <APILink fn="mlflow.get_artifact_uri" /> | Get artifact storage location | `uri = mlflow.get_artifact_uri()` |
 
+### Model Management (New in MLflow 3)
+
+| Function | Purpose | Example |
+|----------|---------|---------|
+| <APILink fn="mlflow.initialize_logged_model" /> | Initialize a logged model in PENDING state | `model = mlflow.initialize_logged_model(name="my_model")` |
+| <APILink fn="mlflow.create_external_model" /> | Create external model (artifacts stored outside MLflow) | `model = mlflow.create_external_model(name="agent")` |
+| <APILink fn="mlflow.finalize_logged_model" /> | Update model status to READY or FAILED | `mlflow.finalize_logged_model(model_id, "READY")` |
+| <APILink fn="mlflow.get_logged_model" /> | Retrieve logged model by ID | `model = mlflow.get_logged_model(model_id)` |
+| <APILink fn="mlflow.last_logged_model" /> | Get most recently logged model | `model = mlflow.last_logged_model()` |
+| <APILink fn="mlflow.search_logged_models" /> | Search for logged models | `models = mlflow.search_logged_models(filter_string="name='my_model'")` |
+| <APILink fn="mlflow.log_model_params" /> | Log parameters to a specific model | `mlflow.log_model_params({"param": "value"}, model_id)` |
+| <APILink fn="mlflow.set_logged_model_tags" /> | Set tags on a logged model | `mlflow.set_logged_model_tags(model_id, {"key": "value"})` |
+| <APILink fn="mlflow.delete_logged_model_tag" /> | Delete tag from a logged model | `mlflow.delete_logged_model_tag(model_id, "key")` |
+
+### Active Model Management (New in MLflow 3)
+
+| Function | Purpose | Example |
+|----------|---------|---------|
+| <APILink fn="mlflow.set_active_model" /> | Set active model for trace linking | `mlflow.set_active_model(name="my_model")` |
+| <APILink fn="mlflow.get_active_model_id" /> | Get current active model ID | `model_id = mlflow.get_active_model_id()` |
+| <APILink fn="mlflow.clear_active_model" /> | Clear active model | `mlflow.clear_active_model()` |
+
 ### Language-Specific API Coverage
 
 <Table>
@@ -170,6 +192,13 @@ Ideal for custom training loops, advanced experimentation, or when you need prec
       <td>✅ Via Artifacts</td>
     </tr>
     <tr>
+      <td>**Logged Model Management**</td>
+      <td>✅ Full (MLflow 3)</td>
+      <td>❌ Not Available</td>
+      <td>❌ Not Available</td>
+      <td>✅ Basic</td>
+    </tr>
+    <tr>
       <td>**Dataset Tracking**</td>
       <td>✅ Full</td>
       <td>✅ Basic</td>
@@ -191,6 +220,106 @@ The Python API provides the most comprehensive feature set. Java and R APIs offe
 :::
 
 ## Advanced Tracking Patterns
+
+### Working with Logged Models (New in MLflow 3)
+
+MLflow 3 introduces powerful logged model management capabilities for tracking models independently of runs:
+
+#### Creating and Managing External Models
+
+For models stored outside MLflow (like deployed agents or external model artifacts):
+
+```python
+import mlflow
+
+# Create an external model for tracking without storing artifacts in MLflow
+model = mlflow.create_external_model(
+    name="chatbot_agent",
+    model_type="agent",
+    tags={"version": "v1.0", "environment": "production"},
+)
+
+# Log parameters specific to this model
+mlflow.log_model_params(
+    {"temperature": "0.7", "max_tokens": "1000"}, model_id=model.model_id
+)
+
+# Set as active model for automatic trace linking
+mlflow.set_active_model(model_id=model.model_id)
+
+
+@mlflow.trace
+def chat_with_agent(message):
+    # This trace will be automatically linked to the active model
+    return agent.chat(message)
+
+
+# Traces are now linked to your external model
+traces = mlflow.search_traces(model_id=model.model_id)
+```
+
+#### Advanced Model Lifecycle Management
+
+For models that require custom preparation or validation:
+
+```python
+import mlflow
+from mlflow.entities import LoggedModelStatus
+
+# Initialize model in PENDING state
+model = mlflow.initialize_logged_model(
+    name="custom_neural_network",
+    model_type="neural_network",
+    tags={"architecture": "transformer", "dataset": "custom"},
+)
+
+try:
+    # Custom model preparation logic
+    train_model()
+    validate_model()
+
+    # Save model artifacts using standard MLflow model logging
+    mlflow.pytorch.log_model(
+        pytorch_model=model_instance,
+        name="model",
+        model_id=model.model_id,  # Link to the logged model
+    )
+
+    # Finalize model as READY
+    mlflow.finalize_logged_model(model.model_id, LoggedModelStatus.READY)
+
+except Exception as e:
+    # Mark model as FAILED if issues occur
+    mlflow.finalize_logged_model(model.model_id, LoggedModelStatus.FAILED)
+    raise
+
+# Retrieve and work with the logged model
+final_model = mlflow.get_logged_model(model.model_id)
+print(f"Model {final_model.name} is {final_model.status}")
+```
+
+#### Searching and Querying Logged Models
+
+```python
+# Find all production-ready transformer models
+production_models = mlflow.search_logged_models(
+    filter_string="tags.environment = 'production' AND model_type = 'transformer'",
+    order_by=[{"field_name": "creation_time", "ascending": False}],
+    output_format="pandas",
+)
+
+# Search for models with specific performance metrics
+high_accuracy_models = mlflow.search_logged_models(
+    filter_string="metrics.accuracy > 0.95",
+    datasets=[{"dataset_name": "test_set"}],  # Only consider test set metrics
+    max_results=10,
+)
+
+# Get the most recently logged model in current session
+latest_model = mlflow.last_logged_model()
+if latest_model:
+    print(f"Latest model: {latest_model.name} (ID: {latest_model.model_id})")
+```
 
 ### Precise Metric Tracking
 
