@@ -18,7 +18,7 @@ from mlflow.genai.optimize.types import (
 )
 from mlflow.genai.scorers import Scorer
 from mlflow.tracking._model_registry.fluent import load_prompt
-from mlflow.tracking.fluent import log_param, log_params, log_table, start_run
+from mlflow.tracking.fluent import log_params, log_table, start_run
 from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
@@ -185,9 +185,12 @@ def _maybe_start_autolog(
             log_table(train_data, "train_data.json")
             if eval_data is not None:
                 log_table(eval_data, "eval_data.json")
-            log_param("prompt_uri", prompt.uri)
-            log_params({f"target_llm_params.{k}": v for k, v in asdict(target_llm_params).items()})
-            log_params({f"optimizer_config.{k}": v for k, v in asdict(optimizer_config).items()})
+            params = {
+                "prompt_uri": prompt.uri,
+                **{f"target_llm_params.{k}": v for k, v in asdict(target_llm_params).items()},
+                **{f"optimizer_config.{k}": v for k, v in asdict(optimizer_config).items()},
+            }
+            log_params(params)
             yield
     else:
         yield
