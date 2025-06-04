@@ -1397,6 +1397,8 @@ class UcModelRegistryStore(BaseRestStore):
         prompt_version_proto = ProtoPromptVersion()
         prompt_version_proto.name = name
         prompt_version_proto.template = template
+        # Note: version will be set by the backend when creating a new version
+        # We don't set it here as it's generated server-side
         if description:
             prompt_version_proto.description = description
         if tags:
