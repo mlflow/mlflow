@@ -340,11 +340,6 @@ def test_transformer_model_export(spark_model_transformer, model_path, spark_cus
 
 
 def test_model_deployment(spark_model_iris, model_path, spark_custom_env, monkeypatch):
-    monkeypatch.setenv(
-        "MLFLOW_DOCKER_OPENJDK_VERSION",
-        "17" if PYSPARK_VERSION > Version("3.4.1") else "11",
-    )
-
     mlflow.spark.save_model(
         spark_model_iris.model,
         path=model_path,
