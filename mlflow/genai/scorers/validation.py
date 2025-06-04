@@ -65,7 +65,7 @@ def validate_scorers(scorers: list[Any]) -> list[Scorer]:
             # Common mistake 3: scorers=[RetrievalRelevance, Correctness]
             elif isinstance(scorer, type) and issubclass(scorer, BuiltInScorer):
                 hint = (
-                    "\nHint: You looks like passing a scorer class instead of an instance. "
+                    "\nHint: It looks like you passed a scorer class instead of an instance. "
                     f"Correct way to pass scorers is `scorers=[{scorer.__name__}()]`."
                 )
             else:
@@ -86,38 +86,6 @@ def validate_scorers(scorers: list[Any]) -> list[Scorer]:
         )
 
     return valid_scorers
-
-
-def _get_helpful_error_message(scorer: Any) -> str:
-    if isinstance(scorer, list) and (scorer == get_all_scorers()):
-        # Common mistake 1: scorers=[get_all_scorers()]
-        if len(scorer) == 1:
-            hint = "\n\nHint: Use `scorers=get_all_scorers()` to pass all builtin scorers at once."
-        # Common mistake 2: scorers=[get_all_scorers(), scorer1, scorer2]
-        elif len(scorer) > 1:
-            hint = (
-                "\n\nHint: Use `scorers=[*get_all_scorers(), scorer1, scorer2]` to pass "
-                "all builtin scorers at once along with your custom scorers."
-            )
-    # Common mistake 3: scorers=[RetrievalRelevance, Correctness]
-    elif isinstance(scorer, type) and issubclass(scorer, BuiltInScorer):
-        hint = (
-            "\n\nHint: You looks like passing a scorer class instead of an instance. "
-            f"Correct way to pass scorers is `scorers=[{type(scorer).__name__}()]`."
-        )
-    else:
-        hint = ""
-
-    # Truncate the item string to 30 characters not to overwhelm the error message
-    scorer_str = str(scorer)[:30] + "..." if len(str(scorer)) > 30 else str(scorer)
-
-    raise MlflowException.invalid_parameter_value(
-        f"The `scorers` argument must be a list of scorers. The specified "
-        "list contains an item that is not a scorer.\n"
-        f" - Type of the invalid item: {type(scorer)}\n"
-        f" - Invalid item: {scorer_str}"
-        f"{hint}"
-    )
 
 
 def valid_data_for_builtin_scorers(
