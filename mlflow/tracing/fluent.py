@@ -16,6 +16,7 @@ from mlflow.entities import NoOpSpan, SpanType, Trace
 from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, LiveSpan, create_mlflow_span
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
+from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
@@ -948,7 +949,7 @@ def update_current_trace(
     client_request_id: Optional[str] = None,
     request_preview: Optional[str] = None,
     response_preview: Optional[str] = None,
-    status: Optional[Union[TraceStatus, str]] = None,
+    state: Optional[Union[TraceState, str]] = None,
 ):
     """
     Update the current active trace with the given options.
@@ -964,8 +965,8 @@ def update_current_trace(
         response_preview: A preview of the response to be shown in the Trace list view in the UI.
             By default, MLflow will truncate the trace response naively by limiting the length.
             This parameter allows you to specify a custom preview string.
-        status: The status to set on the trace. Can be a TraceStatus enum value or string.
-            Only "OK" and "ERROR" are allowed. This overrides the overall trace status without
+        state: The state to set on the trace. Can be a TraceState enum value or string.
+            Only "OK" and "ERROR" are allowed. This overrides the overall trace state without
             affecting the status of the current span.
 
     Example:
@@ -1071,25 +1072,25 @@ def update_current_trace(
             trace.info.request_preview = request_preview
         if response_preview:
             trace.info.response_preview = response_preview
-        if status is not None:
+        if state is not None:
 
-            def _invalid_status_error(value):
+            def _invalid_state_error(value):
                 return MlflowException.invalid_parameter_value(
-                    f"Status must be either 'OK' or 'ERROR', but got '{value}'."
+                    f"State must be either 'OK' or 'ERROR', but got '{value}'."
                 )
 
-            if isinstance(status, str):
+            if isinstance(state, str):
                 try:
-                    status = TraceStatus(status)
+                    state = TraceState(state)
                 except ValueError:
-                    raise _invalid_status_error(status)
-            elif not isinstance(status, TraceStatus):
-                raise _invalid_status_error(status)
+                    raise _invalid_state_error(state)
+            elif not isinstance(state, TraceState):
+                raise _invalid_state_error(state)
 
-            if status not in (TraceStatus.OK, TraceStatus.ERROR):
-                raise _invalid_status_error(status)
+            if state not in (TraceState.OK, TraceState.ERROR):
+                raise _invalid_state_error(state)
 
-            trace.info.status = status
+            trace.info.state = state
 
         trace.info.tags.update(tags or {})
         if client_request_id is not None:
