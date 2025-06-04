@@ -42,7 +42,7 @@ from mlflow.store.model_registry.sqlalchemy_store import (
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as SqlAlchemyTrackingStore
-from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.constant import TraceMetadataKey, TraceTagKey
 from mlflow.tracing.provider import _get_tracer, trace_disabled
 from mlflow.tracking import set_registry_uri
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
@@ -898,7 +898,15 @@ def test_set_and_delete_trace_tag_on_active_trace(monkeypatch):
 
 def test_set_trace_tag_on_logged_trace(mock_store):
     mlflow.tracking.MlflowClient().set_trace_tag("test", "foo", "bar")
-    mock_store.set_trace_tag.assert_called_once_with("test", "foo", "bar")
+    mlflow.tracking.MlflowClient().set_trace_tag("test", TraceTagKey.TRACE_USER, "user")
+    mlflow.tracking.MlflowClient().set_trace_tag("test", TraceTagKey.TRACE_SESSION, "123")
+    mock_store.set_trace_tag.assert_has_calls(
+        [
+            mock.call("test", "foo", "bar"),
+            mock.call("test", TraceTagKey.TRACE_USER, "user"),
+            mock.call("test", TraceTagKey.TRACE_SESSION, "123"),
+        ]
+    )
 
 
 def test_delete_trace_tag_on_active_trace(monkeypatch):

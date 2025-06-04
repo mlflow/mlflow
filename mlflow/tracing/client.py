@@ -419,13 +419,6 @@ class TracingClient:
             value: The string value of the tag. Must be at most 250 characters long, otherwise
                 it will be truncated when stored.
         """
-        if key.startswith("mlflow."):
-            raise MlflowException(
-                f"Tags starting with 'mlflow.' are reserved and cannot be set. "
-                f"Attempted to set tag with key '{key}' on trace with ID '{request_id}'.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-
         if not isinstance(value, str):
             _logger.warning(
                 "Received non-string value for trace tag. Please note that non-string tag values"
