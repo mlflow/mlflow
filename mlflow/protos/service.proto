@@ -1600,32 +1600,6 @@ message GetExperimentByName {
   }
 }
 
-message AssessmentSource {
-  // Type of the assessment source.
-  enum SourceType {
-    SOURCE_TYPE_UNSPECIFIED = 0;
-    // Assessment from a human.
-    HUMAN = 1;
-    // Assessment from an LLM Judge.
-    LLM_JUDGE = 2;
-    // Code-based assessment, (e.g. Python UDF).
-    CODE = 3;
-  }
-  // The type of the source.
-  optional SourceType source_type = 1 [(validate_required) = true];
-
-  // Identifier for the source.
-  // Example: For human -> user name; for LLM judge -> judge source (databricks or custom); for code -> empty.
-  optional string source_id = 2 [(validate_required) = true];
-}
-
-message AssessmentError {
-  // Value of an assessment when an error has occurred.
-  optional string error_code = 1;
-
-  optional string error_message = 2;
-}
-
 message CreateAssessment {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
