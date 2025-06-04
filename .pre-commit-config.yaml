@@ -49,19 +49,11 @@ repos:
         stages: [pre-commit]
         require_serial: true
 
-      - id: check-notebooks
-        name: check-notebooks
-        entry: dev/check-notebooks.sh
-        language: system
-        files: '\.ipynb$'
-        stages: [pre-commit]
-        require_serial: true
-
-      - id: custom-python-lint
-        name: custom-python-lint
+      - id: clint
+        name: clint
         entry: clint
         language: system
-        files: '\.(py|ipynb)$'
+        files: '\.(py|ipynb|rst|mdx?)$'
         stages: [pre-commit]
         require_serial: true
 
@@ -151,7 +143,8 @@ repos:
       - id: conftest
         name: conftest
         entry: conftest test --policy .github/policy.rego
-        files: '^\.github/workflows/.*\.yml$'
+        files: '^\.github/(workflows|actions)/.*\.ya?ml$'
+        exclude: '^\.github/workflows/copilot-setup-steps\.yml$'
         language: system
         stages: [pre-commit]
         require_serial: true

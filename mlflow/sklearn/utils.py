@@ -13,6 +13,9 @@ import numpy as np
 from packaging.version import Version
 
 from mlflow import MlflowClient
+from mlflow.entities.dataset_input import DatasetInput
+from mlflow.entities.input_tag import InputTag
+from mlflow.tracking.fluent import MLFLOW_DATASET_CONTEXT
 from mlflow.utils.arguments_utils import _get_arg_names
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
@@ -849,6 +852,11 @@ def _create_child_runs_for_parameter_search(  # noqa: D417
         # Log how many child runs will be created vs omitted.
         _log_child_runs_info(max_tuning_runs, len(cv_results_df))
 
+    datasets = [
+        DatasetInput(
+            dataset._to_mlflow_entity(), tags=[InputTag(key=MLFLOW_DATASET_CONTEXT, value="train")]
+        )
+    ]
     for _, result_row in cv_results_best_n_df.iterrows():
         tags_to_log = dict(child_tags) if child_tags else {}
         tags_to_log.update({MLFLOW_PARENT_RUN_ID: parent_run.info.run_id})
@@ -892,7 +900,7 @@ def _create_child_runs_for_parameter_search(  # noqa: D417
             dataset=dataset,
             model_id=model_id,
         )
-
+        autologging_client.log_inputs(run_id=pending_child_run_id, datasets=datasets)
         autologging_client.set_terminated(run_id=pending_child_run_id, end_time=child_run_end_time)
 
 

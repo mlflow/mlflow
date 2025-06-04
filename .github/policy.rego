@@ -42,6 +42,13 @@ deny_jobs_without_timeout[msg] {
         [concat(", ", jobs_without_timeout)])
 }
 
+deny_unpinned_actions[msg] {
+    unpinned_actions := get_unpinned_actions(input)
+    count(unpinned_actions) > 0
+    msg := sprintf("The following actions are not pinned by full commit SHA: %s. Use the full commit SHA instead (e.g., actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683).",
+        [concat(", ", unpinned_actions)])
+}
+
 ###########################   RULE HELPERS   ##################################
 get_jobs_without_permissions(jobs) = jobs_without_permissions {
     jobs_without_permissions := { job_id |
@@ -54,5 +61,31 @@ get_jobs_without_timeout(jobs) = jobs_without_timeout {
     jobs_without_timeout := { job_id |
         job := jobs[job_id]
         not job["timeout-minutes"]
+    }
+}
+
+is_step_unpinned(step) {
+    step["uses"]
+    not startswith(step["uses"], "./")
+    not regex.match("^[^@]+@[0-9a-f]{40}$", step["uses"])
+}
+
+get_unpinned_actions(inp) = unpinned_actions {
+    # For workflow files with jobs
+    inp.jobs
+    all_steps := [ step | job := inp.jobs[_]; step := job.steps[_] ]
+    unpinned_actions := { step["uses"] |
+        step := all_steps[_]
+        is_step_unpinned(step)
+    }
+}
+
+get_unpinned_actions(inp) = unpinned_actions {
+    # For composite action files with runs
+    inp.runs.steps
+    not inp.jobs
+    unpinned_actions := { step["uses"] |
+        step := inp.runs.steps[_]
+        is_step_unpinned(step)
     }
 }

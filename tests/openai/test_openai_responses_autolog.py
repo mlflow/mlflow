@@ -6,7 +6,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow.entities.span import SpanType
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 
 from tests.tracing.helper import get_traces
 
@@ -69,6 +69,13 @@ async def test_responses_autolog(client, _input):
         {"role": "user", "content": "Hello"},
         {"role": "assistant", "content": [{"type": "text", "text": "Dummy output"}]},
     ]
+
+    # Token usage should be aggregated correctly
+    assert traces[0].info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 36,
+        TokenUsageKey.OUTPUT_TOKENS: 87,
+        TokenUsageKey.TOTAL_TOKENS: 123,
+    }
 
 
 @pytest.mark.asyncio
@@ -440,3 +447,10 @@ async def test_responses_stream_autolog(client):
         {"role": "user", "content": "Hello"},
         {"role": "assistant", "content": [{"type": "text", "text": "Dummy output"}]},
     ]
+
+    # Token usage should be aggregated correctly
+    assert traces[0].info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 36,
+        TokenUsageKey.OUTPUT_TOKENS: 87,
+        TokenUsageKey.TOTAL_TOKENS: 123,
+    }

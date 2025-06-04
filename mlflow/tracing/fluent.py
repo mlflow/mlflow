@@ -16,6 +16,7 @@ from mlflow.entities import NoOpSpan, SpanType, Trace
 from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, LiveSpan, create_mlflow_span
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
+from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
@@ -124,6 +125,10 @@ def trace(
           - ✅ (>= 2.20.2)
         * - Async Generator
           - ✅ (>= 2.20.2)
+        * - ClassMethod
+          - ✅ (>= 3.0.0)
+        * - StaticMethod
+          - ✅ (>= 3.0.0)
 
     For more examples of using the @mlflow.trace decorator, including streaming/async
     handling, see the `MLflow Tracing documentation <https://www.mlflow.org/docs/latest/tracing/api/manual-instrumentation#decorator>`_.
@@ -156,14 +161,36 @@ def trace(
     """
 
     def decorator(fn):
-        if inspect.isgeneratorfunction(fn) or inspect.isasyncgenfunction(fn):
-            return _wrap_generator(fn, name, span_type, attributes, output_reducer)
+        # Check if the function is a classmethod or staticmethod
+        is_classmethod = isinstance(fn, classmethod)
+        is_staticmethod = isinstance(fn, staticmethod)
+
+        # Extract the original function if it's a descriptor
+        original_fn = fn.__func__ if is_classmethod or is_staticmethod else fn
+
+        # Apply the appropriate wrapper to the original function
+        if inspect.isgeneratorfunction(original_fn) or inspect.isasyncgenfunction(original_fn):
+            wrapped = _wrap_generator(
+                original_fn,
+                name,
+                span_type,
+                attributes,
+                output_reducer,
+            )
         else:
             if output_reducer is not None:
                 raise MlflowException.invalid_parameter_value(
                     "The output_reducer argument is only supported for generator functions."
                 )
-            return _wrap_function(fn, name, span_type, attributes)
+            wrapped = _wrap_function(original_fn, name, span_type, attributes)
+
+        # If the original was a descriptor, wrap the result back as the same type of descriptor
+        if is_classmethod:
+            return classmethod(wrapped)
+        elif is_staticmethod:
+            return staticmethod(wrapped)
+        else:
+            return wrapped
 
     return decorator(func) if func else decorator
 
@@ -835,9 +862,40 @@ def get_current_active_span() -> Optional[LiveSpan]:
     return trace_manager.get_span_from_id(request_id, encode_span_id(otel_span.context.span_id))
 
 
+def get_active_trace_id() -> Optional[str]:
+    """
+    Get the active trace ID in the current process.
+
+    This function is thread-safe.
+
+    Example:
+
+    .. code-block:: python
+        :test:
+
+        import mlflow
+
+
+        @mlflow.trace
+        def f():
+            trace_id = mlflow.get_active_trace_id()
+            print(trace_id)
+
+
+        f()
+
+    Returns:
+        The ID of the current active trace if exists, otherwise None.
+    """
+    active_span = get_current_active_span()
+    if active_span:
+        return active_span.trace_id
+    return None
+
+
 def get_last_active_trace_id(thread_local: bool = False) -> Optional[str]:
     """
-    Get the last active trace in the same process if exists.
+    Get the **LAST** active trace in the same process if exists.
 
     .. warning::
 
@@ -888,29 +946,85 @@ def _set_last_active_trace_id(trace_id: str):
 
 def update_current_trace(
     tags: Optional[dict[str, str]] = None,
+    client_request_id: Optional[str] = None,
+    request_preview: Optional[str] = None,
+    response_preview: Optional[str] = None,
+    state: Optional[Union[TraceState, str]] = None,
 ):
     """
-    Update the current active trace with the given tags.
+    Update the current active trace with the given options.
 
-    You can use this function either within a function decorated with `@mlflow.trace` or within the
-    scope of the `with mlflow.start_span` context manager. If there is no active trace found, this
-    function will raise an exception.
+    Args:
+        tags: A dictionary of tags to update the trace with.
+        client_request_id: Client supplied request ID to associate with the trace. This is
+            useful for linking the trace back to a specific request in your application or
+            external system. If None, the client request ID is not updated.
+        request_preview: A preview of the request to be shown in the Trace list view in the UI.
+            By default, MLflow will truncate the trace request naively by limiting the length.
+            This parameter allows you to specify a custom preview string.
+        response_preview: A preview of the response to be shown in the Trace list view in the UI.
+            By default, MLflow will truncate the trace response naively by limiting the length.
+            This parameter allows you to specify a custom preview string.
+        state: The state to set on the trace. Can be a TraceState enum value or string.
+            Only "OK" and "ERROR" are allowed. This overrides the overall trace state without
+            affecting the status of the current span.
 
-    Using within a function decorated with `@mlflow.trace`:
+    Example:
 
-    .. code-block:: python
+        You can use this function either within a function decorated with ``@mlflow.trace`` or
+        within the scope of the `with mlflow.start_span` context manager. If there is no active
+        trace found, this function will raise an exception.
 
-        @mlflow.trace
-        def my_func(x):
-            mlflow.update_current_trace(tags={"fruit": "apple"})
-            return x + 1
+        Using within a function decorated with `@mlflow.trace`:
 
-    Using within the `with mlflow.start_span` context manager:
+        .. code-block:: python
 
-    .. code-block:: python
+            @mlflow.trace
+            def my_func(x):
+                mlflow.update_current_trace(tags={"fruit": "apple"}, client_request_id="req-12345")
+                return x + 1
 
-        with mlflow.start_span("span"):
-            mlflow.update_current_trace(tags={"fruit": "apple"})
+        Using within the ``with mlflow.start_span`` context manager:
+
+        .. code-block:: python
+
+            with mlflow.start_span("span"):
+                mlflow.update_current_trace(tags={"fruit": "apple"}, client_request_id="req-12345")
+
+        Updating request preview:
+
+        .. code-block:: python
+
+            import mlflow
+            import openai
+
+
+            @mlflow.trace
+            def predict(messages: list[dict]) -> str:
+                # Customize the request preview to show the first and last messages
+                custom_preview = f"{messages[0]['content'][:10]} ... {messages[-1]['content'][:10]}"
+                mlflow.update_current_trace(request_preview=custom_preview)
+
+                # Call the model
+                response = openai.chat.completions.create(
+                    model="o4-mini",
+                    messages=messages,
+                )
+
+                return response.choices[0].message.content
+
+
+            messages = [
+                {"role": "user", "content": "Hi, how are you?"},
+                {"role": "assistant", "content": "I'm good, thank you!"},
+                {"role": "user", "content": "What's your name?"},
+                # ... (long message history)
+                {"role": "assistant", "content": "Bye!"},
+            ]
+            predict(messages)
+
+            # The request preview rendered in the UI will be:
+            #     "Hi, how are you? ... Bye!"
 
     """
     active_span = get_current_active_span()
@@ -937,12 +1051,42 @@ def update_current_trace(
                 f"Non-string items: {non_string_items}"
             )
 
-    # Update tags for the trace stored in-memory rather than directly updating the
+    # Update tags and client request ID for the trace stored in-memory rather than directly
+    # updating the backend store. The in-memory trace will be exported when it is ended.
+    # By doing this, we can avoid unnecessary server requests for each tag update.
+    if request_preview is not None and not isinstance(request_preview, str):
+        raise MlflowException.invalid_parameter_value(
+            "The `request_preview` parameter must be a string."
+        )
+    if response_preview is not None and not isinstance(response_preview, str):
+        raise MlflowException.invalid_parameter_value(
+            "The `response_preview` parameter must be a string."
+        )
+
+    # Update trace info for the trace stored in-memory rather than directly updating the
     # backend store. The in-memory trace will be exported when it is ended. By doing
     # this, we can avoid unnecessary server requests for each tag update.
     request_id = active_span.request_id
     with InMemoryTraceManager.get_instance().get_trace(request_id) as trace:
+        if request_preview:
+            trace.info.request_preview = request_preview
+        if response_preview:
+            trace.info.response_preview = response_preview
+        if state is not None:
+
+            def _invalid_state_error(value):
+                return MlflowException.invalid_parameter_value(
+                    f"State must be either 'OK' or 'ERROR', but got '{value}'."
+                )
+
+            if state not in (TraceState.OK, TraceState.ERROR):
+                raise _invalid_state_error(state)
+
+            trace.info.state = state
+
         trace.info.tags.update(tags or {})
+        if client_request_id is not None:
+            trace.info.client_request_id = str(client_request_id)
 
 
 @request_id_backward_compatible
@@ -1242,7 +1386,7 @@ def _merge_trace(
         # Order of merging is important to ensure the parent trace's metadata is
         # not overwritten by the child trace's metadata if they have the same key.
         parent_trace.info.tags = {**trace.info.tags, **parent_trace.info.tags}
-        parent_trace.info.request_metadata = {
+        parent_trace.info.trace_metadata = {
             **trace.info.request_metadata,
-            **parent_trace.info.request_metadata,
+            **parent_trace.info.trace_metadata,
         }

@@ -82,6 +82,7 @@ def test_trace_info():
                 },
                 "rationale": "Rationale text",
                 "metadata": {"key1": "value1"},
+                "valid": True,
             },
             {
                 "assessment_name": "expectation_test",

@@ -3323,6 +3323,10 @@
     "defaultMessage": "Stage (deprecated)",
     "description": "Label name for the deprecated stage metadata in model version page"
   },
+  "pcNJvo": {
+    "defaultMessage": "You're viewing artifacts assigned to a <link>logged model</link> associated with this run.",
+    "description": "Alert message to inform the user that they are viewing artifacts assigned to a logged model associated with this run."
+  },
   "peyOdH": {
     "defaultMessage": "Cancel",
     "description": "Text for canceling changes on rows in editable form table in MLflow"

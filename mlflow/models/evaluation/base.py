@@ -671,6 +671,13 @@ class EvaluationResult:
         return self._artifacts
 
     @property
+    def run_id(self) -> str:
+        """
+        The ID of the MLflow Run to which the evaluation results were logged.
+        """
+        return self._run_id
+
+    @property
     def tables(self) -> dict[str, "pd.DataFrame"]:
         """
         A dictionary mapping standardized artifact names (e.g. "eval_results_table") to
@@ -1261,6 +1268,8 @@ def evaluate(  # noqa: D417
      - The available ``evaluator_config`` options for the default evaluator include:
         - **log_model_explainability**: A boolean value specifying whether or not to log model
           explainability insights, default value is True.
+        - **log_explainer**: If True, log the explainer used to compute model explainability
+            insights as a model. Default value is False.
         - **explainability_algorithm**: A string to specify the SHAP Explainer algorithm for model
           explainability. Supported algorithm includes: 'exact', 'permutation', 'partition',
           'kernel'.
