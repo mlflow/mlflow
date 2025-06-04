@@ -1072,7 +1072,7 @@ def update_current_trace(
         if response_preview:
             trace.info.response_preview = response_preview
         if status is not None:
-            # Define error message once
+
             def _invalid_status_error(value):
                 return MlflowException.invalid_parameter_value(
                     f"Status must be either 'OK' or 'ERROR', but got '{value}'."
