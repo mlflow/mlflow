@@ -4,6 +4,7 @@ import pandas as pd
 import pytest
 
 import mlflow
+from mlflow.exceptions import MlflowException
 from mlflow.genai.evaluation.utils import _convert_to_legacy_eval_set
 from mlflow.genai.scorers.base import Scorer, scorer
 from mlflow.genai.scorers.builtin_scorers import (
@@ -13,6 +14,7 @@ from mlflow.genai.scorers.builtin_scorers import (
     RetrievalGroundedness,
     RetrievalRelevance,
     RetrievalSufficiency,
+    get_all_scorers,
 )
 from mlflow.genai.scorers.validation import valid_data_for_builtin_scorers, validate_scorers
 
@@ -58,6 +60,32 @@ def test_validate_scorers_legacy_metric():
     assert len(scorers) == 2
     mock_logger.warning.assert_called_once()
     assert "legacy_metric_1" in mock_logger.warning.call_args[0][0]
+
+
+def test_validate_scorers_invalid_all_scorers():
+    with pytest.raises(MlflowException, match="The `scorers` argument must be a list") as e:
+        validate_scorers([1, 2, 3])
+    assert "an invalid item with type: int" in str(e.value)
+
+    # Special case 1: List of list of all scorers
+    with pytest.raises(MlflowException, match="The `scorers` argument must be a list") as e:
+        validate_scorers([get_all_scorers()])
+
+    assert "an invalid item with type: list" in str(e.value)
+    assert "Hint: Use `scorers=get_all_scorers()` to pass all" in str(e.value)
+
+    # Special case 2: List of list of all scorers + custom scorers
+    with pytest.raises(MlflowException, match="The `scorers` argument must be a list") as e:
+        validate_scorers([get_all_scorers(), RetrievalRelevance(), Correctness()])
+
+    assert "an invalid item with type: list" in str(e.value)
+    assert "Hint: Use `scorers=[*get_all_scorers(), scorer1, scorer2]` to pass all" in str(e.value)
+
+    # Special case 3: List of classes (not instances)
+    with pytest.raises(MlflowException, match="The `scorers` argument must be a list") as e:
+        validate_scorers([RetrievalRelevance])
+
+    assert "Correct way to pass scorers is `scorers=[RetrievalRelevance()]`." in str(e.value)
 
 
 def test_validate_data(mock_logger, sample_rag_trace):
