@@ -68,6 +68,11 @@ class Assessment(_MlflowObject):
     # use the`Expectation` or `Feedback` classes instead.
     expectation: Optional[ExpectationValue] = None
     feedback: Optional[FeedbackValue] = None
+    # The ID of the assessment which this assessment overrides.
+    overrides: Optional[str] = None
+    # Whether this assessment is valid (i.e. has not been overridden).
+    # This should not be set by the user, it is automatically set by the backend.
+    valid: Optional[bool] = None
 
     def __post_init__(self):
         if (self.expectation is not None) + (self.feedback is not None) != 1:
@@ -125,6 +130,10 @@ class Assessment(_MlflowObject):
 
         if self.metadata:
             assessment.metadata.update(self.metadata)
+        if self.overrides:
+            assessment.overrides = self.overrides
+        if self.valid is not None:
+            assessment.valid = self.valid
 
         return assessment
 
@@ -222,6 +231,8 @@ class Feedback(Assessment):
         create_time_ms: Optional[int] = None,
         last_update_time_ms: Optional[int] = None,
         rationale: Optional[str] = None,
+        overrides: Optional[str] = None,
+        valid: bool = True,
     ):
         if value is None and error is None:
             raise MlflowException.invalid_parameter_value(
@@ -252,6 +263,8 @@ class Feedback(Assessment):
             last_update_time_ms=last_update_time_ms,
             feedback=FeedbackValue(value=value, error=error),
             rationale=rationale,
+            overrides=overrides,
+            valid=valid,
         )
 
         self.value = value
@@ -273,12 +286,14 @@ class Feedback(Assessment):
             rationale=proto.rationale or None,
             metadata=metadata,
             span_id=proto.span_id or None,
+            overrides=proto.overrides or None,
+            valid=proto.valid,
         )
         feedback.assessment_id = proto.assessment_id or None
         return feedback
 
     @classmethod
-    def from_dictionary(cls, d: dict[str, Any]) -> "Expectation":
+    def from_dictionary(cls, d: dict[str, Any]) -> "Feedback":
         feedback_value = d.get("feedback")
 
         if not feedback_value:
@@ -299,6 +314,8 @@ class Feedback(Assessment):
             rationale=d.get("rationale"),
             metadata=d.get("metadata"),
             span_id=d.get("span_id"),
+            overrides=d.get("overrides"),
+            valid=d.get("valid", True),
         )
         feedback.assessment_id = d.get("assessment_id") or None
         return feedback

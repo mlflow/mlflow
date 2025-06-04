@@ -3,8 +3,12 @@ from collections import defaultdict
 from typing import Any, Callable, Optional
 
 from mlflow.exceptions import MlflowException
-from mlflow.genai.scorers.base import BuiltInScorer, Scorer
-from mlflow.genai.scorers.builtin_scorers import MissingColumnsException
+from mlflow.genai.scorers.base import Scorer
+from mlflow.genai.scorers.builtin_scorers import (
+    BuiltInScorer,
+    MissingColumnsException,
+    get_all_scorers,
+)
 
 try:
     # `pandas` is not required for `mlflow-skinny`.
@@ -15,16 +19,15 @@ except ImportError:
 _logger = logging.getLogger(__name__)
 
 
-def validate_scorers(scorers: list[Any]) -> tuple[list[BuiltInScorer], list[Scorer]]:
+def validate_scorers(scorers: list[Any]) -> list[Scorer]:
     """
-    Validate a list of specified scorers and split them into
-    a tuple of builtin scorers and custom scorers.
+    Validate a list of specified scorers.
 
     Args:
         scorers: A list of scorers to validate.
 
     Returns:
-        A tuple of builtin scorers and custom scorers.
+        A list of valid scorers.
     """
     from databricks.rag_eval.evaluation.metrics import Metric
 
@@ -36,22 +39,42 @@ def validate_scorers(scorers: list[Any]) -> tuple[list[BuiltInScorer], list[Scor
             "available built-in scorers."
         )
 
-    builtin_scorers = []
-    custom_scorers = []
-    legacy_metrics = []
+    valid_scorers, legacy_metrics = [], []
 
     for scorer in scorers:
-        if isinstance(scorer, BuiltInScorer):
-            builtin_scorers.append(scorer)
-        elif isinstance(scorer, Scorer):
-            custom_scorers.append(scorer)
+        if isinstance(scorer, Scorer):
+            valid_scorers.append(scorer)
         elif isinstance(scorer, Metric):
             legacy_metrics.append(scorer)
-            custom_scorers.append(scorer)
+            valid_scorers.append(scorer)
         else:
+            # Show helpful error message for common mistakes
+            if isinstance(scorer, list) and (scorer == get_all_scorers()):
+                # Common mistake 1: scorers=[get_all_scorers()]
+                if len(scorers) == 1:
+                    hint = (
+                        "\nHint: Use `scorers=get_all_scorers()` to pass all "
+                        "builtin scorers at once."
+                    )
+                # Common mistake 2: scorers=[get_all_scorers(), scorer1, scorer2]
+                elif len(scorer) > 1:
+                    hint = (
+                        "\nHint: Use `scorers=[*get_all_scorers(), scorer1, scorer2]` to pass "
+                        "all builtin scorers at once along with your custom scorers."
+                    )
+            # Common mistake 3: scorers=[RetrievalRelevance, Correctness]
+            elif isinstance(scorer, type) and issubclass(scorer, BuiltInScorer):
+                hint = (
+                    "\nHint: It looks like you passed a scorer class instead of an instance. "
+                    f"Correct way to pass scorers is `scorers=[{scorer.__name__}()]`."
+                )
+            else:
+                hint = ""
+
             raise MlflowException.invalid_parameter_value(
-                f"Scorer {scorer} is not a valid scorer. Please use the @scorer decorator "
-                "to convert a function into a scorer or inherit from the Scorer class"
+                f"The `scorers` argument must be a list of scorers. The specified "
+                f"list contains an invalid item with type: {type(scorer).__name__}."
+                f"{hint}"
             )
 
     if legacy_metrics:
@@ -62,7 +85,7 @@ def validate_scorers(scorers: list[Any]) -> tuple[list[BuiltInScorer], list[Scor
             "or custom scorers defined with the @scorer decorator instead."
         )
 
-    return builtin_scorers, custom_scorers
+    return valid_scorers
 
 
 def valid_data_for_builtin_scorers(
@@ -99,13 +122,8 @@ def valid_data_for_builtin_scorers(
         # Inputs and outputs are inferred from the trace.
         input_columns |= {"inputs", "outputs"}
 
-    if predict_fn is not None or "trace" in input_columns:
-        # NB: The retrieved_context is only inferred when a trace contains a retriever span,
-        #     however, it is not impractical to check all traces and see if any of them
-        #     contains a retriever span (it is valid case that some trace misses a retriever
-        #     span). Therefore, we don't rigorously check the retrieved_context presence for
-        #     traces and let scorers handle the missing retrieved_context gracefully.
-        input_columns |= {"retrieved_context"}
+    if predict_fn is not None:
+        input_columns |= {"trace"}
 
     # Explode keys in the "expectations" column for easier processing.
     if "expectations" in input_columns:

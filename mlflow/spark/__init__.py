@@ -56,7 +56,6 @@ from mlflow.utils.environment import (
     _validate_env_arguments,
 )
 from mlflow.utils.file_utils import (
-    TempDir,
     get_total_file_size,
     shutil_copytree_without_file_permissions,
     write_to,
@@ -72,7 +71,6 @@ from mlflow.utils.uri import (
     generate_tmp_dfs_path,
     get_databricks_profile_uri_from_artifact_uri,
     is_databricks_acled_artifacts_uri,
-    is_local_uri,
     is_valid_dbfs_uri,
 )
 
@@ -288,125 +286,29 @@ def log_model(
     _validate_model(spark_model)
     from pyspark.ml import PipelineModel
 
-    if name is not None and artifact_path is not None:
-        raise MlflowException.invalid_parameter_value(
-            "Both `artifact_path` (deprecated) and `name` parameters were specified. "
-            "Please only specify `name`."
-        )
-    elif artifact_path is not None:
-        _logger.warning("`artifact_path` is deprecated. Please use `name` instead.")
-        name = artifact_path
-        # to avoid another warning in Model.log
-        artifact_path = None
-
-    if _is_spark_connect_model(spark_model):
-        return Model.log(
-            artifact_path=artifact_path,
-            name=name,
-            flavor=mlflow.spark,
-            spark_model=spark_model,
-            conda_env=conda_env,
-            code_paths=code_paths,
-            registered_model_name=registered_model_name,
-            signature=signature,
-            input_example=input_example,
-            await_registration_for=await_registration_for,
-            pip_requirements=pip_requirements,
-            extra_pip_requirements=extra_pip_requirements,
-            metadata=metadata,
-            params=params,
-            tags=tags,
-            model_type=model_type,
-            step=step,
-            model_id=model_id,
-        )
-
-    if not isinstance(spark_model, PipelineModel):
+    if not (_is_spark_connect_model(spark_model) or isinstance(spark_model, PipelineModel)):
         spark_model = PipelineModel([spark_model])
-    run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
-    run_root_artifact_uri = mlflow.get_artifact_uri()
-    remote_model_path = None
-    if _should_use_mlflowdbfs(run_root_artifact_uri):
-        remote_model_path = append_to_uri_path(run_root_artifact_uri, name, _SPARK_MODEL_PATH_SUB)
-        mlflowdbfs_path = _mlflowdbfs_path(run_id, name)
-        with databricks_utils.MlflowCredentialContext(
-            get_databricks_profile_uri_from_artifact_uri(run_root_artifact_uri)
-        ):
-            try:
-                spark_model.save(mlflowdbfs_path)
-            except Exception as e:
-                raise MlflowException("failed to save spark model via mlflowdbfs") from e
 
-    # If the artifact URI is a local filesystem path, defer to Model.log() to persist the model,
-    # since Spark may not be able to write directly to the driver's filesystem. For example,
-    # writing to `file:/uri` will write to the local filesystem from each executor, which will
-    # be incorrect on multi-node clusters.
-    # If the artifact URI is not a local filesystem path we attempt to write directly to the
-    # artifact repo via Spark. If this fails, we defer to Model.log().
-    elif (
-        is_local_uri(run_root_artifact_uri)
-        or databricks_utils.is_in_databricks_serverless_runtime()
-        or databricks_utils.is_in_databricks_shared_cluster_runtime()
-        or not _maybe_save_model(
-            spark_model,
-            append_to_uri_path(run_root_artifact_uri, name),
-        )
-    ):
-        dfs_tmpdir = dfs_tmpdir or MLFLOW_DFS_TMP.get()
-        _check_databricks_uc_volume_tmpdir_availability(dfs_tmpdir)
-        return Model.log(
-            artifact_path=artifact_path,
-            name=name,
-            flavor=mlflow.spark,
-            spark_model=spark_model,
-            conda_env=conda_env,
-            code_paths=code_paths,
-            dfs_tmpdir=dfs_tmpdir,
-            registered_model_name=registered_model_name,
-            signature=signature,
-            input_example=input_example,
-            await_registration_for=await_registration_for,
-            pip_requirements=pip_requirements,
-            extra_pip_requirements=extra_pip_requirements,
-            metadata=metadata,
-            params=params,
-            tags=tags,
-            model_type=model_type,
-            step=step,
-            model_id=model_id,
-        )
-    # Otherwise, override the default model log behavior and save model directly to artifact repo
-    logged_model = mlflow.initialize_logged_model(
+    return Model.log(
+        artifact_path=artifact_path,
         name=name,
-        source_run_id=run.info.run_id if (run := mlflow.active_run()) else None,
-        model_type=model_type,
+        flavor=mlflow.spark,
+        spark_model=spark_model,
+        conda_env=conda_env,
+        code_paths=code_paths,
+        registered_model_name=registered_model_name,
+        signature=signature,
+        input_example=input_example,
+        await_registration_for=await_registration_for,
+        pip_requirements=pip_requirements,
+        extra_pip_requirements=extra_pip_requirements,
+        metadata=metadata,
         params=params,
         tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
     )
-    mlflow_model = Model(artifact_path=logged_model.artifact_location, run_id=run_id)
-    with TempDir() as tmp:
-        tmp_model_metadata_dir = tmp.path()
-        _save_model_metadata(
-            tmp_model_metadata_dir,
-            spark_model,
-            mlflow_model,
-            conda_env,
-            code_paths,
-            signature=signature,
-            input_example=input_example,
-            pip_requirements=pip_requirements,
-            extra_pip_requirements=extra_pip_requirements,
-            remote_model_path=remote_model_path,
-        )
-        mlflow.tracking.fluent.log_artifacts(tmp_model_metadata_dir, name)
-        mlflow.tracking.fluent._record_logged_model(mlflow_model)
-        if registered_model_name is not None:
-            mlflow.register_model(
-                f"models:/{logged_model.model_id}",
-                registered_model_name,
-                await_registration_for,
-            )
-        return mlflow_model.get_model_info()
 
 
 def _mlflowdbfs_path(run_id, artifact_path):

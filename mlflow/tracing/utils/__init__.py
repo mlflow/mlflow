@@ -37,7 +37,6 @@ if TYPE_CHECKING:
 
 def capture_function_input_args(func, args, kwargs) -> Optional[dict[str, Any]]:
     try:
-        # Avoid capturing `self`
         func_signature = inspect.signature(func)
         bound_arguments = func_signature.bind(*args, **kwargs)
         bound_arguments.apply_defaults()
@@ -45,6 +44,12 @@ def capture_function_input_args(func, args, kwargs) -> Optional[dict[str, Any]]:
         # Remove `self` from bound arguments if it exists
         if bound_arguments.arguments.get("self"):
             del bound_arguments.arguments["self"]
+
+        # Remove `cls` from bound arguments if it's the first parameter and it's a type
+        # This detects classmethods more reliably
+        params = list(bound_arguments.arguments.keys())
+        if params and params[0] == "cls" and isinstance(bound_arguments.arguments["cls"], type):
+            del bound_arguments.arguments["cls"]
 
         return bound_arguments.arguments
     except Exception:
@@ -118,7 +123,8 @@ class TraceJSONEncoder(json.JSONEncoder):
             from llama_index.core.chat_engine.types import StreamingAgentChatResponse
 
             if isinstance(
-                obj, (AsyncStreamingResponse, StreamingResponse, StreamingAgentChatResponse)
+                obj,
+                (AsyncStreamingResponse, StreamingResponse, StreamingAgentChatResponse),
             ):
                 return False
         except ImportError:
@@ -196,9 +202,20 @@ def aggregate_usage_from_spans(spans: list[LiveSpan]) -> Optional[dict[str, int]
     input_tokens, output_tokens, total_tokens = 0, 0, 0
     has_usage_data = False
 
+    span_id_to_spans = {span.span_id: span for span in spans}
     for span in spans:
         # Get usage attribute from span
         if usage := span.get_attribute(SpanAttributeKey.CHAT_USAGE):
+            # If the parent span is also LLM/Chat span and has the token usage data,
+            # it tracks the same usage data by multiple flavors e.g. LangChain ChatOpenAI
+            # and OpenAI tracing. We should avoid double counting the usage data.
+            if (
+                span.parent_id
+                and (parent_span := span_id_to_spans.get(span.parent_id))
+                and parent_span.get_attribute(SpanAttributeKey.CHAT_USAGE)
+            ):
+                continue
+
             input_tokens += usage.get(TokenUsageKey.INPUT_TOKENS, 0)
             output_tokens += usage.get(TokenUsageKey.OUTPUT_TOKENS, 0)
             total_tokens += usage.get(TokenUsageKey.TOTAL_TOKENS, 0)
