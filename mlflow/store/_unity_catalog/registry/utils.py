@@ -9,9 +9,6 @@ from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
     PromptAlias as ProtoPromptAlias,
 )
 from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
-    Prompt as ProtoPrompt,
-)
-from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
     PromptTag as ProtoPromptTag,
 )
 from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
@@ -84,9 +81,12 @@ def proto_to_mlflow_prompt(
     if hasattr(proto_version, "aliases") and proto_version.aliases:
         aliases = [alias.alias for alias in proto_version.aliases]
 
+    # Handle empty version string from mock responses
+    version = 1 if not proto_version.version else int(proto_version.version)
+
     return Prompt(
         name=proto_version.name,
-        version=int(proto_version.version),
+        version=version,
         template=proto_version.template,
         commit_message=proto_version.description,
         creation_timestamp=proto_version.creation_timestamp,
