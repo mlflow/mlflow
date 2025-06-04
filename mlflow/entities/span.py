@@ -473,7 +473,6 @@ class LiveSpan(Span):
                 INVALID_PARAMETER_VALUE,
             )
 
-        # Set span status to ERROR
         self.set_status(SpanStatusCode.ERROR)
 
     def end(
