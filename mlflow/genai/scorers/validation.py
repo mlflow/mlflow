@@ -53,13 +53,13 @@ def validate_scorers(scorers: list[Any]) -> list[Scorer]:
                 # Common mistake 1: scorers=[get_all_scorers()]
                 if len(scorers) == 1:
                     hint = (
-                        "\n\nHint: Use `scorers=get_all_scorers()` to pass all "
+                        "\nHint: Use `scorers=get_all_scorers()` to pass all "
                         "builtin scorers at once."
                     )
                 # Common mistake 2: scorers=[get_all_scorers(), scorer1, scorer2]
                 elif len(scorer) > 1:
                     hint = (
-                        "\n\nHint: Use `scorers=[*get_all_scorers(), scorer1, scorer2]` to pass "
+                        "\nHint: Use `scorers=[*get_all_scorers(), scorer1, scorer2]` to pass "
                         "all builtin scorers at once along with your custom scorers."
                     )
             # Common mistake 3: scorers=[RetrievalRelevance, Correctness]
@@ -73,7 +73,7 @@ def validate_scorers(scorers: list[Any]) -> list[Scorer]:
 
             raise MlflowException.invalid_parameter_value(
                 f"The `scorers` argument must be a list of scorers. The specified "
-                f"list contains an invalid item with type: {type(scorer).__name__}.\n"
+                f"list contains an invalid item with type: {type(scorer).__name__}."
                 f"{hint}"
             )
 
