@@ -455,6 +455,26 @@ class LiveSpan(Span):
         """
         self._span.add_event(event.name, event.attributes, event.timestamp)
 
+    def record_exception(self, exception: Union[str, Exception]):
+        """
+        Record an exception on the span, adding an exception event and setting span status to ERROR.
+
+        Args:
+            exception: The exception to record. Can be an Exception instance or a string
+                describing the exception.
+        """
+        if isinstance(exception, Exception):
+            self.add_event(SpanEvent.from_exception(exception))
+        elif isinstance(exception, str):
+            self.add_event(SpanEvent.from_exception(Exception(exception)))
+        else:
+            raise MlflowException(
+                "The `exception` parameter must be an Exception instance or a string.",
+                INVALID_PARAMETER_VALUE,
+            )
+
+        self.set_status(SpanStatusCode.ERROR)
+
     def end(
         self,
         outputs: Optional[Any] = None,
@@ -668,6 +688,9 @@ class NoOpSpan(Span):
         pass
 
     def add_event(self, event: SpanEvent):
+        pass
+
+    def record_exception(self, exception: Union[str, Exception]):
         pass
 
     def end(
