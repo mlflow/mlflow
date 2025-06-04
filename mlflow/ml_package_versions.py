@@ -138,11 +138,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "3.2.1",
-            "maximum": "3.5.5"
+            "maximum": "4.0.0"
         },
         "autologging": {
             "minimum": "3.2.1",
-            "maximum": "3.5.5"
+            "maximum": "4.0.0"
         }
     },
     "prophet": {
