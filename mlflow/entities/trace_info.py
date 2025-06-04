@@ -116,6 +116,16 @@ class TraceInfo(_MlflowObject):
 
     @classmethod
     def from_proto(cls, proto) -> "TraceInfo":
+        from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
+
+        # Convert proto trace_metadata to dict
+        trace_metadata = dict(proto.trace_metadata)
+
+        # Update schema version to current if it exists and is outdated
+        current_version = trace_metadata.get(TRACE_SCHEMA_VERSION_KEY)
+        if current_version is not None and current_version != str(TRACE_SCHEMA_VERSION):
+            trace_metadata[TRACE_SCHEMA_VERSION_KEY] = str(TRACE_SCHEMA_VERSION)
+
         return cls(
             trace_id=proto.trace_id,
             client_request_id=(
@@ -131,8 +141,7 @@ class TraceInfo(_MlflowObject):
                 else None
             ),
             state=TraceState.from_proto(proto.state),
-            # ScalarMapContainer -> native dict
-            trace_metadata=dict(proto.trace_metadata),
+            trace_metadata=trace_metadata,
             tags=dict(proto.tags),
             assessments=[Assessment.from_proto(a) for a in proto.assessments],
         )
