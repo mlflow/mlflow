@@ -26,6 +26,7 @@ from mlflow.tracing.utils import (
     get_otel_attribute,
     maybe_get_dependencies_schemas,
     maybe_get_request_id,
+    update_trace_state_from_span_conditionally,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_MODEL_SERVING_ENDPOINT_NAME
 
@@ -129,7 +130,10 @@ class InferenceTableSpanProcessor(SimpleSpanProcessor):
                 return
 
             trace.info.execution_duration = (span.end_time - span.start_time) // 1_000_000
-            trace.info.state = TraceState.from_otel_status(span.status)
+
+            # Update trace state from span status, but only if the user hasn't explicitly set
+            # a different trace status
+            update_trace_state_from_span_conditionally(trace, span)
 
             spans = list(trace.span_dict.values())
             deduplicate_span_names_in_place(spans)
