@@ -176,9 +176,9 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
         trace.info.execution_duration = (root_span.end_time - root_span.start_time) // 1_000_000
 
         # Update trace state to be equivalent to root span status, unless the user explicitly set
-        # a different trace-level status. If the trace status is not currently `IN_PROGRESS`,
+        # a different trace-level status. If the trace state is not currently `IN_PROGRESS`,
         # then the user explicitly set it to something else, so we should only override trace
-        # status with the root span status if the trace state is `IN_PROGRESS`
+        # state with the root span status if the trace state is `IN_PROGRESS`
         if trace.info.state == TraceState.IN_PROGRESS:
             trace.info.state = TraceState.from_otel_status(root_span.status)
         trace.info.trace_metadata.update(
