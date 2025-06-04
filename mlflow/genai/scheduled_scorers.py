@@ -20,7 +20,7 @@ class ScheduledScorer:
 
     When configured, scheduled scorers run automatically in the background to evaluate
     a sample of traces based on the specified sampling rate and filter criteria. The
-    evaluation results are displayed in the Traces tab of the MLflow experiment and can be used to
+    Assessments are displayed in the Traces tab of the MLflow experiment and can be used to
     identify quality issues in production.
 
     Args:
@@ -64,8 +64,9 @@ class ScheduledScorer:
 
     Note:
         Scheduled scorers are executed automatically by Databricks and do not need to be
-        manually triggered. The evaluation results appear in the MLflow experiment's
-        monitoring dashboard.
+        manually triggered. The Assessments appear in the Traces tab of the MLflow
+        experiment. Only traces logged directly to the experiment are monitored; traces
+        logged to individual runs within the experiment are not evaluated.
     """
 
     def __init__(
@@ -97,7 +98,7 @@ def add_scheduled_scorer(
 
     This function configures a scorer to run automatically on traces logged to the specified
     experiment. The scorer will evaluate a sample of traces based on the sampling rate
-    and any filter criteria. Results are displayed in the experiment's monitoring dashboard.
+    and any filter criteria. Assessments are displayed in the Traces tab of the MLflow experiment.
 
     Args:
         experiment_id: The ID of the MLflow experiment to monitor. If None, uses the
@@ -145,6 +146,8 @@ def add_scheduled_scorer(
     Note:
         Once added, the scheduled scorer will begin evaluating new traces automatically.
         There may be a delay between when traces are logged and when they are evaluated.
+        Only traces logged directly to the experiment are monitored; traces logged to
+        individual runs within the experiment are not evaluated.
     """
     try:
         from databricks.agents.scorers import add_scheduled_scorer
@@ -213,8 +216,8 @@ def delete_scheduled_scorer(*, experiment_id: Optional[str] = None, scorer_name:
     Delete a scheduled scorer from an MLflow experiment.
 
     This function removes a scheduled scorer configuration, stopping automatic evaluation
-    of traces. Existing evaluation results will remain in the monitoring dashboard, but
-    no new evaluations will be performed.
+    of traces. Existing Assessments will remain in the Traces tab of the MLflow
+    experiment, but no new evaluations will be performed.
 
     Args:
         experiment_id: The ID of the MLflow experiment containing the scheduled scorer.
@@ -381,8 +384,7 @@ def set_scheduled_scorers(
         want to add scorers without affecting existing ones.
 
     Note:
-        Changes may take a few minutes to take effect in the monitoring system.
-        Existing evaluation results will remain in the monitoring dashboard.
+        Existing Assessments will remain in the Traces tab of the MLflow experiment.
     """
     try:
         from databricks.agents.scorers import set_scheduled_scorers
