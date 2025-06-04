@@ -1,0 +1,360 @@
+import { APILink } from "@site/src/components/APILink";
+import DatabricksCallout from "@site/src/components/DatabricksCallout"
+
+# Use Traces to Evaluate and Improve Quality
+
+Traces are not just for debugging—they contain valuable information that can drive systematic quality improvements in your GenAI applications. This guide shows you how to analyze traces to identify quality issues, create evaluation datasets from trace data, implement targeted improvements, and measure the impact of your changes.
+
+<DatabricksCallout docsPath="/mlflow3/genai/tracing/quality-with-traces" />
+
+## Analyzing Traces to Identify Quality Issues
+
+Traces provide detailed insights into how your application processes user requests. By analyzing these traces, you can identify patterns of quality issues and opportunities for improvement.
+
+### Use the MLflow UI for Visual Analysis
+
+- Filter by specific tags (e.g., `tags.issue_type = "hallucination"`)
+- Search for traces containing specific inputs or outputs
+- Sort by metadata like latency or token usage
+- Group traces by performance characteristics
+
+### Query Traces Programmatically
+
+Perform advanced analysis using the search API:
+
+```python
+import mlflow
+
+# Search for traces with potential quality issues
+traces = mlflow.search_traces(
+    experiment_ids=["1"],
+    filter_string="execution_time_ms > 3000 AND status = 'OK'",
+    max_results=100,
+    return_type="list"
+)
+
+# Analyze patterns
+execution_times = [trace.info.execution_time_ms for trace in traces]
+print(f"Found {len(traces)} slow traces with average time: {sum(execution_times)/len(execution_times):.2f}ms")
+
+# Look for correlations with tags
+slow_trace_tags = {}
+for trace in traces:
+    for key, value in trace.data.tags.items():
+        if key not in slow_trace_tags:
+            slow_trace_tags[key] = []
+        slow_trace_tags[key].append(value)
+
+print("Common characteristics of slow traces:")
+for key, values in slow_trace_tags.items():
+    unique_values = set(values)
+    if len(unique_values) < len(values):  # If there are repeated values
+        print(f"  {key}: {unique_values}")
+```
+
+### Compare High-Quality vs Low-Quality Traces
+
+```python
+# Find high-quality and low-quality traces
+high_quality = mlflow.search_traces(
+    experiment_ids=["1"],
+    filter_string="tags.feedback = 'positive'",
+    max_results=20
+)
+
+low_quality = mlflow.search_traces(
+    experiment_ids=["1"],
+    filter_string="tags.feedback = 'negative'",
+    max_results=20
+)
+
+# Compare average execution times
+high_times = [t.info.execution_time_ms for t in high_quality]
+low_times = [t.info.execution_time_ms for t in low_quality]
+
+if high_times and low_times:
+    print(f"High quality avg time: {sum(high_times)/len(high_times):.2f}ms")
+    print(f"Low quality avg time: {sum(low_times)/len(low_times):.2f}ms")
+```
+
+## Creating Evaluation Datasets from Trace Data
+
+Once you've identified representative traces, you can curate them into evaluation datasets for systematic testing.
+
+### Export Traces to Dataset
+
+```python
+import mlflow
+import pandas as pd
+
+# Query traces that represent important test cases
+traces = mlflow.search_traces(
+    experiment_ids=["1"],
+    filter_string="timestamp_ms > 1698876000000",  # Recent traces
+    max_results=500,
+    return_type="list"
+)
+
+# Prepare dataset format
+eval_data = []
+for trace in traces:
+    trace_entry = {
+        'trace_id': trace.info.trace_id,
+        'execution_time_ms': trace.info.execution_time_ms,
+        'status': trace.info.status,
+        'timestamp_ms': trace.info.timestamp_ms,
+    }
+    
+    # Add tags as columns
+    for key, value in trace.data.tags.items():
+        trace_entry[f'tag_{key}'] = value
+    
+    eval_data.append(trace_entry)
+
+# Create evaluation dataset
+eval_df = pd.DataFrame(eval_data)
+eval_df.to_csv("evaluation_dataset.csv", index=False)
+```
+
+### Add Quality Labels
+
+```python
+# Add quality categorization
+def categorize_quality(execution_time, status, has_positive_feedback=False):
+    if status == 'ERROR':
+        return 'poor'
+    elif has_positive_feedback:
+        return 'excellent'
+    elif execution_time < 1000:
+        return 'good'
+    else:
+        return 'acceptable'
+
+eval_df['quality_label'] = eval_df.apply(
+    lambda row: categorize_quality(
+        row['execution_time_ms'], 
+        row['status'],
+        row.get('tag_feedback') == 'positive'
+    ), 
+    axis=1
+)
+
+# Log dataset to MLflow
+with mlflow.start_run():
+    mlflow.log_artifact("evaluation_dataset.csv", "evaluation_datasets")
+    mlflow.log_param("dataset_size", len(eval_df))
+```
+
+## Implementing Targeted Improvements
+
+### Prompt Engineering with Traces
+
+Use traces to optimize prompts systematically:
+
+```python
+import mlflow
+
+@mlflow.trace
+def evaluate_prompt_version(prompt, version, input_text):
+    """Evaluate a specific prompt version with tracing."""
+    
+    mlflow.update_current_trace(
+        tags={
+            "prompt_name": prompt.name,
+            "prompt_version": str(version),
+            "evaluation_type": "prompt_comparison"
+        }
+    )
+    
+    from openai import OpenAI
+    client = OpenAI()
+    
+    # Format and execute prompt
+    formatted_prompt = prompt.format(num_sentences=2, sentences=input_text)
+    
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": formatted_prompt}],
+    )
+    
+    result = response.choices[0].message.content
+    
+    # Add metrics to trace
+    mlflow.update_current_trace(
+        attributes={
+            "response_length": len(result),
+            "token_usage": response.usage.total_tokens
+        }
+    )
+    
+    return result
+
+# Compare prompt versions
+prompt_v1 = mlflow.load_prompt("prompts:/summarization-prompt/1")
+prompt_v2 = mlflow.load_prompt("prompts:/summarization-prompt/2")
+
+test_input = "MLflow is an open source platform for managing machine learning lifecycles..."
+
+result_v1 = evaluate_prompt_version(prompt_v1, 1, test_input)
+result_v2 = evaluate_prompt_version(prompt_v2, 2, test_input)
+```
+
+### Application Architecture Improvements
+
+```python
+@mlflow.trace
+def improved_response_function(user_message):
+    """Enhanced function based on trace analysis."""
+    
+    mlflow.update_current_trace(
+        tags={
+            "version": "v2.0",
+            "improvement_target": "reduce_latency"
+        }
+    )
+    
+    # Add validation based on trace insights
+    if len(user_message.strip()) < 3:
+        mlflow.update_current_trace(tags={"validation": "rejected_too_short"})
+        return "Please provide a more detailed question."
+    
+    # Your improved application logic here
+    from openai import OpenAI
+    client = OpenAI()
+    
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": user_message}]
+    )
+    
+    return response.choices[0].message.content
+```
+
+## Measuring Quality Improvements
+
+### Compare Performance Before and After
+
+```python
+import mlflow
+from datetime import datetime, timedelta
+
+def compare_before_after_improvement():
+    """Compare trace performance before and after improvements."""
+    
+    # Define improvement deployment date
+    improvement_date = datetime(2024, 6, 1)
+    
+    # Get traces before and after improvement
+    before_traces = mlflow.search_traces(
+        experiment_ids=["1"],
+        filter_string=f"timestamp_ms < {int(improvement_date.timestamp() * 1000)}",
+        max_results=200
+    )
+    
+    after_traces = mlflow.search_traces(
+        experiment_ids=["1"],
+        filter_string=f"timestamp_ms >= {int(improvement_date.timestamp() * 1000)}",
+        max_results=200
+    )
+    
+    # Compare key metrics
+    def calculate_metrics(traces):
+        if not traces:
+            return {}
+            
+        execution_times = [t.info.execution_time_ms for t in traces]
+        statuses = [t.info.status for t in traces]
+        
+        return {
+            'avg_execution_time': sum(execution_times) / len(execution_times),
+            'error_rate': statuses.count('ERROR') / len(statuses),
+            'total_traces': len(traces)
+        }
+    
+    before_metrics = calculate_metrics(before_traces)
+    after_metrics = calculate_metrics(after_traces)
+    
+    print("Performance Comparison:")
+    print(f"Before: {before_metrics}")
+    print(f"After: {after_metrics}")
+    
+    # Calculate improvements
+    if before_metrics and after_metrics:
+        time_improvement = (before_metrics['avg_execution_time'] - after_metrics['avg_execution_time']) / before_metrics['avg_execution_time'] * 100
+        print(f"Execution time improvement: {time_improvement:.1f}%")
+
+compare_before_after_improvement()
+```
+
+### Using MLflow Evaluation
+
+For systematic evaluation with OSS MLflow:
+
+```python
+import mlflow
+import pandas as pd
+
+# Load your curated evaluation dataset
+eval_data = pd.read_csv("evaluation_dataset.csv")
+
+# Prepare data for MLflow evaluation
+evaluation_data = pd.DataFrame({
+    "inputs": eval_data["tag_user_input"].fillna(""),
+    "targets": eval_data["tag_expected_output"].fillna(""),
+    "predictions": eval_data["tag_actual_output"].fillna("")
+})
+
+# Run evaluation
+with mlflow.start_run():
+    results = mlflow.evaluate(
+        data=evaluation_data,
+        targets="targets",
+        predictions="predictions",
+        extra_metrics=[
+            mlflow.metrics.exact_match(),
+            mlflow.metrics.toxicity(),
+        ]
+    )
+    
+    print(f"Evaluation results: {results.metrics}")
+```
+
+## Advanced Evaluation with Databricks
+
+:::note Enhanced Evaluation and Monitoring
+For comprehensive GenAI evaluation capabilities including LLM-as-a-judge metrics, advanced quality scorers, and automated production monitoring, consider using [Databricks GenAI evaluation features](https://docs.databricks.com/en/generative-ai/agent-evaluation/index.html).
+
+You can get started with a [free trial today](https://signup.databricks.com/?destination_url=/ml/experiments-signup?source=TRY_MLFLOW&dbx_source=TRY_MLFLOW&signup_experience_step=EXPRESS) with no strings attached to try out these advanced features.
+
+Databricks allows you to access:
+- Advanced LLM-as-a-judge evaluation
+- Automated quality scoring in production  
+- Comprehensive evaluation pipelines
+- Built-in quality and safety metrics
+:::
+
+## Next Steps
+
+Continue improving your GenAI application quality:
+
+- **[Search Traces](/genai/tracing/search-traces)**: Learn advanced techniques for finding specific traces
+- **[Set Trace Tags](/genai/tracing/attach-tags)**: Organize traces for better quality analysis
+- **[Production Monitoring](/genai/tracing/prod-tracing)**: Set up comprehensive production observability
+- **[Prompt Management](/genai/prompts)**: Version and manage prompts systematically
+- **[GenAI Evaluation](/genai/eval-monitor)**: Evaluate your applications for quality and stability
+
+:::tip
+Quality improvement is an iterative process. Start with your most critical quality issues, implement targeted improvements based on trace analysis, measure their impact, and repeat.
+:::
+
+## Summary
+
+Using traces for quality evaluation enables:
+
+- **Pattern Discovery**: Identify common failure modes and quality issues
+- **Data-Driven Improvements**: Base improvements on real production data  
+- **Systematic Testing**: Create evaluation datasets from representative traces
+- **Impact Measurement**: Quantify the effect of your improvements
+- **Continuous Monitoring**: Track quality trends over time
+
+Traces provide the observability foundation needed to build and maintain high-quality GenAI applications.

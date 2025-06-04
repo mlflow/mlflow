@@ -1,0 +1,634 @@
+import DatabricksCallout from "@site/src/components/DatabricksCallout"
+import Tabs from "@theme/Tabs"
+import TabItem from "@theme/TabItem"
+import { APILink } from "@site/src/components/APILink";
+
+# Automatic Tracing
+
+MLflow Tracing is integrated with various GenAI libraries and provides **one-line automatic tracing** experience for each library (and the combination of them!). This page shows detailed examples to integrate MLflow with popular GenAI libraries.
+
+![Tracing Gateway Video](/images/llms/tracing/tracing-top.gif)
+
+## Prerequisites
+
+<DatabricksCallout docsPath="/mlflow3/genai/tracing/app-instrumentation/automatic" />
+
+This guide requires the following packages:
+
+**mlflow>=3.1**: Core MLflow functionality with GenAI features and Databricks connectivity.
+
+**openai>=1.0.0**: Only required to run the [Basic Automatic Tracing Example](#basic-automatic-tracing-example) on this page (if using other LLM providers, install their respective SDKs instead)
+
+**Additional libraries**: Install specific libraries for the integrations you want to use
+
+Install the basic requirements:
+
+```bash
+pip install --upgrade "mlflow>=3.1" openai>=1.0.0
+```
+
+:::note[MLflow Version Recommendation]
+While automatic tracing features are available in MLflow 2.15.0+, **it is strongly recommended to install MLflow 3** for the latest GenAI capabilities, including expanded tracing features and robust support.
+:::
+
+## Environment Setup
+
+Before running any of the examples below, make sure you have MLflow tracking configured:
+
+### Local Development
+
+For local development, start the MLflow tracking server:
+
+```bash
+mlflow server --host 127.0.0.1 --port 5000
+```
+
+Then configure your tracking URI:
+
+```python
+import mlflow
+
+mlflow.set_tracking_uri("http://127.0.0.1:5000")
+mlflow.set_experiment("automatic-tracing-demo")
+```
+
+### Remote MLflow Server
+
+If you're using a remote MLflow server, configure the tracking URI:
+
+```python
+import mlflow
+
+mlflow.set_tracking_uri("https://your-mlflow-server.com")
+mlflow.set_experiment("automatic-tracing-demo")
+```
+
+### LLM Provider API Keys
+
+Set your API keys for the LLM providers you plan to use:
+
+```bash
+export OPENAI_API_KEY="your-openai-api-key"
+export ANTHROPIC_API_KEY="your-anthropic-api-key"
+export MISTRAL_API_KEY="your-mistral-api-key"
+# Add other provider keys as needed
+```
+
+## Basic Automatic Tracing Example
+
+Here's how to enable automatic tracing for OpenAI in just one line:
+
+```python
+import mlflow
+from openai import OpenAI
+import os
+
+# Set up MLflow tracking
+mlflow.set_tracking_uri("http://127.0.0.1:5000")
+mlflow.set_experiment("automatic-tracing-demo")
+
+# Set your OpenAI API key
+os.environ["OPENAI_API_KEY"] = "your-api-key-here"
+
+# Enable automatic tracing with one line
+mlflow.openai.autolog()
+
+# Your existing OpenAI code works unchanged
+client = OpenAI()
+response = client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Explain MLflow Tracing in one sentence."}
+    ],
+    max_tokens=100,
+    temperature=0.7
+)
+
+print(response.choices[0].message.content)
+# All OpenAI calls are now automatically traced!
+```
+
+## Supported Integrations
+
+Each integration automatically captures your application's logic and intermediate steps based on your implementation of the authoring framework / SDK. For a comprehensive list of all supported libraries and detailed documentation for each integration, please see the [MLflow Tracing Integrations page](/genai/tracing/integrations/index).
+
+Below are quick-start examples for some of the most popular integrations. Remember to install the necessary packages for each library you intend to use (e.g., `pip install openai langchain langgraph anthropic dspy`).
+
+## Popular Integrations
+
+MLflow provides automatic tracing for many popular GenAI frameworks and libraries. Here are the most commonly used integrations:
+
+<Tabs>
+  <TabItem value="openai" label="OpenAI" default>
+    ```python
+    import mlflow
+    import openai
+
+    # Enable auto-tracing for OpenAI
+    mlflow.openai.autolog()
+
+    # Set up MLflow tracking
+    mlflow.set_tracking_uri("http://127.0.0.1:5000")
+    mlflow.set_experiment("openai-tracing-demo")
+
+    openai_client = openai.OpenAI()
+
+    messages = [
+        {
+            "role": "user",
+            "content": "What is the capital of France?",
+        }
+    ]
+
+    response = openai_client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=messages,
+        temperature=0.1,
+        max_tokens=100,
+    )
+    ```
+
+    [Full OpenAI Integration Guide](/genai/tracing/integrations/openai)
+  </TabItem>
+  <TabItem value="langchain" label="LangChain">
+    ```python
+    import mlflow
+    import os
+
+    from langchain.prompts import PromptTemplate
+    from langchain_core.output_parsers import StrOutputParser
+    from langchain_openai import ChatOpenAI
+
+    # Enabling autolog for LangChain will enable trace logging.
+    mlflow.langchain.autolog()
+
+    # Set up MLflow tracking
+    mlflow.set_tracking_uri("http://127.0.0.1:5000")
+    mlflow.set_experiment("langchain-tracing-demo")
+
+    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.7, max_tokens=1000)
+
+    prompt_template = PromptTemplate.from_template(
+        "Answer the question as if you are {person}, fully embodying their style, wit, personality, and habits of speech. "
+        "Emulate their quirks and mannerisms to the best of your ability, embracing their traits—even if they aren't entirely "
+        "constructive or inoffensive. The question is: {question}"
+    )
+
+    chain = prompt_template | llm | StrOutputParser()
+
+    # Let's test another call
+    chain.invoke(
+        {
+            "person": "Linus Torvalds",
+            "question": "Can I just set everyone's access to sudo to make things easier?",
+        }
+    )
+    ```
+
+    [Full LangChain Integration Guide](/genai/tracing/integrations/langchain)
+  </TabItem>
+  <TabItem value="langgraph" label="LangGraph">
+    ```python
+    from typing import Literal
+
+    import mlflow
+
+    from langchain_core.messages import AIMessage, ToolCall
+    from langchain_core.outputs import ChatGeneration, ChatResult
+    from langchain_core.tools import tool
+    from langchain_openai import ChatOpenAI
+    from langgraph.prebuilt import create_react_agent
+
+    # Enabling tracing for LangGraph (LangChain)
+    mlflow.langchain.autolog()
+
+    # Set up MLflow tracking
+    mlflow.set_tracking_uri("http://127.0.0.1:5000")
+    mlflow.set_experiment("langgraph-tracing-demo")
+
+    @tool
+    def get_weather(city: Literal["nyc", "sf"]):
+        """Use this to get weather information."""
+        if city == "nyc":
+            return "It might be cloudy in nyc"
+        elif city == "sf":
+            return "It's always sunny in sf"
+
+    llm = ChatOpenAI(model="gpt-4o-mini")
+    tools = [get_weather]
+    graph = create_react_agent(llm, tools)
+
+    # Invoke the graph
+    result = graph.invoke(
+        {"messages": [{"role": "user", "content": "what is the weather in sf?"}]}
+    )
+    ```
+
+    [Full LangGraph Integration Guide](/genai/tracing/integrations/langgraph)
+  </TabItem>
+  <TabItem value="anthropic" label="Anthropic">
+    ```python
+    import anthropic
+    import mlflow
+    import os
+
+    # Enable auto-tracing for Anthropic
+    mlflow.anthropic.autolog()
+
+    # Set up MLflow tracking
+    mlflow.set_tracking_uri("http://127.0.0.1:5000")
+    mlflow.set_experiment("anthropic-tracing-demo")
+
+    # Configure your API key.
+    client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+
+    # Use the create method to create new message.
+    message = client.messages.create(
+        model="claude-3-5-sonnet-20241022",
+        max_tokens=1024,
+        messages=[
+            {"role": "user", "content": "Hello, Claude"},
+        ],
+    )
+    ```
+
+    [Full Anthropic Integration Guide](/genai/tracing/integrations/anthropic)
+  </TabItem>
+  <TabItem value="dspy" label="DSPy">
+    ```python
+    import dspy
+    import mlflow
+
+    # Enabling tracing for DSPy
+    mlflow.dspy.autolog()
+
+    # Set up MLflow tracking
+    mlflow.set_tracking_uri("http://127.0.0.1:5000")
+    mlflow.set_experiment("dspy-tracing-demo")
+
+    # Define a simple ChainOfThought model and run it
+    lm = dspy.LM("openai/gpt-4o-mini")
+    dspy.configure(lm=lm)
+
+    # Define a simple summarizer model and run it
+    class SummarizeSignature(dspy.Signature):
+        """Given a passage, generate a summary."""
+
+        passage: str = dspy.InputField(desc="a passage to summarize")
+        summary: str = dspy.OutputField(desc="a one-line summary of the passage")
+
+    class Summarize(dspy.Module):
+        def __init__(self):
+            self.summarize = dspy.ChainOfThought(SummarizeSignature)
+
+        def forward(self, passage: str):
+            return self.summarize(passage=passage)
+
+    summarizer = Summarize()
+    summarizer(
+        passage=(
+            "MLflow Tracing is a feature that enhances LLM observability in your Generative AI (GenAI) applications "
+            "by capturing detailed information about the execution of your application's services. Tracing provides "
+            "a way to record the inputs, outputs, and metadata associated with each intermediate step of a request, "
+            "enabling you to easily pinpoint the source of bugs and unexpected behaviors."
+        )
+    )
+    ```
+
+    [Full DSPy Integration Guide](/genai/tracing/integrations/dspy)
+  </TabItem>
+  <TabItem value="bedrock" label="Amazon Bedrock">
+    ```python
+    import boto3
+    import mlflow
+
+    # Enable auto-tracing for Amazon Bedrock
+    mlflow.bedrock.autolog()
+
+    # Set up MLflow tracking
+    mlflow.set_tracking_uri("http://127.0.0.1:5000")
+    mlflow.set_experiment("bedrock-tracing-demo")
+
+    # Create a boto3 client for invoking the Bedrock API
+    bedrock = boto3.client(
+        service_name="bedrock-runtime",
+        region_name="us-east-1",  # Replace with your AWS region
+    )
+
+    # MLflow will log a trace for Bedrock API call
+    response = bedrock.converse(
+        modelId="anthropic.claude-3-5-sonnet-20241022-v2:0",
+        messages=[
+            {
+                "role": "user",
+                "content": "Describe the purpose of a 'hello world' program in one line.",
+            }
+        ],
+        inferenceConfig={
+            "maxTokens": 512,
+            "temperature": 0.1,
+            "topP": 0.9,
+        },
+    )
+    ```
+
+    [Full Bedrock Integration Guide](/genai/tracing/integrations/bedrock)
+  </TabItem>
+  <TabItem value="autogen" label="AutoGen">
+    ```python
+    import os
+    from typing import Annotated, Literal
+
+    from autogen import ConversableAgent
+
+    import mlflow
+
+    # Turn on auto tracing for AutoGen
+    mlflow.autogen.autolog()
+
+    # Set up MLflow tracking
+    mlflow.set_tracking_uri("http://127.0.0.1:5000")
+    mlflow.set_experiment("autogen-tracing-demo")
+
+    # Define a simple multi-agent workflow using AutoGen
+    config_list = [
+        {
+            "model": "gpt-4o-mini",
+            "api_key": os.environ.get("OPENAI_API_KEY"),
+        }
+    ]
+
+    Operator = Literal["+", "-", "*", "/"]
+
+    def calculator(a: int, b: int, operator: Annotated[Operator, "operator"]) -> int:
+        if operator == "+":
+            return a + b
+        elif operator == "-":
+            return a - b
+        elif operator == "*":
+            return a * b
+        elif operator == "/":
+            return int(a / b)
+        else:
+            raise ValueError("Invalid operator")
+
+    # First define the assistant agent that suggests tool calls.
+    assistant = ConversableAgent(
+        name="Assistant",
+        system_message="You are a helpful AI assistant. "
+        "You can help with simple calculations. "
+        "Return 'TERMINATE' when the task is done.",
+        llm_config={"config_list": config_list},
+    )
+
+    # The user proxy agent is used for interacting with the assistant agent
+    # and executes tool calls.
+    user_proxy = ConversableAgent(
+        name="Tool Agent",
+        llm_config=False,
+        is_termination_msg=lambda msg: msg.get("content") is not None
+        and "TERMINATE" in msg["content"],
+        human_input_mode="NEVER",
+    )
+
+    # Register the tool signature with the assistant agent.
+    assistant.register_for_llm(name="calculator", description="A simple calculator")(
+        calculator
+    )
+    user_proxy.register_for_execution(name="calculator")(calculator)
+    response = user_proxy.initiate_chat(
+        assistant, message="What is (44231 + 13312 / (230 - 20)) * 4?"
+    )
+    ```
+
+    [Full AutoGen Integration Guide](/genai/tracing/integrations/autogen)
+  </TabItem>
+</Tabs>
+
+## Combining Manual and Automatic Tracing
+
+The `@mlflow.trace` decorator can be used in conjunction with auto tracing to create powerful, integrated traces. This is particularly useful for:
+
+**Complex workflows that involve multiple LLM calls**
+
+**Multi-agent systems where different agents use different LLM providers**
+
+**Chaining multiple LLM calls together with custom logic in between**
+
+### Basic Example
+
+Here's a simple example that combines OpenAI auto-tracing with manually defined spans:
+
+```python
+import mlflow
+import openai
+from mlflow.entities import SpanType
+
+mlflow.openai.autolog()
+
+@mlflow.trace(span_type=SpanType.CHAIN)
+def run(question):
+    messages = build_messages(question)
+    # MLflow automatically generates a span for OpenAI invocation
+    response = openai.OpenAI().chat.completions.create(
+        model="gpt-4o-mini",
+        max_tokens=100,
+        messages=messages,
+    )
+    return parse_response(response)
+
+@mlflow.trace
+def build_messages(question):
+    return [
+        {"role": "system", "content": "You are a helpful chatbot."},
+        {"role": "user", "content": question},
+    ]
+
+@mlflow.trace
+def parse_response(response):
+    return response.choices[0].message.content
+
+run("What is MLflow?")
+```
+
+Running this code generates a single trace that combines the manual spans with the automatic OpenAI tracing.
+
+### Advanced Example: Multiple LLM Calls
+
+For more complex workflows, you can combine multiple LLM calls into a single trace. Here's an example that demonstrates this pattern:
+
+```python
+import mlflow
+import openai
+from mlflow.entities import SpanType
+
+# Enable auto-tracing for OpenAI
+mlflow.openai.autolog()
+
+@mlflow.trace(span_type=SpanType.CHAIN)
+def process_user_query(query: str):
+    # First LLM call: Analyze the query
+    analysis = openai.OpenAI().chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "Analyze the user's query and determine if it requires factual information or creative writing."},
+            {"role": "user", "content": query}
+        ]
+    )
+    analysis_result = analysis.choices[0].message.content
+
+    # Second LLM call: Generate response based on analysis
+    if "factual" in analysis_result.lower():
+        # Use a different model for factual queries
+        response = openai.OpenAI().chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "Provide a factual, well-researched response."},
+                {"role": "user", "content": query}
+            ]
+        )
+    else:
+        # Use a different model for creative queries
+        response = openai.OpenAI().chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "Provide a creative, engaging response."},
+                {"role": "user", "content": query}
+            ]
+        )
+
+    return response.choices[0].message.content
+
+# Run the function
+result = process_user_query("Tell me about the history of artificial intelligence")
+```
+
+This example creates a single trace that includes:
+
+**A parent span for the entire `process_user_query` function**
+
+**Two child spans automatically created by the OpenAI autologging**:
+  - One for the analysis LLM call
+  - One for the response LLM call
+
+### Multi-Framework Example
+
+You can also combine different LLM providers in a single trace. For example:
+
+:::note
+This example requires installing LangChain in addition to the base requirements:
+
+```bash
+pip install --upgrade langchain langchain-openai
+```
+:::
+
+```python
+import mlflow
+import openai
+from mlflow.entities import SpanType
+from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
+
+# Enable auto-tracing for both OpenAI and LangChain
+mlflow.openai.autolog()
+mlflow.langchain.autolog()
+
+@mlflow.trace(span_type=SpanType.CHAIN)
+def multi_provider_workflow(query: str):
+    # First, use OpenAI directly for initial processing
+    analysis = openai.OpenAI().chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "Analyze the query and extract key topics."},
+            {"role": "user", "content": query}
+        ]
+    )
+    topics = analysis.choices[0].message.content
+
+    # Then use LangChain for structured processing
+    llm = ChatOpenAI(model="gpt-4o-mini")
+    prompt = ChatPromptTemplate.from_template(
+        "Based on these topics: {topics}\nGenerate a detailed response to: {query}"
+    )
+    chain = prompt | llm
+    response = chain.invoke({"topics": topics, "query": query})
+
+    return response
+
+# Run the function
+result = multi_provider_workflow("Explain quantum computing")
+```
+
+This example shows how to combine:
+
+**Direct OpenAI API calls**
+
+**LangChain chains**
+
+**Custom logic between the calls**
+
+All of this is captured in a single trace, making it easy to:
+
+**Debug issues**
+
+**Monitor performance**
+
+**Understand the flow of the request**
+
+**Track which parts of the system are being used**
+
+The trace visualization will show the complete hierarchy of spans, making it clear how the different components interact and how long each step takes.
+
+## Configuration Options
+
+Most autolog functions accept configuration parameters to customize tracing behavior:
+
+```python
+import mlflow
+
+# Basic autolog
+mlflow.openai.autolog()
+
+# Autolog with custom configuration
+mlflow.openai.autolog(
+    log_traces=True,           # Enable/disable tracing
+    log_models=False,          # Disable model logging
+    log_inputs_outputs=True,   # Log input/output data
+    silent=False               # Enable logging messages
+)
+```
+
+You can enable autolog for multiple libraries simultaneously by calling each autolog function:
+
+```python
+import mlflow
+
+# Enable tracing for multiple libraries
+mlflow.openai.autolog()
+mlflow.langchain.autolog()
+mlflow.anthropic.autolog()
+
+# Now all operations from these libraries are traced
+```
+
+## Best Practices
+
+**Enable autolog early**: Call autolog functions before importing or using the target libraries to ensure all operations are captured.
+
+**Combine with manual tracing**: Use the `@mlflow.trace` decorator to group related operations and add context to your traces.
+
+**Use appropriate configuration**: Customize autolog settings based on your needs (e.g., disable model logging in production for performance).
+
+**Monitor trace volume**: In high-throughput applications, consider sampling or filtering to manage the volume of traces generated.
+
+## Next Steps
+
+**[Manual Tracing](/tracing/app-instrumentation/manual-tracing)**: Learn how to add custom tracing to your application logic
+
+**[Integration Guides](/genai/tracing/integrations/index)**: Explore detailed guides for specific libraries and frameworks
+
+**[Viewing Traces](/tracing/ui)**: Learn how to explore and analyze your traces in the MLflow UI
+
+**[Querying Traces](/tracing/api/search)**: Programmatically search and retrieve trace data for analysis

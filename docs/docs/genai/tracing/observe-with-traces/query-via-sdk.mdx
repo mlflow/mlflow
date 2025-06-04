@@ -1,0 +1,598 @@
+import DatabricksCallout from "@site/src/components/DatabricksCallout"
+import { APILink } from "@site/src/components/APILink";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Query Traces via SDK
+
+<DatabricksCallout docsPath="/mlflow3/genai/tracing/observe-with-traces/query-via-sdk" />
+
+This guide focuses on programmatic trace querying for debugging, monitoring, and analysis workflows. While the [Search Traces](/genai/tracing/search-traces) guide covers comprehensive search functionality, this page specifically addresses SDK usage patterns for observability and debugging use cases.
+
+## Why Query Traces Programmatically?
+
+When debugging GenAI applications or monitoring production systems, you often need to:
+
+- **Analyze error patterns** across thousands of traces to identify common failure modes
+- **Monitor performance trends** and detect degradations before they impact users
+- **Create evaluation datasets** from real production traces for model improvement
+- **Build custom dashboards** and alerting systems for operational visibility
+- **Investigate user sessions** to understand interaction patterns and quality issues
+
+The MLflow SDK provides powerful APIs to automate these workflows and integrate trace analysis into your existing monitoring and development processes.
+
+## API Overview
+
+MLflow provides two complementary APIs for programmatic trace access, each optimized for different use cases:
+
+<Tabs>
+  <TabItem value="client-api" label="Client API" default>
+    The **<APILink fn="mlflow.client.MlflowClient.search_traces" />** method returns raw trace objects, giving you complete access to all trace data including detailed span information, attributes, and events. This is ideal when you need to:
+
+    - Inspect individual spans and their relationships
+    - Access error details and stack traces
+    - Analyze timing and performance data
+    - Build custom monitoring logic
+
+    ```python
+    from mlflow import MlflowClient
+
+    client = MlflowClient()
+    traces = client.search_traces(
+        experiment_ids=["1"],
+        filter_string="status = 'ERROR'",
+        max_results=100
+    )
+
+    # Returns List[mlflow.entities.Trace]
+    for trace in traces:
+        print(f"Trace {trace.info.trace_id}: {trace.info.status}")
+        # Access detailed span data
+        for span in trace.data.spans:
+            print(f"  Span: {span.name} - {span.status}")
+    ```
+
+    **Best for**: Detailed trace inspection, custom analysis, integration with monitoring systems
+  </TabItem>
+  <TabItem value="fluent-api" label="Fluent API">
+    The **<APILink fn="mlflow.search_traces" />** method returns a structured pandas DataFrame that's perfect for data analysis, visualization, and creating evaluation datasets. This approach excels when you need to:
+
+    - Perform statistical analysis across many traces
+    - Create charts and visualizations
+    - Export data for external tools
+    - Build evaluation datasets quickly
+
+    ```python
+    import mlflow
+
+    # Returns pandas DataFrame by default
+    traces_df = mlflow.search_traces(
+        experiment_ids=["1"],
+        filter_string="status = 'ERROR'"
+    )
+
+    # Easy analysis with pandas
+    error_summary = traces_df.groupby('tags')['execution_time_ms'].agg(['count', 'mean'])
+    print(error_summary)
+
+    # Extract specific span data
+    detailed_df = mlflow.search_traces(
+        extract_fields=["llm_call.inputs.prompt", "llm_call.outputs.response"],
+        experiment_ids=["1"]
+    )
+    ```
+
+    **Best for**: Data analysis, evaluation dataset creation, monitoring dashboards
+  </TabItem>
+</Tabs>
+
+:::note Version Compatibility
+MLflow 2.21.1+ supports `return_type="list"` in `mlflow.search_traces()`. For earlier versions, use `MlflowClient.search_traces()` for list output.
+:::
+
+## Debugging Workflows
+
+### Error Analysis and Root Cause Investigation
+
+When production systems start failing, you need to quickly identify patterns and root causes. The SDK enables automated error analysis that would be tedious to perform manually in the UI.
+
+**Common debugging scenarios:**
+- Identifying which operations fail most frequently
+- Finding error patterns across different user segments
+- Analyzing whether errors correlate with specific inputs or timing
+- Tracking error propagation through multi-step workflows
+
+```python
+import mlflow
+from mlflow import MlflowClient
+from datetime import datetime, timedelta
+
+def analyze_recent_errors(experiment_ids: list, hours_back: int = 24):
+    """Analyze error patterns in recent traces"""
+    client = MlflowClient()
+    
+    # Calculate timestamp for filtering
+    cutoff_time = datetime.now() - timedelta(hours=hours_back)
+    timestamp_ms = int(cutoff_time.timestamp() * 1000)
+    
+    # Get error traces
+    error_traces = client.search_traces(
+        experiment_ids=experiment_ids,
+        filter_string=f"status = 'ERROR' AND timestamp_ms > {timestamp_ms}",
+        order_by=["timestamp_ms DESC"]
+    )
+    
+    print(f"Found {len(error_traces)} errors in the last {hours_back} hours")
+    
+    # Analyze error patterns
+    error_patterns = {}
+    for trace in error_traces:
+        for span in trace.data.spans:
+            if span.status.status_code == "ERROR":
+                # Extract error information from span events
+                error_type = "Unknown"
+                error_message = "No details"
+                
+                for event in span.events:
+                    if "exception" in event.name.lower():
+                        error_type = event.attributes.get("exception.type", "Unknown")
+                        error_message = event.attributes.get("exception.message", "No details")
+                        break
+                
+                pattern_key = f"{span.name}:{error_type}"
+                if pattern_key not in error_patterns:
+                    error_patterns[pattern_key] = {
+                        "count": 0,
+                        "example_message": error_message,
+                        "trace_ids": []
+                    }
+                
+                error_patterns[pattern_key]["count"] += 1
+                error_patterns[pattern_key]["trace_ids"].append(trace.info.trace_id)
+    
+    # Report findings
+    print("\nError Patterns:")
+    for pattern, details in sorted(error_patterns.items(), key=lambda x: x[1]["count"], reverse=True):
+        print(f"  {pattern}: {details['count']} occurrences")
+        print(f"    Example: {details['example_message'][:100]}...")
+        print(f"    Recent trace: {details['trace_ids'][0]}")
+    
+    return error_patterns
+
+# Usage
+error_analysis = analyze_recent_errors(["1"], hours_back=6)
+```
+
+This approach helps you quickly identify the most common failure modes and provides concrete examples to investigate further.
+
+### Performance Monitoring and Bottleneck Detection
+
+Performance issues often develop gradually, making them hard to spot manually. Programmatic analysis helps you identify trends and bottlenecks before they impact user experience.
+
+**Key performance insights:**
+- Which operations consistently take the longest time
+- How performance varies across different user segments or inputs
+- Whether performance is degrading over time
+- Which spans contribute most to overall latency
+
+```python
+def analyze_performance_bottlenecks(experiment_ids: list, percentile_threshold: float = 95):
+    """Identify performance bottlenecks in traces"""
+    
+    # Get successful traces for performance analysis
+    traces_df = mlflow.search_traces(
+        experiment_ids=experiment_ids,
+        filter_string="status = 'OK'",
+        order_by=["execution_time_ms DESC"],
+        max_results=1000
+    )
+    
+    if traces_df.empty:
+        print("No successful traces found")
+        return
+    
+    # Calculate performance thresholds
+    p95_time = traces_df['execution_time_ms'].quantile(percentile_threshold / 100)
+    slow_traces = traces_df[traces_df['execution_time_ms'] > p95_time]
+    
+    print(f"P{percentile_threshold} execution time: {p95_time:.1f}ms")
+    print(f"Found {len(slow_traces)} slow traces (>{p95_time:.1f}ms)")
+    
+    # Detailed analysis of slow traces using client API
+    client = MlflowClient()
+    span_durations = {}
+    
+    for _, trace_row in slow_traces.head(10).iterrows():  # Analyze top 10 slow traces
+        trace = client.get_trace(trace_row['request_id'])
+        
+        for span in trace.data.spans:
+            duration = (span.end_time_ns - span.start_time_ns) / 1_000_000  # Convert to ms
+            span_key = f"{span.name} ({span.span_type})"
+            
+            if span_key not in span_durations:
+                span_durations[span_key] = []
+            span_durations[span_key].append(duration)
+    
+    # Report span-level bottlenecks
+    print("\nSlowest Operations (avg duration in slow traces):")
+    for span_name, durations in sorted(span_durations.items(), 
+                                     key=lambda x: sum(x[1])/len(x[1]), reverse=True):
+        avg_duration = sum(durations) / len(durations)
+        print(f"  {span_name}: {avg_duration:.1f}ms avg ({len(durations)} samples)")
+    
+    return slow_traces, span_durations
+
+# Usage
+slow_traces, bottlenecks = analyze_performance_bottlenecks(["1"])
+```
+
+This analysis pinpoints exactly which operations are causing slowdowns, helping you focus optimization efforts where they'll have the most impact.
+
+### User Session Analysis
+
+Understanding user behavior and experience requires analyzing traces in the context of sessions or conversations. This is particularly important for chat applications and multi-turn interactions.
+
+**Session analysis helps with:**
+- Understanding user interaction patterns
+- Identifying where users encounter problems
+- Measuring session success rates and quality
+- Analyzing conversation flow and context handling
+
+```python
+def analyze_user_session(experiment_ids: list, user_id: str = None, session_id: str = None):
+    """Analyze traces for a specific user or session"""
+    
+    # Build filter based on available identifiers
+    filter_conditions = []
+    if user_id:
+        filter_conditions.append(f"tags.user_id = '{user_id}'")
+    if session_id:
+        filter_conditions.append(f"tags.session_id = '{session_id}'")
+    
+    if not filter_conditions:
+        raise ValueError("Must provide either user_id or session_id")
+    
+    filter_string = " AND ".join(filter_conditions)
+    
+    # Get session traces ordered chronologically
+    session_traces = mlflow.search_traces(
+        experiment_ids=experiment_ids,
+        filter_string=filter_string,
+        order_by=["timestamp_ms ASC"]
+    )
+    
+    if session_traces.empty:
+        print(f"No traces found for user={user_id}, session={session_id}")
+        return
+    
+    # Calculate session metrics
+    total_time = session_traces['execution_time_ms'].sum()
+    error_count = len(session_traces[session_traces['status'] == 'ERROR'])
+    error_rate = error_count / len(session_traces)
+    
+    print(f"Session Analysis: {len(session_traces)} traces")
+    print(f"Time range: {session_traces['timestamp_ms'].min()} to {session_traces['timestamp_ms'].max()}")
+    print(f"Total execution time: {total_time:.1f}ms")
+    print(f"Error rate: {error_count}/{len(session_traces)} ({error_rate*100:.1f}%)")
+    print(f"Avg execution time: {session_traces['execution_time_ms'].mean():.1f}ms")
+    
+    # Show trace timeline for debugging
+    print("\nTrace Timeline:")
+    for _, trace in session_traces.iterrows():
+        status_icon = "✅" if trace['status'] == 'OK' else "❌"
+        print(f"  {status_icon} {trace['timestamp_ms']}: {trace['execution_time_ms']:.1f}ms")
+        if hasattr(trace, 'request') and trace['request']:
+            request_preview = str(trace['request'])[:50] + "..." if len(str(trace['request'])) > 50 else str(trace['request'])
+            print(f"      Request: {request_preview}")
+    
+    return session_traces
+
+# Usage
+user_session = analyze_user_session(["1"], user_id="user123")
+```
+
+## Monitoring and Alerting Integration
+
+### Building Custom Metrics for Production Monitoring
+
+Production systems require continuous monitoring to ensure reliability and performance. By programmatically analyzing traces, you can create custom metrics that reflect your specific quality and performance requirements.
+
+The key is to extract meaningful metrics that correlate with user experience and business outcomes, then integrate these into your existing monitoring infrastructure.
+
+```python
+import time
+from typing import Dict, List
+from dataclasses import dataclass
+
+@dataclass
+class TraceMetrics:
+    total_traces: int
+    error_rate: float
+    avg_execution_time: float
+    p95_execution_time: float
+
+def collect_trace_metrics(experiment_ids: list, time_window_minutes: int = 60) -> TraceMetrics:
+    """Collect metrics for monitoring dashboards"""
+    
+    # Define time window
+    current_time = int(time.time() * 1000)
+    window_start = current_time - (time_window_minutes * 60 * 1000)
+    
+    # Get recent traces
+    traces_df = mlflow.search_traces(
+        experiment_ids=experiment_ids,
+        filter_string=f"timestamp_ms > {window_start}",
+        max_results=5000
+    )
+    
+    if traces_df.empty:
+        return TraceMetrics(0, 0.0, 0.0, 0.0)
+    
+    # Calculate basic metrics
+    total_traces = len(traces_df)
+    error_count = len(traces_df[traces_df['status'] == 'ERROR'])
+    error_rate = error_count / total_traces
+    
+    # Performance metrics for successful traces
+    success_traces = traces_df[traces_df['status'] == 'OK']
+    avg_time = success_traces['execution_time_ms'].mean() if not success_traces.empty else 0
+    p95_time = success_traces['execution_time_ms'].quantile(0.95) if not success_traces.empty else 0
+    
+    return TraceMetrics(
+        total_traces=total_traces,
+        error_rate=error_rate,
+        avg_execution_time=avg_time,
+        p95_execution_time=p95_time
+    )
+
+def check_trace_health(experiment_ids: list, alert_thresholds: dict) -> List[str]:
+    """Health check function for alerting systems"""
+    alerts = []
+    metrics = collect_trace_metrics(experiment_ids)
+    
+    # Error rate alerts
+    if metrics.error_rate > alert_thresholds.get('max_error_rate', 0.05):
+        alerts.append(f"High error rate: {metrics.error_rate:.1%}")
+    
+    # Performance alerts
+    if metrics.p95_execution_time > alert_thresholds.get('max_p95_time_ms', 5000):
+        alerts.append(f"High P95 latency: {metrics.p95_execution_time:.1f}ms")
+    
+    # Volume alerts
+    if metrics.total_traces < alert_thresholds.get('min_trace_volume', 10):
+        alerts.append(f"Low trace volume: {metrics.total_traces} traces")
+    
+    return alerts
+
+# Usage example
+thresholds = {
+    'max_error_rate': 0.05,  # 5%
+    'max_p95_time_ms': 3000,  # 3 seconds
+    'min_trace_volume': 50    # minimum traces per hour
+}
+
+alerts = check_trace_health(["1"], thresholds)
+if alerts:
+    print("🚨 ALERTS:")
+    for alert in alerts:
+        print(f"  - {alert}")
+else:
+    print("✅ All systems normal")
+```
+
+This monitoring approach helps you detect issues early and maintain service quality standards automatically. The metrics can be integrated into your existing monitoring dashboards or alerting systems.
+
+## Evaluation Dataset Creation
+
+### Building Training Data from Production Traces
+
+One of the most valuable applications of trace querying is creating evaluation datasets from real production data. This ensures your evaluations reflect actual user interactions and use cases.
+
+**Benefits of trace-based evaluation datasets:**
+- Real user inputs and interaction patterns
+- Actual system outputs as ground truth or comparison baseline
+- Natural distribution of complexity and edge cases
+- Context from multi-step workflows (like RAG pipelines)
+
+```python
+def create_evaluation_dataset(experiment_ids: list, task_type: str, sample_size: int = 1000):
+    """Create evaluation dataset from successful traces"""
+    
+    print(f"Creating {task_type} evaluation dataset from traces...")
+    
+    # Define extraction patterns based on task type
+    if task_type == "chat":
+        extract_fields = [
+            "chat_completion.inputs.messages",
+            "chat_completion.outputs.response"
+        ]
+        filter_string = "status = 'OK' AND tags.task_type = 'chat'"
+    elif task_type == "rag":
+        extract_fields = [
+            "retrieval.inputs.query",
+            "retrieval.outputs",
+            "llm_call.outputs.response"
+        ]
+        filter_string = "status = 'OK' AND tags.task_type = 'rag'"
+    else:
+        raise ValueError(f"Unsupported task type: {task_type}")
+    
+    # Get traces with extracted span data
+    dataset_df = mlflow.search_traces(
+        experiment_ids=experiment_ids,
+        filter_string=filter_string,
+        extract_fields=extract_fields,
+        max_results=sample_size,
+        order_by=["timestamp_ms DESC"]
+    )
+    
+    if dataset_df.empty:
+        print(f"No traces found for task type: {task_type}")
+        return None
+    
+    print(f"Found {len(dataset_df)} traces matching criteria")
+    
+    # Process data based on task type
+    if task_type == "chat":
+        eval_dataset = dataset_df.rename(columns={
+            "chat_completion.inputs.messages": "inputs",
+            "chat_completion.outputs.response": "ground_truth"
+        })
+        
+        # Extract the last user message as input
+        def extract_user_message(messages):
+            if isinstance(messages, list):
+                user_msgs = [msg.get('content', '') for msg in messages if msg.get('role') == 'user']
+                return user_msgs[-1] if user_msgs else ""
+            return str(messages)
+        
+        eval_dataset['inputs'] = eval_dataset['inputs'].apply(extract_user_message)
+        
+    elif task_type == "rag":
+        eval_dataset = dataset_df.rename(columns={
+            "retrieval.inputs.query": "inputs",
+            "llm_call.outputs.response": "ground_truth"
+        })
+        
+        # Add retrieved context for evaluation
+        eval_dataset['context'] = dataset_df['retrieval.outputs'].apply(
+            lambda x: [doc.get('page_content', '') for doc in x] if isinstance(x, list) else []
+        )
+    
+    # Clean up the dataset
+    eval_dataset = eval_dataset.dropna(subset=['inputs', 'ground_truth'])
+    eval_dataset = eval_dataset[eval_dataset['inputs'].str.len() > 0]
+    eval_dataset = eval_dataset[eval_dataset['ground_truth'].str.len() > 0]
+    
+    print(f"Final dataset size after cleanup: {len(eval_dataset)} examples")
+    
+    # Add metadata for traceability
+    eval_dataset['trace_id'] = dataset_df['request_id']
+    eval_dataset['timestamp'] = dataset_df['timestamp_ms']
+    
+    return eval_dataset
+
+# Usage
+chat_dataset = create_evaluation_dataset(["1"], "chat", sample_size=500)
+if chat_dataset is not None:
+    print("Sample evaluation example:")
+    print(f"Input: {chat_dataset.iloc[0]['inputs']}")
+    print(f"Ground truth: {chat_dataset.iloc[0]['ground_truth']}")
+```
+
+This approach ensures your evaluation datasets stay current with real user needs and system behavior.
+
+## Best Practices for SDK Usage
+
+### Efficient Querying Strategies
+
+When working with large trace datasets, efficiency becomes crucial. Here are key strategies to optimize your trace queries:
+
+**1. Use Time Windows**: Always filter by timestamp to limit the search space
+**2. Leverage Pagination**: For large result sets, use pagination rather than increasing max_results
+**3. Filter Early**: Apply as many filters as possible in the query rather than filtering results in memory
+**4. Choose the Right API**: Use the fluent API for analysis, client API for detailed inspection
+
+```python
+import time
+from mlflow import MlflowClient
+
+def get_recent_traces_efficiently(experiment_ids: list, hours: int = 1):
+    """Get traces from recent time window efficiently"""
+    cutoff_time = int((time.time() - hours * 3600) * 1000)
+    
+    return mlflow.search_traces(
+        experiment_ids=experiment_ids,
+        filter_string=f"timestamp_ms > {cutoff_time}",
+        order_by=["timestamp_ms DESC"],
+        max_results=1000  # Reasonable limit for most use cases
+    )
+
+def get_all_traces_paginated(experiment_ids: list, filter_string: str = None):
+    """Efficiently retrieve all traces using pagination"""
+    client = MlflowClient()
+    all_traces = []
+    page_token = None
+    
+    while True:
+        response = client.search_traces(
+            experiment_ids=experiment_ids,
+            filter_string=filter_string,
+            max_results=1000,  # Optimal batch size
+            page_token=page_token
+        )
+        
+        all_traces.extend(response.traces if hasattr(response, 'traces') else response)
+        
+        # Check for pagination token
+        if hasattr(response, 'next_page_token') and response.next_page_token:
+            page_token = response.next_page_token
+        else:
+            break
+        
+        print(f"Retrieved {len(all_traces)} traces so far...")
+    
+    return all_traces
+```
+
+### Error Handling and Resilience
+
+Production systems require robust error handling to deal with network issues, backend problems, and data inconsistencies.
+
+```python
+def safe_trace_query(experiment_ids: list, filter_string: str = None, retries: int = 3):
+    """Query traces with retry logic and error handling"""
+    from mlflow.exceptions import MlflowException
+    
+    for attempt in range(retries):
+        try:
+            return mlflow.search_traces(
+                experiment_ids=experiment_ids,
+                filter_string=filter_string
+            )
+        except MlflowException as e:
+            if "experiment not found" in str(e).lower():
+                print(f"Experiment not found: {experiment_ids}")
+                return None
+            elif attempt == retries - 1:
+                print(f"Failed to query traces after {retries} attempts: {e}")
+                raise
+            else:
+                print(f"Attempt {attempt + 1} failed, retrying: {e}")
+                time.sleep(2 ** attempt)  # Exponential backoff
+        except Exception as e:
+            print(f"Unexpected error querying traces: {e}")
+            raise
+    
+    return None
+```
+
+## Summary
+
+The MLflow trace querying SDK enables powerful programmatic access to your trace data for:
+
+**Debugging and Investigation:**
+- Automated error pattern analysis
+- Performance bottleneck detection  
+- User session investigation
+- Root cause analysis
+
+**Production Monitoring:**
+- Custom metrics collection
+- Health checks and alerting
+- Integration with existing monitoring systems
+- Quality trend analysis
+
+**Data-Driven Improvement:**
+- Evaluation dataset creation from real usage
+- A/B testing analysis
+- User behavior insights
+- Model performance tracking
+
+**Key Success Factors:**
+- Choose the right API (Client vs Fluent) for your use case
+- Use efficient querying practices with time windows and pagination
+- Implement robust error handling for production usage
+- Focus on actionable metrics that correlate with user experience
+
+By combining these programmatic capabilities with the [MLflow Tracing UI](/genai/tracing/observe-with-traces/ui) and [search functionality](/genai/tracing/search-traces), you can build comprehensive observability solutions that help you understand, debug, and improve your GenAI applications continuously.

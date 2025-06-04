@@ -1,0 +1,187 @@
+import Tabs from "@theme/Tabs"
+import TabItem from "@theme/TabItem"
+import { APILink } from "@site/src/components/APILink";
+import DatabricksCallout from "@site/src/components/DatabricksCallout";
+
+# Tracing with Databricks Model Serving
+
+When you deploy GenAI applications or agents that have been [instrumented with MLflow Tracing](/genai/tracing/app-instrumentation) through the [Mosaic AI Agent Framework](https://docs.databricks.com/generative-ai/agent-framework/build-genai-apps.html), MLflow Tracing works automatically without any additional configuration.
+
+<DatabricksCallout docsPath="/mlflow3/genai/tracing/model-serving" additionalText="This integration provides seamless observability from development to production deployment." />
+
+## Automatic Trace Collection
+
+When deployed, your instrumented application will automatically emit traces to MLflow Experiments. This means:
+
+**No additional configuration required** - If your code uses MLflow Tracing [decorators](/genai/tracing/app-instrumentation/manual-tracing/fluent-apis), [context managers](/genai/tracing/app-instrumentation/manual-tracing/fluent-apis), or [autologging](/genai/tracing/app-instrumentation/automatic), traces are captured automatically in production
+
+**Same code for development and production** - The same tracing instrumentation works seamlessly across environments
+
+**Traces appear in MLflow Experiments** - Production traces are stored alongside your development traces for easy comparison
+
+## Deployment Integration
+
+<Tabs>
+  <TabItem value="agent-framework" label="Mosaic AI Agent Framework" default>
+    When using the Mosaic AI Agent Framework, tracing integration is handled automatically:
+
+    **Built-in instrumentation**: Agents deployed through the framework automatically capture traces for all operations
+
+    **MLflow integration**: Traces are automatically logged to your specified MLflow experiment
+
+    **Production readiness**: The framework handles trace batching, sampling, and error handling for production workloads
+
+    **Seamless deployment**: No changes needed to your tracing code when moving from development to production
+  </TabItem>
+  <TabItem value="model-serving" label="Databricks Model Serving">
+    For custom deployments using Databricks Model Serving:
+
+    **MLflow model packaging**: Include your traced application code in MLflow model artifacts
+
+    **Environment consistency**: Ensure the same MLflow and tracing dependencies are available in the serving environment
+
+    **Experiment configuration**: Set the appropriate MLflow experiment for production trace collection
+
+    **Monitoring setup**: Configure alerts and monitoring for production trace data
+  </TabItem>
+</Tabs>
+
+## Viewing Production Traces
+
+Once deployed, you can view traces from your production agent in the MLflow Experiments UI, just like traces from development. These production traces provide valuable insights into:
+
+<Tabs>
+  <TabItem value="user-interactions" label="User Interactions" default>
+    **Real user queries and agent responses** - See exactly what users are asking and how your agent responds
+
+    **Conversation patterns** - Understand how users interact with your agent across multiple turns
+
+    **Query complexity** - Analyze the types and difficulty of questions users ask
+
+    **Response quality** - Evaluate how well your agent handles different types of requests
+  </TabItem>
+  <TabItem value="quality-feedback" label="Quality & Feedback">
+    **Quality insights from user feedback** - View thumbs up/down ratings, comments, and other feedback attached to production traces
+
+    **User satisfaction patterns** - Identify which types of interactions receive positive or negative feedback
+
+    **Quality trends over time** - Monitor how user satisfaction changes with model updates
+
+    **Feedback-driven improvements** - Use user feedback to guide model fine-tuning and prompt optimization
+  </TabItem>
+  <TabItem value="performance-monitoring" label="Performance & Reliability">
+    **Error rates and failure patterns** - Identify when and why your agent fails
+
+    **Latency and performance metrics** - Monitor response times and system performance in production
+
+    **Resource usage and costs** - Track token consumption and associated costs
+
+    **System health** - Monitor overall application reliability and availability
+  </TabItem>
+  <TabItem value="behavioral-analysis" label="Behavioral Analysis">
+    **Behavioral patterns** - Understand how users interact with your agent and identify improvement opportunities
+
+    **Usage analytics** - Track peak usage times, popular features, and user journeys
+
+    **A/B testing insights** - Compare performance across different model versions or configurations
+
+    **Feature adoption** - Monitor how users engage with different agent capabilities
+  </TabItem>
+</Tabs>
+
+## Production Monitoring Capabilities
+
+The integration provides comprehensive monitoring capabilities for production deployments:
+
+### Real-time Observability
+**Live trace streaming**: View traces as they're generated in production
+
+**Performance dashboards**: Monitor key metrics like latency, throughput, and error rates
+
+**Health checks**: Automated monitoring of agent availability and responsiveness
+
+### Quality Assessment
+**Automated evaluation**: Run quality assessments on production traces
+
+**Drift detection**: Identify when model performance degrades over time
+
+**Feedback integration**: Capture and analyze user feedback directly from traces
+
+### Cost and Resource Management
+**Token usage tracking**: Monitor and optimize LLM token consumption
+
+**Cost attribution**: Track costs by user, session, or feature
+
+**Resource optimization**: Identify opportunities to improve efficiency
+
+## Best Practices for Production Tracing
+
+### Sampling and Performance
+**Configure sampling rates**: Use appropriate sampling for high-volume production traffic
+
+**Optimize trace size**: Limit trace data size to essential information for production efficiency
+
+**Batch processing**: Leverage batching for improved performance and cost efficiency
+
+### Security and Privacy
+**Data sanitization**: Ensure sensitive information is properly handled in traces
+
+**Access controls**: Implement appropriate permissions for production trace data
+
+**Compliance**: Follow organizational data governance policies for trace data
+
+### Monitoring and Alerting
+**Set up alerts**: Configure notifications for error spikes or performance degradation
+
+**Quality thresholds**: Establish baselines and alerts for quality metrics
+
+**Operational dashboards**: Create dashboards for different stakeholders (developers, operations, product)
+
+## Integration Examples
+
+### Basic Agent Deployment
+```python
+import mlflow
+from databricks.agents import deploy
+
+# Your instrumented agent code
+@mlflow.trace
+def my_agent(query: str) -> str:
+    # Agent logic with automatic tracing
+    return process_query(query)
+
+# Deploy with automatic trace collection
+deployed_agent = deploy(
+    model=my_agent,
+    experiment_name="production-agent-traces"
+)
+```
+
+### Custom Model Serving
+```python
+import mlflow.pyfunc
+
+class TracedAgent(mlflow.pyfunc.PythonModel):
+    def load_context(self, context):
+        # Initialize your model with tracing enabled
+        mlflow.openai.autolog()
+        
+    @mlflow.trace
+    def predict(self, context, model_input):
+        # Prediction logic with automatic tracing
+        return self.process_request(model_input)
+```
+
+## Next Steps
+
+**[Deploy your agent](https://docs.databricks.com/generative-ai/agent-framework/deploy-agent.html)** using the Mosaic AI Agent Framework
+
+**[Set up evaluation and monitoring](https://docs.databricks.com/machine-learning/model-evaluation/index.html)** for your deployed agents
+
+**[Configure production monitoring](https://docs.databricks.com/machine-learning/model-serving/model-serving-monitor.html)** with alerts and dashboards
+
+**[Optimize performance](https://docs.databricks.com/machine-learning/model-serving/performance.html)** based on production trace insights
+
+---
+
+*Databricks Model Serving integration with MLflow Tracing provides seamless observability from development to production, enabling you to monitor, analyze, and improve your GenAI applications at scale.*

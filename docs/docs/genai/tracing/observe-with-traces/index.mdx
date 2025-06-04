@@ -1,0 +1,175 @@
+import DatabricksCallout from "@site/src/components/DatabricksCallout"
+
+# Debug & Observe Your App with Tracing
+
+<DatabricksCallout docsPath="/mlflow3/genai/tracing/observe-with-traces/index" />
+
+Once your GenAI application is instrumented with MLflow Tracing, you gain powerful tools to debug its behavior, understand its performance, and observe its inputs and outputs. This guide focuses on how to effectively use MLflow's tracing capabilities to monitor, analyze, and improve your AI applications.
+
+## Why Use Tracing for GenAI Applications?
+
+Generative AI applications often involve complex workflows with multiple components: LLM calls, retrieval systems, data processing, and business logic. Understanding what happens inside these "black boxes" is crucial for:
+
+**🐛 Debugging Issues**: Identify where failures occur, what inputs caused problems, and how errors propagate through your system
+
+**⚡ Performance Optimization**: Find bottlenecks, optimize slow operations, and understand resource usage patterns
+
+**📊 Quality Monitoring**: Track model outputs, user satisfaction, and system reliability over time
+
+**🔍 Root Cause Analysis**: Trace problems back to their source across complex multi-step workflows
+
+**📈 Continuous Improvement**: Use observability data to make informed decisions about system enhancements
+
+## Observability Tools Overview
+
+MLflow Tracing provides multiple interfaces for debugging and observing your applications:
+
+### MLflow UI - Web Interface
+
+The MLflow web interface provides comprehensive trace visualization and management capabilities:
+
+**📋 Trace List View**: Browse all traces with filtering, searching, and sorting capabilities
+- Filter by execution time, user, session, tags, or custom attributes
+- Search trace content and metadata
+- Sort by various metrics to identify patterns
+
+**🔍 Detailed Trace Explorer**: Dive deep into individual traces
+- Interactive span hierarchy visualization
+- Input/output inspection for each operation
+- Performance timeline and bottleneck identification
+- Error details and stack traces
+
+**🏷️ Tag and Metadata Management**: Organize and categorize traces
+- Add custom tags for better organization
+- Edit trace metadata directly in the UI
+- Use tags for filtering and analysis
+
+[**→ Learn more about the MLflow Tracing UI**](/genai/tracing/observe-with-traces/ui)
+
+### Jupyter Notebook Integration
+
+Debug directly in your development environment with embedded trace visualization:
+
+**🚀 Automatic Display**: Traces appear automatically in notebook cell outputs when created
+
+**🔧 Interactive Development**: Iterate quickly without switching between tools
+
+**📱 Same Rich Features**: Full trace exploration capabilities within notebooks
+
+[**→ Learn more about Jupyter integration**](/genai/tracing/observe-with-traces/ui#jupyter-notebook-integration)
+
+### Programmatic Access
+
+Use Python APIs for custom analysis and automated monitoring:
+
+**🔍 Search and Query**: Find traces programmatically based on complex criteria
+
+**🤖 Automated Monitoring**: Set up alerts and automated quality checks
+
+**📈 Evaluation Integration**: Use traces as input for systematic evaluation workflows
+
+[**→ Learn more about programmatic trace access**](/genai/tracing/search-traces)
+
+## Common Debugging Scenarios
+
+### Performance Issues
+
+**Identifying Slow Operations**:
+- Sort traces by execution time to find the slowest requests
+- Use the trace timeline to identify bottlenecks within workflows
+- Compare fast vs. slow traces to understand performance patterns
+
+**Resource Optimization**:
+- Track token usage and costs across different model configurations
+- Monitor memory and compute resource utilization
+- Identify opportunities for caching and optimization
+
+### Error Diagnosis
+
+**Finding Failure Patterns**:
+- Filter traces by error status to focus on failures
+- Examine error events and stack traces for root cause analysis
+- Track error rates across different user segments or time periods
+
+**Input Validation**:
+- Inspect the inputs that caused failures
+- Identify patterns in problematic requests
+- Validate data preprocessing and transformation steps
+
+### Quality Monitoring
+
+**Output Analysis**:
+- Review LLM responses for quality and appropriateness
+- Track consistency across similar requests
+- Monitor for harmful or inappropriate content
+
+**User Experience**:
+- Correlate trace data with user feedback
+- Identify traces that led to user dissatisfaction
+- Track quality metrics across different user segments
+
+### Multi-Component Workflows
+
+**RAG Pipeline Debugging**:
+- Inspect document retrieval quality and relevance
+- Analyze embedding and similarity scores
+- Trace how retrieved context influences LLM responses
+
+**Agent Workflows**:
+- Follow agent decision-making processes
+- Debug tool selection and execution
+- Understand multi-step reasoning chains
+
+## Best Practices for Observability
+
+### Effective Instrumentation
+
+**Strategic Span Creation**: Add spans for key operations that you want to monitor and debug
+
+**Rich Metadata**: Include relevant attributes, tags, and context information
+
+**Consistent Naming**: Use clear, consistent naming conventions for spans and traces
+
+**Error Handling**: Ensure errors are properly captured and attributed to the right spans
+
+### Organization and Management
+
+**Tagging Strategy**: Develop a consistent tagging approach for different environments, users, and use cases
+
+**Data Retention**: Plan for trace storage and cleanup based on your needs
+
+**Access Control**: Consider who needs access to different types of trace data
+
+### Analysis Workflows
+
+**Regular Review**: Establish processes for reviewing traces and identifying issues
+
+**Alerting**: Set up monitoring for key metrics and error rates
+
+**Documentation**: Document common debugging patterns and solutions
+
+## Getting Started
+
+1. **Instrument Your Application**: Start with [automatic tracing](/genai/tracing/app-instrumentation/automatic) for supported frameworks, then add [manual tracing](/genai/tracing/app-instrumentation/manual-tracing) for custom components
+
+2. **Explore the UI**: Use the [MLflow Tracing UI](/genai/tracing/observe-with-traces/ui) to familiarize yourself with trace visualization and navigation
+
+3. **Set Up Development Workflow**: Configure [Jupyter integration](/genai/tracing/observe-with-traces/ui#jupyter-notebook-integration) for seamless debugging during development
+
+4. **Plan Your Observability Strategy**: Define tagging conventions, retention policies, and monitoring processes
+
+5. **Iterate and Improve**: Use trace insights to continuously optimize your application's performance and quality
+
+## Next Steps
+
+**[Search and Query Traces](/genai/tracing/search-traces)**: Build custom analysis and monitoring solutions
+
+**[Delete and Manage Traces](/genai/tracing/observe-with-traces/delete-traces)**: Implement data lifecycle management
+
+**[Automatic Tracing](/genai/tracing/app-instrumentation/automatic)**: Instrument popular frameworks with one line of code
+
+**[Manual Tracing](/genai/tracing/app-instrumentation/manual-tracing)**: Add custom instrumentation for complete observability
+
+---
+
+*With MLflow Tracing's comprehensive observability tools, you can transform your GenAI applications from black boxes into transparent, debuggable, and continuously improvable systems.*

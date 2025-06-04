@@ -1,0 +1,287 @@
+import DatabricksCallout from "@site/src/components/DatabricksCallout"
+import { APILink } from "@site/src/components/APILink";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Production Monitoring for GenAI Applications
+
+<DatabricksCallout docsPath="" additionalText="Production Monitoring is a Databricks service that is designed to give advanced insights into the stability, accuracy, and functionality of your production-deployed GenAI applications."/>
+
+Once your GenAI application is deployed, continuous production monitoring is essential to ensure it maintains high quality, performs reliably, and delivers value to users over time. Production monitoring extends evaluation practices from development into the live operational environment, tracking key metrics and identifying issues before they impact users.
+
+## Why Monitor GenAI Applications in Production?
+
+GenAI applications face unique challenges that make production monitoring critical:
+
+**Quality Drift**: LLM behavior can change over time due to model updates, data distribution shifts, or new user interaction patterns
+
+**Operational Complexity**: Multi-step workflows involving LLMs, vector databases, and retrieval systems create multiple potential failure points
+
+**Cost Management**: Token usage and API costs can vary significantly based on user behavior and model performance
+
+**User Experience**: Latency, accuracy, and reliability directly impact user satisfaction and business outcomes
+
+**Regulatory Compliance**: Many industries require ongoing monitoring of AI system performance and quality
+
+## Key Monitoring Areas
+
+<Tabs>
+  <TabItem value="operational" label="Operational Metrics" default>
+    Monitor the technical performance and reliability of your application:
+
+    **Latency & Performance**:
+    - End-to-end response times
+    - LLM inference latency
+    - Retrieval system performance
+    - Component-level bottlenecks
+
+    **Reliability & Errors**:
+    - Overall error rates
+    - LLM API failures
+    - Timeout occurrences
+    - Dependency failures
+
+    **Resource Utilization**:
+    - Token consumption patterns
+    - API cost tracking
+    - Request throughput
+    - System resource usage
+
+    **Business Metrics**:
+    - User engagement rates
+    - Session completion rates
+    - Feature adoption
+    - User satisfaction scores
+  </TabItem>
+  <TabItem value="quality" label="Quality Metrics">
+    Assess the content quality and accuracy of your application's outputs:
+
+    **Response Quality**:
+    - Relevance to user queries
+    - Factual accuracy
+    - Completeness of responses
+    - Consistency across similar queries
+
+    **Safety & Compliance**:
+    - Harmful content detection
+    - Bias monitoring
+    - Privacy compliance
+    - Regulatory adherence
+
+    **User Experience Quality**:
+    - Response helpfulness
+    - Clarity and readability
+    - Appropriate tone and style
+    - Multi-turn conversation quality
+
+    **Domain-Specific Quality**:
+    - Technical accuracy (for specialized domains)
+    - Citation quality (for RAG applications)
+    - Code quality (for programming assistants)
+    - Creative quality (for content generation)
+  </TabItem>
+  <TabItem value="business" label="Business Impact">
+    Track how your GenAI application affects business outcomes:
+
+    **User Behavior**:
+    - Session duration and depth
+    - Feature usage patterns
+    - User retention rates
+    - Conversion metrics
+
+    **Operational Efficiency**:
+    - Support ticket reduction
+    - Process automation success
+    - Time savings for users
+    - Task completion rates
+
+    **Cost-Benefit Analysis**:
+    - Infrastructure costs vs. value delivered
+    - ROI on GenAI investment
+    - Productivity improvements
+    - Customer satisfaction impact
+  </TabItem>
+</Tabs>
+
+## Essential Monitoring Capabilities
+
+### Data Collection Foundation
+
+**Comprehensive Tracing**: Capture detailed execution data including inputs, outputs, timing, and metadata for every request
+
+**Contextual Information**: Track user sessions, application versions, deployment environments, and business context
+
+**Error Details**: Record specific error types, stack traces, and failure modes for root cause analysis
+
+**Performance Metrics**: Measure latency at multiple levels - end-to-end, component-specific, and dependency calls
+
+### Analysis and Insights
+
+**Trend Analysis**: Identify patterns and changes in performance, quality, and usage over time
+
+**Anomaly Detection**: Spot unusual behavior that might indicate issues or opportunities
+
+**Comparative Analysis**: Compare performance across different user segments, application versions, or time periods
+
+**Root Cause Investigation**: Drill down from high-level metrics to specific traces and execution details
+
+### Alerting and Response
+
+**Threshold-Based Alerts**: Get notified when key metrics exceed acceptable ranges
+
+**Intelligent Alerting**: Use machine learning to detect anomalies and unusual patterns
+
+**Escalation Procedures**: Define clear response workflows for different types of issues
+
+**Dashboard Visualization**: Create real-time and historical views of system health and performance
+
+## Monitoring Challenges for GenAI Applications
+
+### Technical Complexity
+
+**Multi-Component Architecture**: GenAI applications often involve multiple services, APIs, and data sources that must be monitored holistically
+
+**Asynchronous Processing**: Many workflows include background processing, queues, and batch operations that complicate monitoring
+
+**Dynamic Behavior**: LLM responses can vary significantly for similar inputs, making traditional monitoring approaches insufficient
+
+**Scalability Requirements**: High-volume applications need efficient monitoring that doesn't impact performance
+
+### Quality Assessment Challenges
+
+**Subjective Quality**: Unlike traditional software, "correctness" in GenAI applications often involves subjective judgments
+
+**Context Dependency**: Response quality depends heavily on context, user intent, and domain-specific requirements
+
+**Automated Evaluation**: Building reliable automated quality assessments requires sophisticated LLM judges or human labeling
+
+**Continuous Calibration**: Quality standards and evaluation criteria may evolve as applications mature
+
+### Cost and Resource Management
+
+**Variable Costs**: Token-based pricing makes cost prediction and management more complex than traditional applications
+
+**Resource Optimization**: Balancing quality, latency, and cost requires ongoing optimization of model selection and parameters
+
+**Budget Controls**: Implementing spending limits and cost alerts while maintaining service quality
+
+**ROI Measurement**: Quantifying the business value of GenAI applications relative to their operational costs
+
+## Building an Effective Monitoring Strategy
+
+### Start with Core Metrics
+
+Focus initially on fundamental operational health indicators:
+- Response latency and availability
+- Error rates and failure modes
+- Request volume and user engagement
+- Basic cost and resource consumption
+
+### Implement Quality Monitoring
+
+Develop approaches for assessing response quality:
+- Automated quality checks using LLM judges
+- Human evaluation workflows for critical use cases
+- User feedback collection and analysis
+- Domain-specific quality metrics
+
+### Create Actionable Dashboards
+
+Build visualizations that enable quick decision-making:
+- Real-time operational health dashboards
+- Historical trend analysis views
+- User-segmented performance metrics
+- Cost tracking and budget monitoring
+
+### Establish Alert Workflows
+
+Define clear procedures for responding to issues:
+- Escalation paths for different severity levels
+- Automated response procedures where possible
+- Documentation of common issues and solutions
+- Post-incident review and improvement processes
+
+## Advanced Monitoring with Databricks
+
+For organizations requiring comprehensive automated monitoring capabilities, [Databricks Mosaic AI](https://docs.databricks.com/en/machine-learning/mosaic-ai.html) provides enterprise-grade solutions:
+
+**Automated Quality Assessment**: Run LLM judges and custom evaluators automatically on production traffic samples
+
+**Real-time Monitoring Dashboards**: Pre-built visualizations for operational metrics, quality trends, and business impact
+
+**Intelligent Alerting Systems**: ML-powered anomaly detection combined with threshold-based alerts
+
+**Cost Optimization Tools**: Advanced analytics for token usage, cost prediction, and budget management
+
+**Compliance and Safety Monitoring**: Automated detection of bias, harmful content, and regulatory compliance issues
+
+**Performance Analytics**: Deep insights into latency patterns, error correlations, and optimization opportunities
+
+Learn more about [Production AI Monitoring with Databricks](https://docs.databricks.com/en/machine-learning/model-serving/monitor-inference.html).
+
+## Best Practices for Production Monitoring
+
+### Strategy and Planning
+
+**Define Success Metrics**: Establish clear KPIs that align with business objectives and user experience goals
+
+**Start Simple, Scale Gradually**: Begin with basic monitoring and add sophistication as needs become clear
+
+**Balance Coverage and Cost**: Monitor comprehensively without overwhelming teams or budgets
+
+**Plan for Growth**: Design monitoring systems that can scale with application usage and complexity
+
+### Implementation Considerations
+
+**Minimize Performance Impact**: Ensure monitoring doesn't significantly affect application responsiveness
+
+**Maintain Data Privacy**: Implement appropriate anonymization and security measures for monitoring data
+
+**Design for Reliability**: Build monitoring systems that remain operational even when primary systems fail
+
+**Enable Self-Service**: Provide tools that allow teams to create custom views and alerts
+
+### Operational Excellence
+
+**Regular Review and Tuning**: Continuously refine monitoring strategies based on operational learnings
+
+**Cross-Team Collaboration**: Ensure monitoring insights are shared across development, operations, and business teams
+
+**Documentation and Training**: Maintain clear documentation and train teams on monitoring tools and procedures
+
+**Incident Response Integration**: Connect monitoring systems with incident management and response workflows
+
+## The Future of GenAI Monitoring
+
+As GenAI applications become more sophisticated, monitoring capabilities continue to evolve:
+
+**Automated Quality Assessment**: Increasingly sophisticated LLM judges that can evaluate complex quality dimensions
+
+**Predictive Analytics**: Machine learning models that predict quality issues or performance degradation before they occur
+
+**Multi-Modal Monitoring**: Tracking performance across text, image, audio, and video generation tasks
+
+**Federated Monitoring**: Coordinated monitoring across distributed teams and deployment environments
+
+**Continuous Optimization**: Automated systems that adjust application parameters based on monitoring insights
+
+## Summary
+
+Production monitoring for GenAI applications is essential for maintaining quality, performance, and user satisfaction. While the challenges are complex - from subjective quality assessment to variable costs - the principles of effective monitoring remain consistent: collect comprehensive data, analyze for actionable insights, and respond quickly to issues.
+
+For organizations building monitoring capabilities:
+
+- **Start with operational fundamentals** (latency, errors, costs)
+- **Add quality monitoring gradually** based on application needs
+- **Invest in visualization and alerting** to make monitoring data actionable
+- **Consider enterprise solutions** like Databricks Mosaic AI for comprehensive automation
+
+The goal is not perfect monitoring, but rather building sufficient observability to ensure your GenAI applications deliver consistent value to users while maintaining operational efficiency and cost-effectiveness.
+
+## Next Steps
+
+**[Debug & Observe Your App with Tracing](/genai/tracing/observe-with-traces)**: Learn foundational observability concepts and techniques
+
+**[Query Traces via SDK](/genai/tracing/observe-with-traces/query-via-sdk)**: Understand how to programmatically access trace data for analysis
+
+**[Track Versions & Environments](/genai/tracing/track-environments-context)**: Implement context tracking for better monitoring insights

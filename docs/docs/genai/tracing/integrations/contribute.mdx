@@ -22,9 +22,9 @@ verify the environment is ready for tracing development by running the unit test
 
 First, get a solid understanding of what MLflow Tracing does and how it works. Check out these docs to get up to speed:
 
-- [Tracing Concepts](/tracing/tutorials/concept/) - Understand what tracing is and the specific benefits for MLflow users.
-- [Tracing Schema Guide](/tracing/tracing-schema/) - Details on trace data structure and the information stored.
-- [MLflow Tracing API Guide](/tracing/api/how-to/) - Practical guide to auto-instrumentation and APIs for manually creating traces.
+- [Tracing Concepts](/genai/tracing/concepts) - Understand what tracing is and the specific benefits for MLflow users.
+- [Tracing Schema Guide](/genai/tracing/data-model) - Details on trace data structure and the information stored.
+- [MLflow Tracing API Guide](/genai/tracing/app-instrumentation) - Practical guide to auto-instrumentation and APIs for manually creating traces.
 
 📝 **Quick Quiz**: Before moving on to the next step, let's challenge your understanding with a few questions.
 If you are not sure about the answers, revisit the docs for a quick refresh.
@@ -33,31 +33,31 @@ If you are not sure about the answers, revisit the docs for a quick refresh.
     <details>
         <summary>Q. What is the difference between a Trace and a Span?</summary>
         <p>A. Trace is the main object holding multiple Spans, with each Span capturing different parts of an operation. A Trace has metadata (TraceInfo) and a list of Spans (TraceData).\
-        <em>Reference:</em> [Tracing Schema Guide](/tracing/tracing-schema)</p>
+        <em>Reference:</em> [Tracing Schema Guide](/genai/tracing/data-model)</p>
     </details>
 
     <details>
         <summary>Q. What is the easiest way to create a span for a function call?</summary>
         <p>A. Use the `@mlflow.trace` decorator to capture inputs, outputs, and execution duration automatically.\
-          <em>Reference:</em> [MLflow Tracing API Guide](/tracing/api/manual-instrumentation/#decorator)</p>
+          <em>Reference:</em> [MLflow Tracing API Guide](/genai/tracing/app-instrumentation/manual-tracing)</p>
     </details>
 
     <details>
         <summary>Q. When would you use the MLflow Client for creating traces?</summary>
         <p>A. The Client API is useful when you want fine-grained control over how you start and end a trace. For example, you can specify a parent span ID when starting a span.\
-        <em>Reference:</em> [MLflow Tracing API Guide](/tracing/api/client/)</p>
+        <em>Reference:</em> [MLflow Tracing API Guide](/genai/tracing/app-instrumentation/manual-tracing/low-level-api)</p>
     </details>
 
     <details>
         <summary>Q. How do you log input data to a span?</summary>
         <p>A. You can log input data with the `span.set_inputs()` method for a span object returned by the ``mlflow.start_span`` context manager or Client APIs.\
-        <em>Reference:</em> [Tracing Schema Guide](/tracing/tracing-schema/)</p>
+        <em>Reference:</em> [Tracing Schema Guide](/genai/tracing/data-model)</p>
     </details>
 
     <details>
         <summary>Q. Where is exception information stored in a Trace?</summary>
         <p>A. Exceptions are recorded in the `events` attribute of the span, including details such as exception type, message, and stack trace.\
-        <em>Reference:</em> [MLflow Tracing API Guide](/tracing/api/manual-instrumentation/#automatic-exception-handling)</p>
+        <em>Reference:</em> [MLflow Tracing API Guide](/genai/tracing/app-instrumentation/manual-tracing)</p>
 
   </details>
 </div>
@@ -90,7 +90,7 @@ Draft a design document for your integration plan, using the [design template](h
 
 - **Integration Method**: Describe whether you'll use callbacks, API hooks, or patching. If there are multiple methods, list them as options and explain your choice.
 - **Maintainability**: LLM frameworks evolve quickly, so avoid relying on internal methods as much as possible. Prefer public APIs such as callbacks.
-- **Standardization**: Ensure consistency with other MLflow integrations for usability and downstream tasks. For example, retrieval spans should follow the [Retriever Schema](/tracing/tracing-schema#retriever-spans) for UI compatibility.
+- **Standardization**: Ensure consistency with other MLflow integrations for usability and downstream tasks. For example, retrieval spans should follow the [Retriever Schema](/genai/tracing/data-model#retriever-spans) for UI compatibility.
 
 Include a brief overview of the library's core functionality and use cases to provide context for reviewers. Once the draft is ready, share your design with MLflow maintainers, and if time allows, create a proof of concept to highlight potential challenges early.
 
@@ -132,8 +132,8 @@ When you are confident that the implementation works correctly, open a PR with t
 
 Documentation is a prerequisite for release. Follow these steps to complete the documentation:
 
-1. Add the integrated library icon and example in the [main Tracing documentation](/tracing/).
-2. If the library is already present in an existing MLflow model flavor, add a Tracing section in the flavor documentation ([example page](/llms/llama-index/#enable-tracing)).
+1. Add the integrated library icon and example in the [main Tracing documentation](/genai/tracing/integrations).
+2. If the library is already present in an existing MLflow model flavor, add a Tracing section in the flavor documentation ([example page](/genai/flavors/llama-index/#enable-tracing)).
 3. Add a notebook tutorial to demonstrate the integration ([example notebook](https://github.com/mlflow/mlflow/blob/master/docs/docs/llms/llama-index/notebooks/llama_index_quickstart.ipynb))
 
 Documentation sources are located in the `docs/` folder. Refer to [Writing Docs](https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md#writing-docs) for more details on how to build and preview the documentation.

@@ -1,0 +1,528 @@
+import DatabricksCallout from "@site/src/components/DatabricksCallout"
+
+# Monitoring GenAI Applications in Production
+
+<DatabricksCallout docsPath="/mlflow3/genai/tracing/prod-tracing" />
+
+Machine learning projects don't conclude with their initial launch. Ongoing monitoring and incremental enhancements are critical for long-term success. MLflow Tracing offers observability for your production application, supporting the iterative process of continuous improvement.
+
+## Prerequisites for Production Deployments
+
+For production deployments, it is highly recommended to install the lightweight `mlflow-tracing` package:
+
+```bash
+pip install --upgrade mlflow-tracing
+```
+
+### Pro Tip: Using the Lightweight Tracing SDK
+
+The [MLflow Tracing SDK `mlflow-tracing`](/genai/tracing/lightweight-sdk) is a lightweight package that only includes the minimum set of dependencies to instrument your code/models/agents with MLflow Tracing.
+
+import { CardGroup, SmallLogoCard, Card } from "@site/src/components/Card";
+
+<Card>
+  <div className="flex-column">
+    <div className="flex-row">
+      <div className="flex-item">
+        #### Key Benefits
+
+        - **⚡️ Faster Deployment**: Significantly smaller package size and fewer dependencies enable quicker deployments in containers and serverless environments
+        - **🔧 Simple Dependency Management**: Reduced dependencies mean less maintenance overhead and fewer potential conflicts
+        - **📦 Enhanced Portability**: Easily deploy across different platforms with minimal compatibility concerns
+        - **🔒 Improved Security**: Smaller attack surface with fewer dependencies reduces security risks
+        - **🚀 Performance Optimizations**: Optimized for high-volume tracing in production environments
+      </div>
+    </div>
+  </div>
+</Card>
+
+<br/>
+
+:::warning Compatibility Warning
+When installing the MLflow Tracing SDK, make sure the environment **does not have** the full MLflow package installed. Having both packages in the same environment might cause conflicts and unexpected behaviors.
+:::
+
+**Production vs Development Packages:**
+- **Production** (`mlflow-tracing`): Minimal dependencies, performance optimized, client-side tracing only
+- **Development** (`mlflow`): Full MLflow features including UI, evaluations, experimentation tools
+
+:::note
+MLflow 3 (specifically `mlflow-tracing` for production) is required for production tracing. MLflow 2.x is **not supported for production deployments** due to performance limitations and missing features essential for production use.
+:::
+
+## Setting Up Tracing for Production Endpoints
+
+When deploying your GenAI application to production, you need to configure MLflow Tracing to send traces to your MLflow tracking server.
+
+### Environment Variable Configuration
+
+Configure the following environment variables in your production environment:
+
+```bash
+# Required: Set MLflow Tracking URI
+export MLFLOW_TRACKING_URI="http://your-mlflow-server:5000"
+
+# Optional: Configure the experiment name for organizing traces
+export MLFLOW_EXPERIMENT_NAME="production-genai-app"
+
+# Optional: Configure async logging (recommended for production)
+export MLFLOW_ENABLE_ASYNC_TRACE_LOGGING=true
+export MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS=10
+export MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE=1000
+```
+
+### Docker Deployment Example
+
+When deploying with Docker, pass environment variables through your container configuration:
+
+```dockerfile
+# Dockerfile
+FROM python:3.9-slim
+
+# Install dependencies
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+
+# Copy application code
+COPY . /app
+WORKDIR /app
+
+# Set default environment variables (can be overridden at runtime)
+ENV MLFLOW_TRACKING_URI=""
+ENV MLFLOW_EXPERIMENT_NAME="production-genai-app"
+ENV MLFLOW_ENABLE_ASYNC_TRACE_LOGGING=true
+
+CMD ["python", "app.py"]
+```
+
+Run the container with environment variables:
+
+```bash
+docker run -d \
+  -e MLFLOW_TRACKING_URI="http://your-mlflow-server:5000" \
+  -e MLFLOW_EXPERIMENT_NAME="production-genai-app" \
+  -e MLFLOW_ENABLE_ASYNC_TRACE_LOGGING=true \
+  -e APP_VERSION="1.0.0" \
+  your-app:latest
+```
+
+### Kubernetes Deployment Example
+
+For Kubernetes deployments, use ConfigMaps and Secrets:
+
+```yaml
+# configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mlflow-config
+data:
+  MLFLOW_TRACKING_URI: 'http://mlflow-server:5000'
+  MLFLOW_EXPERIMENT_NAME: 'production-genai-app'
+  MLFLOW_ENABLE_ASYNC_TRACE_LOGGING: 'true'
+
+---
+# deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: genai-app
+spec:
+  template:
+    spec:
+      containers:
+        - name: app
+          image: your-app:latest
+          envFrom:
+            - configMapRef:
+                name: mlflow-config
+          env:
+            - name: APP_VERSION
+              value: '1.0.0'
+```
+
+### Verifying Trace Collection
+
+After deployment, verify that traces are being collected properly:
+
+```python
+import mlflow
+from mlflow.client import MlflowClient
+import os
+
+# Check connection to MLflow server
+client = MlflowClient()
+try:
+    # List recent experiments to verify connectivity
+    experiments = client.search_experiments()
+    print(f"Connected to MLflow. Found {len(experiments)} experiments.")
+
+    # Check if traces are being logged
+    traces = mlflow.search_traces(
+        experiment_names=[os.getenv("MLFLOW_EXPERIMENT_NAME", "production-genai-app")],
+        max_results=5,
+    )
+    print(f"Found {len(traces)} recent traces.")
+except Exception as e:
+    print(f"Error connecting to MLflow: {e}")
+    print(f"Check your tracking URI and connectivity")
+```
+
+## Adding Context to Production Traces
+
+In production environments, enriching traces with contextual information is crucial for understanding user behavior, debugging issues, and improving your GenAI application.
+
+### Tracking Request, Session, and User Context
+
+Production applications need to track multiple pieces of context simultaneously. Here's a comprehensive example showing how to track all of these in a FastAPI application:
+
+```python
+import mlflow
+import os
+from fastapi import FastAPI, Request, HTTPException
+from pydantic import BaseModel
+
+# Initialize FastAPI app
+app = FastAPI()
+
+
+class ChatRequest(BaseModel):
+    message: str
+
+
+@mlflow.trace  # Ensure @mlflow.trace is the outermost decorator
+@app.post("/chat")  # FastAPI decorator should be inner
+def handle_chat(request: Request, chat_request: ChatRequest):
+    # Retrieve all context from request headers
+    client_request_id = request.headers.get("X-Request-ID")
+    session_id = request.headers.get("X-Session-ID")
+    user_id = request.headers.get("X-User-ID")
+
+    # Update the current trace with all context and environment metadata
+    mlflow.update_current_trace(
+        client_request_id=client_request_id,
+        tags={
+            # Session context - groups traces from multi-turn conversations
+            "mlflow.trace.session": session_id,
+            # User context - associates traces with specific users
+            "mlflow.trace.user": user_id,
+            # Environment metadata - tracks deployment context
+            "environment": "production",
+            "app_version": os.getenv("APP_VERSION", "1.0.0"),
+            "deployment_id": os.getenv("DEPLOYMENT_ID", "unknown"),
+            "region": os.getenv("REGION", "us-east-1"),
+        },
+    )
+
+    # Your application logic for processing the chat message
+    response_text = f"Processed message: '{chat_request.message}'"
+
+    return {"response": response_text}
+```
+
+### Feedback Collection
+
+Capturing user feedback on specific interactions is essential for understanding quality and improving your GenAI application:
+
+```python
+import mlflow
+from mlflow.client import MlflowClient
+from fastapi import FastAPI, Query, Request
+from pydantic import BaseModel
+from typing import Optional
+from mlflow.entities import AssessmentSource
+
+app = FastAPI()
+
+
+class FeedbackRequest(BaseModel):
+    is_correct: bool  # True for correct, False for incorrect
+    comment: Optional[str] = None
+
+
+@app.post("/chat_feedback")
+def handle_chat_feedback(
+    request: Request,
+    client_request_id: str = Query(
+        ..., description="The client request ID from the original chat request"
+    ),
+    feedback: FeedbackRequest = ...,
+):
+    """
+    Collect user feedback for a specific chat interaction identified by client_request_id.
+    """
+    # Search for the trace with the matching client_request_id
+    client = MlflowClient()
+    experiment = client.get_experiment_by_name("production-genai-app")
+    traces = client.search_traces(
+        experiment_ids=[experiment.experiment_id],
+        filter_string=f"attributes.client_request_id = '{client_request_id}'",
+        max_results=1,
+    )
+
+    if not traces:
+        return {
+            "status": "error",
+            "message": f"Unable to find data for client request ID: {client_request_id}",
+        }, 500
+
+    # Log feedback using MLflow's log_feedback API
+    mlflow.log_feedback(
+        trace_id=traces[0].info.trace_id,
+        name="response_is_correct",
+        value=feedback.is_correct,
+        source=AssessmentSource(
+            source_type="HUMAN", source_id=request.headers.get("X-User-ID")
+        ),
+        rationale=feedback.comment,
+    )
+
+    return {
+        "status": "success",
+        "message": "Feedback recorded successfully",
+        "trace_id": traces[0].info.trace_id,
+    }
+```
+
+### Querying Traces with Context
+
+Use the contextual information to analyze production behavior:
+
+```python
+import mlflow
+from mlflow.client import MlflowClient
+
+client = MlflowClient()
+experiment = client.get_experiment_by_name("production-genai-app")
+
+# Query traces by user
+user_traces = client.search_traces(
+    experiment_ids=[experiment.experiment_id],
+    filter_string="tags.`mlflow.trace.user` = 'user-jane-doe-12345'",
+    max_results=100,
+)
+
+# Query traces by session
+session_traces = client.search_traces(
+    experiment_ids=[experiment.experiment_id],
+    filter_string="tags.`mlflow.trace.session` = 'session-def-456'",
+    max_results=100,
+)
+
+# Query traces by environment
+production_traces = client.search_traces(
+    experiment_ids=[experiment.experiment_id],
+    filter_string="tags.environment = 'production'",
+    max_results=100,
+)
+```
+
+## Production Monitoring Configurations
+
+### Asynchronous Trace Logging
+
+For production applications, MLflow logs traces asynchronously by default to prevent blocking your application:
+
+| Environment Variable | Description | Default Value |
+|----------------------|-------------|---------------|
+| `MLFLOW_ENABLE_ASYNC_TRACE_LOGGING` | Whether to log traces asynchronously. When set to `False`, traces will be logged in a blocking manner. | `True` |
+| `MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS` | The maximum number of worker threads to use for async trace logging per process. Increasing this allows higher throughput of trace logging, but also increases CPU usage and memory consumption. | `10` |
+| `MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE` | The maximum number of traces that can be queued before being logged to backend by the worker threads. When the queue is full, new traces will be discarded. Increasing this allows higher durability of trace logging, but also increases memory consumption. | `1000` |
+| `MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT` | The timeout in seconds for retrying failed trace logging. When a trace logging fails, it will be retried up to this timeout with backoff, after which it will be discarded. | `500` |
+
+Example configuration:
+
+```bash
+export MLFLOW_ENABLE_ASYNC_TRACE_LOGGING=true
+export MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS=20
+export MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE=2000
+export MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT=600
+```
+
+## OpenTelemetry Integration
+
+Traces generated by MLflow are compatible with the [OpenTelemetry trace specs](https://opentelemetry.io/docs/specs/otel/trace/api/#span). Therefore, MLflow traces can be exported to various observability platforms that support OpenTelemetry.
+
+By default, MLflow exports traces to the MLflow Tracking Server. To enable exporting traces to an OpenTelemetry Collector, set the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable **before starting any trace**:
+
+```bash
+pip install opentelemetry-exporter-otlp
+```
+
+```python
+import mlflow
+import os
+
+# Set the endpoint of the OpenTelemetry Collector
+os.environ["OTEL_EXPORTER_OTLP_TRACES_ENDPOINT"] = "http://localhost:4317/v1/traces"
+# Optionally, set the service name to group traces
+os.environ["OTEL_SERVICE_NAME"] = "your-service-name"
+
+# Trace will be exported to the OTel collector
+with mlflow.start_span(name="foo") as span:
+    span.set_inputs({"a": 1})
+    span.set_outputs({"b": 2})
+```
+
+### Supported Observability Platforms
+
+Click on the following icons to learn more about how to set up OpenTelemetry Collector for your specific observability platform:
+
+<CardGroup isSmall>
+    <SmallLogoCard link="https://docs.datadoghq.com/opentelemetry/">
+        <span>![Datadog Logo](/images/logos/datadog-logo.png)</span>
+    </SmallLogoCard>
+    <SmallLogoCard link="https://docs.newrelic.com/docs/opentelemetry/get-started/apm-monitoring/opentelemetry-apm-intro/#review-settings">
+        <span>![NewRelic Logo](/images/logos/new-relic-logo.png)</span>
+    </SmallLogoCard>
+    <SmallLogoCard link="https://signoz.io/docs/instrumentation/opentelemetry-python/">
+        <span>![Signoz Logo](/images/logos/signoz-logo.svg)</span>
+    </SmallLogoCard>
+    <SmallLogoCard link="https://docs.splunk.com/observability/en/gdi/get-data-in/get-data-in.html">
+        <span>![Splunk Logo](/images/logos/splunk-logo.png)</span>
+    </SmallLogoCard>
+    <SmallLogoCard link="https://grafana.com/docs/grafana-cloud/send-data/otlp/send-data-otlp/">
+        <span>![Grafana Logo](/images/logos/grafana-logo.png)</span>
+    </SmallLogoCard>
+    <SmallLogoCard link="https://docs.lightstep.com/docs/collector-home-page">
+        <span>![ServiceNow Logo](/images/logos/servicenow-logo.avif)</span>
+    </SmallLogoCard>
+</CardGroup>
+
+### OpenTelemetry Configuration
+
+MLflow uses the standard OTLP Exporter for exporting traces to OpenTelemetry Collector instances. You can use [all of the configurations](https://opentelemetry.io/docs/languages/sdk-configuration/otlp-exporter/) supported by OpenTelemetry:
+
+```bash
+export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT="http://localhost:4317/v1/traces"
+export OTEL_EXPORTER_OTLP_TRACES_PROTOCOL="http/protobuf"
+export OTEL_EXPORTER_OTLP_TRACES_HEADERS="api_key=12345"
+```
+
+:::warning Trace Exports
+MLflow only exports traces to a single destination. When the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable is configured, MLflow will **not** export traces to the MLflow Tracking Server and you will not see traces in the MLflow UI.
+:::
+
+## Self-Hosted Tracking Server
+
+You can use the MLflow tracking server to store production traces. However, the tracking server is optimized for offline experience and generally not suitable for handling hyper-scale traffic. For high-volume production workloads, consider using OpenTelemetry integration with dedicated observability platforms.
+
+If you choose to use the tracking server in production, we **strongly recommend**:
+
+1. **Use SQL-based tracking server** on top of a scalable database and artifact storage
+2. **Configure proper indexing** on trace tables for better query performance
+3. **Set up periodic deletion** for trace data management
+4. **Monitor server performance** and scale appropriately
+
+Refer to the [tracking server setup guide](/ml/tracking#tracking-setup) for more details.
+
+### Performance Considerations
+
+- **Database**: Use PostgreSQL or MySQL for better concurrent write performance
+- **Storage**: Use cloud storage (S3, Azure Blob, GCS) for artifact storage
+- **Indexing**: Ensure proper indexes on `timestamp_ms`, `status`, and frequently queried tag columns
+- **Retention**: Implement data retention policies to manage storage costs
+
+## Production Monitoring Best Practices
+
+### 1. Structured Logging and Tagging
+
+Use consistent tagging schemes across your application:
+
+```python
+# Standard production tags
+standard_tags = {
+    "environment": os.getenv("ENVIRONMENT", "production"),
+    "service_name": os.getenv("SERVICE_NAME", "genai-app"),
+    "version": os.getenv("APP_VERSION", "1.0.0"),
+    "region": os.getenv("REGION", "us-east-1"),
+}
+
+
+@mlflow.trace
+def my_function():
+    mlflow.update_current_trace(tags=standard_tags)
+    # Your function logic
+```
+
+### 2. Error Handling and Monitoring
+
+Implement robust error handling to ensure traces are logged even when failures occur:
+
+```python
+@mlflow.trace
+def robust_function():
+    try:
+        # Your function logic
+        result = process_request()
+        return result
+    except Exception as e:
+        # Log error details to trace
+        mlflow.update_current_trace(
+            tags={"error": True, "error_type": type(e).__name__},
+            attributes={"error_message": str(e)},
+        )
+        raise
+```
+
+### 3. Performance Monitoring
+
+Track key performance metrics:
+
+```python
+import time
+
+
+@mlflow.trace
+def performance_tracked_function():
+    start_time = time.time()
+
+    # Your function logic
+    result = expensive_operation()
+
+    # Log performance metrics
+    duration = time.time() - start_time
+    mlflow.update_current_trace(
+        attributes={
+            "duration_seconds": duration,
+            "tokens_processed": len(result.split()) if isinstance(result, str) else 0,
+        }
+    )
+
+    return result
+```
+
+### 4. Health Checks
+
+Implement health checks to monitor trace logging:
+
+```python
+from fastapi import FastAPI
+from mlflow.client import MlflowClient
+
+app = FastAPI()
+
+
+@app.get("/health")
+def health_check():
+    try:
+        client = MlflowClient()
+        # Quick connectivity test
+        experiments = client.search_experiments(max_results=1)
+        return {"status": "healthy", "mlflow_connected": True}
+    except Exception as e:
+        return {"status": "unhealthy", "mlflow_connected": False, "error": str(e)}
+```
+
+## Summary
+
+Production monitoring with MLflow Tracing provides comprehensive observability for your GenAI applications. Key recommendations:
+
+1. **Use `mlflow-tracing`** for production deployments
+2. **Configure async logging** for performance
+3. **Add rich context** with tags and metadata
+4. **Implement feedback collection** for quality monitoring
+5. **Consider OpenTelemetry integration** for enterprise observability
+6. **Monitor performance** and implement proper error handling
+
+Whether you're using self-hosted MLflow or integrating with enterprise observability platforms, MLflow Tracing provides the foundation for understanding and improving your production GenAI applications.
