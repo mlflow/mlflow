@@ -10,8 +10,9 @@ commands:
       - run:
           name: Fetch merge ref
           command: |
-            if [ -n "$CIRCLE_PR_NUMBER" ]; then
-              git fetch origin refs/pull/$CIRCLE_PR_NUMBER/merge
+            if [ -n "$CIRCLE_PULL_REQUEST" ]; then
+              PR_NUMBER=$(basename "$CIRCLE_PULL_REQUEST")
+              git fetch origin refs/pull/$PR_NUMBER/merge
               git checkout FETCH_HEAD
             fi
 
