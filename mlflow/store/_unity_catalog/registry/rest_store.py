@@ -11,7 +11,7 @@ from mlflow.entities import Run
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, RESOURCE_DOES_NOT_EXIST, ErrorCode
+from mlflow.protos.databricks_pb2 import INTERNAL_ERROR
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     MODEL_VERSION_OPERATION_READ_WRITE,
     CreateModelVersionRequest,
@@ -86,12 +86,6 @@ from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
     SetPromptTagRequest,
     SetPromptTagResponse,
     UnityCatalogSchema,
-)
-from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
-    Prompt as ProtoPrompt,
-)
-from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
-    PromptVersion as ProtoPromptVersion,
 )
 from mlflow.protos.unity_catalog_prompt_service_pb2 import UnityCatalogPromptService
 from mlflow.store._unity_catalog.lineage.constants import (
@@ -1169,7 +1163,14 @@ class UcModelRegistryStore(BaseRestStore):
             mv: A :py:class:`mlflow.entities.model_registry.ModelVersion` object.
             await_creation_for: Number of seconds to wait for the model version to finish being
                 created and is in ``READY`` status.
+        Await for model version to become ready after creation.
+
+        Args:
+            mv: A :py:class:`mlflow.entities.model_registry.ModelVersion` object.
+            await_creation_for: Number of seconds to wait for the model version to finish being
+                created and is in ``READY`` status.
         """
+        self._await_model_version_creation_impl(mv, await_creation_for)
         self._await_model_version_creation_impl(mv, await_creation_for)
 
     # Prompt-related method overrides for UC
