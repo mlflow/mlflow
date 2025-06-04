@@ -77,6 +77,7 @@ from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
+from mlflow.store._unity_catalog.registry.prompt_info import PromptInfo
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX
@@ -600,8 +601,6 @@ class MlflowClient:
                 entities representing prompt templates. Inspect the returned object's
                 `.token` attribute to fetch subsequent pages.
         """
-        from mlflow.store.entities.paged_list import PagedList
-
         registry_client = self._get_registry_client()
 
         # Delegate to the store - each store handles its own implementation:
@@ -617,7 +616,6 @@ class MlflowClient:
 
         # Check if the results are PromptInfo objects (UC stores) or RegisteredModel objects
         # (traditional stores)
-        from mlflow.store._unity_catalog.registry.prompt_info import PromptInfo
 
         prompts = []
         for result in search_results:
