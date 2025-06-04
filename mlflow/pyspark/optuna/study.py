@@ -87,6 +87,8 @@ def _optimize_sequential(
             frozen_trial = study._storage.get_trial(trial._trial_id)
             warning_message = None
 
+        study._storage.flush_all_batches()
+
         if frozen_trial.state == TrialState.COMPLETE:
             study._log_completed_trial(frozen_trial)
         elif frozen_trial.state == TrialState.PRUNED:

@@ -9,7 +9,7 @@ from typing import Any, Optional
 
 from mlflow import MlflowClient
 from mlflow.entities import Metric, Param, RunTag
-from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID, MLFLOW_RUN_NAME
+from mlflow.utils.mlflow_tags import MLFLOW_PARENT_RUN_ID
 
 try:
     from optuna._typing import JSONSerializable
@@ -382,9 +382,10 @@ class MlflowStorage(BaseStorage):
 
         # Set trial state
         state = frozen.state
-        self._queue_batch_operation(
-            trial_id, tags=[RunTag(MLFLOW_RUN_NAME, optuna_mlflow_status_map[state])]
-        )
+        if state.is_finished():
+            self._mlflow_client.set_terminated(trial_id, status=optuna_mlflow_status_map[state])
+        else:
+            self._mlflow_client.update_run(trial_id, status=optuna_mlflow_status_map[state])
 
         timestamp = int(time.time() * 1000)
         metrics = []
@@ -490,6 +491,12 @@ class MlflowStorage(BaseStorage):
     def set_trial_state_values(
         self, trial_id, state: TrialState, values: Optional[Sequence[float]] = None
     ) -> bool:
+        # Update trial state
+        if state.is_finished():
+            self._mlflow_client.set_terminated(trial_id, status=optuna_mlflow_status_map[state])
+        else:
+            self._mlflow_client.update_run(trial_id, status=optuna_mlflow_status_map[state])
+
         # Queue value metrics if provided
         timestamp = int(time.time() * 1000)
         if values is not None:
@@ -502,11 +509,6 @@ class MlflowStorage(BaseStorage):
                 metrics = [Metric("value", values[0], timestamp, 1)]
 
             self._queue_batch_operation(trial_id, metrics=metrics)
-
-        # Update trial state
-        self._queue_batch_operation(
-            trial_id, tags=[RunTag(MLFLOW_RUN_NAME, optuna_mlflow_status_map[state])]
-        )
 
         if state == TrialState.RUNNING and state != TrialState.WAITING:
             return False
