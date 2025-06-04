@@ -65,20 +65,20 @@ def test_validate_scorers_legacy_metric():
 def test_validate_scorers_invalid_all_scorers():
     with pytest.raises(MlflowException, match="The `scorers` argument must be a list") as e:
         validate_scorers([1, 2, 3])
-    assert " - Type of the invalid item: <class 'int'>" in str(e.value)
+    assert "an invalid item with type: int" in str(e.value)
 
     # Special case 1: List of list of all scorers
     with pytest.raises(MlflowException, match="The `scorers` argument must be a list") as e:
         validate_scorers([get_all_scorers()])
 
-    assert " - Type of the invalid item: <class 'list'>" in str(e.value)
+    assert "an invalid item with type: list" in str(e.value)
     assert "Hint: Use `scorers=get_all_scorers()` to pass all" in str(e.value)
 
     # Special case 2: List of list of all scorers + custom scorers
     with pytest.raises(MlflowException, match="The `scorers` argument must be a list") as e:
         validate_scorers([get_all_scorers(), RetrievalRelevance(), Correctness()])
 
-    assert " - Type of the invalid item: <class 'list'>" in str(e.value)
+    assert "an invalid item with type: list" in str(e.value)
     assert "Hint: Use `scorers=[*get_all_scorers(), scorer1, scorer2]` to pass all" in str(e.value)
 
     # Special case 3: List of classes (not instances)

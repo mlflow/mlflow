@@ -71,14 +71,9 @@ def validate_scorers(scorers: list[Any]) -> list[Scorer]:
             else:
                 hint = ""
 
-            # Truncate the item string to 30 characters not to overwhelm the error message
-            scorer_str = str(scorer)[:30] + "..." if len(str(scorer)) > 30 else str(scorer)
-
             raise MlflowException.invalid_parameter_value(
                 f"The `scorers` argument must be a list of scorers. The specified "
-                "list contains an item that is not a scorer.\n"
-                f" - Type of the invalid item: {type(scorer)}\n"
-                f" - Invalid item: {scorer_str}"
+                f"list contains an invalid item with type: {type(scorer).__name__}.\n"
                 f"{hint}"
             )
 
