@@ -24,10 +24,16 @@ from mlflow.utils.proto_json_utils import proto_timestamp_to_milliseconds
 # - int
 # - str
 # - bool
-# - list of values of the same types as above
-# - dict with string keys and values of the same types as above
-PbValueType = Union[float, int, str, bool]
-FeedbackValueType = Union[PbValueType, dict[str, PbValueType], list[PbValueType]]
+# - list of values of any of the above types (supports nested structures)
+# - dict with string keys and values of any of the above types (supports nested)
+FeedbackValueType = Union[
+    float,
+    int,
+    str,
+    bool,
+    list["FeedbackValueType"],
+    dict[str, "FeedbackValueType"],
+]
 
 
 @experimental
@@ -183,8 +189,8 @@ class Feedback(Assessment):
             - int
             - str
             - bool
-            - list of values of the same types as above
-            - dict with string keys and values of the same types as above
+            - list of values of any of the above types (supports nested structures)
+            - dict with string keys and values of any of the above types (supports nested)
         error: An optional error associated with the feedback. This is used to indicate
             that the feedback is not valid or cannot be processed. Accepts an exception
             object, or an :py:class:`~mlflow.entities.Expectation` object.
