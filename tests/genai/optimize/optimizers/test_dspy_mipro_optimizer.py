@@ -11,9 +11,9 @@ pytest.importorskip("dspy", minversion="2.6.0")
 
 from mlflow.entities.model_registry import Prompt
 from mlflow.genai.optimize.optimizers import _DSPyMIPROv2Optimizer
+from mlflow.genai.optimize.optimizers.utils.dspy_mipro_callback import _DSPyMIPROv2Callback
 from mlflow.genai.optimize.types import LLMParams, OptimizerConfig
 from mlflow.genai.scorers import scorer
-from mlflow.genai.optimize.optimizers.utils.dspy_mipro_callback import _DSPyMIPROv2Callback
 
 
 @pytest.fixture
@@ -300,6 +300,7 @@ def test_optimize_with_verbose(
         assert "DSPy debug info" not in captured.err
 
     mock_mipro.assert_called_once()
+
 
 @pytest.mark.parametrize(
     "autolog",

@@ -1,16 +1,18 @@
 import pytest
-from unittest.mock import patch, MagicMock
 from dspy import Predict
 
-pytest.importorskip("dspy", minversion="2.6.12", reason="evaluate callback is available since 2.6.12")
+pytest.importorskip(
+    "dspy", minversion="2.6.12", reason="evaluate callback is available since 2.6.12"
+)
+
+import dspy
+from dspy import Evaluate, Example
+from dspy.evaluate.metrics import answer_exact_match
+from dspy.utils.dummies import DummyLM
 
 import mlflow
 from mlflow.genai.optimize.optimizers.utils.dspy_mipro_callback import _DSPyMIPROv2Callback
 
-import dspy
-from dspy.utils.dummies import DummyLM
-from dspy import Evaluate, Example
-from dspy.evaluate.metrics import answer_exact_match
 
 @pytest.fixture
 def callback():
@@ -26,7 +28,7 @@ def test_callback_with_evals(callback):
             eval(program, devset=valset, callback_metadata={"metric_key": "eval_full"})
             eval(program, devset=valset[:1], callback_metadata={"metric_key": "eval_full"})
             return program
-    
+
     lm = DummyLM(
         {
             "What is 1 + 1?": {"answer": "2"},

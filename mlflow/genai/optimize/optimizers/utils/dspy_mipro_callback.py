@@ -1,5 +1,5 @@
 from collections import defaultdict
-from typing import Any, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Optional
 
 from dspy import Prediction
 from dspy.utils.callback import BaseCallback
@@ -12,6 +12,7 @@ _FULL_EVAL_NAME = "eval_full"
 if TYPE_CHECKING:
     import dspy
 
+
 class _DSPyMIPROv2Callback(BaseCallback):
     def __init__(self, prompt_name: str, input_fields: dict[str, type]):
         self.prompt_name = prompt_name
@@ -20,7 +21,6 @@ class _DSPyMIPROv2Callback(BaseCallback):
         self._call_id_to_values: dict[str, tuple[str, int, "dspy.Predict"]] = {}
         self._evaluation_counter = defaultdict(int)
         self._best_score = None
-
 
     def on_evaluate_start(self, call_id: str, instance: Any, inputs: dict[str, Any]):
         key = "eval"
@@ -39,7 +39,7 @@ class _DSPyMIPROv2Callback(BaseCallback):
     ):
         if exception:
             return
-        
+
         if call_id not in self._call_id_to_values:
             return
         key, step, program = self._call_id_to_values.pop(call_id)
@@ -47,7 +47,7 @@ class _DSPyMIPROv2Callback(BaseCallback):
         # Only log the full evaluation result
         if key != _FULL_EVAL_NAME:
             return
-        
+
         if isinstance(outputs, float):
             score = outputs
         elif isinstance(outputs, tuple):
@@ -56,7 +56,7 @@ class _DSPyMIPROv2Callback(BaseCallback):
             score = float(outputs)
         else:
             return
-        
+
         if self._best_score is None:
             # This is the first evaluation with initial prompt,
             # we don't register this prompt

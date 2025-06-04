@@ -179,8 +179,8 @@ def _maybe_start_autolog(
     if optimizer_config.autolog:
         with start_run() as run:
             _logger.info(
-                f"Run {run.info.run_id} is created for autologging prompt optimization."
-                "Watch the run to view the optimization progress."
+                f"Run `{run.info.run_id}` is created for autologging prompt optimization. "
+                "Watch the run to track the optimization progress."
             )
             log_table(train_data, "train_data.json")
             if eval_data is not None:

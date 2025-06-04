@@ -1,9 +1,11 @@
-import pytest
 from unittest.mock import patch
+
+import pytest
 
 pytest.importorskip("dspy", minversion="2.6.0")
 
 from mlflow.genai.optimize.optimizers.utils.dspy_mipro_utils import format_optimized_prompt
+
 
 def test_format_optimized_prompt():
     import dspy
