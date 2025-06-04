@@ -13,6 +13,7 @@ from mlflow.entities.model_registry import Prompt
 from mlflow.genai.optimize.optimizers import _DSPyMIPROv2Optimizer
 from mlflow.genai.optimize.types import LLMParams, OptimizerConfig
 from mlflow.genai.scorers import scorer
+from mlflow.genai.optimize.optimizers.utils.dspy_mipro_callback import _DSPyMIPROv2Callback
 
 
 @pytest.fixture
@@ -84,29 +85,6 @@ def test_get_minibatch_size(train_size, eval_size, expected_batch_size):
 
     optimizer = _DSPyMIPROv2Optimizer(OptimizerConfig())
     assert optimizer._get_minibatch_size(train_data, eval_data) == expected_batch_size
-
-
-def test_format_optimized_prompt():
-    import dspy
-
-    mock_program = dspy.Predict("input_text, language -> translation")
-    input_fields = {"input_text": str, "language": str}
-    optimizer = _DSPyMIPROv2Optimizer(OptimizerConfig())
-
-    with patch("dspy.JSONAdapter.format") as mock_format:
-        mock_format.return_value = [
-            {"role": "system", "content": "You are a translator"},
-            {"role": "user", "content": "Input Text: {{input_text}}, Language: {{language}}"},
-        ]
-        result = optimizer._format_optimized_prompt(dspy.JSONAdapter(), mock_program, input_fields)
-
-    expected = (
-        "<system>\nYou are a translator\n</system>\n\n"
-        "<user>\nInput Text: {{input_text}}, Language: {{language}}\n</user>"
-    )
-
-    assert result == expected
-    mock_format.assert_called_once()
 
 
 @pytest.mark.parametrize(
@@ -322,3 +300,46 @@ def test_optimize_with_verbose(
         assert "DSPy debug info" not in captured.err
 
     mock_mipro.assert_called_once()
+
+@pytest.mark.parametrize(
+    "autolog",
+    [
+        False,
+        True,
+    ],
+)
+def test_optimize_with_autolog(
+    mock_mipro,
+    sample_data,
+    sample_prompt,
+    mock_extractor,
+    autolog,
+):
+    import dspy
+
+    optimizer = _DSPyMIPROv2Optimizer(OptimizerConfig(autolog=autolog))
+
+    callbacks = []
+
+    optimized_program = dspy.Predict("input_text, language -> translation")
+
+    def fn(*args, **kwargs):
+        nonlocal callbacks
+        callbacks = dspy.settings.callbacks
+        return optimized_program
+
+    mock_mipro.return_value.compile.side_effect = fn
+
+    optimizer.optimize(
+        prompt=sample_prompt,
+        target_llm_params=LLMParams(model_name="agent/model"),
+        train_data=sample_data,
+        scorers=[sample_scorer],
+        eval_data=sample_data,
+    )
+
+    if autolog:
+        assert len(callbacks) == 1
+        assert isinstance(callbacks[0], _DSPyMIPROv2Callback)
+    else:
+        assert len(callbacks) == 0

@@ -32,6 +32,9 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
     ) -> Prompt:
         import dspy
 
+        from mlflow.genai.optimize.optimizers.utils.dspy_mipro_callback import _DSPyMIPROv2Callback
+        from mlflow.genai.optimize.optimizers.utils.dspy_mipro_utils import format_optimized_prompt
+
         _logger.info(
             f"Started optimizing prompt {prompt.uri}. "
             "Please wait as this process typically takes several minutes, "
@@ -84,7 +87,14 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
         )
 
         adapter = dspy.JSONAdapter()
-        with dspy.context(lm=lm, adapter=adapter):
+        callbacks = (
+            [
+                _DSPyMIPROv2Callback(prompt.name, input_fields),
+            ]
+            if self.optimizer_config.autolog
+            else []
+        )
+        with dspy.context(lm=lm, adapter=adapter, callbacks=callbacks):
             with self._maybe_suppress_stdout_stderr():
                 optimized_program = optimizer.compile(
                     program,
@@ -95,11 +105,10 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
                     requires_permission_to_run=False,
                 )
 
-        template = self._format_optimized_prompt(
-            adapter=adapter,
-            program=optimized_program,
-            input_fields=input_fields,
-        )
+            template = format_optimized_prompt(
+                program=optimized_program,
+                input_fields=input_fields,
+            )
 
         self._display_optimization_result(optimized_program)
 
@@ -124,22 +133,6 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
         if eval_data is not None:
             return min(35, len(eval_data) // 2)
         return min(35, len(train_data) // 2)
-
-    def _format_optimized_prompt(
-        self, adapter: "dspy.Adapter", program: "dspy.Predict", input_fields: dict[str, type]
-    ) -> str:
-        messages = adapter.format(
-            signature=program.signature,
-            demos=program.demos,
-            inputs={key: "{{" + key + "}}" for key in input_fields.keys()},
-        )
-
-        return "\n\n".join(
-            [
-                f"<{message['role']}>\n{message['content']}\n</{message['role']}>"
-                for message in messages
-            ]
-        )
 
     def _validate_input_fields(self, input_fields: dict[str, type], prompt: Prompt) -> None:
         if missing_fields := set(prompt.variables) - set(input_fields.keys()):
