@@ -3,7 +3,7 @@ description: "Set up Java"
 inputs:
   java-version:
     description: "java-version"
-    default: 11
+    default: 17
     required: false
 
   distribution:
@@ -18,3 +18,7 @@ runs:
       with:
         java-version: ${{ inputs.java-version }}
         distribution: ${{ inputs.distribution }}
+    - name: Set MLFLOW_DOCKER_OPENJDK_VERSION en
+      shell: bash
+      run: |
+        echo "MLFLOW_DOCKER_OPENJDK_VERSION=${{ inputs.java-version }}" >> $GITHUB_ENV
