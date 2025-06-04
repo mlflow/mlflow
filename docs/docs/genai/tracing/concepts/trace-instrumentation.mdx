@@ -36,7 +36,7 @@ MLflow traces follow a simple but powerful structure: **`Trace = TraceInfo + Tra
 
     **Identification**: Unique trace ID and storage location
 
-    **Timing**: Start time and total execution duration  
+    **Timing**: Start time and total execution duration
 
     **Status**: Success, failure, or in-progress state
 
@@ -91,7 +91,7 @@ A **span** represents a single, discrete operation within a trace. Each span has
 Spans form hierarchical relationships that mirror your application's call structure:
 
 - **Root span**: The top-level operation representing the entire request
-- **Child spans**: Operations called by parent operations  
+- **Child spans**: Operations called by parent operations
 - **Sibling spans**: Operations at the same level of the hierarchy
 
 The **parent_id** property establishes these hierarchical associations, creating a clear order-of-operations linkage.
@@ -156,7 +156,7 @@ Let's examine how these concepts work together in a typical RAG (Retrieval-Augme
 ├── 🔍 Span: "Query Processing" (UNKNOWN)
 │   ├── Input: "What are MLflow's key features?"
 │   └── Output: "Processed query: 'mlflow features'"
-├── 📚 Span: "Document Retrieval" (RETRIEVER) 
+├── 📚 Span: "Document Retrieval" (RETRIEVER)
 │   ├── 🔗 Span: "Embedding Generation" (EMBEDDING)
 │   │   ├── Input: "mlflow features"
 │   │   └── Output: [0.1, 0.3, -0.2, ...] (vector)
@@ -188,7 +188,7 @@ Understanding these concepts enables several powerful observability capabilities
 
 **Data flow validation**: Verify that data is transformed correctly at each step by examining inputs and outputs
 
-### Optimization  
+### Optimization
 **Cost tracking**: Monitor token usage, API calls, and resource consumption across operations using span attributes
 
 **Latency analysis**: Understand where delays occur in your application with detailed timing data

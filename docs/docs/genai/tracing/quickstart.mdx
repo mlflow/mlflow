@@ -100,18 +100,20 @@ mlflow.openai.autolog()
 
 client = OpenAI()
 
+
 def get_weather_response(location):
     """Get a weather-related response for a given location."""
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
             {"role": "system", "content": "You are a helpful weather assistant."},
-            {"role": "user", "content": f"What's the weather like in {location}?"}
+            {"role": "user", "content": f"What's the weather like in {location}?"},
         ],
         max_tokens=100,
-        temperature=0.7
+        temperature=0.7,
     )
     return response.choices[0].message.content
+
 
 # Execute the traced function
 location = "San Francisco"
@@ -120,7 +122,9 @@ response = get_weather_response(location)
 print(f"Query: What's the weather like in {location}?")
 print(f"Response: {response}")
 print("\nTraces have been captured!")
-print("View them in the MLflow UI at: http://127.0.0.1:5000 (or your MLflow server URL)")
+print(
+    "View them in the MLflow UI at: http://127.0.0.1:5000 (or your MLflow server URL)"
+)
 ```
 
 ## Step 3: Run the application
@@ -200,6 +204,7 @@ mlflow.openai.autolog()
 
 client = OpenAI()
 
+
 @mlflow.trace
 def preprocess_location(location):
     """Preprocess the location input."""
@@ -207,44 +212,49 @@ def preprocess_location(location):
     cleaned_location = location.strip().title()
     return cleaned_location
 
+
 @mlflow.trace
 def get_enhanced_weather_response(location):
     """Enhanced weather response with preprocessing and custom metadata."""
-    
+
     # Add tags for better organization
     mlflow.update_current_trace(
         tags={
             "location": location,
             "app_version": "1.0.0",
-            "request_type": "weather_query"
+            "request_type": "weather_query",
         }
     )
-    
+
     # Preprocess input
     cleaned_location = preprocess_location(location)
-    
+
     # Make OpenAI call (automatically traced)
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
             {"role": "system", "content": "You are a helpful weather assistant."},
-            {"role": "user", "content": f"What's the weather like in {cleaned_location}?"}
+            {
+                "role": "user",
+                "content": f"What's the weather like in {cleaned_location}?",
+            },
         ],
         max_tokens=150,
-        temperature=0.7
+        temperature=0.7,
     )
-    
+
     result = response.choices[0].message.content
-    
+
     # Add custom attributes
     mlflow.update_current_trace(
         attributes={
             "response_length": len(result),
-            "cleaned_location": cleaned_location
+            "cleaned_location": cleaned_location,
         }
     )
-    
+
     return result
+
 
 # Test the enhanced function
 locations = ["san francisco", "  New York  ", "tokyo"]
@@ -305,9 +315,9 @@ Learn [manual tracing techniques](/genai/tracing/app-instrumentation/manual-trac
 
 Congratulations! You've successfully:
 
-✅ Set up MLflow Tracing for a GenAI application  
-✅ Enabled automatic tracing for OpenAI API calls  
-✅ Generated and explored traces in the MLflow UI  
-✅ Learned how to add custom tracing and metadata  
+✅ Set up MLflow Tracing for a GenAI application
+✅ Enabled automatic tracing for OpenAI API calls
+✅ Generated and explored traces in the MLflow UI
+✅ Learned how to add custom tracing and metadata
 
 MLflow Tracing provides powerful observability for your GenAI applications, helping you monitor performance, debug issues, and understand user interactions. Continue exploring the advanced features to get the most out of your tracing setup!

@@ -137,7 +137,7 @@ client = OpenAI()
 response = client.chat.completions.create(
     model="gpt-4o-mini",
     messages=[{"role": "user", "content": "What is MLflow?"}],
-    max_tokens=100
+    max_tokens=100,
 )
 
 print(response.choices[0].message.content)
@@ -164,6 +164,7 @@ mlflow.set_experiment("/Shared/manual-tracing-demo")
 # Enable automatic tracing for OpenAI
 mlflow.openai.autolog()
 
+
 @mlflow.trace(name="RAG Pipeline", span_type=SpanType.CHAIN)
 def answer_question(question: str) -> str:
     """A simple RAG pipeline with manual tracing."""
@@ -177,18 +178,20 @@ def answer_question(question: str) -> str:
         model="gpt-4o-mini",
         messages=[
             {"role": "system", "content": f"Context: {context}"},
-            {"role": "user", "content": question}
+            {"role": "user", "content": question},
         ],
-        max_tokens=150
+        max_tokens=150,
     )
 
     return response.choices[0].message.content
+
 
 @mlflow.trace(span_type=SpanType.RETRIEVER)
 def retrieve_context(question: str) -> str:
     """Simulate context retrieval."""
     # Simulate retrieval logic
     return f"Relevant context for: {question}"
+
 
 # Execute the traced pipeline
 result = answer_question("What is MLflow Tracing?")
@@ -202,32 +205,32 @@ Choose the appropriate tracing approach based on your application architecture:
 <Tabs>
   <TabItem value="single-library" label="Single GenAI Library" default>
     **Using a single GenAI Authoring Library** (e.g., LangGraph, CrewAI, OpenAI Agents, Bedrock Agents, etc)
-    
+
     Use **automatic tracing** by adding a one-line integration from our [integrations page](/genai/tracing/integrations/index) for your selected library: `mlflow.<library>.autolog()`
-    
+
     This provides complete observability with minimal code changes and is perfect for getting started quickly with comprehensive tracing.
   </TabItem>
   <TabItem value="llm-sdks" label="LLM Provider SDKs">
     **Using an LLM provider's SDKs Directly** (e.g., OpenAI SDK, Anthropic SDK, Bedrock SDK, etc)
-    
+
     Enable [automatic tracing](/genai/tracing/app-instrumentation/automatic) for the API library
-    
+
     Add manual tracing decorators to [combine](/genai/tracing/app-instrumentation/manual-tracing/fluent-apis#combining-with-auto-tracing) multiple LLM calls into a single trace
   </TabItem>
   <TabItem value="multiple-frameworks" label="Multiple Frameworks">
     **Using Multiple Authoring Frameworks or combining an authoring framework with a LLM provider's SDK** (e.g., LangGraph AND OpenAI SDK, etc)
-    
+
     Enable [automatic tracing](/genai/tracing/app-instrumentation/automatic) for each framework / SDK
-    
+
     Add manual tracing decorators to [combine](/genai/tracing/app-instrumentation/manual-tracing/fluent-apis#combining-with-auto-tracing) calls to multiple frameworks or SDKs into a single trace
   </TabItem>
   <TabItem value="custom-control" label="Custom Control">
     **All other approaches or you have a need for fine-grained control**
-    
+
     Use [**Manual Tracing**](/genai/tracing/app-instrumentation/manual-tracing/index)
-    
+
     Start with the [high-level APIs](/genai/tracing/app-instrumentation/manual-tracing/fluent-apis) (`@mlflow.trace` decorator and fluent context managers) which provide a balance of control and ease of use
-    
+
     Use the [low-level APIs](/genai/tracing/app-instrumentation/manual-tracing/log-level-api) only if the high-level APIs don't give you enough control
   </TabItem>
 </Tabs>
@@ -250,10 +253,10 @@ mlflow.openai.autolog()
 
 # Autolog with custom configuration
 mlflow.openai.autolog(
-    log_traces=True,           # Enable/disable tracing
-    log_models=False,          # Disable model logging
-    log_inputs_outputs=True,   # Log input/output data
-    silent=False               # Enable logging messages
+    log_traces=True,  # Enable/disable tracing
+    log_models=False,  # Disable model logging
+    log_inputs_outputs=True,  # Log input/output data
+    silent=False,  # Enable logging messages
 )
 ```
 
@@ -271,20 +274,17 @@ Manual tracing gives you fine-grained control over what gets traced and how. Use
     import mlflow
     from mlflow.entities import SpanType
 
+
     @mlflow.trace(name="Document Processor", span_type=SpanType.CHAIN)
     def process_document(document: str, language: str = "en") -> dict:
         """Process a document through multiple steps."""
-        
+
         # This entire function execution will be traced
         tokens = tokenize(document)
         entities = extract_entities(tokens, language)
         summary = generate_summary(tokens)
-        
-        return {
-            "entities": entities,
-            "summary": summary,
-            "token_count": len(tokens)
-        }
+
+        return {"entities": entities, "summary": summary, "token_count": len(tokens)}
     ```
   </TabItem>
   <TabItem value="context-manager" label="Context Manager">
@@ -294,15 +294,16 @@ Manual tracing gives you fine-grained control over what gets traced and how. Use
     import mlflow
     from mlflow.entities import SpanType
 
+
     def complex_pipeline(data):
         with mlflow.start_span(name="Data Validation", span_type=SpanType.UNKNOWN) as span:
             validated_data = validate_input(data)
             span.set_attribute("validation_errors", len(validated_data.errors))
-            
+
         with mlflow.start_span(name="Model Prediction", span_type=SpanType.LLM) as span:
             prediction = model.predict(validated_data)
             span.set_attribute("confidence", prediction.confidence)
-            
+
         return prediction
     ```
   </TabItem>
@@ -317,25 +318,28 @@ Manual tracing gives you fine-grained control over what gets traced and how. Use
     # Enable automatic tracing for OpenAI
     mlflow.openai.autolog()
 
+
     @mlflow.trace(name="RAG Pipeline", span_type=SpanType.CHAIN)
     def rag_pipeline(question: str) -> str:
         """A RAG pipeline with both manual and automatic tracing."""
-        
+
         # Manual tracing for custom retrieval logic
-        with mlflow.start_span(name="Document Retrieval", span_type=SpanType.RETRIEVER) as span:
+        with mlflow.start_span(
+            name="Document Retrieval", span_type=SpanType.RETRIEVER
+        ) as span:
             relevant_docs = search_documents(question)
             span.set_attribute("documents_retrieved", len(relevant_docs))
-        
+
         # Automatic tracing for OpenAI call (via autolog)
         client = OpenAI()
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": f"Context: {relevant_docs}"},
-                {"role": "user", "content": question}
-            ]
+                {"role": "user", "content": question},
+            ],
         )
-        
+
         return response.choices[0].message.content
     ```
   </TabItem>
@@ -408,7 +412,7 @@ After instrumenting your application, you can view and analyze your traces in se
     traces = mlflow.search_traces(
         experiment_ids=["1"],
         filter_string="attributes.model_name = 'gpt-4o-mini'",
-        max_results=100
+        max_results=100,
     )
 
     # Get a specific trace
@@ -433,36 +437,36 @@ After instrumenting your application, you can view and analyze your traces in se
   <TabItem value="missing-traces" label="Missing Traces" default>
     **Problem**: Traces are not appearing in the UI
 
-    **Solutions**: 
-    
+    **Solutions**:
+
     Verify MLflow tracking URI is set correctly with `print(mlflow.get_tracking_uri())`
-    
+
     Check if tracing is enabled with `print(mlflow.tracing.is_tracing_enabled())`
-    
+
     Ensure autolog is called before library usage
-    
+
     Verify experiment exists and is accessible
   </TabItem>
   <TabItem value="performance-issues" label="Performance Issues">
     **Problem**: Tracing is slowing down your application
 
-    **Solutions**: 
-    
+    **Solutions**:
+
     Reduce sampling rate with `mlflow.tracing.set_global_config(sampling_rate=0.1)`
-    
+
     Limit trace size with size restrictions in the global config
-    
+
     Use async tracing for high-throughput applications
   </TabItem>
   <TabItem value="large-inputs" label="Large Input/Output Data">
     **Problem**: Traces contain too much data or fail due to size limits
 
-    **Solutions**: 
-    
+    **Solutions**:
+
     Configure automatic truncation in global settings
-    
+
     Manually truncate sensitive or large data before logging
-    
+
     Use references instead of full data content
   </TabItem>
 </Tabs>

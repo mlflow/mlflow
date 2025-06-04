@@ -73,7 +73,7 @@ Unlike high-level APIs, you must explicitly start a trace before adding spans:
 root_span = client.start_trace(
     name="my_application_flow",
     inputs={"user_id": "123", "action": "generate_report"},
-    attributes={"environment": "production", "version": "1.0.0"}
+    attributes={"environment": "production", "version": "1.0.0"},
 )
 
 # Extract the request_id for subsequent operations
@@ -92,7 +92,7 @@ data_span = client.start_span(
     request_id=request_id,  # Links to the trace
     parent_id=root_span.span_id,  # Creates parent-child relationship
     inputs={"user_id": "123"},
-    attributes={"database": "users_db", "query_type": "select"}
+    attributes={"database": "users_db", "query_type": "select"},
 )
 
 # Create a sibling span for processing
@@ -101,7 +101,7 @@ process_span = client.start_span(
     request_id=request_id,
     parent_id=root_span.span_id,  # Same parent as data_span
     inputs={"data_size": "1024KB"},
-    attributes={"processor": "gpu", "batch_size": 32}
+    attributes={"processor": "gpu", "batch_size": 32},
 )
 ```
 
@@ -115,7 +115,7 @@ client.end_span(
     request_id=data_span.request_id,
     span_id=data_span.span_id,
     outputs={"record_count": 42, "cache_hit": True},
-    attributes={"duration_ms": 150}
+    attributes={"duration_ms": 150},
 )
 
 # End the processing span
@@ -123,7 +123,7 @@ client.end_span(
     request_id=process_span.request_id,
     span_id=process_span.span_id,
     outputs={"processed_records": 42, "errors": 0},
-    status="OK"
+    status="OK",
 )
 ```
 
@@ -136,7 +136,7 @@ Complete the trace by ending the root span:
 client.end_trace(
     request_id=request_id,
     outputs={"report_url": "https://example.com/report/123"},
-    attributes={"total_duration_ms": 1250, "status": "success"}
+    attributes={"total_duration_ms": 1250, "status": "success"},
 )
 ```
 
@@ -159,7 +159,7 @@ client.end_trace(
             child_span = client.start_span(
                 name="database_query",
                 request_id=root_span.request_id,
-                parent_id=root_span.span_id
+                parent_id=root_span.span_id,
             )
 
             try:
@@ -171,7 +171,7 @@ client.end_trace(
                     request_id=child_span.request_id,
                     span_id=child_span.span_id,
                     outputs={"result": result},
-                    status="OK"
+                    status="OK",
                 )
             except Exception as e:
                 # End child span on error
@@ -179,7 +179,7 @@ client.end_trace(
                     request_id=child_span.request_id,
                     span_id=child_span.span_id,
                     status="ERROR",
-                    attributes={"error": str(e)}
+                    attributes={"error": str(e)},
                 )
                 raise
 
@@ -189,7 +189,7 @@ client.end_trace(
                 client.end_trace(
                     request_id=root_span.request_id,
                     status="ERROR",
-                    attributes={"error_type": type(e).__name__, "error_message": str(e)}
+                    attributes={"error_type": type(e).__name__, "error_message": str(e)},
                 )
             raise
         else:
@@ -197,7 +197,7 @@ client.end_trace(
             client.end_trace(
                 request_id=root_span.request_id,
                 outputs={"status": "completed"},
-                status="OK"
+                status="OK",
             )
     ```
   </TabItem>
@@ -207,6 +207,7 @@ client.end_trace(
     ```python
     import uuid
     from datetime import datetime
+
 
     class CustomTraceManager:
         """Custom trace manager with business-specific trace IDs"""
@@ -230,8 +231,8 @@ client.end_trace(
                     "user_id": user_id,
                     "operation": operation,
                     "custom_trace_id": trace_name,
-                    **kwargs
-                }
+                    **kwargs,
+                },
             )
 
             self.active_traces[trace_name] = root_span
@@ -241,12 +242,11 @@ client.end_trace(
             """Retrieve active trace by custom name"""
             return self.active_traces.get(trace_name)
 
+
     # Usage
     manager = CustomTraceManager()
     trace = manager.start_custom_trace(
-        user_id="user123",
-        operation="report_generation",
-        report_type="quarterly"
+        user_id="user123", operation="report_generation", report_type="quarterly"
     )
     ```
   </TabItem>
@@ -259,8 +259,7 @@ client.end_trace(
 
         # Start main trace
         root = client.start_trace(
-            name="batch_processing",
-            inputs={"batch_size": len(items)}
+            name="batch_processing", inputs={"batch_size": len(items)}
         )
 
         results = []
@@ -272,15 +271,13 @@ client.end_trace(
                 name=f"process_item_{i}",
                 request_id=root.request_id,
                 parent_id=root.span_id,
-                inputs={"item_id": item["id"]}
+                inputs={"item_id": item["id"]},
             )
 
             try:
                 # Validation span
                 validation_span = client.start_span(
-                    name="validate",
-                    request_id=root.request_id,
-                    parent_id=item_span.span_id
+                    name="validate", request_id=root.request_id, parent_id=item_span.span_id
                 )
 
                 is_valid = validate_item(item)
@@ -288,7 +285,7 @@ client.end_trace(
                 client.end_span(
                     request_id=validation_span.request_id,
                     span_id=validation_span.span_id,
-                    outputs={"is_valid": is_valid}
+                    outputs={"is_valid": is_valid},
                 )
 
                 if is_valid:
@@ -296,7 +293,7 @@ client.end_trace(
                     process_span = client.start_span(
                         name="transform",
                         request_id=root.request_id,
-                        parent_id=item_span.span_id
+                        parent_id=item_span.span_id,
                     )
 
                     result = transform_item(item)
@@ -305,14 +302,12 @@ client.end_trace(
                     client.end_span(
                         request_id=process_span.request_id,
                         span_id=process_span.span_id,
-                        outputs={"transformed": result}
+                        outputs={"transformed": result},
                     )
 
                 # End item span
                 client.end_span(
-                    request_id=item_span.request_id,
-                    span_id=item_span.span_id,
-                    status="OK"
+                    request_id=item_span.request_id, span_id=item_span.span_id, status="OK"
                 )
 
             except Exception as e:
@@ -321,7 +316,7 @@ client.end_trace(
                     request_id=item_span.request_id,
                     span_id=item_span.span_id,
                     status="ERROR",
-                    attributes={"error": str(e)}
+                    attributes={"error": str(e)},
                 )
 
         # End main trace
@@ -329,8 +324,8 @@ client.end_trace(
             request_id=root.request_id,
             outputs={
                 "processed_count": len(results),
-                "success_rate": len(results) / len(items)
-            }
+                "success_rate": len(results) / len(items),
+            },
         )
 
         return results
@@ -347,14 +342,12 @@ client.end_trace(
     ```python
     from contextlib import contextmanager
 
+
     @contextmanager
     def traced_span(client, name, request_id, parent_id=None, **kwargs):
         """Context manager for safe span management"""
         span = client.start_span(
-            name=name,
-            request_id=request_id,
-            parent_id=parent_id,
-            **kwargs
+            name=name, request_id=request_id, parent_id=parent_id, **kwargs
         )
         try:
             yield span
@@ -363,15 +356,12 @@ client.end_trace(
                 request_id=span.request_id,
                 span_id=span.span_id,
                 status="ERROR",
-                attributes={"error": str(e)}
+                attributes={"error": str(e)},
             )
             raise
         else:
-            client.end_span(
-                request_id=span.request_id,
-                span_id=span.span_id,
-                status="OK"
-            )
+            client.end_span(request_id=span.request_id, span_id=span.span_id, status="OK")
+
 
     # Usage
     with traced_span(client, "my_operation", request_id, parent_id) as span:
@@ -422,16 +412,11 @@ client.end_trace(
             if self._trace_stack:
                 # End child span
                 self.client.end_span(
-                    request_id=span.request_id,
-                    span_id=span.span_id,
-                    **kwargs
+                    request_id=span.request_id, span_id=span.span_id, **kwargs
                 )
             else:
                 # End root trace
-                self.client.end_trace(
-                    request_id=span.request_id,
-                    **kwargs
-                )
+                self.client.end_trace(request_id=span.request_id, **kwargs)
     ```
   </TabItem>
   <TabItem value="attributes" label="Meaningful Attributes">
@@ -449,8 +434,8 @@ client.end_trace(
             "temperature": 0.7,
             "max_tokens": 1000,
             "prompt_template": "rag_v2",
-            "user_tier": "premium"
-        }
+            "user_tier": "premium",
+        },
     )
     ```
 
@@ -461,7 +446,7 @@ client.end_trace(
         name="process",
         request_id=request_id,
         parent_id=parent_id,
-        attributes={"step": 1, "data": "some data"}
+        attributes={"step": 1, "data": "some data"},
     )
     ```
   </TabItem>
@@ -492,45 +477,41 @@ client.end_trace(
     ```python
     def service_a_operation():
         client = MlflowClient()
-        
+
         # Start trace in service A
         root_span = client.start_trace("distributed_operation")
-        
+
         # Pass trace context to service B
         trace_context = {
             "request_id": root_span.request_id,
-            "parent_span_id": root_span.span_id
+            "parent_span_id": root_span.span_id,
         }
-        
+
         # Call service B with context
         result = call_service_b(trace_context)
-        
+
         # End trace in service A
-        client.end_trace(
-            request_id=root_span.request_id,
-            outputs={"result": result}
-        )
+        client.end_trace(request_id=root_span.request_id, outputs={"result": result})
+
 
     def service_b_operation(trace_context):
         client = MlflowClient()
-        
+
         # Create child span in service B
         span = client.start_span(
             name="service_b_processing",
             request_id=trace_context["request_id"],
-            parent_id=trace_context["parent_span_id"]
+            parent_id=trace_context["parent_span_id"],
         )
-        
+
         # Do work in service B
         result = process_in_service_b()
-        
+
         # End span
         client.end_span(
-            request_id=span.request_id,
-            span_id=span.span_id,
-            outputs={"processed": result}
+            request_id=span.request_id, span_id=span.span_id, outputs={"processed": result}
         )
-        
+
         return result
     ```
   </TabItem>
@@ -538,6 +519,9 @@ client.end_trace(
     Implement intelligent tracing that adapts based on conditions:
 
     ```python
+    import random
+
+
     class ConditionalTracer:
         def __init__(self, sample_rate=0.1, error_always_trace=True):
             self.client = MlflowClient()
@@ -547,16 +531,15 @@ client.end_trace(
 
         def should_trace(self, operation_type: str, user_tier: str = None) -> bool:
             """Decide whether to trace based on conditions"""
-            import random
-            
+
             # Always trace for premium users
             if user_tier == "premium":
                 return True
-                
+
             # Always trace critical operations
             if operation_type in ["payment", "security"]:
                 return True
-                
+
             # Sample other operations
             return random.random() < self.sample_rate
 
@@ -590,23 +573,25 @@ client.end_trace(
         def add_span_to_queue(self, span_data):
             """Queue spans for batch processing"""
             self.span_queue.append(span_data)
-            
+
             # Flush if batch is full or time interval passed
-            if (len(self.span_queue) >= self.batch_size or 
-                time.time() - self.last_flush > self.flush_interval):
+            if (
+                len(self.span_queue) >= self.batch_size
+                or time.time() - self.last_flush > self.flush_interval
+            ):
                 self.flush_spans()
 
         def flush_spans(self):
             """Process queued spans in batch"""
             if not self.span_queue:
                 return
-                
+
             # Process all queued spans
             for span_data in self.span_queue:
                 # Create and end span immediately
                 span = self.client.start_span(**span_data["start_params"])
                 self.client.end_span(**span_data["end_params"])
-            
+
             # Clear queue
             self.span_queue.clear()
             self.last_flush = time.time()
@@ -614,7 +599,7 @@ client.end_trace(
         def traced_operation(self, name: str, operation, **kwargs):
             """Execute operation with deferred tracing"""
             start_time = time.time()
-            
+
             try:
                 result = operation()
                 status = "OK"
@@ -630,16 +615,16 @@ client.end_trace(
                         "name": name,
                         "request_id": kwargs.get("request_id"),
                         "parent_id": kwargs.get("parent_id"),
-                        "inputs": kwargs.get("inputs", {})
+                        "inputs": kwargs.get("inputs", {}),
                     },
                     "end_params": {
                         "outputs": {"result": result} if "result" in locals() else {},
                         "status": status,
                         "attributes": {
                             "duration_ms": (time.time() - start_time) * 1000,
-                            **error_info
-                        }
-                    }
+                            **error_info,
+                        },
+                    },
                 }
                 self.add_span_to_queue(span_data)
     ```

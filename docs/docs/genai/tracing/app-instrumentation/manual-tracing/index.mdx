@@ -88,11 +88,13 @@ The high-level APIs provide an intuitive way to add tracing with minimal code ch
     import mlflow
     from mlflow.entities import SpanType
 
+
     @mlflow.trace(span_type=SpanType.CHAIN)
     def process_request(query: str) -> str:
         # Your code here - automatically traced!
         result = generate_response(query)
         return result
+
 
     @mlflow.trace(span_type=SpanType.LLM)
     def generate_response(query: str) -> str:
@@ -161,14 +163,14 @@ child_span = client.start_span(
     name="data_retrieval",
     request_id=root_span.request_id,
     parent_id=root_span.span_id,
-    inputs={"query": query}
+    inputs={"query": query},
 )
 
 # End spans explicitly
 client.end_span(
     request_id=child_span.request_id,
     span_id=child_span.span_id,
-    outputs={"documents": documents}
+    outputs={"documents": documents},
 )
 
 # End the trace
@@ -223,6 +225,7 @@ import openai
 # Enable auto-tracing for OpenAI
 mlflow.openai.autolog()
 
+
 @mlflow.trace(span_type="CHAIN")
 def rag_pipeline(query: str):
     # Manual span for retrieval
@@ -233,7 +236,9 @@ def rag_pipeline(query: str):
     # Auto-traced OpenAI call
     response = openai.chat.completions.create(
         model="gpt-4",
-        messages=[{"role": "user", "content": f"Answer based on: {docs}\n\nQuery: {query}"}]
+        messages=[
+            {"role": "user", "content": f"Answer based on: {docs}\n\nQuery: {query}"}
+        ],
     )
 
     return response.choices[0].message.content
@@ -271,20 +276,21 @@ Enhance your traces with proper categorization and metadata:
 ```python
 from mlflow.entities import SpanType
 
+
 @mlflow.trace(name="Document Analysis", span_type=SpanType.CHAIN)
 def analyze_document(document: str):
     # Add custom attributes for better observability
     mlflow.set_span_attribute("document_length", len(document))
     mlflow.set_span_attribute("document_type", "research_paper")
-    
+
     with mlflow.start_span(name="Extract Entities", span_type=SpanType.PARSER) as span:
         entities = extract_entities(document)
         span.set_attribute("entity_count", len(entities))
-    
+
     with mlflow.start_span(name="Generate Summary", span_type=SpanType.LLM) as span:
         summary = generate_summary(document)
         span.set_attribute("summary_length", len(summary))
-    
+
     return {"entities": entities, "summary": summary}
 ```
 
@@ -305,34 +311,36 @@ Manual tracing works with async functions and streaming operations:
 ```python
 import asyncio
 
+
 @mlflow.trace(name="Async Processing")
 async def async_workflow(queries: list[str]):
     results = []
-    
+
     # Process queries concurrently
     async def process_query(query: str):
         with mlflow.start_span(name=f"Process: {query[:20]}") as span:
             result = await some_async_operation(query)
             span.set_outputs({"result_length": len(result)})
             return result
-    
+
     tasks = [process_query(q) for q in queries]
     results = await asyncio.gather(*tasks)
-    
+
     return results
+
 
 # Streaming example
 @mlflow.trace(name="Streaming Response")
 def streaming_response(prompt: str):
     with mlflow.start_span(name="Generate Stream") as span:
         full_response = ""
-        
+
         for chunk in llm.stream(prompt):
             full_response += chunk
-            
+
         span.set_outputs({"full_response": full_response})
         span.set_attribute("total_chunks", len(full_response.split()))
-        
+
         return full_response
 ```
 
@@ -343,6 +351,7 @@ The MLflow UI provides `Request` and `Response` columns in the Traces tab that s
 ```python
 import mlflow
 
+
 @mlflow.trace
 def predict(messages: list[dict]) -> str:
     # Customize the request preview to show the first and last messages
@@ -351,11 +360,14 @@ def predict(messages: list[dict]) -> str:
 
     # Process the messages
     response = process_messages(messages)
-    
+
     # Customize response preview
-    mlflow.update_current_trace(response_preview=f"Generated {len(response)} characters")
-    
+    mlflow.update_current_trace(
+        response_preview=f"Generated {len(response)} characters"
+    )
+
     return response
+
 
 messages = [
     {"role": "user", "content": "Hi, how are you?"},
@@ -379,13 +391,13 @@ def process_with_error_handling(data):
         with mlflow.start_span(name="Validation") as span:
             validated = validate_data(data)
             span.set_attribute("validation_status", "success")
-            
+
         with mlflow.start_span(name="Processing") as span:
             result = process_data(validated)
             span.set_attribute("processing_status", "success")
-            
+
         return result
-        
+
     except ValidationError as e:
         mlflow.set_span_attribute("error_type", "validation_error")
         mlflow.set_span_attribute("error_message", str(e))

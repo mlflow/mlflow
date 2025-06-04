@@ -39,9 +39,7 @@ MLflow provides two complementary APIs for programmatic trace access, each optim
 
     client = MlflowClient()
     traces = client.search_traces(
-        experiment_ids=["1"],
-        filter_string="status = 'ERROR'",
-        max_results=100
+        experiment_ids=["1"], filter_string="status = 'ERROR'", max_results=100
     )
 
     # Returns List[mlflow.entities.Trace]
@@ -66,19 +64,16 @@ MLflow provides two complementary APIs for programmatic trace access, each optim
     import mlflow
 
     # Returns pandas DataFrame by default
-    traces_df = mlflow.search_traces(
-        experiment_ids=["1"],
-        filter_string="status = 'ERROR'"
-    )
+    traces_df = mlflow.search_traces(experiment_ids=["1"], filter_string="status = 'ERROR'")
 
     # Easy analysis with pandas
-    error_summary = traces_df.groupby('tags')['execution_time_ms'].agg(['count', 'mean'])
+    error_summary = traces_df.groupby("tags")["execution_time_ms"].agg(["count", "mean"])
     print(error_summary)
 
     # Extract specific span data
     detailed_df = mlflow.search_traces(
         extract_fields=["llm_call.inputs.prompt", "llm_call.outputs.response"],
-        experiment_ids=["1"]
+        experiment_ids=["1"],
     )
     ```
 
@@ -107,23 +102,24 @@ import mlflow
 from mlflow import MlflowClient
 from datetime import datetime, timedelta
 
+
 def analyze_recent_errors(experiment_ids: list, hours_back: int = 24):
     """Analyze error patterns in recent traces"""
     client = MlflowClient()
-    
+
     # Calculate timestamp for filtering
     cutoff_time = datetime.now() - timedelta(hours=hours_back)
     timestamp_ms = int(cutoff_time.timestamp() * 1000)
-    
+
     # Get error traces
     error_traces = client.search_traces(
         experiment_ids=experiment_ids,
         filter_string=f"status = 'ERROR' AND timestamp_ms > {timestamp_ms}",
-        order_by=["timestamp_ms DESC"]
+        order_by=["timestamp_ms DESC"],
     )
-    
+
     print(f"Found {len(error_traces)} errors in the last {hours_back} hours")
-    
+
     # Analyze error patterns
     error_patterns = {}
     for trace in error_traces:
@@ -132,32 +128,37 @@ def analyze_recent_errors(experiment_ids: list, hours_back: int = 24):
                 # Extract error information from span events
                 error_type = "Unknown"
                 error_message = "No details"
-                
+
                 for event in span.events:
                     if "exception" in event.name.lower():
                         error_type = event.attributes.get("exception.type", "Unknown")
-                        error_message = event.attributes.get("exception.message", "No details")
+                        error_message = event.attributes.get(
+                            "exception.message", "No details"
+                        )
                         break
-                
+
                 pattern_key = f"{span.name}:{error_type}"
                 if pattern_key not in error_patterns:
                     error_patterns[pattern_key] = {
                         "count": 0,
                         "example_message": error_message,
-                        "trace_ids": []
+                        "trace_ids": [],
                     }
-                
+
                 error_patterns[pattern_key]["count"] += 1
                 error_patterns[pattern_key]["trace_ids"].append(trace.info.trace_id)
-    
+
     # Report findings
     print("\nError Patterns:")
-    for pattern, details in sorted(error_patterns.items(), key=lambda x: x[1]["count"], reverse=True):
+    for pattern, details in sorted(
+        error_patterns.items(), key=lambda x: x[1]["count"], reverse=True
+    ):
         print(f"  {pattern}: {details['count']} occurrences")
         print(f"    Example: {details['example_message'][:100]}...")
         print(f"    Recent trace: {details['trace_ids'][0]}")
-    
+
     return error_patterns
+
 
 # Usage
 error_analysis = analyze_recent_errors(["1"], hours_back=6)
@@ -176,51 +177,57 @@ Performance issues often develop gradually, making them hard to spot manually. P
 - Which spans contribute most to overall latency
 
 ```python
-def analyze_performance_bottlenecks(experiment_ids: list, percentile_threshold: float = 95):
+def analyze_performance_bottlenecks(
+    experiment_ids: list, percentile_threshold: float = 95
+):
     """Identify performance bottlenecks in traces"""
-    
+
     # Get successful traces for performance analysis
     traces_df = mlflow.search_traces(
         experiment_ids=experiment_ids,
         filter_string="status = 'OK'",
         order_by=["execution_time_ms DESC"],
-        max_results=1000
+        max_results=1000,
     )
-    
+
     if traces_df.empty:
         print("No successful traces found")
         return
-    
+
     # Calculate performance thresholds
-    p95_time = traces_df['execution_time_ms'].quantile(percentile_threshold / 100)
-    slow_traces = traces_df[traces_df['execution_time_ms'] > p95_time]
-    
+    p95_time = traces_df["execution_time_ms"].quantile(percentile_threshold / 100)
+    slow_traces = traces_df[traces_df["execution_time_ms"] > p95_time]
+
     print(f"P{percentile_threshold} execution time: {p95_time:.1f}ms")
     print(f"Found {len(slow_traces)} slow traces (>{p95_time:.1f}ms)")
-    
+
     # Detailed analysis of slow traces using client API
     client = MlflowClient()
     span_durations = {}
-    
+
     for _, trace_row in slow_traces.head(10).iterrows():  # Analyze top 10 slow traces
-        trace = client.get_trace(trace_row['request_id'])
-        
+        trace = client.get_trace(trace_row["request_id"])
+
         for span in trace.data.spans:
-            duration = (span.end_time_ns - span.start_time_ns) / 1_000_000  # Convert to ms
+            duration = (
+                span.end_time_ns - span.start_time_ns
+            ) / 1_000_000  # Convert to ms
             span_key = f"{span.name} ({span.span_type})"
-            
+
             if span_key not in span_durations:
                 span_durations[span_key] = []
             span_durations[span_key].append(duration)
-    
+
     # Report span-level bottlenecks
     print("\nSlowest Operations (avg duration in slow traces):")
-    for span_name, durations in sorted(span_durations.items(), 
-                                     key=lambda x: sum(x[1])/len(x[1]), reverse=True):
+    for span_name, durations in sorted(
+        span_durations.items(), key=lambda x: sum(x[1]) / len(x[1]), reverse=True
+    ):
         avg_duration = sum(durations) / len(durations)
         print(f"  {span_name}: {avg_duration:.1f}ms avg ({len(durations)} samples)")
-    
+
     return slow_traces, span_durations
+
 
 # Usage
 slow_traces, bottlenecks = analyze_performance_bottlenecks(["1"])
@@ -239,53 +246,64 @@ Understanding user behavior and experience requires analyzing traces in the cont
 - Analyzing conversation flow and context handling
 
 ```python
-def analyze_user_session(experiment_ids: list, user_id: str = None, session_id: str = None):
+def analyze_user_session(
+    experiment_ids: list, user_id: str = None, session_id: str = None
+):
     """Analyze traces for a specific user or session"""
-    
+
     # Build filter based on available identifiers
     filter_conditions = []
     if user_id:
         filter_conditions.append(f"tags.user_id = '{user_id}'")
     if session_id:
         filter_conditions.append(f"tags.session_id = '{session_id}'")
-    
+
     if not filter_conditions:
         raise ValueError("Must provide either user_id or session_id")
-    
+
     filter_string = " AND ".join(filter_conditions)
-    
+
     # Get session traces ordered chronologically
     session_traces = mlflow.search_traces(
         experiment_ids=experiment_ids,
         filter_string=filter_string,
-        order_by=["timestamp_ms ASC"]
+        order_by=["timestamp_ms ASC"],
     )
-    
+
     if session_traces.empty:
         print(f"No traces found for user={user_id}, session={session_id}")
         return
-    
+
     # Calculate session metrics
-    total_time = session_traces['execution_time_ms'].sum()
-    error_count = len(session_traces[session_traces['status'] == 'ERROR'])
+    total_time = session_traces["execution_time_ms"].sum()
+    error_count = len(session_traces[session_traces["status"] == "ERROR"])
     error_rate = error_count / len(session_traces)
-    
+
     print(f"Session Analysis: {len(session_traces)} traces")
-    print(f"Time range: {session_traces['timestamp_ms'].min()} to {session_traces['timestamp_ms'].max()}")
+    print(
+        f"Time range: {session_traces['timestamp_ms'].min()} to {session_traces['timestamp_ms'].max()}"
+    )
     print(f"Total execution time: {total_time:.1f}ms")
     print(f"Error rate: {error_count}/{len(session_traces)} ({error_rate*100:.1f}%)")
     print(f"Avg execution time: {session_traces['execution_time_ms'].mean():.1f}ms")
-    
+
     # Show trace timeline for debugging
     print("\nTrace Timeline:")
     for _, trace in session_traces.iterrows():
-        status_icon = "✅" if trace['status'] == 'OK' else "❌"
-        print(f"  {status_icon} {trace['timestamp_ms']}: {trace['execution_time_ms']:.1f}ms")
-        if hasattr(trace, 'request') and trace['request']:
-            request_preview = str(trace['request'])[:50] + "..." if len(str(trace['request'])) > 50 else str(trace['request'])
+        status_icon = "✅" if trace["status"] == "OK" else "❌"
+        print(
+            f"  {status_icon} {trace['timestamp_ms']}: {trace['execution_time_ms']:.1f}ms"
+        )
+        if hasattr(trace, "request") and trace["request"]:
+            request_preview = (
+                str(trace["request"])[:50] + "..."
+                if len(str(trace["request"])) > 50
+                else str(trace["request"])
+            )
             print(f"      Request: {request_preview}")
-    
+
     return session_traces
+
 
 # Usage
 user_session = analyze_user_session(["1"], user_id="user123")
@@ -304,6 +322,7 @@ import time
 from typing import Dict, List
 from dataclasses import dataclass
 
+
 @dataclass
 class TraceMetrics:
     total_traces: int
@@ -311,64 +330,75 @@ class TraceMetrics:
     avg_execution_time: float
     p95_execution_time: float
 
-def collect_trace_metrics(experiment_ids: list, time_window_minutes: int = 60) -> TraceMetrics:
+
+def collect_trace_metrics(
+    experiment_ids: list, time_window_minutes: int = 60
+) -> TraceMetrics:
     """Collect metrics for monitoring dashboards"""
-    
+
     # Define time window
     current_time = int(time.time() * 1000)
     window_start = current_time - (time_window_minutes * 60 * 1000)
-    
+
     # Get recent traces
     traces_df = mlflow.search_traces(
         experiment_ids=experiment_ids,
         filter_string=f"timestamp_ms > {window_start}",
-        max_results=5000
+        max_results=5000,
     )
-    
+
     if traces_df.empty:
         return TraceMetrics(0, 0.0, 0.0, 0.0)
-    
+
     # Calculate basic metrics
     total_traces = len(traces_df)
-    error_count = len(traces_df[traces_df['status'] == 'ERROR'])
+    error_count = len(traces_df[traces_df["status"] == "ERROR"])
     error_rate = error_count / total_traces
-    
+
     # Performance metrics for successful traces
-    success_traces = traces_df[traces_df['status'] == 'OK']
-    avg_time = success_traces['execution_time_ms'].mean() if not success_traces.empty else 0
-    p95_time = success_traces['execution_time_ms'].quantile(0.95) if not success_traces.empty else 0
-    
+    success_traces = traces_df[traces_df["status"] == "OK"]
+    avg_time = (
+        success_traces["execution_time_ms"].mean() if not success_traces.empty else 0
+    )
+    p95_time = (
+        success_traces["execution_time_ms"].quantile(0.95)
+        if not success_traces.empty
+        else 0
+    )
+
     return TraceMetrics(
         total_traces=total_traces,
         error_rate=error_rate,
         avg_execution_time=avg_time,
-        p95_execution_time=p95_time
+        p95_execution_time=p95_time,
     )
+
 
 def check_trace_health(experiment_ids: list, alert_thresholds: dict) -> List[str]:
     """Health check function for alerting systems"""
     alerts = []
     metrics = collect_trace_metrics(experiment_ids)
-    
+
     # Error rate alerts
-    if metrics.error_rate > alert_thresholds.get('max_error_rate', 0.05):
+    if metrics.error_rate > alert_thresholds.get("max_error_rate", 0.05):
         alerts.append(f"High error rate: {metrics.error_rate:.1%}")
-    
+
     # Performance alerts
-    if metrics.p95_execution_time > alert_thresholds.get('max_p95_time_ms', 5000):
+    if metrics.p95_execution_time > alert_thresholds.get("max_p95_time_ms", 5000):
         alerts.append(f"High P95 latency: {metrics.p95_execution_time:.1f}ms")
-    
+
     # Volume alerts
-    if metrics.total_traces < alert_thresholds.get('min_trace_volume', 10):
+    if metrics.total_traces < alert_thresholds.get("min_trace_volume", 10):
         alerts.append(f"Low trace volume: {metrics.total_traces} traces")
-    
+
     return alerts
+
 
 # Usage example
 thresholds = {
-    'max_error_rate': 0.05,  # 5%
-    'max_p95_time_ms': 3000,  # 3 seconds
-    'min_trace_volume': 50    # minimum traces per hour
+    "max_error_rate": 0.05,  # 5%
+    "max_p95_time_ms": 3000,  # 3 seconds
+    "min_trace_volume": 50,  # minimum traces per hour
 }
 
 alerts = check_trace_health(["1"], thresholds)
@@ -395,82 +425,95 @@ One of the most valuable applications of trace querying is creating evaluation d
 - Context from multi-step workflows (like RAG pipelines)
 
 ```python
-def create_evaluation_dataset(experiment_ids: list, task_type: str, sample_size: int = 1000):
+def create_evaluation_dataset(
+    experiment_ids: list, task_type: str, sample_size: int = 1000
+):
     """Create evaluation dataset from successful traces"""
-    
+
     print(f"Creating {task_type} evaluation dataset from traces...")
-    
+
     # Define extraction patterns based on task type
     if task_type == "chat":
         extract_fields = [
             "chat_completion.inputs.messages",
-            "chat_completion.outputs.response"
+            "chat_completion.outputs.response",
         ]
         filter_string = "status = 'OK' AND tags.task_type = 'chat'"
     elif task_type == "rag":
         extract_fields = [
             "retrieval.inputs.query",
             "retrieval.outputs",
-            "llm_call.outputs.response"
+            "llm_call.outputs.response",
         ]
         filter_string = "status = 'OK' AND tags.task_type = 'rag'"
     else:
         raise ValueError(f"Unsupported task type: {task_type}")
-    
+
     # Get traces with extracted span data
     dataset_df = mlflow.search_traces(
         experiment_ids=experiment_ids,
         filter_string=filter_string,
         extract_fields=extract_fields,
         max_results=sample_size,
-        order_by=["timestamp_ms DESC"]
+        order_by=["timestamp_ms DESC"],
     )
-    
+
     if dataset_df.empty:
         print(f"No traces found for task type: {task_type}")
         return None
-    
+
     print(f"Found {len(dataset_df)} traces matching criteria")
-    
+
     # Process data based on task type
     if task_type == "chat":
-        eval_dataset = dataset_df.rename(columns={
-            "chat_completion.inputs.messages": "inputs",
-            "chat_completion.outputs.response": "ground_truth"
-        })
-        
+        eval_dataset = dataset_df.rename(
+            columns={
+                "chat_completion.inputs.messages": "inputs",
+                "chat_completion.outputs.response": "ground_truth",
+            }
+        )
+
         # Extract the last user message as input
         def extract_user_message(messages):
             if isinstance(messages, list):
-                user_msgs = [msg.get('content', '') for msg in messages if msg.get('role') == 'user']
+                user_msgs = [
+                    msg.get("content", "")
+                    for msg in messages
+                    if msg.get("role") == "user"
+                ]
                 return user_msgs[-1] if user_msgs else ""
             return str(messages)
-        
-        eval_dataset['inputs'] = eval_dataset['inputs'].apply(extract_user_message)
-        
+
+        eval_dataset["inputs"] = eval_dataset["inputs"].apply(extract_user_message)
+
     elif task_type == "rag":
-        eval_dataset = dataset_df.rename(columns={
-            "retrieval.inputs.query": "inputs",
-            "llm_call.outputs.response": "ground_truth"
-        })
-        
-        # Add retrieved context for evaluation
-        eval_dataset['context'] = dataset_df['retrieval.outputs'].apply(
-            lambda x: [doc.get('page_content', '') for doc in x] if isinstance(x, list) else []
+        eval_dataset = dataset_df.rename(
+            columns={
+                "retrieval.inputs.query": "inputs",
+                "llm_call.outputs.response": "ground_truth",
+            }
         )
-    
+
+        # Add retrieved context for evaluation
+        eval_dataset["context"] = dataset_df["retrieval.outputs"].apply(
+            lambda x: [doc.get("page_content", "") for doc in x]
+            if isinstance(x, list)
+            else []
+        )
+
     # Clean up the dataset
-    eval_dataset = eval_dataset.dropna(subset=['inputs', 'ground_truth'])
-    eval_dataset = eval_dataset[eval_dataset['inputs'].str.len() > 0]
-    eval_dataset = eval_dataset[eval_dataset['ground_truth'].str.len() > 0]
-    
+    eval_dataset = eval_dataset.dropna(subset=["inputs", "ground_truth"])
+    eval_dataset = eval_dataset[eval_dataset["inputs"].str.len() > 0]
+    eval_dataset = eval_dataset[eval_dataset["ground_truth"].str.len() > 0]
+
     print(f"Final dataset size after cleanup: {len(eval_dataset)} examples")
-    
+
     # Add metadata for traceability
-    eval_dataset['trace_id'] = dataset_df['request_id']
-    eval_dataset['timestamp'] = dataset_df['timestamp_ms']
-    
+    eval_dataset["trace_id"] = dataset_df["request_id"]
+    eval_dataset["timestamp"] = dataset_df["timestamp_ms"]
+
     return eval_dataset
+
 
 # Usage
 chat_dataset = create_evaluation_dataset(["1"], "chat", sample_size=500)
@@ -497,41 +540,43 @@ When working with large trace datasets, efficiency becomes crucial. Here are key
 import time
 from mlflow import MlflowClient
 
+
 def get_recent_traces_efficiently(experiment_ids: list, hours: int = 1):
     """Get traces from recent time window efficiently"""
     cutoff_time = int((time.time() - hours * 3600) * 1000)
-    
+
     return mlflow.search_traces(
         experiment_ids=experiment_ids,
         filter_string=f"timestamp_ms > {cutoff_time}",
         order_by=["timestamp_ms DESC"],
-        max_results=1000  # Reasonable limit for most use cases
+        max_results=1000,  # Reasonable limit for most use cases
     )
+
 
 def get_all_traces_paginated(experiment_ids: list, filter_string: str = None):
     """Efficiently retrieve all traces using pagination"""
     client = MlflowClient()
     all_traces = []
     page_token = None
-    
+
     while True:
         response = client.search_traces(
             experiment_ids=experiment_ids,
             filter_string=filter_string,
             max_results=1000,  # Optimal batch size
-            page_token=page_token
+            page_token=page_token,
         )
-        
-        all_traces.extend(response.traces if hasattr(response, 'traces') else response)
-        
+
+        all_traces.extend(response.traces if hasattr(response, "traces") else response)
+
         # Check for pagination token
-        if hasattr(response, 'next_page_token') and response.next_page_token:
+        if hasattr(response, "next_page_token") and response.next_page_token:
             page_token = response.next_page_token
         else:
             break
-        
+
         print(f"Retrieved {len(all_traces)} traces so far...")
-    
+
     return all_traces
 ```
 
@@ -543,12 +588,11 @@ Production systems require robust error handling to deal with network issues, ba
 def safe_trace_query(experiment_ids: list, filter_string: str = None, retries: int = 3):
     """Query traces with retry logic and error handling"""
     from mlflow.exceptions import MlflowException
-    
+
     for attempt in range(retries):
         try:
             return mlflow.search_traces(
-                experiment_ids=experiment_ids,
-                filter_string=filter_string
+                experiment_ids=experiment_ids, filter_string=filter_string
             )
         except MlflowException as e:
             if "experiment not found" in str(e).lower():
@@ -559,11 +603,11 @@ def safe_trace_query(experiment_ids: list, filter_string: str = None, retries: i
                 raise
             else:
                 print(f"Attempt {attempt + 1} failed, retrying: {e}")
-                time.sleep(2 ** attempt)  # Exponential backoff
+                time.sleep(2**attempt)  # Exponential backoff
         except Exception as e:
             print(f"Unexpected error querying traces: {e}")
             raise
-    
+
     return None
 ```
 
@@ -573,7 +617,7 @@ The MLflow trace querying SDK enables powerful programmatic access to your trace
 
 **Debugging and Investigation:**
 - Automated error pattern analysis
-- Performance bottleneck detection  
+- Performance bottleneck detection
 - User session investigation
 - Root cause analysis
 

@@ -57,8 +57,7 @@ mlflow.openai.autolog()
 # Use OpenAI as usual - traces will be automatically logged
 client = openai.OpenAI()
 response = client.chat.completions.create(
-    model="gpt-4o-mini", 
-    messages=[{"role": "user", "content": "What is MLflow?"}]
+    model="gpt-4o-mini", messages=[{"role": "user", "content": "What is MLflow?"}]
 )
 
 print(response.choices[0].message.content)
@@ -112,7 +111,7 @@ The lightweight SDK works with various observability platforms. Choose your pref
       </div>
     </div>
   </TabItem>
-  
+
   <TabItem value="opentelemetry" label="OpenTelemetry">
     <div class="flex-column">
       <div class="flex-row">
@@ -229,39 +228,37 @@ mlflow.set_experiment(os.getenv("MLFLOW_EXPERIMENT_NAME", "production-genai-app"
 # Enable automatic tracing for your LLM library
 mlflow.openai.autolog()  # or mlflow.langchain.autolog(), etc.
 
+
 @mlflow.trace
 def handle_user_request(user_id: str, session_id: str, message: str):
     """Production endpoint with comprehensive tracing."""
-    
+
     # Add production context to trace
     mlflow.update_current_trace(
         tags={
             "user_id": user_id,
             "session_id": session_id,
             "environment": "production",
-            "service_version": os.getenv("SERVICE_VERSION", "1.0.0")
+            "service_version": os.getenv("SERVICE_VERSION", "1.0.0"),
         }
     )
-    
+
     try:
         # Your application logic here
         response = process_user_request(message)
-        
+
         # Log success metrics
         mlflow.update_current_trace(
-            attributes={
-                "response_length": len(response),
-                "processing_successful": True
-            }
+            attributes={"response_length": len(response), "processing_successful": True}
         )
-        
+
         return response
-        
+
     except Exception as e:
         # Log error information
         mlflow.update_current_trace(
             tags={"error": True, "error_type": type(e).__name__},
-            attributes={"error_message": str(e)}
+            attributes={"error_message": str(e)},
         )
         raise
 ```
@@ -306,7 +303,7 @@ from mlflow.tracing import trace
 
 # These features are NOT available in mlflow-tracing:
 # import mlflow.sklearn  # ❌ Model logging
-# mlflow.start_run()     # ❌ Run management  
+# mlflow.start_run()     # ❌ Run management
 # mlflow.log_metric()    # ❌ Metric logging
 ```
 
@@ -318,6 +315,7 @@ Focus on tracing-specific configuration:
 # Configure tracking URI (same as before)
 mlflow.set_tracking_uri("http://your-server:5000")
 mlflow.set_experiment("your-experiment")
+
 
 # Tracing works the same way
 @mlflow.trace
@@ -345,7 +343,7 @@ The lightweight SDK is **90% smaller** than the full MLflow package, making it i
 The MLflow Tracing SDK provides a production-optimized solution for monitoring GenAI applications with:
 
 - **Minimal footprint** for fast deployments
-- **Full tracing capabilities** for comprehensive monitoring  
+- **Full tracing capabilities** for comprehensive monitoring
 - **Flexible backend options** from self-hosted to enterprise platforms
 - **Easy migration path** from full MLflow package
 - **Production-ready features** including async logging and error handling

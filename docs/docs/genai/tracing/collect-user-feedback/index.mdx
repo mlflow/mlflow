@@ -74,7 +74,7 @@ While dedicated feedback APIs are in development, you can implement feedback col
 Use consistent tag naming conventions to organize feedback data:
 
 - `feedback_received: true/false` - Whether feedback was provided
-- `feedback_positive: true/false` - Binary satisfaction indicator  
+- `feedback_positive: true/false` - Binary satisfaction indicator
 - `feedback_rating: 1-5` - Numeric satisfaction score
 - `feedback_category: helpful/unhelpful/incorrect` - Categorical feedback
 - `feedback_user: user_123` - User identifier (consider anonymization)
@@ -90,14 +90,14 @@ import mlflow
 positive_feedback_traces = mlflow.search_traces(
     experiment_ids=["1"],
     filter_string="tags.feedback_positive = 'true'",
-    max_results=100
+    max_results=100,
 )
 
-# Find traces with negative feedback  
+# Find traces with negative feedback
 negative_feedback_traces = mlflow.search_traces(
     experiment_ids=["1"],
     filter_string="tags.feedback_positive = 'false'",
-    max_results=100
+    max_results=100,
 )
 
 # Compare characteristics
@@ -145,7 +145,7 @@ negative_times = [trace.info.execution_time_ms for trace in negative_feedback_tr
 if positive_times and negative_times:
     avg_positive_time = sum(positive_times) / len(positive_times)
     avg_negative_time = sum(negative_times) / len(negative_times)
-    
+
     print(f"Average time for positive feedback: {avg_positive_time:.2f}ms")
     print(f"Average time for negative feedback: {avg_negative_time:.2f}ms")
 ```
@@ -164,12 +164,13 @@ timestamp_ms = int(week_ago.timestamp() * 1000)
 recent_feedback = mlflow.search_traces(
     experiment_ids=["1"],
     filter_string=f"timestamp_ms > {timestamp_ms} AND tags.feedback_received = 'true'",
-    max_results=500
+    max_results=500,
 )
 
 # Calculate satisfaction rate
-positive_count = len([t for t in recent_feedback 
-                     if t.data.tags.get('feedback_positive') == 'true'])
+positive_count = len(
+    [t for t in recent_feedback if t.data.tags.get("feedback_positive") == "true"]
+)
 satisfaction_rate = positive_count / len(recent_feedback) if recent_feedback else 0
 
 print(f"Weekly satisfaction rate: {satisfaction_rate:.2%}")
@@ -184,7 +185,7 @@ Use feedback data to create evaluation datasets:
 high_quality_traces = mlflow.search_traces(
     experiment_ids=["1"],
     filter_string="tags.feedback_positive = 'true' AND tags.feedback_rating >= '4'",
-    max_results=200
+    max_results=200,
 )
 
 print(f"Found {len(high_quality_traces)} high-quality interactions")

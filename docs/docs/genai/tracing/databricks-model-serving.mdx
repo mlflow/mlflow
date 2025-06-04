@@ -144,28 +144,28 @@ The integration provides comprehensive monitoring capabilities for production de
 import mlflow
 from databricks.agents import deploy
 
+
 # Your instrumented agent code
 @mlflow.trace
 def my_agent(query: str) -> str:
     # Agent logic with automatic tracing
     return process_query(query)
 
+
 # Deploy with automatic trace collection
-deployed_agent = deploy(
-    model=my_agent,
-    experiment_name="production-agent-traces"
-)
+deployed_agent = deploy(model=my_agent, experiment_name="production-agent-traces")
 ```
 
 ### Custom Model Serving
 ```python
 import mlflow.pyfunc
 
+
 class TracedAgent(mlflow.pyfunc.PythonModel):
     def load_context(self, context):
         # Initialize your model with tracing enabled
         mlflow.openai.autolog()
-        
+
     @mlflow.trace
     def predict(self, context, model_input):
         # Prediction logic with automatic tracing

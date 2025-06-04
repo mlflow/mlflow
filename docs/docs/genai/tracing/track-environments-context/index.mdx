@@ -65,6 +65,7 @@ Here's how to add various types of context as tags to your traces:
     import os
     import platform
 
+
     @mlflow.trace
     def process_data_with_context(data: dict, app_config: dict):
         """Process data and add environment, version, and custom context."""
@@ -81,16 +82,19 @@ Here's how to add various types of context as tags to your traces:
             "python_version": platform.python_version(),
             "operating_system": platform.system(),
             "data_source": data.get("source", "batch"),
-            "processing_mode": "online" if current_env == "production" else "offline"
+            "processing_mode": "online" if current_env == "production" else "offline",
         }
 
         # Add tags to the current trace
         mlflow.update_current_trace(tags=context_tags)
 
         # Your application logic here...
-        result = f"Processed '{data['input']}' in {current_env} with app {current_app_version}"
+        result = (
+            f"Processed '{data['input']}' in {current_env} with app {current_app_version}"
+        )
 
         return result
+
 
     # Example usage
     config = {"version": "1.1.0", "model_in_use": "claude-3-sonnet-20240229"}
@@ -114,10 +118,11 @@ Here's how to add various types of context as tags to your traces:
     import os
     from contextlib import contextmanager
 
+
     @contextmanager
     def trace_with_environment(operation_name: str):
         """Context manager that automatically adds environment context to traces"""
-        
+
         # Environment context
         env_tags = {
             "environment": os.getenv("ENVIRONMENT", "development"),
@@ -125,22 +130,24 @@ Here's how to add various types of context as tags to your traces:
             "deployment_id": os.getenv("DEPLOYMENT_ID", "local"),
             "region": os.getenv("AWS_REGION", "local"),
             "kubernetes_namespace": os.getenv("KUBERNETES_NAMESPACE"),
-            "container_image": os.getenv("CONTAINER_IMAGE")
+            "container_image": os.getenv("CONTAINER_IMAGE"),
         }
-        
+
         # Filter out None values
         env_tags = {k: v for k, v in env_tags.items() if v is not None}
-        
+
         with mlflow.start_span(name=operation_name, attributes=env_tags) as span:
             # Add tags to the trace level as well
             mlflow.update_current_trace(tags=env_tags)
             yield span
+
 
     # Usage
     def my_genai_pipeline(user_input: str):
         with trace_with_environment("genai_pipeline"):
             # Your pipeline logic here
             return f"Processed: {user_input}"
+
 
     result = my_genai_pipeline("What is the weather like?")
     ```
@@ -155,13 +162,14 @@ Here's how to add various types of context as tags to your traces:
 
     app = Flask(__name__)
 
+
     @mlflow.trace
-    @app.route('/chat', methods=['POST'])
+    @app.route("/chat", methods=["POST"])
     def handle_chat():
         # Get request data
         data = request.get_json()
-        message = data.get('message', '')
-        
+        message = data.get("message", "")
+
         # Retrieve context from request headers
         client_request_id = request.headers.get("X-Request-ID")
         session_id = request.headers.get("X-Session-ID")
@@ -184,8 +192,8 @@ Here's how to add various types of context as tags to your traces:
                 # Request context
                 "user_agent": user_agent,
                 "request_method": request.method,
-                "endpoint": request.endpoint
-            }
+                "endpoint": request.endpoint,
+            },
         )
 
         # Your application logic for processing the chat message
@@ -193,7 +201,8 @@ Here's how to add various types of context as tags to your traces:
 
         return jsonify({"response": response_text})
 
-    if __name__ == '__main__':
+
+    if __name__ == "__main__":
         app.run(debug=True)
     ```
 
@@ -234,45 +243,53 @@ Use the MLflow SDK for more complex analysis or to integrate with other tools:
     import mlflow
     from mlflow import MlflowClient
 
+
     def compare_version_metrics(experiment_id: str, versions: list):
         """Compare error rates and performance across app versions"""
-        
+
         version_metrics = {}
-        
+
         for version in versions:
             traces = mlflow.search_traces(
                 experiment_ids=[experiment_id],
-                filter_string=f"tags.environment = 'production' AND tags.app_version = '{version}'"
+                filter_string=f"tags.environment = 'production' AND tags.app_version = '{version}'",
             )
-            
+
             if traces.empty:
                 version_metrics[version] = {
                     "error_rate": None,
                     "avg_latency": None,
-                    "total_traces": 0
+                    "total_traces": 0,
                 }
                 continue
 
             # Calculate metrics
-            error_count = len(traces[traces['status'] == 'ERROR'])
+            error_count = len(traces[traces["status"] == "ERROR"])
             total_traces = len(traces)
             error_rate = (error_count / total_traces) * 100
-            
-            successful_traces = traces[traces['status'] == 'OK']
-            avg_latency = successful_traces['execution_time_ms'].mean() if not successful_traces.empty else 0
-            
+
+            successful_traces = traces[traces["status"] == "OK"]
+            avg_latency = (
+                successful_traces["execution_time_ms"].mean()
+                if not successful_traces.empty
+                else 0
+            )
+
             version_metrics[version] = {
                 "error_rate": error_rate,
                 "avg_latency": avg_latency,
-                "total_traces": total_traces
+                "total_traces": total_traces,
             }
-        
+
         return version_metrics
+
 
     # Usage
     metrics = compare_version_metrics("1", ["1.0.0", "1.1.0", "1.2.0"])
     for version, data in metrics.items():
-        print(f"Version {version}: {data['error_rate']:.1f}% errors, {data['avg_latency']:.1f}ms avg latency")
+        print(
+            f"Version {version}: {data['error_rate']:.1f}% errors, {data['avg_latency']:.1f}ms avg latency"
+        )
     ```
   </TabItem>
   <TabItem value="environment-analysis" label="Environment Analysis">
@@ -281,32 +298,35 @@ Use the MLflow SDK for more complex analysis or to integrate with other tools:
     ```python
     def analyze_environment_performance(experiment_id: str):
         """Compare performance across different environments"""
-        
+
         environments = ["development", "staging", "production"]
         env_metrics = {}
-        
+
         for env in environments:
             traces = mlflow.search_traces(
                 experiment_ids=[experiment_id],
-                filter_string=f"tags.environment = '{env}' AND status = 'OK'"
+                filter_string=f"tags.environment = '{env}' AND status = 'OK'",
             )
-            
+
             if not traces.empty:
                 env_metrics[env] = {
                     "count": len(traces),
-                    "avg_latency": traces['execution_time_ms'].mean(),
-                    "p95_latency": traces['execution_time_ms'].quantile(0.95),
-                    "p99_latency": traces['execution_time_ms'].quantile(0.99)
+                    "avg_latency": traces["execution_time_ms"].mean(),
+                    "p95_latency": traces["execution_time_ms"].quantile(0.95),
+                    "p99_latency": traces["execution_time_ms"].quantile(0.99),
                 }
-        
+
         return env_metrics
+
 
     # Usage
     env_performance = analyze_environment_performance("1")
     for env, metrics in env_performance.items():
-        print(f"{env}: {metrics['count']} traces, "
-              f"avg: {metrics['avg_latency']:.1f}ms, "
-              f"p95: {metrics['p95_latency']:.1f}ms")
+        print(
+            f"{env}: {metrics['count']} traces, "
+            f"avg: {metrics['avg_latency']:.1f}ms, "
+            f"p95: {metrics['p95_latency']:.1f}ms"
+        )
     ```
   </TabItem>
   <TabItem value="feature-flags" label="Feature Flag Analysis">
@@ -315,52 +335,57 @@ Use the MLflow SDK for more complex analysis or to integrate with other tools:
     ```python
     def analyze_feature_flag_impact(experiment_id: str, flag_name: str):
         """Analyze performance impact of a feature flag"""
-        
+
         # Get traces with feature flag enabled
         flag_on_traces = mlflow.search_traces(
             experiment_ids=[experiment_id],
-            filter_string=f"tags.feature_flag_{flag_name} = 'true' AND status = 'OK'"
+            filter_string=f"tags.feature_flag_{flag_name} = 'true' AND status = 'OK'",
         )
-        
+
         # Get traces with feature flag disabled
         flag_off_traces = mlflow.search_traces(
             experiment_ids=[experiment_id],
-            filter_string=f"tags.feature_flag_{flag_name} = 'false' AND status = 'OK'"
+            filter_string=f"tags.feature_flag_{flag_name} = 'false' AND status = 'OK'",
         )
-        
+
         results = {}
-        
+
         if not flag_on_traces.empty:
-            results['flag_on'] = {
+            results["flag_on"] = {
                 "count": len(flag_on_traces),
-                "avg_latency": flag_on_traces['execution_time_ms'].mean(),
-                "error_rate": 0  # Only looking at successful traces
+                "avg_latency": flag_on_traces["execution_time_ms"].mean(),
+                "error_rate": 0,  # Only looking at successful traces
             }
-        
+
         if not flag_off_traces.empty:
-            results['flag_off'] = {
+            results["flag_off"] = {
                 "count": len(flag_off_traces),
-                "avg_latency": flag_off_traces['execution_time_ms'].mean(),
-                "error_rate": 0  # Only looking at successful traces
+                "avg_latency": flag_off_traces["execution_time_ms"].mean(),
+                "error_rate": 0,  # Only looking at successful traces
             }
-        
+
         # Calculate performance impact
-        if 'flag_on' in results and 'flag_off' in results:
-            latency_change = results['flag_on']['avg_latency'] - results['flag_off']['avg_latency']
-            latency_change_pct = (latency_change / results['flag_off']['avg_latency']) * 100
-            results['impact'] = {
+        if "flag_on" in results and "flag_off" in results:
+            latency_change = (
+                results["flag_on"]["avg_latency"] - results["flag_off"]["avg_latency"]
+            )
+            latency_change_pct = (latency_change / results["flag_off"]["avg_latency"]) * 100
+            results["impact"] = {
                 "latency_change_ms": latency_change,
-                "latency_change_percent": latency_change_pct
+                "latency_change_percent": latency_change_pct,
             }
-        
+
         return results
+
 
     # Usage
     flag_analysis = analyze_feature_flag_impact("1", "new_retriever")
-    if 'impact' in flag_analysis:
-        impact = flag_analysis['impact']
-        print(f"Feature flag impact: {impact['latency_change_ms']:.1f}ms "
-              f"({impact['latency_change_percent']:.1f}% change)")
+    if "impact" in flag_analysis:
+        impact = flag_analysis["impact"]
+        print(
+            f"Feature flag impact: {impact['latency_change_ms']:.1f}ms "
+            f"({impact['latency_change_percent']:.1f}% change)"
+        )
     ```
   </TabItem>
 </Tabs>

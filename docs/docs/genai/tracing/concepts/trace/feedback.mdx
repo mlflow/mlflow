@@ -25,12 +25,12 @@ The **Feedback object** (also referred to as an **Assessment** in some contexts)
     Every Feedback object contains three core components:
 
     **Name**: A string identifying the specific quality aspect being assessed
-    
+
     Examples: `"correctness"`, `"relevance_to_query"`, `"is_safe"`, `"guideline_adherence_politeness"`
 
     **Value**: The actual result of the assessment, which can be:
     - Numeric scores (e.g., `0.0` to `1.0`, `1` to `5`)
-    - Boolean values (`True`/`False`)  
+    - Boolean values (`True`/`False`)
     - Categorical labels (e.g., `"PASS"`, `"FAIL"`, `"EXCELLENT"`)
     - Structured data (e.g., `{"score": 0.8, "confidence": 0.9}`)
 
@@ -102,7 +102,7 @@ Feedback can evaluate various aspects of your GenAI application's performance:
     Example feedback:
     ```json
     {
-      "name": "relevance_to_query", 
+      "name": "relevance_to_query",
       "value": "HIGH",
       "rationale": "Response directly answers the user's question about MLflow features and provides relevant examples."
     }
@@ -206,7 +206,7 @@ MLflow supports different types of feedback to accommodate various evaluation ne
 **Complex Objects**: Rich data structures containing multiple assessment aspects
 - Format: JSON objects with nested properties
 - Use case: Comprehensive evaluations with multiple dimensions
-- Example: 
+- Example:
 ```json
 {
   "name": "comprehensive_quality",
@@ -235,7 +235,7 @@ Different approaches for generating feedback:
 
     **Use Cases**:
     - Content quality assessment
-    - Relevance evaluation  
+    - Relevance evaluation
     - Style and tone analysis
     - Complex reasoning evaluation
 

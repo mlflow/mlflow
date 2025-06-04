@@ -153,14 +153,16 @@ from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import create_react_agent
 
-mlflow.langchain.autolog() # LangGraph uses LangChain's autolog
+mlflow.langchain.autolog()  # LangGraph uses LangChain's autolog
 
 mlflow.set_experiment("langgraph-tracing-demo")
+
 
 @tool
 def get_weather(city: str):
     """Use this to get weather information."""
     return f"It might be cloudy in {city}"
+
 
 llm = ChatOpenAI(model="gpt-4o-mini")
 graph = create_react_agent(llm, [get_weather])
@@ -206,12 +208,14 @@ mlflow.dspy.autolog()
 
 mlflow.set_experiment("dspy-tracing-demo")
 
-lm = dspy.LM("openai/gpt-4o-mini") # Assumes OPENAI_API_KEY is set
+lm = dspy.LM("openai/gpt-4o-mini")  # Assumes OPENAI_API_KEY is set
 dspy.configure(lm=lm)
+
 
 class SimpleSignature(dspy.Signature):
     input_text: str = dspy.InputField()
     output_text: str = dspy.OutputField()
+
 
 program = dspy.Predict(SimpleSignature)
 result = program(input_text="Summarize MLflow Tracing.")
@@ -233,12 +237,11 @@ mlflow.bedrock.autolog()
 mlflow.set_experiment("bedrock-tracing-demo")
 
 bedrock = boto3.client(
-    service_name="bedrock-runtime",
-    region_name="us-east-1" # Replace with your region
+    service_name="bedrock-runtime", region_name="us-east-1"  # Replace with your region
 )
 response = bedrock.converse(
     modelId="anthropic.claude-3-5-sonnet-20241022-v2:0",
-    messages=[{"role": "user", "content": "Hello World in one line."}]
+    messages=[{"role": "user", "content": "Hello World in one line."}],
 )
 # View trace in MLflow UI
 ```
@@ -260,7 +263,9 @@ mlflow.set_experiment("autogen-tracing-demo")
 
 config_list = [{"model": "gpt-4o-mini", "api_key": os.environ.get("OPENAI_API_KEY")}]
 assistant = ConversableAgent("assistant", llm_config={"config_list": config_list})
-user_proxy = ConversableAgent("user_proxy", human_input_mode="NEVER", code_execution_config=False)
+user_proxy = ConversableAgent(
+    "user_proxy", human_input_mode="NEVER", code_execution_config=False
+)
 
 user_proxy.initiate_chat(assistant, message="What is 2+2?")
 # View trace in MLflow UI
@@ -378,7 +383,7 @@ mlflow.autolog(disable=True)
 Ready to start tracing? Choose your path:
 
 - **[Quickstart Guide](/genai/tracing/quickstart)** - Get tracing working in 10 minutes
-- **[Manual Instrumentation](/genai/tracing/app-instrumentation/manual-tracing)** - Add custom tracing 
+- **[Manual Instrumentation](/genai/tracing/app-instrumentation/manual-tracing)** - Add custom tracing
 - **[Search Traces](/genai/tracing/search-traces)** - Find and analyze your traces
 - **[Production Deployment](/genai/tracing/prod-tracing)** - Scale for production workloads
 

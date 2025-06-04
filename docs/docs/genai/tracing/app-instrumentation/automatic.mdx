@@ -99,10 +99,10 @@ response = client.chat.completions.create(
     model="gpt-4o-mini",
     messages=[
         {"role": "system", "content": "You are a helpful assistant."},
-        {"role": "user", "content": "Explain MLflow Tracing in one sentence."}
+        {"role": "user", "content": "Explain MLflow Tracing in one sentence."},
     ],
     max_tokens=100,
-    temperature=0.7
+    temperature=0.7,
 )
 
 print(response.choices[0].message.content)
@@ -207,6 +207,7 @@ MLflow provides automatic tracing for many popular GenAI frameworks and librarie
     mlflow.set_tracking_uri("http://127.0.0.1:5000")
     mlflow.set_experiment("langgraph-tracing-demo")
 
+
     @tool
     def get_weather(city: Literal["nyc", "sf"]):
         """Use this to get weather information."""
@@ -214,6 +215,7 @@ MLflow provides automatic tracing for many popular GenAI frameworks and librarie
             return "It might be cloudy in nyc"
         elif city == "sf":
             return "It's always sunny in sf"
+
 
     llm = ChatOpenAI(model="gpt-4o-mini")
     tools = [get_weather]
@@ -271,6 +273,7 @@ MLflow provides automatic tracing for many popular GenAI frameworks and librarie
     lm = dspy.LM("openai/gpt-4o-mini")
     dspy.configure(lm=lm)
 
+
     # Define a simple summarizer model and run it
     class SummarizeSignature(dspy.Signature):
         """Given a passage, generate a summary."""
@@ -278,12 +281,14 @@ MLflow provides automatic tracing for many popular GenAI frameworks and librarie
         passage: str = dspy.InputField(desc="a passage to summarize")
         summary: str = dspy.OutputField(desc="a one-line summary of the passage")
 
+
     class Summarize(dspy.Module):
         def __init__(self):
             self.summarize = dspy.ChainOfThought(SummarizeSignature)
 
         def forward(self, passage: str):
             return self.summarize(passage=passage)
+
 
     summarizer = Summarize()
     summarizer(
@@ -361,6 +366,7 @@ MLflow provides automatic tracing for many popular GenAI frameworks and librarie
 
     Operator = Literal["+", "-", "*", "/"]
 
+
     def calculator(a: int, b: int, operator: Annotated[Operator, "operator"]) -> int:
         if operator == "+":
             return a + b
@@ -372,6 +378,7 @@ MLflow provides automatic tracing for many popular GenAI frameworks and librarie
             return int(a / b)
         else:
             raise ValueError("Invalid operator")
+
 
     # First define the assistant agent that suggests tool calls.
     assistant = ConversableAgent(
@@ -427,6 +434,7 @@ from mlflow.entities import SpanType
 
 mlflow.openai.autolog()
 
+
 @mlflow.trace(span_type=SpanType.CHAIN)
 def run(question):
     messages = build_messages(question)
@@ -438,6 +446,7 @@ def run(question):
     )
     return parse_response(response)
 
+
 @mlflow.trace
 def build_messages(question):
     return [
@@ -445,9 +454,11 @@ def build_messages(question):
         {"role": "user", "content": question},
     ]
 
+
 @mlflow.trace
 def parse_response(response):
     return response.choices[0].message.content
+
 
 run("What is MLflow?")
 ```
@@ -466,15 +477,19 @@ from mlflow.entities import SpanType
 # Enable auto-tracing for OpenAI
 mlflow.openai.autolog()
 
+
 @mlflow.trace(span_type=SpanType.CHAIN)
 def process_user_query(query: str):
     # First LLM call: Analyze the query
     analysis = openai.OpenAI().chat.completions.create(
         model="gpt-4o-mini",
         messages=[
-            {"role": "system", "content": "Analyze the user's query and determine if it requires factual information or creative writing."},
-            {"role": "user", "content": query}
-        ]
+            {
+                "role": "system",
+                "content": "Analyze the user's query and determine if it requires factual information or creative writing.",
+            },
+            {"role": "user", "content": query},
+        ],
     )
     analysis_result = analysis.choices[0].message.content
 
@@ -484,9 +499,12 @@ def process_user_query(query: str):
         response = openai.OpenAI().chat.completions.create(
             model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "Provide a factual, well-researched response."},
-                {"role": "user", "content": query}
-            ]
+                {
+                    "role": "system",
+                    "content": "Provide a factual, well-researched response.",
+                },
+                {"role": "user", "content": query},
+            ],
         )
     else:
         # Use a different model for creative queries
@@ -494,11 +512,12 @@ def process_user_query(query: str):
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": "Provide a creative, engaging response."},
-                {"role": "user", "content": query}
-            ]
+                {"role": "user", "content": query},
+            ],
         )
 
     return response.choices[0].message.content
+
 
 # Run the function
 result = process_user_query("Tell me about the history of artificial intelligence")
@@ -535,6 +554,7 @@ from langchain_core.prompts import ChatPromptTemplate
 mlflow.openai.autolog()
 mlflow.langchain.autolog()
 
+
 @mlflow.trace(span_type=SpanType.CHAIN)
 def multi_provider_workflow(query: str):
     # First, use OpenAI directly for initial processing
@@ -542,8 +562,8 @@ def multi_provider_workflow(query: str):
         model="gpt-4o-mini",
         messages=[
             {"role": "system", "content": "Analyze the query and extract key topics."},
-            {"role": "user", "content": query}
-        ]
+            {"role": "user", "content": query},
+        ],
     )
     topics = analysis.choices[0].message.content
 
@@ -556,6 +576,7 @@ def multi_provider_workflow(query: str):
     response = chain.invoke({"topics": topics, "query": query})
 
     return response
+
 
 # Run the function
 result = multi_provider_workflow("Explain quantum computing")
@@ -593,10 +614,10 @@ mlflow.openai.autolog()
 
 # Autolog with custom configuration
 mlflow.openai.autolog(
-    log_traces=True,           # Enable/disable tracing
-    log_models=False,          # Disable model logging
-    log_inputs_outputs=True,   # Log input/output data
-    silent=False               # Enable logging messages
+    log_traces=True,  # Enable/disable tracing
+    log_models=False,  # Disable model logging
+    log_inputs_outputs=True,  # Log input/output data
+    silent=False,  # Enable logging messages
 )
 ```
 

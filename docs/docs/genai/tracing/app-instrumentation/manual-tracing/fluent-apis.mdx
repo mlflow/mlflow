@@ -84,6 +84,7 @@ When combining `@mlflow.trace` with other decorators (e.g., from web frameworks)
 ```python
 from mlflow.entities import SpanType
 
+
 @mlflow.trace(
     name="call-local-llm", span_type=SpanType.LLM, attributes={"model": "gpt-4o-mini"}
 )
@@ -97,6 +98,7 @@ Alternatively, you can update the span dynamically inside the function by using 
 
 ```python
 from mlflow.entities import SpanType
+
 
 @mlflow.trace(span_type=SpanType.LLM)
 def invoke(prompt: str):
@@ -121,6 +123,7 @@ import mlflow
 import functools
 import time
 
+
 # A hypothetical additional decorator
 def simple_timing_decorator(func):
     @functools.wraps(func)
@@ -128,9 +131,13 @@ def simple_timing_decorator(func):
         start_time = time.time()
         result = func(*args, **kwargs)
         end_time = time.time()
-        print(f"{func.__name__} executed in {end_time - start_time:.4f} seconds by simple_timing_decorator.")
+        print(
+            f"{func.__name__} executed in {end_time - start_time:.4f} seconds by simple_timing_decorator."
+        )
         return result
+
     return wrapper
+
 
 # Correct order: @mlflow.trace is outermost
 @mlflow.trace(name="my_decorated_function_correct_order")
@@ -138,8 +145,9 @@ def simple_timing_decorator(func):
 # @another_framework_decorator # e.g., @app.route("/mypath") from Flask
 def my_complex_function(x, y):
     # Function logic here
-    time.sleep(0.1) # Simulate work
+    time.sleep(0.1)  # Simulate work
     return x + y
+
 
 # Incorrect order: @mlflow.trace is NOT outermost
 @simple_timing_decorator
@@ -148,6 +156,7 @@ def my_complex_function(x, y):
 def my_other_complex_function(x, y):
     time.sleep(0.1)
     return x * y
+
 
 # Example calls
 if __name__ == "__main__":
@@ -182,6 +191,7 @@ Below is an example of setting a custom request preview for a trace that process
 ```python
 import mlflow
 
+
 @mlflow.trace(name="Summarization Pipeline")
 def summarize_document(document_content: str, user_instructions: str):
     # Construct a custom preview for the request column
@@ -204,8 +214,12 @@ def summarize_document(document_content: str, user_instructions: str):
 
     return summary
 
+
 # Example Call
-long_document = "This is a very long document that contains many details about various topics..." * 10
+long_document = (
+    "This is a very long document that contains many details about various topics..."
+    * 10
+)
 instructions = "Focus on the key takeaways regarding topic X."
 summary_result = summarize_document(long_document, instructions)
 ```
@@ -358,6 +372,7 @@ from mlflow.entities import SpanType
 # Enable auto-tracing for OpenAI
 mlflow.openai.autolog()
 
+
 @mlflow.trace(span_type=SpanType.CHAIN)
 def start_session():
     messages = [{"role": "system", "content": "You are a friendly chat bot"}]
@@ -460,11 +475,13 @@ The `@mlflow.trace` decorator works seamlessly with async functions:
 import asyncio
 import mlflow
 
+
 @mlflow.trace
 async def async_operation(data: str) -> str:
     # Simulate async work
     await asyncio.sleep(0.1)
     return f"Processed: {data}"
+
 
 @mlflow.trace
 async def async_pipeline(items: list[str]) -> list[str]:
@@ -473,6 +490,7 @@ async def async_pipeline(items: list[str]) -> list[str]:
         result = await async_operation(item)
         results.append(result)
     return results
+
 
 # Run the async pipeline
 asyncio.run(async_pipeline(["item1", "item2", "item3"]))
@@ -484,7 +502,7 @@ For advanced scenarios requiring complete control over trace lifecycle, MLflow p
 
 **Use client APIs for:**
 - Custom trace ID generation schemes
-- Integration with existing trace systems  
+- Integration with existing trace systems
 - Complex trace lifecycle management
 - Distributed tracing across services
 - Manual parent-child relationship control
@@ -502,10 +520,7 @@ from mlflow import MlflowClient
 client = MlflowClient()
 
 # Start trace (creates root span)
-root_span = client.start_trace(
-    name="my_application_flow",
-    inputs={"user_id": "123"}
-)
+root_span = client.start_trace(name="my_application_flow", inputs={"user_id": "123"})
 
 try:
     # Create child span
@@ -513,35 +528,32 @@ try:
         name="processing_step",
         request_id=root_span.request_id,
         parent_id=root_span.span_id,
-        inputs={"data": "sample"}
+        inputs={"data": "sample"},
     )
-    
+
     # Do work
     result = perform_operation()
-    
+
     # End child span
     client.end_span(
         request_id=child_span.request_id,
         span_id=child_span.span_id,
         outputs={"result": result},
-        status="OK"
+        status="OK",
     )
-    
+
 except Exception as e:
     # Handle errors manually
     client.end_span(
         request_id=child_span.request_id,
         span_id=child_span.span_id,
         status="ERROR",
-        attributes={"error": str(e)}
+        attributes={"error": str(e)},
     )
     raise
 finally:
     # End root trace
-    client.end_trace(
-        request_id=root_span.request_id,
-        outputs={"status": "completed"}
-    )
+    client.end_trace(request_id=root_span.request_id, outputs={"status": "completed"})
 ```
 
 **When to Use Different Approaches:**
@@ -559,6 +571,7 @@ While decorators automatically capture exceptions, some scenarios require manual
 import mlflow
 from contextlib import contextmanager
 
+
 @contextmanager
 def safe_traced_span(name: str, **span_kwargs):
     """Context manager ensuring proper span cleanup"""
@@ -567,19 +580,22 @@ def safe_traced_span(name: str, **span_kwargs):
             yield span
         except Exception as e:
             # Add custom error context
-            span.set_attributes({
-                "error_type": type(e).__name__,
-                "error_message": str(e),
-                "recovery_attempted": True
-            })
-            
+            span.set_attributes(
+                {
+                    "error_type": type(e).__name__,
+                    "error_message": str(e),
+                    "recovery_attempted": True,
+                }
+            )
+
             # Attempt recovery logic here
             try:
                 handle_error_recovery()
             except Exception:
                 span.set_attributes({"recovery_failed": True})
-            
+
             raise
+
 
 # Usage
 with safe_traced_span("risky_operation") as span:
@@ -597,22 +613,23 @@ import uuid
 from datetime import datetime
 from contextlib import contextmanager
 
+
 class CustomTraceManager:
     """Manage traces with business-specific requirements"""
-    
+
     def __init__(self):
         self.active_traces = {}
-    
+
     def generate_trace_id(self, user_id: str, operation: str) -> str:
         """Generate custom trace ID based on business logic"""
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
         return f"{user_id}_{operation}_{timestamp}_{uuid.uuid4().hex[:8]}"
-    
+
     @contextmanager
     def business_trace(self, user_id: str, operation: str, **attributes):
         """Create trace with business context"""
         trace_id = self.generate_trace_id(user_id, operation)
-        
+
         # Add business-specific attributes
         business_attrs = {
             "user_id": user_id,
@@ -620,15 +637,16 @@ class CustomTraceManager:
             "business_trace_id": trace_id,
             "department": attributes.get("department"),
             "cost_center": attributes.get("cost_center"),
-            **attributes
+            **attributes,
         }
-        
+
         with mlflow.start_span(name=trace_id, attributes=business_attrs) as span:
             self.active_traces[trace_id] = span
             try:
                 yield span, trace_id
             finally:
                 self.active_traces.pop(trace_id, None)
+
 
 # Usage
 manager = CustomTraceManager()
@@ -637,7 +655,7 @@ with manager.business_trace(
     user_id="user123",
     operation="report_generation",
     department="finance",
-    cost_center="cc_001"
+    cost_center="cc_001",
 ) as (span, trace_id):
     span.set_inputs({"report_type": "quarterly"})
     result = generate_report()
@@ -653,63 +671,61 @@ import mlflow
 import requests
 import json
 
+
 def service_a_operation():
     """Initiating service that starts a distributed trace"""
-    
+
     @mlflow.trace(name="service_a_main")
     def main_operation():
         # Start the distributed trace
         current_span = mlflow.get_current_active_span()
-        
+
         # Create trace context for service B
         trace_context = {
             "trace_id": current_span.trace_id,
             "parent_span_id": current_span.span_id,
-            "span_context": {
-                "user_id": "user123",
-                "session_id": "session456"
-            }
+            "span_context": {"user_id": "user123", "session_id": "session456"},
         }
-        
+
         # Call service B with trace context
         result = call_service_b(trace_context)
         return result
-    
+
     return main_operation()
+
 
 def call_service_b(trace_context: dict):
     """Call external service with trace propagation"""
-    
+
     # Include trace context in request headers
     headers = {
         "X-Trace-ID": trace_context["trace_id"],
         "X-Parent-Span-ID": trace_context["parent_span_id"],
-        "X-Span-Context": json.dumps(trace_context["span_context"])
+        "X-Span-Context": json.dumps(trace_context["span_context"]),
     }
-    
+
     with mlflow.start_span(name="service_b_call") as span:
         span.set_inputs({"service": "service_b", "trace_context": trace_context})
-        
+
         # Make HTTP request to service B
         response = requests.post(
-            "http://service-b/process",
-            json={"data": "sample"},
-            headers=headers
+            "http://service-b/process", json={"data": "sample"}, headers=headers
         )
-        
+
         result = response.json()
         span.set_outputs({"response": result})
         return result
 
+
 # In Service B (separate service/process)
 def service_b_handler(request_data, headers):
     """Handle request in service B with trace continuation"""
-    
+
     # Extract trace context from headers
     trace_id = headers.get("X-Trace-ID")
     parent_span_id = headers.get("X-Parent-Span-ID")
     span_context = json.loads(headers.get("X-Span-Context", "{}"))
-    
+
     # Create child span in service B
     with mlflow.start_span(
         name="service_b_processing",
@@ -717,14 +733,14 @@ def service_b_handler(request_data, headers):
             "service": "service_b",
             "parent_trace_id": trace_id,
             "parent_span_id": parent_span_id,
-            **span_context
-        }
+            **span_context,
+        },
     ) as span:
         span.set_inputs(request_data)
-        
+
         # Process the request
         result = process_request(request_data)
-        
+
         span.set_outputs({"processed": result})
         return result
 ```
@@ -738,34 +754,38 @@ import random
 import time
 from typing import Optional
 
+
 class PerformantTracer:
     """Optimized tracing for high-performance applications"""
-    
+
     def __init__(self, sample_rate: float = 0.1, error_always_trace: bool = True):
         self.sample_rate = sample_rate
         self.error_always_trace = error_always_trace
         self.span_cache = {}
-    
-    def should_trace(self, operation_type: str, user_tier: str = None, **context) -> bool:
+
+    def should_trace(
+        self, operation_type: str, user_tier: str = None, **context
+    ) -> bool:
         """Intelligent sampling decision"""
-        
+
         # Always trace for premium users
         if user_tier == "premium":
             return True
-            
+
         # Always trace critical operations
         if operation_type in ["payment", "security", "auth"]:
             return True
-        
+
         # Always trace if error indicators present
         if context.get("retry_count", 0) > 0:
             return True
-            
+
         # Sample other operations
         return random.random() < self.sample_rate
-    
+
     def conditional_trace(self, name: str, operation_type: str, **kwargs):
         """Conditionally create traces based on sampling logic"""
+
         def decorator(func):
             def wrapper(*args, **func_kwargs):
                 if self.should_trace(operation_type, **kwargs):
@@ -774,17 +794,19 @@ class PerformantTracer:
                 else:
                     # Execute without tracing
                     return func(*args, **func_kwargs)
+
             return wrapper
+
         return decorator
-    
+
     def batch_trace_operations(self, operations: list, batch_name: str):
         """Efficiently trace batch operations"""
-        
+
         @mlflow.trace(name=batch_name)
         def execute_batch():
             results = []
             errors = []
-            
+
             for i, operation in enumerate(operations):
                 # Only trace individual operations if they're critical or error-prone
                 if operation.get("critical", False) or i % 10 == 0:  # Sample every 10th
@@ -804,21 +826,25 @@ class PerformantTracer:
                         results.append(result)
                     except Exception as e:
                         errors.append({"operation": operation, "error": str(e)})
-            
+
             return {"results": results, "errors": errors}
-        
+
         return execute_batch()
+
 
 # Usage examples
 tracer = PerformantTracer(sample_rate=0.05)  # 5% sampling
+
 
 @tracer.conditional_trace("user_operation", "standard")
 def standard_operation():
     return "result"
 
+
 @tracer.conditional_trace("payment_processing", "payment", user_tier="premium")
 def payment_operation():
     return "payment_result"
+
 
 # Batch processing
 operations = [{"id": i, "critical": i % 50 == 0} for i in range(1000)]
