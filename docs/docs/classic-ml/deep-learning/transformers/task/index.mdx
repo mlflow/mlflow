@@ -1,8 +1,3 @@
----
-sidebar_position: 3
-sidebar_label: Task
----
-
 import TOCInline from "@theme/TOCInline";
 import Link from "@docusaurus/Link";
 import { APILink } from "@site/src/components/APILink";
@@ -22,7 +17,7 @@ The `task` is a fundamental concept in the Transformers library, which describe 
 (inputs and outputs) and are used to determine which Inference API and widget we want to display for any given model.
 
 MLflow utilizes this concept to determine the input and output format of the model, persists the correct
-[Model Signature](/model#model-signatures-and-input-examples), and provides a consistent <Link to="/api_reference/python_api/mlflow.pyfunc.html#inference-api" target="_blank">Pyfunc Inference API</Link>
+[Model Signature](/ml/model#model-signatures-and-input-examples), and provides a consistent <Link to="/api_reference/python_api/mlflow.pyfunc.html#inference-api" target="_blank">Pyfunc Inference API</Link>
 for serving different types of models. Additionally, on top of the native Transformers task types, MLflow defines a few additional task types to support more complex use cases, such as chat-style applications.
 
 ## Native Transformers Task Types
@@ -52,7 +47,6 @@ print(f"Inferred task: {model_info.flavors['transformers']['task']}")
 ## Advanced Tasks for OpenAI-Compatible Inference
 
 In addition to the native Transformers task types, MLflow defines a few additional task types. Those advanced task types allows you to extend the Transformers pipeline with OpenAI-compatible inference interface, to serve models for specific use cases.
-In addition to the native Transformers task types, MLflow defines several additional task types. These advanced task types allow you to extend the Transformers pipeline with an OpenAI-compatible inference interface to serve models for specific use cases.
 
 For example, the Transformers `text-generation` pipeline inputs and outputs a single string or a list of strings. However, when serving a model, it is often necessary to have a more structured input and output format. For instance, in a chat-style application, the input may be a list of messages.
 
@@ -96,19 +90,19 @@ This feature is only available in MLflow 2.11.0 and above. Also, the `llm/v1/cha
     <tr>
       <td>`llm/v1/chat`</td>
       <td>`text-generation`</td>
-      <td>[Chat API spec](/llms/deployments#chat)</td>
+      <td>[Chat API spec](/genai/serving)</td>
       <td>Returns a [Chat Completion](https://platform.openai.com/docs/api-reference/chat/object) object in the json format.</td>
     </tr>
     <tr>
       <td>`llm/v1/completions`</td>
       <td>`text-generation`</td>
-      <td>[Completions API spec](/llms/deployments#completions)</td>
+      <td>[Completions API spec](/genai/serving)</td>
       <td>Returns a [Completion](https://platform.openai.com/docs/guides/text-generation/completions-api) object in the json format.</td>
     </tr>
     <tr>
       <td>`llm/v1/embeddings`</td>
       <td>`feature-extraction`</td>
-      <td>[Embeddings API spec](/llms/deployments#embeddings)</td>
+      <td>[Embeddings API spec](/genai/serving)</td>
       <td>Returns a list of [Embedding](https://platform.openai.com/docs/api-reference/embeddings/object) object. Additionally, the model returns `usage` field, which contains the number of tokens used for the embeddings generation.</td>
     </tr>
   </tbody>
@@ -121,7 +115,7 @@ The Completion API is considered as legacy, but it is still supported in MLflow 
 ### Code Example of Using `llm/v1` Tasks
 
 The following code snippet demonstrates how to log a Transformers pipeline with the `llm/v1/chat` task type, and use the model for chat-style inference. Check out the
-[notebook tutorial](/llms/transformers/tutorials/conversational/pyfunc-chat-model/) to see more examples in action!
+[notebook tutorial](/ml/deep-learning/transformers/tutorials/conversational/pyfunc-chat-model/) to see more examples in action!
 
 ```python
 import mlflow
@@ -175,7 +169,7 @@ prediction = pyfunc_model.predict(
 print(prediction)
 # >> [{'choices': [{'finish_reason': 'stop',
 # >>               'index': 0,
-# >>               'message': {'content': 'I'm doing well, thank you for asking.', 'role': 'assistant'}},
+# >>               'message': {'content': 'I'm doing well, thank you for asking.', 'role': 'assistant'}}],
 # >>   'created': 1719875820,
 # >>   'id': '355c4e9e-040b-46b0-bf22-00e93486100c',
 # >>   'model': 'gpt2',
@@ -196,7 +190,7 @@ to enable provisioned throughput on Databricks Model Serving.
 
 :::tip
 When logging large models, you can use `save_pretrained=False` to avoid creating a local copy of the model weights for saving time and disk space.
-Please refer to the [documentation](/llms/transformers/large-models#transformers-save-pretrained-guide) for more details.
+Please refer to the [documentation](/ml/deep-learning/transformers/large-models#transformers-save-pretrained-guide) for more details.
 :::
 
 ## FAQ

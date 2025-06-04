@@ -1,7 +1,3 @@
----
-sidebar_position: 0
-sidebar_label: Overview
----
 import { CardGroup, PageCard } from "@site/src/components/Card";
 import { APILink } from "@site/src/components/APILink";
 
@@ -44,7 +40,7 @@ MLflow supports the use of the Transformers package by providing:
 - **Simplified Experiment Tracking**: Efficient logging of parameters, metrics, and models during the [fine-tuning process](https://huggingface.co/docs/transformers/main_classes/trainer).
 - **Effortless Model Deployment**: Streamlined deployment to various production environments.
 - **Library Integration**: Integration with HuggingFace libraries like [Accelerate](https://huggingface.co/docs/accelerate/index), [PEFT](https://huggingface.co/docs/peft/en/index) for model optimization.
-- **Prompt Management**: [Save prompt templates](/llms/transformers/guide#saving-prompt-templates-with-transformer-pipelines) with transformers pipelines to optimize inference with less boilerplate.
+- **Prompt Management**: [Save prompt templates](/ml/deep-learning/transformers/guide#saving-prompt-templates-with-transformer-pipelines) with transformers pipelines to optimize inference with less boilerplate.
 
 **Example Use Case:**
 
@@ -60,11 +56,11 @@ The image below shows the result of the tutorial within the MLflow UI.
 
 ### Deployment Made Easy
 
-Once a model is trained, it needs to be [deployed for inference](/llms/transformers/guide#example-of-loading-a-transformers-model-as-a-python-function).
+Once a model is trained, it needs to be [deployed for inference](/ml/deep-learning/transformers/guide#example-of-loading-a-transformers-model-as-a-python-function).
 MLflow's integration with Transformers simplifies this by providing functions such as <APILink fn="mlflow.transformers.load_model" />
 and <APILink fn="mlflow.pyfunc.load_model" />, which allow for easy model serving.
 As part of the feature support for enhanced inference with transformers, MLflow provides mechanisms to enable the use of
-[inference arguments](/llms/transformers/guide#scalability-for-inference) that can reduce the computational overhead and lower the memory requirements
+[inference arguments](/ml/deep-learning/transformers/guide#scalability-for-inference) that can reduce the computational overhead and lower the memory requirements
 for deployment.
 
 ## Getting Started with the MLflow Transformers Flavor - Tutorials and Guides
@@ -79,7 +75,7 @@ If this is your first exposure to transformers or use transformers extensively b
 <CardGroup>
   <PageCard
     headerText="Quickstart: Text Generation with Transformers"
-    link="tutorials/text-generation/text-generation/"
+    link="/ml/deep-learning/transformers/tutorials/text-generation/text-generation/"
     text={
       <>
         Learn how to leverage the transformers integration with MLflow in this <strong>introductory quickstart</strong>.
@@ -95,7 +91,7 @@ Fine-tuning a model is a common task in machine learning workflows. These tutori
 <CardGroup>
   <PageCard
     headerText="Fine tuning a transformers Foundation Model"
-    link="tutorials/fine-tuning/transformers-fine-tuning/"
+    link="/ml/deep-learning/transformers/tutorials/fine-tuning/transformers-fine-tuning/"
     text={
       <>
         Learn how to fine-tune a transformers model using MLflow to keep track of the training process and to log a use-case-specific tuned pipeline.
@@ -104,7 +100,7 @@ Fine-tuning a model is a common task in machine learning workflows. These tutori
   />
   <PageCard
     headerText="Fine tuning LLMs efficiently using PEFT and MLflow"
-    link="tutorials/fine-tuning/transformers-peft/"
+    link="/ml/deep-learning/transformers/tutorials/fine-tuning/transformers-peft/"
     text={
       <>
         Learn how to fine-tune a large foundational models with significantly reduced memory usage using PEFT (QLoRA) and MLflow.
@@ -124,7 +120,7 @@ These more advanced tutorials are designed to showcase different applications of
 <CardGroup>
   <PageCard
     headerText="Audio Transcription with Transformers"
-    link="tutorials/audio-transcription/whisper/"
+    link="/ml/deep-learning/transformers/tutorials/audio-transcription/whisper/"
     text={
       <>
         Learn how to leverage the Whisper Model with MLflow to generate accurate audio transcriptions.
@@ -133,7 +129,7 @@ These more advanced tutorials are designed to showcase different applications of
   />
   <PageCard
     headerText="Translation with Transformers"
-    link="tutorials/translation/component-translation/"
+    link="/ml/deep-learning/transformers/tutorials/translation/component-translation/"
     text={
       <>
         Learn about the options for saving and loading transformers models in MLflow for customization of your workflows with a fun translation example!
@@ -142,7 +138,7 @@ These more advanced tutorials are designed to showcase different applications of
   />
   <PageCard
     headerText="Chat with Transformers"
-    link="tutorials/conversational/conversational-model/"
+    link="/ml/deep-learning/transformers/tutorials/conversational/conversational-model/"
     text={
       <>
         Learn the basics of stateful chat Conversational Pipelines with Transformers and MLflow.
@@ -151,7 +147,7 @@ These more advanced tutorials are designed to showcase different applications of
   />
   <PageCard
     headerText="Building and Serving an OpenAI-Compatible Chatbot"
-    link="tutorials/conversational/pyfunc-chat-model/"
+    link="/ml/deep-learning/transformers/tutorials/conversational/pyfunc-chat-model/"
     text={
       <>
         Learn how to build an OpenAI-compatible chatbot using a local Transformers model and MLflow, and serve it with minimal configuration.
@@ -160,59 +156,49 @@ These more advanced tutorials are designed to showcase different applications of
   />
   <PageCard
     headerText="Prompt templating with Transformers Pipelines"
-    link="tutorials/prompt-templating/prompt-templating/"
+    link="/ml/deep-learning/transformers/tutorials/prompt-templating/prompt-templating/"
     text={
       <>
         Learn how to set prompt templates on Transformers Pipelines to optimize your LLM's outputs, and simplify the end-user experience.
       </>
     }
   />
-  <PageCard
-    headerText="Custom PyFunc for Transformers"
-    link="/llms/custom-pyfunc-for-llms/notebooks/custom-pyfunc-advanced-llm/"
-    text={
-      <>
-        Learn how to define a custom PyFunc using transformers for advanced, state-of-the-art new models.
-      </>
-    }
-  />
-
 </CardGroup>
 
 ## Important Details to be aware of with the transformers flavor
 
 When working with the transformers flavor in MLflow, there are several important considerations to keep in mind:
 
-- **PyFunc Limitations**: Not all output from a Transformers pipeline may be captured when using the python_function flavor. For example, if additional references or scores are required from the output, the native implementation should be used instead. Also not all the pipeline types are supported for pyfunc. Please refer to [Loading a Transformers Model as a Python Function](/llms/transformers/guide#loading-a-transformers-model-as-a-python-function) for the supported pipeline types and their input and output format.
+- **PyFunc Limitations**: Not all output from a Transformers pipeline may be captured when using the python_function flavor. For example, if additional references or scores are required from the output, the native implementation should be used instead. Also not all the pipeline types are supported for pyfunc. Please refer to [Loading a Transformers Model as a Python Function](/ml/deep-learning/transformers/guide#loading-a-transformers-model-as-a-python-function) for the supported pipeline types and their input and output format.
 - **Supported Pipeline Types**: Not all Transformers pipeline types are currently supported for use with the python_function flavor. In particular, new model architectures may not be supported until the transformers library has a designated pipeline type in its supported pipeline implementations.
 - **Input and Output Types**: The input and output types for the python_function implementation may differ from those expected from the native pipeline. Users need to ensure compatibility with their data processing workflows.
 - **Model Configuration**: When saving or logging models, the <span style={{ fontStyle: "italic" }}>model_config</span> can be used to set certain parameters. However, if both model_config and a <span style={{ fontStyle: "italic" }}>ModelSignature</span> with parameters are saved, the default parameters in ModelSignature will override those in <span style={{ fontStyle: "italic" }}>model_config</span>.
 - **Audio and Vision Models**: Audio and text-based large language models are supported for use with pyfunc, while other types like computer vision and multi-modal models are only supported for native type loading.
-- **Prompt Templates**: Prompt templating is currently supported for a few pipeline types. For a full list of supported pipelines, and more information about the feature, see [this link](/llms/transformers/guide#saving-prompt-templates-with-transformer-pipelines).
+- **Prompt Templates**: Prompt templating is currently supported for a few pipeline types. For a full list of supported pipelines, and more information about the feature, see [this link](/ml/deep-learning/transformers/guide#saving-prompt-templates-with-transformer-pipelines).
 
 ## Logging Large Models
 
 By default, MLflow consumes certain memory footprint and storage space for logging models. This can be a concern when working with large foundational models with billions of parameters. To address this, MLflow provides a few
-optimization techniques to reduce resource consumption during logging and speed up the logging process. Please refer to the [Working with Large Models in MLflow Transformers flavor](/llms/transformers/large-models) guide to learn more about these tips.
+optimization techniques to reduce resource consumption during logging and speed up the logging process. Please refer to the [Working with Large Models in MLflow Transformers flavor](/ml/deep-learning/transformers/large-models) guide to learn more about these tips.
 
 ## Working with `tasks` for Transformer Pipelines
 
-In MLflow Transformers flavor, `task` plays a crucial role in determining the input and output format of the model. Please refer to the [Tasks in MLflow Transformers](/llms/transformers/task) guide on how to use the native Transformers task types,
+In MLflow Transformers flavor, `task` plays a crucial role in determining the input and output format of the model. Please refer to the [Tasks in MLflow Transformers](/ml/deep-learning/transformers/task) guide on how to use the native Transformers task types,
 and leverage the advanced tasks such as `llm/v1/chat` and `llm/v1/completions` for OpenAI-compatible inference.
 
-## [Detailed Documentation](/llms/transformers/guide)
+## [Detailed Documentation](/ml/deep-learning/transformers/guide)
 
-To learn more about the nuances of the _transformers_ flavor in MLflow, delve into [the comprehensive guide](/llms/transformers/guide), which covers:
+To learn more about the nuances of the _transformers_ flavor in MLflow, delve into [the comprehensive guide](/ml/deep-learning/transformers/guide), which covers:
 
-- [Pipelines vs. Component Logging](/llms/transformers/guide#pipelines-vs-component-logging): Explore the different approaches for saving model components or complete pipelines and understand the nuances of loading these models for various use cases.
-- [Transformers Model as a Python Function](/llms/transformers/guide#loading-a-transformers-model-as-a-python-function) : Familiarize yourself with the various `transformers` pipeline types compatible with the pyfunc model flavor. Understand the standardization of input and output formats in the pyfunc model implementation for the flavor, ensuring seamless integration with JSON and Pandas DataFrames.
-- [Prompt Template](/llms/transformers/guide#saving-prompt-templates-with-transformer-pipelines): Learn how to save a prompt template with transformers pipelines to optimize inference with less boilerplate.
-- [Model Config and Model Signature Params for Inference](/llms/transformers/guide#using-model-config-and-model-signature-params-for-inference): Learn how to leverage `model_config` and `ModelSignature` for flexible and customized model loading and inference.
-- [Automatic Metadata and ModelCard Logging](/llms/transformers/guide#automatic-metadata-and-modelcard-logging): Discover the automatic logging features for model cards and other metadata, enhancing model documentation and transparency.
-- [Model Signature Inference](/llms/transformers/guide#automatic-signature-inference) : Learn about MLflow's capability within the `transformers` flavor to automatically infer and attach model signatures, facilitating easier model deployment.
-- [Overriding Pytorch dtype](/llms/transformers/guide#scalability-for-inference) : Gain insights into optimizing `transformers` models for inference, focusing on memory optimization and data type configurations.
-- [Input Data Types for Audio Pipelines](/llms/transformers/guide#input-data-types-for-audio-pipelines): Understand the specific requirements for handling audio data in transformers pipelines, including the handling of different input types like str, bytes, and np.ndarray.
-- [PEFT Models in MLflow Transformers flavor](/llms/transformers/guide#peft-models-in-mlflow-transformers-flavor): PEFT (Parameter-Efficient Fine-Tuning) is natively supported in MLflow, enabling various optimization techniques like LoRA, QLoRA, and more for reducing fine-tuning cost significantly. Check out the guide and tutorials to learn more about how to leverage PEFT with MLflow.
+- [Pipelines vs. Component Logging](/ml/deep-learning/transformers/guide#pipelines-vs-component-logging): Explore the different approaches for saving model components or complete pipelines and understand the nuances of loading these models for various use cases.
+- [Transformers Model as a Python Function](/ml/deep-learning/transformers/guide#loading-a-transformers-model-as-a-python-function) : Familiarize yourself with the various `transformers` pipeline types compatible with the pyfunc model flavor. Understand the standardization of input and output formats in the pyfunc model implementation for the flavor, ensuring seamless integration with JSON and Pandas DataFrames.
+- [Prompt Template](/ml/deep-learning/transformers/guide#saving-prompt-templates-with-transformer-pipelines): Learn how to save a prompt template with transformers pipelines to optimize inference with less boilerplate.
+- [Model Config and Model Signature Params for Inference](/ml/deep-learning/transformers/guide#using-model-config-and-model-signature-params-for-inference): Learn how to leverage `model_config` and `ModelSignature` for flexible and customized model loading and inference.
+- [Automatic Metadata and ModelCard Logging](/ml/deep-learning/transformers/guide#automatic-metadata-and-modelcard-logging): Discover the automatic logging features for model cards and other metadata, enhancing model documentation and transparency.
+- [Model Signature Inference](/ml/deep-learning/transformers/guide#automatic-signature-inference) : Learn about MLflow's capability within the `transformers` flavor to automatically infer and attach model signatures, facilitating easier model deployment.
+- [Overriding Pytorch dtype](/ml/deep-learning/transformers/guide#scalability-for-inference) : Gain insights into optimizing `transformers` models for inference, focusing on memory optimization and data type configurations.
+- [Input Data Types for Audio Pipelines](/ml/deep-learning/transformers/guide#input-data-types-for-audio-pipelines): Understand the specific requirements for handling audio data in transformers pipelines, including the handling of different input types like str, bytes, and np.ndarray.
+- [PEFT Models in MLflow Transformers flavor](/ml/deep-learning/transformers/guide#peft-models-in-mlflow-transformers-flavor): PEFT (Parameter-Efficient Fine-Tuning) is natively supported in MLflow, enabling various optimization techniques like LoRA, QLoRA, and more for reducing fine-tuning cost significantly. Check out the guide and tutorials to learn more about how to leverage PEFT with MLflow.
 
 ## Learn more about Transformers
 
