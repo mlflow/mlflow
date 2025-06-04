@@ -376,7 +376,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "4.4.7",
-            "maximum": "6.0.1"
+            "maximum": "6.0.0"
         }
     },
     "promptflow": {

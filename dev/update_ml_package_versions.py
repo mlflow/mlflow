@@ -35,8 +35,8 @@ def save_file(src, path):
 
 
 def uploaded_recently(dist) -> bool:
-    if ut := dist.get("upload_time"):
-        delta = datetime.now(timezone.utc) - datetime.fromisoformat(ut).astimezone(timezone.utc)
+    if ut := dist.get("upload_time_iso_8601"):
+        delta = datetime.now(timezone.utc) - datetime.fromisoformat(ut.replace("Z", "+00:00"))
         return delta.days < 1
     return False
 

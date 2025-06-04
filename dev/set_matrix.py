@@ -158,8 +158,8 @@ def read_yaml(location, if_error=None):
 
 
 def uploaded_recently(dist: dict[str, Any]) -> bool:
-    if ut := dist.get("upload_time"):
-        delta = datetime.now(timezone.utc) - datetime.fromisoformat(ut).astimezone(timezone.utc)
+    if ut := dist.get("upload_time_iso_8601"):
+        delta = datetime.now(timezone.utc) - datetime.fromisoformat(ut.replace("Z", "+00:00"))
         return delta.days < 1
     return False
 
