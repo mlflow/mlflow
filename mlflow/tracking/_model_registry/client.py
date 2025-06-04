@@ -442,3 +442,382 @@ class ModelRegistryClient:
 
         """
         return self.store.get_model_version_by_alias(name, alias)
+
+    # Store-Direct Prompt Methods (Unity Catalog Compatible)
+
+    def create_prompt(
+        self,
+        name: str,
+        description: Optional[str] = None,
+        tags: Optional[dict[str, str]] = None,
+    ):
+        """
+        Create a new prompt in the registry.
+
+        This method delegates directly to the store, providing full Unity Catalog support
+        when used with Unity Catalog registries.
+
+        Args:
+            name: Name of the prompt.
+            description: Optional description of the prompt.
+            tags: Optional dictionary of prompt tags.
+
+        Returns:
+            A PromptInfo object for Unity Catalog stores.
+        """
+        return self.store.create_prompt(name, description, tags)
+
+    def get_prompt(self, name: str, version: Optional[str] = None):
+        """
+        Get prompt by name and version or alias.
+
+        This method delegates directly to the store, providing full Unity Catalog support
+        when used with Unity Catalog registries.
+
+        Args:
+            name: Registered prompt name.
+            version: Registered prompt version or alias. If None, loads the latest version.
+
+        Returns:
+            A Prompt object, or None if not found.
+        """
+        return self.store.get_prompt(name, version)
+
+    def search_prompts(
+        self,
+        filter_string: Optional[str] = None,
+        max_results: Optional[int] = None,
+        order_by: Optional[list[str]] = None,
+        page_token: Optional[str] = None,
+        catalog_name: Optional[str] = None,
+        schema_name: Optional[str] = None,
+    ):
+        """
+        Search for prompts in the registry.
+
+        This method delegates directly to the store, providing full Unity Catalog support
+        when used with Unity Catalog registries.
+
+        Args:
+            filter_string: Filter query string.
+            max_results: Maximum number of prompts to return.
+            order_by: List of column names with ASC|DESC annotation.
+            page_token: Token specifying the next page of results.
+            catalog_name: Unity Catalog catalog name (for UC registries).
+            schema_name: Unity Catalog schema name (for UC registries).
+
+        Returns:
+            A PagedList of PromptInfo objects.
+        """
+        from mlflow.utils.uri import is_databricks_unity_catalog_uri
+        from mlflow.exceptions import MlflowException
+        from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+
+        is_unity_catalog = is_databricks_unity_catalog_uri(self.registry_uri)
+
+        if is_unity_catalog:
+            # For Unity Catalog, use catalog/schema parameters or parse from filter
+            if catalog_name and schema_name:
+                # Direct parameters provided
+                return self.store.search_prompts(
+                    filter_string, max_results, order_by, page_token, catalog_name, schema_name
+                )
+            elif filter_string:
+                # Parse catalog and schema from filter string
+                parsed_catalog, parsed_schema, remaining_filter = self._parse_catalog_schema_filter(
+                    filter_string
+                )
+
+                if not parsed_catalog or not parsed_schema:
+                    raise MlflowException(
+                        "For Unity Catalog prompt registries, you must specify both catalog and schema "
+                        "either as parameters or in the filter string: catalog = 'catalog_name' AND schema = 'schema_name'",
+                        INVALID_PARAMETER_VALUE,
+                    )
+
+                if remaining_filter:
+                    raise MlflowException(
+                        f"Unity Catalog prompt search currently only supports catalog and schema "
+                        f"filters. Unsupported filter: {remaining_filter}",
+                        INVALID_PARAMETER_VALUE,
+                    )
+
+                return self.store.search_prompts(
+                    remaining_filter, max_results, order_by, page_token, parsed_catalog, parsed_schema
+                )
+            else:
+                raise MlflowException(
+                    "For Unity Catalog prompt registries, you must specify catalog and schema "
+                    "either as parameters or in the filter string",
+                    INVALID_PARAMETER_VALUE,
+                )
+        else:
+            # For traditional registries, use existing prompt tag logic
+            from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
+
+            if is_prompt_supported_registry(self.registry_uri):
+                # Adjust filter string to include or exclude prompts
+                fls = f"tag.`{IS_PROMPT_TAG_KEY}` = 'true'"
+                if filter_string:
+                    fls = f"{fls} AND {filter_string}"
+                
+                return self.store.search_registered_models(fls, max_results, order_by, page_token)
+            else:
+                # Fall back to basic store search
+                return self.store.search_prompts(
+                    filter_string, max_results, order_by, page_token, catalog_name, schema_name
+                )
+
+    def _parse_catalog_schema_filter(
+        self, filter_string: str
+    ) -> tuple[Optional[str], Optional[str], Optional[str]]:
+        """
+        Parse catalog and schema from filter string for Unity Catalog using SQL parsing.
+
+        Args:
+            filter_string: Filter string potentially containing catalog and schema
+
+        Returns:
+            Tuple of (catalog_name, schema_name, remaining_filter)
+        """
+        if not filter_string:
+            return None, None, None
+
+        import sqlparse
+        from sqlparse.tokens import Token as TokenType
+        from mlflow.exceptions import MlflowException
+        from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+
+        try:
+            parsed = sqlparse.parse(filter_string)
+        except Exception as e:
+            raise MlflowException(
+                f"Error parsing filter string '{filter_string}': {e}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        if len(parsed) != 1:
+            raise MlflowException(
+                f"Invalid filter string '{filter_string}'. Expected a single SQL expression.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+        catalog_name = None
+        schema_name = None
+        remaining_comparisons = []
+
+        # Process tokens to find catalog and schema comparisons
+        tokens = [t for t in parsed[0].tokens if not t.is_whitespace]
+        i = 0
+
+        while i < len(tokens):
+            # Look for pattern: identifier = value
+            if (
+                i + 2 < len(tokens)
+                and tokens[i].ttype == TokenType.Keyword  # identifier (catalog/schema)
+                and tokens[i + 1].ttype == TokenType.Operator.Comparison  # =
+                and tokens[i + 1].value == "="
+            ):
+                identifier = tokens[i].value.lower()
+                value_token = tokens[i + 2]
+
+                # Extract the value
+                if hasattr(value_token, "value"):
+                    value = value_token.value.strip("'\"")
+                else:
+                    value = str(value_token).strip("'\"")
+
+                if identifier == "catalog":
+                    catalog_name = value
+                    # Skip the three tokens we just processed
+                    i += 3
+                    # Skip following AND if present
+                    if (
+                        i < len(tokens)
+                        and tokens[i].ttype == TokenType.Keyword
+                        and tokens[i].value.upper() == "AND"
+                    ):
+                        i += 1
+                    continue
+                elif identifier == "schema":
+                    schema_name = value
+                    # Skip the three tokens we just processed
+                    i += 3
+                    # Skip following AND if present
+                    if (
+                        i < len(tokens)
+                        and tokens[i].ttype == TokenType.Keyword
+                        and tokens[i].value.upper() == "AND"
+                    ):
+                        i += 1
+                    continue
+
+            # Not a catalog/schema comparison, add to remaining tokens
+            remaining_comparisons.append(str(tokens[i]))
+            i += 1
+
+        # Reconstruct remaining filter string by filtering out standalone AND tokens
+        if remaining_comparisons:
+            # Filter out standalone AND tokens and reconstruct properly
+            filtered_tokens = []
+            for token_str in remaining_comparisons:
+                if token_str.upper() != "AND":
+                    filtered_tokens.append(token_str)
+            remaining_filter = " ".join(filtered_tokens).strip() if filtered_tokens else None
+        else:
+            remaining_filter = None
+
+        return catalog_name, schema_name, remaining_filter
+
+    def delete_prompt(self, name: str) -> None:
+        """
+        Delete a prompt from the registry.
+
+        This method delegates directly to the store, providing full Unity Catalog support
+        when used with Unity Catalog registries.
+
+        Args:
+            name: Name of the prompt to delete.
+
+        Returns:
+            None
+        """
+        self.store.delete_prompt(name)
+
+    def create_prompt_version(
+        self,
+        name: str,
+        template: str,
+        description: Optional[str] = None,
+        tags: Optional[dict[str, str]] = None,
+    ):
+        """
+        Create a new version of an existing prompt.
+
+        This method delegates directly to the store, providing full Unity Catalog support
+        when used with Unity Catalog registries.
+
+        Args:
+            name: Name of the prompt.
+            template: The prompt template text for this version.
+            description: Optional description of this version.
+            tags: Optional dictionary of version tags.
+
+        Returns:
+            A Prompt object representing the new version.
+        """
+        return self.store.create_prompt_version(name, template, description, tags)
+
+    def get_prompt_version(self, name: str, version: str):
+        """
+        Get a specific version of a prompt.
+
+        This method delegates directly to the store, providing full Unity Catalog support
+        when used with Unity Catalog registries.
+
+        Args:
+            name: Name of the prompt.
+            version: Version number of the prompt.
+
+        Returns:
+            A Prompt object.
+        """
+        return self.store.get_prompt_version(name, version)
+
+    def delete_prompt_version(self, name: str, version: str) -> None:
+        """
+        Delete a specific version of a prompt.
+
+        This method delegates directly to the store, providing full Unity Catalog support
+        when used with Unity Catalog registries.
+
+        Args:
+            name: Name of the prompt.
+            version: Version number to delete.
+
+        Returns:
+            None
+        """
+        self.store.delete_prompt_version(name, version)
+
+    def set_prompt_tag(self, name: str, key: str, value: str) -> None:
+        """
+        Set a tag on a prompt.
+
+        This method delegates directly to the store, providing full Unity Catalog support
+        when used with Unity Catalog registries.
+
+        Args:
+            name: Name of the prompt.
+            key: Tag key.
+            value: Tag value.
+
+        Returns:
+            None
+        """
+        self.store.set_prompt_tag(name, key, value)
+
+    def delete_prompt_tag(self, name: str, key: str) -> None:
+        """
+        Delete a tag from a prompt.
+
+        This method delegates directly to the store, providing full Unity Catalog support
+        when used with Unity Catalog registries.
+
+        Args:
+            name: Name of the prompt.
+            key: Tag key to delete.
+
+        Returns:
+            None
+        """
+        self.store.delete_prompt_tag(name, key)
+
+    def get_prompt_version_by_alias(self, name: str, alias: str):
+        """
+        Get a prompt version by alias.
+
+        This method delegates directly to the store, providing full Unity Catalog support
+        when used with Unity Catalog registries.
+
+        Args:
+            name: Name of the prompt.
+            alias: Alias to look up.
+
+        Returns:
+            A Prompt object.
+        """
+        return self.store.get_prompt_version_by_alias(name, alias)
+
+    def set_prompt_alias(self, name: str, alias: str, version: str) -> None:
+        """
+        Set an alias for a prompt version.
+
+        This method delegates directly to the store, providing full Unity Catalog support
+        when used with Unity Catalog registries.
+
+        Args:
+            name: Name of the prompt.
+            alias: Alias to set.
+            version: Version to alias.
+
+        Returns:
+            None
+        """
+        self.store.set_prompt_alias(name, alias, version)
+
+    def delete_prompt_alias(self, name: str, alias: str) -> None:
+        """
+        Delete a prompt alias.
+
+        This method delegates directly to the store, providing full Unity Catalog support
+        when used with Unity Catalog registries.
+
+        Args:
+            name: Name of the prompt.
+            alias: Alias to delete.
+
+        Returns:
+            None
+        """
+        self.store.delete_prompt_alias(name, alias)

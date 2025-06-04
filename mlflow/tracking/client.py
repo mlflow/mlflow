@@ -585,10 +585,6 @@ class MlflowClient:
                 An additional registry‐search expression to apply (e.g.
                 `"name LIKE 'my_prompt%'"`).  The prompt‐tag filter is always
                 applied internally.  Defaults to `None` (no extra filtering).
-
-                For Unity Catalog registries, you must specify catalog and schema
-                using the format: `catalog = 'catalog_name' AND schema = 'schema_name'`.
-                Other filters are not currently supported for Unity Catalog.
             max_results (int):
                 The maximum number of prompts to return in one page.  Defaults
                 to `SEARCH_MAX_RESULTS_DEFAULT` (typically 1 000).
@@ -602,155 +598,15 @@ class MlflowClient:
                 entities representing prompt templates. Inspect the returned object's
                 `.token` attribute to fetch subsequent pages.
         """
-        registry_client = self._get_registry_client()
+        fls = f"tag.`{IS_PROMPT_TAG_KEY}` = 'true'"
+        if filter_string:
+            fls = f"{fls} AND {filter_string}"
 
-        is_unity_catalog = is_databricks_unity_catalog_uri(self._registry_uri)
-
-        if is_unity_catalog:
-            # For Unity Catalog, parse catalog and schema from filter string
-            if not filter_string:
-                raise MlflowException(
-                    "For Unity Catalog prompt registries, you must specify a filter with "
-                    "catalog and schema: catalog = 'catalog_name' AND schema = 'schema_name'",
-                    INVALID_PARAMETER_VALUE,
-                )
-
-            catalog_name, schema_name, remaining_filter = self._parse_catalog_schema_filter(
-                filter_string
-            )
-
-            if not catalog_name or not schema_name:
-                raise MlflowException(
-                    "For Unity Catalog prompt registries, you must specify both catalog and schema "
-                    "in the filter string: catalog = 'catalog_name' AND schema = 'schema_name'",
-                    INVALID_PARAMETER_VALUE,
-                )
-
-            if remaining_filter:
-                raise MlflowException(
-                    f"Unity Catalog prompt search currently only supports catalog and schema "
-                    f"filters. Unsupported filter: {remaining_filter}",
-                    INVALID_PARAMETER_VALUE,
-                )
-
-            # Call Unity Catalog store directly with structured parameters
-            return registry_client.store.search_prompts(
-                catalog_name=catalog_name,
-                schema_name=schema_name,
-                filter_string=remaining_filter,
-                max_results=max_results,
-                page_token=page_token,
-            )
-        else:
-            # For traditional registries, use existing prompt tag logic
-            fls = f"tag.`{IS_PROMPT_TAG_KEY}` = 'true'"
-            if filter_string:
-                fls = f"{fls} AND {filter_string}"
-
-            return registry_client.search_registered_models(
-                filter_string=fls,
-                max_results=max_results,
-                page_token=page_token,
-            )
-
-    def _parse_catalog_schema_filter(
-        self, filter_string: str
-    ) -> tuple[Optional[str], Optional[str], Optional[str]]:
-        """
-        Parse catalog and schema from filter string for Unity Catalog using SQL parsing.
-
-        Args:
-            filter_string: Filter string potentially containing catalog and schema
-
-        Returns:
-            Tuple of (catalog_name, schema_name, remaining_filter)
-        """
-        if not filter_string:
-            return None, None, None
-
-        import sqlparse
-        from sqlparse.tokens import Token as TokenType
-
-        try:
-            parsed = sqlparse.parse(filter_string)
-        except Exception as e:
-            raise MlflowException(
-                f"Error parsing filter string '{filter_string}': {e}",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-
-        if len(parsed) != 1:
-            raise MlflowException(
-                f"Invalid filter string '{filter_string}'. Expected a single SQL expression.",
-                error_code=INVALID_PARAMETER_VALUE,
-            )
-
-        catalog_name = None
-        schema_name = None
-        remaining_comparisons = []
-
-        # Process tokens to find catalog and schema comparisons
-        tokens = [t for t in parsed[0].tokens if not t.is_whitespace]
-        i = 0
-
-        while i < len(tokens):
-            # Look for pattern: identifier = value
-            if (
-                i + 2 < len(tokens)
-                and tokens[i].ttype == TokenType.Keyword  # identifier (catalog/schema)
-                and tokens[i + 1].ttype == TokenType.Operator.Comparison  # =
-                and tokens[i + 1].value == "="
-            ):
-                identifier = tokens[i].value.lower()
-                value_token = tokens[i + 2]
-
-                # Extract the value
-                if hasattr(value_token, "value"):
-                    value = value_token.value.strip("'\"")
-                else:
-                    value = str(value_token).strip("'\"")
-
-                if identifier == "catalog":
-                    catalog_name = value
-                    # Skip the three tokens we just processed
-                    i += 3
-                    # Skip following AND if present
-                    if (
-                        i < len(tokens)
-                        and tokens[i].ttype == TokenType.Keyword
-                        and tokens[i].value.upper() == "AND"
-                    ):
-                        i += 1
-                    continue
-                elif identifier == "schema":
-                    schema_name = value
-                    # Skip the three tokens we just processed
-                    i += 3
-                    # Skip following AND if present
-                    if (
-                        i < len(tokens)
-                        and tokens[i].ttype == TokenType.Keyword
-                        and tokens[i].value.upper() == "AND"
-                    ):
-                        i += 1
-                    continue
-
-            # Not a catalog/schema comparison, add to remaining tokens
-            remaining_comparisons.append(str(tokens[i]))
-            i += 1
-
-        # Reconstruct remaining filter string by filtering out standalone AND tokens
-        if remaining_comparisons:
-            # Filter out standalone AND tokens and reconstruct properly
-            filtered_tokens = []
-            for token_str in remaining_comparisons:
-                if token_str.upper() != "AND":
-                    filtered_tokens.append(token_str)
-            remaining_filter = " ".join(filtered_tokens).strip() if filtered_tokens else None
-        else:
-            remaining_filter = None
-
-        return catalog_name, schema_name, remaining_filter
+        return self._get_registry_client().search_registered_models(
+            filter_string=fls,
+            max_results=max_results,
+            page_token=page_token,
+        )
 
     @experimental
     @require_prompt_registry
