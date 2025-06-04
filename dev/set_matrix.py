@@ -35,7 +35,7 @@ import shutil
 import sys
 import warnings
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator, Optional, TypeVar
 
@@ -159,7 +159,8 @@ def read_yaml(location, if_error=None):
 
 def uploaded_recently(dist: dict[str, Any]) -> bool:
     if ut := dist.get("upload_time"):
-        return (datetime.now() - datetime.fromisoformat(ut)).days < 1
+        delta = datetime.now(timezone.utc) - datetime.fromisoformat(ut).astimezone(timezone.utc)
+        return delta.days < 1
     return False
 
 

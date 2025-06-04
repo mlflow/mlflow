@@ -16,7 +16,7 @@ import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -36,7 +36,8 @@ def save_file(src, path):
 
 def uploaded_recently(dist) -> bool:
     if ut := dist.get("upload_time"):
-        return (datetime.now() - datetime.fromisoformat(ut)).days < 1
+        delta = datetime.now(timezone.utc) - datetime.fromisoformat(ut).astimezone(timezone.utc)
+        return delta.days < 1
     return False
 
 
