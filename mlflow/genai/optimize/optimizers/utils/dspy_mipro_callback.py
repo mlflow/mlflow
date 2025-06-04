@@ -23,10 +23,7 @@ class _DSPyMIPROv2Callback(BaseCallback):
         self._best_score = None
 
     def on_evaluate_start(self, call_id: str, instance: Any, inputs: dict[str, Any]):
-        key = "eval"
-        if callback_metadata := inputs.get("callback_metadata"):
-            if "metric_key" in callback_metadata:
-                key = callback_metadata["metric_key"]
+        key = inputs.get("callback_metadata", {}).get("metric_key", "eval")
         step = self._evaluation_counter[key]
         self._evaluation_counter[key] += 1
         self._call_id_to_values[call_id] = (key, step, inputs.get("program"))
