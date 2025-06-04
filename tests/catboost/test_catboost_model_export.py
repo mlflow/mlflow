@@ -57,19 +57,21 @@ def read_yaml(path):
 MODEL_PARAMS = {"allow_writing_files": False, "iterations": 10}
 
 
-@pytest.fixture(
-    scope="module",
-    params=[
-        cb.CatBoost(MODEL_PARAMS),
-        cb.CatBoostClassifier(**MODEL_PARAMS),
-        cb.CatBoostRegressor(**MODEL_PARAMS),
-    ],
-    ids=["CatBoost", "CatBoostClassifier", "CatBoostRegressor"],
-)
-def cb_model(request):
-    model = request.param
+def iter_models():
     X, y = get_iris()
-    return ModelWithData(model=model.fit(X, y), inference_dataframe=X)
+    model = cb.CatBoost(MODEL_PARAMS).fit(X, y)
+    yield ModelWithData(model=model, inference_dataframe=X)
+
+    model = cb.CatBoostClassifier(**MODEL_PARAMS).fit(X, y)
+    yield ModelWithData(model=model, inference_dataframe=X)
+
+    model = cb.CatBoostRegressor(**MODEL_PARAMS).fit(X, y)
+    yield ModelWithData(model=model, inference_dataframe=X)
+
+
+@pytest.fixture(params=iter_models(), ids=["CatBoost", "CatBoostClassifier", "CatBoostRegressor"])
+def cb_model(request):
+    return request.param
 
 
 @pytest.fixture
