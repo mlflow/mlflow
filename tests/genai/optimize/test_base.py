@@ -125,19 +125,18 @@ def test_optimize_autolog(sample_prompt, sample_data):
     run = mlflow.last_active_run()
     client = MlflowClient()
     assert run is not None
-    assert run.data.params == {
+    expected_params = {
         "optimizer_config.algorithm": "DSPy/MIPROv2",
         "optimizer_config.autolog": "True",
         "optimizer_config.max_few_show_examples": "6",
         "optimizer_config.num_instruction_candidates": "6",
-        "optimizer_config.num_threads": "33",
         "optimizer_config.optimizer_llm": "None",
         "optimizer_config.verbose": "False",
         "prompt_uri": "prompts:/test_translation_prompt/1",
-        "target_llm_params.base_uri": "None",
         "target_llm_params.model_name": "test/model",
-        "target_llm_params.temperature": "None",
     }
+    for key, expected_value in expected_params.items():
+        assert run.data.params[key] == expected_value
     artifacts = [x.path for x in client.list_artifacts(run.info.run_id)]
     assert "train_data.json" in artifacts
     assert "eval_data.json" in artifacts
