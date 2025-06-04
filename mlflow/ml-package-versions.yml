@@ -289,11 +289,6 @@ spark:
       "< 3.4.0": ["pandas<2"]
       ">= 3.5.0": ["torch<2.6.0", "scikit-learn", "torcheval"]
       ">= 3.5.0, < dev": ["pyspark[connect]"]
-    pre_test: |
-      # TODO: Remove this once we remove the pyspark constraint in requirements/constraints.txt
-      sed -i '/^pyspark/d' requirements/constraints.txt
-      git add requirements/constraints.txt
-      git commit -m "Remove pyspark constraints for testing"
     run: |
       SAGEMAKER_OUT=$(mktemp)
       if mlflow sagemaker build-and-push-container --no-push --mlflow-home . > $SAGEMAKER_OUT 2>&1; then
