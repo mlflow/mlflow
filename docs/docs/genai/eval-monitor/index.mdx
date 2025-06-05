@@ -1,0 +1,277 @@
+# Evaluate & Monitor
+
+MLflow's evaluation and monitoring capabilities help you systematically measure, improve, and maintain the quality of your GenAI applications throughout their lifecycle. From development through production, use the same quality metrics and methodologies to ensure your applications deliver accurate, reliable responses while managing cost and latency.
+
+## Overview
+
+### Evaluation During Development
+
+Test and improve your GenAI app iteratively by running evaluations against curated datasets. MLflow's evaluation harness helps you:
+
+- **Measure quality** using pre-built and custom scorers
+- **Compare different versions** of your app side-by-side
+- **Identify root causes** of quality issues through detailed traces
+- **Prevent regressions** before deployment with automated testing
+
+### Monitoring in Production
+
+Continuously track your deployed app's performance and quality. MLflow's monitoring capabilities enable you to:
+
+- **Automatically assess quality** using the same scorers from development
+- **Track operational metrics** like latency, cost, and error rates
+- **Identify underperforming** queries and responses in real-time
+- **Create feedback loops** for continuous improvement using production data
+
+## Getting Started
+
+Start with evaluating your first GenAI app to understand quality measurement fundamentals, then progress to production monitoring for continuous improvement.
+
+```python
+import mlflow
+from mlflow.metrics import exact_match
+
+# Simple evaluation example
+result = mlflow.evaluate(
+    data=your_test_data,
+    model=your_genai_app,
+    extra_metrics=[exact_match()],
+)
+
+print(f"Evaluation completed: {result.metrics}")
+```
+
+## Core Workflows
+
+### Evaluate and Improve Your App
+
+Learn the essential workflows for building high-quality GenAI applications:
+
+#### **Systematic Evaluation**
+- **[Evaluate your app](/genai/eval-monitor/evaluate-app)** - Run comprehensive evaluations to measure quality and identify issues
+- **[Compare app versions](/genai/eval-monitor/version-comparison)** - Analyze differences between versions to ensure improvements
+- **[Validate in CI/CD](/genai/eval-monitor/ci-cd-testing)** - Automate quality checks in your deployment pipeline
+
+#### **Quality Measurement Strategies**
+
+**Pre-built Scorers** - Start quickly with research-backed evaluation:
+```python
+from mlflow.metrics import exact_match, rouge_score
+
+# Use built-in metrics for common evaluation needs
+basic_metrics = [exact_match(), rouge_score()]
+```
+
+**Custom Business Logic** - Build deterministic metrics:
+```python
+from mlflow.genai.scorers import scorer
+
+
+@scorer
+def contains_required_info(inputs, outputs):
+    """Check if response contains required business information."""
+    required_fields = ["price", "availability", "specifications"]
+    response = outputs.get("response", "").lower()
+    return all(field in response for field in required_fields)
+```
+
+**LLM-based Judges** - Leverage AI for semantic evaluation:
+```python
+# Guidelines-based evaluation for business-specific criteria
+business_guidelines = [
+    "Response must be professional and helpful",
+    "Technical accuracy is required for product information",
+    "Customer privacy must be respected",
+]
+```
+
+### Build Evaluation Datasets
+
+Create comprehensive test sets for systematic evaluation:
+
+#### **Dataset Creation Strategies**
+
+**From Production Traces** - Use real-world examples:
+```python
+# Extract problematic cases from production
+problem_traces = mlflow.search_traces(
+    filter_string="assessments.quality_score.value < 0.7"
+)
+
+# Convert to evaluation dataset
+eval_dataset = create_dataset_from_traces(problem_traces)
+```
+
+**Curated Test Cases** - Build targeted scenarios:
+```python
+evaluation_scenarios = [
+    {
+        "inputs": {"query": "What's the price of Product X?"},
+        "targets": "Expected response with accurate pricing",
+    },
+    {
+        "inputs": {"query": "How do I return an item?"},
+        "targets": "Clear return policy explanation",
+    },
+]
+```
+
+**Synthetic Data Generation** - Scale your test coverage:
+```python
+# Generate diverse test cases for edge cases
+synthetic_queries = generate_test_queries(
+    categories=["pricing", "support", "technical"],
+    complexity_levels=["simple", "moderate", "complex"],
+)
+```
+
+### Production Workflows
+
+Connect development and production for continuous improvement:
+
+#### **Production Monitoring**
+- **[Run scorers in production](/genai/eval-monitor/run-scorer-in-prod)** - Automatically assess quality on live traffic
+- **[Continuous improvement](/genai/eval-monitor/continuous-improvement-with-production-data)** - Use production insights to enhance your app
+
+#### **Feedback Loop Implementation**
+
+```python
+# Monitor production quality
+def setup_production_monitoring():
+    quality_scorers = [relevance_scorer, safety_scorer, business_logic_scorer]
+
+    # Run on sample of production traffic
+    monitor = mlflow.create_monitor(
+        model_uri="your-deployed-model",
+        scorers=quality_scorers,
+        sampling_rate=0.1,  # 10% of traffic
+    )
+
+    return monitor
+
+
+# Use insights for targeted improvements
+def analyze_production_issues():
+    # Find problematic patterns
+    low_quality_traces = mlflow.search_traces(
+        filter_string="metrics.quality_score < 0.6"
+    )
+
+    # Create focused evaluation dataset
+    improvement_dataset = build_dataset_from_issues(low_quality_traces)
+
+    # Test improvements
+    evaluate_improvements(improvement_dataset)
+```
+
+## Key Concepts
+
+### Quality Measurement Components
+
+**Scorers** - Functions that assess aspects of your app's outputs:
+- **Deterministic scorers**: Rule-based evaluation for specific criteria
+- **Semantic scorers**: LLM-based evaluation for nuanced quality assessment
+- **Composite scorers**: Combine multiple evaluation dimensions
+
+**Evaluation Datasets** - Versioned collections of test inputs and expected outputs:
+- **Development datasets**: Curated test cases for systematic evaluation
+- **Production-derived datasets**: Real-world examples from user interactions
+- **Regression test suites**: Critical scenarios to prevent quality degradation
+
+**Evaluation Runs** - Results from running evaluations, linked to app versions:
+- **Metric tracking**: Quantitative quality measurements over time
+- **Trace analysis**: Detailed execution information for debugging
+- **Version comparison**: Side-by-side analysis of app improvements
+
+### Production Monitoring Architecture
+
+**Continuous Assessment** - Ongoing quality measurement in production:
+```python
+# Real-time quality monitoring
+production_metrics = {
+    "response_quality": average_quality_score,
+    "user_satisfaction": feedback_sentiment,
+    "operational_health": {
+        "latency_p95": response_time_95th_percentile,
+        "error_rate": error_percentage,
+        "throughput": requests_per_minute,
+    },
+}
+```
+
+**Alerting and Response** - Proactive issue detection:
+```python
+# Set up quality alerts
+alert_thresholds = {
+    "quality_score_drop": 0.1,  # 10% decrease
+    "error_rate_spike": 0.05,  # 5% error rate
+    "latency_increase": 2.0,  # 2x latency increase
+}
+```
+
+## Implementation Patterns
+
+### Development Workflow
+
+1. **Initial Evaluation** - Establish baseline quality metrics
+2. **Iterative Improvement** - Use evaluation results to guide development
+3. **Version Comparison** - Validate improvements before deployment
+4. **Regression Testing** - Ensure new changes don't break existing functionality
+
+### Production Workflow
+
+1. **Deployment Monitoring** - Track quality immediately after deployment
+2. **Continuous Assessment** - Ongoing evaluation of production traffic
+3. **Issue Detection** - Identify quality degradation or operational problems
+4. **Feedback Integration** - Use production insights for next development cycle
+
+### Quality Assurance Strategy
+
+**Multi-layered Evaluation**:
+- **Unit-level**: Test individual components and functions
+- **Integration-level**: Evaluate complete user workflows
+- **System-level**: Assess overall application performance
+
+**Balanced Scorecard Approach**:
+- **Quality metrics**: Accuracy, relevance, safety, groundedness
+- **Operational metrics**: Latency, throughput, error rates, cost
+- **User experience metrics**: Satisfaction, task completion, engagement
+
+## Best Practices
+
+### Evaluation Design
+
+- **Representative test cases**: Ensure evaluation datasets cover real user scenarios
+- **Balanced metrics**: Use multiple scorer types for comprehensive assessment
+- **Consistent methodology**: Apply the same evaluation approach across app versions
+- **Regular updates**: Refresh evaluation datasets with new production examples
+
+### Production Monitoring
+
+- **Sampling strategy**: Balance monitoring coverage with computational cost
+- **Alert tuning**: Set thresholds that catch real issues without false positives
+- **Response procedures**: Define clear processes for handling quality alerts
+- **Continuous improvement**: Regularly analyze monitoring data for optimization opportunities
+
+### Team Collaboration
+
+- **Shared metrics**: Use consistent quality definitions across development and operations
+- **Regular reviews**: Schedule periodic evaluation of monitoring effectiveness
+- **Documentation**: Maintain clear records of evaluation methodologies and decisions
+- **Knowledge sharing**: Ensure team members understand evaluation tools and processes
+
+## Related Concepts
+
+- **MLflow Tracing**: Capture detailed execution information for debugging and analysis
+- **Model Registry**: Version and manage your GenAI applications
+- **Experiments**: Organize and compare different evaluation runs
+- **Artifacts**: Store and share evaluation datasets and results
+
+## Next Steps
+
+1. **Start with basic evaluation** - Run your first evaluation to understand current quality
+2. **Build evaluation datasets** - Create comprehensive test sets for your use cases
+3. **Implement custom scorers** - Develop metrics tailored to your business requirements
+4. **Set up production monitoring** - Establish continuous quality tracking
+5. **Create improvement workflows** - Use evaluation insights to enhance your application
+
+Ready to begin? Start with the [evaluation quickstart](/genai/eval-monitor/quickstart) to measure your app's quality in minutes.

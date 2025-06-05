@@ -1,0 +1,819 @@
+# Creating Custom Scorers
+
+Custom scorers offer the ultimate flexibility to define precisely how your GenAI application's quality is measured. They provide the ability to create evaluation metrics tailored to your specific business use case, whether based on simple heuristics, advanced logic, or programmatic evaluations.
+
+## Use Cases for Custom Scorers
+
+Use custom scorers for the following scenarios:
+
+1. **Custom Heuristic or Code-based Evaluation**: Define deterministic logic for fast, objective evaluations
+2. **Customizing Data Mapping**: Customize how data from your app's trace is mapped to MLflow's research-backed LLM judges  
+3. **Prompt-based Judge Scorers**: Create custom LLM-based evaluation logic
+4. **Custom LLM Models**: Use your own LLM model rather than predefined judge models for evaluation
+5. **Specialized Use Cases**: Any scenario requiring more flexibility than provided by predefined abstractions
+
+## Overview
+
+Custom scorers are written in Python and give you full control to evaluate any data from your app's traces. A single custom scorer works in both `mlflow.evaluate()` for offline evaluation and `create_monitor()` for production monitoring.
+
+### Supported Output Types
+
+- **Pass/fail metrics**: `"yes"` or `"no"` string values render as "Pass" or "Fail" in the UI
+- **Numeric metrics**: Integers or floats for ordinal values
+- **Boolean metrics**: `True` or `False`
+- **Feedback objects**: Return a `Feedback` object with score, rationale, and additional metadata
+
+### Input Data Available to Scorers
+
+- **Complete MLflow trace**: Including spans, attributes, and outputs
+- **Processed inputs/outputs**: MLflow post-processed dictionaries from your trace
+- **Evaluation data**: Any value in the `expectations`, `inputs`, or `outputs` provided to `mlflow.evaluate()`
+
+### Scorer Function Signature
+
+> **Note**: Custom scorers work in both **MLflow Open Source** and **Databricks MLflow**. This is the primary extensibility mechanism available across all platforms.
+
+The `@scorer` decorator allows you to define custom evaluation metrics:
+
+```python
+from mlflow.genai.scorers import scorer
+from typing import Optional, Dict, Any, List, Union
+from mlflow.entities import Feedback
+
+@scorer
+def my_custom_scorer(
+    *,  # evaluate() harness will always call your scorer with named arguments
+    inputs: Optional[Dict[str, Any]],  # The agent's raw input, parsed from the Trace
+    outputs: Optional[Dict[str, Any]],  # The agent's raw output, parsed from the Trace  
+    expectations: Optional[Union[List[str], Dict[str, Any]]],  # The expectations passed to evaluate()
+    traces: Optional[mlflow.entities.Trace]  # The app's resulting Trace containing spans and metadata
+) -> int | float | bool | str | Feedback | List[Feedback]
+```
+
+## Development Approach
+
+To quickly iterate on metrics without executing your app every time:
+
+### Step 1: Define Initial Components
+
+```python
+import mlflow
+from typing import List, Dict, Any
+from mlflow.entities.trace import Trace
+from mlflow.genai.scorers import scorer
+
+@mlflow.trace
+def my_app(input_field_name: str):
+    return {'output': input_field_name+'_output'}
+
+@scorer
+def my_metric(inputs: Dict[Any, Any], outputs: Dict[Any, Any], expectations: Dict[str, Any], trace: Trace):
+    # placeholder return value
+    return 1
+
+eval_set = [{'inputs': {'input_field_name': 'test'}}]
+```
+
+### Step 2: Generate Traces
+
+```python
+eval_results = mlflow.evaluate(
+    data=eval_set,
+    predict_fn=my_app,
+    scorers=[my_metric]
+)
+```
+
+### Step 3: Store Generated Traces
+
+```python
+import os
+
+# Get experiment ID
+experiment_id = os.environ.get("MLFLOW_EXPERIMENT_ID")
+
+generated_traces = mlflow.search_traces(
+    experiment_ids=[experiment_id], 
+    run_id=eval_results.run_id
+)
+```
+
+### Step 4: Iterate on Metrics
+
+```python
+# Note the lack of a predict_fn parameter
+mlflow.evaluate(
+    data=generated_traces,
+    scorers=[my_metric],
+)
+```
+
+## Implementation Examples
+
+import Tabs from '@theme/Tabs';
+import TabItem from '@theme/TabItem';
+
+<Tabs>
+<TabItem value="trace-access" label="Accessing Trace Data" default>
+
+### Example: Check Trace Duration
+
+This scorer checks if the total execution time is within acceptable limits:
+
+```python
+import mlflow
+from mlflow.genai.scorers import scorer
+from mlflow.entities import Trace, Feedback
+
+@scorer
+def check_trace_duration(trace: Trace):
+    start_time_ms = trace.request_metadata.get("start_time_ms")
+    end_time_ms = trace.response_metadata.get("end_time_ms")
+
+    if start_time_ms is None or end_time_ms is None:
+        return None
+
+    duration_seconds = (end_time_ms - start_time_ms) / 1000.0
+    max_duration_seconds = 5.0
+
+    if duration_seconds <= max_duration_seconds:
+        return Feedback(
+            score="yes",
+            rationale=f"Trace duration {duration_seconds:.2f}s is within the {max_duration_seconds}s limit."
+        )
+    else:
+        return Feedback(
+            score="no",
+            rationale=f"Trace duration {duration_seconds:.2f}s exceeds the {max_duration_seconds}s limit."
+        )
+```
+
+### Example: Check for Specific Span Type
+
+This scorer verifies that required span types exist in the trace:
+
+```python
+@scorer
+def check_for_chat_model_span(trace: Trace):
+    chat_model_spans = trace.search_spans(span_type="CHAT_MODEL")
+
+    if len(chat_model_spans) > 0:
+        return Feedback(
+            score="yes",
+            rationale=f"Found {len(chat_model_spans)} CHAT_MODEL span(s) in the trace."
+        )
+    else:
+        return Feedback(
+            score="no",
+            rationale="No CHAT_MODEL span found in the trace."
+        )
+```
+
+</TabItem>
+<TabItem value="wrapping-judges" label="Wrapping Predefined Judges">
+
+> **Platform Note**: The examples in this section use predefined judges. In **MLflow OSS**, you have access to basic heuristic judges. **Databricks MLflow** provides additional advanced LLM-based judges like `relevance_to_query()`. For OSS alternatives, see the "OSS-Compatible Patterns" section below.
+
+### Example: Custom Relevance Scorer (Databricks)
+
+Wrap MLflow's predefined judges with custom pre/post-processing:
+
+```python
+import mlflow
+from mlflow.genai.scorers import scorer
+from mlflow.entities import Trace, Feedback
+
+# Note: relevance_to_query() is available in Databricks MLflow
+# For OSS alternatives, see examples below
+
+@scorer
+def custom_relevance_scorer(inputs: Dict[str, Any], outputs: Dict[str, Any], trace: Trace):
+    # Extract the last user message from chat history
+    last_user_message_content = None
+    if "messages" in inputs and isinstance(inputs["messages"], list):
+        for message in reversed(inputs["messages"]):
+            if message.get("role") == "user" and "content" in message:
+                last_user_message_content = message["content"]
+                break
+
+    if not last_user_message_content:
+        raise Exception("Could not extract the last user message from inputs to evaluate relevance.")
+
+    # Extract assistant response
+    assistant_response_content = outputs["choices"][0]["message"]["content"]
+
+    # Databricks: Use predefined judge
+    try:
+        from mlflow.genai.scorers import relevance_to_query
+        relevance_judge_scorer = relevance_to_query()
+        
+        # Construct expected input structure for the judge
+        judge_inputs = {"request": last_user_message_content}
+        judge_outputs = {"response": assistant_response_content}
+
+        # Get feedback from the wrapped scorer
+        feedback = relevance_judge_scorer(
+            inputs=judge_inputs,
+            outputs=judge_outputs,
+            trace=trace
+        )
+
+        # Post-process the feedback
+        feedback.rationale = f"(Custom Wrapper) {feedback.rationale}"
+        return feedback
+        
+    except ImportError:
+        # OSS Fallback: Simple keyword-based relevance check
+        return simple_relevance_check(last_user_message_content, assistant_response_content)
+
+def simple_relevance_check(query: str, response: str) -> Feedback:
+    """OSS-compatible relevance check using keyword matching."""
+    query_words = set(query.lower().split())
+    response_words = set(response.lower().split())
+    
+    # Calculate word overlap
+    overlap = len(query_words.intersection(response_words))
+    relevance_score = overlap / len(query_words) if query_words else 0
+    
+    if relevance_score >= 0.3:  # 30% word overlap threshold
+        return Feedback(
+            score="yes",
+            rationale=f"Response shows {relevance_score:.2%} word overlap with query, indicating relevance."
+        )
+    else:
+        return Feedback(
+            score="no", 
+            rationale=f"Response shows only {relevance_score:.2%} word overlap with query, indicating low relevance."
+        )
+```
+
+### OSS-Compatible Pattern: Custom Relevance Logic
+
+For MLflow OSS users, implement relevance checking using heuristic methods:
+
+```python
+@scorer
+def oss_relevance_scorer(inputs: Dict[str, Any], outputs: Dict[str, Any]) -> Feedback:
+    """OSS-compatible relevance scorer using multiple heuristics."""
+    
+    # Extract query and response
+    query = inputs.get("query") or inputs.get("messages", [{}])[-1].get("content", "")
+    response = outputs.get("choices", [{}])[0].get("message", {}).get("content", "")
+    
+    if not query or not response:
+        return Feedback(score="no", rationale="Missing query or response")
+    
+    # Multiple relevance signals
+    signals = []
+    
+    # 1. Keyword overlap
+    query_words = set(query.lower().split())
+    response_words = set(response.lower().split())
+    word_overlap = len(query_words.intersection(response_words)) / len(query_words)
+    signals.append(("word_overlap", word_overlap, 0.2))
+    
+    # 2. Question type matching
+    question_words = ["what", "how", "why", "when", "where", "who"]
+    has_question_word = any(word in query.lower() for word in question_words)
+    response_attempts_answer = len(response.split()) > 5  # Basic answer length check
+    if has_question_word:
+        signals.append(("answers_question", response_attempts_answer, 0.3))
+    
+    # 3. Topic consistency (simple noun matching)
+    import re
+    query_nouns = re.findall(r'\b[A-Z][a-z]+\b', query)  # Simple proper noun detection
+    response_mentions_topics = any(noun.lower() in response.lower() for noun in query_nouns)
+    signals.append(("topic_consistency", response_mentions_topics, 0.2))
+    
+    # Calculate weighted relevance score
+    relevance_score = sum(weight if signal else 0 for _, signal, weight in signals)
+    
+    if relevance_score >= 0.4:  # Threshold for relevance
+        return Feedback(
+            score="yes",
+            rationale=f"Response appears relevant (score: {relevance_score:.2f}) based on keyword overlap and topic consistency."
+        )
+    else:
+        return Feedback(
+            score="no",
+            rationale=f"Response appears not relevant (score: {relevance_score:.2f}) - lacks keyword overlap or topic consistency."
+        )
+```
+
+</TabItem>
+<TabItem value="code-based" label="Code-based Metrics">
+
+### Example: Forbidden Keyword Check
+
+Check if responses contain forbidden keywords:
+
+```python
+@scorer
+def forbidden_keyword_check(outputs: Dict[str, Any]):
+    try:
+        response_content = outputs["choices"][0]["message"]["content"].lower()
+    except (KeyError, IndexError, TypeError) as e:
+        return Feedback(
+            score="no",
+            rationale=f"Could not extract assistant response content: {e}"
+        )
+
+    forbidden_keywords = ["can't help", "unable to assist", "not allowed"]
+
+    for keyword in forbidden_keywords:
+        if keyword in response_content:
+            return Feedback(
+                score="no",
+                rationale=f"Response contains forbidden keyword: '{keyword}'."
+            )
+
+    return Feedback(
+        score="yes",
+        rationale="Response does not contain any forbidden keywords."
+    )
+```
+
+### Example: Response Word Count
+
+Validate response length requirements:
+
+```python
+@scorer
+def response_word_count_check(outputs: Dict[str, Any]):
+    min_words = 5
+    max_words = 150
+
+    try:
+        response_content = outputs["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError) as e:
+        return Feedback(
+            score="no",
+            rationale=f"Could not extract assistant response content: {e}"
+        )
+
+    word_count = len(response_content.split())
+
+    if min_words <= word_count <= max_words:
+        return Feedback(
+            score="yes",
+            rationale=f"Response word count ({word_count}) is within range [{min_words}, {max_words}]."
+        )
+    elif word_count < min_words:
+        return Feedback(
+            score="no",
+            rationale=f"Response word count ({word_count}) is less than minimum ({min_words})."
+        )
+    else:
+        return Feedback(
+            score="no",
+            rationale=f"Response word count ({word_count}) exceeds maximum ({max_words})."
+        )
+```
+
+</TabItem>
+<TabItem value="expectations" label="Using Expectations">
+
+### Example: Exact Match with Expected Response
+
+Compare responses against ground truth data:
+
+```python
+@scorer
+def exact_match_scorer(outputs: Dict[str, Any], expectations: Optional[Dict[str, Any]]):
+    if not expectations or "expected_response" not in expectations:
+        return Feedback(
+            score=None,
+            rationale="No 'expected_response' provided in expectations."
+        )
+
+    expected_response = expectations["expected_response"]
+    try:
+        actual_response = outputs["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError) as e:
+        return Feedback(
+            score="no",
+            rationale=f"Could not extract assistant response content: {e}"
+        )
+
+    if actual_response == expected_response:
+        return Feedback(score="yes", rationale="Actual response exactly matches expected response.")
+    else:
+        return Feedback(
+            score="no",
+            rationale=f"Actual response \"{actual_response}\" does not match expected \"{expected_response}\"."
+        )
+```
+
+### Example: Keyword Presence Check
+
+Verify expected keywords are present:
+
+```python
+@scorer
+def keyword_presence_scorer(outputs: Dict[str, Any], expectations: Optional[Dict[str, Any]]):
+    if not expectations or "expected_keywords" not in expectations or not expectations["expected_keywords"]:
+        return Feedback(
+            score=None,
+            rationale="No 'expected_keywords' provided in expectations or list is empty."
+        )
+
+    expected_keywords = expectations["expected_keywords"]
+    try:
+        actual_response_lower = outputs["choices"][0]["message"]["content"].lower()
+    except (KeyError, IndexError, TypeError) as e:
+        return Feedback(
+            score="no",
+            rationale=f"Could not extract assistant response content: {e}"
+        )
+
+    missing_keywords = []
+    for keyword in expected_keywords:
+        if keyword.lower() not in actual_response_lower:
+            missing_keywords.append(keyword)
+
+    if not missing_keywords:
+        return Feedback(score="yes", rationale="All expected keywords are present in the response.")
+    else:
+        return Feedback(
+            score="no",
+            rationale=f"Missing keywords in response: {', '.join(missing_keywords)}."
+        )
+```
+
+### Example Dataset with Expectations
+
+```python
+expectations_eval_dataset = [
+    {
+        "inputs": {"messages": [{"role": "user", "content": "What is 2+2?"}]},
+        "expectations": {
+            "expected_response": "2+2 equals 4.",
+            "expected_keywords": ["4", "four", "equals"],
+            "strict_match_required": True
+        }
+    },
+    {
+        "inputs": {"messages": [{"role": "user", "content": "Describe MLflow in one sentence."}]},
+        "expectations": {
+            "expected_response": "MLflow is an open-source platform...",
+            "expected_keywords": ["mlflow", "open-source", "platform", "machine learning"],
+            "strict_match_required": False
+        }
+    }
+]
+```
+
+</TabItem>
+<TabItem value="multiple-feedback" label="Multiple Feedback Objects">
+
+### Example: Comprehensive Response Checker
+
+Return multiple feedback objects from a single scorer:
+
+```python
+@scorer
+def comprehensive_response_checker(outputs: Dict[str, Any]) -> List[Feedback]:
+    feedbacks = []
+
+    try:
+        response_content = outputs["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError) as e:
+        # Return failure feedback for both checks
+        feedbacks.append(Feedback(
+            name="is_not_empty_check",
+            score="no",
+            rationale=f"Could not extract response: {e}"
+        ))
+        feedbacks.append(Feedback(
+            name="response_char_length",
+            score=0,
+            rationale=f"Could not extract response to calculate length: {e}"
+        ))
+        return feedbacks
+
+    # 1. Check if the response is not empty
+    if response_content.strip() != "":
+        feedbacks.append(Feedback(
+            name="is_not_empty_check",
+            score="yes",
+            rationale="Response content is not empty."
+        ))
+    else:
+        feedbacks.append(Feedback(
+            name="is_not_empty_check",
+            score="no",
+            rationale="Response content is empty."
+        ))
+
+    # 2. Calculate response character length
+    char_length = len(response_content)
+    feedbacks.append(Feedback(
+        name="response_char_length",
+        score=char_length,
+        rationale=f"Response has {char_length} characters."
+    ))
+
+    return feedbacks
+```
+
+</TabItem>
+<TabItem value="primitive-values" label="Primitive Return Values">
+
+### Example: Simple Pass/Fail Scorer
+
+Return primitive values for simple metrics:
+
+```python
+@scorer
+def not_empty(outputs: Dict[str, Any]):
+    # Returns "yes" for Pass and "no" for Fail
+    content = outputs["choices"][0]["message"]["content"]
+    return "yes" if content.strip() != "" else "no"
+
+@scorer
+def response_length(outputs: Dict[str, Any]):
+    # Returns numeric value
+    content = outputs["choices"][0]["message"]["content"]
+    return len(content)
+
+@scorer
+def has_greeting(outputs: Dict[str, Any]):
+    # Returns boolean value
+    content = outputs["choices"][0]["message"]["content"].lower()
+    greetings = ["hello", "hi", "hey", "greetings"]
+    return any(greeting in content for greeting in greetings)
+```
+
+</TabItem>
+<TabItem value="custom-llm" label="Custom LLM Judge">
+
+### Example: Using Your Own LLM for Judging
+
+Integrate custom or externally hosted LLMs as judges:
+
+```python
+import json
+from openai import OpenAI
+
+@scorer
+def custom_llm_judge_scorer(inputs: Dict[str, Any], outputs: Dict[str, Any], trace: Trace) -> Feedback:
+    # Extract user query and LLM response
+    user_query = inputs["messages"][-1]["content"]
+    llm_response = outputs["choices"][0]["message"]["content"]
+
+    # Define judge prompts
+    judge_system_prompt = """
+You are an impartial AI assistant responsible for evaluating response quality.
+Provide a quality score from 1 to 5 (1=Poor, 5=Excellent) and brief rationale.
+Your output MUST be valid JSON with "score" and "rationale" keys.
+Example: {"score": 4, "rationale": "The response was mostly accurate and helpful."}
+"""
+    
+    judge_user_prompt = f"""Please evaluate this AI response:
+Original User Query: {user_query}
+AI's Response: {llm_response}
+Provide your evaluation as JSON with "score" and "rationale" keys.
+"""
+
+    # Initialize your LLM client
+    client = OpenAI(api_key="your-api-key")  # Configure as needed
+    
+    # Call judge LLM
+    judge_response = client.chat.completions.create(
+        model="gpt-4o-mini",  # Use your preferred model
+        messages=[
+            {"role": "system", "content": judge_system_prompt},
+            {"role": "user", "content": judge_user_prompt},
+        ],
+        max_tokens=200,
+        temperature=0.0,  # For more deterministic judging
+    )
+    
+    judge_output = judge_response.choices[0].message.content
+
+    # Parse judge response
+    try:
+        judge_eval = json.loads(judge_output)
+        score = judge_eval["score"]
+        rationale = judge_eval["rationale"]
+        
+        if not (isinstance(score, int) and 1 <= score <= 5):
+            raise ValueError(f"Invalid score: {score}")
+            
+        return Feedback(
+            name="custom_llm_judge_evaluation",
+            score=float(score),
+            rationale=rationale
+        )
+    except (json.JSONDecodeError, KeyError, ValueError) as e:
+        return Feedback(
+            name="custom_llm_judge_evaluation", 
+            score=1.0,
+            rationale=f"Judge evaluation failed: {e}"
+        )
+```
+
+</TabItem>
+</Tabs>
+
+## Sample Application Setup
+
+For testing custom scorers, use this sample application:
+
+```python
+import mlflow
+from openai import OpenAI
+
+# Enable auto logging for OpenAI
+mlflow.openai.autolog()
+
+# Initialize OpenAI client (configure as needed)
+client = OpenAI(api_key="your-api-key")
+
+@mlflow.trace
+def sample_app(messages: List[Dict[str, str]]):
+    messages_for_llm = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        *messages,
+    ]
+
+    return client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=messages_for_llm,
+    )
+
+# Sample evaluation dataset
+eval_dataset = [
+    {
+        "inputs": {
+            "messages": [
+                {"role": "user", "content": "How much does a microwave cost?"},
+            ]
+        },
+    },
+    {
+        "inputs": {
+            "messages": [
+                {"role": "user", "content": "Can I return the microwave I bought 2 months ago?"},
+            ]
+        },
+    },
+]
+```
+
+## Platform-Specific Considerations
+
+### MLflow Open Source
+
+**Strengths:**
+- Full custom scorer capability with `@scorer` decorator
+- Access to complete trace data and metadata
+- High-performance heuristic-based evaluation
+- No external API dependencies or costs
+
+**Limitations:**
+- No built-in LLM-based judges (except basic ones)
+- Must implement semantic evaluation logic manually
+- Limited pre-built advanced evaluation patterns
+
+**Best Practices for OSS:**
+```python
+# Focus on fast, deterministic evaluation
+@scorer
+def oss_comprehensive_quality(inputs, outputs, trace):
+    """Multi-dimensional quality check optimized for OSS."""
+    
+    response = outputs.get("choices", [{}])[0].get("message", {}).get("content", "")
+    query = inputs.get("query", "")
+    
+    # Combine multiple heuristic signals
+    quality_signals = {
+        "length_appropriate": 10 <= len(response.split()) <= 200,
+        "not_empty": len(response.strip()) > 0,
+        "relevant_keywords": check_keyword_relevance(query, response),
+        "professional_tone": check_professional_language(response),
+        "no_harmful_content": not contains_harmful_patterns(response),
+        "execution_time_ok": get_execution_time(trace) < 5.0
+    }
+    
+    score = sum(quality_signals.values()) / len(quality_signals)
+    
+    return Feedback(
+        score=score,
+        rationale=f"Quality score {score:.2f} based on: {quality_signals}"
+    )
+
+def check_keyword_relevance(query: str, response: str) -> bool:
+    """Simple keyword-based relevance check."""
+    query_words = set(query.lower().split())
+    response_words = set(response.lower().split())
+    overlap = len(query_words.intersection(response_words))
+    return overlap / len(query_words) >= 0.2 if query_words else False
+```
+
+### Databricks MLflow
+
+**Strengths:**
+- All OSS custom scorer capabilities
+- Access to advanced LLM-based judges
+- Pre-built semantic evaluation patterns
+- Integration with hosted LLM endpoints
+
+**Additional Capabilities:**
+```python
+# Databricks: Combine custom logic with LLM judges
+@scorer
+def databricks_hybrid_scorer(inputs, outputs, trace):
+    """Combine custom heuristics with LLM judge (Databricks only)."""
+    
+    # Fast heuristic checks first
+    basic_quality = run_heuristic_checks(inputs, outputs)
+    
+    if basic_quality < 0.5:
+        return Feedback(
+            score="no", 
+            rationale="Failed basic quality checks, skipping LLM evaluation"
+        )
+    
+    # Use LLM judge for semantic evaluation
+    try:
+        from mlflow.genai.scorers import relevance_to_query
+        llm_judge = relevance_to_query()
+        semantic_feedback = llm_judge(inputs=inputs, outputs=outputs, trace=trace)
+        
+        # Combine scores
+        final_score = (basic_quality + (1 if semantic_feedback.score == "yes" else 0)) / 2
+        
+        return Feedback(
+            score="yes" if final_score >= 0.75 else "no",
+            rationale=f"Hybrid score: {final_score:.2f} (heuristic: {basic_quality:.2f}, semantic: {semantic_feedback.score})"
+        )
+        
+    except ImportError:
+        # Fallback for OSS
+        return Feedback(score=basic_quality, rationale="Heuristic-only evaluation")
+```
+
+## Best Practices
+
+### Development Guidelines
+
+- **Start Simple**: Begin with basic logic and gradually add complexity
+- **Handle Errors Gracefully**: Include try/catch blocks for data extraction
+- **Use Descriptive Names**: When returning multiple feedback objects, use clear names
+- **Test Thoroughly**: Validate scorers with diverse inputs before production use
+
+### Performance Considerations
+
+- **Minimize External Calls**: Cache results when possible for repeated evaluations
+- **Optimize Data Access**: Only access the trace data you actually need
+- **Use Appropriate Return Types**: Choose the simplest return type that meets your needs
+
+### Maintenance and Debugging
+
+- **Document Scorer Logic**: Include clear comments explaining evaluation criteria
+- **Version Control**: Track changes to scorer implementations
+- **Monitor Performance**: Track scorer execution time and error rates in production
+
+## Key Takeaways
+
+### When to Use Custom Scorers
+
+- **MLflow OSS**: Custom scorers are your primary tool for advanced evaluation beyond basic heuristics
+- **Databricks MLflow**: Use custom scorers to complement LLM judges with business-specific logic or performance optimization
+- **Both Platforms**: Essential for domain-specific evaluation criteria, complex multi-step validation, and external service integration
+
+### Implementation Strategy
+
+1. **Start with Platform Capabilities**: Use OSS heuristics or Databricks judges as foundation
+2. **Add Custom Logic**: Implement business-specific requirements with custom scorers
+3. **Optimize Performance**: Balance evaluation quality with speed and cost
+4. **Monitor and Iterate**: Track scorer accuracy and refine based on production feedback
+
+### Cross-Platform Development
+
+**For Maximum Compatibility:**
+```python
+@scorer
+def platform_agnostic_scorer(inputs, outputs, trace):
+    """Scorer that works well on both OSS and Databricks."""
+    
+    # Core logic using only basic MLflow features
+    response = extract_response(outputs)
+    quality_score = calculate_heuristic_quality(inputs, response)
+    
+    # Platform-specific enhancements when available
+    try:
+        semantic_score = call_llm_judge_if_available(inputs, outputs)
+        final_score = combine_scores(quality_score, semantic_score)
+    except (ImportError, AttributeError):
+        final_score = quality_score
+    
+    return Feedback(score=final_score, rationale="Cross-platform evaluation")
+```
+
+## Next Steps
+
+- Explore [predefined LLM scorers](/genai/eval-monitor/predefined-judge-scorers) for common evaluation needs
+- Run your [scorers in production](/genai/eval-monitor/production-monitoring) for continuous quality monitoring
+- Build [evaluation datasets](/genai/eval-monitor/build-eval-dataset) to test your scorers

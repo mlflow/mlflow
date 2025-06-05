@@ -1,0 +1,136 @@
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Predefined Judges & Scorers – Concepts
+
+Predefined judges provide ready-to-use, research-backed evaluations for common GenAI quality dimensions, helping quickly assess your application's performance without building complex custom logic.
+
+## Overview
+
+MLflow offers predefined judges to streamline quality assessment:
+
+| **Judge**                  | **Key Inputs**                          | **Requires Ground Truth** | **What It Evaluates**                                   | **Available Predefined Scorers**         |
+| -------------------------- | --------------------------------------- | ------------------------- | ------------------------------------------------------- | ---------------------------------------- |
+| \[`is_context_relevant`]   | `request`, `context`                    | No                        | Relevance of context to user's request                  | `RelevanceToQuery`, `RetrievalRelevance` |
+| \[`is_safe`]               | `content`                               | No                        | Presence of harmful or offensive content                | `Safety`                                 |
+| \[`is_grounded`]           | `request`, `response`, `context`        | No                        | Grounding of response in provided context               | `RetrievalGroundedness`                  |
+| \[`is_correct`]            | `request`, `response`, `expected_facts` | Yes                       | Correctness of response against ground truth            | `Correctness`                            |
+| \[`is_context_sufficient`] | `request`, `context`, `expected_facts`  | Yes                       | Sufficiency of context for generating expected response | `RetrievalSufficiency`                   |
+
+## Platform Availability
+
+<Tabs>
+<TabItem value="platform_overview" label="Platform Overview" default>
+
+### MLflow Open Source vs Databricks MLflow
+
+**MLflow Open Source:**
+
+* Manual heuristic-based evaluations.
+* Custom scorer functions explicitly defined by users.
+* Suitable for straightforward and deterministic evaluations.
+
+**Databricks MLflow:** (includes all OSS features plus)
+
+* Prebuilt advanced semantic LLM judges.
+* Built-in predefined scorers for common evaluation tasks.
+* Automatic generation of detailed rationales.
+* Enhanced integration with MLflow's tracing capabilities.
+
+| Feature Category                | MLflow OSS              | Databricks MLflow |
+| ------------------------------- | ----------------------- | ----------------- |
+| **Heuristic-based Checks**      | ✅ Fully Supported       | ✅ Fully Supported |
+| **Prebuilt LLM Judges**         | ❌ Not Available         | ✅ Fully Supported |
+| **Automatic Rationales**        | ✅ Manual Implementation | ✅ Automatic       |
+| **Semantic Evaluation**         | ❌ Limited               | ✅ Advanced        |
+| **Integrated Prebuilt Scorers** | ❌ Custom Only           | ✅ Built-in        |
+
+</TabItem>
+
+<TabItem value="migration_path" label="Migration Considerations">
+
+### Transitioning from OSS to Databricks
+
+* Move from heuristic-based custom scorers to semantic prebuilt judges.
+* Utilize built-in scorers for streamlined and comprehensive evaluation.
+* Enhance your evaluations with detailed automatic rationales.
+
+### Hybrid Usage
+
+* Initial development and testing using OSS heuristic scorers.
+* Production-grade evaluations and monitoring in Databricks MLflow.
+
+</TabItem>
+</Tabs>
+
+## 3 Ways to Use Predefined Judges
+
+### 1. Direct SDK Usage
+
+Integrate judges directly into your application:
+
+```python
+from mlflow.genai.judges import is_grounded
+
+result = is_grounded(
+    request="What is the capital of France?",
+    response="Paris",
+    context="Paris is the capital of France."
+)
+# Feedback indicates groundedness with detailed rationale.
+```
+
+### 2. Using Predefined Scorers (Databricks MLflow Only)
+
+Quickly evaluate applications using MLflow's built-in scorers:
+
+```python
+from mlflow.genai.scorers import Correctness
+
+# Evaluation dataset
+
+eval_dataset = [
+    {
+        "inputs": {"query": "What is the capital of France?"},
+        "outputs": {"response": "Paris is the capital city."},
+        "expectations": {"expected_facts": ["Paris is the capital of France."]}
+    }
+]
+
+# Execute evaluation
+results = mlflow.genai.evaluate(data=eval_dataset, scorers=[Correctness()])
+```
+
+### 3. Custom Scorer Implementation (OSS and Databricks)
+
+Wrap judges within custom scorers for more control:
+
+```python
+from mlflow.genai.judges import is_grounded
+from mlflow.genai.scorers import scorer
+
+@scorer
+def custom_groundedness_scorer(inputs, outputs):
+    return is_grounded(
+        request=inputs["query"],
+        response=outputs["response"],
+        context=outputs["retrieved_context"]
+    )
+
+# Evaluation dataset execution
+results = mlflow.genai.evaluate(
+    data=custom_eval_dataset,
+    scorers=[custom_groundedness_scorer]
+)
+```
+
+## Interpreting Results
+
+Each judge evaluation returns:
+
+* **`value`**: "yes" (passes) or "no" (fails)
+* **`rationale`**: Detailed explanations supporting the judgment
+
+## Summary
+
+Predefined judges offer rapid, reliable, and robust evaluations of your GenAI application's performance across common quality dimensions. MLflow OSS supports foundational, heuristic-based evaluations suitable for straightforward tasks, while Databricks MLflow enhances these capabilities with advanced, prebuilt semantic LLM judges and built-in scorers, providing comprehensive, scalable, and interpretable evaluations.

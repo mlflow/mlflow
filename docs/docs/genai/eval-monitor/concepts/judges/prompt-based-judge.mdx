@@ -1,0 +1,267 @@
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Prompt-based Judges
+
+Prompt-based judges offer flexible, powerful evaluation by allowing you to define custom prompts and scoring schemas. Instead of pass/fail judgments, they enable multi-value scoring, chain-of-thought reasoning, and domain-specific assessments using full LLM capabilities.
+
+:::note Databricks MLflow Feature
+ Prompt-based judges rely on advanced LLM features that are currently available in Databricks MLflow. In MLflow Open Source, you can implement similar functionality using custom heuristics or guideline-based judges, but full prompt-based judge support (including `create_prompt_judge()`) requires Databricks MLflow.
+:::
+
+## Overview
+
+With prompt-based judges, you define a template containing placeholders for the data you want to evaluate (e.g., `{{request}}`, `{{response}}`, `{{context}}`). The judge fills in those placeholders at runtime and relies on a specially-tuned LLM to:
+
+1. Apply your custom evaluation logic (written in natural language).
+2. Map choices (e.g., "excellent", "good", "poor") to numeric scores you specify.
+3. Return structured feedback including the chosen label, its numeric score, and a detailed rationale.
+
+Use prompt-based judges to:
+
+- **Provide multi-level scores** (not just binary pass/fail).
+- **Implement complex, nuanced criteria** that go beyond simple guidelines.
+- **Create domain-specific assessments** tailored to your business logic.
+- **Leverage chain-of-thought** by instructing the LLM to explain its reasoning in the prompt.
+
+## Prerequisites
+
+Before creating and using prompt-based judges, ensure:
+
+```bash
+# MLflow version 3.1.0 or newer is required
+pip install --upgrade "mlflow>=3.1.0" openai
+
+# Your MLflow environment is configured
+export MLFLOW_TRACKING_URI="your-tracking-server-uri"
+```
+
+Because prompt-based judges rely on Databricks-hosted LLMs:
+
+- You must be running in a Databricks MLflow environment (OSS will fallback to heuristic or guideline-based evaluation).
+- Ensure you have valid credentials to call the underlying LLM (via OpenAI-compatible API).
+
+## How Prompt-based Judges Work
+
+1. **Define a prompt template** containing placeholders for inputs (e.g., `{{request}}`, `{{response}}`, `{{context}}`, and any additional fields).
+2. **Specify `choice_values`**, a mapping from each label (e.g., "excellent") to a numeric score (e.g., 1.0).
+3. At evaluation time, MLflow replaces placeholders with actual data from the trace (inputs, outputs, retrieved context).
+4. The underlying LLM processes the filled-in prompt, applies the evaluation logic, and selects the best label.
+5. MLflow returns an `mlflow.entities.Feedback` object with:
+
+   * `value`: the numeric score corresponding to the selected label
+   * `choice`: the chosen label (text)
+   * `rationale`: the LLM-generated explanation for its choice
+
+### Example: Defining a Prompt-based Judge
+
+```python
+from mlflow.genai.judges import create_prompt_judge
+
+# Create a judge that rates technical quality on a 3-point scale
+technical_quality_judge = create_prompt_judge(
+    assessment_name="technical_quality",  # Shown in MLflow UI
+    prompt_template="""
+Evaluate the technical depth of this response:
+User Question: {{request}}
+Agent Response: {{response}}
+Choose the most appropriate rating based on these definitions:
+- excellent: Covers advanced concepts with precision and includes relevant examples.
+- good: Explains concepts clearly with adequate depth.
+- poor: Provides superficial or incorrect technical content.
+""",
+    choice_values={
+        "excellent": 1.0,
+        "good": 0.7,
+        "poor": 0.0,
+    }
+)
+
+# Use the judge directly
+feedback = technical_quality_judge(
+    request="Explain how MLflow tracing works.",
+    response="MLflow tracing captures the execution flow of your GenAI application by instrumenting spans for each operation..."
+)
+
+print(feedback.value)    # 0.7
+print(feedback.choice)   # "good"
+print(feedback.rationale) # Detailed rationale explaining why "good"
+```
+
+## When to Use Prompt-based Judges
+
+**Use prompt-based judges when:**
+
+- You need **multi-level scoring** rather than simple pass/fail.
+- Your evaluation criteria are **too complex for guideline-based judges** (e.g., require chain-of-thought reasoning).
+- You want to leverage **advanced LLM reasoning** (e.g., explanation, step-by-step logic).
+- You require **domain-specific assessments** that cannot be captured by simple heuristics.
+
+**Consider starting with guidelines-based judges** for straightforward pass/fail criteria. Switch to prompt-based judges when you need:
+
+- More granular scoring (e.g., 0–1 scale).
+- Complex, nested evaluation logic that benefits from LLM reasoning.
+- Custom prompt structures with multiple placeholders beyond request/response.
+
+## Creating Effective Prompt-based Judges
+
+### Template Structure
+
+A well-structured prompt template:
+
+1. **Clearly state the evaluation task** (e.g., "Evaluate the correctness of this response").
+2. **Include all necessary context** using placeholders (e.g., `{{request}}`, `{{response}}`, `{{retrieved_documents}}`).
+3. **Define each choice** with precise criteria (`excellent`, `good`, `poor`).
+4. **Format consistently** so the LLM can parse and rank choices accurately.
+
+```python
+prompt_template = """
+Evaluate the customer service quality of this interaction:
+Customer Message: {{request}}
+Agent Response: {{response}}
+Company Policies: {{policies}}
+
+Rate the response based on these criteria:
+fully_resolved: The response directly addresses the customer's issue with a clear, complete solution. No further assistance needed.
+partially_resolved: The response addresses the issue partially but may require follow-up.
+needs_follow_up: The response fails to address the issue or misunderstands the problem.
+"""
+```
+
+### Choice Values
+
+**Map text labels to numeric scores** (commonly 0–1 scale):
+
+```python
+choice_values = {
+    "fully_resolved": 1.0,
+    "partially_resolved": 0.5,
+    "needs_follow_up": 0.0
+}
+```
+
+**Best practices:**
+
+- Use a **consistent numeric range** (e.g., 0–1) across judges.
+- Assign **partial credit** to intermediate choices when appropriate.
+- Keep mappings **uniform** if you define multiple judges for similar tasks.
+
+### Placeholders
+
+Placeholders in the template correspond to keyword arguments passed to the judge:
+
+```python
+prompt_template = """
+Evaluate if the response cites reliable sources:
+Question: {{question}}
+Response: {{response}}
+Available Sources: {{retrieved_documents}}
+Citation Policy: {{citation_policy}}
+
+The response must cite from available_sources for factual claims.
+"""
+
+# Invocation example:
+feedback = judge(
+    question="What is MLflow?",
+    response="MLflow is an open-source platform...",
+    retrieved_documents=["MLflow Docs: MLflow is a platform..."],
+    citation_policy="Always cite when referencing facts"
+)
+```
+
+### Chain-of-Thought Prompting
+
+To leverage LLM reasoning, include instructions for step-by-step analysis:
+
+```python
+prompt_template = """
+Evaluate the reasoning in this assistant response:
+User Query: {{request}}
+Assistant Response: {{response}}
+
+Step-by-step, explain whether the reasoning is logical and accurate. Then choose from:
+- excellent: Fully logical, correct reasoning
+- good: Mostly logical, minor mistakes
+- poor: Flawed or illogical reasoning
+"""
+```
+
+This instructs the LLM to provide its reasoning trace before selecting a label, improving interpretability.
+
+## Integration with MLflow Evaluation
+
+Prompt-based judges are invoked within custom scorers. Wrap `create_prompt_judge()` inside a decorator to integrate with `mlflow.genai.evaluate()`:
+
+```python
+from mlflow.genai.scorers import scorer
+from mlflow.genai.judges import create_prompt_judge
+
+@scorer
+def technical_quality_scorer(inputs, outputs, trace):
+    judge = create_prompt_judge(
+        assessment_name="technical_quality",
+        prompt_template="""Evaluate technical quality...""",
+        choice_values={"excellent": 1.0, "good": 0.7, "poor": 0.0}
+    )
+
+    # Optionally extract additional context from trace
+    context = trace.data.spans[0].attributes.get("context", "")
+
+    return judge(
+        request=inputs["messages"][-1]["content"],
+        response=outputs["choices"][0]["message"]["content"],
+        context=context
+    )
+
+# Evaluate with custom scorer
+results = mlflow.genai.evaluate(
+    data=eval_dataset,
+    predict_fn=my_app,
+    scorers=[technical_quality_scorer]
+)
+```
+
+## `create_prompt_judge()` API Signature
+
+```python
+from mlflow.genai.judges import create_prompt_judge
+
+def create_prompt_judge(
+    *,
+    assessment_name: str,                    # Name displayed in MLflow UI
+    prompt_template: str,                    # Template with {{placeholders}}
+    choice_values: dict[str, float],         # Maps text choices to numeric scores
+    model: Optional[str] = None              # Optional: specific LLM judge model
+) -> Callable:
+    """
+    Returns a callable judge that accepts keyword arguments matching placeholders. The output is an mlflow.entities.Feedback object containing:
+      - name: Assessment name
+      - value: Numeric score
+      - choice: Selected label
+      - rationale: LLM-generated explanation
+      - metadata: Additional details, including selected choice
+    """
+```
+
+## Best Practices
+
+**Define clear choice criteria**
+- ✅ Use detailed, measurable descriptions for each label
+- ❌ Avoid vague terms like "good" without context
+
+**Use consistent scoring scales**
+- ✅ Apply uniform numeric ranges (e.g., 0–1) across judges
+- ❌ Assign arbitrary or inconsistent values
+
+**Include all necessary context**
+- ✅ Pass all required data via placeholders
+- ❌ Assume the LLM has access to missing information
+
+**Test with edge cases**
+- ✅ Validate judge performance on boundary and ambiguous inputs
+- ❌ Only test on ideal examples
+
+**Keep prompts focused**
+- ✅ Evaluate a single clear aspect per judge
+- ❌ Attempt to assess multiple dimensions in one complex prompt

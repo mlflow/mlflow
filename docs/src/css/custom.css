@@ -10,6 +10,45 @@
  */
 
 /* --------------------------------
+ * 0. Override tailwinds reset of li and ul elements styling
+ * --------------------------------*/
+.markdown ul,
+.theme-doc-markdown ul,
+article ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.markdown ol,
+.theme-doc-markdown ol,
+article ol {
+  list-style-type: decimal;
+  padding-left: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.markdown li,
+.theme-doc-markdown li,
+article li {
+  margin-bottom: 0.25rem;
+}
+
+/* Nested lists */
+.markdown ul ul,
+.theme-doc-markdown ul ul,
+article ul ul {
+  list-style-type: circle;
+  margin-bottom: 0.5rem;
+}
+
+.markdown ul ul ul,
+.theme-doc-markdown ul ul ul,
+article ul ul ul {
+  list-style-type: square;
+}
+
+/* --------------------------------
  * 1. Font Imports and Typography
  * -------------------------------- */
 /* Import DM Sans for body text and DM Mono for code */

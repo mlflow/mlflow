@@ -1,0 +1,176 @@
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Guidelines-based Judges – Concepts
+
+Guidelines-based judges provide a clear, interpretable way to assess GenAI outputs using explicitly defined natural language pass/fail criteria. They streamline quality assessments by allowing domain experts to specify evaluation rules without extensive coding.
+
+## Overview
+
+Guidelines-based judges evaluate GenAI outputs against natural language criteria covering:
+
+- **Compliance**: "Must not include pricing details."
+- **Tone and Style**: "Responses should maintain a supportive and professional tone."
+- **Specific Requirements**: "Must include appropriate disclaimers."
+- **Accuracy**: "Provide only facts supported by provided context."
+
+### Benefits
+
+- **Business-Friendly**: Domain experts easily define and update criteria.
+- **Flexible**: Rapid adjustments without coding changes.
+- **Transparent**: Binary pass/fail outcomes with detailed rationales.
+- **Fast Iteration**: Quick evaluation cycles to refine quality standards.
+
+## How Guidelines-based Judges Work
+
+All guidelines-based judges follow a consistent evaluation process:
+
+1. **Context Parsing**: Extract and structure evaluation data (inputs, outputs, context).
+2. **Guideline Application**: Apply clearly defined rules to evaluate outputs.
+3. **Judgment Generation**: Produce a binary outcome (pass/fail) with a detailed rationale.
+
+**Key Requirements:**
+
+- Inputs and outputs must be JSON-serializable.
+- Clear, structured guideline definitions.
+
+## Platform Availability
+
+Guidelines-based judges differ significantly between MLflow Open Source and Databricks MLflow:
+
+<Tabs>
+<TabItem value="platform_overview" label="Platform Overview" default>
+
+### MLflow Open Source vs Databricks MLflow
+
+**MLflow Open Source:**
+
+- Custom heuristic-based judges
+- Explicitly defined Python functions for rules
+- Suitable for straightforward, deterministic checks
+
+**Databricks MLflow:** (includes all OSS features plus)
+
+- Advanced semantic LLM-based judges
+- Built-in natural language guideline interpretation
+- Comprehensive retrieval-augmented generation (RAG) evaluation
+- Advanced safety, correctness, and compliance assessments
+
+### Feature Comparison Matrix
+
+| Feature Category              | MLflow OSS              | Databricks MLflow               |
+| ----------------------------- | ----------------------- | ------------------------------- |
+| **Heuristic-based Checks**    | ✅ Fully Supported       | ✅ Fully Supported               |
+| **LLM-Based Semantic Judges** | ❌ Not Available         | ✅ Fully Supported               |
+| **Natural Language Parsing**  | ❌ Basic                 | ✅ Advanced                      |
+| **RAG Evaluation**            | ❌ Limited               | ✅ Comprehensive                 |
+| **Safety and Compliance**     | ❌ Basic Heuristics Only | ✅ Advanced LLM-based evaluation |
+| **Custom Judge Creation**     | ✅ Function-based Only   | ✅ Flexible Prompt Templates     |
+
+</TabItem>
+
+<TabItem value="migration_path" label="Migration Considerations">
+
+### Transitioning from OSS to Databricks
+
+- Replace manual heuristic rules with semantic LLM judges
+- Utilize built-in advanced compliance and safety checks
+- Expand capabilities with RAG-specific semantic evaluations
+
+### Hybrid Usage
+
+- Use OSS for initial development and heuristic validations
+- Databricks for comprehensive semantic evaluations and production monitoring
+
+</TabItem>
+</Tabs>
+
+## Implementing Guidelines-based Judges
+
+<Tabs>
+<TabItem value="oss_implementation" label="OSS Implementation" default>
+
+### Custom Heuristic Scorers
+
+Explicitly define your evaluation criteria using Python functions:
+
+```python
+from mlflow.metrics.genai import scorer
+
+@scorer
+def compliance_check(inputs, outputs, trace=None):
+    response = outputs.get("response", "")
+
+    if "price" in response.lower():
+        return {"pass": False, "rationale": "Response includes pricing details."}
+    else:
+        return {"pass": True, "rationale": "No pricing details detected."}
+```
+
+**Use Cases:**
+
+- Simple compliance checks
+- Clear, deterministic rules
+- Precise control over logic
+
+**Limitations:**
+
+- Limited semantic understanding
+- Requires manual definition of rules
+
+</TabItem>
+
+<TabItem value="databricks_implementation" label="Databricks Implementation">
+
+### Advanced Semantic Judges
+
+Databricks MLflow automatically interprets natural language guidelines using advanced LLM judges:
+
+- **Automated Context Parsing**: Extracts and uses context data seamlessly.
+- **Semantic Guideline Interpretation**: Directly applies natural language guidelines.
+- **Detailed Rationales**: Provides transparent explanations for each judgment.
+
+**Use Cases:**
+
+- Complex semantic evaluations
+- Brand voice adherence
+- Advanced safety and compliance assessments
+
+**Advantages:**
+
+- Minimal manual setup
+- Comprehensive semantic coverage
+- Robust evaluation with detailed feedback
+
+</TabItem>
+</Tabs>
+
+## Writing Effective Guidelines
+
+### Best Practices
+
+Guidelines should be specific, clear, and measurable:
+
+- ✅ "Responses must explicitly acknowledge the user's concern."
+- ❌ "Ensure appropriate responses."
+
+### Structured Guidelines
+
+Structured guidelines enhance interpretability and consistency:
+
+```markdown
+The response must:
+- Clearly acknowledge user concerns
+- Provide accurate information
+- Suggest actionable next steps
+```
+
+## Related Concepts
+
+- **[Custom Scorers](/genai/eval-monitor/custom-scorers)**: Define business-specific evaluation logic
+- **[Prompt-based Judges](/genai/eval-monitor/custom-judge/create-prompt-judge)**: Advanced, fully customizable evaluation prompts
+- **[Production Monitoring](/genai/eval-monitor/production-monitoring)**: Continuous evaluation using predefined scorers
+
+## Summary
+
+Guidelines-based judges offer clear, structured, and interpretable evaluations of GenAI outputs. MLflow OSS enables robust, heuristic-based evaluations suitable for straightforward scenarios. Databricks MLflow adds sophisticated LLM-driven semantic evaluations for nuanced and comprehensive assessments. Understanding platform differences helps you select the right evaluation approach to ensure quality, compliance, and accuracy in your applications.

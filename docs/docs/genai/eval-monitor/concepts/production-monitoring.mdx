@@ -1,0 +1,298 @@
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Production Monitoring
+
+Production monitoring runs the same scorers you use in development on live application traffic, providing continuous quality assessment and early detection of issues.
+
+:::note Databricks Managed MLflow Only
+ Production monitoring is available only within Databricks MLflow. Databricks MLflow offers additional capabilities for scaling, advanced alerts, and integration with Databricks workflows. Due to the highly integrated nature of this feature, it is not supported in Open Source MLflow at this time.
+:::
+
+## Overview
+
+Production monitoring continuously evaluates your deployed GenAI application using:
+
+* **Development Scorers**: Reuse the same scorers (heuristic, guideline-based, or LLM-based) you used for offline evaluation.
+* **Live Traces**: Automatically collect and process real user interactions in production via MLflow Tracing.
+* **Automated Sampling**: Control the volume of monitored requests to balance cost and coverage.
+* **Continuous Feedback**: Track quality metrics over time, identify regressions, and alert stakeholders.
+
+Production monitoring acts as automated quality control, running constantly in the background to ensure your GenAI app maintains high standards in relevance, safety, correctness, and other key dimensions.
+
+## How Production Monitoring Works
+
+```text
+Production App → MLflow Tracing → Monitoring Service → Scorers → Feedback → Dashboards/Alerts
+                     ↑                                    ↓
+                     └── Reuse scorers from development ──┘
+```
+
+1. **Instrumentation**: Your application is instrumented with MLflow Tracing to capture spans for requests, responses, and retrieved context.
+2. **Sampling**: The monitoring service samples a percentage (or priority-based selection) of incoming requests.
+3. **Scoring**: Sampled traces are evaluated using the configured scorers (e.g., Safety, Relevance, Correctness).
+4. **Feedback**: Each scored trace generates a `Feedback` object recording pass/fail or numeric score with rationale.
+5. **Aggregation & Storage**: Scores and metadata are stored in a monitoring experiment for trend analysis.
+6. **Alerts & Dashboards**: Thresholds and alerts notify you when quality metrics degrade or anomalies occur.
+
+## Key Benefits
+
+### Consistent Measurement
+
+* Monitor using the **same scorers** in both development and production to ensure consistency.
+* Compare offline evaluation results with live application performance.
+
+```python
+# Development evaluation
+mlflow.genai.evaluate(
+  data=test_dataset,
+  predict_fn=my_app,
+  scorers=[safety_scorer, relevance_scorer]
+)
+
+# Production monitoring - reuse the same scorers
+mlflow.genai.create_monitor(
+  name="chatbot_quality_monitor",
+  endpoint="endpoints:/my-chatbot-prod",
+  scorers=[safety_scorer, relevance_scorer],
+  sampling_rate=0.1  # Monitor 10% of traffic
+)
+```
+
+### Early Issue Detection
+
+* Detect sudden drops or spikes in quality metrics before users notice.
+* Example issues:
+
+  * Drops in relevance scores indicating retrieval failures.
+  * Increase in safety violations signaling toxic outputs.
+  * Performance degradation (higher latency or token usage).
+  * Unexpected error patterns or timeouts.
+
+### Continuous Improvement Loop
+
+```text
+Monitor → Identify Issues → Create Test Cases → Fix in Dev → Deploy
+  ↑                                                            ↓
+  └────────────────────────────────────────────────────────────┘
+```
+
+* Use monitoring insights to build new evaluation test cases.
+* Validate fixes with the same scorers before deployment.
+* Continuously refine your application based on production feedback.
+
+## Setting Up Monitoring
+
+### Basic Configuration
+
+```python
+import mlflow
+from mlflow.genai.scorers import safety, relevance_to_query
+
+# Create a monitor for your production endpoint
+monitor = mlflow.genai.create_monitor(
+    name="chatbot_quality_monitor",
+    endpoint="endpoints:/my-chatbot-prod",  # The MLflow-managed endpoint or custom tracking
+    scorers=[
+        safety(),               # Check for harmful content
+        relevance_to_query(),   # Evaluate response relevance
+        custom_business_scorer  # Example: your own custom scorer
+    ],
+    sampling_rate=0.05,       # Monitor 5% of all traffic
+    experiment_name="production_monitoring"
+)
+```
+
+* **`endpoint`**: The production endpoint identifier or tracking URI your application populates.
+* **`scorers`**: List of scorer instances or functions (Safety, Relevance, Correctness, etc.).
+* **`sampling_rate`**: Fraction of requests to monitor (0.0–1.0). Adjust to control cost.
+* **`experiment_name`**: MLflow experiment to store monitoring results.
+
+### Sampling Strategies
+
+Balance coverage and cost by selecting which requests to evaluate:
+
+* **Uniform Sampling**: Monitor a fixed percentage of all requests.
+
+  ```python
+  sampling_rate = 0.1  # 10% of all incoming requests
+  ```
+
+* **Priority Sampling (Databricks Only)**: Define higher sampling for critical segments.
+
+  ```python
+  sampling_config = {
+    "high_value_users": 1.0,  # 100% of VIP user requests
+    "error_responses": 1.0,   # 100% of requests that result in errors
+    "default": 0.05           # 5% of all other requests
+  }
+  ```
+
+* **Adaptive Sampling**: Adjust sampling dynamically based on quality stability or time-based patterns.
+
+## Monitoring Dashboards
+
+Track key metrics and trends in real-time:
+
+* **Quality Trends**: Plot average scores for each scorer (e.g., monthly relevance average).
+* **Issue Detection**: Visualize spikes in failures or outliers by time.
+* **User Segments** (Databricks Only): Filter metrics by user attributes or metadata.
+* **Cost Analysis**: Monitor token usage and latency distributions to control costs.
+
+You can view these metrics in:
+
+* **MLflow UI**: The Experiment UI for `production_monitoring` shows individual run details.
+* **Databricks Dashboards**: Integrated visualizations when using Databricks MLflow.
+
+## Alerts and Automation
+
+### Setting Up Alerts
+
+```python
+# Define alert thresholds for quality metrics
+thresholds = {
+  "safety_violation_rate": {
+    "threshold": 0.01,  # Alert if >1% of monitored responses are unsafe
+    "window": "1h"
+  },
+  "relevance_score": {
+    "threshold": 0.7,   # Alert if <70% of responses are relevant
+    "window": "15m"
+  }
+}
+
+monitor.configure_alerts(alerts=thresholds)
+```
+
+* **`safety_violation_rate`**: Percentage of unsafe content.
+* **`relevance_score`**: Fraction of responses deemed relevant.
+* **`window`**: Time period to evaluate (e.g., "1h" for hourly).
+
+### Automated Responses
+
+* **Rollback Triggers**: Automatically revert to a previous application version if critical alerts fire.
+* **Increased Sampling**: Temporarily boost sampling rate during anomalies for deeper diagnostics.
+* **Incident Creation**: Auto-create tickets or notifications in your incident tracking system.
+
+## Using Monitoring Data
+
+### Finding Problematic Traces
+
+```python
+# Query low-scoring production traces from monitoring experiment
+poor_quality_traces = mlflow.search_traces(
+    experiment_names=["production_monitoring"],
+    filter_string="assessments.relevance_to_query.value < 0.5",
+    order_by=["timestamp DESC"]
+)
+```
+
+* **`filter_string`**: Filter on assessment values or tags (e.g., low relevance, unsafe content).
+* **`order_by`**: Sort by timestamp or score to see the most recent issues first.
+
+### Building Evaluation Datasets from Production
+
+Convert production failures into offline test cases for debugging and regression tests:
+
+```python
+# Create a dataset of failing traces
+eval_dataset = []
+for trace in poor_quality_traces:
+    eval_dataset.append({
+        "inputs": trace.data.inputs,
+        "source": {"trace_id": trace.info.trace_id},
+        "notes": "Low relevance in production"
+    })
+
+# Use these cases for offline evaluation
+evaluation_results = mlflow.genai.evaluate(
+    data=eval_dataset,
+    predict_fn=my_app,
+    scorers=[relevance_to_query()]
+)
+```
+
+* **`source.trace_id`**: Records the original production trace ID for reference.
+* **`notes`**: Annotate why the trace was selected (e.g., "low relevance").
+
+## Cost Optimization
+
+### Smart Sampling
+
+* **Risk-based Sampling**: Increase sampling for critical features or user segments.
+* **Time-based Sampling**: Raise sampling rates during peak hours or after deployments.
+* **Adaptive Sampling**: Automatically adjust sampling rates based on quality stability (e.g., lower sampling when metrics are stable).
+
+### Efficient Scorers
+
+Use lightweight scorers where possible to reduce compute costs:
+
+```python
+# Example of a lightweight, heuristic-first safety check
+class QuickSafetyCheck(Scorer):
+    name = "quick_safety"
+
+    def __call__(self, outputs=None, **kwargs):
+        # Simple keyword filter before calling expensive LLM judge
+        response = outputs.get("response", "").lower()
+        unsafe_keywords = ["harmful", "illegal", "self-harm", "hate"]
+
+        if any(keyword in response for keyword in unsafe_keywords):
+            return Assessment(name=self.name, value=False)
+
+        # Only call LLM-based judge for borderline cases
+        return is_safe(content=outputs.get("response", ""))
+```
+
+* This approach reduces API calls when responses are clearly safe or unsafe.
+
+## Integration with Development
+
+### Closing the Feedback Loop
+
+1. **Monitor production** → Identify quality issues.
+2. **Create test cases** → Add failing traces to offline evaluation datasets.
+3. **Fix in development** → Use the same scorers to verify improvements.
+4. **Deploy and monitor** → Ensure fixes resolve production issues.
+
+### Version Tracking
+
+Tag monitoring results with model versions to compare performance across releases:
+
+```python
+# Set the active model version in MLflow
+mlflow.set_active_model("models:/chatbot/v2.3")
+
+# Launch monitor; all evaluation runs will be tagged with this version
+monitor = mlflow.genai.create_monitor(
+    name="chatbot_quality_monitor",
+    endpoint="endpoints:/my-chatbot-prod",
+    scorers=[safety(), relevance_to_query()],
+    sampling_rate=0.05,
+    experiment_name="production_monitoring"
+)
+```
+
+* **Monitored runs** automatically include the `model_version` tag for easy comparison.
+
+## Best Practices
+
+* **Start small**: Monitor the most critical scorers (e.g., Safety, Relevance) first.
+* **Iterate sampling**: Adjust sampling rates based on initial monitoring results and costs.
+* **Act on data**: Use insights to prioritize fixes and improvements.
+* **Version scorers**: Keep track of scorer changes alongside model changes.
+* **Validate alerts**: Regularly review alert thresholds to reduce noise.
+
+## Next Steps
+
+### How-to Guides
+
+* [Set up quality monitoring](/genai/eval-monitor/run-scorer-in-prod) – Step-by-step guide for production monitoring setup
+* [Use production data for improvement](/genai/eval-monitor/continuous-improvement-with-production-data) – Convert production issues into offline test cases
+* [Create custom scorers](/genai/eval-monitor/custom-scorers) – Define specialized metrics for both development and production
+
+### Concepts
+
+* [Scorers](/genai/eval-monitor/concepts/scorers) – Understand the metrics and judges powering production monitoring
+* [Evaluation Harness](/genai/eval-monitor/concepts/eval-harness) – Learn how offline evaluation integrates with live monitoring
+* [Evaluation Datasets](/genai/eval-monitor/concepts/eval-datasets) – Best practices for building test sets from production data

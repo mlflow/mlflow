@@ -1,0 +1,351 @@
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Predefined LLM Judge Scorers - Concepts
+
+Predefined LLM judge scorers provide ready-to-use evaluation implementations for common GenAI quality dimensions. These scorers wrap proven evaluation methodologies, allowing you to quickly assess your application's performance without building custom evaluation logic from scratch.
+
+Understanding the capabilities and requirements of each predefined scorer helps you choose the right evaluation approach for your application and platform. This guide explains what each scorer evaluates, how it works, and what requirements your application must meet to use it effectively.
+
+## How Predefined Scorers Work
+
+All predefined scorers follow a consistent evaluation workflow:
+
+1. **Trace Analysis**: The scorer examines your MLflow trace to extract required data (inputs, outputs, retrieved context, tool calls)
+2. **Judge Application**: An underlying LLM judge or heuristic method evaluates the extracted data against specific quality criteria
+3. **Feedback Generation**: The scorer returns structured feedback with scores, rationales, and metadata for analysis
+
+**Key Requirements for All Predefined Scorers**:
+- Your application must use MLflow Tracing with proper span instrumentation
+- Traces must have inputs and outputs set on the root span (automatically handled by MLflow autologging)
+- Data passed to judges must be JSON-serializable
+
+## Platform Availability
+
+Predefined scorers are available across different MLflow platforms with varying levels of functionality:
+
+<Tabs>
+<TabItem value="platform_overview" label="Platform Overview" default>
+
+### MLflow Open Source vs Databricks MLflow
+
+**MLflow Open Source**:
+- Heuristic-based metrics (exact match, ROUGE, BLEU, readability scores)
+- Performance metrics (latency, token count)
+- Custom scorer framework for business-specific logic
+- Model type defaults for common evaluation scenarios
+
+**Databricks MLflow** (includes all OSS features plus):
+- Advanced LLM-based judge scorers for semantic evaluation
+- RAG-specific evaluation judges (retrieval relevance, groundedness, sufficiency)
+- Built-in safety and correctness assessment
+- Custom LLM judge creation with prompt templates and examples
+
+### Feature Comparison Matrix
+
+| Feature Category | MLflow OSS | Databricks MLflow |
+|------------------|------------|-------------------|
+| **Heuristic Metrics** | ✅ Full Support | ✅ Full Support |
+| **Performance Metrics** | ✅ Full Support | ✅ Full Support |
+| **LLM-Based Judges** | ❌ Not Available | ✅ Full Support |
+| **RAG Evaluation** | ❌ Limited | ✅ Comprehensive |
+| **Safety Assessment** | ❌ Basic Keywords Only | ✅ Advanced LLM Judges |
+| **Custom Judge Creation** | ✅ Function-Based Only | ✅ LLM Judge Templates |
+
+</TabItem>
+<TabItem value="migration_path" label="Migration Considerations">
+
+### Moving Between Platforms
+
+**From OSS to Databricks**:
+- Replace heuristic custom scorers with semantic LLM judges
+- Leverage specialized RAG evaluation capabilities
+- Use built-in safety and correctness assessment instead of custom implementations
+- Maintain existing heuristic metrics for fast baseline evaluation
+
+**Hybrid Approach**:
+Many teams use both platforms together:
+- OSS for development and testing with fast heuristic metrics
+- Databricks for production monitoring with comprehensive LLM judges
+- Shared evaluation datasets and criteria across platforms
+
+</TabItem>
+</Tabs>
+
+## Available Predefined Scorers
+
+### MLflow Open Source Scorers
+
+<Tabs>
+<TabItem value="oss_heuristic" label="Heuristic Metrics" default>
+
+#### Text Comparison Metrics
+
+**Exact Match**
+- **Purpose**: Determines if model output exactly matches expected response
+- **Use Cases**: Fact verification, specific answer validation, regression testing
+- **Requirements**: Ground truth/expected response in evaluation data
+- **Limitations**: Very strict - no tolerance for paraphrasing or equivalent answers
+
+**ROUGE Score** 
+- **Purpose**: Measures overlap between generated and reference text using n-gram matching
+- **Use Cases**: Summarization quality, content coverage assessment
+- **Requirements**: Reference text for comparison
+- **Variations**: ROUGE-L (longest common subsequence), ROUGE-N (n-gram overlap)
+
+**BLEU Score**
+- **Purpose**: Evaluates translation quality using modified n-gram precision
+- **Use Cases**: Translation tasks, text generation evaluation
+- **Requirements**: Reference translations or target text
+- **Limitations**: Better suited for translation than general text generation
+
+#### Readability Metrics
+
+**Flesch-Kincaid Grade Level**
+- **Purpose**: Estimates reading difficulty based on sentence length and syllable count
+- **Use Cases**: Content accessibility, audience appropriateness
+- **Output**: Grade level (e.g., 8.5 = 8th grade reading level)
+- **Considerations**: May not reflect actual comprehension difficulty for domain-specific content
+
+**ARI Grade Level** (Automated Readability Index)
+- **Purpose**: Alternative readability measure using character count instead of syllables
+- **Use Cases**: Technical documentation assessment, content complexity evaluation
+- **Advantages**: More reliable for texts with technical terminology
+
+</TabItem>
+<TabItem value="oss_performance" label="Performance Metrics">
+
+#### Operational Metrics
+
+**Latency**
+- **Purpose**: Measures response time from request to completion
+- **Use Cases**: Performance optimization, SLA monitoring, user experience assessment
+- **Output**: Time in milliseconds
+- **Considerations**: Includes network overhead in distributed deployments
+
+**Token Count**
+- **Purpose**: Tracks input and output token usage
+- **Use Cases**: Cost monitoring, prompt optimization, model efficiency assessment
+- **Variations**: Input tokens, output tokens, total tokens
+- **Applications**: Essential for API cost management and prompt engineering
+
+#### Custom Function Framework
+
+**@scorer Decorator**
+- **Purpose**: Enables creation of custom heuristic evaluation logic
+- **Use Cases**: Business-specific rules, domain expertise encoding, deterministic quality checks
+- **Requirements**: Python function returning numerical or boolean scores
+- **Advantages**: Fast execution, predictable behavior, easy debugging
+
+</TabItem>
+<TabItem value="oss_model_types" label="Model Type Defaults">
+
+#### Predefined Evaluation Suites
+
+**Question-Answering** (`model_type="question-answering"`)
+- **Included Metrics**: Exact match, toxicity detection, readability assessment
+- **Use Cases**: Q&A systems, knowledge base applications, chatbots
+- **Assumptions**: Single correct answer per question
+
+**Text Summarization** (`model_type="text-summarization"`)  
+- **Included Metrics**: ROUGE scores, toxicity detection, readability assessment
+- **Use Cases**: Document summarization, news briefing, content condensation
+- **Focus**: Content preservation and conciseness
+
+**General Text** (`model_type="text"`)
+- **Included Metrics**: Toxicity detection, readability assessment
+- **Use Cases**: Content generation, creative writing, general language tasks
+- **Coverage**: Basic quality and safety checks
+
+**Retrievers** (`model_type="retriever"`)
+- **Included Metrics**: Precision@k, Recall@k, NDCG@k
+- **Use Cases**: Search systems, document retrieval, recommendation engines
+- **Focus**: Ranking quality and relevance assessment
+
+</TabItem>
+</Tabs>
+
+### Databricks MLflow Scorers
+
+<Tabs>
+<TabItem value="databricks_semantic" label="Semantic Quality Judges" default>
+
+#### Response Quality Assessment
+
+**RelevanceToQuery** (Databricks Only)
+- **Purpose**: Evaluates if response directly addresses the user's question
+- **How it Works**: LLM judge analyzes query-response alignment
+- **Requirements**: User query and model response
+- **Output**: Boolean relevance score with detailed rationale
+- **Use Cases**: Q&A systems, chatbots, information retrieval applications
+
+**Safety** (Databricks Only)
+- **Purpose**: Detects harmful, offensive, or toxic content in responses
+- **How it Works**: Advanced LLM-based content analysis beyond keyword filtering
+- **Requirements**: Model response text
+- **Coverage**: Hate speech, violence, self-harm, sexual content, dangerous activities
+- **Advantages**: Context-aware evaluation, cultural sensitivity
+
+**Correctness** (Databricks Only)
+- **Purpose**: Assesses factual accuracy against known correct information
+- **How it Works**: Compares response content with expected facts or reference answers
+- **Requirements**: Expected facts or reference response in evaluation data
+- **Input Formats**: List of expected facts OR complete expected response
+- **Applications**: Educational content, factual Q&A, knowledge verification
+
+</TabItem>
+<TabItem value="databricks_rag" label="RAG-Specific Evaluation">
+
+#### Retrieval Quality Assessment
+
+**RetrievalRelevance** (Databricks Only)
+- **Purpose**: Evaluates whether each retrieved document chunk is relevant to the query
+- **How it Works**: LLM judge analyzes query-chunk relevance for each retrieved item
+- **Requirements**: Trace with RETRIEVER spans containing retrieved documents
+- **Output**: Individual relevance scores per chunk + aggregate relevance score
+- **Applications**: Search quality optimization, retrieval system tuning
+
+**RetrievalSufficiency** (Databricks Only)
+- **Purpose**: Determines if retrieved documents provide enough information for the expected response
+- **How it Works**: Compares retrieved context against expected response requirements
+- **Requirements**: RETRIEVER spans + expected facts or expected response
+- **Use Cases**: Retrieval system optimization, knowledge base coverage assessment
+- **Focus**: Information completeness rather than individual document relevance
+
+#### Response Grounding Assessment  
+
+**RetrievalGroundedness** (Databricks Only)
+- **Purpose**: Verifies that model responses are supported by retrieved context
+- **How it Works**: LLM judge checks if response claims are substantiated by provided documents
+- **Requirements**: RETRIEVER spans with retrieved context + model response
+- **Applications**: Factual accuracy verification, hallucination detection in RAG systems
+- **Output**: Boolean groundedness score per retriever span
+
+**ToolGroundedness** (Databricks Only)
+- **Purpose**: Ensures responses are supported by tool call results
+- **How it Works**: Analyzes alignment between tool outputs and response content
+- **Requirements**: CHAT_MODEL spans with OpenAI-format tool calls
+- **Compatibility**: Works automatically with LangChain/LangGraph and OpenAI autologging
+- **Use Cases**: Function calling applications, API integration validation
+
+</TabItem>
+<TabItem value="databricks_guidelines" label="Guidelines and Custom Evaluation">
+
+#### Flexible Evaluation Framework
+
+**GuidelineAdherence** (Databricks Only)
+- **Purpose**: Evaluates responses against custom business rules and requirements
+- **How it Works**: LLM judge applies natural language guidelines to assess compliance
+- **Modes**: Global guidelines (same for all examples) OR per-example guidelines
+- **Input Formats**: String guidelines, list of guidelines, or structured guideline dictionaries
+- **Applications**: Brand voice compliance, regulatory requirements, style guide adherence
+
+**Custom LLM Judge Creation** (Databricks Only)
+- **Purpose**: Build domain-specific evaluation judges with custom prompts
+- **How it Works**: Define evaluation criteria, output categories, and examples
+- **Components**: Custom prompt templates, example-based training, flexible output formats
+- **Advantages**: Domain expertise encoding, stakeholder-aligned evaluation criteria
+- **Use Cases**: Industry-specific quality assessment, complex multi-dimensional evaluation
+
+#### Advanced Tool Assessment
+
+**ToolSufficiency** (Databricks Only)
+- **Purpose**: Evaluates whether tool call results provide adequate information for expected response
+- **How it Works**: Compares tool outputs against response requirements
+- **Requirements**: Tool-calling traces + expected facts or expected response
+- **Applications**: API integration testing, function calling optimization
+- **Focus**: Information adequacy from external tool sources
+
+</TabItem>
+</Tabs>
+
+## Choosing the Right Scorers
+
+### Selection Framework
+
+**Start with Your Platform Capabilities**:
+- **MLflow OSS**: Focus on heuristic metrics and custom function scorers
+- **Databricks MLflow**: Leverage LLM judges for semantic evaluation
+
+**Consider Your Application Type**:
+- **RAG Applications**: Use retrieval-specific scorers (Databricks) or custom retrieval logic (OSS)
+- **Q&A Systems**: Combine relevance, correctness, and safety assessment
+- **Content Generation**: Focus on creativity, safety, and brand compliance evaluation
+- **Tool-Calling Apps**: Use tool groundedness and sufficiency assessment (Databricks)
+
+**Balance Speed vs. Sophistication**:
+- **Fast Iteration**: Start with heuristic metrics for rapid feedback
+- **Production Quality**: Add LLM judges for comprehensive assessment
+- **Cost Optimization**: Use sampling strategies with expensive LLM evaluation
+
+### Best Practice Combinations
+
+**MLflow OSS Recommended Suite**:
+```python
+# Fast, cost-effective evaluation
+evaluation_suite = [
+    exact_match(),              # Baseline accuracy
+    latency(),                  # Performance monitoring  
+    custom_business_logic,      # Domain-specific requirements
+    safety_keyword_filter,      # Basic safety checking
+    readability_assessment,     # Content accessibility
+]
+```
+
+**Databricks MLflow Comprehensive Suite**:
+```python
+# Comprehensive semantic evaluation
+evaluation_suite = [
+    exact_match(),              # Baseline comparison
+    RelevanceToQuery(),         # Semantic relevance
+    Safety(),                   # Advanced safety assessment
+    RetrievalGroundedness(),    # RAG quality (if applicable)
+    GuidelineAdherence(),       # Business rule compliance
+    custom_domain_judge,        # Specialized evaluation
+]
+```
+
+## Integration Patterns
+
+### Development Workflow Integration
+
+**Tier-Based Evaluation**: Use different scorer combinations for different development stages:
+- **Development**: Fast heuristic metrics for immediate feedback
+- **Testing**: Comprehensive evaluation with LLM judges
+- **Production**: Balanced approach with sampling for cost management
+
+**Version Comparison**: Use consistent scorer sets across application versions to track improvement trends and identify regressions.
+
+### Production Monitoring Integration
+
+**Sampling Strategies**: Balance evaluation coverage with computational costs:
+- **Critical scorers**: Higher sampling rates (50-100%)
+- **Comprehensive scorers**: Moderate sampling rates (10-20%)  
+- **Experimental scorers**: Lower sampling rates (1-5%)
+
+**Alert Configuration**: Set thresholds based on scorer characteristics:
+- **Heuristic metrics**: Tight thresholds for consistent behavior
+- **LLM judges**: Looser thresholds accounting for model variability
+
+## Related Concepts
+
+- **[Custom Scorers](/genai/eval-monitor/custom-scorers)**: Build your own evaluation logic when predefined scorers don't meet your needs
+- **[Guidelines-Based Judges](/genai/eval-monitor/custom-judge/meets-guidelines)**: Create rule-based evaluation criteria in natural language
+- **[Prompt-Based Judges](/genai/eval-monitor/custom-judge/create-prompt-judge)**: Design sophisticated custom evaluation with full prompt control
+- **[Production Monitoring](/genai/eval-monitor/production-monitoring)**: Deploy predefined scorers for continuous quality assessment
+
+## Summary
+
+Predefined LLM judge scorers provide powerful building blocks for GenAI evaluation, with different capabilities depending on your platform:
+
+**MLflow OSS** offers fast, reliable heuristic evaluation perfect for development cycles and cost-conscious production monitoring. Custom scorer frameworks enable business-specific evaluation logic.
+
+**Databricks MLflow** adds sophisticated LLM-based semantic evaluation, specialized RAG assessment, and flexible custom judge creation for comprehensive quality assurance.
+
+**Key Selection Factors**:
+- Choose scorers that match your application architecture and trace structure
+- Balance evaluation sophistication with computational costs
+- Combine complementary scorer types for comprehensive quality coverage
+- Consider platform-specific capabilities when planning your evaluation strategy
+
+Understanding these concepts helps you select the right combination of predefined scorers to meet your quality assurance needs while optimizing for speed, cost, and evaluation comprehensiveness.

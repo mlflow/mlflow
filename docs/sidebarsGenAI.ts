@@ -46,18 +46,18 @@ const sidebarsGenAI: SidebarsConfig = {
       items: [
         {
           type: 'doc',
-          id: 'developer-workflow/why-diff-workflow',
-          label: 'Why a different workflow',
+          id: 'developer-workflow/phase1-build-improve',
+          label: 'Building & Iterating',
         },
         {
           type: 'doc',
-          id: 'developer-workflow/eval-centric-development',
-          label: 'MLflow\'s solution',
+          id: 'developer-workflow/phase2-systematically-test',
+          label: 'Evaluate & Test',
         },
         {
           type: 'doc',
-          id: 'developer-workflow/get-started',
-          label: 'Get Started!',
+          id: 'developer-workflow/phase3-monitor',
+          label: 'Monitor in Production',
         },
       ],
       link: {
@@ -310,34 +310,183 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Evaluate & Monitor 📊',
+      label: 'Evaluation 📊',
       className: 'sidebar-top-level-category',
       items: [
         {
-          type: 'doc',
-          id: 'eval-monitor/build-eval-dataset',
-          label: 'Build an Evaluation Dataset',
+          type: 'category',
+          label: 'Concepts & Reference',
+          items: [
+            {
+              type: 'doc',
+              id: 'eval-monitor/concepts/built-in-scorers',
+              label: 'Built-in Scorers',
+            },
+            {
+              type: 'doc',
+              id: 'eval-monitor/concepts/eval-datasets',
+              label: 'Evaluation Datasets',
+            },
+            {
+              type: 'doc',
+              id: 'eval-monitor/concepts/eval-harness',
+              label: 'Evaluation Harness',
+            },
+            {
+              type: 'doc',
+              id: 'eval-monitor/concepts/evaluation-runs',
+              label: 'Evaluation Runs',
+            },
+            {
+              type: 'doc',
+              id: 'eval-monitor/concepts/production-monitoring',
+              label: 'Production Monitoring',
+            },
+            {
+              type: 'doc',
+              id: 'eval-monitor/concepts/scorers',
+              label: 'Scorers',
+            },
+            {
+              type: 'doc',
+              id: 'eval-monitor/concepts/scorer-judge',
+              label: 'Scorers, Feedback and Judges',
+            },
+            {
+
+            },
+            {
+              type: 'category',
+              label: 'Judges',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/concepts/judges/guidelines',
+                  label: 'Guidelines Judges',
+                },
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/concepts/judges/is-context-relevant',
+                  label: 'Relevancy Judges',
+                },
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/concepts/judges/is-context-sufficient',
+                  label: 'Sufficient Context Judges',
+                },
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/concepts/judges/is-correct',
+                  label: 'Correctness Judges',
+                },
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/concepts/judges/is-grounded',
+                  label: 'Grounded Judges',
+                },
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/concepts/judges/is-safe',
+                  label: 'Safety Judges',
+                },
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/concepts/judges/pre-built-judges-scorers',
+                  label: 'Pre-built Judges',
+                },
+                {
+                  type: 'doc',
+                  id: 'eval-monitor/concepts/judges/prompt-based-judge',
+                  label: 'Prompt-based Judges',
+                },
+              ],
+              link: {
+                type: 'doc',
+                id: 'eval-monitor/concepts/judges/index'
+              }
+            },
+          ],
+          link: {
+            type: 'doc',
+            id: 'eval-monitor/concepts/index'
+          },
         },
         {
           type: 'doc',
-          id: 'eval-monitor/define-quality-metrics',
-          label: 'Define Quality Metrics',
+          id: 'eval-monitor/quickstart',
+          label: "Quickstart"
         },
         {
-          type: 'doc',
-          id: 'eval-monitor/dev-testing',
-          label: 'Testing during Development',
+          type: 'category',
+          label: 'Custom Judges',
+          items: [
+            {
+              type: 'doc',
+              id: 'eval-monitor/custom-judge/create-prompt-judge',
+              label: 'Prompt Judges'
+            },
+            {
+              type: 'doc',
+              id: 'eval-monitor/custom-judge/meets-guidelines',
+              label: 'Guidelines Judges'
+            },
+            {
+              type: 'doc',
+              id: 'eval-monitor/custom-judge/tune-judge',
+              label: 'Tuning Custom Judges',
+            }
+          ],
+          link: {
+            type: 'doc',
+            id: 'eval-monitor/custom-judge/index'
+          }
         },
         {
-          type: 'doc',
-          id: 'eval-monitor/ci-cd-testing',
-          label: 'Evaluate within a CI/CD pipeline',
+          type: 'category',
+          label: 'Guides',
+          items: [
+            {
+              type: 'doc',
+              id: 'eval-monitor/build-eval-dataset',
+              label: 'Build an Evaluation Dataset',
+            },
+            {
+              type: 'doc',
+              id: 'eval-monitor/predefined-judge-scorers',
+              label: 'Pre-Defined Scorers',
+            },
+            {
+              type: 'doc',
+              id: 'eval-monitor/custom-scorers',
+              label: 'Custom Scorers',
+            },
+            {
+              type: 'doc',
+              id: 'eval-monitor/evaluate-app',
+              label: 'Evaluate App Versions',
+            },
+            {
+              type: 'doc',
+              id: 'eval-monitor/version-comparison',
+              label: 'Compare App Versions',
+            },
+            {
+              type: 'doc',
+              id: 'eval-monitor/ci-cd-testing',
+              label: 'Evaluate within a CI/CD pipeline',
+            },
+            {
+              type: 'doc',
+              id: 'eval-monitor/continuous-improvement-with-production-data',
+              label: 'Evaluate with Production Data',
+            },
+            {
+              type: 'doc',
+              id: 'eval-monitor/run-scorer-in-prod',
+              label: 'Production Monitoring'
+            },
+          ]
         },
-        {
-          type: 'doc',
-          id: 'eval-monitor/prod-monitoring',
-          label: 'Production Monitoring of Quality',
-        }
       ],
       link: {
         type: 'doc',
@@ -508,51 +657,31 @@ const sidebarsGenAI: SidebarsConfig = {
       className: 'sidebar-top-level-category',
       items: [
         {
-          type: 'category',
+          type: 'doc',
+          id: 'data-model/experiments',
           label: 'Experiments',
-          items: [
-            {
-              type: 'doc',
-              id: 'data-model/experiments/traces',
-              label: 'Traces and Assessments'
-            },
-            {
-              type: 'doc',
-              id: 'data-model/experiments/prompts',
-              label: 'Prompt Management',
-            },
-            {
-              type: 'doc',
-              id: 'data-model/experiments/evaluations',
-              label: 'Evaluation',
-            },
-            {
-              type: 'doc',
-              id: 'data-model/experiments/eval-datasets',
-              label: 'Evaluation Datasets',
-            },
-            {
-              type: 'doc',
-              id: 'data-model/experiments/app-versions',
-              label: 'App Versions',
-            },
-            {
-              type: 'doc',
-              id: 'data-model/experiments/labeling',
-              label: 'Trace Labeling',
-            },
-            {
-              type: 'doc',
-              id: 'data-model/experiments/monitors',
-              label: 'Monitoring',
-            },
-          ],
-          link: {
-            type: 'doc',
-            id: 'data-model/experiments/index'
-          }
-        }
-      ]
+        },
+        {
+          type: 'doc',
+          id: 'data-model/runs',
+          label: 'Runs',
+        },
+        {
+          type: 'doc',
+          id: 'data-model/traces',
+          label: 'Traces',
+        },
+        {
+          type: 'doc',
+          id: 'data-model/app-versions',
+          label: 'Version Tracking',
+        },
+        
+      ],
+      link: {
+        type: 'doc',
+        id: 'data-model/index'
+      }
     }
   ],
 };

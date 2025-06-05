@@ -1,0 +1,238 @@
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Tuning Custom LLM Judges
+
+Once you've created custom LLM judges using [guidelines-based](/genai/eval-monitor/custom-judge/meets-guidelines) or [prompt-based](/genai/eval-monitor/custom-judge/create-prompt-judge) approaches, the next critical step is tuning them to ensure they evaluate your application accurately and consistently. Judge tuning involves systematically refining your evaluation criteria using labeled examples to achieve reliable alignment with human judgment.
+
+Well-tuned judges transform initial evaluation logic into production-ready assessment tools that you can trust for automated quality monitoring and development decisions. This process helps identify edge cases, refine evaluation criteria, and validate that your judges behave consistently across diverse scenarios.
+
+## Why Judge Tuning Matters
+
+Initial evaluation criteria, while well-intentioned, often reveal gaps when applied to real-world data:
+
+**Alignment with Human Judgment**: Your first guidelines or prompts may not capture how domain experts actually assess quality. Tuning bridges the gap between automated and human evaluation.
+
+**Edge Case Discovery**: Real application data contains scenarios you might not have considered. Tuning helps identify and address these systematically.
+
+**Consistency Optimization**: LLM judges can be sensitive to prompt wording. Tuning helps find formulations that produce reliable results across similar inputs.
+
+**Stakeholder Validation**: Tuning provides evidence that your automated evaluation aligns with business expectations, building confidence in the results.
+
+## The Judge Tuning Process
+
+<Tabs>
+<TabItem value="overview" label="Process Overview" default>
+
+### Six-Step Tuning Methodology
+
+**1. Collect Representative Traces**: Gather real application traces covering the full spectrum of scenarios your judge will evaluate.
+
+**2. Create Expert Labels**: Have domain experts evaluate the same traces using the same criteria your judge will apply.
+
+**3. Build Evaluation Dataset**: Structure the traces and labels for systematic evaluation.
+
+**4. Implement Initial Judge**: Create your guidelines-based or prompt-based judge using initial criteria.
+
+**5. Compare and Analyze**: Run your judge against the labeled dataset and analyze disagreements with expert assessment.
+
+**6. Iterate and Refine**: Adjust your evaluation criteria based on disagreements and retest until alignment is satisfactory.
+
+This methodology ensures your final judge reflects both automated scalability and human expertise.
+
+</TabItem>
+<TabItem value="data_strategy" label="Data Collection Strategy">
+
+### Collecting Effective Training Data
+
+**Diversity Requirements**: Your trace collection should represent the full range of production scenarios:
+- Different user types (new users, power users, enterprise customers)
+- Various query complexity levels (simple, moderate, complex, edge cases)
+- Range of response quality (excellent, good, poor, problematic)
+- Multiple content domains relevant to your application
+
+**Quality Focus**: Prioritize traces that will challenge your judge:
+- Borderline quality examples where assessment isn't obvious
+- Cases where context significantly affects appropriate evaluation
+- Edge cases that might confuse automated evaluation
+- Examples representing different user types or domains
+
+**Sample Size Guidelines**: Start with 100-200 traces for initial tuning, ensuring balanced representation across categories with sufficient examples per type.
+
+</TabItem>
+<TabItem value="expert_labeling" label="Expert Labeling">
+
+### Creating Reliable Expert Labels
+
+**Clear Labeling Framework**: Provide domain experts with:
+- Specific question they're answering (matching your judge's purpose)
+- Detailed criteria for assessment
+- Clear rating scale (pass/fail for guidelines, categories for prompt-based)
+- Guidance for handling edge cases and ambiguous examples
+
+**Quality Assurance**: Use multiple experts when possible and measure inter-annotator agreement. Aim for >80% agreement on clear cases, >60% on edge cases.
+
+**Documentation Requirements**: Have experts provide:
+- Assessment decision (pass/fail or category)
+- Detailed rationale for their decision
+- Confidence level in their assessment
+- Flag for particularly challenging or ambiguous cases
+
+</TabItem>
+</Tabs>
+
+## Implementation Workflow
+
+### Step 1: Data Collection and Preparation
+
+**Trace Collection**: Gather diverse, representative traces from your application covering different scenarios, user types, and quality levels. Focus on examples that will test the boundaries of your evaluation criteria.
+
+**Expert Evaluation Setup**: Structure your collected traces with clear evaluation questions and criteria that match what your judge will assess. Provide experts with consistent frameworks for labeling.
+
+### Step 2: Initial Judge Implementation
+
+**Create Baseline Judge**: Implement your initial guidelines-based or prompt-based judge using your best understanding of the evaluation criteria.
+
+**Establish Performance Baseline**: Run your initial judge against the expert-labeled dataset to measure baseline agreement and identify disagreement patterns.
+
+### Step 3: Disagreement Analysis and Refinement
+
+**Categorize Disagreements**: Analyze where your judge disagrees with experts:
+
+<Tabs>
+<TabItem value="disagreement_types" label="Types of Disagreements">
+
+### Common Disagreement Patterns
+
+**False Positives (Judge too lenient)**: Judge passes cases that experts fail
+- Often indicates missing criteria for subtle quality issues
+- May need more specific guidelines about edge cases
+- Could require additional examples in prompt-based judges
+
+**False Negatives (Judge too strict)**: Judge fails cases that experts pass
+- Usually indicates overly restrictive criteria
+- May need to relax unnecessarily harsh requirements
+- Could require adjusting language to be more permissive
+
+**Edge Case Inconsistencies**: Disagreements on ambiguous examples
+- Normal for low-confidence expert labels
+- Focus on high-confidence disagreements first
+- May indicate need for additional evaluation criteria
+
+</TabItem>
+<TabItem value="refinement_strategies" label="Refinement Strategies">
+
+### Systematic Refinement Approaches
+
+**Guidelines-Based Refinement**:
+- Add specific criteria for commonly missed issues
+- Relax overly strict requirements causing false negatives
+- Include explicit guidance for edge cases
+- Test individual guideline changes incrementally
+
+**Prompt-Based Refinement**:
+- Adjust prompt language for clarity and consistency
+- Add examples of borderline cases with correct assessments
+- Refine category definitions to reduce ambiguity
+- Modify evaluation instructions based on disagreement patterns
+
+**Iterative Testing**: After each refinement, re-evaluate against your labeled dataset to measure improvement and identify remaining issues.
+
+</TabItem>
+</Tabs>
+
+### Step 4: Validation and Deployment
+
+**Hold-Out Validation**: Test your refined judge on fresh data not used during tuning to ensure it generalizes well beyond your training examples.
+
+**Performance Thresholds**: Establish minimum agreement levels (typically 80-85% with expert assessment) before considering a judge production-ready.
+
+**Production Deployment**: Deploy your tuned judge with appropriate monitoring to track real-world performance and catch any drift over time.
+
+## Best Practices for Effective Tuning
+
+### Data Quality and Sampling
+
+**Representative Coverage**: Ensure your training data reflects the diversity of real-world usage patterns, including edge cases and challenging scenarios.
+
+**Expert Label Quality**: Invest in clear labeling instructions, multiple annotators when possible, and regular calibration to maintain consistency.
+
+**Balanced Examples**: Include both positive and negative examples across the full range of quality levels your application produces.
+
+### Refinement Strategy
+
+**Start Conservative**: Begin with stricter criteria and relax based on false negatives rather than starting permissive and tightening.
+
+**Incremental Changes**: Make one refinement at a time to understand the impact of each change on judge performance.
+
+**Track Progress**: Monitor agreement trends across iterations to identify when additional tuning provides diminishing returns.
+
+### Validation Approaches
+
+**Cross-Validation**: For limited labeled data, use cross-validation to make better use of available examples and get robust performance estimates.
+
+**Multi-Dimensional Assessment**: If your judge evaluates multiple quality aspects, ensure balanced performance across all dimensions.
+
+**Production Monitoring**: Continue monitoring judge performance in production to catch drift and identify opportunities for further refinement.
+
+## Advanced Considerations
+
+### Multi-Objective Tuning
+
+When optimizing judges for multiple quality dimensions simultaneously, consider:
+- Relative importance weighting for different aspects
+- Trade-offs between different quality measures
+- Overall performance across all dimensions rather than optimizing individual metrics
+
+### Continuous Improvement
+
+**Performance Monitoring**: Track judge agreement with ongoing expert evaluation to identify when retuning might be beneficial.
+
+**Data Drift Detection**: Monitor for changes in application behavior or user patterns that might affect judge performance.
+
+**Stakeholder Feedback**: Regularly validate that automated assessment continues to align with business expectations and domain expert judgment.
+
+## Common Challenges and Solutions
+
+### Insufficient Training Data
+
+**Challenge**: Limited labeled examples for comprehensive tuning
+**Solutions**: 
+- Start with smaller, focused evaluation criteria
+- Use cross-validation to maximize training data utility
+- Prioritize high-impact scenarios for labeling
+
+### Inconsistent Expert Labels
+
+**Challenge**: Experts disagree on correct assessment
+**Solutions**:
+- Refine labeling criteria for clarity
+- Focus tuning on high-confidence expert labels
+- Consider multiple expert perspectives in refinement
+
+### Performance Plateaus
+
+**Challenge**: Additional tuning iterations show minimal improvement
+**Solutions**:
+- Accept current performance if it meets business needs
+- Collect additional, more challenging training examples
+- Consider switching from guidelines-based to prompt-based approach or vice versa
+
+## Related Concepts
+
+- **[Guidelines-Based Judges](/genai/eval-monitor/custom-judge/meets-guidelines)**: Understanding the foundation for tuning guidelines-based evaluation
+- **[Prompt-Based Judges](/genai/eval-monitor/custom-judge/create-prompt-judge)**: Tuning considerations for prompt-based evaluation approaches
+- **[Production Monitoring](/genai/eval-monitor/production-monitoring)**: Deploying and monitoring tuned judges in production environments
+
+## Summary
+
+Judge tuning transforms initial evaluation criteria into reliable, production-ready assessment tools through systematic refinement using expert-labeled examples. The process requires careful attention to data quality, systematic analysis of disagreements, and iterative refinement of evaluation criteria.
+
+**Key Success Factors**:
+- Collect diverse, representative training data that challenges your judge
+- Invest in high-quality expert labeling with clear criteria and documentation
+- Analyze disagreement patterns systematically to guide refinement efforts
+- Validate performance on fresh data before production deployment
+- Monitor ongoing performance and be prepared for continuous improvement
+
+Effective judge tuning ensures that your automated evaluation aligns with human judgment while maintaining the scalability and consistency needed for production quality monitoring.
