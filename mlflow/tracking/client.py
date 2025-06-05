@@ -693,7 +693,7 @@ class MlflowClient:
     @experimental
     @require_prompt_registry
     @translate_prompt_exception
-    def delete_prompt(self, name: str, version: int = 0):
+    def delete_prompt(self, name: str, version: int):
         """
         Delete a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
 
@@ -701,56 +701,16 @@ class MlflowClient:
 
         Args:
             name: The name of the prompt.
-            version: The version of the prompt to delete. 
-                - Unity Catalog: Only supports deleting entire prompt (don't specify version)
-                - OSS: Requires explicit version to delete specific version
-                
-                .. deprecated:: 3.0
-                    For OSS stores, use delete_prompt_version(name, version) instead.
-                    For Unity Catalog, use delete_prompt(name) without version parameter.
-
-        Examples:
-            # Unity Catalog - delete entire prompt (deprecated)
-            client.delete_prompt("rohit.default.my_prompt")
-            
-            # OSS - delete specific version (deprecated)
-            client.delete_prompt("my_prompt", version=1)
-            
-            # RECOMMENDED - Use version-based deletion
-            client.delete_prompt_version("my_prompt", "1")
+            version: The version of the prompt to delete.
         """
         registry_client = self._get_registry_client()
 
-        # Check if Unity Catalog backed
-        is_unity_catalog = self._registry_uri.startswith("databricks-uc")
-        
-        if is_unity_catalog:
-            # Unity Catalog: only supports deleting entire prompt
-            if version != 0:
-                raise MlflowException(
-                    "Unity Catalog only supports deleting entire prompts. "
-                    "Use delete_prompt(name) without specifying a version. "
-                    "To delete specific versions, use delete_prompt_version(name, version).",
-                    INVALID_PARAMETER_VALUE
-                )
-            # Delete entire prompt
-            return registry_client.delete_prompt(name)
-        else:
-            # OSS: require explicit version for backward compatibility
-            if version == 0:
-                raise MlflowException(
-                    "For non-Unity Catalog stores, explicit version is required. "
-                    "Use delete_prompt(name, version=X) to delete a specific version.",
-                    INVALID_PARAMETER_VALUE
-                )
-            
-            # OSS: use existing legacy logic
-            self._validate_prompt(name, version)
-            registry_client.delete_model_version(name, version)
+        self._validate_prompt(name, version)
+        registry_client.delete_model_version(name, version)
 
-            # If no more versions are left, delete the registered model
-            if not registry_client.get_latest_versions(name, stages=ALL_STAGES):
-                registry_client.delete_registered_model(name)
+        # If no more versions are left, delete the registered model
+        if not registry_client.get_latest_versions(name, stages=ALL_STAGES):
+            registry_client.delete_registered_model(name)
 
     # TODO: Use model_id in MLflow 3.0
     @experimental
