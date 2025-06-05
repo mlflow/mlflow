@@ -7,6 +7,7 @@ def test_databricks_judges_are_importable():
         is_grounded,
         is_safe,
         meets_guidelines,
+        custom_prompt_judge,
     )
 
     assert judges.is_context_relevant == is_context_relevant
@@ -15,3 +16,4 @@ def test_databricks_judges_are_importable():
     assert judges.is_grounded == is_grounded
     assert judges.is_safe == is_safe
     assert judges.meets_guidelines == meets_guidelines
+    assert judges.custom_prompt_judge == custom_prompt_judge
