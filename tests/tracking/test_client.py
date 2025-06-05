@@ -2099,7 +2099,6 @@ def test_search_prompt_multiple_versions(tracking_uri):
     prompts = client.search_prompts()
     assert len(prompts) == 1
 
-    # Verify we get the right prompt info
     prompt = prompts[0]
     assert prompt.name == name
     
