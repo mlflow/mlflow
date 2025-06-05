@@ -4,7 +4,11 @@ from typing import Any, Callable, Optional
 
 from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers.base import Scorer
-from mlflow.genai.scorers.builtin_scorers import BuiltInScorer, MissingColumnsException
+from mlflow.genai.scorers.builtin_scorers import (
+    BuiltInScorer,
+    MissingColumnsException,
+    get_all_scorers,
+)
 
 try:
     # `pandas` is not required for `mlflow-skinny`.
@@ -44,9 +48,33 @@ def validate_scorers(scorers: list[Any]) -> list[Scorer]:
             legacy_metrics.append(scorer)
             valid_scorers.append(scorer)
         else:
+            # Show helpful error message for common mistakes
+            if isinstance(scorer, list) and (scorer == get_all_scorers()):
+                # Common mistake 1: scorers=[get_all_scorers()]
+                if len(scorers) == 1:
+                    hint = (
+                        "\nHint: Use `scorers=get_all_scorers()` to pass all "
+                        "builtin scorers at once."
+                    )
+                # Common mistake 2: scorers=[get_all_scorers(), scorer1, scorer2]
+                elif len(scorer) > 1:
+                    hint = (
+                        "\nHint: Use `scorers=[*get_all_scorers(), scorer1, scorer2]` to pass "
+                        "all builtin scorers at once along with your custom scorers."
+                    )
+            # Common mistake 3: scorers=[RetrievalRelevance, Correctness]
+            elif isinstance(scorer, type) and issubclass(scorer, BuiltInScorer):
+                hint = (
+                    "\nHint: It looks like you passed a scorer class instead of an instance. "
+                    f"Correct way to pass scorers is `scorers=[{scorer.__name__}()]`."
+                )
+            else:
+                hint = ""
+
             raise MlflowException.invalid_parameter_value(
-                f"Scorer {scorer} is not a valid scorer. Please use the @scorer decorator "
-                "to convert a function into a scorer or inherit from the Scorer class"
+                f"The `scorers` argument must be a list of scorers. The specified "
+                f"list contains an invalid item with type: {type(scorer).__name__}."
+                f"{hint}"
             )
 
     if legacy_metrics:

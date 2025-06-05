@@ -50,6 +50,10 @@ def remote_backend_for_tracing_sdk_test():
                 "run",
                 "--with",
                 "mlflow",
+                # TODO: Remove this once https://github.com/pandas-dev/pandas/issues/61564 is
+                # resolved
+                "--with",
+                "pandas!=2.3.0",
                 "--python",
                 # Get current python version
                 f"{sys.version_info.major}.{sys.version_info.minor}",

@@ -75,7 +75,12 @@ def test_proto_info_to_mlflow_prompt_info():
     # Test with additional prompt tags
     prompt_tags = {"tag1": "value1", "tag2": "value2"}
     prompt_info = proto_info_to_mlflow_prompt_info(proto_info, prompt_tags)
-    expected_tags = {"key1": "value1", "key2": "value2", "tag1": "value1", "tag2": "value2"}
+    expected_tags = {
+        "key1": "value1",
+        "key2": "value2",
+        "tag1": "value1",
+        "tag2": "value2",
+    }
     assert prompt_info.tags == expected_tags
 
 

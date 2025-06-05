@@ -16,7 +16,7 @@ import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -35,8 +35,9 @@ def save_file(src, path):
 
 
 def uploaded_recently(dist) -> bool:
-    if ut := dist.get("upload_time"):
-        return (datetime.now() - datetime.fromisoformat(ut)).days < 1
+    if ut := dist.get("upload_time_iso_8601"):
+        delta = datetime.now(timezone.utc) - datetime.fromisoformat(ut.replace("Z", "+00:00"))
+        return delta.days < 1
     return False
 
 
@@ -73,7 +74,8 @@ def get_package_version_infos(package_name: str) -> list[VersionInfo]:
         if (
             len(dist_files) > 0
             and not is_dev_or_pre_release(version)
-            and not any(uploaded_recently(dist) or dist.get("yanked", False) for dist in dist_files)
+            and not any(uploaded_recently(dist) for dist in dist_files)
+            and not any(dist.get("yanked", False) for dist in dist_files)
         )
     ]
 

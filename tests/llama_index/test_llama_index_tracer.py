@@ -91,7 +91,7 @@ def test_trace_llm_complete_stream():
     model_name = "gpt-3.5-turbo"
     llm = OpenAI(model=model_name)
 
-    response_gen = llm.stream_complete("Hello")
+    response_gen = llm.stream_complete("Hello", stream_options={"include_usage": True})
     # No trace should be created until the generator is consumed
     assert len(get_traces()) == 0
     assert inspect.isgenerator(response_gen)
@@ -107,7 +107,10 @@ def test_trace_llm_complete_stream():
     assert len(spans) == 1
     assert spans[0].name == "OpenAI.stream_complete"
     assert spans[0].span_type == SpanType.LLM
-    assert spans[0].inputs == {"args": ["Hello"]}
+    assert spans[0].inputs == {
+        "args": ["Hello"],
+        "kwargs": {"stream_options": {"include_usage": True}},
+    }
     assert spans[0].outputs["text"] == "Hello world"
 
     attr = spans[0].attributes
@@ -300,7 +303,7 @@ def test_trace_llm_chat_stream():
     llm = OpenAI()
     message = ChatMessage(role="system", content="Hello")
 
-    response_gen = llm.stream_chat([message])
+    response_gen = llm.stream_chat([message], stream_options={"include_usage": True})
     # No trace should be created until the generator is consumed
     assert len(get_traces()) == 0
     assert inspect.isgenerator(response_gen)
@@ -321,7 +324,8 @@ def test_trace_llm_chat_stream():
 
     content_json = _get_llm_input_content_json("Hello")
     assert spans[0].inputs == {
-        "messages": [{"role": "system", **content_json, "additional_kwargs": {}}]
+        "messages": [{"role": "system", **content_json, "additional_kwargs": {}}],
+        "kwargs": {"stream_options": {"include_usage": True}},
     }
     # `additional_kwargs` was broken until 0.1.30 release of llama-index-llms-openai
     expected_kwargs = (
