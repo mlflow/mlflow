@@ -22,6 +22,7 @@ ipython
 # Required by automl tests
 # TODO: Remove pin once https://github.com/microsoft/FLAML/issues/1353 is resolved
 flaml[automl]!=2.3.0
+huggingface_hub<0.24.0
 # Required by evaluator tests
 shap
 # Required to evaluate language models in `mlflow.evaluate`
