@@ -4,6 +4,7 @@ package mlflow.unitycatalog;
 
 import "google/protobuf/struct.proto";
 import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
 import "databricks.proto";
 import "scalapb/scalapb.proto";
 
@@ -86,18 +87,14 @@ message CreatePromptRequest {
   optional Prompt prompt = 2;
 }
 
-message CreatePromptResponse {
-  required Prompt prompt = 1;
-}
+
 
 message UpdatePromptRequest {
   optional string name = 1;
   optional Prompt prompt = 2;
 }
 
-message UpdatePromptResponse {
-  required Prompt prompt = 1;
-}
+
 
 message DeletePromptRequest {
   // Registered Prompt unique name identifier.
@@ -112,9 +109,7 @@ message GetPromptRequest {
   optional string name = 1;
 }
 
-message GetPromptResponse {
-  required Prompt prompt = 1;
-}
+
 
 message SearchPromptsRequest {
   reserved 2;
@@ -150,20 +145,12 @@ message CreatePromptVersionRequest {
   optional PromptVersion prompt_version = 3;
 }
 
-message CreatePromptVersionResponse {
-  required PromptVersion prompt_version = 1;
-}
-
 message UpdatePromptVersionRequest {
   // Name of the registered prompt
   optional string name = 1;
   // Prompt version number
   optional string version = 2;
   optional PromptVersion prompt_version = 3;
-}
-
-message UpdatePromptVersionResponse {
-  required PromptVersion prompt_version = 1;
 }
 
 message DeletePromptVersionRequest {
@@ -173,18 +160,11 @@ message DeletePromptVersionRequest {
   optional string version = 2;
 }
 
-message DeletePromptVersionResponse {
-}
-
 message GetPromptVersionRequest {
   // Name of the registered prompt
   optional string name = 1;
   // Prompt version number
   optional string version = 2;
-}
-
-message GetPromptVersionResponse {
-  required PromptVersion prompt_version = 1;
 }
 
 message SearchPromptVersionsRequest {
@@ -211,9 +191,6 @@ message SetPromptAliasRequest {
   optional string version = 3;
 }
 
-message SetPromptAliasResponse {
-}
-
 message DeletePromptAliasRequest {
   // Name of the prompt
   optional string name = 1;
@@ -221,18 +198,11 @@ message DeletePromptAliasRequest {
   optional string alias = 2;
 }
 
-message DeletePromptAliasResponse {
-}
-
 message GetPromptVersionByAliasRequest {
   // Name of the prompt
   optional string name = 1;
   // Name of the registered prompt alias
   optional string alias = 2;
-}
-
-message GetPromptVersionByAliasResponse {
-  required PromptVersion prompt_version = 1;
 }
 
 message SetPromptTagRequest {
@@ -244,17 +214,11 @@ message SetPromptTagRequest {
   optional string value = 3;
 }
 
-message SetPromptTagResponse {
-}
-
 message DeletePromptTagRequest {
   // Name of the prompt
   optional string name = 1;
   // Name (key) of the tag
   optional string key = 2;
-}
-
-message DeletePromptTagResponse {
 }
 
 message SetPromptVersionTagRequest {
@@ -268,9 +232,6 @@ message SetPromptVersionTagRequest {
   optional string value = 4;
 }
 
-message SetPromptVersionTagResponse {
-}
-
 message DeletePromptVersionTagRequest {
   // Name of the prompt
   optional string name = 1;
@@ -278,7 +239,4 @@ message DeletePromptVersionTagRequest {
   optional string version = 2;
   // Name (key) of the tag
   optional string key = 3;
-}
-
-message DeletePromptVersionTagResponse {
 }
