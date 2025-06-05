@@ -1180,35 +1180,28 @@ class UcModelRegistryStore(BaseRestStore):
         max_results: Optional[int] = None,
         order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
-        catalog_name: Optional[str] = None,
-        schema_name: Optional[str] = None,
     ) -> PagedList[PromptInfo]:
         """
         Search for prompts in Unity Catalog.
 
         Args:
-            filter_string: Filter string. If catalog_name/schema_name not provided separately,
-                will parse them from filter_string expecting format:
+            filter_string: Filter string that must include catalog and schema in the format:
                 "catalog = 'catalog_name' AND schema = 'schema_name'"
             max_results: Maximum number of results to return
             order_by: List of fields to order by (not used in current implementation)
             page_token: Token for pagination
-            catalog_name: Unity Catalog catalog name (for UC registries)
-            schema_name: Unity Catalog schema name (for UC registries)
         """
-        # If catalog_name/schema_name not provided as separate args, parse from filter_string
-        if catalog_name is None or schema_name is None:
-            if filter_string:
-                catalog_name, schema_name, remaining_filter = (
-                    self._parse_catalog_schema_from_filter(filter_string)
-                )
-                filter_string = remaining_filter
-            else:
-                raise MlflowException(
-                    "For Unity Catalog prompt registries, you must specify catalog and schema "
-                    "in the filter string: \"catalog = 'catalog_name' AND schema = 'schema_name'\"",
-                    INVALID_PARAMETER_VALUE,
-                )
+        # Parse catalog and schema from filter string
+        if filter_string:
+            catalog_name, schema_name, remaining_filter = self._parse_catalog_schema_from_filter(
+                filter_string
+            )
+        else:
+            raise MlflowException(
+                "For Unity Catalog prompt registries, you must specify catalog and schema "
+                "in the filter string: \"catalog = 'catalog_name' AND schema = 'schema_name'\"",
+                INVALID_PARAMETER_VALUE,
+            )
 
         # Build the request with Unity Catalog schema
         unity_catalog_schema = UnityCatalogSchema(
@@ -1217,7 +1210,7 @@ class UcModelRegistryStore(BaseRestStore):
         req_body = message_to_json(
             SearchPromptsRequest(
                 catalog_schema=unity_catalog_schema,
-                filter=filter_string,
+                filter=remaining_filter,
                 max_results=max_results,
                 page_token=page_token,
             )

@@ -508,8 +508,6 @@ class AbstractStore:
         max_results: Optional[int] = 100,
         order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
-        catalog_name: Optional[str] = None,
-        schema_name: Optional[str] = None,
     ) -> PagedList[PromptInfo]:
         """
         Search for prompts in the registry.
@@ -522,8 +520,6 @@ class AbstractStore:
             max_results: Maximum number of prompts desired.
             order_by: List of order-by clauses.
             page_token: Pagination token for requesting subsequent pages.
-            catalog_name: Catalog name (for catalog-based stores).
-            schema_name: Schema name (for catalog-based stores).
 
         Returns:
             A PagedList of PromptInfo objects.
