@@ -385,32 +385,72 @@ const sidebarsGenAI: SidebarsConfig = {
       items: [
         {
           type: 'category',
+          label: 'Version Tracking',
+          items: [
+            {
+              type: 'doc',
+              id: 'prompt-version-mgmt/version-tracking/quickstart',
+              label: 'Quickstart',
+            },
+            {
+              type: 'category',
+              label: 'Guides',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'prompt-version-mgmt/version-tracking/track-application-versions-with-mlflow',
+                },
+                {
+                  type: 'doc',
+                  id: 'prompt-version-mgmt/version-tracking/link-evaluation-results-and-traces-to-app-versions',
+                },
+                {
+                  type: 'doc',
+                  id: 'prompt-version-mgmt/version-tracking/compare-app-versions',
+                },
+                {
+                  type: 'doc',
+                  id: 'prompt-version-mgmt/version-tracking/optionally-package-app-code-and-files-for-databricks-model-serving',
+                },
+                {
+                  type: 'doc',
+                  id: 'prompt-version-mgmt/version-tracking/link-production-traces-to-app-versions'
+                },
+                {
+                  type: 'doc',
+                  id: 'prompt-version-mgmt/version-tracking/manual-tracking',
+                }
+              ]
+            }
+          ],
+          link: {
+            type: 'doc',
+            id: 'prompt-version-mgmt/version-tracking/index'
+          }
+        },
+        {
+          type: 'category',
           label: 'Prompt Registry',
           items: [
             {
               type: 'doc',
-              id: 'prompt-version-mgmt/prompt-registry/create-edit-prompts',
-              label: 'Create and Edit Prompts',
+              id: 'prompt-version-mgmt/prompt-registry/create-and-edit-prompts',
             },
             {
               type: 'doc',
-              id: 'prompt-version-mgmt/prompt-registry/app-integration',
-              label: 'Use Prompts in Apps',
+              id: 'prompt-version-mgmt/prompt-registry/evaluate-prompts',
             },
             {
               type: 'doc',
-              id: 'prompt-version-mgmt/prompt-registry/prompt-evaluation',
-              label: 'Evaluate Prompts',
+              id: 'prompt-version-mgmt/prompt-registry/manage-prompt-lifecycles-with-aliases',
             },
             {
               type: 'doc',
-              id: 'prompt-version-mgmt/prompt-registry/use-in-deployment',
-              label: 'Use Prompts in Deployed Apps',
+              id: 'prompt-version-mgmt/prompt-registry/use-prompts-in-apps',
             },
             {
               type: 'doc',
-              id: 'prompt-version-mgmt/prompt-registry/lifecycle-management',
-              label: 'Manage Prompt Lifecycles',
+              id: 'prompt-version-mgmt/prompt-registry/use-prompts-in-deployed-apps',
             },
           ],
           link: {
@@ -418,36 +458,7 @@ const sidebarsGenAI: SidebarsConfig = {
             id: 'prompt-version-mgmt/prompt-registry/index'
           }
         },
-        {
-          type: 'category',
-          label: 'Version Tracking',
-          items: [
-            {
-              type: 'doc',
-              id: 'prompt-version-mgmt/version-tracking/app-comparison',
-              label: 'Compare App Versions',
-            },
-            {
-              type: 'doc',
-              id: 'prompt-version-mgmt/version-tracking/manual-tracking',
-              label: 'Manually Version Apps',
-            },
-            {
-              type: 'doc',
-              id: 'prompt-version-mgmt/version-tracking/link-traces',
-              label: 'Link Evaluation Results and Traces to App Versions',
-            },
-            {
-              type: 'doc',
-              id: 'prompt-version-mgmt/version-tracking/track-eval-results',
-              label: 'Link Production Traces to App Versions',
-            }
-          ],
-          link: {
-            type: 'doc',
-            id: 'prompt-version-mgmt/version-tracking/index'
-          }
-        }
+        
       ]
     },
     {
