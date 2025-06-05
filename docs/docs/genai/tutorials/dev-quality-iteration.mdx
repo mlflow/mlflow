@@ -6,15 +6,15 @@ In this second part, we will build on that foundation and conduct more structure
 
 ## Setup
 
-:::info[Continuing from Part 1]
+:::info Continuing from Part 1
 
 If you are working in the same notebook/environment as the first part of the tutorial, you can skip this section. We are installing the same packages, loading the same data, and re-creating the same agent.
 
 :::
 
-:::info[Managed MLflow]
+:::info Managed MLflow
 
-For the best experience with all the features in this tutorial, we recommend using managed MLflow in Databricks. You can sign up for free [here](https://login.databricks.com/?destination_url=%2Fml%2Fexperiments-signup%3Fsource%3DTRY_MLFLOW&dbx_source=TRY_MLFLOW&signup_experience_step=EXPRESS). Not all of the features in this tutorial are currently available in the open-source version of MLflow.
+For the best experience with all the features in this tutorial, we recommend using managed MLflow in Databricks. You can sign up for free [here](https://signup.databricks.com/?destination_url=/ml/experiments-signup?source=TRY_MLFLOW&dbx_source=TRY_MLFLOW&signup_experience_step=EXPRESS). Not all of the features in this tutorial are currently available in the open-source version of MLflow.
 
 :::
 
@@ -769,7 +769,7 @@ llm_2 = OpenAI(model="gpt-4o")
 
 Now we'll run each agent configuration on all 20 evaluation questions, generating traces for each combination.
 
-:::note[Execution Setup]
+:::note Execution Setup
 
 We use `ThreadPoolExecutor` with isolated event loops as an extra precaution when running multiple agent instances sequentially. This ensures clean execution environments for each agent configuration. The key focus here is the systematic evaluation methodology—the execution setup is just being thorough about avoiding any potential conflicts.
 
@@ -833,7 +833,7 @@ In this code block, we:
 - Generate traces: Run each agent on all 20 evaluation questions, with autologging capturing each interaction as a trace
 - Evaluate traces: Apply all five scorers to the collected traces using mlflow.genai.evaluate
 
-:::tip[MLflow Models]
+:::tip MLflow Models
 
 If you worked through part 1 of this tutorial, you'll remember we talked about using `mlflow.set_active_model` to log traces, metrices, evaluations, etc., to specific models. In this case, we are setting a new active model for each model/prompt combination. This makes it easy for us to retrieve and compare the evaluation results and to keep our experiments well organized.
 
