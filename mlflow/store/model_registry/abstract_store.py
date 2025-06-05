@@ -544,8 +544,10 @@ class AbstractStore:
             page_token=page_token,
         )
 
-        # For backward compatibility with OSS registries, return RegisteredModel
-        # objects with latest_versions populated. The client-level search_prompts() expects this.
+        # Return RegisteredModel objects instead of PromptInfo objects for OSS compatibility.
+        # The ModelRegistryClient.search_prompts() method expects RegisteredModel objects with
+        # latest_versions populated so it can extract prompt templates from ModelVersion tags.
+        # Other stores may override this method to return actual PromptInfo objects.
         for rm in registered_models:
             # Ensure the registered model has latest_versions populated
             if not hasattr(rm, "latest_versions") or rm.latest_versions is None:
