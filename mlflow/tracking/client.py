@@ -581,7 +581,9 @@ class MlflowClient:
 
         # Version metadata is represented as ModelVersion tags in the registry
         version_metadata = version_metadata or {}
-        version_metadata.update({IS_PROMPT_TAG_KEY: "true", PROMPT_TEXT_TAG_KEY: template})
+        version_metadata.update(
+            {IS_PROMPT_TAG_KEY: "true", PROMPT_TEXT_TAG_KEY: template}
+        )
 
         try:
             mv: ModelVersion = registry_client.create_model_version(
@@ -2374,7 +2376,9 @@ class MlflowClient:
 
         """
         synchronous = (
-            synchronous if synchronous is not None else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
+            synchronous
+            if synchronous is not None
+            else not MLFLOW_ENABLE_ASYNC_LOGGING.get()
         )
 
         # Stringify the values of the params
@@ -2572,7 +2576,9 @@ class MlflowClient:
             with open(tmp_path, "w", encoding="utf-8") as f:
                 f.write(text)
 
-    def log_dict(self, run_id: str, dictionary: dict[str, Any], artifact_file: str) -> None:
+    def log_dict(
+        self, run_id: str, dictionary: dict[str, Any], artifact_file: str
+    ) -> None:
         """Log a JSON/YAML-serializable object (e.g. `dict`) as an artifact. The serialization
         format (JSON or YAML) is automatically inferred from the extension of `artifact_file`.
         If the file extension doesn't exist or match any of [".json", ".yml", ".yaml"],
@@ -4494,7 +4500,9 @@ class MlflowClient:
             Description: A new version of the model using ensemble trees
         """
         if description is None:
-            raise MlflowException("Attempting to update model version with no new field values.")
+            raise MlflowException(
+                "Attempting to update model version with no new field values."
+            )
 
         self._raise_if_prompt(name)
         return self._get_registry_client().update_model_version(
