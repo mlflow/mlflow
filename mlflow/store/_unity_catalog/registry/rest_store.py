@@ -5,6 +5,7 @@ import os
 import re
 import shutil
 from contextlib import contextmanager
+from dataclasses import dataclass
 from typing import Optional, Union
 
 import mlflow
@@ -167,13 +168,13 @@ _DELTA_TABLE = "delta_table"
 _MAX_LINEAGE_DATA_SOURCES = 10
 
 
+@dataclass
 class _CatalogSchemaFilter:
     """Internal class to hold parsed catalog, schema, and remaining filter."""
 
-    def __init__(self, catalog_name: str, schema_name: str, remaining_filter: Optional[str]):
-        self.catalog_name = catalog_name
-        self.schema_name = schema_name
-        self.remaining_filter = remaining_filter
+    catalog_name: str
+    schema_name: str
+    remaining_filter: Optional[str]
 
 
 def _require_arg_unspecified(arg_name, arg_value, default_values=None, message=None):

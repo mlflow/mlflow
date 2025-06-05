@@ -729,10 +729,10 @@ class AbstractStore:
         """
         # Convert version to int if needed
         try:
-            version_int = int(str(version))
-            return self.delete_model_version(name, version_int)
+            version_int = int(version)
         except (ValueError, TypeError):
             raise MlflowException(f"Invalid version number: {version}")
+        return self.delete_model_version(name, version_int)
 
     def get_prompt_version_by_alias(self, name: str, alias: str) -> Optional[Prompt]:
         """
