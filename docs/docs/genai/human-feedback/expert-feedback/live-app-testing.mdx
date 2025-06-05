@@ -1,0 +1,161 @@
+---
+description: "Learn how to use the MLflow Review App Chat UI to enable domain experts to test and provide feedback on your GenAI applications"
+last_update:
+  date: 2025-05-15
+---
+
+# Test an App Version with the Chat UI
+
+The MLflow Review App includes a built-in chat interface that allows domain experts to interactively test your GenAI application and provide immediate feedback. This interactive testing approach provides a natural way for experts to explore your application's capabilities, identify edge cases, and assess qualitative aspects like coherence, helpfulness, and factual accuracy.
+
+:::danger SCREENSHOT PLACEHOLDER
+🔴 PLACEHOLDER
+:::
+
+:::important
+Review App's chat UI only works with GenAI apps that are deployed using Agent Framework. To learn how to deploy your app with Agent Framework, follow the [author agents in code](/generative-ai/agent-framework/author-agent) guide and the [deploy agent](/generative-ai/agent-framework/deploy-agent) guide. Alternatively, follow the [Agent Framework quickstart](/generative-ai/tutorials/agent-quickstart).
+:::
+
+## When to Use Chat UI Testing
+
+Chat UI testing is ideal when:
+
+- You want experts to interact dynamically with your application
+- You need to test conversational capabilities and multi-turn interactions
+- You want to collect feedback on how well the application handles different types of questions
+- You're introducing a new version and want quick qualitative feedback
+
+## How the Chat UI Works
+
+The MLflow Review App's Chat UI connects to a deployed version of your GenAI application, allowing domain experts to:
+
+1. **Ask questions** directly in a familiar chat interface
+2. **View responses** from your application in real-time
+3. **Provide immediate feedback** on each response
+4. **Continue the conversation** to test follow-up handling
+
+All interactions and feedback are automatically logged as traces in MLflow, making it easy to review the testing session later.
+
+## Setting Up Chat UI Testing
+
+### Prerequisites
+
+- A deployable GenAI application using the Databricks Agent Framework
+- MLflow Tracing configured for your application
+- Access to the MLflow Review App
+- Appropriate permissions for the domain experts who will test your application
+
+### Permission Management for Chat UI Testing
+
+For domain experts to use the Chat UI, you need to configure the appropriate permissions:
+
+- **For experts with workspace access**: No additional configuration is required
+- **For experts without workspace access**:
+  - Users must be synced to your Databricks account with SCIM provisioning
+  - Alternatively, you can manually register these users in Databricks
+
+When you set up a Chat UI session, you must grant the appropriate permissions to the deployed agent endpoint:
+
+```python
+# PLACEHOLDER
+```
+
+### Step 1: Deploy Your Application
+
+First, deploy your application using the Databricks Agent Framework:
+
+```python
+# PLACEHOLDER
+```
+
+### Step 2: Configure the MLflow Review App
+
+Next, set up the Review App to connect to your deployed application:
+
+```python
+# PLACEHOLDER
+```
+
+### Step 3: Share the Review App URL
+
+Once configured, share the Review App URL with your domain experts. They'll be able to:
+
+1. Access the chat interface through their web browser
+2. Interact with your application by typing questions
+3. Provide feedback after each response using the built-in feedback controls
+4. Continue the conversation to test multiple interactions
+
+## Viewing and Analyzing Chat Feedback
+
+All interactions and feedback collected through the Chat UI are automatically captured as traces in MLflow.
+
+### Viewing Chat Traces
+
+To view the traces from chat interactions:
+
+1. Navigate to the MLflow UI
+2. Find the experiment associated with your Review App session
+3. Browse the traces to see the full conversation history
+4. Review the feedback attached to each response
+
+### Using Chat Feedback for Improvements
+
+Chat feedback is particularly valuable for:
+
+- Identifying specific types of questions that challenge your application
+- Understanding how well your application maintains context over multiple turns
+- Discovering edge cases and unexpected user queries
+- Assessing overall user satisfaction with your application's responses
+
+### Analyzing Chat Feedback Patterns
+
+To derive actionable insights from chat testing:
+
+```python
+# PLACEHOLDER
+```
+
+## Example: Expert Testing a Product Q&A Bot
+
+Here's how you might use the Chat UI to test a product Q&A bot:
+
+```python
+# PLACEHOLDER
+```
+
+## Troubleshooting Chat UI Testing
+
+### Common Issues
+
+- **Access denied errors**: Ensure domain experts have been granted proper permissions to the agent endpoint
+- **Agent not responding**: Verify that the agent endpoint is active and properly configured
+- **Feedback not being recorded**: Check that the Review App is correctly linked to an MLflow experiment
+- **Slow performance**: Consider optimizing your agent or upgrading the serving infrastructure
+
+### Best Practices
+
+- **Test the link before sharing**: Verify the Review App works correctly before sending to domain experts
+- **Provide clear instructions**: Help experts understand what aspects to focus on and how to provide effective feedback
+- **Set expectations**: Let experts know what types of questions the application should be able to handle
+- **Start with a small test set**: Begin with a few critical test cases before expanding testing
+- **Plan for iterative testing**: Schedule follow-up testing sessions after making improvements
+
+## Combining Chat Testing with Other Feedback Methods
+
+For comprehensive quality assessment, consider combining Chat UI testing with:
+
+- [Labeling existing traces](/genai/human-feedback/expert-feedback/label-existing-traces) for systematic review
+
+## Integration with MLflow Evaluation
+
+Chat testing sessions can serve as a source for creating evaluation datasets:
+
+1. Conduct chat testing sessions with domain experts
+2. Identify interesting examples and patterns from the feedback
+3. Use these examples to create or augment evaluation datasets
+4. Run systematic evaluations using these datasets to measure improvements
+
+## Next Steps
+
+- Learn how to [label existing traces](/genai/human-feedback/expert-feedback/label-existing-traces) for more systematic feedback collection
+- Explore [end-user feedback collection](/genai/human-feedback/user-feedback) for production applications

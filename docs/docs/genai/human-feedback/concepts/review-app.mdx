@@ -1,0 +1,203 @@
+---
+description: "Review App"
+---
+
+# Review App
+
+The review app is a built-in UI to collect feedback from domain experts. There are two main ways to use the review app:
+
+1. **Collect feedback on existing traces**: Ask experts to review existing interactions with your app to provide either [_feedback_](/mlflow3/genai/tracing/data-model#feedbacks) and [_expectations_](/mlflow3/genai/tracing/data-model#expectation).
+   - This allows you to understand what high-quality, correct responses look like for specific queries and collect input to align LLM judges with your business requirements.
+2. **Vibe check a pre-production app**: Ask experts to chat with a deployed app and provide [_feedback_](/mlflow3/genai/tracing/data-model#feedbacks) on the app's responses.
+   - This allows you to quickly get feedback on new versions of your app before deployment without impacting your production environment.
+
+![Review app preview hero image.](https://assets.docs.databricks.com/_static/images/generative-ai/review-app/review-app-hero.gif)
+
+## Comparison of modes
+
+- Source of inputs
+  - Vibe: domain expert enters themselves
+  - Label traces: from the existing traces
+- Source of outputs
+  - Vibe: the agent endpoint
+  - Label traces: from the existing traces
+- Can customize the labeling schema
+  - Vibe: no
+  - Label traces: yes
+- Labels are written to
+  - Vibe: Traces
+  - Label traces: Traces
+
+## Permissions model
+
+- Label existing traces
+  - Domain expert must be
+    - In the workspace
+    - Have WRITE access to the Experiment
+- Chat with the bot
+- Domain expert must be
+  - In the ACCOUNT (not workspace)
+  - Have QUERY permission to the endpoint
+
+## Labeling mode
+
+- how to
+  - create a labeling session
+    - link to that concept guide for more detail on what you can set
+  - you create labeling schemas to define what you what to understand
+    - link to that concept guide for more detail on what you can set
+  - you put traces in a labeling session
+    - refer to that concept page for more detail
+    - traces are copied into the labeling session
+  - you add permissions for each expert
+    - either via SDK or using mlflow experiment permissions
+  - the domain expert logs in via the URL
+    - they label
+  - access data via UI or SDK
+- API overview
+  - link to the API docs for each one
+- what can the review app render content wise
+  - retrieved docs from retiever type span are rendered in a special UI
+  - we take the input and output of the root span on the trace
+    - we render the following
+      - any dict is pretty printed
+      - if you have openai format messages in either the input or output, they are shown as chat messages
+        - tool calls in openai format are shown as messages in a special rendering
+
+## Vibe check mode
+
+- questions asked are fixed, can't change them
+- how to
+  - have an agent endpoint deployed
+  - call add_agent()
+  - set permissions for the domain experts
+  - share url
+  - traces and feedback are visible in the trace UI
+
+## Labeling Session
+
+A LabelingSession is a finite set of traces or dataset records to get labeled by an SME in the review app UI. Traces can come from inference tables for an application in production, or an offline trace in MLflow experiments. The results are stored as an MLflow run. Labels are stored as Assessments on MLflow Traces. Labels with "expectations" can be synced back to an evaluation Dataset.
+
+## Labeling Schema
+
+- document the label schema types
+
+  InputCategorical,
+  InputCategoricalList,
+  InputNumeric,
+  InputText,
+  InputTextList,
+  LabelSchema,
+  LabelSchemaType,
+
+## What happens in a human evaluation?
+
+The Databricks review app stages an environment where stakeholders can interact with it - in other words, have a conversation, ask questions, provide feedback, and so on.
+
+## Requirements
+
+- Developers must install the `databricks-agents` SDK to set up permissions and configure the review app.
+
+```
+%pip install databricks-agents
+dbutils.library.restartPython()
+```
+
+- For chat with the bot:
+  - [Inference tables](/machine-learning/model-serving/inference-tables) must be enabled on the endpoint that is serving the agent.
+- For labeling sessions:
+  - Each human reviewer must have access to the review app workspace.
+
+## Set up permissions to use the review app {#access-review-app}
+
+:::note
+
+- To chat with the bot, a human reviewer _does not_ require access to the workspace.
+- For a labeling session, a human reviewer _does_ require access to the workspace.
+
+:::
+
+### Setup permissions for "Chat with the bot"
+
+- For users who do not have access to the workspace, an account admin uses account-level SCIM provisioning to sync users and groups automatically from your identity provider to your Databricks account. You can also manually register these users and groups to give them access when you set up identities in Databricks. See [SCIM documentation](/admin/users-groups/scim/index).
+- For users who already have access to the workspace that contains the review app, no additional configuration is required.
+
+The following code example shows how to give users permission to the model that was deployed via `agents.deploy`. The `users` parameter takes a list of email addresses.
+
+```python
+from databricks import agents
+
+# Note that <user_list> can specify individual users or groups.
+agents.set_permissions(
+    model_name="<model_name>",
+    users=["<user_list>"],
+    permission_level=agents.PermissionLevel.CAN_QUERY,
+)
+```
+
+:::note
+
+To give permissions for all users in the workspace, set `users=["users"]`.
+
+:::
+
+### Setup permissions for labeling sessions
+
+Users are automatically granted the appropriate permissions (write access to an experiment and read access to a dataset) when you create a labeling session and provide the `assigned_users` argument.
+
+{/* For more info, see [\_](#create-a-labeling-session-and-send-for-review) below. */}
+
+## Create a review app
+
+### Automatically using `agents.deploy()`
+
+When you deploy a gen AI app using `agents.deploy()`, the review app is automatically enabled and deployed. The output from the command shows the URL for the review app. For information about deploying gen AI app (also called an "agent"), see [Agent Framework deployment documentation](https://docs.databricks.com/aws/en/generative-ai/agent-framework/deploy-agent).
+
+:::note
+
+The agent does not show up in the review app UI until the endpoint is fully deployed.
+
+:::
+
+![Link to review app from notebook command output.](/images/genai/human-feedback/review-app-link.png)
+
+If you lose the link to the review app UI, you can find it using `get_review_app()`.
+
+```python
+import mlflow
+from databricks.agents import review_app
+
+# The review app is tied to the current MLflow experiment.
+mlflow.set_experiment("same_exp_used_to_deploy_the_agent")
+my_app = review_app.get_review_app()
+print(my_app.url)
+print(my_app.url + "/chat")  # For "Chat with the bot".
+```
+
+### Manually using the Python API
+
+The code snippet below demonstrates how to create a review app and associate it with a model serving
+endpoint for chatting with the bot. For creating labeling sessions, see
+
+```python
+from databricks.agents import review_app
+
+# The review app is tied to the current MLflow experiment.
+my_app = review_app.get_review_app()
+
+# TODO: Replace with your own serving endpoint.
+my_app.add_agent(
+    agent_name="llama-70b",
+    model_serving_endpoint="databricks-meta-llama-3-3-70b-instruct",
+)
+print(my_app.url + "/chat")  # For "Chat with the bot".
+```
+
+## Troubleshooting Labeling Sessions
+
+### Common Issues
+
+- **Permission errors**: Ensure domain experts have proper workspace access
+- **Missing traces**: Verify that traces were correctly added to the session
+- **Schema issues**: Check that labeling schemas are correctly defined
+- **UI problems**: Ensure the MLflow experiment is properly configured

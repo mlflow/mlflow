@@ -1,0 +1,137 @@
+---
+description: "Learn how to collect and manage feedback from end-users of your deployed GenAI applications"
+---
+
+# Collecting End User Feedback
+
+End-user feedback is invaluable for understanding how your GenAI application performs in real-world scenarios. MLflow provides tools to capture, store, and analyze feedback directly from the users of your deployed applications.
+
+## Why Collect End-User Feedback
+
+Gathering feedback from actual users provides insights that development and testing environments can't replicate:
+
+- **Real-world usage patterns**: Understand how users actually interact with your application
+- **Unexpected edge cases**: Identify queries and scenarios you didn't anticipate
+- **Overall satisfaction**: Gauge how well your application meets user expectations
+- **Iterative improvement**: Use direct user input to guide enhancements
+
+## Implementing End-User Feedback Collection
+
+### Prerequisites
+
+- Your application is instrumented with MLflow Tracing
+- Your application has a deployed interface where users can interact with it
+
+### Step 1: Add Feedback UI Elements to Your Application
+
+First, add appropriate UI elements to collect feedback from users. Common feedback mechanisms include:
+
+- 👍/👎 thumbs up/down buttons
+- Star ratings (1-5 stars)
+- Free-text comment fields
+- Specific feedback questions relevant to your application
+
+### Step 2: Log Feedback Using the MLflow API
+
+When a user provides feedback, use the `log_feedback` API to associate it with the specific trace that generated the response:
+
+```python
+# PLACEHOLDER
+```
+
+The key parameters for `log_feedback` are:
+
+- `trace_id`: The identifier for the trace associated with the interaction
+- `key`: A label for the type of feedback being provided (e.g., "thumbs_up_down", "rating", "comment")
+- `value`: The actual feedback value (e.g., "positive", 4, "The answer was helpful but missed some context")
+
+### Step 3: View and Analyze Feedback
+
+Feedback is stored as `Assessment` objects attached directly to traces. You can:
+
+1. **View individual feedback** in the MLflow Trace UI alongside the specific trace
+2. **Filter traces by feedback** to identify patterns (e.g., find all traces with negative feedback)
+3. **Export feedback data** for deeper analysis or to incorporate into evaluation datasets
+
+## Example: Implementing User Feedback in a Chat Application
+
+Here's how you might add feedback collection to a chat-based GenAI application:
+
+```python
+# PLACEHOLDER
+```
+
+## Using End-User Feedback to Improve Your Application
+
+End-user feedback is most valuable when it becomes part of your continuous improvement process:
+
+1. **Collect feedback** from users interacting with your application
+2. **Identify patterns** in negative feedback to prioritize improvements
+3. **Create evaluation datasets** from problematic examples
+4. **Test improvements** against these datasets
+5. **Deploy enhanced versions** and continue collecting feedback
+
+### Analyzing Feedback Patterns
+
+To effectively analyze user feedback patterns:
+
+```python
+# PLACEHOLDER
+```
+
+Common patterns to look for:
+
+- Questions that consistently receive negative feedback
+- Topics where users frequently provide corrections
+- Changes in feedback ratings over time (e.g., after updates)
+- Differences in feedback across user segments
+
+## Advanced Feedback Collection
+
+### Customizing Feedback Schemas
+
+You can define custom feedback schemas based on your application's specific needs:
+
+```python
+# PLACEHOLDER
+```
+
+### Collecting Implicit Feedback
+
+In addition to explicit feedback (ratings, comments), consider collecting implicit feedback:
+
+- **Time spent**: How long users engage with responses
+- **Follow-up questions**: Whether users need to ask for clarification
+- **Actions taken**: Whether users act on the information provided
+
+## Providing Feedback on Deployed Agents
+
+When you deploy an application using the Databricks Agent Framework with `agents.deploy()`, a feedback endpoint is automatically created. This allows you to collect structured feedback related to specific interactions:
+
+```python
+# PLACEHOLDER
+```
+
+The feedback collected this way appears as request rows in the inference table associated with your agent endpoint, making it easy to analyze alongside other operational metrics.
+
+## Troubleshooting Feedback Collection
+
+### Common Issues
+
+- **Missing trace IDs**: Ensure you're capturing and storing the trace_id from the original interaction
+- **Permission errors**: Verify that your application has the necessary permissions to log feedback
+- **Feedback not appearing**: Check that the trace_id is valid and that feedback was properly submitted
+- **Inconsistent data**: Ensure feedback values conform to your schema's expected types
+
+### Best Practices for Reliable Feedback Collection
+
+- **Store trace IDs with responses**: Always associate and store trace IDs with responses shown to users
+- **Validate feedback before submission**: Check that feedback is properly formatted before sending
+- **Implement retry logic**: Add retry mechanisms for network failures during feedback submission
+- **Monitor feedback collection**: Set up alerts for drops in feedback volume or quality
+- **Provide clear user instructions**: Help users understand what kind of feedback is most valuable
+
+## Next Steps
+
+- Learn about [developer annotations](/mlflow3/genai/human-feedback/dev-annotations) during development
+- Explore [domain expert feedback collection](/mlflow3/genai/human-feedback/expert-feedback/label-existing-traces) for more detailed quality assessments

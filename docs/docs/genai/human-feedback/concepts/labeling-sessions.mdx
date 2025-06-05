@@ -1,0 +1,69 @@
+---
+description: "Understand MLflow Labeling Sessions for collecting expert feedback on GenAI app traces and curating evaluation datasets."
+---
+
+# Labeling Sessions
+
+## Overview
+
+Labeling Sessions provide a structured way to gather feedback from domain experts on the behavior of your GenAI applications. A Labeling Session is a special type of MLflow Run that contains a specific set of traces that you want an domain expert to review using the MLflow Review App.
+
+The goal of a Labeling Session is to collect human-generated [`Assessments`](/genai/tracing/data-model#assessments) (labels) on existing [MLflow Traces](/genai/tracing/index). You can capture either [`Feedback`](/genai/tracing/data-model#feedbacks) or [`Expectations`](/genai/tracing/data-model#expectation).
+
+These assessments can capture various aspects of an application's output, such as correctness, relevance, or adherence to guidelines. If the labels include `Expectations` (i.e., what the desired output should have been), they can be [synchronized](/genai/eval-monitor/build-eval-dataset) back into an [Evaluation Dataset](/genai/eval-monitor/build-eval-dataset#creating-a-dataset-from-domain-expert-feedback), which can then be used to systematically [evaluate and improve](/genai/eval-monitor/evaluate-app) your GenAI app.
+
+:::note
+Since a Labeling Session is an MLflow Run, the collected data (traces and their associated `Assessments`) can be accessed programmatically using MLflow SDKs (e.g., `mlflow.search_traces()`) and visualized within the MLflow UI - each Labeling Session appears in the **Evaluations** tab.
+:::
+
+## Managing Labeling Sessions
+
+You can manage Labeling Sessions programmatically using the `mlflow.genai.labeling` SDK.
+
+:::danger TODO
+🔴 PLACEHOLDER
+:::
+
+### Creating a Labeling Session
+
+You can initiate a new Labeling Session, giving it a name and optionally assigning specific users who will be responsible for labeling the items. You can also link an agent (your GenAI app) to the session if responses need to be generated for the items being labeled. Label schemas, which define the questions and format for feedback, can also be specified. This is done using the `mlflow.genai.labeling.create_labeling_session()` function.
+
+Key parameters for creation include:
+
+- `name`: A descriptive name for the session.
+- `assigned_users`: A list of users assigned to perform the labeling.
+- `agent`: The GenAI app/agent to be used if responses need to be generated.
+- `label_schemas`: Defines the structure of the feedback to be collected. See [Labeling Schemas](/genai/human-feedback/concepts/labeling-schemas) for more details.
+- `enable_multi_turn_chat`: Allows for labeling of multi-turn chat conversations.
+
+### Retrieving Labeling Sessions
+
+You can list all existing Labeling Sessions or fetch a specific session by its name. This allows you to monitor ongoing labeling efforts or access past sessions. Use `mlflow.genai.labeling.get_labeling_sessions()` to list all sessions, or `mlflow.genai.labeling.get_labeling_session()` to retrieve a specific session by its name.
+
+### Deleting a Labeling Session
+
+If a Labeling Session is no longer needed, it can be deleted. This will remove the session from the Review App. This operation is performed using the `mlflow.genai.labeling.delete_labeling_session()` function, which requires the `LabelingSession` object to be deleted.
+
+## Adding Data to a Labeling Session
+
+Once a Labeling Session is created, you need to populate it with traces for review. A `LabelingSession` object, typically obtained from `mlflow.genai.labeling.create_labeling_session()` or `mlflow.genai.labeling.get_labeling_session()`, provides the `LabelingSession.add_traces()` method to directly add MLflow Traces to a session. These can be provided as a list of `mlflow.entities.Trace` objects, their JSON string representations, or a pandas DataFrame containing a 'trace' column (similar to the output of `mlflow.search_traces()`). The traces will be copied to the Labeling Session's underlying MLflow Run.
+
+## Syncing to a Dataset
+
+A powerful feature is the ability to synchronize each trace's `inputs` and (if present) the attached [`Expectations`](/genai/tracing/data-model#expectation) collected during a Labeling Session to an [Evaluation Dataset](/genai/eval-monitor/build-eval-dataset#creating-a-dataset-from-domain-expert-feedback).
+
+This dataset can then be used with `mlflow.genai.evaluate()` to rigorously test and improve your GenAI application against human-defined ground truth. This is performed by calling the `LabelingSession.sync_expectations()` method on your session object, specifying the name of the target dataset.
+
+The `sync_expectations` operation will iterate through the traces in the Labeling Session and
+
+1.  If present, convert assessments that represent expectations into a structured format.
+2.  Upsert the traces and (if present) expectations into the specified target dataset.
+    - For existing traces in the the dataset with the same input as the trace in the Labeling Session, the record will be updated rather than a new record inserted.
+
+## Managing Assigned Users
+
+You can add users assigned to a Labeling Session after its creation. This is useful if team responsibilities change or if you need to add more reviewers. To do this, call the `LabelingSession.set_assigned_users()` method on your session object. This method will grant the users the necessary permissions (`WRITE` on the MLflow Experiment containing the Labeling Session). Added users must be in the Databricks Workspace.
+
+## Summary
+
+MLflow Labeling Sessions streamline the process of collecting expert human feedback on your GenAI applications. By integrating with MLflow Runs, Traces, and the Review App, they provide a robust framework for curating high-quality labeled data, which is essential for understanding application performance and driving iterative improvements through evaluation.

@@ -1,0 +1,227 @@
+---
+description: "Learn how to use MLflow Review App to collect structured feedback from domain experts by having them review and label existing GenAI application traces for quality improvement."
+---
+
+# Collect domain expert feedback
+
+One of the most effective ways to improve your GenAI application is to have domain experts review and label existing traces. MLflow's Review App provides a structured process for collecting this expert feedback on real interactions with your application.
+
+![Review app preview hero image.](https://assets.docs.databricks.com/_static/images/generative-ai/review-app/review-app-hero.gif)
+
+## Prerequisites
+
+- Your development environment is connected to the [MLflow Experiment](/genai/data-model/experiments) where your GenAI application traces are logged.
+  - Follow the [tracing quickstart](/genai/getting-started/tracing/tracing-ide) to connect your development environment.
+- Your domain experts must have access to the Databricks workspace that contains the MLflow Experiment.
+
+:::note
+The features described in this guide require MLflow version 3.1.0 or higher.
+:::
+
+Run the following command to install or upgrade the MLflow SDK, including extras needed for Databricks integration:
+
+```bash
+pip install --upgrade "mlflow[databricks]>=3.1.0"
+```
+
+## Overview
+
+### Step 1: Create an app with Tracing
+
+Before you can collect feedback, you need to have traces logged from your GenAI application. These traces capture the inputs, outputs, and intermediate steps of your application's execution, including any tool calls or retriever actions.
+
+Below is an example of how you might log traces. This example includes a fake retriever so we can illustrate how the retrieved documents in the traces are rendered in the Review App. See the [Review App overview](/genai/human-feedback/concepts/review-app) for more information about how Review App renders traces.
+
+```python
+import os
+import mlflow
+from openai import OpenAI
+from mlflow.entities import Document
+from typing import List, Dict
+
+# Enable auto instrumentation for OpenAI SDK
+mlflow.openai.autolog()
+
+# Connect to a Databricks LLM via OpenAI using the same credentials as MLflow
+# Alternatively, you can use your own OpenAI credentials here
+mlflow_creds = mlflow.utils.databricks_utils.get_databricks_host_creds()
+client = OpenAI(
+    api_key=mlflow_creds.token, base_url=f"{mlflow_creds.host}/serving-endpoints"
+)
+
+
+# Spans of type RETRIEVER are rendered in the Review App as documents.
+@mlflow.trace(span_type="RETRIEVER")
+def retrieve_docs(query: str) -> List[Document]:
+    normalized_query = query.lower()
+    if "john doe" in normalized_query:
+        return [
+            Document(
+                id="conversation_123",
+                page_content="John Doe mentioned issues with login on July 10th. Expressed interest in feature X.",
+                metadata={"doc_uri": "http://domain.com/conversations/123"},
+            ),
+            Document(
+                id="conversation_124",
+                page_content="Follow-up call with John Doe on July 12th. Login issue resolved. Discussed pricing for feature X.",
+                metadata={"doc_uri": "http://domain.com/conversations/124"},
+            ),
+        ]
+    else:
+        return [
+            Document(
+                id="ticket_987",
+                page_content="Acme Corp raised a critical P0 bug regarding their main dashboard on July 15th.",
+                metadata={"doc_uri": "http://domain.com/tickets/987"},
+            )
+        ]
+
+
+# Sample app that we will review traces from
+@mlflow.trace
+def my_app(messages: List[Dict[str, str]]):
+    # 1. Retrieve conversations based on the last user message
+    last_user_message_content = messages[-1]["content"]
+    retrieved_documents = retrieve_docs(query=last_user_message_content)
+    retrieved_docs_text = "\n".join([doc.page_content for doc in retrieved_documents])
+
+    # 2. Prepare messages for the LLM
+    messages_for_llm = [
+        {"role": "system", "content": "You are a helpful assistant!"},
+        {
+            "role": "user",
+            "content": f"Additional retrieved context:\n{retrieved_docs_text}\n\nNow, please provide the one-paragraph summary based on the user's request {last_user_message_content} and this retrieved context.",
+        },
+    ]
+
+    # 3. Call LLM to generate the summary
+    return client.chat.completions.create(
+        model="databricks-claude-3-7-sonnet",  # This example uses Databricks hosted Claude-3-7-Sonnet. If you provide your own OpenAI credentials, replace with a valid OpenAI model e.g., gpt-4o, etc.
+        messages=messages_for_llm,
+    )
+```
+
+### Step 2: Define Labeling Schemas
+
+Labeling schemas define the questions and input types that domain experts will use to provide feedback on your traces. You can use MLflow's built-in schemas or create custom ones tailored to your specific evaluation criteria.
+
+There are two main types of labeling schemas:
+
+- **Expectation Type (`type="expectation"`)**: Used when the expert provides a "ground truth" or a correct answer. For example, providing the `expected_facts` for a RAG system's response. These labels can often be directly used in evaluation datasets.
+- **Feedback Type (`type="feedback"`)**: Used for subjective assessments, ratings, or classifications. For example, rating a response on a scale of 1-5 for politeness, or classifying if a response met certain criteria.
+
+See the [Labeling Schemas documentation](/genai/human-feedback/concepts/labeling-schemas) to understand the various input methods for your schemas, such as categorical choices (radio buttons), numeric scales, or free-form text.
+
+```python
+from mlflow.genai.label_schemas import create_label_schema, InputCategorical, InputText
+
+# Collect feedback on the summary
+summary_quality = create_label_schema(
+    name="summary_quality",
+    type="feedback",
+    title="Is this summary concise and helpful?",
+    input=InputCategorical(options=["Yes", "No"]),
+    instruction="Please provide a rationale below.",
+    enable_comment=True,
+    overwrite=True,
+)
+
+# Collect a ground truth summary
+expected_summary = create_label_schema(
+    name="expected_summary",
+    type="expectation",
+    title="Please provide the correct summary for the user's request.",
+    input=InputText(),
+    overwrite=True,
+)
+```
+
+### Step 3: Create a Labeling Session
+
+A Labeling Session is a special type of MLflow Run organizes a set of traces for review by specific experts using selected labeling schemas. It acts as a queue for the review process.
+
+See the [Labeling Session documentation](/genai/human-feedback/concepts/labeling-sessions) for more details.
+
+Here's how to create a labeling session:
+
+```python
+from mlflow.genai.labeling import create_labeling_session
+
+# Create the Labeling Session with the schemas we created in the previous step
+label_summaries = create_labeling_session(
+    name="label_summaries",
+    assigned_users=[],
+    label_schemas=[summary_quality.name, expected_summary.name],
+)
+```
+
+### Step 4: Generate traces and add to the Labeling Session
+
+Once your labeling session is created, you need to add traces to it. Traces are copied into the labeling session, so any labels or modifications made during the review process do not affect your original logged traces.
+
+You can add any trace in your MLflow Experiment. See the [Labeling Session documentation](/genai/human-feedback/concepts/labeling-sessions) for more details.
+
+:::note
+Once the traces are generated, you can also add them to the Labeling Session by selecting the traces in the Trace tab, clicking **Export Traces**, and then selecting the Labeling Session you created above.
+:::
+
+```python
+import mlflow
+
+# Use version tracking to be able to easily query for the traces
+tracked_model = mlflow.set_active_model(name="my_app")
+
+# Run the app to generate traces
+sample_messages_1 = [
+    {"role": "user", "content": "what issues does john doe have?"},
+]
+summary1_output = my_app(sample_messages_1)
+
+sample_messages_2 = [
+    {"role": "user", "content": "what issues does acme corp have?"},
+]
+summary2_output = my_app(sample_messages_2)
+
+# Query for the traces we just generated
+traces = mlflow.search_traces(model_id=tracked_model.model_id)
+
+# Add the traces to the session
+label_summaries.add_traces(traces)
+
+# Print the URL to share with your domain experts
+print(f"Share this Review App with your team: {label_summaries.url}")
+```
+
+### Step 5: Share the Review App with Experts
+
+Once your labeling session is populated with traces, you can share its URL with your domain experts. They can use this URL to access the Review App, view the traces assigned to them (or pick from unassigned ones), and provide feedback using the labeling schemas you configured.
+
+:::important
+Your domain experts need to have access to the Databricks Workspace and `WRITE` permissions to the MLflow Experiment.
+:::
+
+### Step 6: View and Use Collected Labels
+
+After your domain experts have completed their reviews, the collected feedback is attached to the traces within the labeling session. You can retrieve these labels programmatically to analyze them or use them to create evaluation datasets.
+
+Labels are stored as `Assessment` objects on each Trace within the Labeling Session.
+
+#### Use the MLflow UI
+
+:::danger TODO
+🔴 PLACEHOLDER
+:::
+
+#### Use the MLflow SDK
+
+This code sample will show you how to fetch all traces from the labeling session's run and extract the assessments (labels) into a Pandas DataFrame for easier analysis.
+
+```python
+# PLACEHOLDER
+```
+
+## Next Steps
+
+### Converting to Evaluation Datasets
+
+Labels of "expectation" type (e.g., `expected_summary` from our example) are particularly useful for creating [Evaluation Datasets](/genai/eval-monitor/build-eval-dataset). These datasets can then be used with `mlflow.genai.evaluate()` to systematically test new versions of your GenAI application against expert-defined ground truth.

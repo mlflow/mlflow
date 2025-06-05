@@ -1,0 +1,63 @@
+---
+description: "Learn how to add quality annotations to GenAI application traces during development"
+---
+
+# Labeling during development
+
+As a developer building GenAI applications, you need a way to track your observations about the quality of your application's outputs. [MLflow Tracing](/genai/tracing/index) allows you to add feedback or expectations directly to traces during development, giving you a quick way to record quality issues, mark successful examples, or add notes for future reference.
+
+## Prerequisites
+
+- Your application is instrumented with [MLflow Tracing](/genai/tracing/index)
+- You have generated traces by running your application
+
+## Add labels to traces via the UI
+
+MLflow makes it easy to add annotations (labels) directly to traces through the MLflow UI.
+
+:::note
+If you are using a Databricks Notebook, you can also perform these steps from the Trace UI that renders inline in the notebook.
+:::
+
+1. Navigate to the Traces tab in the MLflow Experiment UI
+2. Open an individual trace
+3. Within the trace UI, click on the specific span you want to label
+   - Selecting the root span attaches feedback to the entire trace
+4. Expand the Assessments tab at the far right
+5. Fill in the form to add your feedback
+   - **Assessment Type**
+     - _Feedback_: Subjective assessment of quality (ratings, comments)
+     - _Expectation_: The expected output or value (what should have been produced)
+   - **Assessment Name**
+     - A unique name for what the feedback is about
+   - **Data Type**
+     - Number
+     - Boolean
+     - String
+   - **Value**
+     - Your assessment
+   - **Rationale**
+     - Optional notes about the value
+6. Click **Create** to save your label
+7. When you return to the Traces tab, your label will appear as a new column
+
+:::danger SCREENSHOT PLACEHOLDER
+🔴 TODO GIF of the above
+:::
+
+## Add labels to traces via the SDK
+
+:::danger TODO
+🔴 code snippet
+:::
+
+```python
+# - query for the trace via search_traces or get it directly by ID
+# - use log_feedback
+# - use log_assessment
+```
+
+## Next Steps
+
+- Learn how to [collect end-user feedback](/genai/human-feedback/user-feedback) from your deployed application
+- Explore how to [create labeling sessions](/genai/human-feedback/expert-feedback/label-existing-traces) for domain experts to provide more structured feedback
