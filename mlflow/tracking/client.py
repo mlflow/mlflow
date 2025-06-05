@@ -670,6 +670,16 @@ class MlflowClient:
             name = name_or_uri
 
         registry_client = self._get_registry_client()
+        
+        # Unity Catalog uses native prompt APIs
+        if is_databricks_unity_catalog_uri(self._registry_uri):
+            try:
+                return registry_client.get_prompt(name, str(version) if version is not None else None)
+            except MlflowException as exc:
+                if allow_missing and exc.error_code == "RESOURCE_DOES_NOT_EXIST":
+                    return None
+                raise
+        
         try:
             mv = (
                 registry_client.get_latest_versions(name, stages=ALL_STAGES)[0]
@@ -683,7 +693,6 @@ class MlflowClient:
 
         # Fetch the prompt-level tags from the registered model
         prompt_tags = registry_client.get_registered_model(name)._tags
-
         return Prompt.from_model_version(mv, prompt_tags=prompt_tags)
 
     @deprecated(
