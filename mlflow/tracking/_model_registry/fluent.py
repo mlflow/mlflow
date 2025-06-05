@@ -26,7 +26,7 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import active_run
 from mlflow.utils import get_results_from_paginated_fn, mlflow_tags
-from mlflow.utils.annotations import experimental
+from mlflow.utils.annotations import deprecated, experimental
 from mlflow.utils.databricks_utils import (
     _construct_databricks_uc_registered_model_url,
     get_workspace_id,
@@ -673,11 +673,17 @@ def load_prompt(
     return prompt
 
 
+@deprecated(
+    since="3.0", 
+    alternative="delete_prompt_version",
+)
 @experimental
 @require_prompt_registry
 def delete_prompt(name: str, version: int) -> Prompt:
     """
     Delete a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
+
+    .. Warning:: This function is deprecated since MLflow 3.0. Use ``delete_prompt_version`` instead which provides consistent version-based deletion across all registry backends.
 
     Args:
         name: The name of the prompt.

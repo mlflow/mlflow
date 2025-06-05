@@ -686,6 +686,10 @@ class MlflowClient:
 
         return Prompt.from_model_version(mv, prompt_tags=prompt_tags)
 
+    @deprecated(
+        since="3.0", 
+        alternative="delete_prompt_version",
+    )
     @experimental
     @require_prompt_registry
     @translate_prompt_exception
@@ -693,9 +697,11 @@ class MlflowClient:
         """
         Delete a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
 
+        .. Warning:: This method is deprecated. Use ``delete_prompt_version`` instead which provides consistent version-based deletion across all registry backends.
+
         Args:
             name: The name of the prompt.
-            version: (Deprecated) The version of the prompt to delete. 
+            version: The version of the prompt to delete. 
                 - Unity Catalog: Only supports deleting entire prompt (don't specify version)
                 - OSS: Requires explicit version to delete specific version
                 
@@ -704,12 +710,14 @@ class MlflowClient:
                     For Unity Catalog, use delete_prompt(name) without version parameter.
 
         Examples:
-            # Unity Catalog - delete entire prompt (recommended)
+            # Unity Catalog - delete entire prompt (deprecated)
             client.delete_prompt("rohit.default.my_prompt")
             
-            # OSS - delete specific version (deprecated, use delete_prompt_version instead)
-            client.delete_prompt("my_prompt", version=1)  # deprecated
-            client.delete_prompt_version("my_prompt", "1")  # preferred
+            # OSS - delete specific version (deprecated)
+            client.delete_prompt("my_prompt", version=1)
+            
+            # RECOMMENDED - Use version-based deletion
+            client.delete_prompt_version("my_prompt", "1")
         """
         registry_client = self._get_registry_client()
 
