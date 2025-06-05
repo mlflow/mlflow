@@ -839,6 +839,6 @@ MLFLOW_LOCK_MODEL_DEPENDENCIES = _BooleanEnvironmentVariable(
 #: If specified, tracking server rejects model `/mlflow/model-versions/create` requests with
 #: a source that does not match the specified regular expression.
 #: (default: ``None``).
-MLFLOW_CREATE_MODEL_VERSION_SOURCE_REGEX = _EnvironmentVariable(
-    "MLFLOW_CREATE_MODEL_VERSION_SOURCE_REGEX", str, None
+MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX = _EnvironmentVariable(
+    "MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX", str, None
 )

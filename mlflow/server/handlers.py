@@ -39,7 +39,7 @@ from mlflow.entities.multipart_upload import MultipartUploadPart
 from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
-    MLFLOW_CREATE_MODEL_VERSION_SOURCE_REGEX,
+    MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX,
     MLFLOW_DEPLOYMENTS_TARGET,
 )
 from mlflow.exceptions import MlflowException, _UnsupportedMultipartUploadException
@@ -1977,7 +1977,9 @@ def _create_model_version():
         },
     )
 
-    if request_message.source and (regex := MLFLOW_CREATE_MODEL_VERSION_SOURCE_REGEX.get()):
+    if request_message.source and (
+        regex := MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX.get()
+    ):
         if not re.search(regex, request_message.source):
             raise MlflowException(
                 f"Invalid model version source: '{request_message.source}'. ",
