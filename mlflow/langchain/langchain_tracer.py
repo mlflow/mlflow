@@ -439,7 +439,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         # We don't use inputs here because LangChain override the original inputs
         # with None for some cases. In order to avoid losing the original inputs,
         # we try to parse the input_str instead.
-        # https://github.com/langchain-ai/langchain/blob/master/libs/core/langchain_core/tools/base.py#L636-L640
+        # https://github.com/langchain-ai/langchain/blob/32917a0b98cb8edcfb8d0e84f0878434e1c3f192/libs/core/langchain_core/tools/base.py#L636-L640
         inputs: Optional[dict[str, Any]] = None,
         **kwargs: Any,
     ):
