@@ -253,7 +253,7 @@ def log_feedback(
     name: str = DEFAULT_FEEDBACK_NAME,
     value: Optional[FeedbackValueType] = None,
     source: Optional[AssessmentSource] = None,
-    error: Optional[Union[Expectation, AssessmentError]] = None,
+    error: Optional[Union[Exception, AssessmentError]] = None,
     rationale: Optional[str] = None,
     metadata: Optional[dict[str, Any]] = None,
     span_id: Optional[str] = None,
@@ -281,7 +281,7 @@ def log_feedback(
                 CODE source type
         error: An error object representing any issues encountered while computing the
             feedback, e.g., a timeout error from an LLM judge. Accepts an exception
-            object, or an :py:class:`~mlflow.entities.Expectation` object. Either
+            object, or an :py:class:`~mlflow.entities.AssessmentError` object. Either
             this or `value` must be provided.
         rationale: The rationale / justification for the feedback.
         metadata: Additional metadata for the feedback.
@@ -291,7 +291,6 @@ def log_feedback(
     Returns:
         :py:class:`~mlflow.entities.Assessment`: The created feedback assessment.
     """
-
     assessment = Feedback(
         name=name,
         source=source,
