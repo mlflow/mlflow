@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from typing import Any, Optional, Union
 from mlflow.genai.scorers.base import Scorer
 from mlflow.utils.annotations import experimental
@@ -9,7 +10,8 @@ _ERROR_MSG = (
 
 
 @experimental
-class ScheduledScorer:
+@dataclass(kw_only=True)
+class ScorerScheduleConfig:
     """
     A scheduled scorer configuration for automated monitoring of generative AI applications.
 
@@ -24,10 +26,12 @@ class ScheduledScorer:
     identify quality issues in production.
 
     Args:
-        scorer_fn: The scorer function to run on sampled traces. Must be either a built-in
+        scorer: The scorer function to run on sampled traces. Must be either a built-in
             scorer (e.g., Safety, Correctness) or a function decorated with @scorer.
             Subclasses of Scorer are not supported.
-        scorer_name: A unique name for this scheduled scorer configuration.
+        scheduled_scorer_name: The name for this scheduled scorer configuration within the experiment.
+            This name must be unique among all scheduled scorers in the same experiment.
+            We recommend using the scorer's name (e.g., scorer.name) for consistency.
         sample_rate: The fraction of traces to evaluate, between 0.0 and 1.0. For example,
             0.1 means 10% of traces will be randomly selected for evaluation.
         filter_string: An optional MLflow search_traces compatible filter string to apply
@@ -38,12 +42,12 @@ class ScheduledScorer:
         .. code-block:: python
 
             from mlflow.genai.scorers import Safety, scorer
-            from mlflow.genai.scheduled_scorers import ScheduledScorer
+            from mlflow.genai.scheduled_scorers import ScorerScheduleConfig
 
             # Using a built-in scorer
-            safety_config = ScheduledScorer(
-                scorer_fn=Safety(),
-                scorer_name="production_safety",
+            safety_config = ScorerScheduleConfig(
+                scorer=Safety(),
+                scheduled_scorer_name="production_safety",
                 sample_rate=0.2,  # Evaluate 20% of traces
                 filter_string="trace.status = 'OK'",
             )
@@ -55,9 +59,9 @@ class ScheduledScorer:
                 return len(str(outputs)) > 100
 
 
-            length_config = ScheduledScorer(
-                scorer_fn=response_length,
-                scorer_name="adequate_length",
+            length_config = ScorerScheduleConfig(
+                scorer=response_length,
+                scheduled_scorer_name="adequate_length",
                 sample_rate=0.1,  # Evaluate 10% of traces
                 filter_string="trace.status = 'OK'",
             )
@@ -69,30 +73,23 @@ class ScheduledScorer:
         logged to individual runs within the experiment are not evaluated.
     """
 
-    def __init__(
-        self,
-        *,
-        scorer_fn: Scorer,
-        scorer_name: str,
-        sample_rate: float,
-        filter_string: Optional[str] = None,
-    ):
-        self.scorer_fn = scorer_fn
-        self.scorer_name = scorer_name
-        self.sample_rate = sample_rate
-        self.filter_string = filter_string
+    scorer: Scorer
+    scheduled_scorer_name: str
+    sample_rate: float
+    filter_string: Optional[str] = None
 
 
 # Scheduled Scorer CRUD operations
 @experimental
 def add_scheduled_scorer(
     *,
-    scorer_name: str,
-    scorer_fn: Scorer,
+    scheduled_scorer_name: str,
+    scorer: Scorer,
     sample_rate: float,
     filter_string: Optional[str] = None,
     experiment_id: Optional[str] = None,
-) -> ScheduledScorer:
+    **kwargs,
+) -> ScorerScheduleConfig:
     """
     Add a scheduled scorer to automatically monitor traces in an MLflow experiment.
 
@@ -101,9 +98,9 @@ def add_scheduled_scorer(
     and any filter criteria. Assessments are displayed in the Traces tab of the MLflow experiment.
 
     Args:
-        scorer_name: A unique name for this scheduled scorer within the experiment.
-            We recommend using the scorer's name (e.g., scorer_fn.name) for consistency.
-        scorer_fn: The scorer function to execute on sampled traces. Must be either a
+        scheduled_scorer_name: The name for this scheduled scorer within the experiment.
+            We recommend using the scorer's name (e.g., scorer.name) for consistency.
+        scorer: The scorer function to execute on sampled traces. Must be either a
             built-in scorer or a function decorated with @scorer. Subclasses of Scorer
             are not supported.
         sample_rate: The fraction of traces to evaluate, between 0.0 and 1.0. For example,
@@ -115,7 +112,7 @@ def add_scheduled_scorer(
             currently active experiment.
 
     Returns:
-        A ScheduledScorer object representing the configured scheduled scorer.
+        A ScorerScheduleConfig object representing the configured scheduled scorer.
 
     Example:
         .. code-block:: python
@@ -129,16 +126,16 @@ def add_scheduled_scorer(
 
             # Add a safety scorer to monitor 50% of traces
             safety_scorer = add_scheduled_scorer(
-                scorer_name="safety_monitor",
-                scorer_fn=Safety(),
+                scheduled_scorer_name="safety_monitor",
+                scorer=Safety(),
                 sample_rate=0.5,
                 filter_string="trace.status = 'OK'",
             )
 
             # Add a correctness scorer with different sampling
             correctness_scorer = add_scheduled_scorer(
-                scorer_name="correctness_monitor",
-                scorer_fn=Correctness(),
+                scheduled_scorer_name="correctness_monitor",
+                scorer=Correctness(),
                 sample_rate=0.2,  # More expensive, so lower sample rate
                 experiment_id=experiment.experiment_id,  # Explicitly specify experiment
             )
@@ -153,39 +150,46 @@ def add_scheduled_scorer(
         from databricks.agents.scorers import add_scheduled_scorer
     except ImportError as e:
         raise ImportError(_ERROR_MSG) from e
-    return add_scheduled_scorer(experiment_id, scorer_name, scorer_fn, sample_rate, filter_string)
+    return add_scheduled_scorer(
+        experiment_id, scheduled_scorer_name, scorer, sample_rate, filter_string, **kwargs
+    )
 
 
 @experimental
 def update_scheduled_scorer(
     *,
-    scorer_name: str,
-    scorer_fn: Scorer,
-    sample_rate: float,
+    scheduled_scorer_name: str,
+    scorer: Optional[Scorer] = None,
+    sample_rate: Optional[float] = None,
     filter_string: Optional[str] = None,
     experiment_id: Optional[str] = None,
-) -> ScheduledScorer:
+    **kwargs,
+) -> ScorerScheduleConfig:
     """
     Update an existing scheduled scorer configuration.
 
     This function modifies the configuration of an existing scheduled scorer, allowing you
-    to change the scorer function, sampling rate, or filter criteria. The scorer will
-    continue to run automatically with the new configuration.
+    to change the scorer function, sampling rate, or filter criteria. Only the provided
+    parameters will be updated; omitted parameters will retain their current values.
+    The scorer will continue to run automatically with the new configuration.
 
     Args:
-        scorer_name: The name of the existing scheduled scorer to update. Must match
+        scheduled_scorer_name: The name of the existing scheduled scorer to update. Must match
             the name used when the scorer was originally added. We recommend using the
-            scorer's name (e.g., scorer_fn.name) for consistency.
-        scorer_fn: The new scorer function to execute on sampled traces. Must be either
-            a built-in scorer or a function decorated with @scorer.
+            scorer's name (e.g., scorer.name) for consistency.
+        scorer: The new scorer function to execute on sampled traces. Must be either
+            a built-in scorer or a function decorated with @scorer. If None, the
+            current scorer function will be retained.
         sample_rate: The new fraction of traces to evaluate, between 0.0 and 1.0.
+            If None, the current sample rate will be retained.
         filter_string: The new MLflow search_traces compatible filter string. If None,
-            all traces in the experiment are eligible for sampling.
+            the current filter string will be retained. Pass an empty string to remove
+            the filter entirely.
         experiment_id: The ID of the MLflow experiment containing the scheduled scorer.
             If None, uses the currently active experiment.
 
     Returns:
-        A ScheduledScorer object representing the updated scheduled scorer configuration.
+        A ScorerScheduleConfig object representing the updated scheduled scorer configuration.
 
     Example:
         .. code-block:: python
@@ -195,8 +199,8 @@ def update_scheduled_scorer(
 
             # Update an existing safety scorer to increase sampling rate
             updated_scorer = update_scheduled_scorer(
-                scorer_name="safety_monitor",
-                scorer_fn=Safety(),
+                scheduled_scorer_name="safety_monitor",
+                scorer=Safety(),
                 sample_rate=0.8,  # Increased from 0.5 to 0.8
                 filter_string="trace.status = 'OK'",
             )
@@ -206,15 +210,16 @@ def update_scheduled_scorer(
     except ImportError as e:
         raise ImportError(_ERROR_MSG) from e
     return update_scheduled_scorer(
-        experiment_id, scorer_name, scorer_fn, sample_rate, filter_string
+        experiment_id, scheduled_scorer_name, scorer, sample_rate, filter_string, **kwargs
     )
 
 
 @experimental
 def delete_scheduled_scorer(
     *,
-    scorer_name: str,
+    scheduled_scorer_name: str,
     experiment_id: Optional[str] = None,
+    **kwargs,
 ) -> None:
     """
     Delete a scheduled scorer from an MLflow experiment.
@@ -224,7 +229,7 @@ def delete_scheduled_scorer(
     experiment, but no new evaluations will be performed.
 
     Args:
-        scorer_name: The name of the scheduled scorer to delete. Must match the name
+        scheduled_scorer_name: The name of the scheduled scorer to delete. Must match the name
             used when the scorer was originally added.
         experiment_id: The ID of the MLflow experiment containing the scheduled scorer.
             If None, uses the currently active experiment.
@@ -235,7 +240,7 @@ def delete_scheduled_scorer(
             from mlflow.genai.scheduled_scorers import delete_scheduled_scorer
 
             # Remove a scheduled scorer that's no longer needed
-            delete_scheduled_scorer(scorer_name="safety_monitor")
+            delete_scheduled_scorer(scheduled_scorer_name="safety_monitor")
 
             # To delete all scheduled scorers at once, use set_scheduled_scorers
             # with an empty list instead:
@@ -253,15 +258,16 @@ def delete_scheduled_scorer(
         from databricks.agents.scorers import delete_scheduled_scorer
     except ImportError as e:
         raise ImportError(_ERROR_MSG) from e
-    return delete_scheduled_scorer(experiment_id, scorer_name)
+    return delete_scheduled_scorer(experiment_id, scheduled_scorer_name, **kwargs)
 
 
 @experimental
 def get_scheduled_scorer(
     *,
-    scorer_name: str,
+    scheduled_scorer_name: str,
     experiment_id: Optional[str] = None,
-) -> ScheduledScorer:
+    **kwargs,
+) -> ScorerScheduleConfig:
     """
     Retrieve the configuration of a specific scheduled scorer.
 
@@ -269,12 +275,12 @@ def get_scheduled_scorer(
     its scorer function, sampling rate, and filter criteria.
 
     Args:
-        scorer_name: The name of the scheduled scorer to retrieve.
+        scheduled_scorer_name: The name of the scheduled scorer to retrieve.
         experiment_id: The ID of the MLflow experiment containing the scheduled scorer.
             If None, uses the currently active experiment.
 
     Returns:
-        A ScheduledScorer object containing the current configuration of the specified
+        A ScorerScheduleConfig object containing the current configuration of the specified
         scheduled scorer.
 
     Example:
@@ -283,21 +289,23 @@ def get_scheduled_scorer(
             from mlflow.genai.scheduled_scorers import get_scheduled_scorer
 
             # Get the current configuration of a scheduled scorer
-            scorer_config = get_scheduled_scorer(scorer_name="safety_monitor")
+            scorer_config = get_scheduled_scorer(scheduled_scorer_name="safety_monitor")
 
             print(f"Sample rate: {scorer_config.sample_rate}")
             print(f"Filter: {scorer_config.filter_string}")
-            print(f"Scorer: {scorer_config.scorer_fn.name}")
+            print(f"Scorer: {scorer_config.scorer.name}")
     """
     try:
         from databricks.agents.scorers import get_scheduled_scorer
     except ImportError as e:
         raise ImportError(_ERROR_MSG) from e
-    return get_scheduled_scorer(experiment_id, scorer_name)
+    return get_scheduled_scorer(experiment_id, scheduled_scorer_name, **kwargs)
 
 
 @experimental
-def list_scheduled_scorers(*, experiment_id: Optional[str] = None) -> list[ScheduledScorer]:
+def list_scheduled_scorers(
+    *, experiment_id: Optional[str] = None, **kwargs
+) -> list[ScorerScheduleConfig]:
     """
     List all scheduled scorers for an experiment.
 
@@ -309,7 +317,7 @@ def list_scheduled_scorers(*, experiment_id: Optional[str] = None) -> list[Sched
             If None, uses the currently active experiment.
 
     Returns:
-        A list of ScheduledScorer objects representing all scheduled scorers configured
+        A list of ScheduledScorerConfig objects representing all scheduled scorers configured
         for the specified experiment.
 
     Example:
@@ -321,7 +329,7 @@ def list_scheduled_scorers(*, experiment_id: Optional[str] = None) -> list[Sched
             # List scorers for a specific experiment
             scorers = list_scheduled_scorers(experiment_id="12345")
             for scorer in scorers:
-                print(f"Scorer: {scorer.scorer_name}")
+                print(f"Scorer: {scorer.scheduled_scorer_name}")
                 print(f"Sample rate: {scorer.sample_rate}")
                 print(f"Filter: {scorer.filter_string}")
 
@@ -334,14 +342,15 @@ def list_scheduled_scorers(*, experiment_id: Optional[str] = None) -> list[Sched
         from databricks.agents.scorers import list_scheduled_scorers
     except ImportError as e:
         raise ImportError(_ERROR_MSG) from e
-    return list_scheduled_scorers(experiment_id)
+    return list_scheduled_scorers(experiment_id, **kwargs)
 
 
 @experimental
 def set_scheduled_scorers(
     *,
-    scheduled_scorers: list[ScheduledScorer],
+    scheduled_scorers: list[ScorerScheduleConfig],
     experiment_id: Optional[str] = None,
+    **kwargs,
 ) -> None:
     """
     Replace all scheduled scorers for an experiment with the provided list.
@@ -351,7 +360,7 @@ def set_scheduled_scorers(
     or when you want to ensure only specific scorers are active.
 
     Args:
-        scheduled_scorers: A list of ScheduledScorer objects to set as the complete
+        scheduled_scorers: A list of ScheduledScorerConfig objects to set as the complete
             set of scheduled scorers for the experiment. Any existing scheduled scorers
             not in this list will be removed.
         experiment_id: The ID of the MLflow experiment to configure. If None, uses the
@@ -361,24 +370,24 @@ def set_scheduled_scorers(
         .. code-block:: python
 
             from mlflow.genai.scorers import Safety, Correctness, RelevanceToQuery
-            from mlflow.genai.scheduled_scorers import ScheduledScorer, set_scheduled_scorers
+            from mlflow.genai.scheduled_scorers import ScorerScheduleConfig, set_scheduled_scorers
 
             # Define a complete monitoring configuration
             monitoring_config = [
-                ScheduledScorer(
-                    scorer_fn=Safety(),
-                    scorer_name="safety_check",
+                ScorerScheduleConfig(
+                    scorer=Safety(),
+                    scheduled_scorer_name="safety_check",
                     sample_rate=1.0,  # Check all traces for safety
                 ),
-                ScheduledScorer(
-                    scorer_fn=Correctness(),
-                    scorer_name="correctness_check",
+                ScorerScheduleConfig(
+                    scorer=Correctness(),
+                    scheduled_scorer_name="correctness_check",
                     sample_rate=0.2,  # Sample 20% for correctness (more expensive)
                     filter_string="trace.status = 'OK'",
                 ),
-                ScheduledScorer(
-                    scorer_fn=RelevanceToQuery(),
-                    scorer_name="relevance_check",
+                ScorerScheduleConfig(
+                    scorer=RelevanceToQuery(),
+                    scheduled_scorer_name="relevance_check",
                     sample_rate=0.5,  # Sample 50% for relevance
                 ),
             ]
@@ -398,4 +407,4 @@ def set_scheduled_scorers(
         from databricks.agents.scorers import set_scheduled_scorers
     except ImportError as e:
         raise ImportError(_ERROR_MSG) from e
-    return set_scheduled_scorers(experiment_id, scheduled_scorers)
+    return set_scheduled_scorers(experiment_id, scheduled_scorers, **kwargs)

@@ -27,7 +27,7 @@ from mlflow.genai.datasets import (
 )
 from mlflow.genai.optimize import optimize_prompt
 from mlflow.genai.scheduled_scorers import (
-    ScheduledScorer,
+    ScorerScheduleConfig,
     add_scheduled_scorer,
     update_scheduled_scorer,
     delete_scheduled_scorer,
@@ -47,7 +47,7 @@ __all__ = [
     "delete_dataset",
     "get_dataset",
     "optimize_prompt",
-    "ScheduledScorer",
+    "ScorerScheduleConfig",
     "add_scheduled_scorer",
     "update_scheduled_scorer",
     "delete_scheduled_scorer",
