@@ -84,6 +84,13 @@ def _retry_if_trace_is_pending_export(func):
             error_code=RESOURCE_DOES_NOT_EXIST,
         ) from error
 
+    # Add a note in API doc to say the API might block until the trace is exported
+    wrapper.__doc__ = f"{wrapper.__doc__}\n\n" + (
+        ".. note::\n\n"
+        "    Please be careful when using this API while async trace logging is enabled. The API "
+        "might block until the trace is exported to the tracking server.\n"
+    )
+
     return wrapper
 
 
