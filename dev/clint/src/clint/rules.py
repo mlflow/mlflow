@@ -364,3 +364,48 @@ class ForbiddenTraceUIInNotebook(Rule):
             "Please run `mlflow.tracing.disable_notebook_display()` and rerun the cell "
             "to remove the iframe."
         )
+
+
+class PytestMarkRepeat(Rule):
+    def _id(self) -> str:
+        return "MLF0023"
+
+    def _message(self) -> str:
+        return (
+            "@pytest.mark.repeat decorator should not be committed. "
+            "This decorator is meant for local testing only to check for flaky tests."
+        )
+
+    @staticmethod
+    def check(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+        """
+        Returns True if the function has @pytest.mark.repeat decorator.
+        """
+        for decorator in node.decorator_list:
+            if PytestMarkRepeat._is_pytest_mark_repeat(decorator):
+                return True
+        return False
+
+    @staticmethod
+    def _is_pytest_mark_repeat(decorator: ast.AST) -> bool:
+        """
+        Check if a decorator is @pytest.mark.repeat in any form:
+        - pytest.mark.repeat
+        - pytest.mark.repeat(n)
+        """
+        # Handle direct call like @pytest.mark.repeat(10)
+        if isinstance(decorator, ast.Call):
+            decorator = decorator.func
+
+        # Check for pytest.mark.repeat attribute access
+        if (
+            isinstance(decorator, ast.Attribute)
+            and decorator.attr == "repeat"
+            and isinstance(decorator.value, ast.Attribute)
+            and decorator.value.attr == "mark"
+            and isinstance(decorator.value.value, ast.Name)
+            and decorator.value.value.id == "pytest"
+        ):
+            return True
+
+        return False
