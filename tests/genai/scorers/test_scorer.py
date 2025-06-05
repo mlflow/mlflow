@@ -11,7 +11,6 @@ import mlflow
 from mlflow.entities import Assessment, AssessmentSource, AssessmentSourceType, Feedback
 from mlflow.entities.assessment import FeedbackValue
 from mlflow.entities.assessment_error import AssessmentError
-from mlflow.evaluation import Assessment as LegacyAssessment
 from mlflow.genai import Scorer, scorer
 from mlflow.genai.scorers import Correctness, Guidelines, RetrievalGroundedness
 
@@ -230,8 +229,6 @@ def test_trace_passed_correctly():
             feedback=FeedbackValue(value=42),
             rationale="It's the answer to everything",
         ),
-        # Legacy mlflow.evaluation.Assessment object. Still used by managed judges.
-        LegacyAssessment(name="big_question", value=True),
     ],
 )
 def test_scorer_on_genai_evaluate(sample_data, scorer_return):
@@ -312,31 +309,71 @@ def test_custom_scorer_does_not_overwrite_feedback_name_when_returning_list():
     assert feedbacks[1].name == "small_question"
 
 
-def test_custom_scorer_does_not_generate_traces_during_evaluation():
+def test_extra_traces_from_customer_scorer_should_be_cleaned_up():
     @scorer
-    def my_scorer(inputs, outputs):
-        with mlflow.start_span(name="scorer_trace") as span:
+    def my_scorer_1(inputs, outputs):
+        with mlflow.start_span(name="scorer_trace_1") as span:
             # Tracing is disabled during evaluation but this should not NPE
             span.set_inputs(inputs)
             span.set_outputs(outputs)
+
+        with mlflow.start_span(name="scorer_trace_2"):
+            pass
         return 1
 
+    @scorer
+    @mlflow.trace
+    def my_scorer_2():
+        return 0.5
+
+    def predict(question: str) -> str:
+        return "output: " + str(question)
+
     result = mlflow.genai.evaluate(
-        data=[{"inputs": {"question": "Hello"}, "outputs": "Hi!"}],
-        scorers=[my_scorer],
+        data=[{"inputs": {"question": "Hello"}} for _ in range(100)],
+        scorers=[my_scorer_1, my_scorer_2],
+        predict_fn=predict,
     )
-    assert result.metrics["metric/my_scorer/average"] == 1
-    # One trace is generated for evaluation result, but no traces are generated for the scorer
+    # Scorers should be computed correctly
+    assert result.metrics["metric/my_scorer_1/average"] == 1
+    assert result.metrics["metric/my_scorer_2/average"] == 0.5
+
+    # Traces should only be generated for predict_fn
     traces = get_traces()
-    assert len(traces) == 1
-    assert traces[0].data.spans[0].name != "scorer_trace"
+    assert len(traces) == 100
+    assert all(trace.data.spans[0].name == "predict" for trace in traces)
     purge_traces()
 
     # When invoked directly, the scorer should generate traces
-    score = my_scorer(inputs={"question": "Hello"}, outputs="Hi!")
-    assert score == 1
+    score = my_scorer_2()
+    assert score == 0.5
+    assert len(get_traces()) == 1
+
+
+def test_extra_traces_before_evaluation_execution_should_not_be_cleaned_up():
+    def predict(question: str) -> str:
+        return "output: " + str(question)
+
+    @scorer
+    @mlflow.trace
+    def my_scorer(inputs, outputs):
+        return 0.5
+
+    with mlflow.start_run():
+        # Generate another trace in the run before running the evaluation
+        with mlflow.start_span(name="should_be_kept"):
+            pass
+
+        result = mlflow.genai.evaluate(
+            data=[{"inputs": {"question": "Hello"}}],
+            scorers=[my_scorer],
+            predict_fn=predict,
+        )
+    # Scorers should be computed correctly
+    assert result.metrics["metric/my_scorer/average"] == 0.5
+
+    # Traces should only be generated for predict_fn
     traces = get_traces()
-    assert len(traces) == 1
-    assert traces[0].data.spans[0].name == "scorer_trace"
-    assert traces[0].data.spans[0].inputs == {"question": "Hello"}
-    assert traces[0].data.spans[0].outputs == "Hi!"
+    assert len(traces) == 2  # 1 for predict_fn, 1 for a trace generated before evaluation
+    assert traces[0].data.spans[0].name == "predict"
+    assert traces[1].data.spans[0].name == "should_be_kept"

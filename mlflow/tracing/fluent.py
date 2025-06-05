@@ -639,6 +639,7 @@ def search_traces(
     return_type: Optional[Literal["pandas", "list"]] = None,
     model_id: Optional[str] = None,
     sql_warehouse_id: Optional[str] = None,
+    include_spans: bool = True,
 ) -> Union["pandas.DataFrame", list[Trace]]:
     """
     Return traces that match the given list of search expressions within the experiments.
@@ -700,6 +701,10 @@ def search_traces(
         model_id: If specified, search traces associated with the given model ID.
         sql_warehouse_id: Only used in Databricks. The ID of the SQL warehouse to use for
             searching traces in inference tables.
+
+        include_spans: If ``True``, include spans in the returned traces. Otherwise, only
+            the trace metadata is returned, e.g., trace ID, start time, end time, etc,
+            without any spans. Default to ``True``.
 
     Returns:
         Traces that satisfy the search expressions. Either as a list of
@@ -802,6 +807,7 @@ def search_traces(
             page_token=next_page_token,
             model_id=model_id,
             sql_warehouse_id=sql_warehouse_id,
+            include_spans=include_spans,
         )
 
     results = get_results_from_paginated_fn(
