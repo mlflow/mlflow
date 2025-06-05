@@ -12,7 +12,12 @@ from mlflow.entities import Run
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, RESOURCE_DOES_NOT_EXIST, ErrorCode
+from mlflow.protos.databricks_pb2 import (
+    INTERNAL_ERROR,
+    INVALID_PARAMETER_VALUE,
+    RESOURCE_DOES_NOT_EXIST,
+    ErrorCode,
+)
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     MODEL_VERSION_OPERATION_READ_WRITE,
     CreateModelVersionRequest,
@@ -139,6 +144,7 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
+    call_endpoint,
     extract_all_api_info_for_service,
     extract_api_info_for_service,
     http_request,
@@ -1198,9 +1204,6 @@ class UcModelRegistryStore(BaseRestStore):
                 )
                 filter_string = remaining_filter
             else:
-                from mlflow.exceptions import MlflowException
-                from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-
                 raise MlflowException(
                     "For Unity Catalog prompt registries, you must specify catalog and schema "
                     "in the filter string: \"catalog = 'catalog_name' AND schema = 'schema_name'\"",
@@ -1245,9 +1248,6 @@ class UcModelRegistryStore(BaseRestStore):
         Raises:
             MlflowException: If filter format is invalid for Unity Catalog
         """
-        from mlflow.exceptions import MlflowException
-        from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-
         if not filter_string:
             raise MlflowException(
                 "For Unity Catalog prompt registries, you must specify catalog and schema "
@@ -1484,8 +1484,6 @@ class UcModelRegistryStore(BaseRestStore):
                 endpoint = endpoint.replace(f"{{{key}}}", str(value))
 
         # Make the API call
-        from mlflow.utils.rest_utils import call_endpoint
-
         return call_endpoint(
             self.get_host_creds(),
             endpoint=endpoint,
