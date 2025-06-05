@@ -91,8 +91,7 @@ def _optimize_sequential(
 
         if frozen_trial.state == TrialState.COMPLETE:
             _logger.info(
-                f"Trial {trial.number} finished with value: {trial.values} and parameters: "
-                f"{trial.params}."
+                f"Trial {trial.number} finished with parameters: {trial.params}."
             )
         elif frozen_trial.state == TrialState.PRUNED:
             _logger.info("Trial {} pruned. {}".format(frozen_trial._trial_id, str(func_err)))
