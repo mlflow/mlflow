@@ -1758,8 +1758,8 @@ def test_crud_prompts(tracking_uri):
     prompt = client.load_prompt("prompts:/prompt_1/2")
     assert prompt.template == "Hi, {{title}} {{name}}! What's up?"
 
-    # Delete prompt without version should fail on non-UC stores
-    with pytest.raises(MlflowException, match=r"For non-Unity Catalog stores, explicit version is required"):
+    # Delete prompt without version should fail (version is required)
+    with pytest.raises(TypeError, match=r"missing 1 required positional argument: 'version'"):
         client.delete_prompt("prompt_1")
 
     client.delete_prompt("prompt_1", version=2)
@@ -2415,3 +2415,231 @@ def test_search_prompts_store_direct_apis(tracking_uri):
     # Test search with max_results
     limited_prompts = client.search_prompts(max_results=2)
     assert len(limited_prompts) == 2
+
+
+def test_delete_prompt_version_functionality(tracking_uri):
+    """Test delete_prompt_version functionality - the recommended way to delete prompts."""
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    # Create a prompt with multiple versions
+    client.register_prompt(
+        name="delete_test_prompt",
+        template="Version 1: Hello {{name}}!",
+        commit_message="Initial version",
+    )
+    
+    client.register_prompt(
+        name="delete_test_prompt",
+        template="Version 2: Hi {{name}}! How are you?",
+        commit_message="Updated version",
+    )
+    
+    client.register_prompt(
+        name="delete_test_prompt",
+        template="Version 3: Hey {{name}}! What's up?",
+        commit_message="Latest version",
+    )
+
+    # Verify all versions exist
+    prompt_v1 = client.load_prompt("delete_test_prompt", version=1)
+    assert prompt_v1.template == "Version 1: Hello {{name}}!"
+    
+    prompt_v2 = client.load_prompt("delete_test_prompt", version=2)
+    assert prompt_v2.template == "Version 2: Hi {{name}}! How are you?"
+    
+    prompt_v3 = client.load_prompt("delete_test_prompt", version=3)
+    assert prompt_v3.template == "Version 3: Hey {{name}}! What's up?"
+
+    # Delete version 2 using delete_prompt_version
+    client.delete_prompt_version("delete_test_prompt", version=2)
+
+    # Verify version 2 is gone but others remain
+    with pytest.raises(MlflowException, match=r".*not found"):
+        client.load_prompt("delete_test_prompt", version=2)
+    
+    # Versions 1 and 3 should still exist
+    prompt_v1_after = client.load_prompt("delete_test_prompt", version=1)
+    assert prompt_v1_after.template == "Version 1: Hello {{name}}!"
+    
+    prompt_v3_after = client.load_prompt("delete_test_prompt", version=3)
+    assert prompt_v3_after.template == "Version 3: Hey {{name}}! What's up?"
+    
+    # Latest version should still be version 3
+    latest_prompt = client.load_prompt("delete_test_prompt")
+    assert latest_prompt.template == "Version 3: Hey {{name}}! What's up?"
+    assert latest_prompt.version == 3
+
+    # Delete remaining versions
+    client.delete_prompt_version("delete_test_prompt", version=1)
+    client.delete_prompt_version("delete_test_prompt", version=3)
+
+    # All versions should be gone
+    with pytest.raises(MlflowException, match=r".*not found"):
+        client.load_prompt("delete_test_prompt", version=1)
+    
+    with pytest.raises(MlflowException, match=r".*not found"):
+        client.load_prompt("delete_test_prompt", version=3)
+    
+    # When all versions are deleted, the prompt itself should also be gone
+    # This may raise IndexError or MlflowException depending on the store implementation
+    with pytest.raises((MlflowException, IndexError)):
+        client.load_prompt("delete_test_prompt")
+
+
+def test_delete_prompt_version_error_handling(tracking_uri):
+    """Test error handling for delete_prompt_version."""
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    # Test deleting non-existent prompt
+    with pytest.raises(MlflowException, match=r".*not found"):
+        client.delete_prompt_version("nonexistent_prompt", version=1)
+
+    # Create a prompt with one version
+    client.register_prompt(
+        name="error_test_prompt",
+        template="Only version",
+        commit_message="Single version",
+    )
+
+    # Test deleting non-existent version
+    with pytest.raises(MlflowException, match=r".*not found"):
+        client.delete_prompt_version("error_test_prompt", version=2)
+
+    # Test deleting with invalid version (negative)
+    with pytest.raises(Exception):  # Should raise some kind of validation error
+        client.delete_prompt_version("error_test_prompt", version=-1)
+
+    # Test deleting with version 0 (versions start from 1)
+    with pytest.raises(Exception):  # Should raise some kind of validation error
+        client.delete_prompt_version("error_test_prompt", version=0)
+
+    # Verify the actual version still exists
+    prompt = client.load_prompt("error_test_prompt", version=1)
+    assert prompt.template == "Only version"
+
+
+def test_delete_prompt_unity_catalog_protection():
+    """Test that Unity Catalog users get proper error messages when using delete_prompt."""
+    from mlflow.exceptions import MlflowException
+    
+    # Test with Databricks Unity Catalog URI
+    client = MlflowClient(registry_uri='databricks-uc')
+    
+    with pytest.raises(MlflowException) as exc_info:
+        client.delete_prompt("test_prompt", version=1)
+    
+    error_message = str(exc_info.value)
+    assert "delete_prompt() method is not supported for Unity Catalog" in error_message
+    assert "delete_prompt_version()" in error_message
+    assert "Unity Catalog provides automatic cleanup" in error_message
+
+
+def test_delete_prompt_version_with_string_version(tracking_uri):
+    """Test delete_prompt_version works with string versions."""
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    # Create a prompt with multiple versions
+    client.register_prompt(
+        name="string_version_test",
+        template="Version 1 template",
+    )
+    
+    client.register_prompt(
+        name="string_version_test", 
+        template="Version 2 template",
+    )
+
+    # Delete using string version
+    client.delete_prompt_version("string_version_test", version="1")
+
+    # Verify version 1 is gone
+    with pytest.raises(MlflowException, match=r".*not found"):
+        client.load_prompt("string_version_test", version=1)
+    
+    # Version 2 should still exist
+    prompt_v2 = client.load_prompt("string_version_test", version=2)
+    assert prompt_v2.template == "Version 2 template"
+
+
+def test_delete_prompt_vs_delete_prompt_version_recommendation(tracking_uri):
+    """Test that delete_prompt shows deprecation warning and recommends delete_prompt_version."""
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    # Create a prompt
+    client.register_prompt(
+        name="deprecation_test",
+        template="Test template",
+    )
+
+    # Test that delete_prompt shows deprecation warning
+    with pytest.warns(FutureWarning, match=r"delete_prompt.*is deprecated.*delete_prompt_version"):
+        client.delete_prompt("deprecation_test", version=1)
+
+    # Verify prompt was deleted
+    with pytest.raises(MlflowException, match=r".*not found"):
+        client.load_prompt("deprecation_test", version=1)
+
+
+
+def test_delete_prompt_version_comprehensive_workflow(tracking_uri):
+    """Test comprehensive workflow with create, update, and delete operations."""
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    # Create initial prompt
+    v1 = client.register_prompt(
+        name="workflow_test",
+        template="Initial: Hello {{name}}!",
+        version_metadata={"author": "alice"},
+    )
+    assert v1.version == 1
+
+    # Add more versions
+    v2 = client.register_prompt(
+        name="workflow_test",
+        template="Updated: Hi {{name}}! How are you?",
+        version_metadata={"author": "bob"},
+    )
+    assert v2.version == 2
+
+    v3 = client.register_prompt(
+        name="workflow_test",
+        template="Latest: Hey {{name}}! What's happening?",
+        version_metadata={"author": "charlie"},
+    )
+    assert v3.version == 3
+
+    # Verify all versions exist with correct data
+    prompt_v1 = client.load_prompt("workflow_test", version=1)
+    assert prompt_v1.template == "Initial: Hello {{name}}!"
+    assert prompt_v1.version_metadata["author"] == "alice"
+
+    prompt_v2 = client.load_prompt("workflow_test", version=2)
+    assert prompt_v2.template == "Updated: Hi {{name}}! How are you?"
+    assert prompt_v2.version_metadata["author"] == "bob"
+
+    # Delete middle version
+    client.delete_prompt_version("workflow_test", version=2)
+
+    # Verify v2 is gone but v1 and v3 remain
+    with pytest.raises(MlflowException, match=r".*not found"):
+        client.load_prompt("workflow_test", version=2)
+
+    prompt_v1_after = client.load_prompt("workflow_test", version=1)
+    assert prompt_v1_after.template == "Initial: Hello {{name}}!"
+
+    prompt_v3_after = client.load_prompt("workflow_test", version=3)
+    assert prompt_v3_after.template == "Latest: Hey {{name}}! What's happening?"
+
+    # Latest should still be v3
+    latest = client.load_prompt("workflow_test")
+    assert latest.version == 3
+    assert latest.template == "Latest: Hey {{name}}! What's happening?"
+
+    # Clean up remaining versions
+    client.delete_prompt_version("workflow_test", version=1)
+    client.delete_prompt_version("workflow_test", version=3)
+
+    # Verify everything is gone
+    # This may raise IndexError or MlflowException depending on the store implementation
+    with pytest.raises((MlflowException, IndexError)):
+        client.load_prompt("workflow_test")
