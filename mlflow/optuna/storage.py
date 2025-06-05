@@ -536,7 +536,14 @@ class MlflowStorage(BaseStorage):
         self._flush_batch(trial_id)
 
         trial_run = self._mlflow_client.get_run(trial_id)
-        distributions_dict = json.loads(trial_run.data.tags["param_directions"])
+        param_directions_str = None
+        max_retries = 5
+
+        for attempt in range(max_retries):
+            param_directions_str = trial_run.data.tags.get("param_directions")
+            if param_directions_str is not None:
+                break  # success
+        distributions_dict = json.loads(param_directions_str)
         distributions = {
             k: json_to_distribution(distribution) for k, distribution in distributions_dict.items()
         }
