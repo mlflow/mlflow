@@ -511,98 +511,14 @@ class ModelRegistryClient:
         Returns:
             A PagedList of PromptInfo objects.
         """
-        from mlflow.utils.uri import is_databricks_unity_catalog_uri
+        return self.store.search_prompts(
+            filter_string=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
+        )
 
-        is_unity_catalog = is_databricks_unity_catalog_uri(self.registry_uri)
 
-        if is_unity_catalog:
-            # For Unity Catalog, parse catalog and schema from filter string
-            catalog_name, schema_name, remaining_filter = self._parse_catalog_schema_from_filter(
-                filter_string
-            )
-
-            return self.store.search_prompts(
-                filter_string=remaining_filter,
-                max_results=max_results,
-                order_by=order_by,
-                page_token=page_token,
-                catalog_name=catalog_name,
-                schema_name=schema_name,
-            )
-        else:
-            # For traditional registries, delegate to our abstract store implementation
-            return self.store.search_prompts(
-                filter_string=filter_string,
-                max_results=max_results,
-                order_by=order_by,
-                page_token=page_token,
-            )
-
-    def _parse_catalog_schema_from_filter(
-        self, filter_string: Optional[str]
-    ) -> tuple[Optional[str], Optional[str], Optional[str]]:
-        """
-        Parse catalog and schema from filter string for Unity Catalog using regex.
-
-        Expects filter format: "catalog = 'catalog_name' AND schema = 'schema_name'"
-
-        Args:
-            filter_string: Filter string containing catalog and schema
-
-        Returns:
-            Tuple of (catalog_name, schema_name, remaining_filter)
-
-        Raises:
-            MlflowException: If filter format is invalid for Unity Catalog
-        """
-        from mlflow.exceptions import MlflowException
-        from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-
-        if not filter_string:
-            raise MlflowException(
-                "For Unity Catalog prompt registries, you must specify catalog and schema "
-                "in the filter string: \"catalog = 'catalog_name' AND schema = 'schema_name'\"",
-                INVALID_PARAMETER_VALUE,
-            )
-
-        # Regex patterns to match catalog and schema specifications
-        catalog_pattern = r"catalog\s*=\s*['\"]([^'\"]+)['\"]"
-        schema_pattern = r"schema\s*=\s*['\"]([^'\"]+)['\"]"
-
-        catalog_match = re.search(catalog_pattern, filter_string, re.IGNORECASE)
-        schema_match = re.search(schema_pattern, filter_string, re.IGNORECASE)
-
-        if not catalog_match or not schema_match:
-            raise MlflowException(
-                "For Unity Catalog prompt registries, filter string must include both "
-                "catalog and schema in the format: "
-                "\"catalog = 'catalog_name' AND schema = 'schema_name'\". "
-                f"Got: {filter_string}",
-                INVALID_PARAMETER_VALUE,
-            )
-
-        catalog_name = catalog_match.group(1)
-        schema_name = schema_match.group(1)
-
-        # Remove catalog and schema from filter string to get remaining filters
-        # First, normalize the filter by splitting on AND and rebuilding
-        # without catalog/schema parts
-        parts = re.split(r"\s+AND\s+", filter_string, flags=re.IGNORECASE)
-        remaining_parts = []
-
-        for part in parts:
-            part = part.strip()
-            # Skip parts that match catalog or schema patterns
-            if not (
-                re.match(catalog_pattern, part, re.IGNORECASE)
-                or re.match(schema_pattern, part, re.IGNORECASE)
-            ):
-                remaining_parts.append(part)
-
-        # Rejoin the remaining parts
-        remaining_filter = " AND ".join(remaining_parts) if remaining_parts else None
-
-        return catalog_name, schema_name, remaining_filter
 
     def delete_prompt(self, name: str) -> None:
         """
