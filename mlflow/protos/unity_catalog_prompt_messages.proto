@@ -150,9 +150,7 @@ message CreatePromptVersionRequest {
   optional PromptVersion prompt_version = 3;
 }
 
-message CreatePromptVersionResponse {
-  required PromptVersion prompt_version = 1;
-}
+
 
 message UpdatePromptVersionRequest {
   // Name of the registered prompt
@@ -162,9 +160,7 @@ message UpdatePromptVersionRequest {
   optional PromptVersion prompt_version = 3;
 }
 
-message UpdatePromptVersionResponse {
-  required PromptVersion prompt_version = 1;
-}
+
 
 message DeletePromptVersionRequest {
   // Name of the registered prompt
@@ -183,9 +179,7 @@ message GetPromptVersionRequest {
   optional string version = 2;
 }
 
-message GetPromptVersionResponse {
-  required PromptVersion prompt_version = 1;
-}
+
 
 message SearchPromptVersionsRequest {
   optional string name = 1;
@@ -231,9 +225,7 @@ message GetPromptVersionByAliasRequest {
   optional string alias = 2;
 }
 
-message GetPromptVersionByAliasResponse {
-  required PromptVersion prompt_version = 1;
-}
+
 
 message SetPromptTagRequest {
   // Name of the prompt

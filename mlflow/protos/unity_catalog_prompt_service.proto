@@ -75,7 +75,7 @@ service UnityCatalogPromptService {
     };
   }
 
-  rpc CreatePromptVersion (CreatePromptVersionRequest) returns (CreatePromptVersionResponse) {
+  rpc CreatePromptVersion (CreatePromptVersionRequest) returns (PromptVersion) {
     option (rpc) = {
       endpoints: [{
         method: "POST",
@@ -87,7 +87,7 @@ service UnityCatalogPromptService {
     };
   }
 
-  rpc UpdatePromptVersion (UpdatePromptVersionRequest) returns (UpdatePromptVersionResponse) {
+  rpc UpdatePromptVersion (UpdatePromptVersionRequest) returns (PromptVersion) {
     option (rpc) = {
       endpoints: [{
         method: "PATCH",
@@ -111,7 +111,7 @@ service UnityCatalogPromptService {
     };
   }
 
-  rpc GetPromptVersion (GetPromptVersionRequest) returns (GetPromptVersionResponse) {
+  rpc GetPromptVersion (GetPromptVersionRequest) returns (PromptVersion) {
     option (rpc) = {
       endpoints: [{
         method: "GET",
@@ -159,7 +159,7 @@ service UnityCatalogPromptService {
     };
   }
 
-  rpc GetPromptVersionByAlias (GetPromptVersionByAliasRequest) returns (GetPromptVersionByAliasResponse) {
+  rpc GetPromptVersionByAlias (GetPromptVersionByAliasRequest) returns (PromptVersion) {
     option (rpc) = {
       endpoints: [{
         method: "GET",
