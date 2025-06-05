@@ -682,7 +682,7 @@ class MlflowClient:
         else:
             prompts = []
             for result in search_results:
-                prompt = self.get_prompt(result.name)  # Gets latest version
+                prompt = self.get_prompt(result.name)
                 if prompt:
                     prompts.append(prompt)
             return PagedList(prompts, search_results.token)
