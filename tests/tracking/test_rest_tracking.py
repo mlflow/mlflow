@@ -1661,18 +1661,18 @@ def test_create_model_version_with_validation_regex(tmp_path: Path):
             "MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX": r"^mlflow-artifacts:/.*$",
         },
     ) as proc:
-        # Wait for the server to start
-        for _ in range(10):
-            try:
-                if requests.get(f"http://localhost:{port}/health").ok:
-                    break
-            except requests.ConnectionError:
-                time.sleep(1)
-        else:
-            raise RuntimeError("Failed to connect to the MLflow server")
-
-        # Test that the validation regex works as expected
         try:
+            # Wait for the server to start
+            for _ in range(10):
+                try:
+                    if requests.get(f"http://localhost:{port}/health").ok:
+                        break
+                except requests.ConnectionError:
+                    time.sleep(1)
+            else:
+                raise RuntimeError("Failed to connect to the MLflow server")
+
+            # Test that the validation regex works as expected
             client = MlflowClient(f"http://localhost:{port}")
             name = "test"
             client.create_registered_model(name)
