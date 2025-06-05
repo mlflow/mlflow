@@ -611,7 +611,8 @@ class MlflowClient:
         filter_string: Optional[str] = None,
         max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
         page_token: Optional[str] = None,
-    ) -> PagedList[Union[Prompt, PromptInfo]]:
+        version: Optional[Union[str, int]] = None,
+    ) -> PagedList[Prompt]:
         """
         Retrieve prompt templates from the MLflow Prompt Registry.
 
@@ -632,14 +633,33 @@ class MlflowClient:
             page_token (Optional[str]):
                 A pagination token from a previous `search_prompts` call; use this
                 to retrieve the next page of results.  Defaults to `None`.
+            version (Optional[Union[str, int]]):
+                The version of prompts to retrieve. For Unity Catalog registries,
+                this parameter is required. For OSS registries, defaults to latest
+                version if not specified.
 
         Returns:
             A pageable list of prompt objects representing prompt templates:
-            - Unity Catalog stores: PagedList[PromptInfo]
-            - OSS stores: PagedList[Prompt]
+            - When version is specified: PagedList[Prompt] (full prompt objects with templates)
+            - When version is None (OSS only): PagedList[Prompt] (latest version)
+            - Unity Catalog with no version: Raises MlflowException
             Inspect the returned object's `.token` attribute to fetch subsequent pages.
         """
         registry_client = self._get_registry_client()
+
+        # Check if Unity Catalog backed to handle version requirements
+        is_unity_catalog = self._registry_uri.startswith("databricks-uc")
+
+        if is_unity_catalog and version is None:
+            raise MlflowException(
+                "For Unity Catalog prompt registries, you must specify a version when searching prompts. "
+                "Unity Catalog does not support retrieving the 'latest' version during search. "
+                "Please specify the version parameter:\n\n"
+                "  client.search_prompts(filter_string='...', version=1)\n"
+                "  client.search_prompts(filter_string='...', version='my_alias')\n\n"
+                "Use get_prompt_version() or list prompt versions to find available versions.",
+                INVALID_PARAMETER_VALUE,
+            )
 
         # Delegate to the store - each store handles its own implementation:
         search_results = registry_client.search_prompts(
@@ -648,18 +668,21 @@ class MlflowClient:
             page_token=page_token,
         )
 
-        # Check if Unity Catalog backed to handle different return types
-        is_unity_catalog = self._registry_uri.startswith("databricks-uc")
-
-        if is_unity_catalog:
-            # Unity Catalog: Return PromptInfo objects directly since get_prompt()
-            # latest version is not supported
-            return search_results
-        else:
-            # OSS: Convert PromptInfo to Prompt objects (existing behavior)
+        if version is not None:
             prompts = []
             for result in search_results:
-                prompt = self.get_prompt(result.name)
+                try:
+                    prompt = self.get_prompt(result.name, str(version))
+                    if prompt:
+                        prompts.append(prompt)
+                except MlflowException:
+                    # Skip prompts that don't have the specified version
+                    continue
+            return PagedList(prompts, search_results.token)
+        else:
+            prompts = []
+            for result in search_results:
+                prompt = self.get_prompt(result.name)  # Gets latest version
                 if prompt:
                     prompts.append(prompt)
             return PagedList(prompts, search_results.token)
