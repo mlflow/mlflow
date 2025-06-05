@@ -371,8 +371,8 @@ def test_feedback_from_exception(stack_trace_length):
 
     # Mock traceback.format_tb to simulate long stack trace
     with patch(
-        "mlflow.entities.assessment.traceback.format_tb",
-        return_value=["A" * (stack_trace_length - 9) + "last line"],
+        "mlflow.entities.assessment.get_stacktrace",
+        return_value="A" * (stack_trace_length - 9) + "last line",
     ):
         feedback = Feedback(error=err)
     assert feedback.error.error_code == "ValueError"

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import time
-import traceback
 from dataclasses import dataclass
 from typing import Any, Optional, Union
 
@@ -17,6 +16,7 @@ from mlflow.protos.assessments_pb2 import Assessment as ProtoAssessment
 from mlflow.protos.assessments_pb2 import Expectation as ProtoExpectation
 from mlflow.protos.assessments_pb2 import Feedback as ProtoFeedback
 from mlflow.utils.annotations import experimental
+from mlflow.utils.exception_utils import get_stacktrace
 from mlflow.utils.proto_json_utils import proto_timestamp_to_milliseconds
 
 # Feedback value should be one of the following types:
@@ -244,13 +244,10 @@ class Feedback(Assessment):
             source = AssessmentSource(source_type=AssessmentSourceType.CODE)
 
         if isinstance(error, Exception):
-            stack_trace_string = (
-                "".join(traceback.format_tb(error.__traceback__)) if error.__traceback__ else None
-            )
             error = AssessmentError(
                 error_message=str(error),
                 error_code=error.__class__.__name__,
-                stack_trace=stack_trace_string,
+                stack_trace=get_stacktrace(error),
             )
 
         super().__init__(

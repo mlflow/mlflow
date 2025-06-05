@@ -185,6 +185,44 @@ def test_log_feedback_with_error(store, tracking_uri, legacy_api):
 
 
 @pytest.mark.parametrize("legacy_api", [True, False])
+def test_log_feedback_with_exception_object(store, tracking_uri, legacy_api):
+    """Test that log_feedback correctly accepts Exception objects."""
+    test_exception = ValueError("Test exception message")
+
+    if legacy_api:
+        mlflow.log_feedback(
+            trace_id="1234",
+            name="faithfulness",
+            source=_LLM_ASSESSMENT_SOURCE,
+            error=test_exception,
+        )
+    else:
+        feedback = Feedback(
+            name="faithfulness",
+            value=None,
+            source=_LLM_ASSESSMENT_SOURCE,
+            error=test_exception,
+        )
+        mlflow.log_assessment(trace_id="1234", assessment=feedback)
+
+    assert store.create_assessment.call_count == 1
+    assessment = store.create_assessment.call_args[0][0]
+    assert assessment.name == "faithfulness"
+    assert assessment.trace_id == "1234"
+    assert assessment.span_id is None
+    assert assessment.source == _LLM_ASSESSMENT_SOURCE
+    assert assessment.create_time_ms is not None
+    assert assessment.last_update_time_ms is not None
+    assert assessment.expectation is None
+    assert assessment.feedback.value is None
+    # Exception should be converted to AssessmentError
+    assert assessment.feedback.error.error_code == "ValueError"
+    assert assessment.feedback.error.error_message == "Test exception message"
+    assert assessment.feedback.error.stack_trace is not None
+    assert assessment.rationale is None
+
+
+@pytest.mark.parametrize("legacy_api", [True, False])
 def test_log_feedback_with_value_and_error(store, tracking_uri, legacy_api):
     if legacy_api:
         mlflow.log_feedback(
