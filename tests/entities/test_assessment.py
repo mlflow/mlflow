@@ -361,6 +361,36 @@ def test_feedback_value_proto_dict_conversion(value, error):
     assert result.error == result.error
 
 
+@pytest.mark.parametrize(
+    "value",
+    [
+        {"accuracy": 0.95, "precision": 0.90},  # dict
+        [0.95, 0.90, 0.85],  # list
+        {"metrics": {"accuracy": 0.95}, "metadata": {"model": "test"}},  # nested dict
+        [{"name": "test"}, {"value": 123}],  # list of dicts
+        {"scores": [0.1, 0.2], "config": {"temperature": 0.7}},  # mixed dict with list
+        [],  # empty list
+        {},  # empty dict
+    ],
+)
+def test_feedback_value_complex_types(value):
+    """Test that FeedbackValue supports dict and list values as documented."""
+    feedback = FeedbackValue(value)
+    proto = feedback.to_proto()
+    assert isinstance(proto, ProtoFeedback)
+
+    # Test round trip through protobuf
+    result = FeedbackValue.from_proto(proto)
+    assert result.value == value
+    assert result.error is None
+
+    # Test round trip through dictionary
+    feedback_dict = feedback.to_dictionary()
+    result = FeedbackValue.from_dictionary(feedback_dict)
+    assert result.value == value
+    assert result.error is None
+
+
 @pytest.mark.parametrize("stack_trace_length", [500, 2000])
 def test_feedback_from_exception(stack_trace_length):
     err = None
@@ -392,3 +422,40 @@ def test_feedback_from_exception(stack_trace_length):
     recovered = Feedback.from_proto(feedback.to_proto())
     assert feedback.error.error_code == recovered.error.error_code
     assert feedback.error.error_message == recovered.error.error_message
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        {"accuracy": 0.95, "precision": 0.90},  # dict
+        [0.95, 0.90, 0.85],  # list
+        {"metrics": {"accuracy": 0.95}, "metadata": {"model": "test"}},  # nested dict
+        [{"name": "test"}, {"value": 123}],  # list of dicts
+        {"scores": [0.1, 0.2], "config": {"temperature": 0.7}},  # mixed dict with list
+    ],
+)
+def test_feedback_complex_types_full_integration(value):
+    """Test that Feedback class supports dict and list values end-to-end."""
+    # Create a Feedback instance with complex value
+    feedback = Feedback(
+        trace_id="test_trace",
+        name="test_feedback",
+        value=value,
+        source=AssessmentSource(source_type="CODE", source_id="test"),
+        rationale="Testing complex value support",
+        metadata={"test": "metadata"},
+    )
+
+    # Test protobuf conversion
+    proto = feedback.to_proto()
+    recovered_feedback = Feedback.from_proto(proto)
+    assert recovered_feedback.value == value
+    assert recovered_feedback.trace_id == "test_trace"
+    assert recovered_feedback.name == "test_feedback"
+
+    # Test dictionary conversion
+    feedback_dict = feedback.to_dictionary()
+    recovered_feedback_dict = Feedback.from_dictionary(feedback_dict)
+    assert recovered_feedback_dict.value == value
+    assert recovered_feedback_dict.trace_id == "test_trace"
+    assert recovered_feedback_dict.name == "test_feedback"
