@@ -82,9 +82,7 @@ def proto_to_mlflow_prompt(
         aliases = [alias.alias for alias in proto_version.aliases]
 
     if not proto_version.version:
-        raise ValueError(
-            f"Prompt is missing its version field."
-        )
+        raise ValueError("Prompt is missing its version field.")
     version = int(proto_version.version)
 
     return Prompt(

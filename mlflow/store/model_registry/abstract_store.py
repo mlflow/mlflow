@@ -462,7 +462,7 @@ class AbstractStore:
                 f"version: {mv.version} with status: {mv.status} and message: {mv.status_message}"
             )
 
-    # Prompt-related methods with concrete implementations for traditional stores
+    # Prompt-related methods with concrete implementations for OSS stores
 
     def create_prompt(
         self,
@@ -473,8 +473,8 @@ class AbstractStore:
         """
         Create a new prompt in the registry.
 
-        Default implementation for non-Unity Catalog registries: creates a RegisteredModel
-        with special prompt tags. Unity Catalog stores override this method.
+        Default implementation: creates a RegisteredModel with special prompt tags.
+        Other store implementations may override this method.
 
         Args:
             name: Name of the prompt.
@@ -515,16 +515,16 @@ class AbstractStore:
         """
         Search for prompts in the registry.
 
-        Default implementation for non-Unity Catalog registries: searches RegisteredModels
-        with prompt tags. Unity Catalog stores override this method.
+        Default implementation: searches RegisteredModels with prompt tags.
+        Other store implementations may override this method.
 
         Args:
             filter_string: Filter query string, defaults to searching for all prompts.
             max_results: Maximum number of prompts desired.
             order_by: List of order-by clauses.
             page_token: Pagination token for requesting subsequent pages.
-            catalog_name: Catalog name (Unity Catalog only).
-            schema_name: Schema name (Unity Catalog only).
+            catalog_name: Catalog name (for catalog-based stores).
+            schema_name: Schema name (for catalog-based stores).
 
         Returns:
             A PagedList of PromptInfo objects.
@@ -544,8 +544,8 @@ class AbstractStore:
             page_token=page_token,
         )
 
-        # For backward compatibility with non-Unity Catalog registries, return RegisteredModel objects
-        # with latest_versions populated. The client-level search_prompts() expects this attribute.
+        # For backward compatibility with OSS registries, return RegisteredModel
+        # objects with latest_versions populated. The client-level search_prompts() expects this.
         for rm in registered_models:
             # Ensure the registered model has latest_versions populated
             if not hasattr(rm, "latest_versions") or rm.latest_versions is None:
@@ -564,8 +564,8 @@ class AbstractStore:
         """
         Delete a prompt from the registry.
 
-        Default implementation for non-Unity Catalog registries: deletes the underlying
-        RegisteredModel. Unity Catalog stores override this method.
+        Default implementation: deletes the underlying RegisteredModel.
+        Other store implementations may override this method.
 
         Args:
             name: Name of the prompt to delete.
@@ -577,8 +577,8 @@ class AbstractStore:
         """
         Set a tag on a prompt.
 
-        Default implementation for non-Unity Catalog registries: sets a tag on the underlying
-        RegisteredModel. Unity Catalog stores override this method.
+        Default implementation: sets a tag on the underlying RegisteredModel.
+        Other store implementations may override this method.
 
         Args:
             name: Name of the prompt.
@@ -595,8 +595,8 @@ class AbstractStore:
         """
         Delete a tag from a prompt.
 
-        Default implementation for non-Unity Catalog registries: deletes a tag from the underlying
-        RegisteredModel. Unity Catalog stores override this method.
+        Default implementation: deletes a tag from the underlying RegisteredModel.
+        Other store implementations may override this method.
 
         Args:
             name: Name of the prompt.
@@ -609,8 +609,8 @@ class AbstractStore:
         """
         Get prompt by name and version or alias.
 
-        Default implementation for non-Unity Catalog registries: gets ModelVersion with prompt tags
-        and converts to Prompt. Unity Catalog stores override this method.
+        Default implementation: gets ModelVersion with prompt tags and converts to Prompt.
+        Other store implementations may override this method.
 
         Args:
             name: Registered prompt name.
@@ -666,8 +666,8 @@ class AbstractStore:
         """
         Create a new version of an existing prompt.
 
-        Default implementation for non-Unity Catalog registries: creates a ModelVersion with
-        prompt tags. Unity Catalog stores override this method.
+        Default implementation: creates a ModelVersion with prompt tags.
+        Other store implementations may override this method.
 
         Args:
             name: Name of the prompt.
@@ -710,8 +710,8 @@ class AbstractStore:
         """
         Get a specific prompt version.
 
-        Default implementation for non-Unity Catalog registries: gets ModelVersion and converts
-        to Prompt. Unity Catalog stores override this method.
+        Default implementation: gets ModelVersion and converts to Prompt.
+        Other store implementations may override this method.
 
         Args:
             name: Name of the prompt.
@@ -726,8 +726,8 @@ class AbstractStore:
         """
         Delete a specific prompt version.
 
-        Default implementation for non-Unity Catalog registries: deletes the underlying
-        ModelVersion. Unity Catalog stores override this method.
+        Default implementation: deletes the underlying ModelVersion.
+        Other store implementations may override this method.
 
         Args:
             name: Name of the prompt.

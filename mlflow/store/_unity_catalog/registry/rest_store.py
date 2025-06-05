@@ -1216,7 +1216,7 @@ class UcModelRegistryStore(BaseRestStore):
         )
         req_body = message_to_json(
             SearchPromptsRequest(
-                unity_catalog_schema=unity_catalog_schema,
+                catalog_schema=unity_catalog_schema,
                 filter=filter_string,
                 max_results=max_results,
                 page_token=page_token,
