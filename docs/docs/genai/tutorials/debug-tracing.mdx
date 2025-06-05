@@ -29,9 +29,9 @@ The goal of this tutorial is to show you how to use MLflow to prototype, debug, 
 
 Before we build our agent, let's install the dependencies we'll need and prepare our dataset of order statuses.
 {/* What messaging are we going with here? */}
-:::info[Managed MLflow]
+:::info Managed MLflow
 
-For the best experience with all the features in this tutorial, we recommend using managed MLflow in Databricks. You can sign up for free [here](https://login.databricks.com/?destination_url=%2Fml%2Fexperiments-signup%3Fsource%3DTRY_MLFLOW&dbx_source=TRY_MLFLOW&signup_experience_step=EXPRESS). Not all of the features in this tutorial are currently available in the open-source version of MLflow.
+For the best experience with all the features in this tutorial, we recommend using managed MLflow in Databricks. You can sign up for free [here]https://signup.databricks.com/?destination_url=/ml/experiments-signup?source=TRY_MLFLOW&dbx_source=TRY_MLFLOW&signup_experience_step=EXPRESS). Not all of the features in this tutorial are currently available in the open-source version of MLflow.
 
 :::
 
@@ -457,7 +457,7 @@ This is where MLflow tracing comes in.
 
 ## MLflow Tracing: Observability with One Line of Code
 
-MLflow tracing provides a record of every call to a model, including the inputs, outputs, errors, and other information. Tracing makes it much easier to:
+MLflow tracing provides a record of every call within an application, including the inputs, outputs, errors, and other information. Tracing makes it much easier to:
 
 - Debug issues with your model calls
 - Build datasets for downstream tasks like evaluation and model training
@@ -474,7 +474,7 @@ request_order_status(client, user_query, tools)
 
 ![MLflow Trace](/images/genai/tutorials/debug-tracing/1_trace.png)
 
-:::tip[View Traces in Jupyter Notebooks]
+:::tip View Traces in Jupyter Notebooks
 
 You can view traces right in a Jupyter notebook (or Databricks notebook if you are using managed MLflow).
 
@@ -634,7 +634,7 @@ await agent.run("Hello tell me about order ORD-018")
 
 ![Tracing LlamaIndex Agent](/images/genai/tutorials/debug-tracing/5_llamaindex_trace.png)
 
-:::info[Async Agents]
+:::info Async Agents
 
 LlamaIndex agents are asynchronous by default, so we use the `await` keyword to wait for the agent to complete and get the results of the `run` method. If you are new to asynchronous programming, you can read more about it in the context of LlamaIndex [here](https://docs.llamaindex.ai/en/stable/getting_started/async_python/).
 
