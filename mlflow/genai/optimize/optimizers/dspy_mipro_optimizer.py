@@ -10,7 +10,8 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.optimize.optimizers.dspy_optimizer import _DSPyOptimizer
 from mlflow.genai.optimize.types import OBJECTIVE_FN, LLMParams
 from mlflow.genai.scorers import Scorer
-from mlflow.tracking._model_registry.fluent import register_prompt
+from mlflow.tracking._model_registry.fluent import active_run, register_prompt
+from mlflow.tracking.fluent import log_metric, log_param
 
 if TYPE_CHECKING:
     import dspy
@@ -31,6 +32,9 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
         eval_data: Optional["pd.DataFrame"] = None,
     ) -> Prompt:
         import dspy
+
+        from mlflow.genai.optimize.optimizers.utils.dspy_mipro_callback import _DSPyMIPROv2Callback
+        from mlflow.genai.optimize.optimizers.utils.dspy_mipro_utils import format_optimized_prompt
 
         _logger.info(
             f"Started optimizing prompt {prompt.uri}. "
@@ -84,7 +88,14 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
         )
 
         adapter = dspy.JSONAdapter()
-        with dspy.context(lm=lm, adapter=adapter):
+        callbacks = (
+            [
+                _DSPyMIPROv2Callback(prompt.name, input_fields),
+            ]
+            if self.optimizer_config.autolog
+            else []
+        )
+        with dspy.context(lm=lm, adapter=adapter, callbacks=callbacks):
             with self._maybe_suppress_stdout_stderr():
                 optimized_program = optimizer.compile(
                     program,
@@ -95,21 +106,25 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
                     requires_permission_to_run=False,
                 )
 
-        template = self._format_optimized_prompt(
-            adapter=adapter,
-            program=optimized_program,
-            input_fields=input_fields,
-        )
+            template = format_optimized_prompt(
+                program=optimized_program,
+                input_fields=input_fields,
+            )
 
         self._display_optimization_result(optimized_program)
-
-        return register_prompt(
+        final_score = getattr(optimized_program, "score", None)
+        optimized_prompt = register_prompt(
             name=prompt.name,
             template=template,
             version_metadata={
-                "overall_eval_score": getattr(optimized_program, "score", None),
+                "overall_eval_score": final_score,
             },
         )
+
+        if self.optimizer_config.autolog:
+            self._log_optimization_result(final_score, optimized_prompt)
+
+        return optimized_prompt
 
     def _get_num_trials(self, num_candidates: int) -> int:
         # MAX(2*log(num_candidates), 3/2*num_candidates)
@@ -124,22 +139,6 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
         if eval_data is not None:
             return min(35, len(eval_data) // 2)
         return min(35, len(train_data) // 2)
-
-    def _format_optimized_prompt(
-        self, adapter: "dspy.Adapter", program: "dspy.Predict", input_fields: dict[str, type]
-    ) -> str:
-        messages = adapter.format(
-            signature=program.signature,
-            demos=program.demos,
-            inputs={key: "{{" + key + "}}" for key in input_fields.keys()},
-        )
-
-        return "\n\n".join(
-            [
-                f"<{message['role']}>\n{message['content']}\n</{message['role']}>"
-                for message in messages
-            ]
-        )
 
     def _validate_input_fields(self, input_fields: dict[str, type], prompt: Prompt) -> None:
         if missing_fields := set(prompt.variables) - set(input_fields.keys()):
@@ -193,3 +192,14 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
                 "Prompt optimization completed. Evaluation score changed "
                 f"from {initial_score} to {program.score}."
             )
+
+    def _log_optimization_result(self, final_score: Optional[float], optimized_prompt: Prompt):
+        if not active_run():
+            return
+
+        if final_score:
+            log_metric(
+                "final_eval_score",
+                final_score,
+            )
+        log_param("optimized_prompt_uri", optimized_prompt.uri)

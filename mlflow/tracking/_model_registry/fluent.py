@@ -31,7 +31,9 @@ from mlflow.utils.databricks_utils import (
     _construct_databricks_uc_registered_model_url,
     get_workspace_id,
     get_workspace_url,
+    stage_model_for_databricks_model_serving,
 )
+from mlflow.utils.env_pack import EnvPackType, pack_env_for_databricks_model_serving
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.uri import is_databricks_unity_catalog_uri
 
@@ -44,6 +46,7 @@ def register_model(
     await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
     *,
     tags: Optional[dict[str, Any]] = None,
+    env_pack: Optional[EnvPackType] = None,
 ) -> ModelVersion:
     """Create a new model version in model registry for the model files specified by ``model_uri``.
 
@@ -64,6 +67,13 @@ def register_model(
             waits for five minutes. Specify 0 or None to skip waiting.
         tags: A dictionary of key-value pairs that are converted into
             :py:class:`mlflow.entities.model_registry.ModelVersionTag` objects.
+        env_pack: If specified, the model dependencies will first be installed into the current
+            Python environment, and then the complete environment will be packaged and included
+            in the registered model artifacts. This is useful when deploying the model to a
+            serving environment like Databricks Model Serving.
+
+            .. Note:: Experimental: This parameter may change or be removed in a future
+                                    release without warning.
 
     Returns:
         Single :py:class:`mlflow.entities.model_registry.ModelVersion` object created by
@@ -103,6 +113,7 @@ def register_model(
         name=name,
         await_registration_for=await_registration_for,
         tags=tags,
+        env_pack=env_pack,
     )
 
 
@@ -113,6 +124,7 @@ def _register_model(
     *,
     tags: Optional[dict[str, Any]] = None,
     local_model_path=None,
+    env_pack: Optional[EnvPackType] = None,
 ) -> ModelVersion:
     client = MlflowClient()
     try:
@@ -170,6 +182,15 @@ def _register_model(
 
     # Otherwise if the uri is of the form models:/..., try to get the model_id from the uri directly
     model_id = _parse_model_id_if_present(model_uri) if not model_id else model_id
+
+    if env_pack == "databricks_model_serving":
+        eprint("Packing environment for Databricks Model Serving...")
+        with pack_env_for_databricks_model_serving(
+            model_uri,
+            enforce_pip_requirements=True,
+        ) as artifacts_path_with_env:
+            client.log_model_artifacts(model_id, artifacts_path_with_env)
+
     create_version_response = client._create_model_version(
         name=name,
         source=source,
@@ -216,6 +237,24 @@ def _register_model(
             model_id,
             {mlflow_tags.MLFLOW_MODEL_VERSIONS: json.dumps(new_value)},
         )
+
+    if env_pack == "databricks_model_serving":
+        eprint(
+            f"Staging model {create_version_response.name} "
+            f"version {create_version_response.version} "
+            "for Databricks Model Serving..."
+        )
+        try:
+            stage_model_for_databricks_model_serving(
+                model_name=create_version_response.name,
+                model_version=create_version_response.version,
+            )
+        except Exception as e:
+            eprint(
+                f"Failed to stage model for Databricks Model Serving: {e!s}. "
+                "The model was registered successfully and is available for serving, but may take "
+                "longer to deploy."
+            )
 
     return create_version_response
 

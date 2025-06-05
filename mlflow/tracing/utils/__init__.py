@@ -521,3 +521,25 @@ def add_size_bytes_to_trace_metadata(trace: Trace):
     """
     trace_size_bytes = len(trace.to_json().encode("utf-8"))
     trace.info.trace_metadata[TraceMetadataKey.SIZE_BYTES] = str(trace_size_bytes)
+
+
+def update_trace_state_from_span_conditionally(trace, root_span):
+    """
+    Update trace state from span status, but only if the user hasn't explicitly set
+    a different trace status.
+
+    This utility preserves user-set trace status while maintaining default behavior
+    for traces that haven't been explicitly configured. Used by trace processors when
+    converting traces to an exportable state.
+
+    Args:
+        trace: The trace object to potentially update
+        root_span: The root span whose status may be used to update the trace state
+    """
+    from mlflow.entities.trace_state import TraceState
+
+    # Only update trace state from span status if trace is still IN_PROGRESS
+    # If the trace state is anything else, it means the user explicitly set it
+    # and we should preserve it
+    if trace.info.state == TraceState.IN_PROGRESS:
+        trace.info.state = TraceState.from_otel_status(root_span.status)
