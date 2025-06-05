@@ -4,6 +4,7 @@ from unittest.mock import call, patch
 
 import pandas as pd
 import pytest
+from databricks.rag_eval.evaluation.entities import CategoricalRating
 from packaging.version import Version
 
 import mlflow
@@ -15,9 +16,6 @@ from mlflow.genai import Scorer, scorer
 from mlflow.genai.scorers import Correctness, Guidelines, RetrievalGroundedness
 
 from tests.tracing.helper import get_traces, purge_traces
-
-if importlib.util.find_spec("databricks.agents") is None:
-    pytest.skip(reason="databricks-agents is not installed", allow_module_level=True)
 
 agent_sdk_version = Version(importlib.import_module("databricks.agents").__version__)
 
@@ -74,15 +72,15 @@ def test_trace_passed_to_builtin_scorers_correctly(sample_rag_trace):
     with (
         patch(
             "databricks.agents.evals.judges.correctness",
-            return_value=Feedback(name="correctness", value="yes"),
+            return_value=Feedback(name="correctness", value=CategoricalRating.YES),
         ) as mock_correctness,
         patch(
             "databricks.agents.evals.judges.guideline_adherence",
-            return_value=Feedback(name="guideline_adherence", value="yes"),
+            return_value=Feedback(name="guideline_adherence", value=CategoricalRating.YES),
         ) as mock_guideline,
         patch(
             "databricks.agents.evals.judges.groundedness",
-            return_value=Feedback(name="groundedness", value="yes"),
+            return_value=Feedback(name="groundedness", value=CategoricalRating.YES),
         ) as mock_groundedness,
     ):
         mlflow.genai.evaluate(
