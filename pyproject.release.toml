@@ -38,7 +38,7 @@ dependencies = [
   "markdown<4,>=3.3",
   "matplotlib<4",
   "numpy<3",
-  "pandas<3",
+  "pandas<3,!=2.3.0",
   "pyarrow<20,>=4.0.0",
   "scikit-learn<2",
   "scipy<2",
