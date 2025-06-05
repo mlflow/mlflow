@@ -167,6 +167,15 @@ _DELTA_TABLE = "delta_table"
 _MAX_LINEAGE_DATA_SOURCES = 10
 
 
+class _CatalogSchemaFilter:
+    """Internal class to hold parsed catalog, schema, and remaining filter."""
+
+    def __init__(self, catalog_name: str, schema_name: str, remaining_filter: Optional[str]):
+        self.catalog_name = catalog_name
+        self.schema_name = schema_name
+        self.remaining_filter = remaining_filter
+
+
 def _require_arg_unspecified(arg_name, arg_value, default_values=None, message=None):
     default_values = [None] if default_values is None else default_values
     if arg_value not in default_values:
@@ -1193,9 +1202,7 @@ class UcModelRegistryStore(BaseRestStore):
         """
         # Parse catalog and schema from filter string
         if filter_string:
-            catalog_name, schema_name, remaining_filter = self._parse_catalog_schema_from_filter(
-                filter_string
-            )
+            parsed_filter = self._parse_catalog_schema_from_filter(filter_string)
         else:
             raise MlflowException(
                 "For Unity Catalog prompt registries, you must specify catalog and schema "
@@ -1205,12 +1212,12 @@ class UcModelRegistryStore(BaseRestStore):
 
         # Build the request with Unity Catalog schema
         unity_catalog_schema = UnityCatalogSchema(
-            catalog_name=catalog_name, schema_name=schema_name
+            catalog_name=parsed_filter.catalog_name, schema_name=parsed_filter.schema_name
         )
         req_body = message_to_json(
             SearchPromptsRequest(
                 catalog_schema=unity_catalog_schema,
-                filter=remaining_filter,
+                filter=parsed_filter.remaining_filter,
                 max_results=max_results,
                 page_token=page_token,
             )
@@ -1226,7 +1233,7 @@ class UcModelRegistryStore(BaseRestStore):
 
     def _parse_catalog_schema_from_filter(
         self, filter_string: Optional[str]
-    ) -> tuple[Optional[str], Optional[str], Optional[str]]:
+    ) -> _CatalogSchemaFilter:
         """
         Parse catalog and schema from filter string for Unity Catalog using regex.
 
@@ -1236,7 +1243,7 @@ class UcModelRegistryStore(BaseRestStore):
             filter_string: Filter string containing catalog and schema
 
         Returns:
-            Tuple of (catalog_name, schema_name, remaining_filter)
+            _CatalogSchemaFilter object with catalog_name, schema_name, and remaining_filter
 
         Raises:
             MlflowException: If filter format is invalid for Unity Catalog
@@ -1285,7 +1292,7 @@ class UcModelRegistryStore(BaseRestStore):
         # Rejoin the remaining parts
         remaining_filter = " AND ".join(remaining_parts) if remaining_parts else None
 
-        return catalog_name, schema_name, remaining_filter
+        return _CatalogSchemaFilter(catalog_name, schema_name, remaining_filter)
 
     def delete_prompt(self, name: str) -> None:
         """
