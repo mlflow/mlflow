@@ -573,7 +573,7 @@ class MlflowClient:
         filter_string: Optional[str] = None,
         max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
         page_token: Optional[str] = None,
-    ) -> PagedList[Prompt]:
+    ) -> PagedList[Union[Prompt, PromptInfo]]:
         """
         Retrieve prompt templates from the MLflow Prompt Registry.
 
@@ -596,10 +596,10 @@ class MlflowClient:
                 to retrieve the next page of results.  Defaults to `None`.
 
         Returns:
-            :py:class:`Prompt <mlflow.entities.model_registry.Prompt>`:
-                A pageable list of :py:class:`Prompt <mlflow.entities.model_registry.Prompt>`
-                entities representing prompt templates. Inspect the returned object's
-                `.token` attribute to fetch subsequent pages.
+            A pageable list of prompt objects representing prompt templates:
+            - Unity Catalog stores: PagedList[PromptInfo]
+            - OSS stores: PagedList[Prompt]
+            Inspect the returned object's `.token` attribute to fetch subsequent pages.
         """
         registry_client = self._get_registry_client()
 
@@ -610,15 +610,20 @@ class MlflowClient:
             page_token=page_token,
         )
 
-        prompts = []
-        for result in search_results:
-            # All stores now return PromptInfo objects - convert to Prompt by getting the latest version
-            prompt = self.get_prompt(result.name)
-            if prompt:
-                prompts.append(prompt)
-
-        # Return as PagedList maintaining the same token
-        return PagedList(prompts, search_results.token)
+        # Check if Unity Catalog backed to handle different return types
+        is_unity_catalog = self._registry_uri.startswith("databricks-uc")
+        
+        if is_unity_catalog:
+            # Unity Catalog: Return PromptInfo objects directly since get_prompt() latest version is not supported
+            return search_results
+        else:
+            # OSS: Convert PromptInfo to Prompt objects (existing behavior)
+            prompts = []
+            for result in search_results:
+                prompt = self.get_prompt(result.name)
+                if prompt:
+                    prompts.append(prompt)
+            return PagedList(prompts, search_results.token)
 
     @experimental
     @require_prompt_registry
