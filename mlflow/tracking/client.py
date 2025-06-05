@@ -604,30 +604,18 @@ class MlflowClient:
         registry_client = self._get_registry_client()
 
         # Delegate to the store - each store handles its own implementation:
-        # - UC/RestStore: Parses catalog/schema from filter string internally and returns
-        #   PromptInfo objects
-        # - Traditional stores: Handle prompt tag filtering internally and return RegisteredModel
-        #   objects for backward compatibility
         search_results = registry_client.search_prompts(
             filter_string=filter_string,
             max_results=max_results,
             page_token=page_token,
         )
 
-        # Check if the results are PromptInfo objects (UC stores) or RegisteredModel objects
-        # (traditional stores)
-
         prompts = []
         for result in search_results:
-            if isinstance(result, PromptInfo):
-                # UC store: convert PromptInfo to Prompt by getting the latest version
-                prompt = self.get_prompt(result.name)
-                if prompt:
-                    prompts.append(prompt)
-            else:
-                # Traditional store: result is a RegisteredModel with latest_versions
-                # Return it as-is for backward compatibility with existing tests
-                prompts.append(result)
+            # All stores now return PromptInfo objects - convert to Prompt by getting the latest version
+            prompt = self.get_prompt(result.name)
+            if prompt:
+                prompts.append(prompt)
 
         # Return as PagedList maintaining the same token
         return PagedList(prompts, search_results.token)
