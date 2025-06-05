@@ -2099,9 +2099,13 @@ def test_search_prompt_multiple_versions(tracking_uri):
     prompts = client.search_prompts()
     assert len(prompts) == 1
 
+    # Verify we get the right prompt info
     prompt = prompts[0]
-    versions = sorted([mv.version for mv in prompt.latest_versions])
-    assert versions == [2]
+    assert prompt.name == name
+    
+    # To check the latest version, we need to load the prompt directly
+    latest_prompt = client.load_prompt(name)
+    assert latest_prompt.version == 2
 
 
 def test_log_model_artifact(tmp_path: Path, tracking_uri: str) -> None:
@@ -2302,9 +2306,9 @@ def test_store_direct_prompt_error_handling(tracking_uri):
     """Test error handling in store-direct prompt APIs."""
     client = MlflowClient(tracking_uri=tracking_uri)
 
-    # Test getting non-existent prompt - should return None for traditional stores
-    result = client.get_prompt("nonexistent_prompt")
-    assert result is None
+    # Test getting non-existent prompt - should raise exception
+    with pytest.raises(MlflowException, match=r".*not found"):
+        client.get_prompt("nonexistent_prompt")
 
     # Test creating version for non-existent prompt should raise error
     # (Traditional stores require the prompt to exist first)

@@ -536,8 +536,6 @@ class ModelRegistryClient:
                 max_results=max_results,
                 order_by=order_by,
                 page_token=page_token,
-                catalog_name=None,
-                schema_name=None,
             )
 
     def _parse_catalog_schema_from_filter(

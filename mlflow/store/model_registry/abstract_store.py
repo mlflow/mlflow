@@ -557,7 +557,6 @@ class AbstractStore:
                 name=rm.name,
                 description=rm.description,
                 creation_timestamp=rm.creation_timestamp,
-                last_updated_timestamp=rm.last_updated_timestamp,
                 tags=tags,
             )
             prompts.append(prompt_info)
