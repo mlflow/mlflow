@@ -78,7 +78,6 @@ from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
     CreatePromptRequest,
     CreatePromptResponse,
     CreatePromptVersionRequest,
-
     DeletePromptRequest,
     DeletePromptResponse,
     DeletePromptTagRequest,
@@ -86,9 +85,7 @@ from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
     DeletePromptVersionRequest,
     DeletePromptVersionResponse,
     GetPromptVersionByAliasRequest,
-
     GetPromptVersionRequest,
-
     SearchPromptsRequest,
     SearchPromptsResponse,
     SetPromptTagRequest,
@@ -1398,7 +1395,7 @@ class UcModelRegistryStore(BaseRestStore):
         prompt_version_proto.name = name
         # JSON-encode the template for Unity Catalog server
         prompt_version_proto.template = json.dumps(template)
-        
+
         # Note: version will be set by the backend when creating a new version
         # We don't set it here as it's generated server-side
         if description:
