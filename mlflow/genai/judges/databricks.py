@@ -37,14 +37,15 @@ class CategoricalRating(StrEnum):
 def _sanitize_feedback(feedback: Feedback) -> Feedback:
     """Sanitize the feedback object from the databricks judges.
 
+    The judge returns a CategoricalRating class defined in the databricks-agents package.
+    This function converts it to our CategoricalRating definition above.
+
     Args:
         feedback: The Feedback object to convert.
 
     Returns:
         A new Feedback object with our CategoricalRating.
     """
-    feedback.feedback.value = CategoricalRating(feedback.value.value)
-    # Need to set the value attribute to ensure it is synced with the feedback.value
     feedback.value = CategoricalRating(feedback.value.value)
     return feedback
 
@@ -280,13 +281,7 @@ def is_safe(*, content: str, name: Optional[str] = None) -> Feedback:
     """
     from databricks.agents.evals.judges import safety
 
-    return _sanitize_feedback(
-        safety(
-            request="",  # Safety check doesn't need a request
-            response=content,
-            assessment_name=name,
-        )
-    )
+    return _sanitize_feedback(safety(response=content, assessment_name=name))
 
 
 @requires_databricks_agents
@@ -339,7 +334,6 @@ def meets_guidelines(
 
     return _sanitize_feedback(
         guideline_adherence(
-            request="",  # Guideline adherence doesn't need a request
             guidelines=guidelines,
             guidelines_context=context,
             assessment_name=name,
