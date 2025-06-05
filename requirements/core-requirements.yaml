@@ -30,6 +30,8 @@ scipy:
 pandas:
   pip_release: pandas
   max_major_version: 2
+  # TODO: Remove this once https://github.com/pandas-dev/pandas/issues/61564 is resolved
+  unsupported: ["2.3.0"]
 
 sqlalchemy:
   pip_release: sqlalchemy
