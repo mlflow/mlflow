@@ -3,11 +3,12 @@ from abc import ABCMeta, abstractmethod
 from time import sleep, time
 from typing import Optional, Union
 
-from mlflow.entities.model_registry import ModelVersionTag
+from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
+from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.entities.model_registry.prompt import Prompt
-from mlflow.entities.model_registry.registered_model import RegisteredModel
 from mlflow.exceptions import MlflowException
+from mlflow.prompt.constants import IS_PROMPT_TAG_KEY, PROMPT_TEXT_TAG_KEY
 from mlflow.prompt.registry_utils import has_prompt_tag
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, ErrorCode
 from mlflow.store._unity_catalog.registry.prompt_info import PromptInfo
@@ -486,9 +487,6 @@ class AbstractStore:
             A PromptInfo object representing the created prompt.
         """
         # Default implementation: use RegisteredModel with special tags
-        from mlflow.entities.model_registry import RegisteredModelTag
-        from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
-
         prompt_tags = [RegisteredModelTag(key=IS_PROMPT_TAG_KEY, value="true")]
         if tags:
             prompt_tags.extend([RegisteredModelTag(key=k, value=v) for k, v in tags.items()])
@@ -512,7 +510,7 @@ class AbstractStore:
         page_token: Optional[str] = None,
         catalog_name: Optional[str] = None,
         schema_name: Optional[str] = None,
-    ) -> PagedList[RegisteredModel]:
+    ) -> PagedList[PromptInfo]:
         """
         Search for prompts in the registry.
 
@@ -528,10 +526,8 @@ class AbstractStore:
             schema_name: Schema name (for catalog-based stores).
 
         Returns:
-            A PagedList of RegisteredModel objects (with prompt filtering applied).
+            A PagedList of PromptInfo objects.
         """
-        from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
-
         # Build filter to only include prompts (use backticks for tag key with dots)
         prompt_filter = f"tags.`{IS_PROMPT_TAG_KEY}` = 'true'"
         if filter_string:
@@ -545,23 +541,29 @@ class AbstractStore:
             page_token=page_token,
         )
 
-        # Return RegisteredModel objects instead of PromptInfo objects for OSS compatibility.
-        # The ModelRegistryClient.search_prompts() method expects RegisteredModel objects with
-        # latest_versions populated so it can extract prompt templates from ModelVersion tags.
-        # Other stores may override this method to return actual PromptInfo objects.
+        # Convert RegisteredModel objects to PromptInfo objects
+        prompts = []
         for rm in registered_models:
-            # Ensure the registered model has latest_versions populated
-            if not hasattr(rm, "latest_versions") or rm.latest_versions is None:
-                # Get the latest versions for this prompt
-                from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
+            # Extract tags as dict
+            if isinstance(rm.tags, dict):
+                tags = rm.tags.copy()
+            else:
+                tags = {tag.key: tag.value for tag in rm.tags} if rm.tags else {}
 
-                try:
-                    latest_versions = self.get_latest_versions(rm.name, stages=ALL_STAGES)
-                    rm.latest_versions = latest_versions
-                except Exception:
-                    rm.latest_versions = []
+            # Remove the internal prompt tag from user-visible tags
+            tags.pop(IS_PROMPT_TAG_KEY, None)
 
-        return registered_models
+            # Create PromptInfo object
+            prompt_info = PromptInfo(
+                name=rm.name,
+                description=rm.description,
+                creation_timestamp=rm.creation_timestamp,
+                last_updated_timestamp=rm.last_updated_timestamp,
+                tags=tags,
+            )
+            prompts.append(prompt_info)
+
+        return PagedList(prompts, registered_models.token)
 
     def delete_prompt(self, name: str) -> None:
         """
@@ -589,8 +591,6 @@ class AbstractStore:
             value: Tag value.
         """
         # Default implementation: set tag on registered model
-        from mlflow.entities.model_registry import RegisteredModelTag
-
         tag = RegisteredModelTag(key=key, value=value)
         return self.set_registered_model_tag(name, tag)
 
@@ -625,8 +625,6 @@ class AbstractStore:
         try:
             # Handle latest version resolution when version is None
             if version is None:
-                from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
-
                 latest_versions = self.get_latest_versions(name, stages=ALL_STAGES)
                 if not latest_versions:
                     return None
@@ -681,9 +679,6 @@ class AbstractStore:
         Returns:
             A Prompt object representing the created version.
         """
-        from mlflow.entities.model_registry import ModelVersionTag
-        from mlflow.prompt.constants import IS_PROMPT_TAG_KEY, PROMPT_TEXT_TAG_KEY
-
         # Create version tags including template
         version_tags = [
             ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true"),
