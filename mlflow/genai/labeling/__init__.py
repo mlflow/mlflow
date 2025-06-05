@@ -8,12 +8,18 @@ The API docs can be found here:
 
 from typing import Any, Optional
 
+_ERROR_MSG = (
+    "The `databricks-agents` package is required to use `mlflow.genai.labeling`. "
+    "Please install it with `pip install databricks-agents`."
+)
+
 try:
     from databricks.agents.review_app import (
         Agent,
         ReviewApp,
-        _LabelingSession,
-        get_review_app,
+    )
+    from databricks.agents.review_app import (
+        LabelingSession as _LabelingSession,
     )
 
     class LabelingSession(_LabelingSession):
@@ -28,10 +34,25 @@ try:
             return self.sync_expectations(to_dataset)
 
 except ImportError:
-    raise ImportError(
-        "The `databricks-agents` package is required to use `mlflow.genai.labeling`. "
-        "Please install it with `pip install databricks-agents`."
-    ) from None
+    raise ImportError(_ERROR_MSG) from None
+
+
+def get_review_app(experiment_id: Optional[str] = None) -> "ReviewApp":
+    """Gets or creates (if it doesn't exist) the review app for the given experiment ID.
+
+    Args:
+        experiment_id: Optional. The experiment ID for which to get the review app. If not provided,
+            the experiment ID is inferred from the current active environment.
+
+    Returns:
+        ReviewApp: The review app.
+    """
+    try:
+        from databricks.agents.review_app import get_review_app as _get_review_app
+    except ImportError:
+        raise ImportError(_ERROR_MSG) from None
+
+    return _get_review_app(experiment_id)
 
 
 def create_labeling_session(
