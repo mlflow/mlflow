@@ -48,6 +48,12 @@ def log_assessment(trace_id: str, assessment: Assessment) -> Assessment:
         Feedback can come from different sources, such as human judges, heuristic scorers,
         or LLM-as-a-Judge.
 
+    .. note::
+
+        Please be careful when using this API while async trace logging is enabled. When
+        this API is called right after the trace is ended, it might block until the trace
+        is exported to the tracking server.
+
     The following code annotates a trace with a feedback provided by LLM-as-a-Judge.
 
     .. code-block:: python
@@ -153,6 +159,12 @@ def log_expectation(
         This API is currently only available for `Databricks Managed MLflow <https://www.databricks.com/product/managed-mlflow>`_.
 
     Logs an expectation (e.g. ground truth label) to a Trace. This API only takes keyword arguments.
+
+    .. note::
+
+        Please be careful when using this API while async trace logging is enabled. When
+        this API is called right after the trace is ended, it might block until the trace
+        is exported to the tracking server.
 
     Args:
         trace_id: The ID of the trace.
@@ -264,6 +276,12 @@ def log_feedback(
         This API is currently only available for `Databricks Managed MLflow <https://www.databricks.com/product/managed-mlflow>`_.
 
     Logs feedback to a Trace. This API only takes keyword arguments.
+
+    .. note::
+
+        Please be careful when using this API while async trace logging is enabled. When
+        this API is called right after the trace is ended, it might block until the trace
+        is exported to the tracking server.
 
     Args:
         trace_id: The ID of the trace.

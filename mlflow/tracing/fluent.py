@@ -595,6 +595,11 @@ def get_trace(trace_id: str) -> Optional[Trace]:
     it fetches the trace from the tracking store. If the trace is not found in the tracking store,
     it returns None.
 
+    .. note::
+        Please be careful when using this API while async trace logging is enabled. When
+        this API is called right after the trace is ended, it might block until the trace
+        is exported to the tracking server.
+
     Args:
         trace_id: The ID of the trace.
 
@@ -1123,6 +1128,11 @@ def set_trace_tag(trace_id: str, key: str, value: str):
     backend. Below is an example of setting a tag on an active trace. You can replace the
     ``trace_id`` parameter to set a tag on an already ended trace.
 
+    .. note::
+        Please be careful when using this API while async trace logging is enabled. When
+        this API is called right after the trace is ended, it might block until the trace
+        is exported to the tracking server.
+
     .. code-block:: python
         :test:
 
@@ -1149,6 +1159,11 @@ def delete_trace_tag(trace_id: str, key: str) -> None:
     The trace can be an active one or the one that has already ended and recorded in the
     backend. Below is an example of deleting a tag on an active trace. You can replace the
     ``trace_id`` parameter to delete a tag on an already ended trace.
+
+    .. note::
+        Please be careful when using this API while async trace logging is enabled. When
+        this API is called right after the trace is ended, it might block until the trace
+        is exported to the tracking server.
 
     .. code-block:: python
         :test:
