@@ -81,9 +81,13 @@ def proto_to_mlflow_prompt(
     if hasattr(proto_version, "aliases") and proto_version.aliases:
         aliases = [alias.alias for alias in proto_version.aliases]
 
+    if not proto_version.version:
+        raise ValueError("Prompt is missing its version field.")
+    version = int(proto_version.version)
+
     return Prompt(
         name=proto_version.name,
-        version=int(proto_version.version),
+        version=version,
         template=proto_version.template,
         commit_message=proto_version.description,
         creation_timestamp=proto_version.creation_timestamp,

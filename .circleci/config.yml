@@ -85,6 +85,11 @@ jobs:
             yarn install
             yarn build-all -- --no-r
             python changed_pages.py
+      - run:
+          name: Compare sitemaps
+          working_directory: docs
+          command: |
+            yarn sitemap https://mlflow.org/docs/latest/sitemap.xml ./build/latest/sitemap.xml
       - store_artifacts:
           path: docs/build/
       - run:
