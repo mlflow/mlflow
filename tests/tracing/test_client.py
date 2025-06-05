@@ -1,4 +1,5 @@
 import time
+from unittest import mock
 
 import pytest
 
@@ -50,10 +51,13 @@ def test_set_trace_tag_on_pending_trace(monkeypatch):
         time.sleep(5)
         original(*args, **kwargs)
 
-    monkeypatch.setattr(TracingClient, "_upload_ended_trace_info", _slow_upload_ended_trace_info)
-
-    with mlflow.start_span() as span:
-        pass
+    with mock.patch.object(
+        TracingClient,
+        "_upload_ended_trace_info",
+        side_effect=_slow_upload_ended_trace_info,
+    ):
+        with mlflow.start_span() as span:
+            pass
 
     # Trace is still pending export, not uploaded to the backend yet
     assert get_traces() == []
