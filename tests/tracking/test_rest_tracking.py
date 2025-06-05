@@ -1664,8 +1664,8 @@ def test_create_model_version_with_validation_regex(tmp_path: Path):
         # Wait for the server to start
         for _ in range(10):
             try:
-                requests.get(f"http://localhost:{port}/health")
-                break
+                if requests.get(f"http://localhost:{port}/health").ok:
+                    break
             except requests.ConnectionError:
                 time.sleep(1)
         else:
@@ -1676,8 +1676,10 @@ def test_create_model_version_with_validation_regex(tmp_path: Path):
             client = MlflowClient(f"http://localhost:{port}")
             name = "test"
             client.create_registered_model(name)
+            # Invalid source
             with pytest.raises(MlflowException, match="Invalid model version source"):
                 client.create_model_version(name, source="s3://path/to/model")
+            # Valid source
             experiment_id = client.create_experiment("test")
             run = client.create_run(experiment_id=experiment_id)
             assert run.info.artifact_uri.startswith("mlflow-artifacts:/")
