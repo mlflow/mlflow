@@ -75,10 +75,10 @@ class Violation:
             "type": "error",
             "module": None,
             "obj": None,
-            "line": self.lineno,
-            "column": self.col_offset,
-            "endLine": self.lineno,
-            "endColumn": self.col_offset,
+            "line": self.loc.lineno,
+            "column": self.loc.col_offset,
+            "endLine": self.loc.lineno,
+            "endColumn": self.loc.col_offset,
             "path": str(self.path),
             "symbol": self.rule.name,
             "message": self.rule.message,
@@ -455,12 +455,21 @@ class Linter(ast.NodeVisitor):
             if MARKDOWN_LINK_RE.search(docstring.s):
                 self._check(docstring, rules.MarkdownLink())
 
+    def _pytest_mark_repeat(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+        # Only check in test files
+        if not self.path.name.startswith("test_"):
+            return
+
+        if rules.PytestMarkRepeat.check(node):
+            self._check(Location.from_node(node), rules.PytestMarkRepeat())
+
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         self._test_name_typo(node)
         self._syntax_error_example(node)
         self._param_mismatch(node)
         self._markdown_link(node)
         self._invalid_abstract_method(node)
+        self._pytest_mark_repeat(node)
 
         for arg in node.args.args + node.args.kwonlyargs + node.args.posonlyargs:
             if arg.annotation:
@@ -480,6 +489,7 @@ class Linter(ast.NodeVisitor):
         self._param_mismatch(node)
         self._markdown_link(node)
         self._invalid_abstract_method(node)
+        self._pytest_mark_repeat(node)
         self.stack.append(node)
         self._no_rst(node)
         self.generic_visit(node)
