@@ -6,29 +6,49 @@ The API docs can be found here:
 <https://api-docs.databricks.com/python/databricks-agents/latest/databricks_agent_eval.html#review-app>
 """
 
-from typing import TYPE_CHECKING, Literal, Optional, Union
+from typing import Literal, Optional, Union
 
-from mlflow.genai.label_schemas.label_schemas import (
-    InputCategorical,
-    InputCategoricalList,
-    InputNumeric,
-    InputText,
-    InputTextList,
-    LabelSchema,
-    LabelSchemaType,
-)
+try:
+    from databricks.agents import review_app
+    from databricks.rag_eval.review_app.label_schemas import (
+        EXPECTED_FACTS,
+        EXPECTED_RESPONSE,
+        GUIDELINES,
+        _InputCategorical,
+        _InputCategoricalList,
+        _InputNumeric,
+        _InputText,
+        _InputTextList,
+        _LabelSchema,
+        _LabelSchemaType,
+    )
 
-if TYPE_CHECKING:
-    from databricks.agents.review_app import ReviewApp
+    class InputCategorical(_InputCategorical):
+        """A single-select dropdown for collecting assessments from stakeholders."""
 
-_ERROR_MSG = (
-    "The `databricks-agents` package is required to use `mlflow.genai.label_schemas`. "
-    "Please install it with `pip install databricks-agents`."
-)
+    class InputCategoricalList(_InputCategoricalList):
+        """A multi-select dropdown for collecting assessments from stakeholders."""
 
-EXPECTED_FACTS = "expected_facts"
-GUIDELINES = "guidelines"
-EXPECTED_RESPONSE = "expected_response"
+    class InputNumeric(_InputNumeric):
+        """A numeric input for collecting assessments from stakeholders."""
+
+    class InputText(_InputText):
+        """A free-form text box for collecting assessments from stakeholders."""
+
+    class InputTextList(_InputTextList):
+        """Like `Text`, but allows multiple entries."""
+
+    class LabelSchema(_LabelSchema):
+        """A label schema for collecting input from stakeholders."""
+
+    class LabelSchemaType(_LabelSchemaType):
+        """The type of label schema."""
+
+except ImportError:
+    raise ImportError(
+        "The `databricks-agents` package is required to use `mlflow.genai.label_schemas`. "
+        "Please install it with `pip install databricks-agents`."
+    ) from None
 
 
 def create_label_schema(
@@ -64,11 +84,6 @@ def create_label_schema(
     Returns:
         LabelSchema: The created label schema.
     """
-    try:
-        from databricks.agents import review_app
-    except ImportError:
-        raise ImportError(_ERROR_MSG) from None
-
     app = review_app.get_review_app()
     return app.create_label_schema(
         name=name,
@@ -90,11 +105,6 @@ def get_label_schema(name: str) -> LabelSchema:
     Returns:
         LabelSchema: The label schema.
     """
-    try:
-        from databricks.agents import review_app
-    except ImportError:
-        raise ImportError(_ERROR_MSG) from None
-
     app = review_app.get_review_app()
     label_schema = next(
         (label_schema for label_schema in app.label_schemas if label_schema.name == name),
@@ -105,7 +115,7 @@ def get_label_schema(name: str) -> LabelSchema:
     return label_schema
 
 
-def delete_label_schema(name: str) -> "ReviewApp":
+def delete_label_schema(name: str) -> review_app.ReviewApp:
     """Delete a label schema from the review app.
 
     Args:
@@ -114,11 +124,6 @@ def delete_label_schema(name: str) -> "ReviewApp":
     Returns:
         ReviewApp: The review app.
     """
-    try:
-        from databricks.agents import review_app
-    except ImportError:
-        raise ImportError(_ERROR_MSG) from None
-
     app = review_app.get_review_app()
     return app.delete_label_schema(name)
 

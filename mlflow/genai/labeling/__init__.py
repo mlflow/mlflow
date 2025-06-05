@@ -8,30 +8,30 @@ The API docs can be found here:
 
 from typing import Any, Optional
 
-from mlflow.genai.labeling.labeling import Agent, LabelingSession, ReviewApp
+try:
+    from databricks.agents.review_app import (
+        Agent,
+        ReviewApp,
+        _LabelingSession,
+        get_review_app,
+    )
 
-_ERROR_MSG = (
-    "The `databricks-agents` package is required to use `mlflow.genai.labeling`. "
-    "Please install it with `pip install databricks-agents`."
-)
+    class LabelingSession(_LabelingSession):
+        """A session for labeling items in the review app."""
 
+        def sync(self, to_dataset: str) -> None:
+            """Sync the traces and expectations from the labeling session to a dataset.
 
-def get_review_app(experiment_id: Optional[str] = None) -> "ReviewApp":
-    """Gets or creates (if it doesn't exist) the review app for the given experiment ID.
+            Args:
+                to_dataset: The dataset to sync expectations to.
+            """
+            return self.sync_expectations(to_dataset)
 
-    Args:
-        experiment_id: Optional. The experiment ID for which to get the review app. If not provided,
-            the experiment ID is inferred from the current active environment.
-
-    Returns:
-        ReviewApp: The review app.
-    """
-    try:
-        from databricks.agents.review_app import get_review_app as _get_review_app
-    except ImportError:
-        raise ImportError(_ERROR_MSG) from None
-
-    return _get_review_app(experiment_id)
+except ImportError:
+    raise ImportError(
+        "The `databricks-agents` package is required to use `mlflow.genai.labeling`. "
+        "Please install it with `pip install databricks-agents`."
+    ) from None
 
 
 def create_labeling_session(
@@ -56,15 +56,13 @@ def create_labeling_session(
     Returns:
         LabelingSession: The created labeling session.
     """
-    return LabelingSession(
-        get_review_app().create_labeling_session(
-            name=name,
-            assigned_users=assigned_users,
-            agent=agent,
-            label_schemas=label_schemas,
-            enable_multi_turn_chat=enable_multi_turn_chat,
-            custom_inputs=custom_inputs,
-        )
+    return get_review_app().create_labeling_session(
+        name=name,
+        assigned_users=assigned_users,
+        agent=agent,
+        label_schemas=label_schemas,
+        enable_multi_turn_chat=enable_multi_turn_chat,
+        custom_inputs=custom_inputs,
     )
 
 
@@ -74,7 +72,7 @@ def get_labeling_sessions() -> list[LabelingSession]:
     Returns:
         list[LabelingSession]: The list of labeling sessions.
     """
-    return [LabelingSession(session) for session in get_review_app().get_labeling_sessions()]
+    return get_review_app().get_labeling_sessions()
 
 
 def get_labeling_session(run_id: str) -> LabelingSession:
@@ -100,7 +98,7 @@ def get_labeling_session(run_id: str) -> LabelingSession:
     return labeling_session
 
 
-def delete_labeling_session(labeling_session: LabelingSession) -> "ReviewApp":
+def delete_labeling_session(labeling_session: LabelingSession) -> ReviewApp:
     """Delete a labeling session from the review app.
 
     Args:
@@ -109,7 +107,7 @@ def delete_labeling_session(labeling_session: LabelingSession) -> "ReviewApp":
     Returns:
         ReviewApp: The review app.
     """
-    return get_review_app().delete_labeling_session(labeling_session._session)
+    return get_review_app().delete_labeling_session(labeling_session)
 
 
 __all__ = [
