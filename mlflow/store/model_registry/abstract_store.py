@@ -10,6 +10,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.prompt.registry_utils import has_prompt_tag
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, ErrorCode
 from mlflow.store._unity_catalog.registry.prompt_info import PromptInfo
+from mlflow.store.entities.paged_list import PagedList
 from mlflow.utils.annotations import developer_stable
 from mlflow.utils.logging_utils import eprint
 
@@ -510,7 +511,7 @@ class AbstractStore:
         page_token: Optional[str] = None,
         catalog_name: Optional[str] = None,
         schema_name: Optional[str] = None,
-    ):
+    ) -> PagedList[PromptInfo]:
         """
         Search for prompts in the registry.
 
