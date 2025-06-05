@@ -14,7 +14,7 @@ import TabItem from "@theme/TabItem";
 ![OpenAI Tracing via autolog](/images/llms/tracing/openai-tracing.gif)
 
 
-[MLflow Tracing](../) provides automatic tracing capability for OpenAI. By enabling auto tracing
+[MLflow Tracing](/genai/tracing) provides automatic tracing capability for OpenAI. By enabling auto tracing
 for OpenAI by calling the <APILink fn="mlflow.openai.autolog" /> function, MLflow will capture traces for LLM invocation and log them to the active MLflow Experiment.
 
 ```python
@@ -35,7 +35,7 @@ MLflow trace automatically captures the following information about OpenAI calls
 
 :::tip
 
-MLflow OpenAI integration is not only about tracing. MLflow offers full tracking experience for OpenAI, including model tracking, prompt management, and evaluation. Please checkout the **[MLflow OpenAI Flavor](/llms/openai)** to learn more!
+MLflow OpenAI integration is not only about tracing. MLflow offers full tracking experience for OpenAI, including model tracking, prompt management, and evaluation. Please checkout the **[MLflow OpenAI Flavor](/genai/flavors/openai)** to learn more!
 
 :::
 
@@ -59,7 +59,7 @@ Responses API is supported since MLflow 2.22.0.
 
 #### Agents SDK
 
-See [OpenAI Agents SDK Tracing](/tracing/integrations/openai-agent) for more details.
+See [OpenAI Agents SDK Tracing](/genai/tracing/integrations/listing/openai-agent) for more details.
 
 #### Embedding API
 

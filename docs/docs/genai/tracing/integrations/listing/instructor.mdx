@@ -15,7 +15,7 @@ import TabItem from "@theme/TabItem";
 
 [Instructor](https://python.useinstructor.com/) is an open-source Python library built on top of Pydantic, simplifying structured LLM outputs with validation, retries, and streaming.
 
-[MLflow Tracing](../) works with Instructor by enabling auto-tracing for the underlying LLM libraries. For example, if you use Instructor for OpenAI LLMs, you can enable tracing with `mlflow.openai.autolog()` and the generated traces will capture the structured outputs from Instructor.
+[MLflow Tracing](/genai/tracing) works with Instructor by enabling auto-tracing for the underlying LLM libraries. For example, if you use Instructor for OpenAI LLMs, you can enable tracing with `mlflow.openai.autolog()` and the generated traces will capture the structured outputs from Instructor.
 
 Similarly, you can also trace Instructor with other LLM providers, such as Anthropic, Gemini, and LiteLLM, by enabling the corresponding autologging in MLflow.
 

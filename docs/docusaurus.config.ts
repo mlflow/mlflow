@@ -273,7 +273,7 @@ const config: Config = {
             from: ["/llms/tracing/notebooks/jupyter-trace-demo", "/tracing/tutorials/jupyter-trace-demo"],
           },
           {
-            to: "/genai/tracing/features", //TODO: verify location
+            to: "/genai/tracing", //TODO: verify location
             from: ["/llms/tracing/overview", "/tracing/tutorials/concept"],
           },
           {
@@ -281,7 +281,7 @@ const config: Config = {
             from: ["/llms/tracing/search-traces", "/tracing/api/search"],
           },
           {
-            to: "/genai/tracing/features", //TODO: update
+            to: "/genai/tracing", //TODO: update
             from: ["/llms/tracing/tracing-schema", "/tracing/tracing-schema"],
           },
           {
