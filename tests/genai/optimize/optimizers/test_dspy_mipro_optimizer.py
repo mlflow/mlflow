@@ -1,15 +1,18 @@
 import sys
+from contextlib import nullcontext
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
 import pytest
 
-from mlflow.exceptions import MlflowException
-
 pytest.importorskip("dspy", minversion="2.6.0")
 
+import mlflow
+from mlflow import register_prompt
 from mlflow.entities.model_registry import Prompt
+from mlflow.exceptions import MlflowException
 from mlflow.genai.optimize.optimizers import _DSPyMIPROv2Optimizer
+from mlflow.genai.optimize.optimizers.utils.dspy_mipro_callback import _DSPyMIPROv2Callback
 from mlflow.genai.optimize.types import LLMParams, OptimizerConfig
 from mlflow.genai.scorers import scorer
 
@@ -44,10 +47,9 @@ def sample_data():
 
 @pytest.fixture
 def sample_prompt():
-    return Prompt(
+    return register_prompt(
         name="test_prompt",
         template="Translate the following text to {{language}}: {{input_text}}",
-        version=1,
     )
 
 
@@ -86,93 +88,56 @@ def test_get_minibatch_size(train_size, eval_size, expected_batch_size):
     assert optimizer._get_minibatch_size(train_data, eval_data) == expected_batch_size
 
 
-def test_format_optimized_prompt():
+@pytest.mark.parametrize(
+    ("optimizer_config", "use_eval_data", "expected_teacher_settings"),
+    [
+        (
+            OptimizerConfig(
+                num_instruction_candidates=4,
+                max_few_show_examples=2,
+                num_threads=2,
+                optimizer_llm=LLMParams(model_name="test/model"),
+            ),
+            False,
+            {"lm": True},
+        ),
+        (
+            OptimizerConfig(num_instruction_candidates=4),
+            False,
+            {},
+        ),
+        (
+            OptimizerConfig(),
+            True,
+            {},
+        ),
+    ],
+)
+def test_optimize_scenarios(
+    mock_mipro,
+    sample_data,
+    sample_prompt,
+    mock_extractor,
+    capsys,
+    optimizer_config,
+    use_eval_data,
+    expected_teacher_settings,
+):
     import dspy
-
-    mock_program = dspy.Predict("input_text, language -> translation")
-    input_fields = {"input_text": str, "language": str}
-    optimizer = _DSPyMIPROv2Optimizer(OptimizerConfig())
-
-    with patch("dspy.JSONAdapter.format") as mock_format:
-        mock_format.return_value = [
-            {"role": "system", "content": "You are a translator"},
-            {"role": "user", "content": "Input Text: {{input_text}}, Language: {{language}}"},
-        ]
-        result = optimizer._format_optimized_prompt(dspy.JSONAdapter(), mock_program, input_fields)
-
-    expected = (
-        "<system>\nYou are a translator\n</system>\n\n"
-        "<user>\nInput Text: {{input_text}}, Language: {{language}}\n</user>"
-    )
-
-    assert result == expected
-    mock_format.assert_called_once()
-
-
-def test_optimize_with_teacher_llm(mock_mipro, sample_data, sample_prompt, mock_extractor):
-    import dspy
-
-    teacher_llm = LLMParams(model_name="test/model")
-    optimizer_config = OptimizerConfig(
-        num_instruction_candidates=4,
-        max_few_show_examples=2,
-        num_threads=2,
-        optimizer_llm=teacher_llm,
-    )
 
     optimizer = _DSPyMIPROv2Optimizer(optimizer_config)
 
     optimized_program = dspy.Predict("input_text, language -> translation")
+    optimized_program.score = 1.0
+    optimized_program.trial_logs = {
+        1: {"full_eval_score": 0.0},
+    }
     mock_mipro.return_value.compile.return_value = optimized_program
+
+    # Prepare eval_data if needed
+    eval_data = sample_data.copy() if use_eval_data else None
 
     result = optimizer.optimize(
-        prompt=sample_prompt,
-        target_llm_params=LLMParams(model_name="agent/model"),
-        train_data=sample_data,
-        scorers=[sample_scorer],
-        eval_data=None,
-    )
-
-    mock_mipro.assert_called_once()
-    kwargs = mock_mipro.call_args[1]
-    assert "teacher_settings" in kwargs
-    assert "lm" in kwargs["teacher_settings"]
-    assert isinstance(result, str)
-
-
-def test_optimize_without_teacher_llm(mock_mipro, sample_data, sample_prompt, mock_extractor):
-    import dspy
-
-    optimizer = _DSPyMIPROv2Optimizer(OptimizerConfig(num_instruction_candidates=4))
-
-    optimized_program = dspy.Predict("input_text, language -> translation")
-    mock_mipro.return_value.compile.return_value = optimized_program
-
-    result = optimizer.optimize(
-        prompt=sample_prompt,
-        target_llm_params=LLMParams(model_name="agent/model"),
-        train_data=sample_data,
-        scorers=[sample_scorer],
-        eval_data=None,
-    )
-
-    mock_mipro.assert_called_once()
-    kwargs = mock_mipro.call_args[1]
-    assert "teacher_settings" in kwargs
-    assert kwargs["teacher_settings"] == {}
-    assert isinstance(result, str)
-
-
-def test_optimize_with_eval_data(mock_mipro, sample_data, sample_prompt, mock_extractor):
-    import dspy
-
-    optimizer = _DSPyMIPROv2Optimizer(OptimizerConfig())
-    eval_data = sample_data.copy()
-
-    optimized_program = dspy.Predict("input_text, language -> translation")
-    mock_mipro.return_value.compile.return_value = optimized_program
-
-    optimizer.optimize(
         prompt=sample_prompt,
         target_llm_params=LLMParams(model_name="agent/model"),
         train_data=sample_data,
@@ -180,10 +145,36 @@ def test_optimize_with_eval_data(mock_mipro, sample_data, sample_prompt, mock_ex
         eval_data=eval_data,
     )
 
+    # Verify teacher LLM settings
+    mock_mipro.assert_called_once()
+    kwargs = mock_mipro.call_args[1]
+    assert "teacher_settings" in kwargs
+    if expected_teacher_settings:
+        assert "lm" in kwargs["teacher_settings"]
+    else:
+        assert kwargs["teacher_settings"] == {}
+
+    # Verify optimization result
+    assert isinstance(result, Prompt)
+    assert result.version == 2
+    assert result.version_metadata["overall_eval_score"] == "1.0"
+
+    # Verify eval data handling
     compile_args = mock_mipro.return_value.compile.call_args[1]
     assert "trainset" in compile_args
     assert "valset" in compile_args
-    assert compile_args["valset"] is not None
+    if eval_data is not None:
+        assert compile_args["valset"] is not None
+    else:
+        assert compile_args["valset"] is None
+
+    # Verify logging
+    captured = capsys.readouterr()
+    assert "Started optimizing prompt" in captured.err
+    assert "Please wait as this process typically takes several minutes" in captured.err
+    assert (
+        "Prompt optimization completed. Evaluation score changed from 0.0 to 1.0." in captured.err
+    )
 
 
 def test_convert_to_dspy_metric():
@@ -310,3 +301,54 @@ def test_optimize_with_verbose(
         assert "DSPy debug info" not in captured.err
 
     mock_mipro.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "autolog",
+    [
+        False,
+        True,
+    ],
+)
+def test_optimize_with_autolog(
+    mock_mipro,
+    sample_data,
+    sample_prompt,
+    mock_extractor,
+    autolog,
+):
+    import dspy
+
+    optimizer = _DSPyMIPROv2Optimizer(OptimizerConfig(autolog=autolog))
+
+    callbacks = []
+
+    optimized_program = dspy.Predict("input_text, language -> translation")
+    optimized_program.score = 1.0
+
+    def fn(*args, **kwargs):
+        nonlocal callbacks
+        callbacks = dspy.settings.callbacks
+        return optimized_program
+
+    mock_mipro.return_value.compile.side_effect = fn
+
+    context = mlflow.start_run() if autolog else nullcontext()
+    with context:
+        optimizer.optimize(
+            prompt=sample_prompt,
+            target_llm_params=LLMParams(model_name="agent/model"),
+            train_data=sample_data,
+            scorers=[sample_scorer],
+            eval_data=sample_data,
+        )
+
+    if autolog:
+        assert len(callbacks) == 1
+        assert isinstance(callbacks[0], _DSPyMIPROv2Callback)
+        run = mlflow.last_active_run()
+        assert run is not None
+        assert run.data.metrics["final_eval_score"] == 1.0
+        assert run.data.params["optimized_prompt_uri"] == "prompts:/test_prompt/2"
+    else:
+        assert len(callbacks) == 0

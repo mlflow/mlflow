@@ -205,6 +205,7 @@ message ModelVersionDeploymentJobState {
     SUCCEEDED = 3;
     FAILED = 4;
     PENDING = 5;
+    APPROVAL = 6;
   }
   optional string job_id = 1;
   optional string run_id = 2;

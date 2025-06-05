@@ -1,19 +1,20 @@
 from mlflow.genai.scorers.base import Scorer, scorer
 from mlflow.genai.scorers.builtin_scorers import (
     Correctness,
-    GuidelineAdherence,
+    ExpectationsGuidelines,
+    Guidelines,
     RelevanceToQuery,
     RetrievalGroundedness,
     RetrievalRelevance,
     RetrievalSufficiency,
     Safety,
     get_all_scorers,
-    get_rag_scorers,
 )
 
 __all__ = [
     "Correctness",
-    "GuidelineAdherence",
+    "ExpectationsGuidelines",
+    "Guidelines",
     "RelevanceToQuery",
     "RetrievalGroundedness",
     "RetrievalRelevance",
@@ -22,5 +23,4 @@ __all__ = [
     "Scorer",
     "scorer",
     "get_all_scorers",
-    "get_rag_scorers",
 ]

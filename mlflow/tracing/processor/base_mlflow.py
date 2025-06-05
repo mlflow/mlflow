@@ -8,7 +8,6 @@ from opentelemetry.sdk.trace import Span as OTelSpan
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor, SpanExporter
 
 from mlflow.entities.trace_info_v2 import TraceInfoV2
-from mlflow.entities.trace_state import TraceState
 from mlflow.tracing.constant import (
     MAX_CHARS_IN_TRACE_INFO_METADATA,
     TRACE_SCHEMA_VERSION,
@@ -26,6 +25,7 @@ from mlflow.tracing.utils import (
     maybe_get_dependencies_schemas,
     maybe_get_logged_model_id,
     maybe_get_request_id,
+    update_trace_state_from_span_conditionally,
 )
 from mlflow.tracing.utils.environment import resolve_env_metadata
 from mlflow.tracking.fluent import (
@@ -174,7 +174,10 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
         # on_start method, so we reflect the same to the trace start time here.
         trace.info.request_time = root_span.start_time // 1_000_000  # nanosecond to millisecond
         trace.info.execution_duration = (root_span.end_time - root_span.start_time) // 1_000_000
-        trace.info.state = TraceState.from_otel_status(root_span.status)
+
+        # Update trace state from span status, but only if the user hasn't explicitly set
+        # a different trace status
+        update_trace_state_from_span_conditionally(trace, root_span)
         trace.info.trace_metadata.update(
             {
                 TraceMetadataKey.INPUTS: self._truncate_metadata(
