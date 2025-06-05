@@ -3,11 +3,11 @@ import Tabs from "@theme/Tabs"
 import TabItem from "@theme/TabItem"
 import { APILink } from "@site/src/components/APILink";
 
-# Decorators & Fluent APIs (Recommended)
+# Decorators & Context Managers (Recommended)
 
-In addition to the [Auto Tracing](/genai/tracing/app-instrumentation/automatic) integrations, you can instrument your Python code using the MLflow Tracing SDK. This is especially useful when you need to instrument your custom Python code.
+In addition to the [Auto Tracing](/genai/tracing/app-instrumentation/automatic) integrations, you can instrument your Python code using MLflow's manual tracing APIs. This is especially useful when you need to instrument your custom Python code.
 
-<DatabricksCallout docsPath="/mlflow3/genai/tracing/app-instrumentation/manual-tracing/fluent-apis" />
+<DatabricksCallout docsPath="/mlflow3/genai/tracing/app-instrumentation/manual-tracing/decorators-context-managers" />
 
 ## Decorator
 
@@ -69,7 +69,7 @@ When a trace contains multiple spans with same name, MLflow appends an auto-incr
 The <APILink fn="mlflow.trace" /> decorator accepts following arguments to customize the span to be created:
 
 - 🏷️ **`name` parameter** to override the span name from the default (the name of decorated function)
-- 🎯 **`span_type` parameter** to set the type of span. Set either one of built-in [Span Types](/tracing/data-model#span-types) or a string.
+- 🎯 **`span_type` parameter** to set the type of span. Set either one of built-in [Span Types](/genai/tracing/data-model#span-types) or a string.
 - 🏗️ **`attributes` parameter** to add custom attributes to the span.
 
 :::tip[Decorator Order]
@@ -166,7 +166,7 @@ In the `my_complex_function` example (correct order), `@mlflow.trace` will captu
 
 ### Adding Trace Tags
 
-Tags can be added to traces to provide additional metadata at the trace level. There are a few different ways to set tags on a trace. Please refer to the [how-to guide](/tracing/api/how-to) for the other methods.
+Tags can be added to traces to provide additional metadata at the trace level. There are a few different ways to set tags on a trace. Please refer to the [how-to guide](/genai/tracing/attach-tags) for the other methods.
 
 ```python
 @mlflow.trace
@@ -229,7 +229,7 @@ If an `Exception` is raised during processing of a trace-instrumented operation,
 
 ### Combining with Auto-Tracing
 
-The `@mlflow.trace` decorator can be used in conjunction with auto tracing to combine auto-tracing with manually defined spans in a single cohesive and integrated trace. Learn more [here](/tracing/app-instrumentation/automatic#combining-manual-and-automatic-tracing).
+The `@mlflow.trace` decorator can be used in conjunction with auto tracing to combine auto-tracing with manually defined spans in a single cohesive and integrated trace. Learn more [here](/genai/tracing/app-instrumentation/automatic#combining-manual-and-automatic-tracing).
 
 ### Streaming
 
@@ -262,7 +262,7 @@ In the example above, the output of the span will be `"h,e,l,l,o"`. The raw chun
 The following is an advanced example that uses the `output_reducer` to consolidate ChatCompletionChunk output from an OpenAI LLM into a single message object.
 
 :::tip
-Of course, we recommend using the [auto-tracing for OpenAI](/tracing/integrations/openai) for examples like this, which does the same job but with one-liner code. The example below is for demonstration purposes.
+Of course, we recommend using the [auto-tracing for OpenAI](/genai/tracing/integrations/listing/openai) for examples like this, which does the same job but with one-liner code. The example below is for demonstration purposes.
 :::
 
 ```python
@@ -496,11 +496,8 @@ asyncio.run(async_pipeline(["item1", "item2", "item3"]))
 For advanced scenarios requiring complete control over trace lifecycle, MLflow provides low-level client APIs. These are recommended only when decorators and context managers don't meet your requirements.
 
 **Use client APIs for:**
-- 🔧 Custom trace ID generation schemes
-- 🔌 Integration with existing trace systems
-- 🎛️ Complex trace lifecycle management
-- 🌐 Distributed tracing across services
 - 👨‍💼 Manual parent-child relationship control
+- 🛠️ Precise control of span start and end points
 
 **⚠️ Important Limitations:**
 - ❌ No automatic parent-child relationship detection
@@ -555,296 +552,6 @@ finally:
 - 🎯 **Decorators**: Simple function tracing, most common use case
 - 📦 **Context Managers**: Complex code blocks, manual input/output control
 - 🔧 **Client APIs**: Custom trace IDs, distributed tracing, existing system integration
-
-## Advanced Patterns
-
-### Manual Error Handling
-
-While decorators automatically capture exceptions, some scenarios require manual error handling for custom recovery, logging, or cleanup:
-
-```python
-import mlflow
-from contextlib import contextmanager
-
-
-@contextmanager
-def safe_traced_span(name: str, **span_kwargs):
-    """Context manager ensuring proper span cleanup"""
-    with mlflow.start_span(name=name, **span_kwargs) as span:
-        try:
-            yield span
-        except Exception as e:
-            # Add custom error context
-            span.set_attributes(
-                {
-                    "error_type": type(e).__name__,
-                    "error_message": str(e),
-                    "recovery_attempted": True,
-                }
-            )
-
-            # Attempt recovery logic here
-            try:
-                handle_error_recovery()
-            except Exception:
-                span.set_attributes({"recovery_failed": True})
-
-            raise
-
-
-# Usage
-with safe_traced_span("risky_operation") as span:
-    span.set_inputs({"operation": "critical_task"})
-    result = risky_operation()
-    span.set_outputs({"result": result})
-```
-
-### Custom Trace Management
-
-For enterprise applications requiring business-specific trace IDs or state management:
-
-```python
-import uuid
-from datetime import datetime
-from contextlib import contextmanager
-
-
-class CustomTraceManager:
-    """Manage traces with business-specific requirements"""
-
-    def __init__(self):
-        self.active_traces = {}
-
-    def generate_trace_id(self, user_id: str, operation: str) -> str:
-        """Generate custom trace ID based on business logic"""
-        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        return f"{user_id}_{operation}_{timestamp}_{uuid.uuid4().hex[:8]}"
-
-    @contextmanager
-    def business_trace(self, user_id: str, operation: str, **attributes):
-        """Create trace with business context"""
-        trace_id = self.generate_trace_id(user_id, operation)
-
-        # Add business-specific attributes
-        business_attrs = {
-            "user_id": user_id,
-            "operation_type": operation,
-            "business_trace_id": trace_id,
-            "department": attributes.get("department"),
-            "cost_center": attributes.get("cost_center"),
-            **attributes,
-        }
-
-        with mlflow.start_span(name=trace_id, attributes=business_attrs) as span:
-            self.active_traces[trace_id] = span
-            try:
-                yield span, trace_id
-            finally:
-                self.active_traces.pop(trace_id, None)
-
-
-# Usage
-manager = CustomTraceManager()
-
-with manager.business_trace(
-    user_id="user123",
-    operation="report_generation",
-    department="finance",
-    cost_center="cc_001",
-) as (span, trace_id):
-    span.set_inputs({"report_type": "quarterly"})
-    result = generate_report()
-    span.set_outputs({"report_url": result})
-```
-
-### Distributed Tracing
-
-For microservice architectures, propagate trace context across services:
-
-```python
-import mlflow
-import requests
-import json
-
-
-def service_a_operation():
-    """Initiating service that starts a distributed trace"""
-
-    @mlflow.trace(name="service_a_main")
-    def main_operation():
-        # Start the distributed trace
-        current_span = mlflow.get_current_active_span()
-
-        # Create trace context for service B
-        trace_context = {
-            "trace_id": current_span.trace_id,
-            "parent_span_id": current_span.span_id,
-            "span_context": {"user_id": "user123", "session_id": "session456"},
-        }
-
-        # Call service B with trace context
-        result = call_service_b(trace_context)
-        return result
-
-    return main_operation()
-
-
-def call_service_b(trace_context: dict):
-    """Call external service with trace propagation"""
-
-    # Include trace context in request headers
-    headers = {
-        "X-Trace-ID": trace_context["trace_id"],
-        "X-Parent-Span-ID": trace_context["parent_span_id"],
-        "X-Span-Context": json.dumps(trace_context["span_context"]),
-    }
-
-    with mlflow.start_span(name="service_b_call") as span:
-        span.set_inputs({"service": "service_b", "trace_context": trace_context})
-
-        # Make HTTP request to service B
-        response = requests.post(
-            "http://service-b/process", json={"data": "sample"}, headers=headers
-        )
-
-        result = response.json()
-        span.set_outputs({"response": result})
-        return result
-
-
-# In Service B (separate service/process)
-def service_b_handler(request_data, headers):
-    """Handle request in service B with trace continuation"""
-
-    # Extract trace context from headers
-    trace_id = headers.get("X-Trace-ID")
-    parent_span_id = headers.get("X-Parent-Span-ID")
-    span_context = json.loads(headers.get("X-Span-Context", "{}"))
-
-    # Create child span in service B
-    with mlflow.start_span(
-        name="service_b_processing",
-        attributes={
-            "service": "service_b",
-            "parent_trace_id": trace_id,
-            "parent_span_id": parent_span_id,
-            **span_context,
-        },
-    ) as span:
-        span.set_inputs(request_data)
-
-        # Process the request
-        result = process_request(request_data)
-
-        span.set_outputs({"processed": result})
-        return result
-```
-
-### Performance Optimization
-
-For high-throughput applications, implement intelligent tracing strategies:
-
-```python
-import random
-import time
-from typing import Optional
-
-
-class PerformantTracer:
-    """Optimized tracing for high-performance applications"""
-
-    def __init__(self, sample_rate: float = 0.1, error_always_trace: bool = True):
-        self.sample_rate = sample_rate
-        self.error_always_trace = error_always_trace
-        self.span_cache = {}
-
-    def should_trace(
-        self, operation_type: str, user_tier: str = None, **context
-    ) -> bool:
-        """Intelligent sampling decision"""
-
-        # Always trace for premium users
-        if user_tier == "premium":
-            return True
-
-        # Always trace critical operations
-        if operation_type in ["payment", "security", "auth"]:
-            return True
-
-        # Always trace if error indicators present
-        if context.get("retry_count", 0) > 0:
-            return True
-
-        # Sample other operations
-        return random.random() < self.sample_rate
-
-    def conditional_trace(self, name: str, operation_type: str, **kwargs):
-        """Conditionally create traces based on sampling logic"""
-
-        def decorator(func):
-            def wrapper(*args, **func_kwargs):
-                if self.should_trace(operation_type, **kwargs):
-                    # Use full tracing
-                    return mlflow.trace(name=name, **kwargs)(func)(*args, **func_kwargs)
-                else:
-                    # Execute without tracing
-                    return func(*args, **func_kwargs)
-
-            return wrapper
-
-        return decorator
-
-    def batch_trace_operations(self, operations: list, batch_name: str):
-        """Efficiently trace batch operations"""
-
-        @mlflow.trace(name=batch_name)
-        def execute_batch():
-            results = []
-            errors = []
-
-            for i, operation in enumerate(operations):
-                # Only trace individual operations if they're critical or error-prone
-                if operation.get("critical", False) or i % 10 == 0:  # Sample every 10th
-                    with mlflow.start_span(name=f"batch_item_{i}") as span:
-                        span.set_inputs(operation)
-                        try:
-                            result = execute_operation(operation)
-                            span.set_outputs({"result": result})
-                            results.append(result)
-                        except Exception as e:
-                            span.set_attributes({"error": str(e)})
-                            errors.append({"operation": operation, "error": str(e)})
-                else:
-                    # Execute without individual tracing
-                    try:
-                        result = execute_operation(operation)
-                        results.append(result)
-                    except Exception as e:
-                        errors.append({"operation": operation, "error": str(e)})
-
-            return {"results": results, "errors": errors}
-
-        return execute_batch()
-
-
-# Usage examples
-tracer = PerformantTracer(sample_rate=0.05)  # 5% sampling
-
-
-@tracer.conditional_trace("user_operation", "standard")
-def standard_operation():
-    return "result"
-
-
-@tracer.conditional_trace("payment_processing", "payment", user_tier="premium")
-def payment_operation():
-    return "payment_result"
-
-
-# Batch processing
-operations = [{"id": i, "critical": i % 50 == 0} for i in range(1000)]
-results = tracer.batch_trace_operations(operations, "large_batch_process")
-```
 
 ## Best Practices
 

@@ -22,7 +22,7 @@ verify the environment is ready for tracing development by running the unit test
 
 First, get a solid understanding of what MLflow Tracing does and how it works. Check out these docs to get up to speed:
 
-- [Tracing Concepts](/genai/tracing/concepts) - Understand what tracing is and the specific benefits for MLflow users.
+- [Tracing Concepts](/genai/tracing/concepts/trace-instrumentation) - Understand what tracing is and the specific benefits for MLflow users.
 - [Tracing Schema Guide](/genai/tracing/data-model) - Details on trace data structure and the information stored.
 - [MLflow Tracing API Guide](/genai/tracing/app-instrumentation) - Practical guide to auto-instrumentation and APIs for manually creating traces.
 
@@ -133,8 +133,8 @@ When you are confident that the implementation works correctly, open a PR with t
 Documentation is a prerequisite for release. Follow these steps to complete the documentation:
 
 1. Add the integrated library icon and example in the [main Tracing documentation](/genai/tracing/integrations).
-2. If the library is already present in an existing MLflow model flavor, add a Tracing section in the flavor documentation ([example page](/genai/flavors/llama-index/#enable-tracing)).
-3. Add a notebook tutorial to demonstrate the integration ([example notebook](https://github.com/mlflow/mlflow/blob/master/docs/docs/llms/llama-index/notebooks/llama_index_quickstart.ipynb))
+2. If the library is already present in an existing MLflow model flavor, add a Tracing section in the flavor documentation.
+3. Add a notebook tutorial to demonstrate the integration.
 
 Documentation sources are located in the `docs/` folder. Refer to [Writing Docs](https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md#writing-docs) for more details on how to build and preview the documentation.
 

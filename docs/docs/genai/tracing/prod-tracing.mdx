@@ -1,10 +1,16 @@
 import DatabricksCallout from "@site/src/components/DatabricksCallout"
+import { APILink } from "@site/src/components/APILink";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import { CardGroup, SmallLogoCard, Card } from "@site/src/components/Card";
 
-# Monitoring GenAI Applications in Production
+# Production Monitoring for GenAI Applications
 
 <DatabricksCallout docsPath="/mlflow3/genai/tracing/prod-tracing" />
 
-Machine learning projects don't conclude with their initial launch. Ongoing monitoring and incremental enhancements are critical for long-term success. MLflow Tracing offers observability for your production application, supporting the iterative process of continuous improvement.
+Machine learning projects don't conclude with their initial launch. Ongoing monitoring and incremental enhancements are critical for long-term success. MLflow Tracing offers comprehensive observability for your production applications, supporting the iterative process of continuous improvement while ensuring quality delivery to users.
+
+GenAI applications face unique challenges that make production monitoring essential. Quality drift can occur over time due to model updates, data distribution shifts, or new user interaction patterns. The operational complexity of multi-step workflows involving LLMs, vector databases, and retrieval systems creates multiple potential failure points that need continuous oversight. Cost management becomes critical as token usage and API costs can vary significantly based on user behavior and model performance.
 
 ## Prerequisites for Production Deployments
 
@@ -18,19 +24,21 @@ pip install --upgrade mlflow-tracing
 
 The [MLflow Tracing SDK `mlflow-tracing`](/genai/tracing/lightweight-sdk) is a lightweight package that only includes the minimum set of dependencies to instrument your code/models/agents with MLflow Tracing.
 
-import { CardGroup, SmallLogoCard, Card } from "@site/src/components/Card";
-
 <Card>
   <div className="flex-column">
     <div className="flex-row">
       <div className="flex-item">
         #### Key Benefits
 
-        - **⚡️ Faster Deployment**: Significantly smaller package size and fewer dependencies enable quicker deployments in containers and serverless environments
-        - **🔧 Simple Dependency Management**: Reduced dependencies mean less maintenance overhead and fewer potential conflicts
-        - **📦 Enhanced Portability**: Easily deploy across different platforms with minimal compatibility concerns
-        - **🔒 Improved Security**: Smaller attack surface with fewer dependencies reduces security risks
-        - **🚀 Performance Optimizations**: Optimized for high-volume tracing in production environments
+        **⚡️ Faster Deployment**: Significantly smaller package size and fewer dependencies enable quicker deployments in containers and serverless environments
+
+        **🔧 Simple Dependency Management**: Reduced dependencies mean less maintenance overhead and fewer potential conflicts
+
+        **📦 Enhanced Portability**: Easily deploy across different platforms with minimal compatibility concerns
+
+        **🔒 Improved Security**: Smaller attack surface with fewer dependencies reduces security risks
+
+        **🚀 Performance Optimizations**: Optimized for high-volume tracing in production environments
       </div>
     </div>
   </div>
@@ -52,7 +60,7 @@ MLflow 3 (specifically `mlflow-tracing` for production) is required for producti
 
 ## Setting Up Tracing for Production Endpoints
 
-When deploying your GenAI application to production, you need to configure MLflow Tracing to send traces to your MLflow tracking server.
+When deploying your GenAI application to production, you need to configure MLflow Tracing to send traces to your MLflow tracking server. This configuration forms the foundation for all production observability capabilities.
 
 ### Environment Variable Configuration
 
@@ -141,6 +149,30 @@ spec:
               value: '1.0.0'
 ```
 
+### Databricks Model Serving Integration
+
+When you deploy GenAI applications that have been instrumented with MLflow Tracing through the Mosaic AI Agent Framework, MLflow Tracing works automatically without any additional configuration. This integration provides seamless observability from development to production deployment.
+
+**Automatic Trace Collection**: If your code uses MLflow Tracing decorators, context managers, or autologging, traces are captured automatically in production with the same code working seamlessly across environments.
+
+**Built-in Production Readiness**: The framework handles trace batching, sampling, and error handling for production workloads while automatically logging traces to your specified MLflow experiment.
+
+```python
+import mlflow
+from databricks.agents import deploy
+
+
+# Your instrumented agent code
+@mlflow.trace
+def my_agent(query: str) -> str:
+    # Agent logic with automatic tracing
+    return process_query(query)
+
+
+# Deploy with automatic trace collection
+deployed_agent = deploy(model=my_agent, experiment_name="production-agent-traces")
+```
+
 ### Verifying Trace Collection
 
 After deployment, verify that traces are being collected properly:
@@ -170,7 +202,7 @@ except Exception as e:
 
 ## Adding Context to Production Traces
 
-In production environments, enriching traces with contextual information is crucial for understanding user behavior, debugging issues, and improving your GenAI application.
+In production environments, enriching traces with contextual information is crucial for understanding user behavior, debugging issues, and improving your GenAI application. This context enables you to analyze user interactions, track quality across different segments, and identify patterns that lead to better or worse outcomes.
 
 ### Tracking Request, Session, and User Context
 
@@ -317,6 +349,46 @@ production_traces = client.search_traces(
 )
 ```
 
+## Key Monitoring Areas
+
+Understanding what to monitor helps you focus on metrics that actually impact user experience and business outcomes. Rather than trying to monitor everything, focus on areas that provide actionable insights for your specific application and user base.
+
+<Tabs>
+  <TabItem value="operational" label="Operational Metrics" default>
+    **Performance and Reliability**: Monitor end-to-end response times from user request to final response, including LLM inference latency, retrieval system performance, and component-level bottlenecks. Track overall error rates, LLM API failures, timeout occurrences, and dependency failures to maintain system reliability.
+
+    **Resource Utilization**: Monitor token consumption patterns, API cost tracking, request throughput, and system resource usage to optimize performance and control costs.
+
+    **Business Metrics**: Track user engagement rates, session completion rates, feature adoption, and user satisfaction scores to understand the business impact of your application.
+  </TabItem>
+  <TabItem value="quality" label="Quality Metrics">
+    **Response Quality**: Assess response relevance to user queries, factual accuracy, completeness of responses, and consistency across similar queries to ensure your application meets user needs.
+
+    **Safety and Compliance**: Monitor for harmful content detection, bias monitoring, privacy compliance, and regulatory adherence, which is especially important for applications in regulated industries.
+
+    **User Experience Quality**: Track response helpfulness, clarity and readability, appropriate tone and style, and multi-turn conversation quality to optimize user satisfaction.
+
+    **Domain-Specific Quality**: Implement metrics that vary by application type, such as technical accuracy for specialized domains, citation quality for RAG applications, code quality for programming assistants, or creative quality for content generation.
+  </TabItem>
+  <TabItem value="business" label="Business Impact">
+    **User Behavior**: Monitor session duration and depth, feature usage patterns, user retention rates, and conversion metrics to understand how users engage with your application.
+
+    **Operational Efficiency**: Track support ticket reduction, process automation success, time savings for users, and task completion rates to measure operational improvements.
+
+    **Cost-Benefit Analysis**: Compare infrastructure costs versus value delivered, ROI on GenAI investment, productivity improvements, and customer satisfaction impact to justify and optimize your GenAI initiatives.
+  </TabItem>
+</Tabs>
+
+## Production Insights from Traces
+
+Production traces provide valuable insights across multiple dimensions that aren't visible during development. These insights help you understand real-world usage patterns and identify opportunities for improvement.
+
+**User Interaction Analysis**: Real user queries often differ significantly from test cases, revealing the complexity and variety of actual use cases. Conversation patterns in multi-turn interactions show how well your application maintains context and handles follow-up questions. Query complexity distribution helps you understand whether your application handles the full range of user needs effectively.
+
+**Performance and Reliability Monitoring**: Error pattern analysis reveals systemic issues that may not be apparent from individual failures. Latency monitoring across different components helps you optimize response times and identify bottlenecks. Resource usage tracking enables cost optimization and capacity planning.
+
+**Quality and Feedback Insights**: User feedback provides direct insight into how well your application meets real needs. Quality trends over time reveal whether changes to your application actually improve user experience. Behavioral pattern analysis helps identify usage patterns that lead to better outcomes.
+
 ## Production Monitoring Configurations
 
 ### Asynchronous Trace Logging
@@ -330,7 +402,7 @@ For production applications, MLflow logs traces asynchronously by default to pre
 | `MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE` | The maximum number of traces that can be queued before being logged to backend by the worker threads. When the queue is full, new traces will be discarded. Increasing this allows higher durability of trace logging, but also increases memory consumption. | `1000` |
 | `MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT` | The timeout in seconds for retrying failed trace logging. When a trace logging fails, it will be retried up to this timeout with backoff, after which it will be discarded. | `500` |
 
-Example configuration:
+Example configuration for high-volume applications:
 
 ```bash
 export MLFLOW_ENABLE_ASYNC_TRACE_LOGGING=true
@@ -418,16 +490,35 @@ Refer to the [tracking server setup guide](/ml/tracking#tracking-setup) for more
 
 ### Performance Considerations
 
-- **Database**: Use PostgreSQL or MySQL for better concurrent write performance
-- **Storage**: Use cloud storage (S3, Azure Blob, GCS) for artifact storage
-- **Indexing**: Ensure proper indexes on `timestamp_ms`, `status`, and frequently queried tag columns
-- **Retention**: Implement data retention policies to manage storage costs
+**Database**: Use PostgreSQL or MySQL for better concurrent write performance rather than SQLite for production deployments.
+
+**Storage**: Use cloud storage (S3, Azure Blob, GCS) for artifact storage to ensure scalability and reliability.
+
+**Indexing**: Ensure proper indexes on `timestamp_ms`, `status`, and frequently queried tag columns to maintain query performance as trace volume grows.
+
+**Retention**: Implement data retention policies to manage storage costs and maintain system performance over time.
+
+## Advanced Monitoring Capabilities
+
+For organizations requiring comprehensive automated monitoring capabilities, Databricks Mosaic AI provides enterprise-grade solutions that go beyond basic trace collection. These capabilities are particularly valuable for large-scale deployments where manual monitoring becomes impractical.
+
+**Automated Quality Assessment**: Run LLM judges and custom evaluators automatically on production traffic samples, providing continuous quality monitoring without manual intervention.
+
+**Real-time Monitoring Dashboards**: Pre-built visualizations for operational metrics, quality trends, and business impact give teams immediate visibility into application performance.
+
+**Intelligent Alerting Systems**: ML-powered anomaly detection combined with threshold-based alerts reduces false positives while ensuring critical issues are caught quickly.
+
+**Cost Optimization Tools**: Advanced analytics for token usage, cost prediction, and budget management help organizations optimize their GenAI investments.
+
+**Compliance and Safety Monitoring**: Automated detection of bias, harmful content, and regulatory compliance issues is essential for organizations operating in regulated industries.
+
+Learn more about [Production AI Monitoring with Databricks](https://docs.databricks.com/en/machine-learning/model-serving/monitor-inference.html).
 
 ## Production Monitoring Best Practices
 
 ### 1. Structured Logging and Tagging
 
-Use consistent tagging schemes across your application:
+Use consistent tagging schemes across your application to enable effective filtering and analysis:
 
 ```python
 # Standard production tags
@@ -467,7 +558,7 @@ def robust_function():
 
 ### 3. Performance Monitoring
 
-Track key performance metrics:
+Track key performance metrics to understand system behavior and optimize performance:
 
 ```python
 import time
@@ -494,7 +585,7 @@ def performance_tracked_function():
 
 ### 4. Health Checks
 
-Implement health checks to monitor trace logging:
+Implement health checks to monitor trace logging and system connectivity:
 
 ```python
 from fastapi import FastAPI
@@ -516,13 +607,16 @@ def health_check():
 
 ## Summary
 
-Production monitoring with MLflow Tracing provides comprehensive observability for your GenAI applications. Key recommendations:
+Production monitoring with MLflow Tracing provides comprehensive observability for your GenAI applications. Understanding how users actually interact with your application, monitoring quality and performance in real-world conditions, and tracking the business impact of your GenAI initiatives are all essential for long-term success.
 
-1. **Use `mlflow-tracing`** for production deployments
-2. **Configure async logging** for performance
-3. **Add rich context** with tags and metadata
-4. **Implement feedback collection** for quality monitoring
-5. **Consider OpenTelemetry integration** for enterprise observability
-6. **Monitor performance** and implement proper error handling
+Key recommendations for successful production deployments include using `mlflow-tracing` for production deployments to minimize dependencies and optimize performance, configuring async logging for high-volume applications to prevent blocking, adding rich context with tags and metadata for effective debugging and analysis, implementing feedback collection for quality monitoring and continuous improvement, considering OpenTelemetry integration for enterprise observability platforms, and monitoring performance while implementing proper error handling.
 
-Whether you're using self-hosted MLflow or integrating with enterprise observability platforms, MLflow Tracing provides the foundation for understanding and improving your production GenAI applications.
+Whether you're using self-hosted MLflow, integrating with enterprise observability platforms through OpenTelemetry, or leveraging Databricks Mosaic AI's advanced capabilities, MLflow Tracing provides the foundation for understanding and improving your production GenAI applications.
+
+## Next Steps
+
+**[Debug & Observe Your App with Tracing](/genai/tracing/observe-with-traces)**: Learn foundational observability concepts and techniques
+
+**[Query Traces via SDK](/genai/tracing/observe-with-traces/query-via-sdk)**: Understand how to programmatically access trace data for analysis
+
+**[Track Users & Sessions](/genai/tracing/track-users-sessions)**: Implement user and session context tracking for better monitoring insights

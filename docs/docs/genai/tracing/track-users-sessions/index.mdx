@@ -11,33 +11,24 @@ Tracking users and sessions in your GenAI application provides essential context
 
 ## Why Track Users and Sessions?
 
-User and session tracking enables powerful analytics and improvements:
+User and session tracking enables powerful analytics and improvements for your GenAI application. Understanding how different users interact with your application helps identify usage patterns across your user base, while analyzing multi-turn conversations reveals how well your system maintains context retention across interactions.
 
-**User Behavior Analysis**: Understand how different users interact with your application and identify usage patterns
-
-**Conversation Flow Tracking**: Analyze multi-turn conversations and context retention across interactions
-
-**Personalization Insights**: Identify patterns to improve user-specific experiences and recommendations
-
-**Quality Per User**: Track performance metrics across different user segments and demographics
-
-**Session Continuity**: Maintain context across multiple interactions within the same conversation
-
-**A/B Testing**: Compare how different user groups respond to application changes or features
+This tracking capability allows you to monitor performance metrics across different user segments, identifying areas for targeted improvements. You can also maintain session continuity across multiple interactions within the same conversation, creating better user experiences through improved context awareness.
 
 ## Standard MLflow Tags
 
-MLflow provides two standard tags specifically designed for session and user tracking:
+:::note New in MLflow 3
+User and session tracking is only available in MLflow 3 and above. To upgrade, please run `pip install --upgrade mlflow`
+:::
 
-- **`mlflow.trace.user`**: Associates traces with specific users for user-centric analysis
-- **`mlflow.trace.session`**: Groups traces belonging to multi-turn conversations or sessions
+MLflow provides two standard tags specifically designed for session and user tracking. The `mlflow.trace.user` tag associates traces with specific users for user-centric analysis, while `mlflow.trace.session` groups traces belonging to multi-turn conversations or sessions.
 
-When you use these standard tags, MLflow automatically enables filtering and grouping capabilities in the UI, making it easy to analyze user and session data.
+When you use these standard tags, MLflow automatically enables filtering and grouping capabilities in the UI, making it easy to analyze user and session data without additional configuration.
 
-## Basic Implementation
+## Implementation Examples
 
 <Tabs>
-  <TabItem value="simple-example" label="Simple Example" default>
+  <TabItem value="basic" label="Basic Usage" default>
     Here's how to add user and session tracking to your application:
 
     ```python
@@ -70,49 +61,13 @@ When you use these standard tags, MLflow automatically enables filtering and gro
         )
     ```
 
-    **Key points:**
+    **Key Implementation Notes:**
     - The `@mlflow.trace` decorator automatically creates a trace for function execution
     - <APILink fn="mlflow.update_current_trace" /> adds the user ID and session ID to the active trace
     - Use consistent ID formats across your application for reliable analysis
   </TabItem>
-  <TabItem value="context-manager" label="Using Context Managers">
-    For more complex scenarios, you can use context managers to ensure consistent user and session tracking:
-
-    ```python
-    import mlflow
-    from contextlib import contextmanager
-
-
-    @contextmanager
-    def user_session_context(user_id: str, session_id: str, **additional_context):
-        """Context manager that automatically adds user and session tracking"""
-
-        # Base user and session tags
-        context_tags = {
-            "mlflow.trace.user": user_id,
-            "mlflow.trace.session": session_id,
-        }
-
-        # Add any additional context
-        context_tags.update(additional_context)
-
-        with mlflow.start_span(name="user_interaction", attributes=context_tags) as span:
-            # Add tags to trace level as well
-            mlflow.update_current_trace(tags=context_tags)
-            yield span
-
-
-    # Usage
-    def process_user_request(user_id: str, session_id: str, request_data: dict):
-        with user_session_context(
-            user_id=user_id, session_id=session_id, user_tier="premium", request_type="chat"
-        ):
-            # Your application logic here
-            return handle_request(request_data)
-    ```
-  </TabItem>
-  <TabItem value="web-app" label="Web Application Example">
-    In production web applications, you typically extract user and session information from request headers or authentication:
+  <TabItem value="web-app" label="Web Application">
+    In production web applications, extract user and session information from request headers:
 
     ```python
     import mlflow
@@ -130,84 +85,91 @@ When you use these standard tags, MLflow automatically enables filtering and gro
     @mlflow.trace
     @app.post("/chat")
     def handle_chat(request: Request, chat_request: ChatRequest):
-        # Extract user and session context from headers
-        client_request_id = request.headers.get("X-Request-ID")
+        # Extract context from headers
         session_id = request.headers.get("X-Session-ID")
         user_id = request.headers.get("X-User-ID")
 
-        # Update the current trace with comprehensive context
+        # Update trace with user and session context
         mlflow.update_current_trace(
-            client_request_id=client_request_id,
             tags={
-                # Standard MLflow tags for user and session tracking
                 "mlflow.trace.session": session_id,
                 "mlflow.trace.user": user_id,
-                # Additional context
                 "environment": os.getenv("ENVIRONMENT", "development"),
-                "app_version": os.getenv("APP_VERSION", "1.0.0"),
-                "user_agent": request.headers.get("User-Agent"),
                 "endpoint": "/chat",
-            },
+            }
         )
 
-        # Your application logic for processing the chat message
+        # Process the chat message
         response_text = process_chat_message(chat_request.message, user_id, session_id)
-
         return {"response": response_text}
-
-
-    # To run this example:
-    # uvicorn your_file_name:app --reload
-
-    if __name__ == "__main__":
-        import uvicorn
-
-        uvicorn.run(app, host="0.0.0.0", port=8000)
     ```
 
-    **Example request with context headers:**
+    **Example request:**
     ```bash
     curl -X POST "http://127.0.0.1:8000/chat" \
          -H "Content-Type: application/json" \
-         -H "X-Request-ID: req-abc-123-xyz-789" \
-         -H "X-Session-ID: session-def-456-uvw-012" \
+         -H "X-Session-ID: session-def-456" \
          -H "X-User-ID: user-jane-doe-12345" \
          -d '{"message": "What is my account balance?"}'
     ```
   </TabItem>
-</Tabs>
+  <TabItem value="context-manager" label="Context Manager">
+    For complex scenarios, use context managers to ensure consistent tracking:
 
-## Querying and Analyzing Data
-
-### Using the MLflow UI
-
-Filter traces in the MLflow UI using these search queries:
-
-```
-# Find all traces for a specific user
-tags.mlflow.trace.user = 'user-123'
-
-# Find all traces in a session
-tags.mlflow.trace.session = 'session-abc-456'
-
-# Find traces for a user within a specific session
-tags.mlflow.trace.user = 'user-123' AND tags.mlflow.trace.session = 'session-abc-456'
-
-# Find traces for premium users
-tags.mlflow.trace.user = 'user-123' AND tags.user_tier = 'premium'
-```
-
-The MLflow UI provides powerful filtering and grouping capabilities when you use the standard user and session tags.
-
-### Programmatic Analysis
-
-Use the MLflow SDK to analyze user and session data programmatically for custom analytics and reporting:
-
-<Tabs>
-  <TabItem value="user-analysis" label="User Behavior Analysis" default>
     ```python
     import mlflow
-    from mlflow import MlflowClient
+    from contextlib import contextmanager
+
+
+    @contextmanager
+    def user_session_context(user_id: str, session_id: str, **additional_context):
+        """Context manager that automatically adds user and session tracking"""
+
+        context_tags = {
+            "mlflow.trace.user": user_id,
+            "mlflow.trace.session": session_id,
+            **additional_context,
+        }
+
+        with mlflow.start_span(name="user_interaction", attributes=context_tags) as span:
+            mlflow.update_current_trace(tags=context_tags)
+            yield span
+
+
+    # Usage
+    def process_user_request(user_id: str, session_id: str, request_data: dict):
+        with user_session_context(
+            user_id=user_id, session_id=session_id, user_tier="premium"
+        ):
+            return handle_request(request_data)
+    ```
+  </TabItem>
+</Tabs>
+
+## Querying and Analysis
+
+<Tabs>
+  <TabItem value="ui-search" label="MLflow UI Search" default>
+    Filter traces in the MLflow UI using these search queries:
+
+    ```
+    # Find all traces for a specific user
+    tags.mlflow.trace.user = 'user-123'
+
+    # Find all traces in a session
+    tags.mlflow.trace.session = 'session-abc-456'
+
+    # Find traces for a user within a specific session
+    tags.mlflow.trace.user = 'user-123' AND tags.mlflow.trace.session = 'session-abc-456'
+    ```
+
+    The MLflow UI provides powerful filtering and grouping capabilities when you use the standard user and session tags.
+  </TabItem>
+  <TabItem value="user-analysis" label="User Analysis">
+    Analyze user behavior patterns programmatically:
+
+    ```python
+    import mlflow
 
 
     def analyze_user_behavior(user_id: str, experiment_id: str):
@@ -230,25 +192,18 @@ Use the MLflow SDK to analyze user and session data programmatically for custom 
             .nunique()
         )
 
-        # Performance metrics
         successful_traces = user_traces[user_traces["status"] == "OK"]
         avg_response_time = (
             successful_traces["execution_time_ms"].mean()
             if not successful_traces.empty
             else 0
         )
-        error_rate = ((len(user_traces) - len(successful_traces)) / len(user_traces)) * 100
 
         return {
             "user_id": user_id,
             "total_interactions": total_interactions,
             "unique_sessions": unique_sessions,
             "avg_response_time_ms": avg_response_time,
-            "error_rate_percent": error_rate,
-            "time_range": {
-                "start": user_traces["timestamp_ms"].min(),
-                "end": user_traces["timestamp_ms"].max(),
-            },
         }
 
 
@@ -259,7 +214,9 @@ Use the MLflow SDK to analyze user and session data programmatically for custom 
     )
     ```
   </TabItem>
-  <TabItem value="session-analysis" label="Session Flow Analysis">
+  <TabItem value="session-analysis" label="Session Analysis">
+    Analyze conversation flow within sessions:
+
     ```python
     def analyze_session_flow(session_id: str, experiment_id: str):
         """Analyze conversation flow within a session."""
@@ -283,12 +240,6 @@ Use the MLflow SDK to analyze user and session data programmatically for custom 
                     "timestamp": trace["timestamp_ms"],
                     "duration_ms": trace["execution_time_ms"],
                     "status": trace["status"],
-                    "request_preview": str(trace.get("request", ""))[:100] + "..."
-                    if trace.get("request")
-                    else None,
-                    "response_preview": str(trace.get("response", ""))[:100] + "..."
-                    if trace.get("response")
-                    else None,
                 }
             )
 
@@ -297,13 +248,11 @@ Use the MLflow SDK to analyze user and session data programmatically for custom 
             session_traces["timestamp_ms"].max() - session_traces["timestamp_ms"].min()
         )
         total_turns = len(conversation_turns)
-        successful_turns = len(session_traces[session_traces["status"] == "OK"])
         avg_turn_duration = session_traces["execution_time_ms"].mean()
 
         return {
             "session_id": session_id,
             "total_turns": total_turns,
-            "successful_turns": successful_turns,
             "session_duration_ms": session_duration,
             "avg_turn_duration_ms": avg_turn_duration,
             "conversation_flow": conversation_turns,
@@ -317,289 +266,32 @@ Use the MLflow SDK to analyze user and session data programmatically for custom 
     )
     ```
   </TabItem>
-  <TabItem value="comparative-analysis" label="Comparative Analysis">
-    ```python
-    def compare_user_segments(experiment_id: str, segment_tag: str = "user_tier"):
-        """Compare behavior across different user segments."""
-
-        # Get all traces with the segment tag
-        all_traces = mlflow.search_traces(
-            experiment_ids=[experiment_id], filter_string=f"tags.{segment_tag} != ''"
-        )
-
-        if all_traces.empty:
-            return {"error": "No traces found with segment tag"}
-
-        # Group by segment
-        segment_stats = {}
-
-        for segment_value in (
-            all_traces["tags"]
-            .apply(lambda x: x.get(segment_tag) if isinstance(x, dict) else None)
-            .unique()
-        ):
-            if segment_value is None:
-                continue
-
-            segment_traces = all_traces[
-                all_traces["tags"].apply(
-                    lambda x: x.get(segment_tag) == segment_value
-                    if isinstance(x, dict)
-                    else False
-                )
-            ]
-
-            if not segment_traces.empty:
-                successful_traces = segment_traces[segment_traces["status"] == "OK"]
-                segment_stats[segment_value] = {
-                    "total_traces": len(segment_traces),
-                    "unique_users": segment_traces["tags"]
-                    .apply(
-                        lambda x: x.get("mlflow.trace.user")
-                        if isinstance(x, dict)
-                        else None
-                    )
-                    .nunique(),
-                    "avg_latency_ms": successful_traces["execution_time_ms"].mean()
-                    if not successful_traces.empty
-                    else 0,
-                    "error_rate": (
-                        (len(segment_traces) - len(successful_traces)) / len(segment_traces)
-                    )
-                    * 100,
-                }
-
-        return segment_stats
-
-
-    # Usage
-    segment_comparison = compare_user_segments("1", "user_tier")
-    for segment, stats in segment_comparison.items():
-        print(
-            f"{segment}: {stats['unique_users']} users, {stats['avg_latency_ms']:.1f}ms avg latency"
-        )
-    ```
-  </TabItem>
 </Tabs>
 
-## Advanced User and Session Management
+## Best Practices and Integration
 
-### Session Lifecycle Management
+### Implementation Guidelines
 
-```python
-import mlflow
-import uuid
-from datetime import datetime
+Successful user and session tracking requires consistent ID formats across your application to ensure reliable analysis and filtering. Define clear rules for when sessions start and end, such as after periods of inactivity or when users explicitly end conversations. Consider adding metadata enrichment with additional context like user segments or session types to enhance analysis capabilities. Combining user and session data with request IDs provides complete traceability across your system.
 
+### Integration with MLflow Features
 
-class SessionManager:
-    """Manage user sessions with automatic context tracking"""
-
-    def __init__(self):
-        self.active_sessions = {}
-
-    def start_session(self, user_id: str, session_type: str = "chat") -> str:
-        """Start a new session for a user"""
-        session_id = f"session-{uuid.uuid4().hex[:8]}"
-
-        session_info = {
-            "session_id": session_id,
-            "user_id": user_id,
-            "session_type": session_type,
-            "start_time": datetime.now().isoformat(),
-            "turn_count": 0,
-        }
-
-        self.active_sessions[session_id] = session_info
-
-        # Log session start
-        with mlflow.start_span(name="session_start") as span:
-            span.set_attributes(
-                {
-                    "session_id": session_id,
-                    "user_id": user_id,
-                    "session_type": session_type,
-                }
-            )
-
-            mlflow.update_current_trace(
-                tags={
-                    "mlflow.trace.user": user_id,
-                    "mlflow.trace.session": session_id,
-                    "session_event": "start",
-                    "session_type": session_type,
-                }
-            )
-
-        return session_id
-
-    def track_interaction(self, session_id: str, interaction_data: dict):
-        """Track an interaction within a session"""
-        if session_id not in self.active_sessions:
-            raise ValueError(f"Session {session_id} not found")
-
-        session_info = self.active_sessions[session_id]
-        session_info["turn_count"] += 1
-
-        # Standard user and session tracking
-        mlflow.update_current_trace(
-            tags={
-                "mlflow.trace.user": session_info["user_id"],
-                "mlflow.trace.session": session_id,
-                "turn_number": str(session_info["turn_count"]),
-                "session_type": session_info["session_type"],
-            }
-        )
-
-    def end_session(self, session_id: str):
-        """End a session and log summary"""
-        if session_id not in self.active_sessions:
-            return
-
-        session_info = self.active_sessions[session_id]
-
-        # Log session end
-        with mlflow.start_span(name="session_end") as span:
-            span.set_attributes(
-                {
-                    "session_id": session_id,
-                    "total_turns": session_info["turn_count"],
-                    "session_duration": "calculated_duration",
-                }
-            )
-
-            mlflow.update_current_trace(
-                tags={
-                    "mlflow.trace.user": session_info["user_id"],
-                    "mlflow.trace.session": session_id,
-                    "session_event": "end",
-                    "total_turns": str(session_info["turn_count"]),
-                }
-            )
-
-        # Clean up
-        del self.active_sessions[session_id]
-
-
-# Usage
-session_manager = SessionManager()
-
-
-@mlflow.trace
-def handle_chat_with_session(user_id: str, message: str, session_id: str = None):
-    """Handle chat with automatic session management"""
-
-    # Start new session if needed
-    if not session_id:
-        session_id = session_manager.start_session(user_id, "chat")
-
-    # Track this interaction
-    session_manager.track_interaction(session_id, {"message": message})
-
-    # Your chat processing logic
-    response = process_message(message)
-
-    return {"response": response, "session_id": session_id}
-```
-
-## Best Practices
-
-### ID Management
-
-**Consistent Formats**: Use standardized formats for user and session IDs across your application
-- User IDs: `user-{uuid}` or `usr_{timestamp}_{hash}`
-- Session IDs: `session-{uuid}` or `sess_{user_id}_{timestamp}`
-
-**Persistent Sessions**: Ensure session IDs persist across page reloads or temporary disconnections
-
-**User Anonymization**: Consider using hashed or anonymized user IDs for privacy compliance
-
-### Session Boundaries
-
-**Clear Start/End**: Define explicit rules for when sessions begin and terminate
-- Time-based expiration (e.g., 30 minutes of inactivity)
-- Explicit user logout or session end
-- Context switches (e.g., changing from chat to file upload)
-
-**Context Preservation**: Maintain session context across different parts of your application
-
-### Metadata Enrichment
-
-Add relevant context to enhance analysis capabilities:
-
-```python
-# Example of rich user and session context
-mlflow.update_current_trace(
-    tags={
-        # Standard MLflow tags
-        "mlflow.trace.user": user_id,
-        "mlflow.trace.session": session_id,
-        # User context
-        "user_tier": "premium",
-        "user_region": "us-west",
-        "user_signup_date": "2024-01-15",
-        # Session context
-        "session_type": "support_chat",
-        "session_channel": "web_app",
-        "session_turn_count": "5",
-        # Application context
-        "feature_flags": "new_ui=true,beta_model=false",
-        "app_version": "2.1.0",
-    }
-)
-```
-
-## Integration with Other Features
-
-User and session tracking enhances other MLflow capabilities:
-
-**Search and Analysis**: Use user and session filters in [trace search](/genai/tracing/search-traces) for targeted analysis
-
-**Monitoring**: Track performance patterns by user cohorts in [production monitoring](/genai/tracing/prod-monitoring)
-
-**Debugging**: Use session context in [debugging workflows](/genai/tracing/observe-with-traces/query-via-sdk) to understand user-specific issues
-
-**Environment Tracking**: Combine with [version and environment tracking](/genai/tracing/track-environments-context) for comprehensive context
-
-## Privacy and Compliance Considerations
-
-### Data Protection
-
-**User Consent**: Ensure appropriate user consent for tracking and analytics
-
-**Data Minimization**: Only collect user and session data necessary for your use case
-
-**Anonymization**: Consider using hashed user IDs rather than personally identifiable information
-
-**Retention Policies**: Implement appropriate data retention and deletion policies
-
-### Security Best Practices
-
-**Access Controls**: Restrict access to user and session data based on roles and responsibilities
-
-**Audit Logging**: Track who accesses user data and when
-
-**Data Encryption**: Ensure user and session data is encrypted in transit and at rest
-
-**Compliance**: Follow relevant regulations (GDPR, CCPA, etc.) for user data handling
+User and session tracking enhances other MLflow capabilities significantly. You can use user and session filters in trace search for targeted analysis and debugging. Quality evaluation becomes more powerful when comparing metrics across different user segments to identify improvement opportunities. Environment tracking combines well with user context for comprehensive observability, while production monitoring enables tracking performance patterns by user cohorts in live environments.
 
 ## Summary
 
-User and session tracking with MLflow provides powerful capabilities for understanding user behavior, optimizing user experiences, and analyzing conversation flows. Key benefits include:
+User and session tracking with MLflow provides powerful capabilities for understanding user behavior and optimizing user experiences. This approach delivers enhanced analytics through deep insights into user behavior patterns and session dynamics across your application. It improves debugging by providing user and session context that helps identify and resolve user-specific issues more quickly.
 
-- **Enhanced Analytics**: Deep insights into user behavior patterns and session dynamics
-- **Improved Personalization**: Data-driven improvements to user-specific experiences
-- **Quality Monitoring**: Performance tracking across different user segments
-- **Debugging Support**: User and session context for faster issue resolution
+Quality monitoring becomes more targeted when you can track performance across different user segments, enabling focused improvements where they matter most. Conversation analysis through multi-turn conversation tracking helps optimize dialogue systems and user flows for better engagement.
 
 The combination of standard MLflow tags (`mlflow.trace.user` and `mlflow.trace.session`) with custom context creates a comprehensive foundation for user-centric observability in GenAI applications.
 
 ## Next Steps
 
-**[Track Versions & Environments](/genai/tracing/track-environments-context)**: Add deployment and version context to your traces
-
-**[Query Traces via SDK](/genai/tracing/observe-with-traces/query-via-sdk)**: Build custom analytics using user and session data
+**[Track Environments & Context](/genai/tracing/track-environments-context)**: Add deployment and version context to your traces
 
 **[Search Traces](/genai/tracing/search-traces)**: Master advanced filtering techniques for user and session analysis
 
-**[MLflow Tracing UI](/genai/tracing/observe-with-traces/ui)**: Use the web interface for interactive user and session exploration
+**[Quality Analysis](/genai/tracing/quality-with-traces)**: Use user and session data to improve application quality
+
+**[Production Monitoring](/genai/tracing/prod-tracing)**: Set up comprehensive production observability with user context

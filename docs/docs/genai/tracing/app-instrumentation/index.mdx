@@ -103,9 +103,9 @@ export OPENAI_API_KEY="your-api-key-here"
 
 MLflow provides two complementary approaches to tracing:
 
-**[Automatic Tracing](#automatic-tracing)**: Just add 1 line of code `mlflow.<library>.autolog()` to automatically capture your app's logic. Automatic tracing works with 20+ [supported libraries and frameworks](/genai/tracing/integrations/index) out of the box
+**[Automatic Tracing](#automatic-tracing)**: Just add 1 line of code `mlflow.<library>.autolog()` to automatically capture your app's logic. Automatic tracing works with 20+ [supported libraries and frameworks](/genai/tracing/integrations) out of the box
 
-**[Manual Tracing](#manual-tracing)**: Designed for custom logic and complex workflows, manual tracing gives you full control over what gets traced and how using [high-level APIs (decorators and fluent context managers)](manual-tracing/fluent-apis) or [low-level APIs](/mlflow3/genai/tracing/app-instrumentation/manual-tracing/log-level-api).
+**[Manual Tracing](#manual-tracing)**: Designed for custom logic and complex workflows, manual tracing gives you full control over what gets traced and how using [high-level APIs (decorators and fluent context managers)](manual-tracing/fluent-apis) or [low-level APIs](/genai/tracing/app-instrumentation/manual-tracing/low-level-api).
 
 :::note
 Automatic and manual tracing can be used together. For example, you could use the auto-tracing for OpenAI's SDK and manual tracing to combine multiple LLM calls into a single trace that represents your application's end to end logic.
@@ -206,7 +206,7 @@ Choose the appropriate tracing approach based on your application architecture:
   <TabItem value="single-library" label="Single GenAI Library" default>
     **Using a single GenAI Authoring Library** (e.g., LangGraph, CrewAI, OpenAI Agents, Bedrock Agents, etc)
 
-    Use **automatic tracing** by adding a one-line integration from our [integrations page](/genai/tracing/integrations/index) for your selected library: `mlflow.<library>.autolog()`
+    Use **automatic tracing** by adding a one-line integration from our [integrations page](/genai/tracing/integrations) for your selected library: `mlflow.<library>.autolog()`
 
     This provides complete observability with minimal code changes and is perfect for getting started quickly with comprehensive tracing.
   </TabItem>
@@ -227,21 +227,21 @@ Choose the appropriate tracing approach based on your application architecture:
   <TabItem value="custom-control" label="Custom Control">
     **All other approaches or you have a need for fine-grained control**
 
-    Use [**Manual Tracing**](/genai/tracing/app-instrumentation/manual-tracing/index)
+    Use [**Manual Tracing**](/genai/tracing/app-instrumentation/manual-tracing)
 
     Start with the [high-level APIs](/genai/tracing/app-instrumentation/manual-tracing/fluent-apis) (`@mlflow.trace` decorator and fluent context managers) which provide a balance of control and ease of use
 
-    Use the [low-level APIs](/genai/tracing/app-instrumentation/manual-tracing/log-level-api) only if the high-level APIs don't give you enough control
+    Use the [low-level APIs](/genai/tracing/app-instrumentation/manual-tracing/low-level-api) only if the high-level APIs don't give you enough control
   </TabItem>
 </Tabs>
 
-Generally, we recommend starting with [automatic tracing](/genai/tracing/app-instrumentation/automatic) and only moving to [manual tracing](/genai/tracing/app-instrumentation/manual-tracing/index) if your application's logic is not accurately captured or you need more control.
+Generally, we recommend starting with [automatic tracing](/genai/tracing/app-instrumentation/automatic) and only moving to [manual tracing](/genai/tracing/app-instrumentation/manual-tracing) if your application's logic is not accurately captured or you need more control.
 
 ## Automatic Tracing
 
 Automatic tracing provides zero-code observability for supported libraries. Simply call the autolog function for your library and MLflow will automatically capture all relevant operations.
 
-MLflow supports automatic tracing for 20+ popular GenAI libraries including LLM providers (OpenAI, Anthropic, Google Gemini, AWS Bedrock), frameworks (LangChain, LangGraph, LlamaIndex, DSPy), and tools (LiteLLM, Instructor, CrewAI). See the complete list at [Automatic Tracing Integrations](/genai/tracing/integrations/index).
+MLflow supports automatic tracing for 20+ popular GenAI libraries including LLM providers (OpenAI, Anthropic, Google Gemini, AWS Bedrock), frameworks (LangChain, LangGraph, LlamaIndex, DSPy), and tools (LiteLLM, Instructor, CrewAI). See the complete list at [Automatic Tracing Integrations](/genai/tracing/integrations).
 
 Most autolog functions accept configuration parameters to customize tracing behavior:
 
@@ -349,7 +349,7 @@ Manual tracing gives you fine-grained control over what gets traced and how. Use
 
 Enhance your traces with proper categorization and metadata using span types like `SpanType.CHAIN`, `SpanType.LLM`, `SpanType.RETRIEVER`, `SpanType.EMBEDDING`, and others. Add custom attributes using `span.set_attribute()` to capture important metadata about your operations.
 
-Learn more about manual tracing techniques, decorators, context managers, and advanced patterns in the [Manual Tracing Guide](/tracing/app-instrumentation/manual-tracing).
+Learn more about manual tracing techniques, decorators, context managers, and advanced patterns in the [Manual Tracing Guide](/genai/tracing/app-instrumentation/manual-tracing).
 
 ## View Logged Traces
 
@@ -357,13 +357,13 @@ After instrumenting your application, you can view and analyze your traces in se
 
 <Tabs>
   <TabItem value="mlflow-ui" label="MLflow UI" default>
-    After logging your traces, you can view them in the [MLflow UI](/tracking/#tracking_ui), under the "Traces" tab in the main experiment page. This tab is also available within the individual run pages, if your trace was logged within a run context.
+    After logging your traces, you can view them in the [MLflow UI](/genai/tracing/observe-with-traces/ui), under the "Traces" tab in the main experiment page. This tab is also available within the individual run pages, if your trace was logged within a run context.
 
     ![MLflow Tracking UI](/images/llms/tracing/trace-experiment-ui.png)
 
     This table includes high-level information about the traces, such as the trace ID, the inputs / outputs of the root span, and more. From this page, you can also perform a few actions to manage your traces:
 
-    **Search**: Using the search bar in the UI, you can easily filter your traces based on name, tags, or other metadata. Check out the [search docs](/tracing/api/search/) for details about the query string format.
+    **Search**: Using the search bar in the UI, you can easily filter your traces based on name, tags, or other metadata. Check out the [search docs](/genai/tracing/search-traces) for details about the query string format.
 
     ![Searching traces](/images/llms/tracing/trace-session-id.gif)
 
@@ -388,11 +388,11 @@ After instrumenting your application, you can view and analyze your traces in se
 
     ![Jupyter Trace UI](/images/llms/tracing/jupyter-trace-ui.png)
 
-    This feature requires using an [MLflow Tracking Server](/tracking/server/), as this is where the UI assets are fetched from. To get started, simply ensure that the MLflow Tracking URI is set to your tracking server (e.g. `mlflow.set_tracking_uri("http://localhost:5000")`).
+    This feature requires using an [MLflow Tracking Server](/ml/tracking/server), as this is where the UI assets are fetched from. To get started, simply ensure that the MLflow Tracking URI is set to your tracking server (e.g. `mlflow.set_tracking_uri("http://localhost:5000")`).
 
     By default, the trace UI will automatically be displayed for the following events:
 
-    **When the cell code generates a trace** (e.g. via [automatic tracing](/tracing/#automatic-tracing), or by running a manually traced function)
+    **When the cell code generates a trace** (e.g. via [automatic tracing](/genai/tracing/app-instrumentation/automatic), or by running a manually traced function)
 
     **When <APILink fn="mlflow.search_traces" /> is called**
 
@@ -400,7 +400,7 @@ After instrumenting your application, you can view and analyze your traces in se
 
     To disable the display, simply call <APILink fn="mlflow.tracing.disable_notebook_display" />, and rerun the cell containing the UI. To enable it again, call <APILink fn="mlflow.tracing.enable_notebook_display" />.
 
-    For a more complete example, try running this [demo notebook](/tracing/tutorials/jupyter-trace-demo/)!
+
   </TabItem>
   <TabItem value="programmatic" label="Programmatic Access">
     Query and analyze traces programmatically:
@@ -481,7 +481,7 @@ Now that you understand the basics of instrumenting your app with MLflow Tracing
 
     **[Automatic Tracing](/genai/tracing/app-instrumentation/automatic)**: Explore all supported libraries and frameworks for one-line tracing integration
 
-    **[Manual Tracing](/genai/tracing/app-instrumentation/manual-tracing/index)**: Learn advanced techniques for custom instrumentation and complex workflows
+    **[Manual Tracing](/genai/tracing/app-instrumentation/manual-tracing)**: Learn advanced techniques for custom instrumentation and complex workflows
 
     **[Combining Approaches](/genai/tracing/app-instrumentation/manual-tracing/fluent-apis#combining-with-auto-tracing)**: Mix automatic and manual tracing for optimal observability
 
@@ -490,22 +490,22 @@ Now that you understand the basics of instrumenting your app with MLflow Tracing
   <TabItem value="integrations" label="Integration Examples">
     **Library-Specific Guides:**
 
-    **[OpenAI Integration](/genai/tracing/integrations/openai)**: Detailed OpenAI tracing examples and best practices
+    **[OpenAI Integration](/genai/tracing/integrations/listing/openai)**: Detailed OpenAI tracing examples and best practices
 
-    **[LangChain Integration](/genai/tracing/integrations/langchain)**: Comprehensive LangChain application tracing
+    **[LangChain Integration](/genai/tracing/integrations/listing/langchain)**: Comprehensive LangChain application tracing
 
-    **[LlamaIndex Integration](/genai/tracing/integrations/llamaindex)**: Trace LlamaIndex workflows and components
+    **[LlamaIndex Integration](/genai/tracing/integrations/listing/llama_index)**: Trace LlamaIndex workflows and components
 
-    **[All Integrations](/genai/tracing/integrations/index)**: Browse all supported libraries and frameworks
+    **[All Integrations](/genai/tracing/integrations)**: Browse all supported libraries and frameworks
   </TabItem>
   <TabItem value="working-with-traces" label="Working with Traces">
     **Analyze and Use Your Trace Data:**
 
     **[Query Traces](/genai/tracing/observe-with-traces/query-via-sdk)**: Programmatically access and analyze your traces
 
-    **[Search and Filter](/genai/tracing/api/search)**: Advanced search techniques and filtering options
+    **[Search and Filter](/genai/tracing/search-traces)**: Advanced search techniques and filtering options
 
-    **[Production Monitoring](/genai/tracing/production)**: Scale tracing for production workloads
+    **[Production Monitoring](/genai/tracing/prod-tracing)**: Scale tracing for production workloads
   </TabItem>
 </Tabs>
 

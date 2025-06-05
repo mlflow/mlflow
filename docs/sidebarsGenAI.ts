@@ -131,6 +131,11 @@ const sidebarsGenAI: SidebarsConfig = {
           type: 'doc',
           id: 'tutorials/prod-monitoring',
           label: 'Continuous Monitoring for Production Performance',
+        },
+        {
+          type: 'doc',
+          id: 'tutorials/jupyter-trace-demo-ipynb',
+          label: 'Using Tracing in Jupyter Notebooks',
         }
       ],
       link: {
@@ -214,6 +219,11 @@ const sidebarsGenAI: SidebarsConfig = {
             },
             {
               type: 'doc',
+              id: 'tracing/data-model',
+              label: 'Tracing Data Model',
+            },
+            {
+              type: 'doc',
               id: 'tracing/concepts/trace/feedback',
             },
           ],
@@ -231,11 +241,6 @@ const sidebarsGenAI: SidebarsConfig = {
           type: 'doc',
           id: 'tracing/track-environments-context/index',
           label: 'Track App Versions and Environments',
-        },
-        {
-          type: 'doc',
-          id: 'tracing/quality-with-traces',
-          label: 'Using Traces for Quality Improvement',
         },
         {
           type: 'doc',
@@ -281,11 +286,6 @@ const sidebarsGenAI: SidebarsConfig = {
         },
         {
           type: 'doc',
-          id: 'tracing/data-model',
-          label: 'Tracing Data Model',
-        },
-        {
-          type: 'doc',
           id: 'tracing/lightweight-sdk',
           label: 'Lightweight Tracing SDK',
         },
@@ -296,13 +296,8 @@ const sidebarsGenAI: SidebarsConfig = {
         },
         {
           type: 'doc',
-          id: 'tracing/databricks-model-serving',
-          label: 'Production Tracing with Databricks'
-        },
-        {
-          type: 'doc',
-          id: 'tracing/prod-monitoring',
-          label: 'Production Monitoring with Databricks',
+          id: 'tracing/quality-with-traces',
+          label: 'Using Traces for Quality Improvement',
         },
         {
           type: 'doc',

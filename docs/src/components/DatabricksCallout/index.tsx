@@ -17,7 +17,7 @@ const DatabricksCallout: React.FC<DatabricksCalloutProps> = ({
   const fullDocsUrl: string = `${DATABRICKS_DOCS_BASE_URL}${docsPath}`;
 
   return (
-    <Admonition type="tip" title="Building GenAI Apps in Databricks">
+    <Admonition type="note" title="Building GenAI Apps in Databricks">
       <p>Are you looking for guidance on building your GenAI apps in Databricks?</p>
       
       <p>

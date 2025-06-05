@@ -726,6 +726,12 @@ th {
   border-bottom: 2px solid var(--ifm-color-emphasis-hover);
 }
 
+[role="tabpanel"] {
+  padding-left: 1.5rem;
+  margin-top: 0.5rem;
+  margin-left: 0.5rem;
+}
+
 /* --------------------------------
  * 13. Admonitions (Callouts)
  * -------------------------------- */
