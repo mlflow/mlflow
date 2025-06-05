@@ -49,7 +49,7 @@ def chat_response(payload: ChatCompletionRequest):
     }
 
 
-def _make_chat_stream_chunk(content, include_usage: bool = False):
+def _make_chat_stream_chunk(content, include_usage: bool = False, role=None, finish_reason=None):
     return {
         "id": "chatcmpl-123",
         "object": "chat.completion.chunk",
@@ -61,10 +61,10 @@ def _make_chat_stream_chunk(content, include_usage: bool = False):
                 "delta": {
                     "content": content,
                     "function_call": None,
-                    "role": None,
+                    "role": role,
                     "tool_calls": None,
                 },
-                "finish_reason": None,
+                "finish_reason": finish_reason,
                 "index": 0,
                 "logprobs": None,
             }
@@ -94,8 +94,8 @@ def _make_chat_stream_chunk_empty_choices():
 async def chat_response_stream(include_usage: bool = False):
     # OpenAI Chat Completion stream only includes usage in the last chunk
     # if {"stream_options": {"include_usage": True}} is specified in the request.
-    yield _make_chat_stream_chunk("Hello", include_usage=False)
-    yield _make_chat_stream_chunk(" world", include_usage=include_usage)
+    yield _make_chat_stream_chunk("Hello", include_usage=False, role="assistant")
+    yield _make_chat_stream_chunk(" world", include_usage=include_usage, finish_reason="stop")
 
 
 async def chat_response_stream_empty_choices():
