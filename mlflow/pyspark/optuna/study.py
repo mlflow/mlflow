@@ -90,9 +90,7 @@ def _optimize_sequential(
         study._storage.flush_all_batches()
 
         if frozen_trial.state == TrialState.COMPLETE:
-            _logger.info(
-                f"Trial {trial.number} finished with parameters: {trial.params}."
-            )
+            _logger.info(f"Trial {trial.number} finished with parameters: {trial.params}.")
         elif frozen_trial.state == TrialState.PRUNED:
             _logger.info("Trial {} pruned. {}".format(frozen_trial._trial_id, str(func_err)))
             mlflow_client.set_terminated(frozen_trial._trial_id, status="KILLED")
