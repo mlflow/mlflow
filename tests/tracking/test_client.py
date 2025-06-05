@@ -1758,8 +1758,8 @@ def test_crud_prompts(tracking_uri):
     prompt = client.load_prompt("prompts:/prompt_1/2")
     assert prompt.template == "Hi, {{title}} {{name}}! What's up?"
 
-    # Delete prompt must be called with a version
-    with pytest.raises(TypeError, match=r"delete_prompt\(\) missing 1"):
+    # Delete prompt without version should fail on non-UC stores
+    with pytest.raises(MlflowException, match=r"For non-Unity Catalog stores, explicit version is required"):
         client.delete_prompt("prompt_1")
 
     client.delete_prompt("prompt_1", version=2)
@@ -1947,11 +1947,11 @@ def test_log_prompt(tracking_uri):
         client.log_prompt("run3", 123)
 
 
-@pytest.mark.parametrize("registry_uri", ["databricks", "databricks-uc", "uc://localhost:5000"])
+@pytest.mark.parametrize("registry_uri", ["databricks"])
 def test_crud_prompt_on_unsupported_registry(registry_uri):
     client = MlflowClient(registry_uri=registry_uri)
 
-    with pytest.raises(MlflowException, match=r"The 'register_prompt' API is only available"):
+    with pytest.raises(MlflowException, match=r"The 'register_prompt' API is not supported with the current registry"):
         client.register_prompt(
             name="prompt_1",
             template="Hi, {{title}} {{name}}! How are you today?",
@@ -1959,10 +1959,10 @@ def test_crud_prompt_on_unsupported_registry(registry_uri):
             tags={"model": "my-model"},
         )
 
-    with pytest.raises(MlflowException, match=r"The 'load_prompt' API is only available"):
+    with pytest.raises(MlflowException, match=r"The 'load_prompt' API is not supported with the current registry"):
         client.load_prompt("prompt_1")
 
-    with pytest.raises(MlflowException, match=r"The 'delete_prompt' API is only available"):
+    with pytest.raises(MlflowException, match=r"The 'delete_prompt' API is not supported with the current registry"):
         client.delete_prompt("prompt_1")
 
 
