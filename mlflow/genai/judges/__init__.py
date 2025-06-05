@@ -1,4 +1,5 @@
 from mlflow.genai.judges.databricks import (
+    CategoricalRating,
     is_context_relevant,
     is_context_sufficient,
     is_correct,
@@ -8,6 +9,7 @@ from mlflow.genai.judges.databricks import (
 )
 
 __all__ = [
+    "CategoricalRating",
     "is_grounded",
     "is_safe",
     "is_correct",
