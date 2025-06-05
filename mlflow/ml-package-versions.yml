@@ -78,7 +78,7 @@ keras:
 
   models:
     minimum: "3.0.2"
-    maximum: "3.9.2"
+    maximum: "3.10.0"
     requirements:
       ">= 3.0.0": ["jax[cpu]>0.4"]
       "< 3.10.0": ["jax[cpu]<0.6"]
@@ -88,7 +88,7 @@ keras:
 
   autologging:
     minimum: "3.0.2"
-    maximum: "3.9.2"
+    maximum: "3.10.0"
     requirements:
       ">= 3.0.0": ["jax[cpu]>0.4"]
       "< 3.10.0": ["jax[cpu]<0.6"]
@@ -140,7 +140,7 @@ xgboost:
 
   models:
     minimum: "1.7.6"
-    maximum: "3.0.1"
+    maximum: "3.0.2"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
     python:
@@ -150,7 +150,7 @@ xgboost:
 
   autologging:
     minimum: "1.7.6"
-    maximum: "3.0.1"
+    maximum: "3.0.2"
     requirements:
       ">= 0.0.0": ["scikit-learn", "matplotlib"]
     python:
@@ -234,8 +234,8 @@ spacy:
       pip install git+https://github.com/explosion/spaCy.git
 
   models:
-    minimum: "3.5.3"
-    maximum: "3.8.4"
+    minimum: "3.5.4"
+    maximum: "3.8.7"
     python:
       ">= 3.8.4": "3.10"
     requirements:
@@ -279,7 +279,7 @@ spark:
     minimum: "3.2.1"
     maximum: "4.0.0"
     java:
-      "> 3.4.1": "17"
+      "<= 3.4.1": "11"
     # NB: Allow unreleased maximum versions for the pyspark package to support models and
     # autologging use cases in environments where newer versions of pyspark are available
     # prior to their release on PyPI (e.g. Databricks)
@@ -308,7 +308,7 @@ spark:
     minimum: "3.2.1"
     maximum: "4.0.0"
     java:
-      ">= 3.4.1": "17"
+      "<= 3.4.1": "11"
     # NB: Allow unreleased maximum versions for the pyspark package to support models and
     # autologging use cases in environments where newer versions of pyspark are available
     # prior to their release on PyPI (e.g. Databricks)
@@ -343,7 +343,7 @@ prophet:
 
   models:
     minimum: "1.1.6"
-    maximum: "1.1.6"
+    maximum: "1.1.7"
     requirements:
       # Prophet does not handle numpy 2 yet. https://github.com/facebook/prophet/issues/2595
       ">= 0.0.0": ["numpy<2"]
@@ -447,7 +447,7 @@ transformers:
       pip install git+https://github.com/huggingface/transformers
   models:
     minimum: "4.35.2"
-    maximum: "4.51.3"
+    maximum: "4.52.4"
     test_every_n_versions: 4
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
@@ -491,7 +491,7 @@ transformers:
       pytest tests/transformers/test_transformers_model_export.py -k "test_transformers_tf_model_save_without_conda_env_uses_default_env_with_expected_dependencies or test_transformers_pt_model_save_dependencies_without_accelerate"
   autologging:
     minimum: "4.35.2"
-    maximum: "4.51.3"
+    maximum: "4.52.4"
     test_every_n_versions: 4
     unsupported: [
         # Avoid this patch: https://github.com/huggingface/transformers/pull/29032
@@ -532,7 +532,7 @@ openai:
       pip install git+https://github.com/openai/openai-python
   models:
     minimum: "1.0.1"
-    maximum: "1.78.1"
+    maximum: "1.83.0"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -551,7 +551,7 @@ openai:
     test_every_n_versions: 10
   autologging:
     minimum: "1.17.0"
-    maximum: "1.78.1"
+    maximum: "1.83.0"
     python:
       # OpenAI Swarm requires Python >=3.10
       ">= 1.33.0": "3.10"
@@ -578,14 +578,14 @@ dspy:
       pip install git+https://github.com/stanfordnlp/dspy.git
   models:
     minimum: "2.5.17"
-    maximum: "2.6.23"
+    maximum: "2.6.24"
     requirements:
       ">= 0.0.0": ["openai"]
     run: |
       pytest tests/dspy --ignore tests/dspy/test_dspy_autolog.py
   autologging:
     minimum: "2.5.17"
-    maximum: "2.6.23"
+    maximum: "2.6.24"
     requirements:
       ">= 0.0.0": ["openai"]
     run: |
@@ -704,7 +704,7 @@ langgraph:
 
   models:
     minimum: "0.2.0"
-    maximum: "0.4.3"
+    maximum: "0.4.8"
     requirements:
       ">= 0.0.0": [
           "langchain",
@@ -719,7 +719,7 @@ langgraph:
 
   autologging:
     minimum: "0.2.0"
-    maximum: "0.4.3"
+    maximum: "0.4.8"
     requirements:
       ">= 0.0.0": [
           "langchain",
@@ -741,7 +741,7 @@ llama_index:
   models:
     # New event/span framework is fully implemented in 0.10.44
     minimum: "0.10.44"
-    maximum: "0.12.36"
+    maximum: "0.12.40"
     requirements:
       ">= 0.0.0": [
           "openai",
@@ -757,7 +757,7 @@ llama_index:
     run: pytest tests/llama_index --ignore tests/llama_index/test_llama_index_autolog.py --ignore tests/llama_index/test_llama_index_tracer.py
   autologging:
     minimum: "0.10.44"
-    maximum: "0.12.36"
+    maximum: "0.12.40"
     requirements:
       ">= 0.0.0": [
           "openai",
@@ -774,7 +774,7 @@ ag2:
     module_name: "autogen"
   autologging:
     minimum: "0.7.0"
-    maximum: "0.9.0"
+    maximum: "0.9.1.post0"
     python:
       "== dev": "3.10"
     requirements:
@@ -813,7 +813,7 @@ gemini:
       pip install git+https://github.com/googleapis/python-genai
   autologging:
     minimum: "1.0.0"
-    maximum: "1.15.0"
+    maximum: "1.18.0"
     requirements:
     run: |
       # Install legacy gemini SDK to ensure the integration works for the legacy SDK 
@@ -827,7 +827,7 @@ anthropic:
       pip install git+https://github.com/anthropics/anthropic-sdk-python
   autologging:
     minimum: "0.30.0"
-    maximum: "0.51.0"
+    maximum: "0.52.2"
     requirements:
       "< 0.40.0": ["httpx<0.28.0"]
     run: pytest tests/anthropic
@@ -843,7 +843,7 @@ crewai:
       pip install git+https://github.com/crewAIInc/crewAI
   autologging:
     minimum: "0.80.0"
-    maximum: "0.120.1"
+    maximum: "0.121.1"
     unsupported: ["==0.114.0"]
     python:
       ">= 0.80.0": "3.10"
@@ -873,7 +873,7 @@ pydantic_ai:
     python:
       ">= 0.1.0": "3.10"
     minimum: "0.1.9"
-    maximum: "0.2.4"
+    maximum: "0.2.12"
     requirements:
       ">= 0.0.0": ["mcp"]
     run: pytest tests/pydantic_ai
@@ -886,7 +886,7 @@ smolagents:
       pip install "git+https://github.com/huggingface/smolagents"
   autologging:
     minimum: "1.14.0"
-    maximum: "1.15.0"
+    maximum: "1.17.0"
     python:
       ">=1.14.0": "3.10"
     requirements:
@@ -906,7 +906,7 @@ mistral:
       rm -rf $TMP_DIR
   autologging:
     minimum: "1.0.0"
-    maximum: "1.7.0"
+    maximum: "1.8.1"
     requirements:
     run: pytest tests/mistral
 
@@ -938,7 +938,7 @@ johnsnowlabs:
   package_info:
     pip_release: "johnsnowlabs"
   models:
-    minimum: "4.4.6"
+    minimum: "4.4.7"
     maximum: "6.0.0"
     requirements:
       ">= 0.0.0": ["pandas<=1.5.3"]
@@ -995,7 +995,7 @@ groq:
       pip install git+https://github.com/groq/groq-python
   autologging:
     minimum: "0.13.0"
-    maximum: "0.24.0"
+    maximum: "0.26.0"
     requirements:
     run: pytest tests/groq
 
@@ -1006,5 +1006,5 @@ bedrock:
   autologging:
     # BedrockRuntime client is added in boto3 1.33
     minimum: "1.33.0"
-    maximum: "1.38.16"
+    maximum: "1.38.28"
     run: pytest tests/bedrock
