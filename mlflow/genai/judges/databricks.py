@@ -6,7 +6,20 @@ from mlflow.genai.utils.enum_utils import StrEnum
 
 
 class CategoricalRating(StrEnum):
-    """A categorical rating for an assessment."""
+    """
+    A categorical rating for an assessment.
+
+    Example:
+        .. code-block:: python
+
+            from mlflow.genai.judges import CategoricalRating
+            from mlflow.entities import Feedback
+
+            # Create feedback with categorical rating
+            feedback = Feedback(
+                name="my_metric", value=CategoricalRating.YES, rationale="The metric is passing."
+            )
+    """
 
     YES = "yes"
     NO = "no"
@@ -19,6 +32,31 @@ class CategoricalRating(StrEnum):
             if member == value:
                 return member
         return cls.UNKNOWN
+
+
+def _sanitize_feedback(feedback: Feedback) -> Feedback:
+    """Sanitize the feedback object from the databricks judges.
+
+    Args:
+        feedback: The Feedback object to convert.
+
+    Returns:
+        A new Feedback object with our CategoricalRating.
+    """
+    return Feedback(
+        name=feedback.name,
+        # Convert the databricks-agents CategoricalRating to a mlflow.genai.judges.CategoricalRating
+        value=CategoricalRating(feedback.value.value),
+        source=feedback.source,
+        trace_id=feedback.trace_id,
+        metadata=feedback.metadata,
+        span_id=feedback.span_id,
+        create_time_ms=feedback.create_time_ms,
+        last_update_time_ms=feedback.last_update_time_ms,
+        rationale=feedback.rationale,
+        overrides=feedback.overrides,
+        valid=feedback.valid,
+    )
 
 
 def requires_databricks_agents(func):
@@ -80,10 +118,12 @@ def is_context_relevant(*, request: str, context: Any, name: Optional[str] = Non
     """
     from databricks.agents.evals.judges import relevance_to_query
 
-    return relevance_to_query(
-        request=request,
-        response=str(context),
-        assessment_name=name,
+    return _sanitize_feedback(
+        relevance_to_query(
+            request=request,
+            response=str(context),
+            assessment_name=name,
+        )
     )
 
 
@@ -131,12 +171,14 @@ def is_context_sufficient(
     """
     from databricks.agents.evals.judges import context_sufficiency
 
-    return context_sufficiency(
-        request=request,
-        retrieved_context=context,
-        expected_facts=expected_facts,
-        expected_response=expected_response,
-        assessment_name=name,
+    return _sanitize_feedback(
+        context_sufficiency(
+            request=request,
+            retrieved_context=context,
+            expected_facts=expected_facts,
+            expected_response=expected_response,
+            assessment_name=name,
+        )
     )
 
 
@@ -165,12 +207,14 @@ def is_correct(
     """
     from databricks.agents.evals.judges import correctness
 
-    return correctness(
-        request=request,
-        response=response,
-        expected_facts=expected_facts,
-        expected_response=expected_response,
-        assessment_name=name,
+    return _sanitize_feedback(
+        correctness(
+            request=request,
+            response=response,
+            expected_facts=expected_facts,
+            expected_response=expected_response,
+            assessment_name=name,
+        )
     )
 
 
@@ -212,11 +256,13 @@ def is_grounded(
     """
     from databricks.agents.evals.judges import groundedness
 
-    return groundedness(
-        request=request,
-        response=response,
-        retrieved_context=context,
-        assessment_name=name,
+    return _sanitize_feedback(
+        groundedness(
+            request=request,
+            response=response,
+            retrieved_context=context,
+            assessment_name=name,
+        )
     )
 
 
@@ -244,9 +290,12 @@ def is_safe(*, content: str, name: Optional[str] = None) -> Feedback:
     """
     from databricks.agents.evals.judges import safety
 
-    return safety(
-        response=content,
-        assessment_name=name,
+    return _sanitize_feedback(
+        safety(
+            request="",  # Safety check doesn't need a request
+            response=content,
+            assessment_name=name,
+        )
     )
 
 
@@ -298,8 +347,11 @@ def meets_guidelines(
     if isinstance(guidelines, str):
         guidelines = [guidelines]
 
-    return guideline_adherence(
-        guidelines=guidelines,
-        guidelines_context=context,
-        assessment_name=name,
+    return _sanitize_feedback(
+        guideline_adherence(
+            request="",  # Guideline adherence doesn't need a request
+            guidelines=guidelines,
+            guidelines_context=context,
+            assessment_name=name,
+        )
     )
