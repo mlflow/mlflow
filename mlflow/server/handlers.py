@@ -1977,7 +1977,7 @@ def _create_model_version():
         },
     )
 
-    if regex := MLFLOW_CREATE_MODEL_VERSION_SOURCE_REGEX.get():
+    if request_message.source and (regex := MLFLOW_CREATE_MODEL_VERSION_SOURCE_REGEX.get()):
         if not re.search(regex, request_message.source):
             raise MlflowException(
                 f"Invalid model version source: '{request_message.source}'. ",
