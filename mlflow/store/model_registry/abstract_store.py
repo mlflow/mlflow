@@ -10,7 +10,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.prompt.registry_utils import has_prompt_tag
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, ErrorCode
 from mlflow.store._unity_catalog.registry.prompt_info import PromptInfo
-from mlflow.store.entities.paged_list import PagedList
 from mlflow.utils.annotations import developer_stable
 from mlflow.utils.logging_utils import eprint
 
@@ -462,9 +461,8 @@ class AbstractStore:
                 f"version: {mv.version} with status: {mv.status} and message: {mv.status_message}"
             )
 
-    # Prompt management methods
+    # Prompt-related methods with concrete implementations for traditional stores
 
-    @abstractmethod
     def create_prompt(
         self,
         name: str,
@@ -472,86 +470,191 @@ class AbstractStore:
         tags: Optional[dict[str, str]] = None,
     ) -> PromptInfo:
         """
-        Create a new prompt (metadata only, no initial version).
+        Create a new prompt in the registry.
+
+        Default implementation for non-Unity Catalog registries: creates a RegisteredModel
+        with special prompt tags. Unity Catalog stores override this method.
 
         Args:
             name: Name of the prompt.
-            description: Description of the prompt.
-            tags: Dictionary of tag key-value pairs.
+            description: Optional description of the prompt.
+            tags: Optional dictionary of prompt tags.
 
         Returns:
-            A :py:class:`mlflow.store._unity_catalog.registry.prompt_info.PromptInfo` object.
+            A PromptInfo object representing the created prompt.
         """
+        # Default implementation: use RegisteredModel with special tags
+        from mlflow.entities.model_registry import RegisteredModelTag
+        from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
 
-    @abstractmethod
+        prompt_tags = [RegisteredModelTag(key=IS_PROMPT_TAG_KEY, value="true")]
+        if tags:
+            prompt_tags.extend([RegisteredModelTag(key=k, value=v) for k, v in tags.items()])
+
+        # Create registered model for the prompt
+        rm = self.create_registered_model(name, tags=prompt_tags, description=description)
+
+        # Return as PromptInfo
+        return PromptInfo(
+            name=rm.name,
+            description=rm.description,
+            creation_timestamp=rm.creation_timestamp,
+            tags=tags or {},
+        )
+
     def search_prompts(
         self,
         filter_string: Optional[str] = None,
-        max_results: Optional[int] = None,
+        max_results: Optional[int] = 100,
         order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
         catalog_name: Optional[str] = None,
         schema_name: Optional[str] = None,
-    ) -> PagedList[PromptInfo]:
+    ):
         """
-        Search for prompts that satisfy the filter criteria.
+        Search for prompts in the registry.
+
+        Default implementation for non-Unity Catalog registries: searches RegisteredModels
+        with prompt tags. Unity Catalog stores override this method.
 
         Args:
-            filter_string: Filter query string.
+            filter_string: Filter query string, defaults to searching for all prompts.
             max_results: Maximum number of prompts desired.
-            order_by: List of column names with ASC|DESC annotation.
-            page_token: Token specifying the next page of results.
-            catalog_name: Unity Catalog catalog name (for UC registries).
-            schema_name: Unity Catalog schema name (for UC registries).
+            order_by: List of order-by clauses.
+            page_token: Pagination token for requesting subsequent pages.
+            catalog_name: Catalog name (Unity Catalog only).
+            schema_name: Schema name (Unity Catalog only).
 
         Returns:
-            A PagedList of prompt objects that satisfy the search expressions.
+            A PagedList of PromptInfo objects.
         """
+        from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
 
-    @abstractmethod
+        # Build filter to only include prompts (use backticks for tag key with dots)
+        prompt_filter = f"tags.`{IS_PROMPT_TAG_KEY}` = 'true'"
+        if filter_string:
+            prompt_filter = f"{prompt_filter} AND {filter_string}"
+
+        # Search registered models with prompt filter
+        registered_models = self.search_registered_models(
+            filter_string=prompt_filter,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
+        )
+
+        # For backward compatibility, return RegisteredModel objects with latest_versions
+        # The traditional search_prompts() expects objects with latest_versions attribute
+        for rm in registered_models:
+            # Ensure the registered model has latest_versions populated
+            if not hasattr(rm, "latest_versions") or rm.latest_versions is None:
+                # Get the latest versions for this prompt
+                from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
+
+                try:
+                    latest_versions = self.get_latest_versions(rm.name, stages=ALL_STAGES)
+                    rm.latest_versions = latest_versions
+                except Exception:
+                    rm.latest_versions = []
+
+        return registered_models
+
     def delete_prompt(self, name: str) -> None:
         """
-        Delete a prompt.
+        Delete a prompt from the registry.
+
+        Default implementation for non-Unity Catalog registries: deletes the underlying
+        RegisteredModel. Unity Catalog stores override this method.
 
         Args:
             name: Name of the prompt to delete.
         """
+        # Default implementation: delete the registered model
+        return self.delete_registered_model(name)
 
-    @abstractmethod
     def set_prompt_tag(self, name: str, key: str, value: str) -> None:
         """
-        Set a tag for a prompt.
+        Set a tag on a prompt.
+
+        Default implementation for non-Unity Catalog registries: sets a tag on the underlying
+        RegisteredModel. Unity Catalog stores override this method.
 
         Args:
             name: Name of the prompt.
             key: Tag key.
             value: Tag value.
         """
+        # Default implementation: set tag on registered model
+        from mlflow.entities.model_registry import RegisteredModelTag
 
-    @abstractmethod
+        tag = RegisteredModelTag(key=key, value=value)
+        return self.set_registered_model_tag(name, tag)
+
     def delete_prompt_tag(self, name: str, key: str) -> None:
         """
-        Delete a tag associated with a prompt.
+        Delete a tag from a prompt.
+
+        Default implementation for non-Unity Catalog registries: deletes a tag from the underlying
+        RegisteredModel. Unity Catalog stores override this method.
 
         Args:
             name: Name of the prompt.
-            key: Tag key.
+            key: Tag key to delete.
         """
+        # Default implementation: delete tag from registered model
+        return self.delete_registered_model_tag(name, key)
 
-    @abstractmethod
     def get_prompt(self, name: str, version: Optional[Union[str, int]] = None) -> Optional[Prompt]:
         """
-        Get prompt by name and version.
+        Get prompt by name and version or alias.
+
+        Default implementation for non-Unity Catalog registries: gets ModelVersion with prompt tags
+        and converts to Prompt. Unity Catalog stores override this method.
 
         Args:
-            name: Name of the prompt.
-            version: Version number or alias. If None, gets latest version.
+            name: Registered prompt name.
+            version: Registered prompt version or alias. If None, loads the latest version.
 
         Returns:
-            A prompt object or None if not found.
+            A single Prompt object, or None if not found.
         """
+        try:
+            # Handle latest version resolution when version is None
+            if version is None:
+                from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 
-    @abstractmethod
+                latest_versions = self.get_latest_versions(name, stages=ALL_STAGES)
+                if not latest_versions:
+                    return None
+                mv = latest_versions[0]
+            else:
+                # Try to get by version number first, then by alias
+                try:
+                    version_int = int(str(version))
+                    mv = self.get_model_version(name, version_int)
+                except (ValueError, TypeError):
+                    # If conversion fails, try as alias
+                    try:
+                        mv = self.get_model_version_by_alias(name, str(version))
+                    except Exception:
+                        return None
+
+            # Verify this is actually a prompt
+            if not has_prompt_tag(mv.tags):
+                return None
+
+            # Get prompt-level tags from registered model
+            rm = self.get_registered_model(name)
+            if isinstance(rm.tags, dict):
+                prompt_tags = rm.tags.copy()
+            else:
+                prompt_tags = {tag.key: tag.value for tag in rm.tags}
+
+            return Prompt.from_model_version(mv, prompt_tags=prompt_tags)
+
+        except Exception:
+            return None
+
     def create_prompt_version(
         self,
         name: str,
@@ -560,50 +663,118 @@ class AbstractStore:
         tags: Optional[dict[str, str]] = None,
     ) -> Prompt:
         """
-        Create a new prompt version.
+        Create a new version of an existing prompt.
+
+        Default implementation for non-Unity Catalog registries: creates a ModelVersion with
+        prompt tags. Unity Catalog stores override this method.
 
         Args:
             name: Name of the prompt.
-            template: Template content for the prompt version.
-            description: Description of the prompt version.
-            tags: Dictionary of tag key-value pairs.
+            template: The prompt template text.
+            description: Optional description of the prompt version.
+            tags: Optional dictionary of version tags.
 
         Returns:
-            A prompt version object.
+            A Prompt object representing the created version.
         """
+        from mlflow.entities.model_registry import ModelVersionTag
+        from mlflow.prompt.constants import IS_PROMPT_TAG_KEY, PROMPT_TEXT_TAG_KEY
 
-    @abstractmethod
-    def get_prompt_version(self, name: str, version: Union[str, int]) -> Prompt:
+        # Create version tags including template
+        version_tags = [
+            ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true"),
+            ModelVersionTag(key=PROMPT_TEXT_TAG_KEY, value=template),
+        ]
+        if tags:
+            version_tags.extend([ModelVersionTag(key=k, value=v) for k, v in tags.items()])
+
+        # Create model version
+        mv = self.create_model_version(
+            name=name,
+            source="prompt-template",  # Required field for ModelVersion
+            tags=version_tags,
+            description=description,
+        )
+
+        # Get prompt-level tags from registered model
+        rm = self.get_registered_model(name)
+        if isinstance(rm.tags, dict):
+            prompt_tags = rm.tags.copy()
+        else:
+            prompt_tags = {tag.key: tag.value for tag in rm.tags}
+
+        return Prompt.from_model_version(mv, prompt_tags=prompt_tags)
+
+    def get_prompt_version(self, name: str, version: Union[str, int]) -> Optional[Prompt]:
         """
         Get a specific prompt version.
 
+        Default implementation for non-Unity Catalog registries: gets ModelVersion and converts
+        to Prompt. Unity Catalog stores override this method.
+
         Args:
             name: Name of the prompt.
-            version: Version number.
+            version: Version number or alias.
 
         Returns:
-            A prompt version object.
+            A Prompt object, or None if not found.
         """
+        return self.get_prompt(name, version)
 
-    @abstractmethod
     def delete_prompt_version(self, name: str, version: Union[str, int]) -> None:
         """
-        Delete a prompt version.
+        Delete a specific prompt version.
+
+        Default implementation for non-Unity Catalog registries: deletes the underlying
+        ModelVersion. Unity Catalog stores override this method.
 
         Args:
             name: Name of the prompt.
-            version: Version number.
+            version: Version number to delete.
         """
+        # Convert version to int if needed
+        try:
+            version_int = int(str(version))
+            return self.delete_model_version(name, version_int)
+        except (ValueError, TypeError):
+            raise MlflowException(f"Invalid version number: {version}")
 
-    @abstractmethod
-    def get_prompt_version_by_alias(self, name: str, alias: str) -> Prompt:
+    def get_prompt_version_by_alias(self, name: str, alias: str) -> Optional[Prompt]:
         """
         Get a prompt version by alias.
+
+        Default implementation: uses get_model_version_by_alias and converts to Prompt.
 
         Args:
             name: Name of the prompt.
             alias: Alias name.
 
         Returns:
-            A prompt version object.
+            A Prompt object, or None if not found.
         """
+        return self.get_prompt(name, alias)
+
+    def set_prompt_alias(self, name: str, alias: str, version: Union[str, int]) -> None:
+        """
+        Set an alias for a prompt version.
+
+        Default implementation: uses set_registered_model_alias.
+
+        Args:
+            name: Name of the prompt.
+            alias: Alias to set.
+            version: Version to alias.
+        """
+        self.set_registered_model_alias(name, alias, version)
+
+    def delete_prompt_alias(self, name: str, alias: str) -> None:
+        """
+        Delete a prompt alias.
+
+        Default implementation: uses delete_registered_model_alias.
+
+        Args:
+            name: Name of the prompt.
+            alias: Alias to delete.
+        """
+        self.delete_registered_model_alias(name, alias)

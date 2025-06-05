@@ -81,9 +81,18 @@ def proto_to_mlflow_prompt(
     if hasattr(proto_version, "aliases") and proto_version.aliases:
         aliases = [alias.alias for alias in proto_version.aliases]
 
+    # Require version to be present - no more defaulting to 1
+    if not proto_version.version:
+        raise ValueError(
+            f"PromptVersion proto is missing version field. This indicates an issue with "
+            f"the backend response or test mock setup. Proto: name={proto_version.name}, "
+            f"template={getattr(proto_version, 'template', 'N/A')}"
+        )
+    version = int(proto_version.version)
+
     return Prompt(
         name=proto_version.name,
-        version=int(proto_version.version),
+        version=version,
         template=proto_version.template,
         commit_message=proto_version.description,
         creation_timestamp=proto_version.creation_timestamp,

@@ -2199,3 +2199,216 @@ def test_log_batch_link_to_active_model(tracking_uri):
     assert logged_model.name == model.name
     assert logged_model.model_id == model.model_id
     assert {m.key: m.value for m in logged_model.metrics} == {"metric1": 1, "metric2": 2}
+
+
+# =============================================================================
+# Store-Direct Prompt API Functional Tests
+# =============================================================================
+
+
+def test_crud_store_direct_prompts(tracking_uri):
+    """Test complete CRUD operations using store-direct prompt APIs."""
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    # Create a prompt using store-direct API
+    prompt_info = client.create_prompt(
+        name="store_direct_prompt",
+        description="A prompt created via store-direct API",
+        tags={"type": "greeting", "language": "en"},
+    )
+    assert prompt_info.name == "store_direct_prompt"
+    assert prompt_info.description == "A prompt created via store-direct API"
+    assert prompt_info.tags["type"] == "greeting"
+    assert prompt_info.tags["language"] == "en"
+
+    # Create multiple versions using store-direct API
+    v1 = client.create_prompt_version(
+        name="store_direct_prompt",
+        template="Hello {{name}}! How are you today?",
+        description="First version - formal greeting",
+        tags={"version": "v1", "formality": "formal"},
+    )
+    assert v1.name == "store_direct_prompt"
+    assert v1.template == "Hello {{name}}! How are you today?"
+    assert v1.description == "First version - formal greeting"
+    assert str(v1.version) == "1"
+
+    v2 = client.create_prompt_version(
+        name="store_direct_prompt",
+        template="Hey {{name}}! What's up?",
+        description="Second version - casual greeting",
+        tags={"version": "v2", "formality": "casual"},
+    )
+    assert v2.name == "store_direct_prompt"
+    assert v2.template == "Hey {{name}}! What's up?"
+    assert str(v2.version) == "2"
+
+    # Get prompt (latest version) using store-direct API
+    latest_prompt = client.get_prompt("store_direct_prompt")
+    assert latest_prompt.name == "store_direct_prompt"
+    assert latest_prompt.template == "Hey {{name}}! What's up?"  # Latest version
+    assert str(latest_prompt.version) == "2"
+
+    # Get specific versions using store-direct API
+    prompt_v1 = client.get_prompt("store_direct_prompt", "1")
+    assert prompt_v1.template == "Hello {{name}}! How are you today?"
+    assert str(prompt_v1.version) == "1"
+
+    prompt_v2 = client.get_prompt("store_direct_prompt", "2")
+    assert prompt_v2.template == "Hey {{name}}! What's up?"
+    assert str(prompt_v2.version) == "2"
+
+    # Get prompt version using store-direct API
+    version_info = client.get_prompt_version("store_direct_prompt", "1")
+    assert version_info.name == "store_direct_prompt"
+    assert version_info.template == "Hello {{name}}! How are you today?"
+    assert str(version_info.version) == "1"
+
+
+def test_store_direct_prompt_tagging(tracking_uri):
+    """Test prompt tagging operations using store-direct APIs."""
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    # Create a prompt
+    client.create_prompt(name="tag_test_prompt", description="Testing tagging")
+    client.create_prompt_version(name="tag_test_prompt", template="Hello {{name}}!")
+
+    # Set tags using store-direct API
+    client.set_prompt_tag("tag_test_prompt", "environment", "production")
+    client.set_prompt_tag("tag_test_prompt", "team", "ml_team")
+    client.set_prompt_tag("tag_test_prompt", "priority", "high")
+
+    # Verify tags were set
+    prompt = client.get_prompt("tag_test_prompt")
+    assert "environment" in prompt.tags
+    assert prompt.tags["environment"] == "production"
+    assert prompt.tags["team"] == "ml_team"
+    assert prompt.tags["priority"] == "high"
+
+    # Update a tag
+    client.set_prompt_tag("tag_test_prompt", "environment", "staging")
+    updated_prompt = client.get_prompt("tag_test_prompt")
+    assert updated_prompt.tags["environment"] == "staging"
+
+    # Delete tags using store-direct API
+    client.delete_prompt_tag("tag_test_prompt", "priority")
+    prompt_after_delete = client.get_prompt("tag_test_prompt")
+    assert "priority" not in prompt_after_delete.tags
+    assert "environment" in prompt_after_delete.tags  # Other tags remain
+    assert "team" in prompt_after_delete.tags
+
+
+def test_store_direct_prompt_error_handling(tracking_uri):
+    """Test error handling in store-direct prompt APIs."""
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    # Test getting non-existent prompt - should return None for traditional stores
+    result = client.get_prompt("nonexistent_prompt")
+    assert result is None
+
+    # Test creating version for non-existent prompt should raise error
+    # (Traditional stores require the prompt to exist first)
+    with pytest.raises(MlflowException, match=r".*not found"):
+        client.create_prompt_version(name="nonexistent_prompt", template="This should fail")
+
+    # Test that we can create prompts and versions successfully
+    client.create_prompt(name="error_test_prompt", description="For error testing")
+    client.create_prompt_version(name="error_test_prompt", template="Template")
+
+    # Verify they were created
+    prompt = client.get_prompt("error_test_prompt")
+    assert prompt.name == "error_test_prompt"
+    assert prompt.template == "Template"
+
+    version = client.get_prompt_version("error_test_prompt", "1")
+    assert version.name == "error_test_prompt"
+    assert version.template == "Template"
+
+    # Test proper workflow: create prompt first, then version
+    client.create_prompt(name="proper_workflow", description="Test proper workflow")
+    version = client.create_prompt_version(
+        name="proper_workflow", template="This works because prompt exists"
+    )
+    assert version.name == "proper_workflow"
+    assert version.template == "This works because prompt exists"
+
+
+def test_search_prompts_store_direct_apis(tracking_uri):
+    """Test search functionality with store-direct APIs only."""
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    # Create prompts using store-direct APIs only
+    client.create_prompt(
+        "greeting_prompt",
+        description="Greeting prompt",
+        tags={"type": "greeting", "language": "en"},
+    )
+    client.create_prompt_version("greeting_prompt", "Hi {{name}}! How's it going?")
+
+    client.create_prompt(
+        "farewell_prompt",
+        description="Farewell prompt",
+        tags={"type": "farewell", "language": "en"},
+    )
+    client.create_prompt_version("farewell_prompt", "Goodbye {{name}}! See you later!")
+
+    client.create_prompt(
+        "question_prompt",
+        description="Question prompt",
+        tags={"type": "question", "language": "en"},
+    )
+    client.create_prompt_version("question_prompt", "What do you think about {{topic}}?")
+
+    client.create_prompt(
+        "spanish_greeting",
+        description="Spanish greeting",
+        tags={"type": "greeting", "language": "es"},
+    )
+    client.create_prompt_version("spanish_greeting", "¡Hola {{name}}!")
+
+    # Test search without filter (should find all prompts)
+    all_prompts = client.search_prompts()
+    prompt_names = [p.name for p in all_prompts]
+    assert "greeting_prompt" in prompt_names
+    assert "farewell_prompt" in prompt_names
+    assert "question_prompt" in prompt_names
+    assert "spanish_greeting" in prompt_names
+    assert len(prompt_names) >= 4
+
+    # Test search with name filter
+    greeting_prompts = client.search_prompts(filter_string='name LIKE "%greeting%"')
+    greeting_names = [p.name for p in greeting_prompts]
+    assert "greeting_prompt" in greeting_names
+    assert "spanish_greeting" in greeting_names
+    assert "farewell_prompt" not in greeting_names
+    assert "question_prompt" not in greeting_names
+
+    # Test search with tag filter - type
+    greeting_type_prompts = client.search_prompts(filter_string='tag.type = "greeting"')
+    greeting_type_names = [p.name for p in greeting_type_prompts]
+    assert "greeting_prompt" in greeting_type_names
+    assert "spanish_greeting" in greeting_type_names
+    assert "farewell_prompt" not in greeting_type_names
+    assert "question_prompt" not in greeting_type_names
+
+    # Test search with tag filter - language
+    english_prompts = client.search_prompts(filter_string='tag.language = "en"')
+    english_names = [p.name for p in english_prompts]
+    assert "greeting_prompt" in english_names
+    assert "farewell_prompt" in english_names
+    assert "question_prompt" in english_names
+    assert "spanish_greeting" not in english_names
+
+    # Test search with complex filter
+    english_greetings = client.search_prompts(
+        filter_string='tag.type = "greeting" AND tag.language = "en"'
+    )
+    english_greeting_names = [p.name for p in english_greetings]
+    assert "greeting_prompt" in english_greeting_names
+    assert "spanish_greeting" not in english_greeting_names
+    assert "farewell_prompt" not in english_greeting_names
+    assert len(english_greeting_names) == 1
+
+    # Test search with max_results
+    limited_prompts = client.search_prompts(max_results=2)
+    assert len(limited_prompts) == 2
