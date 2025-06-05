@@ -87,11 +87,11 @@ class ScheduledScorer:
 @experimental
 def add_scheduled_scorer(
     *,
-    experiment_id: Optional[str] = None,
     scorer_name: str,
     scorer_fn: Scorer,
     sample_rate: float,
     filter_string: Optional[str] = None,
+    experiment_id: Optional[str] = None,
 ) -> ScheduledScorer:
     """
     Add a scheduled scorer to automatically monitor traces in an MLflow experiment.
@@ -101,8 +101,6 @@ def add_scheduled_scorer(
     and any filter criteria. Assessments are displayed in the Traces tab of the MLflow experiment.
 
     Args:
-        experiment_id: The ID of the MLflow experiment to monitor. If None, uses the
-            currently active experiment.
         scorer_name: A unique name for this scheduled scorer within the experiment.
             We recommend using the scorer's name (e.g., scorer_fn.name) for consistency.
         scorer_fn: The scorer function to execute on sampled traces. Must be either a
@@ -113,6 +111,8 @@ def add_scheduled_scorer(
         filter_string: An optional MLflow search_traces compatible filter string. Only
             traces matching this filter will be considered for evaluation. If None,
             all traces in the experiment are eligible for sampling.
+        experiment_id: The ID of the MLflow experiment to monitor. If None, uses the
+            currently active experiment.
 
     Returns:
         A ScheduledScorer object representing the configured scheduled scorer.
@@ -137,10 +137,10 @@ def add_scheduled_scorer(
 
             # Add a correctness scorer with different sampling
             correctness_scorer = add_scheduled_scorer(
-                experiment_id=experiment.experiment_id,  # Explicitly specify experiment
                 scorer_name="correctness_monitor",
                 scorer_fn=Correctness(),
                 sample_rate=0.2,  # More expensive, so lower sample rate
+                experiment_id=experiment.experiment_id,  # Explicitly specify experiment
             )
 
     Note:
@@ -159,11 +159,11 @@ def add_scheduled_scorer(
 @experimental
 def update_scheduled_scorer(
     *,
-    experiment_id: Optional[str] = None,
     scorer_name: str,
     scorer_fn: Scorer,
     sample_rate: float,
     filter_string: Optional[str] = None,
+    experiment_id: Optional[str] = None,
 ) -> ScheduledScorer:
     """
     Update an existing scheduled scorer configuration.
@@ -173,8 +173,6 @@ def update_scheduled_scorer(
     continue to run automatically with the new configuration.
 
     Args:
-        experiment_id: The ID of the MLflow experiment containing the scheduled scorer.
-            If None, uses the currently active experiment.
         scorer_name: The name of the existing scheduled scorer to update. Must match
             the name used when the scorer was originally added. We recommend using the
             scorer's name (e.g., scorer_fn.name) for consistency.
@@ -183,6 +181,8 @@ def update_scheduled_scorer(
         sample_rate: The new fraction of traces to evaluate, between 0.0 and 1.0.
         filter_string: The new MLflow search_traces compatible filter string. If None,
             all traces in the experiment are eligible for sampling.
+        experiment_id: The ID of the MLflow experiment containing the scheduled scorer.
+            If None, uses the currently active experiment.
 
     Returns:
         A ScheduledScorer object representing the updated scheduled scorer configuration.
@@ -211,7 +211,11 @@ def update_scheduled_scorer(
 
 
 @experimental
-def delete_scheduled_scorer(*, experiment_id: Optional[str] = None, scorer_name: str) -> None:
+def delete_scheduled_scorer(
+    *,
+    scorer_name: str,
+    experiment_id: Optional[str] = None,
+) -> None:
     """
     Delete a scheduled scorer from an MLflow experiment.
 
@@ -220,10 +224,10 @@ def delete_scheduled_scorer(*, experiment_id: Optional[str] = None, scorer_name:
     experiment, but no new evaluations will be performed.
 
     Args:
-        experiment_id: The ID of the MLflow experiment containing the scheduled scorer.
-            If None, uses the currently active experiment.
         scorer_name: The name of the scheduled scorer to delete. Must match the name
             used when the scorer was originally added.
+        experiment_id: The ID of the MLflow experiment containing the scheduled scorer.
+            If None, uses the currently active experiment.
 
     Example:
         .. code-block:: python
@@ -254,7 +258,9 @@ def delete_scheduled_scorer(*, experiment_id: Optional[str] = None, scorer_name:
 
 @experimental
 def get_scheduled_scorer(
-    *, experiment_id: Optional[str] = None, scorer_name: str
+    *,
+    scorer_name: str,
+    experiment_id: Optional[str] = None,
 ) -> ScheduledScorer:
     """
     Retrieve the configuration of a specific scheduled scorer.
@@ -263,9 +269,9 @@ def get_scheduled_scorer(
     its scorer function, sampling rate, and filter criteria.
 
     Args:
+        scorer_name: The name of the scheduled scorer to retrieve.
         experiment_id: The ID of the MLflow experiment containing the scheduled scorer.
             If None, uses the currently active experiment.
-        scorer_name: The name of the scheduled scorer to retrieve.
 
     Returns:
         A ScheduledScorer object containing the current configuration of the specified
@@ -333,7 +339,9 @@ def list_scheduled_scorers(*, experiment_id: Optional[str] = None) -> list[Sched
 
 @experimental
 def set_scheduled_scorers(
-    *, experiment_id: Optional[str] = None, scheduled_scorers: list[ScheduledScorer]
+    *,
+    scheduled_scorers: list[ScheduledScorer],
+    experiment_id: Optional[str] = None,
 ) -> None:
     """
     Replace all scheduled scorers for an experiment with the provided list.
@@ -343,11 +351,11 @@ def set_scheduled_scorers(
     or when you want to ensure only specific scorers are active.
 
     Args:
-        experiment_id: The ID of the MLflow experiment to configure. If None, uses the
-            currently active experiment.
         scheduled_scorers: A list of ScheduledScorer objects to set as the complete
             set of scheduled scorers for the experiment. Any existing scheduled scorers
             not in this list will be removed.
+        experiment_id: The ID of the MLflow experiment to configure. If None, uses the
+            currently active experiment.
 
     Example:
         .. code-block:: python
