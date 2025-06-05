@@ -98,7 +98,7 @@ const config: Config = {
       items: [
         {
           type: "dropdown",
-          label: "GenAI",
+          label: "Documentation",
           items: [
             // Classic ML docs
             {
