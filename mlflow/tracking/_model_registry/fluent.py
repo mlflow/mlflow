@@ -679,7 +679,7 @@ def load_prompt(
 )
 @experimental
 @require_prompt_registry
-def delete_prompt(name: str, version: int = 0) -> None:
+def delete_prompt(name: str, version: int) -> Prompt:
     """
     Delete a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
 

@@ -704,6 +704,18 @@ class MlflowClient:
             version: The version of the prompt to delete.
         """
         registry_client = self._get_registry_client()
+        
+        # Check if user is using Databricks Unity Catalog and prevent deletion
+        if is_databricks_unity_catalog_uri(self._registry_uri):
+            raise MlflowException(
+                f"The delete_prompt() method is not supported for Unity Catalog registries. "
+                f"Unity Catalog provides automatic cleanup when the last prompt version is deleted. "
+                f"Please use delete_prompt_version() instead:\n\n"
+                f"  client.delete_prompt_version('{name}', '{version}')\n\n"
+                f"When you delete the last version of a prompt, Unity Catalog will "
+                f"automatically delete the prompt container as well.",
+                INVALID_PARAMETER_VALUE,
+            )
 
         self._validate_prompt(name, version)
         registry_client.delete_model_version(name, version)
