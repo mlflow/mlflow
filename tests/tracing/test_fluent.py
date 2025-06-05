@@ -1457,6 +1457,42 @@ def test_update_current_trace_client_request_id_stringification():
                     assert isinstance(trace.info.client_request_id, str)
 
 
+def test_update_current_trace_with_metadata():
+    """Test that update_current_trace correctly handles metadata parameter."""
+
+    @mlflow.trace
+    def f():
+        mlflow.update_current_trace(
+            metadata={
+                "mlflow.source.name": "inference.py",
+                "mlflow.source.git.commit": "1234567890",
+                "mlflow.source.git.repoURL": "https://github.com/mlflow/mlflow",
+                "non-string-metadata": 123,
+            },
+        )
+
+    f()
+
+    expected_metadata = {
+        "mlflow.source.name": "inference.py",
+        "mlflow.source.git.commit": "1234567890",
+        "mlflow.source.git.repoURL": "https://github.com/mlflow/mlflow",
+        "non-string-metadata": "123",  # Should be stringified
+    }
+
+    # Validate in-memory trace
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    for k, v in expected_metadata.items():
+        assert trace.info.trace_metadata[k] == v
+
+    # Validate backend trace
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    for k, v in expected_metadata.items():
+        assert traces[0].info.trace_metadata[k] == v
+
+
 @skip_when_testing_trace_sdk
 def test_update_current_trace_should_not_raise_during_model_logging():
     """
