@@ -146,6 +146,16 @@ jobs:
       - uses: ./.github/actions/setup-java
         with:
           java-version: ${{ matrix.java }}
+      # TODO: Remove this step once we remove the pyspark constraint in requirements/constraints.txt
+      - name: Remove pyspark constraint
+        run: |
+          if [ "${{ matrix.package }}" = "pyspark" ]; then
+            sed -i '/^pyspark/d' requirements/constraints.txt
+            git config user.name 'mlflow-app[bot]'
+            git config user.email 'mlflow-app[bot]@users.noreply.github.com'
+            git add requirements/constraints.txt
+            git commit -m "Remove pyspark constraints for testing"
+          fi
       - name: Install mlflow & test dependencies
         run: |
           pip install -U pip wheel setuptools
@@ -193,6 +203,16 @@ jobs:
       - uses: ./.github/actions/setup-java
         with:
           java-version: ${{ matrix.java }}
+      # TODO: Remove this step once we remove the pyspark constraint in requirements/constraints.txt
+      - name: Remove pyspark constraint
+        run: |
+          if [ "${{ matrix.package }}" = "pyspark" ]; then
+            sed -i '/^pyspark/d' requirements/constraints.txt
+            git config user.name 'mlflow-app[bot]'
+            git config user.email 'mlflow-app[bot]@users.noreply.github.com'
+            git add requirements/constraints.txt
+            git commit -m "Remove pyspark constraints for testing"
+          fi
       - name: Install mlflow & test dependencies
         run: |
           pip install -U pip wheel setuptools
