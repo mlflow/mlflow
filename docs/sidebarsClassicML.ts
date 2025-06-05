@@ -61,6 +61,10 @@ const sidebarsClassicML: SidebarsConfig = {
           id: 'getting-started/hyperparameter-tuning/index',
         },
         {
+          type: 'doc',
+          id: 'getting-started/deep-learning',
+        },
+        {
           type: 'category',
           label: 'Model Registry Quickstart',
           items: [
