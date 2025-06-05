@@ -618,40 +618,27 @@ class AbstractStore:
         Returns:
             A single Prompt object, or None if not found.
         """
-        try:
-            # Handle latest version resolution when version is None
-            if version is None:
-                latest_versions = self.get_latest_versions(name, stages=ALL_STAGES)
-                if not latest_versions:
-                    return None
-                mv = latest_versions[0]
-            else:
-                # Try to get by version number first, then by alias
-                try:
-                    version_int = int(str(version))
-                    mv = self.get_model_version(name, version_int)
-                except (ValueError, TypeError):
-                    # If conversion fails, try as alias
-                    try:
-                        mv = self.get_model_version_by_alias(name, str(version))
-                    except Exception:
-                        return None
-
-            # Verify this is actually a prompt
-            if not has_prompt_tag(mv.tags):
+        if version is None:
+            latest_versions = self.get_latest_versions(name, stages=ALL_STAGES)
+            if not latest_versions:
                 return None
+            mv = latest_versions[0]
+        else:
+            version_int = int(str(version))
+            mv = self.get_model_version(name, version_int)
 
-            # Get prompt-level tags from registered model
-            rm = self.get_registered_model(name)
-            if isinstance(rm.tags, dict):
-                prompt_tags = rm.tags.copy()
-            else:
-                prompt_tags = {tag.key: tag.value for tag in rm.tags}
-
-            return Prompt.from_model_version(mv, prompt_tags=prompt_tags)
-
-        except Exception:
+        # Verify this is actually a prompt
+        if not has_prompt_tag(mv.tags):
             return None
+
+        # Get prompt-level tags from registered model
+        rm = self.get_registered_model(name)
+        if isinstance(rm.tags, dict):
+            prompt_tags = rm.tags.copy()
+        else:
+            prompt_tags = {tag.key: tag.value for tag in rm.tags}
+
+        return Prompt.from_model_version(mv, prompt_tags=prompt_tags)
 
     def create_prompt_version(
         self,
