@@ -63,11 +63,11 @@ def get_labeling_sessions() -> list[LabelingSession]:
     return get_review_app().get_labeling_sessions()
 
 
-def get_labeling_session(name: str) -> LabelingSession:
+def get_labeling_session(run_id: str) -> LabelingSession:
     """Get a labeling session from the review app.
 
     Args:
-        name: The name of the labeling session to get.
+        run_id: The mlflow run ID of the labeling session to get.
 
     Returns:
         LabelingSession: The labeling session.
@@ -77,12 +77,12 @@ def get_labeling_session(name: str) -> LabelingSession:
         (
             labeling_session
             for labeling_session in labeling_sessions
-            if labeling_session.name == name
+            if labeling_session.mlflow_run_id == run_id
         ),
         None,
     )
     if labeling_session is None:
-        raise ValueError(f"Labeling session with name `{name}` not found")
+        raise ValueError(f"Labeling session with run_id `{run_id}` not found")
     return labeling_session
 
 
