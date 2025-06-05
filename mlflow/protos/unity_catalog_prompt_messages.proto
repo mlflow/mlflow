@@ -240,5 +240,3 @@ message DeletePromptVersionTagRequest {
   // Name (key) of the tag
   optional string key = 3;
 }
-
-
