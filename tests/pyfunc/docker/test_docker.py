@@ -26,7 +26,7 @@ def assert_dockerfiles_equal(actual_dockerfile_path: Path, expected_dockerfile_p
         actual_dockerfile_path.read_text()
         .replace(VERSION, get_released_mlflow_version())
         # TODO: Remove this once https://github.com/pandas-dev/pandas/issues/61564 is resolved
-        .replace("  pandas!=2.3.0", "")
+        .replace(" pandas!=2.3.0", "")
     )
     expected_dockerfile = (
         expected_dockerfile_path.read_text()
