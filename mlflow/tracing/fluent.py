@@ -946,6 +946,7 @@ def _set_last_active_trace_id(trace_id: str):
 
 def update_current_trace(
     tags: Optional[dict[str, str]] = None,
+    metadata: Optional[dict[str, str]] = None,
     client_request_id: Optional[str] = None,
     request_preview: Optional[str] = None,
     response_preview: Optional[str] = None,
@@ -955,7 +956,11 @@ def update_current_trace(
     Update the current active trace with the given options.
 
     Args:
-        tags: A dictionary of tags to update the trace with.
+        tags: A dictionary of tags to update the trace with Tags are designed for mutable values,
+            that can be updated after the trace is created via MLflow UI or API.
+        metadata: A dictionary of metadata to update the trace with. Metadata cannot be updated
+            once the trace is logged. It is suitable for recording immutable values like the
+            git hash of the application version that produced the trace.
         client_request_id: Client supplied request ID to associate with the trace. This is
             useful for linking the trace back to a specific request in your application or
             external system. If None, the client request ID is not updated.
@@ -990,6 +995,20 @@ def update_current_trace(
 
             with mlflow.start_span("span"):
                 mlflow.update_current_trace(tags={"fruit": "apple"}, client_request_id="req-12345")
+
+        Updating source information of the trace. These keys are reserved ones and MLflow populate
+        them from environment information by default. You can override them if needed. Please refer
+        to the MLflow Tracing documentation for the full list of reserved metadata keys.
+
+        .. code-block:: python
+
+            mlflow.update_current_trace(
+                metadata={
+                    "mlflow.source.name": "inference.py",
+                    "mlflow.source.git.commit": "1234567890",
+                    "mlflow.source.git.repoURL": "https://github.com/mlflow/mlflow",
+                },
+            )
 
         Updating request preview:
 
@@ -1036,20 +1055,17 @@ def update_current_trace(
         )
         return
 
-    if isinstance(tags, dict):
-        non_string_items = {k: v for k, v in tags.items() if not isinstance(v, str)}
+    def _warn_non_string_values(d: dict[str, Any], field_name: str):
+        non_string_items = {k: v for k, v in d.items() if not isinstance(v, str)}
         if non_string_items:
-            none_values_present = any(v is None for v in non_string_items.values())
-            null_tag_advice = (
-                "Consider dropping None values from the tag dict prior to updating the trace."
-                if none_values_present
-                else ""
-            )
             _logger.warning(
-                "Found non-string values in tags. Please note that non-string tag values will "
-                f"automatically be stringified when the trace is logged. {null_tag_advice}\n\n"
-                f"Non-string items: {non_string_items}"
+                f"Found non-string values in {field_name}. Non-string values in {field_name} will "
+                f"automatically be stringified when the trace is logged. Non-string items: "
+                f"{non_string_items}"
             )
+
+    _warn_non_string_values(tags or {}, "tags")
+    _warn_non_string_values(metadata or {}, "metadata")
 
     # Update tags and client request ID for the trace stored in-memory rather than directly
     # updating the backend store. The in-memory trace will be exported when it is ended.
@@ -1085,6 +1101,7 @@ def update_current_trace(
             trace.info.state = state
 
         trace.info.tags.update(tags or {})
+        trace.info.trace_metadata.update(metadata or {})
         if client_request_id is not None:
             trace.info.client_request_id = str(client_request_id)
 
