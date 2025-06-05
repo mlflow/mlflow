@@ -505,7 +505,7 @@ class AbstractStore:
     def search_prompts(
         self,
         filter_string: Optional[str] = None,
-        max_results: Optional[int] = 100,
+        max_results: Optional[int] = None,
         order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
     ) -> PagedList[PromptInfo]:
@@ -524,6 +524,9 @@ class AbstractStore:
         Returns:
             A PagedList of PromptInfo objects.
         """
+        if max_results is None:
+            max_results = 100
+
         # Build filter to only include prompts (use backticks for tag key with dots)
         prompt_filter = f"tags.`{IS_PROMPT_TAG_KEY}` = 'true'"
         if filter_string:
@@ -627,7 +630,6 @@ class AbstractStore:
             version_int = int(str(version))
             mv = self.get_model_version(name, version_int)
 
-        # Verify this is actually a prompt
         if not has_prompt_tag(mv.tags):
             return None
 
