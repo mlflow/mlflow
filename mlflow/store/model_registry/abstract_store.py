@@ -543,8 +543,8 @@ class AbstractStore:
             page_token=page_token,
         )
 
-        # For backward compatibility, return RegisteredModel objects with latest_versions
-        # The traditional search_prompts() expects objects with latest_versions attribute
+        # For backward compatibility with non-Unity Catalog registries, return RegisteredModel objects
+        # with latest_versions populated. The client-level search_prompts() expects this attribute.
         for rm in registered_models:
             # Ensure the registered model has latest_versions populated
             if not hasattr(rm, "latest_versions") or rm.latest_versions is None:
