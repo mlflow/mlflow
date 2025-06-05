@@ -2,6 +2,7 @@ import base64
 import functools
 import logging
 import os
+import re
 import shutil
 from contextlib import contextmanager
 from typing import Optional, Union
@@ -1180,34 +1181,44 @@ class UcModelRegistryStore(BaseRestStore):
         Search for prompts in Unity Catalog.
 
         Args:
-            filter_string: Additional filter string (after catalog/schema are removed)
+            filter_string: Filter string. If catalog_name/schema_name not provided separately,
+                will parse them from filter_string expecting format:
+                "catalog = 'catalog_name' AND schema = 'schema_name'"
             max_results: Maximum number of results to return
             order_by: List of fields to order by (not used in current implementation)
             page_token: Token for pagination
             catalog_name: Unity Catalog catalog name (for UC registries)
             schema_name: Unity Catalog schema name (for UC registries)
         """
-        # Build the request with Unity Catalog schema if provided
-        if catalog_name and schema_name:
-            unity_catalog_schema = UnityCatalogSchema(
-                catalog_name=catalog_name, schema_name=schema_name
-            )
-            req_body = message_to_json(
-                SearchPromptsRequest(
-                    unity_catalog_schema=unity_catalog_schema,
-                    filter=filter_string,
-                    max_results=max_results,
-                    page_token=page_token,
+        # If catalog_name/schema_name not provided as separate args, parse from filter_string
+        if catalog_name is None or schema_name is None:
+            if filter_string:
+                catalog_name, schema_name, remaining_filter = (
+                    self._parse_catalog_schema_from_filter(filter_string)
                 )
-            )
-        else:
-            req_body = message_to_json(
-                SearchPromptsRequest(
-                    filter=filter_string,
-                    max_results=max_results,
-                    page_token=page_token,
+                filter_string = remaining_filter
+            else:
+                from mlflow.exceptions import MlflowException
+                from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+
+                raise MlflowException(
+                    "For Unity Catalog prompt registries, you must specify catalog and schema "
+                    "in the filter string: \"catalog = 'catalog_name' AND schema = 'schema_name'\"",
+                    INVALID_PARAMETER_VALUE,
                 )
+
+        # Build the request with Unity Catalog schema
+        unity_catalog_schema = UnityCatalogSchema(
+            catalog_name=catalog_name, schema_name=schema_name
+        )
+        req_body = message_to_json(
+            SearchPromptsRequest(
+                unity_catalog_schema=unity_catalog_schema,
+                filter=filter_string,
+                max_results=max_results,
+                page_token=page_token,
             )
+        )
 
         response_proto = self._call_endpoint(SearchPromptsRequest, req_body)
         prompts = []
@@ -1216,6 +1227,72 @@ class UcModelRegistryStore(BaseRestStore):
             prompts.append(proto_info_to_mlflow_prompt_info(prompt_info, {}))
 
         return PagedList(prompts, response_proto.next_page_token)
+
+    def _parse_catalog_schema_from_filter(
+        self, filter_string: Optional[str]
+    ) -> tuple[Optional[str], Optional[str], Optional[str]]:
+        """
+        Parse catalog and schema from filter string for Unity Catalog using regex.
+
+        Expects filter format: "catalog = 'catalog_name' AND schema = 'schema_name'"
+
+        Args:
+            filter_string: Filter string containing catalog and schema
+
+        Returns:
+            Tuple of (catalog_name, schema_name, remaining_filter)
+
+        Raises:
+            MlflowException: If filter format is invalid for Unity Catalog
+        """
+        from mlflow.exceptions import MlflowException
+        from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+
+        if not filter_string:
+            raise MlflowException(
+                "For Unity Catalog prompt registries, you must specify catalog and schema "
+                "in the filter string: \"catalog = 'catalog_name' AND schema = 'schema_name'\"",
+                INVALID_PARAMETER_VALUE,
+            )
+
+        # Regex patterns to match catalog and schema specifications
+        catalog_pattern = r"catalog\s*=\s*['\"]([^'\"]+)['\"]"
+        schema_pattern = r"schema\s*=\s*['\"]([^'\"]+)['\"]"
+
+        catalog_match = re.search(catalog_pattern, filter_string, re.IGNORECASE)
+        schema_match = re.search(schema_pattern, filter_string, re.IGNORECASE)
+
+        if not catalog_match or not schema_match:
+            raise MlflowException(
+                "For Unity Catalog prompt registries, filter string must include both "
+                "catalog and schema in the format: "
+                "\"catalog = 'catalog_name' AND schema = 'schema_name'\". "
+                f"Got: {filter_string}",
+                INVALID_PARAMETER_VALUE,
+            )
+
+        catalog_name = catalog_match.group(1)
+        schema_name = schema_match.group(1)
+
+        # Remove catalog and schema from filter string to get remaining filters
+        # First, normalize the filter by splitting on AND and rebuilding
+        # without catalog/schema parts
+        parts = re.split(r"\s+AND\s+", filter_string, flags=re.IGNORECASE)
+        remaining_parts = []
+
+        for part in parts:
+            part = part.strip()
+            # Skip parts that match catalog or schema patterns
+            if not (
+                re.match(catalog_pattern, part, re.IGNORECASE)
+                or re.match(schema_pattern, part, re.IGNORECASE)
+            ):
+                remaining_parts.append(part)
+
+        # Rejoin the remaining parts
+        remaining_filter = " AND ".join(remaining_parts) if remaining_parts else None
+
+        return catalog_name, schema_name, remaining_filter
 
     def delete_prompt(self, name: str) -> None:
         """
@@ -1320,6 +1397,8 @@ class UcModelRegistryStore(BaseRestStore):
         prompt_version_proto = ProtoPromptVersion()
         prompt_version_proto.name = name
         prompt_version_proto.template = template
+        # Note: version will be set by the backend when creating a new version
+        # We don't set it here as it's generated server-side
         if description:
             prompt_version_proto.description = description
         if tags:
