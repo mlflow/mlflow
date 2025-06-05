@@ -517,6 +517,27 @@ class MlflowClient:
 
         validate_prompt_name(name)
 
+        if is_databricks_unity_catalog_uri(self._registry_uri):
+            try:
+                registry_client.create_prompt(name=name, description=commit_message, tags=tags or {})
+            except MlflowException as e:
+                if e.error_code == "ALREADY_EXISTS":
+                    pass
+                else:
+                    # Re-raise other errors like permission issues, validation errors, etc.
+                    raise
+            
+            # Create the prompt version
+            prompt_version = registry_client.create_prompt_version(
+                name=name,
+                template=template,
+                description=commit_message,
+                tags=version_metadata or {},
+            )
+            
+            return registry_client.get_prompt(name, str(prompt_version.version))
+
+        # OSS approach using RegisteredModel with special tags
         is_new_prompt = False
         rm = None
         tags = tags or {}
