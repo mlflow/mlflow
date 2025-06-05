@@ -6,6 +6,7 @@ from typing import Optional, Union
 from mlflow.entities.model_registry import ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.entities.model_registry.prompt import Prompt
+from mlflow.entities.model_registry.registered_model import RegisteredModel
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.registry_utils import has_prompt_tag
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, ErrorCode
@@ -511,7 +512,7 @@ class AbstractStore:
         page_token: Optional[str] = None,
         catalog_name: Optional[str] = None,
         schema_name: Optional[str] = None,
-    ) -> PagedList[PromptInfo]:
+    ) -> PagedList[RegisteredModel]:
         """
         Search for prompts in the registry.
 
@@ -527,7 +528,7 @@ class AbstractStore:
             schema_name: Schema name (for catalog-based stores).
 
         Returns:
-            A PagedList of PromptInfo objects.
+            A PagedList of RegisteredModel objects (with prompt filtering applied).
         """
         from mlflow.prompt.constants import IS_PROMPT_TAG_KEY
 
