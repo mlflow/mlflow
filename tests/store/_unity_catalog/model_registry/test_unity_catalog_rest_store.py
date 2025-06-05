@@ -2127,7 +2127,7 @@ def test_search_prompts_uc(mock_http, store, monkeypatch):
         "mlflow.store._unity_catalog.registry.rest_store.proto_info_to_mlflow_prompt_info",
         return_value=PromptInfo("prompt1", "test prompt"),
     ) as proto_to_prompt:
-        store.search_prompts()
+        store.search_prompts(filter_string="catalog = 'test_catalog' AND schema = 'test_schema'")
         # Should call the correct endpoint for SearchPromptsRequest
         assert any("/prompts" in c[1]["endpoint"] for c in mock_http.call_args_list)
         # The utility function should NOT be called when there are no results (empty list)
@@ -2173,7 +2173,9 @@ def test_search_prompts_with_results_uc(store, monkeypatch):
         ) as mock_converter,
     ):
         # Call search_prompts
-        result = store.search_prompts(max_results=10)
+        result = store.search_prompts(
+            max_results=10, filter_string="catalog = 'test_catalog' AND schema = 'test_schema'"
+        )
 
         # Verify conversion function was called twice (once for each result)
         assert mock_converter.call_count == 2
