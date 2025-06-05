@@ -167,6 +167,10 @@ _logger = logging.getLogger(__name__)
 _DELTA_TABLE = "delta_table"
 _MAX_LINEAGE_DATA_SOURCES = 10
 
+# Pre-compiled regex patterns for better performance in search operations
+_CATALOG_PATTERN = re.compile(r"catalog\s*=\s*['\"]([^'\"]+)['\"]", re.IGNORECASE)
+_SCHEMA_PATTERN = re.compile(r"schema\s*=\s*['\"]([^'\"]+)['\"]", re.IGNORECASE)
+
 
 @dataclass
 class _CatalogSchemaFilter:
@@ -1256,12 +1260,9 @@ class UcModelRegistryStore(BaseRestStore):
                 INVALID_PARAMETER_VALUE,
             )
 
-        # Regex patterns to match catalog and schema specifications
-        catalog_pattern = r"catalog\s*=\s*['\"]([^'\"]+)['\"]"
-        schema_pattern = r"schema\s*=\s*['\"]([^'\"]+)['\"]"
-
-        catalog_match = re.search(catalog_pattern, filter_string, re.IGNORECASE)
-        schema_match = re.search(schema_pattern, filter_string, re.IGNORECASE)
+        # Use pre-compiled regex patterns for better performance
+        catalog_match = _CATALOG_PATTERN.search(filter_string)
+        schema_match = _SCHEMA_PATTERN.search(filter_string)
 
         if not catalog_match or not schema_match:
             raise MlflowException(
@@ -1284,10 +1285,7 @@ class UcModelRegistryStore(BaseRestStore):
         for part in parts:
             part = part.strip()
             # Skip parts that match catalog or schema patterns
-            if not (
-                re.match(catalog_pattern, part, re.IGNORECASE)
-                or re.match(schema_pattern, part, re.IGNORECASE)
-            ):
+            if not (_CATALOG_PATTERN.match(part) or _SCHEMA_PATTERN.match(part)):
                 remaining_parts.append(part)
 
         # Rejoin the remaining parts
