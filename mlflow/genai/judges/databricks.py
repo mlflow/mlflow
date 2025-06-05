@@ -43,20 +43,10 @@ def _sanitize_feedback(feedback: Feedback) -> Feedback:
     Returns:
         A new Feedback object with our CategoricalRating.
     """
-    return Feedback(
-        name=feedback.name,
-        # Convert the databricks-agents CategoricalRating to a mlflow.genai.judges.CategoricalRating
-        value=CategoricalRating(feedback.value.value),
-        source=feedback.source,
-        trace_id=feedback.trace_id,
-        metadata=feedback.metadata,
-        span_id=feedback.span_id,
-        create_time_ms=feedback.create_time_ms,
-        last_update_time_ms=feedback.last_update_time_ms,
-        rationale=feedback.rationale,
-        overrides=feedback.overrides,
-        valid=feedback.valid,
-    )
+    feedback.feedback.value = CategoricalRating(feedback.value.value)
+    # Need to set the value attribute to ensure it is synced with the feedback.value
+    feedback.value = CategoricalRating(feedback.value.value)
+    return feedback
 
 
 def requires_databricks_agents(func):
