@@ -1,4 +1,3 @@
-import DatabricksCallout from "@site/src/components/DatabricksCallout"
 import { APILink } from "@site/src/components/APILink";
 import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
 import TOCInline from "@theme/TOCInline";
@@ -7,7 +6,6 @@ import TabItem from "@theme/TabItem";
 
 # Tracing Multi-turn Conversation Sessions
 
-<DatabricksCallout docsPath="/mlflow3/genai/tracing/" />
 
 In conversational AI applications, it is common that users interact with the model multiple times within a single conversation session. Since each interaction generates a trace in the typical MLflow setup, it is useful to group these traces together to analyze the conversation as a whole. You can achieve this by attaching the session ID as a **tag** to each trace.
 
