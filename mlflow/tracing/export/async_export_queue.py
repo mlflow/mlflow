@@ -69,7 +69,9 @@ class AsyncTraceExportQueue:
         if cls._instance is None:
             return True
 
-        return cls._instance._queue.empty()
+        # If the item is not in the queue but is being processed by a worker,
+        # it should be considered as not empty
+        return cls._instance._queue.empty() and not cls._instance._active_tasks
 
     def put(self, task: Task):
         """Put a new task to the queue for processing."""
