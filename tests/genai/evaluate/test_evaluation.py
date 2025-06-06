@@ -239,7 +239,7 @@ def test_evaluate_with_managed_dataset():
         mock.patch("databricks.rag_eval.datasets.entities._get_client", return_value=mock_client),
     ):
         dataset = create_dataset(uc_table_name="mlflow.managed.dataset", experiment_id="exp-123")
-        dataset.insert(
+        dataset.merge_records(
             [
                 {
                     "inputs": {"question": "What is MLflow?"},
