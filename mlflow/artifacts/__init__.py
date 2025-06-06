@@ -178,7 +178,7 @@ def _list_model_artifacts(
     tracking_uri: Optional[str] = None,
 ) -> list[FileInfo]:
     if artifact_uri:
-        run_id, artifact_path = artifact_uri.strip("/").split("/", 2)[1:]
+        run_id, artifact_path = artifact_uri.strip("/").split("/", maxsplit=2)[1:]
 
     store = _get_store(store_uri=tracking_uri)
     experiment_id = store.get_run(run_id).info.experiment_id
