@@ -4,6 +4,7 @@ import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import Layout from '@theme/Layout';
 import clsx from 'clsx';
 import styles from './index.module.css';
+import useBaseUrl from '@docusaurus/useBaseUrl';
 
 interface PathSelectorProps {
   title: string;
@@ -15,10 +16,10 @@ interface PathSelectorProps {
   }[];
 }
 
-function PathSelector({ 
-  title, 
-  description, 
-  color, 
+function PathSelector({
+  title,
+  description,
+  color,
   buttons
 }: PathSelectorProps): JSX.Element {
   return (
@@ -31,7 +32,7 @@ function PathSelector({
         <p className={styles.cardDescription}>{description}</p>
         <div className={styles.cardActions}>
           {buttons.map((button, index) => (
-            <a 
+            <a
               key={index}
               href={button.link}
               className={styles.cardButton}
@@ -72,8 +73,8 @@ export default function Home(): JSX.Element {
           <div className={styles.textColumn}>
             <h1 className={styles.megaHeading}>Documentation</h1>
             <p className={styles.introText}>
-              Welcome to the MLflow Documentation. Our documentation is organized into two sections 
-              to help you find exactly what you need. Choose Model Training for traditional ML workflows, 
+              Welcome to the MLflow Documentation. Our documentation is organized into two sections
+              to help you find exactly what you need. Choose Model Training for traditional ML workflows,
               or select GenAI Apps & Agents for generative AI applications, tracing, and evaluation tools.
             </p>
           </div>
@@ -88,7 +89,7 @@ export default function Home(): JSX.Element {
               buttons={[
                 {
                   text: "Self Hosting",
-                  link: "/ml"
+                  link: useBaseUrl("/ml"),
                 }
               ]}
             />
@@ -106,7 +107,7 @@ export default function Home(): JSX.Element {
                 },
                 {
                   text: "Self Hosting",
-                  link: "/genai"
+                  link: useBaseUrl("/genai"),
                 }
               ]}
             />
