@@ -41,7 +41,7 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: '👉 Developer Workflow',
+      label: 'Developer Workflow 👉',
       className: 'sidebar-top-level-category',
       items: [
         {

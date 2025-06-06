@@ -2,7 +2,7 @@ import React from 'react';
 import Admonition from '@theme/Admonition';
 
 const DATABRICKS_DOCS_BASE_URL = 'https://docs.databricks.com/aws/en/mlflow';
-const DATABRICKS_SIGNUP_URL = 'https://signup.databricks.com/?destination_url=/ml/experiments-signup?source=TRY_MLFLOW&dbx_source=TRY_MLFLOW&signup_experience_step=EXPRESS&provider=MLFLOW';
+const DATABRICKS_SIGNUP_URL = 'https://signup.databricks.com/?destination_url=/ml/experiments-signup?source=OSS_DOCS&dbx_source=TRY_MLFLOW&signup_experience_step=EXPRESS&provider=MLFLOW';
 
 interface FeedbackComingSoonProps {
   docsPath: string;

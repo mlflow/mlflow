@@ -9,7 +9,7 @@ import TabItem from "@theme/TabItem";
 
 # Tracing a GenAI App (IDE)
 
-This quickstart helps you integrate your GenAI app with [MLflow Tracing](/genai/tracing/index) using MLflow OSS in your local IDE development environment.
+This quickstart helps you integrate your GenAI app with [MLflow Tracing](/genai/tracing) using MLflow OSS in your local IDE development environment.
 
 ## What you'll achieve
 
@@ -116,7 +116,7 @@ Select the appropriate integration for your application:
 
     2. Create a Python file named `app.py` in your project directory:
 
-       Here, we use the [`@mlflow.trace` decorator](/genai/tracing/app-instrumentation/manual-tracing/index) that makes it easy to trace any Python application combined with the [OpenAI automatic instrumentation](/genai/tracing/integrations/openai) to capture the details of the call to the OpenAI SDK.
+       Here, we use the [`@mlflow.trace` decorator](/genai/tracing/app-instrumentation/manual-tracing) that makes it easy to trace any Python application combined with the [OpenAI automatic instrumentation](/genai/tracing/integrations/listing/openai) to capture the details of the call to the OpenAI SDK.
 
        ```python
        import mlflow
@@ -234,8 +234,8 @@ This simple trace already provides valuable insights into your application's beh
 
 Congratulations! You've successfully built your first GenAI application with MLflow OSS Tracing!
 
-- **Learn more about Tracing**: Learn about [tracing concepts](/genai/tracing/tracing-101), [manual tracing](/genai/tracing/app-instrumentation/manual-tracing/index) for more control, [tracking users & sessions](/genai/tracing/track-users-sessions/index), and [tracking environments & context](/genai/tracing/track-environments-context/index) to your traces.
-- **Evaluate your application**: Use MLflow's [evaluation capabilities](/genai/eval-monitor/index) to measure the quality of your GenAI app.
+- **Learn more about Tracing**: Learn about [tracing concepts](/genai/tracing/tracing-101), [manual tracing](/genai/tracing/app-instrumentation/manual-tracing) for more control, [tracking users & sessions](/genai/tracing/track-users-sessions), and [tracking environments & context](/genai/tracing/track-environments-context) to your traces.
+- **Evaluate your application**: Use MLflow's [evaluation capabilities](/genai/eval-monitor) to measure the quality of your GenAI app.
 
 :::tip
 For more complex applications like RAG systems or multi-step agents, MLflow Tracing provides even more value by revealing the inner workings of each component and step. You can also experiment with different LLM providers and compare their performance using MLflow's tracking capabilities.
