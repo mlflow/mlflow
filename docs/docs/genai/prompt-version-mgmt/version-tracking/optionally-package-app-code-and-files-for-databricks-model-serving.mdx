@@ -1,0 +1,221 @@
+---
+title: Package code for Databricks Model Serving
+description: Learn how to package GenAI application code using MLflow's Models From Code feature for deployment to Databricks Model Serving.
+---
+
+# Package code for Databricks Model Serving
+
+While the previous guide showed how to track application versions using `LoggedModel` as a metadata hub linking to external code (e.g., Git), there are scenarios where you need to package your application code directly into the `LoggedModel`. This is particularly useful for deployment to [Databricks Model Serving](https://docs.databricks.com/aws/en/machine-learning/model-serving/create-manage-serving-endpoints), which expects self-contained model artifacts.
+
+## When to Package Code Directly
+
+Package your code into a `LoggedModel` when you need:
+
+- **Self-contained deployment artifacts** that include all code and dependencies
+- **Direct deployment to serving platforms** without external code dependencies
+
+This is an **optional step for deployment**, not the default versioning approach for development iterations.
+
+## Prerequisites
+
+This guide requires the following packages:
+
+- **mlflow[databricks]>=3.1**: Core MLflow functionality with GenAI features and Databricks connectivity. MLflow 2.x is not supported as it lacks the version tracking features with `LoggedModel`.
+- **langchain-openai>=0.3.10**: LangChain OpenAI integration, which automatically installs langchain-core and openai as dependencies
+
+Install the required packages:
+
+```bash
+pip install --upgrade "mlflow[databricks]>=3.1" "langchain-openai>=0.3.10"
+```
+
+:::tip
+**Running in a Databricks notebook?** MLflow is pre-installed in the Databricks runtime. You only need to install:
+
+```bash
+%pip install langchain-openai
+```
+
+**Running locally?** You'll need to install both packages listed above.
+:::
+
+## Environment Setup
+
+Before running the examples below, configure your environment:
+
+### Configure Databricks Authentication
+
+:::note
+If you're running this code **inside a Databricks notebook**, you can skip this authentication setup. MLflow will automatically use your notebook's authentication context.
+:::
+
+If you're running this code **outside of Databricks** (e.g., in your local IDE), you need to set up authentication:
+
+```python
+import os
+
+# Set Databricks authentication (only needed when running outside Databricks)
+os.environ[
+    "DATABRICKS_HOST"
+] = "https://your-workspace.databricks.com"  # Your workspace URL
+os.environ["DATABRICKS_TOKEN"] = "your-databricks-token"  # Your access token
+```
+
+### Configure API Keys
+
+Set your LLM provider API keys as environment variables:
+
+```python
+import os
+
+# Set your OpenAI API key (required for the LangChain examples)
+os.environ["OPENAI_API_KEY"] = "your-api-key-here"
+```
+
+:::tip
+You can also set these environment variables in your shell before running your script:
+
+```bash
+# For Databricks authentication (if running outside Databricks)
+export DATABRICKS_HOST="https://your-workspace.databricks.com"
+export DATABRICKS_TOKEN="your-databricks-token"
+
+# For OpenAI
+export OPENAI_API_KEY="your-api-key-here"
+```
+
+:::
+
+### Configure MLflow Tracking and Model Registry
+
+Set up MLflow to connect to your tracking server and experiment:
+
+```python
+import mlflow
+
+# Set MLflow tracking URI and experiment
+mlflow.set_tracking_uri("databricks")
+mlflow.set_registry_uri("databricks-uc")
+mlflow.set_experiment("/Shared/my_genai_app_deployment")
+```
+
+## Using Code Packaging for LoggedModels with LangChain
+
+MLflow's [Models From Code](/ml/model/models-from-code) feature lets you define your model as a Python script rather than serializing objects. This avoids common serialization issues and creates more portable, readable model definitions.
+
+### Step 1: Define Your LangChain App as a Script
+
+Create a Python file (e.g., `landscape_chain.py`) that defines your LangChain application:
+
+```python
+import mlflow
+from langchain_openai import ChatOpenAI
+from langchain_core.prompts import PromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import RunnableLambda
+from operator import itemgetter
+
+
+# Helper functions to extract data with defaults
+def get_region(input_data):
+    default = "North America"
+    if isinstance(input_data[0], dict):
+        return input_data[0].get("content", {}).get("region", default)
+    return default
+
+
+def get_area(input_data):
+    default = "5000 square feet"
+    if isinstance(input_data[0], dict):
+        return input_data[0].get("content", {}).get("area", default)
+    return default
+
+
+# Define the prompt template
+prompt = PromptTemplate(
+    template="""You are a landscape designer providing suggestions for a {region} property.
+    The area is {area}. Recommend native plants and materials suitable for the region.""",
+    input_variables=["region", "area"],
+)
+
+# Create the LangChain LCEL chain
+model = ChatOpenAI(model="gpt-4o-mini", temperature=0.7)
+
+chain = (
+    {
+        "region": itemgetter("messages") | RunnableLambda(get_region),
+        "area": itemgetter("messages") | RunnableLambda(get_area),
+    }
+    | prompt
+    | model
+    | StrOutputParser()
+)
+
+# IMPORTANT: Set this chain as the model
+mlflow.models.set_model(chain)
+```
+
+The key points:
+
+- Define your complete chain logic in the script
+- Use `mlflow.models.set_model(chain)` to designate what should be served
+- The script is saved as plain text (human-readable) in the model artifacts
+
+### Step 2: Log the Model for Deployment
+
+```python
+import mlflow
+
+# Path to your chain definition script
+chain_path = "./landscape_chain.py"
+
+# Example input for the model signature
+input_example = {
+    "messages": [
+        {
+            "role": "user",
+            "content": {"region": "Austin, TX, USA", "area": "2000 square feet"},
+        }
+    ]
+}
+
+info = mlflow.langchain.log_model(
+    lc_model=chain_path,  # Path to the script, not an object
+    input_example=input_example,
+    # Register the model in Unity Catalog
+    # (required for deployment on Databricks)
+    registered_model_name="main.genai_apps.landscape_design_app",
+    params={"git_commit": "abc123def", "deployment_target": "databricks-model-serving"},
+)
+
+print(f"Model logged with URI: {info.model_uri}")
+print(f"Model registered as: main.genai_apps.landscape_design_app")
+
+# Verify the LoggedModel was created
+logged_model = mlflow.get_logged_model(info.model_id)
+print(f"\nLoggedModel created:")
+print(f"  Name: {logged_model.name}")
+print(f"  Model ID: {logged_model.model_id}")
+print(f"  Params: {logged_model.params}")
+```
+
+:::note
+The `registered_model_name` parameter registers your model in Unity Catalog, making it available for deployment to Databricks Model Serving. Use the 3-level naming format: `catalog.schema.model_name`.
+:::
+
+### Step 3: Deploy to Databricks Model Serving
+
+The logged model is now ready for deployment. It contains:
+
+- Your chain definition script (`landscape_chain.py`)
+- All required dependencies (automatically inferred from imports)
+- The model signature and input example
+- An `MLmodel` file describing how to load and run it
+
+This self-contained package can be deployed directly to Databricks Model Serving without additional code setup.
+
+To deploy your packaged model, see the [create custom model serving endpoints](/genai/serving/custom-apps) guide for detailed instructions on setting up your serving endpoint.
+
+## Next Steps
+
+- Learn how to [Link Production Traces to App Versions](/genai/prompt-version-mgmt/version-tracking/link-production-traces-to-app-versions) for monitoring deployed applications
