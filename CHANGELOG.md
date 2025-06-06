@@ -6,12 +6,12 @@ MLflow 2.22.1 includes several major features and improvements
 
 Features:
 
-- [Scoring] Make spark_udf support DBConnect + DBR 15.4 / DBR dedicated cluster (#15938, @WeichenXu123)
+- [Scoring] For DBConnect client, make spark_udf support DBR 15.4 and DBR dedicated cluster (#15938, @WeichenXu123)
 
 Bug fixes:
 
-- [] Log Resources from SystemAuthPolicy in CreateModelVersion (#15485, @aravind-segu)
-- [Tracking] [MLflow 2.x] Trace search: Avoid spawning threads for span fetching if include_spans=False (#15635, @dbczumar)
+- [Model Registry] Log Resources from SystemAuthPolicy in CreateModelVersion (#15485, @aravind-segu)
+- [Tracking] Trace search: Avoid spawning threads for span fetching if include_spans=False (#, @dbczumar)
 
 Documentation updates:
 
