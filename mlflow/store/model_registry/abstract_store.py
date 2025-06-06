@@ -7,11 +7,11 @@ from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.entities.model_registry.prompt import Prompt
+from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import IS_PROMPT_TAG_KEY, PROMPT_TEXT_TAG_KEY
 from mlflow.prompt.registry_utils import has_prompt_tag
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, ErrorCode
-from mlflow.store._unity_catalog.registry.prompt_info import PromptInfo
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.utils.annotations import developer_stable
 from mlflow.utils.logging_utils import eprint
@@ -471,7 +471,7 @@ class AbstractStore:
         name: str,
         description: Optional[str] = None,
         tags: Optional[dict[str, str]] = None,
-    ) -> PromptInfo:
+    ) -> Prompt:
         """
         Create a new prompt in the registry.
 
@@ -484,7 +484,7 @@ class AbstractStore:
             tags: Optional dictionary of prompt tags.
 
         Returns:
-            A PromptInfo object representing the created prompt.
+            A Prompt object representing the created prompt.
         """
         # Default implementation: use RegisteredModel with special tags
         prompt_tags = [RegisteredModelTag(key=IS_PROMPT_TAG_KEY, value="true")]
@@ -494,8 +494,8 @@ class AbstractStore:
         # Create registered model for the prompt
         rm = self.create_registered_model(name, tags=prompt_tags, description=description)
 
-        # Return as PromptInfo
-        return PromptInfo(
+        # Return as Prompt
+        return Prompt(
             name=rm.name,
             description=rm.description,
             creation_timestamp=rm.creation_timestamp,
@@ -508,7 +508,7 @@ class AbstractStore:
         max_results: Optional[int] = None,
         order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
-    ) -> PagedList[PromptInfo]:
+    ) -> PagedList[Prompt]:
         """
         Search for prompts in the registry.
 
@@ -522,7 +522,7 @@ class AbstractStore:
             page_token: Pagination token for requesting subsequent pages.
 
         Returns:
-            A PagedList of PromptInfo objects.
+            A PagedList of Prompt objects.
         """
         if max_results is None:
             max_results = 100
@@ -540,7 +540,7 @@ class AbstractStore:
             page_token=page_token,
         )
 
-        # Convert RegisteredModel objects to PromptInfo objects
+        # Convert RegisteredModel objects to Prompt objects
         prompts = []
         for rm in registered_models:
             # Extract tags as dict
@@ -552,12 +552,11 @@ class AbstractStore:
             # Remove the internal prompt tag from user-visible tags
             tags.pop(IS_PROMPT_TAG_KEY, None)
 
-            # Create PromptInfo object
-            prompt_info = PromptInfo(
+            # Create Prompt object
+            prompt_info = Prompt(
                 name=rm.name,
                 description=rm.description,
                 creation_timestamp=rm.creation_timestamp,
-                last_updated_timestamp=rm.last_updated_timestamp,
                 tags=tags,
             )
             prompts.append(prompt_info)
@@ -607,11 +606,11 @@ class AbstractStore:
         # Default implementation: delete tag from registered model
         return self.delete_registered_model_tag(name, key)
 
-    def get_prompt(self, name: str, version: Optional[Union[str, int]] = None) -> Optional[Prompt]:
+    def get_prompt(self, name: str, version: Optional[Union[str, int]] = None) -> Optional[PromptVersion]:
         """
         Get prompt by name and version or alias.
 
-        Default implementation: gets ModelVersion with prompt tags and converts to Prompt.
+        Default implementation: gets ModelVersion with prompt tags and converts to PromptVersion.
         Other store implementations may override this method.
 
         Args:
@@ -619,7 +618,7 @@ class AbstractStore:
             version: Registered prompt version or alias. If None, loads the latest version.
 
         Returns:
-            A single Prompt object, or None if not found.
+            A single PromptVersion object, or None if not found.
         """
         if version is None:
             latest_versions = self.get_latest_versions(name, stages=ALL_STAGES)
@@ -640,7 +639,7 @@ class AbstractStore:
         else:
             prompt_tags = {tag.key: tag.value for tag in rm.tags}
 
-        return Prompt.from_model_version(mv, prompt_tags=prompt_tags)
+        return PromptVersion.from_model_version(mv, prompt_tags=prompt_tags)
 
     def create_prompt_version(
         self,
@@ -648,7 +647,7 @@ class AbstractStore:
         template: str,
         description: Optional[str] = None,
         tags: Optional[dict[str, str]] = None,
-    ) -> Prompt:
+    ) -> PromptVersion:
         """
         Create a new version of an existing prompt.
 
@@ -662,7 +661,7 @@ class AbstractStore:
             tags: Optional dictionary of version tags.
 
         Returns:
-            A Prompt object representing the created version.
+            A PromptVersion object representing the created version.
         """
         # Create version tags including template
         version_tags = [
@@ -687,13 +686,13 @@ class AbstractStore:
         else:
             prompt_tags = {tag.key: tag.value for tag in rm.tags}
 
-        return Prompt.from_model_version(mv, prompt_tags=prompt_tags)
+        return PromptVersion.from_model_version(mv, prompt_tags=prompt_tags)
 
-    def get_prompt_version(self, name: str, version: Union[str, int]) -> Optional[Prompt]:
+    def get_prompt_version(self, name: str, version: Union[str, int]) -> Optional[PromptVersion]:
         """
         Get a specific prompt version.
 
-        Default implementation: gets ModelVersion and converts to Prompt.
+        Default implementation: gets ModelVersion and converts to PromptVersion.
         Other store implementations may override this method.
 
         Args:
@@ -701,7 +700,7 @@ class AbstractStore:
             version: Version number or alias.
 
         Returns:
-            A Prompt object, or None if not found.
+            A PromptVersion object, or None if not found.
         """
         return self.get_prompt(name, version)
 
@@ -723,18 +722,18 @@ class AbstractStore:
             raise MlflowException(f"Invalid version number: {version}")
         return self.delete_model_version(name, version_int)
 
-    def get_prompt_version_by_alias(self, name: str, alias: str) -> Optional[Prompt]:
+    def get_prompt_version_by_alias(self, name: str, alias: str) -> Optional[PromptVersion]:
         """
         Get a prompt version by alias.
 
-        Default implementation: uses get_model_version_by_alias and converts to Prompt.
+        Default implementation: uses get_model_version_by_alias and converts to PromptVersion.
 
         Args:
             name: Name of the prompt.
             alias: Alias name.
 
         Returns:
-            A Prompt object, or None if not found.
+            A PromptVersion object, or None if not found.
         """
         return self.get_prompt(name, alias)
 

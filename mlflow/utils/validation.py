@@ -10,7 +10,7 @@ import re
 from typing import Optional
 
 from mlflow.entities import Dataset, DatasetInput, InputTag, Param, RunTag
-from mlflow.entities.model_registry.prompt import PROMPT_TEXT_TAG_KEY
+from mlflow.entities.model_registry.prompt_version import PROMPT_TEXT_TAG_KEY
 from mlflow.environment_variables import (
     MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH,
     MLFLOW_TRUNCATE_LONG_VALUES,

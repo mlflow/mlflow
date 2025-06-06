@@ -4,7 +4,7 @@ from contextlib import contextmanager
 from dataclasses import asdict
 from typing import TYPE_CHECKING, Optional, Union
 
-from mlflow.entities.model_registry import Prompt
+from mlflow.entities.model_registry import Prompt, PromptVersion
 from mlflow.exceptions import MlflowException
 from mlflow.genai.evaluation.utils import (
     _convert_eval_set_to_df,
@@ -34,7 +34,7 @@ _logger = logging.getLogger(__name__)
 def optimize_prompt(
     *,
     target_llm_params: LLMParams,
-    prompt: Union[str, Prompt],
+    prompt: Union[str, PromptVersion],
     train_data: "EvaluationDatasetTypes",
     scorers: list[Scorer],
     objective: Optional[OBJECTIVE_FN] = None,
@@ -127,7 +127,7 @@ def optimize_prompt(
         eval_data = _convert_eval_set_to_df(eval_data)
 
     if isinstance(prompt, str):
-        prompt: Prompt = load_prompt(prompt)
+        prompt: PromptVersion = load_prompt(prompt)
 
     with _maybe_start_autolog(optimizer_config, train_data, eval_data, prompt, target_llm_params):
         optimized_prompt = optimzer.optimize(
@@ -173,7 +173,7 @@ def _maybe_start_autolog(
     optimizer_config: OptimizerConfig,
     train_data: "pd.DataFrame",
     eval_data: Optional["pd.DataFrame"],
-    prompt: Prompt,
+    prompt: PromptVersion,
     target_llm_params: LLMParams,
 ):
     if optimizer_config.autolog:
