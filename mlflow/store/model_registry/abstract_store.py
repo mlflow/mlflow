@@ -4,7 +4,6 @@ from time import sleep, time
 from typing import Optional, Union
 
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
-from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.exceptions import MlflowException
@@ -621,29 +620,29 @@ class AbstractStore:
         """
         try:
             rm = self.get_registered_model(name)
-            
+
             # Check if this is actually a prompt using _tags (internal tags)
             if isinstance(rm._tags, dict):
                 internal_tags = rm._tags.copy()
             else:
                 internal_tags = {tag.key: tag.value for tag in rm._tags} if rm._tags else {}
-            
+
             if not internal_tags.get(IS_PROMPT_TAG_KEY) == "true":
                 return None
-            
+
             # Get user-visible tags (without internal prompt tag)
             if isinstance(rm.tags, dict):
                 user_tags = rm.tags.copy()
             else:
                 user_tags = {tag.key: tag.value for tag in rm.tags} if rm.tags else {}
-            
+
             return PromptInfo(
                 name=rm.name,
                 description=rm.description,
                 creation_timestamp=rm.creation_timestamp,
                 tags=user_tags,
             )
-            
+
         except Exception:
             return None
 
@@ -711,7 +710,7 @@ class AbstractStore:
         try:
             # First check if this is actually a prompt by checking the registered model
             rm = self.get_registered_model(name)
-            
+
             # Check if this is actually a prompt using _tags (internal tags)
             if hasattr(rm, '_tags') and isinstance(rm._tags, dict):
                 internal_tags = rm._tags.copy()
@@ -719,14 +718,14 @@ class AbstractStore:
                 internal_tags = {tag.key: tag.value for tag in rm._tags}
             else:
                 internal_tags = {}
-            
+
             if not internal_tags.get(IS_PROMPT_TAG_KEY) == "true":
                 raise MlflowException(
                     f"Name `{name}` is registered as a model, not a prompt. "
                     f"Use get_model_version() or load_model() instead.",
                     INVALID_PARAMETER_VALUE,
                 )
-            
+
             # Now get the specific version
             try:
                 version_int = int(str(version))
@@ -738,14 +737,14 @@ class AbstractStore:
             if not has_prompt_tag(mv.tags):
                 return None
 
-            # Get user-visible tags from registered model  
+            # Get user-visible tags from registered model
             if isinstance(rm.tags, dict):
                 prompt_tags = rm.tags.copy()
             else:
                 prompt_tags = {tag.key: tag.value for tag in rm.tags}
 
             return Prompt.from_model_version(mv, prompt_tags=prompt_tags)
-            
+
         except MlflowException:
             raise  # Re-raise MlflowExceptions (including our custom one above)
         except Exception:

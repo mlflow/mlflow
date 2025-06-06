@@ -621,22 +621,22 @@ class MlflowClient:
         Returns:
             A pageable list of PromptInfo objects representing prompt metadata:
             - name: The prompt name
-            - description: The prompt description  
+                        - description: The prompt description
             - tags: Prompt-level tags
             - creation_timestamp: When the prompt was created
-            
+
             To get the actual prompt template content, use get_prompt() with a specific version:
-            
+
             .. code-block:: python
-            
+
                 # Search for prompts
                 prompt_infos = client.search_prompts(filter_string="name LIKE 'greeting%'")
-                
+
                 # Get specific version content
                 for prompt_info in prompt_infos:
                     prompt = client.get_prompt(prompt_info.name, version="1")
                     print(f"Template: {prompt.template}")
-            
+
             Inspect the returned object's `.token` attribute to fetch subsequent pages.
         """
         registry_client = self._get_registry_client()
@@ -678,7 +678,8 @@ class MlflowClient:
 
         Args:
             name_or_uri: The name of the prompt, or the URI in the format "prompts:/name/version".
-            version: The version of the prompt (required when using name, not allowed when using URI).
+            version: The version of the prompt (required when using name, not allowed when
+                using URI).
             allow_missing: If True, return None instead of raising Exception if the specified prompt
                 is not found.
         """
@@ -693,7 +694,8 @@ class MlflowClient:
             if version is None:
                 raise MlflowException(
                     "Version must be specified when loading a prompt by name. "
-                    "Use a prompt URI (e.g., 'prompts:/name/version') or provide the version parameter.",
+                    "Use a prompt URI (e.g., 'prompts:/name/version') or provide the version "
+                    "parameter.",
                     INVALID_PARAMETER_VALUE,
                 )
             name = name_or_uri
@@ -702,7 +704,7 @@ class MlflowClient:
         try:
             # Use get_prompt_version for specific version/alias
             return registry_client.get_prompt_version(name, version)
-                
+
         except MlflowException as exc:
             if allow_missing and exc.error_code == "RESOURCE_DOES_NOT_EXIST":
                 return None
