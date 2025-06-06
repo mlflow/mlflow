@@ -3,6 +3,7 @@ from typing import Any, Callable, Optional, Union
 
 from mlflow.entities.assessment import Assessment, Feedback
 from mlflow.genai.utils.enum_utils import StrEnum
+from mlflow.utils.annotations import experimental
 
 
 class CategoricalRating(StrEnum):
@@ -341,41 +342,41 @@ def meets_guidelines(
     )
 
 
+@experimental
 @requires_databricks_agents
 def custom_prompt_judge(
     *,
     name: str,
     prompt_template: str,
-    numeric_values: dict[str, int | float] | None = None,
+    numeric_values: Union[dict[str, Union[int, float]], None] = None,
 ) -> Callable[..., Assessment]:
     """
     Create a custom prompt judge that evaluates inputs using a template.
 
     Example prompt template:
 
-    ```
-    You will look at the response and determine the formality of the response.
+    .. code-block::
+        You will look at the response and determine the formality of the response.
 
-    <request>{{request}}</request>
-    <response>{{response}}</response>
+        <request>{{request}}</request>
+        <response>{{response}}</response>
 
-    You must choose one of the following categories.
+        You must choose one of the following categories.
 
-    [[formal]]: The response is very formal.
-    [[semi_formal]]: The response is somewhat formal. The response is somewhat formal if the response mentions friendship, etc.
-    [[not_formal]]: The response is not formal.
-    ```
+        [[formal]]: The response is very formal.
+        [[semi_formal]]: The response is somewhat formal. The response is somewhat formal if the response mentions friendship, etc.
+        [[not_formal]]: The response is not formal.
 
     Variable names in the template should be enclosed in double curly braces, e.g., `{{request}}`, `{{response}}`.
     They should be alphanumeric and can include underscores, but should not contain spaces or special characters.
 
     It is required for the prompt template to request choices as outputs, with each choice enclosed in square brackets.
-    Choice names should be alphanumeric and can include underscores, but should not contain spaces or special characters.
+    Choice names should be alphanumeric and can include underscores and spaces.
 
     Args:
-        name (str): Name of the judge, used as the assessment name.
-        prompt_template (str): Template string with {{var_name}} placeholders for variable substitution. Should be prompted with choices as outputs.
-        numeric_values (dict[str, int | float] | None): Optional mapping from categorical values to numeric scores.
+        name: Name of the judge, used as the assessment name.
+        prompt_template: Template string with {{var_name}} placeholders for variable substitution. Should be prompted with choices as outputs.
+        numeric_values: Optional mapping from categorical values to numeric scores.
             Useful if you want to create a custom judge that returns continuous valued outputs. Defaults to None.
 
     Returns:
