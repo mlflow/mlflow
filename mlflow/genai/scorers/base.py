@@ -31,7 +31,7 @@ class SerializedScorer:
     aggregations: Optional[list[str]] = None
 
     # Version metadata
-    mlflow_version: str = ""
+    mlflow_version: str = mlflow.__version__
     serialization_version: int = _SERIALIZATION_VERSION
 
     # Builtin scorer fields (for scorers from mlflow.genai.scorers.builtin_scorers)
