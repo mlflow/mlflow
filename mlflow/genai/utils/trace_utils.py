@@ -8,6 +8,7 @@ from mlflow.entities.span import Span, SpanType
 from mlflow.entities.trace import Trace
 from mlflow.genai.utils.data_validation import check_model_prediction
 from mlflow.tracing.constant import TraceTagKey
+from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
 from mlflow.tracking.client import MlflowClient
 
 _logger = logging.getLogger(__name__)
@@ -198,6 +199,9 @@ def clean_up_extra_traces(run_id: str, start_time_ms: int):
             MlflowClient().delete_traces(
                 experiment_id=_get_experiment_id(), trace_ids=extra_trace_ids
             )
+            # Avoid displaying the deleted trace in notebook cell output
+            for trace_id in extra_trace_ids:
+                IPythonTraceDisplayHandler.get_instance().traces_to_display.pop(trace_id, None)
         else:
             _logger.debug("No extra traces found during evaluation run.")
     except Exception as e:
