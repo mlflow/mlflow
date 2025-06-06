@@ -11,7 +11,6 @@ from mlflow.entities import Assessment, Feedback
 from mlflow.entities.assessment import DEFAULT_FEEDBACK_NAME
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
-from mlflow.tracing.provider import trace_disabled
 from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
@@ -168,10 +167,6 @@ class Scorer(BaseModel):
         # long as `@scorer` is a stable API.
         return scorer(recreated_func, name=serialized.name, aggregations=serialized.aggregations)
 
-    # NB: Disable tracing during the scorer call to avoid generating extra traces
-    #   during the evaluation. This should be added to `run` instead of `__call__`
-    #   so that users can still see traces when directly calling the scorer function.
-    @trace_disabled
     def run(self, *, inputs=None, outputs=None, expectations=None, trace=None):
         from mlflow.evaluation import Assessment as LegacyAssessment
 

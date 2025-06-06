@@ -15,6 +15,7 @@ from mlflow.genai.judges.databricks import _sanitize_feedback
 def test_databricks_judges_are_importable():
     from mlflow.genai import judges
     from mlflow.genai.judges import (
+        custom_prompt_judge,
         is_context_relevant,
         is_context_sufficient,
         is_correct,
@@ -29,6 +30,7 @@ def test_databricks_judges_are_importable():
     assert judges.is_grounded == is_grounded
     assert judges.is_safe == is_safe
     assert judges.meets_guidelines == meets_guidelines
+    assert judges.custom_prompt_judge == custom_prompt_judge
 
 
 def create_test_feedback(value: str) -> Feedback:
@@ -115,3 +117,20 @@ def test_judge_functions_happy_path(judge_func, agents_judge_name, args):
         assert isinstance(result.value, judges.CategoricalRating)
         assert result.value == judges.CategoricalRating.YES
         mock_judge.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("name", "expected_name"),
+    [
+        (None, "relevance_to_context"),
+        ("test", "test"),
+    ],
+)
+def test_judge_functions_called_with_correct_name(name, expected_name):
+    with patch("databricks.agents.evals.judges.relevance_to_query") as mock_judge:
+        judges.is_context_relevant(request="test", context="test", name=name)
+        mock_judge.assert_called_once_with(
+            request="test",
+            response="test",
+            assessment_name=expected_name,
+        )
