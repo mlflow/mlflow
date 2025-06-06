@@ -1,7 +1,6 @@
 from typing import TYPE_CHECKING, Any, Iterable, Optional, Union
 
 from mlflow.entities import Trace
-from mlflow.genai.utils.annotations import databricks_api
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -105,11 +104,14 @@ class LabelingSession:
         """Custom inputs used in the session."""
         return self._session.custom_inputs
 
-    @databricks_api
     def add_dataset(
         self, dataset_name: str, record_ids: Optional[list[str]] = None
     ) -> "LabelingSession":
         """Add a dataset to the labeling session.
+
+        .. note::
+            This functionality is only available in Databricks. Please install `mlflow[databricks]`
+            to use it.
 
         Args:
             dataset_name: The name of the dataset.
@@ -121,12 +123,15 @@ class LabelingSession:
         """
         return LabelingSession(self._session.add_dataset(dataset_name, record_ids))
 
-    @databricks_api
     def add_traces(
         self,
         traces: Union[Iterable[Trace], Iterable[str], "pd.DataFrame"],
     ) -> "LabelingSession":
         """Add traces to the labeling session.
+
+        .. note::
+            This functionality is only available in Databricks. Please install `mlflow[databricks]`
+            to use it.
 
         Args:
             traces: Can be either:
@@ -140,18 +145,24 @@ class LabelingSession:
         """
         return LabelingSession(self._session.add_traces(traces))
 
-    @databricks_api
     def sync(self, to_dataset: str) -> None:
         """Sync the traces and expectations from the labeling session to a dataset.
+
+        .. note::
+            This functionality is only available in Databricks. Please install `mlflow[databricks]`
+            to use it.
 
         Args:
             to_dataset: The name of the dataset to sync traces and expectations to.
         """
         self._session.sync_expectations(to_dataset)
 
-    @databricks_api
     def set_assigned_users(self, assigned_users: list[str]) -> "LabelingSession":
         """Set the assigned users for the labeling session.
+
+        .. note::
+            This functionality is only available in Databricks. Please install `mlflow[databricks]`
+            to use it.
 
         Args:
             assigned_users: The list of users to assign to the session.
@@ -198,11 +209,14 @@ class ReviewApp:
         """The label schemas to be used in the review app."""
         return self._app.label_schemas
 
-    @databricks_api
     def add_agent(
         self, *, agent_name: str, model_serving_endpoint: str, overwrite: bool = False
     ) -> "ReviewApp":
         """Add an agent to the review app to be used to generate responses.
+
+        .. note::
+            This functionality is only available in Databricks. Please install `mlflow[databricks]`
+            to use it.
 
         Args:
             agent_name: The name of the agent.
@@ -220,9 +234,12 @@ class ReviewApp:
             )
         )
 
-    @databricks_api
     def remove_agent(self, agent_name: str) -> "ReviewApp":
         """Remove an agent from the review app.
+
+        .. note::
+            This functionality is only available in Databricks. Please install `mlflow[databricks]`
+            to use it.
 
         Args:
             agent_name: The name of the agent to remove.

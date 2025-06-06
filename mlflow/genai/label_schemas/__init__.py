@@ -18,7 +18,6 @@ from mlflow.genai.label_schemas.label_schemas import (
     LabelSchemaType,
 )
 from mlflow.genai.labeling import ReviewApp
-from mlflow.genai.utils.annotations import databricks_api
 
 if TYPE_CHECKING:
     from databricks.agents.review_app import ReviewApp
@@ -33,7 +32,6 @@ GUIDELINES = "guidelines"
 EXPECTED_RESPONSE = "expected_response"
 
 
-@databricks_api
 def create_label_schema(
     name: str,
     *,
@@ -88,7 +86,6 @@ def create_label_schema(
     )
 
 
-@databricks_api
 def get_label_schema(name: str) -> LabelSchema:
     """Get a label schema from the review app.
 
@@ -117,7 +114,6 @@ def get_label_schema(name: str) -> LabelSchema:
     return LabelSchema(label_schema)
 
 
-@databricks_api
 def delete_label_schema(name: str) -> "ReviewApp":
     """Delete a label schema from the review app.
 

@@ -9,7 +9,6 @@ The API docs can be found here:
 from typing import Any, Optional
 
 from mlflow.genai.labeling.labeling import Agent, LabelingSession, ReviewApp
-from mlflow.genai.utils.annotations import databricks_api
 
 _ERROR_MSG = (
     "The `databricks-agents` package is required to use `mlflow.genai.labeling`. "
@@ -17,9 +16,12 @@ _ERROR_MSG = (
 )
 
 
-@databricks_api
 def get_review_app(experiment_id: Optional[str] = None) -> "ReviewApp":
     """Gets or creates (if it doesn't exist) the review app for the given experiment ID.
+
+    .. note::
+        This functionality is only available in Databricks. Please install `mlflow[databricks]`
+        to use it.
 
     Args:
         experiment_id: Optional. The experiment ID for which to get the review app. If not provided,
@@ -36,7 +38,6 @@ def get_review_app(experiment_id: Optional[str] = None) -> "ReviewApp":
     return ReviewApp(_get_review_app(experiment_id))
 
 
-@databricks_api
 def create_labeling_session(
     name: str,
     *,
@@ -47,6 +48,10 @@ def create_labeling_session(
     custom_inputs: Optional[dict[str, Any]] = None,
 ) -> LabelingSession:
     """Create a new labeling session in the review app.
+
+    .. note::
+        This functionality is only available in Databricks. Please install `mlflow[databricks]`
+        to use it.
 
     Args:
         name: The name of the labeling session.
@@ -71,9 +76,12 @@ def create_labeling_session(
     )
 
 
-@databricks_api
 def get_labeling_sessions() -> list[LabelingSession]:
     """Get all labeling sessions from the review app.
+
+    .. note::
+        This functionality is only available in Databricks. Please install `mlflow[databricks]`
+        to use it.
 
     Returns:
         list[LabelingSession]: The list of labeling sessions.
@@ -81,9 +89,12 @@ def get_labeling_sessions() -> list[LabelingSession]:
     return [LabelingSession(session) for session in get_review_app().get_labeling_sessions()]
 
 
-@databricks_api
 def get_labeling_session(run_id: str) -> LabelingSession:
     """Get a labeling session from the review app.
+
+    .. note::
+        This functionality is only available in Databricks. Please install `mlflow[databricks]`
+        to use it.
 
     Args:
         run_id: The mlflow run ID of the labeling session to get.
@@ -105,9 +116,12 @@ def get_labeling_session(run_id: str) -> LabelingSession:
     return LabelingSession(labeling_session)
 
 
-@databricks_api
 def delete_labeling_session(labeling_session: LabelingSession) -> "ReviewApp":
     """Delete a labeling session from the review app.
+
+    .. note::
+        This functionality is only available in Databricks. Please install `mlflow[databricks]`
+        to use it.
 
     Args:
         labeling_session: The labeling session to delete.
