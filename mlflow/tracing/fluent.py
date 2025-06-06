@@ -1004,6 +1004,8 @@ def update_current_trace(
 
             mlflow.update_current_trace(
                 metadata={
+                    "mlflow.trace.session": "session-4f855da00427",
+                    "mlflow.trace.user": "user-id-cc156f29bcfb",
                     "mlflow.source.name": "inference.py",
                     "mlflow.source.git.commit": "1234567890",
                     "mlflow.source.git.repoURL": "https://github.com/mlflow/mlflow",
