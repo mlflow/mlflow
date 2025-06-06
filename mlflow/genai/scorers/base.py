@@ -1,7 +1,7 @@
 import functools
 import inspect
 import logging
-from dataclasses import dataclass, asdict, fields
+from dataclasses import dataclass, fields, asdict
 from typing import Any, Callable, Literal, Optional, Union
 
 from pydantic import BaseModel, Field, PrivateAttr
@@ -10,6 +10,7 @@ import mlflow
 from mlflow.entities import Assessment, Feedback
 from mlflow.entities.assessment import DEFAULT_FEEDBACK_NAME
 from mlflow.entities.trace import Trace
+from mlflow.exceptions import MlflowException
 from mlflow.tracing.provider import trace_disabled
 from mlflow.utils.annotations import experimental
 
@@ -35,32 +36,12 @@ class SerializedScorer:
 
     # Builtin scorer fields (for scorers from mlflow.genai.scorers.builtin_scorers)
     builtin_scorer_class: Optional[str] = None
-    required_columns: Optional[set] = None
-    global_guidelines: Optional[list] = None  # For GuidelineAdherence scorer
+    builtin_scorer_pydantic_data: Optional[dict] = None
 
     # Decorator scorer fields (for @scorer decorated functions)
     call_source: Optional[str] = None
     call_signature: Optional[str] = None
     original_func_name: Optional[str] = None
-
-    def to_dict(self) -> dict:
-        """Convert to dictionary for JSON serialization."""
-        data = asdict(self)
-
-        # Remove None values to keep serialized data clean
-        cleaned_data = {k: v for k, v in data.items() if v is not None}
-
-        return cleaned_data
-
-    @classmethod
-    def from_dict(cls, data: dict) -> "SerializedScorer":
-        # Get field names directly from the dataclass definition
-        valid_field_names = {field.name for field in fields(cls)}
-
-        # Extract only the valid fields
-        init_args = {key: value for key, value in data.items() if key in valid_field_names}
-
-        return cls(**init_args)
 
 
 @experimental
@@ -68,15 +49,8 @@ class Scorer(BaseModel):
     name: str
     aggregations: Optional[list] = None
 
-    # Private attributes to store source code
-    _call_source: Optional[str] = PrivateAttr(default=None)
-    _call_signature: Optional[str] = PrivateAttr(default=None)
-    _original_func_name: Optional[str] = PrivateAttr(default=None)
-
     def model_dump(self, **kwargs) -> dict:
         """Override model_dump to include source code."""
-        base_data = super().model_dump(**kwargs)
-
         # Create serialized scorer with core fields
         serialized = SerializedScorer(
             name=self.name,
@@ -94,7 +68,7 @@ class Scorer(BaseModel):
             serialized.original_func_name = source_info.get("original_func_name")
         else:
             # BuiltInScorer overrides `model_dump`, so this is neither a builtin scorer nor a decorator scorer
-            raise ValueError(
+            raise MlflowException.invalid_parameter_value(
                 f"Unsupported scorer type: {self.__class__.__name__}. "
                 f"Scorer serialization only supports:\n"
                 f"1. Builtin scorers (from mlflow.genai.scorers.builtin_scorers)\n"
@@ -103,7 +77,7 @@ class Scorer(BaseModel):
                 f"Please use the @scorer decorator instead."
             )
 
-        return serialized.to_dict()
+        return asdict(serialized)
 
     def _extract_source_code_info(self) -> dict:
         """Extract source code information for the original decorated function."""
@@ -112,12 +86,9 @@ class Scorer(BaseModel):
         result = {"call_source": None, "call_signature": None, "original_func_name": None}
 
         # Extract original function source
-        try:
-            call_body, _ = extract_function_body(self._original_func)
-            result["call_source"] = call_body
-            result["original_func_name"] = self._original_func.__name__
-        except Exception:
-            _logger.warning("Failed to extract original function source code for scorer")
+        call_body, _ = extract_function_body(self._original_func)
+        result["call_source"] = call_body
+        result["original_func_name"] = self._original_func.__name__
 
         # Store the signature of the original function
         try:
@@ -133,9 +104,11 @@ class Scorer(BaseModel):
         if isinstance(obj, dict):
             # Parse the serialized data using our dataclass
             try:
-                serialized = SerializedScorer.from_dict(obj)
+                serialized = SerializedScorer(**obj)
             except Exception as e:
-                raise ValueError(f"Failed to parse serialized scorer data: {e}")
+                raise MlflowException.invalid_parameter_value(
+                    f"Failed to parse serialized scorer data: {e}"
+                )
 
             # Log version information for debugging
             if serialized.mlflow_version:
@@ -158,11 +131,13 @@ class Scorer(BaseModel):
 
             # Invalid serialized data
             else:
-                raise ValueError(
-                    f"Invalid serialized scorer data. Expected either 'builtin_scorer_class' "
-                    f"or source code fields ('call_source', 'call_signature', 'original_func_name'). "
+                raise MlflowException.invalid_parameter_value(
+                    f"Failed to load scorer '{serialized.name}'. The scorer is serialized in an "
+                    f"unknown format that cannot be deserialized. Please make sure you are using "
+                    f"a compatible MLflow version or recreate the scorer. "
                     f"Scorer was created with MLflow version: {serialized.mlflow_version or 'unknown'}, "
-                    f"serialization version: {serialized.serialization_version or 'unknown'}."
+                    f"serialization version: {serialized.serialization_version or 'unknown'}, "
+                    f"current MLflow version: {mlflow.__version__}."
                 )
 
         return super().model_validate(obj)
@@ -175,23 +150,18 @@ class Scorer(BaseModel):
         try:
             scorer_class = getattr(builtin_scorers, serialized.builtin_scorer_class)
         except AttributeError:
-            raise ValueError(f"Unknown builtin scorer class: {serialized.builtin_scorer_class}")
+            raise MlflowException.invalid_parameter_value(
+                f"Unknown builtin scorer class: {serialized.builtin_scorer_class}"
+            )
 
-        # Build constructor arguments starting with base fields
-        constructor_args = {"name": serialized.name}
+        # Use the builtin_scorer_pydantic_data directly to reconstruct the scorer
+        constructor_args = serialized.builtin_scorer_pydantic_data or {}
 
-        if serialized.aggregations is not None:
-            constructor_args["aggregations"] = serialized.aggregations
-
-        # Add any additional fields that exist in the scorer class but not in base Scorer
-        base_model_fields = set(cls.model_fields.keys())
-        scorer_model_fields = set(scorer_class.model_fields.keys())
-        additional_fields = scorer_model_fields - base_model_fields
-
-        for field_name in additional_fields:
-            field_value = getattr(serialized, field_name, None)
-            if field_value is not None:
-                constructor_args[field_name] = field_value
+        # Convert required_columns from list back to set if it exists
+        if "required_columns" in constructor_args and isinstance(
+            constructor_args["required_columns"], list
+        ):
+            constructor_args["required_columns"] = set(constructor_args["required_columns"])
 
         return scorer_class(**constructor_args)
 
@@ -206,7 +176,7 @@ class Scorer(BaseModel):
         )
 
         if not recreated_func:
-            raise ValueError(
+            raise MlflowException.invalid_parameter_value(
                 f"Failed to recreate function from source code. "
                 f"Scorer was created with MLflow version: {serialized.mlflow_version or 'unknown'}, "
                 f"serialization version: {serialized.serialization_version or 'unknown'}. "
@@ -250,7 +220,7 @@ class Scorer(BaseModel):
                 result_type = "list[" + type(result[0]).__name__ + "]"
             else:
                 result_type = type(result).__name__
-            raise ValueError(
+            raise MlflowException.invalid_parameter_value(
                 f"{self.name} must return one of int, float, bool, str, "
                 f"Feedback, or list[Feedback]. Got {result_type}"
             )

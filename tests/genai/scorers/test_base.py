@@ -4,6 +4,7 @@ from unittest.mock import patch
 import pytest
 
 from mlflow.entities import Feedback
+from mlflow.exceptions import MlflowException
 from mlflow.genai.scorers import Scorer, scorer
 
 
@@ -34,8 +35,9 @@ def test_decorator_scorer_serialization_format():
     assert "serialization_version" in serialized
     assert serialized["serialization_version"] == 1
 
-    # Should not have builtin scorer fields
-    assert "builtin_scorer_class" not in serialized
+    # Builtin scorer fields should be None (not populated for decorator scorers)
+    assert serialized["builtin_scorer_class"] is None
+    assert serialized["builtin_scorer_pydantic_data"] is None
 
 
 def test_builtin_scorer_serialization_format():
@@ -44,20 +46,25 @@ def test_builtin_scorer_serialization_format():
 
     serialized = RelevanceToQuery().model_dump()
 
-    # Check required fields for builtin scorers
+    # Check required top-level fields for builtin scorers
     assert serialized["name"] == "relevance_to_query"
     assert "builtin_scorer_class" in serialized
     assert serialized["builtin_scorer_class"] == "RelevanceToQuery"
-    assert "required_columns" in serialized
+    assert "builtin_scorer_pydantic_data" in serialized
+
+    # Check fields within builtin_scorer_pydantic_data
+    pydantic_data = serialized["builtin_scorer_pydantic_data"]
+    assert "required_columns" in pydantic_data
 
     # Check version metadata
     assert "mlflow_version" in serialized
     assert "serialization_version" in serialized
     assert serialized["serialization_version"] == 1
 
-    # Should not have decorator scorer fields
-    assert "call_source" not in serialized
-    assert "original_func_name" not in serialized
+    # Decorator scorer fields should be None (not populated for builtin scorers)
+    assert serialized["call_source"] is None
+    assert serialized["call_signature"] is None
+    assert serialized["original_func_name"] is None
 
 
 # ============================================================================
@@ -313,35 +320,37 @@ def test_builtin_scorer_round_trip():
 
 
 def test_builtin_scorer_with_parameters_round_trip():
-    """Test builtin scorer with custom parameters (like GuidelineAdherence with global_guidelines)."""
-    from mlflow.genai.scorers.builtin_scorers import GuidelineAdherence
+    """Test builtin scorer with custom parameters (like Guidelines with guidelines)."""
+    from mlflow.genai.scorers.builtin_scorers import Guidelines
 
     # Create scorer with custom parameters
     tone = "The response must maintain a courteous, respectful tone throughout. It must show empathy for customer concerns."
-    tone_scorer = GuidelineAdherence(name="tone", global_guidelines=[tone])
+    tone_scorer = Guidelines(name="tone", guidelines=[tone])
 
     # Verify original properties
     assert tone_scorer.name == "tone"
-    assert tone_scorer.global_guidelines == [tone]
-    assert isinstance(tone_scorer, GuidelineAdherence)
+    assert tone_scorer.guidelines == [tone]
+    assert isinstance(tone_scorer, Guidelines)
 
     # Round-trip serialization
     serialized = tone_scorer.model_dump()
 
     # Verify serialization format includes all fields
     assert "builtin_scorer_class" in serialized
-    assert serialized["builtin_scorer_class"] == "GuidelineAdherence"
-    assert "global_guidelines" in serialized
-    assert serialized["global_guidelines"] == [tone]
-    assert serialized["name"] == "tone"
+    assert serialized["builtin_scorer_class"] == "Guidelines"
+    assert "builtin_scorer_pydantic_data" in serialized
+    pydantic_data = serialized["builtin_scorer_pydantic_data"]
+    assert "guidelines" in pydantic_data
+    assert pydantic_data["guidelines"] == [tone]
+    assert pydantic_data["name"] == "tone"
 
     # Deserialize
     deserialized = Scorer.model_validate(serialized)
 
     # Test class type and all properties preserved
-    assert isinstance(deserialized, GuidelineAdherence)
+    assert isinstance(deserialized, Guidelines)
     assert deserialized.name == "tone"
-    assert deserialized.global_guidelines == [tone]
+    assert deserialized.guidelines == [tone]
     assert hasattr(deserialized, "required_columns")
     assert deserialized.required_columns == {"inputs", "outputs"}
 
@@ -392,15 +401,60 @@ def test_direct_subclass_scorer_rejected():
     assert direct_scorer(outputs="hi") is False
 
     # But serialization should raise an error
-    with pytest.raises(ValueError, match="Unsupported scorer type: DirectSubclassScorer"):
+    with pytest.raises(MlflowException, match="Unsupported scorer type: DirectSubclassScorer"):
         direct_scorer.model_dump()
 
     # Verify the error message is informative
     try:
         direct_scorer.model_dump()
-    except ValueError as e:
+    except MlflowException as e:
         error_msg = str(e)
         assert "Builtin scorers" in error_msg
         assert "Decorator-created scorers" in error_msg
         assert "@scorer decorator" in error_msg
         assert "Direct subclassing of Scorer is not supported" in error_msg
+
+
+def test_builtin_scorer_with_aggregations_round_trip():
+    """Test builtin scorer with aggregations serialization and execution."""
+    from mlflow.genai.scorers.builtin_scorers import RelevanceToQuery
+
+    scorer_with_aggs = RelevanceToQuery(name="relevance_with_aggs", aggregations=["mean", "max"])
+
+    # Test that aggregations were set
+    assert scorer_with_aggs.name == "relevance_with_aggs"
+    assert scorer_with_aggs.aggregations == ["mean", "max"]
+
+    # Round-trip serialization
+    serialized = scorer_with_aggs.model_dump()
+    deserialized = Scorer.model_validate(serialized)
+
+    # Test properties preserved
+    assert isinstance(deserialized, RelevanceToQuery)
+    assert deserialized.name == "relevance_with_aggs"
+    assert deserialized.aggregations == ["mean", "max"]
+    assert hasattr(deserialized, "required_columns")
+    assert deserialized.required_columns == {"inputs", "outputs"}
+
+    # Test that both can be executed with mocking
+    test_args = {
+        "inputs": {"question": "What is machine learning?"},
+        "outputs": "Machine learning is a subset of AI.",
+    }
+
+    with patch(
+        "mlflow.genai.judges.is_context_relevant",
+        return_value=Feedback(name="relevance_with_aggs", value="yes"),
+    ) as mock_judge:
+        # Test original scorer
+        original_result = scorer_with_aggs(**test_args)
+
+        # Test deserialized scorer
+        deserialized_result = deserialized(**test_args)
+
+    # Verify both results are equivalent
+    assert original_result.name == deserialized_result.name == "relevance_with_aggs"
+    assert original_result.value == deserialized_result.value == "yes"
+
+    # Judge should be called twice (once for each scorer)
+    assert mock_judge.call_count == 2

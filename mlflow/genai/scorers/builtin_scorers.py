@@ -1,6 +1,7 @@
 from typing import Any, Optional, Union
 import json
 from abc import abstractmethod
+from dataclasses import asdict
 
 import mlflow
 from mlflow.entities.assessment import Feedback
@@ -25,21 +26,18 @@ class BuiltInScorer(Scorer):
     inherit from this class.
     """
 
-    name: str = "builtin_scorer"  # Default name, should be overridden by subclasses
+    name: str
     required_columns: set[str] = set()
-
-    # Avoid direct mutation of built-in scorer fields like name. Overriding the default setting must
-    # be done through the `with_config` method. This is because the short-hand syntax like
-    # `mlflow.genai.scorers.chunk_relevance` returns a single instance rather than a new instance.
-    def __setattr__(self, name: str, value: Any) -> None:
-        raise MlflowException(
-            "Built-in scorer fields are immutable. Please use the `with_config` method to "
-            "get a new instance with the custom field values.",
-            error_code=BAD_REQUEST,
-        )
 
     def model_dump(self, **kwargs) -> dict:
         """Override model_dump to handle builtin scorer serialization."""
+        # Get the complete Pydantic model data using BaseModel's model_dump to avoid
+        # calling the base Scorer.model_dump() which raises an error
+        # Use mode='json' to automatically convert sets to lists for JSON compatibility
+        from pydantic import BaseModel
+
+        pydantic_model_data = BaseModel.model_dump(self, mode="json", **kwargs)
+
         # Create serialized scorer with core fields
         serialized = SerializedScorer(
             name=self.name,
@@ -47,53 +45,10 @@ class BuiltInScorer(Scorer):
             mlflow_version=mlflow.__version__,
             serialization_version=_SERIALIZATION_VERSION,
             builtin_scorer_class=self.__class__.__name__,
+            builtin_scorer_pydantic_data=pydantic_model_data,
         )
 
-        # Serialize any additional fields from the scorer class that aren't in the base Scorer
-        # class.
-        from mlflow.genai.scorers.base import Scorer
-
-        base_model_fields = set(Scorer.model_fields.keys())
-
-        # Add any additional fields from this scorer class that aren't in the base Scorer
-        current_model_fields = set(self.__class__.model_fields.keys())
-        additional_fields = current_model_fields - base_model_fields
-
-        for field_name in additional_fields:
-            field_value = getattr(self, field_name)
-            if hasattr(serialized, field_name) and self._is_serializable(field_value):
-                setattr(serialized, field_name, field_value)
-
-        return serialized.to_dict()
-
-    def _is_serializable(self, value: Any) -> bool:
-        """Check if a value can be serialized to JSON."""
-        # Handle common types that should be serialized
-        if isinstance(value, (str, int, float, bool, type(None))):
-            return True
-        elif isinstance(value, (list, tuple)):
-            return all(self._is_serializable(item) for item in value)
-        elif isinstance(value, dict):
-            return all(isinstance(k, str) and self._is_serializable(v) for k, v in value.items())
-        elif isinstance(value, set):
-            # Sets will be converted to lists during serialization
-            return all(self._is_serializable(item) for item in value)
-        else:
-            # Try JSON serialization as fallback
-            try:
-                json.dumps(value)
-                return True
-            except (TypeError, ValueError):
-                return False
-
-    def with_config(self, **kwargs) -> "BuiltInScorer":
-        """
-        Get a new scorer instance with the given configuration, such as name, global guidelines.
-
-        Override this method with the appropriate config keys. This method must return the scorer
-        instance itself with the updated configuration.
-        """
-        pass
+        return asdict(serialized)
 
     def validate_columns(self, columns: set[str]) -> None:
         missing_columns = self.required_columns - columns
