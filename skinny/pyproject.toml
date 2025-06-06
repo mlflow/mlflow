@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlflow-skinny"
-version = "2.22.0"
+version = "2.22.1"
 description = "MLflow is an open source platform for the complete machine learning lifecycle"
 readme = "README_SKINNY.md"
 keywords = ["mlflow", "ai", "databricks"]
