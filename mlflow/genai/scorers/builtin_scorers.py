@@ -31,8 +31,6 @@ class BuiltInScorer(Scorer):
 
     def model_dump(self, **kwargs) -> dict:
         """Override model_dump to handle builtin scorer serialization."""
-        # Get the complete Pydantic model data using BaseModel's model_dump to avoid
-        # calling the base Scorer.model_dump() which raises an error
         # Use mode='json' to automatically convert sets to lists for JSON compatibility
         from pydantic import BaseModel
 

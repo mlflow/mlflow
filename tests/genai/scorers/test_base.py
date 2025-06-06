@@ -458,3 +458,103 @@ def test_builtin_scorer_with_aggregations_round_trip():
 
     # Judge should be called twice (once for each scorer)
     assert mock_judge.call_count == 2
+
+
+# ============================================================================
+# COMPATIBILITY TESTS (Fixed serialized strings for backward compatibility)
+# ============================================================================
+
+
+def test_builtin_scorer_with_custom_name_compatibility():
+    """Test builtin scorer with custom name from fixed serialized string."""
+    # Fixed serialized string for Guidelines scorer with custom name and parameters
+    fixed_serialized_data = {
+        "name": "custom_guidelines",
+        "aggregations": ["mean", "max"],
+        "mlflow_version": "3.1.0",
+        "serialization_version": 1,
+        "builtin_scorer_class": "Guidelines",
+        "builtin_scorer_pydantic_data": {
+            "name": "custom_guidelines",
+            "aggregations": ["mean", "max"],
+            "required_columns": ["inputs", "outputs"],
+            "guidelines": ["Be polite and professional", "Provide accurate information"],
+        },
+        "call_source": None,
+        "call_signature": None,
+        "original_func_name": None,
+    }
+
+    # Test deserialization
+    deserialized = Scorer.model_validate(fixed_serialized_data)
+
+    # Verify correct type and properties
+    from mlflow.genai.scorers.builtin_scorers import Guidelines
+
+    assert isinstance(deserialized, Guidelines)
+    assert deserialized.name == "custom_guidelines"
+    assert deserialized.aggregations == ["mean", "max"]
+    assert deserialized.guidelines == ["Be polite and professional", "Provide accurate information"]
+    assert deserialized.required_columns == {"inputs", "outputs"}
+
+
+def test_custom_scorer_compatibility_from_fixed_string():
+    """Test that custom scorers can be deserialized from a fixed serialized string."""
+    # Fixed serialized string representing a simple custom scorer
+    fixed_serialized_data = {
+        "name": "word_count_scorer",
+        "aggregations": ["mean"],
+        "mlflow_version": "3.1.0",
+        "serialization_version": 1,
+        "builtin_scorer_class": None,
+        "builtin_scorer_pydantic_data": None,
+        "call_source": "return len(outputs.split())",
+        "call_signature": "(outputs)",
+        "original_func_name": "word_count_scorer",
+    }
+
+    # Test deserialization
+    deserialized = Scorer.model_validate(fixed_serialized_data)
+
+    # Verify correct properties
+    assert deserialized.name == "word_count_scorer"
+    assert deserialized.aggregations == ["mean"]
+
+    # Test functionality
+    assert deserialized(outputs="hello world test") == 3
+    assert deserialized(outputs="single") == 1
+    assert deserialized(outputs="") == 0
+
+
+def test_complex_custom_scorer_compatibility():
+    """Test complex custom scorer with multiple parameters from fixed string."""
+    # Fixed serialized string for a more complex custom scorer
+    fixed_serialized_data = {
+        "name": "length_comparison",
+        "aggregations": None,
+        "mlflow_version": "2.9.0",
+        "serialization_version": 1,
+        "builtin_scorer_class": None,
+        "builtin_scorer_pydantic_data": None,
+        "call_source": "input_len = len(inputs) if inputs else 0\noutput_len = len(outputs) if outputs else 0\nmin_ratio = expectations.get('min_ratio', 1.0) if expectations else 1.0\nreturn output_len >= input_len * min_ratio",
+        "call_signature": "(inputs, outputs, expectations)",
+        "original_func_name": "length_comparison",
+    }
+
+    # Test deserialization
+    deserialized = Scorer.model_validate(fixed_serialized_data)
+
+    # Verify properties
+    assert deserialized.name == "length_comparison"
+    assert deserialized.aggregations is None
+
+    # Test functionality with various inputs
+    assert (
+        deserialized(inputs="hello", outputs="hello world", expectations={"min_ratio": 1.5}) is True
+    )  # 11 >= 5 * 1.5 (7.5)
+
+    assert (
+        deserialized(inputs="hello", outputs="hi", expectations={"min_ratio": 1.5}) is False
+    )  # 2 < 5 * 1.5 (7.5)
+
+    assert deserialized(inputs="test", outputs="test", expectations={}) is True  # 4 >= 4 * 1.0
