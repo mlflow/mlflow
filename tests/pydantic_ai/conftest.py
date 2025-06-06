@@ -1,6 +1,7 @@
 import pytest
 
 import mlflow
+
 from tests.tracing.helper import purge_traces
 
 
@@ -8,7 +9,7 @@ from tests.tracing.helper import purge_traces
 def reset_mlflow_autolog_and_traces():
     mlflow.pydantic_ai.autolog(disable=True)
     purge_traces()
-    yield
+    return
 
 
 @pytest.fixture(autouse=True)
