@@ -20,25 +20,6 @@ _FINAL_ANSWER_WITH_TOOL = "winner"
 PYDANTIC_AI_VERSION = Version(importlib.metadata.version("pydantic_ai"))
 
 
-@pytest.fixture(autouse=True)
-def mock_openai_creds(monkeypatch):
-    monkeypatch.setenv("OPENAI_API_KEY", "my-secret-key")
-
-
-@pytest.fixture(autouse=True)
-def mock_gemini_creds(monkeypatch):
-    monkeypatch.setenv("GEMINI_API_KEY", "my-secret-key")
-
-
-@pytest.fixture(autouse=True)
-def reset_mlflow_autolog_and_traces():
-    mlflow.autolog(disable=True)
-    get_traces().clear()
-    yield
-    mlflow.autolog(disable=True)
-    get_traces().clear()
-
-
 def _make_dummy_response_without_tool():
     parts = [TextPart(content=_FINAL_ANSWER_WITHOUT_TOOL)]
     resp = ModelResponse(parts=parts)
@@ -114,7 +95,7 @@ def test_agent_run_sync_enable_fluent_disable_autolog(simple_agent):
         return dummy
 
     with patch.object(InstrumentedModel, "request", new=request):
-        mlflow.autolog(log_traces=True)
+        mlflow.pydantic_ai.autolog(log_traces=True)
 
         result = simple_agent.run_sync("France")
         assert result.output == _FINAL_ANSWER_WITHOUT_TOOL
@@ -135,7 +116,7 @@ def test_agent_run_sync_enable_fluent_disable_autolog(simple_agent):
     assert span2.parent_id == spans[1].span_id
 
     with patch.object(InstrumentedModel, "request", new=request):
-        mlflow.autolog(disable=True)
+        mlflow.pydantic_ai.autolog(disable=True)
         simple_agent.run_sync("France")
     assert len(get_traces()) == 1
 
@@ -148,7 +129,7 @@ async def test_agent_run_enable_fluent_disable_autolog(simple_agent):
         return dummy
 
     with patch.object(InstrumentedModel, "request", new=request):
-        mlflow.autolog(log_traces=True)
+        mlflow.pydantic_ai.autolog(log_traces=True)
 
         result = await simple_agent.run("France")
         assert result.output == _FINAL_ANSWER_WITHOUT_TOOL
@@ -173,7 +154,7 @@ def test_agent_run_sync_enable_disable_fluent_autolog_with_tool(agent_with_tool)
         return next(sequence)
 
     with patch.object(InstrumentedModel, "request", new=request):
-        mlflow.autolog(log_traces=True)
+        mlflow.pydantic_ai.autolog(log_traces=True)
 
         result = agent_with_tool.run_sync("Put my money on square eighteen", deps=18)
         assert result.output == _FINAL_ANSWER_WITH_TOOL
@@ -214,7 +195,7 @@ async def test_agent_run_enable_disable_fluent_autolog_with_tool(agent_with_tool
         return next(sequence)
 
     with patch.object(InstrumentedModel, "request", new=request):
-        mlflow.autolog(log_traces=True)
+        mlflow.pydantic_ai.autolog(log_traces=True)
 
         result = await agent_with_tool.run("Put my money on square eighteen", deps=18)
         assert result.output == _FINAL_ANSWER_WITH_TOOL
