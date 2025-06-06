@@ -1,0 +1,58 @@
+---
+description: "Understand and use Labeling Schemas in MLflow to define questions for domain experts in the Review App, enabling structured feedback collection for GenAI app evaluation."
+---
+
+# Labeling Schemas
+
+Labeling Schemas are a key entity in Review App, allowing you to define the specific questions that domain experts will answer when [labeling existing traces](/genai/human-feedback/expert-feedback/label-existing-traces). They structure the feedback process during Labeling Sessions, ensuring that you collect consistent and relevant information for evaluation.
+
+:::note
+Labeling Schemas only apply when using the Review App to [label existing traces](/genai/human-feedback/expert-feedback/label-existing-traces) and not when using the Review App to [test new app versions in the chat UI](/genai/human-feedback/expert-feedback/live-app-testing).
+:::
+
+## How Labeling Schemas Work
+
+When you set up a Labeling Session in the MLflow Review App, you associate it with one or more Labeling Schemas. These schemas dictate the form and content of the questions presented to your reviewers for each trace they examine. Each piece of collected information corresponds to a specific schema.
+
+A Labeling Schema represents either a [`Feedback`](/genai/tracing/data-model#feedbacks) or [`Expectations`](/genai/tracing/data-model#expectation) [`Assessment`](/genai/tracing/data-model#assessments) on an [MLflow Trace](/genai/tracing/index).
+
+## Built-in Expectation Schemas
+
+MLflow provides several built-in Labeling Schemas of the `Expectation` type to cover common evaluation scenarios:
+
+- **`GUIDELINES`**: For collecting the ideal instructions or guidelines that the GenAI app should have followed for a given request. This schema is designed to work with MLflow's `correctness` LLM judge and scorer.
+- **`EXPECTED_FACTS`**: For collecting a list of factual statements that the app's response must include to be considered correct. This schema is designed to work with MLflow's `correctness` LLM judge and scorer.
+- **`EXPECTED_RESPONSE`**: For collecting the complete ground-truth (correct) answer for an input request. This schema is also designed to integrate with MLflow's `correctness` LLM judge and scorer.
+
+You can leverage these built-in schemas to quickly start collecting structured expectations, or use them as a basis for your own custom evaluation logic.
+
+## Creating Custom Labeling Schemas
+
+Beyond the built-in options, you can create custom Labeling Schemas to tailor the feedback process precisely to your needs. This allows you to define questions and input types that are specific to your application's domain, quality criteria, or business requirements.
+
+- You can create custom schemas for both `Feedback` and `Expectation` types.
+- Each Labeling Schema must have a unique name within a given MLflow Experiment.
+
+This flexibility ensures that you can capture the exact insights needed to evaluate and improve your GenAI app.
+
+## Managing Labeling Schemas
+
+MLflow provides SDK functions within the `mlflow.genai.label_schemas` module to manage your Labeling Schemas programmatically. These include:
+
+- `create_label_schema()`: This function allows you to define and register a new labeling schema. You'll specify its name, type (`Feedback` or `Expectation`), title (the question shown to the reviewer), the specific input type for the answer, and an optional instruction.
+- `get_label_schema()`: You can retrieve an existing label schema by its unique name.
+- `delete_label_schema()`: This function allows you to remove a label schema that is no longer needed.
+
+These functions enable you to integrate schema management into your automated workflows and MLOps pipelines.
+
+## Custom Question Types for Schemas
+
+When creating custom Labeling Schemas, you define the input method for how reviewers provide their answers. MLflow supports several input types:
+
+- **`InputCategorical`**: A single-select dropdown list, useful for questions with mutually exclusive options (e.g., a rating scale of "Poor", "Fair", "Good", "Excellent").
+- **`InputCategoricalList`**: A multi-select dropdown list, suitable when multiple options can be chosen simultaneously (e.g., identifying all types of errors present in a response).
+- **`InputText`**: A single free-form text box, ideal for open-ended comments or when a specific textual answer is required.
+- **`InputTextList`**: Allows reviewers to provide a list of free-form text entries (e.g., listing all factual inaccuracies).
+- **`InputNumeric`**: A field for entering numerical values (e.g., a confidence score from 0 to 100).
+
+By combining these input types with your custom questions, you can design comprehensive and effective Labeling Schemas for any evaluation task.

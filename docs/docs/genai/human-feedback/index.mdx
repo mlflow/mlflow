@@ -1,0 +1,44 @@
+---
+description: "Learn how to collect, manage, and utilize human feedback to improve your GenAI applications with MLflow"
+---
+
+# Human Feedback
+
+Human feedback is essential for building high-quality GenAI applications that meet user expectations. MLflow provides tools and a data model to collect, manage, and utilize feedback from developers, end-users, and domain experts.
+
+## Data model overview
+
+MLflow stores human feedback as _Assessments_, attached to individual [_MLflow Traces_](/genai/tracing/index). This links feedback directly to a specific user query and your GenAI app's outputs and logic.
+
+There are 2 _Assessment_ types:
+
+1. _Feedback_: Evaluates your app's actual _outputs_ or _intermediate steps_. For example, it answers questions like, "Was the agent's response good?". Feedback assesses what the app _produced_ (e.g., ratings, comments).
+2. _Expectation_: Defines the _desired or correct outcome_ (ground truth) your app _should have produced_. For example, this could be "The ideal response" to a user's query. For a given input, the Expectation remains constant.
+
+In short: _Feedback_ assesses _what was generated_; _Expectation_ defines _what should have been generated_. _Expectations_ are ideal for creating [evaluation datasets](/genai/eval-monitor/concepts/eval-datasets), while _Feedback_ offers qualitative insights.
+
+_Assessments_ can be attached to the entire Trace or a specific span within the Trace.
+
+{/* TODO link to trace data model section */}
+
+## How to collect feedback
+
+MLflow helps you collect feedback from three main sources, each tailored for a different use case in your GenAI app's lifecycle. While feedback comes from different personas, the underlying data model is the same for all personas.
+
+### Developer Feedback
+
+During development, you can directly annotate traces. This is useful to track quality notes as you build and mark specific examples for future reference or regression testing.
+
+[Learn how to annotate feedback during development →](/genai/human-feedback/dev-annotations)
+
+### Domain Expert Feedback & Expectations
+
+Engage subject matter experts to provide structured feedback on your app's outputs and expectations about your app's inputs. Their detailed evaluations help define what high-quality, correct responses look like for your specific use case and are invaluable for aligning LLM judges with nuanced business requirements.
+
+[Learn how to collect domain expert feedback →](/genai/human-feedback/expert-feedback/label-existing-traces)
+
+### End-User Feedback
+
+In production, capture feedback from users interacting with your live application. This provides crucial insights into real-world performance, helping you identify problematic queries that need fixing and highlight successful interactions to preserve during future updates.
+
+[Learn how to collect end-user feedback →](/genai/human-feedback/user-feedback)

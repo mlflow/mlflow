@@ -340,6 +340,7 @@ extend-ignore-re = [
   # Azure Kubernetes Service
   "\\(AKS\\)",
   "AKS",
+  "SME",
 ]
 
 [tool.pytest.ini_options]
