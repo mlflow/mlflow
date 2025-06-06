@@ -691,6 +691,7 @@ def save_model(
     _validate_model(spark_model)
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
+    from pyspark.errors import UnsupportedOperationException
     from pyspark.ml import PipelineModel
 
     from mlflow.utils._spark_utils import _get_active_spark_session
@@ -743,7 +744,15 @@ def save_model(
 
         _check_databricks_uc_volume_tmpdir_availability(dfs_tmpdir)
         tmp_path = generate_tmp_dfs_path(dfs_tmpdir)
-        spark_model.save(tmp_path)
+        try:
+            spark_model.save(tmp_path)
+        except UnsupportedOperationException as e:
+            raise MlflowException(
+                f"Failed to save Spark model to temporary DFS path '{tmp_path}' due to: {e}. "
+                f"This may be due to insufficient permissions or an invalid DFS location. "
+                f"To resolve this, specify the environment variable 'MLFLOW_DFS_TMP' "
+                f"or the `dfs_tmpdir` argument with a UC volume path starting with '/Volumes/...'."
+            )
 
         if databricks_utils.is_in_databricks_runtime() and _is_uc_volume_uri(tmp_path):
             # The temp DFS path is a UC volume path.
