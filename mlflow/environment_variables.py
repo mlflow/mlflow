@@ -108,8 +108,8 @@ MLFLOW_REGISTRY_URI = _EnvironmentVariable("MLFLOW_REGISTRY_URI", str, None)
 #: ``mlflow.spark.log_model`` and ``mlflow.spark.load_model``. See
 #: https://www.mlflow.org/docs/latest/python_api/mlflow.spark.html#mlflow.spark.save_model
 #: for more information.
-#: (default: ``/tmp/mlflow``)
-MLFLOW_DFS_TMP = _EnvironmentVariable("MLFLOW_DFS_TMP", str, "/tmp/mlflow")
+#: (default: ``None``)
+MLFLOW_DFS_TMP = _EnvironmentVariable("MLFLOW_DFS_TMP", str, None)
 
 #: Specifies the maximum number of retries with exponential backoff for MLflow HTTP requests
 #: (default: ``7``)

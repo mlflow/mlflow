@@ -739,8 +739,7 @@ def save_model(
     else:
         # Spark ML stores the model on DFS if running on a cluster
         # Save it to a DFS temp dir first and copy it to local path
-        if dfs_tmpdir is None:
-            dfs_tmpdir = MLFLOW_DFS_TMP.get()
+        dfs_tmpdir = dfs_tmpdir or MLFLOW_DFS_TMP.get()
 
         _check_databricks_uc_volume_tmpdir_availability(dfs_tmpdir)
         tmp_path = generate_tmp_dfs_path(dfs_tmpdir)
