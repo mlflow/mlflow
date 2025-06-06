@@ -78,10 +78,7 @@ from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
-from mlflow.store.tracking import (
-    SEARCH_MAX_RESULTS_DEFAULT,
-    SEARCH_TRACES_DEFAULT_MAX_RESULTS,
-)
+from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX
 from mlflow.tracing.display import get_display_handler
@@ -158,9 +155,7 @@ class MlflowClient:
     can keep the implementation of the tracking and registry clients independent from each other.
     """
 
-    def __init__(
-        self, tracking_uri: Optional[str] = None, registry_uri: Optional[str] = None
-    ):
+    def __init__(self, tracking_uri: Optional[str] = None, registry_uri: Optional[str] = None):
         """
         Args:
             tracking_uri: Address of local or remote tracking server. If not provided, defaults
@@ -172,9 +167,7 @@ class MlflowClient:
                 no such service was set, defaults to the tracking uri of the client.
         """
         final_tracking_uri = utils._resolve_tracking_uri(tracking_uri)
-        self._registry_uri = registry_utils._resolve_registry_uri(
-            registry_uri, tracking_uri
-        )
+        self._registry_uri = registry_utils._resolve_registry_uri(registry_uri, tracking_uri)
         self._tracking_client = TrackingServiceClient(final_tracking_uri)
         self._tracing_client = TracingClient(tracking_uri)
 
@@ -208,9 +201,7 @@ class MlflowClient:
         registry_client = getattr(self, registry_client_attr, None)
         if registry_client is None:
             try:
-                registry_client = ModelRegistryClient(
-                    self._registry_uri, self.tracking_uri
-                )
+                registry_client = ModelRegistryClient(self._registry_uri, self.tracking_uri)
                 # Define an instance variable on this `MlflowClient` instance to reference the
                 # `ModelRegistryClient` that was just constructed. `setattr()` is used to ensure
                 # that the variable name is consistent with the variable name specified in the
@@ -438,9 +429,7 @@ class MlflowClient:
             lifecycle_stage: active
             status: RUNNING
         """
-        return self._tracking_client.create_run(
-            experiment_id, start_time, tags, run_name
-        )
+        return self._tracking_client.create_run(experiment_id, start_time, tags, run_name)
 
     ##### Prompt Registry #####
 
@@ -559,9 +548,7 @@ class MlflowClient:
         except MlflowException:
             # Create a new prompt (model) entry
             registry_client.create_registered_model(
-                name,
-                description=commit_message,
-                tags={IS_PROMPT_TAG_KEY: "true", **tags},
+                name, description=commit_message, tags={IS_PROMPT_TAG_KEY: "true", **tags}
             )
             is_new_prompt = True
 
@@ -581,9 +568,7 @@ class MlflowClient:
 
         # Version metadata is represented as ModelVersion tags in the registry
         version_metadata = version_metadata or {}
-        version_metadata.update(
-            {IS_PROMPT_TAG_KEY: "true", PROMPT_TEXT_TAG_KEY: template}
-        )
+        version_metadata.update({IS_PROMPT_TAG_KEY: "true", PROMPT_TEXT_TAG_KEY: template})
 
         try:
             mv: ModelVersion = registry_client.create_model_version(
@@ -611,12 +596,11 @@ class MlflowClient:
         filter_string: Optional[str] = None,
         max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
         page_token: Optional[str] = None,
-        version: Optional[Union[str, int]] = None,
-    ) -> PagedList[Prompt]:
+    ) -> PagedList[PromptInfo]:
         """
-        Retrieve prompt templates from the MLflow Prompt Registry.
+        Search for prompts in the MLflow Prompt Registry.
 
-        This call returns only those registered models that have been marked
+        This call returns prompt metadata for prompts that have been marked
         as prompts (i.e. tagged with `mlflow.prompt.is_prompt=true`). We can
         further restrict results via a standard registry filter expression.
 
@@ -633,59 +617,36 @@ class MlflowClient:
             page_token (Optional[str]):
                 A pagination token from a previous `search_prompts` call; use this
                 to retrieve the next page of results.  Defaults to `None`.
-            version (Optional[Union[str, int]]):
-                The version of prompts to retrieve. For Unity Catalog registries,
-                this parameter is required. For OSS registries, defaults to latest
-                version if not specified.
 
         Returns:
-            A pageable list of prompt objects representing prompt templates:
-            - When version is specified: PagedList[Prompt] (full prompt objects with templates)
-            - When version is None (OSS only): PagedList[Prompt] (latest version)
-            - Unity Catalog with no version: Raises MlflowException
+            A pageable list of PromptInfo objects representing prompt metadata:
+            - name: The prompt name
+            - description: The prompt description  
+            - tags: Prompt-level tags
+            - creation_timestamp: When the prompt was created
+            
+            To get the actual prompt template content, use get_prompt() with a specific version:
+            
+            .. code-block:: python
+            
+                # Search for prompts
+                prompt_infos = client.search_prompts(filter_string="name LIKE 'greeting%'")
+                
+                # Get specific version content
+                for prompt_info in prompt_infos:
+                    prompt = client.get_prompt(prompt_info.name, version="1")
+                    print(f"Template: {prompt.template}")
+            
             Inspect the returned object's `.token` attribute to fetch subsequent pages.
         """
         registry_client = self._get_registry_client()
 
-        # Check if Unity Catalog backed to handle version requirements
-        is_unity_catalog = self._registry_uri.startswith("databricks-uc")
-
-        if is_unity_catalog and version is None:
-            raise MlflowException(
-                "For Unity Catalog prompt registries, you must specify a version when searching prompts. "
-                "Unity Catalog does not support retrieving the 'latest' version during search. "
-                "Please specify the version parameter:\n\n"
-                "  client.search_prompts(filter_string='...', version=1)\n"
-                "  client.search_prompts(filter_string='...', version='my_alias')\n\n"
-                "Use get_prompt_version() or list prompt versions to find available versions.",
-                INVALID_PARAMETER_VALUE,
-            )
-
-        # Delegate to the store - each store handles its own implementation:
-        search_results = registry_client.search_prompts(
+        # Delegate to the store - each store handles its own implementation
+        return registry_client.search_prompts(
             filter_string=filter_string,
             max_results=max_results,
             page_token=page_token,
         )
-
-        if version is not None:
-            prompts = []
-            for result in search_results:
-                try:
-                    prompt = self.get_prompt(result.name, str(version))
-                    if prompt:
-                        prompts.append(prompt)
-                except MlflowException:
-                    # Skip prompts that don't have the specified version
-                    continue
-            return PagedList(prompts, search_results.token)
-        else:
-            prompts = []
-            for result in search_results:
-                prompt = self.get_prompt(result.name)
-                if prompt:
-                    prompts.append(prompt)
-            return PagedList(prompts, search_results.token)
 
     @experimental
     @require_prompt_registry

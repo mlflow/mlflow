@@ -5,6 +5,7 @@ from typing import Any, Optional
 import mlflow
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry import ModelVersion, Prompt, RegisteredModel
+from mlflow.store._unity_catalog.registry.prompt_info import PromptInfo
 from mlflow.entities.run import Run
 from mlflow.environment_variables import MLFLOW_PRINT_MODEL_URLS_ON_CREATION
 from mlflow.exceptions import MlflowException
@@ -613,7 +614,7 @@ def register_prompt(
 def search_prompts(
     filter_string: Optional[str] = None,
     max_results: Optional[int] = None,
-) -> PagedList[Prompt]:
+) -> PagedList[PromptInfo]:
     def pagination_wrapper_func(number_to_get, next_page_token):
         return MlflowClient().search_prompts(
             filter_string=filter_string, max_results=number_to_get, page_token=next_page_token
