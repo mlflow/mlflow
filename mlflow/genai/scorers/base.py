@@ -42,6 +42,23 @@ class SerializedScorer:
     call_signature: Optional[str] = None
     original_func_name: Optional[str] = None
 
+    def validate(self):
+        """Validate that either builtin scorer fields or decorator scorer fields are present."""
+        has_builtin_fields = self.builtin_scorer_class is not None
+        has_decorator_fields = self.call_source is not None
+
+        if not has_builtin_fields and not has_decorator_fields:
+            raise ValueError(
+                "SerializedScorer must have either builtin scorer fields "
+                "(builtin_scorer_class) or decorator scorer fields (call_source) present"
+            )
+
+        if has_builtin_fields and has_decorator_fields:
+            raise ValueError(
+                "SerializedScorer cannot have both builtin scorer fields and "
+                "decorator scorer fields present simultaneously"
+            )
+
 
 @experimental
 class Scorer(BaseModel):
@@ -77,6 +94,8 @@ class Scorer(BaseModel):
                 f"Please use the @scorer decorator instead."
             )
 
+        # Validate before serialization
+        serialized.validate()
         return asdict(serialized)
 
     def _extract_source_code_info(self) -> dict:
