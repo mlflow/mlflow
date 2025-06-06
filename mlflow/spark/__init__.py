@@ -691,7 +691,6 @@ def save_model(
     _validate_model(spark_model)
     _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements)
 
-    from pyspark.errors import UnsupportedOperationException
     from pyspark.ml import PipelineModel
 
     from mlflow.utils._spark_utils import _get_active_spark_session
@@ -746,7 +745,7 @@ def save_model(
         tmp_path = generate_tmp_dfs_path(dfs_tmpdir)
         try:
             spark_model.save(tmp_path)
-        except UnsupportedOperationException as e:
+        except Exception as e:
             raise MlflowException(
                 f"Failed to save Spark model to temporary DFS path '{tmp_path}' due to: {e}. "
                 f"This may be due to insufficient permissions or an invalid DFS location. "
