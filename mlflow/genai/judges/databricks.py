@@ -348,7 +348,7 @@ def custom_prompt_judge(
     *,
     name: str,
     prompt_template: str,
-    numeric_values: Union[dict[str, Union[int, float]], None] = None,
+    numeric_values: Optional[dict[str, Union[int, float]]] = None,
 ) -> Callable[..., Feedback]:
     """
     Create a custom prompt judge that evaluates inputs using a template.
