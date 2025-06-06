@@ -15,20 +15,20 @@ A Registered Model represents a unique model in the registry, which can have mul
 ```mermaid
 graph TB
     RM[📦 Registered Model: chat-agent]
-    
+
     PROPERTIES[<strong>Model Properties</strong><br/>📝 Name: chat-agent<br/>📄 Description: Customer service chatbot<br/>🏷️ Tags: genai, langchain, gpt-4<br/>📅 Created: 2024-03-15]
-    
+
     VERSIONS[<strong>Model Versions</strong><br/>• Version 1: Initial deployment<br/>• Version 2: Prompt optimization<br/>• Version 3: RAG integration<br/>• Version 4: Multi-agent support]
-    
+
     METADATA[<strong>Model Metadata</strong><br/>👤 Owner: ai-team<br/>🔐 Permissions<br/>🔄 Source Experiments]
-    
+
     RM --> PROPERTIES
     RM --> VERSIONS
     RM --> METADATA
-    
+
     classDef main fill:#e8f5e8,stroke:#2e7d32,stroke-width:3px
     classDef box fill:#f0f8ff,stroke:#4682b4,stroke-width:2px
-    
+
     class RM main
     class PROPERTIES,VERSIONS,METADATA box
 ```
@@ -40,20 +40,20 @@ Each version of a Registered Model contains specific artifacts and metadata:
 ```mermaid
 graph TB
     MV[Model Version: chat-agent v3]
-    
+
     INFO[<strong>Version Info</strong><br/>• Version: 3<br/>• Created: 2024-04-20<br/>• Status: READY]
-    
+
     ARTIFACTS[<strong>Artifacts</strong><br/>• Model Files<br/>• Dependencies<br/>• Signature<br/>• Examples]
-    
+
     DEPLOY[<strong>Deployment</strong><br/>• Stage: Production<br/>• Endpoint<br/>• Aliases: latest, stable]
-    
+
     MV --> INFO
     MV --> ARTIFACTS
     MV --> DEPLOY
-    
+
     classDef main fill:#e8f5e8,stroke:#2e7d32,stroke-width:3px
     classDef box fill:#f0f8ff,stroke:#4682b4,stroke-width:2px
-    
+
     class MV main
     class INFO,ARTIFACTS,DEPLOY box
 ```
@@ -66,24 +66,24 @@ Model versions move through defined stages in their lifecycle:
 graph LR
     subgraph LIFECYCLE[🔄 Model Version Lifecycle]
         direction TB
-        
+
         NONE[📝 None]
         STAGING[🧪 Staging]
         PROD[✅ Production]
         ARCHIVED[📦 Archived]
-        
+
         NONE -->|Promote| STAGING
         STAGING -->|Validate & Promote| PROD
         STAGING -->|Reject| ARCHIVED
         PROD -->|Retire| ARCHIVED
         ARCHIVED -->|Reactivate| STAGING
     end
-    
+
     classDef noneStyle fill:#f5f5f5,stroke:#424242,stroke-width:2px,color:#000
     classDef stagingStyle fill:#fff3e0,stroke:#ef6c00,stroke-width:2px,color:#000
     classDef prodStyle fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px,color:#000
     classDef archivedStyle fill:#ffebee,stroke:#d32f2f,stroke-width:2px,color:#000
-    
+
     class NONE noneStyle
     class STAGING stagingStyle
     class PROD prodStyle
@@ -100,35 +100,35 @@ The Model Registry maintains relationships between models, versions, and deploym
 graph TB
     subgraph DATA_MODEL[📊 Registry Data Model]
         direction TB
-        
+
         subgraph ENTITIES[🏛️ Core Entities]
             REG_MODEL[📦 RegisteredModel]
             MODEL_VER[📊 ModelVersion]
             MODEL_ALIAS[🏷️ ModelAlias]
         end
-        
+
         subgraph RELATIONSHIPS[🔗 Relationships]
             ONE_TO_MANY[1:N Model to Versions]
             VERSION_STAGES[Version to Stage Mapping]
             ALIAS_MAPPING[Alias to Version Mapping]
         end
-        
+
         subgraph ATTRIBUTES[📋 Key Attributes]
             MODEL_ATTRS[Model: name, tags, description]
             VERSION_ATTRS[Version: number, stage, run_id]
             ALIAS_ATTRS[Alias: name, version]
         end
-        
+
         REG_MODEL -->|has many| MODEL_VER
         MODEL_VER -->|has stage| VERSION_STAGES
         REG_MODEL -->|has aliases| MODEL_ALIAS
         MODEL_ALIAS -->|points to| MODEL_VER
     end
-    
+
     classDef entityStyle fill:#e3f2fd,stroke:#0277bd,stroke-width:2px,color:#000
     classDef relationStyle fill:#fff3e0,stroke:#ef6c00,stroke-width:2px,color:#000
     classDef attrStyle fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#000
-    
+
     class ENTITIES,REG_MODEL,MODEL_VER,MODEL_ALIAS entityStyle
     class RELATIONSHIPS,ONE_TO_MANY,VERSION_STAGES,ALIAS_MAPPING relationStyle
     class ATTRIBUTES,MODEL_ATTRS,VERSION_ATTRS,ALIAS_ATTRS attrStyle
@@ -144,41 +144,41 @@ The typical workflow for registering GenAI models:
 graph TB
     subgraph REGISTRATION_FLOW[📝 Registration Workflow]
         direction TB
-        
+
         subgraph DEVELOPMENT[🔧 Development Phase]
             CREATE[Create GenAI Model]
             TEST[Test & Validate]
             LOG[Log Model with MLflow]
         end
-        
+
         subgraph REGISTRATION[📦 Registration Phase]
             REGISTER[Register Model]
             VERSION[Create Version]
             METADATA[Add Metadata & Tags]
         end
-        
+
         subgraph VALIDATION[🧪 Validation Phase]
             STAGE_TEST[Deploy to Staging]
             EVALUATE[Run Evaluations]
             APPROVE[Approval Process]
         end
-        
+
         subgraph PRODUCTION[🚀 Production Phase]
             PROMOTE[Promote to Production]
             DEPLOY[Deploy to Endpoints]
             MONITOR[Monitor Performance]
         end
-        
+
         DEVELOPMENT --> REGISTRATION
         REGISTRATION --> VALIDATION
         VALIDATION --> PRODUCTION
     end
-    
+
     classDef devStyle fill:#e3f2fd,stroke:#0277bd,stroke-width:2px,color:#000
     classDef regStyle fill:#fff3e0,stroke:#ef6c00,stroke-width:2px,color:#000
     classDef valStyle fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#000
     classDef prodStyle fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px,color:#000
-    
+
     class DEVELOPMENT,CREATE,TEST,LOG devStyle
     class REGISTRATION,REGISTER,VERSION,METADATA regStyle
     class VALIDATION,STAGE_TEST,EVALUATE,APPROVE valStyle
@@ -214,24 +214,20 @@ class ChatbotModel:
             model="gpt-4",
             temperature=0.7,
             max_tokens=1000,
-            api_key=os.getenv("OPENAI_API_KEY")  # Use environment variable
+            api_key=os.getenv("OPENAI_API_KEY"),  # Use environment variable
         )
-        
+
         self.memory = ConversationBufferMemory()
-        
-        self.chatbot = ConversationChain(
-            llm=self.llm,
-            memory=self.memory,
-            verbose=True
-        )
-    
+
+        self.chatbot = ConversationChain(llm=self.llm, memory=self.memory, verbose=True)
+
     def invoke(self, input_data):
         """Handle both direct string input and structured input"""
         if isinstance(input_data, dict):
             query = input_data.get("query", input_data.get("input", ""))
         else:
             query = str(input_data)
-        
+
         return self.chatbot.predict(input=query)
 
 
@@ -241,63 +237,61 @@ set_model(ChatbotModel())
 # Log the model using Models from Code
 with mlflow.start_run() as run:
     # Log model parameters
-    mlflow.log_params({
-        "model_type": "conversational",
-        "base_model": "gpt-4",
-        "temperature": 0.7,
-        "max_tokens": 1000,
-        "memory_type": "buffer"
-    })
-    
+    mlflow.log_params(
+        {
+            "model_type": "conversational",
+            "base_model": "gpt-4",
+            "temperature": 0.7,
+            "max_tokens": 1000,
+            "memory_type": "buffer",
+        }
+    )
+
     # Define input example
     input_example = {"query": "Hello, how can you help me?"}
-    
+
     # Log the model using Models from Code
     model_info = mlflow.langchain.log_model(
         lc_model="chatbot_model.py",  # Path to the script file
-        artifact_path="chatbot",
+        name="chatbot",
         input_example=input_example,
         registered_model_name="customer-support-chatbot",
-        extra_pip_requirements=["langchain-openai", "langchain"]
+        extra_pip_requirements=["langchain-openai", "langchain"],
     )
-    
+
     # Add model metadata
     client = mlflow.tracking.MlflowClient()
-    
+
     # Tag the registered model
     client.set_registered_model_tag(
-        name="customer-support-chatbot",
-        key="team",
-        value="ai-support"
+        name="customer-support-chatbot", key="team", value="ai-support"
     )
-    
+
     client.set_registered_model_tag(
-        name="customer-support-chatbot",
-        key="use_case",
-        value="customer_service"
+        name="customer-support-chatbot", key="use_case", value="customer_service"
     )
-    
+
     # Update model description
     client.update_registered_model(
         name="customer-support-chatbot",
-        description="GPT-4 based chatbot for customer support with conversation memory"
+        description="GPT-4 based chatbot for customer support with conversation memory",
     )
-    
+
     # Add version-specific tags
     client.set_model_version_tag(
         name="customer-support-chatbot",
         version=model_info.registered_model_version,
         key="validation_status",
-        value="pending"
+        value="pending",
     )
-    
+
     print(f"Model registered with version: {model_info.registered_model_version}")
 
 # Create an alias for easy reference
 client.set_registered_model_alias(
     name="customer-support-chatbot",
     alias="champion",
-    version=model_info.registered_model_version
+    version=model_info.registered_model_version,
 )
 
 # Load model from registry for serving using alias
@@ -325,7 +319,7 @@ flowchart TB
         A3["🗑️ delete_registered_model<br/><small>Remove model</small>"]
         A4["🔍 search_registered_models<br/><small>Find models</small>"]
     end
-    
+
     subgraph VERSIONS[" 📊 Version Operations "]
         direction TB
         B1["📈 create_model_version<br/><small>Add new version</small>"]
@@ -333,22 +327,22 @@ flowchart TB
         B3["🚀 transition_model_version_stage<br/><small>Change stage</small>"]
         B4["📋 get_model_version<br/><small>Retrieve version</small>"]
     end
-    
+
     subgraph ALIASES[" 🏷️ Alias Operations "]
         direction TB
         C1["🔖 set_registered_model_alias<br/><small>Create alias</small>"]
         C2["❌ delete_registered_model_alias<br/><small>Remove alias</small>"]
         C3["🎯 get_model_version_by_alias<br/><small>Load by alias</small>"]
     end
-    
+
     MODELS -.-> VERSIONS
     VERSIONS -.-> ALIASES
-    
+
     classDef modelBox fill:#e8f4fd,stroke:#1976d2,stroke-width:3px,color:#000
-    classDef versionBox fill:#fff8e1,stroke:#f57c00,stroke-width:3px,color:#000  
+    classDef versionBox fill:#fff8e1,stroke:#f57c00,stroke-width:3px,color:#000
     classDef aliasBox fill:#f3e5f5,stroke:#7b1fa2,stroke-width:3px,color:#000
     classDef apiCall fill:#ffffff,stroke:#666,stroke-width:2px,color:#333,font-size:12px
-    
+
     class MODELS modelBox
     class VERSIONS versionBox
     class ALIASES aliasBox
@@ -365,35 +359,35 @@ The Model Registry seamlessly integrates with deployment platforms:
 graph LR
     subgraph DEPLOYMENT_INTEGRATION[🚀 Deployment Integration]
         direction TB
-        
+
         subgraph REGISTRY[📦 Model Registry]
             PROD_MODEL[Production Model]
             MODEL_URI[Model URI]
             SERVING_INFO[Serving Metadata]
         end
-        
+
         subgraph SERVING[🌐 Serving Platforms]
             MLFLOW_SERVE[MLflow Model Serving]
             SAGEMAKER[AWS SageMaker]
             AZURE_ML[Azure ML]
             VERTEX_AI[Google Vertex AI]
         end
-        
+
         subgraph MONITORING[📊 Production Monitoring]
             PERFORMANCE[Performance Metrics]
             DRIFT[Model Drift Detection]
             USAGE[Usage Analytics]
         end
-        
+
         REGISTRY --> SERVING
         SERVING --> MONITORING
         MONITORING -.->|Feedback| REGISTRY
     end
-    
+
     classDef registryStyle fill:#e3f2fd,stroke:#0277bd,stroke-width:2px,color:#000
     classDef servingStyle fill:#fff3e0,stroke:#ef6c00,stroke-width:2px,color:#000
     classDef monitoringStyle fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px,color:#000
-    
+
     class REGISTRY,PROD_MODEL,MODEL_URI,SERVING_INFO registryStyle
     class SERVING,MLFLOW_SERVE,SAGEMAKER,AZURE_ML,VERTEX_AI servingStyle
     class MONITORING,PERFORMANCE,DRIFT,USAGE monitoringStyle
@@ -435,26 +429,26 @@ The Registry maintains complete lineage from experiments to production:
 graph TB
     subgraph LINEAGE_TRACKING[🔄 Model Lineage]
         direction TB
-        
+
         EXP[🧪 Experiment Run]
         LOG[📝 Logged Model]
         REG[📦 Registered Model]
         VER[📊 Model Version]
         PROD[🚀 Production Deployment]
-        
+
         EXP -->|Creates| LOG
         LOG -->|Registers| REG
         REG -->|Versions| VER
         VER -->|Deploys| PROD
-        
+
         PROD -.->|Traces back to| EXP
     end
-    
+
     classDef expStyle fill:#e3f2fd,stroke:#0277bd,stroke-width:2px,color:#000
     classDef logStyle fill:#fff3e0,stroke:#ef6c00,stroke-width:2px,color:#000
     classDef regStyle fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#000
     classDef prodStyle fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px,color:#000
-    
+
     class EXP expStyle
     class LOG logStyle
     class REG,VER regStyle
@@ -471,23 +465,23 @@ The Model Registry integrates seamlessly with other MLflow components:
 graph TB
     subgraph ECOSYSTEM[🌐 MLflow Ecosystem Integration]
         direction TB
-        
+
         TRACKING[📊 MLflow Tracking]
         REGISTRY[📦 Model Registry]
         SERVING[🚀 Model Serving]
         EVALUATION[🧪 Model Evaluation]
-        
+
         TRACKING -->|Logs Models| REGISTRY
         REGISTRY -->|Deploys Models| SERVING
         SERVING -->|Monitors Performance| EVALUATION
         EVALUATION -->|Informs Updates| TRACKING
     end
-    
+
     classDef trackingStyle fill:#e3f2fd,stroke:#0277bd,stroke-width:2px,color:#000
     classDef registryStyle fill:#fff3e0,stroke:#ef6c00,stroke-width:2px,color:#000
     classDef servingStyle fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px,color:#000
     classDef evalStyle fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#000
-    
+
     class TRACKING trackingStyle
     class REGISTRY registryStyle
     class SERVING servingStyle
