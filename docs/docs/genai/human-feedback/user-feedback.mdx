@@ -35,9 +35,7 @@ First, add appropriate UI elements to collect feedback from users. Common feedba
 
 When a user provides feedback, use the `log_feedback` API to associate it with the specific trace that generated the response:
 
-```python
-# PLACEHOLDER
-```
+<!-- TODO: add code snippet -->
 
 The key parameters for `log_feedback` are:
 
@@ -53,13 +51,7 @@ Feedback is stored as `Assessment` objects attached directly to traces. You can:
 2. **Filter traces by feedback** to identify patterns (e.g., find all traces with negative feedback)
 3. **Export feedback data** for deeper analysis or to incorporate into evaluation datasets
 
-## Example: Implementing User Feedback in a Chat Application
-
-Here's how you might add feedback collection to a chat-based GenAI application:
-
-```python
-# PLACEHOLDER
-```
+<!-- TODO: add ## Example: Implementing User Feedback in a Chat Application and code snippet -->
 
 ## Using End-User Feedback to Improve Your Application
 
@@ -73,28 +65,17 @@ End-user feedback is most valuable when it becomes part of your continuous impro
 
 ### Analyzing Feedback Patterns
 
-To effectively analyze user feedback patterns:
-
-```python
-# PLACEHOLDER
-```
-
-Common patterns to look for:
-
+To effectively analyze user feedback patterns, you can look for some common patterns:
 - Questions that consistently receive negative feedback
 - Topics where users frequently provide corrections
 - Changes in feedback ratings over time (e.g., after updates)
 - Differences in feedback across user segments
 
+<!-- TODO: add code snippet -->
+
 ## Advanced Feedback Collection
 
-### Customizing Feedback Schemas
-
-You can define custom feedback schemas based on your application's specific needs:
-
-```python
-# PLACEHOLDER
-```
+<!-- TODO: add ### Customizing Feedback Schemas and code snippet -->
 
 ### Collecting Implicit Feedback
 
@@ -106,11 +87,9 @@ In addition to explicit feedback (ratings, comments), consider collecting implic
 
 ## Providing Feedback on Deployed Agents
 
-When you deploy an application using the Databricks Agent Framework with `agents.deploy()`, a feedback endpoint is automatically created. This allows you to collect structured feedback related to specific interactions:
+When you deploy an application using the Databricks Agent Framework with `agents.deploy()`, a feedback endpoint is automatically created. This allows you to collect structured feedback related to specific interactions.
 
-```python
-# PLACEHOLDER
-```
+<!-- TODO: add code snippet -->
 
 The feedback collected this way appears as request rows in the inference table associated with your agent endpoint, making it easy to analyze alongside other operational metrics.
 
