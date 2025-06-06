@@ -53,6 +53,11 @@ const config: Config = {
     },
   ],
 
+  themes: ['@docusaurus/theme-mermaid'],
+  markdown: {
+    mermaid: true,
+  },
+  
   presets: [
     [
       "classic",
@@ -77,6 +82,13 @@ const config: Config = {
   ],
 
   themeConfig: {
+    mermaid: {
+      theme: { light: 'neutral', dark: 'dark' },
+      options: {
+        fontFamily: 'inherit',
+        fontSize: 16,
+      },
+    },
     ...(process.env.PR_PREVIEW
       ? {
           announcementBar: {

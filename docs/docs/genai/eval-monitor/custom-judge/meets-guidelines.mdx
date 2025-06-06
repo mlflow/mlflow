@@ -1,0 +1,716 @@
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# How to Create Guidelines-Based LLM Scorers
+
+Guidelines-based LLM scorers provide the most accessible way to create custom evaluation logic by defining natural language criteria as pass/fail conditions. This approach excels at checking compliance with rules, style guides, or information inclusion/exclusion requirements, and has the distinct advantage of being easily understood and written by business stakeholders and domain experts.
+
+Guidelines-based judges work by evaluating your application's outputs against clear, specific criteria written in plain language. An LLM judge determines whether each guideline passes or fails and provides detailed reasoning for its assessment.
+
+## Understanding Guidelines-Based Evaluation
+
+Guidelines function as "mini prompts" that define specific passing criteria for your application. They can be as simple as a single sentence or as detailed as a multi-point checklist with markdown formatting. The key is that each guideline represents a clear, testable requirement that can be evaluated consistently.
+
+**Core advantages:**
+- **Stakeholder-friendly**: Easy to explain to business stakeholders and domain experts
+- **Domain expert authoring**: Can be written directly by subject matter experts without technical knowledge
+- **Transparent criteria**: Clear, auditable evaluation logic that's easy to understand and validate
+- **Simple interpretation**: Pass/fail results that are straightforward to act upon
+
+## Implementation Approaches
+
+MLflow provides two ways to implement guidelines-based evaluation, depending on your application's complexity and data requirements:
+
+<Tabs>
+<TabItem value="prebuilt" label="Prebuilt Guidelines Scorer" default>
+
+### Prebuilt Guidelines Scorer *(Recommended for Simple Applications)*
+
+The prebuilt guidelines scorer provides the fastest implementation path when your evaluation criteria only need to consider your application's direct inputs and outputs.
+
+**Best for:**
+- Applications with simple input/output structures (user query → app response)
+- Guidelines that only reference request and response data
+- Teams wanting to get started quickly without custom code
+- Scenarios where the default trace parsing meets your needs
+
+**How it works:**
+The prebuilt scorer automatically extracts "request" and "response" from your MLflow traces and applies your guidelines. You simply define your criteria in natural language and the scorer handles the rest.
+
+**Example usage:**
+```python
+import mlflow
+from mlflow.genai.scorers import GuidelineAdherence
+
+# Define your guidelines as strings
+tone_guideline = "The response must maintain a courteous, respectful tone throughout."
+structure_guideline = "The response must use clear, concise language and avoid jargon."
+
+# Create scorers with the prebuilt approach
+tone_scorer = GuidelineAdherence().with_config(
+    name="tone", global_guidelines=[tone_guideline]
+)
+structure_scorer = GuidelineAdherence().with_config(
+    name="structure", global_guidelines=[structure_guideline]
+)
+
+# Use in evaluation
+mlflow.genai.evaluate(
+    data=eval_dataset, model=your_app, extra_metrics=[tone_scorer, structure_scorer]
+)
+```
+
+</TabItem>
+<TabItem value="custom" label="Custom Guidelines Scorer">
+
+### Custom Guidelines Scorer *(For Complex Applications)*
+
+Create custom scorers when you need more control over how data is passed to the guidelines judge or when your evaluation requires additional context beyond simple request/response pairs.
+
+**Best for:**
+- Applications with complex input/output structures containing multiple fields
+- Guidelines that need access to additional data (retrieved documents, tool calls, user context)
+- Scenarios where you want to exclude certain fields from evaluation (user IDs, timestamps)
+- Applications requiring custom data preprocessing before evaluation
+
+**How it works:**
+You create custom scorers that wrap the `meets_guidelines()` API, giving you full control over what data is passed to the judge and how it's structured.
+
+**Example usage:**
+```python
+from mlflow.genai.scorers import scorer
+from mlflow.genai.judges import meets_guidelines
+import json
+
+
+@scorer
+def custom_guidelines_scorer(inputs, outputs):
+    """Custom scorer with full control over data passing."""
+
+    # Extract and format exactly the data you need
+    user_query = inputs.get("query")
+    response_text = outputs.get("response", {}).get("content")
+    retrieved_docs = outputs.get("context", [])
+
+    # Apply guidelines with custom context
+    return meets_guidelines(
+        name="comprehensive_quality",
+        guidelines=[
+            "The response must address the user's query directly",
+            "The response must be grounded in the provided context",
+            "The response must maintain professional tone",
+        ],
+        context={
+            "user_query": user_query,
+            "response": response_text,
+            "context_documents": json.dumps(retrieved_docs),
+        },
+    )
+```
+
+</TabItem>
+<TabItem value="choosing" label="Choosing Your Approach">
+
+### Decision Framework
+
+Use this framework to choose between prebuilt and custom guidelines scorers:
+
+**Use Prebuilt Guidelines Scorer when:**
+- ✅ Your application has simple input → output structure
+- ✅ Guidelines only need "request" and "response" data
+- ✅ Default trace parsing extracts the right information
+- ✅ You want the fastest implementation path
+- ✅ Your team is new to custom evaluation
+
+**Use Custom Guidelines Scorer when:**
+- ✅ Your application has complex, multi-field inputs/outputs
+- ✅ Guidelines need access to intermediate data (retrieved docs, tool calls)
+- ✅ You need to exclude certain fields from evaluation
+- ✅ You want custom preprocessing of evaluation data
+- ✅ Default trace parsing doesn't match your needs
+
+**Key considerations:**
+- Start with the prebuilt approach and move to custom only if needed
+- Custom scorers provide more control but require more development effort
+- Both approaches use the same underlying guidelines evaluation logic
+
+</TabItem>
+</Tabs>
+
+## Getting Started: Prebuilt Guidelines Scorer
+
+### Step 1: Create Your Sample Application
+
+Let's start with a customer support application that we can configure to demonstrate different quality levels:
+
+```python
+import os
+import mlflow
+from openai import OpenAI
+from typing import List, Dict
+
+# Enable automatic tracing
+mlflow.openai.autolog()
+
+# Initialize OpenAI client (adjust credentials as needed)
+client = OpenAI(api_key="your-openai-api-key")
+
+# Configuration toggle for demonstration
+BE_RUDE_AND_VERBOSE = False
+
+
+@mlflow.trace
+def customer_support_agent(messages: List[Dict[str, str]]):
+    """Customer support agent with configurable behavior for testing."""
+
+    # Adjust behavior for testing guidelines
+    system_prompt_postfix = (
+        "Be super rude and very verbose in your responses."
+        if BE_RUDE_AND_VERBOSE
+        else ""
+    )
+
+    messages_for_llm = [
+        {
+            "role": "system",
+            "content": f"You are a helpful customer support agent. {system_prompt_postfix}",
+        },
+        *messages,
+    ]
+
+    # Generate response
+    return client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=messages_for_llm,
+    )
+```
+
+### Step 2: Define Your Evaluation Guidelines
+
+Work with your business stakeholders and domain experts to define clear, specific guidelines. Each guideline should represent a testable requirement that can be consistently evaluated:
+
+```python
+# Guidelines written in natural language
+tone = """The response must maintain a courteous, respectful tone throughout.
+It must show empathy for customer concerns and avoid any rude or dismissive language."""
+
+structure = """The response must use clear, concise language and structure responses logically.
+It must avoid jargon or explain technical terms when used. Responses should be appropriately brief."""
+
+banned_topics = """If the request is a question about product pricing, the response must
+politely decline to answer and refer the user to the pricing page."""
+
+relevance = """The response must be relevant to the user's request. Only consider the relevance
+and nothing else. If the request is not clear, the response must ask for more information."""
+```
+
+**Guidelines writing tips:**
+- Be specific about what constitutes passing vs. failing
+- Reference "the request" for input data and "the response" for output data
+- Include both positive requirements (what must be present) and negative requirements (what must be avoided)
+- Consider edge cases and boundary conditions
+
+### Step 3: Create Evaluation Dataset
+
+Design test cases that thoroughly exercise your guidelines across different scenarios:
+
+```python
+eval_dataset = [
+    {
+        "inputs": {
+            "messages": [
+                {"role": "user", "content": "How much does a microwave cost?"},
+            ]
+        },
+    },
+    {
+        "inputs": {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": "I'm having trouble with my account. I can't log in.",
+                },
+                {
+                    "role": "assistant",
+                    "content": "I'm sorry to hear that you're having trouble with your account. Are you using our website or mobile app?",
+                },
+                {"role": "user", "content": "Website"},
+            ]
+        },
+    },
+    {
+        "inputs": {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": "I'm having trouble with my account. I can't log in.",
+                },
+                {
+                    "role": "assistant",
+                    "content": "I'm sorry to hear that you're having trouble with your account. Are you using our website or mobile app?",
+                },
+                {"role": "user", "content": "JUST FIX IT FOR ME"},
+            ]
+        },
+    },
+]
+```
+
+### Step 4: Run Comparative Evaluation
+
+Execute evaluation with different application configurations to validate that your guidelines correctly identify quality differences:
+
+```python
+from mlflow.genai.scorers import GuidelineAdherence
+import mlflow
+
+# Test with polite, concise responses
+print("Evaluating with professional, helpful behavior...")
+BE_RUDE_AND_VERBOSE = False
+
+results_good = mlflow.genai.evaluate(
+    data=eval_dataset,
+    model=customer_support_agent,
+    extra_metrics=[
+        GuidelineAdherence().with_config(name="tone", global_guidelines=[tone]),
+        GuidelineAdherence().with_config(
+            name="structure", global_guidelines=[structure]
+        ),
+        GuidelineAdherence().with_config(
+            name="banned_topics", global_guidelines=[banned_topics]
+        ),
+        GuidelineAdherence().with_config(
+            name="relevance", global_guidelines=[relevance]
+        ),
+    ],
+)
+
+print("Professional behavior results:")
+for metric_name, value in results_good.metrics.items():
+    if "guideline" in metric_name.lower():
+        print(f"  {metric_name}: {value}")
+
+# Test with rude, verbose responses
+print("\nEvaluating with rude, verbose behavior...")
+BE_RUDE_AND_VERBOSE = True
+
+results_poor = mlflow.genai.evaluate(
+    data=eval_dataset,
+    model=customer_support_agent,
+    extra_metrics=[
+        GuidelineAdherence().with_config(name="tone", global_guidelines=[tone]),
+        GuidelineAdherence().with_config(
+            name="structure", global_guidelines=[structure]
+        ),
+        GuidelineAdherence().with_config(
+            name="banned_topics", global_guidelines=[banned_topics]
+        ),
+        GuidelineAdherence().with_config(
+            name="relevance", global_guidelines=[relevance]
+        ),
+    ],
+)
+
+print("Rude behavior results:")
+for metric_name, value in results_poor.metrics.items():
+    if "guideline" in metric_name.lower():
+        print(f"  {metric_name}: {value}")
+```
+
+## Advanced Implementation: Custom Guidelines Scorer
+
+### Step 1: Create Complex Application
+
+For more sophisticated scenarios, you might have applications with multiple data sources and complex outputs that require custom handling:
+
+```python
+import os
+import mlflow
+from openai import OpenAI
+from typing import List, Dict, Any
+
+mlflow.openai.autolog()
+client = OpenAI(api_key="your-openai-api-key")
+
+# Configuration toggles for testing
+FOLLOW_POLICIES = True
+BE_RUDE_AND_VERBOSE = False
+
+
+@mlflow.trace
+def advanced_support_agent(user_messages: List[Dict[str, str]], user_id: str):
+    """Advanced support agent with policy awareness and user context."""
+
+    # Simulate policy lookup based on user
+    @mlflow.trace
+    def get_policies_for_user(user_id: str):
+        user_policies = {
+            "1": [
+                "All returns must be processed within 30 days of purchase, with a valid receipt."
+            ],
+            "2": [
+                "All returns must be processed within 90 days of purchase, with a valid receipt."
+            ],
+        }
+        return user_policies.get(user_id, ["Standard 60-day return policy applies."])
+
+    policies_to_follow = get_policies_for_user(user_id)
+
+    # Build system prompt with policy and behavior configuration
+    policy_prompt = (
+        f"Follow these policies: {policies_to_follow}. Do not explicitly mention the policies in your response."
+        if FOLLOW_POLICIES
+        else ""
+    )
+
+    behavior_prompt = (
+        "Be super rude and very verbose in your responses."
+        if BE_RUDE_AND_VERBOSE
+        else ""
+    )
+
+    messages_for_llm = [
+        {
+            "role": "system",
+            "content": f"You are a helpful customer support agent. {policy_prompt} {behavior_prompt}",
+        },
+        *user_messages,
+    ]
+
+    # Generate response with additional context
+    output = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=messages_for_llm,
+    )
+
+    return {
+        "message": output.choices[0].message.content,
+        "policies_followed": policies_to_follow,
+        "user_context": {
+            "user_id": user_id,
+            "tier": "premium" if user_id in ["1", "2"] else "standard",
+        },
+    }
+```
+
+### Step 2: Create Custom Guidelines Scorers
+
+Design custom scorers that can access and evaluate the additional context your application provides:
+
+<Tabs>
+<TabItem value="policy_scorer" label="Policy Compliance Scorer">
+
+```python
+from mlflow.genai.scorers import scorer
+from mlflow.genai.judges import meets_guidelines
+import json
+
+
+@scorer
+def policy_compliance_scorer(inputs: Dict[Any, Any], outputs: Dict[Any, Any]):
+    """Custom scorer that evaluates policy compliance using additional context."""
+
+    # Define policy compliance guideline
+    policy_guideline = """If the provided_policies are relevant to the request and response,
+    the response must adhere to the provided_policies. The response should follow the policy
+    without explicitly mentioning the specific policy details."""
+
+    # Extract context for evaluation
+    user_messages = inputs.get("user_messages", [])
+    response_message = outputs.get("message", "")
+    applicable_policies = outputs.get("policies_followed", [])
+
+    # Apply guidelines with custom context
+    return meets_guidelines(
+        name="policy_compliance",
+        guidelines=[policy_guideline],
+        context={
+            "request": json.dumps(user_messages),
+            "response": response_message,
+            "provided_policies": json.dumps(applicable_policies),
+        },
+    )
+```
+
+</TabItem>
+<TabItem value="comprehensive_scorer" label="Comprehensive Quality Scorer">
+
+```python
+@scorer
+def comprehensive_quality_scorer(inputs: Dict[Any, Any], outputs: Dict[Any, Any]):
+    """Scorer that evaluates multiple guidelines with custom data extraction."""
+
+    # Extract and format data for evaluation
+    user_messages = inputs.get("user_messages", [])
+    response_message = outputs.get("message", "")
+    user_context = outputs.get("user_context", {})
+
+    request_text = json.dumps(user_messages)
+
+    # Define multiple guidelines
+    guidelines = {
+        "tone": "The response must maintain a courteous, respectful tone throughout.",
+        "structure": "The response must use clear, concise language and avoid unnecessary verbosity.",
+        "banned_topics": "If the request asks about pricing, the response must politely decline and refer to the pricing page.",
+        "relevance": "The response must be relevant to the user's request and provide helpful information.",
+        "context_appropriate": "The response must be appropriate for the user's context and tier level.",
+    }
+
+    # Apply each guideline and collect results
+    feedback_results = []
+
+    for guideline_name, guideline_text in guidelines.items():
+        result = meets_guidelines(
+            name=guideline_name,
+            guidelines=[guideline_text],
+            context={
+                "request": request_text,
+                "response": response_message,
+                "user_context": json.dumps(user_context),
+            },
+        )
+        feedback_results.append(result)
+
+    # Return list of feedback objects
+    return feedback_results
+```
+
+</TabItem>
+</Tabs>
+
+### Step 3: Create Comprehensive Evaluation Dataset
+
+Design test cases that exercise the full range of your application's capabilities and edge cases:
+
+```python
+eval_dataset = [
+    {
+        "inputs": {
+            "user_messages": [
+                {"role": "user", "content": "How much does a microwave cost?"},
+            ],
+            "user_id": "3",  # Standard user
+        },
+    },
+    {
+        "inputs": {
+            "user_messages": [
+                {
+                    "role": "user",
+                    "content": "Can I return the microwave I bought 2 months ago?",
+                },
+            ],
+            "user_id": "1",  # Premium user with 30-day policy - should say no
+        },
+    },
+    {
+        "inputs": {
+            "user_messages": [
+                {
+                    "role": "user",
+                    "content": "Can I return the microwave I bought 2 months ago?",
+                },
+            ],
+            "user_id": "2",  # Premium user with 90-day policy - should say yes
+        },
+    },
+    {
+        "inputs": {
+            "user_messages": [
+                {
+                    "role": "user",
+                    "content": "I'm having trouble with my account. I can't log in.",
+                },
+                {
+                    "role": "assistant",
+                    "content": "I'm sorry to hear that you're having trouble with your account. Are you using our website or mobile app?",
+                },
+                {"role": "user", "content": "JUST FIX IT FOR ME"},
+            ],
+            "user_id": "1",
+        },
+    },
+]
+```
+
+### Step 4: Run Advanced Evaluation
+
+Execute evaluation with different configurations to validate both basic quality guidelines and complex policy compliance:
+
+```python
+import mlflow
+
+# Test with good behavior and policy compliance
+print("Evaluating with professional behavior and policy compliance...")
+BE_RUDE_AND_VERBOSE = False
+FOLLOW_POLICIES = True
+
+results_compliant = mlflow.genai.evaluate(
+    data=eval_dataset,
+    model=advanced_support_agent,
+    extra_metrics=[policy_compliance_scorer, comprehensive_quality_scorer],
+)
+
+# Test with poor behavior and no policy compliance
+print("Evaluating with rude behavior and no policy compliance...")
+BE_RUDE_AND_VERBOSE = True
+FOLLOW_POLICIES = False
+
+results_non_compliant = mlflow.genai.evaluate(
+    data=eval_dataset,
+    model=advanced_support_agent,
+    extra_metrics=[policy_compliance_scorer, comprehensive_quality_scorer],
+)
+
+# Compare results
+print("\nCompliant behavior results:")
+for metric_name, value in results_compliant.metrics.items():
+    print(f"  {metric_name}: {value}")
+
+print("\nNon-compliant behavior results:")
+for metric_name, value in results_non_compliant.metrics.items():
+    print(f"  {metric_name}: {value}")
+```
+
+## Best Practices for Guidelines-Based Evaluation
+
+### Writing Effective Guidelines
+
+**Be Specific and Testable**: Write guidelines that can be consistently evaluated:
+```python
+# ❌ Vague guideline
+"The response should be good"
+
+# ✅ Specific guideline
+"The response must use professional language, avoid slang, and maintain a helpful tone throughout"
+```
+
+**Include Both Positive and Negative Criteria**: Define what must be present and what must be avoided:
+```python
+# Comprehensive guideline
+positive_negative_guideline = """The response must include specific troubleshooting steps
+and must not make promises about resolution timeframes without proper authorization."""
+```
+
+**Reference Context Appropriately**: Use clear field names that match your context data:
+```python
+# When using custom scorers, ensure guideline references match context keys
+context_aware_guideline = """Given the user_tier and request_urgency, the response must
+provide appropriate level of detail and escalation options."""
+```
+
+### Performance and Reliability Optimization
+
+**Batch Related Guidelines**: Group related criteria to reduce evaluation calls:
+```python
+@scorer
+def communication_standards(inputs, outputs):
+    """Batch multiple communication-related guidelines together."""
+    communication_guidelines = [
+        "The response must use professional language",
+        "The response must show empathy for customer concerns",
+        "The response must be appropriately concise",
+        "The response must avoid technical jargon without explanation",
+    ]
+
+    return meets_guidelines(
+        name="communication_standards",
+        guidelines=communication_guidelines,
+        context={"request": inputs["query"], "response": outputs["message"]},
+    )
+```
+
+**Validate Guidelines with Test Cases**: Ensure your guidelines work as expected:
+```python
+def validate_guidelines():
+    """Test guidelines on known good and bad examples."""
+    test_cases = [
+        {"input": "known_good_example", "expected": True},
+        {"input": "known_bad_example", "expected": False},
+    ]
+
+    for case in test_cases:
+        result = meets_guidelines(
+            name="test_guideline",
+            guidelines=[your_guideline],
+            context={"response": case["input"]},
+        )
+        assert (result.value == "pass") == case["expected"]
+```
+
+### Integration Patterns
+
+**Development Workflow Integration**: Use guidelines-based evaluation throughout your development process:
+```python
+import mlflow
+
+
+def evaluate_app_version_with_guidelines(app_function, version_name, guidelines_config):
+    """Standardized evaluation with guidelines for version comparison."""
+
+    with mlflow.start_run(run_name=f"guidelines_eval_{version_name}"):
+        # Create scorers from guidelines configuration
+        scorers = []
+        for guideline_name, guideline_text in guidelines_config.items():
+            scorer = GuidelineAdherence().with_config(
+                name=guideline_name, global_guidelines=[guideline_text]
+            )
+            scorers.append(scorer)
+
+        # Run evaluation
+        results = mlflow.genai.evaluate(
+            model=app_function, data=eval_dataset, extra_metrics=scorers
+        )
+
+        # Log guidelines metadata
+        mlflow.log_dict(guidelines_config, "guidelines.json")
+        mlflow.set_tag("evaluation_type", "guidelines_based")
+
+        return results
+```
+
+## Troubleshooting Common Issues
+
+### Guidelines Not Triggering as Expected
+
+**Problem**: Guidelines pass/fail unexpectedly for certain inputs
+**Solutions**:
+- Review guideline wording for ambiguity or unclear criteria
+- Test guidelines on edge cases manually
+- Ensure context data contains the information referenced in guidelines
+- Consider breaking complex guidelines into simpler, more specific ones
+
+### Inconsistent Evaluation Results
+
+**Problem**: Same inputs receive different guideline assessments across runs
+**Solutions**:
+- Use more specific, detailed guidelines that leave less room for interpretation
+- Provide examples within guidelines when possible
+- Consider using lower temperature settings for the judge model
+- Test guidelines with multiple similar examples to verify consistency
+
+### Performance Issues
+
+**Problem**: Guidelines evaluation is slow or expensive
+**Solutions**:
+- Batch related guidelines together in single scorer calls
+- Use simpler language in guidelines to reduce processing complexity
+- Implement sampling for production monitoring rather than evaluating all traffic
+- Consider caching results for repeated evaluation scenarios
+
+## Related Concepts
+
+- **[Prompt-Based Judges](/genai/eval-monitor/custom-judge/create-prompt-judge)**: For more complex evaluation scenarios requiring nuanced scoring
+- **[Custom Scorers](/genai/eval-monitor/custom-scorers)**: Alternative approach using deterministic logic
+- **[Predefined LLM Scorers](/genai/eval-monitor/predefined-judge-scorers)**: Ready-to-use evaluation judges for common scenarios
+- **[Production Monitoring](/genai/eval-monitor/concepts/production-monitoring)**: Deploy your guidelines-based judges for continuous quality assessment
+
+## Next Steps
+
+1. **Start with simple guidelines** - Begin with clear, testable criteria that your stakeholders can easily understand
+2. **Use the prebuilt approach first** - Only move to custom scorers if you need additional context or data control
+3. **Validate thoroughly** - Test your guidelines on diverse examples to ensure consistent evaluation
+4. **Iterate with stakeholders** - Refine guidelines based on business feedback and real-world performance
+5. **Scale strategically** - Deploy with appropriate sampling rates for production monitoring
+
+Guidelines-based judges provide the most accessible path to custom evaluation while maintaining transparency and stakeholder alignment. By starting with clear, specific criteria and iterating based on real-world performance, you can create reliable quality assessment that scales with your application's requirements.

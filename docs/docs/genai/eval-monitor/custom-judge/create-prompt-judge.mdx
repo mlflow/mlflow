@@ -1,0 +1,638 @@
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Prompt-Based LLM Scorers
+
+Prompt-based LLM scorers give you complete control over custom evaluation logic when you need sophisticated assessment criteria that go beyond simple pass/fail guidelines. By defining custom prompt templates and output categories, you can create nuanced evaluation judges that capture complex quality dimensions specific to your application's requirements.
+
+This approach is particularly powerful when you need multi-category scoring (like "excellent", "good", "fair", "poor"), contextual reasoning that considers multiple factors, or evaluation criteria that require domain expertise to assess properly.
+
+> **Note**: We recommend starting with [guidelines-based judges](/genai/eval-monitor/custom-judge/meets-guidelines) and only using prompt-based judges if you need more control or can't express your evaluation criteria as simple pass/fail guidelines. Guidelines-based judges are easier to explain to business stakeholders and can often be written directly by domain experts.
+
+## Understanding Prompt-Based Judges
+
+Prompt-based judges work by combining your custom evaluation logic with the reasoning capabilities of large language models. You define the evaluation criteria and output options, and the LLM applies consistent reasoning to assess each example.
+
+**How the process works:**
+1. **Template Definition**: You create a prompt template with placeholders for specific fields from your application's traces
+2. **Output Categories**: You define the possible assessment categories and their meanings
+3. **LLM Evaluation**: The judge model uses your prompt to evaluate each example and select the most appropriate category
+4. **Rationale Generation**: The judge provides detailed reasoning for its assessment decision
+
+**Key advantages:**
+- Maximum flexibility in defining evaluation criteria
+- Support for multi-category scoring beyond binary pass/fail
+- Ability to incorporate complex domain knowledge and contextual reasoning
+- Consistent application of sophisticated evaluation logic at scale
+
+## When to Use Prompt-Based Judges
+
+Understanding when prompt-based judges are the right choice helps you select the most effective evaluation approach for your needs:
+
+<Tabs>
+<TabItem value="use_cases" label="Ideal Use Cases" default>
+
+### Complex Quality Assessment
+
+**Multi-dimensional evaluation**: When you need to assess multiple quality aspects simultaneously and provide nuanced scoring:
+```
+- Technical accuracy AND clarity AND completeness
+- Tone appropriateness AND helpfulness AND efficiency
+- Brand alignment AND customer satisfaction AND compliance
+```
+
+**Subjective quality dimensions**: For qualities that require judgment and interpretation:
+```
+- Creativity and originality in content generation
+- Persuasiveness of sales messaging
+- Empathy and emotional intelligence in customer service
+- Professional appropriateness in different business contexts
+```
+
+**Domain expertise requirements**: When evaluation requires specialized knowledge:
+```
+- Medical advice accuracy and safety
+- Legal compliance and risk assessment
+- Technical documentation completeness and accuracy
+- Financial advice appropriateness and regulatory compliance
+```
+
+</TabItem>
+<TabItem value="alternatives" label="When to Use Alternatives">
+
+### Consider Guidelines-Based Judges When:
+
+**Clear rule-based criteria**: If your evaluation can be expressed as specific, checkable requirements:
+```
+- "Response must include customer name"
+- "Response must not contain pricing information"
+- "Response must be under 200 words"
+- "Response must acknowledge the stated problem"
+```
+
+**Stakeholder transparency**: When business stakeholders need to easily understand and validate evaluation logic without technical expertise.
+
+**Rapid development**: When you need to quickly implement evaluation without complex prompt engineering.
+
+### Consider Custom Function Scorers When:
+
+**Deterministic logic**: For evaluation that can be computed using algorithms rather than reasoning:
+```
+- Response length validation
+- Keyword presence/absence checking
+- Format compliance (JSON structure, required fields)
+- Performance metrics (latency, token count)
+```
+
+**High-speed evaluation**: When you need extremely fast evaluation for real-time scenarios or large-scale batch processing.
+
+</TabItem>
+<TabItem value="decision_framework" label="Decision Framework">
+
+### Choosing Your Approach
+
+Use this framework to determine if prompt-based judges are right for your evaluation needs:
+
+**Choose Prompt-Based Judges if:**
+- ✅ You need nuanced scoring beyond pass/fail (rating scales, categories)
+- ✅ Your evaluation requires contextual understanding or domain expertise
+- ✅ You're assessing subjective qualities like tone, creativity, or appropriateness
+- ✅ Guidelines-based approaches feel too restrictive for your use case
+- ✅ You need to evaluate complex interactions between multiple factors
+
+**Choose Guidelines-Based Judges if:**
+- ✅ Your criteria can be expressed as clear, specific rules
+- ✅ You need easy stakeholder explanation and domain expert input
+- ✅ You're evaluating compliance, content inclusion/exclusion, or style adherence
+- ✅ You want simple, interpretable pass/fail results
+
+**Choose Custom Function Scorers if:**
+- ✅ Your evaluation is deterministic and algorithm-based
+- ✅ You need extremely fast evaluation performance
+- ✅ You're measuring quantitative metrics rather than qualitative assessment
+
+</TabItem>
+</Tabs>
+
+## Implementation Guide
+
+### Step 1: Create Your Sample Application
+
+First, let's create a sample customer support application that we'll evaluate using prompt-based judges. This example includes a configurable behavior toggle so we can see how the judge responds to different quality levels:
+
+```python
+import os
+import mlflow
+from openai import OpenAI
+from typing import List, Dict, Any
+
+# Enable automatic tracing for OpenAI calls
+mlflow.openai.autolog()
+
+# Initialize OpenAI client (adjust credentials as needed)
+client = OpenAI(api_key="your-openai-api-key")
+
+# Configuration toggle for demonstration purposes
+RESOLVE_ISSUES = True  # We'll modify this to test different behaviors
+
+
+@mlflow.trace
+def customer_support_agent(messages: List[Dict[str, str]]):
+    """Customer support agent that can be configured to resolve or not resolve issues."""
+
+    # Adjust system prompt based on configuration
+    system_prompt_postfix = (
+        "Do your best to NOT resolve the issue. Provide minimal help and avoid solutions."
+        if not RESOLVE_ISSUES
+        else "Provide comprehensive help and work to fully resolve customer issues."
+    )
+
+    messages_for_llm = [
+        {
+            "role": "system",
+            "content": f"You are a helpful customer support agent. {system_prompt_postfix}",
+        },
+        *messages,
+    ]
+
+    # Generate response using LLM
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",  # Adjust model as needed
+        messages=messages_for_llm,
+    )
+
+    return {
+        "messages": [
+            {"role": "assistant", "content": response.choices[0].message.content}
+        ]
+    }
+```
+
+### Step 2: Define Your Evaluation Criteria and Create Custom Scorers
+
+Now we'll create a prompt-based judge that evaluates issue resolution quality with multiple categories. This demonstrates how to move beyond simple pass/fail to nuanced quality assessment:
+
+<Tabs>
+<TabItem value="prompt_design" label="Prompt Design">
+
+### Designing Effective Evaluation Prompts
+
+The quality of your prompt directly impacts the consistency and accuracy of your judge. Here's how to design effective evaluation prompts:
+
+```python
+# Example: Multi-category issue resolution assessment
+issue_resolution_prompt = """
+Evaluate the entire conversation between a customer and a support agent to determine if the customer's issue was resolved.
+
+Consider these factors in your assessment:
+1. Did the agent understand the customer's problem correctly?
+2. Did the agent provide relevant and helpful information?
+3. Was the solution complete and actionable?
+4. Would the customer likely be satisfied with the resolution?
+
+You must choose one of the following categories:
+
+fully_resolved: The response directly and comprehensively addresses the customer's question or problem, providing a clear solution or answer. The customer should be able to proceed without further immediate assistance on the same core issue.
+
+partially_resolved: The response offers some help or relevant information but doesn't completely solve the problem. It might provide initial steps, require more information from the customer, or address only part of a multi-faceted query. Some follow-up may be needed.
+
+needs_follow_up: The response does not adequately address the customer's query, misunderstands the core issue, provides unhelpful or incorrect information, or inappropriately deflects the question. The customer will likely need to re-engage or seek alternative assistance.
+
+Conversation to evaluate: {{conversation}}
+
+Provide your assessment and explain your reasoning in detail.
+"""
+```
+
+**Key principles for effective prompts:**
+- **Clear categories**: Define each output option with specific, non-overlapping criteria
+- **Context consideration**: Include relevant factors that should influence the assessment
+- **Consistent structure**: Use the same format across all your prompt-based judges
+- **Detailed instructions**: Provide enough guidance for consistent evaluation without being overly prescriptive
+
+</TabItem>
+<TabItem value="scorer_implementation" label="Scorer Implementation">
+
+### Implementing the Custom Scorer
+
+Here's how to wrap your prompt-based judge in a custom scorer that integrates with MLflow evaluation:
+
+```python
+from mlflow.genai.scorers import scorer
+from mlflow.metrics.genai import make_genai_metric
+import json
+
+
+@scorer
+def issue_resolution_judge(inputs: Dict[Any, Any], outputs: Dict[Any, Any]):
+    """
+    Custom scorer that evaluates issue resolution using a prompt-based judge.
+
+    Returns a score between 0 and 1:
+    - 1.0 for fully_resolved
+    - 0.5 for partially_resolved
+    - 0.0 for needs_follow_up
+    """
+
+    # Create the prompt-based judge
+    judge = make_genai_metric(
+        name="issue_resolution",
+        definition="Evaluate whether customer issues are properly resolved in support conversations",
+        grading_prompt=issue_resolution_prompt,
+        examples=[  # Optional: provide examples for consistency
+            {
+                "input": "Customer asks about return policy, agent explains 30-day policy with steps",
+                "output": "fully_resolved",
+                "justification": "Complete answer with actionable information",
+            }
+        ],
+        model="openai:/gpt-4o-mini",
+        parameters={"temperature": 0.1},  # Low temperature for consistency
+    )
+
+    # Combine input and output messages to form the complete conversation
+    conversation = json.dumps(inputs.get("messages", []) + outputs.get("messages", []))
+
+    # Apply the judge
+    result = judge(conversation=conversation)
+
+    # Map categories to numerical scores
+    category_scores = {
+        "fully_resolved": 1.0,
+        "partially_resolved": 0.5,
+        "needs_follow_up": 0.0,
+    }
+
+    # Extract the category from the result and map to score
+    category = result.scores[0] if hasattr(result, "scores") else result.value
+    score = category_scores.get(category, 0.0)
+
+    return {
+        "score": score,
+        "category": category,
+        "rationale": result.justification
+        if hasattr(result, "justification")
+        else str(result),
+    }
+```
+
+</TabItem>
+<TabItem value="advanced_patterns" label="Advanced Patterns">
+
+### Advanced Prompt-Based Judge Patterns
+
+For more sophisticated evaluation scenarios, consider these advanced patterns:
+
+#### Multi-Dimensional Assessment
+
+```python
+# Judge that evaluates multiple dimensions simultaneously
+comprehensive_quality_prompt = """
+Evaluate this customer service interaction across multiple dimensions:
+
+ACCURACY: Is the information provided factually correct and complete?
+HELPFULNESS: Does the response effectively address the customer's needs?
+PROFESSIONALISM: Is the tone appropriate and communication clear?
+EFFICIENCY: Is the response concise while being thorough?
+
+Conversation: {{conversation}}
+
+For each dimension, rate as: excellent (4), good (3), fair (2), or poor (1)
+Provide your ratings in JSON format and explain your reasoning for each dimension.
+"""
+
+
+@scorer
+def comprehensive_quality_judge(inputs, outputs):
+    # Implementation that parses multi-dimensional output
+    pass
+```
+
+#### Context-Aware Evaluation
+
+```python
+# Judge that considers conversation context and customer type
+context_aware_prompt = """
+Evaluate this customer interaction considering:
+- Customer history: {{customer_history}}
+- Issue complexity: {{issue_type}}
+- Business priority: {{customer_tier}}
+
+Assess whether the response is appropriate given this context...
+"""
+
+
+@scorer
+def context_aware_judge(inputs, outputs):
+    # Implementation that incorporates additional context
+    pass
+```
+
+#### Domain-Specific Assessment
+
+```python
+# Judge specialized for technical support
+technical_support_prompt = """
+As a technical support expert, evaluate this interaction:
+
+TECHNICAL ACCURACY: Are the technical recommendations sound?
+TROUBLESHOOTING APPROACH: Does the agent follow logical diagnostic steps?
+SAFETY CONSIDERATIONS: Are there any safety concerns with the advice?
+ESCALATION APPROPRIATENESS: Should this have been escalated to specialized support?
+
+Technical interaction: {{conversation}}
+Product context: {{product_info}}
+"""
+```
+
+</TabItem>
+</Tabs>
+
+### Step 3: Create Your Evaluation Dataset
+
+Design test cases that cover the range of scenarios your judge needs to assess. Include examples that test edge cases and different quality levels:
+
+```python
+eval_dataset = [
+    {
+        "inputs": {
+            "messages": [
+                {"role": "user", "content": "How much does a microwave cost?"},
+            ],
+        },
+    },
+    {
+        "inputs": {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": "Can I return the microwave I bought 2 months ago?",
+                },
+            ],
+        },
+    },
+    {
+        "inputs": {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": "I'm having trouble with my account. I can't log in.",
+                },
+                {
+                    "role": "assistant",
+                    "content": "I'm sorry to hear that you're having trouble with your account. Are you using our website or mobile app?",
+                },
+                {"role": "user", "content": "Website"},
+            ],
+        },
+    },
+    {
+        "inputs": {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": "I'm having trouble with my account. I can't log in.",
+                },
+                {
+                    "role": "assistant",
+                    "content": "I'm sorry to hear that you're having trouble with your account. Are you using our website or mobile app?",
+                },
+                {"role": "user", "content": "JUST FIX IT FOR ME"},
+            ],
+        },
+    },
+    {
+        "inputs": {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": "Your service is terrible and I want to cancel my subscription immediately!",
+                },
+                {
+                    "role": "assistant",
+                    "content": "I understand your frustration, and I sincerely apologize that our service hasn't met your expectations. Let me help you with the cancellation process and see if there's anything we can do to address your concerns.",
+                },
+                {"role": "user", "content": "Fine, but make it quick."},
+            ],
+        },
+    },
+]
+```
+
+**Dataset design tips:**
+- Include varied conversation lengths and complexity levels
+- Test edge cases like angry customers or ambiguous requests
+- Cover different types of issues your application handles
+- Include examples where the "correct" assessment might be debatable
+
+### Step 4: Run Comparative Evaluation
+
+Execute evaluation with different configurations to validate your judge's behavior and understand how it responds to quality variations:
+
+```python
+import mlflow
+
+# Evaluate with poor issue resolution behavior
+print("Evaluating with minimal issue resolution...")
+RESOLVE_ISSUES = False
+
+results_poor = mlflow.genai.evaluate(
+    data=eval_dataset,
+    model=customer_support_agent,
+    extra_metrics=[issue_resolution_judge],
+)
+
+print("Poor resolution results:")
+for metric_name, value in results_poor.metrics.items():
+    print(f"  {metric_name}: {value}")
+
+# Evaluate with good issue resolution behavior
+print("\nEvaluating with comprehensive issue resolution...")
+RESOLVE_ISSUES = True
+
+results_good = mlflow.genai.evaluate(
+    data=eval_dataset,
+    model=customer_support_agent,
+    extra_metrics=[issue_resolution_judge],
+)
+
+print("Good resolution results:")
+for metric_name, value in results_good.metrics.items():
+    print(f"  {metric_name}: {value}")
+
+# Compare results
+print(
+    f"\nImprovement in issue resolution: {results_good.metrics['issue_resolution_judge/v1/mean'] - results_poor.metrics['issue_resolution_judge/v1/mean']:.2f}"
+)
+```
+
+## Best Practices for Prompt-Based Judges
+
+### Prompt Engineering Best Practices
+
+**Be Specific and Clear**: Define evaluation criteria precisely to avoid ambiguous assessments:
+```python
+# ❌ Vague criteria
+"Evaluate if the response is good"
+
+# ✅ Specific criteria
+"Evaluate if the response provides actionable solutions, uses professional language, and addresses all aspects of the customer's question"
+```
+
+**Use Consistent Structure**: Maintain the same prompt format across different judges for better reliability:
+```python
+prompt_template = """
+Evaluate this {interaction_type} based on:
+1. {criterion_1}
+2. {criterion_2}
+3. {criterion_3}
+
+{interaction_content}
+
+Choose from: {category_options}
+Explain your reasoning.
+"""
+```
+
+**Provide Examples**: Include examples in your prompts for more consistent evaluation:
+```python
+examples = [
+    {
+        "input": "Representative interaction example",
+        "output": "expected_category",
+        "justification": "Clear explanation of why this example fits this category",
+    }
+]
+```
+
+### Performance and Cost Optimization
+
+**Model Selection**: Choose appropriate models based on complexity and cost requirements:
+- Use more capable models (GPT-4) for complex reasoning tasks
+- Use faster models (GPT-3.5) for simpler evaluation criteria
+- Consider cost vs. accuracy trade-offs for your use case
+
+**Temperature Settings**: Use low temperature (0.0-0.1) for consistent evaluation:
+```python
+judge_params = {
+    "temperature": 0.1,  # Low temperature for consistency
+    "max_tokens": 500,  # Limit response length
+}
+```
+
+**Sampling Strategies**: For production monitoring, implement cost-effective sampling:
+```python
+# Different sampling rates based on judge complexity
+evaluation_config = {
+    "simple_judges": {"sample_rate": 0.5},  # 50% sampling
+    "complex_judges": {"sample_rate": 0.1},  # 10% sampling
+    "critical_judges": {"sample_rate": 1.0},  # 100% sampling
+}
+```
+
+### Validation and Debugging
+
+**Cross-Validation**: Test your judges against human evaluation:
+```python
+# Compare judge outputs with human assessments
+human_ratings = load_human_evaluations()
+judge_ratings = run_judge_evaluation()
+agreement_score = calculate_agreement(human_ratings, judge_ratings)
+```
+
+**Edge Case Testing**: Systematically test problematic scenarios:
+```python
+edge_cases = [
+    "Empty or very short responses",
+    "Responses in unexpected languages",
+    "Responses with formatting issues",
+    "Ambiguous or borderline quality examples",
+]
+```
+
+## Troubleshooting Common Issues
+
+### Inconsistent Judge Behavior
+
+**Problem**: Judge gives different scores for similar inputs
+**Solutions**:
+- Lower the temperature setting for more deterministic output
+- Make evaluation criteria more specific and detailed
+- Add more examples to anchor the judge's understanding
+- Test with a more capable judge model
+
+### Poor Category Distinction
+
+**Problem**: Judge struggles to distinguish between categories
+**Solutions**:
+- Revise category definitions to be more distinct
+- Provide clearer examples for each category
+- Reduce the number of categories if too granular
+- Add explicit decision criteria for boundary cases
+
+### Performance Issues
+
+**Problem**: Evaluation takes too long or costs too much
+**Solutions**:
+- Use a faster/cheaper model for simpler criteria
+- Implement sampling strategies for production monitoring
+- Batch evaluation requests when possible
+- Cache results for repeated evaluations
+
+## Integration with MLflow Workflows
+
+### Development Workflow Integration
+
+```python
+# Use in iterative development
+def evaluate_app_version(app_function, version_name):
+    with mlflow.start_run(run_name=f"eval_{version_name}"):
+        results = mlflow.genai.evaluate(
+            model=app_function,
+            data=eval_dataset,
+            extra_metrics=[
+                issue_resolution_judge,
+                # Add other judges as needed
+            ],
+        )
+
+        # Log version metadata
+        mlflow.set_tag("app_version", version_name)
+        mlflow.log_param("judge_model", "gpt-4o-mini")
+
+        return results
+```
+
+### Production Monitoring Integration
+
+```python
+# Use in production monitoring (Databricks MLflow)
+from databricks.agents.monitoring import CustomMetric, AssessmentsSuiteConfig
+
+monitor_config = AssessmentsSuiteConfig(
+    sample=0.1,  # 10% of production traffic
+    assessments=[
+        CustomMetric(
+            metric_fn=issue_resolution_judge,
+            sample_rate=0.2,  # 20% sampling for this specific judge
+        ),
+    ],
+)
+```
+
+## Related Concepts
+
+- **[Guidelines-Based Judges](/genai/eval-monitor/custom-judge/meets-guidelines)**: Simpler alternative for rule-based evaluation
+- **[Custom Scorers](/genai/eval-monitor/custom-scorers)**: Deterministic evaluation logic for specific requirements
+- **[Predefined LLM Scorers](/genai/eval-monitor/predefined-judge-scorers)**: Ready-to-use evaluation judges for common scenarios
+- **[Production Monitoring](/genai/eval-monitor/concepts/production-monitoring)**: Deploy your custom judges for continuous quality assessment
+
+## Next Steps
+
+1. **Start with simple prompts** - Begin with clear, specific evaluation criteria before adding complexity
+2. **Validate thoroughly** - Test your judges against diverse examples and compare with human evaluation
+3. **Iterate and refine** - Use feedback from initial evaluations to improve your prompt design
+4. **Deploy strategically** - Implement appropriate sampling rates for production monitoring
+5. **Monitor performance** - Track judge consistency and cost over time
+
+Prompt-based judges provide powerful flexibility for sophisticated quality assessment. By following these practices and starting with clear, specific criteria, you can create reliable evaluation logic that scales with your application's complexity and quality requirements.

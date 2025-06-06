@@ -78,9 +78,7 @@ For the latest updates on Prompt Registry availability and features, monitor the
 
       :::note
 
-          Prompt template text can contain variables in `{{variable}}` format. These variables can be filled with dynamic content when using the prompt in your GenAI application. MLflow also provides a [utility method](/prompts/#q-can-i-use-prompt-templates-with-frameworks-like-langchain-or-llamaindex)
-          to convert template into single brace format for frameworks like LangChain or LlamaIndex.
-
+          Prompt template text can contain variables in `{{variable}}` format. These variables can be filled with dynamic content when using the prompt in your GenAI application. MLflow also provides the `to_single_brace_format()` API to convert templates into single brace format for frameworks like LangChain or LlamaIndex that require single brace interpolation.
       :::
 
     </div>
@@ -292,7 +290,7 @@ with mlflow.start_run():
 
 :::warning
 
-    The `prompts` parameter for associating prompts with models is only supported for GenAI flavors such as OpenAI, LangChain, LlamaIndex, DSPy, etc. Please refer to the [GenAI flavors](/llms#model-packaging) for the full list of supported flavors.
+    The `prompts` parameter for associating prompts with models is only supported for GenAI flavors such as OpenAI, LangChain, LlamaIndex, DSPy, etc.
 
 :::
 
@@ -300,7 +298,7 @@ with mlflow.start_run():
 
 #### 1. Create a prompt
 
-If you haven't already created a prompt, follow [this step](/prompts#1-create-a-prompt) to create a new prompt.
+If you haven't already created a prompt, follow [this step](#1-create-a-prompt) to create a new prompt.
 
 
 #### 2. Define a Chain using the registered prompts
@@ -356,7 +354,7 @@ Moreover, you can view the list of models (runs) that use a specific prompt in t
 
 ### Example 2: Automatic Prompt Logging with Models-from-Code
 
-[Models-from-Code](/model/models-from-code) is a feature that allows you to define and log models in code.
+[Models-from-Code](/ml/model/models-from-code) is a feature that allows you to define and log models in code.
 Logging a model with code brings several benefits, such as portability, readability, avoiding serialization, and more.
 
 Combining with MLflow Prompt Registry, the feature unlocks even more flexibility to manage prompt versions. Notably,
@@ -381,7 +379,7 @@ prompt = mlflow.register_prompt(
 
 Create a Python script ``chatbot.py`` with the following content.
 
-:::tips
+:::tip
 
 If you are using Jupyter notebook, you can uncomment the `%writefile` magic
 command and run the following code in a cell to generate the script.
