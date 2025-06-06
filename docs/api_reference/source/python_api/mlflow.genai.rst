@@ -12,16 +12,6 @@ mlflow.genai
     :show-inheritance:
     :exclude-members: Scorer
 
-.. automodule:: mlflow.genai.labeling
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
-.. automodule:: mlflow.genai.label_schemas
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 .. automodule:: mlflow.genai.datasets
     :members:
     :undoc-members:
