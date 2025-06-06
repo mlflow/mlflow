@@ -1,7 +1,6 @@
 import logging
 from typing import Any, Callable, Optional
 
-from mlflow.tracking.client import MlflowClient
 from opentelemetry.trace import NoOpTracer
 
 import mlflow
@@ -9,6 +8,7 @@ from mlflow.entities.span import Span, SpanType
 from mlflow.entities.trace import Trace
 from mlflow.genai.utils.data_validation import check_model_prediction
 from mlflow.tracing.constant import TraceTagKey
+from mlflow.tracking.client import MlflowClient
 
 _logger = logging.getLogger(__name__)
 
@@ -191,9 +191,15 @@ def clean_up_extra_traces(run_id: str, start_time_ms: int):
             if TraceTagKey.EVAL_REQUEST_ID not in trace.info.tags
         ]
         if extra_trace_ids:
+            _logger.debug(
+                f"Found {len(extra_trace_ids)} extra traces generated during evaluation run. "
+                "Deleting them."
+            )
             MlflowClient().delete_traces(
                 experiment_id=_get_experiment_id(), trace_ids=extra_trace_ids
             )
+        else:
+            _logger.debug("No extra traces found during evaluation run.")
     except Exception as e:
         _logger.warning(
             f"Failed to clean up extra traces generated during evaluation. The "
