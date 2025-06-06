@@ -89,7 +89,7 @@ def test_get_minibatch_size(train_size, eval_size, expected_batch_size):
 
 
 @pytest.mark.parametrize(
-    ("optimizer_config", "use_eval_data", "expected_teacher_settings"),
+    ("optimizer_config", "use_eval_data", "expected_teacher_settings", "trial_logs"),
     [
         (
             OptimizerConfig(
@@ -100,16 +100,31 @@ def test_get_minibatch_size(train_size, eval_size, expected_batch_size):
             ),
             False,
             {"lm": True},
+            {1: {"full_eval_score": 0.0}},
         ),
         (
             OptimizerConfig(num_instruction_candidates=4),
             False,
             {},
+            {1: {"full_eval_score": 0.0}},
         ),
         (
             OptimizerConfig(),
             True,
             {},
+            {1: {"full_eval_score": 0.0}},
+        ),
+        (
+            OptimizerConfig(),
+            True,
+            {},
+            {-1: {"full_eval_score": 0.0}},
+        ),
+        (
+            OptimizerConfig(),
+            True,
+            {},
+            {1: {"full_eval_score": 1.0}},
         ),
     ],
 )
@@ -122,6 +137,7 @@ def test_optimize_scenarios(
     optimizer_config,
     use_eval_data,
     expected_teacher_settings,
+    trial_logs,
 ):
     import dspy
 
@@ -129,9 +145,10 @@ def test_optimize_scenarios(
 
     optimized_program = dspy.Predict("input_text, language -> translation")
     optimized_program.score = 1.0
-    optimized_program.trial_logs = {
-        1: {"full_eval_score": 0.0},
-    }
+    initial_score = trial_logs.get(1, {}).get("full_eval_score") or trial_logs.get(-1, {}).get(
+        "full_eval_score"
+    )
+    optimized_program.trial_logs = trial_logs
     mock_mipro.return_value.compile.return_value = optimized_program
 
     # Prepare eval_data if needed
@@ -172,9 +189,16 @@ def test_optimize_scenarios(
     captured = capsys.readouterr()
     assert "Started optimizing prompt" in captured.err
     assert "Please wait as this process typically takes several minutes" in captured.err
-    assert (
-        "Prompt optimization completed. Evaluation score changed from 0.0 to 1.0." in captured.err
-    )
+    if initial_score == 1.0 == optimized_program.score:
+        assert (
+            "Prompt optimization completed. Evaluation score did not change. Score 1.0"
+            in captured.err
+        )
+    else:
+        assert (
+            "Prompt optimization completed. Evaluation score changed from 0.0 to 1.0."
+            in captured.err
+        )
 
 
 def test_convert_to_dspy_metric():
