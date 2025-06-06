@@ -5,6 +5,7 @@ from mlflow.entities.model_registry.model_version_deployment_job_state import (
 from mlflow.entities.model_registry.model_version_search import ModelVersionSearch
 from mlflow.entities.model_registry.model_version_tag import ModelVersionTag
 from mlflow.entities.model_registry.prompt import Prompt
+from mlflow.entities.model_registry.prompt_info import PromptInfo
 from mlflow.entities.model_registry.registered_model import RegisteredModel
 from mlflow.entities.model_registry.registered_model_alias import RegisteredModelAlias
 from mlflow.entities.model_registry.registered_model_deployment_job_state import (
@@ -15,6 +16,7 @@ from mlflow.entities.model_registry.registered_model_tag import RegisteredModelT
 
 __all__ = [
     "Prompt",
+    "PromptInfo",
     "RegisteredModel",
     "ModelVersion",
     "RegisteredModelAlias",
