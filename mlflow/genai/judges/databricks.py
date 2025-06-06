@@ -356,6 +356,7 @@ def custom_prompt_judge(
     Example prompt template:
 
     .. code-block::
+
         You will look at the response and determine the formality of the response.
 
         <request>{{request}}</request>
