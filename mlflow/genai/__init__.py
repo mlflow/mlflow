@@ -1,9 +1,24 @@
+from typing import TYPE_CHECKING
+
 from mlflow.genai import (
     judges,
     scorers,
 )
 from mlflow.genai.evaluation import evaluate, to_predict_fn
 from mlflow.genai.scorers import Scorer, scorer
+
+if TYPE_CHECKING:
+    from mlflow.genai.labeling import (
+        Agent,
+        LabelingSession,
+        ReviewApp,
+        create_labeling_session,
+        delete_labeling_session,
+        get_labeling_session,
+        get_labeling_sessions,
+        get_review_app,
+    )
+
 
 try:
     from mlflow.genai.labeling import (
