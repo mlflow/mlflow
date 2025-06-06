@@ -5,18 +5,22 @@ exposed in the :py:mod:`mlflow.tracking` module.
 """
 
 import logging
+import re
 from typing import Optional
 
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
+from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.registry_utils import (
     add_prompt_filter_string,
     is_prompt_supported_registry,
 )
+from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
+from mlflow.store._unity_catalog.registry.prompt_info import PromptInfo
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS, utils
 from mlflow.utils.arguments_utils import _get_arg_names
 
@@ -442,3 +446,226 @@ class ModelRegistryClient:
 
         """
         return self.store.get_model_version_by_alias(name, alias)
+
+    # Store-Direct Prompt Methods (Unity Catalog Compatible)
+
+    def create_prompt(
+        self,
+        name: str,
+        description: Optional[str] = None,
+        tags: Optional[dict[str, str]] = None,
+    ) -> PromptInfo:
+        """
+        Create a new prompt in the registry.
+
+        This method delegates directly to the store, providing full Unity Catalog support
+        when used with Unity Catalog registries.
+
+        Args:
+            name: Name of the prompt.
+            description: Optional description of the prompt.
+            tags: Optional dictionary of prompt tags.
+
+        Returns:
+            A PromptInfo object for Unity Catalog stores.
+        """
+        return self.store.create_prompt(name, description, tags)
+
+    def get_prompt(self, name: str) -> Optional[PromptInfo]:
+        """
+        Get prompt metadata by name.
+
+        This method delegates directly to the store, providing full Unity Catalog support
+        when used with Unity Catalog registries.
+
+        Args:
+            name: Registered prompt name.
+
+        Returns:
+            A PromptInfo object with prompt metadata, or None if not found.
+        """
+        return self.store.get_prompt(name)
+
+    def search_prompts(
+        self,
+        filter_string: Optional[str] = None,
+        max_results: Optional[int] = None,
+        order_by: Optional[list[str]] = None,
+        page_token: Optional[str] = None,
+    ) -> PagedList[PromptInfo]:
+        """
+        Search for prompts in the registry.
+
+        This method delegates directly to the store, providing Unity Catalog support
+        when used with Unity Catalog registries.
+
+        Args:
+            filter_string: Filter query string. For Unity Catalog registries, must include
+                catalog and schema: "catalog = 'catalog_name' AND schema = 'schema_name'".
+                For traditional registries, standard filter expressions are supported.
+            max_results: Maximum number of prompts to return.
+            order_by: List of column names with ASC|DESC annotation.
+            page_token: Token specifying the next page of results.
+
+        Returns:
+            A PagedList of PromptInfo objects.
+        """
+        return self.store.search_prompts(
+            filter_string=filter_string,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
+        )
+
+    def delete_prompt(self, name: str) -> None:
+        """
+        Delete a prompt from the registry.
+
+        This method delegates directly to the store, providing full Unity Catalog support
+        when used with Unity Catalog registries.
+
+        Args:
+            name: Name of the prompt to delete.
+
+        Returns:
+            None
+        """
+        self.store.delete_prompt(name)
+
+    def create_prompt_version(
+        self,
+        name: str,
+        template: str,
+        description: Optional[str] = None,
+        tags: Optional[dict[str, str]] = None,
+    ) -> Prompt:
+        """
+        Create a new version of an existing prompt.
+
+        This method delegates directly to the store, providing full Unity Catalog support
+        when used with Unity Catalog registries.
+
+        Args:
+            name: Name of the prompt.
+            template: The prompt template text for this version.
+            description: Optional description of this version.
+            tags: Optional dictionary of version tags.
+
+        Returns:
+            A Prompt object representing the new version.
+        """
+        return self.store.create_prompt_version(name, template, description, tags)
+
+    def get_prompt_version(self, name: str, version: str) -> Prompt:
+        """
+        Get a specific version of a prompt.
+
+        This method delegates directly to the store, providing full Unity Catalog support
+        when used with Unity Catalog registries.
+
+        Args:
+            name: Name of the prompt.
+            version: Version number of the prompt.
+
+        Returns:
+            A Prompt object.
+        """
+        return self.store.get_prompt_version(name, version)
+
+    def delete_prompt_version(self, name: str, version: str) -> None:
+        """
+        Delete a specific version of a prompt.
+
+        This method delegates directly to the store, providing full Unity Catalog support
+        when used with Unity Catalog registries.
+
+        Args:
+            name: Name of the prompt.
+            version: Version number to delete.
+
+        Returns:
+            None
+        """
+        self.store.delete_prompt_version(name, version)
+
+    def set_prompt_tag(self, name: str, key: str, value: str) -> None:
+        """
+        Set a tag on a prompt.
+
+        This method delegates directly to the store, providing full Unity Catalog support
+        when used with Unity Catalog registries.
+
+        Args:
+            name: Name of the prompt.
+            key: Tag key.
+            value: Tag value.
+
+        Returns:
+            None
+        """
+        self.store.set_prompt_tag(name, key, value)
+
+    def delete_prompt_tag(self, name: str, key: str) -> None:
+        """
+        Delete a tag from a prompt.
+
+        This method delegates directly to the store, providing full Unity Catalog support
+        when used with Unity Catalog registries.
+
+        Args:
+            name: Name of the prompt.
+            key: Tag key to delete.
+
+        Returns:
+            None
+        """
+        self.store.delete_prompt_tag(name, key)
+
+    def get_prompt_version_by_alias(self, name: str, alias: str) -> Prompt:
+        """
+        Get a prompt version by alias.
+
+        This method delegates directly to the store, providing full Unity Catalog support
+        when used with Unity Catalog registries.
+
+        Args:
+            name: Name of the prompt.
+            alias: Alias to look up.
+
+        Returns:
+            A Prompt object.
+        """
+        return self.store.get_prompt_version_by_alias(name, alias)
+
+    def set_prompt_alias(self, name: str, alias: str, version: str) -> None:
+        """
+        Set an alias for a prompt version.
+
+        This method delegates directly to the store, providing full Unity Catalog support
+        when used with Unity Catalog registries.
+
+        Args:
+            name: Name of the prompt.
+            alias: Alias to set.
+            version: Version to alias.
+
+        Returns:
+            None
+        """
+        self.store.set_prompt_alias(name, alias, version)
+
+    def delete_prompt_alias(self, name: str, alias: str) -> None:
+        """
+        Delete a prompt alias.
+
+        This method delegates directly to the store, providing full Unity Catalog support
+        when used with Unity Catalog registries.
+
+        Args:
+            name: Name of the prompt.
+            alias: Alias to delete.
+
+        Returns:
+            None
+        """
+        self.store.delete_prompt_alias(name, alias)
