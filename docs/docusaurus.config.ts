@@ -261,6 +261,7 @@ const config: Config = {
         ],
       },
     ],
+    '@signalwire/docusaurus-plugin-llms-txt',
   ],
 };
 

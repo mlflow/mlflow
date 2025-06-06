@@ -27,6 +27,7 @@
     "@docusaurus/plugin-client-redirects": "^3.6.3",
     "@docusaurus/preset-classic": "^3.6.3",
     "@mdx-js/react": "^3.0.0",
+    "@signalwire/docusaurus-plugin-llms-txt": "^1.0.1",
     "@types/node": "^22.8.6",
     "clsx": "^2.0.0",
     "fast-xml-parser": "^5.2.3",
