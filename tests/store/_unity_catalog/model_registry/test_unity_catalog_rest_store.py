@@ -68,7 +68,6 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
 )
 from mlflow.protos.databricks_uc_registry_messages_pb2 import ModelVersion as ProtoModelVersion
 from mlflow.protos.service_pb2 import GetRun
-
 from mlflow.store._unity_catalog.registry.rest_store import (
     _DATABRICKS_LINEAGE_ID_HEADER,
     _DATABRICKS_ORG_ID_HEADER,
@@ -2226,7 +2225,9 @@ def test_create_prompt_version_uc(mock_http, store, monkeypatch):
     # Patch proto_to_mlflow_prompt to return a dummy PromptVersion
     with mock.patch(
         "mlflow.store._unity_catalog.registry.rest_store.proto_to_mlflow_prompt",
-        return_value=PromptVersion(name=name, version=1, template=template, commit_message=description, prompt_tags=tags),
+        return_value=PromptVersion(
+            name=name, version=1, template=template, commit_message=description, prompt_tags=tags
+        ),
     ) as proto_to_prompt:
         store.create_prompt_version(
             name=name, template=template, description=description, tags=tags

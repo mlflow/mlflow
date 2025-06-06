@@ -606,7 +606,9 @@ class AbstractStore:
         # Default implementation: delete tag from registered model
         return self.delete_registered_model_tag(name, key)
 
-    def get_prompt(self, name: str, version: Optional[Union[str, int]] = None) -> Optional[PromptVersion]:
+    def get_prompt(
+        self, name: str, version: Optional[Union[str, int]] = None
+    ) -> Optional[PromptVersion]:
         """
         Get prompt by name and version or alias.
 

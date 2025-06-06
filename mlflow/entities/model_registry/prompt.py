@@ -11,7 +11,7 @@ from typing import Optional
 class Prompt:
     """
     Entity representing a prompt in the MLflow Model Registry.
-    
+
     This contains prompt-level information (name, description, tags) but not version-specific
     content. To access version-specific content like the template, use PromptVersion.
     """

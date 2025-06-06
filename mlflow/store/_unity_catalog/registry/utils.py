@@ -20,7 +20,6 @@ from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
 )
 
 
-
 def proto_to_mlflow_tags(proto_tags: list[ProtoPromptTag]) -> dict[str, str]:
     """Convert proto prompt tags to MLflow tags dictionary."""
     return {tag.key: tag.value for tag in proto_tags} if proto_tags else {}
