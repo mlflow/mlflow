@@ -11,7 +11,7 @@ Features:
 Bug fixes:
 
 - [Model Registry] Log Resources from SystemAuthPolicy in CreateModelVersion (#15485, @aravind-segu)
-- [Tracking] Trace search: Avoid spawning threads for span fetching if include_spans=False (#, @dbczumar)
+- [Tracking] Trace search: Avoid spawning threads for span fetching if include_spans=False (#15635, @dbczumar)
 
 Documentation updates:
 
