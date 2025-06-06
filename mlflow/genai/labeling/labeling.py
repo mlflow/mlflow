@@ -20,8 +20,8 @@ class Agent:
     """The agent configuration, used for generating responses in the review app.
 
     .. note::
-        This functionality is only available in Databricks. Please install `mlflow[databricks]`
-        to use it.
+        This functionality is only available in Databricks. Please run
+        `pip install mlflow[databricks]` to use it.
     """
 
     def __init__(self, agent: "_Agent"):
@@ -42,8 +42,8 @@ class LabelingSession:
     """A session for labeling items in the review app.
 
     .. note::
-        This functionality is only available in Databricks. Please install `mlflow[databricks]`
-        to use it.
+        This functionality is only available in Databricks. Please run
+        `pip install mlflow[databricks]` to use it.
     """
 
     def __init__(self, session: "_LabelingSession"):
@@ -110,8 +110,8 @@ class LabelingSession:
         """Add a dataset to the labeling session.
 
         .. note::
-            This functionality is only available in Databricks. Please install `mlflow[databricks]`
-            to use it.
+            This functionality is only available in Databricks. Please run
+            `pip install mlflow[databricks]` to use it.
 
         Args:
             dataset_name: The name of the dataset.
@@ -130,8 +130,8 @@ class LabelingSession:
         """Add traces to the labeling session.
 
         .. note::
-            This functionality is only available in Databricks. Please install `mlflow[databricks]`
-            to use it.
+            This functionality is only available in Databricks. Please run
+            `pip install mlflow[databricks]` to use it.
 
         Args:
             traces: Can be either:
@@ -149,8 +149,8 @@ class LabelingSession:
         """Sync the traces and expectations from the labeling session to a dataset.
 
         .. note::
-            This functionality is only available in Databricks. Please install `mlflow[databricks]`
-            to use it.
+            This functionality is only available in Databricks. Please run
+            `pip install mlflow[databricks]` to use it.
 
         Args:
             to_dataset: The name of the dataset to sync traces and expectations to.
@@ -161,8 +161,8 @@ class LabelingSession:
         """Set the assigned users for the labeling session.
 
         .. note::
-            This functionality is only available in Databricks. Please install `mlflow[databricks]`
-            to use it.
+            This functionality is only available in Databricks. Please run
+            `pip install mlflow[databricks]` to use it.
 
         Args:
             assigned_users: The list of users to assign to the session.
@@ -177,8 +177,8 @@ class ReviewApp:
     """A review app is used to collect feedback from stakeholders for a given experiment.
 
     .. note::
-        This functionality is only available in Databricks. Please install `mlflow[databricks]`
-        to use it.
+        This functionality is only available in Databricks. Please run
+        `pip install mlflow[databricks]` to use it.
     """
 
     def __init__(self, app: "_ReviewApp"):
@@ -215,8 +215,8 @@ class ReviewApp:
         """Add an agent to the review app to be used to generate responses.
 
         .. note::
-            This functionality is only available in Databricks. Please install `mlflow[databricks]`
-            to use it.
+            This functionality is only available in Databricks. Please run
+            `pip install mlflow[databricks]` to use it.
 
         Args:
             agent_name: The name of the agent.
@@ -238,8 +238,8 @@ class ReviewApp:
         """Remove an agent from the review app.
 
         .. note::
-            This functionality is only available in Databricks. Please install `mlflow[databricks]`
-            to use it.
+            This functionality is only available in Databricks. Please run
+            `pip install mlflow[databricks]` to use it.
 
         Args:
             agent_name: The name of the agent to remove.

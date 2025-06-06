@@ -27,8 +27,8 @@ class InputCategorical:
     """A single-select dropdown for collecting assessments from stakeholders.
 
     .. note::
-        This functionality is only available in Databricks. Please install `mlflow[databricks]`
-        to use it.
+        This functionality is only available in Databricks. Please run
+        `pip install mlflow[databricks]` to use it.
     """
 
     def __init__(self, label_schema_input: "_InputCategorical"):
@@ -43,8 +43,8 @@ class InputCategoricalList:
     """A multi-select dropdown for collecting assessments from stakeholders.
 
     .. note::
-        This functionality is only available in Databricks. Please install `mlflow[databricks]`
-        to use it.
+        This functionality is only available in Databricks. Please run
+        `pip install mlflow[databricks]` to use it.
     """
 
     def __init__(self, label_schema_input: "_InputCategoricalList"):
@@ -59,8 +59,8 @@ class InputTextList:
     """Like `Text`, but allows multiple entries.
 
     .. note::
-        This functionality is only available in Databricks. Please install `mlflow[databricks]`
-        to use it.
+        This functionality is only available in Databricks. Please run
+        `pip install mlflow[databricks]` to use it.
     """
 
     def __init__(self, label_schema_input: "_InputTextList"):
@@ -79,8 +79,8 @@ class InputText:
     """A free-form text box for collecting assessments from stakeholders.
 
     .. note::
-        This functionality is only available in Databricks. Please install `mlflow[databricks]`
-        to use it.
+        This functionality is only available in Databricks. Please run
+        `pip install mlflow[databricks]` to use it.
     """
 
     def __init__(self, label_schema_input: "_InputText"):
@@ -95,8 +95,8 @@ class InputNumeric:
     """A numeric input for collecting assessments from stakeholders.
 
     .. note::
-        This functionality is only available in Databricks. Please install `mlflow[databricks]`
-        to use it.
+        This functionality is only available in Databricks. Please run
+        `pip install mlflow[databricks]` to use it.
     """
 
     def __init__(self, label_schema_input: "_InputNumeric"):
@@ -122,8 +122,8 @@ class LabelSchema:
     """A label schema for collecting input from stakeholders.
 
     .. note::
-        This functionality is only available in Databricks. Please install `mlflow[databricks]`
-        to use it.
+        This functionality is only available in Databricks. Please run
+        `pip install mlflow[databricks]` to use it.
     """
 
     def __init__(

@@ -54,8 +54,8 @@ def create_label_schema(
     in the review app.
 
     .. note::
-        This functionality is only available in Databricks. Please install `mlflow[databricks]`
-        to use it.
+        This functionality is only available in Databricks. Please run
+        `pip install mlflow[databricks]` to use it.
 
     Args:
         name: The name of the label schema. Must be unique across the review app.
@@ -90,8 +90,8 @@ def get_label_schema(name: str) -> LabelSchema:
     """Get a label schema from the review app.
 
     .. note::
-        This functionality is only available in Databricks. Please install `mlflow[databricks]`
-        to use it.
+        This functionality is only available in Databricks. Please run
+        `pip install mlflow[databricks]` to use it.
 
     Args:
         name: The name of the label schema to get.
@@ -118,8 +118,8 @@ def delete_label_schema(name: str) -> "ReviewApp":
     """Delete a label schema from the review app.
 
     .. note::
-        This functionality is only available in Databricks. Please install `mlflow[databricks]`
-        to use it.
+        This functionality is only available in Databricks. Please run
+        `pip install mlflow[databricks]` to use it.
 
     Args:
         name: The name of the label schema to delete.
