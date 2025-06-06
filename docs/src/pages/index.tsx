@@ -89,7 +89,7 @@ export default function Home(): JSX.Element {
               buttons={[
                 {
                   text: "Self Hosting",
-                  link: useBaseUrl("/ml"),
+                  link: useBaseUrl("/ml/"),
                 }
               ]}
             />
@@ -107,7 +107,7 @@ export default function Home(): JSX.Element {
                 },
                 {
                   text: "Self Hosting",
-                  link: useBaseUrl("/genai"),
+                  link: useBaseUrl("/genai/"),
                 }
               ]}
             />
