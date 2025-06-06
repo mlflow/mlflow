@@ -183,10 +183,12 @@ def test_evaluate_with_traces(pass_full_dataframe):
     if not pass_full_dataframe:
         data = data[["trace"]]
 
-    result = mlflow.genai.evaluate(
-        data=data,
-        scorers=[exact_match, max_length, relevance, has_trace],
-    )
+    # Disable logging traces to MLflow to avoid calling mlflow APIs which need to be mocked
+    with mock.patch.dict("os.environ", {"AGENT_EVAL_LOG_TRACES_TO_MLFLOW_ENABLED": "false"}):
+        result = mlflow.genai.evaluate(
+            data=data,
+            scorers=[exact_match, max_length, relevance, has_trace],
+        )
 
     metrics = result.metrics
     assert metrics["exact_match/mean"] == 0.0

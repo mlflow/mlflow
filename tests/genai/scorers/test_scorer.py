@@ -81,6 +81,8 @@ def test_trace_passed_to_builtin_scorers_correctly(sample_rag_trace):
             "databricks.agents.evals.judges.groundedness",
             return_value=Feedback(name="groundedness", value=CategoricalRating.YES),
         ) as mock_groundedness,
+        # Disable logging traces to MLflow to avoid calling mlflow APIs which need to be mocked
+        patch.dict("os.environ", {"AGENT_EVAL_LOG_TRACES_TO_MLFLOW_ENABLED": "false"}),
     ):
         mlflow.genai.evaluate(
             data=pd.DataFrame({"trace": [sample_rag_trace]}),
@@ -240,7 +242,16 @@ def test_scorer_on_genai_evaluate(sample_data, scorer_return):
         data=sample_data,
         scorers=[dummy_scorer],
     )
-    assert any("dummy_scorer" in metric for metric in results.metrics.keys())
+    if isinstance(scorer_return, Assessment):
+        assert any(scorer_return.name in metric for metric in results.metrics.keys())
+    elif isinstance(scorer_return, list) and all(
+        isinstance(item, Assessment) for item in scorer_return
+    ):
+        assert any(
+            item.name in metric for item in scorer_return for metric in results.metrics.keys()
+        )
+    else:
+        assert any("dummy_scorer" in metric for metric in results.metrics.keys())
 
 
 def test_custom_scorer_allow_none_return():
