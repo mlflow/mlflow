@@ -749,7 +749,7 @@ def save_model(
             raise MlflowException(
                 f"Failed to save Spark model to temporary DFS path '{tmp_path}' due to: {e}. "
                 f"This may be due to insufficient permissions or an invalid DFS location. "
-                f"To resolve this, specify the environment variable 'MLFLOW_DFS_TMP' "
+                f"To resolve this, specify the environment variable `MLFLOW_DFS_TMP` "
                 f"or the `dfs_tmpdir` argument with a UC volume path starting with '/Volumes/...'."
             )
 
