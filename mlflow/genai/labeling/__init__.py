@@ -31,7 +31,7 @@ def get_review_app(experiment_id: Optional[str] = None) -> "ReviewApp":
     except ImportError:
         raise ImportError(_ERROR_MSG) from None
 
-    return _get_review_app(experiment_id)
+    return ReviewApp(_get_review_app(experiment_id))
 
 
 def create_labeling_session(
@@ -97,7 +97,7 @@ def get_labeling_session(run_id: str) -> LabelingSession:
     )
     if labeling_session is None:
         raise ValueError(f"Labeling session with run_id `{run_id}` not found")
-    return labeling_session
+    return LabelingSession(labeling_session)
 
 
 def delete_labeling_session(labeling_session: LabelingSession) -> "ReviewApp":
@@ -109,7 +109,7 @@ def delete_labeling_session(labeling_session: LabelingSession) -> "ReviewApp":
     Returns:
         ReviewApp: The review app.
     """
-    return get_review_app().delete_labeling_session(labeling_session._session)
+    return ReviewApp(get_review_app().delete_labeling_session(labeling_session._session))
 
 
 __all__ = [

@@ -17,6 +17,7 @@ from mlflow.genai.label_schemas.label_schemas import (
     LabelSchema,
     LabelSchemaType,
 )
+from mlflow.genai.labeling import ReviewApp
 
 if TYPE_CHECKING:
     from databricks.agents.review_app import ReviewApp
@@ -102,7 +103,7 @@ def get_label_schema(name: str) -> LabelSchema:
     )
     if label_schema is None:
         raise ValueError(f"Label schema with name `{name}` not found")
-    return label_schema
+    return LabelSchema(label_schema)
 
 
 def delete_label_schema(name: str) -> "ReviewApp":
@@ -120,7 +121,7 @@ def delete_label_schema(name: str) -> "ReviewApp":
         raise ImportError(_ERROR_MSG) from None
 
     app = review_app.get_review_app()
-    return app.delete_label_schema(name)
+    return ReviewApp(app.delete_label_schema(name))
 
 
 __all__ = [
