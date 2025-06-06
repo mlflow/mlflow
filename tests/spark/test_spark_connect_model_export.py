@@ -21,12 +21,14 @@ from tests.helper_functions import pyfunc_serve_and_score_model
 from tests.pyfunc.test_spark import score_model_as_udf
 from tests.spark.test_spark_model_export import SparkModelWithData
 
+PYSPARK_VERSION = Version(pyspark.__version__)
+
 
 def _get_spark_connect_session():
     builder = SparkSession.builder.remote("local[2]").config(
         "spark.connect.copyFromLocalToFs.allowDestLocal", "true"
     )
-    if not Version(pyspark.__version__).is_devrelease:
+    if not PYSPARK_VERSION.is_devrelease and PYSPARK_VERSION.major < 4:
         builder.config(
             "spark.jars.packages", f"org.apache.spark:spark-connect_2.12:{pyspark.__version__}"
         )

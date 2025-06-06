@@ -7,7 +7,7 @@ docker<8,>=4.0.0
 Flask<4
 numpy<3
 scipy<2
-pandas<3
+pandas<3,!=2.3.0
 sqlalchemy<3,>=1.4.0
 gunicorn<24; platform_system != 'Windows'
 waitress<4; platform_system == 'Windows'

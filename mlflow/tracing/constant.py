@@ -7,6 +7,11 @@ class TraceMetadataKey:
     SIZE_BYTES = "mlflow.trace.sizeBytes"
     # Aggregated token usage information in a single trace, stored as a dumped JSON string.
     TOKEN_USAGE = "mlflow.trace.tokenUsage"
+    # Store the user ID/name of the application request. Do not confuse this with mlflow.user
+    # tag, which stores "who created the trace" i.e. developer or system name.
+    TRACE_USER = "mlflow.trace.user"
+    # Store the session ID of the application request.
+    TRACE_SESSION = "mlflow.trace.session"
 
 
 class TraceTagKey:

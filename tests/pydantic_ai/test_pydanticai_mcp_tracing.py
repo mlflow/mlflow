@@ -9,34 +9,6 @@ from mlflow.entities.trace import SpanType
 from tests.tracing.helper import get_traces
 
 
-@pytest.fixture(autouse=True)
-def clear_autolog_state():
-    from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
-
-    for key in AUTOLOGGING_INTEGRATIONS.keys():
-        AUTOLOGGING_INTEGRATIONS[key].clear()
-    mlflow.utils.import_hooks._post_import_hooks = {}
-
-
-@pytest.fixture(autouse=True)
-def mock_openai_creds(monkeypatch):
-    monkeypatch.setenv("OPENAI_API_KEY", "my-secret-key")
-
-
-@pytest.fixture(autouse=True)
-def mock_gemini_creds(monkeypatch):
-    monkeypatch.setenv("GEMINI_API_KEY", "my-secret-key")
-
-
-@pytest.fixture(autouse=True)
-def reset_mlflow_autolog_and_traces():
-    mlflow.autolog(disable=True)
-    get_traces().clear()
-    yield
-    mlflow.autolog(disable=True)
-    get_traces().clear()
-
-
 @pytest.mark.asyncio
 async def test_mcp_server_list_tools_autolog():
     tools_list = [
