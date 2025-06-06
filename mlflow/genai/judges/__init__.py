@@ -1,5 +1,6 @@
 from mlflow.genai.judges.databricks import (
     CategoricalRating,
+    custom_prompt_judge,
     is_context_relevant,
     is_context_sufficient,
     is_correct,
@@ -16,4 +17,5 @@ __all__ = [
     "is_context_relevant",
     "is_context_sufficient",
     "meets_guidelines",
+    "custom_prompt_judge",
 ]
