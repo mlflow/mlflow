@@ -22,6 +22,8 @@ import { DeleteExperimentModal } from './modals/DeleteExperimentModal';
 import { RenameExperimentModal } from './modals/RenameExperimentModal';
 import { withRouterNext, WithRouterNextProps } from '../../common/utils/withRouterNext';
 import { ExperimentEntity } from '../types';
+import { defaultContext, QueryClient } from '../../common/utils/reactQueryHooks';
+import { ExperimentListQueryKeyHeader } from './experiment-page/hooks/useExperimentListQuery';
 
 type Props = {
   activeExperimentIds: string[];
@@ -41,6 +43,13 @@ type State = {
 };
 
 export class ExperimentListView extends Component<Props, State> {
+  static contextType = defaultContext;
+  // declare context: QueryClient; // FIXME
+
+  invalidateExperimentList = () => {
+    this.context.invalidateQueries({ queryKey: [ExperimentListQueryKeyHeader] });
+  };
+
   list?: VList = undefined;
 
   state = {
@@ -271,6 +280,7 @@ export class ExperimentListView extends Component<Props, State> {
         <CreateExperimentModal
           isOpen={this.state.showCreateExperimentModal}
           onClose={this.handleCloseCreateExperimentModal}
+          invalidate={this.invalidateExperimentList}
         />
         <DeleteExperimentModal
           isOpen={this.state.showDeleteExperimentModal}
@@ -278,6 +288,7 @@ export class ExperimentListView extends Component<Props, State> {
           activeExperimentIds={activeExperimentIds}
           experimentId={this.state.selectedExperimentId}
           experimentName={this.state.selectedExperimentName}
+          invalidate={this.invalidateExperimentList}
         />
         <RenameExperimentModal
           isOpen={this.state.showRenameExperimentModal}
