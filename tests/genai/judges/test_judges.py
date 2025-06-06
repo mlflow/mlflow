@@ -115,3 +115,20 @@ def test_judge_functions_happy_path(judge_func, agents_judge_name, args):
         assert isinstance(result.value, judges.CategoricalRating)
         assert result.value == judges.CategoricalRating.YES
         mock_judge.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("name", "expected_name"),
+    [
+        (None, "relevance_to_context"),
+        ("test", "test"),
+    ],
+)
+def test_judge_functions_called_with_correct_name(name, expected_name):
+    with patch("databricks.agents.evals.judges.relevance_to_query") as mock_judge:
+        judges.is_context_relevant(request="test", context="test", name=name)
+        mock_judge.assert_called_once_with(
+            request="test",
+            response="test",
+            assessment_name=expected_name,
+        )

@@ -4,6 +4,9 @@ from typing import Any, Optional, Union
 from mlflow.entities.assessment import Feedback
 from mlflow.genai.utils.enum_utils import StrEnum
 
+# NB: User-facing name for the is_context_relevant assessment.
+_IS_CONTEXT_RELEVANT_ASSESSMENT_NAME = "relevance_to_context"
+
 
 class CategoricalRating(StrEnum):
     """
@@ -113,7 +116,9 @@ def is_context_relevant(*, request: str, context: Any, name: Optional[str] = Non
         relevance_to_query(
             request=request,
             response=str(context),
-            assessment_name=name,
+            # NB: User-facing name for the is_context_relevant assessment. This is required since
+            #     the existing databricks judge is called `relevance_to_query`
+            assessment_name=name or _IS_CONTEXT_RELEVANT_ASSESSMENT_NAME,
         )
     )
 
