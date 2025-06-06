@@ -7,14 +7,14 @@ from mlflow.genai.scorers import Scorer, scorer
 
 try:
     from mlflow.genai.labeling import (
-        Agent,  # noqa: F401
-        LabelingSession,  # noqa: F401
-        ReviewApp,  # noqa: F401
-        create_labeling_session,  # noqa: F401
-        delete_labeling_session,  # noqa: F401
-        get_labeling_session,  # noqa: F401
-        get_labeling_sessions,  # noqa: F401
-        get_review_app,  # noqa: F401
+        Agent,
+        LabelingSession,
+        ReviewApp,
+        create_labeling_session,
+        delete_labeling_session,
+        get_labeling_session,
+        get_labeling_sessions,
+        get_review_app,
     )
 except ImportError:
     # Silently fail if the databricks-agents package is not installed
@@ -47,6 +47,7 @@ __all__ = [
     "delete_dataset",
     "get_dataset",
     "optimize_prompt",
+    # Monitoring scorer exports
     "ScorerScheduleConfig",
     "add_scheduled_scorer",
     "update_scheduled_scorer",
@@ -54,19 +55,13 @@ __all__ = [
     "get_scheduled_scorer",
     "list_scheduled_scorers",
     "set_scheduled_scorers",
-    # Labeling exports (only included when databricks-agents is installed)
-    *(
-        [
-            "Agent",
-            "LabelingSession",
-            "ReviewApp",
-            "get_review_app",
-            "create_labeling_session",
-            "get_labeling_sessions",
-            "get_labeling_session",
-            "delete_labeling_session",
-        ]
-        if "Agent" in locals()
-        else []
-    ),
+    # Labeling exports
+    "Agent",
+    "LabelingSession",
+    "ReviewApp",
+    "get_review_app",
+    "create_labeling_session",
+    "get_labeling_sessions",
+    "get_labeling_session",
+    "delete_labeling_session",
 ]
