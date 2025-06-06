@@ -1061,20 +1061,6 @@ def _delete_tag():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-@run_limit
-def _delete_run():
-    request_message = _get_request_message(
-        DeleteRun(), schema={"run_id": [_assert_required, _assert_string]}
-    )
-    _get_tracking_store().delete_run(request_message.run_id)
-    response_message = DeleteRun.Response()
-    response = Response(mimetype="application/json")
-    response.set_data(message_to_json(response_message))
-    return response
-
-
-@catch_mlflow_exception
-@_disable_if_artifacts_only
 @search_limit
 def _get_run():
     request_message = _get_request_message(
