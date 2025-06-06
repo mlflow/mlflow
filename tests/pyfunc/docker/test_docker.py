@@ -22,11 +22,8 @@ from tests.pyfunc.docker.conftest import RESOURCE_DIR, get_released_mlflow_versi
 
 
 def assert_dockerfiles_equal(actual_dockerfile_path: Path, expected_dockerfile_path: Path):
-    actual_dockerfile = (
-        actual_dockerfile_path.read_text()
-        .replace(VERSION, get_released_mlflow_version())
-        # TODO: Remove this once https://github.com/pandas-dev/pandas/issues/61564 is resolved
-        .replace(" pandas!=2.3.0", "")
+    actual_dockerfile = actual_dockerfile_path.read_text().replace(
+        VERSION, get_released_mlflow_version()
     )
     expected_dockerfile = (
         expected_dockerfile_path.read_text()
@@ -50,8 +47,6 @@ def save_model(tmp_path):
         pip_requirements=[
             f"mlflow=={get_released_mlflow_version()}",
             f"scikit-learn=={sklearn.__version__}",
-            # TODO: Remove this once https://github.com/pandas-dev/pandas/issues/61564 is resolved
-            "pandas!=2.3.0",
         ],  # Skip requirements inference for speed up
     )
     return model_path
@@ -98,12 +93,7 @@ def test_build_image(tmp_path, params):
         # Replace mlflow dev version in Dockerfile with the latest released one
         dockerfile = Path(context_dir) / "Dockerfile"
         content = dockerfile.read_text()
-        content = content.replace(
-            f"pip install mlflow=={VERSION}",
-            # TODO: Remove ` pandas!=2.3.0` once https://github.com/pandas-dev/pandas/issues/61564
-            # is resolved
-            f"pip install mlflow=={get_released_mlflow_version()} pandas!=2.3.0",
-        )
+        content = content.replace(VERSION, get_released_mlflow_version())
         dockerfile.write_text(content)
 
         shutil.copytree(context_dir, dst_dir)
