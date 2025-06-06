@@ -380,16 +380,14 @@ def test_assessment_apis_only_available_in_databricks():
         mlflow.delete_assessment(trace_id="1234", assessment_id="1234")
 
 
-def test_search_traces_with_assessments(store, tracking_uri):
+@pytest.mark.parametrize("return_type", ["list", "pandas"])
+def test_search_traces_with_assessments(store, tracking_uri, return_type):
     # Create a trace info with an assessment
-    assessment = Feedback(
-        trace_id="test",
-        name="test",
-        value="test",
-        source=AssessmentSource(source_id="test", source_type=AssessmentSourceType.HUMAN),
-        create_time_ms=0,
-        last_update_time_ms=0,
-    )
+    assessments = [
+        Feedback(trace_id="test", name="feedback", value=1),
+        Expectation(trace_id="test", name="expected_response", value="MLflow"),
+        Expectation(trace_id="test", name="expected_facts", value=["fact1", "fact2"]),
+    ]
 
     trace_info = TraceInfoV2(
         request_id="test",
@@ -398,7 +396,7 @@ def test_search_traces_with_assessments(store, tracking_uri):
         execution_time_ms=0,
         status=TraceStatus.OK,
         tags={"mlflow.artifactLocation": "test"},
-        assessments=[assessment],  # Include the assessment here
+        assessments=assessments,  # Include the assessment here
     )
 
     # Mock the search_traces to return our trace_info
@@ -411,16 +409,21 @@ def test_search_traces_with_assessments(store, tracking_uri):
         res = mlflow.search_traces(
             experiment_ids=["0"],
             max_results=2,
-            return_type="list",
+            return_type=return_type,
         )
 
     # Verify the results
     assert len(res) == 2
-    for trace in res:
-        assert trace.info.assessments is not None
-        assert len(trace.info.assessments) == 1
-        assert trace.info.assessments[0].trace_id == "test"
-        assert trace.info.assessments[0].name == "test"
+    if return_type == "list":
+        for trace in res:
+            assert trace.info.assessments == assessments
+    elif return_type == "pandas":
+        for _, row in res.iterrows():
+            assert row.assessments == assessments
+            assert row.expectations == {
+                "expected_response": "MLflow",
+                "expected_facts": ["fact1", "fact2"],
+            }
 
     # Verify the search_traces was called
     assert store.search_traces.call_count == 1
