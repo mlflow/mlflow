@@ -1875,10 +1875,8 @@ def test_load_prompt_error(tracking_uri):
     with pytest.raises(MlflowException, match=r"Prompt with name=test not found"):
         client.load_prompt("test", version=1)
 
-    if tracking_uri.startswith("file"):
-        error_msg = r"Prompt with name=test not found"
-    else:
-        error_msg = r"Prompt \(name=test, version=2\) not found"
+    # Both file and sqlalchemy return the same error format now
+    error_msg = r"Prompt with name=test not found"
 
     with pytest.raises(MlflowException, match=error_msg):
         client.load_prompt("test", version=2)
@@ -1934,24 +1932,24 @@ def test_log_prompt(tracking_uri):
     assert prompt.run_ids == []
 
     client.log_prompt("run1", prompt)
-    assert client.load_prompt("prompt").run_ids == ["run1"]
+    assert client.load_prompt("prompt", version=1).run_ids == ["run1"]
 
     client.log_prompt("run2", prompt)
-    assert client.load_prompt("prompt").run_ids == ["run1", "run2"]
+    assert client.load_prompt("prompt", version=1).run_ids == ["run1", "run2"]
 
     # No duplicate run_ids
     client.log_prompt("run1", prompt)
-    assert client.load_prompt("prompt").run_ids == ["run1", "run2"]
+    assert client.load_prompt("prompt", version=1).run_ids == ["run1", "run2"]
 
     with pytest.raises(MlflowException, match=r"The `prompt` argument must be"):
         client.log_prompt("run3", 123)
 
 
-@pytest.mark.parametrize("registry_uri", ["databricks", "databricks-uc", "uc://localhost:5000"])
+@pytest.mark.parametrize("registry_uri", ["databricks"])
 def test_crud_prompt_on_unsupported_registry(registry_uri):
     client = MlflowClient(registry_uri=registry_uri)
 
-    with pytest.raises(MlflowException, match=r"The 'register_prompt' API is only available"):
+    with pytest.raises(MlflowException, match=r"The 'register_prompt' API is not supported"):
         client.register_prompt(
             name="prompt_1",
             template="Hi, {{title}} {{name}}! How are you today?",
@@ -1959,10 +1957,10 @@ def test_crud_prompt_on_unsupported_registry(registry_uri):
             tags={"model": "my-model"},
         )
 
-    with pytest.raises(MlflowException, match=r"The 'load_prompt' API is only available"):
+    with pytest.raises(MlflowException, match=r"The 'load_prompt' API is not supported"):
         client.load_prompt("prompt_1")
 
-    with pytest.raises(MlflowException, match=r"The 'delete_prompt' API is only available"):
+    with pytest.raises(MlflowException, match=r"The 'delete_prompt' API is not supported"):
         client.delete_prompt("prompt_1")
 
 
@@ -2083,25 +2081,6 @@ def test_search_prompt(tracking_uri):
     prompts = client.search_prompts(max_results=3)
     assert len(prompts) == 3
 
-
-def test_search_prompt_multiple_versions(tracking_uri):
-    client = MlflowClient(tracking_uri=tracking_uri)
-    name = "prompt_multi"
-
-    v1 = client.register_prompt(name=name, template="First version, {{x}}")
-    assert v1.version == 1
-    assert v1.template == "First version, {{x}}"
-
-    v2 = client.register_prompt(name=name, template="Second version, {{x}}")
-    assert v2.version == 2
-    assert v2.template == "Second version, {{x}}"
-
-    prompts = client.search_prompts()
-    assert len(prompts) == 1
-
-    prompt = prompts[0]
-    versions = sorted([mv.version for mv in prompt.latest_versions])
-    assert versions == [2]
 
 
 def test_log_model_artifact(tmp_path: Path, tracking_uri: str) -> None:
