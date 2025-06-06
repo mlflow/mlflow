@@ -133,7 +133,7 @@ def _list_run_artifacts(
     run_id: Optional[str] = None,
     artifact_path: Optional[str] = None,
     tracking_uri: Optional[str] = None,
-):
+) -> list[FileInfo]:
     """List artifacts at the specified URI.
 
     Args:
