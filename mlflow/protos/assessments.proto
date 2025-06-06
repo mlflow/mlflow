@@ -35,6 +35,9 @@ message AssessmentError {
   optional string error_code = 1;
 
   optional string error_message = 2;
+
+  // Stack trace of the error. Truncated to 1000 characters to avoid making TraceInfo too large.
+  optional string stack_trace = 3;
 }
 
 // An expectation for the values or guidelines for the outputs that a model or agent should produce
@@ -127,4 +130,14 @@ message Assessment {
   // Additional metadata describing the assessment and store additional information,
   // such as the chunk relevance chunk_index. This metadata is required to be JSON-serializable.
   map<string, string> metadata = 13;
+
+  // The ID of the assessment which this assessment overrides.
+  optional string overrides = 14;
+
+  // Whether this assessment is valid (i.e. has not been superseded)
+  // defaults to true, and is set to false if a new superseding assessment
+  // is created.
+  optional bool valid = 15 [
+    default = true
+  ];
 }

@@ -36,7 +36,7 @@ from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY
 from mlflow.entities.multipart_upload import MultipartUploadPart
-from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_DEPLOYMENTS_TARGET
 from mlflow.exceptions import MlflowException, _UnsupportedMultipartUploadException
@@ -107,6 +107,7 @@ from mlflow.protos.service_pb2 import (
     ListLoggedModelArtifacts,
     LogBatch,
     LogInputs,
+    LogLoggedModelParamsRequest,
     LogMetric,
     LogModel,
     LogOutputs,
@@ -223,7 +224,7 @@ def _get_artifact_repo_mlflow_artifacts():
     return _artifact_repo
 
 
-def _get_trace_artifact_repo(trace_info: TraceInfo):
+def _get_trace_artifact_repo(trace_info: TraceInfoV2):
     """
     Resolve the artifact repository for fetching data for the given trace.
 
@@ -1419,6 +1420,27 @@ def search_datasets_impl(request_message):
         return _not_implemented()
 
 
+def _validate_gateway_path(method: str, gateway_path: str) -> None:
+    if not gateway_path:
+        raise MlflowException(
+            message="Deployments proxy request must specify a gateway_path.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    elif method == "GET":
+        if gateway_path.strip("/") != "api/2.0/endpoints":
+            raise MlflowException(
+                message=f"Invalid gateway_path: {gateway_path} for method: {method}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+    elif method == "POST":
+        # For POST, gateway_path must be in the form of "gateway/{name}/invocations"
+        if not re.fullmatch(r"gateway/[^/]+/invocations", gateway_path.strip("/")):
+            raise MlflowException(
+                message=f"Invalid gateway_path: {gateway_path} for method: {method}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+
 @catch_mlflow_exception
 def gateway_proxy_handler():
     target_uri = MLFLOW_DEPLOYMENTS_TARGET.get()
@@ -1427,18 +1449,10 @@ def gateway_proxy_handler():
         return {"endpoints": []}
 
     args = request.args if request.method == "GET" else request.json
-
     gateway_path = args.get("gateway_path")
-    if not gateway_path:
-        raise MlflowException(
-            message="Deployments proxy request must specify a gateway_path.",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
-    request_type = request.method
+    _validate_gateway_path(request.method, gateway_path)
     json_data = args.get("json_data", None)
-
-    response = requests.request(request_type, f"{target_uri}/{gateway_path}", json=json_data)
-
+    response = requests.request(request.method, f"{target_uri}/{gateway_path}", json=json_data)
     if response.status_code == 200:
         return response.json()
     else:
@@ -1957,7 +1971,6 @@ def _create_model_version():
             "run_link": [_assert_string],
             "description": [_assert_string],
             "model_id": [_assert_string],
-            "model_params": [_assert_array],
         },
     )
 
@@ -1976,7 +1989,6 @@ def _create_model_version():
         tags=request_message.tags,
         description=request_message.description,
         model_id=request_message.model_id,
-        model_params=request_message.model_params,
     )
     if not _is_prompt_request(request_message) and request_message.model_id:
         tracking_store = _get_tracking_store()
@@ -2716,6 +2728,25 @@ def _create_logged_model():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+def _log_logged_model_params(model_id: str):
+    request_message = _get_request_message(
+        LogLoggedModelParamsRequest(),
+        schema={
+            "model_id": [_assert_string, _assert_required],
+            "params": [_assert_array],
+        },
+    )
+    params = (
+        [LoggedModelParameter.from_proto(param) for param in request_message.params]
+        if request_message.params
+        else []
+    )
+    _get_tracking_store().log_logged_model_params(model_id, params)
+    return _wrap_response(LogLoggedModelParamsRequest.Response())
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
 def _get_logged_model(model_id: str):
     model = _get_tracking_store().get_logged_model(model_id)
     response_message = GetLoggedModel.Response(model=model.to_proto())
@@ -2988,4 +3019,5 @@ HANDLERS = {
     DeleteLoggedModelTag: _delete_logged_model_tag,
     SearchLoggedModels: _search_logged_models,
     ListLoggedModelArtifacts: _list_logged_model_artifacts,
+    LogLoggedModelParamsRequest: _log_logged_model_params,
 }

@@ -25,6 +25,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.langchain.utils.chat import (
     convert_lc_generation_to_chat_message,
     convert_lc_message_to_chat_message,
+    parse_token_usage,
 )
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.fluent import start_span_no_context
@@ -344,12 +345,18 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
 
         # Record the chat messages attribute
         input_messages = llm_span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) or []
-        output_messages = [
-            convert_lc_generation_to_chat_message(gen)
-            for gen_list in response.generations
-            for gen in gen_list
-        ]
+        # response.generations is a nested list of messages
+        generations = [g for gen_list in response.generations for g in gen_list]
+        output_messages = [convert_lc_generation_to_chat_message(g) for g in generations]
         set_span_chat_messages(llm_span, input_messages + output_messages)
+
+        # Record the token usage attribute
+        try:
+            if usage := parse_token_usage(generations):
+                llm_span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
+        except Exception as e:
+            _logger.debug(f"Failed to log token usage for LangChain: {e}", exc_info=True)
+
         self._end_span(run_id, llm_span, outputs=response)
 
     def on_llm_error(

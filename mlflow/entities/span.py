@@ -297,6 +297,10 @@ class Span:
             end_time=data["end_time"],
             attributes=data["attributes"],
             status=SpanStatus(data["status_code"], data["status_message"]).to_otel_status(),
+            # Setting an empty resource explicitly. Otherwise OTel create a new Resource by
+            # Resource.create(), which introduces a significant overhead in some environments.
+            # https://github.com/mlflow/mlflow/issues/15625
+            resource=_OTelResource.get_empty(),
             events=[
                 OTelEvent(
                     name=event["name"],
@@ -317,14 +321,18 @@ class Span:
         )
         parent = _encode_span_id_to_byte(self._span.parent.span_id) if self._span.parent else b""
 
+        # NB: This is a workaround that some DBX internal code pass float timestamp
+        start_time_unix_nano = int(self._span.start_time) if self._span.start_time else None
+        end_time_unix_nano = int(self._span.end_time) if self._span.end_time else None
+
         return ProtoSpan(
             trace_id=_encode_trace_id_to_byte(self._span.context.trace_id),
             span_id=_encode_span_id_to_byte(self._span.context.span_id),
             trace_state=self._span.context.trace_state or "",
             parent_span_id=parent,
             name=self.name,
-            start_time_unix_nano=self._span.start_time,
-            end_time_unix_nano=self._span.end_time,
+            start_time_unix_nano=start_time_unix_nano,
+            end_time_unix_nano=end_time_unix_nano,
             events=[event.to_proto() for event in self.events],
             status=status,
             attributes={k: ParseDict(v, Value()) for k, v in self._span.attributes.items()},
@@ -446,6 +454,26 @@ class LiveSpan(Span):
                 :py:class:`SpanEvent <mlflow.entities.SpanEvent>` object.
         """
         self._span.add_event(event.name, event.attributes, event.timestamp)
+
+    def record_exception(self, exception: Union[str, Exception]):
+        """
+        Record an exception on the span, adding an exception event and setting span status to ERROR.
+
+        Args:
+            exception: The exception to record. Can be an Exception instance or a string
+                describing the exception.
+        """
+        if isinstance(exception, Exception):
+            self.add_event(SpanEvent.from_exception(exception))
+        elif isinstance(exception, str):
+            self.add_event(SpanEvent.from_exception(Exception(exception)))
+        else:
+            raise MlflowException(
+                "The `exception` parameter must be an Exception instance or a string.",
+                INVALID_PARAMETER_VALUE,
+            )
+
+        self.set_status(SpanStatusCode.ERROR)
 
     def end(
         self,
@@ -660,6 +688,9 @@ class NoOpSpan(Span):
         pass
 
     def add_event(self, event: SpanEvent):
+        pass
+
+    def record_exception(self, exception: Union[str, Exception]):
         pass
 
     def end(

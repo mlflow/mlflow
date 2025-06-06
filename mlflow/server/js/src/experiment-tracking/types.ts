@@ -451,6 +451,8 @@ export interface LoggedModelMetricProto {
   value?: number;
 }
 
+export type LoggedModelMetricDataset = Pick<LoggedModelMetricProto, 'dataset_digest' | 'dataset_name'>;
+
 export interface LoggedModelKeyValueProto {
   key?: string;
   value?: string;

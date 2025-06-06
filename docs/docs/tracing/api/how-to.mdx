@@ -209,5 +209,48 @@ The following configurations are available for async logging:
 | Environment Variable | Description | Default Value |
 |----------------------|-------------|---------------|
 |`MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS`|The maximum number of worker threads to use for async trace logging.|`10`|
-|`MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE`|The maximum number of traces that can be queued for logging. Traces will be discarded if the queue is full.|`50`|
-|`MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT`|Timeout in seconds for retrying failed trace logging. Namely, failed traces will be retried up to this timeout with backoff, after which they will be discarded.|`5`|
+|`MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE`|The maximum number of traces that can be queued for logging. Traces will be discarded if the queue is full.|`1000`|
+|`MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT`|Timeout in seconds for retrying failed trace logging. Namely, failed traces will be retried up to this timeout with backoff, after which they will be discarded.|`500`|
+
+
+## Customize Request and Response Preview in Trace UI
+
+The Traces tab in MLflow UI displays a list of traces logged in the MLflow tracking server. The `Request` and `Response` columns
+show the preview of the end input and output of the trace, so that you can quickly understand the trace.
+
+By default, the preview is truncated to a fix number of characters for each request and response. However, you can also customize the preview by setting the `request_preview` and `response_preview` parameters in the <APILink fn="mlflow.update_current_trace" /> function.
+
+Below is an example of setting a custom request preview for a trace to render large message history nicely in the UI.
+
+```python
+import mlflow
+import openai
+
+
+@mlflow.trace
+def predict(messages: list[dict]) -> str:
+    # Customize the request preview to show the first and last messages
+    custom_preview = f'{messages[0]["content"][:10]} ... {messages[-1]["content"][:10]}'
+    mlflow.update_current_trace(request_preview=custom_preview)
+
+    # Call the model
+    response = openai.chat.completions.create(
+        model="o4-mini",
+        messages=messages,
+    )
+
+    return response.choices[0].message.content
+
+
+messages = [
+    {"role": "user", "content": "Hi, how are you?"},
+    {"role": "assistant", "content": "I'm good, thank you!"},
+    {"role": "user", "content": "What's your name?"},
+    # ... (long message history)
+    {"role": "assistant", "content": "Bye!"},
+]
+predict(messages)
+
+# The request preview rendered in the UI will be:
+#     "Hi, how are you? ... Bye!"
+```

@@ -3,7 +3,7 @@ import json
 import mlflow
 from mlflow.entities.span import SpanType
 from mlflow.entities.span_status import SpanStatusCode
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.constant import TokenUsageKey, TraceMetadataKey
 
 from tests.tracing.helper import get_traces
 
@@ -102,6 +102,14 @@ def test_langgraph_tracing_prebuilt():
     assert tool_span.outputs["status"] == "success"
     assert tool_span.status.status_code == SpanStatusCode.OK
 
+    # Validate token usage
+    token_usage = json.loads(traces[0].info.trace_metadata[TraceMetadataKey.TOKEN_USAGE])
+    assert token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 15,
+        TokenUsageKey.OUTPUT_TOKENS: 30,
+        TokenUsageKey.TOTAL_TOKENS: 45,
+    }
+
 
 def test_langgraph_tracing_diy_graph():
     mlflow.langchain.autolog()
@@ -192,7 +200,7 @@ def test_langgraph_chat_agent_trace():
     traces = get_traces()
     assert len(traces) == 1
     assert traces[0].info.status == "OK"
-    assert traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID] == model_info.model_id
+    assert traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID] == model_info.model_id
     assert traces[0].data.spans[0].name == "LangGraph"
     assert traces[0].data.spans[0].inputs == input_example
 
@@ -201,6 +209,16 @@ def test_langgraph_chat_agent_trace():
     traces = get_traces()
     assert len(traces) == 2
     assert traces[0].info.status == "OK"
-    assert traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID] == model_info.model_id
+    assert traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID] == model_info.model_id
     assert traces[0].data.spans[0].name == "LangGraph"
     assert traces[0].data.spans[0].inputs == input_example
+
+
+def test_langgraph_autolog_with_update_current_span():
+    model_info = mlflow.langchain.log_model(
+        lc_model="tests/langgraph/sample_code/langgraph_with_autolog.py",
+        input_example={"status": "done"},
+    )
+    assert model_info.signature is not None
+    assert model_info.signature.inputs is not None
+    assert model_info.signature.outputs is not None

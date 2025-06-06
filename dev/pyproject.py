@@ -181,6 +181,8 @@ def build(package_type: PackageType) -> None:
                     "google-cloud-storage>=1.30.0",
                     "boto3>1",
                     "botocore",
+                    # TODO: Remove `rc2` once `databricks-agents==1.0.0` is available on PyPI.
+                    "databricks-agents>=1.0.0rc2,<2.0",
                 ],
                 "mlserver": [
                     # Required to serve models through MLServer
@@ -233,7 +235,6 @@ def build(package_type: PackageType) -> None:
                     "mlflow": [
                         "store/db_migrations/alembic.ini",
                         "temporary_db_migrations_for_pre_1_users/alembic.ini",
-                        "pypi_package_index.json",
                         "pyspark/ml/log_model_allowlist.txt",
                         "server/auth/basic_auth.ini",
                         "server/auth/db/migrations/alembic.ini",

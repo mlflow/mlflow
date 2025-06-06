@@ -5,7 +5,7 @@ from typing import Optional
 from opentelemetry.sdk.trace import Span as OTelSpan
 from opentelemetry.sdk.trace.export import SpanExporter
 
-from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.processor.base_mlflow import BaseMlflowSpanProcessor
@@ -39,7 +39,7 @@ class MlflowV2SpanProcessor(BaseMlflowSpanProcessor):
         # so we instead keep track of the warning issuance state manually.
         self._issued_default_exp_warning = False
 
-    def _start_trace(self, span: OTelSpan) -> TraceInfo:
+    def _start_trace(self, span: OTelSpan) -> TraceInfoV2:
         # If the user started trace/span with fixed start time, this attribute is set
         start_time_ns = get_otel_attribute(span, SpanAttributeKey.START_TIME_NS)
 
@@ -67,7 +67,7 @@ class MlflowV2SpanProcessor(BaseMlflowSpanProcessor):
             tags=self._get_basic_trace_tags(span),
         )
 
-        self._trace_manager.register_trace(span.context.trace_id, trace_info)
+        self._trace_manager.register_trace(span.context.trace_id, trace_info.to_v3())
 
         # NB: This is a workaround to exclude the latency of backend StartTrace API call (within
         #   _create_trace_info()) from the execution time of the span. The API call takes ~1 sec

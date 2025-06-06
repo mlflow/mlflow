@@ -16,7 +16,12 @@ from opentelemetry.sdk.trace import Span as OTelSpan
 from packaging.version import Version
 
 from mlflow.exceptions import BAD_REQUEST, MlflowTracingException
-from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX, SpanAttributeKey
+from mlflow.tracing.constant import (
+    TRACE_REQUEST_ID_PREFIX,
+    SpanAttributeKey,
+    TokenUsageKey,
+    TraceMetadataKey,
+)
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
 from mlflow.version import IS_TRACING_SDK_ONLY
 
@@ -25,14 +30,13 @@ _logger = logging.getLogger(__name__)
 SPANS_COLUMN_NAME = "spans"
 
 if TYPE_CHECKING:
-    from mlflow.entities import LiveSpan
+    from mlflow.entities import LiveSpan, Trace
     from mlflow.pyfunc.context import Context
     from mlflow.types.chat import ChatMessage, ChatTool
 
 
 def capture_function_input_args(func, args, kwargs) -> Optional[dict[str, Any]]:
     try:
-        # Avoid capturing `self`
         func_signature = inspect.signature(func)
         bound_arguments = func_signature.bind(*args, **kwargs)
         bound_arguments.apply_defaults()
@@ -40,6 +44,12 @@ def capture_function_input_args(func, args, kwargs) -> Optional[dict[str, Any]]:
         # Remove `self` from bound arguments if it exists
         if bound_arguments.arguments.get("self"):
             del bound_arguments.arguments["self"]
+
+        # Remove `cls` from bound arguments if it's the first parameter and it's a type
+        # This detects classmethods more reliably
+        params = list(bound_arguments.arguments.keys())
+        if params and params[0] == "cls" and isinstance(bound_arguments.arguments["cls"], type):
+            del bound_arguments.arguments["cls"]
 
         return bound_arguments.arguments
     except Exception:
@@ -113,7 +123,8 @@ class TraceJSONEncoder(json.JSONEncoder):
             from llama_index.core.chat_engine.types import StreamingAgentChatResponse
 
             if isinstance(
-                obj, (AsyncStreamingResponse, StreamingResponse, StreamingAgentChatResponse)
+                obj,
+                (AsyncStreamingResponse, StreamingResponse, StreamingAgentChatResponse),
             ):
                 return False
         except ImportError:
@@ -184,6 +195,41 @@ def deduplicate_span_names_in_place(spans: list[LiveSpan]):
         if count := span_name_counter.get(span.name):
             span_name_counter[span.name] += 1
             span._span._name = f"{span.name}_{count}"
+
+
+def aggregate_usage_from_spans(spans: list[LiveSpan]) -> Optional[dict[str, int]]:
+    """Aggregate token usage information from all spans in the trace."""
+    input_tokens, output_tokens, total_tokens = 0, 0, 0
+    has_usage_data = False
+
+    span_id_to_spans = {span.span_id: span for span in spans}
+    for span in spans:
+        # Get usage attribute from span
+        if usage := span.get_attribute(SpanAttributeKey.CHAT_USAGE):
+            # If the parent span is also LLM/Chat span and has the token usage data,
+            # it tracks the same usage data by multiple flavors e.g. LangChain ChatOpenAI
+            # and OpenAI tracing. We should avoid double counting the usage data.
+            if (
+                span.parent_id
+                and (parent_span := span_id_to_spans.get(span.parent_id))
+                and parent_span.get_attribute(SpanAttributeKey.CHAT_USAGE)
+            ):
+                continue
+
+            input_tokens += usage.get(TokenUsageKey.INPUT_TOKENS, 0)
+            output_tokens += usage.get(TokenUsageKey.OUTPUT_TOKENS, 0)
+            total_tokens += usage.get(TokenUsageKey.TOTAL_TOKENS, 0)
+            has_usage_data = True
+
+    # If none of the spans have token usage data, we shouldn't log token usage metadata.
+    if not has_usage_data:
+        return None
+
+    return {
+        TokenUsageKey.INPUT_TOKENS: input_tokens,
+        TokenUsageKey.OUTPUT_TOKENS: output_tokens,
+        TokenUsageKey.TOTAL_TOKENS: total_tokens,
+    }
 
 
 def get_otel_attribute(span: trace_api.Span, key: str) -> Optional[str]:
@@ -303,7 +349,7 @@ def maybe_set_prediction_context(context: Optional["Context"]):
 
 def set_span_chat_messages(
     span: LiveSpan,
-    messages: Union[dict, ChatMessage],
+    messages: list[Union[dict, ChatMessage]],
     append=False,
 ):
     """
@@ -439,11 +485,61 @@ def set_chat_attributes_special_case(span: LiveSpan, inputs: Any, outputs: Any):
     """
     try:
         from mlflow.openai.utils.chat_schema import set_span_chat_attributes
-        from mlflow.types.responses import ResponsesAgentResponse
+        from mlflow.types.responses import ResponsesAgentResponse, ResponsesAgentStreamEvent
 
-        if ResponsesAgentResponse.validate_compat(outputs):
+        if isinstance(outputs, ResponsesAgentResponse):
             inputs = inputs["request"].model_dump_compat()
             set_span_chat_attributes(span, inputs, outputs)
-
+        elif isinstance(outputs, list) and all(
+            isinstance(o, ResponsesAgentStreamEvent) for o in outputs
+        ):
+            inputs = inputs["request"].model_dump_compat()
+            output_items = []
+            custom_outputs = None
+            for o in outputs:
+                if o.type == "response.output_item.done":
+                    output_items.append(o.item)
+                if o.custom_outputs:
+                    custom_outputs = o.custom_outputs
+            output = ResponsesAgentResponse(
+                output=output_items,
+                custom_outputs=custom_outputs,
+            )
+            set_span_chat_attributes(span, inputs, output)
     except Exception:
         pass
+
+
+def add_size_bytes_to_trace_metadata(trace: Trace):
+    """
+    Calculate the size of the trace in bytes and add it as a tag to the trace.
+
+    This method modifies the trace object in place by adding a new tag.
+
+    Note: For simplicity, we calculate the size without considering the size metadata itself.
+    This provides a close approximation without requiring complex calculations.
+    """
+    trace_size_bytes = len(trace.to_json().encode("utf-8"))
+    trace.info.trace_metadata[TraceMetadataKey.SIZE_BYTES] = str(trace_size_bytes)
+
+
+def update_trace_state_from_span_conditionally(trace, root_span):
+    """
+    Update trace state from span status, but only if the user hasn't explicitly set
+    a different trace status.
+
+    This utility preserves user-set trace status while maintaining default behavior
+    for traces that haven't been explicitly configured. Used by trace processors when
+    converting traces to an exportable state.
+
+    Args:
+        trace: The trace object to potentially update
+        root_span: The root span whose status may be used to update the trace state
+    """
+    from mlflow.entities.trace_state import TraceState
+
+    # Only update trace state from span status if trace is still IN_PROGRESS
+    # If the trace state is anything else, it means the user explicitly set it
+    # and we should preserve it
+    if trace.info.state == TraceState.IN_PROGRESS:
+        trace.info.state = TraceState.from_otel_status(root_span.status)

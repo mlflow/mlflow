@@ -52,8 +52,6 @@ _MODEL_DATA_SUBPATH = "model.h2o"
 
 _logger = logging.getLogger(__name__)
 
-warnings.warn("h2o flavor is deprecated and will be removed in MLflow 3.0.", FutureWarning)
-
 
 def get_default_pip_requirements():
     """

@@ -12,7 +12,7 @@ repos:
     rev: "v2.7.1"
     hooks:
       - id: prettier
-        files: '^(?!mlflow/pypi_package_index.json|docs/|mlflow/server/js/).+\.(js|md|json|ya?ml)$'
+        files: '^(?!docs/|mlflow/server/js/).+\.(js|md|json|ya?ml)$'
         args: ["--no-config", "--print-width", "100"]
         require_serial: true
   - repo: local
@@ -49,19 +49,11 @@ repos:
         stages: [pre-commit]
         require_serial: true
 
-      - id: check-notebooks
-        name: check-notebooks
-        entry: dev/check-notebooks.sh
-        language: system
-        files: '\.ipynb$'
-        stages: [pre-commit]
-        require_serial: true
-
-      - id: custom-python-lint
-        name: custom-python-lint
+      - id: clint
+        name: clint
         entry: clint
         language: system
-        files: '\.(py|ipynb)$'
+        files: '\.(py|ipynb|rst|mdx?)$'
         stages: [pre-commit]
         require_serial: true
 
@@ -151,7 +143,8 @@ repos:
       - id: conftest
         name: conftest
         entry: conftest test --policy .github/policy.rego
-        files: '^\.github/workflows/.*\.yml$'
+        files: '^\.github/(workflows|actions)/.*\.ya?ml$'
+        exclude: '^\.github/workflows/copilot-setup-steps\.yml$'
         language: system
         stages: [pre-commit]
         require_serial: true

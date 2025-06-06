@@ -389,9 +389,13 @@ def test_responses_agent_trace(
         def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
             return ResponsesAgentResponse(**outputs)
 
+        @mlflow.trace(span_type=SpanType.AGENT)
         def predict_stream(self, request: ResponsesAgentRequest):
-            # Dummy
-            pass
+            for item in outputs["output"]:
+                yield ResponsesAgentStreamEvent(
+                    type="response.output_item.done",
+                    item=item,
+                )
 
     model = TracedResponsesAgent()
     model.predict(ResponsesAgentRequest(**input))
@@ -408,42 +412,11 @@ def test_responses_agent_trace(
     else:
         assert SpanAttributeKey.CHAT_TOOLS not in spans[0].attributes
 
-
-def test_responses_agent_trace_dict_output(tmp_path):
-    class TracedResponsesAgent(ResponsesAgent):
-        @mlflow.trace(span_type=SpanType.AGENT)
-        def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
-            return {
-                "output": [
-                    {
-                        "type": "message",
-                        "id": "test",
-                        "status": "completed",
-                        "role": "assistant",
-                        "content": [{"type": "output_text", "text": "Dummy output"}],
-                    }
-                ],
-            }
-
-        def predict_stream(self, request: ResponsesAgentRequest):
-            # Dummy
-            pass
-
-    model = TracedResponsesAgent()
-    model.predict(ResponsesAgentRequest(**RESPONSES_AGENT_INPUT_EXAMPLE))
+    list(model.predict_stream(ResponsesAgentRequest(**input)))
 
     traces = get_traces()
-    assert len(traces) == 1
+    assert len(traces) == 2
     spans = traces[0].data.spans
     assert len(spans) == 1
-    assert spans[0].name == "predict"
-    assert spans[0].attributes[SpanAttributeKey.CHAT_MESSAGES] == [
-        {
-            "content": "Hello!",
-            "role": "user",
-        },
-        {
-            "content": [{"text": "Dummy output", "type": "text"}],
-            "role": "assistant",
-        },
-    ]
+    assert spans[0].name == "predict_stream"
+    assert spans[0].attributes[SpanAttributeKey.CHAT_MESSAGES] == expected_chat_messages

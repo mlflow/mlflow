@@ -14,16 +14,20 @@ from mlflow.entities import (
     Metric,
     Run,
     RunInfo,
-    TraceInfo,
+    TraceInfoV2,
     ViewType,
 )
 from mlflow.entities.assessment import Assessment, Expectation, Feedback
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_info import TraceInfo
-from mlflow.entities.trace_info_v3 import TraceInfoV3
+from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.environment_variables import MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT
+from mlflow.environment_variables import (
+    _MLFLOW_CREATE_LOGGED_MODEL_PARAMS_BATCH_SIZE,
+    _MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE,
+    MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
 from mlflow.protos.service_pb2 import (
@@ -41,6 +45,7 @@ from mlflow.protos.service_pb2 import (
     DeleteTraceTag,
     EndTrace,
     FinalizeLoggedModel,
+    GetAssessmentRequest,
     GetExperiment,
     GetExperimentByName,
     GetLoggedModel,
@@ -51,6 +56,7 @@ from mlflow.protos.service_pb2 import (
     GetTraceInfoV3,
     LogBatch,
     LogInputs,
+    LogLoggedModelParamsRequest,
     LogMetric,
     LogModel,
     LogOutputs,
@@ -272,7 +278,7 @@ class RestStore(AbstractStore):
         timestamp_ms: int,
         request_metadata: dict[str, str],
         tags: dict[str, str],
-    ) -> TraceInfo:
+    ) -> TraceInfoV2:
         """
         Start an initial TraceInfo object in the backend store.
 
@@ -308,9 +314,9 @@ class RestStore(AbstractStore):
             )
         )
         response_proto = self._call_endpoint(StartTrace, req_body)
-        return TraceInfo.from_proto(response_proto.trace_info)
+        return TraceInfoV2.from_proto(response_proto.trace_info)
 
-    def start_trace_v3(self, trace: Trace) -> TraceInfoV3:
+    def start_trace_v3(self, trace: Trace) -> TraceInfo:
         """
         Start a trace using the V3 API format.
 
@@ -333,7 +339,7 @@ class RestStore(AbstractStore):
             endpoint="/api/3.0/mlflow/traces",
             retry_timeout_seconds=MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT.get(),
         )
-        return TraceInfoV3.from_proto(response_proto.trace.trace_info)
+        return TraceInfo.from_proto(response_proto.trace.trace_info)
 
     def end_trace(
         self,
@@ -342,7 +348,7 @@ class RestStore(AbstractStore):
         status: TraceStatus,
         request_metadata: dict[str, str],
         tags: dict[str, str],
-    ) -> TraceInfo:
+    ) -> TraceInfoV2:
         """
         Update the TraceInfo object in the backend store with the completed trace info.
 
@@ -386,7 +392,7 @@ class RestStore(AbstractStore):
         # Always use v2 endpoint (not v3) for this endpoint to maintain compatibility
         endpoint = get_single_trace_endpoint(request_id, use_v3=False)
         response_proto = self._call_endpoint(EndTrace, req_body, endpoint=endpoint)
-        return TraceInfo.from_proto(response_proto.trace_info)
+        return TraceInfoV2.from_proto(response_proto.trace_info)
 
     def _delete_traces(
         self,
@@ -429,7 +435,7 @@ class RestStore(AbstractStore):
                 trace_v3_response_proto = self._call_endpoint(
                     GetTraceInfoV3, trace_v3_req_body, endpoint=trace_v3_endpoint
                 )
-                return TraceInfoV3.from_proto(trace_v3_response_proto.trace.trace_info)
+                return TraceInfo.from_proto(trace_v3_response_proto.trace.trace_info)
             except Exception:
                 # TraceV3 endpoint is not globally enabled yet; graceful fallback path.
                 _logger.debug(
@@ -439,7 +445,7 @@ class RestStore(AbstractStore):
         req_body = message_to_json(GetTraceInfo(request_id=request_id))
         endpoint = get_trace_info_endpoint(request_id)
         response_proto = self._call_endpoint(GetTraceInfo, req_body, endpoint=endpoint)
-        return TraceInfo.from_proto(response_proto.trace_info)
+        return TraceInfoV2.from_proto(response_proto.trace_info)
 
     def _is_databricks_tracking_uri(self):
         """
@@ -513,7 +519,7 @@ class RestStore(AbstractStore):
                     response_proto = self._call_endpoint(
                         SearchTracesV3Request, req_body, endpoint=endpoint
                     )
-                    trace_infos = [TraceInfoV3.from_proto(t) for t in response_proto.traces]
+                    trace_infos = [TraceInfo.from_proto(t) for t in response_proto.traces]
                 except Exception as e:
                     _logger.error(f"Error searching traces: {e!s}")
                     raise
@@ -531,7 +537,7 @@ class RestStore(AbstractStore):
 
                 try:
                     response_proto = self._call_endpoint(SearchTraces, req_body)
-                    trace_infos = [TraceInfo.from_proto(t).to_v3() for t in response_proto.traces]
+                    trace_infos = [TraceInfoV2.from_proto(t).to_v3() for t in response_proto.traces]
                 except Exception as e:
                     _logger.error(f"Error searching traces: {e!s}")
                     raise
@@ -546,7 +552,7 @@ class RestStore(AbstractStore):
                 page_token=page_token,
             )
             # Convert TraceInfo (v2) objects to TraceInfoV3 objects for consistency
-            trace_infos = [TraceInfo.from_proto(t).to_v3() for t in response_proto.traces]
+            trace_infos = [TraceInfoV2.from_proto(t).to_v3() for t in response_proto.traces]
         return trace_infos, response_proto.next_page_token or None
 
     def _search_unified_traces(
@@ -603,6 +609,23 @@ class RestStore(AbstractStore):
             req_body,
             endpoint=get_set_trace_tag_endpoint(request_id, is_databricks=False),
         )
+
+    def get_assessment(self, trace_id: str, assessment_id: str) -> Assessment:
+        """
+        Get an assessment entity from the backend store.
+        """
+        is_databricks = self._is_databricks_tracking_uri()
+        req_body = message_to_json(
+            GetAssessmentRequest(trace_id=trace_id, assessment_id=assessment_id)
+        )
+        response_proto = self._call_endpoint(
+            GetAssessmentRequest,
+            req_body,
+            endpoint=get_single_assessment_endpoint(
+                trace_id, assessment_id, is_databricks=is_databricks
+            ),
+        )
+        return Assessment.from_proto(response_proto.assessment)
 
     def create_assessment(self, assessment: Assessment) -> Assessment:
         """
@@ -891,18 +914,60 @@ class RestStore(AbstractStore):
         Returns:
             The created model.
         """
+        # Include the first 100 params in the initial request
+        initial_params = []
+        remaining_params = []
+        if params:
+            initial_batch_size = _MLFLOW_CREATE_LOGGED_MODEL_PARAMS_BATCH_SIZE.get()
+            initial_params = params[:initial_batch_size]
+            remaining_params = params[initial_batch_size:]
+
         req_body = message_to_json(
             CreateLoggedModel(
                 experiment_id=experiment_id,
                 name=name,
                 model_type=model_type,
                 source_run_id=source_run_id,
-                params=[p.to_proto() for p in params or []],
+                params=[p.to_proto() for p in initial_params],
                 tags=[t.to_proto() for t in tags or []],
             )
         )
+
         response_proto = self._call_endpoint(CreateLoggedModel, req_body)
-        return LoggedModel.from_proto(response_proto.model)
+        model = LoggedModel.from_proto(response_proto.model)
+
+        # Log remaining params if there are any
+        if remaining_params:
+            self.log_logged_model_params(model_id=model.model_id, params=remaining_params)
+            model = self.get_logged_model(model_id=model.model_id)
+
+        return model
+
+    def log_logged_model_params(self, model_id: str, params: list[LoggedModelParameter]) -> None:
+        """
+        Log parameters for a logged model in batches of 100.
+
+        Args:
+            model_id: ID of the model to log parameters for.
+            params: List of parameters to log.
+
+        Returns:
+            None
+        """
+        # Process params in batches to avoid exceeding per-request backend limits
+        batch_size = _MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE.get()
+        endpoint = get_logged_model_endpoint(model_id)
+        for i in range(0, len(params), batch_size):
+            batch = params[i : i + batch_size]
+            req_body = message_to_json(
+                LogLoggedModelParamsRequest(
+                    model_id=model_id,
+                    params=[p.to_proto() for p in batch],
+                )
+            )
+            self._call_endpoint(
+                LogLoggedModelParamsRequest, json_body=req_body, endpoint=f"{endpoint}/params"
+            )
 
     def get_logged_model(self, model_id: str) -> LoggedModel:
         """

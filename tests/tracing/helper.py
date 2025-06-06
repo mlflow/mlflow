@@ -14,7 +14,8 @@ from opentelemetry.sdk.trace import Event, ReadableSpan
 
 import mlflow
 from mlflow.entities import Trace, TraceData, TraceInfo
-from mlflow.entities.trace_status import TraceStatus
+from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_state import TraceState
 from mlflow.ml_package_versions import FLAVOR_TO_MODULE_NAME
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.export.inference_table import pop_trace
@@ -109,21 +110,21 @@ def create_trace(request_id) -> Trace:
 
 
 def create_test_trace_info(
-    request_id,
+    trace_id,
     experiment_id="test",
-    timestamp_ms=0,
-    execution_time_ms=1,
-    status=TraceStatus.OK,
-    request_metadata=None,
+    request_time=0,
+    execution_duration=1,
+    state=TraceState.OK,
+    trace_metadata=None,
     tags=None,
 ):
     return TraceInfo(
-        request_id=request_id,
-        experiment_id=experiment_id,
-        timestamp_ms=timestamp_ms,
-        execution_time_ms=execution_time_ms,
-        status=status,
-        request_metadata=request_metadata or {},
+        trace_id=trace_id,
+        trace_location=TraceLocation.from_experiment_id(experiment_id),
+        request_time=request_time,
+        execution_duration=execution_duration,
+        state=state,
+        trace_metadata=trace_metadata or {},
         tags=tags or {},
     )
 

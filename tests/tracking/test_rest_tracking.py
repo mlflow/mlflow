@@ -12,6 +12,7 @@ import posixpath
 import sys
 import time
 import urllib.parse
+from io import StringIO
 from unittest import mock
 
 import flask
@@ -39,6 +40,7 @@ from mlflow.entities.logged_model_output import LoggedModelOutput
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.environment_variables import MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT
 from mlflow.exceptions import MlflowException, RestException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
@@ -1939,6 +1941,39 @@ def test_gateway_proxy_handler_rejects_invalid_requests(mlflow_client):
             "Deployments proxy request must specify a gateway_path.",
         )
 
+        response = requests.post(
+            f"{patched_client.tracking_uri}/ajax-api/2.0/mlflow/gateway-proxy",
+            json={"gateway_path": "foo/bar"},
+        )
+        assert_response(
+            response,
+            "Invalid gateway_path: foo/bar for method: POST",
+        )
+
+        response = requests.post(
+            f"{patched_client.tracking_uri}/ajax-api/2.0/mlflow/gateway-proxy",
+            json={"gateway_path": "foo/bar/baz"},
+        )
+        assert_response(
+            response,
+            "Invalid gateway_path: foo/bar/baz for method: POST",
+        )
+
+        response = requests.get(
+            f"{patched_client.tracking_uri}/ajax-api/2.0/mlflow/gateway-proxy",
+            params={"gateway_path": "hello/world"},
+        )
+        assert_response(
+            response,
+            "Invalid gateway_path: hello/world for method: GET",
+        )
+
+        # Unsupported method
+        response = requests.delete(
+            f"{patched_client.tracking_uri}/ajax-api/2.0/mlflow/gateway-proxy",
+        )
+        assert response.status_code == 405
+
 
 def test_upload_artifact_handler_rejects_invalid_requests(mlflow_client):
     def assert_response(resp, message_part):
@@ -2513,6 +2548,14 @@ def test_create_logged_model(mlflow_client: MlflowClient):
     assert model.tags == {"tag": "value"}
 
 
+def test_log_logged_model_params(mlflow_client: MlflowClient):
+    exp_id = mlflow_client.create_experiment("create_logged_model")
+    model = mlflow_client.create_logged_model(exp_id)
+    mlflow_client.log_model_params(model.model_id, {"param": "value"})
+    loaded_model = mlflow_client.get_logged_model(model.model_id)
+    assert loaded_model.params == {"param": "value"}
+
+
 def test_finalize_logged_model(mlflow_client: MlflowClient):
     exp_id = mlflow_client.create_experiment("create_logged_model")
     model = mlflow_client.create_logged_model(exp_id)
@@ -2645,3 +2688,13 @@ def test_get_logged_model_artifact(mlflow_client: MlflowClient):
     )
     assert resp.status_code == 200
     assert model_info.model_id in resp.text
+
+
+def test_suppress_url_printing(mlflow_client: MlflowClient, monkeypatch):
+    monkeypatch.setenv(MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT.name, "true")
+    exp_id = mlflow_client.create_experiment("test_suppress_url_printing")
+    run = mlflow_client.create_run(experiment_id=exp_id)
+    captured_output = StringIO()
+    monkeypatch.setattr(sys, "stdout", captured_output)
+    mlflow_client._tracking_client._log_url(run.info.run_id)
+    assert captured_output.getvalue() == ""

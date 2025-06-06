@@ -1,5 +1,4 @@
 import json
-import uuid
 from typing import Optional
 
 from opentelemetry.context import Context
@@ -8,9 +7,11 @@ from opentelemetry.sdk.trace import Span as OTelSpan
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
 
 from mlflow.entities.trace_info import TraceInfo
-from mlflow.entities.trace_status import TraceStatus
+from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_state import TraceState
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
 from mlflow.tracing.trace_manager import InMemoryTraceManager
+from mlflow.tracing.utils import generate_trace_id_v3
 
 
 class OtelSpanProcessor(BatchSpanProcessor):
@@ -37,20 +38,17 @@ class OtelSpanProcessor(BatchSpanProcessor):
                 span is obtained from the global context, it won't be passed here so we should not
                 rely on it.
         """
-        # Generate a random request ID and trace info just for the sake of consistency
-        # with other tracing destinations. Doing this makes it much easier to handle
-        # multiple tracing destinations.
-        request_id = uuid.uuid4().hex
+        trace_id = generate_trace_id_v3(span)
         trace_info = TraceInfo(
-            request_id=request_id,
-            experiment_id=None,
-            timestamp_ms=span.start_time // 1_000_000,  # nanosecond to millisecond
-            execution_time_ms=None,
-            status=TraceStatus.IN_PROGRESS,
-            request_metadata={TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
+            trace_id=trace_id,
+            trace_location=TraceLocation.from_experiment_id(None),
+            request_time=span.start_time // 1_000_000,  # nanosecond to millisecond
+            execution_duration=None,
+            state=TraceState.IN_PROGRESS,
+            trace_metadata={TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
             tags={},
         )
-        span.set_attribute(SpanAttributeKey.REQUEST_ID, json.dumps(request_id))
+        span.set_attribute(SpanAttributeKey.REQUEST_ID, json.dumps(trace_id))
 
         self._trace_manager.register_trace(span.context.trace_id, trace_info)
 

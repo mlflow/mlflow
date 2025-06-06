@@ -4,14 +4,20 @@ from unittest import mock
 import pytest
 
 from mlflow.entities.span import LiveSpan
-from mlflow.entities.trace_status import TraceStatus
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.entities.trace_state import TraceState
+from mlflow.tracing.constant import (
+    TRACE_SCHEMA_VERSION,
+    TRACE_SCHEMA_VERSION_KEY,
+    SpanAttributeKey,
+    TraceMetadataKey,
+)
 from mlflow.tracing.processor.inference_table import (
     _HEADER_REQUEST_ID_KEY,
     InferenceTableSpanProcessor,
 )
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import generate_trace_id_v3
+from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_MODEL_SERVING_ENDPOINT_NAME
 
 from tests.tracing.helper import (
     create_mock_otel_span,
@@ -22,6 +28,7 @@ from tests.tracing.helper import (
 skip_module_when_testing_trace_sdk()
 
 from mlflow.pyfunc.context import Context, set_prediction_context
+from mlflow.tracking.fluent import set_active_model
 
 _OTEL_TRACE_ID = 12345
 _DATABRICKS_REQUEST_ID = "databricks-request-id"
@@ -35,9 +42,12 @@ def test_on_start(context_type):
     )
     trace_manager = InMemoryTraceManager.get_instance()
     processor = InferenceTableSpanProcessor(span_exporter=mock.MagicMock())
+    model = set_active_model(name="test-model")
 
     if context_type == "mlflow":
-        with set_prediction_context(Context(request_id=_DATABRICKS_REQUEST_ID)):
+        with set_prediction_context(
+            Context(request_id=_DATABRICKS_REQUEST_ID, endpoint_name="test-endpoint")
+        ):
             processor.on_start(span)
     else:
         with mock.patch(
@@ -58,7 +68,14 @@ def test_on_start(context_type):
         assert trace.info.experiment_id is None
         assert trace.info.timestamp_ms == 5
         assert trace.info.execution_time_ms is None
-        assert trace.info.status == TraceStatus.IN_PROGRESS
+        assert trace.info.state == TraceState.IN_PROGRESS
+
+        if context_type == "mlflow":
+            assert trace.info.request_metadata == {
+                TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
+                MLFLOW_DATABRICKS_MODEL_SERVING_ENDPOINT_NAME: "test-endpoint",
+                TraceMetadataKey.MODEL_ID: model.model_id,
+            }
 
     # Child span should not create a new trace
     child_span = create_mock_otel_span(
@@ -122,11 +139,83 @@ def test_on_end():
 
     mock_exporter.export.assert_called_once_with((otel_span,))
     # Trace info should be updated according to the span attributes
-    assert trace_info.status == TraceStatus.OK
-    assert trace_info.execution_time_ms == 4
+    assert trace_info.state == TraceState.OK
+    assert trace_info.execution_duration == 4
 
     # Non-root span should not be exported
     mock_exporter.reset_mock()
     child_span = create_mock_otel_span(trace_id=_OTEL_TRACE_ID, span_id=2, parent_id=1)
     processor.on_end(child_span)
     mock_exporter.export.assert_not_called()
+
+
+def test_on_end_preserves_user_set_trace_state():
+    """Test that explicitly set trace state is preserved when span ends."""
+    otel_span = create_mock_otel_span(
+        name="foo",
+        trace_id=_OTEL_TRACE_ID,
+        span_id=1,
+        parent_id=None,
+        start_time=5_000_000,
+        end_time=9_000_000,
+    )
+
+    trace_id = generate_trace_id_v3(otel_span)
+    trace_info = create_test_trace_info(trace_id, 0)
+    trace_manager = InMemoryTraceManager.get_instance()
+    trace_manager.register_trace(_OTEL_TRACE_ID, trace_info)
+
+    # Explicitly set trace state to ERROR (user action)
+    with trace_manager.get_trace(trace_id) as trace:
+        trace.info.state = TraceState.ERROR
+
+    span = LiveSpan(otel_span, trace_id)
+    span.set_status("OK")  # Span status is OK
+    span.set_inputs({"input1": "test"})
+    span.set_outputs({"output": "test"})
+
+    mock_exporter = mock.MagicMock()
+    processor = InferenceTableSpanProcessor(span_exporter=mock_exporter)
+
+    processor.on_end(otel_span)
+
+    # Trace state should remain ERROR (user-set), not be overwritten by span status (OK)
+    with trace_manager.get_trace(trace_id) as trace:
+        assert trace.info.state == TraceState.ERROR
+    assert trace_info.execution_duration == 4
+
+
+def test_on_end_updates_trace_state_when_in_progress():
+    """Test that trace state is updated from span when trace is still IN_PROGRESS."""
+    otel_span = create_mock_otel_span(
+        name="foo",
+        trace_id=_OTEL_TRACE_ID,
+        span_id=1,
+        parent_id=None,
+        start_time=5_000_000,
+        end_time=9_000_000,
+    )
+
+    trace_id = generate_trace_id_v3(otel_span)
+    trace_info = create_test_trace_info(trace_id, 0, state=TraceState.IN_PROGRESS)
+    trace_manager = InMemoryTraceManager.get_instance()
+    trace_manager.register_trace(_OTEL_TRACE_ID, trace_info)
+
+    # Trace state remains IN_PROGRESS (not explicitly set by user)
+    with trace_manager.get_trace(trace_id) as trace:
+        assert trace.info.state == TraceState.IN_PROGRESS
+
+    span = LiveSpan(otel_span, trace_id)
+    span.set_status("ERROR")  # Span status is ERROR
+    span.set_inputs({"input1": "test"})
+    span.set_outputs({"output": "test"})
+
+    mock_exporter = mock.MagicMock()
+    processor = InferenceTableSpanProcessor(span_exporter=mock_exporter)
+
+    processor.on_end(otel_span)
+
+    # Trace state should be updated to ERROR from span status
+    with trace_manager.get_trace(trace_id) as trace:
+        assert trace.info.state == TraceState.ERROR
+    assert trace_info.execution_duration == 4

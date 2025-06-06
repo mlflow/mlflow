@@ -32,7 +32,7 @@ from mlflow.entities import (
     RunStatus,
     RunTag,
     SourceType,
-    TraceInfo,
+    TraceInfoV2,
     ViewType,
     _DatasetSummary,
 )
@@ -1601,7 +1601,7 @@ class FileStore(AbstractStore):
         timestamp_ms: int,
         request_metadata: dict[str, str],
         tags: dict[str, str],
-    ) -> TraceInfo:
+    ) -> TraceInfoV2:
         """
         Start an initial TraceInfo object in the backend store.
 
@@ -1625,7 +1625,7 @@ class FileStore(AbstractStore):
         trace_dir = os.path.join(traces_dir, request_id)
         artifact_uri = self._get_traces_artifact_dir(experiment_id, request_id)
         tags.update({MLFLOW_ARTIFACT_LOCATION: artifact_uri})
-        trace_info = TraceInfo(
+        trace_info = TraceInfoV2(
             request_id=request_id,
             experiment_id=experiment_id,
             timestamp_ms=timestamp_ms,
@@ -1637,7 +1637,7 @@ class FileStore(AbstractStore):
         self._save_trace_info(trace_info, trace_dir)
         return trace_info
 
-    def _save_trace_info(self, trace_info: TraceInfo, trace_dir, overwrite=False):
+    def _save_trace_info(self, trace_info: TraceInfoV2, trace_dir, overwrite=False):
         """
         TraceInfo is saved into `traces` folder under the experiment, each trace
         is saved in the folder named by its request_id.
@@ -1675,7 +1675,7 @@ class FileStore(AbstractStore):
             trace_dir, FileStore.TRACE_TAGS_FOLDER_NAME, trace_info.tags
         )
 
-    def _convert_trace_info_to_dict(self, trace_info: TraceInfo):
+    def _convert_trace_info_to_dict(self, trace_info: TraceInfoV2):
         """
         Convert trace info to a dictionary for persistence.
         Drop request_metadata and tags as they're saved into separate files.
@@ -1710,7 +1710,7 @@ class FileStore(AbstractStore):
         status: TraceStatus,
         request_metadata: dict[str, str],
         tags: dict[str, str],
-    ) -> TraceInfo:
+    ) -> TraceInfoV2:
         """
         Update the TraceInfo object in the backend store with the completed trace info.
 
@@ -1735,7 +1735,7 @@ class FileStore(AbstractStore):
         self._save_trace_info(trace_info, trace_dir, overwrite=True)
         return trace_info
 
-    def get_trace_info(self, request_id: str, should_query_v3: bool = False) -> TraceInfo:
+    def get_trace_info(self, request_id: str, should_query_v3: bool = False) -> TraceInfoV2:
         """
         Get the trace matching the `request_id`.
 
@@ -1754,7 +1754,7 @@ class FileStore(AbstractStore):
 
         return self._get_trace_info_and_dir(request_id)[0]
 
-    def _get_trace_info_and_dir(self, request_id: str) -> tuple[TraceInfo, str]:
+    def _get_trace_info_and_dir(self, request_id: str) -> tuple[TraceInfoV2, str]:
         trace_dir = self._find_trace_dir(request_id, assert_exists=True)
         trace_info = self._get_trace_info_from_dir(trace_dir)
         if trace_info and trace_info.request_id != request_id:
@@ -1778,11 +1778,11 @@ class FileStore(AbstractStore):
                 RESOURCE_DOES_NOT_EXIST,
             )
 
-    def _get_trace_info_from_dir(self, trace_dir) -> Optional[TraceInfo]:
+    def _get_trace_info_from_dir(self, trace_dir) -> Optional[TraceInfoV2]:
         if not os.path.exists(os.path.join(trace_dir, FileStore.TRACE_INFO_FILE_NAME)):
             return None
         trace_info_dict = FileStore._read_yaml(trace_dir, FileStore.TRACE_INFO_FILE_NAME)
-        trace_info = TraceInfo.from_dict(trace_info_dict)
+        trace_info = TraceInfoV2.from_dict(trace_info_dict)
         trace_info.request_metadata = self._get_dict_from_trace_sub_folder(
             trace_dir, FileStore.TRACE_REQUEST_METADATA_FOLDER_NAME
         )
@@ -2015,9 +2015,36 @@ class FileStore(AbstractStore):
         model_info_dict["lifecycle_stage"] = LifecycleStage.ACTIVE
         write_yaml(model_dir, FileStore.META_DATA_FILE_NAME, model_info_dict)
         mkdir(model_dir, FileStore.METRICS_FOLDER_NAME)
+        mkdir(model_dir, FileStore.PARAMS_FOLDER_NAME)
+        self.log_logged_model_params(model_id=model_id, params=params or [])
         self.set_logged_model_tags(model_id=model_id, tags=tags or [])
 
         return self.get_logged_model(model_id=model_id)
+
+    def log_logged_model_params(self, model_id: str, params: list[LoggedModelParameter]):
+        """
+        Set parameters on the specified logged model.
+
+        Args:
+            model_id: ID of the model.
+            params: Parameters to set on the model.
+
+        Returns:
+            None
+        """
+        for param in params or []:
+            _validate_param(param.key, param.value)
+
+        model = self.get_logged_model(model_id)
+        for param in params:
+            param_path = os.path.join(
+                self._get_model_dir(model.experiment_id, model.model_id),
+                FileStore.PARAMS_FOLDER_NAME,
+                param.key,
+            )
+            make_containing_dirs(param_path)
+            # Don't add trailing newline
+            write_to(param_path, self._writeable_value(param.value))
 
     def finalize_logged_model(self, model_id: str, status: LoggedModelStatus) -> LoggedModel:
         """
@@ -2101,15 +2128,15 @@ class FileStore(AbstractStore):
 
     def delete_logged_model(self, model_id: str) -> None:
         model = self.get_logged_model(model_id)
-        model_dir = self._get_model_dir(model.experiment_id, model_id)
-        if not exists(model_dir):
-            raise MlflowException(
-                f"Model '{model_id}' not found", databricks_pb2.RESOURCE_DOES_NOT_EXIST
-            )
-
-        model_dict = self._get_model_dict(model_id)
+        model_dict = self._make_persisted_model_dict(model)
         model_dict["lifecycle_stage"] = LifecycleStage.DELETED
-        write_yaml(model_dir, FileStore.META_DATA_FILE_NAME, model_dict, overwrite=True)
+        model_dir = self._get_model_dir(model.experiment_id, model.model_id)
+        write_yaml(
+            model_dir,
+            FileStore.META_DATA_FILE_NAME,
+            model_dict,
+            overwrite=True,
+        )
 
     def _get_model_artifact_dir(self, experiment_id: str, model_id: str) -> str:
         return append_to_uri_path(
@@ -2121,8 +2148,8 @@ class FileStore(AbstractStore):
 
     def _make_persisted_model_dict(self, model: LoggedModel) -> dict[str, Any]:
         model_dict = model.to_dictionary()
-        model_dict.pop("tags", None)
-        model_dict.pop("metrics", None)
+        for field in ("tags", "params", "metrics"):
+            model_dict.pop(field, None)
         return model_dict
 
     def _get_model_dict(self, model_id: str) -> dict[str, Any]:
@@ -2173,6 +2200,7 @@ class FileStore(AbstractStore):
     def _get_model_info_from_dir(self, model_dir: str) -> dict[str, Any]:
         model_dict = FileStore._read_yaml(model_dir, FileStore.META_DATA_FILE_NAME)
         model_dict["tags"] = self._get_all_model_tags(model_dir)
+        model_dict["params"] = {p.key: p.value for p in self._get_all_model_params(model_dir)}
         model_dict["metrics"] = self._get_all_model_metrics(
             model_id=model_dict["model_id"], model_dir=model_dir
         )
@@ -2184,6 +2212,10 @@ class FileStore(AbstractStore):
         for tag_file in tag_files:
             tags.append(self._get_tag_from_file(parent_path, tag_file))
         return tags
+
+    def _get_all_model_params(self, model_dir: str) -> list[LoggedModelParameter]:
+        parent_path, param_files = self._get_resource_files(model_dir, FileStore.PARAMS_FOLDER_NAME)
+        return [self._get_param_from_file(parent_path, param_file) for param_file in param_files]
 
     def _get_all_model_metrics(self, model_id: str, model_dir: str) -> list[Metric]:
         parent_path, metric_files = self._get_resource_files(

@@ -199,7 +199,13 @@ export const textDecompressDeflate = async (compressedText: string) => {
   // Buffer-based implementation
   if (typeof Buffer !== 'undefined') {
     const binaryString = Buffer.from(compressedTextWithoutPrefix, 'base64');
-    return pako.inflate(binaryString, { to: 'string' });
+    return pako.inflate(
+      // This doesn't fail in Mlflow-Copybara-Tester-Pr. TODO: check why.
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore [FEINF-4084] No overload matches this call.
+      binaryString,
+      { to: 'string' },
+    );
   }
 
   // atob-based implementation

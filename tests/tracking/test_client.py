@@ -21,16 +21,18 @@ from mlflow.entities import (
     SpanStatusCode,
     SpanType,
     Trace,
-    TraceInfo,
+    TraceInfoV2,
     ViewType,
 )
 from mlflow.entities.file_info import FileInfo
+from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.metric import Metric
 from mlflow.entities.model_registry import ModelVersion, ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY
 from mlflow.entities.param import Param
 from mlflow.entities.trace_data import TraceData
+from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
 from mlflow.exceptions import MlflowException, MlflowTraceDataCorrupted, MlflowTraceDataNotFound
@@ -42,7 +44,6 @@ from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as SqlAlchemyTrackingStore
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.provider import _get_tracer, trace_disabled
-from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking import set_registry_uri
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._model_registry.utils import (
@@ -61,7 +62,6 @@ from mlflow.utils.mlflow_tags import (
 )
 
 from tests.tracing.conftest import async_logging_enabled  # noqa: F401
-from tests.tracing.conftest import mock_store as mock_store_for_tracing  # noqa: F401
 from tests.tracing.helper import create_test_trace_info, get_traces
 
 
@@ -124,6 +124,29 @@ def mock_databricks_tracking_store():
 
 
 @pytest.fixture
+def mock_store_start_trace_v3():
+    def _mock_start_trace_v3(trace):
+        return create_test_trace_info(
+            trace_id="tr-123",
+            experiment_id=trace.info.experiment_id,
+            request_time=trace.info.request_time,
+            execution_duration=trace.info.execution_duration,
+            state=trace.info.state,
+            trace_metadata=trace.info.trace_metadata,
+            tags={
+                "mlflow.user": "bob",
+                "mlflow.artifactLocation": "test",
+                **trace.info.tags,
+            },
+        )
+
+    with mock.patch(
+        "mlflow.tracing.client.TracingClient.start_trace_v3", side_effect=_mock_start_trace_v3
+    ) as mock_start_trace_v3:
+        yield mock_start_trace_v3
+
+
+@pytest.fixture
 def mock_spark_session():
     with mock.patch(
         "mlflow.utils.databricks_utils._get_active_spark_session"
@@ -175,7 +198,7 @@ def test_client_create_run_with_name(mock_store, mock_time):
 
 
 def test_client_get_trace(mock_store, mock_artifact_repo):
-    mock_store.get_trace_info.return_value = TraceInfo(
+    mock_store.get_trace_info.return_value = TraceInfoV2(
         request_id="tr-1234567",
         experiment_id="0",
         timestamp_ms=123,
@@ -232,7 +255,7 @@ def test_client_get_trace(mock_store, mock_artifact_repo):
 
 
 def test_client_get_trace_throws_for_missing_or_corrupted_data(mock_store, mock_artifact_repo):
-    mock_store.get_trace_info.return_value = TraceInfo(
+    mock_store.get_trace_info.return_value = TraceInfoV2(
         request_id="1234567",
         experiment_id="0",
         timestamp_ms=123,
@@ -259,7 +282,7 @@ def test_client_get_trace_throws_for_missing_or_corrupted_data(mock_store, mock_
 @pytest.mark.parametrize("include_spans", [True, False])
 def test_client_search_traces(mock_store, mock_artifact_repo, include_spans):
     mock_traces = [
-        TraceInfo(
+        TraceInfoV2(
             request_id="1234567",
             experiment_id="1",
             timestamp_ms=123,
@@ -267,7 +290,7 @@ def test_client_search_traces(mock_store, mock_artifact_repo, include_spans):
             status=TraceStatus.OK,
             tags={"mlflow.artifactLocation": "dbfs:/path/to/artifacts/1"},
         ),
-        TraceInfo(
+        TraceInfoV2(
             request_id="8910",
             experiment_id="2",
             timestamp_ms=456,
@@ -322,7 +345,7 @@ def test_client_search_traces_trace_data_download_error(mock_store, include_span
         return_value=CustomArtifactRepository("test"),
     ) as mock_get_artifact_repository:
         mock_traces = [
-            TraceInfo(
+            TraceInfoV2(
                 request_id="1234567",
                 experiment_id="1",
                 timestamp_ms=123,
@@ -596,9 +619,9 @@ def test_start_and_end_trace_before_all_span_end(async_logging_enabled):
     assert non_ended_span.status.status_code == SpanStatusCode.UNSET
 
 
-@mock.patch("mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks")
+@mock.patch("mlflow.get_tracking_uri", return_value="databricks")
 def test_log_trace_with_databricks_tracking_uri(
-    databricks_tracking_uri, mock_store_for_tracing, monkeypatch, async_logging_enabled
+    databricks_tracking_uri, mock_store_start_trace_v3, monkeypatch
 ):
     monkeypatch.setenv("MLFLOW_EXPERIMENT_NAME", "test")
     monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
@@ -643,11 +666,6 @@ def test_log_trace_with_databricks_tracking_uri(
 
     model = TestModel()
 
-    def _mock_update_trace_info(trace_info):
-        trace_manager = InMemoryTraceManager.get_instance()
-        with trace_manager.get_trace("tr-0") as trace:
-            trace.info.tags.update({"tag": "tag_value"})
-
     with (
         mock.patch(
             "mlflow.tracing.client.TracingClient._upload_trace_data"
@@ -665,18 +683,11 @@ def test_log_trace_with_databricks_tracking_uri(
             "mlflow.MlflowClient.get_experiment_by_name",
             return_value=mock_experiment,
         ),
-        mock.patch(
-            "mlflow.tracing.trace_manager.InMemoryTraceManager.update_trace_info",
-            side_effect=_mock_update_trace_info,
-        ),
     ):
         model.predict(1, 2)
+        mlflow.flush_trace_async_logging(terminate=True)
 
-        if async_logging_enabled:
-            mlflow.flush_trace_async_logging(terminate=True)
-
-    mock_store_for_tracing.start_trace.assert_called_once()
-    mock_store_for_tracing.end_trace.assert_called_once()
+    mock_store_start_trace_v3.assert_called_once()
     mock_upload_trace_data.assert_called_once()
 
 
@@ -754,12 +765,11 @@ def test_end_trace_raise_error_when_trace_not_exist():
         client.end_trace("test")
 
 
-@pytest.mark.parametrize("status", TraceStatus.pending_statuses())
-def test_end_trace_works_for_trace_in_pending_status(status):
+def test_end_trace_works_for_trace_in_pending_status():
     client = mlflow.tracking.MlflowClient()
     mock_tracing_client = mock.MagicMock()
     mock_tracing_client.get_trace.return_value = Trace(
-        info=create_test_trace_info("test", status=status), data=TraceData()
+        info=create_test_trace_info("test", state=TraceState.IN_PROGRESS), data=TraceData()
     )
     client._tracing_client = mock_tracing_client
     client.end_span = lambda *args: None
@@ -767,12 +777,12 @@ def test_end_trace_works_for_trace_in_pending_status(status):
     client.end_trace("test")
 
 
-@pytest.mark.parametrize("status", TraceStatus.end_statuses())
-def test_end_trace_raise_error_for_trace_in_end_status(status):
+@pytest.mark.parametrize("state", [TraceState.OK, TraceState.ERROR])
+def test_end_trace_raise_error_for_trace_in_end_status(state):
     client = mlflow.tracking.MlflowClient()
     mock_tracing_client = mock.MagicMock()
     mock_tracing_client.get_trace.return_value = Trace(
-        info=create_test_trace_info("test", status=status), data=TraceData()
+        info=create_test_trace_info("test", state=state), data=TraceData()
     )
     client._tracing_client = mock_tracing_client
 
@@ -888,7 +898,13 @@ def test_set_and_delete_trace_tag_on_active_trace(monkeypatch):
 
 def test_set_trace_tag_on_logged_trace(mock_store):
     mlflow.tracking.MlflowClient().set_trace_tag("test", "foo", "bar")
-    mock_store.set_trace_tag.assert_called_once_with("test", "foo", "bar")
+    mlflow.tracking.MlflowClient().set_trace_tag("test", "mlflow.some.reserved.tag", "value")
+    mock_store.set_trace_tag.assert_has_calls(
+        [
+            mock.call("test", "foo", "bar"),
+            mock.call("test", "mlflow.some.reserved.tag", "value"),
+        ]
+    )
 
 
 def test_delete_trace_tag_on_active_trace(monkeypatch):
@@ -2131,3 +2147,55 @@ def test_log_model_artifacts(tmp_path: Path, tracking_uri: str) -> None:
     ]
     artifacts = client.list_logged_model_artifacts(model_id=model.model_id, path="dir")
     assert artifacts == [FileInfo(path="dir/another_file", is_dir=False, file_size=2)]
+
+
+def test_logged_model_model_id_required(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    with pytest.raises(MlflowException, match="`model_id` must be a non-empty string, but got ''"):
+        client.finalize_logged_model("", LoggedModelStatus.READY)
+
+    with pytest.raises(MlflowException, match="`model_id` must be a non-empty string, but got ''"):
+        client.get_logged_model("")
+
+    with pytest.raises(MlflowException, match="`model_id` must be a non-empty string, but got ''"):
+        client.delete_logged_model("")
+
+    with pytest.raises(MlflowException, match="`model_id` must be a non-empty string, but got ''"):
+        client.set_logged_model_tags("", {})
+
+    with pytest.raises(MlflowException, match="`model_id` must be a non-empty string, but got ''"):
+        client.delete_logged_model_tag("", "")
+
+
+@pytest.mark.skipif(
+    "MLFLOW_SKINNY" in os.environ,
+    reason="Skinny client does not support the np or pandas dependencies",
+)
+def test_log_metric_link_to_active_model(tracking_uri):
+    model = mlflow.create_external_model(name="test_model")
+    mlflow.set_active_model(name=model.name)
+    client = MlflowClient(tracking_uri=tracking_uri)
+    with mlflow.start_run() as run:
+        client.log_metric(run.info.run_id, "metric", 1)
+    logged_model = mlflow.get_logged_model(model_id=model.model_id)
+    assert logged_model.name == model.name
+    assert logged_model.model_id == model.model_id
+    assert logged_model.metrics[0].key == "metric"
+    assert logged_model.metrics[0].value == 1
+
+
+@pytest.mark.skipif(
+    "MLFLOW_SKINNY" in os.environ,
+    reason="Skinny client does not support the np or pandas dependencies",
+)
+def test_log_batch_link_to_active_model(tracking_uri):
+    model = mlflow.create_external_model(name="test_model")
+    mlflow.set_active_model(name=model.name)
+    client = MlflowClient(tracking_uri=tracking_uri)
+    with mlflow.start_run() as run:
+        client.log_batch(run.info.run_id, [Metric("metric1", 1, 0, 0), Metric("metric2", 2, 0, 0)])
+    logged_model = mlflow.get_logged_model(model_id=model.model_id)
+    assert logged_model.name == model.name
+    assert logged_model.model_id == model.model_id
+    assert {m.key: m.value for m in logged_model.metrics} == {"metric1": 1, "metric2": 2}

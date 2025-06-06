@@ -1,5 +1,4 @@
 import contextlib
-import functools
 import importlib
 import inspect
 import logging
@@ -73,6 +72,7 @@ _AUTOLOGGING_SUPPORTED_VERSION_WARNING_SUPPRESS_LIST = [
     "openai",
     "dspy",
     "autogen",
+    "ag2",
     "gemini",
     "anthropic",
     "crewai",
@@ -565,24 +565,6 @@ def disable_autologging():
         yield
     finally:
         _AUTOLOGGING_GLOBALLY_DISABLED = False
-
-
-def disable_autologging_globally(fn):
-    """
-    Decorator that temporarily disables autologging globally for all integrations
-    while the decorated function is executed.
-    """
-
-    @functools.wraps(fn)
-    def wrapper(*args, **kwargs):
-        global _AUTOLOGGING_GLOBALLY_DISABLED
-        _AUTOLOGGING_GLOBALLY_DISABLED = True
-        try:
-            return fn(*args, **kwargs)
-        finally:
-            _AUTOLOGGING_GLOBALLY_DISABLED = False
-
-    return wrapper
 
 
 @contextlib.contextmanager

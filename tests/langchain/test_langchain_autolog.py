@@ -88,17 +88,22 @@ def create_openai_runnable(temperature=0.9):
         input_variables=["product"],
         template="What is {product}?",
     )
-    return prompt | ChatOpenAI(temperature=temperature) | StrOutputParser()
+    if _LC_COMMUNITY_INSTALLED:
+        # langchain-community ChatOpenAI does not support stream_usage
+        llm = ChatOpenAI(temperature=temperature)
+    else:
+        llm = ChatOpenAI(temperature=temperature, stream_usage=True)
+    return prompt | llm | StrOutputParser()
 
 
 @pytest.fixture
 def model_infos():
-    models = [create_openai_runnable(temperature=temperature / 10) for temperature in range(1, 5)]
+    models = [create_openai_runnable(temperature=temperature / 10) for temperature in range(1, 3)]
     model_infos = []
     for model in models:
         with mlflow.start_run():
             model_infos.append(
-                mlflow.langchain.log_model(model, name="model", input_example={"product": "MLflow"})
+                mlflow.langchain.log_model(model, name="model", pip_requirements=["mlflow"])
             )
     return model_infos
 
@@ -878,6 +883,46 @@ def test_langchain_autolog_tracing_thread_safe(async_logging_enabled):
         assert trace.data.spans[0].name == "RunnableSequence"
 
 
+@pytest.mark.asyncio
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.2.0"),
+    reason="Old version of LangChain does not support usage metadata",
+)
+async def test_langchain_autolog_token_usage():
+    mlflow.langchain.autolog()
+
+    model = create_openai_runnable()
+
+    def _validate_token_counts(trace):
+        actual = trace.info.token_usage
+        assert actual == {"input_tokens": 9, "output_tokens": 12, "total_tokens": 21}
+
+    # Normal invoke
+    model.invoke({"product": "MLflow"})
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    _validate_token_counts(trace)
+
+    # Invoke with streaming
+    # ChatOpenAI in langchain-community does not support streaming token usage
+    if not _LC_COMMUNITY_INSTALLED:
+        list(model.stream({"product": "MLflow"}))
+        trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+        _validate_token_counts(trace)
+
+    # Async invoke
+    await model.ainvoke({"product": "MLflow"})
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    _validate_token_counts(trace)
+
+    # When both OpenAI and LangChain autologging is enabled,
+    # no duplicated token usage should be logged
+    mlflow.openai.autolog()
+
+    model.invoke({"product": "MLflow"})
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    _validate_token_counts(trace)
+
+
 @pytest.mark.parametrize("log_traces", [True, False, None])
 def test_langchain_tracer_injection_for_arbitrary_runnables(log_traces, async_logging_enabled):
     from langchain.schema.runnable import RouterRunnable, RunnableLambda
@@ -1100,7 +1145,7 @@ def test_autolog_link_traces_to_loaded_model(model_infos, func):
         )
         assert logged_model_id is not None
         assert str(temp) == logged_temp
-        assert trace.info.request_metadata[SpanAttributeKey.MODEL_ID] == logged_model_id
+        assert trace.info.request_metadata[TraceMetadataKey.MODEL_ID] == logged_model_id
 
 
 @skip_when_testing_trace_sdk
@@ -1129,7 +1174,7 @@ async def test_autolog_link_traces_to_loaded_model_async(model_infos, func):
         )
         assert logged_model_id is not None
         assert str(temp) == logged_temp
-        assert trace.info.request_metadata[SpanAttributeKey.MODEL_ID] == logged_model_id
+        assert trace.info.request_metadata[TraceMetadataKey.MODEL_ID] == logged_model_id
 
 
 @skip_when_testing_trace_sdk
@@ -1145,7 +1190,7 @@ def test_autolog_link_traces_to_loaded_model_pyfunc(model_infos):
     for trace in traces:
         logged_model_id = json.loads(trace.data.request)["product"]
         assert logged_model_id is not None
-        assert trace.info.request_metadata[SpanAttributeKey.MODEL_ID] == logged_model_id
+        assert trace.info.request_metadata[TraceMetadataKey.MODEL_ID] == logged_model_id
 
 
 @skip_when_testing_trace_sdk
@@ -1163,7 +1208,7 @@ def test_autolog_link_traces_to_active_model(model_infos):
     for trace in traces:
         logged_model_id = json.loads(trace.data.request)["product"]
         assert logged_model_id is not None
-        assert trace.info.request_metadata[SpanAttributeKey.MODEL_ID] == model.model_id
+        assert trace.info.request_metadata[TraceMetadataKey.MODEL_ID] == model.model_id
         assert model.model_id != logged_model_id
 
 
@@ -1181,5 +1226,5 @@ def test_model_loading_set_active_model_id_without_fetching_logged_model():
 
     traces = get_traces()
     assert len(traces) == 1
-    model_id = traces[0].info.request_metadata[SpanAttributeKey.MODEL_ID]
+    model_id = traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID]
     assert model_id == model_info.model_id

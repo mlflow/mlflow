@@ -4,7 +4,9 @@ from opentelemetry.sdk.trace import Span as OTelSpan
 from opentelemetry.sdk.trace.export import SpanExporter
 
 from mlflow.entities.trace_info import TraceInfo
-from mlflow.entities.trace_status import TraceStatus
+from mlflow.entities.trace_info_v2 import TraceInfoV2
+from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_state import TraceState
 from mlflow.tracing.processor.base_mlflow import BaseMlflowSpanProcessor
 from mlflow.tracing.utils import generate_trace_id_v3
 
@@ -24,23 +26,21 @@ class MlflowV3SpanProcessor(BaseMlflowSpanProcessor):
     ):
         super().__init__(span_exporter, experiment_id)
 
-    def _start_trace(self, root_span: OTelSpan) -> TraceInfo:
+    def _start_trace(self, root_span: OTelSpan) -> TraceInfoV2:
         """
         Create a new TraceInfo object and register it with the trace manager.
 
         This method is called in the on_start method of the base class.
         """
-        request_id = generate_trace_id_v3(root_span)
-
-        # TODO: The V2 TraceInfo object is used here because the trace manager is not migrated
-        # to V3 data model yet. However, the actual Trace exported in the exporter is V3 schema.
         trace_info = TraceInfo(
-            request_id=request_id,
-            experiment_id=self._get_experiment_id_for_trace(root_span),
-            timestamp_ms=root_span.start_time // 1_000_000,  # nanosecond to millisecond
-            execution_time_ms=None,
-            status=TraceStatus.IN_PROGRESS,
-            request_metadata=self._get_basic_trace_metadata(),
+            trace_id=generate_trace_id_v3(root_span),
+            trace_location=TraceLocation.from_experiment_id(
+                self._get_experiment_id_for_trace(root_span)
+            ),
+            request_time=root_span.start_time // 1_000_000,  # nanosecond to millisecond
+            execution_duration=None,
+            state=TraceState.IN_PROGRESS,
+            trace_metadata=self._get_basic_trace_metadata(),
             tags=self._get_basic_trace_tags(root_span),
         )
         self._trace_manager.register_trace(root_span.context.trace_id, trace_info)

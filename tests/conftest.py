@@ -29,8 +29,8 @@ if not IS_TRACING_SDK_ONLY:
     from mlflow.tracking._tracking_service.utils import _use_tracking_uri
     from mlflow.tracking.fluent import (
         _last_active_run_id,
-        _reset_active_model_context,
         _reset_last_logged_model_id,
+        clear_active_model,
     )
 
 
@@ -120,6 +120,14 @@ def reset_mlflow_uri():
     if "DISABLE_RESET_MLFLOW_URI_FIXTURE" not in os.environ:
         os.environ.pop("MLFLOW_TRACKING_URI", None)
         os.environ.pop("MLFLOW_REGISTRY_URI", None)
+        try:
+            from mlflow.tracking import set_registry_uri
+
+            # clean up the registry URI to avoid side effects
+            set_registry_uri(None)
+        except ImportError:
+            # tracing sdk does not have the registry module
+            pass
 
 
 @pytest.fixture(autouse=True)
@@ -321,4 +329,4 @@ def mock_is_in_databricks(request):
 
 @pytest.fixture(autouse=not IS_TRACING_SDK_ONLY)
 def reset_active_model_context():
-    _reset_active_model_context()
+    clear_active_model()

@@ -205,6 +205,7 @@ message ModelVersionDeploymentJobState {
     SUCCEEDED = 3;
     FAILED = 4;
     PENDING = 5;
+    APPROVAL = 6;
   }
   optional string job_id = 1;
   optional string run_id = 2;
@@ -429,9 +430,6 @@ message CreateModelVersionRequest {
 
   // Optional `model_id` for model version that is used to link the registered model to the source logged model
   optional string model_id = 9;
-
-  // Optional parameters for the model.
-  repeated ModelParam model_params = 10;
 }
 
 message CreateModelVersionResponse {

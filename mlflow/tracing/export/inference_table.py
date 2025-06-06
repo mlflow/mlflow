@@ -15,6 +15,7 @@ from mlflow.tracing.client import TracingClient
 from mlflow.tracing.export.async_export_queue import AsyncTraceExportQueue, Task
 from mlflow.tracing.fluent import _set_last_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
+from mlflow.tracing.utils import add_size_bytes_to_trace_metadata
 
 _logger = logging.getLogger(__name__)
 
@@ -81,7 +82,7 @@ class InferenceTableSpanExporter(SpanExporter):
                 _logger.debug(f"Trace for span {span} not found. Skipping export.")
                 continue
 
-            _set_last_active_trace_id(trace.info.request_id)
+            _set_last_active_trace_id(trace.info.trace_id)
 
             # Add the trace to the in-memory buffer so it can be retrieved by upstream
             # The key is Databricks request ID.
@@ -93,7 +94,7 @@ class InferenceTableSpanExporter(SpanExporter):
                     #   populated in the scoring server by Agent Framework. If the model is not
                     #   deployed via agents.deploy(), the env var will not be set and the
                     #   experiment will be empty, even if the dual write itself is enabled.
-                    _logger.debug(
+                    _logger.warning(
                         "Dual write to MLflow backend is enabled, but experiment ID is not set "
                         "for the trace. Skipping trace export to MLflow backend."
                     )
@@ -109,8 +110,19 @@ class InferenceTableSpanExporter(SpanExporter):
                         )
                     )
                 except Exception as e:
-                    _logger.warning("Failed to export trace to MLflow backend. Error: %s", e)
+                    _logger.warning(
+                        f"Failed to export trace to MLflow backend. Error: {e}",
+                        stack_info=_logger.isEnabledFor(logging.DEBUG),
+                    )
 
     def _log_trace_to_mlflow_backend(self, trace: Trace):
+        try:
+            add_size_bytes_to_trace_metadata(trace)
+        except Exception:
+            _logger.warning("Failed to add size bytes to trace metadata.", exc_info=True)
+
         returned_trace_info = self._client.start_trace_v3(trace)
         self._client._upload_trace_data(returned_trace_info, trace.data)
+        _logger.debug(
+            f"Finished logging trace to MLflow backend. TraceInfo: {returned_trace_info.to_dict()} "
+        )

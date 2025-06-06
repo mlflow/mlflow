@@ -2,6 +2,7 @@ import importlib
 import json
 import re
 from datetime import datetime
+from typing import Any
 from unittest import mock
 
 import pytest
@@ -9,7 +10,17 @@ from packaging.version import Version
 
 import mlflow
 import mlflow.tracking.context.default_context
-from mlflow.entities import SpanType, Trace, TraceData
+from mlflow.entities import (
+    AssessmentSource,
+    Feedback,
+    SpanType,
+    Trace,
+    TraceData,
+    TraceInfo,
+    TraceLocation,
+)
+from mlflow.entities.assessment import Expectation
+from mlflow.entities.trace_state import TraceState
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
@@ -73,14 +84,18 @@ def test_json_deserialization(monkeypatch):
             "request_preview": '{"x": 2, "y": 5}',
             "response_preview": "8",
             "trace_metadata": {
+                TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
                 "mlflow.traceInputs": '{"x": 2, "y": 5}',
                 "mlflow.traceOutputs": "8",
-                TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),
+                "mlflow.source.name": mock.ANY,
+                "mlflow.source.type": "LOCAL",
+                "mlflow.source.git.branch": mock.ANY,
+                "mlflow.source.git.commit": mock.ANY,
+                "mlflow.source.git.repoURL": mock.ANY,
+                "mlflow.user": mock.ANY,
             },
             "tags": {
                 "mlflow.traceName": "predict",
-                "mlflow.source.name": "test",
-                "mlflow.source.type": "LOCAL",
                 "mlflow.artifactLocation": trace.info.tags[MLFLOW_ARTIFACT_LOCATION],
             },
         },
@@ -383,3 +398,120 @@ def test_from_v2_dict():
     assert trace.info.request_time == 100
     assert trace.info.execution_duration == 200
     assert len(trace.data.spans) == 2
+
+
+def test_request_response_smart_truncation():
+    @mlflow.trace
+    def f(messages: list[dict[str, Any]]) -> dict[str, Any]:
+        return {"choices": [{"message": {"role": "assistant", "content": "Hi!" * 10000}}]}
+
+    # NB: Since MLflow OSS backend still uses v2 tracing schema, the most accurate way to
+    # check if the preview is truncated properly is to mock the upload_trace_data call.
+    with mock.patch(
+        "mlflow.tracing.export.mlflow_v2.TracingClient._upload_trace_data"
+    ) as mock_upload_trace_data:
+        f([{"role": "user", "content": "Hello!" * 10000}])
+
+    trace_info = mock_upload_trace_data.call_args[0][0]
+    assert len(trace_info.request_preview) == 10000
+    assert trace_info.request_preview.startswith("Hello!")
+    assert len(trace_info.response_preview) == 10000
+    assert trace_info.response_preview.startswith("Hi!")
+
+
+def test_request_response_smart_truncation_non_chat_format():
+    # Non-chat request/response will be naively truncated
+    @mlflow.trace
+    def f(question: str) -> list[str]:
+        return ["a" * 5000, "b" * 5000, "c" * 5000]
+
+    with mock.patch(
+        "mlflow.tracing.export.mlflow_v2.TracingClient._upload_trace_data"
+    ) as mock_upload_trace_data:
+        f("start" + "a" * 10000)
+
+    trace_info = mock_upload_trace_data.call_args[0][0]
+    assert len(trace_info.request_preview) == 10000
+    assert trace_info.request_preview.startswith('{"question": "startaaa')
+    assert len(trace_info.response_preview) == 10000
+    assert trace_info.response_preview.startswith('["aaaaa')
+
+
+def test_request_response_custom_truncation():
+    @mlflow.trace
+    def f(messages: list[dict[str, Any]]) -> dict[str, Any]:
+        mlflow.update_current_trace(
+            request_preview="custom request preview",
+            response_preview="custom response preview",
+        )
+        return {"choices": [{"message": {"role": "assistant", "content": "Hi!" * 10000}}]}
+
+    with mock.patch(
+        "mlflow.tracing.export.mlflow_v2.TracingClient._upload_trace_data"
+    ) as mock_upload_trace_data:
+        f([{"role": "user", "content": "Hello!" * 10000}])
+
+    trace_info = mock_upload_trace_data.call_args[0][0]
+    assert trace_info.request_preview == "custom request preview"
+    assert trace_info.response_preview == "custom response preview"
+
+
+def test_search_assessments():
+    assessments = [
+        Feedback(
+            trace_id="trace_id",
+            name="relevance",
+            value=False,
+            source=AssessmentSource(source_type="HUMAN", source_id="user_1"),
+            rationale="The judge is wrong",
+            span_id=None,
+            overrides="2",
+        ),
+        Feedback(
+            trace_id="trace_id",
+            name="relevance",
+            value=True,
+            source=AssessmentSource(source_type="LLM_JUDGE", source_id="databricks"),
+            span_id=None,
+            valid=False,
+        ),
+        Feedback(
+            trace_id="trace_id",
+            name="relevance",
+            value=True,
+            source=AssessmentSource(source_type="LLM_JUDGE", source_id="databricks"),
+            span_id="123",
+        ),
+        Expectation(
+            trace_id="trace_id",
+            name="guidelines",
+            value="The response should be concise and to the point.",
+            source=AssessmentSource(source_type="LLM_JUDGE", source_id="databricks"),
+            span_id="123",
+        ),
+    ]
+    trace_info = TraceInfo(
+        trace_id="trace_id",
+        client_request_id="client_request_id",
+        trace_location=TraceLocation.from_experiment_id("123"),
+        request_preview="request",
+        response_preview="response",
+        request_time=1234567890,
+        execution_duration=100,
+        assessments=assessments,
+        state=TraceState.OK,
+    )
+    trace = Trace(
+        info=trace_info,
+        data=TraceData(
+            spans=[],
+        ),
+    )
+
+    assert trace.search_assessments() == [assessments[0], assessments[2], assessments[3]]
+    assert trace.search_assessments(all=True) == assessments
+    assert trace.search_assessments("relevance") == [assessments[0], assessments[2]]
+    assert trace.search_assessments("relevance", all=True) == assessments[:3]
+    assert trace.search_assessments(span_id="123") == [assessments[2], assessments[3]]
+    assert trace.search_assessments(span_id="123", name="relevance") == [assessments[2]]
+    assert trace.search_assessments(type="expectation") == [assessments[3]]

@@ -2,7 +2,7 @@
 # Required for testing utilities for parsing pip requirements
 pip>=20.1
 ## Test-only dependencies
-pytest==8.1.1
+pytest
 pytest-asyncio
 pytest-repeat
 pytest-cov
@@ -17,8 +17,6 @@ plotly
 kaleido
 # Required by tuning tests
 hyperopt
-# Required by automl tests
-flaml[automl]
 # Required by evaluator tests
 shap
 # Required to evaluate language models in `mlflow.evaluate`

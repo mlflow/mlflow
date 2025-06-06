@@ -34,6 +34,11 @@ const sidebars: SidebarsConfig = {
           id: 'mlflow-3/deep-learning',
           label: 'Deep Learning Development',
         },
+        {
+          type: 'doc',
+          id: 'mlflow-3/faqs',
+          label: 'FAQs',
+        },
       ],
       link: {
         type: 'doc',
@@ -221,6 +226,17 @@ const sidebars: SidebarsConfig = {
             },
             {
               type: 'category',
+              label: 'ResponsesAgent',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'llms/responses-agent-intro/index',
+                  label: 'ResponsesAgent Introduction',
+                },
+              ],
+            },
+            {
+              type: 'category',
               label: 'ChatModel',
               items: [
                 {
@@ -402,6 +418,10 @@ const sidebars: SidebarsConfig = {
             {
               type: 'doc',
               id: 'prompts/run-and-model',
+            },
+            {
+              type: 'doc',
+              id: "prompts/optimize-prompt",
             },
             {
               type: 'doc',

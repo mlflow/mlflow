@@ -1,14 +1,16 @@
 import logging
 from abc import ABCMeta, abstractmethod
 from time import sleep, time
-from typing import Optional
+from typing import Optional, Union
 
-from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.model_registry import ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
+from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.registry_utils import has_prompt_tag
 from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, ErrorCode
+from mlflow.store._unity_catalog.registry.prompt_info import PromptInfo
+from mlflow.store.entities.paged_list import PagedList
 from mlflow.utils.annotations import developer_stable
 from mlflow.utils.logging_utils import eprint
 
@@ -185,7 +187,6 @@ class AbstractStore:
         description=None,
         local_model_path=None,
         model_id: Optional[str] = None,
-        model_params: Optional[list[LoggedModelParameter]] = None,
     ):
         """
         Create a new model version from given source and run ID.
@@ -206,7 +207,6 @@ class AbstractStore:
                 mlflow.<flavor>.log_model(..., registered_model_name) call
             model_id: The ID of the model (from an Experiment) that is being promoted to a
                 registered model version, if applicable.
-            model_params: The parameters of the model (from an Experiment) that is being promoted
 
         Returns:
             A single object of :py:class:`mlflow.entities.model_registry.ModelVersion`
@@ -461,3 +461,149 @@ class AbstractStore:
                 f"{entity_type} version creation failed for {entity_type.lower()} name: {mv.name} "
                 f"version: {mv.version} with status: {mv.status} and message: {mv.status_message}"
             )
+
+    # Prompt management methods
+
+    @abstractmethod
+    def create_prompt(
+        self,
+        name: str,
+        description: Optional[str] = None,
+        tags: Optional[dict[str, str]] = None,
+    ) -> PromptInfo:
+        """
+        Create a new prompt (metadata only, no initial version).
+
+        Args:
+            name: Name of the prompt.
+            description: Description of the prompt.
+            tags: Dictionary of tag key-value pairs.
+
+        Returns:
+            A :py:class:`mlflow.store._unity_catalog.registry.prompt_info.PromptInfo` object.
+        """
+
+    @abstractmethod
+    def search_prompts(
+        self,
+        filter_string: Optional[str] = None,
+        max_results: Optional[int] = None,
+        order_by: Optional[list[str]] = None,
+        page_token: Optional[str] = None,
+        catalog_name: Optional[str] = None,
+        schema_name: Optional[str] = None,
+    ) -> PagedList[PromptInfo]:
+        """
+        Search for prompts that satisfy the filter criteria.
+
+        Args:
+            filter_string: Filter query string.
+            max_results: Maximum number of prompts desired.
+            order_by: List of column names with ASC|DESC annotation.
+            page_token: Token specifying the next page of results.
+            catalog_name: Unity Catalog catalog name (for UC registries).
+            schema_name: Unity Catalog schema name (for UC registries).
+
+        Returns:
+            A PagedList of prompt objects that satisfy the search expressions.
+        """
+
+    @abstractmethod
+    def delete_prompt(self, name: str) -> None:
+        """
+        Delete a prompt.
+
+        Args:
+            name: Name of the prompt to delete.
+        """
+
+    @abstractmethod
+    def set_prompt_tag(self, name: str, key: str, value: str) -> None:
+        """
+        Set a tag for a prompt.
+
+        Args:
+            name: Name of the prompt.
+            key: Tag key.
+            value: Tag value.
+        """
+
+    @abstractmethod
+    def delete_prompt_tag(self, name: str, key: str) -> None:
+        """
+        Delete a tag associated with a prompt.
+
+        Args:
+            name: Name of the prompt.
+            key: Tag key.
+        """
+
+    @abstractmethod
+    def get_prompt(self, name: str, version: Optional[Union[str, int]] = None) -> Optional[Prompt]:
+        """
+        Get prompt by name and version.
+
+        Args:
+            name: Name of the prompt.
+            version: Version number or alias. If None, gets latest version.
+
+        Returns:
+            A prompt object or None if not found.
+        """
+
+    @abstractmethod
+    def create_prompt_version(
+        self,
+        name: str,
+        template: str,
+        description: Optional[str] = None,
+        tags: Optional[dict[str, str]] = None,
+    ) -> Prompt:
+        """
+        Create a new prompt version.
+
+        Args:
+            name: Name of the prompt.
+            template: Template content for the prompt version.
+            description: Description of the prompt version.
+            tags: Dictionary of tag key-value pairs.
+
+        Returns:
+            A prompt version object.
+        """
+
+    @abstractmethod
+    def get_prompt_version(self, name: str, version: Union[str, int]) -> Prompt:
+        """
+        Get a specific prompt version.
+
+        Args:
+            name: Name of the prompt.
+            version: Version number.
+
+        Returns:
+            A prompt version object.
+        """
+
+    @abstractmethod
+    def delete_prompt_version(self, name: str, version: Union[str, int]) -> None:
+        """
+        Delete a prompt version.
+
+        Args:
+            name: Name of the prompt.
+            version: Version number.
+        """
+
+    @abstractmethod
+    def get_prompt_version_by_alias(self, name: str, alias: str) -> Prompt:
+        """
+        Get a prompt version by alias.
+
+        Args:
+            name: Name of the prompt.
+            alias: Alias name.
+
+        Returns:
+            A prompt version object.
+        """

@@ -708,6 +708,30 @@ service MlflowService {
     };
   }
 
+  rpc LogLoggedModelParams(LogLoggedModelParamsRequest) returns (LogLoggedModelParamsRequest.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/logged-models/{model_id}/params"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Log Logged Model Params",
+    };
+  }
+
+  rpc GetAssessment(GetAssessmentRequest) returns (GetAssessmentRequest.Response) {
+    option (rpc) = {
+      endpoints: [{
+        method: "GET",
+        path: "/mlflow/traces/{trace_id}/assessments/{assessment_id}"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "Get Assessment",
+    };
+  }
+
   // Create an assessment associated with a trace.
   rpc createAssessment(CreateAssessment) returns (CreateAssessment.Response) {
     option (rpc) = {
@@ -1654,6 +1678,19 @@ message DeleteAssessment {
   message Response {}
 }
 
+message GetAssessmentRequest {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+  // The ID of the trace the assessment belongs to.
+  optional string trace_id = 1 [(validate_required) = true];
+  // The ID of the assessment.
+  optional string assessment_id = 2 [(validate_required) = true];
+
+  message Response {
+    // The requested assessment.
+    optional assessments.Assessment assessment = 1;
+  }
+}
+
 
 // TraceInfo. Represents metadata of a trace.
 message TraceInfo {
@@ -2226,6 +2263,19 @@ message ListLoggedModelArtifacts {
 
     // Token that can be used to retrieve the next page of artifact results
     optional string next_page_token = 3;
+  }
+}
+
+message LogLoggedModelParamsRequest {
+  option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
+
+  // The ID of the logged model to log params for.
+  optional string model_id = 1 [(validate_required) = true];
+
+  // Parameters attached to the model.
+  repeated LoggedModelParameter params = 2;
+
+  message Response {
   }
 }
 
