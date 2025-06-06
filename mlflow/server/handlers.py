@@ -1982,7 +1982,7 @@ def _create_model_version():
     ):
         if not re.search(regex, request_message.source):
             raise MlflowException(
-                f"Invalid model version source: '{request_message.source}'. ",
+                f"Invalid model version source: '{request_message.source}'.",
                 error_code=INVALID_PARAMETER_VALUE,
             )
 
