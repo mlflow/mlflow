@@ -1,10 +1,9 @@
 from typing import TYPE_CHECKING, Any, Iterable, Optional, Union
 
-import pandas as pd
-
 from mlflow.entities import Trace
 
 if TYPE_CHECKING:
+    import pandas as pd
     from databricks.agents.review_app import (
         LabelingSession as _LabelingSession,
     )
@@ -112,7 +111,7 @@ class LabelingSession:
 
     def add_traces(
         self,
-        traces: Union[Iterable[Trace], Iterable[str], pd.DataFrame],
+        traces: Union[Iterable[Trace], Iterable[str], "pd.DataFrame"],
     ) -> "LabelingSession":
         """Add traces to the labeling session.
 
