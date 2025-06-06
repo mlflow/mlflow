@@ -79,10 +79,10 @@ def test_evaluate_with_static_dataset():
     )
 
     metrics = result.metrics
-    assert metrics["metric/exact_match/average"] == 1.0
-    assert metrics["metric/max_length/average"] == 0.5
-    assert metrics["metric/relevance/relevance/average"] == 1.0
-    assert metrics["metric/has_trace/average"] == 1.0
+    assert metrics["exact_match/mean"] == 1.0
+    assert metrics["max_length/mean"] == 0.5
+    assert metrics["relevance/mean"] == 1.0
+    assert metrics["has_trace/mean"] == 1.0
 
     # Exact number of traces should be generated
     traces = get_traces()
@@ -121,10 +121,10 @@ def test_evaluate_with_predict_fn(is_predict_fn_traced):
     )
 
     metrics = result.metrics
-    assert metrics["metric/exact_match/average"] == 0.0
-    assert metrics["metric/max_length/average"] == 0.5
-    assert metrics["metric/relevance/relevance/average"] == 1.0
-    assert metrics["metric/has_trace/average"] == 1.0
+    assert metrics["exact_match/mean"] == 0.0
+    assert metrics["max_length/mean"] == 0.5
+    assert metrics["relevance/mean"] == 1.0
+    assert metrics["has_trace/mean"] == 1.0
 
     # Exact number of traces should be generated
     traces = get_traces()
@@ -189,10 +189,10 @@ def test_evaluate_with_traces(pass_full_dataframe):
     )
 
     metrics = result.metrics
-    assert metrics["metric/exact_match/average"] == 0.0
-    assert metrics["metric/max_length/average"] == 0.5
-    assert metrics["metric/relevance/relevance/average"] == 1.0
-    assert metrics["metric/has_trace/average"] == 1.0
+    assert metrics["exact_match/mean"] == 0.0
+    assert metrics["max_length/mean"] == 0.5
+    assert metrics["relevance/mean"] == 1.0
+    assert metrics["has_trace/mean"] == 1.0
 
     # Assessments should be added to the traces in-place and no new trace should be created
     assert len(get_traces()) == len(questions)
@@ -230,6 +230,9 @@ def test_evaluate_with_managed_dataset():
                 if record.id == record_id:
                     record.expectations.update(expectations)
 
+        def sync_dataset_to_uc(self, dataset_id: str, uc_table_name: str):
+            pass
+
     mock_client = MockDatasetClient()
     with (
         mock.patch("databricks.rag_eval.datasets.api._get_client", return_value=mock_client),
@@ -262,10 +265,10 @@ def test_evaluate_with_managed_dataset():
         )
 
     metrics = result.metrics
-    assert metrics["metric/exact_match/average"] == 0.0
-    assert metrics["metric/max_length/average"] == 0.5
-    assert metrics["metric/relevance/relevance/average"] == 1.0
-    assert metrics["metric/has_trace/average"] == 1.0
+    assert metrics["exact_match/mean"] == 0.0
+    assert metrics["max_length/mean"] == 0.5
+    assert metrics["relevance/mean"] == 1.0
+    assert metrics["has_trace/mean"] == 1.0
 
     run = mlflow.get_run(result.run_id)
     # Dataset metadata should be added to the run
