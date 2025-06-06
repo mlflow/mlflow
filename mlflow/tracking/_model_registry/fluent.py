@@ -5,7 +5,6 @@ from typing import Any, Optional, Union
 import mlflow
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry import ModelVersion, Prompt, RegisteredModel
-from mlflow.store._unity_catalog.registry.prompt_info import PromptInfo
 from mlflow.entities.run import Run
 from mlflow.environment_variables import MLFLOW_PRINT_MODEL_URLS_ON_CREATION
 from mlflow.exceptions import MlflowException
@@ -17,6 +16,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_ALREADY_EXISTS,
     ErrorCode,
 )
+from mlflow.store._unity_catalog.registry.prompt_info import PromptInfo
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.utils.models import _parse_model_id_if_present
 from mlflow.store.entities.paged_list import PagedList
@@ -661,7 +661,7 @@ def load_prompt(
 
     """
     client = MlflowClient()
-    
+
     # Handle URI vs name+version cases
     if name_or_uri.startswith("prompts:/"):
         # For URIs, don't pass version parameter
@@ -671,7 +671,8 @@ def load_prompt(
         if version is None:
             raise MlflowException(
                 "Version must be specified when loading a prompt by name. "
-                "Use a prompt URI (e.g., 'prompts:/name/version') or provide the version parameter.",
+                "Use a prompt URI (e.g., 'prompts:/name/version') or provide the version "
+                "parameter.",
                 INVALID_PARAMETER_VALUE,
             )
         prompt = client.load_prompt(name_or_uri, version=version, allow_missing=allow_missing)
@@ -684,7 +685,7 @@ def load_prompt(
 
 
 @deprecated(
-    since="3.0", 
+    since="3.0",
     alternative="delete_prompt_version",
 )
 @experimental
@@ -693,7 +694,8 @@ def delete_prompt(name: str, version: int) -> Prompt:
     """
     Delete a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
 
-    .. Warning:: This function is deprecated since MLflow 3.0. Use ``delete_prompt_version`` instead which provides consistent version-based deletion across all registry backends.
+    .. Warning:: This function is deprecated since MLflow 3.0. Use ``delete_prompt_version``
+       instead which provides consistent version-based deletion across all registry backends.
 
     Args:
         name: The name of the prompt.
