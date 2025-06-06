@@ -1,5 +1,46 @@
-# Human feedback quickstart
+# Human Feedback Quickstart
 
-:::danger UNDER CONSTRUCTION
-🔴 This page is under construction and content may be incomplete or subject to change.
-:::
+This quickstart demonstrates how to integrate human feedback into your GenAI workflows using MLflow. Human feedback is crucial for improving AI model performance, ensuring quality outputs, and creating feedback loops that enhance model behavior over time.
+
+## Overview
+
+Human feedback in GenAI applications serves several critical purposes:
+
+- **✅ Quality Assurance**: Validate model outputs against human expectations
+- **🔄 Continuous Improvement**: Create feedback loops to refine model behavior
+- **🛡️ Safety and Alignment**: Ensure AI responses align with human values and requirements
+- **📈 Performance Monitoring**: Track model performance in real-world scenarios
+
+## Best Practices
+
+### 1. Feedback Collection Design
+
+- **Make it easy**: Implement simple rating systems (thumbs up/down, 1-5 stars)
+- **Capture context**: Store input, output, and environmental factors
+- **Enable detailed feedback**: Allow optional comments for nuanced feedback
+- **Respect privacy**: Anonymize user data when possible
+
+### 2. Feedback Analysis
+
+- **Regular monitoring**: Set up automated analysis of feedback trends
+- **Statistical significance**: Ensure sufficient sample sizes before making decisions
+- **Bias awareness**: Consider potential biases in feedback collection
+- **Actionable insights**: Focus on feedback that can drive concrete improvements
+
+### 3. Integration with MLflow
+
+- **Structured logging**: Use consistent schemas for feedback data
+- **Experiment tracking**: Link feedback to specific model versions and experiments
+- **Artifact management**: Store feedback datasets as MLflow artifacts
+- **Metric monitoring**: Track feedback metrics over time
+
+## Next Steps
+
+1. **Scale feedback collection**: Implement feedback collection in your production systems
+2. **Automate analysis**: Set up regular feedback analysis pipelines
+3. **Model retraining**: Use feedback insights to improve your models
+4. **A/B testing**: Compare model versions using human feedback metrics
+5. **Advanced analytics**: Implement more sophisticated feedback analysis techniques
+
+Human feedback is essential for building reliable and effective GenAI applications. By integrating systematic feedback collection and analysis into your MLflow workflows, you can create continuous improvement loops that enhance your AI systems over time.
+Refer to [Human Feedback](/genai/human-feedback) for more details.
