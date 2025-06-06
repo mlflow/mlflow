@@ -518,8 +518,6 @@ class ModelRegistryClient:
             page_token=page_token,
         )
 
-
-
     def delete_prompt(self, name: str) -> None:
         """
         Delete a prompt from the registry.
