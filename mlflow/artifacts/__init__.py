@@ -7,6 +7,8 @@ import pathlib
 import tempfile
 from typing import Optional
 
+from mlflow.entities.file_info import FileInfo
+from mlflow.entities.logged_model import LoggedModel
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
 from mlflow.tracking import _get_store
@@ -104,6 +106,33 @@ def list_artifacts(
     run_id: Optional[str] = None,
     artifact_path: Optional[str] = None,
     tracking_uri: Optional[str] = None,
+) -> list[FileInfo]:
+    run_artifacts = _list_run_artifacts(
+        artifact_uri=artifact_uri,
+        run_id=run_id,
+        artifact_path=artifact_path,
+        tracking_uri=tracking_uri,
+    )
+    if (
+        run_artifacts
+        or (artifact_uri and not artifact_uri.startswith("runs:/"))
+        or (artifact_path and "/" in artifact_path)
+    ):
+        return run_artifacts
+
+    return _list_model_artifacts(
+        artifact_uri=artifact_uri,
+        run_id=run_id,
+        artifact_path=artifact_path,
+        tracking_uri=tracking_uri,
+    )
+
+
+def _list_run_artifacts(
+    artifact_uri: Optional[str] = None,
+    run_id: Optional[str] = None,
+    artifact_path: Optional[str] = None,
+    tracking_uri: Optional[str] = None,
 ):
     """List artifacts at the specified URI.
 
@@ -140,6 +169,46 @@ def list_artifacts(
         add_databricks_profile_info_to_artifact_uri(artifact_uri, tracking_uri)
     )
     return artifact_repo.list_artifacts(artifact_path)
+
+
+def _list_model_artifacts(
+    artifact_uri: Optional[str] = None,
+    run_id: Optional[str] = None,
+    artifact_path: Optional[str] = None,
+    tracking_uri: Optional[str] = None,
+) -> list[FileInfo]:
+    if artifact_uri:
+        run_id, artifact_path = artifact_uri.strip("/").split("/", 2)[1:]
+
+    store = _get_store(store_uri=tracking_uri)
+    # If the path is empty, we need to find the logged model associated with the run,
+    # and list its artifacts instead.
+    experiment_id = store.get_run(run_id).info.experiment_id
+    model: Optional[LoggedModel] = None
+    page_token: Optional[str] = None
+    while True:
+        # TODO: Add source_run_id in filter_string once Databricks backend supports it
+        page = store.search_logged_models(
+            experiment_ids=[experiment_id],
+            filter_string=f"name = '{artifact_path}'",
+            page_token=page_token,
+        )
+        if matched := next((m for m in page if m.source_run_id == run_id), None):
+            model = matched
+            break
+
+        if not page.token:
+            break
+
+        page_token = page.token
+
+    if model is None:
+        return []
+
+    artifact_repo = get_artifact_repository(
+        add_databricks_profile_info_to_artifact_uri(model.artifact_location, tracking_uri)
+    )
+    return artifact_repo.list_artifacts()
 
 
 def load_text(artifact_uri: str) -> str:
