@@ -386,7 +386,7 @@ def custom_prompt_judge(
 
     Returns:
         A callable that takes keyword arguments mapping to the template variables
-        and returns an mlflow Assessment.
+        and returns an mlflow :py:class`mlflow.entities.Feedback~`.
     """
     from databricks.agents.evals.judges import custom_prompt_judge
 
