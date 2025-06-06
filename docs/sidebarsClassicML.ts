@@ -711,6 +711,11 @@ const sidebarsClassicML: SidebarsConfig = {
           id: 'plugins/index',
           label: 'MLflow Plugins 🔌'
         },
+        {
+          type: 'doc',
+          id: 'tutorials-and-examples/index',
+          label: 'External Tutorials',
+        }
       ]
     },
   ],

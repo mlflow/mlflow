@@ -600,7 +600,11 @@ const sidebarsGenAI: SidebarsConfig = {
             id: 'prompt-version-mgmt/prompt-registry/index'
           }
         },
-
+        {
+          type: 'doc',
+          id: 'prompt-version-mgmt/prompt-engineering/index',
+          label: 'Prompt Engineering UI',
+        }
       ]
     },
     {
@@ -635,9 +639,24 @@ const sidebarsGenAI: SidebarsConfig = {
       className: 'sidebar-top-level-category',
       items: [
         {
-          type: 'doc',
-          id: 'governance/ai-gateway',
+          type: 'category',
           label: 'AI Gateway',
+          items: [
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/guides/step1-create-deployments/index',
+              label: 'Setup the AI Gateway',
+            },
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/guides/step2-query-deployments/index',
+              label: 'Use the AI Gateway',
+            },
+          ],
+          link: {
+            type: 'doc',
+            id: 'governance/ai-gateway/index',
+          },
         },
         {
           type: 'doc',
@@ -647,7 +666,7 @@ const sidebarsGenAI: SidebarsConfig = {
       ],
       link: {
         type: 'doc',
-        id: 'governance/index'
+        id: 'governance/ai-gateway/index'
       }
     },
     {
