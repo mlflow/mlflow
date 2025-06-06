@@ -16,6 +16,7 @@ from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 
 # TODO: This test mocks out the tracking client and only test if the fluent API implementation
@@ -382,6 +383,9 @@ def test_assessment_apis_only_available_in_databricks():
 
 @pytest.mark.parametrize("return_type", ["list", "pandas"])
 def test_search_traces_with_assessments(store, tracking_uri, return_type):
+    if IS_TRACING_SDK_ONLY and return_type == "pandas":
+        pytest.skip("Pandas is not available when testing tracing SDK")
+
     # Create a trace info with an assessment
     assessments = [
         Feedback(trace_id="test", name="feedback", value=1),
