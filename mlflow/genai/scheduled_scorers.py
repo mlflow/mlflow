@@ -1,5 +1,6 @@
 from dataclasses import dataclass
-from typing import Any, Optional, Union
+from typing import Optional
+
 from mlflow.genai.scorers.base import Scorer
 from mlflow.utils.annotations import experimental
 
@@ -10,7 +11,7 @@ _ERROR_MSG = (
 
 
 @experimental
-@dataclass(kw_only=True)
+@dataclass()
 class ScorerScheduleConfig:
     """
     A scheduled scorer configuration for automated monitoring of generative AI applications.
@@ -29,8 +30,9 @@ class ScorerScheduleConfig:
         scorer: The scorer function to run on sampled traces. Must be either a built-in
             scorer (e.g., Safety, Correctness) or a function decorated with @scorer.
             Subclasses of Scorer are not supported.
-        scheduled_scorer_name: The name for this scheduled scorer configuration within the experiment.
-            This name must be unique among all scheduled scorers in the same experiment.
+        scheduled_scorer_name: The name for this scheduled scorer configuration
+            within the experiment. This name must be unique among all scheduled scorers
+            in the same experiment.
             We recommend using the scorer's name (e.g., scorer.name) for consistency.
         sample_rate: The fraction of traces to evaluate, between 0.0 and 1.0. For example,
             0.1 means 10% of traces will be randomly selected for evaluation.
@@ -71,6 +73,9 @@ class ScorerScheduleConfig:
         manually triggered. The Assessments appear in the Traces tab of the MLflow
         experiment. Only traces logged directly to the experiment are monitored; traces
         logged to individual runs within the experiment are not evaluated.
+
+    .. warning::
+        This API is in Beta and may change or be removed in a future release without warning.
     """
 
     scorer: Scorer
@@ -81,7 +86,7 @@ class ScorerScheduleConfig:
 
 # Scheduled Scorer CRUD operations
 @experimental
-def add_scheduled_scorer(
+def add_scheduled_scorer(  # clint: disable=missing-docstring-param  # noqa: D417
     *,
     scheduled_scorer_name: str,
     scorer: Scorer,
@@ -145,6 +150,9 @@ def add_scheduled_scorer(
         There may be a delay between when traces are logged and when they are evaluated.
         Only traces logged directly to the experiment are monitored; traces logged to
         individual runs within the experiment are not evaluated.
+
+    .. warning::
+        This API is in Beta and may change or be removed in a future release without warning.
     """
     try:
         from databricks.agents.scorers import add_scheduled_scorer
@@ -156,7 +164,7 @@ def add_scheduled_scorer(
 
 
 @experimental
-def update_scheduled_scorer(
+def update_scheduled_scorer(  # clint: disable=missing-docstring-param  # noqa: D417
     *,
     scheduled_scorer_name: str,
     scorer: Optional[Scorer] = None,
@@ -204,6 +212,9 @@ def update_scheduled_scorer(
                 sample_rate=0.8,  # Increased from 0.5 to 0.8
                 filter_string="trace.status = 'OK'",
             )
+
+    .. warning::
+        This API is in Beta and may change or be removed in a future release without warning.
     """
     try:
         from databricks.agents.scorers import update_scheduled_scorer
@@ -215,7 +226,7 @@ def update_scheduled_scorer(
 
 
 @experimental
-def delete_scheduled_scorer(
+def delete_scheduled_scorer(  # clint: disable=missing-docstring-param  # noqa: D417
     *,
     scheduled_scorer_name: str,
     experiment_id: Optional[str] = None,
@@ -253,6 +264,9 @@ def delete_scheduled_scorer(
     Note:
         Deletion is immediate and cannot be undone. If you need the same scorer
         configuration later, you will need to add it again using add_scheduled_scorer.
+
+    .. warning::
+        This API is in Beta and may change or be removed in a future release without warning.
     """
     try:
         from databricks.agents.scorers import delete_scheduled_scorer
@@ -262,7 +276,7 @@ def delete_scheduled_scorer(
 
 
 @experimental
-def get_scheduled_scorer(
+def get_scheduled_scorer(  # clint: disable=missing-docstring-param  # noqa: D417
     *,
     scheduled_scorer_name: str,
     experiment_id: Optional[str] = None,
@@ -294,6 +308,9 @@ def get_scheduled_scorer(
             print(f"Sample rate: {scorer_config.sample_rate}")
             print(f"Filter: {scorer_config.filter_string}")
             print(f"Scorer: {scorer_config.scorer.name}")
+
+    .. warning::
+        This API is in Beta and may change or be removed in a future release without warning.
     """
     try:
         from databricks.agents.scorers import get_scheduled_scorer
@@ -303,7 +320,7 @@ def get_scheduled_scorer(
 
 
 @experimental
-def list_scheduled_scorers(
+def list_scheduled_scorers(  # clint: disable=missing-docstring-param  # noqa: D417
     *, experiment_id: Optional[str] = None, **kwargs
 ) -> list[ScorerScheduleConfig]:
     """
@@ -337,6 +354,9 @@ def list_scheduled_scorers(
             mlflow.set_experiment("my_genai_app_monitoring")
             current_scorers = list_scheduled_scorers()
             print(f"Found {len(current_scorers)} scheduled scorers")
+
+    .. warning::
+        This API is in Beta and may change or be removed in a future release without warning.
     """
     try:
         from databricks.agents.scorers import list_scheduled_scorers
@@ -346,7 +366,7 @@ def list_scheduled_scorers(
 
 
 @experimental
-def set_scheduled_scorers(
+def set_scheduled_scorers(  # clint: disable=missing-docstring-param  # noqa: D417
     *,
     scheduled_scorers: list[ScorerScheduleConfig],
     experiment_id: Optional[str] = None,
@@ -402,6 +422,9 @@ def set_scheduled_scorers(
 
     Note:
         Existing Assessments will remain in the Traces tab of the MLflow experiment.
+
+    .. warning::
+        This API is in Beta and may change or be removed in a future release without warning.
     """
     try:
         from databricks.agents.scorers import set_scheduled_scorers
