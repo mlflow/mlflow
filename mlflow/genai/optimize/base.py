@@ -4,7 +4,7 @@ from contextlib import contextmanager
 from dataclasses import asdict
 from typing import TYPE_CHECKING, Optional, Union
 
-from mlflow.entities.model_registry import Prompt, PromptVersion
+from mlflow.entities.model_registry import PromptVersion
 from mlflow.exceptions import MlflowException
 from mlflow.genai.evaluation.utils import (
     _convert_eval_set_to_df,
