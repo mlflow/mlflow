@@ -18,13 +18,7 @@ if TYPE_CHECKING:
 
 
 class Agent:
-    """
-    The agent configuration, used for generating responses in the review app.
-
-    Attributes:
-        agent_name: The name of the agent.
-        model_serving_endpoint: The model serving endpoint used by the agent.
-    """
+    """The agent configuration, used for generating responses in the review app."""
 
     def __init__(self, agent: "_Agent"):
         self._agent = agent
@@ -41,22 +35,7 @@ class Agent:
 
 
 class LabelingSession:
-    """
-    A session for labeling items in the review app.
-
-    Attributes:
-        name: The name of the labeling session.
-        assigned_users: The users assigned to label items in the session.
-        agent: The agent used to generate responses for the items in the session.
-        label_schemas: The label schemas used in the session.
-        labeling_session_id: The unique identifier of the labeling session.
-        mlflow_run_id: The MLflow run ID associated with the session.
-        review_app_id: The review app ID associated with the session.
-        experiment_id: The experiment ID associated with the session.
-        url: The URL of the labeling session in the review app.
-        enable_multi_turn_chat: Whether multi-turn chat is enabled for the session.
-        custom_inputs: Custom inputs used in the session.
-    """
+    """A session for labeling items in the review app."""
 
     def __init__(self, session: "_LabelingSession"):
         self._session = session
@@ -170,15 +149,7 @@ class LabelingSession:
 
 
 class ReviewApp:
-    """A review app is used to collect feedback from stakeholders for a given experiment.
-
-    Attributes:
-        review_app_id: The ID of the review app.
-        experiment_id: The ID of the experiment.
-        url: The URL of the review app for stakeholders to provide feedback.
-        agents: The agents to be used to generate responses.
-        label_schemas: The label schemas to be used in the review app.
-    """
+    """A review app is used to collect feedback from stakeholders for a given experiment."""
 
     def __init__(self, app: "_ReviewApp"):
         self._app = app
