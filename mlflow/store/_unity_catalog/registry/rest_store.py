@@ -1363,7 +1363,6 @@ class UcModelRegistryStore(BaseRestStore):
                 name=name,
                 proto_name=GetPromptRequest,
             )
-            # Convert the ProtoPrompt to PromptInfo (metadata only)
             return proto_info_to_mlflow_prompt_info(response_proto, {})
         except Exception as e:
             if isinstance(e, MlflowException) and e.error_code == ErrorCode.Name(
