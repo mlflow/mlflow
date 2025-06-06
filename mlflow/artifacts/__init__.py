@@ -181,8 +181,6 @@ def _list_model_artifacts(
         run_id, artifact_path = artifact_uri.strip("/").split("/", 2)[1:]
 
     store = _get_store(store_uri=tracking_uri)
-    # If the path is empty, we need to find the logged model associated with the run,
-    # and list its artifacts instead.
     experiment_id = store.get_run(run_id).info.experiment_id
     model: Optional[LoggedModel] = None
     page_token: Optional[str] = None
