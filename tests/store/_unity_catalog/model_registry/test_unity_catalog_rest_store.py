@@ -2241,18 +2241,19 @@ def test_create_prompt_version_uc(mock_http, store, monkeypatch):
 @mock_http_200
 def test_get_prompt_uc(mock_http, store, monkeypatch):
     name = "prompt1"
-    # Patch proto_info_to_mlflow_prompt_info to return a dummy PromptInfo
+    version = "1"
+    # Patch proto_to_mlflow_prompt to return a dummy Prompt
     with mock.patch(
-        "mlflow.store._unity_catalog.registry.rest_store.proto_info_to_mlflow_prompt_info",
-        return_value=PromptInfo(name, "test description", tags={"env": "test"}),
-    ) as proto_to_prompt_info:
-        result = store.get_prompt(name=name)
-        # Should call the correct endpoint for GetPromptRequest
-        assert any("/prompts/" in c[1]["endpoint"] for c in mock_http.call_args_list)
-        # Should return a PromptInfo object
-        assert isinstance(result, PromptInfo)
-        assert result.name == name
-        proto_to_prompt_info.assert_called()
+        "mlflow.store._unity_catalog.registry.rest_store.proto_to_mlflow_prompt",
+        return_value=Prompt(name, 1, "Hello {name}!"),
+    ) as proto_to_prompt:
+        store.get_prompt(name=name, version=version)
+        # Should call the correct endpoint for GetPromptVersionRequest
+        assert any(
+            "/prompts/" in c[1]["endpoint"] and "/versions/" in c[1]["endpoint"]
+            for c in mock_http.call_args_list
+        )
+        proto_to_prompt.assert_called()
 
 
 @mock_http_200
