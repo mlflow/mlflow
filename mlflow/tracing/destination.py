@@ -25,15 +25,51 @@ class MlflowExperiment(TraceDestination):
     By setting this destination in the :py:func:`mlflow.tracing.set_destination` function,
     MLflow will log traces to the specified experiment.
 
+    If neither experiment_id nor experiment_name is specified, an active experiment
+    when traces are created will be used as the destination.
+    If both are specified, they must refer to the same experiment.
+
     Attributes:
         experiment_id: The ID of the experiment to log traces to. If not specified,
             the current active experiment will be used.
+        experiment_name: The name of the experiment to log traces to.
         tracking_uri: The tracking URI of the MLflow server to log traces to.
             If not specified, the current tracking URI will be used.
     """
 
     experiment_id: Optional[str] = None
+    experiment_name: Optional[str] = None
     tracking_uri: Optional[str] = None
+
+    def __post_init__(self):
+        from mlflow.tracking._tracking_service.utils import _get_store
+
+        # Handle experiment_name and experiment_id consistency if both are provided
+        if self.experiment_name is not None and self.experiment_id is not None:
+            retrieved_id = _get_store().get_experiment_by_name(self.experiment_name).experiment_id
+            if self.experiment_id != str(retrieved_id):
+                raise MlflowException.invalid_parameter_value(
+                    "experiment_id and experiment_name must refer to the same experiment"
+                )
+
+        # Resolve experiment_id from the provided inputs
+        if self.experiment_id is not None:
+            self.experiment_id = str(self.experiment_id)
+        elif self.experiment_name is not None:
+            # NB: Use store directly rather than fluent API to avoid dependency on MLflowClient
+            experiment_id = _get_store().get_experiment_by_name(self.experiment_name).experiment_id
+            self.experiment_id = experiment_id
+        else:
+            from mlflow.tracking.fluent import _get_experiment_id
+
+            active_experiment_id = _get_experiment_id()
+            if active_experiment_id is None:
+                raise MlflowException.invalid_parameter_value(
+                    "No experiment_id or experiment_name provided and no active experiment found. "
+                    "Please either specify an experiment_id/experiment_name or set an active "
+                    "experiment using mlflow.set_experiment()."
+                )
+            self.experiment_id = active_experiment_id
 
     @property
     def type(self) -> str:
@@ -42,7 +78,7 @@ class MlflowExperiment(TraceDestination):
 
 @experimental
 @dataclass
-class Databricks(TraceDestination):
+class Databricks(MlflowExperiment):
     """
     A destination representing a Databricks tracing server.
 
@@ -57,24 +93,6 @@ class Databricks(TraceDestination):
         experiment_id: The ID of the experiment to log traces to.
         experiment_name: The name of the experiment to log traces to.
     """
-
-    experiment_id: Optional[str] = None
-    experiment_name: Optional[str] = None
-
-    def __post_init__(self):
-        if self.experiment_id is not None:
-            self.experiment_id = str(self.experiment_id)
-
-        if self.experiment_name is not None:
-            from mlflow.tracking._tracking_service.utils import _get_store
-
-            # NB: Use store directly rather than fluent API to avoid dependency on MLflowClient
-            experiment_id = _get_store().get_experiment_by_name(self.experiment_name).experiment_id
-            if self.experiment_id is not None and self.experiment_id != experiment_id:
-                raise MlflowException.invalid_parameter_value(
-                    "experiment_id and experiment_name must refer to the same experiment"
-                )
-            self.experiment_id = experiment_id
 
     @property
     def type(self) -> str:
