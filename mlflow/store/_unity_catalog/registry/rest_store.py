@@ -1,17 +1,27 @@
 import base64
 import functools
+import json
 import logging
 import os
+import re
 import shutil
 from contextlib import contextmanager
+from dataclasses import dataclass
 from typing import Optional, Union
+
+import google.protobuf.empty_pb2
 
 import mlflow
 from mlflow.entities import Run
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, RESOURCE_DOES_NOT_EXIST, ErrorCode
+from mlflow.protos.databricks_pb2 import (
+    INTERNAL_ERROR,
+    INVALID_PARAMETER_VALUE,
+    RESOURCE_DOES_NOT_EXIST,
+    ErrorCode,
+)
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     MODEL_VERSION_OPERATION_READ_WRITE,
     CreateModelVersionRequest,
@@ -68,24 +78,25 @@ from mlflow.protos.databricks_uc_registry_service_pb2 import UcModelRegistryServ
 from mlflow.protos.service_pb2 import GetRun, MlflowService
 from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
     CreatePromptRequest,
-    CreatePromptResponse,
     CreatePromptVersionRequest,
-    CreatePromptVersionResponse,
+    DeletePromptAliasRequest,
     DeletePromptRequest,
-    DeletePromptResponse,
     DeletePromptTagRequest,
-    DeletePromptTagResponse,
     DeletePromptVersionRequest,
-    DeletePromptVersionResponse,
+    DeletePromptVersionTagRequest,
+    GetPromptRequest,
     GetPromptVersionByAliasRequest,
-    GetPromptVersionByAliasResponse,
     GetPromptVersionRequest,
-    GetPromptVersionResponse,
     SearchPromptsRequest,
     SearchPromptsResponse,
+    SearchPromptVersionsRequest,
+    SearchPromptVersionsResponse,
+    SetPromptAliasRequest,
     SetPromptTagRequest,
-    SetPromptTagResponse,
+    SetPromptVersionTagRequest,
     UnityCatalogSchema,
+    UpdatePromptRequest,
+    UpdatePromptVersionRequest,
 )
 from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
     Prompt as ProtoPrompt,
@@ -138,6 +149,7 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
 from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
+    call_endpoint,
     extract_all_api_info_for_service,
     extract_api_info_for_service,
     http_request,
@@ -158,6 +170,19 @@ _METHOD_TO_ALL_INFO = {
 _logger = logging.getLogger(__name__)
 _DELTA_TABLE = "delta_table"
 _MAX_LINEAGE_DATA_SOURCES = 10
+
+# Pre-compiled regex patterns for better performance in search operations
+_CATALOG_PATTERN = re.compile(r"catalog\s*=\s*['\"]([^'\"]+)['\"]", re.IGNORECASE)
+_SCHEMA_PATTERN = re.compile(r"schema\s*=\s*['\"]([^'\"]+)['\"]", re.IGNORECASE)
+
+
+@dataclass
+class _CatalogSchemaFilter:
+    """Internal class to hold parsed catalog, schema, and remaining filter."""
+
+    catalog_name: str
+    schema_name: str
+    remaining_filter: Optional[str]
 
 
 def _require_arg_unspecified(arg_name, arg_value, default_values=None, message=None):
@@ -365,15 +390,23 @@ class UcModelRegistryStore(BaseRestStore):
             SetModelVersionTagRequest: SetModelVersionTagResponse,
             DeleteModelVersionTagRequest: DeleteModelVersionTagResponse,
             GetModelVersionByAliasRequest: GetModelVersionByAliasResponse,
-            CreatePromptRequest: CreatePromptResponse,
+            CreatePromptRequest: ProtoPrompt,
             SearchPromptsRequest: SearchPromptsResponse,
-            DeletePromptRequest: DeletePromptResponse,
-            SetPromptTagRequest: SetPromptTagResponse,
-            DeletePromptTagRequest: DeletePromptTagResponse,
-            CreatePromptVersionRequest: CreatePromptVersionResponse,
-            GetPromptVersionRequest: GetPromptVersionResponse,
-            DeletePromptVersionRequest: DeletePromptVersionResponse,
-            GetPromptVersionByAliasRequest: GetPromptVersionByAliasResponse,
+            DeletePromptRequest: google.protobuf.empty_pb2.Empty,
+            SetPromptTagRequest: google.protobuf.empty_pb2.Empty,
+            DeletePromptTagRequest: google.protobuf.empty_pb2.Empty,
+            CreatePromptVersionRequest: ProtoPromptVersion,
+            GetPromptVersionRequest: ProtoPromptVersion,
+            DeletePromptVersionRequest: google.protobuf.empty_pb2.Empty,
+            GetPromptVersionByAliasRequest: ProtoPromptVersion,
+            UpdatePromptRequest: ProtoPrompt,
+            GetPromptRequest: ProtoPrompt,
+            SearchPromptVersionsRequest: SearchPromptVersionsResponse,
+            SetPromptAliasRequest: google.protobuf.empty_pb2.Empty,
+            DeletePromptAliasRequest: google.protobuf.empty_pb2.Empty,
+            SetPromptVersionTagRequest: google.protobuf.empty_pb2.Empty,
+            DeletePromptVersionTagRequest: google.protobuf.empty_pb2.Empty,
+            UpdatePromptVersionRequest: ProtoPromptVersion,
         }
         return method_to_response[method]()
 
@@ -1165,7 +1198,7 @@ class UcModelRegistryStore(BaseRestStore):
             )
         )
         response_proto = self._call_endpoint(CreatePromptRequest, req_body)
-        return proto_info_to_mlflow_prompt_info(response_proto.prompt, tags or {})
+        return proto_info_to_mlflow_prompt_info(response_proto, tags or {})
 
     def search_prompts(
         self,
@@ -1173,41 +1206,39 @@ class UcModelRegistryStore(BaseRestStore):
         max_results: Optional[int] = None,
         order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
-        catalog_name: Optional[str] = None,
-        schema_name: Optional[str] = None,
     ) -> PagedList[PromptInfo]:
         """
         Search for prompts in Unity Catalog.
 
         Args:
-            filter_string: Additional filter string (after catalog/schema are removed)
+            filter_string: Filter string that must include catalog and schema in the format:
+                "catalog = 'catalog_name' AND schema = 'schema_name'"
             max_results: Maximum number of results to return
             order_by: List of fields to order by (not used in current implementation)
             page_token: Token for pagination
-            catalog_name: Unity Catalog catalog name (for UC registries)
-            schema_name: Unity Catalog schema name (for UC registries)
         """
-        # Build the request with Unity Catalog schema if provided
-        if catalog_name and schema_name:
-            unity_catalog_schema = UnityCatalogSchema(
-                catalog_name=catalog_name, schema_name=schema_name
-            )
-            req_body = message_to_json(
-                SearchPromptsRequest(
-                    unity_catalog_schema=unity_catalog_schema,
-                    filter=filter_string,
-                    max_results=max_results,
-                    page_token=page_token,
-                )
-            )
+        # Parse catalog and schema from filter string
+        if filter_string:
+            parsed_filter = self._parse_catalog_schema_from_filter(filter_string)
         else:
-            req_body = message_to_json(
-                SearchPromptsRequest(
-                    filter=filter_string,
-                    max_results=max_results,
-                    page_token=page_token,
-                )
+            raise MlflowException(
+                "For Unity Catalog prompt registries, you must specify catalog and schema "
+                "in the filter string: \"catalog = 'catalog_name' AND schema = 'schema_name'\"",
+                INVALID_PARAMETER_VALUE,
             )
+
+        # Build the request with Unity Catalog schema
+        unity_catalog_schema = UnityCatalogSchema(
+            catalog_name=parsed_filter.catalog_name, schema_name=parsed_filter.schema_name
+        )
+        req_body = message_to_json(
+            SearchPromptsRequest(
+                catalog_schema=unity_catalog_schema,
+                filter=parsed_filter.remaining_filter,
+                max_results=max_results,
+                page_token=page_token,
+            )
+        )
 
         response_proto = self._call_endpoint(SearchPromptsRequest, req_body)
         prompts = []
@@ -1216,6 +1247,63 @@ class UcModelRegistryStore(BaseRestStore):
             prompts.append(proto_info_to_mlflow_prompt_info(prompt_info, {}))
 
         return PagedList(prompts, response_proto.next_page_token)
+
+    def _parse_catalog_schema_from_filter(
+        self, filter_string: Optional[str]
+    ) -> _CatalogSchemaFilter:
+        """
+        Parse catalog and schema from filter string for Unity Catalog using regex.
+
+        Expects filter format: "catalog = 'catalog_name' AND schema = 'schema_name'"
+
+        Args:
+            filter_string: Filter string containing catalog and schema
+
+        Returns:
+            _CatalogSchemaFilter object with catalog_name, schema_name, and remaining_filter
+
+        Raises:
+            MlflowException: If filter format is invalid for Unity Catalog
+        """
+        if not filter_string:
+            raise MlflowException(
+                "For Unity Catalog prompt registries, you must specify catalog and schema "
+                "in the filter string: \"catalog = 'catalog_name' AND schema = 'schema_name'\"",
+                INVALID_PARAMETER_VALUE,
+            )
+
+        # Use pre-compiled regex patterns for better performance
+        catalog_match = _CATALOG_PATTERN.search(filter_string)
+        schema_match = _SCHEMA_PATTERN.search(filter_string)
+
+        if not catalog_match or not schema_match:
+            raise MlflowException(
+                "For Unity Catalog prompt registries, filter string must include both "
+                "catalog and schema in the format: "
+                "\"catalog = 'catalog_name' AND schema = 'schema_name'\". "
+                f"Got: {filter_string}",
+                INVALID_PARAMETER_VALUE,
+            )
+
+        catalog_name = catalog_match.group(1)
+        schema_name = schema_match.group(1)
+
+        # Remove catalog and schema from filter string to get remaining filters
+        # First, normalize the filter by splitting on AND and rebuilding
+        # without catalog/schema parts
+        parts = re.split(r"\s+AND\s+", filter_string, flags=re.IGNORECASE)
+        remaining_parts = []
+
+        for part in parts:
+            part = part.strip()
+            # Skip parts that match catalog or schema patterns
+            if not (_CATALOG_PATTERN.match(part) or _SCHEMA_PATTERN.match(part)):
+                remaining_parts.append(part)
+
+        # Rejoin the remaining parts
+        remaining_filter = " AND ".join(remaining_parts) if remaining_parts else None
+
+        return _CatalogSchemaFilter(catalog_name, schema_name, remaining_filter)
 
     def delete_prompt(self, name: str) -> None:
         """
@@ -1297,7 +1385,7 @@ class UcModelRegistryStore(BaseRestStore):
                 )
 
             # For UC, only use version-level tags - no need for separate prompt-level tags
-            return proto_to_mlflow_prompt(response_proto.prompt_version, prompt_tags={})
+            return proto_to_mlflow_prompt(response_proto, prompt_tags={})
 
         except Exception as e:
             if isinstance(e, MlflowException) and e.error_code == ErrorCode.Name(
@@ -1319,7 +1407,11 @@ class UcModelRegistryStore(BaseRestStore):
         # Create a PromptVersion object with the provided fields
         prompt_version_proto = ProtoPromptVersion()
         prompt_version_proto.name = name
-        prompt_version_proto.template = template
+        # JSON-encode the template for Unity Catalog server
+        prompt_version_proto.template = json.dumps(template)
+
+        # Note: version will be set by the backend when creating a new version
+        # We don't set it here as it's generated server-side
         if description:
             prompt_version_proto.description = description
         if tags:
@@ -1339,7 +1431,7 @@ class UcModelRegistryStore(BaseRestStore):
             name=name,
             proto_name=CreatePromptVersionRequest,
         )
-        return proto_to_mlflow_prompt(response_proto.prompt_version, tags or {})
+        return proto_to_mlflow_prompt(response_proto, tags or {})
 
     def get_prompt_version(self, name: str, version: Union[str, int]) -> Prompt:
         """
@@ -1355,7 +1447,7 @@ class UcModelRegistryStore(BaseRestStore):
             version=version,
             proto_name=GetPromptVersionRequest,
         )
-        return proto_to_mlflow_prompt(response_proto.prompt_version, {})
+        return proto_to_mlflow_prompt(response_proto, {})
 
     def delete_prompt_version(self, name: str, version: Union[str, int]) -> None:
         """
@@ -1386,7 +1478,7 @@ class UcModelRegistryStore(BaseRestStore):
             alias=alias,
             proto_name=GetPromptVersionByAliasRequest,
         )
-        return proto_to_mlflow_prompt(response_proto.prompt_version, {})
+        return proto_to_mlflow_prompt(response_proto, {})
 
     def _edit_endpoint_and_call(self, endpoint, method, req_body, proto_name, **kwargs):
         """
@@ -1405,8 +1497,6 @@ class UcModelRegistryStore(BaseRestStore):
                 endpoint = endpoint.replace(f"{{{key}}}", str(value))
 
         # Make the API call
-        from mlflow.utils.rest_utils import call_endpoint
-
         return call_endpoint(
             self.get_host_creds(),
             endpoint=endpoint,

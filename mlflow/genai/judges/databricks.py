@@ -1,7 +1,57 @@
 from functools import wraps
-from typing import Any, Optional, Union
+from typing import Any, Callable, Optional, Union
 
 from mlflow.entities.assessment import Feedback
+from mlflow.genai.utils.enum_utils import StrEnum
+from mlflow.utils.annotations import experimental
+
+# NB: User-facing name for the is_context_relevant assessment.
+_IS_CONTEXT_RELEVANT_ASSESSMENT_NAME = "relevance_to_context"
+
+
+class CategoricalRating(StrEnum):
+    """
+    A categorical rating for an assessment.
+
+    Example:
+        .. code-block:: python
+
+            from mlflow.genai.judges import CategoricalRating
+            from mlflow.entities import Feedback
+
+            # Create feedback with categorical rating
+            feedback = Feedback(
+                name="my_metric", value=CategoricalRating.YES, rationale="The metric is passing."
+            )
+    """
+
+    YES = "yes"
+    NO = "no"
+    UNKNOWN = "unknown"
+
+    @classmethod
+    def _missing_(cls, value: str):
+        value = value.lower()
+        for member in cls:
+            if member == value:
+                return member
+        return cls.UNKNOWN
+
+
+def _sanitize_feedback(feedback: Feedback) -> Feedback:
+    """Sanitize the feedback object from the databricks judges.
+
+    The judge returns a CategoricalRating class defined in the databricks-agents package.
+    This function converts it to our CategoricalRating definition above.
+
+    Args:
+        feedback: The Feedback object to convert.
+
+    Returns:
+        A new Feedback object with our CategoricalRating.
+    """
+    feedback.value = CategoricalRating(feedback.value.value)
+    return feedback
 
 
 def requires_databricks_agents(func):
@@ -63,10 +113,14 @@ def is_context_relevant(*, request: str, context: Any, name: Optional[str] = Non
     """
     from databricks.agents.evals.judges import relevance_to_query
 
-    return relevance_to_query(
-        request=request,
-        response=str(context),
-        assessment_name=name,
+    return _sanitize_feedback(
+        relevance_to_query(
+            request=request,
+            response=str(context),
+            # NB: User-facing name for the is_context_relevant assessment. This is required since
+            #     the existing databricks judge is called `relevance_to_query`
+            assessment_name=name or _IS_CONTEXT_RELEVANT_ASSESSMENT_NAME,
+        )
     )
 
 
@@ -114,12 +168,14 @@ def is_context_sufficient(
     """
     from databricks.agents.evals.judges import context_sufficiency
 
-    return context_sufficiency(
-        request=request,
-        retrieved_context=context,
-        expected_facts=expected_facts,
-        expected_response=expected_response,
-        assessment_name=name,
+    return _sanitize_feedback(
+        context_sufficiency(
+            request=request,
+            retrieved_context=context,
+            expected_facts=expected_facts,
+            expected_response=expected_response,
+            assessment_name=name,
+        )
     )
 
 
@@ -148,12 +204,14 @@ def is_correct(
     """
     from databricks.agents.evals.judges import correctness
 
-    return correctness(
-        request=request,
-        response=response,
-        expected_facts=expected_facts,
-        expected_response=expected_response,
-        assessment_name=name,
+    return _sanitize_feedback(
+        correctness(
+            request=request,
+            response=response,
+            expected_facts=expected_facts,
+            expected_response=expected_response,
+            assessment_name=name,
+        )
     )
 
 
@@ -195,11 +253,13 @@ def is_grounded(
     """
     from databricks.agents.evals.judges import groundedness
 
-    return groundedness(
-        request=request,
-        response=response,
-        retrieved_context=context,
-        assessment_name=name,
+    return _sanitize_feedback(
+        groundedness(
+            request=request,
+            response=response,
+            retrieved_context=context,
+            assessment_name=name,
+        )
     )
 
 
@@ -227,10 +287,7 @@ def is_safe(*, content: str, name: Optional[str] = None) -> Feedback:
     """
     from databricks.agents.evals.judges import safety
 
-    return safety(
-        response=content,
-        assessment_name=name,
-    )
+    return _sanitize_feedback(safety(response=content, assessment_name=name))
 
 
 @requires_databricks_agents
@@ -281,8 +338,67 @@ def meets_guidelines(
     if isinstance(guidelines, str):
         guidelines = [guidelines]
 
-    return guideline_adherence(
-        guidelines=guidelines,
-        guidelines_context=context,
-        assessment_name=name,
+    return _sanitize_feedback(
+        guideline_adherence(
+            guidelines=guidelines,
+            guidelines_context=context,
+            assessment_name=name,
+        )
+    )
+
+
+@experimental
+@requires_databricks_agents
+def custom_prompt_judge(
+    *,
+    name: str,
+    prompt_template: str,
+    numeric_values: Optional[dict[str, Union[int, float]]] = None,
+) -> Callable[..., Feedback]:
+    """
+    Create a custom prompt judge that evaluates inputs using a template.
+
+    Example prompt template:
+
+    .. code-block::
+
+        You will look at the response and determine the formality of the response.
+
+        <request>{{request}}</request>
+        <response>{{response}}</response>
+
+        You must choose one of the following categories.
+
+        [[formal]]: The response is very formal.
+        [[semi_formal]]: The response is somewhat formal. The response is somewhat formal if the
+        response mentions friendship, etc.
+        [[not_formal]]: The response is not formal.
+
+    Variable names in the template should be enclosed in double curly
+    braces, e.g., `{{request}}`, `{{response}}`. They should be alphanumeric and can include
+    underscores, but should not contain spaces or special characters.
+
+    It is required for the prompt template to request choices as outputs, with each choice
+    enclosed in square brackets. Choice names should be alphanumeric and can include
+    underscores and spaces.
+
+    Args:
+        name: Name of the judge, used as the name of returned
+            :py:class`mlflow.entities.Feedback~` object.
+        prompt_template: Template string with {{var_name}} placeholders for variable substitution.
+            Should be prompted with choices as outputs.
+        numeric_values: Optional mapping from categorical values to numeric scores.
+            Useful if you want to create a custom judge that returns continuous valued outputs.
+            Defaults to None.
+
+    Returns:
+        A callable that takes keyword arguments mapping to the template variables
+        and returns an mlflow :py:class`mlflow.entities.Feedback~`.
+    """
+    from databricks.agents.evals.judges import custom_prompt_judge
+
+    return custom_prompt_judge(
+        name=name,
+        prompt_template=prompt_template,
+        numeric_values=numeric_values,
     )

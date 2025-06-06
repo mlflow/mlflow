@@ -1,11 +1,13 @@
+from dataclasses import asdict
 from typing import Any, Optional, Union
 
+import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai import judges
 from mlflow.genai.judges.databricks import requires_databricks_agents
-from mlflow.genai.scorers.base import Scorer
+from mlflow.genai.scorers.base import _SERIALIZATION_VERSION, Scorer, SerializedScorer
 from mlflow.genai.utils.trace_utils import (
     extract_retrieval_context_from_trace,
     parse_inputs_to_str,
@@ -22,7 +24,59 @@ class BuiltInScorer(Scorer):
     inherit from this class.
     """
 
+    name: str
     required_columns: set[str] = set()
+
+    def model_dump(self, **kwargs) -> dict:
+        """Override model_dump to handle builtin scorer serialization."""
+        # Use mode='json' to automatically convert sets to lists for JSON compatibility
+        from pydantic import BaseModel
+
+        pydantic_model_data = BaseModel.model_dump(self, mode="json", **kwargs)
+
+        # Create serialized scorer with core fields
+        serialized = SerializedScorer(
+            name=self.name,
+            aggregations=self.aggregations,
+            mlflow_version=mlflow.__version__,
+            serialization_version=_SERIALIZATION_VERSION,
+            builtin_scorer_class=self.__class__.__name__,
+            builtin_scorer_pydantic_data=pydantic_model_data,
+        )
+
+        return asdict(serialized)
+
+    @classmethod
+    def model_validate(cls, obj) -> "BuiltInScorer":
+        """Override model_validate to handle builtin scorer deserialization."""
+        if not isinstance(obj, dict) or "builtin_scorer_class" not in obj:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid builtin scorer data: expected a dictionary with 'builtin_scorer_class'"
+                f" field, got {type(obj).__name__}."
+            )
+
+        from mlflow.genai.scorers import builtin_scorers
+        from mlflow.genai.scorers.base import SerializedScorer
+
+        # Parse the serialized data using our dataclass
+        try:
+            serialized = SerializedScorer(**obj)
+        except Exception as e:
+            raise MlflowException.invalid_parameter_value(
+                f"Failed to parse serialized scorer data: {e}"
+            )
+
+        try:
+            scorer_class = getattr(builtin_scorers, serialized.builtin_scorer_class)
+        except AttributeError:
+            raise MlflowException.invalid_parameter_value(
+                f"Unknown builtin scorer class: {serialized.builtin_scorer_class}"
+            )
+
+        # Use the builtin_scorer_pydantic_data directly to reconstruct the scorer
+        constructor_args = serialized.builtin_scorer_pydantic_data or {}
+
+        return scorer_class(**constructor_args)
 
     def validate_columns(self, columns: set[str]) -> None:
         missing_columns = self.required_columns - columns

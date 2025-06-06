@@ -1,4 +1,7 @@
 import inspect
+import logging
+from contextlib import contextmanager
+from dataclasses import asdict
 from typing import TYPE_CHECKING, Optional, Union
 
 from mlflow.entities.model_registry import Prompt
@@ -15,12 +18,16 @@ from mlflow.genai.optimize.types import (
 )
 from mlflow.genai.scorers import Scorer
 from mlflow.tracking._model_registry.fluent import load_prompt
+from mlflow.tracking.fluent import log_params, log_table, start_run
 from mlflow.utils.annotations import experimental
 
 if TYPE_CHECKING:
+    import pandas as pd
     from genai.evaluation.utils import EvaluationDatasetTypes
 
 _ALGORITHMS = {"DSPy/MIPROv2": _DSPyMIPROv2Optimizer}
+
+_logger = logging.getLogger(__name__)
 
 
 @experimental
@@ -122,14 +129,15 @@ def optimize_prompt(
     if isinstance(prompt, str):
         prompt: Prompt = load_prompt(prompt)
 
-    optimized_prompt = optimzer.optimize(
-        prompt=prompt,
-        target_llm_params=target_llm_params,
-        train_data=train_data,
-        scorers=scorers,
-        objective=objective,
-        eval_data=eval_data,
-    )
+    with _maybe_start_autolog(optimizer_config, train_data, eval_data, prompt, target_llm_params):
+        optimized_prompt = optimzer.optimize(
+            prompt=prompt,
+            target_llm_params=target_llm_params,
+            train_data=train_data,
+            scorers=scorers,
+            objective=objective,
+            eval_data=eval_data,
+        )
 
     return PromptOptimizationResult(prompt=optimized_prompt)
 
@@ -158,3 +166,31 @@ def _validate_scorers(scorers: list[Scorer]) -> None:
                 f"Trace input is found in Scorer {scorer}. "
                 "Scorers for optimization can only take inputs, outputs or expectations."
             )
+
+
+@contextmanager
+def _maybe_start_autolog(
+    optimizer_config: OptimizerConfig,
+    train_data: "pd.DataFrame",
+    eval_data: Optional["pd.DataFrame"],
+    prompt: Prompt,
+    target_llm_params: LLMParams,
+):
+    if optimizer_config.autolog:
+        with start_run() as run:
+            _logger.info(
+                f"Run `{run.info.run_id}` is created for autologging prompt optimization. "
+                "Watch the run to track the optimization progress."
+            )
+            log_table(train_data, "train_data.json")
+            if eval_data is not None:
+                log_table(eval_data, "eval_data.json")
+            params = {
+                "prompt_uri": prompt.uri,
+                **{f"target_llm_params.{k}": v for k, v in asdict(target_llm_params).items()},
+                **{f"optimizer_config.{k}": v for k, v in asdict(optimizer_config).items()},
+            }
+            log_params(params)
+            yield
+    else:
+        yield
