@@ -5631,7 +5631,7 @@ class MlflowClient:
         tags: Optional[dict[str, str]] = None,
     ) -> PromptInfo:
         """
-        Create a new prompt in the model registry.
+        Create a new prompt in the registry.
 
         This method delegates directly to the store, providing full Unity Catalog support
         when used with Unity Catalog registries.
@@ -5642,7 +5642,7 @@ class MlflowClient:
             tags: Optional dictionary of prompt tags.
 
         Returns:
-            A PromptInfo object for Unity Catalog stores.
+            A PromptInfo object.
 
         Example:
 
