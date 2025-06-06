@@ -68,6 +68,8 @@ include = [
   "mlflow.legacy_databricks_cli*",
   "mlflow.prompt*",
   "mlflow.protos*",
+  "mlflow.pydantic_ai*",
+  "mlflow.smolagents*",
   "mlflow.store*",
   "mlflow.tracing*",
   "mlflow.tracking*",
