@@ -1,44 +1,22 @@
-from typing import TYPE_CHECKING
-
 from mlflow.genai import (
     judges,
     scorers,
 )
-from mlflow.genai.evaluation import evaluate, to_predict_fn
-from mlflow.genai.scorers import Scorer, scorer
-
-if TYPE_CHECKING:
-    from mlflow.genai.labeling import (
-        Agent,
-        LabelingSession,
-        ReviewApp,
-        create_labeling_session,
-        delete_labeling_session,
-        get_labeling_session,
-        get_labeling_sessions,
-        get_review_app,
-    )
-
-
-try:
-    from mlflow.genai.labeling import (
-        Agent,
-        LabelingSession,
-        ReviewApp,
-        create_labeling_session,
-        delete_labeling_session,
-        get_labeling_session,
-        get_labeling_sessions,
-        get_review_app,
-    )
-except ImportError:
-    # Silently fail if the databricks-agents package is not installed
-    pass
-
 from mlflow.genai.datasets import (
     create_dataset,
     delete_dataset,
     get_dataset,
+)
+from mlflow.genai.evaluation import evaluate, to_predict_fn
+from mlflow.genai.labeling import (
+    Agent,
+    LabelingSession,
+    ReviewApp,
+    create_labeling_session,
+    delete_labeling_session,
+    get_labeling_session,
+    get_labeling_sessions,
+    get_review_app,
 )
 from mlflow.genai.optimize import optimize_prompt
 from mlflow.genai.scheduled_scorers import (
@@ -50,6 +28,7 @@ from mlflow.genai.scheduled_scorers import (
     set_scheduled_scorers,
     update_scheduled_scorer,
 )
+from mlflow.genai.scorers import Scorer, scorer
 
 __all__ = [
     "evaluate",

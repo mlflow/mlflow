@@ -8,51 +8,27 @@ The API docs can be found here:
 
 from typing import TYPE_CHECKING, Literal, Optional, Union
 
-_ERROR_MSG = (
-    "The `databricks-agents` package is required to use `mlflow.genai.label_schemas`. "
-    "Please install it with `pip install databricks-agents`."
+from mlflow.genai.label_schemas.label_schemas import (
+    InputCategorical,
+    InputCategoricalList,
+    InputNumeric,
+    InputText,
+    InputTextList,
+    LabelSchema,
+    LabelSchemaType,
 )
 
 if TYPE_CHECKING:
     from databricks.agents.review_app import ReviewApp
 
-try:
-    from databricks.rag_eval.review_app.label_schemas import (
-        EXPECTED_FACTS,
-        EXPECTED_RESPONSE,
-        GUIDELINES,
-        _InputCategorical,
-        _InputCategoricalList,
-        _InputNumeric,
-        _InputText,
-        _InputTextList,
-        _LabelSchema,
-        _LabelSchemaType,
-    )
+_ERROR_MSG = (
+    "The `databricks-agents` package is required to use `mlflow.genai.label_schemas`. "
+    "Please install it with `pip install databricks-agents`."
+)
 
-    class InputCategorical(_InputCategorical):
-        """A single-select dropdown for collecting assessments from stakeholders."""
-
-    class InputCategoricalList(_InputCategoricalList):
-        """A multi-select dropdown for collecting assessments from stakeholders."""
-
-    class InputNumeric(_InputNumeric):
-        """A numeric input for collecting assessments from stakeholders."""
-
-    class InputText(_InputText):
-        """A free-form text box for collecting assessments from stakeholders."""
-
-    class InputTextList(_InputTextList):
-        """Like `Text`, but allows multiple entries."""
-
-    class LabelSchema(_LabelSchema):
-        """A label schema for collecting input from stakeholders."""
-
-    class LabelSchemaType(_LabelSchemaType):
-        """The type of label schema."""
-
-except ImportError:
-    raise ImportError(_ERROR_MSG) from None
+EXPECTED_FACTS = "expected_facts"
+GUIDELINES = "guidelines"
+EXPECTED_RESPONSE = "expected_response"
 
 
 def create_label_schema(
