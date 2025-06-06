@@ -127,11 +127,11 @@ class LabelingSession:
         """
         return LabelingSession(self._session.add_traces(traces))
 
-    def sync_expectations(self, to_dataset: str) -> None:
-        """Sync the expectations from the labeling session to a dataset.
+    def sync(self, to_dataset: str) -> None:
+        """Sync the traces and expectations from the labeling session to a dataset.
 
         Args:
-            to_dataset: The name of the dataset to sync expectations to.
+            to_dataset: The name of the dataset to sync traces and expectations to.
         """
         self._session.sync_expectations(to_dataset)
 
