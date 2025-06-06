@@ -6,11 +6,12 @@
  */
 
 import React from 'react';
+import type { ReactWrapper } from 'enzyme';
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
 import { mockModelVersionDetailed, mockRegisteredModelDetailed } from '../test-utils';
-import { ModelVersionStatus, Stages } from '../constants';
+import { ModelVersionStatus, Stages, MODEL_VERSIONS_SEARCH_TIMESTAMP_FIELD } from '../constants';
 import { Provider } from 'react-redux';
 import { MemoryRouter } from '../../common/utils/RoutingUtils';
 import { ModelPageImpl, ModelPage } from './ModelPage';
@@ -20,12 +21,14 @@ import { ModelRegistryRoutes } from '../routes';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 
 describe('ModelPage', () => {
-  let wrapper;
+  // @ts-expect-error TS(2709): Cannot use namespace 'ReactWrapper' as a type.
+  let wrapper: ReactWrapper;
   let instance;
   let minimalProps: any;
   let minimalStore: any;
   const mockStore = configureStore([thunk, promiseMiddleware()]);
   const navigate = jest.fn();
+  const loadPageMock = (page: any, isInitialLoading: any) => {};
 
   beforeEach(() => {
     jest.resetAllMocks();
@@ -62,7 +65,7 @@ describe('ModelPage', () => {
     expect(wrapper.find(ModelPage).length).toBe(1);
   });
 
-  test('should redirect to model listing page when model is deleted', async () => {
+  test('the states should be correctly set when page is loaded initially', () => {
     wrapper = mountWithIntl(
       <Provider store={minimalStore}>
         <MemoryRouter>
@@ -71,11 +74,8 @@ describe('ModelPage', () => {
       </Provider>,
     );
     instance = wrapper.find(ModelPageImpl).instance();
-    const mockError = new ErrorWrapper('{ "error_code": "RESOURCE_DOES_NOT_EXIST", "message": "Foo!" }', 404);
-
-    Utils.isBrowserTabVisible = jest.fn(() => true);
-    instance.loadData = jest.fn().mockReturnValue(Promise.reject(mockError));
-    await instance.pollData();
-    expect(navigate).toHaveBeenCalledWith(ModelRegistryRoutes.modelListPageRoute);
+    jest.spyOn(instance, 'loadPage').mockImplementation(loadPageMock);
+    expect(instance.state.orderByKey).toBe(MODEL_VERSIONS_SEARCH_TIMESTAMP_FIELD);
+    expect(instance.state.orderByAsc).toBe(false);
   });
 });
