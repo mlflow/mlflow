@@ -15,13 +15,13 @@ from mlflow.genai.judges.databricks import _sanitize_feedback
 def test_databricks_judges_are_importable():
     from mlflow.genai import judges
     from mlflow.genai.judges import (
+        custom_prompt_judge,
         is_context_relevant,
         is_context_sufficient,
         is_correct,
         is_grounded,
         is_safe,
         meets_guidelines,
-        custom_prompt_judge,
     )
 
     assert judges.is_context_relevant == is_context_relevant

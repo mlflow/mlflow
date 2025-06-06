@@ -364,25 +364,32 @@ def custom_prompt_judge(
         You must choose one of the following categories.
 
         [[formal]]: The response is very formal.
-        [[semi_formal]]: The response is somewhat formal. The response is somewhat formal if the response mentions friendship, etc.
+        [[semi_formal]]: The response is somewhat formal. The response is somewhat formal if the
+        response mentions friendship, etc.
         [[not_formal]]: The response is not formal.
 
-    Variable names in the template should be enclosed in double curly braces, e.g., `{{request}}`, `{{response}}`.
-    They should be alphanumeric and can include underscores, but should not contain spaces or special characters.
+    Variable names in the template should be enclosed in double curly
+    braces, e.g., `{{request}}`, `{{response}}`. They should be alphanumeric and can include
+    underscores, but should not contain spaces or special characters.
 
-    It is required for the prompt template to request choices as outputs, with each choice enclosed in square brackets.
-    Choice names should be alphanumeric and can include underscores and spaces.
+    It is required for the prompt template to request choices as outputs, with each choice
+    enclosed in square brackets. Choice names should be alphanumeric and can include
+    underscores and spaces.
 
     Args:
         name: Name of the judge, used as the assessment name.
-        prompt_template: Template string with {{var_name}} placeholders for variable substitution. Should be prompted with choices as outputs.
+        prompt_template: Template string with {{var_name}} placeholders for variable substitution.
+            Should be prompted with choices as outputs.
         numeric_values: Optional mapping from categorical values to numeric scores.
-            Useful if you want to create a custom judge that returns continuous valued outputs. Defaults to None.
+            Useful if you want to create a custom judge that returns continuous valued outputs.
+            Defaults to None.
 
     Returns:
-        A callable that takes keyword arguments mapping to the template variables and returns an mlflow Assessment.
+        A callable that takes keyword arguments mapping to the template variables
+        and returns an mlflow Assessment.
     """
     from databricks.agents.evals.judges import custom_prompt_judge
+
     return custom_prompt_judge(
         name=name,
         prompt_template=prompt_template,
