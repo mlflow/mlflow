@@ -18,6 +18,7 @@ from mlflow.genai.label_schemas.label_schemas import (
     LabelSchemaType,
 )
 from mlflow.genai.labeling import ReviewApp
+from mlflow.genai.utils.annotations import databricks_api
 
 if TYPE_CHECKING:
     from databricks.agents.review_app import ReviewApp
@@ -32,6 +33,7 @@ GUIDELINES = "guidelines"
 EXPECTED_RESPONSE = "expected_response"
 
 
+@databricks_api
 def create_label_schema(
     name: str,
     *,
@@ -52,6 +54,10 @@ def create_label_schema(
 
     A label schema defines the type of input that stakeholders will provide when labeling items
     in the review app.
+
+    .. note::
+        This functionality is only available in Databricks. Please install `mlflow[databricks]`
+        to use it.
 
     Args:
         name: The name of the label schema. Must be unique across the review app.
@@ -82,8 +88,13 @@ def create_label_schema(
     )
 
 
+@databricks_api
 def get_label_schema(name: str) -> LabelSchema:
     """Get a label schema from the review app.
+
+    .. note::
+        This functionality is only available in Databricks. Please install `mlflow[databricks]`
+        to use it.
 
     Args:
         name: The name of the label schema to get.
@@ -106,8 +117,13 @@ def get_label_schema(name: str) -> LabelSchema:
     return LabelSchema(label_schema)
 
 
+@databricks_api
 def delete_label_schema(name: str) -> "ReviewApp":
     """Delete a label schema from the review app.
+
+    .. note::
+        This functionality is only available in Databricks. Please install `mlflow[databricks]`
+        to use it.
 
     Args:
         name: The name of the label schema to delete.

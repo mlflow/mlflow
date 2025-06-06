@@ -24,7 +24,12 @@ if TYPE_CHECKING:
 
 
 class InputCategorical:
-    """A single-select dropdown for collecting assessments from stakeholders."""
+    """A single-select dropdown for collecting assessments from stakeholders.
+
+    .. note::
+        This functionality is only available in Databricks. Please install `mlflow[databricks]`
+        to use it.
+    """
 
     def __init__(self, label_schema_input: "_InputCategorical"):
         self._input = label_schema_input
@@ -35,7 +40,12 @@ class InputCategorical:
 
 
 class InputCategoricalList:
-    """A multi-select dropdown for collecting assessments from stakeholders."""
+    """A multi-select dropdown for collecting assessments from stakeholders.
+
+    .. note::
+        This functionality is only available in Databricks. Please install `mlflow[databricks]`
+        to use it.
+    """
 
     def __init__(self, label_schema_input: "_InputCategoricalList"):
         self._input = label_schema_input
@@ -46,7 +56,12 @@ class InputCategoricalList:
 
 
 class InputTextList:
-    """Like `Text`, but allows multiple entries."""
+    """Like `Text`, but allows multiple entries.
+
+    .. note::
+        This functionality is only available in Databricks. Please install `mlflow[databricks]`
+        to use it.
+    """
 
     def __init__(self, label_schema_input: "_InputTextList"):
         self._input = label_schema_input
@@ -61,7 +76,12 @@ class InputTextList:
 
 
 class InputText:
-    """A free-form text box for collecting assessments from stakeholders."""
+    """A free-form text box for collecting assessments from stakeholders.
+
+    .. note::
+        This functionality is only available in Databricks. Please install `mlflow[databricks]`
+        to use it.
+    """
 
     def __init__(self, label_schema_input: "_InputText"):
         self._input = label_schema_input
@@ -72,7 +92,12 @@ class InputText:
 
 
 class InputNumeric:
-    """A numeric input for collecting assessments from stakeholders."""
+    """A numeric input for collecting assessments from stakeholders.
+
+    .. note::
+        This functionality is only available in Databricks. Please install `mlflow[databricks]`
+        to use it.
+    """
 
     def __init__(self, label_schema_input: "_InputNumeric"):
         self._input = label_schema_input
@@ -94,7 +119,12 @@ class LabelSchemaType(StrEnum):
 
 
 class LabelSchema:
-    """A label schema for collecting input from stakeholders."""
+    """A label schema for collecting input from stakeholders.
+
+    .. note::
+        This functionality is only available in Databricks. Please install `mlflow[databricks]`
+        to use it.
+    """
 
     def __init__(
         self,

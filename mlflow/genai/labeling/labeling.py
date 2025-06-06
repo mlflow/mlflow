@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING, Any, Iterable, Optional, Union
 
 from mlflow.entities import Trace
+from mlflow.genai.utils.annotations import databricks_api
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -17,7 +18,12 @@ if TYPE_CHECKING:
 
 
 class Agent:
-    """The agent configuration, used for generating responses in the review app."""
+    """The agent configuration, used for generating responses in the review app.
+
+    .. note::
+        This functionality is only available in Databricks. Please install `mlflow[databricks]`
+        to use it.
+    """
 
     def __init__(self, agent: "_Agent"):
         self._agent = agent
@@ -34,7 +40,12 @@ class Agent:
 
 
 class LabelingSession:
-    """A session for labeling items in the review app."""
+    """A session for labeling items in the review app.
+
+    .. note::
+        This functionality is only available in Databricks. Please install `mlflow[databricks]`
+        to use it.
+    """
 
     def __init__(self, session: "_LabelingSession"):
         self._session = session
@@ -94,6 +105,7 @@ class LabelingSession:
         """Custom inputs used in the session."""
         return self._session.custom_inputs
 
+    @databricks_api
     def add_dataset(
         self, dataset_name: str, record_ids: Optional[list[str]] = None
     ) -> "LabelingSession":
@@ -109,6 +121,7 @@ class LabelingSession:
         """
         return LabelingSession(self._session.add_dataset(dataset_name, record_ids))
 
+    @databricks_api
     def add_traces(
         self,
         traces: Union[Iterable[Trace], Iterable[str], "pd.DataFrame"],
@@ -127,6 +140,7 @@ class LabelingSession:
         """
         return LabelingSession(self._session.add_traces(traces))
 
+    @databricks_api
     def sync(self, to_dataset: str) -> None:
         """Sync the traces and expectations from the labeling session to a dataset.
 
@@ -135,6 +149,7 @@ class LabelingSession:
         """
         self._session.sync_expectations(to_dataset)
 
+    @databricks_api
     def set_assigned_users(self, assigned_users: list[str]) -> "LabelingSession":
         """Set the assigned users for the labeling session.
 
@@ -148,7 +163,12 @@ class LabelingSession:
 
 
 class ReviewApp:
-    """A review app is used to collect feedback from stakeholders for a given experiment."""
+    """A review app is used to collect feedback from stakeholders for a given experiment.
+
+    .. note::
+        This functionality is only available in Databricks. Please install `mlflow[databricks]`
+        to use it.
+    """
 
     def __init__(self, app: "_ReviewApp"):
         self._app = app
@@ -178,6 +198,7 @@ class ReviewApp:
         """The label schemas to be used in the review app."""
         return self._app.label_schemas
 
+    @databricks_api
     def add_agent(
         self, *, agent_name: str, model_serving_endpoint: str, overwrite: bool = False
     ) -> "ReviewApp":
@@ -199,6 +220,7 @@ class ReviewApp:
             )
         )
 
+    @databricks_api
     def remove_agent(self, agent_name: str) -> "ReviewApp":
         """Remove an agent from the review app.
 
