@@ -34,7 +34,7 @@ Understanding different dataset types helps you choose the right approach for yo
 - **Composition**: Edge cases, known failure scenarios, challenging examples
 - **Usage**: Quick validation during development cycles
 
-**Comprehensive Test Suites**: Broader collections that cover the full range of application scenarios  
+**Comprehensive Test Suites**: Broader collections that cover the full range of application scenarios
 - **Size**: 50-200 examples representing diverse usage patterns
 - **Purpose**: Thorough quality assessment before major releases
 - **Composition**: Mix of common cases, edge cases, and regression tests
@@ -147,36 +147,36 @@ evaluation_dataset = [
         "inputs": {
             "question": "What are the benefits of using MLflow?",
             "context": "MLflow is an open-source platform for managing ML workflows...",
-            "user_type": "data_scientist"
+            "user_type": "data_scientist",
         },
         "expectations": {
             "expected_facts": [
                 "open-source platform",
-                "manages ML lifecycle", 
+                "manages ML lifecycle",
                 "experiment tracking",
-                "model deployment"
+                "model deployment",
             ],
             "guidelines": [
                 "Response should be technical but accessible",
                 "Include specific examples of MLflow features",
-                "Maintain professional tone throughout"
-            ]
-        }
+                "Maintain professional tone throughout",
+            ],
+        },
     },
     {
         "inputs": {
             "question": "How do I get started with MLflow?",
-            "user_type": "beginner"
+            "user_type": "beginner",
         },
         "expectations": {
             "expected_response": "Start by installing MLflow with `pip install mlflow`, then create your first experiment to track a simple model training run.",
             "guidelines": [
                 "Provide step-by-step instructions",
-                "Use beginner-friendly language", 
-                "Include practical examples"
-            ]
-        }
-    }
+                "Use beginner-friendly language",
+                "Include practical examples",
+            ],
+        },
+    },
 ]
 ```
 
@@ -196,7 +196,7 @@ Leverage real user interactions to create authentic evaluation datasets:
 # Identify valuable production examples
 traces = mlflow.search_traces(
     experiment_names=["production_app"],
-    filter_string="span.status = 'OK' AND user_feedback = 'positive'"
+    filter_string="span.status = 'OK' AND user_feedback = 'positive'",
 )
 
 # Convert to evaluation format
@@ -204,9 +204,9 @@ dataset = []
 for trace in traces:
     record = {
         "inputs": trace.data.inputs,
-        "source": {"trace": {"trace_id": trace.info.trace_id}}
+        "source": {"trace": {"trace_id": trace.info.trace_id}},
     }
-    
+
     # Add expectations if available from trace assessments
     if trace.info.assessments:
         expectations = {}
@@ -215,7 +215,7 @@ for trace in traces:
                 expectations["expected_response"] = assessment.value
         if expectations:
             record["expectations"] = expectations
-    
+
     dataset.append(record)
 ```
 
@@ -245,20 +245,24 @@ edge_cases = [
         "inputs": {"question": ""},  # Empty input handling
         "expectations": {
             "guidelines": "Respond gracefully with helpful prompt for user input"
-        }
+        },
     },
     {
-        "inputs": {"question": "Tell me everything about machine learning"},  # Overly broad
+        "inputs": {
+            "question": "Tell me everything about machine learning"
+        },  # Overly broad
         "expectations": {
             "guidelines": "Provide structured overview without overwhelming detail"
-        }
+        },
     },
     {
-        "inputs": {"question": "What's the best algorithm for my problem?"},  # Underspecified
+        "inputs": {
+            "question": "What's the best algorithm for my problem?"
+        },  # Underspecified
         "expectations": {
             "guidelines": "Ask clarifying questions about problem context and constraints"
-        }
-    }
+        },
+    },
 ]
 ```
 
@@ -269,21 +273,21 @@ technical_scenarios = [
     {
         "inputs": {
             "question": "How do I tune hyperparameters?",
-            "user_type": "beginner"
+            "user_type": "beginner",
         },
         "expectations": {
             "guidelines": "Explain concepts clearly with practical examples"
-        }
+        },
     },
     {
         "inputs": {
             "question": "Optimize my gradient descent convergence rate",
-            "user_type": "expert"  
+            "user_type": "expert",
         },
         "expectations": {
             "guidelines": "Provide advanced techniques and mathematical insights"
-        }
-    }
+        },
+    },
 ]
 ```
 
@@ -306,7 +310,7 @@ Use language models to create diverse, scalable evaluation datasets:
 base_scenarios = [
     "How do I log metrics in MLflow?",
     "What's the difference between experiments and runs?",
-    "How do I deploy a model with MLflow?"
+    "How do I deploy a model with MLflow?",
 ]
 
 # Generate variations with different:
@@ -322,7 +326,7 @@ base_scenarios = [
 adversarial_prompts = [
     "Create confusing questions about MLflow that sound reasonable but are ambiguous",
     "Generate questions that combine multiple unrelated MLflow concepts",
-    "Write questions that contain subtle factual errors"
+    "Write questions that contain subtle factual errors",
 ]
 ```
 
@@ -356,19 +360,17 @@ Understanding how to effectively use datasets across different platforms and wor
 dataset = [
     {
         "inputs": {"question": "What is MLflow?"},
-        "expectations": {"expected_facts": ["platform", "ML lifecycle"]}
+        "expectations": {"expected_facts": ["platform", "ML lifecycle"]},
     },
     {
         "inputs": {"question": "How do I install MLflow?"},
-        "expectations": {"expected_response": "pip install mlflow"}
-    }
+        "expectations": {"expected_response": "pip install mlflow"},
+    },
 ]
 
 # Use directly with evaluate
 mlflow.evaluate(
-    data=dataset,
-    model=my_app,
-    extra_metrics=[relevance_scorer, completeness_scorer]
+    data=dataset, model=my_app, extra_metrics=[relevance_scorer, completeness_scorer]
 )
 ```
 
@@ -378,16 +380,18 @@ mlflow.evaluate(
 import pandas as pd
 
 # Convert to DataFrame for easier manipulation
-df = pd.DataFrame([
-    {
-        "inputs": {"question": "What is MLflow?"},
-        "expectations": {"expected_facts": ["platform", "ML"]}
-    },
-    {
-        "inputs": {"question": "How to log metrics?"},
-        "expectations": {"guidelines": "Provide code examples"}
-    }
-])
+df = pd.DataFrame(
+    [
+        {
+            "inputs": {"question": "What is MLflow?"},
+            "expectations": {"expected_facts": ["platform", "ML"]},
+        },
+        {
+            "inputs": {"question": "How to log metrics?"},
+            "expectations": {"guidelines": "Provide code examples"},
+        },
+    ]
+)
 
 # Use DataFrame directly
 mlflow.evaluate(data=df, model=my_app, extra_metrics=scorers)
@@ -406,25 +410,23 @@ dataset_name = "customer_support_qa_v2"
 managed_dataset = mlflow.data.create_evaluation_dataset(
     name=dataset_name,
     data=dataset,
-    description="Customer support Q&A evaluation set v2.0"
+    description="Customer support Q&A evaluation set v2.0",
 )
 
 # Option 2: Build incrementally
 dataset_client = mlflow.data.get_evaluation_dataset(dataset_name)
-dataset_client.add_records([
-    {
-        "inputs": {"question": "New scenario"},
-        "expectations": {"guidelines": "Handle appropriately"},
-        "tags": {"category": "edge_case", "priority": "high"}
-    }
-])
+dataset_client.add_records(
+    [
+        {
+            "inputs": {"question": "New scenario"},
+            "expectations": {"guidelines": "Handle appropriately"},
+            "tags": {"category": "edge_case", "priority": "high"},
+        }
+    ]
+)
 
 # Use managed dataset in evaluation
-mlflow.evaluate(
-    data=f"datasets:/{dataset_name}",
-    model=my_app,
-    extra_metrics=scorers
-)
+mlflow.evaluate(data=f"datasets:/{dataset_name}", model=my_app, extra_metrics=scorers)
 ```
 
 **Managed Dataset Benefits** *(Databricks Only)*:
@@ -448,7 +450,9 @@ results = mlflow.evaluate(data=problem_dataset, model=my_app_v1, extra_metrics=s
 improved_app = fix_identified_issues(my_app_v1, results)
 
 # Validate fixes
-validation_results = mlflow.evaluate(data=problem_dataset, model=improved_app, extra_metrics=scorers)
+validation_results = mlflow.evaluate(
+    data=problem_dataset, model=improved_app, extra_metrics=scorers
+)
 
 # Add successful fixes to regression test suite
 regression_dataset.extend(problem_dataset)
@@ -462,7 +466,7 @@ for version_name, app_version in [("v1", my_app_v1), ("v2", my_app_v2)]:
         results = mlflow.evaluate(
             data=comprehensive_dataset,
             model=app_version,
-            extra_metrics=standard_scorers
+            extra_metrics=standard_scorers,
         )
         mlflow.set_tag("app_version", version_name)
 ```

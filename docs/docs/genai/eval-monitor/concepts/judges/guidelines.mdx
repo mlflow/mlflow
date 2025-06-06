@@ -35,6 +35,7 @@ Explicitly define your evaluation rules using MLflow's custom scorer functionali
 ```python
 from mlflow.metrics.genai import scorer
 
+
 @scorer
 def compliance_check(inputs, outputs, trace=None):
     response = outputs.get("response", "")
@@ -63,20 +64,16 @@ import mlflow
 data = [
     {
         "inputs": {"question": "What's the price?"},
-        "outputs": {"response": "Visit our pricing page for details."}
+        "outputs": {"response": "Visit our pricing page for details."},
     },
     {
         "inputs": {"question": "Tell me the price."},
-        "outputs": {"response": "$50 per month."}
-    }
+        "outputs": {"response": "$50 per month."},
+    },
 ]
 
 # Run evaluation
-results = mlflow.evaluate(
-    data=data,
-    model=my_model,
-    extra_metrics=[compliance_check]
-)
+results = mlflow.evaluate(data=data, model=my_model, extra_metrics=[compliance_check])
 ```
 
 ## How Guidelines Work in Databricks MLflow

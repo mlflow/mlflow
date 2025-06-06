@@ -3,107 +3,73 @@ import TabItem from "@theme/TabItem";
 
 # Evaluation Harness - Concepts
 
-The Evaluation Harness (`mlflow.genai.evaluate()`) is the orchestration engine that systematically tests your GenAI application's quality by running it against test data and applying scorers to measure performance. It provides a standardized framework for consistent evaluation across development and production environments.
+The Evaluation Harness (`mlflow.genai.evaluate()`) orchestrates systematic testing of your GenAI application's quality by running it against test data and applying scorers to measure performance. It provides a standardized framework for consistent evaluation across development and production environments.
 
 Understanding the evaluation harness is crucial for implementing reliable quality assessment workflows that scale from initial development through production monitoring. The harness ensures that your evaluation methodology remains consistent regardless of how your application evolves.
 
 ## How the Evaluation Harness Works
 
-The evaluation process follows a systematic workflow that transforms test inputs into actionable quality insights:
+The evaluation process transforms test inputs into actionable quality insights through a systematic workflow.
 
-**1. Test Execution**: The harness runs your application on each test input from your evaluation dataset, capturing complete execution traces that include inputs, outputs, and intermediate processing steps.
+**Test Execution** begins when the harness runs your application on each test input from your evaluation dataset, capturing complete execution traces that include inputs, outputs, and intermediate processing steps. This comprehensive capture ensures you have full visibility into how your application processes each test case.
 
-**2. Quality Assessment**: Scorers analyze the captured traces to assess various quality dimensions, generating detailed feedback with scores and rationales for each evaluation criterion.
+**Quality Assessment** follows as scorers analyze the captured traces to assess various quality dimensions. Each scorer generates detailed feedback with scores and rationales, providing both quantitative metrics and qualitative insights into application performance.
 
-**3. Result Organization**: All traces and their assessments are stored in an organized Evaluation Run, enabling analysis, comparison, and tracking over time.
+**Result Organization** completes the process as all traces and their assessments are stored in an organized Evaluation Run. This structure enables analysis, comparison, and tracking over time, forming the foundation for data-driven improvement decisions.
 
 This systematic approach ensures reproducible evaluation results and enables confident decision-making about application quality and improvements.
 
-## Evaluation Modes: Flexibility for Different Scenarios
+## Evaluation Modes
 
-The evaluation harness supports two distinct modes, each optimized for different use cases and constraints:
+The evaluation harness supports two distinct modes, each optimized for different use cases and constraints.
 
 <Tabs>
 <TabItem value="direct_evaluation" label="Direct Evaluation (Recommended)" default>
 
-### Mode 1: Direct Application Execution
+### Direct Application Execution
 
-In this mode, MLflow calls your GenAI application directly to generate fresh traces for each test case. This is the recommended approach for most evaluation scenarios.
+In this mode, MLflow calls your GenAI application directly to generate fresh traces for each test case. This is the recommended approach for most evaluation scenarios because it provides the most reliable and comprehensive assessment.
 
-**How it works**:
-1. **Application Invocation**: MLflow calls your instrumented application function for each test input
-2. **Trace Capture**: Complete execution traces are automatically captured, including all intermediate steps
-3. **Scorer Application**: Quality scorers analyze the fresh traces to assess performance
-4. **Result Storage**: Traces with attached assessments are stored in an Evaluation Run
+The process begins when MLflow invokes your instrumented application function for each test input from your evaluation dataset. Complete execution traces are automatically captured, including all intermediate steps, timing information, and metadata. Quality scorers then analyze these fresh traces to assess performance across your defined quality dimensions. Finally, traces with attached assessments are stored in an Evaluation Run for analysis and comparison.
 
-**Key Benefits**:
-- **Consistency**: Ensures identical trace structure between development evaluation and production monitoring
-- **Performance**: Automatic parallelization of application calls for faster evaluation
-- **Completeness**: Captures full execution context including intermediate operations and timing
-- **Reliability**: Eliminates skew between offline evaluation and online production behavior
+This approach offers significant advantages. **Consistency** ensures identical trace structure between development evaluation and production monitoring, eliminating discrepancies that could lead to false confidence or missed issues. **Performance** benefits from automatic parallelization of application calls, speeding up evaluation without sacrificing accuracy. **Completeness** captures full execution context including intermediate operations and timing, enabling sophisticated scorers that examine not just final outputs but entire decision processes. **Reliability** eliminates skew between offline evaluation and online production behavior by using identical execution paths.
 
-**Requirements**:
-- Application must be instrumented with MLflow Tracing
-- Function must accept inputs as keyword arguments matching your dataset schema
-- Must return JSON-serializable outputs
-- Should emit exactly one trace per call for predictable evaluation behavior
+Direct evaluation requires that your application be instrumented with MLflow Tracing and accept inputs as keyword arguments matching your dataset schema. The function must return JSON-serializable outputs and should emit exactly one trace per call for predictable evaluation behavior.
 
-**Best for**:
-- Development workflows where you can run application code directly
-- Teams prioritizing consistency between offline and online evaluation
-- Applications with proper MLflow tracing instrumentation
-- Scenarios requiring complete execution context for accurate assessment
+This mode works best for development workflows where you can run application code directly, teams prioritizing consistency between offline and online evaluation, applications with proper MLflow tracing instrumentation, and scenarios requiring complete execution context for accurate assessment.
 
 </TabItem>
 <TabItem value="answer_sheet" label="Answer Sheet Evaluation">
 
-### Mode 2: Pre-computed Results Evaluation
+### Pre-computed Results Evaluation
 
-This mode evaluates pre-computed outputs or existing traces when direct application execution isn't feasible or practical.
+This mode evaluates pre-computed outputs or existing traces when direct application execution isn't feasible or practical. While less comprehensive than direct evaluation, it provides valuable assessment capabilities for scenarios where direct execution isn't possible.
 
-**How it works**:
-1. **Data Preparation**: You provide either inputs/outputs pairs or existing MLflow traces
-2. **Trace Creation**: If using inputs/outputs, MLflow creates synthetic traces for evaluation
-3. **Scorer Application**: Quality scorers analyze the provided or synthetic traces
-4. **Result Storage**: Evaluation results are stored in an Evaluation Run for analysis
+The process begins with data preparation where you provide either input/output pairs or existing MLflow traces. If using input/output pairs, MLflow creates synthetic traces that scorers can analyze. Quality scorers then analyze the provided or synthetic traces using the same logic as direct evaluation. Evaluation results are stored in an Evaluation Run for analysis and comparison with other evaluation runs.
 
-**Use Cases**:
-- **External Systems**: Evaluating outputs from applications you can't run directly
-- **Historical Analysis**: Assessing quality of past production outputs
-- **Cross-Platform Comparison**: Comparing outputs from different systems or versions
-- **Offline Analysis**: Working with pre-collected application outputs
+Answer sheet evaluation becomes necessary when evaluating external systems that you can't run directly, conducting historical analysis of past production outputs, comparing outputs across different systems or versions, or working with pre-collected application outputs from offline analysis workflows.
 
-**Data Format Options**:
-- **Inputs + Outputs**: Provide the original inputs and corresponding outputs from your application
-- **Existing Traces**: Use MLflow traces that were captured from previous application runs
+The mode supports two data format options. **Inputs and Outputs** format provides the original inputs and corresponding outputs from your application, allowing MLflow to create synthetic traces for evaluation. **Existing Traces** format uses MLflow traces that were captured from previous application runs, preserving complete execution context.
 
-**Important Considerations**:
-- **Potential Skew**: Manually assembled inputs/outputs may not capture full execution context
-- **Limited Context**: Synthetic traces may miss intermediate steps crucial for comprehensive evaluation
-- **Scorer Compatibility**: Some scorers (especially RAG-specific ones) require complete trace information
-- **Production Monitoring**: May require scorer modifications for production monitoring compatibility
+However, this approach has important limitations. **Potential skew** can occur when manually assembled input/output pairs don't capture full execution context that sophisticated scorers might need. **Limited context** means synthetic traces may miss intermediate steps crucial for comprehensive evaluation. **Scorer compatibility** issues can arise since some scorers, especially RAG-specific ones, require complete trace information. **Production monitoring** may require scorer modifications since synthetic traces don't perfectly match production trace structure.
 
-**When to Use**:
-- Application code cannot be run directly with tracing
-- Evaluating historical outputs from production systems
-- Integrating with existing evaluation pipelines that generate outputs separately
-- Testing outputs from external APIs or third-party services
+Use this mode when application code cannot be run directly with tracing, when evaluating historical outputs from production systems, when integrating with existing evaluation pipelines that generate outputs separately, or when testing outputs from external APIs or third-party services.
 
 </TabItem>
 </Tabs>
 
-## Key Components and Parameters
+## Key Components and Configuration
 
-Understanding the core parameters and components helps you configure evaluation effectively for your specific needs:
+Understanding the core parameters and components helps you configure evaluation effectively for your specific needs.
 
-### Data Parameter: Flexible Input Formats
+### Data Parameter
 
-The `data` parameter accepts multiple formats to accommodate different workflow preferences and organizational needs:
+The `data` parameter accepts multiple formats to accommodate different workflow preferences and organizational needs.
 
 <Tabs>
 <TabItem value="evaluation_dataset" label="Evaluation Dataset (Recommended)" default>
 
-**MLflow Evaluation Dataset**: Structured, versioned datasets with schema validation and lineage tracking
+**Structured Evaluation Datasets** provide the most robust foundation for systematic evaluation. MLflow supports both managed evaluation datasets with enterprise features and simple structured formats that work across all platforms.
 
 ```python
 # Using managed evaluation dataset (Databricks MLflow)
@@ -113,47 +79,41 @@ dataset = mlflow.data.get_evaluation_dataset("my_qa_dataset_v2")
 dataset = [
     {
         "inputs": {"question": "What is MLflow?"},
-        "expectations": {"expected_facts": ["platform", "ML lifecycle"]}
+        "expectations": {"expected_facts": ["platform", "ML lifecycle"]},
     }
 ]
 
-mlflow.genai.evaluate(
-    data=dataset,
-    model=my_app,
-    extra_metrics=scorers
-)
+mlflow.genai.evaluate(data=dataset, model=my_app, extra_metrics=scorers)
 ```
 
-**Benefits**:
-- **Schema Validation**: Ensures data consistency and catches errors early
-- **Version Control**: Track dataset evolution alongside application development
-- **Lineage Tracking**: Understand data provenance and trace origins
-- **Collaboration**: Multiple team members can contribute to dataset development
+Structured datasets offer schema validation that ensures data consistency and catches errors early in the evaluation process. Version control capabilities track dataset evolution alongside application development, enabling you to understand how evaluation standards change over time. Lineage tracking helps you understand data provenance and trace the origins of test cases. Collaboration features allow multiple team members to contribute to dataset development and maintenance.
 
 </TabItem>
 <TabItem value="dataframe_lists" label="DataFrames and Lists">
 
-**Pandas DataFrame**: Familiar tabular format for data manipulation and analysis
+**Pandas DataFrames** provide a familiar tabular format that's particularly useful for data manipulation and analysis workflows.
 
 ```python
 import pandas as pd
 
 # DataFrame format
-df = pd.DataFrame([
-    {
-        "inputs": {"question": "How do I install MLflow?"},
-        "expectations": {"expected_response": "pip install mlflow"}
-    },
-    {
-        "inputs": {"question": "What are MLflow experiments?"},
-        "expectations": {"guidelines": "Explain clearly with examples"}
-    }
-])
+df = pd.DataFrame(
+    [
+        {
+            "inputs": {"question": "How do I install MLflow?"},
+            "expectations": {"expected_response": "pip install mlflow"},
+        },
+        {
+            "inputs": {"question": "What are MLflow experiments?"},
+            "expectations": {"guidelines": "Explain clearly with examples"},
+        },
+    ]
+)
 
 mlflow.genai.evaluate(data=df, model=my_app, extra_metrics=scorers)
 ```
 
-**List of Dictionaries**: Simple, direct format for quick evaluation setup
+**Lists of Dictionaries** offer a simple, direct format for quick evaluation setup without additional dependencies.
 
 ```python
 # Simple list format
@@ -161,32 +121,23 @@ eval_data = [
     {
         "inputs": {"query": "user question"},
         "outputs": {"response": "pre-computed answer"},  # Answer sheet mode
-        "expectations": {"guidelines": "be helpful"}
+        "expectations": {"guidelines": "be helpful"},
     }
 ]
 
 mlflow.genai.evaluate(data=eval_data, extra_metrics=scorers)
 ```
 
-**Use Cases**:
-- **Quick Prototyping**: Fast setup for immediate evaluation needs
-- **Data Analysis**: Leverage pandas for dataset manipulation and exploration
-- **Simple Workflows**: Straightforward evaluation without advanced dataset management
+These formats work well for quick prototyping where you need fast setup for immediate evaluation needs, data analysis workflows that leverage pandas for dataset manipulation and exploration, and simple evaluation workflows that don't require advanced dataset management features.
 
 </TabItem>
 </Tabs>
 
-### Predict Function: Application Integration
+### Predict Function Integration
 
-For direct evaluation mode, the `predict_fn` parameter defines how MLflow interacts with your application:
+For direct evaluation mode, the `predict_fn` parameter defines how MLflow interacts with your application. The function must accept inputs dictionary keys as keyword arguments, ensuring that your evaluation data schema matches your application's expected parameters. All outputs must be JSON-serializable, typically returned as dictionaries that scorers can analyze effectively. MLflow Tracing instrumentation captures execution details that enable sophisticated evaluation. The function should emit exactly one trace per call to ensure predictable evaluation behavior.
 
-**Function Requirements**:
-- **Keyword Arguments**: Must accept inputs dictionary keys as keyword arguments
-- **JSON Serialization**: Must return JSON-serializable outputs (typically dictionaries)
-- **Tracing Instrumentation**: Must use MLflow Tracing to capture execution details
-- **Single Trace Emission**: Should emit exactly one trace per call for predictable behavior
-
-**Integration Patterns**:
+**Integration Patterns** accommodate different application architectures:
 
 ```python
 # Pattern 1: Direct function wrapping
@@ -197,39 +148,28 @@ def my_chatbot(question: str, context: str = None) -> dict:
     response = generate_response(question, context)
     return {"response": response}
 
+
 # Pattern 2: Deployed endpoint integration
 endpoint_predict_fn = mlflow.deployments.to_predict_fn("endpoints:/my-model")
 
 # Pattern 3: Logged model evaluation
 logged_model = mlflow.pyfunc.load_model("models:/my-model/latest")
 
-@mlflow.trace  
+
+@mlflow.trace
 def evaluate_logged_model(question: str) -> dict:
     """Wrapper for evaluating logged models."""
     result = logged_model.predict({"question": question})
     return {"response": result}
 ```
 
-### Scorers: Quality Assessment Framework
+### Quality Assessment Framework
 
-Scorers define what quality dimensions are evaluated and how assessment is performed:
-
-**Scorer Types**:
-- **Predefined Scorers**: Ready-to-use implementations for common quality dimensions
-- **Custom Scorers**: Application-specific evaluation logic tailored to your requirements
-- **Hybrid Approaches**: Combinations of predefined and custom scorers for comprehensive assessment
-
-**Scorer Configuration**:
+Scorers define what quality dimensions are evaluated and how assessment is performed. The framework supports predefined scorers that provide ready-to-use implementations for common quality dimensions, custom scorers with application-specific evaluation logic tailored to your requirements, and hybrid approaches that combine predefined and custom scorers for comprehensive assessment.
 
 ```python
-from mlflow.genai.scorers import RelevanceToQuery, Safety
 from mlflow.genai.scorers import scorer
 
-# Predefined scorers (Databricks MLflow)
-predefined_scorers = [
-    RelevanceToQuery(),  # Semantic relevance assessment
-    Safety(),            # Content safety evaluation
-]
 
 # Custom scorer (Both platforms)
 @scorer
@@ -237,18 +177,30 @@ def response_completeness(inputs, outputs):
     """Custom scorer for response completeness."""
     response = outputs.get("response", "")
     query = inputs.get("question", "")
-    
+
     # Custom evaluation logic
     completeness_score = evaluate_completeness(query, response)
     return completeness_score
+
+
+# Databricks MLflow predefined scorers
+if platform_supports_llm_judges():
+    from mlflow.genai.scorers import RelevanceToQuery, Safety
+
+    predefined_scorers = [RelevanceToQuery(), Safety()]
+else:
+    # OSS alternative using heuristic metrics
+    from mlflow.metrics import exact_match, latency
+
+    predefined_scorers = [exact_match(), latency()]
 
 # Combined evaluation approach
 all_scorers = predefined_scorers + [response_completeness]
 ```
 
-## Data Schema and Requirements
+## Data Schema Requirements
 
-Understanding the expected data schema ensures proper evaluation setup and helps avoid common configuration issues:
+Understanding the expected data schema ensures proper evaluation setup and helps avoid common configuration issues.
 
 ### Schema by Evaluation Mode
 
@@ -257,28 +209,26 @@ Understanding the expected data schema ensures proper evaluation setup and helps
 
 #### Required Fields for Direct Evaluation
 
+Direct evaluation requires specific data structure to work properly with your application function.
+
 | Field | Type | Description | Example |
 |-------|------|-------------|---------|
 | `inputs` | `dict[str, Any]` | Arguments passed to your predict function | `{"question": "What is MLflow?", "context": "..."}` |
 | `expectations` | `dict[str, Any]` *(Optional)* | Ground truth labels for scorer evaluation | `{"expected_facts": ["platform", "ML"], "guidelines": "be clear"}` |
 
-**Important Notes**:
-- **No outputs field**: MLflow generates outputs by calling your application
-- **Keyword matching**: Input keys must match your predict function's parameter names
-- **JSON serialization**: All data must be JSON-serializable for proper processing
+The `inputs` field contains arguments that will be passed to your predict function as keyword arguments, so the keys must match your function's parameter names exactly. MLflow generates outputs by calling your application, so no outputs field is needed in your evaluation dataset. All data must be JSON-serializable for proper processing by the evaluation framework.
 
-**Example Direct Evaluation Dataset**:
 ```python
 direct_eval_data = [
     {
         "inputs": {
             "question": "How do I log metrics in MLflow?",
-            "user_context": "beginner"
+            "user_context": "beginner",
         },
         "expectations": {
             "expected_facts": ["mlflow.log_metric", "tracking server"],
-            "guidelines": "Provide code examples for beginners"
-        }
+            "guidelines": "Provide code examples for beginners",
+        },
     }
 ]
 ```
@@ -288,7 +238,9 @@ direct_eval_data = [
 
 #### Required Fields for Answer Sheet Evaluation
 
-**Option A - Inputs and Outputs**:
+Answer sheet evaluation supports two data format options depending on whether you have pre-computed outputs or existing traces.
+
+**Option A - Inputs and Outputs Format**:
 
 | Field | Type | Description | Example |
 |-------|------|-------------|---------|
@@ -296,20 +248,21 @@ direct_eval_data = [
 | `outputs` | `dict[str, Any]` | Pre-computed outputs from your application | `{"response": "MLflow is a platform..."}` |
 | `expectations` | `dict[str, Any]` *(Optional)* | Ground truth labels for evaluation | `{"expected_facts": ["platform"]}` |
 
-**Option B - Existing Traces**:
+**Option B - Existing Traces Format**:
 
 | Field | Type | Description | Example |
 |-------|------|-------------|---------|
 | `trace` | `mlflow.entities.Trace` | Complete MLflow trace objects | Pre-captured trace with full execution context |
 | `expectations` | `dict[str, Any]` *(Optional)* | Additional ground truth labels | Can also be included as trace assessments |
 
-**Example Answer Sheet Dataset**:
 ```python
 answer_sheet_data = [
     {
         "inputs": {"question": "What is MLflow?"},
-        "outputs": {"response": "MLflow is an open-source platform for managing ML workflows."},
-        "expectations": {"expected_facts": ["open-source", "platform", "ML workflows"]}
+        "outputs": {
+            "response": "MLflow is an open-source platform for managing ML workflows."
+        },
+        "expectations": {"expected_facts": ["open-source", "platform", "ML workflows"]},
     }
 ]
 ```
@@ -319,7 +272,7 @@ answer_sheet_data = [
 
 ### Reserved Expectation Keys
 
-The `expectations` field uses specific reserved keys that predefined scorers recognize:
+The `expectations` field uses specific reserved keys that predefined scorers recognize and interpret consistently across different evaluation scenarios.
 
 | Key | Used By | Description | Example |
 |-----|---------|-------------|---------|
@@ -328,43 +281,44 @@ The `expectations` field uses specific reserved keys that predefined scorers rec
 | `guidelines` | Guidelines-based scorers | Natural language evaluation criteria | `"Response must be polite and professional"` |
 | `expected_retrieved_context` | RAG evaluation scorers | Documents that should be retrieved | List of expected document references |
 
-## Common Implementation Patterns
+Understanding these reserved keys helps you structure evaluation data that works effectively with both predefined and custom scorers.
 
-Understanding common patterns helps you implement evaluation effectively for different scenarios:
+## Implementation Patterns
+
+Common patterns help you implement evaluation effectively for different scenarios and organizational needs.
 
 ### Development Workflow Integration
 
-**Iterative Development Pattern**:
+**Iterative Development** patterns enable rapid quality assessment during application development:
+
 ```python
 # Test specific improvements
 def evaluate_current_version():
     results = mlflow.genai.evaluate(
-        data=focused_test_set,
-        model=my_app_v2,
-        extra_metrics=standard_scorers
+        data=focused_test_set, model=my_app_v2, extra_metrics=standard_scorers
     )
     return results
+
 
 # Compare with previous version
 def compare_versions():
     baseline_results = mlflow.genai.evaluate(
-        data=comprehensive_dataset,
-        model=my_app_v1,
-        extra_metrics=standard_scorers
+        data=comprehensive_dataset, model=my_app_v1, extra_metrics=standard_scorers
     )
-    
+
     current_results = mlflow.genai.evaluate(
-        data=comprehensive_dataset, 
-        model=my_app_v2,
-        extra_metrics=standard_scorers
+        data=comprehensive_dataset, model=my_app_v2, extra_metrics=standard_scorers
     )
-    
+
     return analyze_improvement(baseline_results, current_results)
 ```
 
+This pattern supports rapid iteration by testing improvements on focused datasets before running comprehensive evaluation. Version comparison enables objective assessment of whether changes actually improve application quality.
+
 ### Production Integration
 
-**Endpoint Evaluation Pattern**:
+**Endpoint Evaluation** patterns enable assessment of deployed applications:
+
 ```python
 # Evaluate deployed models
 deployed_predict_fn = mlflow.deployments.to_predict_fn("endpoints:/production-chatbot")
@@ -372,107 +326,113 @@ deployed_predict_fn = mlflow.deployments.to_predict_fn("endpoints:/production-ch
 production_results = mlflow.genai.evaluate(
     data=production_test_dataset,
     model=deployed_predict_fn,
-    extra_metrics=[RelevanceToQuery(), Safety()]
+    extra_metrics=quality_scorers,
 )
 ```
 
-**Historical Analysis Pattern**:
+**Historical Analysis** patterns help understand quality trends over time:
+
 ```python
 # Analyze past production traces
 production_traces = mlflow.search_traces(
-    experiment_names=["production"],
-    filter_string="span.status = 'OK'"
+    experiment_names=["production"], filter_string="span.status = 'OK'"
 )
 
 historical_analysis = mlflow.genai.evaluate(
-    data=production_traces,
-    extra_metrics=quality_scorers
+    data=production_traces, extra_metrics=quality_scorers
 )
 ```
 
-## Best Practices for Evaluation Harness Usage
+These patterns enable continuous quality monitoring and help identify long-term trends in application performance.
+
+## Best Practices
 
 ### Mode Selection Guidelines
 
-**Choose Direct Evaluation When**:
-- You can run your application code with proper tracing instrumentation
-- You want to ensure consistency between development and production evaluation
-- You need complete execution context for accurate quality assessment
-- You plan to use the same scorers for production monitoring
+**Choose Direct Evaluation** when you can run your application code with proper tracing instrumentation. This mode ensures consistency between development and production evaluation while providing complete execution context for accurate quality assessment. Direct evaluation works best when you plan to use the same scorers for production monitoring, creating seamless continuity across your development lifecycle.
 
-**Choose Answer Sheet Evaluation When**:
-- Your application cannot be run directly (external APIs, legacy systems)
-- You're analyzing historical outputs from production systems
-- You're comparing outputs across different platforms or versions
-- You have pre-computed results from batch processing workflows
+**Choose Answer Sheet Evaluation** when your application cannot be run directly, such as external APIs or legacy systems. This mode works well for analyzing historical outputs from production systems, comparing outputs across different platforms or versions, or working with pre-computed results from batch processing workflows.
 
 ### Performance Optimization
 
-**Efficient Dataset Design**:
-- Start with smaller, focused datasets for rapid iteration
-- Expand to comprehensive datasets for thorough validation
-- Use stratified sampling to ensure representative coverage
-- Balance common cases with edge cases and challenging scenarios
+**Efficient Dataset Design** starts with smaller, focused datasets for rapid iteration, then expands to comprehensive datasets for thorough validation. Use stratified sampling to ensure representative coverage across different types of inputs. Balance common cases with edge cases and challenging scenarios to build confidence in your application's robustness.
 
-**Scorer Optimization**:
-- Use predefined scorers when they meet your evaluation needs
-- Implement efficient custom scorers for business-specific requirements
-- Consider scorer computational costs when designing evaluation suites
-- Batch related evaluations to minimize overhead
+**Scorer Optimization** involves using predefined scorers when they meet your evaluation needs, implementing efficient custom scorers for business-specific requirements, and considering scorer computational costs when designing evaluation suites. Batch related evaluations to minimize overhead and improve evaluation speed.
 
 ### Error Handling and Validation
 
-**Robust Evaluation Setup**:
-- Validate data schema before running large evaluations
-- Test scorers on small samples to ensure proper functionality
-- Handle application errors gracefully during evaluation
-- Monitor evaluation performance and resource usage
+**Robust Evaluation Setup** requires validating data schema before running large evaluations, testing scorers on small samples to ensure proper functionality, and handling application errors gracefully during evaluation. Monitor evaluation performance and resource usage to identify potential bottlenecks or issues.
 
-**Quality Assurance**:
-- Review evaluation results for unexpected patterns or anomalies
-- Validate scorer behavior against known good and bad examples
-- Compare results across different evaluation runs to ensure consistency
-- Document evaluation methodology and decision criteria
+**Quality Assurance** involves reviewing evaluation results for unexpected patterns or anomalies, validating scorer behavior against known good and bad examples, and comparing results across different evaluation runs to ensure consistency. Document evaluation methodology and decision criteria to maintain standards across team members and time periods.
 
 ## Integration with MLflow Ecosystem
 
 ### Experiment Tracking Integration
 
-**Run Organization**: Evaluation runs are standard MLflow runs, providing full integration with experiment tracking workflows and enabling comprehensive analysis and comparison capabilities.
-
-**Model Versioning**: Link evaluation results to specific model versions using the `model_id` parameter to track quality evolution across development iterations.
-
-**Metadata Capture**: Automatically capture evaluation configuration, dataset information, and environmental context for complete reproducibility.
+Evaluation runs are standard MLflow runs, providing full integration with experiment tracking workflows and enabling comprehensive analysis and comparison capabilities. Link evaluation results to specific model versions using the `model_id` parameter to track quality evolution across development iterations. MLflow automatically captures evaluation configuration, dataset information, and environmental context for complete reproducibility.
 
 ### Production Monitoring Alignment
 
-**Scorer Reusability**: Scorers developed for offline evaluation can be directly used in production monitoring, ensuring consistency between development and production quality assessment.
+Scorers developed for offline evaluation can be directly used in production monitoring when using Databricks MLflow, ensuring consistency between development and production quality assessment. Direct evaluation mode generates traces identical to production traces, enabling seamless transition from development evaluation to live monitoring. Maintain consistent quality definitions and thresholds across development, testing, and production environments.
 
-**Trace Compatibility**: Direct evaluation mode generates traces identical to production traces, enabling seamless transition from development evaluation to live monitoring.
+## Platform Considerations
 
-**Quality Consistency**: Maintain consistent quality definitions and thresholds across development, testing, and production environments.
+### MLflow OSS Capabilities
 
-## Related Concepts
+OSS provides the complete evaluation harness framework with support for heuristic metrics, custom scorer development, and model type defaults. The platform excels at rapid development iteration with deterministic evaluation approaches.
 
-- **[Evaluation Datasets](/genai/eval-monitor/concepts/eval-datasets)**: Understanding the test data that powers evaluation
-- **[Scorers](/genai/eval-monitor/concepts/scorers)**: Deep dive into quality assessment methodology  
-- **[Evaluation Runs](/genai/eval-monitor/concepts/evaluation-runs)**: How results are stored and analyzed
-- **[Production Monitoring](/genai/eval-monitor/production-monitoring)**: Extending evaluation to live applications
+```python
+# OSS evaluation pattern
+from mlflow.metrics import exact_match, latency
+from mlflow.genai.scorers import scorer
+
+
+@scorer
+def custom_quality_check(outputs):
+    return evaluate_custom_criteria(outputs)
+
+
+results = mlflow.genai.evaluate(
+    data=eval_dataset,
+    model=my_app,
+    extra_metrics=[exact_match(), latency()],
+    scorers=[custom_quality_check],
+)
+```
+
+### Databricks MLflow Enhancements
+
+Databricks provides advanced LLM judge capabilities, production monitoring integration, and enterprise dataset management features that extend the basic evaluation harness functionality.
+
+```python
+# Databricks evaluation pattern
+from mlflow.genai.scorers import RelevanceToQuery, Safety, RetrievalGroundedness
+
+comprehensive_scorers = [
+    RelevanceToQuery(),
+    Safety(),
+    RetrievalGroundedness(),  # RAG-specific
+    custom_quality_check,  # Custom logic
+]
+
+results = mlflow.genai.evaluate(
+    data=managed_dataset, model=my_app, scorers=comprehensive_scorers
+)
+```
 
 ## Summary
 
 The Evaluation Harness provides a robust, flexible framework for systematic GenAI quality assessment that adapts to different development workflows and organizational constraints. Understanding its modes, components, and best practices enables effective implementation of evaluation strategies that scale from development through production.
 
-**Key Success Factors**:
-- **Choose the right mode** based on your application architecture and constraints
-- **Design appropriate data schemas** that support your evaluation objectives
-- **Configure scorers effectively** to assess the quality dimensions that matter most
-- **Integrate systematically** with your development and deployment workflows
+**Key Success Factors** include choosing the right mode based on your application architecture and constraints, designing appropriate data schemas that support your evaluation objectives, configuring scorers effectively to assess the quality dimensions that matter most, and integrating systematically with your development and deployment workflows.
 
-**Implementation Recommendations**:
-- **Start with direct evaluation** when possible for maximum consistency and completeness
-- **Use structured datasets** to ensure reliable, reproducible evaluation results
-- **Combine predefined and custom scorers** for comprehensive quality assessment
-- **Plan for production integration** by designing evaluation workflows that extend to live monitoring
+**Implementation Recommendations** focus on starting with direct evaluation when possible for maximum consistency and completeness, using structured datasets to ensure reliable and reproducible evaluation results, combining available scorers with custom logic for comprehensive quality assessment, and planning for production integration by designing evaluation workflows that extend to live monitoring.
 
 The evaluation harness transforms ad-hoc quality checking into systematic, data-driven assessment that supports confident decision-making about GenAI application improvements and deployments.
+
+## Next Steps
+
+- **[Evaluation Datasets](/genai/eval-monitor/concepts/eval-datasets)**: Understanding the test data that powers evaluation
+- **[Scorers](/genai/eval-monitor/concepts/scorers)**: Deep dive into quality assessment methodology
+- **[Evaluation Runs](/genai/eval-monitor/concepts/evaluation-runs)**: How results are stored and analyzed
+- **[Production Monitoring](/genai/eval-monitor/concepts/production-monitoring)**: Extending evaluation to live applications

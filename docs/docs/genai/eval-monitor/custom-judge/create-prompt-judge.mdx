@@ -44,7 +44,7 @@ Understanding when prompt-based judges are the right choice helps you select the
 **Subjective quality dimensions**: For qualities that require judgment and interpretation:
 ```
 - Creativity and originality in content generation
-- Persuasiveness of sales messaging  
+- Persuasiveness of sales messaging
 - Empathy and emotional intelligence in customer service
 - Professional appropriateness in different business contexts
 ```
@@ -65,7 +65,7 @@ Understanding when prompt-based judges are the right choice helps you select the
 **Clear rule-based criteria**: If your evaluation can be expressed as specific, checkable requirements:
 ```
 - "Response must include customer name"
-- "Response must not contain pricing information"  
+- "Response must not contain pricing information"
 - "Response must be under 200 words"
 - "Response must acknowledge the stated problem"
 ```
@@ -95,7 +95,7 @@ Use this framework to determine if prompt-based judges are right for your evalua
 
 **Choose Prompt-Based Judges if:**
 - ✅ You need nuanced scoring beyond pass/fail (rating scales, categories)
-- ✅ Your evaluation requires contextual understanding or domain expertise  
+- ✅ Your evaluation requires contextual understanding or domain expertise
 - ✅ You're assessing subjective qualities like tone, creativity, or appropriateness
 - ✅ Guidelines-based approaches feel too restrictive for your use case
 - ✅ You need to evaluate complex interactions between multiple factors
@@ -135,10 +135,11 @@ client = OpenAI(api_key="your-openai-api-key")
 # Configuration toggle for demonstration purposes
 RESOLVE_ISSUES = True  # We'll modify this to test different behaviors
 
+
 @mlflow.trace
 def customer_support_agent(messages: List[Dict[str, str]]):
     """Customer support agent that can be configured to resolve or not resolve issues."""
-    
+
     # Adjust system prompt based on configuration
     system_prompt_postfix = (
         "Do your best to NOT resolve the issue. Provide minimal help and avoid solutions."
@@ -221,17 +222,18 @@ from mlflow.genai.scorers import scorer
 from mlflow.metrics.genai import make_genai_metric
 import json
 
+
 @scorer
 def issue_resolution_judge(inputs: Dict[Any, Any], outputs: Dict[Any, Any]):
     """
     Custom scorer that evaluates issue resolution using a prompt-based judge.
-    
+
     Returns a score between 0 and 1:
     - 1.0 for fully_resolved
-    - 0.5 for partially_resolved  
+    - 0.5 for partially_resolved
     - 0.0 for needs_follow_up
     """
-    
+
     # Create the prompt-based judge
     judge = make_genai_metric(
         name="issue_resolution",
@@ -241,34 +243,36 @@ def issue_resolution_judge(inputs: Dict[Any, Any], outputs: Dict[Any, Any]):
             {
                 "input": "Customer asks about return policy, agent explains 30-day policy with steps",
                 "output": "fully_resolved",
-                "justification": "Complete answer with actionable information"
+                "justification": "Complete answer with actionable information",
             }
         ],
         model="openai:/gpt-4o-mini",
-        parameters={"temperature": 0.1}  # Low temperature for consistency
+        parameters={"temperature": 0.1},  # Low temperature for consistency
     )
-    
+
     # Combine input and output messages to form the complete conversation
     conversation = json.dumps(inputs.get("messages", []) + outputs.get("messages", []))
-    
+
     # Apply the judge
     result = judge(conversation=conversation)
-    
+
     # Map categories to numerical scores
     category_scores = {
         "fully_resolved": 1.0,
         "partially_resolved": 0.5,
-        "needs_follow_up": 0.0
+        "needs_follow_up": 0.0,
     }
-    
+
     # Extract the category from the result and map to score
-    category = result.scores[0] if hasattr(result, 'scores') else result.value
+    category = result.scores[0] if hasattr(result, "scores") else result.value
     score = category_scores.get(category, 0.0)
-    
+
     return {
         "score": score,
         "category": category,
-        "rationale": result.justification if hasattr(result, 'justification') else str(result)
+        "rationale": result.justification
+        if hasattr(result, "justification")
+        else str(result),
     }
 ```
 
@@ -297,6 +301,7 @@ For each dimension, rate as: excellent (4), good (3), fair (2), or poor (1)
 Provide your ratings in JSON format and explain your reasoning for each dimension.
 """
 
+
 @scorer
 def comprehensive_quality_judge(inputs, outputs):
     # Implementation that parses multi-dimensional output
@@ -315,6 +320,7 @@ Evaluate this customer interaction considering:
 
 Assess whether the response is appropriate given this context...
 """
+
 
 @scorer
 def context_aware_judge(inputs, outputs):
@@ -358,15 +364,24 @@ eval_dataset = [
     {
         "inputs": {
             "messages": [
-                {"role": "user", "content": "Can I return the microwave I bought 2 months ago?"},
+                {
+                    "role": "user",
+                    "content": "Can I return the microwave I bought 2 months ago?",
+                },
             ],
         },
     },
     {
         "inputs": {
             "messages": [
-                {"role": "user", "content": "I'm having trouble with my account. I can't log in."},
-                {"role": "assistant", "content": "I'm sorry to hear that you're having trouble with your account. Are you using our website or mobile app?"},
+                {
+                    "role": "user",
+                    "content": "I'm having trouble with my account. I can't log in.",
+                },
+                {
+                    "role": "assistant",
+                    "content": "I'm sorry to hear that you're having trouble with your account. Are you using our website or mobile app?",
+                },
                 {"role": "user", "content": "Website"},
             ],
         },
@@ -374,8 +389,14 @@ eval_dataset = [
     {
         "inputs": {
             "messages": [
-                {"role": "user", "content": "I'm having trouble with my account. I can't log in."},
-                {"role": "assistant", "content": "I'm sorry to hear that you're having trouble with your account. Are you using our website or mobile app?"},
+                {
+                    "role": "user",
+                    "content": "I'm having trouble with my account. I can't log in.",
+                },
+                {
+                    "role": "assistant",
+                    "content": "I'm sorry to hear that you're having trouble with your account. Are you using our website or mobile app?",
+                },
                 {"role": "user", "content": "JUST FIX IT FOR ME"},
             ],
         },
@@ -383,8 +404,14 @@ eval_dataset = [
     {
         "inputs": {
             "messages": [
-                {"role": "user", "content": "Your service is terrible and I want to cancel my subscription immediately!"},
-                {"role": "assistant", "content": "I understand your frustration, and I sincerely apologize that our service hasn't met your expectations. Let me help you with the cancellation process and see if there's anything we can do to address your concerns."},
+                {
+                    "role": "user",
+                    "content": "Your service is terrible and I want to cancel my subscription immediately!",
+                },
+                {
+                    "role": "assistant",
+                    "content": "I understand your frustration, and I sincerely apologize that our service hasn't met your expectations. Let me help you with the cancellation process and see if there's anything we can do to address your concerns.",
+                },
                 {"role": "user", "content": "Fine, but make it quick."},
             ],
         },
@@ -419,7 +446,7 @@ print("Poor resolution results:")
 for metric_name, value in results_poor.metrics.items():
     print(f"  {metric_name}: {value}")
 
-# Evaluate with good issue resolution behavior  
+# Evaluate with good issue resolution behavior
 print("\nEvaluating with comprehensive issue resolution...")
 RESOLVE_ISSUES = True
 
@@ -434,7 +461,9 @@ for metric_name, value in results_good.metrics.items():
     print(f"  {metric_name}: {value}")
 
 # Compare results
-print(f"\nImprovement in issue resolution: {results_good.metrics['issue_resolution_judge/v1/mean'] - results_poor.metrics['issue_resolution_judge/v1/mean']:.2f}")
+print(
+    f"\nImprovement in issue resolution: {results_good.metrics['issue_resolution_judge/v1/mean'] - results_poor.metrics['issue_resolution_judge/v1/mean']:.2f}"
+)
 ```
 
 ## Best Practices for Prompt-Based Judges
@@ -446,7 +475,7 @@ print(f"\nImprovement in issue resolution: {results_good.metrics['issue_resoluti
 # ❌ Vague criteria
 "Evaluate if the response is good"
 
-# ✅ Specific criteria  
+# ✅ Specific criteria
 "Evaluate if the response provides actionable solutions, uses professional language, and addresses all aspects of the customer's question"
 ```
 
@@ -455,7 +484,7 @@ print(f"\nImprovement in issue resolution: {results_good.metrics['issue_resoluti
 prompt_template = """
 Evaluate this {interaction_type} based on:
 1. {criterion_1}
-2. {criterion_2} 
+2. {criterion_2}
 3. {criterion_3}
 
 {interaction_content}
@@ -471,7 +500,7 @@ examples = [
     {
         "input": "Representative interaction example",
         "output": "expected_category",
-        "justification": "Clear explanation of why this example fits this category"
+        "justification": "Clear explanation of why this example fits this category",
     }
 ]
 ```
@@ -487,7 +516,7 @@ examples = [
 ```python
 judge_params = {
     "temperature": 0.1,  # Low temperature for consistency
-    "max_tokens": 500,   # Limit response length
+    "max_tokens": 500,  # Limit response length
 }
 ```
 
@@ -495,9 +524,9 @@ judge_params = {
 ```python
 # Different sampling rates based on judge complexity
 evaluation_config = {
-    "simple_judges": {"sample_rate": 0.5},      # 50% sampling
-    "complex_judges": {"sample_rate": 0.1},     # 10% sampling  
-    "critical_judges": {"sample_rate": 1.0},    # 100% sampling
+    "simple_judges": {"sample_rate": 0.5},  # 50% sampling
+    "complex_judges": {"sample_rate": 0.1},  # 10% sampling
+    "critical_judges": {"sample_rate": 1.0},  # 100% sampling
 }
 ```
 
@@ -515,9 +544,9 @@ agreement_score = calculate_agreement(human_ratings, judge_ratings)
 ```python
 edge_cases = [
     "Empty or very short responses",
-    "Responses in unexpected languages", 
+    "Responses in unexpected languages",
     "Responses with formatting issues",
-    "Ambiguous or borderline quality examples"
+    "Ambiguous or borderline quality examples",
 ]
 ```
 
@@ -566,11 +595,11 @@ def evaluate_app_version(app_function, version_name):
                 # Add other judges as needed
             ],
         )
-        
+
         # Log version metadata
         mlflow.set_tag("app_version", version_name)
         mlflow.log_param("judge_model", "gpt-4o-mini")
-        
+
         return results
 ```
 
@@ -585,9 +614,9 @@ monitor_config = AssessmentsSuiteConfig(
     assessments=[
         CustomMetric(
             metric_fn=issue_resolution_judge,
-            sample_rate=0.2  # 20% sampling for this specific judge
+            sample_rate=0.2,  # 20% sampling for this specific judge
         ),
-    ]
+    ],
 )
 ```
 
@@ -595,8 +624,8 @@ monitor_config = AssessmentsSuiteConfig(
 
 - **[Guidelines-Based Judges](/genai/eval-monitor/custom-judge/meets-guidelines)**: Simpler alternative for rule-based evaluation
 - **[Custom Scorers](/genai/eval-monitor/custom-scorers)**: Deterministic evaluation logic for specific requirements
-- **[Predefined LLM Scorers](/genai/eval-monitor/predefined-llm-scorers)**: Ready-to-use evaluation judges for common scenarios
-- **[Production Monitoring](/genai/eval-monitor/production-monitoring)**: Deploy your custom judges for continuous quality assessment
+- **[Predefined LLM Scorers](/genai/eval-monitor/predefined-judge-scorers)**: Ready-to-use evaluation judges for common scenarios
+- **[Production Monitoring](/genai/eval-monitor/concepts/production-monitoring)**: Deploy your custom judges for continuous quality assessment
 
 ## Next Steps
 

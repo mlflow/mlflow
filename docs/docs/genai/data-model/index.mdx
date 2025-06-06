@@ -1,3 +1,6 @@
+import Tabs from "@theme/Tabs"
+import TabItem from "@theme/TabItem"
+
 # MLflow Data Model
 
 MLflow's data model provides a structured approach to developing and managing GenAI applications by organizing how you log, debug, and evaluate them to achieve quality, cost, and latency goals. This structured approach addresses key challenges in reproducibility, quality assessment, and iterative development.
@@ -7,6 +10,8 @@ MLflow's data model provides a structured approach to developing and managing Ge
 The MLflow data model consists of several interconnected entities that work together to support your GenAI application development workflow:
 
 🧪 **Experiment** - The root container for your GenAI application
+
+🤖 **LoggedModel** - A first-class entity representing your AI model or agent with integrated tracking
 
 🔍 **Trace** - A log of inputs, outputs, and intermediate steps from a single application execution
 
@@ -36,6 +41,114 @@ mlflow.set_experiment("my-genai-app")
 experiment = mlflow.create_experiment("my-genai-app")
 ```
 
+## MLflow LoggedModel: Model Management
+
+A **LoggedModel** is a first-class entity that represents your AI model, agent, or GenAI application within an Experiment. It provides unified tracking of model artifacts, execution traces, evaluation metrics, and metadata throughout the development lifecycle.
+
+### Key Features of LoggedModel
+
+LoggedModel serves as the central hub that connects:
+- **Model artifacts** and configuration parameters
+- **Execution traces** from development and production
+- **Evaluation metrics** and performance assessments
+- **Version history** and deployment tracking
+
+### Creating LoggedModels
+
+<Tabs>
+    <TabItem value="direct" label="Direct Model Logging" default>
+        Create a LoggedModel by logging your model directly:
+
+        ```python
+        import mlflow
+
+        # Log a model with comprehensive metadata
+        logged_model = mlflow.langchain.log_model(
+            lc_model=your_chain,
+            name="customer_support_agent",
+            params={"temperature": 0.1, "max_tokens": 2000},
+            model_type="agent",
+            input_example={"messages": "How can I help you?"},
+        )
+
+        print(f"Model ID: {logged_model.model_id}")
+        ```
+    </TabItem>
+    <TabItem value="active" label="Active Model Pattern">
+        Use the active model pattern for automatic trace linking:
+
+        ```python
+        # Set active model for automatic trace association
+        mlflow.set_active_model(name="customer_support_agent")
+
+        # Enable autologging
+        mlflow.langchain.autolog()
+
+        # All traces will be automatically linked to the active model
+        response = your_model.invoke({"messages": "Hello!"})
+        ```
+    </TabItem>
+    <TabItem value="external" label="External Model Reference">
+        Reference models stored outside MLflow:
+
+        ```python
+        # Create external model reference
+        external_model = mlflow.create_external_model(
+            name="production_model_v2",
+            model_type="agent",
+            params={"version": "2.1", "endpoint": "api.example.com"},
+        )
+        ```
+    </TabItem>
+</Tabs>
+
+### LoggedModel Benefits
+
+**Unified Tracking**: All model-related artifacts, traces, and metrics are organized under a single entity, providing complete visibility into model behavior and performance.
+
+**Automatic Trace Linking**: When using the active model pattern, all execution traces are automatically associated with the LoggedModel, eliminating manual tracking overhead.
+
+**Version Management**: LoggedModel supports systematic versioning and comparison across different model iterations, enabling data-driven model selection.
+
+**Evaluation Integration**: Evaluation metrics and results are directly linked to LoggedModel, providing comprehensive performance assessment.
+
+```mermaid
+graph TB
+    LM[🤖 LoggedModel]
+
+    subgraph ARTIFACTS[📦 Model Components]
+        MODEL_FILE[🔧 Model Artifacts]
+        PARAMS[⚙️ Parameters]
+        METADATA[📋 Metadata]
+    end
+
+    subgraph TRACES[📝 Execution History]
+        DEV_TRACES[🔧 Development Traces]
+        EVAL_TRACES[🧪 Evaluation Traces]
+        PROD_TRACES[🚀 Production Traces]
+    end
+
+    subgraph METRICS[📊 Performance Data]
+        EVAL_METRICS[📈 Evaluation Metrics]
+        QUALITY_SCORES[⭐ Quality Scores]
+        PERF_DATA[⚡ Performance Data]
+    end
+
+    LM --> ARTIFACTS
+    LM --> TRACES
+    LM --> METRICS
+
+    classDef modelStyle fill:#e8f5e8,stroke:#2e7d32,stroke-width:3px,color:#000
+    classDef artifactStyle fill:#e3f2fd,stroke:#0277bd,stroke-width:2px,color:#000
+    classDef traceStyle fill:#fff3e0,stroke:#ef6c00,stroke-width:2px,color:#000
+    classDef metricStyle fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#000
+
+    class LM modelStyle
+    class ARTIFACTS,MODEL_FILE,PARAMS,METADATA artifactStyle
+    class TRACES,DEV_TRACES,EVAL_TRACES,PROD_TRACES traceStyle
+    class METRICS,EVAL_METRICS,QUALITY_SCORES,PERF_DATA metricStyle
+```
+
 ## MLflow Traces: The Foundation
 
 The foundational concept is the **Trace**: a single, complete execution of your GenAI application (e.g., a user request or API call).
@@ -44,33 +157,37 @@ The foundational concept is the **Trace**: a single, complete execution of your 
 
 Traces are generated through:
 
-**Automatic Instrumentation**: Enable with a single line of code for 20+ popular LLM SDKs:
+<Tabs>
+    <TabItem value="automatic" label="Automatic Instrumentation" default>
+        Automatic tracing is enabled with a single line of code for 20+ popular LLM SDKs:
 
-```python
-import mlflow
+        ```python
+        import mlflow
 
-# Enable automatic tracing for OpenAI
-mlflow.openai.autolog()
+        # Enable automatic tracing for OpenAI
+        mlflow.openai.autolog()
 
-# Your existing code works unchanged
-from openai import OpenAI
+        # Your existing code works unchanged
+        from openai import OpenAI
 
-client = OpenAI()
-response = client.chat.completions.create(
-    model="gpt-4", messages=[{"role": "user", "content": "Hello!"}]
-)
-```
+        client = OpenAI()
+        response = client.chat.completions.create(
+            model="gpt-4", messages=[{"role": "user", "content": "Hello!"}]
+        )
+        ```
+  </TabItem>
+  <TabItem value="custom" label="Decorators and Context Managers" default>
+        Using the MLflow tracing APIs for fine-grained control:
 
-**Custom Instrumentation**: Use MLflow's SDK for fine-grained control:
-
-```python
-@mlflow.trace
-def my_custom_function(input_data):
-    # Your custom logic here
-    result = process_data(input_data)
-    return result
-```
-
+        ```python
+        @mlflow.trace
+        def my_custom_function(input_data):
+            # Your custom logic here
+            result = process_data(input_data)
+            return result
+        ```
+  </TabItem>
+</Tabs>
 ### Purpose of Traces
 
 Traces enable:
@@ -79,8 +196,6 @@ Traces enable:
 - **Debugging**: Understand execution flow to resolve issues
 - **Quality Evaluation**: Assess response quality over time
 - **Human Review**: Provide data for expert annotation
-
-
 
 ```mermaid
 graph LR
@@ -242,15 +357,19 @@ All components operate within an Experiment, forming a comprehensive hierarchy:
 graph TD
     subgraph EXP[🧪 Experiment Container]
         direction TB
-        A[📝 Trace] --> B[📊 Assessment]
+        LM[🤖 LoggedModel] --> A[📝 Trace]
+        A --> B[📊 Assessment]
         B --> C[👍 Feedback]
         B --> D[🎯 Expectation]
         E[⚙️ Scorer]
         F[🚀 Evaluation Run] --> G[📈 Scored Traces]
         H[📋 Evaluation Dataset] --> I[📄 Input Data + Expectations]
         J[🏷️ Labeling Session] --> K[📝 Curated Traces]
+        LM --> L[📊 Model Metrics]
+        LM --> M[🔧 Model Artifacts]
     end
 
+    classDef modelStyle fill:#e8f5e8,stroke:#2e7d32,stroke-width:3px,color:#000
     classDef traceStyle fill:#e8f5e8,stroke:#2e7d32,stroke-width:3px,color:#000
     classDef assessmentStyle fill:#fff3e0,stroke:#ef6c00,stroke-width:2px,color:#000
     classDef feedbackStyle fill:#e1f5fe,stroke:#0277bd,stroke-width:2px,color:#000
@@ -259,6 +378,7 @@ graph TD
     classDef dataStyle fill:#f1f8e9,stroke:#388e3c,stroke-width:2px,color:#000
     classDef containerStyle fill:#f5f5f5,stroke:#424242,stroke-width:3px,color:#000
 
+    class LM,L,M modelStyle
     class A,K,G traceStyle
     class B assessmentStyle
     class C feedbackStyle
@@ -273,11 +393,12 @@ graph TD
 To begin using the MLflow data model:
 
 1. 🧪 **Set up an experiment** for your GenAI application
-2. 🔄 **Enable automatic tracing** for your LLM library
-3. 🎯 **Define custom scorers** for your quality metrics
-4. 📋 **Create evaluation datasets** from representative examples
-5. 🚀 **Run evaluations** to compare different versions
-6. 👥 **Review traces** and add human feedback as needed
+2. 🤖 **Create or set a LoggedModel** to organize your model tracking
+3. 🔄 **Enable automatic tracing** for your LLM library
+4. 🎯 **Define custom scorers** for your quality metrics
+5. 📋 **Create evaluation datasets** from representative examples
+6. 🚀 **Run evaluations** to compare different versions
+7. 👥 **Review traces** and add human feedback as needed
 
 ```python
 import mlflow
@@ -285,13 +406,19 @@ import mlflow
 # 1. Set up experiment
 mlflow.set_experiment("my-genai-app")
 
-# 2. Enable tracing
-mlflow.openai.autolog()
+# 2. Create LoggedModel
+logged_model = mlflow.langchain.log_model(
+    lc_model=your_model, name="my_agent", params={"temperature": 0.1}
+)
 
-# 3. Your app code runs normally
-# Traces are automatically captured
+# 3. Enable tracing with active model
+mlflow.set_active_model(name="my_agent")
+mlflow.langchain.autolog()
 
-# 4. Evaluate and iterate
+# 4. Your app code runs normally
+# Traces are automatically captured and linked to LoggedModel
+
+# 5. Evaluate and iterate
 results = mlflow.evaluate(
     model=your_model, data=evaluation_data, extra_metrics=[your_custom_scorers]
 )
@@ -299,9 +426,10 @@ results = mlflow.evaluate(
 
 ## Next Steps
 
+- 🤖 **[LoggedModel Guide](/genai/data-model/logged-model)**: Learn comprehensive model lifecycle management
 - 🔄 **[Automatic Tracing](/genai/tracing/app-instrumentation/automatic)**: Learn how to enable automatic tracing for your LLM library
 - 🛠️ **[Custom Tracing](/genai/tracing/app-instrumentation/manual-tracing)**: Add manual instrumentation to your application
-- 📊 **[Evaluation Guide](/genai/evaluation)**: Dive deeper into evaluation workflows
+- 📊 **[Evaluation Guide](/genai/eval-monitor)**: Dive deeper into evaluation workflows
 - 🖥️ **[MLflow UI](/genai/tracing/observe-with-traces/ui)**: Explore traces and results in the web interface
 
 MLflow's comprehensive data model empowers systematic observation, debugging, evaluation, and improvement of GenAI applications, providing the foundation for building high-quality, reliable, and maintainable GenAI systems.

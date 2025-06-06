@@ -3,7 +3,7 @@ import TabItem from "@theme/TabItem";
 
 # Creating Custom LLM Judge Scorers
 
-While MLflow's [predefined LLM judge scorers](/genai/eval-monitor/predefined-llm-scorers) offer excellent starting points for common quality dimensions, real-world applications often require evaluation criteria that are specific to your domain, business requirements, or quality standards. As your GenAI application matures, you'll need custom evaluation logic that understands your unique context and aligns with your domain experts' judgment.
+While MLflow's [predefined LLM judge scorers](/genai/eval-monitor/predefined-judge-scorers) offer excellent starting points for common quality dimensions, real-world applications often require evaluation criteria that are specific to your domain, business requirements, or quality standards. As your GenAI application matures, you'll need custom evaluation logic that understands your unique context and aligns with your domain experts' judgment.
 
 Custom LLM judges bridge this gap by allowing you to define evaluation criteria in natural language that an LLM can consistently apply across your application's outputs. This approach combines the flexibility of human-like reasoning with the scalability and consistency of automated evaluation.
 
@@ -73,7 +73,7 @@ You create a prompt template that defines your evaluation criteria with placehol
 ```
 Evaluate the quality of this customer service response based on:
 - Accuracy of information provided
-- Helpfulness in addressing the customer's concern  
+- Helpfulness in addressing the customer's concern
 - Professional tone and empathy
 
 Input: {customer_query}
@@ -130,18 +130,18 @@ support_guidelines = {
     "professional_communication": [
         "The response uses polite and respectful language",
         "The response avoids casual expressions or slang",
-        "The response maintains a helpful tone throughout"
+        "The response maintains a helpful tone throughout",
     ],
     "content_requirements": [
         "The response addresses the customer's specific question",
-        "The response includes relevant troubleshooting steps when applicable", 
-        "The response offers next steps or escalation options if needed"
+        "The response includes relevant troubleshooting steps when applicable",
+        "The response offers next steps or escalation options if needed",
     ],
     "compliance_rules": [
         "The response does not share confidential company information",
         "The response does not make promises about features or timelines",
-        "The response follows data privacy guidelines"
-    ]
+        "The response follows data privacy guidelines",
+    ],
 }
 
 # Implementation details in the guidelines-based judges guide
@@ -186,13 +186,14 @@ Both types of custom judges integrate seamlessly with MLflow's evaluation workfl
 ```python
 import mlflow
 from mlflow.metrics import exact_match
+
 # Custom judges will be imported based on your implementation choice
 
 # Combine custom and predefined scorers
 evaluation_metrics = [
-    exact_match(),                    # Predefined scorer
-    professional_communication,      # Custom guidelines-based judge  
-    response_quality_assessment,      # Custom prompt-based judge
+    exact_match(),  # Predefined scorer
+    professional_communication,  # Custom guidelines-based judge
+    response_quality_assessment,  # Custom prompt-based judge
 ]
 
 # Run comprehensive evaluation
@@ -217,9 +218,9 @@ monitor = create_external_monitor(
         assessments=[
             CustomMetric(metric_fn=professional_communication, sample_rate=0.3),
             CustomMetric(metric_fn=response_quality_assessment, sample_rate=0.2),
-        ]
+        ],
     ),
-    experiment_id=EXPERIMENT_ID
+    experiment_id=EXPERIMENT_ID,
 )
 ```
 
@@ -253,7 +254,7 @@ safety_guidelines = {
     "content_safety": [
         "The response contains no harmful or inappropriate content",
         "The response does not promote dangerous activities",
-        "The response maintains appropriate boundaries for the context"
+        "The response maintains appropriate boundaries for the context",
     ]
 }
 ```
@@ -265,7 +266,7 @@ safety_guidelines = {
 brand_voice_prompt = """
 Evaluate how well this response matches our brand voice:
 - Friendly but professional
-- Confident without being arrogant  
+- Confident without being arrogant
 - Helpful and solution-oriented
 
 Response: {response_text}
@@ -282,7 +283,7 @@ technical_guidelines = {
     "accuracy": [
         "All code examples are syntactically correct",
         "Technical concepts are explained accurately",
-        "Prerequisites and dependencies are clearly stated"
+        "Prerequisites and dependencies are clearly stated",
     ]
 }
 ```
@@ -308,10 +309,9 @@ technical_guidelines = {
 
 ## Related Concepts
 
-- **[Predefined LLM Scorers](/genai/eval-monitor/predefined-llm-scorers)**: Start with these before building custom judges
+- **[Predefined Scorers](/genai/eval-monitor/predefined-judge-scorers)**: Start with these before building custom judges
 - **[Custom Scorers](/genai/eval-monitor/custom-scorers)**: Alternative approach using deterministic logic
-- **[Production Monitoring](/genai/eval-monitor/production-monitoring)**: Deploy your custom judges for continuous quality assessment
-- **[Evaluation Workflows](/genai/eval-monitor/evaluating-app-version)**: Integrate custom judges into your development process
+- **[Production Monitoring](/genai/eval-monitor/concepts/production-monitoring)**: Deploy your custom judges for continuous quality assessment
 
 ## Next Steps
 
@@ -326,7 +326,7 @@ technical_guidelines = {
 ### Development Workflow
 
 1. **Define your quality criteria** with domain experts and stakeholders
-2. **Start with guidelines-based judges** for clear, rule-based requirements  
+2. **Start with guidelines-based judges** for clear, rule-based requirements
 3. **Add prompt-based judges** for nuanced evaluation needs
 4. **Validate and iterate** on your judges using diverse test cases
 5. **Deploy in production** with appropriate sampling strategies

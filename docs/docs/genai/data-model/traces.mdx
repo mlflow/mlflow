@@ -10,7 +10,7 @@ A Trace represents a single execution of your GenAI application, containing all 
 graph TB
     subgraph TRACE[Trace Architecture]
         direction TB
-        
+
         subgraph INFO[📊 TraceInfo - Metadata]
             direction TB
             I1[🆔 Trace ID & Location]
@@ -18,7 +18,7 @@ graph TB
             I3[🏷️ Tags & Context]
             I4[👁️ Request/Response Preview]
         end
-        
+
         subgraph DATA[📋 TraceData - Execution Details]
             direction TB
             D1[🔄 Hierarchical Spans]
@@ -26,15 +26,15 @@ graph TB
             D3[📤 Output Data]
             D4[🎯 Performance Metrics]
         end
-        
+
         INFO <--> DATA
     end
-    
+
     classDef traceStyle fill:#e8f5e8,stroke:#2e7d32,stroke-width:3px,color:#000
     classDef infoStyle fill:#e3f2fd,stroke:#0277bd,stroke-width:2px,color:#000
     classDef dataStyle fill:#fff3e0,stroke:#ef6c00,stroke-width:2px,color:#000
     classDef titleStyle fill:#f5f5f5,stroke:#424242,stroke-width:2px,color:#000
-    
+
     class TRACE traceStyle
     class INFO,I1,I2,I3,I4 infoStyle
     class DATA,D1,D2,D3,D4 dataStyle
@@ -49,50 +49,39 @@ TraceInfo provides essential metadata about the trace for quick navigation, filt
 
 ```mermaid
 graph TB
-    subgraph INFO[" "]
-        direction TB
-        TITLE[📊 TraceInfo Components]
-        
-        IDENTITY[🆔 Identity & Location]
+    TITLE[📊 TraceInfo Components]
+
+    subgraph IDENTITY[🆔 Identity & Location]
         ID1[trace_id: Unique identifier]
         ID2[trace_location: Storage location]
         ID3[client_request_id: External ID]
-        
-        TIMING[⏱️ Timing & Status]
+    end
+
+    subgraph TIMING[⏱️ Timing & Status]
         T1[request_time: Start timestamp]
         T2[execution_duration: Total time]
         T3[state: OK, ERROR, IN_PROGRESS]
-        
-        CONTEXT[🏷️ Context & Preview]
+    end
+
+    subgraph CONTEXT[🏷️ Context & Preview]
         C1[tags: Searchable metadata]
         C2[request_preview: Input summary]
         C3[response_preview: Output summary]
-        
-        TITLE -.-> IDENTITY
-        IDENTITY --> ID1
-        IDENTITY --> ID2
-        IDENTITY --> ID3
-        
-        ID3 -.-> TIMING
-        TIMING --> T1
-        TIMING --> T2
-        TIMING --> T3
-        
-        T3 -.-> CONTEXT
-        CONTEXT --> C1
-        CONTEXT --> C2
-        CONTEXT --> C3
     end
-    
-    classDef infoStyle fill:#e3f2fd,stroke:#0277bd,stroke-width:3px,color:#000
-    classDef headerStyle fill:#f5f5f5,stroke:#424242,stroke-width:2px,color:#000
-    classDef componentStyle fill:#fff3e0,stroke:#ef6c00,stroke-width:2px,color:#000
-    classDef titleStyle fill:#f5f5f5,stroke:#424242,stroke-width:2px,color:#000
-    
-    class INFO infoStyle
-    class IDENTITY,TIMING,CONTEXT headerStyle
-    class ID1,ID2,ID3,T1,T2,T3,C1,C2,C3 componentStyle
+
+    TITLE --> IDENTITY
+    TITLE --> TIMING
+    TITLE --> CONTEXT
+
+    classDef titleStyle fill:#e8f5e8,stroke:#2e7d32,stroke-width:3px,color:#000
+    classDef identityStyle fill:#e3f2fd,stroke:#0277bd,stroke-width:2px,color:#000
+    classDef timingStyle fill:#fff3e0,stroke:#ef6c00,stroke-width:2px,color:#000
+    classDef contextStyle fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#000
+
     class TITLE titleStyle
+    class IDENTITY,ID1,ID2,ID3 identityStyle
+    class TIMING,T1,T2,T3 timingStyle
+    class CONTEXT,C1,C2,C3 contextStyle
 ```
 
 ### 📋 TraceData: Detailed Execution
@@ -104,36 +93,36 @@ graph TB
     subgraph DATA[" "]
         direction TB
         TITLE[📋 TraceData Structure]
-        
+
         SPANS_HEADER[🔄 Hierarchical Spans]
         S1[Root Span: Application Entry]
         S2[Child Span: Model Call]
         S3[Child Span: Tool Usage]
         S4[Child Span: Response Processing]
-        
+
         PAYLOAD_HEADER[📦 Data Payload]
         P1[request: JSON input data]
         P2[response: JSON output data]
         P3[span hierarchy: Execution flow]
-        
+
         TITLE -.-> SPANS_HEADER
         SPANS_HEADER --> S1
         S1 --> S2
         S1 --> S3
         S1 --> S4
-        
+
         S4 -.-> PAYLOAD_HEADER
         PAYLOAD_HEADER --> P1
         PAYLOAD_HEADER --> P2
         PAYLOAD_HEADER --> P3
     end
-    
+
     classDef dataStyle fill:#fff3e0,stroke:#ef6c00,stroke-width:3px,color:#000
     classDef headerStyle fill:#f5f5f5,stroke:#424242,stroke-width:2px,color:#000
     classDef spanStyle fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px,color:#000
     classDef payloadStyle fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#000
     classDef titleStyle fill:#f5f5f5,stroke:#424242,stroke-width:2px,color:#000
-    
+
     class DATA dataStyle
     class SPANS_HEADER,PAYLOAD_HEADER headerStyle
     class S1,S2,S3,S4 spanStyle
@@ -147,54 +136,41 @@ Spans are the fundamental units that capture individual operations within your t
 
 ```mermaid
 graph TB
-    subgraph SPAN[" "]
-        direction TB
-        TITLE[🔄 Individual Span Structure]
-        
-        IDENTITY_HEADER[🆔 Span Identity]
+    TITLE[🔄 Individual Span Structure]
+
+    subgraph IDENTITY[🆔 Span Identity]
         SI1[span_id: Unique identifier]
         SI2[trace_id: Parent trace]
         SI3[parent_id: Hierarchy link]
         SI4[name: Operation description]
-        
-        TIMING_HEADER[⏱️ Execution Timing]
+    end
+
+    subgraph TIMING[⏱️ Execution Timing]
         ST1[start_time_ns: Begin timestamp]
         ST2[end_time_ns: End timestamp]
         ST3[status: OK, ERROR, UNSET]
-        
-        CONTENT_HEADER[📊 Operation Data]
+    end
+
+    subgraph CONTENT[📊 Operation Data]
         SC1[inputs: Input parameters]
         SC2[outputs: Operation results]
         SC3[attributes: Metadata]
         SC4[events: Error information]
-        
-        TITLE -.-> IDENTITY_HEADER
-        IDENTITY_HEADER --> SI1
-        IDENTITY_HEADER --> SI2
-        IDENTITY_HEADER --> SI3
-        IDENTITY_HEADER --> SI4
-        
-        SI4 -.-> TIMING_HEADER
-        TIMING_HEADER --> ST1
-        TIMING_HEADER --> ST2
-        TIMING_HEADER --> ST3
-        
-        ST3 -.-> CONTENT_HEADER
-        CONTENT_HEADER --> SC1
-        CONTENT_HEADER --> SC2
-        CONTENT_HEADER --> SC3
-        CONTENT_HEADER --> SC4
     end
-    
-    classDef spanStyle fill:#e8f5e8,stroke:#2e7d32,stroke-width:3px,color:#000
-    classDef headerStyle fill:#f5f5f5,stroke:#424242,stroke-width:2px,color:#000
-    classDef componentStyle fill:#fff3e0,stroke:#ef6c00,stroke-width:2px,color:#000
-    classDef titleStyle fill:#f5f5f5,stroke:#424242,stroke-width:2px,color:#000
-    
-    class SPAN spanStyle
-    class IDENTITY_HEADER,TIMING_HEADER,CONTENT_HEADER headerStyle
-    class SI1,SI2,SI3,SI4,ST1,ST2,ST3,SC1,SC2,SC3,SC4 componentStyle
+
+    TITLE --> IDENTITY
+    TITLE --> TIMING
+    TITLE --> CONTENT
+
+    classDef titleStyle fill:#e8f5e8,stroke:#2e7d32,stroke-width:3px,color:#000
+    classDef identityStyle fill:#e3f2fd,stroke:#0277bd,stroke-width:2px,color:#000
+    classDef timingStyle fill:#fff3e0,stroke:#ef6c00,stroke-width:2px,color:#000
+    classDef contentStyle fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#000
+
     class TITLE titleStyle
+    class IDENTITY,SI1,SI2,SI3,SI4 identityStyle
+    class TIMING,ST1,ST2,ST3 timingStyle
+    class CONTENT,SC1,SC2,SC3,SC4 contentStyle
 ```
 
 ## Specialized Span Types for GenAI
@@ -213,7 +189,7 @@ flowchart TD
     PARSE[🔄 PARSER<br/>Data transformation operations]
     CHAIN[⛓️ CHAIN<br/>Sequence of operations]
     UNK[❓ UNKNOWN<br/>Default for custom operations]
-    
+
     TITLE --- LLM
     TITLE --- EMB
     TITLE --- AGT
@@ -223,10 +199,10 @@ flowchart TD
     RANK --- PARSE
     RET --- CHAIN
     TOOL --- UNK
-    
+
     classDef titleStyle fill:#f5f5f5,stroke:#424242,stroke-width:2px,color:#000
     classDef spanTypeStyle fill:#e3f2fd,stroke:#0277bd,stroke-width:2px,color:#000
-    
+
     class TITLE titleStyle
     class LLM,EMB,AGT,TOOL,RET,RANK,PARSE,CHAIN,UNK spanTypeStyle
 ```
@@ -239,8 +215,6 @@ Chat model spans capture LLM interactions with special attributes for conversati
 |-----------|---------|---------|
 | **mlflow.chat.messages** | Conversation history | List of system/user/assistant messages |
 | **mlflow.chat.tools** | Available functions | Tool definitions for function calling |
-| **ai.model.name** | Model identification | Specific model used (e.g., "gpt-4") |
-| **ai.response.tokens.total** | Usage tracking | Token consumption metrics |
 
 ### Retriever Spans
 
@@ -262,7 +236,7 @@ graph TB
     subgraph TAGS[" "]
         direction TB
         TITLE[🏷️ Tag Categories]
-        
+
         subgraph STANDARD[📋 Standard Tags]
             direction TB
             ST1[mlflow.trace.session: Session grouping]
@@ -270,7 +244,7 @@ graph TB
             ST3[mlflow.source.name: Entry point]
             ST4[mlflow.source.git.commit: Code version]
         end
-        
+
         subgraph BUSINESS[💼 Business Context]
             direction TB
             BT1[user_tier: Customer segment]
@@ -278,7 +252,7 @@ graph TB
             BT3[region: Geographic location]
             BT4[feature_flags: Active features]
         end
-        
+
         subgraph TECHNICAL[⚙️ Technical Context]
             direction TB
             TT1[environment: dev/staging/prod]
@@ -287,11 +261,11 @@ graph TB
             TT4[deployment_id: Deployment identifier]
         end
     end
-    
+
     classDef tagsStyle fill:#e1f5fe,stroke:#0277bd,stroke-width:3px,color:#000
     classDef categoryStyle fill:#fff3e0,stroke:#ef6c00,stroke-width:2px,color:#000
     classDef titleStyle fill:#f5f5f5,stroke:#424242,stroke-width:2px,color:#000
-    
+
     class TAGS tagsStyle
     class STANDARD,ST1,ST2,ST3,ST4,BUSINESS,BT1,BT2,BT3,BT4,TECHNICAL,TT1,TT2,TT3,TT4 categoryStyle
     class TITLE titleStyle
@@ -306,39 +280,39 @@ graph LR
     subgraph LIFECYCLE[" "]
         direction TB
         TITLE[🔄 Trace Lifecycle]
-        
+
         subgraph DEV[🔨 Development]
             direction TB
             D1[Manual Testing]
             D2[Debug Traces]
             D3[Performance Analysis]
         end
-        
+
         subgraph EVAL[🧪 Evaluation]
             direction TB
             E1[Dataset Creation]
             E2[Quality Assessment]
             E3[Comparative Analysis]
         end
-        
+
         subgraph PROD[🚀 Production]
             direction TB
             P1[Live Monitoring]
             P2[Performance Tracking]
             P3[Quality Metrics]
         end
-        
+
         DEV --> EVAL
         EVAL --> PROD
         PROD --> DEV
     end
-    
+
     classDef lifecycleStyle fill:#f3e5f5,stroke:#7b1fa2,stroke-width:3px,color:#000
     classDef devStyle fill:#e3f2fd,stroke:#0277bd,stroke-width:2px,color:#000
     classDef evalStyle fill:#fff3e0,stroke:#ef6c00,stroke-width:2px,color:#000
     classDef prodStyle fill:#e8f5e8,stroke:#2e7d32,stroke-width:2px,color:#000
     classDef titleStyle fill:#f5f5f5,stroke:#424242,stroke-width:2px,color:#000
-    
+
     class LIFECYCLE lifecycleStyle
     class DEV,D1,D2,D3 devStyle
     class EVAL,E1,E2,E3 evalStyle
@@ -355,27 +329,27 @@ graph TD
     subgraph ECOSYSTEM[" "]
         direction TB
         TITLE[🌟 Trace Relationships]
-        
+
         EXP[🧪 Experiment] --> TRACE[📝 Trace]
         TRACE --> ASSESS[📊 Assessment]
         TRACE --> FEEDBACK[👍 Feedback]
-        
+
         MODEL[🤖 Model] --> RUN[🚀 Run]
         RUN --> TRACE
-        
+
         DATASET[📋 Evaluation Dataset] --> RUN
         SCORER[🎯 Scorer] --> ASSESS
-        
+
         SESSION[🏷️ Labeling Session] --> TRACE
         SESSION --> FEEDBACK
     end
-    
+
     classDef ecosystemStyle fill:#f3e5f5,stroke:#7b1fa2,stroke-width:3px,color:#000
     classDef entityStyle fill:#e3f2fd,stroke:#0277bd,stroke-width:2px,color:#000
     classDef traceStyle fill:#e8f5e8,stroke:#2e7d32,stroke-width:3px,color:#000
     classDef resultStyle fill:#fff3e0,stroke:#ef6c00,stroke-width:2px,color:#000
     classDef titleStyle fill:#f5f5f5,stroke:#424242,stroke-width:2px,color:#000
-    
+
     class ECOSYSTEM ecosystemStyle
     class EXP,MODEL,DATASET,SCORER,SESSION entityStyle
     class TRACE traceStyle

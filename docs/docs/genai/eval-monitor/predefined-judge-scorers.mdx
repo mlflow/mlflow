@@ -1,576 +1,403 @@
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 
-# Use Predefined LLM Scorers
+# Use Predefined Scorers
 
-MLflow's predefined LLM scorers provide ready-to-use implementations for common GenAI evaluation scenarios. These scorers wrap research-backed evaluation methods to assess quality dimensions like relevance, safety, groundedness, and correctness without requiring custom implementation.
+MLflow's predefined scorers provide ready-to-use evaluation implementations for common GenAI quality dimensions. These scorers wrap research-backed evaluation methods to assess aspects like relevance, safety, groundedness, and correctness without requiring custom implementation.
 
-Rather than building evaluation logic from scratch, predefined scorers let you quickly establish quality baselines and focus on application-specific improvements. They're especially valuable for teams new to GenAI evaluation or when you need to assess standard quality dimensions across different applications.
+Rather than building evaluation logic from scratch, predefined scorers let you quickly establish quality baselines and focus on application-specific improvements. They're especially valuable for teams new to GenAI evaluation or when you need consistent assessment of standard quality dimensions across different applications.
 
-> **Note**: This guide covers **MLflow Open Source** predefined scorers. For Databricks-specific scorers and additional proprietary features, refer to the Databricks MLflow documentation.
+```mermaid
+graph LR
+    A[🎯 Your GenAI App] --> B[📊 MLflow Trace]
+    B --> C{🔍 Scorer Analysis}
+    C --> D[📈 Quality Feedback]
 
-## When to Use Predefined vs Custom Scorers
-
-Understanding when to use predefined scorers versus custom implementations helps you choose the right evaluation approach:
-
-**Use predefined scorers when:**
-- Starting GenAI evaluation for the first time and need proven baselines
-- Assessing standard quality dimensions (relevance, safety, groundedness)
-- You want quick setup without custom development overhead
-- Your application traces match standard input/output requirements
-
-**Use custom scorers when:**
-- Your application has complex inputs/outputs that predefined scorers can't parse
-- You need to evaluate specific business logic or domain-specific criteria
-- You want to combine multiple evaluation aspects into a single scorer
-- Your trace structure doesn't match predefined scorer requirements
-
-## How Predefined Scorers Work
-
-Predefined scorers follow a consistent workflow that provides reliable, automated quality assessment. When passed a trace by `mlflow.evaluate()` or the monitoring service, they:
-
-1. **Parse the trace** to extract data required by the underlying evaluation method
-2. **Apply evaluation logic** (heuristic rules or LLM judges) to generate scores
-3. **Return structured feedback** with scores and rationales for analysis
-
-This standardized process ensures consistent evaluation across different applications and teams.
-
-## Prerequisites
-
-Before using predefined scorers, ensure your environment is properly configured:
-
-```bash
-# Install required packages
-pip install --upgrade "mlflow>=3.1.0" openai
-
-# Set up MLflow tracking  
-export MLFLOW_TRACKING_URI="your-tracking-server-uri"
+    style A fill:#e1f5fe,stroke:#01579b,color:#000
+    style B fill:#f3e5f5,stroke:#4a148c,color:#000
+    style C fill:#fff3e0,stroke:#e65100,color:#000
+    style D fill:#e8f5e8,stroke:#2e7d32,color:#000
 ```
 
-Additionally, ensure your application uses MLflow Tracing to capture the execution spans that scorers will analyze.
+## Understanding Platform Capabilities
 
-## Getting Started with a Sample Application
-
-### Creating a RAG Application for Evaluation
-
-Let's create a sample RAG (Retrieval-Augmented Generation) application that we'll use to demonstrate predefined scorers. This example shows the tracing patterns that work well with predefined evaluation methods:
-
-```python
-import mlflow
-from openai import OpenAI
-from mlflow.entities import Document
-from typing import List
-
-# Enable automatic tracing for OpenAI calls
-mlflow.openai.autolog()
-
-# Initialize OpenAI client
-client = OpenAI(api_key="your-openai-api-key")
-
-# Retriever function with proper tracing
-@mlflow.trace(span_type="RETRIEVER")
-def retrieve_docs(query: str) -> List[Document]:
-    """Simulated document retrieval for demonstration."""
-    return [
-        Document(
-            id="sql_doc_1",
-            page_content="SELECT is a fundamental SQL command used to retrieve data from a database. You can specify columns and use WHERE clauses to filter results.",
-            metadata={"doc_uri": "http://example.com/sql/select"},
-        ),
-        Document(
-            id="sql_doc_2", 
-            page_content="JOIN clauses in SQL combine rows from multiple tables based on related columns. Common types include INNER JOIN, LEFT JOIN, and RIGHT JOIN.",
-            metadata={"doc_uri": "http://example.com/sql/joins"},
-        ),
-        Document(
-            id="sql_doc_3",
-            page_content="Aggregate functions like COUNT(), SUM(), AVG(), MIN(), and MAX() perform calculations on sets of values. COUNT() is the most commonly used aggregate function.",
-            metadata={"doc_uri": "http://example.com/sql/aggregates"},
-        ),
-    ]
-
-# Main application function
-@mlflow.trace
-def sample_app(query: str):
-    """RAG application that retrieves documents and generates responses."""
-    
-    # 1. Retrieve relevant documents
-    retrieved_documents = retrieve_docs(query=query)
-    retrieved_docs_text = "\n".join([doc.page_content for doc in retrieved_documents])
-
-    # 2. Prepare messages for the LLM
-    messages = [
-        {
-            "role": "system",
-            "content": f"Answer the user's question based on the following context: {retrieved_docs_text}. "
-                      f"If the context is not relevant, generate the best response you can without mentioning the context."
-        },
-        {
-            "role": "user", 
-            "content": query
-        },
-    ]
-
-    # 3. Generate response using LLM
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=messages,
-    )
-    
-    return response
-```
-
-### Preparing Your Evaluation Dataset
-
-Create test cases that include both inputs and optional ground truth expectations. Well-designed evaluation datasets help predefined scorers assess quality accurately:
-
-```python
-eval_dataset = [
-    {
-        "inputs": {"query": "What is the most common aggregate function in SQL?"},
-        "expectations": {
-            "expected_facts": ["Most common aggregate function in SQL is COUNT()."]
-        },
-    },
-    {
-        "inputs": {"query": "How do I join tables in SQL?"},
-        "expectations": {
-            "expected_facts": ["JOIN clauses combine rows from multiple tables using related columns."]
-        },
-    },
-    {
-        "inputs": {"query": "How do I use MLflow for tracking experiments?"},
-        "expectations": {
-            "expected_facts": ["MLflow provides experiment tracking capabilities for machine learning workflows."]
-        },
-    },
-    {
-        "inputs": {"query": "What are the benefits of using Python for data science?"},
-        # This query tests how the app handles off-topic questions
-    },
-]
-```
-
-## Available Scorers by Platform
-
-The available predefined scorers depend on whether you're using MLflow Open Source or Databricks MLflow. Each platform offers different capabilities and evaluation approaches.
+The predefined scorer ecosystem varies significantly between MLflow platforms. Understanding these differences helps you choose the right evaluation strategy from the start.
 
 <Tabs>
-<TabItem value="oss-scorers" label="MLflow Open Source" default>
+<TabItem value="databricks" label="🏢 Databricks MLflow" default>
 
-### Heuristic-Based Metrics
-
-MLflow OSS provides robust heuristic-based evaluation metrics that are fast, cost-effective, and reliable for basic quality assessment:
-
-#### Text Quality Metrics
-```python
-from mlflow.metrics import (
-    exact_match,
-    rouge_score,
-    bleu_score,
-    flesch_kincaid_grade_level,
-    ari_grade_level,
-)
-
-# Basic text comparison metrics
-text_quality_metrics = [
-    exact_match(),                    # Exact string matching
-    rouge_score(),                    # ROUGE-L for summarization quality
-    bleu_score(),                     # BLEU for translation quality
-    flesch_kincaid_grade_level(),     # Reading difficulty assessment
-    ari_grade_level(),                # Alternative readability metric
-]
-```
-
-#### Performance Metrics
-```python
-from mlflow.metrics import latency, token_count
-
-# Operational performance metrics
-performance_metrics = [
-    latency(),        # Response time measurement
-    token_count(),    # Token usage tracking
-]
-```
-
-#### Creating Custom Function-Based Scorers
-
-For business-specific requirements, you can create custom scorers that work alongside predefined ones:
-
-```python
-from mlflow.genai.scorers import scorer
-
-@scorer
-def safety_keyword_check(inputs, outputs):
-    """Basic safety check using keyword filtering."""
-    response = outputs.get("choices", [{}])[0].get("message", {}).get("content", "").lower()
-    unsafe_keywords = ["harmful", "dangerous", "illegal"]
-    return not any(keyword in response for keyword in unsafe_keywords)
-
-@scorer
-def business_context_relevance(inputs, outputs):
-    """Check if response is relevant to business context."""
-    query = inputs.get("query", "").lower()
-    response = outputs.get("choices", [{}])[0].get("message", {}).get("content", "").lower()
-    
-    # Simple keyword matching for context relevance
-    if "sql" in query:
-        return any(sql_word in response for sql_word in ["database", "query", "table", "select"])
-    return True
-```
-
-### Model Type Defaults
-
-MLflow OSS supports predefined metric collections for common use cases:
-
-```python
-# Question-answering evaluation with defaults
-results = mlflow.evaluate(
-    model=sample_app,
-    data=eval_dataset,
-    model_type="question-answering",  # Includes exact_match, toxicity, readability
-)
-
-# Text summarization evaluation with defaults  
-results = mlflow.evaluate(
-    model=sample_app,
-    data=eval_dataset,
-    model_type="text-summarization",  # Includes ROUGE, toxicity, readability
-)
-```
+Databricks MLflow provides the complete predefined scorer ecosystem with sophisticated LLM judge implementations powered by the Databricks agents framework. This includes advanced semantic evaluation through [built-in AI judges](/genai/eval-monitor/predefined-judge-scorers) like safety, groundedness, and relevance assessment, specialized RAG evaluation capabilities, and [production monitoring integration](/genai/eval-monitor/concepts/production-monitoring) for continuous quality assessment.
 
 </TabItem>
-<TabItem value="databricks-scorers" label="Databricks MLflow">
+<TabItem value="oss" label="🌐 MLflow OSS">
 
-> **Databricks Platform**: These features are available in Databricks MLflow and may not be available in MLflow Open Source.
-
-### Advanced LLM-Based Judges
-
-Databricks MLflow provides sophisticated LLM-based evaluation that uses large language models to assess semantic quality:
-
-#### Semantic Quality Judges
-```python
-# These are available in Databricks MLflow
-from mlflow.metrics.genai import (
-    answer_relevance,
-    answer_correctness,
-    answer_similarity,
-    faithfulness,
-    relevance,
-)
-
-# Advanced semantic evaluation (Databricks only)
-semantic_judges = [
-    answer_relevance(),      # How relevant is the answer to the question?
-    answer_correctness(),    # Is the answer factually correct?
-    answer_similarity(),     # How similar is the answer to ground truth?
-    faithfulness(),          # Is the answer faithful to the context?
-    relevance(),            # Overall relevance assessment
-]
-```
-
-#### RAG-Specific Judges
-
-For Retrieval-Augmented Generation applications, Databricks provides specialized evaluation judges:
-
-```python
-# Databricks-specific RAG evaluation
-from mlflow.genai.scorers import (
-    RelevanceToQuery,
-    RetrievalGroundedness,
-    RetrievalRelevance,
-    Correctness,
-    RetrievalSufficiency,
-    Safety,
-)
-
-# Advanced RAG evaluation (Databricks only)
-rag_judges = [
-    RelevanceToQuery(),         # Query-response relevance
-    RetrievalGroundedness(),    # Response grounded in retrieved context
-    RetrievalRelevance(),       # Retrieved docs relevant to query
-    Correctness(),              # Factual correctness vs ground truth
-    RetrievalSufficiency(),     # Sufficient context retrieved
-    Safety(),                   # Content safety assessment
-]
-```
-
-#### Custom LLM Judge Creation
-
-Databricks allows you to create custom LLM-based judges with specific prompts and examples:
-
-```python
-# Databricks: Create custom LLM-based judges
-from mlflow.metrics.genai import make_genai_metric, EvaluationExample
-
-# Custom judge with examples (Databricks only)
-custom_judge = make_genai_metric(
-    name="technical_accuracy",
-    definition="Evaluate technical accuracy of SQL explanations",
-    grading_prompt="Score 1-5 based on technical correctness and completeness...",
-    examples=[
-        EvaluationExample(
-            input="What is a JOIN?",
-            output="JOIN combines tables based on related columns",
-            score=5,
-            justification="Accurate and concise explanation"
-        )
-    ],
-    model="openai:/gpt-4",
-)
-```
-
-</TabItem>
-<TabItem value="comparison" label="Platform Comparison">
-
-### Feature Comparison
-
-Understanding the differences between platforms helps you choose the right approach for your needs:
-
-| Feature | MLflow OSS | Databricks MLflow |
-|---------|------------|-------------------|
-| **Heuristic Metrics** | ✅ Full support | ✅ Full support |
-| **Custom Function Scorers** | ✅ Full support | ✅ Full support |
-| **LLM-based Judges** | ❌ Limited | ✅ Full support |
-| **Pre-built Semantic Judges** | ❌ Not available | ✅ Available |
-| **RAG-specific Judges** | ❌ Not available | ✅ Available |
-| **Custom LLM Judge Creation** | ❌ Not available | ✅ Available |
-| **Safety/Toxicity Judges** | ❌ Limited | ✅ Full support |
-| **Multi-model Judge Support** | ❌ Not available | ✅ Available |
-
-### Migration Considerations
-
-If you're considering moving from OSS to Databricks or using both platforms:
-
-```python
-# OSS approach with custom scorers
-@scorer
-def custom_relevance(inputs, outputs):
-    # Custom relevance logic using heuristics
-    query_keywords = inputs["query"].lower().split()
-    response = outputs.get("choices", [{}])[0].get("message", {}).get("content", "").lower()
-    return any(keyword in response for keyword in query_keywords)
-
-# Databricks approach with built-in judges
-from mlflow.genai.scorers import RelevanceToQuery
-relevance_judge = RelevanceToQuery()
-```
+MLflow OSS includes the complete [scorer framework](/genai/eval-monitor/concepts/scorers) and class definitions, but sophisticated LLM judge implementations require external LLM providers (OpenAI, Anthropic, etc.) or Databricks infrastructure. OSS excels at reliable heuristic-based evaluation metrics and [custom scorer development](/genai/eval-monitor/custom-scorers) using the `@scorer` decorator.
 
 </TabItem>
 </Tabs>
 
-## Implementation Examples
+## Choosing Your Evaluation Approach
 
-### Complete MLflow OSS Implementation
+The decision between predefined and custom scorers depends on your application's complexity and evaluation requirements. Predefined scorers work best when starting GenAI evaluation and needing proven baselines, assessing standard quality dimensions like relevance or safety, or when you want quick setup without development overhead.
 
-Here's a comprehensive example using MLflow OSS capabilities to evaluate the sample application:
+Custom scorers become necessary when your application has complex inputs and outputs that predefined scorers can't parse, you need domain-specific evaluation criteria, or your [trace structure](/genai/tracing/tracing-101) doesn't match standard expectations.
+
+```mermaid
+flowchart TD
+    A[🚀 Starting Evaluation] --> B{📋 Standard Quality Needs?}
+    B -->|Yes| C[✅ Use Predefined Scorers]
+    B -->|No| D[🛠️ Build Custom Scorers]
+
+    C --> E[🎯 Quick Quality Baseline]
+    D --> F[🔧 Domain-Specific Logic]
+
+    E --> G[📈 Production Ready]
+    F --> G
+
+    style A fill:#e3f2fd,stroke:#1976d2,color:#000
+    style C fill:#e8f5e8,stroke:#388e3c,color:#000
+    style D fill:#fff3e0,stroke:#f57c00,color:#000
+    style G fill:#f3e5f5,stroke:#7b1fa2,color:#000
+```
+
+## Getting Started: Sample Application
+
+Let's create a practical RAG application that demonstrates proper tracing patterns for predefined scorers. This example shows how to structure your application to work effectively with MLflow's evaluation system.
+
+```python
+import mlflow
+from mlflow.entities import Document
+from typing import List
+
+
+@mlflow.trace(span_type="RETRIEVER")
+def retrieve_docs(query: str) -> List[Document]:
+    """Simulated document retrieval with proper span tagging."""
+    return [
+        Document(
+            id="sql_doc_1",
+            page_content="SELECT retrieves data from databases. Use WHERE to filter results.",
+            metadata={"doc_uri": "http://example.com/sql/select"},
+        ),
+        Document(
+            id="sql_doc_2",
+            page_content="JOIN combines rows from multiple tables using related columns.",
+            metadata={"doc_uri": "http://example.com/sql/joins"},
+        ),
+    ]
+
+
+@mlflow.trace
+def sample_app(inputs):
+    """RAG application with MLflow tracing integration."""
+    query = inputs["query"]
+
+    # Retrieve and process documents
+    retrieved_documents = retrieve_docs(query=query)
+    context = "\n".join([doc.page_content for doc in retrieved_documents])
+
+    # Generate contextual response
+    if "join" in query.lower():
+        response = "JOIN combines rows from multiple tables using related columns."
+    elif "select" in query.lower():
+        response = "SELECT retrieves data from databases with optional WHERE filtering."
+    else:
+        response = "SQL provides various commands for database operations."
+
+    return {"response": response}
+```
+
+Your evaluation dataset should include both inputs and optional expectations for comprehensive assessment:
+
+```python
+eval_dataset = [
+    {
+        "request": "How do I join tables in SQL?",
+        "expected_response": "JOIN combines rows from multiple tables.",
+    },
+    {
+        "request": "What does SELECT do in SQL?",
+        "expected_response": "SELECT retrieves data from databases.",
+    },
+    {
+        "request": "How do I use MLflow for tracking?",
+        # Testing off-topic handling
+    },
+]
+```
+
+## Platform-Specific Capabilities
+
+<Tabs>
+<TabItem value="oss-implementation" label="🌐 MLflow OSS Implementation" default>
+
+MLflow OSS provides robust heuristic evaluation that's fast, cost-effective, and reliable. The platform excels at traditional metrics and custom scorer development, making it ideal for teams that need control over their evaluation logic.
 
 ```python
 from mlflow.metrics import exact_match, rouge_score, latency
+from mlflow.metrics.genai import answer_relevance, answer_correctness
 from mlflow.genai.scorers import scorer
+from mlflow.entities import Feedback
 
-# Create comprehensive custom scorer for OSS
+
 @scorer
-def comprehensive_quality_check(inputs, outputs):
-    """Multi-dimensional quality check using heuristics."""
-    response = outputs.get("choices", [{}])[0].get("message", {}).get("content", "")
-    
-    # Check multiple quality dimensions
-    checks = {
-        "not_empty": len(response.strip()) > 0,
-        "reasonable_length": 10 <= len(response.split()) <= 200,
-        "no_repetition": len(set(response.split())) / len(response.split()) > 0.7 if response.split() else False,
-        "professional_tone": not any(word in response.lower() for word in ["umm", "like", "whatever"])
-    }
-    
-    # Return composite score
-    score = sum(checks.values()) / len(checks)
-    return score
+def response_completeness(outputs):
+    """Assess response completeness using heuristic analysis."""
+    response = outputs.get("response", "")
 
-# Configure OSS evaluation suite
-oss_metrics = [
-    exact_match(),
-    rouge_score(),
-    latency(),
-    comprehensive_quality_check,
-    safety_keyword_check,
-    business_context_relevance,
+    if len(response.strip()) < 10:
+        return Feedback(value=False, rationale="Response too short to be meaningful")
+
+    if response.lower().endswith(("...", "etc", "and so on")):
+        return Feedback(value=False, rationale="Response appears incomplete")
+
+    return Feedback(value=True, rationale="Response appears complete")
+
+
+@scorer
+def domain_relevance(inputs, outputs):
+    """Check domain-specific relevance using keyword analysis."""
+    query = inputs.get("query", "").lower()
+    response = outputs.get("response", "").lower()
+
+    if "sql" in query:
+        sql_terms = ["database", "query", "table", "select", "join"]
+        return any(term in response for term in sql_terms)
+
+    return True
+
+
+# Comprehensive OSS evaluation suite
+oss_evaluation = [
+    exact_match(),  # String comparison baseline
+    rouge_score(),  # Text similarity assessment
+    latency(),  # Performance measurement
+    answer_relevance(model="openai:/gpt-4o-mini"),  # LLM-as-judge relevance
+    answer_correctness(model="openai:/gpt-4o-mini"),  # LLM-as-judge correctness
+    response_completeness,  # Custom quality check
+    domain_relevance,  # Business logic validation
 ]
 
-# Run evaluation
-print("Running evaluation with MLflow OSS metrics...")
-results = mlflow.evaluate(
-    data=eval_dataset,
-    model=sample_app,
-    extra_metrics=oss_metrics,
+results = mlflow.genai.evaluate(
+    data=eval_dataset, model=sample_app, extra_metrics=oss_evaluation
 )
-
-print("OSS Evaluation completed!")
-print(f"Run ID: {results.run_id}")
 ```
 
-### Databricks Implementation Example
+OSS also supports model type defaults for common scenarios, automatically applying appropriate metrics for question-answering, text summarization, or general text generation tasks.
 
-For Databricks users, you can leverage advanced LLM-based judges alongside heuristic metrics:
+</TabItem>
+<TabItem value="databricks-implementation" label="🏢 Databricks Implementation">
+
+Databricks MLflow provides sophisticated LLM judges for semantic evaluation through the Agent Evaluation framework. This platform enables comprehensive quality assessment that understands context and meaning rather than just surface-level text characteristics.
 
 ```python
-# Databricks: Using advanced LLM judges
-from mlflow.genai.scorers import (
-    RelevanceToQuery,
-    Safety,
-    RetrievalGroundedness
-)
+import mlflow
 from mlflow.metrics import latency
 
-# Combine heuristic and LLM-based evaluation
-databricks_suite = [
-    latency(),                    # Fast heuristic metric
-    RelevanceToQuery(),          # LLM-based semantic evaluation
-    Safety(),                    # LLM-based safety assessment
-    RetrievalGroundedness(),     # RAG-specific evaluation
-]
 
-# Note: This requires Databricks MLflow environment
-print("Running evaluation with Databricks MLflow judges...")
-results = mlflow.evaluate(
-    data=eval_dataset,
-    model=sample_app,
-    extra_metrics=databricks_suite,
-)
+# Advanced semantic evaluation using Databricks Agent Evaluation
+def evaluate_with_databricks_judges():
+    """Evaluate using Databricks built-in AI judges."""
+
+    evaluation_results = mlflow.genai.evaluate(
+        data=eval_dataset,
+        model=sample_app,
+        model_type="databricks-agent",  # Enable Agent Evaluation
+        extra_metrics=[latency()],  # Add heuristic metrics alongside judges
+        evaluator_config={
+            "databricks-agent": {
+                # Specify which built-in judges to use
+                "metrics": [
+                    "safety",  # Content safety assessment
+                    "relevance_to_query",  # Semantic relevance evaluation
+                    "groundedness",  # RAG-specific grounding check
+                ]
+            }
+        },
+    )
+
+    return evaluation_results
+
+
+# For applications with retrieved context, add context-aware judges
+def evaluate_rag_with_context():
+    """Evaluate RAG applications with context-aware judges."""
+
+    # Enhanced dataset with retrieved context
+    rag_eval_dataset = [
+        {
+            "request": "How do I join tables in SQL?",
+            "expected_response": "JOIN combines rows from multiple tables.",
+            "retrieved_context": [
+                {
+                    "content": "JOIN combines rows from multiple tables using related columns."
+                }
+            ],
+        }
+    ]
+
+    evaluation_results = mlflow.genai.evaluate(
+        data=rag_eval_dataset,
+        model=sample_app,
+        model_type="databricks-agent",
+        evaluator_config={
+            "databricks-agent": {
+                "metrics": [
+                    "safety",
+                    "relevance_to_query",
+                    "groundedness",  # Checks if response aligns with context
+                    "chunk_relevance",  # Assesses retrieval quality
+                    "correctness",  # Requires expected_response
+                ]
+            }
+        },
+    )
+
+    return evaluation_results
+
+
+# Using guidelines-based evaluation for custom criteria
+def evaluate_with_guidelines():
+    """Evaluate using custom guidelines through the guideline adherence judge."""
+
+    evaluation_results = mlflow.genai.evaluate(
+        data=eval_dataset,
+        model=sample_app,
+        model_type="databricks-agent",
+        evaluator_config={
+            "databricks-agent": {
+                "metrics": ["guideline_adherence"],
+                "global_guidelines": [
+                    "Maintain professional tone",
+                    "Be helpful and accurate",
+                    "Avoid controversial topics",
+                    "Focus on technical accuracy",
+                ],
+            }
+        },
+    )
+
+    return evaluation_results
 ```
 
-## Best Practices by Platform
-
-### MLflow OSS Best Practices
-
-**Focus on Efficiency and Coverage**: OSS users should leverage fast heuristic metrics and comprehensive custom scorers to achieve broad quality coverage:
-
-1. **Start with proven heuristics** - Use exact_match and rouge_score for baseline comparison
-2. **Build comprehensive custom scorers** - Create multi-dimensional evaluation functions
-3. **Combine complementary approaches** - Mix text comparison, performance, and business logic metrics
-4. **Optimize for speed** - Heuristic metrics provide fast, cost-effective evaluation
+For teams using the callable judge SDK for more granular control:
 
 ```python
-def create_oss_evaluation_suite():
-    """Best practice evaluation suite for MLflow OSS."""
-    return [
-        # Fast baseline metrics
-        exact_match(),
-        rouge_score(),
-        latency(),
-        # Comprehensive custom evaluation
-        comprehensive_quality_check,
-        safety_keyword_check,
-        business_context_relevance,
+from databricks.agents.evals import judges
+
+
+# Direct judge usage for individual assessments
+def assess_individual_responses():
+    """Use judges directly for individual response assessment."""
+
+    sample_request = "How do I join tables in SQL?"
+    sample_response = "JOIN combines rows from multiple tables using related columns."
+    sample_context = [
+        {"content": "JOIN syntax allows combining data from multiple tables."}
     ]
+
+    # Safety assessment
+    safety_result = judges.safety(request=sample_request, response=sample_response)
+
+    # Relevance assessment
+    relevance_result = judges.relevance_to_query(
+        request=sample_request, response=sample_response
+    )
+
+    # Groundedness assessment (requires context)
+    groundedness_result = judges.groundedness(
+        request=sample_request,
+        response=sample_response,
+        retrieved_context=sample_context,
+    )
+
+    return {
+        "safety": safety_result,
+        "relevance": relevance_result,
+        "groundedness": groundedness_result,
+    }
 ```
 
-### Databricks Best Practices
+For RAG applications, specialized judges assess retrieval quality, context sufficiency, and response grounding without requiring custom implementation.
 
-**Leverage Advanced Capabilities**: Databricks users should balance sophisticated LLM judges with efficient heuristic metrics:
+</TabItem>
+</Tabs>
 
-1. **Use LLM judges strategically** - Apply to critical quality dimensions where semantic understanding matters
-2. **Implement RAG-specific evaluation** - Use specialized judges for retrieval and groundedness
-3. **Create custom domain judges** - Build LLM-based evaluators for specific business requirements
-4. **Manage costs effectively** - Balance expensive LLM evaluation with fast heuristic checks
+## Best Practices and Implementation Strategy
 
-```python
-def create_databricks_evaluation_suite():
-    """Best practice evaluation suite for Databricks MLflow."""
-    return [
-        # Fast heuristics for basic checks
-        exact_match(),
-        latency(),
-        # LLM judges for semantic quality
-        RelevanceToQuery(),
-        Safety(),
-        RetrievalGroundedness(),
-        # Custom judges for domain-specific needs
-        custom_domain_judge,
-    ]
+Successful scorer implementation follows the "write once, use everywhere" principle. The same scorer function works seamlessly from initial development testing through [production monitoring](/genai/eval-monitor/concepts/production-monitoring), ensuring consistent quality standards across your entire application lifecycle.
+
+```mermaid
+graph TD
+    A[🔬 Development] --> B[🧪 Testing]
+    B --> C[🚀 Production]
+
+    D[📊 Same Scorers] --> A
+    D --> B
+    D --> C
+
+    A --> E[📈 Quality Feedback]
+    B --> E
+    C --> E
+
+    style A fill:#e8f5e8,stroke:#388e3c,color:#000
+    style B fill:#fff3e0,stroke:#f57c00,color:#000
+    style C fill:#e3f2fd,stroke:#1976d2,color:#000
+    style D fill:#f3e5f5,stroke:#7b1fa2,color:#000
+    style E fill:#fce4ec,stroke:#c2185b,color:#000
 ```
 
-## Troubleshooting Common Issues
+Start with simple heuristic metrics to establish evaluation foundations, then gradually add sophisticated scorers as your needs evolve. Design scorers to handle edge cases gracefully, returning meaningful feedback even when ideal conditions aren't met. This approach ensures robust evaluation that continues working as your application grows in complexity.
 
-### MLflow OSS Troubleshooting
-
-**Missing Dependencies**: Some metrics require additional packages that may not be installed by default:
-
-```bash
-# Install optional dependencies for specific metrics
-pip install rouge-score     # For ROUGE metrics
-pip install textstat        # For readability metrics
-pip install nltk            # For some text processing metrics
-```
-
-**Custom Scorer Robustness**: Ensure your custom scorers handle edge cases gracefully:
+MLflow automatically handles scorer errors by capturing exceptions and creating Feedback objects with error details, so you can focus on evaluation logic rather than error management:
 
 ```python
 @scorer
-def robust_oss_scorer(inputs, outputs):
-    """Example of robust scorer with proper error handling."""
+def robust_evaluation(outputs):
+    # Let exceptions propagate - MLflow handles them gracefully
     try:
-        # Extract response safely
-        response = outputs.get("choices", [{}])[0].get("message", {}).get("content", "")
-        
-        if not response:
-            return 0  # Handle empty responses
-        
-        # Your scoring logic here
-        score = len(response.split()) > 5  # Example check
-        return score
-        
-    except Exception as e:
-        print(f"Scorer error: {e}")
-        return 0  # Return default score on error
+        data = json.loads(outputs.get("response", "{}"))
+        return Feedback(
+            value=True, rationale=f"Valid response structure with {len(data)} elements"
+        )
+    except json.JSONDecodeError:
+        return Feedback(value=False, rationale="Response is not valid JSON")
 ```
 
-### Databricks Troubleshooting
+## Troubleshooting and Optimization
 
-**Judge Model Configuration**: Ensure proper access and configuration for LLM judges:
+Common challenges often involve missing dependencies for specific metrics. Install optional packages like `rouge-score` for text similarity metrics or `textstat` for readability assessment as needed. For custom scorers, implement defensive programming patterns that handle empty responses and malformed data gracefully.
+
+Databricks users working with large evaluations should consider sampling strategies during development, running expensive LLM judges on representative subsets before full evaluation. Performance optimization becomes crucial when balancing comprehensive assessment with execution time and cost constraints.
+
+### Common API Migration Issues
+
+If you're updating from older documentation or examples, be aware of these common patterns:
 
 ```python
-# Specify judge model explicitly if needed
-from mlflow.genai.scorers import RelevanceToQuery
+# ❌ Outdated pattern (may not work)
+from mlflow.genai.scorers import Safety, RelevanceToQuery
 
-relevance_judge = RelevanceToQuery(
-    model="openai:/gpt-4",  # Ensure you have access to this model
-    parameters={"temperature": 0.0}
+# ✅ Current pattern for Databricks
+mlflow.genai.evaluate(
+    data=eval_data,
+    model=your_model,
+    model_type="databricks-agent",
+    evaluator_config={
+        "databricks-agent": {"metrics": ["safety", "relevance_to_query"]}
+    },
 )
+
+# ✅ Current pattern for direct judge usage
+from databricks.agents.evals import judges
+
+result = judges.safety(request="...", response="...")
 ```
-
-**Performance Optimization**: For large evaluations, consider sampling or batching strategies:
-
-```python
-# Use sampling for expensive LLM judges on large datasets
-large_dataset_sample = eval_dataset[:10]  # Sample for testing
-
-# Then run full evaluation only on promising versions
-results = mlflow.evaluate(
-    data=large_dataset_sample,
-    model=sample_app,
-    extra_metrics=[RelevanceToQuery(), Safety()],
-)
-```
-
-## Related Concepts
-
-- **[Custom Scorers](/genai/eval-monitor/custom-scorers)**: Build your own evaluation logic for specific business requirements
-- **[Evaluation Harness](/genai/eval-monitor/concepts/eval-harness)**: Understand the complete evaluation workflow and architecture
-- **[Production Monitoring](/genai/eval-monitor/production-monitoring)**: Use the same scorers to continuously monitor live applications
 
 ## Next Steps
 
-### For MLflow OSS Users
-1. **Start with basic metrics** - Begin with exact_match and rouge_score for foundation evaluation
-2. **Build custom scorers** - Create business-specific evaluation logic using the `@scorer` decorator
-3. **Optimize evaluation suite** - Balance coverage with execution speed for your use case
-4. **Consider platform migration** - Explore Databricks MLflow for advanced LLM-based evaluation
+Understanding predefined scorers opens the door to comprehensive GenAI evaluation. Explore the [complete scorer framework](/genai/eval-monitor/concepts/scorers) to understand design principles and implementation patterns. For domain-specific requirements, learn about [custom scorer development](/genai/eval-monitor/custom-scorers) using the `@scorer` decorator.
 
-### For Databricks Users  
-1. **Leverage semantic judges** - Use advanced LLM-based evaluation for nuanced quality assessment
-2. **Implement RAG evaluation** - Apply specialized judges for retrieval-augmented applications
-3. **Create custom judges** - Build domain-specific LLM evaluators with custom prompts and examples
-4. **Balance cost and coverage** - Mix expensive LLM judges with efficient heuristic metrics
+The [evaluation harness](/genai/eval-monitor/concepts/eval-harness) provides the complete workflow architecture, while [production monitoring](/genai/eval-monitor/concepts/production-monitoring) shows how to deploy the same scorers for continuous quality assessment in live applications.
 
-Ready to start evaluating? Choose the predefined scorers that match your platform and quality requirements, then customize as needed for your specific application.
+Whether you're using MLflow OSS for fast heuristic evaluation or Databricks for sophisticated semantic assessment, predefined scorers provide the foundation for systematic GenAI quality management that scales with your application development needs.

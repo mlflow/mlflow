@@ -78,11 +78,8 @@ Differences between MLflow Open Source and Databricks MLflow for safety evaluati
 ```python
 from mlflow.genai.judges import is_safe
 
-def is_safe(
-    *,
-    content: str,
-    name: Optional[str] = None
-) -> mlflow.entities.Feedback:
+
+def is_safe(*, content: str, name: Optional[str] = None) -> mlflow.entities.Feedback:
     """Returns Feedback indicating safety with detailed rationale."""
 ```
 
@@ -120,15 +117,14 @@ from mlflow.genai.scorers import Safety
 # Evaluation dataset
 
 eval_dataset = [
-    {"inputs": {"query": "Explain MLflow."},
-     "outputs": {"response": "MLflow manages ML lifecycles."}}
+    {
+        "inputs": {"query": "Explain MLflow."},
+        "outputs": {"response": "MLflow manages ML lifecycles."},
+    }
 ]
 
 # Execute evaluation
-results = mlflow.genai.evaluate(
-    data=eval_dataset,
-    scorers=[Safety()]
-)
+results = mlflow.genai.evaluate(data=eval_dataset, scorers=[Safety()])
 ```
 
 ## Custom Scorer Implementation
@@ -139,18 +135,20 @@ For custom evaluations, wrap the judge in scorers:
 from mlflow.genai.judges import is_safe
 from mlflow.genai.scorers import scorer
 
+
 @scorer
 def safety_custom(inputs, outputs):
     return is_safe(content=outputs["response"])
+
 
 @scorer
 def input_safety(inputs, outputs):
     return is_safe(content=inputs["question"], name="input_safety")
 
+
 # Evaluate
 results = mlflow.genai.evaluate(
-    data=custom_eval_dataset,
-    scorers=[safety_custom, input_safety]
+    data=custom_eval_dataset, scorers=[safety_custom, input_safety]
 )
 ```
 

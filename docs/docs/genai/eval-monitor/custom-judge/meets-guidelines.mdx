@@ -48,19 +48,15 @@ structure_guideline = "The response must use clear, concise language and avoid j
 
 # Create scorers with the prebuilt approach
 tone_scorer = GuidelineAdherence().with_config(
-    name="tone", 
-    global_guidelines=[tone_guideline]
+    name="tone", global_guidelines=[tone_guideline]
 )
 structure_scorer = GuidelineAdherence().with_config(
-    name="structure", 
-    global_guidelines=[structure_guideline]
+    name="structure", global_guidelines=[structure_guideline]
 )
 
 # Use in evaluation
 mlflow.genai.evaluate(
-    data=eval_dataset,
-    model=your_app,
-    extra_metrics=[tone_scorer, structure_scorer]
+    data=eval_dataset, model=your_app, extra_metrics=[tone_scorer, structure_scorer]
 )
 ```
 
@@ -86,28 +82,29 @@ from mlflow.genai.scorers import scorer
 from mlflow.genai.judges import meets_guidelines
 import json
 
+
 @scorer
 def custom_guidelines_scorer(inputs, outputs):
     """Custom scorer with full control over data passing."""
-    
+
     # Extract and format exactly the data you need
     user_query = inputs.get("query")
     response_text = outputs.get("response", {}).get("content")
     retrieved_docs = outputs.get("context", [])
-    
+
     # Apply guidelines with custom context
     return meets_guidelines(
         name="comprehensive_quality",
         guidelines=[
             "The response must address the user's query directly",
             "The response must be grounded in the provided context",
-            "The response must maintain professional tone"
+            "The response must maintain professional tone",
         ],
         context={
             "user_query": user_query,
             "response": response_text,
-            "context_documents": json.dumps(retrieved_docs)
-        }
+            "context_documents": json.dumps(retrieved_docs),
+        },
     )
 ```
 
@@ -161,17 +158,18 @@ client = OpenAI(api_key="your-openai-api-key")
 # Configuration toggle for demonstration
 BE_RUDE_AND_VERBOSE = False
 
+
 @mlflow.trace
 def customer_support_agent(messages: List[Dict[str, str]]):
     """Customer support agent with configurable behavior for testing."""
-    
+
     # Adjust behavior for testing guidelines
     system_prompt_postfix = (
         "Be super rude and very verbose in your responses."
         if BE_RUDE_AND_VERBOSE
         else ""
     )
-    
+
     messages_for_llm = [
         {
             "role": "system",
@@ -193,16 +191,16 @@ Work with your business stakeholders and domain experts to define clear, specifi
 
 ```python
 # Guidelines written in natural language
-tone = """The response must maintain a courteous, respectful tone throughout. 
+tone = """The response must maintain a courteous, respectful tone throughout.
 It must show empathy for customer concerns and avoid any rude or dismissive language."""
 
-structure = """The response must use clear, concise language and structure responses logically. 
+structure = """The response must use clear, concise language and structure responses logically.
 It must avoid jargon or explain technical terms when used. Responses should be appropriately brief."""
 
-banned_topics = """If the request is a question about product pricing, the response must 
+banned_topics = """If the request is a question about product pricing, the response must
 politely decline to answer and refer the user to the pricing page."""
 
-relevance = """The response must be relevant to the user's request. Only consider the relevance 
+relevance = """The response must be relevant to the user's request. Only consider the relevance
 and nothing else. If the request is not clear, the response must ask for more information."""
 ```
 
@@ -228,8 +226,14 @@ eval_dataset = [
     {
         "inputs": {
             "messages": [
-                {"role": "user", "content": "I'm having trouble with my account. I can't log in."},
-                {"role": "assistant", "content": "I'm sorry to hear that you're having trouble with your account. Are you using our website or mobile app?"},
+                {
+                    "role": "user",
+                    "content": "I'm having trouble with my account. I can't log in.",
+                },
+                {
+                    "role": "assistant",
+                    "content": "I'm sorry to hear that you're having trouble with your account. Are you using our website or mobile app?",
+                },
                 {"role": "user", "content": "Website"},
             ]
         },
@@ -237,8 +241,14 @@ eval_dataset = [
     {
         "inputs": {
             "messages": [
-                {"role": "user", "content": "I'm having trouble with my account. I can't log in."},
-                {"role": "assistant", "content": "I'm sorry to hear that you're having trouble with your account. Are you using our website or mobile app?"},
+                {
+                    "role": "user",
+                    "content": "I'm having trouble with my account. I can't log in.",
+                },
+                {
+                    "role": "assistant",
+                    "content": "I'm sorry to hear that you're having trouble with your account. Are you using our website or mobile app?",
+                },
                 {"role": "user", "content": "JUST FIX IT FOR ME"},
             ]
         },
@@ -263,9 +273,15 @@ results_good = mlflow.genai.evaluate(
     model=customer_support_agent,
     extra_metrics=[
         GuidelineAdherence().with_config(name="tone", global_guidelines=[tone]),
-        GuidelineAdherence().with_config(name="structure", global_guidelines=[structure]),
-        GuidelineAdherence().with_config(name="banned_topics", global_guidelines=[banned_topics]),
-        GuidelineAdherence().with_config(name="relevance", global_guidelines=[relevance]),
+        GuidelineAdherence().with_config(
+            name="structure", global_guidelines=[structure]
+        ),
+        GuidelineAdherence().with_config(
+            name="banned_topics", global_guidelines=[banned_topics]
+        ),
+        GuidelineAdherence().with_config(
+            name="relevance", global_guidelines=[relevance]
+        ),
     ],
 )
 
@@ -283,9 +299,15 @@ results_poor = mlflow.genai.evaluate(
     model=customer_support_agent,
     extra_metrics=[
         GuidelineAdherence().with_config(name="tone", global_guidelines=[tone]),
-        GuidelineAdherence().with_config(name="structure", global_guidelines=[structure]),
-        GuidelineAdherence().with_config(name="banned_topics", global_guidelines=[banned_topics]),
-        GuidelineAdherence().with_config(name="relevance", global_guidelines=[relevance]),
+        GuidelineAdherence().with_config(
+            name="structure", global_guidelines=[structure]
+        ),
+        GuidelineAdherence().with_config(
+            name="banned_topics", global_guidelines=[banned_topics]
+        ),
+        GuidelineAdherence().with_config(
+            name="relevance", global_guidelines=[relevance]
+        ),
     ],
 )
 
@@ -314,16 +336,21 @@ client = OpenAI(api_key="your-openai-api-key")
 FOLLOW_POLICIES = True
 BE_RUDE_AND_VERBOSE = False
 
+
 @mlflow.trace
 def advanced_support_agent(user_messages: List[Dict[str, str]], user_id: str):
     """Advanced support agent with policy awareness and user context."""
-    
+
     # Simulate policy lookup based on user
     @mlflow.trace
     def get_policies_for_user(user_id: str):
         user_policies = {
-            "1": ["All returns must be processed within 30 days of purchase, with a valid receipt."],
-            "2": ["All returns must be processed within 90 days of purchase, with a valid receipt."],
+            "1": [
+                "All returns must be processed within 30 days of purchase, with a valid receipt."
+            ],
+            "2": [
+                "All returns must be processed within 90 days of purchase, with a valid receipt."
+            ],
         }
         return user_policies.get(user_id, ["Standard 60-day return policy applies."])
 
@@ -332,14 +359,16 @@ def advanced_support_agent(user_messages: List[Dict[str, str]], user_id: str):
     # Build system prompt with policy and behavior configuration
     policy_prompt = (
         f"Follow these policies: {policies_to_follow}. Do not explicitly mention the policies in your response."
-        if FOLLOW_POLICIES else ""
+        if FOLLOW_POLICIES
+        else ""
     )
-    
+
     behavior_prompt = (
         "Be super rude and very verbose in your responses."
-        if BE_RUDE_AND_VERBOSE else ""
+        if BE_RUDE_AND_VERBOSE
+        else ""
     )
-    
+
     messages_for_llm = [
         {
             "role": "system",
@@ -357,7 +386,10 @@ def advanced_support_agent(user_messages: List[Dict[str, str]], user_id: str):
     return {
         "message": output.choices[0].message.content,
         "policies_followed": policies_to_follow,
-        "user_context": {"user_id": user_id, "tier": "premium" if user_id in ["1", "2"] else "standard"}
+        "user_context": {
+            "user_id": user_id,
+            "tier": "premium" if user_id in ["1", "2"] else "standard",
+        },
     }
 ```
 
@@ -373,20 +405,21 @@ from mlflow.genai.scorers import scorer
 from mlflow.genai.judges import meets_guidelines
 import json
 
+
 @scorer
 def policy_compliance_scorer(inputs: Dict[Any, Any], outputs: Dict[Any, Any]):
     """Custom scorer that evaluates policy compliance using additional context."""
-    
+
     # Define policy compliance guideline
-    policy_guideline = """If the provided_policies are relevant to the request and response, 
-    the response must adhere to the provided_policies. The response should follow the policy 
+    policy_guideline = """If the provided_policies are relevant to the request and response,
+    the response must adhere to the provided_policies. The response should follow the policy
     without explicitly mentioning the specific policy details."""
-    
+
     # Extract context for evaluation
     user_messages = inputs.get("user_messages", [])
     response_message = outputs.get("message", "")
     applicable_policies = outputs.get("policies_followed", [])
-    
+
     # Apply guidelines with custom context
     return meets_guidelines(
         name="policy_compliance",
@@ -394,8 +427,8 @@ def policy_compliance_scorer(inputs: Dict[Any, Any], outputs: Dict[Any, Any]):
         context={
             "request": json.dumps(user_messages),
             "response": response_message,
-            "provided_policies": json.dumps(applicable_policies)
-        }
+            "provided_policies": json.dumps(applicable_policies),
+        },
     )
 ```
 
@@ -406,26 +439,26 @@ def policy_compliance_scorer(inputs: Dict[Any, Any], outputs: Dict[Any, Any]):
 @scorer
 def comprehensive_quality_scorer(inputs: Dict[Any, Any], outputs: Dict[Any, Any]):
     """Scorer that evaluates multiple guidelines with custom data extraction."""
-    
+
     # Extract and format data for evaluation
     user_messages = inputs.get("user_messages", [])
     response_message = outputs.get("message", "")
     user_context = outputs.get("user_context", {})
-    
+
     request_text = json.dumps(user_messages)
-    
+
     # Define multiple guidelines
     guidelines = {
         "tone": "The response must maintain a courteous, respectful tone throughout.",
         "structure": "The response must use clear, concise language and avoid unnecessary verbosity.",
         "banned_topics": "If the request asks about pricing, the response must politely decline and refer to the pricing page.",
         "relevance": "The response must be relevant to the user's request and provide helpful information.",
-        "context_appropriate": "The response must be appropriate for the user's context and tier level."
+        "context_appropriate": "The response must be appropriate for the user's context and tier level.",
     }
-    
+
     # Apply each guideline and collect results
     feedback_results = []
-    
+
     for guideline_name, guideline_text in guidelines.items():
         result = meets_guidelines(
             name=guideline_name,
@@ -433,11 +466,11 @@ def comprehensive_quality_scorer(inputs: Dict[Any, Any], outputs: Dict[Any, Any]
             context={
                 "request": request_text,
                 "response": response_message,
-                "user_context": json.dumps(user_context)
-            }
+                "user_context": json.dumps(user_context),
+            },
         )
         feedback_results.append(result)
-    
+
     # Return list of feedback objects
     return feedback_results
 ```
@@ -462,7 +495,10 @@ eval_dataset = [
     {
         "inputs": {
             "user_messages": [
-                {"role": "user", "content": "Can I return the microwave I bought 2 months ago?"},
+                {
+                    "role": "user",
+                    "content": "Can I return the microwave I bought 2 months ago?",
+                },
             ],
             "user_id": "1",  # Premium user with 30-day policy - should say no
         },
@@ -470,7 +506,10 @@ eval_dataset = [
     {
         "inputs": {
             "user_messages": [
-                {"role": "user", "content": "Can I return the microwave I bought 2 months ago?"},
+                {
+                    "role": "user",
+                    "content": "Can I return the microwave I bought 2 months ago?",
+                },
             ],
             "user_id": "2",  # Premium user with 90-day policy - should say yes
         },
@@ -478,8 +517,14 @@ eval_dataset = [
     {
         "inputs": {
             "user_messages": [
-                {"role": "user", "content": "I'm having trouble with my account. I can't log in."},
-                {"role": "assistant", "content": "I'm sorry to hear that you're having trouble with your account. Are you using our website or mobile app?"},
+                {
+                    "role": "user",
+                    "content": "I'm having trouble with my account. I can't log in.",
+                },
+                {
+                    "role": "assistant",
+                    "content": "I'm sorry to hear that you're having trouble with your account. Are you using our website or mobile app?",
+                },
                 {"role": "user", "content": "JUST FIX IT FOR ME"},
             ],
             "user_id": "1",
@@ -543,14 +588,14 @@ for metric_name, value in results_non_compliant.metrics.items():
 **Include Both Positive and Negative Criteria**: Define what must be present and what must be avoided:
 ```python
 # Comprehensive guideline
-positive_negative_guideline = """The response must include specific troubleshooting steps 
+positive_negative_guideline = """The response must include specific troubleshooting steps
 and must not make promises about resolution timeframes without proper authorization."""
 ```
 
 **Reference Context Appropriately**: Use clear field names that match your context data:
 ```python
 # When using custom scorers, ensure guideline references match context keys
-context_aware_guideline = """Given the user_tier and request_urgency, the response must 
+context_aware_guideline = """Given the user_tier and request_urgency, the response must
 provide appropriate level of detail and escalation options."""
 ```
 
@@ -563,15 +608,15 @@ def communication_standards(inputs, outputs):
     """Batch multiple communication-related guidelines together."""
     communication_guidelines = [
         "The response must use professional language",
-        "The response must show empathy for customer concerns", 
+        "The response must show empathy for customer concerns",
         "The response must be appropriately concise",
-        "The response must avoid technical jargon without explanation"
+        "The response must avoid technical jargon without explanation",
     ]
-    
+
     return meets_guidelines(
         name="communication_standards",
         guidelines=communication_guidelines,
-        context={"request": inputs["query"], "response": outputs["message"]}
+        context={"request": inputs["query"], "response": outputs["message"]},
     )
 ```
 
@@ -583,12 +628,12 @@ def validate_guidelines():
         {"input": "known_good_example", "expected": True},
         {"input": "known_bad_example", "expected": False},
     ]
-    
+
     for case in test_cases:
         result = meets_guidelines(
             name="test_guideline",
             guidelines=[your_guideline],
-            context={"response": case["input"]}
+            context={"response": case["input"]},
         )
         assert (result.value == "pass") == case["expected"]
 ```
@@ -599,30 +644,28 @@ def validate_guidelines():
 ```python
 import mlflow
 
+
 def evaluate_app_version_with_guidelines(app_function, version_name, guidelines_config):
     """Standardized evaluation with guidelines for version comparison."""
-    
+
     with mlflow.start_run(run_name=f"guidelines_eval_{version_name}"):
         # Create scorers from guidelines configuration
         scorers = []
         for guideline_name, guideline_text in guidelines_config.items():
             scorer = GuidelineAdherence().with_config(
-                name=guideline_name,
-                global_guidelines=[guideline_text]
+                name=guideline_name, global_guidelines=[guideline_text]
             )
             scorers.append(scorer)
-        
+
         # Run evaluation
         results = mlflow.genai.evaluate(
-            model=app_function,
-            data=eval_dataset,
-            extra_metrics=scorers
+            model=app_function, data=eval_dataset, extra_metrics=scorers
         )
-        
+
         # Log guidelines metadata
         mlflow.log_dict(guidelines_config, "guidelines.json")
         mlflow.set_tag("evaluation_type", "guidelines_based")
-        
+
         return results
 ```
 
@@ -659,8 +702,8 @@ def evaluate_app_version_with_guidelines(app_function, version_name, guidelines_
 
 - **[Prompt-Based Judges](/genai/eval-monitor/custom-judge/create-prompt-judge)**: For more complex evaluation scenarios requiring nuanced scoring
 - **[Custom Scorers](/genai/eval-monitor/custom-scorers)**: Alternative approach using deterministic logic
-- **[Predefined LLM Scorers](/genai/eval-monitor/predefined-llm-scorers)**: Ready-to-use evaluation judges for common scenarios
-- **[Production Monitoring](/genai/eval-monitor/production-monitoring)**: Deploy your guidelines-based judges for continuous quality assessment
+- **[Predefined LLM Scorers](/genai/eval-monitor/predefined-judge-scorers)**: Ready-to-use evaluation judges for common scenarios
+- **[Production Monitoring](/genai/eval-monitor/concepts/production-monitoring)**: Deploy your guidelines-based judges for continuous quality assessment
 
 ## Next Steps
 

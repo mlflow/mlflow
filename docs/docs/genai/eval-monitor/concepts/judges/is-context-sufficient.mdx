@@ -78,6 +78,7 @@ Platform differences between MLflow Open Source and Databricks MLflow are signif
 ```python
 from mlflow.genai.judges import is_context_sufficient
 
+
 def is_context_sufficient(
     *,
     request: str,
@@ -98,7 +99,7 @@ from mlflow.genai.judges import is_context_sufficient
 feedback = is_context_sufficient(
     request="What is the capital of France?",
     context=[{"content": "Paris is the capital of France."}],
-    expected_facts=["Paris is the capital of France."]
+    expected_facts=["Paris is the capital of France."],
 )
 
 # Outputs:
@@ -109,7 +110,7 @@ feedback = is_context_sufficient(
 feedback = is_context_sufficient(
     request="List MLflow components.",
     context=[{"content": "MLflow helps manage ML lifecycles."}],
-    expected_facts=["Tracking", "Projects", "Models", "Registry"]
+    expected_facts=["Tracking", "Projects", "Models", "Registry"],
 )
 
 # Outputs:
@@ -130,26 +131,30 @@ Databricks MLflow provides the prebuilt `RetrievalSufficiency` scorer for automa
 import mlflow
 from mlflow.genai.scorers import RetrievalSufficiency
 
+
 @mlflow.trace(span_type="RETRIEVER")
 def retrieve_docs(query):
     # Document retrieval logic
+    return
+
 
 @mlflow.trace
 def rag_app(query):
     docs = retrieve_docs(query)
     return {"response": f"Retrieved {len(docs)} documents."}
 
+
 # Evaluation dataset with ground truth
 eval_dataset = [
-    {"inputs": {"query": "What is the capital of France?"},
-     "expectations": {"expected_facts": ["Paris is the capital of France."]}}
+    {
+        "inputs": {"query": "What is the capital of France?"},
+        "expectations": {"expected_facts": ["Paris is the capital of France."]},
+    }
 ]
 
 # Evaluation execution
 results = mlflow.genai.evaluate(
-    data=eval_dataset,
-    predict_fn=rag_app,
-    scorers=[RetrievalSufficiency()]
+    data=eval_dataset, predict_fn=rag_app, scorers=[RetrievalSufficiency()]
 )
 ```
 
@@ -161,18 +166,19 @@ When predefined scorers don't fit your data structure, encapsulate the judge in 
 from mlflow.genai.judges import is_context_sufficient
 from mlflow.genai.scorers import scorer
 
+
 @scorer
 def context_sufficiency_custom(inputs, outputs, expectations):
     return is_context_sufficient(
         request=inputs["query"],
         context=outputs["retrieved_context"],
-        expected_facts=expectations["expected_facts"]
+        expected_facts=expectations["expected_facts"],
     )
+
 
 # Evaluate
 results = mlflow.genai.evaluate(
-    data=custom_eval_dataset,
-    scorers=[context_sufficiency_custom]
+    data=custom_eval_dataset, scorers=[context_sufficiency_custom]
 )
 ```
 

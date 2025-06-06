@@ -8,7 +8,7 @@ Systematically evaluate new versions of your GenAI application to verify improve
 To run an evaluation, you need three key components:
 
 1. **Evaluation dataset** - Test inputs (user queries) and optionally expectations for corresponding outputs
-2. **Target function** - Your application to evaluate  
+2. **Target function** - Your application to evaluate
 3. **Scorers** - Quality metrics that compute scores on your target function's outputs
 
 Given these components, you can evaluate your application using MLflow's evaluation harness: `mlflow.evaluate()`.
@@ -30,7 +30,7 @@ export MLFLOW_TRACKING_URI="your-tracking-server-uri"
 The evaluation process follows a clear data flow that transforms your test cases into actionable quality insights:
 
 1. **Input Data** → Your evaluation dataset with test cases
-2. **Target Function** → Your instrumented GenAI application  
+2. **Target Function** → Your instrumented GenAI application
 3. **Execution** → MLflow calls your function for each test case
 4. **Scoring** → Scorers evaluate the outputs for quality
 5. **Results** → Comprehensive metrics and traces for analysis
@@ -54,9 +54,12 @@ mlflow.openai.autolog()
 # Initialize OpenAI client
 client = OpenAI(api_key="your-openai-api-key")
 
+
 # @mlflow.trace decorator creates a span for this function during evaluation
 @mlflow.trace
-def my_app(customer_name: str, last_conversation_details: str, known_issues: str) -> dict:
+def my_app(
+    customer_name: str, last_conversation_details: str, known_issues: str
+) -> dict:
     system_prompt = """Please generate an email for a sales rep to send based on the provided data"""
 
     user_message = f"""Customer name: {customer_name}
@@ -72,11 +75,12 @@ Known support issues: {known_issues}"""
     )
     return {"email": response.choices[0].message.content}
 
+
 # Test the predict_fn
 output = my_app(
     customer_name="Acme Corporation",
     last_conversation_details="Met with CTO Sarah Johnson who expressed interest in our enterprise security features. She mentioned budget approval in Q3.",
-    known_issues="Their IT team reported slow response times with our API during peak hours."
+    known_issues="Their IT team reported slow response times with our API during peak hours.",
 )
 print(output)
 ```
@@ -101,7 +105,7 @@ eval_data = [
     },
     {
         "inputs": {
-            "customer_name": "TechNova Solutions", 
+            "customer_name": "TechNova Solutions",
             "last_conversation_details": "Product demo with their engineering team last Thursday. They were particularly impressed with the scalability options.",
             "known_issues": "Integration with their legacy systems has been challenging. Support ticket #4532 is still open.",
         }
@@ -160,20 +164,22 @@ Predefined scorers offer standardized metrics that are commonly used across ML a
 ```python
 from mlflow.genai.scorers import scorer
 
+
 @scorer
 def company_name_in_email(inputs, outputs):
     """Check if the company name is included in the email."""
     return inputs["customer_name"] in outputs["email"]
+
 
 @scorer
 def acknowledges_issues(inputs, outputs):
     """Check if known issues are acknowledged in the email."""
     if not inputs.get("known_issues"):
         return True  # No issues to acknowledge
-    
+
     email_content = outputs["email"].lower()
     issue_keywords = ["issue", "problem", "concern", "challenge", "support"]
-    
+
     return any(keyword in email_content for keyword in issue_keywords)
 ```
 
@@ -187,28 +193,41 @@ Deterministic scorers check for specific business logic requirements. They provi
 def professional_tone_check(inputs, outputs):
     """Check if the email maintains a professional tone."""
     email_content = outputs["email"].lower()
-    
+
     # Check for professional indicators
-    professional_words = ["thank you", "please", "sincerely", "best regards", "appreciate"]
+    professional_words = [
+        "thank you",
+        "please",
+        "sincerely",
+        "best regards",
+        "appreciate",
+    ]
     unprofessional_words = ["hey", "gonna", "wanna", "sup"]
-    
+
     professional_count = sum(1 for word in professional_words if word in email_content)
-    unprofessional_count = sum(1 for word in unprofessional_words if word in email_content)
-    
+    unprofessional_count = sum(
+        1 for word in unprofessional_words if word in email_content
+    )
+
     # Return boolean indicating professional tone
     return professional_count > 0 and unprofessional_count == 0
+
 
 @scorer
 def response_completeness(inputs, outputs):
     """Check if the response addresses all key elements."""
     email = outputs["email"]
-    
+
     # Check for key components of a good sales email
     has_greeting = any(word in email.lower() for word in ["dear", "hello", "hi"])
-    has_closing = any(word in email.lower() for word in ["sincerely", "regards", "best"])
-    has_contact_info = any(word in email.lower() for word in ["contact", "reach", "call"])
+    has_closing = any(
+        word in email.lower() for word in ["sincerely", "regards", "best"]
+    )
+    has_contact_info = any(
+        word in email.lower() for word in ["contact", "reach", "call"]
+    )
     mentions_company = inputs["customer_name"].lower() in email.lower()
-    
+
     score = sum([has_greeting, has_closing, has_contact_info, mentions_company]) / 4
     return score
 ```
@@ -228,11 +247,11 @@ evaluation_result = mlflow.evaluate(
     data=eval_data,
     model=my_app,
     extra_metrics=[
-        company_name_in_email, 
-        professional_tone_check, 
+        company_name_in_email,
+        professional_tone_check,
         acknowledges_issues,
         response_completeness,
-        basic_scorer
+        basic_scorer,
     ],
 )
 
@@ -295,7 +314,7 @@ eval_data_with_expectations = [
         "inputs": {
             "customer_name": "Acme Corporation",
             "last_conversation_details": "Interested in enterprise features",
-            "known_issues": "API performance issues"
+            "known_issues": "API performance issues",
         },
         "targets": """Dear Acme Corporation team,
 
@@ -306,7 +325,7 @@ I wanted to follow up on the API performance concerns your IT team has experienc
 I'd be happy to schedule a technical deep-dive with your team to discuss these improvements and demonstrate how they align with your Q3 implementation timeline.
 
 Best regards,
-[Sales Rep Name]"""
+[Sales Rep Name]""",
     }
 ]
 
@@ -333,7 +352,7 @@ evaluation_result = mlflow.evaluate(
     extra_metrics=[
         answer_similarity(model="openai:/gpt-4o-mini"),
         company_name_in_email,
-        professional_tone_check
+        professional_tone_check,
     ],
 )
 ```
@@ -356,16 +375,17 @@ def evaluate_app_version(app_function, version_name):
                 company_name_in_email,
                 professional_tone_check,
                 acknowledges_issues,
-                response_completeness
+                response_completeness,
             ],
         )
-        
+
         # Log version metadata for comparison
         mlflow.set_tag("app_version", version_name)
         mlflow.set_tag("evaluation_type", "version_comparison")
         mlflow.log_param("model_used", "gpt-4o-mini")  # Track model consistency
-        
+
         return result
+
 
 # Evaluate multiple versions
 # v1_results = evaluate_app_version(my_app_v1, "v1.0")
@@ -405,6 +425,7 @@ def evaluate_app_version(app_function, version_name):
 def my_app(wrong_param_name):  # Dataset has 'customer_name', not 'wrong_param_name'
     pass
 
+
 # ✅ Correct signature matching dataset inputs
 @mlflow.trace
 def my_app(customer_name, last_conversation_details, known_issues):
@@ -425,11 +446,11 @@ def robust_scorer(inputs, outputs):
         # Your scoring logic
         if "email" not in outputs:
             return False  # Handle missing output gracefully
-        
+
         email_content = outputs["email"]
         # Perform your checks
         return email_content is not None and len(email_content) > 0
-        
+
     except Exception as e:
         # Log the error for debugging
         print(f"Scorer error: {e}")
@@ -448,6 +469,7 @@ import mlflow
 # Enable autologging for your LLM provider
 mlflow.openai.autolog()  # For OpenAI
 # mlflow.langchain.autolog()  # For LangChain if using
+
 
 # Use @mlflow.trace decorator on your main function
 @mlflow.trace
@@ -478,6 +500,7 @@ mlflow.openai.autolog()
 # Initialize OpenAI client
 client = OpenAI(api_key="your-openai-api-key")
 
+
 @mlflow.trace
 def my_app(customer_name: str, last_conversation_details: str, known_issues: str):
     system_prompt = """Please generate an email for a sales rep to send based on the provided data"""
@@ -494,6 +517,7 @@ Known support issues: {known_issues}"""
         ],
     )
     return {"email": response.choices[0].message.content}
+
 
 # Evaluation dataset
 eval_data = [
@@ -514,11 +538,13 @@ eval_data = [
     # Add more test cases as needed...
 ]
 
+
 # Define scorers
 @scorer
 def company_name_in_email(inputs, outputs):
     """Check if the company name is included in the email."""
     return inputs["customer_name"] in outputs["email"]
+
 
 @scorer
 def professional_tone_check(inputs, outputs):
@@ -527,15 +553,17 @@ def professional_tone_check(inputs, outputs):
     professional_words = ["thank you", "please", "sincerely", "best regards"]
     return any(word in email_content for word in professional_words)
 
+
 @scorer
 def acknowledges_issues(inputs, outputs):
     """Check if known issues are acknowledged in the email."""
     if not inputs.get("known_issues"):
         return True
-    
+
     email_content = outputs["email"].lower()
     issue_keywords = ["issue", "problem", "concern", "challenge"]
     return any(keyword in email_content for keyword in issue_keywords)
+
 
 # Run evaluation
 evaluation_result = mlflow.evaluate(
@@ -543,9 +571,9 @@ evaluation_result = mlflow.evaluate(
     model=my_app,
     extra_metrics=[
         company_name_in_email,
-        professional_tone_check, 
+        professional_tone_check,
         acknowledges_issues,
-        exact_match()
+        exact_match(),
     ],
 )
 
@@ -557,8 +585,8 @@ print("View results in MLflow UI for detailed analysis")
 ## Next Steps
 
 - Create [custom scorers](/genai/eval-monitor/custom-scorers) for your specific business logic and quality requirements
-- Build comprehensive [evaluation datasets](/genai/eval-monitor/build-eval-dataset) from production traces and user scenarios  
+- Build comprehensive [evaluation datasets](/genai/eval-monitor/build-eval-dataset) from production traces and user scenarios
 - Learn to [compare evaluation results](/genai/eval-monitor/version-comparison) between different app versions
-- Set up [production monitoring](/genai/eval-monitor/production-monitoring) to continuously track quality in live environments
+- Set up [production monitoring](/genai/eval-monitor/concepts/production-monitoring) to continuously track quality in live environments
 
 You've successfully evaluated your GenAI application! Use these results to identify improvement opportunities, prevent quality regressions, and make data-driven development decisions.

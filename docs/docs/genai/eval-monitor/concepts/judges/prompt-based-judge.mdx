@@ -74,18 +74,18 @@ Choose the most appropriate rating based on these definitions:
         "excellent": 1.0,
         "good": 0.7,
         "poor": 0.0,
-    }
+    },
 )
 
 # Use the judge directly
 feedback = technical_quality_judge(
     request="Explain how MLflow tracing works.",
-    response="MLflow tracing captures the execution flow of your GenAI application by instrumenting spans for each operation..."
+    response="MLflow tracing captures the execution flow of your GenAI application by instrumenting spans for each operation...",
 )
 
-print(feedback.value)    # 0.7
-print(feedback.choice)   # "good"
-print(feedback.rationale) # Detailed rationale explaining why "good"
+print(feedback.value)  # 0.7
+print(feedback.choice)  # "good"
+print(feedback.rationale)  # Detailed rationale explaining why "good"
 ```
 
 ## When to Use Prompt-based Judges
@@ -136,7 +136,7 @@ needs_follow_up: The response fails to address the issue or misunderstands the p
 choice_values = {
     "fully_resolved": 1.0,
     "partially_resolved": 0.5,
-    "needs_follow_up": 0.0
+    "needs_follow_up": 0.0,
 }
 ```
 
@@ -166,7 +166,7 @@ feedback = judge(
     question="What is MLflow?",
     response="MLflow is an open-source platform...",
     retrieved_documents=["MLflow Docs: MLflow is a platform..."],
-    citation_policy="Always cite when referencing facts"
+    citation_policy="Always cite when referencing facts",
 )
 ```
 
@@ -197,12 +197,13 @@ Prompt-based judges are invoked within custom scorers. Wrap `create_prompt_judge
 from mlflow.genai.scorers import scorer
 from mlflow.genai.judges import create_prompt_judge
 
+
 @scorer
 def technical_quality_scorer(inputs, outputs, trace):
     judge = create_prompt_judge(
         assessment_name="technical_quality",
         prompt_template="""Evaluate technical quality...""",
-        choice_values={"excellent": 1.0, "good": 0.7, "poor": 0.0}
+        choice_values={"excellent": 1.0, "good": 0.7, "poor": 0.0},
     )
 
     # Optionally extract additional context from trace
@@ -211,14 +212,13 @@ def technical_quality_scorer(inputs, outputs, trace):
     return judge(
         request=inputs["messages"][-1]["content"],
         response=outputs["choices"][0]["message"]["content"],
-        context=context
+        context=context,
     )
+
 
 # Evaluate with custom scorer
 results = mlflow.genai.evaluate(
-    data=eval_dataset,
-    predict_fn=my_app,
-    scorers=[technical_quality_scorer]
+    data=eval_dataset, predict_fn=my_app, scorers=[technical_quality_scorer]
 )
 ```
 
@@ -227,12 +227,13 @@ results = mlflow.genai.evaluate(
 ```python
 from mlflow.genai.judges import create_prompt_judge
 
+
 def create_prompt_judge(
     *,
-    assessment_name: str,                    # Name displayed in MLflow UI
-    prompt_template: str,                    # Template with {{placeholders}}
-    choice_values: dict[str, float],         # Maps text choices to numeric scores
-    model: Optional[str] = None              # Optional: specific LLM judge model
+    assessment_name: str,  # Name displayed in MLflow UI
+    prompt_template: str,  # Template with {{placeholders}}
+    choice_values: dict[str, float],  # Maps text choices to numeric scores
+    model: Optional[str] = None  # Optional: specific LLM judge model
 ) -> Callable:
     """
     Returns a callable judge that accepts keyword arguments matching placeholders. The output is an mlflow.entities.Feedback object containing:

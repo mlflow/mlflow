@@ -145,7 +145,6 @@ const sidebarsGenAI: SidebarsConfig = {
       type: 'category',
       label: 'Tracing (Observability) 🔎',
       className: 'sidebar-top-level-category',
-      collapsed: false,
       items: [
         {
           type: 'doc',
@@ -663,6 +662,11 @@ const sidebarsGenAI: SidebarsConfig = {
         },
         {
           type: 'doc',
+          id: 'data-model/logged-model',
+          label: 'Logged Model',
+        },
+        {
+          type: 'doc',
           id: 'data-model/runs',
           label: 'Runs',
         },
@@ -673,10 +677,19 @@ const sidebarsGenAI: SidebarsConfig = {
         },
         {
           type: 'doc',
+          id: 'data-model/prompts',
+          label: 'Prompts',
+        },
+        {
+          type: 'doc',
           id: 'data-model/app-versions',
           label: 'Version Tracking',
         },
-        
+        {
+          type: 'doc',
+          id: 'data-model/model-registry',
+          label: 'Model Registry',
+        },        
       ],
       link: {
         type: 'doc',

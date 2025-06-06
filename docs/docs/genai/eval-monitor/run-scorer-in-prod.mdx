@@ -48,42 +48,41 @@ Custom scorers let you implement business-specific quality checks. Here are exam
 import mlflow
 from mlflow.genai.scorers import scorer
 
+
 @scorer
 def response_contains_keywords(inputs, outputs):
     """Check if response contains business-relevant keywords."""
     response = outputs.get("choices", [{}])[0].get("message", {}).get("content", "")
     keywords = ["product", "service", "support", "pricing"]
-    
+
     found_keywords = [kw for kw in keywords if kw.lower() in response.lower()]
-    
+
     if found_keywords:
         return {
             "score": "yes",
-            "rationale": f"Found relevant keywords: {', '.join(found_keywords)}"
+            "rationale": f"Found relevant keywords: {', '.join(found_keywords)}",
         }
     else:
-        return {
-            "score": "no", 
-            "rationale": "No business-relevant keywords found"
-        }
+        return {"score": "no", "rationale": "No business-relevant keywords found"}
+
 
 @scorer
 def response_length_appropriate(inputs, outputs):
     """Ensure response length matches query complexity."""
     response = outputs.get("choices", [{}])[0].get("message", {}).get("content", "")
     query = inputs.get("query", "")
-    
+
     word_count = len(response.split())
-    
+
     # Adjust expectations based on query type
     if any(word in query.lower() for word in ["explain", "describe", "tell me about"]):
         appropriate = 20 <= word_count <= 200  # Detailed queries need longer responses
     else:
-        appropriate = 5 <= word_count <= 100   # Simple queries should be concise
-    
+        appropriate = 5 <= word_count <= 100  # Simple queries should be concise
+
     return {
         "score": "yes" if appropriate else "no",
-        "rationale": f"Response length ({word_count} words) is {'appropriate' if appropriate else 'inappropriate'} for query type"
+        "rationale": f"Response length ({word_count} words) is {'appropriate' if appropriate else 'inappropriate'} for query type",
     }
 ```
 
@@ -100,7 +99,7 @@ business_tone_guidelines = {
     "professional_tone": [
         "The response must use professional business language",
         "Avoid casual expressions or slang",
-        "Maintain a helpful and respectful tone"
+        "Maintain a helpful and respectful tone",
     ]
 }
 
@@ -108,8 +107,8 @@ business_tone_guidelines = {
 customer_service_guidelines = {
     "customer_service": [
         "Always acknowledge the customer's concern",
-        "Provide actionable solutions when possible", 
-        "Offer to escalate if the issue cannot be resolved"
+        "Provide actionable solutions when possible",
+        "Offer to escalate if the issue cannot be resolved",
     ]
 }
 
@@ -145,12 +144,12 @@ The configuration allows you to control sampling rates both globally and per-sco
 
 ```python
 from databricks.agents.monitoring import (
-    AssessmentConfig, 
-    CustomMetric, 
-    BuiltinJudge, 
-    GuidelinesJudge, 
-    AssessmentsSuiteConfig, 
-    create_external_monitor
+    AssessmentConfig,
+    CustomMetric,
+    BuiltinJudge,
+    GuidelinesJudge,
+    AssessmentsSuiteConfig,
+    create_external_monitor,
 )
 
 # Configuration parameters
@@ -171,39 +170,35 @@ try:
             assessments=[
                 # Custom metrics with specific sample rates
                 CustomMetric(
-                    metric_fn=response_contains_keywords, 
-                    sample_rate=0.5  # Override default to 50%
+                    metric_fn=response_contains_keywords,
+                    sample_rate=0.5,  # Override default to 50%
                 ),
                 CustomMetric(
                     metric_fn=response_length_appropriate,
-                    sample_rate=0.3  # 30% of traffic
+                    sample_rate=0.3,  # 30% of traffic
                 ),
-                
                 # Built-in judges for common quality dimensions
                 BuiltinJudge(
-                    name="safety", 
-                    sample_rate=1.0  # Evaluate all traces for safety
+                    name="safety", sample_rate=1.0  # Evaluate all traces for safety
                 ),
                 BuiltinJudge(
-                    name="relevance_to_query",
-                    sample_rate=0.2  # 20% of traffic
+                    name="relevance_to_query", sample_rate=0.2  # 20% of traffic
                 ),
                 BuiltinJudge(name="groundedness"),  # Uses default sample rate
-                
                 # Guideline-based judges for business requirements
                 GuidelinesJudge(
                     guidelines=business_tone_guidelines,
-                    sample_rate=0.4  # 40% of traffic
+                    sample_rate=0.4,  # 40% of traffic
                 ),
                 GuidelinesJudge(
                     guidelines=customer_service_guidelines,
-                    sample_rate=0.3  # 30% of traffic
+                    sample_rate=0.3,  # 30% of traffic
                 ),
-            ]
+            ],
         ),
-        experiment_id=EXPERIMENT_ID
+        experiment_id=EXPERIMENT_ID,
     )
-    
+
     print(f"✅ Monitor created successfully!")
     print(f"📊 Monitoring dashboard: {monitor.monitoring_page_url}")
     print("⏱️ Allow 15-20 minutes for initial data to appear")
@@ -251,48 +246,54 @@ except Exception as e:
     print(f"❌ Error retrieving monitor: {e}")
     current_config = None
 
+
 # Step 2: Define new scorers if adding
 @scorer
 def response_sentiment_check(inputs, outputs):
     """Check if response maintains positive sentiment."""
     response = outputs.get("choices", [{}])[0].get("message", {}).get("content", "")
-    
+
     # Simple sentiment check (in practice, use more sophisticated methods)
     negative_words = ["terrible", "awful", "hate", "horrible", "worst"]
     positive_words = ["great", "excellent", "wonderful", "amazing", "best"]
-    
+
     negative_count = sum(1 for word in negative_words if word in response.lower())
     positive_count = sum(1 for word in positive_words if word in response.lower())
-    
+
     if negative_count > positive_count:
         return {"score": "no", "rationale": "Response contains negative sentiment"}
     else:
-        return {"score": "yes", "rationale": "Response maintains neutral or positive sentiment"}
+        return {
+            "score": "yes",
+            "rationale": "Response maintains neutral or positive sentiment",
+        }
+
 
 # Step 3: Create updated configuration
 if current_config:
     # Preserve existing assessments and add new ones
-    new_assessments = list(current_config.assessments) if current_config.assessments else []
+    new_assessments = (
+        list(current_config.assessments) if current_config.assessments else []
+    )
     new_assessments.append(
         CustomMetric(metric_fn=response_sentiment_check, sample_rate=0.25)
     )
-    
+
     # Update existing assessment sample rates
     for assessment in new_assessments:
         if isinstance(assessment, BuiltinJudge) and assessment.name == "safety":
             assessment.sample_rate = 0.8  # Increase safety monitoring
             break
-    
+
     updated_config = AssessmentsSuiteConfig(
         sample=current_config.sample,
         paused=current_config.paused,
-        assessments=new_assessments
+        assessments=new_assessments,
     )
-    
+
     try:
         updated_monitor = update_external_monitor(
-            experiment_id=EXPERIMENT_ID,
-            assessments_config=updated_config
+            experiment_id=EXPERIMENT_ID, assessments_config=updated_config
         )
         print("✅ Monitor updated successfully")
         print(f"📊 Updated dashboard: {updated_monitor.monitoring_page_url}")
@@ -314,20 +315,20 @@ scorers_to_remove = ["response_sentiment_check", "groundedness"]
 if current_config and current_config.assessments:
     # Filter out unwanted scorers
     retained_assessments = [
-        assessment for assessment in current_config.assessments
+        assessment
+        for assessment in current_config.assessments
         if assessment.name not in scorers_to_remove
     ]
-    
+
     updated_config = AssessmentsSuiteConfig(
         sample=current_config.sample,
         paused=current_config.paused,
-        assessments=retained_assessments
+        assessments=retained_assessments,
     )
-    
+
     try:
         update_external_monitor(
-            experiment_id=EXPERIMENT_ID,
-            assessments_config=updated_config
+            experiment_id=EXPERIMENT_ID, assessments_config=updated_config
         )
         print(f"✅ Removed {len(scorers_to_remove)} scorer(s) from monitor")
         print(f"📊 Remaining assessments: {len(retained_assessments)}")
@@ -362,15 +363,13 @@ The key to effective production monitoring is balancing comprehensive quality co
 
 ```python
 # Example: Cost-optimized sampling strategy
-assessments=[
+assessments = [
     # Tier 1: High-frequency, low-cost checks (run on most traffic)
     CustomMetric(metric_fn=basic_safety_check, sample_rate=1.0),
     CustomMetric(metric_fn=response_length_check, sample_rate=0.8),
-    
-    # Tier 2: Medium-frequency, moderate-cost checks  
+    # Tier 2: Medium-frequency, moderate-cost checks
     BuiltinJudge(name="relevance_to_query", sample_rate=0.3),
     BuiltinJudge(name="groundedness", sample_rate=0.2),
-    
     # Tier 3: Low-frequency, high-cost checks (sample sparingly)
     GuidelinesJudge(guidelines=complex_guidelines, sample_rate=0.1),
     CustomMetric(metric_fn=expensive_external_check, sample_rate=0.05),
@@ -396,7 +395,7 @@ dev_config = AssessmentsSuiteConfig(
         BuiltinJudge(name="safety", sample_rate=1.0),
         BuiltinJudge(name="relevance_to_query", sample_rate=0.6),
         GuidelinesJudge(guidelines=all_guidelines, sample_rate=0.4),
-    ]
+    ],
 )
 ```
 
@@ -415,7 +414,7 @@ staging_config = AssessmentsSuiteConfig(
         BuiltinJudge(name="safety", sample_rate=0.8),
         BuiltinJudge(name="relevance_to_query", sample_rate=0.3),
         GuidelinesJudge(guidelines=key_guidelines, sample_rate=0.2),
-    ]
+    ],
 )
 ```
 
@@ -434,7 +433,7 @@ prod_config = AssessmentsSuiteConfig(
         BuiltinJudge(name="safety", sample_rate=0.2),
         BuiltinJudge(name="relevance_to_query", sample_rate=0.1),
         GuidelinesJudge(guidelines=critical_guidelines, sample_rate=0.05),
-    ]
+    ],
 )
 ```
 
@@ -452,29 +451,31 @@ When designing custom scorers for production monitoring, efficiency matters. Com
 def comprehensive_quality_checker(inputs, outputs):
     """Combine multiple quality checks for efficiency."""
     response = outputs.get("choices", [{}])[0].get("message", {}).get("content", "")
-    
+
     # Run multiple checks together
     checks = {
         "not_empty": len(response.strip()) > 0,
         "appropriate_length": 10 <= len(response.split()) <= 200,
         "contains_answer": check_answer_indicators(response),
-        "professional_tone": check_professional_language(response)
+        "professional_tone": check_professional_language(response),
     }
-    
+
     # Return composite feedback
     passed_checks = sum(checks.values())
     total_checks = len(checks)
     score = passed_checks / total_checks
-    
+
     return {
         "score": score,
-        "rationale": f"Passed {passed_checks}/{total_checks} quality checks: {checks}"
+        "rationale": f"Passed {passed_checks}/{total_checks} quality checks: {checks}",
     }
+
 
 def check_answer_indicators(response):
     """Helper function to check for answer indicators."""
     indicators = ["the answer is", "according to", "based on", "in summary"]
     return any(indicator in response.lower() for indicator in indicators)
+
 
 def check_professional_language(response):
     """Helper function to check professional tone."""
@@ -525,7 +526,7 @@ def diagnose_monitoring_data():
     try:
         monitor = get_external_monitor(experiment_id=EXPERIMENT_ID)
         config = monitor.assessments_config
-        
+
         if config.paused:
             print("⚠️ Monitor is paused - unpause to resume data collection")
             return "paused"
@@ -535,20 +536,25 @@ def diagnose_monitoring_data():
         else:
             print(f"ℹ️ Monitor active with {len(config.assessments)} assessments")
             print("⏱️ Wait 15-20 minutes for initial data collection")
-            print("📊 Check your application is sending traces to the correct experiment")
-            
+            print(
+                "📊 Check your application is sending traces to the correct experiment"
+            )
+
             # Check recent trace activity
             recent_traces = check_recent_trace_activity(EXPERIMENT_ID)
             if recent_traces == 0:
-                print("⚠️ No recent traces found - verify your application is instrumented")
+                print(
+                    "⚠️ No recent traces found - verify your application is instrumented"
+                )
                 return "no_traces"
             else:
                 print(f"✅ Found {recent_traces} recent traces")
                 return "data_processing"
-                
+
     except Exception as e:
         print(f"❌ Error checking monitor status: {e}")
         return "error"
+
 
 def check_recent_trace_activity(experiment_id):
     """Check for recent trace activity in the experiment."""
@@ -564,12 +570,12 @@ def check_recent_trace_activity(experiment_id):
 # Optimize monitoring costs without losing critical coverage
 def optimize_monitoring_costs(current_config):
     """Reduce monitoring costs while maintaining quality coverage."""
-    
+
     if not current_config or not current_config.assessments:
         return None
-    
+
     optimized_assessments = []
-    
+
     for assessment in current_config.assessments:
         # Reduce expensive LLM judge sampling
         if isinstance(assessment, BuiltinJudge):
@@ -578,22 +584,23 @@ def optimize_monitoring_costs(current_config):
                 assessment.sample_rate = min(0.3, assessment.sample_rate)
             else:
                 assessment.sample_rate = min(0.1, assessment.sample_rate)
-                
+
         # Keep custom metrics at moderate rates (typically cheaper)
         elif isinstance(assessment, CustomMetric):
             assessment.sample_rate = min(0.2, assessment.sample_rate)
-            
+
         # Reduce guideline judges significantly (most expensive)
         elif isinstance(assessment, GuidelinesJudge):
             assessment.sample_rate = min(0.05, assessment.sample_rate)
-        
+
         optimized_assessments.append(assessment)
-    
+
     return AssessmentsSuiteConfig(
         sample=0.05,  # Reduce global sampling to 5%
         paused=current_config.paused,
-        assessments=optimized_assessments
+        assessments=optimized_assessments,
     )
+
 
 # Apply optimizations
 existing_monitor = get_external_monitor(experiment_id=EXPERIMENT_ID)
@@ -601,8 +608,7 @@ optimized_config = optimize_monitoring_costs(existing_monitor.assessments_config
 
 if optimized_config:
     update_external_monitor(
-        experiment_id=EXPERIMENT_ID,
-        assessments_config=optimized_config
+        experiment_id=EXPERIMENT_ID, assessments_config=optimized_config
     )
     print("✅ Monitor optimized for cost efficiency")
 ```
@@ -623,37 +629,37 @@ import time
 import mlflow
 from datetime import datetime, timedelta
 
+
 def oss_quality_monitoring():
     """OSS alternative: Scheduled batch evaluation for monitoring."""
-    
+
     # Collect recent application outputs (implement based on your setup)
     recent_data = collect_recent_application_outputs()
-    
+
     if not recent_data:
         print("No recent data to evaluate")
         return
-    
+
     # Run evaluation with your custom scorers
-    with mlflow.start_run(run_name=f"quality_check_{datetime.now().strftime('%Y%m%d_%H%M')}"):
+    with mlflow.start_run(
+        run_name=f"quality_check_{datetime.now().strftime('%Y%m%d_%H%M')}"
+    ):
         results = mlflow.evaluate(
             data=recent_data,
-            extra_metrics=[
-                quality_scorer,
-                safety_checker,
-                business_logic_scorer
-            ]
+            extra_metrics=[quality_scorer, safety_checker, business_logic_scorer],
         )
-        
+
         # Log monitoring metadata
         mlflow.set_tag("monitoring_type", "batch_quality_check")
         mlflow.log_param("data_points_evaluated", len(recent_data))
-        
+
         # Check for quality issues and send alerts
         avg_quality = results.metrics.get("quality_scorer", 0)
         if avg_quality < 0.7:  # Configure your threshold
             send_quality_alert(results)
-            
+
         print(f"Quality check completed. Average quality: {avg_quality:.2f}")
+
 
 def collect_recent_application_outputs():
     """Collect recent outputs from your application."""
@@ -664,6 +670,7 @@ def collect_recent_application_outputs():
     # Return list of dicts with inputs/outputs for evaluation
     pass
 
+
 def send_quality_alert(results):
     """Send alerts when quality drops below threshold."""
     # Implement your alerting mechanism:
@@ -672,6 +679,7 @@ def send_quality_alert(results):
     # - PagerDuty alerts
     # - Custom webhook
     pass
+
 
 # Schedule monitoring runs
 schedule.every(1).hours.do(oss_quality_monitoring)  # Run every hour
@@ -695,41 +703,43 @@ import mlflow
 import json
 from datetime import datetime, timedelta
 
+
 def analyze_application_logs():
     """Analyze application logs for quality insights."""
-    
+
     # Read and parse application logs
     logs_df = read_application_logs()
-    
+
     if logs_df.empty:
         print("No log data available for analysis")
         return
-    
+
     # Calculate various quality metrics
     quality_metrics = {
         "response_rate": calculate_response_rate(logs_df),
         "avg_response_time": calculate_avg_response_time(logs_df),
         "error_rate": calculate_error_rate(logs_df),
         "user_satisfaction": calculate_user_satisfaction(logs_df),
-        "response_length_avg": calculate_avg_response_length(logs_df)
+        "response_length_avg": calculate_avg_response_length(logs_df),
     }
-    
+
     # Log metrics to MLflow for tracking trends
     with mlflow.start_run(run_name=f"log_analysis_{datetime.now().strftime('%Y%m%d')}"):
         for metric_name, value in quality_metrics.items():
             mlflow.log_metric(metric_name, value)
-        
+
         mlflow.set_tag("analysis_type", "log_based_monitoring")
         mlflow.log_param("log_entries_analyzed", len(logs_df))
-    
+
     # Check for quality issues
     if quality_metrics["error_rate"] > 0.05:  # 5% error threshold
         send_alert("High error rate detected", quality_metrics)
-    
+
     if quality_metrics["avg_response_time"] > 5.0:  # 5 second threshold
         send_alert("Slow response times detected", quality_metrics)
-    
+
     return quality_metrics
+
 
 def read_application_logs():
     """Read and parse application logs into structured format."""
@@ -737,59 +747,65 @@ def read_application_logs():
     # - Parse log files (JSON, text, etc.)
     # - Query log aggregation system (ELK, Splunk, etc.)
     # - Read from cloud logging services
-    
+
     # Example for JSON log files:
     log_entries = []
     log_files = get_recent_log_files()
-    
+
     for log_file in log_files:
-        with open(log_file, 'r') as f:
+        with open(log_file, "r") as f:
             for line in f:
                 try:
                     entry = json.loads(line)
                     log_entries.append(entry)
                 except json.JSONDecodeError:
                     continue
-    
+
     return pd.DataFrame(log_entries)
+
 
 def calculate_response_rate(logs_df):
     """Calculate successful response rate."""
     if logs_df.empty:
         return 0
-    
+
     total_requests = len(logs_df)
-    successful_responses = len(logs_df[logs_df['status'] == 'success'])
+    successful_responses = len(logs_df[logs_df["status"] == "success"])
     return successful_responses / total_requests if total_requests > 0 else 0
+
 
 def calculate_avg_response_time(logs_df):
     """Calculate average response time."""
-    if 'response_time' in logs_df.columns:
-        return logs_df['response_time'].mean()
+    if "response_time" in logs_df.columns:
+        return logs_df["response_time"].mean()
     return 0
+
 
 def calculate_error_rate(logs_df):
     """Calculate error rate from logs."""
     if logs_df.empty:
         return 0
-    
+
     total_requests = len(logs_df)
-    error_responses = len(logs_df[logs_df['status'] == 'error'])
+    error_responses = len(logs_df[logs_df["status"] == "error"])
     return error_responses / total_requests if total_requests > 0 else 0
+
 
 def calculate_user_satisfaction(logs_df):
     """Calculate user satisfaction metrics from logs."""
     # This would depend on how you track user feedback
     # Could be explicit ratings, implicit signals, etc.
-    if 'user_rating' in logs_df.columns:
-        return logs_df['user_rating'].mean()
+    if "user_rating" in logs_df.columns:
+        return logs_df["user_rating"].mean()
     return 0
+
 
 def calculate_avg_response_length(logs_df):
     """Calculate average response length."""
-    if 'response_content' in logs_df.columns:
-        return logs_df['response_content'].str.len().mean()
+    if "response_content" in logs_df.columns:
+        return logs_df["response_content"].str.len().mean()
     return 0
+
 
 # Run log analysis on a schedule
 schedule.every(6).hours.do(analyze_application_logs)
@@ -833,7 +849,7 @@ Production monitoring is essential for maintaining GenAI application quality at 
 **Key Takeaways**:
 
 - **Automated monitoring scales quality assurance** across applications without manual intervention
-- **Strategic sampling balances coverage with cost** - start conservative and adjust based on results  
+- **Strategic sampling balances coverage with cost** - start conservative and adjust based on results
 - **Tiered scorer approach optimizes efficiency** - frequent basic checks, selective expensive evaluations
 - **Environment-specific configurations** ensure appropriate monitoring for dev, staging, and production
 - **OSS alternatives provide viable quality monitoring** through scheduled evaluation and log analysis
