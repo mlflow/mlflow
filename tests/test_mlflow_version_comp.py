@@ -32,6 +32,9 @@ def check(run_id: str, tmp_path: Path) -> None:
     assert len(client.list_artifacts(run_id=run_id, path="model")) == 6
     assert len(mlflow.artifacts.list_artifacts(artifact_uri=model_uri)) == 6
     assert len(mlflow.artifacts.list_artifacts(run_id=run_id, artifact_path="model")) == 6
+    # Non-existing artifact path should return an empty list
+    assert len(client.list_artifacts(run_id=run_id, path="unknown")) == 0
+    assert len(mlflow.artifacts.list_artifacts(run_id=run_id, artifact_path="unknown")) == 0
     # Download artifacts
     out_path = mlflow.artifacts.download_artifacts(
         artifact_uri=model_uri, dst_path=tmp_path / str(uuid.uuid4())
