@@ -187,9 +187,9 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
 
     def _display_optimization_result(self, program: "dspy.Predict"):
         score = getattr(program, "score", None)
-        if not score:
+        if score is None:
             return
-        # In DSPy < 2.6.17, tiral_logs contains initial score in key=-1.
+        # In DSPy < 2.6.17, trial_logs contains initial score in key=-1.
         trial_logs = getattr(program, "trial_logs", {})
         if 1 in trial_logs:
             initial_score = trial_logs[1].get("full_eval_score")
