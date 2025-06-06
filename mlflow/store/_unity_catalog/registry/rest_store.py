@@ -1351,7 +1351,7 @@ class UcModelRegistryStore(BaseRestStore):
 
     def get_prompt(self, name: str) -> Optional[PromptInfo]:
         """
-        Get prompt metadata by name from Unity Catalog.
+        Get prompt by name from Unity Catalog.
         """
         try:
             req_body = message_to_json(GetPromptRequest(name=name))
@@ -1374,7 +1374,7 @@ class UcModelRegistryStore(BaseRestStore):
 
     def get_prompt_version(self, name: str, version: Union[str, int]) -> Optional[Prompt]:
         """
-        Get prompt by name and version from Unity Catalog.
+        Get prompt version by name and version or alias from Unity Catalog.
         """
         try:
             version_num = int(version)
