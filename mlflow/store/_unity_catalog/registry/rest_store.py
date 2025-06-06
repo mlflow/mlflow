@@ -1352,15 +1352,19 @@ class UcModelRegistryStore(BaseRestStore):
     def get_prompt(self, name: str) -> Optional[PromptInfo]:
         """
         Get prompt metadata by name from Unity Catalog.
-        
-        Uses the search_prompts API to find the prompt by name and return metadata only.
         """
         try:
-            # Use search_prompts to get prompt metadata by exact name match
-            prompts = self.search_prompts(filter_string=f"name = '{name}'", max_results=1)
-            if prompts and len(prompts) > 0:
-                return prompts[0]
-            return None
+            req_body = message_to_json(GetPromptRequest(name=name))
+            endpoint, method = self._get_endpoint_from_method(GetPromptRequest)
+            response_proto = self._edit_endpoint_and_call(
+                endpoint=endpoint,
+                method=method,
+                req_body=req_body,
+                name=name,
+                proto_name=GetPromptRequest,
+            )
+            # Convert the ProtoPrompt to PromptInfo (metadata only)
+            return proto_info_to_mlflow_prompt_info(response_proto, {})
         except Exception as e:
             if isinstance(e, MlflowException) and e.error_code == ErrorCode.Name(
                 RESOURCE_DOES_NOT_EXIST
