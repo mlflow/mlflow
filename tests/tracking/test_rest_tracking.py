@@ -1656,10 +1656,12 @@ def test_create_model_version_with_validation_regex(tmp_path: Path):
             "--backend-store-uri",
             f"sqlite:///{tmp_path / 'mlflow.db'}",
         ],
-        env=os.environ.copy()
-        | {
-            "MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX": r"^mlflow-artifacts:/.*$",
-        },
+        env=(
+            os.environ.copy()
+            | {
+                "MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX": r"^mlflow-artifacts:/.*$",
+            }
+        ),
     ) as proc:
         try:
             # Wait for the server to start
