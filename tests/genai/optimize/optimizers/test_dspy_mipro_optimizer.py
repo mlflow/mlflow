@@ -9,7 +9,7 @@ pytest.importorskip("dspy", minversion="2.6.0")
 
 import mlflow
 from mlflow import register_prompt
-from mlflow.entities.model_registry import Prompt
+from mlflow.entities.model_registry import PromptVersion
 from mlflow.exceptions import MlflowException
 from mlflow.genai.optimize.optimizers import _DSPyMIPROv2Optimizer
 from mlflow.genai.optimize.optimizers.utils.dspy_mipro_callback import _DSPyMIPROv2Callback
@@ -155,7 +155,7 @@ def test_optimize_scenarios(
         assert kwargs["teacher_settings"] == {}
 
     # Verify optimization result
-    assert isinstance(result, Prompt)
+    assert isinstance(result, PromptVersion)
     assert result.version == 2
     assert result.version_metadata["overall_eval_score"] == "1.0"
 
@@ -234,7 +234,7 @@ def test_optimize_prompt_with_old_dspy_version():
 
 def test_validate_input_fields_with_missing_variables():
     optimizer = _DSPyMIPROv2Optimizer(OptimizerConfig())
-    prompt = Prompt(
+    prompt = PromptVersion(
         name="test_prompt",
         template="Translate {{text}} to {{language}} and explain in {{style}}",
         version=1,
