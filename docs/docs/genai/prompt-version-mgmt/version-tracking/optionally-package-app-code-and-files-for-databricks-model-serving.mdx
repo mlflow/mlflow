@@ -101,7 +101,7 @@ mlflow.set_experiment("/Shared/my_genai_app_deployment")
 
 ## Using Code Packaging for LoggedModels with LangChain
 
-MLflow's [Models From Code](https://mlflow.org/docs/latest/model/models-from-code/) feature lets you define your model as a Python script rather than serializing objects. This avoids common serialization issues and creates more portable, readable model definitions.
+MLflow's [Models From Code](/ml/model/models-from-code) feature lets you define your model as a Python script rather than serializing objects. This avoids common serialization issues and creates more portable, readable model definitions.
 
 ### Step 1: Define Your LangChain App as a Script
 
@@ -214,7 +214,7 @@ The logged model is now ready for deployment. It contains:
 
 This self-contained package can be deployed directly to Databricks Model Serving without additional code setup.
 
-To deploy your packaged model, see the [Create custom model serving endpoints](/machine-learning/model-serving/create-manage-serving-endpoints) guide for detailed instructions on setting up your serving endpoint.
+To deploy your packaged model, see the [create custom model serving endpoints](/genai/serving/custom-apps) guide for detailed instructions on setting up your serving endpoint.
 
 ## Next Steps
 

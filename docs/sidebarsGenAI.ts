@@ -37,7 +37,7 @@ const sidebarsGenAI: SidebarsConfig = {
       link: {
         type: 'doc',
         id: 'overview/index',
-      }   
+      }
     },
     {
       type: 'category',
@@ -416,10 +416,6 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'prompt-version-mgmt/version-tracking/link-production-traces-to-app-versions'
                 },
-                {
-                  type: 'doc',
-                  id: 'prompt-version-mgmt/version-tracking/manual-tracking',
-                }
               ]
             }
           ],
@@ -458,7 +454,7 @@ const sidebarsGenAI: SidebarsConfig = {
             id: 'prompt-version-mgmt/prompt-registry/index'
           }
         },
-        
+
       ]
     },
     {

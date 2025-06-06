@@ -5,10 +5,6 @@ description: Learn how to effectively use prompts from the MLflow Prompt Registr
 
 # Use Prompts in Deployed Apps
 
-:::danger Placeholder
-TODO: add coming soon for databricks docs
-:::
-
 Integrating versioned prompts from the MLflow Prompt Registry into your deployed GenAI applications requires careful consideration of versioning strategies, dynamic updates, and risk management. This page focuses on best practices for using prompts in a production environment, with a strong emphasis on leveraging aliases for flexibility and control.
 
 You will learn about:
@@ -24,56 +20,6 @@ You will learn about:
 When your GenAI application is deployed to a production environment, it should load its prompts from the MLflow Prompt Registry. The recommended way to do this is by referencing a **prompt alias** rather than a specific version number in your application's configuration or code.
 
 Recall that an alias (e.g., `production`, `live-summary-prompt`) is a mutable pointer to a specific, immutable prompt version. By using an alias, you can change the underlying prompt version that your deployed application uses _without needing to redeploy the application itself_.
-
-**Example: Application Configuration**
-
-Your application might have a configuration file (e.g., YAML, JSON, or environment variables) that specifies which prompt alias to use:
-
-```yaml
-# Example application_config.yaml
-# ... other configurations ...
-prompt_uris:
-  customer_greeting: prompts:/chat-greetings/production
-  issue_summarizer: prompts:/ticket-summaries/production
-# ... other configurations ...
-```
-
-Your application code would then load this configuration and use the specified URIs with `mlflow.load_prompt()`:
-
-```python
-# Placeholder for Python code example
-# Goal: Show application code loading a prompt URI from a config and using it.
-# Steps:
-# 1. Import mlflow and a config loading library (e.g., yaml).
-# 2. Conceptually load a configuration that contains a prompt URI with an alias.
-# 3. Use mlflow.load_prompt() with the URI from the config.
-# 4. (Optional) Format and use the prompt.
-# Example:
-# import mlflow
-# import yaml # Assuming a yaml config file
-
-# def load_app_config(config_path="application_config.yaml"):
-#     # In a real app, load this securely and robustly
-#     # For this example, assume it returns a dict like the YAML above
-#     # This is a conceptual placeholder for config loading
-#     mock_config = {
-#         'prompt_uris': {
-#             'customer_greeting': "prompts:/chat-greetings/production"
-#         }
-#     }
-#     return mock_config
-
-# app_config = load_app_config()
-# greeting_prompt_uri = app_config['prompt_uris']['customer_greeting']
-
-# try:
-#     greeting_prompt = mlflow.load_prompt(uri=greeting_prompt_uri)
-#     print(f"Successfully loaded prompt for customer greeting: '{greeting_prompt.name}' version {greeting_prompt.version} (via alias)")
-#     # resolved_greeting = greeting_prompt.format(customer_name="Alex")
-#     # print(f"Formatted greeting: {resolved_greeting}")
-# except Exception as e:
-#     print(f"Error loading/using production prompt: {e}")
-```
 
 ## Prompt Versioning Strategies for Deployment
 
@@ -96,28 +42,6 @@ This is one of the most powerful features of using aliases with the Prompt Regis
 
 1.  **Develop and Test a New Version**: You create and thoroughly test version `3` of `invoice-parser`, which significantly improves accuracy.
 2.  **Update the Alias**: Using the MLflow UI or the `mlflow.set_prompt_alias()` Python API, you change the `production` alias for `invoice-parser` to now point to version `3`.
-
-    ```python
-    # Placeholder for Python code example
-    # Goal: Show how to update an alias to point to a new prompt version.
-    # Steps:
-    # 1. Import mlflow.
-    # 2. Get an MlflowClient instance.
-    # 3. Specify the prompt name, the new version, and the alias name.
-    # 4. Call client.set_prompt_alias().
-    # Example:
-    # import mlflow
-    # client = mlflow.tracking.MlflowClient()
-    # prompt_name = "invoice-parser"
-    # new_production_version = "3"
-    # alias_name = "production"
-    # try:
-    #     client.set_prompt_alias(name=prompt_name, alias=alias_name, version=new_production_version)
-    #     print(f"Alias '{alias_name}' for prompt '{prompt_name}' now points to version '{new_production_version}'.")
-    # except Exception as e:
-    #     print(f"Error updating alias: {e}")
-    ```
-
 3.  **Application Behavior**: The next time your deployed application instances (which might have caching, see below) load the prompt `prompts:/invoice-parser/production`, they will automatically fetch version `3` without any code changes or restarts.
 
 **Considerations for Caching**: Deployed applications might cache loaded prompts for performance. Ensure your application has a strategy to periodically refresh cached prompts or a mechanism to trigger a refresh if immediate updates are critical.

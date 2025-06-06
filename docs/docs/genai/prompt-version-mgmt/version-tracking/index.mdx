@@ -9,9 +9,7 @@ import { APILink } from "@site/src/components/APILink";
 
 # Version Tracking for GenAI Applications
 
-:::danger UI SCREENSHOT PLACEHOLDER
-🔴 LoggedModel comparison view showing linked traces
-:::
+<!-- TODO: add screenshot for LoggedModel comparison view showing linked traces -->
 
 MLflow's **<APILink fn="mlflow.entities.LoggedModel">LoggedModel</APILink>** provides a central, versioned representation of your entire GenAI application, including its code, configurations, and associated artifacts like evaluation results and traces. This enables you to effectively manage the lifecycle of complex GenAI systems, ensuring reproducibility, facilitating debugging, and enabling confident deployment of the best-performing application versions.
 
@@ -40,12 +38,8 @@ GenAI applications are composite systems with many moving parts: code (agent log
     - **Challenge**: For compliance or when investigating production incidents, you need to know the exact state of the application that was running at a specific time.
     - **Solution**: Each `LoggedModel` version serves as an auditable record, linking to the specific code and configurations, and can be associated with traces from its execution.
 
-:::danger DIAGRAM PLACEHOLDER
-🔴 Conceptual Diagram of LoggedModel for Versioning
-:::
-:::danger IMAGE PLACEHOLDER
-🔴 A `LoggedModel` version acts as a central record, linking to all components of your GenAI application.
-:::
+<!-- TODO: add Conceptual Diagram of LoggedModel for Versioning -->
+<!-- TODO: add a `LoggedModel` version acts as a central record, linking to all components of your GenAI application -->
 
 ## How <APILink fn="mlflow.entities.LoggedModel">LoggedModel</APILink> Works for Versioning
 
