@@ -17,7 +17,7 @@ class ScorerScheduleConfig:
     A scheduled scorer configuration for automated monitoring of generative AI applications.
 
     Scheduled scorers are used to automatically evaluate traces logged to MLflow experiments
-    by production applications. They are part of Databricks' Lakehouse Monitoring for GenAI,
+    by production applications. They are part of [Databricks Lakehouse Monitoring for GenAI](https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/monitoring),
     which helps track quality metrics like groundedness, safety, and guideline adherence
     alongside operational metrics like volume, latency, and cost.
 
@@ -98,8 +98,8 @@ def add_scheduled_scorer(  # clint: disable=missing-docstring-param  # noqa: D41
     """
     Add a scheduled scorer to automatically monitor traces in an MLflow experiment.
 
-    This function configures a scorer to run automatically on traces logged to the specified
-    experiment. The scorer will evaluate a sample of traces based on the sampling rate
+    This function configures a scorer function to run automatically on traces logged to the
+    specified experiment. The scorer will evaluate a sample of traces based on the sampling rate
     and any filter criteria. Assessments are displayed in the Traces tab of the MLflow experiment.
 
     Args:
@@ -208,9 +208,7 @@ def update_scheduled_scorer(  # clint: disable=missing-docstring-param  # noqa: 
             # Update an existing safety scorer to increase sampling rate
             updated_scorer = update_scheduled_scorer(
                 scheduled_scorer_name="safety_monitor",
-                scorer=Safety(),
                 sample_rate=0.8,  # Increased from 0.5 to 0.8
-                filter_string="trace.status = 'OK'",
             )
 
     .. warning::
