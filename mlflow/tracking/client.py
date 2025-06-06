@@ -695,7 +695,7 @@ class MlflowClient:
         name_or_uri: str,
         version: Optional[int] = None,
         allow_missing: bool = False,
-    ) -> Prompt:
+    ) -> Optional[Prompt]:
         """
         Load a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
 
@@ -5682,7 +5682,7 @@ class MlflowClient:
         name: str,
         description: Optional[str] = None,
         tags: Optional[dict[str, str]] = None,
-    ):
+    ) -> Prompt:
         """
         Create a new prompt in the registry.
 
@@ -5714,7 +5714,7 @@ class MlflowClient:
     @experimental
     @require_prompt_registry
     @translate_prompt_exception
-    def get_prompt(self, name: str, version: Optional[str] = None):
+    def get_prompt(self, name: str, version: Optional[str] = None) -> Optional[Prompt]:
         """
         Get prompt by name and version or alias.
 
@@ -5757,7 +5757,7 @@ class MlflowClient:
         template: str,
         description: Optional[str] = None,
         tags: Optional[dict[str, str]] = None,
-    ):
+    ) -> Prompt:
         """
         Create a new version of an existing prompt.
 
@@ -5793,7 +5793,7 @@ class MlflowClient:
     @experimental
     @require_prompt_registry
     @translate_prompt_exception
-    def get_prompt_version(self, name: str, version: str):
+    def get_prompt_version(self, name: str, version: str) -> Prompt:
         """
         Get a specific prompt version.
 
@@ -5901,7 +5901,7 @@ class MlflowClient:
     @experimental
     @require_prompt_registry
     @translate_prompt_exception
-    def get_prompt_version_by_alias(self, name: str, alias: str):
+    def get_prompt_version_by_alias(self, name: str, alias: str) -> Prompt:
         """
         Get a prompt version by alias.
 

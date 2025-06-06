@@ -2203,12 +2203,6 @@ def test_log_batch_link_to_active_model(tracking_uri):
     assert logged_model.model_id == model.model_id
     assert {m.key: m.value for m in logged_model.metrics} == {"metric1": 1, "metric2": 2}
 
-
-# =============================================================================
-# Store-Direct Prompt API Functional Tests
-# =============================================================================
-
-
 def test_crud_store_direct_prompts(tracking_uri):
     """Test complete CRUD operations using store-direct prompt APIs."""
     client = MlflowClient(tracking_uri=tracking_uri)
