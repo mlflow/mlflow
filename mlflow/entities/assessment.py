@@ -263,9 +263,15 @@ class Feedback(Assessment):
             overrides=overrides,
             valid=valid,
         )
-
-        self.value = value
         self.error = error
+
+    @property
+    def value(self) -> FeedbackValueType:
+        return self.feedback.value
+
+    @value.setter
+    def value(self, value: FeedbackValueType):
+        self.feedback.value = value
 
     @classmethod
     def from_proto(cls, proto):
@@ -368,9 +374,6 @@ class Expectation(Assessment):
             )
     """
 
-    # Needs to be optional because other earlier args in the Assessment is optional
-    value: Optional[Any] = None
-
     def __init__(
         self,
         name: str,
@@ -399,7 +402,13 @@ class Expectation(Assessment):
             expectation=ExpectationValue(value=value),
         )
 
-        self.value = value
+    @property
+    def value(self) -> Any:
+        return self.expectation.value
+
+    @value.setter
+    def value(self, value: Any):
+        self.expectation.value = value
 
     @classmethod
     def from_proto(cls, proto) -> "Expectation":

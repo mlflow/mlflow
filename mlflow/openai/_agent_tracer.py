@@ -31,7 +31,7 @@ _logger = logging.getLogger(__name__)
 
 class OpenAISpanType:
     """
-    https://github.com/openai/openai-agents-python/blob/main/src/agents/tracing/span_data.py#L11
+    https://github.com/openai/openai-agents-python/blob/ca8e8bed5d0f33e8a0bc3eabd5f1b0a183e73765/src/agents/tracing/span_data.py#L11
     """
 
     AGENT = "agent"
