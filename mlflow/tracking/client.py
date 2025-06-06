@@ -654,7 +654,7 @@ class MlflowClient:
     def load_prompt(
         self,
         name_or_uri: str,
-        version: Optional[int] = None,
+        version: Optional[Union[str, int]] = None,
         allow_missing: bool = False,
     ) -> Optional[Prompt]:
         """
@@ -670,9 +670,6 @@ class MlflowClient:
 
             client = MlflowClient(registry_uri="sqlite:///prompt_registry.db")
 
-            # Load the latest version of the prompt by name
-            prompt = client.load_prompt("my_prompt")
-
             # Load a specific version of the prompt by name and version
             prompt = client.load_prompt("my_prompt", version=1)
 
@@ -681,7 +678,7 @@ class MlflowClient:
 
         Args:
             name_or_uri: The name of the prompt, or the URI in the format "prompts:/name/version".
-            version: The version of the prompt. If not specified, the latest version will be loaded.
+            version: The version of the prompt (required when using name, not allowed when using URI).
             allow_missing: If True, return None instead of raising Exception if the specified prompt
                 is not found.
         """
@@ -693,35 +690,24 @@ class MlflowClient:
                 )
             name, version = self.parse_prompt_uri(name_or_uri)
         else:
+            if version is None:
+                raise MlflowException(
+                    "Version must be specified when loading a prompt by name. "
+                    "Use a prompt URI (e.g., 'prompts:/name/version') or provide the version parameter.",
+                    INVALID_PARAMETER_VALUE,
+                )
             name = name_or_uri
 
         registry_client = self._get_registry_client()
 
-        # Unity Catalog uses native prompt APIs
-        if is_databricks_unity_catalog_uri(self._registry_uri):
-            try:
-                return registry_client.get_prompt(
-                    name, str(version) if version is not None else None
-                )
-            except MlflowException as exc:
-                if allow_missing and exc.error_code == "RESOURCE_DOES_NOT_EXIST":
-                    return None
-                raise
-
         try:
-            mv = (
-                registry_client.get_latest_versions(name, stages=ALL_STAGES)[0]
-                if version is None
-                else registry_client.get_model_version(name, version)
-            )
+            # Use get_prompt_version for specific version/alias
+            return registry_client.get_prompt_version(name, version)
+                
         except MlflowException as exc:
             if allow_missing and exc.error_code == "RESOURCE_DOES_NOT_EXIST":
                 return None
             raise
-
-        # Fetch the prompt-level tags from the registered model
-        prompt_tags = registry_client.get_registered_model(name)._tags
-        return Prompt.from_model_version(mv, prompt_tags=prompt_tags)
 
     @deprecated(
         since="3.0",
@@ -5643,7 +5629,7 @@ class MlflowClient:
         name: str,
         description: Optional[str] = None,
         tags: Optional[dict[str, str]] = None,
-    ) -> Prompt:
+    ) -> PromptInfo:
         """
         Create a new prompt in the registry.
 
@@ -5656,7 +5642,7 @@ class MlflowClient:
             tags: Optional dictionary of prompt tags.
 
         Returns:
-            A PromptInfo object for Unity Catalog stores.
+            A PromptInfo object.
 
         Example:
 
@@ -5675,19 +5661,18 @@ class MlflowClient:
     @experimental
     @require_prompt_registry
     @translate_prompt_exception
-    def get_prompt(self, name: str, version: Optional[str] = None) -> Optional[Prompt]:
+    def get_prompt(self, name: str) -> Optional[PromptInfo]:
         """
-        Get prompt by name and version or alias.
+        Get prompt metadata by name.
 
-        This method delegates directly to the store, providing full Unity Catalog support
-        when used with Unity Catalog registries.
+        This method returns prompt-level information (name, description, tags, creation time)
+        without requiring a specific version. Use load_prompt() to get specific version content.
 
         Args:
             name: Registered prompt name.
-            version: Registered prompt version or alias. If None, loads the latest version.
 
         Returns:
-            A Prompt object, or None if not found.
+            A PromptInfo object with prompt metadata, or None if not found.
 
         Example:
 
@@ -5697,17 +5682,15 @@ class MlflowClient:
 
             client = MlflowClient()
 
-            # Get latest version
-            prompt = client.get_prompt("my_prompt")
-
-            # Get specific version
-            prompt = client.get_prompt("my_prompt", "1")
-
-            # Get by alias
-            prompt = client.get_prompt("my_prompt", "production")
+            # Get prompt metadata
+            prompt_info = client.get_prompt("my_prompt")
+            if prompt_info:
+                print(f"Prompt: {prompt_info.name}")
+                print(f"Description: {prompt_info.description}")
+                print(f"Tags: {prompt_info.tags}")
         """
         registry_client = self._get_registry_client()
-        return registry_client.get_prompt(name, version)
+        return registry_client.get_prompt(name)
 
     @experimental
     @require_prompt_registry
@@ -5754,7 +5737,7 @@ class MlflowClient:
     @experimental
     @require_prompt_registry
     @translate_prompt_exception
-    def get_prompt_version(self, name: str, version: str) -> Prompt:
+    def get_prompt_version(self, name: str, version: Union[str, int]) -> Prompt:
         """
         Get a specific prompt version.
 
@@ -5763,10 +5746,10 @@ class MlflowClient:
 
         Args:
             name: Name of the prompt.
-            version: Version of the prompt.
+            version: Version of the prompt (number or alias).
 
         Returns:
-            A PromptVersion object.
+            A Prompt object with the specific version content.
 
         Example:
 
@@ -5776,6 +5759,7 @@ class MlflowClient:
 
             client = MlflowClient()
             prompt_version = client.get_prompt_version("my_prompt", "1")
+            prompt_alias = client.get_prompt_version("my_prompt", "production")
         """
         registry_client = self._get_registry_client()
         return registry_client.get_prompt_version(name, version)

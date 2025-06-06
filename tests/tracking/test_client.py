@@ -1738,7 +1738,7 @@ def test_crud_prompts(tracking_uri):
         commit_message="A friendly greeting",
     )
 
-    prompt = client.load_prompt("prompt_1")
+    prompt = client.load_prompt("prompt_1", version=1)
     assert prompt.name == "prompt_1"
     assert prompt.template == "Hi, {{title}} {{name}}! How are you today?"
     assert prompt.commit_message == "A friendly greeting"
@@ -1749,7 +1749,7 @@ def test_crud_prompts(tracking_uri):
         commit_message="New greeting",
     )
 
-    prompt = client.load_prompt("prompt_1")
+    prompt = client.load_prompt("prompt_1", version=2)
     assert prompt.template == "Hi, {{title}} {{name}}! What's up?"
 
     prompt = client.load_prompt("prompt_1", version=1)
@@ -1768,7 +1768,7 @@ def test_crud_prompts(tracking_uri):
         client.load_prompt("prompt_1", version=2)
 
     assert mlflow.load_prompt("prompt_1", version=2, allow_missing=True) is None
-    assert mlflow.load_prompt("does_not_exist", allow_missing=True) is None
+    assert mlflow.load_prompt("does_not_exist", version=1, allow_missing=True) is None
 
     client.delete_prompt("prompt_1", version=1)
 
@@ -1786,7 +1786,7 @@ def test_create_prompt_with_tags_and_metadata(tracking_uri):
         version_metadata={"author": "Alice"},
     )
 
-    prompt = client.load_prompt("prompt_1")
+    prompt = client.load_prompt("prompt_1", version=1)
     assert prompt.template == "Hi, {{name}}!"
     assert prompt.tags == {
         "application": "greeting",
@@ -1833,16 +1833,16 @@ def test_create_prompt_error_handling(tracking_uri):
 
     # When the first version creation fails, RegisteredModel should not be created
     with pytest.raises(MlflowException, match=r"Prompt with name=prompt_1 not found"):
-        client.load_prompt("prompt_1")
+        client.load_prompt("prompt_1", version=1)
 
     client.register_prompt("prompt_1", template="Hi, {{title}} {{name}}!")
-    assert client.load_prompt("prompt_1") is not None
+    assert client.load_prompt("prompt_1", version=1) is not None
 
     # When the subsequent version creation fails, RegisteredModel should remain
     with pytest.raises(MlflowException, match=r"Prompt text exceeds max length of"):
         client.register_prompt(name="prompt_1", template="Hi" * 10000)
 
-    assert client.load_prompt("prompt_1") is not None
+    assert client.load_prompt("prompt_1", version=1) is not None
 
 
 def test_create_prompt_with_invalid_name(tracking_uri):
@@ -1873,12 +1873,9 @@ def test_load_prompt_error(tracking_uri):
     client = MlflowClient(tracking_uri=tracking_uri)
 
     with pytest.raises(MlflowException, match=r"Prompt with name=test not found"):
-        client.load_prompt("test")
+        client.load_prompt("test", version=1)
 
-    if tracking_uri.startswith("file"):
-        error_msg = r"Prompt with name=test not found"
-    else:
-        error_msg = r"Prompt \(name=test, version=2\) not found"
+    error_msg = r"Prompt with name=test not found"
 
     with pytest.raises(MlflowException, match=error_msg):
         client.load_prompt("test", version=2)
@@ -1891,13 +1888,13 @@ def test_load_prompt_error(tracking_uri):
     client.create_model_version("model", "source")
 
     with pytest.raises(MlflowException, match=r"Name `model` is registered as a model"):
-        client.load_prompt("model")
+        client.load_prompt("model", version=1)
 
     with pytest.raises(MlflowException, match=r"Name `model` is registered as a model"):
         client.load_prompt("model", version=1)
 
     with pytest.raises(MlflowException, match=r"Name `model` is registered as a model"):
-        client.load_prompt("model", allow_missing=False)
+        client.load_prompt("model", version=1, allow_missing=False)
 
     with pytest.raises(MlflowException, match=r"Name `model` is registered as a model"):
         client.load_prompt("model", version=1, allow_missing=False)
@@ -1934,14 +1931,14 @@ def test_log_prompt(tracking_uri):
     assert prompt.run_ids == []
 
     client.log_prompt("run1", prompt)
-    assert client.load_prompt("prompt").run_ids == ["run1"]
+    assert client.load_prompt("prompt", version=1).run_ids == ["run1"]
 
     client.log_prompt("run2", prompt)
-    assert client.load_prompt("prompt").run_ids == ["run1", "run2"]
+    assert client.load_prompt("prompt", version=1).run_ids == ["run1", "run2"]
 
     # No duplicate run_ids
     client.log_prompt("run1", prompt)
-    assert client.load_prompt("prompt").run_ids == ["run1", "run2"]
+    assert client.load_prompt("prompt", version=1).run_ids == ["run1", "run2"]
 
     with pytest.raises(MlflowException, match=r"The `prompt` argument must be"):
         client.log_prompt("run3", 123)
@@ -1960,7 +1957,7 @@ def test_crud_prompt_on_unsupported_registry(registry_uri):
         )
 
     with pytest.raises(MlflowException, match=r"The 'load_prompt' API is not supported with the current registry"):
-        client.load_prompt("prompt_1")
+        client.load_prompt("prompt_1", version=1)
 
     with pytest.raises(MlflowException, match=r"The 'delete_prompt' API is not supported with the current registry"):
         client.delete_prompt("prompt_1")
@@ -2103,7 +2100,7 @@ def test_search_prompt_multiple_versions(tracking_uri):
     assert prompt.name == name
     
     # To check the latest version, we need to load the prompt directly
-    latest_prompt = client.load_prompt(name)
+    latest_prompt = client.load_prompt(name, version=2)
     assert latest_prompt.version == 2
 
 
@@ -2240,18 +2237,19 @@ def test_crud_store_direct_prompts(tracking_uri):
     assert v2.template == "Hey {{name}}! What's up?"
     assert str(v2.version) == "2"
 
-    # Get prompt (latest version) using store-direct API
-    latest_prompt = client.get_prompt("store_direct_prompt")
-    assert latest_prompt.name == "store_direct_prompt"
-    assert latest_prompt.template == "Hey {{name}}! What's up?"  # Latest version
-    assert str(latest_prompt.version) == "2"
+    # Get prompt metadata using store-direct API
+    prompt_metadata = client.get_prompt("store_direct_prompt")
+    assert prompt_metadata.name == "store_direct_prompt"
+    assert prompt_metadata.description == "A prompt created via store-direct API"
+    assert prompt_metadata.tags["type"] == "greeting"
+    assert prompt_metadata.tags["language"] == "en"
 
     # Get specific versions using store-direct API
-    prompt_v1 = client.get_prompt("store_direct_prompt", "1")
+    prompt_v1 = client.get_prompt_version("store_direct_prompt", "1")
     assert prompt_v1.template == "Hello {{name}}! How are you today?"
     assert str(prompt_v1.version) == "1"
 
-    prompt_v2 = client.get_prompt("store_direct_prompt", "2")
+    prompt_v2 = client.get_prompt_version("store_direct_prompt", "2")
     assert prompt_v2.template == "Hey {{name}}! What's up?"
     assert str(prompt_v2.version) == "2"
 
@@ -2299,9 +2297,9 @@ def test_store_direct_prompt_error_handling(tracking_uri):
     """Test error handling in store-direct prompt APIs."""
     client = MlflowClient(tracking_uri=tracking_uri)
 
-    # Test getting non-existent prompt - should raise exception
-    with pytest.raises(MlflowException, match=r".*not found"):
-        client.get_prompt("nonexistent_prompt")
+    # Test getting non-existent prompt - should return None
+    result = client.get_prompt("nonexistent_prompt")
+    assert result is None
 
     # Test creating version for non-existent prompt should raise error
     # (Traditional stores require the prompt to exist first)
@@ -2313,9 +2311,12 @@ def test_store_direct_prompt_error_handling(tracking_uri):
     client.create_prompt_version(name="error_test_prompt", template="Template")
 
     # Verify they were created
-    prompt = client.get_prompt("error_test_prompt")
-    assert prompt.name == "error_test_prompt"
-    assert prompt.template == "Template"
+    prompt_info = client.get_prompt("error_test_prompt")
+    assert prompt_info.name == "error_test_prompt"
+    
+    # Get the version to check template
+    prompt_version = client.get_prompt_version("error_test_prompt", "1")
+    assert prompt_version.template == "Template"
 
     version = client.get_prompt_version("error_test_prompt", "1")
     assert version.name == "error_test_prompt"
@@ -2459,7 +2460,7 @@ def test_delete_prompt_version_functionality(tracking_uri):
     assert prompt_v3_after.template == "Version 3: Hey {{name}}! What's up?"
     
     # Latest version should still be version 3
-    latest_prompt = client.load_prompt("delete_test_prompt")
+    latest_prompt = client.load_prompt("delete_test_prompt", version=3)
     assert latest_prompt.template == "Version 3: Hey {{name}}! What's up?"
     assert latest_prompt.version == 3
 
@@ -2477,7 +2478,7 @@ def test_delete_prompt_version_functionality(tracking_uri):
     # When all versions are deleted, the prompt itself should also be gone
     # This may raise IndexError or MlflowException depending on the store implementation
     with pytest.raises((MlflowException, IndexError)):
-        client.load_prompt("delete_test_prompt")
+        client.load_prompt("delete_test_prompt", version=1)
 
 
 def test_delete_prompt_version_error_handling(tracking_uri):
@@ -2625,7 +2626,7 @@ def test_delete_prompt_version_comprehensive_workflow(tracking_uri):
     assert prompt_v3_after.template == "Latest: Hey {{name}}! What's happening?"
 
     # Latest should still be v3
-    latest = client.load_prompt("workflow_test")
+    latest = client.load_prompt("workflow_test", version=3)
     assert latest.version == 3
     assert latest.template == "Latest: Hey {{name}}! What's happening?"
 
@@ -2636,4 +2637,4 @@ def test_delete_prompt_version_comprehensive_workflow(tracking_uri):
     # Verify everything is gone
     # This may raise IndexError or MlflowException depending on the store implementation
     with pytest.raises((MlflowException, IndexError)):
-        client.load_prompt("workflow_test")
+        client.load_prompt("workflow_test", version=1)

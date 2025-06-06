@@ -471,21 +471,20 @@ class ModelRegistryClient:
         """
         return self.store.create_prompt(name, description, tags)
 
-    def get_prompt(self, name: str, version: Optional[str] = None) -> Optional[Prompt]:
+    def get_prompt(self, name: str) -> Optional[PromptInfo]:
         """
-        Get prompt by name and version or alias.
+        Get prompt metadata by name.
 
         This method delegates directly to the store, providing full Unity Catalog support
         when used with Unity Catalog registries.
 
         Args:
             name: Registered prompt name.
-            version: Registered prompt version or alias. If None, loads the latest version.
 
         Returns:
-            A Prompt object, or None if not found.
+            A PromptInfo object with prompt metadata, or None if not found.
         """
-        return self.store.get_prompt(name, version)
+        return self.store.get_prompt(name)
 
     def search_prompts(
         self,
