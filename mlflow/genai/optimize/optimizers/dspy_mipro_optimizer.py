@@ -198,10 +198,16 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
         else:
             initial_score = None
         if initial_score is not None:
-            _logger.info(
-                "Prompt optimization completed. Evaluation score changed "
-                f"from {initial_score} to {program.score}."
-            )
+            if initial_score == score:
+                _logger.info(
+                    f"Prompt optimization completed. Evaluation score did not change. Score {score}"
+                )
+                return
+            else:
+                _logger.info(
+                    "Prompt optimization completed. Evaluation score changed "
+                    f"from {initial_score} to {score}."
+                )
 
     def _log_optimization_result(self, final_score: Optional[float], optimized_prompt: Prompt):
         if not active_run():
