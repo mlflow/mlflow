@@ -1,7 +1,7 @@
 from functools import wraps
 from typing import Any, Callable, Optional, Union
 
-from mlflow.entities.assessment import Assessment, Feedback
+from mlflow.entities.assessment import Feedback
 from mlflow.genai.utils.enum_utils import StrEnum
 from mlflow.utils.annotations import experimental
 
@@ -377,7 +377,8 @@ def custom_prompt_judge(
     underscores and spaces.
 
     Args:
-        name: Name of the judge, used as the name of returned :py:class`mlflow.entities.Feedback~` object.
+        name: Name of the judge, used as the name of returned
+            :py:class`mlflow.entities.Feedback~` object.
         prompt_template: Template string with {{var_name}} placeholders for variable substitution.
             Should be prompted with choices as outputs.
         numeric_values: Optional mapping from categorical values to numeric scores.
