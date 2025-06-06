@@ -3,7 +3,6 @@ import subprocess
 import sys
 import uuid
 from pathlib import Path
-from typing import Literal
 
 import numpy as np
 import sklearn
@@ -14,7 +13,7 @@ import mlflow
 from mlflow.models import Model
 
 
-def check(run_id: str, version: Literal["2", "3"], tmp_path: Path) -> None:
+def check(run_id: str, tmp_path: Path) -> None:
     """
     Test various `runs:/<run_id>/model` URI consumers.
     """
@@ -29,13 +28,10 @@ def check(run_id: str, version: Literal["2", "3"], tmp_path: Path) -> None:
     mv = mlflow.register_model(model_uri, "model")
     mlflow.pyfunc.load_model(f"models:/{mv.name}/{mv.version}")
     # List artifacts
-    run_id = model_uri.split("/")[-2]
-    # TODO: Add support to list model artifacts in MLflow 3.x
     client = mlflow.MlflowClient()
-    if version == "2":
-        assert len(client.list_artifacts(run_id=run_id)) == 1
-        assert len(client.list_artifacts(run_id=run_id, path="model")) == 6
-        assert len(client.list_artifacts(run_id=run_id, path="model/MLmodel")) == 0
+    assert len(client.list_artifacts(run_id=run_id, path="model")) == 6
+    assert len(mlflow.artifacts.list_artifacts(artifact_uri=model_uri)) == 6
+    assert len(mlflow.artifacts.list_artifacts(run_id=run_id, path="model")) == 6
     # Download artifacts
     out_path = mlflow.artifacts.download_artifacts(
         artifact_uri=model_uri, dst_path=tmp_path / str(uuid.uuid4())
@@ -121,7 +117,7 @@ with mlflow.start_run() as run:
         ],
     )
 
-    check(run_id=out_file.read_text().strip(), version="2", tmp_path=tmp_path)
+    check(run_id=out_file.read_text().strip(), tmp_path=tmp_path)
 
 
 def test_mlflow_3_x_comp(tmp_path: Path) -> None:
@@ -135,4 +131,4 @@ def test_mlflow_3_x_comp(tmp_path: Path) -> None:
     with mlflow.start_run() as run:
         mlflow.sklearn.log_model(fitted_model, name="model")
 
-    check(run_id=run.info.run_id, version="3", tmp_path=tmp_path)
+    check(run_id=run.info.run_id, tmp_path=tmp_path)
