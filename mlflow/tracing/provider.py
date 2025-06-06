@@ -21,7 +21,7 @@ from opentelemetry.sdk.trace import TracerProvider
 import mlflow
 from mlflow.exceptions import MlflowException, MlflowTracingException
 from mlflow.tracing.constant import SpanAttributeKey
-from mlflow.tracing.destination import Databricks, MlflowExperiment, TraceDestination, TraceServer
+from mlflow.tracing.destination import Databricks, MlflowExperiment, MlflowV3WithTraceServer, TraceDestination, TraceServer
 from mlflow.tracing.utils.exception import raise_as_trace_exception
 from mlflow.tracing.utils.once import Once
 from mlflow.tracing.utils.otlp import get_otlp_exporter, should_use_otlp_exporter
@@ -256,6 +256,23 @@ def _setup_tracer_provider(disabled=False):
                 pat=_MLFLOW_TRACE_USER_DESTINATION.pat
             )
             processor = TraceServerSpanProcessor(exporter)
+        elif isinstance(_MLFLOW_TRACE_USER_DESTINATION, MlflowV3WithTraceServer):
+            # Handle parallel export to both MLflow V3 and TraceServer
+            from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
+            from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
+
+            trace_server_config = {
+                "spans_table_name": _MLFLOW_TRACE_USER_DESTINATION.spans_table_name,
+                "ingest_url": _MLFLOW_TRACE_USER_DESTINATION.ingest_url,
+                "workspace_url": _MLFLOW_TRACE_USER_DESTINATION.workspace_url,
+                "pat": _MLFLOW_TRACE_USER_DESTINATION.pat,
+            }
+
+            exporter = MlflowV3SpanExporter(
+                tracking_uri=_MLFLOW_TRACE_USER_DESTINATION.tracking_uri or mlflow.get_tracking_uri(),
+                trace_server_config=trace_server_config
+            )
+            processor = MlflowV3SpanProcessor(exporter, experiment_id=_MLFLOW_TRACE_USER_DESTINATION.experiment_id)
         else:
             experiment_id = _MLFLOW_TRACE_USER_DESTINATION.experiment_id
 

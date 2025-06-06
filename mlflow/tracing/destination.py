@@ -106,3 +106,34 @@ class TraceServer(TraceDestination):
     @property
     def type(self) -> str:
         return "trace_server"
+
+
+@experimental
+@dataclass
+class MlflowV3WithTraceServer(TraceDestination):
+    """
+    A destination that exports traces to both MLflow V3 and TraceServer in parallel.
+
+    By setting this destination in the :py:func:`mlflow.tracing.set_destination` function,
+    MLflow will log traces to both the MLflow V3 backend and the specified TraceServer
+    simultaneously.
+
+    Attributes:
+        experiment_id: The ID of the experiment to log traces to for MLflow V3.
+        tracking_uri: The tracking URI of the MLflow server.
+        spans_table_name: The name of the table to ingest spans into for TraceServer.
+        ingest_url: The URL of the ingest API for TraceServer.
+        workspace_url: The URL of the Databricks workspace for TraceServer.
+        pat: The personal access token for authentication for TraceServer.
+    """
+
+    spans_table_name: str
+    ingest_url: str
+    workspace_url: str
+    pat: str
+    experiment_id: Optional[str] = None
+    tracking_uri: Optional[str] = None
+
+    @property
+    def type(self) -> str:
+        return "mlflow_v3_with_trace_server"

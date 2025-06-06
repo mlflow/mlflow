@@ -23,14 +23,43 @@ _logger = logging.getLogger(__name__)
 class MlflowV3SpanExporter(SpanExporter):
     """
     An exporter implementation that logs the traces to MLflow Tracking Server
-    using the V3 trace schema and API.
+    using the V3 trace schema and API. Optionally also exports to a TraceServer
+    in parallel.
     """
 
-    def __init__(self, tracking_uri: Optional[str] = None):
+    def __init__(
+        self,
+        tracking_uri: Optional[str] = None,
+        trace_server_config: Optional[dict] = None,
+    ):
+        """
+        Initialize the MlflowV3SpanExporter.
+        
+        Args:
+            tracking_uri: The MLflow tracking URI.
+            trace_server_config: Optional dict with keys 'spans_table_name', 'ingest_url', 
+                                'workspace_url', and 'pat' to enable parallel export to TraceServer.
+        """
         self._is_async_enabled = self._should_enable_async_logging()
         if self._is_async_enabled:
             self._async_queue = AsyncTraceExportQueue()
         self._client = TracingClient(tracking_uri)
+
+        # Initialize TraceServerSpanExporter if config is provided
+        self._trace_server_exporter = None
+        if trace_server_config:
+            try:
+                from mlflow.tracing.export.trace_server import TraceServerSpanExporter
+                self._trace_server_exporter = TraceServerSpanExporter(
+                    spans_table_name=trace_server_config["spans_table_name"],
+                    ingest_url=trace_server_config["ingest_url"],
+                    workspace_url=trace_server_config["workspace_url"],
+                    pat=trace_server_config["pat"],
+                )
+                _logger.info("TraceServer parallel export enabled")
+            except Exception as e:
+                _logger.warning(f"Failed to initialize TraceServerSpanExporter: {e}")
+                self._trace_server_exporter = None
 
         # Only display traces inline in Databricks notebooks
         self._should_display_trace = is_in_databricks_notebook()
@@ -79,10 +108,13 @@ class MlflowV3SpanExporter(SpanExporter):
     def _log_trace(self, trace: Trace):
         """
         Handles exporting a trace to MLflow using the V3 API and blob storage.
+        Optionally also exports to TraceServer in parallel.
         Steps:
         1. Create the trace in MLflow
         2. Upload the trace data to blob storage using the returned trace info.
+        3. Optionally export to TraceServer in parallel
         """
+        # Export to MLflow V3
         try:
             if trace:
                 try:
@@ -95,6 +127,13 @@ class MlflowV3SpanExporter(SpanExporter):
                 _logger.warning("No trace or trace info provided, unable to export")
         except Exception as e:
             _logger.warning(f"Failed to send trace to MLflow backend: {e}")
+
+        # Export to TraceServer in parallel if configured
+        if self._trace_server_exporter and trace:
+            try:
+                self._trace_server_exporter._log_trace(trace)
+            except Exception as e:
+                _logger.warning(f"Failed to send trace to TraceServer: {e}")
 
     def _should_enable_async_logging(self):
         if is_in_databricks_notebook():
