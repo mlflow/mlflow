@@ -1,19 +1,19 @@
 """
-PromptInfo entity for MLflow Model Registry.
+Prompt entity for MLflow Model Registry.
 
-This represents prompt metadata in the registry, without version-specific
-content like template text.
+This represents a prompt in the registry with its metadata, without version-specific
+content like template text. For version-specific content, use PromptVersion.
 """
 
 from typing import Optional
 
 
-class PromptInfo:
+class Prompt:
     """
-    Entity representing prompt metadata in the MLflow Model Registry.
+    Entity representing a prompt in the MLflow Model Registry.
     
     This contains prompt-level information (name, description, tags) but not version-specific
-    content. To access version-specific content like the template, use Prompt.
+    content. To access version-specific content like the template, use PromptVersion.
     """
 
     def __init__(
@@ -24,7 +24,7 @@ class PromptInfo:
         tags: Optional[dict[str, str]] = None,
     ):
         """
-        Construct a PromptInfo entity.
+        Construct a Prompt entity.
 
         Args:
             name: Name of the prompt.
@@ -58,7 +58,7 @@ class PromptInfo:
         return self._tags.copy()
 
     def __eq__(self, other) -> bool:
-        if not isinstance(other, PromptInfo):
+        if not isinstance(other, Prompt):
             return False
         return (
             self.name == other.name
