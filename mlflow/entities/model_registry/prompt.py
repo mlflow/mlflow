@@ -25,9 +25,9 @@ def _is_reserved_tag(key: str) -> bool:
 # Prompt is implemented as a special type of ModelVersion. MLflow stores both prompts
 # and model versions in the model registry as ModelVersion DB records, but distinguishes
 # them using the special tag "mlflow.prompt.is_prompt".
-class Prompt(ModelVersion):
+class PromptVersion(ModelVersion):
     """
-    An entity representing a prompt (template) for GenAI applications.
+    An entity representing a specific version of a prompt with its template content.
 
     Args:
         name: The name of the prompt.
@@ -82,7 +82,7 @@ class Prompt(ModelVersion):
             if len(self.template) > PROMPT_TEXT_DISPLAY_LIMIT
             else self.template
         )
-        return f"Prompt(name={self.name}, version={self.version}, template={text})"
+        return f"PromptVersion(name={self.name}, version={self.version}, template={text})"
 
     @property
     def template(self) -> str:
@@ -143,7 +143,7 @@ class Prompt(ModelVersion):
         """Return the URI of the prompt."""
         return f"prompts:/{self.name}/{self.version}"
 
-    def format(self, allow_partial: bool = False, **kwargs) -> Union[Prompt, str]:
+    def format(self, allow_partial: bool = False, **kwargs) -> Union[PromptVersion, str]:
         """
         Format the template text with the given keyword arguments.
         By default, it raises an error if there are missing variables. To format
@@ -161,7 +161,7 @@ class Prompt(ModelVersion):
             # Partial formatting
             formatted = prompt.format(title="Ms", allow_partial=True)
             print(formatted)
-            # Output: Prompt(name=my-prompt, version=1, template="Hello, Ms {{name}}!")
+            # Output: PromptVersion(name=my-prompt, version=1, template="Hello, Ms {{name}}!")
 
 
         Args:
@@ -182,7 +182,7 @@ class Prompt(ModelVersion):
                     "set `allow_partial=True`."
                 )
             else:
-                return Prompt(
+                return PromptVersion(
                     name=self.name,
                     version=self.version,
                     template=template,
@@ -197,12 +197,12 @@ class Prompt(ModelVersion):
     @classmethod
     def from_model_version(
         cls, model_version: ModelVersion, prompt_tags: Optional[dict[str, str]] = None
-    ) -> Prompt:
+    ) -> PromptVersion:
         """
-        Create a Prompt object from a ModelVersion object.
+        Create a PromptVersion object from a ModelVersion object.
 
         Args:
-            model_version: The ModelVersion object to convert to a Prompt.
+            model_version: The ModelVersion object to convert to a PromptVersion.
             prompt_tags: The prompt-level tags (from RegisteredModel). Optional.
         """
         if IS_PROMPT_TAG_KEY not in model_version.tags:
