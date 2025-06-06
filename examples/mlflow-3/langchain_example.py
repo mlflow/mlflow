@@ -44,7 +44,7 @@ with mlflow.start_span(model_id=model_id) as span:
     span.set_outputs(outputs)
 
 # Fetch the traces by model ID
-print(mlflow.search_traces(model_id=model_id)[["request", "response"]])
+print(mlflow.search_traces(model_id=model_id)[["inputs", "outputs"]])
 
 import pandas as pd
 

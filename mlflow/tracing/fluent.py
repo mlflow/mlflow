@@ -30,7 +30,6 @@ from mlflow.tracing.constant import (
 from mlflow.tracing.provider import is_tracing_enabled, safe_set_span_in_context
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
-    SPANS_COLUMN_NAME,
     TraceJSONEncoder,
     capture_function_input_args,
     encode_span_id,
@@ -822,7 +821,6 @@ def search_traces(
             results = extract_span_inputs_outputs(
                 traces=results,
                 fields=extract_fields,
-                col_name=SPANS_COLUMN_NAME,
             )
 
     return results

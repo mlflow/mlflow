@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Literal, Optional, Union
 
 from mlflow.entities._mlflow_object import _MlflowObject
+from mlflow.entities.assessment import Expectation
 from mlflow.entities.span import Span, SpanType
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
@@ -109,6 +110,13 @@ class Trace(_MlflowObject):
         return bundle
 
     def to_pandas_dataframe_row(self) -> dict[str, Any]:
+        # Extract expectations from assessments
+        expectations = {}
+        for assessment in self.info.assessments or []:
+            # Only include Expectation type assessments, filter out Feedback
+            if isinstance(assessment, Expectation):
+                expectations[assessment.name] = assessment.expectation.value
+
         return {
             "trace_id": self.info.trace_id,
             "trace": self,
@@ -116,11 +124,11 @@ class Trace(_MlflowObject):
             "state": self.info.state,
             "request_time": self.info.request_time,
             "execution_duration": self.info.execution_duration,
-            "request": self._deserialize_json_attr(self.data.request),
-            "response": self._deserialize_json_attr(self.data.response),
+            "inputs": self._deserialize_json_attr(self.data.request),
+            "outputs": self._deserialize_json_attr(self.data.response),
+            "expectations": expectations,
             "trace_metadata": self.info.trace_metadata,
             "tags": self.info.tags,
-            "spans": [span.to_dict() for span in self.data.spans],
             "assessments": self.info.assessments,
         }
 
@@ -298,11 +306,11 @@ class Trace(_MlflowObject):
             "state",
             "request_time",
             "execution_duration",
-            "request",
-            "response",
+            "inputs",
+            "outputs",
+            "expectations",
             "trace_metadata",
             "tags",
-            "spans",
             "assessments",
         ]
 

@@ -199,10 +199,10 @@ When using `return_type="pandas"` (default), MLflow returns the retrieved traces
     - **state**: State of the trace, can be one of [`OK`, `ERROR`, `IN_PROGRESS`, `STATE_UNSPECIFIED`].
     - **request_time**: The start time of the trace in milliseconds
     - **execution_duration**: The duration of the trace in milliseconds
-    - **request**: The input to the traced logic
-    - **response**: The output of the traced logic
+    - **inputs**: The input to the traced logic.
+    - **outputs**: The output of the traced logic.
+    - **expectations**: A dictionary of expectation keys and values associated with the trace.
     - **trace_metadata**: Key-value pairs associated with the trace
-    - **spans**: List of spans in the trace
     - **tags**: List of assessments associated with the trace.
   </TabItem>
   <TabItem value="2.x" label="MLflow 2.x">
