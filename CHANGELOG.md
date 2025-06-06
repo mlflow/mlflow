@@ -1,5 +1,26 @@
 # CHANGELOG
 
+## 2.22.1 (2025-06-06)
+
+MLflow 2.22.1 includes several major features and improvements
+
+Features:
+
+- [Scoring] Make spark_udf support DBConnect + DBR 15.4 / DBR dedicated cluster (#15938, @WeichenXu123)
+
+Bug fixes:
+
+- [] Log Resources from SystemAuthPolicy in CreateModelVersion (#15485, @aravind-segu)
+- [Tracking] [MLflow 2.x] Trace search: Avoid spawning threads for span fetching if include_spans=False (#15635, @dbczumar)
+
+Documentation updates:
+
+- [Docs] Spark UDF Doc update (#15586, @WeichenXu123)
+
+Small bug fixes and documentation updates:
+
+#15523, #15728, @TomeHirata; #13997, #16025, #15647, #16030, @harupy; #15786, @rahuja23; #15703, @joelrobin18; #15612, @serena-ruan; #16031, @daniellok-db; #15841, @frontsideair; #15807, @B-Step62
+
 ## 2.22.0 (2025-04-24)
 
 MLflow 2.22.0 brings important bug fixes and improves the UI and tracking capabilities.
