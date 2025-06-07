@@ -19,7 +19,7 @@ spark_df = spark.createDataFrame(zip(X, y), schema="features: array<double>, lab
 pipeline_model = pipeline.fit(spark_df)
 
 with mlflow.start_run():
-    model_info = mlflow.spark.log_model(spark_model=pipeline_model, name="model")
+    model_info = mlflow.spark.log_model(spark_model=pipeline_model, artifact_path="model")
 
 model_uri = model_info.model_uri
 print(f"Model is saved to URI: {model_uri}")

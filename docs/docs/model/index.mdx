@@ -824,7 +824,7 @@ lr_model = lr.fit(training)
 
 # Serialize the Model
 with mlflow.start_run():
-    model_info = mlflow.spark.log_model(lr_model, name="spark-model")
+    model_info = mlflow.spark.log_model(lr_model, artifact_path="spark-model")
 
 # Load saved model
 lr_model_saved = mlflow.pyfunc.load_model(model_info.model_uri)
