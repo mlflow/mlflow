@@ -681,7 +681,11 @@ class Model:
         return ModelInfo(
             artifact_path=self.artifact_path,
             flavors=self.flavors,
-            model_uri=f"models:/{self.model_id}",
+            model_uri=(
+                f"models:/{self.model_id}"
+                if self.model_id
+                else f"runs:/{self.run_id}/{self.artifact_path}"
+            ),
             model_uuid=self.model_uuid,
             run_id=self.run_id,
             saved_input_example_info=self.saved_input_example_info,
