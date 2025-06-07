@@ -186,12 +186,28 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
             yield
 
     def _display_optimization_result(self, program: "dspy.Predict"):
-        if hasattr(program, "score") and hasattr(program, "trial_logs"):
-            initial_score = program.trial_logs[1]["full_eval_score"]
-            _logger.info(
-                "Prompt optimization completed. Evaluation score changed "
-                f"from {initial_score} to {program.score}."
-            )
+        score = getattr(program, "score", None)
+        if score is None:
+            return
+        # In DSPy < 2.6.17, trial_logs contains initial score in key=-1.
+        trial_logs = getattr(program, "trial_logs", {})
+        if 1 in trial_logs:
+            initial_score = trial_logs[1].get("full_eval_score")
+        elif -1 in trial_logs:
+            initial_score = trial_logs[-1].get("full_eval_score")
+        else:
+            initial_score = None
+        if initial_score is not None:
+            if initial_score == score:
+                _logger.info(
+                    f"Prompt optimization completed. Evaluation score did not change. Score {score}"
+                )
+                return
+            else:
+                _logger.info(
+                    "Prompt optimization completed. Evaluation score changed "
+                    f"from {initial_score} to {score}."
+                )
 
     def _log_optimization_result(self, final_score: Optional[float], optimized_prompt: Prompt):
         if not active_run():

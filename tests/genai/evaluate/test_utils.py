@@ -362,10 +362,12 @@ def test_scorer_receives_correct_data_with_trace_data(input_type):
         received_args.append((inputs, outputs, expectations, trace))
         return 0
 
-    mlflow.genai.evaluate(
-        data=sample_data,
-        scorers=[dummy_scorer],
-    )
+    # Disable logging traces to MLflow to avoid calling mlflow APIs which need to be mocked
+    with patch.dict("os.environ", {"AGENT_EVAL_LOG_TRACES_TO_MLFLOW_ENABLED": "false"}):
+        mlflow.genai.evaluate(
+            data=sample_data,
+            scorers=[dummy_scorer],
+        )
 
     inputs, outputs, expectations, trace = received_args[0]
     assert inputs == {"question": "What is MLflow?"}
