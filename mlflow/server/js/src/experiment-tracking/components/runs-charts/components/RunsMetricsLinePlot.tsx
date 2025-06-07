@@ -25,11 +25,13 @@ import {
   RunsChartsLineChartXAxisType,
 } from './RunsCharts.common';
 import { EMA } from '../../MetricsPlotView';
+import { RUNS_COLOR_PALETTE_NEXT } from '@mlflow/mlflow/src/common/color-palette';
 import RunsMetricsLegendWrapper from './RunsMetricsLegendWrapper';
 import {
   shouldEnableChartsOriginalLinesWhenSmoothing,
   shouldEnableRelativeTimeDateAxis,
   shouldEnableChartExpressions,
+  shouldColorizeMetricTraces,
 } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { useRunsMultipleTracesTooltipData } from '../hooks/useRunsChartsMultipleTracesTooltip';
 import { createChartImageDownloadHandler } from '../hooks/useChartImageDownloadHandler';
@@ -62,6 +64,7 @@ const getDataTraceForRun = ({
   lineSmoothness,
   lineShape,
   lineDash,
+  lineColor,
   displayPoints,
   displayOriginalLine: originalLine,
   xAxisScaleType,
@@ -76,6 +79,7 @@ const getDataTraceForRun = ({
   lineSmoothness: RunsMetricsLinePlotProps['lineSmoothness'];
   lineShape: RunsMetricsLinePlotProps['lineShape'];
   lineDash?: Dash;
+  lineColor?: string;
   displayPoints?: boolean;
   displayOriginalLine?: boolean;
   xAxisScaleType?: 'linear' | 'log';
@@ -148,7 +152,7 @@ const getDataTraceForRun = ({
     }
     return 'none';
   })();
-
+  const color = lineColor ?? runEntry.color;
   return {
     // Let's add UUID to each run so it can be distinguished later (e.g. on hover)
     uuid: runEntry.uuid,
@@ -170,9 +174,9 @@ const getDataTraceForRun = ({
     hoverinfo,
     hoverlabel: useDefaultHoverBox ? runsChartHoverlabel : undefined,
     type: 'scatter',
-    line: { dash: lineDash, shape: optimizedLineShape },
+    line: { dash: lineDash, shape: optimizedLineShape, color },
     marker: {
-      color: originalLine ? createFadedTraceColor(runEntry.color, 0.15) : runEntry.color,
+      color: originalLine ? createFadedTraceColor(color, 0.15) : color,
     },
   } as LineChartTraceData;
 };
@@ -556,6 +560,7 @@ export const RunsMetricsLinePlot = React.memo(
           useDefaultHoverBox: false,
           displayPoints: false,
           displayOriginalLine: true,
+          lineColor: props.lineColor,
         };
         const originalDataTrace = getDataTraceForRun(originalLineProps);
         return [dataTrace, originalDataTrace];
@@ -566,6 +571,7 @@ export const RunsMetricsLinePlot = React.memo(
     const plotData = useMemo(() => {
       // Generate a data trace for each metric in each run
       const metricKeys = selectedMetricKeys ?? [metricKey];
+      const useColorByMetric = shouldColorizeMetricTraces();
       return runsData
         .map((runEntry) => {
           if (
@@ -574,6 +580,9 @@ export const RunsMetricsLinePlot = React.memo(
             yAxisKey === RunsChartsLineChartYAxisType.EXPRESSION
           ) {
             return yAxisExpressions.flatMap((expression: RunsChartsLineChartExpression, idx: number) => {
+              const color = useColorByMetric
+                ? RUNS_COLOR_PALETTE_NEXT[idx % RUNS_COLOR_PALETTE_NEXT.length]
+                : runEntry.color;
               return getTraceAndOriginalTrace({
                 runEntry,
                 expression,
@@ -582,7 +591,8 @@ export const RunsMetricsLinePlot = React.memo(
                 useDefaultHoverBox,
                 lineSmoothness,
                 lineShape,
-                lineDash: lineDashStyles[idx % lineDashStyles.length],
+                lineDash: useColorByMetric ? 'solid' : lineDashStyles[idx % lineDashStyles.length],
+                lineColor: color,
                 displayPoints,
                 xAxisScaleType,
                 evaluateExpression,
@@ -602,7 +612,10 @@ export const RunsMetricsLinePlot = React.memo(
                     useDefaultHoverBox,
                     lineSmoothness,
                     lineShape,
-                    lineDash: lineDashStyles[idx % lineDashStyles.length],
+                    lineDash: useColorByMetric ? 'solid' : lineDashStyles[idx % lineDashStyles.length],
+                    lineColor: useColorByMetric
+                      ? RUNS_COLOR_PALETTE_NEXT[idx % RUNS_COLOR_PALETTE_NEXT.length]
+                      : runEntry.color,
                     displayPoints,
                     xAxisScaleType,
                   });
