@@ -277,7 +277,8 @@ def log_model(
     from pyspark.ml import PipelineModel
 
     if _is_spark_connect_model(spark_model):
-        # `mlflowdbfs` is not ready for logged model artifacts. Use v2 logging API to log the model
+        # TODO: Use `Model.log` once `mlflowdbfs` supports logged model artifacts.
+        # `mlflowdbfs` doesn't support logged model artifacts yet, so we use `Model.log_v2`.
         return Model.log_v2(
             artifact_path=artifact_path,
             flavor=mlflow.spark,
@@ -328,7 +329,8 @@ def log_model(
     ):
         dfs_tmpdir = dfs_tmpdir or MLFLOW_DFS_TMP.get()
         _check_databricks_uc_volume_tmpdir_availability(dfs_tmpdir)
-        # `mlflowdbfs` is not ready for logged model artifacts. Use v2 logging API to log the model
+        # TODO: Use `Model.log` once `mlflowdbfs` supports logged model artifacts.
+        # `mlflowdbfs` doesn't support logged model artifacts yet, so we use `Model.log_v2`.
         return Model.log_v2(
             artifact_path=artifact_path,
             flavor=mlflow.spark,
