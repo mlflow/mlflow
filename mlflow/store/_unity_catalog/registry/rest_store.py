@@ -1349,9 +1349,7 @@ class UcModelRegistryStore(BaseRestStore):
             proto_name=DeletePromptTagRequest,
         )
 
-    def get_prompt(
-        self, name: str, version: Optional[Union[str, int]] = None
-    ) -> Optional[PromptVersion]:
+    def get_prompt(self, name: str) -> Optional[PromptInfo]:
         """
         Get prompt by name from Unity Catalog.
         """
@@ -1445,7 +1443,7 @@ class UcModelRegistryStore(BaseRestStore):
         )
         return proto_to_mlflow_prompt(response_proto, tags or {})
 
-    def get_prompt_version(self, name: str, version: Union[str, int]) -> PromptVersion:
+    def get_prompt_version(self, name: str, version: Union[str, int]) -> Prompt:
         """
         Get a specific prompt version from Unity Catalog.
         """
