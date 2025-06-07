@@ -837,6 +837,7 @@ AFTER_REQUEST_HANDLERS = {
     (http_path, method): handler
     for http_path, handler, methods in get_endpoints(get_after_request_handler)
     for method in methods
+    if handler is not None and "/graphql" not in http_path
 }
 
 
