@@ -217,7 +217,7 @@ onnx:
         quay.io/pypa/manylinux2014_x86_64 .github/workflows/manylinux/entrypoint.sh $python_version manylinux2014_x86_64 pull_request
 
       # Install wheel
-      pip install dist/*manylinux2014_x86_64.whl
+      pip install dist/*manylinux*.whl
 
   models:
     minimum: "1.14.1"
