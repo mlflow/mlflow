@@ -69,7 +69,6 @@ from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
 )
-from mlflow.store._unity_catalog.registry.prompt_info import PromptInfo
 from mlflow.store.artifact.utils.models import (
     get_model_name_and_version,
 )
@@ -709,10 +708,6 @@ class MlflowClient:
             if allow_missing and exc.error_code == "RESOURCE_DOES_NOT_EXIST":
                 return None
             raise
-        
-        # Fetch the prompt-level tags from the registered model
-        prompt_tags = registry_client.get_registered_model(name)._tags
-        return PromptVersion.from_model_version(mv, prompt_tags=prompt_tags)
 
     @deprecated(
         since="3.0",
@@ -5662,11 +5657,3 @@ class MlflowClient:
         """
         registry_client = self._get_registry_client()
         return registry_client.get_prompt_version(name, version)
-
-
-
-
-
-
-
-

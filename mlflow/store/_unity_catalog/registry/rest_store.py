@@ -1371,8 +1371,6 @@ class UcModelRegistryStore(BaseRestStore):
                 return None
             raise
 
-
-
     def create_prompt_version(
         self,
         name: str,

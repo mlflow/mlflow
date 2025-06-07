@@ -2082,7 +2082,6 @@ def test_search_prompt(tracking_uri):
     assert len(prompts) == 3
 
 
-
 def test_log_model_artifact(tmp_path: Path, tracking_uri: str) -> None:
     client = MlflowClient(tracking_uri=tracking_uri)
     experiment_id = client.create_experiment("test")
