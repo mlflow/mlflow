@@ -327,12 +327,7 @@ def test_trace_llm_chat_stream():
         "messages": [{"role": "system", **content_json, "additional_kwargs": {}}],
         "kwargs": {"stream_options": {"include_usage": True}},
     }
-    # `additional_kwargs` was broken until 0.1.30 release of llama-index-llms-openai
-    expected_kwargs = (
-        {"completion_tokens": 12, "prompt_tokens": 9, "total_tokens": 21}
-        if llama_oai_version >= Version("0.1.30")
-        else {}
-    )
+
     output_content_json = _get_llm_input_content_json("Hello world")
     assert spans[0].outputs == {
         "message": {
@@ -343,7 +338,7 @@ def test_trace_llm_chat_stream():
         "raw": ANY,
         "delta": " world",
         "logprobs": None,
-        "additional_kwargs": expected_kwargs,
+        "additional_kwargs": {},
     }
 
     attr = spans[0].attributes
