@@ -314,9 +314,13 @@ def _end_span_on_success(span: LiveSpan, inputs: dict[str, Any], raw_result: Any
         # and then log the outputs as a single artifact when the stream ends
         def _stream_output_logging_hook(stream: Iterator) -> Iterator:
             output = []
+            chunks = []
             for i, chunk in enumerate(stream):
                 output.append(_process_chunk(span, i, chunk))
+                chunks.append(chunk)
                 yield chunk
+            # Attach chunks to output for aggregation
+            output._chunks = chunks
             _process_last_chunk(span, chunk, inputs, output)
 
         result._iterator = _stream_output_logging_hook(result._iterator)
@@ -324,9 +328,13 @@ def _end_span_on_success(span: LiveSpan, inputs: dict[str, Any], raw_result: Any
 
         async def _stream_output_logging_hook(stream: AsyncIterator) -> AsyncIterator:
             output = []
+            chunks = []
             async for chunk in stream:
                 output.append(_process_chunk(span, len(output), chunk))
+                chunks.append(chunk)
                 yield chunk
+            # Attach chunks to output for aggregation
+            output._chunks = chunks
             _process_last_chunk(span, chunk, inputs, output)
 
         result._iterator = _stream_output_logging_hook(result._iterator)
@@ -338,11 +346,133 @@ def _end_span_on_success(span: LiveSpan, inputs: dict[str, Any], raw_result: Any
             _logger.warning(f"Encountered unexpected error when ending trace: {e}", exc_info=True)
 
 
+def _aggregate_chat_completion_chunks(chunks: list[Any]) -> dict[str, Any]:
+    """Reconstruct a complete ChatCompletion response from streaming chunks."""
+    from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
+
+    if not chunks:
+        return {}
+
+    # Filter out non-ChatCompletionChunk objects for backward compatibility
+    chat_chunks = [chunk for chunk in chunks if isinstance(chunk, ChatCompletionChunk)]
+    if not chat_chunks:
+        return {}
+
+    first_chunk = chat_chunks[0]
+    last_chunk = chat_chunks[-1]
+
+    # Aggregate content from all chunks
+    aggregated_content = ""
+    aggregated_refusal = ""
+    role = None
+    tool_calls = []
+    finish_reason = None
+
+    # Track tool calls by index for proper aggregation
+    tool_call_map = {}
+
+    for chunk in chat_chunks:
+        if chunk.choices:
+            choice = chunk.choices[0]  # Assuming single choice for simplicity
+            delta = choice.delta
+
+            # Extract role from first chunk that has it
+            if delta.role and role is None:
+                role = delta.role
+
+            # Aggregate content
+            if delta.content:
+                aggregated_content += delta.content
+
+            # Aggregate refusal
+            if delta.refusal:
+                aggregated_refusal += delta.refusal
+
+            # Handle tool calls
+            if delta.tool_calls:
+                for tool_call_delta in delta.tool_calls:
+                    idx = tool_call_delta.index
+                    if idx not in tool_call_map:
+                        tool_call_map[idx] = {
+                            "id": tool_call_delta.id or "",
+                            "type": tool_call_delta.type or "function",
+                            "function": {"name": "", "arguments": ""},
+                        }
+
+                    # Update tool call data
+                    if tool_call_delta.id:
+                        tool_call_map[idx]["id"] = tool_call_delta.id
+                    if tool_call_delta.type:
+                        tool_call_map[idx]["type"] = tool_call_delta.type
+                    if tool_call_delta.function:
+                        if tool_call_delta.function.name:
+                            tool_call_map[idx]["function"]["name"] += tool_call_delta.function.name
+                        if tool_call_delta.function.arguments:
+                            tool_call_map[idx]["function"]["arguments"] += (
+                                tool_call_delta.function.arguments
+                            )
+
+            # Get finish reason from the chunk that has it
+            if choice.finish_reason:
+                finish_reason = choice.finish_reason
+
+    # Convert tool call map to list
+    if tool_call_map:
+        tool_calls = [tool_call_map[idx] for idx in sorted(tool_call_map.keys())]
+
+    # Build the complete ChatCompletion response
+    message = {
+        "role": role or "assistant",
+        "content": aggregated_content or None,
+    }
+
+    if aggregated_refusal:
+        message["refusal"] = aggregated_refusal
+
+    if tool_calls:
+        message["tool_calls"] = tool_calls
+
+    result = {
+        "id": first_chunk.id,
+        "object": "chat.completion",
+        "created": first_chunk.created,
+        "model": first_chunk.model,
+        "choices": [{"index": 0, "message": message, "finish_reason": finish_reason}],
+    }
+
+    # Add optional fields if present
+    if hasattr(first_chunk, "system_fingerprint") and first_chunk.system_fingerprint:
+        result["system_fingerprint"] = first_chunk.system_fingerprint
+
+    if hasattr(first_chunk, "service_tier") and first_chunk.service_tier:
+        result["service_tier"] = first_chunk.service_tier
+
+    # Add usage information from the last chunk if available
+    if hasattr(last_chunk, "usage") and last_chunk.usage:
+        result["usage"] = {
+            "prompt_tokens": last_chunk.usage.prompt_tokens,
+            "completion_tokens": last_chunk.usage.completion_tokens,
+            "total_tokens": last_chunk.usage.total_tokens,
+        }
+
+    return result
+
+
 def _process_last_chunk(span: LiveSpan, chunk: Any, inputs: dict[str, Any], output: list[Any]):
     if _is_responses_final_event(chunk):
-        output = chunk.response
+        final_output = chunk.response
     else:
-        output = "".join(output)
+        # Try to aggregate ChatCompletion chunks if possible
+        from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
+
+        chunks = getattr(output, "_chunks", [])
+        if chunks and any(isinstance(c, ChatCompletionChunk) for c in chunks):
+            # Use aggregation to reconstruct full ChatCompletion response
+            final_output = _aggregate_chat_completion_chunks(chunks)
+        else:
+            # Fall back to string concatenation for backward compatibility
+            final_output = "".join(str(item) for item in output)
+
         # For ChatCompletion, the usage info is stored in the last chunk and only when
         # `stream_options={"include_usage": True}` is specified by the user.
         if usage := getattr(chunk, "usage", None):
@@ -353,7 +483,12 @@ def _process_last_chunk(span: LiveSpan, chunk: Any, inputs: dict[str, Any], outp
             }
             span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
 
-    _end_span_on_success(span, inputs, output)
+    # Call span.end directly to avoid recursion
+    try:
+        set_span_chat_attributes(span, inputs, final_output)
+        span.end(outputs=final_output)
+    except Exception as e:
+        _logger.warning(f"Encountered unexpected error when ending trace: {e}", exc_info=True)
 
 
 def _is_responses_final_event(chunk: Any) -> bool:
