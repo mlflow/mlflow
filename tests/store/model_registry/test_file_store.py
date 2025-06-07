@@ -10,7 +10,7 @@ from mlflow.entities.model_registry import (
     ModelVersionTag,
     RegisteredModelTag,
 )
-from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY
+from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,

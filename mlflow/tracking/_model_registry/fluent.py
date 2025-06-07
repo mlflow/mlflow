@@ -4,7 +4,7 @@ from typing import Any, Optional, Union
 
 import mlflow
 from mlflow.entities.logged_model import LoggedModel
-from mlflow.entities.model_registry import ModelVersion, Prompt, RegisteredModel
+from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, RegisteredModel
 from mlflow.entities.run import Run
 from mlflow.environment_variables import MLFLOW_PRINT_MODEL_URLS_ON_CREATION
 from mlflow.exceptions import MlflowException
@@ -522,7 +522,7 @@ def register_prompt(
     commit_message: Optional[str] = None,
     version_metadata: Optional[dict[str, str]] = None,
     tags: Optional[dict[str, str]] = None,
-) -> Prompt:
+) -> PromptVersion:
     """
     Register a new :py:class:`Prompt <mlflow.entities.Prompt>` in the MLflow Prompt Registry.
 
@@ -632,7 +632,7 @@ def search_prompts(
 @require_prompt_registry
 def load_prompt(
     name_or_uri: str, version: Optional[Union[str, int]] = None, allow_missing: bool = False
-) -> Prompt:
+) -> PromptVersion:
     """
     Load a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
 
@@ -690,7 +690,7 @@ def load_prompt(
 )
 @experimental
 @require_prompt_registry
-def delete_prompt(name: str, version: int) -> Prompt:
+def delete_prompt(name: str, version: int) -> None:
     """
     Delete a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
 
@@ -701,12 +701,12 @@ def delete_prompt(name: str, version: int) -> Prompt:
         name: The name of the prompt.
         version: The version of the prompt to delete.
     """
-    return MlflowClient().delete_prompt(name=name, version=version)
+    MlflowClient().delete_prompt(name=name, version=version)
 
 
 @experimental
 @require_prompt_registry
-def set_prompt_alias(name: str, alias: str, version: int) -> Prompt:
+def set_prompt_alias(name: str, alias: str, version: int) -> None:
     """
     Set an alias for a :py:class:`Prompt <mlflow.entities.Prompt>` in the MLflow Prompt Registry.
 
@@ -734,12 +734,12 @@ def set_prompt_alias(name: str, alias: str, version: int) -> Prompt:
         mlflow.delete_prompt_alias(name="my_prompt", alias="production")
     """
 
-    return MlflowClient().set_prompt_alias(name=name, version=version, alias=alias)
+    MlflowClient().set_prompt_alias(name=name, version=version, alias=alias)
 
 
 @experimental
 @require_prompt_registry
-def delete_prompt_alias(name: str, alias: str) -> Prompt:
+def delete_prompt_alias(name: str, alias: str) -> None:
     """
     Delete an alias for a :py:class:`Prompt <mlflow.entities.Prompt>` in the MLflow Prompt Registry.
 
@@ -747,4 +747,4 @@ def delete_prompt_alias(name: str, alias: str) -> Prompt:
         name: The name of the prompt.
         alias: The alias to delete for the prompt.
     """
-    return MlflowClient().delete_prompt_alias(name=name, alias=alias)
+    MlflowClient().delete_prompt_alias(name=name, alias=alias)

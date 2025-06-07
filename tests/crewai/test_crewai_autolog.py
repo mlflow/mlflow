@@ -9,6 +9,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow.entities.span import SpanType
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import get_traces
 
@@ -185,6 +186,9 @@ def task_2(simple_agent_2):
 
 
 def global_autolog():
+    if IS_TRACING_SDK_ONLY:
+        pytest.skip("Global autolog is not supported in tracing SDK")
+
     # Libraries used within tests or crewai library
     mlflow.autolog(exclude_flavors=["openai", "litellm", "langchain"])
     mlflow.utils.import_hooks.notify_module_loaded(crewai)

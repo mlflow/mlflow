@@ -46,7 +46,7 @@ from mlflow.entities.assessment import (
     Feedback,
 )
 from mlflow.entities.assessment_source import AssessmentSource
-from mlflow.entities.model_registry import ModelVersion, Prompt, RegisteredModel
+from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, NoOpSpan
 from mlflow.entities.trace_status import TraceStatus
@@ -443,7 +443,7 @@ class MlflowClient:
         commit_message: Optional[str] = None,
         version_metadata: Optional[dict[str, str]] = None,
         tags: Optional[dict[str, str]] = None,
-    ) -> Prompt:
+    ) -> PromptVersion:
         """
         Register a new :py:class:`Prompt <mlflow.entities.Prompt>` in the MLflow Prompt Registry.
 
@@ -587,7 +587,7 @@ class MlflowClient:
         # Fetch the prompt-level tags from the registered model
         prompt_tags = registry_client.get_registered_model(name)._tags
 
-        return Prompt.from_model_version(mv, prompt_tags=prompt_tags)
+        return PromptVersion.from_model_version(mv, prompt_tags=prompt_tags)
 
     @translate_prompt_exception
     @require_prompt_registry
@@ -656,7 +656,7 @@ class MlflowClient:
         name_or_uri: str,
         version: Optional[Union[str, int]] = None,
         allow_missing: bool = False,
-    ) -> Optional[Prompt]:
+    ) -> Optional[PromptVersion]:
         """
         Load a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
 
@@ -709,6 +709,10 @@ class MlflowClient:
             if allow_missing and exc.error_code == "RESOURCE_DOES_NOT_EXIST":
                 return None
             raise
+        
+        # Fetch the prompt-level tags from the registered model
+        prompt_tags = registry_client.get_registered_model(name)._tags
+        return PromptVersion.from_model_version(mv, prompt_tags=prompt_tags)
 
     @deprecated(
         since="3.0",
@@ -753,7 +757,7 @@ class MlflowClient:
     @experimental
     @require_prompt_registry
     @translate_prompt_exception
-    def log_prompt(self, run_id: str, prompt: Union[str, Prompt]) -> None:
+    def log_prompt(self, run_id: str, prompt: Union[str, PromptVersion]) -> None:
         """
         Associate a prompt registered within the MLflow Prompt Registry with an MLflow Run.
 
@@ -768,11 +772,11 @@ class MlflowClient:
         """
         if isinstance(prompt, str):
             prompt = self.load_prompt(prompt)
-        elif isinstance(prompt, Prompt):
+        elif isinstance(prompt, PromptVersion):
             # NB: We need to load the prompt once from the registry because the tags in
             # local prompt object may not be in sync with the registry.
             prompt = self.load_prompt(prompt.uri)
-        elif not isinstance(prompt, Prompt):
+        elif not isinstance(prompt, PromptVersion):
             raise MlflowException.invalid_parameter_value(
                 "The `prompt` argument must be a Prompt object or a prompt URI.",
             )
@@ -826,7 +830,7 @@ class MlflowClient:
     @experimental
     @require_prompt_registry
     @translate_prompt_exception
-    def list_logged_prompts(self, run_id: str) -> list[Prompt]:
+    def list_logged_prompts(self, run_id: str) -> list[PromptVersion]:
         """
         List all prompts associated with an MLflow Run.
 
@@ -844,7 +848,7 @@ class MlflowClient:
         )
         # NB: We don't support pagination here because the number of prompts associated
         # with a Run is expected to be small.
-        return [Prompt.from_model_version(mv) for mv in mvs]
+        return [PromptVersion.from_model_version(mv) for mv in mvs]
 
     @experimental
     @require_prompt_registry

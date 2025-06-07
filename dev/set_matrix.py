@@ -85,6 +85,7 @@ class TestConfig(BaseModel, extra="forbid"):
     allow_unreleased_max_version: Optional[bool] = None
     pre_test: Optional[str] = None
     test_every_n_versions: int = 1
+    test_tracing_sdk: bool = False
 
     class Config:
         arbitrary_types_allowed = True
@@ -608,6 +609,29 @@ def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[Matrix
                         free_disk_space=free_disk_space,
                         runs_on=runs_on,
                         pre_test=cfg.pre_test,
+                    )
+                )
+
+            # Add tracing SDK test with the latest stable version
+            if len(versions) > 0 and category == "autologging" and cfg.test_tracing_sdk:
+                version = sorted(versions)[-1]  # Test against the latest stable version
+                matrix.add(
+                    MatrixItem(
+                        name=f"{name}-tracing",
+                        flavor=flavor,
+                        category="tracing-sdk",
+                        job_name=f"{name} / tracing-sdk / {version}",
+                        install=install,
+                        # --import-mode=importlib is required for testing tracing SDK
+                        # (mlflow-tracing) works properly, without being affected by environment.
+                        run=run.replace("pytest", "pytest --import-mode=importlib"),
+                        package=package_info.pip_release,
+                        version=version,
+                        java=java,
+                        supported=version <= cfg.maximum,
+                        free_disk_space=free_disk_space,
+                        python=python,
+                        runs_on=runs_on,
                     )
                 )
 
