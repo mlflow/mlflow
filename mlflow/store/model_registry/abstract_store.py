@@ -6,11 +6,11 @@ from typing import Optional, Union
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.entities.model_registry.prompt import Prompt
+from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import IS_PROMPT_TAG_KEY, PROMPT_TEXT_TAG_KEY
 from mlflow.prompt.registry_utils import has_prompt_tag
-from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, ErrorCode
-from mlflow.store._unity_catalog.registry.prompt_info import PromptInfo
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREADY_EXISTS, ErrorCode
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.utils.annotations import developer_stable
 from mlflow.utils.logging_utils import eprint
@@ -605,18 +605,18 @@ class AbstractStore:
         # Default implementation: delete tag from registered model
         return self.delete_registered_model_tag(name, key)
 
-    def get_prompt(self, name: str) -> Optional[PromptInfo]:
+    def get_prompt(self, name: str) -> Optional[Prompt]:
         """
         Get prompt metadata by name.
 
-        Default implementation: gets RegisteredModel with prompt tags and converts to PromptInfo.
+        Default implementation: gets RegisteredModel with prompt tags and converts to Prompt.
         Other store implementations may override this method.
 
         Args:
             name: Registered prompt name.
 
         Returns:
-            A single PromptInfo object with prompt metadata, or None if not found.
+            A single Prompt object with prompt metadata, or None if not found.
         """
         try:
             rm = self.get_registered_model(name)
@@ -636,7 +636,7 @@ class AbstractStore:
             else:
                 user_tags = {tag.key: tag.value for tag in rm.tags} if rm.tags else {}
 
-            return PromptInfo(
+            return Prompt(
                 name=rm.name,
                 description=rm.description,
                 creation_timestamp=rm.creation_timestamp,
@@ -743,7 +743,7 @@ class AbstractStore:
             else:
                 prompt_tags = {tag.key: tag.value for tag in rm.tags}
 
-            return Prompt.from_model_version(mv, prompt_tags=prompt_tags)
+            return PromptVersion.from_model_version(mv, prompt_tags=prompt_tags)
 
         except MlflowException:
             raise  # Re-raise MlflowExceptions (including our custom one above)

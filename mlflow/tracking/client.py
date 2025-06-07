@@ -596,7 +596,7 @@ class MlflowClient:
         filter_string: Optional[str] = None,
         max_results: int = SEARCH_MAX_RESULTS_DEFAULT,
         page_token: Optional[str] = None,
-    ) -> PagedList[PromptInfo]:
+    ) -> PagedList[Prompt]:
         """
         Search for prompts in the MLflow Prompt Registry.
 
@@ -619,7 +619,7 @@ class MlflowClient:
                 to retrieve the next page of results.  Defaults to `None`.
 
         Returns:
-            A pageable list of PromptInfo objects representing prompt metadata:
+            A pageable list of Prompt objects representing prompt metadata:
             - name: The prompt name
                         - description: The prompt description
             - tags: Prompt-level tags
@@ -630,11 +630,11 @@ class MlflowClient:
             .. code-block:: python
 
                 # Search for prompts
-                prompt_infos = client.search_prompts(filter_string="name LIKE 'greeting%'")
+                prompts = client.search_prompts(filter_string="name LIKE 'greeting%'")
 
                 # Get specific version content
-                for prompt_info in prompt_infos:
-                    prompt = client.get_prompt(prompt_info.name, version="1")
+                for prompt in prompts:
+                    prompt_version = client.get_prompt_version(prompt.name, version="1")
                     print(f"Template: {prompt.template}")
 
             Inspect the returned object's `.token` attribute to fetch subsequent pages.
@@ -5560,7 +5560,7 @@ class MlflowClient:
         name: str,
         description: Optional[str] = None,
         tags: Optional[dict[str, str]] = None,
-    ) -> PromptInfo:
+    ) -> Prompt:
         """
         Create a new prompt in the registry.
 
@@ -5573,7 +5573,7 @@ class MlflowClient:
             tags: Optional dictionary of prompt tags.
 
         Returns:
-            A PromptInfo object.
+            A Prompt object.
 
         Example:
 
@@ -5600,7 +5600,7 @@ class MlflowClient:
         template: str,
         description: Optional[str] = None,
         tags: Optional[dict[str, str]] = None,
-    ) -> Prompt:
+    ) -> PromptVersion:
         """
         Create a new version of an existing prompt.
 
@@ -5614,7 +5614,7 @@ class MlflowClient:
             tags: Optional dictionary of prompt version tags.
 
         Returns:
-            A PromptVersion object for Unity Catalog stores.
+            A PromptVersion object.
 
         Example:
 
@@ -5636,7 +5636,7 @@ class MlflowClient:
     @experimental
     @require_prompt_registry
     @translate_prompt_exception
-    def get_prompt_version(self, name: str, version: Union[str, int]) -> Prompt:
+    def get_prompt_version(self, name: str, version: Union[str, int]) -> Optional[PromptVersion]:
         """
         Get a specific prompt version.
 
@@ -5648,7 +5648,7 @@ class MlflowClient:
             version: Version of the prompt (number or alias).
 
         Returns:
-            A Prompt object with the specific version content.
+            A PromptVersion object with the specific version content, or None if not found.
 
         Example:
 
