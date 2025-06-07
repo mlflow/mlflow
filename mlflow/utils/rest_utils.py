@@ -1,6 +1,8 @@
 import base64
 import json
 import logging
+import random
+import time
 import warnings
 from functools import lru_cache
 
@@ -51,6 +53,76 @@ _DATABRICKS_SDK_RETRY_AFTER_SECS_DEPRECATION_WARNING = (
 )
 
 
+def _retry_databricks_sdk_call_with_exponential_backoff(
+    call_func, retry_codes, retry_timeout_seconds, backoff_factor, backoff_jitter, max_retries
+):
+    """
+    Retry a Databricks SDK call with exponential backoff until timeout or max retries reached.
+
+    Args:
+        call_func: Function to call that may raise DatabricksError
+        retry_codes: Set of HTTP status codes that should trigger retries
+        retry_timeout_seconds: Maximum time to spend retrying in seconds
+        backoff_factor: Factor for exponential backoff
+        backoff_jitter: Random jitter to add to backoff
+        max_retries: Maximum number of retry attempts
+
+    Returns:
+        The result of call_func() on success
+
+    Raises:
+        DatabricksError: If all retries are exhausted or non-retryable error occurs
+    """
+    from databricks.sdk.errors import DatabricksError
+
+    start_time = time.time()
+    attempt = 0
+
+    while True:
+        try:
+            return call_func()
+        except DatabricksError as e:
+            # Get HTTP status code from the error
+            status_code = ERROR_CODE_TO_HTTP_STATUS.get(e.error_code, 500)
+
+            # Check if this is a retryable error
+            if status_code not in retry_codes:
+                raise e
+
+            # Check if we've exceeded max retries
+            if attempt >= max_retries:
+                _logger.warning(f"Max retries ({max_retries}) exceeded: {e}")
+                raise e
+
+            # Check if we've exceeded the timeout
+            elapsed_time = time.time() - start_time
+            if elapsed_time >= retry_timeout_seconds:
+                _logger.warning(f"Retry timeout ({retry_timeout_seconds}s) exceeded: {e}")
+                raise e
+
+            # Calculate backoff time with exponential backoff and jitter
+            # Use the same formula as urllib3.util.retry.Retry.get_backoff_time()
+            if attempt <= 0:
+                backoff_time = 0  # No backoff on first retry attempt
+            else:
+                backoff_time = backoff_factor * (2**attempt)
+                if backoff_jitter > 0:
+                    backoff_time += random.random() * backoff_jitter
+
+            # Check if sleeping would exceed timeout
+            if elapsed_time + backoff_time >= retry_timeout_seconds:
+                _logger.warning(f"Retry timeout ({retry_timeout_seconds}s) exceeded: {e}")
+                raise e
+
+            _logger.debug(
+                f"Databricks SDK call failed with retryable error (status {status_code}): {e}. "
+                f"Retrying in {backoff_time:.2f} seconds (attempt {attempt + 1})"
+            )
+
+            time.sleep(backoff_time)
+            attempt += 1
+
+
 def http_request(
     host_creds,
     endpoint,
@@ -98,6 +170,15 @@ def http_request(
     cleaned_hostname = strip_suffix(host_creds.host, "/")
     url = f"{cleaned_hostname}{endpoint}"
 
+    # Set defaults for retry parameters from environment variables if not specified
+    max_retries = MLFLOW_HTTP_REQUEST_MAX_RETRIES.get() if max_retries is None else max_retries
+    backoff_factor = (
+        MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR.get() if backoff_factor is None else backoff_factor
+    )
+    backoff_jitter = (
+        MLFLOW_HTTP_REQUEST_BACKOFF_JITTER.get() if backoff_jitter is None else backoff_jitter
+    )
+
     if host_creds.use_databricks_sdk:
         from databricks.sdk.errors import DatabricksError
 
@@ -108,7 +189,16 @@ def http_request(
             host_creds.databricks_auth_profile,
             retry_timeout_seconds=retry_timeout_seconds,
         )
-        try:
+
+        # Set default retry timeout if not specified
+        effective_retry_timeout = (
+            retry_timeout_seconds
+            if retry_timeout_seconds is not None
+            else MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT.get()
+        )
+
+        # Define the SDK call as a function for retry logic
+        def make_sdk_call():
             # Databricks SDK `APIClient.do` API is for making request using
             # HTTP
             # https://github.com/databricks/databricks-sdk-py/blob/a714146d9c155dd1e3567475be78623f72028ee0/databricks/sdk/core.py#L134
@@ -128,7 +218,18 @@ def http_request(
                     data=kwargs.get("data"),
                 )
                 return raw_response["contents"]._response
+
+        try:
+            return _retry_databricks_sdk_call_with_exponential_backoff(
+                call_func=make_sdk_call,
+                retry_codes=retry_codes,
+                retry_timeout_seconds=effective_retry_timeout,
+                backoff_factor=backoff_factor,
+                backoff_jitter=backoff_jitter,
+                max_retries=max_retries,
+            )
         except DatabricksError as e:
+            # Convert to requests.Response for consistency
             response = requests.Response()
             response.url = url
             response.status_code = ERROR_CODE_TO_HTTP_STATUS.get(e.error_code, 500)
@@ -140,22 +241,14 @@ def http_request(
                     "message": str(e),
                 }
             ).encode("UTF-8")
-
             return response
 
-    max_retries = MLFLOW_HTTP_REQUEST_MAX_RETRIES.get() if max_retries is None else max_retries
-    backoff_factor = (
-        MLFLOW_HTTP_REQUEST_BACKOFF_FACTOR.get() if backoff_factor is None else backoff_factor
-    )
     _validate_max_retries(max_retries)
     _validate_backoff_factor(backoff_factor)
     respect_retry_after_header = (
         MLFLOW_HTTP_RESPECT_RETRY_AFTER_HEADER.get()
         if respect_retry_after_header is None
         else respect_retry_after_header
-    )
-    backoff_jitter = (
-        MLFLOW_HTTP_REQUEST_BACKOFF_JITTER.get() if backoff_jitter is None else backoff_jitter
     )
 
     timeout = MLFLOW_HTTP_REQUEST_TIMEOUT.get() if timeout is None else timeout
