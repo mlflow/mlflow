@@ -120,13 +120,6 @@ def http_request(
             retry_timeout_seconds=retry_timeout_seconds,
         )
 
-        # Set default retry timeout if not specified
-        effective_retry_timeout = (
-            retry_timeout_seconds
-            if retry_timeout_seconds is not None
-            else MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT.get()
-        )
-
         def make_sdk_call():
             # Databricks SDK `APIClient.do` API is for making request using
             # HTTP
@@ -159,7 +152,11 @@ def http_request(
             return _retry_databricks_sdk_call_with_exponential_backoff(
                 call_func=make_sdk_call,
                 retry_codes=retry_codes,
-                retry_timeout_seconds=effective_retry_timeout,
+                retry_timeout_seconds=(
+                    retry_timeout_seconds
+                    if retry_timeout_seconds is not None
+                    else MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT.get()
+                ),
                 backoff_factor=backoff_factor,
                 backoff_jitter=backoff_jitter,
                 max_retries=max_retries,
