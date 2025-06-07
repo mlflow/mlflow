@@ -9,7 +9,7 @@ from langchain_core.runnables import RunnableConfig, RunnableLambda
 from langchain_core.tools import BaseTool, tool
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END, StateGraph
-from langgraph.graph.graph import CompiledGraph
+from langgraph.graph.state import CompiledGraph
 from langgraph.prebuilt import ToolNode
 
 import mlflow
