@@ -813,12 +813,11 @@ def test_databricks_sdk_retry_backoff_calculation():
         except Exception:
             pass  # Expected to fail
 
-    # Verify sleep was called with correct intervals using urllib3 Retry behavior
-    # urllib3 Retry.get_backoff_time() uses consecutive_errors_len - 1 formula
-    # attempt 0 (1st retry): 0 seconds (no consecutive errors yet)
-    # attempt 1 (2nd retry): 0 seconds (consecutive_errors_len = 1, so 1-1 = 0)
-    # attempt 2 (3rd retry): 2.0 seconds (consecutive_errors_len = 2, so 1 * 2^(2-1) = 2)
-    expected_sleep_times = [0, 0, 2.0]
+    # Verify sleep was called with correct intervals
+    # attempt 0 (1st retry): 0 seconds (immediate)
+    # attempt 1 (2nd retry): 1 * (2^1) = 2 seconds
+    # attempt 2 (3rd retry): 1 * (2^2) = 4 seconds
+    expected_sleep_times = [0, 2, 4]
     actual_sleep_times = [call.args[0] for call in mock_sleep.call_args_list]
     assert actual_sleep_times == expected_sleep_times
     assert call_count == 4  # Initial + 3 retries
