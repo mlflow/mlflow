@@ -5,12 +5,12 @@ import { APILink } from "@site/src/components/APILink";
 
 Starting in MLflow 2.7, the MLflow Tracking UI provides a best-in-class experience for prompt
 engineering. With no code required, you can try out multiple LLMs from the
-[MLflow AI Gateway](/llms/deployments), parameter configurations, and prompts to build a variety of models for
+[MLflow AI Gateway](/genai/governance/ai-gateway), parameter configurations, and prompts to build a variety of models for
 question answering, document summarization, and beyond. Using the embedded Evaluation UI, you can
 also evaluate multiple models on a set of inputs and compare the responses to select the best one.
-Every model created with the prompt engineering UI is stored in the [MLflow Model](/model)
+Every model created with the prompt engineering UI is stored in the [MLflow Model](/ml/model)
 format and can be deployed for batch or real time inference. All configurations (prompt templates,
-choice of LLM, parameters, etc.) are tracked as [MLflow Runs](/tracking).
+choice of LLM, parameters, etc.) are tracked as [MLflow Runs](/ml/tracking).
 
 ## Quickstart \{#prompt-engineering-quickstart}
 
@@ -18,9 +18,9 @@ The following guide will get you started with MLflow's UI for prompt engineering
 
 ### Step 1: Create an MLflow AI Gateway Completions or Chat Endpoint
 
-To use the prompt engineering UI, you need to create one or more [MLflow AI Gateway](/llms/deployments)
-completions or chat [Endpoints](/llms/deployments#deployments-endpoints). Follow the
-[MLflow AI Gateway Quickstart guide](/llms/deployments#deployments-quickstart) to easily create an endpoint in less than five
+To use the prompt engineering UI, you need to create one or more [MLflow AI Gateway](/genai/governance/ai-gateway)
+completions or chat endpoints. Follow the
+[MLflow AI Gateway Quickstart guide](/genai/governance/ai-gateway/guides/step1-create-deployments) to easily create an endpoint in less than five
 minutes. If you already have access to an MLflow AI Gateway endpoint of type `llm/v1/completions`
 or `llm/v1/chat`, you can skip this step.
 
@@ -163,7 +163,7 @@ To test the behavior of your chosen LLM, prompt template, and parameters on a ne
 As you try additional inputs, you might discover scenarios where your choice of LLM, prompt
 template, and parameters doesn't perform as well as you would like. For example, in the
 MLflow documentation use case, the LLM still attempts to answer irrelevant
-questions about [MLflow Projects](/projects) even if the answer does not appear in the
+questions about [MLflow Projects](/ml/projects) even if the answer does not appear in the
 specified article.
 
 1. To improve performance, create a new Run by selecting the _Duplicate run_ option from the context
@@ -273,7 +273,7 @@ or you can [deploy it for real-time serving](#deploy-prompt-serving).
 ## Step 13: Perform metric-based evaluation of your model's outputs
 
 If you'd like to assess your model's performance on specific metrics, MLflow provides the <APILink fn="mlflow.evaluate" />
-API. Let's evaluate our model on some [pre-defined metrics](/llms/llm-evaluate#llm-eval-default-metrics)
+API. Let's evaluate our model on some [pre-defined metrics](/genai/eval-monitor/predefined-judge-scorers)
 for text summarization:
 
 ```python
@@ -319,9 +319,9 @@ The evaluation results can also be viewed in the MLflow Evaluation UI:
 
 ![](/images/evaluate_metrics.png)
 
-The <APILink fn="mlflow.evaluate" /> API also supports [custom metrics](/llms/llm-evaluate#llm-eval-custom-metrics),
-[static dataset evaluation](/llms/llm-evaluate#llm-eval-static-dataset), and much more. For a
-more in-depth guide, see [MLflow LLM Evaluation](/llms/llm-evaluate).
+The <APILink fn="mlflow.evaluate" /> API also supports [custom metrics](/genai/eval-monitor/custom-scorers),
+[static dataset evaluation](/genai/eval-monitor/concepts/eval-datasets), and much more. For a
+more in-depth guide, see [MLflow LLM Evaluation](/genai/eval-monitor).
 
 ## Deployment for real-time serving \{#deploy-prompt-serving}
 

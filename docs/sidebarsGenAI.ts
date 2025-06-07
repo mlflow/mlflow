@@ -20,18 +20,8 @@ const sidebarsGenAI: SidebarsConfig = {
         },
         {
           type: 'doc',
-          id: 'overview/how-mlflow-helps',
-          label: 'How MLflow helps',
-        },
-        {
-          type: 'doc',
           id: 'overview/why-mlflow',
           label: 'Why use MLflow',
-        },
-        {
-          type: 'doc',
-          id: 'overview/oss-managed-diff',
-          label: 'OSS vs Managed MLflow',
         },
       ],
       link: {
@@ -81,11 +71,6 @@ const sidebarsGenAI: SidebarsConfig = {
           label: 'Evaluate your GenAI App',
         },
         {
-          type: 'doc',
-          id: 'getting-started/human-feedback',
-          label: 'Human Feedback',
-        },
-        {
           type: 'category',
           label: 'Tracing',
           items: [
@@ -124,11 +109,6 @@ const sidebarsGenAI: SidebarsConfig = {
           type: 'doc',
           id: 'tutorials/enhance-quality',
           label: 'Using Traces for Quality Enhancement',
-        },
-        {
-          type: 'doc',
-          id: 'tutorials/prod-monitoring',
-          label: 'Continuous Monitoring for Production Performance',
         },
         {
           type: 'doc',
@@ -230,20 +210,42 @@ const sidebarsGenAI: SidebarsConfig = {
           }
         },
         {
-          type: 'doc',
-          id: 'tracing/track-users-sessions/index',
-          label: 'Track Users and Sessions',
+          type: 'category',
+          label: 'Guides',
+          items: [
+            {
+              type: 'doc',
+              id: 'tracing/track-users-sessions/index',
+              label: 'Track Users and Sessions',
+            },
+            {
+              type: 'doc',
+              id: 'tracing/track-environments-context/index',
+              label: 'Track App Versions and Environments',
+            },
+            {
+              type: 'doc',
+              id: 'tracing/collect-user-feedback/index',
+              label: 'User Feedback Collection',
+            },
+            {
+              type: 'doc',
+              id: 'tracing/session',
+              label: 'Tracing Chat Sessions',
+            },
+            {
+              type: 'doc',
+              id: 'tracing/prod-tracing',
+              label: 'Production Tracing',
+            },
+            {
+              type: 'doc',
+              id: 'tracing/quality-with-traces',
+              label: 'Using Traces for Quality Improvement',
+            },
+          ],
         },
-        {
-          type: 'doc',
-          id: 'tracing/track-environments-context/index',
-          label: 'Track App Versions and Environments',
-        },
-        {
-          type: 'doc',
-          id: 'tracing/collect-user-feedback/index',
-          label: 'User Feedback Collection',
-        },
+        
         {
           type: 'category',
           label: 'App Observation and Debugging',
@@ -278,23 +280,8 @@ const sidebarsGenAI: SidebarsConfig = {
         },
         {
           type: 'doc',
-          id: 'tracing/session',
-          label: 'Tracing Chat Sessions',
-        },
-        {
-          type: 'doc',
           id: 'tracing/lightweight-sdk',
           label: 'Lightweight Tracing SDK',
-        },
-        {
-          type: 'doc',
-          id: 'tracing/prod-tracing',
-          label: 'Production Tracing',
-        },
-        {
-          type: 'doc',
-          id: 'tracing/quality-with-traces',
-          label: 'Using Traces for Quality Improvement',
         },
         {
           type: 'doc',
@@ -494,37 +481,6 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Human Feedback 📝',
-      className: 'sidebar-top-level-category',
-      items: [
-        {
-          type: 'doc',
-          id: 'human-feedback/dev-annotations',
-          label: 'Annotating Traces during Development',
-        },
-        {
-          type: 'doc',
-          id: 'human-feedback/user-feedback',
-          label: 'Collecting User Feedback',
-        },
-        {
-          type: 'doc',
-          id: 'human-feedback/expert-feedback',
-          label: 'Collecting Domain Expert Feedback',
-        },
-        {
-          type: 'doc',
-          id: 'human-feedback/feedback-sync-eval-dataset',
-          label: 'Sync Feedback to Evaluation Datasets',
-        }
-      ],
-      link: {
-        type: 'doc',
-        id: 'human-feedback/index'
-      }
-    },
-    {
-      type: 'category',
       label: 'Prompt and Version Management 🔨',
       className: 'sidebar-top-level-category',
       collapsed: false,
@@ -609,6 +565,162 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
+      label: 'Integrations 🤖',
+      className: 'sidebar-top-level-category',
+      items: [
+        {
+          type: 'category',
+          label: 'OpenAI',
+          items: [
+            {
+              type: 'doc',
+              id: 'flavors/openai/guide/index',
+              label: 'Guide'
+            },
+            {
+              type: 'doc',
+              id: 'flavors/openai/autologging/index',
+              label: "Autologging Support",
+            },
+            {
+              type: 'category',
+              label: 'Tutorials',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'flavors/openai/notebooks/openai-quickstart-ipynb',
+                  label: 'OpenAI Quickstart'
+                },
+                {
+                  type: 'doc',
+                  id: 'flavors/openai/notebooks/openai-chat-completions-ipynb',
+                  label: 'Chat Completions with OpenAI'
+                },
+                {
+                  type: 'doc',
+                  id: 'flavors/openai/notebooks/openai-code-helper-ipynb',
+                  label: 'Chat Completions with OpenAI'
+                },
+                {
+                  type: 'doc',
+                  id: 'flavors/openai/notebooks/openai-embeddings-generation-ipynb',
+                  label: 'Chat Completions with OpenAI'
+                },
+              ],
+              link: {
+                type: 'doc',
+                id: 'flavors/openai/notebooks/index'
+              }
+            }
+          ],
+            link: {
+            type: 'doc',
+            id: 'flavors/openai/index'
+          }
+        }, 
+        {
+          type: 'category',
+          label: 'DSPy',
+          items: [
+            {
+              type: 'doc',
+              id: 'flavors/dspy/notebooks/dspy_quickstart-ipynb',
+              label: 'DSPy Quickstart',
+            },
+            {
+              type: 'doc',
+              id: 'flavors/dspy/optimizer',
+              label: 'Using DSPy Optimizers',
+            },
+          ],
+          link: {
+            type: 'doc',
+            id: 'flavors/dspy/index'
+          }
+        },
+        {
+          type: 'category',
+          label: 'LangChain',
+          items: [
+            {
+              type: 'doc',
+              id: 'flavors/langchain/guide/index',
+              label: 'Guide to using LangChain with MLflow'
+            },
+            {
+              type: 'doc',
+              id: 'flavors/langchain/notebooks/langchain-quickstart-ipynb',
+              label: 'LangChain Quickstart',
+            },
+            {
+              type: 'doc',
+              id: 'flavors/langchain/notebooks/langchain-retriever-ipynb',
+              label: 'Retrievers with LangChain',
+            }
+          ],
+          link: {
+            type: 'doc',
+            id: 'flavors/langchain/index'
+          }
+        },
+        {
+          type: 'category',
+          label: 'LlamaIndex',
+          items: [
+            {
+              type: 'doc',
+              id: 'flavors/llama-index/notebooks/llama_index_quickstart-ipynb',
+              label: 'LlamaIndex Quickstart',
+            },
+            {
+              type: 'doc',
+              id: 'flavors/llama-index/notebooks/llama_index_workflow_tutorial-ipynb',
+              label: 'Agents with LlamaIndex',
+            }
+          ],
+          link: {
+            type: 'doc',
+            id: 'flavors/llama-index/index'
+          }
+        },
+        {
+          type: 'category',
+          label: 'Custom Applications',
+          items: [
+            {
+              type: 'doc',
+              id: 'flavors/custom-pyfunc-for-llms/notebooks/custom-pyfunc-advanced-llm-ipynb',
+              label: 'Custom App Development Guide',
+            }
+          ],
+          link: {
+            type: 'doc',
+            id: 'flavors/custom-pyfunc-for-llms/index'
+          }
+        },
+        {
+          type: 'doc',
+          id: 'flavors/chat-model-intro/index',
+          label: 'Intro to ChatModel',
+        },
+        {
+          type: 'doc',
+          id: 'flavors/chat-model-guide/index',
+          label: 'Building with ChatModel',
+        },
+        {
+          type: 'doc',
+          id: 'flavors/responses-agent-intro',
+          label: 'Building with ResponsesAgent',
+        },
+      ],
+      link: {
+        type: 'doc',
+        id: 'flavors/index',
+      }
+    },
+    {
+      type: 'category',
       label: 'Application Serving ⛵',
       className: 'sidebar-top-level-category',
       items: [
@@ -642,6 +754,11 @@ const sidebarsGenAI: SidebarsConfig = {
           type: 'category',
           label: 'AI Gateway',
           items: [
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/guides/index',
+              label: 'Getting Started with AI Gateway',
+            },
             {
               type: 'doc',
               id: 'governance/ai-gateway/guides/step1-create-deployments/index',

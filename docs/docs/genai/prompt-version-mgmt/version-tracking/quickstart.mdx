@@ -151,10 +151,11 @@ Create a dataset with questions, expected responses, and actual model outputs:
 ```python
 import pandas as pd
 
-eval_df = pd.DataFrame({
-    "messages": questions,
-    "expected_response": [
-        """MLflow Tracking is a key component of the MLflow platform designed to record and manage machine learning experiments. It enables data scientists and engineers to log parameters, code versions, metrics, and artifacts in a systematic way, facilitating experiment tracking and reproducibility.
+eval_df = pd.DataFrame(
+    {
+        "messages": questions,
+        "expected_response": [
+            """MLflow Tracking is a key component of the MLflow platform designed to record and manage machine learning experiments. It enables data scientists and engineers to log parameters, code versions, metrics, and artifacts in a systematic way, facilitating experiment tracking and reproducibility.
 
 How It Works:
 
@@ -167,7 +168,7 @@ Users interact with MLflow Tracking through its APIs available in multiple langu
 The logged data can be visualized using the MLflow UI, a web-based interface that displays all experiments and runs. This UI allows you to compare runs side-by-side, filter results, and analyze performance metrics over time. It aids in identifying the best models and understanding the impact of different parameters.
 
 By providing a structured way to record experiments, MLflow Tracking enhances collaboration among team members, ensures transparency, and makes it easier to reproduce results. It integrates seamlessly with other MLflow components like Projects and Model Registry, offering a comprehensive solution for managing the machine learning lifecycle.""",
-        """Unity Catalog is a feature in Databricks that allows you to create a centralized inventory of your data assets, such as tables, views, and functions, and share them across different teams and projects. It enables easy discovery, collaboration, and reuse of data assets within your organization.
+            """Unity Catalog is a feature in Databricks that allows you to create a centralized inventory of your data assets, such as tables, views, and functions, and share them across different teams and projects. It enables easy discovery, collaboration, and reuse of data assets within your organization.
 
 With Unity Catalog, you can:
 
@@ -177,35 +178,15 @@ With Unity Catalog, you can:
 4. Enhance data governance: Unity Catalog provides a clear view of data assets, enabling better data governance and compliance.
 
 Unity Catalog is particularly useful in large organizations where data is scattered across different teams, projects, and environments. It helps create a unified view of data assets, making it easier to work with data across different teams and projects.""",
-        """User-defined functions (UDFs) in the context of Databricks and Apache Spark are custom functions that you can create to perform specific tasks on your data. These functions are written in a programming language such as Python, Java, Scala, or SQL, and can be used to extend the built-in functionality of Spark.
+            """User-defined functions (UDFs) in the context of Databricks and Apache Spark are custom functions that you can create to perform specific tasks on your data. These functions are written in a programming language such as Python, Java, Scala, or SQL, and can be used to extend the built-in functionality of Spark.
 
 UDFs can be used to perform complex data transformations, data cleaning, or to apply custom business logic to your data. Once defined, UDFs can be invoked in SQL queries or in DataFrame transformations, allowing you to reuse your custom logic across multiple queries and applications.
 
-To use UDFs in Databricks, you first need to define them in a supported programming language, and then register them with the SparkSession. Once registered, UDFs can be used in SQL queries or DataFrame transformations like any other built-in function.
-
-Here's an example of how to define and register a UDF in Python:
-
-```python
-from pyspark.sql.functions import udf
-from pyspark.sql.types import IntegerType
-
-# Define the UDF function
-def multiply_by_two(value):
-    return value * 2
-
-# Register the UDF with the SparkSession
-multiply_udf = udf(multiply_by_two, IntegerType())
-
-# Use the UDF in a DataFrame transformation
-data = spark.range(10)
-result = data.withColumn("multiplied", multiply_udf(data.id))
-result.show()
-```
-
-In this example, we define a UDF called `multiply_by_two` that multiplies a given value by two. We then register this UDF with the SparkSession using the `udf` function, and use it in a DataFrame transformation to multiply the `id` column of a DataFrame by two.""",
-    ],
-    "predictions": outputs,
-})
+To use UDFs in Databricks, you first need to define them in a supported programming language, and then register them with the SparkSession. Once registered, UDFs can be used in SQL queries or DataFrame transformations like any other built-in function.""",
+        ],
+        "predictions": outputs,
+    }
+)
 ```
 
 ### Run Evaluation with Custom Metrics
@@ -223,7 +204,7 @@ with mlflow.start_run() as evaluation_run:
         predictions="predictions",
     )
     mlflow.log_input(dataset=eval_dataset)
-    
+
     # Run evaluation with GenAI metrics
     result = mlflow.evaluate(
         data=eval_dataset,
