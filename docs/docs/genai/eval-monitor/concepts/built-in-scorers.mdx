@@ -1,0 +1,299 @@
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Predefined LLM Judge Scorers - Concepts
+
+Predefined LLM judge scorers provide ready-to-use evaluation implementations for common GenAI quality dimensions. Understanding the platform differences is crucial for choosing the right evaluation approach for your needs.
+
+## Platform Architecture Overview
+
+MLflow 3.0 moved LLM evaluation to `mlflow.genai.evaluate()` with a unified scorer framework. However, the sophisticated LLM judge implementations require different infrastructure depending on your platform.
+
+<Tabs>
+<TabItem value="databricks" label="Databricks MLflow" default>
+
+### Full LLM Judge Capabilities
+
+Databricks MLflow provides complete LLM judge infrastructure with the Databricks agents framework, enabling sophisticated semantic evaluation across all quality dimensions.
+
+The platform includes comprehensive predefined scorers for general quality assessment like Safety, RelevanceToQuery, and Correctness. RAG applications benefit from specialized scorers including RetrievalRelevance, RetrievalSufficiency, and RetrievalGroundedness. Guidelines-based evaluation supports both global and per-example criteria, while tool evaluation capabilities assess ToolGroundedness and ToolSufficiency where applicable.
+
+Databricks MLflow excels with advanced LLM-powered semantic evaluation that goes beyond simple heuristics. Production monitoring automatically applies scorers to live traffic, while enterprise features provide managed datasets and team collaboration. The platform's specialized RAG evaluation capabilities and built-in safety assessment make it ideal for comprehensive quality assurance.
+
+</TabItem>
+<TabItem value="oss" label="MLflow OSS">
+
+### Framework Available, Limited LLM Judge Implementation
+
+MLflow OSS includes the complete scorer framework and class definitions, but the sophisticated LLM judge implementations require the Databricks agents framework through the `@requires_databricks_agents` decorator.
+
+OSS provides the complete scorer framework and base classes, along with reliable heuristic-based evaluation metrics. The custom scorer development framework using the `@scorer` decorator works fully in OSS, as do model type defaults with traditional metrics and basic evaluation harness functionality.
+
+However, advanced LLM judge implementations like Safety and Correctness require Databricks infrastructure. RAG-specific semantic evaluation, production monitoring services, and sophisticated guidelines-based evaluation all depend on the Databricks agents framework.
+
+For OSS users, the recommended approach focuses on heuristic metrics and custom scorer development rather than attempting to use predefined LLM judges without proper infrastructure support.
+
+</TabItem>
+</Tabs>
+
+## MLflow OSS Evaluation Strategy
+
+Since sophisticated predefined scorers require Databricks infrastructure, OSS users should focus on proven alternatives that work reliably without external dependencies.
+
+### Heuristic-Based Evaluation
+
+Traditional metrics provide reliable evaluation in OSS environments without external service dependencies:
+
+```python
+import mlflow
+from mlflow.metrics import exact_match, rouge_score, flesch_kincaid_grade_level
+
+# Traditional metrics that work well in OSS
+oss_metrics = [
+    exact_match(),
+    rouge_score(),
+    flesch_kincaid_grade_level(),
+    mlflow.metrics.latency(),
+]
+
+results = mlflow.genai.evaluate(data=eval_data, extra_metrics=oss_metrics)
+```
+
+### Model Type Defaults
+
+OSS includes pre-configured metric suites for common scenarios that work without external dependencies:
+
+```python
+# Pre-configured metric suites for common scenarios
+results = mlflow.genai.evaluate(
+    model=your_model,
+    data=eval_data,
+    targets="ground_truth",
+    model_type="question-answering",  # Uses exact_match, toxicity, readability
+)
+```
+
+The "question-answering" model type includes exact match scoring, toxicity detection, and readability assessment. Text summarization applications can use "text-summarization" for ROUGE scores plus safety metrics, while general text generation benefits from "text" model type defaults.
+
+### Custom Scorer Development
+
+OSS excels at custom scorer development, allowing you to encode domain-specific evaluation logic:
+
+```python
+from mlflow.genai.scorers import scorer
+
+
+@scorer
+def response_length_check(outputs) -> bool:
+    """Custom business logic that works reliably in OSS"""
+    return 50 <= len(outputs) <= 500
+
+
+@scorer
+def keyword_presence(outputs, expectations) -> float:
+    """Domain-specific evaluation logic"""
+    required_keywords = expectations.get("required_keywords", [])
+    present_keywords = sum(1 for kw in required_keywords if kw in outputs.lower())
+    return present_keywords / len(required_keywords) if required_keywords else 1.0
+
+
+# Use custom scorers alongside heuristic metrics
+results = mlflow.genai.evaluate(
+    data=eval_data,
+    scorers=[response_length_check, keyword_presence],
+    extra_metrics=[exact_match(), latency()],
+)
+```
+
+Custom scorers enable you to encode business rules, domain expertise, and application-specific quality criteria directly into your evaluation pipeline. This approach often provides more relevant assessment than generic metrics for specialized applications.
+
+## Databricks MLflow Capabilities
+
+Databricks MLflow provides the complete predefined scorer ecosystem with full LLM judge implementations that enable sophisticated semantic evaluation.
+
+### Safety Evaluation
+
+The safety scorer performs advanced content analysis that goes far beyond simple keyword filtering:
+
+```python
+from mlflow.genai.scorers import safety
+
+# Advanced content safety analysis
+feedback = safety(outputs="The capital of France is Paris.")
+# Returns comprehensive safety assessment with rationale
+```
+
+This scorer analyzes content for various harmful categories including hate speech, violence, self-harm, and inappropriate content, providing detailed rationales for its assessments.
+
+### Semantic Quality Assessment
+
+Semantic evaluation assesses meaning and relevance rather than just surface-level text characteristics:
+
+```python
+from mlflow.genai.scorers import relevance_to_query, correctness
+
+relevance_feedback = relevance_to_query(
+    inputs={"question": "What is the capital of France?"},
+    outputs="The capital of France is Paris.",
+)
+
+correctness_feedback = correctness(
+    inputs={"question": "What is the capital of France?"},
+    outputs="The capital of France is Paris.",
+    expectations={"expected_response": "Paris is the capital of France"},
+)
+```
+
+These scorers understand context and meaning, enabling them to assess whether responses actually answer questions and contain factually accurate information.
+
+### RAG-Specific Evaluation
+
+Retrieval-Augmented Generation applications have unique evaluation needs that these specialized scorers address:
+
+```python
+from mlflow.genai.scorers import (
+    retrieval_relevance,
+    retrieval_groundedness,
+    retrieval_sufficiency,
+)
+
+# Requires traces with RETRIEVER spans
+trace = mlflow.get_trace("your-trace-id")
+
+# Evaluate retrieval quality
+relevance_feedback = retrieval_relevance(trace=trace)
+groundedness_feedback = retrieval_groundedness(trace=trace)
+sufficiency_feedback = retrieval_sufficiency(
+    trace=trace, expectations={"expected_facts": ["Paris", "France", "capital"]}
+)
+```
+
+RetrievalRelevance assesses whether retrieved documents actually relate to the user's query. RetrievalGroundedness verifies that the model's response is supported by the retrieved context rather than hallucinated. RetrievalSufficiency determines whether the retrieved information provides enough detail to answer the question properly.
+
+### Guidelines-Based Evaluation
+
+Guidelines-based evaluation enables assessment against business rules and brand requirements:
+
+```python
+from mlflow.genai.scorers import guideline_adherence
+
+# Global guidelines for consistent evaluation
+brand_voice = guideline_adherence.with_config(
+    name="brand_compliance",
+    global_guidelines=[
+        "Maintain professional tone",
+        "Be helpful and accurate",
+        "Avoid controversial topics",
+    ],
+)
+
+feedback = brand_voice(outputs="The capital of France is Paris.")
+```
+
+This approach allows you to define evaluation criteria in natural language that LLM judges can apply consistently across your evaluation dataset.
+
+## Development Strategy Recommendations
+
+### OSS-Focused Development
+
+OSS users can build effective evaluation pipelines by emphasizing reliable metrics and custom logic:
+
+```python
+# Start with reliable OSS evaluation for rapid iteration
+development_evaluation = [
+    exact_match(),
+    response_length_check,  # Custom scorer
+    latency(),
+]
+
+# Fast feedback loop during development
+results = mlflow.genai.evaluate(data=dev_dataset, scorers=development_evaluation)
+```
+
+This approach provides immediate feedback during development without external service dependencies or costs.
+
+### Databricks Production Evaluation
+
+Databricks enables comprehensive quality assessment for production deployment:
+
+```python
+# Comprehensive evaluation for production readiness
+production_evaluation = [
+    safety,
+    relevance_to_query,
+    correctness,
+    retrieval_groundedness,  # If using RAG
+    brand_voice,  # Custom guidelines
+]
+
+# Thorough assessment before deployment
+results = mlflow.genai.evaluate(data=production_dataset, scorers=production_evaluation)
+```
+
+The sophisticated semantic evaluation capabilities help ensure applications meet high quality standards before reaching users.
+
+### Hybrid Development Strategy
+
+Many teams successfully combine both platforms to optimize for different development phases. OSS works well for rapid iteration with heuristic metrics and custom scorers during initial development. Databricks provides comprehensive LLM evaluation and monitoring for production readiness assessment. Teams maintain shared standards through consistent evaluation datasets and quality criteria, enabling gradual migration from OSS development to Databricks production deployment.
+
+## Platform Selection Guidelines
+
+### MLflow OSS Advantages
+
+OSS makes sense when working with limited evaluation budgets or needing fast development iteration cycles. Teams with strong domain expertise can build highly effective custom scorer frameworks. The platform excels for heuristic and performance metrics while supporting internal evaluation framework development.
+
+### Databricks MLflow Advantages
+
+Databricks becomes valuable when you need sophisticated semantic evaluation or RAG-specific assessment capabilities. The platform's production monitoring with automated evaluation reduces operational overhead. Enterprise features support team collaboration and governance requirements. Customer-facing AI applications particularly benefit from comprehensive quality assurance capabilities.
+
+## Framework Compatibility
+
+The unified scorer framework ensures smooth transitions between platforms:
+
+```python
+# This pattern works on both platforms
+from mlflow.genai.scorers import scorer
+
+
+@scorer
+def domain_specific_quality(outputs, expectations) -> float:
+    """Custom evaluation logic that works everywhere"""
+    # Your domain-specific evaluation logic
+    return quality_score
+
+
+# Framework handles execution regardless of platform
+results = mlflow.genai.evaluate(data=eval_data, scorers=[domain_specific_quality])
+```
+
+The consistent API across platforms enables easy migration paths from OSS to Databricks. Teams can share evaluation datasets and criteria while maintaining common development patterns and best practices.
+
+## Getting Started Path
+
+### For OSS Users
+
+Begin with heuristic metrics to establish immediate evaluation capability. These provide reliable baselines without external dependencies. Develop custom scorers that encode your domain-specific requirements and business logic. Leverage model type defaults for common use cases like question-answering or text summarization. Focus evaluation efforts on performance metrics and business logic assessment where you have the most control and expertise.
+
+### For Databricks Users
+
+Start with predefined scorers to quickly establish comprehensive evaluation coverage. Add custom guidelines that reflect your brand voice and business requirements. Implement RAG evaluation if your application uses retrieval-augmented generation patterns. Set up production monitoring for continuous quality assessment without manual intervention.
+
+### Migration Strategy
+
+Establish evaluation datasets and quality criteria while using OSS for initial development. Develop custom evaluation logic using the scorer framework to capture domain-specific requirements. Validate approaches with heuristic metrics to ensure baseline quality. When ready for advanced semantic evaluation, migrate to Databricks while maintaining your existing evaluation datasets and custom scorers.
+
+## Summary
+
+MLflow 3.0 provides a unified evaluation framework with different implementation capabilities depending on your platform choice. The scorer architecture and evaluation harness work consistently across platforms, enabling shared development patterns and easy migration paths.
+
+Implementation differences become apparent in the sophistication of available evaluation methods. While OSS provides the framework foundation and excels at heuristic evaluation, Databricks offers complete LLM judge implementations with advanced semantic evaluation capabilities.
+
+Your strategic approach should consider evaluation sophistication needs, budget constraints, and development velocity requirements. The unified framework design enables teams to start with OSS and migrate to Databricks as evaluation needs become more sophisticated, maintaining continuity in evaluation datasets and custom scoring logic.
+
+Understanding these platform distinctions helps you choose the right evaluation strategy for your GenAI application development and deployment needs, whether you prioritize cost-effectiveness and customization or comprehensive semantic evaluation and production monitoring.
+
+## Next Steps
+
+- **[Custom Scorers](/genai/eval-monitor/custom-scorers)**: Build domain-specific evaluation logic that works across platforms
+- **[Evaluation Harness](/genai/eval-monitor/concepts/eval-harness)**: Learn the evaluation workflow and API patterns
+- **[Production Monitoring](/genai/eval-monitor/concepts/production-monitoring)**: Implement continuous quality assessment (Databricks)

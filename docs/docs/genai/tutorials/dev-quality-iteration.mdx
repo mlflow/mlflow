@@ -1,0 +1,804 @@
+# Tutorial: Build and Tune Quality Metrics
+
+**Measure What Matters: Creating Custom Quality Metrics for Your GenAI App**
+
+## Overview
+
+Now that TechFlow's customer support chatbot is performing better, we need to ensure it's actually helping customers. In this tutorial, you'll define what "quality" means for customer support, create custom metrics to measure it, and systematically evaluate the bot's effectiveness.
+
+**Scenario**: The bot is fast now, but is it good? Management wants to know: Are customers satisfied? Is the bot resolving issues? When should it escalate to humans? You'll create quality metrics to answer these questions.
+
+## Learning Objectives
+
+By the end of this tutorial, you'll be able to:
+
+- Create LLM judges aligned with customer support quality standards
+- Build custom scorers for support-specific requirements
+- Vibe-check quality during development
+- Build evaluation datasets from real support conversations
+- Run evaluations and interpret results
+
+## Prerequisites
+
+- Completed [Tutorial: Debug and Instrument](/genai/tutorials/debug-tracing)
+- The instrumented TechFlow support chatbot from Tutorial 1
+- MLflow 2.14+ with evaluation features
+- Access to an LLM API for judges (OpenAI, Anthropic, etc.)
+
+## Tutorial
+
+### 1. Understand Quality Metrics for Customer Support
+
+#### Built-in MLflow Judges
+
+MLflow provides several pre-built judges that are useful for customer support:
+
+```python
+import mlflow
+
+# Available built-in judges
+from mlflow.metrics.genai import relevance, faithfulness, answer_correctness
+
+# Each judge evaluates different aspects:
+# - relevance: Does the response address the customer's question?
+# - faithfulness: Is the response grounded in provided context?
+# - answer_correctness: Is the information factually accurate?
+```
+
+#### Support-Specific Quality Dimensions
+
+Customer support has unique quality requirements beyond generic metrics:
+
+1. **Resolution Quality**: Did we solve the customer's problem?
+2. **Response Accuracy**: Are prices, policies, and product details correct?
+3. **Empathy Score**: Does the bot acknowledge customer emotions?
+4. **Escalation Appropriateness**: Should this have gone to a human agent?
+
+#### Why Human-Aligned Metrics Matter
+
+Generic LLM metrics miss support nuances. Expert support agents intuitively know quality when they see it. Our goal is to build metrics that match their judgment.
+
+### 2. Quick Quality Checks During Development
+
+#### Interactive Quality Testing
+
+Let's create a simple test harness for rapid quality checks:
+
+```python
+# quality_check.py
+import mlflow
+from mlflow.metrics.genai import relevance, answer_correctness
+
+
+def quick_quality_check(customer_query, bot_response, context=None):
+    """Quick quality assessment during development"""
+
+    # Start a trace for this check
+    with mlflow.start_trace(name="quality_check") as trace:
+        # Log the interaction
+        mlflow.log_param("customer_query", customer_query)
+        mlflow.log_param("bot_response", bot_response)
+
+        # Run built-in evaluations
+        relevance_score = relevance(
+            predictions=[bot_response], references=[customer_query]
+        )
+
+        print(f"Query: {customer_query}")
+        print(f"Response: {bot_response}")
+        print(f"Relevance Score: {relevance_score}")
+
+        return trace.trace_id
+
+
+# Test common scenarios
+scenarios = [
+    {
+        "query": "Where is my order #12345?",
+        "response": "I can help you track your order. Order #12345 was shipped yesterday via FedEx and should arrive by Friday. Your tracking number is FDX789012.",
+        "expected": "order_tracking",
+    },
+    {
+        "query": "This laptop arrived broken! I'm so frustrated!",
+        "response": "I'm really sorry to hear your laptop arrived damaged. That must be very frustrating. Let me immediately start a return for you and ensure you get a replacement as quickly as possible.",
+        "expected": "emotional_return",
+    },
+    {
+        "query": "Which laptop should I get for college?",
+        "response": "I'd be happy to help you find the perfect laptop for college! Could you tell me: 1) Your budget range? 2) Your major/primary use? 3) Any specific software requirements?",
+        "expected": "product_recommendation",
+    },
+]
+
+# Run quality checks
+for scenario in scenarios:
+    quick_quality_check(scenario["query"], scenario["response"])
+```
+
+#### Manual Review Process
+
+Create a review helper to collect qualitative feedback:
+
+```python
+def collect_manual_feedback(trace_id, feedback_text, quality_score):
+    """Collect manual quality assessments"""
+
+    mlflow.log_feedback(
+        trace_id=trace_id,
+        name="manual_review",
+        value=quality_score,  # 1-5 scale
+        comment=feedback_text,
+        source=mlflow.entities.AssessmentSource(
+            source_type="HUMAN", source_id="support_expert"
+        ),
+    )
+
+
+# Example usage
+collect_manual_feedback(
+    trace_id="tr_12345",
+    feedback_text="Response too formal, missed emotional cues",
+    quality_score=2,
+)
+```
+
+### 3. Create Custom LLM Judges
+
+#### Define Customer Support Guidelines
+
+Let's create judges that understand support quality:
+
+```python
+from mlflow.metrics.genai import make_genai_metric
+
+# Resolution Quality Judge
+resolution_quality = make_genai_metric(
+    name="resolution_quality",
+    definition=(
+        "Evaluates if the support response effectively resolves the customer's issue. "
+        "A high-quality resolution should: "
+        "1) Directly address the customer's primary concern "
+        "2) Provide clear next steps or solution "
+        "3) Confirm the issue is resolved or explain what happens next "
+        "4) Avoid leaving the customer confused or needing to ask again"
+    ),
+    grading_prompt=(
+        "Score the support response from 1-5 based on resolution quality:\n"
+        "5: Completely resolves the issue with clear next steps\n"
+        "4: Mostly resolves with minor clarifications needed\n"
+        "3: Partially addresses the issue\n"
+        "2: Attempts to help but leaves major questions\n"
+        "1: Fails to address the issue\n\n"
+        "Customer Query: {input}\n"
+        "Support Response: {output}\n"
+        "Provide a score and brief explanation."
+    ),
+    examples=[
+        {
+            "input": "My order hasn't arrived and it's been 2 weeks!",
+            "output": "I've checked your order #12345. It was delayed in transit but is now out for delivery today by 5 PM. I've also applied a 20% credit to your account for the inconvenience.",
+            "score": 5,
+            "justification": "Provides specific status, delivery time, and compensation",
+        },
+        {
+            "input": "My order hasn't arrived and it's been 2 weeks!",
+            "output": "Please check our shipping policy page for information about delays.",
+            "score": 1,
+            "justification": "Generic response that doesn't address the specific issue",
+        },
+    ],
+    model="gpt-4",
+    parameters={"temperature": 0.0},
+)
+
+# Empathy Score Judge
+empathy_score = make_genai_metric(
+    name="empathy_score",
+    definition=(
+        "Measures how well the support response acknowledges and responds to "
+        "customer emotions, frustration, or concerns with appropriate empathy."
+    ),
+    grading_prompt=(
+        "Evaluate the empathy level in this support response (1-5):\n"
+        "5: Exceptional empathy, acknowledges feelings, personalizes response\n"
+        "4: Good empathy, acknowledges situation appropriately\n"
+        "3: Basic acknowledgment of customer situation\n"
+        "2: Minimal empathy, mostly transactional\n"
+        "1: No empathy, ignores emotional context\n\n"
+        "Customer: {input}\n"
+        "Support: {output}\n"
+        "Score and explain."
+    ),
+    model="gpt-4",
+    parameters={"temperature": 0.0},
+)
+
+# Policy Accuracy Judge
+policy_accuracy = make_genai_metric(
+    name="policy_accuracy",
+    definition="Verifies that return policies, warranties, and terms are stated correctly",
+    grading_prompt=(
+        "Check if the support response correctly states company policies.\n"
+        "Company policies:\n"
+        "- 30-day return window for all products\n"
+        "- Free shipping on orders over $50\n"
+        "- 1-year warranty on electronics\n"
+        "- Price match within 14 days of purchase\n\n"
+        "Customer: {input}\n"
+        "Response: {output}\n"
+        "Is the policy information accurate? (true/false) Explain any errors."
+    ),
+    model="gpt-4",
+)
+```
+
+#### Test Judge Behavior
+
+Validate that your judges align with expert assessments:
+
+```python
+# Test conversations with known quality levels
+test_cases = [
+    {
+        "input": "This is the THIRD TIME I'm calling about my broken laptop!",
+        "output": "I sincerely apologize for the frustration you've experienced having to contact us multiple times. This is not the service level we aim for. Let me personally handle this right now and ensure we resolve it completely.",
+        "expected_empathy": 5,
+        "expected_resolution": 4,
+    },
+    {
+        "input": "This is the THIRD TIME I'm calling about my broken laptop!",
+        "output": "Please provide your order number.",
+        "expected_empathy": 1,
+        "expected_resolution": 2,
+    },
+]
+
+# Run judges and compare with expected scores
+for case in test_cases:
+    empathy_result = empathy_score(
+        predictions=[case["output"]], references=[case["input"]]
+    )
+
+    resolution_result = resolution_quality(
+        predictions=[case["output"]], references=[case["input"]]
+    )
+
+    print(f"Input: {case['input'][:50]}...")
+    print(f"Empathy - Expected: {case['expected_empathy']}, Got: {empathy_result}")
+    print(
+        f"Resolution - Expected: {case['expected_resolution']}, Got: {resolution_result}"
+    )
+    print("---")
+```
+
+### 4. Build Custom Scorers
+
+Create rule-based scorers for specific support requirements:
+
+```python
+from mlflow.metrics import make_metric
+from datetime import datetime, timedelta
+
+
+# Return Window Compliance Scorer
+def return_window_scorer_fn(predictions, references, parameters):
+    """Check if bot correctly applies 30-day return policy"""
+    scores = []
+
+    for pred, ref in zip(predictions, references):
+        # Extract order date from reference data
+        order_date = datetime.fromisoformat(ref.get("order_date", ""))
+        days_since_order = (datetime.now() - order_date).days
+
+        # Check if response correctly handles return eligibility
+        if days_since_order <= 30:
+            if (
+                "within our 30-day return window" in pred
+                or "eligible for return" in pred
+            ):
+                scores.append(1.0)
+            else:
+                scores.append(0.0)
+        else:
+            if (
+                "outside our 30-day return window" in pred
+                or "return period has expired" in pred
+            ):
+                scores.append(1.0)
+            else:
+                scores.append(0.0)
+
+    return sum(scores) / len(scores)
+
+
+return_window_scorer = make_metric(
+    eval_fn=return_window_scorer_fn,
+    greater_is_better=True,
+    name="return_window_compliance",
+)
+
+
+# Escalation Detection Scorer
+def escalation_needed_scorer_fn(predictions, references, parameters):
+    """Detect when bot should escalate to human agent"""
+    escalation_triggers = [
+        "legal",
+        "lawsuit",
+        "attorney",
+        "extremely angry",
+        "unacceptable",
+        "third time",
+        "multiple times",
+        "urgent",
+        "emergency",
+        "speak to manager",
+        "human agent",
+    ]
+
+    scores = []
+    for pred, ref in zip(predictions, references):
+        input_text = ref.get("input", "").lower()
+
+        # Check if input contains escalation triggers
+        should_escalate = any(trigger in input_text for trigger in escalation_triggers)
+
+        # Check if bot appropriately offers escalation
+        offers_escalation = any(
+            phrase in pred.lower()
+            for phrase in [
+                "connect you with an agent",
+                "transfer you to",
+                "specialist can help",
+                "escalate this",
+            ]
+        )
+
+        # Score based on appropriate action
+        if should_escalate and offers_escalation:
+            scores.append(1.0)
+        elif not should_escalate and not offers_escalation:
+            scores.append(1.0)
+        else:
+            scores.append(0.0)
+
+    return sum(scores) / len(scores)
+
+
+escalation_scorer = make_metric(
+    eval_fn=escalation_needed_scorer_fn,
+    greater_is_better=True,
+    name="escalation_appropriateness",
+)
+
+
+# Response Completeness Scorer
+def completeness_scorer_fn(predictions, references, parameters):
+    """Check if all parts of multi-part questions are answered"""
+    scores = []
+
+    for pred, ref in zip(predictions, references):
+        question = ref.get("input", "")
+
+        # Count question marks and "and" conjunctions as indicators of multiple questions
+        question_count = question.count("?") + question.count(" and ")
+
+        # Simple heuristic: longer responses for multi-part questions
+        if question_count > 1:
+            # Expect at least 100 chars per question part
+            expected_length = question_count * 100
+            scores.append(min(1.0, len(pred) / expected_length))
+        else:
+            # Single questions just need a reasonable response
+            scores.append(1.0 if len(pred) > 50 else 0.5)
+
+    return sum(scores) / len(scores)
+
+
+completeness_scorer = make_metric(
+    eval_fn=completeness_scorer_fn, greater_is_better=True, name="response_completeness"
+)
+```
+
+### 5. Create Your First Evaluation Dataset
+
+Build a representative dataset from production traces:
+
+```python
+import pandas as pd
+import json
+
+
+# Create evaluation dataset from collected traces
+def build_eval_dataset_from_traces(experiment_id, output_file="eval_dataset_v1.json"):
+    """Build evaluation dataset from production traces"""
+
+    # Get traces from MLflow
+    client = mlflow.tracking.MlflowClient()
+    traces = client.search_traces(
+        experiment_ids=[experiment_id],
+        filter_string="tags.detected_intent != 'unknown'",
+        max_results=1000,
+    )
+
+    # Categorize conversations
+    categories = {
+        "order_tracking": [],
+        "return_request": [],
+        "product_recommendation": [],
+        "warranty_inquiry": [],
+        "technical_support": [],
+        "edge_cases": [],
+    }
+
+    for trace in traces:
+        intent = trace.tags.get("detected_intent", "unknown")
+        feedback = trace.tags.get("user_feedback", "neutral")
+
+        # Extract conversation
+        conversation = {
+            "trace_id": trace.trace_id,
+            "input": trace.inputs.get("messages", [])[-1]["content"],
+            "output": trace.outputs.get("content", ""),
+            "intent": intent,
+            "feedback": feedback,
+            "metadata": {
+                "customer_id": trace.tags.get("mlflow.trace.user"),
+                "customer_tier": trace.tags.get("customer_tier"),
+                "session_id": trace.tags.get("mlflow.trace.session"),
+            },
+        }
+
+        # Categorize
+        if feedback == "thumbs_down" or "angry" in conversation["input"].lower():
+            categories["edge_cases"].append(conversation)
+        elif intent in categories:
+            categories[intent].append(conversation)
+
+    # Sample balanced dataset
+    eval_data = []
+    samples_per_category = {
+        "order_tracking": 20,
+        "return_request": 20,
+        "product_recommendation": 20,
+        "warranty_inquiry": 10,
+        "technical_support": 10,
+        "edge_cases": 20,
+    }
+
+    for category, count in samples_per_category.items():
+        sampled = categories[category][:count]
+        eval_data.extend(sampled)
+
+    # Add ground truth labels
+    for item in eval_data:
+        item["ground_truth"] = add_ground_truth_labels(item)
+
+    # Save dataset
+    with open(output_file, "w") as f:
+        json.dump(eval_data, f, indent=2)
+
+    print(f"Created evaluation dataset with {len(eval_data)} examples")
+    return eval_data
+
+
+def add_ground_truth_labels(conversation):
+    """Add expected quality labels for evaluation"""
+
+    labels = {
+        "expected_resolution": None,
+        "ideal_tone": None,
+        "should_escalate": False,
+        "policy_references": [],
+    }
+
+    # Label based on intent and content
+    intent = conversation["intent"]
+    input_text = conversation["input"].lower()
+
+    if intent == "order_tracking":
+        labels["expected_resolution"] = "provide_tracking_info"
+        labels["ideal_tone"] = "informative"
+
+    elif intent == "return_request":
+        labels["expected_resolution"] = "process_return"
+        labels["ideal_tone"] = "empathetic"
+        labels["policy_references"] = ["30_day_return"]
+
+    # Check for escalation triggers
+    if any(word in input_text for word in ["lawyer", "third time", "unacceptable"]):
+        labels["should_escalate"] = True
+        labels["ideal_tone"] = "apologetic_and_helpful"
+
+    return labels
+
+
+# Create the dataset
+eval_dataset = build_eval_dataset_from_traces(
+    experiment_id=mlflow.get_experiment_by_name("techflow-chatbot").experiment_id
+)
+```
+
+### 6. Run Your First Evaluation
+
+Execute a comprehensive evaluation:
+
+```python
+import mlflow
+
+# Load your evaluation dataset
+with open("eval_dataset_v1.json", "r") as f:
+    eval_data = json.load(f)
+
+# Prepare data for MLflow evaluation
+eval_df = pd.DataFrame(
+    [
+        {
+            "inputs": item["input"],
+            "ground_truth": item["output"],  # Using actual responses as baseline
+            "metadata": item["metadata"],
+        }
+        for item in eval_data
+    ]
+)
+
+# Run evaluation with all metrics
+results = mlflow.evaluate(
+    model_uri=f"models:/techflow-chatbot/latest",
+    data=eval_df,
+    targets="ground_truth",
+    model_type="question-answering",
+    evaluators="default",
+    extra_metrics=[
+        resolution_quality,
+        empathy_score,
+        policy_accuracy,
+        return_window_scorer,
+        escalation_scorer,
+        completeness_scorer,
+    ],
+)
+
+# Display results
+print("=== Evaluation Results ===")
+print(f"Overall Metrics:")
+for metric_name, metric_value in results.metrics.items():
+    print(f"  {metric_name}: {metric_value:.3f}")
+
+# Analyze by intent category
+results_by_intent = (
+    results.tables["eval_results_table"]
+    .groupby("intent")
+    .agg(
+        {
+            "resolution_quality": "mean",
+            "empathy_score": "mean",
+            "escalation_appropriateness": "mean",
+        }
+    )
+)
+
+print("\n=== Results by Intent ===")
+print(results_by_intent)
+
+# Find worst performing examples
+worst_cases = results.tables["eval_results_table"].nsmallest(10, "resolution_quality")
+print("\n=== Worst Performing Cases ===")
+for _, case in worst_cases.iterrows():
+    print(f"Input: {case['inputs'][:100]}...")
+    print(f"Resolution Score: {case['resolution_quality']}")
+    print("---")
+```
+
+### 7. Iterate on Quality
+
+Based on evaluation results, make targeted improvements:
+
+```python
+# Analyze specific failure patterns
+def analyze_quality_gaps(results_df):
+    """Identify patterns in quality failures"""
+
+    # Low empathy responses
+    low_empathy = results_df[results_df["empathy_score"] < 3]
+    print(f"Low empathy cases: {len(low_empathy)}")
+
+    # Common patterns in low empathy cases
+    emotional_keywords = ["frustrated", "angry", "upset", "disappointed"]
+    for keyword in emotional_keywords:
+        count = low_empathy["inputs"].str.contains(keyword, case=False).sum()
+        print(f"  Contains '{keyword}': {count} cases")
+
+    # Incomplete resolutions
+    incomplete = results_df[results_df["resolution_quality"] < 3]
+    print(f"\nIncomplete resolutions: {len(incomplete)}")
+
+    # Policy accuracy issues
+    policy_errors = results_df[results_df["policy_accuracy"] == False]
+    print(f"\nPolicy errors: {len(policy_errors)}")
+
+    return {
+        "low_empathy": low_empathy,
+        "incomplete": incomplete,
+        "policy_errors": policy_errors,
+    }
+
+
+# Run analysis
+quality_gaps = analyze_quality_gaps(results.tables["eval_results_table"])
+
+# Create improvement strategies
+improvements = {
+    "empathy": {
+        "before": "I understand you have an issue with your order.",
+        "after": "I'm truly sorry to hear about the trouble with your order. I can understand how frustrating this must be, especially when you're expecting your purchase. Let me help you resolve this right away.",
+    },
+    "resolution": {
+        "before": "Please check our return policy for more information.",
+        "after": "I've started your return process. You'll receive a prepaid shipping label via email within 2 hours. Once we receive the item (typically 3-5 business days), your refund of $149.99 will be processed within 24 hours.",
+    },
+    "policy_clarity": {
+        "before": "Returns are subject to our standard policy.",
+        "after": "Good news! Since you purchased this item 15 days ago, you're well within our 30-day return window. You can return it for a full refund, no questions asked.",
+    },
+}
+
+# Test improvements
+for category, improvement in improvements.items():
+    print(f"\n=== {category.upper()} Improvement ===")
+    print(f"Before: {improvement['before']}")
+    print(f"After: {improvement['after']}")
+
+    # You would implement these improvements in your bot's prompts/logic
+```
+
+### 8. Track Progress Over Time
+
+Monitor quality improvements across versions:
+
+```python
+# Compare evaluation runs
+def compare_evaluation_runs(run_id_before, run_id_after):
+    """Compare metrics between two evaluation runs"""
+
+    client = mlflow.tracking.MlflowClient()
+
+    # Get metrics from both runs
+    metrics_before = client.get_run(run_id_before).data.metrics
+    metrics_after = client.get_run(run_id_after).data.metrics
+
+    print("=== Quality Improvement Report ===")
+    print(f"{'Metric':<30} {'Before':<10} {'After':<10} {'Change':<10}")
+    print("-" * 60)
+
+    for metric in metrics_before:
+        if metric in metrics_after:
+            before_val = metrics_before[metric]
+            after_val = metrics_after[metric]
+            change = ((after_val - before_val) / before_val) * 100
+
+            print(f"{metric:<30} {before_val:<10.3f} {after_val:<10.3f} {change:+.1f}%")
+
+    # Log comparison as artifact
+    comparison_data = {
+        "timestamp": datetime.now().isoformat(),
+        "before_run": run_id_before,
+        "after_run": run_id_after,
+        "improvements": {
+            metric: {
+                "before": metrics_before[metric],
+                "after": metrics_after.get(metric, 0),
+                "change_percent": (
+                    (metrics_after.get(metric, 0) - metrics_before[metric])
+                    / metrics_before[metric]
+                )
+                * 100,
+            }
+            for metric in metrics_before
+            if metric in metrics_after
+        },
+    }
+
+    with mlflow.start_run():
+        mlflow.log_dict(comparison_data, "quality_comparison.json")
+
+
+# Track weekly progress
+weekly_results = {
+    "week_1": {"resolution_quality": 0.72, "empathy_score": 0.45, "accuracy": 0.89},
+    "week_2": {"resolution_quality": 0.78, "empathy_score": 0.62, "accuracy": 0.91},
+    "week_3": {"resolution_quality": 0.84, "empathy_score": 0.78, "accuracy": 0.93},
+    "week_4": {"resolution_quality": 0.87, "empathy_score": 0.81, "accuracy": 0.94},
+}
+
+# Visualize improvement
+import matplotlib.pyplot as plt
+
+metrics = ["resolution_quality", "empathy_score", "accuracy"]
+weeks = list(weekly_results.keys())
+
+fig, ax = plt.subplots(figsize=(10, 6))
+
+for metric in metrics:
+    values = [weekly_results[week][metric] for week in weeks]
+    ax.plot(weeks, values, marker="o", label=metric)
+
+ax.set_xlabel("Week")
+ax.set_ylabel("Score")
+ax.set_title("Customer Support Bot Quality Improvement")
+ax.legend()
+ax.grid(True, alpha=0.3)
+
+plt.tight_layout()
+plt.savefig("quality_improvement.png")
+```
+
+## Real Customer Examples
+
+### Example 1: Improved Empathy
+
+**Week 1 Response**:
+```
+Customer: "This is the THIRD TIME I'm contacting you about my broken laptop!!!"
+Bot: "Please provide your order number to check the status."
+Empathy Score: 1/5
+```
+
+**Week 4 Response**:
+```
+Customer: "This is the THIRD TIME I'm contacting you about my broken laptop!!!"
+Bot: "I sincerely apologize that you've had to contact us multiple times about this issue. That's absolutely not the experience we want you to have. I can see your previous contacts, and I'm going to personally ensure we resolve this for you right now. Let me immediately escalate this to our senior support team who can offer you an expedited replacement or full refund, whichever you prefer."
+Empathy Score: 5/5
+```
+
+### Example 2: Complete Resolution
+
+**Week 1 Response**:
+```
+Customer: "I bought airpods 6 months ago and one stopped working"
+Bot: "Our warranty policy covers manufacturing defects."
+Resolution Score: 2/5
+```
+
+**Week 4 Response**:
+```
+Customer: "I bought airpods 6 months ago and one stopped working"
+Bot: "I'm sorry to hear one of your AirPods stopped working. Since you purchased them 6 months ago, you're still covered under Apple's 1-year limited warranty for manufacturing defects. Here's what I'll do for you:
+
+1. I've created a warranty claim (Reference: WR-789012)
+2. You'll receive an email within 30 minutes with a prepaid shipping label
+3. Send us the defective AirPod (keep the working one)
+4. We'll ship a replacement within 2 business days of receipt
+
+Is there anything else I can help you with regarding this issue?"
+Resolution Score: 5/5
+```
+
+## Key Takeaways
+
+1. **Quality is Multi-Dimensional**: Customer support quality involves resolution effectiveness, empathy, accuracy, and appropriate escalation.
+
+2. **Human Alignment is Critical**: Generic LLM metrics miss support-specific nuances. Custom judges aligned with expert judgment provide better insights.
+
+3. **Iteration Drives Improvement**: Regular evaluation and targeted improvements based on data lead to significant quality gains.
+
+4. **Real Examples Matter**: Building evaluation datasets from actual customer conversations ensures you're solving real problems.
+
+## Next Steps
+
+- Continue to [Tutorial: Using Traces for Quality Enhancement](/genai/tutorials/enhance-quality) where we'll discover patterns from production data
+- Explore [Custom Judge Creation](/genai/eval-monitor/custom-judge)
+- Review [Evaluation Best Practices](/genai/eval-monitor/concepts/eval-harness)
+
+## FAQ
+
+**Q: How many conversations do I need in my evaluation dataset?**
+A: Start with 100 diverse conversations covering your main support categories. Focus on quality and representation over quantity.
+
+**Q: Should I use different judges for different query types?**
+A: Yes! Product questions need accuracy judges, while complaints need empathy judges. Tailor metrics to context.
+
+**Q: How often should I update evaluation datasets?**
+A: Monthly for general updates, and immediately after major product launches or policy changes.
+
+**Q: Can I combine LLM judges with rule-based scorers?**
+A: Absolutely! LLM judges handle nuanced quality aspects while rule-based scorers ensure policy compliance.

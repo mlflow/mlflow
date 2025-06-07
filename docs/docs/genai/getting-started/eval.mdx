@@ -1,0 +1,592 @@
+---
+description: "Learn how to use MLflow Evaluation to assess and improve your GenAI applications."
+last_update:
+  date: 2025-05-18
+---
+
+# Evaluating a GenAI App
+
+This quickstart guides you through evaluating a GenAI application using MLflow Evaluation. We'll focus on a common use case: generating personalized sales emails based on customer data from a CRM.
+
+This guide assumes you have MLflow installed and configured in your environment.
+
+We will walk through the following steps:
+
+1. **Create a new prompt and trace it**: Define an initial prompt for generating sales emails and trace its execution.
+2. **Set up your evaluation criteria**: Define what makes a "good" email using custom scorers and guidelines.
+3. **Create an evaluation dataset**: Prepare a dataset of customer information to test your email generation logic.
+4. **Run evaluation**: Use MLflow to evaluate your prompt against the dataset and criteria.
+5. **Review the results**: Analyze the evaluation output to understand areas for improvement.
+6. **Change the prompt accordingly**: Modify your prompt based on the evaluation insights.
+7. **Re-run evaluation**: Evaluate the new prompt to see if it performs better.
+8. **Use the difference view**: Compare the results of the two evaluations to confirm improvements.
+
+Let's get started!
+
+## Step 1: Create a new prompt and trace it
+
+First, we'll define a Python function `core_generate_email_logic` that takes customer data and a prompt template to generate an email. We'll use the `@mlflow.trace` decorator to automatically capture the execution details.
+
+Create a file named `llm_utils.py` with the following content:
+
+````python
+import json
+import os
+import mlflow
+from openai import OpenAI
+
+# Initialize OpenAI client
+
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+@mlflow.trace
+def core_generate_email_logic(customer_data: dict, prompt_template: str, model: str):
+    if not openai_client:
+        raise RuntimeError("OpenAI client not available")
+
+    response = openai_client.chat.completions.create(
+        model=model,
+        messages=[
+            {"role": "system", "content": prompt_template},
+            {"role": "user", "content": json.dumps(customer_data)},
+        ],
+    )
+    s = response.choices[0].message.content
+
+    # Clean JSON
+    clean_string = s
+    if s.startswith("```json\\n") and s.endswith("\\n```"):
+        clean_string = s[len("```json\\n") : -len("\\n```")]
+    elif s.startswith("```") and s.endswith("```"):
+        clean_string = s[3:-3]
+
+    clean_string = clean_string.strip()
+    email_json = json.loads(clean_string)
+    return email_json
+````
+
+This file uses a provided prompt template and the `core_generate_email_logic` function. This function uses the OpenAI client to interact with GPT models and expects the LLM to return a JSON object containing the email's subject and body.
+
+Now, create your main application file, let's call it `eval_app.py`. We'll start with an initial prompt template (`PROMPT_V1`).
+
+```python
+import json
+import mlflow
+from dotenv import load_dotenv
+import os
+import functools
+from mlflow.metrics.genai import make_genai_metric, faithfulness, relevance
+from mlflow.entities import Feedback
+from openai import OpenAI
+from llm_utils import core_generate_email_logic
+
+# Load environment variables from .env file
+load_dotenv()
+
+# Initialize OpenAI client
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+PROMPT_V1 = """You are an expert sales communication assistant for CloudFlow Inc. Your task is to generate a personalized, professional follow-up email for our sales representatives to send to their customers at the end of the day.
+
+## INPUT DATA
+You will be provided with a JSON object containing:
+- Account information
+- Recent activity data (meetings, product usage, support tickets)
+- Sales representative details
+
+## EMAIL REQUIREMENTS
+Generate an email that follows these guidelines:
+
+1. SUBJECT LINE:
+- Engaging and attention-grabbing
+- Include the company name if appropriate
+
+2. GREETING:
+- Address the main contact by first name
+- Use a professional but friendly opening
+
+3. BODY CONTENT:
+- Begin with a brief mention of CloudFlow's recent improvements
+- Reference the most recent meeting/interaction
+- Provide updates on support tickets
+- Highlight positive product usage trends
+- Address any action items from previous meetings
+- Include recommendations for additional features they should try
+- Suggest scheduling a follow-up meeting soon
+
+4. TONE AND STYLE:
+- Professional but enthusiastic
+- Show expertise by using industry terminology
+- Include at least one customer success story
+- Balance being informative with driving future business
+- Personalized where possible
+- Ensure email is comprehensive enough to cover all important points
+
+5. CLOSING:
+- Include an appropriate sign-off
+- Use the sales rep's signature from the provided data
+- Add a brief mention of an upcoming product release or feature
+
+## OUTPUT FORMAT
+Provide the complete email as JUST a JSON object that can be loaded via `json.loads()` (do not wrap the JSON in backticks) with:
+- `subject_line`: Subject line
+- `body`: Body content with appropriate spacing and formatting including the signature
+
+Remember, this email should position the sales representative as a trusted advisor who can help the customer get maximum value from CloudFlow's solutions."""
+
+# We will define the rest of the functions (load_input_data, scorers, evaluate_email_generation, etc.) in the next steps.
+
+if __name__ == "__main__":
+    # For now, let's just test the core logic with a sample customer
+    sample_customer_data = {
+        "customer_info": {
+            "account_name": "TestCorp",
+            "main_contact_first_name": "Alex",
+            "recent_meeting_summary": "Discussed Q3 performance and upcoming features.",
+            "support_tickets": [
+                {
+                    "id": "TICKET-001",
+                    "status": "Resolved",
+                    "summary": "Login issue fixed.",
+                }
+            ],
+            "product_usage_trends": "Increased usage of analytics module by 20%.",
+            "action_items": ["Follow up on integration proposal."],
+            "sales_rep": {
+                "name": "Jane Doe",
+                "title": "Senior Account Manager",
+                "email": "jane.doe@cloudflow.com",
+            },
+        }
+    }
+
+    print("Generating email with PROMPT_V1...")
+    generated_email_v1 = core_generate_email_logic(
+        customer_data=sample_customer_data["customer_info"],
+        prompt_template=PROMPT_V1,
+        model="gpt-4",  # Or your chosen model
+    )
+    print(f"Subject: {generated_email_v1['subject_line']}")
+    print(f"Body:\n{generated_email_v1['body']}")
+```
+
+:::important
+Before running, ensure you have a `.env` file in your project root with your credentials as described in the [Tracing quickstart](/genai/getting-started/tracing/tracing-ide).
+:::
+
+Run `python eval_app.py`. This will generate an email using `PROMPT_V1` and print it. Because `core_generate_email_logic` is decorated with `@mlflow.trace`, a trace for this generation will be logged to your MLflow Experiment. You can navigate to the MLflow UI to view it.
+
+## Step 2: Set up your evaluation criteria
+
+Now, let's define how we'll measure the quality of the generated emails. We'll create custom metrics using MLflow's evaluation framework.
+Add the following to your `eval_app.py`:
+
+```python
+# ... (imports and PROMPT_V1 definition from above) ...
+
+# Define evaluation guidelines
+guidelines = {
+    "accuracy": """The response correctly references all factual information from the provided_info based on these rules:
+
+- All factual information must be directly sourced from the provided data with NO fabrication
+- Names, dates, numbers, and company details must be 100% accurate with no errors
+- Meeting discussions must be summarized with the exact same sentiment and priority as presented in the data
+- Support ticket information must include correct ticket IDs, status, and resolution details when available
+- All product usage statistics must be presented with the same metrics provided in the data
+- No references to CloudFlow features, services, or offerings unless specifically mentioned in the customer data
+- AUTOMATIC FAIL if any information is mentioned that is not explicitly provided in the data""",
+    "personalized": """The response demonstrates clear personalization based on the provided_info based on these rules:
+- Email must begin by referencing the most recent meeting/interaction
+- Immediately next, the email must address the customer's MOST pressing concern as evidenced in the data
+- Content structure must be customized based on the account's health status (critical issues first for "Fair" or "Poor" accounts)
+- Industry-specific language must be used that reflects the customer's sector
+- Recommendations must ONLY reference features that are:
+  a) Listed as "least_used_features" in the data, AND
+  b) Directly related to the "potential_opportunity" field
+- Relationship history must be acknowledged (new vs. mature relationship)
+- Deal stage must influence communication approach (implementation vs. renewal vs. growth)
+- AUTOMATIC FAIL if recommendations could be copied to another customer in a different situation""",
+    "relevance": """The response prioritizes content that matters to the recipient in the provided_info based on these rules:
+- Critical support tickets (status="Open (Critical)") must be addressed after the greeting, reference to the most recent interaction, any pleasantries, and references to closed tickets
+  - it is ok if they name is slightly different as long as it is clearly the same issue as in the provided_info
+- Time-sensitive action items must be addressed before general updates
+- Content must be ordered by descending urgency as defined by:
+  1. Critical support issues
+  2. Action items explicitly stated in most recent meeting
+  3. Upcoming renewal if within 30 days
+  4. Recently resolved issues
+  5. Usage trends and recommendations
+- No more than ONE feature recommendation for accounts with open critical issues
+- No mentions of company news, product releases, or success stories not directly requested by the customer
+- No calls to action unrelated to the immediate needs in the data
+- AUTOMATIC FAIL if the email requests a meeting without being tied to a specific action item or opportunity in the data""",
+}
+
+# Create custom evaluation metrics
+
+
+def create_custom_metrics():
+    accuracy_metric = make_genai_metric(
+        name="accuracy",
+        definition=guidelines["accuracy"],
+        grading_prompt="Rate the accuracy of the email based on the provided guidelines. Score from 1-5.",
+        model="gpt-4o-mini",
+        parameters={"temperature": 0.0},
+        greater_is_better=True,
+    )
+
+    personalization_metric = make_genai_metric(
+        name="personalization",
+        definition=guidelines["personalized"],
+        grading_prompt="Rate how well personalized the email is based on the provided guidelines. Score from 1-5.",
+        model="gpt-4o-mini",
+        parameters={"temperature": 0.0},
+        greater_is_better=True,
+    )
+
+    relevance_metric = make_genai_metric(
+        name="relevance_custom",
+        definition=guidelines["relevance"],
+        grading_prompt="Rate the relevance of the email content based on the provided guidelines. Score from 1-5.",
+        model="gpt-4o-mini",
+        parameters={"temperature": 0.0},
+        greater_is_better=True,
+    )
+
+    return [accuracy_metric, personalization_metric, relevance_metric]
+
+
+@scorer
+def rep_name_in_email(inputs, outputs):
+    """Check if the sales representative's name is included in the email."""
+    # Ensure inputs["customer_info"] and outputs["body"] are present
+    if (
+        "customer_info" not in inputs
+        or "sales_rep" not in inputs["customer_info"]
+        or "name" not in inputs["customer_info"]["sales_rep"]
+    ):
+        return Feedback(
+            name="rep_name_in_email",
+            value=0,
+            rationale="Missing sales_rep name in input data.",
+        )
+    if "body" not in outputs:
+        return Feedback(
+            name="rep_name_in_email", value=0, rationale="Missing email body in output."
+        )
+
+    return Feedback(
+        name="rep_name_in_email",
+        value=1
+        if inputs["customer_info"]["sales_rep"]["name"] in outputs["body"]
+        else 0,
+        rationale=f"Checked for presence of '{inputs['customer_info']['sales_rep']['name']}' in email body.",
+    )
+
+
+# ... (PROMPT_V1 and main execution block)
+```
+
+Here we've defined:
+
+- `guidelines`: A dictionary of detailed criteria for accuracy, personalization, and relevance.
+- `Custom GenAI metrics`: using `make_genai_metric` that use LLM-as-a-judge to evaluate our guidelines.
+- `rep_name_in_email`: A simple custom function that checks if the sales representative's name is present in the email body.
+
+## Step 3: Create an evaluation dataset
+
+MLflow Evaluation runs against a dataset. Let's create a function to load customer data from a JSONL file. Create a file named `input_data.jsonl` in a directory called `data` (i.e., `data/input_data.jsonl`) relative to your `eval_app.py` with sample customer data.
+
+Example `data/input_data.jsonl`:
+
+```json
+{"account_name": "AlphaTech", "main_contact_first_name": "Sarah", "recent_meeting_summary": "Reviewed Q1 goals, discussed new AI module.", "support_tickets": [{"id": "TICKET-101", "status": "Open (Critical)", "summary": "System outage affecting all users."}], "product_usage_trends": "Stable", "action_items": ["Schedule follow-up demo for AI module."], "sales_rep": {"name": "John Smith", "title": "Key Account Manager", "email": "john.smith@cloudflow.com"}, "least_used_features": ["Advanced Reporting"], "potential_opportunity": "Expand reporting capabilities to track AI module ROI."}
+{"account_name": "BetaSolutions", "main_contact_first_name": "Mike", "recent_meeting_summary": "Onboarding complete, positive feedback on UI.", "support_tickets": [], "product_usage_trends": "Rapid adoption of core features.", "action_items": ["Check in next month for feedback."], "sales_rep": {"name": "Emily White", "title": "Account Executive", "email": "emily.white@cloudflow.com"}, "least_used_features": ["Workflow Automation", "API Access"], "potential_opportunity": "Streamline internal processes with workflow automation."}
+{"account_name": "Gamma Corp", "main_contact_first_name": "Lisa", "recent_meeting_summary": "Discussed renewal terms. Concerned about pricing.", "support_tickets": [{"id": "TICKET-105", "status": "Resolved", "summary": "Billing inquiry clarified."}], "product_usage_trends": "High usage, considering premium features.", "action_items": ["Send revised renewal proposal."], "sales_rep": {"name": "David Brown", "title": "Senior Account Manager", "email": "david.brown@cloudflow.com"}, "least_used_features": ["SSO Integration"], "potential_opportunity": "Enhance security with SSO for their enterprise plan."}
+```
+
+Now add the data loading function to `eval_app.py`:
+
+```python
+# ... (imports, guidelines, scorers, PROMPT_V1) ...
+
+
+def load_input_data(file_path: str) -> list:
+    """
+    Load input data from a JSONL file.
+
+    Args:
+        file_path: Path to the JSONL file containing customer data
+
+    Returns:
+        List of dictionaries containing customer information
+    """
+    data = []
+    with open(file_path, "r") as file:
+        for line in file:
+            try:
+                customer_data = json.loads(line)
+                # Format for MLflow evaluation
+                data.append({"customer_info": customer_data})
+            except json.JSONDecodeError as e:
+                print(
+                    f"Skipping line due to JSON decode error: {e} - Line: {line.strip()}"
+                )
+    return data
+
+
+# ... (main execution block)
+```
+
+This function reads each line from `input_data.jsonl`, parses it as JSON, and formats it into the structure expected by `mlflow.evaluate`.
+
+## Step 4: Run evaluation
+
+With the prompt, metrics, and data ready, we can define our prediction function and the main evaluation function.
+
+Add the following to `eval_app.py`:
+
+```python
+# ... (imports, guidelines, metrics, PROMPT_V1, load_input_data) ...
+
+
+def predict_fn(inputs):
+    """
+    Prediction function that uses core_generate_email_logic to generate emails.
+
+    Args:
+        inputs: Dictionary containing customer information under the key "customer_info".
+
+    Returns:
+        Dictionary containing generated email subject and body.
+    """
+    return core_generate_email_logic(
+        customer_data=inputs["customer_info"],
+        prompt_template=PROMPT_V1,  # We'll make this configurable later
+        model="gpt-4",
+    )
+
+
+def evaluate_email_generation(prompt, model, data_path="data/input_data.jsonl"):
+    """
+    Evaluate email generation using MLflow's evaluation harness.
+
+    Args:
+        prompt: The prompt template string to evaluate.
+        model: The model name to use for generation.
+        data_path: Path to the JSONL file with input data.
+
+    Returns:
+        Evaluation results from MLflow.
+    """
+    # Load evaluation data
+    eval_data = load_input_data(data_path)
+    if not eval_data:
+        print("Evaluation data is empty. Skipping evaluation.")
+        return None
+
+    # Create a prediction function with the specific prompt and model
+    def model_predict_fn(inputs):
+        return core_generate_email_logic(
+            customer_data=inputs["customer_info"],
+            prompt_template=prompt,
+            model=model,
+        )
+
+    # Get custom metrics
+    custom_metrics = create_custom_metrics()
+
+    # Add built-in metrics
+    all_metrics = custom_metrics + [faithfulness, relevance, rep_name_in_email]
+
+    # Run evaluation
+    return mlflow.evaluate(
+        model=model_predict_fn,
+        data=eval_data[:5],  # Limit to first 5 for demo
+        targets=None,
+        model_type="text",
+        evaluators="default",
+        extra_metrics=all_metrics,
+        experiment_id=mlflow.get_experiment_by_name("Default").experiment_id,
+    )
+
+
+def eval_v1():
+    print("\nEvaluating PROMPT_V1...")
+    results_v1 = evaluate_email_generation(prompt=PROMPT_V1, model="gpt-4")
+    if results_v1:
+        print("PROMPT_V1 Evaluation Results:")
+        print(results_v1.metrics)
+    else:
+        print("Evaluation of PROMPT_V1 failed or was skipped.")
+    return results_v1
+
+
+# Update the main execution block
+if __name__ == "__main__":
+    # Set up MLflow
+    mlflow.set_experiment("Email Generation Evaluation")
+
+    eval_results_v1 = eval_v1()
+    # eval_v2() will be called later
+```
+
+The `predict_fn` adapts our `core_generate_email_logic` to the interface expected by `mlflow.evaluate`. The `evaluate_email_generation` function:
+
+1. Loads the evaluation data using `load_input_data`.
+2. Creates a prediction function with the specified prompt and model.
+3. Calls `mlflow.evaluate`, passing our custom prediction function, data, and the list of custom metrics.
+
+Run `python eval_app.py` again. This time, it will evaluate `PROMPT_V1` against `input_data.jsonl` using your defined metrics. The summary metrics will be printed. An MLflow Run will be created in your Experiment, containing detailed results, including per-row scores and the overall metrics.
+
+## Step 5: Review the results
+
+Navigate to your MLflow Experiment in the MLflow UI (typically at `http://localhost:5000`). Find the latest run.
+
+Under the **Metrics** section, you'll see the aggregated scores from your custom metrics (e.g., `accuracy/score`, `personalization/score`, `relevance_custom/score`, `rep_name_in_email/score`).
+
+Click on the **Artifacts** tab. You should find evaluation results that provide a detailed breakdown of how each input performed across all metrics.
+
+Review these results. For `PROMPT_V1`, you might notice:
+
+- Lower scores for `personalization` and `relevance_custom` because the prompt is quite generic.
+- The `rep_name_in_email` score might be okay if the LLM consistently includes the signature.
+- `faithfulness` might be reasonable, but the emails might not be strategically useful.
+
+This analysis helps identify that `PROMPT_V1` needs to be more specific about personalization and prioritizing information.
+
+## Step 6: Change the prompt accordingly
+
+Based on the review, we'll use `PROMPT_V2`, which is designed to be more specific, focusing on personalization, conciseness, and actionable content.
+
+Add the improved prompt and evaluation function to `eval_app.py`:
+
+```python
+# ... (previous code) ...
+
+PROMPT_V2 = """You are an expert sales communication assistant for CloudFlow Inc. Your task is to generate a personalized, professional follow-up email for our sales representatives to send to their customers at the end of the day.
+
+## INPUT DATA
+
+You will be provided with a JSON object containing:
+
+- Account information
+- Recent activity data (meetings, product usage, support tickets)
+- Sales representative details
+
+## EMAIL REQUIREMENTS
+
+Generate an email that follows these guidelines:
+
+1. SUBJECT LINE:
+
+- Concise and specific to the most important update or follow-up point
+- Include the company name if appropriate
+
+2. GREETING:
+
+- Address the main contact by first name
+- Use a professional but friendly opening
+
+3. BODY CONTENT (prioritize in this order):
+
+- Reference the most recent meeting/interaction and acknowledge key points discussed
+- Discuss any pressing issues that are still open immediately afterwards
+- Provide updates on any urgent or recently resolved support tickets
+- Highlight positive product usage trends or achievements
+- Address any specific action items from previous meetings
+- Include personalized recommendations based on features listed as 'least_used_features' and directly related to the 'potential_opportunity' field.
+  - Make sure these recommendations can NOT be copied to another customer in a different situation
+  - No more than ONE feature recommendation for accounts with open critical issues
+- Suggest clear and specific next steps
+  - Only request a meeting if it can be tied to specific action items
+
+4. TONE AND STYLE:
+
+- Professional but conversational
+- Concise paragraphs (2-3 sentences each)
+- Use bullet points for lists or multiple items
+- Balance between being informative and actionable
+- Personalized to reflect the existing relationship
+- Adjust formality based on the customer's industry and relationship history
+
+5. CLOSING:
+
+- Include an appropriate sign-off
+- Use the sales rep's signature from the provided data
+- No generic marketing language or overly sales-focused calls to action
+
+## OUTPUT FORMAT
+
+Provide the complete email as JUST a JSON object that can be loaded via `json.loads()` (do not wrap the JSON in backticks) with:
+
+- `subject_line`: Subject line
+- `body`: Body content with appropriate spacing and formatting including the signature
+
+Remember, this email should feel like it was thoughtfully written by the sales representative based on their specific knowledge of the customer, not like an automated message."""
+
+
+def eval_v2():
+    print("\nEvaluating PROMPT_V2...")
+    results_v2 = evaluate_email_generation(prompt=PROMPT_V2, model="gpt-4")
+    if results_v2:
+        print("PROMPT_V2 Evaluation Results:")
+        print(results_v2.metrics)
+    else:
+        print("Evaluation of PROMPT_V2 failed or was skipped.")
+    return results_v2
+
+
+# Update the main execution block
+
+if __name__ == "__main__":
+    # Set up MLflow
+    mlflow.set_experiment("Email Generation Evaluation")
+
+    eval_results_v1 = eval_v1()
+    eval_results_v2 = eval_v2()
+
+    if eval_results_v1 and eval_results_v2:
+        print("\nSuccessfully completed evaluations for V1 and V2.")
+        # Next step will show how to compare these results in the UI.
+```
+
+## Step 7: Re-run evaluation
+
+Run `python eval_app.py` one more time. This will now run evaluations for both `PROMPT_V1` and `PROMPT_V2`. Two new MLflow runs will be created.
+
+Examine the metrics for the `PROMPT_V2` run. You should hopefully see improvements in scores like `personalization/score` and `relevance_custom/score` due to the more detailed instructions in `PROMPT_V2`.
+
+## Step 8: Use the difference view to understand if it works
+
+MLflow provides a UI to compare runs, which is extremely useful for seeing if changes (like our prompt update) led to improvements.
+
+1. Go to your MLflow Experiment in the UI.
+2. Select the two latest runs (one for `PROMPT_V1` eval, one for `PROMPT_V2` eval). You can identify them by their start times or by adding tags/names to your runs if you extend the script.
+3. Click the **Compare** button.
+4. In the comparison view, you can see metrics side-by-side. Look for improvements in your key metrics (`personalization/score`, `relevance_custom/score`, etc.).
+5. You can also compare artifacts to see how the generated emails and their scores changed for specific customer inputs.
+
+By comparing the evaluation results, you can concretely demonstrate that `PROMPT_V2` generates higher quality emails according to your defined criteria.
+
+## Next Steps
+
+Congratulations! You've successfully used MLflow Evaluation to:
+
+- Define prompts and trace their execution.
+- Create custom quality criteria using metrics and LLM judges.
+- Build an evaluation dataset.
+- Run evaluations for different prompt versions.
+- Analyze results and compare versions to demonstrate improvement.
+
+From here, you can explore more advanced MLflow Evaluation features:
+
+- Experiment with different built-in metrics like `toxicity`, `flesch_kincaid_grade_level`, etc.
+- Create more sophisticated custom metrics for domain-specific evaluation criteria.
+- Integrate evaluation into your CI/CD pipelines for continuous quality monitoring.
+- Scale up your evaluation datasets for more comprehensive testing.
+- Explore MLflow's model registry features for managing different versions of your GenAI applications.
+
+:::tip
+You can also explore this feature in managed MLflow by referring to the [Databricks documentation](https://docs.databricks.com/aws/en/mlflow3/genai/getting-started/eval).
+:::

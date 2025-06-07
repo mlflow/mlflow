@@ -1,0 +1,458 @@
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Endpoint Creation and Management
+
+:::important
+This feature is only available on Databricks
+:::
+
+This guide covers creating and managing model serving endpoints in **Databricks Managed MLflow**. Databricks provides comprehensive managed endpoint creation and management capabilities with enterprise-grade features including auto-scaling, monitoring, and security.
+
+## Model Serving Endpoints
+
+Databricks offers fully managed, auto-scaling model serving endpoints with enterprise features:
+
+### Creating Endpoints via UI
+
+1. **Navigate to Serving**: Go to the Serving page in your Databricks workspace
+2. **Create Endpoint**: Click "Create serving endpoint"
+3. **Configure Model**: Select your model from the Model Registry
+4. **Set Resources**: Choose compute resources and scaling options
+5. **Deploy**: Launch the endpoint with monitoring enabled
+
+### Creating Endpoints via MLflow SDK
+
+```python
+from mlflow.deployments import get_deploy_client
+
+client = get_deploy_client("databricks")
+endpoint = client.create_endpoint(
+    name="unity-catalog-model-endpoint",
+    config={
+        "served_entities": [
+            {
+                "name": "ads-entity",
+                "entity_name": "catalog.schema.my-ads-model",
+                "entity_version": "3",
+                "workload_size": "Small",
+                "scale_to_zero_enabled": True,
+            }
+        ],
+        "traffic_config": {
+            "routes": [
+                {"served_model_name": "my-ads-model-3", "traffic_percentage": 100}
+            ]
+        },
+    },
+)
+```
+
+### Advanced Endpoint Configuration
+
+The following REST API example creates a single endpoint with two custom models in Unity Catalog and sets the endpoint traffic split between those models. The served entity, current, hosts version 1 of model-A and gets 90% of the endpoint traffic, while the other served entity, challenger, hosts version 1 of model-B and gets 10% of the endpoint traffic.
+
+```bash
+# Multi-model endpoint with traffic splitting
+POST /api/2.0/serving-endpoints
+
+{
+   "name":"multi-model"
+   "config":
+   {
+      "served_entities":
+      [
+         {
+            "name":"current",
+            "entity_name":"catalog.schema.model-A",
+            "entity_version":"1",
+            "workload_size":"Small",
+            "scale_to_zero_enabled":true
+         },
+         {
+            "name":"challenger",
+            "entity_name":"catalog.schema.model-B",
+            "entity_version":"1",
+            "workload_size":"Small",
+            "scale_to_zero_enabled":true
+         }
+      ],
+      "traffic_config":
+      {
+         "routes":
+         [
+            {
+               "served_model_name":"current",
+               "traffic_percentage":"90"
+            },
+            {
+               "served_model_name":"challenger",
+               "traffic_percentage":"10"
+            }
+         ]
+      }
+   }
+}
+```
+
+### Using Databricks SDK
+
+```python
+from databricks.sdk import WorkspaceClient
+from databricks.sdk.service.serving import EndpointCoreConfigInput, ServedModelInput
+
+# Initialize workspace client
+w = WorkspaceClient()
+
+# Create endpoint using SDK
+w.serving_endpoints.create(
+    name="my-sdk-endpoint",
+    config=EndpointCoreConfigInput(
+        served_models=[
+            ServedModelInput(
+                model_name="my-model",
+                model_version="1",
+                workload_size="Small",
+                scale_to_zero_enabled=True,
+                workload_type="CPU",
+            )
+        ]
+    ),
+)
+```
+
+## Foundation Model Endpoints
+
+Databricks provides pre-configured endpoints for foundation models:
+
+### Accessing Foundation Models
+
+```python
+# Using MLflow Deployments APIs
+import os
+import mlflow.deployments
+
+# Only required when running this example outside of a Databricks Notebook
+
+os.environ["DATABRICKS_HOST"] = "https://<workspace_host>.databricks.com"
+os.environ["DATABRICKS_TOKEN"] = "dapi-your-databricks-token"
+
+client = mlflow.deployments.get_deploy_client("databricks")
+
+completions_response = client.predict(
+    endpoint="<completions-model-endpoint>",
+    inputs={
+        "prompt": "What is the capital of France?",
+        "temperature": 0.1,
+        "max_tokens": 10,
+        "n": 2,
+    },
+)
+
+# Print the response
+print(completions_response)
+```
+
+### Create Foundation Model Endpoints
+
+```python
+from mlflow.deployments import get_deploy_client
+
+client = get_deploy_client("databricks")
+endpoint = client.create_endpoint(
+    name="chat",
+    config={
+        "served_entities": [
+            {
+                "name": "completions",
+                "external_model": {
+                    "name": "gpt-4",
+                    "provider": "openai",
+                    "task": "llm/v1/chat",
+                    "openai_config": {
+                        "openai_api_key": "{{secrets/scope/key}}",
+                    },
+                },
+            }
+        ],
+    },
+)
+assert endpoint == {
+    "name": "chat",
+    "creator": "alice@company.com",
+    "creation_timestamp": 0,
+    "last_updated_timestamp": 0,
+    "state": {...},
+    "config": {...},
+    "tags": [...],
+    "id": "88fd3f75a0d24b0380ddc40484d7a31b",
+}
+```
+
+## Endpoint Management
+
+<Tabs>
+    <TabItem value="endpoint-status" label="Get model endpoint status">
+        ```python
+        from mlflow.deployments import get_deploy_client
+
+        client = get_deploy_client("databricks")
+        endpoint = client.get_endpoint(endpoint="chat")
+        assert endpoint == {
+            "name": "chat",
+            "creator": "alice@company.com",
+            "creation_timestamp": 0,
+            "last_updated_timestamp": 0,
+            "state": {...},
+            "config": {...},
+            "tags": [...],
+            "id": "88fd3f75a0d24b0380ddc40484d7a31b",
+        }
+        ```
+    </TabItem>
+    <TabItem value="endpoint-deletion" label="Delete a model serving endpoint">
+        ```python
+        from mlflow.deployments import get_deploy_client
+
+        client = get_deploy_client("databricks")
+        client.delete_endpoint(endpoint="chat")
+        ```
+    </TabItem>
+    <TabItem value="enable-inferencetable" label="Enable Inference Table on a model endpoint">
+        ```bash
+        POST /api/2.0/serving-endpoints
+
+        {
+        "name": "feed-ads",
+        "config":
+        {
+            "served_entities": [
+            {
+            "entity_name": "ads1",
+            "entity_version": "1",
+            "workload_size": "Small",
+            "scale_to_zero_enabled": true
+            }
+            ],
+            "auto_capture_config":
+            {
+            "catalog_name": "ml",
+            "schema_name": "ads",
+            "table_name_prefix": "feed-ads-prod"
+            }
+        }
+        }
+        ```
+    </TabItem>
+</Tabs>
+
+
+## MLflow Deployments Client
+
+Use the MLflow deployments client for programmatic endpoint management:
+
+```python
+from mlflow.deployments import get_deploy_client
+
+# Create deployment client for Databricks
+client = get_deploy_client("databricks")
+
+# Create endpoint
+endpoint = client.create_endpoint(
+    name="my-mlflow-endpoint",
+    config={
+        "served_models": [
+            {
+                "model_name": "my-model",
+                "model_version": "1",
+                "workload_size": "Small",
+                "scale_to_zero_enabled": True,
+            }
+        ]
+    },
+)
+
+# List endpoints
+endpoints = client.list_endpoints()
+print("Available endpoints:", endpoints)
+
+# Get endpoint details
+endpoint_info = client.get_endpoint("my-mlflow-endpoint")
+print("Endpoint info:", endpoint_info)
+
+# Update endpoint
+client.update_endpoint(
+    endpoint="my-mlflow-endpoint",
+    config={
+        "served_models": [
+            {"model_name": "my-model", "model_version": "2", "workload_size": "Medium"}
+        ]
+    },
+)
+
+# Delete endpoint
+client.delete_endpoint("my-mlflow-endpoint")
+```
+
+## Endpoint Testing and Validation
+
+### Testing Databricks Endpoints
+
+```python
+import requests
+import json
+import concurrent.futures
+import time
+
+
+def test_databricks_endpoint(endpoint_name, databricks_instance, token):
+    # Test data
+    test_data = {"inputs": [[1.0, 2.0, 3.0, 4.0]]}
+
+    # Make prediction request
+    response = requests.post(
+        f"{databricks_instance}/serving-endpoints/{endpoint_name}/invocations",
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        },
+        data=json.dumps(test_data),
+    )
+
+    print(f"Databricks Response: {response.json()}")
+    return response.json()
+
+
+# Load testing
+def load_test_endpoint(endpoint_url, headers, num_requests=100):
+    def make_request():
+        test_data = {"inputs": [[1, 2, 3, 4]]}
+        start_time = time.time()
+        response = requests.post(endpoint_url, headers=headers, json=test_data)
+        end_time = time.time()
+        return {
+            "status_code": response.status_code,
+            "response_time": end_time - start_time,
+            "success": response.status_code == 200,
+        }
+
+    # Execute concurrent requests
+    with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+        futures = [executor.submit(make_request) for _ in range(num_requests)]
+        results = [
+            future.result() for future in concurrent.futures.as_completed(futures)
+        ]
+
+    # Analyze results
+    success_rate = sum(1 for r in results if r["success"]) / len(results)
+    avg_response_time = sum(r["response_time"] for r in results) / len(results)
+
+    print(f"Load Test Results:")
+    print(f"Success Rate: {success_rate:.2%}")
+    print(f"Average Response Time: {avg_response_time:.3f}s")
+
+    return results
+```
+
+### Endpoint Health Monitoring
+
+```python
+def monitor_endpoint_health(endpoint_name, databricks_instance, token):
+    """Monitor endpoint health and performance"""
+
+    # Check endpoint status
+    status_response = requests.get(
+        f"{databricks_instance}/api/2.0/serving-endpoints/{endpoint_name}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    if status_response.status_code == 200:
+        endpoint_info = status_response.json()
+        state = endpoint_info.get("state", {})
+
+        health_status = {
+            "endpoint_name": endpoint_name,
+            "ready": state.get("ready", "UNKNOWN"),
+            "config_update": state.get("config_update", "UNKNOWN"),
+            "timestamp": time.time(),
+        }
+
+        return health_status
+    else:
+        return {
+            "error": f"Failed to get endpoint status: {status_response.status_code}"
+        }
+```
+
+## Security and Authentication
+
+Databricks endpoints inherit workspace security features:
+
+- **Token-based Authentication**: Use personal access tokens or service principal tokens
+- **IP Access Lists**: Restrict access by IP address
+- **Identity and Access Management**: Integration with Azure AD, AWS IAM, etc.
+- **Audit Logging**: Comprehensive logging of all endpoint access
+
+```python
+# Using service principal for authentication
+service_principal_token = "your-service-principal-token"
+
+headers = {
+    "Authorization": f"Bearer {service_principal_token}",
+    "Content-Type": "application/json",
+}
+
+
+# Test authentication
+def test_authentication(databricks_instance, token):
+    response = requests.get(
+        f"{databricks_instance}/api/2.0/clusters/list",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+
+    if response.status_code == 200:
+        print("Authentication successful")
+        return True
+    else:
+        print(f"Authentication failed: {response.status_code}")
+        return False
+```
+
+## Best Practices
+
+### Databricks Best Practices
+
+- 🏷️ **Model Versions**: Use semantic versioning for model deployments
+- 🚦 **Traffic Splitting**: Gradually roll out new models using traffic splitting
+- 📈 **Auto-scaling**: Enable scale-to-zero for cost optimization
+- 🔍 **Monitoring**: Set up comprehensive monitoring and alerting
+- 🧪 **Testing**: Thoroughly test endpoints before production deployment
+- 🔐 **Security**: Implement proper authentication and access controls
+- 📝 **Logging**: Enable auto-capture for request/response logging
+- 🧮 **Resource Planning**: Right-size workload configurations based on expected traffic
+
+### Production Deployment Checklist
+
+1. **Pre-deployment**:
+   - ✅ Model validation and testing
+   - 🚀 Performance benchmarking
+   - 🔐 Security review
+   - 🧮 Resource planning
+
+2. **Deployment**:
+   - 🚦 Gradual traffic rollout
+   - 🔍 Monitoring setup
+   - 🚨 Alerting configuration
+   - 🛟 Backup and rollback plan
+
+3. **Post-deployment**:
+   - 📈 Performance monitoring
+   - 💰 Cost optimization
+   - ❤️ Regular health checks
+   - 🔄 Model drift monitoring
+
+The Databricks managed model serving platform provides enterprise-grade capabilities for deploying, managing, and monitoring machine learning models at scale with built-in security, monitoring, and cost optimization features.
+
+### Next
+
+Explore advanced GenAI capabilities in Databricks Model Serving in the [official Databricks documentation](https://docs.databricks.com/aws/en/mlflow3/genai/serving).

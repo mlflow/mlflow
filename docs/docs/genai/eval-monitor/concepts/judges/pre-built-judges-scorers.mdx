@@ -1,0 +1,396 @@
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Predefined Judges & Scorers
+
+Predefined judges provide battle-tested, research-backed evaluation capabilities for common GenAI quality dimensions. Instead of building complex evaluation logic from scratch, you can leverage these ready-to-use judges to quickly assess your application's safety, accuracy, relevance, and other critical quality aspects.
+
+## Available Predefined Judges
+
+MLflow provides a comprehensive suite of judges that cover the most important quality dimensions for GenAI applications:
+
+| **Judge Function** | **Primary Inputs** | **Ground Truth Required** | **Purpose** |
+|-------------------|-------------------|--------------------------|-------------|
+| `is_safe` | `content` | No | Detect harmful, toxic, or inappropriate content |
+| `is_context_relevant` | `request`, `context` | No | Assess if retrieved context matches the user's query |
+| `is_grounded` | `request`, `response`, `context` | No | Verify responses are supported by provided context |
+| `is_correct` | `request`, `response`, `expected_facts` | Yes | Validate factual accuracy against known truth |
+| `is_context_sufficient` | `request`, `context`, `expected_facts` | Yes | Determine if context provides adequate information |
+| `meets_guidelines` | `guidelines`, `context` | No | Check adherence to custom business rules |
+
+### Judge Characteristics
+
+**Consistent Output Format**: All predefined judges return Feedback objects with a binary value ("yes"/"no" or True/False) and detailed rationale explaining the assessment.
+
+**Flexible Input Handling**: Judges accept various input formats including strings, dictionaries, and lists, making them easy to integrate with different application architectures.
+
+**Transparent Decision Making**: Each assessment includes human-readable explanations that help you understand why content passed or failed evaluation criteria.
+
+## Platform Capabilities
+
+Understanding platform differences helps you choose the right implementation approach for your needs:
+
+<Tabs>
+<TabItem value="oss_capabilities" label="🌐 MLflow Open Source">
+
+**Custom Judge Development**: MLflow OSS provides the framework for building your own judges using Python functions that return Feedback objects. This approach gives you complete control over evaluation logic and is ideal for deterministic quality checks.
+
+**External LLM Integration**: Create sophisticated semantic judges by integrating with external LLM providers like OpenAI, Anthropic, or Azure OpenAI. This enables advanced evaluation capabilities while maintaining platform flexibility.
+
+**Heuristic-Based Evaluation**: Build efficient judges using keyword matching, pattern recognition, length constraints, and other programmatic approaches that provide fast, consistent results.
+
+```python
+from mlflow.entities import Feedback
+import openai
+
+
+def custom_safety_judge_with_llm(content):
+    """Custom safety judge using external LLM provider."""
+
+    # Quick heuristic check first
+    unsafe_keywords = ["violence", "hate", "harmful"]
+    if any(keyword in content.lower() for keyword in unsafe_keywords):
+        return Feedback(
+            value=False, rationale="Content contains potentially unsafe keywords"
+        )
+
+    # Use LLM for nuanced evaluation
+    try:
+        response = openai.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {
+                    "role": "user",
+                    "content": f"Is this content safe and appropriate? Content: {content}",
+                }
+            ],
+            temperature=0.1,
+        )
+
+        assessment = response.choices[0].message.content
+        is_safe = (
+            "safe" in assessment.lower() and "inappropriate" not in assessment.lower()
+        )
+
+        return Feedback(value=is_safe, rationale=f"LLM assessment: {assessment}")
+    except Exception as e:
+        return Feedback(value=False, rationale=f"Evaluation failed: {str(e)}")
+
+
+def custom_relevance_judge(request, context):
+    """Custom relevance judge using keyword overlap."""
+    request_words = set(request.lower().split())
+    context_words = set(context.lower().split())
+
+    overlap = len(request_words.intersection(context_words))
+    relevance_score = overlap / len(request_words) if request_words else 0
+
+    is_relevant = relevance_score > 0.3  # 30% keyword overlap threshold
+
+    return Feedback(
+        value=is_relevant,
+        rationale=f"Keyword overlap: {relevance_score:.2f} ({'relevant' if is_relevant else 'not relevant'})",
+    )
+```
+
+</TabItem>
+<TabItem value="databricks_capabilities" label="🏢 Databricks MLflow">
+
+**Advanced Built-in Judges**: Databricks provides sophisticated predefined judges that leverage advanced LLM capabilities for nuanced semantic evaluation. These judges understand context, intent, and subtle quality dimensions that simple heuristics cannot capture.
+
+**Automatic Rationale Generation**: Built-in judges provide detailed, human-readable explanations for every assessment, helping you understand quality issues and guide improvement efforts.
+
+**Seamless Integration**: Judges integrate directly with MLflow's evaluation framework and production monitoring capabilities, providing consistent quality assessment from development through deployment.
+
+```python
+# Using Databricks predefined judges (requires databricks-agents package)
+from mlflow.genai.judges import (
+    is_safe,
+    is_grounded,
+    is_context_relevant,
+    is_correct,
+    meets_guidelines,
+)
+
+# Safety assessment with advanced semantic understanding
+safety_result = is_safe(content="I'm having trouble with my application setup.")
+print(f"Safe: {safety_result.value}")
+print(f"Reasoning: {safety_result.rationale}")
+
+# Grounding assessment for RAG applications
+grounding_result = is_grounded(
+    request="What are the benefits of database indexing?",
+    response="Indexing improves query performance by creating efficient lookup structures.",
+    context=[
+        {
+            "content": "Database indexes speed up data retrieval by maintaining sorted references to table data."
+        }
+    ],
+)
+
+# Guidelines compliance with natural language rules
+guidelines_result = meets_guidelines(
+    guidelines=[
+        "Maintain a professional and helpful tone",
+        "Provide specific examples when explaining concepts",
+        "Acknowledge uncertainty when information is incomplete",
+    ],
+    context={
+        "response": "Database indexing can improve performance. For example, a B-tree index on a user ID column helps quickly locate specific users. However, the exact performance gain depends on your specific use case and data distribution."
+    },
+)
+
+# Context relevance for retrieval quality
+relevance_result = is_context_relevant(
+    request="How do I optimize SQL query performance?",
+    context="Use appropriate indexes, limit result sets with WHERE clauses, and avoid SELECT * statements.",
+)
+```
+
+**Note**: Databricks predefined judges require the `databricks-agents` package and are optimized for the Databricks platform environment.
+
+</TabItem>
+</Tabs>
+
+## Implementation Approaches
+
+Choose the implementation approach that best fits your application architecture and platform requirements:
+
+<Tabs>
+<TabItem value="direct_usage" label="🎯 Direct Judge Usage">
+
+**When to Use**: Perfect for real-time evaluation within your application, custom validation workflows, or when you need granular control over individual assessments.
+
+```python
+from mlflow.genai.judges import is_safe, is_grounded
+
+
+def validate_response(user_query, generated_response, retrieved_context):
+    """Validate a single response using multiple judges."""
+
+    # Check content safety
+    safety_check = is_safe(content=generated_response)
+    if not safety_check.value:
+        return {
+            "approved": False,
+            "reason": f"Safety concern: {safety_check.rationale}",
+        }
+
+    # Verify grounding in context
+    grounding_check = is_grounded(
+        request=user_query, response=generated_response, context=retrieved_context
+    )
+    if not grounding_check.value:
+        return {
+            "approved": False,
+            "reason": f"Grounding issue: {grounding_check.rationale}",
+        }
+
+    return {"approved": True, "reason": "All quality checks passed"}
+
+
+# Use in your application
+result = validate_response(
+    user_query="What is machine learning?",
+    generated_response="Machine learning is a subset of AI that enables computers to learn from data.",
+    retrieved_context=[
+        {
+            "content": "Machine learning allows systems to automatically learn and improve from experience."
+        }
+    ],
+)
+```
+
+</TabItem>
+<TabItem value="evaluation_framework" label="📊 Evaluation Framework Integration">
+
+**When to Use**: Ideal for comprehensive offline evaluation, model comparison, and systematic quality assessment across multiple examples.
+
+```python
+import mlflow
+from mlflow.genai.judges import is_safe, is_grounded, is_context_relevant
+
+# Create evaluation dataset
+eval_dataset = [
+    {
+        "request": "What is the capital of France?",
+        "response": "Paris is the capital city of France.",
+        "retrieved_context": [
+            {"content": "Paris is the capital and largest city of France."}
+        ],
+        "expected_facts": ["Paris is the capital of France"],
+    },
+    {
+        "request": "How do neural networks work?",
+        "response": "Neural networks process information through interconnected nodes.",
+        "retrieved_context": [
+            {
+                "content": "Neural networks consist of layers of interconnected neurons that process data."
+            }
+        ],
+        "expected_facts": [
+            "Neural networks use interconnected nodes",
+            "They process information in layers",
+        ],
+    },
+]
+
+
+# Define comprehensive evaluation using multiple judges
+def comprehensive_quality_assessment(inputs, outputs, targets=None):
+    """Combine multiple judges for thorough quality evaluation."""
+    request = inputs.get("request", "")
+    response = outputs.get("response", "")
+    context = inputs.get("retrieved_context", [])
+
+    results = {}
+
+    # Safety evaluation
+    safety_result = is_safe(content=response)
+    results["safety"] = safety_result
+
+    # Context relevance evaluation
+    if context:
+        relevance_result = is_context_relevant(request=request, context=context)
+        results["context_relevance"] = relevance_result
+
+    # Grounding evaluation
+    if context:
+        grounding_result = is_grounded(
+            request=request, response=response, context=context
+        )
+        results["grounding"] = grounding_result
+
+    # Overall assessment
+    all_passed = all(result.value for result in results.values())
+    results["overall_quality"] = all_passed
+
+    return results
+
+
+# Run comprehensive evaluation
+results = mlflow.genai.evaluate(
+    data=eval_dataset,
+    model=your_genai_application,
+    extra_metrics=[comprehensive_quality_assessment],
+)
+
+print(f"Evaluation completed. Results: {results.metrics}")
+```
+
+</TabItem>
+<TabItem value="production_monitoring" label="🚀 Production Monitoring">
+
+**When to Use**: Essential for continuous quality assurance in live applications, catching quality regressions, and maintaining consistent user experience.
+
+```python
+# Production monitoring setup (Databricks-specific)
+import mlflow
+
+# Configure continuous monitoring with predefined judges
+monitor = mlflow.genai.create_monitor(
+    name="customer_support_quality_monitor",
+    endpoint="endpoints:/customer-support-bot-prod",
+    # Use predefined judges for comprehensive quality monitoring
+    scorers=[
+        # Content safety monitoring
+        "safety",
+        # Response quality monitoring
+        "relevance_to_query",
+        "groundedness",
+        # Custom guidelines for brand compliance
+        "guideline_adherence",
+    ],
+    # Monitor 10% of production traffic
+    sampling_rate=0.10,
+    # Configure quality thresholds
+    evaluator_config={
+        "databricks-agent": {
+            "global_guidelines": [
+                "Maintain professional and helpful tone",
+                "Provide accurate information based on available context",
+                "Acknowledge limitations when information is uncertain",
+            ]
+        }
+    },
+)
+
+print(f"Production monitoring active for {monitor.name}")
+```
+
+</TabItem>
+</Tabs>
+
+## Understanding Judge Results
+
+All predefined judges return Feedback objects with consistent structure that makes results easy to interpret and act upon:
+
+```python
+# Example judge result structure
+feedback_example = {
+    "value": True,  # or False, "yes", "no" depending on judge
+    "rationale": "Response demonstrates good grounding in the provided context. The information about machine learning is consistent with and supported by the source material.",
+    "metadata": {
+        "judge_name": "groundedness",
+        "execution_time_ms": 245,
+        "model_used": "gpt-4o-mini",
+    },
+}
+
+
+# Processing judge results for decision making
+def process_judge_results(judge_results):
+    """Extract actionable insights from judge evaluations."""
+
+    issues_found = []
+    quality_score = 0
+    total_judges = len(judge_results)
+
+    for judge_name, result in judge_results.items():
+        if result.value in [True, "yes"]:
+            quality_score += 1
+        else:
+            issues_found.append({"judge": judge_name, "issue": result.rationale})
+
+    overall_quality = quality_score / total_judges if total_judges > 0 else 0
+
+    return {
+        "quality_score": overall_quality,
+        "issues": issues_found,
+        "recommendation": "approve" if overall_quality >= 0.8 else "review",
+    }
+```
+
+## Best Practices for Using Predefined Judges
+
+**Start with Core Quality Dimensions**: Begin with safety and relevance judges that apply to most applications, then add specialized judges like grounding and correctness based on your specific use case requirements.
+
+**Combine Multiple Judges**: Use several judges together to get comprehensive quality assessment. Different judges catch different types of issues, providing more thorough evaluation than any single judge alone.
+
+**Consistent Usage Across Environments**: Use the same judges for development evaluation, testing, and production monitoring to ensure consistent quality standards throughout your application lifecycle.
+
+**Interpret Results in Context**: Judge results should inform decisions but not replace human judgment entirely. Use rationales to understand why content passed or failed, and consider the specific context of your application and users.
+
+**Monitor Performance and Costs**: Track the computational cost and latency of judge evaluations, especially when using LLM-based judges in production. Optimize sampling rates and judge selection based on quality requirements and resource constraints.
+
+## Common Judge Combinations
+
+**Content Safety Stack**: Combine `is_safe` with `meets_guidelines` to ensure both automated safety detection and custom brand safety requirements.
+
+**RAG Quality Stack**: Use `is_context_relevant`, `is_grounded`, and `is_context_sufficient` together to comprehensively evaluate retrieval-augmented generation systems.
+
+**Factual Accuracy Stack**: Combine `is_correct` with `is_grounded` to verify both factual accuracy and proper source attribution.
+
+**Customer-Facing Application Stack**: Use `is_safe`, `is_context_relevant`, and `meets_guidelines` to ensure appropriate, helpful, and brand-consistent responses.
+
+## Next Steps
+
+#### Getting Started
+Choose 2-3 judges that address your most critical quality concerns. Start with safety and relevance judges for broad applicability, then add specialized judges based on your application's specific requirements.
+
+#### Advanced Usage
+- **[Custom Scorers](/genai/eval-monitor/custom-scorers)** - Build domain-specific evaluation logic that combines multiple judges
+- **[Production Monitoring](/genai/eval-monitor/concepts/production-monitoring)** - Deploy judges for continuous quality assurance
+- **[Evaluation Strategies](/genai/eval-monitor)** - Comprehensive approaches to GenAI quality assessment
+
+**Ready to implement systematic quality assessment?** Start with the predefined judges that match your application's quality requirements, then expand your evaluation suite as your needs evolve.

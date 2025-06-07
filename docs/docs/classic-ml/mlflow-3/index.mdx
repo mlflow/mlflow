@@ -1,0 +1,288 @@
+---
+sidebar_label: MLflow 3.0
+sidebar_position: 1
+---
+
+import { APILink } from "@site/src/components/APILink";
+import { CardGroup, PageCard } from "@site/src/components/Card";
+
+# MLflow 3.0 (Preview)
+
+Discover the next generation of MLflow, designed to streamline your AI experimentation and accelerate your journey from idea to production. MLflow 3.0 brings cutting-edge support for GenAI workflows, enabling seamless integration of generative AI models into your projects.
+
+## What is MLflow 3.0?
+
+MLflow 3.0 delivers best-in-class experiment tracking, observability, and performance evaluation for machine learning models, AI applications, and generative AI agents!
+With MLflow 3.0, it's now easier than ever to:
+- Centrally track and analyze the performance of your models, agents, and generative AI applications **across all environments**, from interactive queries in a development notebook through production batch or real-time serving deployments.
+- Select the best models, agents, and generative AI applications for production with an **enhanced performance comparison experience** powered by MLflow's tracing and evaluation capabilities.
+
+MLflow 3.0's enhanced model tracking helps you manage and evaluate different model, agent, and generative AI application configurations in your experiments.
+Improved comparison workflows with the new <APILink fn="mlflow.entities.LoggedModel">LoggedModel</APILink> enable you to quickly identify the best candidates for production,
+and MLflow tracing provides rich observability everywhere that your models, agents, and generative AI applications are deployed.
+
+## Enhanced Model Tracking
+
+In MLflow 3.0, we introduce a refined architecture along with revamped APIs and UI, tailored to enhance generative AI and deep learning workflows.
+With GenAI agents, there are multiple rounds of offline evaluation via batch jobs and interactive queries from human beta testers.
+In deep learning, training often generates multiple model checkpoints, where the best candidates are further evaluated before production deployment.
+
+We are introducing a new first-class object, the <APILink fn="mlflow.entities.LoggedModel">LoggedModel</APILink> entity, into MLflow Tracking to streamline these processes. As you define and evaluate your GenAI agents in code,
+or your deep learning jobs create and evaluate models, they will be automatically stored as MLflow Logged Models in your MLflow Experiment.
+
+When developing a new version of a GenAI agent or application, you can group all of the traces and metrics from interactive queries and automated evaluation jobs using MLflow's <APILink fn="mlflow.entities.LoggedModel">LoggedModel</APILink> API.
+This enables rich, comprehensive comparisons across versions.
+Similarly, every deep learning checkpoint is stored as a <APILink fn="mlflow.entities.LoggedModel">LoggedModel</APILink> with its own metrics and parameters, simplifying the process of identifying the best checkpoint for deployment or continued training.
+
+### Manual control over trace grouping
+
+To manually control trace grouping, you can use <APILink fn="mlflow.set_active_model">mlflow.set_active_model</APILink> API to **set an active LoggedModel in the current context**.
+This API supports passing either the `name` or `model_id` of a LoggedModel. If no LoggedModel with the given name exists, MLflow automatically creates an external model (without artifacts) using the specified name.
+If multiple LoggedModels share the same name, MLflow sets the **latest** one as the active model. When providing a `model_id`, ensure that a corresponding LoggedModel exists, otherwise an exception will
+be raised.
+
+To manually create a LoggedModel beforehand, use <APILink fn="mlflow.create_external_model">mlflow.create_external_model</APILink> if you store the model's artifacts outside of MLflow, or use `mlflow.<flavor>.log_model` to log
+the model and artifacts directly.
+
+Once an active model is set, all generated traces will be associated with this model and displayed in its `Traces` tab in the UI when autologging is enabled (e.g. <APILink fn="mlflow.langchain.autolog">mlflow.langchain.autolog</APILink>).
+Additionally, evaluation metrics produced by <APILink fn="mlflow.evaluate">mlflow.evaluate</APILink> will appear on the LoggedModel's page, providing insights into the model's performance.
+
+### Quickstart
+
+#### Prerequisites
+Run the following command to install MLflow 3.0 and OpenAI packages.
+```
+pip install --upgrade 'mlflow>=3.0.0rc0' --pre
+pip install openai
+```
+
+Set `OPENAI_API_KEY` environment variable in CLI to authenticate to OpenAI APIs.
+```bash
+export OPENAI_API_KEY=your_api_key_here
+```
+
+This quickstart demonstrates how to create a generative AI application with prompt engineering and evaluate it using MLflow 3.0.
+It highlights the integration of the LoggedModel lineage feature with runs and traces, showcasing seamless tracking and observability for GenAI workflows.
+
+#### Register a prompt template
+
+First, we create a prompt template and register it with [MLflow Prompt Registry](/genai/prompt-version-mgmt/prompt-registry).
+
+```python
+import mlflow
+
+# define a prompt template
+prompt_template = """\
+You are an expert AI assistant. Answer the user's question with clarity, accuracy, and conciseness.
+
+## Question:
+{{question}}
+
+## Guidelines:
+- Keep responses factual and to the point.
+- If relevant, provide examples or step-by-step instructions.
+- If the question is ambiguous, clarify before answering.
+
+Respond below:
+"""
+
+# register the prompt
+prompt = mlflow.register_prompt(
+    name="ai_assistant_prompt",
+    template=prompt_template,
+    commit_message="Initial version of AI assistant",
+)
+```
+Switch to the **Prompts** tab to view the registered prompt:
+
+<div className="center-div" style={{ width: "100%" }}>
+    ![The MLflow UI showing a prompt version](/images/mlflow-3/ai_assistant_prompt.png)
+</div>
+
+#### Make a request to OpenAI
+
+At this step, we set an active model for grouping traces.
+After enabling autologging, all traces generated during requests will be linked to the active model.
+
+```python
+from openai import OpenAI
+
+# set an active model for linking traces, a model named `openai_model` will be created
+mlflow.set_active_model(name="openai_model")
+
+# turn on autologging for automatic tracing
+mlflow.openai.autolog()
+
+# Initialize OpenAI client
+client = OpenAI()
+
+question = "What is MLflow?"
+response = (
+    client.chat.completions.create(
+        messages=[{"role": "user", "content": prompt.format(question=question)}],
+        model="gpt-4o-mini",
+        temperature=0.1,
+        max_tokens=2000,
+    )
+    .choices[0]
+    .message.content
+)
+
+# get the active model id
+active_model_id = mlflow.get_active_model_id()
+print(f"Current active model id: {active_model_id}")
+
+mlflow.search_traces(model_id=active_model_id)
+#                            trace_id                                             trace  ...  assessments                        request_id
+# 0  7bb4569d3d884e3e87b1d8752276a13c  Trace(trace_id=7bb4569d3d884e3e87b1d8752276a13c)  ...           []  7bb4569d3d884e3e87b1d8752276a13c
+# [1 rows x 12 columns]
+```
+
+Generated traces can be viewed in the **Traces** tab of the logged model:
+
+<div className="center-div" style={{ width: "100%" }}>
+    ![The MLflow UI showing the logged model traces](/images/mlflow-3/simple_example_traces.png)
+</div>
+
+#### Evaluate the response with GenAI metrics
+
+Finally, we evaluate the response using different metrics and record the results to a run and the current active model.
+
+```python
+from mlflow.metrics.genai import answer_correctness, answer_similarity, faithfulness
+
+# ground truth result for evaluation
+mlflow_ground_truth = (
+    "MLflow is an open-source platform for managing "
+    "the end-to-end machine learning (ML) lifecycle. It was developed by Databricks, "
+    "a company that specializes in big data and machine learning solutions. MLflow is "
+    "designed to address the challenges that data scientists and machine learning "
+    "engineers face when developing, training, and deploying machine learning models."
+)
+
+# Define evaluation metrics
+metrics = {
+    "answer_similarity": answer_similarity(model="openai:/gpt-4o"),
+    "answer_correctness": answer_correctness(model="openai:/gpt-4o"),
+    "faithfulness": faithfulness(model="openai:/gpt-4o"),
+}
+# Calculate metrics based on the input, response and ground truth
+# The evaluation metrics are callables that can be invoked directly
+answer_similarity_score = metrics["answer_similarity"](
+    predictions=response, inputs=question, targets=mlflow_ground_truth
+).scores[0]
+answer_correctness_score = metrics["answer_correctness"](
+    predictions=response, inputs=question, targets=mlflow_ground_truth
+).scores[0]
+faithfulness_score = metrics["faithfulness"](
+    predictions=response, inputs=question, context=mlflow_ground_truth
+).scores[0]
+
+# Start a run to represent the evaluation process
+with mlflow.start_run() as run:
+    # Log metrics and pass model_id to link the metrics
+    mlflow.log_metrics(
+        {
+            "answer_similarity": answer_similarity_score,
+            "answer_correctness": answer_correctness_score,
+            "faithfulness": faithfulness_score,
+        },
+        model_id=active_model_id,
+    )
+```
+
+Navigate to the **Models** tab of the experiment to view the newly created LoggedModel. Evaluation metrics, model ID, source run, parameters, and other details are displayed on the models detail page, providing a comprehensive overview of the model's performance and lineage.
+
+<div className="center-div" style={{ width: "100%" }}>
+    ![The MLflow UI showing the models tab](/images/mlflow-3/simple_example_models_tab.png)
+</div>
+<div className="center-div" style={{ width: "100%" }}>
+    ![The MLflow UI showing the logged model](/images/mlflow-3/simple_example_model.png)
+</div>
+
+Clicking on the source_run takes you to the evaluation run's page with all the metrics:
+
+<div className="center-div" style={{ width: "100%" }}>
+    ![The MLflow UI showing the run and logged model](/images/mlflow-3/simple_example_run_page.png)
+</div>
+
+## MLflow 3.0 Showcases
+
+Explore the examples below to see how MLflow 3.0's powerful features can be applied across various domains.
+
+<CardGroup>
+  <PageCard headerText="GenAI with MLflow 3.0" link="/ml/mlflow-3/genai-agent" text="Discover how to log, evaluate, and trace GenAI agents using MLflow 3.0." />
+  <PageCard headerText="Deep Learning with MLflow 3.0" link="/ml/mlflow-3/deep-learning" text="Learn how to leverage MLflow 3.0 to identify the best models in deep learning workflows." />
+</CardGroup>
+
+## Migration Guide
+
+MLflow 3.0 introduces some key API changes while also removes some outdated features. This guide will help you transition smoothly to the latest version.
+
+### Key changes
+
+<table style={{ width: "100%", tableLayout: "fixed" }}>
+  <thead>
+    <tr>
+      <th></th>
+      <th>MLflow 2.x</th>
+      <th>MLflow 3.0</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>log_model API usage</td>
+      <td>
+      Pass `artifact_path` when logging a model.
+      ```
+        with mlflow.start_run():
+            mlflow.pyfunc.log_model(
+                artifact_path="model",
+                python_model=python_model,
+                ...
+            )
+        ```
+      </td>
+      <td>
+      Pass **name** when logging a model. This allows you to later search for LoggedModels using this name, `artifact_path` parameter is deprecated.
+
+        :::note
+
+            MLflow no longer requires starting a Run before logging models, because Models become
+            first citizen entity in MLflow 3. You can directly call the `log_model` API without
+            `mlflow.start_run()` context manager to log a model.
+
+        :::
+        ```
+        mlflow.pyfunc.log_model(
+            name="model",
+            python_model=python_model,
+            ...
+        )
+        ```
+      </td>
+    </tr>
+    <tr>
+      <td>Model artifacts storage location</td>
+      <td>[model artifacts](/ml/model/#storage-format) are stored as run artifacts.</td>
+      <td>Model artifacts are stored into models artifacts location. Note: this impacts the behavior of <APILink fn="mlflow.client.MlflowClient.list_artifacts">list_artifacts</APILink> API.</td>
+    </tr>
+  </tbody>
+</table>
+
+### Removed Features
+
+- MLflow Recipes
+- Flavors: the following model flavors are no longer supported
+    - fastai
+    - h2o
+    - mleap
+- AI gateway client APIs: use deployments APIs instead
+
+### Breaking changes
+
+Please refer to this [page](/ml/mlflow-3/breaking-changes) for the full list of breaking changes in MLflow 3.
+
+### Compatibility with MLflow 2.x
+
+We strongly recommend upgrading **both client and server** to MLflow 3.x for the best experience. A mismatch between client and server versions may lead to unexpected behavior.
