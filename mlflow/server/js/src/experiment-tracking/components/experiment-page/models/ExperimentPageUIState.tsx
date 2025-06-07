@@ -46,10 +46,13 @@ export enum RUNS_VISIBILITY_MODE {
   CUSTOM = 'CUSTOM',
 }
 
-export type RunsChartsGlobalLineChartConfig = Partial<
-  Pick<RunsChartsLineCardConfig, 'selectedXAxisMetricKey' | 'xAxisKey' | 'lineSmoothness'>
->;
-
+export interface RunsChartsGlobalLineChartConfig
+  extends Partial<Pick<RunsChartsLineCardConfig, 'selectedXAxisMetricKey' | 'xAxisKey' | 'lineSmoothness'>> {
+  /**
+   * If true, metric traces will be colorized instead of using dashed lines
+   */
+  colorizeMetricTraces?: boolean;
+}
 /**
  * An interface describing serializable, persistable configuration for charts displaying
  * experiment run data: metrics, parameters etc. Used in experiment page's runs compare view and

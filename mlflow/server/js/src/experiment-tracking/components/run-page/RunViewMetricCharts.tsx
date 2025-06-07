@@ -294,6 +294,7 @@ const RunViewMetricChartsImpl = ({
         tooltipComponent={RunViewChartTooltipBody}
         autoRefreshEnabled={autoRefreshEnabled}
         groupBy={null}
+        globalLineChartConfig={chartUIState.globalLineChartConfig}
       />
     </div>
   );

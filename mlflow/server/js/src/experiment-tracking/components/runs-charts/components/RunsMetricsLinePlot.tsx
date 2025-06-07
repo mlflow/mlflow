@@ -390,6 +390,10 @@ export interface RunsMetricsLinePlotProps extends RunsPlotsCommonProps {
    * Helps to recalculate tooltip legend repositioning in case of reordering.
    */
   positionInSection?: number;
+  /**
+   * Determines if metrics should be colored individually instead of using dash styles
+   */
+  colorizeMetricTraces?: boolean;
 }
 
 const PLOT_CONFIG: Partial<Config> = {
@@ -519,6 +523,7 @@ export const RunsMetricsLinePlot = React.memo(
     displayPoints,
     onSetDownloadHandler,
     positionInSection = 0,
+    colorizeMetricTraces,
   }: RunsMetricsLinePlotProps) => {
     const { theme } = useDesignSystemTheme();
     const { evaluateExpression } = useChartExpressionParser();
@@ -571,7 +576,7 @@ export const RunsMetricsLinePlot = React.memo(
     const plotData = useMemo(() => {
       // Generate a data trace for each metric in each run
       const metricKeys = selectedMetricKeys ?? [metricKey];
-      const useColorByMetric = shouldColorizeMetricTraces();
+      const useColorByMetric = Boolean(colorizeMetricTraces);
       return runsData
         .map((runEntry) => {
           if (

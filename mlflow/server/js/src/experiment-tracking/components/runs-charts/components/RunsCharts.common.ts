@@ -389,13 +389,14 @@ export const getLineChartLegendData = (
   metricKey: string,
   yAxisKey: RunsChartsLineChartYAxisType,
   yAxisExpressions: RunsChartsLineChartExpression[],
+  colorizeMetricTraces?: boolean,
 ): LegendLabelData[] =>
   runsData.flatMap((runEntry): LegendLabelData[] => {
     if (!runEntry.metricsHistory) {
       return [];
     }
 
-    const useColorByMetric = shouldColorizeMetricTraces();
+    const useColorByMetric = Boolean(colorizeMetricTraces);
     if (shouldEnableChartExpressions() && yAxisKey === RunsChartsLineChartYAxisType.EXPRESSION) {
       return yAxisExpressions.map((expression, idx) => ({
         label: `${runEntry.displayName} (${expression.expression})`,

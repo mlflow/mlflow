@@ -2063,6 +2063,10 @@
     "defaultMessage": "Are you sure you want to delete the prompt?",
     "description": "A content for the delete prompt confirmation modal"
   },
+  "WcV6yZ": {
+    "defaultMessage": "Switch to dashed lines",
+    "description": "Runs charts > global settings > label when colorized lines are active"
+  },
   "Wd8Tga": {
     "defaultMessage": "No schema. See <link>MLflow docs</link> for how to include input and output schema with your model.",
     "description": "Text for schema table when no schema exists in the model version\n                     page"
@@ -2494,6 +2498,10 @@
   "d1Ou4x": {
     "defaultMessage": "Run",
     "description": "Column title for the column displaying the run names for a metric"
+  },
+  "d4/rGP": {
+    "defaultMessage": "Colorize metric lines",
+    "description": "Runs charts > global settings > label when dashed lines are active"
   },
   "d78wwA": {
     "defaultMessage": "Provide Feedback",
