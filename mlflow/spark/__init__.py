@@ -25,7 +25,7 @@ import yaml
 from packaging.version import Version
 
 import mlflow
-from mlflow import environment_variables, mleap, pyfunc
+from mlflow import environment_variables, pyfunc
 from mlflow.environment_variables import MLFLOW_DFS_TMP
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
