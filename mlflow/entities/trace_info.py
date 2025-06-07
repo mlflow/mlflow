@@ -126,7 +126,7 @@ class TraceInfo(_MlflowObject):
         schema_version_from_trace_metadata = trace_metadata.get(TRACE_SCHEMA_VERSION_KEY)
         if (
             schema_version_from_trace_metadata is not None
-            and int(schema_version_from_trace_metadata) < TRACE_SCHEMA_VERSION
+            and schema_version_from_trace_metadata != TRACE_SCHEMA_VERSION
         ):
             trace_metadata[TRACE_SCHEMA_VERSION_KEY] = str(TRACE_SCHEMA_VERSION)
 
