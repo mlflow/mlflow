@@ -781,3 +781,10 @@ MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE = _EnvironmentVariable(
 MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT = _EnvironmentVariable(
     "MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT", int, 60
 )
+
+#: If specified, tracking server rejects model `/mlflow/model-versions/create` requests with
+#: a source that does not match the specified regular expression.
+#: (default: ``None``).
+MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX = _EnvironmentVariable(
+    "MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX", str, None
+)
