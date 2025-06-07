@@ -14,7 +14,7 @@ from packaging.requirements import InvalidRequirement, Requirement
 
 import mlflow
 from mlflow.entities import LoggedModel, LoggedModelOutput, Metric
-from mlflow.entities.model_registry.prompt import Prompt
+from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.environment_variables import (
     MLFLOW_PRINT_MODEL_URLS_ON_CREATION,
     MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING,
@@ -975,7 +975,7 @@ class Model:
 
                 if prompts is not None:
                     # Convert to URIs for serialization
-                    prompts = [pr.uri if isinstance(pr, Prompt) else pr for pr in prompts]
+                    prompts = [pr.uri if isinstance(pr, PromptVersion) else pr for pr in prompts]
 
                 mlflow_model = cls(
                     artifact_path=model.artifact_location,
