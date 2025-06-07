@@ -1,7 +1,6 @@
 import base64
 import json
 import logging
-import random
 import time
 import warnings
 from functools import lru_cache
@@ -388,9 +387,14 @@ def _retry_databricks_sdk_call_with_exponential_backoff(
         DatabricksError: If all retries are exhausted or non-retryable error occurs
     """
     from databricks.sdk.errors import DatabricksError
+    from urllib3.exceptions import MaxRetryError
+    from urllib3.util.retry import Retry
 
     start_time = time.time()
     attempt = 0
+    retry_obj = Retry(
+        total=max_retries, backoff_factor=backoff_factor, backoff_jitter=backoff_jitter
+    )
 
     while attempt <= max_retries:
         try:
@@ -403,19 +407,14 @@ def _retry_databricks_sdk_call_with_exponential_backoff(
             if status_code not in retry_codes:
                 raise e
 
-            # Check if we've exceeded max retries
-            if attempt >= max_retries:
+            # Get backoff time from urllib3 Retry object and increment it for next iteration
+            backoff_time = retry_obj.get_backoff_time()
+            try:
+                retry_obj = retry_obj.increment()
+            except MaxRetryError:
+                # MaxRetryError means we've exceeded max retries
                 _logger.warning(f"Max retries ({max_retries}) exceeded: {e}")
                 raise e
-
-            # Calculate backoff time with exponential backoff and jitter
-            # Use the same formula as urllib3.util.retry.Retry.get_backoff_time()
-            if attempt <= 0:
-                backoff_time = 0  # No backoff on first retry attempt
-            else:
-                backoff_time = backoff_factor * (2**attempt)
-                if backoff_jitter > 0:
-                    backoff_time += random.random() * backoff_jitter
 
             # Check if we've exceeded or would exceed timeout
             elapsed_time = time.time() - start_time
