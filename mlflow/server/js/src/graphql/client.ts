@@ -35,7 +35,7 @@ const apolloCache = new InMemoryCache({
 
 export function createApolloClient() {
   const httpLink = createHttpLink({
-    uri: '/graphql',
+    uri: 'graphql',
     credentials: 'same-origin',
     fetch: graphqlFetch,
   });

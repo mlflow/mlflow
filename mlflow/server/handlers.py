@@ -2896,10 +2896,9 @@ def _get_ajax_path(base_path):
     return _add_static_prefix(f"/ajax-api/2.0{base_path}")
 
 
-def _add_static_prefix(route):
-    prefix = os.environ.get(STATIC_PREFIX_ENV_VAR)
-    if prefix:
-        return prefix + route
+def _add_static_prefix(route: str) -> str:
+    if prefix := os.environ.get(STATIC_PREFIX_ENV_VAR):
+        return prefix.rstrip("/") + route
     return route
 
 
@@ -2953,7 +2952,7 @@ def get_endpoints(get_handler=get_handler):
         get_service_endpoints(MlflowService, get_handler)
         + get_service_endpoints(ModelRegistryService, get_handler)
         + get_service_endpoints(MlflowArtifactsService, get_handler)
-        + [("/graphql", _graphql, ["GET", "POST"])]
+        + [(_add_static_prefix("/graphql"), _graphql, ["GET", "POST"])]
     )
 
 
