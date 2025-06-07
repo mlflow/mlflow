@@ -118,12 +118,16 @@ class TraceInfo(_MlflowObject):
     def from_proto(cls, proto) -> "TraceInfo":
         from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
 
-        # Convert proto trace_metadata to dict
         trace_metadata = dict(proto.trace_metadata)
 
-        # Update schema version to current if it exists and is outdated
-        current_version = trace_metadata.get(TRACE_SCHEMA_VERSION_KEY)
-        if current_version is not None and current_version != str(TRACE_SCHEMA_VERSION):
+        # NB: MLflow automatically converts trace metadata and spans to V3 format, even if the
+        # trace was originally created in V2 format with an earlier version of MLflow. Accordingly,
+        # we also update the `TRACE_SCHEMA_VERSION_KEY` in the trace metadata to V3 for consistency
+        schema_version_from_trace_metadata = trace_metadata.get(TRACE_SCHEMA_VERSION_KEY)
+        if (
+            schema_version_from_trace_metadata is not None
+            and int(schema_version_from_trace_metadata) < TRACE_SCHEMA_VERSION
+        ):
             trace_metadata[TRACE_SCHEMA_VERSION_KEY] = str(TRACE_SCHEMA_VERSION)
 
         return cls(
