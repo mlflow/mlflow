@@ -125,9 +125,9 @@ class TraceInfo(_MlflowObject):
         # we also update the `TRACE_SCHEMA_VERSION_KEY` in the trace metadata to V3 for consistency
         schema_version_from_trace_metadata = trace_metadata.get(TRACE_SCHEMA_VERSION_KEY)
         if (
-            schema_version_from_trace_metadata is not None
-            and schema_version_from_trace_metadata != TRACE_SCHEMA_VERSION
-        ) or schema_version_from_trace_metadata is None:
+            schema_version_from_trace_metadata is None
+            or schema_version_from_trace_metadata != TRACE_SCHEMA_VERSION
+        ):
             trace_metadata[TRACE_SCHEMA_VERSION_KEY] = str(TRACE_SCHEMA_VERSION)
 
         return cls(
