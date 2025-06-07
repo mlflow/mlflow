@@ -707,7 +707,7 @@ def test_sparkml_model_log_without_specified_conda_env_uses_default_env_with_exp
 ):
     artifact_path = "model"
     with mlflow.start_run():
-        model_info = mlflow.spark.log_model(spark_model_iris.model, name=artifact_path)
+        model_info = mlflow.spark.log_model(spark_model_iris.model, artifact_path=artifact_path)
 
     _assert_pip_requirements(model_info.model_uri, mlflow.spark.get_default_pip_requirements())
 
@@ -718,7 +718,7 @@ def test_pyspark_version_is_logged_without_dev_suffix(spark_model_iris):
     for dev_suffix in [".dev0", ".dev", ".dev1", "dev.a", ".devb"]:
         with mock.patch("importlib_metadata.version", return_value=unsuffixed_version + dev_suffix):
             with mlflow.start_run():
-                model_info = mlflow.spark.log_model(spark_model_iris.model, name="model")
+                model_info = mlflow.spark.log_model(spark_model_iris.model, artifact_path="model")
             _assert_pip_requirements(
                 model_info.model_uri, [expected_mlflow_version, f"pyspark=={unsuffixed_version}"]
             )
@@ -733,7 +733,7 @@ def test_model_is_recorded_when_using_direct_save(spark_model_iris):
     # Patch `is_local_uri` to enforce direct model serialization to DFS
     with mock.patch("mlflow.spark.is_local_uri", return_value=False):
         with mlflow.start_run():
-            mlflow.spark.log_model(spark_model_iris.model, name="model")
+            mlflow.spark.log_model(spark_model_iris.model, artifact_path="model")
             current_tags = mlflow.get_run(mlflow.active_run().info.run_id).data.tags
             assert mlflow.utils.mlflow_tags.MLFLOW_LOGGED_MODELS in current_tags
 
@@ -849,7 +849,7 @@ def test_model_logged_via_mlflowdbfs_when_appropriate(
             if db_runtime_version:
                 monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", db_runtime_version)
             monkeypatch.setenv("DISABLE_MLFLOWDBFS", mlflowdbfs_disabled)
-            mlflow.spark.log_model(spark_model_iris.model, name="model")
+            mlflow.spark.log_model(spark_model_iris.model, artifact_path="model")
             mock_save.assert_called_once_with(expected_uri.format(mlflow.active_run().info.run_id))
 
             if expected_uri.startswith("mflowdbfs"):
@@ -909,7 +909,7 @@ def test_model_logging_uses_mlflowdbfs_if_appropriate_when_hdfs_check_fails(
     ):
         with mlflow.start_run():
             monkeypatch.setenv("DATABRICKS_RUNTIME_VERSION", "12.0")
-            mlflow.spark.log_model(spark_model_iris.model, name="model")
+            mlflow.spark.log_model(spark_model_iris.model, artifact_path="model")
             run_id = mlflow.active_run().info.run_id
             mock_save.assert_called_once_with(
                 f"mlflowdbfs:///artifacts?run_id={run_id}&path=/model/sparkml"

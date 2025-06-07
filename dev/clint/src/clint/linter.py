@@ -592,6 +592,10 @@ class Linter(ast.NodeVisitor):
         if not (first == "mlflow" and third == "log_model"):
             return False
 
+        # TODO: Remove this once spark flavor supports logging models as logged model artifacts
+        if second == "spark":
+            return False
+
         artifact_path_idx = _find_artifact_path_index((first, second))
         if artifact_path_idx is None:
             return False
@@ -615,7 +619,7 @@ class Linter(ast.NodeVisitor):
             ):
                 self.lazy_modules[last_arg.value] = Location.from_node(node)
 
-        if self._log_model_with_artifact_path(node) and "spark" not in self.path.parts:
+        if self._log_model_with_artifact_path(node):
             self._check(Location.from_node(node), rules.LogModelArtifactPath())
 
         if rules.UseSysExecutable.check(node):
