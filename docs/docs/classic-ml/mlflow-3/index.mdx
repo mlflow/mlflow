@@ -66,7 +66,7 @@ It highlights the integration of the LoggedModel lineage feature with runs and t
 
 #### Register a prompt template
 
-First, we create a prompt template and register it with [MLflow Prompt Registry](../prompts).
+First, we create a prompt template and register it with [MLflow Prompt Registry](/genai/prompt-version-mgmt/prompt-registry).
 
 ```python
 import mlflow
@@ -211,8 +211,8 @@ Clicking on the source_run takes you to the evaluation run's page with all the m
 Explore the examples below to see how MLflow 3.0's powerful features can be applied across various domains.
 
 <CardGroup>
-  <PageCard headerText="GenAI with MLflow 3.0" link="/mlflow-3/genai-agent" text="Discover how to log, evaluate, and trace GenAI agents using MLflow 3.0." />
-  <PageCard headerText="Deep Learning with MLflow 3.0" link="/mlflow-3/deep-learning" text="Learn how to leverage MLflow 3.0 to identify the best models in deep learning workflows." />
+  <PageCard headerText="GenAI with MLflow 3.0" link="/ml/mlflow-3/genai-agent" text="Discover how to log, evaluate, and trace GenAI agents using MLflow 3.0." />
+  <PageCard headerText="Deep Learning with MLflow 3.0" link="/ml/mlflow-3/deep-learning" text="Learn how to leverage MLflow 3.0 to identify the best models in deep learning workflows." />
 </CardGroup>
 
 ## Migration Guide
@@ -264,7 +264,7 @@ MLflow 3.0 introduces some key API changes while also removes some outdated feat
     </tr>
     <tr>
       <td>Model artifacts storage location</td>
-      <td>[model artifacts](../model/#storage-format) are stored as run artifacts.</td>
+      <td>[model artifacts](/ml/model/#storage-format) are stored as run artifacts.</td>
       <td>Model artifacts are stored into models artifacts location. Note: this impacts the behavior of <APILink fn="mlflow.client.MlflowClient.list_artifacts">list_artifacts</APILink> API.</td>
     </tr>
   </tbody>
@@ -281,7 +281,7 @@ MLflow 3.0 introduces some key API changes while also removes some outdated feat
 
 ### Breaking changes
 
-Please refer to this [page](./breaking-changes) for the full list of breaking changes in MLflow 3.
+Please refer to this [page](/ml/mlflow-3/breaking-changes) for the full list of breaking changes in MLflow 3.
 
 ### Compatibility with MLflow 2.x
 
