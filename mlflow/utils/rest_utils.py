@@ -5,6 +5,7 @@ import random
 import time
 import warnings
 from functools import lru_cache
+from typing import Callable
 
 import requests
 
@@ -144,7 +145,12 @@ def http_request(
         try:
             # We retry the SDK call with exponential backoff because the Databricks SDK default
             # retry behavior does not handle all transient errors that we want to retry, and it
-            # does not support a customizable retry policy based on HTTP response status codes
+            # does not support a customizable retry policy based on HTTP response status codes.
+            # Note that, in uncommon cases (due to the limited set if HTTP status codes and
+            # response strings that Databricks SDK retries on), the SDK may retry internally,
+            # and MLflow may retry on top of that, leading to more retries than specified by
+            # `max_retries`. This is acceptable, given the enforcement of an overall request
+            # timeout via `retry_timeout_seconds`.
             #
             # TODO: Update transient error handling defaults in Databricks SDK to match standard
             # practices (e.g. retrying on 429, 500, 503, etc.), support custom retries in Databricks
@@ -368,7 +374,13 @@ def _validate_backoff_factor(backoff_factor):
 
 
 def _retry_databricks_sdk_call_with_exponential_backoff(
-    call_func, retry_codes, retry_timeout_seconds, backoff_factor, backoff_jitter, max_retries
+    *,
+    call_func: Callable,
+    retry_codes: list[int],
+    retry_timeout_seconds: int,
+    backoff_factor: int,
+    backoff_jitter: float,
+    max_retries: int,
 ):
     """
     Retry a Databricks SDK call with exponential backoff until timeout or max retries reached.
@@ -401,12 +413,12 @@ def _retry_databricks_sdk_call_with_exponential_backoff(
 
             # Check if this is a retryable error
             if status_code not in retry_codes:
-                raise e
+                raise
 
             # Check if we've exceeded max retries
             if attempt >= max_retries:
                 _logger.warning(f"Max retries ({max_retries}) exceeded: {e}")
-                raise e
+                raise
 
             # Calculate backoff time with exponential backoff and jitter
             # NB: Ideally, we'd use urllib3.Retry to compute the jitter, check whether we've
@@ -423,7 +435,7 @@ def _retry_databricks_sdk_call_with_exponential_backoff(
             elapsed_time = time.time() - start_time
             if elapsed_time + backoff_time >= retry_timeout_seconds:
                 _logger.warning(f"Retry timeout ({retry_timeout_seconds}s) exceeded: {e}")
-                raise e
+                raise
 
             _logger.debug(
                 f"Databricks SDK call failed with retryable error (status {status_code}): {e}. "
