@@ -615,7 +615,7 @@ class Linter(ast.NodeVisitor):
             ):
                 self.lazy_modules[last_arg.value] = Location.from_node(node)
 
-        if self._log_model_with_artifact_path(node):
+        if self._log_model_with_artifact_path(node) and "spark" not in self.path.parts:
             self._check(Location.from_node(node), rules.LogModelArtifactPath())
 
         if rules.UseSysExecutable.check(node):
