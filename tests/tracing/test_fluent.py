@@ -966,11 +966,11 @@ def test_search_traces_yields_expected_dataframe_contents(monkeypatch):
         "state",
         "request_time",
         "execution_duration",
-        "request",
-        "response",
+        "inputs",
+        "outputs",
+        "expectations",
         "trace_metadata",
         "tags",
-        "spans",
         "assessments",
     ]
     for idx, trace in enumerate(expected_traces):
@@ -980,10 +980,9 @@ def test_search_traces_yields_expected_dataframe_contents(monkeypatch):
         assert df.iloc[idx].state == trace.info.state
         assert df.iloc[idx].request_time == trace.info.request_time
         assert df.iloc[idx].execution_duration == trace.info.execution_duration
-        assert df.iloc[idx].request == json.loads(trace.data.request)
-        assert df.iloc[idx].response == json.loads(trace.data.response)
+        assert df.iloc[idx].inputs == json.loads(trace.data.request)
+        assert df.iloc[idx].outputs == json.loads(trace.data.response)
         assert df.iloc[idx].trace_metadata == trace.info.trace_metadata
-        assert df.iloc[idx].spans == [s.to_dict() for s in trace.data.spans]
         assert df.iloc[idx].tags == trace.info.tags
         assert df.iloc[idx].assessments == trace.info.assessments
 
@@ -1011,7 +1010,7 @@ def test_search_traces_handles_missing_response_tags_and_metadata(mock_client):
     )
 
     df = mlflow.search_traces()
-    assert df["response"].isnull().all()
+    assert df["outputs"].isnull().all()
     assert df["tags"].tolist() == [{}]
     assert df["trace_metadata"].tolist() == [{}]
 
