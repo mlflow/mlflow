@@ -127,7 +127,6 @@ def http_request(
             else MLFLOW_DATABRICKS_ENDPOINT_HTTP_RETRY_TIMEOUT.get()
         )
 
-        # Define the SDK call as a function for retry logic
         def make_sdk_call():
             # Databricks SDK `APIClient.do` API is for making request using
             # HTTP
@@ -166,7 +165,6 @@ def http_request(
                 max_retries=max_retries,
             )
         except DatabricksError as e:
-            # Convert to requests.Response for consistency
             response = requests.Response()
             response.url = url
             response.status_code = ERROR_CODE_TO_HTTP_STATUS.get(e.error_code, 500)
