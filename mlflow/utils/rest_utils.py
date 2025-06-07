@@ -410,8 +410,8 @@ def _retry_databricks_sdk_call_with_exponential_backoff(
 
             # Calculate backoff time with exponential backoff and jitter
             # NB: Ideally, we'd use urllib3.Retry to compute the jitter, check whether we've
-            # exceed max retries, etc. However, urllib3 version 1.x (which MLflow maintains
-            # compatibility with) doesn't support retries with jitter
+            # exceed max retries, etc. However, urllib3.Retry in urllib3 version 1.x, which MLflow
+            # maintains compatibility with, doesn't support retries with jitter
             if attempt <= 0:
                 backoff_time = 0  # No backoff on first retry attempt
             else:
