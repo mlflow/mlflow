@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib.metadata
 import json
 import os
 import subprocess
@@ -2223,12 +2224,13 @@ def test_model_pip_requirements_pin_numpy_when_pandas_included():
         model_info = mlflow.pyfunc.log_model(
             name="model", python_model=TestModel(), input_example="abc"
         )
+
         _assert_pip_requirements(
             model_info.model_uri,
             [
                 expected_mlflow_version,
-                f"cloudpickle=={cloudpickle.__version__}",
-                f"pandas=={pandas.__version__}",
+                f"cloudpickle=={importlib.metadata.version('cloudpickle')}",
+                f"pandas=={importlib.metadata.version('pandas')}",
             ],
             strict=True,
         )

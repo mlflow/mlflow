@@ -12,6 +12,8 @@ from mlflow.entities.trace_state import TraceState
 
 
 def test_trace_info():
+    from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
+
     assessments = [
         Feedback(
             trace_id="trace_id",
@@ -45,7 +47,7 @@ def test_trace_info():
         request_time=1234567890,
         execution_duration=100,
         state=TraceState.OK,
-        trace_metadata={"foo": "bar"},
+        trace_metadata={"foo": "bar", TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
         tags={"baz": "qux"},
         assessments=assessments,
     )
@@ -67,7 +69,7 @@ def test_trace_info():
         "request_time": "1970-01-15T06:56:07.890Z",
         "execution_duration_ms": 100,
         "state": "OK",
-        "trace_metadata": {"foo": "bar"},
+        "trace_metadata": {"foo": "bar", TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
         "assessments": [
             {
                 "assessment_name": "feedback_test",
@@ -158,6 +160,8 @@ def test_backwards_compatibility_with_v2():
     ],
 )
 def test_trace_info_proto(client_request_id, assessments):
+    from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
+
     # TraceInfo -> proto
     trace_info = TraceInfo(
         trace_id="request_id",
@@ -168,7 +172,7 @@ def test_trace_info_proto(client_request_id, assessments):
         request_time=0,
         execution_duration=1,
         state=TraceState.OK,
-        trace_metadata={"foo": "bar"},
+        trace_metadata={"foo": "bar", TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
         tags={"baz": "qux"},
         assessments=assessments,
     )
@@ -264,12 +268,12 @@ def test_trace_info_from_proto_updates_schema_version():
     assert trace_info.experiment_id == "123"
 
 
-def test_trace_info_from_proto_preserves_missing_schema_version():
-    """Test that TraceInfo.from_proto doesn't add schema version when it doesn't exist."""
+def test_trace_info_from_proto_adds_missing_schema_version():
+    """Test that TraceInfo.from_proto adds schema version when it doesn't exist."""
     from google.protobuf.timestamp_pb2 import Timestamp
 
     from mlflow.protos.service_pb2 import TraceInfoV3 as ProtoTraceInfoV3
-    from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY
+    from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
 
     # Create a proto without schema version in metadata
     request_time = Timestamp()
@@ -291,8 +295,8 @@ def test_trace_info_from_proto_preserves_missing_schema_version():
     # Convert from proto
     trace_info = TraceInfo.from_proto(proto)
 
-    # Verify the schema version was not added
-    assert TRACE_SCHEMA_VERSION_KEY not in trace_info.trace_metadata
+    # Verify the schema version was added
+    assert trace_info.trace_metadata[TRACE_SCHEMA_VERSION_KEY] == str(TRACE_SCHEMA_VERSION)
 
     # Verify other metadata is preserved
     assert trace_info.trace_metadata["other_key"] == "other_value"

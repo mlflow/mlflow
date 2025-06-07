@@ -127,7 +127,7 @@ class TraceInfo(_MlflowObject):
         if (
             schema_version_from_trace_metadata is not None
             and schema_version_from_trace_metadata != TRACE_SCHEMA_VERSION
-        ):
+        ) or schema_version_from_trace_metadata is None:
             trace_metadata[TRACE_SCHEMA_VERSION_KEY] = str(TRACE_SCHEMA_VERSION)
 
         return cls(

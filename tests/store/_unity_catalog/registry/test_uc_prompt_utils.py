@@ -1,4 +1,5 @@
 from mlflow.entities.model_registry.prompt import Prompt
+from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
     Prompt as ProtoPrompt,
 )
@@ -11,7 +12,6 @@ from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
 from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
     PromptVersionTag as ProtoPromptVersionTag,
 )
-from mlflow.store._unity_catalog.registry.prompt_info import PromptInfo
 from mlflow.store._unity_catalog.registry.utils import (
     mlflow_prompt_to_proto,
     mlflow_tags_to_proto,
@@ -67,7 +67,7 @@ def test_proto_info_to_mlflow_prompt_info():
 
     # Test without prompt tags
     prompt_info = proto_info_to_mlflow_prompt_info(proto_info)
-    assert isinstance(prompt_info, PromptInfo)
+    assert isinstance(prompt_info, Prompt)
     assert prompt_info.name == "test_prompt"
     assert prompt_info.description == "Test prompt description"
     assert prompt_info.tags == {"key1": "value1", "key2": "value2"}
@@ -104,7 +104,7 @@ def test_proto_to_mlflow_prompt():
 
     # Test without prompt tags
     prompt = proto_to_mlflow_prompt(proto_version)
-    assert isinstance(prompt, Prompt)
+    assert isinstance(prompt, PromptVersion)
     assert prompt.name == "test_prompt"
     assert prompt.version == 1
     assert prompt.template == "Hello {{name}}!"
@@ -124,7 +124,7 @@ def test_proto_to_mlflow_prompt():
 
 def test_mlflow_prompt_to_proto():
     # Create test prompt (skip timestamp for simplicity)
-    prompt = Prompt(
+    prompt = PromptVersion(
         name="test_prompt",
         version=1,
         template="Hello {{name}}!",
@@ -146,7 +146,7 @@ def test_mlflow_prompt_to_proto():
     assert tags_dict == {"key1": "value1", "key2": "value2"}
 
     # Test with empty fields
-    prompt = Prompt(name="test_prompt", version=1, template="Hello {{name}}!")
+    prompt = PromptVersion(name="test_prompt", version=1, template="Hello {{name}}!")
     proto_version = mlflow_prompt_to_proto(prompt)
     assert len(proto_version.tags) == 0
 

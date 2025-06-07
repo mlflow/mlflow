@@ -29,7 +29,7 @@ from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.metric import Metric
 from mlflow.entities.model_registry import ModelVersion, ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
-from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY
+from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY
 from mlflow.entities.param import Param
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_state import TraceState

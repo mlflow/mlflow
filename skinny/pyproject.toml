@@ -25,7 +25,7 @@ classifiers = [
 ]
 requires-python = ">=3.9"
 dependencies = [
-  "cachetools<6,>=5.0.0",
+  "cachetools<7,>=5.0.0",
   "click<9,>=7.0",
   "cloudpickle<4",
   "databricks-sdk<1,>=0.20.0",
