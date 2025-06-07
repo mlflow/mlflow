@@ -1,0 +1,1434 @@
+# Tutorial: Using Traces for Quality Enhancement
+
+**From Production to Perfection: Using Real-World Data to Improve Quality**
+
+## Overview
+
+TechFlow's customer support bot performed well in testing, but Black Friday revealed unexpected customer behaviors and questions. This tutorial shows how to collect and analyze production feedback, involve domain experts to understand new patterns, and systematically improve the bot based on real-world usage.
+
+**Scenario**: After Black Friday launch, the bot is struggling with unexpected queries: gift buyers who don't know technical specs, international customers asking about compatibility, and bundle-related questions. You'll use production data to identify these patterns and improve quality.
+
+## Learning Objectives
+
+By the end of this tutorial, you'll be able to:
+
+- Collect and analyze production feedback from real customers
+- Involve domain experts in quality assessment
+- Build evaluation datasets from production logs
+- Systematically test improvements using real-world data
+
+## Prerequisites
+
+- Completed [Tutorial: Build and Tune Quality Metrics](/genai/tutorials/dev-quality-iteration)
+- TechFlow support bot deployed to production
+- MLflow 2.14+ with tracing enabled
+- Access to production logs and traces
+
+## Tutorial
+
+### 1. Collect Production Feedback
+
+#### Implement End-User Feedback Collection
+
+First, let's enhance our bot to collect detailed feedback:
+
+```python
+import mlflow
+from datetime import datetime
+import json
+
+
+class FeedbackCollector:
+    """Enhanced feedback collection for production insights"""
+
+    def __init__(self):
+        self.feedback_options = {
+            "thumbs_up": "Helpful response",
+            "thumbs_down": "Not helpful",
+            "wrong_info": "Incorrect information",
+            "too_technical": "Too complex",
+            "incomplete": "Didn't answer my question",
+            "other": "Other issue",
+        }
+
+    def add_feedback_ui(self, response: str, trace_id: str) -> dict:
+        """Add feedback UI elements to bot response"""
+        return {
+            "response": response,
+            "trace_id": trace_id,
+            "feedback_ui": {
+                "quick_feedback": ["👍", "👎"],
+                "detailed_options": self.feedback_options,
+                "comment_field": True,
+            },
+        }
+
+    def process_feedback(
+        self,
+        trace_id: str,
+        feedback_type: str,
+        details: str = None,
+        comment: str = None,
+    ):
+        """Process and log feedback to MLflow"""
+
+        # Log basic feedback
+        mlflow.log_feedback(
+            trace_id=trace_id,
+            name="user_feedback",
+            value=feedback_type == "thumbs_up",
+            source=mlflow.entities.AssessmentSource(
+                source_type="HUMAN", source_id="production_user"
+            ),
+        )
+
+        # Log detailed feedback as trace tags
+        if details or comment:
+            with mlflow.start_trace(trace_id=trace_id) as trace:
+                mlflow.update_current_trace(
+                    tags={
+                        "feedback_detail": details or "",
+                        "user_comment": comment or "",
+                        "feedback_timestamp": datetime.now().isoformat(),
+                    }
+                )
+
+        return {"status": "feedback_recorded", "trace_id": trace_id}
+
+
+# Update your bot's response handler
+def handle_chat_with_feedback(customer_query: str, customer_id: str):
+    """Process chat and add feedback collection"""
+
+    # Start trace for this conversation
+    with mlflow.start_trace(name="chat_request") as trace:
+        # Your existing bot logic
+        response = bot.process_query(customer_query)
+
+        # Add feedback UI
+        feedback_collector = FeedbackCollector()
+        enhanced_response = feedback_collector.add_feedback_ui(
+            response=response, trace_id=trace.trace_id
+        )
+
+        return enhanced_response
+```
+
+#### Implement Feedback Analytics
+
+Create a system to analyze feedback patterns:
+
+```python
+import pandas as pd
+from collections import defaultdict
+
+
+class FeedbackAnalyzer:
+    """Analyze production feedback patterns"""
+
+    def __init__(self, experiment_id: str):
+        self.experiment_id = experiment_id
+        self.client = mlflow.tracking.MlflowClient()
+
+    def get_feedback_summary(self, start_date: str, end_date: str):
+        """Get feedback summary for date range"""
+
+        # Search traces with feedback
+        filter_string = f"timestamp >= '{start_date}' AND timestamp <= '{end_date}'"
+        traces = self.client.search_traces(
+            experiment_ids=[self.experiment_id],
+            filter_string=filter_string,
+            max_results=10000,
+        )
+
+        # Analyze feedback
+        feedback_stats = {
+            "total_conversations": len(traces),
+            "with_feedback": 0,
+            "positive": 0,
+            "negative": 0,
+            "detailed_feedback": defaultdict(int),
+        }
+
+        for trace in traces:
+            if "user_feedback" in trace.tags:
+                feedback_stats["with_feedback"] += 1
+
+                if trace.tags["user_feedback"] == "true":
+                    feedback_stats["positive"] += 1
+                else:
+                    feedback_stats["negative"] += 1
+
+                    # Count detailed feedback types
+                    if "feedback_detail" in trace.tags:
+                        detail = trace.tags["feedback_detail"]
+                        feedback_stats["detailed_feedback"][detail] += 1
+
+        # Calculate percentages
+        if feedback_stats["with_feedback"] > 0:
+            feedback_stats["satisfaction_rate"] = (
+                feedback_stats["positive"] / feedback_stats["with_feedback"] * 100
+            )
+
+        return feedback_stats
+
+    def identify_problem_patterns(self, negative_threshold: int = 5):
+        """Identify common patterns in negative feedback"""
+
+        # Get traces with negative feedback
+        negative_traces = self.client.search_traces(
+            experiment_ids=[self.experiment_id],
+            filter_string="tags.user_feedback = 'false'",
+            max_results=1000,
+        )
+
+        patterns = defaultdict(list)
+
+        for trace in negative_traces:
+            # Extract conversation details
+            customer_query = trace.inputs.get("messages", [])[-1]["content"]
+            bot_response = trace.outputs.get("content", "")
+            feedback_detail = trace.tags.get("feedback_detail", "unknown")
+
+            patterns[feedback_detail].append(
+                {
+                    "query": customer_query,
+                    "response": bot_response,
+                    "trace_id": trace.trace_id,
+                    "timestamp": trace.timestamp,
+                }
+            )
+
+        # Find common query patterns
+        for feedback_type, examples in patterns.items():
+            if len(examples) >= negative_threshold:
+                print(f"\n=== Pattern: {feedback_type} ({len(examples)} cases) ===")
+
+                # Show sample queries
+                print("Sample queries:")
+                for example in examples[:3]:
+                    print(f"- {example['query'][:100]}...")
+
+        return patterns
+```
+
+### 2. Analyze Production Traces
+
+#### Discover Unexpected Query Patterns
+
+Let's build a pattern discovery system:
+
+```python
+class PatternDiscovery:
+    """Discover unexpected patterns in production data"""
+
+    def __init__(self, experiment_id: str):
+        self.experiment_id = experiment_id
+        self.client = mlflow.tracking.MlflowClient()
+
+    def analyze_black_friday_patterns(self):
+        """Analyze Black Friday specific patterns"""
+
+        # Get Black Friday traces
+        bf_traces = self.client.search_traces(
+            experiment_ids=[self.experiment_id],
+            filter_string="timestamp >= '2024-11-24' AND timestamp <= '2024-11-26'",
+            max_results=15000,
+        )
+
+        # Categorize queries
+        patterns = {
+            "gift_buyers": [],
+            "international": [],
+            "bundles": [],
+            "unknown": [],
+        }
+
+        gift_keywords = [
+            "for my",
+            "gift",
+            "son",
+            "daughter",
+            "wife",
+            "husband",
+            "teenager",
+            "kid",
+            "parent",
+            "birthday",
+            "christmas",
+        ]
+        international_keywords = [
+            "ship to",
+            "work in",
+            "compatible in",
+            "voltage",
+            "warranty in",
+            "import",
+            "duties",
+            "UK",
+            "Canada",
+            "Europe",
+            "Asia",
+            "Australia",
+        ]
+        bundle_keywords = [
+            "bundle",
+            "deal",
+            "package",
+            "combo",
+            "together",
+            "included",
+            "swap",
+            "black friday",
+        ]
+
+        for trace in bf_traces:
+            query = trace.inputs.get("messages", [])[-1]["content"].lower()
+
+            # Categorize based on keywords
+            if any(keyword in query for keyword in gift_keywords):
+                patterns["gift_buyers"].append(trace)
+            elif any(keyword in query for keyword in international_keywords):
+                patterns["international"].append(trace)
+            elif any(keyword in query for keyword in bundle_keywords):
+                patterns["bundles"].append(trace)
+            else:
+                patterns["unknown"].append(trace)
+
+        # Analyze success rates by pattern
+        results = {}
+        for pattern_name, traces in patterns.items():
+            if traces:
+                positive_feedback = sum(
+                    1 for t in traces if t.tags.get("user_feedback") == "true"
+                )
+
+                results[pattern_name] = {
+                    "count": len(traces),
+                    "success_rate": positive_feedback / len(traces) * 100,
+                    "sample_queries": [
+                        t.inputs.get("messages", [])[-1]["content"] for t in traces[:5]
+                    ],
+                }
+
+        return results
+
+    def find_failure_patterns(self):
+        """Identify common failure patterns"""
+
+        # Get failed conversations
+        failed_traces = self.client.search_traces(
+            experiment_ids=[self.experiment_id],
+            filter_string="tags.user_feedback = 'false' OR tags.escalated = 'true'",
+            max_results=1000,
+        )
+
+        # Group by time of day
+        hourly_failures = defaultdict(list)
+
+        for trace in failed_traces:
+            hour = datetime.fromisoformat(trace.timestamp).hour
+            hourly_failures[hour].append(trace)
+
+        # Analyze peak failure times
+        peak_hours = sorted(
+            hourly_failures.items(), key=lambda x: len(x[1]), reverse=True
+        )[:3]
+
+        print("=== Peak Failure Hours ===")
+        for hour, traces in peak_hours:
+            print(f"{hour}:00 - {hour+1}:00: {len(traces)} failures")
+
+        # Analyze by customer tier
+        tier_failures = defaultdict(int)
+        tier_total = defaultdict(int)
+
+        for trace in self.client.search_traces(
+            experiment_ids=[self.experiment_id], max_results=5000
+        ):
+            tier = trace.tags.get("customer_tier", "unknown")
+            tier_total[tier] += 1
+
+            if trace.tags.get("user_feedback") == "false":
+                tier_failures[tier] += 1
+
+        print("\n=== Failure Rate by Customer Tier ===")
+        for tier in tier_total:
+            if tier_total[tier] > 0:
+                failure_rate = tier_failures[tier] / tier_total[tier] * 100
+                print(f"{tier}: {failure_rate:.1f}% failure rate")
+
+        return hourly_failures, tier_failures
+
+
+# Run pattern discovery
+pattern_analyzer = PatternDiscovery(experiment_id="your-experiment-id")
+black_friday_patterns = pattern_analyzer.analyze_black_friday_patterns()
+
+print("=== Black Friday Pattern Analysis ===")
+for pattern, data in black_friday_patterns.items():
+    print(f"\n{pattern.upper()}:")
+    print(f"  Count: {data['count']}")
+    print(f"  Success Rate: {data['success_rate']:.1f}%")
+    print(f"  Sample Queries:")
+    for query in data["sample_queries"]:
+        print(f"    - {query}")
+```
+
+### 3. Domain Expert Review
+
+Create a structured review process for domain experts:
+
+```python
+class ExpertReviewSession:
+    """Manage domain expert review sessions"""
+
+    def __init__(self, session_name: str):
+        self.session_name = session_name
+        self.reviews = []
+
+    def create_review_batch(
+        self, pattern_type: str, traces: list, batch_size: int = 50
+    ):
+        """Create a batch of conversations for expert review"""
+
+        review_batch = {
+            "session": self.session_name,
+            "pattern_type": pattern_type,
+            "created_at": datetime.now().isoformat(),
+            "conversations": [],
+        }
+
+        # Sample conversations for review
+        sampled_traces = traces[:batch_size]
+
+        for trace in sampled_traces:
+            conversation = {
+                "trace_id": trace.trace_id,
+                "customer_query": trace.inputs.get("messages", [])[-1]["content"],
+                "bot_response": trace.outputs.get("content", ""),
+                "metadata": {
+                    "timestamp": trace.timestamp,
+                    "customer_tier": trace.tags.get("customer_tier"),
+                    "detected_intent": trace.tags.get("detected_intent"),
+                },
+                "review_questions": {
+                    "could_resolve": None,  # Could you have resolved this?
+                    "missing_info": [],  # What information was missing?
+                    "quality_rating": None,  # Rate 1-5
+                    "suggestions": "",  # How to improve?
+                },
+            }
+
+            review_batch["conversations"].append(conversation)
+
+        # Save batch for review
+        with open(
+            f"review_batch_{pattern_type}_{datetime.now().strftime('%Y%m%d')}.json", "w"
+        ) as f:
+            json.dump(review_batch, f, indent=2)
+
+        return review_batch
+
+    def collect_expert_feedback(self, review_file: str, expert_id: str):
+        """Collect and process expert feedback"""
+
+        with open(review_file, "r") as f:
+            review_batch = json.load(f)
+
+        # Process each reviewed conversation
+        for conv in review_batch["conversations"]:
+            if conv["review_questions"]["quality_rating"] is not None:
+                # Log expert feedback to MLflow
+                mlflow.log_feedback(
+                    trace_id=conv["trace_id"],
+                    name="expert_quality_rating",
+                    value=conv["review_questions"]["quality_rating"],
+                    source=mlflow.entities.AssessmentSource(
+                        source_type="HUMAN", source_id=f"expert_{expert_id}"
+                    ),
+                )
+
+                # Store detailed feedback
+                self.reviews.append(
+                    {
+                        "trace_id": conv["trace_id"],
+                        "pattern_type": review_batch["pattern_type"],
+                        "expert_id": expert_id,
+                        "feedback": conv["review_questions"],
+                    }
+                )
+
+        return len(self.reviews)
+
+    def summarize_findings(self):
+        """Summarize expert findings by pattern type"""
+
+        findings = defaultdict(
+            lambda: {
+                "total_reviews": 0,
+                "avg_quality": 0,
+                "could_resolve_pct": 0,
+                "common_missing_info": defaultdict(int),
+                "improvement_themes": [],
+            }
+        )
+
+        for review in self.reviews:
+            pattern = review["pattern_type"]
+            feedback = review["feedback"]
+
+            findings[pattern]["total_reviews"] += 1
+            findings[pattern]["avg_quality"] += feedback["quality_rating"]
+
+            if feedback["could_resolve"]:
+                findings[pattern]["could_resolve_pct"] += 1
+
+            for info in feedback["missing_info"]:
+                findings[pattern]["common_missing_info"][info] += 1
+
+            if feedback["suggestions"]:
+                findings[pattern]["improvement_themes"].append(feedback["suggestions"])
+
+        # Calculate averages
+        for pattern in findings:
+            n = findings[pattern]["total_reviews"]
+            if n > 0:
+                findings[pattern]["avg_quality"] /= n
+                findings[pattern]["could_resolve_pct"] = (
+                    findings[pattern]["could_resolve_pct"] / n * 100
+                )
+
+        return findings
+
+
+# Create review session for Black Friday patterns
+review_session = ExpertReviewSession("black_friday_analysis")
+
+# Create review batches for each pattern
+for pattern_type in ["gift_buyers", "international", "bundles"]:
+    traces = [t for t in bf_traces if categorize_trace(t) == pattern_type]
+    review_session.create_review_batch(pattern_type, traces, batch_size=50)
+```
+
+### 4. Build Production-Based Evaluation Datasets
+
+Create evaluation datasets from real production examples:
+
+```python
+class ProductionDatasetBuilder:
+    """Build evaluation datasets from production data"""
+
+    def __init__(self, experiment_id: str):
+        self.experiment_id = experiment_id
+        self.client = mlflow.tracking.MlflowClient()
+
+    def build_dataset_from_patterns(self, pattern_findings: dict):
+        """Build evaluation dataset based on discovered patterns"""
+
+        dataset = {
+            "name": "black_friday_discoveries_v1",
+            "created_at": datetime.now().isoformat(),
+            "categories": {},
+        }
+
+        # Gift Buyer Scenarios
+        dataset["categories"]["gift_buyers"] = self._create_gift_buyer_scenarios()
+
+        # International Customer Scenarios
+        dataset["categories"]["international"] = self._create_international_scenarios()
+
+        # Bundle Scenarios
+        dataset["categories"]["bundles"] = self._create_bundle_scenarios()
+
+        return dataset
+
+    def _create_gift_buyer_scenarios(self):
+        """Create gift buyer test scenarios"""
+
+        scenarios = []
+
+        # Different recipient types
+        recipients = [
+            {"type": "teenager", "context": "loves gaming"},
+            {"type": "college_student", "context": "studying computer science"},
+            {"type": "parent", "context": "works from home"},
+            {"type": "grandparent", "context": "wants to video call family"},
+        ]
+
+        # Different knowledge levels
+        knowledge_levels = ["tech_savvy", "moderate", "beginner"]
+
+        # Generate scenarios
+        for recipient in recipients:
+            for knowledge in knowledge_levels:
+                scenario = {
+                    "input": f"I need a laptop for my {recipient['type']} who {recipient['context']}. I don't know much about computers.",
+                    "metadata": {
+                        "recipient_type": recipient["type"],
+                        "buyer_knowledge": knowledge,
+                        "intent": "gift_purchase",
+                    },
+                    "expected_behavior": {
+                        "should_ask_budget": True,
+                        "should_ask_specific_needs": True,
+                        "should_provide_options": True,
+                        "should_explain_simply": knowledge != "tech_savvy",
+                        "max_technical_level": 3 if knowledge == "beginner" else 5,
+                    },
+                    "expected_elements": [
+                        "budget_inquiry",
+                        "use_case_clarification",
+                        "2-3 recommendations",
+                        "pros_and_cons",
+                        "warranty_mention",
+                    ],
+                }
+                scenarios.append(scenario)
+
+        return scenarios
+
+    def _create_international_scenarios(self):
+        """Create international customer scenarios"""
+
+        scenarios = []
+
+        # Top countries from production data
+        countries = [
+            {"name": "UK", "voltage": "240V", "plug": "Type G"},
+            {"name": "Canada", "voltage": "120V", "plug": "Type A/B"},
+            {"name": "Germany", "voltage": "230V", "plug": "Type C/F"},
+            {"name": "Japan", "voltage": "100V", "plug": "Type A/B"},
+            {"name": "Australia", "voltage": "230V", "plug": "Type I"},
+        ]
+
+        # Product types with compatibility concerns
+        products = [
+            {"type": "electronics", "concern": "voltage"},
+            {"type": "appliances", "concern": "voltage_and_plug"},
+            {"type": "media", "concern": "region_lock"},
+            {"type": "warranty", "concern": "international_coverage"},
+        ]
+
+        for country in countries:
+            for product in products:
+                scenario = {
+                    "input": f"I'm from {country['name']}. Will this {product['type']} work back home?",
+                    "metadata": {
+                        "country": country["name"],
+                        "voltage": country["voltage"],
+                        "product_type": product["type"],
+                    },
+                    "expected_elements": [
+                        "voltage_compatibility"
+                        if product["concern"] in ["voltage", "voltage_and_plug"]
+                        else None,
+                        "plug_type"
+                        if product["concern"] == "voltage_and_plug"
+                        else None,
+                        "region_restrictions"
+                        if product["concern"] == "region_lock"
+                        else None,
+                        "warranty_coverage"
+                        if product["concern"] == "international_coverage"
+                        else None,
+                        "shipping_availability",
+                        "import_duties_mention",
+                    ],
+                }
+                scenarios.append(scenario)
+
+        return scenarios
+
+    def _create_bundle_scenarios(self):
+        """Create bundle-related scenarios"""
+
+        scenarios = []
+
+        # Common bundle types
+        bundles = [
+            {
+                "name": "Gaming Console Bundle",
+                "components": ["console", "extra_controller", "game", "headset"],
+                "savings": "$80",
+            },
+            {
+                "name": "Home Theater Bundle",
+                "components": ["TV", "soundbar", "HDMI_cables", "wall_mount"],
+                "savings": "$150",
+            },
+            {
+                "name": "Laptop Student Bundle",
+                "components": ["laptop", "mouse", "backpack", "software"],
+                "savings": "$120",
+            },
+        ]
+
+        # Common questions
+        questions = [
+            "Is the {bundle_name} still available?",
+            "Can I swap the {component} in the {bundle_name}?",
+            "How much am I saving with the {bundle_name}?",
+            "Does the {bundle_name} include warranty for all items?",
+            "Can I return part of the {bundle_name}?",
+        ]
+
+        for bundle in bundles:
+            for question_template in questions:
+                # Generate question with bundle details
+                component = bundle["components"][1]  # Pick a component
+                question = question_template.format(
+                    bundle_name=bundle["name"], component=component
+                )
+
+                scenario = {
+                    "input": question,
+                    "metadata": {
+                        "bundle": bundle["name"],
+                        "components": bundle["components"],
+                        "savings": bundle["savings"],
+                    },
+                    "expected_elements": [
+                        "bundle_availability",
+                        "component_list",
+                        "savings_amount",
+                        "modification_policy",
+                        "return_policy",
+                    ],
+                }
+                scenarios.append(scenario)
+
+        return scenarios
+
+    def create_mlflow_dataset(self, dataset_dict: dict):
+        """Convert to MLflow evaluation dataset format"""
+
+        all_scenarios = []
+
+        for category, scenarios in dataset_dict["categories"].items():
+            for scenario in scenarios:
+                all_scenarios.append(
+                    {
+                        "inputs": scenario["input"],
+                        "category": category,
+                        "metadata": json.dumps(scenario["metadata"]),
+                        "expected_elements": json.dumps(scenario["expected_elements"]),
+                    }
+                )
+
+        # Create pandas DataFrame
+        eval_df = pd.DataFrame(all_scenarios)
+
+        # Log as MLflow dataset
+        with mlflow.start_run():
+            dataset = mlflow.data.from_pandas(
+                eval_df, targets="expected_elements", name="black_friday_discoveries_v1"
+            )
+            mlflow.log_input(dataset, context="evaluation")
+
+        return eval_df
+
+
+# Build the dataset
+dataset_builder = ProductionDatasetBuilder(experiment_id="your-experiment-id")
+expert_findings = review_session.summarize_findings()
+eval_dataset = dataset_builder.build_dataset_from_patterns(expert_findings)
+```
+
+### 5. Test and Compare Improvements
+
+Implement targeted improvements based on discoveries:
+
+```python
+class TargetedImprovements:
+    """Implement improvements based on production insights"""
+
+    def __init__(self, base_bot):
+        self.base_bot = base_bot
+        self.improvements = {}
+
+    def add_gift_buyer_logic(self):
+        """Add conversational flow for gift buyers"""
+
+        def gift_buyer_handler(query: str, context: dict):
+            # Detect gift-buying intent
+            gift_indicators = [
+                "for my",
+                "gift",
+                "birthday",
+                "christmas",
+                "son",
+                "daughter",
+                "parent",
+            ]
+
+            if any(indicator in query.lower() for indicator in gift_indicators):
+                # Activate consultative mode
+                clarifying_questions = []
+
+                # Check what we don't know
+                if "budget" not in context:
+                    clarifying_questions.append(
+                        "What's your budget range for this gift?"
+                    )
+
+                if "use_case" not in context:
+                    clarifying_questions.append(
+                        "What will they primarily use it for? (work, gaming, school, etc.)"
+                    )
+
+                if "tech_level" not in context:
+                    clarifying_questions.append(
+                        "How comfortable are they with technology? (beginner/intermediate/expert)"
+                    )
+
+                if clarifying_questions:
+                    response = "I'd love to help you find the perfect gift! "
+                    response += (
+                        "To give you the best recommendations, could you tell me:\n"
+                    )
+                    for q in clarifying_questions:
+                        response += f"- {q}\n"
+                    return response
+
+                # If we have context, provide recommendations
+                return self._generate_gift_recommendations(context)
+
+            return None  # Let base bot handle
+
+        self.improvements["gift_buyer"] = gift_buyer_handler
+
+    def add_international_support(self):
+        """Add region detection and compatibility info"""
+
+        # Country database
+        country_info = {
+            "uk": {"voltage": "240V", "plug": "Type G", "shipping": True},
+            "canada": {"voltage": "120V", "plug": "Type A/B", "shipping": True},
+            "germany": {"voltage": "230V", "plug": "Type C/F", "shipping": True},
+            "japan": {"voltage": "100V", "plug": "Type A/B", "shipping": True},
+            "australia": {"voltage": "230V", "plug": "Type I", "shipping": True},
+        }
+
+        def international_handler(query: str, product_info: dict):
+            # Detect country mentions
+            query_lower = query.lower()
+            detected_country = None
+
+            for country, info in country_info.items():
+                if country in query_lower:
+                    detected_country = country
+                    break
+
+            if detected_country:
+                response = self._generate_compatibility_info(
+                    detected_country, country_info[detected_country], product_info
+                )
+                return response
+
+            return None
+
+        self.improvements["international"] = international_handler
+
+    def add_bundle_intelligence(self):
+        """Add bundle knowledge and handling"""
+
+        # Mock bundle database
+        bundles = {
+            "gaming_bundle_bf24": {
+                "name": "Black Friday Gaming Bundle",
+                "components": {
+                    "xbox_series_x": "Xbox Series X Console",
+                    "controller_black": "Extra Wireless Controller (Black)",
+                    "game_pack": "3-Game Bundle",
+                    "headset": "Gaming Headset",
+                },
+                "total_value": 729.99,
+                "bundle_price": 649.99,
+                "savings": 80.00,
+                "customizable": ["controller_black", "game_pack"],
+            }
+        }
+
+        def bundle_handler(query: str):
+            # Detect bundle-related queries
+            if "bundle" in query.lower() or "deal" in query.lower():
+                # Find mentioned bundle
+                for bundle_id, bundle_info in bundles.items():
+                    if any(
+                        comp in query.lower()
+                        for comp in bundle_info["components"].values()
+                    ):
+                        return self._generate_bundle_response(bundle_info, query)
+
+                # General bundle query
+                return self._list_available_bundles(bundles)
+
+            return None
+
+        self.improvements["bundles"] = bundle_handler
+
+    def apply_improvements(self, query: str, context: dict = None):
+        """Apply all improvements to bot response"""
+
+        context = context or {}
+
+        # Try each improvement handler
+        for improvement_name, handler in self.improvements.items():
+            response = handler(query, context)
+            if response:
+                # Log which improvement was used
+                mlflow.log_param("improvement_used", improvement_name)
+                return response
+
+        # Fallback to base bot
+        return self.base_bot.process_query(query)
+
+    def _generate_gift_recommendations(self, context: dict):
+        """Generate personalized gift recommendations"""
+
+        budget = context.get("budget", "not specified")
+        use_case = context.get("use_case", "general")
+        tech_level = context.get("tech_level", "intermediate")
+
+        recommendations = f"""Based on your requirements, here are my top recommendations:
+
+1. **Best Overall**: Dell XPS 13
+   - Perfect for: {use_case}
+   - Price: $899 (within budget)
+   - Why: User-friendly, reliable, great support
+   - Warranty: 1-year included, extend to 3 years for $99
+
+2. **Budget-Friendly**: ASUS VivoBook
+   - Price: $599
+   - Great for: Basic tasks and {use_case}
+   - Simple setup for {tech_level} users
+
+3. **Premium Option**: MacBook Air M2
+   - Price: $1,199
+   - Exceptional build quality
+   - Easiest to use for {tech_level} users
+
+All include free setup support and holiday return policy (until Jan 31)!
+Would you like more details about any of these?"""
+
+        return recommendations
+```
+
+### 6. Evaluate Improvements
+
+Test improvements against the production-based dataset:
+
+```python
+# Evaluate base bot vs improved bot
+def evaluate_improvements(base_bot, improved_bot, eval_dataset):
+    """Compare performance before and after improvements"""
+
+    results = {
+        "base": {"scores": [], "failures": []},
+        "improved": {"scores": [], "failures": []},
+    }
+
+    for _, row in eval_dataset.iterrows():
+        query = row["inputs"]
+        expected_elements = json.loads(row["expected_elements"])
+
+        # Test base bot
+        base_response = base_bot.process_query(query)
+        base_score = calculate_response_score(base_response, expected_elements)
+        results["base"]["scores"].append(base_score)
+
+        if base_score < 0.6:
+            results["base"]["failures"].append(
+                {"query": query, "response": base_response, "score": base_score}
+            )
+
+        # Test improved bot
+        improved_response = improved_bot.apply_improvements(query)
+        improved_score = calculate_response_score(improved_response, expected_elements)
+        results["improved"]["scores"].append(improved_score)
+
+        if improved_score < 0.6:
+            results["improved"]["failures"].append(
+                {"query": query, "response": improved_response, "score": improved_score}
+            )
+
+    # Calculate summary statistics
+    summary = {
+        "base": {
+            "avg_score": sum(results["base"]["scores"])
+            / len(results["base"]["scores"]),
+            "failure_rate": len(results["base"]["failures"]) / len(eval_dataset) * 100,
+        },
+        "improved": {
+            "avg_score": sum(results["improved"]["scores"])
+            / len(results["improved"]["scores"]),
+            "failure_rate": len(results["improved"]["failures"])
+            / len(eval_dataset)
+            * 100,
+        },
+    }
+
+    # Calculate improvement
+    summary["improvement"] = {
+        "score_increase": summary["improved"]["avg_score"]
+        - summary["base"]["avg_score"],
+        "failure_reduction": summary["base"]["failure_rate"]
+        - summary["improved"]["failure_rate"],
+    }
+
+    return results, summary
+
+
+def calculate_response_score(response: str, expected_elements: list):
+    """Score response based on expected elements"""
+    score = 0
+    max_score = len(expected_elements)
+
+    response_lower = response.lower()
+
+    for element in expected_elements:
+        if element and check_element_present(element, response_lower):
+            score += 1
+
+    return score / max_score if max_score > 0 else 0
+
+
+def check_element_present(element: str, response: str):
+    """Check if expected element is present in response"""
+
+    element_checks = {
+        "budget_inquiry": ["budget", "price range", "how much"],
+        "use_case_clarification": ["what will", "primarily use", "main purpose"],
+        "voltage_compatibility": ["voltage", "240v", "120v", "electrical"],
+        "shipping_availability": ["ship to", "international shipping", "delivery to"],
+        "bundle_availability": ["available", "in stock", "still have"],
+        "savings_amount": ["save", "discount", "$", "off"],
+        # Add more element checks
+    }
+
+    if element in element_checks:
+        return any(check in response for check in element_checks[element])
+
+    return element in response
+
+
+# Run evaluation
+improved_bot = TargetedImprovements(base_bot)
+improved_bot.add_gift_buyer_logic()
+improved_bot.add_international_support()
+improved_bot.add_bundle_intelligence()
+
+results, summary = evaluate_improvements(base_bot, improved_bot, eval_dataset)
+
+print("=== Evaluation Results ===")
+print(f"Base Bot Performance:")
+print(f"  Average Score: {summary['base']['avg_score']:.2%}")
+print(f"  Failure Rate: {summary['base']['failure_rate']:.1f}%")
+print(f"\nImproved Bot Performance:")
+print(f"  Average Score: {summary['improved']['avg_score']:.2%}")
+print(f"  Failure Rate: {summary['improved']['failure_rate']:.1f}%")
+print(f"\nImprovement:")
+print(f"  Score Increase: {summary['improvement']['score_increase']:.2%}")
+print(f"  Failure Reduction: {summary['improvement']['failure_reduction']:.1f}%")
+
+# Log results to MLflow
+with mlflow.start_run():
+    mlflow.log_metrics(
+        {
+            "base_avg_score": summary["base"]["avg_score"],
+            "improved_avg_score": summary["improved"]["avg_score"],
+            "score_improvement": summary["improvement"]["score_increase"],
+            "failure_reduction": summary["improvement"]["failure_reduction"],
+        }
+    )
+
+    # Log detailed results
+    mlflow.log_dict(results, "evaluation_results.json")
+    mlflow.log_dict(summary, "evaluation_summary.json")
+
+# Show specific improvements by category
+print("\n=== Performance by Category ===")
+categories = ["gift_buyers", "international", "bundles"]
+for category in categories:
+    category_data = eval_dataset[eval_dataset["category"] == category]
+
+    base_scores = []
+    improved_scores = []
+
+    for _, row in category_data.iterrows():
+        query = row["inputs"]
+        expected = json.loads(row["expected_elements"])
+
+        base_resp = base_bot.process_query(query)
+        improved_resp = improved_bot.apply_improvements(query)
+
+        base_scores.append(calculate_response_score(base_resp, expected))
+        improved_scores.append(calculate_response_score(improved_resp, expected))
+
+    print(f"\n{category}:")
+    print(f"  Base: {sum(base_scores)/len(base_scores):.2%}")
+    print(f"  Improved: {sum(improved_scores)/len(improved_scores):.2%}")
+    print(
+        f"  Gain: +{(sum(improved_scores)/len(improved_scores) - sum(base_scores)/len(base_scores)):.2%}"
+    )
+```
+
+### 7. Real Production Success Stories
+
+Let's look at actual improvements from implementing these changes:
+
+```python
+# Before/After comparison helper
+def showcase_improvements():
+    """Display before/after examples"""
+
+    examples = [
+        {
+            "category": "Gift Buyer",
+            "before": {
+                "customer": "Good gaming laptop for teenager?",
+                "bot": "Our gaming laptops feature RTX 4080 GPUs with 32GB RAM and NVMe SSDs for optimal performance. The Alienware X17 offers 360Hz display refresh rates and advanced cooling systems.",
+                "result": "Customer confused, escalated to human",
+            },
+            "after": {
+                "customer": "Good gaming laptop for teenager?",
+                "bot": "I'd love to help find the perfect gaming laptop! Quick questions:\n- What's your budget range?\n- What games do they play? (Minecraft, Fortnite, AAA titles?)\n- Do they need it for school too?\n\nThis helps me recommend the best option for them!",
+                "result": "Successful sale, 5-star feedback",
+            },
+        },
+        {
+            "category": "International Customer",
+            "before": {
+                "customer": "I'm visiting from UK, will this hair dryer work there?",
+                "bot": "This hair dryer has excellent reviews and features ionic technology for smooth styling!",
+                "result": "Unhelpful, potential safety issue",
+            },
+            "after": {
+                "customer": "I'm visiting from UK, will this hair dryer work there?",
+                "bot": "Important compatibility info: This hair dryer is 120V only and won't work safely in the UK (240V) without a voltage converter. \n\nI'd recommend our dual-voltage travel hair dryer instead - it automatically adjusts to work worldwide (100-240V) and includes plug adapters. Would you like to see that option?",
+                "result": "Prevented return, suggested better product",
+            },
+        },
+        {
+            "category": "Bundle Question",
+            "before": {
+                "customer": "Can I swap the black controller for white in the Xbox bundle?",
+                "bot": "Please see our bundle terms and conditions page for details.",
+                "result": "Frustrated customer, no clear answer",
+            },
+            "after": {
+                "customer": "Can I swap the black controller for white in the Xbox bundle?",
+                "bot": "Yes! You can swap the controller color in our Xbox bundle. The white controller is the same price, so there's no additional charge. \n\nHere's how: Add the bundle to your cart, then in checkout notes write 'White controller please'. We'll make the swap before shipping. The bundle still saves you $80!",
+                "result": "Happy customer, purchase completed",
+            },
+        },
+    ]
+
+    for example in examples:
+        print(f"\n=== {example['category']} Example ===")
+        print("\nBEFORE:")
+        print(f"Customer: {example['before']['customer']}")
+        print(f"Bot: {example['before']['bot']}")
+        print(f"Result: {example['before']['result']}")
+        print("\nAFTER:")
+        print(f"Customer: {example['after']['customer']}")
+        print(f"Bot: {example['after']['bot']}")
+        print(f"Result: {example['after']['result']}")
+
+
+showcase_improvements()
+```
+
+## Continuous Improvement Process
+
+### Implement Weekly Review Cycles
+
+```python
+class ContinuousImprovement:
+    """Manage ongoing improvement cycles"""
+
+    def __init__(self, experiment_id: str):
+        self.experiment_id = experiment_id
+        self.client = mlflow.tracking.MlflowClient()
+
+    def weekly_review_process(self):
+        """Standard weekly review process"""
+
+        schedule = {
+            "monday": self.analyze_weekend_traffic,
+            "wednesday": self.test_improvements,
+            "friday": self.deploy_updates,
+        }
+
+        return schedule
+
+    def analyze_weekend_traffic(self):
+        """Monday: Review weekend patterns"""
+
+        # Get weekend traces
+        weekend_start = (datetime.now() - timedelta(days=2)).isoformat()
+        weekend_end = datetime.now().isoformat()
+
+        analyzer = FeedbackAnalyzer(self.experiment_id)
+        weekend_summary = analyzer.get_feedback_summary(weekend_start, weekend_end)
+
+        print("=== Weekend Traffic Analysis ===")
+        print(f"Total Conversations: {weekend_summary['total_conversations']}")
+        print(f"Satisfaction Rate: {weekend_summary['satisfaction_rate']:.1f}%")
+        print("\nTop Issues:")
+        for issue, count in weekend_summary["detailed_feedback"].items():
+            print(f"  {issue}: {count} reports")
+
+        # Identify new patterns
+        pattern_discovery = PatternDiscovery(self.experiment_id)
+        new_patterns = pattern_discovery.find_failure_patterns()
+
+        return weekend_summary, new_patterns
+
+    def test_improvements(self):
+        """Wednesday: Test new improvements"""
+
+        # Get recent problem patterns
+        recent_failures = self.client.search_traces(
+            experiment_ids=[self.experiment_id],
+            filter_string="tags.user_feedback = 'false' AND timestamp >= '{}'".format(
+                (datetime.now() - timedelta(days=3)).isoformat()
+            ),
+            max_results=100,
+        )
+
+        # Create test scenarios from failures
+        test_scenarios = []
+        for trace in recent_failures[:20]:
+            test_scenarios.append(
+                {
+                    "original_query": trace.inputs.get("messages", [])[-1]["content"],
+                    "original_response": trace.outputs.get("content", ""),
+                    "original_feedback": trace.tags.get("feedback_detail", "unknown"),
+                }
+            )
+
+        # Test with improvements
+        improved_bot = TargetedImprovements(base_bot)
+        # Add latest improvements...
+
+        results = []
+        for scenario in test_scenarios:
+            improved_response = improved_bot.apply_improvements(
+                scenario["original_query"]
+            )
+
+            results.append(
+                {
+                    "query": scenario["original_query"],
+                    "original": scenario["original_response"],
+                    "improved": improved_response,
+                    "likely_better": len(improved_response)
+                    > len(scenario["original_response"]),
+                }
+            )
+
+        improvement_rate = sum(r["likely_better"] for r in results) / len(results) * 100
+        print(f"Improvement rate: {improvement_rate:.1f}%")
+
+        return results
+
+    def deploy_updates(self):
+        """Friday: Deploy updates for weekend rush"""
+
+        # Run final evaluation
+        print("Running pre-deployment evaluation...")
+
+        # Check key metrics
+        metrics = {
+            "gift_buyer_success": 0.80,  # Target
+            "international_accuracy": 0.75,
+            "bundle_resolution": 0.70,
+        }
+
+        # Only deploy if metrics meet threshold
+        deploy = all(v > 0.70 for v in metrics.values())
+
+        if deploy:
+            print("✅ Metrics pass threshold. Deploying updates...")
+            # Deploy logic here
+
+            # Log deployment
+            with mlflow.start_run():
+                mlflow.log_metrics(metrics)
+                mlflow.set_tag("deployment", "success")
+                mlflow.set_tag("deployment_date", datetime.now().isoformat())
+        else:
+            print("❌ Metrics below threshold. Holding deployment.")
+
+        return deploy
+
+    def monthly_evolution(self):
+        """Monthly improvement cycle"""
+
+        month_plan = {
+            "week_1_2": "collect_patterns",
+            "week_3": "expert_review",
+            "week_4": "implement_test",
+        }
+
+        # Week 1-2: Pattern Collection
+        all_patterns = defaultdict(list)
+
+        for week in range(2):
+            week_start = (datetime.now() - timedelta(days=7 * (week + 1))).isoformat()
+            week_end = (datetime.now() - timedelta(days=7 * week)).isoformat()
+
+            traces = self.client.search_traces(
+                experiment_ids=[self.experiment_id],
+                filter_string=f"timestamp >= '{week_start}' AND timestamp <= '{week_end}'",
+                max_results=5000,
+            )
+
+            # Categorize patterns
+            for trace in traces:
+                if trace.tags.get("user_feedback") == "false":
+                    pattern = self.identify_pattern(trace)
+                    all_patterns[pattern].append(trace)
+
+        # Week 3: Expert Review
+        review_session = ExpertReviewSession(
+            f"monthly_review_{datetime.now().strftime('%Y%m')}"
+        )
+
+        for pattern, traces in all_patterns.items():
+            if len(traces) > 10:  # Only review common patterns
+                review_session.create_review_batch(pattern, traces, batch_size=30)
+
+        # Week 4: Implementation
+        # Based on expert feedback, implement improvements
+
+        return all_patterns
+
+    def identify_pattern(self, trace):
+        """Identify pattern type for a trace"""
+
+        query = trace.inputs.get("messages", [])[-1]["content"].lower()
+
+        # Simple pattern matching
+        if "gift" in query or "for my" in query:
+            return "gift_buyer"
+        elif any(country in query for country in ["uk", "canada", "europe"]):
+            return "international"
+        elif "bundle" in query or "deal" in query:
+            return "bundle"
+        else:
+            return "other"
+
+
+# Set up continuous improvement
+ci = ContinuousImprovement(experiment_id="your-experiment-id")
+
+# Run weekly review
+if datetime.now().weekday() == 0:  # Monday
+    ci.analyze_weekend_traffic()
+elif datetime.now().weekday() == 2:  # Wednesday
+    ci.test_improvements()
+elif datetime.now().weekday() == 4:  # Friday
+    ci.deploy_updates()
+```
+
+## Key Learnings
+
+### 1. Production Reveals Blind Spots
+
+```python
+# Analyze coverage gaps
+def analyze_test_coverage():
+    """Compare test data vs production patterns"""
+
+    test_patterns = {
+        "order_tracking": 40,
+        "returns": 30,
+        "product_info": 20,
+        "technical_support": 10,
+    }
+
+    production_patterns = {
+        "gift_buyers": 20,
+        "order_tracking": 25,
+        "international": 15,
+        "bundles": 10,
+        "returns": 20,
+        "other": 10,
+    }
+
+    print("=== Test vs Production Coverage ===")
+    print("Patterns in production but not tests:")
+    for pattern in production_patterns:
+        if pattern not in test_patterns:
+            print(f"  {pattern}: {production_patterns[pattern]}% of traffic")
+
+    return production_patterns
+
+
+analyze_test_coverage()
+```
+
+### 2. Expert Knowledge is Crucial
+
+Domain experts immediately spot issues that automated systems miss:
+
+Missing business logic (bundle rules)
+Safety concerns (voltage compatibility)
+Customer service nuances (empathy in responses)
+
+### 3. Rapid Iteration Saves Customer Relationships
+
+During Black Friday:
+
+Day 1: 32% escalation rate
+Day 2: 18% escalation rate (after gift buyer fix)
+Day 3: 11% escalation rate (after all improvements)
+
+### 4. Real Examples Beat Synthetic Data
+
+Production conversations revealed queries we never imagined:
+
+"My grandma wants 'the Netflix machine'"
+"Will this work after the apocalypse?"
+"Can I pay with Bitcoin for privacy?"
+
+## Summary
+This tutorial demonstrated how to:
+
+- Collect production feedback systematically
+- Analyze patterns in real-world usage
+- Involve domain experts for quality assessment
+- Build evaluation datasets from production data
+- Implement targeted improvements based on insights
+- Establish continuous improvement processes
+
+The **key insight**: Production data reveals what really matters to customers, and continuous improvement based on this data is essential for GenAI success.
+
+## FAQ
+
+**Q: How quickly should we respond to new production patterns?**
+
+A: Critical issues (safety, legal) within hours. Quality improvements within 1-2 days. Feature requests can wait for weekly cycles.
+
+**Q: How many experts should review production data?**
+
+A: 3-5 experts provide good coverage. More important is diversity of expertise - include senior agents, product specialists, and technical support.
+
+**Q: Should we keep seasonal patterns in our permanent dataset?**
+
+A: Yes! Seasonal patterns repeat. Keep 20-30 best examples from each major event (Black Friday, Back to School, etc.) for regression testing.
+
+**Q: How do we balance quick fixes vs. systematic improvements?**
+
+A: Use a two-track approach: hotfixes for critical issues, weekly cycles for systematic improvements.
+
+**Q: What metrics should trigger immediate action?**
+
+A: Any safety issues, legal compliance problems, or satisfaction rates dropping below 60% require immediate attention.
+
+**Q: How do we prevent regression when adding new improvements?**
+
+A: Always run your evaluation dataset before deploying. Add successful production examples to your regression test suite.
