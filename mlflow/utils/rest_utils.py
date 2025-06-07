@@ -392,7 +392,7 @@ def _retry_databricks_sdk_call_with_exponential_backoff(
     start_time = time.time()
     attempt = 0
 
-    while True:
+    while attempt <= max_retries:
         try:
             return call_func()
         except DatabricksError as e:
@@ -408,12 +408,6 @@ def _retry_databricks_sdk_call_with_exponential_backoff(
                 _logger.warning(f"Max retries ({max_retries}) exceeded: {e}")
                 raise e
 
-            # Check if we've exceeded the timeout
-            elapsed_time = time.time() - start_time
-            if elapsed_time >= retry_timeout_seconds:
-                _logger.warning(f"Retry timeout ({retry_timeout_seconds}s) exceeded: {e}")
-                raise e
-
             # Calculate backoff time with exponential backoff and jitter
             # Use the same formula as urllib3.util.retry.Retry.get_backoff_time()
             if attempt <= 0:
@@ -423,7 +417,8 @@ def _retry_databricks_sdk_call_with_exponential_backoff(
                 if backoff_jitter > 0:
                     backoff_time += random.random() * backoff_jitter
 
-            # Check if sleeping would exceed timeout
+            # Check if we've exceeded or would exceed timeout
+            elapsed_time = time.time() - start_time
             if elapsed_time + backoff_time >= retry_timeout_seconds:
                 _logger.warning(f"Retry timeout ({retry_timeout_seconds}s) exceeded: {e}")
                 raise e
