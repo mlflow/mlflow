@@ -833,7 +833,7 @@ class Model:
             model_dict[_MLFLOW_VERSION_KEY] = None
         return cls(**model_dict)
 
-    # MLflow 2.x log_model API
+    # MLflow 2.x log_model API. Only spark flavors uses this API.
     # https://github.com/mlflow/mlflow/blob/fd2d9861fa52eeca178825c871d5d29fbb3b95c4/mlflow/models/model.py#L773-L982
     @format_docstring(LOG_MODEL_PARAM_DOCS)
     @classmethod
