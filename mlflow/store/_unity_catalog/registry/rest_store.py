@@ -15,6 +15,7 @@ import mlflow
 from mlflow.entities import Run
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry.prompt import Prompt
+from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
@@ -109,7 +110,6 @@ from mlflow.store._unity_catalog.lineage.constants import (
     _DATABRICKS_LINEAGE_ID_HEADER,
     _DATABRICKS_ORG_ID_HEADER,
 )
-from mlflow.store._unity_catalog.registry.prompt_info import PromptInfo
 from mlflow.store._unity_catalog.registry.utils import (
     mlflow_tags_to_proto,
     mlflow_tags_to_proto_version_tags,
@@ -1179,7 +1179,7 @@ class UcModelRegistryStore(BaseRestStore):
         name: str,
         description: Optional[str] = None,
         tags: Optional[dict[str, str]] = None,
-    ) -> PromptInfo:
+    ) -> Prompt:
         """
         Create a new prompt in Unity Catalog (metadata only, no initial version).
         """
@@ -1206,7 +1206,7 @@ class UcModelRegistryStore(BaseRestStore):
         max_results: Optional[int] = None,
         order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
-    ) -> PagedList[PromptInfo]:
+    ) -> PagedList[Prompt]:
         """
         Search for prompts in Unity Catalog.
 
@@ -1349,7 +1349,9 @@ class UcModelRegistryStore(BaseRestStore):
             proto_name=DeletePromptTagRequest,
         )
 
-    def get_prompt(self, name: str, version: Optional[Union[str, int]] = None) -> Optional[Prompt]:
+    def get_prompt(
+        self, name: str, version: Optional[Union[str, int]] = None
+    ) -> Optional[PromptVersion]:
         """
         Get prompt by name and version from Unity Catalog.
         """
@@ -1400,7 +1402,7 @@ class UcModelRegistryStore(BaseRestStore):
         template: str,
         description: Optional[str] = None,
         tags: Optional[dict[str, str]] = None,
-    ) -> Prompt:
+    ) -> PromptVersion:
         """
         Create a new prompt version in Unity Catalog.
         """
@@ -1433,7 +1435,7 @@ class UcModelRegistryStore(BaseRestStore):
         )
         return proto_to_mlflow_prompt(response_proto, tags or {})
 
-    def get_prompt_version(self, name: str, version: Union[str, int]) -> Prompt:
+    def get_prompt_version(self, name: str, version: Union[str, int]) -> PromptVersion:
         """
         Get a specific prompt version from Unity Catalog.
         """
@@ -1464,7 +1466,7 @@ class UcModelRegistryStore(BaseRestStore):
             proto_name=DeletePromptVersionRequest,
         )
 
-    def get_prompt_version_by_alias(self, name: str, alias: str) -> Prompt:
+    def get_prompt_version_by_alias(self, name: str, alias: str) -> PromptVersion:
         """
         Get a prompt version by alias from Unity Catalog.
         """
