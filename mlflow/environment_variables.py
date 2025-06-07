@@ -835,3 +835,57 @@ MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT = _BooleanEnvironmentVariable(
 MLFLOW_LOCK_MODEL_DEPENDENCIES = _BooleanEnvironmentVariable(
     "MLFLOW_LOCK_MODEL_DEPENDENCIES", False
 )
+
+#: Enables rate limiting for the MLflow tracking server
+#: (default: ``False``)
+MLFLOW_TRACKING_SERVER_RATE_LIMITING_ENABLED = _BooleanEnvironmentVariable(
+    "MLFLOW_TRACKING_SERVER_RATE_LIMITING_ENABLED", False
+)
+
+#: Storage URI for rate limiting data (e.g., 'redis://localhost:6379', 'memory://')
+#: (default: ``memory://``)
+MLFLOW_TRACKING_SERVER_RATE_LIMITING_STORAGE_URI = _EnvironmentVariable(
+    "MLFLOW_TRACKING_SERVER_RATE_LIMITING_STORAGE_URI", str, "memory://"
+)
+
+#: Default rate limits applied to all endpoints (comma-separated list of limits)
+#: (default: ``1000 per hour, 50 per minute``)
+MLFLOW_TRACKING_SERVER_RATE_LIMITING_DEFAULT_LIMITS = _EnvironmentVariable(
+    "MLFLOW_TRACKING_SERVER_RATE_LIMITING_DEFAULT_LIMITS", str, "1000 per hour, 50 per minute"
+)
+
+#: Rate limits for experiment creation endpoints (comma-separated list of limits)
+#: (default: ``100 per hour, 10 per minute``)
+MLFLOW_TRACKING_SERVER_RATE_LIMITING_EXPERIMENT_LIMITS = _EnvironmentVariable(
+    "MLFLOW_TRACKING_SERVER_RATE_LIMITING_EXPERIMENT_LIMITS", str, "100 per hour, 10 per minute"
+)
+
+#: Rate limits for run creation endpoints (comma-separated list of limits)
+#: (default: ``500 per hour, 20 per minute``)
+MLFLOW_TRACKING_SERVER_RATE_LIMITING_RUN_LIMITS = _EnvironmentVariable(
+    "MLFLOW_TRACKING_SERVER_RATE_LIMITING_RUN_LIMITS", str, "500 per hour, 20 per minute"
+)
+
+#: Rate limits for logging endpoints (metrics, parameters, tags) (comma-separated list of limits)
+#: (default: ``5000 per hour, 100 per minute``)
+MLFLOW_TRACKING_SERVER_RATE_LIMITING_LOGGING_LIMITS = _EnvironmentVariable(
+    "MLFLOW_TRACKING_SERVER_RATE_LIMITING_LOGGING_LIMITS", str, "5000 per hour, 100 per minute"
+)
+
+#: Rate limits for search and get endpoints (comma-separated list of limits)
+#: (default: ``2000 per hour, 100 per minute``)
+MLFLOW_TRACKING_SERVER_RATE_LIMITING_SEARCH_LIMITS = _EnvironmentVariable(
+    "MLFLOW_TRACKING_SERVER_RATE_LIMITING_SEARCH_LIMITS", str, "2000 per hour, 100 per minute"
+)
+
+#: Rate limits for artifact operations (comma-separated list of limits)
+#: (default: ``1000 per hour, 50 per minute``)
+MLFLOW_TRACKING_SERVER_RATE_LIMITING_ARTIFACT_LIMITS = _EnvironmentVariable(
+    "MLFLOW_TRACKING_SERVER_RATE_LIMITING_ARTIFACT_LIMITS", str, "1000 per hour, 50 per minute"
+)
+
+#: Key function for rate limiting (ip, user, session)
+#: (default: ``ip``)
+MLFLOW_TRACKING_SERVER_RATE_LIMITING_KEY_FUNC = _EnvironmentVariable(
+    "MLFLOW_TRACKING_SERVER_RATE_LIMITING_KEY_FUNC", str, "ip"
+)

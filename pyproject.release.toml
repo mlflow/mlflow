@@ -28,6 +28,7 @@ classifiers = [
 requires-python = ">=3.9"
 dependencies = [
   "mlflow-skinny==3.0.0.dev0",
+  "Flask-Limiter<4",
   "Flask<4",
   "alembic<2,!=1.10.0",
   "docker<8,>=4.0.0",
