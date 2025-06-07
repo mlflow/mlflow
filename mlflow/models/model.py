@@ -837,7 +837,7 @@ class Model:
     # https://github.com/mlflow/mlflow/blob/fd2d9861fa52eeca178825c871d5d29fbb3b95c4/mlflow/models/model.py#L773-L982
     @format_docstring(LOG_MODEL_PARAM_DOCS)
     @classmethod
-    def log_v2(
+    def _log_v2(
         cls,
         artifact_path,
         flavor,

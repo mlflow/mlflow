@@ -278,8 +278,8 @@ def log_model(
 
     if _is_spark_connect_model(spark_model):
         # TODO: Use `Model.log` once `mlflowdbfs` supports logged model artifacts.
-        # `mlflowdbfs` doesn't support logged model artifacts yet, so we use `Model.log_v2`.
-        return Model.log_v2(
+        # `mlflowdbfs` doesn't support logged model artifacts yet, so we use `Model._log_v2`.
+        return Model._log_v2(
             artifact_path=artifact_path,
             flavor=mlflow.spark,
             spark_model=spark_model,
@@ -330,8 +330,8 @@ def log_model(
         dfs_tmpdir = dfs_tmpdir or MLFLOW_DFS_TMP.get()
         _check_databricks_uc_volume_tmpdir_availability(dfs_tmpdir)
         # TODO: Use `Model.log` once `mlflowdbfs` supports logged model artifacts.
-        # `mlflowdbfs` doesn't support logged model artifacts yet, so we use `Model.log_v2`.
-        return Model.log_v2(
+        # `mlflowdbfs` doesn't support logged model artifacts yet, so we use `Model._log_v2`.
+        return Model._log_v2(
             artifact_path=artifact_path,
             flavor=mlflow.spark,
             spark_model=spark_model,
