@@ -1013,7 +1013,8 @@ def test_search_traces_handles_missing_response_tags_and_metadata(mock_client):
     df = mlflow.search_traces()
     assert df["response"].isnull().all()
     assert df["tags"].tolist() == [{}]
-    assert df["trace_metadata"].tolist() == [{}]
+    # trace_metadata should only contain the schema version
+    assert df["trace_metadata"].tolist() == [{TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)}]
 
 
 @skip_when_testing_trace_sdk
