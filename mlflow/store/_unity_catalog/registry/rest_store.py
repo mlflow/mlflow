@@ -1438,9 +1438,8 @@ class UcModelRegistryStore(BaseRestStore):
     def delete_prompt_version(self, name: str, version: Union[str, int]) -> None:
         """
         Delete a prompt version from Unity Catalog.
-        If this is the last version, automatically delete the prompt itself.
         """
-        # Delete the specific version first
+        # Delete the specific version only
         req_body = message_to_json(DeletePromptVersionRequest(name=name, version=str(version)))
         endpoint, method = self._get_endpoint_from_method(DeletePromptVersionRequest)
         self._edit_endpoint_and_call(
@@ -1451,31 +1450,6 @@ class UcModelRegistryStore(BaseRestStore):
             version=version,
             proto_name=DeletePromptVersionRequest,
         )
-
-        # Check if any versions remain after deletion using SearchPromptVersions
-        try:
-            search_response = self.search_prompt_versions(name, max_results=1)
-
-            # Check if any versions remain
-            has_remaining_versions = (
-                hasattr(search_response, "prompt_versions")
-                and search_response.prompt_versions
-                and len(search_response.prompt_versions) > 0
-            )
-
-            if not has_remaining_versions:
-                # No versions remain, delete the prompt metadata
-                try:
-                    self.delete_prompt(name)
-                    _logger.info(f"Auto-deleted prompt '{name}' after deleting its last version")
-                except Exception as e:
-                    _logger.warning(
-                        f"Failed to auto-delete prompt '{name}' after deleting last version: {e}"
-                    )
-
-        except Exception as e:
-            # Log but don't fail the operation if version checking fails entirely
-            _logger.warning(f"Failed to check remaining versions for prompt '{name}': {e}")
 
     def search_prompt_versions(
         self, name: str, max_results: Optional[int] = None, page_token: Optional[str] = None
