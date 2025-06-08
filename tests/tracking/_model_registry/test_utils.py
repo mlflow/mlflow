@@ -33,7 +33,7 @@ def reset_registry_uri():
 
 def test_set_get_registry_uri():
     with mock.patch(
-        "mlflow.tracking._model_registry.utils.get_tracking_uri"
+        "mlflow.tracking._model_registry.utils._resolve_tracking_uri"
     ) as get_tracking_uri_mock:
         get_tracking_uri_mock.return_value = "databricks://tracking_sldkfj"
         uri = "databricks://registry/path"
@@ -44,7 +44,7 @@ def test_set_get_registry_uri():
 
 def test_set_get_empty_registry_uri():
     with mock.patch(
-        "mlflow.tracking._model_registry.utils.get_tracking_uri"
+        "mlflow.tracking._model_registry.utils._resolve_tracking_uri"
     ) as get_tracking_uri_mock:
         get_tracking_uri_mock.return_value = None
         set_registry_uri("")
@@ -54,7 +54,7 @@ def test_set_get_empty_registry_uri():
 
 def test_default_get_registry_uri_no_tracking_uri():
     with mock.patch(
-        "mlflow.tracking._model_registry.utils.get_tracking_uri"
+        "mlflow.tracking._model_registry.utils._resolve_tracking_uri"
     ) as get_tracking_uri_mock:
         get_tracking_uri_mock.return_value = None
         set_registry_uri(None)
