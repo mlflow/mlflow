@@ -1890,8 +1890,6 @@ def test_load_prompt_error(tracking_uri):
         client.load_prompt("model", version=1, allow_missing=False)
 
 
-
-
 def test_log_prompt(tracking_uri):
     client = MlflowClient(tracking_uri=tracking_uri)
 

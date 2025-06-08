@@ -11,7 +11,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.prompt.registry_utils import parse_prompt_name_or_uri, require_prompt_registry
 from mlflow.protos.databricks_pb2 import (
     ALREADY_EXISTS,
-    INVALID_PARAMETER_VALUE,
     NOT_FOUND,
     RESOURCE_ALREADY_EXISTS,
     ErrorCode,
@@ -27,7 +26,7 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import active_run
 from mlflow.utils import get_results_from_paginated_fn, mlflow_tags
-from mlflow.utils.annotations import deprecated, experimental
+from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import (
     _construct_databricks_uc_registered_model_url,
     get_workspace_id,
@@ -668,7 +667,9 @@ def load_prompt(
         prompt = client.load_prompt(parsed_name_or_uri, allow_missing=allow_missing)
     else:
         # For names, use the parsed version
-        prompt = client.load_prompt(parsed_name_or_uri, version=parsed_version, allow_missing=allow_missing)
+        prompt = client.load_prompt(
+            parsed_name_or_uri, version=parsed_version, allow_missing=allow_missing
+        )
 
     # If there is an active MLflow run, associate the prompt with the run
     if run := active_run():

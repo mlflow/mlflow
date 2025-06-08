@@ -66,10 +66,10 @@ from mlflow.prompt.registry_utils import (
 )
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
-    ErrorCode,
     FEATURE_DISABLED,
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
+    ErrorCode,
 )
 from mlflow.store.artifact.utils.models import (
     get_model_name_and_version,

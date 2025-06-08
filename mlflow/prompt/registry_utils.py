@@ -169,7 +169,7 @@ def parse_prompt_name_or_uri(
 ) -> tuple[str, Optional[Union[str, int]]]:
     """
     Parse prompt name or URI into (name, version) tuple.
-    
+
     Handles two cases:
     1. URI format: "prompts:/name/version" or "prompts:/name@alias"
        - Returns (name, parsed_version)
@@ -177,14 +177,14 @@ def parse_prompt_name_or_uri(
     2. Name format: "my_prompt"
        - Returns (name, version)
        - Raises error if version parameter is not provided
-    
+
     Args:
         name_or_uri: The name of the prompt, or the URI in the format "prompts:/name/version".
         version: The version of the prompt (required when using name, not allowed when using URI).
-        
+
     Returns:
         Tuple of (name, version) where version can be a string, int, or None
-        
+
     Raises:
         MlflowException: If validation fails
     """
