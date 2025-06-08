@@ -235,6 +235,34 @@ def test_create_registered_model_three_level_name_hint_with_period(store):
     assert ". ." not in error_message
 
 
+def test_create_registered_model_metastore_does_not_exist_hint(store):
+    """
+    Test that creating a registered model when metastore doesn't exist
+    provides legacy registry hint.
+    """
+    # Mock the _call_endpoint method to raise a RestException with
+    # "METASTORE_DOES_NOT_EXIST" message
+    original_error_message = "METASTORE_DOES_NOT_EXIST: Metastore not found"
+    rest_exception = RestException(
+        {"error_code": "METASTORE_DOES_NOT_EXIST", "message": original_error_message}
+    )
+
+    with mock.patch.object(store, "_call_endpoint", side_effect=rest_exception):
+        with pytest.raises(MlflowException, match=original_error_message) as exc_info:
+            store.create_registered_model(name="test_model")
+
+    # Verify the exception message includes the original error and the legacy registry hint
+    expected_hint = (
+        "If you are trying to use the Model Registry in a Databricks workspace that"
+        " does not have Unity Catalog enabled, either enable Unity Catalog in the"
+        " workspace (recommended) or set the Model Registry URI to 'databricks' to"
+        " use the legacy Workspace Model Registry."
+    )
+    error_message = str(exc_info.value)
+    assert original_error_message in error_message
+    assert expected_hint in error_message
+
+
 def test_create_registered_model_other_rest_exceptions_not_modified(store):
     """
     Test that RestExceptions unrelated to bad UC model names are not modified

@@ -446,6 +446,14 @@ class UcModelRegistryStore(BaseRestStore):
         try:
             response_proto = self._call_endpoint(CreateRegisteredModelRequest, req_body)
         except RestException as e:
+
+            def reraise_with_legacy_hint(exception, legacy_hint):
+                new_message = exception.message.rstrip(".") + f". {legacy_hint}"
+                raise MlflowException(
+                    message=new_message,
+                    error_code=exception.error_code,
+                )
+
             if "specify all three levels" in e.message:
                 # The exception is likely due to the user trying to create a registered model
                 # in Unity Catalog without specifying a 3-level name (catalog.schema.model).
@@ -457,11 +465,15 @@ class UcModelRegistryStore(BaseRestStore):
                     " recommended Unity Catalog Model Registry, set the Model Registry URI to"
                     " 'databricks' (legacy) instead of 'databricks-uc' (recommended)."
                 )
-                new_message = e.message.rstrip(".") + f". {legacy_hint}"
-                raise MlflowException(
-                    message=new_message,
-                    error_code=e.error_code,
+                reraise_with_legacy_hint(exception=e, legacy_hint=legacy_hint)
+            elif "METASTORE_DOES_NOT_EXIST" in e.message:
+                legacy_hint = (
+                    "If you are trying to use the Model Registry in a Databricks workspace that"
+                    " does not have Unity Catalog enabled, either enable Unity Catalog in the"
+                    " workspace (recommended) or set the Model Registry URI to 'databricks' to"
+                    " use the legacy Workspace Model Registry."
                 )
+                reraise_with_legacy_hint(exception=e, legacy_hint=legacy_hint)
             else:
                 raise
 
