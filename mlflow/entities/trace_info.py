@@ -12,7 +12,7 @@ from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.protos.service_pb2 import TraceInfoV3 as ProtoTraceInfoV3
-from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, TraceMetadataKey
 
 
 @dataclass
@@ -116,8 +116,6 @@ class TraceInfo(_MlflowObject):
 
     @classmethod
     def from_proto(cls, proto) -> "TraceInfo":
-        from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
-
         trace_metadata = dict(proto.trace_metadata)
 
         # NB: MLflow automatically converts trace metadata and spans to V3 format, even if the
