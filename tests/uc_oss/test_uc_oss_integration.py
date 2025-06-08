@@ -139,17 +139,11 @@ def test_integration(setup_servers, tmp_path):
 
     rms = client.search_registered_models()
     assert len(rms) == 1
-
-    # Verify model version exists before deletion
-    mv = client.get_model_version(name=model_name, version=1)
-    assert mv.name == model_name
-    assert mv.version == 1
-
+    mvs = client.search_model_versions(f"name='{model_name}'")
+    assert len(mvs) == 1
     client.delete_model_version(name=model_name, version=1)
-
-    # Verify model version no longer exists after deletion
-    with pytest.raises(MlflowException, match="NOT_FOUND"):
-        client.get_model_version(name=model_name, version=1)
+    mvs = client.search_model_versions(f"name='{model_name}'")
+    assert len(mvs) == 0
     client.delete_registered_model(name=model_name)
     rms = client.search_registered_models()
     assert len(rms) == 0
