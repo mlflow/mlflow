@@ -829,10 +829,12 @@ class MlflowClient:
 
     def _validate_prompt(self, name: str, version: int):
         registry_client = self._get_registry_client()
-        mv = registry_client.get_model_version(name, version)
-
-        if IS_PROMPT_TAG_KEY not in mv.tags:
-            raise MlflowException(f"Prompt '{name}' does not exist.", RESOURCE_DOES_NOT_EXIST)
+        try:
+            pv = registry_client.get_prompt_version(name, version)
+            if pv is None:
+                raise MlflowException(f"Prompt '{name}' version {version} does not exist.", RESOURCE_DOES_NOT_EXIST)
+        except Exception:
+            raise MlflowException(f"Prompt '{name}' version {version} does not exist.", RESOURCE_DOES_NOT_EXIST)
 
     def parse_prompt_uri(self, uri: str) -> tuple[str, str]:
         """
@@ -5749,6 +5751,45 @@ class MlflowClient:
         """
         registry_client = self._get_registry_client()
         return registry_client.get_prompt_version_by_alias(name, alias)
+
+    @experimental
+    @require_prompt_registry
+    @translate_prompt_exception
+    def search_prompt_versions(
+        self, 
+        name: str, 
+        max_results: Optional[int] = None, 
+        page_token: Optional[str] = None
+    ):
+        """
+        Search prompt versions for a given prompt name.
+
+        This method delegates directly to the store. Only supported in Unity Catalog registries.
+
+        Args:
+            name: Name of the prompt to search versions for.
+            max_results: Maximum number of versions to return.
+            page_token: Token for pagination.
+
+        Returns:
+            SearchPromptVersionsResponse containing the list of versions.
+
+        Raises:
+            MlflowException: If used with non-Unity Catalog registries.
+
+        Example:
+
+        .. code-block:: python
+
+            from mlflow import MlflowClient
+
+            client = MlflowClient()
+            response = client.search_prompt_versions("my_prompt", max_results=10)
+            for version in response.prompt_versions:
+                print(f"Version {version.version}: {version.description}")
+        """
+        registry_client = self._get_registry_client()
+        return registry_client.search_prompt_versions(name, max_results, page_token)
 
 
 

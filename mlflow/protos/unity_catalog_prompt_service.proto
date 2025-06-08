@@ -138,7 +138,7 @@ service UnityCatalogPromptService {
         INTERNAL_ERROR
       ],
       visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "(Unity Catalog) Search PromptVersions",
+      rpc_doc_title: "(Unity Catalog) Search Prompt Versions",
     };
   }
 
