@@ -59,6 +59,7 @@ from mlflow.prompt.constants import (
 )
 from mlflow.prompt.registry_utils import (
     has_prompt_tag,
+    parse_prompt_name_or_uri,
     require_prompt_registry,
     translate_prompt_exception,
     validate_prompt_name,
@@ -682,22 +683,14 @@ class MlflowClient:
             allow_missing: If True, return None instead of raising Exception if the specified prompt
                 is not found.
         """
-        if name_or_uri.startswith("prompts:/"):
-            if version is not None:
-                raise MlflowException(
-                    "The `version` argument should not be specified when loading a prompt by URI.",
-                    INVALID_PARAMETER_VALUE,
-                )
-            name, version = self.parse_prompt_uri(name_or_uri)
+        parsed_name_or_uri, parsed_version = parse_prompt_name_or_uri(name_or_uri, version)
+        if parsed_name_or_uri.startswith("prompts:/"):
+            # URI case: parse the URI to extract name and version
+            name, version = self.parse_prompt_uri(parsed_name_or_uri)
         else:
-            if version is None:
-                raise MlflowException(
-                    "Version must be specified when loading a prompt by name. "
-                    "Use a prompt URI (e.g., 'prompts:/name/version') or provide the version "
-                    "parameter.",
-                    INVALID_PARAMETER_VALUE,
-                )
-            name = name_or_uri
+            # Name case: use the name and provided version
+            name = parsed_name_or_uri
+            version = parsed_version
 
         registry_client = self._get_registry_client()
         try:

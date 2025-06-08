@@ -8,7 +8,7 @@ from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, 
 from mlflow.entities.run import Run
 from mlflow.environment_variables import MLFLOW_PRINT_MODEL_URLS_ON_CREATION
 from mlflow.exceptions import MlflowException
-from mlflow.prompt.registry_utils import require_prompt_registry
+from mlflow.prompt.registry_utils import parse_prompt_name_or_uri, require_prompt_registry
 from mlflow.protos.databricks_pb2 import (
     ALREADY_EXISTS,
     INVALID_PARAMETER_VALUE,
@@ -661,20 +661,14 @@ def load_prompt(
     """
     client = MlflowClient()
 
-    # Handle URI vs name+version cases
-    if name_or_uri.startswith("prompts:/"):
+    # Use utility to handle URI vs name+version parsing
+    parsed_name_or_uri, parsed_version = parse_prompt_name_or_uri(name_or_uri, version)
+    if parsed_name_or_uri.startswith("prompts:/"):
         # For URIs, don't pass version parameter
-        prompt = client.load_prompt(name_or_uri, allow_missing=allow_missing)
+        prompt = client.load_prompt(parsed_name_or_uri, allow_missing=allow_missing)
     else:
-        # For names, version is required
-        if version is None:
-            raise MlflowException(
-                "Version must be specified when loading a prompt by name. "
-                "Use a prompt URI (e.g., 'prompts:/name/version') or provide the version "
-                "parameter.",
-                INVALID_PARAMETER_VALUE,
-            )
-        prompt = client.load_prompt(name_or_uri, version=version, allow_missing=allow_missing)
+        # For names, use the parsed version
+        prompt = client.load_prompt(parsed_name_or_uri, version=parsed_version, allow_missing=allow_missing)
 
     # If there is an active MLflow run, associate the prompt with the run
     if run := active_run():
