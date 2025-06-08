@@ -1166,8 +1166,8 @@ def test_registry_uri_from_tracking_uri_param():
         return_value=tracking_uri,
     ):
         client = MlflowClient(tracking_uri=tracking_uri)
-        # For databricks tracking URIs, registry URI defaults to Unity Catalog
-        assert client._registry_uri == "databricks-uc"
+        # For databricks tracking URIs, registry URI defaults to Unity Catalog with profile
+        assert client._registry_uri == "databricks-uc://tracking_vhawoierj"
 
 
 def test_registry_uri_from_implicit_tracking_uri():
@@ -1177,8 +1177,8 @@ def test_registry_uri_from_implicit_tracking_uri():
         return_value=tracking_uri,
     ):
         client = MlflowClient()
-        # For databricks tracking URIs, registry URI defaults to Unity Catalog
-        assert client._registry_uri == "databricks-uc"
+        # For databricks tracking URIs, registry URI defaults to Unity Catalog with profile
+        assert client._registry_uri == "databricks-uc://tracking_wierojasdf"
 
 
 def test_create_model_version_nondatabricks_source_no_runlink(mock_registry_store):
