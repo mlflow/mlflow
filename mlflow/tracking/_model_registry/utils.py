@@ -91,9 +91,11 @@ def _get_registry_uri_from_spark_session():
         # Connected to Serverless
         return "databricks-uc"
 
+    from pyspark.sql.utils import AnalysisException
+
     try:
         return session.conf.get("spark.mlflow.modelRegistryUri", None)
-    except Exception:
+    except AnalysisException:
         # In serverless clusters, session.conf.get() is unsupported
         # and raises an AnalysisException. We may encounter this case
         # when DBConnect is used to connect to a serverless cluster,
