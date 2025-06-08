@@ -1318,7 +1318,7 @@ def test_create_model_version_with_source(mock_registry_store, mock_databricks_t
         assert model_version.model_id == model_id
         mock_registry_store.create_model_version.assert_called_once_with(
             "name",
-            "/path/to/source",
+            f"models:/{model_id}",
             "runid",
             [],
             None,
