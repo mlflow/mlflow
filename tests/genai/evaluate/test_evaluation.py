@@ -330,7 +330,6 @@ def test_model_from_deployment_endpoint(mock_get_deploy_client):
     spans = traces[0].data.spans
     assert len(spans) == 1
     assert spans[0].name == "predict"
-    assert spans[0].attributes["endpoint"] == "endpoints:/chat"
     # Eval harness runs prediction in parallel, so the order is not deterministic
     assert spans[0].inputs in (data[0]["inputs"], data[1]["inputs"])
     assert spans[0].outputs == _DUMMY_CHAT_RESPONSE

@@ -3,8 +3,6 @@ import time
 import warnings
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
-from opentelemetry.trace import NoOpTracer
-
 import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets import EvaluationDataset
@@ -24,10 +22,6 @@ from mlflow.models.evaluation.base import (
     EvaluationResult,
     _is_model_deployment_endpoint_uri,
 )
-from mlflow.tracing.fluent import _EVAL_REQUEST_ID_TO_TRACE_ID
-from mlflow.tracing.provider import is_tracing_enabled
-from mlflow.tracing.utils import maybe_get_request_id
-from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.annotations import experimental
 from mlflow.utils.uri import is_databricks_uri
 
@@ -358,7 +352,6 @@ def to_predict_fn(endpoint_uri: str) -> Callable:
     from mlflow.metrics.genai.model_utils import _parse_model_uri
 
     client = get_deploy_client("databricks")
-    experiment_id = _get_experiment_id()
     _, endpoint = _parse_model_uri(endpoint_uri)
     endpoint_info = client.get_endpoint(endpoint)
 
@@ -370,55 +363,37 @@ def to_predict_fn(endpoint_uri: str) -> Callable:
     #   to unnamed keyword arguments. This is necessary because we pass input samples as
     #   keyword arguments to the predict function.
     def predict_fn(**kwargs):
-        start_time = time.time()
+        start_time_ms = int(time.time_ns() / 1e6)
         # Inject `{"databricks_options": {"return_trace": True}}` to the input payload
         # to return the trace in the response.
         payload = kwargs if is_fmapi else {**kwargs, "databricks_options": {"return_trace": True}}
         result = client.predict(endpoint=endpoint, inputs=payload)
-        end_time = time.time()
+        end_time_ms = int(time.time_ns() / 1e6)
 
-        # If tracing is not enabled, return the result as is.
-        if not is_tracing_enabled():
-            # NB: Spoof call to the NoOpTracer. At the beginning of the evaluation, MLflow makes a
-            # test prediction and monitor the call to NoOpTracer to detect if the predict_fn is
-            # traced or not. The function produced by to_predict_fn() is guaranteed to create a
-            # trace, so we spoof a call to make the check pass.
-            NoOpTracer().start_span(name="noop")
-            return result
-
-        try:
-            # If the endpoint returns a trace, copy it to the current experiment.
-            if trace_dict := result.pop("databricks_output", {}).get("trace"):
-                trace_id = copy_model_serving_trace_to_eval_run(trace_dict, experiment_id)
-
-                # This is required for the evaluation harness to find the trace.
-                if eval_request_id := maybe_get_request_id():
-                    _EVAL_REQUEST_ID_TO_TRACE_ID[eval_request_id] = trace_id
-
+        # If the endpoint returns a trace, copy it to the current experiment.
+        if trace_dict := result.pop("databricks_output", {}).get("trace"):
+            try:
+                copy_model_serving_trace_to_eval_run(trace_dict)
                 return result
-        except Exception:
-            logger.debug(
-                "Failed to copy trace from the endpoint response to the current experiment. "
-                "Trace will only have a root span with request and response.",
-                exc_info=True,
-            )
+            except Exception:
+                logger.debug(
+                    "Failed to copy trace from the endpoint response to the current experiment. "
+                    "Trace will only have a root span with request and response.",
+                    exc_info=True,
+                )
 
         # If the endpoint doesn't return a trace, manually create a trace with request/response.
         mlflow.log_trace(
             name="predict",
             request=kwargs,
             response=result,
-            attributes={"endpoint": endpoint_uri},
-            start_time_ms=int(start_time * 1e3),
-            execution_time_ms=int((end_time - start_time) * 1e3),
+            start_time_ms=start_time_ms,
+            execution_time_ms=end_time_ms - start_time_ms,
         )
         return result
 
     predict_fn.__doc__ = f"""
 A wrapper function for invoking the model serving endpoint `{endpoint_uri}`.
-
-If the endpoint returns a trace, it will be copied to the current experiment
-for evaluation. Otherwise, a new trace with request and response will be created.
 
 Args:
     **kwargs: The input samples to be passed to the model serving endpoint.

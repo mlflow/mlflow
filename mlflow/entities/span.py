@@ -556,10 +556,9 @@ class LiveSpan(Span):
             parent_span_id: The parent span ID of the new span.
                 If it is None, the span will be created as a root span.
             trace_id: The trace ID to be set on the new span. Specify this if you want to
-                create the new span with a different trace ID from the original span.
+                create the new span with a particular trace ID.
             otel_trace_id: The OpenTelemetry trace ID of the new span in hex encoded format.
-                Specify this if you want to create the new span with a different trace ID
-                from the original span
+                If not specified, the newly generated trace ID will be used.
 
         Returns:
             The new LiveSpan object with the same state as the original span.
@@ -569,7 +568,6 @@ class LiveSpan(Span):
         from mlflow.tracing.trace_manager import InMemoryTraceManager
 
         trace_manager = InMemoryTraceManager.get_instance()
-        trace_id = trace_id or span.trace_id
         parent_span = trace_manager.get_span_from_id(trace_id, parent_span_id)
 
         # Create a new span with the same name, parent, and start time
@@ -578,7 +576,7 @@ class LiveSpan(Span):
             parent=parent_span._span if parent_span else None,
             start_time_ns=span.start_time_ns,
         )
-        # otel_span._span_processor = span._span._span_processor
+        trace_id = trace_id or json.loads(otel_span.attributes.get(SpanAttributeKey.REQUEST_ID))
         clone_span = LiveSpan(otel_span, trace_id, span.span_type)
 
         # Copy all the attributes, inputs, outputs, and events from the original span
@@ -594,16 +592,14 @@ class LiveSpan(Span):
         # Update trace ID and span ID
         context = span._span.get_span_context()
         clone_span._span._context = SpanContext(
-            # Override otel_trace_id if provided, otherwise use the original trace ID
-            trace_id=decode_id(otel_trace_id) or context.trace_id,
+            # Override otel_trace_id if provided, otherwise use the new trace ID
+            trace_id=decode_id(otel_trace_id) if otel_trace_id else otel_span.context.trace_id,
+            # Re-use same span ID as their ID space is local to the trace
             span_id=context.span_id,
             is_remote=context.is_remote,
             # Override trace flag as if it is sampled within current context.
             trace_flags=TraceFlags(TraceFlags.SAMPLED),
         )
-
-        # Mark the span completed with the original end time
-        clone_span.end(end_time_ns=span.end_time_ns)
         return clone_span
 
 

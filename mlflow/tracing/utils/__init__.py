@@ -4,7 +4,6 @@ from __future__ import annotations
 import inspect
 import json
 import logging
-import random
 import uuid
 from collections import Counter
 from contextlib import contextmanager
@@ -298,19 +297,13 @@ def exclude_immutable_tags(tags: dict[str, str]) -> dict[str, str]:
     return {k: v for k, v in tags.items() if k not in IMMUTABLE_TAGS}
 
 
-def generate_trace_id_v3(span: Optional[OTelSpan] = None) -> str:
+def generate_trace_id_v3(span: OTelSpan) -> str:
     """
     Generate a trace ID for the given span (V3 trace schema).
 
     The format will be "tr-<trace_id>" where the trace_id is hex-encoded Otel trace ID.
     """
-    # Use Otel trace ID as base if provided, otherwise generate a random ID
-    hex_string = (
-        encode_trace_id(span.context.trace_id)
-        if span
-        else "".join(random.choices("0123456789abcdef", k=32))
-    )
-    return TRACE_REQUEST_ID_PREFIX + hex_string
+    return TRACE_REQUEST_ID_PREFIX + encode_trace_id(span.context.trace_id)
 
 
 def generate_request_id_v2() -> str:

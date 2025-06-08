@@ -63,9 +63,14 @@ def test_to_predict_fn_return_trace(sample_rag_trace, mock_deploy_client, mock_t
     assert trace.info.request_preview == '{"question": "query"}'
     assert trace.info.response_preview == '"answer"'
     assert len(trace.data.spans) == 3
-    assert trace.data.spans[0].name == "rag"
-    assert trace.data.spans[0].inputs == {"question": "query"}
-    assert trace.data.spans[0].outputs == "answer"
+    for old, new in zip(sample_rag_trace.data.spans, trace.data.spans):
+        assert old.name == new.name
+        assert old.inputs == new.inputs
+        assert old.outputs == new.outputs
+        assert old.start_time_ns == new.start_time_ns
+        assert old.end_time_ns == new.end_time_ns
+        assert old.parent_id == new.parent_id
+        assert old.span_id == new.span_id
     mock_tracing_client._upload_trace_data.assert_called_once_with(mock.ANY, trace.data)
 
 
@@ -113,7 +118,7 @@ def test_to_predict_fn_pass_tracing_check(
     The function produced by to_predict_fn() is guaranteed to create a trace.
     Therefore it should not be wrapped by @mlflow.trace by convert_predict_fn().
     """
-    mock_deploy_client.predict.return_value = {
+    mock_deploy_client.predict.side_effect = lambda **kwargs: {
         **_DUMMY_CHAT_RESPONSE,
         "databricks_output": {"trace": sample_rag_trace.to_dict()},
     }

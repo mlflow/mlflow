@@ -1,24 +1,16 @@
-import json
 import logging
 from typing import Any, Callable, Optional
 
 from opentelemetry.trace import NoOpTracer
 
 import mlflow
-from mlflow.entities.span import Span, SpanType
+from mlflow.entities.span import LiveSpan, Span, SpanType
 from mlflow.entities.trace import Trace
-from mlflow.entities.trace_data import TraceData
-from mlflow.entities.trace_info import TraceInfo
-from mlflow.entities.trace_location import TraceLocation
-from mlflow.exceptions import MlflowException
 from mlflow.genai.utils.data_validation import check_model_prediction
-from mlflow.tracing.client import TracingClient
-from mlflow.tracing.constant import SpanAttributeKey, TraceTagKey
+from mlflow.tracing.constant import TraceTagKey
 from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
-from mlflow.tracing.processor.base_mlflow import get_basic_trace_metadata
-from mlflow.tracing.provider import _get_trace_exporter
-from mlflow.tracing.utils import generate_trace_id_v3, maybe_get_request_id
-from mlflow.tracing.utils.truncation import truncate_request_response_preview
+from mlflow.tracing.trace_manager import InMemoryTraceManager
+from mlflow.tracking.client import MlflowClient
 
 _logger = logging.getLogger(__name__)
 
@@ -205,7 +197,7 @@ def clean_up_extra_traces(run_id: str, start_time_ms: int):
                 f"Found {len(extra_trace_ids)} extra traces generated during evaluation run. "
                 "Deleting them."
             )
-            TracingClient().delete_traces(
+            MlflowClient().delete_traces(
                 experiment_id=_get_experiment_id(), trace_ids=extra_trace_ids
             )
             # Avoid displaying the deleted trace in notebook cell output
@@ -220,70 +212,33 @@ def clean_up_extra_traces(run_id: str, start_time_ms: int):
         )
 
 
-def copy_model_serving_trace_to_eval_run(trace_dict: dict[str, Any], experiment_id: str) -> str:
+def copy_model_serving_trace_to_eval_run(trace_dict: dict[str, Any]):
     """
-    Copy a trace returned from model serving endpoint to the evaluation run. The copied
-    trace will have a new trace ID and location metadata.
-
-    .. attention::
-
-        Assessments logged to the original trace will NOT be copied to the new trace.
-        If you want to copy the assessments to the new trace, you can do it manually
-        by calling `mlflow.log_assessment()` API with the new trace ID.
+    Copy a trace returned from model serving endpoint to the evaluation run.
+    The copied trace will have a new trace ID and location metadata.
 
     Args:
-        trace_dict: The trace dictionary returned from model serving endpoint. This can be
-            either V2 or V3 trace.
-        experiment_id: The ID of the experiment to copy the trace to.
-
-    Returns:
-        The ID of the copied trace in the target experiment. This must be V3 trace regardless
-        of the original trace version.
+        trace_dict: The trace dictionary returned from model serving endpoint.
+            This can be either V2 or V3 trace.
     """
-    new_trace_id = generate_trace_id_v3()
+    new_trace_id, new_root_span = None, None
+    spans = [Span.from_dict(span_dict) for span_dict in trace_dict["data"]["spans"]]
 
-    is_v2_trace = "request_id" in trace_dict["info"]
-
-    metadata_key = "request_preview" if is_v2_trace else "trace_metadata"
-    # Add some important tags/metadata that are only available
-    # in the evaluation context e.g. Run ID.
-    trace_metadata = {**trace_dict["info"].get(metadata_key, {}), **get_basic_trace_metadata()}
-    new_tags = {
-        TraceTagKey.EVAL_REQUEST_ID: maybe_get_request_id(is_evaluate=True),
-        # mlflow.artifactLocation tag should be removed because we create a new trace.
-        **{
-            k: v
-            for k, v in trace_dict["info"].get("tags", {}).items()
-            if k != "mlflow.artifactLocation"
-        },
-    }
-
-    new_trace_info = TraceInfo.from_dict(trace_dict["info"])
-    new_trace_info.trace_id = new_trace_id
-    new_trace_info.trace_location = TraceLocation.from_experiment_id(experiment_id)
-    new_trace_info.tags = new_tags
-    new_trace_info.trace_metadata = trace_metadata
-    new_trace_info.assessments = []
-    new_trace_info.client_request_id = None
-
-    def _copy_span_with_new_trace_id(span_dict: dict[str, Any]) -> Span:
-        """Create a new span object with the new trace ID."""
-        span_dict["attributes"][SpanAttributeKey.REQUEST_ID] = json.dumps(new_trace_id)
-        return Span.from_dict(span_dict)
-
-    spans = [_copy_span_with_new_trace_id(span) for span in trace_dict["data"]["spans"]]
-    new_trace = Trace(info=new_trace_info, data=TraceData(spans=spans))
-
-    # If the trace was v2, set request/response preview
-    if is_v2_trace:
-        new_trace_info.request_preview = truncate_request_response_preview(
-            new_trace.data.request, "user"
+    # Create a copy of spans in the current experiment
+    for old_span in spans:
+        new_span = LiveSpan.from_immutable_span(
+            span=old_span,
+            parent_span_id=old_span.parent_id,
+            trace_id=new_trace_id,
         )
-        new_trace_info.response_preview = truncate_request_response_preview(
-            new_trace.data.response, "assistant"
-        )
+        InMemoryTraceManager.get_instance().register_span(new_span)
+        if old_span.parent_id is None:
+            new_root_span = new_span
+            new_trace_id = new_span.trace_id
+        else:
+            # Don't close the root span until the end so that we only export the trace
+            # after all spans are copied.
+            new_span.end(end_time_ns=old_span.end_time_ns)
 
-    # Export trace to backend as if it was created in the current run.
-    _get_trace_exporter(force_start=True)._export_trace(new_trace)
-
-    return new_trace_id
+    # Close the root span triggers the trace export.
+    new_root_span.end(end_time_ns=spans[0].end_time_ns)
