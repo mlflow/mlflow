@@ -127,7 +127,19 @@ def get_registry_uri() -> str:
         Current tracking uri: file:///.../mlruns
 
     """
-    return _get_registry_uri_from_context() or get_tracking_uri()
+    registry_uri = _get_registry_uri_from_context()
+    if registry_uri is not None:
+        return registry_uri
+
+    tracking_uri = get_tracking_uri()
+    if tracking_uri and tracking_uri.startswith("databricks"):
+        # If the registry URI is unspecified and the tracking URI is "databricks", we impute the
+        # registry URI as databricks-uc, which is the recommended model registry solution on
+        # Databricks
+        return _DATABRICKS_UNITY_CATALOG_SCHEME
+
+    # For non-databricks tracking URIs, use the tracking URI as the registry URI
+    return tracking_uri
 
 
 def _resolve_registry_uri(registry_uri=None, tracking_uri=None):
