@@ -9,6 +9,7 @@ from mlflow.entities.trace_status import TraceStatus
 from mlflow.protos.service_pb2 import TraceInfo as ProtoTraceInfo
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
 from mlflow.protos.service_pb2 import TraceTag as ProtoTraceTag
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
 
 
 def _truncate_request_metadata(d: dict[str, Any]) -> dict[str, str]:
@@ -132,8 +133,6 @@ class TraceInfoV2(_MlflowObject):
         return cls(**trace_info_dict)
 
     def to_v3(self, request: Optional[str] = None, response: Optional[str] = None) -> TraceInfo:
-        from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
-
         # Update trace metadata to use current schema version
         trace_metadata = self.request_metadata.copy()
         trace_metadata[TRACE_SCHEMA_VERSION_KEY] = str(TRACE_SCHEMA_VERSION)
