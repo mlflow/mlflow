@@ -617,8 +617,9 @@ class MlflowClient:
 
         Returns:
             A pageable list of Prompt objects representing prompt metadata:
+
             - name: The prompt name
-                        - description: The prompt description
+            - description: The prompt description
             - tags: Prompt-level tags
             - creation_timestamp: When the prompt was created
 
