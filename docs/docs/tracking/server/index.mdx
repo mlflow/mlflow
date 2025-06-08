@@ -263,6 +263,79 @@ response = requests.get("http://<mlflow-host>:<mlflow-port>/version")
 assert response.text == mlflow.__version__  # Checking for a strict version match
 ```
 
+## Model Version Source Validation
+
+The tracking server can be configured to validate model version sources using a regular expression pattern. This security feature helps ensure that only model versions from approved sources are registered in your model registry.
+
+### Configuration
+
+Set the `MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX` environment variable when starting the tracking server:
+
+```bash
+export MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX="^mlflow-artifacts:/.*$"
+mlflow server --host 0.0.0.0 --port 5000
+```
+
+### Usage
+
+When this environment variable is set, the tracking server will validate the `source` parameter in model version creation requests against the specified regular expression pattern. If the source doesn't match the pattern, the request will be rejected with an error.
+
+#### Example: Restricting to MLflow Artifacts
+
+To only allow model versions from MLflow artifacts storage:
+
+```bash
+export MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX="^mlflow-artifacts:/.*$"
+mlflow server --host 0.0.0.0 --port 5000
+```
+
+With this configuration:
+
+```python
+import mlflow
+from mlflow import MlflowClient
+
+client = MlflowClient("http://localhost:5000")
+
+# This will work - source matches the pattern
+client.create_model_version(
+    name="my-model",
+    source="mlflow-artifacts://1/artifacts/model",
+    run_id="abc123",
+)
+
+# This will fail - source doesn't match the pattern
+client.create_model_version(
+    name="my-model",
+    source="s3://my-bucket/model",
+    run_id="def456",
+)  # Raises MlflowException: Invalid model version source
+```
+
+#### Example: Restricting to Specific S3 Buckets
+
+To only allow model versions from specific S3 buckets:
+
+```bash
+export MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX="^s3://(production-models|staging-models)/.*$"
+mlflow server --host 0.0.0.0 --port 5000
+```
+
+This pattern would allow sources like:
+- `s3://production-models/model-v1/`
+- `s3://staging-models/experiment-123/model/`
+
+But reject sources like:
+- `s3://untrusted-bucket/model/`
+- `file:///local/path/model`
+
+:::note
+- If the environment variable is not set, no source validation is performed.
+- The validation only applies to the `/mlflow/model-versions/create` API endpoint.
+- The regular expression is applied using Python's `re.search()` function.
+- Use standard regular expression syntax for pattern matching.
+:::
+
 ## Handling timeout when uploading/downloading large artifacts
 
 When uploading or downloading large artifacts through the tracking server with the artifact proxy enabled, the server may take a long time to process the request. If it exceeds the timeout limit (30 seconds by default), the server will restart the worker process, resulting in a request failure on the client side.

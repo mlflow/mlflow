@@ -6,7 +6,7 @@ import pytest
 pytest.importorskip("dspy", minversion="2.6.0")
 
 import mlflow
-from mlflow.entities.model_registry import Prompt
+from mlflow.entities.model_registry import PromptVersion
 from mlflow.exceptions import MlflowException
 from mlflow.genai.optimize import optimize_prompt
 from mlflow.genai.optimize.types import LLMParams, OptimizerConfig
@@ -44,7 +44,7 @@ def sample_scorer(inputs, outputs, expectations):
 def test_optimize_prompt_basic(sample_prompt, sample_data):
     with patch(
         "mlflow.genai.optimize.base._DSPyMIPROv2Optimizer.optimize",
-        return_value=Prompt(
+        return_value=PromptVersion(
             name=sample_prompt.name,
             template="optimized",
             version=2,
@@ -57,7 +57,7 @@ def test_optimize_prompt_basic(sample_prompt, sample_data):
             scorers=[sample_scorer],
         )
 
-    assert isinstance(result.prompt, Prompt)
+    assert isinstance(result.prompt, PromptVersion)
     assert result.prompt.name == sample_prompt.name
     assert result.prompt.version == 2
     assert result.prompt.template == "optimized"
@@ -107,7 +107,7 @@ def test_optimize_prompt_with_trace_scorer(sample_prompt, sample_data):
 def test_optimize_autolog(sample_prompt, sample_data):
     with patch(
         "mlflow.genai.optimize.base._DSPyMIPROv2Optimizer.optimize",
-        return_value=Prompt(
+        return_value=PromptVersion(
             name=sample_prompt.name,
             template="optimized",
             version=2,

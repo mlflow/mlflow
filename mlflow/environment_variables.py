@@ -835,3 +835,10 @@ MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT = _BooleanEnvironmentVariable(
 MLFLOW_LOCK_MODEL_DEPENDENCIES = _BooleanEnvironmentVariable(
     "MLFLOW_LOCK_MODEL_DEPENDENCIES", False
 )
+
+#: If specified, tracking server rejects model `/mlflow/model-versions/create` requests with
+#: a source that does not match the specified regular expression.
+#: (default: ``None``).
+MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX = _EnvironmentVariable(
+    "MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX", str, None
+)

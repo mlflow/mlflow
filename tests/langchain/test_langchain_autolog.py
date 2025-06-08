@@ -1212,6 +1212,7 @@ def test_autolog_link_traces_to_active_model(model_infos):
         assert model.model_id != logged_model_id
 
 
+@skip_when_testing_trace_sdk
 def test_model_loading_set_active_model_id_without_fetching_logged_model():
     mlflow.langchain.autolog()
 

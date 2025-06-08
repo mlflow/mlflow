@@ -4,15 +4,13 @@ from typing import Any, Optional, Union
 
 import mlflow
 from mlflow.entities.logged_model import LoggedModel
-from mlflow.entities.model_registry import ModelVersion, Prompt, RegisteredModel
-from mlflow.store._unity_catalog.registry.prompt_info import PromptInfo
+from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, RegisteredModel
 from mlflow.entities.run import Run
 from mlflow.environment_variables import MLFLOW_PRINT_MODEL_URLS_ON_CREATION
 from mlflow.exceptions import MlflowException
-from mlflow.prompt.registry_utils import require_prompt_registry
+from mlflow.prompt.registry_utils import parse_prompt_name_or_uri, require_prompt_registry
 from mlflow.protos.databricks_pb2 import (
     ALREADY_EXISTS,
-    INVALID_PARAMETER_VALUE,
     NOT_FOUND,
     RESOURCE_ALREADY_EXISTS,
     ErrorCode,
@@ -28,7 +26,7 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import active_run
 from mlflow.utils import get_results_from_paginated_fn, mlflow_tags
-from mlflow.utils.annotations import deprecated, experimental
+from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import (
     _construct_databricks_uc_registered_model_url,
     get_workspace_id,
@@ -522,7 +520,7 @@ def register_prompt(
     commit_message: Optional[str] = None,
     version_metadata: Optional[dict[str, str]] = None,
     tags: Optional[dict[str, str]] = None,
-) -> Prompt:
+) -> PromptVersion:
     """
     Register a new :py:class:`Prompt <mlflow.entities.Prompt>` in the MLflow Prompt Registry.
 
@@ -615,7 +613,7 @@ def register_prompt(
 def search_prompts(
     filter_string: Optional[str] = None,
     max_results: Optional[int] = None,
-) -> PagedList[PromptInfo]:
+) -> PagedList[Prompt]:
     def pagination_wrapper_func(number_to_get, next_page_token):
         return MlflowClient().search_prompts(
             filter_string=filter_string, max_results=number_to_get, page_token=next_page_token
@@ -632,7 +630,7 @@ def search_prompts(
 @require_prompt_registry
 def load_prompt(
     name_or_uri: str, version: Optional[Union[str, int]] = None, allow_missing: bool = False
-) -> Prompt:
+) -> PromptVersion:
     """
     Load a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
 
@@ -661,20 +659,17 @@ def load_prompt(
 
     """
     client = MlflowClient()
-    
-    # Handle URI vs name+version cases
-    if name_or_uri.startswith("prompts:/"):
+
+    # Use utility to handle URI vs name+version parsing
+    parsed_name_or_uri, parsed_version = parse_prompt_name_or_uri(name_or_uri, version)
+    if parsed_name_or_uri.startswith("prompts:/"):
         # For URIs, don't pass version parameter
-        prompt = client.load_prompt(name_or_uri, allow_missing=allow_missing)
+        prompt = client.load_prompt(parsed_name_or_uri, allow_missing=allow_missing)
     else:
-        # For names, version is required
-        if version is None:
-            raise MlflowException(
-                "Version must be specified when loading a prompt by name. "
-                "Use a prompt URI (e.g., 'prompts:/name/version') or provide the version parameter.",
-                INVALID_PARAMETER_VALUE,
-            )
-        prompt = client.load_prompt(name_or_uri, version=version, allow_missing=allow_missing)
+        # For names, use the parsed version
+        prompt = client.load_prompt(
+            parsed_name_or_uri, version=parsed_version, allow_missing=allow_missing
+        )
 
     # If there is an active MLflow run, associate the prompt with the run
     if run := active_run():
@@ -683,28 +678,9 @@ def load_prompt(
     return prompt
 
 
-@deprecated(
-    since="3.0", 
-    alternative="delete_prompt_version",
-)
 @experimental
 @require_prompt_registry
-def delete_prompt(name: str, version: int) -> Prompt:
-    """
-    Delete a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
-
-    .. Warning:: This function is deprecated since MLflow 3.0. Use ``delete_prompt_version`` instead which provides consistent version-based deletion across all registry backends.
-
-    Args:
-        name: The name of the prompt.
-        version: The version of the prompt to delete.
-    """
-    return MlflowClient().delete_prompt(name=name, version=version)
-
-
-@experimental
-@require_prompt_registry
-def set_prompt_alias(name: str, alias: str, version: int) -> Prompt:
+def set_prompt_alias(name: str, alias: str, version: int) -> None:
     """
     Set an alias for a :py:class:`Prompt <mlflow.entities.Prompt>` in the MLflow Prompt Registry.
 
@@ -732,12 +708,12 @@ def set_prompt_alias(name: str, alias: str, version: int) -> Prompt:
         mlflow.delete_prompt_alias(name="my_prompt", alias="production")
     """
 
-    return MlflowClient().set_prompt_alias(name=name, version=version, alias=alias)
+    MlflowClient().set_prompt_alias(name=name, version=version, alias=alias)
 
 
 @experimental
 @require_prompt_registry
-def delete_prompt_alias(name: str, alias: str) -> Prompt:
+def delete_prompt_alias(name: str, alias: str) -> None:
     """
     Delete an alias for a :py:class:`Prompt <mlflow.entities.Prompt>` in the MLflow Prompt Registry.
 
@@ -745,4 +721,4 @@ def delete_prompt_alias(name: str, alias: str) -> Prompt:
         name: The name of the prompt.
         alias: The alias to delete for the prompt.
     """
-    return MlflowClient().delete_prompt_alias(name=name, alias=alias)
+    MlflowClient().delete_prompt_alias(name=name, alias=alias)

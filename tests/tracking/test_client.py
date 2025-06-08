@@ -29,7 +29,7 @@ from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.metric import Metric
 from mlflow.entities.model_registry import ModelVersion, ModelVersionTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
-from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY
+from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY
 from mlflow.entities.param import Param
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_state import TraceState
@@ -1758,19 +1758,8 @@ def test_crud_prompts(tracking_uri):
     prompt = client.load_prompt("prompts:/prompt_1/2")
     assert prompt.template == "Hi, {{title}} {{name}}! What's up?"
 
-    # Delete prompt must be called with a version
-    with pytest.raises(TypeError, match=r"delete_prompt\(\) missing 1"):
-        client.delete_prompt("prompt_1")
-
-    client.delete_prompt("prompt_1", version=2)
-
-    with pytest.raises(MlflowException, match=r"Prompt \(name=prompt_1, version=2\) not found"):
-        client.load_prompt("prompt_1", version=2)
-
-    assert mlflow.load_prompt("prompt_1", version=2, allow_missing=True) is None
+    # Test loading non-existent prompts
     assert mlflow.load_prompt("does_not_exist", version=1, allow_missing=True) is None
-
-    client.delete_prompt("prompt_1", version=1)
 
 
 def test_create_prompt_with_tags_and_metadata(tracking_uri):
@@ -1901,30 +1890,6 @@ def test_load_prompt_error(tracking_uri):
         client.load_prompt("model", version=1, allow_missing=False)
 
 
-def test_delete_prompt_error(tracking_uri):
-    client = MlflowClient(tracking_uri=tracking_uri)
-
-    if tracking_uri.startswith("file"):
-        error_msg = r"Prompt with name=test not found"
-    else:
-        error_msg = r"Prompt \(name=test, version=1\) not found"
-
-    with pytest.raises(MlflowException, match=error_msg):
-        client.delete_prompt("test", version=1)
-
-    # Delete prompt with a model name
-    client.create_registered_model("test")
-    client.create_model_version("test", "source")
-
-    with pytest.raises(MlflowException, match=r"Prompt 'test' does not exist."):
-        client.delete_prompt("test", version=1)
-
-    client.register_prompt(name="prompt", template="Hi, {{name}}!")
-
-    with pytest.raises(MlflowException, match=r"Prompt \(name=prompt, version=2\) not found"):
-        client.delete_prompt("prompt", version=2)
-
-
 def test_log_prompt(tracking_uri):
     client = MlflowClient(tracking_uri=tracking_uri)
 
@@ -1959,9 +1924,6 @@ def test_crud_prompt_on_unsupported_registry(registry_uri):
 
     with pytest.raises(MlflowException, match=r"The 'load_prompt' API is not supported"):
         client.load_prompt("prompt_1")
-
-    with pytest.raises(MlflowException, match=r"The 'delete_prompt' API is not supported"):
-        client.delete_prompt("prompt_1")
 
 
 def test_block_create_model_with_prompt_tag(tracking_uri):
@@ -2080,7 +2042,6 @@ def test_search_prompt(tracking_uri):
 
     prompts = client.search_prompts(max_results=3)
     assert len(prompts) == 3
-
 
 
 def test_log_model_artifact(tmp_path: Path, tracking_uri: str) -> None:
