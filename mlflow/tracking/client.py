@@ -65,6 +65,7 @@ from mlflow.prompt.registry_utils import (
 )
 from mlflow.protos.databricks_pb2 import (
     BAD_REQUEST,
+    ErrorCode,
     FEATURE_DISABLED,
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
@@ -522,7 +523,7 @@ class MlflowClient:
                     name=name, description=commit_message, tags=tags or {}
                 )
             except MlflowException as e:
-                if e.error_code == "ALREADY_EXISTS":
+                if e.error_code == ErrorCode.Name(ErrorCode.ALREADY_EXISTS):
                     pass
                 else:
                     # Re-raise other errors like permission issues, validation errors, etc.
@@ -536,7 +537,7 @@ class MlflowClient:
                 tags=version_metadata or {},
             )
 
-            return registry_client.get_prompt(name, str(prompt_version.version))
+            return registry_client.get_prompt_version(name, str(prompt_version.version))
 
         # OSS approach using RegisteredModel with special tags
         is_new_prompt = False
@@ -5587,6 +5588,34 @@ class MlflowClient:
         """
         registry_client = self._get_registry_client()
         return registry_client.create_prompt_version(name, template, description, tags)
+
+    @experimental
+    @require_prompt_registry
+    @translate_prompt_exception
+    def get_prompt(self, name: str) -> Optional[Prompt]:
+        """
+        Get prompt metadata by name.
+
+        Args:
+            name: Name of the prompt.
+
+        Returns:
+            A Prompt object containing prompt metadata, or None if not found.
+
+        Example:
+
+        .. code-block:: python
+
+            from mlflow import MlflowClient
+
+            client = MlflowClient()
+            prompt = client.get_prompt("my_prompt")
+            if prompt:
+                print(f"Prompt: {prompt.name}")
+                print(f"Description: {prompt.description}")
+        """
+        registry_client = self._get_registry_client()
+        return registry_client.get_prompt(name)
 
     @experimental
     @require_prompt_registry
