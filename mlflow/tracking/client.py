@@ -608,8 +608,6 @@ class MlflowClient:
                 An additional registry‐search expression to apply (e.g.
                 `"name LIKE 'my_prompt%'"`).  For Unity Catalog registries, must include
                 catalog and schema: "catalog = 'catalog_name' AND schema = 'schema_name'".
-                The prompt‐tag filter is always applied internally.  Defaults to `None`
-                (no extra filtering).
             max_results (int):
                 The maximum number of prompts to return in one page.  Defaults
                 to `SEARCH_MAX_RESULTS_DEFAULT` (typically 1 000).
