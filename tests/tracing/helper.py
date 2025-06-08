@@ -116,13 +116,21 @@ def create_test_trace_info(
     trace_metadata=None,
     tags=None,
 ):
+    from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
+
+    # Add schema version to metadata if not provided, to match real trace creation behavior
+    final_metadata = trace_metadata or {}
+    if TRACE_SCHEMA_VERSION_KEY not in final_metadata:
+        final_metadata = final_metadata.copy()
+        final_metadata[TRACE_SCHEMA_VERSION_KEY] = str(TRACE_SCHEMA_VERSION)
+
     return TraceInfo(
         trace_id=trace_id,
         trace_location=TraceLocation.from_experiment_id(experiment_id),
         request_time=request_time,
         execution_duration=execution_duration,
         state=state,
-        trace_metadata=trace_metadata or {},
+        trace_metadata=final_metadata,
         tags=tags or {},
     )
 
