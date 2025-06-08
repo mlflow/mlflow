@@ -5640,39 +5640,7 @@ class MlflowClient:
         registry_client = self._get_registry_client()
         return registry_client.get_prompt_version(name, version)
 
-    @experimental
-    @require_prompt_registry
-    @translate_prompt_exception
-    def get_prompt(self, name: str) -> Optional[PromptInfo]:
-        """
-        Get prompt metadata by name.
 
-        This method returns prompt-level information (name, description, tags, creation time)
-        without requiring a specific version. Use load_prompt() to get specific version content.
-
-        Args:
-            name: Registered prompt name.
-
-        Returns:
-            A PromptInfo object with prompt metadata, or None if not found.
-
-        Example:
-
-        .. code-block:: python
-
-            from mlflow import MlflowClient
-
-            client = MlflowClient()
-
-            # Get prompt metadata
-            prompt_info = client.get_prompt("my_prompt")
-            if prompt_info:
-                print(f"Prompt: {prompt_info.name}")
-                print(f"Description: {prompt_info.description}")
-                print(f"Tags: {prompt_info.tags}")
-        """
-        registry_client = self._get_registry_client()
-        return registry_client.get_prompt(name)
 
     @experimental
     @require_prompt_registry
@@ -5756,7 +5724,7 @@ class MlflowClient:
     @experimental
     @require_prompt_registry
     @translate_prompt_exception
-    def get_prompt_version_by_alias(self, name: str, alias: str) -> Prompt:
+    def get_prompt_version_by_alias(self, name: str, alias: str) -> PromptVersion:
         """
         Get a prompt version by alias.
 
