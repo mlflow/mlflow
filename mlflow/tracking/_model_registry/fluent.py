@@ -16,7 +16,6 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_ALREADY_EXISTS,
     ErrorCode,
 )
-from mlflow.store._unity_catalog.registry.prompt_info import PromptInfo
 from mlflow.store.artifact.runs_artifact_repo import RunsArtifactRepository
 from mlflow.store.artifact.utils.models import _parse_model_id_if_present
 from mlflow.store.entities.paged_list import PagedList
@@ -615,7 +614,7 @@ def register_prompt(
 def search_prompts(
     filter_string: Optional[str] = None,
     max_results: Optional[int] = None,
-) -> PagedList[PromptInfo]:
+) -> PagedList[Prompt]:
     def pagination_wrapper_func(number_to_get, next_page_token):
         return MlflowClient().search_prompts(
             filter_string=filter_string, max_results=number_to_get, page_token=next_page_token
