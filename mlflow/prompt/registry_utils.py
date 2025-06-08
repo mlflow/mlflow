@@ -45,13 +45,17 @@ def is_prompt_supported_registry(registry_uri: Optional[str] = None) -> bool:
 
     Prompts registration is supported in:
     - OSS MLflow Tracking Server (always)
-    - Unity Catalog (always)
-    - Not supported in legacy Databricks workspace registry
+    - Unity Catalog
+    - Not supported in legacy Databricks workspace registry or Unity Catalog OSS
     """
     registry_uri = registry_uri or mlflow.get_registry_uri()
 
     # Legacy Databricks workspace registry doesn't support prompts
     if registry_uri.startswith("databricks") and not registry_uri.startswith("databricks-uc"):
+        return False
+
+    # Unity Catalog OSS doesn't support prompts
+    if registry_uri.startswith("uc:"):
         return False
 
     # UC registries support prompts automatically
