@@ -11,7 +11,6 @@ from mlflow.store.model_registry.rest_store import RestStore
 from mlflow.tracking._model_registry.registry import ModelRegistryStoreRegistry
 from mlflow.tracking._tracking_service.utils import (
     _resolve_tracking_uri,
-    get_tracking_uri,
 )
 from mlflow.utils._spark_utils import _get_active_spark_session
 from mlflow.utils.credentials import get_default_host_creds
@@ -151,9 +150,7 @@ def get_registry_uri() -> str:
         Current tracking uri: file:///.../mlruns
 
     """
-    return _get_registry_uri_from_context() or _get_default_registry_uri_for_tracking_uri(
-        get_tracking_uri()
-    )
+    return _resolve_registry_uri()
 
 
 def _resolve_registry_uri(
@@ -162,15 +159,9 @@ def _resolve_registry_uri(
     """
     Resolve the registry URI following the same logic as get_registry_uri().
     """
-    if registry_uri:
-        return registry_uri
-
-    context_uri = _get_registry_uri_from_context()
-    if context_uri is not None:
-        return context_uri
-
-    resolved_tracking_uri = _resolve_tracking_uri(tracking_uri)
-    return _get_default_registry_uri_for_tracking_uri(resolved_tracking_uri)
+    return _get_registry_uri_from_context() or _get_default_registry_uri_for_tracking_uri(
+        _resolve_tracking_uri(tracking_uri)
+    )
 
 
 def _get_sqlalchemy_store(store_uri):
