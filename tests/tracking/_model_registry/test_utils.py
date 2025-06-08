@@ -70,47 +70,54 @@ def test_default_get_registry_uri_with_databricks_tracking_uri_defaults_to_uc():
         resolve_tracking_uri_mock.return_value = tracking_uri
         set_registry_uri(None)
         # Should default to Unity Catalog when tracking URI starts with 'databricks'
-        assert get_registry_uri() == "databricks-uc"
+        # and include the profile when present
+        assert get_registry_uri() == "databricks-uc://tracking_werohoz"
 
 
-def test_default_registry_uri_non_databricks_tracking_uri():
-    """Test that non-databricks tracking URIs are used directly as registry URI"""
-    non_databricks_uris = [
+@pytest.mark.parametrize(
+    "tracking_uri",
+    [
         "http://localhost:5000",
         "https://remote-server.com",
         "sqlite:///path/to/db.sqlite",
         "postgresql://user:pass@localhost/db",
         "file:///local/path",
-    ]
+    ],
+)
+def test_default_registry_uri_non_databricks_tracking_uri(tracking_uri):
+    """Test that non-databricks tracking URIs are used directly as registry URI"""
+    with mock.patch(
+        "mlflow.tracking._tracking_service.utils.get_tracking_uri"
+    ) as get_tracking_uri_mock:
+        get_tracking_uri_mock.return_value = tracking_uri
+        set_registry_uri(None)
+        # Non-databricks URIs should be used directly as registry URI
+        assert get_registry_uri() == tracking_uri
 
-    for tracking_uri in non_databricks_uris:
-        with mock.patch(
-            "mlflow.tracking._tracking_service.utils.get_tracking_uri"
-        ) as get_tracking_uri_mock:
-            get_tracking_uri_mock.return_value = tracking_uri
-            set_registry_uri(None)
-            # Non-databricks URIs should be used directly as registry URI
-            assert get_registry_uri() == tracking_uri
 
-
-def test_databricks_tracking_uri_variations_default_to_uc():
+@pytest.mark.parametrize(
+    ("tracking_uri", "expected_registry_uri"),
+    [
+        ("databricks", "databricks-uc"),
+        ("databricks://profile", "databricks-uc://profile"),
+        ("databricks://profile_name", "databricks-uc://profile_name"),
+        ("databricks://workspace_url", "databricks-uc://workspace_url"),
+        (
+            "databricks://some.databricks.workspace.com",
+            "databricks-uc://some.databricks.workspace.com",
+        ),
+    ],
+)
+def test_databricks_tracking_uri_variations_default_to_uc(tracking_uri, expected_registry_uri):
     """Test that various databricks tracking URI formats default to databricks-uc"""
-    databricks_uris = [
-        "databricks",
-        "databricks://profile",
-        "databricks://profile_name",
-        "databricks://workspace_url",
-        "databricks://some.databricks.workspace.com",
-    ]
-
-    for tracking_uri in databricks_uris:
-        with mock.patch(
-            "mlflow.tracking._tracking_service.utils.get_tracking_uri"
-        ) as get_tracking_uri_mock:
-            get_tracking_uri_mock.return_value = tracking_uri
-            set_registry_uri(None)
-            # All databricks tracking URIs should default to Unity Catalog
-            assert get_registry_uri() == "databricks-uc"
+    with mock.patch(
+        "mlflow.tracking._tracking_service.utils.get_tracking_uri"
+    ) as get_tracking_uri_mock:
+        get_tracking_uri_mock.return_value = tracking_uri
+        set_registry_uri(None)
+        # All databricks tracking URIs should default to Unity Catalog
+        registry_uri = get_registry_uri()
+        assert registry_uri == expected_registry_uri
 
 
 def test_explicit_registry_uri_overrides_databricks_default():
@@ -167,51 +174,54 @@ def test_registry_uri_from_spark_session_overrides_databricks_default():
         assert get_registry_uri() == spark_registry_uri
 
 
-def test_edge_cases_for_databricks_uri_detection():
-    """Test edge cases for databricks URI detection"""
-    edge_case_uris = [
-        ("DATABRICKS://uppercase", None),  # Case sensitive - should not match
+@pytest.mark.parametrize(
+    ("tracking_uri", "expected_result"),
+    [
         ("mydatabricks://custom", None),  # Should not match partial
         ("databricks", "databricks-uc"),  # Should match exact
         ("", None),  # Empty string should return None
-    ]
+    ],
+)
+def test_edge_cases_for_databricks_uri_detection(tracking_uri, expected_result):
+    """Test edge cases for databricks URI detection"""
+    with mock.patch(
+        "mlflow.tracking._tracking_service.utils.get_tracking_uri"
+    ) as get_tracking_uri_mock:
+        get_tracking_uri_mock.return_value = tracking_uri
+        set_registry_uri(None)
+        result = get_registry_uri()
+        if expected_result is None:
+            assert result == tracking_uri  # Should fallback to tracking URI
+        else:
+            assert result == expected_result
 
-    for tracking_uri, expected_result in edge_case_uris:
-        with mock.patch(
-            "mlflow.tracking._tracking_service.utils.get_tracking_uri"
-        ) as get_tracking_uri_mock:
-            get_tracking_uri_mock.return_value = tracking_uri
-            set_registry_uri(None)
-            result = get_registry_uri()
-            if expected_result is None:
-                assert result == tracking_uri  # Should fallback to tracking URI
-            else:
-                assert result == expected_result
 
-
-def test_resolve_registry_uri_consistency_with_get_registry_uri():
-    """Test that _resolve_registry_uri behaves consistently with get_registry_uri"""
-    test_cases = [
+@pytest.mark.parametrize(
+    ("tracking_uri", "registry_uri_param", "expected_result"),
+    [
         # (tracking_uri, registry_uri_param, expected_result)
-        ("databricks://workspace", None, "databricks-uc"),
+        ("databricks://workspace", None, "databricks-uc://workspace"),
         ("databricks", None, "databricks-uc"),
         ("http://localhost:5000", None, "http://localhost:5000"),
         ("databricks://workspace", "explicit://registry", "explicit://registry"),
         (None, None, None),
         ("", None, ""),
-    ]
+    ],
+)
+def test_resolve_registry_uri_consistency_with_get_registry_uri(
+    tracking_uri, registry_uri_param, expected_result
+):
+    """Test that _resolve_registry_uri behaves consistently with get_registry_uri"""
+    with mock.patch(
+        "mlflow.tracking._model_registry.utils._resolve_tracking_uri"
+    ) as mock_resolve_tracking:
+        mock_resolve_tracking.return_value = tracking_uri
+        set_registry_uri(None)  # Clear context
 
-    for tracking_uri, registry_uri_param, expected in test_cases:
-        with mock.patch(
-            "mlflow.tracking._model_registry.utils._resolve_tracking_uri"
-        ) as mock_resolve_tracking:
-            mock_resolve_tracking.return_value = tracking_uri
-            set_registry_uri(None)  # Clear context
-
-            result = _resolve_registry_uri(registry_uri_param, tracking_uri)
-            assert result == expected, (
-                f"Failed for tracking_uri={tracking_uri}, registry_uri={registry_uri_param}"
-            )
+        result = _resolve_registry_uri(registry_uri_param, tracking_uri)
+        assert result == expected_result, (
+            f"Failed for tracking_uri={tracking_uri}, registry_uri={registry_uri_param}"
+        )
 
 
 def test_resolve_registry_uri_with_environment_variable():

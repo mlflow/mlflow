@@ -22,6 +22,8 @@ from mlflow.utils.databricks_utils import (
 from mlflow.utils.uri import (
     _DATABRICKS_UNITY_CATALOG_SCHEME,
     _OSS_UNITY_CATALOG_SCHEME,
+    construct_db_uc_uri_from_profile,
+    get_db_info_from_uri,
     is_databricks_uri,
 )
 
@@ -110,7 +112,7 @@ def _get_default_registry_uri_for_tracking_uri(tracking_uri: Optional[str]) -> O
     """
     Get the default registry URI for a given tracking URI.
 
-    If the tracking URI starts with "databricks", returns "databricks-uc".
+    If the tracking URI starts with "databricks", returns "databricks-uc" with profile if present.
     Otherwise, returns the tracking URI itself.
 
     Args:
@@ -123,7 +125,17 @@ def _get_default_registry_uri_for_tracking_uri(tracking_uri: Optional[str]) -> O
         # If the tracking URI is "databricks", we impute the registry URI as "databricks-uc"
         # corresponding to Databricks Unity Catalog Model Registry, which is the recommended
         # model registry offering on Databricks
-        return _DATABRICKS_UNITY_CATALOG_SCHEME
+        if tracking_uri == "databricks":
+            return _DATABRICKS_UNITY_CATALOG_SCHEME
+        else:
+            # Extract profile from tracking URI and construct databricks-uc URI
+            profile, key_prefix = get_db_info_from_uri(tracking_uri)
+            if profile:
+                # Reconstruct the profile string including key_prefix if present
+                profile_string = f"{profile}:{key_prefix}" if key_prefix else profile
+                return construct_db_uc_uri_from_profile(profile_string)
+            else:
+                return _DATABRICKS_UNITY_CATALOG_SCHEME
 
     # For non-databricks tracking URIs, use the tracking URI as the registry URI
     return tracking_uri
