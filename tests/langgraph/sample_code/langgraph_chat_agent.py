@@ -9,7 +9,7 @@ from langchain_core.runnables import RunnableConfig, RunnableLambda
 from langchain_core.tools import BaseTool, tool
 from langchain_openai import ChatOpenAI
 from langgraph.graph import END, StateGraph
-from langgraph.graph.state import CompiledGraph, CompiledStateGraph
+from langgraph.graph.state import CompiledStateGraph
 from langgraph.prebuilt import ToolNode
 
 import mlflow
@@ -75,7 +75,7 @@ def create_tool_calling_agent(
     model: LanguageModelLike,
     tools: Union[ToolNode, Sequence[BaseTool]],
     agent_prompt: Optional[str] = None,
-) -> CompiledGraph:
+) -> CompiledStateGraph:
     model = model.bind_tools(tools)
 
     def should_continue(state: ChatAgentState):
