@@ -257,3 +257,16 @@ message LinkPromptVersionToTracesRequest {
 
   message Response {}
 }
+
+message LinkPromptVersionToModelRequest {
+  option (scalapb.message).extends = "UcModelRegistryRoutableRPC[com.google.protobuf.empty.Empty]";
+
+  // Name of the prompt to link to the model.
+  optional string name = 1 [(validate_required) = true];
+
+  // Version of the prompt to link to the model.
+  optional string version = 2 [(validate_required) = true];
+
+  // ID of the model to which to link the prompt version.
+  optional string model_id = 3 [(validate_required) = true];
+}

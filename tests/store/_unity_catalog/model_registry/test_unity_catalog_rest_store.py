@@ -2304,3 +2304,41 @@ def test_get_prompt_version_by_alias_uc(mock_http, store, monkeypatch):
             for c in mock_http.call_args_list
         )
         proto_to_prompt.assert_called()
+
+
+class TestUcStoreLinkPromptVersionToModel:
+    """Test cases for the Unity Catalog store's link_prompt_version_to_model method."""
+
+    @mock.patch.object(UcModelRegistryStore, "_edit_endpoint_and_call")
+    @mock.patch.object(UcModelRegistryStore, "_get_endpoint_from_method")
+    @mock.patch(
+        "mlflow.store.model_registry.abstract_store.AbstractStore.link_prompt_version_to_model"
+    )
+    def test_link_prompt_version_to_model_success(
+        self, mock_super_call, mock_get_endpoint, mock_edit_call, store
+    ):
+        """Test successful Unity Catalog linking with API call."""
+        from mlflow.protos.unity_catalog_prompt_messages_pb2 import LinkPromptVersionToModelRequest
+
+        # Setup
+        mock_get_endpoint.return_value = (
+            "/api/2.0/mlflow/unity-catalog/prompts/link-to-model",
+            "POST",
+        )
+
+        # Execute
+        store.link_prompt_version_to_model("test_prompt", "1", "model_123")
+
+        # Verify parent method was called
+        mock_super_call.assert_called_once_with(
+            name="test_prompt", version="1", model_id="model_123"
+        )
+
+        # Verify API call was made
+        mock_edit_call.assert_called_once()
+        call_args = mock_edit_call.call_args
+
+        assert call_args[1]["name"] == "test_prompt"
+        assert call_args[1]["version"] == "1"
+        assert call_args[1]["model_id"] == "model_123"
+        assert call_args[1]["proto_name"] == LinkPromptVersionToModelRequest
