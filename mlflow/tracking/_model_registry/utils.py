@@ -151,12 +151,9 @@ def get_registry_uri() -> str:
         Current tracking uri: file:///.../mlruns
 
     """
-    registry_uri = _get_registry_uri_from_context()
-    if registry_uri is not None:
-        return registry_uri
-
-    tracking_uri = get_tracking_uri()
-    return _get_default_registry_uri_for_tracking_uri(tracking_uri)
+    return _get_registry_uri_from_context() or _get_default_registry_uri_for_tracking_uri(
+        get_tracking_uri()
+    )
 
 
 def _resolve_registry_uri(
