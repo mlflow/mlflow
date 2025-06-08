@@ -264,11 +264,6 @@ def test_trace_info_from_proto_updates_schema_version():
 
 def test_trace_info_from_proto_adds_missing_schema_version():
     """Test that TraceInfo.from_proto adds schema version when it doesn't exist."""
-    from google.protobuf.timestamp_pb2 import Timestamp
-
-    from mlflow.protos.service_pb2 import TraceInfoV3 as ProtoTraceInfoV3
-    from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
-
     # Create a proto without schema version in metadata
     request_time = Timestamp()
     request_time.FromMilliseconds(1234567890)
@@ -298,11 +293,6 @@ def test_trace_info_from_proto_adds_missing_schema_version():
 
 def test_trace_info_from_proto_preserves_current_schema_version():
     """Test that TraceInfo.from_proto preserves current schema version."""
-    from google.protobuf.timestamp_pb2 import Timestamp
-
-    from mlflow.protos.service_pb2 import TraceInfoV3 as ProtoTraceInfoV3
-    from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
-
     # Create a proto with current schema version in metadata
     request_time = Timestamp()
     request_time.FromMilliseconds(1234567890)
