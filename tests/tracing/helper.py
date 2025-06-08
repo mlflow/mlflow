@@ -16,6 +16,7 @@ from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.ml_package_versions import FLAVOR_TO_MODULE_NAME
 from mlflow.tracing.client import TracingClient
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
 from mlflow.tracing.export.inference_table import pop_trace
 from mlflow.tracing.processor.mlflow_v2 import MlflowV2SpanProcessor
 from mlflow.tracing.provider import _get_tracer
@@ -116,8 +117,6 @@ def create_test_trace_info(
     trace_metadata=None,
     tags=None,
 ):
-    from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
-
     # Add schema version to metadata if not provided, to match real trace creation behavior
     final_metadata = trace_metadata or {}
     if TRACE_SCHEMA_VERSION_KEY not in final_metadata:
