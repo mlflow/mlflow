@@ -832,9 +832,13 @@ class MlflowClient:
         try:
             pv = registry_client.get_prompt_version(name, version)
             if pv is None:
-                raise MlflowException(f"Prompt '{name}' version {version} does not exist.", RESOURCE_DOES_NOT_EXIST)
+                raise MlflowException(
+                    f"Prompt '{name}' version {version} does not exist.", RESOURCE_DOES_NOT_EXIST
+                )
         except Exception:
-            raise MlflowException(f"Prompt '{name}' version {version} does not exist.", RESOURCE_DOES_NOT_EXIST)
+            raise MlflowException(
+                f"Prompt '{name}' version {version} does not exist.", RESOURCE_DOES_NOT_EXIST
+            )
 
     def parse_prompt_uri(self, uri: str) -> tuple[str, str]:
         """
@@ -5642,8 +5646,6 @@ class MlflowClient:
         registry_client = self._get_registry_client()
         return registry_client.get_prompt_version(name, version)
 
-
-
     @experimental
     @require_prompt_registry
     @translate_prompt_exception
@@ -5756,10 +5758,7 @@ class MlflowClient:
     @require_prompt_registry
     @translate_prompt_exception
     def search_prompt_versions(
-        self, 
-        name: str, 
-        max_results: Optional[int] = None, 
-        page_token: Optional[str] = None
+        self, name: str, max_results: Optional[int] = None, page_token: Optional[str] = None
     ):
         """
         Search prompt versions for a given prompt name.
@@ -5790,11 +5789,3 @@ class MlflowClient:
         """
         registry_client = self._get_registry_client()
         return registry_client.search_prompt_versions(name, max_results, page_token)
-
-
-
-
-
-
-
-

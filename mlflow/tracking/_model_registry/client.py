@@ -5,7 +5,6 @@ exposed in the :py:mod:`mlflow.tracking` module.
 """
 
 import logging
-import re
 from typing import Optional
 
 from mlflow.entities.model_registry import (
@@ -25,7 +24,6 @@ from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
-from mlflow.store._unity_catalog.registry.prompt_info import PromptInfo
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS, utils
 from mlflow.utils.arguments_utils import _get_arg_names
 
@@ -674,10 +672,7 @@ class ModelRegistryClient:
         self.store.delete_prompt_alias(name, alias)
 
     def search_prompt_versions(
-        self, 
-        name: str, 
-        max_results: Optional[int] = None, 
-        page_token: Optional[str] = None
+        self, name: str, max_results: Optional[int] = None, page_token: Optional[str] = None
     ):
         """
         Search prompt versions for a given prompt name.

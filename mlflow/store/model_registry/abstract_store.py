@@ -809,10 +809,7 @@ class AbstractStore:
         self.delete_registered_model_alias(name, alias)
 
     def search_prompt_versions(
-        self, 
-        name: str, 
-        max_results: Optional[int] = None, 
-        page_token: Optional[str] = None
+        self, name: str, max_results: Optional[int] = None, page_token: Optional[str] = None
     ):
         """
         Search prompt versions for a given prompt name.
@@ -831,5 +828,5 @@ class AbstractStore:
         raise MlflowException(
             "search_prompt_versions() is not supported in this registry. "
             "This method is only available in Unity Catalog registries.",
-            INVALID_PARAMETER_VALUE
+            INVALID_PARAMETER_VALUE,
         )
