@@ -5797,8 +5797,8 @@ class MlflowClient:
         """
         Delete a prompt from the registry.
 
-        For Unity Catalog registries, this method first checks if any versions exist for the prompt 
-        and throws an error if undeleted versions are found. All versions must be explicitly 
+        For Unity Catalog registries, this method first checks if any versions exist for the prompt
+        and throws an error if undeleted versions are found. All versions must be explicitly
         deleted first before the prompt itself can be deleted.
 
         For other registries, the prompt is deleted normally without version checking.
@@ -5816,31 +5816,31 @@ class MlflowClient:
             from mlflow import MlflowClient
 
             client = MlflowClient()
-            
+
             # For Unity Catalog, delete all versions first
             if client.get_registry_uri().startswith("databricks-uc"):
                 versions = client.search_prompt_versions("my_prompt")
                 for version in versions.prompt_versions:
                     client.delete_prompt_version("my_prompt", version.version)
-            
+
             # Then delete the prompt
             client.delete_prompt("my_prompt")
         """
         registry_client = self._get_registry_client()
-        
+
         # Only check for existing versions in Unity Catalog registries
         registry_uri = self._registry_uri
-        
+
         if is_databricks_unity_catalog_uri(registry_uri):
             search_response = self.search_prompt_versions(name, max_results=1)
-            
+
             # Check if any versions exist
             has_versions = (
                 hasattr(search_response, "prompt_versions")
                 and search_response.prompt_versions
                 and len(search_response.prompt_versions) > 0
             )
-            
+
             if has_versions:
                 raise MlflowException(
                     f"Cannot delete prompt '{name}' because it still has undeleted versions. "
@@ -5848,6 +5848,6 @@ class MlflowClient:
                     f"then delete the prompt.",
                     INVALID_PARAMETER_VALUE,
                 )
-        
+
         # For non-Unity Catalog registries, or if version check passes, delete the prompt
         return registry_client.delete_prompt(name)
