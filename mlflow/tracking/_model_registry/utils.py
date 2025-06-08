@@ -1,4 +1,5 @@
 from functools import partial
+from typing import Optional
 
 from mlflow.environment_variables import MLFLOW_REGISTRY_URI
 from mlflow.store.db.db_types import DATABASE_ENGINES
@@ -102,6 +103,29 @@ def _get_registry_uri_from_context():
     return _registry_uri
 
 
+def _get_default_registry_uri_for_tracking_uri(tracking_uri: Optional[str]) -> Optional[str]:
+    """
+    Get the default registry URI for a given tracking URI.
+
+    If the tracking URI starts with "databricks", returns "databricks-uc".
+    Otherwise, returns the tracking URI itself.
+
+    Args:
+        tracking_uri: The tracking URI to get the default registry URI for
+
+    Returns:
+        The default registry URI
+    """
+    if tracking_uri is not None and tracking_uri.startswith("databricks"):
+        # If the tracking URI is "databricks", we impute the
+        # registry URI as databricks-uc, which is the recommended model registry solution on
+        # Databricks
+        return _DATABRICKS_UNITY_CATALOG_SCHEME
+
+    # For non-databricks tracking URIs, use the tracking URI as the registry URI
+    return tracking_uri
+
+
 def get_registry_uri() -> str:
     """Get the current registry URI. If none has been specified, defaults to the tracking URI.
 
@@ -132,18 +156,24 @@ def get_registry_uri() -> str:
         return registry_uri
 
     tracking_uri = get_tracking_uri()
-    if tracking_uri and tracking_uri.startswith("databricks"):
-        # If the registry URI is unspecified and the tracking URI is "databricks", we impute the
-        # registry URI as databricks-uc, which is the recommended model registry solution on
-        # Databricks
-        return _DATABRICKS_UNITY_CATALOG_SCHEME
-
-    # For non-databricks tracking URIs, use the tracking URI as the registry URI
-    return tracking_uri
+    return _get_default_registry_uri_for_tracking_uri(tracking_uri)
 
 
-def _resolve_registry_uri(registry_uri=None, tracking_uri=None):
-    return registry_uri or _get_registry_uri_from_context() or _resolve_tracking_uri(tracking_uri)
+def _resolve_registry_uri(
+    registry_uri: Optional[str] = None, tracking_uri: Optional[str] = None
+) -> Optional[str]:
+    """
+    Resolve the registry URI following the same logic as get_registry_uri().
+    """
+    if registry_uri:
+        return registry_uri
+
+    context_uri = _get_registry_uri_from_context()
+    if context_uri is not None:
+        return context_uri
+
+    resolved_tracking_uri = _resolve_tracking_uri(tracking_uri)
+    return _get_default_registry_uri_for_tracking_uri(resolved_tracking_uri)
 
 
 def _get_sqlalchemy_store(store_uri):

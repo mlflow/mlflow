@@ -16,7 +16,7 @@ from mlflow.entities import Run
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.entities.model_registry.prompt_version import PromptVersion
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, RestException
 from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
     INVALID_PARAMETER_VALUE,
@@ -443,7 +443,28 @@ class UcModelRegistryStore(BaseRestStore):
                 deployment_job_id=str(deployment_job_id) if deployment_job_id else None,
             )
         )
-        response_proto = self._call_endpoint(CreateRegisteredModelRequest, req_body)
+        try:
+            response_proto = self._call_endpoint(CreateRegisteredModelRequest, req_body)
+        except RestException as e:
+            if "specify all three levels" in e.message:
+                # The exception is likely due to the user trying to create a registered model
+                # in Unity Catalog without specifying a 3-level name (catalog.schema.model).
+                # The user may not be intending to use the Unity Catalog Model Registry at all,
+                # but rather the legacy Workspace Model Registry. Accordingly, we re-raise with
+                # a hint
+                legacy_hint = (
+                    "If you are trying to use the legacy Workspace Model Registry, instead of the"
+                    " recommended Unity Catalog Model Registry, set the Model Registry URI to"
+                    " 'databricks' (legacy) instead of 'databricks-uc' (recommended)."
+                )
+                new_message = e.message.rstrip(".") + f". {legacy_hint}"
+                raise MlflowException(
+                    message=new_message,
+                    error_code=e.error_code,
+                )
+            else:
+                raise
+
         if deployment_job_id:
             _print_databricks_deployment_job_url(
                 model_name=full_name,
