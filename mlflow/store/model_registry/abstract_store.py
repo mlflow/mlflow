@@ -1,17 +1,19 @@
+import json
 import logging
 from abc import ABCMeta, abstractmethod
 from time import sleep, time
 from typing import Optional, Union
 
+from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.exceptions import MlflowException
-from mlflow.prompt.constants import IS_PROMPT_TAG_KEY, PROMPT_TEXT_TAG_KEY
+from mlflow.prompt.constants import IS_PROMPT_TAG_KEY, LINKED_PROMPTS_TAG_KEY, PROMPT_TEXT_TAG_KEY
 from mlflow.prompt.registry_utils import has_prompt_tag
-from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, ErrorCode
+from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.utils.annotations import developer_stable
 from mlflow.utils.logging_utils import eprint
@@ -763,3 +765,53 @@ class AbstractStore:
             alias: Alias to delete.
         """
         self.delete_registered_model_alias(name, alias)
+
+    def link_prompt_version_to_model(self, name: str, version: str, model_id: str) -> None:
+        """
+        Link a prompt version to a model.
+
+        Default implementation sets a tag. Stores can override with custom behavior.
+
+        Args:
+            name: Name of the prompt.
+            version: Version of the prompt to link.
+            model_id: ID of the model to link to.
+        """
+        from mlflow.tracking import _get_store as _get_tracking_store
+
+        prompt_version = self.get_prompt_version(name, version)
+        tracking_store = _get_tracking_store()
+        logged_model = tracking_store.get_logged_model()
+        if not logged_model:
+            raise MlflowException(
+                f"Could not find model with ID '{model_id}' to which to link prompt '{name}'.",
+                error_code=ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
+            )
+        prompts_tag_value = logged_model.tags.get(LINKED_PROMPTS_TAG_KEY)
+        if prompts_tag_value is not None:
+            try:
+                parsed_prompts_tag_value = json.loads(prompts_tag_value)
+                if not isinstance(parsed_prompts_tag_value, list):
+                    raise MlflowException(
+                        f"Invalid format for '{LINKED_PROMPTS_TAG_KEY}' tag: {prompts_tag_value}"
+                    )
+            except json.JSONDecodeError:
+                raise MlflowException(
+                    f"Invalid JSON format for '{LINKED_PROMPTS_TAG_KEY}' tag: {prompts_tag_value}"
+                )
+        else:
+            parsed_prompts_tag_value = []
+
+        parsed_prompts_tag_value.append(
+            {
+                "name": prompt_version.name,
+                "version": prompt_version.version,
+            }
+        )
+        tracking_store.set_logged_model_tag(
+            model_id,
+            LoggedModelTag(
+                key=LINKED_PROMPTS_TAG_KEY,
+                value=json.dumps(parsed_prompts_tag_value),
+            ),
+        )

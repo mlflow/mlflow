@@ -219,4 +219,16 @@ service UnityCatalogPromptService {
       rpc_doc_title: "(Unity Catalog) Delete Prompt Version Tag",
     };
   }
+
+  rpc LinkPromptVersionToTraces (LinkPromptVersionToTracesRequest) returns (google.protobuf.Empty) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/unity-catalog/prompts/{name}/versions/{version}/links-to-traces"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "(Unity Catalog) Link Prompt Version to Traces",
+    };
+  }
 }

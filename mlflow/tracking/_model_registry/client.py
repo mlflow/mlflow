@@ -442,3 +442,14 @@ class ModelRegistryClient:
 
         """
         return self.store.get_model_version_by_alias(name, alias)
+
+    def link_prompt_version_to_model(self, name: str, version: str, model_id: str) -> None:
+        """
+        Link a prompt version to a model.
+
+        Args:
+            name: The name of the prompt.
+            version: The version of the prompt.
+            model_id: The ID of the model to link the prompt version to.
+        """
+        return self.store.link_prompt_version_to_model(name, version, model_id)

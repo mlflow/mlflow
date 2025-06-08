@@ -728,6 +728,21 @@ class MlflowClient:
             prompt.name, prompt.version, PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY, ",".join(run_ids)
         )
 
+    def link_prompt_version_to_model(self, name: str, version: str, model_id: str) -> None:
+        """
+        Link a prompt version to a model.
+
+        Args:
+            name: The name of the prompt.
+            version: The version of the prompt.
+            model_id: The ID of the model to link the prompt version to.
+        """
+        return self._get_registry_client().link_prompt_version_to_model(
+            name=name,
+            version=version,
+            model_id=model_id,
+        )
+
     # TODO: Use model_id in MLflow 3.0
     @experimental
     @require_prompt_registry
