@@ -800,11 +800,15 @@ def test_databricks_sdk_retry_backoff_calculation():
 
         raise DatabricksError(error_code="INTERNAL_ERROR", message="Mock error")
 
-    # Mock time.time to return predictable values and avoid timeout issues
-    start_time = 1000.0  # Arbitrary start time
-    time_values = [start_time + i * 0.1 for i in range(10)]  # Ensure we don't hit timeout
+    # Spy on sleep calls to capture intervals without interfering with timing
+    sleep_times = []
+    original_sleep = time.sleep
 
-    with mock.patch("time.sleep") as mock_sleep, mock.patch("time.time", side_effect=time_values):
+    def spy_sleep(duration):
+        sleep_times.append(duration)
+        original_sleep(duration)
+
+    with mock.patch("time.sleep", side_effect=spy_sleep) as mock_sleep:
         try:
             _retry_databricks_sdk_call_with_exponential_backoff(
                 call_func=mock_failing_call,
@@ -823,19 +827,5 @@ def test_databricks_sdk_retry_backoff_calculation():
     # attempt 2 (3rd retry): 1 * (2^2) = 4 seconds
     expected_sleep_times = [0, 2, 4]
     actual_sleep_times = [call.args[0] for call in mock_sleep.call_args_list]
-
-    # Use more robust comparison to handle potential floating-point precision issues
-    assert len(actual_sleep_times) == len(expected_sleep_times), (
-        f"Expected {len(expected_sleep_times)} sleep calls, got {len(actual_sleep_times)}: "
-        f"{actual_sleep_times}\n"
-        f"Call count: {call_count}, Expected: 4\n"
-        f"TRANSIENT_FAILURE_RESPONSE_CODES: {_TRANSIENT_FAILURE_RESPONSE_CODES}"
-    )
-    for i, (expected, actual) in enumerate(zip(expected_sleep_times, actual_sleep_times)):
-        assert abs(actual - expected) < 1e-10, (
-            f"Sleep call {i}: expected {expected}, got {actual} (diff: {abs(actual - expected)})\n"
-            f"Type of expected: {type(expected)}, Type of actual: {type(actual)}\n"
-            f"All sleep times: {actual_sleep_times}\n"
-            f"All expected: {expected_sleep_times}"
-        )
+    assert actual_sleep_times == expected_sleep_times
     assert call_count == 4  # Initial + 3 retries
