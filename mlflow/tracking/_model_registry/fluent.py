@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 import mlflow
 from mlflow.entities.logged_model import LoggedModel
@@ -8,7 +8,7 @@ from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, 
 from mlflow.entities.run import Run
 from mlflow.environment_variables import MLFLOW_PRINT_MODEL_URLS_ON_CREATION
 from mlflow.exceptions import MlflowException
-from mlflow.prompt.registry_utils import require_prompt_registry
+from mlflow.prompt.registry_utils import parse_prompt_name_or_uri, require_prompt_registry
 from mlflow.protos.databricks_pb2 import (
     ALREADY_EXISTS,
     NOT_FOUND,
@@ -629,7 +629,7 @@ def search_prompts(
 @experimental
 @require_prompt_registry
 def load_prompt(
-    name_or_uri: str, version: Optional[int] = None, allow_missing: bool = False
+    name_or_uri: str, version: Optional[Union[str, int]] = None, allow_missing: bool = False
 ) -> PromptVersion:
     """
     Load a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
@@ -638,7 +638,7 @@ def load_prompt(
 
     Args:
         name_or_uri: The name of the prompt, or the URI in the format "prompts:/name/version".
-        version: The version of the prompt. If not specified, the latest version will be loaded.
+        version: The version of the prompt (required when using name, not allowed when using URI).
         allow_missing: If True, return None instead of raising Exception if the specified prompt
             is not found.
 
@@ -647,9 +647,6 @@ def load_prompt(
     .. code-block:: python
 
         import mlflow
-
-        # Load the latest version of the prompt
-        prompt = mlflow.load_prompt("my_prompt")
 
         # Load a specific version of the prompt
         prompt = mlflow.load_prompt("my_prompt", version=1)
@@ -662,28 +659,23 @@ def load_prompt(
 
     """
     client = MlflowClient()
-    prompt = client.load_prompt(
-        name_or_uri=name_or_uri, version=version, allow_missing=allow_missing
-    )
+
+    # Use utility to handle URI vs name+version parsing
+    parsed_name_or_uri, parsed_version = parse_prompt_name_or_uri(name_or_uri, version)
+    if parsed_name_or_uri.startswith("prompts:/"):
+        # For URIs, don't pass version parameter
+        prompt = client.load_prompt(parsed_name_or_uri, allow_missing=allow_missing)
+    else:
+        # For names, use the parsed version
+        prompt = client.load_prompt(
+            parsed_name_or_uri, version=parsed_version, allow_missing=allow_missing
+        )
 
     # If there is an active MLflow run, associate the prompt with the run
     if run := active_run():
         client.log_prompt(run.info.run_id, f"prompts:/{prompt.name}/{prompt.version}")
 
     return prompt
-
-
-@experimental
-@require_prompt_registry
-def delete_prompt(name: str, version: int) -> None:
-    """
-    Delete a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
-
-    Args:
-        name: The name of the prompt.
-        version: The version of the prompt to delete.
-    """
-    MlflowClient().delete_prompt(name=name, version=version)
 
 
 @experimental
