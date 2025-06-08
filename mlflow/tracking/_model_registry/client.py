@@ -452,8 +452,6 @@ class ModelRegistryClient:
         """
         return self.store.get_model_version_by_alias(name, alias)
 
-    # Store-Direct Prompt Methods (Unity Catalog Compatible)
-
     def create_prompt(
         self,
         name: str,
