@@ -19,7 +19,11 @@ from mlflow.utils.databricks_utils import (
     is_in_databricks_serverless_runtime,
     warn_on_deprecated_cross_workspace_registry_uri,
 )
-from mlflow.utils.uri import _DATABRICKS_UNITY_CATALOG_SCHEME, _OSS_UNITY_CATALOG_SCHEME
+from mlflow.utils.uri import (
+    _DATABRICKS_UNITY_CATALOG_SCHEME,
+    _OSS_UNITY_CATALOG_SCHEME,
+    is_databricks_uri,
+)
 
 # NOTE: in contrast to tracking, we do not support the following ways to specify
 # the model registry URI:
@@ -115,7 +119,7 @@ def _get_default_registry_uri_for_tracking_uri(tracking_uri: Optional[str]) -> O
     Returns:
         The default registry URI
     """
-    if tracking_uri is not None and tracking_uri.startswith("databricks"):
+    if tracking_uri is not None and is_databricks_uri(tracking_uri):
         # If the tracking URI is "databricks", we impute the registry URI as "databricks-uc"
         # corresponding to Databricks Unity Catalog Model Registry, which is the recommended
         # model registry offering on Databricks
