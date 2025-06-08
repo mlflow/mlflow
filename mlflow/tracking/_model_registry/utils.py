@@ -116,9 +116,9 @@ def _get_default_registry_uri_for_tracking_uri(tracking_uri: Optional[str]) -> O
         The default registry URI
     """
     if tracking_uri is not None and tracking_uri.startswith("databricks"):
-        # If the tracking URI is "databricks", we impute the
-        # registry URI as databricks-uc, which is the recommended model registry solution on
-        # Databricks
+        # If the tracking URI is "databricks", we impute the registry URI as "databricks-uc"
+        # corresponding to Databricks Unity Catalog Model Registry, which is the recommended
+        # model registry offering on Databricks
         return _DATABRICKS_UNITY_CATALOG_SCHEME
 
     # For non-databricks tracking URIs, use the tracking URI as the registry URI

@@ -85,7 +85,7 @@ def test_default_registry_uri_non_databricks_tracking_uri():
 
     for tracking_uri in non_databricks_uris:
         with mock.patch(
-            "mlflow.tracking._model_registry.utils.get_tracking_uri"
+            "mlflow.tracking._tracking_service.utils.get_tracking_uri"
         ) as get_tracking_uri_mock:
             get_tracking_uri_mock.return_value = tracking_uri
             set_registry_uri(None)
@@ -105,7 +105,7 @@ def test_databricks_tracking_uri_variations_default_to_uc():
 
     for tracking_uri in databricks_uris:
         with mock.patch(
-            "mlflow.tracking._model_registry.utils.get_tracking_uri"
+            "mlflow.tracking._tracking_service.utils.get_tracking_uri"
         ) as get_tracking_uri_mock:
             get_tracking_uri_mock.return_value = tracking_uri
             set_registry_uri(None)
@@ -119,7 +119,7 @@ def test_explicit_registry_uri_overrides_databricks_default():
     explicit_registry_uri = "databricks://different_workspace"
 
     with mock.patch(
-        "mlflow.tracking._model_registry.utils.get_tracking_uri"
+        "mlflow.tracking._tracking_service.utils.get_tracking_uri"
     ) as get_tracking_uri_mock:
         get_tracking_uri_mock.return_value = tracking_uri
         set_registry_uri(explicit_registry_uri)
@@ -137,7 +137,7 @@ def test_registry_uri_from_environment_overrides_databricks_default():
 
     with (
         mock.patch(
-            "mlflow.tracking._model_registry.utils.get_tracking_uri"
+            "mlflow.tracking._tracking_service.utils.get_tracking_uri"
         ) as get_tracking_uri_mock,
         mock.patch.object(MLFLOW_REGISTRY_URI, "get", return_value=env_registry_uri),
     ):
@@ -154,7 +154,7 @@ def test_registry_uri_from_spark_session_overrides_databricks_default():
 
     with (
         mock.patch(
-            "mlflow.tracking._model_registry.utils.get_tracking_uri"
+            "mlflow.tracking._tracking_service.utils.get_tracking_uri"
         ) as get_tracking_uri_mock,
         mock.patch(
             "mlflow.tracking._model_registry.utils._get_registry_uri_from_spark_session"
@@ -178,7 +178,7 @@ def test_edge_cases_for_databricks_uri_detection():
 
     for tracking_uri, expected_result in edge_case_uris:
         with mock.patch(
-            "mlflow.tracking._model_registry.utils.get_tracking_uri"
+            "mlflow.tracking._tracking_service.utils.get_tracking_uri"
         ) as get_tracking_uri_mock:
             get_tracking_uri_mock.return_value = tracking_uri
             set_registry_uri(None)
