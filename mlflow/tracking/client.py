@@ -709,45 +709,6 @@ class MlflowClient:
                 return None
             raise
 
-    @deprecated(
-        since="3.0",
-        alternative="delete_prompt_version",
-    )
-    @experimental
-    @require_prompt_registry
-    @translate_prompt_exception
-    def delete_prompt(self, name: str, version: int):
-        """
-        Delete a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
-
-        .. Warning:: This method is deprecated. Use ``delete_prompt_version`` instead which
-            provides consistent version-based deletion across all registry backends.
-
-        Args:
-            name: The name of the prompt.
-            version: The version of the prompt to delete.
-        """
-        registry_client = self._get_registry_client()
-
-        # Check if user is using Databricks Unity Catalog and prevent deletion
-        if is_databricks_unity_catalog_uri(self._registry_uri):
-            raise MlflowException(
-                f"The delete_prompt() method is not supported for Unity Catalog registries. "
-                f"Unity Catalog provides automatic cleanup when the last prompt version is deleted. "  # noqa: E501
-                f"Please use delete_prompt_version() instead:\n\n"
-                f"  client.delete_prompt_version('{name}', '{version}')\n\n"
-                f"When you delete the last version of a prompt, Unity Catalog will "
-                f"automatically delete the prompt container as well.",
-                INVALID_PARAMETER_VALUE,
-            )
-
-        self._validate_prompt(name, version)
-        registry_client.delete_model_version(name, version)
-
-        # If no more versions are left, delete the registered model
-        if not registry_client.get_latest_versions(name, stages=ALL_STAGES):
-            registry_client.delete_registered_model(name)
-
     # TODO: Use model_id in MLflow 3.0
     @experimental
     @require_prompt_registry

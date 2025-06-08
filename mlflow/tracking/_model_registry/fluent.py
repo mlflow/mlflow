@@ -683,26 +683,6 @@ def load_prompt(
     return prompt
 
 
-@deprecated(
-    since="3.0",
-    alternative="delete_prompt_version",
-)
-@experimental
-@require_prompt_registry
-def delete_prompt(name: str, version: int) -> None:
-    """
-    Delete a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
-
-    .. Warning:: This function is deprecated since MLflow 3.0. Use ``delete_prompt_version``
-       instead which provides consistent version-based deletion across all registry backends.
-
-    Args:
-        name: The name of the prompt.
-        version: The version of the prompt to delete.
-    """
-    MlflowClient().delete_prompt(name=name, version=version)
-
-
 @experimental
 @require_prompt_registry
 def set_prompt_alias(name: str, alias: str, version: int) -> None:
