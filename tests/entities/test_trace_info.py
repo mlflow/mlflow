@@ -226,10 +226,6 @@ def test_from_proto_excludes_undefined_fields():
 
 def test_trace_info_from_proto_updates_schema_version():
     """Test that TraceInfo.from_proto updates schema version when it exists and is outdated."""
-    from google.protobuf.timestamp_pb2 import Timestamp
-
-    from mlflow.protos.service_pb2 import TraceInfoV3 as ProtoTraceInfoV3
-
     # Create a proto with old schema version in metadata
     request_time = Timestamp()
     request_time.FromMilliseconds(1234567890)
