@@ -65,9 +65,9 @@ def test_default_get_registry_uri_with_databricks_tracking_uri_defaults_to_uc():
     """Test that databricks tracking URIs default to databricks-uc for registry"""
     tracking_uri = "databricks://tracking_werohoz"
     with mock.patch(
-        "mlflow.tracking._model_registry.utils.get_tracking_uri"
-    ) as get_tracking_uri_mock:
-        get_tracking_uri_mock.return_value = tracking_uri
+        "mlflow.tracking._model_registry.utils._resolve_tracking_uri"
+    ) as resolve_tracking_uri_mock:
+        resolve_tracking_uri_mock.return_value = tracking_uri
         set_registry_uri(None)
         # Should default to Unity Catalog when tracking URI starts with 'databricks'
         assert get_registry_uri() == "databricks-uc"

@@ -159,8 +159,10 @@ def _resolve_registry_uri(
     """
     Resolve the registry URI following the same logic as get_registry_uri().
     """
-    return _get_registry_uri_from_context() or _get_default_registry_uri_for_tracking_uri(
-        _resolve_tracking_uri(tracking_uri)
+    return (
+        registry_uri
+        or _get_registry_uri_from_context()
+        or _get_default_registry_uri_for_tracking_uri(_resolve_tracking_uri(tracking_uri))
     )
 
 
