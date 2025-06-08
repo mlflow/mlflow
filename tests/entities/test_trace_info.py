@@ -1,4 +1,5 @@
 import pytest
+from google.protobuf.timestamp_pb2 import Timestamp
 
 from mlflow.entities import (
     AssessmentError,
@@ -9,6 +10,7 @@ from mlflow.entities import (
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
+from mlflow.protos.service_pb2 import TraceInfoV3 as ProtoTraceInfoV3
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
 
 
@@ -159,8 +161,6 @@ def test_backwards_compatibility_with_v2():
     ],
 )
 def test_trace_info_proto(client_request_id, assessments):
-    from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
-
     # TraceInfo -> proto
     trace_info = TraceInfo(
         trace_id="request_id",
@@ -189,10 +189,6 @@ def test_from_proto_excludes_undefined_fields():
     Test that undefined fields (client_request_id, execution_duration) are excluded when
     constructing a TraceInfo from a protobuf message instance that does not define these fields.
     """
-    from google.protobuf.timestamp_pb2 import Timestamp
-
-    from mlflow.protos.service_pb2 import TraceInfoV3 as ProtoTraceInfoV3
-
     # Manually create a protobuf without setting client_request_id or execution_duration fields
     request_time = Timestamp()
     request_time.FromMilliseconds(1234567890)
@@ -233,7 +229,6 @@ def test_trace_info_from_proto_updates_schema_version():
     from google.protobuf.timestamp_pb2 import Timestamp
 
     from mlflow.protos.service_pb2 import TraceInfoV3 as ProtoTraceInfoV3
-    from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
 
     # Create a proto with old schema version in metadata
     request_time = Timestamp()
