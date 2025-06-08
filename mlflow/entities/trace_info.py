@@ -117,7 +117,6 @@ class TraceInfo(_MlflowObject):
     @classmethod
     def from_proto(cls, proto) -> "TraceInfo":
         trace_metadata = dict(proto.trace_metadata)
-
         # NB: MLflow automatically converts trace metadata and spans to V3 format, even if the
         # trace was originally created in V2 format with an earlier version of MLflow. Accordingly,
         # we also update the `TRACE_SCHEMA_VERSION_KEY` in the trace metadata to V3 for consistency
