@@ -127,12 +127,18 @@ service UnityCatalogPromptService {
   rpc SearchPromptVersions (SearchPromptVersionsRequest) returns (SearchPromptVersionsResponse) {
     option (rpc) = {
       endpoints: [{
-        method: "GET",
-        path: "/mlflow/unity-catalog/prompts/{name}/versions"
+        method: "POST",
+        path: "/mlflow/unity-catalog/prompts/{name}/versions/search"
         since {major: 2, minor: 0},
       }],
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        PERMISSION_DENIED,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ],
       visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "(Unity Catalog) Search Prompt Versions",
+      rpc_doc_title: "(Unity Catalog) Search PromptVersions",
     };
   }
 

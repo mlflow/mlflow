@@ -1098,7 +1098,7 @@ class UcModelRegistryStore(BaseRestStore):
         """
         full_name = get_full_name_from_sc(name, self.spark)
         req_body = message_to_json(
-            SetModelVersionTagRequest(name=full_name, version=version, key=tag.key, value=tag.value)
+            SetModelVersionTagRequest(name=full_name, version=str(version), key=tag.key, value=tag.value)
         )
         self._call_endpoint(SetModelVersionTagRequest, req_body)
 
@@ -1436,7 +1436,9 @@ class UcModelRegistryStore(BaseRestStore):
     def delete_prompt_version(self, name: str, version: Union[str, int]) -> None:
         """
         Delete a prompt version from Unity Catalog.
+        If this is the last version, automatically delete the prompt itself.
         """
+        # Delete the specific version first
         req_body = message_to_json(DeletePromptVersionRequest(name=name, version=str(version)))
         endpoint, method = self._get_endpoint_from_method(DeletePromptVersionRequest)
         self._edit_endpoint_and_call(
@@ -1446,6 +1448,62 @@ class UcModelRegistryStore(BaseRestStore):
             name=name,
             version=version,
             proto_name=DeletePromptVersionRequest,
+        )
+        
+        # Check if any versions remain after deletion using SearchPromptVersions
+        try:
+            search_response = self.search_prompt_versions(name, max_results=1)
+            
+            # Check if any versions remain
+            has_remaining_versions = (
+                hasattr(search_response, 'prompt_versions') and 
+                search_response.prompt_versions and 
+                len(search_response.prompt_versions) > 0
+            )
+            
+            if not has_remaining_versions:
+                # No versions remain, delete the prompt metadata
+                try:
+                    self.delete_prompt(name)
+                    _logger.info(f"Auto-deleted prompt '{name}' after deleting its last version")
+                except Exception as e:
+                    _logger.warning(f"Failed to auto-delete prompt '{name}' after deleting last version: {e}")
+                
+        except Exception as e:
+            # Log but don't fail the operation if version checking fails entirely
+            _logger.warning(f"Failed to check remaining versions for prompt '{name}': {e}")
+
+    def search_prompt_versions(
+        self, 
+        name: str, 
+        max_results: Optional[int] = None, 
+        page_token: Optional[str] = None
+    ) -> SearchPromptVersionsResponse:
+        """
+        Search prompt versions for a given prompt name in Unity Catalog.
+        
+        Note: Unity Catalog server uses a non-standard endpoint pattern for this operation.
+        
+        Args:
+            name: Name of the prompt to search versions for
+            max_results: Maximum number of versions to return
+            page_token: Token for pagination
+            
+        Returns:
+            SearchPromptVersionsResponse containing the list of versions
+        """
+        req_body = message_to_json(SearchPromptVersionsRequest(
+            name=name,
+            max_results=max_results,
+            page_token=page_token
+        ))
+        endpoint, method = self._get_endpoint_from_method(SearchPromptVersionsRequest)
+        return self._edit_endpoint_and_call(
+            endpoint=endpoint,
+            method=method,
+            req_body=req_body,
+            name=name,
+            proto_name=SearchPromptVersionsRequest,
         )
 
     def get_prompt_version_by_alias(self, name: str, alias: str) -> Optional[PromptVersion]:
