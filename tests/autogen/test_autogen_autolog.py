@@ -4,14 +4,86 @@ from autogen_agentchat.messages import MultiModalMessage
 from autogen_core import FunctionCall, Image
 from autogen_core.models import CreateResult
 from autogen_ext.models.replay import ReplayChatCompletionClient
+from packaging.version import Version
 
 import mlflow
 from mlflow.entities.span import SpanType
 
 from tests.tracing.helper import get_traces
 
+try:
+    import autogen_agentchat
+
+    _AUTOGEN_VERSION = Version(autogen_agentchat.__version__)
+except (ImportError, AttributeError):
+    _AUTOGEN_VERSION = Version("0.5.0")  # fallback
+
 _SYSTEM_MESSAGE = "You are a helpful assistant."
 _MODEL_USAGE = {"prompt_tokens": 6, "completion_tokens": 1}
+
+
+def _compare_with_known_fields(actual, expected):
+    """
+    Compare dictionaries, ignoring unknown fields that may be added in newer versions.
+
+    This helper function allows tests to pass with both older and newer versions of AutoGen
+    by only comparing the fields that are expected to be present in all versions.
+    """
+    if isinstance(expected, dict) and isinstance(actual, dict):
+        # Define known fields that should be present across versions
+        known_message_fields = {"content", "source", "models_usage", "metadata", "type"}
+        known_tool_fields = {"id", "arguments", "name", "call_id", "is_error", "output", "content"}
+
+        # For tool-related messages, include additional fields
+        message_type = expected.get("type", "")
+        if "ToolCall" in message_type or "function_call" in message_type.lower():
+            known_fields = known_message_fields | known_tool_fields
+        else:
+            known_fields = known_message_fields
+
+        # Create filtered versions of both dictionaries
+        filtered_actual = {}
+        filtered_expected = {}
+
+        for key in known_fields:
+            if key in expected:
+                filtered_expected[key] = expected[key]
+                if key in actual:
+                    filtered_actual[key] = actual[key]
+
+        # Handle list content (tool calls) recursively
+        if "content" in filtered_expected and isinstance(filtered_expected["content"], list):
+            if "content" in filtered_actual and isinstance(filtered_actual["content"], list):
+                filtered_actual_content = []
+                filtered_expected_content = []
+
+                for exp_item, act_item in zip(
+                    filtered_expected["content"], filtered_actual["content"]
+                ):
+                    if isinstance(exp_item, dict) and isinstance(act_item, dict):
+                        # Filter tool call items
+                        filtered_exp_item = {
+                            k: v for k, v in exp_item.items() if k in known_tool_fields
+                        }
+                        filtered_act_item = {
+                            k: v for k, v in act_item.items() if k in known_tool_fields
+                        }
+                        filtered_expected_content.append(filtered_exp_item)
+                        filtered_actual_content.append(filtered_act_item)
+                    else:
+                        filtered_expected_content.append(exp_item)
+                        filtered_actual_content.append(act_item)
+
+                filtered_expected["content"] = filtered_expected_content
+                filtered_actual["content"] = filtered_actual_content
+
+        return filtered_actual == filtered_expected
+    elif isinstance(expected, list) and isinstance(actual, list):
+        if len(expected) != len(actual):
+            return False
+        return all(_compare_with_known_fields(a, e) for a, e in zip(actual, expected))
+    else:
+        return actual == expected
 
 
 @pytest.mark.asyncio
@@ -42,7 +114,7 @@ async def test_autolog_assistant_agent(disable):
         assert span.name == "run"
         assert span.span_type == SpanType.AGENT
         assert span.inputs == {"task": "1+1"}
-        assert span.outputs["messages"] == [
+        expected_messages = [
             {
                 "content": "1+1",
                 "source": "user",
@@ -58,17 +130,19 @@ async def test_autolog_assistant_agent(disable):
                 "type": "TextMessage",
             },
         ]
+        assert _compare_with_known_fields(span.outputs["messages"], expected_messages)
 
         span = trace.data.spans[1]
         assert span.name == "on_messages"
         assert span.span_type == SpanType.AGENT
-        assert span.outputs["chat_message"] == {
+        expected_chat_message = {
             "source": "assistant",
             "models_usage": _MODEL_USAGE,
             "metadata": {},
             "content": "2",
             "type": "TextMessage",
         }
+        assert _compare_with_known_fields(span.outputs["chat_message"], expected_chat_message)
 
         span = trace.data.spans[2]
         assert span.name == "create"
@@ -138,7 +212,7 @@ async def test_autolog_tool_agent():
     assert span.name == "run"
     assert span.span_type == SpanType.AGENT
     assert span.inputs == {"task": "1+1"}
-    assert span.outputs["messages"] == [
+    expected_messages = [
         {
             "content": "1+1",
             "source": "user",
@@ -181,17 +255,19 @@ async def test_autolog_tool_agent():
             "type": "ToolCallSummaryMessage",
         },
     ]
+    assert _compare_with_known_fields(span.outputs["messages"], expected_messages)
 
     span = trace.data.spans[1]
     assert span.name == "on_messages"
     assert span.span_type == SpanType.AGENT
-    assert span.outputs["chat_message"] == {
+    expected_chat_message = {
         "source": "assistant",
         "models_usage": None,
         "metadata": {},
         "content": "2",
         "type": "ToolCallSummaryMessage",
     }
+    assert _compare_with_known_fields(span.outputs["chat_message"], expected_chat_message)
     assert span.get_attribute("mlflow.chat.tools") == TOOL_ATTRIBUTES
 
     span = trace.data.spans[2]
@@ -248,7 +324,7 @@ async def test_autolog_multi_modal():
     assert span.span_type == SpanType.AGENT
     assert span.inputs["task"]["content"][0] == "Can you describe the number in the image?"
     assert "data" in span.inputs["task"]["content"][1]
-    assert span.outputs["messages"] == [
+    expected_messages = [
         {
             "content": [
                 "Can you describe the number in the image?",
@@ -269,17 +345,19 @@ async def test_autolog_multi_modal():
             "type": "TextMessage",
         },
     ]
+    assert _compare_with_known_fields(span.outputs["messages"], expected_messages)
 
     span = trace.data.spans[1]
     assert span.name == "on_messages"
     assert span.span_type == SpanType.AGENT
-    assert span.outputs["chat_message"] == {
+    expected_chat_message = {
         "source": "assistant",
         "models_usage": {"completion_tokens": 1, "prompt_tokens": 14},
         "metadata": {},
         "content": "2",
         "type": "TextMessage",
     }
+    assert _compare_with_known_fields(span.outputs["chat_message"], expected_chat_message)
 
     span = trace.data.spans[2]
     assert span.name == "create"
