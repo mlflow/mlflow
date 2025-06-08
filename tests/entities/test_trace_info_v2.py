@@ -11,6 +11,8 @@ from mlflow.tracing.constant import (
     MAX_CHARS_IN_TRACE_INFO_METADATA,
     MAX_CHARS_IN_TRACE_INFO_TAGS_KEY,
     MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE,
+    TRACE_SCHEMA_VERSION,
+    TRACE_SCHEMA_VERSION_KEY,
 )
 
 
@@ -166,8 +168,6 @@ def test_trace_info_v3(trace_info):
 
 def test_trace_info_v2_to_v3_updates_schema_version():
     """Test that converting from TraceInfoV2 to V3 updates the schema version correctly."""
-    from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
-
     # Create a V2 trace with old schema version in metadata
     trace_info_v2 = TraceInfoV2(
         request_id="test_request_id",
