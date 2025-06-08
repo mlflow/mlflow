@@ -133,7 +133,9 @@ class TraceInfoV2(_MlflowObject):
         return cls(**trace_info_dict)
 
     def to_v3(self, request: Optional[str] = None, response: Optional[str] = None) -> TraceInfo:
-        # Update trace metadata to use current schema version
+        # NB: MLflow automatically converts trace metadata and spans to V3 format, even if the
+        # trace was originally created in V2 format with an earlier version of MLflow. Accordingly,
+        # we also update the `TRACE_SCHEMA_VERSION_KEY` in the trace metadata to V3 for consistency
         trace_metadata = self.request_metadata.copy()
         trace_metadata[TRACE_SCHEMA_VERSION_KEY] = str(TRACE_SCHEMA_VERSION)
 
