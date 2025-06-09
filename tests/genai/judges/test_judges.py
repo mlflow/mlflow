@@ -1,8 +1,10 @@
+from typing import Optional
 from unittest.mock import patch
 
 import pytest
 
 from mlflow.entities.assessment import (
+    AssessmentError,
     AssessmentSource,
     AssessmentSourceType,
     Feedback,
@@ -33,13 +35,13 @@ def test_databricks_judges_are_importable():
     assert judges.custom_prompt_judge == custom_prompt_judge
 
 
-def create_test_feedback(value: str) -> Feedback:
+def create_test_feedback(value: str, error: Optional[str] = None) -> Feedback:
     return Feedback(
         name="test_feedback",
         source=AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE, source_id="databricks"),
         rationale="Test rationale",
         metadata={},
-        value=FeedbackValue(value=value, error=None),
+        value=FeedbackValue(value=value, error=error),
         valid=True,
     )
 
@@ -63,6 +65,12 @@ def test_sanitize_feedback_unknown():
     result = _sanitize_feedback(feedback)
     assert isinstance(result.value, judges.CategoricalRating)
     assert result.value == judges.CategoricalRating.UNKNOWN
+
+
+def test_sanitize_feedback_error():
+    feedback = create_test_feedback(None, error=AssessmentError(error_code="test_error"))
+    result = _sanitize_feedback(feedback)
+    assert result.value == FeedbackValue(value=None, error=AssessmentError(error_code="test_error"))
 
 
 def test_meets_guidelines_happy_path():
