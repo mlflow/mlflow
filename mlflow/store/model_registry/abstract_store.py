@@ -820,6 +820,29 @@ class AbstractStore:
         """
         self.delete_registered_model_alias(name, alias)
 
+    def search_prompt_versions(
+        self, name: str, max_results: Optional[int] = None, page_token: Optional[str] = None
+    ):
+        """
+        Search prompt versions for a given prompt name.
+
+        This method is only supported in Unity Catalog registries.
+        For OSS registries, this functionality is not available.
+
+        Args:
+            name: Name of the prompt to search versions for
+            max_results: Maximum number of versions to return
+            page_token: Token for pagination
+
+        Raises:
+            MlflowException: Always, as this is not supported in OSS registries
+        """
+        raise MlflowException(
+            "search_prompt_versions() is not supported in this registry. "
+            "This method is only available in Unity Catalog registries.",
+            INVALID_PARAMETER_VALUE,
+        )
+
     def link_prompt_version_to_model(self, name: str, version: str, model_id: str) -> None:
         """
         Link a prompt version to a model.
@@ -844,44 +867,28 @@ class AbstractStore:
                     error_code=ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
                 )
 
-            prompts_tag_value = logged_model.tags.get(LINKED_PROMPTS_TAG_KEY)
-            if prompts_tag_value is not None:
-                try:
-                    parsed_prompts_tag_value = json.loads(prompts_tag_value)
-                    if not isinstance(parsed_prompts_tag_value, list):
-                        raise MlflowException(
-                            f"Invalid format for '{LINKED_PROMPTS_TAG_KEY}' tag:"
-                            f" {prompts_tag_value}"
-                        )
-                except json.JSONDecodeError:
-                    raise MlflowException(
-                        f"Invalid JSON format for '{LINKED_PROMPTS_TAG_KEY}' tag:"
-                        f" {prompts_tag_value}"
-                    )
-            else:
-                parsed_prompts_tag_value = []
-
             new_prompt_entry = {
                 "name": prompt_version.name,
                 "version": prompt_version.version,
             }
 
-            # Check if this exact prompt version is already linked
-            if new_prompt_entry in parsed_prompts_tag_value:
-                return
-
-            # Else, add the new prompt entry
-            parsed_prompts_tag_value.append(new_prompt_entry)
-            # Update the tag
-            tracking_store.set_logged_model_tags(
-                model_id,
-                [
-                    LoggedModelTag(
-                        key=LINKED_PROMPTS_TAG_KEY,
-                        value=json.dumps(parsed_prompts_tag_value),
-                    )
-                ],
+            # Use utility function to update linked prompts tag
+            current_tag_value = logged_model.tags.get(LINKED_PROMPTS_TAG_KEY)
+            updated_tag_value = self._get_updated_linked_prompts_tag(
+                current_tag_value, [new_prompt_entry]
             )
+
+            # Only update if the tag value actually changed (avoiding redundant updates)
+            if current_tag_value != updated_tag_value:
+                tracking_store.set_logged_model_tags(
+                    model_id,
+                    [
+                        LoggedModelTag(
+                            key=LINKED_PROMPTS_TAG_KEY,
+                            value=updated_tag_value,
+                        )
+                    ],
+                )
 
     def link_prompts_to_trace(self, prompt_versions: list[PromptVersion], trace_id: str) -> None:
         """
@@ -906,43 +913,67 @@ class AbstractStore:
                         error_code=ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
                     )
 
-                # Get existing linked prompts tag value
-                prompts_tag_value = trace_info.tags.get(LINKED_PROMPTS_TAG_KEY)
-                if prompts_tag_value is not None:
-                    try:
-                        parsed_prompts_tag_value = json.loads(prompts_tag_value)
-                        if not isinstance(parsed_prompts_tag_value, list):
-                            raise MlflowException(
-                                f"Invalid format for '{LINKED_PROMPTS_TAG_KEY}' tag:"
-                                f" {prompts_tag_value}"
-                            )
-                    except json.JSONDecodeError:
-                        raise MlflowException(
-                            f"Invalid JSON format for '{LINKED_PROMPTS_TAG_KEY}' tag:"
-                            f" {prompts_tag_value}"
-                        )
-                else:
-                    parsed_prompts_tag_value = []
-
-                # Add new prompt entries that aren't already linked
-                for prompt_version in prompt_versions:
-                    new_prompt_entry = {
+                # Prepare new prompt entries to add
+                new_prompt_entries = [
+                    {
                         "name": prompt_version.name,
                         "version": str(prompt_version.version),
                     }
+                    for prompt_version in prompt_versions
+                ]
 
-                    # Check if this exact prompt version is already linked
-                    if new_prompt_entry not in parsed_prompts_tag_value:
-                        parsed_prompts_tag_value.append(new_prompt_entry)
-
-                # Update the tag on the trace
-                tracking_store.set_trace_tag(
-                    trace_id,
-                    LINKED_PROMPTS_TAG_KEY,
-                    json.dumps(parsed_prompts_tag_value),
+                # Use utility function to update linked prompts tag
+                current_tag_value = trace_info.tags.get(LINKED_PROMPTS_TAG_KEY)
+                updated_tag_value = self._get_updated_linked_prompts_tag(
+                    current_tag_value, new_prompt_entries
                 )
+
+                # Only update if the tag value actually changed (avoiding redundant updates)
+                if current_tag_value != updated_tag_value:
+                    tracking_store.set_trace_tag(
+                        trace_id,
+                        LINKED_PROMPTS_TAG_KEY,
+                        updated_tag_value,
+                    )
             except Exception as e:
                 _logger.warning(
                     f"Failed to link prompts to trace '{trace_id}': {e}",
                     exc_info=True,
                 )
+
+    def _get_updated_linked_prompts_tag(
+        self, current_tag_value: str, new_prompt_entries: list[dict]
+    ) -> str:
+        """
+        Utility method to update linked prompts tag value with new entries.
+
+        Args:
+            current_tag_value: Current JSON string value of the linked prompts tag
+            new_prompt_entries: List of prompt entry dicts to add
+
+        Returns:
+            Updated JSON string with new entries added (avoiding duplicates)
+
+        Raises:
+            MlflowException: If current tag value has invalid JSON or format
+        """
+        if current_tag_value is not None:
+            try:
+                parsed_prompts_tag_value = json.loads(current_tag_value)
+                if not isinstance(parsed_prompts_tag_value, list):
+                    raise MlflowException(
+                        f"Invalid format for '{LINKED_PROMPTS_TAG_KEY}' tag: {current_tag_value}"
+                    )
+            except json.JSONDecodeError:
+                raise MlflowException(
+                    f"Invalid JSON format for '{LINKED_PROMPTS_TAG_KEY}' tag: {current_tag_value}"
+                )
+        else:
+            parsed_prompts_tag_value = []
+
+        # Add new prompt entries that aren't already linked
+        for new_prompt_entry in new_prompt_entries:
+            if new_prompt_entry not in parsed_prompts_tag_value:
+                parsed_prompts_tag_value.append(new_prompt_entry)
+
+        return json.dumps(parsed_prompts_tag_value)

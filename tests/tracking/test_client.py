@@ -4,6 +4,7 @@ import sys
 import time
 from pathlib import Path
 from unittest import mock
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -2044,6 +2045,150 @@ def test_search_prompt(tracking_uri):
 
     prompts = client.search_prompts(max_results=3)
     assert len(prompts) == 3
+
+
+def test_delete_prompt_version_no_auto_cleanup(tracking_uri):
+    """Test that delete_prompt_version no longer automatically deletes prompts"""
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    # Create prompt and version
+    client.register_prompt(name="test_prompt", template="Hello {{name}}!")
+
+    # Verify prompt and version exist
+    prompt = client.get_prompt("test_prompt")
+    assert prompt is not None
+    assert prompt.name == "test_prompt"
+
+    prompt_version = client.get_prompt_version("test_prompt", 1)
+    assert prompt_version is not None
+    assert prompt_version.version == 1
+
+    # Delete the version - prompt should remain
+    client.delete_prompt_version("test_prompt", "1")
+
+    # Prompt should still exist even though it has no versions
+    prompt = client.get_prompt("test_prompt")
+    assert prompt is not None
+    assert prompt.name == "test_prompt"
+
+    # Version should be gone
+    with pytest.raises(MlflowException, match=r"Prompt.*name=test_prompt.*version=1.*not found"):
+        client.get_prompt_version("test_prompt", 1)
+
+
+def test_delete_prompt_with_no_versions(tracking_uri):
+    """Test that delete_prompt works when prompt has no versions"""
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    # Create prompt and version, then delete version
+    client.register_prompt(name="empty_prompt", template="Hello {{name}}!")
+    client.delete_prompt_version("empty_prompt", "1")
+
+    # Verify prompt exists but has no versions
+    prompt = client.get_prompt("empty_prompt")
+    assert prompt is not None
+
+    # Delete the prompt - should work regardless of registry type
+    client.delete_prompt("empty_prompt")
+
+    # Prompt should be gone
+    prompt = client.get_prompt("empty_prompt")
+    assert prompt is None
+
+
+def test_delete_prompt_complete_workflow(tracking_uri):
+    """Test the complete workflow: create, add versions, delete versions, delete prompt"""
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    # Create prompt with multiple versions
+    client.register_prompt(name="workflow_prompt", template="Version 1: {{name}}")
+    client.register_prompt(name="workflow_prompt", template="Version 2: {{name}}")
+    client.register_prompt(name="workflow_prompt", template="Version 3: {{name}}")
+
+    # Verify all versions exist
+    v1 = client.get_prompt_version("workflow_prompt", 1)
+    v2 = client.get_prompt_version("workflow_prompt", 2)
+    v3 = client.get_prompt_version("workflow_prompt", 3)
+    assert v1.template == "Version 1: {{name}}"
+    assert v2.template == "Version 2: {{name}}"
+    assert v3.template == "Version 3: {{name}}"
+
+    # Delete versions one by one
+    client.delete_prompt_version("workflow_prompt", "1")
+    client.delete_prompt_version("workflow_prompt", "2")
+    client.delete_prompt_version("workflow_prompt", "3")
+
+    # Prompt should still exist with no versions
+    prompt = client.get_prompt("workflow_prompt")
+    assert prompt is not None
+
+    # Now delete the prompt itself
+    client.delete_prompt("workflow_prompt")
+
+    # Prompt should be completely gone
+    prompt = client.get_prompt("workflow_prompt")
+    assert prompt is None
+
+
+def test_delete_prompt_error_handling(tracking_uri):
+    """Test error handling for delete_prompt operations"""
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    # Test deleting non-existent prompt
+    with pytest.raises(MlflowException, match=r"Prompt with name=nonexistent not found"):
+        client.delete_prompt("nonexistent")
+
+    # Test deleting non-existent version
+    client.register_prompt(name="test_errors", template="Hello {{name}}!")
+    with pytest.raises(MlflowException, match=r"Prompt.*name=test_errors.*version=999.*not found"):
+        client.delete_prompt_version("test_errors", "999")
+
+
+def test_delete_prompt_version_behavior_consistency(tracking_uri):
+    """Test that delete_prompt_version behavior is consistent across registry types"""
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    # Create multiple prompts with versions
+    for i in range(3):
+        prompt_name = f"consistency_test_{i}"
+        client.register_prompt(name=prompt_name, template=f"Template {i}: {{{{name}}}}")
+
+        # Delete the version immediately
+        client.delete_prompt_version(prompt_name, "1")
+
+        # Prompt should remain but have no versions
+        prompt = client.get_prompt(prompt_name)
+        assert prompt is not None
+        assert prompt.name == prompt_name
+
+        # Version should be gone
+        with pytest.raises(MlflowException, match=r"Prompt.*version.*not found"):
+            client.get_prompt_version(prompt_name, 1)
+
+    # Clean up - delete all prompts
+    for i in range(3):
+        client.delete_prompt(f"consistency_test_{i}")
+        prompt = client.get_prompt(f"consistency_test_{i}")
+        assert prompt is None
+
+
+@pytest.mark.parametrize("registry_uri", ["databricks-uc"])
+def test_delete_prompt_with_versions_unity_catalog_error(registry_uri):
+    """Test that Unity Catalog throws error when deleting prompt with existing versions"""
+
+    # Mock Unity Catalog behavior
+    client = MlflowClient(registry_uri=registry_uri)
+
+    # Mock the search_prompt_versions to return versions
+    mock_response = Mock()
+    mock_response.prompt_versions = [Mock(version="1")]
+
+    with patch.object(client, "search_prompt_versions", return_value=mock_response):
+        with patch.object(client, "_registry_uri", registry_uri):
+            with pytest.raises(
+                MlflowException, match=r"Cannot delete prompt .* because it still has undeleted"
+            ):
+                client.delete_prompt("test_prompt")
 
 
 def test_link_prompt_version_to_model_smoke_test(tracking_uri):
