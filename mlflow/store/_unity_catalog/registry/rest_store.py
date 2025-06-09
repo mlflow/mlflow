@@ -89,6 +89,7 @@ from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
     GetPromptVersionByAliasRequest,
     GetPromptVersionRequest,
     LinkPromptVersionsToModelsRequest,
+    PromptVersionLinkEntry,
     SearchPromptsRequest,
     SearchPromptsResponse,
     SearchPromptVersionsRequest,
@@ -1518,7 +1519,6 @@ class UcModelRegistryStore(BaseRestStore):
         # Call the default implementation, since the LinkPromptVersionsToModels API
         # will initially be a no-op until the Databricks backend supports it
         super().link_prompt_version_to_model(name=name, version=version, model_id=model_id)
-        from mlflow.protos.unity_catalog_prompt_messages_pb2 import PromptVersionLinkEntry
 
         prompt_version_entry = PromptVersionLinkEntry(name=name, version=version)
         req_body = message_to_json(
@@ -1527,18 +1527,15 @@ class UcModelRegistryStore(BaseRestStore):
             )
         )
         endpoint, method = self._get_endpoint_from_method(LinkPromptVersionsToModelsRequest)
-        try:
-            self._edit_endpoint_and_call(
-                endpoint=endpoint,
-                method=method,
-                req_body=req_body,
-                name=name,
-                version=version,
-                model_id=model_id,
-                proto_name=LinkPromptVersionsToModelsRequest,
-            )
-        except Exception:
-            _logger.debug("Failed to link prompt version to model in unity catalog", exc_info=True)
+        self._edit_endpoint_and_call(
+            endpoint=endpoint,
+            method=method,
+            req_body=req_body,
+            name=name,
+            version=version,
+            model_id=model_id,
+            proto_name=LinkPromptVersionsToModelsRequest,
+        )
 
     def _edit_endpoint_and_call(self, endpoint, method, req_body, proto_name, **kwargs):
         """
