@@ -1,3 +1,4 @@
+import re
 import time
 from unittest import mock
 
@@ -72,23 +73,54 @@ def test_set_trace_tag_on_pending_trace(monkeypatch):
     assert trace.info.tags["foo"] == "bar"
 
 
-def test_retry_decorator_should_retry_when_queue_is_not_empty(monkeypatch):
-    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_LOGGING", "true")
-    monkeypatch.setattr(AsyncTraceExportQueue, "is_empty", lambda: False)
-    monkeypatch.setattr(mlflow.tracing.client, "_PENDING_TRACE_MAX_RETRY_COUNT", 2)
-
+def test_retry_decorator_should_when_async_logging_is_disabled(monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_LOGGING", "false")
     calls = []
 
     @_retry_if_trace_is_pending_export
-    def dummy_method(self, trace_id, key, value):
+    def dummy_method(trace_id, key, value):
         calls.append((trace_id, key, value))
         raise RestException({"error_code": "INVALID_PARAMETER_VALUE", "message": "Not found"})
 
-    with pytest.raises(MlflowException, match=r"Failed to call dummy_method API."):
-        dummy_method(None, "trace_id", "key", "value")
+    with pytest.raises(MlflowException, match=r"INVALID_PARAMETER_VALUE: Not found"):
+        dummy_method("trace_id", "key", "value")
 
-    assert len(calls) == 2
-    assert all(call == ("trace_id", "key", "value") for call in calls)
+    assert len(calls) == 1
+    assert calls[0] == ("trace_id", "key", "value")
+
+
+@pytest.mark.parametrize(
+    ("error", "should_retry"),
+    [
+        (RestException({"error_code": "INVALID_PARAMETER_VALUE", "message": "Not found"}), False),
+        (RestException({"error_code": "RESOURCE_DOES_NOT_EXIST", "message": "Not found"}), True),
+        (
+            RestException(
+                {
+                    "error_code": "INVALID_PARAMETER_VALUE",
+                    "message": "Traces with ids (trace_id) do not exist",
+                }
+            ),
+            True,
+        ),
+    ],
+)
+def test_retry_decorator_should_only_catch_correct_exceptions(monkeypatch, error, should_retry):
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_LOGGING", "false")
+    calls = []
+
+    @_retry_if_trace_is_pending_export
+    def dummy_method(trace_id, key, value):
+        calls.append((trace_id, key, value))
+        if len(calls) == 1:
+            raise error
+        return
+
+    with pytest.raises(error.__class__, match=re.escape(error.message)):
+        dummy_method("trace_id", "key", "value")
+
+    assert len(calls) == 1 if should_retry else 2
+    assert calls[0] == ("trace_id", "key", "value")
 
 
 def test_retry_decorator_should_not_retry_when_queue_is_empty(monkeypatch):

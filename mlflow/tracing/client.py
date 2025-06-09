@@ -15,7 +15,9 @@ from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.environment_variables import MLFLOW_SEARCH_TRACES_MAX_THREADS
+from mlflow.environment_variables import (
+    MLFLOW_SEARCH_TRACES_MAX_THREADS,
+)
 from mlflow.exceptions import (
     MlflowException,
     MlflowTraceDataCorrupted,
@@ -32,7 +34,9 @@ from mlflow.store.artifact.artifact_repository_registry import get_artifact_repo
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing.constant import TraceMetadataKey
-from mlflow.tracing.export.async_export_queue import AsyncTraceExportQueue
+from mlflow.tracing.export.async_export_queue import (
+    should_enable_async_logging,
+)
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import TraceJSONEncoder, exclude_immutable_tags
 from mlflow.tracing.utils.artifact_utils import get_artifact_uri_for_trace
@@ -53,29 +57,34 @@ def _retry_if_trace_is_pending_export(func):
     and waiting to be flushed to the backend store. In that case, we need to wait
     for the trace to be flushed to the backend store before calling backend API.
     """
+    # If async logging is not enabled, we shouldn't retry.
+    if not should_enable_async_logging():
+        return func
 
     @wraps(func)
     def wrapper(self, trace_id, *args, **kwargs):
-        # If async logging queue is empty, the trace is surely not in the pending state
-        if AsyncTraceExportQueue.is_empty():
-            return func(self, trace_id, *args, **kwargs)
-
         interval = 1
-        retries = _PENDING_TRACE_MAX_RETRY_COUNT
         error = None
-        while retries > 0:
+        for _ in range(_PENDING_TRACE_MAX_RETRY_COUNT):
             try:
                 return func(self, trace_id, *args, **kwargs)
             except RestException as e:
-                time.sleep(interval)
-                interval *= 2
-                retries -= 1
-                error = e
-
-                _logger.debug(
-                    f"Tracing {trace_id} is not found in the tracking server. It might "
-                    "not be exported to backend yet. Retrying..."
-                )
+                if e.error_code == RESOURCE_DOES_NOT_EXIST or (
+                    # Databricks backend returns INVALID_PARAMETER_VALUE for non-existent traces.
+                    # TODO: Remove this workaround once the backend is fixed to return correct
+                    # error code.
+                    e.error_code == INVALID_PARAMETER_VALUE
+                    and e.message.endswith(f"Traces with ids ({trace_id}) do not exist")
+                ):
+                    time.sleep(interval)
+                    interval *= 2
+                    error = e
+                    _logger.debug(
+                        f"Tracing {trace_id} is not found in the tracking server. It might "
+                        "not be exported to backend yet. Retrying..."
+                    )
+                else:
+                    raise e
 
         raise MlflowException(
             f"Failed to call {func.__name__} API. The trace {trace_id} is not found in the "

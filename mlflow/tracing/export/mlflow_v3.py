@@ -6,13 +6,14 @@ from opentelemetry.sdk.trace.export import SpanExporter
 
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.trace import Trace
-from mlflow.environment_variables import (
-    MLFLOW_ENABLE_ASYNC_TRACE_LOGGING,
-)
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import TraceTagKey
 from mlflow.tracing.display import get_display_handler
-from mlflow.tracing.export.async_export_queue import AsyncTraceExportQueue, Task
+from mlflow.tracing.export.async_export_queue import (
+    AsyncTraceExportQueue,
+    Task,
+    should_enable_async_logging,
+)
 from mlflow.tracing.export.utils import try_link_prompts_to_trace
 from mlflow.tracing.fluent import _EVAL_REQUEST_ID_TO_TRACE_ID, _set_last_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
@@ -29,7 +30,7 @@ class MlflowV3SpanExporter(SpanExporter):
     """
 
     def __init__(self, tracking_uri: Optional[str] = None):
-        self._is_async_enabled = self._should_enable_async_logging()
+        self._is_async_enabled = should_enable_async_logging()
         if self._is_async_enabled:
             self._async_queue = AsyncTraceExportQueue()
         self._client = TracingClient(tracking_uri)
@@ -108,21 +109,6 @@ class MlflowV3SpanExporter(SpanExporter):
                 _logger.warning("No trace or trace info provided, unable to export")
         except Exception as e:
             _logger.warning(f"Failed to send trace to MLflow backend: {e}")
-
-    def _should_enable_async_logging(self):
-        if is_in_databricks_notebook():
-            # NB: We don't turn on async logging in Databricks notebook by default
-            # until we are confident that the async logging is working on the
-            # offline workload on Databricks, to derisk the inclusion to the
-            # standard image. When it is enabled explicitly via the env var, we
-            # will respect that.
-            return (
-                MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.get()
-                if MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.is_set()
-                else False
-            )
-
-        return MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.get()
 
     def _should_log_async(self):
         # During evaluate, the eval harness relies on the generated trace objects,

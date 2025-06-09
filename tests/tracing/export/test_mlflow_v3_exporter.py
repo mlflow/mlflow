@@ -109,7 +109,7 @@ def test_export(is_async, monkeypatch):
     assert mlflow.get_last_active_trace_id() is not None
 
 
-@mock.patch("mlflow.tracing.export.mlflow_v3.is_in_databricks_notebook", return_value=True)
+@mock.patch("mlflow.tracing.export.async_export_queue.is_in_databricks_notebook", return_value=True)
 def test_async_logging_disabled_in_databricks_notebook(mock_is_in_db_notebook, monkeypatch):
     exporter = MlflowV3SpanExporter()
     assert not exporter._is_async_enabled

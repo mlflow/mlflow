@@ -11,9 +11,27 @@ from typing import Callable, Sequence
 from mlflow.environment_variables import (
     MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE,
     MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS,
+    MLFLOW_ENABLE_ASYNC_TRACE_LOGGING,
 )
+from mlflow.utils.databricks_utils import is_in_databricks_notebook
 
 _logger = logging.getLogger(__name__)
+
+
+def should_enable_async_logging():
+    if is_in_databricks_notebook():
+        # NB: We don't turn on async logging in Databricks notebook by default
+        # until we are confident that the async logging is working on the
+        # offline workload on Databricks, to derisk the inclusion to the
+        # standard image. When it is enabled explicitly via the env var, we
+        # will respect that.
+        return (
+            MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.get()
+            if MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.is_set()
+            else False
+        )
+
+    return MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.get()
 
 
 @dataclass
