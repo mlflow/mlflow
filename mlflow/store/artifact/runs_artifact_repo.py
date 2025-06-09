@@ -134,12 +134,8 @@ class RunsArtifactRepository(ArtifactRepository):
         if repo := self._get_logged_model_artifact_repo(run_id=run_id, name=model_name):
             artifacts = repo.list_artifacts(path=rel_path)
             return [
-                FileInfo(
-                    path=f"{model_name}/{artifact.path}",
-                    is_dir=artifact.is_dir,
-                    file_size=artifact.file_size,
-                )
-                for artifact in artifacts
+                FileInfo(path=f"{model_name}/{a.path}", is_dir=a.is_dir, file_size=a.file_size)
+                for a in artifacts
             ]
 
         return []
