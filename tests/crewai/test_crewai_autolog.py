@@ -13,12 +13,12 @@ from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import get_traces
 
-IS_OLDER_THAN_0_114 = Version(crewai.__version__) < Version("0.114.0")
-# Check if this is a version that reverted back to 4 chat attributes
-# This includes dev versions and versions >= 0.115.0 where the behavior changed back
-IS_NEW_VERSION_WITH_4_ATTRIBUTES = (
-    Version(crewai.__version__) >= Version("0.115.0") or "dev" in crewai.__version__
-)
+# Check if this is a version that has 4 chat attributes
+# Versions < 0.114.0 had 4 attributes, versions >= 0.114.0 and < 0.115.0 had 5 attributes,
+# and versions >= 0.115.0 reverted back to 4 attributes
+HAS_4_CHAT_ATTRIBUTES = Version(crewai.__version__) < Version("0.114.0") or Version(
+    crewai.__version__
+) >= Version("0.115.0")
 
 # This is a special word for CrewAI to complete the agent execution: https://github.com/crewAIInc/crewAI/blob/c6a6c918e0eba167be1fb82831c73dd664c641e3/src/crewai/agents/parser.py#L7
 _FINAL_ANSWER_KEYWORD = "Final Answer:"
@@ -435,7 +435,7 @@ def test_kickoff_tool_calling(tool_agent_1, task_1_with_tool, autolog):
     assert span_4.outputs == f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}"
     chat_attributes = span_4.get_attribute("mlflow.chat.messages")
 
-    if IS_OLDER_THAN_0_114 or IS_NEW_VERSION_WITH_4_ATTRIBUTES:
+    if HAS_4_CHAT_ATTRIBUTES:
         assert len(chat_attributes) == 4
     else:
         assert len(chat_attributes) == 5
@@ -446,7 +446,7 @@ def test_kickoff_tool_calling(tool_agent_1, task_1_with_tool, autolog):
     assert chat_attributes[2]["role"] == "assistant"
     assert "Tool Answer" in chat_attributes[2]["content"]
 
-    if IS_OLDER_THAN_0_114 or IS_NEW_VERSION_WITH_4_ATTRIBUTES:
+    if HAS_4_CHAT_ATTRIBUTES:
         assert chat_attributes[3]["role"] == "assistant"
         assert _LLM_ANSWER in chat_attributes[3]["content"]
     else:
