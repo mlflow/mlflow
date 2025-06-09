@@ -5,7 +5,7 @@ exposed in the :py:mod:`mlflow.tracking` module.
 """
 
 import logging
-from typing import Optional
+from typing import Optional, Union
 
 from mlflow.entities.model_registry import (
     ModelVersionTag,
@@ -673,7 +673,9 @@ class ModelRegistryClient:
         """
         self.store.delete_prompt_alias(name, alias)
 
-    def link_prompt_version_to_model(self, name: str, version: str, model_id: str) -> None:
+    def link_prompt_version_to_model(
+        self, name: str, version: Union[int, str], model_id: str
+    ) -> None:
         """
         Link a prompt version to a model.
 
