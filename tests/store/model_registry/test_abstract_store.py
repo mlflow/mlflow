@@ -86,7 +86,7 @@ def test_link_prompt_version_to_model_success(store, mock_tracking_store):
     assert isinstance(logged_model_tag, LoggedModelTag)
     assert logged_model_tag.key == LINKED_PROMPTS_TAG_KEY
 
-    expected_value = [{"name": "test_prompt", "version": 1}]
+    expected_value = [{"name": "test_prompt", "version": "1"}]
     assert json.loads(logged_model_tag.value) == expected_value
 
 
@@ -119,7 +119,7 @@ def test_link_prompt_version_to_model_append_to_existing(store, mock_tracking_st
 
     expected_value = [
         {"name": "existing_prompt", "version": "v1"},
-        {"name": "test_prompt", "version": 1},
+        {"name": "test_prompt", "version": "1"},
     ]
     assert json.loads(logged_model_tag.value) == expected_value
 
@@ -237,7 +237,7 @@ def test_link_prompt_version_to_model_duplicate_prevention(store, mock_tracking_
     tag_value = logged_model.tags[LINKED_PROMPTS_TAG_KEY]
     parsed_value = json.loads(tag_value)
 
-    expected_value = [{"name": "test_prompt", "version": 1}]
+    expected_value = [{"name": "test_prompt", "version": "1"}]
     assert parsed_value == expected_value
 
 
@@ -298,8 +298,8 @@ def test_link_prompt_version_to_model_thread_safety(store, mock_tracking_store):
     final_tag_value = json.loads(logged_model.tags[LINKED_PROMPTS_TAG_KEY])
 
     expected_prompts = [
-        {"name": "test_prompt_1", "version": 1},
-        {"name": "test_prompt_2", "version": 1},
+        {"name": "test_prompt_1", "version": "1"},
+        {"name": "test_prompt_2", "version": "1"},
     ]
     assert len(final_tag_value) == 2
     for expected_prompt in expected_prompts:
