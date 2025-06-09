@@ -265,21 +265,24 @@ class PromptVersion(ModelVersion):
     def deployment_job_state(self):
         """Deployment job information - not applicable to prompts."""
         raise AttributeError(
-            "PromptVersion does not have 'deployment_job_state'. Prompts are not deployed like models."
+            "PromptVersion does not have 'deployment_job_state'. "
+            "Prompts are not deployed like models."
         )
 
     @property
     def last_updated_timestamp(self):
         """Timestamp of last update - inherited but not relevant for prompts."""
         raise AttributeError(
-            "PromptVersion does not have 'last_updated_timestamp'. Use 'creation_timestamp' instead."
+            "PromptVersion does not have 'last_updated_timestamp'. "
+            "Use 'creation_timestamp' instead."
         )
 
     @property
     def current_stage(self):
         """Model staging information - not applicable to prompts."""
         raise AttributeError(
-            "PromptVersion does not have 'current_stage'. Prompts do not use staging concepts like models."
+            "PromptVersion does not have 'current_stage'. "
+            "Prompts do not use staging concepts like models."
         )
 
     @property
