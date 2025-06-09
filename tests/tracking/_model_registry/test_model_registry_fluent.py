@@ -117,9 +117,6 @@ def test_register_model_with_tags():
 
 
 def test_crud_prompts(tmp_path):
-    registry_uri = "sqlite:///{}".format(tmp_path.joinpath("test.db"))
-    mlflow.set_registry_uri(registry_uri)
-
     mlflow.register_prompt(
         name="prompt_1",
         template="Hi, {title} {name}! How are you today?",
@@ -153,9 +150,6 @@ def test_crud_prompts(tmp_path):
 
 
 def test_prompt_alias(tmp_path):
-    registry_uri = "sqlite:///{}".format(tmp_path.joinpath("test.db"))
-    mlflow.set_registry_uri(registry_uri)
-
     mlflow.register_prompt(name="p1", template="Hi, there!")
     mlflow.register_prompt(name="p1", template="Hi, {{name}}!")
 
@@ -174,9 +168,6 @@ def test_prompt_alias(tmp_path):
 
 
 def test_prompt_associate_with_run(tmp_path):
-    registry_uri = "sqlite:///{}".format(tmp_path.joinpath("test.db"))
-    mlflow.set_registry_uri(registry_uri)
-
     mlflow.register_prompt(name="prompt_1", template="Hi, {title} {name}! How are you today?")
 
     # mlflow.load_prompt() call during the run should associate the prompt with the run
@@ -438,10 +429,8 @@ def test_register_model_with_env_pack_staging_failure(tmp_path, mock_dbr_version
         )
 
 
-def test_load_prompt_with_link_to_model_disabled(tmp_path):
+def test_load_prompt_with_link_to_model_disabled():
     """Test load_prompt with link_to_model=False does not attempt linking."""
-    registry_uri = "sqlite:///{}".format(tmp_path.joinpath("test.db"))
-    mlflow.set_registry_uri(registry_uri)
 
     # Register a prompt
     mlflow.register_prompt(name="test_prompt", template="Hello, {{name}}!")
@@ -455,10 +444,8 @@ def test_load_prompt_with_link_to_model_disabled(tmp_path):
     assert prompt.template == "Hello, {{name}}!"
 
 
-def test_load_prompt_with_explicit_model_id(tmp_path):
+def test_load_prompt_with_explicit_model_id():
     """Test load_prompt with explicit model_id parameter."""
-    registry_uri = "sqlite:///{}".format(tmp_path.joinpath("test.db"))
-    mlflow.set_registry_uri(registry_uri)
 
     # Register a prompt
     mlflow.register_prompt(name="test_prompt", template="Hello, {{name}}!")
@@ -482,10 +469,8 @@ def test_load_prompt_with_explicit_model_id(tmp_path):
     assert prompt.template == "Hello, {{name}}!"
 
 
-def test_load_prompt_with_active_model_integration(tmp_path):
+def test_load_prompt_with_active_model_integration():
     """Test load_prompt with active model integration using get_active_model_id."""
-    registry_uri = "sqlite:///{}".format(tmp_path.joinpath("test.db"))
-    mlflow.set_registry_uri(registry_uri)
 
     # Register a prompt
     mlflow.register_prompt(name="test_prompt", template="Hello, {{name}}!")
@@ -512,10 +497,8 @@ def test_load_prompt_with_active_model_integration(tmp_path):
             assert prompt.template == "Hello, {{name}}!"
 
 
-def test_load_prompt_with_no_active_model(tmp_path):
+def test_load_prompt_with_no_active_model():
     """Test load_prompt when no active model is available."""
-    registry_uri = "sqlite:///{}".format(tmp_path.joinpath("test.db"))
-    mlflow.set_registry_uri(registry_uri)
 
     # Register a prompt
     mlflow.register_prompt(name="test_prompt", template="Hello, {{name}}!")
@@ -533,10 +516,8 @@ def test_load_prompt_with_no_active_model(tmp_path):
         assert prompt.template == "Hello, {{name}}!"
 
 
-def test_load_prompt_linking_error_handling(tmp_path):
+def test_load_prompt_linking_error_handling():
     """Test load_prompt error handling when linking fails."""
-    registry_uri = "sqlite:///{}".format(tmp_path.joinpath("test.db"))
-    mlflow.set_registry_uri(registry_uri)
 
     # Register a prompt
     mlflow.register_prompt(name="test_prompt", template="Hello, {{name}}!")
@@ -555,10 +536,8 @@ def test_load_prompt_linking_error_handling(tmp_path):
         assert prompt.template == "Hello, {{name}}!"
 
 
-def test_load_prompt_explicit_model_id_overrides_active_model(tmp_path):
+def test_load_prompt_explicit_model_id_overrides_active_model():
     """Test that explicit model_id parameter overrides active model ID."""
-    registry_uri = "sqlite:///{}".format(tmp_path.joinpath("test.db"))
-    mlflow.set_registry_uri(registry_uri)
 
     # Register a prompt
     mlflow.register_prompt(name="test_prompt", template="Hello, {{name}}!")
