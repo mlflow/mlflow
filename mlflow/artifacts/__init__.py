@@ -115,7 +115,9 @@ def list_artifacts(
     )
     if (
         run_artifacts
+        # Other URI types such as `s3` can't be resolved to a logged model.
         or (artifact_uri and not artifact_uri.startswith("runs:/"))
+        # A logged model name can't contain a slash, so if the artifact_uri is not
         or (artifact_path and "/" in artifact_path)
     ):
         return run_artifacts
@@ -182,7 +184,14 @@ def _list_model_artifacts(
     its artifacts.
     """
     if artifact_uri:
-        run_id, artifact_path = artifact_uri.strip("/").split("/", maxsplit=2)[1:]
+        # `artifact_uri` looks like `runs:/<run_id>/<artifact_path>`
+        splits = artifact_uri.strip("/").split("/", maxsplit=2)
+        if len(splits) != 3:
+            return []
+
+        _scheme, run_id, artifact_path = splits
+        if "/" in artifact_path:
+            return []
 
     store = _get_store(store_uri=tracking_uri)
     experiment_id = store.get_run(run_id).info.experiment_id
