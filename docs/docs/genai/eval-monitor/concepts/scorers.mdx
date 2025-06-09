@@ -47,7 +47,7 @@ This consistency ensures that quality standards remain identical across environm
 
 ## How Scorers Work
 
-Scorers analyze traces from your GenAI application and produce quality assessments through a systematic process. Your app runs and produces a [trace](/genai/tracing/tracing-101) capturing its execution, including inputs, outputs, and intermediate processing steps. MLflow passes this trace to your scorer function, which analyzes the execution using custom logic tailored to your quality requirements. The scorer produces feedback with scores and explanations that get attached to the trace for analysis and comparison.
+Scorers analyze traces from your GenAI application and produce quality assessments through a systematic process. Your app runs and produces a [trace](/genai/tracing) capturing its execution, including inputs, outputs, and intermediate processing steps. MLflow passes this trace to your scorer function, which analyzes the execution using custom logic tailored to your quality requirements. The scorer produces feedback with scores and explanations that get attached to the trace for analysis and comparison.
 
 ### Scorer Input Parameters
 

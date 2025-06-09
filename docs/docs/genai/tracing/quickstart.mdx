@@ -25,7 +25,8 @@ Tracing features are available in MLflow 2.15.0+, though some advanced features 
 
 ## Step 1: Set up your environment
 
-### Option A: Quick Start with Local MLflow
+<Tabs>
+<TabItem value="local" label="Local MLflow" default>
 
 For the fastest setup, you can run MLflow locally:
 
@@ -36,7 +37,9 @@ mlflow ui
 # This will start the server at http://127.0.0.1:5000
 ```
 
-### Option B: Connect to Remote MLflow Server
+</TabItem>
+
+<TabItem value="remote" label="Remove MLflow Server">
 
 If you have a remote MLflow tracking server, configure the connection:
 
@@ -50,7 +53,9 @@ os.environ["MLFLOW_TRACKING_URI"] = "http://your-mlflow-server:5000"
 mlflow.set_tracking_uri("http://your-mlflow-server:5000")
 ```
 
-### Option C: Connect to Remote Databricks account
+</TabItem>
+
+<TabItem value="databricks" label="Databricks">
 
 If you have a Databricks account, configure the connection:
 
@@ -61,6 +66,11 @@ mlflow.login()
 ```
 
 This will prompt you for your configuration details (Databricks Host url and a PAT).
+
+</TabItem>
+
+</Tabs>
+
 
 ### Configure OpenAI API Key
 
@@ -294,11 +304,6 @@ Learn [manual tracing techniques](/genai/tracing/app-instrumentation/manual-trac
 - Try a different port: `mlflow ui --port 5001`
 - Verify MLflow installation: `mlflow --version`
 
-### Getting Help
-
-- **MLflow Documentation**: Comprehensive guides and API reference
-- **GitHub Issues**: Report bugs or request features
-- **MLflow Slack**: Community discussions and support
 
 ## Summary
 

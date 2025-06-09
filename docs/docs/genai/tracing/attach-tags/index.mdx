@@ -28,8 +28,6 @@ Trace tags are particularly useful for:
 
 Use <APILink fn="mlflow.update_current_trace" /> to add tags during trace execution.
 
-### Basic Example
-
 ```python
 import mlflow
 
@@ -43,7 +41,7 @@ def my_func(x):
 result = my_func(5)
 ```
 
-### Production Example
+### Example: Setting Service Tags in Production System
 
 ```python
 import mlflow
@@ -66,39 +64,6 @@ def process_user_request(user_id: str, session_id: str, request_text: str):
 
     response = f"Processed: {request_text}"
     return response
-```
-
-### Dynamic Tagging
-
-```python
-@mlflow.trace
-def intelligent_routing(query: str):
-    # Initial tags
-    mlflow.update_current_trace(tags={"query_type": "unknown"})
-
-    if "weather" in query.lower():
-        mlflow.update_current_trace(
-            tags={
-                "query_type": "weather",
-                "routing": "weather_service",
-                "complexity": "simple",
-            }
-        )
-        return handle_weather_query(query)
-    elif "complex calculation" in query.lower():
-        mlflow.update_current_trace(
-            tags={
-                "query_type": "calculation",
-                "routing": "math_service",
-                "complexity": "high",
-            }
-        )
-        return handle_calculation(query)
-    else:
-        mlflow.update_current_trace(
-            tags={"query_type": "general", "routing": "general_llm"}
-        )
-        return handle_general_query(query)
 ```
 
 :::note

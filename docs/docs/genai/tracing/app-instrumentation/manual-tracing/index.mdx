@@ -8,75 +8,15 @@ While MLflow's [automatic tracing](/genai/tracing/app-instrumentation/automatic)
 
 ![Mix of auto and manual tracing](/images/llms/tracing/fluent-vs-client-tracing.png)
 
-## Prerequisites
-
-
-This guide requires the following packages:
-
-**mlflow>=3.1**: Core MLflow functionality with GenAI features
-
-**openai>=1.0.0**: (Optional) Only if your custom code interacts with OpenAI; replace with other SDKs if needed.
-
-Install the basic requirements:
-
-```bash
-pip install --upgrade "mlflow>=3.1"
-# pip install --upgrade openai>=1.0.0 # Install if needed
-```
-
-:::note[MLflow Version Recommendation]
-While manual tracing capabilities are available in MLflow 2.15.0+, **it is strongly recommended to install MLflow 3** for the latest GenAI capabilities, including expanded tracing features, refined span types, improved context propagation, and robust support.
-:::
-
-## When to Use Manual Tracing
-
 Manual tracing is the right choice when you need:
 
-<Tabs>
-  <TabItem value="fine-grained" label="Fine-Grained Control" default>
-    **Custom Trace Structure**
+* 🔍 **Fine-Grained Control**: Define exactly which parts of your code to trace
+* ⚙️ **Custom Frameworks**: Instrument proprietary or internal frameworks
+* 🤖 **Advanced Scenarios**: Complex workflows, multi-threaded or async operations, streaming responses with custom aggregation, custom trace metadata and attributes
 
-    Define exactly which parts of your code to trace
+## Manual Tracing Examples
 
-    Create custom hierarchies of spans
-
-    Control span boundaries and relationships
-
-    **Example Use Case**: Tracing specific business logic within a RAG pipeline where you want to measure retrieval vs. generation latency separately.
-  </TabItem>
-  <TabItem value="custom-frameworks" label="Custom Frameworks">
-    **Unsupported Libraries**
-
-    Instrument proprietary or internal frameworks
-
-    Add tracing to custom LLM wrappers
-
-    Support new libraries before official integration
-
-    **Example Use Case**: Adding tracing to your company's internal LLM gateway or custom agent framework.
-  </TabItem>
-  <TabItem value="advanced-scenarios" label="Advanced Scenarios">
-    **Complex Workflows**
-
-    Multi-threaded or async operations
-
-    Streaming responses with custom aggregation
-
-    Complex nested operations
-
-    Custom trace metadata and attributes
-
-    **Example Use Case**: Tracing a multi-agent system where agents execute complex workflows with custom business logic.
-  </TabItem>
-</Tabs>
-
-## Manual Tracing Approaches
-
-MLflow provides three levels of abstraction for manual tracing, each suited to different use cases:
-
-### 1. High-Level APIs (Recommended)
-
-The high-level APIs provide an intuitive way to add tracing with minimal code changes. They automatically handle trace lifecycle, exception tracking, and parent-child relationships.
+The manual tracing APIs provide an intuitive way to add tracing with minimal code changes. They automatically handle trace lifecycle, exception tracking, and parent-child relationships.
 
 <Tabs>
   <TabItem value="decorator" label="Decorator" default>
@@ -102,13 +42,9 @@ The high-level APIs provide an intuitive way to add tracing with minimal code ch
 
     **Key Benefits**:
 
-    One-line instrumentation
-
-    Automatic exception handling
-
-    Works with async/generator functions
-
-    Compatible with auto-tracing
+    - One-line instrumentation for any function
+    - Automatic exception handling
+    - Works with async/generator functions
 
     [Learn more about decorators →](/genai/tracing/app-instrumentation/manual-tracing/fluent-apis#decorator)
   </TabItem>
@@ -132,299 +68,13 @@ The high-level APIs provide an intuitive way to add tracing with minimal code ch
 
     **Key Benefits**:
 
-    Flexible span boundaries
-
-    Dynamic input/output setting
-
-    Fine control over span lifecycle
-
-    Ideal for non-function code blocks
+    - Flexible span boundaries
+    - Custom input/output setting
+    - Ideal for non-function code blocks
 
     [Learn more about context managers →](/genai/tracing/app-instrumentation/manual-tracing/fluent-apis#context-manager)
   </TabItem>
 </Tabs>
-
-### 2. Low-Level Client APIs (Advanced)
-
-For scenarios requiring complete control over trace lifecycle, the client APIs provide direct access to MLflow's tracing backend.
-
-```python
-from mlflow import MlflowClient
-
-client = MlflowClient()
-
-# Start a trace
-root_span = client.start_trace("complex_workflow")
-
-# Create child spans with explicit parent relationships
-child_span = client.start_span(
-    name="data_retrieval",
-    request_id=root_span.request_id,
-    parent_id=root_span.span_id,
-    inputs={"query": query},
-)
-
-# End spans explicitly
-client.end_span(
-    request_id=child_span.request_id,
-    span_id=child_span.span_id,
-    outputs={"documents": documents},
-)
-
-# End the trace
-client.end_trace(request_id=root_span.request_id)
-```
-
-#### When to Use Client APIs
-
-Use the low-level client APIs when you need:
-
-1. 🏷️ **Custom trace ID management** for integration with existing systems
-
-2. 🔗 **Integration with existing observability systems** that require specific trace formats
-
-3. ⚙️ **Complex trace lifecycle requirements** beyond what decorators provide
-
-4. 🎯 **Non-standard tracing patterns** for specialized use cases
-
-:::warning Important Considerations
-When using client APIs, you must manually manage:
-
-1. 👨‍👩‍👧‍👦 **Parent-child relationships** between spans
-2. ⏱️ **Span lifecycle** (properly starting and ending spans)
-3. 🚨 **Exception handling** for failed operations
-4. 🧵 **Thread safety** in multi-threaded applications
-:::
-
-[Learn more about client APIs →](/genai/tracing/app-instrumentation/manual-tracing/low-level-api)
-
-## API Comparison
-
-| Feature                    | 🎭 Decorator        | 📦 Context Manager    | ⚙️ Client APIs            |
-| -------------------------- | ------------------ | -------------------- | ------------------------ |
-| **🔗 Automatic Parent-Child** | ✅ Yes              | ✅ Yes                | ❌ No - manual management |
-| **🚨 Exception Handling**     | ✅ Automatic        | ✅ Automatic          | 🔧 Manual                 |
-| **🤝 Works with Auto-trace**  | ✅ Yes              | ✅ Yes                | ❌ No                     |
-| **🧵 Thread Safety**          | ✅ Automatic        | ✅ Automatic          | 🔧 Manual                 |
-| **🏷️ Custom Trace IDs**       | ❌ No               | ❌ No                 | ✅ Yes                    |
-| **🎯 Best For**               | Function tracing   | Code block tracing   | Advanced control         |
-
-## Common Patterns
-
-### Combining with Auto-Tracing
-
-Manual tracing seamlessly integrates with MLflow's auto-tracing capabilities:
-
-```python
-import mlflow
-import openai
-
-# Enable auto-tracing for OpenAI
-mlflow.openai.autolog()
-
-
-@mlflow.trace(span_type="CHAIN")
-def rag_pipeline(query: str):
-    # Manual span for retrieval
-    with mlflow.start_span(name="retrieval") as span:
-        docs = retrieve_documents(query)
-        span.set_outputs({"doc_count": len(docs)})
-
-    # Auto-traced OpenAI call
-    response = openai.chat.completions.create(
-        model="gpt-4",
-        messages=[
-            {"role": "user", "content": f"Answer based on: {docs}\n\nQuery: {query}"}
-        ],
-    )
-
-    return response.choices[0].message.content
-```
-
-### Complex Workflow Tracing
-
-For complex workflows with multiple steps, use nested spans to capture detailed execution flow:
-
-```python
-@mlflow.trace(name="data_pipeline")
-def process_data_pipeline(data_source: str):
-    # Extract phase
-    with mlflow.start_span(name="extract") as extract_span:
-        raw_data = extract_from_source(data_source)
-        extract_span.set_outputs({"record_count": len(raw_data)})
-
-    # Transform phase
-    with mlflow.start_span(name="transform") as transform_span:
-        transformed = apply_transformations(raw_data)
-        transform_span.set_outputs({"transformed_count": len(transformed)})
-
-    # Load phase
-    with mlflow.start_span(name="load") as load_span:
-        result = load_to_destination(transformed)
-        load_span.set_outputs({"status": "success"})
-
-    return result
-```
-
-### Custom Span Types and Attributes
-
-Enhance your traces with proper categorization and metadata:
-
-```python
-from mlflow.entities import SpanType
-
-
-@mlflow.trace(name="Document Analysis", span_type=SpanType.CHAIN)
-def analyze_document(document: str):
-    # Add custom attributes for better observability
-    mlflow.set_span_attribute("document_length", len(document))
-    mlflow.set_span_attribute("document_type", "research_paper")
-
-    with mlflow.start_span(name="Extract Entities", span_type=SpanType.PARSER) as span:
-        entities = extract_entities(document)
-        span.set_attribute("entity_count", len(entities))
-
-    with mlflow.start_span(name="Generate Summary", span_type=SpanType.LLM) as span:
-        summary = generate_summary(document)
-        span.set_attribute("summary_length", len(summary))
-
-    return {"entities": entities, "summary": summary}
-```
-
-Available span types help categorize and visualize your application components:
-
-1. 🔗 **`SpanType.CHAIN`** - Multi-step workflows and complex pipelines
-2. 🤖 **`SpanType.LLM`** - Language model calls and AI interactions
-3. 🔍 **`SpanType.RETRIEVER`** - Document search and data retrieval operations
-4. 🧮 **`SpanType.EMBEDDING`** - Vector embedding generation and processing
-5. 📄 **`SpanType.PARSER`** - Data parsing and transformation operations
-6. 🛠️ **`SpanType.TOOL`** - External tool calls and function executions
-7. 🎯 **`SpanType.AGENT`** - Autonomous agent decision-making and actions
-8. ❓ **`SpanType.UNKNOWN`** - General operations and custom components
-
-Choose the right span type to get meaningful visualizations and better insights into your application's behavior in the MLflow UI.
-
-### Async and Streaming Support
-
-Manual tracing works with async functions and streaming operations:
-
-```python
-import asyncio
-
-
-@mlflow.trace(name="Async Processing")
-async def async_workflow(queries: list[str]):
-    results = []
-
-    # Process queries concurrently
-    async def process_query(query: str):
-        with mlflow.start_span(name=f"Process: {query[:20]}") as span:
-            result = await some_async_operation(query)
-            span.set_outputs({"result_length": len(result)})
-            return result
-
-    tasks = [process_query(q) for q in queries]
-    results = await asyncio.gather(*tasks)
-
-    return results
-
-
-# Streaming example
-@mlflow.trace(name="Streaming Response")
-def streaming_response(prompt: str):
-    with mlflow.start_span(name="Generate Stream") as span:
-        full_response = ""
-
-        for chunk in llm.stream(prompt):
-            full_response += chunk
-
-        span.set_outputs({"full_response": full_response})
-        span.set_attribute("total_chunks", len(full_response.split()))
-
-        return full_response
-```
-
-### Customizing Request and Response Previews
-
-The MLflow UI provides `Request` and `Response` columns in the Traces tab that show a preview of the overall trace's input and output. You can customize these previews using <APILink fn="mlflow.update_current_trace" />:
-
-```python
-import mlflow
-
-
-@mlflow.trace
-def predict(messages: list[dict]) -> str:
-    # Customize the request preview to show the first and last messages
-    custom_preview = f'{messages[0]["content"][:50]} ... {messages[-1]["content"][:50]}'
-    mlflow.update_current_trace(request_preview=custom_preview)
-
-    # Process the messages
-    response = process_messages(messages)
-
-    # Customize response preview
-    mlflow.update_current_trace(
-        response_preview=f"Generated {len(response)} characters"
-    )
-
-    return response
-
-
-messages = [
-    {"role": "user", "content": "Hi, how are you?"},
-    {"role": "assistant", "content": "I'm good, thank you!"},
-    {"role": "user", "content": "What's your name?"},
-    {"role": "assistant", "content": "I'm Claude, an AI assistant."},
-]
-result = predict(messages)
-```
-
-This allows you to tailor the preview to be more informative for your specific data structures.
-
-## Error Handling and Debugging
-
-Manual tracing automatically captures exceptions and errors:
-
-```python
-@mlflow.trace(name="Error Handling Example")
-def process_with_error_handling(data):
-    try:
-        with mlflow.start_span(name="Validation") as span:
-            validated = validate_data(data)
-            span.set_attribute("validation_status", "success")
-
-        with mlflow.start_span(name="Processing") as span:
-            result = process_data(validated)
-            span.set_attribute("processing_status", "success")
-
-        return result
-
-    except ValidationError as e:
-        mlflow.set_span_attribute("error_type", "validation_error")
-        mlflow.set_span_attribute("error_message", str(e))
-        raise
-    except ProcessingError as e:
-        mlflow.set_span_attribute("error_type", "processing_error")
-        mlflow.set_span_attribute("error_message", str(e))
-        raise
-```
-
-## Best Practices
-
-Follow these guidelines to get the most out of your tracing setup:
-
-1. 📝 **Use descriptive span names** - Choose names that clearly describe what the span does, like "Extract PDF Text" rather than "Step 1"
-
-2. 🏷️ **Add meaningful attributes** - Include metadata that helps with debugging and analysis, such as input sizes, processing times, and configuration parameters
-
-3. 🏗️ **Organize spans hierarchically** - Use parent-child relationships to show the logical structure of your workflow
-
-4. 🚨 **Handle errors gracefully** - Use try-catch blocks to capture error information in span attributes
-
-5. 🤝 **Combine with automatic tracing** - Use manual tracing to add context around automatically traced operations
-
-6. 🔍 **Monitor performance patterns** - Track execution times and resource usage to identify optimization opportunities
-
-7. 🏷️ **Tag for organization** - Use consistent tagging strategies to group related traces and enable powerful filtering
 
 ## Next Steps
 
@@ -432,10 +82,4 @@ Ready to start instrumenting your code? Choose your approach:
 
 **[Decorators & Fluent APIs](/genai/tracing/app-instrumentation/manual-tracing/fluent-apis)** - Start here for most use cases
 
-**[Low-Level Client APIs](/genai/tracing/app-instrumentation/manual-tracing/low-level-api)** - For advanced scenarios requiring full control
-
 **[Automatic Tracing](/genai/tracing/app-instrumentation/automatic)** - Combine manual and automatic tracing
-
-:::tip
-Most users should start with the high-level APIs (decorators and context managers). They provide the best balance of ease-of-use and functionality while maintaining compatibility with MLflow's ecosystem.
-:::
