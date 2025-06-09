@@ -1,10 +1,11 @@
 import logging
 import os
 import urllib.parse
-from typing import Optional
+from typing import Iterator, Optional
 
 import mlflow
 from mlflow.entities.file_info import FileInfo
+from mlflow.entities.logged_model import LoggedModel
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import create_tmp_dir
@@ -181,20 +182,25 @@ class RunsArtifactRepository(ArtifactRepository):
 
         client = mlflow.tracking.MlflowClient()
         experiment_id = client.get_run(run_id).info.experiment_id
-        page_token: Optional[str] = None
-        while True:
-            page = client.search_logged_models(
-                experiment_ids=[experiment_id],
-                # TODO: Filter by 'source_run_id' once Databricks backend supports it
-                filter_string=f"name = '{name}'",
-                page_token=page_token,
-            )
-            if matched := next((m for m in page if m.source_run_id == run_id), None):
-                return get_artifact_repository(matched.artifact_location)
 
-            if not page.token:
-                break
-            page_token = page.token
+        def iter_models() -> Iterator[LoggedModel]:
+            page_token: Optional[str] = None
+            while True:
+                page = client.search_logged_models(
+                    experiment_ids=[experiment_id],
+                    # TODO: Filter by 'source_run_id' once Databricks backend supports it
+                    filter_string=f"name = '{name}'",
+                    page_token=page_token,
+                )
+                yield from page
+                if not page.token:
+                    break
+                page_token = page.token
+
+        if matched := next((m for m in iter_models() if m.source_run_id == run_id), None):
+            return get_artifact_repository(matched.artifact_location)
+
+        return None
 
     def _download_model_artifacts(self, artifact_path: str, dst_path: str) -> Optional[str]:
         full_path = f"{self.artifact_uri}/{artifact_path}"
