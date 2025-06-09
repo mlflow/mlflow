@@ -91,15 +91,17 @@ def _convert_to_legacy_eval_set(data: "EvaluationDatasetTypes") -> "pd.DataFrame
         expectations, which is same as the schema that mlflow.genai.evaluate() expects.
         Therefore, we can simply pass through expectations column.
     """
-    column_mapping = {
-        "inputs": "request",
-        "outputs": "response",
-    }
+    col_mapping = {"inputs": "request", "outputs": "response"}
 
     df = _convert_eval_set_to_df(data)
 
+    # If both old and new column names exist, remove the old column
+    for old, new in col_mapping.items():
+        if old in df.columns and new in df.columns:
+            df.drop(columns=[old], inplace=True)
+
     return (
-        df.rename(columns=column_mapping)
+        df.rename(columns=col_mapping)
         .pipe(_extract_request_from_trace)
         .pipe(_extract_expectations_from_trace)
     )
