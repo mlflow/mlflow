@@ -16,6 +16,8 @@ from requests import Response
 from mlflow.data.dataset import Dataset
 from mlflow.data.delta_dataset_source import DeltaDatasetSource
 from mlflow.data.pandas_dataset import PandasDataset
+from mlflow.entities.logged_model import LoggedModel
+from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.entities.model_registry.prompt_version import PromptVersion
@@ -27,6 +29,7 @@ from mlflow.entities.run_tag import RunTag
 from mlflow.exceptions import MlflowException, RestException
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature, Schema
+from mlflow.prompt.constants import LINKED_PROMPTS_TAG_KEY
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     MODEL_VERSION_OPERATION_READ_WRITE,
     AwsCredentials,
@@ -68,6 +71,7 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
 )
 from mlflow.protos.databricks_uc_registry_messages_pb2 import ModelVersion as ProtoModelVersion
 from mlflow.protos.service_pb2 import GetRun
+from mlflow.protos.unity_catalog_prompt_messages_pb2 import LinkPromptVersionsToModelsRequest
 from mlflow.store._unity_catalog.registry.rest_store import (
     _DATABRICKS_LINEAGE_ID_HEADER,
     _DATABRICKS_ORG_ID_HEADER,
@@ -2405,7 +2409,6 @@ def test_link_prompt_version_to_model_success(
     mock_super_call, mock_get_endpoint, mock_edit_call, store
 ):
     """Test successful Unity Catalog linking with API call."""
-    from mlflow.protos.unity_catalog_prompt_messages_pb2 import LinkPromptVersionsToModelsRequest
 
     # Setup
     mock_get_endpoint.return_value = (
@@ -2432,10 +2435,6 @@ def test_link_prompt_version_to_model_success(
 @mock.patch("mlflow.tracking._get_store")
 def test_link_prompt_version_to_model_sets_tag(mock_get_tracking_store, store):
     """Test that linking a prompt version to a model sets the appropriate tag."""
-    from mlflow.entities.logged_model import LoggedModel
-    from mlflow.entities.logged_model_tag import LoggedModelTag
-    from mlflow.entities.model_registry.prompt_version import PromptVersion
-    from mlflow.prompt.constants import LINKED_PROMPTS_TAG_KEY
 
     # Setup mocks
     mock_tracking_store = mock.Mock()

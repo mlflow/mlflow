@@ -2048,8 +2048,6 @@ def test_search_prompt(tracking_uri):
 
 def test_link_prompt_version_to_model_smoke_test(tracking_uri):
     """Smoke test for linking a prompt version to a model - just verify the method can be called."""
-    import mlflow
-
     client = MlflowClient(tracking_uri=tracking_uri)
 
     # Create an experiment and a run to have a proper context
