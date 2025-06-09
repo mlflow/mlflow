@@ -882,3 +882,67 @@ class AbstractStore:
                     )
                 ],
             )
+
+    def link_prompts_to_trace(self, prompt_versions: list[PromptVersion], trace_id: str) -> None:
+        """
+        Link multiple prompt versions to a trace.
+
+        Default implementation sets a tag on the trace. Stores can override with custom behavior.
+
+        Args:
+            prompt_versions: List of PromptVersion objects to link.
+            trace_id: Trace ID to link to each prompt version.
+        """
+        from mlflow.tracking import _get_store as _get_tracking_store
+
+        tracking_store = _get_tracking_store()
+
+        with self._prompt_link_lock:
+            try:
+                trace_info = tracking_store.get_trace_info(trace_id)
+                if not trace_info:
+                    raise MlflowException(
+                        f"Could not find trace with ID '{trace_id}' to which to link prompts.",
+                        error_code=ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
+                    )
+
+                # Get existing linked prompts tag value
+                prompts_tag_value = trace_info.tags.get(LINKED_PROMPTS_TAG_KEY)
+                if prompts_tag_value is not None:
+                    try:
+                        parsed_prompts_tag_value = json.loads(prompts_tag_value)
+                        if not isinstance(parsed_prompts_tag_value, list):
+                            raise MlflowException(
+                                f"Invalid format for '{LINKED_PROMPTS_TAG_KEY}' tag:"
+                                f" {prompts_tag_value}"
+                            )
+                    except json.JSONDecodeError:
+                        raise MlflowException(
+                            f"Invalid JSON format for '{LINKED_PROMPTS_TAG_KEY}' tag:"
+                            f" {prompts_tag_value}"
+                        )
+                else:
+                    parsed_prompts_tag_value = []
+
+                # Add new prompt entries that aren't already linked
+                for prompt_version in prompt_versions:
+                    new_prompt_entry = {
+                        "name": prompt_version.name,
+                        "version": str(prompt_version.version),
+                    }
+
+                    # Check if this exact prompt version is already linked
+                    if new_prompt_entry not in parsed_prompts_tag_value:
+                        parsed_prompts_tag_value.append(new_prompt_entry)
+
+                # Update the tag on the trace
+                tracking_store.set_trace_tag(
+                    trace_id,
+                    LINKED_PROMPTS_TAG_KEY,
+                    json.dumps(parsed_prompts_tag_value),
+                )
+            except Exception as e:
+                _logger.warning(
+                    f"Failed to link prompts to trace '{trace_id}': {e}",
+                    exc_info=True,
+                )

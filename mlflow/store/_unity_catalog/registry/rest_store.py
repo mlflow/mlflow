@@ -88,6 +88,7 @@ from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
     GetPromptRequest,
     GetPromptVersionByAliasRequest,
     GetPromptVersionRequest,
+    LinkPromptsToTracesRequest,
     LinkPromptVersionsToModelsRequest,
     PromptVersionLinkEntry,
     SearchPromptsRequest,
@@ -410,6 +411,7 @@ class UcModelRegistryStore(BaseRestStore):
             DeletePromptVersionTagRequest: google.protobuf.empty_pb2.Empty,
             UpdatePromptVersionRequest: ProtoPromptVersion,
             LinkPromptVersionsToModelsRequest: google.protobuf.empty_pb2.Empty,
+            LinkPromptsToTracesRequest: google.protobuf.empty_pb2.Empty,
         }
         return method_to_response[method]()
 
@@ -1542,6 +1544,39 @@ class UcModelRegistryStore(BaseRestStore):
             )
         except Exception:
             _logger.debug("Failed to link prompt version to model in unity catalog", exc_info=True)
+
+    def link_prompts_to_trace(self, prompt_versions: list[PromptVersion], trace_id: str) -> None:
+        """
+        Link multiple prompt versions to a trace in Unity Catalog.
+
+        Args:
+            prompt_versions: List of PromptVersion objects to link.
+            trace_id: Trace ID to link to each prompt version.
+        """
+        # Call the default implementation first
+        super().link_prompts_to_trace(prompt_versions=prompt_versions, trace_id=trace_id)
+
+        # Convert prompt_versions to PromptVersionLinkEntry objects
+        prompt_version_entries = [
+            PromptVersionLinkEntry(name=pv.name, version=str(pv.version)) for pv in prompt_versions
+        ]
+
+        req_body = message_to_json(
+            LinkPromptsToTracesRequest(prompt_versions=prompt_version_entries, trace_ids=[trace_id])
+        )
+        endpoint, method = self._get_endpoint_from_method(LinkPromptsToTracesRequest)
+        try:
+            # NB: This will not raise an exception if the backend does not support linking.
+            # We do this to prioritize reduction in errors and log spam while the prompt
+            # registry remains experimental
+            self._edit_endpoint_and_call(
+                endpoint=endpoint,
+                method=method,
+                req_body=req_body,
+                proto_name=LinkPromptsToTracesRequest,
+            )
+        except Exception:
+            _logger.debug("Failed to link prompts to traces in unity catalog", exc_info=True)
 
     def _edit_endpoint_and_call(self, endpoint, method, req_body, proto_name, **kwargs):
         """

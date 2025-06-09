@@ -71,7 +71,10 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
 )
 from mlflow.protos.databricks_uc_registry_messages_pb2 import ModelVersion as ProtoModelVersion
 from mlflow.protos.service_pb2 import GetRun
-from mlflow.protos.unity_catalog_prompt_messages_pb2 import LinkPromptVersionsToModelsRequest
+from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
+    LinkPromptsToTracesRequest,
+    LinkPromptVersionsToModelsRequest,
+)
 from mlflow.store._unity_catalog.registry.rest_store import (
     _DATABRICKS_LINEAGE_ID_HEADER,
     _DATABRICKS_ORG_ID_HEADER,
@@ -2483,3 +2486,32 @@ def test_link_prompt_version_to_model_sets_tag(mock_get_tracking_store, store):
 
         expected_value = [{"name": "test_prompt", "version": 1}]
         assert json.loads(logged_model_tag.value) == expected_value
+
+
+@mock.patch.object(UcModelRegistryStore, "_edit_endpoint_and_call")
+@mock.patch.object(UcModelRegistryStore, "_get_endpoint_from_method")
+@mock.patch("mlflow.store.model_registry.abstract_store.AbstractStore.link_prompts_to_trace")
+def test_link_prompts_to_trace_success(mock_super_call, mock_get_endpoint, mock_edit_call, store):
+    """Test successful Unity Catalog linking prompts to a trace with API call."""
+    # Setup
+    mock_get_endpoint.return_value = (
+        "/api/2.0/mlflow/unity-catalog/prompt-versions/links-to-traces",
+        "POST",
+    )
+
+    prompt_versions = [
+        PromptVersion(name="test_prompt", version=1, template="test", creation_timestamp=123)
+    ]
+    trace_id = "trace_123"
+
+    # Execute
+    store.link_prompts_to_trace(prompt_versions, trace_id)
+
+    # Verify parent method was called
+    mock_super_call.assert_called_once_with(prompt_versions=prompt_versions, trace_id=trace_id)
+
+    # Verify API call was made
+    mock_edit_call.assert_called_once()
+    call_args = mock_edit_call.call_args
+
+    assert call_args[1]["proto_name"] == LinkPromptsToTracesRequest
