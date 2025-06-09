@@ -925,44 +925,26 @@ class AbstractStore:
                     error_code=ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
                 )
 
-            prompts_tag_value = logged_model.tags.get(LINKED_PROMPTS_TAG_KEY)
-            if prompts_tag_value is not None:
-                try:
-                    parsed_prompts_tag_value = json.loads(prompts_tag_value)
-                    if not isinstance(parsed_prompts_tag_value, list):
-                        raise MlflowException(
-                            f"Invalid format for '{LINKED_PROMPTS_TAG_KEY}' tag:"
-                            f" {prompts_tag_value}"
-                        )
-                except json.JSONDecodeError:
-                    raise MlflowException(
-                        f"Invalid JSON format for '{LINKED_PROMPTS_TAG_KEY}' tag:"
-                        f" {prompts_tag_value}"
-                    )
-            else:
-                parsed_prompts_tag_value = []
-
             new_prompt_entry = {
                 "name": prompt_version.name,
-                "version": prompt_version.version,
+                "version": str(prompt_version.version),
             }
 
-            # Check if this exact prompt version is already linked
-            if new_prompt_entry in parsed_prompts_tag_value:
-                return
-
-            # Else, add the new prompt entry
-            parsed_prompts_tag_value.append(new_prompt_entry)
-            # Update the tag
-            tracking_store.set_logged_model_tags(
-                model_id,
-                [
-                    LoggedModelTag(
-                        key=LINKED_PROMPTS_TAG_KEY,
-                        value=json.dumps(parsed_prompts_tag_value),
-                    )
-                ],
+            current_tag_value = logged_model.tags.get(LINKED_PROMPTS_TAG_KEY)
+            updated_tag_value = self._update_linked_prompts_tag(
+                current_tag_value, [new_prompt_entry]
             )
+
+            if current_tag_value != updated_tag_value:
+                tracking_store.set_logged_model_tags(
+                    model_id,
+                    [
+                        LoggedModelTag(
+                            key=LINKED_PROMPTS_TAG_KEY,
+                            value=updated_tag_value,
+                        )
+                    ],
+                )
 
     def _update_linked_prompts_tag(
         self, current_tag_value: str, new_prompt_entries: list[dict[str, Any]]
