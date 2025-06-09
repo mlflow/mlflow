@@ -202,8 +202,11 @@ class RunsArtifactRepository(ArtifactRepository):
         return None
 
     def _download_model_artifacts(self, artifact_path: str, dst_path: str) -> Optional[str]:
-        full_path = f"{self.artifact_uri}/{artifact_path}"
+        full_path = f"{self.artifact_uri}/{artifact_path}" if artifact_path else self.artifact_uri
         run_id, rel_path = RunsArtifactRepository.parse_runs_uri(full_path)
+        if not rel_path:
+            # At least one part of the path must be present (e.g. "runs:/<run_id>/<name>")
+            return None
         [model_name, *rest] = rel_path.split("/", 1)
         rel_path = rest[0] if rest else ""
         if repo := self._get_logged_model_artifact_repo(run_id=run_id, name=model_name):
