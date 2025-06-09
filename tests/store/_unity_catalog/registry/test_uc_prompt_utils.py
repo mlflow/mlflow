@@ -94,10 +94,12 @@ def test_proto_to_mlflow_prompt():
     proto_version.template = "Hello {{name}}!"
 
     # Add version tags
-    proto_version.tags.extend([
-        ProtoPromptVersionTag(key="env", value="production"),
-        ProtoPromptVersionTag(key="author", value="alice"),
-    ])
+    proto_version.tags.extend(
+        [
+            ProtoPromptVersionTag(key="env", value="production"),
+            ProtoPromptVersionTag(key="author", value="alice"),
+        ]
+    )
 
     result = proto_to_mlflow_prompt(proto_version)
     expected_tags = {"env": "production", "author": "alice"}
