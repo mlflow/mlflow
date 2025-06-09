@@ -56,12 +56,67 @@ def _set_span_attributes(span: LiveSpan, instance):
         _logger.warning("Failed saving Tool attributes: %s", e)
 
 
+def _get_meaningful_span_name(instance, method_name: str, *args, **kwargs) -> str:
+    """Construct a meaningful span name using PydanticAI's naming APIs."""
+    try:
+        from pydantic_ai import Agent, Tool
+        from pydantic_ai.mcp import MCPServer
+        from pydantic_ai.models.instrumented import InstrumentedModel
+        from pydantic_ai.tools import RunContext
+    except ImportError:
+        return f"{instance.__class__.__name__}.{method_name}"
+
+    if isinstance(instance, Agent):
+        agent_name = getattr(instance, "name", None)
+        if agent_name:
+            return f"{agent_name}.{method_name}"
+        else:
+            return f"{instance.__class__.__name__}.{method_name}"
+    elif isinstance(instance, Tool):
+        # Look for RunContext in the arguments to get tool_name
+        run_context = None
+        for arg in args:
+            if isinstance(arg, RunContext):
+                run_context = arg
+                break
+
+        if run_context and run_context.tool_name:
+            return f"{run_context.tool_name}.{method_name}"
+        else:
+            # Fall back to tool's name property if available
+            tool_name = getattr(instance, "name", None)
+            if tool_name:
+                return f"{tool_name}.{method_name}"
+            else:
+                return f"{instance.__class__.__name__}.{method_name}"
+    elif isinstance(instance, MCPServer):
+        try:
+            # Look for tool name in method arguments or use server's method
+            if hasattr(instance, "get_unprefixed_tool_name") and len(args) > 0:
+                # Try to get unprefixed tool name if tool name is available
+                tool_name = args[0] if args else None
+                if isinstance(tool_name, str):
+                    unprefixed_name = instance.get_unprefixed_tool_name(tool_name)
+                    return f"MCP:{unprefixed_name}.{method_name}"
+
+            # Fall back to server name if available
+            server_name = getattr(instance, "name", None)
+            if server_name:
+                return f"MCP:{server_name}.{method_name}"
+            else:
+                return f"MCP:{instance.__class__.__name__}.{method_name}"
+        except Exception:
+            return f"MCP:{instance.__class__.__name__}.{method_name}"
+    else:
+        return f"{instance.__class__.__name__}.{method_name}"
+
+
 async def patched_async_class_call(original, self, *args, **kwargs):
     cfg = AutoLoggingConfig.init(flavor_name=mlflow.pydantic_ai.FLAVOR_NAME)
     if not cfg.log_traces:
         return await original(self, *args, **kwargs)
 
-    fullname = f"{self.__class__.__name__}.{original.__name__}"
+    fullname = _get_meaningful_span_name(self, original.__name__, *args, **kwargs)
     span_type = _get_span_type(self)
 
     with mlflow.start_span(name=fullname, span_type=span_type) as span:
@@ -80,7 +135,7 @@ def patched_class_call(original, self, *args, **kwargs):
     if not cfg.log_traces:
         return original(self, *args, **kwargs)
 
-    fullname = f"{self.__class__.__name__}.{original.__name__}"
+    fullname = _get_meaningful_span_name(self, original.__name__, *args, **kwargs)
     span_type = _get_span_type(self)
     with mlflow.start_span(name=fullname, span_type=span_type) as span:
         inputs = _construct_full_inputs(original, self, *args, **kwargs)
@@ -120,7 +175,9 @@ def _construct_full_inputs(func, *args, **kwargs) -> dict[str, Any]:
     bound.pop("deps", None)
 
     return {
-        k: (v.__dict__ if hasattr(v, "__dict__") else v) for k, v in bound.items() if v is not None
+        k: (v.__dict__ if hasattr(v, "__dict__") else v)
+        for k, v in bound.items()
+        if v is not None
     }
 
 
