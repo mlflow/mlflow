@@ -1405,7 +1405,6 @@ def _merge_trace(
             otel_trace_id=new_trace_id,
         )
         trace_manager.register_span(cloned_span)
-        cloned_span.end(end_time_ns=span.end_time_ns)
 
     # Merge the tags and metadata from the child trace to the parent trace.
     with trace_manager.get_trace(target_trace_id) as parent_trace:
