@@ -32,195 +32,277 @@ const mlPaths = [
   '/dataset/',
   '/deep-learning/',
   '/deep-learning/keras/',
-  '/deep-learning/keras/quickstart/quickstart_keras',
+  '/deep-learning/keras/guide/',
+  '/deep-learning/keras/quickstart/',
   '/deep-learning/pytorch/',
   '/deep-learning/pytorch/guide/',
-  '/deep-learning/pytorch/quickstart/pytorch_quickstart',
+  '/deep-learning/pytorch/quickstart/',
+  '/deep-learning/sentence-transformers/',
+  '/deep-learning/sentence-transformers/guide/',
+  '/deep-learning/spacy/',
+  '/deep-learning/spacy/guide/',
   '/deep-learning/tensorflow/',
   '/deep-learning/tensorflow/guide/',
-  '/deep-learning/tensorflow/quickstart/quickstart_tensorflow',
+  '/deep-learning/tensorflow/quickstart/',
+  '/deep-learning/transformers/',
+  '/deep-learning/transformers/guide/',
+  '/deep-learning/transformers/large-models/',
+  '/deep-learning/transformers/task/',
+  '/deep-learning/transformers/tutorials/',
   '/deployment/',
   '/deployment/deploy-model-locally/',
   '/deployment/deploy-model-to-kubernetes/',
   '/deployment/deploy-model-to-kubernetes/tutorial/',
   '/deployment/deploy-model-to-sagemaker/',
+  '/deployment/tutorial/',
   '/docker/',
+  '/evaluation/',
   '/getting-started/',
   '/getting-started/databricks-trial/',
-  '/getting-started/intro-quickstart/',
-  '/getting-started/intro-quickstart/notebooks/',
-  '/getting-started/intro-quickstart/notebooks/tracking_quickstart',
+  '/getting-started/hyperparameter-tuning/',
   '/getting-started/logging-first-model/',
   '/getting-started/logging-first-model/notebooks/',
-  '/getting-started/logging-first-model/notebooks/logging-first-model',
-  '/getting-started/logging-first-model/step1-tracking-server/',
-  '/getting-started/logging-first-model/step2-mlflow-client/',
-  '/getting-started/logging-first-model/step3-create-experiment/',
-  '/getting-started/logging-first-model/step4-experiment-search/',
-  '/getting-started/logging-first-model/step5-synthetic-data/',
-  '/getting-started/logging-first-model/step6-logging-a-run/',
-  '/getting-started/quickstart-2/',
   '/getting-started/registering-first-model/',
-  '/getting-started/registering-first-model/step1-register-model/',
-  '/getting-started/registering-first-model/step2-explore-registered-model/',
-  '/getting-started/registering-first-model/step3-load-model/',
   '/getting-started/running-notebooks/',
   '/getting-started/tracking-server-overview/',
-  '/introduction/',
-  '/model-evaluation/',
   '/model-registry/',
   '/model/',
   '/model/dependencies/',
   '/model/models-from-code/',
-  '/model/notebooks/signature_examples',
-  '/model/python_model',
   '/model/signatures/',
-  '/new-features/',
   '/plugins/',
   '/projects/',
-  '/quickstart_drilldown/',
-  '/recipes/',
-  '/search-experiments/',
-  '/search-runs/',
-  '/system-metrics/',
+  '/search/search-experiments/',
+  '/search/search-models/',
+  '/search/search-runs/',
   '/tracking/',
-  '/tracking/artifacts-stores/',
+  '/tracking/artifact-stores/',
   '/tracking/autolog/',
   '/tracking/backend-stores/',
+  '/tracking/quickstart/',
   '/tracking/server/',
+  '/tracking/system-metrics/',
   '/tracking/tracking-api/',
   '/tracking/tutorials/local-database/',
   '/tracking/tutorials/remote-server/',
   '/traditional-ml/',
-  '/traditional-ml/creating-custom-pyfunc/',
-  '/traditional-ml/creating-custom-pyfunc/notebooks/',
-  '/traditional-ml/creating-custom-pyfunc/notebooks/basic-pyfunc',
-  '/traditional-ml/creating-custom-pyfunc/notebooks/introduction',
-  '/traditional-ml/creating-custom-pyfunc/notebooks/override-predict',
-  '/traditional-ml/creating-custom-pyfunc/part1-named-flavors/',
-  '/traditional-ml/creating-custom-pyfunc/part2-pyfunc-components/',
-  '/traditional-ml/hyperparameter-tuning-with-child-runs/',
-  '/traditional-ml/hyperparameter-tuning-with-child-runs/notebooks/',
-  '/traditional-ml/hyperparameter-tuning-with-child-runs/notebooks/hyperparameter-tuning-with-child-runs',
-  '/traditional-ml/hyperparameter-tuning-with-child-runs/notebooks/logging-plots-in-mlflow',
-  '/traditional-ml/hyperparameter-tuning-with-child-runs/notebooks/parent-child-runs',
-  '/traditional-ml/hyperparameter-tuning-with-child-runs/part1-child-runs/',
-  '/traditional-ml/hyperparameter-tuning-with-child-runs/part2-logging-plots/',
-  '/traditional-ml/serving-multiple-models-with-pyfunc/',
-  '/traditional-ml/serving-multiple-models-with-pyfunc/notebooks/MME_Tutorial',
+  '/traditional-ml/prophet/',
+  '/traditional-ml/prophet/guide/',
+  '/traditional-ml/sklearn/',
+  '/traditional-ml/sklearn/guide/',
+  '/traditional-ml/sklearn/quickstart/',
+  '/traditional-ml/sparkml/',
+  '/traditional-ml/sparkml/guide/',
+  '/traditional-ml/tutorials/creating-custom-pyfunc/',
+  '/traditional-ml/tutorials/creating-custom-pyfunc/notebooks/',
+  '/traditional-ml/tutorials/creating-custom-pyfunc/part1-named-flavors/',
+  '/traditional-ml/tutorials/creating-custom-pyfunc/part2-pyfunc-components/',
+  '/traditional-ml/tutorials/hyperparameter-tuning/',
+  '/traditional-ml/tutorials/hyperparameter-tuning/notebooks/',
+  '/traditional-ml/tutorials/hyperparameter-tuning/part1-child-runs/',
+  '/traditional-ml/tutorials/hyperparameter-tuning/part2-logging-plots/',
+  '/traditional-ml/tutorials/serving-multiple-models-with-pyfunc/',
+  '/traditional-ml/xgboost/',
+  '/traditional-ml/xgboost/guide/',
+  '/traditional-ml/xgboost/quickstart/',
   '/tutorials-and-examples/',
 ];
 
-// URLs that moved from root to /genai (LLM-related content)
 const genAIPaths = [
-  '/llms/',
-  '/llms/chat-model-guide/',
-  '/llms/chat-model-intro/',
-  '/llms/custom-pyfunc-for-llms/',
-  '/llms/custom-pyfunc-for-llms/notebooks/',
-  '/llms/custom-pyfunc-for-llms/notebooks/custom-pyfunc-advanced-llm',
-  '/llms/deployments/',
-  '/llms/deployments/guides/',
-  '/llms/deployments/guides/step1-create-deployments/',
-  '/llms/deployments/guides/step2-query-deployments/',
-  '/llms/deployments/uc_integration/',
-  '/llms/dspy/',
-  '/llms/dspy/notebooks/dspy_quickstart',
-  '/llms/dspy/optimizer',
-  '/llms/langchain/',
-  '/llms/langchain/autologging',
-  '/llms/langchain/guide/',
-  '/llms/langchain/notebooks/langchain-quickstart',
-  '/llms/langchain/notebooks/langchain-retriever',
-  '/llms/llama-index/',
-  '/llms/llama-index/notebooks/llama_index_quickstart',
-  '/llms/llama-index/notebooks/llama_index_workflow_tutorial',
-  '/llms/llm-evaluate/',
-  '/llms/llm-evaluate/notebooks/',
-  '/llms/llm-evaluate/notebooks/huggingface-evaluation',
-  '/llms/llm-evaluate/notebooks/question-answering-evaluation',
-  '/llms/llm-evaluate/notebooks/rag-evaluation',
-  '/llms/llm-evaluate/notebooks/rag-evaluation-llama2',
-  '/llms/llm-tracking/',
-  '/llms/notebooks/chat-model-tool-calling',
-  '/llms/openai/',
-  '/llms/openai/autologging/',
-  '/llms/openai/guide/',
-  '/llms/openai/notebooks/',
-  '/llms/openai/notebooks/openai-chat-completions',
-  '/llms/openai/notebooks/openai-code-helper',
-  '/llms/openai/notebooks/openai-embeddings-generation',
-  '/llms/openai/notebooks/openai-quickstart',
-  '/llms/prompt-engineering/',
-  '/llms/rag/',
-  '/llms/rag/notebooks/',
-  '/llms/rag/notebooks/mlflow-e2e-evaluation',
-  '/llms/rag/notebooks/question-generation-retrieval-evaluation',
-  '/llms/rag/notebooks/retriever-evaluation-tutorial',
-  '/llms/sentence-transformers/',
-  '/llms/sentence-transformers/guide/',
-  '/llms/sentence-transformers/tutorials/',
-  '/llms/sentence-transformers/tutorials/paraphrase-mining/paraphrase-mining-sentence-transformers',
-  '/llms/sentence-transformers/tutorials/quickstart/sentence-transformers-quickstart',
-  '/llms/sentence-transformers/tutorials/semantic-search/semantic-search-sentence-transformers',
-  '/llms/sentence-transformers/tutorials/semantic-similarity/semantic-similarity-sentence-transformers',
-  '/llms/transformers/',
-  '/llms/transformers/guide/',
-  '/llms/transformers/large-models/',
-  '/llms/transformers/task/',
-  '/llms/transformers/tutorials/',
-  '/llms/transformers/tutorials/audio-transcription/whisper',
-  '/llms/transformers/tutorials/conversational/conversational-model',
-  '/llms/transformers/tutorials/conversational/pyfunc-chat-model',
-  '/llms/transformers/tutorials/fine-tuning/transformers-fine-tuning',
-  '/llms/transformers/tutorials/fine-tuning/transformers-peft',
-  '/llms/transformers/tutorials/prompt-templating/prompt-templating',
-  '/llms/transformers/tutorials/text-generation/text-generation',
-  '/llms/transformers/tutorials/translation/component-translation',
-  '/prompts/',
-  '/prompts/cm',
-  '/prompts/evaluate',
-  '/prompts/run-and-model',
-  '/tracing/',
-  '/tracing/api/',
-  '/tracing/api/client',
-  '/tracing/api/how-to',
-  '/tracing/api/manual-instrumentation',
-  '/tracing/api/search',
-  '/tracing/faq',
-  '/tracing/integrations/',
-  '/tracing/integrations/anthropic',
-  '/tracing/integrations/autogen',
-  '/tracing/integrations/bedrock',
-  '/tracing/integrations/contribute',
-  '/tracing/integrations/crewai',
-  '/tracing/integrations/deepseek',
-  '/tracing/integrations/dspy',
-  '/tracing/integrations/gemini',
-  '/tracing/integrations/groq',
-  '/tracing/integrations/instructor',
-  '/tracing/integrations/langchain',
-  '/tracing/integrations/langgraph',
-  '/tracing/integrations/litellm',
-  '/tracing/integrations/llama_index',
-  '/tracing/integrations/mistral',
-  '/tracing/integrations/ollama',
-  '/tracing/integrations/openai',
-  '/tracing/integrations/openai-agent',
-  '/tracing/integrations/swarm',
-  '/tracing/integrations/txtai',
-  '/tracing/production',
-  '/tracing/session',
-  '/tracing/tracing-schema',
-  '/tracing/tutorials/',
-  '/tracing/tutorials/concept',
-  '/tracing/tutorials/jupyter-trace-demo',
-  '/tracing/ui',
+  // Note: old /llms/ paths now map to /genai/flavors/
+  // old /tracing/ paths now map to /genai/tracing/
+  // old /prompts/ paths now map to /genai/prompt-version-mgmt/
 ];
 
-// Special redirects that don't follow the simple pattern
+// More specific redirects for LLM/GenAI content since the structure changed significantly
+const llmToGenAIRedirects = [
+  {
+    to: "/genai/flavors/",
+    from: "/llms/"
+  },
+  {
+    to: "/genai/flavors/chat-model-guide/",
+    from: "/llms/chat-model-guide/"
+  },
+  {
+    to: "/genai/flavors/chat-model-intro/",
+    from: "/llms/chat-model-intro/"
+  },
+  {
+    to: "/genai/flavors/custom-pyfunc-for-llms/",
+    from: "/llms/custom-pyfunc-for-llms/"
+  },
+  {
+    to: "/genai/flavors/dspy/",
+    from: "/llms/dspy/"
+  },
+  {
+    to: "/genai/flavors/langchain/",
+    from: "/llms/langchain/"
+  },
+  {
+    to: "/genai/flavors/langchain/autologging",
+    from: "/llms/langchain/autologging"
+  },
+  {
+    to: "/genai/flavors/langchain/guide/",
+    from: "/llms/langchain/guide/"
+  },
+  {
+    to: "/genai/flavors/llama-index/",
+    from: "/llms/llama-index/"
+  },
+  {
+    to: "/genai/flavors/openai/",
+    from: "/llms/openai/"
+  },
+  {
+    to: "/genai/flavors/openai/autologging/",
+    from: "/llms/openai/autologging/"
+  },
+  {
+    to: "/genai/flavors/openai/guide/",
+    from: "/llms/openai/guide/"
+  },
+  {
+    to: "/genai/flavors/openai/notebooks/",
+    from: "/llms/openai/notebooks/"
+  },
+  {
+    to: "/genai/tracing/",
+    from: "/tracing/"
+  },
+  {
+    to: "/genai/tracing/faq",
+    from: "/tracing/faq"
+  },
+  {
+    to: "/genai/tracing/integrations/",
+    from: "/tracing/integrations/"
+  },
+  {
+    to: "/genai/tracing/integrations/contribute",
+    from: "/tracing/integrations/contribute"
+  },
+  {
+    to: "/genai/tracing/integrations/listing/anthropic",
+    from: "/tracing/integrations/anthropic"
+  },
+  {
+    to: "/genai/tracing/integrations/listing/autogen",
+    from: "/tracing/integrations/autogen"
+  },
+  {
+    to: "/genai/tracing/integrations/listing/bedrock",
+    from: "/tracing/integrations/bedrock"
+  },
+  {
+    to: "/genai/tracing/integrations/listing/crewai",
+    from: "/tracing/integrations/crewai"
+  },
+  {
+    to: "/genai/tracing/integrations/listing/deepseek",
+    from: "/tracing/integrations/deepseek"
+  },
+  {
+    to: "/genai/tracing/integrations/listing/dspy",
+    from: "/tracing/integrations/dspy"
+  },
+  {
+    to: "/genai/tracing/integrations/listing/gemini",
+    from: "/tracing/integrations/gemini"
+  },
+  {
+    to: "/genai/tracing/integrations/listing/groq",
+    from: "/tracing/integrations/groq"
+  },
+  {
+    to: "/genai/tracing/integrations/listing/instructor",
+    from: "/tracing/integrations/instructor"
+  },
+  {
+    to: "/genai/tracing/integrations/listing/langchain",
+    from: "/tracing/integrations/langchain"
+  },
+  {
+    to: "/genai/tracing/integrations/listing/langgraph",
+    from: "/tracing/integrations/langgraph"
+  },
+  {
+    to: "/genai/tracing/integrations/listing/litellm",
+    from: "/tracing/integrations/litellm"
+  },
+  {
+    to: "/genai/tracing/integrations/listing/llama_index",
+    from: "/tracing/integrations/llama_index"
+  },
+  {
+    to: "/genai/tracing/integrations/listing/mistral",
+    from: "/tracing/integrations/mistral"
+  },
+  {
+    to: "/genai/tracing/integrations/listing/ollama",
+    from: "/tracing/integrations/ollama"
+  },
+  {
+    to: "/genai/tracing/integrations/listing/openai",
+    from: "/tracing/integrations/openai"
+  },
+  {
+    to: "/genai/tracing/integrations/listing/openai-agent",
+    from: "/tracing/integrations/openai-agent"
+  },
+  {
+    to: "/genai/tracing/integrations/listing/swarm",
+    from: "/tracing/integrations/swarm"
+  },
+  {
+    to: "/genai/tracing/integrations/listing/txtai",
+    from: "/tracing/integrations/txtai"
+  },
+  {
+    to: "/genai/tracing/prod-tracing",
+    from: "/tracing/production"
+  },
+  {
+    to: "/genai/tracing/session",
+    from: "/tracing/session"
+  },
+  {
+    to: "/genai/tracing/data-model",
+    from: "/tracing/tracing-schema"
+  },
+  {
+    to: "/genai/tracing/tracing-101",
+    from: "/tracing/tutorials/concept"
+  },
+  {
+    to: "/genai/tutorials/jupyter-trace-demo",
+    from: "/tracing/tutorials/jupyter-trace-demo"
+  },
+  {
+    to: "/genai/tracing/observe-with-traces/ui",
+    from: "/tracing/ui"
+  },
+  {
+    to: "/genai/prompt-version-mgmt/",
+    from: "/prompts/"
+  },
+  {
+    to: "/genai/eval-monitor/",
+    from: "/llms/llm-evaluate/"
+  },
+  {
+    to: "/genai/governance/ai-gateway/",
+    from: "/llms/deployments/"
+  },
+  {
+    to: "/genai/governance/ai-gateway/guides/",
+    from: "/llms/deployments/guides/"
+  },
+];
+
 const specialRedirects = [
-  // MLflow 3 related
   {
     to: "/ml/mlflow-3/",
     from: "/mlflow-3/"
@@ -233,93 +315,24 @@ const specialRedirects = [
     to: "/ml/mlflow-3/genai-agent",
     from: "/mlflow-3/genai-agent"
   },
-  
-  // Legacy redirects that should map to specific new locations
   {
-    to: "/genai/tracing",
-    from: ["/llms/tracing", "/tracing"]
+    to: "/ml/tracking/",
+    from: ["/tracking/data-api/index", "/tracking/data-api"]
   },
   {
-    to: "/ml/tracking",
-    from: ["/tracking/data-api/index", "/tracking/data-api", "/dataset"]
+    to: "/ml/model-registry/",
+    from: ["/models", "/registry"]
   },
   {
-    to: "/ml/model-registry",
-    from: ["/models", "/model", "/registry", "/model-registry"]
-  },
-  {
-    to: "/genai/governance/ai-gateway",
-    from: [
-      "/llms/gateway/index", 
-      "/llms/gateway", 
-      "/llms/deployments",
-      "/llms/gateway/guides/index", 
-      "/llms/gateway/guide", 
-      "/llms/deployments/guides"
-    ]
-  },
-  {
-    to: "/genai/governance/ai-gateway/guides/step1-create-deployments/",
-    from: [
-      "/llms/gateway/guides/step1-create-gateway", 
-      "/llms/deployments/guides/step1-create-deployments"
-    ]
-  },
-  {
-    to: "/genai/governance/ai-gateway/guides/step2-query-deployments/",
-    from: [
-      "/llms/gateway/guides/step2-query-gateway", 
-      "/llms/deployments/guides/step2-query-deployments"
-    ]
-  },
-  {
-    to: "/genai/getting-started",
-    from: [
-      "/getting-started/community-edition", 
-      "/getting-started/databricks-trial"
-    ]
-  },
-  {
-    to: "/genai/tracing/integrations/contribute",
-    from: [
-      "/llms/tracing/contribute", 
-      "/tracing/integrations/contribute"
-    ]
-  },
-  {
-    to: "/genai/tutorials/jupyter-trace-demo",
-    from: [
-      "/llms/tracing/notebooks/jupyter-trace-demo", 
-      "/tracing/tutorials/jupyter-trace-demo"
-    ]
-  },
-  {
-    to: "/genai/tracing/tracing-101",
-    from: [
-      "/llms/tracing/overview", 
-      "/tracing/tutorials/concept"
-    ]
-  },
-  {
-    to: "/genai/tracing/search-traces",
-    from: [
-      "/llms/tracing/search-traces", 
-      "/tracing/api/search"
-    ]
-  },
-  {
-    to: "/genai/tracing/data-model",
-    from: [
-      "/llms/tracing/tracing-schema", 
-      "/tracing/tracing-schema"
-    ]
+    to: "/genai/getting-started/",
+    from: ["/getting-started/community-edition"]
   },
 ];
 
-// Combine all redirects
 const redirectsConfig = [
   ...createMLRedirects(mlPaths),
   ...createGenAIRedirects(genAIPaths),
+  ...llmToGenAIRedirects,
   ...specialRedirects,
 ];
 
