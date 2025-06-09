@@ -262,7 +262,7 @@ message LinkPromptVersionsToModelsRequest {
   // Prompt version entries to link to the models.
   repeated PromptVersionLinkEntry prompt_versions = 1;
 
-  // IDs of the models to which to link the prompt version.
+  // IDs of the models to which to link to each prompt version.
   repeated string model_ids = 2;
 }
 
