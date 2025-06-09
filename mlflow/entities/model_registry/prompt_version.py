@@ -269,16 +269,6 @@ class PromptVersion(_ModelRegistryEntity):
                 )
         return template
 
-    # proto mappers - simplified stubs
-    @classmethod
-    def from_proto(cls, proto) -> "PromptVersion":
-        # This would need to be adapted for PromptVersion, keeping basic structure
-        raise NotImplementedError("from_proto needs to be adapted for PromptVersion")
-
-    def to_proto(self):
-        # This would need to be adapted for PromptVersion, keeping basic structure
-        raise NotImplementedError("to_proto needs to be adapted for PromptVersion")
-
     @classmethod
     def from_model_version(
         cls, model_version: ModelVersion, prompt_tags: Optional[dict[str, str]] = None
