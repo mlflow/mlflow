@@ -267,9 +267,9 @@ message LinkPromptVersionsToModelsRequest {
 }
 
 message PromptVersionLinkEntry {
-  // Name of the prompt to link to the trace.
+  // Name of the prompt to link to another entity (e.g. trace, model, or run).
   optional string name = 1 [(validate_required) = true];
 
-  // Version of the prompt to link to the trace.
+  // Version of the prompt to link to another entity (e.g. trace, model, or run).
   optional string version = 2 [(validate_required) = true];
 }
