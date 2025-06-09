@@ -45,19 +45,19 @@ def check(run_id: str, tmp_path: Path) -> None:
     out_path = mlflow.artifacts.download_artifacts(
         artifact_uri=model_uri, dst_path=tmp_path / str(uuid.uuid4())
     )
-    files = [f.name for f in Path(out_path).rglob("*") if f.is_file()]
+    files = [f.name for f in Path(out_path).iterdir() if f.is_file()]
     assert "MLmodel" in files
     assert "test.txt" in files
     out_path = mlflow.artifacts.download_artifacts(
         run_id=run_id, artifact_path="model", dst_path=tmp_path / str(uuid.uuid4())
     )
-    files = [f.name for f in Path(out_path).rglob("*") if f.is_file()]
+    files = [f.name for f in Path(out_path).iterdir() if f.is_file()]
     assert "MLmodel" in files
     assert "test.txt" in files
     out_path = client.download_artifacts(
         run_id=run_id, path="model", dst_path=tmp_path / str(uuid.uuid4())
     )
-    files = [f.name for f in Path(out_path).rglob("*") if f.is_file()]
+    files = [f.name for f in Path(out_path).iterdir() if f.is_file()]
     assert "MLmodel" in files
     assert "test.txt" in files
     # Model evaluation
