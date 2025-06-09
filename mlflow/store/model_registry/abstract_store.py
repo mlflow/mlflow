@@ -861,7 +861,6 @@ class AbstractStore:
             else:
                 parsed_prompts_tag_value = []
 
-            # Create new prompt entry
             new_prompt_entry = {
                 "name": prompt_version.name,
                 "version": prompt_version.version,
@@ -869,12 +868,10 @@ class AbstractStore:
 
             # Check if this exact prompt version is already linked
             if new_prompt_entry in parsed_prompts_tag_value:
-                # Already linked, no need to do anything
                 return
 
-            # Add the new prompt entry
+            # Else, add the new prompt entry
             parsed_prompts_tag_value.append(new_prompt_entry)
-
             # Update the tag
             tracking_store.set_logged_model_tags(
                 model_id,
