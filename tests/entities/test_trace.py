@@ -399,6 +399,13 @@ def test_from_v2_dict():
     assert trace.info.execution_duration == 200
     assert len(trace.data.spans) == 2
 
+    # Verify that schema version was updated from "2" to current version during V2 to V3 conversion
+    assert trace.info.trace_metadata[TRACE_SCHEMA_VERSION_KEY] == str(TRACE_SCHEMA_VERSION)
+
+    # Verify that other metadata was preserved
+    assert trace.info.trace_metadata["mlflow.traceInputs"] == '{"x": 2, "y": 5}'
+    assert trace.info.trace_metadata["mlflow.traceOutputs"] == "8"
+
 
 def test_request_response_smart_truncation():
     @mlflow.trace
