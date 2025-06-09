@@ -115,8 +115,10 @@ class Trace(_MlflowObject):
         for assessment in self.info.assessments or []:
             # Only include Expectation type assessments, filter out Feedback
             if isinstance(assessment, Expectation):
-                expectations[assessment.name] = assessment.expectation.value
+                expectations[assessment.name] = assessment.value
 
+        inputs = self._deserialize_json_attr(self.data.request)
+        outputs = self._deserialize_json_attr(self.data.response)
         return {
             "trace_id": self.info.trace_id,
             "trace": self,
@@ -124,12 +126,16 @@ class Trace(_MlflowObject):
             "state": self.info.state,
             "request_time": self.info.request_time,
             "execution_duration": self.info.execution_duration,
-            "inputs": self._deserialize_json_attr(self.data.request),
-            "outputs": self._deserialize_json_attr(self.data.response),
+            "inputs": inputs,
+            "outputs": outputs,
             "expectations": expectations,
             "trace_metadata": self.info.trace_metadata,
             "tags": self.info.tags,
             "assessments": self.info.assessments,
+            # Keeping these fields for backward compatibility.
+            # TODO: Remove these fields in the future release.
+            "request": inputs,
+            "response": outputs,
         }
 
     def _deserialize_json_attr(self, value: str):
@@ -312,6 +318,10 @@ class Trace(_MlflowObject):
             "trace_metadata",
             "tags",
             "assessments",
+            # Keeping these fields for backward compatibility.
+            # TODO: Remove these fields in the future release.
+            "request",
+            "response",
         ]
 
     def to_proto(self):

@@ -972,6 +972,8 @@ def test_search_traces_yields_expected_dataframe_contents(monkeypatch):
         "trace_metadata",
         "tags",
         "assessments",
+        "request",
+        "response",
     ]
     for idx, trace in enumerate(expected_traces):
         assert df.iloc[idx].trace_id == trace.info.trace_id
@@ -985,6 +987,8 @@ def test_search_traces_yields_expected_dataframe_contents(monkeypatch):
         assert df.iloc[idx].trace_metadata == trace.info.trace_metadata
         assert df.iloc[idx].tags == trace.info.tags
         assert df.iloc[idx].assessments == trace.info.assessments
+        assert df.iloc[idx].request == json.loads(trace.data.request)
+        assert df.iloc[idx].response == json.loads(trace.data.response)
 
 
 @skip_when_testing_trace_sdk
