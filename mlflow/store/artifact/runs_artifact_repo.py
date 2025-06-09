@@ -107,7 +107,7 @@ class RunsArtifactRepository(ArtifactRepository):
     def _is_directory(self, artifact_path):
         return self.repo._is_directory(artifact_path)
 
-    def list_artifacts(self, path):
+    def list_artifacts(self, path: Optional[str] = None) -> list[FileInfo]:
         """
         Return all the artifacts for this run_id directly under path. If path is a file, returns
         an empty list. Will error if path is neither a file nor directory.
@@ -120,14 +120,17 @@ class RunsArtifactRepository(ArtifactRepository):
         """
         return self._list_run_artifacts(path) + self._list_model_artifacts(path)
 
-    def _list_run_artifacts(self, path: str) -> list[FileInfo]:
+    def _list_run_artifacts(self, path: Optional[str] = None) -> list[FileInfo]:
         return self.repo.list_artifacts(path)
 
-    def _list_model_artifacts(self, path: str) -> list[FileInfo]:
-        full_path = f"{self.artifact_uri}/{path}"
+    def _list_model_artifacts(self, path: Optional[str] = None) -> list[FileInfo]:
+        full_path = f"{self.artifact_uri}/{path}" if path else self.artifact_uri
         run_id, rel_path = RunsArtifactRepository.parse_runs_uri(full_path)
+        if not rel_path:
+            # At least one part of the path must be present (e.g. "runs:/<run_id>/<name>")
+            return []
         [model_name, *rest] = rel_path.split("/", 1)
-        rel_path = rest[0] if rest else ""
+        rel_path = rest[0] if rest else None
         if repo := self._get_logged_model_artifact_repo(run_id=run_id, name=model_name):
             artifacts = repo.list_artifacts(path=rel_path)
             return [
