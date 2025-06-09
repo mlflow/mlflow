@@ -222,7 +222,6 @@ def _list_model_artifacts(
 
             page_token = page.token
 
-    # Iterate through all logged models to find the one with the specified run_id
     model = next((m for m in iter_models() if m.source_run_id == run_id), None)
     if model is None:
         return []
