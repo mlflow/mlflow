@@ -127,7 +127,7 @@ class RunsArtifactRepository(ArtifactRepository):
         run_id, rel_path = RunsArtifactRepository.parse_runs_uri(full_path)
         [model_name, *rest] = rel_path.split("/", 1)
         rel_path = rest[0] if rest else ""
-        if repo := self._get_logged_model_artifact_repos(run_id=run_id, name=model_name):
+        if repo := self._get_logged_model_artifact_repo(run_id=run_id, name=model_name):
             artifacts = repo.list_artifacts(path=rel_path)
             return [
                 FileInfo(
@@ -145,6 +145,8 @@ class RunsArtifactRepository(ArtifactRepository):
         Download an artifact file or directory to a local directory if applicable, and return a
         local path for it.
         The caller is responsible for managing the lifecycle of the downloaded artifacts.
+        When the run has an associated model, the artifacts of the model are also downloaded
+        to the specified destination directory.
 
         Args:
             artifact_path: Relative source path to the desired artifacts.
@@ -159,9 +161,8 @@ class RunsArtifactRepository(ArtifactRepository):
         """
         dst_path = dst_path or create_tmp_dir()
         run_out_path: Optional[str] = None
-
-        # Download both run artifacts and model artifacts.
         try:
+            # This fails when the run has no artifacts, so we catch the exception
             run_out_path = self.repo.download_artifacts(artifact_path, dst_path)
         except Exception:
             _logger.debug(f"Failed to download artifacts from {self.artifact_uri}/{artifact_path}.")
@@ -200,7 +201,7 @@ class RunsArtifactRepository(ArtifactRepository):
         run_id, rel_path = RunsArtifactRepository.parse_runs_uri(full_path)
         [model_name, *rest] = rel_path.split("/", 1)
         rel_path = rest[0] if rest else ""
-        if repo := self._get_logged_model_artifact_repos(run_id=run_id, name=model_name):
+        if repo := self._get_logged_model_artifact_repo(run_id=run_id, name=model_name):
             dst = os.path.join(dst_path, model_name)
             os.makedirs(dst, exist_ok=True)
             return repo.download_artifacts(artifact_path=rel_path, dst_path=dst)
