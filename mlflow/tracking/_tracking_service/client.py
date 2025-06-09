@@ -674,11 +674,14 @@ class TrackingServiceClient:
             List of :py:class:`mlflow.entities.FileInfo`
 
         """
-        run_artifacts = self._get_artifact_repo(run_id).list_artifacts(path)
-        if run_artifacts or (path and "/" in path):
-            return run_artifacts
+        from mlflow.artifacts import (
+            _list_model_artifacts,
+            _run_artifact_path_corresponds_to_logged_model,
+        )
 
-        from mlflow.artifacts import _list_model_artifacts
+        run_artifacts = self._get_artifact_repo(run_id).list_artifacts(path)
+        if run_artifacts or (path and _run_artifact_path_corresponds_to_logged_model(path)):
+            return run_artifacts
 
         return _list_model_artifacts(
             run_id=run_id, artifact_path=path, tracking_uri=self.tracking_uri

@@ -117,8 +117,7 @@ def list_artifacts(
         run_artifacts
         # Other URI types such as `s3` can't be resolved to a logged model.
         or (artifact_uri and not artifact_uri.startswith("runs:/"))
-        # A logged model name can't contain a slash.
-        or (artifact_path and "/" in artifact_path)
+        or (artifact_path and _run_artifact_path_corresponds_to_logged_model(artifact_path))
     ):
         return run_artifacts
 
@@ -173,6 +172,13 @@ def _list_run_artifacts(
     return artifact_repo.list_artifacts(artifact_path)
 
 
+def _run_artifact_path_corresponds_to_logged_model(artifact_path: str) -> bool:
+    """
+    Does the given artifact path correspond to a logged model name?
+    """
+    return "/" in artifact_path
+
+
 def _list_model_artifacts(
     artifact_uri: Optional[str] = None,
     run_id: Optional[str] = None,
@@ -190,7 +196,7 @@ def _list_model_artifacts(
             return []
 
         _scheme, run_id, artifact_path = splits
-        if "/" in artifact_path:
+        if _run_artifact_path_corresponds_to_logged_model(artifact_path):
             return []
 
     store = _get_store(store_uri=tracking_uri)
