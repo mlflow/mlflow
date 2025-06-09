@@ -247,7 +247,6 @@ if not IS_TRACING_SDK_ONLY:
     from mlflow.models.evaluation.validation import validate_evaluation_results
     from mlflow.projects import run
     from mlflow.tracking._model_registry.fluent import (
-        delete_prompt,
         delete_prompt_alias,
         load_prompt,
         register_model,
@@ -386,7 +385,6 @@ if not IS_TRACING_SDK_ONLY:
         "validate_evaluation_results",
         "Image",
         # Prompt Registry APIs
-        "delete_prompt",
         "load_prompt",
         "register_prompt",
         "set_prompt_alias",

@@ -1,4 +1,5 @@
 import logging
+import time
 import warnings
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
@@ -12,7 +13,7 @@ from mlflow.genai.evaluation.utils import (
 from mlflow.genai.scorers import Scorer
 from mlflow.genai.scorers.builtin_scorers import GENAI_CONFIG_NAME, BuiltInScorer
 from mlflow.genai.scorers.validation import valid_data_for_builtin_scorers, validate_scorers
-from mlflow.genai.utils.trace_utils import convert_predict_fn
+from mlflow.genai.utils.trace_utils import clean_up_extra_traces, convert_predict_fn
 from mlflow.models.evaluation.base import (
     EvaluationResult,
     _is_model_deployment_endpoint_uri,
@@ -265,7 +266,8 @@ def evaluate(
             module="mlflow.data.evaluation_dataset",
         )
 
-        return mlflow.models.evaluate(
+        eval_start_time = int(time.time() * 1000)
+        result = mlflow.models.evaluate(
             model=predict_fn,
             # If the input dataset is a managed dataset, we pass the original dataset
             # to the evaluate function to preserve metadata like dataset name.
@@ -277,6 +279,10 @@ def evaluate(
             model_id=model_id,
             _called_from_genai_evaluate=True,
         )
+
+        # Clean up noisy traces generated during evaluation
+        clean_up_extra_traces(result.run_id, eval_start_time)
+        return result
 
 
 @experimental

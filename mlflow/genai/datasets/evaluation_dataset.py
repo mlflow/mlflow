@@ -92,12 +92,12 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
         dataset = self._dataset.set_profile(profile)
         return EvaluationDataset(dataset)
 
-    def insert(
+    def merge_records(
         self,
         records: Union[list[dict], "pd.DataFrame", "pyspark.sql.DataFrame"],
     ) -> "EvaluationDataset":
-        """Insert records into the dataset."""
-        dataset = self._dataset.insert(records)
+        """Merge records into the dataset."""
+        dataset = self._dataset.merge_records(records)
         return EvaluationDataset(dataset)
 
     def to_df(self) -> "pd.DataFrame":
