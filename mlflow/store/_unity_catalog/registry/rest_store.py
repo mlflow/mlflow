@@ -1131,7 +1131,9 @@ class UcModelRegistryStore(BaseRestStore):
         """
         full_name = get_full_name_from_sc(name, self.spark)
         req_body = message_to_json(
-            SetModelVersionTagRequest(name=full_name, version=version, key=tag.key, value=tag.value)
+            SetModelVersionTagRequest(
+                name=full_name, version=str(version), key=tag.key, value=tag.value
+            )
         )
         self._call_endpoint(SetModelVersionTagRequest, req_body)
 
@@ -1470,6 +1472,7 @@ class UcModelRegistryStore(BaseRestStore):
         """
         Delete a prompt version from Unity Catalog.
         """
+        # Delete the specific version only
         req_body = message_to_json(DeletePromptVersionRequest(name=name, version=str(version)))
         endpoint, method = self._get_endpoint_from_method(DeletePromptVersionRequest)
         self._edit_endpoint_and_call(
@@ -1479,6 +1482,34 @@ class UcModelRegistryStore(BaseRestStore):
             name=name,
             version=version,
             proto_name=DeletePromptVersionRequest,
+        )
+
+    def search_prompt_versions(
+        self, name: str, max_results: Optional[int] = None, page_token: Optional[str] = None
+    ) -> SearchPromptVersionsResponse:
+        """
+        Search prompt versions for a given prompt name in Unity Catalog.
+
+        Note: Unity Catalog server uses a non-standard endpoint pattern for this operation.
+
+        Args:
+            name: Name of the prompt to search versions for
+            max_results: Maximum number of versions to return
+            page_token: Token for pagination
+
+        Returns:
+            SearchPromptVersionsResponse containing the list of versions
+        """
+        req_body = message_to_json(
+            SearchPromptVersionsRequest(name=name, max_results=max_results, page_token=page_token)
+        )
+        endpoint, method = self._get_endpoint_from_method(SearchPromptVersionsRequest)
+        return self._edit_endpoint_and_call(
+            endpoint=endpoint,
+            method=method,
+            req_body=req_body,
+            name=name,
+            proto_name=SearchPromptVersionsRequest,
         )
 
     def get_prompt_version_by_alias(self, name: str, alias: str) -> Optional[PromptVersion]:
