@@ -4,6 +4,7 @@ from typing import Optional, Sequence
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter
 
+from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_ASYNC_TRACE_LOGGING,
@@ -50,10 +51,12 @@ class MlflowV3SpanExporter(SpanExporter):
                 _logger.debug("Received a non-root span. Skipping export.")
                 continue
 
-            trace = InMemoryTraceManager.get_instance().pop_trace(span.context.trace_id)
-            if trace is None:
+            manager_trace = InMemoryTraceManager.get_instance().pop_trace(span.context.trace_id)
+            if manager_trace is None:
                 _logger.debug(f"Trace for span {span} not found. Skipping export.")
                 continue
+
+            trace = manager_trace.to_mlflow_trace()
 
             _set_last_active_trace_id(trace.info.request_id)
 
@@ -74,9 +77,9 @@ class MlflowV3SpanExporter(SpanExporter):
                     )
                 )
             else:
-                self._log_trace(trace)
+                self._log_trace(trace, prompts=manager_trace.prompts)
 
-    def _log_trace(self, trace: Trace):
+    def _log_trace(self, trace: Trace, prompts: Sequence[PromptVersion]):
         """
         Handles exporting a trace to MLflow using the V3 API and blob storage.
         Steps:
@@ -91,6 +94,11 @@ class MlflowV3SpanExporter(SpanExporter):
                     _logger.warning("Failed to add size bytes to trace metadata.", exc_info=True)
                 returned_trace_info = self._client.start_trace_v3(trace)
                 self._client._upload_trace_data(returned_trace_info, trace.data)
+                # Can always run async?
+                self._client.link_prompt_versions_to_trace(
+                    trace_id=returned_trace_info.trace_id,
+                    prompts=prompts,
+                )
             else:
                 _logger.warning("No trace or trace info provided, unable to export")
         except Exception as e:

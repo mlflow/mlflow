@@ -22,9 +22,10 @@ from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
+from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.client import MlflowClient
-from mlflow.tracking.fluent import active_run
+from mlflow.tracking.fluent import active_run, get_active_trace_id
 from mlflow.utils import get_results_from_paginated_fn, mlflow_tags
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import (
@@ -669,6 +670,12 @@ def load_prompt(
         # For names, use the parsed version
         prompt = client.load_prompt(
             parsed_name_or_uri, version=parsed_version, allow_missing=allow_missing
+        )
+
+    if trace_id := get_active_trace_id():
+        InMemoryTraceManager.get_instance().register_prompt(
+            trace_id=trace_id,
+            prompt=prompt,
         )
 
     # If there is an active MLflow run, associate the prompt with the run

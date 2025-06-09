@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from typing import Generator, Optional
 
 from mlflow.entities import LiveSpan, Trace, TraceData, TraceInfo
+from mlflow.entities.model_registry import PromptVersion
 from mlflow.environment_variables import MLFLOW_TRACE_TIMEOUT_SECONDS
 from mlflow.tracing.utils.timeout import get_trace_cache_with_timeout
 from mlflow.tracing.utils.truncation import set_request_response_preview
@@ -18,6 +19,7 @@ _logger = logging.getLogger(__name__)
 class _Trace:
     info: TraceInfo
     span_dict: dict[str, LiveSpan] = field(default_factory=dict)
+    prompts: list[PromptVersion] = field(default_factory=list)
 
     def to_mlflow_trace(self) -> Trace:
         trace_data = TraceData()
@@ -88,6 +90,17 @@ class InMemoryTraceManager:
             trace_data_dict = self._traces[span.request_id].span_dict
             trace_data_dict[span.span_id] = span
 
+    def register_prompt(self, trace_id: str, prompt: PromptVersion):
+        """
+        Register a prompt in the trace with the given trace ID.
+
+        Args:
+            trace_id: The ID of the trace to which the prompt belongs.
+            prompt: The prompt version to be registered.
+        """
+        with self._lock:
+            self._traces[trace_id].append(prompt)
+
     @contextlib.contextmanager
     def get_trace(self, trace_id: str) -> Generator[Optional[_Trace], None, None]:
         """
@@ -135,15 +148,14 @@ class InMemoryTraceManager:
             if trace:
                 trace.info.trace_metadata[key] = value
 
-    def pop_trace(self, otel_trace_id: int) -> Optional[Trace]:
+    def pop_trace(self, otel_trace_id: int) -> Optional[_Trace]:
         """
         Pop trace data for the given OpenTelemetry trace ID and
         return it as a ready-to-publish Trace object.
         """
         with self._lock:
             mlflow_trace_id = self._otel_id_to_mlflow_trace_id.pop(otel_trace_id, None)
-            trace = self._traces.pop(mlflow_trace_id, None)
-        return trace.to_mlflow_trace() if trace else None
+            self._traces.pop(mlflow_trace_id, None)
 
     def _check_timeout_update(self):
         """
