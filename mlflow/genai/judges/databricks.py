@@ -1,8 +1,9 @@
 from functools import wraps
-from typing import Any, Optional, Union
+from typing import Any, Callable, Optional, Union
 
 from mlflow.entities.assessment import Feedback
 from mlflow.genai.utils.enum_utils import StrEnum
+from mlflow.utils.annotations import experimental
 
 # NB: User-facing name for the is_context_relevant assessment.
 _IS_CONTEXT_RELEVANT_ASSESSMENT_NAME = "relevance_to_context"
@@ -343,4 +344,61 @@ def meets_guidelines(
             guidelines_context=context,
             assessment_name=name,
         )
+    )
+
+
+@experimental
+@requires_databricks_agents
+def custom_prompt_judge(
+    *,
+    name: str,
+    prompt_template: str,
+    numeric_values: Optional[dict[str, Union[int, float]]] = None,
+) -> Callable[..., Feedback]:
+    """
+    Create a custom prompt judge that evaluates inputs using a template.
+
+    Example prompt template:
+
+    .. code-block::
+
+        You will look at the response and determine the formality of the response.
+
+        <request>{{request}}</request>
+        <response>{{response}}</response>
+
+        You must choose one of the following categories.
+
+        [[formal]]: The response is very formal.
+        [[semi_formal]]: The response is somewhat formal. The response is somewhat formal if the
+        response mentions friendship, etc.
+        [[not_formal]]: The response is not formal.
+
+    Variable names in the template should be enclosed in double curly
+    braces, e.g., `{{request}}`, `{{response}}`. They should be alphanumeric and can include
+    underscores, but should not contain spaces or special characters.
+
+    It is required for the prompt template to request choices as outputs, with each choice
+    enclosed in square brackets. Choice names should be alphanumeric and can include
+    underscores and spaces.
+
+    Args:
+        name: Name of the judge, used as the name of returned
+            :py:class`mlflow.entities.Feedback~` object.
+        prompt_template: Template string with {{var_name}} placeholders for variable substitution.
+            Should be prompted with choices as outputs.
+        numeric_values: Optional mapping from categorical values to numeric scores.
+            Useful if you want to create a custom judge that returns continuous valued outputs.
+            Defaults to None.
+
+    Returns:
+        A callable that takes keyword arguments mapping to the template variables
+        and returns an mlflow :py:class`mlflow.entities.Feedback~`.
+    """
+    from databricks.agents.evals.judges import custom_prompt_judge
+
+    return custom_prompt_judge(
+        name=name,
+        prompt_template=prompt_template,
+        numeric_values=numeric_values,
     )

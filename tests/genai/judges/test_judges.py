@@ -15,6 +15,7 @@ from mlflow.genai.judges.databricks import _sanitize_feedback
 def test_databricks_judges_are_importable():
     from mlflow.genai import judges
     from mlflow.genai.judges import (
+        custom_prompt_judge,
         is_context_relevant,
         is_context_sufficient,
         is_correct,
@@ -29,6 +30,7 @@ def test_databricks_judges_are_importable():
     assert judges.is_grounded == is_grounded
     assert judges.is_safe == is_safe
     assert judges.meets_guidelines == meets_guidelines
+    assert judges.custom_prompt_judge == custom_prompt_judge
 
 
 def create_test_feedback(value: str) -> Feedback:
