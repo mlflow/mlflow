@@ -1584,30 +1584,29 @@ class UcModelRegistryStore(BaseRestStore):
             prompt_versions: List of PromptVersion objects to link.
             trace_id: Trace ID to link to each prompt version.
         """
-        # Call the default implementation first
         super().link_prompts_to_trace(prompt_versions=prompt_versions, trace_id=trace_id)
 
-        # Convert prompt_versions to PromptVersionLinkEntry objects
         prompt_version_entries = [
             PromptVersionLinkEntry(name=pv.name, version=str(pv.version)) for pv in prompt_versions
         ]
 
-        req_body = message_to_json(
-            LinkPromptsToTracesRequest(prompt_versions=prompt_version_entries, trace_ids=[trace_id])
-        )
+        batch_size = 25
         endpoint, method = self._get_endpoint_from_method(LinkPromptsToTracesRequest)
-        try:
-            # NB: This will not raise an exception if the backend does not support linking.
-            # We do this to prioritize reduction in errors and log spam while the prompt
-            # registry remains experimental
-            self._edit_endpoint_and_call(
-                endpoint=endpoint,
-                method=method,
-                req_body=req_body,
-                proto_name=LinkPromptsToTracesRequest,
+
+        for i in range(0, len(prompt_version_entries), batch_size):
+            batch = prompt_version_entries[i : i + batch_size]
+            req_body = message_to_json(
+                LinkPromptsToTracesRequest(prompt_versions=batch, trace_ids=[trace_id])
             )
-        except Exception:
-            _logger.debug("Failed to link prompts to traces in unity catalog", exc_info=True)
+            try:
+                self._edit_endpoint_and_call(
+                    endpoint=endpoint,
+                    method=method,
+                    req_body=req_body,
+                    proto_name=LinkPromptsToTracesRequest,
+                )
+            except Exception:
+                _logger.debug("Failed to link prompts to traces in unity catalog", exc_info=True)
 
     def _edit_endpoint_and_call(self, endpoint, method, req_body, proto_name, **kwargs):
         """
