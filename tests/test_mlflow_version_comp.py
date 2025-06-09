@@ -29,15 +29,15 @@ def check(run_id: str, tmp_path: Path) -> None:
     mlflow.pyfunc.load_model(f"models:/{mv.name}/{mv.version}")
     # List artifacts
     client = mlflow.MlflowClient()
-    artifacts = client.list_artifacts(run_id=run_id, path="model")
-    assert "model/MLmodel" in [art.path for art in artifacts]
-    assert "model/test.txt" in [art.path for art in artifacts]
-    artifacts = mlflow.artifacts.list_artifacts(artifact_uri=model_uri)
-    assert "model/MLmodel" in [art.path for art in artifacts]
-    assert "model/test.txt" in [art.path for art in artifacts]
-    artifacts = client.list_artifacts(run_id=run_id, path="model")
-    assert "model/MLmodel" in [art.path for art in artifacts]
-    assert "model/test.txt" in [art.path for art in artifacts]
+    artifacts = [a.path for a in client.list_artifacts(run_id=run_id, path="model")]
+    assert "model/MLmodel" in artifacts
+    assert "model/test.txt" in artifacts
+    artifacts = [a.path for a in mlflow.artifacts.list_artifacts(artifact_uri=model_uri)]
+    assert "model/MLmodel" in artifacts
+    assert "model/test.txt" in artifacts
+    artifacts = [a.path for a in client.list_artifacts(run_id=run_id, path="model")]
+    assert "model/MLmodel" in artifacts
+    assert "model/test.txt" in artifacts
     # Non-existing artifact path should return an empty list
     assert len(client.list_artifacts(run_id=run_id, path="unknown")) == 0
     assert len(mlflow.artifacts.list_artifacts(run_id=run_id, artifact_path="unknown")) == 0
@@ -45,18 +45,21 @@ def check(run_id: str, tmp_path: Path) -> None:
     out_path = mlflow.artifacts.download_artifacts(
         artifact_uri=model_uri, dst_path=tmp_path / str(uuid.uuid4())
     )
-    assert next(Path(out_path).rglob("MLmodel")) is not None
-    assert next(Path(out_path).rglob("test.txt")) is not None
+    files = [f.name for f in Path(out_path).rglob("*") if f.is_file()]
+    assert "MLmodel" in files
+    assert "test.txt" in files
     out_path = mlflow.artifacts.download_artifacts(
         run_id=run_id, artifact_path="model", dst_path=tmp_path / str(uuid.uuid4())
     )
-    assert next(Path(out_path).rglob("MLmodel")) is not None
-    assert next(Path(out_path).rglob("test.txt")) is not None
+    files = [f.name for f in Path(out_path).rglob("*") if f.is_file()]
+    assert "MLmodel" in files
+    assert "test.txt" in files
     out_path = client.download_artifacts(
         run_id=run_id, path="model", dst_path=tmp_path / str(uuid.uuid4())
     )
-    assert next(Path(out_path).rglob("MLmodel")) is not None
-    assert next(Path(out_path).rglob("test.txt")) is not None
+    files = [f.name for f in Path(out_path).rglob("*") if f.is_file()]
+    assert "MLmodel" in files
+    assert "test.txt" in files
     # Model evaluation
     eval_res = mlflow.models.evaluate(
         model=model_uri,
