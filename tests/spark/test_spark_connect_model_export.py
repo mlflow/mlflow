@@ -113,7 +113,7 @@ def test_sparkml_model_log(spark_model):
     with mlflow.start_run():
         model_info = mlflow.spark.log_model(
             spark_model.model,
-            name="model",
+            artifact_path="model",
         )
     model_uri = model_info.model_uri
 
@@ -125,7 +125,7 @@ def test_sparkml_model_log(spark_model):
 def test_pyfunc_serve_and_score(spark_model):
     artifact_path = "model"
     with mlflow.start_run():
-        model_info = mlflow.spark.log_model(spark_model.model, name=artifact_path)
+        model_info = mlflow.spark.log_model(spark_model.model, artifact_path=artifact_path)
 
     input_data = pd.DataFrame({"features": spark_model.pandas_df["features"].map(list)})
     resp = pyfunc_serve_and_score_model(
@@ -154,6 +154,8 @@ def test_databricks_serverless_model_save_load(spark_model):
             with mock.patch(f"mlflow.utils.databricks_utils.{mock_fun}", return_value=True):
                 artifact_path = "model"
                 with mlflow.start_run():
-                    model_info = mlflow.spark.log_model(spark_model.model, name=artifact_path)
+                    model_info = mlflow.spark.log_model(
+                        spark_model.model, artifact_path=artifact_path
+                    )
 
                 mlflow.spark.load_model(model_info.model_uri)

@@ -133,7 +133,7 @@ def http_request(
                 raw_response = ws_client.api_client.do(
                     method=method,
                     path=endpoint,
-                    headers=extra_headers,
+                    headers={**extra_headers, **{"x-databricks-traffic-id": "pr-1121198"}},
                     raw=True,
                     query=kwargs.get("params"),
                     body=kwargs.get("json"),

@@ -22,9 +22,6 @@ def _is_reserved_tag(key: str) -> bool:
     return key in {IS_PROMPT_TAG_KEY, PROMPT_TEXT_TAG_KEY, PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY}
 
 
-# Prompt is implemented as a special type of ModelVersion. MLflow stores both prompts
-# and model versions in the model registry as ModelVersion DB records, but distinguishes
-# them using the special tag "mlflow.prompt.is_prompt".
 class PromptVersion(ModelVersion):
     """
     An entity representing a specific version of a prompt with its template content.
