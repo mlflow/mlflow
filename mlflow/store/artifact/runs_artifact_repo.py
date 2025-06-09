@@ -1,9 +1,12 @@
 import logging
+import os
 import urllib.parse
+from typing import Optional
 
 import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
+from mlflow.utils.file_utils import create_tmp_dir
 from mlflow.utils.uri import (
     add_databricks_profile_info_to_artifact_uri,
     get_databricks_profile_uri_from_artifact_uri,
@@ -132,63 +135,68 @@ class RunsArtifactRepository(ArtifactRepository):
         Returns:
             Absolute path of the local filesystem location containing the desired artifacts.
         """
+        dst_path = dst_path or create_tmp_dir()
+        run_out_path: Optional[str] = None
+
+        # Download both run artifacts and model artifacts.
         try:
-            return self.repo.download_artifacts(artifact_path, dst_path)
-        except Exception as e:
-            from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+            run_out_path = self.repo.download_artifacts(artifact_path, dst_path)
+        except Exception:
+            _logger.debug(f"Failed to download artifacts from {self.artifact_uri}/{artifact_path}.")
 
-            full_path = f"{self.artifact_uri}/{artifact_path}"
-            _logger.debug(
-                f"Failed to download artifacts from {full_path}. "
-                "Searching for logged models associated with the run instead."
+        model_out_path = self._download_model_artifacts(artifact_path, dst_path=dst_path)
+        return run_out_path or model_out_path or dst_path
+
+    def _download_model_artifacts(
+        self, artifact_path: str, dst_path: Optional[str] = None
+    ) -> Optional[str]:
+        from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+
+        full_path = f"{self.artifact_uri}/{artifact_path}"
+        run_id, artifact_path = RunsArtifactRepository.parse_runs_uri(full_path)
+        client = mlflow.tracking.MlflowClient()
+        run = client.get_run(run_id)
+        [model_name, *rest] = artifact_path.split("/", 1)
+        artifact_path = rest[0] if rest else "."
+        page_token = None
+        while True:
+            page = client.search_logged_models(
+                experiment_ids=[run.info.experiment_id],
+                # TODO: Filter by 'source_run_id' once Databricks backend supports it
+                filter_string=f"name = '{model_name}'",
+                page_token=page_token,
             )
-            run_id, artifact_path = RunsArtifactRepository.parse_runs_uri(full_path)
-            client = mlflow.tracking.MlflowClient()
-            run = client.get_run(run_id)
-            [model_name, *rest] = artifact_path.split("/", 1)
-            artifact_path = rest[0] if rest else "."
-            page_token = None
-            while True:
-                page = client.search_logged_models(
-                    experiment_ids=[run.info.experiment_id],
-                    # TODO: Filter by 'source_run_id' once Databricks backend supports it
-                    filter_string=f"name = '{model_name}'",
-                    page_token=page_token,
-                )
-                for model in page:
-                    # Return the first model that matches the run_id and artifact_path
-                    if model.source_run_id == run_id:
-                        repo = get_artifact_repository(model.artifact_location)
-                        # TODO: Disabled for now. Consider re-enabling this once we migrate docs
-                        # and examples to use the new model URI format.
-                        # color_warning(
-                        #     "`runs:/<run_id>/artifact_path` is deprecated for loading models, "
-                        #     "use `models:/<model_id>` instead. Alternatively, retrieve "
-                        #     "`model_info.model_uri` from the model_info returned by "
-                        #     "mlflow.<flavor>.log_model. For example: "
-                        #     "model_info = mlflow.<flavor>.log_model(...); "
-                        #     "model = mlflow.<flavor>.load_model(model_info.model_uri)",
-                        #     stacklevel=1,
-                        #     color="yellow",
-                        # )
-                        return repo.download_artifacts(
-                            artifact_path=artifact_path,  # root directory
-                            dst_path=dst_path,
-                        )
+            for model in page:
+                # Return the first model that matches the run_id and artifact_path
+                if model.source_run_id == run_id:
+                    repo = get_artifact_repository(model.artifact_location)
+                    # TODO: Disabled for now. Consider re-enabling this once we migrate docs
+                    # and examples to use the new model URI format.
+                    # color_warning(
+                    #     "`runs:/<run_id>/artifact_path` is deprecated for loading models, "
+                    #     "use `models:/<model_id>` instead. Alternatively, retrieve "
+                    #     "`model_info.model_uri` from the model_info returned by "
+                    #     "mlflow.<flavor>.log_model. For example: "
+                    #     "model_info = mlflow.<flavor>.log_model(...); "
+                    #     "model = mlflow.<flavor>.load_model(model_info.model_uri)",
+                    #     stacklevel=1,
+                    #     color="yellow",
+                    # )
+                    dst = os.path.join(dst_path, model_name)
+                    os.makedirs(dst, exist_ok=True)
+                    return repo.download_artifacts(
+                        artifact_path=artifact_path,  # root directory
+                        dst_path=dst,
+                    )
 
-                if not page.token:
-                    break
-                page_token = page.token
-            _logger.debug(
-                f"Failed to find any models with name {model_name} associated with the "
-                f"run {run_id}."
-            )
+            if not page.token:
+                break
+            page_token = page.token
+        _logger.debug(
+            f"Failed to find any models with name {model_name} associated with the run {run_id}."
+        )
 
-            raise MlflowException(
-                f"Failed to download artifacts from {full_path}. "
-                f"No model named {model_name!r} was found for run {run_id}. "
-                f"Please ensure that you've specified the correct model name or artifact path."
-            ) from e
+        return None
 
     def _download_file(self, remote_file_path, local_path):
         """

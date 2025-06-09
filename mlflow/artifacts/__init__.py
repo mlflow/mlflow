@@ -82,6 +82,9 @@ def download_artifacts(
     if artifact_uri is not None:
         return _download_artifact_from_uri(artifact_uri, output_path=dst_path)
 
+    if run_id and artifact_path:
+        return _download_artifact_from_uri(f"runs:/{run_id}/{artifact_path}", output_path=dst_path)
+
     artifact_path = artifact_path if artifact_path is not None else ""
 
     store = _get_store(store_uri=tracking_uri)
@@ -89,17 +92,7 @@ def download_artifacts(
     artifact_repo = get_artifact_repository(
         add_databricks_profile_info_to_artifact_uri(artifact_uri, tracking_uri)
     )
-
-    try:
-        return artifact_repo.download_artifacts(artifact_path, dst_path=dst_path)
-    except Exception:
-        if run_id and artifact_path:
-            # To ensure backward compatibility with MLflow 2.x and earlier,
-            # download artifacts using `runs:/<run_id>/<artifact_path>` URI format.
-            return _download_artifact_from_uri(
-                f"runs:/{run_id}/{artifact_path}", output_path=dst_path
-            )
-        raise
+    return artifact_repo.download_artifacts(artifact_path, dst_path=dst_path)
 
 
 def _is_not_logged_model_name(artifact_path: str) -> bool:

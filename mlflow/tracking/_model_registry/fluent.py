@@ -150,7 +150,8 @@ def _register_model(
         runs_artifact_repo = RunsArtifactRepository(model_uri)
         # List artifacts in `<run_artifact_root>/<artifact_path>` to see if the run has artifacts.
         # If so use the run's artifact location as source.
-        if runs_artifact_repo._is_directory(""):
+        artifacts = runs_artifact_repo.list_artifacts(path=None)
+        if "MLmodel" in (art.path for art in artifacts):
             source = RunsArtifactRepository.get_underlying_uri(model_uri)
         # Otherwise check if there's a logged model with
         # name artifact_path and source_run_id run_id
