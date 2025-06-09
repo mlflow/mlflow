@@ -245,7 +245,7 @@ const sidebarsGenAI: SidebarsConfig = {
             },
           ],
         },
-        
+
         {
           type: 'category',
           label: 'App Observation and Debugging',
@@ -544,6 +544,10 @@ const sidebarsGenAI: SidebarsConfig = {
             },
             {
               type: 'doc',
+              id: 'prompt-version-mgmt/prompt-registry/optimize-prompts',
+            },
+            {
+              type: 'doc',
               id: 'prompt-version-mgmt/prompt-registry/use-prompts-in-apps',
             },
             {
@@ -617,11 +621,11 @@ const sidebarsGenAI: SidebarsConfig = {
               }
             }
           ],
-            link: {
+          link: {
             type: 'doc',
             id: 'flavors/openai/index'
           }
-        }, 
+        },
         {
           type: 'category',
           label: 'DSPy',
@@ -708,9 +712,19 @@ const sidebarsGenAI: SidebarsConfig = {
           label: 'Intro to ChatModel',
         },
         {
-          type: 'doc',
-          id: 'flavors/chat-model-guide/index',
+          type: 'category',
           label: 'Building with ChatModel',
+          items: [
+            {
+              type: 'doc',
+              id: 'flavors/chat-model-guide/chat-model-tool-calling-ipynb',
+              label: "ChatModel Tool Calling Example",
+            }
+          ],
+          link: {
+            type: 'doc',
+            id: 'flavors/chat-model-guide/index',
+          }
         },
         {
           type: 'doc',
@@ -829,7 +843,7 @@ const sidebarsGenAI: SidebarsConfig = {
           type: 'doc',
           id: 'data-model/model-registry',
           label: 'Model Registry',
-        },        
+        },
       ],
       link: {
         type: 'doc',
