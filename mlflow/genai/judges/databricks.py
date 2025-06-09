@@ -50,7 +50,7 @@ def _sanitize_feedback(feedback: Feedback) -> Feedback:
     Returns:
         A new Feedback object with our CategoricalRating.
     """
-    feedback.value = CategoricalRating(feedback.value.value)
+    feedback.value = CategoricalRating(feedback.value) if feedback.value else feedback.value
     return feedback
 
 
