@@ -241,21 +241,6 @@ message DeletePromptVersionTagRequest {
   optional string key = 3;
 }
 
-message LinkPromptVersionToTracesRequest {
-  option (scalapb.message).extends = "UcModelRegistryRoutableRPC[com.google.protobuf.empty.Empty]";
-
-  // Name of the prompt to link to the traces.
-  optional string name = 1 [(validate_required) = true];
-
-  // Version of the prompt to link to the traces.
-  optional string version = 2 [(validate_required) = true];
-
-  // IDs of the traces to which to link the prompt version.
-  repeated string trace_ids = 3;
-
-  message Response {}
-}
-
 message LinkPromptVersionsToModelsRequest {
   option (scalapb.message).extends = "UcModelRegistryRoutableRPC[com.google.protobuf.empty.Empty]";
 
