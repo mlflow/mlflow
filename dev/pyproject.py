@@ -182,7 +182,7 @@ def build(package_type: PackageType) -> None:
                     "boto3>1",
                     "botocore",
                     # TODO: Remove `rc2` once `databricks-agents==1.0.0` is available on PyPI.
-                    "databricks-agents>=1.0.0rc2,<2.0"
+                    "databricks-agents>=1.0.0rc2,<2.0",
                     # Required in order to use GenAI evaluation datasets on Databricks
                     "databricks-connect>=16.4.0",
                 ],
