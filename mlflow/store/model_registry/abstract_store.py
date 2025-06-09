@@ -5,7 +5,6 @@ from abc import ABCMeta, abstractmethod
 from time import sleep, time
 from typing import Optional, Union
 
-from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.entities.model_registry.prompt import Prompt
@@ -843,53 +842,6 @@ class AbstractStore:
             INVALID_PARAMETER_VALUE,
         )
 
-    def link_prompt_version_to_model(self, name: str, version: str, model_id: str) -> None:
-        """
-        Link a prompt version to a model.
-
-        Default implementation sets a tag. Stores can override with custom behavior.
-
-        Args:
-            name: Name of the prompt.
-            version: Version of the prompt to link.
-            model_id: ID of the model to link to.
-        """
-        from mlflow.tracking import _get_store as _get_tracking_store
-
-        prompt_version = self.get_prompt_version(name, version)
-        tracking_store = _get_tracking_store()
-
-        with self._prompt_link_lock:
-            logged_model = tracking_store.get_logged_model(model_id)
-            if not logged_model:
-                raise MlflowException(
-                    f"Could not find model with ID '{model_id}' to which to link prompt '{name}'.",
-                    error_code=ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
-                )
-
-            new_prompt_entry = {
-                "name": prompt_version.name,
-                "version": prompt_version.version,
-            }
-
-            # Use utility function to update linked prompts tag
-            current_tag_value = logged_model.tags.get(LINKED_PROMPTS_TAG_KEY)
-            updated_tag_value = self._get_updated_linked_prompts_tag(
-                current_tag_value, [new_prompt_entry]
-            )
-
-            # Only update if the tag value actually changed (avoiding redundant updates)
-            if current_tag_value != updated_tag_value:
-                tracking_store.set_logged_model_tags(
-                    model_id,
-                    [
-                        LoggedModelTag(
-                            key=LINKED_PROMPTS_TAG_KEY,
-                            value=updated_tag_value,
-                        )
-                    ],
-                )
-
     def link_prompts_to_trace(self, prompt_versions: list[PromptVersion], trace_id: str) -> None:
         """
         Link multiple prompt versions to a trace.
@@ -924,7 +876,7 @@ class AbstractStore:
 
                 # Use utility function to update linked prompts tag
                 current_tag_value = trace_info.tags.get(LINKED_PROMPTS_TAG_KEY)
-                updated_tag_value = self._get_updated_linked_prompts_tag(
+                updated_tag_value = self._update_linked_prompts_tag(
                     current_tag_value, new_prompt_entries
                 )
 
@@ -941,7 +893,7 @@ class AbstractStore:
                     exc_info=True,
                 )
 
-    def _get_updated_linked_prompts_tag(
+    def _update_linked_prompts_tag(
         self, current_tag_value: str, new_prompt_entries: list[dict]
     ) -> str:
         """
