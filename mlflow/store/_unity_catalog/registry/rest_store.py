@@ -1527,15 +1527,21 @@ class UcModelRegistryStore(BaseRestStore):
             )
         )
         endpoint, method = self._get_endpoint_from_method(LinkPromptVersionsToModelsRequest)
-        self._edit_endpoint_and_call(
-            endpoint=endpoint,
-            method=method,
-            req_body=req_body,
-            name=name,
-            version=version,
-            model_id=model_id,
-            proto_name=LinkPromptVersionsToModelsRequest,
-        )
+        try:
+            # NB: This will not raise an exception if the backend does not support linking.
+            # We do this to prioritize reduction in errors and log spam while the prompt
+            # registry remains experimental
+            self._edit_endpoint_and_call(
+                endpoint=endpoint,
+                method=method,
+                req_body=req_body,
+                name=name,
+                version=version,
+                model_id=model_id,
+                proto_name=LinkPromptVersionsToModelsRequest,
+            )
+        except Exception:
+            _logger.debug("Failed to link prompt version to model in unity catalog", exc_info=True)
 
     def _edit_endpoint_and_call(self, endpoint, method, req_body, proto_name, **kwargs):
         """
