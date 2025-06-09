@@ -161,7 +161,7 @@ class RunsArtifactRepository(ArtifactRepository):
             # At least one part of the path must be present (e.g. "runs:/<run_id>/<name>")
             return []
         [model_name, *rest] = rel_path.split("/", 1)
-        rel_path = rest[0] if rest else None
+        rel_path = rest[0] if rest else "."
         if repo := self._get_logged_model_artifact_repo(run_id=run_id, name=model_name):
             artifacts = repo.list_artifacts(path=rel_path)
             return [
@@ -171,7 +171,7 @@ class RunsArtifactRepository(ArtifactRepository):
 
         return []
 
-    def download_artifacts(self, artifact_path, dst_path=None):
+    def download_artifacts(self, artifact_path: str, dst_path: Optional[str] = None):
         """
         Download an artifact file or directory to a local directory if applicable, and return a
         local path for it.
@@ -199,7 +199,11 @@ class RunsArtifactRepository(ArtifactRepository):
             _logger.debug(f"Failed to download artifacts from {self.artifact_uri}/{artifact_path}.")
 
         model_out_path = self._download_model_artifacts(artifact_path, dst_path=dst_path)
-        return run_out_path or model_out_path or dst_path
+        return (
+            run_out_path
+            or model_out_path
+            or f"{dst_path}/{artifact_path.split('/', maxsplit=1)[-1]}"
+        )
 
     def _download_model_artifacts(self, artifact_path: str, dst_path: str) -> Optional[str]:
         full_path = f"{self.artifact_uri}/{artifact_path}" if artifact_path else self.artifact_uri
@@ -208,7 +212,7 @@ class RunsArtifactRepository(ArtifactRepository):
             # At least one part of the path must be present (e.g. "runs:/<run_id>/<name>")
             return None
         [model_name, *rest] = rel_path.split("/", 1)
-        rel_path = rest[0] if rest else ""
+        rel_path = rest[0] if rest else "."
         if repo := self._get_logged_model_artifact_repo(run_id=run_id, name=model_name):
             dst = os.path.join(dst_path, model_name)
             os.makedirs(dst, exist_ok=True)
