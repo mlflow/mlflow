@@ -123,6 +123,37 @@ class RunsArtifactRepository(ArtifactRepository):
     def _list_run_artifacts(self, path: Optional[str] = None) -> list[FileInfo]:
         return self.repo.list_artifacts(path)
 
+    def _get_logged_model_artifact_repo(
+        self, run_id: str, name: str
+    ) -> Optional[ArtifactRepository]:
+        """
+        Get the artifact repository for a logged model with the given name and run ID.
+        Returns None if no such model exists.
+        """
+        from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+
+        client = mlflow.tracking.MlflowClient()
+        experiment_id = client.get_run(run_id).info.experiment_id
+
+        def iter_models() -> Iterator[LoggedModel]:
+            page_token: Optional[str] = None
+            while True:
+                page = client.search_logged_models(
+                    experiment_ids=[experiment_id],
+                    # TODO: Filter by 'source_run_id' once Databricks backend supports it
+                    filter_string=f"name = '{name}'",
+                    page_token=page_token,
+                )
+                yield from page
+                if not page.token:
+                    break
+                page_token = page.token
+
+        if matched := next((m for m in iter_models() if m.source_run_id == run_id), None):
+            return get_artifact_repository(matched.artifact_location)
+
+        return None
+
     def _list_model_artifacts(self, path: Optional[str] = None) -> list[FileInfo]:
         full_path = f"{self.artifact_uri}/{path}" if path else self.artifact_uri
         run_id, rel_path = RunsArtifactRepository.parse_runs_uri(full_path)
@@ -169,37 +200,6 @@ class RunsArtifactRepository(ArtifactRepository):
 
         model_out_path = self._download_model_artifacts(artifact_path, dst_path=dst_path)
         return run_out_path or model_out_path or dst_path
-
-    def _get_logged_model_artifact_repo(
-        self, run_id: str, name: str
-    ) -> Optional[ArtifactRepository]:
-        """
-        Get the artifact repository for a logged model with the given name and run ID.
-        Returns None if no such model exists.
-        """
-        from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-
-        client = mlflow.tracking.MlflowClient()
-        experiment_id = client.get_run(run_id).info.experiment_id
-
-        def iter_models() -> Iterator[LoggedModel]:
-            page_token: Optional[str] = None
-            while True:
-                page = client.search_logged_models(
-                    experiment_ids=[experiment_id],
-                    # TODO: Filter by 'source_run_id' once Databricks backend supports it
-                    filter_string=f"name = '{name}'",
-                    page_token=page_token,
-                )
-                yield from page
-                if not page.token:
-                    break
-                page_token = page.token
-
-        if matched := next((m for m in iter_models() if m.source_run_id == run_id), None):
-            return get_artifact_repository(matched.artifact_location)
-
-        return None
 
     def _download_model_artifacts(self, artifact_path: str, dst_path: str) -> Optional[str]:
         full_path = f"{self.artifact_uri}/{artifact_path}" if artifact_path else self.artifact_uri
