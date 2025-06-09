@@ -887,7 +887,7 @@ def test_search_traces():
     assert trace_infos[0].state == TraceStatus.OK.to_state()
     # This is correct because TraceInfoV3.from_proto converts the repeated field tags to a dict
     assert trace_infos[0].tags == {"k": "v"}
-    assert trace_infos[0].trace_metadata == {"key": "value"}
+    assert trace_infos[0].trace_metadata == {"key": "value", "mlflow.trace_schema.version": "3"}
     assert token == "token"
 
 
@@ -953,7 +953,7 @@ def test_search_unified_traces():
         # V3's state maps to V2's status
         assert trace_infos[0].state == TraceStatus.OK.to_state()
         assert trace_infos[0].tags == {"k": "v"}
-        assert trace_infos[0].trace_metadata == {"key": "value"}
+        assert trace_infos[0].trace_metadata == {"key": "value", "mlflow.trace_schema.version": "3"}
         assert token == "token"
 
 
@@ -1385,7 +1385,7 @@ def test_get_trace_info_v3_api():
         assert isinstance(result, TraceInfo)
         assert result.trace_id == span.trace_id
         assert result.experiment_id == "0"
-        assert result.trace_metadata == {"key1": "value1"}
+        assert result.trace_metadata == {"key1": "value1", "mlflow.trace_schema.version": "3"}
         assert result.tags == {"tag1": "value1"}
         assert result.state == TraceState.OK
         assert len(result.assessments) == 4
