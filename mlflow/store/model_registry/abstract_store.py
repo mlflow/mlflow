@@ -857,40 +857,34 @@ class AbstractStore:
         tracking_store = _get_tracking_store()
 
         with self._prompt_link_lock:
-            try:
-                trace_info = tracking_store.get_trace_info(trace_id)
-                if not trace_info:
-                    raise MlflowException(
-                        f"Could not find trace with ID '{trace_id}' to which to link prompts.",
-                        error_code=ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
-                    )
-
-                # Prepare new prompt entries to add
-                new_prompt_entries = [
-                    {
-                        "name": prompt_version.name,
-                        "version": str(prompt_version.version),
-                    }
-                    for prompt_version in prompt_versions
-                ]
-
-                # Use utility function to update linked prompts tag
-                current_tag_value = trace_info.tags.get(LINKED_PROMPTS_TAG_KEY)
-                updated_tag_value = self._update_linked_prompts_tag(
-                    current_tag_value, new_prompt_entries
+            trace_info = tracking_store.get_trace_info(trace_id)
+            if not trace_info:
+                raise MlflowException(
+                    f"Could not find trace with ID '{trace_id}' to which to link prompts.",
+                    error_code=ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
                 )
 
-                # Only update if the tag value actually changed (avoiding redundant updates)
-                if current_tag_value != updated_tag_value:
-                    tracking_store.set_trace_tag(
-                        trace_id,
-                        LINKED_PROMPTS_TAG_KEY,
-                        updated_tag_value,
-                    )
-            except Exception as e:
-                _logger.warning(
-                    f"Failed to link prompts to trace '{trace_id}': {e}",
-                    exc_info=True,
+            # Prepare new prompt entries to add
+            new_prompt_entries = [
+                {
+                    "name": prompt_version.name,
+                    "version": str(prompt_version.version),
+                }
+                for prompt_version in prompt_versions
+            ]
+
+            # Use utility function to update linked prompts tag
+            current_tag_value = trace_info.tags.get(LINKED_PROMPTS_TAG_KEY)
+            updated_tag_value = self._update_linked_prompts_tag(
+                current_tag_value, new_prompt_entries
+            )
+
+            # Only update if the tag value actually changed (avoiding redundant updates)
+            if current_tag_value != updated_tag_value:
+                tracking_store.set_trace_tag(
+                    trace_id,
+                    LINKED_PROMPTS_TAG_KEY,
+                    updated_tag_value,
                 )
 
     def _update_linked_prompts_tag(
