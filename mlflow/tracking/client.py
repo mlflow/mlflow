@@ -5773,9 +5773,6 @@ class MlflowClient:
         Returns:
             SearchPromptVersionsResponse containing the list of versions.
 
-        Raises:
-            MlflowException: If used with non-Unity Catalog registries.
-
         Example:
 
         .. code-block:: python
@@ -5805,9 +5802,6 @@ class MlflowClient:
 
         Args:
             name: Name of the prompt to delete.
-
-        Raises:
-            MlflowException: If undeleted versions exist for the prompt (Unity Catalog only).
 
         Example:
 
