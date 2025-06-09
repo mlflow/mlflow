@@ -127,7 +127,7 @@ def test_crud_prompts(tmp_path):
         tags={"model": "my-model"},
     )
 
-    prompt = mlflow.load_prompt("prompt_1", version=1)
+    prompt = mlflow.load_prompt("prompt_1")
     assert prompt.name == "prompt_1"
     assert prompt.template == "Hi, {title} {name}! How are you today?"
     assert prompt.commit_message == "A friendly greeting"
@@ -139,7 +139,7 @@ def test_crud_prompts(tmp_path):
         commit_message="New greeting",
     )
 
-    prompt = mlflow.load_prompt("prompt_1", version=2)
+    prompt = mlflow.load_prompt("prompt_1")
     assert prompt.template == "Hi, {title} {name}! What's up?"
 
     prompt = mlflow.load_prompt("prompt_1", version=1)
@@ -148,8 +148,22 @@ def test_crud_prompts(tmp_path):
     prompt = mlflow.load_prompt("prompts:/prompt_1/2")
     assert prompt.template == "Hi, {title} {name}! What's up?"
 
-    # Test load_prompt with allow_missing for non-existent prompts
-    assert mlflow.load_prompt("does_not_exist", version=1, allow_missing=True) is None
+    # Delete prompt must be called with a version
+    with pytest.raises(TypeError, match=r"delete_prompt\(\) missing 1"):
+        mlflow.delete_prompt("prompt_1")
+
+    mlflow.delete_prompt("prompt_1", version=2)
+
+    with pytest.raises(MlflowException, match=r"Prompt \(name=prompt_1, version=2\) not found"):
+        mlflow.load_prompt("prompt_1", version=2)
+
+    with pytest.raises(MlflowException, match=r"Prompt \(name=prompt_1, version=2\) not found"):
+        mlflow.load_prompt("prompt_1", version=2, allow_missing=False)
+
+    assert mlflow.load_prompt("prompt_1", version=2, allow_missing=True) is None
+    assert mlflow.load_prompt("does_not_exist", allow_missing=True) is None
+
+    mlflow.delete_prompt("prompt_1", version=1)
 
 
 def test_prompt_alias(tmp_path):
