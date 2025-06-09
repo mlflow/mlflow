@@ -5,6 +5,7 @@ APIs for interacting with artifacts in MLflow
 import json
 import pathlib
 import tempfile
+import urllib.parse
 from typing import Iterator, Optional
 
 from mlflow.entities.file_info import FileInfo
@@ -101,6 +102,13 @@ def download_artifacts(
         raise
 
 
+def _run_artifact_path_corresponds_to_logged_model(artifact_path: str) -> bool:
+    """
+    Does the given artifact path correspond to a logged model name?
+    """
+    return "/" in artifact_path
+
+
 def list_artifacts(
     artifact_uri: Optional[str] = None,
     run_id: Optional[str] = None,
@@ -116,7 +124,7 @@ def list_artifacts(
     if (
         run_artifacts
         # Other URI types such as `s3` can't be resolved to a logged model.
-        or (artifact_uri and not artifact_uri.startswith("runs:/"))
+        or (artifact_uri and not urllib.parse.urlparse(artifact_uri).scheme == "runs")
         or (artifact_path and _run_artifact_path_corresponds_to_logged_model(artifact_path))
     ):
         return run_artifacts
@@ -172,15 +180,8 @@ def _list_run_artifacts(
     return artifact_repo.list_artifacts(artifact_path)
 
 
-def _run_artifact_path_corresponds_to_logged_model(artifact_path: str) -> bool:
-    """
-    Does the given artifact path correspond to a logged model name?
-    """
-    return "/" in artifact_path
-
-
 def _list_model_artifacts(
-    artifact_uri: Optional[str] = None,
+    runs_uri: Optional[str] = None,
     run_id: Optional[str] = None,
     artifact_path: Optional[str] = None,
     tracking_uri: Optional[str] = None,
@@ -189,9 +190,9 @@ def _list_model_artifacts(
     Finds the logged model associated with the given run ID and artifact path, and lists
     its artifacts.
     """
-    if artifact_uri:
-        # Assuming `artifact_uri` is in the format `runs:/<run_id>/<artifact_path>`.
-        splits = artifact_uri.strip("/").split("/", maxsplit=2)
+    if runs_uri:
+        # Assuming `runs_uri` is in the format `runs:/<run_id>/<artifact_path>`.
+        splits = urllib.parse.urlparse(runs_uri).path.strip("/").split("/", 2)
         if len(splits) != 3:
             return []
 
