@@ -86,13 +86,13 @@ def test_proto_info_to_mlflow_prompt_info():
 
 def test_proto_to_mlflow_prompt():
     """Test that proto_to_mlflow_prompt correctly handles the decoupled tag architecture."""
-    
+
     # Test with version tags - the key behavior we care about
     proto_version = ProtoPromptVersion()
     proto_version.name = "test_prompt"
     proto_version.version = "1"
     proto_version.template = "Hello {{name}}!"
-    
+
     # Add version tags
     proto_version.tags.extend([
         ProtoPromptVersionTag(key="env", value="production"),
@@ -102,13 +102,13 @@ def test_proto_to_mlflow_prompt():
     result = proto_to_mlflow_prompt(proto_version)
     expected_tags = {"env": "production", "author": "alice"}
     assert result.tags == expected_tags  # Both should return the same thing
-    
+
     # Test with no tags
     proto_no_tags = ProtoPromptVersion()
     proto_no_tags.name = "no_tags_prompt"
     proto_no_tags.version = "2"
     proto_no_tags.template = "Simple template"
-    
+
     result_no_tags = proto_to_mlflow_prompt(proto_no_tags)
     assert result_no_tags.version_metadata == {}
     assert result_no_tags.tags == {}
