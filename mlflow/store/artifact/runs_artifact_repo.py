@@ -202,7 +202,7 @@ class RunsArtifactRepository(ArtifactRepository):
         return (
             run_out_path
             or model_out_path
-            or f"{dst_path}/{artifact_path.split('/', maxsplit=1)[-1]}"
+            or f"{dst_path}/{artifact_path.rsplit('/', maxsplit=1)[-1]}"
         )
 
     def _download_model_artifacts(self, artifact_path: str, dst_path: str) -> Optional[str]:
