@@ -169,11 +169,12 @@ class RunsArtifactRepository(ArtifactRepository):
         model_out_path = self._download_model_artifacts(artifact_path, dst_path=dst_path)
         return run_out_path or model_out_path or dst_path
 
-    def _get_logged_model_artifact_repos(
+    def _get_logged_model_artifact_repo(
         self, run_id: str, name: str
     ) -> Optional[ArtifactRepository]:
         """
         Get the artifact repository for a logged model with the given name and run ID.
+        Returns None if no such model exists.
         """
         from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 
