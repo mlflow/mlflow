@@ -228,7 +228,7 @@ service UnityCatalogPromptService {
         since {major: 2, minor: 0},
       }],
       visibility: PUBLIC_UNDOCUMENTED,
-      rpc_doc_title: "(Unity Catalog) Link Prompt Version to Models",
+      rpc_doc_title: "(Unity Catalog) Link Prompt Versions to Models",
     };
   }
 }
