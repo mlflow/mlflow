@@ -88,7 +88,7 @@ from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
     GetPromptRequest,
     GetPromptVersionByAliasRequest,
     GetPromptVersionRequest,
-    LinkPromptVersionToModelRequest,
+    LinkPromptVersionsToModelsRequest,
     SearchPromptsRequest,
     SearchPromptsResponse,
     SearchPromptVersionsRequest,
@@ -408,7 +408,7 @@ class UcModelRegistryStore(BaseRestStore):
             SetPromptVersionTagRequest: google.protobuf.empty_pb2.Empty,
             DeletePromptVersionTagRequest: google.protobuf.empty_pb2.Empty,
             UpdatePromptVersionRequest: ProtoPromptVersion,
-            LinkPromptVersionToModelRequest: google.protobuf.empty_pb2.Empty,
+            LinkPromptVersionsToModelsRequest: google.protobuf.empty_pb2.Empty,
         }
         return method_to_response[method]()
 
@@ -1493,13 +1493,18 @@ class UcModelRegistryStore(BaseRestStore):
             version: Version of the prompt to link.
             model_id: ID of the model to link to.
         """
-        # Call the default implementation, since the LinkPromptVersionToModel API
+        # Call the default implementation, since the LinkPromptVersionsToModels API
         # will initially be a no-op until the Databricks backend supports it
         super().link_prompt_version_to_model(name=name, version=version, model_id=model_id)
+        from mlflow.protos.unity_catalog_prompt_messages_pb2 import PromptVersionLinkEntry
+
+        prompt_version_entry = PromptVersionLinkEntry(name=name, version=version)
         req_body = message_to_json(
-            LinkPromptVersionToModelRequest(name=name, version=version, model_id=model_id)
+            LinkPromptVersionsToModelsRequest(
+                prompt_versions=[prompt_version_entry], model_ids=[model_id]
+            )
         )
-        endpoint, method = self._get_endpoint_from_method(LinkPromptVersionToModelRequest)
+        endpoint, method = self._get_endpoint_from_method(LinkPromptVersionsToModelsRequest)
         try:
             self._edit_endpoint_and_call(
                 endpoint=endpoint,
@@ -1508,7 +1513,7 @@ class UcModelRegistryStore(BaseRestStore):
                 name=name,
                 version=version,
                 model_id=model_id,
-                proto_name=LinkPromptVersionToModelRequest,
+                proto_name=LinkPromptVersionsToModelsRequest,
             )
         except Exception:
             _logger.debug("Failed to link prompt version to model in unity catalog", exc_info=True)

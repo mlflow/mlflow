@@ -1,4 +1,6 @@
 import json
+import threading
+import time
 from unittest import mock
 
 import pytest
@@ -39,160 +41,266 @@ class MockAbstractStore(AbstractStore):
         )
 
 
-class TestAbstractStoreLinkPromptVersionToModel:
-    """Test cases for the abstract store's link_prompt_version_to_model method."""
+@pytest.fixture
+def store():
+    return MockAbstractStore()
 
-    @pytest.fixture
-    def store(self):
-        return MockAbstractStore()
 
-    @pytest.fixture
-    def mock_tracking_store(self):
-        with mock.patch("mlflow.tracking._get_store") as mock_get_store:
-            mock_store = mock.Mock()
-            mock_get_store.return_value = mock_store
-            yield mock_store
+@pytest.fixture
+def mock_tracking_store():
+    with mock.patch("mlflow.tracking._get_store") as mock_get_store:
+        mock_store = mock.Mock()
+        mock_get_store.return_value = mock_store
+        yield mock_store
 
-    def test_link_prompt_version_to_model_success(self, store, mock_tracking_store):
-        """Test successful linking of prompt version to model."""
-        # Setup
-        store.add_prompt_version("test_prompt", "v1")
-        model_id = "model_123"
 
-        # Mock logged model with no existing linked prompts
-        logged_model = LoggedModel(
-            experiment_id="exp_123",
-            model_id=model_id,
-            name="test_model",
-            artifact_location="/path/to/model",
-            creation_timestamp=1234567890,
-            last_updated_timestamp=1234567890,
-            tags={},
-        )
-        mock_tracking_store.get_logged_model.return_value = logged_model
+def test_link_prompt_version_to_model_success(store, mock_tracking_store):
+    """Test successful linking of prompt version to model."""
+    # Setup
+    store.add_prompt_version("test_prompt", "v1")
+    model_id = "model_123"
 
-        # Execute
+    # Mock logged model with no existing linked prompts
+    logged_model = LoggedModel(
+        experiment_id="exp_123",
+        model_id=model_id,
+        name="test_model",
+        artifact_location="/path/to/model",
+        creation_timestamp=1234567890,
+        last_updated_timestamp=1234567890,
+        tags={},
+    )
+    mock_tracking_store.get_logged_model.return_value = logged_model
+
+    # Execute
+    store.link_prompt_version_to_model("test_prompt", "v1", model_id)
+
+    # Verify
+    mock_tracking_store.set_logged_model_tags.assert_called_once()
+    call_args = mock_tracking_store.set_logged_model_tags.call_args
+    assert call_args[0][0] == model_id
+
+    logged_model_tags = call_args[0][1]
+    assert len(logged_model_tags) == 1
+    logged_model_tag = logged_model_tags[0]
+    assert isinstance(logged_model_tag, LoggedModelTag)
+    assert logged_model_tag.key == LINKED_PROMPTS_TAG_KEY
+
+    expected_value = [{"name": "test_prompt", "version": 1}]
+    assert json.loads(logged_model_tag.value) == expected_value
+
+
+def test_link_prompt_version_to_model_append_to_existing(store, mock_tracking_store):
+    """Test linking prompt version when other prompts are already linked."""
+    # Setup
+    store.add_prompt_version("test_prompt", "v1")
+    model_id = "model_123"
+
+    existing_prompts = [{"name": "existing_prompt", "version": "v1"}]
+    logged_model = LoggedModel(
+        experiment_id="exp_123",
+        model_id=model_id,
+        name="test_model",
+        artifact_location="/path/to/model",
+        creation_timestamp=1234567890,
+        last_updated_timestamp=1234567890,
+        tags={LINKED_PROMPTS_TAG_KEY: json.dumps(existing_prompts)},
+    )
+    mock_tracking_store.get_logged_model.return_value = logged_model
+
+    # Execute
+    store.link_prompt_version_to_model("test_prompt", "v1", model_id)
+
+    # Verify
+    call_args = mock_tracking_store.set_logged_model_tags.call_args
+    logged_model_tags = call_args[0][1]
+    assert len(logged_model_tags) == 1
+    logged_model_tag = logged_model_tags[0]
+
+    expected_value = [
+        {"name": "existing_prompt", "version": "v1"},
+        {"name": "test_prompt", "version": 1},
+    ]
+    assert json.loads(logged_model_tag.value) == expected_value
+
+
+def test_link_prompt_version_to_model_no_model_found(store, mock_tracking_store):
+    """Test error when model is not found."""
+    # Setup
+    store.add_prompt_version("test_prompt", "v1")
+    mock_tracking_store.get_logged_model.return_value = None
+
+    # Execute & Verify
+    with pytest.raises(MlflowException, match="Could not find model with ID 'nonexistent_model'"):
+        store.link_prompt_version_to_model("test_prompt", "v1", "nonexistent_model")
+
+
+def test_link_prompt_version_to_model_prompt_not_found(store, mock_tracking_store):
+    """Test error when prompt version is not found."""
+    # Setup
+    model_id = "model_123"
+    logged_model = LoggedModel(
+        experiment_id="exp_123",
+        model_id=model_id,
+        name="test_model",
+        artifact_location="/path/to/model",
+        creation_timestamp=1234567890,
+        last_updated_timestamp=1234567890,
+        tags={},
+    )
+    mock_tracking_store.get_logged_model.return_value = logged_model
+
+    # Execute & Verify
+    with pytest.raises(
+        MlflowException, match="Prompt version 'nonexistent_prompt' version 'v1' not found"
+    ):
+        store.link_prompt_version_to_model("nonexistent_prompt", "v1", model_id)
+
+
+def test_link_prompt_version_to_model_invalid_json_tag(store, mock_tracking_store):
+    """Test error when existing linked prompts tag has invalid JSON."""
+    # Setup
+    store.add_prompt_version("test_prompt", "v1")
+    model_id = "model_123"
+
+    logged_model = LoggedModel(
+        experiment_id="exp_123",
+        model_id=model_id,
+        name="test_model",
+        artifact_location="/path/to/model",
+        creation_timestamp=1234567890,
+        last_updated_timestamp=1234567890,
+        tags={LINKED_PROMPTS_TAG_KEY: "invalid json"},
+    )
+    mock_tracking_store.get_logged_model.return_value = logged_model
+
+    # Execute & Verify
+    with pytest.raises(MlflowException, match="Invalid JSON format for 'mlflow.linkedPrompts' tag"):
         store.link_prompt_version_to_model("test_prompt", "v1", model_id)
 
-        # Verify
-        mock_tracking_store.set_logged_model_tag.assert_called_once()
-        call_args = mock_tracking_store.set_logged_model_tag.call_args
-        assert call_args[0][0] == model_id
 
-        logged_model_tag = call_args[0][1]
-        assert isinstance(logged_model_tag, LoggedModelTag)
-        assert logged_model_tag.key == LINKED_PROMPTS_TAG_KEY
+def test_link_prompt_version_to_model_invalid_format_tag(store, mock_tracking_store):
+    """Test error when existing linked prompts tag has invalid format (not a list)."""
+    # Setup
+    store.add_prompt_version("test_prompt", "v1")
+    model_id = "model_123"
 
-        expected_value = [{"name": "test_prompt", "version": 1}]
-        assert json.loads(logged_model_tag.value) == expected_value
+    logged_model = LoggedModel(
+        experiment_id="exp_123",
+        model_id=model_id,
+        name="test_model",
+        artifact_location="/path/to/model",
+        creation_timestamp=1234567890,
+        last_updated_timestamp=1234567890,
+        tags={LINKED_PROMPTS_TAG_KEY: json.dumps({"not": "a list"})},
+    )
+    mock_tracking_store.get_logged_model.return_value = logged_model
 
-    def test_link_prompt_version_to_model_append_to_existing(self, store, mock_tracking_store):
-        """Test linking prompt version when other prompts are already linked."""
-        # Setup
-        store.add_prompt_version("test_prompt", "v1")
-        model_id = "model_123"
-
-        existing_prompts = [{"name": "existing_prompt", "version": "v1"}]
-        logged_model = LoggedModel(
-            experiment_id="exp_123",
-            model_id=model_id,
-            name="test_model",
-            artifact_location="/path/to/model",
-            creation_timestamp=1234567890,
-            last_updated_timestamp=1234567890,
-            tags={LINKED_PROMPTS_TAG_KEY: json.dumps(existing_prompts)},
-        )
-        mock_tracking_store.get_logged_model.return_value = logged_model
-
-        # Execute
+    # Execute & Verify
+    with pytest.raises(MlflowException, match="Invalid format for 'mlflow.linkedPrompts' tag"):
         store.link_prompt_version_to_model("test_prompt", "v1", model_id)
 
-        # Verify
-        call_args = mock_tracking_store.set_logged_model_tag.call_args
-        logged_model_tag = call_args[0][1]
 
-        expected_value = [
-            {"name": "existing_prompt", "version": "v1"},
-            {"name": "test_prompt", "version": 1},
-        ]
-        assert json.loads(logged_model_tag.value) == expected_value
+def test_link_prompt_version_to_model_duplicate_prevention(store, mock_tracking_store):
+    """Test that linking the same prompt version twice doesn't create duplicates."""
+    # Setup
+    store.add_prompt_version("test_prompt", "v1")
+    model_id = "model_123"
 
-    def test_link_prompt_version_to_model_no_model_found(self, store, mock_tracking_store):
-        """Test error when model is not found."""
-        # Setup
-        store.add_prompt_version("test_prompt", "v1")
-        mock_tracking_store.get_logged_model.return_value = None
+    # Create a logged model that will be updated by the mocked set_logged_model_tags
+    logged_model = LoggedModel(
+        experiment_id="exp_123",
+        model_id=model_id,
+        name="test_model",
+        artifact_location="/path/to/model",
+        creation_timestamp=1234567890,
+        last_updated_timestamp=1234567890,
+        tags={},
+    )
 
-        # Execute & Verify
-        with pytest.raises(MlflowException) as exc_info:
-            store.link_prompt_version_to_model("test_prompt", "v1", "nonexistent_model")
+    # Mock the behavior where set_logged_model_tags updates the model's tags
+    def mock_set_tags(model_id, tags):
+        for tag in tags:
+            logged_model.tags[tag.key] = tag.value
 
-        assert "Could not find model with ID 'nonexistent_model'" in str(exc_info.value)
-        assert exc_info.value.error_code == "INTERNAL_ERROR"
+    mock_tracking_store.get_logged_model.return_value = logged_model
+    mock_tracking_store.set_logged_model_tags.side_effect = mock_set_tags
 
-    def test_link_prompt_version_to_model_prompt_not_found(self, store, mock_tracking_store):
-        """Test error when prompt version is not found."""
-        # Setup
-        model_id = "model_123"
-        logged_model = LoggedModel(
-            experiment_id="exp_123",
-            model_id=model_id,
-            name="test_model",
-            artifact_location="/path/to/model",
-            creation_timestamp=1234567890,
-            last_updated_timestamp=1234567890,
-            tags={},
-        )
-        mock_tracking_store.get_logged_model.return_value = logged_model
+    # Execute - link the same prompt twice
+    store.link_prompt_version_to_model("test_prompt", "v1", model_id)
+    store.link_prompt_version_to_model("test_prompt", "v1", model_id)  # Should be idempotent
 
-        # Execute & Verify
-        with pytest.raises(MlflowException) as exc_info:
-            store.link_prompt_version_to_model("nonexistent_prompt", "v1", model_id)
+    # Verify set_logged_model_tags was called only once (second call should return early)
+    assert mock_tracking_store.set_logged_model_tags.call_count == 1
 
-        assert "Prompt version 'nonexistent_prompt' version 'v1' not found" in str(exc_info.value)
+    # Verify the tag contains only one entry
+    tag_value = logged_model.tags[LINKED_PROMPTS_TAG_KEY]
+    parsed_value = json.loads(tag_value)
 
-    def test_link_prompt_version_to_model_invalid_json_tag(self, store, mock_tracking_store):
-        """Test error when existing linked prompts tag has invalid JSON."""
-        # Setup
-        store.add_prompt_version("test_prompt", "v1")
-        model_id = "model_123"
+    expected_value = [{"name": "test_prompt", "version": 1}]
+    assert parsed_value == expected_value
 
-        logged_model = LoggedModel(
-            experiment_id="exp_123",
-            model_id=model_id,
-            name="test_model",
-            artifact_location="/path/to/model",
-            creation_timestamp=1234567890,
-            last_updated_timestamp=1234567890,
-            tags={LINKED_PROMPTS_TAG_KEY: "invalid json"},
-        )
-        mock_tracking_store.get_logged_model.return_value = logged_model
 
-        # Execute & Verify
-        with pytest.raises(MlflowException) as exc_info:
-            store.link_prompt_version_to_model("test_prompt", "v1", model_id)
+def test_link_prompt_version_to_model_thread_safety(store, mock_tracking_store):
+    """Test thread safety of linking prompt versions to models."""
+    # Setup
+    store.add_prompt_version("test_prompt_1", "v1")
+    store.add_prompt_version("test_prompt_2", "v1")
+    model_id = "model_123"
 
-        assert "Invalid JSON format for 'mlflow.linkedPrompts' tag" in str(exc_info.value)
+    # Create a shared logged model that will be updated
+    logged_model = LoggedModel(
+        experiment_id="exp_123",
+        model_id=model_id,
+        name="test_model",
+        artifact_location="/path/to/model",
+        creation_timestamp=1234567890,
+        last_updated_timestamp=1234567890,
+        tags={},
+    )
 
-    def test_link_prompt_version_to_model_invalid_format_tag(self, store, mock_tracking_store):
-        """Test error when existing linked prompts tag has invalid format (not a list)."""
-        # Setup
-        store.add_prompt_version("test_prompt", "v1")
-        model_id = "model_123"
+    # Mock behavior to simulate updating the model's tags
+    def mock_set_tags(model_id, tags):
+        # Simulate concurrent access with small delay
+        time.sleep(0.01)
+        for tag in tags:
+            logged_model.tags[tag.key] = tag.value
 
-        logged_model = LoggedModel(
-            experiment_id="exp_123",
-            model_id=model_id,
-            name="test_model",
-            artifact_location="/path/to/model",
-            creation_timestamp=1234567890,
-            last_updated_timestamp=1234567890,
-            tags={LINKED_PROMPTS_TAG_KEY: json.dumps({"not": "a list"})},
-        )
-        mock_tracking_store.get_logged_model.return_value = logged_model
+    mock_tracking_store.get_logged_model.return_value = logged_model
+    mock_tracking_store.set_logged_model_tags.side_effect = mock_set_tags
 
-        # Execute & Verify
-        with pytest.raises(MlflowException) as exc_info:
-            store.link_prompt_version_to_model("test_prompt", "v1", model_id)
+    # Define thread worker function
+    def link_prompt(prompt_name):
+        try:
+            store.link_prompt_version_to_model(prompt_name, "v1", model_id)
+        except Exception as e:
+            # Store any exceptions for later verification
+            exceptions.append(e)
 
-        assert "Invalid format for 'mlflow.linkedPrompts' tag" in str(exc_info.value)
+    # Track exceptions from threads
+    exceptions = []
+
+    # Create and start threads
+    threads = []
+    for i in range(2):
+        thread = threading.Thread(target=link_prompt, args=[f"test_prompt_{i + 1}"])
+        threads.append(thread)
+        thread.start()
+
+    # Wait for all threads to complete
+    for thread in threads:
+        thread.join()
+
+    # Verify no exceptions occurred
+    assert len(exceptions) == 0, f"Thread exceptions: {exceptions}"
+
+    # Verify final state contains both prompts (order may vary due to threading)
+    final_tag_value = json.loads(logged_model.tags[LINKED_PROMPTS_TAG_KEY])
+
+    expected_prompts = [
+        {"name": "test_prompt_1", "version": 1},
+        {"name": "test_prompt_2", "version": 1},
+    ]
+    assert len(final_tag_value) == 2
+    for expected_prompt in expected_prompts:
+        assert expected_prompt in final_tag_value

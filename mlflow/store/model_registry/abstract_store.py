@@ -1,5 +1,6 @@
 import json
 import logging
+import threading
 from abc import ABCMeta, abstractmethod
 from time import sleep, time
 from typing import Optional, Union
@@ -43,6 +44,10 @@ class AbstractStore:
                 to support subsequently uploading them to the model registry storage
                 location.
         """
+        # Create a thread lock to ensure thread safety when linking prompts to models,
+        # since the default linking implementation reads and appends model tags, which
+        # is prone to concurrent modification issues
+        self._prompt_link_lock = threading.RLock()
 
     # CRUD API for RegisteredModel objects
 
@@ -781,37 +786,53 @@ class AbstractStore:
 
         prompt_version = self.get_prompt_version(name, version)
         tracking_store = _get_tracking_store()
-        logged_model = tracking_store.get_logged_model()
-        if not logged_model:
-            raise MlflowException(
-                f"Could not find model with ID '{model_id}' to which to link prompt '{name}'.",
-                error_code=ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
-            )
-        prompts_tag_value = logged_model.tags.get(LINKED_PROMPTS_TAG_KEY)
-        if prompts_tag_value is not None:
-            try:
-                parsed_prompts_tag_value = json.loads(prompts_tag_value)
-                if not isinstance(parsed_prompts_tag_value, list):
-                    raise MlflowException(
-                        f"Invalid format for '{LINKED_PROMPTS_TAG_KEY}' tag: {prompts_tag_value}"
-                    )
-            except json.JSONDecodeError:
-                raise MlflowException(
-                    f"Invalid JSON format for '{LINKED_PROMPTS_TAG_KEY}' tag: {prompts_tag_value}"
-                )
-        else:
-            parsed_prompts_tag_value = []
 
-        parsed_prompts_tag_value.append(
-            {
+        with self._prompt_link_lock:
+            logged_model = tracking_store.get_logged_model(model_id)
+            if not logged_model:
+                raise MlflowException(
+                    f"Could not find model with ID '{model_id}' to which to link prompt '{name}'.",
+                    error_code=ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
+                )
+
+            prompts_tag_value = logged_model.tags.get(LINKED_PROMPTS_TAG_KEY)
+            if prompts_tag_value is not None:
+                try:
+                    parsed_prompts_tag_value = json.loads(prompts_tag_value)
+                    if not isinstance(parsed_prompts_tag_value, list):
+                        raise MlflowException(
+                            f"Invalid format for '{LINKED_PROMPTS_TAG_KEY}' tag:"
+                            f" {prompts_tag_value}"
+                        )
+                except json.JSONDecodeError:
+                    raise MlflowException(
+                        f"Invalid JSON format for '{LINKED_PROMPTS_TAG_KEY}' tag:"
+                        f" {prompts_tag_value}"
+                    )
+            else:
+                parsed_prompts_tag_value = []
+
+            # Create new prompt entry
+            new_prompt_entry = {
                 "name": prompt_version.name,
                 "version": prompt_version.version,
             }
-        )
-        tracking_store.set_logged_model_tag(
-            model_id,
-            LoggedModelTag(
-                key=LINKED_PROMPTS_TAG_KEY,
-                value=json.dumps(parsed_prompts_tag_value),
-            ),
-        )
+
+            # Check if this exact prompt version is already linked
+            if new_prompt_entry in parsed_prompts_tag_value:
+                # Already linked, no need to do anything
+                return
+
+            # Add the new prompt entry
+            parsed_prompts_tag_value.append(new_prompt_entry)
+
+            # Update the tag
+            tracking_store.set_logged_model_tags(
+                model_id,
+                [
+                    LoggedModelTag(
+                        key=LINKED_PROMPTS_TAG_KEY,
+                        value=json.dumps(parsed_prompts_tag_value),
+                    )
+                ],
+            )
