@@ -552,6 +552,10 @@ const sidebarsGenAI: SidebarsConfig = {
             },
             {
               type: 'doc',
+              id: 'prompt-version-mgmt/prompt-registry/log-with-model',
+            },
+            {
+              type: 'doc',
               id: 'prompt-version-mgmt/prompt-registry/use-prompts-in-deployed-apps',
             },
           ],
