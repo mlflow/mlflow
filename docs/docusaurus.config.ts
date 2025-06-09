@@ -256,10 +256,14 @@ const config: Config = {
       "@docusaurus/plugin-client-redirects",
       {
         redirects: [
+          {
+            to: "/",
+            from: ["/new-features"],
+          },
           // GenAI/LLM Related Redirects
           {
             to: "/genai/tracing",
-            from: ["/llms/llm-tracking", "/tracing", "/llms/tracing"],
+            from: ["/llms/llm-tracking", "/tracing", "/llms/tracing", "/tracing/api/how-to"],
           },
           {
             to: "/genai/tracing/faq",
@@ -287,7 +291,7 @@ const config: Config = {
           },
           {
             to: "/genai/tracing/app-instrumentation/manual-tracing",
-            from: ["/tracing/api/how-to", "/tracing/api/manual-instrumentation"],
+            from: ["/tracing/api/manual-instrumentation"],
           },
           {
             to: "/genai/tracing/app-instrumentation",
@@ -401,7 +405,11 @@ const config: Config = {
           },
           {
             to: "/genai/flavors/chat-model-guide",
-            from: ["/llms/chat-model-guide", "/llms/notebooks/chat-model-tool-calling"],
+            from: ["/llms/chat-model-guide"],
+          },
+          {
+            to: "/genai/flavors/chat-model-guide/chat-model-tool-calling",
+            from: ["/llms/notebooks/chat-model-tool-calling"],
           },
           {
             to: "/genai/flavors/chat-model-intro",
@@ -778,7 +786,7 @@ const config: Config = {
           },
           {
             to: "/ml/mlflow-3",
-            from: ["/mlflow-3", "/new-features"],
+            from: ["/mlflow-3"],
           },
           {
             to: "/ml/mlflow-3/deep-learning",
@@ -850,7 +858,7 @@ const config: Config = {
           },
           {
             to: "/ml/tracking/quickstart",
-            from: ["/getting-started/intro-quickstart", "/quickstart_drilldown"],
+            from: ["/getting-started/intro-quickstart", "/getting-started/intro-quickstart/notebooks", "/quickstart_drilldown"],
           },
           {
             to: "/ml/tracking/quickstart/notebooks/tracking_quickstart",

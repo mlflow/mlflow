@@ -708,9 +708,19 @@ const sidebarsGenAI: SidebarsConfig = {
           label: 'Intro to ChatModel',
         },
         {
-          type: 'doc',
-          id: 'flavors/chat-model-guide/index',
+          type: 'category',
           label: 'Building with ChatModel',
+          items: [
+            {
+              type: 'doc',
+              id: 'flavors/chat-model-guide/chat-model-tool-calling-ipynb',
+              label: "ChatModel Tool Calling Example",
+            }
+          ],
+          link: {
+            type: 'doc',
+            id: 'flavors/chat-model-guide/index',
+          }
         },
         {
           type: 'doc',
