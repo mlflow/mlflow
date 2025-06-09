@@ -8,7 +8,6 @@ from mlflow.entities.assessment import (
     AssessmentSource,
     AssessmentSourceType,
     Feedback,
-    FeedbackValue,
 )
 from mlflow.genai import judges
 from mlflow.genai.judges.databricks import _sanitize_feedback
@@ -41,8 +40,8 @@ def create_test_feedback(value: str, error: Optional[str] = None) -> Feedback:
         source=AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE, source_id="databricks"),
         rationale="Test rationale",
         metadata={},
-        value=FeedbackValue(value=value, error=error),
-        valid=True,
+        value=value,
+        error=error,
     )
 
 
@@ -70,7 +69,8 @@ def test_sanitize_feedback_unknown():
 def test_sanitize_feedback_error():
     feedback = create_test_feedback(None, error=AssessmentError(error_code="test_error"))
     result = _sanitize_feedback(feedback)
-    assert result.value == FeedbackValue(value=None, error=AssessmentError(error_code="test_error"))
+    assert result.value is None
+    assert result.error == AssessmentError(error_code="test_error")
 
 
 def test_meets_guidelines_happy_path():
