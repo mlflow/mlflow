@@ -682,4 +682,4 @@ class ModelRegistryClient:
             version: The version of the prompt.
             model_id: The ID of the model to link the prompt version to.
         """
-        return self.store.link_prompt_version_to_model(name, version, model_id)
+        return self.store.link_prompt_version_to_model(name, str(version), model_id)
