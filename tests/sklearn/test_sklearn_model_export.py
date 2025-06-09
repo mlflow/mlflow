@@ -679,6 +679,9 @@ def test_pyfunc_serve_and_score(sklearn_knn_model):
     np.testing.assert_array_almost_equal(scores, model.predict(inference_dataframe))
 
 
+@pytest.mark.skipif(
+    Version(sklearn.__version__) >= Version("1.7.0"), reason="Requires python >= 3.10"
+)
 def test_sklearn_compatible_with_mlflow_2_4_0(sklearn_knn_model, tmp_path):
     model, inference_dataframe = sklearn_knn_model
     model_predict = model.predict(inference_dataframe)
