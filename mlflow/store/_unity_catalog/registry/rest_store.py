@@ -89,6 +89,7 @@ from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
     GetPromptVersionByAliasRequest,
     GetPromptVersionRequest,
     LinkPromptsToTracesRequest,
+    LinkPromptVersionsToModelsRequest,
     PromptVersionLinkEntry,
     SearchPromptsRequest,
     SearchPromptsResponse,
@@ -409,6 +410,7 @@ class UcModelRegistryStore(BaseRestStore):
             SetPromptVersionTagRequest: google.protobuf.empty_pb2.Empty,
             DeletePromptVersionTagRequest: google.protobuf.empty_pb2.Empty,
             UpdatePromptVersionRequest: ProtoPromptVersion,
+            LinkPromptVersionsToModelsRequest: google.protobuf.empty_pb2.Empty,
             LinkPromptsToTracesRequest: google.protobuf.empty_pb2.Empty,
         }
         return method_to_response[method]()
@@ -1537,6 +1539,42 @@ class UcModelRegistryStore(BaseRestStore):
             ):
                 return None
             raise
+
+    def link_prompt_version_to_model(self, name: str, version: str, model_id: str) -> None:
+        """
+        Link a prompt version to a model in Unity Catalog.
+
+        Args:
+            name: Name of the prompt.
+            version: Version of the prompt to link.
+            model_id: ID of the model to link to.
+        """
+        # Call the default implementation, since the LinkPromptVersionsToModels API
+        # will initially be a no-op until the Databricks backend supports it
+        super().link_prompt_version_to_model(name=name, version=version, model_id=model_id)
+
+        prompt_version_entry = PromptVersionLinkEntry(name=name, version=version)
+        req_body = message_to_json(
+            LinkPromptVersionsToModelsRequest(
+                prompt_versions=[prompt_version_entry], model_ids=[model_id]
+            )
+        )
+        endpoint, method = self._get_endpoint_from_method(LinkPromptVersionsToModelsRequest)
+        try:
+            # NB: This will not raise an exception if the backend does not support linking.
+            # We do this to prioritize reduction in errors and log spam while the prompt
+            # registry remains experimental
+            self._edit_endpoint_and_call(
+                endpoint=endpoint,
+                method=method,
+                req_body=req_body,
+                name=name,
+                version=version,
+                model_id=model_id,
+                proto_name=LinkPromptVersionsToModelsRequest,
+            )
+        except Exception:
+            _logger.debug("Failed to link prompt version to model in unity catalog", exc_info=True)
 
     def link_prompts_to_trace(self, prompt_versions: list[PromptVersion], trace_id: str) -> None:
         """

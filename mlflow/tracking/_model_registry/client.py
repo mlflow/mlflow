@@ -5,7 +5,7 @@ exposed in the :py:mod:`mlflow.tracking` module.
 """
 
 import logging
-from typing import Optional
+from typing import Optional, Union
 
 from mlflow.entities.model_registry import (
     ModelVersionTag,
@@ -691,6 +691,19 @@ class ModelRegistryClient:
             MlflowException: If used with non-Unity Catalog registries.
         """
         return self.store.search_prompt_versions(name, max_results, page_token)
+
+    def link_prompt_version_to_model(
+        self, name: str, version: Union[int, str], model_id: str
+    ) -> None:
+        """
+        Link a prompt version to a model.
+
+        Args:
+            name: The name of the prompt.
+            version: The version of the prompt.
+            model_id: The ID of the model to link the prompt version to.
+        """
+        return self.store.link_prompt_version_to_model(name, str(version), model_id)
 
     def link_prompts_to_trace(self, prompt_versions: list[PromptVersion], trace_id: str) -> None:
         """

@@ -2210,8 +2210,6 @@ def test_link_prompt_version_to_model_smoke_test(tracking_uri):
             name="test_prompt", version="1", model_id=model.model_id
         )
 
-        # If we get here without an exception, the smoke test passed
-
 
 def test_link_prompts_to_trace_smoke_test(tracking_uri):
     """Smoke test for linking prompt versions to a trace - just verify the method can be called."""

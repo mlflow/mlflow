@@ -226,6 +226,17 @@ service UnityCatalogPromptService {
     };
   }
 
+  rpc LinkPromptVersionsToModels (LinkPromptVersionsToModelsRequest) returns (google.protobuf.Empty) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/unity-catalog/prompt-versions/links-to-models"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "(Unity Catalog) Link Prompt Versions to Models",
+    };
+  }
 
   rpc LinkPromptsToTraces (LinkPromptsToTracesRequest) returns (google.protobuf.Empty) {
     option (rpc) = {

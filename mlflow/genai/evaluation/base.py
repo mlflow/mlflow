@@ -13,10 +13,19 @@ from mlflow.genai.evaluation.utils import (
 from mlflow.genai.scorers import Scorer
 from mlflow.genai.scorers.builtin_scorers import GENAI_CONFIG_NAME, BuiltInScorer
 from mlflow.genai.scorers.validation import valid_data_for_builtin_scorers, validate_scorers
-from mlflow.genai.utils.trace_utils import clean_up_extra_traces, convert_predict_fn
+from mlflow.genai.utils.trace_utils import (
+    clean_up_extra_traces,
+    convert_predict_fn,
+    copy_model_serving_trace_to_eval_run,
+)
 from mlflow.models.evaluation.base import (
     EvaluationResult,
     _is_model_deployment_endpoint_uri,
+)
+from mlflow.tracing.constant import (
+    DATABRICKS_OPTIONS_KEY,
+    DATABRICKS_OUTPUT_KEY,
+    RETURN_TRACE_OPTION_KEY,
 )
 from mlflow.utils.annotations import experimental
 from mlflow.utils.uri import is_databricks_uri
@@ -349,19 +358,47 @@ def to_predict_fn(endpoint_uri: str) -> Callable:
 
     client = get_deploy_client("databricks")
     _, endpoint = _parse_model_uri(endpoint_uri)
+    endpoint_info = client.get_endpoint(endpoint)
+
+    # Databricks Foundation Model API does not allow passing "databricks_options" in the payload,
+    # so we need to handle this case separately.
+    is_fmapi = False
+    if isinstance(endpoint_info, dict):
+        is_fmapi = endpoint_info.get("endpoint_type") == "FOUNDATION_MODEL_API"
 
     # NB: Wrap the function to show better docstring and change signature to `model_inputs`
     #   to unnamed keyword arguments. This is necessary because we pass input samples as
     #   keyword arguments to the predict function.
     def predict_fn(**kwargs):
-        # NB: Manually set inputs and outputs rather than using @mlflow.trace decorator,
-        #   because we want to record keyword arguments with names rather than **kwargs.
-        with mlflow.start_span(name="predict") as span:
-            span.set_inputs(kwargs)
-            span.set_attribute("endpoint", endpoint_uri)
-            result = client.predict(endpoint=endpoint, inputs=kwargs)
-            span.set_outputs(result)
-            return result
+        start_time_ms = int(time.time_ns() / 1e6)
+        # Inject `{"databricks_options": {"return_trace": True}}` to the input payload
+        # to return the trace in the response.
+        databricks_options = {DATABRICKS_OPTIONS_KEY: {RETURN_TRACE_OPTION_KEY: True}}
+        payload = kwargs if is_fmapi else {**kwargs, **databricks_options}
+        result = client.predict(endpoint=endpoint, inputs=payload)
+        end_time_ms = int(time.time_ns() / 1e6)
+
+        # If the endpoint returns a trace, copy it to the current experiment.
+        if trace_dict := result.pop(DATABRICKS_OUTPUT_KEY, {}).get("trace"):
+            try:
+                copy_model_serving_trace_to_eval_run(trace_dict)
+                return result
+            except Exception:
+                logger.debug(
+                    "Failed to copy trace from the endpoint response to the current experiment. "
+                    "Trace will only have a root span with request and response.",
+                    exc_info=True,
+                )
+
+        # If the endpoint doesn't return a trace, manually create a trace with request/response.
+        mlflow.log_trace(
+            name="predict",
+            request=kwargs,
+            response=result,
+            start_time_ms=start_time_ms,
+            execution_time_ms=end_time_ms - start_time_ms,
+        )
+        return result
 
     predict_fn.__doc__ = f"""
 A wrapper function for invoking the model serving endpoint `{endpoint_uri}`.
@@ -369,6 +406,6 @@ A wrapper function for invoking the model serving endpoint `{endpoint_uri}`.
 Args:
     **kwargs: The input samples to be passed to the model serving endpoint.
         For example, if the endpoint accepts a JSON object with a `messages` key,
-        the input sample should be a dictionary with a `messages` key.
+        the function also expects to get `messages` as an argument.
     """
     return predict_fn
