@@ -18,6 +18,7 @@ from mlflow.data.delta_dataset_source import DeltaDatasetSource
 from mlflow.data.pandas_dataset import PandasDataset
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.entities.model_registry.prompt import Prompt
+from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.entities.run import Run
 from mlflow.entities.run_data import RunData
 from mlflow.entities.run_info import RunInfo
@@ -67,7 +68,6 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
 )
 from mlflow.protos.databricks_uc_registry_messages_pb2 import ModelVersion as ProtoModelVersion
 from mlflow.protos.service_pb2 import GetRun
-from mlflow.store._unity_catalog.registry.prompt_info import PromptInfo
 from mlflow.store._unity_catalog.registry.rest_store import (
     _DATABRICKS_LINEAGE_ID_HEADER,
     _DATABRICKS_ORG_ID_HEADER,
@@ -2109,10 +2109,10 @@ def test_create_prompt_uc(mock_http, store, monkeypatch):
     name = "prompt1"
     description = "A test prompt"
     tags = {"foo": "bar"}
-    # Patch proto_info_to_mlflow_prompt_info to return a dummy PromptInfo
+    # Patch proto_info_to_mlflow_prompt_info to return a dummy Prompt
     with mock.patch(
         "mlflow.store._unity_catalog.registry.rest_store.proto_info_to_mlflow_prompt_info",
-        return_value=PromptInfo(name, description, tags=tags),
+        return_value=Prompt(name=name, description=description, tags=tags),
     ) as proto_to_prompt:
         store.create_prompt(name=name, description=description, tags=tags)
         # Check that the endpoint was called correctly
@@ -2122,10 +2122,10 @@ def test_create_prompt_uc(mock_http, store, monkeypatch):
 
 @mock_http_200
 def test_search_prompts_uc(mock_http, store, monkeypatch):
-    # Patch proto_info_to_mlflow_prompt_info to return a dummy PromptInfo
+    # Patch proto_info_to_mlflow_prompt_info to return a dummy Prompt
     with mock.patch(
         "mlflow.store._unity_catalog.registry.rest_store.proto_info_to_mlflow_prompt_info",
-        return_value=PromptInfo("prompt1", "test prompt"),
+        return_value=Prompt(name="prompt1", description="test prompt"),
     ) as proto_to_prompt:
         store.search_prompts(filter_string="catalog = 'test_catalog' AND schema = 'test_schema'")
         # Should call the correct endpoint for SearchPromptsRequest
@@ -2161,8 +2161,8 @@ def test_search_prompts_with_results_uc(store, monkeypatch):
 
     # Expected conversion results
     expected_prompts = [
-        PromptInfo("test_prompt_1", "First test prompt", tags={"env": "dev"}),
-        PromptInfo("test_prompt_2", "Second test prompt", tags={}),
+        Prompt(name="test_prompt_1", description="First test prompt", tags={"env": "dev"}),
+        Prompt(name="test_prompt_2", description="Second test prompt", tags={}),
     ]
 
     with (
@@ -2222,10 +2222,12 @@ def test_create_prompt_version_uc(mock_http, store, monkeypatch):
     template = "Hello {name}!"
     description = "A greeting prompt"
     tags = {"env": "test"}
-    # Patch proto_to_mlflow_prompt to return a dummy Prompt
+    # Patch proto_to_mlflow_prompt to return a dummy PromptVersion
     with mock.patch(
         "mlflow.store._unity_catalog.registry.rest_store.proto_to_mlflow_prompt",
-        return_value=Prompt(name, 1, template, commit_message=description, prompt_tags=tags),
+        return_value=PromptVersion(
+            name=name, version=1, template=template, commit_message=description, prompt_tags=tags
+        ),
     ) as proto_to_prompt:
         store.create_prompt_version(
             name=name, template=template, description=description, tags=tags
@@ -2241,16 +2243,15 @@ def test_create_prompt_version_uc(mock_http, store, monkeypatch):
 @mock_http_200
 def test_get_prompt_uc(mock_http, store, monkeypatch):
     name = "prompt1"
-    version = "1"
-    # Patch proto_to_mlflow_prompt to return a dummy Prompt
+    # Patch proto_info_to_mlflow_prompt_info to return a dummy Prompt
     with mock.patch(
-        "mlflow.store._unity_catalog.registry.rest_store.proto_to_mlflow_prompt",
-        return_value=Prompt(name, 1, "Hello {name}!"),
+        "mlflow.store._unity_catalog.registry.rest_store.proto_info_to_mlflow_prompt_info",
+        return_value=Prompt(name=name, description="test prompt", tags={}),
     ) as proto_to_prompt:
-        store.get_prompt(name=name, version=version)
-        # Should call the correct endpoint for GetPromptVersionRequest
+        store.get_prompt(name=name)
+        # Should call the correct endpoint for GetPromptRequest
         assert any(
-            "/prompts/" in c[1]["endpoint"] and "/versions/" in c[1]["endpoint"]
+            "/prompts/" in c[1]["endpoint"] and "/versions/" not in c[1]["endpoint"]
             for c in mock_http.call_args_list
         )
         proto_to_prompt.assert_called()
@@ -2260,10 +2261,10 @@ def test_get_prompt_uc(mock_http, store, monkeypatch):
 def test_get_prompt_version_uc(mock_http, store, monkeypatch):
     name = "prompt1"
     version = "1"
-    # Patch proto_to_mlflow_prompt to return a dummy Prompt
+    # Patch proto_to_mlflow_prompt to return a dummy PromptVersion
     with mock.patch(
         "mlflow.store._unity_catalog.registry.rest_store.proto_to_mlflow_prompt",
-        return_value=Prompt(name, 1, "Hello {name}!"),
+        return_value=PromptVersion(name=name, version=1, template="Hello {name}!"),
     ) as proto_to_prompt:
         store.get_prompt_version(name=name, version=version)
         # Should call the correct endpoint for GetPromptVersionRequest
@@ -2290,10 +2291,10 @@ def test_delete_prompt_version_uc(mock_http, store, monkeypatch):
 def test_get_prompt_version_by_alias_uc(mock_http, store, monkeypatch):
     name = "prompt1"
     alias = "latest"
-    # Patch proto_to_mlflow_prompt to return a dummy Prompt
+    # Patch proto_to_mlflow_prompt to return a dummy PromptVersion
     with mock.patch(
         "mlflow.store._unity_catalog.registry.rest_store.proto_to_mlflow_prompt",
-        return_value=Prompt(name, 1, "Hello {name}!"),
+        return_value=PromptVersion(name=name, version=1, template="Hello {name}!"),
     ) as proto_to_prompt:
         store.get_prompt_version_by_alias(name=name, alias=alias)
         # Should call the correct endpoint for GetPromptVersionByAliasRequest
