@@ -161,7 +161,7 @@ class RunsArtifactRepository(ArtifactRepository):
             # At least one part of the path must be present (e.g. "runs:/<run_id>/<name>")
             return []
         [model_name, *rest] = rel_path.split("/", 1)
-        rel_path = rest[0] if rest else "."
+        rel_path = rest[0] if rest else ""
         if repo := self._get_logged_model_artifact_repo(run_id=run_id, name=model_name):
             artifacts = repo.list_artifacts(path=rel_path)
             return [
@@ -212,7 +212,7 @@ class RunsArtifactRepository(ArtifactRepository):
             # At least one part of the path must be present (e.g. "runs:/<run_id>/<name>")
             return None
         [model_name, *rest] = rel_path.split("/", 1)
-        rel_path = rest[0] if rest else "."
+        rel_path = rest[0] if rest else ""
         if repo := self._get_logged_model_artifact_repo(run_id=run_id, name=model_name):
             dst = os.path.join(dst_path, model_name)
             os.makedirs(dst, exist_ok=True)
