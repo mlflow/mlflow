@@ -121,20 +121,13 @@ def list_artifacts(
         artifact_path=artifact_path,
         tracking_uri=tracking_uri,
     )
-    if (
-        run_artifacts
-        # Other URI types such as `s3` can't be resolved to a logged model.
-        or (artifact_uri and not urllib.parse.urlparse(artifact_uri).scheme == "runs")
-        or (artifact_path and _is_not_logged_model_name(artifact_path))
-    ):
-        return run_artifacts
-
-    return _list_model_artifacts(
+    model_artifacts = _list_model_artifacts(
         runs_uri=artifact_uri,
         run_id=run_id,
         artifact_path=artifact_path,
         tracking_uri=tracking_uri,
     )
+    return run_artifacts + model_artifacts
 
 
 def _list_run_artifacts(
@@ -199,6 +192,8 @@ def _list_model_artifacts(
         run_id, artifact_path = splits
         if _is_not_logged_model_name(artifact_path):
             return []
+    elif run_id is None or artifact_path is None or _is_not_logged_model_name(artifact_path):
+        return []
 
     store = _get_store(store_uri=tracking_uri)
     experiment_id = store.get_run(run_id).info.experiment_id

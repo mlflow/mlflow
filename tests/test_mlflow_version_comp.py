@@ -29,9 +29,9 @@ def check(run_id: str, tmp_path: Path) -> None:
     mlflow.pyfunc.load_model(f"models:/{mv.name}/{mv.version}")
     # List artifacts
     client = mlflow.MlflowClient()
-    assert len(client.list_artifacts(run_id=run_id, path="model")) == 6
-    assert len(mlflow.artifacts.list_artifacts(artifact_uri=model_uri)) == 6
-    assert len(mlflow.artifacts.list_artifacts(run_id=run_id, artifact_path="model")) == 6
+    assert len(client.list_artifacts(run_id=run_id, path="model")) == 7
+    assert len(mlflow.artifacts.list_artifacts(artifact_uri=model_uri)) == 7
+    assert len(mlflow.artifacts.list_artifacts(run_id=run_id, artifact_path="model")) == 7
     # Non-existing artifact path should return an empty list
     assert len(client.list_artifacts(run_id=run_id, path="unknown")) == 0
     assert len(mlflow.artifacts.list_artifacts(run_id=run_id, artifact_path="unknown")) == 0
@@ -110,6 +110,7 @@ assert mlflow.__version__.startswith("2."), mlflow.__version__
 
 fitted_model= LinearRegression().fit([[1, 2]], [3])
 with mlflow.start_run() as run:
+    mlflow.log_text("test", "model/test.txt")
     model_info = mlflow.sklearn.log_model(fitted_model, artifact_path="model")
     assert model_info.model_uri.startswith("runs:/")
     out = sys.argv[1]
@@ -132,6 +133,7 @@ def test_mlflow_3_x_comp(tmp_path: Path) -> None:
 
     fitted_model = LinearRegression().fit([[1, 2]], [3])
     with mlflow.start_run() as run:
+        mlflow.log_text("test", "model/test.txt")
         mlflow.sklearn.log_model(fitted_model, name="model")
 
     check(run_id=run.info.run_id, tmp_path=tmp_path)
