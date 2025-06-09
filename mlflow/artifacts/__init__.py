@@ -130,7 +130,7 @@ def list_artifacts(
         return run_artifacts
 
     return _list_model_artifacts(
-        artifact_uri=artifact_uri,
+        runs_uri=artifact_uri,
         run_id=run_id,
         artifact_path=artifact_path,
         tracking_uri=tracking_uri,
