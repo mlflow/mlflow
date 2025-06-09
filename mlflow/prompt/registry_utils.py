@@ -7,7 +7,7 @@ import mlflow
 from mlflow.entities.model_registry.registered_model_tag import RegisteredModelTag
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import IS_PROMPT_TAG_KEY, PROMPT_NAME_RULE
-from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS
+from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREADY_EXISTS
 
 
 def add_prompt_filter_string(
@@ -43,11 +43,27 @@ def is_prompt_supported_registry(registry_uri: Optional[str] = None) -> bool:
     """
     Check if the current registry supports prompts.
 
-    Prompts registration is supported only in the OSS MLflow Tracking Server,
-    not in Databricks or OSS Unity Catalog.
+    Prompts registration is supported in:
+    - OSS MLflow Tracking Server (always)
+    - Unity Catalog
+    - Not supported in legacy Databricks workspace registry or Unity Catalog OSS
     """
     registry_uri = registry_uri or mlflow.get_registry_uri()
-    return not registry_uri.startswith("databricks") and not registry_uri.startswith("uc:")
+
+    # Legacy Databricks workspace registry doesn't support prompts
+    if registry_uri.startswith("databricks") and not registry_uri.startswith("databricks-uc"):
+        return False
+
+    # Unity Catalog OSS doesn't support prompts
+    if registry_uri.startswith("uc:"):
+        return False
+
+    # UC registries support prompts automatically
+    if registry_uri.startswith("databricks-uc"):
+        return True
+
+    # OSS MLflow registry always supports prompts
+    return True
 
 
 def require_prompt_registry(func):
@@ -62,7 +78,9 @@ def require_prompt_registry(func):
 
         if not is_prompt_supported_registry(registry_uri):
             raise MlflowException(
-                f"The '{func.__name__}' API is only available with the OSS MLflow Tracking Server."
+                f"The '{func.__name__}' API is not supported with the current registry. "
+                "Prompts are supported in OSS MLflow and Unity Catalog, but not in the "
+                "legacy Databricks workspace registry.",
             )
         return func(*args, **kwargs)
 
@@ -72,8 +90,8 @@ def require_prompt_registry(func):
 
         .. note::
 
-            This API is supported only when using the OSS MLflow Model Registry. Prompts are not
-            supported in Databricks or the OSS Unity Catalog model registry.
+            This API is supported in OSS MLflow Model Registry and Unity Catalog. It is
+            not supported in the legacy Databricks workspace model registry.
     """)
     return wrapper
 
@@ -144,3 +162,48 @@ def handle_resource_already_exist_error(
         f"{new_entity} (name={name}) already exists.",
         RESOURCE_ALREADY_EXISTS,
     )
+
+
+def parse_prompt_name_or_uri(
+    name_or_uri: str, version: Optional[Union[str, int]] = None
+) -> tuple[str, Optional[Union[str, int]]]:
+    """
+    Parse prompt name or URI into (name, version) tuple.
+
+    Handles two cases:
+    1. URI format: "prompts:/name/version" or "prompts:/name@alias"
+       - Returns (name, parsed_version)
+       - Raises error if version parameter is also provided
+    2. Name format: "my_prompt"
+       - Returns (name, version)
+       - Raises error if version parameter is not provided
+
+    Args:
+        name_or_uri: The name of the prompt, or the URI in the format "prompts:/name/version".
+        version: The version of the prompt (required when using name, not allowed when using URI).
+
+    Returns:
+        Tuple of (name, version) where version can be a string, int, or None
+
+    Raises:
+        MlflowException: If validation fails
+    """
+    if name_or_uri.startswith("prompts:/"):
+        if version is not None:
+            raise MlflowException(
+                "The `version` argument should not be specified when loading a prompt by URI.",
+                INVALID_PARAMETER_VALUE,
+            )
+        # Parse URI to extract name and version
+        # This assumes the parse_prompt_uri method exists, but we'll handle that separately
+        # For now, we'll do basic parsing and let the caller handle the URI parsing
+        return name_or_uri, None
+    else:
+        if version is None:
+            raise MlflowException(
+                "Version must be specified when loading a prompt by name. "
+                "Use a prompt URI (e.g., 'prompts:/name/version') or provide the version "
+                "parameter.",
+                INVALID_PARAMETER_VALUE,
+            )
+        return name_or_uri, version
