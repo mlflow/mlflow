@@ -47,8 +47,8 @@ class AbstractStore:
                 to support subsequently uploading them to the model registry storage
                 location.
         """
-        # Create a thread lock to ensure thread safety when linking prompts to models,
-        # since the default linking implementation reads and appends model tags, which
+        # Create a thread lock to ensure thread safety when linking prompts to other entities,
+        # since the default linking implementation reads and appends entity tags, which
         # is prone to concurrent modification issues
         self._prompt_link_lock = threading.RLock()
 
