@@ -4,6 +4,7 @@ import urllib.parse
 from typing import Optional
 
 import mlflow
+from mlflow.entities.file_info import FileInfo
 from mlflow.exceptions import MlflowException
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import create_tmp_dir
@@ -116,7 +117,28 @@ class RunsArtifactRepository(ArtifactRepository):
         Returns:
             List of artifacts as FileInfo listed directly under path.
         """
+        return self._list_run_artifacts(path) + self._list_model_artifacts(path)
+
+    def _list_run_artifacts(self, path: str) -> list[FileInfo]:
         return self.repo.list_artifacts(path)
+
+    def _list_model_artifacts(self, path: str) -> list[FileInfo]:
+        full_path = f"{self.artifact_uri}/{path}"
+        run_id, rel_path = RunsArtifactRepository.parse_runs_uri(full_path)
+        [model_name, *rest] = rel_path.split("/", 1)
+        rel_path = rest[0] if rest else ""
+        if repo := self._get_logged_model_artifact_repos(run_id=run_id, name=model_name):
+            artifacts = repo.list_artifacts(path=rel_path)
+            return [
+                FileInfo(
+                    path=f"{model_name}/{artifact.path}",
+                    is_dir=artifact.is_dir,
+                    file_size=artifact.file_size,
+                )
+                for artifact in artifacts
+            ]
+
+        return []
 
     def download_artifacts(self, artifact_path, dst_path=None):
         """
