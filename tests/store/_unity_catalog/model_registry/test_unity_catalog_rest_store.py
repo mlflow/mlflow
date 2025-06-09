@@ -2405,34 +2405,38 @@ def test_get_prompt_version_by_alias_uc(mock_http, store, monkeypatch):
         proto_to_prompt.assert_called()
 
 
-@mock.patch.object(UcModelRegistryStore, "_edit_endpoint_and_call")
-@mock.patch.object(UcModelRegistryStore, "_get_endpoint_from_method")
-@mock.patch("mlflow.store.model_registry.abstract_store.AbstractStore.link_prompt_version_to_model")
-def test_link_prompt_version_to_model_success(
-    mock_super_call, mock_get_endpoint, mock_edit_call, store
-):
+def test_link_prompt_version_to_model_success(store):
     """Test successful Unity Catalog linking with API call."""
 
-    # Setup
-    mock_get_endpoint.return_value = (
-        "/api/2.0/mlflow/unity-catalog/prompts/link-to-model",
-        "POST",
-    )
+    with (
+        mock.patch.object(store, "_edit_endpoint_and_call") as mock_edit_call,
+        mock.patch.object(store, "_get_endpoint_from_method") as mock_get_endpoint,
+        mock.patch(
+            "mlflow.store.model_registry.abstract_store.AbstractStore.link_prompt_version_to_model"
+        ) as mock_super_call,
+    ):
+        # Setup
+        mock_get_endpoint.return_value = (
+            "/api/2.0/mlflow/unity-catalog/prompts/link-to-model",
+            "POST",
+        )
 
-    # Execute
-    store.link_prompt_version_to_model("test_prompt", "1", "model_123")
+        # Execute
+        store.link_prompt_version_to_model("test_prompt", "1", "model_123")
 
-    # Verify parent method was called
-    mock_super_call.assert_called_once_with(name="test_prompt", version="1", model_id="model_123")
+        # Verify parent method was called
+        mock_super_call.assert_called_once_with(
+            name="test_prompt", version="1", model_id="model_123"
+        )
 
-    # Verify API call was made
-    mock_edit_call.assert_called_once()
-    call_args = mock_edit_call.call_args
+        # Verify API call was made
+        mock_edit_call.assert_called_once()
+        call_args = mock_edit_call.call_args
 
-    assert call_args[1]["name"] == "test_prompt"
-    assert call_args[1]["version"] == "1"
-    assert call_args[1]["model_id"] == "model_123"
-    assert call_args[1]["proto_name"] == LinkPromptVersionsToModelsRequest
+        assert call_args[1]["name"] == "test_prompt"
+        assert call_args[1]["version"] == "1"
+        assert call_args[1]["model_id"] == "model_123"
+        assert call_args[1]["proto_name"] == LinkPromptVersionsToModelsRequest
 
 
 @mock.patch("mlflow.tracking._get_store")
@@ -2488,30 +2492,35 @@ def test_link_prompt_version_to_model_sets_tag(mock_get_tracking_store, store):
         assert json.loads(logged_model_tag.value) == expected_value
 
 
-@mock.patch.object(UcModelRegistryStore, "_edit_endpoint_and_call")
-@mock.patch.object(UcModelRegistryStore, "_get_endpoint_from_method")
-@mock.patch("mlflow.store.model_registry.abstract_store.AbstractStore.link_prompts_to_trace")
-def test_link_prompts_to_trace_success(mock_super_call, mock_get_endpoint, mock_edit_call, store):
+def test_link_prompts_to_trace_success(store):
     """Test successful Unity Catalog linking prompts to a trace with API call."""
-    # Setup
-    mock_get_endpoint.return_value = (
-        "/api/2.0/mlflow/unity-catalog/prompt-versions/links-to-traces",
-        "POST",
-    )
 
-    prompt_versions = [
-        PromptVersion(name="test_prompt", version=1, template="test", creation_timestamp=123)
-    ]
-    trace_id = "trace_123"
+    with (
+        mock.patch.object(store, "_edit_endpoint_and_call") as mock_edit_call,
+        mock.patch.object(store, "_get_endpoint_from_method") as mock_get_endpoint,
+        mock.patch(
+            "mlflow.store.model_registry.abstract_store.AbstractStore.link_prompts_to_trace"
+        ) as mock_super_call,
+    ):
+        # Setup
+        mock_get_endpoint.return_value = (
+            "/api/2.0/mlflow/unity-catalog/prompt-versions/links-to-traces",
+            "POST",
+        )
 
-    # Execute
-    store.link_prompts_to_trace(prompt_versions, trace_id)
+        prompt_versions = [
+            PromptVersion(name="test_prompt", version=1, template="test", creation_timestamp=123)
+        ]
+        trace_id = "trace_123"
 
-    # Verify parent method was called
-    mock_super_call.assert_called_once_with(prompt_versions=prompt_versions, trace_id=trace_id)
+        # Execute
+        store.link_prompts_to_trace(prompt_versions, trace_id)
 
-    # Verify API call was made
-    mock_edit_call.assert_called_once()
-    call_args = mock_edit_call.call_args
+        # Verify parent method was called
+        mock_super_call.assert_called_once_with(prompt_versions=prompt_versions, trace_id=trace_id)
 
-    assert call_args[1]["proto_name"] == LinkPromptsToTracesRequest
+        # Verify API call was made
+        mock_edit_call.assert_called_once()
+        call_args = mock_edit_call.call_args
+
+        assert call_args[1]["proto_name"] == LinkPromptsToTracesRequest

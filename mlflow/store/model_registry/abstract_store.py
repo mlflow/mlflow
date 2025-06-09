@@ -3,7 +3,7 @@ import logging
 import threading
 from abc import ABCMeta, abstractmethod
 from time import sleep, time
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
@@ -894,7 +894,7 @@ class AbstractStore:
                 )
 
     def _update_linked_prompts_tag(
-        self, current_tag_value: str, new_prompt_entries: list[dict]
+        self, current_tag_value: str, new_prompt_entries: list[dict[str, Any]]
     ) -> str:
         """
         Utility method to update linked prompts tag value with new entries.
