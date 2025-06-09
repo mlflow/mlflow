@@ -192,11 +192,11 @@ def _list_model_artifacts(
     """
     if runs_uri:
         # Assuming `runs_uri` is in the format `runs:/<run_id>/<artifact_path>`.
-        splits = urllib.parse.urlparse(runs_uri).path.strip("/").split("/", 2)
-        if len(splits) != 3:
+        splits = urllib.parse.urlparse(runs_uri).path.strip("/").split("/", 1)
+        if len(splits) != 2:
             return []
 
-        _scheme, run_id, artifact_path = splits
+        run_id, artifact_path = splits
         if _run_artifact_path_corresponds_to_logged_model(artifact_path):
             return []
 
