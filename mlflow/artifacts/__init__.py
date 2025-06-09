@@ -102,9 +102,9 @@ def download_artifacts(
         raise
 
 
-def _run_artifact_path_corresponds_to_logged_model(artifact_path: str) -> bool:
+def _is_not_logged_model_name(artifact_path: str) -> bool:
     """
-    Does the given artifact path correspond to a logged model name?
+    Checks if the artifact path does not represent a logged model name.
     """
     return "/" in artifact_path
 
@@ -125,7 +125,7 @@ def list_artifacts(
         run_artifacts
         # Other URI types such as `s3` can't be resolved to a logged model.
         or (artifact_uri and not urllib.parse.urlparse(artifact_uri).scheme == "runs")
-        or (artifact_path and _run_artifact_path_corresponds_to_logged_model(artifact_path))
+        or (artifact_path and _is_not_logged_model_name(artifact_path))
     ):
         return run_artifacts
 
@@ -197,7 +197,7 @@ def _list_model_artifacts(
             return []
 
         run_id, artifact_path = splits
-        if _run_artifact_path_corresponds_to_logged_model(artifact_path):
+        if _is_not_logged_model_name(artifact_path):
             return []
 
     store = _get_store(store_uri=tracking_uri)
