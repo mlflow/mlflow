@@ -613,14 +613,29 @@ const config: Config = {
           },
           {
             to: "/ml/deep-learning/sentence-transformers",
+            from: ["/llms/sentence-transformers"],
+          },
+          {
+            to: "/ml/deep-learning/sentence-transformers/tutorials/",
+            from: ["/llms/sentence-transformers/tutorials"],
+          },
+          {
+            to: "/ml/deep-learning/sentence-transformers/tutorials/paraphrase-mining/paraphrase-mining-sentence-transformers",
             from: [
-              "/llms/sentence-transformers",
-              "/llms/sentence-transformers/tutorials",
-              "/llms/sentence-transformers/tutorials/paraphrase-mining/paraphrase-mining-sentence-transformers",
-              "/llms/sentence-transformers/tutorials/quickstart/sentence-transformers-quickstart",
-              "/llms/sentence-transformers/tutorials/semantic-search/semantic-search-sentence-transformers",
-              "/llms/sentence-transformers/tutorials/semantic-similarity/semantic-similarity-sentence-transformers"
+              "/llms/sentence-transformers/tutorials/paraphrase-mining/paraphrase-mining-sentence-transformers"
             ],
+          },
+          {
+            to: "/ml/deep-learning/sentence-transformers/tutorials/quickstart/sentence-transformers-quickstart",
+            from: ["/llms/sentence-transformers/tutorials/quickstart/sentence-transformers-quickstart"],
+          },
+          {
+            to: "/ml/deep-learning/sentence-transformers/tutorials/semantic-search/semantic-search-sentence-transformers",
+            from: ["/llms/sentence-transformers/tutorials/semantic-search/semantic-search-sentence-transformers"],
+          },
+          {
+            to: "/ml/deep-learning/sentence-transformers/tutorials/semantic-similarity/semantic-similarity-sentence-transformers",
+            from: ["/llms/sentence-transformers/tutorials/semantic-similarity/semantic-similarity-sentence-transformers"],
           },
           {
             to: "/ml/deep-learning/sentence-transformers/guide",
