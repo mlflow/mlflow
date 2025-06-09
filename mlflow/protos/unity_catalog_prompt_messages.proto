@@ -240,3 +240,19 @@ message DeletePromptVersionTagRequest {
   // Name (key) of the tag
   optional string key = 3;
 }
+
+// PromptVersionLinkEntry for linking prompts to runs
+message PromptVersionLinkEntry {
+  // Name of the prompt
+  optional string name = 1;
+  // Version of the prompt
+  optional string version = 2;
+}
+
+// Link prompt versions to runs request
+message LinkPromptVersionsToRunsRequest {
+  // Prompt version entries to link
+  repeated PromptVersionLinkEntry prompt_versions = 1;
+  // Run IDs to link the prompt versions to
+  repeated string run_ids = 2;
+}

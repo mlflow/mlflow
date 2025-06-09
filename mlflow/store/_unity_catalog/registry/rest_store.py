@@ -88,6 +88,8 @@ from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
     GetPromptRequest,
     GetPromptVersionByAliasRequest,
     GetPromptVersionRequest,
+    LinkPromptVersionsToRunsRequest,
+    PromptVersionLinkEntry,
     SearchPromptsRequest,
     SearchPromptsResponse,
     SearchPromptVersionsRequest,
@@ -407,6 +409,7 @@ class UcModelRegistryStore(BaseRestStore):
             SetPromptVersionTagRequest: google.protobuf.empty_pb2.Empty,
             DeletePromptVersionTagRequest: google.protobuf.empty_pb2.Empty,
             UpdatePromptVersionRequest: ProtoPromptVersion,
+            LinkPromptVersionsToRunsRequest: google.protobuf.empty_pb2.Empty,
         }
         return method_to_response[method]()
 
@@ -1559,3 +1562,33 @@ class UcModelRegistryStore(BaseRestStore):
             json_body=req_body,
             response_proto=self._get_response_from_method(proto_name),
         )
+
+    def link_prompts_to_run(self, prompt_versions: list[PromptVersion], run_id: str) -> None:
+        """
+        Link prompt versions to a run in Unity Catalog.
+
+        Args:
+            prompt_versions: List of PromptVersion objects to link
+            run_id: Run ID to link the prompt versions to
+
+        Returns:
+            None
+        """
+        # Convert PromptVersion objects to PromptVersionLinkEntry objects
+        prompt_version_entries = []
+        for prompt_version in prompt_versions:
+            entry = PromptVersionLinkEntry(
+                name=prompt_version.name,
+                version=str(prompt_version.version),
+            )
+            prompt_version_entries.append(entry)
+
+        # Build the request body - note: API is singular (run_id) but protobuf is plural (run_ids)
+        req_body = message_to_json(
+            LinkPromptVersionsToRunsRequest(
+                prompt_versions=prompt_version_entries, run_ids=[run_id]
+            )
+        )
+
+        # Make the API call
+        self._call_endpoint(LinkPromptVersionsToRunsRequest, req_body)

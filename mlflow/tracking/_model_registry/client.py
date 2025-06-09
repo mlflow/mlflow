@@ -691,3 +691,19 @@ class ModelRegistryClient:
             MlflowException: If used with non-Unity Catalog registries.
         """
         return self.store.search_prompt_versions(name, max_results, page_token)
+
+    def link_prompts_to_run(self, prompt_versions: list[PromptVersion], run_id: str) -> None:
+        """
+        Link prompt versions to a run.
+
+        This method delegates directly to the store, providing full Unity Catalog support
+        when used with Unity Catalog registries.
+
+        Args:
+            prompt_versions: List of PromptVersion objects to link.
+            run_id: Run ID to link the prompt versions to.
+
+        Returns:
+            None
+        """
+        self.store.link_prompts_to_run(prompt_versions, run_id)

@@ -1,5 +1,7 @@
+import json
 import logging
 from abc import ABCMeta, abstractmethod
+from threading import RLock
 from time import sleep, time
 from typing import Optional, Union
 
@@ -18,6 +20,14 @@ from mlflow.utils.logging_utils import eprint
 _logger = logging.getLogger(__name__)
 
 AWAIT_MODEL_VERSION_CREATE_SLEEP_INTERVAL_SECONDS = 3
+
+# Tag key for linking prompts to runs
+LINKED_PROMPTS_TAG_KEY = "mlflow.linkedPrompts"
+
+# Create a thread lock to ensure thread safety when linking prompts
+# since the default linking implementation reads and appends tags, which
+# is prone to concurrent modification issues
+_PROMPT_LINK_LOCK = RLock()
 
 
 @developer_stable
@@ -830,3 +840,44 @@ class AbstractStore:
             "This method is only available in Unity Catalog registries.",
             INVALID_PARAMETER_VALUE,
         )
+
+    def link_prompts_to_run(self, prompt_versions: list[PromptVersion], run_id: str) -> None:
+        """
+        Link prompt versions to a run.
+
+        Args:
+            prompt_versions: List of PromptVersion objects to link
+            run_id: Run ID to link the prompt versions to
+
+        Returns:
+            None
+        """
+        # Import here to avoid circular imports
+        from mlflow.tracking import MlflowClient
+
+        tracking_client = MlflowClient()
+
+        with _PROMPT_LINK_LOCK:
+            # Get current run info to fetch existing tags
+            run = tracking_client.get_run(run_id)
+            existing_linked_prompts = run.data.tags.get(LINKED_PROMPTS_TAG_KEY, "[]")
+
+            try:
+                linked_prompts = json.loads(existing_linked_prompts)
+            except (json.JSONDecodeError, TypeError):
+                linked_prompts = []
+
+            # Add new prompt version entries
+            for prompt_version in prompt_versions:
+                new_prompt_entry = {
+                    "name": prompt_version.name,
+                    "version": str(prompt_version.version),
+                }
+
+                # Check if this exact prompt version is already linked
+                if new_prompt_entry not in linked_prompts:
+                    linked_prompts.append(new_prompt_entry)
+
+            # Update the run tag with the new linked prompts
+            updated_tag_value = json.dumps(linked_prompts)
+            tracking_client.set_tag(run_id, LINKED_PROMPTS_TAG_KEY, updated_tag_value)

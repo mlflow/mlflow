@@ -5845,3 +5845,35 @@ class MlflowClient:
 
         # For non-Unity Catalog registries, or if version check passes, delete the prompt
         return registry_client.delete_prompt(name)
+
+    @experimental
+    def link_prompts_to_run(self, prompt_versions: list[PromptVersion], run_id: str) -> None:
+        """
+        Link prompt versions to a run.
+
+        This method creates a link between prompt versions and a run by storing
+        the prompt information in the run's tags. The linked prompts are stored
+        as a JSON array in the run tag "mlflow.linkedPrompts".
+
+        Args:
+            prompt_versions: List of PromptVersion objects to link to the run.
+            run_id: ID of the run to link the prompt versions to.
+
+        Example:
+
+        .. code-block:: python
+
+            import mlflow
+            from mlflow import MlflowClient
+
+            client = MlflowClient()
+
+            # Get some prompt versions
+            prompt_v1 = client.get_prompt_version("my_prompt", "1")
+            prompt_v2 = client.get_prompt_version("my_prompt", "2")
+
+            # Link them to a run
+            client.link_prompts_to_run(prompt_versions=[prompt_v1, prompt_v2], run_id="12345")
+        """
+        registry_client = self._get_registry_client()
+        return registry_client.link_prompts_to_run(prompt_versions, run_id)
