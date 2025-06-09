@@ -1778,13 +1778,19 @@ def test_create_prompt_with_tags_and_metadata(tracking_uri):
         version_metadata={"author": "Alice"},
     )
 
-    prompt = client.load_prompt("prompt_1", version=1)
-    assert prompt.template == "Hi, {{name}}!"
-    assert prompt.tags == {
+    # Test version 1
+    prompt_v1 = client.load_prompt("prompt_1", version=1)
+    assert prompt_v1.template == "Hi, {{name}}!"
+    # In decoupled architecture, prompt.tags returns version tags (version_metadata)
+    assert prompt_v1.tags == {"author": "Alice"}
+    assert prompt_v1.version_metadata == {"author": "Alice"}
+    
+    # Test prompt-level tags (separate from version)
+    prompt_entity = client.get_prompt("prompt_1")
+    assert prompt_entity.tags == {
         "application": "greeting",
         "language": "en",
     }
-    assert prompt.version_metadata == {"author": "Alice"}
 
     client.register_prompt(
         name="prompt_1",
@@ -1798,22 +1804,24 @@ def test_create_prompt_with_tags_and_metadata(tracking_uri):
         version_metadata={"author": "Bob", "date": "2022-01-01"},
     )
 
-    prompt = client.load_prompt("prompt_1", version=2)
-    assert prompt.template == "こんにちは、{{name}}!"
-    assert prompt.tags == {
-        "application": "greeting",
-        "project": "toy",
-        "language": "ja",
-    }
-    assert prompt.version_metadata == {"author": "Bob", "date": "2022-01-01"}
+    # Test version 2
+    prompt_v2 = client.load_prompt("prompt_1", version=2)
+    assert prompt_v2.template == "こんにちは、{{name}}!"
+    # Version 2 has its own version tags (decoupled from prompt and version 1)
+    assert prompt_v2.tags == {"author": "Bob", "date": "2022-01-01"}
+    assert prompt_v2.version_metadata == {"author": "Bob", "date": "2022-01-01"}
 
-    # Prompt level tags for version 1 should also be updated
-    prompt = client.load_prompt("prompt_1", version=1)
-    assert prompt.tags == {
+    # Verify prompt-level tags are updated and separate
+    prompt_entity_updated = client.get_prompt("prompt_1")
+    assert prompt_entity_updated.tags == {
         "application": "greeting",
-        "project": "toy",
+        "project": "toy", 
         "language": "ja",
     }
+
+    # Version 1 tags should be unchanged (decoupled from prompt tags)
+    prompt_v1_after_update = client.load_prompt("prompt_1", version=1)
+    assert prompt_v1_after_update.tags == {"author": "Alice"}  # Unchanged
 
 
 def test_create_prompt_error_handling(tracking_uri):

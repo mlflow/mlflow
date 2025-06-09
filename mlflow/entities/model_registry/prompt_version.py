@@ -38,8 +38,8 @@ class PromptVersion(ModelVersion):
         version_metadata: A dictionary of metadata associated with the **prompt version**.
             This is useful for storing version-specific information, such as the author of
             the changes. Optional.
-        prompt_tags: A dictionary of tags associated with the entire prompt. This is different
-            from the `version_metadata` as it is not tied to a specific version of the prompt.
+        prompt_tags: Deprecated parameter, no longer used. Version tags are accessed via the
+            `tags` property instead.
     """
 
     def __init__(
@@ -116,16 +116,16 @@ class PromptVersion(ModelVersion):
 
     @property
     def version_metadata(self) -> dict[str, str]:
-        """Return the tags of the prompt as a dictionary."""
+        """Return the version metadata as a dictionary. This is the same as the tags property."""
         # Remove the prompt text tag as it should not be user-facing
         return {key: value for key, value in self._tags.items() if not _is_reserved_tag(key)}
 
     @property
     def tags(self) -> dict[str, str]:
         """
-        Return the prompt-level tags (from RegisteredModel).
+        Return the version-level tags.
         """
-        return {key: value for key, value in self._prompt_tags.items() if not _is_reserved_tag(key)}
+        return {key: value for key, value in self._tags.items() if not _is_reserved_tag(key)}
 
     @property
     def run_ids(self) -> list[str]:

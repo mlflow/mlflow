@@ -856,6 +856,41 @@ class AbstractStore:
             INVALID_PARAMETER_VALUE,
         )
 
+    def set_prompt_version_tag(self, name: str, version: Union[str, int], key: str, value: str) -> None:
+        """
+        Set a tag on a prompt version.
+
+        Default implementation: raises NotImplementedError (Unity Catalog only).
+        Unity Catalog store implementations may override this method.
+
+        Args:
+            name: Name of the prompt.
+            version: Version number of the prompt.
+            key: Tag key.
+            value: Tag value.
+        """
+        raise NotImplementedError(
+            "Setting prompt version tags is only supported in Unity Catalog backends. "
+            "For OSS deployments, use set_model_version_tag with appropriate prompt tags."
+        )
+
+    def delete_prompt_version_tag(self, name: str, version: Union[str, int], key: str) -> None:
+        """
+        Delete a tag from a prompt version.
+
+        Default implementation: raises NotImplementedError (Unity Catalog only).
+        Unity Catalog store implementations may override this method.
+
+        Args:
+            name: Name of the prompt.
+            version: Version number of the prompt.
+            key: Tag key to delete.
+        """
+        raise NotImplementedError(
+            "Deleting prompt version tags is only supported in Unity Catalog backends. "
+            "For OSS deployments, use delete_model_version_tag with appropriate prompt tags."
+        )
+
     def link_prompt_version_to_model(self, name: str, version: str, model_id: str) -> None:
         """
         Link a prompt version to a model.

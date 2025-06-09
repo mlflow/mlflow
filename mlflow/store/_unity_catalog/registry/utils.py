@@ -64,7 +64,6 @@ def proto_info_to_mlflow_prompt_info(
 
 def proto_to_mlflow_prompt(
     proto_version,  # PromptVersion type from protobuf
-    prompt_tags: Optional[dict[str, str]] = None,
 ) -> PromptVersion:
     """Convert proto PromptVersion to MLflow prompt entity.
 
@@ -92,7 +91,7 @@ def proto_to_mlflow_prompt(
         commit_message=proto_version.description,
         creation_timestamp=proto_version.creation_timestamp,
         version_metadata=version_tags,
-        prompt_tags=prompt_tags,
+        prompt_tags=None,  # No longer inherit prompt tags
         aliases=aliases,
     )
 
