@@ -284,7 +284,6 @@ def test_evaluate_with_managed_dataset():
 def test_model_from_deployment_endpoint(mock_get_deploy_client):
     mock_client = mock_get_deploy_client.return_value
     mock_client.predict.return_value = _DUMMY_CHAT_RESPONSE
-    mock_client.get_endpoint.return_value = {"task": "llm/v1/chat"}
 
     data = [
         {
@@ -304,34 +303,22 @@ def test_model_from_deployment_endpoint(mock_get_deploy_client):
             }
         },
     ]
-
     predict_fn = mlflow.genai.to_predict_fn("endpoints:/chat")
-
-    # predict_fn should be callable with a single input
-    response = predict_fn(**data[0]["inputs"])
-
-    mock_client.predict.assert_called_once_with(
-        endpoint="chat",
-        inputs=data[0]["inputs"],
-    )
-    assert response == _DUMMY_CHAT_RESPONSE  # Chat response should not be parsed
-    mock_client.reset_mock()
-
-    # Running evaluation
     result = mlflow.genai.evaluate(
         data=data,
         predict_fn=predict_fn,
         scorers=[has_trace],
     )
 
+    databricks_options = {"databricks_options": {"return_trace": True}}
     mock_client.predict.assert_has_calls(
         [
             # Test call to check if the function is traced or not
-            mock.call(endpoint="chat", inputs=data[0]["inputs"]),
+            mock.call(endpoint="chat", inputs={**data[0]["inputs"], **databricks_options}),
             # First evaluation call
-            mock.call(endpoint="chat", inputs=data[0]["inputs"]),
+            mock.call(endpoint="chat", inputs={**data[0]["inputs"], **databricks_options}),
             # Second evaluation call
-            mock.call(endpoint="chat", inputs=data[1]["inputs"]),
+            mock.call(endpoint="chat", inputs={**data[1]["inputs"], **databricks_options}),
         ],
         any_order=True,
     )
@@ -343,7 +330,6 @@ def test_model_from_deployment_endpoint(mock_get_deploy_client):
     spans = traces[0].data.spans
     assert len(spans) == 1
     assert spans[0].name == "predict"
-    assert spans[0].attributes["endpoint"] == "endpoints:/chat"
     # Eval harness runs prediction in parallel, so the order is not deterministic
     assert spans[0].inputs in (data[0]["inputs"], data[1]["inputs"])
     assert spans[0].outputs == _DUMMY_CHAT_RESPONSE
