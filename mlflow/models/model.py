@@ -897,7 +897,7 @@ class Model:
                 run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
             if prompts is not None:
                 # Convert to URIs for serialization
-                prompts = [pr.uri if isinstance(pr, Prompt) else pr for pr in prompts]
+                prompts = [pr.uri if isinstance(pr, PromptVersion) else pr for pr in prompts]
             mlflow_model = cls(
                 artifact_path=artifact_path,
                 run_id=run_id,
