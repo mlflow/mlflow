@@ -53,6 +53,19 @@ class AbstractStore:
         # is prone to concurrent modification issues
         self._prompt_link_lock = threading.RLock()
 
+    def __getstate__(self):
+        """Support for pickle serialization by excluding the non-picklable RLock."""
+        state = self.__dict__.copy()
+        # Remove the RLock as it cannot be pickled
+        del state["_prompt_link_lock"]
+        return state
+
+    def __setstate__(self, state):
+        """Support for pickle deserialization by recreating the RLock."""
+        self.__dict__.update(state)
+        # Recreate the RLock
+        self._prompt_link_lock = threading.RLock()
+
     # CRUD API for RegisteredModel objects
 
     @abstractmethod
