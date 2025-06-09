@@ -223,3 +223,89 @@ class PromptVersion(ModelVersion):
             prompt_tags=prompt_tags,
             aliases=model_version.aliases,
         )
+
+    # Override model-specific properties that don't make sense for prompts
+    @property
+    def run_id(self):
+        """MLflow run that generated the model - not applicable to prompts."""
+        raise AttributeError(
+            "PromptVersion does not have 'run_id'. Prompts are not tied to specific MLflow runs. "
+            "Use 'run_ids' property for associated runs."
+        )
+
+    @property
+    def run_link(self):
+        """Link to the MLflow run - not applicable to prompts."""
+        raise AttributeError(
+            "PromptVersion does not have 'run_link'. Prompts are not tied to specific MLflow runs."
+        )
+
+    @property
+    def model_id(self):
+        """ID linking to logged model - not applicable to prompts."""
+        raise AttributeError(
+            "PromptVersion does not have 'model_id'. Prompts are separate from models."
+        )
+
+    @property
+    def params(self):
+        """Model parameters - not applicable to prompts."""
+        raise AttributeError(
+            "PromptVersion does not have 'params'. Prompts do not have model parameters."
+        )
+
+    @property
+    def metrics(self):
+        """Model metrics - not applicable to prompts."""
+        raise AttributeError(
+            "PromptVersion does not have 'metrics'. Prompts do not have model metrics."
+        )
+
+    @property
+    def deployment_job_state(self):
+        """Deployment job information - not applicable to prompts."""
+        raise AttributeError(
+            "PromptVersion does not have 'deployment_job_state'. Prompts are not deployed like models."
+        )
+
+    @property
+    def last_updated_timestamp(self):
+        """Timestamp of last update - inherited but not relevant for prompts."""
+        raise AttributeError(
+            "PromptVersion does not have 'last_updated_timestamp'. Use 'creation_timestamp' instead."
+        )
+
+    @property
+    def current_stage(self):
+        """Model staging information - not applicable to prompts."""
+        raise AttributeError(
+            "PromptVersion does not have 'current_stage'. Prompts do not use staging concepts like models."
+        )
+
+    @property
+    def source(self):
+        """Model artifact source path - not applicable to prompts."""
+        raise AttributeError(
+            "PromptVersion does not have 'source'. Prompts do not have artifact source paths."
+        )
+
+    @property
+    def status(self):
+        """Model deployment status - not applicable to prompts."""
+        raise AttributeError(
+            "PromptVersion does not have 'status'. Prompts do not have deployment status."
+        )
+
+    @property
+    def status_message(self):
+        """Model deployment status message - not applicable to prompts."""
+        raise AttributeError(
+            "PromptVersion does not have 'status_message'. Prompts do not have deployment status."
+        )
+
+    @property
+    def user_id(self):
+        """User who created the model - not applicable to prompts."""
+        raise AttributeError(
+            "PromptVersion does not have 'user_id'. User information is not tracked for prompts."
+        )
