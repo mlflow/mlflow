@@ -544,7 +544,7 @@ const config: Config = {
             from: ["/prompts/evaluate"],
           },
           {
-            to: "/genai/prompt-version-mgmt/prompt-registry/use-prompts-in-apps",
+            to: "/genai/prompt-version-mgmt/prompt-registry/log-with-model",
             from: ["/prompts/run-and-model"],
           },
 
