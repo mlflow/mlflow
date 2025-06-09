@@ -230,15 +230,14 @@ def copy_model_serving_trace_to_eval_run(trace_dict: dict[str, Any]):
             span=old_span,
             parent_span_id=old_span.parent_id,
             trace_id=new_trace_id,
+            # Don't close the root span until the end so that we only export the trace
+            # after all spans are copied.
+            end_trace=old_span.parent_id is not None,
         )
         InMemoryTraceManager.get_instance().register_span(new_span)
         if old_span.parent_id is None:
             new_root_span = new_span
             new_trace_id = new_span.trace_id
-        else:
-            # Don't close the root span until the end so that we only export the trace
-            # after all spans are copied.
-            new_span.end(end_time_ns=old_span.end_time_ns)
 
     # Close the root span triggers the trace export.
     new_root_span.end(end_time_ns=spans[0].end_time_ns)

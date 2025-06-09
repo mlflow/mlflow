@@ -22,6 +22,11 @@ from mlflow.models.evaluation.base import (
     EvaluationResult,
     _is_model_deployment_endpoint_uri,
 )
+from mlflow.tracing.constant import (
+    DATABRICKS_OPTIONS_KEY,
+    DATABRICKS_OUTPUT_KEY,
+    RETURN_TRACE_OPTION_KEY,
+)
 from mlflow.utils.annotations import experimental
 from mlflow.utils.uri import is_databricks_uri
 
@@ -357,7 +362,9 @@ def to_predict_fn(endpoint_uri: str) -> Callable:
 
     # Databricks Foundation Model API does not allow passing "databricks_options" in the payload,
     # so we need to handle this case separately.
-    is_fmapi = endpoint_info.get("endpoint_type") == "FOUNDATION_MODEL_API"
+    is_fmapi = False
+    if isinstance(endpoint_info, dict):
+        is_fmapi = endpoint_info.get("endpoint_type") == "FOUNDATION_MODEL_API"
 
     # NB: Wrap the function to show better docstring and change signature to `model_inputs`
     #   to unnamed keyword arguments. This is necessary because we pass input samples as
@@ -366,12 +373,13 @@ def to_predict_fn(endpoint_uri: str) -> Callable:
         start_time_ms = int(time.time_ns() / 1e6)
         # Inject `{"databricks_options": {"return_trace": True}}` to the input payload
         # to return the trace in the response.
-        payload = kwargs if is_fmapi else {**kwargs, "databricks_options": {"return_trace": True}}
+        databricks_options = {DATABRICKS_OPTIONS_KEY: {RETURN_TRACE_OPTION_KEY: True}}
+        payload = kwargs if is_fmapi else {**kwargs, **databricks_options}
         result = client.predict(endpoint=endpoint, inputs=payload)
         end_time_ms = int(time.time_ns() / 1e6)
 
         # If the endpoint returns a trace, copy it to the current experiment.
-        if trace_dict := result.pop("databricks_output", {}).get("trace"):
+        if trace_dict := result.pop(DATABRICKS_OUTPUT_KEY, {}).get("trace"):
             try:
                 copy_model_serving_trace_to_eval_run(trace_dict)
                 return result
