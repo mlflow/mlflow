@@ -7,6 +7,8 @@ PROMPT_TEXT_TAG_KEY = "mlflow.prompt.text"
 # TODO: Replace this with model_ids in MLflow 3
 PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY = "mlflow.prompt.run_ids"
 
+LINKED_PROMPTS_TAG_KEY = "mlflow.linkedPrompts"
+
 PROMPT_TEMPLATE_VARIABLE_PATTERN = re.compile(
     r"\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)\s*\}\}"
 )
