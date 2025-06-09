@@ -856,7 +856,9 @@ class AbstractStore:
             INVALID_PARAMETER_VALUE,
         )
 
-    def set_prompt_version_tag(self, name: str, version: Union[str, int], key: str, value: str) -> None:
+    def set_prompt_version_tag(
+        self, name: str, version: Union[str, int], key: str, value: str
+    ) -> None:
         """
         Set a tag on a prompt version.
 

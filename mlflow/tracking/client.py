@@ -845,7 +845,9 @@ class MlflowClient:
     @experimental
     @require_prompt_registry
     @translate_prompt_exception
-    def set_prompt_version_tag(self, name: str, version: Union[str, int], key: str, value: str) -> None:
+    def set_prompt_version_tag(
+        self, name: str, version: Union[str, int], key: str, value: str
+    ) -> None:
         """
         Set a tag on a specific prompt version.
 

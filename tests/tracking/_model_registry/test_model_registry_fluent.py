@@ -133,9 +133,10 @@ def test_crud_prompts(tmp_path):
     assert prompt.commit_message == "A friendly greeting"
     # In decoupled architecture, prompt.tags returns version tags (empty in this case)
     assert prompt.tags == {}
-    
+
     # Check prompt-level tags separately (if needed for test completeness)
     from mlflow import MlflowClient
+
     client = MlflowClient()
     prompt_entity = client.get_prompt("prompt_1")
     assert prompt_entity.tags == {"model": "my-model"}

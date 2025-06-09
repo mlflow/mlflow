@@ -1784,7 +1784,7 @@ def test_create_prompt_with_tags_and_metadata(tracking_uri):
     # In decoupled architecture, prompt.tags returns version tags (version_metadata)
     assert prompt_v1.tags == {"author": "Alice"}
     assert prompt_v1.version_metadata == {"author": "Alice"}
-    
+
     # Test prompt-level tags (separate from version)
     prompt_entity = client.get_prompt("prompt_1")
     assert prompt_entity.tags == {
@@ -1815,7 +1815,7 @@ def test_create_prompt_with_tags_and_metadata(tracking_uri):
     prompt_entity_updated = client.get_prompt("prompt_1")
     assert prompt_entity_updated.tags == {
         "application": "greeting",
-        "project": "toy", 
+        "project": "toy",
         "language": "ja",
     }
 

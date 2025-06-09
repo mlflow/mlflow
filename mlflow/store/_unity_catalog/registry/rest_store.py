@@ -1463,7 +1463,7 @@ class UcModelRegistryStore(BaseRestStore):
                 version=version,
                 proto_name=GetPromptVersionRequest,
             )
-            
+
             # No longer fetch prompt-level tags - keep them completely separate
             return proto_to_mlflow_prompt(response_proto)
         except Exception as e:
@@ -1517,13 +1517,15 @@ class UcModelRegistryStore(BaseRestStore):
             proto_name=SearchPromptVersionsRequest,
         )
 
-    def set_prompt_version_tag(self, name: str, version: Union[str, int], key: str, value: str) -> None:
+    def set_prompt_version_tag(
+        self, name: str, version: Union[str, int], key: str, value: str
+    ) -> None:
         """
         Set a tag on a prompt version in Unity Catalog.
         """
-        req_body = message_to_json(SetPromptVersionTagRequest(
-            name=name, version=str(version), key=key, value=value
-        ))
+        req_body = message_to_json(
+            SetPromptVersionTagRequest(name=name, version=str(version), key=key, value=value)
+        )
         endpoint, method = self._get_endpoint_from_method(SetPromptVersionTagRequest)
         self._edit_endpoint_and_call(
             endpoint=endpoint,
@@ -1539,9 +1541,9 @@ class UcModelRegistryStore(BaseRestStore):
         """
         Delete a tag from a prompt version in Unity Catalog.
         """
-        req_body = message_to_json(DeletePromptVersionTagRequest(
-            name=name, version=str(version), key=key
-        ))
+        req_body = message_to_json(
+            DeletePromptVersionTagRequest(name=name, version=str(version), key=key)
+        )
         endpoint, method = self._get_endpoint_from_method(DeletePromptVersionTagRequest)
         self._edit_endpoint_and_call(
             endpoint=endpoint,
@@ -1568,7 +1570,7 @@ class UcModelRegistryStore(BaseRestStore):
                 alias=alias,
                 proto_name=GetPromptVersionByAliasRequest,
             )
-            
+
             # No longer fetch prompt-level tags - keep them completely separate
             return proto_to_mlflow_prompt(response_proto)
         except Exception as e:
@@ -1582,9 +1584,9 @@ class UcModelRegistryStore(BaseRestStore):
         """
         Set an alias for a prompt version in Unity Catalog.
         """
-        req_body = message_to_json(SetPromptAliasRequest(
-            name=name, alias=alias, version=str(version)
-        ))
+        req_body = message_to_json(
+            SetPromptAliasRequest(name=name, alias=alias, version=str(version))
+        )
         endpoint, method = self._get_endpoint_from_method(SetPromptAliasRequest)
         self._edit_endpoint_and_call(
             endpoint=endpoint,
