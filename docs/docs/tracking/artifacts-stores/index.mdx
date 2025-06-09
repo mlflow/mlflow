@@ -195,6 +195,11 @@ In order to allow MLflow Runs to be restored, Run metadata and artifacts are not
 from the backend store or artifact store when a Run is deleted. The <Link to="/api_reference/cli.html" target="_blank">mlflow gc</Link> CLI is provided
 for permanently removing Run metadata and artifacts for deleted runs.
 
+You can also run this cleanup automatically by starting the tracking server with the
+`--gc-interval` option or by setting the `MLFLOW_GC_INTERVAL_SECONDS` environment
+variable. Configure `MLFLOW_GC_OLDER_THAN` to delete only runs and experiments older
+than the specified time.
+
 ## Multipart upload for proxied artifact access
 
 :::note

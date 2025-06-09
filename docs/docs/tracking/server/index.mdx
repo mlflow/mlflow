@@ -225,6 +225,13 @@ including either a `host` or `host:port` definition for uri location references 
 Otherwise, all artifact requests will route to the MLflow Tracking server, defeating the purpose of running a distinct artifact server.
 :::
 
+### Automatic Garbage Collection
+
+MLflow can periodically clean up runs and experiments marked for deletion. Start
+the tracking server with `--gc-interval <seconds>` or set
+`MLFLOW_GC_INTERVAL_SECONDS` to enable this background process. Use
+`MLFLOW_GC_OLDER_THAN` to specify the minimum age of data to delete.
+
 ## Secure Tracking Server \{#tracking-auth}
 
 The `--host` option exposes the service on all interfaces. If running a server in production, we
