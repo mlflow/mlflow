@@ -5,7 +5,7 @@ APIs for interacting with artifacts in MLflow
 import json
 import pathlib
 import tempfile
-from typing import Optional
+from typing import Iterator, Optional
 
 from mlflow.entities.file_info import FileInfo
 from mlflow.entities.logged_model import LoggedModel
@@ -177,29 +177,34 @@ def _list_model_artifacts(
     artifact_path: Optional[str] = None,
     tracking_uri: Optional[str] = None,
 ) -> list[FileInfo]:
+    """
+    Finds the logged model associated with the given run ID and artifact path, and lists
+    its artifacts.
+    """
     if artifact_uri:
         run_id, artifact_path = artifact_uri.strip("/").split("/", maxsplit=2)[1:]
 
     store = _get_store(store_uri=tracking_uri)
     experiment_id = store.get_run(run_id).info.experiment_id
-    model: Optional[LoggedModel] = None
-    page_token: Optional[str] = None
-    while True:
-        # TODO: Add source_run_id in filter_string once Databricks backend supports it
-        page = store.search_logged_models(
-            experiment_ids=[experiment_id],
-            filter_string=f"name = '{artifact_path}'",
-            page_token=page_token,
-        )
-        if matched := next((m for m in page if m.source_run_id == run_id), None):
-            model = matched
-            break
 
-        if not page.token:
-            break
+    def iter_models() -> Iterator[LoggedModel]:
+        page_token: Optional[str] = None
+        while True:
+            page = store.search_logged_models(
+                experiment_ids=[experiment_id],
+                # TODO: Add `source_run_id` in filter_string once Databricks backend supports it
+                filter_string=f"name = '{artifact_path}'",
+                page_token=page_token,
+            )
+            yield from page
 
-        page_token = page.token
+            if not page.token:
+                break
 
+            page_token = page.token
+
+    # Iterate through all logged models to find the one with the specified run_id
+    model = next((m for m in iter_models() if m.source_run_id == run_id), None)
     if model is None:
         return []
 
