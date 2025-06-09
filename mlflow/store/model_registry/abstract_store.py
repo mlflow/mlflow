@@ -1,16 +1,24 @@
+import json
 import logging
+import threading
 from abc import ABCMeta, abstractmethod
 from time import sleep, time
 from typing import Optional, Union
 
+from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.exceptions import MlflowException
-from mlflow.prompt.constants import IS_PROMPT_TAG_KEY, PROMPT_TEXT_TAG_KEY
+from mlflow.prompt.constants import IS_PROMPT_TAG_KEY, LINKED_PROMPTS_TAG_KEY, PROMPT_TEXT_TAG_KEY
 from mlflow.prompt.registry_utils import has_prompt_tag
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREADY_EXISTS, ErrorCode
+from mlflow.protos.databricks_pb2 import (
+    INVALID_PARAMETER_VALUE,
+    RESOURCE_ALREADY_EXISTS,
+    RESOURCE_DOES_NOT_EXIST,
+    ErrorCode,
+)
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.utils.annotations import developer_stable
 from mlflow.utils.logging_utils import eprint
@@ -40,6 +48,23 @@ class AbstractStore:
                 to support subsequently uploading them to the model registry storage
                 location.
         """
+        # Create a thread lock to ensure thread safety when linking prompts to models,
+        # since the default linking implementation reads and appends model tags, which
+        # is prone to concurrent modification issues
+        self._prompt_link_lock = threading.RLock()
+
+    def __getstate__(self):
+        """Support for pickle serialization by excluding the non-picklable RLock."""
+        state = self.__dict__.copy()
+        # Remove the RLock as it cannot be pickled
+        del state["_prompt_link_lock"]
+        return state
+
+    def __setstate__(self, state):
+        """Support for pickle deserialization by recreating the RLock."""
+        self.__dict__.update(state)
+        # Recreate the RLock
+        self._prompt_link_lock = threading.RLock()
 
     # CRUD API for RegisteredModel objects
 
@@ -830,3 +855,66 @@ class AbstractStore:
             "This method is only available in Unity Catalog registries.",
             INVALID_PARAMETER_VALUE,
         )
+
+    def link_prompt_version_to_model(self, name: str, version: str, model_id: str) -> None:
+        """
+        Link a prompt version to a model.
+
+        Default implementation sets a tag. Stores can override with custom behavior.
+
+        Args:
+            name: Name of the prompt.
+            version: Version of the prompt to link.
+            model_id: ID of the model to link to.
+        """
+        from mlflow.tracking import _get_store as _get_tracking_store
+
+        prompt_version = self.get_prompt_version(name, version)
+        tracking_store = _get_tracking_store()
+
+        with self._prompt_link_lock:
+            logged_model = tracking_store.get_logged_model(model_id)
+            if not logged_model:
+                raise MlflowException(
+                    f"Could not find model with ID '{model_id}' to which to link prompt '{name}'.",
+                    error_code=ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
+                )
+
+            prompts_tag_value = logged_model.tags.get(LINKED_PROMPTS_TAG_KEY)
+            if prompts_tag_value is not None:
+                try:
+                    parsed_prompts_tag_value = json.loads(prompts_tag_value)
+                    if not isinstance(parsed_prompts_tag_value, list):
+                        raise MlflowException(
+                            f"Invalid format for '{LINKED_PROMPTS_TAG_KEY}' tag:"
+                            f" {prompts_tag_value}"
+                        )
+                except json.JSONDecodeError:
+                    raise MlflowException(
+                        f"Invalid JSON format for '{LINKED_PROMPTS_TAG_KEY}' tag:"
+                        f" {prompts_tag_value}"
+                    )
+            else:
+                parsed_prompts_tag_value = []
+
+            new_prompt_entry = {
+                "name": prompt_version.name,
+                "version": prompt_version.version,
+            }
+
+            # Check if this exact prompt version is already linked
+            if new_prompt_entry in parsed_prompts_tag_value:
+                return
+
+            # Else, add the new prompt entry
+            parsed_prompts_tag_value.append(new_prompt_entry)
+            # Update the tag
+            tracking_store.set_logged_model_tags(
+                model_id,
+                [
+                    LoggedModelTag(
+                        key=LINKED_PROMPTS_TAG_KEY,
+                        value=json.dumps(parsed_prompts_tag_value),
+                    )
+                ],
+            )

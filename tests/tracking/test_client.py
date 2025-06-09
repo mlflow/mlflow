@@ -2191,6 +2191,26 @@ def test_delete_prompt_with_versions_unity_catalog_error(registry_uri):
                 client.delete_prompt("test_prompt")
 
 
+def test_link_prompt_version_to_model_smoke_test(tracking_uri):
+    """Smoke test for linking a prompt version to a model - just verify the method can be called."""
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    # Create an experiment and a run to have a proper context
+    experiment_id = client.create_experiment("test_experiment")
+    with mlflow.start_run(experiment_id=experiment_id):
+        # Create a model with a run context
+        model = client.create_logged_model(experiment_id=experiment_id)
+
+        # Register a prompt
+        client.register_prompt(name="test_prompt", template="Hello, {{name}}!")
+
+        # Link the prompt version to the model (this should not raise an exception)
+        # This is the main assertion - that the method call succeeds
+        client.link_prompt_version_to_model(
+            name="test_prompt", version="1", model_id=model.model_id
+        )
+
+
 def test_log_model_artifact(tmp_path: Path, tracking_uri: str) -> None:
     client = MlflowClient(tracking_uri=tracking_uri)
     experiment_id = client.create_experiment("test")
