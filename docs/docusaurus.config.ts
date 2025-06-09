@@ -57,7 +57,7 @@ const config: Config = {
   markdown: {
     mermaid: true,
   },
-  
+
   presets: [
     [
       "classic",
@@ -91,15 +91,15 @@ const config: Config = {
     },
     ...(process.env.PR_PREVIEW
       ? {
-          announcementBar: {
-            id: "pr_preview",
-            content:
-              "<strong>⚠️ Reloading the page causes a 404 error. Add /index.html to the URL to avoid it ⚠️</strong>",
-            backgroundColor: "#0194e2",
-            textColor: "#ffffff",
-            isCloseable: true,
-          },
-        }
+        announcementBar: {
+          id: "pr_preview",
+          content:
+            "<strong>⚠️ Reloading the page causes a 404 error. Add /index.html to the URL to avoid it ⚠️</strong>",
+          backgroundColor: "#0194e2",
+          textColor: "#ffffff",
+          isCloseable: true,
+        },
+      }
       : {}),
     navbar: {
       logo: {
@@ -256,65 +256,697 @@ const config: Config = {
       "@docusaurus/plugin-client-redirects",
       {
         redirects: [
+          // GenAI/LLM Related Redirects
           {
             to: "/genai/tracing",
-            from: ["/llms/tracing", "/tracing"],
+            from: ["/llms/llm-tracking", "/tracing", "/llms/tracing"],
           },
           {
-            to: "/ml", //TODO: update
-            from: ["/tracking/data-api/index", "/tracking/data-api", "/dataset"],
+            to: "/genai/tracing/faq",
+            from: ["/tracing/faq"],
           },
           {
-            to: "/ml", //TODO: update
-            from: ["/models", "/model"],
+            to: "/genai/tracing/data-model",
+            from: ["/tracing/tracing-schema", "/llms/tracing/tracing-schema"],
           },
           {
-            to: "/genai/tracing", //TODO: update
-            from: ["/llms/bedrock/autologging", "/tracing/integrations/bedrock"],
+            to: "/genai/tracing/prod-tracing",
+            from: ["/tracing/production"],
           },
           {
-            to: "/genai/getting-started", //TODO: verify location
-            from: ["/getting-started/community-edition", "/getting-started/databricks-trial"],
+            to: "/genai/tracing/session",
+            from: ["/tracing/session"],
           },
           {
-            to: "/genai/tracing", //TODO: update
-            from: ["/llms/tracing/contribute", "/tracing/integrations/contribute"],
+            to: "/genai/tracing/search-traces",
+            from: ["/tracing/api/search", "/llms/tracing/search-traces"],
           },
           {
-            to: "/genai/tracing", //TODO: update
-            from: ["/llms/tracing/notebooks/jupyter-trace-demo", "/tracing/tutorials/jupyter-trace-demo"],
+            to: "/genai/tracing/app-instrumentation/manual-tracing/low-level-api",
+            from: ["/tracing/api/client"],
           },
           {
-            to: "/genai/tracing", //TODO: verify location
-            from: ["/llms/tracing/overview", "/tracing/tutorials/concept"],
+            to: "/genai/tracing/app-instrumentation/manual-tracing",
+            from: ["/tracing/api/how-to", "/tracing/api/manual-instrumentation"],
           },
           {
-            to: "/genai/tracing", //TODO: verify location
-            from: ["/llms/tracing/search-traces", "/tracing/api/search"],
+            to: "/genai/tracing/app-instrumentation",
+            from: ["/tracing/api"],
           },
           {
-            to: "/genai/tracing", //TODO: update
-            from: ["/llms/tracing/tracing-schema", "/tracing/tracing-schema"],
+            to: "/genai/tracing/observe-with-traces/ui",
+            from: ["/tracing/ui"],
           },
           {
-            to: "/ml", //TODO: update
-            from: ["/registry", "/model-registry"],
+            to: "/genai/tracing/integrations",
+            from: ["/tracing/integrations"],
           },
+          {
+            to: "/genai/tracing/integrations/contribute",
+            from: ["/tracing/integrations/contribute", "/llms/tracing/contribute"],
+          },
+          {
+            to: "/genai/tracing/integrations/listing/anthropic",
+            from: ["/tracing/integrations/anthropic"],
+          },
+          {
+            to: "/genai/tracing/integrations/listing/autogen",
+            from: ["/tracing/integrations/autogen"],
+          },
+          {
+            to: "/genai/tracing/integrations/listing/bedrock",
+            from: ["/tracing/integrations/bedrock", "/llms/bedrock/autologging"],
+          },
+          {
+            to: "/genai/tracing/integrations/listing/crewai",
+            from: ["/tracing/integrations/crewai"],
+          },
+          {
+            to: "/genai/tracing/integrations/listing/deepseek",
+            from: ["/tracing/integrations/deepseek"],
+          },
+          {
+            to: "/genai/tracing/integrations/listing/dspy",
+            from: ["/tracing/integrations/dspy"],
+          },
+          {
+            to: "/genai/tracing/integrations/listing/gemini",
+            from: ["/tracing/integrations/gemini"],
+          },
+          {
+            to: "/genai/tracing/integrations/listing/groq",
+            from: ["/tracing/integrations/groq"],
+          },
+          {
+            to: "/genai/tracing/integrations/listing/instructor",
+            from: ["/tracing/integrations/instructor"],
+          },
+          {
+            to: "/genai/tracing/integrations/listing/langchain",
+            from: ["/tracing/integrations/langchain"],
+          },
+          {
+            to: "/genai/tracing/integrations/listing/langgraph",
+            from: ["/tracing/integrations/langgraph"],
+          },
+          {
+            to: "/genai/tracing/integrations/listing/litellm",
+            from: ["/tracing/integrations/litellm"],
+          },
+          {
+            to: "/genai/tracing/integrations/listing/llama_index",
+            from: ["/tracing/integrations/llama_index"],
+          },
+          {
+            to: "/genai/tracing/integrations/listing/mistral",
+            from: ["/tracing/integrations/mistral"],
+          },
+          {
+            to: "/genai/tracing/integrations/listing/ollama",
+            from: ["/tracing/integrations/ollama"],
+          },
+          {
+            to: "/genai/tracing/integrations/listing/openai",
+            from: ["/tracing/integrations/openai"],
+          },
+          {
+            to: "/genai/tracing/integrations/listing/openai-agent",
+            from: ["/tracing/integrations/openai-agent"],
+          },
+          {
+            to: "/genai/tracing/integrations/listing/swarm",
+            from: ["/tracing/integrations/swarm"],
+          },
+          {
+            to: "/genai/tracing/integrations/listing/txtai",
+            from: ["/tracing/integrations/txtai"],
+          },
+          {
+            to: "/genai/tutorials/jupyter-trace-demo",
+            from: ["/tracing/tutorials/jupyter-trace-demo", "/llms/tracing/notebooks/jupyter-trace-demo"],
+          },
+          {
+            to: "/genai/tracing/tracing-101",
+            from: ["/tracing/tutorials/concept", "/llms/tracing/overview"],
+          },
+          {
+            to: "/genai/tutorials",
+            from: ["/tracing/tutorials"],
+          },
+
+          // LLM Flavors Redirects
+          {
+            to: "/genai/flavors",
+            from: ["/llms"],
+          },
+          {
+            to: "/genai/flavors/chat-model-guide",
+            from: ["/llms/chat-model-guide", "/llms/notebooks/chat-model-tool-calling"],
+          },
+          {
+            to: "/genai/flavors/chat-model-intro",
+            from: ["/llms/chat-model-intro"],
+          },
+          {
+            to: "/genai/flavors/custom-pyfunc-for-llms",
+            from: ["/llms/custom-pyfunc-for-llms", "/llms/custom-pyfunc-for-llms/notebooks"],
+          },
+          {
+            to: "/genai/flavors/custom-pyfunc-for-llms/notebooks/custom-pyfunc-advanced-llm",
+            from: ["/llms/custom-pyfunc-for-llms/notebooks/custom-pyfunc-advanced-llm"],
+          },
+          {
+            to: "/genai/flavors/dspy",
+            from: ["/llms/dspy"],
+          },
+          {
+            to: "/genai/flavors/dspy/notebooks/dspy_quickstart",
+            from: ["/llms/dspy/notebooks/dspy_quickstart"],
+          },
+          {
+            to: "/genai/flavors/dspy/optimizer",
+            from: ["/llms/dspy/optimizer"],
+          },
+          {
+            to: "/genai/flavors/langchain",
+            from: ["/llms/langchain"],
+          },
+          {
+            to: "/genai/flavors/langchain/autologging",
+            from: ["/llms/langchain/autologging"],
+          },
+          {
+            to: "/genai/flavors/langchain/guide",
+            from: ["/llms/langchain/guide"],
+          },
+          {
+            to: "/genai/flavors/langchain/notebooks/langchain-quickstart",
+            from: ["/llms/langchain/notebooks/langchain-quickstart"],
+          },
+          {
+            to: "/genai/flavors/langchain/notebooks/langchain-retriever",
+            from: ["/llms/langchain/notebooks/langchain-retriever"],
+          },
+          {
+            to: "/genai/flavors/llama-index",
+            from: ["/llms/llama-index"],
+          },
+          {
+            to: "/genai/flavors/llama-index/notebooks/llama_index_quickstart",
+            from: ["/llms/llama-index/notebooks/llama_index_quickstart"],
+          },
+          {
+            to: "/genai/flavors/llama-index/notebooks/llama_index_workflow_tutorial",
+            from: ["/llms/llama-index/notebooks/llama_index_workflow_tutorial"],
+          },
+          {
+            to: "/genai/flavors/openai",
+            from: ["/llms/openai"],
+          },
+          {
+            to: "/genai/flavors/openai/autologging",
+            from: ["/llms/openai/autologging"],
+          },
+          {
+            to: "/genai/flavors/openai/guide",
+            from: ["/llms/openai/guide"],
+          },
+          {
+            to: "/genai/flavors/openai/notebooks",
+            from: ["/llms/openai/notebooks"],
+          },
+          {
+            to: "/genai/flavors/openai/notebooks/openai-chat-completions",
+            from: ["/llms/openai/notebooks/openai-chat-completions"],
+          },
+          {
+            to: "/genai/flavors/openai/notebooks/openai-code-helper",
+            from: ["/llms/openai/notebooks/openai-code-helper"],
+          },
+          {
+            to: "/genai/flavors/openai/notebooks/openai-embeddings-generation",
+            from: ["/llms/openai/notebooks/openai-embeddings-generation"],
+          },
+          {
+            to: "/genai/flavors/openai/notebooks/openai-quickstart",
+            from: ["/llms/openai/notebooks/openai-quickstart"],
+          },
+
+          // Evaluation and Monitoring Redirects
+          {
+            to: "/genai/eval-monitor",
+            from: ["/llms/llm-evaluate", "/llms/rag"],
+          },
+          {
+            to: "/genai/eval-monitor/quickstart",
+            from: [
+              "/llms/llm-evaluate/notebooks",
+              "/llms/llm-evaluate/notebooks/huggingface-evaluation",
+              "/llms/llm-evaluate/notebooks/question-answering-evaluation",
+              "/llms/llm-evaluate/notebooks/rag-evaluation",
+              "/llms/llm-evaluate/notebooks/rag-evaluation-llama2",
+              "/llms/rag/notebooks",
+              "/llms/rag/notebooks/mlflow-e2e-evaluation",
+              "/llms/rag/notebooks/question-generation-retrieval-evaluation",
+              "/llms/rag/notebooks/retriever-evaluation-tutorial"
+            ],
+          },
+
+          // Prompt Management Redirects
+          {
+            to: "/genai/prompt-version-mgmt/prompt-engineering",
+            from: ["/llms/prompt-engineering"],
+          },
+          {
+            to: "/genai/prompt-version-mgmt/prompt-registry",
+            from: ["/prompts"],
+          },
+          {
+            to: "/genai/prompt-version-mgmt/prompt-registry/manage-prompt-lifecycles-with-aliases",
+            from: ["/prompts/cm"],
+          },
+          {
+            to: "/genai/prompt-version-mgmt/prompt-registry/evaluate-prompts",
+            from: ["/prompts/evaluate"],
+          },
+          {
+            to: "/genai/prompt-version-mgmt/prompt-registry/use-prompts-in-apps",
+            from: ["/prompts/run-and-model"],
+          },
+
+          // Governance and Deployments Redirects
           {
             to: "/genai/governance/ai-gateway",
-            from: ["/llms/gateway/index", "/llms/gateway", "/llms/deployments"],
+            from: ["/llms/deployments", "/llms/gateway/index", "/llms/gateway"],
           },
           {
-            to: "/genai/governance/ai-gateway", //TODO: verify location
-            from: ["/llms/gateway/guides/index", "/llms/gateway/guide", "/llms/deployments/guides"],
+            to: "/genai/governance/ai-gateway/guides",
+            from: ["/llms/deployments/guides", "/llms/gateway/guides/index", "/llms/gateway/guide"],
           },
           {
-            to: "/genai/governance/ai-gateway", //TODO: update
-            from: ["/llms/gateway/guides/step1-create-gateway", "/llms/deployments/guides/step1-create-deployments"],
+            to: "/genai/governance/ai-gateway/guides/step1-create-deployments",
+            from: ["/llms/deployments/guides/step1-create-deployments", "/llms/gateway/guides/step1-create-gateway"],
           },
           {
-            to: "/genai/governance/ai-gateway", //TODO: update
-            from: ["/llms/gateway/guides/step2-query-gateway", "/llms/deployments/guides/step2-query-deployments"],
+            to: "/genai/governance/ai-gateway/guides/step2-query-deployments",
+            from: ["/llms/deployments/guides/step2-query-deployments", "/llms/gateway/guides/step2-query-gateway"],
+          },
+          {
+            to: "/genai/governance/unity-catalog",
+            from: ["/llms/deployments/uc_integration"],
+          },
+
+          // Traditional ML and Core MLflow Redirects
+          {
+            to: "/ml",
+            from: ["/introduction"],
+          },
+          {
+            to: "/ml/auth",
+            from: ["/auth"],
+          },
+          {
+            to: "/ml/community-model-flavors",
+            from: ["/community-model-flavors"],
+          },
+          {
+            to: "/ml/dataset",
+            from: ["/dataset", "/tracking/data-api/index", "/tracking/data-api"],
+          },
+          {
+            to: "/ml/deep-learning",
+            from: ["/deep-learning"],
+          },
+          {
+            to: "/ml/deep-learning/keras",
+            from: ["/deep-learning/keras"],
+          },
+          {
+            to: "/ml/deep-learning/keras/quickstart/quickstart-keras",
+            from: ["/deep-learning/keras/quickstart/quickstart_keras"],
+          },
+          {
+            to: "/ml/deep-learning/pytorch",
+            from: ["/deep-learning/pytorch"],
+          },
+          {
+            to: "/ml/deep-learning/pytorch/guide",
+            from: ["/deep-learning/pytorch/guide"],
+          },
+          {
+            to: "/ml/deep-learning/pytorch/quickstart/quickstart-pytorch",
+            from: ["/deep-learning/pytorch/quickstart/pytorch_quickstart"],
+          },
+          {
+            to: "/ml/deep-learning/sentence-transformers",
+            from: [
+              "/llms/sentence-transformers",
+              "/llms/sentence-transformers/tutorials",
+              "/llms/sentence-transformers/tutorials/paraphrase-mining/paraphrase-mining-sentence-transformers",
+              "/llms/sentence-transformers/tutorials/quickstart/sentence-transformers-quickstart",
+              "/llms/sentence-transformers/tutorials/semantic-search/semantic-search-sentence-transformers",
+              "/llms/sentence-transformers/tutorials/semantic-similarity/semantic-similarity-sentence-transformers"
+            ],
+          },
+          {
+            to: "/ml/deep-learning/sentence-transformers/guide",
+            from: ["/llms/sentence-transformers/guide"],
+          },
+          {
+            to: "/ml/deep-learning/tensorflow",
+            from: ["/deep-learning/tensorflow"],
+          },
+          {
+            to: "/ml/deep-learning/tensorflow/guide",
+            from: ["/deep-learning/tensorflow/guide"],
+          },
+          {
+            to: "/ml/deep-learning/tensorflow/quickstart/quickstart-tensorflow",
+            from: ["/deep-learning/tensorflow/quickstart/quickstart_tensorflow"],
+          },
+          {
+            to: "/ml/deep-learning/transformers",
+            from: ["/llms/transformers"],
+          },
+          {
+            to: "/ml/deep-learning/transformers/guide",
+            from: ["/llms/transformers/guide"],
+          },
+          {
+            to: "/ml/deep-learning/transformers/large-models",
+            from: ["/llms/transformers/large-models"],
+          },
+          {
+            to: "/ml/deep-learning/transformers/task",
+            from: ["/llms/transformers/task"],
+          },
+          {
+            to: "/ml/deep-learning/transformers/tutorials",
+            from: ["/llms/transformers/tutorials"],
+          },
+          {
+            to: "/ml/deep-learning/transformers/tutorials/audio-transcription/whisper",
+            from: ["/llms/transformers/tutorials/audio-transcription/whisper"],
+          },
+          {
+            to: "/ml/deep-learning/transformers/tutorials/conversational/conversational-model",
+            from: ["/llms/transformers/tutorials/conversational/conversational-model"],
+          },
+          {
+            to: "/ml/deep-learning/transformers/tutorials/conversational/pyfunc-chat-model",
+            from: ["/llms/transformers/tutorials/conversational/pyfunc-chat-model"],
+          },
+          {
+            to: "/ml/deep-learning/transformers/tutorials/fine-tuning/transformers-fine-tuning",
+            from: ["/llms/transformers/tutorials/fine-tuning/transformers-fine-tuning"],
+          },
+          {
+            to: "/ml/deep-learning/transformers/tutorials/fine-tuning/transformers-peft",
+            from: ["/llms/transformers/tutorials/fine-tuning/transformers-peft"],
+          },
+          {
+            to: "/ml/deep-learning/transformers/tutorials/prompt-templating/prompt-templating",
+            from: ["/llms/transformers/tutorials/prompt-templating/prompt-templating"],
+          },
+          {
+            to: "/ml/deep-learning/transformers/tutorials/text-generation/text-generation",
+            from: ["/llms/transformers/tutorials/text-generation/text-generation"],
+          },
+          {
+            to: "/ml/deep-learning/transformers/tutorials/translation/component-translation",
+            from: ["/llms/transformers/tutorials/translation/component-translation"],
+          },
+          {
+            to: "/ml/deployment",
+            from: ["/deployment"],
+          },
+          {
+            to: "/ml/deployment/deploy-model-locally",
+            from: ["/deployment/deploy-model-locally"],
+          },
+          {
+            to: "/ml/deployment/deploy-model-to-kubernetes",
+            from: ["/deployment/deploy-model-to-kubernetes"],
+          },
+          {
+            to: "/ml/deployment/deploy-model-to-kubernetes/tutorial",
+            from: ["/deployment/deploy-model-to-kubernetes/tutorial"],
+          },
+          {
+            to: "/ml/deployment/deploy-model-to-sagemaker",
+            from: ["/deployment/deploy-model-to-sagemaker"],
+          },
+          {
+            to: "/ml/docker",
+            from: ["/docker"],
+          },
+          {
+            to: "/ml/evaluation",
+            from: ["/model-evaluation"],
+          },
+          {
+            to: "/ml/getting-started",
+            from: ["/getting-started"],
+          },
+          {
+            to: "/ml/getting-started/databricks-trial",
+            from: ["/getting-started/databricks-trial", "/getting-started/community-edition"],
+          },
+          {
+            to: "/ml/getting-started/hyperparameter-tuning",
+            from: ["/getting-started/quickstart-2"],
+          },
+          {
+            to: "/ml/getting-started/logging-first-model",
+            from: ["/getting-started/logging-first-model"],
+          },
+          {
+            to: "/ml/getting-started/logging-first-model/notebooks",
+            from: ["/getting-started/logging-first-model/notebooks"],
+          },
+          {
+            to: "/ml/getting-started/logging-first-model/notebooks/logging-first-model",
+            from: ["/getting-started/logging-first-model/notebooks/logging-first-model"],
+          },
+          {
+            to: "/ml/getting-started/logging-first-model/step1-tracking-server",
+            from: ["/getting-started/logging-first-model/step1-tracking-server"],
+          },
+          {
+            to: "/ml/getting-started/logging-first-model/step2-mlflow-client",
+            from: ["/getting-started/logging-first-model/step2-mlflow-client"],
+          },
+          {
+            to: "/ml/getting-started/logging-first-model/step3-create-experiment",
+            from: ["/getting-started/logging-first-model/step3-create-experiment"],
+          },
+          {
+            to: "/ml/getting-started/logging-first-model/step4-experiment-search",
+            from: ["/getting-started/logging-first-model/step4-experiment-search"],
+          },
+          {
+            to: "/ml/getting-started/logging-first-model/step5-synthetic-data",
+            from: ["/getting-started/logging-first-model/step5-synthetic-data"],
+          },
+          {
+            to: "/ml/getting-started/logging-first-model/step6-logging-a-run",
+            from: ["/getting-started/logging-first-model/step6-logging-a-run"],
+          },
+          {
+            to: "/ml/getting-started/registering-first-model",
+            from: ["/getting-started/registering-first-model"],
+          },
+          {
+            to: "/ml/getting-started/registering-first-model/step1-register-model",
+            from: ["/getting-started/registering-first-model/step1-register-model"],
+          },
+          {
+            to: "/ml/getting-started/registering-first-model/step2-explore-registered-model",
+            from: ["/getting-started/registering-first-model/step2-explore-registered-model"],
+          },
+          {
+            to: "/ml/getting-started/registering-first-model/step3-load-model",
+            from: ["/getting-started/registering-first-model/step3-load-model"],
+          },
+          {
+            to: "/ml/getting-started/running-notebooks",
+            from: ["/getting-started/running-notebooks"],
+          },
+          {
+            to: "/ml/getting-started/tracking-server-overview",
+            from: ["/getting-started/tracking-server-overview"],
+          },
+          {
+            to: "/ml/mlflow-3",
+            from: ["/mlflow-3", "/new-features"],
+          },
+          {
+            to: "/ml/mlflow-3/deep-learning",
+            from: ["/mlflow-3/deep-learning"],
+          },
+          {
+            to: "/ml/mlflow-3/genai-agent",
+            from: ["/mlflow-3/genai-agent"],
+          },
+          {
+            to: "/ml/model-registry",
+            from: ["/model-registry", "/registry"],
+          },
+          {
+            to: "/ml/model",
+            from: ["/model", "/models"],
+          },
+          {
+            to: "/ml/model/dependencies",
+            from: ["/model/dependencies"],
+          },
+          {
+            to: "/ml/model/models-from-code",
+            from: ["/model/models-from-code"],
+          },
+          {
+            to: "/ml/model/notebooks/signature_examples",
+            from: ["/model/notebooks/signature_examples"],
+          },
+          {
+            to: "/ml/model/python_model",
+            from: ["/model/python_model"],
+          },
+          {
+            to: "/ml/model/signatures",
+            from: ["/model/signatures"],
+          },
+          {
+            to: "/ml/plugins",
+            from: ["/plugins"],
+          },
+          {
+            to: "/ml/projects",
+            from: ["/projects"],
+          },
+          {
+            to: "/ml/search/search-experiments",
+            from: ["/search-experiments"],
+          },
+          {
+            to: "/ml/search/search-runs",
+            from: ["/search-runs"],
+          },
+          {
+            to: "/ml/tracking",
+            from: ["/tracking"],
+          },
+          {
+            to: "/ml/tracking/artifact-stores",
+            from: ["/tracking/artifacts-stores"],
+          },
+          {
+            to: "/ml/tracking/autolog",
+            from: ["/tracking/autolog"],
+          },
+          {
+            to: "/ml/tracking/backend-stores",
+            from: ["/tracking/backend-stores"],
+          },
+          {
+            to: "/ml/tracking/quickstart",
+            from: ["/getting-started/intro-quickstart", "/quickstart_drilldown"],
+          },
+          {
+            to: "/ml/tracking/quickstart/notebooks/tracking_quickstart",
+            from: ["/getting-started/intro-quickstart/notebooks/tracking_quickstart"],
+          },
+          {
+            to: "/ml/tracking/server",
+            from: ["/tracking/server"],
+          },
+          {
+            to: "/ml/tracking/system-metrics",
+            from: ["/system-metrics"],
+          },
+          {
+            to: "/ml/tracking/tracking-api",
+            from: ["/tracking/tracking-api"],
+          },
+          {
+            to: "/ml/tracking/tutorials/local-database",
+            from: ["/tracking/tutorials/local-database"],
+          },
+          {
+            to: "/ml/tracking/tutorials/remote-server",
+            from: ["/tracking/tutorials/remote-server"],
+          },
+          {
+            to: "/ml/traditional-ml",
+            from: ["/traditional-ml"],
+          },
+          {
+            to: "/ml/traditional-ml/tutorials/creating-custom-pyfunc",
+            from: ["/traditional-ml/creating-custom-pyfunc"],
+          },
+          {
+            to: "/ml/traditional-ml/tutorials/creating-custom-pyfunc/notebooks",
+            from: ["/traditional-ml/creating-custom-pyfunc/notebooks"],
+          },
+          {
+            to: "/ml/traditional-ml/tutorials/creating-custom-pyfunc/notebooks/basic-pyfunc",
+            from: ["/traditional-ml/creating-custom-pyfunc/notebooks/basic-pyfunc"],
+          },
+          {
+            to: "/ml/traditional-ml/tutorials/creating-custom-pyfunc/notebooks/introduction",
+            from: ["/traditional-ml/creating-custom-pyfunc/notebooks/introduction"],
+          },
+          {
+            to: "/ml/traditional-ml/tutorials/creating-custom-pyfunc/notebooks/override-predict",
+            from: ["/traditional-ml/creating-custom-pyfunc/notebooks/override-predict"],
+          },
+          {
+            to: "/ml/traditional-ml/tutorials/creating-custom-pyfunc/part1-named-flavors",
+            from: ["/traditional-ml/creating-custom-pyfunc/part1-named-flavors"],
+          },
+          {
+            to: "/ml/traditional-ml/tutorials/creating-custom-pyfunc/part2-pyfunc-components",
+            from: ["/traditional-ml/creating-custom-pyfunc/part2-pyfunc-components"],
+          },
+          {
+            to: "/ml/traditional-ml/tutorials/hyperparameter-tuning",
+            from: ["/traditional-ml/hyperparameter-tuning-with-child-runs"],
+          },
+          {
+            to: "/ml/traditional-ml/tutorials/hyperparameter-tuning/notebooks",
+            from: ["/traditional-ml/hyperparameter-tuning-with-child-runs/notebooks"],
+          },
+          {
+            to: "/ml/traditional-ml/tutorials/hyperparameter-tuning/notebooks/hyperparameter-tuning-with-child-runs",
+            from: ["/traditional-ml/hyperparameter-tuning-with-child-runs/notebooks/hyperparameter-tuning-with-child-runs"],
+          },
+          {
+            to: "/ml/traditional-ml/tutorials/hyperparameter-tuning/notebooks/logging-plots-in-mlflow",
+            from: ["/traditional-ml/hyperparameter-tuning-with-child-runs/notebooks/logging-plots-in-mlflow"],
+          },
+          {
+            to: "/ml/traditional-ml/tutorials/hyperparameter-tuning/notebooks/parent-child-runs",
+            from: ["/traditional-ml/hyperparameter-tuning-with-child-runs/notebooks/parent-child-runs"],
+          },
+          {
+            to: "/ml/traditional-ml/tutorials/hyperparameter-tuning/part1-child-runs",
+            from: ["/traditional-ml/hyperparameter-tuning-with-child-runs/part1-child-runs"],
+          },
+          {
+            to: "/ml/traditional-ml/tutorials/hyperparameter-tuning/part2-logging-plots",
+            from: ["/traditional-ml/hyperparameter-tuning-with-child-runs/part2-logging-plots"],
+          },
+          {
+            to: "/ml/traditional-ml/tutorials/serving-multiple-models-with-pyfunc",
+            from: ["/traditional-ml/serving-multiple-models-with-pyfunc"],
+          },
+          {
+            to: "/ml/traditional-ml/tutorials/serving-multiple-models-with-pyfunc/notebooks/MME_Tutorial",
+            from: ["/traditional-ml/serving-multiple-models-with-pyfunc/notebooks/MME_Tutorial"],
+          },
+          {
+            to: "/ml/tutorials-and-examples",
+            from: ["/tutorials-and-examples"],
           },
         ],
       },
