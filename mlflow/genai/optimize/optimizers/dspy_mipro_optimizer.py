@@ -117,7 +117,7 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
             name=prompt.name,
             template=template,
             version_metadata={
-                "overall_eval_score": final_score,
+                "overall_eval_score": str(final_score),
             },
         )
 
