@@ -376,3 +376,27 @@ def test_optimize_with_autolog(
         assert run.data.params["optimized_prompt_uri"] == "prompts:/test_prompt/2"
     else:
         assert len(callbacks) == 0
+
+
+def test_register_prompt_kwargs(mock_mipro, sample_data, sample_prompt, mock_extractor):
+    import dspy
+
+    optimized_program = dspy.Predict("input_text, language -> translation")
+    optimized_program.score = 1.0
+    mock_mipro.return_value.compile.return_value = optimized_program
+    optimizer = _DSPyMIPROv2Optimizer(OptimizerConfig())
+
+    with patch(
+        "mlflow.genai.optimize.optimizers.dspy_mipro_optimizer.register_prompt",
+        wraps=register_prompt,
+    ) as spy_register:
+        optimizer.optimize(
+            prompt=sample_prompt,
+            target_llm_params=LLMParams(model_name="agent/model"),
+            train_data=sample_data,
+            scorers=[sample_scorer],
+        )
+    assert spy_register.called
+    _, kwargs = spy_register.call_args
+    assert kwargs["version_metadata"]["overall_eval_score"] == "1.0"
+    assert kwargs["name"] == "test_prompt"
