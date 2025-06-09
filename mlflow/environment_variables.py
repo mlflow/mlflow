@@ -842,3 +842,12 @@ MLFLOW_LOCK_MODEL_DEPENDENCIES = _BooleanEnvironmentVariable(
 MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX = _EnvironmentVariable(
     "MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX", str, None
 )
+
+#: Specifies the interval in seconds at which the tracking server automatically
+#: performs garbage collection of runs and experiments marked for deletion.
+#: (default: ``None`` meaning automatic cleanup is disabled)
+MLFLOW_GC_INTERVAL_SECONDS = _EnvironmentVariable("MLFLOW_GC_INTERVAL_SECONDS", int, None)
+
+#: Specifies the minimum age of runs and experiments to be removed by the
+#: automatic garbage collection worker. Example values: ``1d2h3m``.
+MLFLOW_GC_OLDER_THAN = _EnvironmentVariable("MLFLOW_GC_OLDER_THAN", str, None)

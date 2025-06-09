@@ -9,9 +9,14 @@ import types
 from flask import Flask, Response, send_from_directory
 from packaging.version import Version
 
-from mlflow.environment_variables import MLFLOW_FLASK_SERVER_SECRET_KEY
+from mlflow.environment_variables import (
+    MLFLOW_FLASK_SERVER_SECRET_KEY,
+    MLFLOW_GC_INTERVAL_SECONDS,
+    MLFLOW_GC_OLDER_THAN,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.server import handlers
+from mlflow.server.gc_worker import start_gc_worker
 from mlflow.server.handlers import (
     STATIC_PREFIX_ENV_VAR,
     _add_static_prefix,
@@ -57,6 +62,9 @@ if os.getenv(PROMETHEUS_EXPORTER_ENV_VAR):
     if not os.path.exists(prometheus_metrics_path):
         os.makedirs(prometheus_metrics_path)
     activate_prometheus_exporter(app)
+
+if interval := MLFLOW_GC_INTERVAL_SECONDS.get():
+    start_gc_worker(interval, MLFLOW_GC_OLDER_THAN.get())
 
 
 # Provide a health check endpoint to ensure the application is responsive
@@ -261,6 +269,8 @@ def _run_server(  # noqa: D417
     waitress_opts=None,
     expose_prometheus=None,
     app_name=None,
+    gc_interval=None,
+    gc_older_than=None,
 ):
     """
     Run the MLflow server, wrapping it in gunicorn or waitress on windows
@@ -290,7 +300,10 @@ def _run_server(  # noqa: D417
 
     if expose_prometheus:
         env_map[PROMETHEUS_EXPORTER_ENV_VAR] = expose_prometheus
-
+    if gc_interval is not None:
+        env_map[MLFLOW_GC_INTERVAL_SECONDS.name] = str(gc_interval)
+    if gc_older_than is not None:
+        env_map[MLFLOW_GC_OLDER_THAN.name] = gc_older_than
     secret_key = MLFLOW_FLASK_SERVER_SECRET_KEY.get()
     if secret_key:
         env_map[MLFLOW_FLASK_SERVER_SECRET_KEY.name] = secret_key
