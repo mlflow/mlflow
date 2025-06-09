@@ -238,3 +238,75 @@ def skip_module_when_testing_trace_sdk():
             "Skipping test because it requires mlflow or mlflow-skinny to be installed.",
             allow_module_level=True,
         )
+
+
+V2_TRACE_DICT = {
+    "info": {
+        "request_id": "58f4e27101304034b15c512b603bf1b2",
+        "experiment_id": "0",
+        "timestamp_ms": 100,
+        "execution_time_ms": 200,
+        "status": "OK",
+        "request_metadata": {
+            "mlflow.trace_schema.version": "2",
+            "mlflow.traceInputs": '{"x": 2, "y": 5}',
+            "mlflow.traceOutputs": "8",
+        },
+        "tags": {
+            "mlflow.source.name": "test",
+            "mlflow.source.type": "LOCAL",
+            "mlflow.traceName": "predict",
+            "mlflow.artifactLocation": "/path/to/artifact",
+        },
+        "assessments": [],
+    },
+    "data": {
+        "spans": [
+            {
+                "name": "predict",
+                "context": {
+                    "span_id": "0d48a6670588966b",
+                    "trace_id": "63076d0c1b90f1df0970f897dc428bd6",
+                },
+                "parent_id": None,
+                "start_time": 100,
+                "end_time": 200,
+                "status_code": "OK",
+                "status_message": "",
+                "attributes": {
+                    "mlflow.traceRequestId": '"58f4e27101304034b15c512b603bf1b2"',
+                    "mlflow.spanType": '"UNKNOWN"',
+                    "mlflow.spanFunctionName": '"predict"',
+                    "mlflow.spanInputs": '{"x": 2, "y": 5}',
+                    "mlflow.spanOutputs": "8",
+                },
+                "events": [],
+            },
+            {
+                "name": "add_one_with_custom_name",
+                "context": {
+                    "span_id": "6fc32f36ef591f60",
+                    "trace_id": "63076d0c1b90f1df0970f897dc428bd6",
+                },
+                "parent_id": "0d48a6670588966b",
+                "start_time": 300,
+                "end_time": 400,
+                "status_code": "OK",
+                "status_message": "",
+                "attributes": {
+                    "mlflow.traceRequestId": '"58f4e27101304034b15c512b603bf1b2"',
+                    "mlflow.spanType": '"LLM"',
+                    "delta": "1",
+                    "metadata": '{"foo": "bar"}',
+                    "datetime": '"2025-04-29 08:37:06.772253"',
+                    "mlflow.spanFunctionName": '"add_one"',
+                    "mlflow.spanInputs": '{"z": 7}',
+                    "mlflow.spanOutputs": "8",
+                },
+                "events": [],
+            },
+        ],
+        "request": '{"x": 2, "y": 5}',
+        "response": "8",
+    },
+}
