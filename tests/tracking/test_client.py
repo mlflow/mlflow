@@ -2068,7 +2068,6 @@ def test_link_prompt_version_to_model_smoke_test(tracking_uri):
         )
 
         # If we get here without an exception, the smoke test passed
-        assert True
 
 
 def test_log_model_artifact(tmp_path: Path, tracking_uri: str) -> None:
