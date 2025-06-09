@@ -224,7 +224,14 @@ def _list_model_artifacts(
     artifact_repo = get_artifact_repository(
         add_databricks_profile_info_to_artifact_uri(model.artifact_location, tracking_uri)
     )
-    return artifact_repo.list_artifacts()
+    return [
+        FileInfo(
+            path=f"{artifact_path}/{f.path}",
+            is_dir=f.is_dir,
+            file_size=f.file_size,
+        )
+        for f in artifact_repo.list_artifacts()
+    ]
 
 
 def load_text(artifact_uri: str) -> str:
