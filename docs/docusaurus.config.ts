@@ -400,6 +400,16 @@ const config: Config = {
 
           // LLM Flavors Redirects
           {
+            to: "/genai/overview",
+            from: [
+              "/llms/rag",
+              "/llms/rag/notebooks",
+              "/llms/rag/notebooks/mlflow-e2e-evaluation",
+              "/llms/rag/notebooks/question-generation-retrieval-evaluation",
+              "/llms/rag/notebooks/retriever-evaluation-tutorial"
+            ]
+          },
+          {
             to: "/genai/flavors",
             from: ["/llms"],
           },
@@ -503,7 +513,7 @@ const config: Config = {
           // Evaluation and Monitoring Redirects
           {
             to: "/genai/eval-monitor",
-            from: ["/llms/llm-evaluate", "/llms/rag"],
+            from: ["/llms/llm-evaluate"],
           },
           {
             to: "/genai/eval-monitor/quickstart",
@@ -513,10 +523,6 @@ const config: Config = {
               "/llms/llm-evaluate/notebooks/question-answering-evaluation",
               "/llms/llm-evaluate/notebooks/rag-evaluation",
               "/llms/llm-evaluate/notebooks/rag-evaluation-llama2",
-              "/llms/rag/notebooks",
-              "/llms/rag/notebooks/mlflow-e2e-evaluation",
-              "/llms/rag/notebooks/question-generation-retrieval-evaluation",
-              "/llms/rag/notebooks/retriever-evaluation-tutorial"
             ],
           },
 
