@@ -820,6 +820,29 @@ class AbstractStore:
         """
         self.delete_registered_model_alias(name, alias)
 
+    def search_prompt_versions(
+        self, name: str, max_results: Optional[int] = None, page_token: Optional[str] = None
+    ):
+        """
+        Search prompt versions for a given prompt name.
+
+        This method is only supported in Unity Catalog registries.
+        For OSS registries, this functionality is not available.
+
+        Args:
+            name: Name of the prompt to search versions for
+            max_results: Maximum number of versions to return
+            page_token: Token for pagination
+
+        Raises:
+            MlflowException: Always, as this is not supported in OSS registries
+        """
+        raise MlflowException(
+            "search_prompt_versions() is not supported in this registry. "
+            "This method is only available in Unity Catalog registries.",
+            INVALID_PARAMETER_VALUE,
+        )
+
     def link_prompt_version_to_model(self, name: str, version: str, model_id: str) -> None:
         """
         Link a prompt version to a model.

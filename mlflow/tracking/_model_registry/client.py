@@ -450,8 +450,6 @@ class ModelRegistryClient:
         """
         return self.store.get_model_version_by_alias(name, alias)
 
-    # Store-Direct Prompt Methods (Unity Catalog Compatible)
-
     def create_prompt(
         self,
         name: str,
@@ -672,6 +670,27 @@ class ModelRegistryClient:
             None
         """
         self.store.delete_prompt_alias(name, alias)
+
+    def search_prompt_versions(
+        self, name: str, max_results: Optional[int] = None, page_token: Optional[str] = None
+    ):
+        """
+        Search prompt versions for a given prompt name.
+
+        This method delegates directly to the store. Only supported in Unity Catalog registries.
+
+        Args:
+            name: Name of the prompt to search versions for.
+            max_results: Maximum number of versions to return.
+            page_token: Token for pagination.
+
+        Returns:
+            SearchPromptVersionsResponse containing the list of versions.
+
+        Raises:
+            MlflowException: If used with non-Unity Catalog registries.
+        """
+        return self.store.search_prompt_versions(name, max_results, page_token)
 
     def link_prompt_version_to_model(
         self, name: str, version: Union[int, str], model_id: str
