@@ -644,9 +644,9 @@ def oss_quality_monitoring():
     with mlflow.start_run(
         run_name=f"quality_check_{datetime.now().strftime('%Y%m%d_%H%M')}"
     ):
-        results = mlflow.evaluate(
+        results = mlflow.genai.evaluate(
             data=recent_data,
-            extra_metrics=[quality_scorer, safety_checker, business_logic_scorer],
+            scorers=[quality_scorer, safety_checker, business_logic_scorer],
         )
 
         # Log monitoring metadata

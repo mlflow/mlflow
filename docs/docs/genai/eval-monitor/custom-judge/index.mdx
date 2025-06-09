@@ -197,10 +197,10 @@ evaluation_metrics = [
 ]
 
 # Run comprehensive evaluation
-results = mlflow.evaluate(
-    model=your_application,
+results = mlflow.genai.evaluate(
+    predict_fn=your_application,
     data=evaluation_dataset,
-    extra_metrics=evaluation_metrics,
+    scorers=evaluation_metrics,
 )
 ```
 

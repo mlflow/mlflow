@@ -21,7 +21,7 @@ The foundation of reliable version comparison is consistency. You must evaluate 
 This requires three key components:
 
 1. **Standardized Evaluation Setup**: Same datasets, metrics, and evaluation environment
-2. **Systematic Evaluation Execution**: Running `mlflow.evaluate()` for each version with proper tracking
+2. **Systematic Evaluation Execution**: Running `mlflow.genai.evaluate()` for each version with proper tracking
 3. **Structured Comparison Analysis**: Using MLflow's UI and APIs to analyze results
 
 ## Setting Up Consistent Evaluation
@@ -192,12 +192,10 @@ for version_name, app_function in apps_to_evaluate.items():
 
     with mlflow.start_run(run_name=f"eval_{version_name}") as run:
         try:
-            eval_results = mlflow.evaluate(
-                model=app_function,
+            eval_results = mlflow.genai.evaluate(
+                predict_fn=app_function,
                 data=evaluation_data,
-                targets="ground_truth",
-                extra_metrics=standard_metrics,
-                evaluators="default",
+                scorers=standard_metrics,
             )
 
             evaluation_run_ids[version_name] = run.info.run_id

@@ -352,8 +352,8 @@ evaluation_judges = [
 ]
 
 # Use in evaluation pipeline
-results = mlflow.evaluate(
-    data=your_test_dataset, model=your_application, extra_metrics=evaluation_judges
+results = mlflow.genai.evaluate(
+    data=your_test_dataset, predict_fn=your_application, scorers=evaluation_judges
 )
 ```
 

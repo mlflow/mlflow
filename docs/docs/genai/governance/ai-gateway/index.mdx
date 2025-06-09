@@ -1426,7 +1426,7 @@ loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
 print(loaded_model.predict(df))
 ```
 
-This custom MLflow model can be used in the same way as any other MLflow model. It can be used within a `spark_udf`, used with <APILink fn="mlflow.evaluate" />, or the deploy API like any other model.
+This custom MLflow model can be used in the same way as any other MLflow model. It can be used within a `spark_udf`, used with <APILink fn="mlflow.genai.evaluate" />, or the deploy API like any other model.
 
 #### REST API \{#deployments-rest-api}
 

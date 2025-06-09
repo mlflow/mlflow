@@ -9,7 +9,7 @@ Think of it this way: **Scorers** define *what* to measure, **Judges** determine
 
 ## Scorers: Your Quality Measurement Framework
 
-**Scorers** are Python functions that calculate quality metrics for your GenAI applications. When you run `mlflow.evaluate()`, you provide a list of scorers that systematically assess different aspects of your application's performance.
+**Scorers** are Python functions that calculate quality metrics for your GenAI applications. When you run `mlflow.genai.evaluate()`, you provide a list of scorers that systematically assess different aspects of your application's performance.
 
 ### What Scorers Do
 
@@ -21,7 +21,7 @@ Think of it this way: **Scorers** define *what* to measure, **Judges** determine
 - `targets`: Expected or ground-truth outputs (optional)
 - Additional context from traces or configuration
 
-**Result Generation**: Return one or more **Feedback** objects containing metric calculations, which `mlflow.evaluate()` automatically logs as part of your evaluation results.
+**Result Generation**: Return one or more **Feedback** objects containing metric calculations, which `mlflow.genai.evaluate()` automatically logs as part of your evaluation results.
 
 ### Types of Scorers Available
 
@@ -353,10 +353,10 @@ evaluation_suite = [
 # evaluation_suite.extend([is_safe, is_grounded])  # Requires databricks-agents
 
 # Run evaluation
-results = mlflow.evaluate(
+results = mlflow.genai.evaluate(
     data=your_evaluation_dataset,
-    model=your_genai_application,
-    extra_metrics=evaluation_suite,
+    predict_fn=your_genai_application,
+    scorers=evaluation_suite,
 )
 ```
 

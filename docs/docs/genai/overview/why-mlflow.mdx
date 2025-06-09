@@ -65,7 +65,7 @@ Move beyond manual testing with automated evaluation using LLM judges and custom
 
 ```python
 # Evaluate your app with AI-powered metrics
-results = mlflow.evaluate(
+results = mlflow.genai.evaluate(
     model=my_app,
     data=eval_dataset,
     extra_metrics=[

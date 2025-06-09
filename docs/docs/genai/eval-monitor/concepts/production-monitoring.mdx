@@ -372,10 +372,10 @@ def create_test_cases_from_production(monitor_name, quality_threshold=0.6):
 production_test_cases = create_test_cases_from_production("customer_support_bot")
 
 # Use for offline evaluation and debugging
-results = mlflow.evaluate(
+results = mlflow.genai.evaluate(
     data=production_test_cases,
-    model=your_updated_model,
-    extra_metrics=[relevance_scorer, safety_scorer],
+    predict_fn=your_updated_model,
+    scorers=[relevance_scorer, safety_scorer],
 )
 ```
 

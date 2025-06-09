@@ -247,7 +247,7 @@ eval_data = traces.rename(
     }
 )
 
-results = mlflow.evaluate(
+results = mlflow.genai.evaluate(
     model, eval_data, targets="ground_truth", model_type="question-answering"
 )
 ```
@@ -376,8 +376,8 @@ eval_dataset = conversation_data.rename(
 )
 
 # Use with MLflow evaluate
-results = mlflow.evaluate(
-    model=your_model, data=eval_dataset, targets="ground_truth", evaluators=["default"]
+results = mlflow.genai.evaluate(
+    predict_fn=your_model, data=eval_dataset, scorers=["default"]
 )
 ```
 

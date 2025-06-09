@@ -71,7 +71,7 @@ Your evaluation script needs to be parameterized and robust, handling various in
 
 The script must clearly communicate its results through exit codes - this is how your CI/CD system knows whether to proceed with deployment or halt the process. A zero exit code indicates success, while non-zero indicates failure.
 
-Build a Python script that performs automated evaluation using `mlflow.evaluate()`:
+Build a Python script that performs automated evaluation using `mlflow.genai.evaluate()`:
 
 ```python
 #!/usr/bin/env python3
@@ -231,12 +231,11 @@ def run_evaluation(args):
         ]
 
         print("Running MLflow evaluation...")
-        eval_results = mlflow.evaluate(
-            model=model,
+        eval_results = mlflow.genai.evaluate(
+            predict_fn=model,
             data=eval_dataset,
-            targets="expected_response",
             extra_metrics=evaluation_metrics,
-            evaluator_config={
+            scorers={
                 "col_mapping": {"inputs": "inputs", "targets": "expected_response"}
             },
         )

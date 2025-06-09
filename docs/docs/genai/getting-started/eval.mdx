@@ -338,7 +338,7 @@ def load_input_data(file_path: str) -> list:
 # ... (main execution block)
 ```
 
-This function reads each line from `input_data.jsonl`, parses it as JSON, and formats it into the structure expected by `mlflow.evaluate`.
+This function reads each line from `input_data.jsonl`, parses it as JSON, and formats it into the structure expected by `mlflow.genai.evaluate`.
 
 ## Step 4: Run evaluation
 
@@ -400,13 +400,12 @@ def evaluate_email_generation(prompt, model, data_path="data/input_data.jsonl"):
     all_metrics = custom_metrics + [faithfulness, relevance, rep_name_in_email]
 
     # Run evaluation
-    return mlflow.evaluate(
-        model=model_predict_fn,
+    return mlflow.genai.evaluate(
+        predict_fn=model_predict_fn,
         data=eval_data[:5],  # Limit to first 5 for demo
-        targets=None,
         model_type="text",
         evaluators="default",
-        extra_metrics=all_metrics,
+        scorers=all_metrics,
         experiment_id=mlflow.get_experiment_by_name("Default").experiment_id,
     )
 
@@ -431,11 +430,11 @@ if __name__ == "__main__":
     # eval_v2() will be called later
 ```
 
-The `predict_fn` adapts our `core_generate_email_logic` to the interface expected by `mlflow.evaluate`. The `evaluate_email_generation` function:
+The `predict_fn` adapts our `core_generate_email_logic` to the interface expected by `mlflow.genai.evaluate`. The `evaluate_email_generation` function:
 
 1. Loads the evaluation data using `load_input_data`.
 2. Creates a prediction function with the specified prompt and model.
-3. Calls `mlflow.evaluate`, passing our custom prediction function, data, and the list of custom metrics.
+3. Calls `mlflow.genai.evaluate`, passing our custom prediction function, data, and the list of custom metrics.
 
 Run `python eval_app.py` again. This time, it will evaluate `PROMPT_V1` against `input_data.jsonl` using your defined metrics. The summary metrics will be printed. An MLflow Run will be created in your Experiment, containing detailed results, including per-row scores and the overall metrics.
 

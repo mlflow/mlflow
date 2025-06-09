@@ -73,7 +73,9 @@ data = [
 ]
 
 # Run evaluation
-results = mlflow.evaluate(data=data, model=my_model, extra_metrics=[compliance_check])
+results = mlflow.genai.evaluate(
+    data=data, predict_fn=my_model, scorers=[compliance_check]
+)
 ```
 
 ## How Guidelines Work in Databricks MLflow
