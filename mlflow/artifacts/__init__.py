@@ -93,13 +93,6 @@ def download_artifacts(
     return artifact_repo.download_artifacts(artifact_path, dst_path=dst_path)
 
 
-def _is_not_logged_model_name(artifact_path: str) -> bool:
-    """
-    Checks if the artifact path does not represent a logged model name.
-    """
-    return "/" in artifact_path
-
-
 def list_artifacts(
     artifact_uri: Optional[str] = None,
     run_id: Optional[str] = None,
