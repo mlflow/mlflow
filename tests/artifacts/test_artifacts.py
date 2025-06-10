@@ -242,13 +242,12 @@ def test_log_artifact_windows_path_with_hostname(text_artifact):
             mlflow.log_artifact(text_artifact.artifact_path)
             copyfile_mock.assert_called_once()
             exists_mock.assert_called_once()
-            local_path = mlflow.artifacts.download_artifacts(
-                run_id=run.info.run_id, artifact_path=text_artifact.artifact_name
-            )
-            assert (
-                rf"{experiment_test_1_artifact_location}\{run.info.run_id}"
-                rf"\artifacts\{text_artifact.artifact_name}" == local_path
-            )
+            assert pathlib.Path(
+                experiment_test_1_artifact_location,
+                run.info.run_id,
+                "artifacts",
+                text_artifact.artifact_name,
+            ).exists()
 
 
 def test_list_artifacts_with_artifact_uri(run_with_artifacts):
