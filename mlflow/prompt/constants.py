@@ -7,6 +7,9 @@ PROMPT_TEXT_TAG_KEY = "mlflow.prompt.text"
 
 LINKED_PROMPTS_TAG_KEY = "mlflow.linkedPrompts"
 
+# A special tag to store associated run IDs for prompts
+PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY = "mlflow.prompt.associatedRunIds"
+
 PROMPT_TEMPLATE_VARIABLE_PATTERN = re.compile(
     r"\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)\s*\}\}"
 )
