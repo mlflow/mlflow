@@ -2488,7 +2488,7 @@ def test_link_prompt_version_to_model_sets_tag(mock_get_tracking_store, store):
         assert isinstance(logged_model_tag, LoggedModelTag)
         assert logged_model_tag.key == LINKED_PROMPTS_TAG_KEY
 
-        expected_value = [{"name": "test_prompt", "version": 1}]
+        expected_value = [{"name": "test_prompt", "version": "1"}]
         assert json.loads(logged_model_tag.value) == expected_value
 
 
