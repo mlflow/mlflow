@@ -90,6 +90,7 @@ from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
     GetPromptVersionRequest,
     LinkPromptsToTracesRequest,
     LinkPromptVersionsToModelsRequest,
+    LinkPromptVersionsToRunsRequest,
     PromptVersionLinkEntry,
     SearchPromptsRequest,
     SearchPromptsResponse,
@@ -412,6 +413,7 @@ class UcModelRegistryStore(BaseRestStore):
             UpdatePromptVersionRequest: ProtoPromptVersion,
             LinkPromptVersionsToModelsRequest: google.protobuf.empty_pb2.Empty,
             LinkPromptsToTracesRequest: google.protobuf.empty_pb2.Empty,
+            LinkPromptVersionsToRunsRequest: google.protobuf.empty_pb2.Empty,
         }
         return method_to_response[method]()
 
@@ -1682,6 +1684,35 @@ class UcModelRegistryStore(BaseRestStore):
                 )
             except Exception:
                 _logger.debug("Failed to link prompts to traces in unity catalog", exc_info=True)
+
+    def link_prompt_version_to_run(self, name: str, version: str, run_id: str) -> None:
+        """
+        Link a prompt version to a run in Unity Catalog.
+
+        Args:
+            name: Name of the prompt.
+            version: Version of the prompt to link.
+            run_id: ID of the run to link to.
+        """
+        super().link_prompt_version_to_run(name=name, version=version, run_id=run_id)
+
+        prompt_version_entry = PromptVersionLinkEntry(name=name, version=version)
+        endpoint, method = self._get_endpoint_from_method(LinkPromptVersionsToRunsRequest)
+
+        req_body = message_to_json(
+            LinkPromptVersionsToRunsRequest(
+                prompt_versions=[prompt_version_entry], run_ids=[run_id]
+            )
+        )
+        try:
+            self._edit_endpoint_and_call(
+                endpoint=endpoint,
+                method=method,
+                req_body=req_body,
+                proto_name=LinkPromptVersionsToRunsRequest,
+            )
+        except Exception:
+            _logger.debug("Failed to link prompt version to run in unity catalog", exc_info=True)
 
     def _edit_endpoint_and_call(self, endpoint, method, req_body, proto_name, **kwargs):
         """
