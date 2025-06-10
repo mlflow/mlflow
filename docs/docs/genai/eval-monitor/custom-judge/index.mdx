@@ -11,7 +11,7 @@ While MLflow's [predefined LLM judge scorers](/genai/eval-monitor/predefined-jud
 
 ## Approaches for creating custom judges
 
-MLflow offers 2 approaches to building custom judges. We reccomend starting with guidelines-based judges and only using prompt-based judges if you need more control or can't write your evaluation criteria as pass/fail guidelines. Guidelines-based judges have the distinct advantage of being easy to explain to business stakeholders and can often be directly written by domain experts.
+MLflow offers 2 approaches to building custom judges. We recommend starting with guidelines-based judges and only using prompt-based judges if you need more control or can't write your evaluation criteria as pass/fail guidelines. Guidelines-based judges have the distinct advantage of being easy to explain to business stakeholders and can often be directly written by domain experts.
 
 ### Guidelines-based scorers _(we suggest starting here)_
 
@@ -23,7 +23,7 @@ MLflow offers 2 approaches to building custom judges. We reccomend starting with
 ### Prompt-based scorers
 
 - **Best for:** Complex, nuanced evaluations where you need full control over the scorer's prompt or need to have the scorer specify multiple output values, for example, "great", "ok", "bad".
-- **How it works:** You provide a prompt template that defines your evaluation criteria and has placeholders for specific fields in your app's trace. You define the output choices the scorer can select. An LLM then selects the appropiate output choice and provides a rationale for its selection.
+- **How it works:** You provide a prompt template that defines your evaluation criteria and has placeholders for specific fields in your app's trace. You define the output choices the scorer can select. An LLM then selects the appropriate output choice and provides a rationale for its selection.
 
 [Get started with prompt-based judges &raquo;](/genai/eval-monitor/custom-judge/create-prompt-judge)
 

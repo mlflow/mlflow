@@ -24,7 +24,7 @@ For more details on how the prebuilt guidelines scorer parses your trace, visit 
 
 ## 1. Use the prebuilt guidelines scorer
 
-In this guide, you will add custom evaluation criteria to the prebuilt scorer and run an offline evaluation with the resulting scorers. These same scorers can be scheduled to run in production to continously monitor your application's quality.
+In this guide, you will add custom evaluation criteria to the prebuilt scorer and run an offline evaluation with the resulting scorers. These same scorers can be scheduled to run in production to continuously monitor your application's quality.
 
 <!-- :::note
 If you'd like to download this guide's code as a Python file or importable Databricks Notebook, please jump to the [download code](#download-code) section.
@@ -46,16 +46,15 @@ mlflow.openai.autolog()
 # Alternatively, you can use your own OpenAI credentials here
 mlflow_creds = mlflow.utils.databricks_utils.get_databricks_host_creds()
 client = OpenAI(
-    api_key=mlflow_creds.token,
-    base_url=f"{mlflow_creds.host}/serving-endpoints"
+    api_key=mlflow_creds.token, base_url=f"{mlflow_creds.host}/serving-endpoints"
 )
 
 # This is a global variable that will be used to toggle the behavior of the customer support agent to see how the guidelines scorers handle rude and verbose responses
 BE_RUDE_AND_VERBOSE = False
 
+
 @mlflow.trace
 def customer_support_agent(messages: List[Dict[str, str]]):
-
     # 1. Prepare messages for the LLM
     system_prompt_postfix = (
         "Be super rude and very verbose in your responses."
@@ -75,6 +74,7 @@ def customer_support_agent(messages: List[Dict[str, str]]):
         model="databricks-claude-3-7-sonnet",  # This example uses Databricks hosted Claude 3.7 Sonnet. If you provide your own OpenAI credentials, replace with a valid OpenAI model e.g., gpt-4o, etc.
         messages=messages_for_llm,
     )
+
 
 result = customer_support_agent(
     messages=[
@@ -190,7 +190,7 @@ mlflow.genai.evaluate(
 
 ## 2. Create a custom scorer that wraps the guidelines judge
 
-In this guide, you will add create [custom scorers](/genai/eval-monitor/custom-scorers) that wrap the `judges.meets_guidelines()` API and run an offline evaluation with the resulting scorers. These same scorers can be scheduled to run in production to continously monitor your application's quality.
+In this guide, you will add create [custom scorers](/genai/eval-monitor/custom-scorers) that wrap the `judges.meets_guidelines()` API and run an offline evaluation with the resulting scorers. These same scorers can be scheduled to run in production to continuously monitor your application's quality.
 
 <!-- :::note
 If you'd like to download this guide's code as a Python file or importable Databricks Notebook, please jump to the [download code](#download-code) section.
@@ -212,8 +212,7 @@ mlflow.openai.autolog()
 # Alternatively, you can use your own OpenAI credentials here
 mlflow_creds = mlflow.utils.databricks_utils.get_databricks_host_creds()
 client = OpenAI(
-    api_key=mlflow_creds.token,
-    base_url=f"{mlflow_creds.host}/serving-endpoints"
+    api_key=mlflow_creds.token, base_url=f"{mlflow_creds.host}/serving-endpoints"
 )
 
 # This is a global variable that will be used to toggle the behavior of the customer support agent to see how the guidelines scorers handle rude and verbose responses
@@ -222,9 +221,9 @@ FOLLOW_POLICIES = False
 # This is a global variable that will be used to toggle the behavior of the customer support agent to see how the guidelines scorers handle rude and verbose responses
 BE_RUDE_AND_VERBOSE = False
 
+
 @mlflow.trace
 def customer_support_agent(user_messages: List[Dict[str, str]], user_id: str):
-
     # 1. Fake policies to follow.
     @mlflow.trace
     def get_policies_for_user(user_id: str):
@@ -271,16 +270,17 @@ def customer_support_agent(user_messages: List[Dict[str, str]], user_id: str):
         "policies_followed": policies_to_follow,
     }
 
+
 result = customer_support_agent(
     user_messages=[
         {"role": "user", "content": "How much does a microwave cost?"},
     ],
-    user_id=1
+    user_id=1,
 )
 print(result)
 ```
 
-### Step 2: Define your evalation criteria and wrap as custom scorers
+### Step 2: Define your evaluation criteria and wrap as custom scorers
 
 Normally, you'd work with your business stakeholders to define the guidelines. Here, we define a few sample guidelines and use [custom scorers](/genai/eval-monitor/custom-scorers) to wire them up to our app's input / output schema.
 
@@ -297,6 +297,7 @@ banned_topics = "If the request is a question about product pricing, the respons
 relevance = "The response must be relevant to the user's request.  Only consider the relevance and nothing else. If the request is not clear, the response must ask for more information."
 # Note in this guideline how we refer to `provided_policies` - we will make the meets_guidelines LLM judge aware of this data.
 follows_policies_guideline = "If the provided_policies is relevant to the request and response, the response must adhere to the provided_policies."
+
 
 # Define a custom scorer that wraps the guidelines LLM judge to check if the response follows the policies
 @scorer
@@ -357,7 +358,6 @@ def check_guidelines(inputs: Dict[Any, Any], outputs: Dict[Any, Any]):
 
     # A scorer can return a list of Feedback objects OR a single Feedback object.
     return feedbacks
-
 ```
 
 :::note
@@ -475,7 +475,7 @@ mlflow.genai.evaluate(
 
 Below, you can download this guide's code as a Python file or as an importable Databricks Notebook:
 
-**[Part 1: Use prebuilt guidlines scorer](#1-use-the-prebuilt-guidelines-scorer)** - [Python file: `4_meets_guidelines__1_use_the_prebuilt_guidelines_scorer.py`](https://github.com/databricks/genai-cookbook/blob/main/mlflow_docs_examples/guides/evaluation/4_meets_guidelines__1_use_the_prebuilt_guidelines_scorer.py) - [Databricks Notebook `4_meets_guidelines__1_use_the_prebuilt_guidelines_scorer_notebook.py`](https://github.com/databricks/genai-cookbook/blob/main/mlflow_docs_examples/guides/evaluation/4_meets_guidelines__1_use_the_prebuilt_guidelines_scorer_notebook.py)
+**[Part 1: Use prebuilt guidelines scorer](#1-use-the-prebuilt-guidelines-scorer)** - [Python file: `4_meets_guidelines__1_use_the_prebuilt_guidelines_scorer.py`](https://github.com/databricks/genai-cookbook/blob/main/mlflow_docs_examples/guides/evaluation/4_meets_guidelines__1_use_the_prebuilt_guidelines_scorer.py) - [Databricks Notebook `4_meets_guidelines__1_use_the_prebuilt_guidelines_scorer_notebook.py`](https://github.com/databricks/genai-cookbook/blob/main/mlflow_docs_examples/guides/evaluation/4_meets_guidelines__1_use_the_prebuilt_guidelines_scorer_notebook.py)
 
 **[Part 2: Create a custom scorer](#2-create-a-custom-scorer-that-wraps-the-guidelines-judge)** - [Python file: `4_meets_guidelines__2_create_a_custom_scorer_that_wraps_the_guidelines.py`](https://github.com/databricks/genai-cookbook/blob/main/mlflow_docs_examples/guides/evaluation/4_meets_guidelines__2_create_a_custom_scorer_that_wraps_the_guidelines.py) - [Databricks Notebook `4_meets_guidelines__2_create_a_custom_scorer_that_wraps_the_guidelines_notebook.py`](https://github.com/databricks/genai-cookbook/blob/main/mlflow_docs_examples/guides/evaluation/4_meets_guidelines__2_create_a_custom_scorer_that_wraps_the_guidelines_notebook.py) -->
 

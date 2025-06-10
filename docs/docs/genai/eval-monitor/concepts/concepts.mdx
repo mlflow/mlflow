@@ -31,7 +31,7 @@ Evaluation Harness
 
 Evaluation UI
 
-- lets you see individiual evaluation results
+- lets you see individual evaluation results
   - overview of all records & metrics from the scorers
   - click into each one to see the trace
 - you can compare 2 evaluation runs to see how your qualtiy improved (or where it degressed)
@@ -45,15 +45,15 @@ Evaluation Run
 
 Scorers
 
-- it takes a trace from your application + optionally expecations (if you have labels, only works with evaluate in offline eval)
-- SUPER IMPORTANT: desgined so that you can write a scorer once and use it for offline eval and prod monitoring
+- it takes a trace from your application + optionally expectations (if you have labels, only works with evaluate in offline eval)
+- SUPER IMPORTANT: designed so that you can write a scorer once and use it for offline eval and prod monitoring
 - each scorer has some arbitrary logic to take the app's inputs/outputs + execptations and then compute 1+ Feedbacks that are quality assessments
 - the logic is different for each scorer
   - some scorers just use python code to evaluate quality - determisitc checks like "the length of the response"
   - some scorers call to llm judges to do quality checks - these check the semantics of the language
 - when you write a custom scorer, mlflow evaluate or the prod monitoring service can process the trace before hand and pass you the inputs/outputs directly. this is purely a convenience for you.
 - we give you a set of predefined scorers that use our predefined llm judges
-  - Typically, you can get started with evaluation using predfined scorers, but as your application logic and evaluation criteria gets more complex (or, your application's trace does not meet the scorer's requirements), you switch to wrapping the underlying judge in a [custom scorers](/genai/eval-monitor/custom-scorers) or creating a [custom LLM scorer](/genai/eval-monitor/custom-judge/index).
+  - Typically, you can get started with evaluation using predefined scorers, but as your application logic and evaluation criteria gets more complex (or, your application's trace does not meet the scorer's requirements), you switch to wrapping the underlying judge in a [custom scorers](/genai/eval-monitor/custom-scorers) or creating a [custom LLM scorer](/genai/eval-monitor/custom-judge/index).
   - more info: docs/genai/eval-monitor/predefined-judge-scorers
 - you can create custom scorers - this is expected for most applications
 
@@ -84,8 +84,8 @@ Judges
 
 Production monitoring service
 
-- this is like the production equivilent of evaluate() harness
-- you give it scorers, and a smapling rate for each
+- this is like the production equivalent of evaluate() harness
+- you give it scorers, and a sampling rate for each
 - the service calls these scorers on your production traces, attaching the Feedback from the scorers to the traces in your experiment
 
 Evaluation Dataset

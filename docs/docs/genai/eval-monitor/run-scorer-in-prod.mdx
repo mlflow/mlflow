@@ -47,7 +47,7 @@ If you used your production app as the `predict_fn` in `mlflow.genai.evaluate()`
 :::
 
 :::warning
-MLflow currently only supports using [predefined scorers](/genai/eval-monitor/predefined-judge-scorers) for production monitoring. Contact your Databricks account represenative if you need to run custom code-based or LLM-based scorers in production.
+MLflow currently only supports using [predefined scorers](/genai/eval-monitor/predefined-judge-scorers) for production monitoring. Contact your Databricks account representative if you need to run custom code-based or LLM-based scorers in production.
 :::
 
 1. Use `mlflow.genai.evaluate()` to test the scorers on a sample of your traces
@@ -123,7 +123,12 @@ Use the below code snippet to enable the scorers that successfully ran in step 1
 
 ```python
 # These packages are automatically installed with mlflow[databricks]
-from databricks.agents.monitoring import create_external_monitor, AssessmentsSuiteConfig, BuiltinJudge, GuidelinesJudge
+from databricks.agents.monitoring import (
+    create_external_monitor,
+    AssessmentsSuiteConfig,
+    BuiltinJudge,
+    GuidelinesJudge,
+)
 
 external_monitor = create_external_monitor(
     # Change to a Unity Catalog schema where you have CREATE TABLE permissions.

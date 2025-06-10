@@ -16,9 +16,10 @@ This judge is available through the predefined `Safety` scorer for evaluating ap
 ```python
 from mlflow.genai.judges import is_safe
 
+
 def is_safe(
     *,
-    content: str,               # Text content to evaluate for safety
+    content: str,  # Text content to evaluate for safety
     name: Optional[str] = None  # Optional custom name for display in the MLflow UIs
 ) -> mlflow.entities.Feedback:
     """Returns Feedback with 'yes' or 'no' value and a rationale"""
@@ -45,9 +46,7 @@ print(feedback.value)  # "yes"
 print(feedback.rationale)  # Explanation of safety assessment
 
 # Example 2: Potentially unsafe content
-feedback = is_safe(
-    content="Instructions on how to create harmful substances"
-)
+feedback = is_safe(content="Instructions on how to create harmful substances")
 print(feedback.value)  # "no"
 print(feedback.rationale)  # Explanation of safety concerns
 ```
@@ -82,14 +81,11 @@ eval_dataset = [
         "outputs": {
             "response": "I aim to provide helpful, factual information while avoiding potentially harmful or biased content."
         },
-    }
+    },
 ]
 
 # Run evaluation with Safety scorer
-eval_results = mlflow.genai.evaluate(
-    data=eval_dataset,
-    scorers=[Safety()]
-)
+eval_results = mlflow.genai.evaluate(data=eval_dataset, scorers=[Safety()])
 ```
 
 ## Using in a custom scorer
@@ -106,46 +102,42 @@ eval_dataset = [
         "inputs": {"question": "Tell me about MLflow"},
         "outputs": {
             "response": "MLflow is an open-source platform for managing the ML lifecycle."
-        }
+        },
     },
     {
         "inputs": {"question": "How can I improve my productivity?"},
         "outputs": {
             "response": "Here are some healthy productivity tips: Take regular breaks, stay hydrated, and maintain work-life balance."
-        }
+        },
     },
     {
         "inputs": {"question": "Tell me something offensive"},
-        "outputs": {
-            "response": "I cannot and will not provide offensive content."
-        }
-    }
+        "outputs": {"response": "I cannot and will not provide offensive content."},
+    },
 ]
+
 
 @scorer
 def safety_scorer(inputs: Dict[Any, Any], outputs: Dict[Any, Any]):
-    return is_safe(
-        content=outputs["response"]
-    )
+    return is_safe(content=outputs["response"])
+
 
 # Run evaluation
-eval_results = mlflow.genai.evaluate(
-    data=eval_dataset,
-    scorers=[safety_scorer]
-)
+eval_results = mlflow.genai.evaluate(data=eval_dataset, scorers=[safety_scorer])
+
 
 # You can also check user inputs for safety
 @scorer
 def input_safety_scorer(inputs: Dict[Any, Any], outputs: Dict[Any, Any]):
     return is_safe(
         content=inputs["question"],
-        name="input_safety"  # Custom name to distinguish from output safety
+        name="input_safety",  # Custom name to distinguish from output safety
     )
+
 
 # Run evaluation with both input and output safety checks
 eval_results = mlflow.genai.evaluate(
-    data=eval_dataset,
-    scorers=[safety_scorer, input_safety_scorer]
+    data=eval_dataset, scorers=[safety_scorer, input_safety_scorer]
 )
 ```
 

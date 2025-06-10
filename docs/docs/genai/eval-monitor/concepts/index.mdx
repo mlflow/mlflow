@@ -28,6 +28,7 @@ import mlflow
 from mlflow.genai.scorers import scorer, Safety, RelevanceToQuery
 from mlflow.entities import Feedback
 
+
 # Combine predefined and custom scorers
 @scorer
 def custom_business_scorer(outputs):
@@ -37,21 +38,16 @@ def custom_business_scorer(outputs):
         return Feedback(value=False, rationale="Missing company branding")
     return Feedback(value=True, rationale="Meets business criteria")
 
+
 # Use same scorers everywhere
 scorers = [Safety(), RelevanceToQuery(), custom_business_scorer]
 
 # Offline evaluation
-results = mlflow.genai.evaluate(
-    data=eval_dataset,
-    predict_fn=my_app,
-    scorers=scorers
-)
+results = mlflow.genai.evaluate(data=eval_dataset, predict_fn=my_app, scorers=scorers)
 
 # Production monitoring - same scorers!
 monitor = mlflow.genai.create_monitor(
-    endpoint="my-production-endpoint",
-    scorers=scorers,
-    sampling_rate=0.1
+    endpoint="my-production-endpoint", scorers=scorers, sampling_rate=0.1
 )
 ```
 
@@ -64,18 +60,18 @@ from mlflow.genai.scorers import Safety, Correctness
 
 # Run initial evaluation
 results1 = mlflow.genai.evaluate(
-    data=test_dataset,
-    predict_fn=my_app,
-    scorers=[Safety(), Correctness()]
+    data=test_dataset, predict_fn=my_app, scorers=[Safety(), Correctness()]
 )
 
 # Use results to create refined dataset
 traces = mlflow.search_traces(run_id=results1.run_id)
 
 # Filter to problematic traces
-safety_failures = traces[traces['assessments'].apply(
-    lambda x: any(a.name == 'Safety' and a.value == 'no' for a in x)
-)]
+safety_failures = traces[
+    traces["assessments"].apply(
+        lambda x: any(a.name == "Safety" and a.value == "no" for a in x)
+    )
+]
 
 # Re-evaluate with different scorers or updated app
 from mlflow.genai.scorers import Guidelines
@@ -86,10 +82,9 @@ results2 = mlflow.genai.evaluate(
     scorers=[
         Safety(),
         Guidelines(
-            name="content_policy",
-            guidelines="Response must follow our content policy"
-        )
-    ]
+            name="content_policy", guidelines="Response must follow our content policy"
+        ),
+    ],
 )
 ```
 
@@ -100,6 +95,7 @@ import mlflow
 from mlflow.genai.scorers import scorer
 from mlflow.entities import Feedback, AssessmentError
 
+
 @scorer
 def resilient_scorer(outputs, trace=None):
     try:
@@ -109,8 +105,8 @@ def resilient_scorer(outputs, trace=None):
                 value=None,
                 error=AssessmentError(
                     error_code="MISSING_RESPONSE",
-                    error_message="No response field in outputs"
-                )
+                    error_message="No response field in outputs",
+                ),
             )
         # Your evaluation logic
         return Feedback(value=True, rationale="Valid response")
@@ -118,11 +114,10 @@ def resilient_scorer(outputs, trace=None):
         # Let MLflow handle the error gracefully
         raise
 
+
 # Use in evaluation - continues even if some scorers fail
 results = mlflow.genai.evaluate(
-    data=dataset,
-    predict_fn=my_app,
-    scorers=[resilient_scorer, Safety()]
+    data=dataset, predict_fn=my_app, scorers=[resilient_scorer, Safety()]
 )
 ```
 
@@ -136,6 +131,7 @@ Functions that evaluate [traces](/mlflow3/genai/tracing/data-model) and return [
 from mlflow.genai.scorers import scorer
 from mlflow.entities import Feedback
 from typing import Optional, Dict, Any, List
+
 
 @scorer
 def my_custom_scorer(
@@ -162,6 +158,7 @@ from mlflow.genai.scorers import scorer
 # Direct usage
 feedback = is_safe(content="Hello world")
 
+
 # Wrapped in scorer
 @scorer
 def safety_scorer(outputs):
@@ -182,7 +179,7 @@ results = mlflow.genai.evaluate(
     data=eval_dataset,  # Test data
     predict_fn=my_app,  # Your app
     scorers=[Safety(), RelevanceToQuery()],  # Quality metrics
-    model_id="models:/my-app/1"  # Optional version tracking
+    model_id="models:/my-app/1",  # Optional version tracking
 )
 ```
 
@@ -196,9 +193,7 @@ Versioned test data with optional ground truth.
 import mlflow.genai.datasets
 
 # Create from production traces
-dataset = mlflow.genai.datasets.create_dataset(
-    uc_table_name="catalog.schema.eval_data"
-)
+dataset = mlflow.genai.datasets.create_dataset(uc_table_name="catalog.schema.eval_data")
 
 # Add traces
 traces = mlflow.search_traces(filter_string="trace.status = 'OK'")
@@ -219,9 +214,9 @@ Results from evaluation containing traces with feedback.
 traces = mlflow.search_traces(run_id=results.run_id)
 
 # Filter by feedback
-good_traces = traces[traces['assessments'].apply(
-    lambda x: all(a.value for a in x if a.name == 'Safety')
-)]
+good_traces = traces[
+    traces["assessments"].apply(lambda x: all(a.value for a in x if a.name == "Safety"))
+]
 ```
 
 **[Learn more about Evaluation Runs &raquo;](/genai/eval-monitor/concepts/evaluation-runs)**
@@ -238,7 +233,7 @@ monitor = mlflow.genai.create_monitor(
     name="chatbot_monitor",
     endpoint="endpoints:/my-chatbot-prod",
     scorers=[Safety(), custom_scorer],
-    sampling_rate=0.1  # 10% of traffic
+    sampling_rate=0.1,  # 10% of traffic
 )
 ```
 

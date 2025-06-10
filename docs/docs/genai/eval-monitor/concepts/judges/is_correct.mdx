@@ -20,13 +20,18 @@ This judge is available through the predefined `Correctness` scorer for evaluati
 ```python
 from mlflow.genai.judges import is_correct
 
+
 def is_correct(
     *,
-    request: str,                               # User's question or query
-    response: str,                              # Application's response to evaluate
-    expected_facts: Optional[list[str]],        # List of expected facts (provide either expected_response or expected_facts)
-    expected_response: Optional[str] = None,    #  Ground truth response (provide either expected_response or expected_facts)
-    name: Optional[str] = None                  # Optional custom name for display in the MLflow UIs
+    request: str,  # User's question or query
+    response: str,  # Application's response to evaluate
+    expected_facts: Optional[
+        list[str]
+    ],  # List of expected facts (provide either expected_response or expected_facts)
+    expected_response: Optional[
+        str
+    ] = None,  #  Ground truth response (provide either expected_response or expected_facts)
+    name: Optional[str] = None  # Optional custom name for display in the MLflow UIs
 ) -> mlflow.entities.Feedback:
     """Returns Feedback with 'yes' or 'no' value and a rationale"""
 ```
@@ -50,10 +55,7 @@ from mlflow.genai.judges import is_correct
 feedback = is_correct(
     request="What is MLflow?",
     response="MLflow is an open-source platform for managing the ML lifecycle.",
-    expected_facts=[
-        "MLflow is open-source",
-        "MLflow is a platform for ML lifecycle"
-    ]
+    expected_facts=["MLflow is open-source", "MLflow is a platform for ML lifecycle"],
 )
 print(feedback.value)  # "yes"
 print(feedback.rationale)  # Explanation of correctness
@@ -62,7 +64,7 @@ print(feedback.rationale)  # Explanation of correctness
 feedback = is_correct(
     request="When was MLflow released?",
     response="MLflow was released in 2017.",
-    expected_facts=["MLflow was released in June 2018"]
+    expected_facts=["MLflow was released in June 2018"],
 )
 print(feedback.value)  # "no"
 print(feedback.rationale)  # Explanation of what's incorrect
@@ -87,9 +89,7 @@ eval_dataset = [
         "outputs": {
             "response": "Paris is the magnificent capital city of France, known for the Eiffel Tower and rich culture."
         },
-        "expectations": {
-            "expected_facts": ["Paris is the capital of France."]
-        },
+        "expectations": {"expected_facts": ["Paris is the capital of France."]},
     },
     {
         "inputs": {"query": "What are the main components of MLflow?"},
@@ -102,26 +102,19 @@ eval_dataset = [
                 "Components include Tracking",
                 "Components include Projects",
                 "Components include Models",
-                "Components include Registry"
+                "Components include Registry",
             ]
         },
     },
     {
         "inputs": {"query": "When was MLflow released?"},
-        "outputs": {
-            "response": "MLflow was released in 2017 by Databricks."
-        },
-        "expectations": {
-            "expected_facts": ["MLflow was released in June 2018"]
-        },
-    }
+        "outputs": {"response": "MLflow was released in 2017 by Databricks."},
+        "expectations": {"expected_facts": ["MLflow was released in June 2018"]},
+    },
 ]
 
 # Run evaluation with Correctness scorer
-eval_results = mlflow.genai.evaluate(
-    data=eval_dataset,
-    scorers=[Correctness()]
-)
+eval_results = mlflow.genai.evaluate(data=eval_dataset, scorers=[Correctness()])
 ```
 
 ### Alternative: Using expected_response
@@ -143,8 +136,7 @@ eval_dataset_with_response = [
 
 # Run evaluation with expected_response
 eval_results = mlflow.genai.evaluate(
-    data=eval_dataset_with_response,
-    scorers=[Correctness()]
+    data=eval_dataset_with_response, scorers=[Correctness()]
 )
 ```
 
@@ -173,37 +165,36 @@ eval_dataset = [
                 "Components include Tracking",
                 "Components include Projects",
                 "Components include Models",
-                "Components include Registry"
+                "Components include Registry",
             ]
-        }
+        },
     },
     {
         "inputs": {"question": "What is MLflow used for?"},
-        "outputs": {
-            "answer": "MLflow is used for building websites."
-        },
+        "outputs": {"answer": "MLflow is used for building websites."},
         "expectations": {
             "facts": [
                 "MLflow is used for managing ML lifecycle",
-                "MLflow helps with experiment tracking"
+                "MLflow helps with experiment tracking",
             ]
-        }
-    }
+        },
+    },
 ]
 
+
 @scorer
-def correctness_scorer(inputs: Dict[Any, Any], outputs: Dict[Any, Any], expectations: Dict[Any, Any]):
+def correctness_scorer(
+    inputs: Dict[Any, Any], outputs: Dict[Any, Any], expectations: Dict[Any, Any]
+):
     return is_correct(
         request=inputs["question"],
         response=outputs["answer"],
-        expected_facts=expectations["facts"]
+        expected_facts=expectations["facts"],
     )
 
+
 # Run evaluation
-eval_results = mlflow.genai.evaluate(
-    data=eval_dataset,
-    scorers=[correctness_scorer]
-)
+eval_results = mlflow.genai.evaluate(data=eval_dataset, scorers=[correctness_scorer])
 ```
 
 ## Interpreting Results

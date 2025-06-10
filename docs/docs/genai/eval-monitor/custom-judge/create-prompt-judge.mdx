@@ -17,14 +17,14 @@ last_update:
 You provide a prompt template that has placeholders for specific fields in your app's trace and define the output choices the judge can select. The Databricks-hosted LLM judge model uses these inputs to select best output choice and provides a rationale for its selection.
 
 :::note
-We reccomend starting with [guidelines-based judges](/genai/eval-monitor/custom-judge/meets-guidelines) and only using prompt-based judges if you need more control or can't write your evaluation criteria as pass/fail guidelines. Guidelines-based judges have the distinct advantage of being easy to explain to business stakeholders and can often be directly written by domain experts.
+We recommend starting with [guidelines-based judges](/genai/eval-monitor/custom-judge/meets-guidelines) and only using prompt-based judges if you need more control or can't write your evaluation criteria as pass/fail guidelines. Guidelines-based judges have the distinct advantage of being easy to explain to business stakeholders and can often be directly written by domain experts.
 :::
 
 ## How to create a prompt-based judge scorer
 
 Follow the guide below to create a scorer that wraps `judges.create_prompt_judge()`
 
-In this guide, you will create [custom scorers](/genai/eval-monitor/custom-scorers) that wrap the `judges.create_prompt_judge()` API and run an offline evaluation with the resulting scorers. These same scorers can be scheduled to run in production to continously monitor your application's quality.
+In this guide, you will create [custom scorers](/genai/eval-monitor/custom-scorers) that wrap the `judges.create_prompt_judge()` API and run an offline evaluation with the resulting scorers. These same scorers can be scheduled to run in production to continuously monitor your application's quality.
 
 :::note
 Refer to the [`judges.create_prompt_judge()` concept page](/genai/eval-monitor/concepts/judges/prompt-based-judge) for more details on the interface and parameters.
@@ -48,8 +48,7 @@ mlflow.openai.autolog()
 # Alternatively, you can use your own OpenAI credentials here
 mlflow_creds = mlflow.utils.databricks_utils.get_databricks_host_creds()
 client = OpenAI(
-    api_key=mlflow_creds.token,
-    base_url=f"{mlflow_creds.host}/serving-endpoints"
+    api_key=mlflow_creds.token, base_url=f"{mlflow_creds.host}/serving-endpoints"
 )
 
 
@@ -59,7 +58,6 @@ RESOLVE_ISSUES = False
 
 @mlflow.trace
 def customer_support_agent(messages: List[Dict[str, str]]):
-
     # 2. Prepare messages for the LLM
     # We will use this toggle later to see how the judge handles the issue resolution status
     system_prompt_postfix = (
@@ -89,7 +87,7 @@ def customer_support_agent(messages: List[Dict[str, str]]):
     }
 ```
 
-### Step 2: Define your evalation criteria and wrap as custom scorers
+### Step 2: Define your evaluation criteria and wrap as custom scorers
 
 Here, we define a sample judge prompt and use [custom scorers](/genai/eval-monitor/custom-scorers) to wire it up to our app's input / output schema.
 
@@ -144,7 +142,6 @@ def is_issue_resolved(inputs: Dict[Any, Any], outputs: Dict[Any, Any]):
         value=temp.value,
         rationale=temp.rationale,
     )
-
 ```
 
 ### Step 3: Create a sample evaluation dataset

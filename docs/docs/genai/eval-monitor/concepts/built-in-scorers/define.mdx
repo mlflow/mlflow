@@ -16,7 +16,7 @@ Predefined scorers only work if:
 Predefined scorers work as follows:
 
 1. For each row, `mlflow.genai.evaluate()` passes the Trace to the scorer
-   - For some predefined scorers, the `expectations` key from the input data provided to the `data` arguement
+   - For some predefined scorers, the `expectations` key from the input data provided to the `data` argument
 2. Scorer parses the `trace` (and, if required, `expectations`) for the required data to score.
 3. Scorer calls a predefined LLM judge to generate a [`Feedback`](/mlflow3/genai/tracing/data-model#feedbacks)
 4. `mlflow.genai.evaluate()` attaches the resulting `Feedback` to the evaluation results
@@ -77,7 +77,7 @@ scorers.safety(name: Optional[str])(outputs: Any) -> Feedback
 
 scorers.guidelines()(inputs: Any, outputs:Any, expectations: Dict[str, Any])
 
-### Global guidlines, if 1 guideline, returns a single Feedback, otherwise List[Feedback]
+### Global guidelines, if 1 guideline, returns a single Feedback, otherwise List[Feedback]
 
 scorers.guidelines(guidelines=Union[str, List[str]], name: str)(inputs: Any, outputs:Any) -> Feedback
 
@@ -188,7 +188,7 @@ inherit from this class.
             raise MissingColumnsException(self.name, missing_columns)
 
 ### === Builtin Scorers ===
-
+```python
 @experimental
 class RetrievalRelevance(BuiltInScorer):
 """
@@ -960,3 +960,4 @@ self.missing_columns = list(missing_columns)
 super().**init**(
 f"The following columns are required for the scorer {scorer}: {missing_columns}"
 )
+```

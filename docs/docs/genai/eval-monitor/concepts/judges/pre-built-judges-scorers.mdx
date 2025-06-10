@@ -66,7 +66,7 @@ There are 3 ways to use the prebuilt judges.
 
 ### 1. Directly via the SDK
 
-Calling the judges directly via the SDK allows you to intergate the judges directly into your application. For example, you might want to check the groundedness of a response before returning the response back to your user.
+Calling the judges directly via the SDK allows you to integrate the judges directly into your application. For example, you might want to check the groundedness of a response before returning the response back to your user.
 
 Below is an example of using the `is_grounded` judge SDK. Refer to each judge's page for additional examples.
 
@@ -152,6 +152,7 @@ eval_dataset = [
     },
 ]
 
+
 @scorer
 def is_grounded_scorer(inputs: Dict[Any, Any], outputs: Dict[Any, Any]):
     return is_grounded(
@@ -159,6 +160,7 @@ def is_grounded_scorer(inputs: Dict[Any, Any], outputs: Dict[Any, Any]):
         response=outputs["response"],
         context=outputs["retrieved_context"],
     )
+
 
 eval_results = mlflow.genai.evaluate(data=eval_dataset, scorers=[is_grounded_scorer])
 ```

@@ -60,8 +60,7 @@ mlflow.openai.autolog()
 # Alternatively, you can use your own OpenAI credentials here
 mlflow_creds = mlflow.utils.databricks_utils.get_databricks_host_creds()
 client = OpenAI(
-    api_key=mlflow_creds.token,
-    base_url=f"{mlflow_creds.host}/serving-endpoints"
+    api_key=mlflow_creds.token, base_url=f"{mlflow_creds.host}/serving-endpoints"
 )
 
 # Simulated CRM database
@@ -69,22 +68,31 @@ CRM_DATA = {
     "Acme Corp": {
         "contact_name": "Alice Chen",
         "recent_meeting": "Product demo on Monday, very interested in enterprise features. They asked about: advanced analytics, real-time dashboards, API integrations, custom reporting, multi-user support, SSO authentication, data export capabilities, and pricing for 500+ users",
-        "support_tickets": ["Ticket #123: API latency issue (resolved last week)", "Ticket #124: Feature request for bulk import", "Ticket #125: Question about GDPR compliance"],
-        "account_manager": "Sarah Johnson"
+        "support_tickets": [
+            "Ticket #123: API latency issue (resolved last week)",
+            "Ticket #124: Feature request for bulk import",
+            "Ticket #125: Question about GDPR compliance",
+        ],
+        "account_manager": "Sarah Johnson",
     },
     "TechStart": {
         "contact_name": "Bob Martinez",
         "recent_meeting": "Initial sales call last Thursday, requested pricing",
-        "support_tickets": ["Ticket #456: Login issues (open - critical)", "Ticket #457: Performance degradation reported", "Ticket #458: Integration failing with their CRM"],
-        "account_manager": "Mike Thompson"
+        "support_tickets": [
+            "Ticket #456: Login issues (open - critical)",
+            "Ticket #457: Performance degradation reported",
+            "Ticket #458: Integration failing with their CRM",
+        ],
+        "account_manager": "Mike Thompson",
     },
     "Global Retail": {
         "contact_name": "Carol Wang",
         "recent_meeting": "Quarterly review yesterday, happy with platform performance",
         "support_tickets": [],
-        "account_manager": "Sarah Johnson"
-    }
+        "account_manager": "Sarah Johnson",
+    },
 }
+
 
 # Use a retriever span to enable MLflow's predefined RetrievalGroundedness scorer to work
 @mlflow.trace(span_type="RETRIEVER")
@@ -96,20 +104,21 @@ def retrieve_customer_info(customer_name: str) -> List[Document]:
             Document(
                 id=f"{customer_name}_meeting",
                 page_content=f"Recent meeting: {data['recent_meeting']}",
-                metadata={"type": "meeting_notes"}
+                metadata={"type": "meeting_notes"},
             ),
             Document(
                 id=f"{customer_name}_tickets",
                 page_content=f"Support tickets: {', '.join(data['support_tickets']) if data['support_tickets'] else 'No open tickets'}",
-                metadata={"type": "support_status"}
+                metadata={"type": "support_status"},
             ),
             Document(
                 id=f"{customer_name}_contact",
                 page_content=f"Contact: {data['contact_name']}, Account Manager: {data['account_manager']}",
-                metadata={"type": "contact_info"}
-            )
+                metadata={"type": "contact_info"},
+            ),
         ]
     return []
+
 
 @mlflow.trace
 def generate_sales_email(customer_name: str, user_instructions: str) -> Dict[str, str]:
@@ -132,15 +141,16 @@ def generate_sales_email(customer_name: str, user_instructions: str) -> Dict[str
     Keep the email concise and personalized."""
 
     response = client.chat.completions.create(
-        model="databricks-claude-3-7-sonnet", # This example uses a Databricks hosted LLM - you can replace this with any AI Gateway or Model Serving endpoint. If you provide your own OpenAI credentials, replace with a valid OpenAI model e.g., gpt-4o, etc.
+        model="databricks-claude-3-7-sonnet",  # This example uses a Databricks hosted LLM - you can replace this with any AI Gateway or Model Serving endpoint. If you provide your own OpenAI credentials, replace with a valid OpenAI model e.g., gpt-4o, etc.
         messages=[
             {"role": "system", "content": "You are a helpful sales assistant."},
-            {"role": "user", "content": prompt}
+            {"role": "user", "content": prompt},
         ],
-        max_tokens=2000
+        max_tokens=2000,
     )
 
     return {"email": response.choices[0].message.content}
+
 
 # Test the application
 result = generate_sales_email("Acme Corp", "Follow up after product demo")
@@ -157,12 +167,27 @@ This step simulates traffic for demonstration purposes. In practice, you would u
 # Simulate beta testing traffic with scenarios designed to fail guidelines
 test_requests = [
     {"customer_name": "Acme Corp", "user_instructions": "Follow up after product demo"},
-    {"customer_name": "TechStart", "user_instructions": "Check on support ticket status"},
-    {"customer_name": "Global Retail", "user_instructions": "Send quarterly review summary"},
-    {"customer_name": "Acme Corp", "user_instructions": "Write a very detailed email explaining all our product features, pricing tiers, implementation timeline, and support options"},
-    {"customer_name": "TechStart", "user_instructions": "Send an enthusiastic thank you for their business!"},
+    {
+        "customer_name": "TechStart",
+        "user_instructions": "Check on support ticket status",
+    },
+    {
+        "customer_name": "Global Retail",
+        "user_instructions": "Send quarterly review summary",
+    },
+    {
+        "customer_name": "Acme Corp",
+        "user_instructions": "Write a very detailed email explaining all our product features, pricing tiers, implementation timeline, and support options",
+    },
+    {
+        "customer_name": "TechStart",
+        "user_instructions": "Send an enthusiastic thank you for their business!",
+    },
     {"customer_name": "Global Retail", "user_instructions": "Send a follow-up email"},
-    {"customer_name": "Acme Corp", "user_instructions": "Just check in to see how things are going"},
+    {
+        "customer_name": "Acme Corp",
+        "user_instructions": "Just check in to see how things are going",
+    },
 ]
 
 # Run requests and capture traces
@@ -220,9 +245,9 @@ ten_minutes_ago = int((time.time() - 10 * 60) * 1000)
 
 traces = mlflow.search_traces(
     filter_string=f"attributes.timestamp_ms > {ten_minutes_ago} AND "
-                 f"attributes.status = 'OK' AND "
-                 f"tags.`mlflow.traceName` = 'generate_sales_email'",
-    order_by=["attributes.timestamp_ms DESC"]
+    f"attributes.status = 'OK' AND "
+    f"tags.`mlflow.traceName` = 'generate_sales_email'",
+    order_by=["attributes.timestamp_ms DESC"],
 )
 
 print(f"Found {len(traces)} successful traces from beta test")
@@ -262,30 +287,30 @@ from mlflow.genai.scorers import (
 # Save the scorers as a variable so we can re-use them in step 7
 
 email_scorers = [
-        RetrievalGroundedness(),  # Checks if email content is grounded in retrieved data
-        Guidelines(
-            name="follows_instructions",
-            guidelines="The generated email must follow the user_instructions in the request.",
-        ),
-        Guidelines(
-            name="concise_communication",
-            guidelines="The email MUST be concise and to the point. The email should communicate the key message efficiently without being overly brief or losing important context.",
-        ),
-        Guidelines(
-            name="mentions_contact_name",
-            guidelines="The email MUST explicitly mention the customer contact's first name (e.g., Alice, Bob, Carol) in the greeting. Generic greetings like 'Hello' or 'Dear Customer' are not acceptable.",
-        ),
-        Guidelines(
-            name="professional_tone",
-            guidelines="The email must be in a professional tone.",
-        ),
-        Guidelines(
-            name="includes_next_steps",
-            guidelines="The email MUST end with a specific, actionable next step that includes a concrete timeline.",
-        ),
-        RelevanceToQuery(),  # Checks if email addresses the user's request
-        Safety(),  # Checks for harmful or inappropriate content
-    ]
+    RetrievalGroundedness(),  # Checks if email content is grounded in retrieved data
+    Guidelines(
+        name="follows_instructions",
+        guidelines="The generated email must follow the user_instructions in the request.",
+    ),
+    Guidelines(
+        name="concise_communication",
+        guidelines="The email MUST be concise and to the point. The email should communicate the key message efficiently without being overly brief or losing important context.",
+    ),
+    Guidelines(
+        name="mentions_contact_name",
+        guidelines="The email MUST explicitly mention the customer contact's first name (e.g., Alice, Bob, Carol) in the greeting. Generic greetings like 'Hello' or 'Dear Customer' are not acceptable.",
+    ),
+    Guidelines(
+        name="professional_tone",
+        guidelines="The email must be in a professional tone.",
+    ),
+    Guidelines(
+        name="includes_next_steps",
+        guidelines="The email MUST end with a specific, actionable next step that includes a concrete timeline.",
+    ),
+    RelevanceToQuery(),  # Checks if email addresses the user's request
+    Safety(),  # Checks for harmful or inappropriate content
+]
 
 # Run evaluation with predefined scorers
 eval_results = mlflow.genai.evaluate(
@@ -302,7 +327,7 @@ Running `mlflow.genai.evaluate()` creates an Evaluation Run that contains a [tra
 Use the Evaluation Run to:
 
 - **View aggregate metrics**: Average performance across all test cases for each scorer
-- **Debug individual failure cases**: Understand why failures occured to identify improvements to make in future versions
+- **Debug individual failure cases**: Understand why failures occurred to identify improvements to make in future versions
 - **Failure analysis**: Specific examples where scorers identified issues
 
 In this evaluation, we see several issues:
@@ -343,7 +368,9 @@ The new version of the `generate_sales_email()` function uses the retrieval func
 
 ```python
 @mlflow.trace
-def generate_sales_email_v2(customer_name: str, user_instructions: str) -> Dict[str, str]:
+def generate_sales_email_v2(
+    customer_name: str, user_instructions: str
+) -> Dict[str, str]:
     """Generate personalized sales email based on customer data & a sale's rep's instructions."""
     # Retrieve customer information
     customer_docs = retrieve_customer_info(customer_name)
@@ -374,13 +401,17 @@ Write a brief, focused email that satisfies the user's exact request."""
     response = client.chat.completions.create(
         model="databricks-claude-3-7-sonnet",
         messages=[
-            {"role": "system", "content": "You are a helpful sales assistant who writes concise, instruction-focused emails."},
-            {"role": "user", "content": prompt}
+            {
+                "role": "system",
+                "content": "You are a helpful sales assistant who writes concise, instruction-focused emails.",
+            },
+            {"role": "user", "content": prompt},
         ],
-        max_tokens=2000
+        max_tokens=2000,
     )
 
     return {"email": response.choices[0].message.content}
+
 
 # Test the application
 result = generate_sales_email("Acme Corp", "Follow up after product demo")
@@ -398,9 +429,9 @@ import mlflow
 # We use start_run to name the evaluation run in the UI
 with mlflow.start_run(run_name="v2"):
     eval_results_v2 = mlflow.genai.evaluate(
-        data=eval_dataset, # same eval dataset
-        predict_fn=generate_sales_email_v2, # new app version
-        scorers=email_scorers, # same scorers as step 4
+        data=eval_dataset,  # same eval dataset
+        predict_fn=generate_sales_email_v2,  # new app version
+        scorers=email_scorers,  # same scorers as step 4
     )
 ```
 
@@ -424,34 +455,34 @@ First, let's compare the evaluation metrics stored in each Evaluation Run progra
 import pandas as pd
 
 # Fetch runs separately since mlflow.search_runs doesn't support IN or OR operators
-run_v1_df = mlflow.search_runs(
-    filter_string=f"run_id = '{eval_results_v1.run_id}'"
-)
-run_v2_df = mlflow.search_runs(
-    filter_string=f"run_id = '{eval_results_v2.run_id}'"
-)
+run_v1_df = mlflow.search_runs(filter_string=f"run_id = '{eval_results_v1.run_id}'")
+run_v2_df = mlflow.search_runs(filter_string=f"run_id = '{eval_results_v2.run_id}'")
 
 # Extract metric columns (they end with /mean, not .aggregate_score)
 # Skip the agent metrics (latency, token counts) for quality comparison
-metric_cols = [col for col in run_v1_df.columns
-               if col.startswith('metrics.') and col.endswith('/mean')
-               and 'agent/' not in col]
+metric_cols = [
+    col
+    for col in run_v1_df.columns
+    if col.startswith("metrics.") and col.endswith("/mean") and "agent/" not in col
+]
 
 # Create comparison table
 comparison_data = []
 for metric in metric_cols:
-    metric_name = metric.replace('metrics.', '').replace('/mean', '')
+    metric_name = metric.replace("metrics.", "").replace("/mean", "")
     v1_score = run_v1_df[metric].iloc[0]
     v2_score = run_v2_df[metric].iloc[0]
     improvement = v2_score - v1_score
 
-    comparison_data.append({
-        'Metric': metric_name,
-        'V1 Score': f"{v1_score:.3f}",
-        'V2 Score': f"{v2_score:.3f}",
-        'Improvement': f"{improvement:+.3f}",
-        'Improved': '✓' if improvement >= 0 else '✗'
-    })
+    comparison_data.append(
+        {
+            "Metric": metric_name,
+            "V1 Score": f"{v1_score:.3f}",
+            "V2 Score": f"{v2_score:.3f}",
+            "Improvement": f"{improvement:+.3f}",
+            "Improved": "✓" if improvement >= 0 else "✗",
+        }
+    )
 
 comparison_df = pd.DataFrame(comparison_data)
 print("\n=== Version Comparison Results ===")
@@ -460,7 +491,9 @@ print(comparison_df.to_string(index=False))
 # Calculate overall improvement (only for quality metrics)
 avg_v1 = run_v1_df[metric_cols].mean(axis=1).iloc[0]
 avg_v2 = run_v2_df[metric_cols].mean(axis=1).iloc[0]
-print(f"\nOverall average improvement: {(avg_v2 - avg_v1):+.3f} ({((avg_v2/avg_v1 - 1) * 100):+.1f}%)")
+print(
+    f"\nOverall average improvement: {(avg_v2 - avg_v1):+.3f} ({((avg_v2/avg_v1 - 1) * 100):+.1f}%)"
+)
 ```
 
 ```
@@ -482,24 +515,21 @@ Next, let's look for specific examples where the evaluation metrics regressed so
 
 ```python
 import pandas as pd
+
 # Get detailed traces for both versions
 traces_v1 = mlflow.search_traces(run_id=eval_results_v1.run_id)
 traces_v2 = mlflow.search_traces(run_id=eval_results_v2.run_id)
 
 # Create a merge key based on the input parameters
-traces_v1['merge_key'] = traces_v1['request'].apply(
+traces_v1["merge_key"] = traces_v1["request"].apply(
     lambda x: f"{x.get('customer_name', '')}|{x.get('user_instructions', '')}"
 )
-traces_v2['merge_key'] = traces_v2['request'].apply(
+traces_v2["merge_key"] = traces_v2["request"].apply(
     lambda x: f"{x.get('customer_name', '')}|{x.get('user_instructions', '')}"
 )
 
 # Merge on the input data to compare same inputs
-merged = traces_v1.merge(
-    traces_v2,
-    on='merge_key',
-    suffixes=('_v1', '_v2')
-)
+merged = traces_v1.merge(traces_v2, on="merge_key", suffixes=("_v1", "_v2"))
 
 print(f"Found {len(merged)} matching examples between v1 and v2")
 
@@ -507,11 +537,16 @@ print(f"Found {len(merged)} matching examples between v1 and v2")
 regression_examples = []
 
 for idx, row in merged.iterrows():
-    v1_assessments = {a.name: a for a in row['assessments_v1']}
-    v2_assessments = {a.name: a for a in row['assessments_v2']}
+    v1_assessments = {a.name: a for a in row["assessments_v1"]}
+    v2_assessments = {a.name: a for a in row["assessments_v2"]}
 
     # Check each scorer for regressions
-    for scorer_name in ['follows_instructions', 'concise_communication', 'includes_next_steps', 'retrieval_groundedness']:
+    for scorer_name in [
+        "follows_instructions",
+        "concise_communication",
+        "includes_next_steps",
+        "retrieval_groundedness",
+    ]:
         v1_assessment = v1_assessments.get(scorer_name)
         v2_assessment = v2_assessments.get(scorer_name)
 
@@ -520,19 +555,21 @@ for idx, row in merged.iterrows():
             v2_val = v2_assessment.feedback.value
 
             # Check if metric got worse (yes -> no)
-            if v1_val == 'yes' and v2_val == 'no':
-                regression_examples.append({
-                    'index': idx,
-                    'customer': row['request_v1']['customer_name'],
-                    'instructions': row['request_v1']['user_instructions'],
-                    'metric': scorer_name,
-                    'v1_score': v1_val,
-                    'v2_score': v2_val,
-                    'v1_rationale': v1_assessment.rationale,
-                    'v2_rationale': v2_assessment.rationale,
-                    'v1_response': row['response_v1']['email'],
-                    'v2_response': row['response_v2']['email']
-                })
+            if v1_val == "yes" and v2_val == "no":
+                regression_examples.append(
+                    {
+                        "index": idx,
+                        "customer": row["request_v1"]["customer_name"],
+                        "instructions": row["request_v1"]["user_instructions"],
+                        "metric": scorer_name,
+                        "v1_score": v1_val,
+                        "v2_score": v2_val,
+                        "v1_rationale": v1_assessment.rationale,
+                        "v2_rationale": v2_assessment.rationale,
+                        "v1_response": row["response_v1"]["email"],
+                        "v2_response": row["response_v2"]["email"],
+                    }
+                )
 
 # Display regression examples
 if regression_examples:
@@ -541,7 +578,7 @@ if regression_examples:
     # Group by metric
     by_metric = {}
     for ex in regression_examples:
-        metric = ex['metric']
+        metric = ex["metric"]
         if metric not in by_metric:
             by_metric[metric] = []
         by_metric[metric].append(ex)
@@ -562,10 +599,18 @@ if regression_examples:
         print(f"V2 Rationale: {ex['v2_rationale']}")
 
         print(f"\n--- V1 Response ---")
-        print(ex['v1_response'][:800] + "..." if len(ex['v1_response']) > 800 else ex['v1_response'])
+        print(
+            ex["v1_response"][:800] + "..."
+            if len(ex["v1_response"]) > 800
+            else ex["v1_response"]
+        )
 
         print(f"\n--- V2 Response ---")
-        print(ex['v2_response'][:800] + "..." if len(ex['v2_response']) > 800 else ex['v2_response'])
+        print(
+            ex["v2_response"][:800] + "..."
+            if len(ex["v2_response"]) > 800
+            else ex["v2_response"]
+        )
 
         if len(examples) > 1:
             print(f"\n(+{len(examples)-1} more examples with {metric} regression)")

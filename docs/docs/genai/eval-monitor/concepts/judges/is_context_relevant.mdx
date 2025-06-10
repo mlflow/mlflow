@@ -23,10 +23,11 @@ This judge is available through two predefined scorers:
 ```python
 from mlflow.genai.judges import is_context_relevant
 
+
 def is_context_relevant(
     *,
-    request: str,               # User's question or query
-    context: Any,               # Context to evaluate for relevance, can be any Python primitive or a JSON-seralizable dict
+    request: str,  # User's question or query
+    context: Any,  # Context to evaluate for relevance, can be any Python primitive or a JSON-seralizable dict
     name: Optional[str] = None  # Optional custom name for display in the MLflow UIs
 ) -> mlflow.entities.Feedback:
     """Returns Feedback with 'yes' or 'no' value and a rationale"""
@@ -49,8 +50,7 @@ from mlflow.genai.judges import is_context_relevant
 
 # Example 1: Relevant context
 feedback = is_context_relevant(
-    request="What is the capital of France?",
-    context="Paris is the capital of France."
+    request="What is the capital of France?", context="Paris is the capital of France."
 )
 print(feedback.value)  # "yes"
 print(feedback.rationale)  # Explanation of relevance
@@ -58,7 +58,7 @@ print(feedback.rationale)  # Explanation of relevance
 # Example 2: Irrelevant context
 feedback = is_context_relevant(
     request="What is the capital of France?",
-    context="Paris is known for its Eiffel Tower."
+    context="Paris is known for its Eiffel Tower.",
 )
 print(feedback.value)  # "no"
 print(feedback.rationale)  # Explanation of why it's not relevant
@@ -91,14 +91,11 @@ eval_dataset = [
         "outputs": {
             "response": "France is a beautiful country with great wine and cuisine."
         },
-    }
+    },
 ]
 
 # Run evaluation with RelevanceToQuery scorer
-eval_results = mlflow.genai.evaluate(
-    data=eval_dataset,
-    scorers=[RelevanceToQuery()]
-)
+eval_results = mlflow.genai.evaluate(data=eval_dataset, scorers=[RelevanceToQuery()])
 ```
 
 ### 2. `RetrievalRelevance` scorer
@@ -115,6 +112,7 @@ from mlflow.genai.scorers import RetrievalRelevance
 from mlflow.entities import Document
 from typing import List
 
+
 # Define a retriever function with proper span type
 @mlflow.trace(span_type="RETRIEVER")
 def retrieve_docs(query: str) -> List[Document]:
@@ -124,22 +122,23 @@ def retrieve_docs(query: str) -> List[Document]:
             Document(
                 id="doc_1",
                 page_content="Paris is the capital of France.",
-                metadata={"source": "geography.txt"}
+                metadata={"source": "geography.txt"},
             ),
             Document(
                 id="doc_2",
                 page_content="The Eiffel Tower is located in Paris.",
-                metadata={"source": "landmarks.txt"}
-            )
+                metadata={"source": "landmarks.txt"},
+            ),
         ]
     else:
         return [
             Document(
                 id="doc_3",
                 page_content="Python is a programming language.",
-                metadata={"source": "tech.txt"}
+                metadata={"source": "tech.txt"},
             )
         ]
+
 
 # Define your app that uses the retriever
 @mlflow.trace
@@ -148,21 +147,16 @@ def rag_app(query: str):
     # In practice, you would pass these docs to an LLM
     return {"response": f"Found {len(docs)} relevant documents."}
 
+
 # Create evaluation dataset
 eval_dataset = [
-    {
-        "inputs": {"query": "What is the capital of France?"}
-    },
-    {
-        "inputs": {"query": "How do I use Python?"}
-    }
+    {"inputs": {"query": "What is the capital of France?"}},
+    {"inputs": {"query": "How do I use Python?"}},
 ]
 
 # Run evaluation with RetrievalRelevance scorer
 eval_results = mlflow.genai.evaluate(
-    data=eval_dataset,
-    predict_fn=rag_app,
-    scorers=[RetrievalRelevance()]
+    data=eval_dataset, predict_fn=rag_app, scorers=[RetrievalRelevance()]
 )
 ```
 
@@ -180,9 +174,11 @@ eval_dataset = [
         "inputs": {"query": "What are MLflow's main components?"},
         "outputs": {
             "retrieved_context": [
-                {"content": "MLflow has four main components: Tracking, Projects, Models, and Registry."}
+                {
+                    "content": "MLflow has four main components: Tracking, Projects, Models, and Registry."
+                }
             ]
-        }
+        },
     },
     {
         "inputs": {"query": "What are MLflow's main components?"},
@@ -190,23 +186,21 @@ eval_dataset = [
             "retrieved_context": [
                 {"content": "Python is a popular programming language."}
             ]
-        }
-    }
+        },
+    },
 ]
+
 
 @scorer
 def context_relevance_scorer(inputs: Dict[Any, Any], outputs: Dict[Any, Any]):
     # Extract first context chunk for evaluation
     context = outputs["retrieved_context"]
-    return is_context_relevant(
-        request=inputs["query"],
-        context=context
-    )
+    return is_context_relevant(request=inputs["query"], context=context)
+
 
 # Run evaluation
 eval_results = mlflow.genai.evaluate(
-    data=eval_dataset,
-    scorers=[context_relevance_scorer]
+    data=eval_dataset, scorers=[context_relevance_scorer]
 )
 ```
 

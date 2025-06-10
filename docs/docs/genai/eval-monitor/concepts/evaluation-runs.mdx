@@ -57,7 +57,7 @@ results = mlflow.genai.evaluate(
     data=test_dataset,
     predict_fn=my_app,
     scorers=[correctness_scorer, safety_scorer],
-    experiment_name="my_app_evaluations"
+    experiment_name="my_app_evaluations",
 )
 
 # Access the run ID

@@ -81,13 +81,7 @@ The `source` field tracks where a dataset record came from. Each record can have
 **1. Human source** - Record created manually by a person
 
 ```python
-{
-    "source": {
-        "human": {
-            "user_name": "jane.doe@company.com"
-        }
-    }
-}
+{"source": {"human": {"user_name": "jane.doe@company.com"}}}
 ```
 
 - `user_name` (str): The user who created the record
@@ -99,7 +93,7 @@ The `source` field tracks where a dataset record came from. Each record can have
     "source": {
         "document": {
             "doc_uri": "s3://bucket/docs/product-manual.pdf",
-            "content": "The first 500 chars of the document..."  # Optional
+            "content": "The first 500 chars of the document...",  # Optional
         }
     }
 }
@@ -111,13 +105,7 @@ The `source` field tracks where a dataset record came from. Each record can have
 **3. Trace source** - Record created from a production trace
 
 ```python
-{
-    "source": {
-        "trace": {
-            "trace_id": "tr-abc123def456"
-        }
-    }
-}
+{"source": {"trace": {"trace_id": "tr-abc123def456"}}}
 ```
 
 - `trace_id` (str): The unique identifier of the source trace
@@ -163,14 +151,13 @@ dataset = mlflow.genai.datasets.create_dataset(
 
 # Create a dataset associated with specific experiment(s)
 dataset = mlflow.genai.datasets.create_dataset(
-    uc_table_name="catalog.schema.evaluation_dataset",
-    experiment_id="1213947645336731"
+    uc_table_name="catalog.schema.evaluation_dataset", experiment_id="1213947645336731"
 )
 
 # Associate with multiple experiments
 dataset = mlflow.genai.datasets.create_dataset(
     uc_table_name="catalog.schema.evaluation_dataset",
-    experiment_id=["1213947645336731", "3231394764336731"]
+    experiment_id=["1213947645336731", "3231394764336731"],
 )
 ```
 
@@ -217,9 +204,7 @@ Calling this method will permanently delete the dataset.
 import mlflow.genai.datasets
 
 # Delete a dataset
-mlflow.genai.datasets.delete_dataset(
-    uc_table_name="catalog.schema.evaluation_dataset"
-)
+mlflow.genai.datasets.delete_dataset(uc_table_name="catalog.schema.evaluation_dataset")
 ```
 
 **Parameters:**
@@ -240,19 +225,19 @@ import mlflow.genai.datasets
 dataset = mlflow.genai.datasets.get_dataset("catalog.schema.eval_dataset")
 
 # Access dataset metadata
-dataset_id = dataset.dataset_id          # Unique identifier
-name = dataset.name                      # UC table name
-schema = dataset.schema                  # Dataset schema
-profile = dataset.profile                # Summary statistics
-source = dataset.source                  # Source information
-source_type = dataset.source_type        # Source type (e.g., "databricks-uc-table")
-digest = dataset.digest                  # Hash of the dataset
+dataset_id = dataset.dataset_id  # Unique identifier
+name = dataset.name  # UC table name
+schema = dataset.schema  # Dataset schema
+profile = dataset.profile  # Summary statistics
+source = dataset.source  # Source information
+source_type = dataset.source_type  # Source type (e.g., "databricks-uc-table")
+digest = dataset.digest  # Hash of the dataset
 
 # Access audit information
-created_by = dataset.created_by          # Creator user
-create_time = dataset.create_time        # Creation timestamp
-last_updated_by = dataset.last_updated_by # Last updater
-last_update_time = dataset.last_update_time # Last update timestamp
+created_by = dataset.created_by  # Creator user
+create_time = dataset.create_time  # Creation timestamp
+last_updated_by = dataset.last_updated_by  # Last updater
+last_update_time = dataset.last_update_time  # Last update timestamp
 ```
 
 #### `merge_records()`
@@ -271,15 +256,15 @@ records = [
         "inputs": {"question": "What is MLflow?"},
         "expectations": {
             "expected_facts": ["open-source platform", "ML lifecycle"],
-            "guidelines": "Response should be concise and technical"
-        }
+            "guidelines": "Response should be concise and technical",
+        },
     },
     {
         "inputs": {"question": "How to track experiments?"},
         "expectations": {
             "expected_response": "Use mlflow.start_run() to track experiments..."
-        }
-    }
+        },
+    },
 ]
 dataset = dataset.merge_records(records)
 
@@ -289,6 +274,7 @@ dataset = dataset.merge_records(df)
 
 # Merge from Spark DataFrame
 from pyspark.sql import SparkSession
+
 spark = SparkSession.builder.getOrCreate()
 spark_df = spark.createDataFrame(records)
 dataset = dataset.merge_records(spark_df)
@@ -336,7 +322,7 @@ import pandas as pd
 traces = mlflow.search_traces(
     experiment_names=["production"],
     filter_string="attributes.feedback_score > 0.8",
-    max_results=100
+    max_results=100,
 )
 
 # Create dataset from traces
@@ -361,8 +347,8 @@ new_cases = [
         "inputs": {"question": "What are MLflow models?"},
         "expectations": {
             "expected_facts": ["model packaging", "deployment", "registry"],
-            "min_response_length": 100
-        }
+            "min_response_length": 100,
+        },
     }
 ]
 

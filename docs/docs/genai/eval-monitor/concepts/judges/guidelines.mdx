@@ -27,7 +27,7 @@ Guidelines-based judges and scorers use pass/fail natural language criteria to e
 MLflow provides three approaches for using guidelines-based judges:
 
 1. **[Prebuilt `Guidelines()` scorer](#1-prebuilt-guidelines-scorer)**: Apply global guidelines uniformly to all rows. Evaluates app inputs/outputs only. Works in both offline evaluation and production monitoring.
-2. **[Prebuilt `ExpectationsGuidelines()` scorer](#2-prebuilt-expectationsguidelines-scorer)**: Apply per-row guidelines labled by domain experts in an evaluation dataset. Evaluates app inputs/outputs only. For offline evaluation only.
+2. **[Prebuilt `ExpectationsGuidelines()` scorer](#2-prebuilt-expectationsguidelines-scorer)**: Apply per-row guidelines labeled by domain experts in an evaluation dataset. Evaluates app inputs/outputs only. For offline evaluation only.
 3. **[`judges.meets_guidelines()` SDK](#3-judgesmeets_guidelines-sdk)**: Apply guidelines to any trace data (tool calls, retrieved context, etc). Must be wrapped in a custom scorer to use for evaluation/monitoring.
 
 ## How guidelines work
@@ -480,16 +480,16 @@ guideline = """The response must:
 
 ### Best practices
 
-**Be specific and measurable**  
-✅ "The response must not include specific pricing amounts or percentages"  
+**Be specific and measurable**
+✅ "The response must not include specific pricing amounts or percentages"
 ❌ "Don't talk about money"
 
-**Use clear pass/fail conditions**  
-✅ "If asked about pricing, the response must direct users to the pricing page"  
+**Use clear pass/fail conditions**
+✅ "If asked about pricing, the response must direct users to the pricing page"
 ❌ "Handle pricing questions appropriately"
 
-**Reference context explicitly**  
-✅ "The response must only use facts present in retrieved_context"  
+**Reference context explicitly**
+✅ "The response must only use facts present in retrieved_context"
 ❌ "Be factual"
 
 **Structure complex requirements**

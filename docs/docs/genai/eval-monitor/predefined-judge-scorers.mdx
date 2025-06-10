@@ -9,7 +9,7 @@ last_update:
 
 ## Overview
 
-MLflow provides bult-in LLM [`Scorers`](/genai/eval-monitor/concepts/scorers) that wrap [MLflow's research-backed LLM judges](/genai/eval-monitor/concepts/judges/index) and can assess traces across typical [quality dimensions](#available-scorers).
+MLflow provides built-in LLM [`Scorers`](/genai/eval-monitor/concepts/scorers) that wrap [MLflow's research-backed LLM judges](/genai/eval-monitor/concepts/judges/index) and can assess traces across typical [quality dimensions](#available-scorers).
 
 :::important
 Typically, you can get started with evaluation using predefined scorers, but as your application logic and evaluation criteria gets more complex (or, your application's trace does not meet the scorer's requirements), you switch to wrapping the underlying judge in a [custom scorers](/genai/eval-monitor/custom-scorers) or creating a [custom LLM scorer](/genai/eval-monitor/custom-judge/index).
@@ -70,8 +70,7 @@ mlflow.openai.autolog()
 # Alternatively, you can use your own OpenAI credentials here
 mlflow_creds = mlflow.utils.databricks_utils.get_databricks_host_creds()
 client = OpenAI(
-    api_key=mlflow_creds.token,
-    base_url=f"{mlflow_creds.host}/serving-endpoints"
+    api_key=mlflow_creds.token, base_url=f"{mlflow_creds.host}/serving-endpoints"
 )
 
 
@@ -123,6 +122,8 @@ def sample_app(query: str):
         model="databricks-claude-3-7-sonnet",
         messages=messages_for_llm,
     )
+
+
 result = sample_app("what is select in sql?")
 print(result)
 ```
@@ -195,7 +196,10 @@ mlflow.genai.evaluate(
         RetrievalRelevance(),
         # RetrievalSufficiency(),
         Safety(),
-        Guidelines(name="does_not_mention", guidelines="The response not mention the fact that provided context exists.")
+        Guidelines(
+            name="does_not_mention",
+            guidelines="The response not mention the fact that provided context exists.",
+        ),
     ],
 )
 ```
