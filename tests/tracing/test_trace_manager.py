@@ -4,7 +4,7 @@ from typing import Optional
 
 from mlflow.entities import LiveSpan, Span
 from mlflow.entities.span_status import SpanStatusCode
-from mlflow.tracing.trace_manager import InMemoryTraceManager, _Trace
+from mlflow.tracing.trace_manager import InMemoryTraceManager, ManagerTrace
 
 from tests.tracing.helper import create_mock_otel_span, create_test_trace_info
 
@@ -53,20 +53,20 @@ def test_add_spans():
 
     # Pop the trace data
     manager_trace = trace_manager.pop_trace(trace_id_1)
-    assert isinstance(manager_trace, _Trace)
-    assert manager_trace.info.request_id == request_id_1
-    assert len(manager_trace.span_dict) == 3
+    assert isinstance(manager_trace, ManagerTrace)
+    assert manager_trace.trace.info.request_id == request_id_1
+    assert len(manager_trace.trace.data.spans) == 3
     assert request_id_1 not in trace_manager._traces
 
     # Convert to MLflow trace to check immutable spans
-    trace = manager_trace.to_mlflow_trace()
+    trace = manager_trace.trace
     assert isinstance(trace.data.spans[0], Span)
     assert not isinstance(trace.data.spans[0], LiveSpan)
 
     manager_trace = trace_manager.pop_trace(trace_id_2)
-    assert isinstance(manager_trace, _Trace)
-    assert manager_trace.info.request_id == request_id_2
-    assert len(manager_trace.span_dict) == 2
+    assert isinstance(manager_trace, ManagerTrace)
+    assert manager_trace.trace.info.request_id == request_id_2
+    assert len(manager_trace.trace.data.spans) == 2
     assert request_id_2 not in trace_manager._traces
 
     # Pop a trace that does not exist
@@ -99,8 +99,8 @@ def test_add_and_pop_span_thread_safety():
     for trace_id in trace_ids:
         manager_trace = trace_manager.pop_trace(trace_id)
         assert manager_trace is not None
-        assert manager_trace.info.request_id == f"tr-{trace_id}"
-        assert len(manager_trace.span_dict) == num_threads
+        assert manager_trace.trace.info.request_id == f"tr-{trace_id}"
+        assert len(manager_trace.trace.data.spans) == num_threads
 
 
 def test_traces_buffer_expires_after_ttl(monkeypatch):
