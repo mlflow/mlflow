@@ -134,7 +134,7 @@ def test_on_end():
     mock_exporter.export.assert_called_once_with((otel_span,))
     # Trace info should be updated according to the span attributes
     manager_trace = trace_manager.pop_trace("trace_id")
-    trace_info = manager_trace.info
+    trace_info = manager_trace.trace.info
     assert trace_info.status == TraceStatus.OK
     assert trace_info.execution_time_ms == 4
     assert trace_info.tags == {}

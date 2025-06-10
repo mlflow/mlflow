@@ -3,7 +3,10 @@ import json
 import mlflow
 from mlflow.tracing.client import TracingClient
 
+from tests.tracing.helper import skip_when_testing_trace_sdk
 
+
+@skip_when_testing_trace_sdk
 def test_tracing_client_link_prompt_versions_to_trace():
     with mlflow.start_run():
         # Register a prompt

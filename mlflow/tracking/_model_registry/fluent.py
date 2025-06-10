@@ -1,3 +1,4 @@
+import functools
 import json
 import logging
 import threading
@@ -8,7 +9,10 @@ import mlflow
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, RegisteredModel
 from mlflow.entities.run import Run
-from mlflow.environment_variables import MLFLOW_PRINT_MODEL_URLS_ON_CREATION
+from mlflow.environment_variables import (
+    MLFLOW_PRINT_MODEL_URLS_ON_CREATION,
+    MLFLOW_PROMPT_CACHE_MAX_SIZE,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.registry_utils import parse_prompt_name_or_uri, require_prompt_registry
 from mlflow.protos.databricks_pb2 import (
@@ -670,21 +674,15 @@ def load_prompt(
         prompt = mlflow.load_prompt("prompts:/my_prompt@production")
 
     """
-    client = MlflowClient()
-
-    # Use utility to handle URI vs name+version parsing
-    parsed_name_or_uri, parsed_version = parse_prompt_name_or_uri(name_or_uri, version)
-    if parsed_name_or_uri.startswith("prompts:/"):
-        # For URIs, don't pass version parameter
-        prompt = client.load_prompt(parsed_name_or_uri, allow_missing=allow_missing)
-    else:
-        # For names, use the parsed version
-        prompt = client.load_prompt(
-            parsed_name_or_uri, version=parsed_version, allow_missing=allow_missing
-        )
-
+    prompt = _load_prompt_version_cached(
+        name_or_uri=name_or_uri,
+        version=version,
+        allow_missing=allow_missing,
+    )
     if prompt is None:
         return
+
+    client = MlflowClient()
 
     # If there is an active MLflow run, associate the prompt with the run.
     # Note that we do this synchronously because it's unlikely that run linking occurs
@@ -734,22 +732,40 @@ def load_prompt(
     return prompt
 
 
+@functools.lru_cache(maxsize=MLFLOW_PROMPT_CACHE_MAX_SIZE.get())
 def _load_prompt_version_cached(
     name_or_uri: str,
     version: Optional[Union[str, int]] = None,
+    allow_missing: bool = False,
 ):
     """
     Load a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry, using a
     cached version if available.
 
+    This function uses LRU caching to avoid repeated network calls for the same prompt version,
+    improving performance when the same prompts are loaded multiple times. The cache size is
+    configurable via the MLFLOW_PROMPT_CACHE_MAX_SIZE environment variable (default: 128).
+
     Args:
         name_or_uri: The name of the prompt, or the URI in the format "prompts:/name/version".
         version: The version of the prompt (required when using name, not allowed when using URI).
+        allow_missing: Whether to allow missing prompts (returns None instead of raising).
 
     Returns:
         A :py:class:`Prompt <mlflow.entities.Prompt>` object that was loaded.
     """
-    return MlflowClient()._load_prompt_version_cached(name_or_uri=name_or_uri, version=version)
+    client = MlflowClient()
+
+    # Use utility to handle URI vs name+version parsing
+    parsed_name_or_uri, parsed_version = parse_prompt_name_or_uri(name_or_uri, version)
+    if parsed_name_or_uri.startswith("prompts:/"):
+        # For URIs, don't pass version parameter
+        return client.load_prompt(parsed_name_or_uri, allow_missing=allow_missing)
+    else:
+        # For names, use the parsed version
+        return client.load_prompt(
+            parsed_name_or_uri, version=parsed_version, allow_missing=allow_missing
+        )
 
 
 @experimental
@@ -781,7 +797,6 @@ def set_prompt_alias(name: str, alias: str, version: int) -> None:
         # Delete the alias
         mlflow.delete_prompt_alias(name="my_prompt", alias="production")
     """
-
     MlflowClient().set_prompt_alias(name=name, version=version, alias=alias)
 
 
