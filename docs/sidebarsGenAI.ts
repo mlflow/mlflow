@@ -286,6 +286,22 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
+      label: 'Evaluate & Monitor',
+      className: 'sidebar-top-level-category',
+      collapsed: false,
+      items: [
+        {
+          type: 'doc',
+          id: 'eval-monitor/notebooks/index',
+        },
+      ],
+      link: {
+        type: 'doc',
+        id: 'eval-monitor/index'
+      }
+    },
+    {
+      type: 'category',
       label: 'Prompt and Version Management 🔨',
       className: 'sidebar-top-level-category',
       collapsed: false,
