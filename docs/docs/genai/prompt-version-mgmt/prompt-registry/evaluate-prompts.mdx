@@ -44,7 +44,7 @@ Once you have your setup, you can run your application with each selected prompt
 
 1.  **Application Instrumentation**: Ensure your application is instrumented with MLflow Tracing. This will capture detailed information about each execution, including the inputs, outputs, any intermediate steps, latency, and token counts.
 2.  **Iterate and Log**: For each prompt version you want to evaluate:
-    a. Modify your application code to load the specific prompt version from the registry (e.g., `mlflow.load_prompt(uri="prompts:/my-prompt/1")`, then `mlflow.load_prompt(uri="prompts:/my-prompt/2")`).
+    a. Modify your application code to load the specific prompt version from the registry (e.g., `mlflow.genai.load_prompt(uri="prompts:/my-prompt/1")`, then `mlflow.genai.load_prompt(uri="prompts:/my-prompt/2")`).
     b. Run your application against each item in your evaluation dataset.
     c. The traces generated will capture the outputs produced using that specific prompt version.
 3.  **Leverage `mlflow.genai.evaluate()`**: MLflow's `mlflow.genai.evaluate()` API is a powerful tool here. You can configure it to:
@@ -127,7 +127,7 @@ os.environ["OPENAI_API_KEY"] = getpass("Enter your OpenAI API key: ")
   </TabItem>
   <TabItem value="python" label="Python" default>
     <div class="flex-column">
-      To create a new prompt using the Python API, use <APILink fn="mlflow.register_prompt" /> API:
+      To create a new prompt using the Python API, use <APILink fn="mlflow.genai.register_prompt" /> API:
 
       ```python
       import mlflow
@@ -140,7 +140,7 @@ os.environ["OPENAI_API_KEY"] = getpass("Enter your OpenAI API key: ")
       """
 
       # Register a new prompt
-      prompt = mlflow.register_prompt(
+      prompt = mlflow.genai.register_prompt(
           name="summarization-prompt",
           template=initial_template,
           # Optional: Provide a commit message to describe the changes
@@ -195,7 +195,7 @@ import openai
 
 def predict(data: pd.DataFrame) -> list[str]:
     predictions = []
-    prompt = mlflow.load_prompt("prompts:/summarization-prompt/1")
+    prompt = mlflow.genai.load_prompt("prompts:/summarization-prompt/1")
 
     for _, row in data.iterrows():
         # Fill in variables in the prompt template

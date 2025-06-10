@@ -31,13 +31,13 @@ Consider a common set of aliases you might define for a prompt named `customer-f
 2.  **Promotion to Staging**: Once version 3 is deemed ready for broader testing, the `staging` alias is updated to point to version 3.
     ```python
     # Set a staging alias for a specific version
-    mlflow.set_prompt_alias("summarization-prompt", alias="staging", version=2)
+    mlflow.genai.set_prompt_alias("summarization-prompt", alias="staging", version=2)
     ```
 3.  **Testing in Staging**: The application instances in your staging environment are configured to load prompts using the `staging` alias (e.g., `prompts:/customer-faq/staging`). Testers interact with version 3.
 4.  **Promotion to Production**: If version 3 passes all staging tests and meets quality criteria, the `production` alias is updated to point to version 3.
     ```python
     # Set a production alias for a specific version
-    mlflow.set_prompt_alias("summarization-prompt", alias="production", version=3)
+    mlflow.genai.set_prompt_alias("summarization-prompt", alias="production", version=3)
     ```
 5.  **Continuous Development**: Meanwhile, developers might start working on version 4, and the `dev` alias would then point to version 4, without affecting `staging` (still on v3) or `production` (still on v3).
 
@@ -60,9 +60,9 @@ Within the Prompt Registry section of the MLflow UI, you can typically:
 
 MLflow offers fluent APIs for programmatic alias management:
 
-- `mlflow.set_prompt_alias(name="<prompt_name>", alias="<alias_name>", version="<version_number>")`: Creates a new alias or updates an existing one.
-- `mlflow.delete_prompt_alias(name="<prompt_name>", alias="<alias_name>")`: Deletes an alias. (The prompt version itself remains).
-- `mlflow.load_prompt(name_or_uri=""prompts:/<prompt_name>@<alias_name>"")`: Retrieves the prompt version details that an alias currently points to.
+- `mlflow.genai.set_prompt_alias(name="<prompt_name>", alias="<alias_name>", version="<version_number>")`: Creates a new alias or updates an existing one.
+- `mlflow.genai.delete_prompt_alias(name="<prompt_name>", alias="<alias_name>")`: Deletes an alias. (The prompt version itself remains).
+- `mlflow.genai.load_prompt(name_or_uri=""prompts:/<prompt_name>@<alias_name>"")`: Retrieves the prompt version details that an alias currently points to.
 
 ## Governance and Maintenance
 

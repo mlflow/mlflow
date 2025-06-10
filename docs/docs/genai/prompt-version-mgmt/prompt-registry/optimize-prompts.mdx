@@ -24,7 +24,7 @@ In order to use <APILink fn="mlflow.genai.optimize_prompt" /> API, you need to p
 
 | Component | Definition | Example |
 |-----------|------------|---------|
-| **Registered Prompt** | A prompt registered in MLflow. See [Prompt Management](/genai/prompt-version-mgmt/prompt-registry/) for how to register a prompt. | <pre><code>mlflow.register_prompt(name="qa", template="Answer \{\{question\}\}")</code></pre> |
+| **Registered Prompt** | A prompt registered in MLflow. See [Prompt Management](/genai/prompt-version-mgmt/prompt-registry/) for how to register a prompt. | <pre><code>mlflow.genai.register_prompt(name="qa", template="Answer \{\{question\}\}")</code></pre> |
 | **Scorer Objects** | A set of <APILink fn="mlflow.genai.Scorer">Scorer</APILink> objects that evaluate the quality of the prompt. See [Creating Custom Scorers](/genai/eval-monitor/custom-scorers/) for how to define a custom scorer. | <pre><code>@scorer<br/>def exact_match(expectations: dict, outputs: dict)<br/>    return expectations == outputs</code></pre> |
 | **Training(+Validation) Data** | A set of training data and optionally validation data containing inputs and expected outputs. | \[\{"inputs": \{"question": "2+2"\}, "expectations": \{"answer": "4"\}}, \{"inputs": \{"question": "2+3"\}, "expectations": \{"answer": "5"\}\}\]|
 
@@ -63,7 +63,7 @@ Answer to this math question: {{question}}.
 Return the result in a JSON string in the format of {"answer": "xxx"}.
 """
 
-prompt = mlflow.register_prompt(
+prompt = mlflow.genai.register_prompt(
     name="math",
     template=initial_template,
 )
@@ -154,7 +154,7 @@ import openai
 
 
 def predict(question: str, prompt_uri: str) -> str:
-    prompt = mlflow.load_prompt(prompt_uri)
+    prompt = mlflow.genai.load_prompt(prompt_uri)
     content = prompt.format(question=question)
     completion = openai.chat.completions.create(
         model="gpt-4.1-mini",

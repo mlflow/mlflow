@@ -80,7 +80,7 @@ def register_prompt(
         )
 
         # Load the prompt from the registry
-        prompt = mlflow.load_prompt("my_prompt")
+        prompt = mlflow.genai.load_prompt("my_prompt")
 
         # Use the prompt in your application
         import openai

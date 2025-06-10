@@ -44,7 +44,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 
 # Load registered prompt
-prompt = mlflow.load_prompt("prompts:/summarization-prompt/2")
+prompt = mlflow.genai.load_prompt("prompts:/summarization-prompt/2")
 
 # Create LangChain prompt object
 langchain_prompt = ChatPromptTemplate.from_messages(
@@ -105,7 +105,7 @@ In the following example, we use LangGraph to define a very simple chat bot usin
 import mlflow
 
 # Register a new prompt
-prompt = mlflow.register_prompt(
+prompt = mlflow.genai.register_prompt(
     name="chat-prompt",
     template="You are an expert in programming. Please answer the user's question about programming.",
 )
@@ -139,7 +139,7 @@ class State(TypedDict):
 
 
 llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.1)
-system_prompt = mlflow.load_prompt("prompts:/chat-prompt/1")
+system_prompt = mlflow.genai.load_prompt("prompts:/chat-prompt/1")
 
 
 def add_system_message(state: State):

@@ -9,7 +9,7 @@ Once you have created and versioned your prompts in the MLflow Prompt Registry, 
 
 You will learn:
 
-- How to load specific prompt versions or aliases using `mlflow.load_prompt()`.
+- How to load specific prompt versions or aliases using `mlflow.genai.load_prompt()`.
 - The process of formatting prompts with dynamic data using `prompt.format()`.
 - Strategies for managing prompt versions within your application code.
 - How to use MLflow prompts with other popular frameworks like LangChain or LlamaIndex via `prompt.to_single_brace_format()`.
@@ -19,7 +19,7 @@ You will learn:
 
 ## Loading Prompts from the Registry
 
-The primary way to access a registered prompt in your application code is by using the `mlflow.load_prompt()` function. This function retrieves a specific prompt version (or a version pointed to by an alias) from the registry.
+The primary way to access a registered prompt in your application code is by using the `mlflow.genai.load_prompt()` function. This function retrieves a specific prompt version (or a version pointed to by an alias) from the registry.
 
 It uses a special URI format: `prompts:/<prompt_name>/<version_or_alias>`.
 
@@ -32,10 +32,10 @@ import mlflow
 prompt_name = "my-sdk-prompt"
 
 # Load by specific version (assuming version 1 exists)
-mlflow.load_prompt(uri=f"prompts:/{prompt_name}/1")
+mlflow.genai.load_prompt(uri=f"prompts:/{prompt_name}/1")
 
 # Load by alias (assuming an alias 'staging' points to a version of a prompt)
-mlflow.load_prompt(uri=f"prompts:/{prompt_name}@staging")
+mlflow.genai.load_prompt(uri=f"prompts:/{prompt_name}@staging")
 ```
 
 ## Formatting Prompts with Variables
@@ -59,7 +59,7 @@ You are an expert AI assistant. Answer the user's question with clarity, accurac
 
 Respond below:
 """
-prompt = mlflow.register_prompt(
+prompt = mlflow.genai.register_prompt(
     name="ai_assistant_prompt",
     template=prompt_template,
     commit_message="Initial version of AI assistant",
@@ -88,7 +88,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 
 # Load registered prompt
-prompt = mlflow.load_prompt("prompts:/summarization-prompt/2")
+prompt = mlflow.genai.load_prompt("prompts:/summarization-prompt/2")
 
 # Create LangChain prompt object
 langchain_prompt = ChatPromptTemplate.from_messages(
@@ -115,7 +115,7 @@ print(response)
 
 For complete reproducibility and traceability, it is crucial to log which specific prompt versions your application (or model) uses. When you log your GenAI application as an MLflow Model (e.g., using `mlflow.pyfunc.log_model()`, `mlflow.langchain.log_model()`, etc.), you should include information about the prompts from the registry that it utilizes.
 
-MLflow is designed to facilitate this. When a model is logged, and that model's code loads prompts using the `prompts:/` URI via `mlflow.load_prompt()`, MLflow can automatically record these prompt dependencies as part of the logged model's metadata.
+MLflow is designed to facilitate this. When a model is logged, and that model's code loads prompts using the `prompts:/` URI via `mlflow.genai.load_prompt()`, MLflow can automatically record these prompt dependencies as part of the logged model's metadata.
 
 **Benefits of this linkage:**
 
@@ -128,7 +128,7 @@ MLflow is designed to facilitate this. When a model is logged, and that model's 
 
 While automatic detection is a goal, explicitly ensuring your model logging code or serving environment correctly captures these dependencies is good practice.
 
-1.  **Consistent URI Usage**: Always use the `prompts:/<name>/<version_or_alias>` URI with `mlflow.load_prompt()` within your model's code.
+1.  **Consistent URI Usage**: Always use the `prompts:/<name>/<version_or_alias>` URI with `mlflow.genai.load_prompt()` within your model's code.
 2.  **MLflow Model Logging**: When you log your model (e.g., your agent, your LangChain chain) using an appropriate `mlflow.<flavor>.log_model()` function, MLflow flavors designed for GenAI will often inspect the model for these `prompts:/` URIs and record them.
 
 <!-- TODO(image): A diagram or UI screenshot illustrating how a logged MLflow Model version in the Model Registry links to specific Prompt versions in the Prompt Registry. -->
@@ -143,7 +143,7 @@ When integrating prompts, implement robust error handling:
 
 ## Key Takeaways
 
-- Use `mlflow.load_prompt(uri="prompts:/<name>/<version_or_alias>")` to fetch prompts from the registry.
+- Use `mlflow.genai.load_prompt(uri="prompts:/<name>/<version_or_alias>")` to fetch prompts from the registry.
 - Populate template variables with `prompt.format(**kwargs)`.
 - Leverage `prompt.to_single_brace_format()` for compatibility with frameworks like LangChain.
 - Logging your application as an MLflow Model should capture the specific prompt versions used, providing crucial lineage and reproducibility.

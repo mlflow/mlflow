@@ -41,7 +41,7 @@ This is one of the most powerful features of using aliases with the Prompt Regis
 **Scenario**: You have a prompt `invoice-parser` and the alias `production` currently points to version `2`. Your application is configured to use `prompts:/invoice-parser/production`.
 
 1.  **Develop and Test a New Version**: You create and thoroughly test version `3` of `invoice-parser`, which significantly improves accuracy.
-2.  **Update the Alias**: Using the MLflow UI or the `mlflow.set_prompt_alias()` Python API, you change the `production` alias for `invoice-parser` to now point to version `3`.
+2.  **Update the Alias**: Using the MLflow UI or the `mlflow.genai.set_prompt_alias()` Python API, you change the `production` alias for `invoice-parser` to now point to version `3`.
 3.  **Application Behavior**: The next time your deployed application instances (which might have caching, see below) load the prompt `prompts:/invoice-parser/production`, they will automatically fetch version `3` without any code changes or restarts.
 
 **Considerations for Caching**: Deployed applications might cache loaded prompts for performance. Ensure your application has a strategy to periodically refresh cached prompts or a mechanism to trigger a refresh if immediate updates are critical.
@@ -51,7 +51,7 @@ This is one of the most powerful features of using aliases with the Prompt Regis
 While the Prompt Registry manages the prompts themselves, monitoring their usage and performance in production relies on your application's observability stack, ideally integrated with MLflow Tracing.
 
 - **Log Prompt Identifiers**: Ensure your application logs include the specific prompt name and version (or the alias used and the version it resolved to) for each transaction.
-- **Trace Integration**: If using MLflow Tracing, the `mlflow.load_prompt()` call can automatically add metadata to your traces about the prompt URI used. This allows you to correlate application behavior, LLM outputs, and performance metrics (latency, cost) with specific prompt versions in the MLflow Tracing UI.
+- **Trace Integration**: If using MLflow Tracing, the `mlflow.genai.load_prompt()` call can automatically add metadata to your traces about the prompt URI used. This allows you to correlate application behavior, LLM outputs, and performance metrics (latency, cost) with specific prompt versions in the MLflow Tracing UI.
 - **Performance Metrics**: Track LLM response times, token counts, and error rates. Segment these metrics by prompt version to identify if a new prompt version has impacted performance.
 - **Quality Metrics**: Collect user feedback (e.g., thumbs up/down, explicit feedback) and run offline evaluations or online monitoring with LLM judges on production traffic, associating results back to the prompt versions used.
 
