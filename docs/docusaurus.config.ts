@@ -402,8 +402,8 @@ const config: Config = {
             ]
           },
           {
-            to: "/genai/flavors",
-            from: ["/llms"],
+            to: "/genai",
+            from: ["/llms", "/llms/index"],
           },
           {
             to: "/genai/flavors/chat-model-guide",
