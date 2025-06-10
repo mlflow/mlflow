@@ -1,3 +1,4 @@
+import functools
 import json
 import logging
 import threading
@@ -9,7 +10,10 @@ import mlflow
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, RegisteredModel
 from mlflow.entities.run import Run
-from mlflow.environment_variables import MLFLOW_PRINT_MODEL_URLS_ON_CREATION
+from mlflow.environment_variables import (
+    MLFLOW_PRINT_MODEL_URLS_ON_CREATION,
+    MLFLOW_PROMPT_CACHE_MAX_SIZE,
+)
 from mlflow.exceptions import MlflowException
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.prompt.registry_utils import parse_prompt_name_or_uri, require_prompt_registry
@@ -26,6 +30,8 @@ from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
+from mlflow.tracing.fluent import get_active_trace_id
+from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import active_run, get_active_model_id
@@ -684,18 +690,31 @@ def load_prompt(
         stacklevel=3,
     )
 
-    client = MlflowClient()
-
-    # Use utility to handle URI vs name+version parsing
-    parsed_name_or_uri, parsed_version = parse_prompt_name_or_uri(name_or_uri, version)
-    if parsed_name_or_uri.startswith("prompts:/"):
-        # For URIs, don't pass version parameter
-        prompt = client.load_prompt(parsed_name_or_uri, allow_missing=allow_missing)
-    else:
-        # For names, use the parsed version
-        prompt = client.load_prompt(
-            parsed_name_or_uri, version=parsed_version, allow_missing=allow_missing
+    if "@" in name_or_uri:
+        # Don't cache prompts loaded by alias since aliases can change over time
+        prompt = _load_prompt_not_cached(
+            name_or_uri=name_or_uri,
+            version=version,
+            allow_missing=allow_missing,
         )
+    else:
+        # Otherwise, we use a cached function to avoid loading the same prompt multiple times.
+        # If the prompt from the cache is not found and allowing_missing is True, we
+        # try to load the prompt from the client without cache, since it may have been
+        # registered after the cache was created (uncommon scenario).
+        prompt = _load_prompt_cached(
+            name_or_uri=name_or_uri,
+            version=version,
+            allow_missing=allow_missing,
+        ) or _load_prompt_not_cached(
+            name_or_uri=name_or_uri,
+            version=version,
+            allow_missing=allow_missing,
+        )
+    if prompt is None:
+        return
+
+    client = MlflowClient()
 
     # If there is an active MLflow run, associate the prompt with the run.
     # Note that we do this synchronously because it's unlikely that run linking occurs
@@ -736,7 +755,47 @@ def load_prompt(
             )
             link_thread.start()
 
+    if trace_id := get_active_trace_id():
+        InMemoryTraceManager.get_instance().register_prompt(
+            trace_id=trace_id,
+            prompt=prompt,
+        )
+
     return prompt
+
+
+@functools.lru_cache(maxsize=MLFLOW_PROMPT_CACHE_MAX_SIZE.get())
+def _load_prompt_cached(
+    name_or_uri: str,
+    version: Optional[Union[str, int]] = None,
+    allow_missing: bool = False,
+) -> Optional[PromptVersion]:
+    """
+    Internal cached function to load prompts from registry.
+    """
+    return _load_prompt_not_cached(name_or_uri, version, allow_missing)
+
+
+def _load_prompt_not_cached(
+    name_or_uri: str,
+    version: Optional[Union[str, int]] = None,
+    allow_missing: bool = False,
+) -> Optional[PromptVersion]:
+    """
+    Load prompt from client, handling URI parsing.
+    """
+    client = MlflowClient()
+
+    # Use utility to handle URI vs name+version parsing
+    parsed_name_or_uri, parsed_version = parse_prompt_name_or_uri(name_or_uri, version)
+    if parsed_name_or_uri.startswith("prompts:/"):
+        # For URIs, don't pass version parameter
+        return client.load_prompt(parsed_name_or_uri, allow_missing=allow_missing)
+    else:
+        # For names, use the parsed version
+        return client.load_prompt(
+            parsed_name_or_uri, version=parsed_version, allow_missing=allow_missing
+        )
 
 
 @require_prompt_registry

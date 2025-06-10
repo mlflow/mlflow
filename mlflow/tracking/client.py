@@ -741,7 +741,9 @@ class MlflowClient:
             model_id=model_id,
         )
 
-    def link_prompts_to_trace(self, prompt_versions: list[PromptVersion], trace_id: str) -> None:
+    def link_prompt_versions_to_trace(
+        self, prompt_versions: list[PromptVersion], trace_id: str
+    ) -> None:
         """
         Link multiple prompt versions to a trace.
 
@@ -761,12 +763,12 @@ class MlflowClient:
                 prompt_v1 = client.get_prompt_version("my_prompt", "1")
                 prompt_v2 = client.get_prompt_version("another_prompt", "2")
 
-                client.link_prompts_to_trace(
+                client.link_prompt_versions_to_trace(
                     prompt_versions=[prompt_v1, prompt_v2],
                     trace_id="trace_123",
                 )
         """
-        return self._get_registry_client().link_prompts_to_trace(
+        return self._get_registry_client().link_prompt_versions_to_trace(
             prompt_versions=prompt_versions,
             trace_id=trace_id,
         )
