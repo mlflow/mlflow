@@ -23,10 +23,11 @@ from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
+from mlflow.tracing.fluent import get_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.client import MlflowClient
-from mlflow.tracking.fluent import active_run, get_active_model_id, get_active_trace_id
+from mlflow.tracking.fluent import active_run, get_active_model_id
 from mlflow.utils import get_results_from_paginated_fn, mlflow_tags
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import (

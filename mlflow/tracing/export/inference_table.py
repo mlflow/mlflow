@@ -77,11 +77,12 @@ class InferenceTableSpanExporter(SpanExporter):
                 _logger.debug("Received a non-root span. Skipping export.")
                 continue
 
-            trace = self._trace_manager.pop_trace(span.context.trace_id)
-            if trace is None:
+            manager_trace = self._trace_manager.pop_trace(span.context.trace_id)
+            if manager_trace is None:
                 _logger.debug(f"Trace for span {span} not found. Skipping export.")
                 continue
 
+            trace = manager_trace.to_mlflow_trace()
             _set_last_active_trace_id(trace.info.trace_id)
 
             # Add the trace to the in-memory buffer so it can be retrieved by upstream

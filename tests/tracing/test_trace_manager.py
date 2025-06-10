@@ -2,9 +2,9 @@ import time
 from threading import Thread
 from typing import Optional
 
-from mlflow.entities import LiveSpan, Span, Trace
+from mlflow.entities import LiveSpan, Span
 from mlflow.entities.span_status import SpanStatusCode
-from mlflow.tracing.trace_manager import InMemoryTraceManager
+from mlflow.tracing.trace_manager import InMemoryTraceManager, _Trace
 
 from tests.tracing.helper import create_mock_otel_span, create_test_trace_info
 
@@ -52,20 +52,21 @@ def test_add_spans():
     assert len(trace_manager._traces[request_id_2].span_dict) == 2
 
     # Pop the trace data
-    trace = trace_manager.pop_trace(trace_id_1)
-    assert isinstance(trace, Trace)
-    assert trace.info.request_id == request_id_1
-    assert len(trace.data.spans) == 3
+    manager_trace = trace_manager.pop_trace(trace_id_1)
+    assert isinstance(manager_trace, _Trace)
+    assert manager_trace.info.request_id == request_id_1
+    assert len(manager_trace.span_dict) == 3
     assert request_id_1 not in trace_manager._traces
 
-    # The popped trace should only contain non-live (immutable) spans
+    # Convert to MLflow trace to check immutable spans
+    trace = manager_trace.to_mlflow_trace()
     assert isinstance(trace.data.spans[0], Span)
     assert not isinstance(trace.data.spans[0], LiveSpan)
 
-    trace = trace_manager.pop_trace(trace_id_2)
-    assert isinstance(trace, Trace)
-    assert trace.info.request_id == request_id_2
-    assert len(trace.data.spans) == 2
+    manager_trace = trace_manager.pop_trace(trace_id_2)
+    assert isinstance(manager_trace, _Trace)
+    assert manager_trace.info.request_id == request_id_2
+    assert len(manager_trace.span_dict) == 2
     assert request_id_2 not in trace_manager._traces
 
     # Pop a trace that does not exist
@@ -96,10 +97,10 @@ def test_add_and_pop_span_thread_safety():
         thread.join()
 
     for trace_id in trace_ids:
-        trace = trace_manager.pop_trace(trace_id)
-        assert trace is not None
-        assert trace.info.request_id == f"tr-{trace_id}"
-        assert len(trace.data.spans) == num_threads
+        manager_trace = trace_manager.pop_trace(trace_id)
+        assert manager_trace is not None
+        assert manager_trace.info.request_id == f"tr-{trace_id}"
+        assert len(manager_trace.span_dict) == num_threads
 
 
 def test_traces_buffer_expires_after_ttl(monkeypatch):

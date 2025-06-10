@@ -72,7 +72,7 @@ class MlflowV3SpanExporter(SpanExporter):
                 self._async_queue.put(
                     task=Task(
                         handler=self._log_trace,
-                        args=(trace,),
+                        args=(trace, manager_trace.prompts),
                         error_msg="Failed to log trace to the trace server.",
                     )
                 )

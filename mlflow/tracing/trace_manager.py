@@ -155,7 +155,7 @@ class InMemoryTraceManager:
         """
         with self._lock:
             mlflow_trace_id = self._otel_id_to_mlflow_trace_id.pop(otel_trace_id, None)
-            self._traces.pop(mlflow_trace_id, None)
+            return self._traces.pop(mlflow_trace_id, None) if mlflow_trace_id else None
 
     def _check_timeout_update(self):
         """
