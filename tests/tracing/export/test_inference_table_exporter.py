@@ -303,8 +303,10 @@ def test_prompt_linking_with_dual_write(monkeypatch):
     prompt_names = {p.name for p in captured_prompts}
     assert prompt_names == {"test_prompt_1", "test_prompt_2"}
 
-    # Verify the link method was called with correct trace ID
-    mock_tracing_client.link_prompt_versions_to_trace.assert_called_once()
+    # Verify the link method was called with correct trace ID and prompts
+    mock_tracing_client.link_prompt_versions_to_trace.assert_called_once_with(
+        trace_id=trace_id, prompts=captured_prompts
+    )
     assert captured_trace_id == trace_id
 
 
@@ -416,7 +418,9 @@ def test_prompt_linking_with_empty_prompts(monkeypatch):
     assert len(captured_prompts) == 0, f"Expected 0 prompts, got {len(captured_prompts)}"
 
     # Verify the link method was still called (even with empty prompts)
-    mock_tracing_client.link_prompt_versions_to_trace.assert_called_once()
+    mock_tracing_client.link_prompt_versions_to_trace.assert_called_once_with(
+        trace_id=trace_id, prompts=[]
+    )
     assert captured_trace_id == trace_id
 
 
@@ -478,8 +482,11 @@ def test_prompt_linking_error_handling_with_dual_write(monkeypatch):
         # Ensure async queue is processed
         exporter._async_queue.flush(terminate=True)
 
-    # Verify that the prompt linking method was called but failed
-    mock_tracing_client.link_prompt_versions_to_trace.assert_called_once()
+    # Verify that the prompt linking method was called with expected arguments but failed
+    expected_prompts = [prompt]  # Should have the one prompt we registered
+    mock_tracing_client.link_prompt_versions_to_trace.assert_called_once_with(
+        trace_id=trace_id, prompts=expected_prompts
+    )
 
     # Verify other client methods were still called (trace export should succeed)
     mock_tracing_client.start_trace_v3.assert_called_once()

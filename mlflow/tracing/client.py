@@ -611,9 +611,6 @@ class TracingClient:
             trace_id: The ID of the trace to link prompts to.
             prompts: List of PromptVersion objects to link to the trace.
         """
-        if not prompts:
-            return
-
         from mlflow.tracking._model_registry import _get_store as _get_model_registry_store
 
         registry_store = _get_model_registry_store()
