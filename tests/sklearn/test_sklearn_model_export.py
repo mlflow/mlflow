@@ -679,9 +679,6 @@ def test_pyfunc_serve_and_score(sklearn_knn_model):
     np.testing.assert_array_almost_equal(scores, model.predict(inference_dataframe))
 
 
-@pytest.mark.skipif(
-    Version(sklearn.__version__) >= Version("1.7.0"), reason="Requires python >= 3.10"
-)
 def test_sklearn_compatible_with_mlflow_2_4_0(sklearn_knn_model, tmp_path):
     model, inference_dataframe = sklearn_knn_model
     model_predict = model.predict(inference_dataframe)
@@ -698,7 +695,7 @@ flavors:
     loader_module: mlflow.sklearn
     model_path: model.pkl
     predict_fn: predict
-    python_version: 3.9.18
+    python_version: 3.10.16
   sklearn:
     code: null
     pickled_model: model.pkl
@@ -712,11 +709,11 @@ utc_time_created: '2023-07-04 07:19:43.561797'
     )
     tmp_path.joinpath("python_env.yaml").write_text(
         """
-python: 3.9.18
+python: 3.10.16
 build_dependencies:
-   - pip==23.1.2
-   - setuptools==56.0.0
-   - wheel==0.40.0
+   - pip==25.1.1
+   - setuptools==80.4.0
+   - wheel==0.45.1
 dependencies:
    - -r requirements.txt
 """
