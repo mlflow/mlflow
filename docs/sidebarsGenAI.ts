@@ -295,11 +295,6 @@ const sidebarsGenAI: SidebarsConfig = {
           items: [
             {
               type: 'doc',
-              id: 'eval-monitor/concepts/built-in-scorers',
-              label: 'Built-in Scorers',
-            },
-            {
-              type: 'doc',
               id: 'eval-monitor/concepts/eval-datasets',
               label: 'Evaluation Datasets',
             },
@@ -324,14 +319,6 @@ const sidebarsGenAI: SidebarsConfig = {
               label: 'Scorers',
             },
             {
-              type: 'doc',
-              id: 'eval-monitor/concepts/scorer-judge',
-              label: 'Scorers, Feedback and Judges',
-            },
-            {
-
-            },
-            {
               type: 'category',
               label: 'Judges',
               items: [
@@ -339,31 +326,6 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'eval-monitor/concepts/judges/guidelines',
                   label: 'Guidelines Judges',
-                },
-                {
-                  type: 'doc',
-                  id: 'eval-monitor/concepts/judges/is-context-relevant',
-                  label: 'Relevancy Judges',
-                },
-                {
-                  type: 'doc',
-                  id: 'eval-monitor/concepts/judges/is-context-sufficient',
-                  label: 'Sufficient Context Judges',
-                },
-                {
-                  type: 'doc',
-                  id: 'eval-monitor/concepts/judges/is-correct',
-                  label: 'Correctness Judges',
-                },
-                {
-                  type: 'doc',
-                  id: 'eval-monitor/concepts/judges/is-grounded',
-                  label: 'Grounded Judges',
-                },
-                {
-                  type: 'doc',
-                  id: 'eval-monitor/concepts/judges/is-safe',
-                  label: 'Safety Judges',
                 },
                 {
                   type: 'doc',
@@ -386,11 +348,6 @@ const sidebarsGenAI: SidebarsConfig = {
             type: 'doc',
             id: 'eval-monitor/concepts/index'
           },
-        },
-        {
-          type: 'doc',
-          id: 'eval-monitor/quickstart',
-          label: "Quickstart"
         },
         {
           type: 'category',
@@ -440,11 +397,6 @@ const sidebarsGenAI: SidebarsConfig = {
               type: 'doc',
               id: 'eval-monitor/evaluate-app',
               label: 'Evaluate App Versions',
-            },
-            {
-              type: 'doc',
-              id: 'eval-monitor/version-comparison',
-              label: 'Compare App Versions',
             },
             {
               type: 'doc',
