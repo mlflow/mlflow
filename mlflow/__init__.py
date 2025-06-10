@@ -247,6 +247,8 @@ if not IS_TRACING_SDK_ONLY:
     from mlflow.models.evaluation.validation import validate_evaluation_results
     from mlflow.projects import run
     from mlflow.tracking._model_registry.fluent import (
+        # TODO: Prompt Registry APIs are moved to the `mlflow.genai` namespace and direct
+        # imports from mlflow will be deprecated in the future.
         delete_prompt_alias,
         load_prompt,
         register_model,
@@ -385,8 +387,11 @@ if not IS_TRACING_SDK_ONLY:
         "validate_evaluation_results",
         "Image",
         # Prompt Registry APIs
+        # TODO: Prompt Registry APIs are moved to the `mlflow.genai` namespace and direct
+        # imports from mlflow will be deprecated in the future.
         "load_prompt",
         "register_prompt",
+        "search_prompts",
         "set_prompt_alias",
         "delete_prompt_alias",
         "set_logged_model_tags",
