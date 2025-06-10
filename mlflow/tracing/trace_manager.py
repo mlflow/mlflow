@@ -92,7 +92,7 @@ class InMemoryTraceManager:
 
     def register_prompt(self, trace_id: str, prompt: PromptVersion):
         """
-        Register a prompt in the trace with the given trace ID.
+        Register a prompt to link to the trace with the given trace ID.
 
         Args:
             trace_id: The ID of the trace to which the prompt belongs.
