@@ -502,10 +502,6 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
-                  id: 'prompt-version-mgmt/version-tracking/optionally-package-app-code-and-files-for-databricks-model-serving',
-                },
-                {
-                  type: 'doc',
                   id: 'prompt-version-mgmt/version-tracking/link-production-traces-to-app-versions'
                 },
               ]

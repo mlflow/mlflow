@@ -68,9 +68,9 @@ Before running the examples below, configure your environment:
     import os
 
     # Set Databricks authentication (only needed when running outside Databricks)
-    os.environ[
-        "DATABRICKS_HOST"
-    ] = "https://your-workspace.databricks.com"  # Your workspace URL
+    os.environ["DATABRICKS_HOST"] = (
+        "https://your-workspace.databricks.com"  # Your workspace URL
+    )
     os.environ["DATABRICKS_TOKEN"] = "your-databricks-token"  # Your access token
     ```
 
@@ -257,4 +257,3 @@ To evaluate your application and link the results to this `LoggedModel` version,
 ## Next Steps
 
 - **[Compare Application Versions](/genai/prompt-version-mgmt/version-tracking/compare-app-versions)**: Learn how to compare different `LoggedModel` versions.
-- **[Optionally Package Code](/genai/prompt-version-mgmt/version-tracking/optionally-package-app-code-and-files-for-databricks-model-serving)**: For scenarios where you need to bundle code with the `LoggedModel`.

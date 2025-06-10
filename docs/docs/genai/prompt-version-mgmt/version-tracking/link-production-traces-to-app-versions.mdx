@@ -200,7 +200,7 @@ traces = mlflow.search_traces(
 
 ## Trace Linking on Databricks Model Serving
 
-When you [deploy a `LoggedModel` to Databricks Model Serving](/genai/prompt-version-mgmt/version-tracking/optionally-package-app-code-and-files-for-databricks-model-serving), trace linking is automatically configured:
+When you deploy a `LoggedModel` to Databricks Model Serving, trace linking is automatically configured:
 
 - **mlflow-tracing is preinstalled** - No need to add it to your requirements
 - **Authentication is automatic** - The serving environment handles all Databricks authentication
