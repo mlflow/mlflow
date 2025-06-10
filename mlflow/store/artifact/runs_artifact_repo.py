@@ -201,19 +201,8 @@ class RunsArtifactRepository(ArtifactRepository):
                 exc_info=True,
             )
 
-        model_out_path: Optional[str] = None
-        try:
-            model_out_path = self._download_model_artifacts(artifact_path, dst_path=dst_path)
-        except Exception:
-            _logger.debug(
-                f"Failed to download model artifacts from {self.artifact_uri}/{artifact_path}.",
-                exc_info=True,
-            )
-        return (
-            run_out_path
-            or model_out_path
-            or f"{dst_path}/{artifact_path.rsplit('/', maxsplit=1)[-1]}"
-        )
+        model_out_path = self._download_model_artifacts(artifact_path, dst_path=dst_path)
+        return run_out_path or model_out_path
 
     def _download_model_artifacts(self, artifact_path: str, dst_path: str) -> Optional[str]:
         full_path = f"{self.artifact_uri}/{artifact_path}" if artifact_path else self.artifact_uri
