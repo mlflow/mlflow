@@ -8,6 +8,7 @@ from typing import Optional, Union
 from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
+from mlflow.entities.model_registry.model_version_tag import ModelVersionTag
 from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.exceptions import MlflowException
@@ -862,7 +863,7 @@ class AbstractStore:
         """
         Set a tag on a prompt version.
 
-        Default implementation: raises NotImplementedError (Unity Catalog only).
+        Default implementation: uses set_model_version_tag on the underlying ModelVersion.
         Unity Catalog store implementations may override this method.
 
         Args:
@@ -871,16 +872,21 @@ class AbstractStore:
             key: Tag key.
             value: Tag value.
         """
-        raise NotImplementedError(
-            "Setting prompt version tags is only supported in Unity Catalog backends. "
-            "For OSS deployments, use set_model_version_tag with appropriate prompt tags."
-        )
+        # Convert version to int if needed
+        try:
+            version_int = int(version)
+        except (ValueError, TypeError):
+            raise MlflowException(f"Invalid version number: {version}")
+
+        # Create a ModelVersionTag and delegate to the underlying model version method
+        tag = ModelVersionTag(key=key, value=value)
+        return self.set_model_version_tag(name, version_int, tag)
 
     def delete_prompt_version_tag(self, name: str, version: Union[str, int], key: str) -> None:
         """
         Delete a tag from a prompt version.
 
-        Default implementation: raises NotImplementedError (Unity Catalog only).
+        Default implementation: uses delete_model_version_tag on the underlying ModelVersion.
         Unity Catalog store implementations may override this method.
 
         Args:
@@ -888,10 +894,14 @@ class AbstractStore:
             version: Version number of the prompt.
             key: Tag key to delete.
         """
-        raise NotImplementedError(
-            "Deleting prompt version tags is only supported in Unity Catalog backends. "
-            "For OSS deployments, use delete_model_version_tag with appropriate prompt tags."
-        )
+        # Convert version to int if needed
+        try:
+            version_int = int(version)
+        except (ValueError, TypeError):
+            raise MlflowException(f"Invalid version number: {version}")
+
+        # Delegate to the underlying model version method
+        return self.delete_model_version_tag(name, version_int, key)
 
     def link_prompt_version_to_model(self, name: str, version: str, model_id: str) -> None:
         """
