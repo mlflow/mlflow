@@ -504,11 +504,11 @@ const config: Config = {
 
           // Evaluation and Monitoring Redirects
           {
-            to: "/genai/eval-monitor",
+            to: "/genai/eval-monitor/llm-evaluation",
             from: ["/llms/llm-evaluate"],
           },
           {
-            to: "/genai/eval-monitor/quickstart",
+            to: "/genai/eval-monitor/notebooks",
             from: [
               "/llms/llm-evaluate/notebooks",
               "/llms/llm-evaluate/notebooks/huggingface-evaluation",
@@ -543,7 +543,7 @@ const config: Config = {
           // Governance and Deployments Redirects
           {
             to: "/genai/governance/ai-gateway",
-            from: ["/llms/deployments", "/llms/gateway/index", "/llms/gateway"],
+            from: ["/llms/deployments/", "/llms/gateway/index", "/llms/gateway"],
           },
           {
             to: "/genai/governance/ai-gateway/guides",

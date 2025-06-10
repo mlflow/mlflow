@@ -255,183 +255,41 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Evaluation 📊',
+      label: 'Evaluate & Monitor 📊',
       className: 'sidebar-top-level-category',
       items: [
         {
-          type: 'category',
-          label: 'Concepts & Reference',
-          items: [
-            {
-              type: 'doc',
-              id: 'eval-monitor/concepts/built-in-scorers',
-              label: 'Built-in Scorers',
-            },
-            {
-              type: 'doc',
-              id: 'eval-monitor/concepts/eval-datasets',
-              label: 'Evaluation Datasets',
-            },
-            {
-              type: 'doc',
-              id: 'eval-monitor/concepts/eval-harness',
-              label: 'Evaluation Harness',
-            },
-            {
-              type: 'doc',
-              id: 'eval-monitor/concepts/evaluation-runs',
-              label: 'Evaluation Runs',
-            },
-            {
-              type: 'doc',
-              id: 'eval-monitor/concepts/production-monitoring',
-              label: 'Production Monitoring',
-            },
-            {
-              type: 'doc',
-              id: 'eval-monitor/concepts/scorers',
-              label: 'Scorers',
-            },
-            {
-              type: 'doc',
-              id: 'eval-monitor/concepts/scorer-judge',
-              label: 'Scorers, Feedback and Judges',
-            },
-            {
-
-            },
-            {
-              type: 'category',
-              label: 'Judges',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'eval-monitor/concepts/judges/guidelines',
-                  label: 'Guidelines Judges',
-                },
-                {
-                  type: 'doc',
-                  id: 'eval-monitor/concepts/judges/is-context-relevant',
-                  label: 'Relevancy Judges',
-                },
-                {
-                  type: 'doc',
-                  id: 'eval-monitor/concepts/judges/is-context-sufficient',
-                  label: 'Sufficient Context Judges',
-                },
-                {
-                  type: 'doc',
-                  id: 'eval-monitor/concepts/judges/is-correct',
-                  label: 'Correctness Judges',
-                },
-                {
-                  type: 'doc',
-                  id: 'eval-monitor/concepts/judges/is-grounded',
-                  label: 'Grounded Judges',
-                },
-                {
-                  type: 'doc',
-                  id: 'eval-monitor/concepts/judges/is-safe',
-                  label: 'Safety Judges',
-                },
-                {
-                  type: 'doc',
-                  id: 'eval-monitor/concepts/judges/pre-built-judges-scorers',
-                  label: 'Pre-built Judges',
-                },
-                {
-                  type: 'doc',
-                  id: 'eval-monitor/concepts/judges/prompt-based-judge',
-                  label: 'Prompt-based Judges',
-                },
-              ],
-              link: {
-                type: 'doc',
-                id: 'eval-monitor/concepts/judges/index'
-              }
-            },
-          ],
-          link: {
-            type: 'doc',
-            id: 'eval-monitor/concepts/index'
-          },
-        },
-        {
           type: 'doc',
-          id: 'eval-monitor/quickstart',
-          label: "Quickstart"
+          id: 'eval-monitor/llm-evaluation',
+          label: 'LLM Evaluation',
+        },
+        {
+          type: 'link',
+          href: 'https://docs.databricks.com/aws/en/mlflow3/genai/eval-monitor/',
+          label: '🆕 GenAI Evaluation Suite (Managed-Only)',
         },
         {
           type: 'category',
-          label: 'Custom Judges',
+          label: 'Notebooks',
           items: [
             {
               type: 'doc',
-              id: 'eval-monitor/custom-judge/create-prompt-judge',
-              label: 'Prompt Judges'
+              id: 'eval-monitor/notebooks/huggingface-evaluation-ipynb',
             },
             {
               type: 'doc',
-              id: 'eval-monitor/custom-judge/meets-guidelines',
-              label: 'Guidelines Judges'
+              id: 'eval-monitor/notebooks/question-answering-evaluation-ipynb',
             },
             {
               type: 'doc',
-              id: 'eval-monitor/custom-judge/tune-judge',
-              label: 'Tuning Custom Judges',
-            }
-          ],
-          link: {
-            type: 'doc',
-            id: 'eval-monitor/custom-judge/index'
-          }
-        },
-        {
-          type: 'category',
-          label: 'Guides',
-          items: [
-            {
-              type: 'doc',
-              id: 'eval-monitor/build-eval-dataset',
-              label: 'Build an Evaluation Dataset',
+              id: 'eval-monitor/notebooks/rag-evaluation-ipynb',
             },
             {
               type: 'doc',
-              id: 'eval-monitor/predefined-judge-scorers',
-              label: 'Pre-Defined Scorers',
-            },
-            {
-              type: 'doc',
-              id: 'eval-monitor/custom-scorers',
-              label: 'Custom Scorers',
-            },
-            {
-              type: 'doc',
-              id: 'eval-monitor/evaluate-app',
-              label: 'Evaluate App Versions',
-            },
-            {
-              type: 'doc',
-              id: 'eval-monitor/version-comparison',
-              label: 'Compare App Versions',
-            },
-            {
-              type: 'doc',
-              id: 'eval-monitor/ci-cd-testing',
-              label: 'Evaluate within a CI/CD pipeline',
-            },
-            {
-              type: 'doc',
-              id: 'eval-monitor/continuous-improvement-with-production-data',
-              label: 'Evaluate with Production Data',
-            },
-            {
-              type: 'doc',
-              id: 'eval-monitor/run-scorer-in-prod',
-              label: 'Production Monitoring'
+              id: 'eval-monitor/notebooks/rag-evaluation-llama2-ipynb',
             },
           ]
-        },
+        }
       ],
       link: {
         type: 'doc',

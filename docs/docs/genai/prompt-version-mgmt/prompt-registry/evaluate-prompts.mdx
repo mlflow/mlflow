@@ -83,7 +83,6 @@ Consider:
 - Understanding of basic evaluation metrics and principles.
 - Access to an evaluation dataset relevant to your application.
 - Familiarity with MLflow Tracing and MLflow Evaluation concepts.
-  - Refer to the ["Tracing (Observability)"](/genai/tracing) and ["Evaluate & Monitor"](/genai/eval-monitor) sections for in-depth information.
 - Prompts registered in the MLflow Prompt Registry that you wish to evaluate.
 
 While the Prompt Registry itself is the system of record for your prompt templates, its true power in enhancing quality comes when its versioned prompts are used within a robust evaluation framework enabled by other MLflow components like Tracing and Evaluate.
@@ -244,12 +243,6 @@ with mlflow.start_run(run_name="prompt-evaluation"):
         ],
     )
 ```
-
-:::tip
-
-    There are numbers of built-in metrics available in MLflow for evaluating LLMs. You can also define custom metrics including LLM-as-a-Judge. Refer to the [LLM Evaluation Metrics](/genai/eval-monitor/concepts/built-in-scorers) for more details.
-
-:::
 
 ### 5. View Results
 
