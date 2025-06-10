@@ -299,6 +299,28 @@ const sidebarsGenAI: SidebarsConfig = {
           href: 'https://docs.databricks.com/aws/en/mlflow3/genai/eval-monitor/',
           label: '🆕 GenAI Evaluation Suite (Managed-Only)',
         },
+        {
+          type: 'category',
+          label: 'Notebooks',
+          items: [
+            {
+              type: 'doc',
+              id: 'eval-monitor/notebooks/huggingface-evaluation-ipynb',
+            },
+            {
+              type: 'doc',
+              id: 'eval-monitor/notebooks/question-answering-evaluation-ipynb',
+            },
+            {
+              type: 'doc',
+              id: 'eval-monitor/notebooks/rag-evaluation-ipynb',
+            },
+            {
+              type: 'doc',
+              id: 'eval-monitor/notebooks/rag-evaluation-llama2-ipynb',
+            },
+          ]
+        }
       ],
       link: {
         type: 'doc',

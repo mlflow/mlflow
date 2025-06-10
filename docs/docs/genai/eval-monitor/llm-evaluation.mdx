@@ -711,7 +711,7 @@ Output:
 ### Evaluating with an MLflow Deployments Endpoint
 
 For MLflow >= 2.11.0, <APILink fn="mlflow.evaluate" /> supports evaluating a model endpoint by directly passing the MLflow Deployments endpoint URI to the `model` argument.
-This is particularly useful when you want to evaluate a deployed model hosted by a local [MLflow AI Gateway](/llms/deployments/), [Databricks Foundation Models API](https://docs.databricks.com/en/machine-learning/model-serving/score-foundation-models.html), and [External Models in Databricks Model Serving](https://docs.databricks.com/en/generative-ai/external-models/index.html), without implementing custom prediction logic to wrap it as an MLflow model or a python function.
+This is particularly useful when you want to evaluate a deployed model hosted by a local [MLflow AI Gateway](/genai/governance/ai-gateway), [Databricks Foundation Models API](https://docs.databricks.com/en/machine-learning/model-serving/score-foundation-models.html), and [External Models in Databricks Model Serving](https://docs.databricks.com/en/generative-ai/external-models/index.html), without implementing custom prediction logic to wrap it as an MLflow model or a python function.
 
 Please don't forget to set the target deployment client by using <APILink fn="mlflow.deployments.set_deployments_target" /> before calling <APILink fn="mlflow.evaluate" /> with the endpoint URI, as shown in the example below. Otherwise, you will see an error message like `MlflowException: No deployments target has been set...`.
 
@@ -768,7 +768,7 @@ The input data can be either of the following format when using an URI of the ML
                 )
                 ```
             </td>
-            <td>In this format, the dictionary should have the correct request format for your model endpoint. Please refer to the [MLflow Deployments documentation](/llms/deployments/#standard-deployments-parameters) for more information about the request format for different model endpoint types.</td>
+            <td>In this format, the dictionary should have the correct request format for your model endpoint. Please refer to the [MLflow Deployments documentation](/genai/governance/ai-gateway#standard-deployments-parameters) for more information about the request format for different model endpoint types.</td>
         </tr>
         <tr>
             <td>A list of input strings.</td>
@@ -813,7 +813,7 @@ When your input is a dictionary format that represents request payload, it can a
 
 #### Examples
 
-**Chat Endpoint hosted by a local** [MLflow AI Gateway](/llms/deployments/)
+**Chat Endpoint hosted by a local** [MLflow AI Gateway](/genai/governance/ai-gateway)
 
 ```python
 import mlflow

@@ -543,7 +543,7 @@ const config: Config = {
           // Governance and Deployments Redirects
           {
             to: "/genai/governance/ai-gateway",
-            from: ["/llms/deployments", "/llms/gateway/index", "/llms/gateway"],
+            from: ["/llms/deployments/", "/llms/gateway/index", "/llms/gateway"],
           },
           {
             to: "/genai/governance/ai-gateway/guides",
