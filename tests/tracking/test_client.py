@@ -2217,6 +2217,26 @@ def test_link_prompt_version_to_model_smoke_test(tracking_uri):
         )
 
 
+def test_link_prompts_to_trace_smoke_test(tracking_uri):
+    """Smoke test for linking prompt versions to a trace - just verify the method can be called."""
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    # Create an experiment and a run to have a proper context
+    experiment_id = client.create_experiment("test_experiment")
+    with mlflow.start_run(experiment_id=experiment_id):
+        # Create a simple trace for testing
+        trace_info = client.start_trace("test_trace")
+        trace_id = trace_info.request_id
+
+        # Register a prompt
+        client.register_prompt(name="test_prompt", template="Hello, {{name}}!")
+
+        # Get the prompt version and link to the trace (this should not raise an exception)
+        # This is the main assertion - that the method call succeeds
+        prompt_version = client.get_prompt_version("test_prompt", "1")
+        client.link_prompts_to_trace(prompt_versions=[prompt_version], trace_id=trace_id)
+
+
 def test_log_model_artifact(tmp_path: Path, tracking_uri: str) -> None:
     client = MlflowClient(tracking_uri=tracking_uri)
     experiment_id = client.create_experiment("test")
