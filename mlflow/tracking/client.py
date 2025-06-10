@@ -54,10 +54,12 @@ from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import (
     IS_PROMPT_TAG_KEY,
+    PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY,
     PROMPT_TEXT_TAG_KEY,
 )
 from mlflow.prompt.registry_utils import (
     has_prompt_tag,
+    model_version_to_prompt_version,
     parse_prompt_name_or_uri,
     require_prompt_registry,
     translate_prompt_exception,
@@ -441,7 +443,6 @@ class MlflowClient:
         name: str,
         template: str,
         commit_message: Optional[str] = None,
-        version_metadata: Optional[dict[str, str]] = None,
         tags: Optional[dict[str, str]] = None,
     ) -> PromptVersion:
         """
@@ -467,7 +468,6 @@ class MlflowClient:
             client.register_prompt(
                 name="my_prompt",
                 template="Respond to the user's message as a {{style}} AI.",
-                version_metadata={"author": "Alice"},
             )
 
             # Load the prompt from the registry
@@ -490,7 +490,7 @@ class MlflowClient:
                 name="my_prompt",
                 template="Respond to the user's message as a {{style}} AI. {{greeting}}",
                 commit_message="Add a greeting to the prompt.",
-                version_metadata={"author": "Bob"},
+                tags={"author": "Bob"},
             )
 
         Args:
@@ -500,15 +500,9 @@ class MlflowClient:
                 by the `format` method.
             commit_message: A message describing the changes made to the prompt, similar to a
                 Git commit message. Optional.
-            version_metadata: A dictionary of metadata associated with the **prompt version**.
+            tags: A dictionary of tags associated with the **prompt version**.
                 This is useful for storing version-specific information, such as the author of
                 the changes. Optional.
-            tags: A dictionary of tags associated with the entire prompt. This is different from
-                the `version_metadata` as it is not tied to a specific version of the prompt,
-                but to the prompt as a whole. For example, you can use tags to add an application
-                name for which the prompt is created. Since the application uses the prompt in
-                multiple versions, it makes sense to use tags instead of version-specific metadata.
-                Optional.
 
         Returns:
             A :py:class:`Prompt <mlflow.entities.Prompt>` object that was created.
@@ -534,7 +528,7 @@ class MlflowClient:
                 name=name,
                 template=template,
                 description=commit_message,
-                tags=version_metadata or {},
+                tags=tags or {},
             )
 
             return registry_client.get_prompt_version(name, str(prompt_version.version))
@@ -567,15 +561,15 @@ class MlflowClient:
                 registry_client.set_registered_model_tag(name, key, value)
 
         # Version metadata is represented as ModelVersion tags in the registry
-        version_metadata = version_metadata or {}
-        version_metadata.update({IS_PROMPT_TAG_KEY: "true", PROMPT_TEXT_TAG_KEY: template})
+        tags = tags or {}
+        tags.update({IS_PROMPT_TAG_KEY: "true", PROMPT_TEXT_TAG_KEY: template})
 
         try:
             mv: ModelVersion = registry_client.create_model_version(
                 name=name,
                 description=commit_message,
                 source="dummy-source",  # Required field, but not used for prompts
-                tags=version_metadata,
+                tags=tags,
             )
         except Exception:
             if is_new_prompt:
@@ -587,7 +581,7 @@ class MlflowClient:
         # Fetch the prompt-level tags from the registered model
         prompt_tags = registry_client.get_registered_model(name)._tags
 
-        return PromptVersion.from_model_version(mv, prompt_tags=prompt_tags)
+        return model_version_to_prompt_version(mv, prompt_tags=prompt_tags)
 
     @translate_prompt_exception
     @require_prompt_registry
@@ -697,7 +691,7 @@ class MlflowClient:
             return registry_client.get_prompt_version(name, version)
 
         except MlflowException as exc:
-            if allow_missing and exc.error_code == "RESOURCE_DOES_NOT_EXIST":
+            if allow_missing and exc.error_code in ("RESOURCE_DOES_NOT_EXIST", "NOT_FOUND"):
                 return None
             raise
 
@@ -778,6 +772,64 @@ class MlflowClient:
             prompt_versions=prompt_versions,
             trace_id=trace_id,
         )
+
+    # TODO: Use model_id in MLflow 3.0
+    @experimental
+    @require_prompt_registry
+    @translate_prompt_exception
+    def detach_prompt_from_run(self, run_id: str, prompt_uri: str) -> None:
+        """
+        Detach a prompt registered within the MLflow Prompt Registry from an MLflow Run.
+
+        Args:
+            run_id: The ID of the run to log the prompt to.
+            prompt_uri: The prompt URI in the format "prompts:/name/version".
+        """
+        prompt = self.load_prompt(prompt_uri)
+        run_id_tags = prompt._tags.get(PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY)
+        run_ids = run_id_tags.split(",") if run_id_tags else []
+
+        if run_id not in run_ids:
+            raise MlflowException(
+                f"Run '{run_id}' is not associated with prompt '{prompt_uri}'.",
+                INVALID_PARAMETER_VALUE,
+            )
+
+        run_ids.remove(run_id)
+
+        name, version = self.parse_prompt_uri(prompt_uri)
+        if run_ids:
+            self._get_registry_client().set_model_version_tag(
+                name, version, PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY, ",".join(run_ids)
+            )
+        else:
+            self._get_registry_client().delete_model_version_tag(
+                name, version, PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY
+            )
+
+    # TODO: Use model_id in MLflow 3.0
+    @experimental
+    @require_prompt_registry
+    @translate_prompt_exception
+    def list_logged_prompts(self, run_id: str) -> list[PromptVersion]:
+        """
+        List all prompts associated with an MLflow Run.
+
+        Args:
+            run_id: The ID of the run to list the prompts for.
+
+        Returns:
+            A list of :py:class:`Prompt <mlflow.entities.Prompt>` objects associated with the run.
+        """
+        mvs = self.search_model_versions(
+            filter_string=(
+                f"tags.`{PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY}` LIKE '%{run_id}%' "
+                f"AND tags.`{IS_PROMPT_TAG_KEY}` = 'true'"
+            )
+        )
+        # NB: We don't support pagination here because the number of prompts associated
+        # with a Run is expected to be small.
+        return [model_version_to_prompt_version(mv) for mv in mvs]
 
     @experimental
     @require_prompt_registry
