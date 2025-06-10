@@ -674,19 +674,27 @@ def load_prompt(
         prompt = mlflow.load_prompt("prompts:/my_prompt@production")
 
     """
-    # NB: We use a cached function to avoid loading the same prompt multiple times.
-    # If the prompt from the cache is not found and allowing_missing is True, we
-    # try to load the prompt from the client without cache, since it may have been
-    # registered after the cache was created (uncommon scenario).
-    prompt = _load_prompt_cached(
-        name_or_uri=name_or_uri,
-        version=version,
-        allow_missing=allow_missing,
-    ) or _load_prompt_not_cached(
-        name_or_uri=name_or_uri,
-        version=version,
-        allow_missing=allow_missing,
-    )
+    if "@" in name_or_uri:
+        # Don't cache prompts loaded by alias since aliases can change over time
+        prompt = _load_prompt_not_cached(
+            name_or_uri=name_or_uri,
+            version=version,
+            allow_missing=allow_missing,
+        )
+    else:
+        # Otherwise, we use a cached function to avoid loading the same prompt multiple times.
+        # If the prompt from the cache is not found and allowing_missing is True, we
+        # try to load the prompt from the client without cache, since it may have been
+        # registered after the cache was created (uncommon scenario).
+        prompt = _load_prompt_cached(
+            name_or_uri=name_or_uri,
+            version=version,
+            allow_missing=allow_missing,
+        ) or _load_prompt_not_cached(
+            name_or_uri=name_or_uri,
+            version=version,
+            allow_missing=allow_missing,
+        )
     if prompt is None:
         return
 
