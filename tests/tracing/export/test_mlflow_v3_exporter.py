@@ -9,6 +9,15 @@ import pytest
 from google.protobuf.json_format import ParseDict
 
 import mlflow
+
+
+def join_thread_by_name_prefix(prefix: str, timeout: float = 5.0):
+    """Join thread by name prefix to avoid time.sleep in tests."""
+    for thread in threading.enumerate():
+        if thread != threading.main_thread() and thread.name.startswith(prefix):
+            thread.join(timeout=timeout)
+
+
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.trace import Trace
@@ -259,9 +268,7 @@ def test_prompt_linking_in_mlflow_v3_exporter(is_async, monkeypatch):
         exporter.export([otel_span])
 
         # Wait for any prompt linking threads to complete
-        for thread in threading.enumerate():
-            if thread != threading.main_thread() and thread.is_alive():
-                thread.join(timeout=1.0)
+        join_thread_by_name_prefix("link_prompts_from_exporter")
 
         if is_async:
             # For async tests, we need to flush the specific exporter's queue
@@ -344,9 +351,7 @@ def test_prompt_linking_with_empty_prompts_mlflow_v3(is_async, monkeypatch):
         exporter.export([otel_span])
 
         # Wait for any prompt linking threads to complete
-        for thread in threading.enumerate():
-            if thread != threading.main_thread() and thread.is_alive():
-                thread.join(timeout=1.0)
+        join_thread_by_name_prefix("link_prompts_from_exporter")
 
         if is_async:
             # For async tests, we need to flush the specific exporter's queue
@@ -423,9 +428,7 @@ def test_prompt_linking_error_handling_mlflow_v3(monkeypatch):
         exporter.export([otel_span])
 
         # Wait for any prompt linking threads to complete so the error can be caught
-        for thread in threading.enumerate():
-            if thread != threading.main_thread() and thread.is_alive():
-                thread.join(timeout=1.0)
+        join_thread_by_name_prefix("link_prompts_from_exporter")
 
     # Verify that prompt linking was attempted but failed
     mock_link_prompts.assert_called_once()
