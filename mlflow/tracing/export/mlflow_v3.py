@@ -57,7 +57,6 @@ class MlflowV3SpanExporter(SpanExporter):
                 continue
 
             trace = manager_trace.to_mlflow_trace()
-
             _set_last_active_trace_id(trace.info.request_id)
 
             # Store mapping from eval request ID to trace ID so that the evaluation
