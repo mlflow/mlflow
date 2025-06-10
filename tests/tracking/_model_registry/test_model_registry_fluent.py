@@ -1,6 +1,7 @@
 import json
 import os
 import subprocess
+import threading
 from pathlib import Path
 from unittest import mock
 
@@ -8,6 +9,15 @@ import pytest
 import requests
 
 import mlflow
+
+
+def join_thread_by_name_prefix(prefix: str, timeout: float = 5.0):
+    """Join thread by name prefix to avoid time.sleep in tests."""
+    for thread in threading.enumerate():
+        if thread != threading.main_thread() and thread.name.startswith(prefix):
+            thread.join(timeout=timeout)
+
+
 from mlflow import MlflowClient, register_model
 from mlflow.entities.model_registry import ModelVersion, PromptVersion, RegisteredModel
 from mlflow.exceptions import MlflowException
