@@ -704,3 +704,13 @@ class ModelRegistryClient:
             model_id: The ID of the model to link the prompt version to.
         """
         return self.store.link_prompt_version_to_model(name, str(version), model_id)
+
+    def link_prompts_to_trace(self, prompt_versions: list[PromptVersion], trace_id: str) -> None:
+        """
+        Link multiple prompt versions to a trace.
+
+        Args:
+            prompt_versions: List of PromptVersion objects to link.
+            trace_id: Trace ID to link the prompt versions to.
+        """
+        return self.store.link_prompts_to_trace(prompt_versions=prompt_versions, trace_id=trace_id)
