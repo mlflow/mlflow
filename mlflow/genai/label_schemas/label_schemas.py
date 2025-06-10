@@ -5,24 +5,14 @@ from typing import TYPE_CHECKING, Any, Optional, Union
 from mlflow.genai.utils.enum_utils import StrEnum
 
 if TYPE_CHECKING:
-    from databricks.rag_eval.review_app.label_schemas import (
-        InputCategorical as _InputCategorical,
-    )
-    from databricks.rag_eval.review_app.label_schemas import (
-        InputCategoricalList as _InputCategoricalList,
-    )
-    from databricks.rag_eval.review_app.label_schemas import (
-        InputNumeric as _InputNumeric,
-    )
-    from databricks.rag_eval.review_app.label_schemas import (
-        InputText as _InputText,
-    )
-    from databricks.rag_eval.review_app.label_schemas import (
-        InputTextList as _InputTextList,
-    )
-    from databricks.rag_eval.review_app.label_schemas import (
-        LabelSchema as _LabelSchema,
-    )
+    from databricks.agents.review_app import label_schemas as _label_schemas
+
+    _InputCategorical = _label_schemas.InputCategorical
+    _InputCategoricalList = _label_schemas.InputCategoricalList
+    _InputNumeric = _label_schemas.InputNumeric
+    _InputText = _label_schemas.InputText
+    _InputTextList = _label_schemas.InputTextList
+    _LabelSchema = _label_schemas.LabelSchema
 
 
 class InputType(ABC):
@@ -51,11 +41,9 @@ class InputCategorical(InputType):
 
     def _to_databricks_input(self) -> "_InputCategorical":
         """Convert to the internal Databricks input type."""
-        from databricks.rag_eval.review_app.label_schemas import (
-            InputCategorical as _InputCategorical,
-        )
+        from databricks.agents.review_app import label_schemas as _label_schemas
 
-        return _InputCategorical(options=self.options)
+        return _label_schemas.InputCategorical(options=self.options)
 
     @classmethod
     def _from_databricks_input(cls, input_obj: "_InputCategorical") -> "InputCategorical":
@@ -76,11 +64,9 @@ class InputCategoricalList(InputType):
 
     def _to_databricks_input(self) -> "_InputCategoricalList":
         """Convert to the internal Databricks input type."""
-        from databricks.rag_eval.review_app.label_schemas import (
-            InputCategoricalList as _InputCategoricalList,
-        )
+        from databricks.agents.review_app import label_schemas as _label_schemas
 
-        return _InputCategoricalList(options=self.options)
+        return _label_schemas.InputCategoricalList(options=self.options)
 
     @classmethod
     def _from_databricks_input(cls, input_obj: "_InputCategoricalList") -> "InputCategoricalList":
@@ -102,9 +88,11 @@ class InputTextList(InputType):
 
     def _to_databricks_input(self) -> "_InputTextList":
         """Convert to the internal Databricks input type."""
-        from databricks.rag_eval.review_app.label_schemas import InputTextList as _InputTextList
+        from databricks.agents.review_app import label_schemas as _label_schemas
 
-        return _InputTextList(max_length_each=self.max_length_each, max_count=self.max_count)
+        return _label_schemas.InputTextList(
+            max_length_each=self.max_length_each, max_count=self.max_count
+        )
 
     @classmethod
     def _from_databricks_input(cls, input_obj: "_InputTextList") -> "InputTextList":
@@ -125,9 +113,9 @@ class InputText(InputType):
 
     def _to_databricks_input(self) -> "_InputText":
         """Convert to the internal Databricks input type."""
-        from databricks.rag_eval.review_app.label_schemas import InputText as _InputText
+        from databricks.agents.review_app import label_schemas as _label_schemas
 
-        return _InputText(max_length=self.max_length)
+        return _label_schemas.InputText(max_length=self.max_length)
 
     @classmethod
     def _from_databricks_input(cls, input_obj: "_InputText") -> "InputText":
@@ -149,9 +137,9 @@ class InputNumeric(InputType):
 
     def _to_databricks_input(self) -> "_InputNumeric":
         """Convert to the internal Databricks input type."""
-        from databricks.rag_eval.review_app.label_schemas import InputNumeric as _InputNumeric
+        from databricks.agents.review_app import label_schemas as _label_schemas
 
-        return _InputNumeric(min_value=self.min_value, max_value=self.max_value)
+        return _label_schemas.InputNumeric(min_value=self.min_value, max_value=self.max_value)
 
     @classmethod
     def _from_databricks_input(cls, input_obj: "_InputNumeric") -> "InputNumeric":
