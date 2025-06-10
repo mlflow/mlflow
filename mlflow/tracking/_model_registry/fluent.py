@@ -1,6 +1,7 @@
 import json
 import logging
 import threading
+import uuid
 from typing import Any, Optional, Union
 
 import mlflow
@@ -709,7 +710,9 @@ def load_prompt(
                     )
 
             # Start linking in background - don't wait for completion
-            link_thread = threading.Thread(target=_link_prompt_async)
+            link_thread = threading.Thread(
+                target=_link_prompt_async, name=f"link_prompt_thread-{uuid.uuid4().hex[:8]}"
+            )
             link_thread.start()
 
     return prompt

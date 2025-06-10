@@ -1,7 +1,7 @@
 import json
 import os
 import subprocess
-import time
+import threading
 from pathlib import Path
 from unittest import mock
 
@@ -19,6 +19,13 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.databricks_utils import DatabricksRuntimeVersion
+
+
+def join_thread_by_name_prefix(prefix: str):
+    """Join any thread whose name starts with the given prefix."""
+    for t in threading.enumerate():
+        if t.name.startswith(prefix):
+            t.join()
 
 
 def test_register_model_with_runs_uri():
@@ -444,7 +451,7 @@ def test_load_prompt_with_link_to_model_disabled():
             name="model",
             pip_requirements=["mlflow"],
         )
-        mlflow.set_active_model(model_info.model_id)
+        mlflow.set_active_model(model_id=model_info.model_id)
 
         # Load prompt with link_to_model=False - should not link despite active model
         prompt = mlflow.load_prompt("test_prompt", version=1, link_to_model=False)
@@ -454,8 +461,8 @@ def test_load_prompt_with_link_to_model_disabled():
         assert prompt.version == 1
         assert prompt.template == "Hello, {{name}}!"
 
-        # Give any potential background linking thread time to complete (it shouldn't run)
-        time.sleep(5)
+        # Join any potential background linking thread (it shouldn't run)
+        join_thread_by_name_prefix("link_prompt_thread")
 
         # Verify the model does NOT have any linked prompts tag
         client = mlflow.MlflowClient()
@@ -490,8 +497,8 @@ def test_load_prompt_with_explicit_model_id():
     assert prompt.version == 1
     assert prompt.template == "Hello, {{name}}!"
 
-    # Give background linking thread time to complete
-    time.sleep(5)
+    # Join background linking thread to wait for completion
+    join_thread_by_name_prefix("link_prompt_thread")
 
     # Verify the model has the linked prompt in its tags
     client = mlflow.MlflowClient()
@@ -520,7 +527,7 @@ def test_load_prompt_with_active_model_integration():
             pip_requirements=["mlflow"],
         )
 
-        mlflow.set_active_model(model_info.model_id)
+        mlflow.set_active_model(model_id=model_info.model_id)
         # Load prompt with link_to_model=True - should use active model
         prompt = mlflow.load_prompt("test_prompt", version=1, link_to_model=True)
 
@@ -529,8 +536,8 @@ def test_load_prompt_with_active_model_integration():
         assert prompt.version == 1
         assert prompt.template == "Hello, {{name}}!"
 
-        # Give background linking thread time to complete
-        time.sleep(5)
+        # Join background linking thread to wait for completion
+        join_thread_by_name_prefix("link_prompt_thread")
 
         # Verify the model has the linked prompt in its tags
         client = mlflow.MlflowClient()
@@ -604,7 +611,7 @@ def test_load_prompt_explicit_model_id_overrides_active_model():
         )
 
     # Set active model context but provide explicit model_id - explicit should win
-    mlflow.set_active_model(active_model.model_id)
+    mlflow.set_active_model(model_id=active_model.model_id)
     prompt = mlflow.load_prompt(
         "test_prompt", version=1, link_to_model=True, model_id=explicit_model.model_id
     )
@@ -614,8 +621,8 @@ def test_load_prompt_explicit_model_id_overrides_active_model():
     assert prompt.version == 1
     assert prompt.template == "Hello, {{name}}!"
 
-    # Give background linking thread time to complete
-    time.sleep(5)
+    # Join background linking thread to wait for completion
+    join_thread_by_name_prefix("link_prompt_thread")
 
     # Verify the EXPLICIT model (not active model) has the linked prompt in its tags
     client = mlflow.MlflowClient()
