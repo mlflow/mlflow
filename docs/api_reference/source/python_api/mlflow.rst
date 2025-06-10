@@ -29,7 +29,7 @@ mlflow
         set_active_model,
         set_logged_model_tags,
         log_model_params,
-        clear_active_model
+        clear_active_model,
         load_prompt,
         register_prompt,
         search_prompts,
