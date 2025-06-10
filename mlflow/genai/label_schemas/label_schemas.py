@@ -16,7 +16,6 @@ if TYPE_CHECKING:
     _InputTextList: TypeAlias = _label_schemas.InputTextList
     _LabelSchema: TypeAlias = _label_schemas.LabelSchema
 
-# TypeVar for generic InputType subclass return types
 DatabricksInputType = TypeVar("DatabricksInputType")
 _InputType = TypeVar("_InputType", bound="InputType")
 
