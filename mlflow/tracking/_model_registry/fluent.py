@@ -671,7 +671,10 @@ def load_prompt(
             parsed_name_or_uri, version=parsed_version, allow_missing=allow_missing
         )
 
-    # If there is an active MLflow run, associate the prompt with the run
+    # If there is an active MLflow run, associate the prompt with the run.
+    # Note that we do this synchronously because it's unlikely that run linking occurs
+    # in a latency sensitive environment, since runs aren't typically used in real-time /
+    # production scenarios
     if run := active_run():
         client.link_prompt_version_to_run(
             run.info.run_id, f"prompts:/{prompt.name}/{prompt.version}"
