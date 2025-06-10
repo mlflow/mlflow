@@ -5,7 +5,6 @@ from datetime import datetime
 from typing import Any
 from unittest import mock
 
-from mlflow.entities.assessment import Expectation
 import pytest
 from packaging.version import Version
 
@@ -21,6 +20,7 @@ from mlflow.entities import (
     TraceLocation,
     TraceState,
 )
+from mlflow.entities.assessment import Expectation
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
