@@ -1,19 +1,9 @@
-import threading
 from typing import Optional
 from unittest import mock
 
 import pytest
 
 import mlflow
-
-
-def join_thread_by_name_prefix(prefix: str, timeout: float = 5.0):
-    """Join thread by name prefix to avoid time.sleep in tests."""
-    for thread in threading.enumerate():
-        if thread != threading.main_thread() and thread.name.startswith(prefix):
-            thread.join(timeout=timeout)
-
-
 from mlflow.entities import LiveSpan, Trace
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.trace_info import TraceInfo
