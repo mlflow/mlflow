@@ -8,8 +8,14 @@ import pytest
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.model_registry.prompt_version import PromptVersion
+from mlflow.entities.model_version import ModelVersion
+from mlflow.entities.model_version_tag import ModelVersionTag
+from mlflow.entities.run import Run
+from mlflow.entities.run_data import RunData
+from mlflow.entities.run_info import RunInfo
+from mlflow.entities.run_tag import RunTag
 from mlflow.exceptions import MlflowException
-from mlflow.prompt.constants import LINKED_PROMPTS_TAG_KEY
+from mlflow.prompt.constants import LINKED_PROMPTS_TAG_KEY, PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.store.model_registry.abstract_store import AbstractStore
 
@@ -20,6 +26,7 @@ class MockAbstractStore(AbstractStore):
     def __init__(self):
         super().__init__()
         self.prompt_versions = {}
+        self.model_versions = {}
 
     def get_prompt_version(self, name: str, version: str) -> PromptVersion:
         key = f"{name}:{version}"
@@ -29,6 +36,29 @@ class MockAbstractStore(AbstractStore):
                 error_code=ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
             )
         return self.prompt_versions[key]
+
+    def get_model_version(self, name: str, version: int) -> ModelVersion:
+        key = f"{name}:{version}"
+        if key not in self.model_versions:
+            # Create a default model version for testing
+            self.model_versions[key] = ModelVersion(
+                name=name,
+                version=str(version),
+                creation_timestamp=1234567890,
+                last_updated_timestamp=1234567890,
+                description="Test model version",
+                tags={},
+            )
+        return self.model_versions[key]
+
+    def set_model_version_tag(self, name: str, version: int, tag: ModelVersionTag):
+        """Mock implementation to set model version tags."""
+        mv = self.get_model_version(name, version)
+        if isinstance(mv.tags, dict):
+            mv.tags[tag.key] = tag.value
+        else:
+            # Convert to dict if it's not already
+            mv.tags = {tag.key: tag.value}
 
     def add_prompt_version(self, name: str, version: str):
         """Helper method to add prompt versions for testing."""
@@ -570,3 +600,252 @@ def test_link_prompts_to_trace_unsupported_store(store, mock_tracking_store):
 
     # Verify set_trace_tag was not called since get_trace_info failed
     mock_tracking_store.set_trace_tag.assert_not_called()
+
+
+# Tests for link_prompt_version_to_run
+
+
+def test_link_prompt_version_to_run_success(store, mock_tracking_store):
+    """Test successful linking of prompt version to run."""
+    # Setup
+    store.add_prompt_version("test_prompt", "v1")
+    run_id = "run_123"
+
+    # Mock run with no existing linked prompts
+    run_data = RunData(metrics=[], params=[], tags={})
+    run_info = RunInfo(
+        run_id=run_id,
+        experiment_id="exp_123",
+        user_id="user_123",
+        status="FINISHED",
+        start_time=1234567890,
+        end_time=1234567890,
+        lifecycle_stage="active",
+    )
+    run = Run(run_info=run_info, run_data=run_data)
+    mock_tracking_store.get_run.return_value = run
+
+    # Execute
+    store.link_prompt_version_to_run("test_prompt", "1", run_id)
+
+    # Verify run tag was set
+    mock_tracking_store.set_tag.assert_called_once()
+    call_args = mock_tracking_store.set_tag.call_args
+    assert call_args[0][0] == run_id
+
+    run_tag = call_args[0][1]
+    assert isinstance(run_tag, RunTag)
+    assert run_tag.key == LINKED_PROMPTS_TAG_KEY
+
+    expected_value = [{"name": "test_prompt", "version": "1"}]
+    assert json.loads(run_tag.value) == expected_value
+
+    # Verify backward compatibility tag was set on prompt version
+    mv = store.get_model_version("test_prompt", 1)
+    assert PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY in mv.tags
+    assert mv.tags[PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY] == run_id
+
+
+def test_link_prompt_version_to_run_append_to_existing(store, mock_tracking_store):
+    """Test linking prompt version when other prompts are already linked to the run."""
+    # Setup
+    store.add_prompt_version("test_prompt_1", "v1")
+    store.add_prompt_version("test_prompt_2", "v1")
+    run_id = "run_123"
+
+    # Mock run with existing linked prompts
+    existing_prompts = [{"name": "existing_prompt", "version": "1"}]
+    run_data = RunData(
+        metrics=[], params=[], tags={LINKED_PROMPTS_TAG_KEY: json.dumps(existing_prompts)}
+    )
+    run_info = RunInfo(
+        run_id=run_id,
+        experiment_id="exp_123",
+        user_id="user_123",
+        status="FINISHED",
+        start_time=1234567890,
+        end_time=1234567890,
+        lifecycle_stage="active",
+    )
+    run = Run(run_info=run_info, run_data=run_data)
+    mock_tracking_store.get_run.return_value = run
+
+    # Execute
+    store.link_prompt_version_to_run("test_prompt_1", "1", run_id)
+
+    # Verify run tag was updated with both prompts
+    mock_tracking_store.set_tag.assert_called_once()
+    call_args = mock_tracking_store.set_tag.call_args
+
+    run_tag = call_args[0][1]
+    linked_prompts = json.loads(run_tag.value)
+
+    expected_prompts = [
+        {"name": "existing_prompt", "version": "1"},
+        {"name": "test_prompt_1", "version": "1"},
+    ]
+    assert len(linked_prompts) == 2
+    for expected_prompt in expected_prompts:
+        assert expected_prompt in linked_prompts
+
+    # Verify backward compatibility tag was set
+    mv = store.get_model_version("test_prompt_1", 1)
+    assert mv.tags[PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY] == run_id
+
+
+def test_link_prompt_version_to_run_append_to_existing_run_ids(store, mock_tracking_store):
+    """Test linking prompt version when other runs are already linked to the prompt."""
+    # Setup
+    store.add_prompt_version("test_prompt", "v1")
+    run_id = "run_123"
+
+    # Mock run
+    run_data = RunData(metrics=[], params=[], tags={})
+    run_info = RunInfo(
+        run_id=run_id,
+        experiment_id="exp_123",
+        user_id="user_123",
+        status="FINISHED",
+        start_time=1234567890,
+        end_time=1234567890,
+        lifecycle_stage="active",
+    )
+    run = Run(run_info=run_info, run_data=run_data)
+    mock_tracking_store.get_run.return_value = run
+
+    # Pre-populate the model version with existing run IDs
+    mv = store.get_model_version("test_prompt", 1)
+    mv.tags[PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY] = "run_456,run_789"
+
+    # Execute
+    store.link_prompt_version_to_run("test_prompt", "1", run_id)
+
+    # Verify backward compatibility tag now contains all run IDs
+    mv = store.get_model_version("test_prompt", 1)
+    run_ids = mv.tags[PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY].split(",")
+    assert len(run_ids) == 3
+    assert "run_456" in run_ids
+    assert "run_789" in run_ids
+    assert run_id in run_ids
+
+
+def test_link_prompt_version_to_run_no_run_found(store, mock_tracking_store):
+    """Test error when run is not found."""
+    # Setup
+    store.add_prompt_version("test_prompt", "v1")
+    run_id = "nonexistent_run"
+
+    mock_tracking_store.get_run.return_value = None
+
+    # Execute and verify error
+    with pytest.raises(MlflowException, match="Could not find run"):
+        store.link_prompt_version_to_run("test_prompt", "1", run_id)
+
+
+def test_link_prompt_version_to_run_prompt_not_found(store, mock_tracking_store):
+    """Test error when prompt version is not found."""
+    # Setup
+    run_id = "run_123"
+
+    run_data = RunData(metrics=[], params=[], tags={})
+    run_info = RunInfo(
+        run_id=run_id,
+        experiment_id="exp_123",
+        user_id="user_123",
+        status="FINISHED",
+        start_time=1234567890,
+        end_time=1234567890,
+        lifecycle_stage="active",
+    )
+    run = Run(run_info=run_info, run_data=run_data)
+    mock_tracking_store.get_run.return_value = run
+
+    # Execute and verify error
+    with pytest.raises(MlflowException, match="not found"):
+        store.link_prompt_version_to_run("nonexistent_prompt", "1", run_id)
+
+
+def test_link_prompt_version_to_run_duplicate_prevention(store, mock_tracking_store):
+    """Test that duplicate prompt linkings are prevented."""
+    # Setup
+    store.add_prompt_version("test_prompt", "v1")
+    run_id = "run_123"
+
+    # Mock run with existing prompt already linked
+    existing_prompts = [{"name": "test_prompt", "version": "1"}]
+    run_data = RunData(
+        metrics=[], params=[], tags={LINKED_PROMPTS_TAG_KEY: json.dumps(existing_prompts)}
+    )
+    run_info = RunInfo(
+        run_id=run_id,
+        experiment_id="exp_123",
+        user_id="user_123",
+        status="FINISHED",
+        start_time=1234567890,
+        end_time=1234567890,
+        lifecycle_stage="active",
+    )
+    run = Run(run_info=run_info, run_data=run_data)
+    mock_tracking_store.get_run.return_value = run
+
+    # Execute - try to link the same prompt again
+    store.link_prompt_version_to_run("test_prompt", "1", run_id)
+
+    # Verify set_tag was not called since no change was needed
+    mock_tracking_store.set_tag.assert_not_called()
+
+
+def test_link_prompt_version_to_run_thread_safety(store, mock_tracking_store):
+    """Test thread safety of linking prompt versions to runs."""
+    # Setup
+    store.add_prompt_version("test_prompt_1", "v1")
+    store.add_prompt_version("test_prompt_2", "v1")
+    run_id = "run_123"
+
+    # Create a shared run that will be updated
+    run_data = RunData(metrics=[], params=[], tags={})
+    run_info = RunInfo(
+        run_id=run_id,
+        experiment_id="exp_123",
+        user_id="user_123",
+        status="FINISHED",
+        start_time=1234567890,
+        end_time=1234567890,
+        lifecycle_stage="active",
+    )
+    run = Run(run_info=run_info, run_data=run_data)
+
+    # Mock behavior to simulate updating the run's tags
+    def mock_set_tag(run_id, tag):
+        # Simulate concurrent access with small delay
+        time.sleep(0.01)
+        run.data.tags[tag.key] = tag.value
+
+    mock_tracking_store.get_run.return_value = run
+    mock_tracking_store.set_tag.side_effect = mock_set_tag
+
+    # Define thread worker function
+    def link_prompt(prompt_name):
+        store.link_prompt_version_to_run(prompt_name, "1", run_id)
+
+    # Execute concurrent linking
+    threads = []
+    for prompt_name in ["test_prompt_1", "test_prompt_2"]:
+        thread = threading.Thread(target=link_prompt, args=(prompt_name,))
+        threads.append(thread)
+        thread.start()
+
+    # Wait for all threads to complete
+    for thread in threads:
+        thread.join()
+
+    # Verify both prompts were linked
+    final_tag_value = json.loads(run.data.tags[LINKED_PROMPTS_TAG_KEY])
+
+    expected_prompts = [
+        {"name": "test_prompt_1", "version": "1"},
+        {"name": "test_prompt_2", "version": "1"},
+    ]
+    assert len(final_tag_value) == 2
+    for expected_prompt in expected_prompts:
+        assert expected_prompt in final_tag_value

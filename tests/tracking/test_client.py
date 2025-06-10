@@ -2340,3 +2340,66 @@ def test_log_batch_link_to_active_model(tracking_uri):
     assert logged_model.name == model.name
     assert logged_model.model_id == model.model_id
     assert {m.key: m.value for m in logged_model.metrics} == {"metric1": 1, "metric2": 2}
+
+
+# Test utilities for backward compatibility with old prompt linking logic
+# These methods are no longer part of the public API but are kept here for testing
+
+
+def _detach_prompt_from_run_test_utility(
+    client: MlflowClient, run_id: str, prompt_uri: str
+) -> None:
+    """
+    Test utility for detaching a prompt from a run using the old
+    PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY logic.
+
+    This functionality was removed from the public API but is kept here for testing
+    backward compatibility.
+    """
+    from mlflow.exceptions import MlflowException
+    from mlflow.prompt.constants import PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY
+    from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+
+    prompt = client.load_prompt(prompt_uri)
+    run_id_tags = prompt._tags.get(PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY)
+    run_ids = run_id_tags.split(",") if run_id_tags else []
+
+    if run_id not in run_ids:
+        raise MlflowException(
+            f"Run '{run_id}' is not associated with prompt '{prompt_uri}'.",
+            INVALID_PARAMETER_VALUE,
+        )
+
+    run_ids.remove(run_id)
+
+    name, version = client.parse_prompt_uri(prompt_uri)
+    if run_ids:
+        client._get_registry_client().set_model_version_tag(
+            name, version, PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY, ",".join(run_ids)
+        )
+    else:
+        client._get_registry_client().delete_model_version_tag(
+            name, version, PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY
+        )
+
+
+def _list_logged_prompts_test_utility(client: MlflowClient, run_id: str) -> list:
+    """
+    Test utility for listing prompts associated with a run using the old
+    PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY logic.
+
+    This functionality was removed from the public API but is kept here for testing
+    backward compatibility.
+    """
+    from mlflow.entities.model_registry.prompt_version import PromptVersion
+    from mlflow.prompt.constants import IS_PROMPT_TAG_KEY, PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY
+
+    mvs = client.search_model_versions(
+        filter_string=(
+            f"tags.`{PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY}` LIKE '%{run_id}%' "
+            f"AND tags.`{IS_PROMPT_TAG_KEY}` = 'true'"
+        )
+    )
+    # NB: We don't support pagination here because the number of prompts associated
+    # with a Run is expected to be small.
+    return [PromptVersion.from_model_version(mv) for mv in mvs]

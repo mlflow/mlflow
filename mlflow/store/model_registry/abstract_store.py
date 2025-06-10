@@ -12,7 +12,12 @@ from mlflow.entities.model_registry.model_version_tag import ModelVersionTag
 from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.exceptions import MlflowException
-from mlflow.prompt.constants import IS_PROMPT_TAG_KEY, LINKED_PROMPTS_TAG_KEY, PROMPT_TEXT_TAG_KEY
+from mlflow.prompt.constants import (
+    IS_PROMPT_TAG_KEY,
+    LINKED_PROMPTS_TAG_KEY,
+    PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY,
+    PROMPT_TEXT_TAG_KEY,
+)
 from mlflow.prompt.registry_utils import has_prompt_tag
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
@@ -1121,3 +1126,27 @@ class AbstractStore:
                 from mlflow.entities import RunTag
 
                 tracking_store.set_tag(run_id, RunTag(LINKED_PROMPTS_TAG_KEY, updated_tag_value))
+
+            # TODO: Remove this backward compatibility logic soon
+            # This maintains the old PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY tag on the prompt version
+            # for compatibility with existing UI code that may still rely on this approach
+            mv = self.get_model_version(name, int(version))
+            existing_run_ids_tag = None
+            if isinstance(mv.tags, dict):
+                existing_run_ids_tag = mv.tags.get(PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY)
+            else:
+                for tag in mv.tags:
+                    if tag.key == PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY:
+                        existing_run_ids_tag = tag.value
+                        break
+
+            # Parse existing run IDs and add the new one if not already present
+            existing_run_ids = existing_run_ids_tag.split(",") if existing_run_ids_tag else []
+            if run_id not in existing_run_ids:
+                existing_run_ids.append(run_id)
+                updated_run_ids_tag = ",".join(existing_run_ids)
+                self.set_model_version_tag(
+                    name,
+                    int(version),
+                    ModelVersionTag(PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY, updated_run_ids_tag),
+                )
