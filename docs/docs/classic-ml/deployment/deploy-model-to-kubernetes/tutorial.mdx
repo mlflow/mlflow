@@ -23,9 +23,9 @@ If you already have a model and simply want to learn how to deploy it to Kuberne
 
 ## Introduction: Scalable Model Serving with KServe and MLServer
 
-MLflow provides an easy-to-use interface for deploying models within a Flask-based inference server. You can deploy the same inference
+MLflow provides an easy-to-use interface for deploying models within a FastAPI-based inference server. You can deploy the same inference
 server to a Kubernetes cluster by containerizing it using the `mlflow models build-docker` command. However, this approach may not be scalable
-and could be unsuitable for production use cases. Flask is not designed for high performance and scale ([why?](/ml/deployment/deploy-model-locally#serving-frameworks)), and also
+and could be unsuitable for production use cases. FastAPI is not designed for high performance and scale ([why?](/ml/deployment/deploy-model-locally#serving-frameworks)), and also
 manually managing multiple instances of inference servers is backbreaking.
 
 Fortunately, MLflow offers a solution for this. MLflow provides an alternative inference engine that is better suited for larger-scale inference deployments with its support for [MLServer](https://mlserver.readthedocs.io/en/latest),

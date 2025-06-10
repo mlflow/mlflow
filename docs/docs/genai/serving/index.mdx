@@ -70,7 +70,7 @@ curl -X POST http://localhost:5000/invocations \
 MLflow serving uses a standardized architecture:
 
 1. **🧠 Model Loading**: Models are loaded using their respective MLflow flavors
-2. **🌐 HTTP Server**: Flask-based server handles incoming requests
+2. **🌐 HTTP Server**: FastAPI-based server handles incoming requests
 3. **🔄 Prediction Pipeline**: Requests are processed through the model's predict method
 4. **📦 Response Formatting**: Results are returned in standardized JSON format
 
@@ -164,13 +164,15 @@ MLflow serving uses a standardized architecture:
     gradually roll out improvements.
 
     ```python
-    from flask import Flask, request, jsonify
+    from fastapi import FastAPI, Request
+    from fastapi.responses import JSONResponse
     import requests
     import random
     import json
     import logging
+    import uvicorn
 
-    app = Flask(__name__)
+    app = FastAPI()
 
     # Model endpoints
     MODEL_A_URL = "http://localhost:5000/invocations"  # Current model
@@ -183,8 +185,8 @@ MLflow serving uses a standardized architecture:
     }
 
 
-    @app.route("/predict", methods=["POST"])
-    def predict():
+    @app.post("/predict")
+    async def predict(request: Request):
         # Route traffic based on split
         rand = random.random()
 
@@ -197,29 +199,30 @@ MLflow serving uses a standardized architecture:
 
         # Forward request
         try:
+            req_json = await request.json()
             response = requests.post(
                 endpoint,
                 headers={"Content-Type": "application/json"},
-                data=json.dumps(request.json),
+                data=json.dumps(req_json),
                 timeout=30,
             )
 
             result = response.json()
 
             # Log for analysis
-            logging.info(
-                f"Model: {model_version}, Request: {request.json}, Response: {result}"
-            )
+            logging.info(f"Model: {model_version}, Request: {req_json}, Response: {result}")
 
-            return jsonify({"prediction": result, "model_version": model_version})
+            return JSONResponse(
+                content={"prediction": result, "model_version": model_version}
+            )
 
         except Exception as e:
             logging.error(f"Error with model {model_version}: {e}")
-            return jsonify({"error": str(e)}), 500
+            return JSONResponse(content={"error": str(e)}, status_code=500)
 
 
     if __name__ == "__main__":
-        app.run(port=8080)
+        uvicorn.run(app, host="0.0.0.0", port=8080)
     ```
 
   </TabItem>
@@ -230,9 +233,11 @@ MLflow serving uses a standardized architecture:
     ```python
     import mlflow
     import pandas as pd
-    from flask import Flask, request, jsonify
+    from fastapi import FastAPI, Request
+    from fastapi.responses import JSONResponse
+    import uvicorn
 
-    app = Flask(__name__)
+    app = FastAPI()
 
     # Load specialized models
     models = {
@@ -254,9 +259,9 @@ MLflow serving uses a standardized architecture:
             return "classification"
 
 
-    @app.route("/predict", methods=["POST"])
-    def smart_predict():
-        data = request.json
+    @app.post("/predict")
+    async def smart_predict(request: Request):
+        data = await request.json()
         input_df = pd.DataFrame(data["data"], columns=data["columns"])
 
         # Route to appropriate model
@@ -266,11 +271,13 @@ MLflow serving uses a standardized architecture:
         # Make prediction
         prediction = model.predict(input_df)
 
-        return jsonify({"model_used": model_name, "prediction": prediction.tolist()})
+        return JSONResponse(
+            content={"model_used": model_name, "prediction": prediction.tolist()}
+        )
 
 
     if __name__ == "__main__":
-        app.run(port=5000)
+        uvicorn.run(app, host="0.0.0.0", port=5000)
     ```
 
   </TabItem>

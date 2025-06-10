@@ -53,7 +53,7 @@ cloud services (AWS, Azure), Kubernetes clusters, and others.
 
 An [MLflow Model](/ml/model) already packages your model and its dependencies, hence MLflow can create either a virtual environment (for local deployment)
 or a Docker container image containing everything needed to run your model. Subsequently, MLflow launches an inference server with REST endpoints using
-frameworks like [Flask](https://flask.palletsprojects.com/en/1.1.x), preparing it for deployment to various destinations to handle inference requests.
+frameworks like [FastAPI](https://fastapi.tiangolo.com/), preparing it for deployment to various destinations to handle inference requests.
 Detailed information about the server and endpoints is available in [Inference Server Specification](/ml/deployment/deploy-model-locally#local-inference-server-spec).
 
 MLflow provides [CLI commands](#deployment-cli) and [Python APIs](#deployment-python-api) to facilitate the deployment process.

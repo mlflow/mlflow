@@ -156,16 +156,18 @@ Here's how to add various types of context as tags to your traces:
     ```python
     import mlflow
     import os
-    from flask import Flask, request, jsonify
+    from fastapi import FastAPI, Request
+    from fastapi.responses import JSONResponse
+    import uvicorn
 
-    app = Flask(__name__)
+    app = FastAPI()
 
 
     @mlflow.trace
-    @app.route("/chat", methods=["POST"])
-    def handle_chat():
+    @app.post("/chat")
+    async def handle_chat(request: Request):
         # Get request data
-        data = request.get_json()
+        data = await request.json()
         message = data.get("message", "")
 
         # Retrieve context from request headers
@@ -190,18 +192,18 @@ Here's how to add various types of context as tags to your traces:
                 # Request context
                 "user_agent": user_agent,
                 "request_method": request.method,
-                "endpoint": request.endpoint,
+                "endpoint": request.url.path,
             },
         )
 
         # Your application logic for processing the chat message
         response_text = f"Processed message: '{message}'"
 
-        return jsonify({"response": response_text})
+        return JSONResponse(content={"response": response_text})
 
 
     if __name__ == "__main__":
-        app.run(debug=True)
+        uvicorn.run(app, host="127.0.0.1", port=5000, debug=True)
     ```
 
     **Example request with context headers:**
