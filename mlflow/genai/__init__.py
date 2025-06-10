@@ -19,6 +19,13 @@ from mlflow.genai.labeling import (
     get_review_app,
 )
 from mlflow.genai.optimize import optimize_prompt
+from mlflow.genai.prompts import (
+    delete_prompt_alias,
+    load_prompt,
+    register_prompt,
+    search_prompts,
+    set_prompt_alias,
+)
 from mlflow.genai.scheduled_scorers import (
     ScorerScheduleConfig,
     add_scheduled_scorer,
@@ -40,6 +47,11 @@ __all__ = [
     "create_dataset",
     "delete_dataset",
     "get_dataset",
+    "load_prompt",
+    "register_prompt",
+    "search_prompts",
+    "delete_prompt_alias",
+    "set_prompt_alias",
     "optimize_prompt",
     "ScorerScheduleConfig",
     "add_scheduled_scorer",
