@@ -204,6 +204,8 @@ class RunsArtifactRepository(ArtifactRepository):
                 exc_info=True,
             )
 
+        # If there are artifacts with the same name in the run and model, the model artifacts
+        # will overwrite the run artifacts.
         model_out_path = self._download_model_artifacts(artifact_path, dst_path=dst_path)
         return run_out_path or model_out_path
 
