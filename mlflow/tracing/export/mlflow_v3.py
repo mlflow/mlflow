@@ -1,5 +1,6 @@
 import logging
 import threading
+import uuid
 from typing import Optional, Sequence
 
 from opentelemetry.sdk.trace import ReadableSpan
@@ -102,6 +103,7 @@ class MlflowV3SpanExporter(SpanExporter):
                     threading.Thread(
                         target=self._link_prompts,
                         args=(returned_trace_info.trace_id, prompts),
+                        name=f"link_prompts_from_exporter-{uuid.uuid4().hex[:8]}",
                     ).start()
             else:
                 _logger.warning("No trace or trace info provided, unable to export")

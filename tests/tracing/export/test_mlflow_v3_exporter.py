@@ -217,7 +217,6 @@ def test_prompt_linking_in_mlflow_v3_exporter(is_async, monkeypatch):
             version=1,
             template="Hello, {{name}}!",
             commit_message="Test prompt 1",
-            version_metadata={"test": "prompt1"},
             creation_timestamp=123456789,
         )
         prompt2 = PromptVersion(
@@ -225,7 +224,6 @@ def test_prompt_linking_in_mlflow_v3_exporter(is_async, monkeypatch):
             version=2,
             template="Goodbye, {{name}}!",
             commit_message="Test prompt 2",
-            version_metadata={"test": "prompt2"},
             creation_timestamp=123456790,
         )
 
@@ -410,7 +408,6 @@ def test_prompt_linking_error_handling_mlflow_v3(monkeypatch):
             version=1,
             template="Hello, {{name}}!",
             commit_message="Test prompt",
-            version_metadata={"test": "prompt"},
             creation_timestamp=123456789,
         )
 

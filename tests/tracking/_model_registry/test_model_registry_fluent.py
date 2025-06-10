@@ -438,7 +438,7 @@ def test_load_prompt_with_tracing_single_prompt():
 
     # Start tracing and load prompt
     with mlflow.start_span("test_operation") as span:
-        prompt = mlflow.load_prompt("test_prompt", version=1, link_to_model=False)
+        prompt = mlflow.load_prompt("test_prompt", version=1)
 
         # Verify prompt was loaded correctly
         assert prompt.name == "test_prompt"
@@ -453,7 +453,6 @@ def test_load_prompt_with_tracing_single_prompt():
         version=1,
         template="Hello, {{name}}!",
         commit_message=None,
-        version_metadata={},
         creation_timestamp=None,
     )
     client.link_prompt_versions_to_trace(trace_id=span.trace_id, prompts=[prompt_version])
@@ -482,8 +481,8 @@ def test_load_prompt_with_tracing_multiple_prompts():
 
     # Start tracing and load multiple versions of the same prompt
     with mlflow.start_span("multi_version_prompt_operation") as span:
-        prompt_v1 = mlflow.load_prompt("my_prompt", version=1, link_to_model=False)
-        prompt_v2 = mlflow.load_prompt("my_prompt", version=2, link_to_model=False)
+        prompt_v1 = mlflow.load_prompt("my_prompt", version=1)
+        prompt_v2 = mlflow.load_prompt("my_prompt", version=2)
 
         # Verify prompts were loaded correctly
         assert prompt_v1.name == "my_prompt"
@@ -503,7 +502,6 @@ def test_load_prompt_with_tracing_multiple_prompts():
             version=1,
             template="Hello, {{name}}!",
             commit_message=None,
-            version_metadata={},
             creation_timestamp=None,
         ),
         PromptVersion(
@@ -511,7 +509,6 @@ def test_load_prompt_with_tracing_multiple_prompts():
             version=2,
             template="Hi there, {{name}}! How are you?",
             commit_message=None,
-            version_metadata={},
             creation_timestamp=None,
         ),
     ]
@@ -547,7 +544,7 @@ def test_load_prompt_with_tracing_no_active_trace():
     mlflow.register_prompt(name="no_trace_prompt", template="Hello, {{name}}!")
 
     # Load prompt without an active trace
-    prompt = mlflow.load_prompt("no_trace_prompt", version=1, link_to_model=False)
+    prompt = mlflow.load_prompt("no_trace_prompt", version=1)
 
     # Verify prompt was loaded correctly
     assert prompt.name == "no_trace_prompt"
@@ -568,13 +565,13 @@ def test_load_prompt_with_tracing_nested_spans():
 
     # Start nested spans (same trace, different spans)
     with mlflow.start_span("outer_operation") as outer_span:
-        mlflow.load_prompt("outer_prompt", version=1, link_to_model=False)
+        mlflow.load_prompt("outer_prompt", version=1)
 
         with mlflow.start_span("inner_operation") as inner_span:
             # Verify both spans belong to the same trace
             assert inner_span.trace_id == outer_span.trace_id
 
-            mlflow.load_prompt("inner_prompt", version=1, link_to_model=False)
+            mlflow.load_prompt("inner_prompt", version=1)
 
     # Manually trigger prompt linking to trace since in test environment
     # the trace export may not happen automatically
@@ -585,7 +582,6 @@ def test_load_prompt_with_tracing_nested_spans():
             version=1,
             template="Outer: {{msg}}",
             commit_message=None,
-            version_metadata={},
             creation_timestamp=None,
         ),
         PromptVersion(
@@ -593,7 +589,6 @@ def test_load_prompt_with_tracing_nested_spans():
             version=1,
             template="Inner: {{msg}}",
             commit_message=None,
-            version_metadata={},
             creation_timestamp=None,
         ),
     ]
