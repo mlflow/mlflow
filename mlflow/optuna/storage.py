@@ -536,7 +536,11 @@ class MlflowStorage(BaseStorage):
         self._flush_batch(trial_id)
 
         trial_run = self._mlflow_client.get_run(trial_id)
-        distributions_dict = json.loads(trial_run.data.tags["param_directions"])
+        try:
+            distributions_dict = json.loads(trial_run.data.tags["param_directions"])
+        except Exception as e:
+            raise e(f"error with param_directions = {trial_run.data.tags["param_directions"]}")
+
         distributions = {
             k: json_to_distribution(distribution) for k, distribution in distributions_dict.items()
         }
