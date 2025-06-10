@@ -39,12 +39,6 @@ def spark_session_with_delta():
     with tempfile.TemporaryDirectory() as tmpdir:
         with (
             SparkSession.builder.master("local[*]")
-            # TODO: Remove `spark.jars.repositories` when Delta 4.0.0 is released.
-            # https://github.com/delta-io/delta/releases/tag/v4.0.0-final-rc1
-            .config(
-                "spark.jars.repositories",
-                "https://oss.sonatype.org/content/repositories/iodelta-1229",
-            )
             .config("spark.jars.packages", "io.delta:delta-spark_2.13:4.0.0")
             .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension")
             .config(
