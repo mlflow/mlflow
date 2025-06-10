@@ -54,7 +54,6 @@ from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import (
     IS_PROMPT_TAG_KEY,
-    PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY,
     PROMPT_TEXT_TAG_KEY,
 )
 from mlflow.prompt.registry_utils import (
@@ -702,21 +701,20 @@ class MlflowClient:
                 return None
             raise
 
-    # TODO: Use model_id in MLflow 3.0
     @experimental
     @require_prompt_registry
     @translate_prompt_exception
-    def log_prompt(self, run_id: str, prompt: Union[str, PromptVersion]) -> None:
+    def link_prompt_version_to_run(self, run_id: str, prompt: Union[str, PromptVersion]) -> None:
         """
-        Associate a prompt registered within the MLflow Prompt Registry with an MLflow Run.
+        Link a prompt registered within the MLflow Prompt Registry with an MLflow Run.
 
         .. warning::
 
-            This API is not thread-safe. If you are logging prompts from multiple threads,
-            consider using a lock to ensure that only one thread logs a prompt to a run at a time.
+            This API is not thread-safe. If you are linking prompts from multiple threads,
+            consider using a lock to ensure that only one thread links a prompt to a run at a time.
 
         Args:
-            run_id: The ID of the run to log the prompt to.
+            run_id: The ID of the run to link the prompt to.
             prompt: A Prompt object or the prompt URI in the format "prompts:/name/version".
         """
         if isinstance(prompt, str):
@@ -730,15 +728,8 @@ class MlflowClient:
                 "The `prompt` argument must be a Prompt object or a prompt URI.",
             )
 
-        if run_id_tags := prompt._tags.get(PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY):
-            run_ids = run_id_tags.split(",")
-            if run_id not in run_ids:
-                run_ids.append(run_id)
-        else:
-            run_ids = [run_id]
-
-        self._get_registry_client().set_model_version_tag(
-            prompt.name, prompt.version, PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY, ",".join(run_ids)
+        self._get_registry_client().link_prompt_version_to_run(
+            name=prompt.name, version=prompt.version, run_id=run_id
         )
 
     def link_prompt_version_to_model(self, name: str, version: str, model_id: str) -> None:
@@ -786,64 +777,6 @@ class MlflowClient:
             trace_id=trace_id,
         )
 
-    # TODO: Use model_id in MLflow 3.0
-    @experimental
-    @require_prompt_registry
-    @translate_prompt_exception
-    def detach_prompt_from_run(self, run_id: str, prompt_uri: str) -> None:
-        """
-        Detach a prompt registered within the MLflow Prompt Registry from an MLflow Run.
-
-        Args:
-            run_id: The ID of the run to log the prompt to.
-            prompt_uri: The prompt URI in the format "prompts:/name/version".
-        """
-        prompt = self.load_prompt(prompt_uri)
-        run_id_tags = prompt._tags.get(PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY)
-        run_ids = run_id_tags.split(",") if run_id_tags else []
-
-        if run_id not in run_ids:
-            raise MlflowException(
-                f"Run '{run_id}' is not associated with prompt '{prompt_uri}'.",
-                INVALID_PARAMETER_VALUE,
-            )
-
-        run_ids.remove(run_id)
-
-        name, version = self.parse_prompt_uri(prompt_uri)
-        if run_ids:
-            self._get_registry_client().set_model_version_tag(
-                name, version, PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY, ",".join(run_ids)
-            )
-        else:
-            self._get_registry_client().delete_model_version_tag(
-                name, version, PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY
-            )
-
-    # TODO: Use model_id in MLflow 3.0
-    @experimental
-    @require_prompt_registry
-    @translate_prompt_exception
-    def list_logged_prompts(self, run_id: str) -> list[PromptVersion]:
-        """
-        List all prompts associated with an MLflow Run.
-
-        Args:
-            run_id: The ID of the run to list the prompts for.
-
-        Returns:
-            A list of :py:class:`Prompt <mlflow.entities.Prompt>` objects associated with the run.
-        """
-        mvs = self.search_model_versions(
-            filter_string=(
-                f"tags.`{PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY}` LIKE '%{run_id}%' "
-                f"AND tags.`{IS_PROMPT_TAG_KEY}` = 'true'"
-            )
-        )
-        # NB: We don't support pagination here because the number of prompts associated
-        # with a Run is expected to be small.
-        return [PromptVersion.from_model_version(mv) for mv in mvs]
-
     @experimental
     @require_prompt_registry
     @translate_prompt_exception
@@ -857,7 +790,7 @@ class MlflowClient:
             version: The version of the prompt.
         """
         self._validate_prompt(name, version)
-        self._get_registry_client().set_registered_model_alias(name, alias, version)
+        self._get_registry_client().set_prompt_alias(name, alias, version)
 
     @experimental
     @require_prompt_registry
@@ -870,7 +803,38 @@ class MlflowClient:
             name: The name of the prompt.
             alias: The alias to delete for the prompt.
         """
-        self._get_registry_client().delete_registered_model_alias(name, alias)
+        self._get_registry_client().delete_prompt_alias(name, alias)
+
+    @experimental
+    @require_prompt_registry
+    @translate_prompt_exception
+    def set_prompt_version_tag(
+        self, name: str, version: Union[str, int], key: str, value: str
+    ) -> None:
+        """
+        Set a tag on a specific prompt version.
+
+        Args:
+            name: The name of the prompt.
+            version: The version number of the prompt.
+            key: The tag key.
+            value: The tag value.
+        """
+        self._get_registry_client().set_prompt_version_tag(name, version, key, value)
+
+    @experimental
+    @require_prompt_registry
+    @translate_prompt_exception
+    def delete_prompt_version_tag(self, name: str, version: Union[str, int], key: str) -> None:
+        """
+        Delete a tag from a specific prompt version.
+
+        Args:
+            name: The name of the prompt.
+            version: The version number of the prompt.
+            key: The tag key to delete.
+        """
+        self._get_registry_client().delete_prompt_version_tag(name, version, key)
 
     def _validate_prompt(self, name: str, version: int):
         registry_client = self._get_registry_client()

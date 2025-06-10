@@ -1,5 +1,7 @@
 import json
 import logging
+import threading
+import uuid
 from typing import Any, Optional, Union
 
 import mlflow
@@ -26,7 +28,7 @@ from mlflow.tracing.fluent import get_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.client import MlflowClient
-from mlflow.tracking.fluent import active_run
+from mlflow.tracking.fluent import active_run, get_active_model_id
 from mlflow.utils import get_results_from_paginated_fn, mlflow_tags
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import (
@@ -634,6 +636,8 @@ def load_prompt(
     name_or_uri: str,
     version: Optional[Union[str, int]] = None,
     allow_missing: bool = False,
+    link_to_model: bool = True,
+    model_id: Optional[str] = None,
 ) -> PromptVersion:
     """
     Load a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
@@ -645,6 +649,10 @@ def load_prompt(
         version: The version of the prompt (required when using name, not allowed when using URI).
         allow_missing: If True, return None instead of raising Exception if the specified prompt
             is not found.
+        link_to_model: If True, the prompt will be linked to the model with the ID specified
+                       by `model_id`, or the active model ID if `model_id` is None and
+                       there is an active model.
+        model_id: The ID of the model to which to link the prompt, if `link_to_model` is True.
 
     Example:
 
@@ -675,9 +683,44 @@ def load_prompt(
             parsed_name_or_uri, version=parsed_version, allow_missing=allow_missing
         )
 
-    # If there is an active MLflow run, associate the prompt with the run
+    # If there is an active MLflow run, associate the prompt with the run.
+    # Note that we do this synchronously because it's unlikely that run linking occurs
+    # in a latency sensitive environment, since runs aren't typically used in real-time /
+    # production scenarios
     if run := active_run():
-        client.log_prompt(run.info.run_id, f"prompts:/{prompt.name}/{prompt.version}")
+        client.link_prompt_version_to_run(
+            run.info.run_id, f"prompts:/{prompt.name}/{prompt.version}"
+        )
+
+    if link_to_model:
+        model_id = model_id or get_active_model_id()
+        if model_id is not None:
+            # Run linking in background thread to avoid blocking prompt loading. Prompt linking
+            # is not critical for the user's workflow (if the prompt fails to link, the user's
+            # workflow is minorly affected), so we handle it asynchronously and gracefully
+            # handle any failures without impacting the core prompt loading functionality.
+
+            def _link_prompt_async():
+                try:
+                    client.link_prompt_version_to_model(
+                        name=prompt.name,
+                        version=prompt.version,
+                        model_id=model_id,
+                    )
+                except Exception:
+                    # NB: We should still load the prompt even if linking fails, since the prompt
+                    # is critical to the caller's application logic
+                    _logger.warn(
+                        f"Failed to link prompt '{prompt.name}' version '{prompt.version}'"
+                        f" to model '{model_id}'.",
+                        exc_info=True,
+                    )
+
+            # Start linking in background - don't wait for completion
+            link_thread = threading.Thread(
+                target=_link_prompt_async, name=f"link_prompt_thread-{uuid.uuid4().hex[:8]}"
+            )
+            link_thread.start()
 
     if trace_id := get_active_trace_id():
         InMemoryTraceManager.get_instance().register_prompt(
