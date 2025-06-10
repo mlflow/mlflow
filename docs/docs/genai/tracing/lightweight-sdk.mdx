@@ -198,7 +198,7 @@ The lightweight SDK includes all essential tracing functionalities for monitorin
     <TitleCard
         title="🏷️ Tagging and Filtering Traces"
         description="By annotating traces with custom tags, you can add more context to your traces to group them and simplify the process of searching for them later. This is useful when you want to trace an application that runs across multiple request sessions or track specific user interactions."
-        link="/genai/tracing/session"
+        link="/genai/tracing/track-users-sessions"
     />
     <TitleCard
         title="🔍 Advanced Search and Querying"
@@ -328,10 +328,10 @@ def your_function():
 
 | Package | Size | Dependencies | Use Case |
 |---------|------|--------------|----------|
-| `mlflow` | ~50MB | 20+ packages | Development, experimentation, full ML lifecycle |
+| `mlflow` | ~1000MB | 20+ packages | Development, experimentation, full ML lifecycle |
 | `mlflow-tracing` | ~5MB | 5-8 packages | Production tracing, monitoring, observability |
 
-The lightweight SDK is **90% smaller** than the full MLflow package, making it ideal for:
+The lightweight SDK is **95% smaller** than the full MLflow package, making it ideal for:
 - Container deployments
 - Serverless functions
 - Edge computing

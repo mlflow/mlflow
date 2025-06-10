@@ -278,10 +278,6 @@ const config: Config = {
             from: ["/tracing/production"],
           },
           {
-            to: "/genai/tracing/session",
-            from: ["/tracing/session"],
-          },
-          {
             to: "/genai/tracing/search-traces",
             from: ["/tracing/api/search", "/llms/tracing/search-traces"],
           },
@@ -388,10 +384,6 @@ const config: Config = {
           {
             to: "/genai/tutorials/jupyter-trace-demo",
             from: ["/tracing/tutorials/jupyter-trace-demo", "/llms/tracing/notebooks/jupyter-trace-demo"],
-          },
-          {
-            to: "/genai/tracing/tracing-101",
-            from: ["/tracing/tutorials/concept", "/llms/tracing/overview"],
           },
           {
             to: "/genai/tutorials",

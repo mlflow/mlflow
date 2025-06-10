@@ -4,8 +4,9 @@ import TabItem from "@theme/TabItem";
 
 # Query Traces via SDK
 
-
-This guide shows you how to programmatically query traces using the MLflow SDK for debugging, monitoring, and analysis. While the [Search Traces](/genai/tracing/search-traces) guide covers comprehensive search functionality, this page focuses on practical SDK usage patterns for observability workflows.
+:::note
+This guide shows you how to programmatically query traces using the MLflow SDK for debugging, monitoring, and analysis. While the [Search Traces](/genai/tracing/search-traces) guide covers comprehensive search functionality, this page focuses on practical SDK usage patterns for observability workflows. To learn more about detailed search syntax and filtering capabilities, see the [Search Traces](/genai/tracing/search-traces) guide.
+:::
 
 ## Why Query Traces Programmatically?
 
@@ -13,49 +14,20 @@ The MLflow UI is great for interactive exploration, but programmatic access enab
 
 ## Basic Query Methods
 
-MLflow provides two main ways to query traces programmatically:
+The <APILink fn="mlflow.search_traces" /> function returns a pandas DataFrame that's perfect for data analysis and quick insights:
 
-<Tabs>
-  <TabItem value="search-traces" label="mlflow.search_traces()" default>
-    Returns a pandas DataFrame that's perfect for data analysis and quick insights:
+```python
+import mlflow
 
-    ```python
-    import mlflow
+# Get recent error traces as a DataFrame
+error_traces = mlflow.search_traces(
+    experiment_ids=["1"], filter_string="status = 'ERROR'", max_results=100
+)
 
-    # Get recent error traces as a DataFrame
-    error_traces = mlflow.search_traces(
-        experiment_ids=["1"], filter_string="status = 'ERROR'", max_results=100
-    )
-
-    # Easy analysis with pandas
-    print(f"Found {len(error_traces)} errors")
-    print(f"Average execution time: {error_traces['execution_time_ms'].mean():.1f}ms")
-    ```
-
-    **Best for:** Quick analysis, data exploration, creating charts and reports
-  </TabItem>
-  <TabItem value="client-api" label="MlflowClient.search_traces()" default>
-    Returns full trace objects with detailed span information:
-
-    ```python
-    from mlflow import MlflowClient
-
-    client = MlflowClient()
-    traces = client.search_traces(
-        experiment_ids=["1"], filter_string="status = 'ERROR'", max_results=100
-    )
-
-    # Access detailed trace information
-    for trace in traces:
-        print(f"Trace {trace.info.trace_id}: {trace.info.status}")
-        for span in trace.data.spans:
-            if span.status.status_code == "ERROR":
-                print(f"  Error in span: {span.name}")
-    ```
-
-    **Best for:** Detailed inspection, accessing span data, building monitoring tools
-  </TabItem>
-</Tabs>
+# Easy analysis with pandas
+print(f"Found {len(error_traces)} errors")
+print(f"Average execution time: {error_traces['execution_time_ms'].mean():.1f}ms")
+```
 
 ## Common Use Cases
 

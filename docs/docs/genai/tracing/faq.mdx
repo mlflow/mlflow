@@ -2,9 +2,6 @@ import { APILink } from "@site/src/components/APILink";
 
 # Tracing FAQ
 
-Common questions and solutions for MLflow Tracing.
-
-
 ## Getting Started and Basic Usage
 
 ### Q: How do I start using MLflow Tracing?
@@ -36,15 +33,7 @@ def my_function(input_data):
 
 ### Q: Which libraries does MLflow Tracing support automatically?
 
-MLflow provides automatic tracing (autolog) for 20+ popular libraries:
-
-**LLM Providers**: OpenAI, Anthropic, Google Gemini, AWS Bedrock, Groq, Mistral AI, Ollama, DeepSeek
-
-**Frameworks**: LangChain, LangGraph, LlamaIndex, DSPy, CrewAI, AutoGen, AG2, OpenAI Swarm
-
-**Tools**: LiteLLM, Instructor, txtai, Smolagents, PydanticAI
-
-See the complete list at [Automatic Tracing Integrations](/genai/tracing/integrations).
+MLflow provides automatic tracing (autolog) for 20+ popular libraries. See the complete list at [Automatic Tracing Integrations](/genai/tracing/integrations).
 
 ### Q: Can I add tracing to custom libraries or unsupported frameworks?
 
@@ -173,47 +162,6 @@ Yes, MLflow Tracing is stable and designed to be used in production environments
 
 When using MLflow Tracing in production environments, we recommend using the [MLflow Tracing SDK](https://pypi.org/project/mlflow-tracing/) (`mlflow-tracing`) to instrument your code/models/agents with a minimal set of dependencies and a smaller installation footprint. The SDK is designed to be a perfect fit for production environments where you want an efficient and lightweight tracing solution. Please refer to the [Production Monitoring](/genai/tracing/prod-tracing) section for more details.
 
-### Q: What is the latency overhead introduced by Tracing?
-
-Traces are written asynchronously to minimize performance impact. However, tracing still adds minimal latency, particularly when the trace size is large. MLflow recommends testing your application to understand tracing latency impacts before deploying to production.
-
-The following table provides rough estimates for latency impact by trace size:
-
-| Trace size per request | Impact to response speed latency (ms) |
-| ---------------------- | ------------------------------------- |
-| ~10 KB                 | ~ 1 ms                                |
-| ~ 1 MB                 | 50 ~ 100 ms                           |
-| 10 MB                  | 150 ms ~                              |
-
-**Tips to minimize latency impact:**
-- Use appropriate sampling rates for high-volume applications
-- Limit trace data to essential information
-- Configure trace size limits using MLflow's global configuration
-- Consider using the lightweight `mlflow-tracing` package for production
-
-### Q: How can I optimize tracing performance for high-volume applications?
-
-For high-throughput production environments, consider these optimization strategies:
-
-**Sampling**: Use <APILink fn="mlflow.tracing.set_global_config" /> to set sampling rates:
-```python
-import mlflow
-
-# Sample 10% of requests
-mlflow.tracing.set_global_config(sampling_rate=0.1)
-```
-
-**Async logging**: Enable asynchronous trace logging:
-```python
-mlflow.config.enable_async_logging()
-```
-
-**Size limits**: Configure maximum trace and span sizes:
-```python
-mlflow.tracing.set_global_config(
-    max_trace_size_mb=10, max_input_size_mb=1, max_output_size_mb=1
-)
-```
 
 ### Q: How do I enable asynchronous trace logging?
 
@@ -235,6 +183,8 @@ mlflow.flush_trace_async_logging()
 ```
 
 **Configuration options:**
+
+You can configure the detailed behavior of asynchronous logging using the following environment variables:
 
 | Environment Variable | Description | Default |
 |---------------------|-------------|---------|
@@ -408,7 +358,7 @@ mlflow.tracing.enable()
 my_function()  # This will generate a trace
 ```
 
-### Q: Can I control which functions are traced without modifying code?
+### Q: Can I enable/disable tracing for my application without modifying code?
 
 Yes, you can use environment variables and global configuration:
 
@@ -428,10 +378,6 @@ if os.getenv("ENVIRONMENT") == "development":
     mlflow.openai.autolog()
 ```
 
-**Sampling-based control**: Use sampling to reduce trace volume:
-```python
-mlflow.tracing.set_global_config(sampling_rate=0.1)  # Trace 10% of requests
-```
 
 ## MLflow Runs Integration
 
@@ -500,27 +446,6 @@ Traces are stored in your MLflow tracking backend:
 
 **Artifact store**: Large trace data may be stored in the artifact store (filesystem, S3, etc.)
 
-### Q: How much storage space do traces consume?
-
-Trace storage depends on several factors:
-
-**Trace complexity**: More spans = more storage
-
-**Data size**: Large inputs/outputs increase storage requirements
-
-**Retention period**: Longer retention = more cumulative storage
-
-**Typical ranges**:
-- Simple traces: 1-10 KB
-- Complex RAG workflows: 10-100 KB
-- Large document processing: 100 KB - 1 MB
-
-Configure size limits to manage storage:
-```python
-mlflow.tracing.set_global_config(
-    max_trace_size_mb=10, max_input_size_mb=2, max_output_size_mb=2
-)
-```
 
 ## Integration and Compatibility
 
