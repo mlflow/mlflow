@@ -24,8 +24,8 @@ graph TD
 
         subgraph METADATA[📋 Metadata]
             COMMIT[💬 Commit Message]
-            VERSION_META[🏷️ Version Metadata]
-            TAGS[🔖 Tags]
+            TAGS[🔖 Version Tags]
+            DESC[📝 Description]
         end
 
         subgraph MANAGEMENT[⚙️ Management]
@@ -47,7 +47,7 @@ graph TD
 
     class PROMPT promptStyle
     class CORE,NAME,TEMPLATE,VERSION coreStyle
-    class METADATA,COMMIT,VERSION_META,TAGS metaStyle
+    class METADATA,COMMIT,TAGS,DESC metaStyle
     class MANAGEMENT,ALIASES,TIMESTAMP,LIFECYCLE mgmtStyle
     class TITLE titleStyle
 ```
@@ -81,7 +81,7 @@ graph TB
 
     subgraph CONTENT[📄 Content Properties]
         TEMPLATE[Template: Text with variables]
-        VARIABLES[Variables: Extracted parameters]
+        VARIABLES[Variables: Extracted template parameters]
         FORMAT[Format: Double-brace syntax]
     end
 

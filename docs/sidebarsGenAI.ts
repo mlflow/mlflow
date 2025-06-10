@@ -92,37 +92,6 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Tutorials 🎓',
-      className: 'sidebar-top-level-category',
-      items: [
-        {
-          type: 'doc',
-          id: 'tutorials/debug-tracing',
-          label: 'App Debugging with Tracing',
-        },
-        {
-          type: 'doc',
-          id: 'tutorials/dev-quality-iteration',
-          label: 'Iterate on Quality during Development',
-        },
-        {
-          type: 'doc',
-          id: 'tutorials/enhance-quality',
-          label: 'Using Traces for Quality Enhancement',
-        },
-        {
-          type: 'doc',
-          id: 'tutorials/jupyter-trace-demo-ipynb',
-          label: 'Using Tracing in Jupyter Notebooks',
-        }
-      ],
-      link: {
-        type: 'doc',
-        id: 'tutorials/index'
-      }
-    },
-    {
-      type: 'category',
       label: 'Tracing (Observability) 🔎',
       className: 'sidebar-top-level-category',
       items: [
@@ -286,183 +255,41 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Evaluation 📊',
+      label: 'Evaluate & Monitor 📊',
       className: 'sidebar-top-level-category',
       items: [
         {
-          type: 'category',
-          label: 'Concepts & Reference',
-          items: [
-            {
-              type: 'doc',
-              id: 'eval-monitor/concepts/built-in-scorers',
-              label: 'Built-in Scorers',
-            },
-            {
-              type: 'doc',
-              id: 'eval-monitor/concepts/eval-datasets',
-              label: 'Evaluation Datasets',
-            },
-            {
-              type: 'doc',
-              id: 'eval-monitor/concepts/eval-harness',
-              label: 'Evaluation Harness',
-            },
-            {
-              type: 'doc',
-              id: 'eval-monitor/concepts/evaluation-runs',
-              label: 'Evaluation Runs',
-            },
-            {
-              type: 'doc',
-              id: 'eval-monitor/concepts/production-monitoring',
-              label: 'Production Monitoring',
-            },
-            {
-              type: 'doc',
-              id: 'eval-monitor/concepts/scorers',
-              label: 'Scorers',
-            },
-            {
-              type: 'doc',
-              id: 'eval-monitor/concepts/scorer-judge',
-              label: 'Scorers, Feedback and Judges',
-            },
-            {
-
-            },
-            {
-              type: 'category',
-              label: 'Judges',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'eval-monitor/concepts/judges/guidelines',
-                  label: 'Guidelines Judges',
-                },
-                {
-                  type: 'doc',
-                  id: 'eval-monitor/concepts/judges/is-context-relevant',
-                  label: 'Relevancy Judges',
-                },
-                {
-                  type: 'doc',
-                  id: 'eval-monitor/concepts/judges/is-context-sufficient',
-                  label: 'Sufficient Context Judges',
-                },
-                {
-                  type: 'doc',
-                  id: 'eval-monitor/concepts/judges/is-correct',
-                  label: 'Correctness Judges',
-                },
-                {
-                  type: 'doc',
-                  id: 'eval-monitor/concepts/judges/is-grounded',
-                  label: 'Grounded Judges',
-                },
-                {
-                  type: 'doc',
-                  id: 'eval-monitor/concepts/judges/is-safe',
-                  label: 'Safety Judges',
-                },
-                {
-                  type: 'doc',
-                  id: 'eval-monitor/concepts/judges/pre-built-judges-scorers',
-                  label: 'Pre-built Judges',
-                },
-                {
-                  type: 'doc',
-                  id: 'eval-monitor/concepts/judges/prompt-based-judge',
-                  label: 'Prompt-based Judges',
-                },
-              ],
-              link: {
-                type: 'doc',
-                id: 'eval-monitor/concepts/judges/index'
-              }
-            },
-          ],
-          link: {
-            type: 'doc',
-            id: 'eval-monitor/concepts/index'
-          },
-        },
-        {
           type: 'doc',
-          id: 'eval-monitor/quickstart',
-          label: "Quickstart"
+          id: 'eval-monitor/llm-evaluation',
+          label: 'LLM Evaluation',
+        },
+        {
+          type: 'link',
+          href: 'https://docs.databricks.com/aws/en/mlflow3/genai/eval-monitor/',
+          label: '🆕 GenAI Evaluation Suite (Managed-Only)',
         },
         {
           type: 'category',
-          label: 'Custom Judges',
+          label: 'Notebooks',
           items: [
             {
               type: 'doc',
-              id: 'eval-monitor/custom-judge/create-prompt-judge',
-              label: 'Prompt Judges'
+              id: 'eval-monitor/notebooks/huggingface-evaluation-ipynb',
             },
             {
               type: 'doc',
-              id: 'eval-monitor/custom-judge/meets-guidelines',
-              label: 'Guidelines Judges'
+              id: 'eval-monitor/notebooks/question-answering-evaluation-ipynb',
             },
             {
               type: 'doc',
-              id: 'eval-monitor/custom-judge/tune-judge',
-              label: 'Tuning Custom Judges',
-            }
-          ],
-          link: {
-            type: 'doc',
-            id: 'eval-monitor/custom-judge/index'
-          }
-        },
-        {
-          type: 'category',
-          label: 'Guides',
-          items: [
-            {
-              type: 'doc',
-              id: 'eval-monitor/build-eval-dataset',
-              label: 'Build an Evaluation Dataset',
+              id: 'eval-monitor/notebooks/rag-evaluation-ipynb',
             },
             {
               type: 'doc',
-              id: 'eval-monitor/predefined-judge-scorers',
-              label: 'Pre-Defined Scorers',
-            },
-            {
-              type: 'doc',
-              id: 'eval-monitor/custom-scorers',
-              label: 'Custom Scorers',
-            },
-            {
-              type: 'doc',
-              id: 'eval-monitor/evaluate-app',
-              label: 'Evaluate App Versions',
-            },
-            {
-              type: 'doc',
-              id: 'eval-monitor/version-comparison',
-              label: 'Compare App Versions',
-            },
-            {
-              type: 'doc',
-              id: 'eval-monitor/ci-cd-testing',
-              label: 'Evaluate within a CI/CD pipeline',
-            },
-            {
-              type: 'doc',
-              id: 'eval-monitor/continuous-improvement-with-production-data',
-              label: 'Evaluate with Production Data',
-            },
-            {
-              type: 'doc',
-              id: 'eval-monitor/run-scorer-in-prod',
-              label: 'Production Monitoring'
+              id: 'eval-monitor/notebooks/rag-evaluation-llama2-ipynb',
             },
           ]
-        },
+        }
       ],
       link: {
         type: 'doc',
@@ -494,19 +321,172 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
-                  id: 'prompt-version-mgmt/version-tracking/link-evaluation-results-and-traces-to-app-versions',
-                },
-                {
-                  type: 'doc',
                   id: 'prompt-version-mgmt/version-tracking/compare-app-versions',
                 },
                 {
-                  type: 'doc',
-                  id: 'prompt-version-mgmt/version-tracking/optionally-package-app-code-and-files-for-databricks-model-serving',
-                },
-                {
-                  type: 'doc',
-                  id: 'prompt-version-mgmt/version-tracking/link-production-traces-to-app-versions'
+                  type: 'category',
+                  label: 'App Packaging & Deployment',
+                  items: [
+                    {
+                      type: 'category',
+                      label: 'OpenAI',
+                      items: [
+                        {
+                          type: 'doc',
+                          id: 'flavors/openai/guide/index',
+                          label: 'Guide'
+                        },
+                        {
+                          type: 'doc',
+                          id: 'flavors/openai/autologging/index',
+                          label: "Autologging Support",
+                        },
+                        {
+                          type: 'category',
+                          label: 'Tutorials',
+                          items: [
+                            {
+                              type: 'doc',
+                              id: 'flavors/openai/notebooks/openai-quickstart-ipynb',
+                              label: 'OpenAI Quickstart'
+                            },
+                            {
+                              type: 'doc',
+                              id: 'flavors/openai/notebooks/openai-chat-completions-ipynb',
+                              label: 'Chat Completions with OpenAI'
+                            },
+                            {
+                              type: 'doc',
+                              id: 'flavors/openai/notebooks/openai-code-helper-ipynb',
+                              label: 'Building a Code Assistant with OpenAI & MLflow'
+                            },
+                            {
+                              type: 'doc',
+                              id: 'flavors/openai/notebooks/openai-embeddings-generation-ipynb',
+                              label: 'Embeddings Support with OpenAI in MLflow'
+                            },
+                          ],
+                          link: {
+                            type: 'doc',
+                            id: 'flavors/openai/notebooks/index'
+                          }
+                        }
+                      ],
+                      link: {
+                        type: 'doc',
+                        id: 'flavors/openai/index'
+                      }
+                    },
+                    {
+                      type: 'category',
+                      label: 'DSPy',
+                      items: [
+                        {
+                          type: 'doc',
+                          id: 'flavors/dspy/notebooks/dspy_quickstart-ipynb',
+                          label: 'DSPy Quickstart',
+                        },
+                        {
+                          type: 'doc',
+                          id: 'flavors/dspy/optimizer',
+                          label: 'Using DSPy Optimizers',
+                        },
+                      ],
+                      link: {
+                        type: 'doc',
+                        id: 'flavors/dspy/index'
+                      }
+                    },
+                    {
+                      type: 'category',
+                      label: 'LangChain',
+                      items: [
+                        {
+                          type: 'doc',
+                          id: 'flavors/langchain/guide/index',
+                          label: 'Guide to using LangChain with MLflow'
+                        },
+                        {
+                          type: 'doc',
+                          id: 'flavors/langchain/notebooks/langchain-quickstart-ipynb',
+                          label: 'LangChain Quickstart',
+                        },
+                        {
+                          type: 'doc',
+                          id: 'flavors/langchain/notebooks/langchain-retriever-ipynb',
+                          label: 'Retrievers with LangChain',
+                        }
+                      ],
+                      link: {
+                        type: 'doc',
+                        id: 'flavors/langchain/index'
+                      }
+                    },
+                    {
+                      type: 'category',
+                      label: 'LlamaIndex',
+                      items: [
+                        {
+                          type: 'doc',
+                          id: 'flavors/llama-index/notebooks/llama_index_quickstart-ipynb',
+                          label: 'LlamaIndex Quickstart',
+                        },
+                        {
+                          type: 'doc',
+                          id: 'flavors/llama-index/notebooks/llama_index_workflow_tutorial-ipynb',
+                          label: 'Agents with LlamaIndex',
+                        }
+                      ],
+                      link: {
+                        type: 'doc',
+                        id: 'flavors/llama-index/index'
+                      }
+                    },
+                    {
+                      type: 'category',
+                      label: 'Custom Applications',
+                      items: [
+                        {
+                          type: 'doc',
+                          id: 'flavors/custom-pyfunc-for-llms/notebooks/custom-pyfunc-advanced-llm-ipynb',
+                          label: 'Custom App Development Guide',
+                        }
+                      ],
+                      link: {
+                        type: 'doc',
+                        id: 'flavors/custom-pyfunc-for-llms/index'
+                      }
+                    },
+                    {
+                      type: 'doc',
+                      id: 'flavors/chat-model-intro/index',
+                      label: 'Intro to ChatModel',
+                    },
+                    {
+                      type: 'category',
+                      label: 'Building with ChatModel',
+                      items: [
+                        {
+                          type: 'doc',
+                          id: 'flavors/chat-model-guide/chat-model-tool-calling-ipynb',
+                          label: "ChatModel Tool Calling Example",
+                        }
+                      ],
+                      link: {
+                        type: 'doc',
+                        id: 'flavors/chat-model-guide/index',
+                      }
+                    },
+                    {
+                      type: 'doc',
+                      id: 'flavors/responses-agent-intro',
+                      label: 'Building with ResponsesAgent',
+                    },
+                  ],
+                  link: {
+                    type: 'doc',
+                    id: 'flavors/index',
+                  }
                 },
               ]
             }
@@ -563,172 +543,6 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Integrations 🤖',
-      className: 'sidebar-top-level-category',
-      items: [
-        {
-          type: 'category',
-          label: 'OpenAI',
-          items: [
-            {
-              type: 'doc',
-              id: 'flavors/openai/guide/index',
-              label: 'Guide'
-            },
-            {
-              type: 'doc',
-              id: 'flavors/openai/autologging/index',
-              label: "Autologging Support",
-            },
-            {
-              type: 'category',
-              label: 'Tutorials',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'flavors/openai/notebooks/openai-quickstart-ipynb',
-                  label: 'OpenAI Quickstart'
-                },
-                {
-                  type: 'doc',
-                  id: 'flavors/openai/notebooks/openai-chat-completions-ipynb',
-                  label: 'Chat Completions with OpenAI'
-                },
-                {
-                  type: 'doc',
-                  id: 'flavors/openai/notebooks/openai-code-helper-ipynb',
-                  label: 'Building a Code Assistant with OpenAI & MLflow'
-                },
-                {
-                  type: 'doc',
-                  id: 'flavors/openai/notebooks/openai-embeddings-generation-ipynb',
-                  label: 'Embeddings Support with OpenAI in MLflow'
-                },
-              ],
-              link: {
-                type: 'doc',
-                id: 'flavors/openai/notebooks/index'
-              }
-            }
-          ],
-          link: {
-            type: 'doc',
-            id: 'flavors/openai/index'
-          }
-        },
-        {
-          type: 'category',
-          label: 'DSPy',
-          items: [
-            {
-              type: 'doc',
-              id: 'flavors/dspy/notebooks/dspy_quickstart-ipynb',
-              label: 'DSPy Quickstart',
-            },
-            {
-              type: 'doc',
-              id: 'flavors/dspy/optimizer',
-              label: 'Using DSPy Optimizers',
-            },
-          ],
-          link: {
-            type: 'doc',
-            id: 'flavors/dspy/index'
-          }
-        },
-        {
-          type: 'category',
-          label: 'LangChain',
-          items: [
-            {
-              type: 'doc',
-              id: 'flavors/langchain/guide/index',
-              label: 'Guide to using LangChain with MLflow'
-            },
-            {
-              type: 'doc',
-              id: 'flavors/langchain/notebooks/langchain-quickstart-ipynb',
-              label: 'LangChain Quickstart',
-            },
-            {
-              type: 'doc',
-              id: 'flavors/langchain/notebooks/langchain-retriever-ipynb',
-              label: 'Retrievers with LangChain',
-            }
-          ],
-          link: {
-            type: 'doc',
-            id: 'flavors/langchain/index'
-          }
-        },
-        {
-          type: 'category',
-          label: 'LlamaIndex',
-          items: [
-            {
-              type: 'doc',
-              id: 'flavors/llama-index/notebooks/llama_index_quickstart-ipynb',
-              label: 'LlamaIndex Quickstart',
-            },
-            {
-              type: 'doc',
-              id: 'flavors/llama-index/notebooks/llama_index_workflow_tutorial-ipynb',
-              label: 'Agents with LlamaIndex',
-            }
-          ],
-          link: {
-            type: 'doc',
-            id: 'flavors/llama-index/index'
-          }
-        },
-        {
-          type: 'category',
-          label: 'Custom Applications',
-          items: [
-            {
-              type: 'doc',
-              id: 'flavors/custom-pyfunc-for-llms/notebooks/custom-pyfunc-advanced-llm-ipynb',
-              label: 'Custom App Development Guide',
-            },
-            {
-              type: 'doc',
-              id: 'flavors/chat-model-intro/index',
-              label: 'Intro to ChatModel',
-            },
-            {
-              type: 'category',
-              label: 'Building with ChatModel',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'flavors/chat-model-guide/chat-model-tool-calling-ipynb',
-                  label: "ChatModel Tool Calling Example",
-                }
-              ],
-              link: {
-                type: 'doc',
-                id: 'flavors/chat-model-guide/index',
-              }
-            },
-            {
-              type: 'doc',
-              id: 'flavors/responses-agent-intro',
-              label: 'Building with ResponsesAgent',
-            },
-          ],
-          link: {
-            type: 'doc',
-            id: 'flavors/custom-pyfunc-for-llms/index'
-          }
-        },
-      ],
-      link: {
-        type: 'doc',
-        id: 'flavors/index',
-      }
-    },
-    {
-      type: 'category',
       label: 'Application Serving ⛵',
       className: 'sidebar-top-level-category',
       items: [
@@ -741,11 +555,6 @@ const sidebarsGenAI: SidebarsConfig = {
           type: 'doc',
           id: 'serving/custom-apps',
           label: 'Custom Apps'
-        },
-        {
-          type: 'doc',
-          id: 'serving/endpoint-creation',
-          label: 'Creating an Endpoint'
         }
       ],
       link: {

@@ -26,14 +26,6 @@ Install the required packages:
 pip install --upgrade "mlflow>=3.1" openai>=1.0.0
 ```
 
-:::tip
-**Using Databricks-managed MLflow?** Run `pip install --upgrade "mlflow[databricks]>=3.1" openai>=1.0.0` instead.
-
-**Running in a Databricks notebook?** MLflow is pre-installed in the Databricks runtime. You only need to install additional packages like `openai` if using external LLM providers.
-
-**Running locally?** You'll need to install all packages listed above.
-:::
-
 ## Environment Setup
 
 Before running the examples below, configure your environment:
@@ -55,7 +47,7 @@ Before running the examples below, configure your environment:
     ```
 
   </TabItem>
-  <TabItem value="databricks" label="Managed MLflow on Databricks">
+  <TabItem value="databricks" label="Databricks">
     ### Configure Databricks Authentication
 
     :::note
@@ -107,8 +99,8 @@ Before running the examples below, configure your environment:
     import mlflow
 
     # Set MLflow tracking URI and experiment
-    mlflow.set_tracking_uri("databricks")
-    mlflow.set_experiment("/Shared/my_genai_app_versions")
+    mlflow.set_tracking_uri("http://127.0.0.1:5000")
+    mlflow.set_experiment("my_genai_app_versions")
     ```
 
   </TabItem>
@@ -252,9 +244,8 @@ The `LoggedModel` object provides access to all the metadata about your applicat
 
 ## Step 5: Link Evaluation Results to the Application Version
 
-To evaluate your application and link the results to this `LoggedModel` version, see **[Link Evaluation Results and Traces to App Versions](/genai/prompt-version-mgmt/version-tracking/link-evaluation-results-and-traces-to-app-versions)**. This guide covers how to use `mlflow.genai.evaluate()` to assess your application's performance and automatically associate the metrics, evaluation tables, and traces with your specific `LoggedModel` version.
+You can evaluate your application and link the results to this `LoggedModel` version using `mlflow.genai.evaluate()` to assess your application's performance and automatically associate the metrics, evaluation tables, and traces with your specific `LoggedModel` version.
 
 ## Next Steps
 
 - **[Compare Application Versions](/genai/prompt-version-mgmt/version-tracking/compare-app-versions)**: Learn how to compare different `LoggedModel` versions.
-- **[Optionally Package Code](/genai/prompt-version-mgmt/version-tracking/optionally-package-app-code-and-files-for-databricks-model-serving)**: For scenarios where you need to bundle code with the `LoggedModel`.
