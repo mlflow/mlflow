@@ -99,7 +99,7 @@ def optimize_prompt(
                 return expectations == outputs
 
 
-            prompt = mlflow.register_prompt(
+            prompt = mlflow.genai.register_prompt(
                 name="qa",
                 template="Answer the following question: {{question}}",
             )
