@@ -17,36 +17,32 @@ if TYPE_CHECKING:
     _LabelSchema: TypeAlias = _label_schemas.LabelSchema
 
 # TypeVar for generic InputType subclass return types
-T = TypeVar("T", bound="InputType")
+DatabricksInputType = TypeVar("DatabricksInputType", bound="InputType")
+
+if TYPE_CHECKING:
+    # Type alias for all possible Databricks input types
+    DatabricksInput: TypeAlias = Union[
+        "_InputCategorical",
+        "_InputCategoricalList",
+        "_InputText",
+        "_InputTextList",
+        "_InputNumeric",
+    ]
 
 
 class InputType(ABC):
     """Base class for all input types."""
 
     @abstractmethod
-    def _to_databricks_input(
-        self,
-    ) -> Union[
-        "_InputCategorical",
-        "_InputCategoricalList",
-        "_InputText",
-        "_InputTextList",
-        "_InputNumeric",
-    ]:
+    def _to_databricks_input(self) -> "DatabricksInput":
         """Convert to the internal Databricks input type."""
 
     @classmethod
     @abstractmethod
     def _from_databricks_input(
-        cls: type[T],
-        input_obj: Union[
-            "_InputCategorical",
-            "_InputCategoricalList",
-            "_InputText",
-            "_InputTextList",
-            "_InputNumeric",
-        ],
-    ) -> T:
+        cls: type[DatabricksInputType],
+        input_obj: "DatabricksInput",
+    ) -> DatabricksInputType:
         """Create from the internal Databricks input type."""
 
 
