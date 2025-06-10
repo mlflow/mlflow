@@ -171,7 +171,7 @@ lightgbm:
     maximum: "4.6.0"
     requirements:
       ">= 0.0.0": ["scikit-learn"]
-      "== 4.0.*": ["numpy<2"]
+      "< 4.4.0": ["numpy<2"]
     run: |
       pytest tests/lightgbm/test_lightgbm_model_export.py
 
@@ -217,7 +217,7 @@ onnx:
         quay.io/pypa/manylinux2014_x86_64 .github/workflows/manylinux/entrypoint.sh $python_version manylinux2014_x86_64 pull_request
 
       # Install wheel
-      pip install dist/*manylinux2014_x86_64.whl
+      pip install dist/*manylinux*.whl
 
   models:
     minimum: "1.14.1"

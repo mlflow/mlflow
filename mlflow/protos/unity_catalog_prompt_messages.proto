@@ -240,3 +240,31 @@ message DeletePromptVersionTagRequest {
   // Name (key) of the tag
   optional string key = 3;
 }
+
+message LinkPromptVersionsToModelsRequest {
+  option (scalapb.message).extends = "UcModelRegistryRoutableRPC[com.google.protobuf.empty.Empty]";
+
+  // Prompt version entries to link to the models.
+  repeated PromptVersionLinkEntry prompt_versions = 1;
+
+  // IDs of the models to which to link each prompt version.
+  repeated string model_ids = 2;
+}
+
+message LinkPromptsToTracesRequest {
+  option (scalapb.message).extends = "UcModelRegistryRoutableRPC[com.google.protobuf.empty.Empty]";
+
+  // Prompt version entries to link to the traces.
+  repeated PromptVersionLinkEntry prompt_versions = 1;
+
+  // IDs of the traces to which to link each prompt version.
+  repeated string trace_ids = 2;
+}
+
+message PromptVersionLinkEntry {
+  // Name of the prompt to link to another entity (e.g. trace, model, or run).
+  optional string name = 1 [(validate_required) = true];
+
+  // Version of the prompt to link to another entity (e.g. trace, model, or run).
+  optional string version = 2 [(validate_required) = true];
+}

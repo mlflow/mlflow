@@ -1,12 +1,13 @@
+from typing import Optional
 from unittest.mock import patch
 
 import pytest
 
 from mlflow.entities.assessment import (
+    AssessmentError,
     AssessmentSource,
     AssessmentSourceType,
     Feedback,
-    FeedbackValue,
 )
 from mlflow.genai import judges
 from mlflow.genai.judges.databricks import _sanitize_feedback
@@ -15,6 +16,7 @@ from mlflow.genai.judges.databricks import _sanitize_feedback
 def test_databricks_judges_are_importable():
     from mlflow.genai import judges
     from mlflow.genai.judges import (
+        custom_prompt_judge,
         is_context_relevant,
         is_context_sufficient,
         is_correct,
@@ -29,16 +31,17 @@ def test_databricks_judges_are_importable():
     assert judges.is_grounded == is_grounded
     assert judges.is_safe == is_safe
     assert judges.meets_guidelines == meets_guidelines
+    assert judges.custom_prompt_judge == custom_prompt_judge
 
 
-def create_test_feedback(value: str) -> Feedback:
+def create_test_feedback(value: str, error: Optional[str] = None) -> Feedback:
     return Feedback(
         name="test_feedback",
         source=AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE, source_id="databricks"),
         rationale="Test rationale",
         metadata={},
-        value=FeedbackValue(value=value, error=None),
-        valid=True,
+        value=value,
+        error=error,
     )
 
 
@@ -61,6 +64,13 @@ def test_sanitize_feedback_unknown():
     result = _sanitize_feedback(feedback)
     assert isinstance(result.value, judges.CategoricalRating)
     assert result.value == judges.CategoricalRating.UNKNOWN
+
+
+def test_sanitize_feedback_error():
+    feedback = create_test_feedback(None, error=AssessmentError(error_code="test_error"))
+    result = _sanitize_feedback(feedback)
+    assert result.value is None
+    assert result.error == AssessmentError(error_code="test_error")
 
 
 def test_meets_guidelines_happy_path():
