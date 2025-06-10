@@ -539,7 +539,7 @@ class MlflowStorage(BaseStorage):
         param_directions = trial_run.data.tags["param_directions"]
         try:
             distributions_dict = json.loads(param_directions)
-        except Exception as e:
+        except json.decoder.JSONDecodeError as e:
             raise Exception(
                 f"error with param_directions = {trial_run.data.tags['param_directions']}"
             ) from e
