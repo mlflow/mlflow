@@ -87,6 +87,10 @@ input = {
 with a `messages` key containing a list of messages, and optional inference parameters such as `max_tokens`, `temperature`, `top_p`, and `stop`.
 You can find details of the full chat request object [here](https://mlflow.org/docs/latest/python_api/mlflow.types.html#mlflow.types.llm.ChatCompletionRequest).
 
+:::tip Streaming predictions with `predict_stream`
+
+In addition to `predict`, Mlflow's `ChatModel` can implement [`predict_stream`](https://mlflow.org/docs/latest/api_reference/python_api/mlflow.pyfunc.html#mlflow.pyfunc.ChatModel.predict_stream) which allows for the streaming of [ChatCompletionChunks](https://mlflow.org/docs/latest/api_reference/python_api/mlflow.types.html#mlflow.types.llm.ChatCompletionChunk) returned to the client. This is particularly useful in interactive chat-bot type systems where providing information to users incrementally improves their experience. When implemented on Databricks Mosaic AI Model Serving, a ChatCompletionChunk will actually be sent to the client after the following ChatCompletionChunk has been yielded by the `predict_stream` generator. Therefore you can optionally yield an empty ChatCompletionChunk if you want a chunk to be immediately sent back to the client application.  :::
+
 The output is also returned in a standardized format that looks like this:
 
 ```python
