@@ -8,7 +8,6 @@ from mlflow.entities.model_registry.model_version_tag import ModelVersionTag
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import (
     IS_PROMPT_TAG_KEY,
-    PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY,
     PROMPT_TEMPLATE_VARIABLE_PATTERN,
     PROMPT_TEXT_DISPLAY_LIMIT,
     PROMPT_TEXT_TAG_KEY,
@@ -19,7 +18,7 @@ PromptVersionTag = ModelVersionTag
 
 
 def _is_reserved_tag(key: str) -> bool:
-    return key in {IS_PROMPT_TAG_KEY, PROMPT_TEXT_TAG_KEY, PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY}
+    return key in {IS_PROMPT_TAG_KEY, PROMPT_TEXT_TAG_KEY}
 
 
 class PromptVersion(_ModelRegistryEntity):
@@ -125,14 +124,6 @@ class PromptVersion(_ModelRegistryEntity):
         Return the version-level tags.
         """
         return {key: value for key, value in self._tags.items() if not _is_reserved_tag(key)}
-
-    @property
-    def run_ids(self) -> list[str]:
-        """Get the run IDs associated with the prompt."""
-        run_tag = self._tags.get(PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY)
-        if not run_tag:
-            return []
-        return run_tag.split(",")
 
     @property
     def uri(self) -> str:

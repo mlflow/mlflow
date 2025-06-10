@@ -1,5 +1,7 @@
+import json
 import os
 import subprocess
+import threading
 from pathlib import Path
 from unittest import mock
 
@@ -10,6 +12,7 @@ import mlflow
 from mlflow import MlflowClient, register_model
 from mlflow.entities.model_registry import ModelVersion, RegisteredModel
 from mlflow.exceptions import MlflowException
+from mlflow.prompt.constants import LINKED_PROMPTS_TAG_KEY
 from mlflow.protos.databricks_pb2 import (
     ALREADY_EXISTS,
     INTERNAL_ERROR,
@@ -17,6 +20,13 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.databricks_utils import DatabricksRuntimeVersion
+
+
+def join_thread_by_name_prefix(prefix: str):
+    """Join any thread whose name starts with the given prefix."""
+    for t in threading.enumerate():
+        if t.name.startswith(prefix):
+            t.join()
 
 
 def test_register_model_with_runs_uri():
@@ -117,9 +127,6 @@ def test_register_model_with_tags():
 
 
 def test_crud_prompts(tmp_path):
-    registry_uri = "sqlite:///{}".format(tmp_path.joinpath("test.db"))
-    mlflow.set_registry_uri(registry_uri)
-
     mlflow.register_prompt(
         name="prompt_1",
         template="Hi, {title} {name}! How are you today?",
@@ -161,9 +168,6 @@ def test_crud_prompts(tmp_path):
 
 
 def test_prompt_alias(tmp_path):
-    registry_uri = "sqlite:///{}".format(tmp_path.joinpath("test.db"))
-    mlflow.set_registry_uri(registry_uri)
-
     mlflow.register_prompt(name="p1", template="Hi, there!")
     mlflow.register_prompt(name="p1", template="Hi, {{name}}!")
 
@@ -182,19 +186,22 @@ def test_prompt_alias(tmp_path):
 
 
 def test_prompt_associate_with_run(tmp_path):
-    registry_uri = "sqlite:///{}".format(tmp_path.joinpath("test.db"))
-    mlflow.set_registry_uri(registry_uri)
-
     mlflow.register_prompt(name="prompt_1", template="Hi, {title} {name}! How are you today?")
 
     # mlflow.load_prompt() call during the run should associate the prompt with the run
     with mlflow.start_run() as run:
         mlflow.load_prompt("prompt_1", version=1)
 
-    prompts = MlflowClient().list_logged_prompts(run.info.run_id)
-    assert len(prompts) == 1
-    assert prompts[0].name == "prompt_1"
-    assert prompts[0].version == 1
+    # Check that the prompt was linked to the run via the linkedPrompts tag
+    client = MlflowClient()
+    run_data = client.get_run(run.info.run_id)
+    linked_prompts_tag = run_data.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    assert linked_prompts_tag is not None
+
+    linked_prompts = json.loads(linked_prompts_tag)
+    assert len(linked_prompts) == 1
+    assert linked_prompts[0]["name"] == "prompt_1"
+    assert linked_prompts[0]["version"] == "1"
 
 
 def test_register_model_prints_uc_model_version_url(monkeypatch):
@@ -444,3 +451,207 @@ def test_register_model_with_env_pack_staging_failure(tmp_path, mock_dbr_version
             "The model was registered successfully and is available for serving, but may take "
             "longer to deploy."
         )
+
+
+def test_load_prompt_with_link_to_model_disabled():
+    """Test load_prompt with link_to_model=False does not attempt linking."""
+
+    # Register a prompt
+    mlflow.register_prompt(name="test_prompt", template="Hello, {{name}}!")
+
+    # Create a logged model and set it as active
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model=lambda x: x,
+            name="model",
+            pip_requirements=["mlflow"],
+        )
+        mlflow.set_active_model(model_id=model_info.model_id)
+
+        # Load prompt with link_to_model=False - should not link despite active model
+        prompt = mlflow.load_prompt("test_prompt", version=1, link_to_model=False)
+
+        # Verify prompt was loaded correctly
+        assert prompt.name == "test_prompt"
+        assert prompt.version == 1
+        assert prompt.template == "Hello, {{name}}!"
+
+        # Join any potential background linking thread (it shouldn't run)
+        join_thread_by_name_prefix("link_prompt_thread")
+
+        # Verify the model does NOT have any linked prompts tag
+        client = mlflow.MlflowClient()
+        model = client.get_logged_model(model_info.model_id)
+        linked_prompts_tag = model.tags.get("mlflow.linkedPrompts")
+        assert linked_prompts_tag is None, (
+            "Model should not have linkedPrompts tag when link_to_model=False"
+        )
+
+
+def test_load_prompt_with_explicit_model_id():
+    """Test load_prompt with explicit model_id parameter."""
+
+    # Register a prompt
+    mlflow.register_prompt(name="test_prompt", template="Hello, {{name}}!")
+
+    # Create a logged model to link to
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model=lambda x: x,
+            name="model",
+            pip_requirements=["mlflow"],
+        )
+
+    # Load prompt with explicit model_id - should link successfully
+    prompt = mlflow.load_prompt(
+        "test_prompt", version=1, link_to_model=True, model_id=model_info.model_id
+    )
+
+    # Verify prompt was loaded correctly
+    assert prompt.name == "test_prompt"
+    assert prompt.version == 1
+    assert prompt.template == "Hello, {{name}}!"
+
+    # Join background linking thread to wait for completion
+    join_thread_by_name_prefix("link_prompt_thread")
+
+    # Verify the model has the linked prompt in its tags
+    client = mlflow.MlflowClient()
+    model = client.get_logged_model(model_info.model_id)
+    linked_prompts_tag = model.tags.get("mlflow.linkedPrompts")
+    assert linked_prompts_tag is not None
+
+    # Parse the JSON tag value
+    linked_prompts = json.loads(linked_prompts_tag)
+    assert len(linked_prompts) == 1
+    assert linked_prompts[0]["name"] == "test_prompt"
+    assert linked_prompts[0]["version"] == "1"
+
+
+def test_load_prompt_with_active_model_integration():
+    """Test load_prompt with active model integration using get_active_model_id."""
+
+    # Register a prompt
+    mlflow.register_prompt(name="test_prompt", template="Hello, {{name}}!")
+
+    # Test loading prompt with active model context
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model=lambda x: x,
+            name="model",
+            pip_requirements=["mlflow"],
+        )
+
+        mlflow.set_active_model(model_id=model_info.model_id)
+        # Load prompt with link_to_model=True - should use active model
+        prompt = mlflow.load_prompt("test_prompt", version=1, link_to_model=True)
+
+        # Verify prompt was loaded correctly
+        assert prompt.name == "test_prompt"
+        assert prompt.version == 1
+        assert prompt.template == "Hello, {{name}}!"
+
+        # Join background linking thread to wait for completion
+        join_thread_by_name_prefix("link_prompt_thread")
+
+        # Verify the model has the linked prompt in its tags
+        client = mlflow.MlflowClient()
+        model = client.get_logged_model(model_info.model_id)
+        linked_prompts_tag = model.tags.get("mlflow.linkedPrompts")
+        assert linked_prompts_tag is not None
+
+        # Parse the JSON tag value
+        linked_prompts = json.loads(linked_prompts_tag)
+        assert len(linked_prompts) == 1
+        assert linked_prompts[0]["name"] == "test_prompt"
+        assert linked_prompts[0]["version"] == "1"
+
+
+def test_load_prompt_with_no_active_model():
+    """Test load_prompt when no active model is available."""
+
+    # Register a prompt
+    mlflow.register_prompt(name="test_prompt", template="Hello, {{name}}!")
+
+    # Mock no active model available
+    with mock.patch(
+        "mlflow.tracking._model_registry.fluent.get_active_model_id", return_value=None
+    ):
+        # Load prompt with link_to_model=True but no active model - should still work
+        prompt = mlflow.load_prompt("test_prompt", version=1, link_to_model=True)
+
+        # Verify prompt was loaded correctly (linking just gets skipped)
+        assert prompt.name == "test_prompt"
+        assert prompt.version == 1
+        assert prompt.template == "Hello, {{name}}!"
+
+
+def test_load_prompt_linking_error_handling():
+    """Test load_prompt error handling when linking fails."""
+
+    # Register a prompt
+    mlflow.register_prompt(name="test_prompt", template="Hello, {{name}}!")
+
+    # Test with invalid model ID - should still load prompt successfully
+    with mock.patch(
+        "mlflow.tracking._model_registry.fluent.get_active_model_id",
+        return_value="invalid_model_id",
+    ):
+        # Load prompt - should succeed despite linking failure (happens in background)
+        prompt = mlflow.load_prompt("test_prompt", version=1, link_to_model=True)
+
+        # Verify prompt was loaded successfully despite linking failure
+        assert prompt.name == "test_prompt"
+        assert prompt.version == 1
+        assert prompt.template == "Hello, {{name}}!"
+
+
+def test_load_prompt_explicit_model_id_overrides_active_model():
+    """Test that explicit model_id parameter overrides active model ID."""
+
+    # Register a prompt
+    mlflow.register_prompt(name="test_prompt", template="Hello, {{name}}!")
+
+    # Create models to test override behavior
+    with mlflow.start_run():
+        active_model = mlflow.pyfunc.log_model(
+            python_model=lambda x: x,
+            name="active_model",
+            pip_requirements=["mlflow"],
+        )
+        explicit_model = mlflow.pyfunc.log_model(
+            python_model=lambda x: x,
+            name="explicit_model",
+            pip_requirements=["mlflow"],
+        )
+
+    # Set active model context but provide explicit model_id - explicit should win
+    mlflow.set_active_model(model_id=active_model.model_id)
+    prompt = mlflow.load_prompt(
+        "test_prompt", version=1, link_to_model=True, model_id=explicit_model.model_id
+    )
+
+    # Verify prompt was loaded correctly (explicit model_id should be used)
+    assert prompt.name == "test_prompt"
+    assert prompt.version == 1
+    assert prompt.template == "Hello, {{name}}!"
+
+    # Join background linking thread to wait for completion
+    join_thread_by_name_prefix("link_prompt_thread")
+
+    # Verify the EXPLICIT model (not active model) has the linked prompt in its tags
+    client = mlflow.MlflowClient()
+    explicit_model_data = client.get_logged_model(explicit_model.model_id)
+    linked_prompts_tag = explicit_model_data.tags.get("mlflow.linkedPrompts")
+    assert linked_prompts_tag is not None
+
+    # Parse the JSON tag value
+    linked_prompts = json.loads(linked_prompts_tag)
+    assert len(linked_prompts) == 1
+    assert linked_prompts[0]["name"] == "test_prompt"
+    assert linked_prompts[0]["version"] == "1"
+
+    # Verify the active model does NOT have the linked prompt
+    active_model_data = client.get_logged_model(active_model.model_id)
+    active_linked_prompts_tag = active_model_data.tags.get("mlflow.linkedPrompts")
+    assert active_linked_prompts_tag is None

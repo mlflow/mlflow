@@ -1,3 +1,4 @@
+import json
 import os
 import pickle
 import sys
@@ -37,6 +38,7 @@ from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
 from mlflow.exceptions import MlflowException, MlflowTraceDataCorrupted, MlflowTraceDataNotFound
+from mlflow.prompt.constants import LINKED_PROMPTS_TAG_KEY
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.model_registry.sqlalchemy_store import (
     SqlAlchemyStore as SqlAlchemyModelRegistryStore,
@@ -1904,24 +1906,31 @@ def test_load_prompt_error(tracking_uri):
         client.load_prompt("model", version=1, allow_missing=False)
 
 
-def test_log_prompt(tracking_uri):
+def test_link_prompt_version_to_run(tracking_uri):
     client = MlflowClient(tracking_uri=tracking_uri)
 
     prompt = client.register_prompt("prompt", template="Hi, {{name}}!")
-    assert prompt.run_ids == []
 
-    client.log_prompt("run1", prompt)
-    assert client.load_prompt("prompt", version=1).run_ids == ["run1"]
+    # Create actual runs to link to
+    run1 = client.create_run(experiment_id="0").info.run_id
+    run2 = client.create_run(experiment_id="0").info.run_id
 
-    client.log_prompt("run2", prompt)
-    assert client.load_prompt("prompt", version=1).run_ids == ["run1", "run2"]
+    # Test that the method can be called without error
+    client.link_prompt_version_to_run(run1, prompt)
+    client.link_prompt_version_to_run(run2, prompt)
 
-    # No duplicate run_ids
-    client.log_prompt("run1", prompt)
-    assert client.load_prompt("prompt", version=1).run_ids == ["run1", "run2"]
+    # Verify tag was set by checking the run data
+    run_data = client.get_run(run1)
+    linked_prompts_tag = run_data.data.tags.get("mlflow.linkedPrompts")
+    assert linked_prompts_tag is not None
 
+    # Verify the JSON structure
+    linked_prompts = json.loads(linked_prompts_tag)
+    assert any(p["name"] == "prompt" and p["version"] == "1" for p in linked_prompts)
+
+    # Test error case
     with pytest.raises(MlflowException, match=r"The `prompt` argument must be"):
-        client.log_prompt("run3", 123)
+        client.link_prompt_version_to_run(run1, 123)
 
 
 @pytest.mark.parametrize("registry_uri", ["databricks"])
@@ -2016,19 +2025,28 @@ def test_log_and_detach_prompt(tracking_uri):
     client.register_prompt(name="p2", template="Hi, {{name}}!")
 
     run_id = client.create_run(experiment_id="0").info.run_id
-    assert client.list_logged_prompts(run_id) == []
 
-    client.log_prompt(run_id, "prompts:/p1/1")
-    prompts = client.list_logged_prompts(run_id)
-    assert [p.name for p in prompts] == ["p1"]
+    # Check that initially no prompts are linked to the run
+    run = client.get_run(run_id)
+    linked_prompts_tag = run.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    assert linked_prompts_tag is None
 
-    client.log_prompt(run_id, "prompts:/p2/1")
-    prompts = client.list_logged_prompts(run_id)
-    assert [p.name for p in prompts] == ["p2", "p1"]
+    client.link_prompt_version_to_run(run_id, "prompts:/p1/1")
+    run = client.get_run(run_id)
+    linked_prompts_tag = run.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    assert linked_prompts_tag is not None
+    prompts = json.loads(linked_prompts_tag)
+    assert len(prompts) == 1
+    assert prompts[0]["name"] == "p1"
 
-    client.detach_prompt_from_run(run_id, "prompts:/p1/1")
-    prompts = client.list_logged_prompts(run_id)
-    assert [p.name for p in prompts] == ["p2"]
+    client.link_prompt_version_to_run(run_id, "prompts:/p2/1")
+    run = client.get_run(run_id)
+    linked_prompts_tag = run.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    prompts = json.loads(linked_prompts_tag)
+    assert len(prompts) == 2
+    prompt_names = [p["name"] for p in prompts]
+    assert "p1" in prompt_names
+    assert "p2" in prompt_names
 
 
 def test_search_prompt(tracking_uri):

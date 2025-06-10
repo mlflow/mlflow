@@ -705,6 +705,17 @@ class ModelRegistryClient:
         """
         return self.store.link_prompt_version_to_model(name, str(version), model_id)
 
+    def link_prompt_version_to_run(self, name: str, version: Union[int, str], run_id: str) -> None:
+        """
+        Link a prompt version to a run.
+
+        Args:
+            name: The name of the prompt.
+            version: The version of the prompt.
+            run_id: The ID of the run to link the prompt version to.
+        """
+        return self.store.link_prompt_version_to_run(name, str(version), run_id)
+
     def link_prompts_to_trace(self, prompt_versions: list[PromptVersion], trace_id: str) -> None:
         """
         Link multiple prompt versions to a trace.
