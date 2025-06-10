@@ -494,10 +494,6 @@ const sidebarsGenAI: SidebarsConfig = {
                 },
                 {
                   type: 'doc',
-                  id: 'prompt-version-mgmt/version-tracking/link-evaluation-results-and-traces-to-app-versions',
-                },
-                {
-                  type: 'doc',
                   id: 'prompt-version-mgmt/version-tracking/compare-app-versions',
                 },
                 {
