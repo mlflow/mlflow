@@ -243,11 +243,9 @@ def test_log_artifact_windows_path_with_hostname(text_artifact):
             exists_mock.assert_called_once()
             copyfile_mock.assert_called_once_with(
                 text_artifact.artifact_path,
-                pathlib.Path(
-                    experiment_test_1_artifact_location,
-                    run.info.run_id,
-                    "artifacts",
-                    text_artifact.artifact_name,
+                (
+                    rf"{experiment_test_1_artifact_location}\{run.info.run_id}"
+                    rf"\artifacts\{text_artifact.artifact_name}"
                 ),
             )
 
