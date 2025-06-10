@@ -382,7 +382,7 @@ const config: Config = {
             from: ["/tracing/integrations/txtai"],
           },
           {
-            to: "/genai/tutorials/jupyter-trace-demo",
+            to: "/genai",
             from: ["/tracing/tutorials/jupyter-trace-demo", "/llms/tracing/notebooks/jupyter-trace-demo"],
           },
           {
