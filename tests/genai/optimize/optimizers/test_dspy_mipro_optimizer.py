@@ -174,7 +174,7 @@ def test_optimize_scenarios(
     # Verify optimization result
     assert isinstance(result, PromptVersion)
     assert result.version == 2
-    assert result.version_metadata["overall_eval_score"] == "1.0"
+    assert result.tags["overall_eval_score"] == "1.0"
 
     # Verify eval data handling
     compile_args = mock_mipro.return_value.compile.call_args[1]

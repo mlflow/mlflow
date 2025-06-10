@@ -2326,7 +2326,7 @@ def test_create_prompt_version_uc(mock_http, store, monkeypatch):
     with mock.patch(
         "mlflow.store._unity_catalog.registry.rest_store.proto_to_mlflow_prompt",
         return_value=PromptVersion(
-            name=name, version=1, template=template, commit_message=description, prompt_tags=tags
+            name=name, version=1, template=template, commit_message=description, tags=tags
         ),
     ) as proto_to_prompt:
         store.create_prompt_version(
