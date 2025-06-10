@@ -1,29 +1,45 @@
-from typing import TYPE_CHECKING, Literal, Optional, Union
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from mlflow.genai.utils.enum_utils import StrEnum
 
 if TYPE_CHECKING:
-    from databricks.agents.review_app.label_schemas import (
+    from databricks.rag_eval.review_app.label_schemas import (
         InputCategorical as _InputCategorical,
     )
-    from databricks.agents.review_app.label_schemas import (
+    from databricks.rag_eval.review_app.label_schemas import (
         InputCategoricalList as _InputCategoricalList,
     )
-    from databricks.agents.review_app.label_schemas import (
+    from databricks.rag_eval.review_app.label_schemas import (
         InputNumeric as _InputNumeric,
     )
-    from databricks.agents.review_app.label_schemas import (
+    from databricks.rag_eval.review_app.label_schemas import (
         InputText as _InputText,
     )
-    from databricks.agents.review_app.label_schemas import (
+    from databricks.rag_eval.review_app.label_schemas import (
         InputTextList as _InputTextList,
     )
-    from databricks.agents.review_app.label_schemas import (
+    from databricks.rag_eval.review_app.label_schemas import (
         LabelSchema as _LabelSchema,
     )
 
 
-class InputCategorical:
+class InputType(ABC):
+    """Base class for all input types."""
+
+    @abstractmethod
+    def _to_databricks_input(self) -> Any:
+        """Convert to the internal Databricks input type."""
+
+    @classmethod
+    @abstractmethod
+    def _from_databricks_input(cls, input_obj: Any) -> "InputType":
+        """Create from the internal Databricks input type."""
+
+
+@dataclass
+class InputCategorical(InputType):
     """A single-select dropdown for collecting assessments from stakeholders.
 
     .. note::
@@ -31,15 +47,24 @@ class InputCategorical:
         `pip install mlflow[databricks]` to use it.
     """
 
-    def __init__(self, label_schema_input: "_InputCategorical"):
-        self._input = label_schema_input
+    options: list[str]
 
-    @property
-    def options(self) -> list[str]:
-        return self._input.options
+    def _to_databricks_input(self) -> "_InputCategorical":
+        """Convert to the internal Databricks input type."""
+        from databricks.rag_eval.review_app.label_schemass import (
+            InputCategorical as _InputCategorical,
+        )
+
+        return _InputCategorical(options=self.options)
+
+    @classmethod
+    def _from_databricks_input(cls, input_obj: "_InputCategorical") -> "InputCategorical":
+        """Create from the internal Databricks input type."""
+        return cls(options=input_obj.options)
 
 
-class InputCategoricalList:
+@dataclass
+class InputCategoricalList(InputType):
     """A multi-select dropdown for collecting assessments from stakeholders.
 
     .. note::
@@ -47,15 +72,24 @@ class InputCategoricalList:
         `pip install mlflow[databricks]` to use it.
     """
 
-    def __init__(self, label_schema_input: "_InputCategoricalList"):
-        self._input = label_schema_input
+    options: list[str]
 
-    @property
-    def options(self) -> list[str]:
-        return self._input.options
+    def _to_databricks_input(self) -> "_InputCategoricalList":
+        """Convert to the internal Databricks input type."""
+        from databricks.rag_eval.review_app.label_schemas import (
+            InputCategoricalList as _InputCategoricalList,
+        )
+
+        return _InputCategoricalList(options=self.options)
+
+    @classmethod
+    def _from_databricks_input(cls, input_obj: "_InputCategoricalList") -> "InputCategoricalList":
+        """Create from the internal Databricks input type."""
+        return cls(options=input_obj.options)
 
 
-class InputTextList:
+@dataclass
+class InputTextList(InputType):
     """Like `Text`, but allows multiple entries.
 
     .. note::
@@ -63,19 +97,23 @@ class InputTextList:
         `pip install mlflow[databricks]` to use it.
     """
 
-    def __init__(self, label_schema_input: "_InputTextList"):
-        self._input = label_schema_input
+    max_length_each: Optional[int] = None
+    max_count: Optional[int] = None
 
-    @property
-    def max_length_each(self) -> Optional[int]:
-        return self._input.max_length_each
+    def _to_databricks_input(self) -> "_InputTextList":
+        """Convert to the internal Databricks input type."""
+        from databricks.rag_eval.review_app.label_schemas import InputTextList as _InputTextList
 
-    @property
-    def max_count(self) -> Optional[int]:
-        return self._input.max_count
+        return _InputTextList(max_length_each=self.max_length_each, max_count=self.max_count)
+
+    @classmethod
+    def _from_databricks_input(cls, input_obj: "_InputTextList") -> "InputTextList":
+        """Create from the internal Databricks input type."""
+        return cls(max_length_each=input_obj.max_length_each, max_count=input_obj.max_count)
 
 
-class InputText:
+@dataclass
+class InputText(InputType):
     """A free-form text box for collecting assessments from stakeholders.
 
     .. note::
@@ -83,15 +121,22 @@ class InputText:
         `pip install mlflow[databricks]` to use it.
     """
 
-    def __init__(self, label_schema_input: "_InputText"):
-        self._input = label_schema_input
+    max_length: Optional[int] = None
 
-    @property
-    def max_length(self) -> Optional[int]:
-        return self._input.max_length
+    def _to_databricks_input(self) -> "_InputText":
+        """Convert to the internal Databricks input type."""
+        from databricks.rag_eval.review_app.label_schemas import InputText as _InputText
+
+        return _InputText(max_length=self.max_length)
+
+    @classmethod
+    def _from_databricks_input(cls, input_obj: "_InputText") -> "InputText":
+        """Create from the internal Databricks input type."""
+        return cls(max_length=input_obj.max_length)
 
 
-class InputNumeric:
+@dataclass
+class InputNumeric(InputType):
     """A numeric input for collecting assessments from stakeholders.
 
     .. note::
@@ -99,16 +144,19 @@ class InputNumeric:
         `pip install mlflow[databricks]` to use it.
     """
 
-    def __init__(self, label_schema_input: "_InputNumeric"):
-        self._input = label_schema_input
+    min_value: Optional[float] = None
+    max_value: Optional[float] = None
 
-    @property
-    def min_value(self) -> Optional[float]:
-        return self._input.min_value
+    def _to_databricks_input(self) -> "_InputNumeric":
+        """Convert to the internal Databricks input type."""
+        from databricks.rag_eval.review_app.label_schemas import InputNumeric as _InputNumeric
 
-    @property
-    def max_value(self) -> Optional[float]:
-        return self._input.max_value
+        return _InputNumeric(min_value=self.min_value, max_value=self.max_value)
+
+    @classmethod
+    def _from_databricks_input(cls, input_obj: "_InputNumeric") -> "InputNumeric":
+        """Create from the internal Databricks input type."""
+        return cls(min_value=input_obj.min_value, max_value=input_obj.max_value)
 
 
 class LabelSchemaType(StrEnum):
@@ -118,6 +166,7 @@ class LabelSchemaType(StrEnum):
     EXPECTATION = "expectation"
 
 
+@dataclass(frozen=True)
 class LabelSchema:
     """A label schema for collecting input from stakeholders.
 
@@ -126,40 +175,27 @@ class LabelSchema:
         `pip install mlflow[databricks]` to use it.
     """
 
-    def __init__(
-        self,
-        label_schema: "_LabelSchema",
-    ):
-        self._schema = label_schema
+    name: str  # Must be unique across the review app.
+    type: LabelSchemaType
 
-    @property
-    def name(self) -> str:
-        return self._schema.name
+    # Title shown in the Review UI as the title of the task.
+    # e.g., "Does the response contain sensitive information?"
+    title: str
 
-    @property
-    def type(self) -> Literal["feedback", "expectation"]:
-        return self._schema.type
+    input: Union[InputCategorical, InputCategoricalList, InputText, InputTextList, InputNumeric]
 
-    @property
-    def title(self) -> str:
-        return self._schema.title
+    instruction: Optional[str] = None
+    enable_comment: bool = False
 
-    @property
-    def input(
-        self,
-    ) -> Union[
-        InputCategorical,
-        InputCategoricalList,
-        InputText,
-        InputTextList,
-        InputNumeric,
-    ]:
-        return self._schema.input
+    @classmethod
+    def _from_databricks_label_schema(cls, schema: "_LabelSchema") -> "LabelSchema":
+        """Convert from the internal Databricks label schema type."""
 
-    @property
-    def instruction(self) -> Optional[str]:
-        return self._schema.instruction
-
-    @property
-    def enable_comment(self) -> bool:
-        return self._schema.enable_comment
+        return cls(
+            name=schema.name,
+            type=schema.type,
+            title=schema.title,
+            input=schema.input._from_databricks_input(),
+            instruction=schema.instruction,
+            enable_comment=schema.enable_comment,
+        )
