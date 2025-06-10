@@ -33,7 +33,7 @@ MLflow's LLM evaluation functionality consists of 3 main components:
 If you're interested in thorough use-case oriented guides that showcase the simplicity and power of MLflow's evaluate
 functionality for LLMs, please navigate to the notebook collection below:
 
-<Link to="/llms/llm-evaluate/notebooks/">
+<Link to="/genai/eval-monitor/notebooks/">
   <button className="button button--primary">View the Notebook Guides</button>
 </Link>
 
@@ -451,9 +451,9 @@ answer_similarity = mlflow.metrics.genai.answer_similarity(
 
 ##### 3. MLflow AI Gateway Endpoints
 
-[MLflow AI Gateway](/llms/deployments/) is a self-hosted solution that allows you to query various LLM providers in a unified interface. To use an endpoint hosted by MLflow AI Gateway:
+[MLflow AI Gateway](/genai/governance/ai-gateway) is a self-hosted solution that allows you to query various LLM providers in a unified interface. To use an endpoint hosted by MLflow AI Gateway:
 
-1. Start the MLflow AI Gateway server with your LLM setting by following [these steps](/llms/deployments/#deployments-quickstart).
+1. Start the MLflow AI Gateway server with your LLM setting by following [these steps](/genai/governance/ai-gateway/#deployments-quickstart).
 2. Set the MLflow deployment client to target the server address by using :py:func:`~mlflow.deployments.set_deployments_target()`.
 3. Set `endpoints:/<endpoint-name>` to the `model` parameter in the metrics definition.
 
@@ -601,7 +601,7 @@ In order to evaluate your model with `mlflow.evaluate()`, your model has to be o
    - Has `data` as the only argument, which can be a `pandas.Dataframe`, `numpy.ndarray`, python list, dictionary or scipy matrix.
    - Returns one of `pandas.DataFrame`, `pandas.Series`, `numpy.ndarray` or list.
 
-3. An MLflow Deployments endpoint URI pointing to a local [MLflow AI Gateway](/llms/deployments/), [Databricks Foundation Models API](https://docs.databricks.com/en/machine-learning/model-serving/score-foundation-models.html), and [External Models in Databricks Model Serving](https://docs.databricks.com/en/generative-ai/external-models/index.html).
+3. An MLflow Deployments endpoint URI pointing to a local [MLflow AI Gateway](/genai/governance/ai-gateway), [Databricks Foundation Models API](https://docs.databricks.com/en/machine-learning/model-serving/score-foundation-models.html), and [External Models in Databricks Model Serving](https://docs.databricks.com/en/generative-ai/external-models/index.html).
 4. Set `model=None`, and put model outputs in `data`. Only applicable when the data is a Pandas dataframe.
 
 ### Evaluating with an MLflow Model
