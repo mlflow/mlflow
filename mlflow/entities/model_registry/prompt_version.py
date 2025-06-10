@@ -51,7 +51,6 @@ class PromptVersion(_ModelRegistryEntity):
         creation_timestamp: Optional[int] = None,
         tags: Optional[dict[str, str]] = None,
         aliases: Optional[list[str]] = None,
-        # Useful ModelVersion attributes - keep these
         last_updated_timestamp: Optional[int] = None,
         user_id: Optional[str] = None,
     ):
@@ -116,7 +115,7 @@ class PromptVersion(_ModelRegistryEntity):
         """
         Return the commit message of the prompt version.
         """
-        return self.description  # inherited from ModelVersion
+        return self.description
 
     @property
     def tags(self) -> dict[str, str]:
