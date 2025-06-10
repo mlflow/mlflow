@@ -16,6 +16,8 @@ from requests import Response
 from mlflow.data.dataset import Dataset
 from mlflow.data.delta_dataset_source import DeltaDatasetSource
 from mlflow.data.pandas_dataset import PandasDataset
+from mlflow.entities.logged_model import LoggedModel
+from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.entities.model_registry.prompt_version import PromptVersion
@@ -24,9 +26,10 @@ from mlflow.entities.run_data import RunData
 from mlflow.entities.run_info import RunInfo
 from mlflow.entities.run_inputs import RunInputs
 from mlflow.entities.run_tag import RunTag
-from mlflow.exceptions import MlflowException
+from mlflow.exceptions import MlflowException, RestException
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import ModelSignature, Schema
+from mlflow.prompt.constants import LINKED_PROMPTS_TAG_KEY
 from mlflow.protos.databricks_uc_registry_messages_pb2 import (
     MODEL_VERSION_OPERATION_READ_WRITE,
     AwsCredentials,
@@ -68,6 +71,11 @@ from mlflow.protos.databricks_uc_registry_messages_pb2 import (
 )
 from mlflow.protos.databricks_uc_registry_messages_pb2 import ModelVersion as ProtoModelVersion
 from mlflow.protos.service_pb2 import GetRun
+from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
+    LinkPromptsToTracesRequest,
+    LinkPromptVersionsToModelsRequest,
+    LinkPromptVersionsToRunsRequest,
+)
 from mlflow.store._unity_catalog.registry.rest_store import (
     _DATABRICKS_LINEAGE_ID_HEADER,
     _DATABRICKS_ORG_ID_HEADER,
@@ -186,6 +194,99 @@ def test_create_registered_model(mock_http, store):
             tags=uc_registered_model_tag_from_mlflow_tags(tags),
         ),
     )
+
+
+def test_create_registered_model_three_level_name_hint(store):
+    """Test that creating a registered model with invalid name provides legacy registry hint."""
+    # Mock the _call_endpoint method to raise a RestException with
+    # "specify all three levels" message
+    original_error_message = "Model name must specify all three levels"
+    rest_exception = RestException(
+        {"error_code": "INVALID_PARAMETER_VALUE", "message": original_error_message}
+    )
+
+    with mock.patch.object(store, "_call_endpoint", side_effect=rest_exception):
+        with pytest.raises(MlflowException, match=original_error_message) as exc_info:
+            store.create_registered_model(name="invalid_model")
+
+    # Verify the exception message includes the original error and the legacy registry hint
+    expected_hint = (
+        "If you are trying to use the legacy Workspace Model Registry, instead of the"
+        " recommended Unity Catalog Model Registry, set the Model Registry URI to"
+        " 'databricks' (legacy) instead of 'databricks-uc' (recommended)."
+    )
+    assert original_error_message in str(exc_info.value)
+    assert expected_hint in str(exc_info.value)
+
+
+def test_create_registered_model_three_level_name_hint_with_period(store):
+    """Test the hint works correctly when original error message ends with a period."""
+    original_error_message = "Model name must specify all three levels."
+    rest_exception = RestException(
+        {"error_code": "INVALID_PARAMETER_VALUE", "message": original_error_message}
+    )
+
+    with mock.patch.object(store, "_call_endpoint", side_effect=rest_exception):
+        with pytest.raises(MlflowException, match=original_error_message) as exc_info:
+            store.create_registered_model(name="invalid_model")
+
+    # Verify the period is removed before adding the hint
+    expected_hint = (
+        "If you are trying to use the legacy Workspace Model Registry, instead of the"
+        " recommended Unity Catalog Model Registry, set the Model Registry URI to"
+        " 'databricks' (legacy) instead of 'databricks-uc' (recommended)."
+    )
+    error_message = str(exc_info.value)
+    assert "Model name must specify all three levels" in error_message
+    assert expected_hint in error_message
+    # Should not have double periods
+    assert ". ." not in error_message
+
+
+def test_create_registered_model_metastore_does_not_exist_hint(store):
+    """
+    Test that creating a registered model when metastore doesn't exist
+    provides legacy registry hint.
+    """
+    # Mock the _call_endpoint method to raise a RestException with
+    # "METASTORE_DOES_NOT_EXIST" message
+    original_error_message = "METASTORE_DOES_NOT_EXIST: Metastore not found"
+    rest_exception = RestException(
+        {"error_code": "METASTORE_DOES_NOT_EXIST", "message": original_error_message}
+    )
+
+    with mock.patch.object(store, "_call_endpoint", side_effect=rest_exception):
+        with pytest.raises(MlflowException, match=original_error_message) as exc_info:
+            store.create_registered_model(name="test_model")
+
+    # Verify the exception message includes the original error and the legacy registry hint
+    expected_hint = (
+        "If you are trying to use the Model Registry in a Databricks workspace that"
+        " does not have Unity Catalog enabled, either enable Unity Catalog in the"
+        " workspace (recommended) or set the Model Registry URI to 'databricks' to"
+        " use the legacy Workspace Model Registry."
+    )
+    error_message = str(exc_info.value)
+    assert original_error_message in error_message
+    assert expected_hint in error_message
+
+
+def test_create_registered_model_other_rest_exceptions_not_modified(store):
+    """
+    Test that RestExceptions unrelated to bad UC model names are not modified
+    and are re-raised as-is.
+    """
+    original_error_message = "Some other error"
+    rest_exception = RestException(
+        {"error_code": "INTERNAL_ERROR", "message": original_error_message}
+    )
+
+    with mock.patch.object(store, "_call_endpoint", side_effect=rest_exception):
+        with pytest.raises(RestException, match=original_error_message) as exc_info:
+            store.create_registered_model(name="some_model")
+
+    # Verify the original RestException is re-raised without modification
+    assert str(exc_info.value) == "INTERNAL_ERROR: Some other error"
 
 
 @pytest.fixture
@@ -2226,7 +2327,7 @@ def test_create_prompt_version_uc(mock_http, store, monkeypatch):
     with mock.patch(
         "mlflow.store._unity_catalog.registry.rest_store.proto_to_mlflow_prompt",
         return_value=PromptVersion(
-            name=name, version=1, template=template, commit_message=description, prompt_tags=tags
+            name=name, version=1, template=template, commit_message=description, tags=tags
         ),
     ) as proto_to_prompt:
         store.create_prompt_version(
@@ -2303,3 +2404,219 @@ def test_get_prompt_version_by_alias_uc(mock_http, store, monkeypatch):
             for c in mock_http.call_args_list
         )
         proto_to_prompt.assert_called()
+
+
+def test_link_prompt_version_to_model_success(store):
+    """Test successful Unity Catalog linking with API call."""
+
+    with (
+        mock.patch.object(store, "_edit_endpoint_and_call") as mock_edit_call,
+        mock.patch.object(store, "_get_endpoint_from_method") as mock_get_endpoint,
+        mock.patch(
+            "mlflow.store.model_registry.abstract_store.AbstractStore.link_prompt_version_to_model"
+        ) as mock_super_call,
+    ):
+        # Setup
+        mock_get_endpoint.return_value = (
+            "/api/2.0/mlflow/unity-catalog/prompts/link-to-model",
+            "POST",
+        )
+
+        # Execute
+        store.link_prompt_version_to_model("test_prompt", "1", "model_123")
+
+        # Verify parent method was called
+        mock_super_call.assert_called_once_with(
+            name="test_prompt", version="1", model_id="model_123"
+        )
+
+        # Verify API call was made
+        mock_edit_call.assert_called_once()
+        call_args = mock_edit_call.call_args
+
+        assert call_args[1]["name"] == "test_prompt"
+        assert call_args[1]["version"] == "1"
+        assert call_args[1]["model_id"] == "model_123"
+        assert call_args[1]["proto_name"] == LinkPromptVersionsToModelsRequest
+
+
+@mock.patch("mlflow.tracking._get_store")
+def test_link_prompt_version_to_model_sets_tag(mock_get_tracking_store, store):
+    """Test that linking a prompt version to a model sets the appropriate tag."""
+
+    # Setup mocks
+    mock_tracking_store = mock.Mock()
+    mock_get_tracking_store.return_value = mock_tracking_store
+
+    # Mock the prompt version
+    mock_prompt_version = PromptVersion(
+        name="test_prompt",
+        version=1,
+        template="Test template",
+        creation_timestamp=1234567890,
+    )
+
+    with mock.patch.object(store, "get_prompt_version", return_value=mock_prompt_version):
+        # Mock the logged model
+        model_id = "model_123"
+        logged_model = LoggedModel(
+            experiment_id="exp_123",
+            model_id=model_id,
+            name="test_model",
+            artifact_location="/path/to/artifacts",
+            creation_timestamp=1234567890,
+            last_updated_timestamp=1234567890,
+            tags={},
+        )
+        mock_tracking_store.get_logged_model.return_value = logged_model
+
+        # Mock the UC-specific API call to avoid real API calls
+        with mock.patch.object(store, "_edit_endpoint_and_call"):
+            with mock.patch.object(
+                store, "_get_endpoint_from_method", return_value=("/api/test", "POST")
+            ):
+                # Execute
+                store.link_prompt_version_to_model("test_prompt", "1", model_id)
+
+        # Verify the tag was set
+        mock_tracking_store.set_logged_model_tags.assert_called_once()
+        call_args = mock_tracking_store.set_logged_model_tags.call_args
+        assert call_args[0][0] == model_id
+
+        logged_model_tags = call_args[0][1]
+        assert len(logged_model_tags) == 1
+        logged_model_tag = logged_model_tags[0]
+        assert isinstance(logged_model_tag, LoggedModelTag)
+        assert logged_model_tag.key == LINKED_PROMPTS_TAG_KEY
+
+        expected_value = [{"name": "test_prompt", "version": "1"}]
+        assert json.loads(logged_model_tag.value) == expected_value
+
+
+def test_link_prompts_to_trace_success(store):
+    """Test successful Unity Catalog linking prompts to a trace with API call."""
+
+    with (
+        mock.patch.object(store, "_edit_endpoint_and_call") as mock_edit_call,
+        mock.patch.object(store, "_get_endpoint_from_method") as mock_get_endpoint,
+        mock.patch(
+            "mlflow.store.model_registry.abstract_store.AbstractStore.link_prompts_to_trace"
+        ) as mock_super_call,
+    ):
+        # Setup
+        mock_get_endpoint.return_value = (
+            "/api/2.0/mlflow/unity-catalog/prompt-versions/links-to-traces",
+            "POST",
+        )
+
+        prompt_versions = [
+            PromptVersion(name="test_prompt", version=1, template="test", creation_timestamp=123)
+        ]
+        trace_id = "trace_123"
+
+        # Execute
+        store.link_prompts_to_trace(prompt_versions, trace_id)
+
+        # Verify parent method was called
+        mock_super_call.assert_called_once_with(prompt_versions=prompt_versions, trace_id=trace_id)
+
+        # Verify API call was made
+        mock_edit_call.assert_called_once()
+        call_args = mock_edit_call.call_args
+
+        assert call_args[1]["proto_name"] == LinkPromptsToTracesRequest
+
+
+def test_link_prompt_version_to_run_success(store):
+    """Test successful Unity Catalog linking prompt version to run with API call."""
+
+    with (
+        mock.patch.object(store, "_edit_endpoint_and_call") as mock_edit_call,
+        mock.patch.object(store, "_get_endpoint_from_method") as mock_get_endpoint,
+        mock.patch(
+            "mlflow.store.model_registry.abstract_store.AbstractStore.link_prompt_version_to_run"
+        ) as mock_super_call,
+    ):
+        # Setup
+        mock_get_endpoint.return_value = (
+            "/api/2.0/mlflow/unity-catalog/prompt-versions/links-to-runs",
+            "POST",
+        )
+
+        # Execute
+        store.link_prompt_version_to_run("test_prompt", "1", "run_123")
+
+        # Verify parent method was called
+        mock_super_call.assert_called_once_with(name="test_prompt", version="1", run_id="run_123")
+
+        # Verify API call was made
+        mock_edit_call.assert_called_once()
+        call_args = mock_edit_call.call_args
+
+        # Check that _edit_endpoint_and_call was called with correct parameters
+        assert (
+            call_args[1]["endpoint"]
+            == "/api/2.0/mlflow/unity-catalog/prompt-versions/links-to-runs"
+        )
+        assert call_args[1]["method"] == "POST"
+        assert call_args[1]["proto_name"] == LinkPromptVersionsToRunsRequest
+
+        # Verify the request body contains correct prompt and run information
+        req_body = json.loads(call_args[1]["req_body"])
+        assert len(req_body["prompt_versions"]) == 1
+        assert req_body["prompt_versions"][0]["name"] == "test_prompt"
+        assert req_body["prompt_versions"][0]["version"] == "1"
+        assert req_body["run_ids"] == ["run_123"]
+
+
+@mock.patch("mlflow.tracking._get_store")
+def test_link_prompt_version_to_run_sets_tag(mock_get_tracking_store, store):
+    """Test that linking a prompt version to a run sets the appropriate tag."""
+
+    # Setup mocks
+    mock_tracking_store = mock.Mock()
+    mock_get_tracking_store.return_value = mock_tracking_store
+
+    # Mock the prompt version
+    mock_prompt_version = PromptVersion(
+        name="test_prompt",
+        version=1,
+        template="Test template",
+        creation_timestamp=1234567890,
+    )
+
+    with mock.patch.object(store, "get_prompt_version", return_value=mock_prompt_version):
+        # Mock the run
+        run_id = "run_123"
+        run_data = RunData(metrics=[], params=[], tags={})
+        run_info = RunInfo(
+            run_id=run_id,
+            experiment_id="exp_123",
+            user_id="user_123",
+            status="FINISHED",
+            start_time=1234567890,
+            end_time=1234567890,
+            lifecycle_stage="active",
+        )
+        run = Run(run_info=run_info, run_data=run_data)
+        mock_tracking_store.get_run.return_value = run
+
+        # Mock the UC-specific API call to avoid real API calls
+        with mock.patch.object(store, "_edit_endpoint_and_call"):
+            with mock.patch.object(
+                store, "_get_endpoint_from_method", return_value=("/api/test", "POST")
+            ):
+                # Execute
+                store.link_prompt_version_to_run("test_prompt", "1", run_id)
+
+        # Verify the tag was set
+        mock_tracking_store.set_tag.assert_called_once()
+        call_args = mock_tracking_store.set_tag.call_args
+        assert call_args[0][0] == run_id
+
+        run_tag = call_args[0][1]
+        assert isinstance(run_tag, RunTag)
+        assert run_tag.key == LINKED_PROMPTS_TAG_KEY
+
+        expected_value = [{"name": "test_prompt", "version": "1"}]
+        assert json.loads(run_tag.value) == expected_value

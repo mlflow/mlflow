@@ -1,5 +1,7 @@
 import json
 import logging
+import threading
+import uuid
 from typing import Any, Optional, Union
 
 import mlflow
@@ -8,6 +10,7 @@ from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, 
 from mlflow.entities.run import Run
 from mlflow.environment_variables import MLFLOW_PRINT_MODEL_URLS_ON_CREATION
 from mlflow.exceptions import MlflowException
+from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.prompt.registry_utils import parse_prompt_name_or_uri, require_prompt_registry
 from mlflow.protos.databricks_pb2 import (
     ALREADY_EXISTS,
@@ -24,7 +27,7 @@ from mlflow.store.model_registry import (
 )
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.client import MlflowClient
-from mlflow.tracking.fluent import active_run
+from mlflow.tracking.fluent import active_run, get_active_model_id
 from mlflow.utils import get_results_from_paginated_fn, mlflow_tags
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import (
@@ -150,7 +153,8 @@ def _register_model(
         runs_artifact_repo = RunsArtifactRepository(model_uri)
         # List artifacts in `<run_artifact_root>/<artifact_path>` to see if the run has artifacts.
         # If so use the run's artifact location as source.
-        if runs_artifact_repo._is_directory(""):
+        artifacts = runs_artifact_repo._list_run_artifacts()
+        if MLMODEL_FILE_NAME in (art.path for art in artifacts):
             source = RunsArtifactRepository.get_underlying_uri(model_uri)
         # Otherwise check if there's a logged model with
         # name artifact_path and source_run_id run_id
@@ -518,7 +522,6 @@ def register_prompt(
     name: str,
     template: str,
     commit_message: Optional[str] = None,
-    version_metadata: Optional[dict[str, str]] = None,
     tags: Optional[dict[str, str]] = None,
 ) -> PromptVersion:
     """
@@ -551,15 +554,9 @@ def register_prompt(
 
         commit_message: A message describing the changes made to the prompt, similar to a
             Git commit message. Optional.
-        version_metadata: A dictionary of metadata associated with the **prompt version**.
+        tags: A dictionary of tags associated with the **prompt version**.
             This is useful for storing version-specific information, such as the author of
             the changes. Optional.
-        tags: A dictionary of tags associated with the entire prompt. This is different from
-            the `version_metadata` as it is not tied to a specific version of the prompt,
-            but to the prompt as a whole. For example, you can use tags to add an application
-            name for which the prompt is created. Since the application uses the prompt in
-            multiple versions, it makes sense to use tags instead of version-specific metadata.
-            Optional.
 
     Returns:
         A :py:class:`Prompt <mlflow.entities.Prompt>` object that was created.
@@ -574,7 +571,6 @@ def register_prompt(
         mlflow.register_prompt(
             name="my_prompt",
             template="Respond to the user's message as a {{style}} AI.",
-            version_metadata={"author": "Alice"},
         )
 
         # Load the prompt from the registry
@@ -597,7 +593,7 @@ def register_prompt(
             name="my_prompt",
             template="Respond to the user's message as a {{style}} AI. {{greeting}}",
             commit_message="Add a greeting to the prompt.",
-            version_metadata={"author": "Bob"},
+            tags={"author": "Bob"},
         )
     """
     return MlflowClient().register_prompt(
@@ -605,7 +601,6 @@ def register_prompt(
         template=template,
         commit_message=commit_message,
         tags=tags,
-        version_metadata=version_metadata,
     )
 
 
@@ -629,7 +624,11 @@ def search_prompts(
 @experimental
 @require_prompt_registry
 def load_prompt(
-    name_or_uri: str, version: Optional[Union[str, int]] = None, allow_missing: bool = False
+    name_or_uri: str,
+    version: Optional[Union[str, int]] = None,
+    allow_missing: bool = False,
+    link_to_model: bool = True,
+    model_id: Optional[str] = None,
 ) -> PromptVersion:
     """
     Load a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
@@ -641,6 +640,10 @@ def load_prompt(
         version: The version of the prompt (required when using name, not allowed when using URI).
         allow_missing: If True, return None instead of raising Exception if the specified prompt
             is not found.
+        link_to_model: If True, the prompt will be linked to the model with the ID specified
+                       by `model_id`, or the active model ID if `model_id` is None and
+                       there is an active model.
+        model_id: The ID of the model to which to link the prompt, if `link_to_model` is True.
 
     Example:
 
@@ -671,9 +674,44 @@ def load_prompt(
             parsed_name_or_uri, version=parsed_version, allow_missing=allow_missing
         )
 
-    # If there is an active MLflow run, associate the prompt with the run
+    # If there is an active MLflow run, associate the prompt with the run.
+    # Note that we do this synchronously because it's unlikely that run linking occurs
+    # in a latency sensitive environment, since runs aren't typically used in real-time /
+    # production scenarios
     if run := active_run():
-        client.log_prompt(run.info.run_id, f"prompts:/{prompt.name}/{prompt.version}")
+        client.link_prompt_version_to_run(
+            run.info.run_id, f"prompts:/{prompt.name}/{prompt.version}"
+        )
+
+    if link_to_model:
+        model_id = model_id or get_active_model_id()
+        if model_id is not None:
+            # Run linking in background thread to avoid blocking prompt loading. Prompt linking
+            # is not critical for the user's workflow (if the prompt fails to link, the user's
+            # workflow is minorly affected), so we handle it asynchronously and gracefully
+            # handle any failures without impacting the core prompt loading functionality.
+
+            def _link_prompt_async():
+                try:
+                    client.link_prompt_version_to_model(
+                        name=prompt.name,
+                        version=prompt.version,
+                        model_id=model_id,
+                    )
+                except Exception:
+                    # NB: We should still load the prompt even if linking fails, since the prompt
+                    # is critical to the caller's application logic
+                    _logger.warn(
+                        f"Failed to link prompt '{prompt.name}' version '{prompt.version}'"
+                        f" to model '{model_id}'.",
+                        exc_info=True,
+                    )
+
+            # Start linking in background - don't wait for completion
+            link_thread = threading.Thread(
+                target=_link_prompt_async, name=f"link_prompt_thread-{uuid.uuid4().hex[:8]}"
+            )
+            link_thread.start()
 
     return prompt
 

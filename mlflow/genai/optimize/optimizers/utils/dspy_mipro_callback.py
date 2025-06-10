@@ -65,7 +65,7 @@ class _DSPyMIPROv2Callback(BaseCallback):
             mlflow.register_prompt(
                 name=self.prompt_name,
                 template=template,
-                version_metadata={"overall_eval_score": score, key: step},
+                tags={"overall_eval_score": score, key: step},
             )
 
         if mlflow.active_run() is not None:
