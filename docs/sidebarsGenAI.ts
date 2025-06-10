@@ -496,10 +496,6 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'prompt-version-mgmt/version-tracking/compare-app-versions',
                 },
-                {
-                  type: 'doc',
-                  id: 'prompt-version-mgmt/version-tracking/link-production-traces-to-app-versions'
-                },
               ]
             }
           ],
@@ -733,11 +729,6 @@ const sidebarsGenAI: SidebarsConfig = {
           type: 'doc',
           id: 'serving/custom-apps',
           label: 'Custom Apps'
-        },
-        {
-          type: 'doc',
-          id: 'serving/endpoint-creation',
-          label: 'Creating an Endpoint'
         }
       ],
       link: {
