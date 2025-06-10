@@ -12,14 +12,12 @@ from mlflow.entities.model_registry.model_version_tag import ModelVersionTag
 from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.exceptions import MlflowException
-from mlflow.prompt.constants import IS_PROMPT_TAG_KEY, LINKED_PROMPTS_TAG_KEY, PROMPT_TEXT_TAG_KEY
-from mlflow.prompt.registry_utils import has_prompt_tag, model_version_to_prompt_version
 from mlflow.prompt.constants import (
     IS_PROMPT_TAG_KEY,
     LINKED_PROMPTS_TAG_KEY,
     PROMPT_TEXT_TAG_KEY,
 )
-from mlflow.prompt.registry_utils import has_prompt_tag
+from mlflow.prompt.registry_utils import has_prompt_tag, model_version_to_prompt_version
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     RESOURCE_ALREADY_EXISTS,
@@ -862,51 +860,6 @@ class AbstractStore:
             "This method is only available in Unity Catalog registries.",
             INVALID_PARAMETER_VALUE,
         )
-
-    def link_prompts_to_trace(self, prompt_versions: list[PromptVersion], trace_id: str) -> None:
-        """
-        Link multiple prompt versions to a trace.
-
-        Default implementation sets a tag on the trace. Stores can override with custom behavior.
-
-        Args:
-            prompt_versions: List of PromptVersion objects to link.
-            trace_id: Trace ID to link to each prompt version.
-        """
-        from mlflow.tracking import _get_store as _get_tracking_store
-
-        tracking_store = _get_tracking_store()
-
-        with self._prompt_link_lock:
-            trace_info = tracking_store.get_trace_info(trace_id)
-            if not trace_info:
-                raise MlflowException(
-                    f"Could not find trace with ID '{trace_id}' to which to link prompts.",
-                    error_code=ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
-                )
-
-            # Prepare new prompt entries to add
-            new_prompt_entries = [
-                {
-                    "name": prompt_version.name,
-                    "version": str(prompt_version.version),
-                }
-                for prompt_version in prompt_versions
-            ]
-
-            # Use utility function to update linked prompts tag
-            current_tag_value = trace_info.tags.get(LINKED_PROMPTS_TAG_KEY)
-            updated_tag_value = self._update_linked_prompts_tag(
-                current_tag_value, new_prompt_entries
-            )
-
-            # Only update if the tag value actually changed (avoiding redundant updates)
-            if current_tag_value != updated_tag_value:
-                tracking_store.set_trace_tag(
-                    trace_id,
-                    LINKED_PROMPTS_TAG_KEY,
-                    updated_tag_value,
-                )
 
     def link_prompts_to_trace(self, prompt_versions: list[PromptVersion], trace_id: str) -> None:
         """
