@@ -291,7 +291,13 @@ const sidebarsGenAI: SidebarsConfig = {
       items: [
         {
           type: 'doc',
-          id: 'eval-monitor/notebooks/index',
+          id: 'eval-monitor/llm-evaluation',
+          label: 'LLM Evaluation',
+        },
+        {
+          type: 'link',
+          href: 'https://docs.databricks.com/aws/en/mlflow3/genai/eval-monitor/',
+          label: '🆕 GenAI Evaluation Suite (Managed-Only)',
         },
       ],
       link: {
