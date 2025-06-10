@@ -70,11 +70,11 @@ def _retry_if_trace_is_pending_export(func):
             try:
                 return func(self, trace_id, *args, **kwargs)
             except RestException as e:
-                if e.error_code == RESOURCE_DOES_NOT_EXIST or (
+                if e.error_code == "RESOURCE_DOES_NOT_EXIST" or (
                     # Databricks backend returns INVALID_PARAMETER_VALUE for non-existent traces.
                     # TODO: Remove this workaround once the backend is fixed to return correct
                     # error code.
-                    e.error_code == INVALID_PARAMETER_VALUE
+                    e.error_code == "INVALID_PARAMETER_VALUE"
                     and e.message.endswith(f"Traces with ids ({trace_id}) do not exist")
                 ):
                     time.sleep(interval)
