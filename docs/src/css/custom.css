@@ -112,11 +112,11 @@ article ul ul ul {
   /* Map to Docusaurus variables */
   --ifm-font-size-base: var(--font-size-body-m);
   --ifm-line-height-base: 1.4;
-  --ifm-h1-font-size: var(--font-size-h1) !important;
-  --ifm-h2-font-size: var(--font-size-h2) !important;
-  --ifm-h3-font-size: var(--font-size-h3) !important;
-  --ifm-h4-font-size: var(--font-size-h4) !important;
-  --ifm-h5-font-size: var(--font-size-h5) !important;
+  --ifm-h1-font-size: var(--font-size-h1);
+  --ifm-h2-font-size: var(--font-size-h2);
+  --ifm-h3-font-size: var(--font-size-h3);
+  --ifm-h4-font-size: var(--font-size-h4);
+  --ifm-h5-font-size: var(--font-size-h5);
 
   /* Common layout variables */
   --card-border-radius: 4px;
@@ -357,27 +357,6 @@ code, pre, kbd {
   --ifm-color-info-light: #29a4d5;
   --ifm-color-info-lighter: #32a9d8;
   --ifm-color-info-lightest: #4fb4dd;
-}
-
-/* Mobile/responsive typography overrides */
-@media (max-width: 996px) {
-  :root {
-    --font-size-h1: 3rem;
-    --font-size-h2: 2rem;
-    --font-size-h3: 1.5rem;
-    --font-size-h4: 1.3rem;
-    --font-size-h5: 1.2rem;
-  }
-}
-
-@media (max-width: 768px) {
-  :root {
-    --font-size-h1: 3rem;
-    --font-size-h2: 2rem;
-    --font-size-h3: 1.5rem;
-    --font-size-h4: 1.3rem;
-    --font-size-h5: 1.2rem;
-  }
 }
 
 /* --------------------------------
