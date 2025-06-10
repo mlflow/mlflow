@@ -518,7 +518,6 @@ def register_prompt(
     name: str,
     template: str,
     commit_message: Optional[str] = None,
-    version_metadata: Optional[dict[str, str]] = None,
     tags: Optional[dict[str, str]] = None,
 ) -> PromptVersion:
     """
@@ -574,7 +573,6 @@ def register_prompt(
         mlflow.register_prompt(
             name="my_prompt",
             template="Respond to the user's message as a {{style}} AI.",
-            version_metadata={"author": "Alice"},
         )
 
         # Load the prompt from the registry
@@ -597,7 +595,7 @@ def register_prompt(
             name="my_prompt",
             template="Respond to the user's message as a {{style}} AI. {{greeting}}",
             commit_message="Add a greeting to the prompt.",
-            version_metadata={"author": "Bob"},
+            tags={"author": "Bob"},
         )
     """
     return MlflowClient().register_prompt(
@@ -605,7 +603,6 @@ def register_prompt(
         template=template,
         commit_message=commit_message,
         tags=tags,
-        version_metadata=version_metadata,
     )
 
 

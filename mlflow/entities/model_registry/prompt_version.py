@@ -68,6 +68,9 @@ class PromptVersion(_ModelRegistryEntity):
         tags[PROMPT_TEXT_TAG_KEY] = template
         tags[IS_PROMPT_TAG_KEY] = "true"
 
+        # Store the tags dict
+        self._tags: dict[str, str] = tags
+
         self._variables = set(PROMPT_TEMPLATE_VARIABLE_PATTERN.findall(template))
         self._last_updated_timestamp: Optional[int] = last_updated_timestamp
         self._description: Optional[str] = commit_message
