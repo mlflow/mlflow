@@ -714,3 +714,38 @@ class ModelRegistryClient:
             trace_id: Trace ID to link the prompt versions to.
         """
         return self.store.link_prompts_to_trace(prompt_versions=prompt_versions, trace_id=trace_id)
+
+    def set_prompt_version_tag(self, name: str, version: str, key: str, value: str) -> None:
+        """
+        Set a tag on a prompt version.
+
+        This method delegates directly to the store, providing full Unity Catalog support
+        when used with Unity Catalog registries.
+
+        Args:
+            name: Name of the prompt.
+            version: Version number of the prompt.
+            key: Tag key.
+            value: Tag value.
+
+        Returns:
+            None
+        """
+        self.store.set_prompt_version_tag(name, version, key, value)
+
+    def delete_prompt_version_tag(self, name: str, version: str, key: str) -> None:
+        """
+        Delete a tag from a prompt version.
+
+        This method delegates directly to the store, providing full Unity Catalog support
+        when used with Unity Catalog registries.
+
+        Args:
+            name: Name of the prompt.
+            version: Version number of the prompt.
+            key: Tag key to delete.
+
+        Returns:
+            None
+        """
+        self.store.delete_prompt_version_tag(name, version, key)

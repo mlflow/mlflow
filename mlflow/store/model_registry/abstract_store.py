@@ -8,6 +8,7 @@ from typing import Any, Optional, Union
 from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
+from mlflow.entities.model_registry.model_version_tag import ModelVersionTag
 from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.exceptions import MlflowException
@@ -900,6 +901,97 @@ class AbstractStore:
                     LINKED_PROMPTS_TAG_KEY,
                     updated_tag_value,
                 )
+
+    def link_prompts_to_trace(self, prompt_versions: list[PromptVersion], trace_id: str) -> None:
+        """
+        Link multiple prompt versions to a trace.
+
+        Default implementation sets a tag on the trace. Stores can override with custom behavior.
+
+        Args:
+            prompt_versions: List of PromptVersion objects to link.
+            trace_id: Trace ID to link to each prompt version.
+        """
+        from mlflow.tracking import _get_store as _get_tracking_store
+
+        tracking_store = _get_tracking_store()
+
+        with self._prompt_link_lock:
+            trace_info = tracking_store.get_trace_info(trace_id)
+            if not trace_info:
+                raise MlflowException(
+                    f"Could not find trace with ID '{trace_id}' to which to link prompts.",
+                    error_code=ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
+                )
+
+            # Prepare new prompt entries to add
+            new_prompt_entries = [
+                {
+                    "name": prompt_version.name,
+                    "version": str(prompt_version.version),
+                }
+                for prompt_version in prompt_versions
+            ]
+
+            # Use utility function to update linked prompts tag
+            current_tag_value = trace_info.tags.get(LINKED_PROMPTS_TAG_KEY)
+            updated_tag_value = self._update_linked_prompts_tag(
+                current_tag_value, new_prompt_entries
+            )
+
+            # Only update if the tag value actually changed (avoiding redundant updates)
+            if current_tag_value != updated_tag_value:
+                tracking_store.set_trace_tag(
+                    trace_id,
+                    LINKED_PROMPTS_TAG_KEY,
+                    updated_tag_value,
+                )
+
+    def set_prompt_version_tag(
+        self, name: str, version: Union[str, int], key: str, value: str
+    ) -> None:
+        """
+        Set a tag on a prompt version.
+
+        Default implementation: uses set_model_version_tag on the underlying ModelVersion.
+        Unity Catalog store implementations may override this method.
+
+        Args:
+            name: Name of the prompt.
+            version: Version number of the prompt.
+            key: Tag key.
+            value: Tag value.
+        """
+        # Convert version to int if needed
+        try:
+            version_int = int(version)
+        except (ValueError, TypeError):
+            raise MlflowException(f"Invalid version number: {version}")
+
+        # Create a ModelVersionTag and delegate to the underlying model version method
+        tag = ModelVersionTag(key=key, value=value)
+        return self.set_model_version_tag(name, version_int, tag)
+
+    def delete_prompt_version_tag(self, name: str, version: Union[str, int], key: str) -> None:
+        """
+        Delete a tag from a prompt version.
+
+        Default implementation: uses delete_model_version_tag on the underlying ModelVersion.
+        Unity Catalog store implementations may override this method.
+
+        Args:
+            name: Name of the prompt.
+            version: Version number of the prompt.
+            key: Tag key to delete.
+        """
+        # Convert version to int if needed
+        try:
+            version_int = int(version)
+        except (ValueError, TypeError):
+            raise MlflowException(f"Invalid version number: {version}")
+
+        # Delegate to the underlying model version method
+        return self.delete_model_version_tag(name, version_int, key)
 
     def link_prompt_version_to_model(self, name: str, version: str, model_id: str) -> None:
         """
