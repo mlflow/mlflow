@@ -674,7 +674,15 @@ def load_prompt(
         prompt = mlflow.load_prompt("prompts:/my_prompt@production")
 
     """
-    prompt = _load_prompt_version_cached(
+    # NB: We use a cached function to avoid loading the same prompt multiple times.
+    # If the prompt from the cache is not found and allowing_missing is True, we
+    # try to load the prompt from the client without cache, since it may have been
+    # registered after the cache was created (uncommon scenario).
+    prompt = _load_prompt_cached(
+        name_or_uri=name_or_uri,
+        version=version,
+        allow_missing=allow_missing,
+    ) or _load_prompt_not_cached(
         name_or_uri=name_or_uri,
         version=version,
         allow_missing=allow_missing,
@@ -733,26 +741,24 @@ def load_prompt(
 
 
 @functools.lru_cache(maxsize=MLFLOW_PROMPT_CACHE_MAX_SIZE.get())
-def _load_prompt_version_cached(
+def _load_prompt_cached(
     name_or_uri: str,
     version: Optional[Union[str, int]] = None,
     allow_missing: bool = False,
-):
+) -> Optional[PromptVersion]:
     """
-    Load a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry, using a
-    cached version if available.
+    Internal cached function to load prompts from registry.
+    """
+    return _load_prompt_not_cached(name_or_uri, version, allow_missing)
 
-    This function uses LRU caching to avoid repeated network calls for the same prompt version,
-    improving performance when the same prompts are loaded multiple times. The cache size is
-    configurable via the MLFLOW_PROMPT_CACHE_MAX_SIZE environment variable (default: 128).
 
-    Args:
-        name_or_uri: The name of the prompt, or the URI in the format "prompts:/name/version".
-        version: The version of the prompt (required when using name, not allowed when using URI).
-        allow_missing: Whether to allow missing prompts (returns None instead of raising).
-
-    Returns:
-        A :py:class:`Prompt <mlflow.entities.Prompt>` object that was loaded.
+def _load_prompt_not_cached(
+    name_or_uri: str,
+    version: Optional[Union[str, int]] = None,
+    allow_missing: bool = False,
+) -> Optional[PromptVersion]:
+    """
+    Load prompt from client, handling URI parsing.
     """
     client = MlflowClient()
 
