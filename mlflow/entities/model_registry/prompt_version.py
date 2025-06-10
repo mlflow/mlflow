@@ -4,7 +4,6 @@ import re
 from typing import Optional, Union
 
 from mlflow.entities.model_registry._model_registry_entity import _ModelRegistryEntity
-from mlflow.entities.model_registry.model_version import ModelVersion
 from mlflow.entities.model_registry.model_version_tag import ModelVersionTag
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import (
@@ -137,7 +136,7 @@ class PromptVersion(_ModelRegistryEntity):
     @property
     def tags(self) -> dict[str, str]:
         """
-        Return the prompt-level tags (from RegisteredModel).
+        Return the prompt-level tags.
         """
         return {key: value for key, value in self._prompt_tags.items() if not _is_reserved_tag(key)}
 
@@ -268,38 +267,3 @@ class PromptVersion(_ModelRegistryEntity):
                     user_id=self.user_id,
                 )
         return template
-
-    @classmethod
-    def from_model_version(
-        cls, model_version: ModelVersion, prompt_tags: Optional[dict[str, str]] = None
-    ) -> PromptVersion:
-        """
-        Create a PromptVersion object from a ModelVersion object.
-
-        Args:
-            model_version: The ModelVersion object to convert to a PromptVersion.
-            prompt_tags: The prompt-level tags (from RegisteredModel). Optional.
-        """
-        if IS_PROMPT_TAG_KEY not in model_version.tags:
-            raise MlflowException.invalid_parameter_value(
-                f"Name `{model_version.name}` is registered as a model, not a prompt. MLflow "
-                "does not allow registering a prompt with the same name as an existing model.",
-            )
-
-        if PROMPT_TEXT_TAG_KEY not in model_version.tags:
-            raise MlflowException.invalid_parameter_value(
-                f"Prompt `{model_version.name}` does not contain a prompt text"
-            )
-
-        return cls(
-            name=model_version.name,
-            version=int(model_version.version),
-            template=model_version.tags[PROMPT_TEXT_TAG_KEY],
-            commit_message=model_version.description,
-            creation_timestamp=model_version.creation_timestamp,
-            version_metadata=model_version.tags,
-            prompt_tags=prompt_tags,
-            aliases=model_version.aliases,
-            last_updated_timestamp=model_version.last_updated_timestamp,
-            user_id=model_version.user_id,
-        )

@@ -59,6 +59,7 @@ from mlflow.prompt.constants import (
 )
 from mlflow.prompt.registry_utils import (
     has_prompt_tag,
+    model_version_to_prompt_version,
     parse_prompt_name_or_uri,
     require_prompt_registry,
     translate_prompt_exception,
@@ -588,7 +589,7 @@ class MlflowClient:
         # Fetch the prompt-level tags from the registered model
         prompt_tags = registry_client.get_registered_model(name)._tags
 
-        return PromptVersion.from_model_version(mv, prompt_tags=prompt_tags)
+        return model_version_to_prompt_version(mv, prompt_tags=prompt_tags)
 
     @translate_prompt_exception
     @require_prompt_registry
@@ -812,7 +813,7 @@ class MlflowClient:
         )
         # NB: We don't support pagination here because the number of prompts associated
         # with a Run is expected to be small.
-        return [PromptVersion.from_model_version(mv) for mv in mvs]
+        return [model_version_to_prompt_version(mv) for mv in mvs]
 
     @experimental
     @require_prompt_registry

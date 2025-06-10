@@ -4,10 +4,50 @@ from textwrap import dedent
 from typing import Any, Optional, Union
 
 import mlflow
+from mlflow.entities.model_registry.model_version import ModelVersion
+from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.entities.model_registry.registered_model_tag import RegisteredModelTag
 from mlflow.exceptions import MlflowException
-from mlflow.prompt.constants import IS_PROMPT_TAG_KEY, PROMPT_NAME_RULE
+from mlflow.prompt.constants import IS_PROMPT_TAG_KEY, PROMPT_NAME_RULE, PROMPT_TEXT_TAG_KEY
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREADY_EXISTS
+
+
+def model_version_to_prompt_version(
+    model_version: ModelVersion, prompt_tags: Optional[dict[str, str]] = None
+) -> PromptVersion:
+    """
+    Create a PromptVersion object from a ModelVersion object.
+
+    Args:
+        model_version: The ModelVersion object to convert to a PromptVersion.
+        prompt_tags: The prompt-level tags. Optional.
+
+    Returns:
+        PromptVersion: The converted PromptVersion object.
+    """
+    if IS_PROMPT_TAG_KEY not in model_version.tags:
+        raise MlflowException.invalid_parameter_value(
+            f"Name `{model_version.name}` is registered as a model, not a prompt. MLflow "
+            "does not allow registering a prompt with the same name as an existing model.",
+        )
+
+    if PROMPT_TEXT_TAG_KEY not in model_version.tags:
+        raise MlflowException.invalid_parameter_value(
+            f"Prompt `{model_version.name}` does not contain a prompt text"
+        )
+
+    return PromptVersion(
+        name=model_version.name,
+        version=int(model_version.version),
+        template=model_version.tags[PROMPT_TEXT_TAG_KEY],
+        commit_message=model_version.description,
+        creation_timestamp=model_version.creation_timestamp,
+        version_metadata=model_version.tags,
+        prompt_tags=prompt_tags,
+        aliases=model_version.aliases,
+        last_updated_timestamp=model_version.last_updated_timestamp,
+        user_id=model_version.user_id,
+    )
 
 
 def add_prompt_filter_string(

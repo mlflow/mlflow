@@ -12,7 +12,7 @@ from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import IS_PROMPT_TAG_KEY, LINKED_PROMPTS_TAG_KEY, PROMPT_TEXT_TAG_KEY
-from mlflow.prompt.registry_utils import has_prompt_tag
+from mlflow.prompt.registry_utils import has_prompt_tag, model_version_to_prompt_version
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     RESOURCE_ALREADY_EXISTS,
@@ -716,7 +716,7 @@ class AbstractStore:
         else:
             prompt_tags = {tag.key: tag.value for tag in rm.tags}
 
-        return PromptVersion.from_model_version(mv, prompt_tags=prompt_tags)
+        return model_version_to_prompt_version(mv, prompt_tags=prompt_tags)
 
     def get_prompt_version(self, name: str, version: Union[str, int]) -> Optional[PromptVersion]:
         """
@@ -768,7 +768,7 @@ class AbstractStore:
             else:
                 prompt_tags = {tag.key: tag.value for tag in rm.tags}
 
-            return PromptVersion.from_model_version(mv, prompt_tags=prompt_tags)
+            return model_version_to_prompt_version(mv, prompt_tags=prompt_tags)
 
         except MlflowException:
             raise  # Re-raise MlflowExceptions (including our custom one above)
