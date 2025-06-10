@@ -32,7 +32,6 @@ def link_prompts_to_trace(
         synchronous: If True, run the linking synchronously. If False, run in a separate thread.
     """
     if not prompts:
-        # No prompts to link, nothing to do
         return
 
     if synchronous:
