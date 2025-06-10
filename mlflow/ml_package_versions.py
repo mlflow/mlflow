@@ -222,11 +222,11 @@ _ML_PACKAGE_VERSIONS = {
         },
         "models": {
             "minimum": "1.0.1",
-            "maximum": "1.84.0"
+            "maximum": "1.85.0"
         },
         "autologging": {
             "minimum": "1.17.0",
-            "maximum": "1.84.0"
+            "maximum": "1.85.0"
         }
     },
     "dspy": {
@@ -318,7 +318,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "0.30.0",
-            "maximum": "0.52.2"
+            "maximum": "0.53.0"
         }
     },
     "crewai": {
@@ -413,7 +413,7 @@ _ML_PACKAGE_VERSIONS = {
         },
         "autologging": {
             "minimum": "1.33.0",
-            "maximum": "1.38.32"
+            "maximum": "1.38.33"
         }
     }
 }

@@ -524,7 +524,7 @@ openai:
       pip install git+https://github.com/openai/openai-python
   models:
     minimum: "1.0.1"
-    maximum: "1.84.0"
+    maximum: "1.85.0"
     requirements:
       ">= 0.0.0": [
           "pyspark",
@@ -543,7 +543,7 @@ openai:
     test_every_n_versions: 10
   autologging:
     minimum: "1.17.0"
-    maximum: "1.84.0"
+    maximum: "1.85.0"
     python:
       # OpenAI Swarm requires Python >=3.10
       ">= 1.33.0": "3.10"
@@ -815,7 +815,7 @@ anthropic:
       pip install git+https://github.com/anthropics/anthropic-sdk-python
   autologging:
     minimum: "0.30.0"
-    maximum: "0.52.2"
+    maximum: "0.53.0"
     requirements:
       "< 0.40.0": ["httpx<0.28.0"]
     run: pytest tests/anthropic
@@ -1003,6 +1003,6 @@ bedrock:
   autologging:
     # BedrockRuntime client is added in boto3 1.33
     minimum: "1.33.0"
-    maximum: "1.38.32"
+    maximum: "1.38.33"
     run: pytest tests/bedrock
     test_tracing_sdk: true
