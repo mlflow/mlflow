@@ -8,8 +8,8 @@ import pytest
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.model_registry.model_version import ModelVersion
+from mlflow.entities.model_registry.model_version_tag import ModelVersionTag
 from mlflow.entities.model_registry.prompt_version import PromptVersion
-from mlflow.entities.model_version_tag import ModelVersionTag
 from mlflow.entities.run import Run
 from mlflow.entities.run_data import RunData
 from mlflow.entities.run_info import RunInfo
