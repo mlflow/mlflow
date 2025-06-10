@@ -206,9 +206,9 @@ with mlflow.start_run() as evaluation_run:
     mlflow.log_input(dataset=eval_dataset)
 
     # Run evaluation with GenAI metrics
-    result = mlflow.evaluate(
+    result = mlflow.genai.evaluate(
         data=eval_dataset,
-        extra_metrics=[
+        scorers=[
             mlflow.metrics.genai.answer_correctness("openai:/gpt-4o"),
             mlflow.metrics.genai.answer_relevance("openai:/gpt-4o"),
         ],

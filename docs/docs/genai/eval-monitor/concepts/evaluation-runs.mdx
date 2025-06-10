@@ -150,17 +150,17 @@ Evaluation runs are created automatically when you execute evaluations, but unde
 
 ### Automatic Run Creation
 
-Every call to `mlflow.evaluate()` creates a new evaluation run within the specified or default experiment:
+Every call to `mlflow.genai.evaluate()` creates a new evaluation run within the specified or default experiment:
 
 ```python
 import mlflow
 from mlflow.genai.scorers import RelevanceToQuery, Safety
 
 # Creates a new evaluation run automatically
-results = mlflow.evaluate(
+results = mlflow.genai.evaluate(
     data=test_dataset,
-    model=my_application,
-    extra_metrics=[RelevanceToQuery(), Safety()],
+    predict_fn=my_application,
+    scorers=[RelevanceToQuery(), Safety()],
     model_id="models:/my-chatbot/staging",  # Links to specific model version
 )
 
@@ -181,10 +181,10 @@ Proper configuration ensures evaluation runs contain the context needed for anal
 **Development Evaluations**:
 ```python
 # Rapid iteration evaluations
-mlflow.evaluate(
+mlflow.genai.evaluate(
     data=focused_test_set,
-    model=development_version,
-    extra_metrics=basic_scorers,
+    predict_fn=development_version,
+    scorers=basic_scorers,
     experiment_name="chatbot/development_testing",
 )
 ```
@@ -192,10 +192,10 @@ mlflow.evaluate(
 **Pre-Production Validation**:
 ```python
 # Comprehensive evaluation before deployment
-mlflow.evaluate(
+mlflow.genai.evaluate(
     data=comprehensive_test_suite,
-    model=staging_candidate,
-    extra_metrics=full_scorer_suite,
+    predict_fn=staging_candidate,
+    scorers=full_scorer_suite,
     experiment_name="chatbot/pre_production_validation",
 )
 ```
@@ -203,10 +203,10 @@ mlflow.evaluate(
 **A/B Testing and Comparison**:
 ```python
 # Comparing different approaches
-mlflow.evaluate(
+mlflow.genai.evaluate(
     data=comparison_dataset,
-    model=experimental_approach,
-    extra_metrics=comparison_scorers,
+    predict_fn=experimental_approach,
+    scorers=comparison_scorers,
     experiment_name="chatbot/feature_comparisons",
 )
 ```
@@ -214,10 +214,10 @@ mlflow.evaluate(
 **Regression Testing**:
 ```python
 # Ensuring new changes don't break existing functionality
-mlflow.evaluate(
+mlflow.genai.evaluate(
     data=regression_test_suite,
-    model=updated_version,
-    extra_metrics=stability_scorers,
+    predict_fn=updated_version,
+    scorers=stability_scorers,
     experiment_name="chatbot/regression_testing",
 )
 ```
@@ -246,10 +246,10 @@ evaluation_tags = {
     "milestone": "q1_2024_release",
 }
 
-results = mlflow.evaluate(
+results = mlflow.genai.evaluate(
     data=dataset,
-    model=application,
-    extra_metrics=scorers,
+    predict_fn=application,
+    scorers=scorers,
     # Metadata for organization and filtering
     tags=evaluation_tags,
     # Configuration parameters for tracking
@@ -300,8 +300,8 @@ Understanding how to effectively access and analyze evaluation run data enables 
 
 ```python
 # Immediate access to evaluation results
-results = mlflow.evaluate(
-    data=test_dataset, model=my_application, extra_metrics=quality_scorers
+results = mlflow.genai.evaluate(
+    data=test_dataset, predict_fn=my_application, scorers=quality_scorers
 )
 
 # Aggregate metrics analysis
@@ -466,10 +466,10 @@ Connecting evaluation runs to specific application versions enables comprehensiv
 
 ```python
 # Method 1: Using model registry integration
-mlflow.evaluate(
+mlflow.genai.evaluate(
     data=test_dataset,
-    model=my_application,
-    extra_metrics=quality_scorers,
+    predict_fn=my_application,
+    scorers=quality_scorers,
     model_id="models:/customer-chatbot/staging",  # Links to specific model version
 )
 
@@ -481,8 +481,8 @@ with mlflow.start_run() as run:
     mlflow.log_param("deployment_target", "production")
 
     # Run evaluation within the run context
-    results = mlflow.evaluate(
-        data=test_dataset, model=my_application, extra_metrics=quality_scorers
+    results = mlflow.genai.evaluate(
+        data=test_dataset, predict_fn=my_application, scorers=quality_scorers
     )
 
     # Log additional deployment readiness information
@@ -518,10 +518,10 @@ def automated_evaluation_pipeline(
 
         # Run evaluation
         with mlflow.start_run(run_name=f"auto_eval_{app_version}") as run:
-            results = mlflow.evaluate(
+            results = mlflow.genai.evaluate(
                 data=evaluation_dataset,
-                model=application,
-                extra_metrics=quality_scorers,
+                predict_fn=application,
+                scorers=quality_scorers,
             )
 
             # Log automation metadata

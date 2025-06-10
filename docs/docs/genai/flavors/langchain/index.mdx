@@ -403,17 +403,17 @@ agent.invoke(query)
 
 ### How can I evaluate a LangGraph Agent?
 
-The [mlflow.evaluate](https://mlflow.org/docs/latest/model-evaluation/index.html) function provides
+The [mlflow.genai.evaluate](https://mlflow.org/docs/latest/model-evaluation/index.html) function provides
 a robust way to evaluate model performance.
 
 LangGraph agents, especially those with chat functionality, can return multiple messages in one
-inference call. Given `mlflow.evaluate` performs naive comparisons between raw predictions and a specified
+inference call. Given `mlflow.genai.evaluate` performs naive comparisons between raw predictions and a specified
 ground truth value, it is the user's responsibility to reconcile potential differences prediction output
 and ground truth.
 
 Often, the best approach is to use a [custom function](/genai/eval-monitor/custom-scorers)
 to process the response. Below we provide an example of a custom function that extracts the last chat
-message from a LangGraph model. This function is then used in mlflow.evaluate to return a single
+message from a LangGraph model. This function is then used in mlflow.genai.evaluate to return a single
 string response, which can be compared to the `"ground_truth"` column.
 
 ```python
@@ -454,12 +454,11 @@ def custom_langgraph_wrapper(inputs: pd.DataFrame) -> List[str]:
 
 
 with mlflow.start_run() as run:
-    results = mlflow.evaluate(
-        custom_langgraph_wrapper,  # Pass our function defined above
+    results = mlflow.genai.evaluate(
+        predict_fn=custom_langgraph_wrapper,  # Pass our function defined above
         data=eval_data,
-        targets="ground_truth",
         model_type="question-answering",
-        extra_metrics=[
+        scorers=[
             mlflow.metrics.latency(),
             mlflow.metrics.genai.answer_correctness("openai:/gpt-4o"),
         ],

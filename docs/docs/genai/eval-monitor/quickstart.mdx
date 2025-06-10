@@ -73,7 +73,9 @@ def is_helpful(inputs, outputs) -> bool:
 
 ```python
 # Run the evaluation
-result = mlflow.evaluate(data=test_data, model=my_chatbot, extra_metrics=[is_helpful])
+result = mlflow.genai.evaluate(
+    data=test_data, predict_fn=my_chatbot, scorers=[is_helpful]
+)
 
 print(f"✅ Evaluation complete!")
 print(f"📊 Helpful responses: {result.metrics['is_helpful/mean']:.0%}")
@@ -123,7 +125,9 @@ def is_helpful(inputs, outputs) -> bool:
 
 
 # 4. Run evaluation
-result = mlflow.evaluate(data=test_data, model=my_chatbot, extra_metrics=[is_helpful])
+result = mlflow.genai.evaluate(
+    data=test_data, predict_fn=my_chatbot, scorers=[is_helpful]
+)
 
 print(f"✅ Evaluation complete!")
 print(f"📊 Helpful responses: {result.metrics['is_helpful/mean']:.0%}")
@@ -195,11 +199,11 @@ def my_chatbot_v2(question: str) -> dict:
 
 
 # Evaluate both versions with same data
-v1_result = mlflow.evaluate(
-    data=test_data, model=my_chatbot, extra_metrics=[is_helpful]
+v1_result = mlflow.genai.evaluate(
+    data=test_data, predict_fn=my_chatbot, scorers=[is_helpful]
 )
-v2_result = mlflow.evaluate(
-    data=test_data, model=my_chatbot_v2, extra_metrics=[is_helpful]
+v2_result = mlflow.genai.evaluate(
+    data=test_data, predict_fn=my_chatbot_v2, scorers=[is_helpful]
 )
 
 print(f"V1 helpful rate: {v1_result.metrics['is_helpful/mean']:.0%}")

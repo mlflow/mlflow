@@ -11,7 +11,7 @@ To run an evaluation, you need three key components:
 2. **Target function** - Your application to evaluate
 3. **Scorers** - Quality metrics that compute scores on your target function's outputs
 
-Given these components, you can evaluate your application using MLflow's evaluation harness: `mlflow.evaluate()`.
+Given these components, you can evaluate your application using MLflow's evaluation harness: `mlflow.genai.evaluate()`.
 
 ## Prerequisites
 
@@ -243,10 +243,10 @@ Run the evaluation to generate quality scores and detailed traces for each test 
 
 ```python
 # MLflow will compute and record metrics on quality, token usage, and latency
-evaluation_result = mlflow.evaluate(
-    data=eval_data,
+evaluation_result = mlflow.genai.evaluate(
+    predict_fn=eval_data,
     model=my_app,
-    extra_metrics=[
+    scorers=[
         company_name_in_email,
         professional_tone_check,
         acknowledges_issues,
@@ -330,11 +330,10 @@ Best regards,
 ]
 
 # Evaluate with target comparison
-evaluation_result = mlflow.evaluate(
+evaluation_result = mlflow.genai.evaluate(
     data=eval_data_with_expectations,
-    model=my_app,
-    targets="targets",  # Column name containing expected outputs
-    extra_metrics=[exact_match(), company_name_in_email],
+    predict_fn=my_app,
+    scorers=[exact_match(), company_name_in_email],
 )
 ```
 
@@ -345,11 +344,10 @@ evaluation_result = mlflow.evaluate(
 from mlflow.metrics.genai import answer_similarity
 
 # Use LLM-based semantic similarity when exact match is too strict
-evaluation_result = mlflow.evaluate(
+evaluation_result = mlflow.genai.evaluate(
     data=eval_data_with_expectations,
-    model=my_app,
-    targets="targets",
-    extra_metrics=[
+    predict_fn=my_app,
+    scorers=[
         answer_similarity(model="openai:/gpt-4o-mini"),
         company_name_in_email,
         professional_tone_check,
@@ -368,10 +366,10 @@ When comparing multiple versions of your application, use a structured approach 
 def evaluate_app_version(app_function, version_name):
     """Evaluate a specific version of the app with consistent methodology."""
     with mlflow.start_run(run_name=f"evaluation_{version_name}"):
-        result = mlflow.evaluate(
+        result = mlflow.genai.evaluate(
             data=eval_data,
-            model=app_function,
-            extra_metrics=[
+            predict_fn=app_function,
+            scorers=[
                 company_name_in_email,
                 professional_tone_check,
                 acknowledges_issues,
@@ -566,10 +564,10 @@ def acknowledges_issues(inputs, outputs):
 
 
 # Run evaluation
-evaluation_result = mlflow.evaluate(
+evaluation_result = mlflow.genai.evaluate(
     data=eval_data,
-    model=my_app,
-    extra_metrics=[
+    predict_fn=my_app,
+    scorers=[
         company_name_in_email,
         professional_tone_check,
         acknowledges_issues,

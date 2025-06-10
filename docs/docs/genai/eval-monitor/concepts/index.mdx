@@ -56,7 +56,7 @@ This separation allows you to compare automated assessments against expert-provi
 
 ## Evaluation Harness
 
-The **Evaluation Harness** (`mlflow.evaluate()`) orchestrates your evaluations and supports two distinct modes depending on your needs and constraints.
+The **Evaluation Harness** (`mlflow.genai.evaluate()`) orchestrates your evaluations and supports two distinct modes depending on your needs and constraints.
 
 <Tabs>
 <TabItem value="app_mode" label="Application Mode (Recommended)" default>
@@ -148,7 +148,7 @@ Begin with a simple evaluation setup using predefined scorers to establish basel
 import mlflow
 
 # Start with basic evaluation
-results = mlflow.evaluate(
+results = mlflow.genai.evaluate(
     model=your_app, data=eval_dataset, extra_metrics=["exact_match", "toxicity"]
 )
 ```

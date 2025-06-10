@@ -542,13 +542,11 @@ eval_df = pd.DataFrame(
 )
 
 # Run evaluation with all metrics
-results = mlflow.evaluate(
+results = mlflow.genai.evaluate(
     model_uri=f"models:/techflow-chatbot/latest",
     data=eval_df,
-    targets="ground_truth",
     model_type="question-answering",
-    evaluators="default",
-    extra_metrics=[
+    scorers=[
         resolution_quality,
         empathy_score,
         policy_accuracy,

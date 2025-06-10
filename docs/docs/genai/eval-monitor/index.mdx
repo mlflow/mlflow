@@ -21,10 +21,10 @@ import mlflow
 from mlflow.metrics import exact_match
 
 # Simple evaluation example
-result = mlflow.evaluate(
+result = mlflow.genai.evaluate(
     data=your_test_data,
-    model=your_genai_app,
-    extra_metrics=[exact_match()],
+    predict_fn=your_genai_app,
+    scorers=[exact_match()],
 )
 
 print(f"Evaluation completed: {result.metrics}")

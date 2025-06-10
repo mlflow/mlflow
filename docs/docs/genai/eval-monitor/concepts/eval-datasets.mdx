@@ -369,8 +369,8 @@ dataset = [
 ]
 
 # Use directly with evaluate
-mlflow.evaluate(
-    data=dataset, model=my_app, extra_metrics=[relevance_scorer, completeness_scorer]
+mlflow.genai.evaluate(
+    data=dataset, predict_fn=my_app, scorers=[relevance_scorer, completeness_scorer]
 )
 ```
 
@@ -394,7 +394,7 @@ df = pd.DataFrame(
 )
 
 # Use DataFrame directly
-mlflow.evaluate(data=df, model=my_app, extra_metrics=scorers)
+mlflow.genai.evaluate(data=df, predict_fn=my_app, scorers=scorers)
 ```
 
 </TabItem>
@@ -426,7 +426,9 @@ dataset_client.add_records(
 )
 
 # Use managed dataset in evaluation
-mlflow.evaluate(data=f"datasets:/{dataset_name}", model=my_app, extra_metrics=scorers)
+mlflow.genai.evaluate(
+    data=f"datasets:/{dataset_name}", predict_fn=my_app, scorers=scorers
+)
 ```
 
 **Managed Dataset Benefits** *(Databricks Only)*:
@@ -444,14 +446,16 @@ mlflow.evaluate(data=f"datasets:/{dataset_name}", model=my_app, extra_metrics=sc
 ```python
 # Start with focused problem set
 problem_dataset = load_known_issues()
-results = mlflow.evaluate(data=problem_dataset, model=my_app_v1, extra_metrics=scorers)
+results = mlflow.genai.evaluate(
+    data=problem_dataset, predict_fn=my_app_v1, scorers=scorers
+)
 
 # Analyze failures and improve app
 improved_app = fix_identified_issues(my_app_v1, results)
 
 # Validate fixes
-validation_results = mlflow.evaluate(
-    data=problem_dataset, model=improved_app, extra_metrics=scorers
+validation_results = mlflow.genai.evaluate(
+    data=problem_dataset, predict_fn=improved_app, scorers=scorers
 )
 
 # Add successful fixes to regression test suite
@@ -463,10 +467,10 @@ regression_dataset.extend(problem_dataset)
 # Compare performance across app versions
 for version_name, app_version in [("v1", my_app_v1), ("v2", my_app_v2)]:
     with mlflow.start_run(run_name=f"eval_{version_name}"):
-        results = mlflow.evaluate(
+        results = mlflow.genai.evaluate(
             data=comprehensive_dataset,
-            model=app_version,
-            extra_metrics=standard_scorers,
+            predict_fn=app_version,
+            scorers=standard_scorers,
         )
         mlflow.set_tag("app_version", version_name)
 ```

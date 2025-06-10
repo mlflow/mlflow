@@ -157,7 +157,7 @@ The `expected` dictionary can contain the following optional keys to provide gro
 - **`expected_retrieved_context`** (array of objects): For RAG applications, an array of objects detailing the content and source URI (`doc_uri`) of context chunks that _should_ have been retrieved to answer the `inputs`.
 :::
 
-You can also include other custom columns relevant to your specific use case or for more granular analysis (e.g., `user_id`, `category`, `difficulty_level`). When using `mlflow.evaluate()`, if your dataset uses different names for standard columns, you can map them using the `col_mapping` parameter.
+You can also include other custom columns relevant to your specific use case or for more granular analysis (e.g., `user_id`, `category`, `difficulty_level`). When using `mlflow.genai.evaluate()`, if your dataset uses different names for standard columns, you can map them using the `col_mapping` parameter.
 
 ## Building Your Dataset
 
@@ -294,11 +294,10 @@ MLflow offers several flexible approaches to construct evaluation datasets. Choo
 
     # Use the expert-labeled dataset for evaluation
     with mlflow.start_run():
-        results = mlflow.evaluate(
-            model=your_genai_model,
+        results = mlflow.genai.evaluate(
+            predict_fn=your_genai_model,
             data=enriched_dataset.df,
-            targets="expected_response",
-            extra_metrics=[
+            scorers=[
                 mlflow.metrics.genai.relevance(),
                 mlflow.metrics.genai.coherence(),
             ],

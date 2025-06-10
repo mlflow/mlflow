@@ -267,8 +267,8 @@ from mlflow.metrics import genai
 relevance_metric = genai.relevance()
 
 # Evaluate traces with the metric
-results = mlflow.evaluate(
-    model=your_model, data=evaluation_data, extra_metrics=[relevance_metric]
+results = mlflow.genai.evaluate(
+    predict_fn=your_model, data=evaluation_data, scorers=[relevance_metric]
 )
 ```
 
@@ -285,7 +285,9 @@ An **Evaluation Dataset** is a curated collection of example inputs used to eval
 dataset = mlflow.data.from_dict(
     {
         "inputs": ["What is MLflow?", "How do I log metrics?"],
-        "expected_outputs": ["MLflow is...", "To log metrics..."],
+        "expectations": {
+            "expected_outputs": ["MLflow is...", "To log metrics..."],
+        },
     }
 )
 
@@ -299,11 +301,10 @@ An **Evaluation Run** stores results from running a new app version against an E
 
 ```python
 # Run evaluation
-results = mlflow.evaluate(
-    model=your_model,
+results = mlflow.genai.evaluate(
+    predict_fn=your_model,
     data=evaluation_dataset,
-    targets="expected_outputs",
-    extra_metrics=[relevance_metric, accuracy_metric],
+    scorers=[relevance_metric, accuracy_metric],
 )
 ```
 
@@ -419,8 +420,8 @@ mlflow.langchain.autolog()
 # Traces are automatically captured and linked to LoggedModel
 
 # 5. Evaluate and iterate
-results = mlflow.evaluate(
-    model=your_model, data=evaluation_data, extra_metrics=[your_custom_scorers]
+results = mlflow.genai.evaluate(
+    predict_fn=your_model, data=evaluation_data, scorers=[your_custom_scorers]
 )
 ```
 

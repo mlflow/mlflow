@@ -333,11 +333,10 @@ def evaluate_with_production_data(model, dataset_name):
 
     # Run evaluation
     with mlflow.start_run(run_name=f"production_eval_{dataset_name}"):
-        results = mlflow.evaluate(
-            model=model,
+        results = mlflow.genai.evaluate(
+            predict_fn=model,
             data=dataset.df,
-            targets="expected_response",
-            extra_metrics=[
+            scorers=[
                 mlflow.metrics.exact_match(),
                 # Add other relevant metrics
             ],
@@ -688,7 +687,7 @@ def generate_next_steps(opportunities):
 - Development workflow that can incorporate production insights
 
 **Tools and Skills:**
-- Familiarity with `mlflow.search_traces()`, `mlflow.data.EvaluationDataset`, and `mlflow.evaluate()`
+- Familiarity with `mlflow.search_traces()`, `mlflow.data.EvaluationDataset`, and `mlflow.genai.evaluate()`
 - Data analysis capabilities for identifying patterns and trends
 - Understanding of your application's architecture and improvement points
 
