@@ -550,15 +550,9 @@ def register_prompt(
 
         commit_message: A message describing the changes made to the prompt, similar to a
             Git commit message. Optional.
-        version_metadata: A dictionary of metadata associated with the **prompt version**.
+        tags: A dictionary of tags associated with the **prompt version**.
             This is useful for storing version-specific information, such as the author of
             the changes. Optional.
-        tags: A dictionary of tags associated with the entire prompt. This is different from
-            the `version_metadata` as it is not tied to a specific version of the prompt,
-            but to the prompt as a whole. For example, you can use tags to add an application
-            name for which the prompt is created. Since the application uses the prompt in
-            multiple versions, it makes sense to use tags instead of version-specific metadata.
-            Optional.
 
     Returns:
         A :py:class:`Prompt <mlflow.entities.Prompt>` object that was created.
