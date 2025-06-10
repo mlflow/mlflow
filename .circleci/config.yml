@@ -76,13 +76,21 @@ jobs:
           command: |
             python dev/show_package_release_dates.py
       - run:
+          name: Install JS dependencies
+          working_directory: docs
+          command: |
+            yarn install --no-immutable
+            if [ -n "$(git status --porcelain yarn.lock)" ]; then
+              echo "yarn.lock has changed. Please run 'yarn install' locally and commit the changes."
+              exit 1
+            fi
+      - run:
           name: Build documentation
           working_directory: docs
           environment:
             JAVA_HOME: /usr/lib/jvm/default-java
             PR_PREVIEW: "true"
           command: |
-            yarn install
             yarn build-all -- --no-r
             python changed_pages.py
       - run:

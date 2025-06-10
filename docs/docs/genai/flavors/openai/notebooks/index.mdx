@@ -1,0 +1,57 @@
+---
+sidebar_label: Tutorials
+sidebar_position: 1
+---
+
+import Link from "@docusaurus/Link";
+import { APILink } from "@site/src/components/APILink";
+import { CardGroup, PageCard } from "@site/src/components/Card";
+
+# MLflow OpenAI Flavor - Tutorials and Guides
+
+Below, you will find a number of guides that focus on different ways that you can leverage the power of the _openai_ library, leveraging MLflow's
+APIs for tracking and inference capabilities.
+
+The diagram below shows the basic scope of the level of complexity that the tutorials cover.
+
+<figure className="center-div" style={{ width: "80%", textAlign: "center" }}>
+  ![MLflow OpenAI tutorials](/images/tutorials/llms/openai-tutorials-explanation.png)
+  <figcaption>The range of content within the tutorials for the OpenAI flavor</figcaption>
+</figure>
+
+## Introductory Tutorial
+
+<CardGroup>
+  <PageCard
+    headerText="OpenAI Quickstart"
+    link="/genai/flavors/openai/notebooks/openai-quickstart"
+    text="Learn the very basics of using the OpenAI package with MLflow with some simple prompt engineering and a fun use case to get started with this powerful integration."
+  />
+
+</CardGroup>
+
+## Advanced Tutorials
+
+In these tutorials, the topics cover applied interactions with OpenAI models, leveraging custom Python Models to enhance the functionality beyond what is
+possible with the basic prompt-based interaction from the introductory tutorial.
+If you're new to this flavor, please start with the Introductory Tutorial above, as it has information about environment configurations that you'll need
+to understand in order to get the notebooks in this section to work.
+
+<CardGroup>
+  <PageCard
+    headerText="OpenAI ChatCompletions"
+    link="/genai/flavors/openai/notebooks/openai-chat-completions/"
+    text="Learn how to leverage the ChatCompletions endpoint in the OpenAI flavor to create a useful text messaging screening tool within MLflow."
+  />
+  <PageCard
+    headerText="OpenAI Custom Python Model - Code Helper"
+    link="/genai/flavors/openai/notebooks/openai-code-helper/"
+    text="Learn how to leverage Custom Python Models with a useful Code Helper application that leverages OpenAI Models and MLflow."
+  />
+  <PageCard
+    headerText="OpenAI Embeddings - Document Comparison"
+    link="/genai/flavors/openai/notebooks/openai-embeddings-generation/"
+    text="Explore the application of embeddings with document comparison using an OpenAI model with MLflow."
+  />
+
+</CardGroup>
