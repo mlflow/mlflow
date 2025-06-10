@@ -31,8 +31,7 @@ In this guide, we'll discuss some of the key features that are available in the 
 ## Quickstart
 
 To get started with MLflow's OpenAI autologging, you simply need to call <APILink fn="mlflow.openai.autolog" /> at the beginning of your script or notebook.
-Enabling autologging with no argument overrides will behave as the `default` configuration in the table in the next section. Overriding any of these settings
-will allow you to log additional elements.
+Enabling autologging with no argument overrides will enable tracing by default.
 
 :::tip
 The only element that is **enabled by default** when autologging is activated is the recording of trace information. You can read more about MLflow tracing
@@ -68,63 +67,6 @@ answer = openai_client.chat.completions.create(
 When using the OpenAI SDK, ensure that your access token is assigned to the environment variable `OPENAI_API_KEY`.
 :::
 
-## Configuration of OpenAI Autologging
-
-MLflow OpenAI autologging can log various information about the model and its inference. **By default, only trace logging is enabled**, but you can enable
-autologging of other information by setting the corresponding parameters when calling <APILink fn="mlflow.openai.autolog" />.
-
-The available options and their default values are shown below. To learn more about additional parameters, see the API documentation.
-
-<Table>
-  <thead>
-    <tr>
-      <th>Target</th>
-      <th>Default</th>
-      <th>Parameter</th>
-      <th>Description</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td>Traces</td>
-      <td>`true`</td>
-      <td>`log_traces`</td>
-      <td>Whether to generate and log traces for the model. See [MLflow Tracing](/genai/tracing) for more details about the tracing feature.</td>
-    </tr>
-    <tr>
-      <td>Model Artifacts</td>
-      <td>`false`</td>
-      <td>`log_models`</td>
-      <td>If set to `True`, the OpenAI model will be logged when it is invoked.</td>
-    </tr>
-    <tr>
-      <td>Model Signatures</td>
-      <td>`false`</td>
-      <td>`log_model_signatures`</td>
-      <td>
-        If set to `True`, <APILink fn="mlflow.models.ModelSignature">`ModelSignature`</APILink> describing model inputs and outputs are collected and logged along with OpenAI model artifacts during inference. This option is only available when `log_models` is enabled.
-      </td>
-    </tr>
-    <tr>
-      <td>Input Example</td>
-      <td>`false`</td>
-      <td>`log_input_examples`</td>
-      <td>If set to `True`, input examples from inference data are collected and logged along with OpenAI model artifacts during inference. This option is only available when `log_models` is enabled.</td>
-    </tr>
-  </tbody>
-</Table>
-
-For example, to disable logging of traces, and instead enable model logging, run the following code:
-
-```python
-import mlflow
-
-mlflow.openai.autolog(
-    log_traces=False,
-    log_models=True,
-)
-```
-
 ## Example of using OpenAI Autologging
 
 ```python
@@ -135,16 +77,11 @@ import openai
 
 API_KEY = os.environ.get("OPENAI_API_KEY")
 EXPERIMENT_NAME = "OpenAI Autologging Demonstration"
-REGISTERED_MODEL_NAME = "openai-auto"
-MODEL_VERSION = 1
 
-mlflow.openai.autolog(
-    log_input_examples=True,
-    log_model_signatures=True,
-    log_models=True,
-    log_traces=True,
-    registered_model_name=REGISTERED_MODEL_NAME,
-)
+# set an active model for linking traces
+mlflow.set_active_model(name="OpenAI_Model")
+
+mlflow.openai.autolog()
 
 mlflow.set_experiment(EXPERIMENT_NAME)
 
@@ -166,20 +103,8 @@ openai_client.chat.completions.create(
 
 Viewing the logged model and the trace used when invoking the OpenAI client within the UI can be seen in the image below:
 
+<!-- TODO: update this gif -->
 ![OpenAI Autologging artifacts and traces](/images/tutorials/llms/openai-autolog.gif)
-
-The model can be loaded by using the `models` uri via the model that was logged and registered and interfaced with via the pyfunc API as shown below:
-
-```python
-loaded_autologged_model = mlflow.pyfunc.load_model(
-    f"models:/{REGISTERED_MODEL_NAME}/{MODEL_VERSION}"
-)
-
-loaded_autologged_model.predict(
-    "How much relative time difference would occur between an astronaut travelling at 0.98c for 14 years "
-    "as measured by an on-board clock on the spacecraft and humans on Earth, assuming constant speed?"
-)
-```
 
 ## Auto-tracing for OpenAI Swarm
 

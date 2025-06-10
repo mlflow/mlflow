@@ -42,9 +42,9 @@ See inside every AI decision with comprehensive tracing that captures the full e
 **Why it matters**: You can't fix what you can't see. MLflow shows you exactly how your AI makes decisions.
 
 ```python
-# One line to enable comprehensive tracing
 import mlflow
 
+# One line to enable comprehensive tracing
 mlflow.langchain.autolog()
 
 # Your app is now fully observable
@@ -63,14 +63,20 @@ Move beyond manual testing with automated evaluation using LLM judges and custom
 
 **Why it matters**: Systematically measure and improve quality instead of guessing.
 
+:::note
+The GenAI Evaluate feature is only available on Databricks Managed MLflow.
+:::
+
 ```python
+from mlflow.genai.scorers import Correctness, RelevanceToQuery
+
 # Evaluate your app with AI-powered metrics
 results = mlflow.genai.evaluate(
     model=my_app,
     data=eval_dataset,
-    extra_metrics=[
-        mlflow.metrics.genai.relevance("gpt-4"),
-        mlflow.metrics.genai.correctness("gpt-4"),
+    scorers=[
+        Correctness(),
+        RelevanceToQuery(),
     ],
 )
 ```
@@ -103,7 +109,7 @@ Secure and govern your AI deployments with enterprise-grade features.
 
 **What you get:**
 - **Centralized API key management** through AI Gateway
-- **Unity Catalog integration** for data governance
+- **Unity Catalog integration** for data governance on Databricks managed MLflow
 - **Audit trails** for all model changes and deployments
 - **Role-based access control** for teams with Unity Catalog integration
 
@@ -154,17 +160,29 @@ And get to work.
 ```python
 # Start tracing your app
 import mlflow
+from openai import OpenAI
 
 mlflow.set_experiment("my-genai-app")
-mlflow.langchain.autolog()
+# set an active model for grouping traces
+mlflow.set_active_model(name="my-app")
 
-# Run your first evaluation
-results = mlflow.genai.evaluate(
-    model=my_app,
-    data=test_data,
-    extra_metrics=[mlflow.metrics.genai.relevance("gpt-4")],
+# enable tracing for openai
+mlflow.openai.autolog()
+
+# Run your application
+messages = [
+    {
+        "role": "user",
+        "content": "State that you are responding to a test and that you are alive.",
+    }
+]
+
+openai_client = OpenAI()
+openai_client.chat.completions.create(
+    model="gpt-4o",
+    messages=messages,
+    temperature=0.95,
 )
-
 # You're now on the path to production-ready AI!
 ```
 

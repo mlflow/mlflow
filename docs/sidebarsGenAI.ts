@@ -66,8 +66,8 @@ const sidebarsGenAI: SidebarsConfig = {
           label: 'Connect to MLflow',
         },
         {
-          type: 'doc',
-          id: 'getting-started/eval',
+          type: 'link',
+          href: 'https://docs.databricks.com/aws/en/mlflow3/genai/getting-started/eval.html',
           label: 'Evaluate your GenAI App',
         },
         {
