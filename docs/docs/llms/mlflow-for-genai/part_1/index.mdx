@@ -1,0 +1,303 @@
+---
+title: "Part 1: Autologging and Tracing"
+---
+
+![MLflow for GenAI Guide Overview](/images/llms/mlflow-for-genai/steps_1.png)
+
+This is part 1 of a step-by-step guide to using MLflow to experiment with and deploy your generative AI projects.
+
+Generative AI projects tend to get complicated quickly. GenAI applications often have many components, including both deterministic functions and GenAI model calls. They often use models from multiple different providers, and may even need to handle different modalities (e.g. text, images, audio, etc.). Testing and iterating on these projects often involves changes to multiple components, including prompts, models, and application logic, and it can be difficult to track and evaluate the impact of these changes.
+
+MLflow helps to solve these problems by providing a suite of tools for tracing and visualizing all of your GenAI model calls, evaluating your models and applications, building application logic into custom models, tracking and versioning your models, and deploying your models to production.
+
+This is the first part of a four-part guide showing how to use MLflow to experiment with and deploy your generative AI projects. It will cover every phase of the process, from prototyping and informal experimentation through deployment.
+
+In this first part of the guide, we will walk through the process of prototyping a GenAI application. We will build a social media style transfer system that generates new posts based on some context and instructions in the style of a set of provided example posts. Part 1 will focus on:
+
+- Testing the viability of the project and recording those tests with MLflow tracing
+- Informal comparison of different models and prompts
+
+Subsequent sections will cover:
+
+- More rigorous comparison and evaluation of the project with MLflow evaluation metrics
+- Encapsulating the application logic in a custom model and registering it in the model registry
+- Deploying the model to staging, evaluating it, and promoting it to production
+
+MLflow offers many different tools and approaches that can be used at each step of the process. This guide will introduce some of those options and walk through the thought process behind choosing each particular approach.
+
+## Prerequisites and Setup
+
+This guide assumes you have a basic understanding of Python and the MLflow library. You will also need to have the OpenAI Python SDK installed.
+
+Inside your Python environment, install the MLflow and OpenAI Python SDK packages:
+
+```bash
+pip install mlflow openai
+```
+
+Inside your project directory, run the following to view the [MLflow UI](https://mlflow.org/docs/latest/tracking.html#tracking-ui):
+
+```bash
+mlflow ui
+```
+
+Lastly, start a new MLflow experiment with the following Python code:
+
+```python
+import mlflow
+
+mlflow.set_experiment("genai-social")
+```
+
+## Initial Prototyping with MLflow autologging and tracing
+
+Before we have written any code, we generally have some idea we want to try out. In this case, we want to answer the question: "Can a GenAI model generate social media posts that match our brand voice?" More specifically, we want to see if we can use GenAI to generate posts for the MLflow LinkedIn account in a style that is consistent with the existing posts.
+
+The very first step is to try out a few different prompts to see whether this is plausible. At this phase, we are often working in a notebook environment, and are not particularly systematic about structuring our code or recording formal experiments. Still, we might stumble upon some interesting ideas we want to apply later in the project, so having *some* system for recording our tests is helpful. To that end, we can use MLflow's autologging and tracing features to record our experiments.
+
+We will use OpenAI's GPT-4o model for experimenting in this stage: it's powerful, reasonably inexpensive, easy to use, and many developers are already familiar with it.
+
+### Choosing a Model Interface
+
+MLflow offers many different ways to interface with the model—let's look at some of the options and decide which makes the most sense at this point.
+
+1. `mlflow.openai.autolog()`: This approach will allow us to use the native OpenAI Python SDK and will automatically log traces of inputs, outputs, errors, and other information to MLflow.
+2. A manually logged OpenAI model: Logging the model with `mlflow.openai.log_model()` allows us to [log a model with a custom input template](https://mlflow.org/docs/latest/llms/openai/guide/index.html#direct-openai-service-usage) but will require us to manually load the logged model to use it.
+3. [MLflow AI Gateway](https://mlflow.org/docs/latest/llms/deployments/index.html): We could configure an AI gateway endpoint with multiple models and providers, making it easy to switch between models and providers.
+
+At this point in the project, we are not especially concerned with logging specific model configurations or setting up a gateway endpoint to manage multiple models. We just want to get started quickly and record our tests. To that end, we will use the first option: `mlflow.openai.autolog()`. This approach requires just one line of code to enable, and otherwise lets us use the native OpenAI Python SDK for experimentation.
+
+You might also wonder why we are using MLflow at all at this early point in the project. We could just use the OpenAI Python SDK—or even ChatGPT—to try out our ideas. One major benefit we have already alluded to is MLflow tracing. Tracing gives us a systematic way to record and learn from our experiments—capturing the exact prompts, parameters, and outputs of every model call. This helps us track what works (and what doesn't), debug issues, and preserve valuable discoveries that we might want to revisit later in the project.
+
+### MLflow Tracing with Autologging
+
+Enable autologging for the OpenAI Python SDK by running the following:
+
+```python
+import mlflow
+
+mlflow.openai.autolog()
+```
+
+And set up the OpenAI client with:
+
+```python
+import openai
+
+client = openai.OpenAI()
+```
+
+Now, when we make a call to the OpenAI API, MLflow will automatically log the inputs, outputs, and other information with MLflow tracing:
+
+```python
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "What is the capital of France?"}],
+)
+```
+
+![MLflow tracing](/images/llms/mlflow-for-genai/1_mlflow_tracing.png)
+
+### What is a Trace?
+
+MLflow tracing provides a record of every call to a model, including the inputs, outputs, errors, and other information. An individual trace is made up of:
+
+- **Trace Info**: Metadata about the trace, like timing and status
+- **Trace Data**: The actual content of the trace, including inputs, outputs, and any intermediate steps
+
+You can learn much more about MLflow tracing [here](https://mlflow.org/docs/latest/llms/index.html).
+
+### Generating our First Post
+
+Now that we have a basic system for logging our experiments, let's see if we can get a basic social media style transfer system working. As a quick reminder, we want to build a GenAI system that generates new LinkedIn posts based on some provided context and instructions in a style that is consistent with a set of provided example posts.
+
+We will need:
+
+- An example post to use as a style reference (eventually, we will use a set of multiple examples)
+- A source document or website with content to use as a source of information for a new post
+- A template prompt to tie the above information together
+- A system prompt explaining the task to the model
+
+Let's try the following. Feel free to experiment with your own prompts and ideas.
+
+**Prompts:**
+
+```python
+system_prompt_1 = """You are a social media content specialist who can precisely match writing styles. Your task is to:
+1. Analyze the provided example post(s) to understand their style and tone
+2. Generate a new LinkedIn post about the given topic that perfectly matches this style
+3. Return only the generated post, nothing else.
+"""
+
+user_template = """
+example posts:
+{example_posts}
+
+topic:
+{topic}
+
+
+additional instructions:
+{additional_instructions}
+"""
+```
+
+**Example Post:**
+
+```python
+example_post = """MLflow's GenAI evaluation metrics now work as callable functions as of MLflow 2.17, making them easier to use and integrate.
+
+Now you can use metrics like answer_relevance, answer_correctness, faithfulness, and toxicity directly as functions—no need to go through mlflow.evaluate() anymore if you're just prototyping with individual metrics or integrating metric calls into systems where mlflow.evalaute is not necessary.
+
+This means:
+
+🔍 Easier debugging during prototyping
+🔌 More flexible integration options
+🎯 Works with or without other MLflow features
+
+Learn more:
+📚 Docs: https://lnkd.in/gyBzcrDr
+📝 Release notes: https://lnkd.in/gBrNQfFC
+
+#MachineLearning #AI #LLMs #LLMOps #Evals"""
+```
+
+**New Post Topic:**
+
+We will mostly get source information from the MLflow docs and blog posts. Let's write a quick helper function to get the text from a webpage and convert it to markdown. We will use the [`markdownify`](https://github.com/matthewwithanm/python-markdownify) library to do this—you can install it with `pip install markdownify`.
+
+```python
+import requests
+from markdownify import markdownify
+
+def webpage_to_markdown(url):
+    # Get webpage content
+    response = requests.get(url)
+    html_content = response.text
+    
+    # Convert to markdown
+    markdown_content = markdownify(html_content)
+
+    return markdown_content
+```
+
+Now we can use this function to get the text from the MLflow docs:
+
+```python
+url = "https://mlflow.org/docs/latest/llms/chat-model-intro/index.html"
+markdown_content = webpage_to_markdown(url)
+```
+
+We now have a system prompt, a template for our user prompt, an example post, and a source of information. Now we just need some custom instructions and a helper function to assemble the final set of messages to send to the model.
+
+**Additional Instructions:**
+
+```python
+additional_instructions = """This post will be written for the MLflow LinkedIn account.
+Maintain a professional but approachable tone. Developers are the primary audience.
+No marketing slop."""
+```
+
+**Prompt Formatting Helper Function:**
+
+```python
+def generate_prompt(
+    system, user_template, example_posts, topic, additional_instructions
+):
+    """Generate a prompt for the LLM based on the example posts, topic, and additional instructions."""
+    example_posts = "\n".join(
+        [f"Example {i+1}:\n{post}" for i, post in enumerate(example_posts)]
+    )
+    prompt = user_template.format(
+        example_posts=example_posts,
+        topic=topic,
+        additional_instructions=additional_instructions,
+    )
+
+    formatted_prompt = [
+        {"role": "system", "content": system},
+        {"role": "user", "content": prompt},
+    ]
+
+    return formatted_prompt
+```
+
+Now we can generate a prompt, send it to the model, and view the trace in the MLflow UI.
+
+```python
+messages = generate_prompt(system_prompt_1, user_template, [example_post], [markdown_content], additional_instructions)
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=messages,
+)
+```
+
+![First Result](/images/llms/mlflow-for-genai/2_first_result_alt.png)
+
+This is a reasonable first result, and gives us some confidence that this project is feasible. If you're following along, we encourage you to try out your own prompts and ideas. What is working? What isn't? What hypotheses can you come up with that you would like to test more rigorously?
+
+### Tagging Traces
+
+Now, as we iterate on the prompts and helper functions, the results will automatically be logged to MLflow tracing. We can add tags to the traces to help us organize our experiments. For example, suppose we want to add tags to record the platform for which we are generating posts. We can add a tag to the last active trace as follows:
+
+```python
+trace = mlflow.get_last_active_trace()
+mlflow.MlflowClient().set_trace_tag(trace.info.request_id, "platform", "LinkedIn")
+```
+
+![Tagged Trace](/images/llms/mlflow-for-genai/3_trace_tag.png)
+
+Note that we can also add tags to the trace in the UI. We can use the tags to [search and filter](https://mlflow.org/docs/latest/python_api/mlflow.html#mlflow.search_traces) traces.
+
+### Tracing additional models
+
+We might also be interested in trying out some different models. For example, we might want to try the Gemini 2.0 Flash model as an alternative to GPT-4o. We want to make sure that calls to new models are traced alongside our OpenAI traces. We have a couple of options for making that happen:
+
+1. Use the [`google-generativeai`](https://ai.google.dev/api?lang=python) library and the `mlflow.gemini.autolog()` function to trace the Gemini model calls.
+2. Use Gemini [via the OpenAI SDK](https://ai.google.dev/gemini-api/docs/openai), so calls will be traced because of our existing autologging setup.
+
+We will use the second option here—it ensures that our existing helper functions and prompt formatting will work and that our traces will be captured in the same format.
+
+**Set up Gemini:**
+
+We can set up an OpenAI client for Gemini as follows:
+
+```python
+gemini_client = OpenAI(
+    api_key=os.environ["GEMINI_API_KEY"],
+    base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
+)
+```
+
+and then send the same messages as we did for GPT-4o:
+
+```python
+response = gemini_client.chat.completions.create(
+    model="gemini-2.0-flash-exp",
+    messages=messages,
+)
+```
+
+While we're at it, let's tag the latest trace with both the platform and the model provider. The model name is already captured in the trace, but tagging will make it easier to distinguish in the UI:
+
+```python
+trace = mlflow.get_last_active_trace()
+mlflow.MlflowClient().set_trace_tag(trace.info.request_id, "platform", "LinkedIn")
+mlflow.MlflowClient().set_trace_tag(trace.info.request_id, "model", "gemini-2.0-flash-exp")
+```
+
+![Gemini Trace](/images/llms/mlflow-for-genai/4_gemini_trace.png)
+
+From here, we can continue to try out different models and prompts, tagging traces to track our experiments across platforms, models, and prompts.
+
+While these informal experiments are great for developing intuitions and initial hypotheses, they don't provide a systematic way to evaluate our application. Throughout development, we'll want to make various changes to our system—but without rigorous evaluation, measuring their impact is mostly guesswork. Building out a proper evaluation suite will help us validate our current hypotheses and give us a framework for measuring future changes.
+
+## Conclusion
+
+In this first part of a four-part guide detailing how MLflow integrates with a GenAI project, from conception through deployment, we prototyped and evaluated our AI system. In particular, we saw how:
+
+- MLflow autologging let us capture traces of our early informal experiments with just one line of code: `mlflow.openai.autolog()`.
+- We can use MLflow tracing to capture and learn from informal experiments
+- We can compare models from different providers and tag their respective traces
+
+The next section of this guide shows how to build on our informal experiments and develop a more rigorous evaluation suite.

@@ -1,0 +1,599 @@
+---
+title: "Part 2: Structured Evaluation"
+---
+
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+![MLflow for GenAI Guide Overview](/images/llms/mlflow-for-genai/steps_2.png)
+
+
+Now that we have some promising initial results, it's time to move from informal experimentation to systematic evaluation. Our goal is to build an evaluation framework that will help us:
+
+- Compare different models and prompts quantitatively
+- Measure key qualities like factual accuracy and style consistency
+- Create benchmarks we can use to measure future improvements
+
+We will use MLflow's evaluation tools to build this framework and run our first formal comparison of candidate systems.
+
+## What are we trying to evaluate?
+
+The first step in evaluating our system is to formalize our questions and hypotheses. This is important: don't start coding an evaluation suite until you know what you want to test. Here are some questions you might consider before starting:
+
+- Which variable(s) are we holding constant? Which are we changing? For example: we might choose to use the same set of example posts while varying the prompt or model.
+- What does it mean for one generated post to be "better" than another? If you were to design a rubric for comparing the quality of the generated posts, what would it look like?
+- What are the most important issues to avoid when generating posts? For example, we probably want to make sure to avoid generating posts that contain factual errors or harmful/toxic content.
+
+Let's suppose our testing has identified two candidate prompts. Furthermore, we want to compare the performance of the Gemini 2.0 Flash model to the GPT-4o model. How do we want to judge which prompt and model is better? While there could be many different ways to evaluate our system, let's start with a few basics:
+
+1. We want to make sure the generated posts are grounded in the source information. All factual information in the generated post should be present in the source information.
+2. We want to make sure the generated posts do not contain any harmful or toxic content. Though it is unlikely that a model will generate harmful content on purpose, it's still worth checking for.
+3. We want to make sure the generated posts are in the style of the example posts.
+
+This should be enough to get started. Over time, as we get more data and feedback, we can refine our evaluation suite.
+
+## Mapping our Evaluation Criteria to Metrics
+
+![Mapping evaluation criteria to metrics](/images/llms/mlflow-for-genai/diagram_metrics.png)
+
+Now that we know what criteria we want to use to compare our generated posts, we can use MLflow to build our evaluation suite using [MLflow's LLM Evaluation features](https://mlflow.org/docs/latest/llms/llm-evaluate/index.html).
+
+The first step is to map our evaluation criteria to MLflow metrics. An [MLflow metric](https://mlflow.org/docs/latest/llms/llm-evaluate/index.html#llm-evaluation-metrics) is either a heuristic-based function that calculates a numerical score (like ROUGE or BLEU) or an LLM-as-a-Judge metric that uses another LLM to evaluate and score model outputs. We will largely rely on LLM-as-a-Judge metrics because they can better evaluate qualities like writing style, factual consistency, and tone that are crucial for social media content.
+
+To check for groundedness and toxicity, we can use the built-in [faithfulness](https://mlflow.org/docs/latest/python_api/mlflow.metrics.html#mlflow.metrics.genai.faithfulness) and [toxicity](https://mlflow.org/docs/latest/python_api/mlflow.metrics.html?highlight=toxicity#mlflow.metrics.toxicity) metrics. There is no built-in metric for style similarity, so we can create our own.
+
+Ultimately, we will want to set up our evaluation suite to run all at once with `mlflow.evaluate()`, but we can start by testing our metrics one at a time. MLflow metrics work as Python callable functions, making it easy to test them individually as we are configuring our evaluation suite. Let's work through them one at a time.
+
+### Faithfulness
+
+*Faithfulness* is a metric that checks whether the generated post is grounded in the source information. Note that we could also consider using the [answer_correctness](https://mlflow.org/docs/latest/python_api/mlflow.metrics.html#mlflow.metrics.genai.answer_correctness) metric, which checks whether the generated post is correct. There is a subtle difference between the two: *faithfulness* checks whether the generated post is grounded in the source information, while *answer_correctness* checks whether the generated post is correct relative to a target answer. We are more interested in the former, so we will use the `faithfulness` metric.
+
+Here's how it works. We will stick with the default judge model, GPT-4o, though you can [choose your preferred model to use as a judge](https://mlflow.org/docs/latest/llms/llm-evaluate/index.html#selecting-the-judge-model).
+
+```python
+from mlflow.metrics.genai import faithfulness
+
+faithfulness_metric = faithfulness(
+    model="openai:/gpt-4o"
+)
+
+result = response.choices[0].message.content
+
+print(faithfulness_metric(predictions=result,
+                    inputs=additional_instructions, # ignored
+                    context = markdown_content))
+```
+
+Which returns:
+
+```python
+MetricValue(
+    scores=[4],
+    justifications=[
+        "Most of the claims in the output can be inferred from the provided context. The output mentions that 
+MLflow's `ChatModel` class offers a standardized way to build production-ready conversational AI models, integrated
+with MLflow's tracking, evaluation, and lifecycle management, which aligns with the context. It also correctly 
+states that `ChatModel` offers a structured, OpenAI-compatible schema, and compares it to `PythonModel`, which is 
+supported by the context. However, the output includes some details, like the quick setup with pre-defined model 
+signatures, that are not explicitly mentioned in the context, preventing a perfect score."
+    ],
+    aggregate_results={'mean': np.float64(4.0), 'variance': np.float64(0.0), 'p90': np.float64(4.0)}
+)
+```
+
+### Toxicity
+
+We can use `toxicity` similarly. Note that we do not pass a model to the `toxicity` metric: it uses the specialized `facebook/roberta-hate-speech-dynabench-r4-target` model for toxicity detection.
+
+```python
+from mlflow.metrics import toxicity
+toxicity_metric = toxicity()
+
+toxicity_score = toxicity_metric(predictions=result)
+toxicity_score.aggregate_results["mean"]
+```
+
+Which returns a score of 0.37%, indicating extremely low toxicity, as we would hope and expect.
+
+### Style Similarity
+
+For style similarity, we need to create a custom metric. We will use the `make_genai_metric` function to create a custom metric that compares the generated post to a set of example posts and returns a score between 0 and 5.
+
+The first step in creating an effective metric is to define some examples with inputs, scores, and justifications. We will use the `EvaluationExample` class to define our examples.
+
+First, let's copy over some more example posts from the [MLflow LinkedIn account](https://www.linkedin.com/company/mlflow-org/posts/). We will use these posts throughout the rest of this guide (recall: we will be keeping the examples fixed but varying the prompt and model).
+
+<Tabs>
+  <TabItem label="Post Example 1" value="post1">
+    <div class="flex-column">
+      <div class="flex-row">
+        <div class="flex-item">
+```python
+post_example_1 = """MLflow's GenAI evaluation metrics now work as callable functions as of MLflow 2.17, making them easier to use and integrate.
+
+Now you can use metrics like answer_relevance, answer_correctness, faithfulness, and toxicity directly as functions—no need to go through mlflow.evaluate() anymore if you're just prototyping with individual metrics or integrating metric calls into systems where mlflow.evalaute is not necessary.
+
+This means:
+
+🔍 Easier debugging during prototyping
+🔌 More flexible integration options
+🎯 Works with or without other MLflow features
+
+Check it out in action ⬇️
+
+Learn more:
+📚 Docs: https://lnkd.in/gyBzcrDr
+📝 Release notes: https://lnkd.in/gBrNQfFC
+
+#MachineLearning #AI #LLMs #LLMOps #Evals"""
+```
+        </div>
+      </div>
+    </div>
+  </TabItem>
+  <TabItem label="Post Example 2" value="post2">
+    <div class="flex-column">
+      <div class="flex-row">
+        <div class="flex-item">
+```python
+post_example_2 = """If you're already building with Python ML libraries, adding mlflow.autolog() to your code instantly gives you production-grade experiment tracking, model management, and observability—no extra infrastructure or code changes needed.
+
+The automatic logging works across a remarkable breadth of libraries—from GenAI frameworks like LangChain, OpenAI, and LlamaIndex to traditional ML and deep learning libraries like PyTorch, scikit-learn, and Fastai.
+
+MLflow's autolog feature changes this equation. With a single line—mlflow.autolog()—you get automatic logging of:
+
+📊 Training metrics and parameters for scikit-learn, PyTorch, many other ML frameworks
+🔄 LLM traces, prompts, responses, and tool calls for OpenAI and LangChain
+📦 Model signatures and artifacts
+💾 Dataset information and example inputs
+
+The best part is that it works out of the box with the most popular libraries in the Python ML ecosystem: no need to modify your existing training code or add manual logging statements.
+
+Read more: https://lnkd.in/e_aTp6HH
+
+#machinelearning #mlops #ai #llmops"""
+```
+        </div>
+      </div>
+    </div>
+  </TabItem>
+  <TabItem label="Post Example 3" value="post3">
+    <div class="flex-column">
+      <div class="flex-row">
+        <div class="flex-item">
+```python
+post_example_3 = """New tutorial: Step-by-step guide to building a tool-calling LLM application using MLflow's ChatModel wrapper and tracing system.
+
+This tutorial shows you how to:
+
+🔧 Create a tool-calling model using mlflow.pyfunc.ChatModel
+🔄 Implement OpenAI function calling with automatic input/output handling
+🔍 Add comprehensive tracing to debug multi-step LLM interactions
+🚀 Deploy your model with full MLflow lifecycle management
+
+The guide includes a practical example building a weather information agent, showing how ChatModel simplifies complex LLM patterns while providing enterprise-grade observability.
+
+Check out the complete tutorial here: https://lnkd.in/gdTw8N2S
+
+#MLOps #AIEngineering #LLMOps #AI"""
+```
+        </div>
+      </div>
+    </div>
+  </TabItem>
+</Tabs>
+
+We'll save these examples as a list of strings.
+
+```python
+example_posts = [post_example_1, post_example_2, post_example_3]
+```
+
+Next, here are a couple of example outputs, one very similar to the example posts and one very different. The former represents the informal-yet-technical style of the example posts, while the latter uses an overly-promotional tone.
+
+<Tabs>
+  <TabItem label="Similar Post" value="similar">
+    <div class="flex-column">
+      <div class="flex-row">
+        <div class="flex-item">
+```python
+similar_post = """
+MLflow's ChatModel and PythonModel classes serve different needs when deploying GenAI applications. Here's when to use each:
+
+ChatModel simplifies GenAI deployment with standardized OpenAI-compatible interfaces. This means:
+
+🔗 Immediate compatibility with existing OpenAI-based tools and workflows
+🚀 Pre-defined model signatures that work out of the box
+📊 Streamlined integration with MLflow's tracking and evaluation features
+
+PythonModel is your choice when you need complete control over:
+
+🛠️ Custom input/output schemas for specialized use cases
+🔄 Complex data transformations beyond standard chat patterns
+⚙️ Fine-grained model behavior and deployment configurations
+
+For most conversational AI applications, ChatModel's standardized approach helps you avoid common deployment pitfalls while maintaining consistent interfaces across your GenAI services. Consider PythonModel when your use case requires specialized data handling or custom interaction patterns.
+
+See the comment below for links to in-depth tutorials on ChatModel 👇 
+
+#MLflow #LLMOps #MachineLearning #GenAI"""
+```
+        </div>
+      </div>
+    </div>
+  </TabItem>
+  <TabItem label="Dissimilar Post" value="dissimilar">
+    <div class="flex-column">
+      <div class="flex-row">
+        <div class="flex-item">
+```python
+dissimilar_post = """
+🔥 HOLY MOLY! MLflow Just Dropped Something INSANE for AI Deployment! 🤯
+TWO EPIC WAYS to deploy your next-gen AI:
+1️⃣ ChatModel: The No-BS Fast Track!
+
+INSTANT OpenAI compatibility 🤝
+Zero headaches, works RIGHT NOW 🚀
+All the tracking & metrics you're craving 📈
+
+2️⃣ PythonModel: For When You Need to GO WILD!
+
+Customize EVERYTHING 🎨
+Transform data like a BOSS 💪
+Ultimate control = Ultimate POWER! ⚡️
+
+Don't sleep on this update! Your AI deployment game is about to get ABSOLUTELY CRACKED! 🚀✨
+#MLflowGang #AIrevolution #FutureIsNow #TechTwitter
+"""
+```
+        </div>
+      </div>
+    </div>
+  </TabItem>
+</Tabs>
+
+Now we can set up two `EvaluationExample` objects, one for the similar post and one for the dissimilar post. These need to include the input, output, examples, score, and justification.
+
+Note that we provide examples via the `grading_context` argument. Furthermore, we're just passing the "additional instructions" as the input. These are not relevant to the style similarity metric. We want to be careful not to send the full message history or the source information as this could impair the metric's ability to evaluate the style similarity.
+
+```python
+evaluation_example_1 = EvaluationExample(
+    input=additional_instructions,
+    output=similar_post,
+    grading_context={"examples": example_posts},
+    score=5,
+    justification="This post is a perfect match to the style of the example posts."
+)
+
+evaluation_example_2 = EvaluationExample(
+    input=additional_instructions,
+    output=dissimilar_post,
+    grading_context={"examples": example_posts},
+    score=1,
+    justification=("The post earns a 1/5 for maintaining the basic bullet-point structure and use of emojis, "
+                   "but significantly overplays the informal tone with phrases like 'HOLY MOLY!' and 'fam' "
+                   "that aren't present in the examples. While the example posts balance professional "
+                   "enthusiasm with technical detail, this submission sacrifices information density for "
+                   "excessive hype and casual language that goes well beyond the controlled informality shown "
+                   "in the reference posts."
+                   )
+)
+```
+
+Now that we have our examples, we can use the [`make_genai_metric`](https://mlflow.org/docs/latest/python_api/mlflow.metrics.html#mlflow.metrics.genai.make_genai_metric) function to create a custom metric. There are a few key components we need to provide in order to define a new GenAI metric:
+
+- a definition, which describes the basic intent of the metric
+- a grading prompt, which describes the scoring system and provides any other necessary notes
+- the evaluation examples, which we created above
+
+In this case, we also set a custom model: we're using the Anthropic Claude 3.5 Sonnet model for this metric.
+
+```python
+from mlflow.metrics.genai import EvaluationExample, make_genai_metric
+
+style_similarity_metric = make_genai_metric(
+    name="style_similarity",
+    definition=(
+        "Style similarity measures how well a generated social media post matches the style, tone, "
+        "and vocabulary of provided example posts. This includes analyzing the similarity of tone, "
+        "word choice, punctuation, sentence structure, and stylistic elements like hashtags and emojis. "
+        "Content similarity should not factor into the style similarity score. Post length is of minimal importance."
+    ),
+    grading_prompt=(
+        "Style Similarity: Score the generated post's similarity to the example posts on a scale from 0 to 5:\n"
+        "- Score 0: No stylistic similarity at all\n"
+        "- Score 1: Minimal stylistic similarity\n"
+        "- Score 2: Some stylistic elements match but significant differences exist\n"
+        "- Score 3: Moderate stylistic similarity in tone, vocabulary, or structure\n"
+        "- Score 4: High stylistic similarity across most elements\n"
+        "- Score 5: Could be written by the same author\n\n"
+        "Consider:\n"
+        "- Tone: similarity in voice and attitude\n"
+        "- Vocabulary: similarity in word choice and complexity\n"
+        "- Style: similarity in punctuation, sentence structure, hashtags, and emojis"
+    ),
+    examples=[evaluation_example_1, evaluation_example_2],
+    version="v1",
+    model="anthropic:/claude-3-5-sonnet-20241022",
+    parameters={"temperature": 0.0, "max_tokens": 1000},
+    aggregations=["mean", "variance", "p90"],
+    grading_context_columns=["examples"],
+    greater_is_better=True
+)
+```
+
+And we can test it out:
+
+```python
+too_formal_example = """MLflow has introduced distinct deployment paradigms through its ChatModel and PythonModel classes, each serving specific implementation requirements in GenAI applications.
+ChatModel implements a standardized deployment framework utilizing OpenAI-compatible interfaces, offering several advantages:
+
+Full compatibility with existing OpenAI infrastructure and workflows
+Implementation of predefined model signatures ensuring immediate functionality
+Seamless integration with MLflow's comprehensive tracking and evaluation systems
+
+Conversely, PythonModel provides advanced customization capabilities for specialized requirements:
+
+Implementation of bespoke input/output schemas
+Advanced data transformation protocols beyond standard conversational patterns
+Granular control over model behavior and deployment specifications
+
+For standard conversational AI implementations, ChatModel's structured approach mitigates common deployment challenges while maintaining consistent interfaces across GenAI services. PythonModel remains the optimal choice for implementations requiring specialized data handling protocols or custom interaction patterns.
+For detailed implementation guidelines, please refer to the accompanying documentation.
+Reference: MLflow Documentation
+"""
+
+style_similarity_metric(predictions=too_formal_example,
+                    inputs=additional_instructions,
+                    examples = [example_posts])
+```
+
+Which returns:
+
+```python
+MetricValue(
+    scores=[2],
+    justifications=[
+        "The output maintains some professional elements from the example posts like structured information 
+presentation and technical accuracy, but lacks many key stylistic elements present in the examples. Missing are the
+emoji usage, bullet points with descriptive icons, hashtags, and the more engaging, conversational tone seen in 
+examples. The writing is more formal and academic compared to the examples' approachable technical style. While it 
+uses similar organizational patterns (introducing a topic then breaking down key points), the execution is notably 
+more rigid and less social media-friendly than the reference posts."
+    ],
+    aggregate_results={'mean': np.float64(2.0), 'variance': np.float64(0.0), 'p90': np.float64(2.0)}
+)
+```
+
+This is exactly what we were looking for in a style similarity metric!
+
+## Tying it all together with `mlflow.evaluate()`
+
+Now that we have our metrics, it's time to structure our evaluation suite and run our experiments. As we mentioned earlier, we want to identify the best model and system prompt combination.
+
+For the purposes of this guide, we will use our `webpage_to_markdown` function to generate a set of ten different sources for posts. We will then generate four different posts for each source, using two different prompts and two different models. We will save the results of our experiments as a Pandas DataFrame and use the `mlflow.evaluate()` function to evaluate the generated posts using our three metrics. In a real-world scenario, we would want to run a larger experiment with more examples and, potentially, a wider range of candidate models and prompts.
+
+Note that we could, instead, simply track these experiments as individual MLflow runs. However, using `mlflow.evaluate()` provides a more structured way to compare models and prompts across multiple metrics, with built-in support for viewing and analyzing evaluation results in the MLflow UI.
+
+We also have a few different options for how to use `mlflow.evaluate()`. We can pass the model to `mlflow.evaluate()`, which will call on the model to generate fresh predictions each time we run the evaluation suite, or we can pass a dataset including all the necessary inputs, outputs, and context. We will go with the latter approach. This way, if we need to debug or update our evaluation setup, we do not need to re-run the generation step: we can simply run the updated evaluations on the static dataset.
+
+First, we'll set up our key experiment variables:
+
+```python
+
+system_prompt_2 = """You are a social media content specialist with expertise in matching writing styles and voice across platforms. Your task is to:
+
+1. Analyze the provided example post(s) by examining:
+   - Writing style, tone, and voice
+   - Sentence structure and length
+   - Use of hashtags, emojis, and formatting
+   - Engagement techniques and calls-to-action
+
+2. Generate a new LinkedIn post about the given topic that matches:
+   - The identified writing style and tone
+   - Similar structure and formatting choices
+   - Equivalent use of platform features and hashtags
+   - Comparable engagement elements
+
+3. Return only the generated post, formatted exactly as it would appear on LinkedIn, without any additional commentary or explanations."""
+
+system_prompts = {"concise": system_prompt_1, "detailed": system_prompt_2}
+
+
+clients = {"openai": OpenAI(), "gemini": OpenAI(
+    api_key=os.environ["GEMINI_API_KEY"],
+    base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
+)}
+```
+
+Next, let's generate our dataset. We will use the `webpage_to_markdown` function to generate a set of ten different sources for posts. We will then generate four different posts for each source, using two different prompts and two different models.
+
+```python
+mlflow_pages = {"Tutorial: Custom GenAI Models using ChatModel": "https://mlflow.org/docs/latest/llms/chat-model-guide/index.html",
+                "MLflow Tracing Schema": "https://mlflow.org/docs/latest/llms/tracing/tracing-schema.html",
+                "MLflow AI Gateway (Experimental)": "https://mlflow.org/docs/latest/llms/deployments/index.html",
+                "MLflow LLM Evaluation": "https://mlflow.org/docs/latest/llms/llm-evaluate/index.html",
+                "LLM Evaluation with MLflow Example Notebook": "https://mlflow.org/docs/latest/llms/llm-evaluate/notebooks/question-answering-evaluation.html",
+                "MLflow Tracing for LLM Observability": "https://mlflow.org/docs/latest/llms/tracing/index.html",
+                "Deep Learning": "https://mlflow.org/docs/latest/deep-learning/index.html",
+                "DSPy Quickstart": "https://mlflow.org/docs/latest/llms/dspy/notebooks/dspy_quickstart.html",
+                "Building Custom Python Function Models with MLflow": "https://mlflow.org/docs/latest/traditional-ml/creating-custom-pyfunc/index.html",
+                "Quickstart with MLflow PyTorch Flavor": "https://mlflow.org/docs/latest/deep-learning/pytorch/quickstart/pytorch_quickstart.html"
+                }
+```
+
+### Generate the Evaluation Dataset
+
+Now that we have set up our experimental variables and identified the sources we want to use for post generation, we can generate an evaluation dataset. For each source we will generate four different posts, using two different system prompts and two different models. We will record:
+
+- the model used
+- the system prompt used
+- the source webpage content
+- the generated post
+- the example posts used (even though we aren't comparing different examples in the experiment, we still need to include them in the dataset for the evaluation suite to work because they are used by the style similarity metric).
+
+We will also use some slightly more detailed tracing as we generate this evaluation dataset—we will trace the markdown conversion, the prompt generation, and the post generation. This way, if we encounter any issues generating the evaluation dataset, we can easily identify the source of the issue.
+
+![Error trace](/images/llms/mlflow-for-genai/5_error_trace.png)
+
+Here's the function we use to generate the evaluation dataset. Note that, to get the detailed tracing, we added `@mlflow.trace(span_type="FUNCTION")` decorators to the `webpage_to_markdown` and `generate_prompt` functions.
+
+```python
+import pandas as pd
+
+def generate_evaluation_dataset(system_prompts: dict, clients: dict, user_instruction: str, example_posts: list, context_pages: dict):
+    # Create list to store results
+    results = []
+    
+    for page_name, page_url in context_pages.items():
+        for prompt_name, system_prompt in system_prompts.items():
+            for client_name, client in clients.items():
+
+                with mlflow.start_span(name="eval_dataset_generation",
+                                       span_type="CHAIN",
+                                       ) as parent_span:
+                    model = "gpt-4o" if client_name == "openai" else "gemini-2.0-flash-exp"
+                    parent_span.set_inputs({"model": model, "system_prompt": system_prompt,
+                                            "example_post": page_name})
+                    page_content = webpage_to_markdown(page_url)
+                    messages = generate_prompt(system_prompt, user_template, example_posts, page_content, additional_instructions)
+
+                    response = client.chat.completions.create(
+                        model=model,
+                        messages=messages,
+                    )
+
+                    
+                    results.append({
+                        'model': client_name,
+                        'system_prompt': prompt_name,
+                        'context_page': page_name,
+                        'user_instruction': user_instruction,
+                        'output': response.choices[0].message.content
+                    })
+                    # wait for 1 second
+                    #time.sleep(1)
+                    parent_span.set_outputs({"output": response.choices[0].message.content})
+        
+    return pd.DataFrame(results)
+
+eval_dataset = generate_evaluation_dataset(system_prompts, clients, user_instruction, example_posts, mlflow_pages)
+```
+
+Which results in a table structured like this:
+
+![evaluation dataset](/images/llms/mlflow-for-genai/6_eval_table.png)
+
+### Run the Evaluation Suite on the Evaluation Dataset
+
+Now that we have our evaluation dataset, we can run the evaluation suite on it. We will use the `mlflow.evaluate()` function to evaluate the generated posts using our three metrics.
+
+We will group the evaluation by model and system prompt, and then evaluate each group. Organizing the evaluation into separate runs gives us the easiest way to view the evaluation results in the MLflow UI.
+
+There are a few important things to note here:
+
+- We listed our metrics in the `extra_metrics` argument. This is because we are not using the default metrics associated with a particular task type and are instead using only the specific metrics we decided on for our use case.
+- In the `evaluator_config` argument, we set the `col_mapping` to map the inputs and context to the columns in our evaluation dataset. This allows the evaluation suite to correctly map the inputs and context to the evaluation results.
+- For the sake of organization, we created a parent run and nested each of the evaluation runs within it.
+
+```python
+import uuid
+mlflow.set_tracking_uri("file:./../mlruns")
+mlflow.set_experiment("genai-social")
+
+# Get unique combinations of model and system_prompt
+model_prompts = eval_dataset[['model', 'system_prompt']].drop_duplicates()
+
+# Create parent run for all evaluations
+with mlflow.start_run(run_name=f"social-post-generation-eval-{uuid.uuid4()}") as parent_run:
+    mlflow.log_param("evaluation_type", "social_post_generation")
+    
+    # Evaluate each configuration subset
+    for _, row in model_prompts.iterrows():
+        model = row['model']
+        system_prompt = row['system_prompt']
+        
+        # Subset the data for this configuration
+        subset_df = eval_dataset[
+            (eval_dataset['model'] == model) & 
+            (eval_dataset['system_prompt'] == system_prompt)
+        ]
+        
+        # Create child run for this specific configuration
+        with mlflow.start_run(run_name=f"{model}-{system_prompt}", nested=True) as child_run:
+            # Log configuration parameters
+            mlflow.log_params({
+                "model": model,
+                "system_prompt": system_prompt,
+            })
+            
+            # Run evaluation
+            eval_results = mlflow.evaluate(
+                data=subset_df,
+                predictions="output",
+                extra_metrics=[
+                    style_similarity_metric,
+                    faithfulness_metric,
+                    toxicity_metric
+                ],
+                evaluator_config={
+                    "col_mapping": {
+                        "inputs": "user_instruction",
+                        "context": "context_page"
+                    }
+                }
+            )
+```
+
+The evaluation UI gives us a number of ways to view the results. We can, for example, select the relevant runs, group by the context page name, and compare the faithfulness metric in order to see how well each model/system prompt combination performed on each page.
+
+![Evaluation UI](/images/llms/mlflow-for-genai/7_eval_ui.png)
+
+We can also load the evaluation results into a Pandas DataFrame for further custom analysis. Let's get the last five run IDs (parent run + four child runs), load the evaluation results into a DataFrame, and then analyze the results.
+
+```python
+mlflow_client = mlflow.MlflowClient()
+
+recent_runs = mlflow_client.search_runs(
+    experiment_ids=[mlflow.get_experiment_by_name("genai-social").experiment_id],
+    max_results=5,
+    order_by=["start_time DESC"]
+)
+
+recent_run_ids = [run.info.run_id for run in recent_runs]
+filtered_df = recent_runs[recent_runs['run_id'].isin(recent_run_ids)]
+
+summary_df = filtered_df.groupby(['model', 'system_prompt']).agg({
+    'style_similarity/v1/score': 'mean',
+    'faithfulness/v1/score': 'mean',
+    'toxicity/v1/score': 'mean'
+}).round(3)
+
+summary_df.columns = ['Style Similarity', 'Faithfulness', 'Toxicity']
+
+print(summary_df)
+```
+
+```text
+                      Style Similarity  Faithfulness  Toxicity
+model  system_prompt                                          
+gemini concise                     4.6           3.1     0.001
+       detailed                    4.4           3.4     0.002
+openai concise                     4.2           3.2     0.002
+       detailed                    4.2           3.1     0.002
+```
+
+The ability to load the evaluation results into a Pandas DataFrame also allows us to use our preferred plotting libraries to visualize the results. For example, the following was created using `matplotlib`.
+
+![Evaluation Results](/images/llms/mlflow-for-genai/8_eval_results.png)
+
+The model and prompt combinations perform relatively similarly. Based on this experiment, the `gemini-2.0-flash-exp` model with the `detailed` system prompt appears to offer the best combination of style similarity and faithfulness. In a production setting, we would want to run a larger experiment to confirm this result.
+
+## Conclusion
+
+In this second part of a four-part guide detailing how MLflow integrates with a GenAI project, from conception through deployment, we evaluated our AI system. In particular, we saw how:
+
+- MLflow's callable metrics let us quickly and easily test the metrics we wanted to use to evaluate our system
+- `mlflow.evaluate()` can be used to run an evaluation suite, including two LLM-as-judge metrics, on our AI system.
+
+In the next section, we will see how to encapsulate our our application logic in a custom MLflow model.
