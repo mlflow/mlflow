@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Optional, TypeVar, Union
 
 from mlflow.genai.utils.enum_utils import StrEnum
 
@@ -17,19 +17,20 @@ if TYPE_CHECKING:
     _LabelSchema: TypeAlias = _label_schemas.LabelSchema
 
 # TypeVar for generic InputType subclass return types
-DatabricksInputType = TypeVar("DatabricksInputType", bound="InputType")
+DatabricksInputType = TypeVar("DatabricksInputType")
+_InputType = TypeVar("_InputType", bound="InputType")
 
 
 class InputType(ABC):
     """Base class for all input types."""
 
     @abstractmethod
-    def _to_databricks_input(self) -> Any:
+    def _to_databricks_input(self) -> DatabricksInputType:
         """Convert to the internal Databricks input type."""
 
     @classmethod
     @abstractmethod
-    def _from_databricks_input(cls, input_obj: Any) -> DatabricksInputType:
+    def _from_databricks_input(cls, input_obj: DatabricksInputType) -> _InputType:
         """Create from the internal Databricks input type."""
 
 
