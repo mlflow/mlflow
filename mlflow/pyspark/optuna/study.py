@@ -88,7 +88,7 @@ def _optimize_sequential(
             warning_message = None
 
         if frozen_trial.state == TrialState.COMPLETE:
-            study._log_completed_trial(frozen_trial)
+            _logger.info(f"Trial {trial.number} finished with parameters: {trial.params}.")
         elif frozen_trial.state == TrialState.PRUNED:
             _logger.info("Trial {} pruned. {}".format(frozen_trial._trial_id, str(func_err)))
             mlflow_client.set_terminated(frozen_trial._trial_id, status="KILLED")
@@ -239,13 +239,15 @@ class MlflowSparkStudy(Study):
             self.mlflow_client.set_terminated(self._study_id, "KILLED")
             raise
         if "error" in result_df.columns:
-            error_count = result_df.filter(col("error") != "").count()
-            if error_count > 0:
-                first_non_null_value = result_df.select(first("error", ignorenulls=True)).first()[0]
+            failed_runs = result_df.filter(col("error").isNotNull())
+            error_rows = failed_runs.select("error").collect()
+            if len(error_rows) > 0:
+                first_non_null_value = error_rows[0][0]
                 self.mlflow_client.set_terminated(self._study_id, "KILLED")
                 raise ExecutionException(
                     f"Optimization run for Optuna MlflowSparkStudy failed. "
                     f"See full error details in the failed MLflow runs. "
+                    f"Number of failed runs: {len(error_rows)}. "
                     f"First trial failure message: {first_non_null_value}"
                 )
         self.mlflow_client.set_terminated(self._study_id)
