@@ -691,7 +691,7 @@ class MlflowClient:
             return registry_client.get_prompt_version(name, version)
 
         except MlflowException as exc:
-            if allow_missing and exc.error_code == "RESOURCE_DOES_NOT_EXIST":
+            if allow_missing and exc.error_code in ("RESOURCE_DOES_NOT_EXIST", "NOT_FOUND"):
                 return None
             raise
 
