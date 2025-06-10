@@ -90,8 +90,7 @@ def proto_to_mlflow_prompt(
         template=proto_version.template,
         commit_message=proto_version.description,
         creation_timestamp=proto_version.creation_timestamp,
-        version_metadata=version_tags,
-        prompt_tags=None,  # No longer inherit prompt tags
+        tags=version_tags,
         aliases=aliases,
     )
 
@@ -108,8 +107,8 @@ def mlflow_prompt_to_proto(prompt: PromptVersion) -> ProtoPromptVersion:
         proto_version.creation_timestamp = prompt.creation_timestamp
 
     # Add version tags
-    if prompt.version_metadata:
-        proto_version.tags.extend(mlflow_tags_to_proto_version_tags(prompt.version_metadata))
+    if prompt.tags:
+        proto_version.tags.extend(mlflow_tags_to_proto_version_tags(prompt.tags))
 
     # Add aliases
     if prompt.aliases:

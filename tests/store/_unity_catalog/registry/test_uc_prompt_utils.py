@@ -92,6 +92,7 @@ def test_proto_to_mlflow_prompt():
     proto_version.name = "test_prompt"
     proto_version.version = "1"
     proto_version.template = "Hello {{name}}!"
+    proto_version.description = "Test description"
 
     # Add version tags
     proto_version.tags.extend(
@@ -102,8 +103,10 @@ def test_proto_to_mlflow_prompt():
     )
 
     result = proto_to_mlflow_prompt(proto_version)
+
+    # The critical test: version tags should go to tags
     expected_tags = {"env": "production", "author": "alice"}
-    assert result.tags == expected_tags  # Both should return the same thing
+    assert result.tags == expected_tags
 
     # Test with no tags
     proto_no_tags = ProtoPromptVersion()
@@ -112,7 +115,6 @@ def test_proto_to_mlflow_prompt():
     proto_no_tags.template = "Simple template"
 
     result_no_tags = proto_to_mlflow_prompt(proto_no_tags)
-    assert result_no_tags.version_metadata == {}
     assert result_no_tags.tags == {}
 
 
@@ -123,7 +125,7 @@ def test_mlflow_prompt_to_proto():
         version=1,
         template="Hello {{name}}!",
         commit_message="Test prompt",
-        version_metadata={"key1": "value1", "key2": "value2"},
+        tags={"key1": "value1", "key2": "value2"},
         aliases=["production"],
     )
 

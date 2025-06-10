@@ -35,11 +35,9 @@ class PromptVersion(ModelVersion):
             https://jinja.palletsprojects.com/en/stable/api/#notes-on-identifiers
         commit_message: The commit message for the prompt version. Optional.
         creation_timestamp: Timestamp of the prompt creation. Optional.
-        version_metadata: A dictionary of metadata associated with the **prompt version**.
+        tags: A dictionary of tags associated with the **prompt version**.
             This is useful for storing version-specific information, such as the author of
             the changes. Optional.
-        prompt_tags: Deprecated parameter, no longer used. Version tags are accessed via the
-            `tags` property instead.
     """
 
     def __init__(
@@ -49,29 +47,25 @@ class PromptVersion(ModelVersion):
         template: str,
         commit_message: Optional[str] = None,
         creation_timestamp: Optional[int] = None,
-        version_metadata: Optional[dict[str, str]] = None,
-        prompt_tags: Optional[dict[str, str]] = None,
+        tags: Optional[dict[str, str]] = None,
         aliases: Optional[list[str]] = None,
     ):
         # Store template text as a tag
-        version_metadata = version_metadata or {}
-        version_metadata[PROMPT_TEXT_TAG_KEY] = template
-        version_metadata[IS_PROMPT_TAG_KEY] = "true"
+        tags = tags or {}
+        tags[PROMPT_TEXT_TAG_KEY] = template
+        tags[IS_PROMPT_TAG_KEY] = "true"
 
         super().__init__(
             name=name,
             version=version,
             creation_timestamp=creation_timestamp,
             description=commit_message,
-            # "version_metadata" is represented as ModelVersion tags.
-            tags=[ModelVersionTag(key=key, value=value) for key, value in version_metadata.items()],
+            # "tags" is represented as ModelVersion tags.
+            tags=[ModelVersionTag(key=key, value=value) for key, value in tags.items()],
             aliases=aliases,
         )
 
         self._variables = set(PROMPT_TEMPLATE_VARIABLE_PATTERN.findall(self.template))
-
-        # Store the prompt-level tags (from RegisteredModel).
-        self._prompt_tags = prompt_tags or {}
 
     def __repr__(self) -> str:
         text = (
@@ -113,12 +107,6 @@ class PromptVersion(ModelVersion):
         Return the commit message of the prompt version.
         """
         return self.description  # inherited from ModelVersion
-
-    @property
-    def version_metadata(self) -> dict[str, str]:
-        """Return the version metadata as a dictionary. This is the same as the tags property."""
-        # Remove the prompt text tag as it should not be user-facing
-        return {key: value for key, value in self._tags.items() if not _is_reserved_tag(key)}
 
     @property
     def tags(self) -> dict[str, str]:
@@ -185,8 +173,7 @@ class PromptVersion(ModelVersion):
                     template=template,
                     commit_message=self.commit_message,
                     creation_timestamp=self.creation_timestamp,
-                    prompt_tags=self._prompt_tags,
-                    version_metadata=self.version_metadata,
+                    tags=self.tags,
                     aliases=self.aliases,
                 )
         return template
@@ -219,7 +206,6 @@ class PromptVersion(ModelVersion):
             template=model_version.tags[PROMPT_TEXT_TAG_KEY],
             commit_message=model_version.description,
             creation_timestamp=model_version.creation_timestamp,
-            version_metadata=model_version.tags,
-            prompt_tags=prompt_tags,
+            tags=model_version.tags,
             aliases=model_version.aliases,
         )
