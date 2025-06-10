@@ -685,7 +685,7 @@ def test_load_prompt_with_tracing_single_prompt():
         commit_message=None,
         creation_timestamp=None,
     )
-    client.link_prompt_versions_to_trace(trace_id=span.trace_id, prompts=[prompt_version])
+    client.link_prompt_versions_to_trace(trace_id=span.trace_id, prompt_versions=[prompt_version])
 
     # Verify the prompt was linked to the trace by checking the actual trace
     trace = mlflow.get_trace(span.trace_id)
@@ -742,7 +742,7 @@ def test_load_prompt_with_tracing_multiple_prompts():
             creation_timestamp=None,
         ),
     ]
-    client.link_prompt_versions_to_trace(trace_id=span.trace_id, prompts=prompt_versions)
+    client.link_prompt_versions_to_trace(trace_id=span.trace_id, prompt_versions=prompt_versions)
 
     # Verify both versions were linked to the same trace by checking the actual trace
     trace = mlflow.get_trace(span.trace_id)
@@ -822,7 +822,9 @@ def test_load_prompt_with_tracing_nested_spans():
             creation_timestamp=None,
         ),
     ]
-    client.link_prompt_versions_to_trace(trace_id=outer_span.trace_id, prompts=prompt_versions)
+    client.link_prompt_versions_to_trace(
+        trace_id=outer_span.trace_id, prompt_versions=prompt_versions
+    )
 
     # Check trace now has both prompts (same trace, different spans)
     trace = mlflow.get_trace(outer_span.trace_id)
