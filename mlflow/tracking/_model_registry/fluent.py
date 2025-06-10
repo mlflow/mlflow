@@ -689,7 +689,10 @@ def load_prompt(
     if link_to_model:
         model_id = model_id or get_active_model_id()
         if model_id is not None:
-            # Run linking in background thread to avoid blocking prompt loading
+            # Run linking in background thread to avoid blocking prompt loading. Prompt linking
+            # is not critical for the user's workflow (if the prompt fails to link, the user's
+            # workflow is minorly affected), so we handle it asynchronously and gracefully
+            # handle any failures without impacting the core prompt loading functionality.
 
             def _link_prompt_async():
                 try:
