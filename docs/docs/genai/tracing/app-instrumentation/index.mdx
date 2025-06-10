@@ -11,7 +11,7 @@ Learn how to instrument your GenAI application with MLflow Tracing to capture an
 
 This guide requires the following packages:
 
-**mlflow>=3.1**: Core MLflow functionality with GenAI features and Databricks connectivity.
+**mlflow>=3.1**: Core MLflow functionality with GenAI features.
 
 **openai>=1.0.0**: Only required to run the [Quick Start Examples](#quick-start-examples) below (if using other LLM providers, install their respective SDKs instead)
 
@@ -97,8 +97,8 @@ import os
 os.environ["OPENAI_API_KEY"] = "your-api-key-here"
 
 # Set up MLflow tracking
-mlflow.set_tracking_uri("databricks")
-mlflow.set_experiment("/Shared/auto-tracing-demo")
+mlflow.set_tracking_uri("http://127.0.0.1:5000")
+mlflow.set_experiment("auto-tracing-demo")
 
 # Enable automatic tracing for OpenAI
 mlflow.openai.autolog()
@@ -129,8 +129,8 @@ import os
 os.environ["OPENAI_API_KEY"] = "your-api-key-here"
 
 # Set up MLflow tracking
-mlflow.set_tracking_uri("databricks")
-mlflow.set_experiment("/Shared/manual-tracing-demo")
+mlflow.set_tracking_uri("http://127.0.0.1:5000")
+mlflow.set_experiment("manual-tracing-demo")
 
 # Enable automatic tracing for OpenAI
 mlflow.openai.autolog()

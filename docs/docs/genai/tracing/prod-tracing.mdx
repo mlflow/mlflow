@@ -249,54 +249,17 @@ MLflow only exports traces to a single destination. When the `OTEL_EXPORTER_OTLP
 
 ## Managed Monitoring with Databricks
 
-If you are looking for a managed solution for monitoring your GenAI application with complete observability by MLflow Tracing, we recommend using [Lakehouse Monitoring for GenAI](https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/monitoring) on Databricks.
-
-:::info
-
-    Don't have a Databricks account? [Sign up for free](https://docs.databricks.com/aws/en/getting-started/free-trial) and get started in a minute!
-
-:::
+Databricks also offers a [managed solution](https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/monitoring) for monitoring your GenAI applications that integrates with MLflow Tracing.
 
 ![Monitoring Hero](https://assets.docs.databricks.com/_static/images/generative-ai/monitoring/monitoring-hero.gif)
 
-This solution provides an instant access to a fully functional monitoring system and dashboard for your GenAI application, which includes:
+Capabilities include:
 
 * Track **operational metrics** like request volume, latency, errors, and cost.
 * Monitor **quality metrics** such as correctness, safety, context sufficiency, and more using managed evaluation.
 * Configure **custom metrics** with Python function.
 * Root cause analysis by looking at the recorded **traces** from MLflow Tracing.
-
-Lakehouse Monitoring for GenAI can be used for your GenAI application, regardless of whether it is hosted on Databricks or not. You can run the application hosted on any cloud or on-premise, and configure MLflow Tracing to send traces to Databricks to monitor the application.
-
-For more details about the product and how to set it up, please refer to the [Lakehouse Monitoring for GenAI](https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/monitoring) documentation.
-
-
-
-## Databricks Model Serving Integration
-
-When you deploy GenAI applications that have been instrumented with MLflow Tracing through the Mosaic AI Agent Framework, MLflow Tracing works automatically without any additional configuration. This integration provides seamless observability from development to production deployment.
-
-**Automatic Trace Collection**: If your code uses MLflow Tracing decorators, context managers, or autologging, traces are captured automatically in production with the same code working seamlessly across environments.
-
-**Built-in Production Readiness**: The framework handles trace batching, sampling, and error handling for production workloads while automatically logging traces to your specified MLflow experiment.
-
-```python
-import mlflow
-from databricks.agents import deploy
-
-
-# Your instrumented agent code
-@mlflow.trace
-def my_agent(query: str) -> str:
-    # Agent logic with automatic tracing
-    return process_query(query)
-
-
-# Deploy with automatic trace collection
-deployed_agent = deploy(model=my_agent, experiment_name="production-agent-traces")
-```
-
-After deployment, verify that traces are being collected properly by checking traces in the MLflow UI.
+* Support for applications hosted outside of Databricks
 
 ## Production Monitoring Configurations
 
