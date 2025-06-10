@@ -1778,13 +1778,18 @@ def test_create_prompt_with_tags_and_metadata(tracking_uri):
         version_metadata={"author": "Alice"},
     )
 
-    prompt = client.load_prompt("prompt_1", version=1)
-    assert prompt.template == "Hi, {{name}}!"
-    assert prompt.tags == {
+    # Test version 1
+    prompt_v1 = client.load_prompt("prompt_1", version=1)
+    assert prompt_v1.template == "Hi, {{name}}!"
+    # In decoupled architecture, prompt.tags returns version tags (version_metadata)
+    assert prompt_v1.tags == {"author": "Alice"}
+
+    # Test prompt-level tags (separate from version)
+    prompt_entity = client.get_prompt("prompt_1")
+    assert prompt_entity.tags == {
         "application": "greeting",
         "language": "en",
     }
-    assert prompt.version_metadata == {"author": "Alice"}
 
     client.register_prompt(
         name="prompt_1",
@@ -1798,22 +1803,23 @@ def test_create_prompt_with_tags_and_metadata(tracking_uri):
         version_metadata={"author": "Bob", "date": "2022-01-01"},
     )
 
-    prompt = client.load_prompt("prompt_1", version=2)
-    assert prompt.template == "こんにちは、{{name}}!"
-    assert prompt.tags == {
-        "application": "greeting",
-        "project": "toy",
-        "language": "ja",
-    }
-    assert prompt.version_metadata == {"author": "Bob", "date": "2022-01-01"}
+    # Test version 2
+    prompt_v2 = client.load_prompt("prompt_1", version=2)
+    assert prompt_v2.template == "こんにちは、{{name}}!"
+    # Version 2 has its own version tags (decoupled from prompt and version 1)
+    assert prompt_v2.tags == {"author": "Bob", "date": "2022-01-01"}
 
-    # Prompt level tags for version 1 should also be updated
-    prompt = client.load_prompt("prompt_1", version=1)
-    assert prompt.tags == {
+    # Verify prompt-level tags are updated and separate
+    prompt_entity_updated = client.get_prompt("prompt_1")
+    assert prompt_entity_updated.tags == {
         "application": "greeting",
         "project": "toy",
         "language": "ja",
     }
+
+    # Version 1 tags should be unchanged (decoupled from prompt tags)
+    prompt_v1_after_update = client.load_prompt("prompt_1", version=1)
+    assert prompt_v1_after_update.tags == {"author": "Alice"}  # Unchanged
 
 
 def test_create_prompt_error_handling(tracking_uri):
@@ -2209,6 +2215,26 @@ def test_link_prompt_version_to_model_smoke_test(tracking_uri):
         client.link_prompt_version_to_model(
             name="test_prompt", version="1", model_id=model.model_id
         )
+
+
+def test_link_prompts_to_trace_smoke_test(tracking_uri):
+    """Smoke test for linking prompt versions to a trace - just verify the method can be called."""
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    # Create an experiment and a run to have a proper context
+    experiment_id = client.create_experiment("test_experiment")
+    with mlflow.start_run(experiment_id=experiment_id):
+        # Create a simple trace for testing
+        trace_info = client.start_trace("test_trace")
+        trace_id = trace_info.request_id
+
+        # Register a prompt
+        client.register_prompt(name="test_prompt", template="Hello, {{name}}!")
+
+        # Get the prompt version and link to the trace (this should not raise an exception)
+        # This is the main assertion - that the method call succeeds
+        prompt_version = client.get_prompt_version("test_prompt", "1")
+        client.link_prompts_to_trace(prompt_versions=[prompt_version], trace_id=trace_id)
 
 
 def test_log_model_artifact(tmp_path: Path, tracking_uri: str) -> None:

@@ -757,6 +757,36 @@ class MlflowClient:
             model_id=model_id,
         )
 
+    def link_prompts_to_trace(self, prompt_versions: list[PromptVersion], trace_id: str) -> None:
+        """
+        Link multiple prompt versions to a trace.
+
+        Args:
+            prompt_versions: List of PromptVersion objects to link.
+            trace_id: Trace ID to link to each prompt version.
+
+        Example:
+            .. code-block:: python
+
+                import mlflow
+                from mlflow import MlflowClient
+
+                client = MlflowClient()
+
+                # Get prompt versions and link to trace
+                prompt_v1 = client.get_prompt_version("my_prompt", "1")
+                prompt_v2 = client.get_prompt_version("another_prompt", "2")
+
+                client.link_prompts_to_trace(
+                    prompt_versions=[prompt_v1, prompt_v2],
+                    trace_id="trace_123",
+                )
+        """
+        return self._get_registry_client().link_prompts_to_trace(
+            prompt_versions=prompt_versions,
+            trace_id=trace_id,
+        )
+
     # TODO: Use model_id in MLflow 3.0
     @experimental
     @require_prompt_registry
@@ -828,7 +858,7 @@ class MlflowClient:
             version: The version of the prompt.
         """
         self._validate_prompt(name, version)
-        self._get_registry_client().set_registered_model_alias(name, alias, version)
+        self._get_registry_client().set_prompt_alias(name, alias, version)
 
     @experimental
     @require_prompt_registry
@@ -841,7 +871,38 @@ class MlflowClient:
             name: The name of the prompt.
             alias: The alias to delete for the prompt.
         """
-        self._get_registry_client().delete_registered_model_alias(name, alias)
+        self._get_registry_client().delete_prompt_alias(name, alias)
+
+    @experimental
+    @require_prompt_registry
+    @translate_prompt_exception
+    def set_prompt_version_tag(
+        self, name: str, version: Union[str, int], key: str, value: str
+    ) -> None:
+        """
+        Set a tag on a specific prompt version.
+
+        Args:
+            name: The name of the prompt.
+            version: The version number of the prompt.
+            key: The tag key.
+            value: The tag value.
+        """
+        self._get_registry_client().set_prompt_version_tag(name, version, key, value)
+
+    @experimental
+    @require_prompt_registry
+    @translate_prompt_exception
+    def delete_prompt_version_tag(self, name: str, version: Union[str, int], key: str) -> None:
+        """
+        Delete a tag from a specific prompt version.
+
+        Args:
+            name: The name of the prompt.
+            version: The version number of the prompt.
+            key: The tag key to delete.
+        """
+        self._get_registry_client().delete_prompt_version_tag(name, version, key)
 
     def _validate_prompt(self, name: str, version: int):
         registry_client = self._get_registry_client()

@@ -35,11 +35,9 @@ class PromptVersion(_ModelRegistryEntity):
             https://jinja.palletsprojects.com/en/stable/api/#notes-on-identifiers
         commit_message: The commit message for the prompt version. Optional.
         creation_timestamp: Timestamp of the prompt creation. Optional.
-        version_metadata: A dictionary of metadata associated with the **prompt version**.
+        tags: A dictionary of tags associated with the **prompt version**.
             This is useful for storing version-specific information, such as the author of
             the changes. Optional.
-        prompt_tags: A dictionary of tags associated with the entire prompt. This is different
-            from the `version_metadata` as it is not tied to a specific version of the prompt.
         aliases: List of aliases for this prompt version. Optional.
         last_updated_timestamp: Timestamp of last update. Optional.
         user_id: User ID that created this prompt version. Optional.
@@ -52,8 +50,7 @@ class PromptVersion(_ModelRegistryEntity):
         template: str,
         commit_message: Optional[str] = None,
         creation_timestamp: Optional[int] = None,
-        version_metadata: Optional[dict[str, str]] = None,
-        prompt_tags: Optional[dict[str, str]] = None,
+        tags: Optional[dict[str, str]] = None,
         aliases: Optional[list[str]] = None,
         # Useful ModelVersion attributes - keep these
         last_updated_timestamp: Optional[int] = None,
@@ -67,19 +64,11 @@ class PromptVersion(_ModelRegistryEntity):
         self._creation_time: int = creation_timestamp or 0
 
         # Store template text as a tag
-        version_metadata = version_metadata or {}
-        version_metadata[PROMPT_TEXT_TAG_KEY] = template
-        version_metadata[IS_PROMPT_TAG_KEY] = "true"
-
-        # Convert version_metadata to tags dict
-        self._tags: dict[str, str] = version_metadata
+        tags = tags or {}
+        tags[PROMPT_TEXT_TAG_KEY] = template
+        tags[IS_PROMPT_TAG_KEY] = "true"
 
         self._variables = set(PROMPT_TEMPLATE_VARIABLE_PATTERN.findall(template))
-
-        # Store the prompt-level tags (from RegisteredModel).
-        self._prompt_tags = prompt_tags or {}
-
-        # Useful ModelVersion attributes - keep these
         self._last_updated_timestamp: Optional[int] = last_updated_timestamp
         self._description: Optional[str] = commit_message
         self._user_id: Optional[str] = user_id
@@ -125,20 +114,14 @@ class PromptVersion(_ModelRegistryEntity):
         """
         Return the commit message of the prompt version.
         """
-        return self._description
-
-    @property
-    def version_metadata(self) -> dict[str, str]:
-        """Return the tags of the prompt as a dictionary."""
-        # Remove the prompt text tag as it should not be user-facing
-        return {key: value for key, value in self._tags.items() if not _is_reserved_tag(key)}
+        return self.description  # inherited from ModelVersion
 
     @property
     def tags(self) -> dict[str, str]:
         """
-        Return the prompt-level tags.
+        Return the version-level tags.
         """
-        return {key: value for key, value in self._prompt_tags.items() if not _is_reserved_tag(key)}
+        return {key: value for key, value in self._tags.items() if not _is_reserved_tag(key)}
 
     @property
     def run_ids(self) -> list[str]:
@@ -260,8 +243,7 @@ class PromptVersion(_ModelRegistryEntity):
                     template=template,
                     commit_message=self.commit_message,
                     creation_timestamp=self.creation_timestamp,
-                    prompt_tags=self._prompt_tags,
-                    version_metadata=self.version_metadata,
+                    tags=self.tags,
                     aliases=self.aliases,
                     last_updated_timestamp=self.last_updated_timestamp,
                     user_id=self.user_id,
