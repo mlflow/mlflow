@@ -369,7 +369,7 @@ jobs:
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
         run: |
-          pytest tests/optuna
+          pytest tests/optuna tests/pyspark/optuna
   pyfunc:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
@@ -491,4 +491,4 @@ jobs:
           # Run Windows tests
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
             --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/evaluate --ignore=tests/optuna \
-            --ignore=tests/genai tests
+            --ignore=tests/pyspark/optuna --ignore=tests/genai tests

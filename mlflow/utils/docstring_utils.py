@@ -395,7 +395,7 @@ navigate to the model as well.
     with mlflow.start_run():
         model_info = mlflow.pyfunc.log_model(
             name=MyModel(),
-            artifact_path="model",
+            name="model",
             prompts=["prompt:/my_prompt/1"]
         )
 

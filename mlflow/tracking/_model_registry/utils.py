@@ -1,4 +1,5 @@
 from functools import partial
+from typing import Optional
 
 from mlflow.environment_variables import MLFLOW_REGISTRY_URI
 from mlflow.store.db.db_types import DATABASE_ENGINES
@@ -10,7 +11,6 @@ from mlflow.store.model_registry.rest_store import RestStore
 from mlflow.tracking._model_registry.registry import ModelRegistryStoreRegistry
 from mlflow.tracking._tracking_service.utils import (
     _resolve_tracking_uri,
-    get_tracking_uri,
 )
 from mlflow.utils._spark_utils import _get_active_spark_session
 from mlflow.utils.credentials import get_default_host_creds
@@ -19,7 +19,13 @@ from mlflow.utils.databricks_utils import (
     is_in_databricks_serverless_runtime,
     warn_on_deprecated_cross_workspace_registry_uri,
 )
-from mlflow.utils.uri import _DATABRICKS_UNITY_CATALOG_SCHEME, _OSS_UNITY_CATALOG_SCHEME
+from mlflow.utils.uri import (
+    _DATABRICKS_UNITY_CATALOG_SCHEME,
+    _OSS_UNITY_CATALOG_SCHEME,
+    construct_db_uc_uri_from_profile,
+    get_db_info_from_uri,
+    is_databricks_uri,
+)
 
 # NOTE: in contrast to tracking, we do not support the following ways to specify
 # the model registry URI:
@@ -91,7 +97,18 @@ def _get_registry_uri_from_spark_session():
         # Connected to Serverless
         return "databricks-uc"
 
-    return session.conf.get("spark.mlflow.modelRegistryUri", None)
+    from pyspark.sql.utils import AnalysisException
+
+    try:
+        return session.conf.get("spark.mlflow.modelRegistryUri", None)
+    except AnalysisException:
+        # In serverless clusters, session.conf.get() is unsupported
+        # and raises an AnalysisException. We may encounter this case
+        # when DBConnect is used to connect to a serverless cluster,
+        # in which case the prior `is_in_databricks_serverless_runtime()`
+        # check will have returned false (as of 2025-06-07, it checks
+        # an environment variable that isn't set by DBConnect)
+        return None
 
 
 def _get_registry_uri_from_context():
@@ -100,6 +117,39 @@ def _get_registry_uri_from_context():
     elif (uri := MLFLOW_REGISTRY_URI.get()) or (uri := _get_registry_uri_from_spark_session()):
         return uri
     return _registry_uri
+
+
+def _get_default_registry_uri_for_tracking_uri(tracking_uri: Optional[str]) -> Optional[str]:
+    """
+    Get the default registry URI for a given tracking URI.
+
+    If the tracking URI starts with "databricks", returns "databricks-uc" with profile if present.
+    Otherwise, returns the tracking URI itself.
+
+    Args:
+        tracking_uri: The tracking URI to get the default registry URI for
+
+    Returns:
+        The default registry URI
+    """
+    if tracking_uri is not None and is_databricks_uri(tracking_uri):
+        # If the tracking URI is "databricks", we impute the registry URI as "databricks-uc"
+        # corresponding to Databricks Unity Catalog Model Registry, which is the recommended
+        # model registry offering on Databricks
+        if tracking_uri == "databricks":
+            return _DATABRICKS_UNITY_CATALOG_SCHEME
+        else:
+            # Extract profile from tracking URI and construct databricks-uc URI
+            profile, key_prefix = get_db_info_from_uri(tracking_uri)
+            if profile:
+                # Reconstruct the profile string including key_prefix if present
+                profile_string = f"{profile}:{key_prefix}" if key_prefix else profile
+                return construct_db_uc_uri_from_profile(profile_string)
+            else:
+                return _DATABRICKS_UNITY_CATALOG_SCHEME
+
+    # For non-databricks tracking URIs, use the tracking URI as the registry URI
+    return tracking_uri
 
 
 def get_registry_uri() -> str:
@@ -127,11 +177,20 @@ def get_registry_uri() -> str:
         Current tracking uri: file:///.../mlruns
 
     """
-    return _get_registry_uri_from_context() or get_tracking_uri()
+    return _resolve_registry_uri()
 
 
-def _resolve_registry_uri(registry_uri=None, tracking_uri=None):
-    return registry_uri or _get_registry_uri_from_context() or _resolve_tracking_uri(tracking_uri)
+def _resolve_registry_uri(
+    registry_uri: Optional[str] = None, tracking_uri: Optional[str] = None
+) -> Optional[str]:
+    """
+    Resolve the registry URI following the same logic as get_registry_uri().
+    """
+    return (
+        registry_uri
+        or _get_registry_uri_from_context()
+        or _get_default_registry_uri_for_tracking_uri(_resolve_tracking_uri(tracking_uri))
+    )
 
 
 def _get_sqlalchemy_store(store_uri):

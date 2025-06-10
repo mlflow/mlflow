@@ -2,7 +2,7 @@
 # Required for testing utilities for parsing pip requirements
 pip>=20.1
 ## Test-only dependencies
-pytest==8.1.1
+pytest
 pytest-asyncio
 pytest-repeat
 pytest-cov

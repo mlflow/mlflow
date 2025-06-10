@@ -681,7 +681,11 @@ class Model:
         return ModelInfo(
             artifact_path=self.artifact_path,
             flavors=self.flavors,
-            model_uri=f"models:/{self.model_id}",
+            model_uri=(
+                f"models:/{self.model_id}"
+                if self.model_id
+                else f"runs:/{self.run_id}/{self.artifact_path}"
+            ),
             model_uuid=self.model_uuid,
             run_id=self.run_id,
             saved_input_example_info=self.saved_input_example_info,
@@ -832,6 +836,219 @@ class Model:
         if _MLFLOW_VERSION_KEY not in model_dict:
             model_dict[_MLFLOW_VERSION_KEY] = None
         return cls(**model_dict)
+
+    # MLflow 2.x log_model API. Only spark flavors uses this API.
+    # https://github.com/mlflow/mlflow/blob/fd2d9861fa52eeca178825c871d5d29fbb3b95c4/mlflow/models/model.py#L773-L982
+    @format_docstring(LOG_MODEL_PARAM_DOCS)
+    @classmethod
+    def _log_v2(
+        cls,
+        artifact_path,
+        flavor,
+        registered_model_name=None,
+        await_registration_for=DEFAULT_AWAIT_MAX_SLEEP_SECONDS,
+        metadata=None,
+        run_id=None,
+        resources=None,
+        auth_policy=None,
+        prompts=None,
+        **kwargs,
+    ) -> ModelInfo:
+        """
+        Log model using supplied flavor module. If no run is active, this method will create a new
+        active run.
+
+        Args:
+            artifact_path: Run relative path identifying the model.
+            flavor: Flavor module to save the model with. The module must have
+                the ``save_model`` function that will persist the model as a valid
+                MLflow model.
+            registered_model_name: If given, create a model version under
+                ``registered_model_name``, also creating a registered model if
+                one with the given name does not exist.
+            await_registration_for: Number of seconds to wait for the model version to finish
+                being created and is in ``READY`` status. By default, the
+                function waits for five minutes. Specify 0 or None to skip
+                waiting.
+            metadata: {{ metadata }}
+            run_id: The run ID to associate with this model. If not provided,
+                a new run will be started.
+            resources: {{ resources }}
+            auth_policy: {{ auth_policy }}
+            prompts: {{ prompts }}
+            kwargs: Extra args passed to the model flavor.
+
+        Returns:
+            A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
+            metadata of the logged model.
+        """
+
+        # Only one of Auth policy and resources should be defined
+
+        if resources is not None and auth_policy is not None:
+            raise ValueError("Only one of `resources`, and `auth_policy` can be specified.")
+
+        from mlflow.utils.model_utils import _validate_and_get_model_config_from_file
+
+        registered_model = None
+        with TempDir() as tmp:
+            local_path = tmp.path("model")
+            if run_id is None:
+                run_id = mlflow.tracking.fluent._get_or_start_run().info.run_id
+            if prompts is not None:
+                # Convert to URIs for serialization
+                prompts = [pr.uri if isinstance(pr, Prompt) else pr for pr in prompts]
+            mlflow_model = cls(
+                artifact_path=artifact_path,
+                run_id=run_id,
+                metadata=metadata,
+                resources=resources,
+                auth_policy=auth_policy,
+                prompts=prompts,
+            )
+            flavor.save_model(path=local_path, mlflow_model=mlflow_model, **kwargs)
+            # `save_model` calls `load_model` to infer the model requirements, which may result in
+            # __pycache__ directories being created in the model directory.
+            for pycache in Path(local_path).rglob("__pycache__"):
+                shutil.rmtree(pycache, ignore_errors=True)
+
+            if is_in_databricks_runtime():
+                _copy_model_metadata_for_uc_sharing(local_path, flavor)
+
+            tracking_uri = _resolve_tracking_uri()
+            serving_input = mlflow_model.get_serving_input(local_path)
+            # We check signature presence here as some flavors have a default signature as a
+            # fallback when not provided by user, which is set during flavor's save_model() call.
+            if mlflow_model.signature is None:
+                if serving_input is None:
+                    _logger.warning(
+                        _LOG_MODEL_MISSING_INPUT_EXAMPLE_WARNING, extra={"color": "red"}
+                    )
+                elif tracking_uri == "databricks" or get_uri_scheme(tracking_uri) == "databricks":
+                    _logger.warning(_LOG_MODEL_MISSING_SIGNATURE_WARNING, extra={"color": "red"})
+
+            env_vars = None
+            # validate input example works for serving when logging the model
+            if serving_input and kwargs.get("validate_serving_input", True):
+                from mlflow.models import validate_serving_input
+                from mlflow.utils.model_utils import RECORD_ENV_VAR_ALLOWLIST, env_var_tracker
+
+                with env_var_tracker() as tracked_env_names:
+                    try:
+                        validate_serving_input(
+                            model_uri=local_path,
+                            serving_input=serving_input,
+                        )
+                    except Exception as e:
+                        _logger.warning(
+                            f"Failed to validate serving input example {serving_input}. "
+                            "Alternatively, you can avoid passing input example and pass model "
+                            "signature instead when logging the model. To ensure the input example "
+                            "is valid prior to serving, please try calling "
+                            "`mlflow.models.validate_serving_input` on the model uri and serving "
+                            "input example. A serving input example can be generated from model "
+                            "input example using "
+                            "`mlflow.models.convert_input_example_to_serving_input` function.\n"
+                            f"Got error: {e}",
+                            exc_info=_logger.isEnabledFor(logging.DEBUG),
+                        )
+                    env_vars = (
+                        sorted(
+                            x
+                            for x in tracked_env_names
+                            if any(env_var in x for env_var in RECORD_ENV_VAR_ALLOWLIST)
+                        )
+                        or None
+                    )
+            if env_vars:
+                # Keep the environment variable file as it serves as a check
+                # for displaying tips in Databricks serving endpoint
+                env_var_path = Path(local_path, ENV_VAR_FILE_NAME)
+                env_var_path.write_text(ENV_VAR_FILE_HEADER + "\n".join(env_vars) + "\n")
+                if len(env_vars) <= 3:
+                    env_var_info = "[" + ", ".join(env_vars) + "]"
+                else:
+                    env_var_info = "[" + ", ".join(env_vars[:3]) + ", ... " + "]"
+                    f"(check file {ENV_VAR_FILE_NAME} in the model's artifact folder for full list"
+                    " of environment variable names)"
+                _logger.info(
+                    "Found the following environment variables used during model inference: "
+                    f"{env_var_info}. Please check if you need to set them when deploying the "
+                    "model. To disable this message, set environment variable "
+                    f"`{MLFLOW_RECORD_ENV_VARS_IN_MODEL_LOGGING.name}` to `false`."
+                )
+                mlflow_model.env_vars = env_vars
+                # mlflow_model is updated, rewrite the MLmodel file
+                mlflow_model.save(os.path.join(local_path, MLMODEL_FILE_NAME))
+
+            # Associate prompts to the model Run
+            if prompts:
+                client = mlflow.MlflowClient()
+                for prompt in prompts:
+                    client.log_prompt(run_id, prompt)
+
+            mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path, run_id)
+
+            # if the model_config kwarg is passed in, then log the model config as an params
+            if model_config := kwargs.get("model_config"):
+                if isinstance(model_config, str):
+                    try:
+                        file_extension = os.path.splitext(model_config)[1].lower()
+                        if file_extension == ".json":
+                            with open(model_config) as f:
+                                model_config = json.load(f)
+                        elif file_extension in [".yaml", ".yml"]:
+                            model_config = _validate_and_get_model_config_from_file(model_config)
+                        else:
+                            _logger.warning(
+                                "Unsupported file format for model config: %s. "
+                                "Failed to load model config.",
+                                model_config,
+                            )
+                    except Exception as e:
+                        _logger.warning("Failed to load model config from %s: %s", model_config, e)
+
+                try:
+                    from mlflow.models.utils import _flatten_nested_params
+
+                    # We are using the `/` separator to flatten the nested params
+                    # since we are using the same separator to log nested metrics.
+                    params_to_log = _flatten_nested_params(model_config, sep="/")
+                except Exception as e:
+                    _logger.warning("Failed to flatten nested params: %s", str(e))
+                    params_to_log = model_config
+
+                try:
+                    mlflow.tracking.fluent.log_params(params_to_log or {}, run_id=run_id)
+                except Exception as e:
+                    _logger.warning("Failed to log model config as params: %s", str(e))
+
+            try:
+                mlflow.tracking.fluent._record_logged_model(mlflow_model, run_id)
+            except MlflowException:
+                # We need to swallow all mlflow exceptions to maintain backwards compatibility with
+                # older tracking servers. Only print out a warning for now.
+                _logger.warning(_LOG_MODEL_METADATA_WARNING_TEMPLATE, mlflow.get_artifact_uri())
+                _logger.debug("", exc_info=True)
+
+            if registered_model_name is not None:
+                registered_model = mlflow.tracking._model_registry.fluent._register_model(
+                    f"runs:/{run_id}/{mlflow_model.artifact_path}",
+                    registered_model_name,
+                    await_registration_for=await_registration_for,
+                    local_model_path=local_path,
+                )
+
+            model_info = mlflow_model.get_model_info()
+            if registered_model is not None:
+                model_info.registered_model_version = registered_model.version
+
+        # If the model signature is Mosaic AI Agent compatible, render a recipe for evaluation.
+        from mlflow.models.display_utils import maybe_render_agent_eval_recipe
+
+        maybe_render_agent_eval_recipe(model_info)
+
+        return model_info
 
     @format_docstring(LOG_MODEL_PARAM_DOCS)
     @classmethod

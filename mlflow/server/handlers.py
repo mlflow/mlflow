@@ -38,7 +38,10 @@ from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY
 from mlflow.entities.multipart_upload import MultipartUploadPart
 from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.environment_variables import MLFLOW_DEPLOYMENTS_TARGET
+from mlflow.environment_variables import (
+    MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX,
+    MLFLOW_DEPLOYMENTS_TARGET,
+)
 from mlflow.exceptions import MlflowException, _UnsupportedMultipartUploadException
 from mlflow.models import Model
 from mlflow.protos import databricks_pb2
@@ -1420,6 +1423,27 @@ def search_datasets_impl(request_message):
         return _not_implemented()
 
 
+def _validate_gateway_path(method: str, gateway_path: str) -> None:
+    if not gateway_path:
+        raise MlflowException(
+            message="Deployments proxy request must specify a gateway_path.",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    elif method == "GET":
+        if gateway_path.strip("/") != "api/2.0/endpoints":
+            raise MlflowException(
+                message=f"Invalid gateway_path: {gateway_path} for method: {method}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+    elif method == "POST":
+        # For POST, gateway_path must be in the form of "gateway/{name}/invocations"
+        if not re.fullmatch(r"gateway/[^/]+/invocations", gateway_path.strip("/")):
+            raise MlflowException(
+                message=f"Invalid gateway_path: {gateway_path} for method: {method}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+
 @catch_mlflow_exception
 def gateway_proxy_handler():
     target_uri = MLFLOW_DEPLOYMENTS_TARGET.get()
@@ -1428,18 +1452,10 @@ def gateway_proxy_handler():
         return {"endpoints": []}
 
     args = request.args if request.method == "GET" else request.json
-
     gateway_path = args.get("gateway_path")
-    if not gateway_path:
-        raise MlflowException(
-            message="Deployments proxy request must specify a gateway_path.",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
-    request_type = request.method
+    _validate_gateway_path(request.method, gateway_path)
     json_data = args.get("json_data", None)
-
-    response = requests.request(request_type, f"{target_uri}/{gateway_path}", json=json_data)
-
+    response = requests.request(request.method, f"{target_uri}/{gateway_path}", json=json_data)
     if response.status_code == 200:
         return response.json()
     else:
@@ -1960,6 +1976,15 @@ def _create_model_version():
             "model_id": [_assert_string],
         },
     )
+
+    if request_message.source and (
+        regex := MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX.get()
+    ):
+        if not re.search(regex, request_message.source):
+            raise MlflowException(
+                f"Invalid model version source: '{request_message.source}'.",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
 
     # If the model version is a prompt, we don't validate the source
     if not _is_prompt_request(request_message):
@@ -2871,10 +2896,9 @@ def _get_ajax_path(base_path):
     return _add_static_prefix(f"/ajax-api/2.0{base_path}")
 
 
-def _add_static_prefix(route):
-    prefix = os.environ.get(STATIC_PREFIX_ENV_VAR)
-    if prefix:
-        return prefix + route
+def _add_static_prefix(route: str) -> str:
+    if prefix := os.environ.get(STATIC_PREFIX_ENV_VAR):
+        return prefix.rstrip("/") + route
     return route
 
 
@@ -2928,7 +2952,7 @@ def get_endpoints(get_handler=get_handler):
         get_service_endpoints(MlflowService, get_handler)
         + get_service_endpoints(ModelRegistryService, get_handler)
         + get_service_endpoints(MlflowArtifactsService, get_handler)
-        + [("/graphql", _graphql, ["GET", "POST"])]
+        + [(_add_static_prefix("/graphql"), _graphql, ["GET", "POST"])]
     )
 
 
