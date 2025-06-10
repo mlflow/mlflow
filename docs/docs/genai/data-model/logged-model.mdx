@@ -1,3 +1,5 @@
+import { APILink } from "@site/src/components/APILink";
+
 # MLflow LoggedModel Data Model for GenAI
 
 MLflow **LoggedModel** represents a first-class entity for tracking and managing AI models, agents, and generative AI applications within MLflow Experiments. A LoggedModel provides comprehensive model lifecycle management, from development through production, with integrated observability and evaluation capabilities.
@@ -59,7 +61,7 @@ LoggedModel provides a single abstraction for all types of AI models, from tradi
 LoggedModel connects development, evaluation, and production phases through a unified entity that tracks model evolution, performance metrics, and deployment status.
 
 ### Comprehensive Observability
-All execution traces, evaluation results, and performance metrics are automatically linked to the LoggedModel, providing complete visibility into model behavior.
+When a LoggedModel is set as active using <APILink fn="mlflow.set_active_model"/>, MLflow automatically links all execution traces, evaluation results, and performance metrics to that model, providing comprehensive visibility into its behavior.
 
 ## LoggedModel Core Properties
 
@@ -598,7 +600,10 @@ Monitoring setup ensures comprehensive production observability is in place. Per
 
 Creating and using LoggedModel for your AI applications involves several straightforward steps:
 
-**Create your first LoggedModel** by using `mlflow.flavor.log_model()` with a descriptive name and comprehensive parameters. **Enable automatic tracking** through `mlflow.set_active_model()` and `mlflow.flavor.autolog()` for seamless trace linking. **Implement evaluation** using MLflow's evaluation framework to assess model performance systematically. **Monitor and iterate** by analyzing traces and metrics to guide continuous improvement.
+- **Create your first LoggedModel** by using `mlflow.flavor.log_model()` or <APILink fn="mlflow.create_external_model"/> with a descriptive name and comprehensive parameters.
+- **Enable automatic tracking** through `mlflow.set_active_model()` and `mlflow.flavor.autolog()` for seamless trace linking.
+- **Implement evaluation** using MLflow's evaluation framework to assess model performance systematically.
+- **Monitor and iterate** by analyzing traces and metrics to guide continuous improvement.
 
 ## Next Steps
 
