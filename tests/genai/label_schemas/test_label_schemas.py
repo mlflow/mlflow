@@ -289,44 +289,68 @@ def test_input_type_abstract_methods():
         InputType()
 
 
-def test_input_type_all_inputs_inherit_from_input_type():
+@pytest.mark.parametrize(
+    "input_class",
+    [
+        InputCategorical,
+        InputCategoricalList,
+        InputText,
+        InputTextList,
+        InputNumeric,
+    ],
+)
+def test_input_type_all_inputs_inherit_from_input_type(input_class):
     """Test that all input classes inherit from InputType."""
-    assert issubclass(InputCategorical, InputType)
-    assert issubclass(InputCategoricalList, InputType)
-    assert issubclass(InputText, InputType)
-    assert issubclass(InputTextList, InputType)
-    assert issubclass(InputNumeric, InputType)
+    assert issubclass(input_class, InputType)
 
 
-def test_input_type_all_inputs_implement_required_methods():
-    """Test that all input classes implement required abstract methods."""
-    input_classes = [
+@pytest.mark.parametrize(
+    "input_obj",
+    [
         InputCategorical(options=["test"]),
         InputCategoricalList(options=["test"]),
         InputText(),
         InputTextList(),
         InputNumeric(),
-    ]
-
-    for input_obj in input_classes:
-        assert hasattr(input_obj, "_to_databricks_input")
-        assert callable(getattr(input_obj, "_to_databricks_input"))
-        assert hasattr(input_obj.__class__, "_from_databricks_input")
-        assert callable(getattr(input_obj.__class__, "_from_databricks_input"))
+    ],
+)
+def test_input_type_all_inputs_implement_required_methods(input_obj):
+    """Test that all input classes implement required abstract methods."""
+    assert hasattr(input_obj, "_to_databricks_input")
+    assert callable(getattr(input_obj, "_to_databricks_input"))
+    assert hasattr(input_obj.__class__, "_from_databricks_input")
+    assert callable(getattr(input_obj.__class__, "_from_databricks_input"))
 
 
 # LabelSchemaType tests
-def test_label_schema_type_enum_values():
+@pytest.mark.parametrize(
+    ("enum_member", "expected_value"),
+    [
+        (LabelSchemaType.FEEDBACK, "feedback"),
+        (LabelSchemaType.EXPECTATION, "expectation"),
+    ],
+)
+def test_label_schema_type_enum_values(enum_member, expected_value):
     """Test LabelSchemaType enum values."""
-    assert LabelSchemaType.FEEDBACK == "feedback"
-    assert LabelSchemaType.EXPECTATION == "expectation"
+    assert enum_member == expected_value
 
 
-def test_label_schema_type_enum_membership():
+@pytest.mark.parametrize(
+    ("value", "should_be_member"),
+    [
+        ("feedback", True),
+        ("expectation", True),
+        ("invalid", False),
+        ("", False),
+        ("FEEDBACK", False),
+    ],
+)
+def test_label_schema_type_enum_membership(value, should_be_member):
     """Test enum membership."""
-    assert "feedback" in LabelSchemaType
-    assert "expectation" in LabelSchemaType
-    assert "invalid" not in LabelSchemaType
+    if should_be_member:
+        assert value in LabelSchemaType
+    else:
+        assert value not in LabelSchemaType
 
 
 # LabelSchema tests
@@ -494,26 +518,27 @@ def test_integration_complete_workflow_numeric():
         assert result.max_value == max_val
 
 
-def test_integration_label_schema_with_different_input_types():
+@pytest.mark.parametrize(
+    ("input_type", "schema_name"),
+    [
+        (InputCategorical(options=["yes", "no"]), "categorical_schema"),
+        (InputCategoricalList(options=["a", "b", "c"]), "categorical_list_schema"),
+        (InputText(max_length=100), "text_schema"),
+        (InputTextList(max_count=5), "text_list_schema"),
+        (InputNumeric(min_value=1, max_value=10), "numeric_schema"),
+    ],
+)
+def test_integration_label_schema_with_different_input_types(input_type, schema_name):
     """Test LabelSchema works with all input types."""
-    input_types = [
-        InputCategorical(options=["yes", "no"]),
-        InputCategoricalList(options=["a", "b", "c"]),
-        InputText(max_length=100),
-        InputTextList(max_count=5),
-        InputNumeric(min_value=1, max_value=10),
-    ]
+    schema = LabelSchema(
+        name=schema_name,
+        type=LabelSchemaType.FEEDBACK,
+        title=f"Schema for {schema_name}",
+        input=input_type,
+    )
 
-    for i, input_type in enumerate(input_types):
-        schema = LabelSchema(
-            name=f"schema_{i}",
-            type=LabelSchemaType.FEEDBACK,
-            title=f"Schema {i}",
-            input=input_type,
-        )
-
-        assert schema.input == input_type
-        assert isinstance(schema.input, InputType)
+    assert schema.input == input_type
+    assert isinstance(schema.input, InputType)
 
 
 # Edge case tests
@@ -532,18 +557,21 @@ def test_edge_cases_empty_string_values():
     assert schema.instruction == ""
 
 
-def test_edge_cases_very_large_numeric_values():
-    """Test handling of very large numeric values."""
-    input_numeric = InputNumeric(min_value=1e10, max_value=1e20)
-    assert input_numeric.min_value == 1e10
-    assert input_numeric.max_value == 1e20
-
-
-def test_edge_cases_negative_numeric_ranges():
-    """Test handling of negative numeric ranges."""
-    input_numeric = InputNumeric(min_value=-1000.5, max_value=-0.1)
-    assert input_numeric.min_value == -1000.5
-    assert input_numeric.max_value == -0.1
+@pytest.mark.parametrize(
+    ("min_value", "max_value", "description"),
+    [
+        (1e10, 1e20, "very_large_values"),
+        (-1000.5, -0.1, "negative_range"),
+        (0.0, 0.0, "zero_range"),
+        (-float("inf"), float("inf"), "infinite_range"),
+        (1.123456789, 2.987654321, "high_precision_decimals"),
+    ],
+)
+def test_edge_cases_numeric_value_ranges(min_value, max_value, description):
+    """Test handling of various numeric value ranges."""
+    input_numeric = InputNumeric(min_value=min_value, max_value=max_value)
+    assert input_numeric.min_value == min_value
+    assert input_numeric.max_value == max_value
 
 
 def test_edge_cases_zero_max_length_text():
@@ -558,23 +586,24 @@ def test_edge_cases_zero_max_count_text_list():
     assert input_text_list.max_count == 0
 
 
-def test_edge_cases_special_characters_in_options():
-    """Test handling of special characters in categorical options."""
-    special_options = [
-        "option with spaces",
-        "option-with-dashes",
-        "option_with_underscores",
-        "option@with$pecial!chars",
-    ]
-    input_cat = InputCategorical(options=special_options)
-    assert input_cat.options == special_options
-
-
-def test_edge_cases_unicode_in_options():
-    """Test handling of unicode characters in options."""
-    unicode_options = ["🙂", "😢", "🤔", "αβγ", "中文"]
-    input_cat = InputCategorical(options=unicode_options)
-    assert input_cat.options == unicode_options
+@pytest.mark.parametrize(
+    "options",
+    [
+        [
+            "option with spaces",
+            "option-with-dashes",
+            "option_with_underscores",
+            "option@with$pecial!chars",
+        ],
+        ["🙂", "😢", "🤔", "αβγ", "中文"],
+        ["", "empty_and_normal", ""],
+        ["UPPERCASE", "lowercase", "MiXeD_CaSe"],
+    ],
+)
+def test_edge_cases_special_and_unicode_characters_in_options(options):
+    """Test handling of special characters and unicode in categorical options."""
+    input_cat = InputCategorical(options=options)
+    assert input_cat.options == options
 
 
 # API integration tests
@@ -645,40 +674,41 @@ def test_get_label_schema_calls_from_databricks_label_schema():
             assert result == mock_label_schema
 
 
-def test_api_integration_with_all_input_types():
+@pytest.mark.parametrize(
+    ("input_type", "schema_name"),
+    [
+        (InputCategorical(options=["yes", "no"]), "categorical_api_test"),
+        (InputCategoricalList(options=["a", "b", "c"]), "categorical_list_api_test"),
+        (InputText(max_length=100), "text_api_test"),
+        (InputTextList(max_count=5), "text_list_api_test"),
+        (InputNumeric(min_value=1, max_value=10), "numeric_api_test"),
+    ],
+)
+def test_api_integration_with_all_input_types(input_type, schema_name):
     """Test that API integration works with all input types."""
-    input_types = [
-        InputCategorical(options=["yes", "no"]),
-        InputCategoricalList(options=["a", "b", "c"]),
-        InputText(max_length=100),
-        InputTextList(max_count=5),
-        InputNumeric(min_value=1, max_value=10),
-    ]
+    # Mock the databricks modules and review app
+    with patch("databricks.agents.review_app.get_review_app") as mock_get_app:
+        mock_app = MagicMock()
+        mock_app.create_label_schema.return_value = MagicMock()
+        mock_get_app.return_value = mock_app
 
-    for i, input_type in enumerate(input_types):
-        # Mock the databricks modules and review app
-        with patch("databricks.agents.review_app.get_review_app") as mock_get_app:
-            mock_app = MagicMock()
-            mock_app.create_label_schema.return_value = MagicMock()
-            mock_get_app.return_value = mock_app
+        # Mock the _to_databricks_input method
+        with patch.object(input_type, "_to_databricks_input") as mock_to_databricks:
+            mock_databricks_input = MagicMock()
+            mock_to_databricks.return_value = mock_databricks_input
 
-            # Mock the _to_databricks_input method
-            with patch.object(input_type, "_to_databricks_input") as mock_to_databricks:
-                mock_databricks_input = MagicMock()
-                mock_to_databricks.return_value = mock_databricks_input
+            # Import here to avoid early import errors
+            from mlflow.genai.label_schemas import create_label_schema
 
-                # Import here to avoid early import errors
-                from mlflow.genai.label_schemas import create_label_schema
+            create_label_schema(
+                name=schema_name,
+                type="feedback",
+                title=f"Test Schema for {schema_name}",
+                input=input_type,
+            )
 
-                create_label_schema(
-                    name=f"test_schema_{i}",
-                    type="feedback",
-                    title=f"Test Schema {i}",
-                    input=input_type,
-                )
-
-                # Verify _to_databricks_input was called for each type
-                mock_to_databricks.assert_called_once()
+            # Verify _to_databricks_input was called for each type
+            mock_to_databricks.assert_called_once()
 
 
 # Import tests
