@@ -123,6 +123,20 @@ class InferenceTableSpanExporter(SpanExporter):
 
         returned_trace_info = self._client.start_trace_v3(trace)
         self._client._upload_trace_data(returned_trace_info, trace.data)
+
+        # Get any prompts that were registered to this trace for linking
+        prompts = self._trace_manager.get_prompts_for_trace(trace.info.trace_id)
+
+        # Link prompt versions to the trace. Prompt linking is not critical for trace export
+        # (if the prompt fails to link, the user's workflow is minorly affected), so we handle
+        # errors gracefully without failing the entire trace export
+        try:
+            self._client.link_prompt_versions_to_trace(
+                trace_id=returned_trace_info.trace_id,
+                prompts=prompts,
+            )
+        except Exception as e:
+            _logger.warning(f"Failed to link prompts to trace {returned_trace_info.trace_id}: {e}")
         _logger.debug(
             f"Finished logging trace to MLflow backend. TraceInfo: {returned_trace_info.to_dict()} "
         )
