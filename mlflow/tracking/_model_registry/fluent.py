@@ -32,7 +32,6 @@ from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import active_run, get_active_model_id
 from mlflow.utils import get_results_from_paginated_fn, mlflow_tags
-from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import (
     _construct_databricks_uc_registered_model_url,
     get_workspace_id,
@@ -525,7 +524,6 @@ def set_model_version_tag(
     )
 
 
-@experimental
 @require_prompt_registry
 def register_prompt(
     name: str,
@@ -616,7 +614,7 @@ def register_prompt(
     warnings.warn(
         PROMPT_API_MIGRATION_MSG.format(func_name="register_prompt"),
         category=FutureWarning,
-        stacklevel=2,
+        stacklevel=3,
     )
 
     return MlflowClient().register_prompt(
@@ -636,7 +634,7 @@ def search_prompts(
     warnings.warn(
         PROMPT_API_MIGRATION_MSG.format(func_name="search_prompts"),
         category=FutureWarning,
-        stacklevel=2,
+        stacklevel=3,
     )
 
     def pagination_wrapper_func(number_to_get, next_page_token):
@@ -651,7 +649,6 @@ def search_prompts(
     )
 
 
-@experimental
 @require_prompt_registry
 def load_prompt(
     name_or_uri: str,
@@ -694,7 +691,7 @@ def load_prompt(
     warnings.warn(
         PROMPT_API_MIGRATION_MSG.format(func_name="load_prompt"),
         category=FutureWarning,
-        stacklevel=2,
+        stacklevel=3,
     )
 
     client = MlflowClient()
@@ -752,7 +749,6 @@ def load_prompt(
     return prompt
 
 
-@experimental
 @require_prompt_registry
 def set_prompt_alias(name: str, alias: str, version: int) -> None:
     """
@@ -784,13 +780,12 @@ def set_prompt_alias(name: str, alias: str, version: int) -> None:
     warnings.warn(
         PROMPT_API_MIGRATION_MSG.format(func_name="set_prompt_alias"),
         category=FutureWarning,
-        stacklevel=2,
+        stacklevel=3,
     )
 
     MlflowClient().set_prompt_alias(name=name, version=version, alias=alias)
 
 
-@experimental
 @require_prompt_registry
 def delete_prompt_alias(name: str, alias: str) -> None:
     """
@@ -803,7 +798,7 @@ def delete_prompt_alias(name: str, alias: str) -> None:
     warnings.warn(
         PROMPT_API_MIGRATION_MSG.format(func_name="delete_prompt_alias"),
         category=FutureWarning,
-        stacklevel=2,
+        stacklevel=3,
     )
 
     MlflowClient().delete_prompt_alias(name=name, alias=alias)
