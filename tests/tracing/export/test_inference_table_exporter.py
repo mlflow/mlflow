@@ -245,7 +245,6 @@ def test_prompt_linking_with_dual_write(monkeypatch):
         version=1,
         template="Hello, {{name}}!",
         commit_message="Test prompt 1",
-        version_metadata={"test": "prompt1"},
         creation_timestamp=123456789,
     )
     prompt2 = PromptVersion(
@@ -253,7 +252,6 @@ def test_prompt_linking_with_dual_write(monkeypatch):
         version=2,
         template="Goodbye, {{name}}!",
         commit_message="Test prompt 2",
-        version_metadata={"test": "prompt2"},
         creation_timestamp=123456790,
     )
 
@@ -331,7 +329,6 @@ def test_prompt_linking_disabled_without_dual_write(monkeypatch):
         version=1,
         template="Hello, {{name}}!",
         commit_message="Test prompt",
-        version_metadata={"test": "prompt"},
         creation_timestamp=123456789,
     )
 
@@ -445,7 +442,6 @@ def test_prompt_linking_error_handling_with_dual_write(monkeypatch):
         version=1,
         template="Hello, {{name}}!",
         commit_message="Test prompt",
-        version_metadata={"test": "prompt"},
         creation_timestamp=123456789,
     )
 
