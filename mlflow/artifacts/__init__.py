@@ -84,7 +84,7 @@ def download_artifacts(
     # Use `runs:/<run_id>/<artifact_path>` to download both run and model (if exists) artifacts
     if run_id and artifact_path:
         return _download_artifact_from_uri(
-            f"runs:/{posixpath(run_id, artifact_path)}", output_path=dst_path
+            f"runs:/{posixpath.join(run_id, artifact_path)}", output_path=dst_path
         )
 
     artifact_path = artifact_path if artifact_path is not None else ""

@@ -156,6 +156,9 @@ class RunsArtifactRepository(ArtifactRepository):
         return None
 
     def _list_model_artifacts(self, path: Optional[str] = None) -> list[FileInfo]:
+        """
+        A run can have an associated model. If so, this method lists the artifacts of the model.
+        """
         full_path = f"{self.artifact_uri}/{path}" if path else self.artifact_uri
         run_id, rel_path = RunsArtifactRepository.parse_runs_uri(full_path)
         if not rel_path:
@@ -205,6 +208,9 @@ class RunsArtifactRepository(ArtifactRepository):
         return run_out_path or model_out_path
 
     def _download_model_artifacts(self, artifact_path: str, dst_path: str) -> Optional[str]:
+        """
+        A run can have an associated model. If so, this method downloads the artifacts of the model.
+        """
         full_path = f"{self.artifact_uri}/{artifact_path}" if artifact_path else self.artifact_uri
         run_id, rel_path = RunsArtifactRepository.parse_runs_uri(full_path)
         if not rel_path:

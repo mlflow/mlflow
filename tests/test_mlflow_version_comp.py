@@ -13,36 +13,58 @@ import mlflow
 from mlflow.models import Model
 
 
-def check(run_id: str, tmp_path: Path) -> None:
-    """
-    Test various `runs:/<run_id>/model` URI consumers.
-    """
-    # Model loading
-    model_uri = f"runs:/{run_id}/model"
-    assert Model.load(model_uri).run_id == run_id
+def check_load(model_uri: str) -> None:
+    Model.load(model_uri)
     model = mlflow.sklearn.load_model(model_uri)
     np.testing.assert_array_equal(model.predict([[1, 2]]), [3.0])
     model = mlflow.pyfunc.load_model(model_uri)
     np.testing.assert_array_equal(model.predict([[1, 2]]), [3.0])
-    # Model registration
+
+
+def check_register(model_uri: str) -> None:
     mv = mlflow.register_model(model_uri, "model")
-    mlflow.pyfunc.load_model(f"models:/{mv.name}/{mv.version}")
+    model = mlflow.pyfunc.load_model(f"models:/{mv.name}/{mv.version}")
+    np.testing.assert_array_equal(model.predict([[1, 2]]), [3.0])
+
+
+def check_list_artifacts_with_run_id_and_path(run_id: str, path: str) -> None:
     # List artifacts
     client = mlflow.MlflowClient()
-    artifacts = [a.path for a in client.list_artifacts(run_id=run_id, path="model")]
+    artifacts = [a.path for a in client.list_artifacts(run_id=run_id, path=path)]
     # Ensure both run and model artifacts are listed
     assert "model/MLmodel" in artifacts
     assert "model/test.txt" in artifacts
-    artifacts = [a.path for a in mlflow.artifacts.list_artifacts(artifact_uri=model_uri)]
-    assert "model/MLmodel" in artifacts
-    assert "model/test.txt" in artifacts
-    artifacts = [a.path for a in client.list_artifacts(run_id=run_id, path="model")]
+    artifacts = [a.path for a in client.list_artifacts(run_id=run_id, path=path)]
     assert "model/MLmodel" in artifacts
     assert "model/test.txt" in artifacts
     # Non-existing artifact path should return an empty list
     assert len(client.list_artifacts(run_id=run_id, path="unknown")) == 0
     assert len(mlflow.artifacts.list_artifacts(run_id=run_id, artifact_path="unknown")) == 0
-    # Download artifacts
+
+
+def check_list_artifacts_with_model_uri(model_uri: str) -> None:
+    artifacts = [a.path for a in mlflow.artifacts.list_artifacts(artifact_uri=model_uri)]
+    assert "model/MLmodel" in artifacts
+    assert "model/test.txt" in artifacts
+
+
+def check_download_artifacts_with_run_id_and_path(run_id: str, path: str, tmp_path: Path) -> None:
+    out_path = mlflow.artifacts.download_artifacts(
+        run_id=run_id, artifact_path=path, dst_path=tmp_path / str(uuid.uuid4())
+    )
+    files = [f.name for f in Path(out_path).iterdir() if f.is_file()]
+    assert "MLmodel" in files
+    assert "test.txt" in files
+    client = mlflow.MlflowClient()
+    out_path = client.download_artifacts(
+        run_id=run_id, path=path, dst_path=tmp_path / str(uuid.uuid4())
+    )
+    files = [f.name for f in Path(out_path).iterdir() if f.is_file()]
+    assert "MLmodel" in files
+    assert "test.txt" in files
+
+
+def check_download_artifacts_with_model_uri(model_uri: str, tmp_path: Path) -> None:
     out_path = mlflow.artifacts.download_artifacts(
         artifact_uri=model_uri, dst_path=tmp_path / str(uuid.uuid4())
     )
@@ -50,18 +72,9 @@ def check(run_id: str, tmp_path: Path) -> None:
     # Ensure both run and model artifacts are downloaded
     assert "MLmodel" in files
     assert "test.txt" in files
-    out_path = mlflow.artifacts.download_artifacts(
-        run_id=run_id, artifact_path="model", dst_path=tmp_path / str(uuid.uuid4())
-    )
-    files = [f.name for f in Path(out_path).iterdir() if f.is_file()]
-    assert "MLmodel" in files
-    assert "test.txt" in files
-    out_path = client.download_artifacts(
-        run_id=run_id, path="model", dst_path=tmp_path / str(uuid.uuid4())
-    )
-    files = [f.name for f in Path(out_path).iterdir() if f.is_file()]
-    assert "MLmodel" in files
-    assert "test.txt" in files
+
+
+def check_evaluate(model_uri: str) -> None:
     # Model evaluation
     eval_res = mlflow.models.evaluate(
         model=model_uri,
@@ -70,6 +83,9 @@ def check(run_id: str, tmp_path: Path) -> None:
         model_type="regressor",
     )
     assert "mean_squared_error" in eval_res.metrics
+
+
+def check_spark_udf(model_uri: str) -> None:
     # Spark UDF
     if os.name != "nt":
         with SparkSession.builder.getOrCreate() as spark:
@@ -135,7 +151,16 @@ with mlflow.start_run() as run:
         ],
     )
 
-    check(run_id=out_file.read_text().strip(), tmp_path=tmp_path)
+    run_id = out_file.read_text().strip()
+    model_uri = f"runs:/{run_id}/model"
+    check_load(model_uri=model_uri)
+    check_register(model_uri=model_uri)
+    check_list_artifacts_with_run_id_and_path(run_id=run_id, path="model")
+    check_list_artifacts_with_model_uri(model_uri=model_uri)
+    check_download_artifacts_with_run_id_and_path(run_id=run_id, path="model", tmp_path=tmp_path)
+    check_download_artifacts_with_model_uri(model_uri=model_uri, tmp_path=tmp_path)
+    check_evaluate(model_uri=model_uri)
+    check_spark_udf(model_uri=model_uri)
 
 
 def test_mlflow_3_x_comp(tmp_path: Path) -> None:
@@ -148,6 +173,47 @@ def test_mlflow_3_x_comp(tmp_path: Path) -> None:
     fitted_model = LinearRegression().fit([[1, 2]], [3])
     with mlflow.start_run() as run:
         mlflow.log_text("test", "model/test.txt")
-        mlflow.sklearn.log_model(fitted_model, name="model")
+        model_info = mlflow.sklearn.log_model(fitted_model, name="model")
 
-    check(run_id=run.info.run_id, tmp_path=tmp_path)
+    # Runs URI
+    run_id = run.info.run_id
+    runs_model_uri = f"runs:/{run_id}/model"
+    check_load(model_uri=runs_model_uri)
+    check_register(model_uri=runs_model_uri)
+    check_list_artifacts_with_run_id_and_path(run_id=run_id, path="model")
+    check_list_artifacts_with_model_uri(model_uri=runs_model_uri)
+    check_download_artifacts_with_run_id_and_path(run_id=run_id, path="model", tmp_path=tmp_path)
+    check_download_artifacts_with_model_uri(model_uri=runs_model_uri, tmp_path=tmp_path)
+    check_evaluate(model_uri=runs_model_uri)
+    check_spark_udf(model_uri=runs_model_uri)
+
+    # Models URI
+    logged_model_uri = f"models:/{model_info.model_id}"
+    check_load(model_uri=logged_model_uri)
+    check_register(model_uri=logged_model_uri)
+    check_list_artifacts_with_model_uri(model_uri=logged_model_uri)
+    check_download_artifacts_with_model_uri(model_uri=logged_model_uri, tmp_path=tmp_path)
+    check_evaluate(model_uri=logged_model_uri)
+    check_spark_udf(model_uri=logged_model_uri)
+
+
+def test_run_and_model_has_artifact_with_same_name(tmp_path: Path) -> None:
+    fitted_model = LinearRegression().fit([[1, 2]], [3])
+    with mlflow.start_run() as run:
+        mlflow.log_text("", artifact_file="model/MLmodel")
+        info = mlflow.sklearn.log_model(fitted_model, name="model")
+
+    client = mlflow.MlflowClient()
+    artifacts = client.list_artifacts(run_id=run.info.run_id, path="model")
+    mlmodel_files = [a.path for a in artifacts if a.path.endswith("MLmodel")]
+    # Both run and model artifacts should be listed
+    assert len(mlmodel_files) == 2
+    out = mlflow.artifacts.download_artifacts(
+        run_id=run.info.run_id,
+        artifact_path="model",
+        dst_path=tmp_path / str(uuid.uuid4()),
+    )
+    mlmodel_files = list(Path(out).rglob("MLmodel"))
+    assert len(mlmodel_files) == 1
+    # The model MLmodel file should overwrite the run MLmodel file
+    assert info.model_id in mlmodel_files[0].read_text()
