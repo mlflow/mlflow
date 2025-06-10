@@ -43,6 +43,7 @@ class InputCategorical(InputType):
     """
 
     options: list[str]
+    """List of available options for the categorical selection."""
 
     def _to_databricks_input(self) -> "_InputCategorical":
         """Convert to the internal Databricks input type."""
@@ -66,6 +67,7 @@ class InputCategoricalList(InputType):
     """
 
     options: list[str]
+    """List of available options for the multi-select categorical (dropdown)."""
 
     def _to_databricks_input(self) -> "_InputCategoricalList":
         """Convert to the internal Databricks input type."""
@@ -89,7 +91,10 @@ class InputTextList(InputType):
     """
 
     max_length_each: Optional[int] = None
+    """Maximum character length for each individual text entry. None means no limit."""
+
     max_count: Optional[int] = None
+    """Maximum number of text entries allowed. None means no limit."""
 
     def _to_databricks_input(self) -> "_InputTextList":
         """Convert to the internal Databricks input type."""
@@ -115,6 +120,7 @@ class InputText(InputType):
     """
 
     max_length: Optional[int] = None
+    """Maximum character length for the text input. None means no limit."""
 
     def _to_databricks_input(self) -> "_InputText":
         """Convert to the internal Databricks input type."""
@@ -138,7 +144,10 @@ class InputNumeric(InputType):
     """
 
     min_value: Optional[float] = None
+    """Minimum allowed numeric value. None means no minimum limit."""
+
     max_value: Optional[float] = None
+    """Maximum allowed numeric value. None means no maximum limit."""
 
     def _to_databricks_input(self) -> "_InputNumeric":
         """Convert to the internal Databricks input type."""
@@ -169,11 +178,24 @@ class LabelSchema:
     """
 
     name: str
+    """Unique name identifier for the label schema."""
+
     type: LabelSchemaType
+    """Type of the label schema, either 'feedback' or 'expectation'."""
+
     title: str
+    """Display title shown to stakeholders in the labeling review UI."""
+
     input: Union[InputCategorical, InputCategoricalList, InputText, InputTextList, InputNumeric]
+    """
+    Input type specification that defines how stakeholders will provide their assessment
+    (e.g., dropdown, text box, numeric input)
+    """
     instruction: Optional[str] = None
+    """Optional detailed instructions shown to stakeholders for guidance."""
+
     enable_comment: bool = False
+    """Whether to enable additional comment functionality for reviewers."""
 
     @classmethod
     def _from_databricks_label_schema(cls, schema: "_LabelSchema") -> "LabelSchema":
