@@ -295,7 +295,7 @@ Common patterns help you implement evaluation effectively for different scenario
 # Test specific improvements
 def evaluate_current_version():
     results = mlflow.genai.evaluate(
-        data=focused_test_set, model=my_app_v2, extra_metrics=standard_scorers
+        data=focused_test_set, predict_fn=my_app_v2, scorers=standard_scorers
     )
     return results
 
@@ -303,11 +303,11 @@ def evaluate_current_version():
 # Compare with previous version
 def compare_versions():
     baseline_results = mlflow.genai.evaluate(
-        data=comprehensive_dataset, model=my_app_v1, extra_metrics=standard_scorers
+        data=comprehensive_dataset, predict_fn=my_app_v1, scorers=standard_scorers
     )
 
     current_results = mlflow.genai.evaluate(
-        data=comprehensive_dataset, model=my_app_v2, extra_metrics=standard_scorers
+        data=comprehensive_dataset, predict_fn=my_app_v2, scorers=standard_scorers
     )
 
     return analyze_improvement(baseline_results, current_results)
@@ -325,8 +325,8 @@ deployed_predict_fn = mlflow.deployments.to_predict_fn("endpoints:/production-ch
 
 production_results = mlflow.genai.evaluate(
     data=production_test_dataset,
-    model=deployed_predict_fn,
-    extra_metrics=quality_scorers,
+    predict_fn=deployed_predict_fn,
+    scorers=quality_scorers,
 )
 ```
 
@@ -383,7 +383,6 @@ OSS provides the complete evaluation harness framework with support for heuristi
 
 ```python
 # OSS evaluation pattern
-from mlflow.metrics import exact_match, latency
 from mlflow.genai.scorers import scorer
 
 
@@ -394,8 +393,7 @@ def custom_quality_check(outputs):
 
 results = mlflow.genai.evaluate(
     data=eval_dataset,
-    model=my_app,
-    extra_metrics=[exact_match(), latency()],
+    predict_fn=my_app,
     scorers=[custom_quality_check],
 )
 ```
