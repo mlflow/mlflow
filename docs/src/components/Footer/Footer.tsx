@@ -27,8 +27,8 @@ export const Footer = ({ variant }: VariantProps<typeof footerVariants>) => {
         <div className="flex flex-col md:flex-row gap-10">
           {/* these routes are on the main mlflow.org site, which is hosted in a different repo */}
           <FooterMenuItem href="/" data-noBrokenLinkCheck>Product</FooterMenuItem>
-          <FooterMenuItem href="/releases" data-noBrokenLinkCheck>Releases</FooterMenuItem>
-          <FooterMenuItem href="/blog" data-noBrokenLinkCheck>Blog</FooterMenuItem>
+          <FooterMenuItem href="https://mlflow.org/releases" data-noBrokenLinkCheck>Releases</FooterMenuItem>
+          <FooterMenuItem href="https://mlflow.org/blog" data-noBrokenLinkCheck>Blog</FooterMenuItem>
           <FooterMenuItem href={useBaseUrl("/")}>
             Docs
           </FooterMenuItem>
