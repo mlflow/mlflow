@@ -191,8 +191,13 @@ def test_mlflow_3_x_comp(tmp_path: Path) -> None:
     logged_model_uri = f"models:/{model_info.model_id}"
     check_load(model_uri=logged_model_uri)
     check_register(model_uri=logged_model_uri)
-    check_list_artifacts_with_model_uri(model_uri=logged_model_uri)
-    check_download_artifacts_with_model_uri(model_uri=logged_model_uri, tmp_path=tmp_path)
+    artifacts = [a.path for a in mlflow.artifacts.list_artifacts(artifact_uri=logged_model_uri)]
+    assert "MLmodel" in artifacts
+    out_path = mlflow.artifacts.download_artifacts(
+        artifact_uri=logged_model_uri, dst_path=tmp_path / str(uuid.uuid4())
+    )
+    files = [f.name for f in Path(out_path).iterdir() if f.is_file()]
+    assert "MLmodel" in files
     check_evaluate(model_uri=logged_model_uri)
     check_spark_udf(model_uri=logged_model_uri)
 
