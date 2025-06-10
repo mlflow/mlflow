@@ -17,15 +17,16 @@ When you evaluate a specific `LoggedModel` version:
 
 ## Quick Example: Evaluating Your Customer Support Agent
 
+:::note Only on Databricks
+The GenAI Evaluate feature is only available on Databricks Managed MLflow.
+:::
+
 Continuing from the previous guide where we versioned our customer support agent, let's evaluate it using the `model_id` we obtained:
 
 ```python
 import mlflow
 import pandas as pd
-from mlflow.genai.scorers import relevance_to_query, guideline_adherence
-
-# Use the model_id from the previous guide's active_model_info
-model_id = active_model_info.model_id  # e.g., "m-930352f2b0c246c9a8ac7df98a03cede"
+from mlflow.genai.scorers import RelevanceToQuery, Guidelines
 
 # Define evaluation dataset with customer support queries
 eval_data = pd.DataFrame(
@@ -42,18 +43,19 @@ eval_data = pd.DataFrame(
 
 # Define scorers for customer support quality
 # 1. Check if response is relevant to the question
-relevance_scorer = relevance_to_query
+relevance_scorer = RelevanceToQuery()
 
 # 2. Ensure responses follow support guidelines
-support_guidelines = guideline_adherence.with_config(
+support_guidelines = Guidelines(
     name="support_guidelines",
-    global_guidelines=[
+    guidelines=[
         "Be polite and professional in all responses",
         "Provide clear, actionable steps when possible",
         "Acknowledge the customer's concern before providing a solution",
     ],
 )
 
+model_id = active_model_info.model_id
 # Run evaluation linked to the specific model version
 evaluation_results = mlflow.genai.evaluate(
     data=eval_data,
@@ -63,12 +65,7 @@ evaluation_results = mlflow.genai.evaluate(
 
 # View results
 print(f"Evaluation completed for model {model_id}")
-print(
-    f"Average relevance: {evaluation_results.metrics.get('relevance_to_query_mean', 'N/A'):.2f}"
-)
-print(
-    f"Support guidelines adherence: {evaluation_results.metrics.get('support_guidelines_mean', 'N/A'):.2f}"
-)
+print(f"Metrics: {evaluation_results.metrics}")
 ```
 
 ## Accessing Evaluation Results
@@ -85,9 +82,8 @@ logged_model = mlflow.get_logged_model(model_id=model_id)
 
 # The evaluation metrics are available in the model's metrics
 print("\n=== Evaluation Metrics on LoggedModel ===")
-for metric_key, metric_value in logged_model.metrics.items():
-    if metric_key.startswith(("relevance_to_query", "support_guidelines")):
-        print(f"{metric_key}: {metric_value}")
+for metric in logged_model.metrics:
+    print(f"{metric.key}: {metric.value}")
 ```
 
 ### 2. Find Evaluation Traces Linked to the LoggedModel
@@ -110,7 +106,7 @@ print(f"Found {len(traces)} traces")
 for i, trace in enumerate(traces[:3]):
     print(f"\nTrace {i+1}:")
     print(f"  Trace ID: {trace.info.trace_id}")
-    print(f"  State: {trace.info.state}")
+    print(f"  Status: {trace.info.status}")
     print(f"  Duration: {trace.info.execution_duration}ms")
     if trace.info.request_preview:
         print(f"  Request preview: {trace.info.request_preview[:100]}...")
@@ -124,22 +120,21 @@ The evaluation also returns detailed results you can analyze:
 
 ```python
 # Access the evaluation results table
-results_df = evaluation_results.tables["eval_results_table"]
+results_df = evaluation_results.tables["eval_results"]
 
 print("\n=== Detailed Evaluation Results ===")
 # Show individual scores for each test case
 for idx, row in results_df.iterrows():
-    question = row["inputs"]["question"]
-    relevance_score = row.get("relevance_to_query", "N/A")
-    guidelines_score = row.get("support_guidelines", "N/A")
+    question = row["request"]["question"]
+    assessments = row["assessments"]
+    results = {assessment["name"]: assessment["value"] for assessment in assessments}
     print(f"\nQ: {question}")
-    print(f"   Relevance: {relevance_score}")
-    print(f"   Guidelines: {guidelines_score}")
+    print(f"   Eval result: {results}")
 ```
 
-### 4. View in MLflow UI
+### 4. View in Databricks UI
 
-In the MLflow UI:
+In the Databricks UI:
 
 1. Navigate to your experiment and find the `LoggedModel`
 2. Click on the model to see evaluation metrics in the metrics tab

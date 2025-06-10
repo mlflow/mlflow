@@ -60,8 +60,8 @@ from fastapi import FastAPI, Request
 app = FastAPI()
 
 
-@mlflow.trace
 @app.post("/chat")
+@mlflow.trace
 def handle_chat(request: Request, message: str):
     # Your traces are automatically linked to the LoggedModel
     # specified in MLFLOW_ACTIVE_MODEL_ID
