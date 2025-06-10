@@ -940,8 +940,11 @@ class Model:
                             serving_input=serving_input,
                         )
                     except Exception as e:
+                        serving_input_msg = (
+                            serving_input[:50] + "..." if len(serving_input) > 50 else serving_input
+                        )
                         _logger.warning(
-                            f"Failed to validate serving input example {serving_input}. "
+                            f"Failed to validate serving input example {serving_input_msg}. "
                             "Alternatively, you can avoid passing input example and pass model "
                             "signature instead when logging the model. To ensure the input example "
                             "is valid prior to serving, please try calling "
@@ -1242,8 +1245,13 @@ class Model:
                                 serving_input=serving_input,
                             )
                         except Exception as e:
+                            serving_input_msg = (
+                                serving_input[:50] + "..."
+                                if len(serving_input) > 50
+                                else serving_input
+                            )
                             _logger.warning(
-                                f"Failed to validate serving input example {serving_input}. "
+                                f"Failed to validate serving input example {serving_input_msg}. "
                                 "Alternatively, you can avoid passing input example and pass model "
                                 "signature instead when logging the model. To ensure the input "
                                 "example is valid prior to serving, please try calling "
