@@ -196,9 +196,19 @@ class RunsArtifactRepository(ArtifactRepository):
             # This fails when the run has no artifacts, so we catch the exception
             run_out_path = self.repo.download_artifacts(artifact_path, dst_path)
         except Exception:
-            _logger.debug(f"Failed to download artifacts from {self.artifact_uri}/{artifact_path}.")
+            _logger.debug(
+                f"Failed to download artifacts from {self.artifact_uri}/{artifact_path}.",
+                exc_info=True,
+            )
 
-        model_out_path = self._download_model_artifacts(artifact_path, dst_path=dst_path)
+        model_out_path: Optional[str] = None
+        try:
+            model_out_path = self._download_model_artifacts(artifact_path, dst_path=dst_path)
+        except Exception:
+            _logger.debug(
+                f"Failed to download model artifacts from {self.artifact_uri}/{artifact_path}.",
+                exc_info=True,
+            )
         return (
             run_out_path
             or model_out_path
