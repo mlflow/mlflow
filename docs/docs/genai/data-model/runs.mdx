@@ -104,25 +104,13 @@ graph TD
 - **Runs use Datasets**: Systematic testing against curated examples
 - **Runs apply Scorers**: Automated evaluation functions
 
-## Common Run Types
-
-Different types of evaluation iterations serve different purposes:
-
-| Run Type | Purpose | When Used |
-|----------|---------|-----------|
-| **Development Run** | Initial model testing | During model development |
-| **Validation Run** | Performance verification | Before deployment |
-| **Benchmark Run** | Comparative analysis | Against baseline models |
-| **Production Run** | Live performance check | Post-deployment validation |
-| **A/B Test Run** | Variant comparison | Testing model alternatives |
-
 ## Benefits of Model-Attached Runs
 
 The MLflow 3 approach of attaching runs to models provides:
 
 - **🎯 Model-Centric Organization**: Evaluation history travels with the model
 - **📈 Evolution Tracking**: Clear progression of model performance over time
-- **🔍 Focused Analysis**: Evaluation results directly tied to specific model versions
+- **🔍 Focused Analysis**: Evaluation results directly tied to specific logged model
 - **🚀 Simplified Workflows**: Natural connection between model development and testing
 
 This model-centric approach makes it easier to understand how your GenAI application has evolved and which evaluation iterations led to improvements or regressions.

@@ -126,86 +126,25 @@ Requirements:
 # Variables automatically extracted: role, content_type, num_points, content, focus_area, tone, max_length
 ```
 
-## Prompt Metadata and Annotations
+### Tags
 
-### Version Metadata
+Use `tags` for storing version-specific information, such as the author of the changes.
 
-Each prompt version includes comprehensive metadata for tracking and collaboration:
-
-```mermaid
-graph TB
-    VERSION[🔢 Prompt Version]
-
-    subgraph TRACKING[📊 Version Tracking]
-        COMMIT_MSG[Commit Message: Change description]
-        AUTHOR[Author: Version creator]
-        TIMESTAMP[Creation Time: When created]
-    end
-
-    subgraph CONTEXT[🏷️ Contextual Metadata]
-        VERSION_META[Version Metadata: Custom key-value pairs]
-        PURPOSE[Purpose: Intended use case]
-        PERFORMANCE[Performance: Quality metrics]
-    end
-
-    subgraph ORGANIZATION[📁 Organization]
-        TAGS[Tags: Cross-version labels]
-        CATEGORIES[Categories: Functional grouping]
-        PROJECTS[Projects: Associated applications]
-    end
-
-    VERSION --> TRACKING
-    VERSION --> CONTEXT
-    VERSION --> ORGANIZATION
-
-    classDef versionStyle fill:#e8f5e8,stroke:#2e7d32,stroke-width:3px,color:#000
-    classDef trackingStyle fill:#e3f2fd,stroke:#0277bd,stroke-width:2px,color:#000
-    classDef contextStyle fill:#fff3e0,stroke:#ef6c00,stroke-width:2px,color:#000
-    classDef orgStyle fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px,color:#000
-
-    class VERSION versionStyle
-    class TRACKING,COMMIT_MSG,AUTHOR,TIMESTAMP trackingStyle
-    class CONTEXT,VERSION_META,PURPOSE,PERFORMANCE contextStyle
-    class ORGANIZATION,TAGS,CATEGORIES,PROJECTS orgStyle
+```python
+# Register prompt with comprehensive tags
+prompt = mlflow.genai.register_prompt(
+    name="content-analyzer",
+    template=template,
+    commit_message="Added tone and length controls",
+    tags={
+        "author": "ai-team@company.com",
+        "purpose": "Content analysis with customizable output",
+        "model": "gpt-4",
+        "performance_score": "0.92",
+        "review_status": "approved",
+    },
+)
 ```
-
-### Metadata Usage Examples
-
-<Tabs>
-  <TabItem value="version-meta" label="Version Metadata" default>
-    ```python
-    # Register prompt with comprehensive version metadata
-    prompt = mlflow.genai.register_prompt(
-        name="content-analyzer",
-        template=template,
-        commit_message="Added tone and length controls",
-        version_metadata={
-            "author": "ai-team@company.com",
-            "purpose": "Content analysis with customizable output",
-            "tested_models": ["gpt-4", "claude-3"],
-            "performance_score": 0.92,
-            "review_status": "approved",
-        },
-    )
-    ```
-  </TabItem>
-  <TabItem value="tags" label="Cross-Version Tags">
-    ```python
-    # Tags apply to all versions of the prompt
-    prompt = mlflow.genai.register_prompt(
-        name="content-analyzer",
-        template=template,
-        tags={
-            "domain": "content-analysis",
-            "language": "english",
-            "team": "ai-research",
-            "complexity": "intermediate",
-            "use-case": "blog-analysis",
-        },
-    )
-    ```
-  </TabItem>
-</Tabs>
 
 ## Prompt Lifecycle Management
 
@@ -316,9 +255,7 @@ Prompts are loaded and used through systematic patterns:
   <TabItem value="search" label="Discovery and Search">
     ```python
     # Search prompts by criteria
-    prompts = mlflow.genai.search_prompts(
-        filter_string="tags.domain='content-analysis' AND tags.language='english'"
-    )
+    prompts = mlflow.genai.search_prompts(filter_string="name LIKE 'my_prompt%'")
 
     # Load discovered prompt
     prompt = mlflow.genai.load_prompt(f"prompts:/{prompts[0].name}/{prompts[0].version}")
