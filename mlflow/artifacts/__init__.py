@@ -80,6 +80,7 @@ def download_artifacts(
     if artifact_uri is not None:
         return _download_artifact_from_uri(artifact_uri, output_path=dst_path)
 
+    # Use `runs:/<run_id>/<artifact_path>` to download both run and model (if exists) artifacts
     if run_id and artifact_path:
         return _download_artifact_from_uri(f"runs:/{run_id}/{artifact_path}", output_path=dst_path)
 
@@ -128,6 +129,7 @@ def list_artifacts(
         root_uri, artifact_path = _get_root_uri_and_artifact_path(artifact_uri)
         return get_artifact_repository(artifact_uri=root_uri).list_artifacts(artifact_path)
 
+    # Use `runs:/<run_id>/<artifact_path>` to list both run and model (if exists) artifacts
     if run_id and artifact_path:
         return get_artifact_repository(artifact_uri=f"runs:/{run_id}").list_artifacts(artifact_path)
 

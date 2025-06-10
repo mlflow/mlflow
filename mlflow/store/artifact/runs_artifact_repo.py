@@ -110,7 +110,8 @@ class RunsArtifactRepository(ArtifactRepository):
     def list_artifacts(self, path: Optional[str] = None) -> list[FileInfo]:
         """
         Return all the artifacts for this run_id directly under path. If path is a file, returns
-        an empty list. Will error if path is neither a file nor directory.
+        an empty list. Will error if path is neither a file nor directory. When the run has an
+        associated model, the artifacts of the model are also listed.
 
         Args:
             path: Relative source path that contain desired artifacts
@@ -171,13 +172,12 @@ class RunsArtifactRepository(ArtifactRepository):
 
         return []
 
-    def download_artifacts(self, artifact_path: str, dst_path: Optional[str] = None):
+    def download_artifacts(self, artifact_path: str, dst_path: Optional[str] = None) -> str:
         """
         Download an artifact file or directory to a local directory if applicable, and return a
-        local path for it.
-        The caller is responsible for managing the lifecycle of the downloaded artifacts.
-        When the run has an associated model, the artifacts of the model are also downloaded
-        to the specified destination directory.
+        local path for it. When the run has an associated model, the artifacts of the model are also
+        downloaded to the specified destination directory. The caller is responsible for managing
+        the lifecycle of the downloaded artifacts.
 
         Args:
             artifact_path: Relative source path to the desired artifacts.

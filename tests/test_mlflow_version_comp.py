@@ -30,6 +30,7 @@ def check(run_id: str, tmp_path: Path) -> None:
     # List artifacts
     client = mlflow.MlflowClient()
     artifacts = [a.path for a in client.list_artifacts(run_id=run_id, path="model")]
+    # Ensure both run and model artifacts are listed
     assert "model/MLmodel" in artifacts
     assert "model/test.txt" in artifacts
     artifacts = [a.path for a in mlflow.artifacts.list_artifacts(artifact_uri=model_uri)]
@@ -46,6 +47,7 @@ def check(run_id: str, tmp_path: Path) -> None:
         artifact_uri=model_uri, dst_path=tmp_path / str(uuid.uuid4())
     )
     files = [f.name for f in Path(out_path).iterdir() if f.is_file()]
+    # Ensure both run and model artifacts are downloaded
     assert "MLmodel" in files
     assert "test.txt" in files
     out_path = mlflow.artifacts.download_artifacts(
