@@ -800,7 +800,15 @@ def test_databricks_sdk_retry_backoff_calculation():
 
         raise DatabricksError(error_code="INTERNAL_ERROR", message="Mock error")
 
-    with mock.patch("time.sleep") as mock_sleep:
+    # Spy on sleep calls to capture intervals without interfering with timing
+    sleep_times = []
+    original_sleep = time.sleep
+
+    def spy_sleep(duration):
+        sleep_times.append(duration)
+        original_sleep(duration)
+
+    with mock.patch("time.sleep", side_effect=spy_sleep) as mock_sleep:
         try:
             _retry_databricks_sdk_call_with_exponential_backoff(
                 call_func=mock_failing_call,
