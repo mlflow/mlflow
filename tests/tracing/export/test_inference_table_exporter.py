@@ -410,15 +410,10 @@ def test_prompt_linking_with_empty_prompts(monkeypatch):
         # Ensure async queue is processed
         exporter._async_queue.flush(terminate=True)
 
-    # Verify that an empty prompts list was passed
-    assert captured_prompts is not None, "Prompts parameter was not passed"
-    assert len(captured_prompts) == 0, f"Expected 0 prompts, got {len(captured_prompts)}"
-
-    # Verify the link method was still called (even with empty prompts)
-    mock_tracing_client.link_prompt_versions_to_trace.assert_called_once_with(
-        trace_id=trace_id, prompts=[]
-    )
-    assert captured_trace_id == trace_id
+    # Verify that prompt linking was NOT called for empty prompts (this is optimized behavior)
+    mock_tracing_client.link_prompt_versions_to_trace.assert_not_called()
+    # Since no prompts were passed, no linking occurred, so trace_id was never captured
+    assert captured_trace_id is None  # No linking occurred, so trace_id was never captured
 
 
 def test_prompt_linking_error_handling_with_dual_write(monkeypatch):
@@ -471,7 +466,7 @@ def test_prompt_linking_error_handling_with_dual_write(monkeypatch):
             "mlflow.tracing.export.inference_table.TracingClient",
             return_value=mock_tracing_client,
         ),
-        mock.patch("mlflow.tracing.export.inference_table._logger") as mock_logger,
+        mock.patch("mlflow.tracing.export.utils._logger") as mock_logger,
     ):
         exporter = InferenceTableSpanExporter()
         exporter.export([otel_span])

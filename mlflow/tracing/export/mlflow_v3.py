@@ -1,6 +1,4 @@
 import logging
-import threading
-import uuid
 from typing import Optional, Sequence
 
 from opentelemetry.sdk.trace import ReadableSpan
@@ -15,6 +13,7 @@ from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import TraceTagKey
 from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.export.async_export_queue import AsyncTraceExportQueue, Task
+from mlflow.tracing.export.utils import link_prompts_to_trace
 from mlflow.tracing.fluent import _EVAL_REQUEST_ID_TO_TRACE_ID, _set_last_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import add_size_bytes_to_trace_metadata, maybe_get_request_id
@@ -99,28 +98,16 @@ class MlflowV3SpanExporter(SpanExporter):
                 # would otherwise add latency to the export procedure and (2) prompt linking is not
                 # critical for trace export (if the prompt fails to link, the user's workflow is
                 # minorly affected), so we don't have to await successful linking
-                if prompts:
-                    threading.Thread(
-                        target=self._link_prompts,
-                        args=(returned_trace_info.trace_id, prompts),
-                        name=f"link_prompts_from_exporter-{uuid.uuid4().hex[:8]}",
-                    ).start()
+                link_prompts_to_trace(
+                    client=self._client,
+                    trace_id=returned_trace_info.trace_id,
+                    prompts=prompts,
+                    synchronous=False,
+                )
             else:
                 _logger.warning("No trace or trace info provided, unable to export")
         except Exception as e:
             _logger.warning(f"Failed to send trace to MLflow backend: {e}")
-
-    def _link_prompts(self, trace_id: str, prompts: Sequence[PromptVersion]):
-        """
-        Link prompt versions to a trace. This runs in a separate thread.
-        """
-        try:
-            self._client.link_prompt_versions_to_trace(
-                trace_id=trace_id,
-                prompts=prompts,
-            )
-        except Exception as e:
-            _logger.warning(f"Failed to link prompts to trace {trace_id}: {e}")
 
     def _should_enable_async_logging(self):
         if is_in_databricks_notebook():

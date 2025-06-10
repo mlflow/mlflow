@@ -388,7 +388,7 @@ def test_prompt_linking_error_handling_mlflow_v3(monkeypatch):
             "mlflow.tracing.client.TracingClient.link_prompt_versions_to_trace",
             side_effect=Exception("Prompt linking failed"),
         ) as mock_link_prompts,
-        mock.patch("mlflow.tracing.export.mlflow_v3._logger") as mock_logger,
+        mock.patch("mlflow.tracing.export.utils._logger") as mock_logger,
     ):
         # Use the MLflow v3 exporter directly
         from mlflow.entities import LiveSpan

@@ -185,10 +185,18 @@ def test_prompt_associate_with_run(tmp_path):
     with mlflow.start_run() as run:
         mlflow.load_prompt("prompt_1", version=1)
 
-    prompts = MlflowClient().list_logged_prompts(run.info.run_id)
-    assert len(prompts) == 1
-    assert prompts[0].name == "prompt_1"
-    assert prompts[0].version == 1
+    # Check that the prompt was linked to the run via the linkedPrompts tag
+    from mlflow.prompt.constants import LINKED_PROMPTS_TAG_KEY
+
+    client = MlflowClient()
+    run_data = client.get_run(run.info.run_id)
+    linked_prompts_tag = run_data.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    assert linked_prompts_tag is not None
+
+    linked_prompts = json.loads(linked_prompts_tag)
+    assert len(linked_prompts) == 1
+    assert linked_prompts[0]["name"] == "prompt_1"
+    assert linked_prompts[0]["version"] == "1"
 
 
 def test_register_model_prints_uc_model_version_url(monkeypatch):
