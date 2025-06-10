@@ -8,6 +8,7 @@ from mlflow.entities.model_registry import ModelVersion, Prompt, RegisteredModel
 from mlflow.entities.run import Run
 from mlflow.environment_variables import MLFLOW_PRINT_MODEL_URLS_ON_CREATION
 from mlflow.exceptions import MlflowException
+from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.prompt.registry_utils import require_prompt_registry
 from mlflow.protos.databricks_pb2 import (
     ALREADY_EXISTS,
@@ -138,7 +139,8 @@ def _register_model(
         runs_artifact_repo = RunsArtifactRepository(model_uri)
         # List artifacts in `<run_artifact_root>/<artifact_path>` to see if the run has artifacts.
         # If so use the run's artifact location as source.
-        if runs_artifact_repo._is_directory(""):
+        artifacts = runs_artifact_repo._list_run_artifacts()
+        if MLMODEL_FILE_NAME in (art.path for art in artifacts):
             source = RunsArtifactRepository.get_underlying_uri(model_uri)
         # Otherwise check if there's a logged model with
         # name artifact_path and source_run_id run_id
