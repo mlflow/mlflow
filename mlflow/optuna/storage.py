@@ -535,7 +535,7 @@ class MlflowStorage(BaseStorage):
         # Flush the batch for this trial to ensure we have the latest data
         self._flush_batch(trial_id)
 
-        time.sleep(0.1)  # Sleep a bit longer if there was an error
+        time.sleep(0.1)  # Sleep to ensure that we can get the data from tag `param_directions`.
 
         trial_run = self._mlflow_client.get_run(trial_id)
         param_directions_str = trial_run.data.tags.get("param_directions")
