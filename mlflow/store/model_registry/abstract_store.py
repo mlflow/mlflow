@@ -15,7 +15,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import (
     IS_PROMPT_TAG_KEY,
     LINKED_PROMPTS_TAG_KEY,
-    PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY,
     PROMPT_TEXT_TAG_KEY,
 )
 from mlflow.prompt.registry_utils import has_prompt_tag
@@ -1043,43 +1042,6 @@ class AbstractStore:
                     ],
                 )
 
-    def _update_linked_prompts_tag(
-        self, current_tag_value: str, new_prompt_entries: list[dict[str, Any]]
-    ) -> str:
-        """
-        Utility method to update linked prompts tag value with new entries.
-
-        Args:
-            current_tag_value: Current JSON string value of the linked prompts tag
-            new_prompt_entries: List of prompt entry dicts to add
-
-        Returns:
-            Updated JSON string with new entries added (avoiding duplicates)
-
-        Raises:
-            MlflowException: If current tag value has invalid JSON or format
-        """
-        if current_tag_value is not None:
-            try:
-                parsed_prompts_tag_value = json.loads(current_tag_value)
-                if not isinstance(parsed_prompts_tag_value, list):
-                    raise MlflowException(
-                        f"Invalid format for '{LINKED_PROMPTS_TAG_KEY}' tag: {current_tag_value}"
-                    )
-            except json.JSONDecodeError:
-                raise MlflowException(
-                    f"Invalid JSON format for '{LINKED_PROMPTS_TAG_KEY}' tag: {current_tag_value}"
-                )
-        else:
-            parsed_prompts_tag_value = []
-
-        # Add new prompt entries that aren't already linked
-        for new_prompt_entry in new_prompt_entries:
-            if new_prompt_entry not in parsed_prompts_tag_value:
-                parsed_prompts_tag_value.append(new_prompt_entry)
-
-        return json.dumps(parsed_prompts_tag_value)
-
     def link_prompt_version_to_run(self, name: str, version: str, run_id: str) -> None:
         """
         Link a prompt version to a run.
@@ -1127,26 +1089,39 @@ class AbstractStore:
 
                 tracking_store.set_tag(run_id, RunTag(LINKED_PROMPTS_TAG_KEY, updated_tag_value))
 
-            # TODO: Remove this backward compatibility logic soon
-            # This maintains the old PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY tag on the prompt version
-            # for compatibility with existing UI code that may still rely on this approach
-            mv = self.get_model_version(name, int(version))
-            existing_run_ids_tag = None
-            if isinstance(mv.tags, dict):
-                existing_run_ids_tag = mv.tags.get(PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY)
-            else:
-                for tag in mv.tags:
-                    if tag.key == PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY:
-                        existing_run_ids_tag = tag.value
-                        break
+    def _update_linked_prompts_tag(
+        self, current_tag_value: str, new_prompt_entries: list[dict[str, Any]]
+    ) -> str:
+        """
+        Utility method to update linked prompts tag value with new entries.
 
-            # Parse existing run IDs and add the new one if not already present
-            existing_run_ids = existing_run_ids_tag.split(",") if existing_run_ids_tag else []
-            if run_id not in existing_run_ids:
-                existing_run_ids.append(run_id)
-                updated_run_ids_tag = ",".join(existing_run_ids)
-                self.set_model_version_tag(
-                    name,
-                    int(version),
-                    ModelVersionTag(PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY, updated_run_ids_tag),
+        Args:
+            current_tag_value: Current JSON string value of the linked prompts tag
+            new_prompt_entries: List of prompt entry dicts to add
+
+        Returns:
+            Updated JSON string with new entries added (avoiding duplicates)
+
+        Raises:
+            MlflowException: If current tag value has invalid JSON or format
+        """
+        if current_tag_value is not None:
+            try:
+                parsed_prompts_tag_value = json.loads(current_tag_value)
+                if not isinstance(parsed_prompts_tag_value, list):
+                    raise MlflowException(
+                        f"Invalid format for '{LINKED_PROMPTS_TAG_KEY}' tag: {current_tag_value}"
+                    )
+            except json.JSONDecodeError:
+                raise MlflowException(
+                    f"Invalid JSON format for '{LINKED_PROMPTS_TAG_KEY}' tag: {current_tag_value}"
                 )
+        else:
+            parsed_prompts_tag_value = []
+
+        # Add new prompt entries that aren't already linked
+        for new_prompt_entry in new_prompt_entries:
+            if new_prompt_entry not in parsed_prompts_tag_value:
+                parsed_prompts_tag_value.append(new_prompt_entry)
+
+        return json.dumps(parsed_prompts_tag_value)
