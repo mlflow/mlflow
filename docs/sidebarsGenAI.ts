@@ -597,12 +597,12 @@ const sidebarsGenAI: SidebarsConfig = {
                 {
                   type: 'doc',
                   id: 'flavors/openai/notebooks/openai-code-helper-ipynb',
-                  label: 'Chat Completions with OpenAI'
+                  label: 'Building a Code Assistant with OpenAI & MLflow'
                 },
                 {
                   type: 'doc',
                   id: 'flavors/openai/notebooks/openai-embeddings-generation-ipynb',
-                  label: 'Chat Completions with OpenAI'
+                  label: 'Embeddings Support with OpenAI in MLflow'
                 },
               ],
               link: {
