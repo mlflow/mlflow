@@ -465,178 +465,177 @@ const sidebarsGenAI: SidebarsConfig = {
                   type: 'doc',
                   id: 'prompt-version-mgmt/version-tracking/compare-app-versions',
                 },
+                {
+                  type: 'category',
+                  label: 'App Packaging & Deployment',
+                  items: [
+                    {
+                      type: 'category',
+                      label: 'OpenAI',
+                      items: [
+                        {
+                          type: 'doc',
+                          id: 'flavors/openai/guide/index',
+                          label: 'Guide'
+                        },
+                        {
+                          type: 'doc',
+                          id: 'flavors/openai/autologging/index',
+                          label: "Autologging Support",
+                        },
+                        {
+                          type: 'category',
+                          label: 'Tutorials',
+                          items: [
+                            {
+                              type: 'doc',
+                              id: 'flavors/openai/notebooks/openai-quickstart-ipynb',
+                              label: 'OpenAI Quickstart'
+                            },
+                            {
+                              type: 'doc',
+                              id: 'flavors/openai/notebooks/openai-chat-completions-ipynb',
+                              label: 'Chat Completions with OpenAI'
+                            },
+                            {
+                              type: 'doc',
+                              id: 'flavors/openai/notebooks/openai-code-helper-ipynb',
+                              label: 'Building a Code Assistant with OpenAI & MLflow'
+                            },
+                            {
+                              type: 'doc',
+                              id: 'flavors/openai/notebooks/openai-embeddings-generation-ipynb',
+                              label: 'Embeddings Support with OpenAI in MLflow'
+                            },
+                          ],
+                          link: {
+                            type: 'doc',
+                            id: 'flavors/openai/notebooks/index'
+                          }
+                        }
+                      ],
+                      link: {
+                        type: 'doc',
+                        id: 'flavors/openai/index'
+                      }
+                    },
+                    {
+                      type: 'category',
+                      label: 'DSPy',
+                      items: [
+                        {
+                          type: 'doc',
+                          id: 'flavors/dspy/notebooks/dspy_quickstart-ipynb',
+                          label: 'DSPy Quickstart',
+                        },
+                        {
+                          type: 'doc',
+                          id: 'flavors/dspy/optimizer',
+                          label: 'Using DSPy Optimizers',
+                        },
+                      ],
+                      link: {
+                        type: 'doc',
+                        id: 'flavors/dspy/index'
+                      }
+                    },
+                    {
+                      type: 'category',
+                      label: 'LangChain',
+                      items: [
+                        {
+                          type: 'doc',
+                          id: 'flavors/langchain/guide/index',
+                          label: 'Guide to using LangChain with MLflow'
+                        },
+                        {
+                          type: 'doc',
+                          id: 'flavors/langchain/notebooks/langchain-quickstart-ipynb',
+                          label: 'LangChain Quickstart',
+                        },
+                        {
+                          type: 'doc',
+                          id: 'flavors/langchain/notebooks/langchain-retriever-ipynb',
+                          label: 'Retrievers with LangChain',
+                        }
+                      ],
+                      link: {
+                        type: 'doc',
+                        id: 'flavors/langchain/index'
+                      }
+                    },
+                    {
+                      type: 'category',
+                      label: 'LlamaIndex',
+                      items: [
+                        {
+                          type: 'doc',
+                          id: 'flavors/llama-index/notebooks/llama_index_quickstart-ipynb',
+                          label: 'LlamaIndex Quickstart',
+                        },
+                        {
+                          type: 'doc',
+                          id: 'flavors/llama-index/notebooks/llama_index_workflow_tutorial-ipynb',
+                          label: 'Agents with LlamaIndex',
+                        }
+                      ],
+                      link: {
+                        type: 'doc',
+                        id: 'flavors/llama-index/index'
+                      }
+                    },
+                    {
+                      type: 'category',
+                      label: 'Custom Applications',
+                      items: [
+                        {
+                          type: 'doc',
+                          id: 'flavors/custom-pyfunc-for-llms/notebooks/custom-pyfunc-advanced-llm-ipynb',
+                          label: 'Custom App Development Guide',
+                        }
+                      ],
+                      link: {
+                        type: 'doc',
+                        id: 'flavors/custom-pyfunc-for-llms/index'
+                      }
+                    },
+                    {
+                      type: 'doc',
+                      id: 'flavors/chat-model-intro/index',
+                      label: 'Intro to ChatModel',
+                    },
+                    {
+                      type: 'category',
+                      label: 'Building with ChatModel',
+                      items: [
+                        {
+                          type: 'doc',
+                          id: 'flavors/chat-model-guide/chat-model-tool-calling-ipynb',
+                          label: "ChatModel Tool Calling Example",
+                        }
+                      ],
+                      link: {
+                        type: 'doc',
+                        id: 'flavors/chat-model-guide/index',
+                      }
+                    },
+                    {
+                      type: 'doc',
+                      id: 'flavors/responses-agent-intro',
+                      label: 'Building with ResponsesAgent',
+                    },
+                  ],
+                  link: {
+                    type: 'doc',
+                    id: 'flavors/index',
+                  }
+                },
               ]
             }
           ],
           link: {
             type: 'doc',
             id: 'prompt-version-mgmt/version-tracking/index'
-          }
-        },
-        {
-          type: 'category',
-          label: 'App Packaging & Deployment 🤖',
-          className: 'sidebar-top-level-category',
-          items: [
-            {
-              type: 'category',
-              label: 'OpenAI',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'flavors/openai/guide/index',
-                  label: 'Guide'
-                },
-                {
-                  type: 'doc',
-                  id: 'flavors/openai/autologging/index',
-                  label: "Autologging Support",
-                },
-                {
-                  type: 'category',
-                  label: 'Tutorials',
-                  items: [
-                    {
-                      type: 'doc',
-                      id: 'flavors/openai/notebooks/openai-quickstart-ipynb',
-                      label: 'OpenAI Quickstart'
-                    },
-                    {
-                      type: 'doc',
-                      id: 'flavors/openai/notebooks/openai-chat-completions-ipynb',
-                      label: 'Chat Completions with OpenAI'
-                    },
-                    {
-                      type: 'doc',
-                      id: 'flavors/openai/notebooks/openai-code-helper-ipynb',
-                      label: 'Building a Code Assistant with OpenAI & MLflow'
-                    },
-                    {
-                      type: 'doc',
-                      id: 'flavors/openai/notebooks/openai-embeddings-generation-ipynb',
-                      label: 'Embeddings Support with OpenAI in MLflow'
-                    },
-                  ],
-                  link: {
-                    type: 'doc',
-                    id: 'flavors/openai/notebooks/index'
-                  }
-                }
-              ],
-              link: {
-                type: 'doc',
-                id: 'flavors/openai/index'
-              }
-            },
-            {
-              type: 'category',
-              label: 'DSPy',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'flavors/dspy/notebooks/dspy_quickstart-ipynb',
-                  label: 'DSPy Quickstart',
-                },
-                {
-                  type: 'doc',
-                  id: 'flavors/dspy/optimizer',
-                  label: 'Using DSPy Optimizers',
-                },
-              ],
-              link: {
-                type: 'doc',
-                id: 'flavors/dspy/index'
-              }
-            },
-            {
-              type: 'category',
-              label: 'LangChain',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'flavors/langchain/guide/index',
-                  label: 'Guide to using LangChain with MLflow'
-                },
-                {
-                  type: 'doc',
-                  id: 'flavors/langchain/notebooks/langchain-quickstart-ipynb',
-                  label: 'LangChain Quickstart',
-                },
-                {
-                  type: 'doc',
-                  id: 'flavors/langchain/notebooks/langchain-retriever-ipynb',
-                  label: 'Retrievers with LangChain',
-                }
-              ],
-              link: {
-                type: 'doc',
-                id: 'flavors/langchain/index'
-              }
-            },
-            {
-              type: 'category',
-              label: 'LlamaIndex',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'flavors/llama-index/notebooks/llama_index_quickstart-ipynb',
-                  label: 'LlamaIndex Quickstart',
-                },
-                {
-                  type: 'doc',
-                  id: 'flavors/llama-index/notebooks/llama_index_workflow_tutorial-ipynb',
-                  label: 'Agents with LlamaIndex',
-                }
-              ],
-              link: {
-                type: 'doc',
-                id: 'flavors/llama-index/index'
-              }
-            },
-            {
-              type: 'category',
-              label: 'Custom Applications',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'flavors/custom-pyfunc-for-llms/notebooks/custom-pyfunc-advanced-llm-ipynb',
-                  label: 'Custom App Development Guide',
-                }
-              ],
-              link: {
-                type: 'doc',
-                id: 'flavors/custom-pyfunc-for-llms/index'
-              }
-            },
-            {
-              type: 'doc',
-              id: 'flavors/chat-model-intro/index',
-              label: 'Intro to ChatModel',
-            },
-            {
-              type: 'category',
-              label: 'Building with ChatModel',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'flavors/chat-model-guide/chat-model-tool-calling-ipynb',
-                  label: "ChatModel Tool Calling Example",
-                }
-              ],
-              link: {
-                type: 'doc',
-                id: 'flavors/chat-model-guide/index',
-              }
-            },
-            {
-              type: 'doc',
-              id: 'flavors/responses-agent-intro',
-              label: 'Building with ResponsesAgent',
-            },
-          ],
-          link: {
-            type: 'doc',
-            id: 'flavors/index',
           }
         },
         {
