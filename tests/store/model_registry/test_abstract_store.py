@@ -62,16 +62,22 @@ class MockAbstractStore(AbstractStore):
 
     def add_prompt_version(self, name: str, version: str):
         """Helper method to add prompt versions for testing."""
-        key = f"{name}:{version}"
         # Convert version to integer for PromptVersion
         version_int = int(version[1:]) if version.startswith("v") else int(version)
 
-        self.prompt_versions[key] = PromptVersion(
+        # Store using both formats to handle version lookups
+        key_with_v = f"{name}:v{version_int}"
+        key_without_v = f"{name}:{version_int}"
+
+        prompt_version = PromptVersion(
             name=name,
             version=version_int,
             template="Test template",
             creation_timestamp=1234567890,
         )
+
+        self.prompt_versions[key_with_v] = prompt_version
+        self.prompt_versions[key_without_v] = prompt_version
 
 
 @pytest.fixture
