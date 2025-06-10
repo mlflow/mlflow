@@ -1,4 +1,5 @@
 import logging
+import threading
 from typing import Optional, Sequence
 
 from opentelemetry.sdk.trace import ReadableSpan
@@ -93,15 +94,31 @@ class MlflowV3SpanExporter(SpanExporter):
                     _logger.warning("Failed to add size bytes to trace metadata.", exc_info=True)
                 returned_trace_info = self._client.start_trace_v3(trace)
                 self._client._upload_trace_data(returned_trace_info, trace.data)
-                # Can always run async?
-                self._client.link_prompt_versions_to_trace(
-                    trace_id=returned_trace_info.trace_id,
-                    prompts=prompts,
-                )
+                # Always run prompt linking asynchronously since (1) prompt linking API calls
+                # would otherwise add latency to the export procedure and (2) prompt linking is not
+                # critical for trace export (if the prompt fails to link, the user's workflow is
+                # minorly affected), so we don't have to await successful linking
+                if prompts:
+                    threading.Thread(
+                        target=self._link_prompts,
+                        args=(returned_trace_info.trace_id, prompts),
+                    ).start()
             else:
                 _logger.warning("No trace or trace info provided, unable to export")
         except Exception as e:
             _logger.warning(f"Failed to send trace to MLflow backend: {e}")
+
+    def _link_prompts(self, trace_id: str, prompts: Sequence[PromptVersion]):
+        """
+        Link prompt versions to a trace. This runs in a separate thread.
+        """
+        try:
+            self._client.link_prompt_versions_to_trace(
+                trace_id=trace_id,
+                prompts=prompts,
+            )
+        except Exception as e:
+            _logger.warning(f"Failed to link prompts to trace {trace_id}: {e}")
 
     def _should_enable_async_logging(self):
         if is_in_databricks_notebook():

@@ -5,6 +5,7 @@ import pytest
 
 import mlflow
 from mlflow.entities import LiveSpan, Trace
+from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.protos import service_pb2 as pb
 from mlflow.tracing.constant import TraceMetadataKey
@@ -221,6 +222,279 @@ def test_size_bytes_in_trace_sent_to_mlflow_backend(monkeypatch):
     assert size_bytes == expected_size_bytes, (
         f"Size bytes mismatch: got {size_bytes}, expected {expected_size_bytes}"
     )
+
+
+def test_prompt_linking_with_dual_write(monkeypatch):
+    """Test that prompts are correctly linked when dual write to MLflow backend is enabled."""
+    # Enable dual write
+    monkeypatch.setenv("MLFLOW_ENABLE_TRACE_DUAL_WRITE_IN_MODEL_SERVING", "True")
+
+    # Create span and trace
+    otel_span = create_mock_otel_span(
+        name="root",
+        trace_id=_OTEL_TRACE_ID,
+        span_id=1,
+        parent_id=None,
+    )
+    trace_id = generate_trace_id_v3(otel_span)
+    span = LiveSpan(otel_span, trace_id)
+
+    # Create test prompt versions
+    prompt1 = PromptVersion(
+        name="test_prompt_1",
+        version=1,
+        template="Hello, {{name}}!",
+        commit_message="Test prompt 1",
+        version_metadata={"test": "prompt1"},
+        creation_timestamp=123456789,
+    )
+    prompt2 = PromptVersion(
+        name="test_prompt_2",
+        version=2,
+        template="Goodbye, {{name}}!",
+        commit_message="Test prompt 2",
+        version_metadata={"test": "prompt2"},
+        creation_timestamp=123456790,
+    )
+
+    # Register span and trace with experiment_id to enable dual write
+    trace_manager = InMemoryTraceManager.get_instance()
+    trace_info = create_test_trace_info(trace_id, "123")
+    trace_info.client_request_id = _DATABRICKS_REQUEST_ID_1
+    trace_manager.register_trace(otel_span.context.trace_id, trace_info)
+    trace_manager.register_span(span)
+
+    # Register prompts to the trace
+    trace_manager.register_prompt(trace_id, prompt1)
+    trace_manager.register_prompt(trace_id, prompt2)
+
+    # Mock the tracing client
+    mock_tracing_client = mock.MagicMock()
+    captured_prompts = None
+    captured_trace_id = None
+
+    def mock_link_prompt_versions_to_trace(trace_id, prompts):
+        nonlocal captured_prompts, captured_trace_id
+        captured_prompts = prompts
+        captured_trace_id = trace_id
+
+    mock_tracing_client.link_prompt_versions_to_trace.side_effect = (
+        mock_link_prompt_versions_to_trace
+    )
+
+    # Mock start_trace_v3 to return a mock trace info with the correct trace_id
+    mock_trace_info = mock.MagicMock()
+    mock_trace_info.trace_id = trace_id
+    mock_tracing_client.start_trace_v3.return_value = mock_trace_info
+
+    with mock.patch(
+        "mlflow.tracing.export.inference_table.TracingClient", return_value=mock_tracing_client
+    ):
+        exporter = InferenceTableSpanExporter()
+        exporter.export([otel_span])
+        # Ensure async queue is processed
+        exporter._async_queue.flush(terminate=True)
+
+    # Verify that prompts were passed to the linking method
+    assert captured_prompts is not None, "Prompts were not passed to link method"
+    assert len(captured_prompts) == 2, f"Expected 2 prompts, got {len(captured_prompts)}"
+
+    # Verify prompt details
+    prompt_names = {p.name for p in captured_prompts}
+    assert prompt_names == {"test_prompt_1", "test_prompt_2"}
+
+    # Verify the link method was called with correct trace ID
+    mock_tracing_client.link_prompt_versions_to_trace.assert_called_once()
+    assert captured_trace_id == trace_id
+
+
+def test_prompt_linking_disabled_without_dual_write(monkeypatch):
+    """Test that prompt linking is not attempted when dual write is disabled."""
+    # Disable dual write
+    monkeypatch.setenv("MLFLOW_ENABLE_TRACE_DUAL_WRITE_IN_MODEL_SERVING", "False")
+
+    # Create span and trace
+    otel_span = create_mock_otel_span(
+        name="root",
+        trace_id=_OTEL_TRACE_ID,
+        span_id=1,
+        parent_id=None,
+    )
+    trace_id = generate_trace_id_v3(otel_span)
+    span = LiveSpan(otel_span, trace_id)
+
+    # Create test prompt version
+    prompt = PromptVersion(
+        name="test_prompt",
+        version=1,
+        template="Hello, {{name}}!",
+        commit_message="Test prompt",
+        version_metadata={"test": "prompt"},
+        creation_timestamp=123456789,
+    )
+
+    # Register span and trace
+    trace_manager = InMemoryTraceManager.get_instance()
+    trace_info = create_test_trace_info(trace_id, "0")
+    trace_info.client_request_id = _DATABRICKS_REQUEST_ID_1
+    trace_manager.register_trace(otel_span.context.trace_id, trace_info)
+    trace_manager.register_span(span)
+
+    # Register prompt to the trace
+    trace_manager.register_prompt(trace_id, prompt)
+
+    # Mock the tracing client (shouldn't be called when dual write is disabled)
+    mock_tracing_client = mock.MagicMock()
+
+    with mock.patch(
+        "mlflow.tracing.export.inference_table.TracingClient", return_value=mock_tracing_client
+    ):
+        exporter = InferenceTableSpanExporter()
+        exporter.export([otel_span])
+
+    # Verify that no dual write methods were called
+    mock_tracing_client.start_trace_v3.assert_not_called()
+    mock_tracing_client.link_prompt_versions_to_trace.assert_not_called()
+
+    # But the trace should still be in the inference table buffer
+    assert len(_TRACE_BUFFER) == 1
+    trace_dict = pop_trace(_DATABRICKS_REQUEST_ID_1)
+    assert trace_dict is not None
+
+
+def test_prompt_linking_with_empty_prompts(monkeypatch):
+    """Test that empty prompts list doesn't cause issues with dual write."""
+    # Enable dual write
+    monkeypatch.setenv("MLFLOW_ENABLE_TRACE_DUAL_WRITE_IN_MODEL_SERVING", "True")
+
+    # Create span and trace
+    otel_span = create_mock_otel_span(
+        name="root",
+        trace_id=_OTEL_TRACE_ID,
+        span_id=1,
+        parent_id=None,
+    )
+    trace_id = generate_trace_id_v3(otel_span)
+    span = LiveSpan(otel_span, trace_id)
+
+    # Register span and trace with experiment_id to enable dual write (no prompts added)
+    trace_manager = InMemoryTraceManager.get_instance()
+    trace_info = create_test_trace_info(trace_id, "123")
+    trace_info.client_request_id = _DATABRICKS_REQUEST_ID_1
+    trace_manager.register_trace(otel_span.context.trace_id, trace_info)
+    trace_manager.register_span(span)
+
+    # Mock the tracing client
+    mock_tracing_client = mock.MagicMock()
+    captured_prompts = None
+    captured_trace_id = None
+
+    def mock_link_prompt_versions_to_trace(trace_id, prompts):
+        nonlocal captured_prompts, captured_trace_id
+        captured_prompts = prompts
+        captured_trace_id = trace_id
+
+    mock_tracing_client.link_prompt_versions_to_trace.side_effect = (
+        mock_link_prompt_versions_to_trace
+    )
+
+    # Mock start_trace_v3 to return a mock trace info with the correct trace_id
+    mock_trace_info = mock.MagicMock()
+    mock_trace_info.trace_id = trace_id
+    mock_tracing_client.start_trace_v3.return_value = mock_trace_info
+
+    with mock.patch(
+        "mlflow.tracing.export.inference_table.TracingClient", return_value=mock_tracing_client
+    ):
+        exporter = InferenceTableSpanExporter()
+        exporter.export([otel_span])
+        # Ensure async queue is processed
+        exporter._async_queue.flush(terminate=True)
+
+    # Verify that an empty prompts list was passed
+    assert captured_prompts is not None, "Prompts parameter was not passed"
+    assert len(captured_prompts) == 0, f"Expected 0 prompts, got {len(captured_prompts)}"
+
+    # Verify the link method was still called (even with empty prompts)
+    mock_tracing_client.link_prompt_versions_to_trace.assert_called_once()
+    assert captured_trace_id == trace_id
+
+
+def test_prompt_linking_error_handling_with_dual_write(monkeypatch):
+    """Test that prompt linking errors are handled gracefully with dual write enabled."""
+    # Enable dual write
+    monkeypatch.setenv("MLFLOW_ENABLE_TRACE_DUAL_WRITE_IN_MODEL_SERVING", "True")
+
+    # Create span and trace
+    otel_span = create_mock_otel_span(
+        name="root",
+        trace_id=_OTEL_TRACE_ID,
+        span_id=1,
+        parent_id=None,
+    )
+    trace_id = generate_trace_id_v3(otel_span)
+    span = LiveSpan(otel_span, trace_id)
+
+    # Create test prompt version
+    prompt = PromptVersion(
+        name="test_prompt",
+        version=1,
+        template="Hello, {{name}}!",
+        commit_message="Test prompt",
+        version_metadata={"test": "prompt"},
+        creation_timestamp=123456789,
+    )
+
+    # Register span and trace with experiment_id to enable dual write
+    trace_manager = InMemoryTraceManager.get_instance()
+    trace_info = create_test_trace_info(trace_id, "123")
+    trace_info.client_request_id = _DATABRICKS_REQUEST_ID_1
+    trace_manager.register_trace(otel_span.context.trace_id, trace_info)
+    trace_manager.register_span(span)
+
+    # Register prompt to the trace
+    trace_manager.register_prompt(trace_id, prompt)
+
+    # Mock the tracing client with prompt linking failing
+    mock_tracing_client = mock.MagicMock()
+    mock_tracing_client.link_prompt_versions_to_trace.side_effect = Exception(
+        "Prompt linking failed"
+    )
+
+    # Mock start_trace_v3 to return a mock trace info with the correct trace_id
+    mock_trace_info = mock.MagicMock()
+    mock_trace_info.trace_id = trace_id
+    mock_tracing_client.start_trace_v3.return_value = mock_trace_info
+
+    with (
+        mock.patch(
+            "mlflow.tracing.export.inference_table.TracingClient",
+            return_value=mock_tracing_client,
+        ),
+        mock.patch("mlflow.tracing.export.inference_table._logger") as mock_logger,
+    ):
+        exporter = InferenceTableSpanExporter()
+        exporter.export([otel_span])
+        # Ensure async queue is processed
+        exporter._async_queue.flush(terminate=True)
+
+    # Verify that the prompt linking method was called but failed
+    mock_tracing_client.link_prompt_versions_to_trace.assert_called_once()
+
+    # Verify other client methods were still called (trace export should succeed)
+    mock_tracing_client.start_trace_v3.assert_called_once()
+    mock_tracing_client._upload_trace_data.assert_called_once()
+
+    # Verify that the error was logged but didn't crash the export
+    mock_logger.warning.assert_called_once()
+    warning_message = mock_logger.warning.call_args[0][0]
+    assert "Failed to link prompts to trace" in warning_message
+    assert "Prompt linking failed" in warning_message
+
+    # Verify the trace is still in the inference table buffer
+    assert len(_TRACE_BUFFER) == 1
+    trace_dict = pop_trace(_DATABRICKS_REQUEST_ID_1)
+    assert trace_dict is not None
 
 
 def _register_span_and_trace(

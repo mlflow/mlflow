@@ -5,6 +5,7 @@ from cachetools import TTLCache
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter
 
+from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import (
     _MLFLOW_ENABLE_TRACE_DUAL_WRITE_IN_MODEL_SERVING,
@@ -106,7 +107,7 @@ class InferenceTableSpanExporter(SpanExporter):
                     self._async_queue.put(
                         task=Task(
                             handler=self._log_trace_to_mlflow_backend,
-                            args=(trace,),
+                            args=(trace, manager_trace.prompts),
                             error_msg=f"Failed to log trace {trace.info.trace_id}.",
                         )
                     )
@@ -116,7 +117,7 @@ class InferenceTableSpanExporter(SpanExporter):
                         stack_info=_logger.isEnabledFor(logging.DEBUG),
                     )
 
-    def _log_trace_to_mlflow_backend(self, trace: Trace):
+    def _log_trace_to_mlflow_backend(self, trace: Trace, prompts: Sequence[PromptVersion]):
         try:
             add_size_bytes_to_trace_metadata(trace)
         except Exception:
@@ -124,6 +125,17 @@ class InferenceTableSpanExporter(SpanExporter):
 
         returned_trace_info = self._client.start_trace_v3(trace)
         self._client._upload_trace_data(returned_trace_info, trace.data)
+
+        # Link prompt versions to the trace. Prompt linking is not critical for trace export
+        # (if the prompt fails to link, the user's workflow is minorly affected), so we handle
+        # errors gracefully without failing the entire trace export
+        try:
+            self._client.link_prompt_versions_to_trace(
+                trace_id=returned_trace_info.trace_id,
+                prompts=prompts,
+            )
+        except Exception as e:
+            _logger.warning(f"Failed to link prompts to trace {returned_trace_info.trace_id}: {e}")
         _logger.debug(
             f"Finished logging trace to MLflow backend. TraceInfo: {returned_trace_info.to_dict()} "
         )
