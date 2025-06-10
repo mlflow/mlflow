@@ -683,6 +683,9 @@ def load_prompt(
             parsed_name_or_uri, version=parsed_version, allow_missing=allow_missing
         )
 
+    if prompt is None:
+        return
+
     # If there is an active MLflow run, associate the prompt with the run.
     # Note that we do this synchronously because it's unlikely that run linking occurs
     # in a latency sensitive environment, since runs aren't typically used in real-time /
@@ -729,6 +732,24 @@ def load_prompt(
         )
 
     return prompt
+
+
+def _load_prompt_version_cached(
+    name_or_uri: str,
+    version: Optional[Union[str, int]] = None,
+):
+    """
+    Load a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry, using a
+    cached version if available.
+
+    Args:
+        name_or_uri: The name of the prompt, or the URI in the format "prompts:/name/version".
+        version: The version of the prompt (required when using name, not allowed when using URI).
+
+    Returns:
+        A :py:class:`Prompt <mlflow.entities.Prompt>` object that was loaded.
+    """
+    return MlflowClient()._load_prompt_version_cached(name_or_uri=name_or_uri, version=version)
 
 
 @experimental

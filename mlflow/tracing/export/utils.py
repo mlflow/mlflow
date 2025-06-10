@@ -13,17 +13,18 @@ from mlflow.tracing.client import TracingClient
 _logger = logging.getLogger(__name__)
 
 
-def link_prompts_to_trace(
+def try_link_prompts_to_trace(
     client: TracingClient,
     trace_id: str,
     prompts: Sequence[PromptVersion],
     synchronous: bool = True,
 ) -> None:
     """
-    Link prompt versions to a trace with error handling.
+    Attempt to link prompt versions to a trace with graceful error handling.
 
     This function provides a reusable way to link prompts to traces with consistent
-    error handling across different exporters.
+    error handling across different exporters. Errors are caught and logged but do
+    not propagate, ensuring that prompt linking failures don't affect trace export.
 
     Args:
         client: The TracingClient instance to use for linking.

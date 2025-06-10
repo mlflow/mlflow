@@ -13,7 +13,7 @@ from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import TraceTagKey
 from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.export.async_export_queue import AsyncTraceExportQueue, Task
-from mlflow.tracing.export.utils import link_prompts_to_trace
+from mlflow.tracing.export.utils import try_link_prompts_to_trace
 from mlflow.tracing.fluent import _EVAL_REQUEST_ID_TO_TRACE_ID, _set_last_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import add_size_bytes_to_trace_metadata, maybe_get_request_id
@@ -98,7 +98,7 @@ class MlflowV3SpanExporter(SpanExporter):
                 # would otherwise add latency to the export procedure and (2) prompt linking is not
                 # critical for trace export (if the prompt fails to link, the user's workflow is
                 # minorly affected), so we don't have to await successful linking
-                link_prompts_to_trace(
+                try_link_prompts_to_trace(
                     client=self._client,
                     trace_id=returned_trace_info.trace_id,
                     prompts=prompts,

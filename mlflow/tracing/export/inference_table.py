@@ -14,7 +14,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.export.async_export_queue import AsyncTraceExportQueue, Task
-from mlflow.tracing.export.utils import link_prompts_to_trace
+from mlflow.tracing.export.utils import try_link_prompts_to_trace
 from mlflow.tracing.fluent import _set_last_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import add_size_bytes_to_trace_metadata
@@ -130,7 +130,7 @@ class InferenceTableSpanExporter(SpanExporter):
         # Link prompt versions to the trace. Prompt linking is not critical for trace export
         # (if the prompt fails to link, the user's workflow is minorly affected), so we handle
         # errors gracefully without failing the entire trace export
-        link_prompts_to_trace(
+        try_link_prompts_to_trace(
             client=self._client,
             trace_id=returned_trace_info.trace_id,
             prompts=prompts,
