@@ -74,6 +74,7 @@ from mlflow.protos.service_pb2 import GetRun
 from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
     LinkPromptsToTracesRequest,
     LinkPromptVersionsToModelsRequest,
+    LinkPromptVersionsToRunsRequest,
 )
 from mlflow.store._unity_catalog.registry.rest_store import (
     _DATABRICKS_LINEAGE_ID_HEADER,
@@ -2524,3 +2525,98 @@ def test_link_prompts_to_trace_success(store):
         call_args = mock_edit_call.call_args
 
         assert call_args[1]["proto_name"] == LinkPromptsToTracesRequest
+
+
+def test_link_prompt_version_to_run_success(store):
+    """Test successful Unity Catalog linking prompt version to run with API call."""
+
+    with (
+        mock.patch.object(store, "_edit_endpoint_and_call") as mock_edit_call,
+        mock.patch.object(store, "_get_endpoint_from_method") as mock_get_endpoint,
+        mock.patch(
+            "mlflow.store.model_registry.abstract_store.AbstractStore.link_prompt_version_to_run"
+        ) as mock_super_call,
+    ):
+        # Setup
+        mock_get_endpoint.return_value = (
+            "/api/2.0/mlflow/unity-catalog/prompt-versions/links-to-runs",
+            "POST",
+        )
+
+        # Execute
+        store.link_prompt_version_to_run("test_prompt", "1", "run_123")
+
+        # Verify parent method was called
+        mock_super_call.assert_called_once_with(name="test_prompt", version="1", run_id="run_123")
+
+        # Verify API call was made
+        mock_edit_call.assert_called_once()
+        call_args = mock_edit_call.call_args
+
+        # Check that _edit_endpoint_and_call was called with correct parameters
+        assert (
+            call_args[1]["endpoint"]
+            == "/api/2.0/mlflow/unity-catalog/prompt-versions/links-to-runs"
+        )
+        assert call_args[1]["method"] == "POST"
+        assert call_args[1]["proto_name"] == LinkPromptVersionsToRunsRequest
+
+        # Verify the request body contains correct prompt and run information
+        req_body = json.loads(call_args[1]["req_body"])
+        assert len(req_body["prompt_versions"]) == 1
+        assert req_body["prompt_versions"][0]["name"] == "test_prompt"
+        assert req_body["prompt_versions"][0]["version"] == "1"
+        assert req_body["run_ids"] == ["run_123"]
+
+
+@mock.patch("mlflow.tracking._get_store")
+def test_link_prompt_version_to_run_sets_tag(mock_get_tracking_store, store):
+    """Test that linking a prompt version to a run sets the appropriate tag."""
+
+    # Setup mocks
+    mock_tracking_store = mock.Mock()
+    mock_get_tracking_store.return_value = mock_tracking_store
+
+    # Mock the prompt version
+    mock_prompt_version = PromptVersion(
+        name="test_prompt",
+        version=1,
+        template="Test template",
+        creation_timestamp=1234567890,
+    )
+
+    with mock.patch.object(store, "get_prompt_version", return_value=mock_prompt_version):
+        # Mock the run
+        run_id = "run_123"
+        run_data = RunData(metrics=[], params=[], tags={})
+        run_info = RunInfo(
+            run_id=run_id,
+            experiment_id="exp_123",
+            user_id="user_123",
+            status="FINISHED",
+            start_time=1234567890,
+            end_time=1234567890,
+            lifecycle_stage="active",
+        )
+        run = Run(run_info=run_info, run_data=run_data)
+        mock_tracking_store.get_run.return_value = run
+
+        # Mock the UC-specific API call to avoid real API calls
+        with mock.patch.object(store, "_edit_endpoint_and_call"):
+            with mock.patch.object(
+                store, "_get_endpoint_from_method", return_value=("/api/test", "POST")
+            ):
+                # Execute
+                store.link_prompt_version_to_run("test_prompt", "1", run_id)
+
+        # Verify the tag was set
+        mock_tracking_store.set_tag.assert_called_once()
+        call_args = mock_tracking_store.set_tag.call_args
+        assert call_args[0][0] == run_id
+
+        run_tag = call_args[0][1]
+        assert isinstance(run_tag, RunTag)
+        assert run_tag.key == LINKED_PROMPTS_TAG_KEY
+
+        expected_value = [{"name": "test_prompt", "version": "1"}]
+        assert json.loads(run_tag.value) == expected_value
