@@ -1927,25 +1927,6 @@ def test_link_prompt_version_to_run(tracking_uri):
         client.link_prompt_version_to_run(run1, 123)
 
 
-def test_log_prompt_deprecated(tracking_uri):
-    """Test that log_prompt still works but shows deprecation warning."""
-    client = MlflowClient(tracking_uri=tracking_uri)
-
-    prompt = client.register_prompt("prompt", template="Hi, {{name}}!")
-
-    # Create actual run to link to
-    run1 = client.create_run(experiment_id="0").info.run_id
-
-    # Test that log_prompt still works with deprecation warning
-    with pytest.warns(FutureWarning, match="log_prompt is deprecated"):
-        client.log_prompt(run1, prompt)
-
-    # Verify that the tag was set, indicating the functionality works
-    run_data = client.get_run(run1)
-    linked_prompts_tag = run_data.data.tags.get("mlflow.linkedPrompts")
-    assert linked_prompts_tag is not None
-
-
 @pytest.mark.parametrize("registry_uri", ["databricks"])
 def test_crud_prompt_on_unsupported_registry(registry_uri):
     client = MlflowClient(registry_uri=registry_uri)

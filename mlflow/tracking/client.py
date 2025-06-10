@@ -702,7 +702,6 @@ class MlflowClient:
                 return None
             raise
 
-    # TODO: Use model_id in MLflow 3.0
     @experimental
     @require_prompt_registry
     @translate_prompt_exception
@@ -733,20 +732,6 @@ class MlflowClient:
         self._get_registry_client().link_prompt_version_to_run(
             name=prompt.name, version=prompt.version, run_id=run_id
         )
-
-    # Backwards compatibility alias
-    def log_prompt(self, run_id: str, prompt: Union[str, PromptVersion]) -> None:
-        """
-        .. deprecated:: 3.0
-            Use :py:func:`link_prompt_version_to_run` instead.
-        """
-        warnings.warn(
-            "log_prompt is deprecated and will be removed in MLflow 3.0. "
-            "Use link_prompt_version_to_run instead.",
-            FutureWarning,
-            stacklevel=2,
-        )
-        return self.link_prompt_version_to_run(run_id, prompt)
 
     def link_prompt_version_to_model(self, name: str, version: str, model_id: str) -> None:
         """
@@ -793,7 +778,6 @@ class MlflowClient:
             trace_id=trace_id,
         )
 
-    # TODO: Use model_id in MLflow 3.0
     @experimental
     @require_prompt_registry
     @translate_prompt_exception
@@ -827,7 +811,6 @@ class MlflowClient:
                 name, version, PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY
             )
 
-    # TODO: Use model_id in MLflow 3.0
     @experimental
     @require_prompt_registry
     @translate_prompt_exception

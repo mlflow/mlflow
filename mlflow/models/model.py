@@ -1291,7 +1291,6 @@ class Model:
                 # client.finalize_logged_model(model.model_id, status=LoggedModelStatus.READY)
 
                 # Associate prompts to the model Run
-                # TODO: pass model_id to link_prompt_version_to_run
                 if prompts and run_id:
                     client = mlflow.MlflowClient()
                     for prompt in prompts:
