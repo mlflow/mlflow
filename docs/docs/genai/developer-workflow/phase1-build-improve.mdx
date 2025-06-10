@@ -8,8 +8,7 @@ This phase covers the initial development of your GenAI application, from buildi
 - [Challenge 1: Debug Application Logic](#challenge-1-debug-application-logic)
 - [Challenge 2: Leverage Test User Queries](#challenge-2-leverage-test-user-queries)
 - [Challenge 3: Track Quality Feedback](#challenge-3-track-quality-feedback)
-- [Challenge 4: Get Domain Expert Input](#challenge-4-get-domain-expert-input)
-- [Challenge 5: Systematic Prompt Iteration](#challenge-5-systematic-prompt-iteration)
+- [Challenge 4: Systematic Prompt Iteration](#challenge-4-systematic-prompt-iteration)
 - [Phase 1 Summary](#phase-1-summary)
 
 ## Overview
@@ -141,7 +140,7 @@ flowchart TB
     UI_FEEDBACK[👍👎 In-App Feedback]
     DEV_FEEDBACK[📝 Developer Annotations]
 
-    LOG_API[🔧 log_feedback API]
+    LOG_API[🔧 feedback logging]
     TRACE_UI[🖥️ MLflow Trace UI]
 
     TRACES[📊 Trace Logs with Feedback]
@@ -173,69 +172,11 @@ flowchart TB
 
 ### Feedback Collection Methods
 
-The system supports multiple feedback collection approaches to accommodate different workflows and user types. **In-application UI** enables thumbs up/down or free-text feedback captured via the `log_feedback` API, making it easy for users to provide quick quality assessments without leaving your application. **MLflow Trace UI** allows direct annotation of traces during development, perfect for developers who want to mark specific interactions for further analysis. **Review App** provides a built-in chat UI for Databricks deployments with automatic feedback integration, streamlining the review process for stakeholders.
+The system supports multiple feedback collection approaches to accommodate different workflows and user types. **MLflow Trace UI** allows direct annotation of traces during development, perfect for developers who want to mark specific interactions for further analysis.
 
 This multi-channel approach ensures that feedback collection doesn't become a bottleneck while maintaining the structure needed for systematic quality analysis.
 
-## Challenge 4: Get Domain Expert Input
-
-### The Problem
-
-During development, you often encounter situations where you need authoritative input on correct answers for queries outside your expertise, validation of whether negative user feedback is justified, priority assessment for different types of issues, and business stakeholder input on acceptable response quality. Domain experts need an accessible way to provide structured feedback without requiring technical complexity or deep familiarity with your development tools.
-
-### Solution: MLflow Review App
-
-The Review App enables you to share specific traces with domain experts for structured review and feedback collection.
-
-```mermaid
-flowchart TB
-    DEV[👨‍💻 Developer]
-    TRACES[📊 Trace Logs]
-    TRACE_UI[🖥️ MLflow Trace UI]
-
-    SELECT[📋 Select Traces for Review]
-    QUESTIONS[❓ Configure Review Questions]
-    REVIEW_APP[📱 MLflow Review App]
-
-    EXPERTS[👨‍💼 Domain Experts]
-    EXPERT_FEEDBACK[💬 Expert Feedback]
-
-    ENRICHED_TRACES[📊 Traces with Expert Input]
-
-    DEV --> TRACE_UI
-    TRACE_UI --> TRACES
-    DEV --> SELECT
-    DEV --> QUESTIONS
-
-    SELECT --> REVIEW_APP
-    QUESTIONS --> REVIEW_APP
-
-    EXPERTS --> REVIEW_APP
-    REVIEW_APP --> EXPERT_FEEDBACK
-    EXPERT_FEEDBACK --> ENRICHED_TRACES
-
-    TRACES --> ENRICHED_TRACES
-
-    classDef devStyle fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
-    classDef expertStyle fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px
-    classDef dataStyle fill:#fff3e0,stroke:#f57c00,stroke-width:2px
-    classDef appStyle fill:#e8f5e8,stroke:#388e3c,stroke-width:2px
-
-    class DEV devStyle
-    class EXPERTS expertStyle
-    class TRACES,SELECT,QUESTIONS,EXPERT_FEEDBACK,ENRICHED_TRACES dataStyle
-    class TRACE_UI,REVIEW_APP appStyle
-```
-
-### Expert Review Workflow
-
-**Review App Features** include a user-friendly interface that domain experts can use without technical knowledge, custom questions tailored to your specific review needs, automatic integration with original traces for unified feedback view, and structured collection of expert assessments and recommendations.
-
-The workflow begins with developers selecting specific traces that need expert validation, often focusing on cases where user feedback was negative or where the correct response is unclear. **Custom questions** can be configured to gather specific insights relevant to your domain, whether that's medical accuracy, legal compliance, customer service appropriateness, or technical correctness.
-
-**Expert Integration** happens seamlessly through the Review App's intuitive interface, where domain experts can review the original user query, see the application's response, and provide structured feedback without needing to understand the underlying technical implementation. This feedback automatically enriches the original traces, creating a comprehensive record that combines technical execution details with authoritative quality assessment.
-
-## Challenge 5: Systematic Prompt Iteration
+## Challenge 4: Systematic Prompt Iteration
 
 ### The Problem
 

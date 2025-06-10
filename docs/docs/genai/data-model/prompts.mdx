@@ -24,8 +24,8 @@ graph TD
 
         subgraph METADATA[📋 Metadata]
             COMMIT[💬 Commit Message]
-            VERSION_META[🏷️ Version Metadata]
-            TAGS[🔖 Tags]
+            TAGS[🔖 Version Tags]
+            DESC[📝 Description]
         end
 
         subgraph MANAGEMENT[⚙️ Management]
@@ -47,7 +47,7 @@ graph TD
 
     class PROMPT promptStyle
     class CORE,NAME,TEMPLATE,VERSION coreStyle
-    class METADATA,COMMIT,VERSION_META,TAGS metaStyle
+    class METADATA,COMMIT,TAGS,DESC metaStyle
     class MANAGEMENT,ALIASES,TIMESTAMP,LIFECYCLE mgmtStyle
     class TITLE titleStyle
 ```
@@ -81,7 +81,7 @@ graph TB
 
     subgraph CONTENT[📄 Content Properties]
         TEMPLATE[Template: Text with variables]
-        VARIABLES[Variables: Extracted parameters]
+        VARIABLES[Variables: Extracted template parameters]
         FORMAT[Format: Double-brace syntax]
     end
 
@@ -128,9 +128,9 @@ Requirements:
 
 ## Prompt Metadata and Annotations
 
-### Version Metadata
+### Version Tags and Metadata
 
-Each prompt version includes comprehensive metadata for tracking and collaboration:
+Each prompt version includes comprehensive metadata for tracking and collaboration through version-specific tags:
 
 ```mermaid
 graph TB
@@ -143,7 +143,7 @@ graph TB
     end
 
     subgraph CONTEXT[🏷️ Contextual Metadata]
-        VERSION_META[Version Metadata: Custom key-value pairs]
+        VERSION_TAGS[Version Tags: Custom key-value pairs]
         PURPOSE[Purpose: Intended use case]
         PERFORMANCE[Performance: Quality metrics]
     end
@@ -165,33 +165,33 @@ graph TB
 
     class VERSION versionStyle
     class TRACKING,COMMIT_MSG,AUTHOR,TIMESTAMP trackingStyle
-    class CONTEXT,VERSION_META,PURPOSE,PERFORMANCE contextStyle
+    class CONTEXT,VERSION_TAGS,PURPOSE,PERFORMANCE contextStyle
     class ORGANIZATION,TAGS,CATEGORIES,PROJECTS orgStyle
 ```
 
 ### Metadata Usage Examples
 
 <Tabs>
-  <TabItem value="version-meta" label="Version Metadata" default>
+  <TabItem value="version-tags" label="Version Tags" default>
     ```python
-    # Register prompt with comprehensive version metadata
+    # Register prompt with comprehensive version tags
     prompt = mlflow.genai.register_prompt(
         name="content-analyzer",
         template=template,
         commit_message="Added tone and length controls",
-        version_metadata={
+        tags={
             "author": "ai-team@company.com",
             "purpose": "Content analysis with customizable output",
-            "tested_models": ["gpt-4", "claude-3"],
-            "performance_score": 0.92,
+            "tested_models": "gpt-4,claude-3",
+            "performance_score": "0.92",
             "review_status": "approved",
         },
     )
     ```
   </TabItem>
-  <TabItem value="tags" label="Cross-Version Tags">
+  <TabItem value="tags" label="Additional Tags">
     ```python
-    # Tags apply to all versions of the prompt
+    # Additional tags for organization and discovery
     prompt = mlflow.genai.register_prompt(
         name="content-analyzer",
         template=template,
