@@ -57,12 +57,13 @@ def _retry_if_trace_is_pending_export(func):
     and waiting to be flushed to the backend store. In that case, we need to wait
     for the trace to be flushed to the backend store before calling backend API.
     """
-    # If async logging is not enabled, we shouldn't retry.
-    if not should_enable_async_logging():
-        return func
 
     @wraps(func)
     def wrapper(self, trace_id, *args, **kwargs):
+        # If async logging is not enabled, we shouldn't retry.
+        if not should_enable_async_logging():
+            return func
+
         interval = 1
         error = None
         for _ in range(_PENDING_TRACE_MAX_RETRY_COUNT):
