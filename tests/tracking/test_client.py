@@ -2019,18 +2019,18 @@ def test_log_and_detach_prompt(tracking_uri):
     client.register_prompt(name="p2", template="Hi, {{name}}!")
 
     run_id = client.create_run(experiment_id="0").info.run_id
-    assert client.list_logged_prompts(run_id) == []
+    assert _list_logged_prompts_test_utility(client, run_id) == []
 
     client.link_prompt_version_to_run(run_id, "prompts:/p1/1")
-    prompts = client.list_logged_prompts(run_id)
+    prompts = _list_logged_prompts_test_utility(client, run_id)
     assert [p.name for p in prompts] == ["p1"]
 
     client.link_prompt_version_to_run(run_id, "prompts:/p2/1")
-    prompts = client.list_logged_prompts(run_id)
+    prompts = _list_logged_prompts_test_utility(client, run_id)
     assert [p.name for p in prompts] == ["p2", "p1"]
 
-    client.detach_prompt_from_run(run_id, "prompts:/p1/1")
-    prompts = client.list_logged_prompts(run_id)
+    _detach_prompt_from_run_test_utility(client, run_id, "prompts:/p1/1")
+    prompts = _list_logged_prompts_test_utility(client, run_id)
     assert [p.name for p in prompts] == ["p2"]
 
 
