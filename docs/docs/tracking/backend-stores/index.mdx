@@ -68,6 +68,11 @@ In order to allow MLflow Runs to be restored, Run metadata and artifacts are not
 from the backend store or artifact store when a Run is deleted. The <Link to="/api_reference/cli.html" target="_blank">mlflow gc</Link> CLI is provided
 for permanently removing Run metadata and artifacts for deleted runs.
 
+You can also enable automatic cleanup by running the tracking server with the `--gc-interval`
+option or setting the `MLFLOW_GC_INTERVAL_SECONDS` environment variable. You can
+control the minimum age of runs and experiments deleted by configuring
+`MLFLOW_GC_OLDER_THAN`.
+
 ## SQLAlchemy Options
 
 You can inject some [SQLAlchemy connection pooling options](https://docs.sqlalchemy.org/en/latest/core/pooling.html) using environment variables.
