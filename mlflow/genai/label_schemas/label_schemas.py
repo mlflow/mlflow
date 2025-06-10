@@ -51,7 +51,7 @@ class InputCategorical(InputType):
 
     def _to_databricks_input(self) -> "_InputCategorical":
         """Convert to the internal Databricks input type."""
-        from databricks.rag_eval.review_app.label_schemass import (
+        from databricks.rag_eval.review_app.label_schemas import (
             InputCategorical as _InputCategorical,
         )
 
