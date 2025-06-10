@@ -568,3 +568,132 @@ def test_load_prompt_explicit_model_id_overrides_active_model():
         assert prompt.name == "test_prompt"
         assert prompt.version == 1
         assert prompt.template == "Hello, {{name}}!"
+
+
+def test_load_prompt_with_tracing_single_prompt():
+    """Test that load_prompt properly links a single prompt to an active trace."""
+    from mlflow.tracing.trace_manager import InMemoryTraceManager
+
+    # Clean up trace manager
+    InMemoryTraceManager.reset()
+
+    # Register a prompt
+    mlflow.register_prompt(name="test_prompt", template="Hello, {{name}}!")
+
+    # Start tracing and load prompt
+    with mlflow.start_span("test_operation") as span:
+        prompt = mlflow.load_prompt("test_prompt", version=1, link_to_model=False)
+
+        # Verify prompt was loaded correctly
+        assert prompt.name == "test_prompt"
+        assert prompt.version == 1
+        assert prompt.template == "Hello, {{name}}!"
+
+        # Verify the prompt was linked to the trace (check while span is active)
+        trace_manager = InMemoryTraceManager.get_instance()
+        with trace_manager.get_trace(span.trace_id) as manager_trace:
+            assert manager_trace is not None
+            assert len(manager_trace.prompts) == 1
+            assert manager_trace.prompts[0].name == "test_prompt"
+            assert manager_trace.prompts[0].version == 1
+
+
+def test_load_prompt_with_tracing_multiple_prompts():
+    """Test that load_prompt properly links multiple prompts to one trace."""
+    from mlflow.tracing.trace_manager import InMemoryTraceManager
+
+    # Clean up trace manager
+    InMemoryTraceManager.reset()
+
+    # Register multiple prompts
+    mlflow.register_prompt(name="greeting_prompt", template="Hello, {{name}}!")
+    mlflow.register_prompt(name="farewell_prompt", template="Goodbye, {{name}}!")
+    mlflow.register_prompt(name="question_prompt", template="How are you, {{name}}?")
+
+    # Start tracing and load multiple prompts
+    with mlflow.start_span("multi_prompt_operation") as span:
+        prompt1 = mlflow.load_prompt("greeting_prompt", version=1, link_to_model=False)
+        prompt2 = mlflow.load_prompt("farewell_prompt", version=1, link_to_model=False)
+        prompt3 = mlflow.load_prompt("question_prompt", version=1, link_to_model=False)
+
+        # Verify prompts were loaded correctly
+        assert prompt1.name == "greeting_prompt"
+        assert prompt2.name == "farewell_prompt"
+        assert prompt3.name == "question_prompt"
+
+        # Verify all prompts were linked to the same trace (check while span is active)
+        trace_manager = InMemoryTraceManager.get_instance()
+        with trace_manager.get_trace(span.trace_id) as manager_trace:
+            assert manager_trace is not None
+            assert len(manager_trace.prompts) == 3
+
+            # Check that all prompts are present (order may vary)
+            prompt_names = {p.name for p in manager_trace.prompts}
+            expected_names = {"greeting_prompt", "farewell_prompt", "question_prompt"}
+            assert prompt_names == expected_names
+
+            # Verify all prompts have correct versions
+            for prompt in manager_trace.prompts:
+                assert prompt.version == 1
+
+
+def test_load_prompt_with_tracing_no_active_trace():
+    """Test that load_prompt works correctly when there's no active trace."""
+    from mlflow.tracing.trace_manager import InMemoryTraceManager
+
+    # Clean up trace manager
+    InMemoryTraceManager.reset()
+
+    # Register a prompt
+    mlflow.register_prompt(name="no_trace_prompt", template="Hello, {{name}}!")
+
+    # Load prompt without an active trace
+    prompt = mlflow.load_prompt("no_trace_prompt", version=1, link_to_model=False)
+
+    # Verify prompt was loaded correctly
+    assert prompt.name == "no_trace_prompt"
+    assert prompt.version == 1
+    assert prompt.template == "Hello, {{name}}!"
+
+    # Verify no trace was created
+    trace_manager = InMemoryTraceManager.get_instance()
+    assert len(trace_manager._traces) == 0
+
+
+def test_load_prompt_with_tracing_nested_spans():
+    """Test that load_prompt links prompts to the same trace when using nested spans."""
+    from mlflow.tracing.trace_manager import InMemoryTraceManager
+
+    # Clean up trace manager
+    InMemoryTraceManager.reset()
+
+    # Register prompts
+    mlflow.register_prompt(name="outer_prompt", template="Outer: {{msg}}")
+    mlflow.register_prompt(name="inner_prompt", template="Inner: {{msg}}")
+
+    # Start nested spans (same trace, different spans)
+    with mlflow.start_span("outer_operation") as outer_span:
+        mlflow.load_prompt("outer_prompt", version=1, link_to_model=False)
+
+        # Check trace has the outer prompt
+        trace_manager = InMemoryTraceManager.get_instance()
+        with trace_manager.get_trace(outer_span.trace_id) as manager_trace:
+            assert manager_trace is not None
+            assert len(manager_trace.prompts) == 1
+            assert manager_trace.prompts[0].name == "outer_prompt"
+
+        with mlflow.start_span("inner_operation") as inner_span:
+            # Verify both spans belong to the same trace
+            assert inner_span.trace_id == outer_span.trace_id
+
+            mlflow.load_prompt("inner_prompt", version=1, link_to_model=False)
+
+            # Check trace now has both prompts (same trace, different spans)
+            with trace_manager.get_trace(inner_span.trace_id) as manager_trace:
+                assert manager_trace is not None
+                assert len(manager_trace.prompts) == 2
+
+                # Check that both prompts are present (order may vary)
+                prompt_names = {p.name for p in manager_trace.prompts}
+                expected_names = {"outer_prompt", "inner_prompt"}
+                assert prompt_names == expected_names

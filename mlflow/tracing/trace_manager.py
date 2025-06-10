@@ -99,7 +99,7 @@ class InMemoryTraceManager:
             prompt: The prompt version to be registered.
         """
         with self._lock:
-            self._traces[trace_id].append(prompt)
+            self._traces[trace_id].prompts.append(prompt)
 
     @contextlib.contextmanager
     def get_trace(self, trace_id: str) -> Generator[Optional[_Trace], None, None]:
