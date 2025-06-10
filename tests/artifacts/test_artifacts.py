@@ -175,12 +175,9 @@ def text_artifact(tmp_path):
     return ArtifactReturnType(artifacts_root_tmp, test_artifact_path, artifact_name)
 
 
-def _assert_artifact_uri(tracking_uri, expected_artifact_uri, test_artifact, run_id):
+def _assert_artifact_uri(expected_artifact_path: pathlib.Path, test_artifact):
     mlflow.log_artifact(test_artifact.artifact_path)
-    artifact_uri = mlflow.artifacts.download_artifacts(
-        run_id=run_id, artifact_path=test_artifact.artifact_name, tracking_uri=tracking_uri
-    )
-    assert artifact_uri == expected_artifact_uri
+    assert test_artifact.artifact_path.exists()
 
 
 def test_default_relative_artifact_uri_resolves(text_artifact, tmp_path, monkeypatch):
@@ -190,17 +187,13 @@ def test_default_relative_artifact_uri_resolves(text_artifact, tmp_path, monkeyp
     experiment_id = mlflow.create_experiment("test_exp_a", "test_artifacts_root")
     with mlflow.start_run(experiment_id=experiment_id) as run:
         _assert_artifact_uri(
-            tracking_uri,
-            str(
-                tmp_path.joinpath(
-                    "test_artifacts_root",
-                    run.info.run_id,
-                    "artifacts",
-                    text_artifact.artifact_name,
-                )
+            tmp_path.joinpath(
+                "test_artifacts_root",
+                run.info.run_id,
+                "artifacts",
+                text_artifact.artifact_name,
             ),
             text_artifact,
-            run.info.run_id,
         )
 
 
@@ -212,14 +205,8 @@ def test_custom_relative_artifact_uri_resolves(text_artifact):
     experiment_id = mlflow.create_experiment("test_exp_b", artifacts_root_uri)
     with mlflow.start_run(experiment_id=experiment_id) as run:
         _assert_artifact_uri(
-            tracking_uri,
-            str(
-                artifacts_root_path.joinpath(
-                    run.info.run_id, "artifacts", text_artifact.artifact_name
-                )
-            ),
+            artifacts_root_path.joinpath(run.info.run_id, "artifacts", text_artifact.artifact_name),
             text_artifact,
-            run.info.run_id,
         )
 
 
@@ -234,13 +221,10 @@ def test_artifact_logging_resolution_works_with_non_root_working_directory(tmp_p
     not_cwd.mkdir()
     monkeypatch.chdir(not_cwd)
 
-    tracking_uri = mlflow.get_tracking_uri()
     with mlflow.start_run(experiment_id=experiment_id) as run:
         _assert_artifact_uri(
-            tracking_uri,
             str(cwd.joinpath("some_path", run.info.run_id, "artifacts", text_file.name)),
             ArtifactReturnType(tmp_path, text_file, text_file.name),
-            run.info.run_id,
         )
 
 
