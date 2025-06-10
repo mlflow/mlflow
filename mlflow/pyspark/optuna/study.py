@@ -12,7 +12,7 @@ from optuna import exceptions, pruners, samplers, storages
 from optuna.study import Study
 from optuna.trial import FrozenTrial, TrialState
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, first
+from pyspark.sql.functions import col
 
 import mlflow
 from mlflow import MlflowClient
