@@ -343,8 +343,8 @@ class ChatRequest(BaseModel):
     message: str
 
 
-@mlflow.trace  # Ensure @mlflow.trace is the outermost decorator
-@app.post("/chat")  # FastAPI decorator should be inner
+@app.post("/chat")  # FastAPI decorator should be outermost
+@mlflow.trace  # Ensure @mlflow.trace is the inner decorator
 def handle_chat(request: Request, chat_request: ChatRequest):
     # Retrieve all context from request headers
     client_request_id = request.headers.get("X-Request-ID")
@@ -407,11 +407,10 @@ def handle_chat_feedback(
     # Search for the trace with the matching client_request_id
     client = MlflowClient()
     experiment = client.get_experiment_by_name("production-genai-app")
-    traces = client.search_traces(
-        experiment_ids=[experiment.experiment_id],
-        filter_string=f"attributes.client_request_id = '{client_request_id}'",
-        max_results=1,
-    )
+    traces = client.search_traces(experiment_ids=[experiment.experiment_id])
+    traces = [
+        trace for trace in traces if trace.info.client_request_id == client_request_id
+    ][:1]
 
     if not traces:
         return {
