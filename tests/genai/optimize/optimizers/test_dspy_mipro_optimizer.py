@@ -398,5 +398,5 @@ def test_register_prompt_kwargs(mock_mipro, sample_data, sample_prompt, mock_ext
         )
     assert spy_register.called
     _, kwargs = spy_register.call_args
-    assert kwargs["version_metadata"]["overall_eval_score"] == "1.0"
+    assert kwargs["tags"]["overall_eval_score"] == "1.0"
     assert kwargs["name"] == "test_prompt"
