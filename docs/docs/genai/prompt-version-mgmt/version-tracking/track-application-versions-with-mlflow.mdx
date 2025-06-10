@@ -26,14 +26,6 @@ Install the required packages:
 pip install --upgrade "mlflow>=3.1" openai>=1.0.0
 ```
 
-:::tip
-**Using Databricks-managed MLflow?** Run `pip install --upgrade "mlflow[databricks]>=3.1" openai>=1.0.0` instead.
-
-**Running in a Databricks notebook?** MLflow is pre-installed in the Databricks runtime. You only need to install additional packages like `openai` if using external LLM providers.
-
-**Running locally?** You'll need to install all packages listed above.
-:::
-
 ## Environment Setup
 
 Before running the examples below, configure your environment:
@@ -107,8 +99,8 @@ Before running the examples below, configure your environment:
     import mlflow
 
     # Set MLflow tracking URI and experiment
-    mlflow.set_tracking_uri("databricks")
-    mlflow.set_experiment("/Shared/my_genai_app_versions")
+    mlflow.set_tracking_uri("http://127.0.0.1:5000")
+    mlflow.set_experiment("my_genai_app_versions")
     ```
 
   </TabItem>

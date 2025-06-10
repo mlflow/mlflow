@@ -157,8 +157,8 @@ EXPERIMENT_ID = "your_mlflow_experiment_id"
 CATALOG_NAME = "your_uc_catalog_name"
 SCHEMA_NAME = "your_uc_schema_name"
 
-# Ensure MLflow is connected to Databricks
-mlflow.set_tracking_uri("databricks")
+# Ensure MLflow is connected to your tracking server
+mlflow.set_tracking_uri("http://127.0.0.1:5000")
 mlflow.set_experiment(experiment_id=EXPERIMENT_ID)
 
 try:
