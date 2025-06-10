@@ -689,37 +689,37 @@ const sidebarsGenAI: SidebarsConfig = {
               type: 'doc',
               id: 'flavors/custom-pyfunc-for-llms/notebooks/custom-pyfunc-advanced-llm-ipynb',
               label: 'Custom App Development Guide',
-            }
+            },
+            {
+              type: 'doc',
+              id: 'flavors/chat-model-intro/index',
+              label: 'Intro to ChatModel',
+            },
+            {
+              type: 'category',
+              label: 'Building with ChatModel',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'flavors/chat-model-guide/chat-model-tool-calling-ipynb',
+                  label: "ChatModel Tool Calling Example",
+                }
+              ],
+              link: {
+                type: 'doc',
+                id: 'flavors/chat-model-guide/index',
+              }
+            },
+            {
+              type: 'doc',
+              id: 'flavors/responses-agent-intro',
+              label: 'Building with ResponsesAgent',
+            },
           ],
           link: {
             type: 'doc',
             id: 'flavors/custom-pyfunc-for-llms/index'
           }
-        },
-        {
-          type: 'doc',
-          id: 'flavors/chat-model-intro/index',
-          label: 'Intro to ChatModel',
-        },
-        {
-          type: 'category',
-          label: 'Building with ChatModel',
-          items: [
-            {
-              type: 'doc',
-              id: 'flavors/chat-model-guide/chat-model-tool-calling-ipynb',
-              label: "ChatModel Tool Calling Example",
-            }
-          ],
-          link: {
-            type: 'doc',
-            id: 'flavors/chat-model-guide/index',
-          }
-        },
-        {
-          type: 'doc',
-          id: 'flavors/responses-agent-intro',
-          label: 'Building with ResponsesAgent',
         },
       ],
       link: {
