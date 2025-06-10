@@ -35,10 +35,8 @@ def link_prompts_to_trace(
         return
 
     if synchronous:
-        # Run linking synchronously
         _link_prompts_sync(client, trace_id, prompts)
     else:
-        # Run linking asynchronously in a separate thread
         threading.Thread(
             target=_link_prompts_sync,
             args=(client, trace_id, prompts),
