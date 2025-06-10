@@ -128,11 +128,6 @@ const sidebarsGenAI: SidebarsConfig = {
       items: [
         {
           type: 'doc',
-          id: 'tracing/tracing-101',
-          label: 'Introduction to Tracing'
-        },
-        {
-          type: 'doc',
           id: 'tracing/quickstart',
           label: 'Quickstart',
         },
@@ -230,37 +225,37 @@ const sidebarsGenAI: SidebarsConfig = {
             },
             {
               type: 'doc',
-              id: 'tracing/session',
-              label: 'Tracing Chat Sessions',
-            },
-            {
-              type: 'doc',
-              id: 'tracing/prod-tracing',
-              label: 'Production Tracing',
+              id: 'tracing/attach-tags/index',
+              label: 'Trace Tagging',
             },
             {
               type: 'doc',
               id: 'tracing/quality-with-traces',
               label: 'Using Traces for Quality Improvement',
             },
-          ],
-        },
-
-        {
-          type: 'category',
-          label: 'App Observation and Debugging',
-          items: [
             {
               type: 'doc',
               id: 'tracing/observe-with-traces/delete-traces',
             },
             {
               type: 'doc',
-              id: 'tracing/observe-with-traces/query-via-sdk',
+              id: 'tracing/search-traces',
+              label: 'Searching for Traces',
             },
+          ],
+        },
+
+        {
+          type: 'category',
+          label: 'Observe & Analyze Traces',
+          items: [
             {
               type: 'doc',
               id: 'tracing/observe-with-traces/ui',
+            },
+            {
+              type: 'doc',
+              id: 'tracing/observe-with-traces/query-via-sdk',
             },
           ],
           link: {
@@ -270,18 +265,13 @@ const sidebarsGenAI: SidebarsConfig = {
         },
         {
           type: 'doc',
-          id: 'tracing/search-traces',
-          label: 'Searching for Traces',
-        },
-        {
-          type: 'doc',
-          id: 'tracing/attach-tags/index',
-          label: 'Trace Tagging',
-        },
-        {
-          type: 'doc',
           id: 'tracing/lightweight-sdk',
           label: 'Lightweight Tracing SDK',
+        },
+        {
+          type: 'doc',
+          id: 'tracing/prod-tracing',
+          label: 'Production Tracing',
         },
         {
           type: 'doc',

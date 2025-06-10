@@ -30,18 +30,7 @@ While tracing features are available starting in MLflow 2.15.0+, **it is strongl
 Before running the examples below, configure your environment:
 
 <Tabs>
-  <TabItem value="databricks" label="Databricks" default>
-    If you're working on tracing with Databricks, configure your authentication:
-
-    ```python
-    import os
-
-    # Set Databricks authentication (only needed when running outside Databricks)
-    os.environ["DATABRICKS_HOST"] = "https://your-workspace.databricks.com"
-    os.environ["DATABRICKS_TOKEN"] = "your-databricks-token"
-    ```
-  </TabItem>
-  <TabItem value="local" label="Local MLflow">
+  <TabItem value="local" label="Local MLflow" default>
     For local development, start the MLflow tracking server:
 
     ```bash
@@ -67,35 +56,19 @@ Before running the examples below, configure your environment:
     mlflow.set_experiment("my-tracing-experiment")
     ```
   </TabItem>
+  <TabItem value="databricks" label="Databricks">
+    If you're working on tracing with Databricks, configure your authentication:
+
+    ```python
+    import os
+
+    # Set Databricks authentication (only needed when running outside Databricks)
+    os.environ["DATABRICKS_HOST"] = "https://your-workspace.databricks.com"
+    os.environ["DATABRICKS_TOKEN"] = "your-databricks-token"
+    ```
+  </TabItem>
 </Tabs>
 
-### Configure API Keys
-
-Set your LLM provider API keys as environment variables:
-
-```python
-import os
-
-# Set your OpenAI API key (if using OpenAI models)
-os.environ["OPENAI_API_KEY"] = "your-api-key-here"
-
-# Set other provider keys as needed
-# os.environ["ANTHROPIC_API_KEY"] = "your-anthropic-key"
-# os.environ["GOOGLE_API_KEY"] = "your-google-key"
-```
-
-:::tip
-You can also set these environment variables in your shell before running your script:
-
-```bash
-# For Databricks authentication (if running outside Databricks)
-export DATABRICKS_HOST="https://your-workspace.databricks.com"
-export DATABRICKS_TOKEN="your-databricks-token"
-
-# For LLM providers
-export OPENAI_API_KEY="your-api-key-here"
-```
-:::
 
 ## Tracing Approaches
 
@@ -196,69 +169,31 @@ result = answer_question("What is MLflow Tracing?")
 print(result)
 ```
 
-## What is the right approach for my use case?
-
-Choose the appropriate tracing approach based on your application architecture:
-
-<Tabs>
-  <TabItem value="single-library" label="Single GenAI Library" default>
-    **Using a single GenAI Authoring Library** (e.g., LangGraph, CrewAI, OpenAI Agents, Bedrock Agents, etc)
-
-    Use **automatic tracing** by adding a one-line integration from our [integrations page](/genai/tracing/integrations) for your selected library: `mlflow.<library>.autolog()`
-
-    This provides complete observability with minimal code changes and is perfect for getting started quickly with comprehensive tracing.
-  </TabItem>
-  <TabItem value="llm-sdks" label="LLM Provider SDKs">
-    **Using an LLM provider's SDKs Directly** (e.g., OpenAI SDK, Anthropic SDK, Bedrock SDK, etc)
-
-    Enable [automatic tracing](/genai/tracing/app-instrumentation/automatic) for the API library
-
-    Add manual tracing decorators to [combine](/genai/tracing/app-instrumentation/manual-tracing/fluent-apis#combining-with-auto-tracing) multiple LLM calls into a single trace
-  </TabItem>
-  <TabItem value="multiple-frameworks" label="Multiple Frameworks">
-    **Using Multiple Authoring Frameworks or combining an authoring framework with a LLM provider's SDK** (e.g., LangGraph AND OpenAI SDK, etc)
-
-    Enable [automatic tracing](/genai/tracing/app-instrumentation/automatic) for each framework / SDK
-
-    Add manual tracing decorators to [combine](/genai/tracing/app-instrumentation/manual-tracing/fluent-apis#combining-with-auto-tracing) calls to multiple frameworks or SDKs into a single trace
-  </TabItem>
-  <TabItem value="custom-control" label="Custom Control">
-    **All other approaches or you have a need for fine-grained control**
-
-    Use [**Manual Tracing**](/genai/tracing/app-instrumentation/manual-tracing)
-
-    Start with the [high-level APIs](/genai/tracing/app-instrumentation/manual-tracing/fluent-apis) (`@mlflow.trace` decorator and fluent context managers) which provide a balance of control and ease of use
-
-    Use the [low-level APIs](/genai/tracing/app-instrumentation/manual-tracing/low-level-api) only if the high-level APIs don't give you enough control
-  </TabItem>
-</Tabs>
-
+:::tip
 Generally, we recommend starting with [automatic tracing](/genai/tracing/app-instrumentation/automatic) and only moving to [manual tracing](/genai/tracing/app-instrumentation/manual-tracing) if your application's logic is not accurately captured or you need more control.
+:::
+
 
 ## Automatic Tracing
 
 Automatic tracing provides zero-code observability for supported libraries. Simply call the autolog function for your library and MLflow will automatically capture all relevant operations.
 
-MLflow supports automatic tracing for 20+ popular GenAI libraries including LLM providers (OpenAI, Anthropic, Google Gemini, AWS Bedrock), frameworks (LangChain, LangGraph, LlamaIndex, DSPy), and tools (LiteLLM, Instructor, CrewAI). See the complete list at [Automatic Tracing Integrations](/genai/tracing/integrations).
-
-Most autolog functions accept configuration parameters to customize tracing behavior:
+MLflow supports automatic tracing for 20+ popular GenAI libraries including LLM providers (OpenAI, Anthropic, Google Gemini, AWS Bedrock), frameworks (LangChain, LangGraph, LlamaIndex, DSPy). See the complete list at [Automatic Tracing Integrations](/genai/tracing/integrations).
 
 ```python
 import mlflow
 
-# Basic autolog
 mlflow.openai.autolog()
-
-# Autolog with custom configuration
-mlflow.openai.autolog(
-    log_traces=True,  # Enable/disable tracing
-    log_models=False,  # Disable model logging
-    log_inputs_outputs=True,  # Log input/output data
-    silent=False,  # Enable logging messages
-)
 ```
 
-You can enable autolog for multiple libraries simultaneously by calling each autolog function.
+You can enable autolog for multiple libraries simultaneously by calling each autolog function. For example, to enable autolog for OpenAI and LangChain, you can do:
+
+```python
+import mlflow
+
+mlflow.openai.autolog()
+mlflow.langchain.autolog()
+```
 
 ## Manual Tracing
 
@@ -416,56 +351,6 @@ After instrumenting your application, you can view and analyze your traces in se
     # Get a specific trace
     trace = mlflow.get_trace("trace-id-here")
     ```
-  </TabItem>
-</Tabs>
-
-## Best Practices
-
-**Naming Convention**: Use clear, descriptive names for your spans like "PDF Document Parser" or "Customer Intent Classification" rather than generic names like "Process" or "Function".
-
-**Useful Attributes**: Add meaningful attributes to capture input characteristics, processing parameters, and output metrics. This metadata is valuable for debugging and analysis.
-
-**Error Handling**: Properly handle and trace errors by setting error-related attributes when exceptions occur.
-
-**Performance Considerations**: For production environments, configure sampling rates and trace size limits to manage performance impact.
-
-## Troubleshooting
-
-<Tabs>
-  <TabItem value="missing-traces" label="Missing Traces" default>
-    **Problem**: Traces are not appearing in the UI
-
-    **Solutions**:
-
-    Verify MLflow tracking URI is set correctly with `print(mlflow.get_tracking_uri())`
-
-    Check if tracing is enabled with `print(mlflow.tracing.is_tracing_enabled())`
-
-    Ensure autolog is called before library usage
-
-    Verify experiment exists and is accessible
-  </TabItem>
-  <TabItem value="performance-issues" label="Performance Issues">
-    **Problem**: Tracing is slowing down your application
-
-    **Solutions**:
-
-    Reduce sampling rate with `mlflow.tracing.set_global_config(sampling_rate=0.1)`
-
-    Limit trace size with size restrictions in the global config
-
-    Use async tracing for high-throughput applications
-  </TabItem>
-  <TabItem value="large-inputs" label="Large Input/Output Data">
-    **Problem**: Traces contain too much data or fail due to size limits
-
-    **Solutions**:
-
-    Configure automatic truncation in global settings
-
-    Manually truncate sensitive or large data before logging
-
-    Use references instead of full data content
   </TabItem>
 </Tabs>
 
