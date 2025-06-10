@@ -1,0 +1,857 @@
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Production Monitoring (Running Scorers Automatically)
+
+> **Databricks MLflow Only**: This feature is available exclusively in **Databricks MLflow** and is not supported in MLflow Open Source. For OSS alternatives, see the [Alternative Approaches](#alternative-approaches-for-oss) section.
+
+## Overview
+
+While operational health metrics tell you if your GenAI application is running, production monitoring tells you if it's running *well*. Databricks MLflow's automated production monitoring continuously evaluates the quality of your application's outputs using any scorer you define, running them automatically on sampled production traffic.
+
+This automated approach provides several key benefits:
+
+- **Real-time quality detection**: Catch quality drifts as they happen, not days later
+- **Proactive issue identification**: Spot problems with specific input types before they impact users
+- **Scalable quality assurance**: Monitor multiple applications without manual intervention
+- **Data-driven improvements**: Use quality trends to guide development priorities
+
+The system works by registering your scorers with MLflow and scheduling them to run periodically in the background. You control the sampling rate for each scorer to balance evaluation coverage with computational costs, and built-in dashboards provide visibility into quality trends and alerts.
+
+## Prerequisites
+
+Setting up production monitoring requires several components to be in place:
+
+**Environment Setup**:
+- Databricks MLflow environment (this feature is not available in MLflow OSS)
+- MLflow Experiment configured in your Databricks workspace
+- Unity Catalog permissions for table creation where MLflow stores trace archives
+
+**Application Requirements**:
+- Production GenAI application instrumented with MLflow Tracing
+- Set of tested scorers that work reliably on production-like data
+
+Having these prerequisites ensures smooth setup and reliable monitoring once deployed.
+
+## Setting Up Production Monitoring
+
+### Defining Your Scorers
+
+Before setting up monitoring, you need to define the scorers that will evaluate your production data. These can be custom business logic, built-in LLM judges, or guideline-based evaluators. The key is ensuring all imports are included within the scorer function for proper serialization.
+
+<Tabs>
+<TabItem value="custom" label="Custom Scorers">
+
+Custom scorers let you implement business-specific quality checks. Here are examples that cover common monitoring needs:
+
+```python
+import mlflow
+from mlflow.genai.scorers import scorer
+
+
+@scorer
+def response_contains_keywords(inputs, outputs):
+    """Check if response contains business-relevant keywords."""
+    response = outputs.get("choices", [{}])[0].get("message", {}).get("content", "")
+    keywords = ["product", "service", "support", "pricing"]
+
+    found_keywords = [kw for kw in keywords if kw.lower() in response.lower()]
+
+    if found_keywords:
+        return {
+            "score": "yes",
+            "rationale": f"Found relevant keywords: {', '.join(found_keywords)}",
+        }
+    else:
+        return {"score": "no", "rationale": "No business-relevant keywords found"}
+
+
+@scorer
+def response_length_appropriate(inputs, outputs):
+    """Ensure response length matches query complexity."""
+    response = outputs.get("choices", [{}])[0].get("message", {}).get("content", "")
+    query = inputs.get("query", "")
+
+    word_count = len(response.split())
+
+    # Adjust expectations based on query type
+    if any(word in query.lower() for word in ["explain", "describe", "tell me about"]):
+        appropriate = 20 <= word_count <= 200  # Detailed queries need longer responses
+    else:
+        appropriate = 5 <= word_count <= 100  # Simple queries should be concise
+
+    return {
+        "score": "yes" if appropriate else "no",
+        "rationale": f"Response length ({word_count} words) is {'appropriate' if appropriate else 'inappropriate'} for query type",
+    }
+```
+
+</TabItem>
+<TabItem value="guidelines" label="Guideline-Based Judges">
+
+Guideline-based judges evaluate responses against specific business rules or standards. These are particularly useful for ensuring consistency in tone, compliance, or customer service standards:
+
+```python
+from databricks.agents.monitoring import GuidelinesJudge
+
+# Professional communication standards
+business_tone_guidelines = {
+    "professional_tone": [
+        "The response must use professional business language",
+        "Avoid casual expressions or slang",
+        "Maintain a helpful and respectful tone",
+    ]
+}
+
+# Customer service quality standards
+customer_service_guidelines = {
+    "customer_service": [
+        "Always acknowledge the customer's concern",
+        "Provide actionable solutions when possible",
+        "Offer to escalate if the issue cannot be resolved",
+    ]
+}
+
+# These guidelines will be used when configuring the monitor
+```
+
+</TabItem>
+<TabItem value="builtin" label="Built-in Judges">
+
+Built-in judges provide pre-configured evaluation for common quality dimensions. They're ready to use without custom code:
+
+```python
+from databricks.agents.monitoring import BuiltinJudge
+
+# Available built-in judges:
+# - "safety": Evaluates content for harmful or inappropriate responses
+# - "relevance_to_query": Checks if response addresses the user's question
+# - "groundedness": Ensures response is based on provided context
+# - "coherence": Evaluates logical flow and consistency
+# - "fluency": Assesses language quality and readability
+
+# These will be configured in the monitor setup
+```
+
+</TabItem>
+</Tabs>
+
+### Creating and Configuring the Monitor
+
+Once your scorers are defined, you create the monitor using the `create_external_monitor()` function. This sets up the automated evaluation pipeline that will run your scorers on sampled production data.
+
+The configuration allows you to control sampling rates both globally and per-scorer, giving you fine-grained control over evaluation coverage and costs:
+
+```python
+from databricks.agents.monitoring import (
+    AssessmentConfig,
+    CustomMetric,
+    BuiltinJudge,
+    GuidelinesJudge,
+    AssessmentsSuiteConfig,
+    create_external_monitor,
+)
+
+# Configuration parameters
+EXPERIMENT_ID = "your_mlflow_experiment_id"
+CATALOG_NAME = "your_uc_catalog_name"
+SCHEMA_NAME = "your_uc_schema_name"
+
+# Ensure MLflow is connected to Databricks
+mlflow.set_tracking_uri("databricks")
+mlflow.set_experiment(experiment_id=EXPERIMENT_ID)
+
+try:
+    monitor = create_external_monitor(
+        catalog_name=CATALOG_NAME,
+        schema_name=SCHEMA_NAME,
+        assessments_config=AssessmentsSuiteConfig(
+            sample=0.1,  # Default sample rate (10% of traffic)
+            assessments=[
+                # Custom metrics with specific sample rates
+                CustomMetric(
+                    metric_fn=response_contains_keywords,
+                    sample_rate=0.5,  # Override default to 50%
+                ),
+                CustomMetric(
+                    metric_fn=response_length_appropriate,
+                    sample_rate=0.3,  # 30% of traffic
+                ),
+                # Built-in judges for common quality dimensions
+                BuiltinJudge(
+                    name="safety", sample_rate=1.0  # Evaluate all traces for safety
+                ),
+                BuiltinJudge(
+                    name="relevance_to_query", sample_rate=0.2  # 20% of traffic
+                ),
+                BuiltinJudge(name="groundedness"),  # Uses default sample rate
+                # Guideline-based judges for business requirements
+                GuidelinesJudge(
+                    guidelines=business_tone_guidelines,
+                    sample_rate=0.4,  # 40% of traffic
+                ),
+                GuidelinesJudge(
+                    guidelines=customer_service_guidelines,
+                    sample_rate=0.3,  # 30% of traffic
+                ),
+            ],
+        ),
+        experiment_id=EXPERIMENT_ID,
+    )
+
+    print(f"✅ Monitor created successfully!")
+    print(f"📊 Monitoring dashboard: {monitor.monitoring_page_url}")
+    print("⏱️ Allow 15-20 minutes for initial data to appear")
+
+except Exception as e:
+    print(f"❌ Error creating monitor: {e}")
+    print("💡 Ensure you have CREATE TABLE permissions and the experiment exists")
+```
+
+**Understanding Sample Rates**: The sample rate determines what percentage of your production traffic gets evaluated by each scorer. Higher rates provide better coverage but increase computational costs. You can set a global default rate and override it for specific scorers based on their importance and cost.
+
+### Viewing and Interpreting Results
+
+After creating the monitor, you'll need to wait 15-20 minutes for the first data to appear. The system processes production traces in batches and applies your scorers according to their configured sample rates.
+
+**Access Points for Monitoring Data**:
+- **MLflow Experiment UI**: Navigate to your experiment and look for the "Monitoring" tab
+- **Direct Dashboard URL**: Use the URL provided by `monitor.monitoring_page_url`
+- **Built-in Visualizations**: Time-series charts, distribution analysis, and quality trend dashboards
+
+**Key Monitoring Views**:
+- **Quality Trends**: Shows how each scorer's results change over time, helping identify gradual quality drift
+- **Trace Analysis**: Individual trace results with detailed scorer feedback for debugging specific issues
+- **Distribution Analysis**: Reveals how quality varies across different types of inputs or user segments
+- **Alert Summary**: Notifications when quality metrics fall below configured thresholds
+
+## Managing Existing Monitors
+
+### Updating Monitor Configuration
+
+As your application evolves, you'll need to adjust your monitoring setup. This might involve adding new scorers, modifying sample rates, or removing outdated evaluations.
+
+<Tabs>
+<TabItem value="update" label="Adding & Updating Scorers">
+
+```python
+from databricks.agents.monitoring import get_external_monitor, update_external_monitor
+
+# Step 1: Retrieve current configuration
+try:
+    existing_monitor = get_external_monitor(experiment_id=EXPERIMENT_ID)
+    current_config = existing_monitor.assessments_config
+    print("✅ Current monitor configuration retrieved")
+except Exception as e:
+    print(f"❌ Error retrieving monitor: {e}")
+    current_config = None
+
+
+# Step 2: Define new scorers if adding
+@scorer
+def response_sentiment_check(inputs, outputs):
+    """Check if response maintains positive sentiment."""
+    response = outputs.get("choices", [{}])[0].get("message", {}).get("content", "")
+
+    # Simple sentiment check (in practice, use more sophisticated methods)
+    negative_words = ["terrible", "awful", "hate", "horrible", "worst"]
+    positive_words = ["great", "excellent", "wonderful", "amazing", "best"]
+
+    negative_count = sum(1 for word in negative_words if word in response.lower())
+    positive_count = sum(1 for word in positive_words if word in response.lower())
+
+    if negative_count > positive_count:
+        return {"score": "no", "rationale": "Response contains negative sentiment"}
+    else:
+        return {
+            "score": "yes",
+            "rationale": "Response maintains neutral or positive sentiment",
+        }
+
+
+# Step 3: Create updated configuration
+if current_config:
+    # Preserve existing assessments and add new ones
+    new_assessments = (
+        list(current_config.assessments) if current_config.assessments else []
+    )
+    new_assessments.append(
+        CustomMetric(metric_fn=response_sentiment_check, sample_rate=0.25)
+    )
+
+    # Update existing assessment sample rates
+    for assessment in new_assessments:
+        if isinstance(assessment, BuiltinJudge) and assessment.name == "safety":
+            assessment.sample_rate = 0.8  # Increase safety monitoring
+            break
+
+    updated_config = AssessmentsSuiteConfig(
+        sample=current_config.sample,
+        paused=current_config.paused,
+        assessments=new_assessments,
+    )
+
+    try:
+        updated_monitor = update_external_monitor(
+            experiment_id=EXPERIMENT_ID, assessments_config=updated_config
+        )
+        print("✅ Monitor updated successfully")
+        print(f"📊 Updated dashboard: {updated_monitor.monitoring_page_url}")
+    except Exception as e:
+        print(f"❌ Error updating monitor: {e}")
+```
+
+</TabItem>
+<TabItem value="remove" label="Removing Scorers">
+
+```python
+# Retrieve current configuration
+existing_monitor = get_external_monitor(experiment_id=EXPERIMENT_ID)
+current_config = existing_monitor.assessments_config
+
+# Define scorers to remove by name
+scorers_to_remove = ["response_sentiment_check", "groundedness"]
+
+if current_config and current_config.assessments:
+    # Filter out unwanted scorers
+    retained_assessments = [
+        assessment
+        for assessment in current_config.assessments
+        if assessment.name not in scorers_to_remove
+    ]
+
+    updated_config = AssessmentsSuiteConfig(
+        sample=current_config.sample,
+        paused=current_config.paused,
+        assessments=retained_assessments,
+    )
+
+    try:
+        update_external_monitor(
+            experiment_id=EXPERIMENT_ID, assessments_config=updated_config
+        )
+        print(f"✅ Removed {len(scorers_to_remove)} scorer(s) from monitor")
+        print(f"📊 Remaining assessments: {len(retained_assessments)}")
+    except Exception as e:
+        print(f"❌ Error removing scorers: {e}")
+```
+
+</TabItem>
+<TabItem value="delete" label="Deleting Monitor">
+
+```python
+from databricks.agents.monitoring import delete_external_monitor
+
+try:
+    delete_external_monitor(experiment_id=EXPERIMENT_ID)
+    print("✅ Monitor deleted successfully")
+    print("ℹ️ Trace data and archive tables are preserved")
+except Exception as e:
+    print(f"❌ Error deleting monitor: {e}")
+```
+
+**Important**: Deleting a monitor stops all automated scoring but preserves your underlying trace data and Unity Catalog tables.
+
+</TabItem>
+</Tabs>
+
+## Best Practices
+
+### Optimizing Sampling Strategy
+
+The key to effective production monitoring is balancing comprehensive quality coverage with reasonable computational costs. A tiered sampling approach works well for most applications:
+
+```python
+# Example: Cost-optimized sampling strategy
+assessments = [
+    # Tier 1: High-frequency, low-cost checks (run on most traffic)
+    CustomMetric(metric_fn=basic_safety_check, sample_rate=1.0),
+    CustomMetric(metric_fn=response_length_check, sample_rate=0.8),
+    # Tier 2: Medium-frequency, moderate-cost checks
+    BuiltinJudge(name="relevance_to_query", sample_rate=0.3),
+    BuiltinJudge(name="groundedness", sample_rate=0.2),
+    # Tier 3: Low-frequency, high-cost checks (sample sparingly)
+    GuidelinesJudge(guidelines=complex_guidelines, sample_rate=0.1),
+    CustomMetric(metric_fn=expensive_external_check, sample_rate=0.05),
+]
+```
+
+This approach ensures you catch the most common quality issues while keeping expensive evaluations focused on a representative sample.
+
+### Environment-Specific Configuration
+
+Different environments should have different monitoring strategies based on their purpose and traffic patterns:
+
+<Tabs>
+<TabItem value="dev" label="Development">
+
+```python
+# Development: Comprehensive testing with high sample rates
+dev_config = AssessmentsSuiteConfig(
+    sample=0.5,  # 50% sampling for thorough testing
+    assessments=[
+        # Include all scorers with high sample rates
+        CustomMetric(metric_fn=all_custom_scorers, sample_rate=0.8),
+        BuiltinJudge(name="safety", sample_rate=1.0),
+        BuiltinJudge(name="relevance_to_query", sample_rate=0.6),
+        GuidelinesJudge(guidelines=all_guidelines, sample_rate=0.4),
+    ],
+)
+```
+
+Development environments should prioritize comprehensive coverage to catch issues early, even at higher computational cost.
+
+</TabItem>
+<TabItem value="staging" label="Staging">
+
+```python
+# Staging: Validation-focused with moderate sampling
+staging_config = AssessmentsSuiteConfig(
+    sample=0.2,  # 20% sampling for validation
+    assessments=[
+        # Focus on critical scorers plus sampling of others
+        CustomMetric(metric_fn=critical_business_logic, sample_rate=0.5),
+        BuiltinJudge(name="safety", sample_rate=0.8),
+        BuiltinJudge(name="relevance_to_query", sample_rate=0.3),
+        GuidelinesJudge(guidelines=key_guidelines, sample_rate=0.2),
+    ],
+)
+```
+
+Staging should balance thorough validation with efficiency, focusing on the most important quality dimensions.
+
+</TabItem>
+<TabItem value="prod" label="Production">
+
+```python
+# Production: Optimized for efficiency and cost
+prod_config = AssessmentsSuiteConfig(
+    sample=0.1,  # 10% sampling for cost efficiency
+    assessments=[
+        # Essential scorers only, with optimized rates
+        CustomMetric(metric_fn=essential_safety_check, sample_rate=0.3),
+        BuiltinJudge(name="safety", sample_rate=0.2),
+        BuiltinJudge(name="relevance_to_query", sample_rate=0.1),
+        GuidelinesJudge(guidelines=critical_guidelines, sample_rate=0.05),
+    ],
+)
+```
+
+Production monitoring should focus on the most critical quality issues with sample rates optimized for your cost and coverage requirements.
+
+</TabItem>
+</Tabs>
+
+### Efficient Scorer Design
+
+When designing custom scorers for production monitoring, efficiency matters. Combine multiple related checks into single scorers to reduce the number of evaluations:
+
+```python
+@scorer
+def comprehensive_quality_checker(inputs, outputs):
+    """Combine multiple quality checks for efficiency."""
+    response = outputs.get("choices", [{}])[0].get("message", {}).get("content", "")
+
+    # Run multiple checks together
+    checks = {
+        "not_empty": len(response.strip()) > 0,
+        "appropriate_length": 10 <= len(response.split()) <= 200,
+        "contains_answer": check_answer_indicators(response),
+        "professional_tone": check_professional_language(response),
+    }
+
+    # Return composite feedback
+    passed_checks = sum(checks.values())
+    total_checks = len(checks)
+    score = passed_checks / total_checks
+
+    return {
+        "score": score,
+        "rationale": f"Passed {passed_checks}/{total_checks} quality checks: {checks}",
+    }
+
+
+def check_answer_indicators(response):
+    """Helper function to check for answer indicators."""
+    indicators = ["the answer is", "according to", "based on", "in summary"]
+    return any(indicator in response.lower() for indicator in indicators)
+
+
+def check_professional_language(response):
+    """Helper function to check professional tone."""
+    unprofessional = ["whatever", "dunno", "idk", "lol", "wtf"]
+    return not any(word in response.lower() for word in unprofessional)
+```
+
+This approach reduces the computational overhead while still providing detailed feedback about multiple quality dimensions.
+
+## Troubleshooting
+
+### Common Setup Issues
+
+<Tabs>
+<TabItem value="permissions" label="Permission Errors">
+
+```python
+# Check and resolve permission issues
+try:
+    monitor = create_external_monitor(...)
+except Exception as e:
+    if "permission" in str(e).lower():
+        print("❌ Permission issue: Ensure you have CREATE TABLE permissions")
+        print("💡 Contact your Databricks admin to grant Unity Catalog permissions")
+        print("📋 Required permissions:")
+        print("   - CREATE TABLE in the specified catalog/schema")
+        print("   - USE CATALOG on the target catalog")
+        print("   - USE SCHEMA on the target schema")
+    elif "experiment" in str(e).lower():
+        print("❌ Experiment issue: Verify experiment ID exists")
+        print("💡 Check mlflow.get_experiment() to confirm experiment access")
+        # Verify experiment exists
+        try:
+            exp = mlflow.get_experiment(EXPERIMENT_ID)
+            print(f"✅ Experiment found: {exp.name}")
+        except:
+            print("❌ Experiment not found or not accessible")
+    else:
+        print(f"❌ Unexpected error: {e}")
+```
+
+</TabItem>
+<TabItem value="nodata" label="Missing Dashboard Data">
+
+```python
+# Diagnose why monitoring dashboards show no data
+def diagnose_monitoring_data():
+    try:
+        monitor = get_external_monitor(experiment_id=EXPERIMENT_ID)
+        config = monitor.assessments_config
+
+        if config.paused:
+            print("⚠️ Monitor is paused - unpause to resume data collection")
+            return "paused"
+        elif not config.assessments:
+            print("⚠️ No assessments configured - add scorers to collect data")
+            return "no_assessments"
+        else:
+            print(f"ℹ️ Monitor active with {len(config.assessments)} assessments")
+            print("⏱️ Wait 15-20 minutes for initial data collection")
+            print(
+                "📊 Check your application is sending traces to the correct experiment"
+            )
+
+            # Check recent trace activity
+            recent_traces = check_recent_trace_activity(EXPERIMENT_ID)
+            if recent_traces == 0:
+                print(
+                    "⚠️ No recent traces found - verify your application is instrumented"
+                )
+                return "no_traces"
+            else:
+                print(f"✅ Found {recent_traces} recent traces")
+                return "data_processing"
+
+    except Exception as e:
+        print(f"❌ Error checking monitor status: {e}")
+        return "error"
+
+
+def check_recent_trace_activity(experiment_id):
+    """Check for recent trace activity in the experiment."""
+    # This would check your MLflow experiment for recent runs/traces
+    # Implementation depends on your specific setup
+    return 0  # Placeholder
+```
+
+</TabItem>
+<TabItem value="costs" label="High Monitoring Costs">
+
+```python
+# Optimize monitoring costs without losing critical coverage
+def optimize_monitoring_costs(current_config):
+    """Reduce monitoring costs while maintaining quality coverage."""
+
+    if not current_config or not current_config.assessments:
+        return None
+
+    optimized_assessments = []
+
+    for assessment in current_config.assessments:
+        # Reduce expensive LLM judge sampling
+        if isinstance(assessment, BuiltinJudge):
+            # Keep safety at higher rates, reduce others
+            if assessment.name == "safety":
+                assessment.sample_rate = min(0.3, assessment.sample_rate)
+            else:
+                assessment.sample_rate = min(0.1, assessment.sample_rate)
+
+        # Keep custom metrics at moderate rates (typically cheaper)
+        elif isinstance(assessment, CustomMetric):
+            assessment.sample_rate = min(0.2, assessment.sample_rate)
+
+        # Reduce guideline judges significantly (most expensive)
+        elif isinstance(assessment, GuidelinesJudge):
+            assessment.sample_rate = min(0.05, assessment.sample_rate)
+
+        optimized_assessments.append(assessment)
+
+    return AssessmentsSuiteConfig(
+        sample=0.05,  # Reduce global sampling to 5%
+        paused=current_config.paused,
+        assessments=optimized_assessments,
+    )
+
+
+# Apply optimizations
+existing_monitor = get_external_monitor(experiment_id=EXPERIMENT_ID)
+optimized_config = optimize_monitoring_costs(existing_monitor.assessments_config)
+
+if optimized_config:
+    update_external_monitor(
+        experiment_id=EXPERIMENT_ID, assessments_config=optimized_config
+    )
+    print("✅ Monitor optimized for cost efficiency")
+```
+
+</TabItem>
+</Tabs>
+
+## Alternative Approaches for OSS
+
+Since automated production monitoring is exclusive to Databricks MLflow, MLflow OSS users need alternative approaches for quality monitoring. Here are two effective strategies:
+
+<Tabs>
+<TabItem value="batch" label="Batch Evaluation">
+
+```python
+import schedule
+import time
+import mlflow
+from datetime import datetime, timedelta
+
+
+def oss_quality_monitoring():
+    """OSS alternative: Scheduled batch evaluation for monitoring."""
+
+    # Collect recent application outputs (implement based on your setup)
+    recent_data = collect_recent_application_outputs()
+
+    if not recent_data:
+        print("No recent data to evaluate")
+        return
+
+    # Run evaluation with your custom scorers
+    with mlflow.start_run(
+        run_name=f"quality_check_{datetime.now().strftime('%Y%m%d_%H%M')}"
+    ):
+        results = mlflow.genai.evaluate(
+            data=recent_data,
+            scorers=[quality_scorer, safety_checker, business_logic_scorer],
+        )
+
+        # Log monitoring metadata
+        mlflow.set_tag("monitoring_type", "batch_quality_check")
+        mlflow.log_param("data_points_evaluated", len(recent_data))
+
+        # Check for quality issues and send alerts
+        avg_quality = results.metrics.get("quality_scorer", 0)
+        if avg_quality < 0.7:  # Configure your threshold
+            send_quality_alert(results)
+
+        print(f"Quality check completed. Average quality: {avg_quality:.2f}")
+
+
+def collect_recent_application_outputs():
+    """Collect recent outputs from your application."""
+    # Implementation depends on your application architecture:
+    # - Read from log files
+    # - Query application database
+    # - Call application API
+    # Return list of dicts with inputs/outputs for evaluation
+    pass
+
+
+def send_quality_alert(results):
+    """Send alerts when quality drops below threshold."""
+    # Implement your alerting mechanism:
+    # - Email notifications
+    # - Slack messages
+    # - PagerDuty alerts
+    # - Custom webhook
+    pass
+
+
+# Schedule monitoring runs
+schedule.every(1).hours.do(oss_quality_monitoring)  # Run every hour
+schedule.every().day.at("09:00").do(oss_quality_monitoring)  # Daily at 9 AM
+
+# Run the scheduler
+print("Starting OSS quality monitoring scheduler...")
+while True:
+    schedule.run_pending()
+    time.sleep(60)  # Check every minute
+```
+
+This approach provides regular quality assessment without real-time monitoring, suitable for most OSS use cases.
+
+</TabItem>
+<TabItem value="logs" label="Log-Based Analysis">
+
+```python
+import pandas as pd
+import mlflow
+import json
+from datetime import datetime, timedelta
+
+
+def analyze_application_logs():
+    """Analyze application logs for quality insights."""
+
+    # Read and parse application logs
+    logs_df = read_application_logs()
+
+    if logs_df.empty:
+        print("No log data available for analysis")
+        return
+
+    # Calculate various quality metrics
+    quality_metrics = {
+        "response_rate": calculate_response_rate(logs_df),
+        "avg_response_time": calculate_avg_response_time(logs_df),
+        "error_rate": calculate_error_rate(logs_df),
+        "user_satisfaction": calculate_user_satisfaction(logs_df),
+        "response_length_avg": calculate_avg_response_length(logs_df),
+    }
+
+    # Log metrics to MLflow for tracking trends
+    with mlflow.start_run(run_name=f"log_analysis_{datetime.now().strftime('%Y%m%d')}"):
+        for metric_name, value in quality_metrics.items():
+            mlflow.log_metric(metric_name, value)
+
+        mlflow.set_tag("analysis_type", "log_based_monitoring")
+        mlflow.log_param("log_entries_analyzed", len(logs_df))
+
+    # Check for quality issues
+    if quality_metrics["error_rate"] > 0.05:  # 5% error threshold
+        send_alert("High error rate detected", quality_metrics)
+
+    if quality_metrics["avg_response_time"] > 5.0:  # 5 second threshold
+        send_alert("Slow response times detected", quality_metrics)
+
+    return quality_metrics
+
+
+def read_application_logs():
+    """Read and parse application logs into structured format."""
+    # Implementation depends on your logging setup:
+    # - Parse log files (JSON, text, etc.)
+    # - Query log aggregation system (ELK, Splunk, etc.)
+    # - Read from cloud logging services
+
+    # Example for JSON log files:
+    log_entries = []
+    log_files = get_recent_log_files()
+
+    for log_file in log_files:
+        with open(log_file, "r") as f:
+            for line in f:
+                try:
+                    entry = json.loads(line)
+                    log_entries.append(entry)
+                except json.JSONDecodeError:
+                    continue
+
+    return pd.DataFrame(log_entries)
+
+
+def calculate_response_rate(logs_df):
+    """Calculate successful response rate."""
+    if logs_df.empty:
+        return 0
+
+    total_requests = len(logs_df)
+    successful_responses = len(logs_df[logs_df["status"] == "success"])
+    return successful_responses / total_requests if total_requests > 0 else 0
+
+
+def calculate_avg_response_time(logs_df):
+    """Calculate average response time."""
+    if "response_time" in logs_df.columns:
+        return logs_df["response_time"].mean()
+    return 0
+
+
+def calculate_error_rate(logs_df):
+    """Calculate error rate from logs."""
+    if logs_df.empty:
+        return 0
+
+    total_requests = len(logs_df)
+    error_responses = len(logs_df[logs_df["status"] == "error"])
+    return error_responses / total_requests if total_requests > 0 else 0
+
+
+def calculate_user_satisfaction(logs_df):
+    """Calculate user satisfaction metrics from logs."""
+    # This would depend on how you track user feedback
+    # Could be explicit ratings, implicit signals, etc.
+    if "user_rating" in logs_df.columns:
+        return logs_df["user_rating"].mean()
+    return 0
+
+
+def calculate_avg_response_length(logs_df):
+    """Calculate average response length."""
+    if "response_content" in logs_df.columns:
+        return logs_df["response_content"].str.len().mean()
+    return 0
+
+
+# Run log analysis on a schedule
+schedule.every(6).hours.do(analyze_application_logs)
+```
+
+This approach leverages existing application logs to derive quality insights without additional infrastructure.
+
+</TabItem>
+</Tabs>
+
+## Next Steps
+
+### For Databricks Users
+
+1. **Start with Essential Scorers**: Begin with 2-3 critical quality dimensions at low sample rates (5-10%)
+2. **Monitor and Tune**: Observe the results for a week, then adjust sample rates based on cost and coverage needs
+3. **Expand Gradually**: Add more sophisticated scorers as you validate the monitoring system
+4. **Set Up Alerts**: Configure notifications for quality drops that require immediate attention
+5. **Integrate with Development**: Use monitoring insights to guide targeted improvements and model updates
+
+### For OSS Users
+
+1. **Assess Current Monitoring Needs**: Determine if batch evaluation or log analysis meets your quality requirements
+2. **Implement Baseline Monitoring**: Start with one of the OSS approaches above
+3. **Evaluate Databricks Migration**: Consider the operational overhead of OSS monitoring vs. Databricks automation
+4. **Plan for Scale**: Design your OSS monitoring to handle growth in application usage
+
+Production monitoring transforms your GenAI application from a "deploy and hope" approach to a data-driven system with continuous quality assurance. Whether using Databricks' automated monitoring or OSS alternatives, the key is consistent evaluation and rapid response to quality issues.
+
+## Related Concepts
+
+- **[Scorers](/genai/eval-monitor/concepts/scorers)**: Deep dive into the metrics that power production monitoring
+- **[Custom Scorers](/genai/eval-monitor/custom-scorers)**: Creating business-specific evaluation logic tailored to your use case
+- **[Predefined LLM Scorers](/genai/eval-monitor/predefined-judge-scorers)**: Leveraging built-in quality judges for common evaluation needs
+- **[Continuous Improvement](/genai/eval-monitor/continuous-improvement-with-production-data)**: Using monitoring insights to systematically enhance your application
+
+## Summary
+
+Production monitoring is essential for maintaining GenAI application quality at scale. Databricks MLflow's automated approach provides real-time quality assessment with minimal operational overhead, while OSS users can achieve similar goals through batch evaluation and log analysis.
+
+**Key Takeaways**:
+
+- **Automated monitoring scales quality assurance** across applications without manual intervention
+- **Strategic sampling balances coverage with cost** - start conservative and adjust based on results
+- **Tiered scorer approach optimizes efficiency** - frequent basic checks, selective expensive evaluations
+- **Environment-specific configurations** ensure appropriate monitoring for dev, staging, and production
+- **OSS alternatives provide viable quality monitoring** through scheduled evaluation and log analysis
+
+The investment in production monitoring pays dividends through early issue detection, quality trend visibility, and data-driven improvement insights that keep your GenAI applications performing at their best.

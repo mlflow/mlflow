@@ -1,0 +1,615 @@
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Evaluation Runs - Concepts
+
+Evaluation runs are specialized MLflow runs that organize and store the comprehensive results of evaluating your GenAI application. They serve as structured test reports that capture everything about how your application performed on a specific dataset, enabling systematic analysis, comparison, and tracking of quality improvements over time.
+
+Understanding evaluation runs is crucial for implementing effective quality assurance workflows, as they provide the foundation for comparing application versions, tracking quality evolution, and making data-driven decisions about deployment readiness.
+
+## What are Evaluation Runs?
+
+An evaluation run represents a complete evaluation session where your application was tested against a specific dataset using defined quality criteria. Think of it as a comprehensive test report that captures not just pass/fail results, but detailed insights into how and why your application performed as it did.
+
+**Core Purpose**: Evaluation runs transform individual test results into organized, queryable, and comparable datasets that support systematic quality assessment and improvement workflows.
+
+**Key Characteristics**:
+- **Comprehensive Coverage**: Contains all traces, assessments, and metadata from a single evaluation session
+- **Structured Organization**: Uses MLflow's run structure for consistent storage and retrieval
+- **Comparative Analysis**: Enables comparison across different application versions, datasets, or evaluation configurations
+- **Historical Tracking**: Provides timeline visibility into application quality evolution
+
+## Anatomy of an Evaluation Run
+
+Understanding the structure of evaluation runs helps you effectively navigate and analyze evaluation results:
+
+<Tabs>
+<TabItem value="run_structure" label="Run Structure Overview" default>
+
+### Complete Evaluation Run Components
+
+```
+Evaluation Run (MLflow Run)
+├── Run Metadata
+│   ├── run_id: Unique identifier for this evaluation session
+│   ├── experiment_id: Links to organizing experiment
+│   ├── start_time: When evaluation began
+│   ├── end_time: When evaluation completed
+│   └── status: Success/failed/running
+├── Evaluation Traces (One per dataset example)
+│   ├── Trace 1
+│   │   ├── inputs: {"question": "What is MLflow?", "context": "..."}
+│   │   ├── outputs: {"response": "MLflow is a platform..."}
+│   │   ├── execution_spans: [retrieval, generation, post-processing]
+│   │   └── assessments: [correctness: 0.8, relevance: 1.0, safety: pass]
+│   ├── Trace 2
+│   │   ├── inputs: {"question": "How do I install MLflow?"}
+│   │   ├── outputs: {"response": "Install using pip..."}
+│   │   └── assessments: [correctness: 0.9, relevance: 1.0, safety: pass]
+│   └── Additional traces...
+├── Aggregate Metrics
+│   ├── Quality Metrics
+│   │   ├── correctness/mean: 0.85
+│   │   ├── relevance/mean: 0.92
+│   │   ├── safety/pass_rate: 1.0
+│   │   └── overall_quality_score: 0.89
+│   ├── Performance Metrics
+│   │   ├── latency/mean: 1.2s
+│   │   ├── token_count/total: 15,420
+│   │   └── evaluation_duration: 45.2s
+│   └── Distribution Analysis
+│       ├── correctness/p95: 0.95
+│       ├── correctness/variance: 0.02
+│       └── failure_rate: 0.05
+└── Configuration Metadata
+    ├── Parameters
+    │   ├── model_version: "v2.1.3"
+    │   ├── dataset_name: "customer_qa_v2"
+    │   ├── dataset_version: "1.2"
+    │   └── evaluation_mode: "direct"
+    ├── Tags
+    │   ├── team: "ml-engineering"
+    │   ├── purpose: "pre_production_validation"
+    │   ├── jira_ticket: "ML-456"
+    │   └── deployment_candidate: "true"
+    └── Scorer Configuration
+        ├── scorers_used: ["correctness", "relevance", "safety"]
+        ├── scorer_versions: {"correctness": "v1.1", "safety": "v2.0"}
+        └── evaluation_criteria: "production_readiness"
+```
+
+</TabItem>
+<TabItem value="trace_details" label="Individual Trace Components">
+
+### Detailed Trace Structure
+
+Each trace within an evaluation run contains complete information about a single test case execution:
+
+**Input Context**:
+- Original query or prompt from the evaluation dataset
+- Any additional context (user type, conversation history, retrieved documents)
+- Metadata about the test case (difficulty level, category, expected complexity)
+
+**Execution Details**:
+- Complete span hierarchy showing application execution flow
+- Timing information for each processing step
+- Resource usage (tokens consumed, API calls made)
+- Intermediate outputs and decision points
+
+**Quality Assessments**:
+- Individual scorer results with numerical scores
+- Detailed rationales explaining assessment decisions
+- Confidence levels and metadata about evaluation quality
+- Links to specific evaluation criteria that were applied
+
+**Example Individual Trace**:
+```python
+{
+    "trace_id": "trace_abc123",
+    "inputs": {
+        "question": "How do I optimize MLflow experiment tracking?",
+        "user_context": {
+            "experience_level": "intermediate",
+            "domain": "ml_engineering",
+        },
+    },
+    "outputs": {
+        "response": "To optimize MLflow experiment tracking, focus on...",
+        "confidence": 0.92,
+        "sources_used": ["mlflow_docs", "best_practices_guide"],
+    },
+    "execution_metadata": {
+        "duration_ms": 1850,
+        "tokens_used": 245,
+        "retrieval_count": 3,
+        "generation_attempts": 1,
+    },
+    "assessments": {
+        "correctness": {
+            "score": 0.88,
+            "rationale": "Provides accurate optimization strategies",
+        },
+        "relevance": {
+            "score": 0.95,
+            "rationale": "Directly addresses the user's question",
+        },
+        "completeness": {
+            "score": 0.82,
+            "rationale": "Covers main points but could include more examples",
+        },
+    },
+}
+```
+
+</TabItem>
+</Tabs>
+
+## Creating and Managing Evaluation Runs
+
+Evaluation runs are created automatically when you execute evaluations, but understanding the creation process helps you organize and configure them effectively:
+
+### Automatic Run Creation
+
+Every call to `mlflow.genai.evaluate()` creates a new evaluation run within the specified or default experiment:
+
+```python
+import mlflow
+from mlflow.genai.scorers import RelevanceToQuery, Safety
+
+# Creates a new evaluation run automatically
+results = mlflow.genai.evaluate(
+    data=test_dataset,
+    predict_fn=my_application,
+    scorers=[RelevanceToQuery(), Safety()],
+    model_id="models:/my-chatbot/staging",  # Links to specific model version
+)
+
+# Access the created run
+print(f"Evaluation completed in run: {results.run_id}")
+print(f"Overall quality score: {results.metrics.get('overall_score', 'N/A')}")
+```
+
+### Configuration and Metadata
+
+Proper configuration ensures evaluation runs contain the context needed for analysis and comparison:
+
+<Tabs>
+<TabItem value="experiment_organization" label="Experiment Organization" default>
+
+### Organizing by Purpose and Scope
+
+**Development Evaluations**:
+```python
+# Rapid iteration evaluations
+mlflow.genai.evaluate(
+    data=focused_test_set,
+    predict_fn=development_version,
+    scorers=basic_scorers,
+    experiment_name="chatbot/development_testing",
+)
+```
+
+**Pre-Production Validation**:
+```python
+# Comprehensive evaluation before deployment
+mlflow.genai.evaluate(
+    data=comprehensive_test_suite,
+    predict_fn=staging_candidate,
+    scorers=full_scorer_suite,
+    experiment_name="chatbot/pre_production_validation",
+)
+```
+
+**A/B Testing and Comparison**:
+```python
+# Comparing different approaches
+mlflow.genai.evaluate(
+    data=comparison_dataset,
+    predict_fn=experimental_approach,
+    scorers=comparison_scorers,
+    experiment_name="chatbot/feature_comparisons",
+)
+```
+
+**Regression Testing**:
+```python
+# Ensuring new changes don't break existing functionality
+mlflow.genai.evaluate(
+    data=regression_test_suite,
+    predict_fn=updated_version,
+    scorers=stability_scorers,
+    experiment_name="chatbot/regression_testing",
+)
+```
+
+</TabItem>
+<TabItem value="metadata_management" label="Metadata and Tagging">
+
+### Comprehensive Metadata Strategy
+
+**Version Tracking**:
+```python
+# Track all relevant versions for reproducibility
+evaluation_params = {
+    "app_version": "v2.1.3",
+    "dataset_version": "customer_qa_v2.1",
+    "prompt_template_version": "technical_support_v4",
+    "model_checkpoint": "checkpoint_2024_03_15",
+    "scorer_config_version": "production_v1.2",
+}
+
+evaluation_tags = {
+    "evaluation_type": "pre_production",
+    "deployment_target": "staging",
+    "team": "ml_engineering",
+    "project": "customer_support_optimization",
+    "milestone": "q1_2024_release",
+}
+
+results = mlflow.genai.evaluate(
+    data=dataset,
+    predict_fn=application,
+    scorers=scorers,
+    # Metadata for organization and filtering
+    tags=evaluation_tags,
+    # Configuration parameters for tracking
+    # Note: MLflow evaluate doesn't directly accept extra_params,
+    # but you can log them within the run context
+)
+
+# Log additional parameters within the run
+with mlflow.start_run(run_id=results.run_id):
+    for key, value in evaluation_params.items():
+        mlflow.log_param(key, value)
+```
+
+**Business Context Tracking**:
+```python
+business_context = {
+    "feature_flag": "new_retrieval_algorithm",
+    "performance_target": "95%_quality_threshold",
+    "compliance_requirement": "data_privacy_v2",
+    "user_feedback_integration": "enabled",
+    "cost_optimization_mode": "balanced",
+}
+
+# Include business context for decision-making
+evaluation_tags.update(
+    {
+        "business_objective": "improve_customer_satisfaction",
+        "success_criteria": "quality_and_latency_improvement",
+        "stakeholder": "product_team",
+        "review_required": "true",
+    }
+)
+```
+
+</TabItem>
+</Tabs>
+
+## Accessing and Analyzing Evaluation Results
+
+Understanding how to effectively access and analyze evaluation run data enables informed decision-making about application quality and improvements:
+
+### Programmatic Access Patterns
+
+<Tabs>
+<TabItem value="immediate_access" label="Immediate Result Analysis" default>
+
+### Analyzing Fresh Evaluation Results
+
+```python
+# Immediate access to evaluation results
+results = mlflow.genai.evaluate(
+    data=test_dataset, predict_fn=my_application, scorers=quality_scorers
+)
+
+# Aggregate metrics analysis
+print("=== Overall Performance ===")
+for metric_name, value in results.metrics.items():
+    if isinstance(value, (int, float)):
+        print(f"{metric_name}: {value:.3f}")
+
+# Identify high-performing examples
+eval_table = results.tables["eval_results_table"]
+high_quality = eval_table[eval_table["overall_score"] > 0.9]
+print(f"\nHigh quality responses: {len(high_quality)}/{len(eval_table)}")
+
+# Analyze failure cases
+low_quality = eval_table[eval_table["overall_score"] < 0.7]
+if len(low_quality) > 0:
+    print(f"\nLow quality examples requiring attention:")
+    for idx, row in low_quality.iterrows():
+        print(f"  - Input: {row['inputs']}")
+        print(f"    Score: {row['overall_score']:.2f}")
+        print(f"    Issues: {row.get('failure_reasons', 'Unknown')}")
+
+# Quality distribution analysis
+import numpy as np
+
+scores = eval_table["overall_score"].dropna()
+print(f"\nQuality Distribution:")
+print(f"  Mean: {np.mean(scores):.3f}")
+print(f"  Median: {np.median(scores):.3f}")
+print(f"  95th percentile: {np.percentile(scores, 95):.3f}")
+print(f"  Standard deviation: {np.std(scores):.3f}")
+```
+
+</TabItem>
+<TabItem value="historical_analysis" label="Historical and Comparative Analysis">
+
+### Analyzing Evaluation Trends Over Time
+
+```python
+# Retrieve historical evaluation runs
+def analyze_quality_trends(experiment_name: str, days_back: int = 30):
+    """Analyze quality trends across recent evaluation runs."""
+
+    # Find recent evaluation runs
+    runs_df = mlflow.search_runs(
+        experiment_names=[experiment_name], max_results=50, order_by=["start_time DESC"]
+    )
+
+    # Filter to recent runs with quality metrics
+    recent_runs = runs_df[
+        (runs_df["start_time"] > pd.Timestamp.now() - pd.Timedelta(days=days_back))
+        & (runs_df["metrics.overall_score"].notna())
+    ].copy()
+
+    # Analyze trends
+    print(f"=== Quality Trends (Last {days_back} days) ===")
+    print(f"Total evaluation runs: {len(recent_runs)}")
+
+    if len(recent_runs) > 1:
+        # Overall quality trend
+        quality_scores = recent_runs["metrics.overall_score"]
+        trend_direction = (
+            "📈 Improving"
+            if quality_scores.iloc[0] > quality_scores.iloc[-1]
+            else "📉 Declining"
+        )
+        print(f"Quality trend: {trend_direction}")
+        print(f"Latest score: {quality_scores.iloc[0]:.3f}")
+        print(f"Best score: {quality_scores.max():.3f}")
+        print(f"Worst score: {quality_scores.min():.3f}")
+
+        # Version comparison
+        if "params.app_version" in recent_runs.columns:
+            version_performance = (
+                recent_runs.groupby("params.app_version")["metrics.overall_score"]
+                .agg(["mean", "count"])
+                .round(3)
+            )
+            print(f"\nPerformance by version:")
+            print(version_performance)
+
+    return recent_runs
+
+
+# Compare specific versions
+def compare_application_versions(version_a: str, version_b: str, experiment_name: str):
+    """Compare evaluation results between two application versions."""
+
+    runs_df = mlflow.search_runs(
+        experiment_names=[experiment_name],
+        filter_string=f"params.app_version IN ('{version_a}', '{version_b}')",
+    )
+
+    comparison_results = {}
+    for version in [version_a, version_b]:
+        version_runs = runs_df[runs_df["params.app_version"] == version]
+        if len(version_runs) > 0:
+            # Get most recent run for this version
+            latest_run = version_runs.iloc[0]
+            comparison_results[version] = {
+                "overall_score": latest_run.get("metrics.overall_score", 0),
+                "correctness": latest_run.get("metrics.correctness/mean", 0),
+                "relevance": latest_run.get("metrics.relevance/mean", 0),
+                "safety": latest_run.get("metrics.safety/pass_rate", 0),
+                "run_id": latest_run["run_id"],
+                "evaluation_date": latest_run["start_time"],
+            }
+
+    # Display comparison
+    print(f"=== Version Comparison: {version_a} vs {version_b} ===")
+    for metric in ["overall_score", "correctness", "relevance", "safety"]:
+        a_score = comparison_results.get(version_a, {}).get(metric, 0)
+        b_score = comparison_results.get(version_b, {}).get(metric, 0)
+        improvement = b_score - a_score
+
+        print(f"{metric}:")
+        print(f"  {version_a}: {a_score:.3f}")
+        print(f"  {version_b}: {b_score:.3f}")
+        print(
+            f"  Change: {improvement:+.3f} ({'🚀' if improvement > 0 else '⚠️' if improvement < 0 else '➡️'})"
+        )
+
+    return comparison_results
+
+
+# Usage examples
+quality_trends = analyze_quality_trends("chatbot/pre_production_validation")
+version_comparison = compare_application_versions(
+    "v2.0", "v2.1", "chatbot/pre_production_validation"
+)
+```
+
+</TabItem>
+</Tabs>
+
+### MLflow UI Integration
+
+The MLflow UI provides powerful visualization and analysis capabilities for evaluation runs:
+
+**Experiment View Features**:
+- **Metrics Comparison**: Side-by-side comparison of quality metrics across runs
+- **Parameter Correlation**: Understand how configuration changes affect quality
+- **Run Timeline**: Visualize quality evolution over time
+- **Filtering and Search**: Find specific runs based on metadata, performance, or configuration
+
+**Individual Run Analysis**:
+- **Trace Exploration**: Drill down into individual test case results
+- **Scorer Feedback**: Review detailed rationales and confidence scores
+- **Performance Metrics**: Analyze latency, token usage, and resource consumption
+- **Artifact Downloads**: Export detailed results for external analysis
+
+**Comparative Analysis**:
+- **Multi-Run Comparison**: Compare metrics, parameters, and results across multiple runs
+- **Regression Detection**: Identify when changes negatively impact quality
+- **Best Model Selection**: Choose optimal application versions based on comprehensive evaluation
+
+## Advanced Evaluation Run Patterns
+
+### Linking to Application Versions
+
+Connecting evaluation runs to specific application versions enables comprehensive tracking and reproducible analysis:
+
+```python
+# Method 1: Using model registry integration
+mlflow.genai.evaluate(
+    data=test_dataset,
+    predict_fn=my_application,
+    scorers=quality_scorers,
+    model_id="models:/customer-chatbot/staging",  # Links to specific model version
+)
+
+# Method 2: Using version parameters and tags
+with mlflow.start_run() as run:
+    # Log version information
+    mlflow.log_param("app_version", "v2.1.3")
+    mlflow.log_param("model_checkpoint", "checkpoint_2024_03_15")
+    mlflow.log_param("deployment_target", "production")
+
+    # Run evaluation within the run context
+    results = mlflow.genai.evaluate(
+        data=test_dataset, predict_fn=my_application, scorers=quality_scorers
+    )
+
+    # Log additional deployment readiness information
+    mlflow.set_tag("deployment_ready", str(results.metrics["overall_score"] > 0.85))
+    mlflow.set_tag("quality_gate_passed", str(all_quality_thresholds_met(results)))
+```
+
+### Evaluation Run Automation
+
+Integrate evaluation runs into automated workflows for continuous quality assurance:
+
+```python
+# Automated evaluation pipeline
+def automated_evaluation_pipeline(
+    app_version: str,
+    deployment_target: str,
+    dataset_name: str,
+    quality_thresholds: dict,
+):
+    """
+    Automated evaluation pipeline with quality gates and notifications.
+    """
+
+    # Set up evaluation context
+    experiment_name = f"automated_evaluation/{deployment_target}"
+    mlflow.set_experiment(experiment_name)
+
+    try:
+        # Load application and dataset
+        application = load_application_version(app_version)
+        evaluation_dataset = load_evaluation_dataset(dataset_name)
+        quality_scorers = get_standard_scorer_suite()
+
+        # Run evaluation
+        with mlflow.start_run(run_name=f"auto_eval_{app_version}") as run:
+            results = mlflow.genai.evaluate(
+                data=evaluation_dataset,
+                predict_fn=application,
+                scorers=quality_scorers,
+            )
+
+            # Log automation metadata
+            mlflow.log_param("automation_trigger", "ci_cd_pipeline")
+            mlflow.log_param("evaluation_type", "automated_quality_gate")
+            mlflow.set_tag("deployment_target", deployment_target)
+
+            # Quality gate evaluation
+            quality_passed = evaluate_quality_gates(results.metrics, quality_thresholds)
+            mlflow.set_tag(
+                "quality_gate_status", "passed" if quality_passed else "failed"
+            )
+
+            # Generate report
+            evaluation_report = generate_evaluation_report(results, quality_thresholds)
+            mlflow.log_text(evaluation_report, "evaluation_report.md")
+
+            return {
+                "run_id": run.info.run_id,
+                "quality_passed": quality_passed,
+                "metrics": results.metrics,
+                "deployment_recommendation": "proceed" if quality_passed else "block",
+            }
+
+    except Exception as e:
+        mlflow.log_param("evaluation_status", "failed")
+        mlflow.set_tag("error_message", str(e))
+        raise
+
+
+def evaluate_quality_gates(metrics: dict, thresholds: dict) -> bool:
+    """Evaluate whether quality metrics meet deployment thresholds."""
+    for metric_name, threshold in thresholds.items():
+        actual_value = metrics.get(metric_name, 0)
+        if actual_value < threshold:
+            return False
+    return True
+```
+
+## Best Practices for Evaluation Run Management
+
+### Organization and Governance
+
+**Consistent Naming Conventions**: Use standardized experiment names, run names, and tag schemas to enable effective filtering and analysis across teams.
+
+**Version Control Integration**: Link evaluation runs to specific code commits, model versions, and dataset versions for complete reproducibility.
+
+**Metadata Completeness**: Include comprehensive context about evaluation purpose, configuration, and business objectives to support future analysis and decision-making.
+
+**Access Control**: Organize experiments by team, project, or sensitivity level to ensure appropriate access while enabling collaboration.
+
+### Performance and Scale
+
+**Efficient Querying**: Use appropriate filters and limits when searching evaluation runs to avoid performance issues with large result sets.
+
+**Storage Management**: Archive or delete old evaluation runs that are no longer needed, while preserving milestone evaluations for historical reference.
+
+**Resource Optimization**: Monitor evaluation run creation frequency and duration to optimize computational resource usage.
+
+### Quality Assurance
+
+**Baseline Maintenance**: Maintain reference evaluation runs that represent acceptable quality levels for comparison purposes.
+
+**Trend Monitoring**: Regularly analyze evaluation trends to identify quality degradation patterns before they impact production.
+
+**Validation Procedures**: Implement checks to ensure evaluation runs contain expected metrics and meet quality standards before using them for deployment decisions.
+
+## Related Concepts
+
+- **[Evaluation Harness](/genai/eval-monitor/concepts/eval-harness)**: Understanding how evaluation runs are created and configured
+- **[Scorers](/genai/eval-monitor/concepts/scorers)**: How quality assessments are generated and stored in evaluation runs
+- **[Evaluation Datasets](/genai/eval-monitor/concepts/eval-datasets)**: The test data that drives evaluation run creation
+- **[Version Comparison](/genai/eval-monitor/version-comparison)**: Using evaluation runs to compare application versions
+
+## Summary
+
+Evaluation runs provide the organizational foundation for systematic GenAI quality assessment, transforming individual test results into structured datasets that support analysis, comparison, and decision-making. Understanding how to create, organize, and analyze evaluation runs is essential for implementing effective quality assurance workflows.
+
+**Key Success Factors**:
+- **Systematic Organization**: Use consistent experiment structure and metadata to enable effective analysis
+- **Comprehensive Tracking**: Include all relevant version and configuration information for reproducibility
+- **Regular Analysis**: Implement processes for reviewing evaluation trends and identifying quality patterns
+- **Integration Planning**: Connect evaluation runs to development and deployment workflows for maximum value
+
+**Implementation Recommendations**:
+- **Start with clear organization** using experiments and tags that match your development workflow
+- **Establish baseline runs** that represent acceptable quality levels for comparison
+- **Implement automated analysis** to identify trends and issues without manual review overhead
+- **Plan for scale** by considering storage, query performance, and access patterns as evaluation volume grows
+
+Effective evaluation run management enables confident application development, reliable quality tracking, and data-driven deployment decisions that ensure your GenAI applications meet user expectations and business objectives.

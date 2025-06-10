@@ -1,0 +1,335 @@
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Creating Custom LLM Judge Scorers
+
+While MLflow's [predefined LLM judge scorers](/genai/eval-monitor/predefined-judge-scorers) offer excellent starting points for common quality dimensions, real-world applications often require evaluation criteria that are specific to your domain, business requirements, or quality standards. As your GenAI application matures, you'll need custom evaluation logic that understands your unique context and aligns with your domain experts' judgment.
+
+Custom LLM judges bridge this gap by allowing you to define evaluation criteria in natural language that an LLM can consistently apply across your application's outputs. This approach combines the flexibility of human-like reasoning with the scalability and consistency of automated evaluation.
+
+## Why Create Custom Judges
+
+Custom LLM judges become essential as your application requirements become more sophisticated:
+
+**Domain-Specific Requirements**: Every industry has unique quality standards that general-purpose scorers can't capture. A medical AI assistant needs different evaluation criteria than a customer service chatbot or a legal document analyzer.
+
+**Business Logic Alignment**: Your evaluation criteria should reflect your business objectives and user expectations. Custom judges ensure that automated evaluation aligns with how your team and customers actually assess quality.
+
+**Stakeholder Communication**: Natural language evaluation criteria are easier to explain to business stakeholders than complex scoring algorithms. Domain experts can directly contribute to and validate the evaluation logic.
+
+**Consistency at Scale**: While human evaluation provides the gold standard for quality assessment, it's impractical for continuous monitoring. Custom judges provide human-like reasoning that scales across thousands of evaluations.
+
+## Understanding the Two Approaches
+
+MLflow offers two complementary approaches to building custom judges, each suited to different evaluation scenarios and complexity levels. Understanding when to use each approach helps you choose the most effective evaluation strategy.
+
+<Tabs>
+<TabItem value="guidelines" label="Guidelines-Based Judges" default>
+
+### Guidelines-Based Judges *(Recommended Starting Point)*
+
+Guidelines-based judges evaluate your application's outputs against clear, specific criteria written in natural language. This approach mirrors how human evaluators might assess quality using a checklist of requirements.
+
+**Best for:**
+- Evaluations based on clear pass/fail criteria
+- Compliance checking with rules, style guides, or information requirements
+- Scenarios where business stakeholders can directly write evaluation criteria
+- Applications where you need explainable, audit-friendly evaluation logic
+
+**How it works:**
+You provide a set of plain-language guidelines that reference specific inputs or outputs from your application. An LLM judge then determines whether each guideline passes or fails and provides a rationale for its decision.
+
+**Example guidelines:**
+```
+- The response must be polite and professional in tone
+- The response must include the customer's name
+- The response must not contain pricing information
+- The response must acknowledge any issues mentioned in the input
+```
+
+**Key advantages:**
+- Easy to understand and explain to stakeholders
+- Can be written directly by domain experts
+- Transparent evaluation criteria
+- Simple pass/fail logic that's easy to interpret
+
+</TabItem>
+<TabItem value="prompt-based" label="Prompt-Based Judges">
+
+### Fully Custom Prompt-Based Judges
+
+Prompt-based judges give you complete control over the evaluation process by allowing you to define custom prompts and output formats. This approach is ideal when you need nuanced evaluation that goes beyond simple pass/fail criteria.
+
+**Best for:**
+- Complex, nuanced evaluations requiring sophisticated reasoning
+- Scenarios where you need multiple output categories (e.g., "excellent", "good", "fair", "poor")
+- Evaluations that require contextual understanding or domain expertise
+- Cases where guidelines-based approaches are too restrictive
+
+**How it works:**
+You create a prompt template that defines your evaluation criteria with placeholders for specific fields from your application's trace. You specify the possible output choices the judge can select, and the LLM selects the most appropriate option with detailed reasoning.
+
+**Example prompt structure:**
+```
+Evaluate the quality of this customer service response based on:
+- Accuracy of information provided
+- Helpfulness in addressing the customer's concern
+- Professional tone and empathy
+
+Input: {customer_query}
+Response: {assistant_response}
+
+Rate as: excellent, good, fair, or poor
+```
+
+**Key advantages:**
+- Maximum flexibility in evaluation criteria
+- Support for multi-category scoring
+- Ability to incorporate complex domain knowledge
+- Fine-grained control over judge reasoning
+
+</TabItem>
+<TabItem value="choosing" label="Choosing the Right Approach">
+
+### Decision Framework
+
+Use this framework to choose between guidelines-based and prompt-based judges:
+
+**Start with Guidelines-Based if:**
+- Your evaluation criteria can be expressed as clear rules or requirements
+- You need stakeholder buy-in and easy explanation of evaluation logic
+- Your domain experts can directly write evaluation criteria
+- You're evaluating compliance, content inclusion/exclusion, or style adherence
+- You want simple, interpretable pass/fail results
+
+**Move to Prompt-Based if:**
+- You need nuanced scoring beyond pass/fail (e.g., rating scales)
+- Your evaluation requires complex reasoning or domain expertise
+- Guidelines-based approaches feel too restrictive for your use case
+- You need to evaluate subjective qualities like creativity or persuasiveness
+- You want fine-grained control over the evaluation prompt and process
+
+**Hybrid Approach:**
+Many applications benefit from using both approaches:
+- Guidelines-based judges for clear business rules and compliance
+- Prompt-based judges for nuanced quality assessment
+- Combine results to get comprehensive evaluation coverage
+
+</TabItem>
+</Tabs>
+
+## Getting Started: Implementation Paths
+
+### Quick Start with Guidelines-Based Judges
+
+Guidelines-based judges offer the fastest path to custom evaluation with minimal complexity. They're particularly effective for teams new to custom LLM evaluation:
+
+```python
+# Example guidelines for a customer support application
+support_guidelines = {
+    "professional_communication": [
+        "The response uses polite and respectful language",
+        "The response avoids casual expressions or slang",
+        "The response maintains a helpful tone throughout",
+    ],
+    "content_requirements": [
+        "The response addresses the customer's specific question",
+        "The response includes relevant troubleshooting steps when applicable",
+        "The response offers next steps or escalation options if needed",
+    ],
+    "compliance_rules": [
+        "The response does not share confidential company information",
+        "The response does not make promises about features or timelines",
+        "The response follows data privacy guidelines",
+    ],
+}
+
+# Implementation details in the guidelines-based judges guide
+```
+
+**Next step**: [Get started with guidelines-based judges →](/genai/eval-monitor/custom-judge/meets-guidelines)
+
+### Advanced Implementation with Prompt-Based Judges
+
+When you need more sophisticated evaluation logic, prompt-based judges provide the flexibility to implement complex assessment criteria:
+
+```python
+# Example prompt template for nuanced quality evaluation
+quality_prompt = """
+As an expert evaluator, assess this customer service interaction:
+
+Customer Query: {customer_query}
+Agent Response: {agent_response}
+Context: {conversation_history}
+
+Evaluate on these dimensions:
+1. Accuracy: Is the information correct and complete?
+2. Empathy: Does the response show understanding of customer concerns?
+3. Efficiency: Does the response resolve the issue promptly?
+
+Provide an overall rating: excellent, good, satisfactory, or needs_improvement
+
+Explain your reasoning for each dimension.
+"""
+
+# Implementation details in the prompt-based judges guide
+```
+
+**Next step**: [Get started with prompt-based judges →](/genai/eval-monitor/custom-judge/create-prompt-judge)
+
+## Integration with MLflow Evaluation
+
+Both types of custom judges integrate seamlessly with MLflow's evaluation workflow, allowing you to combine them with predefined scorers and use them in production monitoring:
+
+### Evaluation Integration
+
+```python
+import mlflow
+from mlflow.metrics import exact_match
+
+# Custom judges will be imported based on your implementation choice
+
+# Combine custom and predefined scorers
+evaluation_metrics = [
+    exact_match(),  # Predefined scorer
+    professional_communication,  # Custom guidelines-based judge
+    response_quality_assessment,  # Custom prompt-based judge
+]
+
+# Run comprehensive evaluation
+results = mlflow.genai.evaluate(
+    predict_fn=your_application,
+    data=evaluation_dataset,
+    scorers=evaluation_metrics,
+)
+```
+
+### Production Monitoring Integration
+
+Custom judges can also be used in production monitoring to continuously assess quality:
+
+```python
+# Production monitoring with custom judges (Databricks MLflow)
+from databricks.agents.monitoring import CustomMetric
+
+monitor = create_external_monitor(
+    assessments_config=AssessmentsSuiteConfig(
+        sample=0.1,
+        assessments=[
+            CustomMetric(metric_fn=professional_communication, sample_rate=0.3),
+            CustomMetric(metric_fn=response_quality_assessment, sample_rate=0.2),
+        ],
+    ),
+    experiment_id=EXPERIMENT_ID,
+)
+```
+
+## Best Practices for Custom Judge Development
+
+### Design Principles
+
+**Start Simple**: Begin with clear, specific criteria that are easy to evaluate. You can always add complexity later as you validate your approach.
+
+**Involve Domain Experts**: Include subject matter experts in defining evaluation criteria. Their insights ensure that automated evaluation aligns with human judgment.
+
+**Test Iteratively**: Validate your custom judges on a diverse set of examples before deploying them broadly. Look for edge cases where the judge might not behave as expected.
+
+**Combine Approaches**: Use multiple judges to assess different quality dimensions. A comprehensive evaluation often requires both guidelines-based and prompt-based judges.
+
+### Performance Considerations
+
+**Judge Model Selection**: Choose appropriate LLM models for your judges. More capable models provide better reasoning but come with higher costs and latency.
+
+**Sampling Strategies**: For production monitoring, use appropriate sampling rates to balance evaluation coverage with computational costs.
+
+**Validation and Calibration**: Regularly compare judge outputs with human evaluation to ensure continued alignment and accuracy.
+
+## Common Use Cases and Examples
+
+### Content Moderation and Safety
+
+```python
+# Guidelines for content safety
+safety_guidelines = {
+    "content_safety": [
+        "The response contains no harmful or inappropriate content",
+        "The response does not promote dangerous activities",
+        "The response maintains appropriate boundaries for the context",
+    ]
+}
+```
+
+### Brand Voice and Style Compliance
+
+```python
+# Prompt for brand voice assessment
+brand_voice_prompt = """
+Evaluate how well this response matches our brand voice:
+- Friendly but professional
+- Confident without being arrogant
+- Helpful and solution-oriented
+
+Response: {response_text}
+
+Rate adherence to brand voice: strong, moderate, weak
+"""
+```
+
+### Technical Accuracy Assessment
+
+```python
+# Guidelines for technical documentation
+technical_guidelines = {
+    "accuracy": [
+        "All code examples are syntactically correct",
+        "Technical concepts are explained accurately",
+        "Prerequisites and dependencies are clearly stated",
+    ]
+}
+```
+
+## Troubleshooting and Optimization
+
+### Common Challenges
+
+**Inconsistent Judge Behavior**: If your judge provides inconsistent results, consider:
+- Refining your guidelines to be more specific
+- Using more examples in prompt-based judges
+- Adjusting the judge model's temperature settings
+
+**Performance Issues**: For slow evaluation:
+- Optimize judge prompts to be more concise
+- Use faster models for simpler evaluation criteria
+- Implement sampling strategies for large-scale evaluation
+
+**Cost Management**: To control evaluation costs:
+- Use guidelines-based judges for simpler criteria (typically more cost-effective)
+- Reserve prompt-based judges for complex evaluations that require nuanced reasoning
+- Implement tiered evaluation strategies with different sampling rates
+
+## Related Concepts
+
+- **[Predefined Scorers](/genai/eval-monitor/predefined-judge-scorers)**: Start with these before building custom judges
+- **[Custom Scorers](/genai/eval-monitor/custom-scorers)**: Alternative approach using deterministic logic
+- **[Production Monitoring](/genai/eval-monitor/concepts/production-monitoring)**: Deploy your custom judges for continuous quality assessment
+
+## Next Steps
+
+### Choose Your Implementation Path
+
+1. **For getting started quickly**: Begin with [guidelines-based judges](/genai/eval-monitor/custom-judge/meets-guidelines) to implement clear business rules and quality criteria
+
+2. **For advanced evaluation needs**: Explore [prompt-based judges](/genai/eval-monitor/custom-judge/create-prompt-judge) when you need sophisticated reasoning and nuanced assessment
+
+3. **For comprehensive evaluation**: Plan to use both approaches to cover different aspects of your application's quality
+
+### Development Workflow
+
+1. **Define your quality criteria** with domain experts and stakeholders
+2. **Start with guidelines-based judges** for clear, rule-based requirements
+3. **Add prompt-based judges** for nuanced evaluation needs
+4. **Validate and iterate** on your judges using diverse test cases
+5. **Deploy in production** with appropriate sampling strategies
+6. **Monitor and refine** based on real-world performance
+
+Custom LLM judges transform your evaluation from generic quality assessment to domain-specific, business-aligned quality assurance that scales with your application's growth and complexity.

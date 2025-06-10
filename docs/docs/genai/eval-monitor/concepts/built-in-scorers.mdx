@@ -1,0 +1,426 @@
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Predefined LLM Judge Scorers - Concepts
+
+MLflow 3.0 provides a comprehensive scorer framework with predefined implementations for common GenAI quality assessment. All scorers use a unified API across platforms, but some advanced scorers require additional infrastructure for full functionality.
+
+## Scorer Framework Architecture
+
+MLflow 3.0 moved LLM evaluation to `mlflow.genai.evaluate()` with a unified scorer framework where all scorers are instantiated as callable objects and passed to the `scorers` parameter.
+
+```python
+import mlflow
+from mlflow.genai.scorers import Safety, RelevanceToQuery, Guidelines
+
+# All scorers use the same instantiation pattern
+results = mlflow.genai.evaluate(
+    data=eval_data,
+    predict_fn=my_app,
+    scorers=[
+        Safety(),  # Instantiate scorer classes
+        RelevanceToQuery(),
+        Guidelines(guidelines=["Be helpful and accurate"]),
+    ],
+)
+```
+
+## Available Scorers by Platform
+
+<Tabs>
+<TabItem value="oss" label="MLflow OSS" default>
+
+### OSS-Compatible Scorers
+
+MLflow OSS includes several scorers that work without external dependencies:
+
+#### Guidelines-Based Evaluation
+
+```python
+from mlflow.genai.scorers import Guidelines, ExpectationsGuidelines
+
+# Global guidelines applied to all examples
+global_guidelines = Guidelines(
+    name="brand_voice",
+    guidelines=["Maintain professional tone", "Be helpful and accurate"],
+)
+
+# Per-example guidelines from dataset expectations
+expectations_guidelines = ExpectationsGuidelines()
+
+# Use in evaluation
+results = mlflow.genai.evaluate(
+    data=eval_data,
+    predict_fn=my_app,
+    scorers=[global_guidelines, expectations_guidelines],
+)
+```
+
+**Guidelines()** applies a consistent set of guidelines to all examples in your evaluation dataset. Specify guidelines as strings or lists that describe your quality criteria.
+
+**ExpectationsGuidelines()** evaluates each example against individual guidelines specified in the `expectations/guidelines` field of your dataset.
+
+#### Custom Scorer Development
+
+OSS excels at custom scorer development using the `@scorer` decorator:
+
+```python
+from mlflow.genai.scorers import scorer
+
+
+@scorer
+def response_length_check(outputs) -> dict:
+    """Check if response length meets requirements"""
+    length = len(str(outputs))
+    return {
+        "score": 1.0 if 50 <= length <= 500 else 0.0,
+        "justification": f"Response length: {length} characters",
+    }
+
+
+@scorer
+def keyword_presence(outputs, expectations) -> dict:
+    """Check for required keywords in response"""
+    required_keywords = expectations.get("required_keywords", [])
+    text = str(outputs).lower()
+    present = [kw for kw in required_keywords if kw in text]
+
+    score = len(present) / len(required_keywords) if required_keywords else 1.0
+    return {
+        "score": score,
+        "justification": f"Found {len(present)}/{len(required_keywords)} keywords: {present}",
+    }
+
+
+# Combine custom scorers with built-in ones
+results = mlflow.genai.evaluate(
+    data=eval_data,
+    predict_fn=my_app,
+    scorers=[
+        Guidelines(guidelines=["Be concise and accurate"]),
+        response_length_check,
+        keyword_presence,
+    ],
+)
+```
+
+#### Integration with Traditional Metrics
+
+OSS scorers work alongside traditional MLflow metrics:
+
+```python
+from mlflow.metrics import exact_match, latency
+
+# Combine scorers with traditional metrics
+results = mlflow.genai.evaluate(
+    data=eval_data,
+    predict_fn=my_app,
+    scorers=[Guidelines(guidelines=["Be accurate"])],
+    extra_metrics=[exact_match(), latency()],
+)
+```
+
+</TabItem>
+<TabItem value="databricks" label="Databricks MLflow">
+
+### Full Scorer Ecosystem
+
+Databricks MLflow includes all OSS scorers plus advanced LLM-powered judges that require the Databricks agents framework.
+
+#### Advanced Quality Assessment
+
+```python
+from mlflow.genai.scorers import Safety, RelevanceToQuery, Correctness
+
+# Advanced semantic evaluation
+safety_scorer = Safety()
+relevance_scorer = RelevanceToQuery()
+correctness_scorer = Correctness()
+
+results = mlflow.genai.evaluate(
+    data=eval_data,
+    predict_fn=my_app,
+    scorers=[safety_scorer, relevance_scorer, correctness_scorer],
+)
+```
+
+**Safety()** performs sophisticated content analysis for harmful, offensive, or toxic content using advanced LLM judges.
+
+**RelevanceToQuery()** assesses whether responses directly address user queries using semantic understanding.
+
+**Correctness()** evaluates factual accuracy against expected responses or facts using LLM-powered verification.
+
+#### RAG-Specific Evaluation
+
+```python
+from mlflow.genai.scorers import (
+    RetrievalRelevance,
+    RetrievalGroundedness,
+    RetrievalSufficiency,
+)
+
+# RAG evaluation requires traces with RETRIEVER spans
+rag_scorers = [
+    RetrievalRelevance(),  # Are retrieved docs relevant to query?
+    RetrievalGroundedness(),  # Is response grounded in retrieved context?
+    RetrievalSufficiency(),  # Does retrieved context provide enough info?
+]
+
+# Evaluate RAG application
+results = mlflow.genai.evaluate(
+    data=trace_dataset, scorers=rag_scorers  # Dataset of MLflow traces
+)
+```
+
+These scorers analyze MLflow traces to evaluate different aspects of retrieval-augmented generation:
+
+- **RetrievalRelevance()** examines whether retrieved documents relate to the user's query
+- **RetrievalGroundedness()** verifies that responses are supported by retrieved context
+- **RetrievalSufficiency()** determines if retrieved information is adequate for answering
+
+#### Complete Evaluation Suite
+
+```python
+from mlflow.genai.scorers import get_all_scorers
+
+# Get all available built-in scorers
+all_scorers = get_all_scorers()
+
+# Comprehensive evaluation
+results = mlflow.genai.evaluate(data=eval_data, predict_fn=my_app, scorers=all_scorers)
+```
+
+The `get_all_scorers()` function returns all built-in scorers for comprehensive quality assessment.
+
+</TabItem>
+</Tabs>
+
+## Working with Different Data Types
+
+Scorers have different input requirements based on what they evaluate:
+
+### Input/Output Scorers
+
+These scorers work with basic input/output pairs:
+
+```python
+data = [
+    {
+        "inputs": {"question": "What is the capital of France?"},
+        "outputs": "The capital of France is Paris.",
+        "expectations": {"guidelines": ["Be factual and concise"]},
+    }
+]
+
+scorers = [
+    Guidelines(guidelines=["Be helpful"]),  # Works with inputs/outputs
+    ExpectationsGuidelines(),  # Uses expectations/guidelines
+]
+
+# Available on both platforms
+results = mlflow.genai.evaluate(data=data, scorers=scorers)
+```
+
+### Trace-Based Scorers
+
+RAG-specific scorers require MLflow traces with retrieval information:
+
+```python
+# Get traces from instrumented RAG application
+traces = mlflow.search_traces(experiment_ids=["rag_experiment"])
+
+# Databricks-only scorers that analyze trace structure
+rag_scorers = [RetrievalRelevance(), RetrievalGroundedness(), RetrievalSufficiency()]
+
+# Requires Databricks MLflow
+results = mlflow.genai.evaluate(data=traces, scorers=rag_scorers)
+```
+
+### Expectation-Driven Scorers
+
+Some scorers require specific expectation fields in your dataset:
+
+```python
+data = [
+    {
+        "inputs": {"question": "What is 2+2?"},
+        "outputs": "2+2 equals 4",
+        "expectations": {
+            "expected_facts": ["addition", "mathematics", "4"],
+            "expected_response": "The answer is 4",
+        },
+    }
+]
+
+# Databricks-only scorer requiring expectations
+correctness_scorer = Correctness()  # Needs expected_facts or expected_response
+
+results = mlflow.genai.evaluate(data=data, scorers=[correctness_scorer])
+```
+
+## Development Strategy by Platform
+
+### OSS Development Strategy
+
+Focus on guidelines-based evaluation and custom scorer development:
+
+```python
+# OSS-optimized evaluation pipeline
+oss_evaluation = [
+    # Built-in guidelines-based evaluation
+    Guidelines(
+        guidelines=[
+            "Responses should be helpful and accurate",
+            "Maintain professional tone",
+            "Be concise but complete",
+        ]
+    ),
+    # Custom business logic
+    response_length_check,
+    keyword_presence,
+    # Domain-specific quality checks
+    technical_accuracy_checker,
+]
+
+results = mlflow.genai.evaluate(
+    data=eval_data,
+    predict_fn=my_app,
+    scorers=oss_evaluation,
+    extra_metrics=[exact_match(), latency()],
+)
+```
+
+This approach provides immediate feedback during development without external service dependencies.
+
+### Databricks Production Strategy
+
+Leverage comprehensive semantic evaluation for production readiness:
+
+```python
+# Production-ready evaluation pipeline
+production_evaluation = [
+    # Safety and quality assurance
+    Safety(),
+    RelevanceToQuery(),
+    Correctness(),
+    # RAG-specific evaluation (if applicable)
+    RetrievalGroundedness(),
+    RetrievalRelevance(),
+    # Custom business requirements
+    Guidelines(guidelines=["Follow brand voice guidelines"]),
+    custom_domain_scorer,
+]
+
+results = mlflow.genai.evaluate(
+    data=production_dataset, predict_fn=my_app, scorers=production_evaluation
+)
+```
+
+### Hybrid Development Approach
+
+Many teams successfully combine both platforms:
+
+1. **Development Phase**: Use OSS for rapid iteration with guidelines and custom scorers
+2. **Testing Phase**: Validate with Databricks comprehensive evaluation before deployment
+3. **Production Phase**: Deploy with Databricks monitoring and quality gates
+
+```python
+# Phase 1: OSS rapid development
+dev_scorers = [Guidelines(guidelines=["Be helpful"]), custom_scorer]
+
+# Phase 2: Databricks comprehensive testing
+test_scorers = [Safety(), RelevanceToQuery(), Correctness()] + dev_scorers
+
+# Phase 3: Production monitoring (Databricks)
+# Automatic evaluation on live traffic with same scorers
+```
+
+## Understanding Scorer Requirements
+
+The key difference between platforms is infrastructure requirements, not API design:
+
+```python
+# This pattern works identically on both platforms
+from mlflow.genai.scorers import Guidelines
+
+guidelines_scorer = Guidelines(guidelines=["Be professional"])
+
+# Same evaluation call on both platforms
+results = mlflow.genai.evaluate(
+    data=eval_data, predict_fn=my_app, scorers=[guidelines_scorer]
+)
+
+# The difference is in what scorers are available:
+# OSS: Guidelines, ExpectationsGuidelines, custom scorers
+# Databricks: All of the above + Safety, Correctness, RAG scorers, etc.
+```
+
+## Best Practices
+
+### For All Platforms
+
+**Start Simple**: Begin with guidelines-based evaluation and custom scorers that match your specific needs.
+
+**Iterate Quickly**: Use fast, reliable scorers during development to get immediate feedback.
+
+**Document Criteria**: Clearly define quality guidelines and encode them as either Guidelines scorers or custom logic.
+
+**Validate Assumptions**: Test scorer behavior on known good and bad examples to ensure they work as expected.
+
+### OSS-Specific Tips
+
+**Leverage Custom Scorers**: The `@scorer` decorator is powerful - use it to encode domain expertise and business rules.
+
+**Combine with Traditional Metrics**: Mix scorers with metrics like `exact_match()` and `latency()` for comprehensive evaluation.
+
+**Focus on Business Logic**: Custom scorers can often provide more relevant assessment than generic metrics for specialized applications.
+
+### Databricks-Specific Tips
+
+**Use RAG Evaluation**: If building RAG applications, the specialized retrieval scorers provide invaluable insights.
+
+**Implement Safety Checks**: The Safety scorer provides sophisticated content filtering for customer-facing applications.
+
+**Set Up Monitoring**: Use the same scorers for development evaluation and production monitoring for consistency.
+
+## Migration Path
+
+The unified API design enables smooth transitions:
+
+1. **Start with OSS**: Develop evaluation datasets and custom scoring logic
+2. **Maintain Compatibility**: Use the same data formats and scorer patterns
+3. **Add Databricks Scorers**: Enhance evaluation with advanced semantic assessment
+4. **Keep Custom Logic**: Your custom scorers continue working on Databricks
+
+```python
+# This evaluation logic works on both platforms
+evaluation_config = {
+    "data": eval_dataset,
+    "predict_fn": my_application,
+    "scorers": [
+        Guidelines(guidelines=quality_guidelines),  # Works everywhere
+        custom_business_logic_scorer,  # Works everywhere
+        # Add platform-specific scorers as available:
+        # Safety(),                                # Databricks only
+        # RelevanceToQuery(),                      # Databricks only
+    ],
+}
+
+results = mlflow.genai.evaluate(**evaluation_config)
+```
+
+## Summary
+
+MLflow 3.0 provides a unified scorer framework with consistent APIs across platforms. The key differences lie in the sophistication of available evaluation methods rather than fundamental API changes.
+
+**Choose MLflow OSS** when you need cost-effective evaluation with strong customization capabilities, rapid development iteration, or have domain expertise to build effective custom scorers.
+
+**Choose Databricks MLflow** when you need sophisticated semantic evaluation, RAG-specific assessment capabilities, comprehensive safety evaluation, or production monitoring with automated quality gates.
+
+The unified framework design enables teams to start with either platform and migrate as needs evolve, maintaining evaluation datasets and custom scoring logic throughout the transition.
+
+## Next Steps
+
+- **[Custom Scorers](/genai/eval-monitor/custom-scorers)**: Learn to build domain-specific evaluation logic using the `@scorer` decorator
+- **[Evaluation Harness](/genai/eval-monitor/concepts/eval-harness)**: Understand the complete evaluation workflow and configuration options
+- **[Production Monitoring](/genai/eval-monitor/concepts/production-monitoring)**: Implement continuous quality assessment (Databricks-specific features)

@@ -1,0 +1,530 @@
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Evaluation Datasets - Concepts
+
+Evaluation datasets are carefully curated collections of representative inputs and ground truth labels that serve as your application's test suite. These datasets provide the foundation for systematic quality assessment, enabling you to measure improvements, catch regressions, and ensure consistent performance across different scenarios.
+
+Well-designed evaluation datasets capture the diversity and complexity of real-world usage patterns, allowing you to validate that your application performs reliably across the full spectrum of user interactions it will encounter in production.
+
+## The Role of Evaluation Datasets
+
+Evaluation datasets serve multiple critical functions in the GenAI development lifecycle:
+
+**Quality Benchmarking**: Establish baseline performance metrics that you can compare against as you iterate on your application. This enables objective measurement of whether changes actually improve quality.
+
+**Regression Detection**: Catch when new features or optimizations inadvertently break existing functionality. A comprehensive evaluation dataset acts as a safety net against unintended quality degradation.
+
+**Systematic Testing**: Ensure your application handles edge cases, challenging scenarios, and diverse user types consistently. Random testing often misses important failure modes that systematic datasets can capture.
+
+**Progress Tracking**: Document your application's quality evolution over time, helping you understand which types of changes yield the best improvements and which approaches to avoid.
+
+## Dataset Types and Evolution
+
+Understanding different dataset types helps you choose the right approach for your evaluation needs:
+
+<Tabs>
+<TabItem value="dataset_types" label="Dataset Types" default>
+
+### Development Datasets
+
+**Focused Problem Sets**: Small, targeted collections of specific issues you're actively working to resolve
+- **Size**: 10-20 examples focused on particular failure modes
+- **Purpose**: Rapid iteration and validation of specific fixes
+- **Composition**: Edge cases, known failure scenarios, challenging examples
+- **Usage**: Quick validation during development cycles
+
+**Comprehensive Test Suites**: Broader collections that cover the full range of application scenarios
+- **Size**: 50-200 examples representing diverse usage patterns
+- **Purpose**: Thorough quality assessment before major releases
+- **Composition**: Mix of common cases, edge cases, and regression tests
+- **Usage**: Pre-deployment validation and version comparison
+
+### Production-Derived Datasets
+
+**User Interaction Samples**: Real queries and scenarios from production usage
+- **Advantages**: Authentic usage patterns, unexpected edge cases, realistic complexity
+- **Considerations**: May require privacy filtering and anonymization
+- **Value**: Reveals gaps between anticipated and actual usage patterns
+
+**Feedback-Driven Collections**: Examples derived from user feedback and quality issues
+- **Sources**: Support tickets, user complaints, quality escalations
+- **Purpose**: Targeted improvement of known problem areas
+- **Benefit**: Direct alignment between evaluation and user satisfaction
+
+</TabItem>
+<TabItem value="evolution_strategy" label="Dataset Evolution Strategy">
+
+### Iterative Improvement Approach
+
+**Problem-Focused Development**:
+1. **Identify Issues**: Start with a small dataset of specific problems you're solving
+2. **Validate Fixes**: Use the focused dataset to confirm your solutions work
+3. **Expand Coverage**: Add the fixed examples to your broader regression test suite
+4. **Prevent Regressions**: Ensure future changes don't break previously fixed issues
+
+**Coverage Expansion**:
+- **Common Cases**: Start with typical, high-frequency user scenarios
+- **Edge Cases**: Add challenging, boundary condition examples
+- **Adversarial Cases**: Include deliberately difficult or confusing inputs
+- **Domain Variations**: Cover different user types, contexts, and use patterns
+
+**Quality Maturation**:
+- **Basic Functionality**: Initial datasets focus on core feature correctness
+- **User Experience**: Add evaluation criteria for tone, helpfulness, and usability
+- **Advanced Quality**: Include sophisticated criteria like creativity, nuance, and domain expertise
+
+</TabItem>
+</Tabs>
+
+## Dataset Schema and Structure
+
+Evaluation datasets follow a consistent structure that works across different usage patterns and platforms:
+
+### Core Schema Components
+
+<Tabs>
+<TabItem value="core_fields" label="Essential Fields" default>
+
+#### Required Components
+
+**inputs** (`dict[str, Any]`):
+- Contains all data your application needs to generate a response
+- Must be JSON-serializable for compatibility with MLflow systems
+- Should match the parameter structure your application expects
+- Examples: `{"question": "...", "context": "...", "user_id": "..."}`
+
+**expectations** (`dict[str, Any]`) - *Optional*:
+- Contains ground truth labels and expected behaviors
+- Enables scorer evaluation against known correct responses
+- Uses reserved keys for predefined scorers
+- Examples: `{"expected_facts": [...], "guidelines": "..."}`
+
+#### Reserved Expectation Keys
+
+The `expectations` field uses specific keys that predefined scorers recognize:
+
+| Field | Used By | Description | Example |
+|-------|---------|-------------|---------|
+| `expected_facts` | Correctness scorers | List of factual claims that should appear | `["Paris is the capital", "France is in Europe"]` |
+| `expected_response` | Correctness evaluation | Complete expected output for comparison | `"The capital of France is Paris."` |
+| `guidelines` | Guidelines-based scorers | Natural language evaluation criteria | `"Response must be polite and professional"` |
+| `expected_retrieved_context` | Retrieval evaluation | Documents that should be retrieved | `[{"id": "doc1", "content": "..."}]` |
+
+</TabItem>
+<TabItem value="managed_fields" label="Managed Dataset Fields">
+
+#### Additional Tracking Fields *(Databricks MLflow Only)*
+
+For managed evaluation datasets backed by Delta tables, additional metadata enables governance and collaboration:
+
+**Automated Tracking**:
+- `dataset_record_id`: Unique identifier (auto-generated if not provided)
+- `create_time`: Record creation timestamp (automatically set)
+- `created_by`: User who created the record (automatically set)
+- `last_update_time`: Most recent modification time (automatically set)
+- `last_updated_by`: User who last modified the record (automatically set)
+
+**Source Lineage**:
+- `source.trace.trace_id`: Links to original production trace
+- `source.human.user_name`: Records human curator information
+- `source.document.doc_uri`: Links to source documentation
+
+**Organization**:
+- `tags`: Flexible key-value metadata for categorization and filtering
+
+> **Note**: These advanced tracking features are available in Databricks MLflow's managed dataset service. MLflow OSS supports the core schema with custom tracking implementations.
+
+</TabItem>
+</Tabs>
+
+### Example Dataset Structure
+
+```python
+# Example showing comprehensive dataset structure
+evaluation_dataset = [
+    {
+        "inputs": {
+            "question": "What are the benefits of using MLflow?",
+            "context": "MLflow is an open-source platform for managing ML workflows...",
+            "user_type": "data_scientist",
+        },
+        "expectations": {
+            "expected_facts": [
+                "open-source platform",
+                "manages ML lifecycle",
+                "experiment tracking",
+                "model deployment",
+            ],
+            "guidelines": [
+                "Response should be technical but accessible",
+                "Include specific examples of MLflow features",
+                "Maintain professional tone throughout",
+            ],
+        },
+    },
+    {
+        "inputs": {
+            "question": "How do I get started with MLflow?",
+            "user_type": "beginner",
+        },
+        "expectations": {
+            "expected_response": "Start by installing MLflow with `pip install mlflow`, then create your first experiment to track a simple model training run.",
+            "guidelines": [
+                "Provide step-by-step instructions",
+                "Use beginner-friendly language",
+                "Include practical examples",
+            ],
+        },
+    },
+]
+```
+
+## Dataset Creation Strategies
+
+Different creation approaches serve different evaluation needs and organizational capabilities:
+
+<Tabs>
+<TabItem value="production_traces" label="From Production Data" default>
+
+### Converting Production Traces
+
+Leverage real user interactions to create authentic evaluation datasets:
+
+**High-Value Trace Selection**:
+```python
+# Identify valuable production examples
+traces = mlflow.search_traces(
+    experiment_names=["production_app"],
+    filter_string="span.status = 'OK' AND user_feedback = 'positive'",
+)
+
+# Convert to evaluation format
+dataset = []
+for trace in traces:
+    record = {
+        "inputs": trace.data.inputs,
+        "source": {"trace": {"trace_id": trace.info.trace_id}},
+    }
+
+    # Add expectations if available from trace assessments
+    if trace.info.assessments:
+        expectations = {}
+        for assessment in trace.info.assessments:
+            if assessment.name == "expected_response":
+                expectations["expected_response"] = assessment.value
+        if expectations:
+            record["expectations"] = expectations
+
+    dataset.append(record)
+```
+
+**Benefits of Production-Derived Datasets**:
+- **Authentic Usage**: Real user queries reveal unexpected patterns and edge cases
+- **Diverse Complexity**: Natural variation in query sophistication and context
+- **Proven Relevance**: Examples represent actual user needs and scenarios
+- **Quality Validation**: Can include examples where users provided positive feedback
+
+**Considerations**:
+- **Privacy Protection**: Ensure proper anonymization and data governance
+- **Quality Filtering**: Select high-quality interactions, not just any production data
+- **Bias Awareness**: Production data may not represent all desired use cases
+
+</TabItem>
+<TabItem value="manual_curation" label="Manual Curation">
+
+### Expert-Curated Test Cases
+
+Create targeted examples that systematically test specific capabilities:
+
+**Edge Case Development**:
+```python
+# Systematically designed challenging scenarios
+edge_cases = [
+    {
+        "inputs": {"question": ""},  # Empty input handling
+        "expectations": {
+            "guidelines": "Respond gracefully with helpful prompt for user input"
+        },
+    },
+    {
+        "inputs": {
+            "question": "Tell me everything about machine learning"
+        },  # Overly broad
+        "expectations": {
+            "guidelines": "Provide structured overview without overwhelming detail"
+        },
+    },
+    {
+        "inputs": {
+            "question": "What's the best algorithm for my problem?"
+        },  # Underspecified
+        "expectations": {
+            "guidelines": "Ask clarifying questions about problem context and constraints"
+        },
+    },
+]
+```
+
+**Domain-Specific Scenarios**:
+```python
+# Technical complexity variations
+technical_scenarios = [
+    {
+        "inputs": {
+            "question": "How do I tune hyperparameters?",
+            "user_type": "beginner",
+        },
+        "expectations": {
+            "guidelines": "Explain concepts clearly with practical examples"
+        },
+    },
+    {
+        "inputs": {
+            "question": "Optimize my gradient descent convergence rate",
+            "user_type": "expert",
+        },
+        "expectations": {
+            "guidelines": "Provide advanced techniques and mathematical insights"
+        },
+    },
+]
+```
+
+**Advantages of Manual Curation**:
+- **Systematic Coverage**: Deliberately test specific functionality and edge cases
+- **Quality Control**: Expert design ensures relevant, well-crafted examples
+- **Gap Filling**: Address scenarios missing from production data
+- **Hypothesis Testing**: Validate specific application behaviors
+
+</TabItem>
+<TabItem value="synthetic_generation" label="Synthetic Generation">
+
+### LLM-Generated Test Cases
+
+Use language models to create diverse, scalable evaluation datasets:
+
+**Variation Generation**:
+```python
+# Use LLMs to create query variations
+base_scenarios = [
+    "How do I log metrics in MLflow?",
+    "What's the difference between experiments and runs?",
+    "How do I deploy a model with MLflow?",
+]
+
+# Generate variations with different:
+# - Phrasing styles (formal, casual, technical)
+# - User experience levels (beginner, intermediate, expert)
+# - Context requirements (with/without background info)
+# - Language complexity (simple, complex sentence structures)
+```
+
+**Adversarial Example Creation**:
+```python
+# Generate challenging edge cases
+adversarial_prompts = [
+    "Create confusing questions about MLflow that sound reasonable but are ambiguous",
+    "Generate questions that combine multiple unrelated MLflow concepts",
+    "Write questions that contain subtle factual errors",
+]
+```
+
+**Benefits of Synthetic Generation**:
+- **Scale**: Generate large volumes of diverse examples quickly
+- **Systematic Variation**: Create controlled variations of successful patterns
+- **Gap Coverage**: Generate examples for underrepresented scenarios
+- **Cost Efficiency**: Less expensive than manual expert curation
+
+**Limitations and Considerations**:
+- **Quality Validation**: Synthetic examples require human review for accuracy
+- **Authenticity**: May not capture real user language patterns and needs
+- **Bias Amplification**: Can perpetuate biases present in generation models
+
+</TabItem>
+</Tabs>
+
+## Using Evaluation Datasets
+
+Understanding how to effectively use datasets across different platforms and workflows:
+
+### Platform-Specific Usage
+
+<Tabs>
+<TabItem value="simple_usage" label="Direct Usage (Both Platforms)" default>
+
+#### List and Dictionary Format *(MLflow OSS & Databricks)*
+
+```python
+# Simple list of dictionaries - works everywhere
+dataset = [
+    {
+        "inputs": {"question": "What is MLflow?"},
+        "expectations": {"expected_facts": ["platform", "ML lifecycle"]},
+    },
+    {
+        "inputs": {"question": "How do I install MLflow?"},
+        "expectations": {"expected_response": "pip install mlflow"},
+    },
+]
+
+# Use directly with evaluate
+mlflow.genai.evaluate(
+    data=dataset, predict_fn=my_app, scorers=[relevance_scorer, completeness_scorer]
+)
+```
+
+#### Pandas DataFrame Format *(MLflow OSS & Databricks)*
+
+```python
+import pandas as pd
+
+# Convert to DataFrame for easier manipulation
+df = pd.DataFrame(
+    [
+        {
+            "inputs": {"question": "What is MLflow?"},
+            "expectations": {"expected_facts": ["platform", "ML"]},
+        },
+        {
+            "inputs": {"question": "How to log metrics?"},
+            "expectations": {"guidelines": "Provide code examples"},
+        },
+    ]
+)
+
+# Use DataFrame directly
+mlflow.genai.evaluate(data=df, predict_fn=my_app, scorers=scorers)
+```
+
+</TabItem>
+<TabItem value="managed_usage" label="Managed Datasets (Databricks Only)">
+
+#### Databricks Managed Dataset Service
+
+```python
+# Create managed dataset with version control
+dataset_name = "customer_support_qa_v2"
+
+# Option 1: Create from existing data
+managed_dataset = mlflow.data.create_evaluation_dataset(
+    name=dataset_name,
+    data=dataset,
+    description="Customer support Q&A evaluation set v2.0",
+)
+
+# Option 2: Build incrementally
+dataset_client = mlflow.data.get_evaluation_dataset(dataset_name)
+dataset_client.add_records(
+    [
+        {
+            "inputs": {"question": "New scenario"},
+            "expectations": {"guidelines": "Handle appropriately"},
+            "tags": {"category": "edge_case", "priority": "high"},
+        }
+    ]
+)
+
+# Use managed dataset in evaluation
+mlflow.genai.evaluate(
+    data=f"datasets:/{dataset_name}", predict_fn=my_app, scorers=scorers
+)
+```
+
+**Managed Dataset Benefits** *(Databricks Only)*:
+- **Version Control**: Track dataset evolution over time
+- **Collaboration**: Multiple team members can contribute and edit
+- **Governance**: Audit trails and access control
+- **Integration**: Seamless integration with Databricks workspace features
+
+</TabItem>
+</Tabs>
+
+### Integration with Evaluation Workflow
+
+**Development Iteration**:
+```python
+# Start with focused problem set
+problem_dataset = load_known_issues()
+results = mlflow.genai.evaluate(
+    data=problem_dataset, predict_fn=my_app_v1, scorers=scorers
+)
+
+# Analyze failures and improve app
+improved_app = fix_identified_issues(my_app_v1, results)
+
+# Validate fixes
+validation_results = mlflow.genai.evaluate(
+    data=problem_dataset, predict_fn=improved_app, scorers=scorers
+)
+
+# Add successful fixes to regression test suite
+regression_dataset.extend(problem_dataset)
+```
+
+**Version Comparison**:
+```python
+# Compare performance across app versions
+for version_name, app_version in [("v1", my_app_v1), ("v2", my_app_v2)]:
+    with mlflow.start_run(run_name=f"eval_{version_name}"):
+        results = mlflow.genai.evaluate(
+            data=comprehensive_dataset,
+            predict_fn=app_version,
+            scorers=standard_scorers,
+        )
+        mlflow.set_tag("app_version", version_name)
+```
+
+## Best Practices for Dataset Development
+
+### Quality and Coverage
+
+**Start Targeted, Expand Systematically**:
+- Begin with 10-20 high-impact examples that address specific known issues
+- Gradually expand to 50-100 examples covering common usage patterns
+- Eventually build comprehensive suites of 200+ examples for thorough testing
+
+**Balance Representation**:
+- **Common Cases**: 70% typical user scenarios
+- **Edge Cases**: 20% challenging or boundary conditions
+- **Adversarial Cases**: 10% deliberately difficult or confusing inputs
+
+**Iterative Improvement**:
+- Add examples when you discover new failure modes
+- Remove or modify examples that become obsolete
+- Regularly review dataset relevance as your application evolves
+
+### Maintenance and Governance
+
+**Version Control**: Track dataset changes alongside application versions to maintain evaluation consistency.
+
+**Quality Review**: Regularly audit dataset quality, removing outdated examples and adding new scenarios based on production insights.
+
+**Stakeholder Alignment**: Involve domain experts in dataset creation and review to ensure evaluation criteria match business objectives.
+
+**Documentation**: Maintain clear documentation about dataset purpose, coverage, and evolution rationale.
+
+## Related Concepts
+
+- **[Evaluation Harness](/genai/eval-monitor/concepts/eval-harness)**: How evaluation datasets are used in the evaluation process
+- **[Scorers](/genai/eval-monitor/concepts/scorers)**: How scorers use expectations from datasets for quality assessment
+- **[Evaluation Runs](/genai/eval-monitor/concepts/evaluation-runs)**: Results and tracking of dataset-based evaluations
+- **[Building Evaluation Datasets](/genai/eval-monitor/build-eval-dataset)**: Practical guide to creating effective datasets
+
+## Summary
+
+Evaluation datasets are the foundation of systematic GenAI quality assessment, providing the test cases that validate your application's performance across diverse scenarios. Understanding how to create, structure, and maintain effective datasets is crucial for reliable evaluation.
+
+**Key Success Factors**:
+- **Representative Coverage**: Include diverse scenarios that reflect real-world usage patterns
+- **Quality Curation**: Balance automated generation with expert review and validation
+- **Iterative Evolution**: Continuously improve datasets based on production insights and failure analysis
+- **Platform Alignment**: Choose dataset management approaches that fit your platform and team capabilities
+
+**Implementation Strategy**:
+- **Start Simple**: Begin with basic list/dictionary formats for immediate evaluation needs
+- **Scale Systematically**: Expand dataset size and sophistication as evaluation needs mature
+- **Leverage Production**: Use real user interactions to inform and validate dataset design
+- **Maintain Quality**: Regular review and updates ensure datasets remain relevant and valuable
+
+Effective evaluation datasets enable confident application development, reliable quality assessment, and systematic improvement of GenAI applications across their entire lifecycle.

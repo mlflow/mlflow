@@ -1,0 +1,194 @@
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Context Sufficiency Judge & Scorer – Concepts
+
+The **Context Sufficiency judge** (`judges.is_context_sufficient()`) evaluates whether the context retrieved by your retrieval-augmented generation (RAG) system or produced by tool calls contains enough information to adequately answer the user's request, based on ground-truth labels such as `expected_facts` or an `expected_response`.
+
+## Overview
+
+Context sufficiency judges determine:
+
+* If retrieved or generated context fully covers necessary details.
+* Whether the provided context is sufficient for generating accurate and comprehensive responses.
+
+## How Context Sufficiency Judges Work
+
+The sufficiency judges perform evaluations through a structured process:
+
+1. **Ground Truth Comparison**: Compares retrieved context against specified ground truth (`expected_facts` or `expected_response`).
+2. **Sufficiency Assessment**: Evaluates if all necessary information is included.
+3. **Judgment and Explanation**: Outputs a binary sufficiency verdict with detailed reasoning.
+
+**Key Requirements:**
+
+* Clearly specified ground truth (facts or complete response).
+* JSON-serializable inputs and context data.
+
+## Platform Availability
+
+Platform differences between MLflow Open Source and Databricks MLflow are significant for sufficiency evaluation:
+
+<Tabs>
+<TabItem value="platform_overview" label="Platform Overview" default>
+
+### MLflow Open Source vs Databricks MLflow
+
+**MLflow Open Source:**
+
+* Basic heuristic-based checks defined by custom rules.
+* Manual implementation for context evaluation.
+
+**Databricks MLflow:** (includes all OSS features plus)
+
+* Advanced semantic sufficiency evaluation using built-in LLM judges.
+* Prebuilt `RetrievalSufficiency` scorer.
+* Automatic detailed rationales explaining sufficiency verdicts.
+
+### Feature Comparison Matrix
+
+| Feature Category                 | MLflow OSS              | Databricks MLflow         |
+| -------------------------------- | ----------------------- | ------------------------- |
+| **Heuristic Sufficiency Checks** | ✅ Fully Supported       | ✅ Fully Supported         |
+| **Semantic LLM Judges**          | ❌ Not Available         | ✅ Fully Supported         |
+| **Prebuilt Sufficiency Scorer**  | ❌ Not Available         | ✅ RetrievalSufficiency    |
+| **Automatic Context Parsing**    | ❌ Limited               | ✅ Advanced and Integrated |
+| **Comprehensive Rationales**     | ✅ Manual Implementation | ✅ Automatic and Detailed  |
+
+</TabItem>
+
+<TabItem value="migration_path" label="Migration Considerations">
+
+### Transitioning from OSS to Databricks
+
+* Replace heuristic rules with semantic LLM evaluations.
+* Utilize built-in `RetrievalSufficiency` scorer for comprehensive checks.
+* Benefit from detailed automatic rationales and semantic depth.
+
+### Hybrid Strategy
+
+* Start with OSS for simple context checks.
+* Upgrade to Databricks MLflow for detailed, production-level sufficiency evaluations.
+
+</TabItem>
+</Tabs>
+
+## API Signature
+
+```python
+from mlflow.genai.judges import is_context_sufficient
+
+
+def is_context_sufficient(
+    *,
+    request: str,
+    context: Any,
+    expected_facts: Optional[list[str]] = None,
+    expected_response: Optional[str] = None,
+    name: Optional[str] = None
+) -> mlflow.entities.Feedback:
+    """Returns Feedback indicating sufficiency with detailed rationale."""
+```
+
+## Direct SDK Usage
+
+```python
+from mlflow.genai.judges import is_context_sufficient
+
+# Sufficient context example
+feedback = is_context_sufficient(
+    request="What is the capital of France?",
+    context=[{"content": "Paris is the capital of France."}],
+    expected_facts=["Paris is the capital of France."],
+)
+
+# Outputs:
+# feedback.value -> "yes"
+# feedback.rationale -> detailed sufficiency explanation
+
+# Insufficient context example
+feedback = is_context_sufficient(
+    request="List MLflow components.",
+    context=[{"content": "MLflow helps manage ML lifecycles."}],
+    expected_facts=["Tracking", "Projects", "Models", "Registry"],
+)
+
+# Outputs:
+# feedback.value -> "no"
+# feedback.rationale -> explanation of missing components
+```
+
+## Prebuilt `RetrievalSufficiency` Scorer (Databricks MLflow Only)
+
+Databricks MLflow provides the prebuilt `RetrievalSufficiency` scorer for automated sufficiency assessments:
+
+**Trace Requirements:**
+
+* Trace must include at least one `RETRIEVER` span.
+* Inputs and outputs clearly set on root span.
+
+```python
+import mlflow
+from mlflow.genai.scorers import RetrievalSufficiency
+
+
+@mlflow.trace(span_type="RETRIEVER")
+def retrieve_docs(query):
+    # Document retrieval logic
+    return
+
+
+@mlflow.trace
+def rag_app(query):
+    docs = retrieve_docs(query)
+    return {"response": f"Retrieved {len(docs)} documents."}
+
+
+# Evaluation dataset with ground truth
+eval_dataset = [
+    {
+        "inputs": {"query": "What is the capital of France?"},
+        "expectations": {"expected_facts": ["Paris is the capital of France."]},
+    }
+]
+
+# Evaluation execution
+results = mlflow.genai.evaluate(
+    data=eval_dataset, predict_fn=rag_app, scorers=[RetrievalSufficiency()]
+)
+```
+
+## Custom Scorer Implementation
+
+When predefined scorers don't fit your data structure, encapsulate the judge in custom scorers:
+
+```python
+from mlflow.genai.judges import is_context_sufficient
+from mlflow.genai.scorers import scorer
+
+
+@scorer
+def context_sufficiency_custom(inputs, outputs, expectations):
+    return is_context_sufficient(
+        request=inputs["query"],
+        context=outputs["retrieved_context"],
+        expected_facts=expectations["expected_facts"],
+    )
+
+
+# Evaluate
+results = mlflow.genai.evaluate(
+    data=custom_eval_dataset, scorers=[context_sufficiency_custom]
+)
+```
+
+## Interpreting Results
+
+Each judgment returns:
+
+* **`value`**: "yes" (sufficient) or "no" (insufficient)
+* **`rationale`**: Clear explanation highlighting covered or missing details, assisting in pinpointing issues.
+
+## Summary
+
+Context sufficiency judges ensure that your RAG systems retrieve and provide all necessary information for accurate response generation. MLflow OSS supports heuristic sufficiency evaluations suitable for straightforward checks, while Databricks MLflow provides sophisticated, prebuilt semantic evaluations, making it easier to ensure the comprehensiveness and accuracy of your GenAI applications.

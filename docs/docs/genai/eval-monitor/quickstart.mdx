@@ -1,0 +1,219 @@
+# MLflow Evaluation Quickstart
+
+Get started with MLflow evaluation in 5 minutes. This guide walks you through evaluating a simple GenAI application with just a few lines of code.
+
+## What You'll Build
+
+A basic chatbot evaluation that checks if responses are helpful and include key information. By the end, you'll have:
+- ✅ A simple GenAI app function
+- ✅ A test dataset with 3 examples
+- ✅ Basic quality scores
+- ✅ Results in the MLflow UI
+
+## Prerequisites
+
+```bash
+pip install mlflow openai
+export OPENAI_API_KEY="your-api-key-here"
+```
+
+## Step 1: Create Your App Function
+
+```python
+import mlflow
+from openai import OpenAI
+
+# Enable automatic tracing
+mlflow.openai.autolog()
+client = OpenAI()
+
+
+@mlflow.trace
+def my_chatbot(question: str) -> dict:
+    """A simple chatbot that answers questions"""
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": question},
+        ],
+    )
+    return {"answer": response.choices[0].message.content}
+
+
+# Test it works
+print(my_chatbot("What is Python?"))
+```
+
+## Step 2: Create Test Data
+
+```python
+# Simple test cases - just 3 examples to start
+test_data = [
+    {"inputs": {"question": "What is Python?"}},
+    {"inputs": {"question": "How do I install packages?"}},
+    {"inputs": {"question": "What's machine learning?"}},
+]
+```
+
+## Step 3: Create a Quality Check
+
+```python
+from mlflow.genai.scorers import scorer
+
+
+@scorer
+def is_helpful(inputs, outputs) -> bool:
+    """Check if the response seems helpful (has some content)"""
+    answer = outputs.get("answer", "")
+    return len(answer) > 20  # Simple check for substantial response
+```
+
+## Step 4: Run Evaluation
+
+```python
+# Run the evaluation
+result = mlflow.genai.evaluate(
+    data=test_data, predict_fn=my_chatbot, scorers=[is_helpful]
+)
+
+print(f"✅ Evaluation complete!")
+print(f"📊 Helpful responses: {result.metrics['is_helpful/mean']:.0%}")
+print(f"🔍 View details: Run ID {result.run_id}")
+```
+
+## Complete Working Example
+
+Copy and run this complete example:
+
+```python
+import mlflow
+from openai import OpenAI
+from mlflow.genai.scorers import scorer
+
+# Setup
+mlflow.openai.autolog()
+client = OpenAI()
+
+
+# 1. Your app function
+@mlflow.trace
+def my_chatbot(question: str) -> dict:
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": question},
+        ],
+    )
+    return {"answer": response.choices[0].message.content}
+
+
+# 2. Test data
+test_data = [
+    {"inputs": {"question": "What is Python?"}},
+    {"inputs": {"question": "How do I install packages?"}},
+    {"inputs": {"question": "What's machine learning?"}},
+]
+
+
+# 3. Quality check
+@scorer
+def is_helpful(inputs, outputs) -> bool:
+    answer = outputs.get("answer", "")
+    return len(answer) > 20
+
+
+# 4. Run evaluation
+result = mlflow.genai.evaluate(
+    data=test_data, predict_fn=my_chatbot, scorers=[is_helpful]
+)
+
+print(f"✅ Evaluation complete!")
+print(f"📊 Helpful responses: {result.metrics['is_helpful/mean']:.0%}")
+print(f"🔍 View details in MLflow UI: {result.run_id}")
+```
+
+## View Your Results
+
+1. **In Code**: Access metrics with `result.metrics` and detailed results with `result.tables["eval_results_table"]`
+
+2. **In MLflow UI**:
+   - Start MLflow: `mlflow ui`
+   - Open http://localhost:5000
+   - Find your evaluation run
+   - Explore metrics, traces, and individual responses
+
+## What's Next?
+
+Now that you have the basics working, explore these next steps:
+
+**📈 Add More Quality Checks**
+```python
+@scorer
+def mentions_keywords(inputs, outputs) -> bool:
+    """Check if response mentions relevant keywords"""
+    question = inputs["question"].lower()
+    answer = outputs["answer"].lower()
+
+    if "python" in question:
+        return "python" in answer
+    elif "install" in question:
+        return any(word in answer for word in ["pip", "install", "package"])
+    return True
+```
+
+**📊 Expand Your Test Dataset**
+```python
+# Add more diverse test cases
+expanded_test_data = [
+    {"inputs": {"question": "What is Python?"}},
+    {"inputs": {"question": "How do I install packages?"}},
+    {"inputs": {"question": "What's machine learning?"}},
+    {"inputs": {"question": ""}},  # Test empty input
+    {
+        "inputs": {
+            "question": "Write a very long complex question about advanced quantum computing applications in machine learning algorithms?"
+        }
+    },  # Test complex input
+    {"inputs": {"question": "Hello"}},  # Test casual greeting
+]
+```
+
+**🎯 Compare App Versions**
+```python
+# Test different prompts
+@mlflow.trace
+def my_chatbot_v2(question: str) -> dict:
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {
+                "role": "system",
+                "content": "You are a helpful assistant. Always provide examples in your answers.",
+            },
+            {"role": "user", "content": question},
+        ],
+    )
+    return {"answer": response.choices[0].message.content}
+
+
+# Evaluate both versions with same data
+v1_result = mlflow.genai.evaluate(
+    data=test_data, predict_fn=my_chatbot, scorers=[is_helpful]
+)
+v2_result = mlflow.genai.evaluate(
+    data=test_data, predict_fn=my_chatbot_v2, scorers=[is_helpful]
+)
+
+print(f"V1 helpful rate: {v1_result.metrics['is_helpful/mean']:.0%}")
+print(f"V2 helpful rate: {v2_result.metrics['is_helpful/mean']:.0%}")
+```
+
+## Learn More
+
+- **[Building Evaluation Datasets](/genai/eval-monitor/build-eval-dataset)** - Create comprehensive test data from production traces, expert feedback, or synthetic generation
+- **[Evaluating Your App](/genai/eval-monitor/evaluate-app)** - Advanced evaluation patterns, multiple scorers, and result analysis
+- **[Custom Scorers](/genai/eval-monitor/custom-scorers)** - Build sophisticated quality checks for your specific use case
+
+**🎉 Congratulations!** You've successfully evaluated your first GenAI application with MLflow. You now have the foundation to systematically improve your app's quality.
