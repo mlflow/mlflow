@@ -522,7 +522,6 @@ def register_prompt(
     name: str,
     template: str,
     commit_message: Optional[str] = None,
-    version_metadata: Optional[dict[str, str]] = None,
     tags: Optional[dict[str, str]] = None,
 ) -> PromptVersion:
     """
@@ -555,15 +554,9 @@ def register_prompt(
 
         commit_message: A message describing the changes made to the prompt, similar to a
             Git commit message. Optional.
-        version_metadata: A dictionary of metadata associated with the **prompt version**.
+        tags: A dictionary of tags associated with the **prompt version**.
             This is useful for storing version-specific information, such as the author of
             the changes. Optional.
-        tags: A dictionary of tags associated with the entire prompt. This is different from
-            the `version_metadata` as it is not tied to a specific version of the prompt,
-            but to the prompt as a whole. For example, you can use tags to add an application
-            name for which the prompt is created. Since the application uses the prompt in
-            multiple versions, it makes sense to use tags instead of version-specific metadata.
-            Optional.
 
     Returns:
         A :py:class:`Prompt <mlflow.entities.Prompt>` object that was created.
@@ -578,7 +571,6 @@ def register_prompt(
         mlflow.register_prompt(
             name="my_prompt",
             template="Respond to the user's message as a {{style}} AI.",
-            version_metadata={"author": "Alice"},
         )
 
         # Load the prompt from the registry
@@ -601,7 +593,7 @@ def register_prompt(
             name="my_prompt",
             template="Respond to the user's message as a {{style}} AI. {{greeting}}",
             commit_message="Add a greeting to the prompt.",
-            version_metadata={"author": "Bob"},
+            tags={"author": "Bob"},
         )
     """
     return MlflowClient().register_prompt(
@@ -609,7 +601,6 @@ def register_prompt(
         template=template,
         commit_message=commit_message,
         tags=tags,
-        version_metadata=version_metadata,
     )
 
 
