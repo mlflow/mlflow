@@ -613,7 +613,11 @@ def register_prompt(
             version_metadata={"author": "Bob"},
         )
     """
-    warnings.warn(PROMPT_API_MIGRATION_MSG.format(func_name="register_prompt"), FutureWarning)
+    warnings.warn(
+        PROMPT_API_MIGRATION_MSG.format(func_name="register_prompt"),
+        category=FutureWarning,
+        stacklevel=2,
+    )
 
     return MlflowClient().register_prompt(
         name=name,
@@ -629,7 +633,11 @@ def search_prompts(
     filter_string: Optional[str] = None,
     max_results: Optional[int] = None,
 ) -> PagedList[Prompt]:
-    warnings.warn(PROMPT_API_MIGRATION_MSG.format(func_name="search_prompts"), FutureWarning)
+    warnings.warn(
+        PROMPT_API_MIGRATION_MSG.format(func_name="search_prompts"),
+        category=FutureWarning,
+        stacklevel=2,
+    )
 
     def pagination_wrapper_func(number_to_get, next_page_token):
         return MlflowClient().search_prompts(
@@ -683,7 +691,11 @@ def load_prompt(
         prompt = mlflow.load_prompt("prompts:/my_prompt@production")
 
     """
-    warnings.warn(PROMPT_API_MIGRATION_MSG.format(func_name="load_prompt"), FutureWarning)
+    warnings.warn(
+        PROMPT_API_MIGRATION_MSG.format(func_name="load_prompt"),
+        category=FutureWarning,
+        stacklevel=2,
+    )
 
     client = MlflowClient()
 
@@ -769,7 +781,11 @@ def set_prompt_alias(name: str, alias: str, version: int) -> None:
         # Delete the alias
         mlflow.delete_prompt_alias(name="my_prompt", alias="production")
     """
-    warnings.warn(PROMPT_API_MIGRATION_MSG.format(func_name="set_prompt_alias"), FutureWarning)
+    warnings.warn(
+        PROMPT_API_MIGRATION_MSG.format(func_name="set_prompt_alias"),
+        category=FutureWarning,
+        stacklevel=2,
+    )
 
     MlflowClient().set_prompt_alias(name=name, version=version, alias=alias)
 
@@ -784,6 +800,10 @@ def delete_prompt_alias(name: str, alias: str) -> None:
         name: The name of the prompt.
         alias: The alias to delete for the prompt.
     """
-    warnings.warn(PROMPT_API_MIGRATION_MSG.format(func_name="delete_prompt_alias"), FutureWarning)
+    warnings.warn(
+        PROMPT_API_MIGRATION_MSG.format(func_name="delete_prompt_alias"),
+        category=FutureWarning,
+        stacklevel=2,
+    )
 
     MlflowClient().delete_prompt_alias(name=name, alias=alias)
