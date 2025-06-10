@@ -40,8 +40,7 @@ class _Trace:
 @dataclass
 class ManagerTrace:
     """
-    Public wrapper around a trace and its associated prompts.
-    This provides a clean API that doesn't expose internal _Trace objects.
+    Wrapper around a trace and its associated prompts.
     """
 
     trace: Trace
