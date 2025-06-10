@@ -7,6 +7,10 @@ last_update:
 
 # Use predefined LLM scorers
 
+:::important
+This feature is currently only available in Databricks.
+:::
+
 ## Overview
 
 MLflow provides built-in LLM [`Scorers`](/genai/eval-monitor/concepts/scorers) that wrap [MLflow's research-backed LLM judges](/genai/eval-monitor/concepts/judges/index) and can assess traces across typical [quality dimensions](#available-scorers).
@@ -50,11 +54,6 @@ To learn more about how MLflow passes inputs to a Scorer and attaches the result
 2. Follow the [tracing quickstart](/mlflow3/genai/getting-started/tracing/tracing-ide) to connect your development environment to an [MLflow Experiment](/mlflow3/genai/concepts/index).
 
 ## Step 1: Create a sample application to evaluate
-
-<!-- :::note
-If you'd like to download this guide's code as a Python file or importable Databricks Notebook, please jump to the [download code](#download-code) section.
-::: -->
-
 Below, we define a simple application with a fake retriever.
 
 ```python
@@ -208,40 +207,16 @@ mlflow.genai.evaluate(
 
 ## Available scorers
 
-:::list-table
+| Scorer                                                                 | What it evaluates?                                         | Requires ground-truth? | Learn more                                                                                   |
+|------------------------------------------------------------------------|------------------------------------------------------------|-----------------------|---------------------------------------------------------------------------------------------|
+| [`RelevanceToQuery`](/genai/eval-monitor/concepts/judges/is_context_relevant#1-relevancetoquery-scorer) | Does app's response directly address the user's input?     | No                    | [Answer & Context Relevance guide](/genai/eval-monitor/concepts/judges/is_context_relevant)  |
+| [`Safety`](/genai/eval-monitor/concepts/judges/is_safe#using-the-prebuilt-scorer)                        | Does the app's response avoid harmful or toxic content?    | No                    | [Safety guide](/genai/eval-monitor/concepts/judges/is_safe)                                 |
+| [`RetrievalGroundedness`](/genai/eval-monitor/concepts/judges/is_grounded#using-the-prebuilt-scorer)     | Is the app's response grounded in retrieved information?   | No                    | [Groundedness guide](/genai/eval-monitor/concepts/judges/is_grounded)                       |
+| [`RetrievalRelevance`](/genai/eval-monitor/concepts/judges/is_context_relevant#2-retrievalrelevance-scorer) | Are retrieved documents relevant to the user's request?    | No                    | [Answer & Context Relevance guide](/genai/eval-monitor/concepts/judges/is_context_relevant)  |
+| [`Correctness`](/genai/eval-monitor/concepts/judges/is_correct#using-the-prebuilt-scorer)                | Is app's response correct compared to ground-truth?        | Yes                   | [Correctness guide](/genai/eval-monitor/concepts/judges/is_correct)                         |
+| [`RetrievalSufficiency`](/genai/eval-monitor/concepts/judges/is_context_sufficient#using-the-prebuilt-scorer) | Do retrieved documents contain all necessary information?  | Yes                   | [Context Sufficiency guide](/genai/eval-monitor/concepts/judges/is_context_sufficient)      |
 
-- - Scorer
-  - What it evaluates?
-  - Requires ground-truth?
-  - Learn more
-- - [`RelevanceToQuery`](/genai/eval-monitor/concepts/judges/is_context_relevant#1-relevancetoquery-scorer)
-  - Does app's response directly address the user's input?
-  - No
-  - [Answer & Context Relevance guide](/genai/eval-monitor/concepts/judges/is_context_relevant)
-- - [`Safety`](/genai/eval-monitor/concepts/judges/is_safe#using-the-prebuilt-scorer)
-  - Does the app's response avoid harmful or toxic content?
-  - No
-  - [Safety guide](/genai/eval-monitor/concepts/judges/is_safe)
-- - [`RetrievalGroundedness`](/genai/eval-monitor/concepts/judges/is_grounded#using-the-prebuilt-scorer)
-  - Is the app's response grounded in retrieved information?
-  - No
-  - [Groundedness guide](/genai/eval-monitor/concepts/judges/is_grounded)
-- - [`RetrievalRelevance`](/genai/eval-monitor/concepts/judges/is_context_relevant#2-retrievalrelevance-scorer)
-  - Are retrieved documents relevant to the user's request?
-  - No
-  - [Answer & Context Relevance guide](/genai/eval-monitor/concepts/judges/is_context_relevant)
-- - [`Correctness`](/genai/eval-monitor/concepts/judges/is_correct#using-the-prebuilt-scorer)
-  - Is app's response correct compared to ground-truth?
-  - Yes
-  - [Correctness guide](/genai/eval-monitor/concepts/judges/is_correct)
-- - [`RetrievalSufficiency`](/genai/eval-monitor/concepts/judges/is_context_sufficient#using-the-prebuilt-scorer)
-  - Do retrieved documents contain all necessary information?
-  - Yes
-  - [Context Sufficiency guide](/genai/eval-monitor/concepts/judges/is_context_sufficient)
-
-:::
-
-<!-- ## <a id="download-code"></a> Download the code
+<a id="download-code"></a> Download the code
 
 Below, you can download this guide's code as a Python file or as an importable Databricks Notebook:
 

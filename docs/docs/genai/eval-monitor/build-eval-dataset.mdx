@@ -7,6 +7,10 @@ last_update:
 
 # Building MLflow Evaluation Datasets
 
+:::important
+This feature is currently only available in Databricks.
+:::
+
 This guide shows you the various ways to create [evaluation datasets](/genai/eval-monitor/concepts/eval-datasets) in order to systematically test and improve your GenAI application's quality. You'll learn multiple approaches to build datasets that enable consistent, repeatable evaluation as you iterate on your app.
 
 Evaluation datasets help you:
@@ -41,14 +45,6 @@ This guide shows you how to use MLflow-managed evaluation datasets, which provid
 2. Create an MLflow experiment by following the [setup your environment quickstart](/mlflow3/genai/getting-started/connect-environment).
 3. Access to a Unity Catalog schema with `CREATE TABLE` permissions to create evaluation datasets.
 
-   ::::aws
-
-   :::note
-   If you're using a [Databricks trial account](/getting-started/express-setup), you have CREATE TABLE permissions on the Unity Catalog schema `workspace.default`.
-   :::
-
-   ::::
-
 ## Approaches to Building Your Dataset
 
 MLflow offers several flexible ways to construct an evaluation dataset tailored to your needs:
@@ -63,15 +59,7 @@ Choose the method or combination of methods that best suits your current data so
 
 Irregardless of the method you choose, first, you must create a MLflow-managed evaluation dataset. This approach allows you to track changes to the dataset over time and link individual evaluation results to this dataset.
 
-::::tabs
-:::tab-item[Using the UI]
-
 Follow the recording below to use the UI to create an evaluation dataset
-
-
-
-:::
-:::tab-item[Using the SDK]
 
 Create an evaluation dataset programmatically by searching for traces and adding them to the dataset.
 
@@ -97,24 +85,13 @@ eval_dataset = mlflow.genai.datasets.create_dataset(
 print(f"Created evaluation dataset: {uc_schema}.{evaluation_dataset_table_name}")
 ```
 
-:::
-::::
-
 ## Step 2: Add records to your dataset
 
 ### <a id="creating-a-dataset-from-existing-traces"></a>Approach 1: Create from existing traces
 
 One of the most effective ways to build a relevant evaluation dataset is by curating examples directly from your application's historical interactions captured by MLflow Tracing. You can create datasets from traces using either the MLflow Monitoring UI or the SDK.
 
-::::tabs
-:::tab-item[Using the UI]
-
 Follow the recording below to use the UI to add existing production traces to the dataset
-
-
-
-:::
-:::tab-item[Using the SDK]
 
 Programmatically search for traces and then add them to the dataset. Refer to the [query traces](/mlflow3/genai/tracing/observe-with-traces/query-via-sdk#search-api) reference page for details on how to use filters in `search_traces()`.
 
@@ -199,7 +176,6 @@ Generating synthetic data can expand your testing efforts by quickly creating di
 Continue your journey with these recommended actions and tutorials.
 
 - [Evaluate your app](/genai/eval-monitor/evaluate-app) - Use your newly created dataset for evaluation
-<!-- - [Use production data for improvement](/genai/eval-monitor/continuous-improvement-with-production-data) - Create datasets from production traces -->
 - [Create custom scorers](/genai/eval-monitor/custom-scorers) - Build scorers to evaluate against ground truth
 
 ## Reference guides

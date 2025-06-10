@@ -7,6 +7,10 @@ last_update:
 
 # Creating custom scorers
 
+:::important
+This feature is currently only available in Databricks.
+:::
+
 ## Overview
 
 Custom scorers offer the ultimate flexibility to define precisely how your GenAI application's quality is measured. Custom scorers provide flexibility to define evaluation metrics tailored to your specific business use case, whether based on simple heuristics, advanced logic, or programmatic evaluations.
@@ -121,8 +125,6 @@ mlflow.genai.evaluate(
 
 In this guide, we will show you various approaches to building custom scorers.
 
-<!-- ![Custom Scorer Development](/images/mlflow3-genai/eval-monitor/custom-scorer/custom-scorer-results.png) -->
-
 ### Prerequisite: create a sample application and get a local copy of the traces
 
 Across all of the approaches, we use the below sample application and copy of the traces (extracted using the [above approach](#custom-scorer-development-approach)).
@@ -214,8 +216,6 @@ generated_traces = mlflow.search_traces(run_id=initial_eval_results.run_id)
 ```
 
 After running the above code, you should have three traces in your experiment.
-
-<!-- ![Generated Sample Traces](/images/mlflow3-genai/eval-monitor/custom-scorer/generated-sample-traces.png) -->
 
 ### Example 1: Accessing data from the trace
 
@@ -423,8 +423,6 @@ multi_feedback_eval_results = mlflow.genai.evaluate(
 
 The result will have two columns: `is_not_empty_check` and `response_char_length` as assessments.
 
-<!-- ![Multi-feedback results](/images/mlflow3-genai/eval-monitor/custom-scorer/multi-feedback-results.png) -->
-
 ### Example 5: Using your own LLM for a judge
 
 Integrate a custom or externally hosted LLM within a scorer. The scorer handles API calls, input/output formatting, and generates `Feedback` from your LLM's response, giving full control over the judging process.
@@ -508,8 +506,6 @@ custom_llm_judge_eval_results = mlflow.genai.evaluate(
 By opening the trace in the UI and click on the "answer_quality" assessment, you can see the metadata for the judge, such as rationale, timestamp, judge model name, etc. If the judge assessment is not correct, you can override the score by clicking `Edit` button.
 
 The new assessment will supersedes the original judge assessment, but the edit history will be preserved for future reference.
-
-<!-- ![Edit LLM Judge Assessment](/images/mlflow3-genai/eval-monitor/custom-scorer/edit-llm-judge-assessment.png) -->
 
 ## Next steps
 

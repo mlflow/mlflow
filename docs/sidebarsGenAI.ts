@@ -363,11 +363,6 @@ const sidebarsGenAI: SidebarsConfig = {
               id: 'eval-monitor/custom-judge/meets-guidelines',
               label: 'Guidelines Judges'
             },
-            {
-              type: 'doc',
-              id: 'eval-monitor/custom-judge/tune-judge',
-              label: 'Tuning Custom Judges',
-            }
           ],
           link: {
             type: 'doc',
@@ -397,16 +392,6 @@ const sidebarsGenAI: SidebarsConfig = {
               type: 'doc',
               id: 'eval-monitor/evaluate-app',
               label: 'Evaluate App Versions',
-            },
-            {
-              type: 'doc',
-              id: 'eval-monitor/ci-cd-testing',
-              label: 'Evaluate within a CI/CD pipeline',
-            },
-            {
-              type: 'doc',
-              id: 'eval-monitor/continuous-improvement-with-production-data',
-              label: 'Evaluate with Production Data',
             },
             {
               type: 'doc',

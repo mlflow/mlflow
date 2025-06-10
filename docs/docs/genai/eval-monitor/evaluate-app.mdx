@@ -7,6 +7,10 @@ last_update:
 
 # Evaluate and improve your application
 
+:::important
+This feature is currently only available in Databricks.
+:::
+
 This guide shows you how to use an [evaluation datasets](/genai/eval-monitor/concepts/eval-datasets) to evaluate quality, identify issues, and iteratively improve your app.
 
 In this guide, we will use [traces](/mlflow3/genai/tracing/index) from a deployed app to create the [evaluation dataset](/genai/eval-monitor/concepts/eval-datasets), but this same workflow applies no matter how you created your evaluation dataset. Refer to the [create evaluation datasets guide](docs/genai/eval-monitor/build-eval-dataset) to learn about other approaches for creating the dataset.
@@ -29,14 +33,6 @@ In this guide, we will use [traces](/mlflow3/genai/tracing/index) from a deploye
 
 2. Create an MLflow experiment by following the [setup your environment quickstart](/mlflow3/genai/getting-started/connect-environment).
 3. Access to a Unity Catalog schema with `CREATE TABLE` permissions in order to create an evaluation dataset.
-
-   ::::aws
-
-   :::note
-   If you are using a [Databricks trial account](/getting-started/express-setup), you have CREATE TABLE permissions on the Unity Catalog schema `workspace.default`.
-   :::
-
-   ::::
 
 ## Step 1: Create your application
 
@@ -203,20 +199,6 @@ for req in test_requests:
 ## Step 3: Create evaluation dataset
 
 Now, lets convert the traces into an evaluation dataset. Storing the traces in an evaluation dataset allows us to link evaluation results to the dataset so we can track changes to the dataset over time and see all evaluation results generated using this dataset.
-
-::::tabs
-:::tab-item[Using the UI]
-
-Follow the recording below to use the UI to:
-
-1. Create an evaluation dataset
-2. Add the simulated production traces from step 2 to the dataset
-
-
-
-:::
-:::tab-item[Using the SDK]
-
 Create an evaluation dataset programmatically by searching for traces and adding them to the dataset.
 
 ```python
@@ -336,15 +318,6 @@ In this evaluation, we see several issues:
 1. **Lack of conciseness** - Most emails are unnecessarily long and include excessive details that dilute the key message, failing to communicate efficiently despite instructions to keep emails "concise and personalized"
 1. **Missing concrete next steps** - The majority of emails fail to end with specific, actionable next steps that include concrete timelines, which was identified as a required element
 
-::::tabs
-:::tab-item[Using the UI]
-
-Access the evaluation results through the Evaluations tab in the MLflow UI to understand your application's performance:
-
-
-:::
-
-:::tab-item[Using the SDK]
 
 To view detailed results programmatically:
 
@@ -438,16 +411,6 @@ with mlflow.start_run(run_name="v2"):
 ## Step 8: Compare results
 
 Now, we will compare the results to understand if our changes improved quality.
-
-::::tabs
-:::tab-item[Using the UI]
-
-Navigate to the MLflow UI to compare the evaluation results:
-
-
-
-:::
-:::tab-item[Using the SDK]
 
 First, let's compare the evaluation metrics stored in each Evaluation Run programmatically:
 
@@ -677,26 +640,13 @@ Mike Thompson
 (+1 more examples with retrieval_groundedness regression)
 ```
 
-:::
-::::
-
 ## Step 9: Continued iteration
 
 Based on the evaluation results, we can continue iterating to improve the application's quality and test each new fix we implement.
 
-<!--
-## <a id="download-code"></a> Download the code
-
-Below, you can download this guide's code as a Python file or as an importable Databricks Notebook:
-
-- [Python file: `1_evaluate_your_app.py`](https://github.com/databricks/genai-cookbook/blob/main/mlflow_docs_examples/guides/evaluation/1_evaluate_your_app.py)
-- [Databricks Notebook `1_evaluate_your_app_notebook.py`](https://github.com/databricks/genai-cookbook/blob/main/mlflow_docs_examples/guides/evaluation/1_evaluate_your_app_notebook.py) -->
-
 ## Next steps
 
 Continue your journey with these recommended actions and tutorials.
-
-<!-- - [Set up CI/CD testing](/genai/eval-monitor/ci-cd-testing) - Automatically evaluate new versions in your deployment pipeline -->
 
 - [Create code-based scorers](/genai/eval-monitor/custom-scorers) - Evaluate your app with deterministic code-based scorers
 - [Create custom LLM-based scorers](/genai/eval-monitor/custom-judge/index) - Further customize the LLM-based scorers used in this guide

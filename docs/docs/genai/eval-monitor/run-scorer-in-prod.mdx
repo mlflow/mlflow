@@ -7,7 +7,9 @@ last_update:
 
 # Production quality monitoring (running scorers automatically)
 
-::include[beta]
+:::important
+This feature is currently only available in Databricks.
+:::
 
 MLflow enables you to automatically run scorers on a sample of your production traces to continuously monitor quality.
 
@@ -29,14 +31,6 @@ Key benefits:
 2. Create an MLflow experiment by following the [setup your environment quickstart](/mlflow3/genai/getting-started/connect-environment).
 3. [Instrumented](/mlflow3/genai/tracing/prod-tracing) your production application with MLflow tracing
 4. Access to a Unity Catalog schema with `CREATE TABLE` permissions in order to store the monitoring outputs.
-
-   ::::aws
-
-   :::note
-   If you are using a [Databricks trial account](/getting-started/express-setup), you have CREATE TABLE permissions on the Unity Catalog schema `workspace.default`.
-   :::
-
-   ::::
 
 ## Step 1: Test scorers on your production traces
 
@@ -109,16 +103,7 @@ Now, let's enable the monitoring service. Once enabled, the monitoring service w
 Once set, the Unity Catalog schema can not be changed.
 :::
 
-::::tabs
-:::tab-item[Using the UI]
-
-Follow the recording below to use the UI to enable the scorers that successfully ran in step 1. Selecting a sampling rate only runs the scorers on that percentage of traces (e.g., entering `1.0` will run the scorers on 100% of your traces and `.2` will run on 20%, etc).
-
 If you want to set the sampling rate per-scorer, you must use the SDK.
-
-:::
-:::tab-item[Using the SDK]
-
 Use the below code snippet to enable the scorers that successfully ran in step 1. Selecting a sampling rate only runs the scorers on that percentage of traces (e.g., entering `1.0` will run the scorers on 100% of your traces and `.2` will run on 20%, etc). Optionally, you can configure the sampling rate per scorer.
 
 ```python
@@ -180,14 +165,6 @@ print(external_monitor)
 ## Step 3. Updating your monitor
 
 To change the scorers configuration, use `update_external_monitor()`. The configuration is stateless - that is, it is completely overwritten by the update. To retrieve an existing configuration to modify, use `get_external_monitor()`.
-
-::::tabs
-:::tab-item[Using the UI]
-
-Follow the recording below to use the UI to update the scorers.
-
-:::
-:::tab-item[Using the SDK]
 
 ```python
 # These packages are automatically installed with mlflow[databricks]
