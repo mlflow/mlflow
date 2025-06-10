@@ -63,9 +63,12 @@ class MockAbstractStore(AbstractStore):
     def add_prompt_version(self, name: str, version: str):
         """Helper method to add prompt versions for testing."""
         key = f"{name}:{version}"
+        # Convert version to integer for PromptVersion
+        version_int = int(version[1:]) if version.startswith("v") else int(version)
+
         self.prompt_versions[key] = PromptVersion(
             name=name,
-            version=int(version.replace("v", "")),  # Convert v1 -> 1
+            version=version_int,
             template="Test template",
             creation_timestamp=1234567890,
         )
@@ -608,7 +611,7 @@ def test_link_prompts_to_trace_unsupported_store(store, mock_tracking_store):
 def test_link_prompt_version_to_run_success(store, mock_tracking_store):
     """Test successful linking of prompt version to run."""
     # Setup
-    store.add_prompt_version("test_prompt", "v1")
+    store.add_prompt_version("test_prompt", "1")
     run_id = "run_123"
 
     # Mock run with no existing linked prompts
