@@ -177,7 +177,7 @@ def text_artifact(tmp_path):
 
 def _assert_artifact_uri(expected_artifact_path: pathlib.Path, test_artifact):
     mlflow.log_artifact(test_artifact.artifact_path)
-    assert test_artifact.artifact_path.exists()
+    assert expected_artifact_path.exists()
 
 
 def test_default_relative_artifact_uri_resolves(text_artifact, tmp_path, monkeypatch):
@@ -223,7 +223,7 @@ def test_artifact_logging_resolution_works_with_non_root_working_directory(tmp_p
 
     with mlflow.start_run(experiment_id=experiment_id) as run:
         _assert_artifact_uri(
-            str(cwd.joinpath("some_path", run.info.run_id, "artifacts", text_file.name)),
+            cwd.joinpath("some_path", run.info.run_id, "artifacts", text_file.name),
             ArtifactReturnType(tmp_path, text_file, text_file.name),
         )
 
