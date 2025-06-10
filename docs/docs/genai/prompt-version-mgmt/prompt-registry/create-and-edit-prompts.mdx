@@ -34,7 +34,7 @@ You can initiate a new prompt in the MLflow Prompt Registry in two primary ways:
 
 ### Using the Python SDK
 
-To create a new prompt programmatically, use the `mlflow.register_prompt()` function. This is particularly useful for automating prompt creation or managing prompts as part of a larger script.
+To create a new prompt programmatically, use the `mlflow.genai.register_prompt()` function. This is particularly useful for automating prompt creation or managing prompts as part of a larger script.
 
 ```python
 import mlflow
@@ -47,7 +47,7 @@ Sentences: {{ sentences }}
 """
 
 # Register a new prompt
-prompt = mlflow.register_prompt(
+prompt = mlflow.genai.register_prompt(
     name="summarization-prompt",
     template=initial_template,
     # Optional: Provide a commit message to describe the changes
@@ -83,7 +83,7 @@ Once a prompt version is created, its template and initial metadata are **immuta
 
 ### Using the Python SDK
 
-To create a new version of an existing prompt, you again use the `mlflow.register_prompt()` function, but this time, you provide the `name` of an existing prompt. MLflow will automatically increment the version number.
+To create a new version of an existing prompt, you again use the `mlflow.genai.register_prompt()` function, but this time, you provide the `name` of an existing prompt. MLflow will automatically increment the version number.
 
 ```python
 import mlflow
@@ -101,7 +101,7 @@ Your summary should:
 """
 
 # Register a new version of an existing prompt
-updated_prompt = mlflow.register_prompt(
+updated_prompt = mlflow.genai.register_prompt(
     name="summarization-prompt",  # Specify the existing prompt name
     template=new_template,
     commit_message="Improvement",
@@ -113,7 +113,7 @@ updated_prompt = mlflow.register_prompt(
 
 ## Understanding Immutability
 
-It's crucial to remember that prompt versions in the MLflow Prompt Registry are immutable. Once `mlflow.register_prompt()` is called and a version is created (or a new version of an existing prompt is made), the template, initial commit message, and initial metadata for _that specific version_ cannot be altered. This design choice provides strong guarantees for reproducibility and lineage tracking.
+It's crucial to remember that prompt versions in the MLflow Prompt Registry are immutable. Once `mlflow.genai.register_prompt()` is called and a version is created (or a new version of an existing prompt is made), the template, initial commit message, and initial metadata for _that specific version_ cannot be altered. This design choice provides strong guarantees for reproducibility and lineage tracking.
 
 If you need to change a prompt, you always create a new version.
 
@@ -131,7 +131,7 @@ This comparison capability is invaluable for:
 
 ## Key Takeaways
 
-- Prompts are created and versioned in the MLflow Prompt Registry using either the UI or the Python SDK (`mlflow.register_prompt()`).
+- Prompts are created and versioned in the MLflow Prompt Registry using either the UI or the Python SDK (`mlflow.genai.register_prompt()`).
 - Prompt templates support variables (e.g., `{{variable}}`) for dynamic content generation.
 - Each prompt version is **immutable**; edits always result in a new version, preserving history.
 - Commit messages, version metadata, and tags are essential for organizing and understanding your prompts.

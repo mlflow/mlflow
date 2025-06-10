@@ -17,10 +17,17 @@ import subprocess
 import openai
 
 # Get current git commit for the new version
-git_commit = (
-    subprocess.check_output(["git", "rev-parse", "HEAD"]).decode("ascii").strip()[:8]
-)
-improved_model_name = f"customer_support_agent-v2-{git_commit}"
+try:
+    git_commit = (
+        subprocess.check_output(["git", "rev-parse", "HEAD"])
+        .decode("ascii")
+        .strip()[:8]
+    )
+    version_identifier = f"git-{git_commit}"
+except subprocess.CalledProcessError:
+    version_identifier = "local-dev"  # Fallback if not in a git repo
+
+improved_model_name = f"customer_support_agent-v2-{version_identifier}"
 
 # Set the new active model
 improved_model_info = mlflow.set_active_model(name=improved_model_name)
@@ -70,12 +77,7 @@ evaluation_results_v2 = mlflow.genai.evaluate(
     ],  # Same scorers from previous section
 )
 
-print(
-    f"V2 Average relevance: {evaluation_results_v2.metrics.get('relevance_to_query_mean', 'N/A'):.2f}"
-)
-print(
-    f"V2 Support guidelines: {evaluation_results_v2.metrics.get('support_guidelines_mean', 'N/A'):.2f}"
-)
+print(f"V2 Metrics: {evaluation_results_v2.metrics}")
 ```
 
 ## Comparing Versions in the MLflow UI
@@ -117,10 +119,8 @@ from mlflow import search_logged_models
 # Search for all versions of our customer support agent
 # Order by creation time to see version progression
 all_versions = search_logged_models(
-    filter_string="name LIKE 'customer_support_agent%'",
-    order_by=[
-        {"field_name": "creation_timestamp", "ascending": False}
-    ],  # Most recent first
+    filter_string=f"name IN ('{logged_model_name}', '{improved_model_name}')",
+    order_by=[{"field_name": "creation_time", "ascending": False}],  # Most recent first
     output_format="list",
 )
 
@@ -133,9 +133,8 @@ for model in all_versions[:2]:  # Compare latest 2 versions
     print(f"  Created: {model.creation_timestamp}")
 
     # Display evaluation metrics
-    for metric_key, metric_value in model.metrics.items():
-        if "mean" in metric_key:  # Focus on average scores
-            print(f"  {metric_key}: {metric_value:.3f}")
+    for metric in model.metrics:
+        print(f"  {metric.key}: {metric.value}")
 
     # Display parameters
     print(f"  Temperature: {model.params.get('temperature', 'N/A')}")
@@ -144,10 +143,15 @@ for model in all_versions[:2]:  # Compare latest 2 versions
 
 # Find the best performing version by a specific metric
 best_by_guidelines = max(
-    all_versions, key=lambda m: m.metrics.get("support_guidelines_mean", 0)
+    all_versions,
+    key=lambda m: next(
+        (m.value for m in m.metrics if m.key == "support_guidelines/mean"), None
+    ),
 )
 print(f"Best version for support guidelines: {best_by_guidelines.name}")
-print(f"  Score: {best_by_guidelines.metrics.get('support_guidelines_mean', 0):.3f}")
+print(
+    f"  Score: {next((m.value for m in best_by_guidelines.metrics if m.key == 'support_guidelines/mean'), None)}"
+)
 ```
 
 ### Side-by-Side Comparison
@@ -177,11 +181,14 @@ for param in sorted(all_params):
 
 # Compare metrics (impact of changes)
 print("\nMetric Improvements:")
-metric_keys = ["relevance_to_query_mean", "support_guidelines_mean"]
+v1_metrics = {m.key: m.value for m in v1.metrics}
+v2_metrics = {m.key: m.value for m in v2.metrics}
+
+metric_keys = ["relevance_to_query/mean", "support_guidelines/mean"]
 for metric in metric_keys:
-    v1_score = v1.metrics.get(metric, 0)
-    v2_score = v2.metrics.get(metric, 0)
-    improvement = ((v2_score - v1_score) / v1_score) * 100 if v1_score > 0 else 0
+    v1_score = v1_metrics.get(metric, 0)
+    v2_score = v2_metrics.get(metric, 0)
+    improvement = ((v2_score - v1_score) / max(v1_score, 0.01)) * 100
     print(f"  {metric}:")
     print(f"    V1: {v1_score:.3f}")
     print(f"    V2: {v2_score:.3f}")
@@ -196,14 +203,14 @@ This approach ensures consistent quality standards and enables rapid, safe deplo
 
 ```python
 # Decision logic based on your criteria
-min_relevance_threshold = 0.90
-min_guidelines_threshold = 0.85
+min_relevance_threshold = 0.80
+min_guidelines_threshold = 0.80
 
 if (
-    v2.metrics.get("relevance_to_query_mean", 0) >= min_relevance_threshold
-    and v2.metrics.get("support_guidelines_mean", 0) >= min_guidelines_threshold
-    and v2.metrics.get("support_guidelines_mean", 0)
-    > v1.metrics.get("support_guidelines_mean", 0)
+    v2_metrics.get("relevance_to_query/mean", 0) >= min_relevance_threshold
+    and v2_metrics.get("support_guidelines/mean", 0) >= min_guidelines_threshold
+    and v2_metrics.get("support_guidelines/mean", 0)
+    > v1_metrics.get("support_guidelines/mean", 0)
 ):
     print(f"✅ Version 2 ({v2.name}) is ready for deployment!")
     print("   - Meets all quality thresholds")

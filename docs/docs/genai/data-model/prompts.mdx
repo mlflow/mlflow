@@ -175,7 +175,7 @@ graph TB
   <TabItem value="version-meta" label="Version Metadata" default>
     ```python
     # Register prompt with comprehensive version metadata
-    prompt = mlflow.register_prompt(
+    prompt = mlflow.genai.register_prompt(
         name="content-analyzer",
         template=template,
         commit_message="Added tone and length controls",
@@ -192,7 +192,7 @@ graph TB
   <TabItem value="tags" label="Cross-Version Tags">
     ```python
     # Tags apply to all versions of the prompt
-    prompt = mlflow.register_prompt(
+    prompt = mlflow.genai.register_prompt(
         name="content-analyzer",
         template=template,
         tags={
@@ -294,7 +294,7 @@ Prompts are loaded and used through systematic patterns:
   <TabItem value="specific" label="Specific Version" default>
     ```python
     # Load specific version
-    prompt = mlflow.load_prompt("prompts:/summarization-prompt/2")
+    prompt = mlflow.genai.load_prompt("prompts:/summarization-prompt/2")
 
     # Format with variables
     formatted_text = prompt.format(
@@ -305,7 +305,7 @@ Prompts are loaded and used through systematic patterns:
   <TabItem value="alias" label="Alias Reference">
     ```python
     # Load via alias for deployment flexibility
-    prompt = mlflow.load_prompt("prompts:/summarization-prompt@production")
+    prompt = mlflow.genai.load_prompt("prompts:/summarization-prompt@production")
 
     # Same formatting interface
     formatted_text = prompt.format(
@@ -316,12 +316,12 @@ Prompts are loaded and used through systematic patterns:
   <TabItem value="search" label="Discovery and Search">
     ```python
     # Search prompts by criteria
-    prompts = mlflow.search_prompts(
+    prompts = mlflow.genai.search_prompts(
         filter_string="tags.domain='content-analysis' AND tags.language='english'"
     )
 
     # Load discovered prompt
-    prompt = mlflow.load_prompt(f"prompts:/{prompts[0].name}/{prompts[0].version}")
+    prompt = mlflow.genai.load_prompt(f"prompts:/{prompts[0].name}/{prompts[0].version}")
     ```
   </TabItem>
 </Tabs>
@@ -335,7 +335,7 @@ Prompts integrate seamlessly with popular GenAI frameworks:
 from langchain.prompts import PromptTemplate
 
 # Load from MLflow and convert format
-mlflow_prompt = mlflow.load_prompt("prompts:/qa-prompt/1")
+mlflow_prompt = mlflow.genai.load_prompt("prompts:/qa-prompt/1")
 langchain_prompt = PromptTemplate.from_template(mlflow_prompt.to_single_brace_format())
 
 # Integration with OpenAI
@@ -425,14 +425,14 @@ The structured approach supports **change tracking** with detailed commit messag
 
 Creating and managing prompts involves several key steps:
 
-**Register your first prompt** using <APILink fn="mlflow.register_prompt" /> with comprehensive metadata and clear commit messages. **Establish version workflow** by creating new versions for significant changes and using descriptive commit messages. **Implement alias strategy** by setting up aliases for different environments and use cases. **Integrate with applications** by loading prompts via <APILink fn="mlflow.load_prompt" /> and formatting with dynamic variables.
+**Register your first prompt** using <APILink fn="mlflow.genai.register_prompt" /> with comprehensive metadata and clear commit messages. **Establish version workflow** by creating new versions for significant changes and using descriptive commit messages. **Implement alias strategy** by setting up aliases for different environments and use cases. **Integrate with applications** by loading prompts via <APILink fn="mlflow.genai.load_prompt" /> and formatting with dynamic variables.
 
 ```python
 # Complete workflow example
 import mlflow
 
 # 1. Register initial prompt
-prompt = mlflow.register_prompt(
+prompt = mlflow.genai.register_prompt(
     name="customer-support",
     template="You are a helpful {{ role }}. Please {{ action }} for: {{ query }}",
     commit_message="Initial customer support template",
@@ -443,7 +443,7 @@ prompt = mlflow.register_prompt(
 mlflow.set_registered_prompt_alias("customer-support", "production", 1)
 
 # 3. Load and use in application
-production_prompt = mlflow.load_prompt("prompts:/customer-support@production")
+production_prompt = mlflow.genai.load_prompt("prompts:/customer-support@production")
 formatted = production_prompt.format(
     role="customer service agent",
     action="provide assistance",

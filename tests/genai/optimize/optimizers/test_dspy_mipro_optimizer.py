@@ -174,7 +174,7 @@ def test_optimize_scenarios(
     # Verify optimization result
     assert isinstance(result, PromptVersion)
     assert result.version == 2
-    assert result.version_metadata["overall_eval_score"] == "1.0"
+    assert result.tags["overall_eval_score"] == "1.0"
 
     # Verify eval data handling
     compile_args = mock_mipro.return_value.compile.call_args[1]
@@ -398,5 +398,5 @@ def test_register_prompt_kwargs(mock_mipro, sample_data, sample_prompt, mock_ext
         )
     assert spy_register.called
     _, kwargs = spy_register.call_args
-    assert kwargs["version_metadata"]["overall_eval_score"] == "1.0"
+    assert kwargs["tags"]["overall_eval_score"] == "1.0"
     assert kwargs["name"] == "test_prompt"

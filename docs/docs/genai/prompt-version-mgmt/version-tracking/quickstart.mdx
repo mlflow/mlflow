@@ -46,7 +46,7 @@ Start by creating a versioned prompt template. This enables you to track prompt 
 ```python
 import mlflow
 
-system_prompt = mlflow.register_prompt(
+system_prompt = mlflow.genai.register_prompt(
     name="chatbot_prompt",
     template="You are a chatbot that can answer questions about IT. Answer this question: {{question}}",
     commit_message="Initial version of chatbot",
@@ -103,14 +103,14 @@ Run multiple queries to generate traces for analysis:
 
 ```python
 questions = [
-    "What is MLflow Tracking and how does it work?",
-    "What is Unity Catalog?",
-    "What are user-defined functions (UDFs)?",
+    {"question": "What is MLflow Tracking and how does it work?"},
+    {"question": "What is Unity Catalog?"},
+    {"question": "What are user-defined functions (UDFs)?"},
 ]
 outputs = []
 
 for question in questions:
-    outputs.append(chain.invoke({"question": question}))
+    outputs.append(chain.invoke(question))
 
 # Verify traces are linked to the active model
 active_model_id = mlflow.get_active_model_id()
@@ -144,16 +144,14 @@ mlflow.search_traces(model_id=active_model_id)
 
 Use MLflow's evaluation framework to assess your chatbot's accuracy and relevance against expected responses.
 
-### Prepare Evaluation Dataset
+### Run Evaluation with Custom Metrics
 
-Create a dataset with questions, expected responses, and actual model outputs:
+Evaluate your model using GenAI-specific metrics:
 
 ```python
-import pandas as pd
-
 eval_df = pd.DataFrame(
     {
-        "messages": questions,
+        "inputs": questions,
         "expected_response": [
             """MLflow Tracking is a key component of the MLflow platform designed to record and manage machine learning experiments. It enables data scientists and engineers to log parameters, code versions, metrics, and artifacts in a systematic way, facilitating experiment tracking and reproducibility.
 
@@ -184,40 +182,23 @@ UDFs can be used to perform complex data transformations, data cleaning, or to a
 
 To use UDFs in Databricks, you first need to define them in a supported programming language, and then register them with the SparkSession. Once registered, UDFs can be used in SQL queries or DataFrame transformations like any other built-in function.""",
         ],
-        "predictions": outputs,
+        "outputs": outputs,
     }
 )
-```
 
-### Run Evaluation with Custom Metrics
+from mlflow.genai.scorers import Correctness, RelevanceToQuery, Guidelines
 
-Evaluate your model using GenAI-specific metrics:
-
-```python
-# Start a run to represent the evaluation job
-with mlflow.start_run() as evaluation_run:
-    # Create MLflow dataset
-    eval_dataset = mlflow.data.from_pandas(
-        df=eval_df,
-        name="eval_dataset",
-        targets="expected_response",
-        predictions="predictions",
-    )
-    mlflow.log_input(dataset=eval_dataset)
-
-    # Run evaluation with GenAI metrics
-    result = mlflow.genai.evaluate(
-        data=eval_dataset,
-        scorers=[
-            mlflow.metrics.genai.answer_correctness("openai:/gpt-4o"),
-            mlflow.metrics.genai.answer_relevance("openai:/gpt-4o"),
-        ],
-        # Map column names for metric calculation
-        evaluator_config={"col_mapping": {"inputs": "messages"}},
-    )
+# Run evaluation with GenAI metrics
+result = mlflow.genai.evaluate(
+    data=eval_df,
+    scorers=[
+        Correctness(),
+        RelevanceToQuery(),
+    ],
+)
 
 # View evaluation results
-result.tables["eval_results_table"]
+result.tables["eval_results"]
 ```
 
 ### Analyze Evaluation Results

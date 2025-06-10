@@ -4,7 +4,7 @@ import TabItem from "@theme/TabItem";
 
 # Track Users & Sessions
 
-![Traces with session IDs](/images/llms/tracing/trace-session-id.gif)
+![Traces with session IDs](/images/llms/tracing/trace-filter-by-user.gif)
 
 Tracking users and sessions in your GenAI application provides essential context for understanding user behavior, analyzing conversation flows, and improving personalization. MLflow offers built-in support for associating traces with users and grouping them into sessions.
 
@@ -14,15 +14,18 @@ User and session tracking enables powerful analytics and improvements for your G
 
 This tracking capability allows you to monitor performance metrics across different user segments, identifying areas for targeted improvements. You can also maintain session continuity across multiple interactions within the same conversation, creating better user experiences through improved context awareness.
 
-## Standard MLflow Tags
+## Standard MLflow metadata fields
 
 :::note New in MLflow 3
 User and session tracking is only available in MLflow 3 and above. To upgrade, please run `pip install --upgrade mlflow`
 :::
 
-MLflow provides two standard tags specifically designed for session and user tracking. The `mlflow.trace.user` tag associates traces with specific users for user-centric analysis, while `mlflow.trace.session` groups traces belonging to multi-turn conversations or sessions.
+MLflow provides two standard metadata fields for session and user tracking:
 
-When you use these standard tags, MLflow automatically enables filtering and grouping capabilities in the UI, making it easy to analyze user and session data without additional configuration.
+- `mlflow.trace.user` - Associates traces with specific users
+- `mlflow.trace.session` - Groups traces belonging to multi-turn conversations
+
+When you use these standard metadata fields, MLflow automatically enables filtering and grouping in the UI. Unlike tags, metadata cannot be updated once the trace is logged, making it ideal for immutable identifiers like user and session IDs.
 
 ## Implementation Examples
 
@@ -40,7 +43,7 @@ When you use these standard tags, MLflow automatically enables filtering and gro
 
         # Add user and session context to the current trace
         mlflow.update_current_trace(
-            tags={
+            metadata={
                 "mlflow.trace.user": user_id,  # Links trace to specific user
                 "mlflow.trace.session": session_id,  # Groups trace with conversation
             }
@@ -81,8 +84,8 @@ When you use these standard tags, MLflow automatically enables filtering and gro
         message: str
 
 
-    @mlflow.trace
-    @app.post("/chat")
+    @app.post("/chat")  # FastAPI decorator should be outermost
+    @mlflow.trace  # Ensure @mlflow.trace is the inner decorator
     def handle_chat(request: Request, chat_request: ChatRequest):
         # Extract context from headers
         session_id = request.headers.get("X-Session-ID")
@@ -90,11 +93,9 @@ When you use these standard tags, MLflow automatically enables filtering and gro
 
         # Update trace with user and session context
         mlflow.update_current_trace(
-            tags={
+            metadata={
                 "mlflow.trace.session": session_id,
                 "mlflow.trace.user": user_id,
-                "environment": os.getenv("ENVIRONMENT", "development"),
-                "endpoint": "/chat",
             }
         )
 
@@ -112,37 +113,6 @@ When you use these standard tags, MLflow automatically enables filtering and gro
          -d '{"message": "What is my account balance?"}'
     ```
   </TabItem>
-  <TabItem value="context-manager" label="Context Manager">
-    For complex scenarios, use context managers to ensure consistent tracking:
-
-    ```python
-    import mlflow
-    from contextlib import contextmanager
-
-
-    @contextmanager
-    def user_session_context(user_id: str, session_id: str, **additional_context):
-        """Context manager that automatically adds user and session tracking"""
-
-        context_tags = {
-            "mlflow.trace.user": user_id,
-            "mlflow.trace.session": session_id,
-            **additional_context,
-        }
-
-        with mlflow.start_span(name="user_interaction", attributes=context_tags) as span:
-            mlflow.update_current_trace(tags=context_tags)
-            yield span
-
-
-    # Usage
-    def process_user_request(user_id: str, session_id: str, request_data: dict):
-        with user_session_context(
-            user_id=user_id, session_id=session_id, user_tier="premium"
-        ):
-            return handle_request(request_data)
-    ```
-  </TabItem>
 </Tabs>
 
 ## Querying and Analysis
@@ -153,16 +123,16 @@ When you use these standard tags, MLflow automatically enables filtering and gro
 
     ```
     # Find all traces for a specific user
-    tags.mlflow.trace.user = 'user-123'
+    metadata.`mlflow.trace.user` = 'user-123'
 
     # Find all traces in a session
-    tags.mlflow.trace.session = 'session-abc-456'
+    metadata.`mlflow.trace.session` = 'session-abc-456'
 
     # Find traces for a user within a specific session
-    tags.mlflow.trace.user = 'user-123' AND tags.mlflow.trace.session = 'session-abc-456'
+    metadata.`mlflow.trace.user` = 'user-123' AND metadata.`mlflow.trace.session` = 'session-abc-456'
     ```
 
-    The MLflow UI provides powerful filtering and grouping capabilities when you use the standard user and session tags.
+    The MLflow UI provides powerful filtering and grouping capabilities when you use the standard user and session metadata.
   </TabItem>
   <TabItem value="user-analysis" label="User Analysis">
     Analyze user behavior patterns programmatically:
@@ -177,24 +147,26 @@ When you use these standard tags, MLflow automatically enables filtering and gro
         # Search for all traces from a specific user
         user_traces = mlflow.search_traces(
             experiment_ids=[experiment_id],
-            filter_string=f"tags.mlflow.trace.user = '{user_id}'",
+            filter_string=f"metadata.`mlflow.trace.user` = '{user_id}'",
+            return_type="list",
         )
 
-        if user_traces.empty:
+        if len(user_traces) == 0:
             return {"error": "No traces found for user"}
 
         # Calculate key metrics
         total_interactions = len(user_traces)
-        unique_sessions = (
-            user_traces["tags"]
-            .apply(lambda x: x.get("mlflow.trace.session") if isinstance(x, dict) else None)
-            .nunique()
+        unique_sessions = len(
+            set(
+                t.info.request_metadata.get("mlflow.trace.session", "") for t in user_traces
+            )
         )
 
-        successful_traces = user_traces[user_traces["status"] == "OK"]
+        successful_traces = [trace for trace in user_traces if trace.info.state == "OK"]
         avg_response_time = (
-            successful_traces["execution_time_ms"].mean()
-            if not successful_traces.empty
+            sum(trace.info.execution_time_ms for trace in successful_traces)
+            / len(successful_traces)
+            if successful_traces
             else 0
         )
 
@@ -223,31 +195,34 @@ When you use these standard tags, MLflow automatically enables filtering and gro
         # Get all traces from a session, ordered chronologically
         session_traces = mlflow.search_traces(
             experiment_ids=[experiment_id],
-            filter_string=f"tags.mlflow.trace.session = '{session_id}'",
+            filter_string=f"metadata.`mlflow.trace.session` = '{session_id}'",
             order_by=["timestamp_ms ASC"],
+            return_type="list",
         )
 
-        if session_traces.empty:
+        if len(session_traces) == 0:
             return {"error": "No traces found for session"}
 
         # Build conversation timeline
         conversation_turns = []
-        for i, (_, trace) in enumerate(session_traces.iterrows()):
+        for i, trace in enumerate(session_traces):
             conversation_turns.append(
                 {
                     "turn": i + 1,
-                    "timestamp": trace["timestamp_ms"],
-                    "duration_ms": trace["execution_time_ms"],
-                    "status": trace["status"],
+                    "timestamp": trace.info.timestamp_ms,
+                    "duration_ms": trace.info.execution_time_ms,
+                    "status": trace.info.status,
                 }
             )
 
         # Session-level metrics
-        session_duration = (
-            session_traces["timestamp_ms"].max() - session_traces["timestamp_ms"].min()
+        session_duration = max(trace.info.timestamp_ms for trace in session_traces) - min(
+            trace.info.timestamp_ms for trace in session_traces
         )
         total_turns = len(conversation_turns)
-        avg_turn_duration = session_traces["execution_time_ms"].mean()
+        avg_turn_duration = (
+            sum(trace.info.execution_time_ms for trace in session_traces) / total_turns
+        )
 
         return {
             "session_id": session_id,
@@ -259,7 +234,7 @@ When you use these standard tags, MLflow automatically enables filtering and gro
 
 
     # Usage
-    session_analysis = analyze_session_flow("session-abc-456", "1")
+    session_analysis = analyze_session_flow(session_id, exp.experiment_id)
     print(
         f"Session had {session_analysis['total_turns']} turns over {session_analysis['session_duration_ms']}ms"
     )
@@ -283,7 +258,7 @@ User and session tracking with MLflow provides powerful capabilities for underst
 
 Quality monitoring becomes more targeted when you can track performance across different user segments, enabling focused improvements where they matter most. Conversation analysis through multi-turn conversation tracking helps optimize dialogue systems and user flows for better engagement.
 
-The combination of standard MLflow tags (`mlflow.trace.user` and `mlflow.trace.session`) with custom context creates a comprehensive foundation for user-centric observability in GenAI applications.
+The combination of standard MLflow metadata (`mlflow.trace.user` and `mlflow.trace.session`) with custom context creates a comprehensive foundation for user-centric observability in GenAI applications.
 
 ## Next Steps
 

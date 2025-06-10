@@ -87,7 +87,7 @@ Respond below:
 """
 
 # register the prompt
-prompt = mlflow.register_prompt(
+prompt = mlflow.genai.register_prompt(
     name="ai_assistant_prompt",
     template=prompt_template,
     commit_message="Initial version of AI assistant",

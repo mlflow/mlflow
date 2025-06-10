@@ -116,7 +116,7 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
         optimized_prompt = register_prompt(
             name=prompt.name,
             template=template,
-            version_metadata={
+            tags={
                 "overall_eval_score": str(final_score),
             },
         )

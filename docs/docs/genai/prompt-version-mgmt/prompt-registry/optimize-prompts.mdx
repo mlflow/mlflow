@@ -63,7 +63,7 @@ Answer to this math question: {{question}}.
 Return the result in a JSON string in the format of {"answer": "xxx"}.
 """
 
-prompt = mlflow.register_prompt(
+prompt = mlflow.genai.register_prompt(
     name="math",
     template=initial_template,
 )
@@ -154,7 +154,7 @@ import openai
 
 
 def predict(question: str, prompt_uri: str) -> str:
-    prompt = mlflow.load_prompt(prompt_uri)
+    prompt = mlflow.genai.load_prompt(prompt_uri)
     content = prompt.format(question=question)
     completion = openai.chat.completions.create(
         model="gpt-4.1-mini",

@@ -86,7 +86,7 @@ For the latest updates on Prompt Registry availability and features, monitor the
   </TabItem>
   <TabItem value="python" label="Python" default>
     <div class="flex-column">
-      To create a new prompt using the Python API, use <APILink fn="mlflow.register_prompt" /> API:
+      To create a new prompt using the Python API, use <APILink fn="mlflow.genai.register_prompt" /> API:
 
       ```python
       import mlflow
@@ -99,7 +99,7 @@ For the latest updates on Prompt Registry availability and features, monitor the
       """
 
       # Register a new prompt
-      prompt = mlflow.register_prompt(
+      prompt = mlflow.genai.register_prompt(
           name="summarization-prompt",
           template=initial_template,
           # Optional: Provide a commit message to describe the changes
@@ -148,7 +148,7 @@ This creates a new prompt with the specified template text and metadata. The pro
   </TabItem>
   <TabItem value="python" label="Python" default>
     <div class="flex-column">
-      To update an existing prompt with a new version, use the <APILink fn="mlflow.register_prompt"/> API with the existing prompt name:
+      To update an existing prompt with a new version, use the <APILink fn="mlflow.genai.register_prompt"/> API with the existing prompt name:
 
       ```python
       import mlflow
@@ -166,7 +166,7 @@ This creates a new prompt with the specified template text and metadata. The pro
       """
 
       # Register a new version of an existing prompt
-      updated_prompt = mlflow.register_prompt(
+      updated_prompt = mlflow.genai.register_prompt(
           name="summarization-prompt",  # Specify the existing prompt name
           template=new_template,
           commit_message="Improvement",
@@ -191,7 +191,7 @@ Once you have multiple versions of a prompt, you can compare them to understand 
 
 ### 4. Load and Use the Prompt
 
-To use a prompt in your GenAI application, you can load it with the <APILink fn="mlflow.load_prompt"/> API and fill in the variables using the <APILink fn="mlflow.entities.Prompt.format"/> method of the prompt object:
+To use a prompt in your GenAI application, you can load it with the <APILink fn="mlflow.genai.load_prompt"/> API and fill in the variables using the <APILink fn="mlflow.entities.Prompt.format"/> method of the prompt object:
 
 ```python
 import mlflow
@@ -206,7 +206,7 @@ MLflow Projects, MLflow Models, and MLflow Registry.
 """
 
 # Load the prompt
-prompt = mlflow.load_prompt("prompts:/summarization-prompt/2")
+prompt = mlflow.genai.load_prompt("prompts:/summarization-prompt/2")
 
 # Use the prompt with an LLM
 client = openai.OpenAI()
@@ -231,7 +231,7 @@ You can discover prompts by name, tag or other registry fields:
 import mlflow
 
 # Fluent API: returns a flat list of all matching prompts
-prompts = mlflow.search_prompts(filter_string="task='summarization'")
+prompts = mlflow.genai.search_prompts(filter_string="task='summarization'")
 print(f"Found {len(prompts)} prompts")
 
 # For pagination control, use the client API:
@@ -308,7 +308,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 
 # Load registered prompt
-prompt = mlflow.load_prompt("prompts:/summarization-prompt/2")
+prompt = mlflow.genai.load_prompt("prompts:/summarization-prompt/2")
 
 # Create LangChain prompt object
 langchain_prompt = ChatPromptTemplate.from_messages(
@@ -369,7 +369,7 @@ In the following example, we use LangGraph to define a very simple chat bot usin
 import mlflow
 
 # Register a new prompt
-prompt = mlflow.register_prompt(
+prompt = mlflow.genai.register_prompt(
     name="chat-prompt",
     template="You are an expert in programming. Please answer the user's question about programming.",
 )
@@ -403,7 +403,7 @@ class State(TypedDict):
 
 
 llm = ChatOpenAI(model="gpt-4o-mini", temperature=0.1)
-system_prompt = mlflow.load_prompt("prompts:/chat-prompt/1")
+system_prompt = mlflow.genai.load_prompt("prompts:/chat-prompt/1")
 
 
 def add_system_message(state: State):
@@ -504,7 +504,7 @@ import mlflow
 from langchain.prompts import PromptTemplate
 
 # Load prompt from MLflow
-prompt = mlflow.load_prompt("question_answering")
+prompt = mlflow.genai.load_prompt("question_answering")
 
 # Convert the prompt to single brace format for LangChain (MLflow uses double braces),
 # using the `to_single_brace_format` method.
