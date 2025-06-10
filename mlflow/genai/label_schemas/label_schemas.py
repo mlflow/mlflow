@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Optional, TypeVar, Union
 
 from mlflow.genai.utils.enum_utils import StrEnum
 
@@ -19,30 +19,17 @@ if TYPE_CHECKING:
 # TypeVar for generic InputType subclass return types
 DatabricksInputType = TypeVar("DatabricksInputType", bound="InputType")
 
-if TYPE_CHECKING:
-    # Type alias for all possible Databricks input types
-    DatabricksInput: TypeAlias = Union[
-        "_InputCategorical",
-        "_InputCategoricalList",
-        "_InputText",
-        "_InputTextList",
-        "_InputNumeric",
-    ]
-
 
 class InputType(ABC):
     """Base class for all input types."""
 
     @abstractmethod
-    def _to_databricks_input(self) -> "DatabricksInput":
+    def _to_databricks_input(self) -> Any:
         """Convert to the internal Databricks input type."""
 
     @classmethod
     @abstractmethod
-    def _from_databricks_input(
-        cls: type[DatabricksInputType],
-        input_obj: "DatabricksInput",
-    ) -> DatabricksInputType:
+    def _from_databricks_input(cls, input_obj: Any) -> DatabricksInputType:
         """Create from the internal Databricks input type."""
 
 
@@ -181,15 +168,10 @@ class LabelSchema:
         `pip install mlflow[databricks]` to use it.
     """
 
-    name: str  # Must be unique across the review app.
+    name: str
     type: LabelSchemaType
-
-    # Title shown in the Review UI as the title of the task.
-    # e.g., "Does the response contain sensitive information?"
     title: str
-
     input: Union[InputCategorical, InputCategoricalList, InputText, InputTextList, InputNumeric]
-
     instruction: Optional[str] = None
     enable_comment: bool = False
 
