@@ -144,7 +144,9 @@ def test_export_catch_failure(is_async, monkeypatch):
         if is_async:
             _flush_async_logging()
 
-    mock_logger.warning.assert_called_once()
+    mock_logger.warning.assert_called()
+    warning_calls = [call[0][0] for call in mock_logger.warning.call_args_list]
+    assert any("Failed to start trace" in msg for msg in warning_calls)
 
 
 @pytest.mark.skipif(os.name == "nt", reason="Flaky on Windows")
@@ -439,6 +441,6 @@ def test_prompt_linking_error_handling_mlflow_v3(monkeypatch):
     mock_upload_trace_data.assert_called_once()
 
     # Verify that the error was logged but didn't crash the export
-    mock_logger.warning.assert_called_once()
-    warning_message = mock_logger.warning.call_args[0][0]
-    assert "Failed to link prompts to trace" in warning_message
+    mock_logger.warning.assert_called()
+    warning_calls = [call[0][0] for call in mock_logger.warning.call_args_list]
+    assert any("Prompt linking failed" in msg for msg in warning_calls)

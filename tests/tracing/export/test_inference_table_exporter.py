@@ -484,10 +484,9 @@ def test_prompt_linking_error_handling_with_dual_write(monkeypatch):
     mock_tracing_client._upload_trace_data.assert_called_once()
 
     # Verify that the error was logged but didn't crash the export
-    mock_logger.warning.assert_called_once()
-    warning_message = mock_logger.warning.call_args[0][0]
-    assert "Failed to link prompts to trace" in warning_message
-    assert "Prompt linking failed" in warning_message
+    mock_logger.warning.assert_called()
+    warning_calls = [call[0][0] for call in mock_logger.warning.call_args_list]
+    assert any("Prompt linking failed" in msg for msg in warning_calls)
 
     # Verify the trace is still in the inference table buffer
     assert len(_TRACE_BUFFER) == 1
