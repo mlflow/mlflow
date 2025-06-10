@@ -1074,3 +1074,50 @@ class AbstractStore:
                 parsed_prompts_tag_value.append(new_prompt_entry)
 
         return json.dumps(parsed_prompts_tag_value)
+
+    def link_prompt_version_to_run(self, name: str, version: str, run_id: str) -> None:
+        """
+        Link a prompt version to a run.
+
+        Default implementation sets a tag. Stores can override with custom behavior.
+
+        Args:
+            name: Name of the prompt.
+            version: Version of the prompt to link.
+            run_id: ID of the run to link to.
+        """
+        from mlflow.tracking import _get_store as _get_tracking_store
+
+        prompt_version = self.get_prompt_version(name, version)
+        tracking_store = _get_tracking_store()
+
+        with self._prompt_link_lock:
+            run = tracking_store.get_run(run_id)
+            if not run:
+                raise MlflowException(
+                    f"Could not find run with ID '{run_id}' to which to link prompt '{name}'.",
+                    error_code=ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
+                )
+
+            new_prompt_entry = {
+                "name": prompt_version.name,
+                "version": str(prompt_version.version),
+            }
+
+            current_tag_value = None
+            if isinstance(run.data.tags, dict):
+                current_tag_value = run.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+            else:
+                for tag in run.data.tags:
+                    if tag.key == LINKED_PROMPTS_TAG_KEY:
+                        current_tag_value = tag.value
+                        break
+
+            updated_tag_value = self._update_linked_prompts_tag(
+                current_tag_value, [new_prompt_entry]
+            )
+
+            if current_tag_value != updated_tag_value:
+                from mlflow.entities import RunTag
+
+                tracking_store.set_tag(run_id, RunTag(LINKED_PROMPTS_TAG_KEY, updated_tag_value))

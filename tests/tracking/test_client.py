@@ -1,3 +1,4 @@
+import json
 import os
 import pickle
 import sys
@@ -1899,24 +1900,50 @@ def test_load_prompt_error(tracking_uri):
         client.load_prompt("model", version=1, allow_missing=False)
 
 
-def test_log_prompt(tracking_uri):
+def test_link_prompt_version_to_run(tracking_uri):
     client = MlflowClient(tracking_uri=tracking_uri)
 
     prompt = client.register_prompt("prompt", template="Hi, {{name}}!")
-    assert prompt.run_ids == []
 
-    client.log_prompt("run1", prompt)
-    assert client.load_prompt("prompt", version=1).run_ids == ["run1"]
+    # Create actual runs to link to
+    run1 = client.create_run(experiment_id="0").info.run_id
+    run2 = client.create_run(experiment_id="0").info.run_id
 
-    client.log_prompt("run2", prompt)
-    assert client.load_prompt("prompt", version=1).run_ids == ["run1", "run2"]
+    # Test that the method can be called without error
+    client.link_prompt_version_to_run(run1, prompt)
+    client.link_prompt_version_to_run(run2, prompt)
 
-    # No duplicate run_ids
-    client.log_prompt("run1", prompt)
-    assert client.load_prompt("prompt", version=1).run_ids == ["run1", "run2"]
+    # Verify tag was set by checking the run data
+    run_data = client.get_run(run1)
+    linked_prompts_tag = run_data.data.tags.get("mlflow.linkedPrompts")
+    assert linked_prompts_tag is not None
 
+    # Verify the JSON structure
+    linked_prompts = json.loads(linked_prompts_tag)
+    assert any(p["name"] == "prompt" and p["version"] == "1" for p in linked_prompts)
+
+    # Test error case
     with pytest.raises(MlflowException, match=r"The `prompt` argument must be"):
-        client.log_prompt("run3", 123)
+        client.link_prompt_version_to_run(run1, 123)
+
+
+def test_log_prompt_deprecated(tracking_uri):
+    """Test that log_prompt still works but shows deprecation warning."""
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    prompt = client.register_prompt("prompt", template="Hi, {{name}}!")
+
+    # Create actual run to link to
+    run1 = client.create_run(experiment_id="0").info.run_id
+
+    # Test that log_prompt still works with deprecation warning
+    with pytest.warns(FutureWarning, match="log_prompt is deprecated"):
+        client.log_prompt(run1, prompt)
+
+    # Verify that the tag was set, indicating the functionality works
+    run_data = client.get_run(run1)
+    linked_prompts_tag = run_data.data.tags.get("mlflow.linkedPrompts")
+    assert linked_prompts_tag is not None
 
 
 @pytest.mark.parametrize("registry_uri", ["databricks"])
@@ -2013,11 +2040,11 @@ def test_log_and_detach_prompt(tracking_uri):
     run_id = client.create_run(experiment_id="0").info.run_id
     assert client.list_logged_prompts(run_id) == []
 
-    client.log_prompt(run_id, "prompts:/p1/1")
+    client.link_prompt_version_to_run(run_id, "prompts:/p1/1")
     prompts = client.list_logged_prompts(run_id)
     assert [p.name for p in prompts] == ["p1"]
 
-    client.log_prompt(run_id, "prompts:/p2/1")
+    client.link_prompt_version_to_run(run_id, "prompts:/p2/1")
     prompts = client.list_logged_prompts(run_id)
     assert [p.name for p in prompts] == ["p2", "p1"]
 

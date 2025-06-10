@@ -673,7 +673,9 @@ def load_prompt(
 
     # If there is an active MLflow run, associate the prompt with the run
     if run := active_run():
-        client.log_prompt(run.info.run_id, f"prompts:/{prompt.name}/{prompt.version}")
+        client.link_prompt_version_to_run(
+            run.info.run_id, f"prompts:/{prompt.name}/{prompt.version}"
+        )
 
     return prompt
 

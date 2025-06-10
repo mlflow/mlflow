@@ -985,7 +985,7 @@ class Model:
             if prompts:
                 client = mlflow.MlflowClient()
                 for prompt in prompts:
-                    client.log_prompt(run_id, prompt)
+                    client.link_prompt_version_to_run(run_id, prompt)
 
             mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path, run_id)
 
@@ -1291,11 +1291,11 @@ class Model:
                 # client.finalize_logged_model(model.model_id, status=LoggedModelStatus.READY)
 
                 # Associate prompts to the model Run
-                # TODO: pass model_id to log_prompt
+                # TODO: pass model_id to link_prompt_version_to_run
                 if prompts and run_id:
                     client = mlflow.MlflowClient()
                     for prompt in prompts:
-                        client.log_prompt(run_id, prompt)
+                        client.link_prompt_version_to_run(run_id, prompt)
 
                 # if the model_config kwarg is passed in, then log the model config as an params
                 if model_config := kwargs.get("model_config"):
