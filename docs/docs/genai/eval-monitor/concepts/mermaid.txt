@@ -1,0 +1,89 @@
+---
+config:
+  layout: fixed
+---
+flowchart TB
+    EvalHarness["Evaluation Harness"] --> TracesEval["Traces"] & Feedback["Feedback"]
+    Feedback --> TracesEval
+    TracesEval --> EvaluationRun["Evaluation Run"]
+    EvalDataset["Evaluation Dataset"] --> EvalHarness
+    YourApp1["Your App"] --> EvalHarness
+    Scorers["Scorers"] --> EvalHarness
+    ProdMonitor["Traces from production monitoring workflow"] --> EvalDataset
+    style EvalHarness fill:#BBDEFB,stroke:#000000
+    style YourApp1 stroke:#000000
+    style ProdMonitor fill:#FFF9C4,stroke-width:2px,stroke-dasharray: 2
+
+
+TracesProd["Traces from production monitoring workflow"] -.-> EvalDataset
+
+
+---
+config:
+  layout: fixed
+---
+flowchart TB
+    YourApp1["Your App"] --> Traces["Traces"]
+    Traces --> ProductionMonitoring["Production Monitoring Service"]
+    Scorers["Scorers"] --> ProductionMonitoring
+    ProductionMonitoring --> Feedback["Feedback"]
+    Traces -. Selected by<br>developer .-> EvalDataset["Evaluation Dataset"]
+    EvalDataset --> OfflineEvaluation["Offline Evaluation Workflow"]
+    Feedback --> Traces
+    style YourApp1 stroke:#000000
+        style ProductionMonitoring fill:#BBDEFB,stroke:#000000
+
+    style OfflineEvaluation fill:#FFF9C4,stroke-width:2px,stroke-dasharray: 2
+
+
+graph TD
+    I1["<b>data</b><br/> 1+ app inputs to evaluate</b>"] --> P;
+    I2["<b>predict_fn</b><br/> your app's code"] --> P;
+    I3["<b>scorers</b><br/> evaluation metrics"] --> P;
+
+    subgraph eval [" "]
+        direction TB
+        P{"<b>mlflow.genai.evaluate(...)</b><br/>parallelized execution of predict_fn and scorers"};
+
+        P --> S1["Run predict_fn for each input"]
+        P --> S2["Run each scorer for each trace"]
+    end
+    subgraph EvaluationRun ["MLflow Evaluation Run"]
+        direction TB
+        S1 --> S3["<b>Traces</b> <br/>1 per input"];
+        S2 --> Feedback["<b>Feedbacks</b> <br/>1 per scorer-trace"];
+        Feedback --> S3;
+
+    end
+   
+
+
+flowchart TD
+ subgraph inputs["<b>data</b>: 1 of..."]
+    direction TB
+        I1["1+ inputs + outputs + expectations to evaluate"]
+        I2["1+ existing traces to evaluate"]
+  end
+ subgraph eval[" "]
+    direction TB
+        P{"<b>mlflow.genai.evaluate(...)</b><br>parallelized execution of predict_fn and scorers"}
+        S1["If inputs/outputs, create a Trace for each; otherwise, pass through provided traces"]
+        S2["Run each scorer for each trace"]
+  end
+ subgraph EvaluationRun["MLflow Evaluation Run"]
+    direction TB
+        S3["<b>Traces</b> <br>1 per input"]
+        Feedback["<b>Feedbacks</b> <br>1 per scorer-trace"]
+  end
+
+    I1 --> P
+    I2 --> P
+    I3["<b>scorers</b><br> evaluation metrics"] --> P
+    P --> S1 & S2
+    S1 --> S3
+    S2 --> Feedback
+    Feedback --> S3
+
+    style I1 stroke-width:2px,stroke-dasharray: 2
+    style I2 stroke-width:2px,stroke-dasharray: 2
+    style S1 stroke-width:2px,stroke-dasharray: 2

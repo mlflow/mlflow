@@ -1,0 +1,561 @@
+---
+description: 'Scorers in MLflow - functions that measure GenAI app quality with code examples, patterns, and edge cases'
+last_update:
+  date: 2025-05-18
+---
+
+# Scorers
+
+Scorers evaluate GenAI app quality by analyzing outputs and producing structured feedback. Write once, use everywhere - in development and production.
+
+## Quick reference
+
+| Return Type      | UI Display        | Use Case                |
+| ---------------- | ----------------- | ----------------------- |
+| `"yes"`/`"no"`   | Pass/Fail         | Binary evaluation       |
+| `True`/`False`   | True/False        | Boolean checks          |
+| `int`/`float`    | Numeric value     | Scores, counts          |
+| `Feedback`       | Value + rationale | Detailed assessment     |
+| `List[Feedback]` | Multiple metrics  | Multi-aspect evaluation |
+
+## Write once, use everywhere
+
+A key design principle of MLflow scorers is **write once, use everywhere**. The same scorer function works seamlessly in:
+
+- **Development**: Evaluate different versions of your app using [`mlflow.genai.evaluate()`](/genai/eval-monitor/concepts/eval-harness)
+- **Production**: Monitor live traffic quality with MLflow's [production monitoring service](/genai/eval-monitor/concepts/production-monitoring)
+
+This unified approach means you can develop and test your quality metrics locally, then deploy the exact same logic to production without modification.
+
+```python
+from mlflow.genai.scorers import scorer
+from mlflow.entities import Feedback
+
+# Define your scorer once
+@scorer
+def response_completeness(outputs: str) -> Feedback:
+    # Outputs is return value of your app. Here we assume it's a string.
+    if len(outputs.strip()) < 10:
+        return Feedback(
+            value=False,
+            rationale="Response too short to be meaningful"
+        )
+
+    if outputs.lower().endswith(("...", "etc", "and so on")):
+        return Feedback(
+            value=False,
+            rationale="Response appears incomplete"
+        )
+
+    return Feedback(
+        value=True,
+        rationale="Response appears complete"
+    )
+
+# Directly call the scorer function for spot testing
+response_completeness(outputs="This is a test response...")
+
+# Use in development evaluation
+mlflow.genai.evaluate(
+    data=test_dataset,
+    predict_fn=my_app,
+    scorers=[response_completeness]
+)
+```
+
+## How scorers work
+
+Scorers analyze traces from your GenAI application and produce quality assessments. Here's the flow:
+
+1. **Your app runs** and produces a [trace](/mlflow3/genai/tracing/tracing-101) capturing its execution
+2. **MLflow passes the trace** to your scorer function
+3. **Scorers analyze** the trace's inputs, outputs, and intermediate execution steps using custom logic
+4. **Feedback is produced** with scores and explanations
+5. **Feedbacks are attached** to the trace for analysis
+
+### Inputs
+
+Scorers receive the complete [MLflow trace](/mlflow3/genai/tracing/data-model) containing all spans, attributes, and outputs. As a convenience, MLflow also extracts commonly needed data and passes it as named arguments:
+
+```python
+@scorer
+def my_custom_scorer(
+    *,  # All arguments are keyword-only
+    inputs: Optional[dict[str, Any]],       # App's raw input, a dictionary of input argument names and values
+    outputs: Optional[Any],                 # App's raw output
+    expectations: Optional[dict[str, Any]], # Ground truth, a dictionary of label names and values
+    trace: Optional[mlflow.entities.Trace]  # Complete trace with all metadata
+) -> Union[int, float, bool, str, Feedback, List[Feedback]]:
+    # Your evaluation logic here
+```
+
+All parameters are optional—declare only what your scorer needs:
+
+- **inputs**: The request sent to your app (e.g., user query, context).
+- **outputs**: The response from your app (e.g., generated text, tool calls)
+- **expectations**: Ground truth or labels (e.g., expected response, guidelines, etc.)
+- **trace**: The complete execution trace with all spans, allowing analysis of intermediate steps, latency, tool usage, etc.
+
+When running `mlflow.genai.evaluate()`, the `inputs`, `outputs`, and `expectations` parameters can be specified in the `data` argument, or parsed from the trace.
+
+When running `mlflow.genai.create_monitor()`, the `inputs` and `outputs` parameters are always parsed from the trace. `expectations` is not available.
+
+### Outputs
+
+Scorers can return different types depending on your evaluation needs:
+
+#### Simple values
+
+Return primitive values for straightforward pass/fail or numeric assessments.
+
+- **Pass/fail strings**: `"yes"` or `"no"` render as "Pass" or "Fail" in the UI
+- **Boolean values**: `True` or `False` for binary evaluations
+- **Numeric values**: Integers or floats for scores, counts, or measurements
+
+```python
+# These example assumes your app returns a string as a response.
+@scorer
+def response_length(outputs: str) -> int:
+    # Return a numeric metric
+    return len(outputs.split())
+
+@scorer
+def contains_citation(outputs: str) -> str:
+    # Return pass/fail string
+    return "yes" if "[source]" in outputs else "no"
+```
+
+#### Rich feedback
+
+Return `Feedback` objects for detailed assessments with explanations:
+
+```python
+from mlflow.entities import Feedback, AssessmentSource
+
+@scorer
+def content_quality(outputs):
+    return Feedback(
+        value=0.85,  # Can be numeric, boolean, or string
+        rationale="Clear and accurate, minor grammar issues",
+        # Optional: source of the assessment. Several source types are supported,
+        # such as "HUMAN", "CODE", "LLM_JUDGE".
+        source=AssessmentSource(
+            source_type="HUMAN",
+            source_id="grammar_checker_v1"
+        ),
+        # Optional: additional metadata about the assessment.
+        metadata={
+            "annotator": "me@example.com",
+        }
+    )
+```
+
+Multiple feedback objects can be returned as a list. Each feedback will be displayed as a separate metric in the evaluation results.
+
+```python
+@scorer
+def comprehensive_check(inputs, outputs):
+    return [
+        Feedback(name="relevance", value=True, rationale="Directly addresses query"),
+        Feedback(name="tone", value="professional", rationale="Appropriate for audience"),
+        Feedback(name="length", value=150, rationale="Word count within limits")
+    ]
+```
+
+#### Metric naming behavior
+
+When using the `@scorer` decorator, the metric names in the evaluation results follow these rules:
+
+1. **Primitive value or single feedback without a name**: The scorer function name becomes the feedback name
+
+   ```python
+   @scorer
+   def word_count(outputs: str) -> int:
+       # "word_count" will be used as a metric name
+       return len(outputs).split()
+
+   @scorer
+   def response_quality(outputs: Any) -> Feedback:
+       # "response_quality" will be used as a metric name
+       return Feedback(value=True, rationale="Good quality")
+   ```
+
+2. **Single feedback with an explcit name**: The name specified in the Feedback object is used as the metric name
+
+   ```python
+   @scorer
+   def assess_factualness(outputs: Any) -> Feedback:
+       # Name "factual_accuracy" is explicitly specfied, it will be used as a metric name
+       return Feedback(name="factual_accuracy", value=True, rationale="Factual accuracy is high")
+   ```
+
+3. **Multiple feedbacks**: Names specified in each Feedback objects are preserved. You must specify a unique name for each feedback.
+
+   ```python
+   @scorer
+   def multi_aspect_check(outputs) -> list[Feedback]:
+       # These names ARE used since multiple feedbacks are returned
+       return [
+           Feedback(name="grammar", value=True, rationale="No errors"),
+           Feedback(name="clarity", value=0.9, rationale="Very clear"),
+           Feedback(name="completeness", value="yes", rationale="All points addressed")
+       ]
+   ```
+
+This naming behavior ensures consistent metric names in your evaluation results and dashboards.
+
+### Error handling
+
+When a scorer encounters an error, MLflow provides two approaches:
+
+#### Let exceptions propagate (recommended)
+
+The simplest approach is to let exceptions throw naturally. MLflow automatically captures the exception and creates a Feedback object with the error details:
+
+```python
+import mlflow
+from mlflow.entities import Feedback
+from mlflow.genai.scorers import scorer
+
+@scorer
+def is_valid_response(outputs: str) -> Feedback:
+    import json
+
+    # Let json.JSONDecodeError propagate if response isn't valid JSON
+    data = json.loads(outputs)
+
+    # Let KeyError propagate if required fields are missing
+    summary = data["summary"]
+    confidence = data["confidence"]
+
+    return Feedback(
+        value=True,
+        rationale=f"Valid JSON with confidence: {confidence}"
+    )
+
+# Run the scorer on invalid data that triggers exceptions
+invalid_data = [
+    {
+        # Valid JSON
+        "outputs": '{"summary": "this is a summary", "confidence": 0.95}'
+    },
+    {
+        # Invalid JSON
+        "outputs": "invalid json",
+    },
+    {
+        # Missing required fields
+        "outputs": '{"summary": "this is a summary"}'
+    },
+]
+
+mlflow.genai.evaluate(
+    data=invalid_data,
+    scorers=[is_valid_response],
+)
+```
+
+When an exception occurs, MLflow creates a Feedback with:
+
+- `value`: `None`
+- `error`: The exception details, such as exception object, error message, and stack trace
+
+The error information will be displayed in the evaluation results. Open the corresponding row to see the error details.
+
+
+
+#### Handle exceptions explicitly
+
+For custom error handling or to provide specific error messages, catch exceptions and return a Feedback with `None` value and error details:
+
+```python
+from mlflow.entities import AssessmentError, Feedback
+
+@scorer
+def is_valid_response(outputs):
+    import json
+
+    try:
+        data = json.loads(outputs)
+        required_fields = ["summary", "confidence", "sources"]
+        missing = [f for f in required_fields if f not in data]
+
+        if missing:
+            return Feedback(
+                error=AssessmentError(
+                    error_code="MISSING_REQUIRED_FIELDS",
+                    error_message=f"Missing required fields: {missing}",
+                ),
+            )
+
+        return Feedback(
+            value=True,
+            rationale="Valid JSON with all required fields"
+        )
+
+    except json.JSONDecodeError as e:
+        return Feedback(error=e)  # Can pass exception object directly to the error parameter
+```
+
+The `error` parameter accepts:
+
+- **Python Exception**: Pass the exception object directly
+- **AssessmentError**: For structured error reporting with error codes
+
+## When expectations are available
+
+**Expectations** (ground truth or labels) are typically important for offline evaluation. You can specify them in two ways when running `mlflow.genai.evaluate()`:
+
+- Include `expectations` column (or field) in the input `data` argument.
+- Associate `Expectation` to Traces and pass them to the `data` argument.
+
+```python
+@scorer
+def exact_match(outputs: str, expectations: dict[str, Any]) -> Feedback:
+    expected = expectations.get("expected_response")
+    is_correct = outputs == expected
+
+    return Feedback(
+        value=is_correct,
+        rationale=f"Response {'matches' if is_correct else 'differs from'} expected"
+    )
+
+data = [
+    {
+        "inputs": {"question": "What is the capital of France?"},
+        "outputs": "Paris",
+        # Specify expected response in the expectations field
+        "expectations": {
+            "expected_response": "Paris"
+        }
+    },
+]
+
+mlflow.genai.evaluate(
+    data=data,
+    scorers=[exact_match],
+)
+```
+
+:::note
+
+Production monitoring typically doesn't have expectations since you're evaluating live traffic without ground truth. If you intend to use the same scorer for both offline and online evaluation, design it to handle expectations gracefully
+
+:::
+
+## Using trace data
+
+Scorers can access the full trace to evaluate complex application behavior:
+
+```python
+from mlflow.entities import Feedback, Trace
+from mlflow.genai.scorers import scorer
+
+@scorer
+def tool_call_efficiency(trace: Trace) -> Feedback:
+    """Evaluate how effectively the app uses tools"""
+    # Retrieve all tool call spans from the trace
+    tool_calls = trace.search_spans(span_type="TOOL")
+
+    if not tool_calls:
+        return Feedback(
+            value=None,
+            rationale="No tool usage to evaluate"
+        )
+
+    # Check for redundant calls
+    tool_names = [span.name for span in tool_calls]
+    if len(tool_names) != len(set(tool_names)):
+        return Feedback(
+            value=False,
+            rationale=f"Redundant tool calls detected: {tool_names}"
+        )
+
+    # Check for errors
+    failed_calls = [s for s in tool_calls if s.status.status_code != "OK"]
+    if failed_calls:
+        return Feedback(
+            value=False,
+            rationale=f"{len(failed_calls)} tool calls failed"
+        )
+
+    return Feedback(
+        value=True,
+        rationale=f"Efficient tool usage: {len(tool_calls)} successful calls"
+    )
+```
+
+When running offline evaluation with `mlflow.genai.evaluate()`, the traces are:
+
+- specified in the `data` argument if they are already available.
+- generated by runing `predict_fn` against the `inputs` in the `data` argument.
+
+When running production monitoring with `mlflow.genai.create_monitor()`, traces collected by the monitor are passed directly to the scorer function, with the specified sampling and filtering criteria.
+
+## Scorer implementation approaches
+
+MLflow provides two ways to implement scorers:
+
+### Decorator approach (recommended)
+
+Use the `@scorer` decorator for simple, function-based scorers:
+
+```python
+from mlflow.genai.scorers import scorer
+from mlflow.entities import Feedback
+
+@scorer
+def response_tone(outputs: str) -> Feedback:
+    """Check if response maintains professional tone"""
+    informal_phrases = ["hey", "gonna", "wanna", "lol", "btw"]
+    found = [p for p in informal_phrases if p in outputs.lower()]
+
+    if found:
+        return Feedback(
+            value=False,
+            rationale=f"Informal language detected: {', '.join(found)}"
+        )
+
+    return Feedback(
+        value=True,
+        rationale="Professional tone maintained"
+    )
+```
+
+### Class-based approach
+
+Use the `Scorer` base class for more complex scorers that require state. The `Scorer` class is a Pydantic object, so you can define additional fields and use them in the `__call__` method.
+
+```python
+from mlflow.genai.scorers import Scorer
+from mlflow.entities import Feedback
+from typing import Optional
+
+# Scorer class is a Pydantic object
+class ResponseQualityScorer(Scorer):
+    # The `name` field is mandatory
+    name: str = "response_quality"
+    # Define additiona lfields
+    min_length: int = 50
+    required_sections: Optional[list[str]] = None
+
+    # Override the __call__ method to implement the scorer logic
+    def __call__(self, outputs: str) -> Feedback:
+        issues = []
+
+        # Check length
+        if len(outputs.split()) < self.min_length:
+            issues.append(f"Too short (minimum {self.min_length} words)")
+
+        # Check required sections
+        missing = [s for s in self.required_sections if s not in outputs]
+        if missing:
+            issues.append(f"Missing sections: {', '.join(missing)}")
+
+        if issues:
+            return Feedback(
+                value=False,
+                rationale="; ".join(issues)
+            )
+
+        return Feedback(
+            value=True,
+            rationale="Response meets all quality criteria"
+        )
+```
+
+## Custom scorer development workflow
+
+When developing custom scorers, you often need to iterate quickly without re-running your application each time. MLflow supports an efficient workflow:
+
+1. **Generate traces once** by running your app with `mlflow.genai.evaluate()`
+2. **Store the traces** using `mlflow.search_traces()`
+3. **Iterate on scorers** by passing stored traces to `evaluate()` without re-running your app
+
+This approach saves time and resources during scorer development:
+
+```python
+# Step 1: Generate traces with a placeholder scorer
+initial_results = mlflow.genai.evaluate(
+    data=test_dataset,
+    predict_fn=my_app,
+    scorers=[lambda **kwargs: 1]  # Placeholder scorer
+)
+
+# Step 2: Store traces for reuse
+traces = mlflow.search_traces(run_id=initial_results.run_id)
+
+# Step 3: Iterate on your scorer without re-running the app
+@scorer
+def my_custom_scorer(outputs):
+    # Your evaluation logic here
+    pass
+
+# Test scorer on stored traces (no predict_fn needed)
+results = mlflow.genai.evaluate(
+    data=traces,
+    scorers=[my_custom_scorer]
+)
+```
+
+## Common gotchas
+
+### Scorer naming with decorators
+
+```python
+from mlflow.genai.scorers import scorer
+from mlflow.entities import Feedback
+
+# GOTCHA: Function name becomes feedback name for single returns
+@scorer
+def quality_check(outputs):
+    # This 'name' parameter is IGNORED
+    return Feedback(name="ignored", value=True)
+    # Feedback will be named "quality_check"
+
+# CORRECT: Use function name meaningfully
+@scorer
+def response_quality(outputs):
+    return Feedback(value=True, rationale="Good quality")
+    # Feedback will be named "response_quality"
+
+# EXCEPTION: Multiple feedbacks preserve their names
+@scorer
+def multi_check(outputs):
+    return [
+        Feedback(name="grammar", value=True),      # Name preserved
+        Feedback(name="spelling", value=True),     # Name preserved
+        Feedback(name="clarity", value=0.9)        # Name preserved
+    ]
+```
+
+### State management in scorers
+
+```python
+from mlflow.genai.scorers import Scorer
+from mlflow.entities import Feedback
+
+# WRONG: Don't use mutable class attributes
+class BadScorer(Scorer):
+    results = []  # Shared across all instances!
+
+    def __call__(self, outputs, **kwargs):
+        self.results.append(outputs)  # Causes issues
+        return Feedback(value=True)
+
+# CORRECT: Use instance attributes
+class GoodScorer(Scorer):
+    def __init__(self):
+        super().__init__(name="good_scorer")
+        self.results = []  # Per-instance state
+
+    def __call__(self, outputs, **kwargs):
+        self.results.append(outputs)  # Safe
+        return Feedback(value=True)
+```
+
+## Next Steps
+
+- [Create custom code-based scorers](/genai/eval-monitor/custom-scorers) - Build domain-specific scorers using Python functions
+- [Evaluate with LLM judges](/genai/eval-monitor/predefined-judge-scorers) - Use pre-built LLM-based scorers for common quality metrics
+- [Run scorers in production](/genai/eval-monitor/run-scorer-in-prod) - Apply the same scorers to monitor production traffic

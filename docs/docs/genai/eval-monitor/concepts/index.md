@@ -1,0 +1,279 @@
+---
+description: 'Core MLflow evaluation concepts and patterns - scorers, judges, evaluation datasets, and monitoring for GenAI apps'
+last_update:
+  date: 2025-05-18
+---
+
+# Evaluation concepts overview
+
+MLflow's evaluation concepts for GenAI: [scorers](#scorers), [judges](#judges), [evaluation datasets](#evaluation-datasets), and the systems that use them.
+
+## Quick reference
+
+| Concept                                                 | Purpose                  | Usage                                 |
+| ------------------------------------------------------- | ------------------------ | ------------------------------------- |
+| [Scorers](#scorers)                                     | Evaluate trace quality   | `@scorer` decorator or `Scorer` class |
+| [Judges](#judges)                                       | LLM-based assessment     | Wrapped in scorers for use            |
+| [Evaluation Harness](#evaluation-harness)               | Run offline evaluation   | `mlflow.genai.evaluate()`             |
+| [Evaluation Datasets](#evaluation-datasets)             | Test data management     | `mlflow.genai.datasets`               |
+| [Evaluation Runs](#evaluation-runs)                     | Store evaluation results | Created by harness                    |
+| [Production Monitoring](#production-monitoring-service) | Live quality tracking    | `mlflow.genai.create_monitor()`       |
+
+## Common patterns
+
+### Using multiple scorers together
+
+```python
+import mlflow
+from mlflow.genai.scorers import scorer, Safety, RelevanceToQuery
+from mlflow.entities import Feedback
+
+# Combine predefined and custom scorers
+@scorer
+def custom_business_scorer(outputs):
+    response = outputs.get("response", "")
+    # Your business logic
+    if "company_name" not in response:
+        return Feedback(value=False, rationale="Missing company branding")
+    return Feedback(value=True, rationale="Meets business criteria")
+
+# Use same scorers everywhere
+scorers = [Safety(), RelevanceToQuery(), custom_business_scorer]
+
+# Offline evaluation
+results = mlflow.genai.evaluate(
+    data=eval_dataset,
+    predict_fn=my_app,
+    scorers=scorers
+)
+
+# Production monitoring - same scorers!
+monitor = mlflow.genai.create_monitor(
+    endpoint="my-production-endpoint",
+    scorers=scorers,
+    sampling_rate=0.1
+)
+```
+
+### Chaining evaluation results
+
+```python
+import mlflow
+import pandas as pd
+from mlflow.genai.scorers import Safety, Correctness
+
+# Run initial evaluation
+results1 = mlflow.genai.evaluate(
+    data=test_dataset,
+    predict_fn=my_app,
+    scorers=[Safety(), Correctness()]
+)
+
+# Use results to create refined dataset
+traces = mlflow.search_traces(run_id=results1.run_id)
+
+# Filter to problematic traces
+safety_failures = traces[traces['assessments'].apply(
+    lambda x: any(a.name == 'Safety' and a.value == 'no' for a in x)
+)]
+
+# Re-evaluate with different scorers or updated app
+from mlflow.genai.scorers import Guidelines
+
+results2 = mlflow.genai.evaluate(
+    data=safety_failures,
+    predict_fn=updated_app,
+    scorers=[
+        Safety(),
+        Guidelines(
+            name="content_policy",
+            guidelines="Response must follow our content policy"
+        )
+    ]
+)
+```
+
+### Error handling in evaluation
+
+```python
+import mlflow
+from mlflow.genai.scorers import scorer
+from mlflow.entities import Feedback, AssessmentError
+
+@scorer
+def resilient_scorer(outputs, trace=None):
+    try:
+        response = outputs.get("response")
+        if not response:
+            return Feedback(
+                value=None,
+                error=AssessmentError(
+                    error_code="MISSING_RESPONSE",
+                    error_message="No response field in outputs"
+                )
+            )
+        # Your evaluation logic
+        return Feedback(value=True, rationale="Valid response")
+    except Exception as e:
+        # Let MLflow handle the error gracefully
+        raise
+
+# Use in evaluation - continues even if some scorers fail
+results = mlflow.genai.evaluate(
+    data=dataset,
+    predict_fn=my_app,
+    scorers=[resilient_scorer, Safety()]
+)
+```
+
+## Concepts
+
+### <a id="scorers"></a>Scorers: `mlflow.genai.scorers`
+
+Functions that evaluate [traces](/mlflow3/genai/tracing/data-model) and return [Feedback](/mlflow3/genai/tracing/data-model#feedbacks).
+
+```python
+from mlflow.genai.scorers import scorer
+from mlflow.entities import Feedback
+from typing import Optional, Dict, Any, List
+
+@scorer
+def my_custom_scorer(
+    *,  # MLflow calls your scorer with named arguments
+    inputs: Optional[Dict[Any, Any]],  # App's input from trace
+    outputs: Optional[Dict[Any, Any]],  # App's output from trace
+    expectations: Optional[Dict[str, Any]],  # Ground truth (offline only)
+    trace: Optional[mlflow.entities.Trace]  # Complete trace
+) -> int | float | bool | str | Feedback | List[Feedback]:
+    # Your evaluation logic
+    return Feedback(value=True, rationale="Explanation")
+```
+
+**[Learn more about Scorers &raquo;](/genai/eval-monitor/concepts/scorers)**
+
+### <a id="judges"></a>Judges: `mlflow.genai.judges`
+
+LLM-based quality assessors that must be wrapped in scorers.
+
+```python
+from mlflow.genai.judges import is_safe, is_relevant
+from mlflow.genai.scorers import scorer
+
+# Direct usage
+feedback = is_safe(content="Hello world")
+
+# Wrapped in scorer
+@scorer
+def safety_scorer(outputs):
+    return is_safe(content=outputs["response"])
+```
+
+**[Learn more about Judges &raquo;](/genai/eval-monitor/concepts/judges/index)**
+
+### <a id="evaluation-harness"></a>Evaluation Harness: `mlflow.genai.evaluate(...)`
+
+Orchestrates offline evaluation during development.
+
+```python
+import mlflow
+from mlflow.genai.scorers import Safety, RelevanceToQuery
+
+results = mlflow.genai.evaluate(
+    data=eval_dataset,  # Test data
+    predict_fn=my_app,  # Your app
+    scorers=[Safety(), RelevanceToQuery()],  # Quality metrics
+    model_id="models:/my-app/1"  # Optional version tracking
+)
+```
+
+**[Learn more about Evaluation Harness &raquo;](/genai/eval-monitor/concepts/eval-harness)**
+
+### <a id="evaluation-datasets"></a>Evaluation Datasets: `mlflow.genai.datasets.EvaluationDataset`
+
+Versioned test data with optional ground truth.
+
+```python
+import mlflow.genai.datasets
+
+# Create from production traces
+dataset = mlflow.genai.datasets.create_dataset(
+    uc_table_name="catalog.schema.eval_data"
+)
+
+# Add traces
+traces = mlflow.search_traces(filter_string="trace.status = 'OK'")
+dataset.insert(traces)
+
+# Use in evaluation
+results = mlflow.genai.evaluate(data=dataset, ...)
+```
+
+**[Learn more about Evaluation Datasets &raquo;](/genai/eval-monitor/concepts/eval-datasets)**
+
+### <a id="evaluation-runs"></a>Evaluation Runs: `mlflow.entities.Run`
+
+Results from evaluation containing traces with feedback.
+
+```python
+# Access evaluation results
+traces = mlflow.search_traces(run_id=results.run_id)
+
+# Filter by feedback
+good_traces = traces[traces['assessments'].apply(
+    lambda x: all(a.value for a in x if a.name == 'Safety')
+)]
+```
+
+**[Learn more about Evaluation Runs &raquo;](/genai/eval-monitor/concepts/evaluation-runs)**
+
+### <a id="production-monitoring-service"></a>Production Monitoring: `mlflow.genai.create_monitor(...)`
+
+Continuous evaluation of deployed applications.
+
+```python
+import mlflow
+from mlflow.genai.scorers import Safety, custom_scorer
+
+monitor = mlflow.genai.create_monitor(
+    name="chatbot_monitor",
+    endpoint="endpoints:/my-chatbot-prod",
+    scorers=[Safety(), custom_scorer],
+    sampling_rate=0.1  # 10% of traffic
+)
+```
+
+**[Learn more about Production Monitoring &raquo;](/genai/eval-monitor/concepts/production-monitoring)**
+
+## Workflows
+
+### Online monitoring (production)
+
+```python
+# Production app with tracing → Monitor applies scorers → Feedback on traces → Dashboards
+```
+
+
+
+### Offline evaluation (development)
+
+```python
+# Test data → Evaluation harness runs app → Scorers evaluate traces → Results stored
+```
+
+
+
+## Next steps
+
+Continue your journey with these recommended actions and tutorials.
+
+- [Evaluate your app](/genai/eval-monitor/evaluate-app) - Follow a hands-on tutorial to apply these concepts
+- [Use predefined LLM scorers](/genai/eval-monitor/predefined-judge-scorers) - Start with built-in quality metrics
+- [Create custom scorers](/genai/eval-monitor/custom-scorers) - Build scorers for your specific needs
+
+## Reference guides
+
+Explore detailed documentation about related concepts.
+
+- [Scorers](/genai/eval-monitor/concepts/scorers) - Deep dive into scorer implementation and usage
+- [LLM judges](/genai/eval-monitor/concepts/judges/index) - Learn about using LLMs as evaluators
+- [Evaluation Harness](/genai/eval-monitor/concepts/eval-harness) - Understand the evaluation orchestration system

@@ -1,0 +1,385 @@
+---
+description: 'MLflow evaluation datasets - test data management with code examples, patterns, and best practices'
+last_update:
+  date: 2025-05-18
+---
+
+# Evaluation Datasets
+
+Curated test data for systematic GenAI app evaluation. Includes inputs, optional ground truth (expectations), and metadata.
+
+## Two ways to provide evaluation data
+
+You can provide evaluation data to the MLflow evaluation harness in two ways:
+
+### 1. MLflow Evaluation Datasets (Recommended)
+
+Purpose-built datasets stored in Unity Catalog with:
+
+- **Versioning**: Track dataset changes over time
+- **Lineage**: Link dataset records to their inputs (source traces) and track their usage (evaluation runs and app versions)
+- **Collaboration**: Share datasets across teams
+- **Integration**: Seamless workflow with MLflow UI and APIs
+- **Governance**: Unity Catalog security and access controls
+- **Trace conversion**: Easily convert production traces into evaluation dataset records using the UI or SDK
+- **Visualization**: Inspect and edit dataset contents directly in the MLflow UI
+
+**When to use**: Production evaluation workflows, regression testing, and when you need dataset management capabilities.
+
+### 2. Arbitrary datasets (Quick prototyping)
+
+Use existing data structures like:
+
+- List of dictionaries
+- Pandas DataFrame
+- Spark DataFrame
+
+**When to use**: Quick experiments, prototyping, or when you already have evaluation data in these formats.
+
+## Evaluation Dataset schema
+
+Evaluation datasets follow a consistent structure whether you use MLflow's Evaluation Dataset abstraction or pass data directly to `mlflow.genai.evaluate()`.
+
+### Core fields
+
+The following fields are used in both the Evaluation Dataset abstraaction or if you pass data directly.
+
+| Column         | Data Type        | Description                                                                              | Required |
+| -------------- | ---------------- | ---------------------------------------------------------------------------------------- | -------- |
+| `inputs`       | `dict[Any, Any]` | Inputs for your app (e.g., user question, context), stored as a JSON-seralizable `dict`. | Yes      |
+| `expectations` | `dict[Str, Any]` | Ground truth labels, stored as a JSON-seralizable `dict`.                                | Optional |
+
+#### `expectations` reserved keys
+
+`expectations` has several reserved keys that are used by prebuilt LLM scorers : `guidelines`, `expected_facts`, and `expected_response`.
+
+| Field                        | Used by                   | Description                        |
+| ---------------------------- | ------------------------- | ---------------------------------- |
+| `expected_facts`             | `correctness` judge       | List of facts that should appear   |
+| `expected_response`          | `is_correct` scorer       | Exact or similar expected output   |
+| `guidelines`                 | `meets_guidelines` scorer | Natural language rules to follow   |
+| `expected_retrieved_context` | `document_recall` scorer  | Documents that should be retrieved |
+
+### Additional fields
+
+The following fields are used by the Evaluation Dataset abstraaction to track lineage and version history.
+
+| Column              | Data Type      | Description                                   | Required                                      |
+| ------------------- | -------------- | --------------------------------------------- | --------------------------------------------- |
+| `dataset_record_id` | string         | The unique identifier for the record.         | Automatically set if not provided.            |
+| `create_time`       | timestamp      | The time when the record was created.         | Automatically set when inserting or updating. |
+| `created_by`        | string         | The user who created the record.              | Automatically set when inserting or updating. |
+| `last_update_time`  | timestamp      | The time when the record was last updated.    | Automatically set when inserting or updating. |
+| `last_updated_by`   | string         | The user who last updated the record.         | Automatically set when inserting or updating. |
+| `source`            | struct         | The source of the dataset record (see below). | Optional                                      |
+| `tags`              | dict[str, Any] | Key-value tags for the dataset record.        | Optional                                      |
+
+#### Source field
+
+The `source` field tracks where a dataset record came from. Each record can have **only one** source type:
+
+**1. Human source** - Record created manually by a person
+
+```python
+{
+    "source": {
+        "human": {
+            "user_name": "jane.doe@company.com"
+        }
+    }
+}
+```
+
+- `user_name` (str): The user who created the record
+
+**2. Document source** - Record synthesized from a document
+
+```python
+{
+    "source": {
+        "document": {
+            "doc_uri": "s3://bucket/docs/product-manual.pdf",
+            "content": "The first 500 chars of the document..."  # Optional
+        }
+    }
+}
+```
+
+- `doc_uri` (str): URI/path to the source document
+- `content` (str, optional): Excerpt or full content from the document
+
+**3. Trace source** - Record created from a production trace
+
+```python
+{
+    "source": {
+        "trace": {
+            "trace_id": "tr-abc123def456"
+        }
+    }
+}
+```
+
+- `trace_id` (str): The unique identifier of the source trace
+
+## MLflow Evaluation Dataset UI
+
+
+
+## MLflow Evaluation Dataset SDK reference
+
+The evaluation datasets SDK provides programmatic access to create, manage, and use datasets for GenAI app evaluation.
+
+### Prerequisites for running the examples
+
+1. Install MLflow and required packages
+
+   ```bash
+   pip install --upgrade "mlflow[databricks]>=3.1.0" "databricks-connect>=16.1"
+   ```
+
+2. Create an MLflow experiment by following the [setup your environment quickstart](/mlflow3/genai/getting-started/connect-environment).
+3. `CREATE TABLE` permissions in a Unity Catalog schema
+
+::::aws
+
+:::note
+This is required to create an evaluation dataset. If you are using a [Databricks trial account](/getting-started/express-setup), you have CREATE TABLE permissions on the Unity Catalog schema `workspace.default`.
+:::
+
+::::
+
+### `create_dataset()`
+
+Create a new evaluation dataset in Unity Catalog.
+
+```python
+import mlflow.genai.datasets
+
+# Create a dataset with auto-inferred experiment
+dataset = mlflow.genai.datasets.create_dataset(
+    uc_table_name="catalog.schema.evaluation_dataset"
+)
+
+# Create a dataset associated with specific experiment(s)
+dataset = mlflow.genai.datasets.create_dataset(
+    uc_table_name="catalog.schema.evaluation_dataset",
+    experiment_id="1213947645336731"
+)
+
+# Associate with multiple experiments
+dataset = mlflow.genai.datasets.create_dataset(
+    uc_table_name="catalog.schema.evaluation_dataset",
+    experiment_id=["1213947645336731", "3231394764336731"]
+)
+```
+
+**Parameters:**
+
+- `uc_table_name` (str): Unity Catalog table name for the dataset
+- `experiment_id` (str or list, optional): Experiment ID(s) to associate with the dataset
+
+**Returns:** `EvaluationDataset` object
+
+### `get_dataset()`
+
+Load an existing evaluation dataset from Unity Catalog.
+
+```python
+import mlflow.genai.datasets
+
+# Load existing dataset
+dataset = mlflow.genai.datasets.get_dataset(
+    uc_table_name="catalog.schema.evaluation_dataset"
+)
+
+# Access dataset properties
+print(f"Dataset ID: {dataset.dataset_id}")
+print(f"Created by: {dataset.created_by}")
+print(f"Last updated: {dataset.last_update_time}")
+```
+
+**Parameters:**
+
+- `uc_table_name` (str): Unity Catalog table name of the dataset
+
+**Returns:** `EvaluationDataset` object
+
+### `delete_dataset()`
+
+Delete an evaluation dataset from Unity Catalog.
+
+:::danger
+Calling this method will permanently delete the dataset.
+:::
+
+```python
+import mlflow.genai.datasets
+
+# Delete a dataset
+mlflow.genai.datasets.delete_dataset(
+    uc_table_name="catalog.schema.evaluation_dataset"
+)
+```
+
+**Parameters:**
+
+- `uc_table_name` (str): Unity Catalog table name of the dataset to delete
+
+**Returns:** None
+
+### `EvaluationDataset` Class
+
+The `EvaluationDataset` class provides methods to interact with and modify evaluation datasets.
+
+#### Properties
+
+```python
+import mlflow.genai.datasets
+
+dataset = mlflow.genai.datasets.get_dataset("catalog.schema.eval_dataset")
+
+# Access dataset metadata
+dataset_id = dataset.dataset_id          # Unique identifier
+name = dataset.name                      # UC table name
+schema = dataset.schema                  # Dataset schema
+profile = dataset.profile                # Summary statistics
+source = dataset.source                  # Source information
+source_type = dataset.source_type        # Source type (e.g., "databricks-uc-table")
+digest = dataset.digest                  # Hash of the dataset
+
+# Access audit information
+created_by = dataset.created_by          # Creator user
+create_time = dataset.create_time        # Creation timestamp
+last_updated_by = dataset.last_updated_by # Last updater
+last_update_time = dataset.last_update_time # Last update timestamp
+```
+
+#### `merge_records()`
+
+Add or update records in the dataset. Either directly passing dataset records, pass a list of MLflow trace_ids, or the results of `mlflow.search_traces()`.
+
+```python
+import mlflow.genai.datasets
+import pandas as pd
+
+dataset = mlflow.genai.datasets.get_dataset("catalog.schema.eval_dataset")
+
+# Merge from list of dictionaries
+records = [
+    {
+        "inputs": {"question": "What is MLflow?"},
+        "expectations": {
+            "expected_facts": ["open-source platform", "ML lifecycle"],
+            "guidelines": "Response should be concise and technical"
+        }
+    },
+    {
+        "inputs": {"question": "How to track experiments?"},
+        "expectations": {
+            "expected_response": "Use mlflow.start_run() to track experiments..."
+        }
+    }
+]
+dataset = dataset.merge_records(records)
+
+# Merge from Pandas DataFrame
+df = pd.DataFrame(records)
+dataset = dataset.merge_records(df)
+
+# Merge from Spark DataFrame
+from pyspark.sql import SparkSession
+spark = SparkSession.builder.getOrCreate()
+spark_df = spark.createDataFrame(records)
+dataset = dataset.merge_records(spark_df)
+
+# Create from existing traces
+traces = mlflow.search_traces()
+dataset.merge_records(traces)
+```
+
+**Parameters:**
+
+- `records` (list[dict], pd.DataFrame, or pyspark.sql.DataFrame): Records to merge
+
+**Returns:** Updated `EvaluationDataset` object
+
+#### `to_df()`
+
+Convert the dataset to a Pandas DataFrame for local analysis.
+
+```python
+import mlflow.genai.datasets
+
+dataset = mlflow.genai.datasets.get_dataset("catalog.schema.eval_dataset")
+
+# Convert to DataFrame
+df = dataset.to_df()
+
+# Analyze the data
+print(f"Total records: {len(df)}")
+print(f"Columns: {df.columns.tolist()}")
+```
+
+**Returns:** pd.DataFrame
+
+## Common patterns
+
+### Create datasets from production traces
+
+```python
+import mlflow
+import mlflow.genai.datasets
+import pandas as pd
+
+# Search for production traces
+traces = mlflow.search_traces(
+    experiment_names=["production"],
+    filter_string="attributes.feedback_score > 0.8",
+    max_results=100
+)
+
+# Create dataset from traces
+dataset = mlflow.genai.datasets.create_dataset(
+    uc_table_name="catalog.schema.production_golden_set"
+)
+dataset = dataset.merge_records(records)
+```
+
+### Update existing datasets
+
+```python
+import mlflow.genai.datasets
+import pandas as pd
+
+# Load existing dataset
+dataset = mlflow.genai.datasets.get_dataset("catalog.schema.eval_dataset")
+
+# Add new test cases
+new_cases = [
+    {
+        "inputs": {"question": "What are MLflow models?"},
+        "expectations": {
+            "expected_facts": ["model packaging", "deployment", "registry"],
+            "min_response_length": 100
+        }
+    }
+]
+
+# Merge new cases
+dataset = dataset.merge_records(new_cases)
+```
+
+## Next steps
+
+### How-to guides
+
+- [Build evaluation datasets](/genai/eval-monitor/build-eval-dataset) - Step-by-step dataset creation
+- [Evaluate your app](/genai/eval-monitor/evaluate-app) - Use datasets for evaluation
+<!-- - [Continuous improvement](/genai/eval-monitor/continuous-improvement-with-production-data) - Update datasets from production -->
+
+### Concepts
+
+- [Evaluation Harness](/genai/eval-monitor/concepts/eval-harness) - How datasets are used
+- [Evaluation Runs](/genai/eval-monitor/concepts/evaluation-runs) - Results from dataset evaluation
+- [Scorers](/genai/eval-monitor/concepts/scorers) - Metrics applied to datasets

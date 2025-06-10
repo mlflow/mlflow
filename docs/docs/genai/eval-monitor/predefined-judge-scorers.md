@@ -1,0 +1,261 @@
+---
+description: >
+  Discover and learn how to use MLflow suite of predefined LLM judges for common GenAI quality assessments like safety, correctness, and relevance.
+last_update:
+  date: 2025-05-18
+---
+
+# Use predefined LLM scorers
+
+## Overview
+
+MLflow provides bult-in LLM [`Scorers`](/genai/eval-monitor/concepts/scorers) that wrap [MLflow's research-backed LLM judges](/genai/eval-monitor/concepts/judges/index) and can assess traces across typical [quality dimensions](#available-scorers).
+
+:::important
+Typically, you can get started with evaluation using predefined scorers, but as your application logic and evaluation criteria gets more complex (or, your application's trace does not meet the scorer's requirements), you switch to wrapping the underlying judge in a [custom scorers](/genai/eval-monitor/custom-scorers) or creating a [custom LLM scorer](/genai/eval-monitor/custom-judge/index).
+:::
+
+:::tip
+**When to use custom scorers instead:**
+
+- Your application has complex inputs/outputs that predefined scorers can't parse
+- You need to evaluate specific business logic or domain-specific criteria
+- You want to combine multiple evaluation aspects into a single scorer
+- Your trace structure doesn't match the predefined scorer requirements
+
+See [custom scorers guide](/genai/eval-monitor/custom-scorers) and [custom LLM judges guide](/genai/eval-monitor/custom-judge/index) for detailed examples.
+:::
+
+## How predefined scorers work
+
+Once passed a Trace by either `evaluate()` or the monitoring service, the predefined scorer:
+
+1. Parses the `trace` to extract the data required by the [LLM judge](/genai/eval-monitor/concepts/judges/index) it wraps.
+2. Calls the LLM judge to generate a [`Feedback`](/mlflow3/genai/tracing/data-model#feedbacks)
+   - The Feedback contains a `yes/no` score alongside a written rationale explaining the reasoning for the score.
+3. Returns the Feedback back to its caller to attach to the Trace
+
+:::note
+To learn more about how MLflow passes inputs to a Scorer and attaches the resulting Feedback from a Scorer to a Trace, refer to the [Scorer concept guide](/genai/eval-monitor/concepts/scorers).
+:::
+
+## Prerequisites
+
+1. Run the following command to install MLflow 3.0 and OpenAI packages.
+
+   ```bash
+   pip install --upgrade "mlflow[databricks]>=3.1.0" openai
+   ```
+
+2. Follow the [tracing quickstart](/mlflow3/genai/getting-started/tracing/tracing-ide) to connect your development environment to an [MLflow Experiment](/mlflow3/genai/concepts/index).
+
+## Step 1: Create a sample application to evaluate
+
+<!-- :::note
+If you'd like to download this guide's code as a Python file or importable Databricks Notebook, please jump to the [download code](#download-code) section.
+::: -->
+
+Below, we define a simple application with a fake retriever.
+
+```python
+import os
+import mlflow
+from openai import OpenAI
+from mlflow.entities import Document
+from typing import List
+
+mlflow.openai.autolog()
+
+# Connect to a Databricks LLM via OpenAI using the same credentials as MLflow
+# Alternatively, you can use your own OpenAI credentials here
+mlflow_creds = mlflow.utils.databricks_utils.get_databricks_host_creds()
+client = OpenAI(
+    api_key=mlflow_creds.token,
+    base_url=f"{mlflow_creds.host}/serving-endpoints"
+)
+
+
+# Retriever function called by the sample app
+@mlflow.trace(span_type="RETRIEVER")
+def retrieve_docs(query: str) -> List[Document]:
+    return [
+        Document(
+            id="sql_doc_1",
+            page_content="SELECT is a fundamental SQL command used to retrieve data from a database. You can specify columns and use a WHERE clause to filter results.",
+            metadata={"doc_uri": "http://example.com/sql/select_statement"},
+        ),
+        Document(
+            id="sql_doc_2",
+            page_content="JOIN clauses in SQL are used to combine rows from two or more tables, based on a related column between them. Common types include INNER JOIN, LEFT JOIN, and RIGHT JOIN.",
+            metadata={"doc_uri": "http://example.com/sql/join_clauses"},
+        ),
+        Document(
+            id="sql_doc_3",
+            page_content="Aggregate functions in SQL, such as COUNT(), SUM(), AVG(), MIN(), and MAX(), perform calculations on a set of values and return a single summary value.  The most common aggregate function in SQL is COUNT().",
+            metadata={"doc_uri": "http://example.com/sql/aggregate_functions"},
+        ),
+    ]
+
+
+# Sample app that we will evaluate
+@mlflow.trace
+def sample_app(query: str):
+    # 1. Retrieve documents based on the query
+    retrieved_documents = retrieve_docs(query=query)
+    retrieved_docs_text = "\n".join([doc.page_content for doc in retrieved_documents])
+
+    # 2. Prepare messages for the LLM
+    messages_for_llm = [
+        {
+            "role": "system",
+            # Fake prompt to show how the various scorers identify quality issues.
+            "content": f"Answer the user's question based on the following retrieved context: {retrieved_docs_text}.  Do not mention the fact that provided context exists in your answer.  If the context is not relevant to the question, generate the best response you can.",
+        },
+        {
+            "role": "user",
+            "content": query,
+        },
+    ]
+
+    # 3. Call LLM to generate the response
+    return client.chat.completions.create(
+        # This example uses Databricks hosted Claude.  If you provide your own OpenAI credentials, replace with a valid OpenAI model e.g., gpt-4o, etc.
+        model="databricks-claude-3-7-sonnet",
+        messages=messages_for_llm,
+    )
+result = sample_app("what is select in sql?")
+print(result)
+```
+
+## Step 2: Create a sample evaluation dataset
+
+:::note
+`expected_facts` is only required if you use predefined scorers that require ground-truth.
+:::
+
+```python
+eval_dataset = [
+    {
+        "inputs": {"query": "What is the most common aggregate function in SQL?"},
+        "expectations": {
+            "expected_facts": ["Most common aggregate function in SQL is COUNT()."],
+        },
+    },
+    {
+        "inputs": {"query": "How do I use MLflow?"},
+        "expectations": {
+            "expected_facts": [
+                "MLflow is a tool for managing and tracking machine learning experiments."
+            ],
+        },
+    },
+]
+print(eval_dataset)
+```
+
+## Step 3: Run evaluation with predefined scorers
+
+Now, let's run the evaluation with the scorers we defined above.
+
+```python
+from mlflow.genai.scorers import (
+    Correctness,
+    Guidelines,
+    RelevanceToQuery,
+    RetrievalGroundedness,
+    RetrievalRelevance,
+    RetrievalSufficiency,
+    Safety,
+)
+
+
+# Run predefined scorers that require ground truth
+mlflow.genai.evaluate(
+    data=eval_dataset,
+    predict_fn=sample_app,
+    scorers=[
+        Correctness(),
+        # RelevanceToQuery(),
+        # RetrievalGroundedness(),
+        # RetrievalRelevance(),
+        RetrievalSufficiency(),
+        # Safety(),
+    ],
+)
+
+
+# Run predefined scorers that do NOT require ground truth
+mlflow.genai.evaluate(
+    data=eval_dataset,
+    predict_fn=sample_app,
+    scorers=[
+        # Correctness(),
+        RelevanceToQuery(),
+        RetrievalGroundedness(),
+        RetrievalRelevance(),
+        # RetrievalSufficiency(),
+        Safety(),
+        Guidelines(name="does_not_mention", guidelines="The response not mention the fact that provided context exists.")
+    ],
+)
+```
+
+
+
+## Available scorers
+
+:::list-table
+
+- - Scorer
+  - What it evaluates?
+  - Requires ground-truth?
+  - Learn more
+- - [`RelevanceToQuery`](/genai/eval-monitor/concepts/judges/is_context_relevant#1-relevancetoquery-scorer)
+  - Does app's response directly address the user's input?
+  - No
+  - [Answer & Context Relevance guide](/genai/eval-monitor/concepts/judges/is_context_relevant)
+- - [`Safety`](/genai/eval-monitor/concepts/judges/is_safe#using-the-prebuilt-scorer)
+  - Does the app's response avoid harmful or toxic content?
+  - No
+  - [Safety guide](/genai/eval-monitor/concepts/judges/is_safe)
+- - [`RetrievalGroundedness`](/genai/eval-monitor/concepts/judges/is_grounded#using-the-prebuilt-scorer)
+  - Is the app's response grounded in retrieved information?
+  - No
+  - [Groundedness guide](/genai/eval-monitor/concepts/judges/is_grounded)
+- - [`RetrievalRelevance`](/genai/eval-monitor/concepts/judges/is_context_relevant#2-retrievalrelevance-scorer)
+  - Are retrieved documents relevant to the user's request?
+  - No
+  - [Answer & Context Relevance guide](/genai/eval-monitor/concepts/judges/is_context_relevant)
+- - [`Correctness`](/genai/eval-monitor/concepts/judges/is_correct#using-the-prebuilt-scorer)
+  - Is app's response correct compared to ground-truth?
+  - Yes
+  - [Correctness guide](/genai/eval-monitor/concepts/judges/is_correct)
+- - [`RetrievalSufficiency`](/genai/eval-monitor/concepts/judges/is_context_sufficient#using-the-prebuilt-scorer)
+  - Do retrieved documents contain all necessary information?
+  - Yes
+  - [Context Sufficiency guide](/genai/eval-monitor/concepts/judges/is_context_sufficient)
+
+:::
+
+<!-- ## <a id="download-code"></a> Download the code
+
+Below, you can download this guide's code as a Python file or as an importable Databricks Notebook:
+
+- [Python file: `3_use_predefined_scorers.py`](https://github.com/databricks/genai-cookbook/blob/main/mlflow_docs_examples/guides/evaluation/3_use_predefined_scorers.py)
+- [Databricks Notebook `3_use_predefined_scorers_notebook.py`](https://github.com/databricks/genai-cookbook/blob/main/mlflow_docs_examples/guides/evaluation/3_use_predefined_scorers_notebook.py) -->
+
+## Next steps
+
+Continue your journey with these recommended actions and tutorials.
+
+- [Create custom scorers](/genai/eval-monitor/custom-scorers) - Build code-based metrics for your specific needs
+- [Create custom LLM scorers](/genai/eval-monitor/custom-judge/index) - Design sophisticated evaluation criteria using LLMs
+- [Evaluate your app](/genai/eval-monitor/evaluate-app) - See predefined scorers in action with a complete example
+
+## Reference guides
+
+Explore detailed documentation for concepts and features mentioned in this guide.
+
+- [Prebuilt judges & scorers reference](/genai/eval-monitor/concepts/judges/pre-built-judges-scorers) - Comprehensive overview of all available judges
+- [Scorers](/genai/eval-monitor/concepts/scorers) - Understand how scorers work and their role in evaluation
+- [LLM judges](/genai/eval-monitor/concepts/judges/index) - Learn about the underlying judge architecture
