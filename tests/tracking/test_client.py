@@ -2252,7 +2252,7 @@ def test_link_prompts_to_trace_smoke_test(tracking_uri):
         # Get the prompt version and link to the trace (this should not raise an exception)
         # This is the main assertion - that the method call succeeds
         prompt_version = client.get_prompt_version("test_prompt", "1")
-        client.link_prompts_to_trace(prompt_versions=[prompt_version], trace_id=trace_id)
+        client.link_prompt_versions_to_trace(prompt_versions=[prompt_version], trace_id=trace_id)
 
 
 def test_log_model_artifact(tmp_path: Path, tracking_uri: str) -> None:
