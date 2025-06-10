@@ -674,7 +674,9 @@ class TrackingServiceClient:
             List of :py:class:`mlflow.entities.FileInfo`
 
         """
-        return self._get_artifact_repo(run_id).list_artifacts(path)
+        from mlflow.artifacts import list_artifacts
+
+        return list_artifacts(run_id=run_id, artifact_path=path, tracking_uri=self.tracking_uri)
 
     def list_logged_model_artifacts(
         self, model_id: str, path: Optional[str] = None
