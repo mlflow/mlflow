@@ -240,14 +240,16 @@ def test_log_artifact_windows_path_with_hostname(text_artifact):
             mock.patch("os.path.exists", return_value=True) as exists_mock,
         ):
             mlflow.log_artifact(text_artifact.artifact_path)
-            copyfile_mock.assert_called_once()
             exists_mock.assert_called_once()
-            assert pathlib.Path(
-                experiment_test_1_artifact_location,
-                run.info.run_id,
-                "artifacts",
-                text_artifact.artifact_name,
-            ).exists()
+            copyfile_mock.assert_called_once_with(
+                text_artifact.artifact_path,
+                pathlib.Path(
+                    experiment_test_1_artifact_location,
+                    run.info.run_id,
+                    "artifacts",
+                    text_artifact.artifact_name,
+                ),
+            )
 
 
 def test_list_artifacts_with_artifact_uri(run_with_artifacts):

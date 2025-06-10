@@ -477,6 +477,8 @@ jobs:
           export HADOOP_HOME=/tmp/winutils/hadoop-3.2.2
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run Windows tests
+          # TODO: Remove before merge
+          pytest tests/artifacts/test_artifacts.py::test_log_artifact_windows_path_with_hostname
           pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
             --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/evaluate --ignore=tests/optuna \
             --ignore=tests/pyspark/optuna --ignore=tests/genai tests
