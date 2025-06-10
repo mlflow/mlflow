@@ -504,11 +504,11 @@ const config: Config = {
 
           // Evaluation and Monitoring Redirects
           {
-            to: "/genai/eval-monitor",
+            to: "/genai/eval-monitor/llm-evaluation",
             from: ["/llms/llm-evaluate"],
           },
           {
-            to: "/genai/eval-monitor/quickstart",
+            to: "/genai/eval-monitor/notebooks",
             from: [
               "/llms/llm-evaluate/notebooks",
               "/llms/llm-evaluate/notebooks/huggingface-evaluation",
