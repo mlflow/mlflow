@@ -437,13 +437,33 @@ def test_load_prompt_with_link_to_model_disabled():
     # Register a prompt
     mlflow.register_prompt(name="test_prompt", template="Hello, {{name}}!")
 
-    # Load prompt with link_to_model=False - should work without any model
-    prompt = mlflow.load_prompt("test_prompt", version=1, link_to_model=False)
+    # Create a logged model and set it as active
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            python_model=lambda x: x,
+            name="model",
+            pip_requirements=["mlflow"],
+        )
+        mlflow.set_active_model(model_info.model_id)
 
-    # Verify prompt was loaded correctly
-    assert prompt.name == "test_prompt"
-    assert prompt.version == 1
-    assert prompt.template == "Hello, {{name}}!"
+        # Load prompt with link_to_model=False - should not link despite active model
+        prompt = mlflow.load_prompt("test_prompt", version=1, link_to_model=False)
+
+        # Verify prompt was loaded correctly
+        assert prompt.name == "test_prompt"
+        assert prompt.version == 1
+        assert prompt.template == "Hello, {{name}}!"
+
+        # Give any potential background linking thread time to complete (it shouldn't run)
+        time.sleep(5)
+
+        # Verify the model does NOT have any linked prompts tag
+        client = mlflow.MlflowClient()
+        model = client.get_logged_model(model_info.model_id)
+        linked_prompts_tag = model.tags.get("mlflow.linkedPrompts")
+        assert linked_prompts_tag is None, (
+            "Model should not have linkedPrompts tag when link_to_model=False"
+        )
 
 
 def test_load_prompt_with_explicit_model_id():
@@ -500,33 +520,29 @@ def test_load_prompt_with_active_model_integration():
             pip_requirements=["mlflow"],
         )
 
-        # Set active model context
-        with mock.patch(
-            "mlflow.tracking._model_registry.fluent.get_active_model_id",
-            return_value=model_info.model_id,
-        ):
-            # Load prompt with link_to_model=True - should use active model
-            prompt = mlflow.load_prompt("test_prompt", version=1, link_to_model=True)
+        mlflow.set_active_model(model_info.model_id)
+        # Load prompt with link_to_model=True - should use active model
+        prompt = mlflow.load_prompt("test_prompt", version=1, link_to_model=True)
 
-            # Verify prompt was loaded correctly
-            assert prompt.name == "test_prompt"
-            assert prompt.version == 1
-            assert prompt.template == "Hello, {{name}}!"
+        # Verify prompt was loaded correctly
+        assert prompt.name == "test_prompt"
+        assert prompt.version == 1
+        assert prompt.template == "Hello, {{name}}!"
 
-            # Give background linking thread time to complete
-            time.sleep(5)
+        # Give background linking thread time to complete
+        time.sleep(5)
 
-            # Verify the model has the linked prompt in its tags
-            client = mlflow.MlflowClient()
-            model = client.get_logged_model(model_info.model_id)
-            linked_prompts_tag = model.tags.get("mlflow.linkedPrompts")
-            assert linked_prompts_tag is not None
+        # Verify the model has the linked prompt in its tags
+        client = mlflow.MlflowClient()
+        model = client.get_logged_model(model_info.model_id)
+        linked_prompts_tag = model.tags.get("mlflow.linkedPrompts")
+        assert linked_prompts_tag is not None
 
-            # Parse the JSON tag value
-            linked_prompts = json.loads(linked_prompts_tag)
-            assert len(linked_prompts) == 1
-            assert linked_prompts[0]["name"] == "test_prompt"
-            assert linked_prompts[0]["version"] == "1"
+        # Parse the JSON tag value
+        linked_prompts = json.loads(linked_prompts_tag)
+        assert len(linked_prompts) == 1
+        assert linked_prompts[0]["name"] == "test_prompt"
+        assert linked_prompts[0]["version"] == "1"
 
 
 def test_load_prompt_with_no_active_model():
@@ -587,39 +603,36 @@ def test_load_prompt_explicit_model_id_overrides_active_model():
             pip_requirements=["mlflow"],
         )
 
-    # Mock active model context but provide explicit model_id - explicit should win
-    with mock.patch(
-        "mlflow.tracking._model_registry.fluent.get_active_model_id",
-        return_value=active_model.model_id,
-    ):
-        prompt = mlflow.load_prompt(
-            "test_prompt", version=1, link_to_model=True, model_id=explicit_model.model_id
-        )
+    # Set active model context but provide explicit model_id - explicit should win
+    mlflow.set_active_model(active_model.model_id)
+    prompt = mlflow.load_prompt(
+        "test_prompt", version=1, link_to_model=True, model_id=explicit_model.model_id
+    )
 
-        # Verify prompt was loaded correctly (explicit model_id should be used)
-        assert prompt.name == "test_prompt"
-        assert prompt.version == 1
-        assert prompt.template == "Hello, {{name}}!"
+    # Verify prompt was loaded correctly (explicit model_id should be used)
+    assert prompt.name == "test_prompt"
+    assert prompt.version == 1
+    assert prompt.template == "Hello, {{name}}!"
 
-        # Give background linking thread time to complete
-        time.sleep(0.5)
+    # Give background linking thread time to complete
+    time.sleep(5)
 
-        # Verify the EXPLICIT model (not active model) has the linked prompt in its tags
-        client = mlflow.MlflowClient()
-        explicit_model_data = client.get_logged_model(explicit_model.model_id)
-        linked_prompts_tag = explicit_model_data.tags.get("mlflow.linkedPrompts")
-        assert linked_prompts_tag is not None
+    # Verify the EXPLICIT model (not active model) has the linked prompt in its tags
+    client = mlflow.MlflowClient()
+    explicit_model_data = client.get_logged_model(explicit_model.model_id)
+    linked_prompts_tag = explicit_model_data.tags.get("mlflow.linkedPrompts")
+    assert linked_prompts_tag is not None
 
-        # Parse the JSON tag value
-        linked_prompts = json.loads(linked_prompts_tag)
-        assert len(linked_prompts) == 1
-        assert linked_prompts[0]["name"] == "test_prompt"
-        assert linked_prompts[0]["version"] == "1"
+    # Parse the JSON tag value
+    linked_prompts = json.loads(linked_prompts_tag)
+    assert len(linked_prompts) == 1
+    assert linked_prompts[0]["name"] == "test_prompt"
+    assert linked_prompts[0]["version"] == "1"
 
-        # Verify the active model does NOT have the linked prompt
-        active_model_data = client.get_logged_model(active_model.model_id)
-        active_linked_prompts_tag = active_model_data.tags.get("mlflow.linkedPrompts")
-        assert active_linked_prompts_tag is None
+    # Verify the active model does NOT have the linked prompt
+    active_model_data = client.get_logged_model(active_model.model_id)
+    active_linked_prompts_tag = active_model_data.tags.get("mlflow.linkedPrompts")
+    assert active_linked_prompts_tag is None
 
 
 def test_load_prompt_with_tracing_single_prompt():
@@ -666,30 +679,32 @@ def test_load_prompt_with_tracing_single_prompt():
 
 
 def test_load_prompt_with_tracing_multiple_prompts():
-    """Test that load_prompt properly links multiple prompts to one trace."""
+    """Test that load_prompt properly links multiple versions of the same prompt to one trace."""
 
-    # Register multiple prompts
-    mlflow.register_prompt(name="greeting_prompt", template="Hello, {{name}}!")
-    mlflow.register_prompt(name="farewell_prompt", template="Goodbye, {{name}}!")
-    mlflow.register_prompt(name="question_prompt", template="How are you, {{name}}?")
+    # Register one prompt with multiple versions
+    mlflow.register_prompt(name="my_prompt", template="Hello, {{name}}!")
+    mlflow.register_prompt(name="my_prompt", template="Hi there, {{name}}! How are you?")
 
-    # Start tracing and load multiple prompts
-    with mlflow.start_span("multi_prompt_operation") as span:
-        prompt1 = mlflow.load_prompt("greeting_prompt", version=1, link_to_model=False)
-        prompt2 = mlflow.load_prompt("farewell_prompt", version=1, link_to_model=False)
-        prompt3 = mlflow.load_prompt("question_prompt", version=1, link_to_model=False)
+    # Start tracing and load multiple versions of the same prompt
+    with mlflow.start_span("multi_version_prompt_operation") as span:
+        prompt_v1 = mlflow.load_prompt("my_prompt", version=1, link_to_model=False)
+        prompt_v2 = mlflow.load_prompt("my_prompt", version=2, link_to_model=False)
 
         # Verify prompts were loaded correctly
-        assert prompt1.name == "greeting_prompt"
-        assert prompt2.name == "farewell_prompt"
-        assert prompt3.name == "question_prompt"
+        assert prompt_v1.name == "my_prompt"
+        assert prompt_v1.version == 1
+        assert prompt_v1.template == "Hello, {{name}}!"
+
+        assert prompt_v2.name == "my_prompt"
+        assert prompt_v2.version == 2
+        assert prompt_v2.template == "Hi there, {{name}}! How are you?"
 
     # Manually trigger prompt linking to trace since in test environment
     # the trace export may not happen automatically
     client = mlflow.MlflowClient()
     prompt_versions = [
         PromptVersion(
-            name="greeting_prompt",
+            name="my_prompt",
             version=1,
             template="Hello, {{name}}!",
             commit_message=None,
@@ -697,17 +712,9 @@ def test_load_prompt_with_tracing_multiple_prompts():
             creation_timestamp=None,
         ),
         PromptVersion(
-            name="farewell_prompt",
-            version=1,
-            template="Goodbye, {{name}}!",
-            commit_message=None,
-            version_metadata={},
-            creation_timestamp=None,
-        ),
-        PromptVersion(
-            name="question_prompt",
-            version=1,
-            template="How are you, {{name}}?",
+            name="my_prompt",
+            version=2,
+            template="Hi there, {{name}}! How are you?",
             commit_message=None,
             version_metadata={},
             creation_timestamp=None,
@@ -715,7 +722,7 @@ def test_load_prompt_with_tracing_multiple_prompts():
     ]
     client.link_prompt_versions_to_trace(trace_id=span.trace_id, prompts=prompt_versions)
 
-    # Verify all prompts were linked to the same trace by checking the actual trace
+    # Verify both versions were linked to the same trace by checking the actual trace
     trace = mlflow.get_trace(span.trace_id)
     assert trace is not None
 
@@ -725,16 +732,17 @@ def test_load_prompt_with_tracing_multiple_prompts():
 
     # Parse the JSON tag value
     linked_prompts = json.loads(linked_prompts_tag)
-    assert len(linked_prompts) == 3
+    assert len(linked_prompts) == 2
 
-    # Check that all prompts are present (order may vary)
-    prompt_names = {p["name"] for p in linked_prompts}
-    expected_names = {"greeting_prompt", "farewell_prompt", "question_prompt"}
-    assert prompt_names == expected_names
+    # Check that both versions of the same prompt are present
+    prompt_entries = {(p["name"], p["version"]) for p in linked_prompts}
+    expected_entries = {("my_prompt", "1"), ("my_prompt", "2")}
+    assert prompt_entries == expected_entries
 
-    # Verify all prompts have correct versions
-    for prompt in linked_prompts:
-        assert prompt["version"] == "1"
+    # Verify we have the same prompt name but different versions
+    assert all(p["name"] == "my_prompt" for p in linked_prompts)
+    versions = {p["version"] for p in linked_prompts}
+    assert versions == {"1", "2"}
 
 
 def test_load_prompt_with_tracing_no_active_trace():
