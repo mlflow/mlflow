@@ -2,7 +2,7 @@ import contextlib
 import logging
 import threading
 from dataclasses import dataclass, field
-from typing import Generator, Optional
+from typing import Generator, Optional, Sequence
 
 from mlflow.entities import LiveSpan, Trace, TraceData, TraceInfo
 from mlflow.entities.model_registry import PromptVersion
@@ -35,6 +35,17 @@ class _Trace:
             if span.parent_id is None:
                 return span
         return None
+
+
+@dataclass
+class ManagerTrace:
+    """
+    Public wrapper around a trace and its associated prompts.
+    This provides a clean API that doesn't expose internal _Trace objects.
+    """
+
+    trace: Trace
+    prompts: Sequence[PromptVersion]
 
 
 class InMemoryTraceManager:
@@ -148,14 +159,19 @@ class InMemoryTraceManager:
             if trace:
                 trace.info.trace_metadata[key] = value
 
-    def pop_trace(self, otel_trace_id: int) -> Optional[_Trace]:
+    def pop_trace(self, otel_trace_id: int) -> Optional[ManagerTrace]:
         """
         Pop trace data for the given OpenTelemetry trace ID and
-        return it as a ready-to-publish Trace object.
+        return it as a ManagerTrace wrapper containing the trace and prompts.
         """
         with self._lock:
             mlflow_trace_id = self._otel_id_to_mlflow_trace_id.pop(otel_trace_id, None)
-            return self._traces.pop(mlflow_trace_id, None) if mlflow_trace_id else None
+            internal_trace = self._traces.pop(mlflow_trace_id, None) if mlflow_trace_id else None
+            if internal_trace is None:
+                return None
+            return ManagerTrace(
+                trace=internal_trace.to_mlflow_trace(), prompts=internal_trace.prompts
+            )
 
     def _check_timeout_update(self):
         """

@@ -57,7 +57,7 @@ class MlflowV3SpanExporter(SpanExporter):
                 _logger.debug(f"Trace for span {span} not found. Skipping export.")
                 continue
 
-            trace = manager_trace.to_mlflow_trace()
+            trace = manager_trace.trace
             _set_last_active_trace_id(trace.info.request_id)
 
             # Store mapping from eval request ID to trace ID so that the evaluation

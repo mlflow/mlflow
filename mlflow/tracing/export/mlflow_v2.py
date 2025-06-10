@@ -53,12 +53,12 @@ class MlflowV2SpanExporter(SpanExporter):
                 _logger.debug("Received a non-root span. Skipping export.")
                 continue
 
-            manager_trace = self._trace_manager.pop_trace(span.context.trace_id)
-            if manager_trace is None:
+            managed_trace = self._trace_manager.pop_trace(span.context.trace_id)
+            if managed_trace is None:
                 _logger.debug(f"TraceInfo for span {span} not found. Skipping export.")
                 continue
 
-            trace = manager_trace.to_mlflow_trace()
+            trace = managed_trace.trace
             _set_last_active_trace_id(trace.info.trace_id)
 
             # Store mapping from eval request ID to trace ID so that the evaluation
