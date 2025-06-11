@@ -705,7 +705,20 @@ class ModelRegistryClient:
         """
         return self.store.link_prompt_version_to_model(name, str(version), model_id)
 
-    def link_prompts_to_trace(self, prompt_versions: list[PromptVersion], trace_id: str) -> None:
+    def link_prompt_version_to_run(self, name: str, version: Union[int, str], run_id: str) -> None:
+        """
+        Link a prompt version to a run.
+
+        Args:
+            name: The name of the prompt.
+            version: The version of the prompt.
+            run_id: The ID of the run to link the prompt version to.
+        """
+        return self.store.link_prompt_version_to_run(name, str(version), run_id)
+
+    def link_prompt_versions_to_trace(
+        self, prompt_versions: list[PromptVersion], trace_id: str
+    ) -> None:
         """
         Link multiple prompt versions to a trace.
 
@@ -714,3 +727,38 @@ class ModelRegistryClient:
             trace_id: Trace ID to link the prompt versions to.
         """
         return self.store.link_prompts_to_trace(prompt_versions=prompt_versions, trace_id=trace_id)
+
+    def set_prompt_version_tag(self, name: str, version: str, key: str, value: str) -> None:
+        """
+        Set a tag on a prompt version.
+
+        This method delegates directly to the store, providing full Unity Catalog support
+        when used with Unity Catalog registries.
+
+        Args:
+            name: Name of the prompt.
+            version: Version number of the prompt.
+            key: Tag key.
+            value: Tag value.
+
+        Returns:
+            None
+        """
+        self.store.set_prompt_version_tag(name, version, key, value)
+
+    def delete_prompt_version_tag(self, name: str, version: str, key: str) -> None:
+        """
+        Delete a tag from a prompt version.
+
+        This method delegates directly to the store, providing full Unity Catalog support
+        when used with Unity Catalog registries.
+
+        Args:
+            name: Name of the prompt.
+            version: Version number of the prompt.
+            key: Tag key to delete.
+
+        Returns:
+            None
+        """
+        self.store.delete_prompt_version_tag(name, version, key)

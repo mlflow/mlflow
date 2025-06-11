@@ -1,0 +1,206 @@
+import { APILink } from "@site/src/components/APILink";
+import { Card, CardGroup, SmallLogoCard } from "@site/src/components/Card";
+import Tabs from "@theme/Tabs"
+import TabItem from "@theme/TabItem"
+
+# Automatic Tracing
+
+MLflow Tracing is integrated with various GenAI libraries and provides **one-line automatic tracing** experience for each library (and the combination of them!). This page shows detailed examples to integrate MLflow with popular GenAI libraries.
+
+![Tracing Gateway Video](/images/llms/tracing/tracing-top.gif)
+
+## Supported Integrations
+
+Each integration automatically captures your application's logic and intermediate steps based on your implementation of the authoring framework / SDK. Click on the logo of your library to see the detailed integration guide.
+
+<CardGroup isSmall>
+  <SmallLogoCard link="/genai/tracing/integrations/listing/langchain">
+    <span>![LangChain Logo](/images/logos/langchain-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/genai/tracing/integrations/listing/langgraph">
+    <span>![LangGraph Logo](/images/logos/langgraph-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/genai/tracing/integrations/listing/llama_index">
+    <span>![LlamaIndex Logo](/images/logos/llamaindex-logo.svg)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/genai/tracing/integrations/listing/dspy">
+    <span>![DSPy Logo](/images/logos/dspy-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/genai/tracing/integrations/listing/openai">
+    <span>![OpenAI Logo](/images/logos/openai-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/genai/tracing/integrations/listing/openai-agent">
+    <span>![OpenAI Logo](/images/logos/openai-agent-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/genai/tracing/integrations/listing/swarm">
+    <span>![OpenAI Swarm Logo](/images/logos/openai-swarm-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/genai/tracing/integrations/listing/deepseek">
+    <span>![DeepSeek Logo](/images/logos/deepseek-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/genai/tracing/integrations/listing/bedrock">
+    <span>![Bedrock Logo](/images/logos/bedrock-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/genai/tracing/integrations/listing/autogen">
+    <span>![AutoGen Logo](/images/logos/autogen-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/genai/tracing/integrations/listing/ag2">
+    <span>![AG2 Logo](/images/logos/ag2-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/genai/tracing/integrations/listing/gemini">
+    <span>![Gemini Logo](/images/logos/google-gemini-logo.svg)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/genai/tracing/integrations/listing/litellm">
+    <span>![LiteLLM Logo](/images/logos/litellm-logo.jpg)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/genai/tracing/integrations/listing/anthropic">
+    <span>![Anthropic Logo](/images/logos/anthropic-logo.svg)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/genai/tracing/integrations/listing/crewai">
+    <span>![CrewAI Logo](/images/logos/crewai-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/genai/tracing/integrations/listing/ollama">
+    <span>![Ollama Logo](/images/logos/ollama-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/genai/tracing/integrations/listing/groq">
+    <span>![Groq Logo](/images/logos/groq-logo.svg)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/genai/tracing/integrations/listing/mistral">
+    <span>![Groq Logo](/images/logos/mistral-ai-logo.svg)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/genai/tracing/integrations/listing/instructor">
+    <span>![Instructor Logo](/images/logos/instructor-logo.svg)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/genai/tracing/integrations/listing/txtai">
+    <span>![txtai Logo](/images/logos/txtai-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/genai/tracing/integrations/listing/smolagents">
+    <span>![Smolagents Logo](/images/logos/smolagents-logo.png)</span>
+  </SmallLogoCard>
+  <SmallLogoCard link="/genai/tracing/integrations/listing/pydantic_ai">
+    <span>![PydanticAI Logo](/images/logos/pydanticai-logo.png)</span>
+  </SmallLogoCard>
+</CardGroup>
+<br />
+Below are quick-start examples for some of the most popular integrations. Remember to install the necessary packages for each library you intend to use (e.g., `pip install openai langchain langgraph anthropic dspy`).
+
+
+## Combining Manual and Automatic Tracing
+
+The `@mlflow.trace` decorator can be used in conjunction with auto tracing to create powerful, integrated traces. This is particularly useful for:
+
+1. 🔄 **Complex workflows** that involve multiple LLM calls
+2. 🤖 **Multi-agent systems** where different agents use different LLM providers
+3. 🔗 **Chaining multiple LLM calls** together with custom logic in between
+
+### Basic Example
+
+Here's a simple example that combines OpenAI auto-tracing with manually defined spans:
+
+```python
+import mlflow
+import openai
+from mlflow.entities import SpanType
+
+mlflow.openai.autolog()
+
+
+@mlflow.trace(span_type=SpanType.CHAIN)
+def run(question):
+    messages = build_messages(question)
+    # MLflow automatically generates a span for OpenAI invocation
+    response = openai.OpenAI().chat.completions.create(
+        model="gpt-4o-mini",
+        max_tokens=100,
+        messages=messages,
+    )
+    return parse_response(response)
+
+
+@mlflow.trace
+def build_messages(question):
+    return [
+        {"role": "system", "content": "You are a helpful chatbot."},
+        {"role": "user", "content": question},
+    ]
+
+
+@mlflow.trace
+def parse_response(response):
+    return response.choices[0].message.content
+
+
+run("What is MLflow?")
+```
+
+Running this code generates a single trace that combines the manual spans with the automatic OpenAI tracing.
+
+### Multi-Framework Example
+
+You can also combine different LLM providers in a single trace. For example:
+
+:::note
+This example requires installing LangChain in addition to the base requirements:
+
+```bash
+pip install --upgrade langchain langchain-openai
+```
+:::
+
+```python
+import mlflow
+import openai
+from mlflow.entities import SpanType
+from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
+
+# Enable auto-tracing for both OpenAI and LangChain
+mlflow.openai.autolog()
+mlflow.langchain.autolog()
+
+
+@mlflow.trace(span_type=SpanType.CHAIN)
+def multi_provider_workflow(query: str):
+    # First, use OpenAI directly for initial processing
+    analysis = openai.OpenAI().chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "Analyze the query and extract key topics."},
+            {"role": "user", "content": query},
+        ],
+    )
+    topics = analysis.choices[0].message.content
+
+    # Then use LangChain for structured processing
+    llm = ChatOpenAI(model="gpt-4o-mini")
+    prompt = ChatPromptTemplate.from_template(
+        "Based on these topics: {topics}\nGenerate a detailed response to: {query}"
+    )
+    chain = prompt | llm
+    response = chain.invoke({"topics": topics, "query": query})
+
+    return response
+
+
+# Run the function
+result = multi_provider_workflow("Explain quantum computing")
+```
+
+## Disabling Tracing
+
+To **disable** tracing, the <APILink fn="mlflow.tracing.disable" /> API will cease the collection of trace data from within MLflow and will not log
+any data to the MLflow Tracking service regarding traces.
+
+To **enable** tracing (if it had been temporarily disabled), the <APILink fn="mlflow.tracing.enable" /> API will re-enable tracing functionality for instrumented models
+that are invoked.
+
+
+## Next Steps
+
+**[Manual Tracing](/genai/tracing/app-instrumentation/manual-tracing)**: Learn how to add custom tracing to your application logic
+
+**[Integration Guides](/genai/tracing/integrations)**: Explore detailed guides for specific libraries and frameworks
+
+**[Viewing Traces](/genai/tracing/observe-with-traces/ui)**: Learn how to explore and analyze your traces in the MLflow UI
+
+**[Querying Traces](/genai/tracing/search-traces)**: Programmatically search and retrieve trace data for analysis
