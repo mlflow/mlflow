@@ -40,6 +40,7 @@ Bug fixes:
 - [Tracking] Trace search: Avoid spawning threads for span fetching if `include_spans=False` (#15634, @dbczumar)
 - [Tracking] Fix `global_guideline_adherence` (#15572, @artjen)
 - [Model Registry] Log `Resources` from `SystemAuthPolicy` in `CreateModelVersion` (#15485, @aravind-segu)
+- [Models] `ResponsesAgent` interface update (#15601, #15741, @bbqiu)
 
 Breaking changes:
 
@@ -56,7 +57,6 @@ Documentation updates:
 - [Docs] MLflow 3 breaking changes list (#15716, @WeichenXu123)
 - [Docs] Update Lighthouse signup and signin links (#15740, @BenWilson2)
 - [Docs] Document models:/ URIs explicitly in OSS MLflow docs (#15727, @WeichenXu123)
-- [Models] `ResponsesAgent` interface update (#15601, #15741, @bbqiu)
 - [Docs] Spark UDF Doc update (#15586, @WeichenXu123)
 
 Small bug fixes and documentation updates:
