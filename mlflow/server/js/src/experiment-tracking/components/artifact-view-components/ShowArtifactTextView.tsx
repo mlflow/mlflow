@@ -9,6 +9,7 @@ import { ArtifactViewSkeleton } from './ArtifactViewSkeleton';
 import { ArtifactViewErrorState } from './ArtifactViewErrorState';
 import { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
 import { fetchArtifactUnified } from './utils/fetchArtifactUnified';
+import DOMPurify from 'dompurify';
 
 const LARGE_ARTIFACT_SIZE = 100 * 1024;
 
@@ -99,13 +100,19 @@ class ShowArtifactTextView extends Component<Props, State> {
     this.props
       .getArtifact?.({ isLoggedModelsMode, loggedModelId, path, runUuid, experimentId }, getArtifactContent)
       .then((text: string) => {
-        this.setState({ text: text, loading: false });
+        const sanitizedText = sanitizeTextContent(text);
+        this.setState({ text: sanitizedText, loading: false });
       })
       .catch((error: Error) => {
         this.setState({ error: error, loading: false });
       });
     this.setState({ path: this.props.path });
   }
+}
+
+export function sanitizeTextContent(text: string): string {
+  if (!text) return '';
+  return DOMPurify.sanitize(text, { RETURN_DOM_TEXT: true });
 }
 
 export function prettifyArtifactText(language: string, rawText: string) {

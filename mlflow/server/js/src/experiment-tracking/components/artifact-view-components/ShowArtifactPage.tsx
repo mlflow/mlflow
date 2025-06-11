@@ -15,6 +15,7 @@ import {
   PDF_EXTENSIONS,
   DATA_EXTENSIONS,
   AUDIO_EXTENSIONS,
+  isTextFile,
 } from '../../../common/utils/FileUtils';
 import { getLoggedModelPathsFromTags, getLoggedTablesFromTags } from '../../../common/utils/TagUtils';
 import { ONE_MB } from '../../constants';
@@ -96,8 +97,6 @@ class ShowArtifactPage extends Component<ShowArtifactPageProps> {
           return <ShowArtifactImageView {...commonArtifactProps} />;
         } else if (DATA_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
           return <LazyShowArtifactTableView {...commonArtifactProps} />;
-        } else if (TEXT_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
-          return <ShowArtifactTextView {...commonArtifactProps} size={this.props.size} />;
         } else if (MAP_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
           return <LazyShowArtifactMapView {...commonArtifactProps} />;
         } else if (HTML_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
@@ -106,6 +105,9 @@ class ShowArtifactPage extends Component<ShowArtifactPageProps> {
           return <LazyShowArtifactPdfView {...commonArtifactProps} />;
         } else if (AUDIO_EXTENSIONS.has(normalizedExtension.toLowerCase())) {
           return <LazyShowArtifactAudioView {...commonArtifactProps} />;
+        } else if (TEXT_EXTENSIONS.has(normalizedExtension.toLowerCase()) || isTextFile(this.props.path, undefined, this.props.size)) {
+          // Fall back to text view for files that appear to be text based on extension or size
+          return <ShowArtifactTextView {...commonArtifactProps} size={this.props.size} />;
         }
       }
     }
@@ -131,7 +133,7 @@ const getSelectFileView = () => {
         }
         description={
           <FormattedMessage
-            defaultMessage="Supported formats: image, text, html, pdf, audio, geojson files"
+            defaultMessage="Supported formats: image, text, html, pdf, audio, geojson files and arbitrary plain text"
             description="Text to explain users which formats are supported to display the artifacts"
           />
         }
