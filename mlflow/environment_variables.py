@@ -835,3 +835,28 @@ MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT = _BooleanEnvironmentVariable(
 MLFLOW_LOCK_MODEL_DEPENDENCIES = _BooleanEnvironmentVariable(
     "MLFLOW_LOCK_MODEL_DEPENDENCIES", False
 )
+
+#: Specifies whether to enable delta archival for trace data to TraceServer.
+#: When set to True, traces will be exported to both MLflow V3 and TraceServer in parallel.
+#: (default: ``False``)
+MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL = _BooleanEnvironmentVariable("MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL", False)
+
+#: Specifies the name of the table to ingest spans into for TraceServer.
+#: This is only used when MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL is set to True.
+#: (default: ``None``)
+MLFLOW_TRACING_DELTA_ARCHIVAL_TABLE = _EnvironmentVariable("MLFLOW_TRACING_DELTA_ARCHIVAL_TABLE", str, None)
+
+#: Specifies the personal access token for authentication for TraceServer.
+#: This is only used when MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL is set to True.
+#: (default: ``None``)
+MLFLOW_TRACING_DELTA_ARCHIVAL_TOKEN = _EnvironmentVariable("MLFLOW_TRACING_DELTA_ARCHIVAL_TOKEN", str, None)
+
+#: Specifies the URL of the ingest API for TraceServer.
+#: This is only used when MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL is set to True.
+#: (default: ``None``)
+MLFLOW_TRACING_DELTA_ARCHIVAL_INGEST_URL = _EnvironmentVariable("MLFLOW_TRACING_DELTA_ARCHIVAL_INGEST_URL", str, None)
+
+#: Specifies the URL of the Databricks workspace for TraceServer.
+#: This is only used when MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL is set to True.
+#: (default: ``None``)
+MLFLOW_TRACING_DELTA_ARCHIVAL_WORKSPACE_URL = _EnvironmentVariable("MLFLOW_TRACING_DELTA_ARCHIVAL_WORKSPACE_URL", str, None)
