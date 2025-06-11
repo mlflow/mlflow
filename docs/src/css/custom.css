@@ -528,6 +528,16 @@ html[data-theme='dark'] .menu__link--active {
  * 5. Content Navigation
  * -------------------------------- */
 
+/* Align breadcrumb items */
+ .breadcrumbs {
+   display: flex;
+ }
+
+ .breadcrumbs__item {
+   display: inline-flex;
+   align-items: center;
+ }
+
 /* Breadcrumbs - make uniform with the link color scheme */
 .breadcrumbs__link {
   color: var(--ifm-border-color);
@@ -813,4 +823,15 @@ th {
 .footer__copyright {
   margin-top: 2rem;
   font-size: var(--font-size-body-s);
+}
+
+/* --------------------------------
+ * 15. Documentation body
+ * -------------------------------- */
+[class*='docItemCol'] {
+  padding-inline: 2rem;
+}
+
+.col--3 {
+  padding-left: 0;
 }
