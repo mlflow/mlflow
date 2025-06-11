@@ -522,6 +522,16 @@ html[data-theme='dark'] .menu__link--active {
  * 5. Content Navigation
  * -------------------------------- */
 
+/* Align breadcrumb items */
+ .breadcrumbs {
+   display: flex;
+ }
+
+ .breadcrumbs__item {
+   display: inline-flex;
+   align-items: center;
+ }
+
 /* Breadcrumbs - make uniform with the link color scheme */
 .breadcrumbs__link {
   color: var(--ifm-border-color);
