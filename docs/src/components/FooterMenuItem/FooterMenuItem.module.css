@@ -1,5 +1,5 @@
 .link {
-  color: white;
+  color: rgb(255 255 255 / 80%);
   font-size: 15px;
   font-weight: 500;
   text-decoration: none;
@@ -10,5 +10,5 @@
 }
 
 .link:visited {
-  color: white;
+  color: rgb(255 255 255 / 80%);
 }
