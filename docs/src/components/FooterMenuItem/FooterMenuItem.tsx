@@ -1,12 +1,15 @@
 import Link from "@docusaurus/Link";
-import { ComponentProps } from "react";
+import { ComponentProps, ReactNode } from "react";
 import { cx } from "class-variance-authority";
 
 interface FooterMenuItemProps extends ComponentProps<typeof Link> {
   isDarkMode: boolean;
+  children: ReactNode;
+  className?: string;
+  href: string;
 }
 
-export const FooterMenuItem = ({ className, isDarkMode, ...props }: FooterMenuItemProps) => {
+export const FooterMenuItem = ({ className, isDarkMode, children, ...props }: FooterMenuItemProps) => {
   return (
     <div className="min-w-[120px]">
       <Link 
@@ -16,7 +19,9 @@ export const FooterMenuItem = ({ className, isDarkMode, ...props }: FooterMenuIt
           isDarkMode ? "text-white visited:text-white" : "text-black visited:text-black",
           className
         )} 
-      />
+      >
+        {children}
+      </Link>
     </div>
   );
 };
