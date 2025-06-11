@@ -808,3 +808,14 @@ th {
   margin-top: 2rem;
   font-size: var(--font-size-body-s);
 }
+
+/* --------------------------------
+ * 15. Documentation body
+ * -------------------------------- */
+[class*='docItemCol'] {
+  padding-inline: 2rem;
+}
+
+.col--3 {
+  padding-left: 0;
+}
