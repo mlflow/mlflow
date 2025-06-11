@@ -261,6 +261,11 @@ const config: Config = {
             to: "/",
             from: ["/new-features"],
           },
+          // Redirect old mlflow 3 page to new website
+          {
+            to: "/",
+            from: ["/ml/mlflow-3"],
+          },
           // GenAI/LLM Related Redirects
           {
             to: "/genai/tracing",
