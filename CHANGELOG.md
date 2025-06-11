@@ -6,7 +6,7 @@ MLflow 3.0.0 includes several major features and improvements
 
 Breaking changes:
 
-- [] Do not log SHAP explainer in `mlflow.evalaute` (#15827, @harupy)
+- [Tracking] Do not log SHAP explainer in `mlflow.evalaute` (#15827, @harupy)
 - [Tracking] Update DataFrame schema returned from `mlflow.search_trace()` to be V3 format (#15643, @B-Step62)
 - [Tracking] Emit a warning for `mlflow.get_artifact_uri()` usage outside active run (#12902, @Shashank1202)
 
@@ -18,18 +18,18 @@ Features:
 - [Tracking] Record notebook and git metadata in trace metadata (#15650, @B-Step62)
 - [Model Registry] Added search prompts function to list all the prompts registered (#15445, @joelrobin18)
 - [Models] Add compression to pyfunc log model (#14700, @antbbn)
-- [] Gemini AI Gateway - Chat completion and completion + Unit Test  (#15069, @joelrobin18)
+- [Gateway] Gemini AI Gateway - Chat completion and completion + Unit Test  (#15069, @joelrobin18)
 - [Tracking] PydanticAI Autologging (#15553, @joelrobin18)
 - [Tracking] Support setting databricks auth profile by 'DATABRICKS_CONFIG_PROFILE' environ variable. (#15587, @WeichenXu123)
 - [Tracking] create mlflow tracing for smolagents (#15574, @y-okt)
 - [Tracking] Merge Tracing SDK feature branch (#15561, @B-Step62)
-- [] MLflow 3.0 (#13211, @harupy)
+- [Tracking] MLflow 3.0 (#13211, @harupy)
 - [Artifacts / UI] Support for video artifacts (#15518, @joelrobin18)
 - [Model Registry] Added allow_missing parameter in load_prompt (#15371, @joelrobin18)
 
 Bug fixes:
 
-- [] Improve error handling if tracking uri is not set when running 'mlflow gc' (#11773, @oleg-z)
+- [Tracking] Improve error handling if tracking uri is not set when running 'mlflow gc' (#11773, @oleg-z)
 - [Tracking] Trace search: Avoid spawning threads for span fetching if include_spans=False (#15634, @dbczumar)
 - [Tracking] Fix global_guideline_adherence (#15572, @artjen)
 
