@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## 3.1.0 (2025-06-11)
+
+MLflow 3.1.0 includes several major features and improvements
+
+Small bug fixes and documentation updates:
+
+
+
 ## 3.0.0 (2025-06-10)
 
 MLflow 3.0.0 includes several major features and improvements
