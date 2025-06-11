@@ -351,3 +351,6 @@ filterwarnings = [
   "error::pytest.PytestCollectionWarning",
 ]
 timeout = 1200
+markers = [
+    "categorical: marks tests as related to categorical data type support",
+]

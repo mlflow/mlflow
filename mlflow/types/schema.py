@@ -11,6 +11,7 @@ from enum import Enum
 from typing import Any, Optional, TypedDict, Union, get_args, get_origin
 
 import numpy as np
+import pandas as pd
 
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
@@ -76,6 +77,8 @@ class DataType(Enum):
         dt.date,
     )
     """64b datetime data."""
+    category = (9, np.dtype("object"), "StringType", pd.CategoricalDtype, str)
+    """Pandas Categorical data."""
 
     def __repr__(self):
         return self.name
@@ -109,6 +112,8 @@ class DataType(Enum):
             types.extend([np.datetime64, dt.datetime])
         if data_type.name == "binary":
             types.append(bytearray)
+        if data_type.name == "category":
+            types.append(pd.CategoricalDtype)
         if type(value) in types:
             return True
         if HAS_PYSPARK:
@@ -125,7 +130,20 @@ class DataType(Enum):
 
     @classmethod
     def from_numpy_type(cls, np_type):
+        # Handle pandas object dtype for strings
+        if np_type == np.dtype("O"):
+            return cls.string
         return next((v for v in cls._member_map_.values() if v.to_numpy() == np_type), None)
+
+    @classmethod
+    def from_type(cls, type_obj):
+        """
+        Get the MLflow DataType corresponding to the given Python type object.
+        This method handles pandas-specific types like CategoricalDtype.
+        """
+        if isinstance(type_obj, pd.CategoricalDtype):
+            return cls.category
+        return cls.from_numpy_type(np.dtype(type_obj))
 
 
 class BaseType(ABC):
@@ -1362,6 +1380,7 @@ def _map_field_type(field):
         str: "string",
         bytes: "binary",
         dt.date: "datetime",
+        pd.CategoricalDtype: "category", # Add mapping for pandas CategoricalDtype
     }
     return field_type_mapping.get(field)
 

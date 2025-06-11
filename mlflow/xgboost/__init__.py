@@ -419,13 +419,21 @@ def _wrapped_xgboost_model_predict_fn(model, validate_features=True):
     Wraps the predict method of the raw model to accept a DataFrame as input.
     """
     import xgboost as xgb
+    import pandas as pd # Import pandas to check dtypes
 
     if isinstance(model, xgb.Booster):
         # we need to wrap the predict function to accept data in pandas format
         def wrapped_predict_fn(data, *args, **kwargs):
             filtered_kwargs = _exclude_unrecognized_kwargs(model.predict, kwargs)
+
+            # Check if any column in the DataFrame is of CategoricalDtype
+            # This is crucial for conditionally passing enable_categorical=True
+            enable_categorical_param = {}
+            if isinstance(data, pd.DataFrame) and any(isinstance(dtype, pd.CategoricalDtype) for dtype in data.dtypes):
+                enable_categorical_param["enable_categorical"] = True
+
             return model.predict(
-                xgb.DMatrix(data), *args, validate_features=validate_features, **filtered_kwargs
+                xgb.DMatrix(data, **enable_categorical_param), *args, validate_features=validate_features, **filtered_kwargs
             )
 
         return wrapped_predict_fn
@@ -742,7 +750,12 @@ def autolog(
                 return input_example_info.input_example
 
             def infer_model_signature(input_example):
-                model_output = model.predict(xgboost.DMatrix(input_example))
+                # Pass enable_categorical=True when creating DMatrix for prediction during signature inference
+                # Conditionally pass enable_categorical=True based on input_example dtypes
+                dmatrix_kwargs = {}
+                if isinstance(input_example, pd.DataFrame) and any(isinstance(dtype, pd.CategoricalDtype) for dtype in input_example.dtypes):
+                    dmatrix_kwargs["enable_categorical"] = True
+                model_output = model.predict(xgboost.DMatrix(input_example, **dmatrix_kwargs))
                 return infer_signature(input_example, model_output)
 
             # Only log the model if the autolog() param log_models is set to True.
