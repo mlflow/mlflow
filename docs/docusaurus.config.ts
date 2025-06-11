@@ -53,7 +53,7 @@ const config: Config = {
     },
   ],
 
-  themes: ["@docusaurus/theme-mermaid"],
+  themes: ['@docusaurus/theme-mermaid'],
   markdown: {
     mermaid: true,
   },
@@ -77,27 +77,29 @@ const config: Config = {
     ],
   ],
 
-  clientModules: [require.resolve("./src/docusaurus.theme.js")],
+  clientModules: [
+    require.resolve('./src/docusaurus.theme.js'),
+  ],
 
   themeConfig: {
     mermaid: {
-      theme: { light: "neutral", dark: "dark" },
+      theme: { light: 'neutral', dark: 'dark' },
       options: {
-        fontFamily: "inherit",
+        fontFamily: 'inherit',
         fontSize: 16,
       },
     },
     ...(process.env.PR_PREVIEW
       ? {
-          announcementBar: {
-            id: "pr_preview",
-            content:
-              "<strong>⚠️ Reloading the page causes a 404 error. Add /index.html to the URL to avoid it ⚠️</strong>",
-            backgroundColor: "#0194e2",
-            textColor: "#ffffff",
-            isCloseable: true,
-          },
-        }
+        announcementBar: {
+          id: "pr_preview",
+          content:
+            "<strong>⚠️ Reloading the page causes a 404 error. Add /index.html to the URL to avoid it ⚠️</strong>",
+          backgroundColor: "#0194e2",
+          textColor: "#ffffff",
+          isCloseable: true,
+        },
+      }
       : {}),
     navbar: {
       logo: {
@@ -126,7 +128,7 @@ const config: Config = {
               docsPluginId: "genai",
               className: "genai-docs-link",
             },
-          ],
+          ]
         },
         {
           to: `${apiReferencePrefix()}api_reference/index.html`,
@@ -225,7 +227,10 @@ const config: Config = {
         path: "docs/classic-ml",
         routeBasePath: "ml",
         sidebarPath: "./sidebarsClassicML.ts",
-        async sidebarItemsGenerator({ defaultSidebarItemsGenerator, ...args }) {
+        async sidebarItemsGenerator({
+          defaultSidebarItemsGenerator,
+          ...args
+        }) {
           const sidebarItems = await defaultSidebarItemsGenerator(args);
           return postProcessSidebar(sidebarItems);
         },
@@ -239,7 +244,10 @@ const config: Config = {
         path: "docs/genai",
         routeBasePath: "genai",
         sidebarPath: "./sidebarsGenAI.ts",
-        async sidebarItemsGenerator({ defaultSidebarItemsGenerator, ...args }) {
+        async sidebarItemsGenerator({
+          defaultSidebarItemsGenerator,
+          ...args
+        }) {
           const sidebarItems = await defaultSidebarItemsGenerator(args);
           return postProcessSidebar(sidebarItems);
         },
@@ -256,12 +264,7 @@ const config: Config = {
           // GenAI/LLM Related Redirects
           {
             to: "/genai/tracing",
-            from: [
-              "/llms/llm-tracking",
-              "/tracing",
-              "/llms/tracing",
-              "/tracing/api/how-to",
-            ],
+            from: ["/llms/llm-tracking", "/tracing", "/llms/tracing", "/tracing/api/how-to"],
           },
           {
             to: "/genai/tracing/faq",
@@ -301,10 +304,7 @@ const config: Config = {
           },
           {
             to: "/genai/tracing/integrations/contribute",
-            from: [
-              "/tracing/integrations/contribute",
-              "/llms/tracing/contribute",
-            ],
+            from: ["/tracing/integrations/contribute", "/llms/tracing/contribute"],
           },
           {
             to: "/genai/tracing/integrations/listing/anthropic",
@@ -316,10 +316,7 @@ const config: Config = {
           },
           {
             to: "/genai/tracing/integrations/listing/bedrock",
-            from: [
-              "/tracing/integrations/bedrock",
-              "/llms/bedrock/autologging",
-            ],
+            from: ["/tracing/integrations/bedrock", "/llms/bedrock/autologging"],
           },
           {
             to: "/genai/tracing/integrations/listing/crewai",
@@ -387,10 +384,7 @@ const config: Config = {
           },
           {
             to: "/genai",
-            from: [
-              "/tracing/tutorials/jupyter-trace-demo",
-              "/llms/tracing/notebooks/jupyter-trace-demo",
-            ],
+            from: ["/tracing/tutorials/jupyter-trace-demo", "/llms/tracing/notebooks/jupyter-trace-demo"],
           },
           {
             to: "/genai",
@@ -405,8 +399,8 @@ const config: Config = {
               "/llms/rag/notebooks",
               "/llms/rag/notebooks/mlflow-e2e-evaluation",
               "/llms/rag/notebooks/question-generation-retrieval-evaluation",
-              "/llms/rag/notebooks/retriever-evaluation-tutorial",
-            ],
+              "/llms/rag/notebooks/retriever-evaluation-tutorial"
+            ]
           },
           {
             to: "/genai",
@@ -426,16 +420,11 @@ const config: Config = {
           },
           {
             to: "/genai/flavors/custom-pyfunc-for-llms",
-            from: [
-              "/llms/custom-pyfunc-for-llms",
-              "/llms/custom-pyfunc-for-llms/notebooks",
-            ],
+            from: ["/llms/custom-pyfunc-for-llms", "/llms/custom-pyfunc-for-llms/notebooks"],
           },
           {
             to: "/genai/flavors/custom-pyfunc-for-llms/notebooks/custom-pyfunc-advanced-llm",
-            from: [
-              "/llms/custom-pyfunc-for-llms/notebooks/custom-pyfunc-advanced-llm",
-            ],
+            from: ["/llms/custom-pyfunc-for-llms/notebooks/custom-pyfunc-advanced-llm"],
           },
           {
             to: "/genai/flavors/dspy",
@@ -555,33 +544,19 @@ const config: Config = {
           // Governance and Deployments Redirects
           {
             to: "/genai/governance/ai-gateway",
-            from: [
-              "/llms/deployments/",
-              "/llms/gateway/index",
-              "/llms/gateway",
-            ],
+            from: ["/llms/deployments/", "/llms/gateway/index", "/llms/gateway"],
           },
           {
             to: "/genai/governance/ai-gateway/guides",
-            from: [
-              "/llms/deployments/guides",
-              "/llms/gateway/guides/index",
-              "/llms/gateway/guide",
-            ],
+            from: ["/llms/deployments/guides", "/llms/gateway/guides/index", "/llms/gateway/guide"],
           },
           {
             to: "/genai/governance/ai-gateway/guides/step1-create-deployments",
-            from: [
-              "/llms/deployments/guides/step1-create-deployments",
-              "/llms/gateway/guides/step1-create-gateway",
-            ],
+            from: ["/llms/deployments/guides/step1-create-deployments", "/llms/gateway/guides/step1-create-gateway"],
           },
           {
             to: "/genai/governance/ai-gateway/guides/step2-query-deployments",
-            from: [
-              "/llms/deployments/guides/step2-query-deployments",
-              "/llms/gateway/guides/step2-query-gateway",
-            ],
+            from: ["/llms/deployments/guides/step2-query-deployments", "/llms/gateway/guides/step2-query-gateway"],
           },
           {
             to: "/genai/governance/unity-catalog",
@@ -603,11 +578,7 @@ const config: Config = {
           },
           {
             to: "/ml/dataset",
-            from: [
-              "/dataset",
-              "/tracking/data-api/index",
-              "/tracking/data-api",
-            ],
+            from: ["/dataset", "/tracking/data-api/index", "/tracking/data-api"],
           },
           {
             to: "/ml/deep-learning",
@@ -644,26 +615,20 @@ const config: Config = {
           {
             to: "/ml/deep-learning/sentence-transformers/tutorials/paraphrase-mining/paraphrase-mining-sentence-transformers",
             from: [
-              "/llms/sentence-transformers/tutorials/paraphrase-mining/paraphrase-mining-sentence-transformers",
+              "/llms/sentence-transformers/tutorials/paraphrase-mining/paraphrase-mining-sentence-transformers"
             ],
           },
           {
             to: "/ml/deep-learning/sentence-transformers/tutorials/quickstart/sentence-transformers-quickstart",
-            from: [
-              "/llms/sentence-transformers/tutorials/quickstart/sentence-transformers-quickstart",
-            ],
+            from: ["/llms/sentence-transformers/tutorials/quickstart/sentence-transformers-quickstart"],
           },
           {
             to: "/ml/deep-learning/sentence-transformers/tutorials/semantic-search/semantic-search-sentence-transformers",
-            from: [
-              "/llms/sentence-transformers/tutorials/semantic-search/semantic-search-sentence-transformers",
-            ],
+            from: ["/llms/sentence-transformers/tutorials/semantic-search/semantic-search-sentence-transformers"],
           },
           {
             to: "/ml/deep-learning/sentence-transformers/tutorials/semantic-similarity/semantic-similarity-sentence-transformers",
-            from: [
-              "/llms/sentence-transformers/tutorials/semantic-similarity/semantic-similarity-sentence-transformers",
-            ],
+            from: ["/llms/sentence-transformers/tutorials/semantic-similarity/semantic-similarity-sentence-transformers"],
           },
           {
             to: "/ml/deep-learning/sentence-transformers/guide",
@@ -679,9 +644,7 @@ const config: Config = {
           },
           {
             to: "/ml/deep-learning/tensorflow/quickstart/quickstart-tensorflow",
-            from: [
-              "/deep-learning/tensorflow/quickstart/quickstart_tensorflow",
-            ],
+            from: ["/deep-learning/tensorflow/quickstart/quickstart_tensorflow"],
           },
           {
             to: "/ml/deep-learning/transformers",
@@ -709,45 +672,31 @@ const config: Config = {
           },
           {
             to: "/ml/deep-learning/transformers/tutorials/conversational/conversational-model",
-            from: [
-              "/llms/transformers/tutorials/conversational/conversational-model",
-            ],
+            from: ["/llms/transformers/tutorials/conversational/conversational-model"],
           },
           {
             to: "/ml/deep-learning/transformers/tutorials/conversational/pyfunc-chat-model",
-            from: [
-              "/llms/transformers/tutorials/conversational/pyfunc-chat-model",
-            ],
+            from: ["/llms/transformers/tutorials/conversational/pyfunc-chat-model"],
           },
           {
             to: "/ml/deep-learning/transformers/tutorials/fine-tuning/transformers-fine-tuning",
-            from: [
-              "/llms/transformers/tutorials/fine-tuning/transformers-fine-tuning",
-            ],
+            from: ["/llms/transformers/tutorials/fine-tuning/transformers-fine-tuning"],
           },
           {
             to: "/ml/deep-learning/transformers/tutorials/fine-tuning/transformers-peft",
-            from: [
-              "/llms/transformers/tutorials/fine-tuning/transformers-peft",
-            ],
+            from: ["/llms/transformers/tutorials/fine-tuning/transformers-peft"],
           },
           {
             to: "/ml/deep-learning/transformers/tutorials/prompt-templating/prompt-templating",
-            from: [
-              "/llms/transformers/tutorials/prompt-templating/prompt-templating",
-            ],
+            from: ["/llms/transformers/tutorials/prompt-templating/prompt-templating"],
           },
           {
             to: "/ml/deep-learning/transformers/tutorials/text-generation/text-generation",
-            from: [
-              "/llms/transformers/tutorials/text-generation/text-generation",
-            ],
+            from: ["/llms/transformers/tutorials/text-generation/text-generation"],
           },
           {
             to: "/ml/deep-learning/transformers/tutorials/translation/component-translation",
-            from: [
-              "/llms/transformers/tutorials/translation/component-translation",
-            ],
+            from: ["/llms/transformers/tutorials/translation/component-translation"],
           },
           {
             to: "/ml/deployment",
@@ -783,10 +732,7 @@ const config: Config = {
           },
           {
             to: "/ml/getting-started/databricks-trial",
-            from: [
-              "/getting-started/databricks-trial",
-              "/getting-started/community-edition",
-            ],
+            from: ["/getting-started/databricks-trial", "/getting-started/community-edition"],
           },
           {
             to: "/ml/getting-started/hyperparameter-tuning",
@@ -802,15 +748,11 @@ const config: Config = {
           },
           {
             to: "/ml/getting-started/logging-first-model/notebooks/logging-first-model",
-            from: [
-              "/getting-started/logging-first-model/notebooks/logging-first-model",
-            ],
+            from: ["/getting-started/logging-first-model/notebooks/logging-first-model"],
           },
           {
             to: "/ml/getting-started/logging-first-model/step1-tracking-server",
-            from: [
-              "/getting-started/logging-first-model/step1-tracking-server",
-            ],
+            from: ["/getting-started/logging-first-model/step1-tracking-server"],
           },
           {
             to: "/ml/getting-started/logging-first-model/step2-mlflow-client",
@@ -818,15 +760,11 @@ const config: Config = {
           },
           {
             to: "/ml/getting-started/logging-first-model/step3-create-experiment",
-            from: [
-              "/getting-started/logging-first-model/step3-create-experiment",
-            ],
+            from: ["/getting-started/logging-first-model/step3-create-experiment"],
           },
           {
             to: "/ml/getting-started/logging-first-model/step4-experiment-search",
-            from: [
-              "/getting-started/logging-first-model/step4-experiment-search",
-            ],
+            from: ["/getting-started/logging-first-model/step4-experiment-search"],
           },
           {
             to: "/ml/getting-started/logging-first-model/step5-synthetic-data",
@@ -842,15 +780,11 @@ const config: Config = {
           },
           {
             to: "/ml/getting-started/registering-first-model/step1-register-model",
-            from: [
-              "/getting-started/registering-first-model/step1-register-model",
-            ],
+            from: ["/getting-started/registering-first-model/step1-register-model"],
           },
           {
             to: "/ml/getting-started/registering-first-model/step2-explore-registered-model",
-            from: [
-              "/getting-started/registering-first-model/step2-explore-registered-model",
-            ],
+            from: ["/getting-started/registering-first-model/step2-explore-registered-model"],
           },
           {
             to: "/ml/getting-started/registering-first-model/step3-load-model",
@@ -938,17 +872,11 @@ const config: Config = {
           },
           {
             to: "/ml/tracking/quickstart",
-            from: [
-              "/getting-started/intro-quickstart",
-              "/getting-started/intro-quickstart/notebooks",
-              "/quickstart_drilldown",
-            ],
+            from: ["/getting-started/intro-quickstart", "/getting-started/intro-quickstart/notebooks", "/quickstart_drilldown"],
           },
           {
             to: "/ml/tracking/quickstart/notebooks/tracking_quickstart",
-            from: [
-              "/getting-started/intro-quickstart/notebooks/tracking_quickstart",
-            ],
+            from: ["/getting-started/intro-quickstart/notebooks/tracking_quickstart"],
           },
           {
             to: "/ml/tracking/server",
@@ -984,33 +912,23 @@ const config: Config = {
           },
           {
             to: "/ml/traditional-ml/tutorials/creating-custom-pyfunc/notebooks/basic-pyfunc",
-            from: [
-              "/traditional-ml/creating-custom-pyfunc/notebooks/basic-pyfunc",
-            ],
+            from: ["/traditional-ml/creating-custom-pyfunc/notebooks/basic-pyfunc"],
           },
           {
             to: "/ml/traditional-ml/tutorials/creating-custom-pyfunc/notebooks/introduction",
-            from: [
-              "/traditional-ml/creating-custom-pyfunc/notebooks/introduction",
-            ],
+            from: ["/traditional-ml/creating-custom-pyfunc/notebooks/introduction"],
           },
           {
             to: "/ml/traditional-ml/tutorials/creating-custom-pyfunc/notebooks/override-predict",
-            from: [
-              "/traditional-ml/creating-custom-pyfunc/notebooks/override-predict",
-            ],
+            from: ["/traditional-ml/creating-custom-pyfunc/notebooks/override-predict"],
           },
           {
             to: "/ml/traditional-ml/tutorials/creating-custom-pyfunc/part1-named-flavors",
-            from: [
-              "/traditional-ml/creating-custom-pyfunc/part1-named-flavors",
-            ],
+            from: ["/traditional-ml/creating-custom-pyfunc/part1-named-flavors"],
           },
           {
             to: "/ml/traditional-ml/tutorials/creating-custom-pyfunc/part2-pyfunc-components",
-            from: [
-              "/traditional-ml/creating-custom-pyfunc/part2-pyfunc-components",
-            ],
+            from: ["/traditional-ml/creating-custom-pyfunc/part2-pyfunc-components"],
           },
           {
             to: "/ml/traditional-ml/tutorials/hyperparameter-tuning",
@@ -1018,39 +936,27 @@ const config: Config = {
           },
           {
             to: "/ml/traditional-ml/tutorials/hyperparameter-tuning/notebooks",
-            from: [
-              "/traditional-ml/hyperparameter-tuning-with-child-runs/notebooks",
-            ],
+            from: ["/traditional-ml/hyperparameter-tuning-with-child-runs/notebooks"],
           },
           {
             to: "/ml/traditional-ml/tutorials/hyperparameter-tuning/notebooks/hyperparameter-tuning-with-child-runs",
-            from: [
-              "/traditional-ml/hyperparameter-tuning-with-child-runs/notebooks/hyperparameter-tuning-with-child-runs",
-            ],
+            from: ["/traditional-ml/hyperparameter-tuning-with-child-runs/notebooks/hyperparameter-tuning-with-child-runs"],
           },
           {
             to: "/ml/traditional-ml/tutorials/hyperparameter-tuning/notebooks/logging-plots-in-mlflow",
-            from: [
-              "/traditional-ml/hyperparameter-tuning-with-child-runs/notebooks/logging-plots-in-mlflow",
-            ],
+            from: ["/traditional-ml/hyperparameter-tuning-with-child-runs/notebooks/logging-plots-in-mlflow"],
           },
           {
             to: "/ml/traditional-ml/tutorials/hyperparameter-tuning/notebooks/parent-child-runs",
-            from: [
-              "/traditional-ml/hyperparameter-tuning-with-child-runs/notebooks/parent-child-runs",
-            ],
+            from: ["/traditional-ml/hyperparameter-tuning-with-child-runs/notebooks/parent-child-runs"],
           },
           {
             to: "/ml/traditional-ml/tutorials/hyperparameter-tuning/part1-child-runs",
-            from: [
-              "/traditional-ml/hyperparameter-tuning-with-child-runs/part1-child-runs",
-            ],
+            from: ["/traditional-ml/hyperparameter-tuning-with-child-runs/part1-child-runs"],
           },
           {
             to: "/ml/traditional-ml/tutorials/hyperparameter-tuning/part2-logging-plots",
-            from: [
-              "/traditional-ml/hyperparameter-tuning-with-child-runs/part2-logging-plots",
-            ],
+            from: ["/traditional-ml/hyperparameter-tuning-with-child-runs/part2-logging-plots"],
           },
           {
             to: "/ml/traditional-ml/tutorials/serving-multiple-models-with-pyfunc",
@@ -1058,9 +964,7 @@ const config: Config = {
           },
           {
             to: "/ml/traditional-ml/tutorials/serving-multiple-models-with-pyfunc/notebooks/MME_Tutorial",
-            from: [
-              "/traditional-ml/serving-multiple-models-with-pyfunc/notebooks/MME_Tutorial",
-            ],
+            from: ["/traditional-ml/serving-multiple-models-with-pyfunc/notebooks/MME_Tutorial"],
           },
           {
             to: "/ml/tutorials-and-examples",
