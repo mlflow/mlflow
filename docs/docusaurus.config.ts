@@ -139,6 +139,7 @@ const config: Config = {
           href: "https://github.com/mlflow/mlflow",
           label: "GitHub",
           position: "right",
+          className: "github-link",
         },
       ],
     },

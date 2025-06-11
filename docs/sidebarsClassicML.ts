@@ -12,6 +12,7 @@ const sidebarsClassicML: SidebarsConfig = {
     {
       type: 'category',
       label: 'MLflow 3.0',
+      className: 'sidebar-top-level-category',
       items: [
         {
           type: 'doc',
