@@ -4,13 +4,6 @@
 
 MLflow 3.0 includes several major features and improvements
 
-Breaking changes:
-
-- [Tracking] Move prompt registry APIs under `mlflow.genai.prompts` namespace (#16174, @B-Step62)
-- [Model Registry] Default URI to databricks-uc when tracking URI is databricks & registry URI is unspecified (#16135, @dbczumar)
-- [Tracking] Do not log SHAP explainer in `mlflow.evaluate` (#15827, @harupy)
-- [Tracking] Update DataFrame schema returned from `mlflow.search_trace()` to be V3 format (#15643, @B-Step62)
-
 Features:
 
 - [Tracking] MLflow 3.0 (#13211, @harupy)
@@ -48,6 +41,13 @@ Bug fixes:
 - [Tracking] Fix global_guideline_adherence (#15572, @artjen)
 - [Model Registry] Log `Resources` from `SystemAuthPolicy` in `CreateModelVersion` (#15485, @aravind-segu)
 
+Breaking changes:
+
+- [Tracking] Move prompt registry APIs under `mlflow.genai.prompts` namespace (#16174, @B-Step62)
+- [Model Registry] Default URI to databricks-uc when tracking URI is databricks & registry URI is unspecified (#16135, @dbczumar)
+- [Tracking] Do not log SHAP explainer in `mlflow.evaluate` (#15827, @harupy)
+- [Tracking] Update DataFrame schema returned from `mlflow.search_trace()` to be V3 format (#15643, @B-Step62)
+
 Documentation updates:
 
 - [Docs] Documentation revamp for MLflow 3.0 (#15954, @harupy)
@@ -55,7 +55,7 @@ Documentation updates:
 - [Docs] Redesign API reference page (#15811, @besirovic)
 - [Docs] MLflow 3 breaking changes list (#15716, @WeichenXu123)
 - [Docs] Update Lighthouse signup and signin links (#15740, @BenWilson2)
-- [Docs] [DOC-FIX] Document models:/ URIs explicitly in OSS MLflow docs (#15727, @WeichenXu123)
+- [Docs] Document models:/ URIs explicitly in OSS MLflow docs (#15727, @WeichenXu123)
 - [Models] `ResponsesAgent` interface update (#15601, #15741, @bbqiu)
 - [Docs] Spark UDF Doc update (#15586, @WeichenXu123)
 
