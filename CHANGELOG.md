@@ -18,7 +18,7 @@ Features:
 - [Tracking] Record notebook and git metadata in trace metadata (#15650, @B-Step62)
 - [Model Registry] Added search prompts function to list all the prompts registered (#15445, @joelrobin18)
 - [Models] Add compression to pyfunc log model (#14700, @antbbn)
-- [Gateway] Gemini AI Gateway - Chat completion and completion + Unit Test  (#15069, @joelrobin18)
+- [Gateway] Gemini AI Gateway - Chat completion and completion + Unit Test (#15069, @joelrobin18)
 - [Tracking] PydanticAI Autologging (#15553, @joelrobin18)
 - [Tracking] Support setting databricks auth profile by 'DATABRICKS_CONFIG_PROFILE' environ variable. (#15587, @WeichenXu123)
 - [Tracking] create mlflow tracing for smolagents (#15574, @y-okt)
