@@ -4,6 +4,8 @@ import ast
 import re
 from abc import ABC, abstractmethod
 
+from packaging.version import InvalidVersion, Version
+
 
 class Rule(ABC):
     _CLASS_NAME_TO_RULE_NAME_REGEX = re.compile(r"(?<!^)(?=[A-Z])")
@@ -411,9 +413,36 @@ class PytestMarkRepeat(Rule):
         return False
 
 
+def _is_valid_version(version: str) -> bool:
+    try:
+        v = Version(version)
+        return not (v.is_devrelease or v.is_prerelease or v.is_postrelease)
+    except InvalidVersion:
+        return False
+
+
 class NonLiteralExperimentalVersion(Rule):
     def _id(self) -> str:
         return "MLF0024"
 
     def _message(self) -> str:
-        return "The `version` argument of `@experimental` must be a string literal."
+        return (
+            "The `version` argument of `@experimental` must be a string literal that is a valid "
+            "semantic version (e.g., '3.0.0')."
+        )
+
+    @staticmethod
+    def _check(node: ast.expr) -> bool:
+        return (
+            # Check if the node looks like `experimental(version=...)`.
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "experimental"
+            and (val := next(k.value for k in node.keywords if k.arg == "version"), None)
+            and (
+                # Check if the value is not a string literal that is a valid version.
+                not isinstance(val, ast.Constant)
+                or not isinstance(val.value, str)
+                or not _is_valid_version(val.value)
+            )
+        )
