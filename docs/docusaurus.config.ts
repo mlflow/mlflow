@@ -1,10 +1,7 @@
 import { themes as prismThemes } from "prism-react-renderer";
 import type { Config } from "@docusaurus/types";
 import type * as Preset from "@docusaurus/preset-classic";
-import {
-  postProcessSidebar,
-  apiReferencePrefix,
-} from "./docusaurusConfigUtils";
+import { postProcessSidebar, apiReferencePrefix } from "./docusaurusConfigUtils";
 import tailwindPlugin from "./src/plugins/tailwind-config.cjs";
 
 // ensure baseUrl always ends in `/`
@@ -53,7 +50,7 @@ const config: Config = {
     },
   ],
 
-  themes: ['@docusaurus/theme-mermaid'],
+  themes: ["@docusaurus/theme-mermaid"],
   markdown: {
     mermaid: true,
   },
@@ -77,29 +74,27 @@ const config: Config = {
     ],
   ],
 
-  clientModules: [
-    require.resolve('./src/docusaurus.theme.js'),
-  ],
+  clientModules: [require.resolve("./src/docusaurus.theme.js")],
 
   themeConfig: {
     mermaid: {
-      theme: { light: 'neutral', dark: 'dark' },
+      theme: { light: "neutral", dark: "dark" },
       options: {
-        fontFamily: 'inherit',
+        fontFamily: "inherit",
         fontSize: 16,
       },
     },
     ...(process.env.PR_PREVIEW
       ? {
-        announcementBar: {
-          id: "pr_preview",
-          content:
-            "<strong>⚠️ Reloading the page causes a 404 error. Add /index.html to the URL to avoid it ⚠️</strong>",
-          backgroundColor: "#0194e2",
-          textColor: "#ffffff",
-          isCloseable: true,
-        },
-      }
+          announcementBar: {
+            id: "pr_preview",
+            content:
+              "<strong>⚠️ Reloading the page causes a 404 error. Add /index.html to the URL to avoid it ⚠️</strong>",
+            backgroundColor: "#0194e2",
+            textColor: "#ffffff",
+            isCloseable: true,
+          },
+        }
       : {}),
     navbar: {
       logo: {
@@ -128,7 +123,7 @@ const config: Config = {
               docsPluginId: "genai",
               className: "genai-docs-link",
             },
-          ]
+          ],
         },
         {
           to: `${apiReferencePrefix()}api_reference/index.html`,
@@ -144,9 +139,9 @@ const config: Config = {
       ],
     },
     colorMode: {
-      defaultMode: 'dark',
+      defaultMode: "dark",
       disableSwitch: false,
-      respectPrefersColorScheme: true,
+      respectPrefersColorScheme: false,
     },
     footer: {
       links: [
@@ -190,17 +185,7 @@ const config: Config = {
     prism: {
       // There is an array of languages enabled by default.
       // @see https://github.com/FormidableLabs/prism-react-renderer/blob/master/packages/generate-prism-languages/index.ts#L9-L26
-      additionalLanguages: [
-        "bash",
-        "diff",
-        "ini",
-        "java",
-        "nginx",
-        "r",
-        "scala",
-        "sql",
-        "toml",
-      ],
+      additionalLanguages: ["bash", "diff", "ini", "java", "nginx", "r", "scala", "sql", "toml"],
       theme: prismThemes.github,
       darkTheme: prismThemes.dracula,
     },
@@ -232,10 +217,7 @@ const config: Config = {
         path: "docs/classic-ml",
         routeBasePath: "ml",
         sidebarPath: "./sidebarsClassicML.ts",
-        async sidebarItemsGenerator({
-          defaultSidebarItemsGenerator,
-          ...args
-        }) {
+        async sidebarItemsGenerator({ defaultSidebarItemsGenerator, ...args }) {
           const sidebarItems = await defaultSidebarItemsGenerator(args);
           return postProcessSidebar(sidebarItems);
         },
@@ -249,10 +231,7 @@ const config: Config = {
         path: "docs/genai",
         routeBasePath: "genai",
         sidebarPath: "./sidebarsGenAI.ts",
-        async sidebarItemsGenerator({
-          defaultSidebarItemsGenerator,
-          ...args
-        }) {
+        async sidebarItemsGenerator({ defaultSidebarItemsGenerator, ...args }) {
           const sidebarItems = await defaultSidebarItemsGenerator(args);
           return postProcessSidebar(sidebarItems);
         },
@@ -406,7 +385,10 @@ const config: Config = {
           },
           {
             to: "/genai",
-            from: ["/tracing/tutorials/jupyter-trace-demo", "/llms/tracing/notebooks/jupyter-trace-demo"],
+            from: [
+              "/tracing/tutorials/jupyter-trace-demo",
+              "/llms/tracing/notebooks/jupyter-trace-demo",
+            ],
           },
           {
             to: "/genai",
@@ -421,8 +403,8 @@ const config: Config = {
               "/llms/rag/notebooks",
               "/llms/rag/notebooks/mlflow-e2e-evaluation",
               "/llms/rag/notebooks/question-generation-retrieval-evaluation",
-              "/llms/rag/notebooks/retriever-evaluation-tutorial"
-            ]
+              "/llms/rag/notebooks/retriever-evaluation-tutorial",
+            ],
           },
           {
             to: "/genai",
@@ -574,11 +556,17 @@ const config: Config = {
           },
           {
             to: "/genai/governance/ai-gateway/guides/step1-create-deployments",
-            from: ["/llms/deployments/guides/step1-create-deployments", "/llms/gateway/guides/step1-create-gateway"],
+            from: [
+              "/llms/deployments/guides/step1-create-deployments",
+              "/llms/gateway/guides/step1-create-gateway",
+            ],
           },
           {
             to: "/genai/governance/ai-gateway/guides/step2-query-deployments",
-            from: ["/llms/deployments/guides/step2-query-deployments", "/llms/gateway/guides/step2-query-gateway"],
+            from: [
+              "/llms/deployments/guides/step2-query-deployments",
+              "/llms/gateway/guides/step2-query-gateway",
+            ],
           },
           {
             to: "/genai/governance/unity-catalog",
@@ -637,20 +625,26 @@ const config: Config = {
           {
             to: "/ml/deep-learning/sentence-transformers/tutorials/paraphrase-mining/paraphrase-mining-sentence-transformers",
             from: [
-              "/llms/sentence-transformers/tutorials/paraphrase-mining/paraphrase-mining-sentence-transformers"
+              "/llms/sentence-transformers/tutorials/paraphrase-mining/paraphrase-mining-sentence-transformers",
             ],
           },
           {
             to: "/ml/deep-learning/sentence-transformers/tutorials/quickstart/sentence-transformers-quickstart",
-            from: ["/llms/sentence-transformers/tutorials/quickstart/sentence-transformers-quickstart"],
+            from: [
+              "/llms/sentence-transformers/tutorials/quickstart/sentence-transformers-quickstart",
+            ],
           },
           {
             to: "/ml/deep-learning/sentence-transformers/tutorials/semantic-search/semantic-search-sentence-transformers",
-            from: ["/llms/sentence-transformers/tutorials/semantic-search/semantic-search-sentence-transformers"],
+            from: [
+              "/llms/sentence-transformers/tutorials/semantic-search/semantic-search-sentence-transformers",
+            ],
           },
           {
             to: "/ml/deep-learning/sentence-transformers/tutorials/semantic-similarity/semantic-similarity-sentence-transformers",
-            from: ["/llms/sentence-transformers/tutorials/semantic-similarity/semantic-similarity-sentence-transformers"],
+            from: [
+              "/llms/sentence-transformers/tutorials/semantic-similarity/semantic-similarity-sentence-transformers",
+            ],
           },
           {
             to: "/ml/deep-learning/sentence-transformers/guide",
@@ -882,7 +876,11 @@ const config: Config = {
           },
           {
             to: "/ml/tracking/quickstart",
-            from: ["/getting-started/intro-quickstart", "/getting-started/intro-quickstart/notebooks", "/quickstart_drilldown"],
+            from: [
+              "/getting-started/intro-quickstart",
+              "/getting-started/intro-quickstart/notebooks",
+              "/quickstart_drilldown",
+            ],
           },
           {
             to: "/ml/tracking/quickstart/notebooks/tracking_quickstart",
@@ -950,15 +948,21 @@ const config: Config = {
           },
           {
             to: "/ml/traditional-ml/tutorials/hyperparameter-tuning/notebooks/hyperparameter-tuning-with-child-runs",
-            from: ["/traditional-ml/hyperparameter-tuning-with-child-runs/notebooks/hyperparameter-tuning-with-child-runs"],
+            from: [
+              "/traditional-ml/hyperparameter-tuning-with-child-runs/notebooks/hyperparameter-tuning-with-child-runs",
+            ],
           },
           {
             to: "/ml/traditional-ml/tutorials/hyperparameter-tuning/notebooks/logging-plots-in-mlflow",
-            from: ["/traditional-ml/hyperparameter-tuning-with-child-runs/notebooks/logging-plots-in-mlflow"],
+            from: [
+              "/traditional-ml/hyperparameter-tuning-with-child-runs/notebooks/logging-plots-in-mlflow",
+            ],
           },
           {
             to: "/ml/traditional-ml/tutorials/hyperparameter-tuning/notebooks/parent-child-runs",
-            from: ["/traditional-ml/hyperparameter-tuning-with-child-runs/notebooks/parent-child-runs"],
+            from: [
+              "/traditional-ml/hyperparameter-tuning-with-child-runs/notebooks/parent-child-runs",
+            ],
           },
           {
             to: "/ml/traditional-ml/tutorials/hyperparameter-tuning/part1-child-runs",
