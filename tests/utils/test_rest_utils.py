@@ -788,6 +788,8 @@ def test_databricks_sdk_retry_non_retryable_error():
 
 def test_databricks_sdk_retry_backoff_calculation():
     """Test that Databricks SDK uses correct exponential backoff timing."""
+    from databricks.sdk.errors import DatabricksError
+
     from mlflow.utils.request_utils import _TRANSIENT_FAILURE_RESPONSE_CODES
     from mlflow.utils.rest_utils import _retry_databricks_sdk_call_with_exponential_backoff
 
@@ -796,12 +798,11 @@ def test_databricks_sdk_retry_backoff_calculation():
     def mock_failing_call():
         nonlocal call_count
         call_count += 1
-        from databricks.sdk.errors import DatabricksError
 
         raise DatabricksError(error_code="INTERNAL_ERROR", message="Mock error")
 
     with mock.patch("time.sleep") as mock_sleep:
-        try:
+        with pytest.raises(DatabricksError, match="Mock error"):
             _retry_databricks_sdk_call_with_exponential_backoff(
                 call_func=mock_failing_call,
                 retry_codes=_TRANSIENT_FAILURE_RESPONSE_CODES,
@@ -810,8 +811,6 @@ def test_databricks_sdk_retry_backoff_calculation():
                 backoff_jitter=0,  # No jitter for predictable calculation
                 max_retries=3,
             )
-        except Exception:
-            pass  # Expected to fail
 
     # Verify sleep was called with correct intervals
     # attempt 0 (1st retry): 0 seconds (immediate)
