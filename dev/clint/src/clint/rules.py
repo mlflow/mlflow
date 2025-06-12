@@ -437,28 +437,38 @@ class NonLiteralExperimentalVersion(Rule):
         Returns True if the `@experimental` decorator is used incorrectly.
         """
         if isinstance(node, ast.Name) and node.id == "experimental":
+            # The code looks like this:
+            # ---
+            # @experimental
+            # def my_function():
+            #     ...
+            # ---
+            # No `version` argument, invalid usage
             return True
 
         if not isinstance(node, ast.Call):
+            # Not a function call, ignore it
             return False
 
         if not isinstance(node.func, ast.Name):
+            # Not a simple function call, ignore it
             return False
 
         if node.func.id != "experimental":
+            # Not the `experimental` decorator, ignore it
             return False
 
         version = next((k.value for k in node.keywords if k.arg == "version"), None)
         if version is None:
-            # No `version` argument, so it's not a valid `@experimental` usage.
+            # No `version` argument, invalid usage
             return True
 
         if not isinstance(version, ast.Constant) or not isinstance(version.value, str):
-            # `version` is not a string literal, so it's not a valid `@experimental` usage.
+            # `version` is not a string literal, invalid usage
             return True
 
         if not _is_valid_version(version.value):
-            # `version` is not a valid semantic version, so it's not a valid `@experimental` usage.
+            # `version` is not a valid semantic version, # invalid usage
             return True
 
         return False
