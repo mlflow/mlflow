@@ -32,7 +32,7 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 
-def experimental(*, version: str) -> Callable[[Callable[P, R]], Callable[P, R]]:
+def experimental(*, version: Optional[str] = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Decorator / decorator creator for marking APIs experimental in the docstring.
 
     Args:
