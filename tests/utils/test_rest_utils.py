@@ -786,6 +786,7 @@ def test_databricks_sdk_retry_non_retryable_error():
         assert response.status_code == 400  # Should return 400 for INVALID_PARAMETER_VALUE
 
 
+@pytest.mark.repeat(100)
 def test_databricks_sdk_retry_backoff_calculation():
     """Test that Databricks SDK uses correct exponential backoff timing."""
     from databricks.sdk.errors import DatabricksError
@@ -801,7 +802,11 @@ def test_databricks_sdk_retry_backoff_calculation():
 
         raise DatabricksError(error_code="INTERNAL_ERROR", message="Mock error")
 
-    with mock.patch("time.sleep") as mock_sleep:
+    def sleep(seconds: int) -> None:
+        if seconds not in (0, 2, 4):
+            raise Exception(f"Unexpected sleep time: {seconds}")
+
+    with mock.patch("time.sleep", side_effect=sleep) as mock_sleep:
         with pytest.raises(DatabricksError, match="Mock error"):
             _retry_databricks_sdk_call_with_exponential_backoff(
                 call_func=mock_failing_call,
