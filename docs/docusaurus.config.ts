@@ -261,6 +261,23 @@ const config: Config = {
             to: "/",
             from: ["/new-features"],
           },
+          // Redirect mlflow 3 pages
+          {
+            to: "/genai/mlflow-3",
+            from: ["/mlflow-3"],
+          },
+          {
+            to: "/genai/mlflow-3",
+            from: ["/mlflow-3"],
+          },
+          {
+            to: "/genai/mlflow-3/deep-learning",
+            from: ["/mlflow-3/deep-learning"],
+          },
+          {
+            to: "/genai/mlflow-3/genai-agent",
+            from: ["/mlflow-3/genai-agent"],
+          },
           // GenAI/LLM Related Redirects
           {
             to: "/genai/tracing",
@@ -797,18 +814,6 @@ const config: Config = {
           {
             to: "/ml/getting-started/tracking-server-overview",
             from: ["/getting-started/tracking-server-overview"],
-          },
-          {
-            to: "/ml/mlflow-3",
-            from: ["/mlflow-3"],
-          },
-          {
-            to: "/ml/mlflow-3/deep-learning",
-            from: ["/mlflow-3/deep-learning"],
-          },
-          {
-            to: "/ml/mlflow-3/genai-agent",
-            from: ["/mlflow-3/genai-agent"],
           },
           {
             to: "/ml/model-registry",
