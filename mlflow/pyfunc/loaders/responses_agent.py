@@ -28,7 +28,7 @@ def _load_pyfunc(model_path: str, model_config: Optional[dict[str, Any]] = None)
     return _ResponsesAgentPyfuncWrapper(responses_agent)
 
 
-@experimental
+@experimental(version="3.0.0")
 class _ResponsesAgentPyfuncWrapper:
     """
     Wrapper class that converts dict inputs to pydantic objects accepted by

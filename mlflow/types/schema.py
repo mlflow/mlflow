@@ -671,7 +671,7 @@ class Map(BaseType):
         raise MlflowException(f"Map type {self!r} and {other!r} are incompatible")
 
 
-@experimental
+@experimental(version="2.19.0")
 class AnyType(BaseType):
     def __init__(self):
         """

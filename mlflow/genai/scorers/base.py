@@ -43,7 +43,7 @@ class SerializedScorer:
     original_func_name: Optional[str] = None
 
 
-@experimental
+@experimental(version="3.0.0")
 class Scorer(BaseModel):
     name: str
     aggregations: Optional[list] = None

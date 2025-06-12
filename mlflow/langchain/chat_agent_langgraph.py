@@ -69,7 +69,7 @@ def _add_agent_messages(left: Union[dict, list[dict]], right: Union[dict, list[d
     return merged
 
 
-@experimental
+@experimental(version="2.21.0")
 class ChatAgentState(TypedDict):
     """
     Helper class that enables building a LangGraph agent that produces ChatAgent-compatible
@@ -288,7 +288,7 @@ def parse_message(
     return chat_agent_msg.model_dump_compat(exclude_none=True)
 
 
-@experimental
+@experimental(version="2.21.0")
 class ChatAgentToolNode(ToolNode):
     """
     Helper class to make ToolNodes be compatible with

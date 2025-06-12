@@ -409,3 +409,11 @@ class PytestMarkRepeat(Rule):
             return True
 
         return False
+
+
+class NonLiteralExperimentalVersion(Rule):
+    def _id(self) -> str:
+        return "MLF0024"
+
+    def _message(self) -> str:
+        return "The `version` argument of `@experimental` must be a string literal."
