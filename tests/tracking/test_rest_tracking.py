@@ -2111,6 +2111,24 @@ def test_graphql_handler(mlflow_client):
     assert response.status_code == 200
 
 
+def test_graphql_handler_batching_raise_error(mlflow_client):
+    batch_query = (
+        "query testQuery {"
+        + " ".join([f"key_{i}: " + 'test(inputString: "abc") { output }' for i in range(10)])
+        + "}"
+    )
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/graphql",
+        json={
+            "query": batch_query,
+            "operationName": "testQuery",
+        },
+        headers={"content-type": "application/json; charset=utf-8"},
+    )
+    assert response.status_code == 200
+    assert response.json()["errors"] == ["Batched GraphQL queries are not supported."]
+
+
 def test_get_experiment_graphql(mlflow_client):
     experiment_id = mlflow_client.create_experiment("GraphqlTest")
     response = requests.post(
