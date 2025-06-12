@@ -1,13 +1,27 @@
 import Link from "@docusaurus/Link";
-import { ComponentProps } from "react";
-
-import styles from "./FooterMenuItem.module.css";
+import { ComponentProps, ReactNode } from "react";
 import { cx } from "class-variance-authority";
 
-export const FooterMenuItem = ({ className, ...props }: ComponentProps<typeof Link>) => {
+interface FooterMenuItemProps extends ComponentProps<typeof Link> {
+  isDarkMode: boolean;
+  children: ReactNode;
+  className?: string;
+  href: string;
+}
+
+export const FooterMenuItem = ({ className, isDarkMode, children, ...props }: FooterMenuItemProps) => {
   return (
-    <div className="min-w-[120px]">
-      <Link {...props} className={cx(className, styles.link)} />
+    <div>
+      <Link
+        {...props}
+        className={cx(
+          "text-[15px] font-medium no-underline hover:no-underline transition-opacity hover:opacity-80",
+          isDarkMode ? "text-white visited:text-white" : "text-black visited:text-black",
+          className
+        )}
+      >
+        {children}
+      </Link>
     </div>
   );
 };
