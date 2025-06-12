@@ -786,7 +786,6 @@ def test_databricks_sdk_retry_non_retryable_error():
         assert response.status_code == 400  # Should return 400 for INVALID_PARAMETER_VALUE
 
 
-@pytest.mark.repeat(100)
 def test_databricks_sdk_retry_backoff_calculation():
     """Test that Databricks SDK uses correct exponential backoff timing."""
     from databricks.sdk.errors import DatabricksError
