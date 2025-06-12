@@ -628,6 +628,9 @@ class Linter(ast.NodeVisitor):
         if self.path.parts[0] != "tests" and _is_set_active_model(node.func):
             self._check(Location.from_node(node), rules.ForbiddenSetActiveModelUsage())
 
+        if rules.UnnamedThread.check(node):
+            self._check(Location.from_node(node), rules.UnnamedThread())
+
         self.generic_visit(node)
 
     def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
