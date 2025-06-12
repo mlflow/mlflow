@@ -17,7 +17,7 @@ def autolog(
 ):
     """
     Enables (or disables) and configures autologging from Amazon Bedrock to MLflow.
-    Only synchronous calls are supported. Asynchnorous APIs and streaming are not recorded.
+    Only synchronous calls are supported. Asynchronous APIs and streaming are not recorded.
 
     Args:
         log_traces: If ``True``, traces are logged for Bedrock models.
