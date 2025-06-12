@@ -1,21 +1,31 @@
-import React, { Component } from 'react';
+import React, { Component, useMemo } from 'react';
 import { Theme } from '@emotion/react';
 import {
   Checkbox,
-  CaretDownSquareIcon,
-  PlusCircleIcon,
   Input,
   PencilIcon,
-  Typography,
   WithDesignSystemThemeHoc,
   DesignSystemHocProps,
   Button,
   TrashIcon,
   Tooltip,
+  useDesignSystemTheme,
+  Empty,
+  NoIcon,
+  Table,
+  CursorPagination,
+  TableRow,
+  TableHeader,
+  TableSkeletonRows,
+  TableCell,
+  TableFilterLayout,
+  TableFilterInput,
+  Spacer,
+  Header,
 } from '@databricks/design-system';
-import { List as VList, AutoSizer, ListRowRenderer } from 'react-virtualized';
+import { List as VList, ListRowRenderer } from 'react-virtualized';
 import 'react-virtualized/styles.css';
-import { Link, NavigateFunction } from '../../common/utils/RoutingUtils';
+import { Link } from '../../common/utils/RoutingUtils';
 import Routes from '../routes';
 import { CreateExperimentModal } from './modals/CreateExperimentModal';
 import { DeleteExperimentModal } from './modals/DeleteExperimentModal';
@@ -23,17 +33,27 @@ import { RenameExperimentModal } from './modals/RenameExperimentModal';
 import { withRouterNext, WithRouterNextProps } from '../../common/utils/withRouterNext';
 import { ExperimentEntity } from '../types';
 import { defaultContext, QueryClient } from '../../common/utils/reactQueryHooks';
-import { ExperimentListQueryKeyHeader } from './experiment-page/hooks/useExperimentListQuery';
+import { ExperimentListQueryKeyHeader, useExperimentListQuery } from './experiment-page/hooks/useExperimentListQuery';
+import { PageContainer } from '../../common/components/PageContainer';
+import { PageHeader } from '../../shared/building_blocks/PageHeader';
+import { ColumnDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
+import { isEmpty } from 'lodash';
+import { FormattedMessage, useIntl } from 'react-intl';
+import Utils from '../../common/utils/Utils';
+import { ScrollablePageWrapper } from '../../common/components/ScrollablePageWrapper';
 
 type Props = {
   activeExperimentIds: string[];
   experiments: ExperimentEntity[];
+  pagination: Pick<
+    ReturnType<typeof useExperimentListQuery>,
+    'hasNextPage' | 'hasPreviousPage' | 'onNextPage' | 'onPreviousPage' | 'isLoading' | 'error'
+  >;
 } & WithRouterNextProps &
   DesignSystemHocProps;
 
 type State = {
   checkedKeys: string[];
-  hidden: boolean;
   searchInput: string;
   showCreateExperimentModal: boolean;
   showDeleteExperimentModal: boolean;
@@ -54,7 +74,6 @@ export class ExperimentListView extends Component<Props, State> {
 
   state = {
     checkedKeys: this.props.activeExperimentIds,
-    hidden: false,
     searchInput: '',
     showCreateExperimentModal: false,
     showDeleteExperimentModal: false,
@@ -234,110 +253,54 @@ export class ExperimentListView extends Component<Props, State> {
     );
   };
 
-  unHide = () => this.setState({ hidden: false });
-  hide = () => this.setState({ hidden: true });
-
   render() {
-    const { hidden } = this.state;
-    const { activeExperimentIds, designSystemThemeApi } = this.props;
+    const { activeExperimentIds, designSystemThemeApi, pagination } = this.props;
+    const { error, isLoading, onNextPage, onPreviousPage, hasNextPage, hasPreviousPage } = pagination;
     const { theme } = designSystemThemeApi;
-
-    if (hidden) {
-      return (
-        <Tooltip content="Show experiment list" componentId="mlflow.experiment_list_view.show_experiments.tooltip">
-          <Button
-            componentId="mlflow.experiment_list_view.show_experiments"
-            icon={<CaretDownSquareIcon />}
-            onClick={this.unHide}
-            css={{ svg: { transform: 'rotate(-90deg)' } }}
-            title="Show experiment list"
-          />
-        </Tooltip>
-      );
-    }
 
     const { searchInput } = this.state;
     const filteredExperiments = this.filterExperiments(searchInput);
 
     return (
-      <div
-        id="experiment-list-outer-container"
-        css={{
-          boxSizing: 'border-box',
-          height: '100%',
-          marginLeft: '24px',
-          marginRight: '8px',
-          paddingRight: '16px',
-          width: '100%',
-          // Ensure it displays experiment names for smaller screens, but don't
-          // take more than 20% of the screen.
-          minWidth: 'max(280px, 20vw)',
-          maxWidth: '20vw',
-          display: 'grid',
-          gridTemplateRows: 'auto auto 1fr',
-        }}
-      >
-        <CreateExperimentModal
-          isOpen={this.state.showCreateExperimentModal}
-          onClose={this.handleCloseCreateExperimentModal}
-          invalidate={this.invalidateExperimentList}
+      <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        <Spacer shrinks={false} />
+        <Header
+          title={<FormattedMessage defaultMessage="Experiments" description="Header title for the experiments page" />}
+          buttons={
+            <Button
+              componentId="mlflow.experiment_list_view.new_experiment_button"
+              type="primary"
+              onClick={this.handleCreateExperiment}
+              data-testid="create-experiment-button"
+            >
+              Create experiment
+            </Button>
+          }
         />
-        <DeleteExperimentModal
-          isOpen={this.state.showDeleteExperimentModal}
-          onClose={this.handleCloseDeleteExperimentModal}
-          activeExperimentIds={activeExperimentIds}
-          experimentId={this.state.selectedExperimentId}
-          experimentName={this.state.selectedExperimentName}
-          invalidate={this.invalidateExperimentList}
-        />
-        <RenameExperimentModal
-          isOpen={this.state.showRenameExperimentModal}
-          onClose={this.handleCloseRenameExperimentModal}
-          experimentId={this.state.selectedExperimentId}
-          experimentName={this.state.selectedExperimentName}
-        />
-        <div
-          css={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: theme.spacing.sm,
-          }}
-        >
-          <Typography.Title level={2} style={{ margin: 0 }}>
-            Experiments
-          </Typography.Title>
-          <div>
-            <Tooltip componentId="mlflow.experiment_list_view.new_experiment_button.tooltip" content="New experiment">
-              <Button
-                componentId="mlflow.experiment_list_view.new_experiment_button"
-                icon={<PlusCircleIcon />}
-                onClick={this.handleCreateExperiment}
-                title="New Experiment"
-                data-testid="create-experiment-button"
-              />
-            </Tooltip>
-            <Tooltip componentId="mlflow.experiment_list_view.hide_button.tooltip" content="Hide experiment list">
-              <Button
-                componentId="mlflow.experiment_list_view.hide_button"
-                icon={<CaretDownSquareIcon />}
-                onClick={this.hide}
-                css={{ svg: { transform: 'rotate(90deg)' } }}
-                title="Hide experiment list"
-              />
-            </Tooltip>
-          </div>
-        </div>
-        <Input
-          componentId="mlflow.experiment_list_view.search_input"
-          placeholder="Search experiments"
-          aria-label="search experiments"
-          value={searchInput}
-          onChange={this.handleSearchInputChange}
-          data-testid="search-experiment-input"
-        />
-        <div css={{ marginTop: theme.spacing.xs }}>
-          <AutoSizer>
+        <Spacer shrinks={false} />
+        <div css={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <TableFilterLayout>
+            <TableFilterInput
+              placeholder="Search experiments by name"
+              componentId="mlflow.experiment_list_view.search"
+              value={searchInput}
+              onChange={this.handleSearchInputChange}
+              // TODO: Add this back once we support searching with tags
+              // suffix={<ModelSearchInputHelpTooltip exampleEntityName="my-prompt-name" />}
+            />
+          </TableFilterLayout>
+          <ExperimentListTable
+            experiments={filteredExperiments}
+            // error={error}
+            hasNextPage={hasNextPage}
+            hasPreviousPage={hasPreviousPage}
+            isLoading={isLoading}
+            isFiltered={Boolean(searchInput)}
+            onNextPage={onNextPage}
+            onPreviousPage={onPreviousPage}
+            // onEditTags={showEditPromptTagsModal}
+          />
+          {/* <AutoSizer>
             {({ width, height }) => (
               <VList
                 rowRenderer={this.renderListItem}
@@ -350,11 +313,176 @@ export class ExperimentListView extends Component<Props, State> {
                 rowCount={filteredExperiments.length}
               />
             )}
-          </AutoSizer>
+          </AutoSizer> */}
         </div>
-      </div>
+        <CreateExperimentModal
+          isOpen={this.state.showCreateExperimentModal}
+          onClose={this.handleCloseCreateExperimentModal}
+          invalidate={this.invalidateExperimentList}
+        />
+      </ScrollablePageWrapper>
     );
   }
 }
 
 export default withRouterNext(WithDesignSystemThemeHoc(ExperimentListView));
+
+const ExperimentListTableCell: ColumnDef<ExperimentEntity>['cell'] = ({ row: { original } }) => {
+  // const dataTestId = isActive ? 'active-experiment-list-item' : 'experiment-list-item';
+  return (
+    <Link
+      className="experiment-link"
+      css={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}
+      to={Routes.getExperimentPageRoute(original.experimentId)}
+      title={original.name}
+      // onClick={() => this.setState({ checkedKeys: [item.experimentId] })}
+      // data-testid={`${dataTestId}-link`}
+    >
+      {original.name}
+    </Link>
+  );
+};
+
+type ExperimentTableColumnDef = ColumnDef<ExperimentEntity>;
+
+const useExperimentsTableColumns = () => {
+  const intl = useIntl();
+  return useMemo(() => {
+    const resultColumns: ExperimentTableColumnDef[] = [
+      {
+        header: intl.formatMessage({
+          defaultMessage: 'Name',
+          description: 'Header for the name column in the experiments table',
+        }),
+        accessorKey: 'name',
+        id: 'name',
+        cell: ExperimentListTableCell,
+      },
+      {
+        header: intl.formatMessage({
+          defaultMessage: 'Time created',
+          description: 'Header for the time created column in the experiments table',
+        }),
+        id: 'lastModified',
+        accessorFn: ({ creationTime }) => Utils.formatTimestamp(creationTime, intl),
+      },
+      {
+        header: intl.formatMessage({
+          defaultMessage: 'Last modified',
+          description: 'Header for the last modified column in the experiments table',
+        }),
+        id: 'lastModified',
+        accessorFn: ({ lastUpdateTime }) => Utils.formatTimestamp(lastUpdateTime, intl),
+      },
+    ];
+
+    return resultColumns;
+  }, [intl]);
+};
+
+export const ExperimentListTable = ({
+  experiments,
+  hasNextPage,
+  hasPreviousPage,
+  isLoading,
+  isFiltered,
+  onNextPage,
+  onPreviousPage,
+}: // onEditTags,
+{
+  experiments?: ExperimentEntity[];
+  error?: Error;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+  isLoading?: boolean;
+  isFiltered?: boolean;
+  onNextPage: () => void;
+  onPreviousPage: () => void;
+  // onEditTags: (editedEntity: ExperimentEntity) => void;
+}) => {
+  const { theme } = useDesignSystemTheme();
+  const columns = useExperimentsTableColumns();
+
+  const table = useReactTable({
+    data: experiments ?? [],
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    getRowId: (row, index) => row.name ?? index.toString(),
+    // meta: { onEditTags } satisfies PromptsTableMetadata,
+  });
+
+  const getEmptyState = () => {
+    const isEmptyList = !isLoading && isEmpty(experiments);
+    if (isEmptyList && isFiltered) {
+      return (
+        <Empty
+          image={<NoIcon />}
+          title={
+            <FormattedMessage
+              defaultMessage="No experiments found"
+              description="Label for the empty state in the experiments table when no experiments are found"
+            />
+          }
+          description={null}
+        />
+      );
+    }
+    if (isEmptyList) {
+      return (
+        <Empty
+          title={
+            <FormattedMessage
+              defaultMessage="No experiments created"
+              description="A header for the empty state in the experiments table"
+            />
+          }
+          description={
+            <FormattedMessage
+              defaultMessage='Use "Create experiment" button in order to create a new experiment'
+              description="Guidelines for the user on how to create a new experiment in the experiments list page"
+            />
+          }
+        />
+      );
+    }
+
+    return null;
+  };
+
+  return (
+    <Table
+      scrollable
+      pagination={
+        <CursorPagination
+          hasNextPage={hasNextPage}
+          hasPreviousPage={hasPreviousPage}
+          onNextPage={onNextPage}
+          onPreviousPage={onPreviousPage}
+          componentId="mlflow.experiment_list_view.pagination"
+        />
+      }
+      empty={getEmptyState()}
+    >
+      <TableRow isHeader>
+        {table.getLeafHeaders().map((header) => (
+          <TableHeader componentId="mlflow.experiment_list_view.table.header" key={header.id}>
+            {flexRender(header.column.columnDef.header, header.getContext())}
+          </TableHeader>
+        ))}
+      </TableRow>
+      {isLoading ? (
+        <TableSkeletonRows table={table} />
+      ) : (
+        table.getRowModel().rows.map((row) => (
+          <TableRow key={row.id} css={{ height: theme.general.buttonHeight }}>
+            {row.getAllCells().map((cell) => (
+              <TableCell key={cell.id} css={{ alignItems: 'center' }}>
+                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+              </TableCell>
+            ))}
+          </TableRow>
+        ))
+      )}
+    </Table>
+  );
+};

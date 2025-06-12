@@ -8,6 +8,7 @@ const HomePage = () => {
 
   const {
     data: experiments,
+    error,
     isLoading,
     onNextPage,
     onPreviousPage,
@@ -28,15 +29,18 @@ const HomePage = () => {
   } else {
     return (
       <>
-        <ExperimentListView activeExperimentIds={experimentIds || []} experiments={experiments} />
-        <div>
-          <button onClick={onPreviousPage} disabled={!hasPreviousPage}>
-            Previous Page
-          </button>
-          <button onClick={onNextPage} disabled={!hasNextPage}>
-            Next Page
-          </button>
-        </div>
+        <ExperimentListView
+          activeExperimentIds={experimentIds || []}
+          experiments={experiments}
+          pagination={{
+            error,
+            isLoading,
+            onNextPage,
+            onPreviousPage,
+            hasNextPage,
+            hasPreviousPage,
+          }}
+        />
       </>
     );
   }
