@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-@experimental
+@experimental(version="3.0.0")
 def evaluate(
     data: "EvaluationDatasetTypes",
     scorers: list[Scorer],
@@ -294,7 +294,7 @@ def evaluate(
         return result
 
 
-@experimental
+@experimental(version="3.0.0")
 def to_predict_fn(endpoint_uri: str) -> Callable:
     """
     Convert an endpoint URI to a predict function.

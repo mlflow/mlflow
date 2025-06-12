@@ -33,7 +33,7 @@ from mlflow.utils.autologging_utils.safety import safe_patch
 _logger = logging.getLogger(__name__)
 
 
-@experimental
+@experimental(version="2.14.0")
 def autolog(
     disable=False,
     exclusive=False,
