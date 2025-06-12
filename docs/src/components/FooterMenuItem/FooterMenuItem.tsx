@@ -6,7 +6,7 @@ import { cx } from "class-variance-authority";
 
 export const FooterMenuItem = ({ className, ...props }: ComponentProps<typeof Link>) => {
   return (
-    <div className="min-w-[120px]">
+    <div>
       <Link {...props} className={cx(className, styles.link)} />
     </div>
   );
