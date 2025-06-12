@@ -91,7 +91,9 @@ class MlflowStorage(BaseStorage):
 
         # Start a background thread for periodic flushing
         self._flush_thread = threading.Thread(
-            target=self._periodic_flush_worker, daemon=True, name="optuna_batch_flush_worker"
+            target=self._periodic_flush_worker,
+            daemon=True,
+            name=f"optuna_batch_flush_worker_{uuid.uuid4().hex[:8]}",
         )
         self._flush_thread.start()
 

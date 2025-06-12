@@ -1,5 +1,6 @@
 import asyncio
 import threading
+import uuid
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 if TYPE_CHECKING:
@@ -236,7 +237,9 @@ class WorkflowWrapper(_LlamaIndexModelWrapperBase):
                 finally:
                     loop.close()
 
-            thread = threading.Thread(target=_run, name="llamaindex_async_task_runner")
+            thread = threading.Thread(
+                target=_run, name=f"llamaindex_async_task_runner_{uuid.uuid4().hex[:8]}"
+            )
             thread.start()
             thread.join()
 
