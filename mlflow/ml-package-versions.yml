@@ -172,7 +172,7 @@ lightgbm:
     maximum: "4.6.0"
     requirements:
       ">= 0.0.0": ["scikit-learn", "matplotlib"]
-      "== 4.0.*": ["numpy<2"]
+      "< 4.4.0": ["numpy<2"]
     run: |
       pytest tests/lightgbm/test_lightgbm_autolog.py
 
