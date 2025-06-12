@@ -24,7 +24,7 @@ def autolog(
 ):
     """
     Enables (or disables) and configures autologging from Smolagents to MLflow.
-    Note that asynchnorous APIs and Tool calling are not recorded now.
+    Note that asynchronous APIs and Tool calling are not recorded now.
 
     Args:
         log_traces: If ``True``, traces are logged for Smolagents agents.
