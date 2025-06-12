@@ -32,10 +32,14 @@ P = ParamSpec("P")
 R = TypeVar("R")
 
 
-def experimental(version: Optional[str] = None) -> Callable[[Callable[P, R]], Callable[P, R]]:
+def experimental(
+    f: Optional[Callable[P, R]] = None,
+    version: Optional[str] = None,
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Decorator / decorator creator for marking APIs experimental in the docstring.
 
     Args:
+        f: The function to be decorated.
         version: The version in which the API was introduced as experimental.
             The version is used to determine whether the API should be considered
             as stable or not when releasing a new version of MLflow.
@@ -43,21 +47,26 @@ def experimental(version: Optional[str] = None) -> Callable[[Callable[P, R]], Ca
     Returns:
         A decorator that adds a note to the docstring of the decorated API,
     """
+    if f:
+        return _experimental(f)
+    else:
 
-    def decorator(f: Callable[P, R]) -> Callable[P, R]:
-        if inspect.isclass(f):
-            return _experimental(api=f, api_type="class")
-        elif inspect.isfunction(f):
-            return _experimental(api=f, api_type="function")
-        elif isinstance(f, (property, types.MethodType)):
-            return _experimental(api=f, api_type="property")
-        else:
-            return _experimental(api=f, api_type=str(type(f)))
+        def decorator(f: Callable[P, R]) -> Callable[P, R]:
+            return _experimental(f)
 
-    return decorator
+        return decorator
 
 
-def _experimental(api: Callable[P, R], api_type: str) -> Callable[P, R]:
+def _experimental(api: Callable[P, R]) -> Callable[P, R]:
+    if inspect.isclass(api):
+        api_type = "class"
+    elif inspect.isfunction(api):
+        api_type = "function"
+    elif isinstance(api, (property, types.MethodType)):
+        api_type = "property"
+    else:
+        api_type = str(type(api))
+
     indent = _get_min_indent_of_docstring(api.__doc__) if api.__doc__ else ""
     notice = (
         indent + f".. Note:: Experimental: This {api_type} may change or "
