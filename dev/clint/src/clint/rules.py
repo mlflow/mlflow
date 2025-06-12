@@ -438,9 +438,9 @@ class NonLiteralExperimentalVersion(Rule):
             isinstance(node, ast.Call)
             and isinstance(node.func, ast.Name)
             and node.func.id == "experimental"
+            # Check if the value is not a string literal that is a valid version.
             and (val := next(k.value for k in node.keywords if k.arg == "version"), None)
             and (
-                # Check if the value is not a string literal that is a valid version.
                 not isinstance(val, ast.Constant)
                 or not isinstance(val.value, str)
                 or not _is_valid_version(val.value)
