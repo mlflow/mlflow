@@ -41,8 +41,7 @@ def experimental(version: Optional[str] = None) -> Callable[[Callable[P, R]], Ca
             as stable or not when releasing a new version of MLflow.
 
     Returns:
-        Decorated API (if a ``api_or_type`` is an API) or a function that decorates
-        the specified API type (if ``api_or_type`` is a typestring).
+        A decorator that adds a note to the docstring of the decorated API,
     """
 
     def decorator(f: Callable[P, R]) -> Callable[P, R]:
