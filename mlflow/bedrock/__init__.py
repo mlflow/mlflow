@@ -8,7 +8,7 @@ _logger = logging.getLogger(__name__)
 FLAVOR_NAME = "bedrock"
 
 
-@experimental
+@experimental(version="2.20.0")
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_traces: bool = True,

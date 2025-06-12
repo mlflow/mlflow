@@ -3,9 +3,9 @@ import re
 import types
 import warnings
 from functools import wraps
-from typing import Any, Callable, Optional, TypeVar, Union
+from typing import Callable, Optional, TypeVar
 
-C = TypeVar("C", bound=Callable[..., Any])
+from typing_extensions import ParamSpec
 
 
 def _get_min_indent_of_docstring(docstring_str: str) -> str:
@@ -28,33 +28,37 @@ def _get_min_indent_of_docstring(docstring_str: str) -> str:
     return re.match(r"^\s*", docstring_str.rsplit("\n", 1)[-1]).group()
 
 
-def experimental(api_or_type: Union[C, str]) -> C:
+P = ParamSpec("P")
+R = TypeVar("R")
+
+
+def experimental(*, version: str) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """Decorator / decorator creator for marking APIs experimental in the docstring.
 
     Args:
-        api_or_type: An API to mark, or an API typestring for which to generate a decorator.
+        version: The version in which the API was introduced as experimental.
+            The version is used to determine whether the API should be considered
+            as stable or not when releasing a new version of MLflow.
 
     Returns:
         Decorated API (if a ``api_or_type`` is an API) or a function that decorates
         the specified API type (if ``api_or_type`` is a typestring).
     """
-    if isinstance(api_or_type, str):
 
-        def f(api: C) -> C:
-            return _experimental(api=api, api_type=api_or_type)
+    def decorator(f: Callable[P, R]) -> Callable[P, R]:
+        if inspect.isclass(f):
+            return _experimental(api=f, api_type="class")
+        elif inspect.isfunction(f):
+            return _experimental(api=f, api_type="function")
+        elif isinstance(f, (property, types.MethodType)):
+            return _experimental(api=f, api_type="property")
+        else:
+            return _experimental(api=f, api_type=str(type(f)))
 
-        return f
-    elif inspect.isclass(api_or_type):
-        return _experimental(api=api_or_type, api_type="class")
-    elif inspect.isfunction(api_or_type):
-        return _experimental(api=api_or_type, api_type="function")
-    elif isinstance(api_or_type, (property, types.MethodType)):
-        return _experimental(api=api_or_type, api_type="property")
-    else:
-        return _experimental(api=api_or_type, api_type=str(type(api_or_type)))
+    return decorator
 
 
-def _experimental(api: C, api_type: str) -> C:
+def _experimental(api: Callable[P, R], api_type: str) -> Callable[P, R]:
     indent = _get_min_indent_of_docstring(api.__doc__) if api.__doc__ else ""
     notice = (
         indent + f".. Note:: Experimental: This {api_type} may change or "

@@ -722,7 +722,7 @@ class Correctness(BuiltInScorer):
 
 
 # === Shorthand for getting preset of builtin scorers ===
-@experimental
+@experimental(version="3.0.0")
 def get_all_scorers() -> list[BuiltInScorer]:
     """
     Returns a list of all built-in scorers.

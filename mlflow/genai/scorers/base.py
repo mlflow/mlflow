@@ -317,7 +317,7 @@ class Scorer(BaseModel):
         raise NotImplementedError("Implementation of __call__ is required for Scorer class")
 
 
-@experimental
+@experimental(version="3.0.0")
 def scorer(
     func=None,
     *,
