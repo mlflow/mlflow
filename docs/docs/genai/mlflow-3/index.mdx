@@ -20,7 +20,7 @@ MLflow 3 delivers best-in-class experiment tracking, observability, and performa
 
 ## What's New in MLflow 3?
 
-Here are the short highlights of what's new in MLflow 3.0:
+Here are the short highlights of what's new in MLflow 3:
 
 <CardGroup cols={2}>
   <TitleCard title="🎯 Improved Model Tracking for GenAI" link="/genai/data-model/logged-model" description="MLflow 3 introduces versioning mechanism purpose-built for GenAI applications not only model artifacts. The new LoggedModel entity serves as a metadata hub, linking each conceptual application version to its specific external code (e.g., a Git commit), configurations, with other MLflow entities like traces and evaluation runs. The new versioning mechanism also work seamlessly for traditional ML models and deep learning checkpoints." />
@@ -39,7 +39,7 @@ Here are the short highlights of what's new in MLflow 3.0:
 
 ### Getting Started
 
-Install MLflow 3.0 by running the following command:
+Install MLflow 3 by running the following command:
 
 ```bash
 pip install 'mlflow>=3.1'
@@ -51,7 +51,7 @@ Resources:
 ### Quickstart
 
 #### Prerequisites
-Run the following command to install MLflow 3.0 and OpenAI packages.
+Run the following command to install MLflow 3 and OpenAI packages.
 ```
 pip install mlflow openai -U
 ```
@@ -61,7 +61,7 @@ Set `OPENAI_API_KEY` environment variable in CLI to authenticate to OpenAI APIs.
 export OPENAI_API_KEY=your_api_key_here
 ```
 
-This quickstart demonstrates how to create a generative AI application with prompt engineering and evaluate it using MLflow 3.0.
+This quickstart demonstrates how to create a generative AI application with prompt engineering and evaluate it using MLflow 3.
 It highlights the integration of the LoggedModel lineage feature with runs and traces, showcasing seamless tracking and observability for GenAI workflows.
 
 #### Register a prompt template
@@ -206,18 +206,18 @@ Clicking on the source_run takes you to the evaluation run's page with all the m
     ![The MLflow UI showing the run and logged model](/images/mlflow-3/simple_example_run_page.png)
 </div>
 
-## MLflow 3.0 Showcases
+## MLflow 3 Showcases
 
-Explore the examples below to see how MLflow 3.0's powerful features can be applied across various domains.
+Explore the examples below to see how MLflow 3's powerful features can be applied across various domains.
 
 <CardGroup>
-  <PageCard headerText="GenAI with MLflow 3.0" link="/genai/mlflow-3/genai-agent" text="Discover how to log, evaluate, and trace GenAI agents using MLflow 3.0." />
-  <PageCard headerText="Deep Learning with MLflow 3.0" link="/genai/mlflow-3/deep-learning" text="Learn how to leverage MLflow 3.0 to identify the best models in deep learning workflows." />
+  <PageCard headerText="GenAI with MLflow 3" link="/genai/mlflow-3/genai-agent" text="Discover how to log, evaluate, and trace GenAI agents using MLflow 3." />
+  <PageCard headerText="Deep Learning with MLflow 3" link="/genai/mlflow-3/deep-learning" text="Learn how to leverage MLflow 3 to identify the best models in deep learning workflows." />
 </CardGroup>
 
 ## Migration Guide
 
-MLflow 3.0 introduces some key API changes while also removes some outdated features. This guide will help you transition smoothly to the latest version.
+MLflow 3 introduces some key API changes while also removes some outdated features. This guide will help you transition smoothly to the latest version.
 
 ### Key changes
 
@@ -226,7 +226,7 @@ MLflow 3.0 introduces some key API changes while also removes some outdated feat
     <tr>
       <th></th>
       <th>MLflow 2.x</th>
-      <th>MLflow 3.0</th>
+      <th>MLflow 3</th>
     </tr>
   </thead>
   <tbody>
