@@ -94,7 +94,7 @@ your team, follow the instructions in the [Set up MLflow Tracking Environment](#
 
 ### Searching Logged Models Programmatically \{#search_logged_models}
 
-MLflow 3.0 introduces powerful model search capabilities through <APILink fn="mlflow.search_logged_models" />. This API allows you to find specific models across your experiments based on performance metrics, parameters, and model attributes using SQL-like syntax.
+MLflow 3 introduces powerful model search capabilities through <APILink fn="mlflow.search_logged_models" />. This API allows you to find specific models across your experiments based on performance metrics, parameters, and model attributes using SQL-like syntax.
 
 ```python
 import mlflow
@@ -146,7 +146,7 @@ print(best_run.info)
 
 ## Tracking Models
 
-MLflow 3.0 introduces enhanced model tracking capabilities that allow you to log multiple model checkpoints within a single run and track their performance against different datasets. This is particularly useful for deep learning workflows where you want to save and compare model checkpoints at different training stages.
+MLflow 3 introduces enhanced model tracking capabilities that allow you to log multiple model checkpoints within a single run and track their performance against different datasets. This is particularly useful for deep learning workflows where you want to save and compare model checkpoints at different training stages.
 
 ### Logging Model Checkpoints
 
@@ -183,7 +183,7 @@ with mlflow.start_run() as run:
 
 ### Linking Metrics to Models and Datasets
 
-MLflow 3.0 allows you to link metrics to specific model checkpoints and datasets, providing better traceability of model performance:
+MLflow 3 allows you to link metrics to specific model checkpoints and datasets, providing better traceability of model performance:
 
 ```python
 # Create a dataset reference
@@ -220,12 +220,12 @@ print(f"Accuracy: {best_model.metrics[0].value}")
 loaded_model = mlflow.pyfunc.load_model(f"models:/{best_model.model_id}")
 ```
 
-### Model URIs in MLflow 3.0
+### Model URIs in MLflow 3
 
-MLflow 3.0 introduces a new model URI format that uses model IDs instead of run IDs, providing more direct model referencing:
+MLflow 3 introduces a new model URI format that uses model IDs instead of run IDs, providing more direct model referencing:
 
 ```python
-# New MLflow 3.0 model URI format
+# New MLflow 3 model URI format
 model_uri = f"models:/{model_info.model_id}"
 loaded_model = mlflow.pyfunc.load_model(model_uri)
 
