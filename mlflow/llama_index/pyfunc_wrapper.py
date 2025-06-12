@@ -236,7 +236,7 @@ class WorkflowWrapper(_LlamaIndexModelWrapperBase):
                 finally:
                     loop.close()
 
-            thread = threading.Thread(target=_run)
+            thread = threading.Thread(target=_run, name="llamaindex_async_task_runner")
             thread.start()
             thread.join()
 
