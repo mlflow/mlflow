@@ -112,7 +112,7 @@ class ShowArtifactTextView extends Component<Props, State> {
 
 export function sanitizeTextContent(text: string): string {
   if (!text) return '';
-  return DOMPurify.sanitize(text, { RETURN_DOM_TEXT: true });
+  return DOMPurify.sanitize(text);
 }
 
 export function prettifyArtifactText(language: string, rawText: string) {
