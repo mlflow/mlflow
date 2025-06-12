@@ -16,7 +16,7 @@ try:
     except ImportError as e:
         # If LangGraph 0.3.x is installed but langgraph_prebuilt is not,
         # show a friendlier error message
-        if Version(importlib.metadata("langgraph").version) >= Version("0.3.0"):
+        if Version(importlib.metadata.version("langgraph")) >= Version("0.3.0"):
             raise ImportError(
                 "Please install `langgraph-prebuilt>=0.1.2` to use MLflow LangGraph ChatAgent "
                 "helpers with LangGraph 0.3.x.\n"
@@ -104,7 +104,7 @@ class ChatAgentState(TypedDict):
         from langchain_core.runnables import RunnableConfig, RunnableLambda
         from langchain_core.tools import BaseTool
         from langgraph.graph import END, StateGraph
-        from langgraph.graph.state import CompiledStateGraph
+        from langgraph.graph.graph import CompiledGraph
         from langgraph.prebuilt import ToolNode
         from mlflow.langchain.chat_agent_langgraph import ChatAgentState, ChatAgentToolNode
 
@@ -113,7 +113,7 @@ class ChatAgentState(TypedDict):
             model: LanguageModelLike,
             tools: Union[ToolNode, Sequence[BaseTool]],
             agent_prompt: Optional[str] = None,
-        ) -> CompiledStateGraph:
+        ) -> CompiledGraph:
             model = model.bind_tools(tools)
 
             def routing_logic(state: ChatAgentState):
