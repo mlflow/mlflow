@@ -803,7 +803,10 @@ def test_databricks_sdk_retry_backoff_calculation():
         raise DatabricksError(error_code="INTERNAL_ERROR", message="Mock error")
 
     def sleep(seconds: int) -> None:
+        import traceback
+
         if seconds not in (0, 2, 4):
+            traceback.print_stack()
             raise Exception(f"Unexpected sleep time: {seconds}")
 
     with mock.patch("time.sleep", side_effect=sleep) as mock_sleep:
