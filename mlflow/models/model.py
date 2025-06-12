@@ -792,6 +792,11 @@ class Model:
             # Load the Model object from a remote model directory
             model2 = Model.load("s3://mybucket/path/to/my/model")
         """
+        if path is None:
+            raise MlflowException.invalid_parameter_value(
+                "Unable to load model, please ensure that you've "
+                "specified the correct path to the model."
+            )
 
         # Check if the path is a local directory and not remote
         sep = os.path.sep
