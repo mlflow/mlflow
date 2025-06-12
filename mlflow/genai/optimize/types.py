@@ -9,7 +9,7 @@ from mlflow.utils.annotations import experimental
 OBJECTIVE_FN = Callable[[dict[str, Union[bool, float, str, Feedback, list[Feedback]]]], float]
 
 
-@experimental
+@experimental(version="3.0.0")
 @dataclass
 class PromptOptimizationResult:
     """
@@ -22,7 +22,7 @@ class PromptOptimizationResult:
     prompt: Prompt
 
 
-@experimental
+@experimental(version="3.0.0")
 @dataclass
 class LLMParams:
     """
@@ -43,7 +43,7 @@ class LLMParams:
     temperature: Optional[float] = None
 
 
-@experimental
+@experimental(version="3.0.0")
 @dataclass
 class OptimizerConfig:
     """

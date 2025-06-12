@@ -9,7 +9,7 @@ from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 FLAVOR_NAME = "groq"
 
 
-@experimental
+@experimental(version="2.20.0")
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_traces: bool = True,

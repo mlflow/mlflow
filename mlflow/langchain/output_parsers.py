@@ -103,7 +103,7 @@ class StringResponseOutputParser(BaseTransformOutputParser[dict[str, Any]]):
         return asdict(StringResponse(content=text))
 
 
-@experimental
+@experimental(version="2.21.0")
 class ChatAgentOutputParser(BaseTransformOutputParser[str]):
     """
     OutputParser that wraps the string output into a dictionary representation of a
