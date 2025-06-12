@@ -1581,9 +1581,9 @@ def test_set_experiment_thread_safety(tmp_path):
             exp = mlflow.set_experiment("test_experiment")
             created_exp_ids.append(exp.experiment_id)
 
-        t1 = threading.Thread(target=thread_target)
+        t1 = threading.Thread(target=thread_target, name="set_experiment_thread_1")
         t1.start()
-        t2 = threading.Thread(target=thread_target)
+        t2 = threading.Thread(target=thread_target, name="set_experiment_thread_2")
         t2.start()
 
         t1.join()
@@ -1647,7 +1647,7 @@ def test_mlflow_active_run_thread_local(tmp_path):
             nonlocal thread_active_run
             thread_active_run = mlflow.active_run()
 
-        thread1 = threading.Thread(target=thread_target)
+        thread1 = threading.Thread(target=thread_target, name="active_run_checker")
         thread1.start()
         thread1.join()
         # assert in another thread, active run is None.
@@ -1681,7 +1681,7 @@ def test_mlflow_last_active_run_thread_local(tmp_path):
         nonlocal thread_last_active_run
         thread_last_active_run = mlflow.last_active_run()
 
-    thread1 = threading.Thread(target=thread_target)
+    thread1 = threading.Thread(target=thread_target, name="last_active_run_checker")
     thread1.start()
     thread1.join()
     # assert in another thread, active run is None.
@@ -1880,7 +1880,11 @@ def test_last_logged_model():
     assert mlflow.last_logged_model().model_id == another_model.model_id
 
     # model created by another thread should be ignored
-    t = threading.Thread(daemon=True, target=lambda: mlflow.initialize_logged_model())
+    t = threading.Thread(
+        daemon=True,
+        target=lambda: mlflow.initialize_logged_model(),
+        name="model_initializer_thread",
+    )
     t.start()
     t.join()
     assert mlflow.last_logged_model().model_id == another_model.model_id
