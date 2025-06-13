@@ -373,6 +373,15 @@ def _validate_backoff_factor(backoff_factor):
         )
 
 
+def _time_sleep(seconds: float) -> None:
+    """
+    This function is specifically mocked in `test_rest_utils.py` to test the backoff logic in
+    isolation. We avoid wrapping `time.sleep` globally to prevent interfering with unrelated sleep
+    calls elsewhere in the codebase or in third-party libraries.
+    """
+    time.sleep(seconds)
+
+
 def _retry_databricks_sdk_call_with_exponential_backoff(
     *,
     call_func: Callable,
@@ -442,7 +451,7 @@ def _retry_databricks_sdk_call_with_exponential_backoff(
                 f"Retrying in {backoff_time:.2f} seconds (attempt {attempt + 1})"
             )
 
-            time.sleep(backoff_time)
+            _time_sleep(backoff_time)
             attempt += 1
 
 
