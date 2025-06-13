@@ -136,6 +136,9 @@ def main() -> None:
     parser.add_argument(
         "--dry-run", action="store_true", help="Show what would be removed without making changes"
     )
+    parser.add_argument(
+        "files", nargs="*", help="Python files to process (defaults to all tracked Python files)"
+    )
 
     args = parser.parse_args()
     release_dates = get_mlflow_release_dates()
@@ -143,7 +146,8 @@ def main() -> None:
     now = datetime.now(timezone.utc)
     cutoff_date = now - timedelta(days=6 * 30)  # Approximate 6 months
     print(f"Cutoff date: {cutoff_date.strftime('%Y-%m-%d %H:%M:%S UTC')}")
-    python_files: list[Path] = get_tracked_python_files()
+
+    python_files = [Path(f) for f in args.files] if args.files else get_tracked_python_files()
     for file_path in python_files:
         if not file_path.exists():
             continue
