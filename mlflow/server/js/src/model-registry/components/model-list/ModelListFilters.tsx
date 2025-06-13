@@ -9,7 +9,7 @@ import {
 } from '@databricks/design-system';
 import { useEffect, useState } from 'react';
 import { FormattedMessage, defineMessage, useIntl } from 'react-intl';
-import { ExperimentSearchSyntaxDocUrl } from '../../../common/constants';
+import { ExperimentRunSearchSyntaxDocUrl } from '../../../common/constants';
 
 export interface ModelListFiltersProps {
   searchFilter: string;
@@ -50,7 +50,7 @@ export const ModelSearchInputHelpTooltip = ({
               link: (chunks) => (
                 <Typography.Link
                   componentId="codegen_mlflow_app_src_model-registry_components_model-list_modellistfilters.tsx_61"
-                  href={ExperimentSearchSyntaxDocUrl + '#syntax'}
+                  href={ExperimentRunSearchSyntaxDocUrl + '#syntax'}
                   openInNewTab
                 >
                   {chunks}
