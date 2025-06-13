@@ -152,7 +152,7 @@ export class ExperimentListView extends Component<Props, State> {
               </Button>
               <Tooltip
                 componentId="mlflow.experiment_list_view.compare_experiments_button"
-                content="Select more than one experiment from the table to compare them"
+                content="Select at least two experiments from the table to compare them"
               >
                 <Button
                   componentId="mlflow.experiment_list_view.new_experiment_button"
@@ -245,6 +245,7 @@ const useExperimentsTableColumns = () => {
             componentId="mlflow.experiment_list_view.check_all_box"
             isChecked={table.getIsAllRowsSelected()}
             onChange={(_, event) => table.getToggleAllRowsSelectedHandler()(event)}
+            // indeterminate={table.getIsSomeRowsSelected()}
           />
         ),
         id: 'select',
@@ -355,6 +356,8 @@ export const ExperimentListTable = ({
     return null;
   };
 
+  const selectColumnStyles = { flex: 'none' };
+
   return (
     <Table
       scrollable
@@ -371,7 +374,11 @@ export const ExperimentListTable = ({
     >
       <TableRow isHeader>
         {table.getLeafHeaders().map((header) => (
-          <TableHeader componentId="mlflow.experiment_list_view.table.header" key={header.id}>
+          <TableHeader
+            componentId="mlflow.experiment_list_view.table.header"
+            key={header.id}
+            css={header.column.id === 'select' ? selectColumnStyles : undefined}
+          >
             {flexRender(header.column.columnDef.header, header.getContext())}
           </TableHeader>
         ))}
@@ -382,7 +389,10 @@ export const ExperimentListTable = ({
         table.getRowModel().rows.map((row) => (
           <TableRow key={row.id} css={{ height: theme.general.buttonHeight }}>
             {row.getAllCells().map((cell) => (
-              <TableCell key={cell.id} css={{ alignItems: 'center' }}>
+              <TableCell
+                key={cell.id}
+                css={{ alignItems: 'center', ...(cell.column.id === 'select' ? selectColumnStyles : undefined) }}
+              >
                 {flexRender(cell.column.columnDef.cell, cell.getContext())}
               </TableCell>
             ))}
