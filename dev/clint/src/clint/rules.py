@@ -457,10 +457,7 @@ class UnnamedThread(Rule):
     def _has_name_parameter(node: ast.Call) -> bool:
         """Check if the call includes a name parameter."""
         # Check keyword arguments
-        for keyword in node.keywords:
-            if keyword.arg == "name":
-                return True
-        return False
+        return any(keyword.arg == "name" for keyword in node.keywords)
 
 
 class NonLiteralExperimentalVersion(Rule):
