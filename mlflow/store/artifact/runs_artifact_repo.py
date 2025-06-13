@@ -7,6 +7,7 @@ import mlflow
 from mlflow.entities.file_info import FileInfo
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.utils.file_utils import create_tmp_dir
 from mlflow.utils.uri import (
@@ -207,7 +208,14 @@ class RunsArtifactRepository(ArtifactRepository):
         # If there are artifacts with the same name in the run and model, the model artifacts
         # will overwrite the run artifacts.
         model_out_path = self._download_model_artifacts(artifact_path, dst_path=dst_path)
-        return run_out_path or model_out_path
+        path = run_out_path or model_out_path
+        if path is None:
+            raise MlflowException(
+                f"Failed to download artifacts from path {artifact_path!r}, "
+                "please ensure that the path is correct.",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            )
+        return path
 
     def _download_model_artifacts(self, artifact_path: str, dst_path: str) -> Optional[str]:
         """
