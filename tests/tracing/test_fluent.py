@@ -880,6 +880,7 @@ def test_search_traces(return_type, mock_client):
         page_token=None,
         model_id=None,
         sql_warehouse_id=None,
+        include_spans=True,
     )
 
 
@@ -915,12 +916,15 @@ def test_search_traces_with_pagination(mock_client):
         "max_results": SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         "filter_string": None,
         "order_by": None,
+        "include_spans": True,
+        "model_id": None,
+        "sql_warehouse_id": None,
     }
     mock_client.search_traces.assert_has_calls(
         [
-            mock.call(**common_args, page_token=None, model_id=None, sql_warehouse_id=None),
-            mock.call(**common_args, page_token="token-1", model_id=None, sql_warehouse_id=None),
-            mock.call(**common_args, page_token="token-2", model_id=None, sql_warehouse_id=None),
+            mock.call(**common_args, page_token=None),
+            mock.call(**common_args, page_token="token-1"),
+            mock.call(**common_args, page_token="token-2"),
         ]
     )
 
@@ -939,6 +943,7 @@ def test_search_traces_with_default_experiment_id(mock_client):
         page_token=None,
         model_id=None,
         sql_warehouse_id=None,
+        include_spans=True,
     )
 
 
@@ -1008,7 +1013,8 @@ def test_search_traces_handles_missing_response_tags_and_metadata(mock_client):
     df = mlflow.search_traces()
     assert df["response"].isnull().all()
     assert df["tags"].tolist() == [{}]
-    assert df["trace_metadata"].tolist() == [{}]
+    # trace_metadata should only contain the schema version
+    assert df["trace_metadata"].tolist() == [{TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)}]
 
 
 @skip_when_testing_trace_sdk
@@ -1455,6 +1461,42 @@ def test_update_current_trace_client_request_id_stringification():
                 with trace_manager.get_trace(span.trace_id) as trace:
                     assert trace.info.client_request_id == expected_output
                     assert isinstance(trace.info.client_request_id, str)
+
+
+def test_update_current_trace_with_metadata():
+    """Test that update_current_trace correctly handles metadata parameter."""
+
+    @mlflow.trace
+    def f():
+        mlflow.update_current_trace(
+            metadata={
+                "mlflow.source.name": "inference.py",
+                "mlflow.source.git.commit": "1234567890",
+                "mlflow.source.git.repoURL": "https://github.com/mlflow/mlflow",
+                "non-string-metadata": 123,
+            },
+        )
+
+    f()
+
+    expected_metadata = {
+        "mlflow.source.name": "inference.py",
+        "mlflow.source.git.commit": "1234567890",
+        "mlflow.source.git.repoURL": "https://github.com/mlflow/mlflow",
+        "non-string-metadata": "123",  # Should be stringified
+    }
+
+    # Validate in-memory trace
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    for k, v in expected_metadata.items():
+        assert trace.info.trace_metadata[k] == v
+
+    # Validate backend trace
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    for k, v in expected_metadata.items():
+        assert traces[0].info.trace_metadata[k] == v
 
 
 @skip_when_testing_trace_sdk

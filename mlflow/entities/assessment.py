@@ -30,7 +30,7 @@ PbValueType = Union[float, int, str, bool]
 FeedbackValueType = Union[PbValueType, dict[str, PbValueType], list[PbValueType]]
 
 
-@experimental
+@experimental(version="2.21.0")
 @dataclass
 class Assessment(_MlflowObject):
     """
@@ -168,7 +168,7 @@ class Assessment(_MlflowObject):
 DEFAULT_FEEDBACK_NAME = "feedback"
 
 
-@experimental
+@experimental(version="3.0.0")
 @dataclass
 class Feedback(Assessment):
     """
@@ -263,9 +263,15 @@ class Feedback(Assessment):
             overrides=overrides,
             valid=valid,
         )
-
-        self.value = value
         self.error = error
+
+    @property
+    def value(self) -> FeedbackValueType:
+        return self.feedback.value
+
+    @value.setter
+    def value(self, value: FeedbackValueType):
+        self.feedback.value = value
 
     @classmethod
     def from_proto(cls, proto):
@@ -329,7 +335,7 @@ class Feedback(Assessment):
         return self.feedback.error.error_message if self.feedback.error else None
 
 
-@experimental
+@experimental(version="2.21.0")
 @dataclass
 class Expectation(Assessment):
     """
@@ -368,9 +374,6 @@ class Expectation(Assessment):
             )
     """
 
-    # Needs to be optional because other earlier args in the Assessment is optional
-    value: Optional[Any] = None
-
     def __init__(
         self,
         name: str,
@@ -399,7 +402,13 @@ class Expectation(Assessment):
             expectation=ExpectationValue(value=value),
         )
 
-        self.value = value
+    @property
+    def value(self) -> Any:
+        return self.expectation.value
+
+    @value.setter
+    def value(self, value: Any):
+        self.expectation.value = value
 
     @classmethod
     def from_proto(cls, proto) -> "Expectation":
@@ -447,7 +456,7 @@ class Expectation(Assessment):
 _JSON_SERIALIZATION_FORMAT = "JSON_FORMAT"
 
 
-@experimental
+@experimental(version="3.0.0")
 @dataclass
 class ExpectationValue(_MlflowObject):
     """Represents an expectation value."""
@@ -504,7 +513,7 @@ class ExpectationValue(_MlflowObject):
         return self.value is not None and not isinstance(self.value, (int, float, bool, str))
 
 
-@experimental
+@experimental(version="2.21.0")
 @dataclass
 class FeedbackValue(_MlflowObject):
     """Represents a feedback value."""

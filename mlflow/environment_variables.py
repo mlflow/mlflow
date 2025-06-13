@@ -607,6 +607,11 @@ MLFLOW_TRACE_BUFFER_TTL_SECONDS = _EnvironmentVariable("MLFLOW_TRACE_BUFFER_TTL_
 # How many traces to be buffered in-memory at client side before being abandoned.
 MLFLOW_TRACE_BUFFER_MAX_SIZE = _EnvironmentVariable("MLFLOW_TRACE_BUFFER_MAX_SIZE", int, 1000)
 
+#: Maximum number of prompt versions to cache in the LRU cache for _load_prompt_version_cached.
+#: This cache improves performance by avoiding repeated network calls for the same prompt version.
+#: (default: ``128``)
+MLFLOW_PROMPT_CACHE_MAX_SIZE = _EnvironmentVariable("MLFLOW_PROMPT_CACHE_MAX_SIZE", int, 128)
+
 #: Private configuration option.
 #: Enables the ability to catch exceptions within MLflow evaluate for classification models
 #: where a class imbalance due to a missing target class would raise an error in the
@@ -836,6 +841,7 @@ MLFLOW_LOCK_MODEL_DEPENDENCIES = _BooleanEnvironmentVariable(
     "MLFLOW_LOCK_MODEL_DEPENDENCIES", False
 )
 
+
 #: Enables rate limiting for the MLflow tracking server
 #: (default: ``False``)
 MLFLOW_TRACKING_SERVER_RATE_LIMITING_ENABLED = _BooleanEnvironmentVariable(
@@ -888,4 +894,11 @@ MLFLOW_TRACKING_SERVER_RATE_LIMITING_ARTIFACT_LIMITS = _EnvironmentVariable(
 #: (default: ``ip``)
 MLFLOW_TRACKING_SERVER_RATE_LIMITING_KEY_FUNC = _EnvironmentVariable(
     "MLFLOW_TRACKING_SERVER_RATE_LIMITING_KEY_FUNC", str, "ip"
+)
+#: If specified, tracking server rejects model `/mlflow/model-versions/create` requests with
+#: a source that does not match the specified regular expression.
+#: (default: ``None``).
+MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX = _EnvironmentVariable(
+    "MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX", str, None
+
 )

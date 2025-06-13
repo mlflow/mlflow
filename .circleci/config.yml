@@ -76,13 +76,21 @@ jobs:
           command: |
             python dev/show_package_release_dates.py
       - run:
+          name: Install JS dependencies
+          working_directory: docs
+          command: |
+            yarn install --no-immutable
+            if [ -n "$(git status --porcelain yarn.lock)" ]; then
+              echo "yarn.lock has changed. Please run 'yarn install' locally and commit the changes."
+              exit 1
+            fi
+      - run:
           name: Build documentation
           working_directory: docs
           environment:
             JAVA_HOME: /usr/lib/jvm/default-java
             PR_PREVIEW: "true"
           command: |
-            yarn install
             yarn build-all -- --no-r
             python changed_pages.py
       - run:
@@ -91,7 +99,7 @@ jobs:
           command: |
             yarn sitemap https://mlflow.org/docs/latest/sitemap.xml ./build/latest/sitemap.xml
       - store_artifacts:
-          path: docs/build/
+          path: docs/build/latest
       - run:
           name: Test examples
           working_directory: docs/api_reference

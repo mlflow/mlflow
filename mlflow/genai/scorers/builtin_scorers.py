@@ -1,11 +1,13 @@
+from dataclasses import asdict
 from typing import Any, Optional, Union
 
+import mlflow
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai import judges
 from mlflow.genai.judges.databricks import requires_databricks_agents
-from mlflow.genai.scorers.base import Scorer
+from mlflow.genai.scorers.base import _SERIALIZATION_VERSION, Scorer, SerializedScorer
 from mlflow.genai.utils.trace_utils import (
     extract_retrieval_context_from_trace,
     parse_inputs_to_str,
@@ -22,7 +24,59 @@ class BuiltInScorer(Scorer):
     inherit from this class.
     """
 
+    name: str
     required_columns: set[str] = set()
+
+    def model_dump(self, **kwargs) -> dict:
+        """Override model_dump to handle builtin scorer serialization."""
+        # Use mode='json' to automatically convert sets to lists for JSON compatibility
+        from pydantic import BaseModel
+
+        pydantic_model_data = BaseModel.model_dump(self, mode="json", **kwargs)
+
+        # Create serialized scorer with core fields
+        serialized = SerializedScorer(
+            name=self.name,
+            aggregations=self.aggregations,
+            mlflow_version=mlflow.__version__,
+            serialization_version=_SERIALIZATION_VERSION,
+            builtin_scorer_class=self.__class__.__name__,
+            builtin_scorer_pydantic_data=pydantic_model_data,
+        )
+
+        return asdict(serialized)
+
+    @classmethod
+    def model_validate(cls, obj) -> "BuiltInScorer":
+        """Override model_validate to handle builtin scorer deserialization."""
+        if not isinstance(obj, dict) or "builtin_scorer_class" not in obj:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid builtin scorer data: expected a dictionary with 'builtin_scorer_class'"
+                f" field, got {type(obj).__name__}."
+            )
+
+        from mlflow.genai.scorers import builtin_scorers
+        from mlflow.genai.scorers.base import SerializedScorer
+
+        # Parse the serialized data using our dataclass
+        try:
+            serialized = SerializedScorer(**obj)
+        except Exception as e:
+            raise MlflowException.invalid_parameter_value(
+                f"Failed to parse serialized scorer data: {e}"
+            )
+
+        try:
+            scorer_class = getattr(builtin_scorers, serialized.builtin_scorer_class)
+        except AttributeError:
+            raise MlflowException.invalid_parameter_value(
+                f"Unknown builtin scorer class: {serialized.builtin_scorer_class}"
+            )
+
+        # Use the builtin_scorer_pydantic_data directly to reconstruct the scorer
+        constructor_args = serialized.builtin_scorer_pydantic_data or {}
+
+        return scorer_class(**constructor_args)
 
     def validate_columns(self, columns: set[str]) -> None:
         missing_columns = self.required_columns - columns
@@ -31,7 +85,7 @@ class BuiltInScorer(Scorer):
 
 
 # === Builtin Scorers ===
-@experimental
+@experimental(version="3.0.0")
 class RetrievalRelevance(BuiltInScorer):
     """
     Retrieval relevance measures whether each chunk is relevant to the input request.
@@ -120,7 +174,7 @@ class RetrievalRelevance(BuiltInScorer):
         return [span_level_feedback] + chunk_feedbacks
 
 
-@experimental
+@experimental(version="3.0.0")
 class RetrievalSufficiency(BuiltInScorer):
     """
     Retrieval sufficiency evaluates whether the retrieved documents provide all necessary
@@ -209,7 +263,7 @@ class RetrievalSufficiency(BuiltInScorer):
         return feedbacks
 
 
-@experimental
+@experimental(version="3.0.0")
 class RetrievalGroundedness(BuiltInScorer):
     """
     RetrievalGroundedness assesses whether the agent's response is aligned with the information
@@ -268,7 +322,7 @@ class RetrievalGroundedness(BuiltInScorer):
         return feedbacks
 
 
-@experimental
+@experimental(version="3.0.0")
 class Guidelines(BuiltInScorer):
     """
     Guideline adherence evaluates whether the agent's response follows specific constraints
@@ -362,7 +416,7 @@ class Guidelines(BuiltInScorer):
         )
 
 
-@experimental
+@experimental(version="3.0.0")
 class ExpectationsGuidelines(BuiltInScorer):
     """
     This scorer evaluates whether the agent's response follows specific constraints
@@ -450,7 +504,7 @@ class ExpectationsGuidelines(BuiltInScorer):
         )
 
 
-@experimental
+@experimental(version="3.0.0")
 class RelevanceToQuery(BuiltInScorer):
     """
     Relevance ensures that the agent's response directly addresses the user's input without
@@ -508,7 +562,7 @@ class RelevanceToQuery(BuiltInScorer):
         return judges.is_context_relevant(request=request, context=outputs, name=self.name)
 
 
-@experimental
+@experimental(version="3.0.0")
 class Safety(BuiltInScorer):
     """
     Safety ensures that the agent's responses do not contain harmful, offensive, or toxic content.
@@ -559,7 +613,7 @@ class Safety(BuiltInScorer):
         return judges.is_safe(content=parse_output_to_str(outputs), name=self.name)
 
 
-@experimental
+@experimental(version="3.0.0")
 class Correctness(BuiltInScorer):
     """
     Correctness ensures that the agent's responses are correct and accurate.
@@ -668,7 +722,7 @@ class Correctness(BuiltInScorer):
 
 
 # === Shorthand for getting preset of builtin scorers ===
-@experimental
+@experimental(version="3.0.0")
 def get_all_scorers() -> list[BuiltInScorer]:
     """
     Returns a list of all built-in scorers.

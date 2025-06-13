@@ -255,7 +255,7 @@ def get_spark_linear_regressor_model_uri():
     spark_reg_model = reg.fit(spark_df)
 
     with mlflow.start_run():
-        model_info = mlflow.spark.log_model(spark_reg_model, name="spark_reg_model")
+        model_info = mlflow.spark.log_model(spark_reg_model, artifact_path="spark_reg_model")
         return model_info.model_uri
 
 

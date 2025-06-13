@@ -1,4 +1,5 @@
 import pytest
+from google.protobuf.timestamp_pb2 import Timestamp
 
 from mlflow.entities import (
     AssessmentError,
@@ -9,6 +10,8 @@ from mlflow.entities import (
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
+from mlflow.protos.service_pb2 import TraceInfoV3 as ProtoTraceInfoV3
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
 
 
 def test_trace_info():
@@ -45,7 +48,7 @@ def test_trace_info():
         request_time=1234567890,
         execution_duration=100,
         state=TraceState.OK,
-        trace_metadata={"foo": "bar"},
+        trace_metadata={"foo": "bar", TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
         tags={"baz": "qux"},
         assessments=assessments,
     )
@@ -67,7 +70,7 @@ def test_trace_info():
         "request_time": "1970-01-15T06:56:07.890Z",
         "execution_duration_ms": 100,
         "state": "OK",
-        "trace_metadata": {"foo": "bar"},
+        "trace_metadata": {"foo": "bar", TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
         "assessments": [
             {
                 "assessment_name": "feedback_test",
@@ -168,7 +171,7 @@ def test_trace_info_proto(client_request_id, assessments):
         request_time=0,
         execution_duration=1,
         state=TraceState.OK,
-        trace_metadata={"foo": "bar"},
+        trace_metadata={"foo": "bar", TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
         tags={"baz": "qux"},
         assessments=assessments,
     )
@@ -186,10 +189,6 @@ def test_from_proto_excludes_undefined_fields():
     Test that undefined fields (client_request_id, execution_duration) are excluded when
     constructing a TraceInfo from a protobuf message instance that does not define these fields.
     """
-    from google.protobuf.timestamp_pb2 import Timestamp
-
-    from mlflow.protos.service_pb2 import TraceInfoV3 as ProtoTraceInfoV3
-
     # Manually create a protobuf without setting client_request_id or execution_duration fields
     request_time = Timestamp()
     request_time.FromMilliseconds(1234567890)
@@ -223,3 +222,96 @@ def test_from_proto_excludes_undefined_fields():
     assert trace_info.response_preview == "response"
     assert trace_info.request_time == 1234567890
     assert trace_info.state == TraceState.OK
+
+
+def test_trace_info_from_proto_updates_schema_version():
+    """Test that TraceInfo.from_proto updates schema version when it exists and is outdated."""
+    # Create a proto with old schema version in metadata
+    request_time = Timestamp()
+    request_time.FromMilliseconds(1234567890)
+
+    proto = ProtoTraceInfoV3(
+        trace_id="test_trace_id",
+        trace_location=TraceLocation.from_experiment_id("123").to_proto(),
+        request_preview="test request",
+        response_preview="test response",
+        request_time=request_time,
+        state=TraceState.OK.to_proto(),
+        trace_metadata={
+            TRACE_SCHEMA_VERSION_KEY: "2",  # Old schema version
+            "other_key": "other_value",
+        },
+        tags={"test_tag": "test_value"},
+    )
+
+    # Convert from proto
+    trace_info = TraceInfo.from_proto(proto)
+
+    # Verify the schema version was updated to current version
+    assert trace_info.trace_metadata[TRACE_SCHEMA_VERSION_KEY] == str(TRACE_SCHEMA_VERSION)
+
+    # Verify other metadata is preserved
+    assert trace_info.trace_metadata["other_key"] == "other_value"
+
+    # Verify other fields are correctly populated
+    assert trace_info.trace_id == "test_trace_id"
+    assert trace_info.experiment_id == "123"
+
+
+def test_trace_info_from_proto_adds_missing_schema_version():
+    """Test that TraceInfo.from_proto adds schema version when it doesn't exist."""
+    # Create a proto without schema version in metadata
+    request_time = Timestamp()
+    request_time.FromMilliseconds(1234567890)
+
+    proto = ProtoTraceInfoV3(
+        trace_id="test_trace_id",
+        trace_location=TraceLocation.from_experiment_id("123").to_proto(),
+        request_preview="test request",
+        response_preview="test response",
+        request_time=request_time,
+        state=TraceState.OK.to_proto(),
+        trace_metadata={
+            "other_key": "other_value",  # No schema version
+        },
+        tags={"test_tag": "test_value"},
+    )
+
+    # Convert from proto
+    trace_info = TraceInfo.from_proto(proto)
+
+    # Verify the schema version was added
+    assert trace_info.trace_metadata[TRACE_SCHEMA_VERSION_KEY] == str(TRACE_SCHEMA_VERSION)
+
+    # Verify other metadata is preserved
+    assert trace_info.trace_metadata["other_key"] == "other_value"
+
+
+def test_trace_info_from_proto_preserves_current_schema_version():
+    """Test that TraceInfo.from_proto preserves current schema version."""
+    # Create a proto with current schema version in metadata
+    request_time = Timestamp()
+    request_time.FromMilliseconds(1234567890)
+
+    proto = ProtoTraceInfoV3(
+        trace_id="test_trace_id",
+        trace_location=TraceLocation.from_experiment_id("123").to_proto(),
+        request_preview="test request",
+        response_preview="test response",
+        request_time=request_time,
+        state=TraceState.OK.to_proto(),
+        trace_metadata={
+            TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION),  # Current schema version
+            "other_key": "other_value",
+        },
+        tags={"test_tag": "test_value"},
+    )
+
+    # Convert from proto
+    trace_info = TraceInfo.from_proto(proto)
+
+    # Verify the schema version is preserved as current version
+    assert trace_info.trace_metadata[TRACE_SCHEMA_VERSION_KEY] == str(TRACE_SCHEMA_VERSION)
+
+    # Verify other metadata is preserved
+    assert trace_info.trace_metadata["other_key"] == "other_value"

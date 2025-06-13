@@ -403,7 +403,7 @@ navigate to the model as well.
     # Output: ['prompt:/my_prompt/1']
 
     # Load the prompt
-    prompt = mlflow.load_prompt(model_info.prompts[0])
+    prompt = mlflow.genai.load_prompt(model_info.prompts[0])
 """,
     }
 )

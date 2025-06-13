@@ -35,7 +35,7 @@ import shutil
 import sys
 import warnings
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator, Optional, TypeVar
 
@@ -85,6 +85,7 @@ class TestConfig(BaseModel, extra="forbid"):
     allow_unreleased_max_version: Optional[bool] = None
     pre_test: Optional[str] = None
     test_every_n_versions: int = 1
+    test_tracing_sdk: bool = False
 
     class Config:
         arbitrary_types_allowed = True
@@ -158,8 +159,9 @@ def read_yaml(location, if_error=None):
 
 
 def uploaded_recently(dist: dict[str, Any]) -> bool:
-    if ut := dist.get("upload_time"):
-        return (datetime.now() - datetime.fromisoformat(ut)).days < 1
+    if ut := dist.get("upload_time_iso_8601"):
+        delta = datetime.now(timezone.utc) - datetime.fromisoformat(ut.replace("Z", "+00:00"))
+        return delta.days < 1
     return False
 
 
@@ -284,7 +286,7 @@ def get_java_version(java: Optional[dict[str, str]], version: str) -> str:
     if java and (match := next(_find_matches(java, version), None)):
         return match
 
-    return "11"
+    return "17"
 
 
 @functools.lru_cache(maxsize=128)
@@ -607,6 +609,29 @@ def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[Matrix
                         free_disk_space=free_disk_space,
                         runs_on=runs_on,
                         pre_test=cfg.pre_test,
+                    )
+                )
+
+            # Add tracing SDK test with the latest stable version
+            if len(versions) > 0 and category == "autologging" and cfg.test_tracing_sdk:
+                version = sorted(versions)[-1]  # Test against the latest stable version
+                matrix.add(
+                    MatrixItem(
+                        name=f"{name}-tracing",
+                        flavor=flavor,
+                        category="tracing-sdk",
+                        job_name=f"{name} / tracing-sdk / {version}",
+                        install=install,
+                        # --import-mode=importlib is required for testing tracing SDK
+                        # (mlflow-tracing) works properly, without being affected by environment.
+                        run=run.replace("pytest", "pytest --import-mode=importlib"),
+                        package=package_info.pip_release,
+                        version=version,
+                        java=java,
+                        supported=version <= cfg.maximum,
+                        free_disk_space=free_disk_space,
+                        python=python,
+                        runs_on=runs_on,
                     )
                 )
 

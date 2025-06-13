@@ -9,10 +9,12 @@ import math
 import os
 import pathlib
 import posixpath
+import subprocess
 import sys
 import time
 import urllib.parse
 from io import StringIO
+from pathlib import Path
 from unittest import mock
 
 import flask
@@ -61,6 +63,7 @@ from mlflow.utils.os import is_windows
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.time import get_current_time_millis
 
+from tests.helper_functions import get_safe_port
 from tests.integration.utils import invoke_cli_runner
 from tests.tracking.integration_test_utils import (
     _init_server,
@@ -82,6 +85,7 @@ def mlflow_client(request, tmp_path):
         ]
 
     with _init_server(backend_uri, root_artifact_uri=tmp_path.as_uri()) as url:
+        mlflow.set_tracking_uri(backend_uri)
         yield MlflowClient(url)
 
 
@@ -1638,6 +1642,56 @@ def test_create_model_version_with_file_uri(mlflow_client):
     )
     assert response.status_code == 500, response.json()
     assert "is not a valid remote uri" in response.json()["message"]
+
+
+def test_create_model_version_with_validation_regex(tmp_path: Path):
+    port = get_safe_port()
+    with subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "mlflow",
+            "server",
+            "--port",
+            str(port),
+            "--backend-store-uri",
+            f"sqlite:///{tmp_path / 'mlflow.db'}",
+        ],
+        env=(
+            os.environ.copy()
+            | {
+                "MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX": r"^mlflow-artifacts:/.*$",
+            }
+        ),
+    ) as proc:
+        try:
+            # Wait for the server to start
+            for _ in range(10):
+                try:
+                    if requests.get(f"http://localhost:{port}/health").ok:
+                        break
+                except requests.ConnectionError:
+                    time.sleep(1)
+            else:
+                raise RuntimeError("Failed to connect to the MLflow server")
+
+            # Test that the validation regex works as expected
+            client = MlflowClient(f"http://localhost:{port}")
+            name = "test"
+            client.create_registered_model(name)
+            # Invalid source
+            with pytest.raises(MlflowException, match="Invalid model version source"):
+                client.create_model_version(name, source="s3://path/to/model")
+            # Valid source
+            experiment_id = client.create_experiment("test")
+            run = client.create_run(experiment_id=experiment_id)
+            assert run.info.artifact_uri.startswith("mlflow-artifacts:/")
+            client.create_model_version(
+                name, source=f"{run.info.artifact_uri}/model", run_id=run.info.run_id
+            )
+        finally:
+            proc.terminate()
+            proc.wait()
 
 
 @pytest.mark.xfail(reason="Tracking server does not support logged-model endpoints yet")
