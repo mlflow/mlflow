@@ -132,6 +132,8 @@ def _autolog(
     else:
         safe_patch(FLAVOR_NAME, Responses, "create", patched_call)
         safe_patch(FLAVOR_NAME, AsyncResponses, "create", async_patched_call)
+        safe_patch(FLAVOR_NAME, AsyncResponses, "parse", async_patched_call)
+        safe_patch(FLAVOR_NAME, Responses, "parse", patched_call)
 
     # Patch Swarm agent to generate traces
     try:
