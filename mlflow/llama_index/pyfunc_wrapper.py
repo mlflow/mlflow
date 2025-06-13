@@ -238,7 +238,7 @@ class WorkflowWrapper(_LlamaIndexModelWrapperBase):
                     loop.close()
 
             thread = threading.Thread(
-                target=_run, name=f"llamaindex_async_task_runner_{uuid.uuid4().hex[:8]}"
+                target=_run, name=f"mlflow_llamaindex_async_task_runner_{uuid.uuid4().hex[:8]}"
             )
             thread.start()
             thread.join()
