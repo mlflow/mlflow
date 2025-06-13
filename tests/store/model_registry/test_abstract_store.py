@@ -795,9 +795,7 @@ def test_link_prompt_version_to_run_thread_safety(store, mock_tracking_store):
     # Execute concurrent linking
     threads = []
     for prompt_name in ["test_prompt_1", "test_prompt_2"]:
-        thread = threading.Thread(
-            target=link_prompt, args=(prompt_name,), name=f"run_prompt_linker_{prompt_name}"
-        )
+        thread = threading.Thread(target=link_prompt, args=(prompt_name,))
         threads.append(thread)
         thread.start()
 
