@@ -2679,6 +2679,7 @@ e.g., struct<a:int, b:array<int>>.
                     target=server_redirect_log_thread_func,
                     args=(scoring_server_proc.stdout,),
                     daemon=True,
+                    name=f"mlflow_pyfunc_model_server_log_redirector_{uuid.uuid4().hex[:8]}",
                 )
                 server_redirect_log_thread.start()
 
