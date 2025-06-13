@@ -25,12 +25,15 @@ def mock_deploy_client():
 def mock_tracing_client(monkeypatch):
     # Mock the TracingClient
     with mock.patch("mlflow.tracing.export.mlflow_v3.TracingClient") as mock_get:
+        tracing_client = mock_get.return_value
+        tracing_client.tracking_uri = "databricks"
+
         # Set up trace exporter to Databricks.
         monkeypatch.setenv(MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.name, "false")
         mlflow.set_tracking_uri("databricks")
         mlflow.tracing.enable()  # Set up trace exporter again
 
-        yield mock_get.return_value
+        yield tracing_client
 
 
 def test_to_predict_fn_return_trace(sample_rag_trace, mock_deploy_client, mock_tracing_client):

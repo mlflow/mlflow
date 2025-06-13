@@ -9,7 +9,10 @@ from mlflow.tracing.utils.truncation import _get_truncated_preview
 @pytest.fixture(autouse=True)
 def patch_max_length():
     # Patch max length to 50 to make tests faster
-    with patch("mlflow.tracing.utils.truncation.TRACE_REQUEST_RESPONSE_PREVIEW_MAX_LENGTH", 50):
+    with (
+        patch("mlflow.tracing.utils.truncation.TRACE_REQUEST_RESPONSE_PREVIEW_MAX_LENGTH_OSS", 50),
+        patch("mlflow.tracing.utils.truncation.TRACE_REQUEST_RESPONSE_PREVIEW_MAX_LENGTH_DBX", 50),
+    ):
         yield
 
 
