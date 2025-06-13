@@ -201,7 +201,7 @@ class UvicornGateway:
         def run():
             self.loop.run_until_complete(self.server.serve())
 
-        self.thread = threading.Thread(target=run, name="uvicorn_gateway_server")
+        self.thread = threading.Thread(target=run)
         self.thread.start()
 
     def request(self, method: str, path: str, *args: Any, **kwargs: Any) -> requests.Response:
