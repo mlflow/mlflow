@@ -617,7 +617,7 @@ class Model:
     def model_size_bytes(self, value: Optional[int]) -> None:
         self._model_size_bytes = value
 
-    @experimental
+    @experimental(version="2.13.0")
     @property
     def resources(self) -> dict[str, dict[ResourceType, list[dict]]]:
         """
@@ -629,7 +629,7 @@ class Model:
         """
         return self._resources
 
-    @experimental
+    @experimental(version="2.13.0")
     @resources.setter
     def resources(self, value: Optional[Union[str, list[Resource]]]) -> None:
         if isinstance(value, (Path, str)):
@@ -640,7 +640,7 @@ class Model:
             serialized_resource = value
         self._resources = serialized_resource
 
-    @experimental
+    @experimental(version="2.21.0")
     @property
     def auth_policy(self) -> dict[str, dict]:
         """
@@ -652,7 +652,7 @@ class Model:
         """
         return self._auth_policy
 
-    @experimental
+    @experimental(version="2.21.0")
     @auth_policy.setter
     def auth_policy(self, value: Optional[Union[dict, AuthPolicy]]) -> None:
         self._auth_policy = value.to_dict() if isinstance(value, AuthPolicy) else value
@@ -1583,7 +1583,7 @@ def _validate_llama_index_model(model):
     return _validate_and_prepare_llama_index_model_or_path(model, None)
 
 
-@experimental
+@experimental(version="2.13.0")
 def set_model(model) -> None:
     """
     When logging model as code, this function can be used to set the model object

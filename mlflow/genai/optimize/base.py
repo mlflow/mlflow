@@ -30,7 +30,7 @@ _ALGORITHMS = {"DSPy/MIPROv2": _DSPyMIPROv2Optimizer}
 _logger = logging.getLogger(__name__)
 
 
-@experimental
+@experimental(version="3.0.0")
 def optimize_prompt(
     *,
     target_llm_params: LLMParams,

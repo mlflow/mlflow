@@ -4,6 +4,8 @@ import ast
 import re
 from abc import ABC, abstractmethod
 
+from packaging.version import InvalidVersion, Version
+
 
 class Rule(ABC):
     _CLASS_NAME_TO_RULE_NAME_REGEX = re.compile(r"(?<!^)(?=[A-Z])")
@@ -411,6 +413,14 @@ class PytestMarkRepeat(Rule):
         return False
 
 
+def _is_valid_version(version: str) -> bool:
+    try:
+        v = Version(version)
+        return not (v.is_devrelease or v.is_prerelease or v.is_postrelease)
+    except InvalidVersion:
+        return False
+
+
 class UnnamedThread(Rule):
     def _id(self) -> str:
         return "MLF0024"
@@ -450,4 +460,57 @@ class UnnamedThread(Rule):
         for keyword in node.keywords:
             if keyword.arg == "name":
                 return True
+        return False
+
+
+class NonLiteralExperimentalVersion(Rule):
+    def _id(self) -> str:
+        return "MLF0025"
+
+    def _message(self) -> str:
+        return (
+            "The `version` argument of `@experimental` must be a string literal that is a valid "
+            "semantic version (e.g., '3.0.0')."
+        )
+
+    @staticmethod
+    def _check(node: ast.expr) -> bool:
+        """
+        Returns True if the `@experimental` decorator is used incorrectly.
+        """
+        if isinstance(node, ast.Name) and node.id == "experimental":
+            # The code looks like this:
+            # ---
+            # @experimental
+            # def my_function():
+            #     ...
+            # ---
+            # No `version` argument, invalid usage
+            return True
+
+        if not isinstance(node, ast.Call):
+            # Not a function call, ignore it
+            return False
+
+        if not isinstance(node.func, ast.Name):
+            # Not a simple function call, ignore it
+            return False
+
+        if node.func.id != "experimental":
+            # Not the `experimental` decorator, ignore it
+            return False
+
+        version = next((k.value for k in node.keywords if k.arg == "version"), None)
+        if version is None:
+            # No `version` argument, invalid usage
+            return True
+
+        if not isinstance(version, ast.Constant) or not isinstance(version.value, str):
+            # `version` is not a string literal, invalid usage
+            return True
+
+        if not _is_valid_version(version.value):
+            # `version` is not a valid semantic version, # invalid usage
+            return True
+
         return False
