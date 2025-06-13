@@ -689,6 +689,8 @@ langgraph:
     pip_release: "langgraph"
     install_dev: |
       pip install git+https://github.com/langchain-ai/langgraph#subdirectory=libs/langgraph
+      # Force-reinstall prebuilt to ensure dev version compatibility and prevent pipeline failures
+      pip install --force-reinstall --no-deps git+https://github.com/langchain-ai/langgraph#subdirectory=libs/prebuilt
 
   models:
     minimum: "0.2.0"
