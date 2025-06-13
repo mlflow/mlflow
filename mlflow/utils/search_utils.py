@@ -22,7 +22,7 @@ from sqlparse.tokens import Token as TokenType
 
 from mlflow.entities import LoggedModel, RunInfo
 from mlflow.entities.model_registry.model_version_stages import STAGE_DELETED_INTERNAL
-from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY
+from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.db.db_types import MSSQL, MYSQL, POSTGRES, SQLITE

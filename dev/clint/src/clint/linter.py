@@ -75,10 +75,10 @@ class Violation:
             "type": "error",
             "module": None,
             "obj": None,
-            "line": self.lineno,
-            "column": self.col_offset,
-            "endLine": self.lineno,
-            "endColumn": self.col_offset,
+            "line": self.loc.lineno,
+            "column": self.loc.col_offset,
+            "endLine": self.loc.lineno,
+            "endColumn": self.loc.col_offset,
             "path": str(self.path),
             "symbol": self.rule.name,
             "message": self.rule.message,
@@ -172,6 +172,41 @@ def _iter_code_blocks(s: str) -> Iterator[CodeBlock]:
             header_indent = _get_header_indent(line)
 
     # The docstring ends with a code block
+    if code_lines:
+        code = textwrap.dedent("\n".join(code_lines))
+        yield CodeBlock(code=code, loc=code_block_loc)
+
+
+_MD_OPENING_FENCE_REGEX = re.compile(r"^(`{3,})\s*python\s*$")
+
+
+def _iter_md_code_blocks(s: str) -> Iterator[CodeBlock]:
+    """
+    Iterates over code blocks in a Markdown string.
+    """
+    code_block_loc: Location | None = None
+    code_lines: list[str] = []
+    closing_fence: str | None = None
+    line_iter = enumerate(s.splitlines())
+    while t := next(line_iter, None):
+        idx, line = t
+        if code_block_loc:
+            if line.strip() == closing_fence:
+                code = textwrap.dedent("\n".join(code_lines))
+                yield CodeBlock(code=code, loc=code_block_loc)
+
+                code_block_loc = None
+                code_lines.clear()
+                closing_fence = None
+                continue
+
+            code_lines.append(line)
+
+        elif m := _MD_OPENING_FENCE_REGEX.match(line.lstrip()):
+            closing_fence = m.group(1)
+            code_block_loc = Location(idx + 1, _get_indent(line))
+
+    # Code block at EOF
     if code_lines:
         code = textwrap.dedent("\n".join(code_lines))
         yield CodeBlock(code=code, loc=code_block_loc)
@@ -293,7 +328,7 @@ class Linter(ast.NodeVisitor):
 
     def _no_rst(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         if (n := self._docstring(node)) and (PARAM_REGEX.search(n.s) or RETURN_REGEX.search(n.s)):
-            self._check(n, rules.NoRst())
+            self._check(Location.from_node(n), rules.NoRst())
 
     def _is_in_function(self) -> bool:
         return self.stack and isinstance(self.stack[-1], (ast.FunctionDef, ast.AsyncFunctionDef))
@@ -369,11 +404,17 @@ class Linter(ast.NodeVisitor):
         linter.visit(tree)
         return [v for v in linter.violations if v.rule.name in config.example_rules]
 
+    def visit_decorator(self, node: ast.expr) -> None:
+        if rules.NonLiteralExperimentalVersion._check(node):
+            self._check(Location.from_node(node), rules.NonLiteralExperimentalVersion())
+
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         self.stack.append(node)
         self._no_rst(node)
         self._syntax_error_example(node)
         self._mlflow_class_name(node)
+        for deco in node.decorator_list:
+            self.visit_decorator(deco)
         self.generic_visit(node)
         self.stack.pop()
 
@@ -420,12 +461,21 @@ class Linter(ast.NodeVisitor):
             if MARKDOWN_LINK_RE.search(docstring.s):
                 self._check(docstring, rules.MarkdownLink())
 
+    def _pytest_mark_repeat(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+        # Only check in test files
+        if not self.path.name.startswith("test_"):
+            return
+
+        if rules.PytestMarkRepeat.check(node):
+            self._check(Location.from_node(node), rules.PytestMarkRepeat())
+
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         self._test_name_typo(node)
         self._syntax_error_example(node)
         self._param_mismatch(node)
         self._markdown_link(node)
         self._invalid_abstract_method(node)
+        self._pytest_mark_repeat(node)
 
         for arg in node.args.args + node.args.kwonlyargs + node.args.posonlyargs:
             if arg.annotation:
@@ -436,6 +486,8 @@ class Linter(ast.NodeVisitor):
 
         self.stack.append(node)
         self._no_rst(node)
+        for deco in node.decorator_list:
+            self.visit_decorator(deco)
         self.generic_visit(node)
         self.stack.pop()
 
@@ -445,8 +497,11 @@ class Linter(ast.NodeVisitor):
         self._param_mismatch(node)
         self._markdown_link(node)
         self._invalid_abstract_method(node)
+        self._pytest_mark_repeat(node)
         self.stack.append(node)
         self._no_rst(node)
+        for deco in node.decorator_list:
+            self.visit_decorator(deco)
         self.generic_visit(node)
         self.stack.pop()
 
@@ -547,6 +602,10 @@ class Linter(ast.NodeVisitor):
         if not (first == "mlflow" and third == "log_model"):
             return False
 
+        # TODO: Remove this once spark flavor supports logging models as logged model artifacts
+        if second == "spark":
+            return False
+
         artifact_path_idx = _find_artifact_path_index((first, second))
         if artifact_path_idx is None:
             return False
@@ -578,6 +637,9 @@ class Linter(ast.NodeVisitor):
 
         if self.path.parts[0] != "tests" and _is_set_active_model(node.func):
             self._check(Location.from_node(node), rules.ForbiddenSetActiveModelUsage())
+
+        if self.path.parts[0] != "tests" and rules.UnnamedThread.check(node):
+            self._check(Location.from_node(node), rules.UnnamedThread())
 
         self.generic_visit(node)
 
@@ -639,21 +701,51 @@ class Linter(ast.NodeVisitor):
                     self._check(loc, rules.LazyModule())
 
 
+def _has_trace_ui_content(output: dict[str, Any]) -> bool:
+    """Check if an output contains MLflow trace UI content."""
+    data = output.get("data")
+    if not data:
+        return False
+
+    # Check only HTML outputs since trace UI content is only added to text/html
+    html = data.get("text/html")
+    if not html:
+        return False
+
+    return any("static-files/lib/notebook-trace-renderer/index.html" in line for line in html)
+
+
 def _lint_cell(path: Path, config: Config, cell: dict[str, Any], index: int) -> list[Violation]:
+    violations: list[Violation] = []
     type_ = cell.get("cell_type")
+
+    # Check for forbidden trace UI iframe in cell outputs
+    if outputs := cell.get("outputs"):
+        for output in outputs:
+            if _has_trace_ui_content(output):
+                violations.append(
+                    Violation(
+                        rules.ForbiddenTraceUIInNotebook(),
+                        path,
+                        Location(0, 0),
+                        cell=index,
+                    )
+                )
+                break
+
     if type_ != "code":
-        return []
+        return violations
 
     src = "\n".join(cell.get("source", []))
     try:
         tree = ast.parse(src)
     except SyntaxError:
         # Ignore non-python cells such as `!pip install ...`
-        return []
+        return violations
 
     linter = Linter(path=path, config=config, ignore=ignore_map(src), cell=index)
     linter.visit(tree)
-    violations = linter.violations
+    violations.extend(linter.violations)
 
     if not src.strip():
         violations.append(
@@ -670,14 +762,17 @@ def _lint_cell(path: Path, config: Config, cell: dict[str, Any], index: int) -> 
 def lint_file(path: Path, config: Config) -> list[Violation]:
     code = path.read_text()
     if path.suffix == ".ipynb":
+        violations = []
         if cells := json.loads(code).get("cells"):
-            violations = []
             for idx, cell in enumerate(cells, start=1):
                 violations.extend(_lint_cell(path, config, cell, idx))
-            return violations
-    elif path.suffix in {".rst"}:  # TODO: Add '.md' and '.mdx'
+        return violations
+    elif path.suffix in {".rst", ".md", ".mdx"}:
         violations = []
-        for code_block in _iter_code_blocks(code):
+        code_blocks = (
+            _iter_code_blocks(code) if path.suffix == ".rst" else _iter_md_code_blocks(code)
+        )
+        for code_block in code_blocks:
             violations.extend(Linter.visit_example(path, config, code_block))
         return violations
     else:

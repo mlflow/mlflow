@@ -2,11 +2,13 @@ import contextlib
 import logging
 import threading
 from dataclasses import dataclass, field
-from typing import Generator, Optional
+from typing import Generator, Optional, Sequence
 
 from mlflow.entities import LiveSpan, Trace, TraceData, TraceInfo
+from mlflow.entities.model_registry import PromptVersion
 from mlflow.environment_variables import MLFLOW_TRACE_TIMEOUT_SECONDS
 from mlflow.tracing.utils.timeout import get_trace_cache_with_timeout
+from mlflow.tracing.utils.truncation import set_request_response_preview
 
 _logger = logging.getLogger(__name__)
 
@@ -17,14 +19,15 @@ _logger = logging.getLogger(__name__)
 class _Trace:
     info: TraceInfo
     span_dict: dict[str, LiveSpan] = field(default_factory=dict)
+    prompts: list[PromptVersion] = field(default_factory=list)
 
     def to_mlflow_trace(self) -> Trace:
         trace_data = TraceData()
         for span in self.span_dict.values():
             # Convert LiveSpan, mutable objects, into immutable Span objects before persisting.
             trace_data.spans.append(span.to_immutable_span())
-        self.info.request_preview = trace_data.request
-        self.info.response_preview = trace_data.response
+
+        set_request_response_preview(self.info, trace_data)
         return Trace(self.info, trace_data)
 
     def get_root_span(self) -> Optional[LiveSpan]:
@@ -32,6 +35,16 @@ class _Trace:
             if span.parent_id is None:
                 return span
         return None
+
+
+@dataclass
+class ManagerTrace:
+    """
+    Wrapper around a trace and its associated prompts.
+    """
+
+    trace: Trace
+    prompts: Sequence[PromptVersion]
 
 
 class InMemoryTraceManager:
@@ -87,6 +100,17 @@ class InMemoryTraceManager:
             trace_data_dict = self._traces[span.request_id].span_dict
             trace_data_dict[span.span_id] = span
 
+    def register_prompt(self, trace_id: str, prompt: PromptVersion):
+        """
+        Register a prompt to link to the trace with the given trace ID.
+
+        Args:
+            trace_id: The ID of the trace to which the prompt belongs.
+            prompt: The prompt version to be registered.
+        """
+        with self._lock:
+            self._traces[trace_id].prompts.append(prompt)
+
     @contextlib.contextmanager
     def get_trace(self, trace_id: str) -> Generator[Optional[_Trace], None, None]:
         """
@@ -134,15 +158,19 @@ class InMemoryTraceManager:
             if trace:
                 trace.info.trace_metadata[key] = value
 
-    def pop_trace(self, otel_trace_id: int) -> Optional[Trace]:
+    def pop_trace(self, otel_trace_id: int) -> Optional[ManagerTrace]:
         """
         Pop trace data for the given OpenTelemetry trace ID and
-        return it as a ready-to-publish Trace object.
+        return it as a ManagerTrace wrapper containing the trace and prompts.
         """
         with self._lock:
             mlflow_trace_id = self._otel_id_to_mlflow_trace_id.pop(otel_trace_id, None)
-            trace = self._traces.pop(mlflow_trace_id, None)
-        return trace.to_mlflow_trace() if trace else None
+            internal_trace = self._traces.pop(mlflow_trace_id, None) if mlflow_trace_id else None
+            if internal_trace is None:
+                return None
+            return ManagerTrace(
+                trace=internal_trace.to_mlflow_trace(), prompts=internal_trace.prompts
+            )
 
     def _check_timeout_update(self):
         """

@@ -607,6 +607,11 @@ MLFLOW_TRACE_BUFFER_TTL_SECONDS = _EnvironmentVariable("MLFLOW_TRACE_BUFFER_TTL_
 # How many traces to be buffered in-memory at client side before being abandoned.
 MLFLOW_TRACE_BUFFER_MAX_SIZE = _EnvironmentVariable("MLFLOW_TRACE_BUFFER_MAX_SIZE", int, 1000)
 
+#: Maximum number of prompt versions to cache in the LRU cache for _load_prompt_version_cached.
+#: This cache improves performance by avoiding repeated network calls for the same prompt version.
+#: (default: ``128``)
+MLFLOW_PROMPT_CACHE_MAX_SIZE = _EnvironmentVariable("MLFLOW_PROMPT_CACHE_MAX_SIZE", int, 128)
+
 #: Private configuration option.
 #: Enables the ability to catch exceptions within MLflow evaluate for classification models
 #: where a class imbalance due to a missing target class would raise an error in the
@@ -774,11 +779,15 @@ MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT = _EnvironmentVariable(
     "MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT", int, 500
 )
 
+#: The default active LoggedModel ID. Traces created while this variable is set (unless overridden,
+#: e.g., by the `set_active_model()` API) will be associated with this LoggedModel ID.
+#: (default: ``None``)
+MLFLOW_ACTIVE_MODEL_ID = _EnvironmentVariable("MLFLOW_ACTIVE_MODEL_ID", str, None)
 
-#: Default active LoggedModel ID.
-#: This should only by used by MLflow internally, users should always use
-#: `set_active_model` to set the active LoggedModel, and should not set
-#: this environment variable directly.
+#: Legacy environment variable for setting the default active LoggedModel ID.
+#: This should only by used by MLflow internally. Users should use the
+#: public `MLFLOW_ACTIVE_MODEL_ID` environment variable or the `set_active_model`
+#: API to set the active LoggedModel, and should not set this environment variable directly.
 #: (default: ``None``)
 _MLFLOW_ACTIVE_MODEL_ID = _EnvironmentVariable("_MLFLOW_ACTIVE_MODEL_ID", str, None)
 
@@ -824,4 +833,17 @@ MLFLOW_LOGGING_LEVEL = _EnvironmentVariable("MLFLOW_LOGGING_LEVEL", str, None)
 #: (default: ``False``)
 MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT = _BooleanEnvironmentVariable(
     "MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT", False
+)
+
+#: If True, MLflow locks both direct and transitive model dependencies when logging a model.
+#: (default: ``False``).
+MLFLOW_LOCK_MODEL_DEPENDENCIES = _BooleanEnvironmentVariable(
+    "MLFLOW_LOCK_MODEL_DEPENDENCIES", False
+)
+
+#: If specified, tracking server rejects model `/mlflow/model-versions/create` requests with
+#: a source that does not match the specified regular expression.
+#: (default: ``None``).
+MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX = _EnvironmentVariable(
+    "MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX", str, None
 )

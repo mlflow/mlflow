@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import time
-import traceback
 from dataclasses import dataclass
 from typing import Any, Optional, Union
 
@@ -17,6 +16,7 @@ from mlflow.protos.assessments_pb2 import Assessment as ProtoAssessment
 from mlflow.protos.assessments_pb2 import Expectation as ProtoExpectation
 from mlflow.protos.assessments_pb2 import Feedback as ProtoFeedback
 from mlflow.utils.annotations import experimental
+from mlflow.utils.exception_utils import get_stacktrace
 from mlflow.utils.proto_json_utils import proto_timestamp_to_milliseconds
 
 # Feedback value should be one of the following types:
@@ -30,7 +30,7 @@ PbValueType = Union[float, int, str, bool]
 FeedbackValueType = Union[PbValueType, dict[str, PbValueType], list[PbValueType]]
 
 
-@experimental
+@experimental(version="2.21.0")
 @dataclass
 class Assessment(_MlflowObject):
     """
@@ -68,6 +68,11 @@ class Assessment(_MlflowObject):
     # use the`Expectation` or `Feedback` classes instead.
     expectation: Optional[ExpectationValue] = None
     feedback: Optional[FeedbackValue] = None
+    # The ID of the assessment which this assessment overrides.
+    overrides: Optional[str] = None
+    # Whether this assessment is valid (i.e. has not been overridden).
+    # This should not be set by the user, it is automatically set by the backend.
+    valid: Optional[bool] = None
 
     def __post_init__(self):
         if (self.expectation is not None) + (self.feedback is not None) != 1:
@@ -125,6 +130,10 @@ class Assessment(_MlflowObject):
 
         if self.metadata:
             assessment.metadata.update(self.metadata)
+        if self.overrides:
+            assessment.overrides = self.overrides
+        if self.valid is not None:
+            assessment.valid = self.valid
 
         return assessment
 
@@ -159,7 +168,7 @@ class Assessment(_MlflowObject):
 DEFAULT_FEEDBACK_NAME = "feedback"
 
 
-@experimental
+@experimental(version="3.0.0")
 @dataclass
 class Feedback(Assessment):
     """
@@ -222,6 +231,8 @@ class Feedback(Assessment):
         create_time_ms: Optional[int] = None,
         last_update_time_ms: Optional[int] = None,
         rationale: Optional[str] = None,
+        overrides: Optional[str] = None,
+        valid: bool = True,
     ):
         if value is None and error is None:
             raise MlflowException.invalid_parameter_value(
@@ -233,13 +244,10 @@ class Feedback(Assessment):
             source = AssessmentSource(source_type=AssessmentSourceType.CODE)
 
         if isinstance(error, Exception):
-            stack_trace_string = (
-                "".join(traceback.format_tb(error.__traceback__)) if error.__traceback__ else None
-            )
             error = AssessmentError(
                 error_message=str(error),
                 error_code=error.__class__.__name__,
-                stack_trace=stack_trace_string,
+                stack_trace=get_stacktrace(error),
             )
 
         super().__init__(
@@ -252,10 +260,18 @@ class Feedback(Assessment):
             last_update_time_ms=last_update_time_ms,
             feedback=FeedbackValue(value=value, error=error),
             rationale=rationale,
+            overrides=overrides,
+            valid=valid,
         )
-
-        self.value = value
         self.error = error
+
+    @property
+    def value(self) -> FeedbackValueType:
+        return self.feedback.value
+
+    @value.setter
+    def value(self, value: FeedbackValueType):
+        self.feedback.value = value
 
     @classmethod
     def from_proto(cls, proto):
@@ -273,12 +289,14 @@ class Feedback(Assessment):
             rationale=proto.rationale or None,
             metadata=metadata,
             span_id=proto.span_id or None,
+            overrides=proto.overrides or None,
+            valid=proto.valid,
         )
         feedback.assessment_id = proto.assessment_id or None
         return feedback
 
     @classmethod
-    def from_dictionary(cls, d: dict[str, Any]) -> "Expectation":
+    def from_dictionary(cls, d: dict[str, Any]) -> "Feedback":
         feedback_value = d.get("feedback")
 
         if not feedback_value:
@@ -299,6 +317,8 @@ class Feedback(Assessment):
             rationale=d.get("rationale"),
             metadata=d.get("metadata"),
             span_id=d.get("span_id"),
+            overrides=d.get("overrides"),
+            valid=d.get("valid", True),
         )
         feedback.assessment_id = d.get("assessment_id") or None
         return feedback
@@ -315,7 +335,7 @@ class Feedback(Assessment):
         return self.feedback.error.error_message if self.feedback.error else None
 
 
-@experimental
+@experimental(version="2.21.0")
 @dataclass
 class Expectation(Assessment):
     """
@@ -354,9 +374,6 @@ class Expectation(Assessment):
             )
     """
 
-    # Needs to be optional because other earlier args in the Assessment is optional
-    value: Optional[Any] = None
-
     def __init__(
         self,
         name: str,
@@ -385,7 +402,13 @@ class Expectation(Assessment):
             expectation=ExpectationValue(value=value),
         )
 
-        self.value = value
+    @property
+    def value(self) -> Any:
+        return self.expectation.value
+
+    @value.setter
+    def value(self, value: Any):
+        self.expectation.value = value
 
     @classmethod
     def from_proto(cls, proto) -> "Expectation":
@@ -433,7 +456,7 @@ class Expectation(Assessment):
 _JSON_SERIALIZATION_FORMAT = "JSON_FORMAT"
 
 
-@experimental
+@experimental(version="3.0.0")
 @dataclass
 class ExpectationValue(_MlflowObject):
     """Represents an expectation value."""
@@ -490,7 +513,7 @@ class ExpectationValue(_MlflowObject):
         return self.value is not None and not isinstance(self.value, (int, float, bool, str))
 
 
-@experimental
+@experimental(version="2.21.0")
 @dataclass
 class FeedbackValue(_MlflowObject):
     """Represents a feedback value."""

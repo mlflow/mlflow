@@ -5,6 +5,7 @@ from cachetools import TTLCache
 from opentelemetry.sdk.trace import ReadableSpan
 from opentelemetry.sdk.trace.export import SpanExporter
 
+from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import (
     _MLFLOW_ENABLE_TRACE_DUAL_WRITE_IN_MODEL_SERVING,
@@ -13,6 +14,7 @@ from mlflow.environment_variables import (
 )
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.export.async_export_queue import AsyncTraceExportQueue, Task
+from mlflow.tracing.export.utils import try_link_prompts_to_trace
 from mlflow.tracing.fluent import _set_last_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import add_size_bytes_to_trace_metadata
@@ -77,11 +79,12 @@ class InferenceTableSpanExporter(SpanExporter):
                 _logger.debug("Received a non-root span. Skipping export.")
                 continue
 
-            trace = self._trace_manager.pop_trace(span.context.trace_id)
-            if trace is None:
+            manager_trace = self._trace_manager.pop_trace(span.context.trace_id)
+            if manager_trace is None:
                 _logger.debug(f"Trace for span {span} not found. Skipping export.")
                 continue
 
+            trace = manager_trace.trace
             _set_last_active_trace_id(trace.info.trace_id)
 
             # Add the trace to the in-memory buffer so it can be retrieved by upstream
@@ -105,7 +108,7 @@ class InferenceTableSpanExporter(SpanExporter):
                     self._async_queue.put(
                         task=Task(
                             handler=self._log_trace_to_mlflow_backend,
-                            args=(trace,),
+                            args=(trace, manager_trace.prompts),
                             error_msg=f"Failed to log trace {trace.info.trace_id}.",
                         )
                     )
@@ -115,7 +118,7 @@ class InferenceTableSpanExporter(SpanExporter):
                         stack_info=_logger.isEnabledFor(logging.DEBUG),
                     )
 
-    def _log_trace_to_mlflow_backend(self, trace: Trace):
+    def _log_trace_to_mlflow_backend(self, trace: Trace, prompts: Sequence[PromptVersion]):
         try:
             add_size_bytes_to_trace_metadata(trace)
         except Exception:
@@ -123,6 +126,16 @@ class InferenceTableSpanExporter(SpanExporter):
 
         returned_trace_info = self._client.start_trace_v3(trace)
         self._client._upload_trace_data(returned_trace_info, trace.data)
+
+        # Link prompt versions to the trace. Prompt linking is not critical for trace export
+        # (if the prompt fails to link, the user's workflow is minorly affected), so we handle
+        # errors gracefully without failing the entire trace export
+        try_link_prompts_to_trace(
+            client=self._client,
+            trace_id=returned_trace_info.trace_id,
+            prompts=prompts,
+            synchronous=True,  # Run synchronously since we're already in an async task
+        )
         _logger.debug(
             f"Finished logging trace to MLflow backend. TraceInfo: {returned_trace_info.to_dict()} "
         )

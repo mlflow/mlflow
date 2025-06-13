@@ -118,7 +118,7 @@ def _supported_classes():
     return supported
 
 
-@experimental
+@experimental(version="2.15.0")
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 @trace_disabled  # Suppress traces while loading model
 def save_model(
@@ -312,7 +312,7 @@ def save_model(
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
-@experimental
+@experimental(version="2.15.0")
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 @trace_disabled  # Suppress traces while loading model
 def log_model(
@@ -528,7 +528,7 @@ def _load_llama_model(path, flavor_conf):
         return load_index_from_storage(storage_context)
 
 
-@experimental
+@experimental(version="2.15.0")
 @trace_disabled  # Suppress traces while loading model
 def load_model(model_uri, dst_path=None):
     """

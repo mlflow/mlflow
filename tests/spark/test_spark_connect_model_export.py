@@ -21,12 +21,14 @@ from tests.helper_functions import pyfunc_serve_and_score_model
 from tests.pyfunc.test_spark import score_model_as_udf
 from tests.spark.test_spark_model_export import SparkModelWithData
 
+PYSPARK_VERSION = Version(pyspark.__version__)
+
 
 def _get_spark_connect_session():
     builder = SparkSession.builder.remote("local[2]").config(
         "spark.connect.copyFromLocalToFs.allowDestLocal", "true"
     )
-    if not Version(pyspark.__version__).is_devrelease:
+    if not PYSPARK_VERSION.is_devrelease and PYSPARK_VERSION.major < 4:
         builder.config(
             "spark.jars.packages", f"org.apache.spark:spark-connect_2.12:{pyspark.__version__}"
         )
@@ -111,7 +113,7 @@ def test_sparkml_model_log(spark_model):
     with mlflow.start_run():
         model_info = mlflow.spark.log_model(
             spark_model.model,
-            name="model",
+            artifact_path="model",
         )
     model_uri = model_info.model_uri
 
@@ -123,7 +125,7 @@ def test_sparkml_model_log(spark_model):
 def test_pyfunc_serve_and_score(spark_model):
     artifact_path = "model"
     with mlflow.start_run():
-        model_info = mlflow.spark.log_model(spark_model.model, name=artifact_path)
+        model_info = mlflow.spark.log_model(spark_model.model, artifact_path=artifact_path)
 
     input_data = pd.DataFrame({"features": spark_model.pandas_df["features"].map(list)})
     resp = pyfunc_serve_and_score_model(
@@ -152,6 +154,8 @@ def test_databricks_serverless_model_save_load(spark_model):
             with mock.patch(f"mlflow.utils.databricks_utils.{mock_fun}", return_value=True):
                 artifact_path = "model"
                 with mlflow.start_run():
-                    model_info = mlflow.spark.log_model(spark_model.model, name=artifact_path)
+                    model_info = mlflow.spark.log_model(
+                        spark_model.model, artifact_path=artifact_path
+                    )
 
                 mlflow.spark.load_model(model_info.model_uri)

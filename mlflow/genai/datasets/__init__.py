@@ -6,18 +6,14 @@ The API docs can be found here:
 <https://api-docs.databricks.com/python/databricks-agents/latest/databricks_agent_eval.html#datasets>
 """
 
-import warnings
 from typing import Optional, Union
 
-try:
-    from databricks.agents.datasets import (
-        Dataset as EvaluationDataset,
-    )
-except ImportError:
-    warnings.warn(
-        "The `databricks-agents` package is required to use `mlflow.genai.datasets`. "
-        "Please install it with `pip install databricks-agents`."
-    )
+from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
+
+_ERROR_MSG = (
+    "The `databricks-agents` package is required to use `mlflow.genai.datasets`. "
+    "Please install it with `pip install databricks-agents`."
+)
 
 
 def create_dataset(
@@ -29,18 +25,12 @@ def create_dataset(
         uc_table_name: The UC table name of the dataset.
         experiment_id: The ID of the experiment to associate the dataset with. If not provided,
             the current experiment is inferred from the environment.
-
-    Returns:
-        EvaluationDataset: The created dataset.
     """
     try:
         from databricks.agents.datasets import create_dataset
-    except ImportError:
-        raise ImportError(
-            "The `databricks-agents` package is required to use `mlflow.genai.datasets`. "
-            "Please install it with `pip install databricks-agents`."
-        ) from None
-    return create_dataset(uc_table_name, experiment_id)
+    except ImportError as e:
+        raise ImportError(_ERROR_MSG) from e
+    return EvaluationDataset(create_dataset(uc_table_name, experiment_id))
 
 
 def delete_dataset(uc_table_name: str) -> None:
@@ -52,10 +42,7 @@ def delete_dataset(uc_table_name: str) -> None:
     try:
         from databricks.agents.datasets import delete_dataset
     except ImportError:
-        raise ImportError(
-            "The `databricks-agents` package is required to use `mlflow.genai.datasets`. "
-            "Please install it with `pip install databricks-agents`."
-        ) from None
+        raise ImportError(_ERROR_MSG) from None
     return delete_dataset(uc_table_name)
 
 
@@ -64,29 +51,17 @@ def get_dataset(uc_table_name: str) -> "EvaluationDataset":
 
     Args:
         uc_table_name: The UC table name of the dataset.
-
-    Returns:
-        EvaluationDataset: The dataset.
     """
     try:
         from databricks.agents.datasets import get_dataset
-    except ImportError:
-        raise ImportError(
-            "The `databricks-agents` package is required to use `mlflow.genai.datasets`. "
-            "Please install it with `pip install databricks-agents`."
-        ) from None
-    return get_dataset(uc_table_name)
+    except ImportError as e:
+        raise ImportError(_ERROR_MSG) from e
+    return EvaluationDataset(get_dataset(uc_table_name))
 
 
 __all__ = [
     "create_dataset",
     "delete_dataset",
     "get_dataset",
-    *(
-        [
-            "EvaluationDataset",
-        ]
-        if "EvaluationDataset" in locals()
-        else []
-    ),
+    "EvaluationDataset",
 ]
