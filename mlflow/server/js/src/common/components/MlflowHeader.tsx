@@ -15,7 +15,10 @@ const classNames = {
   activeNavLink: { borderBottom: `4px solid ${colors.headerActiveLink}` },
 };
 
-const isExperimentsActive = (location: Location) => matchPath('/experiments/*', location.pathname);
+const isExperimentsActive = (location: Location) =>
+  matchPath('/', location.pathname) ||
+  matchPath('/experiments/*', location.pathname) ||
+  matchPath('/compare-experiments/*', location.pathname);
 const isModelsActive = (location: Location) => matchPath('/models/*', location.pathname);
 const isPromptsActive = (location: Location) => matchPath('/prompts/*', location.pathname);
 
@@ -77,7 +80,7 @@ export const MlflowHeader = ({
         }}
       >
         <Link
-          to={ExperimentTrackingRoutes.rootRoute}
+          to={ExperimentTrackingRoutes.experimentsObservatoryRoute}
           style={isExperimentsActive(location) ? classNames.activeNavLink : undefined}
         >
           Experiments
