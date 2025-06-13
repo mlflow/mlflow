@@ -766,17 +766,34 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
     model from pyspark dataframe that contains decimal type, the schema will be
     treated as float64.
     7. decimal -> double
+    8. category -> category (pandas CategoricalDtype)
 
     Any other type mismatch will raise error.
     """
 
-    if values.dtype == object and t not in (DataType.binary, DataType.string):
+    if values.dtype == object and t not in (DataType.binary, DataType.string, DataType.category):
         values = values.infer_objects()
 
     if t == DataType.string and values.dtype == object:
         # NB: the object can contain any type and we currently cannot cast to pandas Strings
         # due to how None is cast
         return values
+
+    if t == DataType.category:
+        if isinstance(values.dtype, pd.CategoricalDtype):
+            return values
+        elif pd.api.types.is_numeric_dtype(values.dtype):
+            raise MlflowException(
+                f"Incompatible input types for column {name}. "
+                f"Can not safely convert {values.dtype} to {t}. "
+                "Numeric types cannot be converted to categorical without explicit categories."
+            )
+        else:
+            # Attempt to convert to categorical. Pandas will handle unseen categories by
+            # converting them to NaN if the categories are explicitly set.
+            # Since DataType.category does not store the actual categories, we rely on
+            # pandas' default behavior which infers categories from the data.
+            return values.astype("category")
 
     # NB: Comparison of pandas and numpy data type fails when numpy data type is on the left hand
     # side of the comparison operator. It works, however, if pandas type is on the left hand side.
