@@ -18,7 +18,8 @@ import { defineMessages } from 'react-intl';
 import type { ExperimentChartImageDownloadHandler } from '../hooks/useChartImageDownloadHandler';
 import { quantile } from 'd3-array';
 import type { UseGetRunQueryResponseRunInfo } from '../../run-page/hooks/useGetRunQuery';
-import { shouldEnableChartExpressions } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import { shouldEnableChartExpressions, shouldColorizeMetricTraces } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import { RUNS_COLOR_PALETTE_NEXT } from '@mlflow/mlflow/src/common/color-palette';
 import {
   type RunsChartsLineChartExpression,
   RunsChartsLineChartYAxisType,
@@ -388,17 +389,19 @@ export const getLineChartLegendData = (
   metricKey: string,
   yAxisKey: RunsChartsLineChartYAxisType,
   yAxisExpressions: RunsChartsLineChartExpression[],
+  colorizeMetricTraces?: boolean,
 ): LegendLabelData[] =>
   runsData.flatMap((runEntry): LegendLabelData[] => {
     if (!runEntry.metricsHistory) {
       return [];
     }
 
+    const useColorByMetric = Boolean(colorizeMetricTraces);
     if (shouldEnableChartExpressions() && yAxisKey === RunsChartsLineChartYAxisType.EXPRESSION) {
       return yAxisExpressions.map((expression, idx) => ({
         label: `${runEntry.displayName} (${expression.expression})`,
-        color: runEntry.color ?? '',
-        dashStyle: lineDashStyles[idx % lineDashStyles.length],
+        color: useColorByMetric ? RUNS_COLOR_PALETTE_NEXT[idx % RUNS_COLOR_PALETTE_NEXT.length] : runEntry.color ?? '',
+        dashStyle: useColorByMetric ? 'solid' : lineDashStyles[idx % lineDashStyles.length],
         metricKey: expression.expression,
         uuid: runEntry.uuid,
       }));
@@ -407,8 +410,8 @@ export const getLineChartLegendData = (
     const metricKeys = selectedMetricKeys ?? [metricKey];
     return metricKeys.map((metricKey, idx) => ({
       label: `${runEntry.displayName} (${metricKey})`,
-      color: runEntry.color ?? '',
-      dashStyle: lineDashStyles[idx % lineDashStyles.length],
+      color: useColorByMetric ? RUNS_COLOR_PALETTE_NEXT[idx % RUNS_COLOR_PALETTE_NEXT.length] : runEntry.color ?? '',
+      dashStyle: useColorByMetric ? 'solid' : lineDashStyles[idx % lineDashStyles.length],
       metricKey,
       uuid: runEntry.uuid,
     }));

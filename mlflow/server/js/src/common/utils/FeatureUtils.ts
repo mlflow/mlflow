@@ -36,6 +36,10 @@ export const shouldEnableLargerColorSelection = () => false;
  */
 export const shouldEnableChartExpressions = () => false;
 /**
+ * Use distinct colors for metric lines instead of varying dash styles
+ */
+export const shouldColorizeMetricTraces = () => true;
+/**
  * Should enable toggling aggregation of individual runs in run groups
  */
 export const shouldEnableToggleIndividualRunsInGroups = () => false;
