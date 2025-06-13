@@ -11,7 +11,7 @@ const queryFn = ({ queryKey }: QueryFunctionContext<ExperimentListQueryKey>) => 
   const [, { searchFilter, pageToken }] = queryKey;
   return MlflowService.searchExperiments({
     filter: searchFilter,
-    max_results: 3, // FIXME
+    max_results: 24, // FIXME
     page_token: pageToken,
   });
 };

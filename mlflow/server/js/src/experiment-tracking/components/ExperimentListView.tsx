@@ -2,12 +2,9 @@ import React, { Component, useMemo } from 'react';
 import { Theme } from '@emotion/react';
 import {
   Checkbox,
-  Input,
-  PencilIcon,
   WithDesignSystemThemeHoc,
   DesignSystemHocProps,
   Button,
-  TrashIcon,
   Tooltip,
   useDesignSystemTheme,
   Empty,
@@ -23,19 +20,14 @@ import {
   Spacer,
   Header,
 } from '@databricks/design-system';
-import { List as VList, ListRowRenderer } from 'react-virtualized';
 import 'react-virtualized/styles.css';
 import { Link } from '../../common/utils/RoutingUtils';
 import Routes from '../routes';
 import { CreateExperimentModal } from './modals/CreateExperimentModal';
-import { DeleteExperimentModal } from './modals/DeleteExperimentModal';
-import { RenameExperimentModal } from './modals/RenameExperimentModal';
 import { withRouterNext, WithRouterNextProps } from '../../common/utils/withRouterNext';
 import { ExperimentEntity } from '../types';
 import { defaultContext, QueryClient } from '../../common/utils/reactQueryHooks';
 import { ExperimentListQueryKeyHeader, useExperimentListQuery } from './experiment-page/hooks/useExperimentListQuery';
-import { PageContainer } from '../../common/components/PageContainer';
-import { PageHeader } from '../../shared/building_blocks/PageHeader';
 import {
   ColumnDef,
   flexRender,
@@ -64,10 +56,6 @@ type State = {
   checkedKeys: string[];
   searchInput: string;
   showCreateExperimentModal: boolean;
-  showDeleteExperimentModal: boolean;
-  showRenameExperimentModal: boolean;
-  selectedExperimentId: string;
-  selectedExperimentName: string;
 };
 
 export class ExperimentListView extends Component<Props, State> {
@@ -78,27 +66,10 @@ export class ExperimentListView extends Component<Props, State> {
     this.context.invalidateQueries({ queryKey: [ExperimentListQueryKeyHeader] });
   };
 
-  list?: VList = undefined;
-
   state = {
     checkedKeys: this.props.activeExperimentIds,
     searchInput: '',
     showCreateExperimentModal: false,
-    showDeleteExperimentModal: false,
-    showRenameExperimentModal: false,
-    selectedExperimentId: '0',
-    selectedExperimentName: '',
-  };
-
-  bindListRef = (ref: VList) => {
-    this.list = ref;
-  };
-
-  componentDidUpdate = () => {
-    // Ensure the filter is applied
-    if (this.list) {
-      this.list.forceUpdateGrid();
-    }
   };
 
   filterExperiments = (searchInput: string) => {
@@ -115,68 +86,16 @@ export class ExperimentListView extends Component<Props, State> {
     });
   };
 
-  updateSelectedExperiment = (experimentId: string, experimentName: string) => {
-    this.setState({
-      selectedExperimentId: experimentId,
-      selectedExperimentName: experimentName,
-    });
-  };
-
   handleCreateExperiment = () => {
     this.setState({
       showCreateExperimentModal: true,
     });
   };
 
-  handleDeleteExperiment = (experimentId: string, experimentName: string) => () => {
-    this.setState({
-      showDeleteExperimentModal: true,
-    });
-    this.updateSelectedExperiment(experimentId, experimentName);
-  };
-
-  handleRenameExperiment = (experimentId: string, experimentName: string) => () => {
-    this.setState({
-      showRenameExperimentModal: true,
-    });
-    this.updateSelectedExperiment(experimentId, experimentName);
-  };
-
   handleCloseCreateExperimentModal = () => {
     this.setState({
       showCreateExperimentModal: false,
     });
-  };
-
-  handleCloseDeleteExperimentModal = () => {
-    this.setState({
-      showDeleteExperimentModal: false,
-    });
-    // reset
-    this.updateSelectedExperiment('0', '');
-  };
-
-  handleCloseRenameExperimentModal = () => {
-    this.setState({
-      showRenameExperimentModal: false,
-    });
-    // reset
-    this.updateSelectedExperiment('0', '');
-  };
-
-  // Add a key if it does not exist, remove it if it does
-  // Always keep at least one experiment checked if it is only the active one.
-  handleCheck = (isChecked: boolean, key: string) => {
-    this.setState((prevState, props) => {
-      let { checkedKeys } = prevState;
-      if (isChecked === true && !props.activeExperimentIds.includes(key)) {
-        checkedKeys = [key, ...props.activeExperimentIds];
-      }
-      if (isChecked === false && props.activeExperimentIds.length !== 1) {
-        checkedKeys = props.activeExperimentIds.filter((i) => i !== key);
-      }
-      return { checkedKeys: checkedKeys };
-    }, this.pushExperimentRoute);
   };
 
   pushExperimentRoute = () => {
@@ -187,78 +106,6 @@ export class ExperimentListView extends Component<Props, State> {
           : Routes.getCompareExperimentsPageRoute(this.state.checkedKeys);
       this.props.navigate(route);
     }
-  };
-
-  renderListItem: ListRowRenderer = ({ index, key, style, parent }) => {
-    // Use the parents props to index.
-    const item = parent.props['data'][index];
-    const { activeExperimentIds } = this.props;
-    const isActive = activeExperimentIds.includes(item.experimentId);
-    const dataTestId = isActive ? 'active-experiment-list-item' : 'experiment-list-item';
-    const { theme } = this.props.designSystemThemeApi;
-    // Clicking the link removes all checks and marks other experiments
-    // as not active.
-    return (
-      <div
-        css={{
-          display: 'flex',
-          alignItems: 'center',
-          // gap: theme.spacing.xs,
-          paddingLeft: theme.spacing.xs,
-          paddingRight: theme.spacing.xs,
-          borderLeft: isActive ? `solid ${theme.colors.primary}` : 'solid transparent',
-          borderLeftWidth: 4,
-          backgroundColor: isActive ? theme.colors.actionDefaultBackgroundPress : 'transparent',
-          fontSize: theme.typography.fontSizeBase,
-          svg: {
-            width: 14,
-            height: 14,
-          },
-        }}
-        data-testid={dataTestId}
-        key={key}
-        style={style}
-      >
-        <Checkbox
-          componentId="mlflow.experiment_list_view.check_box"
-          id={item.experimentId}
-          key={item.experimentId}
-          onChange={(isChecked) => this.handleCheck(isChecked, item.experimentId)}
-          isChecked={isActive}
-          data-testid={`${dataTestId}-check-box`}
-        />
-        <Link
-          className="experiment-link"
-          css={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}
-          to={Routes.getExperimentPageRoute(item.experimentId)}
-          onClick={() => this.setState({ checkedKeys: [item.experimentId] })}
-          title={item.name}
-          data-testid={`${dataTestId}-link`}
-        >
-          {item.name}
-        </Link>
-        <Tooltip componentId="mlflow.experiment_list_view.rename_experiment_button.tooltip" content="Rename experiment">
-          <Button
-            type="link"
-            componentId="mlflow.experiment_list_view.rename_experiment_button"
-            icon={<PencilIcon />}
-            onClick={this.handleRenameExperiment(item.experimentId, item.name)}
-            data-testid="rename-experiment-button"
-            size="small"
-          />
-        </Tooltip>
-        <Tooltip componentId="mlflow.experiment_list_view.delete_experiment_button.tooltip" content="Delete experiment">
-          <Button
-            type="link"
-            componentId="mlflow.experiment_list_view.delete_experiment_button"
-            icon={<TrashIcon />}
-            onClick={this.handleDeleteExperiment(item.experimentId, item.name)}
-            data-testid="delete-experiment-button"
-            size="small"
-          />
-        </Tooltip>
-      </div>
-    );
   };
 
   getSelectedRows = () => {
@@ -276,15 +123,14 @@ export class ExperimentListView extends Component<Props, State> {
 
     this.setState({
       checkedKeys: Object.entries(newRowSelection)
-        .filter(([key, value]) => value)
-        .map(([key, value]) => key),
+        .filter(([_, value]) => value)
+        .map(([key, _]) => key),
     });
   };
 
   render() {
-    const { activeExperimentIds, designSystemThemeApi, pagination } = this.props;
+    const { pagination } = this.props;
     const { error, isLoading, onNextPage, onPreviousPage, hasNextPage, hasPreviousPage } = pagination;
-    const { theme } = designSystemThemeApi;
 
     const { searchInput } = this.state;
     const filteredExperiments = this.filterExperiments(searchInput);
@@ -344,20 +190,6 @@ export class ExperimentListView extends Component<Props, State> {
             rowSelection={this.getSelectedRows()}
             setRowSelection={this.setSelectedRows}
           />
-          {/* <AutoSizer>
-            {({ width, height }) => (
-              <VList
-                rowRenderer={this.renderListItem}
-                data={filteredExperiments}
-                ref={this.bindListRef}
-                rowHeight={32}
-                overscanRowCount={10}
-                height={height}
-                width={width}
-                rowCount={filteredExperiments.length}
-              />
-            )}
-          </AutoSizer> */}
         </div>
         <CreateExperimentModal
           isOpen={this.state.showCreateExperimentModal}
@@ -408,10 +240,13 @@ const useExperimentsTableColumns = () => {
   return useMemo(() => {
     const resultColumns: ExperimentTableColumnDef[] = [
       {
-        header: intl.formatMessage({
-          defaultMessage: '#',
-          description: 'Check more than one to compare experiments',
-        }),
+        header: ({ table }) => (
+          <Checkbox
+            componentId="mlflow.experiment_list_view.check_all_box"
+            isChecked={table.getIsAllRowsSelected()}
+            onChange={(_, event) => table.getToggleAllRowsSelectedHandler()(event)}
+          />
+        ),
         id: 'select',
         cell: ExperimentListCheckbox,
       },
