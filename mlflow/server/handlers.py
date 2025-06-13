@@ -2361,9 +2361,13 @@ def _graphql():
     operation_name = request_json.get("operationName")
 
     node = parse(query)
-    if count_total_field_calls(node) != 1:
+    field_count = count_total_field_calls(node)
+    if field_count != 1:
         result = ExecutionResult(
-            data=None, errors=[GraphQLError("Batched GraphQL queries are not supported.")]
+            data=None,
+            errors=[
+                GraphQLError(f"Batched GraphQL queries are not supported, got {field_count} fields")
+            ],
         )
     else:
         # Executing the GraphQL query using the Graphene schema
