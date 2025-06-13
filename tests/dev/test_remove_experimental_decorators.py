@@ -71,3 +71,39 @@ def func():
     pass
 """
     )
+
+
+def test_script_with_multiple_decorators(tmp_path: Path) -> None:
+    test_file = tmp_path / "test.py"
+    test_file.write_text("""
+@experimental(version="1.0.0")
+def func1():
+    pass
+
+@experimental(version="1.1.0")
+class MyClass:
+    @experimental(version="1.2.0")
+    def method(self):
+        pass
+
+def regular_func():
+    pass
+""")
+
+    output = subprocess.check_output([sys.executable, SCRIPT_PATH, test_file], text=True)
+    assert output.count("Removed") == 3  # Should remove all 3 decorators
+    content = test_file.read_text()
+    assert (
+        content
+        == """
+def func1():
+    pass
+
+class MyClass:
+    def method(self):
+        pass
+
+def regular_func():
+    pass
+"""
+    )
