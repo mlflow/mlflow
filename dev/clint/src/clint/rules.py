@@ -421,9 +421,52 @@ def _is_valid_version(version: str) -> bool:
         return False
 
 
-class NonLiteralExperimentalVersion(Rule):
+class UnnamedThread(Rule):
     def _id(self) -> str:
         return "MLF0024"
+
+    def _message(self) -> str:
+        return "`threading.Thread()` calls should include a `name` parameter for easier debugging"
+
+    @staticmethod
+    def check(node: ast.Call) -> bool:
+        """
+        Returns True if the call is threading.Thread() without a name parameter.
+        """
+        # Check if it's a threading.Thread call
+        if not UnnamedThread._is_threading_thread_call(node):
+            return False
+
+        # Check if name parameter is provided
+        return not UnnamedThread._has_name_parameter(node)
+
+    @staticmethod
+    def _is_threading_thread_call(node: ast.Call) -> bool:
+        """Check if this is a threading.Thread() call."""
+        # Check for threading.Thread() pattern
+        if isinstance(node.func, ast.Attribute):
+            return (
+                isinstance(node.func.value, ast.Name)
+                and node.func.value.id == "threading"
+                and node.func.attr == "Thread"
+            )
+
+        # Check for direct Thread() calls (from threading import Thread)
+        if isinstance(node.func, ast.Name) and node.func.id == "Thread":
+            return True
+
+        return False
+
+    @staticmethod
+    def _has_name_parameter(node: ast.Call) -> bool:
+        """Check if the call includes a name parameter."""
+        # Check keyword arguments
+        return any(keyword.arg == "name" for keyword in node.keywords)
+
+
+class NonLiteralExperimentalVersion(Rule):
+    def _id(self) -> str:
+        return "MLF0025"
 
     def _message(self) -> str:
         return (
