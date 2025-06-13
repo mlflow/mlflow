@@ -94,6 +94,24 @@ jobs:
             yarn build-all -- --no-r
             python changed_pages.py
       - run:
+          name: Show docs build size
+          working_directory: docs
+          command: |
+            echo "=== Documentation build size ==="
+            if [ -d "./build/latest" ]; then
+              echo "Total size of docs/build/latest directory:"
+              du -sh ./build/latest
+              echo ""
+              echo "Breakdown of largest directories:"
+              du -h ./build/latest | sort -hr | head -10
+              echo ""
+              echo "Largest files (>1MB):"
+              find ./build/latest -type f -size +1M -exec du -h {} + 2>/dev/null | sort -hr | head -10 || echo "No files larger than 1MB found"
+            else
+              echo "ERROR: docs/build/latest directory not found!"
+              exit 1
+            fi
+      - run:
           name: Compare sitemaps
           working_directory: docs
           command: |
