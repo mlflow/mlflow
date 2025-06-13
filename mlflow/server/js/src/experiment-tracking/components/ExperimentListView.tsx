@@ -36,7 +36,15 @@ import { defaultContext, QueryClient } from '../../common/utils/reactQueryHooks'
 import { ExperimentListQueryKeyHeader, useExperimentListQuery } from './experiment-page/hooks/useExperimentListQuery';
 import { PageContainer } from '../../common/components/PageContainer';
 import { PageHeader } from '../../shared/building_blocks/PageHeader';
-import { ColumnDef, flexRender, getCoreRowModel, useReactTable } from '@tanstack/react-table';
+import {
+  ColumnDef,
+  flexRender,
+  getCoreRowModel,
+  OnChangeFn,
+  RowSelectionState,
+  Updater,
+  useReactTable,
+} from '@tanstack/react-table';
 import { isEmpty } from 'lodash';
 import { FormattedMessage, useIntl } from 'react-intl';
 import Utils from '../../common/utils/Utils';
@@ -253,6 +261,26 @@ export class ExperimentListView extends Component<Props, State> {
     );
   };
 
+  getSelectedRows = () => {
+    return Object.fromEntries(
+      this.props.experiments.map((experiment) => [
+        experiment.experimentId,
+        this.state.checkedKeys.includes(experiment.experimentId),
+      ]),
+    );
+  };
+
+  setSelectedRows = (updater: Updater<RowSelectionState>) => {
+    const rowSelection = this.getSelectedRows();
+    const newRowSelection = typeof updater === 'function' ? updater(rowSelection) : updater;
+
+    this.setState({
+      checkedKeys: Object.entries(newRowSelection)
+        .filter(([key, value]) => value)
+        .map(([key, value]) => key),
+    });
+  };
+
   render() {
     const { activeExperimentIds, designSystemThemeApi, pagination } = this.props;
     const { error, isLoading, onNextPage, onPreviousPage, hasNextPage, hasPreviousPage } = pagination;
@@ -267,14 +295,29 @@ export class ExperimentListView extends Component<Props, State> {
         <Header
           title={<FormattedMessage defaultMessage="Experiments" description="Header title for the experiments page" />}
           buttons={
-            <Button
-              componentId="mlflow.experiment_list_view.new_experiment_button"
-              type="primary"
-              onClick={this.handleCreateExperiment}
-              data-testid="create-experiment-button"
-            >
-              Create experiment
-            </Button>
+            <>
+              <Button
+                componentId="mlflow.experiment_list_view.new_experiment_button"
+                type="primary"
+                onClick={this.handleCreateExperiment}
+                data-testid="create-experiment-button"
+              >
+                Create experiment
+              </Button>
+              <Tooltip
+                componentId="mlflow.experiment_list_view.compare_experiments_button"
+                content="Select more than one experiment from the table to compare them"
+              >
+                <Button
+                  componentId="mlflow.experiment_list_view.new_experiment_button"
+                  onClick={this.pushExperimentRoute}
+                  data-testid="create-experiment-button"
+                  disabled={this.state.checkedKeys.length < 2}
+                >
+                  Compare experiments
+                </Button>
+              </Tooltip>
+            </>
           }
         />
         <Spacer shrinks={false} />
@@ -291,14 +334,15 @@ export class ExperimentListView extends Component<Props, State> {
           </TableFilterLayout>
           <ExperimentListTable
             experiments={filteredExperiments}
-            // error={error}
+            error={error}
             hasNextPage={hasNextPage}
             hasPreviousPage={hasPreviousPage}
             isLoading={isLoading}
             isFiltered={Boolean(searchInput)}
             onNextPage={onNextPage}
             onPreviousPage={onPreviousPage}
-            // onEditTags={showEditPromptTagsModal}
+            rowSelection={this.getSelectedRows()}
+            setRowSelection={this.setSelectedRows}
           />
           {/* <AutoSizer>
             {({ width, height }) => (
@@ -343,12 +387,34 @@ const ExperimentListTableCell: ColumnDef<ExperimentEntity>['cell'] = ({ row: { o
   );
 };
 
+const ExperimentListCheckbox: ColumnDef<ExperimentEntity>['cell'] = ({ row }) => {
+  return (
+    <Checkbox
+      componentId="mlflow.experiment_list_view.check_box"
+      id={row.original.experimentId}
+      key={row.original.experimentId}
+      data-testid={`experiment-list-item-check-box`}
+      isChecked={row.getIsSelected()}
+      disabled={!row.getCanSelect()}
+      onChange={row.getToggleSelectedHandler()}
+    />
+  );
+};
+
 type ExperimentTableColumnDef = ColumnDef<ExperimentEntity>;
 
 const useExperimentsTableColumns = () => {
   const intl = useIntl();
   return useMemo(() => {
     const resultColumns: ExperimentTableColumnDef[] = [
+      {
+        header: intl.formatMessage({
+          defaultMessage: '#',
+          description: 'Check more than one to compare experiments',
+        }),
+        id: 'select',
+        cell: ExperimentListCheckbox,
+      },
       {
         header: intl.formatMessage({
           defaultMessage: 'Name',
@@ -363,7 +429,7 @@ const useExperimentsTableColumns = () => {
           defaultMessage: 'Time created',
           description: 'Header for the time created column in the experiments table',
         }),
-        id: 'lastModified',
+        id: 'timeCreated',
         accessorFn: ({ creationTime }) => Utils.formatTimestamp(creationTime, intl),
       },
       {
@@ -388,8 +454,9 @@ export const ExperimentListTable = ({
   isFiltered,
   onNextPage,
   onPreviousPage,
-}: // onEditTags,
-{
+  rowSelection,
+  setRowSelection,
+}: {
   experiments?: ExperimentEntity[];
   error?: Error;
   hasNextPage: boolean;
@@ -398,7 +465,8 @@ export const ExperimentListTable = ({
   isFiltered?: boolean;
   onNextPage: () => void;
   onPreviousPage: () => void;
-  // onEditTags: (editedEntity: ExperimentEntity) => void;
+  rowSelection: RowSelectionState;
+  setRowSelection: OnChangeFn<RowSelectionState>;
 }) => {
   const { theme } = useDesignSystemTheme();
   const columns = useExperimentsTableColumns();
@@ -407,8 +475,11 @@ export const ExperimentListTable = ({
     data: experiments ?? [],
     columns,
     getCoreRowModel: getCoreRowModel(),
-    getRowId: (row, index) => row.name ?? index.toString(),
-    // meta: { onEditTags } satisfies PromptsTableMetadata,
+    getRowId: (row) => row.experimentId,
+    enableRowSelection: true,
+    enableMultiRowSelection: true,
+    onRowSelectionChange: setRowSelection,
+    state: { rowSelection },
   });
 
   const getEmptyState = () => {
