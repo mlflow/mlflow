@@ -208,6 +208,18 @@ def test_messages_autolog(is_async):
         },
     ]
 
+    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        "input_tokens": 10,
+        "output_tokens": 18,
+        "total_tokens": 28,
+    }
+
+    assert traces[0].info.token_usage == {
+        "input_tokens": 10,
+        "output_tokens": 18,
+        "total_tokens": 28,
+    }
+
     mlflow.anthropic.autolog(disable=True)
     _call_anthropic(DUMMY_CREATE_MESSAGE_REQUEST, DUMMY_CREATE_MESSAGE_RESPONSE, is_async)
 
