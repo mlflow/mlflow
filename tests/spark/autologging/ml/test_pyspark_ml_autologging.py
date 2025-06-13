@@ -206,7 +206,7 @@ def test_basic_estimator(dataset_binomial):
         )
         assert run_data.tags == get_expected_class_tags(estimator)
         if isinstance(estimator, MultilayerPerceptronClassifier):
-            with pytest.raises(MlflowException, match=r"Unable to load model"):
+            with pytest.raises(MlflowException, match=r"Failed to download artifacts"):
                 load_model_by_run_id(run_id)
         else:
             loaded_model = load_model_by_run_id(run_id)
