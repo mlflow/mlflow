@@ -443,14 +443,18 @@ class UnnamedThread(Rule):
     @staticmethod
     def _is_threading_thread_call(node: ast.Call) -> bool:
         """Check if this is a threading.Thread() call."""
-        # Only check for threading.Thread() pattern for now
-        # This avoids false positives with other classes named Thread
+        # Check for threading.Thread() pattern
         if isinstance(node.func, ast.Attribute):
             return (
                 isinstance(node.func.value, ast.Name)
                 and node.func.value.id == "threading"
                 and node.func.attr == "Thread"
             )
+
+        # Check for direct Thread() calls (from threading import Thread)
+        if isinstance(node.func, ast.Name) and node.func.id == "Thread":
+            return True
+
         return False
 
     @staticmethod
