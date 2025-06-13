@@ -97,13 +97,8 @@ jobs:
           name: Show docs build size
           working_directory: docs
           command: |
-            if [ -d "./build/latest" ]; then
-              echo "Total size of docs/build/latest directory:"
-              du -sh ./build/latest
-            else
-              echo "ERROR: docs/build/latest directory not found!"
-              exit 1
-            fi
+            echo "Total size of docs/build/latest directory:"
+            du -sh ./build/latest
       - run:
           name: Compare sitemaps
           working_directory: docs
