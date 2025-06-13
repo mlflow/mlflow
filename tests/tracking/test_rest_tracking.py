@@ -2126,7 +2126,7 @@ def test_graphql_handler_batching_raise_error(mlflow_client):
         headers={"content-type": "application/json; charset=utf-8"},
     )
     assert response.status_code == 200
-    assert response.json()["errors"] == ["Batched GraphQL queries are not supported."]
+    assert response.json()["errors"] == ["Batched GraphQL queries are not supported, got 10 fields"]
 
 
 def test_get_experiment_graphql(mlflow_client):
