@@ -63,25 +63,32 @@ def find_experimental_decorators(
     decorators: list[ExperimentalDecorator] = []
 
     for node in ast.walk(tree):
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-            for decorator in node.decorator_list:
-                if isinstance(decorator, ast.Call):
-                    if isinstance(decorator.func, ast.Name) and decorator.func.id == "experimental":
-                        # Extract version from decorator arguments
-                        version = _extract_version_from_ast_decorator(decorator)
-                        if version and version in release_dates:
-                            release_date = release_dates[version]
-                            age_days = (now - release_date).days
+        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            continue
 
-                            decorator_info = ExperimentalDecorator(
-                                version=version,
-                                line_number=decorator.lineno,
-                                end_line_number=decorator.end_lineno or decorator.lineno,
-                                column=decorator.col_offset + 1,  # 1-indexed
-                                age_days=age_days,
-                                content=ast.unparse(decorator),
-                            )
-                            decorators.append(decorator_info)
+        for decorator in node.decorator_list:
+            if not isinstance(decorator, ast.Call):
+                continue
+
+            if not (isinstance(decorator.func, ast.Name) and decorator.func.id == "experimental"):
+                continue
+
+            version = _extract_version_from_ast_decorator(decorator)
+            if not version or version not in release_dates:
+                continue
+
+            release_date = release_dates[version]
+            age_days = (now - release_date).days
+
+            decorator_info = ExperimentalDecorator(
+                version=version,
+                line_number=decorator.lineno,
+                end_line_number=decorator.end_lineno or decorator.lineno,
+                column=decorator.col_offset + 1,  # 1-indexed
+                age_days=age_days,
+                content=ast.unparse(decorator),
+            )
+            decorators.append(decorator_info)
 
     return decorators
 
