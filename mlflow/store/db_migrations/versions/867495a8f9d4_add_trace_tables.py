@@ -50,7 +50,7 @@ def upgrade():
             "request_id",
             sa.String(length=50),
             sa.ForeignKey(
-                column=SqlTraceInfo.request_id,
+                "trace_info.request_id",
                 name=f"fk_{SqlTraceTag.__tablename__}_request_id",
             ),
             nullable=False,
@@ -71,7 +71,7 @@ def upgrade():
             "request_id",
             sa.String(length=50),
             sa.ForeignKey(
-                column=SqlTraceInfo.request_id,
+                "trace_info.request_id",
                 name=f"fk_{SqlTraceRequestMetadata.__tablename__}_request_id",
             ),
             nullable=False,
