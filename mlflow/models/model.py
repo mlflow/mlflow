@@ -792,6 +792,7 @@ class Model:
             # Load the Model object from a remote model directory
             model2 = Model.load("s3://mybucket/path/to/my/model")
         """
+
         # Check if the path is a local directory and not remote
         sep = os.path.sep
         path = str(path).rstrip(sep)
