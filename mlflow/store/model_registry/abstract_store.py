@@ -871,12 +871,11 @@ class AbstractStore:
             prompt_versions: List of PromptVersion objects to link.
             trace_id: Trace ID to link to each prompt version.
         """
-        from mlflow.tracking import _get_store as _get_tracking_store
+        from mlflow.tracing.client import TracingClient
 
-        tracking_store = _get_tracking_store()
-
+        client = TracingClient()
         with self._prompt_link_lock:
-            trace_info = tracking_store.get_trace_info(trace_id)
+            trace_info = client.get_trace_info(trace_id)
             if not trace_info:
                 raise MlflowException(
                     f"Could not find trace with ID '{trace_id}' to which to link prompts.",
@@ -900,7 +899,7 @@ class AbstractStore:
 
             # Only update if the tag value actually changed (avoiding redundant updates)
             if current_tag_value != updated_tag_value:
-                tracking_store.set_trace_tag(
+                client.set_trace_tag(
                     trace_id,
                     LINKED_PROMPTS_TAG_KEY,
                     updated_tag_value,

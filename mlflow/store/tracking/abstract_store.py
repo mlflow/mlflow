@@ -295,13 +295,13 @@ class AbstractStore:
         experiment_id: str,
         max_timestamp_millis: Optional[int] = None,
         max_traces: Optional[int] = None,
-        request_ids: Optional[list[str]] = None,
+        trace_ids: Optional[list[str]] = None,
     ) -> int:
         """
         Delete traces based on the specified criteria.
 
-        - Either `max_timestamp_millis` or `request_ids` must be specified, but not both.
-        - `max_traces` can't be specified if `request_ids` is specified.
+        - Either `max_timestamp_millis` or `trace_ids` must be specified, but not both.
+        - `max_traces` can't be specified if `trace_ids` is specified.
 
         Args:
             experiment_id: ID of the associated experiment.
@@ -310,36 +310,36 @@ class AbstractStore:
             max_traces: The maximum number of traces to delete. If max_traces is specified, and
                 it is less than the number of traces that would be deleted based on the
                 max_timestamp_millis, the oldest traces will be deleted first.
-            request_ids: A set of request IDs to delete.
+            trace_ids: A set of trace IDs to delete.
 
         Returns:
             The number of traces deleted.
         """
-        # request_ids can't be an empty list of string
-        if max_timestamp_millis is None and not request_ids:
+        # trace_ids can't be an empty list of string
+        if max_timestamp_millis is None and not trace_ids:
             raise MlflowException.invalid_parameter_value(
-                "Either `max_timestamp_millis` or `request_ids` must be specified.",
+                "Either `max_timestamp_millis` or `trace_ids` must be specified.",
             )
-        if max_timestamp_millis and request_ids:
+        if max_timestamp_millis and trace_ids:
             raise MlflowException.invalid_parameter_value(
-                "Only one of `max_timestamp_millis` and `request_ids` can be specified.",
+                "Only one of `max_timestamp_millis` and `trace_ids` can be specified.",
             )
-        if request_ids and max_traces is not None:
+        if trace_ids and max_traces is not None:
             raise MlflowException.invalid_parameter_value(
-                "`max_traces` can't be specified if `request_ids` is specified.",
+                "`max_traces` can't be specified if `trace_ids` is specified.",
             )
         if max_traces is not None and max_traces <= 0:
             raise MlflowException.invalid_parameter_value(
                 f"`max_traces` must be a positive integer, received {max_traces}.",
             )
-        return self._delete_traces(experiment_id, max_timestamp_millis, max_traces, request_ids)
+        return self._delete_traces(experiment_id, max_timestamp_millis, max_traces, trace_ids)
 
     def _delete_traces(
         self,
         experiment_id: str,
         max_timestamp_millis: Optional[int] = None,
         max_traces: Optional[int] = None,
-        request_ids: Optional[list[str]] = None,
+        trace_ids: Optional[list[str]] = None,
     ) -> int:
         raise NotImplementedError
 
