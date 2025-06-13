@@ -2111,6 +2111,24 @@ def test_graphql_handler(mlflow_client):
     assert response.status_code == 200
 
 
+def test_graphql_handler_batching_raise_error(mlflow_client):
+    batch_query = (
+        "query testQuery {"
+        + " ".join([f"key_{i}: " + 'test(inputString: "abc") { output }' for i in range(10)])
+        + "}"
+    )
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/graphql",
+        json={
+            "query": batch_query,
+            "operationName": "testQuery",
+        },
+        headers={"content-type": "application/json; charset=utf-8"},
+    )
+    assert response.status_code == 200
+    assert response.json()["errors"] == ["Batched GraphQL queries are not supported, got 10 fields"]
+
+
 def test_get_experiment_graphql(mlflow_client):
     experiment_id = mlflow_client.create_experiment("GraphqlTest")
     response = requests.post(
@@ -2468,23 +2486,15 @@ def test_list_artifacts_graphql(mlflow_client, tmp_path):
         f"{mlflow_client.tracking_uri}/graphql",
         json={
             "query": f"""
-                fragment FilesFragment on MlflowListArtifactsResponse {{
-                    files {{
-                        path
-                        isDir
-                        fileSize
-                    }}
-                }}
-
                 query testQuery {{
-                    file: mlflowListArtifacts(input: {{ runId: "{created_run_id}" }}) {{
-                        ...FilesFragment
-                    }}
-                    subdir: mlflowListArtifacts(input: {{
+                    files: mlflowListArtifacts(input: {{
                         runId: "{created_run_id}",
-                        path: "testDir",
                     }}) {{
-                        ...FilesFragment
+                            files {{
+                            path
+                            isDir
+                            fileSize
+                        }}
                     }}
                 }}
             """,
@@ -2499,7 +2509,32 @@ def test_list_artifacts_graphql(mlflow_client, tmp_path):
         {"path": "test.txt", "isDir": False, "fileSize": "11"},
         {"path": "testDir", "isDir": True, "fileSize": "0"},
     ]
-    assert json["data"]["file"]["files"] == file_expected
+    assert json["data"]["files"]["files"] == file_expected
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/graphql",
+        json={
+            "query": f"""
+                query testQuery {{
+                    subdir: mlflowListArtifacts(input: {{
+                        runId: "{created_run_id}",
+                        path: "testDir",
+                    }}) {{
+                            files {{
+                            path
+                            isDir
+                            fileSize
+                        }}
+                    }}
+                }}
+            """,
+            "operationName": "testQuery",
+        },
+        headers={"content-type": "application/json; charset=utf-8"},
+    )
+
+    assert response.status_code == 200
+    json = response.json()
     subdir_expected = [
         {"path": "testDir/test.txt", "isDir": False, "fileSize": "11"},
     ]
