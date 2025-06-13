@@ -104,7 +104,7 @@ class ChatAgentState(TypedDict):
         from langchain_core.runnables import RunnableConfig, RunnableLambda
         from langchain_core.tools import BaseTool
         from langgraph.graph import END, StateGraph
-        from langgraph.graph.graph import CompiledGraph
+        from langgraph.graph.state import CompiledStateGraph
         from langgraph.prebuilt import ToolNode
         from mlflow.langchain.chat_agent_langgraph import ChatAgentState, ChatAgentToolNode
 
@@ -113,7 +113,7 @@ class ChatAgentState(TypedDict):
             model: LanguageModelLike,
             tools: Union[ToolNode, Sequence[BaseTool]],
             agent_prompt: Optional[str] = None,
-        ) -> CompiledGraph:
+        ) -> CompiledStateGraph:
             model = model.bind_tools(tools)
 
             def routing_logic(state: ChatAgentState):
