@@ -19,6 +19,9 @@ import {
   TableFilterInput,
   Spacer,
   Header,
+  Popover,
+  InfoIcon,
+  Typography,
 } from '@databricks/design-system';
 import 'react-virtualized/styles.css';
 import { Link } from '../../common/utils/RoutingUtils';
@@ -38,9 +41,10 @@ import {
   useReactTable,
 } from '@tanstack/react-table';
 import { isEmpty } from 'lodash';
-import { FormattedMessage, useIntl } from 'react-intl';
+import { defineMessage, FormattedMessage, useIntl } from 'react-intl';
 import Utils from '../../common/utils/Utils';
 import { ScrollablePageWrapper } from '../../common/components/ScrollablePageWrapper';
+import { ExperimentSearchSyntaxDocUrl } from '../../common/constants';
 
 type Props = {
   activeExperimentIds: string[];
@@ -174,8 +178,7 @@ export class ExperimentListView extends Component<Props, State> {
               componentId="mlflow.experiment_list_view.search"
               value={searchInput}
               onChange={this.handleSearchInputChange}
-              // TODO: Add this back once we support searching with tags
-              // suffix={<ModelSearchInputHelpTooltip exampleEntityName="my-prompt-name" />}
+              suffix={<ModelSearchInputHelpTooltip exampleEntityName="my-prompt-name" />}
             />
           </TableFilterLayout>
           <ExperimentListTable
@@ -400,5 +403,64 @@ export const ExperimentListTable = ({
         ))
       )}
     </Table>
+  );
+};
+
+const ModelSearchInputHelpTooltip = () => {
+  const { formatMessage } = useIntl();
+  const tooltipIntroMessage = defineMessage({
+    defaultMessage:
+      'A filter expression over experiment attributes and tags that allows returning a subset of experiments.',
+    description: 'Tooltip string to explain how to search experiments',
+  });
+
+  // Tooltips are not expected to contain links.
+  const labelText = formatMessage(tooltipIntroMessage, { newline: ' ', whereBold: 'WHERE' });
+
+  return (
+    <Popover.Root componentId="codegen_mlflow_app_src_model-registry_components_model-list_modellistfilters.tsx_46">
+      <Popover.Trigger
+        aria-label={labelText}
+        css={{ border: 0, background: 'none', padding: 0, lineHeight: 0, cursor: 'pointer' }}
+      >
+        <InfoIcon />
+      </Popover.Trigger>
+      <Popover.Content align="start">
+        <div>
+          <FormattedMessage {...tooltipIntroMessage} />
+          <br /> The syntax is a subset of SQL that supports ANDing together binary operations between an attribute or
+          tag, and a constant.
+          <br />
+          <FormattedMessage
+            defaultMessage="<link>Learn more</link>"
+            description="Learn more tooltip link to learn more on how to search models"
+            values={{
+              link: (chunks) => (
+                <Typography.Link
+                  componentId="codegen_mlflow_app_src_model-registry_components_model-list_modellistfilters.tsx_61"
+                  href={ExperimentSearchSyntaxDocUrl + '#syntax'}
+                  openInNewTab
+                >
+                  {chunks}
+                </Typography.Link>
+              ),
+            }}
+          />
+          <br />
+          <br />
+          <FormattedMessage defaultMessage="Examples:" description="Text header for examples of mlflow search syntax" />
+          <br />
+          • "attributes.name = 'x'" # or "name = 'x'"
+          <br />
+          • "attributes.name LIKE 'x%'"
+          <br />
+          • "tags.group != 'x'"
+          <br />
+          • "tags.group ILIKE '%x%'"
+          <br />• "attributes.name LIKE 'x%' AND tags.group = 'y'"
+        </div>
+        <Popover.Arrow />
+      </Popover.Content>
+    </Popover.Root>
   );
 };
