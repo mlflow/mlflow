@@ -85,7 +85,9 @@ from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX
 from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.fluent import start_span_no_context
+from mlflow.tracing.provider import support_v3_traces
 from mlflow.tracing.trace_manager import InMemoryTraceManager
+from mlflow.tracing.utils.copy import copy_trace_to_current_experiment
 from mlflow.tracing.utils.warning import request_id_backward_compatible
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._model_registry import utils as registry_utils
@@ -977,7 +979,7 @@ class MlflowClient:
             experiment_id=experiment_id,
             max_timestamp_millis=max_timestamp_millis,
             max_traces=max_traces,
-            request_ids=trace_ids,
+            trace_ids=trace_ids,
         )
 
     @request_id_backward_compatible
@@ -1236,20 +1238,28 @@ class MlflowClient:
         # Create trace info entry in the backend
         # Note that the backend generates a new request ID for the trace. Currently there is
         # no way to insert the trace with a specific request ID given by the user.
-        new_info = self._tracing_client.start_trace(
-            experiment_id=experiment_id,
-            timestamp_ms=trace.info.timestamp_ms,
-            request_metadata={},
-            tags={},
-        )
-        self._tracing_client.end_trace(
-            request_id=new_info.trace_id,
-            # Compute the end time of the original trace
-            timestamp_ms=trace.info.timestamp_ms + trace.info.execution_time_ms,
-            status=trace.info.status,
-            request_metadata=trace.info.request_metadata,
-            tags=trace.info.tags,
-        )
+        if support_v3_traces(self.tracking_uri):
+            trace_id = copy_trace_to_current_experiment(trace.to_dict())
+            self._tracing_client.set_trace_tags(
+                trace_id, {k: v for k, v in trace.info.tags.items() if not k.startswith("mlflow.")}
+            )
+            return trace_id
+        # TODO: Remove this once the OSS file store supports V3.
+        else:
+            new_info = self._tracing_client.start_trace(
+                experiment_id=experiment_id,
+                timestamp_ms=trace.info.timestamp_ms,
+                request_metadata={},
+                tags={},
+            )
+            self._tracing_client.end_trace(
+                request_id=new_info.trace_id,
+                # Compute the end time of the original trace
+                timestamp_ms=trace.info.timestamp_ms + trace.info.execution_time_ms,
+                status=trace.info.status,
+                request_metadata=trace.info.request_metadata,
+                tags=trace.info.tags,
+            )
         self._tracing_client._upload_trace_data(new_info, trace.data)
         return new_info.trace_id
 

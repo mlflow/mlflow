@@ -9,7 +9,7 @@ Create Date: 2024-04-27 12:29:25.178685
 import sqlalchemy as sa
 from alembic import op
 
-from mlflow.store.tracking.dbmodels.models import SqlTraceInfo, SqlTraceRequestMetadata, SqlTraceTag
+from mlflow.store.tracking.dbmodels.models import SqlTraceInfo, SqlTraceMetadata, SqlTraceTag
 
 # revision identifiers, used by Alembic.
 revision = "867495a8f9d4"
@@ -64,7 +64,7 @@ def upgrade():
         ),
     )
     op.create_table(
-        SqlTraceRequestMetadata.__tablename__,
+        SqlTraceMetadata.__tablename__,
         sa.Column("key", sa.String(length=250), primary_key=True, nullable=False),
         sa.Column("value", sa.String(length=8000), nullable=True),
         sa.Column(
@@ -72,14 +72,14 @@ def upgrade():
             sa.String(length=50),
             sa.ForeignKey(
                 column=SqlTraceInfo.request_id,
-                name=f"fk_{SqlTraceRequestMetadata.__tablename__}_request_id",
+                name=f"fk_{SqlTraceMetadata.__tablename__}_request_id",
             ),
             nullable=False,
             primary_key=True,
         ),
         sa.PrimaryKeyConstraint("key", "request_id", name="trace_request_metadata_pk"),
         sa.Index(
-            f"index_{SqlTraceRequestMetadata.__tablename__}_request_id",
+            f"index_{SqlTraceMetadata.__tablename__}_request_id",
             "request_id",
             unique=False,
         ),
