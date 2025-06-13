@@ -140,6 +140,7 @@ def test_handle_timeout_update(monkeypatch):
     # Create a second trace. This should use the new timeout
     _SlowModel().predict(3)
 
+    mlflow.flush_trace_async_logging()
     traces = get_traces()
     assert len(traces) == 2
     assert traces[0].info.status == SpanStatusCode.ERROR
@@ -148,6 +149,7 @@ def test_handle_timeout_update(monkeypatch):
     monkeypatch.setenv("MLFLOW_TRACE_TIMEOUT_SECONDS", "100")
     _SlowModel().predict(3)
 
+    mlflow.flush_trace_async_logging()
     traces = get_traces()
     assert len(traces) == 3
     assert traces[0].info.status == SpanStatusCode.OK
