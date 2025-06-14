@@ -1,5 +1,6 @@
 import inspect
 import logging
+from typing import Any, Optional
 
 import mlflow
 import mlflow.gemini
@@ -8,6 +9,7 @@ from mlflow.gemini.chat import (
     convert_gemini_func_to_mlflow_chat_tool,
     parse_gemini_content_to_mlflow_chat_messages,
 )
+from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.utils import set_span_chat_messages, set_span_chat_tools
 from mlflow.types.chat import ChatMessage
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
@@ -69,6 +71,8 @@ def patched_class_call(original, self, *args, **kwargs):
             # need to convert the response of generate_content for better visualization
             outputs = result.to_dict() if hasattr(result, "to_dict") else result
             span.set_outputs(outputs)
+            if usage := _parse_usage(result):
+                span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
 
             return result
 
@@ -91,6 +95,8 @@ def patched_module_call(original, *args, **kwargs):
             # need to convert the response of generate_content for better visualization
             outputs = result.to_dict() if hasattr(result, "to_dict") else result
             span.set_outputs(outputs)
+            if usage := _parse_usage(result):
+                span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
 
             return result
 
@@ -184,3 +190,16 @@ def _construct_full_inputs(func, *args, **kwargs):
         arguments.pop("self")
 
     return arguments
+
+
+def _parse_usage(output: Any) -> Optional[dict[str, int]]:
+    try:
+        if usage := getattr(output, "usage_metadata", None):
+            return {
+                TokenUsageKey.INPUT_TOKENS: usage.prompt_token_count,
+                TokenUsageKey.OUTPUT_TOKENS: usage.candidates_token_count,
+                TokenUsageKey.TOTAL_TOKENS: usage.total_token_count,
+            }
+    except Exception as e:
+        _logger.debug(f"Failed to parse token usage from output: {e}")
+    return None
