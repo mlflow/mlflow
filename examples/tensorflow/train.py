@@ -32,8 +32,8 @@ class LinearRegression(tf.Module):
         # Initialize the model parameters on the first call
         if not self.built:
             # Randomly generate the weight vector and bias term
-            rand_w = tf.random.uniform(shape=[x.shape[-1], 1])
-            rand_b = tf.random.uniform(shape=[])
+            rand_w = tf.random.uniform(shape=[x.shape[-1], 1], dtype=tf.float64)
+            rand_b = tf.random.uniform(shape=[], dtype=tf.float64)
             self.w = tf.Variable(rand_w)
             self.b = tf.Variable(rand_b)
             self.built = True
@@ -50,7 +50,7 @@ class ExportModule(tf.Module):
         self.norm_x = norm_x
         self.norm_y = norm_y
 
-    @tf.function(input_signature=[tf.TensorSpec(shape=[None, None], dtype=tf.float32)])
+    @tf.function(input_signature=[tf.TensorSpec(shape=[None, None], dtype=tf.float64)])
     def __call__(self, x):
         # Run the ExportModule for new data points
         x = self.norm_x.norm(x)
@@ -74,7 +74,7 @@ if __name__ == "__main__":
     dataset = dataset.dropna()
     # using only 1500
     dataset = dataset[:1500]
-    dataset_tf = tf.convert_to_tensor(dataset, dtype=tf.float32)
+    dataset_tf = tf.convert_to_tensor(dataset, dtype=tf.float64)
 
     # Split dataset into train and test
     dataset_shuffled = tf.random.shuffle(dataset_tf, seed=42)
