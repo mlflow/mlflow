@@ -13,6 +13,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow.entities.span import SpanType
+from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 
 from tests.tracing.helper import get_traces
 
@@ -136,6 +137,18 @@ def test_generate_content_enable_disable_autolog():
         assert span1.outputs == _DUMMY_GENERATE_CONTENT_RESPONSE.dict()
         assert span1.get_attribute("mlflow.chat.messages") == _CHAT_MESSAGES
 
+        assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+            TokenUsageKey.INPUT_TOKENS: 6,
+            TokenUsageKey.OUTPUT_TOKENS: 6,
+            TokenUsageKey.TOTAL_TOKENS: 6,
+        }
+
+        assert traces[0].info.token_usage == {
+            "input_tokens": 6,
+            "output_tokens": 6,
+            "total_tokens": 6,
+        }
+
         mlflow.gemini.autolog(disable=True)
         client = genai.Client(api_key="dummy")
         client.models.generate_content(model="gemini-1.5-flash", contents="test content")
@@ -221,6 +234,18 @@ def test_generate_content_image_autolog():
     assert span1.inputs["contents"][1] == "Caption this image"
     assert span1.outputs == _DUMMY_GENERATE_CONTENT_RESPONSE.dict()
 
+    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        TokenUsageKey.INPUT_TOKENS: 6,
+        TokenUsageKey.OUTPUT_TOKENS: 6,
+        TokenUsageKey.TOTAL_TOKENS: 6,
+    }
+
+    assert traces[0].info.token_usage == {
+        "input_tokens": 6,
+        "output_tokens": 6,
+        "total_tokens": 6,
+    }
+
 
 def test_generate_content_tool_calling_autolog():
     tool_call_content = {
@@ -298,6 +323,18 @@ def test_generate_content_tool_calling_autolog():
     )
     assert span1.get_attribute("mlflow.chat.tools") == TOOL_ATTRIBUTE
     assert span1.get_attribute("mlflow.chat.messages") == chat_messages
+
+    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        TokenUsageKey.INPUT_TOKENS: 6,
+        TokenUsageKey.OUTPUT_TOKENS: 6,
+        TokenUsageKey.TOTAL_TOKENS: 6,
+    }
+
+    assert traces[0].info.token_usage == {
+        "input_tokens": 6,
+        "output_tokens": 6,
+        "total_tokens": 6,
+    }
 
 
 def test_generate_content_tool_calling_chat_history_autolog():
@@ -433,6 +470,18 @@ def test_generate_content_tool_calling_chat_history_autolog():
     assert span1.inputs["model"] == "gemini-1.5-flash"
     assert span1.get_attribute("mlflow.chat.tools") == TOOL_ATTRIBUTE
     assert span1.get_attribute("mlflow.chat.messages") == chat_messages
+
+    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        TokenUsageKey.INPUT_TOKENS: 6,
+        TokenUsageKey.OUTPUT_TOKENS: 6,
+        TokenUsageKey.TOTAL_TOKENS: 6,
+    }
+
+    assert traces[0].info.token_usage == {
+        "input_tokens": 6,
+        "output_tokens": 6,
+        "total_tokens": 6,
+    }
 
 
 def test_chat_session_autolog():
