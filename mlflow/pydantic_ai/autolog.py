@@ -1,10 +1,11 @@
 import inspect
 import logging
-from typing import Any
+from typing import Any, Optional
 
 import mlflow
 from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
+from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 _logger = logging.getLogger(__name__)
@@ -70,8 +71,15 @@ async def patched_async_class_call(original, self, *args, **kwargs):
         _set_span_attributes(span, self)
 
         result = await original(self, *args, **kwargs)
-        outputs = result.__dict__ if hasattr(result, "__dict__") else result
+        if isinstance(result, tuple) and len(result) == 2:
+            output_obj, usage = result
+            outputs = output_obj.__dict__ if hasattr(output_obj, "__dict__") else output_obj
+        else:
+            outputs = result.__dict__ if hasattr(result, "__dict__") else result
+            usage = getattr(result, "usage", None)
         span.set_outputs(outputs)
+        if usage_dict := _parse_usage(usage):
+            span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
         return result
 
 
@@ -88,9 +96,16 @@ def patched_class_call(original, self, *args, **kwargs):
         _set_span_attributes(span, self)
 
         result = original(self, *args, **kwargs)
+        if isinstance(result, tuple) and len(result) == 2:
+            output_obj, usage = result
+            outputs = output_obj.__dict__ if hasattr(output_obj, "__dict__") else output_obj
+        else:
+            outputs = result.__dict__ if hasattr(result, "__dict__") else result
+            usage = getattr(result, "usage", None)
 
-        outputs = result.__dict__ if hasattr(result, "__dict__") else result
         span.set_outputs(outputs)
+        if usage_dict := _parse_usage(usage):
+            span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
         return result
 
 
@@ -171,3 +186,15 @@ def _parse_tools(tools):
                 }
             )
     return result
+
+
+def _parse_usage(usage: Any) -> Optional[dict[str, int]]:
+    try:
+        return {
+            TokenUsageKey.INPUT_TOKENS: usage.request_tokens,
+            TokenUsageKey.OUTPUT_TOKENS: usage.response_tokens,
+            TokenUsageKey.TOTAL_TOKENS: usage.total_tokens,
+        }
+    except Exception as e:
+        _logger.debug(f"Failed to parse token usage from output: {e}")
+    return None
