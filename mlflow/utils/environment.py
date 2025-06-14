@@ -4,6 +4,7 @@ import logging
 import os
 import pathlib
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -19,6 +20,7 @@ from mlflow.environment_variables import (
     _MLFLOW_TESTING,
     MLFLOW_EXPERIMENT_ID,
     MLFLOW_INPUT_EXAMPLE_INFERENCE_TIMEOUT,
+    MLFLOW_LOCK_MODEL_DEPENDENCIES,
     MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS,
 )
 from mlflow.exceptions import MlflowException
@@ -453,6 +455,116 @@ def infer_pip_requirements(model_uri, flavor, fallback=None, timeout=None, extra
         return fallback
 
 
+def _get_uv_options_for_databricks() -> tuple[list[str], dict[str, str]]:
+    """
+    Retrieves the predefined secrets to configure `pip` for Databricks, and converts them into
+    command-line arguments and environment variables for `uv`.
+
+    References:
+    - https://docs.databricks.com/aws/en/compute/serverless/dependencies#predefined-secret-scope-name
+    - https://docs.astral.sh/uv/configuration/environment/#environment-variables
+    """
+    from mlflow.utils.databricks_utils import (
+        _get_dbutils,
+        _NoDbutilsError,
+        is_in_databricks_runtime,
+    )
+
+    if not is_in_databricks_runtime():
+        return [], {}
+
+    try:
+        dbutils = _get_dbutils()
+    except _NoDbutilsError:
+        return [], {}
+
+    def get_secret(key: str) -> Optional[str]:
+        """
+        Retrieves a secret from the Databricks secrets scope.
+        """
+        try:
+            return dbutils.secrets.get(scope="databricks-package-management", key=key)
+        except Exception as e:
+            _logger.debug(f"Failed to fetch secret '{key}': {e}")
+            return None
+
+    args: list[str] = []
+    if url := get_secret("pip-index-url"):
+        args.append(f"--index-url={url}")
+
+    if urls := get_secret("pip-extra-index-urls"):
+        args.append(f"--extra-index-url={urls}")
+
+    # There is no command-line option for SSL_CERT_FILE in `uv`.
+    envs: dict[str, str] = {}
+    if cert := get_secret("pip-cert"):
+        envs["SSL_CERT_FILE"] = cert
+
+    _logger.debug(f"uv arguments and environment variables: {args}, {envs}")
+    return args, envs
+
+
+def _lock_requirements(
+    requirements: list[str], constraints: Optional[list[str]] = None
+) -> Optional[list[str]]:
+    """
+    Locks the given requirements using `uv`. Returns the locked requirements when the locking is
+    performed successfully, otherwise returns None.
+    """
+    if not MLFLOW_LOCK_MODEL_DEPENDENCIES.get():
+        return None
+
+    uv_bin = shutil.which("uv")
+    if uv_bin is None:
+        _logger.debug("`uv` binary not found. Skipping locking requirements.")
+        return None
+
+    _logger.info("Locking requirements...")
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_dir_path = pathlib.Path(tmp_dir)
+        in_file = tmp_dir_path / "requirements.in"
+        in_file.write_text("\n".join(requirements))
+        out_file = tmp_dir_path / "requirements.out"
+        constraints_opt: list = []
+        if constraints:
+            constraints_file = tmp_dir_path / "constraints.txt"
+            constraints_file.write_text("\n".join(constraints))
+            constraints_opt = [f"--constraints={constraints_file}"]
+        try:
+            uv_options, uv_envs = _get_uv_options_for_databricks()
+            out = subprocess.check_output(
+                [
+                    uv_bin,
+                    "pip",
+                    "compile",
+                    "--color=never",
+                    "--universal",
+                    "--no-annotate",
+                    "--no-header",
+                    f"--python-version={PYTHON_VERSION}",
+                    f"--output-file={out_file}",
+                    *uv_options,
+                    *constraints_opt,
+                    in_file,
+                ],
+                stderr=subprocess.STDOUT,
+                env=os.environ.copy() | uv_envs,
+                text=True,
+            )
+            _logger.debug(f"Successfully compiled requirements with `uv`:\n{out}")
+        except subprocess.CalledProcessError as e:
+            _logger.warning(f"Failed to lock requirements:\n{e.output}")
+            return None
+
+        return [
+            "# Original requirements",
+            *(f"# {l}" for l in requirements),  # Preserve original requirements as comments
+            "#",
+            "# Locked requirements",
+            *out_file.read_text().splitlines(),
+        ]
+
+
 def _validate_env_arguments(conda_env, pip_requirements, extra_pip_requirements):
     """
     Validates that only one or none of `conda_env`, `pip_requirements`, and
@@ -538,9 +650,7 @@ def _generate_mlflow_version_pinning() -> str:
     # is always a micro-version ahead of the latest release (unless it's manually modified)
     # and can't be installed from PyPI. We therefore subtract 1 from the micro version when running
     # tests.
-    # TODO: Remove this hardcoded version once we released the stable 3.0.0 version.
-    return "mlflow@git+https://github.com/mlflow/mlflow.git"
-    # return f"mlflow=={version.major}.{version.minor}.{version.micro - 1}"
+    return f"mlflow=={version.major}.{version.minor}.{version.micro - 1}"
 
 
 def _contains_mlflow_requirement(requirements):
@@ -575,8 +685,13 @@ def _process_pip_requirements(
     # Check if pip requirements contain incompatible version with the current environment
     warn_dependency_requirement_mismatches(sanitized_pip_reqs)
 
-    if constraints:
-        sanitized_pip_reqs.append(f"-c {_CONSTRAINTS_FILE_NAME}")
+    if locked_requirements := _lock_requirements(sanitized_pip_reqs, constraints):
+        # Locking requirements was performed successfully
+        sanitized_pip_reqs = locked_requirements
+    else:
+        # Locking requirements was skipped or failed
+        if constraints:
+            sanitized_pip_reqs.append(f"-c {_CONSTRAINTS_FILE_NAME}")
 
     # Set `install_mlflow` to False because `pip_reqs` already contains `mlflow`
     conda_env = _mlflow_conda_env(additional_pip_deps=sanitized_pip_reqs, install_mlflow=False)

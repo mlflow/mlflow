@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import importlib.metadata
 import json
 import os
+import subprocess
 import sys
 import types
 import uuid
@@ -37,6 +39,7 @@ from mlflow.models.auth_policy import AuthPolicy, SystemAuthPolicy, UserAuthPoli
 from mlflow.models.dependencies_schemas import DependenciesSchemasType
 from mlflow.models.model import _DATABRICKS_FS_LOADER_MODULE
 from mlflow.models.resources import (
+    DatabricksApp,
     DatabricksFunction,
     DatabricksGenieSpace,
     DatabricksServingEndpoint,
@@ -1544,6 +1547,7 @@ def test_model_save_load_with_resources(tmp_path):
             "genie_space": [{"name": "genie_space_id_1"}, {"name": "genie_space_id_2"}],
             "uc_connection": [{"name": "test_connection_1"}, {"name": "test_connection_2"}],
             "table": [{"name": "rag.studio.table_a"}, {"name": "rag.studio.table_b"}],
+            "app": [{"name": "test_databricks_app"}],
         },
     }
     mlflow.pyfunc.save_model(
@@ -1564,6 +1568,7 @@ def test_model_save_load_with_resources(tmp_path):
             DatabricksUCConnection(connection_name="test_connection_2"),
             DatabricksTable(table_name="rag.studio.table_a"),
             DatabricksTable(table_name="rag.studio.table_b"),
+            DatabricksApp(app_name="test_databricks_app"),
         ],
     )
 
@@ -1596,6 +1601,8 @@ def test_model_save_load_with_resources(tmp_path):
                 table:
                 - name: rag.studio.table_a
                 - name: rag.studio.table_b
+                app:
+                - name: test_databricks_app
             """
         )
 
@@ -1638,6 +1645,7 @@ def test_model_save_load_with_invokers_resources(tmp_path):
                 {"name": "rag.studio.table_a", "on_behalf_of_user": True},
                 {"name": "rag.studio.table_b"},
             ],
+            "app": [{"name": "test_databricks_app"}],
         },
     }
     mlflow.pyfunc.save_model(
@@ -1662,6 +1670,7 @@ def test_model_save_load_with_invokers_resources(tmp_path):
             DatabricksUCConnection(connection_name="test_connection_2"),
             DatabricksTable(table_name="rag.studio.table_a", on_behalf_of_user=True),
             DatabricksTable(table_name="rag.studio.table_b"),
+            DatabricksApp(app_name="test_databricks_app"),
         ],
     )
 
@@ -1699,6 +1708,8 @@ def test_model_save_load_with_invokers_resources(tmp_path):
                 - name: rag.studio.table_a
                   on_behalf_of_user: True
                 - name: rag.studio.table_b
+                app:
+                - name: test_databricks_app
             """
         )
 
@@ -1848,6 +1859,7 @@ def test_model_log_with_resources(tmp_path):
             ],
             "uc_connection": [{"name": "test_connection_1"}, {"name": "test_connection_2"}],
             "table": [{"name": "rag.studio.table_a"}, {"name": "rag.studio.table_b"}],
+            "app": [{"name": "test_databricks_app"}],
         },
     }
     with mlflow.start_run() as run:
@@ -1868,6 +1880,7 @@ def test_model_log_with_resources(tmp_path):
                 DatabricksUCConnection(connection_name="test_connection_2"),
                 DatabricksTable(table_name="rag.studio.table_a"),
                 DatabricksTable(table_name="rag.studio.table_b"),
+                DatabricksApp(app_name="test_databricks_app"),
             ],
         )
     pyfunc_model_uri = f"runs:/{run.info.run_id}/{pyfunc_artifact_path}"
@@ -1901,6 +1914,8 @@ def test_model_log_with_resources(tmp_path):
                 table:
                 - name: "rag.studio.table_a"
                 - name: "rag.studio.table_b"
+                app:
+                - name: test_databricks_app
             """
         )
 
@@ -2209,12 +2224,13 @@ def test_model_pip_requirements_pin_numpy_when_pandas_included():
         model_info = mlflow.pyfunc.log_model(
             name="model", python_model=TestModel(), input_example="abc"
         )
+
         _assert_pip_requirements(
             model_info.model_uri,
             [
                 expected_mlflow_version,
-                f"cloudpickle=={cloudpickle.__version__}",
-                f"pandas=={pandas.__version__}",
+                f"cloudpickle=={importlib.metadata.version('cloudpickle')}",
+                f"pandas=={importlib.metadata.version('pandas')}",
             ],
             strict=True,
         )
@@ -2542,3 +2558,102 @@ def test_pyfunc_model_traces_link_to_model_id():
     assert len(traces) == 3
     for i in range(3):
         assert traces[i].info.request_metadata[TraceMetadataKey.MODEL_ID] == model_infos[i].model_id
+
+
+class ExampleModel(mlflow.pyfunc.PythonModel):
+    def predict(self, model_input: list[str]) -> list[str]:
+        return model_input
+
+
+def test_lock_model_requirements(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+    monkeypatch.setenv("MLFLOW_LOCK_MODEL_DEPENDENCIES", "true")
+
+    model_info = mlflow.pyfunc.log_model(name="model", python_model=ExampleModel())
+    pyfunc_model_path = _download_artifact_from_uri(model_info.model_uri, output_path=tmp_path)
+    requirements_txt = next(Path(pyfunc_model_path).rglob("requirements.txt"))
+    requirements_txt_contents = requirements_txt.read_text()
+    assert "# Locked requirements" in requirements_txt_contents
+    assert "mlflow==" in requirements_txt_contents
+    assert "packaging==" in requirements_txt_contents
+    # Check that pip can install the locked requirements
+    subprocess.check_call(
+        [
+            sys.executable,
+            "-m",
+            "pip",
+            "install",
+            "--ignore-installed",
+            "--dry-run",
+            "--requirement",
+            requirements_txt,
+        ],
+    )
+    # Check that conda environment can be created with the locked requirements
+    conda_yaml = next(Path(pyfunc_model_path).rglob("conda.yaml"))
+    conda_yaml_contents = conda_yaml.read_text()
+    assert "# Locked requirements" in conda_yaml_contents
+    assert "mlflow==" in requirements_txt_contents
+    assert "packaging==" in conda_yaml_contents
+    subprocess.check_call(
+        [
+            "conda",
+            "env",
+            "create",
+            "--file",
+            conda_yaml,
+            "--dry-run",
+            "--yes",
+        ],
+    )
+
+
+def test_lock_model_requirements_pip_requirements(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+    monkeypatch.setenv("MLFLOW_LOCK_MODEL_DEPENDENCIES", "true")
+    model_info = mlflow.pyfunc.log_model(
+        name="model",
+        python_model=ExampleModel(),
+        pip_requirements=["openai"],
+    )
+    pyfunc_model_path = _download_artifact_from_uri(model_info.model_uri, output_path=tmp_path)
+    requirements_txt = next(Path(pyfunc_model_path).rglob("requirements.txt"))
+    contents = requirements_txt.read_text()
+    assert "# Locked requirements" in contents
+    assert "mlflow==" in contents
+    assert "openai==" in contents
+    assert "httpx==" in contents
+
+
+def test_lock_model_requirements_extra_pip_requirements(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+):
+    monkeypatch.setenv("MLFLOW_LOCK_MODEL_DEPENDENCIES", "true")
+    model_info = mlflow.pyfunc.log_model(
+        name="model",
+        python_model=ExampleModel(),
+        extra_pip_requirements=["openai"],
+    )
+    pyfunc_model_path = _download_artifact_from_uri(model_info.model_uri, output_path=tmp_path)
+    requirements_txt = next(Path(pyfunc_model_path).rglob("requirements.txt"))
+    contents = requirements_txt.read_text()
+    assert "# Locked requirements" in contents
+    assert "mlflow==" in contents
+    assert "openai==" in contents
+    assert "httpx==" in contents
+
+
+def test_lock_model_requirements_constraints(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
+    constraints_file = tmp_path / "constraints.txt"
+    constraints_file.write_text("openai==1.82.0")
+    monkeypatch.setenv("MLFLOW_LOCK_MODEL_DEPENDENCIES", "true")
+    model_info = mlflow.pyfunc.log_model(
+        name="model",
+        python_model=ExampleModel(),
+        pip_requirements=["openai", f"-c {constraints_file}"],
+    )
+    pyfunc_model_path = _download_artifact_from_uri(model_info.model_uri, output_path=tmp_path)
+    requirements_txt = next(Path(pyfunc_model_path).rglob("requirements.txt"))
+    contents = requirements_txt.read_text()
+    assert "# Locked requirements" in contents
+    assert "mlflow==" in contents
+    assert "openai==1.82.0" in contents
+    assert "httpx==" in contents

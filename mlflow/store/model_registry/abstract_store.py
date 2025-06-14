@@ -1,13 +1,30 @@
+import json
 import logging
+import threading
 from abc import ABCMeta, abstractmethod
 from time import sleep, time
-from typing import Optional
+from typing import Any, Optional, Union
 
-from mlflow.entities.model_registry import ModelVersionTag
+from mlflow.entities.logged_model_tag import LoggedModelTag
+from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
+from mlflow.entities.model_registry.model_version_tag import ModelVersionTag
+from mlflow.entities.model_registry.prompt import Prompt
+from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.exceptions import MlflowException
-from mlflow.prompt.registry_utils import has_prompt_tag
-from mlflow.protos.databricks_pb2 import RESOURCE_ALREADY_EXISTS, ErrorCode
+from mlflow.prompt.constants import (
+    IS_PROMPT_TAG_KEY,
+    LINKED_PROMPTS_TAG_KEY,
+    PROMPT_TEXT_TAG_KEY,
+)
+from mlflow.prompt.registry_utils import has_prompt_tag, model_version_to_prompt_version
+from mlflow.protos.databricks_pb2 import (
+    INVALID_PARAMETER_VALUE,
+    RESOURCE_ALREADY_EXISTS,
+    RESOURCE_DOES_NOT_EXIST,
+    ErrorCode,
+)
+from mlflow.store.entities.paged_list import PagedList
 from mlflow.utils.annotations import developer_stable
 from mlflow.utils.logging_utils import eprint
 
@@ -36,6 +53,23 @@ class AbstractStore:
                 to support subsequently uploading them to the model registry storage
                 location.
         """
+        # Create a thread lock to ensure thread safety when linking prompts to other entities,
+        # since the default linking implementation reads and appends entity tags, which
+        # is prone to concurrent modification issues
+        self._prompt_link_lock = threading.RLock()
+
+    def __getstate__(self):
+        """Support for pickle serialization by excluding the non-picklable RLock."""
+        state = self.__dict__.copy()
+        # Remove the RLock as it cannot be pickled
+        del state["_prompt_link_lock"]
+        return state
+
+    def __setstate__(self, state):
+        """Support for pickle deserialization by recreating the RLock."""
+        self.__dict__.update(state)
+        # Recreate the RLock
+        self._prompt_link_lock = threading.RLock()
 
     # CRUD API for RegisteredModel objects
 
@@ -458,3 +492,591 @@ class AbstractStore:
                 f"{entity_type} version creation failed for {entity_type.lower()} name: {mv.name} "
                 f"version: {mv.version} with status: {mv.status} and message: {mv.status_message}"
             )
+
+    # Prompt-related methods with concrete implementations for OSS stores
+
+    def create_prompt(
+        self,
+        name: str,
+        description: Optional[str] = None,
+        tags: Optional[dict[str, str]] = None,
+    ) -> Prompt:
+        """
+        Create a new prompt in the registry.
+
+        Default implementation: creates a RegisteredModel with special prompt tags.
+        Other store implementations may override this method.
+
+        Args:
+            name: Name of the prompt.
+            description: Optional description of the prompt.
+            tags: Optional dictionary of prompt tags.
+
+        Returns:
+            A Prompt object representing the created prompt.
+        """
+        # Default implementation: use RegisteredModel with special tags
+        prompt_tags = [RegisteredModelTag(key=IS_PROMPT_TAG_KEY, value="true")]
+        if tags:
+            prompt_tags.extend([RegisteredModelTag(key=k, value=v) for k, v in tags.items()])
+
+        # Create registered model for the prompt
+        rm = self.create_registered_model(name, tags=prompt_tags, description=description)
+
+        # Return as Prompt
+        return Prompt(
+            name=rm.name,
+            description=rm.description,
+            creation_timestamp=rm.creation_timestamp,
+            tags=tags or {},
+        )
+
+    def search_prompts(
+        self,
+        filter_string: Optional[str] = None,
+        max_results: Optional[int] = None,
+        order_by: Optional[list[str]] = None,
+        page_token: Optional[str] = None,
+    ) -> PagedList[Prompt]:
+        """
+        Search for prompts in the registry.
+
+        Default implementation: searches RegisteredModels with prompt tags.
+        Other store implementations may override this method.
+
+        Args:
+            filter_string: Filter query string, defaults to searching for all prompts.
+            max_results: Maximum number of prompts desired.
+            order_by: List of order-by clauses.
+            page_token: Pagination token for requesting subsequent pages.
+
+        Returns:
+            A PagedList of Prompt objects.
+        """
+        if max_results is None:
+            max_results = 100
+
+        # Build filter to only include prompts (use backticks for tag key with dots)
+        prompt_filter = f"tags.`{IS_PROMPT_TAG_KEY}` = 'true'"
+        if filter_string:
+            prompt_filter = f"{prompt_filter} AND {filter_string}"
+
+        # Search registered models with prompt filter
+        registered_models = self.search_registered_models(
+            filter_string=prompt_filter,
+            max_results=max_results,
+            order_by=order_by,
+            page_token=page_token,
+        )
+
+        # Convert RegisteredModel objects to Prompt objects
+        prompts = []
+        for rm in registered_models:
+            # Extract tags as dict
+            if isinstance(rm.tags, dict):
+                tags = rm.tags.copy()
+            else:
+                tags = {tag.key: tag.value for tag in rm.tags} if rm.tags else {}
+
+            # Remove the internal prompt tag from user-visible tags
+            tags.pop(IS_PROMPT_TAG_KEY, None)
+
+            # Create Prompt object
+            prompt_info = Prompt(
+                name=rm.name,
+                description=rm.description,
+                creation_timestamp=rm.creation_timestamp,
+                tags=tags,
+            )
+            prompts.append(prompt_info)
+
+        return PagedList(prompts, registered_models.token)
+
+    def delete_prompt(self, name: str) -> None:
+        """
+        Delete a prompt from the registry.
+
+        Default implementation: deletes the underlying RegisteredModel.
+        Other store implementations may override this method.
+
+        Args:
+            name: Name of the prompt to delete.
+        """
+        # Default implementation: delete the registered model
+        return self.delete_registered_model(name)
+
+    def set_prompt_tag(self, name: str, key: str, value: str) -> None:
+        """
+        Set a tag on a prompt.
+
+        Default implementation: sets a tag on the underlying RegisteredModel.
+        Other store implementations may override this method.
+
+        Args:
+            name: Name of the prompt.
+            key: Tag key.
+            value: Tag value.
+        """
+        # Default implementation: set tag on registered model
+        tag = RegisteredModelTag(key=key, value=value)
+        return self.set_registered_model_tag(name, tag)
+
+    def delete_prompt_tag(self, name: str, key: str) -> None:
+        """
+        Delete a tag from a prompt.
+
+        Default implementation: deletes a tag from the underlying RegisteredModel.
+        Other store implementations may override this method.
+
+        Args:
+            name: Name of the prompt.
+            key: Tag key to delete.
+        """
+        # Default implementation: delete tag from registered model
+        return self.delete_registered_model_tag(name, key)
+
+    def get_prompt(self, name: str) -> Optional[Prompt]:
+        """
+        Get prompt metadata by name.
+
+        Default implementation: gets RegisteredModel with prompt tags and converts to Prompt.
+        Other store implementations may override this method.
+
+        Args:
+            name: Registered prompt name.
+
+        Returns:
+            A single Prompt object with prompt metadata, or None if not found.
+        """
+        try:
+            rm = self.get_registered_model(name)
+
+            # Check if this is actually a prompt using _tags (internal tags)
+            if isinstance(rm._tags, dict):
+                internal_tags = rm._tags.copy()
+            else:
+                internal_tags = {tag.key: tag.value for tag in rm._tags} if rm._tags else {}
+
+            if not internal_tags.get(IS_PROMPT_TAG_KEY) == "true":
+                return None
+
+            # Get user-visible tags (without internal prompt tag)
+            if isinstance(rm.tags, dict):
+                user_tags = rm.tags.copy()
+            else:
+                user_tags = {tag.key: tag.value for tag in rm.tags} if rm.tags else {}
+
+            return Prompt(
+                name=rm.name,
+                description=rm.description,
+                creation_timestamp=rm.creation_timestamp,
+                tags=user_tags,
+            )
+
+        except Exception:
+            return None
+
+    def create_prompt_version(
+        self,
+        name: str,
+        template: str,
+        description: Optional[str] = None,
+        tags: Optional[dict[str, str]] = None,
+    ) -> PromptVersion:
+        """
+        Create a new version of an existing prompt.
+
+        Default implementation: creates a ModelVersion with prompt tags.
+        Other store implementations may override this method.
+
+        Args:
+            name: Name of the prompt.
+            template: The prompt template text.
+            description: Optional description of the prompt version.
+            tags: Optional dictionary of version tags.
+
+        Returns:
+            A PromptVersion object representing the created version.
+        """
+        # Create version tags including template
+        version_tags = [
+            ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true"),
+            ModelVersionTag(key=PROMPT_TEXT_TAG_KEY, value=template),
+        ]
+        if tags:
+            version_tags.extend([ModelVersionTag(key=k, value=v) for k, v in tags.items()])
+
+        # Create model version
+        mv = self.create_model_version(
+            name=name,
+            source="prompt-template",  # Required field for ModelVersion
+            tags=version_tags,
+            description=description,
+        )
+
+        # Get prompt-level tags from registered model
+        rm = self.get_registered_model(name)
+        if isinstance(rm.tags, dict):
+            prompt_tags = rm.tags.copy()
+        else:
+            prompt_tags = {tag.key: tag.value for tag in rm.tags}
+
+        return model_version_to_prompt_version(mv, prompt_tags=prompt_tags)
+
+    def get_prompt_version(self, name: str, version: Union[str, int]) -> Optional[PromptVersion]:
+        """
+        Get a specific prompt version.
+
+        Default implementation: gets ModelVersion and converts to PromptVersion.
+        Other store implementations may override this method.
+
+        Args:
+            name: Name of the prompt.
+            version: Version number or alias.
+
+        Returns:
+            A PromptVersion object, or None if not found.
+        """
+        try:
+            # First check if this is actually a prompt by checking the registered model
+            rm = self.get_registered_model(name)
+
+            # Check if this is actually a prompt using _tags (internal tags)
+            if hasattr(rm, "_tags") and isinstance(rm._tags, dict):
+                internal_tags = rm._tags.copy()
+            elif hasattr(rm, "_tags") and rm._tags:
+                internal_tags = {tag.key: tag.value for tag in rm._tags}
+            else:
+                internal_tags = {}
+
+            if not internal_tags.get(IS_PROMPT_TAG_KEY) == "true":
+                raise MlflowException(
+                    f"Name `{name}` is registered as a model, not a prompt. "
+                    f"Use get_model_version() or load_model() instead.",
+                    INVALID_PARAMETER_VALUE,
+                )
+
+            # Now get the specific version
+            try:
+                version_int = int(str(version))
+                mv = self.get_model_version(name, version_int)
+            except (ValueError, TypeError):
+                # Treat as alias
+                mv = self.get_model_version_by_alias(name, str(version))
+
+            if not has_prompt_tag(mv.tags):
+                return None
+
+            # Get user-visible tags from registered model
+            if isinstance(rm.tags, dict):
+                prompt_tags = rm.tags.copy()
+            else:
+                prompt_tags = {tag.key: tag.value for tag in rm.tags}
+
+            return model_version_to_prompt_version(mv, prompt_tags=prompt_tags)
+
+        except MlflowException:
+            raise  # Re-raise MlflowExceptions (including our custom one above)
+        except Exception:
+            return None
+
+    def delete_prompt_version(self, name: str, version: Union[str, int]) -> None:
+        """
+        Delete a specific prompt version.
+
+        Default implementation: deletes the underlying ModelVersion.
+        Other store implementations may override this method.
+
+        Args:
+            name: Name of the prompt.
+            version: Version number to delete.
+        """
+        # Convert version to int if needed
+        try:
+            version_int = int(version)
+        except (ValueError, TypeError):
+            raise MlflowException(f"Invalid version number: {version}")
+        return self.delete_model_version(name, version_int)
+
+    def get_prompt_version_by_alias(self, name: str, alias: str) -> Optional[PromptVersion]:
+        """
+        Get a prompt version by alias.
+
+        Default implementation: uses get_model_version_by_alias and converts to PromptVersion.
+
+        Args:
+            name: Name of the prompt.
+            alias: Alias name.
+
+        Returns:
+            A PromptVersion object, or None if not found.
+        """
+        return self.get_prompt_version(name, alias)
+
+    def set_prompt_alias(self, name: str, alias: str, version: Union[str, int]) -> None:
+        """
+        Set an alias for a prompt version.
+
+        Default implementation: uses set_registered_model_alias.
+
+        Args:
+            name: Name of the prompt.
+            alias: Alias to set.
+            version: Version to alias.
+        """
+        self.set_registered_model_alias(name, alias, version)
+
+    def delete_prompt_alias(self, name: str, alias: str) -> None:
+        """
+        Delete a prompt alias.
+
+        Default implementation: uses delete_registered_model_alias.
+
+        Args:
+            name: Name of the prompt.
+            alias: Alias to delete.
+        """
+        self.delete_registered_model_alias(name, alias)
+
+    def search_prompt_versions(
+        self, name: str, max_results: Optional[int] = None, page_token: Optional[str] = None
+    ):
+        """
+        Search prompt versions for a given prompt name.
+
+        This method is only supported in Unity Catalog registries.
+        For OSS registries, this functionality is not available.
+
+        Args:
+            name: Name of the prompt to search versions for
+            max_results: Maximum number of versions to return
+            page_token: Token for pagination
+
+        Raises:
+            MlflowException: Always, as this is not supported in OSS registries
+        """
+        raise MlflowException(
+            "search_prompt_versions() is not supported in this registry. "
+            "This method is only available in Unity Catalog registries.",
+            INVALID_PARAMETER_VALUE,
+        )
+
+    def link_prompts_to_trace(self, prompt_versions: list[PromptVersion], trace_id: str) -> None:
+        """
+        Link multiple prompt versions to a trace.
+
+        Default implementation sets a tag on the trace. Stores can override with custom behavior.
+
+        Args:
+            prompt_versions: List of PromptVersion objects to link.
+            trace_id: Trace ID to link to each prompt version.
+        """
+        from mlflow.tracking import _get_store as _get_tracking_store
+
+        tracking_store = _get_tracking_store()
+
+        with self._prompt_link_lock:
+            trace_info = tracking_store.get_trace_info(trace_id)
+            if not trace_info:
+                raise MlflowException(
+                    f"Could not find trace with ID '{trace_id}' to which to link prompts.",
+                    error_code=ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
+                )
+
+            # Prepare new prompt entries to add
+            new_prompt_entries = [
+                {
+                    "name": prompt_version.name,
+                    "version": str(prompt_version.version),
+                }
+                for prompt_version in prompt_versions
+            ]
+
+            # Use utility function to update linked prompts tag
+            current_tag_value = trace_info.tags.get(LINKED_PROMPTS_TAG_KEY)
+            updated_tag_value = self._update_linked_prompts_tag(
+                current_tag_value, new_prompt_entries
+            )
+
+            # Only update if the tag value actually changed (avoiding redundant updates)
+            if current_tag_value != updated_tag_value:
+                tracking_store.set_trace_tag(
+                    trace_id,
+                    LINKED_PROMPTS_TAG_KEY,
+                    updated_tag_value,
+                )
+
+    def set_prompt_version_tag(
+        self, name: str, version: Union[str, int], key: str, value: str
+    ) -> None:
+        """
+        Set a tag on a prompt version.
+
+        Default implementation: uses set_model_version_tag on the underlying ModelVersion.
+        Unity Catalog store implementations may override this method.
+
+        Args:
+            name: Name of the prompt.
+            version: Version number of the prompt.
+            key: Tag key.
+            value: Tag value.
+        """
+        # Convert version to int if needed
+        try:
+            version_int = int(version)
+        except (ValueError, TypeError):
+            raise MlflowException(f"Invalid version number: {version}")
+
+        # Create a ModelVersionTag and delegate to the underlying model version method
+        tag = ModelVersionTag(key=key, value=value)
+        return self.set_model_version_tag(name, version_int, tag)
+
+    def delete_prompt_version_tag(self, name: str, version: Union[str, int], key: str) -> None:
+        """
+        Delete a tag from a prompt version.
+
+        Default implementation: uses delete_model_version_tag on the underlying ModelVersion.
+        Unity Catalog store implementations may override this method.
+
+        Args:
+            name: Name of the prompt.
+            version: Version number of the prompt.
+            key: Tag key to delete.
+        """
+        # Convert version to int if needed
+        try:
+            version_int = int(version)
+        except (ValueError, TypeError):
+            raise MlflowException(f"Invalid version number: {version}")
+
+        # Delegate to the underlying model version method
+        return self.delete_model_version_tag(name, version_int, key)
+
+    def link_prompt_version_to_model(self, name: str, version: str, model_id: str) -> None:
+        """
+        Link a prompt version to a model.
+
+        Default implementation sets a tag. Stores can override with custom behavior.
+
+        Args:
+            name: Name of the prompt.
+            version: Version of the prompt to link.
+            model_id: ID of the model to link to.
+        """
+        from mlflow.tracking import _get_store as _get_tracking_store
+
+        prompt_version = self.get_prompt_version(name, version)
+        tracking_store = _get_tracking_store()
+
+        with self._prompt_link_lock:
+            logged_model = tracking_store.get_logged_model(model_id)
+            if not logged_model:
+                raise MlflowException(
+                    f"Could not find model with ID '{model_id}' to which to link prompt '{name}'.",
+                    error_code=ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
+                )
+
+            new_prompt_entry = {
+                "name": prompt_version.name,
+                "version": str(prompt_version.version),
+            }
+
+            current_tag_value = logged_model.tags.get(LINKED_PROMPTS_TAG_KEY)
+            updated_tag_value = self._update_linked_prompts_tag(
+                current_tag_value, [new_prompt_entry]
+            )
+
+            if current_tag_value != updated_tag_value:
+                tracking_store.set_logged_model_tags(
+                    model_id,
+                    [
+                        LoggedModelTag(
+                            key=LINKED_PROMPTS_TAG_KEY,
+                            value=updated_tag_value,
+                        )
+                    ],
+                )
+
+    def link_prompt_version_to_run(self, name: str, version: str, run_id: str) -> None:
+        """
+        Link a prompt version to a run.
+
+        Default implementation sets a tag. Stores can override with custom behavior.
+
+        Args:
+            name: Name of the prompt.
+            version: Version of the prompt to link.
+            run_id: ID of the run to link to.
+        """
+        from mlflow.tracking import _get_store as _get_tracking_store
+
+        prompt_version = self.get_prompt_version(name, version)
+        tracking_store = _get_tracking_store()
+
+        with self._prompt_link_lock:
+            run = tracking_store.get_run(run_id)
+            if not run:
+                raise MlflowException(
+                    f"Could not find run with ID '{run_id}' to which to link prompt '{name}'.",
+                    error_code=ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
+                )
+
+            new_prompt_entry = {
+                "name": prompt_version.name,
+                "version": str(prompt_version.version),
+            }
+
+            current_tag_value = None
+            if isinstance(run.data.tags, dict):
+                current_tag_value = run.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+            else:
+                for tag in run.data.tags:
+                    if tag.key == LINKED_PROMPTS_TAG_KEY:
+                        current_tag_value = tag.value
+                        break
+
+            updated_tag_value = self._update_linked_prompts_tag(
+                current_tag_value, [new_prompt_entry]
+            )
+
+            if current_tag_value != updated_tag_value:
+                from mlflow.entities import RunTag
+
+                tracking_store.set_tag(run_id, RunTag(LINKED_PROMPTS_TAG_KEY, updated_tag_value))
+
+    def _update_linked_prompts_tag(
+        self, current_tag_value: str, new_prompt_entries: list[dict[str, Any]]
+    ) -> str:
+        """
+        Utility method to update linked prompts tag value with new entries.
+
+        Args:
+            current_tag_value: Current JSON string value of the linked prompts tag
+            new_prompt_entries: List of prompt entry dicts to add
+
+        Returns:
+            Updated JSON string with new entries added (avoiding duplicates)
+
+        Raises:
+            MlflowException: If current tag value has invalid JSON or format
+        """
+        if current_tag_value is not None:
+            try:
+                parsed_prompts_tag_value = json.loads(current_tag_value)
+                if not isinstance(parsed_prompts_tag_value, list):
+                    raise MlflowException(
+                        f"Invalid format for '{LINKED_PROMPTS_TAG_KEY}' tag: {current_tag_value}"
+                    )
+            except json.JSONDecodeError:
+                raise MlflowException(
+                    f"Invalid JSON format for '{LINKED_PROMPTS_TAG_KEY}' tag: {current_tag_value}"
+                )
+        else:
+            parsed_prompts_tag_value = []
+
+        # Add new prompt entries that aren't already linked
+        for new_prompt_entry in new_prompt_entries:
+            if new_prompt_entry not in parsed_prompts_tag_value:
+                parsed_prompts_tag_value.append(new_prompt_entry)
+
+        return json.dumps(parsed_prompts_tag_value)

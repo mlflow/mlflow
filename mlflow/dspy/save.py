@@ -70,7 +70,7 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
-@experimental
+@experimental(version="2.18.0")
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 @trace_disabled  # Suppress traces for internal predict calls while logging model
 def save_model(
@@ -262,7 +262,7 @@ def save_model(
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
-@experimental
+@experimental(version="2.18.0")
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 @trace_disabled  # Suppress traces for internal predict calls while logging model
 def log_model(

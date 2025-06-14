@@ -4,6 +4,8 @@ import ast
 import re
 from abc import ABC, abstractmethod
 
+from packaging.version import InvalidVersion, Version
+
 
 class Rule(ABC):
     _CLASS_NAME_TO_RULE_NAME_REGEX = re.compile(r"(?<!^)(?=[A-Z])")
@@ -351,3 +353,165 @@ class ForbiddenSetActiveModelUsage(Rule):
         return (
             "Usage of `set_active_model` is not allowed in mlflow, use `_set_active_model` instead."
         )
+
+
+class ForbiddenTraceUIInNotebook(Rule):
+    def _id(self) -> str:
+        return "MLF0022"
+
+    def _message(self) -> str:
+        return (
+            "Found the MLflow Trace UI iframe in the notebook. "
+            "The trace UI in cell outputs will not render correctly in previews or the website. "
+            "Please run `mlflow.tracing.disable_notebook_display()` and rerun the cell "
+            "to remove the iframe."
+        )
+
+
+class PytestMarkRepeat(Rule):
+    def _id(self) -> str:
+        return "MLF0023"
+
+    def _message(self) -> str:
+        return (
+            "@pytest.mark.repeat decorator should not be committed. "
+            "This decorator is meant for local testing only to check for flaky tests."
+        )
+
+    @staticmethod
+    def check(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+        """
+        Returns True if the function has @pytest.mark.repeat decorator.
+        """
+        for decorator in node.decorator_list:
+            if PytestMarkRepeat._is_pytest_mark_repeat(decorator):
+                return True
+        return False
+
+    @staticmethod
+    def _is_pytest_mark_repeat(decorator: ast.AST) -> bool:
+        """
+        Check if a decorator is @pytest.mark.repeat in any form:
+        - pytest.mark.repeat
+        - pytest.mark.repeat(n)
+        """
+        # Handle direct call like @pytest.mark.repeat(10)
+        if isinstance(decorator, ast.Call):
+            decorator = decorator.func
+
+        # Check for pytest.mark.repeat attribute access
+        if (
+            isinstance(decorator, ast.Attribute)
+            and decorator.attr == "repeat"
+            and isinstance(decorator.value, ast.Attribute)
+            and decorator.value.attr == "mark"
+            and isinstance(decorator.value.value, ast.Name)
+            and decorator.value.value.id == "pytest"
+        ):
+            return True
+
+        return False
+
+
+def _is_valid_version(version: str) -> bool:
+    try:
+        v = Version(version)
+        return not (v.is_devrelease or v.is_prerelease or v.is_postrelease)
+    except InvalidVersion:
+        return False
+
+
+class UnnamedThread(Rule):
+    def _id(self) -> str:
+        return "MLF0024"
+
+    def _message(self) -> str:
+        return "`threading.Thread()` calls should include a `name` parameter for easier debugging"
+
+    @staticmethod
+    def check(node: ast.Call) -> bool:
+        """
+        Returns True if the call is threading.Thread() without a name parameter.
+        """
+        # Check if it's a threading.Thread call
+        if not UnnamedThread._is_threading_thread_call(node):
+            return False
+
+        # Check if name parameter is provided
+        return not UnnamedThread._has_name_parameter(node)
+
+    @staticmethod
+    def _is_threading_thread_call(node: ast.Call) -> bool:
+        """Check if this is a threading.Thread() call."""
+        # Check for threading.Thread() pattern
+        if isinstance(node.func, ast.Attribute):
+            return (
+                isinstance(node.func.value, ast.Name)
+                and node.func.value.id == "threading"
+                and node.func.attr == "Thread"
+            )
+
+        # Check for direct Thread() calls (from threading import Thread)
+        if isinstance(node.func, ast.Name) and node.func.id == "Thread":
+            return True
+
+        return False
+
+    @staticmethod
+    def _has_name_parameter(node: ast.Call) -> bool:
+        """Check if the call includes a name parameter."""
+        # Check keyword arguments
+        return any(keyword.arg == "name" for keyword in node.keywords)
+
+
+class NonLiteralExperimentalVersion(Rule):
+    def _id(self) -> str:
+        return "MLF0025"
+
+    def _message(self) -> str:
+        return (
+            "The `version` argument of `@experimental` must be a string literal that is a valid "
+            "semantic version (e.g., '3.0.0')."
+        )
+
+    @staticmethod
+    def _check(node: ast.expr) -> bool:
+        """
+        Returns True if the `@experimental` decorator is used incorrectly.
+        """
+        if isinstance(node, ast.Name) and node.id == "experimental":
+            # The code looks like this:
+            # ---
+            # @experimental
+            # def my_function():
+            #     ...
+            # ---
+            # No `version` argument, invalid usage
+            return True
+
+        if not isinstance(node, ast.Call):
+            # Not a function call, ignore it
+            return False
+
+        if not isinstance(node.func, ast.Name):
+            # Not a simple function call, ignore it
+            return False
+
+        if node.func.id != "experimental":
+            # Not the `experimental` decorator, ignore it
+            return False
+
+        version = next((k.value for k in node.keywords if k.arg == "version"), None)
+        if version is None:
+            # No `version` argument, invalid usage
+            return True
+
+        if not isinstance(version, ast.Constant) or not isinstance(version.value, str):
+            # `version` is not a string literal, invalid usage
+            return True
+
+        if not _is_valid_version(version.value):
+            # `version` is not a valid semantic version, # invalid usage
+            return True
+
+        return False

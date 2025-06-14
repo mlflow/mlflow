@@ -2,6 +2,7 @@ import importlib
 import json
 import re
 from datetime import datetime
+from typing import Any
 from unittest import mock
 
 import pytest
@@ -9,7 +10,17 @@ from packaging.version import Version
 
 import mlflow
 import mlflow.tracking.context.default_context
-from mlflow.entities import SpanType, Trace, TraceData
+from mlflow.entities import (
+    AssessmentSource,
+    Feedback,
+    SpanType,
+    Trace,
+    TraceData,
+    TraceInfo,
+    TraceLocation,
+)
+from mlflow.entities.assessment import Expectation
+from mlflow.entities.trace_state import TraceState
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
@@ -19,7 +30,7 @@ from mlflow.utils.proto_json_utils import (
     milliseconds_to_proto_timestamp,
 )
 
-from tests.tracing.helper import create_test_trace_info
+from tests.tracing.helper import V2_TRACE_DICT, create_test_trace_info
 
 
 def _test_model(datetime=datetime.now()):
@@ -312,78 +323,132 @@ def test_search_spans_raise_for_invalid_param_type():
 
 
 def test_from_v2_dict():
-    v2_dict = {
-        "info": {
-            "request_id": "58f4e27101304034b15c512b603bf1b2",
-            "experiment_id": "0",
-            "timestamp_ms": 100,
-            "execution_time_ms": 200,
-            "status": "OK",
-            "request_metadata": {
-                "mlflow.trace_schema.version": "2",
-                "mlflow.traceInputs": '{"x": 2, "y": 5}',
-                "mlflow.traceOutputs": "8",
-            },
-            "tags": {
-                "mlflow.source.name": "test",
-                "mlflow.source.type": "LOCAL",
-                "mlflow.traceName": "predict",
-                "mlflow.artifactLocation": "/path/to/artifact",
-            },
-            "assessments": [],
-        },
-        "data": {
-            "spans": [
-                {
-                    "name": "predict",
-                    "context": {
-                        "span_id": "0d48a6670588966b",
-                        "trace_id": "63076d0c1b90f1df0970f897dc428bd6",
-                    },
-                    "parent_id": None,
-                    "start_time": 100,
-                    "end_time": 200,
-                    "status_code": "OK",
-                    "status_message": "",
-                    "attributes": {
-                        "mlflow.traceRequestId": '"58f4e27101304034b15c512b603bf1b2"',
-                        "mlflow.spanType": '"UNKNOWN"',
-                        "mlflow.spanFunctionName": '"predict"',
-                        "mlflow.spanInputs": '{"x": 2, "y": 5}',
-                        "mlflow.spanOutputs": "8",
-                    },
-                    "events": [],
-                },
-                {
-                    "name": "add_one_with_custom_name",
-                    "context": {
-                        "span_id": "6fc32f36ef591f60",
-                        "trace_id": "63076d0c1b90f1df0970f897dc428bd6",
-                    },
-                    "parent_id": "0d48a6670588966b",
-                    "start_time": 300,
-                    "end_time": 400,
-                    "status_code": "OK",
-                    "status_message": "",
-                    "attributes": {
-                        "mlflow.traceRequestId": '"58f4e27101304034b15c512b603bf1b2"',
-                        "mlflow.spanType": '"LLM"',
-                        "delta": "1",
-                        "metadata": '{"foo": "bar"}',
-                        "datetime": '"2025-04-29 08:37:06.772253"',
-                        "mlflow.spanFunctionName": '"add_one"',
-                        "mlflow.spanInputs": '{"z": 7}',
-                        "mlflow.spanOutputs": "8",
-                    },
-                    "events": [],
-                },
-            ],
-            "request": '{"x": 2, "y": 5}',
-            "response": "8",
-        },
-    }
-    trace = Trace.from_dict(v2_dict)
+    trace = Trace.from_dict(V2_TRACE_DICT)
     assert trace.info.request_id == "58f4e27101304034b15c512b603bf1b2"
     assert trace.info.request_time == 100
     assert trace.info.execution_duration == 200
     assert len(trace.data.spans) == 2
+
+    # Verify that schema version was updated from "2" to current version during V2 to V3 conversion
+    assert trace.info.trace_metadata[TRACE_SCHEMA_VERSION_KEY] == str(TRACE_SCHEMA_VERSION)
+
+    # Verify that other metadata was preserved
+    assert trace.info.trace_metadata["mlflow.traceInputs"] == '{"x": 2, "y": 5}'
+    assert trace.info.trace_metadata["mlflow.traceOutputs"] == "8"
+
+
+def test_request_response_smart_truncation():
+    @mlflow.trace
+    def f(messages: list[dict[str, Any]]) -> dict[str, Any]:
+        return {"choices": [{"message": {"role": "assistant", "content": "Hi!" * 10000}}]}
+
+    # NB: Since MLflow OSS backend still uses v2 tracing schema, the most accurate way to
+    # check if the preview is truncated properly is to mock the upload_trace_data call.
+    with mock.patch(
+        "mlflow.tracing.export.mlflow_v2.TracingClient._upload_trace_data"
+    ) as mock_upload_trace_data:
+        f([{"role": "user", "content": "Hello!" * 10000}])
+
+    trace_info = mock_upload_trace_data.call_args[0][0]
+    assert len(trace_info.request_preview) == 10000
+    assert trace_info.request_preview.startswith("Hello!")
+    assert len(trace_info.response_preview) == 10000
+    assert trace_info.response_preview.startswith("Hi!")
+
+
+def test_request_response_smart_truncation_non_chat_format():
+    # Non-chat request/response will be naively truncated
+    @mlflow.trace
+    def f(question: str) -> list[str]:
+        return ["a" * 5000, "b" * 5000, "c" * 5000]
+
+    with mock.patch(
+        "mlflow.tracing.export.mlflow_v2.TracingClient._upload_trace_data"
+    ) as mock_upload_trace_data:
+        f("start" + "a" * 10000)
+
+    trace_info = mock_upload_trace_data.call_args[0][0]
+    assert len(trace_info.request_preview) == 10000
+    assert trace_info.request_preview.startswith('{"question": "startaaa')
+    assert len(trace_info.response_preview) == 10000
+    assert trace_info.response_preview.startswith('["aaaaa')
+
+
+def test_request_response_custom_truncation():
+    @mlflow.trace
+    def f(messages: list[dict[str, Any]]) -> dict[str, Any]:
+        mlflow.update_current_trace(
+            request_preview="custom request preview",
+            response_preview="custom response preview",
+        )
+        return {"choices": [{"message": {"role": "assistant", "content": "Hi!" * 10000}}]}
+
+    with mock.patch(
+        "mlflow.tracing.export.mlflow_v2.TracingClient._upload_trace_data"
+    ) as mock_upload_trace_data:
+        f([{"role": "user", "content": "Hello!" * 10000}])
+
+    trace_info = mock_upload_trace_data.call_args[0][0]
+    assert trace_info.request_preview == "custom request preview"
+    assert trace_info.response_preview == "custom response preview"
+
+
+def test_search_assessments():
+    assessments = [
+        Feedback(
+            trace_id="trace_id",
+            name="relevance",
+            value=False,
+            source=AssessmentSource(source_type="HUMAN", source_id="user_1"),
+            rationale="The judge is wrong",
+            span_id=None,
+            overrides="2",
+        ),
+        Feedback(
+            trace_id="trace_id",
+            name="relevance",
+            value=True,
+            source=AssessmentSource(source_type="LLM_JUDGE", source_id="databricks"),
+            span_id=None,
+            valid=False,
+        ),
+        Feedback(
+            trace_id="trace_id",
+            name="relevance",
+            value=True,
+            source=AssessmentSource(source_type="LLM_JUDGE", source_id="databricks"),
+            span_id="123",
+        ),
+        Expectation(
+            trace_id="trace_id",
+            name="guidelines",
+            value="The response should be concise and to the point.",
+            source=AssessmentSource(source_type="LLM_JUDGE", source_id="databricks"),
+            span_id="123",
+        ),
+    ]
+    trace_info = TraceInfo(
+        trace_id="trace_id",
+        client_request_id="client_request_id",
+        trace_location=TraceLocation.from_experiment_id("123"),
+        request_preview="request",
+        response_preview="response",
+        request_time=1234567890,
+        execution_duration=100,
+        assessments=assessments,
+        state=TraceState.OK,
+    )
+    trace = Trace(
+        info=trace_info,
+        data=TraceData(
+            spans=[],
+        ),
+    )
+
+    assert trace.search_assessments() == [assessments[0], assessments[2], assessments[3]]
+    assert trace.search_assessments(all=True) == assessments
+    assert trace.search_assessments("relevance") == [assessments[0], assessments[2]]
+    assert trace.search_assessments("relevance", all=True) == assessments[:3]
+    assert trace.search_assessments(span_id="123") == [assessments[2], assessments[3]]
+    assert trace.search_assessments(span_id="123", name="relevance") == [assessments[2]]
+    assert trace.search_assessments(type="expectation") == [assessments[3]]

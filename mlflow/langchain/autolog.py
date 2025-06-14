@@ -9,7 +9,7 @@ from mlflow.utils.autologging_utils.safety import safe_patch
 logger = logging.getLogger(__name__)
 
 
-@experimental
+@experimental(version="2.10.0")
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     disable=False,

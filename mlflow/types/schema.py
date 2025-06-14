@@ -671,7 +671,7 @@ class Map(BaseType):
         raise MlflowException(f"Map type {self!r} and {other!r} are incompatible")
 
 
-@experimental
+@experimental(version="2.19.0")
 class AnyType(BaseType):
     def __init__(self):
         """
@@ -1385,7 +1385,7 @@ def _get_dataclass_annotations(cls) -> dict[str, Any]:
     return annotations
 
 
-@experimental
+@experimental(version="2.13.0")
 def convert_dataclass_to_schema(dataclass):
     """
     Converts a given dataclass into a Schema object. The dataclass must include type hints

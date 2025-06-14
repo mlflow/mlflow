@@ -69,8 +69,8 @@ promptflow
 sentence-transformers
 # Required by mlflow.anthropic
 anthropic
-# Required by mlflow.autogen
-autogen
+# Required by mlflow.ag2
+ag2
 # Required by mlflow.dspy
 # In dspy 2.6.9, `dspy.__name__` is not 'dspy', but 'dspy.__metadata__',
 # which causes auto-logging tests to fail.
@@ -83,3 +83,5 @@ google-genai
 groq
 # Required by mlflow.mistral
 mistralai
+# Required by mlflow.autogen
+autogen-agentchat
