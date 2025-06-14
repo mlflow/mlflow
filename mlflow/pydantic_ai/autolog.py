@@ -189,6 +189,9 @@ def _parse_tools(tools):
 
 
 def _parse_usage(usage: Any) -> Optional[dict[str, int]]:
+    if usage is None:
+        return None
+
     try:
         return {
             TokenUsageKey.INPUT_TOKENS: usage.request_tokens,
