@@ -10,6 +10,7 @@ from pydantic_ai.usage import Usage
 import mlflow
 import mlflow.pydantic_ai  # ensure the integration module is importable
 from mlflow.entities import SpanType
+from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 
 from tests.tracing.helper import get_traces
 
@@ -121,6 +122,18 @@ def test_agent_run_sync_enable_disable_autolog(simple_agent):
     assert span2.span_type == SpanType.LLM
     assert span2.parent_id == spans[1].span_id
 
+    assert span2.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        TokenUsageKey.INPUT_TOKENS: 1,
+        TokenUsageKey.OUTPUT_TOKENS: 1,
+        TokenUsageKey.TOTAL_TOKENS: 2,
+    }
+
+    assert traces[0].info.token_usage == {
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "total_tokens": 2,
+    }
+
     with patch("pydantic_ai.models.instrumented.InstrumentedModel.request", new=request):
         mlflow.pydantic_ai.autolog(disable=True)
         simple_agent.run_sync("France")
@@ -151,6 +164,18 @@ async def test_agent_run_enable_disable_autolog(simple_agent):
     assert span1.name == "InstrumentedModel.request"
     assert span1.span_type == SpanType.LLM
     assert span1.parent_id == spans[0].span_id
+
+    assert span1.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        TokenUsageKey.INPUT_TOKENS: 1,
+        TokenUsageKey.OUTPUT_TOKENS: 1,
+        TokenUsageKey.TOTAL_TOKENS: 2,
+    }
+
+    assert traces[0].info.token_usage == {
+        "input_tokens": 1,
+        "output_tokens": 1,
+        "total_tokens": 2,
+    }
 
 
 def test_agent_run_sync_enable_disable_autolog_with_tool(agent_with_tool):
@@ -194,6 +219,24 @@ def test_agent_run_sync_enable_disable_autolog_with_tool(agent_with_tool):
     assert span4.span_type == SpanType.LLM
     assert span4.parent_id == spans[1].span_id
 
+    assert span2.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        TokenUsageKey.INPUT_TOKENS: 10,
+        TokenUsageKey.OUTPUT_TOKENS: 20,
+        TokenUsageKey.TOTAL_TOKENS: 30,
+    }
+
+    assert span4.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        TokenUsageKey.INPUT_TOKENS: 100,
+        TokenUsageKey.OUTPUT_TOKENS: 200,
+        TokenUsageKey.TOTAL_TOKENS: 300,
+    }
+
+    assert traces[0].info.token_usage == {
+        "input_tokens": 110,
+        "output_tokens": 220,
+        "total_tokens": 330,
+    }
+
 
 @pytest.mark.asyncio
 async def test_agent_run_enable_disable_autolog_with_tool(agent_with_tool):
@@ -233,6 +276,24 @@ async def test_agent_run_enable_disable_autolog_with_tool(agent_with_tool):
     assert span3.name == "InstrumentedModel.request_2"
     assert span3.span_type == SpanType.LLM
     assert span3.parent_id == spans[0].span_id
+
+    assert span1.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        TokenUsageKey.INPUT_TOKENS: 10,
+        TokenUsageKey.OUTPUT_TOKENS: 20,
+        TokenUsageKey.TOTAL_TOKENS: 30,
+    }
+
+    assert span3.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        TokenUsageKey.INPUT_TOKENS: 100,
+        TokenUsageKey.OUTPUT_TOKENS: 200,
+        TokenUsageKey.TOTAL_TOKENS: 300,
+    }
+
+    assert traces[0].info.token_usage == {
+        "input_tokens": 110,
+        "output_tokens": 220,
+        "total_tokens": 330,
+    }
 
 
 def test_agent_run_sync_failure(simple_agent):
