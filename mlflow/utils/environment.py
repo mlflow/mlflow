@@ -391,6 +391,22 @@ def _parse_pip_requirements(pip_requirements):
         )
 
 
+def _save_frozen_requirements(path):
+    frozen_path = os.path.join(path, "requirements.frozen")
+    current_env = os.environ.copy()  # get env for subprocess to run in so it uses same conda/venv
+    command = ["pip", "freeze", ">", frozen_path]
+    try:
+        with open(frozen_path, "w") as file:
+            subprocess.run(
+                command, check=True, stderr=subprocess.PIPE, stdout=file, env=current_env
+            )
+
+    except subprocess.CalledProcessError as e:
+        raise _logger.warning(
+            f"Did not log requirements.frozen due to error while performing pip freeze: {e}"
+        )
+
+
 _INFER_PIP_REQUIREMENTS_GENERAL_ERROR_MESSAGE = (
     "Encountered an unexpected error while inferring pip requirements "
     "(model URI: {model_uri}, flavor: {flavor}). Fall back to return {fallback}. "
