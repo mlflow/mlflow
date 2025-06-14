@@ -9,6 +9,7 @@ from mlflow.entities.trace_status import TraceStatus
 from mlflow.protos.service_pb2 import TraceInfo as ProtoTraceInfo
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
 from mlflow.protos.service_pb2 import TraceTag as ProtoTraceTag
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
 
 
 def _truncate_request_metadata(d: dict[str, Any]) -> dict[str, str]:
@@ -56,11 +57,6 @@ class TraceInfoV2(_MlflowObject):
     request_metadata: dict[str, str] = field(default_factory=dict)
     tags: dict[str, str] = field(default_factory=dict)
     assessments: list[Assessment] = field(default_factory=list)
-    # NB: This field corresponds to the client request ID field in the V3 TraceInfo data model.
-    #     This is not a part of the V2 TraceInfo and not included in the dict/proto conversion,
-    #     but only added for storing the client request ID during the trace generation process,
-    #     until the internal logic e.g. InMemoryTraceManager migrates to use the V3 TraceInfo.
-    client_request_id: Optional[str] = None
 
     def __eq__(self, other):
         if type(other) is type(self):
@@ -137,16 +133,21 @@ class TraceInfoV2(_MlflowObject):
         return cls(**trace_info_dict)
 
     def to_v3(self, request: Optional[str] = None, response: Optional[str] = None) -> TraceInfo:
+        # NB: MLflow automatically converts trace metadata and spans to V3 format, even if the
+        # trace was originally created in V2 format with an earlier version of MLflow. Accordingly,
+        # we also update the `TRACE_SCHEMA_VERSION_KEY` in the trace metadata to V3 for consistency
+        trace_metadata = self.request_metadata.copy()
+        trace_metadata[TRACE_SCHEMA_VERSION_KEY] = str(TRACE_SCHEMA_VERSION)
+
         return TraceInfo(
             trace_id=self.request_id,
-            client_request_id=self.client_request_id,
             trace_location=TraceLocation.from_experiment_id(self.experiment_id),
             request_preview=request,
             response_preview=response,
             request_time=self.timestamp_ms,
             execution_duration=self.execution_time_ms,
             state=self.status.to_state(),
-            trace_metadata=self.request_metadata,
+            trace_metadata=trace_metadata,
             tags=self.tags,
             assessments=self.assessments,
         )

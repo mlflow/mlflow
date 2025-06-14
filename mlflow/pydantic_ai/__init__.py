@@ -12,7 +12,7 @@ FLAVOR_NAME = "pydantic_ai"
 _logger = logging.getLogger(__name__)
 
 
-@experimental
+@experimental(version="3.0.0")
 @autologging_integration(FLAVOR_NAME)
 def autolog(log_traces: bool = True, disable: bool = False, silent: bool = False):
     """

@@ -1,20 +1,31 @@
 import logging
+import time
 import warnings
-from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Optional
 
 import mlflow
 from mlflow.exceptions import MlflowException
+from mlflow.genai.datasets import EvaluationDataset
 from mlflow.genai.evaluation.utils import (
     _convert_scorer_to_legacy_metric,
     _convert_to_legacy_eval_set,
 )
 from mlflow.genai.scorers import Scorer
-from mlflow.genai.scorers.builtin_scorers import GENAI_CONFIG_NAME
+from mlflow.genai.scorers.builtin_scorers import GENAI_CONFIG_NAME, BuiltInScorer
 from mlflow.genai.scorers.validation import valid_data_for_builtin_scorers, validate_scorers
-from mlflow.genai.utils.trace_utils import convert_predict_fn
+from mlflow.genai.utils.trace_utils import (
+    clean_up_extra_traces,
+    convert_predict_fn,
+    copy_model_serving_trace_to_eval_run,
+)
 from mlflow.models.evaluation.base import (
+    EvaluationResult,
     _is_model_deployment_endpoint_uri,
+)
+from mlflow.tracing.constant import (
+    DATABRICKS_OPTIONS_KEY,
+    DATABRICKS_OUTPUT_KEY,
+    RETURN_TRACE_OPTION_KEY,
 )
 from mlflow.utils.annotations import experimental
 from mlflow.utils.uri import is_databricks_uri
@@ -22,28 +33,12 @@ from mlflow.utils.uri import is_databricks_uri
 if TYPE_CHECKING:
     from genai.evaluation.utils import EvaluationDatasetTypes
 
-try:
-    # `pandas` is not required for `mlflow-skinny`.
-    import pandas as pd
-except ImportError:
-    pass
-
 
 logger = logging.getLogger(__name__)
 
 
-@experimental
-@dataclass
-class EvaluationResult:
-    run_id: str
-    metrics: dict[str, float]
-    result_df: "pd.DataFrame"
-
-
-# TODO (B-Step62): Remove underscore from the function name once we release
-# the new evaluate API
-@experimental
-def _evaluate(
+@experimental(version="3.0.0")
+def evaluate(
     data: "EvaluationDatasetTypes",
     scorers: list[Scorer],
     predict_fn: Optional[Callable[..., Any]] = None,
@@ -70,14 +65,14 @@ def _evaluate(
     .. code-block:: python
 
         import mlflow
-        from mlflow.genai.scorers import correctness, safety
+        from mlflow.genai.scorers import Correctness, Safety
         import pandas as pd
 
         trace_df = mlflow.search_traces(model_id="<my-model-id>")
 
         mlflow.genai.evaluate(
             data=trace_df,
-            scorers=[correctness, safety],
+            scorers=[Correctness(), Safety()],
         )
 
     Built-in scorers will understand the model inputs, outputs, and other intermediate
@@ -101,7 +96,7 @@ def _evaluate(
     .. code-block:: python
 
         import mlflow
-        from mlflow.genai.scorers import correctness
+        from mlflow.genai.scorers import Correctness
         import pandas as pd
 
         data = pd.DataFrame(
@@ -121,7 +116,7 @@ def _evaluate(
 
         mlflow.genai.evaluate(
             data=data,
-            scorers=[correctness()],
+            scorers=[Correctness()],
         )
 
     **3. Pass `predict_fn` and input samples (and optionally expectations).**
@@ -134,7 +129,7 @@ def _evaluate(
     .. code-block:: python
 
         import mlflow
-        from mlflow.genai.scorers import correctness, safety
+        from mlflow.genai.scorers import Correctness, Safety
         import openai
 
         # Create a dataframe with input samples
@@ -159,7 +154,7 @@ def _evaluate(
         mlflow.genai.evaluate(
             data=data,
             predict_fn=predict_fn,
-            scorers=[correctness, safety],
+            scorers=[Correctness(), Safety()],
         )
 
     Args:
@@ -199,10 +194,6 @@ def _evaluate(
 
                 - expectations (optional): Column containing a dictionary of ground truths.
 
-            The input dataframe can contain extra columns that will be directly passed to
-            the scorers. For example, you can pass a dataframe with `retrieved_context`
-            column to use a scorer that takes `retrieved_context` as a parameter.
-
             For list of dictionaries, each dict should follow the above schema.
 
         scorers: A list of Scorer objects that produces evaluation scores from
@@ -219,6 +210,9 @@ def _evaluate(
         model_id: Optional model identifier (e.g. "models:/my-model/1") to associate with
             the evaluation results. Can be also set globally via the
             :py:func:`mlflow.set_active_model` function.
+
+    Returns:
+        An :py:class:`mlflow.models.EvaluationResult~` object.
 
     Note:
         This function is only supported on Databricks. The tracking URI must be
@@ -243,30 +237,21 @@ def _evaluate(
             "Please set the tracking URI to Databricks."
         )
 
-    builtin_scorers, custom_scorers = validate_scorers(scorers)
+    is_managed_dataset = isinstance(data, EvaluationDataset)
 
-    evaluation_config = {
-        GENAI_CONFIG_NAME: {
-            "metrics": [],
-        }
-    }
-    for _scorer in builtin_scorers:
-        evaluation_config = _scorer.update_evaluation_config(evaluation_config)
-
-    extra_metrics = []
-    for _scorer in custom_scorers:
-        extra_metrics.append(_convert_scorer_to_legacy_metric(_scorer))
-
+    scorers = validate_scorers(scorers)
     # convert into a pandas dataframe with current evaluation set schema
-    data = _convert_to_legacy_eval_set(data)
+    df = data.to_df() if is_managed_dataset else _convert_to_legacy_eval_set(data)
 
-    valid_data_for_builtin_scorers(data, builtin_scorers, predict_fn)
+    builtin_scorers = [scorer for scorer in scorers if isinstance(scorer, BuiltInScorer)]
+    valid_data_for_builtin_scorers(df, builtin_scorers, predict_fn)
 
     # "request" column must exist after conversion
-    sample_input = data.iloc[0]["request"]
+    input_key = "inputs" if is_managed_dataset else "request"
+    sample_input = df.iloc[0][input_key]
 
     # Only check 'inputs' column when it is not derived from the trace object
-    if "trace" not in data.columns and not isinstance(sample_input, dict):
+    if "trace" not in df.columns and not isinstance(sample_input, dict):
         raise MlflowException.invalid_parameter_value(
             "The 'inputs' column must be a dictionary of field names and values. "
             "For example: {'query': 'What is MLflow?'}"
@@ -290,25 +275,27 @@ def _evaluate(
             module="mlflow.data.evaluation_dataset",
         )
 
+        eval_start_time = int(time.time() * 1000)
         result = mlflow.models.evaluate(
             model=predict_fn,
-            data=data,
-            evaluator_config=evaluation_config,
-            extra_metrics=extra_metrics,
+            # If the input dataset is a managed dataset, we pass the original dataset
+            # to the evaluate function to preserve metadata like dataset name.
+            data=data if is_managed_dataset else df,
+            evaluator_config={GENAI_CONFIG_NAME: {"metrics": []}},  # Turn off the default metrics
+            # Scorers are passed to the eval harness as extra metrics
+            extra_metrics=[_convert_scorer_to_legacy_metric(_scorer) for _scorer in scorers],
             model_type=GENAI_CONFIG_NAME,
             model_id=model_id,
             _called_from_genai_evaluate=True,
         )
 
-    return EvaluationResult(
-        run_id=result._run_id,
-        metrics=result.metrics,
-        result_df=result.tables["eval_results"],
-    )
+        # Clean up noisy traces generated during evaluation
+        clean_up_extra_traces(result.run_id, eval_start_time)
+        return result
 
 
-@experimental
-def _to_predict_fn(endpoint_uri: str) -> Callable:
+@experimental(version="3.0.0")
+def to_predict_fn(endpoint_uri: str) -> Callable:
     """
     Convert an endpoint URI to a predict function.
 
@@ -371,19 +358,47 @@ def _to_predict_fn(endpoint_uri: str) -> Callable:
 
     client = get_deploy_client("databricks")
     _, endpoint = _parse_model_uri(endpoint_uri)
+    endpoint_info = client.get_endpoint(endpoint)
+
+    # Databricks Foundation Model API does not allow passing "databricks_options" in the payload,
+    # so we need to handle this case separately.
+    is_fmapi = False
+    if isinstance(endpoint_info, dict):
+        is_fmapi = endpoint_info.get("endpoint_type") == "FOUNDATION_MODEL_API"
 
     # NB: Wrap the function to show better docstring and change signature to `model_inputs`
     #   to unnamed keyword arguments. This is necessary because we pass input samples as
     #   keyword arguments to the predict function.
     def predict_fn(**kwargs):
-        # NB: Manually set inputs and outputs rather than using @mlflow.trace decorator,
-        #   because we want to record keyword arguments with names rather than **kwargs.
-        with mlflow.start_span(name="predict") as span:
-            span.set_inputs(kwargs)
-            span.set_attribute("endpoint", endpoint_uri)
-            result = client.predict(endpoint=endpoint, inputs=kwargs)
-            span.set_outputs(result)
-            return result
+        start_time_ms = int(time.time_ns() / 1e6)
+        # Inject `{"databricks_options": {"return_trace": True}}` to the input payload
+        # to return the trace in the response.
+        databricks_options = {DATABRICKS_OPTIONS_KEY: {RETURN_TRACE_OPTION_KEY: True}}
+        payload = kwargs if is_fmapi else {**kwargs, **databricks_options}
+        result = client.predict(endpoint=endpoint, inputs=payload)
+        end_time_ms = int(time.time_ns() / 1e6)
+
+        # If the endpoint returns a trace, copy it to the current experiment.
+        if trace_dict := result.pop(DATABRICKS_OUTPUT_KEY, {}).get("trace"):
+            try:
+                copy_model_serving_trace_to_eval_run(trace_dict)
+                return result
+            except Exception:
+                logger.debug(
+                    "Failed to copy trace from the endpoint response to the current experiment. "
+                    "Trace will only have a root span with request and response.",
+                    exc_info=True,
+                )
+
+        # If the endpoint doesn't return a trace, manually create a trace with request/response.
+        mlflow.log_trace(
+            name="predict",
+            request=kwargs,
+            response=result,
+            start_time_ms=start_time_ms,
+            execution_time_ms=end_time_ms - start_time_ms,
+        )
+        return result
 
     predict_fn.__doc__ = f"""
 A wrapper function for invoking the model serving endpoint `{endpoint_uri}`.
@@ -391,6 +406,6 @@ A wrapper function for invoking the model serving endpoint `{endpoint_uri}`.
 Args:
     **kwargs: The input samples to be passed to the model serving endpoint.
         For example, if the endpoint accepts a JSON object with a `messages` key,
-        the input sample should be a dictionary with a `messages` key.
+        the function also expects to get `messages` as an argument.
     """
     return predict_fn

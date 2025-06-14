@@ -23,7 +23,7 @@ def _load_pyfunc(model_path: str, model_config: Optional[dict[str, Any]] = None)
     return _ChatAgentPyfuncWrapper(chat_agent)
 
 
-@experimental
+@experimental(version="2.20.0")
 class _ChatAgentPyfuncWrapper:
     """
     Wrapper class that converts dict inputs to pydantic objects accepted by :class:`~ChatAgent`.

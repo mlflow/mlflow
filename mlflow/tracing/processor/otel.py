@@ -1,5 +1,4 @@
 import json
-import uuid
 from typing import Optional
 
 from opentelemetry.context import Context
@@ -7,10 +6,12 @@ from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace import Span as OTelSpan
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, SpanExporter
 
-from mlflow.entities.trace_info_v2 import TraceInfoV2
-from mlflow.entities.trace_status import TraceStatus
+from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_state import TraceState
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey
 from mlflow.tracing.trace_manager import InMemoryTraceManager
+from mlflow.tracing.utils import generate_trace_id_v3
 
 
 class OtelSpanProcessor(BatchSpanProcessor):
@@ -23,7 +24,18 @@ class OtelSpanProcessor(BatchSpanProcessor):
 
     def __init__(self, span_exporter: SpanExporter):
         super().__init__(span_exporter)
-        self.span_exporter = span_exporter
+        # In opentelemetry-sdk 1.34.0, the `span_exporter` field was removed from the
+        # `BatchSpanProcessor` class.
+        # https://github.com/open-telemetry/opentelemetry-python/issues/4616
+        #
+        # The `span_exporter` field was restored as a property in 1.34.1
+        # https://github.com/open-telemetry/opentelemetry-python/pull/4621
+        #
+        # We use a try-except block to maintain compatibility with both versions.
+        try:
+            self.span_exporter = span_exporter
+        except AttributeError:
+            pass
         self._trace_manager = InMemoryTraceManager.get_instance()
 
     def on_start(self, span: OTelSpan, parent_context: Optional[Context] = None):
@@ -37,20 +49,17 @@ class OtelSpanProcessor(BatchSpanProcessor):
                 span is obtained from the global context, it won't be passed here so we should not
                 rely on it.
         """
-        # Generate a random request ID and trace info just for the sake of consistency
-        # with other tracing destinations. Doing this makes it much easier to handle
-        # multiple tracing destinations.
-        request_id = uuid.uuid4().hex
-        trace_info = TraceInfoV2(
-            request_id=request_id,
-            experiment_id=None,
-            timestamp_ms=span.start_time // 1_000_000,  # nanosecond to millisecond
-            execution_time_ms=None,
-            status=TraceStatus.IN_PROGRESS,
-            request_metadata={TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
+        trace_id = generate_trace_id_v3(span)
+        trace_info = TraceInfo(
+            trace_id=trace_id,
+            trace_location=TraceLocation.from_experiment_id(None),
+            request_time=span.start_time // 1_000_000,  # nanosecond to millisecond
+            execution_duration=None,
+            state=TraceState.IN_PROGRESS,
+            trace_metadata={TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)},
             tags={},
         )
-        span.set_attribute(SpanAttributeKey.REQUEST_ID, json.dumps(request_id))
+        span.set_attribute(SpanAttributeKey.REQUEST_ID, json.dumps(trace_id))
 
         self._trace_manager.register_trace(span.context.trace_id, trace_info)
 

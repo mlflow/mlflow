@@ -19,24 +19,32 @@
     "write-translations": "docusaurus write-translations",
     "write-heading-ids": "docusaurus write-heading-ids",
     "typecheck": "tsc",
-    "format": "remark --use \"remark-mdx=printWidth:80\" docs/**/*.mdx -o"
+    "format": "remark --use \"remark-mdx=printWidth:80\" docs/**/*.mdx -o",
+    "sitemap": "tsx scripts/compare-sitemaps.ts"
   },
   "dependencies": {
     "@docusaurus/core": "^3.6.3",
     "@docusaurus/plugin-client-redirects": "^3.6.3",
     "@docusaurus/preset-classic": "^3.6.3",
+    "@docusaurus/theme-mermaid": "^3.7.0",
     "@mdx-js/react": "^3.0.0",
+    "@tailwindcss/postcss": "^4.1.8",
     "@types/node": "^22.8.6",
+    "class-variance-authority": "^0.7.1",
     "clsx": "^2.0.0",
+    "fast-xml-parser": "^5.2.3",
+    "postcss": "^8.5.4",
     "prism-react-renderer": "^2.3.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
+    "tailwindcss": "^4.1.8",
     "tsx": "^4.19.2"
   },
   "devDependencies": {
     "@docusaurus/module-type-aliases": "^3.6.3",
     "@docusaurus/tsconfig": "^3.5.2",
     "@docusaurus/types": "^3.5.2",
+    "node-fetch": "^3.3.2",
     "remark-cli": "^12.0.1",
     "remark-mdx": "^3.0.1",
     "typescript": "^5.6.3"

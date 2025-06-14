@@ -181,6 +181,7 @@ def build(package_type: PackageType) -> None:
                     "google-cloud-storage>=1.30.0",
                     "boto3>1",
                     "botocore",
+                    "databricks-agents>=1.0.0,<2.0",
                 ],
                 "mlserver": [
                     # Required to serve models through MLServer

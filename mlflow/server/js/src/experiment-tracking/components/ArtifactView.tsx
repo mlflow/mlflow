@@ -34,7 +34,7 @@ import {
   WithDesignSystemThemeHoc,
 } from '@databricks/design-system';
 import './ArtifactView.css';
-
+import { FallbackToLoggedModelArtifactsInfo } from './artifact-view-components/FallbackToLoggedModelArtifactsInfo';
 import { getArtifactRootUri, getArtifacts } from '../reducers/Reducers';
 import { getAllModelVersions } from '../../model-registry/reducers';
 import { listArtifactsApi, listArtifactsLoggedModelApi } from '../actions';
@@ -498,6 +498,9 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
           />
         </div>
         <div className="artifact-right">
+          {this.props.isFallbackToLoggedModelArtifacts && this.props.loggedModelId && (
+            <FallbackToLoggedModelArtifactsInfo loggedModelId={this.props.loggedModelId} />
+          )}
           {this.state.activeNodeId ? this.renderArtifactInfo() : null}
           <ShowArtifactPage
             experimentId={this.props.experimentId}

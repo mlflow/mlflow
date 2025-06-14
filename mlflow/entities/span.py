@@ -297,6 +297,10 @@ class Span:
             end_time=data["end_time"],
             attributes=data["attributes"],
             status=SpanStatus(data["status_code"], data["status_message"]).to_otel_status(),
+            # Setting an empty resource explicitly. Otherwise OTel create a new Resource by
+            # Resource.create(), which introduces a significant overhead in some environments.
+            # https://github.com/mlflow/mlflow/issues/15625
+            resource=_OTelResource.get_empty(),
             events=[
                 OTelEvent(
                     name=event["name"],
@@ -451,6 +455,26 @@ class LiveSpan(Span):
         """
         self._span.add_event(event.name, event.attributes, event.timestamp)
 
+    def record_exception(self, exception: Union[str, Exception]):
+        """
+        Record an exception on the span, adding an exception event and setting span status to ERROR.
+
+        Args:
+            exception: The exception to record. Can be an Exception instance or a string
+                describing the exception.
+        """
+        if isinstance(exception, Exception):
+            self.add_event(SpanEvent.from_exception(exception))
+        elif isinstance(exception, str):
+            self.add_event(SpanEvent.from_exception(Exception(exception)))
+        else:
+            raise MlflowException(
+                "The `exception` parameter must be an Exception instance or a string.",
+                INVALID_PARAMETER_VALUE,
+            )
+
+        self.set_status(SpanStatusCode.ERROR)
+
     def end(
         self,
         outputs: Optional[Any] = None,
@@ -517,6 +541,7 @@ class LiveSpan(Span):
         parent_span_id: Optional[str] = None,
         trace_id: Optional[str] = None,
         otel_trace_id: Optional[str] = None,
+        end_trace: bool = True,
     ) -> "LiveSpan":
         """
         Create a new LiveSpan object from the given immutable span by
@@ -532,10 +557,10 @@ class LiveSpan(Span):
             parent_span_id: The parent span ID of the new span.
                 If it is None, the span will be created as a root span.
             trace_id: The trace ID to be set on the new span. Specify this if you want to
-                create the new span with a different trace ID from the original span.
+                create the new span with a particular trace ID.
             otel_trace_id: The OpenTelemetry trace ID of the new span in hex encoded format.
-                Specify this if you want to create the new span with a different trace ID
-                from the original span
+                If not specified, the newly generated trace ID will be used.
+            end_trace: Whether to end the trace after cloning the span. Default is True.
 
         Returns:
             The new LiveSpan object with the same state as the original span.
@@ -545,7 +570,6 @@ class LiveSpan(Span):
         from mlflow.tracing.trace_manager import InMemoryTraceManager
 
         trace_manager = InMemoryTraceManager.get_instance()
-        trace_id = trace_id or span.trace_id
         parent_span = trace_manager.get_span_from_id(trace_id, parent_span_id)
 
         # Create a new span with the same name, parent, and start time
@@ -554,7 +578,8 @@ class LiveSpan(Span):
             parent=parent_span._span if parent_span else None,
             start_time_ns=span.start_time_ns,
         )
-        # otel_span._span_processor = span._span._span_processor
+        # The latter one from attributes is the newly generated trace ID by the span processor.
+        trace_id = trace_id or json.loads(otel_span.attributes.get(SpanAttributeKey.REQUEST_ID))
         clone_span = LiveSpan(otel_span, trace_id, span.span_type)
 
         # Copy all the attributes, inputs, outputs, and events from the original span
@@ -570,16 +595,18 @@ class LiveSpan(Span):
         # Update trace ID and span ID
         context = span._span.get_span_context()
         clone_span._span._context = SpanContext(
-            # Override otel_trace_id if provided, otherwise use the original trace ID
-            trace_id=decode_id(otel_trace_id) or context.trace_id,
+            # Override otel_trace_id if provided, otherwise use the new trace ID
+            trace_id=decode_id(otel_trace_id) if otel_trace_id else otel_span.context.trace_id,
+            # Re-use same span ID as their ID space is local to the trace
             span_id=context.span_id,
             is_remote=context.is_remote,
             # Override trace flag as if it is sampled within current context.
             trace_flags=TraceFlags(TraceFlags.SAMPLED),
         )
 
-        # Mark the span completed with the original end time
-        clone_span.end(end_time_ns=span.end_time_ns)
+        if end_trace:
+            clone_span.end(end_time_ns=span.end_time_ns)
+
         return clone_span
 
 
@@ -664,6 +691,9 @@ class NoOpSpan(Span):
         pass
 
     def add_event(self, event: SpanEvent):
+        pass
+
+    def record_exception(self, exception: Union[str, Exception]):
         pass
 
     def end(

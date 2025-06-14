@@ -4,9 +4,11 @@ APIs for interacting with artifacts in MLflow
 
 import json
 import pathlib
+import posixpath
 import tempfile
 from typing import Optional
 
+from mlflow.entities.file_info import FileInfo
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
 from mlflow.tracking import _get_store
@@ -79,6 +81,12 @@ def download_artifacts(
     if artifact_uri is not None:
         return _download_artifact_from_uri(artifact_uri, output_path=dst_path)
 
+    # Use `runs:/<run_id>/<artifact_path>` to download both run and model (if exists) artifacts
+    if run_id and artifact_path:
+        return _download_artifact_from_uri(
+            f"runs:/{posixpath.join(run_id, artifact_path)}", output_path=dst_path
+        )
+
     artifact_path = artifact_path if artifact_path is not None else ""
 
     store = _get_store(store_uri=tracking_uri)
@@ -86,17 +94,7 @@ def download_artifacts(
     artifact_repo = get_artifact_repository(
         add_databricks_profile_info_to_artifact_uri(artifact_uri, tracking_uri)
     )
-
-    try:
-        return artifact_repo.download_artifacts(artifact_path, dst_path=dst_path)
-    except Exception:
-        if run_id and artifact_path:
-            # To ensure backward compatibility with MLflow 2.x and earlier,
-            # download artifacts using `runs:/<run_id>/<artifact_path>` URI format.
-            return _download_artifact_from_uri(
-                f"runs:/{run_id}/{artifact_path}", output_path=dst_path
-            )
-        raise
+    return artifact_repo.download_artifacts(artifact_path, dst_path=dst_path)
 
 
 def list_artifacts(
@@ -104,7 +102,7 @@ def list_artifacts(
     run_id: Optional[str] = None,
     artifact_path: Optional[str] = None,
     tracking_uri: Optional[str] = None,
-):
+) -> list[FileInfo]:
     """List artifacts at the specified URI.
 
     Args:
@@ -133,6 +131,10 @@ def list_artifacts(
     if artifact_uri is not None:
         root_uri, artifact_path = _get_root_uri_and_artifact_path(artifact_uri)
         return get_artifact_repository(artifact_uri=root_uri).list_artifacts(artifact_path)
+
+    # Use `runs:/<run_id>/<artifact_path>` to list both run and model (if exists) artifacts
+    if run_id and artifact_path:
+        return get_artifact_repository(artifact_uri=f"runs:/{run_id}").list_artifacts(artifact_path)
 
     store = _get_store(store_uri=tracking_uri)
     artifact_uri = store.get_run(run_id).info.artifact_uri

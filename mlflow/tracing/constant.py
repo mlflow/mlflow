@@ -5,11 +5,30 @@ class TraceMetadataKey:
     SOURCE_RUN = "mlflow.sourceRun"
     MODEL_ID = "mlflow.modelId"
     SIZE_BYTES = "mlflow.trace.sizeBytes"
+    # Aggregated token usage information in a single trace, stored as a dumped JSON string.
+    TOKEN_USAGE = "mlflow.trace.tokenUsage"
+    # Store the user ID/name of the application request. Do not confuse this with mlflow.user
+    # tag, which stores "who created the trace" i.e. developer or system name.
+    TRACE_USER = "mlflow.trace.user"
+    # Store the session ID of the application request.
+    TRACE_SESSION = "mlflow.trace.session"
 
 
 class TraceTagKey:
     TRACE_NAME = "mlflow.traceName"
     EVAL_REQUEST_ID = "eval.requestId"
+
+
+class TokenUsageKey:
+    """Key for the token usage information in the `mlflow.chat.tokenUsage` span attribute."""
+
+    INPUT_TOKENS = "input_tokens"
+    OUTPUT_TOKENS = "output_tokens"
+    TOTAL_TOKENS = "total_tokens"
+
+    @classmethod
+    def all_keys(cls):
+        return [cls.INPUT_TOKENS, cls.OUTPUT_TOKENS, cls.TOTAL_TOKENS]
 
 
 # A set of reserved attribute keys
@@ -27,6 +46,9 @@ class SpanAttributeKey:
     # such as evaluation
     CHAT_MESSAGES = "mlflow.chat.messages"
     CHAT_TOOLS = "mlflow.chat.tools"
+    # This attribute is used to store token usage information from LLM responses.
+    # Stored in {"input_tokens": int, "output_tokens": int, "total_tokens": int} format.
+    CHAT_USAGE = "mlflow.chat.tokenUsage"
     # This attribute is used to populate `intermediate_outputs` property of a trace data
     # representing intermediate outputs of the trace. This attribute is not empty only on
     # the root span of a trace created by the `mlflow.log_trace` API. The `intermediate_outputs`
@@ -46,6 +68,8 @@ MAX_CHARS_IN_TRACE_INFO_TAGS_KEY = 250
 MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE = 4096
 TRUNCATION_SUFFIX = "..."
 
+TRACE_REQUEST_RESPONSE_PREVIEW_MAX_LENGTH = 10000
+
 # Trace request ID must have the prefix "tr-" appended to the OpenTelemetry trace ID
 TRACE_REQUEST_ID_PREFIX = "tr-"
 
@@ -59,3 +83,9 @@ TRACE_SCHEMA_VERSION_KEY = "mlflow.trace_schema.version"
 
 STREAM_CHUNK_EVENT_NAME_FORMAT = "mlflow.chunk.item.{index}"
 STREAM_CHUNK_EVENT_VALUE_KEY = "mlflow.chunk.value"
+
+
+# Key for Databricks model serving options to return the trace in the response
+DATABRICKS_OPTIONS_KEY = "databricks_options"
+RETURN_TRACE_OPTION_KEY = "return_trace"
+DATABRICKS_OUTPUT_KEY = "databricks_output"

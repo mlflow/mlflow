@@ -32,6 +32,7 @@ from mlflow.entities import (
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.environment_variables import (
     _MLFLOW_ACTIVE_MODEL_ID,
+    MLFLOW_ACTIVE_MODEL_ID,
     MLFLOW_ENABLE_ASYNC_LOGGING,
     MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING,
     MLFLOW_EXPERIMENT_ID,
@@ -2127,7 +2128,7 @@ def delete_experiment(experiment_id: str) -> None:
     MlflowClient().delete_experiment(experiment_id)
 
 
-@experimental
+@experimental(version="3.0.0")
 def initialize_logged_model(
     name: Optional[str] = None,
     source_run_id: Optional[str] = None,
@@ -2290,7 +2291,7 @@ def _create_logged_model(
     )
 
 
-@experimental
+@experimental(version="3.0.0")
 def log_model_params(params: dict[str, str], model_id: Optional[str] = None) -> None:
     """
     Log params to the specified logged model.
@@ -2322,7 +2323,7 @@ def log_model_params(params: dict[str, str], model_id: Optional[str] = None) -> 
     MlflowClient().log_model_params(model_id, params)
 
 
-@experimental
+@experimental(version="3.0.0")
 def finalize_logged_model(
     model_id: str, status: Union[Literal["READY", "FAILED"], LoggedModelStatus]
 ) -> LoggedModel:
@@ -2355,7 +2356,7 @@ def finalize_logged_model(
     return MlflowClient().finalize_logged_model(model_id, status)
 
 
-@experimental
+@experimental(version="3.0.0")
 def get_logged_model(model_id: str) -> LoggedModel:
     """
     Get a logged model by ID.
@@ -2387,7 +2388,7 @@ def get_logged_model(model_id: str) -> LoggedModel:
     return MlflowClient().get_logged_model(model_id)
 
 
-@experimental
+@experimental(version="3.0.0")
 def last_logged_model() -> Optional[LoggedModel]:
     """
     Fetches the most recent logged model in the current session.
@@ -2439,7 +2440,7 @@ def search_logged_models(
 ) -> list[LoggedModel]: ...
 
 
-@experimental
+@experimental(version="3.0.0")
 def search_logged_models(
     experiment_ids: Optional[list[str]] = None,
     filter_string: Optional[str] = None,
@@ -2583,7 +2584,7 @@ def search_logged_models(
         )
 
 
-@experimental
+@experimental(version="3.0.0")
 def log_outputs(models: Optional[list[LoggedModelOutput]] = None):
     """
     Log outputs, such as models, to the active run. If there is no active run, a new run will be
@@ -3178,8 +3179,9 @@ def autolog(
     }
 
     GENAI_LIBRARY_TO_AUTOLOG_MODULE = {
+        "autogen": "mlflow.ag2",
         "anthropic": "mlflow.anthropic",
-        "autogen": "mlflow.autogen",
+        "autogen_agentchat": "mlflow.autogen",
         "openai": "mlflow.openai",
         "google.genai": "mlflow.gemini",
         "google.generativeai": "mlflow.gemini",
@@ -3300,7 +3302,7 @@ class ActiveModelContext:
     """
 
     def __init__(self, model_id: Optional[str] = None, set_by_user: bool = False):
-        # use _MLFLOW_ACTIVE_MODEL_ID as the default value for model_id
+        # use active model ID from environment variables as the default value for model_id
         # so that for subprocesses the default _ACTIVE_MODEL_CONTEXT.model_id
         # is still valid, and we don't need to read from env var.
         self._set_by_user = set_by_user
@@ -3309,11 +3311,11 @@ class ActiveModelContext:
             # so that it can be used in the main process, since databricks serving
             # loads model from threads.
             with _active_model_id_env_lock:
-                self._model_id = model_id or _MLFLOW_ACTIVE_MODEL_ID.get()
+                self._model_id = model_id or _get_active_model_id_from_env()
                 if self._model_id:
                     _MLFLOW_ACTIVE_MODEL_ID.set(self._model_id)
         else:
-            self._model_id = model_id or _MLFLOW_ACTIVE_MODEL_ID.get()
+            self._model_id = model_id or _get_active_model_id_from_env()
 
     def __repr__(self):
         return f"ActiveModelContext(model_id={self.model_id}, set_by_user={self.set_by_user})"
@@ -3325,6 +3327,33 @@ class ActiveModelContext:
     @property
     def set_by_user(self) -> bool:
         return self._set_by_user
+
+
+def _get_active_model_id_from_env() -> Optional[str]:
+    """
+    Get the active model ID from environment variables, with proper precedence handling.
+
+    This utility function reads the active model ID from environment variables with the following
+    precedence order:
+    1. MLFLOW_ACTIVE_MODEL_ID (public variable) - takes precedence if set
+    2. _MLFLOW_ACTIVE_MODEL_ID (legacy internal variable) - used as fallback
+
+    Historical Context:
+    The _MLFLOW_ACTIVE_MODEL_ID environment variable was originally created for internal MLflow
+    use only. With the introduction of MLFLOW_ACTIVE_MODEL_ID as the public API, we prioritize
+    the public variable to encourage migration to the public interface while maintaining
+    backward compatibility by falling back to the legacy variable when only it is set.
+
+    Returns:
+        The active model ID if found in environment variables, otherwise None.
+    """
+    # Check public variable first to prioritize the public API
+    public_model_id = MLFLOW_ACTIVE_MODEL_ID.get()
+    if public_model_id is not None:
+        return public_model_id
+
+    # Fallback to legacy internal variable for backward compatibility
+    return _MLFLOW_ACTIVE_MODEL_ID.get()
 
 
 _ACTIVE_MODEL_CONTEXT = ThreadLocalVariable(default_factory=lambda: ActiveModelContext())
@@ -3478,8 +3507,9 @@ def get_active_model_id() -> Optional[str]:
     """
     Get the active model ID. If no active model is set with ``set_active_model()``, the
     default active model is set using model ID from the environment variable
-    ``_MLFLOW_ACTIVE_MODEL_ID``. If neither is set, return None.
-    Note that this function only get the active model ID from the current thread.
+    ``MLFLOW_ACTIVE_MODEL_ID`` or the legacy environment variable ``_MLFLOW_ACTIVE_MODEL_ID``.
+    If neither is set, return None. Note that this function only get the active model ID from the
+    current thread.
 
     Returns:
         The active model ID if set, otherwise None.
@@ -3515,7 +3545,10 @@ def _get_active_model_id_global() -> Optional[str]:
 def clear_active_model() -> None:
     """
     Clear the active model. This will clear the active model previously set by
-    :py:func:`mlflow.set_active_model` from current thread. To temporarily switch
+    :py:func:`mlflow.set_active_model` or via the ``MLFLOW_ACTIVE_MODEL_ID`` environment variable
+    or the ``_MLFLOW_ACTIVE_MODEL_ID`` legacy environment variable.
+
+    from current thread. To temporarily switch
     the active model, use ``with mlflow.set_active_model(...)`` instead.
 
     .. code-block:: python
@@ -3538,11 +3571,11 @@ def clear_active_model() -> None:
             assert mlflow.get_active_model_id() == active_model.model_id
         assert mlflow.get_active_model_id() is None
     """
-    # reset the environment variable as well to avoid it being used when creating
+    # reset the environment variables as well to avoid them being used when creating
     # ActiveModelContext
-    # no lock here because this environment variable is not expected to be set outside
-    # of databricks serving environment
+    MLFLOW_ACTIVE_MODEL_ID.unset()
     _MLFLOW_ACTIVE_MODEL_ID.unset()
+
     # set_by_user is False because this API clears the state of active model
     # and MLflow might still set the active model in cases like `load_model`
     _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext(set_by_user=False))
