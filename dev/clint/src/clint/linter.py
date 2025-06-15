@@ -417,7 +417,8 @@ class Linter(ast.NodeVisitor):
         self._mlflow_class_name(node)
         for deco in node.decorator_list:
             self.visit_decorator(deco)
-        self.generic_visit(node)
+        with self.resolver.scope():
+            self.generic_visit(node)
         self.stack.pop()
 
     def _syntax_error_example(
