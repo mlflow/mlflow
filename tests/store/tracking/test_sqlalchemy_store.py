@@ -5409,6 +5409,60 @@ def test_search_logged_models_pagination(store: SqlAlchemyStore):
         )
 
 
+def test_search_logged_models_datasets_filter(store):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    run_id = store.create_run(exp_id, "user", 0, [], "test_run").info.run_id
+    model1 = store.create_logged_model(exp_id, source_run_id=run_id)
+    model2 = store.create_logged_model(exp_id, source_run_id=run_id)
+    model3 = store.create_logged_model(exp_id, source_run_id=run_id)
+    store.log_batch(
+        run_id,
+        metrics=[
+            Metric(
+                key="metric1",
+                value=0.1,
+                timestamp=0,
+                step=0,
+                model_id=model1.model_id,
+                dataset_name="dataset1",
+                dataset_digest="digest1",
+            ),
+            Metric(
+                key="metric1",
+                value=0.2,
+                timestamp=0,
+                step=0,
+                model_id=model2.model_id,
+                dataset_name="dataset1",
+                dataset_digest="digest2",
+            ),
+            Metric(key="metric2", value=0.1, timestamp=0, step=0, model_id=model3.model_id),
+        ],
+        params=[],
+        tags=[],
+    )
+
+    # Restrict results to models with metrics on dataset1
+    models = store.search_logged_models(
+        experiment_ids=[exp_id],
+        filter_string="metrics.metric1 >= 0.1",
+        datasets=[{"dataset_name": "dataset1"}],
+    )
+    assert {m.name for m in models} == {model1.name, model2.name}
+    # Restrict results to models with metrics on dataset1 and digest1
+    models = store.search_logged_models(
+        experiment_ids=[exp_id],
+        filter_string="metrics.metric1 >= 0.1",
+        datasets=[{"dataset_name": "dataset1", "dataset_digest": "digest1"}],
+    )
+    assert {m.name for m in models} == {model1.name}
+    # No filter string, match models with any metrics on the dataset
+    models = store.search_logged_models(
+        experiment_ids=[exp_id], datasets=[{"dataset_name": "dataset1"}]
+    )
+    assert {m.name for m in models} == {model1.name, model2.name}
+
+
 def test_log_batch_logged_model(store: SqlAlchemyStore):
     exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
     run = store.create_run(
