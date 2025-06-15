@@ -196,7 +196,15 @@ def _parse_usage(output: Any) -> Optional[dict[str, int]]:
     try:
         if usage := getattr(output, "usage_metadata", None):
             return {
-                TokenUsageKey.INPUT_TOKENS: usage.prompt_token_count,
+                TokenUsageKey.INPUT_TOKENS: (
+                    usage.prompt_token_count if usage.prompt_token_count is not None else 0
+                )
+                + (usage.thoughts_token_count if usage.thoughts_token_count is not None else 0)
+                + (
+                    usage.tool_use_prompt_token_count
+                    if usage.tool_use_prompt_token_count is not None
+                    else 0
+                ),
                 TokenUsageKey.OUTPUT_TOKENS: usage.candidates_token_count,
                 TokenUsageKey.TOTAL_TOKENS: usage.total_token_count,
             }
