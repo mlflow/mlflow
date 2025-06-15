@@ -435,8 +435,8 @@ class InvalidExperimentalDecorator(Rule):
 
     def _message(self) -> str:
         return (
-            "The `version` argument of `@experimental` must be a string literal that is a valid "
-            "semantic version (e.g., '3.0.0')."
+            "Invalid usage of `@experimental` decorator. It must be used with a `version` "
+            "argument that is a valid semantic version string."
         )
 
     @staticmethod
