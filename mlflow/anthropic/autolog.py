@@ -120,10 +120,9 @@ def _parse_usage(output: Any) -> Optional[dict[str, int]]:
         usage = getattr(output, "usage", None)
         if usage:
             return {
-                TokenUsageKey.INPUT_TOKENS: getattr(usage, "input_tokens", None),
-                TokenUsageKey.OUTPUT_TOKENS: getattr(usage, "output_tokens", None),
-                TokenUsageKey.TOTAL_TOKENS: getattr(usage, "output_tokens", 0)
-                + getattr(usage, "input_tokens", 0),
+                TokenUsageKey.INPUT_TOKENS: usage.input_tokens,
+                TokenUsageKey.OUTPUT_TOKENS: usage.output_tokens,
+                TokenUsageKey.TOTAL_TOKENS: usage.input_tokens + usage.output_tokens,
             }
     except Exception as e:
         _logger.debug(f"Failed to parse token usage from output: {e}")
