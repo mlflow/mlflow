@@ -502,10 +502,10 @@ class Linter(ast.NodeVisitor):
         self._invalid_abstract_method(node)
         self._pytest_mark_repeat(node)
         self.stack.append(node)
+        self._no_rst(node)
+        for deco in node.decorator_list:
+            self.visit_decorator(deco)
         with self.resolver.scope():
-            self._no_rst(node)
-            for deco in node.decorator_list:
-                self.visit_decorator(deco)
             self.generic_visit(node)
         self.stack.pop()
 
