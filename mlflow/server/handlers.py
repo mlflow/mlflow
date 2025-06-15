@@ -2820,6 +2820,7 @@ def _search_logged_models():
                 _assert_required,
             ],
             "filter": [_assert_string],
+            "datasets": [_assert_array],
             "max_results": [_assert_intlike],
             "order_by": [_assert_array],
             "page_token": [_assert_string],
@@ -2830,6 +2831,17 @@ def _search_logged_models():
         # to avoid serialization issues
         experiment_ids=list(request_message.experiment_ids),
         filter_string=request_message.filter or None,
+        datasets=(
+            [
+                {
+                    "dataset_name": d.dataset_name,
+                    "dataset_digest": d.dataset_digest or None,
+                }
+                for d in request_message.datasets
+            ]
+            if request_message.datasets
+            else None
+        ),
         max_results=request_message.max_results or None,
         order_by=(
             [
