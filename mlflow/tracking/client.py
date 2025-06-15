@@ -678,18 +678,20 @@ class MlflowClient:
         """
         parsed_name_or_uri, parsed_version = parse_prompt_name_or_uri(name_or_uri, version)
         if parsed_name_or_uri.startswith("prompts:/"):
-            # URI case: parse the URI to extract name and version
-            name, version = self.parse_prompt_uri(parsed_name_or_uri)
+            # URI case: parse the URI to extract name and version/alias
+            name, version_or_alias = self.parse_prompt_uri(parsed_name_or_uri)
         else:
             # Name case: use the name and provided version
             name = parsed_name_or_uri
-            version = parsed_version
+            version_or_alias = parsed_version
 
         registry_client = self._get_registry_client()
         try:
-            # Use get_prompt_version for specific version/alias
-            return registry_client.get_prompt_version(name, version)
-
+            # If version_or_alias is not a digit, treat as alias
+            if isinstance(version_or_alias, str) and not version_or_alias.isdigit():
+                return registry_client.get_prompt_version_by_alias(name, version_or_alias)
+            else:
+                return registry_client.get_prompt_version(name, version_or_alias)
         except MlflowException as exc:
             if allow_missing and exc.error_code in ("RESOURCE_DOES_NOT_EXIST", "NOT_FOUND"):
                 return None
@@ -905,22 +907,38 @@ class MlflowClient:
 
     def parse_prompt_uri(self, uri: str) -> tuple[str, str]:
         """
-        Parse prompt URI into prompt name and prompt version.
-        - 'prompt:/<name>/<version>' -> ('<name>', '<version>')
-        - 'prompt:/<name>@<alias>' -> ('<name>', '<version>')
+        Parse prompt URI into prompt name and prompt version or alias.
+        - 'prompts:/<name>/<version>' -> ('<name>', '<version>')
+        - 'prompts:/<name>@<alias>' -> ('<name>', '<alias>')
         """
         parsed = urllib.parse.urlparse(uri)
 
         if parsed.scheme != "prompts":
             raise MlflowException.invalid_parameter_value(
-                f"Invalid prompt URI: {uri}. Expected schema 'prompts:/<name>/<version>'"
+                f"Invalid prompt URI: {uri}. Expected schema 'prompts:/<name>/<version>' or 'prompts:/<name>@<alias>'"
             )
 
-        # Replace schema to 'models:/' to reuse the model URI parsing logic
-        try:
-            return get_model_name_and_version(self, f"models:{parsed.path}")
-        except MlflowException:
-            raise MlflowException(f"Prompt '{uri}' does not exist.", RESOURCE_DOES_NOT_EXIST)
+        path = parsed.path.lstrip("/")
+        if "@" in path:
+            # Alias case: prompts:/name@alias
+            name, alias = path.rsplit("@", 1)
+            if not name or not alias:
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid prompt alias URI: {uri}. Expected format 'prompts:/<name>@<alias>'"
+                )
+            return name, alias
+        elif "/" in path:
+            # Version case: prompts:/name/version
+            name, version = path.split("/", 1)
+            if not name or not version:
+                raise MlflowException.invalid_parameter_value(
+                    f"Invalid prompt version URI: {uri}. Expected format 'prompts:/<name>/<version>'"
+                )
+            return name, version
+        else:
+            raise MlflowException.invalid_parameter_value(
+                f"Invalid prompt URI: {uri}. Expected format 'prompts:/<name>/<version>' or 'prompts:/<name>@<alias>'"
+            )
 
     ##### Tracing #####
     def delete_traces(
