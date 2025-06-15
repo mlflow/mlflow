@@ -452,6 +452,9 @@ class NonLiteralExperimentalVersion(Rule):
         if resolved != ["mlflow", "utils", "annotations", "experimental"]:
             return False
 
+        if not isinstance(node, ast.Call):
+            return True
+
         version = next((k.value for k in node.keywords if k.arg == "version"), None)
         if version is None:
             # No `version` argument, invalid usage
