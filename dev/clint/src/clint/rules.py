@@ -415,7 +415,10 @@ class UnnamedThread(Rule):
         return "MLF0024"
 
     def _message(self) -> str:
-        return "`threading.Thread()` calls should include a `name` parameter for easier debugging."
+        return (
+            "`threading.Thread()` must be called with a `name` argument to improve debugging "
+            "and traceability of thread-related issues."
+        )
 
     @staticmethod
     def check(node: ast.Call, resolver: Resolver) -> bool:
