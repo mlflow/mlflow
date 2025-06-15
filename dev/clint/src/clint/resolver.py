@@ -50,7 +50,7 @@ class Resolver:
         Resolve a node to its fully qualified name parts.
 
         Args:
-            node: Can be ast.Call, ast.Name, or ast.Attribute
+            node: AST node to resolve, typically a Call, Name, or Attribute.
 
         Returns:
             List of name parts (e.g., ["threading", "Thread"]) or None if unresolvable
