@@ -915,7 +915,8 @@ class MlflowClient:
 
         if parsed.scheme != "prompts":
             raise MlflowException.invalid_parameter_value(
-                f"Invalid prompt URI: {uri}. Expected schema 'prompts:/<name>/<version>' or 'prompts:/<name>@<alias>'"
+                f"Invalid prompt URI: {uri}. "
+                "Expected schema 'prompts:/<name>/<version>' or 'prompts:/<name>@<alias>'"
             )
 
         path = parsed.path.lstrip("/")
@@ -924,7 +925,8 @@ class MlflowClient:
             name, alias = path.rsplit("@", 1)
             if not name or not alias:
                 raise MlflowException.invalid_parameter_value(
-                    f"Invalid prompt alias URI: {uri}. Expected format 'prompts:/<name>@<alias>'"
+                    f"Invalid prompt alias URI: {uri}. "
+                    "Expected format 'prompts:/<name>@<alias>'"
                 )
             return name, alias
         elif "/" in path:
@@ -932,12 +934,14 @@ class MlflowClient:
             name, version = path.split("/", 1)
             if not name or not version:
                 raise MlflowException.invalid_parameter_value(
-                    f"Invalid prompt version URI: {uri}. Expected format 'prompts:/<name>/<version>'"
+                    f"Invalid prompt version URI: {uri}. "
+                    "Expected format 'prompts:/<name>/<version>'"
                 )
             return name, version
         else:
             raise MlflowException.invalid_parameter_value(
-                f"Invalid prompt URI: {uri}. Expected format 'prompts:/<name>/<version>' or 'prompts:/<name>@<alias>'"
+                f"Invalid prompt URI: {uri}. "
+                "Expected format 'prompts:/<name>/<version>' or 'prompts:/<name>@<alias>'"
             )
 
     ##### Tracing #####
