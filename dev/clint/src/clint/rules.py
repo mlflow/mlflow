@@ -429,7 +429,7 @@ class UnnamedThread(Rule):
         )
 
 
-class NonLiteralExperimentalVersion(Rule):
+class InvalidExperimentalDecorator(Rule):
     def _id(self) -> str:
         return "MLF0025"
 

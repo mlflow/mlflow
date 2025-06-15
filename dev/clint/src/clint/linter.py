@@ -407,8 +407,8 @@ class Linter(ast.NodeVisitor):
         return [v for v in linter.violations if v.rule.name in config.example_rules]
 
     def visit_decorator(self, node: ast.expr) -> None:
-        if rules.NonLiteralExperimentalVersion.check(node, self.resolver):
-            self._check(Location.from_node(node), rules.NonLiteralExperimentalVersion())
+        if rules.InvalidExperimentalDecorator.check(node, self.resolver):
+            self._check(Location.from_node(node), rules.InvalidExperimentalDecorator())
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         self.stack.append(node)
