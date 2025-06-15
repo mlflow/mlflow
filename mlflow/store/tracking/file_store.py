@@ -2285,7 +2285,7 @@ class FileStore(AbstractStore):
         self,
         experiment_ids: list[str],
         filter_string: Optional[str] = None,
-        datasets: Optional[list[str]] = None,
+        datasets: Optional[list[dict[str, Any]]] = None,
         max_results: Optional[int] = None,
         order_by: Optional[list[dict[str, Any]]] = None,
         page_token: Optional[str] = None,
@@ -2321,9 +2321,9 @@ class FileStore(AbstractStore):
             A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
             :py:class:`LoggedModel <mlflow.entities.LoggedModel>` objects.
         """
-        if datasets:
+        if datasets and not all("dataset_name" in dataset for dataset in datasets):
             raise MlflowException(
-                "Filtering by datasets is not currently supported by FileStore",
+                "`dataset_name` in the `datasets` clause must be specified.",
                 INVALID_PARAMETER_VALUE,
             )
         max_results = max_results or SEARCH_LOGGED_MODEL_MAX_RESULTS_DEFAULT
@@ -2331,7 +2331,7 @@ class FileStore(AbstractStore):
         for experiment_id in experiment_ids:
             models = self._list_models(experiment_id)
             all_models.extend(models)
-        filtered = SearchLoggedModelsUtils.filter_logged_models(all_models, filter_string)
+        filtered = SearchLoggedModelsUtils.filter_logged_models(all_models, filter_string, datasets)
         sorted_logged_models = SearchLoggedModelsUtils.sort(filtered, order_by)
         logged_models, next_page_token = SearchLoggedModelsUtils.paginate(
             sorted_logged_models, page_token, max_results
