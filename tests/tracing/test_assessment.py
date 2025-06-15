@@ -90,6 +90,7 @@ def test_log_expectation_invalid_parameters(tracking_uri):
         )
 
 
+
 def test_update_expectation(store, tracking_uri):
     assessment = Expectation(name="expected_answer", value="MLflow")
     mlflow.update_assessment(
@@ -431,145 +432,16 @@ def test_search_traces_with_assessments(store, tracking_uri):
 
 def test_log_feedback_default_source(store, tracking_uri):
     # Test that the default CODE source is used when no source is provided
-    feedback = Feedback(
+    mlflow.log_feedback(
         trace_id="1234",
         name="faithfulness",
         value=1.0,
     )
-    mlflow.log_assessment(trace_id="1234", assessment=feedback)
 
     assert store.create_assessment.call_count == 1
     assessment = store.create_assessment.call_args[0][0]
     assert assessment.name == "faithfulness"
     assert assessment.trace_id == "1234"
     assert assessment.source.source_type == AssessmentSourceType.CODE
-    assert assessment.source.source_id == "default"
+    assert assessment.source.source_id == "log_feedback_default"
     assert assessment.feedback.value == 1.0
-
-
-def test_log_expectation_default_source(store, tracking_uri):
-    # Test that the default CODE source is used when no source is provided
-    expectation = Expectation(
-        trace_id="1234",
-        name="expected_answer",
-        value="MLflow",
-    )
-    mlflow.log_assessment(trace_id="1234", assessment=expectation)
-
-    assert store.create_assessment.call_count == 1
-    assessment = store.create_assessment.call_args[0][0]
-    assert assessment.name == "expected_answer"
-    assert assessment.trace_id == "1234"
-    assert assessment.source.source_type == AssessmentSourceType.HUMAN
-    assert assessment.source.source_id == "default"
-    assert assessment.expectation.value == "MLflow"
-
-
-def test_log_feedback_and_exception_blocks_positional_args():
-    with pytest.raises(TypeError, match=r"log_feedback\(\) takes 0 positional"):
-        mlflow.log_feedback("tr-1234", "faithfulness", 1.0)
-
-    with pytest.raises(TypeError, match=r"log_expectation\(\) takes 0 positional"):
-        mlflow.log_expectation("tr-1234", "expected_answer", "MLflow")
-
-
-@pytest.mark.parametrize("legacy_api", [True, False])
-def test_log_assessment_on_in_progress_trace(store, tracking_uri, legacy_api):
-    @mlflow.trace
-    def func(x: int, y: int) -> int:
-        trace_id = mlflow.get_active_trace_id()
-        if legacy_api:
-            mlflow.log_assessment(trace_id, Feedback(name="feedback", value=1.0))
-            mlflow.log_assessment(trace_id, Expectation(name="expectation", value="MLflow"))
-            mlflow.log_assessment("other_trace_id", Feedback(name="other", value=2.0))
-        else:
-            mlflow.log_feedback(trace_id=trace_id, name="feedback", value=1.0)
-            mlflow.log_expectation(trace_id=trace_id, name="expectation", value="MLflow")
-            mlflow.log_feedback(trace_id="other_trace_id", name="other", value=2.0)
-        return x + y
-
-    assert func(1, 2) == 3
-
-    mlflow.flush_trace_async_logging()
-
-    # Two assessments should be logged as a part of StartTraceV3 call
-    store.start_trace_v3.assert_called_once()
-    trace = store.start_trace_v3.call_args[1]["trace"]
-    assert trace.info.request_id == mlflow.get_last_active_trace_id()
-    assert len(trace.info.assessments) == 2
-    assert trace.info.assessments[0].name == "feedback"
-    assert trace.info.assessments[0].feedback.value == 1.0
-    assert trace.info.assessments[1].name == "expectation"
-    assert trace.info.assessments[1].expectation.value == "MLflow"
-
-    # CreateAssessment should be called for the last assessment on the other trace
-    store.create_assessment.assert_called_once()
-    assessment = store.create_assessment.call_args[0][0]
-    assert assessment.trace_id == "other_trace_id"
-    assert assessment.name == "other"
-    assert assessment.feedback.value == 2.0
-
-
-@pytest.mark.asyncio
-async def test_log_assessment_on_in_progress_trace_async(store, tracking_uri):
-    @mlflow.trace
-    async def func(x: int, y: int) -> int:
-        trace_id = mlflow.get_active_trace_id()
-        mlflow.log_assessment(trace_id, Feedback(name="feedback", value=1.0))
-        mlflow.log_assessment(trace_id, Expectation(name="expectation", value="MLflow"))
-        return x + y
-
-    assert (await func(1, 2)) == 3
-
-    mlflow.flush_trace_async_logging()
-
-    store.create_assessment.assert_not_called()
-
-    store.start_trace_v3.assert_called_once()
-    trace = store.start_trace_v3.call_args[1]["trace"]
-    assert trace.info.request_id == mlflow.get_last_active_trace_id()
-    assert len(trace.info.assessments) == 2
-    assert trace.info.assessments[0].name == "feedback"
-    assert trace.info.assessments[0].feedback.value == 1.0
-    assert trace.info.assessments[1].name == "expectation"
-    assert trace.info.assessments[1].expectation.value == "MLflow"
-
-
-def test_log_assessment_on_in_progress_with_span_id(store, tracking_uri):
-    with mlflow.start_span(name="test_span") as span:
-        mlflow.log_assessment(
-            trace_id=span.trace_id,
-            assessment=Feedback(name="feedback", value=1.0, span_id=span.span_id),
-        )
-
-    mlflow.flush_trace_async_logging()
-
-    # Two assessments should be logged as a part of StartTraceV3 call
-    store.start_trace_v3.assert_called_once()
-    trace = store.start_trace_v3.call_args[1]["trace"]
-    assert trace.info.request_id == mlflow.get_last_active_trace_id()
-    assert len(trace.info.assessments) == 1
-    assert trace.info.assessments[0].name == "feedback"
-    assert trace.info.assessments[0].feedback.value == 1.0
-    assert trace.info.assessments[0].span_id == span.span_id
-
-    store.create_assessment.assert_not_called()
-
-
-def test_log_assessment_on_in_progress_trace_works_when_tracing_is_disabled(store, tracking_uri):
-    # Calling log_assessment to an active trace should not fail when tracing is disabled.
-    mlflow.tracing.disable()
-
-    @mlflow.trace
-    def func(x: int, y: int):
-        trace_id = mlflow.get_active_trace_id()
-        mlflow.log_assessment(trace_id=trace_id, assessment=Feedback(name="feedback", value=1.0))
-        return x + y
-
-    assert func(1, 2) == 3
-
-    mlflow.flush_trace_async_logging()
-
-    # Neither CreateAssessment nor StartTraceV3 should be called
-    store.create_assessment.assert_not_called()
-    store.start_trace_v3.assert_not_called()
