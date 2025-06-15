@@ -358,7 +358,7 @@ class ForbiddenSetActiveModelUsage(Rule):
         )
 
     @staticmethod
-    def check(node: ast.Call, resolver: "Resolver") -> bool:
+    def check(node: ast.Call, resolver: Resolver) -> bool:
         """Check if this is a call to set_active_model function."""
         return (
             (resolved := resolver.resolve(node))
