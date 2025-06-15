@@ -925,8 +925,7 @@ class MlflowClient:
             name, alias = path.rsplit("@", 1)
             if not name or not alias:
                 raise MlflowException.invalid_parameter_value(
-                    f"Invalid prompt alias URI: {uri}. "
-                    "Expected format 'prompts:/<name>@<alias>'"
+                    f"Invalid prompt alias URI: {uri}. Expected format 'prompts:/<name>@<alias>'"
                 )
             return name, alias
         elif "/" in path:
