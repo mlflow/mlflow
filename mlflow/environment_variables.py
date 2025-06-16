@@ -853,3 +853,13 @@ MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX = _EnvironmentVariable(
 MLFLOW_SERVER_GRAPHQL_MAX_ROOT_FIELDS = _EnvironmentVariable(
     "MLFLOW_SERVER_GRAPHQL_MAX_ROOT_FIELDS", int, 5
 )
+
+#: Maximum number of aliases to include in the MLflow server GraphQL request.
+#: (default: ``5``)
+MLFLOW_SERVER_GRAPHQL_MAX_ALIASES = _EnvironmentVariable(
+    "MLFLOW_SERVER_GRAPHQL_MAX_ALIASES", int, 5
+)
+
+#: Maximum number of levels of nesting to include in the MLflow server GraphQL request.
+#: (default: ``5``)
+MLFLOW_SERVER_GRAPHQL_MAX_DEPTH = _EnvironmentVariable("MLFLOW_SERVER_GRAPHQL_MAX_DEPTH", int, 5)

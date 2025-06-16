@@ -43,6 +43,8 @@ from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
+    MLFLOW_SERVER_GRAPHQL_MAX_ALIASES,
+    MLFLOW_SERVER_GRAPHQL_MAX_DEPTH,
     MLFLOW_SERVER_GRAPHQL_MAX_ROOT_FIELDS,
     MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT,
 )
@@ -2114,7 +2116,8 @@ def test_graphql_handler(mlflow_client):
     assert response.status_code == 200
 
 
-def test_graphql_handler_batching_raise_error(monkeypatch, mlflow_client):
+def test_graphql_handler_batching_raise_error(mlflow_client):
+    # Test max root fields limit
     batch_query = (
         "query testQuery {"
         + " ".join([f"key_{i}: " + 'test(inputString: "abc") { output }' for i in range(10)])
@@ -2130,7 +2133,48 @@ def test_graphql_handler_batching_raise_error(monkeypatch, mlflow_client):
     )
     assert response.status_code == 200
     assert (
-        f"Batched GraphQL queries should have at most {MLFLOW_SERVER_GRAPHQL_MAX_ROOT_FIELDS.get()}"
+        f"GraphQL queries should have at most {MLFLOW_SERVER_GRAPHQL_MAX_ROOT_FIELDS.get()}"
+        in response.json()["errors"][0]
+    )
+
+    # Test max aliases limit
+    batch_query = (
+        'query testQuery {mlflowGetExperiment(input: {experimentId: "123"}) {'
+        + " ".join(f"experiment_{i}: " + "experiment { name }" for i in range(8))
+        + "}}"
+    )
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/graphql",
+        json={
+            "query": batch_query,
+            "operationName": "testQuery",
+        },
+    )
+    assert response.status_code == 200
+    assert (
+        f"queries should have at most {MLFLOW_SERVER_GRAPHQL_MAX_ALIASES.get()} aliases"
+        in response.json()["errors"][0]
+    )
+
+    # Test max depth limit
+    inner = "name"
+    for _ in range(7):
+        inner = f"name {{ {inner} }}"
+    deep_query = (
+        'query testQuery { mlflowGetExperiment(input: {experimentId: "123"}) { experiment { '
+        + inner
+        + " } } }"
+    )
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/graphql",
+        json={
+            "query": deep_query,
+            "operationName": "testQuery",
+        },
+    )
+    assert response.status_code == 200
+    assert (
+        f"queries should have at most {MLFLOW_SERVER_GRAPHQL_MAX_DEPTH.get()} levels of nesting"
         in response.json()["errors"][0]
     )
 

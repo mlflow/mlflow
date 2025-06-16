@@ -41,7 +41,6 @@ from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
     MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX,
     MLFLOW_DEPLOYMENTS_TARGET,
-    MLFLOW_SERVER_GRAPHQL_MAX_ROOT_FIELDS,
 )
 from mlflow.exceptions import MlflowException, _UnsupportedMultipartUploadException
 from mlflow.models import Model
@@ -2349,10 +2348,8 @@ def _delete_artifact_mlflow_artifacts(artifact_path):
 @catch_mlflow_exception
 def _graphql():
     from graphql import parse
-    from graphql.error import GraphQLError
-    from graphql.execution import ExecutionResult
 
-    from mlflow.server.graphql.graphql_no_batching import count_total_field_calls
+    from mlflow.server.graphql.graphql_no_batching import check_query_safety
     from mlflow.server.graphql.graphql_schema_extensions import schema
 
     # Extracting the query, variables, and operationName from the request
@@ -2362,19 +2359,8 @@ def _graphql():
     operation_name = request_json.get("operationName")
 
     node = parse(query)
-    field_count = count_total_field_calls(node)
-    if field_count > MLFLOW_SERVER_GRAPHQL_MAX_ROOT_FIELDS.get():
-        result = ExecutionResult(
-            data=None,
-            errors=[
-                GraphQLError(
-                    "Batched GraphQL queries should have at most "
-                    f"{MLFLOW_SERVER_GRAPHQL_MAX_ROOT_FIELDS.get()} root fields, "
-                    f"got {field_count} fields. To increase the limit, set the "
-                    f"{MLFLOW_SERVER_GRAPHQL_MAX_ROOT_FIELDS.name} environment variable."
-                )
-            ],
-        )
+    if check_result := check_query_safety(node):
+        result = check_result
     else:
         # Executing the GraphQL query using the Graphene schema
         result = schema.execute(query, variables=variables, operation_name=operation_name)
