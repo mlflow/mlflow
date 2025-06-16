@@ -42,7 +42,10 @@ from mlflow.entities.logged_model_output import LoggedModelOutput
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.environment_variables import MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT
+from mlflow.environment_variables import (
+    MLFLOW_SERVER_GRAPHQL_MAX_ROOT_FIELDS,
+    MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT,
+)
 from mlflow.exceptions import MlflowException, RestException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
@@ -2111,7 +2114,7 @@ def test_graphql_handler(mlflow_client):
     assert response.status_code == 200
 
 
-def test_graphql_handler_batching_raise_error(mlflow_client):
+def test_graphql_handler_batching_raise_error(monkeypatch, mlflow_client):
     batch_query = (
         "query testQuery {"
         + " ".join([f"key_{i}: " + 'test(inputString: "abc") { output }' for i in range(10)])
@@ -2126,7 +2129,10 @@ def test_graphql_handler_batching_raise_error(mlflow_client):
         headers={"content-type": "application/json; charset=utf-8"},
     )
     assert response.status_code == 200
-    assert response.json()["errors"] == ["Batched GraphQL queries are not supported, got 10 fields"]
+    assert (
+        f"Batched GraphQL queries should have at most {MLFLOW_SERVER_GRAPHQL_MAX_ROOT_FIELDS.get()}"
+        in response.json()["errors"][0]
+    )
 
 
 def test_get_experiment_graphql(mlflow_client):

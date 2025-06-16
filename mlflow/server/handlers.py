@@ -41,6 +41,7 @@ from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
     MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX,
     MLFLOW_DEPLOYMENTS_TARGET,
+    MLFLOW_SERVER_GRAPHQL_MAX_ROOT_FIELDS,
 )
 from mlflow.exceptions import MlflowException, _UnsupportedMultipartUploadException
 from mlflow.models import Model
@@ -2362,11 +2363,16 @@ def _graphql():
 
     node = parse(query)
     field_count = count_total_field_calls(node)
-    if field_count != 1:
+    if field_count > MLFLOW_SERVER_GRAPHQL_MAX_ROOT_FIELDS.get():
         result = ExecutionResult(
             data=None,
             errors=[
-                GraphQLError(f"Batched GraphQL queries are not supported, got {field_count} fields")
+                GraphQLError(
+                    "Batched GraphQL queries should have at most "
+                    f"{MLFLOW_SERVER_GRAPHQL_MAX_ROOT_FIELDS.get()} root fields, "
+                    f"got {field_count} fields. To increase the limit, set the "
+                    f"{MLFLOW_SERVER_GRAPHQL_MAX_ROOT_FIELDS.name} environment variable."
+                )
             ],
         )
     else:
