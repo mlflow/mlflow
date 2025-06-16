@@ -24,7 +24,7 @@ const getFirstActiveExperiment = (experiments: ExperimentEntity[]) => {
   return sorted.find(({ lifecycleStage }) => lifecycleStage === 'active');
 };
 
-const HomePage = () => {
+const ExperimentPage = () => {
   const { theme } = useDesignSystemTheme();
 
   const { tabName } = useParams();
@@ -69,4 +69,4 @@ const HomePage = () => {
   );
 };
 
-export default HomePage;
+export default ExperimentPage;
