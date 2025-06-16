@@ -2120,7 +2120,12 @@ def test_graphql_handler_batching_raise_error(mlflow_client):
     # Test max root fields limit
     batch_query = (
         "query testQuery {"
-        + " ".join([f"key_{i}: " + 'test(inputString: "abc") { output }' for i in range(10)])
+        + " ".join(
+            [
+                f"key_{i}: " + 'test(inputString: "abc") { output }'
+                for i in range(int(MLFLOW_SERVER_GRAPHQL_MAX_ROOT_FIELDS.get()) + 2)
+            ]
+        )
         + "}"
     )
     response = requests.post(
@@ -2140,7 +2145,10 @@ def test_graphql_handler_batching_raise_error(mlflow_client):
     # Test max aliases limit
     batch_query = (
         'query testQuery {mlflowGetExperiment(input: {experimentId: "123"}) {'
-        + " ".join(f"experiment_{i}: " + "experiment { name }" for i in range(8))
+        + " ".join(
+            f"experiment_{i}: " + "experiment { name }"
+            for i in range(int(MLFLOW_SERVER_GRAPHQL_MAX_ALIASES.get()) + 2)
+        )
         + "}}"
     )
     response = requests.post(
@@ -2158,7 +2166,7 @@ def test_graphql_handler_batching_raise_error(mlflow_client):
 
     # Test max depth limit
     inner = "name"
-    for _ in range(7):
+    for _ in range(int(MLFLOW_SERVER_GRAPHQL_MAX_DEPTH.get()) + 2):
         inner = f"name {{ {inner} }}"
     deep_query = (
         'query testQuery { mlflowGetExperiment(input: {experimentId: "123"}) { experiment { '
