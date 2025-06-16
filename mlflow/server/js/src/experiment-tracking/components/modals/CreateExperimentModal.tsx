@@ -24,7 +24,7 @@ type CreateExperimentModalImplProps = {
   onClose: (...args: any[]) => any;
   experimentNames: string[];
   createExperimentApi: (...args: any[]) => any;
-  invalidate: () => void;
+  onExperimentCreated: () => void;
   navigate: NavigateFunction;
 };
 
@@ -37,7 +37,7 @@ export class CreateExperimentModalImpl extends Component<CreateExperimentModalIm
     // createExperimentApi call needs to be fulfilled before redirecting the user to the newly
     // created experiment page (history.push())
     const response = await this.props.createExperimentApi(experimentName, artifactLocation);
-    this.props.invalidate();
+    this.props.onExperimentCreated();
 
     const {
       value: { experiment_id: newExperimentId },

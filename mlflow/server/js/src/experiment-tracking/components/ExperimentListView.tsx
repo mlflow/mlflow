@@ -188,7 +188,7 @@ export class ExperimentListView extends Component<Props, State> {
         <CreateExperimentModal
           isOpen={this.state.showCreateExperimentModal}
           onClose={this.handleCloseCreateExperimentModal}
-          invalidate={this.invalidateExperimentList}
+          onExperimentCreated={this.invalidateExperimentList}
         />
       </ScrollablePageWrapper>
     );

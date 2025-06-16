@@ -22,7 +22,7 @@ type Props = {
   experimentId: string;
   experimentName: string;
   deleteExperimentApi: (...args: any[]) => any;
-  invalidate: () => void;
+  onExperimentDeleted: () => void;
   navigate: NavigateFunction;
 };
 
@@ -49,7 +49,7 @@ export class DeleteExperimentModalImpl extends Component<Props> {
           }
         }
       })
-      .then(() => this.props.invalidate())
+      .then(() => this.props.onExperimentDeleted())
       .catch((e: any) => {
         Utils.logErrorAndNotifyUser(e);
       });
