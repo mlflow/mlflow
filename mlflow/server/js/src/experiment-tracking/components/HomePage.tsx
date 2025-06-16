@@ -23,19 +23,17 @@ const HomePage = () => {
     return loadingState;
   } else {
     return (
-      <>
-        <ExperimentListView
-          experiments={experiments || []}
-          pagination={{
-            error,
-            isLoading,
-            onNextPage,
-            onPreviousPage,
-            hasNextPage,
-            hasPreviousPage,
-          }}
-        />
-      </>
+      <ExperimentListView
+        experiments={experiments || []}
+        pagination={{
+          error,
+          isLoading,
+          onNextPage,
+          onPreviousPage,
+          hasNextPage,
+          hasPreviousPage,
+        }}
+      />
     );
   }
 };
