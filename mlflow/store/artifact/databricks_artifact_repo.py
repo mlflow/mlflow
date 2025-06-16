@@ -150,6 +150,21 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
 
         return _Run(id_=parts[3], artifact_uri=artifact_uri, call_endpoint=self._call_endpoint)
 
+    @staticmethod
+    def _extract_run_id(artifact_uri: str) -> Optional[str]:
+        """
+        Extracts the run ID from the run artifact URI.
+        """
+        artifact_path = extract_and_normalize_path(artifact_uri)
+        parts = artifact_path.split("/")
+        if len(parts) < 4:
+            return None
+
+        if parts[3] == "logged_models" or parts[3].startswith(TRACE_REQUEST_ID_PREFIX):
+            return None
+
+        return parts[3]
+
     def _call_endpoint(
         self, service, api, json_body=None, path_params=None, retry_timeout_seconds=None
     ):
