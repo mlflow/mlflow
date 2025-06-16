@@ -2,9 +2,10 @@ import posixpath
 from typing import Optional
 
 from mlflow.entities import FileInfo
+from mlflow.environment_variables import (
+    MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE,
+)
 from mlflow.store.artifact.cloud_artifact_repo import CloudArtifactRepository
-
-DOWNLOAD_CHUNK_SIZE = 1024 * 1024 * 1024
 
 
 def _get_databricks_workspace_client():
@@ -81,9 +82,10 @@ class DatabricksSDKModelsArtifactRepository(CloudArtifactRepository):
 
         resp = self.client.files.download(dest_path)
         contents = resp.contents
+        chunk_size = MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE.get()
 
         with open(local_path, "wb") as f:
-            while chunk := contents.read(DOWNLOAD_CHUNK_SIZE):
+            while chunk := contents.read(chunk_size):
                 f.write(chunk)
 
     def _get_write_credential_infos(self, remote_file_paths):
