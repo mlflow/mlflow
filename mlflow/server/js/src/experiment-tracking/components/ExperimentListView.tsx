@@ -178,7 +178,7 @@ export class ExperimentListView extends Component<Props, State> {
               componentId="mlflow.experiment_list_view.search"
               value={searchInput}
               onChange={this.handleSearchInputChange}
-              suffix={<ModelSearchInputHelpTooltip exampleEntityName="my-prompt-name" />}
+              suffix={<ModelSearchInputHelpTooltip />}
             />
           </TableFilterLayout>
           <ExperimentListTable
