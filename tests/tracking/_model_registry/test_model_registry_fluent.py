@@ -184,7 +184,7 @@ def test_prompt_alias(tmp_path):
     assert mlflow.load_prompt("prompts:/p1@production").template == "Hi, {{name}}!"
 
     mlflow.delete_prompt_alias("p1", alias="production")
-    with pytest.raises(MlflowException, match=r"Prompt (.*) does not exist."):
+    with pytest.raises(MlflowException, match=r"Prompt (.*) does not exist.|Prompt alias (.*) not found."):
         mlflow.load_prompt("prompts:/p1@production")
 
 
