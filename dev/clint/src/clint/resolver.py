@@ -33,8 +33,11 @@ class Resolver:
 
     def add_import(self, node: ast.Import) -> None:
         for alias in node.names:
-            name = alias.asname if alias.asname else alias.name
-            self.name_map[name] = alias.name.split(".")
+            if alias.asname:
+                self.name_map[alias.asname] = alias.name.split(".")
+            else:
+                toplevel = alias.name.split(".", 1)[0]
+                self.name_map[toplevel] = [toplevel]
 
     def add_import_from(self, node: ast.ImportFrom) -> None:
         if node.module is None:
