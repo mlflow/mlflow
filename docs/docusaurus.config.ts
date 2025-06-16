@@ -283,6 +283,10 @@ const config: Config = {
             to: "/genai/mlflow-3/genai-agent",
             from: ["/mlflow-3/genai-agent"],
           },
+          {
+            to: "/genai/mlflow-3",
+            from: ["/ml/mlflow-3"],
+          },
           // GenAI/LLM Related Redirects
           {
             to: "/genai/tracing",
