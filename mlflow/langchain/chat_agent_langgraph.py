@@ -16,7 +16,7 @@ try:
     except ImportError as e:
         # If LangGraph 0.3.x is installed but langgraph_prebuilt is not,
         # show a friendlier error message
-        if Version(importlib.metadata("langgraph").version) >= Version("0.3.0"):
+        if Version(importlib.metadata.version("langgraph")) >= Version("0.3.0"):
             raise ImportError(
                 "Please install `langgraph-prebuilt>=0.1.2` to use MLflow LangGraph ChatAgent "
                 "helpers with LangGraph 0.3.x.\n"
@@ -69,7 +69,7 @@ def _add_agent_messages(left: Union[dict, list[dict]], right: Union[dict, list[d
     return merged
 
 
-@experimental
+@experimental(version="2.21.0")
 class ChatAgentState(TypedDict):
     """
     Helper class that enables building a LangGraph agent that produces ChatAgent-compatible
@@ -104,7 +104,7 @@ class ChatAgentState(TypedDict):
         from langchain_core.runnables import RunnableConfig, RunnableLambda
         from langchain_core.tools import BaseTool
         from langgraph.graph import END, StateGraph
-        from langgraph.graph.graph import CompiledGraph
+        from langgraph.graph.state import CompiledStateGraph
         from langgraph.prebuilt import ToolNode
         from mlflow.langchain.chat_agent_langgraph import ChatAgentState, ChatAgentToolNode
 
@@ -113,7 +113,7 @@ class ChatAgentState(TypedDict):
             model: LanguageModelLike,
             tools: Union[ToolNode, Sequence[BaseTool]],
             agent_prompt: Optional[str] = None,
-        ) -> CompiledGraph:
+        ) -> CompiledStateGraph:
             model = model.bind_tools(tools)
 
             def routing_logic(state: ChatAgentState):
@@ -288,7 +288,7 @@ def parse_message(
     return chat_agent_msg.model_dump_compat(exclude_none=True)
 
 
-@experimental
+@experimental(version="2.21.0")
 class ChatAgentToolNode(ToolNode):
     """
     Helper class to make ToolNodes be compatible with

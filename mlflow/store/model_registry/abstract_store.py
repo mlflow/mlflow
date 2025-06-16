@@ -3,16 +3,21 @@ import logging
 import threading
 from abc import ABCMeta, abstractmethod
 from time import sleep, time
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
+from mlflow.entities.model_registry.model_version_tag import ModelVersionTag
 from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.exceptions import MlflowException
-from mlflow.prompt.constants import IS_PROMPT_TAG_KEY, LINKED_PROMPTS_TAG_KEY, PROMPT_TEXT_TAG_KEY
-from mlflow.prompt.registry_utils import has_prompt_tag
+from mlflow.prompt.constants import (
+    IS_PROMPT_TAG_KEY,
+    LINKED_PROMPTS_TAG_KEY,
+    PROMPT_TEXT_TAG_KEY,
+)
+from mlflow.prompt.registry_utils import has_prompt_tag, model_version_to_prompt_version
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     RESOURCE_ALREADY_EXISTS,
@@ -48,8 +53,8 @@ class AbstractStore:
                 to support subsequently uploading them to the model registry storage
                 location.
         """
-        # Create a thread lock to ensure thread safety when linking prompts to models,
-        # since the default linking implementation reads and appends model tags, which
+        # Create a thread lock to ensure thread safety when linking prompts to other entities,
+        # since the default linking implementation reads and appends entity tags, which
         # is prone to concurrent modification issues
         self._prompt_link_lock = threading.RLock()
 
@@ -716,7 +721,7 @@ class AbstractStore:
         else:
             prompt_tags = {tag.key: tag.value for tag in rm.tags}
 
-        return PromptVersion.from_model_version(mv, prompt_tags=prompt_tags)
+        return model_version_to_prompt_version(mv, prompt_tags=prompt_tags)
 
     def get_prompt_version(self, name: str, version: Union[str, int]) -> Optional[PromptVersion]:
         """
@@ -768,7 +773,7 @@ class AbstractStore:
             else:
                 prompt_tags = {tag.key: tag.value for tag in rm.tags}
 
-            return PromptVersion.from_model_version(mv, prompt_tags=prompt_tags)
+            return model_version_to_prompt_version(mv, prompt_tags=prompt_tags)
 
         except MlflowException:
             raise  # Re-raise MlflowExceptions (including our custom one above)
@@ -856,6 +861,97 @@ class AbstractStore:
             INVALID_PARAMETER_VALUE,
         )
 
+    def link_prompts_to_trace(self, prompt_versions: list[PromptVersion], trace_id: str) -> None:
+        """
+        Link multiple prompt versions to a trace.
+
+        Default implementation sets a tag on the trace. Stores can override with custom behavior.
+
+        Args:
+            prompt_versions: List of PromptVersion objects to link.
+            trace_id: Trace ID to link to each prompt version.
+        """
+        from mlflow.tracking import _get_store as _get_tracking_store
+
+        tracking_store = _get_tracking_store()
+
+        with self._prompt_link_lock:
+            trace_info = tracking_store.get_trace_info(trace_id)
+            if not trace_info:
+                raise MlflowException(
+                    f"Could not find trace with ID '{trace_id}' to which to link prompts.",
+                    error_code=ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
+                )
+
+            # Prepare new prompt entries to add
+            new_prompt_entries = [
+                {
+                    "name": prompt_version.name,
+                    "version": str(prompt_version.version),
+                }
+                for prompt_version in prompt_versions
+            ]
+
+            # Use utility function to update linked prompts tag
+            current_tag_value = trace_info.tags.get(LINKED_PROMPTS_TAG_KEY)
+            updated_tag_value = self._update_linked_prompts_tag(
+                current_tag_value, new_prompt_entries
+            )
+
+            # Only update if the tag value actually changed (avoiding redundant updates)
+            if current_tag_value != updated_tag_value:
+                tracking_store.set_trace_tag(
+                    trace_id,
+                    LINKED_PROMPTS_TAG_KEY,
+                    updated_tag_value,
+                )
+
+    def set_prompt_version_tag(
+        self, name: str, version: Union[str, int], key: str, value: str
+    ) -> None:
+        """
+        Set a tag on a prompt version.
+
+        Default implementation: uses set_model_version_tag on the underlying ModelVersion.
+        Unity Catalog store implementations may override this method.
+
+        Args:
+            name: Name of the prompt.
+            version: Version number of the prompt.
+            key: Tag key.
+            value: Tag value.
+        """
+        # Convert version to int if needed
+        try:
+            version_int = int(version)
+        except (ValueError, TypeError):
+            raise MlflowException(f"Invalid version number: {version}")
+
+        # Create a ModelVersionTag and delegate to the underlying model version method
+        tag = ModelVersionTag(key=key, value=value)
+        return self.set_model_version_tag(name, version_int, tag)
+
+    def delete_prompt_version_tag(self, name: str, version: Union[str, int], key: str) -> None:
+        """
+        Delete a tag from a prompt version.
+
+        Default implementation: uses delete_model_version_tag on the underlying ModelVersion.
+        Unity Catalog store implementations may override this method.
+
+        Args:
+            name: Name of the prompt.
+            version: Version number of the prompt.
+            key: Tag key to delete.
+        """
+        # Convert version to int if needed
+        try:
+            version_int = int(version)
+        except (ValueError, TypeError):
+            raise MlflowException(f"Invalid version number: {version}")
+
+        # Delegate to the underlying model version method
+        return self.delete_model_version_tag(name, version_int, key)
+
     def link_prompt_version_to_model(self, name: str, version: str, model_id: str) -> None:
         """
         Link a prompt version to a model.
@@ -880,41 +976,107 @@ class AbstractStore:
                     error_code=ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
                 )
 
-            prompts_tag_value = logged_model.tags.get(LINKED_PROMPTS_TAG_KEY)
-            if prompts_tag_value is not None:
-                try:
-                    parsed_prompts_tag_value = json.loads(prompts_tag_value)
-                    if not isinstance(parsed_prompts_tag_value, list):
-                        raise MlflowException(
-                            f"Invalid format for '{LINKED_PROMPTS_TAG_KEY}' tag:"
-                            f" {prompts_tag_value}"
+            new_prompt_entry = {
+                "name": prompt_version.name,
+                "version": str(prompt_version.version),
+            }
+
+            current_tag_value = logged_model.tags.get(LINKED_PROMPTS_TAG_KEY)
+            updated_tag_value = self._update_linked_prompts_tag(
+                current_tag_value, [new_prompt_entry]
+            )
+
+            if current_tag_value != updated_tag_value:
+                tracking_store.set_logged_model_tags(
+                    model_id,
+                    [
+                        LoggedModelTag(
+                            key=LINKED_PROMPTS_TAG_KEY,
+                            value=updated_tag_value,
                         )
-                except json.JSONDecodeError:
-                    raise MlflowException(
-                        f"Invalid JSON format for '{LINKED_PROMPTS_TAG_KEY}' tag:"
-                        f" {prompts_tag_value}"
-                    )
-            else:
-                parsed_prompts_tag_value = []
+                    ],
+                )
+
+    def link_prompt_version_to_run(self, name: str, version: str, run_id: str) -> None:
+        """
+        Link a prompt version to a run.
+
+        Default implementation sets a tag. Stores can override with custom behavior.
+
+        Args:
+            name: Name of the prompt.
+            version: Version of the prompt to link.
+            run_id: ID of the run to link to.
+        """
+        from mlflow.tracking import _get_store as _get_tracking_store
+
+        prompt_version = self.get_prompt_version(name, version)
+        tracking_store = _get_tracking_store()
+
+        with self._prompt_link_lock:
+            run = tracking_store.get_run(run_id)
+            if not run:
+                raise MlflowException(
+                    f"Could not find run with ID '{run_id}' to which to link prompt '{name}'.",
+                    error_code=ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
+                )
 
             new_prompt_entry = {
                 "name": prompt_version.name,
-                "version": prompt_version.version,
+                "version": str(prompt_version.version),
             }
 
-            # Check if this exact prompt version is already linked
-            if new_prompt_entry in parsed_prompts_tag_value:
-                return
+            current_tag_value = None
+            if isinstance(run.data.tags, dict):
+                current_tag_value = run.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+            else:
+                for tag in run.data.tags:
+                    if tag.key == LINKED_PROMPTS_TAG_KEY:
+                        current_tag_value = tag.value
+                        break
 
-            # Else, add the new prompt entry
-            parsed_prompts_tag_value.append(new_prompt_entry)
-            # Update the tag
-            tracking_store.set_logged_model_tags(
-                model_id,
-                [
-                    LoggedModelTag(
-                        key=LINKED_PROMPTS_TAG_KEY,
-                        value=json.dumps(parsed_prompts_tag_value),
-                    )
-                ],
+            updated_tag_value = self._update_linked_prompts_tag(
+                current_tag_value, [new_prompt_entry]
             )
+
+            if current_tag_value != updated_tag_value:
+                from mlflow.entities import RunTag
+
+                tracking_store.set_tag(run_id, RunTag(LINKED_PROMPTS_TAG_KEY, updated_tag_value))
+
+    def _update_linked_prompts_tag(
+        self, current_tag_value: str, new_prompt_entries: list[dict[str, Any]]
+    ) -> str:
+        """
+        Utility method to update linked prompts tag value with new entries.
+
+        Args:
+            current_tag_value: Current JSON string value of the linked prompts tag
+            new_prompt_entries: List of prompt entry dicts to add
+
+        Returns:
+            Updated JSON string with new entries added (avoiding duplicates)
+
+        Raises:
+            MlflowException: If current tag value has invalid JSON or format
+        """
+        if current_tag_value is not None:
+            try:
+                parsed_prompts_tag_value = json.loads(current_tag_value)
+                if not isinstance(parsed_prompts_tag_value, list):
+                    raise MlflowException(
+                        f"Invalid format for '{LINKED_PROMPTS_TAG_KEY}' tag: {current_tag_value}"
+                    )
+            except json.JSONDecodeError:
+                raise MlflowException(
+                    f"Invalid JSON format for '{LINKED_PROMPTS_TAG_KEY}' tag: {current_tag_value}"
+                )
+        else:
+            parsed_prompts_tag_value = []
+
+        # Add new prompt entries that aren't already linked
+        for new_prompt_entry in new_prompt_entries:
+            if new_prompt_entry not in parsed_prompts_tag_value:
+                parsed_prompts_tag_value.append(new_prompt_entry)
+
+        return json.dumps(parsed_prompts_tag_value)

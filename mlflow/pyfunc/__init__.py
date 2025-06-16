@@ -1048,7 +1048,7 @@ class PyFuncModel:
             info["flavor"] = self._model_meta.flavors[FLAVOR_NAME]["loader_module"]
         return yaml.safe_dump({"mlflow.pyfunc.loaded_model": info}, default_flow_style=False)
 
-    @experimental
+    @experimental(version="2.16.0")
     def get_raw_model(self):
         """
         Get the underlying raw model if the model wrapper implemented `get_raw_model` function.
@@ -2679,6 +2679,7 @@ e.g., struct<a:int, b:array<int>>.
                     target=server_redirect_log_thread_func,
                     args=(scoring_server_proc.stdout,),
                     daemon=True,
+                    name=f"mlflow_pyfunc_model_server_log_redirector_{uuid.uuid4().hex[:8]}",
                 )
                 server_redirect_log_thread.start()
 

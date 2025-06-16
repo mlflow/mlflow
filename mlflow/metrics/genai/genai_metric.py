@@ -193,7 +193,7 @@ def _get_aggregate_results(scores, aggregations):
     )
 
 
-@experimental
+@experimental(version="2.13.0")
 def make_genai_metric_from_prompt(
     name: str,
     judge_prompt: Optional[str] = None,

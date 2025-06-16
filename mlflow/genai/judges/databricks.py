@@ -347,7 +347,7 @@ def meets_guidelines(
     )
 
 
-@experimental
+@experimental(version="3.0.0")
 @requires_databricks_agents
 def custom_prompt_judge(
     *,

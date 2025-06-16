@@ -166,7 +166,7 @@ class ArtifactRepository:
         """
 
     @abstractmethod
-    def list_artifacts(self, path: Optional[str] = None) -> list:
+    def list_artifacts(self, path: Optional[str] = None) -> list[FileInfo]:
         """
         Return all the artifacts for this run_id directly under path. If path is a file, returns
         an empty list. Will error if path is neither a file nor directory.

@@ -90,7 +90,11 @@ class MlflowStorage(BaseStorage):
         self._stop_worker = False
 
         # Start a background thread for periodic flushing
-        self._flush_thread = threading.Thread(target=self._periodic_flush_worker, daemon=True)
+        self._flush_thread = threading.Thread(
+            target=self._periodic_flush_worker,
+            daemon=True,
+            name=f"mlflow_optuna_batch_flush_worker_{uuid.uuid4().hex[:8]}",
+        )
         self._flush_thread.start()
 
     def __getstate__(self):
@@ -536,7 +540,12 @@ class MlflowStorage(BaseStorage):
         self._flush_batch(trial_id)
 
         trial_run = self._mlflow_client.get_run(trial_id)
-        distributions_dict = json.loads(trial_run.data.tags["param_directions"])
+        param_directions = trial_run.data.tags["param_directions"]
+        try:
+            distributions_dict = json.loads(param_directions)
+        except json.decoder.JSONDecodeError as e:
+            raise ValueError(f"error with param_directions = {param_directions!r}") from e
+
         distributions = {
             k: json_to_distribution(distribution) for k, distribution in distributions_dict.items()
         }

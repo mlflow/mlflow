@@ -515,6 +515,8 @@ def test_pyfunc_cli_predict_command_without_conda_env_activation_succeeds(
     output_json_path = os.path.join(tmp_path, "output.json")
     process = Popen(
         [
+            sys.executable,
+            "-m",
             "mlflow",
             "models",
             "predict",
@@ -566,6 +568,8 @@ def test_pyfunc_cli_predict_command_with_conda_env_activation_succeeds(
     output_json_path = os.path.join(tmp_path, "output.json")
     process = Popen(
         [
+            sys.executable,
+            "-m",
             "mlflow",
             "models",
             "predict",

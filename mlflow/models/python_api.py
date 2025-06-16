@@ -98,7 +98,7 @@ _CONTENT_TYPE_CSV = "csv"
 _CONTENT_TYPE_JSON = "json"
 
 
-@experimental
+@experimental(version="2.18.0")
 def predict(
     model_uri,
     input_data=None,

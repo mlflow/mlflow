@@ -18,7 +18,7 @@ from mlflow.utils.autologging_utils import (
 FLAVOR_NAME = "autogen"
 
 
-@experimental
+@experimental(version="2.16.0")
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_traces: bool = True,

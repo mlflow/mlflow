@@ -14,6 +14,7 @@ from typing import Any, Iterator, Union
 from clint import rules
 from clint.builtin import BUILTIN_MODULES
 from clint.config import Config
+from clint.resolver import Resolver
 
 PARAM_REGEX = re.compile(r"\s+:param\s+\w+:", re.MULTILINE)
 RETURN_REGEX = re.compile(r"\s+:returns?:", re.MULTILINE)
@@ -302,6 +303,7 @@ class Linter(ast.NodeVisitor):
         self.imported_modules: set[str] = set()
         self.lazy_modules: dict[str, Location] = {}
         self.offset = offset or Location(0, 0)
+        self.resolver = Resolver()
 
     def _check(self, loc: Location, rule: rules.Rule) -> None:
         if (lines := self.ignore.get(rule.name)) and loc.lineno in lines:
@@ -404,12 +406,19 @@ class Linter(ast.NodeVisitor):
         linter.visit(tree)
         return [v for v in linter.violations if v.rule.name in config.example_rules]
 
+    def visit_decorator(self, node: ast.expr) -> None:
+        if rules.InvalidExperimentalDecorator.check(node, self.resolver):
+            self._check(Location.from_node(node), rules.InvalidExperimentalDecorator())
+
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         self.stack.append(node)
         self._no_rst(node)
         self._syntax_error_example(node)
         self._mlflow_class_name(node)
-        self.generic_visit(node)
+        for deco in node.decorator_list:
+            self.visit_decorator(deco)
+        with self.resolver.scope():
+            self.generic_visit(node)
         self.stack.pop()
 
     def _syntax_error_example(
@@ -460,7 +469,7 @@ class Linter(ast.NodeVisitor):
         if not self.path.name.startswith("test_"):
             return
 
-        if rules.PytestMarkRepeat.check(node):
+        if rules.PytestMarkRepeat.check(node, self.resolver):
             self._check(Location.from_node(node), rules.PytestMarkRepeat())
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
@@ -480,7 +489,10 @@ class Linter(ast.NodeVisitor):
 
         self.stack.append(node)
         self._no_rst(node)
-        self.generic_visit(node)
+        for deco in node.decorator_list:
+            self.visit_decorator(deco)
+        with self.resolver.scope():
+            self.generic_visit(node)
         self.stack.pop()
 
     def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
@@ -492,10 +504,14 @@ class Linter(ast.NodeVisitor):
         self._pytest_mark_repeat(node)
         self.stack.append(node)
         self._no_rst(node)
-        self.generic_visit(node)
+        for deco in node.decorator_list:
+            self.visit_decorator(deco)
+        with self.resolver.scope():
+            self.generic_visit(node)
         self.stack.pop()
 
     def visit_Import(self, node: ast.Import) -> None:
+        self.resolver.add_import(node)
         for alias in node.names:
             root_module = alias.name.split(".", 1)[0]
             if self._is_in_function() and root_module in BUILTIN_MODULES:
@@ -519,6 +535,8 @@ class Linter(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
+        self.resolver.add_import_from(node)
+
         root_module = node.module and node.module.split(".", 1)[0]
         if self._is_in_function() and root_module in BUILTIN_MODULES:
             self._check(Location.from_node(node), rules.LazyBuiltinImport())
@@ -622,11 +640,16 @@ class Linter(ast.NodeVisitor):
         if self._log_model_with_artifact_path(node):
             self._check(Location.from_node(node), rules.LogModelArtifactPath())
 
-        if rules.UseSysExecutable.check(node):
+        if rules.UseSysExecutable.check(node, self.resolver):
             self._check(Location.from_node(node), rules.UseSysExecutable())
 
-        if self.path.parts[0] != "tests" and _is_set_active_model(node.func):
+        if self.path.parts[0] != "tests" and rules.ForbiddenSetActiveModelUsage.check(
+            node, self.resolver
+        ):
             self._check(Location.from_node(node), rules.ForbiddenSetActiveModelUsage())
+
+        if self.path.parts[0] != "tests" and rules.UnnamedThread.check(node, self.resolver):
+            self._check(Location.from_node(node), rules.UnnamedThread())
 
         self.generic_visit(node)
 
