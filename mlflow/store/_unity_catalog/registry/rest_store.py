@@ -1743,13 +1743,13 @@ class UcModelRegistryStore(BaseRestStore):
     def _add_aliases_to_prompt_version(self, prompt_version: PromptVersion) -> PromptVersion:
         """
         Fetch prompt-level aliases and attach all aliases that point to this version.
-        
+
         Uses the get_prompt method which returns a Prompt entity with aliases as a dict
         {alias: version}, then filters to find aliases pointing to this version.
-        
+
         Args:
             prompt_version: The PromptVersion object to enhance with aliases
-            
+
         Returns:
             PromptVersion with all relevant aliases attached
         """
