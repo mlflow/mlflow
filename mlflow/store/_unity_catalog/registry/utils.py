@@ -55,12 +55,18 @@ def proto_info_to_mlflow_prompt_info(
     if prompt_tags:
         tags.update(prompt_tags)
 
-    return Prompt(
+    # Extract aliases if they exist - convert to dict {alias: version}
+    aliases = {}
+    if hasattr(proto_info, "aliases") and proto_info.aliases:
+        aliases = {alias.alias: alias.version for alias in proto_info.aliases}
+
+    prompt = Prompt(
         name=proto_info.name,
         description=proto_info.description,
         tags=tags,
+        aliases=aliases,
     )
-
+    return prompt
 
 def proto_to_mlflow_prompt(
     proto_version,  # PromptVersion type from protobuf
@@ -84,7 +90,7 @@ def proto_to_mlflow_prompt(
         raise ValueError("Prompt is missing its version field.")
     version = int(proto_version.version)
 
-    return PromptVersion(
+    prompt_version = PromptVersion(
         name=proto_version.name,
         version=version,
         template=proto_version.template,
@@ -93,6 +99,7 @@ def proto_to_mlflow_prompt(
         tags=version_tags,
         aliases=aliases,
     )
+    return prompt_version
 
 
 def mlflow_prompt_to_proto(prompt: PromptVersion) -> ProtoPromptVersion:
@@ -111,7 +118,7 @@ def mlflow_prompt_to_proto(prompt: PromptVersion) -> ProtoPromptVersion:
         proto_version.tags.extend(mlflow_tags_to_proto_version_tags(prompt.tags))
 
     # Add aliases
-    if prompt.aliases:
+    if hasattr(prompt, 'aliases') and prompt.aliases:
         for alias in prompt.aliases:
             alias_proto = ProtoPromptAlias()
             alias_proto.alias = alias
