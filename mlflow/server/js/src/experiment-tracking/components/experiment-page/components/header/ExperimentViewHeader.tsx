@@ -2,13 +2,15 @@ import React, { useMemo } from 'react';
 import {
   Breadcrumb,
   Button,
+  DropdownMenu,
   GenericSkeleton,
   NewWindowIcon,
+  OverflowIcon,
   Typography,
   useDesignSystemTheme,
 } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { PageHeader } from '../../../../../shared/building_blocks/PageHeader';
+import { OverflowMenu, PageHeader } from '../../../../../shared/building_blocks/PageHeader';
 import { ExperimentViewCopyTitle } from './ExperimentViewCopyTitle';
 import { ExperimentViewHeaderShareButton } from './ExperimentViewHeaderShareButton';
 import { ExperimentEntity } from '../../../../types';

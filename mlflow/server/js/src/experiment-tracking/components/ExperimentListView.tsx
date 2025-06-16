@@ -22,6 +22,7 @@ import {
   Popover,
   InfoIcon,
   Typography,
+  Alert,
 } from '@databricks/design-system';
 import 'react-virtualized/styles.css';
 import { Link } from '../../common/utils/RoutingUtils';
@@ -47,7 +48,6 @@ import { ScrollablePageWrapper } from '../../common/components/ScrollablePageWra
 import { ExperimentSearchSyntaxDocUrl } from '../../common/constants';
 
 type Props = {
-  activeExperimentIds: string[];
   experiments: ExperimentEntity[];
   pagination: Pick<
     ReturnType<typeof useExperimentListQuery>,
@@ -71,7 +71,7 @@ export class ExperimentListView extends Component<Props, State> {
   };
 
   state = {
-    checkedKeys: this.props.activeExperimentIds,
+    checkedKeys: [] as string[],
     searchInput: '',
     showCreateExperimentModal: false,
   };
@@ -171,6 +171,17 @@ export class ExperimentListView extends Component<Props, State> {
           }
         />
         <Spacer shrinks={false} />
+        {error && (
+          <>
+            <Alert
+              type="error"
+              message={error.message || 'A network error occurred.'}
+              componentId="mlflow.experiment_list_view.error"
+              closable={false}
+            />
+            <Spacer />
+          </>
+        )}
         <div css={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <TableFilterLayout>
             <TableFilterInput
@@ -207,15 +218,13 @@ export class ExperimentListView extends Component<Props, State> {
 export default withRouterNext(WithDesignSystemThemeHoc(ExperimentListView));
 
 const ExperimentListTableCell: ColumnDef<ExperimentEntity>['cell'] = ({ row: { original } }) => {
-  // const dataTestId = isActive ? 'active-experiment-list-item' : 'experiment-list-item';
   return (
     <Link
       className="experiment-link"
       css={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}
       to={Routes.getExperimentPageRoute(original.experimentId)}
       title={original.name}
-      // onClick={() => this.setState({ checkedKeys: [item.experimentId] })}
-      // data-testid={`${dataTestId}-link`}
+      data-testid="experiment-list-item-link"
     >
       {original.name}
     </Link>

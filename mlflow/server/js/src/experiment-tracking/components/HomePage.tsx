@@ -1,11 +1,8 @@
 import ExperimentListView from './ExperimentListView';
-import { useExperimentIds } from './experiment-page/hooks/useExperimentIds';
 import { useExperimentListQuery } from './experiment-page/hooks/useExperimentListQuery';
 import { Spinner } from '@databricks/design-system';
 
 const HomePage = () => {
-  const experimentIds = useExperimentIds();
-
   const {
     data: experiments,
     error,
@@ -24,14 +21,11 @@ const HomePage = () => {
 
   if (isLoading) {
     return loadingState;
-  } else if (!experiments) {
-    throw new Error('No experiments found'); // FIXME
   } else {
     return (
       <>
         <ExperimentListView
-          activeExperimentIds={experimentIds || []}
-          experiments={experiments}
+          experiments={experiments || []}
           pagination={{
             error,
             isLoading,
