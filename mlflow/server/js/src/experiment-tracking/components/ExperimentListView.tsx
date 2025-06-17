@@ -219,36 +219,50 @@ const ModelSearchInputHelpTooltip = () => {
       <Popover.Content align="start">
         <div>
           <FormattedMessage {...tooltipIntroMessage} />
-          <br /> The syntax is a subset of SQL that supports ANDing together binary operations between an attribute or
-          tag, and a constant.
-          <br />
-          <FormattedMessage
-            defaultMessage="<link>Learn more</link>"
-            description="Learn more tooltip link to learn more on how to search experiments"
-            values={{
-              link: (chunks) => (
-                <Typography.Link
-                  componentId="codegen_mlflow_app_src_model-registry_components_model-list_modellistfilters.tsx_61"
-                  href={ExperimentSearchSyntaxDocUrl + '#syntax'}
-                  openInNewTab
-                >
-                  {chunks}
-                </Typography.Link>
-              ),
-            }}
-          />
-          <br />
-          <br />
-          <FormattedMessage defaultMessage="Examples:" description="Text header for examples of mlflow search syntax" />
-          <br />
-          • "attributes.name = 'x'" # or "name = 'x'"
-          <br />
-          • "attributes.name LIKE 'x%'"
-          <br />
-          • "tags.group != 'x'"
-          <br />
-          • "tags.group ILIKE '%x%'"
-          <br />• "attributes.name LIKE 'x%' AND tags.group = 'y'"
+          <Typography.Paragraph>
+            The syntax is a subset of SQL that supports ANDing together binary operations between an attribute or tag,
+            and a constant.
+          </Typography.Paragraph>
+          <Typography.Paragraph>
+            <FormattedMessage
+              defaultMessage="<link>Learn more</link>"
+              description="Learn more tooltip link to learn more on how to search experiments"
+              values={{
+                link: (chunks) => (
+                  <Typography.Link
+                    componentId="codegen_mlflow_app_src_model-registry_components_model-list_modellistfilters.tsx_61"
+                    href={ExperimentSearchSyntaxDocUrl + '#syntax'}
+                    openInNewTab
+                  >
+                    {chunks}
+                  </Typography.Link>
+                ),
+              }}
+            />
+          </Typography.Paragraph>
+          <Typography.Paragraph>
+            <FormattedMessage
+              defaultMessage="Examples:"
+              description="Text header for examples of mlflow search syntax"
+            />
+          </Typography.Paragraph>
+          <ul>
+            <li>
+              <Typography.Text>"attributes.name = 'x'" # or "name = 'x'"</Typography.Text>
+            </li>
+            <li>
+              <Typography.Text>"attributes.name LIKE 'x%'"</Typography.Text>
+            </li>
+            <li>
+              <Typography.Text>"tags.group != 'x'"</Typography.Text>
+            </li>
+            <li>
+              <Typography.Text>"tags.group ILIKE '%x%'"</Typography.Text>
+            </li>
+            <li>
+              <Typography.Text>"attributes.name LIKE 'x%' AND tags.group = 'y'"</Typography.Text>
+            </li>
+          </ul>
         </div>
         <Popover.Arrow />
       </Popover.Content>
