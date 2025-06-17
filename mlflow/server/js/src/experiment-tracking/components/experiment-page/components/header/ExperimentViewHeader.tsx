@@ -1,4 +1,4 @@
-import React, { useContext, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Button, GenericSkeleton, NewWindowIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { OverflowMenu, PageHeader } from '../../../../../shared/building_blocks/PageHeader';
@@ -15,9 +15,7 @@ import { EXPERIMENT_PAGE_FEEDBACK_URL } from '@mlflow/mlflow/src/experiment-trac
 import { Link, useNavigate } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
 import { DeleteExperimentModal } from '../../../modals/DeleteExperimentModal';
-import { defaultContext, QueryClient } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
-import { ExperimentListQueryKeyHeader } from '../../hooks/useExperimentListQuery';
-import { flushSync } from 'react-dom';
+import { useInvalidateExperimentList } from '../../hooks/useExperimentListQuery';
 
 /**
  * Header for a single experiment page. Displays title, breadcrumbs and provides
@@ -37,10 +35,7 @@ export const ExperimentViewHeader = React.memo(
     showAddDescriptionButton: boolean;
     setEditing: (editing: boolean) => void;
   }) => {
-    const context = useContext(defaultContext);
-    function invalidateExperimentList() {
-      context?.invalidateQueries({ queryKey: [ExperimentListQueryKeyHeader] });
-    }
+    const invalidateExperimentList = useInvalidateExperimentList();
 
     const [showDeleteExperimentModal, setShowDeleteExperimentModal] = useState(false);
 

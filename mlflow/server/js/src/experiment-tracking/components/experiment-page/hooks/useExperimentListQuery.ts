@@ -1,11 +1,18 @@
-import { useQuery, QueryFunctionContext } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import { useQuery, QueryFunctionContext, defaultContext } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 import { MlflowService } from '../../../sdk/MlflowService';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useContext, useRef, useState } from 'react';
 import { SearchExperimentsApiResponse } from '../../../types';
 
-export const ExperimentListQueryKeyHeader = 'experiment_list';
+const ExperimentListQueryKeyHeader = 'experiment_list';
 
 type ExperimentListQueryKey = [typeof ExperimentListQueryKeyHeader, { searchFilter?: string; pageToken?: string }];
+
+export const useInvalidateExperimentList = () => {
+  const context = useContext(defaultContext);
+  return () => {
+    context?.invalidateQueries({ queryKey: [ExperimentListQueryKeyHeader] });
+  };
+};
 
 const queryFn = ({ queryKey }: QueryFunctionContext<ExperimentListQueryKey>) => {
   const [, { searchFilter, pageToken }] = queryKey;

@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react';
+import React, { useState } from 'react';
 import { Theme } from '@emotion/react';
 import {
   WithDesignSystemThemeHoc,
@@ -19,8 +19,7 @@ import Routes from '../routes';
 import { CreateExperimentModal } from './modals/CreateExperimentModal';
 import { withRouterNext, WithRouterNextProps } from '../../common/utils/withRouterNext';
 import { ExperimentEntity } from '../types';
-import { defaultContext } from '../../common/utils/reactQueryHooks';
-import { ExperimentListQueryKeyHeader } from './experiment-page/hooks/useExperimentListQuery';
+import { useInvalidateExperimentList } from './experiment-page/hooks/useExperimentListQuery';
 import { RowSelectionState } from '@tanstack/react-table';
 import { defineMessage, FormattedMessage, useIntl } from 'react-intl';
 import { ScrollablePageWrapper } from '../../common/components/ScrollablePageWrapper';
@@ -34,11 +33,7 @@ type Props = {
   DesignSystemHocProps;
 
 export const ExperimentListView = (props: Props) => {
-  const context = useContext(defaultContext);
-
-  const invalidateExperimentList = () => {
-    context?.invalidateQueries({ queryKey: [ExperimentListQueryKeyHeader] });
-  };
+  const invalidateExperimentList = useInvalidateExperimentList();
 
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [searchInput, setSearchInput] = useState('');
