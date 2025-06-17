@@ -89,3 +89,7 @@ STREAM_CHUNK_EVENT_VALUE_KEY = "mlflow.chunk.value"
 DATABRICKS_OPTIONS_KEY = "databricks_options"
 RETURN_TRACE_OPTION_KEY = "return_trace"
 DATABRICKS_OUTPUT_KEY = "databricks_output"
+
+# Assessment constants
+ASSESSMENT_ID_PREFIX = "a-"
+ASSESSMENT_TAG_KEY_PREFIX = "mlflow.assessment."

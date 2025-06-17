@@ -17,6 +17,8 @@ from packaging.version import Version
 
 from mlflow.exceptions import BAD_REQUEST, MlflowTracingException
 from mlflow.tracing.constant import (
+    ASSESSMENT_ID_PREFIX,
+    ASSESSMENT_TAG_KEY_PREFIX,
     TRACE_REQUEST_ID_PREFIX,
     SpanAttributeKey,
     TokenUsageKey,
@@ -543,3 +545,30 @@ def update_trace_state_from_span_conditionally(trace, root_span):
     # and we should preserve it
     if trace.info.state == TraceState.IN_PROGRESS:
         trace.info.state = TraceState.from_otel_status(root_span.status)
+
+
+def generate_assessment_id() -> str:
+    """
+    Generates an assessment ID of the form 'a-<uuid4>' in hex string format.
+
+    Returns:
+        A unique identifier for an assessment that will be logged to a trace tag.
+    """
+    id = uuid.uuid4().hex
+    return f"{ASSESSMENT_ID_PREFIX}{id}"
+
+
+def generate_assessment_key(name: str, assessment_id: str) -> str:
+    """
+    Generates a hybrid assessment key for use in storing within trace tags.
+
+    Args:
+        name: The name of the assessment.
+        assessment_id: The backend generated assessment ID created when
+            logging an assessment.
+
+    Returns:
+        A constructed unique key for a given assessment for disambiguating
+        assessments that are attached to traces.
+    """
+    return f"{ASSESSMENT_TAG_KEY_PREFIX}.{name}.{assessment_id}"

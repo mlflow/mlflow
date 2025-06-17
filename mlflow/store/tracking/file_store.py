@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from typing import Any, NamedTuple, Optional
 
 from mlflow.entities import (
+    Assessment,
     Dataset,
     DatasetInput,
     Experiment,
@@ -58,7 +59,12 @@ from mlflow.store.tracking import (
     SEARCH_TRACES_DEFAULT_MAX_RESULTS,
 )
 from mlflow.store.tracking.abstract_store import AbstractStore
-from mlflow.tracing.utils import generate_request_id_v2
+from mlflow.tracing.constant import ASSESSMENT_TAG_KEY_PREFIX
+from mlflow.tracing.utils import (
+    generate_assessment_id,
+    generate_assessment_key,
+    generate_request_id_v2,
+)
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.file_utils import (
     append_to,
@@ -1822,6 +1828,101 @@ class FileStore(AbstractStore):
                 RESOURCE_DOES_NOT_EXIST,
             )
         os.remove(tag_path)
+
+    def get_assessment(self, trace_id: str, assessment_id: str) -> Assessment:
+        """
+        Retrieves a specific assessment associated with a trace from the file store.
+
+        Searches through the trace's tags to find the assessment with the specified ID
+        and deserializes it from JSON storage.
+
+        Args:
+            trace_id: The unique identifier of the trace containing the assessment.
+            assessment_id: The unique identifier of the assessment to retrieve.
+
+        Returns:
+            Assessment: The requested assessment object (either Expectation or Feedback).
+
+        Raises:
+            MlflowException: If the trace_id is not found, if no assessment with the
+                specified assessment_id exists for the trace, or if the stored
+                assessment data cannot be deserialized.
+        """
+        trace_dir = self._find_trace_dir(trace_id, assert_exists=True)
+
+        trace_tags = self._get_dict_from_trace_sub_folder(
+            trace_dir, FileStore.TRACE_TAGS_FOLDER_NAME
+        )
+
+        assessment_tag_value = None
+        for tag_key, tag_value in trace_tags.items():
+            if tag_key.startswith(ASSESSMENT_TAG_KEY_PREFIX) and tag_key.endswith(
+                f".{assessment_id}"
+            ):
+                assessment_tag_value = tag_value
+                break
+
+        if assessment_tag_value is None:
+            raise MlflowException.invalid_parameter_value(
+                f"Assessment with ID '{assessment_id}' not found for trace '{trace_id}'"
+            )
+
+        try:
+            assessment_dict = json.loads(assessment_tag_value)
+            return Assessment.from_dictionary(assessment_dict)
+        except (json.JSONDecodeError, KeyError, ValueError) as e:
+            raise MlflowException.invalid_parameter_value(
+                f"Failed to deserialize assessment data for ID '{assessment_id}'"
+            ) from e
+
+    def create_assessment(self, trace_id: str, assessment: Assessment) -> Assessment:
+        """
+        Logs a defined assessment on a trace as a tag.
+
+        This method creates a new assessment record associated with a specific trace by:
+        1. Validating the trace exists
+        2. Generating a unique assessment ID  
+        3. Setting creation and update timestamps
+        4. Storing the assessment as a JSON-serialized trace tag
+        5. Returning the updated assessment object with backend-generated metadata
+
+        Args:
+            trace_id: The unique identifier of the trace to associate the assessment with.
+                Must be a valid trace ID that exists in the tracking store.
+            assessment: The assessment object to log. Can be either an Expectation or
+                Feedback instance. The assessment will be modified in-place to include
+                the generated assessment_id and timestamps.
+
+        Returns:
+            Assessment: The input assessment object updated with backend-generated metadata.
+
+        Raises:
+            MlflowException: If the trace doesn't exist, assessment serialization fails,
+                or there's an error setting the trace tag.
+        """
+        self.get_trace_info(trace_id)
+        
+        assessment_id = generate_assessment_id()
+        creation_timestamp = int(time.time() * 1000)
+
+        assessment.assessment_id = assessment_id
+        assessment.trace_id = trace_id
+        assessment.create_time_ms = creation_timestamp
+        assessment.last_update_time_ms = creation_timestamp
+
+        assessment_key = generate_assessment_key(assessment.name, assessment_id)
+        _validate_tag_name(assessment_key)
+
+        try:
+            assessment_value = json.dumps(assessment.to_dictionary())
+        except Exception as e:
+            raise MlflowException.invalid_parameter_value(
+                f"Failed to serialize assessment to JSON."
+            ) from e
+
+        self.set_trace_tag(request_id=trace_id, key=assessment_key, value=assessment_value)
+        
+        return assessment
 
     def _delete_traces(
         self,
