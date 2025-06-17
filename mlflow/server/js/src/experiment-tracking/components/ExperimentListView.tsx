@@ -25,7 +25,7 @@ import { RowSelectionState } from '@tanstack/react-table';
 import { defineMessage, FormattedMessage, useIntl } from 'react-intl';
 import { ScrollablePageWrapper } from '../../common/components/ScrollablePageWrapper';
 import { ExperimentSearchSyntaxDocUrl } from '../../common/constants';
-import { ExperimentListTable } from './ExperimentViewTable';
+import { ExperimentListTable } from './ExperimentListTable';
 
 type Props = {
   experiments: ExperimentEntity[];
