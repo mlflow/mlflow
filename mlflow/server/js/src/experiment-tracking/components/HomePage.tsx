@@ -3,15 +3,7 @@ import { useExperimentListQuery } from './experiment-page/hooks/useExperimentLis
 import { Spinner } from '@databricks/design-system';
 
 const HomePage = () => {
-  const {
-    data: experiments,
-    error,
-    isLoading,
-    onNextPage,
-    onPreviousPage,
-    hasNextPage,
-    hasPreviousPage,
-  } = useExperimentListQuery();
+  const { data: experiments, error, isLoading } = useExperimentListQuery();
 
   const loadingState = (
     <div css={{ height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
@@ -23,19 +15,7 @@ const HomePage = () => {
     return loadingState;
   }
 
-  return (
-    <ExperimentListView
-      experiments={experiments || []}
-      pagination={{
-        error,
-        isLoading,
-        onNextPage,
-        onPreviousPage,
-        hasNextPage,
-        hasPreviousPage,
-      }}
-    />
-  );
+  return <ExperimentListView experiments={experiments || []} error={error} />;
 };
 
 export default HomePage;

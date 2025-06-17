@@ -20,7 +20,7 @@ import { CreateExperimentModal } from './modals/CreateExperimentModal';
 import { withRouterNext, WithRouterNextProps } from '../../common/utils/withRouterNext';
 import { ExperimentEntity } from '../types';
 import { defaultContext } from '../../common/utils/reactQueryHooks';
-import { ExperimentListQueryKeyHeader, useExperimentListQuery } from './experiment-page/hooks/useExperimentListQuery';
+import { ExperimentListQueryKeyHeader } from './experiment-page/hooks/useExperimentListQuery';
 import { RowSelectionState, Updater } from '@tanstack/react-table';
 import { defineMessage, FormattedMessage, useIntl } from 'react-intl';
 import { ScrollablePageWrapper } from '../../common/components/ScrollablePageWrapper';
@@ -29,10 +29,7 @@ import { ExperimentListTable } from './ExperimentViewTable';
 
 type Props = {
   experiments: ExperimentEntity[];
-  pagination: Pick<
-    ReturnType<typeof useExperimentListQuery>,
-    'hasNextPage' | 'hasPreviousPage' | 'onNextPage' | 'onPreviousPage' | 'isLoading' | 'error'
-  >;
+  error?: Error;
 } & WithRouterNextProps &
   DesignSystemHocProps;
 
@@ -94,8 +91,7 @@ export const ExperimentListView = (props: Props) => {
     );
   };
 
-  const { pagination, designSystemThemeApi } = props;
-  const { error, isLoading, onNextPage, onPreviousPage, hasNextPage, hasPreviousPage } = pagination;
+  const { designSystemThemeApi, error } = props;
   const { theme } = designSystemThemeApi;
 
   const filteredExperiments = filterExperiments(searchInput);
@@ -159,13 +155,7 @@ export const ExperimentListView = (props: Props) => {
         </TableFilterLayout>
         <ExperimentListTable
           experiments={filteredExperiments}
-          error={error}
-          hasNextPage={hasNextPage}
-          hasPreviousPage={hasPreviousPage}
-          isLoading={isLoading}
           isFiltered={Boolean(searchInput)}
-          onNextPage={onNextPage}
-          onPreviousPage={onPreviousPage}
           rowSelection={getSelectedRows()}
           setRowSelection={setSelectedRows}
         />

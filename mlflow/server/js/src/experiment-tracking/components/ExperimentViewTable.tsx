@@ -26,6 +26,7 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import Utils from '../../common/utils/Utils';
 import { Link } from '../../common/utils/RoutingUtils';
 import Routes from '../routes';
+import { useExperimentListQuery } from './experiment-page/hooks/useExperimentListQuery';
 
 type ExperimentTableColumnDef = ColumnDef<ExperimentEntity>;
 
@@ -78,28 +79,18 @@ const useExperimentsTableColumns = () => {
 
 export const ExperimentListTable = ({
   experiments,
-  hasNextPage,
-  hasPreviousPage,
-  isLoading,
   isFiltered,
-  onNextPage,
-  onPreviousPage,
   rowSelection,
   setRowSelection,
 }: {
   experiments?: ExperimentEntity[];
-  error?: Error;
-  hasNextPage: boolean;
-  hasPreviousPage: boolean;
-  isLoading?: boolean;
   isFiltered?: boolean;
-  onNextPage: () => void;
-  onPreviousPage: () => void;
   rowSelection: RowSelectionState;
   setRowSelection: OnChangeFn<RowSelectionState>;
 }) => {
   const { theme } = useDesignSystemTheme();
   const columns = useExperimentsTableColumns();
+  const { isLoading, onNextPage, onPreviousPage, hasNextPage, hasPreviousPage } = useExperimentListQuery();
 
   const table = useReactTable({
     data: experiments ?? [],
