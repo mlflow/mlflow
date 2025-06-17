@@ -110,7 +110,7 @@ article ul ul ul {
   --letter-spacing-label: 8%;
 
   /* Map to Docusaurus variables */
-  --ifm-font-size-base: var(--font-size-body-m);
+  --ifm-font-size-base: var(--font-size-body-s);
   --ifm-line-height-base: 1.4;
   --ifm-h1-font-size: var(--font-size-h1);
   --ifm-h2-font-size: var(--font-size-h2);
@@ -136,6 +136,7 @@ article ul ul ul {
   /* Light mode colors */
   --ifm-border-color: #6B7280;
   --ifm-color-emphasis-hover: #000000;
+  --ifm-link-color: #0194e2;
 
   /* Classic ML - Blue theme (default) */
   --ifm-color-primary: #0194e2;
@@ -188,10 +189,9 @@ article ul ul ul {
   --ifm-footer-link-color: #ebedf0;
 }
 
-/* Apply typography directly to elements based on designer specs */
 body {
   font-family: var(--ifm-font-family-base);
-  font-size: var(--font-size-body-m);
+  font-size: var(--font-size-body-s);
   font-weight: var(--font-weight-regular);
   line-height: var(--line-height-body);
   letter-spacing: var(--letter-spacing-body);
@@ -199,7 +199,7 @@ body {
 
 /* Unified link styling for both Classic ML and GenAI modes */
 a {
-  color: var(--ifm-border-color);
+  color: var(--ifm-link-color);
   text-decoration: none;
   transition: color 0.2s ease;
 }
@@ -207,6 +207,7 @@ a {
 a:hover {
   color: var(--ifm-color-emphasis-hover);
   text-decoration: none;
+  font-weight: bold;
 }
 
 /* Exception for sidebar links which have their own styling */
@@ -323,6 +324,7 @@ code, pre, kbd {
   /* Dark mode colors */
   --ifm-border-color: #9CA3AF;
   --ifm-color-emphasis-hover: #FFFFFF;
+  --ifm-link-color: #43c9ed;
 
   /* Inverted shadows */
   --card-shadow1: rgba(162, 162, 162, 0.5);
