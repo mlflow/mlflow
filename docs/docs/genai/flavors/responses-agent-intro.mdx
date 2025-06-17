@@ -331,6 +331,42 @@ The `ResponsesAgent` interface extends all functionality previously available in
 }
 ```
 
+## Migrating from a LangGraph or LangChain agent
+
+Using the helpers above, we can migrate with a few lines of code to wrap a LangGraph/LangChain agent with ResponsesAgent:
+
+LangGraph
+
+````python
+class WrappedLGAgent(ResponsesAgent):
+    def __init__(self, agent: CompiledStateGraph):
+        self.agent = agent
+
+    @mlflow.trace(span_type=SpanType.AGENT)
+    def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
+        outputs = [
+            event.item
+            for event in self.predict_stream(request)
+            if event.type == "response.output_item.done"
+        ]
+        return ResponsesAgentResponse(output=outputs, custom_outputs=request.custom_inputs)
+
+    @mlflow.trace(span_type=SpanType.AGENT)
+    def predict_stream(
+        self,
+        request: ResponsesAgentRequest,
+    ) -> Generator[ResponsesAgentStreamEvent, None, None]:
+        cc_msgs = self._prep_msgs_for_cc_llm(request.input)
+
+        for event in self.agent.stream({"messages": cc_msgs}, stream_mode="updates"):
+            for node_data in event.values():
+                for msg in convert_to_openai_messages(node_data["messages"]):
+                    items = self._cc_to_responses(msg)
+                    for item in items:
+                        yield ResponsesAgentStreamEvent(type="response.output_item.done", item=item)
+```
+
+
 ## Simple Chat Example
 
 Here's an example of an agent that calls OpenAI's gpt-4o model with a simple tool:
@@ -376,7 +412,7 @@ class SimpleResponsesAgent(ResponsesAgent):
 mlflow.openai.autolog()
 agent = SimpleResponsesAgent(model="gpt-4o")
 set_model(agent)
-```
+````
 
 ## Tool Calling Example
 
