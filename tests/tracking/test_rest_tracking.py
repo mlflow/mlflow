@@ -44,7 +44,6 @@ from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
     MLFLOW_SERVER_GRAPHQL_MAX_ALIASES,
-    MLFLOW_SERVER_GRAPHQL_MAX_DEPTH,
     MLFLOW_SERVER_GRAPHQL_MAX_ROOT_FIELDS,
     MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT,
 )
@@ -2166,7 +2165,7 @@ def test_graphql_handler_batching_raise_error(mlflow_client):
 
     # Test max depth limit
     inner = "name"
-    for _ in range(int(MLFLOW_SERVER_GRAPHQL_MAX_DEPTH.get()) + 2):
+    for _ in range(12):
         inner = f"name {{ {inner} }}"
     deep_query = (
         'query testQuery { mlflowGetExperiment(input: {experimentId: "123"}) { experiment { '
@@ -2181,10 +2180,26 @@ def test_graphql_handler_batching_raise_error(mlflow_client):
         },
     )
     assert response.status_code == 200
-    assert (
-        f"queries should have at most {MLFLOW_SERVER_GRAPHQL_MAX_DEPTH.get()} levels of nesting"
-        in response.json()["errors"][0]
+    assert "Query exceeds maximum depth of 10" in response.json()["errors"][0]
+
+    # Test max selections limit
+    selections = []
+    for i in range(1002):  # Exceed the 1000 selection limit
+        selections.append(f"field_{i} {{ name }}")
+    selections_query = (
+        'query testQuery { mlflowGetExperiment(input: {experimentId: "123"}) { experiment { '
+        + " ".join(selections)
+        + " } } }"
     )
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/graphql",
+        json={
+            "query": selections_query,
+            "operationName": "testQuery",
+        },
+    )
+    assert response.status_code == 200
+    assert "Query exceeds maximum total selections of 1000" in response.json()["errors"][0]
 
 
 def test_get_experiment_graphql(mlflow_client):
