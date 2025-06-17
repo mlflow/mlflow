@@ -171,7 +171,7 @@ export const ExperimentListTable = ({
         <TableSkeletonRows table={table} />
       ) : (
         table.getRowModel().rows.map((row) => (
-          <TableRow key={row.id} css={{ height: theme.general.buttonHeight }}>
+          <TableRow key={row.id} css={{ height: theme.general.buttonHeight }} data-testid="experiment-list-item">
             {row.getAllCells().map((cell) => (
               <TableCell
                 key={cell.id}
@@ -207,7 +207,7 @@ const ExperimentListCheckbox: ColumnDef<ExperimentEntity>['cell'] = ({ row }) =>
       componentId="mlflow.experiment_list_view.check_box"
       id={row.original.experimentId}
       key={row.original.experimentId}
-      data-testid={`experiment-list-item-check-box`}
+      data-testid="experiment-list-item-check-box"
       isChecked={row.getIsSelected()}
       disabled={!row.getCanSelect()}
       onChange={row.getToggleSelectedHandler()}

@@ -30,6 +30,7 @@ describe('CreateExperimentModal', () => {
         return Promise.resolve(response);
       },
       navigate,
+      onExperimentCreated: jest.fn(),
     };
     wrapper = shallow(<CreateExperimentModalImpl {...minimalProps} />);
   });

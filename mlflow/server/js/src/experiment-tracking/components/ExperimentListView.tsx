@@ -125,6 +125,7 @@ export const ExperimentListView = ({ experiments, error }: Props) => {
       <div css={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <TableFilterLayout>
           <TableFilterInput
+            data-testid="search-experiment-input"
             placeholder="Search experiments by name"
             componentId="mlflow.experiment_list_view.search"
             value={searchInput}
