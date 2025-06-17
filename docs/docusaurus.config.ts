@@ -269,11 +269,7 @@ const config: Config = {
           // Redirect mlflow 3 pages
           {
             to: "/genai/mlflow-3",
-            from: ["/mlflow-3"],
-          },
-          {
-            to: "/genai/mlflow-3",
-            from: ["/mlflow-3"],
+            from: ["/mlflow-3", "/ml/mlflow-3"],
           },
           {
             to: "/genai/mlflow-3/deep-learning",
@@ -282,10 +278,6 @@ const config: Config = {
           {
             to: "/genai/mlflow-3/genai-agent",
             from: ["/mlflow-3/genai-agent"],
-          },
-          {
-            to: "/genai/mlflow-3",
-            from: ["/ml/mlflow-3"],
           },
           // GenAI/LLM Related Redirects
           {
