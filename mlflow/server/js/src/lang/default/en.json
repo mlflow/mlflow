@@ -2227,6 +2227,10 @@
     "defaultMessage": "Relative Time (hours)",
     "description": "Label for the relative axis on the runs compare chart in hours"
   },
+  "YuYnxd": {
+    "defaultMessage": "Delete",
+    "description": "Text for delete button on the experiment view page header"
+  },
   "Z5en2d": {
     "defaultMessage": "Versions",
     "description": "Title text for the versions section under details tab on the\n                       model view page"
