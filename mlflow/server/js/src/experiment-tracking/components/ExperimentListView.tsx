@@ -21,7 +21,7 @@ import { withRouterNext, WithRouterNextProps } from '../../common/utils/withRout
 import { ExperimentEntity } from '../types';
 import { defaultContext } from '../../common/utils/reactQueryHooks';
 import { ExperimentListQueryKeyHeader } from './experiment-page/hooks/useExperimentListQuery';
-import { RowSelectionState, Updater } from '@tanstack/react-table';
+import { RowSelectionState } from '@tanstack/react-table';
 import { defineMessage, FormattedMessage, useIntl } from 'react-intl';
 import { ScrollablePageWrapper } from '../../common/components/ScrollablePageWrapper';
 import { ExperimentSearchSyntaxDocUrl } from '../../common/constants';
@@ -40,7 +40,7 @@ export const ExperimentListView = (props: Props) => {
     context?.invalidateQueries({ queryKey: [ExperimentListQueryKeyHeader] });
   };
 
-  const [checkedKeys, setCheckedKeys] = useState<string[]>([]);
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [searchInput, setSearchInput] = useState('');
   const [showCreateExperimentModal, setShowCreateExperimentModal] = useState(false);
 
@@ -65,31 +65,13 @@ export const ExperimentListView = (props: Props) => {
   };
 
   const pushExperimentRoute = () => {
-    if (checkedKeys.length > 0) {
-      const route =
-        checkedKeys.length === 1
-          ? Routes.getExperimentPageRoute(checkedKeys[0])
-          : Routes.getCompareExperimentsPageRoute(checkedKeys);
-      props.navigate(route);
-    }
+    const route = Routes.getCompareExperimentsPageRoute(checkedKeys);
+    props.navigate(route);
   };
 
-  const getSelectedRows = () => {
-    return Object.fromEntries(
-      props.experiments.map((experiment) => [experiment.experimentId, checkedKeys.includes(experiment.experimentId)]),
-    );
-  };
-
-  const setSelectedRows = (updater: Updater<RowSelectionState>) => {
-    const rowSelection = getSelectedRows();
-    const newRowSelection = typeof updater === 'function' ? updater(rowSelection) : updater;
-
-    setCheckedKeys(
-      Object.entries(newRowSelection)
-        .filter(([_, value]) => value)
-        .map(([key, _]) => key),
-    );
-  };
+  const checkedKeys = Object.entries(rowSelection)
+    .filter(([_, value]) => value)
+    .map(([key, _]) => key);
 
   const { designSystemThemeApi, error } = props;
   const { theme } = designSystemThemeApi;
@@ -156,8 +138,8 @@ export const ExperimentListView = (props: Props) => {
         <ExperimentListTable
           experiments={filteredExperiments}
           isFiltered={Boolean(searchInput)}
-          rowSelection={getSelectedRows()}
-          setRowSelection={setSelectedRows}
+          rowSelection={rowSelection}
+          setRowSelection={setRowSelection}
         />
       </div>
       <CreateExperimentModal
