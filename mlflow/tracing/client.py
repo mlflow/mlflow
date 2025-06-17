@@ -301,7 +301,7 @@ class TracingClient:
                     error_code=INVALID_PARAMETER_VALUE,
                 )
 
-            additional_filter = f"metadata.{TraceMetadataKey.SOURCE_RUN} = '{run_id}'"
+            additional_filter = f"attribute.run_id = '{run_id}'"
             if filter_string:
                 if TraceMetadataKey.SOURCE_RUN in filter_string:
                     raise MlflowException(
