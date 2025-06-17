@@ -38,9 +38,8 @@ const useExperimentsTableColumns = () => {
         header: ({ table }) => (
           <Checkbox
             componentId="mlflow.experiment_list_view.check_all_box"
-            isChecked={table.getIsAllRowsSelected()}
+            isChecked={table.getIsSomeRowsSelected() ? null : table.getIsAllRowsSelected()}
             onChange={(_, event) => table.getToggleAllRowsSelectedHandler()(event)}
-            // indeterminate={table.getIsSomeRowsSelected()}
           />
         ),
         id: 'select',
