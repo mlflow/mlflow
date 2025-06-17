@@ -1,4 +1,4 @@
-import React, { Component, useContext, useState } from 'react';
+import React, { useContext, useState } from 'react';
 import { Theme } from '@emotion/react';
 import {
   WithDesignSystemThemeHoc,
@@ -19,7 +19,7 @@ import Routes from '../routes';
 import { CreateExperimentModal } from './modals/CreateExperimentModal';
 import { withRouterNext, WithRouterNextProps } from '../../common/utils/withRouterNext';
 import { ExperimentEntity } from '../types';
-import { defaultContext, QueryClient } from '../../common/utils/reactQueryHooks';
+import { defaultContext } from '../../common/utils/reactQueryHooks';
 import { ExperimentListQueryKeyHeader, useExperimentListQuery } from './experiment-page/hooks/useExperimentListQuery';
 import { RowSelectionState, Updater } from '@tanstack/react-table';
 import { defineMessage, FormattedMessage, useIntl } from 'react-intl';
@@ -35,12 +35,6 @@ type Props = {
   >;
 } & WithRouterNextProps &
   DesignSystemHocProps;
-
-type State = {
-  checkedKeys: string[];
-  searchInput: string;
-  showCreateExperimentModal: boolean;
-};
 
 export const ExperimentListView = (props: Props) => {
   const context = useContext(defaultContext);
@@ -100,8 +94,9 @@ export const ExperimentListView = (props: Props) => {
     );
   };
 
-  const { pagination } = props;
+  const { pagination, designSystemThemeApi } = props;
   const { error, isLoading, onNextPage, onPreviousPage, hasNextPage, hasPreviousPage } = pagination;
+  const { theme } = designSystemThemeApi;
 
   const filteredExperiments = filterExperiments(searchInput);
 
@@ -144,15 +139,13 @@ export const ExperimentListView = (props: Props) => {
       />
       <Spacer shrinks={false} />
       {error && (
-        <>
-          <Alert
-            type="error"
-            message={error.message || 'A network error occurred.'}
-            componentId="mlflow.experiment_list_view.error"
-            closable={false}
-          />
-          <Spacer />
-        </>
+        <Alert
+          css={{ marginBlockEnd: theme.spacing.sm }}
+          type="error"
+          message={error.message || 'A network error occurred.'}
+          componentId="mlflow.experiment_list_view.error"
+          closable={false}
+        />
       )}
       <div css={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         <TableFilterLayout>
