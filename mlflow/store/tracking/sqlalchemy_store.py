@@ -15,6 +15,7 @@ import sqlalchemy.sql.expression as sql
 from sqlalchemy import and_, func, sql, text
 from sqlalchemy.future import select
 
+from mlflow.entities.trace_state import TraceState
 import mlflow.store.db.utils
 from mlflow.entities import (
     DatasetInput,
@@ -25,6 +26,7 @@ from mlflow.entities import (
     RunStatus,
     RunTag,
     SourceType,
+    TraceInfo,
     TraceInfoV2,
     ViewType,
     _DatasetSummary,
@@ -73,6 +75,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceInfo,
     SqlTraceRequestMetadata,
     SqlTraceTag,
+    SqlTraceTraceMetadata,
 )
 from mlflow.tracing.utils import generate_request_id_v2
 from mlflow.tracking.fluent import _get_experiment_id
@@ -2067,13 +2070,14 @@ class SqlAlchemyStore(AbstractStore):
     #######################################################################################
     # Below are Tracing APIs. We may refactor them to be in a separate class in the future.
     #######################################################################################
+    # TODO: Rename these parameters to V3 format once all stores are migrated to V3.
     def start_trace(
         self,
         experiment_id: str,
         timestamp_ms: int,
         request_metadata: dict[str, str],
         tags: dict[str, str],
-    ) -> TraceInfoV2:
+    ) -> TraceInfo:
         """
         Create an initial TraceInfo object in the database.
 
@@ -2096,14 +2100,14 @@ class SqlAlchemyStore(AbstractStore):
                 experiment_id=experiment_id,
                 timestamp_ms=timestamp_ms,
                 execution_time_ms=None,
-                status=TraceStatus.IN_PROGRESS,
+                status=TraceState.IN_PROGRESS,
             )
 
             trace_info.tags = [SqlTraceTag(key=k, value=v) for k, v in tags.items()]
             trace_info.tags.append(self._get_trace_artifact_location_tag(experiment, request_id))
 
-            trace_info.request_metadata = [
-                SqlTraceRequestMetadata(key=k, value=v) for k, v in request_metadata.items()
+            trace_info.trace_metadata = [
+                SqlTraceTraceMetadata(key=k, value=v) for k, v in request_metadata.items()
             ]
             session.add(trace_info)
 
@@ -2121,6 +2125,7 @@ class SqlAlchemyStore(AbstractStore):
         )
         return SqlTraceTag(key=MLFLOW_ARTIFACT_LOCATION, value=artifact_uri)
 
+    # TODO: Rename these parameters to V3 format once all stores are migrated to V3.
     def end_trace(
         self,
         request_id: str,
@@ -2153,7 +2158,7 @@ class SqlAlchemyStore(AbstractStore):
             sql_trace_info.status = status
             session.merge(sql_trace_info)
             for k, v in request_metadata.items():
-                session.merge(SqlTraceRequestMetadata(request_id=request_id, key=k, value=v))
+                session.merge(SqlTraceTraceMetadata(request_id=request_id, key=k, value=v))
             for k, v in tags.items():
                 session.merge(SqlTraceTag(request_id=request_id, key=k, value=v))
             return sql_trace_info.to_mlflow_entity()
@@ -2170,11 +2175,6 @@ class SqlAlchemyStore(AbstractStore):
         Returns:
             The TraceInfo object.
         """
-        if should_query_v3:
-            raise MlflowException.invalid_parameter_value(
-                "GetTraceInfoV3 API is not supported in the FileStore backend.",
-            )
-
         with self.ManagedSessionMaker() as session:
             sql_trace_info = self._get_sql_trace_info(session, request_id)
             return sql_trace_info.to_mlflow_entity()
@@ -2185,7 +2185,7 @@ class SqlAlchemyStore(AbstractStore):
         )
         if sql_trace_info is None:
             raise MlflowException(
-                f"Trace with request_id '{request_id}' not found.",
+                f"Trace with ID '{request_id}' not found.",
                 RESOURCE_DOES_NOT_EXIST,
             )
         return sql_trace_info
@@ -2307,7 +2307,7 @@ class SqlAlchemyStore(AbstractStore):
             tags = session.query(SqlTraceTag).filter_by(request_id=request_id, key=key)
             if tags.count() == 0:
                 raise MlflowException(
-                    f"No trace tag with key '{key}' for trace with request_id '{request_id}'",
+                    f"No trace tag with key '{key}' for trace with ID '{request_id}'",
                     RESOURCE_DOES_NOT_EXIST,
                 )
             tags.delete()
@@ -2330,12 +2330,12 @@ class SqlAlchemyStore(AbstractStore):
             request_ids: A set of request IDs to delete.
 
         Returns:
-            The number of traces deleted.
+            The n fuck you Niceumber of traces deleted.
         """
         with self.ManagedSessionMaker() as session:
             filters = [SqlTraceInfo.experiment_id == experiment_id]
             if max_timestamp_millis:
-                filters.append(SqlTraceInfo.timestamp_ms <= max_timestamp_millis)
+                filters.append(SqlTraceInfo.request_time <= max_timestamp_millis)
             if request_ids:
                 filters.append(SqlTraceInfo.request_id.in_(request_ids))
             if max_traces:

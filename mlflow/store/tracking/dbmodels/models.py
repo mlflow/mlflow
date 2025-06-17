@@ -654,129 +654,73 @@ class SqlInputTag(Base):
 class SqlTraceInfo(Base):
     __tablename__ = "trace_info"
 
-    # V3 fields (unified schema - stores both V2 and V3 traces)
-    trace_id = Column(String(255), nullable=False)
+    request_id = Column(String(50), nullable=False)
     """
-    Trace ID: `String` (limit 255 characters). 
-    - V3 traces: 'tr-' prefix + encoded OTel trace ID
-    - V2 traces: 'tr-' prefix + UUID (migrated from request_id)
+    Trace ID: `String` (limit 50 characters). *Primary Key* for ``trace_info`` table.
+    Named as "trace_id" in V3 format.
     """
     experiment_id = Column(Integer, ForeignKey("experiments.experiment_id"), nullable=False)
     """
     Experiment ID to which this trace belongs: *Foreign Key* into ``experiments`` table.
     """
-    request_time = Column(BigInteger, nullable=False)
+    timestamp_ms = Column(BigInteger, nullable=False)
     """
-    Request time of the trace, in milliseconds.
-    - V3 traces: request_time from TraceInfo
-    - V2 traces: timestamp_ms (migrated)
+    Start time of the trace, in milliseconds. Named as "request_time" in V3 format.
     """
-    execution_duration = Column(BigInteger, nullable=True)
+    execution_time_ms = Column(BigInteger, nullable=True)
     """
-    Execution duration of the trace, in milliseconds.
-    - V3 traces: execution_duration from TraceInfo
-    - V2 traces: execution_time_ms (migrated)
+    Duration of the trace, in milliseconds. Could be *null* if the trace is still in progress
+    or not ended correctly for some reason. Named as "execution_duration" in V3 format.
     """
-    state = Column(String(50), nullable=False)
+    status = Column(String(50), nullable=False)
     """
-    State of the trace using TraceState/TraceStatus enum values.
-    - V3 traces: state from TraceInfo
-    - V2 traces: status (migrated)
+    State of the trace. The values are defined in
+    :py:class:`mlflow.entities.trace_status.TraceStatus` enum but we don't enforce
+    constraint at DB level. Named as "st how manyate" in V3 format.
     """
-    request_preview = Column(Text, nullable=True)
+    client_request_id = Column(String(50), nullable=True)
     """
-    Preview of the trace request for UI display (V3 only).
+    Client request ID: `String` (limit 50 characters). Could be *null*. Newly added in V3 format.
     """
-    response_preview = Column(Text, nullable=True)
+    # TODO: Update the length limit to the correct one
+    # TODO: Should give index to support free text search more efficiently?
+    request_preview = Column(String(8000), nullable=True)
     """
-    Preview of the trace response for UI display (V3 only).
+    Request preview: `String` (limit 8000 characters). Could be *null*. Newly added in V3 format.
     """
-    client_request_id = Column(String(255), nullable=True)
+    response_preview = Column(String(8000), nullable=True)
     """
-    Client-provided request ID for correlation.
-    - V3 traces: client_request_id from TraceInfo
-    - V2 traces: original request_id (migrated)
+    Response preview: `String` (limit 8000 characters). Could be *null*. Newly added in V3 format.
     """
-    
-    # V2 compatibility properties (computed from V3 fields)
-    @property
-    def request_id(self):
-        """V2 compatibility: extract request_id from trace_id"""
-        if self.trace_id and self.trace_id.startswith("tr-"):
-            return self.trace_id[3:]  # Remove 'tr-' prefix
-        return self.trace_id
-    
-    @property
-    def timestamp_ms(self):
-        """V2 compatibility: alias for request_time"""
-        return self.request_time
-    
-    @property
-    def execution_time_ms(self):
-        """V2 compatibility: alias for execution_duration"""
-        return self.execution_duration
-    
-    @property
-    def status(self):
-        """V2 compatibility: alias for state"""
-        return self.state
 
     __table_args__ = (
-        PrimaryKeyConstraint("trace_id", name="trace_info_pk"),
-        # Most frequent query: get all traces in an experiment sorted by request_time desc
-        Index(f"index_{__tablename__}_experiment_id_request_time", "experiment_id", "request_time"),
+        PrimaryKeyConstraint("request_id", name="trace_info_pk"),
+        # The most frequent query will be get all traces in an experiment sorted by timestamp desc,
+        # which is the default view in the UI. Also every search query should have experiment_id(s)
+        # in the where clause.
+        Index(f"index_{__tablename__}_experiment_id_timestamp_ms", "experiment_id", "timestamp_ms"),
     )
 
-    def to_mlflow_entity(self, return_v3=None):
+    def to_mlflow_entity(self):
         """
         Convert DB model to corresponding MLflow entity.
 
-        Args:
-            return_v3: If True, return TraceInfo (V3). If False, return TraceInfoV2.
-                      If None, auto-detect based on presence of V3-specific data.
-
         Returns:
-            :py:class:`mlflow.entities.TraceInfo` or :py:class:`mlflow.entities.TraceInfoV2` object.
+            :py:class:`mlflow.entities.TraceInfo` object.
         """
-        # Auto-detect format if not specified
-        # V3 traces have preview fields
-        if return_v3 is None:
-            return_v3 = (
-                self.request_preview is not None or 
-                self.response_preview is not None
-            )
-        
-        if return_v3:
-            # Return V3 TraceInfo
-            # OSS only supports experiment locations
-            trace_location = TraceLocation(
-                location_type="experiment",
-                location_id=str(self.experiment_id),
-            )
-            
-            return TraceInfo(
-                trace_id=self.trace_id,
-                trace_location=trace_location,
-                request_time=self.request_time,
-                execution_duration=self.execution_duration,
-                state=TraceState(self.state),
-                request_preview=self.request_preview,
-                response_preview=self.response_preview,
-                client_request_id=self.client_request_id,
-                trace_metadata={m.key: m.value for m in self.request_metadata},
-                tags={t.key: t.value for t in self.tags},
-            )
-        else:
-            # Return V2 TraceInfoV2 using computed properties
-            return TraceInfoV2(
-                request_id=self.request_id,  # Computed property
-                experiment_id=str(self.experiment_id),
-                timestamp_ms=self.timestamp_ms,  # Computed property
-                execution_time_ms=self.execution_time_ms,  # Computed property
-                status=TraceStatus(self.status),  # Computed property
-                tags={t.key: t.value for t in self.tags},
-                request_metadata={m.key: m.value for m in self.request_metadata},
-            )
+        return TraceInfo(
+            trace_id=self.request_id,
+            trace_location=TraceLocation.from_experiment_id(self.experiment_id),
+            request_time=self.timestamp_ms,
+            execution_duration=self.execution_time_ms,
+            state=TraceState(self.status),
+            tags={t.key: t.value for t in self.tags},
+            trace_metadata={m.key: m.value for m in self.request_metadata},
+            client_request_id=self.client_request_id,
+            request_preview=self.request_preview,
+            response_preview=self.response_preview,
+            assessments=[], # Implement this once we support assessments in OSS
+        )
 
 
 class SqlTraceTag(Base):
@@ -790,11 +734,11 @@ class SqlTraceTag(Base):
     """
     Value associated with tag: `String` (limit 250 characters). Could be *null*.
     """
-    trace_id = Column(
-        String(255), ForeignKey("trace_info.trace_id", ondelete="CASCADE"), nullable=False
+    request_id = Column(
+        String(50), ForeignKey("trace_info.request_id", ondelete="CASCADE"), nullable=False
     )
     """
-    Trace ID to which this tag belongs: *Foreign Key* into ``trace_info`` table.
+    Request ID to which this tag belongs: *Foreign Key* into ``trace_info`` table.
     """
     trace_info = relationship("SqlTraceInfo", backref=backref("tags", cascade="all"))
     """
@@ -802,14 +746,14 @@ class SqlTraceTag(Base):
     :py:class:`mlflow.store.dbmodels.models.SqlTraceInfo`.
     """
 
-    # Key is unique within a trace_id
+    # Key is unique within a request_id
     __table_args__ = (
-        PrimaryKeyConstraint("trace_id", "key", name="trace_tag_pk"),
-        Index(f"index_{__tablename__}_trace_id"),
+        PrimaryKeyConstraint("request_id", "key", name="trace_tag_pk"),
+        Index(f"index_{__tablename__}_request_id"),
     )
 
 
-class SqlTraceRequestMetadata(Base):
+class SqlTraceTraceMetadata(Base):
     __tablename__ = "trace_request_metadata"
 
     key = Column(String(250))
@@ -820,11 +764,11 @@ class SqlTraceRequestMetadata(Base):
     """
     Value associated with metadata: `String` (limit 250 characters). Could be *null*.
     """
-    trace_id = Column(
-        String(255), ForeignKey("trace_info.trace_id", ondelete="CASCADE"), nullable=False
+    request_id = Column(
+        String(50), ForeignKey("trace_info.request_id", ondelete="CASCADE"), nullable=False
     )
     """
-    Trace ID to which this metadata belongs: *Foreign Key* into ``trace_info`` table.
+    Request ID to which this metadata belongs: *Foreign Key* into ``trace_info`` table. **Corresponding to the "trace_id" in V3 format.**
     """
     trace_info = relationship("SqlTraceInfo", backref=backref("request_metadata", cascade="all"))
     """
@@ -832,10 +776,10 @@ class SqlTraceRequestMetadata(Base):
     :py:class:`mlflow.store.dbmodels.models.SqlTraceInfo`.
     """
 
-    # Key is unique within a trace_id
+    # Key is unique within a request_id
     __table_args__ = (
-        PrimaryKeyConstraint("trace_id", "key", name="trace_request_metadata_pk"),
-        Index(f"index_{__tablename__}_trace_id"),
+        PrimaryKeyConstraint("request_id", "key", name="trace_request_metadata_pk"),
+        Index(f"index_{__tablename__}_request_id"),
     )
 
 
