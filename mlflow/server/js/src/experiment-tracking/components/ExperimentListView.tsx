@@ -132,7 +132,10 @@ export class ExperimentListView extends Component<Props, State> {
                 onClick={this.handleCreateExperiment}
                 data-testid="create-experiment-button"
               >
-                Create experiment
+                <FormattedMessage
+                  defaultMessage="Create experiment"
+                  description="Label for the create experiment action on the experiments list page"
+                />
               </Button>
               <Tooltip
                 componentId="mlflow.experiment_list_view.compare_experiments_button"
@@ -144,7 +147,10 @@ export class ExperimentListView extends Component<Props, State> {
                   data-testid="create-experiment-button"
                   disabled={this.state.checkedKeys.length < 2}
                 >
-                  Compare experiments
+                  <FormattedMessage
+                    defaultMessage="Compare experiments"
+                    description="Label for the compare experiments action on the experiments list page"
+                  />
                 </Button>
               </Tooltip>
             </>
