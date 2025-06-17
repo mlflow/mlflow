@@ -1,0 +1,88 @@
+:global(.navbar__link.docs-dropdown) {
+  transition: all 0.2s ease-in-out;
+  position: relative;
+}
+
+:global(.navbar__link.docs-dropdown-ml) {
+  padding-left: 22px;
+  padding-right: 20px;
+}
+
+:global(.navbar__link.docs-dropdown-ml)::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  transform: translateY(-50%) translateY(-3px);
+  width: 10px;
+  height: 10px;
+  background-color: #0194e2;
+  border-radius: 4px;
+  display: block;
+  z-index: 1;
+}
+
+:global(.navbar__link.docs-dropdown-genai) {
+  padding-left: 22px;
+  padding-right: 20px;
+}
+
+:global(.navbar__link.docs-dropdown-genai)::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  transform: translateY(-50%) translateY(-3px);
+  width: 10px;
+  height: 10px;
+  background-color: var(--genai-color-primary);
+  border-radius: 4px;
+  display: block;
+  z-index: 1;
+}
+
+:global(.navbar__items) :global(a[href$="/ml"]),
+:global(.navbar__items) :global(a[href^="/ml"]),
+:global(.navbar__items) :global(a[href$="/genai"]),
+:global(.navbar__items) :global(a[href^="/genai"]) {
+  padding-left: 22px;
+  position: relative;
+}
+
+:global(.navbar__items) :global(a[href$="/ml"])::before,
+:global(.navbar__items) :global(a[href^="/ml"])::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 10px;
+  height: 10px;
+  background-color: #0194e2;
+  border-radius: 4px;
+}
+
+:global(.navbar__items) :global(a[href$="/genai"])::before,
+:global(.navbar__items) :global(a[href^="/genai"])::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 10px;
+  height: 10px;
+  background-color: #eb1700;
+  border-radius: 4px;
+}
+
+@media (max-width: 996px) {
+  :global(.navbar__link.docs-dropdown-ml),
+  :global(.navbar__link.docs-dropdown-genai) {
+    padding-left: 16px;
+  }
+  
+  :global(.navbar__link.docs-dropdown-ml)::before,
+  :global(.navbar__link.docs-dropdown-genai)::before {
+    display: none;
+  }
+}

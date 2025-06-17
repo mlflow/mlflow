@@ -109,7 +109,7 @@ const config: Config = {
       },
       items: [
         {
-          type: "dropdown",
+          type: "custom-docsDropdown",
           label: "Documentation",
           items: [
             // Classic ML docs
