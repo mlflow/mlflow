@@ -119,9 +119,9 @@ export const ExperimentListView = (props: Props) => {
               content="Select at least two experiments from the table to compare them"
             >
               <Button
-                componentId="mlflow.experiment_list_view.new_experiment_button"
+                componentId="mlflow.experiment_list_view.compare_experiment_button"
                 onClick={pushExperimentRoute}
-                data-testid="create-experiment-button"
+                data-testid="compare-experiment-button"
                 disabled={checkedKeys.length < 2}
               >
                 <FormattedMessage
