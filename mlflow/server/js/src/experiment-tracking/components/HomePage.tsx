@@ -21,21 +21,21 @@ const HomePage = () => {
 
   if (isLoading) {
     return loadingState;
-  } else {
-    return (
-      <ExperimentListView
-        experiments={experiments || []}
-        pagination={{
-          error,
-          isLoading,
-          onNextPage,
-          onPreviousPage,
-          hasNextPage,
-          hasPreviousPage,
-        }}
-      />
-    );
   }
+
+  return (
+    <ExperimentListView
+      experiments={experiments || []}
+      pagination={{
+        error,
+        isLoading,
+        onNextPage,
+        onPreviousPage,
+        hasNextPage,
+        hasPreviousPage,
+      }}
+    />
+  );
 };
 
 export default HomePage;
