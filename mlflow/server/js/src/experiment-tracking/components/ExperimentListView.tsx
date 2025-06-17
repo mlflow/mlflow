@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import { Theme } from '@emotion/react';
 import {
-  WithDesignSystemThemeHoc,
-  DesignSystemHocProps,
   Button,
   Tooltip,
   TableFilterLayout,
@@ -13,11 +11,11 @@ import {
   InfoIcon,
   Typography,
   Alert,
+  useDesignSystemTheme,
 } from '@databricks/design-system';
 import 'react-virtualized/styles.css';
 import Routes from '../routes';
 import { CreateExperimentModal } from './modals/CreateExperimentModal';
-import { withRouterNext, WithRouterNextProps } from '../../common/utils/withRouterNext';
 import { ExperimentEntity } from '../types';
 import { useInvalidateExperimentList } from './experiment-page/hooks/useExperimentListQuery';
 import { RowSelectionState } from '@tanstack/react-table';
@@ -25,14 +23,14 @@ import { defineMessage, FormattedMessage, useIntl } from 'react-intl';
 import { ScrollablePageWrapper } from '../../common/components/ScrollablePageWrapper';
 import { ExperimentSearchSyntaxDocUrl } from '../../common/constants';
 import { ExperimentListTable } from './ExperimentListTable';
+import { useNavigate } from '../../common/utils/RoutingUtils';
 
 type Props = {
   experiments: ExperimentEntity[];
   error?: Error;
-} & WithRouterNextProps &
-  DesignSystemHocProps;
+};
 
-export const ExperimentListView = (props: Props) => {
+export const ExperimentListView = ({ experiments, error }: Props) => {
   const invalidateExperimentList = useInvalidateExperimentList();
 
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
@@ -40,10 +38,9 @@ export const ExperimentListView = (props: Props) => {
   const [showCreateExperimentModal, setShowCreateExperimentModal] = useState(false);
 
   const filterExperiments = (searchInput: string) => {
-    const { experiments } = props;
     const lowerCasedSearchInput = searchInput.toLowerCase();
     return lowerCasedSearchInput === ''
-      ? props.experiments
+      ? experiments
       : experiments.filter(({ name }) => name.toLowerCase().includes(lowerCasedSearchInput));
   };
 
@@ -61,15 +58,15 @@ export const ExperimentListView = (props: Props) => {
 
   const pushExperimentRoute = () => {
     const route = Routes.getCompareExperimentsPageRoute(checkedKeys);
-    props.navigate(route);
+    navigate(route);
   };
 
   const checkedKeys = Object.entries(rowSelection)
     .filter(([_, value]) => value)
     .map(([key, _]) => key);
 
-  const { designSystemThemeApi, error } = props;
-  const { theme } = designSystemThemeApi;
+  const { theme } = useDesignSystemTheme();
+  const navigate = useNavigate();
 
   const filteredExperiments = filterExperiments(searchInput);
 
@@ -151,7 +148,7 @@ export const ExperimentListView = (props: Props) => {
   );
 };
 
-export default withRouterNext(WithDesignSystemThemeHoc(ExperimentListView));
+export default ExperimentListView;
 
 const ModelSearchInputHelpTooltip = () => {
   const { formatMessage } = useIntl();
