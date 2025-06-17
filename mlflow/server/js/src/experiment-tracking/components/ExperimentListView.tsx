@@ -224,7 +224,7 @@ const ModelSearchInputHelpTooltip = () => {
           <br />
           <FormattedMessage
             defaultMessage="<link>Learn more</link>"
-            description="Learn more tooltip link to learn more on how to search models"
+            description="Learn more tooltip link to learn more on how to search experiments"
             values={{
               link: (chunks) => (
                 <Typography.Link
