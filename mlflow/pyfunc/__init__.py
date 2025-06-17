@@ -2754,6 +2754,17 @@ e.g., struct<a:int, b:array<int>>.
 
                     if len(row_batch_args[0]) > 0:
                         yield _predict_row_batch(batch_predict_fn, row_batch_args)
+            except SystemError as e:
+                if "error return without exception set" in str(e):
+                    raise MlflowException(
+                        "A system error related to the Python C extension has occurred. "
+                        "This is usually caused by an incompatible Python library that uses the "
+                        "C extension. To address this, we recommend you to log the model "
+                        "with fixed version python libraries that use the C extension "
+                        "(such as 'numpy' library), and set spark_udf `env_manager` argument "
+                        "to 'virtualenv' so that spark_udf can restore the original python "
+                        "library version before running model inference."
+                    ) from e
             finally:
                 if scoring_server_proc is not None:
                     os.kill(scoring_server_proc.pid, signal.SIGTERM)
