@@ -197,8 +197,7 @@ export const ExperimentViewHeader = React.memo(
                 itemName: (
                   <FormattedMessage
                     defaultMessage="Delete"
-                    // eslint-disable-next-line max-len
-                    description="Text for disabled delete button due to active versions on model view page header"
+                    description="Text for delete button on the experiment view page header"
                   />
                 ),
                 onClick: () => setShowDeleteExperimentModal(true),
