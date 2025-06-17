@@ -541,10 +541,6 @@ const sidebarsGenAI: SidebarsConfig = {
             },
             {
               type: 'doc',
-              id: 'prompt-version-mgmt/prompt-registry/optimize-prompts',
-            },
-            {
-              type: 'doc',
               id: 'prompt-version-mgmt/prompt-registry/use-prompts-in-apps',
             },
             {
@@ -560,6 +556,10 @@ const sidebarsGenAI: SidebarsConfig = {
             type: 'doc',
             id: 'prompt-version-mgmt/prompt-registry/index'
           }
+        },
+        {
+          type: 'doc',
+          id: 'prompt-version-mgmt/optimize-prompts/index',
         },
         {
           type: 'doc',
