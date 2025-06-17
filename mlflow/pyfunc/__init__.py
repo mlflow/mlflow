@@ -1899,9 +1899,7 @@ def _prebuild_env_internal(local_model_path, archive_name, save_path):
 
         pyfunc_backend.prepare_env(model_uri=local_model_path, capture_output=False)
         # exclude pip cache from the archive file.
-        cache_path = os.path.join(env_root_dir, "pip_cache_pkgs")
-        if os.path.exists(cache_path):
-            shutil.rmtree(cache_path)
+        shutil.rmtree(os.path.join(env_root_dir, "pip_cache_pkgs"))
 
         return archive_directory(env_root_dir, archive_path)
     finally:
