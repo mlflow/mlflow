@@ -209,7 +209,7 @@ const ModelSearchInputHelpTooltip = () => {
   const labelText = formatMessage(tooltipIntroMessage, { newline: ' ', whereBold: 'WHERE' });
 
   return (
-    <Popover.Root componentId="codegen_mlflow_app_src_model-registry_components_model-list_modellistfilters.tsx_46">
+    <Popover.Root componentId="mlflow.experiment_list_view.searchbox.help_popover.root">
       <Popover.Trigger
         aria-label={labelText}
         css={{ border: 0, background: 'none', padding: 0, lineHeight: 0, cursor: 'pointer' }}
@@ -230,7 +230,7 @@ const ModelSearchInputHelpTooltip = () => {
               values={{
                 link: (chunks) => (
                   <Typography.Link
-                    componentId="codegen_mlflow_app_src_model-registry_components_model-list_modellistfilters.tsx_61"
+                    componentId="mlflow.experiment_list_view.searchbox.help_popover.syntax_url"
                     href={ExperimentSearchSyntaxDocUrl + '#syntax'}
                     openInNewTab
                   >
