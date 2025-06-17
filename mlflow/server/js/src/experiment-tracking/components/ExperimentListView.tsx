@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import React, { Component, useContext, useState } from 'react';
 import { Theme } from '@emotion/react';
 import {
   WithDesignSystemThemeHoc,
@@ -42,164 +42,149 @@ type State = {
   showCreateExperimentModal: boolean;
 };
 
-export class ExperimentListView extends Component<Props, State> {
-  static contextType = defaultContext;
-  // declare context: QueryClient; // FIXME
+export const ExperimentListView = (props: Props) => {
+  const context = useContext(defaultContext);
 
-  invalidateExperimentList = () => {
-    this.context.invalidateQueries({ queryKey: [ExperimentListQueryKeyHeader] });
+  const invalidateExperimentList = () => {
+    context?.invalidateQueries({ queryKey: [ExperimentListQueryKeyHeader] });
   };
 
-  state = {
-    checkedKeys: [] as string[],
-    searchInput: '',
-    showCreateExperimentModal: false,
-  };
+  const [checkedKeys, setCheckedKeys] = useState<string[]>([]);
+  const [searchInput, setSearchInput] = useState('');
+  const [showCreateExperimentModal, setShowCreateExperimentModal] = useState(false);
 
-  filterExperiments = (searchInput: string) => {
-    const { experiments } = this.props;
+  const filterExperiments = (searchInput: string) => {
+    const { experiments } = props;
     const lowerCasedSearchInput = searchInput.toLowerCase();
     return lowerCasedSearchInput === ''
-      ? this.props.experiments
+      ? props.experiments
       : experiments.filter(({ name }) => name.toLowerCase().includes(lowerCasedSearchInput));
   };
 
-  handleSearchInputChange: React.ChangeEventHandler<HTMLInputElement> = (event) => {
-    this.setState({
-      searchInput: event.target.value,
-    });
+  const handleSearchInputChange: React.ChangeEventHandler<HTMLInputElement> = (event) => {
+    setSearchInput(event.target.value);
   };
 
-  handleCreateExperiment = () => {
-    this.setState({
-      showCreateExperimentModal: true,
-    });
+  const handleCreateExperiment = () => {
+    setShowCreateExperimentModal(true);
   };
 
-  handleCloseCreateExperimentModal = () => {
-    this.setState({
-      showCreateExperimentModal: false,
-    });
+  const handleCloseCreateExperimentModal = () => {
+    setShowCreateExperimentModal(false);
   };
 
-  pushExperimentRoute = () => {
-    if (this.state.checkedKeys.length > 0) {
+  const pushExperimentRoute = () => {
+    if (checkedKeys.length > 0) {
       const route =
-        this.state.checkedKeys.length === 1
-          ? Routes.getExperimentPageRoute(this.state.checkedKeys[0])
-          : Routes.getCompareExperimentsPageRoute(this.state.checkedKeys);
-      this.props.navigate(route);
+        checkedKeys.length === 1
+          ? Routes.getExperimentPageRoute(checkedKeys[0])
+          : Routes.getCompareExperimentsPageRoute(checkedKeys);
+      props.navigate(route);
     }
   };
 
-  getSelectedRows = () => {
+  const getSelectedRows = () => {
     return Object.fromEntries(
-      this.props.experiments.map((experiment) => [
-        experiment.experimentId,
-        this.state.checkedKeys.includes(experiment.experimentId),
-      ]),
+      props.experiments.map((experiment) => [experiment.experimentId, checkedKeys.includes(experiment.experimentId)]),
     );
   };
 
-  setSelectedRows = (updater: Updater<RowSelectionState>) => {
-    const rowSelection = this.getSelectedRows();
+  const setSelectedRows = (updater: Updater<RowSelectionState>) => {
+    const rowSelection = getSelectedRows();
     const newRowSelection = typeof updater === 'function' ? updater(rowSelection) : updater;
 
-    this.setState({
-      checkedKeys: Object.entries(newRowSelection)
+    setCheckedKeys(
+      Object.entries(newRowSelection)
         .filter(([_, value]) => value)
         .map(([key, _]) => key),
-    });
+    );
   };
 
-  render() {
-    const { pagination } = this.props;
-    const { error, isLoading, onNextPage, onPreviousPage, hasNextPage, hasPreviousPage } = pagination;
+  const { pagination } = props;
+  const { error, isLoading, onNextPage, onPreviousPage, hasNextPage, hasPreviousPage } = pagination;
 
-    const { searchInput } = this.state;
-    const filteredExperiments = this.filterExperiments(searchInput);
+  const filteredExperiments = filterExperiments(searchInput);
 
-    return (
-      <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-        <Spacer shrinks={false} />
-        <Header
-          title={<FormattedMessage defaultMessage="Experiments" description="Header title for the experiments page" />}
-          buttons={
-            <>
+  return (
+    <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <Spacer shrinks={false} />
+      <Header
+        title={<FormattedMessage defaultMessage="Experiments" description="Header title for the experiments page" />}
+        buttons={
+          <>
+            <Button
+              componentId="mlflow.experiment_list_view.new_experiment_button"
+              type="primary"
+              onClick={handleCreateExperiment}
+              data-testid="create-experiment-button"
+            >
+              <FormattedMessage
+                defaultMessage="Create experiment"
+                description="Label for the create experiment action on the experiments list page"
+              />
+            </Button>
+            <Tooltip
+              componentId="mlflow.experiment_list_view.compare_experiments_button"
+              content="Select at least two experiments from the table to compare them"
+            >
               <Button
                 componentId="mlflow.experiment_list_view.new_experiment_button"
-                type="primary"
-                onClick={this.handleCreateExperiment}
+                onClick={pushExperimentRoute}
                 data-testid="create-experiment-button"
+                disabled={checkedKeys.length < 2}
               >
                 <FormattedMessage
-                  defaultMessage="Create experiment"
-                  description="Label for the create experiment action on the experiments list page"
+                  defaultMessage="Compare experiments"
+                  description="Label for the compare experiments action on the experiments list page"
                 />
               </Button>
-              <Tooltip
-                componentId="mlflow.experiment_list_view.compare_experiments_button"
-                content="Select at least two experiments from the table to compare them"
-              >
-                <Button
-                  componentId="mlflow.experiment_list_view.new_experiment_button"
-                  onClick={this.pushExperimentRoute}
-                  data-testid="create-experiment-button"
-                  disabled={this.state.checkedKeys.length < 2}
-                >
-                  <FormattedMessage
-                    defaultMessage="Compare experiments"
-                    description="Label for the compare experiments action on the experiments list page"
-                  />
-                </Button>
-              </Tooltip>
-            </>
-          }
-        />
-        <Spacer shrinks={false} />
-        {error && (
-          <>
-            <Alert
-              type="error"
-              message={error.message || 'A network error occurred.'}
-              componentId="mlflow.experiment_list_view.error"
-              closable={false}
-            />
-            <Spacer />
+            </Tooltip>
           </>
-        )}
-        <div css={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          <TableFilterLayout>
-            <TableFilterInput
-              placeholder="Search experiments by name"
-              componentId="mlflow.experiment_list_view.search"
-              value={searchInput}
-              onChange={this.handleSearchInputChange}
-              suffix={<ModelSearchInputHelpTooltip />}
-            />
-          </TableFilterLayout>
-          <ExperimentListTable
-            experiments={filteredExperiments}
-            error={error}
-            hasNextPage={hasNextPage}
-            hasPreviousPage={hasPreviousPage}
-            isLoading={isLoading}
-            isFiltered={Boolean(searchInput)}
-            onNextPage={onNextPage}
-            onPreviousPage={onPreviousPage}
-            rowSelection={this.getSelectedRows()}
-            setRowSelection={this.setSelectedRows}
+        }
+      />
+      <Spacer shrinks={false} />
+      {error && (
+        <>
+          <Alert
+            type="error"
+            message={error.message || 'A network error occurred.'}
+            componentId="mlflow.experiment_list_view.error"
+            closable={false}
           />
-        </div>
-        <CreateExperimentModal
-          isOpen={this.state.showCreateExperimentModal}
-          onClose={this.handleCloseCreateExperimentModal}
-          onExperimentCreated={this.invalidateExperimentList}
+          <Spacer />
+        </>
+      )}
+      <div css={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <TableFilterLayout>
+          <TableFilterInput
+            placeholder="Search experiments by name"
+            componentId="mlflow.experiment_list_view.search"
+            value={searchInput}
+            onChange={handleSearchInputChange}
+            suffix={<ModelSearchInputHelpTooltip />}
+          />
+        </TableFilterLayout>
+        <ExperimentListTable
+          experiments={filteredExperiments}
+          error={error}
+          hasNextPage={hasNextPage}
+          hasPreviousPage={hasPreviousPage}
+          isLoading={isLoading}
+          isFiltered={Boolean(searchInput)}
+          onNextPage={onNextPage}
+          onPreviousPage={onPreviousPage}
+          rowSelection={getSelectedRows()}
+          setRowSelection={setSelectedRows}
         />
-      </ScrollablePageWrapper>
-    );
-  }
-}
+      </div>
+      <CreateExperimentModal
+        isOpen={showCreateExperimentModal}
+        onClose={handleCloseCreateExperimentModal}
+        onExperimentCreated={invalidateExperimentList}
+      />
+    </ScrollablePageWrapper>
+  );
+};
 
 export default withRouterNext(WithDesignSystemThemeHoc(ExperimentListView));
 
