@@ -1,5 +1,3 @@
-import logging
-import os
 import shutil
 import subprocess
 import sys
@@ -23,8 +21,6 @@ _ARTIFACT_PATH = "_databricks"
 _MODEL_VERSION_TAR = "model_version.tar"
 _MODEL_ENVIRONMENT_TAR = "model_environment.tar"
 
-_logger = logging.getLogger(__name__)
-
 
 def _tar(root_path: Path, tar_path: Path) -> tarfile.TarFile:
     """
@@ -38,9 +34,6 @@ def _tar(root_path: Path, tar_path: Path) -> tarfile.TarFile:
         if "__pycache__" in name or base.endswith(".pyc") or base == "wheels_info.json":
             return None
         return tarinfo
-
-    if "GITHUB_ACTIONS" in os.environ:
-        _logger.warning(f"Free disk space: {shutil.disk_usage(root_path).free / (1024**3)} GB")
 
     # Pull in symlinks
     with tarfile.open(tar_path, "w", dereference=True) as tar:
