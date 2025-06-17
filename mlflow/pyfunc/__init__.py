@@ -1880,7 +1880,7 @@ def _verify_prebuilt_env(spark, local_model_path, env_archive_path):
         )
 
 
-def _prebuild_env_internal(local_model_path, archive_name, save_path):
+def _prebuild_env_internal(local_model_path, archive_name, save_path, env_manager):
     env_root_dir = os.path.join(_PREBUILD_ENV_ROOT_LOCATION, archive_name)
     archive_path = os.path.join(save_path, archive_name + ".tar.gz")
     if os.path.exists(env_root_dir):
@@ -1891,7 +1891,7 @@ def _prebuild_env_internal(local_model_path, archive_name, save_path):
     try:
         pyfunc_backend = get_flavor_backend(
             local_model_path,
-            env_manager="virtualenv",
+            env_manager=env_manager,
             install_mlflow=False,
             create_env_root_dir=False,
             env_root_dir=env_root_dir,
@@ -1947,7 +1947,7 @@ def _download_prebuilt_env_if_needed(prebuilt_env_uri):
     )
 
 
-def build_model_env(model_uri, save_path):
+def build_model_env(model_uri, save_path, env_manager=_EnvManager.UV):
     """
     Prebuild model python environment and generate an archive file saved to provided
     `save_path`.
@@ -1990,6 +1990,9 @@ def build_model_env(model_uri, save_path):
             The path can be either local directory path or
             mounted DBFS path such as '/dbfs/...' or
             mounted UC volume path such as '/Volumes/...'.
+        env_manager: The environment manager to use in order to create the python environment
+            for model inference, the value can be either 'uv' or 'virtualenv', the default
+            value is 'uv'.
 
     Returns:
         Return the path of an archive file containing the python environment data.
@@ -2027,7 +2030,7 @@ def build_model_env(model_uri, save_path):
     tmp_archive_path = None
     try:
         tmp_archive_path = _prebuild_env_internal(
-            local_model_path, archive_name, _PREBUILD_ENV_ROOT_LOCATION
+            local_model_path, archive_name, _PREBUILD_ENV_ROOT_LOCATION, env_manager
         )
         shutil.move(tmp_archive_path, save_path)
         return dest_path
@@ -2163,6 +2166,8 @@ def spark_udf(
             unaffected. If `prebuilt_env_uri` parameter is not set, the default value
             is ``local``, and the following values are supported:
 
+            - ``uv`` : Use uv to restore the python environment that
+              was used to train the model.
             - ``virtualenv``: Use virtualenv to restore the python environment that
               was used to train the model.
             - ``conda``: (Recommended) Use Conda to restore the software environment
@@ -2226,12 +2231,12 @@ def spark_udf(
     mlflow_testing = _MLFLOW_TESTING.get_raw()
 
     if prebuilt_env_uri:
-        if env_manager not in (None, _EnvManager.VIRTUALENV):
+        if env_manager not in (None, _EnvManager.VIRTUALENV, _EnvManager.UV):
             raise MlflowException(
                 "If 'prebuilt_env_uri' parameter is set, 'env_manager' parameter must "
-                "be either None or 'virtualenv'."
+                "be either None, 'virtualenv', or 'uv'."
             )
-        env_manager = _EnvManager.VIRTUALENV
+        env_manager = _EnvManager.UV
     else:
         env_manager = env_manager or _EnvManager.LOCAL
 
@@ -2312,7 +2317,7 @@ def spark_udf(
     if (
         is_spark_connect
         and not is_dbconnect_mode
-        and env_manager in (_EnvManager.VIRTUALENV, _EnvManager.CONDA)
+        and env_manager in (_EnvManager.VIRTUALENV, _EnvManager.CONDA, _EnvManager.UV)
     ):
         raise MlflowException.invalid_parameter_value(
             f"Environment manager {env_manager!r} is not supported in Spark Connect "
@@ -2385,13 +2390,13 @@ def spark_udf(
 
     if use_dbconnect_artifact:
         # Upload model artifacts and python environment to NFS as DBConncet artifacts.
-        if env_manager == _EnvManager.VIRTUALENV:
+        if env_manager in (_EnvManager.VIRTUALENV, _EnvManager.UV):
             if not dbconnect_artifact_cache.has_cache_key(env_cache_key):
                 if prebuilt_env_uri:
                     env_archive_path = prebuilt_env_uri
                 else:
                     env_archive_path = _prebuild_env_internal(
-                        local_model_path, env_cache_key, get_or_create_tmp_dir()
+                        local_model_path, env_cache_key, get_or_create_tmp_dir(), env_manager
                     )
                 dbconnect_artifact_cache.add_artifact_archive(env_cache_key, env_archive_path)
 
