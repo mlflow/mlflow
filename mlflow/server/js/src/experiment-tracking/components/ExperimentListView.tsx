@@ -254,19 +254,21 @@ const ModelSearchInputHelpTooltip = () => {
           </Typography.Paragraph>
           <ul>
             <li>
-              <Typography.Text>"attributes.name = 'x'" # or "name = 'x'"</Typography.Text>
+              <Typography.Text code>attributes.name = 'x'</Typography.Text>
+              <Typography.Text> or </Typography.Text>
+              <Typography.Text code>name = 'x'</Typography.Text>
             </li>
             <li>
-              <Typography.Text>"attributes.name LIKE 'x%'"</Typography.Text>
+              <Typography.Text code>attributes.name LIKE 'x%'</Typography.Text>
             </li>
             <li>
-              <Typography.Text>"tags.group != 'x'"</Typography.Text>
+              <Typography.Text code>tags.group != 'x'</Typography.Text>
             </li>
             <li>
-              <Typography.Text>"tags.group ILIKE '%x%'"</Typography.Text>
+              <Typography.Text code>tags.group ILIKE '%x%'</Typography.Text>
             </li>
             <li>
-              <Typography.Text>"attributes.name LIKE 'x%' AND tags.group = 'y'"</Typography.Text>
+              <Typography.Text code>attributes.name LIKE 'x%' AND tags.group = 'y'</Typography.Text>
             </li>
           </ul>
         </div>
