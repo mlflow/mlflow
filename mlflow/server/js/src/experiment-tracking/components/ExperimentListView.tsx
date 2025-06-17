@@ -93,7 +93,12 @@ export const ExperimentListView = (props: Props) => {
             </Button>
             <Tooltip
               componentId="mlflow.experiment_list_view.compare_experiments_button"
-              content="Select at least two experiments from the table to compare them"
+              content={
+                <FormattedMessage
+                  defaultMessage="Select at least two experiments from the table to compare them"
+                  description="Experiments page compare experiments button tooltip message"
+                />
+              }
             >
               <Button
                 componentId="mlflow.experiment_list_view.compare_experiment_button"

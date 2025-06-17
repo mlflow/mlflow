@@ -1371,6 +1371,10 @@
     "defaultMessage": "Trace data is not available for in-progress traces. Please wait for the trace to complete.",
     "description": "Experiment page > traces data drawer > in-progress description"
   },
+  "K/Z4Y5": {
+    "defaultMessage": "Select at least two experiments from the table to compare them",
+    "description": "Experiments page compare experiments button tooltip message"
+  },
   "K5rmCE": {
     "defaultMessage": "S3",
     "description": "Experiment dataset drawer > source type > S3 source type label"
