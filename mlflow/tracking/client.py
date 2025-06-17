@@ -910,29 +910,31 @@ class MlflowClient:
         Parse prompt URI into prompt name and prompt version.
         - 'prompts:/<name>/<version>' -> ('<name>', '<version>')
         - 'prompts:/<name>@<alias>' -> ('<name>', '<version>')
-        
+
         This method reuses the existing model URI parsing logic with prompts prefix.
         """
         from mlflow.store.artifact.utils.models import _parse_model_uri
-        
+
         # Use the existing model URI parsing utilities with prompts prefix
         parsed_prompt_uri = _parse_model_uri(uri, prefix="prompts")
-        
+
         if parsed_prompt_uri.model_id is not None:
             # This shouldn't happen for prompts (no model IDs), but handle gracefully
             raise MlflowException.invalid_parameter_value(
                 f"Invalid prompt URI format: {uri}"
             )
-        
+
         if parsed_prompt_uri.version is not None:
             # Direct version reference: prompts:/name/version
             return parsed_prompt_uri.name, parsed_prompt_uri.version
-        
+
         if parsed_prompt_uri.alias is not None:
             # Alias reference: prompts:/name@alias - resolve to version
-            prompt_version = self.get_prompt_version_by_alias(parsed_prompt_uri.name, parsed_prompt_uri.alias)
+            prompt_version = self.get_prompt_version_by_alias(
+                parsed_prompt_uri.name, parsed_prompt_uri.alias
+            )
             return parsed_prompt_uri.name, str(prompt_version.version)
-        
+
         # Handle stage or latest (not supported for prompts)
         raise MlflowException.invalid_parameter_value(
             f"Invalid prompt URI: {uri}. Prompts do not support stage-based references."

@@ -59,7 +59,7 @@ def _parse_model_uri(uri, prefix: str = "models") -> ParsedModelUri:
         - (name, None, stage, None) to look for the latest version of a stage,
         - (name, None, None, None) to look for the latest of all versions.
         - (name, None, None, alias) to look for a registered model alias.
-    
+
     Args:
         uri: The URI to parse (e.g., "models:/name/version" or "prompts:/name@alias")
         prefix: The expected URI scheme prefix (default: "models", can be "prompts")
