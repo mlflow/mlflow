@@ -567,8 +567,8 @@ const config: Config = {
             from: ["/prompts/run-and-model"],
           },
           {
-            to: "/prompt-version-mgmt/optimize-prompts",
-            from: ["/prompt-version-mgmt/prompt-registry/optimize-prompts"],
+            to: "/genai/prompt-version-mgmt/optimize-prompts",
+            from: ["/genai/prompt-version-mgmt/prompt-registry/optimize-prompts"],
           },
 
           // Governance and Deployments Redirects
