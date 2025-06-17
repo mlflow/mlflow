@@ -566,6 +566,10 @@ const config: Config = {
             to: "/genai/prompt-version-mgmt/prompt-registry/log-with-model",
             from: ["/prompts/run-and-model"],
           },
+          {
+            to: "/genai/prompt-version-mgmt/optimize-prompts",
+            from: ["/genai/prompt-version-mgmt/prompt-registry/optimize-prompts"],
+          },
 
           // Governance and Deployments Redirects
           {
