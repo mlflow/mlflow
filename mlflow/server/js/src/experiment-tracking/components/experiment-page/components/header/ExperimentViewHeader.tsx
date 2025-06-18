@@ -15,6 +15,7 @@ import { EXPERIMENT_PAGE_FEEDBACK_URL } from '@mlflow/mlflow/src/experiment-trac
 import { Link, useNavigate } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
 import { DeleteExperimentModal } from '../../../modals/DeleteExperimentModal';
+import { RenameExperimentModal } from '../../../modals/RenameExperimentModal';
 import { useInvalidateExperimentList } from '../../hooks/useExperimentListQuery';
 
 /**
@@ -38,6 +39,7 @@ export const ExperimentViewHeader = React.memo(
     const invalidateExperimentList = useInvalidateExperimentList();
 
     const [showDeleteExperimentModal, setShowDeleteExperimentModal] = useState(false);
+    const [showRenameExperimentModal, setShowRenameExperimentModal] = useState(false);
 
     const navigate = useNavigate();
 
@@ -193,6 +195,16 @@ export const ExperimentViewHeader = React.memo(
           <OverflowMenu
             menu={[
               {
+                id: 'rename',
+                itemName: (
+                  <FormattedMessage
+                    defaultMessage="Rename"
+                    description="Text for rename button on the experiment view page header"
+                  />
+                ),
+                onClick: () => setShowRenameExperimentModal(true),
+              },
+              {
                 id: 'delete',
                 itemName: (
                   <FormattedMessage
@@ -206,6 +218,15 @@ export const ExperimentViewHeader = React.memo(
           />
           {getShareButton()}
         </div>
+        <RenameExperimentModal
+          experimentId={experiment.experimentId}
+          experimentName={experiment.name}
+          isOpen={showRenameExperimentModal}
+          onClose={() => setShowRenameExperimentModal(false)}
+          onExperimentRenamed={() => {
+            invalidateExperimentList();
+          }}
+        />
         <DeleteExperimentModal
           experimentId={experiment.experimentId}
           experimentName={experiment.name}
