@@ -1,3 +1,5 @@
+import os
+
 from mlflow.metrics import genai
 from mlflow.metrics.base import (
     MetricValue,
@@ -23,7 +25,6 @@ from mlflow.metrics.metric_definitions import (
     _rouge2_eval_fn,
     _rougeL_eval_fn,
     _rougeLsum_eval_fn,
-    _token_count_eval_fn,
     _toxicity_eval_fn,
 )
 from mlflow.models import (
@@ -55,6 +56,28 @@ def token_count(encoding: str = "cl100k_base") -> EvaluationMetric:
     Note: For air-gapped environments, you can set the TIKTOKEN_CACHE_DIR environment variable
     to specify a local cache directory for tiktoken to avoid downloading the tokenizer files.
     """
+
+    def _token_count_eval_fn(predictions, targets=None, metrics=None):
+        import tiktoken
+
+        # ref: https://github.com/openai/tiktoken/issues/75
+        # Only set TIKTOKEN_CACHE_DIR if not already set by user
+        if "TIKTOKEN_CACHE_DIR" not in os.environ:
+            os.environ["TIKTOKEN_CACHE_DIR"] = ""
+        enc = tiktoken.get_encoding(encoding)
+
+        num_tokens = []
+        for prediction in predictions:
+            if isinstance(prediction, str):
+                num_tokens.append(len(enc.encode(prediction)))
+            else:
+                num_tokens.append(None)
+
+        return MetricValue(
+            scores=num_tokens,
+            aggregate_results={},
+        )
+
     return make_metric(
         eval_fn=_token_count_eval_fn,
         greater_is_better=True,
