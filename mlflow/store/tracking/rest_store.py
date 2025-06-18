@@ -1008,8 +1008,8 @@ class RestStore(AbstractStore):
             datasets: List of dictionaries to specify datasets on which to apply metrics filters.
                 The following fields are supported:
 
-                name (str): Required. Name of the dataset.
-                digest (str): Optional. Digest of the dataset.
+                dataset_name (str): Required. Name of the dataset.
+                dataset_digest (str): Optional. Digest of the dataset.
             max_results: Maximum number of logged models desired.
             order_by: List of dictionaries to specify the ordering of the search results.
                 The following fields are supported:
