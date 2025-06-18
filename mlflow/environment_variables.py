@@ -847,3 +847,15 @@ MLFLOW_LOCK_MODEL_DEPENDENCIES = _BooleanEnvironmentVariable(
 MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX = _EnvironmentVariable(
     "MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX", str, None
 )
+
+#: Maximum number of root fields to include in the MLflow server GraphQL request.
+#: (default: ``10``)
+MLFLOW_SERVER_GRAPHQL_MAX_ROOT_FIELDS = _EnvironmentVariable(
+    "MLFLOW_SERVER_GRAPHQL_MAX_ROOT_FIELDS", int, 10
+)
+
+#: Maximum number of aliases to include in the MLflow server GraphQL request.
+#: (default: ``10``)
+MLFLOW_SERVER_GRAPHQL_MAX_ALIASES = _EnvironmentVariable(
+    "MLFLOW_SERVER_GRAPHQL_MAX_ALIASES", int, 10
+)
