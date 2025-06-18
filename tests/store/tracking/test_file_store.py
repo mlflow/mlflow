@@ -3387,6 +3387,7 @@ def test_create_and_get_assessment(store):
     trace_info = store.start_trace(exp_id, timestamp_ms, {}, {})
 
     feedback = Feedback(
+        trace_id=trace_info.request_id,
         name="correctness",
         value=True,
         rationale="The response is correct and well-formatted",
@@ -3397,7 +3398,7 @@ def test_create_and_get_assessment(store):
         span_id="span-123",
     )
 
-    created_feedback = store.create_assessment(trace_info.request_id, feedback)
+    created_feedback = store.create_assessment(feedback)
     assert created_feedback.assessment_id is not None
     assert created_feedback.assessment_id.startswith("a-")
     assert created_feedback.trace_id == trace_info.request_id
@@ -3407,8 +3408,10 @@ def test_create_and_get_assessment(store):
     assert created_feedback.rationale == "The response is correct and well-formatted"
     assert created_feedback.metadata == {"project": "test-project", "version": "1.0"}
     assert created_feedback.span_id == "span-123"
+    assert created_feedback.valid
 
     expectation = Expectation(
+        trace_id=trace_info.request_id,
         name="expected_response",
         value="The capital of France is Paris.",
         source=AssessmentSource(
@@ -3418,12 +3421,13 @@ def test_create_and_get_assessment(store):
         span_id="span-456",
     )
 
-    created_expectation = store.create_assessment(trace_info.request_id, expectation)
+    created_expectation = store.create_assessment(expectation)
     assert created_expectation.assessment_id != created_feedback.assessment_id
     assert created_expectation.trace_id == trace_info.request_id
     assert created_expectation.expectation.value == "The capital of France is Paris."
     assert created_expectation.metadata == {"context": "geography-qa", "difficulty": "easy"}
     assert created_expectation.span_id == "span-456"
+    assert created_expectation.valid
 
     retrieved_feedback = store.get_assessment(trace_info.request_id, created_feedback.assessment_id)
     assert retrieved_feedback.name == "correctness"
@@ -3432,6 +3436,7 @@ def test_create_and_get_assessment(store):
     assert retrieved_feedback.metadata == {"project": "test-project", "version": "1.0"}
     assert retrieved_feedback.span_id == "span-123"
     assert retrieved_feedback.trace_id == trace_info.request_id
+    assert retrieved_feedback.valid
 
     retrieved_expectation = store.get_assessment(
         trace_info.request_id, created_expectation.assessment_id
@@ -3440,6 +3445,7 @@ def test_create_and_get_assessment(store):
     assert retrieved_expectation.metadata == {"context": "geography-qa", "difficulty": "easy"}
     assert retrieved_expectation.span_id == "span-456"
     assert retrieved_expectation.trace_id == trace_info.request_id
+    assert retrieved_expectation.valid is None
 
 
 def test_get_assessment_errors(store):
@@ -3452,7 +3458,8 @@ def test_get_assessment_errors(store):
 
     with pytest.raises(
         MlflowException,
-        match=rf"Assessment with ID 'fake_assessment' not found for trace '{trace_info.request_id}'",
+        match=r"Assessment with ID 'fake_assessment' not found for trace "
+        rf"'{trace_info.request_id}'",
     ):
         store.get_assessment(trace_info.request_id, "fake_assessment")
 
@@ -3463,6 +3470,7 @@ def test_create_assessment_serialization_error(store):
     trace_info = store.start_trace(exp_id, get_current_time_millis(), {}, {})
 
     feedback = Feedback(
+        trace_id=trace_info.request_id,
         name="test",
         value="test_value",
         source=AssessmentSource(source_type=AssessmentSourceType.CODE),
@@ -3470,4 +3478,4 @@ def test_create_assessment_serialization_error(store):
 
     with mock.patch.object(feedback, "to_dictionary", side_effect=Exception("Serialization error")):
         with pytest.raises(MlflowException, match=r"Failed to serialize assessment to JSON"):
-            store.create_assessment(trace_info.request_id, feedback)
+            store.create_assessment(feedback)

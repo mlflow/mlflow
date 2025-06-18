@@ -1875,7 +1875,7 @@ class FileStore(AbstractStore):
                 f"Failed to deserialize assessment data for ID '{assessment_id}'"
             ) from e
 
-    def create_assessment(self, trace_id: str, assessment: Assessment) -> Assessment:
+    def create_assessment(self, assessment: Assessment) -> Assessment:
         """
         Logs a defined assessment on a trace as a tag.
 
@@ -1887,8 +1887,6 @@ class FileStore(AbstractStore):
         5. Returning the updated assessment object with backend-generated metadata
 
         Args:
-            trace_id: The unique identifier of the trace to associate the assessment with.
-                Must be a valid trace ID that exists in the tracking store.
             assessment: The assessment object to log. Can be either an Expectation or
                 Feedback instance. The assessment will be modified in-place to include
                 the generated assessment_id and timestamps.
@@ -1900,15 +1898,16 @@ class FileStore(AbstractStore):
             MlflowException: If the trace doesn't exist, assessment serialization fails,
                 or there's an error setting the trace tag.
         """
+        trace_id = assessment.trace_id
         self.get_trace_info(trace_id)
 
         assessment_id = generate_assessment_id()
         creation_timestamp = int(time.time() * 1000)
 
         assessment.assessment_id = assessment_id
-        assessment.trace_id = trace_id
         assessment.create_time_ms = creation_timestamp
         assessment.last_update_time_ms = creation_timestamp
+        assessment.valid = True
 
         assessment_key = generate_assessment_key(assessment.name, assessment_id)
         _validate_tag_name(assessment_key)
