@@ -3707,3 +3707,81 @@ def test_update_assessment_multiple_updates(store):
     assert v1_retrieved.overrides is None  # v1 was original, has no overrides
     assert v2_retrieved.overrides == v1_retrieved.assessment_id  # v2 still overrides v1
     assert v3_retrieved.overrides == v2_retrieved.assessment_id  # v3 overrides v2
+
+
+def test_delete_assessment_feedback(store):
+    exp_id = store.create_experiment("test_delete_feedback")
+    trace_info = store.start_trace(exp_id, get_current_time_millis(), {}, {})
+
+    feedback = Feedback(
+        trace_id=trace_info.request_id,
+        name="correctness",
+        value=True,
+        source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+    )
+
+    created_feedback = store.create_assessment(feedback)
+
+    retrieved = store.get_assessment(trace_info.request_id, created_feedback.assessment_id)
+    assert retrieved.assessment_id == created_feedback.assessment_id
+
+    store.delete_assessment(trace_info.request_id, created_feedback.assessment_id)
+
+    with pytest.raises(
+        MlflowException,
+        match=rf"Assessment with ID '{created_feedback.assessment_id}' not"
+        rf" found for trace '{trace_info.request_id}'",
+    ):
+        store.get_assessment(trace_info.request_id, created_feedback.assessment_id)
+
+
+def test_delete_assessment_expectation(store):
+    exp_id = store.create_experiment("test_delete_expectation")
+    trace_info = store.start_trace(exp_id, get_current_time_millis(), {}, {})
+
+    expectation = Expectation(
+        trace_id=trace_info.request_id,
+        name="expected_response",
+        value="test response",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN),
+    )
+
+    created_expectation = store.create_assessment(expectation)
+
+    store.delete_assessment(trace_info.request_id, created_expectation.assessment_id)
+
+    with pytest.raises(
+        MlflowException,
+        match=rf"Assessment with ID '{created_expectation.assessment_id}' not"
+        rf" found for trace '{trace_info.request_id}'",
+    ):
+        store.get_assessment(trace_info.request_id, created_expectation.assessment_id)
+
+
+def test_delete_assessment_idempotent(store):
+    exp_id = store.create_experiment("test_delete_idempotent")
+    trace_info = store.start_trace(exp_id, get_current_time_millis(), {}, {})
+
+    feedback = Feedback(
+        trace_id=trace_info.request_id,
+        name="test",
+        value="test_value",
+        source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+    )
+
+    created_feedback = store.create_assessment(feedback)
+
+    store.delete_assessment(trace_info.request_id, created_feedback.assessment_id)
+
+    # Delete again - should not raise error
+    store.delete_assessment(trace_info.request_id, created_feedback.assessment_id)
+
+    # Delete non-existent assessment - should not raise error
+    store.delete_assessment(trace_info.request_id, "fake_assessment_id")
+
+
+def test_delete_assessment_errors(store):
+    store.create_experiment("test_delete_errors")
+
+    with pytest.raises(MlflowException, match=r"Trace with request ID 'fake_trace' not found"):
+        store.delete_assessment("fake_trace", "fake_assessment")

@@ -2028,6 +2028,42 @@ class FileStore(AbstractStore):
 
         return updated_assessment
 
+    def delete_assessment(self, trace_id: str, assessment_id: str) -> None:
+        """
+        Deletes an assessment from a trace by removing its associated tag.
+
+        This method removes an assessment from storage by:
+        1. Validating the trace exists
+        2. Finding the assessment tag key for the given assessment ID
+        3. Deleting the corresponding trace tag
+
+        The operation is idempotent - attempting to delete a non-existent assessment
+        will not raise an error, allowing for safe repeated deletion attempts.
+
+        Args:
+            trace_id: The unique identifier of the trace containing the assessment.
+            assessment_id: The unique identifier of the assessment to delete.
+
+        Raises:
+            MlflowException: If the trace_id is not found.
+        """
+        trace_dir = self._find_trace_dir(trace_id, assert_exists=True)
+
+        trace_tags = self._get_dict_from_trace_sub_folder(
+            trace_dir, FileStore.TRACE_TAGS_FOLDER_NAME
+        )
+
+        assessment_tag_key = None
+        for tag_key, tag_value in trace_tags.items():
+            if tag_key.startswith(ASSESSMENT_TAG_KEY_PREFIX) and tag_key.endswith(
+                f".{assessment_id}"
+            ):
+                assessment_tag_key = tag_key
+                break
+
+        if assessment_tag_key is not None:
+            self.delete_trace_tag(trace_id, assessment_tag_key)
+
     def _delete_traces(
         self,
         experiment_id: str,
