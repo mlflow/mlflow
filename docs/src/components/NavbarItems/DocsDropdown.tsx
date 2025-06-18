@@ -43,7 +43,7 @@ export default function DocsDropdown({
       color = 'var(--genai-color-primary)';
       text = 'GenAI Docs';
     } else if (currentSection === 'ml') {
-      color = 'var(--ifm-color-primary)';
+      color = 'var(--ml-color-primary)';
       text = 'ML Docs';
     }
 
