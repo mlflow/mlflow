@@ -1,4 +1,4 @@
-import { HrTime, SpanStatusCode as OTelSpanStatusCode } from '@opentelemetry/api';
+import { HrTime, INVALID_SPANID, INVALID_TRACEID, SpanStatusCode as OTelSpanStatusCode } from '@opentelemetry/api';
 import type { Span as OTelSpan } from '@opentelemetry/sdk-trace-node';
 import { SpanAttributeKey, SpanType, NO_OP_SPAN_TRACE_ID } from '../constants';
 import { SpanEvent } from './span_event';
@@ -13,6 +13,7 @@ import {
 /**
  * MLflow Span interface
  */
+
 export interface ISpan {
   /**
    * The OpenTelemetry span wrapped by MLflow Span
@@ -64,7 +65,7 @@ export interface ISpan {
  */
 export class Span implements ISpan {
   readonly _span: OTelSpan;
-  readonly _attributesRegistry: _SpanAttributesRegistry;
+  readonly _attributesRegistry: SpanAttributesRegistry;
 
   /**
    * Create a new MLflowSpan
@@ -74,9 +75,9 @@ export class Span implements ISpan {
     this._span = span;
 
     if (is_mutable) {
-      this._attributesRegistry = new _SpanAttributesRegistry(span);
+      this._attributesRegistry = new SpanAttributesRegistry(span);
     } else {
-      this._attributesRegistry = new _CachedSpanAttributesRegistry(span);
+      this._attributesRegistry = new CachedSpanAttributesRegistry(span);
     }
   }
 
@@ -139,7 +140,7 @@ export class Span implements ISpan {
       return new SpanEvent({
         name: event.name,
         attributes: event.attributes as Record<string, any>,
-        timestamp: seconds * 1_000_000_000 + nanoseconds
+        timestamp: seconds * 1e9 + nanoseconds
       });
     });
   }
@@ -148,16 +149,16 @@ export class Span implements ISpan {
    * Convert this span to JSON format (OpenTelemetry format)
    * @returns JSON object representation of the span
    */
-  toJson(): any {
+  toJson(): SerializedSpan {
     return {
       trace_id: encodeTraceIdToBase64(this.traceId),
       span_id: encodeSpanIdToBase64(this.spanId),
-      parent_span_id: this.parentId ? encodeSpanIdToBase64(this.parentId) : undefined,
+      parent_span_id: this.parentId ? encodeSpanIdToBase64(this.parentId) : null,
       name: this.name,
       start_time_unix_nano: convertHrTimeToNanoSeconds(this.startTime),
       end_time_unix_nano: this.endTime ? convertHrTimeToNanoSeconds(this.endTime) : null,
       status: {
-        code: this.status?.statusCode || 'UNSET'
+        code: this.status?.statusCode || SpanStatusCode.UNSET
       },
       attributes: this.attributes || {},
       events: this.events.map((event) => ({
@@ -172,24 +173,19 @@ export class Span implements ISpan {
    * Create a Span from JSON data (following Python implementation)
    * Converts the JSON data back into OpenTelemetry-compatible span
    */
-  static fromJson(json: Record<string, any>): ISpan {
+  static fromJson(json: SerializedSpan): ISpan {
     // Convert the JSON data back to an OpenTelemetry-like span structure
     // This is simplified compared to Python but follows the same pattern
 
-    /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument */
     const otelSpanData = {
-      name: json.name as string,
-      startTime: convertNanoSecondsToHrTime(json.start_time_unix_nano as bigint),
-      endTime: convertNanoSecondsToHrTime(json.end_time_unix_nano as bigint),
-      status: {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        code: convertStatusCodeToOTel(json.status?.code) || OTelSpanStatusCode.UNSET
-      },
+      name: json.name,
+      startTime: convertNanoSecondsToHrTime(json.start_time_unix_nano),
+      endTime: json.end_time_unix_nano ? convertNanoSecondsToHrTime(json.end_time_unix_nano) : null,
+      status: { code: convertStatusCodeToOTel(json.status.code) },
       // For fromJson, attributes are already in their final form (not JSON serialized)
       // so we store them directly
       attributes: json.attributes || {},
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-      events: (json.events || []).map((event: Record<string, any>) => ({
+      events: (json.events || []).map((event) => ({
         name: event.name,
         time: convertNanoSecondsToHrTime(event.time_unix_nano),
         attributes: event.attributes || {}
@@ -212,7 +208,6 @@ export class Span implements ISpan {
           }
         : undefined
     };
-    /* eslint-enable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument */
 
     // Create a span that behaves like our Span class but from downloaded data
     return new Span(otelSpanData as OTelSpan, false); // false = immutable
@@ -286,7 +281,7 @@ export class LiveSpan extends Span {
    * @param attributes Object containing key-value pairs for attributes
    */
   setAttributes(attributes: Record<string, any>): void {
-    if (!attributes) {
+    if (!attributes || Object.keys(attributes).length === 0) {
       return;
     }
 
@@ -320,7 +315,7 @@ export class LiveSpan extends Span {
     if (status instanceof SpanStatus) {
       this._span.setStatus(status.toOtelStatus());
     } else if (typeof status === 'string') {
-      const spanStatus = new SpanStatus(status, description);
+      const spanStatus = new SpanStatus(status as SpanStatusCode, description);
       this._span.setStatus(spanStatus.toOtelStatus());
     }
   }
@@ -339,15 +334,15 @@ export class LiveSpan extends Span {
     status?: SpanStatus | SpanStatusCode;
     endTimeNs?: number;
   }): void {
-    if (options?.outputs !== undefined) {
+    if (options?.outputs != null) {
       this.setOutputs(options.outputs);
     }
 
-    if (options?.attributes !== undefined) {
+    if (options?.attributes != null) {
       this.setAttributes(options.attributes);
     }
 
-    if (options?.status !== undefined) {
+    if (options?.status != null) {
       this.setStatus(options.status);
     }
 
@@ -359,6 +354,7 @@ export class LiveSpan extends Span {
       this.setStatus(SpanStatusCode.OK);
     }
 
+    // OTel SDK default end time to current time if not provided
     const endTime = options?.endTimeNs ? convertNanoSecondsToHrTime(options.endTimeNs) : undefined;
     this._span.end(endTime);
   }
@@ -367,21 +363,21 @@ export class LiveSpan extends Span {
 /**
  * A no-operation span implementation that doesn't record anything
  */
-export class NoOpSpan implements LiveSpan {
+export class NoOpSpan implements ISpan {
   readonly _span: any; // Use any for NoOp span to avoid type conflicts
-  readonly _attributesRegistry: _SpanAttributesRegistry;
+  readonly _attributesRegistry: SpanAttributesRegistry;
 
   constructor(span?: any) {
     // Create a minimal no-op span object
     this._span = span || {
       spanContext: () => ({
-        spanId: '0000000000000000',
-        traceId: '00000000000000000000000000000000'
+        spanId: INVALID_SPANID,
+        traceId: INVALID_TRACEID
       }),
       attributes: {},
       events: []
     };
-    this._attributesRegistry = new _SpanAttributesRegistry(this._span as OTelSpan);
+    this._attributesRegistry = new SpanAttributesRegistry(this._span as OTelSpan);
   }
 
   get traceId(): string {
@@ -441,10 +437,41 @@ export class NoOpSpan implements LiveSpan {
     return [];
   }
 
-  toJson(): any {
-    return {};
+  toJson(): SerializedSpan {
+    return {
+      trace_id: NO_OP_SPAN_TRACE_ID,
+      span_id: '',
+      parent_span_id: null,
+      name: '',
+      start_time_unix_nano: 0,
+      end_time_unix_nano: null,
+      status: { code: 'UNSET' },
+      attributes: {},
+      events: []
+    };
   }
 }
+
+
+interface SerializedSpan {
+  trace_id: string;
+  span_id: string;
+  parent_span_id: string | null;
+  name: string;
+  // NB: Nanosecond unix timestamp exceeds the range of number type in JavaScript. However, we need to
+  // stick to it for keeping the consistent JSON format with Python SDK. This causes precision loss
+  // when converting to/from JSON, but it should be smaller than 1 microsecond so acceptable.
+  start_time_unix_nano: number;
+  end_time_unix_nano: number | null;
+  status: { code: string };
+  attributes: Record<string, any>;
+  events: {
+    name: string;
+    time_unix_nano: number;
+    attributes: Record<string, any>;
+  }[];
+}
+
 
 /**
  * A utility class to manage the span attributes.
@@ -454,7 +481,7 @@ export class NoOpSpan implements LiveSpan {
  * This class provides simple getter and setter methods to interact with the span attributes
  * without worrying about the serde process.
  */
-class _SpanAttributesRegistry {
+class SpanAttributesRegistry {
   private readonly _span: OTelSpan;
 
   constructor(otelSpan: OTelSpan) {
@@ -512,9 +539,9 @@ class _SpanAttributesRegistry {
  * A cache-enabled version of the SpanAttributesRegistry.
  * The caching helps to avoid the redundant deserialization of the attribute, however, it does
  * not handle the value change well. Therefore, this class should only be used for the persisted
- * spans that are immutable, and thus implemented as a subclass of _SpanAttributesRegistry.
+ * spans that are immutable, and thus implemented as a subclass of SpanAttributesRegistry.
  */
-class _CachedSpanAttributesRegistry extends _SpanAttributesRegistry {
+class CachedSpanAttributesRegistry extends SpanAttributesRegistry {
   private readonly _cache = new Map<string, any>();
 
   /**
@@ -535,7 +562,7 @@ class _CachedSpanAttributesRegistry extends _SpanAttributesRegistry {
     if (this._cache.size >= 128) {
       // Remove least recently used (first entry)
       const firstKey = this._cache.keys().next().value;
-      if (firstKey !== undefined) {
+      if (firstKey != null) {
         this._cache.delete(firstKey);
       }
     }
@@ -563,7 +590,7 @@ export function createMlflowSpan(
   // NonRecordingSpan always has a spanId of '0000000000000000'
   // https://github.com/open-telemetry/opentelemetry-js/blob/f2cfd1327a5b131ea795301b10877291aac4e6f5/api/src/trace/invalid-span-constants.ts#L23C32-L23C48
   /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-call */
-  if (!otelSpan || otelSpan.spanContext().spanId === '0000000000000000') {
+  if (!otelSpan || otelSpan.spanContext().spanId === INVALID_SPANID) {
     return new NoOpSpan(otelSpan);
   }
 

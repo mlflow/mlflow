@@ -40,20 +40,9 @@ export class SpanStatus {
    * @param statusCode The status code - must be one of SpanStatusCode enum values
    * @param description Optional description, typically used for ERROR status
    */
-  constructor(statusCode: SpanStatusCode | string, description: string = '') {
+  constructor(statusCode: SpanStatusCode, description: string = '') {
     // If user provides a string status code, validate it and convert to enum
-    if (typeof statusCode === 'string') {
-      if (!Object.values(SpanStatusCode).includes(statusCode as SpanStatusCode)) {
-        throw new Error(
-          `${statusCode} is not a valid SpanStatusCode value. ` +
-            `Please use one of [${Object.values(SpanStatusCode).join(', ')}]`
-        );
-      }
-      this.statusCode = statusCode as SpanStatusCode;
-    } else {
-      this.statusCode = statusCode;
-    }
-
+    this.statusCode = statusCode;
     this.description = description;
   }
 

@@ -12,7 +12,7 @@ describe('SpanStatus', () => {
 
     testCases.forEach(({ input, expected }) => {
       it(`should initialize with status code ${input}`, () => {
-        const spanStatus = new SpanStatus(input, 'test');
+        const spanStatus = new SpanStatus(input as SpanStatusCode, 'test');
         expect(spanStatus.statusCode).toBe(expected);
         expect(spanStatus.description).toBe('test');
       });
@@ -58,7 +58,7 @@ describe('SpanStatus', () => {
       });
 
       // Create new status from JSON data
-      const recreatedStatus = new SpanStatus(json.status_code, json.description);
+      const recreatedStatus = new SpanStatus(json.status_code as SpanStatusCode, json.description);
 
       // Verify round-trip preservation
       expect(recreatedStatus.statusCode).toBe(originalStatus.statusCode);
@@ -76,7 +76,7 @@ describe('SpanStatus', () => {
       testCases.forEach(({ code, description }) => {
         const originalStatus = new SpanStatus(code, description);
         const json = originalStatus.toJson();
-        const recreatedStatus = new SpanStatus(json.status_code, json.description);
+        const recreatedStatus = new SpanStatus(json.status_code as SpanStatusCode, json.description);
 
         expect(recreatedStatus.statusCode).toBe(originalStatus.statusCode);
         expect(recreatedStatus.description).toBe(originalStatus.description);
@@ -94,7 +94,7 @@ describe('SpanStatus', () => {
         description: ''
       });
 
-      const recreatedStatus = new SpanStatus(json.status_code, json.description);
+      const recreatedStatus = new SpanStatus(json.status_code as SpanStatusCode, json.description);
 
       expect(recreatedStatus.statusCode).toBe(originalStatus.statusCode);
       expect(recreatedStatus.description).toBe(originalStatus.description);

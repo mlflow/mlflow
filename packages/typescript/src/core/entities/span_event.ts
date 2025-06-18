@@ -18,7 +18,7 @@ export interface SpanEventParams {
   /** Name of the event */
   name: string;
   /**
-   * The exact time the event occurred, measured in microseconds since epoch.
+   * The exact time the event occurred, measured in nanoseconds since epoch.
    * If not provided, the current time will be used.
    */
   timestamp?: number;
@@ -56,8 +56,12 @@ export class SpanEvent {
   readonly name: string;
 
   /**
-   * The exact time the event occurred, measured in microseconds since epoch.
+   * The exact time the event occurred, measured in nanosecond since epoch.
    * Defaults to current time if not provided during construction.
+   *
+   * NB: Nanosecond unix timestamp exceeds the range of number type in JavaScript. However, we need to
+   * stick to it for keeping the consistent JSON format with Python SDK. This causes precision loss
+   * when converting to/from JSON, but it should be smaller than 1 microsecond so acceptable.
    */
   readonly timestamp: number;
 
@@ -85,7 +89,7 @@ export class SpanEvent {
    */
   constructor(params: SpanEventParams) {
     this.name = params.name;
-    this.timestamp = params.timestamp ?? this.getCurrentTimeMicros();
+    this.timestamp = params.timestamp ?? this.getCurrentTimeNano();
     this.attributes = params.attributes ?? {};
   }
 
@@ -117,7 +121,7 @@ export class SpanEvent {
       name: 'exception',
       attributes: {
         'exception.message': exception.message,
-        'exception.type': exception.constructor.name,
+        'exception.type': exception.name,
         'exception.stacktrace': stackTrace
       }
     });
@@ -131,10 +135,10 @@ export class SpanEvent {
    */
   private static getStackTrace(error: Error): string {
     try {
-      return error.stack ?? error.toString();
+      return error.stack ?? String(error);
     } catch {
       // Fallback if stack trace extraction fails
-      return error.toString();
+      return String(error);
     }
   }
 
@@ -151,11 +155,11 @@ export class SpanEvent {
   }
 
   /**
-   * Gets the current time in microseconds since epoch.
+   * Gets the current time in nanoseconds since epoch.
    *
-   * @returns Current timestamp in microseconds
+   * @returns Current timestamp in nanoseconds
    */
-  private getCurrentTimeMicros(): number {
-    return Math.floor(Date.now() * 1000); // Convert milliseconds to microseconds
+  private getCurrentTimeNano(): number {
+    return Date.now() * 1e6;
   }
 }

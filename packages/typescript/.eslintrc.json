@@ -35,7 +35,7 @@
     "no-alert": "error",
     "prefer-const": "error",
     "no-var": "error",
-    "eqeqeq": ["error", "always"],
+    "eqeqeq": ["error", "always", { "null": "never" }],
     "curly": ["error", "all"],
     "no-trailing-spaces": "error",
     "no-multiple-empty-lines": ["error", { "max": 2 }],
