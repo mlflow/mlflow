@@ -38,7 +38,6 @@ describe('HomePage', () => {
 
   test('Fetches experiment on page load', () => {
     renderPage();
-    // eslint-disable-next-line jest/no-standalone-expect
     expect(useFetchExperiments).toBeCalled();
   });
 });
