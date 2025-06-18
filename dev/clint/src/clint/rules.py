@@ -20,7 +20,8 @@ class Rule(ABC):
         super().__init_subclass__(**kwargs)
         # Only generate ID for concrete classes
         if not inspect.isabstract(cls):
-            cls._generated_id = f"MLF{next(cls._id_counter):04d}"
+            id_ = next(cls._id_counter)
+            cls._generated_id = f"MLF{id_:04d}"
 
     @property
     def id(self) -> str:
