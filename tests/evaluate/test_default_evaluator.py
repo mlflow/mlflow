@@ -131,7 +131,7 @@ def test_regressor_evaluation(
     evaluator_config = {"sample_weights": sample_weights} if use_sample_weights else {}
 
     if isinstance(evaluators, list):
-        evaluator_config = {evaluator: evaluator_config for evaluator in evaluators}
+        evaluator_config = dict.fromkeys(evaluators, evaluator_config)
 
     with mlflow.start_run() as run:
         result = evaluate(

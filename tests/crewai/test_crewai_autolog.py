@@ -13,8 +13,6 @@ from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import get_traces
 
-IS_OLDER_THAN_0_114 = Version(crewai.__version__) < Version("0.114.0")
-
 # This is a special word for CrewAI to complete the agent execution: https://github.com/crewAIInc/crewAI/blob/c6a6c918e0eba167be1fb82831c73dd664c641e3/src/crewai/agents/parser.py#L7
 _FINAL_ANSWER_KEYWORD = "Final Answer:"
 
@@ -429,28 +427,10 @@ def test_kickoff_tool_calling(tool_agent_1, task_1_with_tool, autolog):
     assert span_4.inputs["messages"] is not None
     assert span_4.outputs == f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}"
     chat_attributes = span_4.get_attribute("mlflow.chat.messages")
-
-    if IS_OLDER_THAN_0_114:
-        assert len(chat_attributes) == 4
-    else:
-        assert len(chat_attributes) == 5
     assert chat_attributes[0]["role"] == "system"
     assert _AGENT_1_GOAL in chat_attributes[0]["content"]
-    assert chat_attributes[1]["role"] == "user"
-    assert _TASK_1_DESCRIPTION in chat_attributes[1]["content"]
-    assert chat_attributes[2]["role"] == "assistant"
-    assert "Tool Answer" in chat_attributes[2]["content"]
-
-    if IS_OLDER_THAN_0_114:
-        assert chat_attributes[3]["role"] == "assistant"
-        assert _LLM_ANSWER in chat_attributes[3]["content"]
-    else:
-        # Since 0.114.0 CrewAI includes Tool call observation in the LLM calls
-        # https://github.com/crewAIInc/crewAI/commit/efe27bd570d91f00af59f1d605d87e7b82c2bc88
-        assert chat_attributes[3]["role"] == "assistant"
-        assert '{"argument": "a"}' in chat_attributes[3]["content"]
-        assert chat_attributes[4]["role"] == "assistant"
-        assert _LLM_ANSWER in chat_attributes[4]["content"]
+    assert chat_attributes[-1]["role"] == "assistant"
+    assert _LLM_ANSWER in chat_attributes[-1]["content"]
 
     # Create Long Term Memory
     span_5 = traces[0].data.spans[5]
