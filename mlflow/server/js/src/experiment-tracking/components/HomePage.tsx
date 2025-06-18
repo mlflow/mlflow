@@ -1,9 +1,11 @@
 import ExperimentListView from './ExperimentListView';
 import { useExperimentListQuery } from './experiment-page/hooks/useExperimentListQuery';
+import { useSearchFilter } from './experiment-page/hooks/useSearchFilter';
 import { Spinner } from '@databricks/design-system';
 
 const HomePage = () => {
-  const { data: experiments, error, isLoading } = useExperimentListQuery();
+  const [searchFilter, setSearchFilter] = useSearchFilter();
+  const { data: experiments, error, isLoading } = useExperimentListQuery({ searchFilter });
 
   const loadingState = (
     <div css={{ height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
@@ -15,7 +17,14 @@ const HomePage = () => {
     return loadingState;
   }
 
-  return <ExperimentListView experiments={experiments || []} error={error} />;
+  return (
+    <ExperimentListView
+      experiments={experiments || []}
+      error={error}
+      searchFilter={searchFilter}
+      setSearchFilter={setSearchFilter}
+    />
+  );
 };
 
 export default HomePage;
