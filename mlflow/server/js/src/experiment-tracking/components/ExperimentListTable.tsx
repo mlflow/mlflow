@@ -69,6 +69,14 @@ const useExperimentsTableColumns = () => {
         id: 'lastModified',
         accessorFn: ({ lastUpdateTime }) => Utils.formatTimestamp(lastUpdateTime, intl),
       },
+      {
+        header: intl.formatMessage({
+          defaultMessage: 'Description',
+          description: 'Header for the description column in the experiments table',
+        }),
+        id: 'description',
+        accessorFn: ({ tags }) => tags?.find(({ key }) => key === 'mlflow.note.content')?.value,
+      },
     ];
 
     return resultColumns;

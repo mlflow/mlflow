@@ -1823,6 +1823,10 @@
     "defaultMessage": "Time",
     "description": "Label for the time axis on the runs compare chart"
   },
+  "STEhnv": {
+    "defaultMessage": "Description",
+    "description": "Header for the description column in the experiments table"
+  },
   "SZj964": {
     "defaultMessage": "Copy S3 URI to clipboard",
     "description": "Text for the HTTP/HF location link in the experiment run dataset drawer"
@@ -2458,6 +2462,10 @@
   "bqn2bk": {
     "defaultMessage": "Outputs",
     "description": "Table section name for schema outputs in the model comparison page"
+  },
+  "c+UXde": {
+    "defaultMessage": "Filter experiments by name, tags or attributes",
+    "description": "Placeholder text inside experiments search bar"
   },
   "c0slEY": {
     "defaultMessage": "Click into an individual run to see all models associated with it",
