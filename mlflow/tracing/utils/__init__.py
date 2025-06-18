@@ -15,7 +15,7 @@ from opentelemetry import trace as trace_api
 from opentelemetry.sdk.trace import Span as OTelSpan
 from packaging.version import Version
 
-from mlflow.exceptions import BAD_REQUEST, MlflowTracingException
+from mlflow.exceptions import BAD_REQUEST, MlflowException, MlflowTracingException
 from mlflow.tracing.constant import (
     ASSESSMENT_ID_PREFIX,
     ASSESSMENT_TAG_KEY_PREFIX,
@@ -32,7 +32,7 @@ _logger = logging.getLogger(__name__)
 SPANS_COLUMN_NAME = "spans"
 
 if TYPE_CHECKING:
-    from mlflow.entities import LiveSpan, Trace
+    from mlflow.entities import Assessment, LiveSpan, Trace
     from mlflow.pyfunc.context import Context
     from mlflow.types.chat import ChatMessage, ChatTool
 
@@ -572,3 +572,25 @@ def generate_assessment_key(name: str, assessment_id: str) -> str:
         assessments that are attached to traces.
     """
     return f"{ASSESSMENT_TAG_KEY_PREFIX}.{name}.{assessment_id}"
+
+
+def serialize_assessment(assessment: Assessment) -> str:
+    """
+    Serializes an Assessment object to JSON for storage.
+
+    Args:
+        assessment: An assessment object
+
+    Raises:
+        An MlflowException if there is an issue with serializing the Assessment
+            object.
+
+    Returns:
+        Serialized string of the object's contents
+    """
+    try:
+        return json.dumps(assessment.to_dictionary())
+    except Exception as e:
+        raise MlflowException.invalid_parameter_value(
+            "Failed to serialize assessment to JSON."
+        ) from e

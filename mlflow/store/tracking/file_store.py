@@ -14,8 +14,10 @@ from mlflow.entities import (
     Assessment,
     Dataset,
     DatasetInput,
+    Expectation,
     Experiment,
     ExperimentTag,
+    Feedback,
     InputTag,
     LoggedModel,
     LoggedModelInput,
@@ -37,6 +39,7 @@ from mlflow.entities import (
     ViewType,
     _DatasetSummary,
 )
+from mlflow.entities.assessment import FeedbackValueType
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.run_info import check_run_is_active
 from mlflow.entities.trace_status import TraceStatus
@@ -64,6 +67,7 @@ from mlflow.tracing.utils import (
     generate_assessment_id,
     generate_assessment_key,
     generate_request_id_v2,
+    serialize_assessment,
 )
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.file_utils import (
@@ -1912,12 +1916,7 @@ class FileStore(AbstractStore):
         assessment_key = generate_assessment_key(assessment.name, assessment_id)
         _validate_tag_name(assessment_key)
 
-        try:
-            assessment_value = json.dumps(assessment.to_dictionary())
-        except Exception as e:
-            raise MlflowException.invalid_parameter_value(
-                "Failed to serialize assessment to JSON."
-            ) from e
+        assessment_value = serialize_assessment(assessment)
 
         self.set_trace_tag(request_id=trace_id, key=assessment_key, value=assessment_value)
 
@@ -1927,51 +1926,107 @@ class FileStore(AbstractStore):
         self,
         trace_id: str,
         assessment_id: str,
-        name: Optional[str] = None,
-        expectation: Optional[str] = None,
-        feedback: Optional[str] = None,
+        expectation: Optional[Any] = None,
+        feedback: Optional[FeedbackValueType] = None,
         rationale: Optional[str] = None,
         metadata: Optional[dict[str, str]] = None,
     ) -> Assessment:
-        # NO - we need to:
-        # 1. copy the original assessment for mutation but leave the original alone.
-        # 2. The original assessment data must have the 'valid' field flipped to 'false' for UI purposes
-        # 3. After updating of the original content in the copy, both the original and the new records need to be written
-        #    to reflect the SCD type 6 update policy for the existing record.
+        """
+        Updates an existing assessment by creating a new version with override tracking.
 
+        This method implements copy-on-write updates for assessments in OSS MLflow by:
+        1. Retrieving the existing assessment from storage
+        2. Validating that immutable fields (name, source, span_id) are not being changed
+        3. Creating a new assessment with updated fields and a new ID
+        4. Setting override relationships (new assessment overrides the original)
+        5. Marking the original assessment as invalid
+        6. Storing both assessments to maintain audit trail
+
+        The assessment_name, source, and span_id are immutable because they determine
+        the storage key for the assessment. Only expectation/feedback values, rationale,
+        and metadata can be updated.
+
+        Args:
+            trace_id: The unique identifier of the trace containing the assessment.
+            assessment_id: The unique identifier of the assessment to update.
+            expectation: Optional new expectation value. Only valid for Expectation assessments.
+            feedback: Optional new feedback value. Only valid for Feedback assessments.
+            rationale: Optional new rationale text.
+            metadata: Optional metadata updates. If provided, completely replaces existing metadata.
+
+        Returns:
+            Assessment: The newly created assessment object with updated values, new ID,
+                and override relationship to the original.
+
+        Raises:
+            MlflowException: If the trace_id or assessment_id is not found, if providing
+                incompatible value types (e.g., expectation for Feedback), if serialization
+                fails, or if there's an error updating the trace tags.
+
+        Note:
+            This method creates a new assessment_id for the updated version and maintains
+            an audit trail by keeping both the original (marked invalid) and new assessments
+            in storage with proper override relationships.
+        """
         existing_assessment = self.get_assessment(trace_id, assessment_id)
 
-        updated_assessment = existing_assessment.copy()
+        if expectation is not None and not isinstance(existing_assessment, Expectation):
+            raise MlflowException.invalid_parameter_value(
+                "Cannot update expectation value on a Feedback assessment."
+            )
 
-        updated_name = name if name else existing_assessment.name
+        if feedback is not None and not isinstance(existing_assessment, Feedback):
+            raise MlflowException.invalid_parameter_value(
+                "Cannot update feedback value on an Expectation assessment."
+            )
 
-        new_assessment_key = generate_assessment_key(updated_name, assessment_id)
+        new_assessment_id = generate_assessment_id()
         updated_timestamp = int(time.time() * 1000)
 
-        updated_assessment.name = updated_name
-        updated_assessment.last_update_time_ms = updated_timestamp
+        if isinstance(existing_assessment, Expectation):
+            updated_assessment = Expectation(
+                name=existing_assessment.name,
+                value=expectation if expectation is not None else existing_assessment.value,
+                source=existing_assessment.source,
+                trace_id=existing_assessment.trace_id,
+                metadata=metadata if metadata is not None else existing_assessment.metadata,
+                span_id=existing_assessment.span_id,
+                create_time_ms=existing_assessment.create_time_ms,
+                last_update_time_ms=updated_timestamp,
+            )
+        else:
+            updated_assessment = Feedback(
+                name=existing_assessment.name,
+                value=feedback if feedback is not None else existing_assessment.value,
+                error=existing_assessment.error,
+                source=existing_assessment.source,
+                trace_id=existing_assessment.trace_id,
+                metadata=metadata if metadata is not None else existing_assessment.metadata,
+                span_id=existing_assessment.span_id,
+                create_time_ms=existing_assessment.create_time_ms,
+                last_update_time_ms=updated_timestamp,
+                rationale=rationale if rationale is not None else existing_assessment.rationale,
+                overrides=existing_assessment.assessment_id,
+                valid=True,
+            )
 
-        if expectation:
-            updated_assessment.expectation = expectation
-        if feedback:
-            updated_assessment.feedback = feedback
-        if rationale:
-            updated_assessment.rationale = rationale
-        if metadata:
-            updated_metadata = updated_assessment.metadata | metadata
-            updated_assessment.metadata = updated_metadata
+        updated_assessment.assessment_id = new_assessment_id
 
         existing_assessment.valid = False
 
-        # serialize the assessment after mutating
+        new_assessment_key = generate_assessment_key(updated_assessment.name, new_assessment_id)
+        existing_assessment_key = generate_assessment_key(existing_assessment.name, assessment_id)
+        _validate_tag_name(new_assessment_key)
 
-        # call set_trace_tag with new assessment
+        new_assessment_value = serialize_assessment(updated_assessment)
+        existing_assessment_value = serialize_assessment(existing_assessment)
 
-        # return the updated assessment object
-
-        return super().update_assessment(
-            trace_id, assessment_id, name, expectation, feedback, rationale, metadata
+        self.set_trace_tag(request_id=trace_id, key=new_assessment_key, value=new_assessment_value)
+        self.set_trace_tag(
+            request_id=trace_id, key=existing_assessment_key, value=existing_assessment_value
         )
+
+        return updated_assessment
 
     def _delete_traces(
         self,

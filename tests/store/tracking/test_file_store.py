@@ -3479,3 +3479,231 @@ def test_create_assessment_serialization_error(store):
     with mock.patch.object(feedback, "to_dictionary", side_effect=Exception("Serialization error")):
         with pytest.raises(MlflowException, match=r"Failed to serialize assessment to JSON"):
             store.create_assessment(feedback)
+
+
+def test_update_assessment_feedback(store):
+    exp_id = store.create_experiment("test_update_feedback")
+    trace_info = store.start_trace(exp_id, get_current_time_millis(), {}, {})
+
+    original_feedback = Feedback(
+        trace_id=trace_info.request_id,
+        name="correctness",
+        value=True,
+        rationale="Original rationale",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.HUMAN, source_id="evaluator@company.com"
+        ),
+        metadata={"project": "test-project", "version": "1.0"},
+        span_id="span-123",
+    )
+
+    created_feedback = store.create_assessment(original_feedback)
+    original_id = created_feedback.assessment_id
+
+    updated_feedback = store.update_assessment(
+        trace_id=trace_info.request_id,
+        assessment_id=original_id,
+        feedback=False,
+        rationale="Updated rationale",
+        metadata={"project": "test-project", "version": "2.0"},
+    )
+
+    assert updated_feedback.assessment_id != original_id
+    assert updated_feedback.assessment_id.startswith("a-")
+    assert updated_feedback.name == "correctness"
+    assert updated_feedback.feedback.value is False
+    assert updated_feedback.rationale == "Updated rationale"
+    assert updated_feedback.metadata == {"project": "test-project", "version": "2.0"}
+    assert updated_feedback.span_id == "span-123"
+    assert updated_feedback.source.source_id == "evaluator@company.com"
+    assert updated_feedback.valid is True
+    assert updated_feedback.overrides == original_id
+
+    original_retrieved = store.get_assessment(trace_info.request_id, original_id)
+    assert original_retrieved.valid is False
+    assert original_retrieved.feedback.value is True
+    assert original_retrieved.rationale == "Original rationale"
+
+    updated_retrieved = store.get_assessment(trace_info.request_id, updated_feedback.assessment_id)
+    assert updated_retrieved.name == "correctness"
+    assert updated_retrieved.feedback.value is False
+    assert updated_retrieved.rationale == "Updated rationale"
+    assert updated_retrieved.metadata == {"project": "test-project", "version": "2.0"}
+    assert updated_retrieved.valid is True
+    assert updated_retrieved.overrides == original_id
+
+
+def test_update_assessment_expectation(store):
+    exp_id = store.create_experiment("test_update_expectation")
+    trace_info = store.start_trace(exp_id, get_current_time_millis(), {}, {})
+
+    original_expectation = Expectation(
+        trace_id=trace_info.request_id,
+        name="expected_response",
+        value="The capital of France is Paris.",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.HUMAN, source_id="annotator@company.com"
+        ),
+        metadata={"context": "geography-qa"},
+        span_id="span-456",
+    )
+
+    created_expectation = store.create_assessment(original_expectation)
+    original_id = created_expectation.assessment_id
+
+    updated_expectation = store.update_assessment(
+        trace_id=trace_info.request_id,
+        assessment_id=original_id,
+        expectation="The capital and largest city of France is Paris.",
+        metadata={"context": "geography-qa", "updated": "true"},
+    )
+
+    assert updated_expectation.assessment_id != original_id
+    assert (
+        updated_expectation.expectation.value == "The capital and largest city of France is Paris."
+    )
+    assert updated_expectation.metadata == {"context": "geography-qa", "updated": "true"}
+    # Expectations don't preserve overwrites and lineage of changes
+    assert updated_expectation.valid is None
+    assert updated_expectation.overrides is None
+
+    original_retrieved = store.get_assessment(trace_info.request_id, original_id)
+    assert original_retrieved.valid is None
+
+    updated_retrieved = store.get_assessment(
+        trace_info.request_id, updated_expectation.assessment_id
+    )
+    assert updated_retrieved.expectation.value == "The capital and largest city of France is Paris."
+    assert updated_retrieved.metadata == {"context": "geography-qa", "updated": "true"}
+    assert updated_retrieved.valid is None
+    assert updated_retrieved.overrides is None
+
+
+def test_update_assessment_partial_fields(store):
+    exp_id = store.create_experiment("test_partial_updates")
+    trace_info = store.start_trace(exp_id, get_current_time_millis(), {}, {})
+
+    original_feedback = Feedback(
+        trace_id=trace_info.request_id,
+        name="quality",
+        value=5,
+        rationale="Original rationale",
+        source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+        metadata={"scorer": "automated"},
+    )
+
+    created_feedback = store.create_assessment(original_feedback)
+
+    updated_feedback = store.update_assessment(
+        trace_id=trace_info.request_id,
+        assessment_id=created_feedback.assessment_id,
+        rationale="Updated rationale only",
+    )
+
+    assert updated_feedback.name == "quality"
+    assert updated_feedback.feedback.value == 5
+    assert updated_feedback.rationale == "Updated rationale only"
+    assert updated_feedback.metadata == {"scorer": "automated"}
+    assert updated_feedback.overrides == created_feedback.assessment_id
+
+
+def test_update_assessment_type_validation(store):
+    exp_id = store.create_experiment("test_type_validation")
+    trace_info = store.start_trace(exp_id, get_current_time_millis(), {}, {})
+
+    feedback = Feedback(
+        trace_id=trace_info.request_id,
+        name="test_feedback",
+        value="original",
+        source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+    )
+    created_feedback = store.create_assessment(feedback)
+
+    with pytest.raises(
+        MlflowException, match=r"Cannot update expectation value on a Feedback assessment"
+    ):
+        store.update_assessment(
+            trace_id=trace_info.request_id,
+            assessment_id=created_feedback.assessment_id,
+            expectation="This should fail",
+        )
+
+    expectation = Expectation(
+        trace_id=trace_info.request_id,
+        name="test_expectation",
+        value="original_expected",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN),
+    )
+    created_expectation = store.create_assessment(expectation)
+
+    with pytest.raises(
+        MlflowException, match=r"Cannot update feedback value on an Expectation assessment"
+    ):
+        store.update_assessment(
+            trace_id=trace_info.request_id,
+            assessment_id=created_expectation.assessment_id,
+            feedback="This should fail",
+        )
+
+
+def test_update_assessment_errors(store):
+    exp_id = store.create_experiment("test_update_errors")
+    trace_info = store.start_trace(exp_id, get_current_time_millis(), {}, {})
+
+    with pytest.raises(MlflowException, match=r"Trace with request ID 'fake_trace' not found"):
+        store.update_assessment(
+            trace_id="fake_trace", assessment_id="fake_assessment", rationale="This should fail"
+        )
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Assessment with ID 'fake_assessment' not found for"
+        rf" trace '{trace_info.request_id}'",
+    ):
+        store.update_assessment(
+            trace_id=trace_info.request_id,
+            assessment_id="fake_assessment",
+            rationale="This should fail",
+        )
+
+
+def test_update_assessment_multiple_updates(store):
+    exp_id = store.create_experiment("test_multiple_updates")
+    trace_info = store.start_trace(exp_id, get_current_time_millis(), {}, {})
+
+    original = Feedback(
+        trace_id=trace_info.request_id,
+        name="test",
+        value="v1",
+        source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+    )
+    assessment_v1 = store.create_assessment(original)
+
+    assessment_v2 = store.update_assessment(
+        trace_id=trace_info.request_id, assessment_id=assessment_v1.assessment_id, feedback="v2"
+    )
+
+    assessment_v3 = store.update_assessment(
+        trace_id=trace_info.request_id, assessment_id=assessment_v2.assessment_id, feedback="v3"
+    )
+
+    assert assessment_v2.overrides == assessment_v1.assessment_id
+    assert assessment_v3.overrides == assessment_v2.assessment_id
+
+    v1_retrieved = store.get_assessment(trace_info.request_id, assessment_v1.assessment_id)
+    v2_retrieved = store.get_assessment(trace_info.request_id, assessment_v2.assessment_id)
+    v3_retrieved = store.get_assessment(trace_info.request_id, assessment_v3.assessment_id)
+
+    assert v1_retrieved.valid is False
+    assert v2_retrieved.valid is False
+    assert v3_retrieved.valid is True
+
+    assert v1_retrieved.feedback.value == "v1"
+    assert v2_retrieved.feedback.value == "v2"
+    assert v3_retrieved.feedback.value == "v3"
+
+    # Verify v1 was not modified when v2 was updated to v3
+    # Only the immediate predecessor (v2) should be invalidated
+    assert v1_retrieved.overrides is None  # v1 was original, has no overrides
+    assert v2_retrieved.overrides == v1_retrieved.assessment_id  # v2 still overrides v1
+    assert v3_retrieved.overrides == v2_retrieved.assessment_id  # v3 overrides v2
