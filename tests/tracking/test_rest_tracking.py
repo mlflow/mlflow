@@ -42,7 +42,11 @@ from mlflow.entities.logged_model_output import LoggedModelOutput
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.environment_variables import MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT
+from mlflow.environment_variables import (
+    MLFLOW_SERVER_GRAPHQL_MAX_ALIASES,
+    MLFLOW_SERVER_GRAPHQL_MAX_ROOT_FIELDS,
+    MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT,
+)
 from mlflow.exceptions import MlflowException, RestException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
@@ -2111,6 +2115,93 @@ def test_graphql_handler(mlflow_client):
     assert response.status_code == 200
 
 
+def test_graphql_handler_batching_raise_error(mlflow_client):
+    # Test max root fields limit
+    batch_query = (
+        "query testQuery {"
+        + " ".join(
+            [
+                f"key_{i}: " + 'test(inputString: "abc") { output }'
+                for i in range(int(MLFLOW_SERVER_GRAPHQL_MAX_ROOT_FIELDS.get()) + 2)
+            ]
+        )
+        + "}"
+    )
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/graphql",
+        json={
+            "query": batch_query,
+            "operationName": "testQuery",
+        },
+        headers={"content-type": "application/json; charset=utf-8"},
+    )
+    assert response.status_code == 200
+    assert (
+        f"GraphQL queries should have at most {MLFLOW_SERVER_GRAPHQL_MAX_ROOT_FIELDS.get()}"
+        in response.json()["errors"][0]
+    )
+
+    # Test max aliases limit
+    batch_query = (
+        'query testQuery {mlflowGetExperiment(input: {experimentId: "123"}) {'
+        + " ".join(
+            f"experiment_{i}: " + "experiment { name }"
+            for i in range(int(MLFLOW_SERVER_GRAPHQL_MAX_ALIASES.get()) + 2)
+        )
+        + "}}"
+    )
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/graphql",
+        json={
+            "query": batch_query,
+            "operationName": "testQuery",
+        },
+    )
+    assert response.status_code == 200
+    assert (
+        f"queries should have at most {MLFLOW_SERVER_GRAPHQL_MAX_ALIASES.get()} aliases"
+        in response.json()["errors"][0]
+    )
+
+    # Test max depth limit
+    inner = "name"
+    for _ in range(12):
+        inner = f"name {{ {inner} }}"
+    deep_query = (
+        'query testQuery { mlflowGetExperiment(input: {experimentId: "123"}) { experiment { '
+        + inner
+        + " } } }"
+    )
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/graphql",
+        json={
+            "query": deep_query,
+            "operationName": "testQuery",
+        },
+    )
+    assert response.status_code == 200
+    assert "Query exceeds maximum depth of 10" in response.json()["errors"][0]
+
+    # Test max selections limit
+    selections = []
+    for i in range(1002):  # Exceed the 1000 selection limit
+        selections.append(f"field_{i} {{ name }}")
+    selections_query = (
+        'query testQuery { mlflowGetExperiment(input: {experimentId: "123"}) { experiment { '
+        + " ".join(selections)
+        + " } } }"
+    )
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/graphql",
+        json={
+            "query": selections_query,
+            "operationName": "testQuery",
+        },
+    )
+    assert response.status_code == 200
+    assert "Query exceeds maximum total selections of 1000" in response.json()["errors"][0]
+
+
 def test_get_experiment_graphql(mlflow_client):
     experiment_id = mlflow_client.create_experiment("GraphqlTest")
     response = requests.post(
@@ -2468,23 +2559,15 @@ def test_list_artifacts_graphql(mlflow_client, tmp_path):
         f"{mlflow_client.tracking_uri}/graphql",
         json={
             "query": f"""
-                fragment FilesFragment on MlflowListArtifactsResponse {{
-                    files {{
-                        path
-                        isDir
-                        fileSize
-                    }}
-                }}
-
                 query testQuery {{
-                    file: mlflowListArtifacts(input: {{ runId: "{created_run_id}" }}) {{
-                        ...FilesFragment
-                    }}
-                    subdir: mlflowListArtifacts(input: {{
+                    files: mlflowListArtifacts(input: {{
                         runId: "{created_run_id}",
-                        path: "testDir",
                     }}) {{
-                        ...FilesFragment
+                            files {{
+                            path
+                            isDir
+                            fileSize
+                        }}
                     }}
                 }}
             """,
@@ -2499,7 +2582,32 @@ def test_list_artifacts_graphql(mlflow_client, tmp_path):
         {"path": "test.txt", "isDir": False, "fileSize": "11"},
         {"path": "testDir", "isDir": True, "fileSize": "0"},
     ]
-    assert json["data"]["file"]["files"] == file_expected
+    assert json["data"]["files"]["files"] == file_expected
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/graphql",
+        json={
+            "query": f"""
+                query testQuery {{
+                    subdir: mlflowListArtifacts(input: {{
+                        runId: "{created_run_id}",
+                        path: "testDir",
+                    }}) {{
+                            files {{
+                            path
+                            isDir
+                            fileSize
+                        }}
+                    }}
+                }}
+            """,
+            "operationName": "testQuery",
+        },
+        headers={"content-type": "application/json; charset=utf-8"},
+    )
+
+    assert response.status_code == 200
+    json = response.json()
     subdir_expected = [
         {"path": "testDir/test.txt", "isDir": False, "fileSize": "11"},
     ]
