@@ -368,7 +368,11 @@ class TracingClient:
         next_token = page_token
 
         max_workers = MLFLOW_SEARCH_TRACES_MAX_THREADS.get()
-        executor = ThreadPoolExecutor(max_workers=max_workers) if include_spans else nullcontext()
+        executor = (
+            ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="TracingSearch")
+            if include_spans
+            else nullcontext()
+        )
         with executor:
             while len(traces) < max_results:
                 trace_infos, next_token = self._search_traces(
