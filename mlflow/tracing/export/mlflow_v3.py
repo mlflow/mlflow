@@ -35,10 +35,8 @@ class MlflowV3SpanExporter(SpanExporter):
         if self._is_async_enabled:
             self._async_queue = AsyncTraceExportQueue()
 
-        # Only display traces inline in Databricks notebooks
-        self._should_display_trace = is_in_databricks_notebook()
-        if self._should_display_trace:
-            self._display_handler = get_display_handler()
+        # Display handler is no-op when running outside of notebooks.
+        self._display_handler = get_display_handler()
 
     def export(self, spans: Sequence[ReadableSpan]):
         """
@@ -66,7 +64,7 @@ class MlflowV3SpanExporter(SpanExporter):
             if eval_request_id := trace.info.tags.get(TraceTagKey.EVAL_REQUEST_ID):
                 _EVAL_REQUEST_ID_TO_TRACE_ID[eval_request_id] = trace.info.trace_id
 
-            if self._should_display_trace and not maybe_get_request_id(is_evaluate=True):
+            if not maybe_get_request_id(is_evaluate=True):
                 self._display_handler.display_traces([trace])
 
             if self._should_log_async():

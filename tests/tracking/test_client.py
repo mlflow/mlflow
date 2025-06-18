@@ -380,7 +380,7 @@ def test_client_delete_traces(mock_store):
         experiment_id="0",
         max_timestamp_millis=1,
         max_traces=2,
-        request_ids=["tr-1234"],
+        trace_ids=["tr-1234"],
     )
 
 
