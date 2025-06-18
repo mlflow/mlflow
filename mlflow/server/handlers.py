@@ -2347,6 +2347,9 @@ def _delete_artifact_mlflow_artifacts(artifact_path):
 
 @catch_mlflow_exception
 def _graphql():
+    from graphql import parse
+
+    from mlflow.server.graphql.graphql_no_batching import check_query_safety
     from mlflow.server.graphql.graphql_schema_extensions import schema
 
     # Extracting the query, variables, and operationName from the request
@@ -2355,8 +2358,12 @@ def _graphql():
     variables = request_json.get("variables")
     operation_name = request_json.get("operationName")
 
-    # Executing the GraphQL query using the Graphene schema
-    result = schema.execute(query, variables=variables, operation_name=operation_name)
+    node = parse(query)
+    if check_result := check_query_safety(node):
+        result = check_result
+    else:
+        # Executing the GraphQL query using the Graphene schema
+        result = schema.execute(query, variables=variables, operation_name=operation_name)
 
     # Convert execution result into json.
     result_data = {
