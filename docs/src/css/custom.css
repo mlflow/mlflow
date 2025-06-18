@@ -385,7 +385,6 @@ html[data-genai-theme="true"] {
 .navbar__link {
   color: var(--ifm-border-color);
   position: relative;
-  padding-bottom: 6px;
   transition: color 0.2s ease;
 }
 
@@ -395,19 +394,7 @@ html[data-genai-theme="true"] {
   background-color: transparent;
 }
 
-/* Navbar underlines */
-.navbar__link--active::after {
-  content: "";
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background-color: var(--ifm-color-emphasis-hover);
-  transition: opacity 0.2s ease;
-}
-
-.navbar__link:hover::before {
+.navbar__item:hover::before {
   content: "";
   position: absolute;
   bottom: 0;
