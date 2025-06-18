@@ -369,7 +369,7 @@ class TracingClient:
 
         max_workers = MLFLOW_SEARCH_TRACES_MAX_THREADS.get()
         executor = (
-            ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="TracingSearch")
+            ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="MlflowTracingSearch")
             if include_spans
             else nullcontext()
         )
