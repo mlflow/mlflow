@@ -35,6 +35,9 @@ from mlflow.utils.environment import (
     _PythonEnv,
 )
 from mlflow.utils.file_utils import get_total_file_size, write_to
+from mlflow.utils.model_utils import (
+    _validate_and_prepare_target_save_path,
+)
 from mlflow.utils.requirements_utils import _get_pinned_requirement
 
 FLAVOR_NAME = "keras"
@@ -183,6 +186,7 @@ def save_model(
     if signature is not None:
         mlflow_model.signature = signature
     if input_example is not None:
+        _validate_and_prepare_target_save_path(path)
         _save_example(mlflow_model, input_example, path)
     if metadata is not None:
         mlflow_model.metadata = metadata
