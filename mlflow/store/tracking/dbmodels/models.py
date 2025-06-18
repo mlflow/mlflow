@@ -679,13 +679,11 @@ class SqlTraceInfo(Base):
     """
     Client request ID: `String` (limit 50 characters). Could be *null*. Newly added in V3 format.
     """
-    # TODO: Update the length limit to the correct one
-    # TODO: Should give index to support free text search more efficiently?
-    request_preview = Column(String(8000), nullable=True)
+    request_preview = Column(String(10000), nullable=True)
     """
     Request preview: `String` (limit 8000 characters). Could be *null*. Newly added in V3 format.
     """
-    response_preview = Column(String(8000), nullable=True)
+    response_preview = Column(String(10000), nullable=True)
     """
     Response preview: `String` (limit 8000 characters). Could be *null*. Newly added in V3 format.
     """
