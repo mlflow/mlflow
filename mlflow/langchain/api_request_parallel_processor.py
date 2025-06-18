@@ -241,7 +241,7 @@ def process_api_requests(
 
     requests_iter = enumerate(converted_chat_requests)
     with ThreadPoolExecutor(
-        max_workers=max_workers, thread_name_prefix="LangChain-API"
+        max_workers=max_workers, thread_name_prefix="MlflowLangChainApi"
     ) as executor:
         while True:
             # get next request (if one is not already waiting for capacity)
