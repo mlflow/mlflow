@@ -12,6 +12,7 @@ import {
   Typography,
   Alert,
   useDesignSystemTheme,
+  CursorPaginationProps,
 } from '@databricks/design-system';
 import 'react-virtualized/styles.css';
 import Routes from '../routes';
@@ -30,9 +31,16 @@ type Props = {
   error?: Error;
   searchFilter: string;
   setSearchFilter: (searchFilter: string) => void;
+  cursorPaginationProps: Omit<CursorPaginationProps, 'componentId'>;
 };
 
-export const ExperimentListView = ({ experiments, error, searchFilter, setSearchFilter }: Props) => {
+export const ExperimentListView = ({
+  experiments,
+  error,
+  searchFilter,
+  setSearchFilter,
+  cursorPaginationProps,
+}: Props) => {
   const invalidateExperimentList = useInvalidateExperimentList();
 
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
@@ -146,6 +154,7 @@ export const ExperimentListView = ({ experiments, error, searchFilter, setSearch
           isFiltered={Boolean(searchFilter)}
           rowSelection={rowSelection}
           setRowSelection={setRowSelection}
+          cursorPaginationProps={cursorPaginationProps}
         />
       </div>
       <CreateExperimentModal

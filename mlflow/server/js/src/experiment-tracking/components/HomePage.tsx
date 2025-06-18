@@ -5,7 +5,15 @@ import { Spinner } from '@databricks/design-system';
 
 const HomePage = () => {
   const [searchFilter, setSearchFilter] = useSearchFilter();
-  const { data: experiments, error, isLoading } = useExperimentListQuery({ searchFilter });
+  const {
+    data: experiments,
+    error,
+    isLoading,
+    hasNextPage,
+    hasPreviousPage,
+    onNextPage,
+    onPreviousPage,
+  } = useExperimentListQuery({ searchFilter });
 
   const loadingState = (
     <div css={{ height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
@@ -23,6 +31,12 @@ const HomePage = () => {
       error={error}
       searchFilter={searchFilter}
       setSearchFilter={setSearchFilter}
+      cursorPaginationProps={{
+        hasNextPage,
+        hasPreviousPage,
+        onNextPage,
+        onPreviousPage,
+      }}
     />
   );
 };
