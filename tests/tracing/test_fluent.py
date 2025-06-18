@@ -2102,12 +2102,8 @@ def test_search_traces_with_run_id_validates_store_filter_string(is_databricks):
 
     with (
         mock.patch("mlflow.tracing.client._get_store", return_value=mock_store),
-        mock.patch(
-            "mlflow.tracing.client.is_databricks_uri", return_value=is_databricks
-        ),
-        mock.patch(
-            "mlflow.tracking.fluent._get_experiment_id", return_value="test_exp_id"
-        ),
+        mock.patch("mlflow.tracing.client.is_databricks_uri", return_value=is_databricks),
+        mock.patch("mlflow.tracking.fluent._get_experiment_id", return_value="test_exp_id"),
     ):
         # Call search_traces with run_id but no experiment_ids
         mlflow.search_traces(run_id=test_run_id)
@@ -2116,9 +2112,7 @@ def test_search_traces_with_run_id_validates_store_filter_string(is_databricks):
         if is_databricks:
             expected_filter_string = f"attribute.run_id = '{test_run_id}'"
         else:
-            expected_filter_string = (
-                f"metadata.{TraceMetadataKey.SOURCE_RUN} = '{test_run_id}'"
-            )
+            expected_filter_string = f"metadata.{TraceMetadataKey.SOURCE_RUN} = '{test_run_id}'"
 
         mock_store.search_traces.assert_called()
 
@@ -2126,6 +2120,6 @@ def test_search_traces_with_run_id_validates_store_filter_string(is_databricks):
         call_args = mock_store.search_traces.call_args
         actual_filter_string = call_args[1]["filter_string"]  # using keyword arguments
 
-        assert (
-            actual_filter_string == expected_filter_string
-        ), f"Expected filter string '{expected_filter_string}', but got '{actual_filter_string}'"
+        assert actual_filter_string == expected_filter_string, (
+            f"Expected filter string '{expected_filter_string}', but got '{actual_filter_string}'"
+        )
