@@ -1881,7 +1881,7 @@ class FileStore(AbstractStore):
 
         This method creates a new assessment record associated with a specific trace by:
         1. Validating the trace exists
-        2. Generating a unique assessment ID  
+        2. Generating a unique assessment ID
         3. Setting creation and update timestamps
         4. Storing the assessment as a JSON-serialized trace tag
         5. Returning the updated assessment object with backend-generated metadata
@@ -1901,7 +1901,7 @@ class FileStore(AbstractStore):
                 or there's an error setting the trace tag.
         """
         self.get_trace_info(trace_id)
-        
+
         assessment_id = generate_assessment_id()
         creation_timestamp = int(time.time() * 1000)
 
@@ -1917,11 +1917,11 @@ class FileStore(AbstractStore):
             assessment_value = json.dumps(assessment.to_dictionary())
         except Exception as e:
             raise MlflowException.invalid_parameter_value(
-                f"Failed to serialize assessment to JSON."
+                "Failed to serialize assessment to JSON."
             ) from e
 
         self.set_trace_tag(request_id=trace_id, key=assessment_key, value=assessment_value)
-        
+
         return assessment
 
     def _delete_traces(
