@@ -315,6 +315,10 @@
     "defaultMessage": "Filter by {columnNames}",
     "description": "Experiment page > artifact compare view > search input placeholder"
   },
+  "3FZ8dZ": {
+    "defaultMessage": "Rename",
+    "description": "Text for rename button on the experiment view page header"
+  },
   "3Rb4sG": {
     "defaultMessage": "Delete",
     "description": "String for the delete button to delete a particular experiment run"
