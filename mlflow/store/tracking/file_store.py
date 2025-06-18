@@ -1881,7 +1881,7 @@ class FileStore(AbstractStore):
 
         This method creates a new assessment record associated with a specific trace by:
         1. Validating the trace exists
-        2. Generating a unique assessment ID  
+        2. Generating a unique assessment ID
         3. Setting creation and update timestamps
         4. Storing the assessment as a JSON-serialized trace tag
         5. Returning the updated assessment object with backend-generated metadata
@@ -1901,7 +1901,7 @@ class FileStore(AbstractStore):
                 or there's an error setting the trace tag.
         """
         self.get_trace_info(trace_id)
-        
+
         assessment_id = generate_assessment_id()
         creation_timestamp = int(time.time() * 1000)
 
@@ -1917,12 +1917,62 @@ class FileStore(AbstractStore):
             assessment_value = json.dumps(assessment.to_dictionary())
         except Exception as e:
             raise MlflowException.invalid_parameter_value(
-                f"Failed to serialize assessment to JSON."
+                "Failed to serialize assessment to JSON."
             ) from e
 
         self.set_trace_tag(request_id=trace_id, key=assessment_key, value=assessment_value)
-        
+
         return assessment
+
+    def update_assessment(
+        self,
+        trace_id: str,
+        assessment_id: str,
+        name: Optional[str] = None,
+        expectation: Optional[str] = None,
+        feedback: Optional[str] = None,
+        rationale: Optional[str] = None,
+        metadata: Optional[dict[str, str]] = None,
+    ) -> Assessment:
+        # NO - we need to:
+        # 1. copy the original assessment for mutation but leave the original alone.
+        # 2. The original assessment data must have the 'valid' field flipped to 'false' for UI purposes
+        # 3. After updating of the original content in the copy, both the original and the new records need to be written
+        #    to reflect the SCD type 6 update policy for the existing record.
+
+        existing_assessment = self.get_assessment(trace_id, assessment_id)
+
+        updated_assessment = existing_assessment.copy()
+
+        updated_name = name if name else existing_assessment.name
+
+        new_assessment_key = generate_assessment_key(updated_name, assessment_id)
+        updated_timestamp = int(time.time() * 1000)
+
+        updated_assessment.name = updated_name
+        updated_assessment.last_update_time_ms = updated_timestamp
+
+        if expectation:
+            updated_assessment.expectation = expectation
+        if feedback:
+            updated_assessment.feedback = feedback
+        if rationale:
+            updated_assessment.rationale = rationale
+        if metadata:
+            updated_metadata = updated_assessment.metadata | metadata
+            updated_assessment.metadata = updated_metadata
+
+        existing_assessment.valid = False
+
+        # serialize the assessment after mutating
+
+        # call set_trace_tag with new assessment
+
+        # return the updated assessment object
+
+        return super().update_assessment(
+            trace_id, assessment_id, name, expectation, feedback, rationale, metadata
+        )
 
     def _delete_traces(
         self,
