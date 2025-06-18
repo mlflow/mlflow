@@ -77,7 +77,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlRun,
     SqlTag,
     SqlTraceInfo,
-    SqlTraceRequestMetadata,
+    SqlTraceTraceMetadata,
     SqlTraceTag,
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore, _get_orderby_clauses
@@ -226,7 +226,7 @@ def _cleanup_database(store: SqlAlchemyStore):
             SqlDataset,
             SqlRun,
             SqlTraceTag,
-            SqlTraceRequestMetadata,
+            SqlTraceTraceMetadata,
             SqlTraceInfo,
             SqlExperimentTag,
             SqlExperiment,

@@ -15,7 +15,6 @@ import sqlalchemy.sql.expression as sql
 from sqlalchemy import and_, func, sql, text
 from sqlalchemy.future import select
 
-from mlflow.entities.trace_state import TraceState
 import mlflow.store.db.utils
 from mlflow.entities import (
     DatasetInput,
@@ -26,6 +25,7 @@ from mlflow.entities import (
     RunStatus,
     RunTag,
     SourceType,
+    Trace,
     TraceInfo,
     TraceInfoV2,
     ViewType,
@@ -39,6 +39,7 @@ from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.metric import Metric, MetricWithRunId
+from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
@@ -73,7 +74,6 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlRun,
     SqlTag,
     SqlTraceInfo,
-    SqlTraceRequestMetadata,
     SqlTraceTag,
     SqlTraceTraceMetadata,
 )
@@ -2077,6 +2077,8 @@ class SqlAlchemyStore(AbstractStore):
         timestamp_ms: int,
         request_metadata: dict[str, str],
         tags: dict[str, str],
+        client_request_id: Optional[str] = None,
+        request_preview: Optional[str] = None,
     ) -> TraceInfo:
         """
         Create an initial TraceInfo object in the database.
@@ -2103,11 +2105,12 @@ class SqlAlchemyStore(AbstractStore):
                 status=TraceState.IN_PROGRESS,
             )
 
-            trace_info.tags = [SqlTraceTag(key=k, value=v) for k, v in tags.items()]
+            trace_info.tags = [SqlTraceTag(request_id=request_id, key=k, value=v) for k, v in tags.items()]
             trace_info.tags.append(self._get_trace_artifact_location_tag(experiment, request_id))
 
-            trace_info.trace_metadata = [
-                SqlTraceTraceMetadata(key=k, value=v) for k, v in request_metadata.items()
+            # Create trace metadata objects - note the relationship name is request_metadata  
+            trace_info.request_metadata = [
+                SqlTraceTraceMetadata(request_id=request_id, key=k, value=v) for k, v in request_metadata.items()
             ]
             session.add(trace_info)
 
@@ -2123,7 +2126,7 @@ class SqlAlchemyStore(AbstractStore):
             request_id,
             SqlAlchemyStore.ARTIFACTS_FOLDER_NAME,
         )
-        return SqlTraceTag(key=MLFLOW_ARTIFACT_LOCATION, value=artifact_uri)
+        return SqlTraceTag(request_id=request_id, key=MLFLOW_ARTIFACT_LOCATION, value=artifact_uri)
 
     # TODO: Rename these parameters to V3 format once all stores are migrated to V3.
     def end_trace(
@@ -2163,6 +2166,45 @@ class SqlAlchemyStore(AbstractStore):
                 session.merge(SqlTraceTag(request_id=request_id, key=k, value=v))
             return sql_trace_info.to_mlflow_entity()
 
+    def start_trace_v3(self, trace: "Trace") -> TraceInfo:
+        """
+        Create a trace using the V3 API format with a complete Trace object.
+
+        Args:
+            trace: The Trace object to create, containing both info and data.
+
+        Returns:
+            The created TraceInfo object.
+        """
+        with self.ManagedSessionMaker() as session:
+            experiment = self.get_experiment(trace.info.experiment_id)
+            self._check_experiment_is_active(experiment)
+
+            # Use the provided trace_id
+            request_id = trace.info.trace_id
+
+            # Create SqlTraceInfo with V3 fields directly
+            sql_trace_info = SqlTraceInfo(
+                request_id=request_id,
+                experiment_id=trace.info.experiment_id,
+                timestamp_ms=trace.info.request_time,
+                execution_time_ms=trace.info.execution_duration,
+                status=trace.info.state.value,
+                client_request_id=trace.info.client_request_id,
+                request_preview=trace.info.request_preview,
+                response_preview=trace.info.response_preview,
+            )
+
+            sql_trace_info.tags = [SqlTraceTag(request_id=request_id, key=k, value=v) for k, v in trace.info.tags.items()]
+            sql_trace_info.tags.append(self._get_trace_artifact_location_tag(experiment, request_id))
+
+            sql_trace_info.request_metadata = [
+                SqlTraceTraceMetadata(request_id=request_id, key=k, value=v) for k, v in trace.info.trace_metadata.items()
+            ]
+            session.add(sql_trace_info)
+
+            return sql_trace_info.to_mlflow_entity()
+
     def get_trace_info(self, request_id, should_query_v3: bool = False) -> TraceInfoV2:
         """
         Fetch the trace info for the given request id.
@@ -2177,6 +2219,8 @@ class SqlAlchemyStore(AbstractStore):
         """
         with self.ManagedSessionMaker() as session:
             sql_trace_info = self._get_sql_trace_info(session, request_id)
+            # Note: should_query_v3 is currently informational as we always return V3 format
+            # The SqlTraceInfo.to_mlflow_entity() method returns a V3 TraceInfo object
             return sql_trace_info.to_mlflow_entity()
 
     def _get_sql_trace_info(self, session, request_id) -> SqlTraceInfo:
@@ -2335,7 +2379,7 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             filters = [SqlTraceInfo.experiment_id == experiment_id]
             if max_timestamp_millis:
-                filters.append(SqlTraceInfo.request_time <= max_timestamp_millis)
+                filters.append(SqlTraceInfo.timestamp_ms <= max_timestamp_millis)
             if request_ids:
                 filters.append(SqlTraceInfo.request_id.in_(request_ids))
             if max_traces:
@@ -2614,7 +2658,7 @@ def _get_orderby_clauses_for_search_traces(order_by_list: list[str], session):
             if SearchTraceUtils.is_tag(key_type, "="):
                 entity = SqlTraceTag
             elif SearchTraceUtils.is_request_metadata(key_type, "="):
-                entity = SqlTraceRequestMetadata
+                entity = SqlTraceTraceMetadata
             else:
                 raise MlflowException(
                     f"Invalid identifier type '{key_type}'",
@@ -2673,7 +2717,7 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
             if SearchTraceUtils.is_tag(key_type, comparator):
                 entity = SqlTraceTag
             elif SearchTraceUtils.is_request_metadata(key_type, comparator):
-                entity = SqlTraceRequestMetadata
+                entity = SqlTraceTraceMetadata
             else:
                 raise MlflowException(
                     f"Invalid search expression type '{key_type}'",

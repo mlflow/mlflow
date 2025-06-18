@@ -6,6 +6,7 @@ import mlflow
 from mlflow.entities.assessment import Expectation
 from mlflow.entities.document import Document
 from mlflow.entities.span import SpanType
+from tests.tracing.helper import flush_and_get_last_trace
 
 
 @pytest.fixture(autouse=True)
@@ -55,7 +56,7 @@ def sample_rag_trace():
 
     _predict("query")
 
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    trace = flush_and_get_last_trace()
 
     # Add expectations. Directly append to the trace info because OSS backend doesn't
     # support assessment logging yet.

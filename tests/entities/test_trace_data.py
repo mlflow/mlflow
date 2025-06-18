@@ -6,6 +6,7 @@ import pytest
 import mlflow
 from mlflow.entities import SpanType, TraceData
 from mlflow.entities.span_event import SpanEvent
+from tests.tracing.helper import flush_and_get_last_trace
 
 
 def test_json_deserialization():
@@ -30,7 +31,7 @@ def test_json_deserialization():
     with pytest.raises(Exception, match="Error!"):
         model.predict(2, 5)
 
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    trace = flush_and_get_last_trace()
     trace_data = trace.data
 
     # Compare events separately as it includes exception stacktrace which is hard to hardcode
@@ -166,8 +167,7 @@ def test_intermediate_outputs_from_attribute():
             span.set_attribute("mlflow.trace.intermediate_outputs", intermediate_outputs)
 
     run()
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
-
+    trace = flush_and_get_last_trace()
     assert trace.data.intermediate_outputs == intermediate_outputs
 
 
@@ -187,8 +187,7 @@ def test_intermediate_outputs_from_spans():
         llm(2)
 
     predict()
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
-
+    trace = flush_and_get_last_trace()
     assert trace.data.intermediate_outputs == {
         "retrieved_documents": ["document 1", "document 2"],
         "llm_1": "Hi, this is LLM 1",
@@ -202,15 +201,14 @@ def test_intermediate_outputs_no_value():
             span.set_outputs(1)
 
     run()
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
-
+    trace = flush_and_get_last_trace()
     assert trace.data.intermediate_outputs is None
 
 
 def test_to_dict():
     with mlflow.start_span():
         pass
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    trace = flush_and_get_last_trace()
     trace_dict = trace.data.to_dict()
     assert len(trace_dict["spans"]) == 1
     # Ensure the legacy properties are not present
@@ -223,7 +221,7 @@ def test_request_and_response_are_still_available():
         s.set_inputs("foo")
         s.set_outputs("bar")
 
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    trace = flush_and_get_last_trace()
     trace_data = trace.data
     assert trace_data.request == '"foo"'
     assert trace_data.response == '"bar"'
@@ -231,7 +229,7 @@ def test_request_and_response_are_still_available():
     with mlflow.start_span():
         pass
 
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    trace = flush_and_get_last_trace()
     trace_data = trace.data
     assert trace_data.request is None
     assert trace_data.response is None

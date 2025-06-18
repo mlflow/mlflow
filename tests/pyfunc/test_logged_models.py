@@ -10,6 +10,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.utils.mlflow_tags import MLFLOW_MODEL_IS_EXTERNAL
+from tests.tracing.helper import flush_and_get_last_trace
 
 
 class DummyModel(mlflow.pyfunc.PythonModel):
@@ -26,7 +27,7 @@ class TraceModel(mlflow.pyfunc.PythonModel):
 def test_model_id_tracking():
     model = TraceModel()
     model.predict([1, 2, 3])
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    trace = flush_and_get_last_trace()
     assert TraceMetadataKey.MODEL_ID not in trace.info.request_metadata
 
     with mlflow.start_run():
@@ -37,7 +38,7 @@ def test_model_id_tracking():
     model = mlflow.pyfunc.load_model(info.model_uri)
     model.predict([4, 5, 6])
 
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    trace = flush_and_get_last_trace()
     assert trace is not None
     assert trace.info.request_metadata[TraceMetadataKey.MODEL_ID] == info.model_id
 
@@ -47,7 +48,7 @@ def test_model_id_tracking_evaluate():
         info = mlflow.pyfunc.log_model(name="my_model", python_model=TraceModel())
 
     mlflow.evaluate(model=info.model_uri, data=[[1, 2, 3]], model_type="regressor", targets=[1])
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    trace = flush_and_get_last_trace()
     assert trace is not None
     assert trace.info.request_metadata[TraceMetadataKey.MODEL_ID] == info.model_id
 

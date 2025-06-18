@@ -36,7 +36,7 @@ from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.provider import trace_disabled
 from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 
-from tests.tracing.helper import get_traces
+from tests.tracing.helper import flush_and_get_last_trace, get_traces
 
 # The mock OpenAI endpoint simply echos the prompt back as the completion.
 # So the expected output will be the prompt itself.
@@ -105,7 +105,7 @@ def test_llm_success():
     callback.on_llm_new_token("test", run_id=run_id)
 
     callback.on_llm_end(LLMResult(generations=[[{"text": "generated text"}]]), run_id=run_id)
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    trace = flush_and_get_last_trace()
     assert len(trace.data.spans) == 1
     llm_span = trace.data.spans[0]
 
@@ -144,7 +144,7 @@ def test_llm_error():
     mock_error = Exception("mock exception")
     callback.on_llm_error(error=mock_error, run_id=run_id)
 
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    trace = flush_and_get_last_trace()
     error_event = SpanEvent.from_exception(mock_error)
     assert len(trace.data.spans) == 1
     llm_span = trace.data.spans[0]
@@ -199,7 +199,7 @@ def test_chat_model():
         run_id=run_id,
     )
 
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    trace = flush_and_get_last_trace()
     assert len(trace.data.spans) == 1
     chat_model_span = trace.data.spans[0]
     assert chat_model_span.name == "test_chat_model"
@@ -257,7 +257,7 @@ def test_chat_model_with_tool():
         run_id=run_id,
     )
 
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    trace = flush_and_get_last_trace()
     assert len(trace.data.spans) == 1
     chat_model_span = trace.data.spans[0]
     assert chat_model_span.status.status_code == SpanStatusCode.OK
@@ -305,7 +305,7 @@ def test_chat_model_with_non_openai_tool():
         run_id=run_id,
     )
 
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    trace = flush_and_get_last_trace()
     assert len(trace.data.spans) == 1
     chat_model_span = trace.data.spans[0]
     assert chat_model_span.status.status_code == SpanStatusCode.OK
@@ -351,7 +351,7 @@ def test_retriever_success():
         ),
     ]
     callback.on_retriever_end(documents, run_id=run_id)
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    trace = flush_and_get_last_trace()
     assert len(trace.data.spans) == 1
     retriever_span = trace.data.spans[0]
 
@@ -379,7 +379,7 @@ def test_retriever_error():
     )
     mock_error = Exception("mock exception")
     callback.on_retriever_error(error=mock_error, run_id=run_id)
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    trace = flush_and_get_last_trace()
     assert len(trace.data.spans) == 1
     retriever_span = trace.data.spans[0]
     assert retriever_span.inputs == "test query"
@@ -466,7 +466,7 @@ def test_multiple_components():
         outputs={"output": "test output"},
         run_id=chain_run_id,
     )
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    trace = flush_and_get_last_trace()
     assert len(trace.data.spans) == 5
     chain_span = trace.data.spans[0]
     assert chain_span.start_time_ns is not None
@@ -520,7 +520,7 @@ def test_tool_success():
     response = chain_tool.invoke(tool_input, config={"callbacks": [callback]})
 
     # str output is converted to _ChatResponse
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    trace = flush_and_get_last_trace()
     spans = trace.data.spans
     assert len(spans) == 5
 
@@ -681,7 +681,7 @@ def test_tracer_with_manual_traces():
     expected_response = "What is the complementary color of green?"
     assert response == expected_response
 
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    trace = flush_and_get_last_trace()
     assert trace is not None
     spans = trace.data.spans
     assert spans[0].name == "parent"

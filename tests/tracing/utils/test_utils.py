@@ -20,7 +20,7 @@ from mlflow.tracing.utils import (
     maybe_get_request_id,
 )
 
-from tests.tracing.helper import create_mock_otel_span
+from tests.tracing.helper import create_mock_otel_span, flush_and_get_last_trace
 
 
 def test_deduplicate_span_names():
@@ -139,7 +139,7 @@ def test_set_span_chat_messages_and_tools():
 
     dummy_call(messages, tools)
 
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    trace = flush_and_get_last_trace()
     span = trace.data.spans[0]
     assert span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == messages
     assert span.get_attribute(SpanAttributeKey.CHAT_TOOLS) == tools
@@ -157,7 +157,7 @@ def test_set_span_chat_messages_append():
         set_span_chat_messages(span, messages)
         set_span_chat_messages(span, additional_messages, append=True)
 
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    trace = flush_and_get_last_trace()
     span = trace.data.spans[0]
     assert span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == messages + additional_messages
 
@@ -166,7 +166,7 @@ def test_set_span_chat_messages_append():
         set_span_chat_messages(span, messages)
         set_span_chat_messages(span, additional_messages, append=False)
 
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    trace = flush_and_get_last_trace()
     span = trace.data.spans[0]
     assert span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == additional_messages
 

@@ -27,6 +27,7 @@ import setfit
 import sklearn
 import statsmodels
 import tensorflow
+from tests.tracing.helper import flush_and_get_last_trace
 import transformers
 import xgboost
 
@@ -443,10 +444,10 @@ def test_autolog_genai_auto_tracing(mock_openai, is_databricks, disable, other_l
 
     # GenAI should not be enabled by mlflow.autolog even if disable=False on Databricks
     if is_databricks or disable:
-        trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+        trace = flush_and_get_last_trace()
         assert trace is None
     else:
-        trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+        trace = flush_and_get_last_trace()
         assert trace is not None
         assert trace.info.status == "OK"
         assert len(trace.data.spans) == 1

@@ -16,6 +16,8 @@ def test_tracing_client_link_prompt_versions_to_trace():
         with mlflow.start_span("test_span"):
             trace_id = mlflow.get_active_trace_id()
 
+        mlflow.flush_trace_async_logging(terminate=True)
+
         # Link prompts to trace
         client = TracingClient()
         client.link_prompt_versions_to_trace(trace_id, [prompt_version])

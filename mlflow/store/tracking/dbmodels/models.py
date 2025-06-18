@@ -710,7 +710,7 @@ class SqlTraceInfo(Base):
         """
         return TraceInfo(
             trace_id=self.request_id,
-            trace_location=TraceLocation.from_experiment_id(self.experiment_id),
+            trace_location=TraceLocation.from_experiment_id(str(self.experiment_id)),
             request_time=self.timestamp_ms,
             execution_duration=self.execution_time_ms,
             state=TraceState(self.status),

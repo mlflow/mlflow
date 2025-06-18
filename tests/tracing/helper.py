@@ -134,8 +134,11 @@ def create_test_trace_info(
     )
 
 
-def get_traces(experiment_id=None) -> list[Trace]:
+def get_traces(experiment_id=None, flush=True) -> list[Trace]:
     # Get all traces from the backend
+    if flush:
+        mlflow.flush_trace_async_logging(terminate=True)
+
     return TracingClient().search_traces(
         experiment_ids=[experiment_id or _get_experiment_id()],
     )
@@ -151,6 +154,11 @@ def purge_traces(experiment_id=None):
         max_traces=1000,
         max_timestamp_millis=int(time.time() * 1000),
     )
+
+
+def flush_and_get_last_trace() -> Trace:
+    mlflow.flush_trace_async_logging(terminate=False)
+    return mlflow.get_trace(mlflow.get_last_active_trace_id())
 
 
 def get_tracer_tracking_uri() -> Optional[str]:

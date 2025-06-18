@@ -30,7 +30,7 @@ from mlflow.utils.proto_json_utils import (
     milliseconds_to_proto_timestamp,
 )
 
-from tests.tracing.helper import V2_TRACE_DICT, create_test_trace_info
+from tests.tracing.helper import V2_TRACE_DICT, create_test_trace_info, flush_and_get_last_trace
 
 
 def _test_model(datetime=datetime.now()):
@@ -65,7 +65,7 @@ def test_json_deserialization(monkeypatch):
     model = _test_model(datetime_now)
     model.predict(2, 5)
 
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    trace = flush_and_get_last_trace()
     trace_json = trace.to_json()
 
     trace_json_as_dict = json.loads(trace_json)
@@ -219,7 +219,7 @@ def test_trace_to_from_dict_and_json():
     model = _test_model()
     model.predict(2, 5)
 
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    trace = flush_and_get_last_trace()
 
     spans = trace.search_spans(span_type=SpanType.LLM)
     assert len(spans) == 1
@@ -300,7 +300,7 @@ def test_search_spans(span_type, name, expected):
         return x * 2
 
     run(2)
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    trace = flush_and_get_last_trace()
 
     spans = trace.search_spans(span_type=span_type, name=name)
 
@@ -313,7 +313,7 @@ def test_search_spans_raise_for_invalid_param_type():
         return x + 1
 
     run(2)
-    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    trace = flush_and_get_last_trace()
 
     with pytest.raises(MlflowException, match="Invalid type for 'span_type'"):
         trace.search_spans(span_type=123)
