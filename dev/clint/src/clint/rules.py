@@ -22,13 +22,9 @@ class Rule(ABC):
         if not inspect.isabstract(cls):
             cls._generated_id = f"MLF{next(cls._id_counter):04d}"
 
-    def _id(self) -> str:
-        """Return the auto-generated ID for this rule."""
-        return self._generated_id
-
     @property
     def id(self) -> str:
-        return self._id()
+        return self._generated_id
 
     @abstractmethod
     def _message(self) -> str:
