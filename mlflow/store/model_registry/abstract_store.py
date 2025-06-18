@@ -875,6 +875,13 @@ class AbstractStore:
 
         client = TracingClient()
         with self._prompt_link_lock:
+            trace_info = client.get_trace_info(trace_id)
+            if not trace_info:
+                raise MlflowException(
+                    f"Could not find trace with ID '{trace_id}' to which to link prompts.",
+                    error_code=ErrorCode.Name(RESOURCE_DOES_NOT_EXIST),
+                )
+
             # Prepare new prompt entries to add
             new_prompt_entries = [
                 {
@@ -885,7 +892,6 @@ class AbstractStore:
             ]
 
             # Use utility function to update linked prompts tag
-            trace_info = client.get_trace_info(trace_id)
             current_tag_value = trace_info.tags.get(LINKED_PROMPTS_TAG_KEY)
             updated_tag_value = self._update_linked_prompts_tag(
                 current_tag_value, new_prompt_entries
