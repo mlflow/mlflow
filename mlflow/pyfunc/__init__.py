@@ -1949,7 +1949,7 @@ def _download_prebuilt_env_if_needed(prebuilt_env_uri):
     )
 
 
-def build_model_env(model_uri, save_path, env_manager=_EnvManager.UV):
+def build_model_env(model_uri, save_path, env_manager=_EnvManager.VIRTUALENV):
     """
     Prebuild model python environment and generate an archive file saved to provided
     `save_path`.
@@ -1993,8 +1993,8 @@ def build_model_env(model_uri, save_path, env_manager=_EnvManager.UV):
             mounted DBFS path such as '/dbfs/...' or
             mounted UC volume path such as '/Volumes/...'.
         env_manager: The environment manager to use in order to create the python environment
-            for model inference, the value can be either 'uv' or 'virtualenv', the default
-            value is 'uv'.
+            for model inference, the value can be either 'virtualenv' or 'uv', the default
+            value is 'virtualenv'.
 
     Returns:
         Return the path of an archive file containing the python environment data.
@@ -2168,11 +2168,12 @@ def spark_udf(
             unaffected. If `prebuilt_env_uri` parameter is not set, the default value
             is ``local``, and the following values are supported:
 
+            - ``virtualenv``: Use virtualenv to restore the python environment that
+              was used to train the model. This is the default option if ``env_manager``
+              is not set.
             - ``uv`` : Use uv to restore the python environment that
               was used to train the model.
-            - ``virtualenv``: Use virtualenv to restore the python environment that
-              was used to train the model.
-            - ``conda``: (Recommended) Use Conda to restore the software environment
+            - ``conda``: Use Conda to restore the software environment
               that was used to train the model.
             - ``local``: Use the current Python environment for model inference, which
               may differ from the environment used to train the model and may lead to
@@ -2238,7 +2239,7 @@ def spark_udf(
                 "If 'prebuilt_env_uri' parameter is set, 'env_manager' parameter must "
                 "be either None, 'virtualenv', or 'uv'."
             )
-        env_manager = _EnvManager.UV
+        env_manager = _EnvManager.VIRTUALENV
     else:
         env_manager = env_manager or _EnvManager.LOCAL
 
@@ -2769,8 +2770,8 @@ e.g., struct<a:int, b:array<int>>.
                         "C extension. To address this, we recommend you to log the model "
                         "with fixed version python libraries that use the C extension "
                         "(such as 'numpy' library), and set spark_udf `env_manager` argument "
-                        "to 'virtualenv' so that spark_udf can restore the original python "
-                        "library version before running model inference."
+                        "to 'virtualenv' or 'uv' so that spark_udf can restore the original "
+                        "python library version before running model inference."
                     ) from e
             finally:
                 if scoring_server_proc is not None:
