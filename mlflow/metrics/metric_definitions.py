@@ -71,7 +71,9 @@ def _token_count_eval_fn(predictions, targets=None, metrics=None):
     import tiktoken
 
     # ref: https://github.com/openai/tiktoken/issues/75
-    os.environ["TIKTOKEN_CACHE_DIR"] = ""
+    # Only set TIKTOKEN_CACHE_DIR if not already set by user
+    if "TIKTOKEN_CACHE_DIR" not in os.environ:
+        os.environ["TIKTOKEN_CACHE_DIR"] = ""
     encoding = tiktoken.get_encoding("cl100k_base")
 
     num_tokens = []
