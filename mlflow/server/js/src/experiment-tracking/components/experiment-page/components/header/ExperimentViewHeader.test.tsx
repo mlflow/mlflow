@@ -69,4 +69,24 @@ describe('ExperimentViewHeader', () => {
 
     expect(screen.queryByText('Add Description')).not.toBeInTheDocument();
   });
+
+  test('If button to delete experiment is pressed then open DeleteExperimentModal', async () => {
+    await act(async () => {
+      createComponentMock(true);
+    });
+
+    await userEvent.click(screen.getByLabelText('Open header dropdown menu'));
+    await userEvent.click(screen.getByText('Delete'));
+    expect(screen.getByText(/Delete Experiment/)).toBeInTheDocument();
+  });
+
+  test('If button to rename experiment is pressed then open RenameExperimentModal', async () => {
+    await act(async () => {
+      createComponentMock(true);
+    });
+
+    await userEvent.click(screen.getByLabelText('Open header dropdown menu'));
+    await userEvent.click(screen.getByText('Rename'));
+    expect(screen.getByText(/Rename Experiment/)).toBeInTheDocument();
+  });
 });
