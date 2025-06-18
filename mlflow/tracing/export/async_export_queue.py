@@ -154,12 +154,11 @@ class AsyncTraceExportQueue:
     def _at_exit_callback(self) -> None:
         """Callback function executed when the program is exiting."""
         try:
-            if self.is_active():
-                _logger.info(
-                    "Flushing the async trace logging queue before program exit. "
-                    "This may take a while..."
-                )
-                self.flush(terminate=True)
+            _logger.info(
+                "Flushing the async trace logging queue before program exit. "
+                "This may take a while..."
+            )
+            self.flush(terminate=True)
         except Exception as e:
             _logger.error(f"Error while finishing trace export requests: {e}")
 
@@ -185,7 +184,3 @@ class AsyncTraceExportQueue:
         if not terminate:
             self._stop_event.clear()
             self.activate()
-
-            # Remove the atexit callback
-            atexit.unregister(self._at_exit_callback)
-            self._atexit_callback_registered = False

@@ -60,7 +60,6 @@ from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey, 
 from tests.langchain.conftest import DeterministicDummyEmbeddings
 from tests.tracing.conftest import async_logging_enabled
 from tests.tracing.helper import (
-    flush_and_get_last_trace,
     get_traces,
     purge_traces,
     score_in_model_serving,
@@ -672,7 +671,7 @@ def test_tracing_source_run_in_batch():
     with mlflow.start_run() as run:
         model.batch([input] * 2)
 
-    trace = flush_and_get_last_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run.info.run_id
 
 
@@ -690,7 +689,7 @@ def test_tracing_source_run_in_pyfunc_model_predict():
     with mlflow.start_run() as run:
         pyfunc_model.predict([input] * 2)
 
-    trace = flush_and_get_last_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run.info.run_id
 
 
@@ -900,19 +899,19 @@ async def test_langchain_autolog_token_usage():
 
     # Normal invoke
     model.invoke({"product": "MLflow"})
-    trace = flush_and_get_last_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     _validate_token_counts(trace)
 
     # Invoke with streaming
     # ChatOpenAI in langchain-community does not support streaming token usage
     if not _LC_COMMUNITY_INSTALLED:
         list(model.stream({"product": "MLflow"}))
-        trace = flush_and_get_last_trace()
+        trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
         _validate_token_counts(trace)
 
     # Async invoke
     await model.ainvoke({"product": "MLflow"})
-    trace = flush_and_get_last_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     _validate_token_counts(trace)
 
     # When both OpenAI and LangChain autologging is enabled,
@@ -920,7 +919,7 @@ async def test_langchain_autolog_token_usage():
     mlflow.openai.autolog()
 
     model.invoke({"product": "MLflow"})
-    trace = flush_and_get_last_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     _validate_token_counts(trace)
 
 

@@ -245,17 +245,21 @@ Input signatures must be `List[...]` since PythonModel expects batch data:
 
 ```python
 # ✅ Correct - Always use List wrapper
-def predict(self, model_input: List[str]) -> List[str]: ...
+def predict(self, model_input: List[str]) -> List[str]:
+    ...
 
 
-def predict(self, model_input: List[Message]) -> List[Dict]: ...
+def predict(self, model_input: List[Message]) -> List[Dict]:
+    ...
 
 
 # ❌ Incorrect - Missing List wrapper
-def predict(self, model_input: str) -> str: ...
+def predict(self, model_input: str) -> str:
+    ...
 
 
-def predict(self, model_input: Message) -> Dict: ...
+def predict(self, model_input: Message) -> Dict:
+    ...
 ```
 :::
 
@@ -530,13 +534,16 @@ These type hints work but don't provide validation or schema inference:
 
 ```python
 # Supported but no validation
-def predict(self, model_input: pd.DataFrame) -> pd.DataFrame: ...
+def predict(self, model_input: pd.DataFrame) -> pd.DataFrame:
+    ...
 
 
-def predict(self, model_input: np.ndarray) -> np.ndarray: ...
+def predict(self, model_input: np.ndarray) -> np.ndarray:
+    ...
 
 
-def predict(self, model_input: scipy.sparse.csr_matrix): ...
+def predict(self, model_input: scipy.sparse.csr_matrix):
+    ...
 
 
 # You must provide explicit signature or input_example
@@ -590,7 +597,8 @@ class NumberInput(pydantic.BaseModel):
 
 
 # Discriminated union with validation
-def predict(self, model_input: List[Union[TextInput, NumberInput]]) -> List[str]: ...
+def predict(self, model_input: List[Union[TextInput, NumberInput]]) -> List[str]:
+    ...
 ```
 
   </TabItem>

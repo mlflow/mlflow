@@ -60,9 +60,9 @@ def business_value_metric(predictions, targets, metrics):
         aggregate_results={
             "total_business_value": business_value,
             "value_per_prediction": business_value / len(predictions),
-            "value_efficiency": (
-                business_value / total_possible_value if total_possible_value > 0 else 0
-            ),
+            "value_efficiency": business_value / total_possible_value
+            if total_possible_value > 0
+            else 0,
         },
     )
 

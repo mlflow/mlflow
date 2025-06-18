@@ -4,7 +4,7 @@ from unittest import mock
 import mlflow
 from mlflow.tracing.utils.warning import suppress_warning
 
-from tests.tracing.helper import flush_and_get_last_trace, skip_when_testing_trace_sdk
+from tests.tracing.helper import skip_when_testing_trace_sdk
 
 
 def test_suppress_token_detach_warning(caplog):
@@ -59,6 +59,6 @@ def test_request_id_backward_compatible(mock_warnings):
     mock_warnings.reset_mock()
 
     # Valid usage without request_id -> no warning
-    trace = flush_and_get_last_trace()
+    trace = mlflow.get_trace(parent_span.trace_id)
     mock_warnings.warn.assert_not_called()
     assert trace.info.trace_id == parent_span.trace_id

@@ -268,7 +268,8 @@ Span types are a way to categorize spans within a trace. By default, the span ty
 
     # Using a built-in span type
     @mlflow.trace(span_type=SpanType.RETRIEVER)
-    def retrieve_documents(query: str): ...
+    def retrieve_documents(query: str):
+        ...
 
 
     # Setting a custom span type
@@ -287,29 +288,35 @@ Span types are a way to categorize spans within a trace. By default, the span ty
     ```python
     # Financial services
     @mlflow.trace(span_type="RISK_ASSESSMENT")
-    def assess_credit_risk(application): ...
+    def assess_credit_risk(application):
+        ...
 
 
     @mlflow.trace(span_type="FRAUD_DETECTION")
-    def detect_fraud(transaction): ...
+    def detect_fraud(transaction):
+        ...
 
 
     # Healthcare
     @mlflow.trace(span_type="DIAGNOSIS")
-    def generate_diagnosis(symptoms): ...
+    def generate_diagnosis(symptoms):
+        ...
 
 
     @mlflow.trace(span_type="TREATMENT_RECOMMENDATION")
-    def recommend_treatment(diagnosis): ...
+    def recommend_treatment(diagnosis):
+        ...
 
 
     # E-commerce
     @mlflow.trace(span_type="PRODUCT_RECOMMENDATION")
-    def recommend_products(user_profile): ...
+    def recommend_products(user_profile):
+        ...
 
 
     @mlflow.trace(span_type="INVENTORY_CHECK")
-    def check_inventory(product_id): ...
+    def check_inventory(product_id):
+        ...
     ```
   </TabItem>
 </Tabs>

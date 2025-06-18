@@ -44,7 +44,6 @@ from tests.autologging.fixtures import (
     test_mode_on,
 )
 from tests.helper_functions import start_mock_openai_server
-from tests.tracing.helper import flush_and_get_last_trace
 
 library_to_mlflow_module_without_spark_datasource = {
     tensorflow: mlflow.tensorflow,
@@ -444,10 +443,10 @@ def test_autolog_genai_auto_tracing(mock_openai, is_databricks, disable, other_l
 
     # GenAI should not be enabled by mlflow.autolog even if disable=False on Databricks
     if is_databricks or disable:
-        trace = flush_and_get_last_trace()
+        trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
         assert trace is None
     else:
-        trace = flush_and_get_last_trace()
+        trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
         assert trace is not None
         assert trace.info.status == "OK"
         assert len(trace.data.spans) == 1
