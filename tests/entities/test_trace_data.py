@@ -6,6 +6,7 @@ import pytest
 import mlflow
 from mlflow.entities import SpanType, TraceData
 from mlflow.entities.span_event import SpanEvent
+
 from tests.tracing.helper import flush_and_get_last_trace
 
 

@@ -106,8 +106,6 @@ def test_mlflow_backend_choose_v2_or_v3_correctly(monkeypatch, tracking_uri, sho
 
 
 def test_set_destination_mlflow_experiment(monkeypatch):
-    default_tracking_uri = mlflow.get_tracking_uri()
-
     # Set destination with experiment_id
     mlflow.tracing.set_destination(destination=MlflowExperiment(experiment_id="123"))
 

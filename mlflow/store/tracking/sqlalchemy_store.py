@@ -2077,8 +2077,6 @@ class SqlAlchemyStore(AbstractStore):
         timestamp_ms: int,
         request_metadata: dict[str, str],
         tags: dict[str, str],
-        client_request_id: Optional[str] = None,
-        request_preview: Optional[str] = None,
     ) -> TraceInfo:
         """
         Create an initial TraceInfo object in the database.
@@ -2105,12 +2103,15 @@ class SqlAlchemyStore(AbstractStore):
                 status=TraceState.IN_PROGRESS,
             )
 
-            trace_info.tags = [SqlTraceTag(request_id=request_id, key=k, value=v) for k, v in tags.items()]
+            trace_info.tags = [
+                SqlTraceTag(request_id=request_id, key=k, value=v) for k, v in tags.items()
+            ]
             trace_info.tags.append(self._get_trace_artifact_location_tag(experiment, request_id))
 
-            # Create trace metadata objects - note the relationship name is request_metadata  
+            # Create trace metadata objects - note the relationship name is request_metadata
             trace_info.request_metadata = [
-                SqlTraceTraceMetadata(request_id=request_id, key=k, value=v) for k, v in request_metadata.items()
+                SqlTraceTraceMetadata(request_id=request_id, key=k, value=v)
+                for k, v in request_metadata.items()
             ]
             session.add(trace_info)
 
@@ -2195,11 +2196,17 @@ class SqlAlchemyStore(AbstractStore):
                 response_preview=trace.info.response_preview,
             )
 
-            sql_trace_info.tags = [SqlTraceTag(request_id=request_id, key=k, value=v) for k, v in trace.info.tags.items()]
-            sql_trace_info.tags.append(self._get_trace_artifact_location_tag(experiment, request_id))
+            sql_trace_info.tags = [
+                SqlTraceTag(request_id=request_id, key=k, value=v)
+                for k, v in trace.info.tags.items()
+            ]
+            sql_trace_info.tags.append(
+                self._get_trace_artifact_location_tag(experiment, request_id)
+            )
 
             sql_trace_info.request_metadata = [
-                SqlTraceTraceMetadata(request_id=request_id, key=k, value=v) for k, v in trace.info.trace_metadata.items()
+                SqlTraceTraceMetadata(request_id=request_id, key=k, value=v)
+                for k, v in trace.info.trace_metadata.items()
             ]
             session.add(sql_trace_info)
 

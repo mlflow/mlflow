@@ -9,7 +9,7 @@ Create Date: 2024-04-27 12:29:25.178685
 import sqlalchemy as sa
 from alembic import op
 
-from mlflow.store.tracking.dbmodels.models import SqlTraceInfo, SqlTraceTraceMetadata, SqlTraceTag
+from mlflow.store.tracking.dbmodels.models import SqlTraceInfo, SqlTraceTag, SqlTraceTraceMetadata
 
 # revision identifiers, used by Alembic.
 revision = "867495a8f9d4"

@@ -21,7 +21,12 @@ from mlflow.entities.trace import Trace
 from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey
 from mlflow.version import IS_TRACING_SDK_ONLY
 
-from tests.tracing.helper import flush_and_get_last_trace, get_traces, score_in_model_serving, skip_when_testing_trace_sdk
+from tests.tracing.helper import (
+    flush_and_get_last_trace,
+    get_traces,
+    score_in_model_serving,
+    skip_when_testing_trace_sdk,
+)
 
 if not IS_TRACING_SDK_ONLY:
     from mlflow.tracking import MlflowClient

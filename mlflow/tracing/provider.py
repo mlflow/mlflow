@@ -310,7 +310,6 @@ def _get_mlflow_span_processor(tracking_uri: str, experiment_id: Optional[str] =
 
         exporter = MlflowV3SpanExporter(tracking_uri=tracking_uri)
         processor = MlflowV3SpanProcessor(exporter, experiment_id=experiment_id)
-        return processor
     else:
         # TODO: Remove this branch once file store supports V3 traces
         from mlflow.tracing.export.mlflow_v2 import MlflowV2SpanExporter
@@ -318,14 +317,20 @@ def _get_mlflow_span_processor(tracking_uri: str, experiment_id: Optional[str] =
 
         exporter = MlflowV2SpanExporter(tracking_uri=tracking_uri)
         processor = MlflowV2SpanProcessor(exporter, experiment_id=experiment_id)
-        return processor
+    return processor
+
 
 def _support_v3_traces(tracking_uri: str) -> bool:
     """
     Check if the tracking URI supports V3 traces.
     Currently, we support V3 traces for Databricks and SQL backends.
     """
-    return is_databricks_uri(tracking_uri) or get_uri_scheme(tracking_uri) in ["postgresql", "mysql", "sqlite", "mssql"]
+    return is_databricks_uri(tracking_uri) or get_uri_scheme(tracking_uri) in [
+        "postgresql",
+        "mysql",
+        "sqlite",
+        "mssql",
+    ]
 
 
 @raise_as_trace_exception

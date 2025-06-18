@@ -10,6 +10,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.utils.mlflow_tags import MLFLOW_MODEL_IS_EXTERNAL
+
 from tests.tracing.helper import flush_and_get_last_trace
 
 

@@ -27,7 +27,6 @@ import setfit
 import sklearn
 import statsmodels
 import tensorflow
-from tests.tracing.helper import flush_and_get_last_trace
 import transformers
 import xgboost
 
@@ -45,6 +44,7 @@ from tests.autologging.fixtures import (
     test_mode_on,
 )
 from tests.helper_functions import start_mock_openai_server
+from tests.tracing.helper import flush_and_get_last_trace
 
 library_to_mlflow_module_without_spark_datasource = {
     tensorflow: mlflow.tensorflow,

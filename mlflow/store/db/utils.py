@@ -56,8 +56,8 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlRun,
     SqlTag,
     SqlTraceInfo,
-    SqlTraceTraceMetadata,
     SqlTraceTag,
+    SqlTraceTraceMetadata,
 )
 
 _logger = logging.getLogger(__name__)

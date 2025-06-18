@@ -29,7 +29,6 @@ from mlflow.entities import (
     RunTag,
     SourceType,
     TraceInfo,
-    TraceInfoV2,
     ViewType,
 )
 from mlflow.entities.lifecycle_stage import LifecycleStage
@@ -37,10 +36,8 @@ from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
-from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
-from mlflow.entities.trace_status import TraceStatus
 from mlflow.store.db.base_sql_model import Base
 from mlflow.utils.mlflow_tags import _get_run_name_from_tags
 from mlflow.utils.time import get_current_time_millis
@@ -719,7 +716,7 @@ class SqlTraceInfo(Base):
             client_request_id=self.client_request_id,
             request_preview=self.request_preview,
             response_preview=self.response_preview,
-            assessments=[], # Implement this once we support assessments in OSS
+            assessments=[],  # Implement this once we support assessments in OSS
         )
 
 
@@ -768,7 +765,8 @@ class SqlTraceTraceMetadata(Base):
         String(50), ForeignKey("trace_info.request_id", ondelete="CASCADE"), nullable=False
     )
     """
-    Request ID to which this metadata belongs: *Foreign Key* into ``trace_info`` table. **Corresponding to the "trace_id" in V3 format.**
+    Request ID to which this metadata belongs: *Foreign Key* into ``trace_info`` table.
+    **Corresponding to the "trace_id" in V3 format.**
     """
     trace_info = relationship("SqlTraceInfo", backref=backref("request_metadata", cascade="all"))
     """

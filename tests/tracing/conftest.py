@@ -3,13 +3,15 @@ import tempfile
 import time
 from unittest import mock
 
-from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
 import pytest
 
 import mlflow
 from mlflow.entities import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING, MLFLOW_ENABLE_ASYNC_TRACE_LOGGING
+from mlflow.environment_variables import (
+    MLFLOW_ENABLE_ASYNC_LOGGING,
+    MLFLOW_ENABLE_ASYNC_TRACE_LOGGING,
+)
 
 
 @pytest.fixture(autouse=True)

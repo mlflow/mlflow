@@ -6,6 +6,7 @@ import mlflow
 from mlflow.entities.assessment import Expectation
 from mlflow.entities.document import Document
 from mlflow.entities.span import SpanType
+
 from tests.tracing.helper import flush_and_get_last_trace
 
 

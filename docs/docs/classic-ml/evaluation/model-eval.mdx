@@ -592,9 +592,11 @@ def analyze_errors_by_features(model_uri, eval_data, targets, feature_columns):
                 "correct_mean": correct_mean,
                 "error_mean": error_mean,
                 "difference": abs(error_mean - correct_mean),
-                "relative_difference": abs(error_mean - correct_mean) / correct_mean
-                if correct_mean != 0
-                else 0,
+                "relative_difference": (
+                    abs(error_mean - correct_mean) / correct_mean
+                    if correct_mean != 0
+                    else 0
+                ),
             }
 
     # Sort features by impact on errors

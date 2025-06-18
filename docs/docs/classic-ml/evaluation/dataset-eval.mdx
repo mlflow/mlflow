@@ -169,9 +169,11 @@ def evaluate_batch_predictions(batch_results_path, batch_size=10000):
         mlflow.log_params(
             {
                 "batch_size": len(batch_df),
-                "batch_date": batch_df.get("prediction_date", "unknown").iloc[0]
-                if len(batch_df) > 0
-                else "unknown",
+                "batch_date": (
+                    batch_df.get("prediction_date", "unknown").iloc[0]
+                    if len(batch_df) > 0
+                    else "unknown"
+                ),
                 "data_source": batch_results_path,
             }
         )
@@ -304,9 +306,11 @@ def compare_datasets(datasets_dict, model_type="classifier"):
                     {
                         "dataset_name": dataset_name,
                         "dataset_size": len(dataset),
-                        "positive_rate": dataset["target"].mean()
-                        if model_type == "classifier"
-                        else None,
+                        "positive_rate": (
+                            dataset["target"].mean()
+                            if model_type == "classifier"
+                            else None
+                        ),
                     }
                 )
 

@@ -77,8 +77,8 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlRun,
     SqlTag,
     SqlTraceInfo,
-    SqlTraceTraceMetadata,
     SqlTraceTag,
+    SqlTraceTraceMetadata,
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore, _get_orderby_clauses
 from mlflow.tracing.constant import MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE, TraceMetadataKey
