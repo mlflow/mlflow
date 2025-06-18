@@ -1,7 +1,7 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Button, GenericSkeleton, NewWindowIcon, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
-import { PageHeader } from '../../../../../shared/building_blocks/PageHeader';
+import { OverflowMenu, PageHeader } from '../../../../../shared/building_blocks/PageHeader';
 import { ExperimentViewCopyTitle } from './ExperimentViewCopyTitle';
 import { ExperimentViewHeaderShareButton } from './ExperimentViewHeaderShareButton';
 import { ExperimentEntity } from '../../../../types';
@@ -10,9 +10,12 @@ import { ExperimentPageUIState } from '../../models/ExperimentPageUIState';
 import { ExperimentViewArtifactLocation } from '../ExperimentViewArtifactLocation';
 import { ExperimentViewCopyExperimentId } from './ExperimentViewCopyExperimentId';
 import { ExperimentViewCopyArtifactLocation } from './ExperimentViewCopyArtifactLocation';
-import { InfoIcon, InfoPopover } from '@databricks/design-system';
-import { Popover } from '@databricks/design-system';
+import { InfoPopover } from '@databricks/design-system';
 import { EXPERIMENT_PAGE_FEEDBACK_URL } from '@mlflow/mlflow/src/experiment-tracking/constants';
+import { Link, useNavigate } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import Routes from '@mlflow/mlflow/src/experiment-tracking/routes';
+import { DeleteExperimentModal } from '../../../modals/DeleteExperimentModal';
+import { useInvalidateExperimentList } from '../../hooks/useExperimentListQuery';
 
 /**
  * Header for a single experiment page. Displays title, breadcrumbs and provides
@@ -32,8 +35,12 @@ export const ExperimentViewHeader = React.memo(
     showAddDescriptionButton: boolean;
     setEditing: (editing: boolean) => void;
   }) => {
-    // eslint-disable-next-line prefer-const
-    let breadcrumbs: React.ReactNode[] = [];
+    const invalidateExperimentList = useInvalidateExperimentList();
+
+    const [showDeleteExperimentModal, setShowDeleteExperimentModal] = useState(false);
+
+    const navigate = useNavigate();
+
     const experimentIds = useMemo(() => (experiment ? [experiment?.experimentId] : []), [experiment]);
 
     const { theme } = useDesignSystemTheme();
@@ -140,6 +147,7 @@ export const ExperimentViewHeader = React.memo(
 
     return (
       <PageHeader
+        breadcrumbs={[<Link to={Routes.experimentsObservatoryRoute}>Experiments</Link>]}
         title={
           <div
             css={{
@@ -165,7 +173,6 @@ export const ExperimentViewHeader = React.memo(
           renderFeedbackForm(),
           showAddDescriptionButton && getAddDescriptionButton(),
         ].filter(Boolean)}
-        breadcrumbs={breadcrumbs}
         spacerSize="sm"
         dangerouslyAppendEmotionCSS={{
           [theme.responsive.mediaQueries.sm]: {
@@ -183,8 +190,32 @@ export const ExperimentViewHeader = React.memo(
       >
         <div css={{ display: 'flex', gap: theme.spacing.sm }}>
           {/* Wrap the buttons in a flex element */}
+          <OverflowMenu
+            menu={[
+              {
+                id: 'delete',
+                itemName: (
+                  <FormattedMessage
+                    defaultMessage="Delete"
+                    description="Text for delete button on the experiment view page header"
+                  />
+                ),
+                onClick: () => setShowDeleteExperimentModal(true),
+              },
+            ]}
+          />
           {getShareButton()}
         </div>
+        <DeleteExperimentModal
+          experimentId={experiment.experimentId}
+          experimentName={experiment.name}
+          isOpen={showDeleteExperimentModal}
+          onClose={() => setShowDeleteExperimentModal(false)}
+          onExperimentDeleted={() => {
+            invalidateExperimentList();
+            navigate(Routes.experimentsObservatoryRoute);
+          }}
+        />
       </PageHeader>
     );
   },

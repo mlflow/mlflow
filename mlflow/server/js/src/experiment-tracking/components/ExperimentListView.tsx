@@ -1,349 +1,227 @@
-import React, { Component } from 'react';
+import React, { useState } from 'react';
 import { Theme } from '@emotion/react';
 import {
-  Checkbox,
-  CaretDownSquareIcon,
-  PlusCircleIcon,
-  Input,
-  PencilIcon,
-  Typography,
-  WithDesignSystemThemeHoc,
-  DesignSystemHocProps,
   Button,
-  TrashIcon,
   Tooltip,
+  TableFilterLayout,
+  TableFilterInput,
+  Spacer,
+  Header,
+  Popover,
+  InfoIcon,
+  Typography,
+  Alert,
+  useDesignSystemTheme,
 } from '@databricks/design-system';
-import { List as VList, AutoSizer, ListRowRenderer } from 'react-virtualized';
 import 'react-virtualized/styles.css';
-import { Link, NavigateFunction } from '../../common/utils/RoutingUtils';
 import Routes from '../routes';
 import { CreateExperimentModal } from './modals/CreateExperimentModal';
-import { DeleteExperimentModal } from './modals/DeleteExperimentModal';
-import { RenameExperimentModal } from './modals/RenameExperimentModal';
-import { withRouterNext, WithRouterNextProps } from '../../common/utils/withRouterNext';
 import { ExperimentEntity } from '../types';
+import { useInvalidateExperimentList } from './experiment-page/hooks/useExperimentListQuery';
+import { RowSelectionState } from '@tanstack/react-table';
+import { defineMessage, FormattedMessage, useIntl } from 'react-intl';
+import { ScrollablePageWrapper } from '../../common/components/ScrollablePageWrapper';
+import { ExperimentSearchSyntaxDocUrl } from '../../common/constants';
+import { ExperimentListTable } from './ExperimentListTable';
+import { useNavigate } from '../../common/utils/RoutingUtils';
 
 type Props = {
-  activeExperimentIds: string[];
   experiments: ExperimentEntity[];
-} & WithRouterNextProps &
-  DesignSystemHocProps;
-
-type State = {
-  checkedKeys: string[];
-  hidden: boolean;
-  searchInput: string;
-  showCreateExperimentModal: boolean;
-  showDeleteExperimentModal: boolean;
-  showRenameExperimentModal: boolean;
-  selectedExperimentId: string;
-  selectedExperimentName: string;
+  error?: Error;
 };
 
-export class ExperimentListView extends Component<Props, State> {
-  list?: VList = undefined;
+export const ExperimentListView = ({ experiments, error }: Props) => {
+  const invalidateExperimentList = useInvalidateExperimentList();
 
-  state = {
-    checkedKeys: this.props.activeExperimentIds,
-    hidden: false,
-    searchInput: '',
-    showCreateExperimentModal: false,
-    showDeleteExperimentModal: false,
-    showRenameExperimentModal: false,
-    selectedExperimentId: '0',
-    selectedExperimentName: '',
-  };
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const [searchInput, setSearchInput] = useState('');
+  const [showCreateExperimentModal, setShowCreateExperimentModal] = useState(false);
 
-  bindListRef = (ref: VList) => {
-    this.list = ref;
-  };
-
-  componentDidUpdate = () => {
-    // Ensure the filter is applied
-    if (this.list) {
-      this.list.forceUpdateGrid();
-    }
-  };
-
-  filterExperiments = (searchInput: string) => {
-    const { experiments } = this.props;
+  const filterExperiments = (searchInput: string) => {
     const lowerCasedSearchInput = searchInput.toLowerCase();
     return lowerCasedSearchInput === ''
-      ? this.props.experiments
+      ? experiments
       : experiments.filter(({ name }) => name.toLowerCase().includes(lowerCasedSearchInput));
   };
 
-  handleSearchInputChange: React.ChangeEventHandler<HTMLInputElement> = (event) => {
-    this.setState({
-      searchInput: event.target.value,
-    });
+  const handleSearchInputChange: React.ChangeEventHandler<HTMLInputElement> = (event) => {
+    setSearchInput(event.target.value);
   };
 
-  updateSelectedExperiment = (experimentId: string, experimentName: string) => {
-    this.setState({
-      selectedExperimentId: experimentId,
-      selectedExperimentName: experimentName,
-    });
+  const handleCreateExperiment = () => {
+    setShowCreateExperimentModal(true);
   };
 
-  handleCreateExperiment = () => {
-    this.setState({
-      showCreateExperimentModal: true,
-    });
+  const handleCloseCreateExperimentModal = () => {
+    setShowCreateExperimentModal(false);
   };
 
-  handleDeleteExperiment = (experimentId: string, experimentName: string) => () => {
-    this.setState({
-      showDeleteExperimentModal: true,
-    });
-    this.updateSelectedExperiment(experimentId, experimentName);
+  const pushExperimentRoute = () => {
+    const route = Routes.getCompareExperimentsPageRoute(checkedKeys);
+    navigate(route);
   };
 
-  handleRenameExperiment = (experimentId: string, experimentName: string) => () => {
-    this.setState({
-      showRenameExperimentModal: true,
-    });
-    this.updateSelectedExperiment(experimentId, experimentName);
-  };
+  const checkedKeys = Object.entries(rowSelection)
+    .filter(([_, value]) => value)
+    .map(([key, _]) => key);
 
-  handleCloseCreateExperimentModal = () => {
-    this.setState({
-      showCreateExperimentModal: false,
-    });
-  };
+  const { theme } = useDesignSystemTheme();
+  const navigate = useNavigate();
 
-  handleCloseDeleteExperimentModal = () => {
-    this.setState({
-      showDeleteExperimentModal: false,
-    });
-    // reset
-    this.updateSelectedExperiment('0', '');
-  };
+  const filteredExperiments = filterExperiments(searchInput);
 
-  handleCloseRenameExperimentModal = () => {
-    this.setState({
-      showRenameExperimentModal: false,
-    });
-    // reset
-    this.updateSelectedExperiment('0', '');
-  };
-
-  // Add a key if it does not exist, remove it if it does
-  // Always keep at least one experiment checked if it is only the active one.
-  handleCheck = (isChecked: boolean, key: string) => {
-    this.setState((prevState, props) => {
-      let { checkedKeys } = prevState;
-      if (isChecked === true && !props.activeExperimentIds.includes(key)) {
-        checkedKeys = [key, ...props.activeExperimentIds];
-      }
-      if (isChecked === false && props.activeExperimentIds.length !== 1) {
-        checkedKeys = props.activeExperimentIds.filter((i) => i !== key);
-      }
-      return { checkedKeys: checkedKeys };
-    }, this.pushExperimentRoute);
-  };
-
-  pushExperimentRoute = () => {
-    if (this.state.checkedKeys.length > 0) {
-      const route =
-        this.state.checkedKeys.length === 1
-          ? Routes.getExperimentPageRoute(this.state.checkedKeys[0])
-          : Routes.getCompareExperimentsPageRoute(this.state.checkedKeys);
-      this.props.navigate(route);
-    }
-  };
-
-  renderListItem: ListRowRenderer = ({ index, key, style, parent }) => {
-    // Use the parents props to index.
-    const item = parent.props['data'][index];
-    const { activeExperimentIds } = this.props;
-    const isActive = activeExperimentIds.includes(item.experimentId);
-    const dataTestId = isActive ? 'active-experiment-list-item' : 'experiment-list-item';
-    const { theme } = this.props.designSystemThemeApi;
-    // Clicking the link removes all checks and marks other experiments
-    // as not active.
-    return (
-      <div
-        css={{
-          display: 'flex',
-          alignItems: 'center',
-          // gap: theme.spacing.xs,
-          paddingLeft: theme.spacing.xs,
-          paddingRight: theme.spacing.xs,
-          borderLeft: isActive ? `solid ${theme.colors.primary}` : 'solid transparent',
-          borderLeftWidth: 4,
-          backgroundColor: isActive ? theme.colors.actionDefaultBackgroundPress : 'transparent',
-          fontSize: theme.typography.fontSizeBase,
-          svg: {
-            width: 14,
-            height: 14,
-          },
-        }}
-        data-testid={dataTestId}
-        key={key}
-        style={style}
-      >
-        <Checkbox
-          componentId="mlflow.experiment_list_view.check_box"
-          id={item.experimentId}
-          key={item.experimentId}
-          onChange={(isChecked) => this.handleCheck(isChecked, item.experimentId)}
-          isChecked={isActive}
-          data-testid={`${dataTestId}-check-box`}
-        />
-        <Link
-          className="experiment-link"
-          css={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}
-          to={Routes.getExperimentPageRoute(item.experimentId)}
-          onClick={() => this.setState({ checkedKeys: [item.experimentId] })}
-          title={item.name}
-          data-testid={`${dataTestId}-link`}
-        >
-          {item.name}
-        </Link>
-        <Tooltip componentId="mlflow.experiment_list_view.rename_experiment_button.tooltip" content="Rename experiment">
-          <Button
-            type="link"
-            componentId="mlflow.experiment_list_view.rename_experiment_button"
-            icon={<PencilIcon />}
-            onClick={this.handleRenameExperiment(item.experimentId, item.name)}
-            data-testid="rename-experiment-button"
-            size="small"
-          />
-        </Tooltip>
-        <Tooltip componentId="mlflow.experiment_list_view.delete_experiment_button.tooltip" content="Delete experiment">
-          <Button
-            type="link"
-            componentId="mlflow.experiment_list_view.delete_experiment_button"
-            icon={<TrashIcon />}
-            onClick={this.handleDeleteExperiment(item.experimentId, item.name)}
-            data-testid="delete-experiment-button"
-            size="small"
-          />
-        </Tooltip>
-      </div>
-    );
-  };
-
-  unHide = () => this.setState({ hidden: false });
-  hide = () => this.setState({ hidden: true });
-
-  render() {
-    const { hidden } = this.state;
-    const { activeExperimentIds, designSystemThemeApi } = this.props;
-    const { theme } = designSystemThemeApi;
-
-    if (hidden) {
-      return (
-        <Tooltip content="Show experiment list" componentId="mlflow.experiment_list_view.show_experiments.tooltip">
-          <Button
-            componentId="mlflow.experiment_list_view.show_experiments"
-            icon={<CaretDownSquareIcon />}
-            onClick={this.unHide}
-            css={{ svg: { transform: 'rotate(-90deg)' } }}
-            title="Show experiment list"
-          />
-        </Tooltip>
-      );
-    }
-
-    const { searchInput } = this.state;
-    const filteredExperiments = this.filterExperiments(searchInput);
-
-    return (
-      <div
-        id="experiment-list-outer-container"
-        css={{
-          boxSizing: 'border-box',
-          height: '100%',
-          marginLeft: '24px',
-          marginRight: '8px',
-          paddingRight: '16px',
-          width: '100%',
-          // Ensure it displays experiment names for smaller screens, but don't
-          // take more than 20% of the screen.
-          minWidth: 'max(280px, 20vw)',
-          maxWidth: '20vw',
-          display: 'grid',
-          gridTemplateRows: 'auto auto 1fr',
-        }}
-      >
-        <CreateExperimentModal
-          isOpen={this.state.showCreateExperimentModal}
-          onClose={this.handleCloseCreateExperimentModal}
-        />
-        <DeleteExperimentModal
-          isOpen={this.state.showDeleteExperimentModal}
-          onClose={this.handleCloseDeleteExperimentModal}
-          activeExperimentIds={activeExperimentIds}
-          experimentId={this.state.selectedExperimentId}
-          experimentName={this.state.selectedExperimentName}
-        />
-        <RenameExperimentModal
-          isOpen={this.state.showRenameExperimentModal}
-          onClose={this.handleCloseRenameExperimentModal}
-          experimentId={this.state.selectedExperimentId}
-          experimentName={this.state.selectedExperimentName}
-        />
-        <div
-          css={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: theme.spacing.sm,
-          }}
-        >
-          <Typography.Title level={2} style={{ margin: 0 }}>
-            Experiments
-          </Typography.Title>
-          <div>
-            <Tooltip componentId="mlflow.experiment_list_view.new_experiment_button.tooltip" content="New experiment">
+  return (
+    <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      <Spacer shrinks={false} />
+      <Header
+        title={<FormattedMessage defaultMessage="Experiments" description="Header title for the experiments page" />}
+        buttons={
+          <>
+            <Button
+              componentId="mlflow.experiment_list_view.new_experiment_button"
+              type="primary"
+              onClick={handleCreateExperiment}
+              data-testid="create-experiment-button"
+            >
+              <FormattedMessage
+                defaultMessage="Create experiment"
+                description="Label for the create experiment action on the experiments list page"
+              />
+            </Button>
+            <Tooltip
+              componentId="mlflow.experiment_list_view.compare_experiments_button"
+              content={
+                <FormattedMessage
+                  defaultMessage="Select at least two experiments from the table to compare them"
+                  description="Experiments page compare experiments button tooltip message"
+                />
+              }
+            >
               <Button
-                componentId="mlflow.experiment_list_view.new_experiment_button"
-                icon={<PlusCircleIcon />}
-                onClick={this.handleCreateExperiment}
-                title="New Experiment"
-                data-testid="create-experiment-button"
-              />
+                componentId="mlflow.experiment_list_view.compare_experiment_button"
+                onClick={pushExperimentRoute}
+                data-testid="compare-experiment-button"
+                disabled={checkedKeys.length < 2}
+              >
+                <FormattedMessage
+                  defaultMessage="Compare experiments"
+                  description="Label for the compare experiments action on the experiments list page"
+                />
+              </Button>
             </Tooltip>
-            <Tooltip componentId="mlflow.experiment_list_view.hide_button.tooltip" content="Hide experiment list">
-              <Button
-                componentId="mlflow.experiment_list_view.hide_button"
-                icon={<CaretDownSquareIcon />}
-                onClick={this.hide}
-                css={{ svg: { transform: 'rotate(90deg)' } }}
-                title="Hide experiment list"
-              />
-            </Tooltip>
-          </div>
-        </div>
-        <Input
-          componentId="mlflow.experiment_list_view.search_input"
-          placeholder="Search experiments"
-          aria-label="search experiments"
-          value={searchInput}
-          onChange={this.handleSearchInputChange}
-          data-testid="search-experiment-input"
+          </>
+        }
+      />
+      <Spacer shrinks={false} />
+      {error && (
+        <Alert
+          css={{ marginBlockEnd: theme.spacing.sm }}
+          type="error"
+          message={error.message || 'A network error occurred.'}
+          componentId="mlflow.experiment_list_view.error"
+          closable={false}
         />
-        <div css={{ marginTop: theme.spacing.xs }}>
-          <AutoSizer>
-            {({ width, height }) => (
-              <VList
-                rowRenderer={this.renderListItem}
-                data={filteredExperiments}
-                ref={this.bindListRef}
-                rowHeight={32}
-                overscanRowCount={10}
-                height={height}
-                width={width}
-                rowCount={filteredExperiments.length}
-              />
-            )}
-          </AutoSizer>
-        </div>
+      )}
+      <div css={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <TableFilterLayout>
+          <TableFilterInput
+            data-testid="search-experiment-input"
+            placeholder="Search experiments by name"
+            componentId="mlflow.experiment_list_view.search"
+            value={searchInput}
+            onChange={handleSearchInputChange}
+            suffix={<ModelSearchInputHelpTooltip />}
+          />
+        </TableFilterLayout>
+        <ExperimentListTable
+          experiments={filteredExperiments}
+          isFiltered={Boolean(searchInput)}
+          rowSelection={rowSelection}
+          setRowSelection={setRowSelection}
+        />
       </div>
-    );
-  }
-}
+      <CreateExperimentModal
+        isOpen={showCreateExperimentModal}
+        onClose={handleCloseCreateExperimentModal}
+        onExperimentCreated={invalidateExperimentList}
+      />
+    </ScrollablePageWrapper>
+  );
+};
 
-export default withRouterNext(WithDesignSystemThemeHoc(ExperimentListView));
+export default ExperimentListView;
+
+const ModelSearchInputHelpTooltip = () => {
+  const { formatMessage } = useIntl();
+  const tooltipIntroMessage = defineMessage({
+    defaultMessage:
+      'A filter expression over experiment attributes and tags that allows returning a subset of experiments.',
+    description: 'Tooltip string to explain how to search experiments',
+  });
+
+  // Tooltips are not expected to contain links.
+  const labelText = formatMessage(tooltipIntroMessage, { newline: ' ', whereBold: 'WHERE' });
+
+  return (
+    <Popover.Root componentId="mlflow.experiment_list_view.searchbox.help_popover.root">
+      <Popover.Trigger
+        aria-label={labelText}
+        css={{ border: 0, background: 'none', padding: 0, lineHeight: 0, cursor: 'pointer' }}
+      >
+        <InfoIcon />
+      </Popover.Trigger>
+      <Popover.Content align="start">
+        <div>
+          <FormattedMessage {...tooltipIntroMessage} />
+          <Typography.Paragraph>
+            The syntax is a subset of SQL that supports ANDing together binary operations between an attribute or tag,
+            and a constant.
+          </Typography.Paragraph>
+          <Typography.Paragraph>
+            <FormattedMessage
+              defaultMessage="<link>Learn more</link>"
+              description="Learn more tooltip link to learn more on how to search experiments"
+              values={{
+                link: (chunks) => (
+                  <Typography.Link
+                    componentId="mlflow.experiment_list_view.searchbox.help_popover.syntax_url"
+                    href={ExperimentSearchSyntaxDocUrl + '#syntax'}
+                    openInNewTab
+                  >
+                    {chunks}
+                  </Typography.Link>
+                ),
+              }}
+            />
+          </Typography.Paragraph>
+          <Typography.Paragraph>
+            <FormattedMessage
+              defaultMessage="Examples:"
+              description="Text header for examples of mlflow search syntax"
+            />
+          </Typography.Paragraph>
+          <ul>
+            <li>
+              <Typography.Text code>attributes.name = 'x'</Typography.Text>
+              <Typography.Text> or </Typography.Text>
+              <Typography.Text code>name = 'x'</Typography.Text>
+            </li>
+            <li>
+              <Typography.Text code>attributes.name LIKE 'x%'</Typography.Text>
+            </li>
+            <li>
+              <Typography.Text code>tags.group != 'x'</Typography.Text>
+            </li>
+            <li>
+              <Typography.Text code>tags.group ILIKE '%x%'</Typography.Text>
+            </li>
+            <li>
+              <Typography.Text code>attributes.name LIKE 'x%' AND tags.group = 'y'</Typography.Text>
+            </li>
+          </ul>
+        </div>
+        <Popover.Arrow />
+      </Popover.Content>
+    </Popover.Root>
+  );
+};

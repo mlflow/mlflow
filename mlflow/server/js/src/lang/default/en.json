@@ -91,6 +91,10 @@
     "defaultMessage": "Models loading",
     "description": "Label for a loading spinner when table containing models is being loaded"
   },
+  "/lsQMU": {
+    "defaultMessage": "<link>Learn more</link>",
+    "description": "Learn more tooltip link to learn more on how to search experiments"
+  },
   "/nPZbt": {
     "defaultMessage": "{totalTokens} total tokens",
     "description": "Experiment page > artifact compare view > results table > total number of evaluated tokens"
@@ -403,6 +407,10 @@
     "defaultMessage": "Step",
     "description": "Experiment page > view controls > global settings for line chart view > settings for x-axis > label for setting to use step axis in all charts"
   },
+  "55sVHY": {
+    "defaultMessage": "Compare experiments",
+    "description": "Label for the compare experiments action on the experiments list page"
+  },
   "58xhem": {
     "defaultMessage": "Click to pin the run",
     "description": "A tooltip for the pin icon button in the runs chart tooltip next to the not pinned run"
@@ -658,6 +666,10 @@
   "81DxPY": {
     "defaultMessage": "Contour plots can only be rendered when comparing a group of runs with three or more unique metrics or params. Log more metrics or params to your runs to visualize them using the contour plot.",
     "description": "Text explanation when contour plot is disabled in comparison pages\n              in MLflow"
+  },
+  "87ZYjO": {
+    "defaultMessage": "A filter expression over experiment attributes and tags that allows returning a subset of experiments.",
+    "description": "Tooltip string to explain how to search experiments"
   },
   "88l+j9": {
     "defaultMessage": "Are you sure you want to delete model version {versionNum}? This cannot be undone.",
@@ -1323,6 +1335,10 @@
     "defaultMessage": "No results. Try using a different keyword or adjusting your filters.",
     "description": "Models table > no results after filtering"
   },
+  "JUTcIz": {
+    "defaultMessage": "Time created",
+    "description": "Header for the time created column in the experiments table"
+  },
   "JYVQuV": {
     "defaultMessage": "Run ID",
     "description": "Run page > Overview > Run ID section label"
@@ -1354,6 +1370,10 @@
   "K+5g8S": {
     "defaultMessage": "Trace data is not available for in-progress traces. Please wait for the trace to complete.",
     "description": "Experiment page > traces data drawer > in-progress description"
+  },
+  "K/Z4Y5": {
+    "defaultMessage": "Select at least two experiments from the table to compare them",
+    "description": "Experiments page compare experiments button tooltip message"
   },
   "K5rmCE": {
     "defaultMessage": "S3",
@@ -1703,9 +1723,17 @@
     "defaultMessage": "Use other parameters or disable run grouping to continue.",
     "description": "Experiment page > compare runs > parallel coordinates chart > unsupported string values warning > description"
   },
+  "QRnRh3": {
+    "defaultMessage": "No experiments found",
+    "description": "Label for the empty state in the experiments table when no experiments are found"
+  },
   "QUMV9L": {
     "defaultMessage": "On",
     "description": "Runs charts > line chart > display points > on setting label"
+  },
+  "QhEnTA": {
+    "defaultMessage": "Name",
+    "description": "Header for the name column in the experiments table"
   },
   "Qi6Etm": {
     "defaultMessage": "Hide all runs",
@@ -1910,6 +1938,10 @@
   "UEDu0c": {
     "defaultMessage": "MLflow UI automatically fetches metric histories for active runs and updates the metrics plot with a {interval} second interval.",
     "description": "Helpful tooltip message to explain the automatic metrics plot update"
+  },
+  "UFgh9k": {
+    "defaultMessage": "Create experiment",
+    "description": "Label for the create experiment action on the experiments list page"
   },
   "UGAKJp": {
     "defaultMessage": "X-axis:",
@@ -2199,6 +2231,10 @@
     "defaultMessage": "Relative Time (hours)",
     "description": "Label for the relative axis on the runs compare chart in hours"
   },
+  "YuYnxd": {
+    "defaultMessage": "Delete",
+    "description": "Text for delete button on the experiment view page header"
+  },
   "Z5en2d": {
     "defaultMessage": "Versions",
     "description": "Title text for the versions section under details tab on the\n                       model view page"
@@ -2263,9 +2299,17 @@
     "defaultMessage": "Compare",
     "description": "Experiment page > artifact compare view > \"compare\" select dropdown label"
   },
+  "ZqHpEG": {
+    "defaultMessage": "Experiments",
+    "description": "Header title for the experiments page"
+  },
   "Zqj4VA": {
     "defaultMessage": "New run name",
     "description": "Experiment page > new run modal > run name input label"
+  },
+  "Zt2Uxi": {
+    "defaultMessage": "Use \"Create experiment\" button in order to create a new experiment",
+    "description": "Guidelines for the user on how to create a new experiment in the experiments list page"
   },
   "ZvJTXB": {
     "defaultMessage": "No tables selected",
@@ -2526,6 +2570,10 @@
   "dYbJha": {
     "defaultMessage": "Please provide run name",
     "description": "Experiment page > new run modal > invalid state - no run name provided"
+  },
+  "dcoaGS": {
+    "defaultMessage": "No experiments created",
+    "description": "A header for the empty state in the experiments table"
   },
   "ddAFCW": {
     "defaultMessage": "500: Internal server error",
@@ -3010,6 +3058,10 @@
   "ktiuki": {
     "defaultMessage": "Get Link",
     "description": "Title text for get-link modal"
+  },
+  "l/+0SR": {
+    "defaultMessage": "Last modified",
+    "description": "Header for the last modified column in the experiments table"
   },
   "lA8QO2": {
     "defaultMessage": "Edit tags",

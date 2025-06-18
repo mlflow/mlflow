@@ -31,7 +31,6 @@ describe('DeleteExperimentModal', () => {
         const response = { value: { experiment_id: fakeExperimentId } };
         return Promise.resolve(response);
       },
-      searchExperimentsApi: () => Promise.resolve([]),
       navigate,
     };
     wrapper = shallow(<DeleteExperimentModalImpl {...minimalProps} />);

@@ -3,6 +3,11 @@ import { renderWithIntl, act, screen } from '@mlflow/mlflow/src/common/utils/Tes
 import { ExperimentEntity } from '@mlflow/mlflow/src/experiment-tracking/types';
 import userEvent from '@testing-library/user-event';
 import { DesignSystemProvider } from '@databricks/design-system';
+import { BrowserRouter } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import { Provider } from 'react-redux';
+import thunk from 'redux-thunk';
+import configureStore from 'redux-mock-store';
+import promiseMiddleware from 'redux-promise-middleware';
 
 // mock breadcrumbs
 jest.mock('@databricks/design-system', () => ({
@@ -27,14 +32,25 @@ describe('ExperimentViewHeader', () => {
   };
 
   const createComponentMock = (showAddDescriptionButton: boolean) => {
+    const mockStore = configureStore([thunk, promiseMiddleware()]);
     return renderWithIntl(
-      <DesignSystemProvider>
-        <ExperimentViewHeader
-          experiment={experiment}
-          showAddDescriptionButton={showAddDescriptionButton}
-          setEditing={setEditing}
-        />
-      </DesignSystemProvider>,
+      <BrowserRouter>
+        <DesignSystemProvider>
+          <Provider
+            store={mockStore({
+              entities: {
+                experimentsById: {},
+              },
+            })}
+          >
+            <ExperimentViewHeader
+              experiment={experiment}
+              showAddDescriptionButton={showAddDescriptionButton}
+              setEditing={setEditing}
+            />
+          </Provider>
+        </DesignSystemProvider>
+      </BrowserRouter>,
     );
   };
 
