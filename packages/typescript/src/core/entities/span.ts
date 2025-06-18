@@ -56,8 +56,7 @@ export interface ISpan {
    * Convert this span to JSON format
    * @returns JSON object representation of the span
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  toJson(): Record<string, any>;
+  toJson(): SerializedSpan;
 }
 
 /**
