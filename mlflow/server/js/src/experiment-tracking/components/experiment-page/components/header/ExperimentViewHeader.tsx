@@ -223,9 +223,7 @@ export const ExperimentViewHeader = React.memo(
           experimentName={experiment.name}
           isOpen={showRenameExperimentModal}
           onClose={() => setShowRenameExperimentModal(false)}
-          onExperimentRenamed={() => {
-            invalidateExperimentList();
-          }}
+          onExperimentRenamed={invalidateExperimentList}
         />
         <DeleteExperimentModal
           experimentId={experiment.experimentId}
