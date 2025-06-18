@@ -137,7 +137,7 @@ article ul ul ul {
   --ifm-border-color: #6B7280;
   --ifm-color-emphasis-hover: #000000;
 
-  /* Classic ML - Blue theme (default) */
+  /* Dynamic Coloring based on theme selection */
   --ifm-color-primary: #0194e2;
   --ifm-color-primary-dark: #0086cf;
   --ifm-color-primary-darker: #0072b0;
@@ -145,6 +145,9 @@ article ul ul ul {
   --ifm-color-primary-light: #43c9ed;
   --ifm-color-primary-lighter: #4accf0;
   --ifm-color-primary-lightest: #54cef0;
+
+  /* ML - Blue theme */
+  --ml-color-primary: #0194e2;
 
   /* GenAI - Red theme */
   --genai-color-primary: #EB1700;

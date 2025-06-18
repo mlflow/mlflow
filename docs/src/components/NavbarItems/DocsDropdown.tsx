@@ -1,4 +1,4 @@
-import React from 'react';
+import useBaseUrl from "@docusaurus/useBaseUrl";
 import { useLocation } from '@docusaurus/router';
 import DropdownNavbarItem from '@theme/NavbarItem/DropdownNavbarItem';
 import styles from './DocsDropdown.module.css';
@@ -8,7 +8,7 @@ type Section = 'genai' | 'ml' | 'default';
 interface DocsDropdownProps {
   mobile?: boolean;
   position?: 'left' | 'right';
-  items?: any[];
+  items: any[];
   label?: string;
   [key: string]: any;
 }
@@ -23,9 +23,11 @@ export default function DocsDropdown({
   
   const getCurrentSection = (): Section => {
     const path = location.pathname;
-    if (path.includes('/genai') || path.startsWith('/genai')) {
+    const genaiPath = useBaseUrl('/genai');
+    const mlPath = useBaseUrl('/ml');
+    if (path.startsWith(genaiPath)) {
       return 'genai';
-    } else if (path.includes('/ml') || path.startsWith('/ml')) {
+    } else if (path.startsWith(mlPath)) {
       return 'ml';
     }
     return 'default';
@@ -33,47 +35,82 @@ export default function DocsDropdown({
 
   const currentSection = getCurrentSection();
 
-  const getLabel = (): string => {
-    switch (currentSection) {
-      case 'genai':
-        return 'GenAI Docs';
-      case 'ml':
-        return 'ML Docs';
-      default:
-        return configLabel || 'Documentation';
+  const getLabel = (): JSX.Element => {
+    let color;
+    let text = configLabel || 'Documentation';
+    
+    if (currentSection === 'genai') {
+      color = 'var(--genai-color-primary)';
+      text = 'GenAI Docs';
+    } else if (currentSection === 'ml') {
+      color = 'var(--ifm-color-primary)';
+      text = 'ML Docs';
     }
+
+    return (
+      <div style={{ 
+        display: 'flex', 
+        gap: 8, 
+        alignItems: 'center' 
+      }}>
+        {color && (
+          <div 
+            className={styles.dropdownCircle}
+            style={{
+              width: 10,
+              height: 10,
+              backgroundColor: color,
+              borderRadius: 4
+            }}
+          />
+        )}
+        {text}
+      </div>
+    );
   };
 
-  const dropdownItems = configItems || [
-    {
-      type: 'docSidebar',
-      sidebarId: 'classicMLSidebar',
-      label: '🤖 ML Documentation',
-      docsPluginId: 'classic-ml',
-      className: styles.mlDocsLink,
-    },
-    {
-      type: 'docSidebar',
-      sidebarId: 'genAISidebar',
-      label: '🧠 GenAI Documentation',
-      docsPluginId: 'genai',
-      className: styles.genaiDocsLink,
-    },
-  ];
-
-  const getDropdownClassName = (): string => {
-    const baseClass = 'docs-dropdown';
-    const sectionClass = currentSection !== 'default' ? `docs-dropdown-${currentSection}` : '';
-    return `${baseClass} ${sectionClass}`.trim();
-  };
+  const enhancedItems = configItems.map(item => {
+    if (item.docsPluginId === 'classic-ml') {
+      return {
+        ...item,
+        label: (
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <div style={{
+              width: 10,
+              height: 10,
+              backgroundColor: 'var(--ml-color-primary)',
+              borderRadius: 4
+            }} />
+            {item.label}
+          </div>
+        )
+      };
+    } else if (item.docsPluginId === 'genai') {
+      return {
+        ...item,
+        label: (
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <div style={{
+              width: 10,
+              height: 10,
+              backgroundColor: 'var(--genai-color-primary)',
+              borderRadius: 4
+            }} />
+            {item.label}
+          </div>
+        )
+      };
+    }
+    return item;
+  });
 
   return (
     <DropdownNavbarItem
       {...props}
       mobile={mobile}
       label={getLabel()}
-      items={dropdownItems}
-      className={getDropdownClassName()}
+      items={enhancedItems}
+      className={styles.docsDropdown}
       data-active={currentSection !== 'default' ? currentSection : undefined}
     />
   );
