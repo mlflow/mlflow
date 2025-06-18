@@ -290,6 +290,8 @@ class TracingClient:
                 else None
             )
 
+        is_databricks = is_databricks_uri(self.tracking_uri)
+
         if run_id:
             run = self.store.get_run(run_id)
             if run.info.experiment_id not in experiment_ids:
@@ -301,7 +303,11 @@ class TracingClient:
                     error_code=INVALID_PARAMETER_VALUE,
                 )
 
-            additional_filter = f"metadata.{TraceMetadataKey.SOURCE_RUN} = '{run_id}'"
+            additional_filter = (
+                f"attribute.run_id = '{run_id}'"
+                if is_databricks
+                else f"metadata.{TraceMetadataKey.SOURCE_RUN} = '{run_id}'"
+            )
             if filter_string:
                 if TraceMetadataKey.SOURCE_RUN in filter_string:
                     raise MlflowException(
@@ -313,8 +319,6 @@ class TracingClient:
                 filter_string += f" AND {additional_filter}"
             else:
                 filter_string = additional_filter
-
-        is_databricks = is_databricks_uri(self.tracking_uri)
 
         def download_trace_extra_fields(
             trace_info: Union[TraceInfoV2, TraceInfo],
