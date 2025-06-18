@@ -7,7 +7,7 @@ import time
 import uuid
 from collections import defaultdict
 from functools import reduce
-from typing import Any, Optional
+from typing import Any, Optional, TypedDict
 
 import sqlalchemy
 import sqlalchemy.orm
@@ -124,6 +124,15 @@ _logger = logging.getLogger(__name__)
 # https://docs.sqlalchemy.org/en/latest/orm/mapping_api.html#sqlalchemy.orm.configure_mappers
 # and https://docs.sqlalchemy.org/en/latest/orm/mapping_api.html#sqlalchemy.orm.mapper.Mapper
 sqlalchemy.orm.configure_mappers()
+
+
+class DatasetFilter(TypedDict, total=False):
+    """
+    Dataset filter used for search_logged_models.
+    """
+
+    dataset_name: str
+    dataset_digest: str
 
 
 class SqlAlchemyStore(AbstractStore):
@@ -1968,12 +1977,13 @@ class SqlAlchemyStore(AbstractStore):
 
         return models.order_by(*order_by_clauses)
 
-    def _apply_filter_string_search_logged_models(
+    def _apply_filter_string_datasets_search_logged_models(
         self,
         models: sqlalchemy.orm.Query,
         session: sqlalchemy.orm.Session,
         experiment_ids: list[str],
         filter_string: Optional[str],
+        datasets: Optional[list[dict[str, Any]]],
     ):
         from mlflow.utils.search_logged_model_utils import EntityType, parse_filter_string
 
@@ -1981,18 +1991,32 @@ class SqlAlchemyStore(AbstractStore):
         dialect = self._get_dialect()
         attr_filters: list[sqlalchemy.BinaryExpression] = []
         non_attr_filters: list[sqlalchemy.BinaryExpression] = []
+
+        dataset_filters = []
+        if datasets:
+            for dataset in datasets:
+                dataset_filter = SqlLoggedModelMetric.dataset_name == dataset["dataset_name"]
+                if "dataset_digest" in dataset:
+                    dataset_filter = dataset_filter & (
+                        SqlLoggedModelMetric.dataset_digest == dataset["dataset_digest"]
+                    )
+                dataset_filters.append(dataset_filter)
+
+        has_metric_filters = False
         for comp in comparisons:
             comp_func = SearchUtils.get_sql_comparison_func(comp.op, dialect)
             if comp.entity.type == EntityType.ATTRIBUTE:
                 attr_filters.append(comp_func(getattr(SqlLoggedModel, comp.entity.key), comp.value))
             elif comp.entity.type == EntityType.METRIC:
+                has_metric_filters = True
+                metric_filters = [
+                    SqlLoggedModelMetric.metric_name == comp.entity.key,
+                    comp_func(SqlLoggedModelMetric.metric_value, comp.value),
+                ]
+                if dataset_filters:
+                    metric_filters.append(sqlalchemy.or_(*dataset_filters))
                 non_attr_filters.append(
-                    session.query(SqlLoggedModelMetric)
-                    .filter(
-                        SqlLoggedModelMetric.metric_name == comp.entity.key,
-                        comp_func(SqlLoggedModelMetric.metric_value, comp.value),
-                    )
-                    .subquery()
+                    session.query(SqlLoggedModelMetric).filter(*metric_filters).subquery()
                 )
             elif comp.entity.type == EntityType.PARAM:
                 non_attr_filters.append(
@@ -2016,6 +2040,17 @@ class SqlAlchemyStore(AbstractStore):
         for f in non_attr_filters:
             models = models.join(f)
 
+        # If there are dataset filters but no metric filters,
+        # filter for models that have any metrics on the datasets
+        if dataset_filters and not has_metric_filters:
+            subquery = (
+                session.query(SqlLoggedModelMetric.model_id)
+                .filter(sqlalchemy.or_(*dataset_filters))
+                .distinct()
+                .subquery()
+            )
+            models = models.join(subquery)
+
         return models.filter(
             SqlLoggedModel.lifecycle_stage != LifecycleStage.DELETED,
             SqlLoggedModel.experiment_id.in_(experiment_ids),
@@ -2026,14 +2061,14 @@ class SqlAlchemyStore(AbstractStore):
         self,
         experiment_ids: list[str],
         filter_string: Optional[str] = None,
-        datasets: Optional[list[DatasetInput]] = None,
+        datasets: Optional[list[DatasetFilter]] = None,
         max_results: Optional[int] = None,
         order_by: Optional[list[dict[str, Any]]] = None,
         page_token: Optional[str] = None,
     ) -> PagedList[LoggedModel]:
-        if datasets:
+        if datasets and not all(d.get("dataset_name") for d in datasets):
             raise MlflowException(
-                "Filtering by datasets is not currently supported by SqlAlchemyStore",
+                "`dataset_name` in the `datasets` clause must be specified.",
                 INVALID_PARAMETER_VALUE,
             )
         if page_token:
@@ -2046,8 +2081,8 @@ class SqlAlchemyStore(AbstractStore):
         max_results = max_results or SEARCH_LOGGED_MODEL_MAX_RESULTS_DEFAULT
         with self.ManagedSessionMaker() as session:
             models = session.query(SqlLoggedModel)
-            models = self._apply_filter_string_search_logged_models(
-                models, session, experiment_ids, filter_string
+            models = self._apply_filter_string_datasets_search_logged_models(
+                models, session, experiment_ids, filter_string, datasets
             )
             models = self._apply_order_by_search_logged_models(models, session, order_by)
             models = models.offset(offset).limit(max_results + 1).all()
