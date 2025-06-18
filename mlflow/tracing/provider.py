@@ -30,7 +30,6 @@ from mlflow.utils.databricks_utils import (
     is_in_databricks_model_serving_environment,
     is_mlflow_tracing_enabled_in_model_serving,
 )
-from mlflow.utils.uri import get_uri_scheme, is_databricks_uri
 
 if TYPE_CHECKING:
     from mlflow.entities import Span
@@ -302,35 +301,12 @@ def _get_mlflow_span_processor(tracking_uri: str, experiment_id: Optional[str] =
     """
     Get the MLflow span processor instance that is used by the current tracer provider.
     """
-    # Use V3 processor/exporter for backends that support V3 traces
-    if _support_v3_traces(tracking_uri):
-        # Databricks and SQL backends support V3 traces
-        from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
-        from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
+    # Databricks and SQL backends support V3 traces
+    from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
+    from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 
-        exporter = MlflowV3SpanExporter(tracking_uri=tracking_uri)
-        processor = MlflowV3SpanProcessor(exporter, experiment_id=experiment_id)
-    else:
-        # TODO: Remove this branch once file store supports V3 traces
-        from mlflow.tracing.export.mlflow_v2 import MlflowV2SpanExporter
-        from mlflow.tracing.processor.mlflow_v2 import MlflowV2SpanProcessor
-
-        exporter = MlflowV2SpanExporter(tracking_uri=tracking_uri)
-        processor = MlflowV2SpanProcessor(exporter, experiment_id=experiment_id)
-    return processor
-
-
-def _support_v3_traces(tracking_uri: str) -> bool:
-    """
-    Check if the tracking URI supports V3 traces.
-    Currently, we support V3 traces for Databricks and SQL backends.
-    """
-    return is_databricks_uri(tracking_uri) or get_uri_scheme(tracking_uri) in [
-        "postgresql",
-        "mysql",
-        "sqlite",
-        "mssql",
-    ]
+    exporter = MlflowV3SpanExporter(tracking_uri=tracking_uri)
+    return MlflowV3SpanProcessor(exporter, experiment_id=experiment_id)
 
 
 @raise_as_trace_exception

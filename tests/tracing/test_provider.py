@@ -81,30 +81,6 @@ def test_span_processor_and_exporter_model_serving(mock_databricks_serving_with_
     assert isinstance(processors[0].span_exporter, InferenceTableSpanExporter)
 
 
-@pytest.mark.parametrize(
-    ("tracking_uri", "should_use_v3"),
-    [
-        # OSS (self-host) tracking URI -> V2 exporter should be used
-        ("http://localhost:5000", False),
-        # Databricks tracking URI -> V3 exporter should be used
-        ("databricks", True),
-        ("databricks://default", True),
-    ],
-)
-def test_mlflow_backend_choose_v2_or_v3_correctly(monkeypatch, tracking_uri, should_use_v3):
-    monkeypatch.setattr(mlflow.tracking._tracking_service.utils, "_tracking_uri", tracking_uri)
-
-    tracer = _get_tracer("test")
-    processors = tracer.span_processor._span_processors
-    assert len(processors) == 1
-    if should_use_v3:
-        assert isinstance(processors[0], MlflowV3SpanProcessor)
-        assert isinstance(processors[0].span_exporter, MlflowV3SpanExporter)
-    else:
-        assert isinstance(processors[0], MlflowV2SpanProcessor)
-        assert isinstance(processors[0].span_exporter, MlflowV2SpanExporter)
-
-
 def test_set_destination_mlflow_experiment(monkeypatch):
     # Set destination with experiment_id
     mlflow.tracing.set_destination(destination=MlflowExperiment(experiment_id="123"))

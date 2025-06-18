@@ -64,7 +64,7 @@ class MlflowV3SpanExporter(SpanExporter):
             if eval_request_id := trace.info.tags.get(TraceTagKey.EVAL_REQUEST_ID):
                 _EVAL_REQUEST_ID_TO_TRACE_ID[eval_request_id] = trace.info.trace_id
 
-            if self._should_display_trace and not maybe_get_request_id(is_evaluate=True):
+            if not maybe_get_request_id(is_evaluate=True):
                 self._display_handler.display_traces([trace])
 
             if self._should_log_async():
