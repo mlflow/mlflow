@@ -20,7 +20,7 @@ from sqlparse.sql import (
 )
 from sqlparse.tokens import Token as TokenType
 
-from mlflow.entities import LoggedModel, RunInfo
+from mlflow.entities import LoggedModel, Metric, RunInfo
 from mlflow.entities.model_registry.model_version_stages import STAGE_DELETED_INTERNAL
 from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY
 from mlflow.exceptions import MlflowException
@@ -592,6 +592,13 @@ class SearchUtils:
                 )
             return True
         return False
+
+    @classmethod
+    def _is_metric_on_dataset(cls, metric: Metric, dataset: dict[str, Any]) -> bool:
+        return metric.dataset_name == dataset.get("dataset_name") and (
+            dataset.get("dataset_digest") is None
+            or dataset.get("dataset_digest") == metric.dataset_digest
+        )
 
     @classmethod
     def _does_run_match_clause(cls, run, sed):
@@ -1859,7 +1866,12 @@ class SearchLoggedModelsUtils(SearchUtils):
     VALID_ORDER_BY_ATTRIBUTE_KEYS = VALID_SEARCH_ATTRIBUTE_KEYS
 
     @classmethod
-    def _does_logged_model_match_clause(cls, model: LoggedModel, condition: dict[str, Any]):
+    def _does_logged_model_match_clause(
+        cls,
+        model: LoggedModel,
+        condition: dict[str, Any],
+        datasets: Optional[list[dict[str, Any]]] = None,
+    ):
         key_type = condition.get("type")
         key = condition.get("key")
         value = condition.get("value")
@@ -1869,6 +1881,12 @@ class SearchLoggedModelsUtils(SearchUtils):
 
         if cls.is_metric(key_type, comparator):
             matching_metrics = [metric for metric in model.metrics if metric.key == key]
+            if datasets:
+                matching_metrics = [
+                    metric
+                    for metric in matching_metrics
+                    if any(cls._is_metric_on_dataset(metric, dataset) for dataset in datasets)
+                ]
             lhs = matching_metrics[0].value if matching_metrics else None
             value = float(value)
         elif cls.is_param(key_type, comparator):
@@ -1896,15 +1914,34 @@ class SearchLoggedModelsUtils(SearchUtils):
         """
 
     @classmethod
-    def filter_logged_models(cls, models: list[LoggedModel], filter_string: Optional[str] = None):
-        """Filters a set of runs based on a search filter string."""
-        if not filter_string:
+    def filter_logged_models(
+        cls,
+        models: list[LoggedModel],
+        filter_string: Optional[str] = None,
+        datasets: Optional[list[dict[str, Any]]] = None,
+    ):
+        """Filters a set of runs based on a search filter string and list of dataset filters."""
+        if not filter_string and not datasets:
             return models
 
         parsed = cls.parse_search_filter(filter_string)
 
+        # If there are dataset filters but no metric filters in the filter string,
+        # filter for models that have any metrics on the datasets
+        if datasets and not any(
+            cls.is_metric(s.get("type"), s.get("comparator").upper()) for s in parsed
+        ):
+
+            def model_has_metrics_on_datasets(model):
+                return any(
+                    any(cls._is_metric_on_dataset(metric, dataset) for dataset in datasets)
+                    for metric in model.metrics
+                )
+
+            models = [model for model in models if model_has_metrics_on_datasets(model)]
+
         def model_matches(model):
-            return all(cls._does_logged_model_match_clause(model, s) for s in parsed)
+            return all(cls._does_logged_model_match_clause(model, s, datasets) for s in parsed)
 
         return [model for model in models if model_matches(model)]
 
