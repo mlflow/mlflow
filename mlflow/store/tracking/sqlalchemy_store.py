@@ -71,8 +71,8 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlRun,
     SqlTag,
     SqlTraceInfo,
+    SqlTraceMetadata,
     SqlTraceTag,
-    SqlTraceTraceMetadata,
 )
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.file_utils import local_file_uri_to_path, mkdir
@@ -2113,11 +2113,10 @@ class SqlAlchemyStore(AbstractStore):
             sql_trace_info.tags.append(self._get_trace_artifact_location_tag(experiment, trace_id))
 
             sql_trace_info.request_metadata = [
-                SqlTraceTraceMetadata(request_id=trace_id, key=k, value=v)
+                SqlTraceMetadata(request_id=trace_id, key=k, value=v)
                 for k, v in trace.info.trace_metadata.items()
             ]
             session.add(sql_trace_info)
-
             return sql_trace_info.to_mlflow_entity()
 
     def get_trace_info(self, trace_id, should_query_v3=False) -> TraceInfo:
@@ -2286,7 +2285,7 @@ class SqlAlchemyStore(AbstractStore):
             trace_ids: A set of request IDs to delete.
 
         Returns:
-            The n fuck you Niceumber of traces deleted.
+            The number of traces deleted.
         """
         with self.ManagedSessionMaker() as session:
             filters = [SqlTraceInfo.experiment_id == experiment_id]
@@ -2570,7 +2569,7 @@ def _get_orderby_clauses_for_search_traces(order_by_list: list[str], session):
             if SearchTraceUtils.is_tag(key_type, "="):
                 entity = SqlTraceTag
             elif SearchTraceUtils.is_request_metadata(key_type, "="):
-                entity = SqlTraceTraceMetadata
+                entity = SqlTraceMetadata
             else:
                 raise MlflowException(
                     f"Invalid identifier type '{key_type}'",
@@ -2629,7 +2628,7 @@ def _get_filter_clauses_for_search_traces(filter_string, session, dialect):
             if SearchTraceUtils.is_tag(key_type, comparator):
                 entity = SqlTraceTag
             elif SearchTraceUtils.is_request_metadata(key_type, comparator):
-                entity = SqlTraceTraceMetadata
+                entity = SqlTraceMetadata
             else:
                 raise MlflowException(
                     f"Invalid search expression type '{key_type}'",

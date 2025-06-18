@@ -20,8 +20,8 @@ def upgrade():
     # Add V3 specific columns to trace_info table
     with op.batch_alter_table("trace_info", schema=None) as batch_op:
         batch_op.add_column(sa.Column("client_request_id", sa.String(length=50), nullable=True))
-        batch_op.add_column(sa.Column("request_preview", sa.String(length=10000), nullable=True))
-        batch_op.add_column(sa.Column("response_preview", sa.String(length=10000), nullable=True))
+        batch_op.add_column(sa.Column("request_preview", sa.String(length=1000), nullable=True))
+        batch_op.add_column(sa.Column("response_preview", sa.String(length=1000), nullable=True))
 
 
 def downgrade():

@@ -93,6 +93,7 @@ def test_json_deserialization(monkeypatch):
                 "mlflow.source.git.commit": mock.ANY,
                 "mlflow.source.git.repoURL": mock.ANY,
                 "mlflow.user": mock.ANY,
+                "mlflow.trace.sizeBytes": mock.ANY,
             },
             "tags": {
                 "mlflow.traceName": "predict",

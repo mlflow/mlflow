@@ -164,6 +164,10 @@ class TracingClient:
         Returns:
             TraceInfo object, of type ``mlflow.entities.trace_info.TraceInfo``.
         """
+        with InMemoryTraceManager.get_instance().get_trace(request_id) as trace:
+            if trace is not None:
+                return trace.info
+
         return self.store.get_trace_info(request_id, should_query_v3=should_query_v3)
 
     def get_trace(self, request_id) -> Trace:

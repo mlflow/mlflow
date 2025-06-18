@@ -2978,11 +2978,11 @@ def test_delete_trace_tag(store_and_trace_info):
 
 def test_delete_traces(store):
     exp_id = store.create_experiment("test")
-    request_ids = []
+    trace_ids = []
     timestamps = list(range(90, -1, -10))
     for i in range(10):
         trace_info = store.start_trace(exp_id, timestamps[i], {}, {})
-        request_ids.append(trace_info.request_id)
+        trace_ids.append(trace_info.trace_id)
 
     # delete with max_timestamp_millis
     # if max_traces < number of traces with timestamp < max_timestamp_millis,
@@ -2993,28 +2993,28 @@ def test_delete_traces(store):
     assert len(store.search_traces([exp_id])[0]) == 4
 
     # delete with request_ids
-    assert store.delete_traces(exp_id, request_ids=[request_ids[3]]) == 1
+    assert store.delete_traces(exp_id, trace_ids=[trace_ids[3]]) == 1
     assert len(store.search_traces([exp_id])[0]) == 3
-    assert store.delete_traces(exp_id, request_ids=["non_existing_request_id"]) == 0
+    assert store.delete_traces(exp_id, trace_ids=["non_existing_request_id"]) == 0
     assert len(store.search_traces([exp_id])[0]) == 3
-    assert store.delete_traces(exp_id, request_ids=request_ids) == 3
+    assert store.delete_traces(exp_id, trace_ids=trace_ids) == 3
     assert len(store.search_traces([exp_id])[0]) == 0
 
     with pytest.raises(
         MlflowException,
-        match=r"Either `max_timestamp_millis` or `request_ids` must be specified.",
+        match=r"Either `max_timestamp_millis` or `trace_ids` must be specified.",
     ):
         store.delete_traces(exp_id)
     with pytest.raises(
         MlflowException,
-        match=r"Only one of `max_timestamp_millis` and `request_ids` can be specified.",
+        match=r"Only one of `max_timestamp_millis` and `trace_ids` can be specified.",
     ):
-        store.delete_traces(exp_id, max_timestamp_millis=100, request_ids=request_ids)
+        store.delete_traces(exp_id, max_timestamp_millis=100, trace_ids=trace_ids)
     with pytest.raises(
         MlflowException,
-        match=r"`max_traces` can't be specified if `request_ids` is specified.",
+        match=r"`max_traces` can't be specified if `trace_ids` is specified.",
     ):
-        store.delete_traces(exp_id, max_traces=2, request_ids=request_ids)
+        store.delete_traces(exp_id, max_traces=2, trace_ids=trace_ids)
     with pytest.raises(
         MlflowException, match=r"`max_traces` must be a positive integer, received 0"
     ):

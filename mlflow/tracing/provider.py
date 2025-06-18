@@ -303,7 +303,7 @@ def _get_mlflow_span_processor(tracking_uri: str, experiment_id: Optional[str] =
     Get the MLflow span processor instance that is used by the current tracer provider.
     """
     # Use V3 processor/exporter for backends that support V3 traces
-    if _support_v3_traces(tracking_uri):
+    if support_v3_traces(tracking_uri):
         # Databricks and SQL backends support V3 traces
         from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
         from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
@@ -320,7 +320,7 @@ def _get_mlflow_span_processor(tracking_uri: str, experiment_id: Optional[str] =
     return processor
 
 
-def _support_v3_traces(tracking_uri: str) -> bool:
+def support_v3_traces(tracking_uri: str) -> bool:
     """
     Check if the tracking URI supports V3 traces.
     Currently, we support V3 traces for Databricks and SQL backends.

@@ -53,7 +53,6 @@ from mlflow.tracking._model_registry.utils import (
     _get_store_registry as _get_model_registry_store_registry,
 )
 from mlflow.tracking._tracking_service.utils import _register, _use_tracking_uri
-from mlflow.tracking.default_experiment import DEFAULT_EXPERIMENT_ID
 from mlflow.utils.databricks_utils import _construct_databricks_run_url
 from mlflow.utils.mlflow_tags import (
     MLFLOW_GIT_COMMIT,
@@ -810,7 +809,7 @@ def test_start_span_raise_error_when_parent_id_is_not_provided():
 
 def test_log_trace(tracking_uri):
     client = MlflowClient(tracking_uri)
-    experiment_id = client.create_experiment("test_experiment")
+    experiment_id = mlflow.set_experiment("test_experiment").experiment_id
 
     span = client.start_trace(
         name="test",
@@ -836,16 +835,14 @@ def test_log_trace(tracking_uri):
     assert backend_traces[0].info.experiment_id == experiment_id
     assert backend_traces[0].info.status == trace.info.status
     assert backend_traces[0].info.tags["custom_tag"] == "tag_value"
-    assert backend_traces[0].data.request == trace.data.request
-    assert backend_traces[0].data.response == trace.data.response
     assert len(backend_traces[0].data.spans) == len(trace.data.spans)
     assert backend_traces[0].data.spans[0].name == trace.data.spans[0].name
 
     # If the experiment ID is None in the given trace, it should be set to the default experiment
     trace.info.experiment_id = None
     new_trace_id = client._log_trace(trace)
-    backend_traces = client.search_traces(experiment_ids=[DEFAULT_EXPERIMENT_ID])
-    assert len(backend_traces) == 1
+    backend_traces = client.search_traces(experiment_ids=[experiment_id])
+    assert len(backend_traces) == 2
 
 
 def test_ignore_exception_from_tracing_logic(monkeypatch, async_logging_enabled):

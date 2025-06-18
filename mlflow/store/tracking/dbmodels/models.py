@@ -679,13 +679,13 @@ class SqlTraceInfo(Base):
     """
     Client request ID: `String` (limit 50 characters). Could be *null*. Newly added in V3 format.
     """
-    request_preview = Column(String(10000), nullable=True)
+    request_preview = Column(String(1000), nullable=True)
     """
-    Request preview: `String` (limit 8000 characters). Could be *null*. Newly added in V3 format.
+    Request preview: `String` (limit 1000 characters). Could be *null*. Newly added in V3 format.
     """
-    response_preview = Column(String(10000), nullable=True)
+    response_preview = Column(String(1000), nullable=True)
     """
-    Response preview: `String` (limit 8000 characters). Could be *null*. Newly added in V3 format.
+    Response preview: `String` (limit 1000 characters). Could be *null*. Newly added in V3 format.
     """
 
     __table_args__ = (
@@ -748,7 +748,7 @@ class SqlTraceTag(Base):
     )
 
 
-class SqlTraceTraceMetadata(Base):
+class SqlTraceMetadata(Base):
     __tablename__ = "trace_request_metadata"
 
     key = Column(String(250))

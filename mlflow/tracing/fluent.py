@@ -581,7 +581,7 @@ def start_span_no_context(
     except Exception as e:
         _logger.warning(
             f"Failed to start span {name}: {e}. For full traceback, set logging level to debug.",
-            exc_info=_logger.isEnabledFor(logging.DEBUG),
+            exc_info=True,  # _logger.isEnabledFor(logging.DEBUG),
         )
     return NoOpSpan()
 
