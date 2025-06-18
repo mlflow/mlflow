@@ -13,6 +13,7 @@ const HomePage = () => {
     hasPreviousPage,
     onNextPage,
     onPreviousPage,
+    pageSizeSelect,
   } = useExperimentListQuery({ searchFilter });
 
   const loadingState = (
@@ -36,6 +37,7 @@ const HomePage = () => {
         hasPreviousPage,
         onNextPage,
         onPreviousPage,
+        pageSizeSelect,
       }}
     />
   );
