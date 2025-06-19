@@ -36,7 +36,7 @@ export const BulkDeleteExperimentModal = ({ isOpen, onClose, experiments, onExpe
               {experiments.map((experiment) => (
                 <li key={experiment.experimentId}>
                   <Typography.Text>
-                    Experiment "{experiment.name}" (Experiment ID: {experiment.experimentId})
+                    {experiment.name} (ID: {experiment.experimentId})
                   </Typography.Text>
                 </li>
               ))}
