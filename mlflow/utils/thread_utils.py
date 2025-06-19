@@ -53,3 +53,11 @@ class ThreadLocalVariable:
         Return all thread values as a dict, dict key is the thread ID.
         """
         return self.__global_thread_values.copy()
+
+    def reset(self):
+        """
+        Reset the thread-local variable.
+        Clear the global thread values and create a new thread local variable.
+        """
+        self.__global_thread_values.clear()
+        self.thread_local = threading.local()
