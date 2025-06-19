@@ -668,35 +668,14 @@ class Linter(ast.NodeVisitor):
 
         self.generic_visit(node)
 
-    @staticmethod
-    def _is_os_environ(node: ast.AST) -> bool:
-        return (
-            isinstance(node, ast.Attribute)
-            and isinstance(node.value, ast.Name)
-            and node.value.id == "os"
-            and node.attr == "environ"
-        )
-
     def visit_Assign(self, node: ast.Assign):
-        if self._is_in_test():
-            if (
-                len(node.targets) == 1
-                and isinstance(node.targets[0], ast.Subscript)
-                and self._is_os_environ(node.targets[0].value)
-            ):
-                self._check(Location.from_node(node), rules.OsEnvironSetInTest())
-
+        if self._is_in_test() and rules.OsEnvironSetInTest.check(node, self.resolver):
+            self._check(Location.from_node(node), rules.OsEnvironSetInTest())
         self.generic_visit(node)
 
     def visit_Delete(self, node: ast.Delete):
-        if self._is_in_test():
-            if (
-                len(node.targets) == 1
-                and isinstance(node.targets[0], ast.Subscript)
-                and self._is_os_environ(node.targets[0].value)
-            ):
-                self._check(Location.from_node(node), rules.OsEnvironDeleteInTest())
-
+        if self._is_in_test() and rules.OsEnvironDeleteInTest.check(node, self.resolver):
+            self._check(Location.from_node(node), rules.OsEnvironDeleteInTest())
         self.generic_visit(node)
 
     def visit_type_annotation(self, node: ast.AST) -> None:
