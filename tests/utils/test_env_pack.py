@@ -1,6 +1,7 @@
 import subprocess
 import sys
 import tarfile
+import venv
 from pathlib import Path
 from unittest import mock
 
@@ -69,14 +70,7 @@ def test_pack_env_for_databricks_model_serving_pip_requirements(tmp_path, mock_d
 
     # Create a mock environment directory
     mock_env_dir = tmp_path / "mock_env"
-    mock_env_dir.mkdir()
-    (mock_env_dir / "lib").mkdir()
-    (mock_env_dir / "lib" / "python3.8").mkdir()
-    (mock_env_dir / "lib" / "python3.8" / "site-packages").mkdir()
-    (mock_env_dir / "lib" / "python3.8" / "site-packages" / "test_package").mkdir()
-    (
-        mock_env_dir / "lib" / "python3.8" / "site-packages" / "test_package" / "__init__.py"
-    ).write_text("")
+    venv.create(mock_env_dir, with_pip=True)
 
     with (
         mock.patch(
@@ -107,15 +101,10 @@ def test_pack_env_for_databricks_model_serving_pip_requirements(tmp_path, mock_d
             with tarfile.open(env_tar_path, "r:tar") as tar:
                 members = tar.getmembers()
                 member_names = {m.name for m in members}
-                expected_names = {
-                    ".",
-                    "./lib",
-                    "./lib/python3.8",
-                    "./lib/python3.8/site-packages",
-                    "./lib/python3.8/site-packages/test_package",
-                    "./lib/python3.8/site-packages/test_package/__init__.py",
-                }
-                assert member_names == expected_names
+                assert (
+                    f"./lib/python{sys.version_info.major}.{sys.version_info.minor}/site-packages/pip"
+                    in member_names
+                )
 
             # Verify subprocess.run was called with correct arguments
             mock_run.assert_called_once()
