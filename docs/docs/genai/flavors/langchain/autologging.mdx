@@ -110,7 +110,6 @@ assert (
 ), "Please set the OPENAI_API_KEY environment variable."
 
 # Enable mlflow langchain autologging
-# Note: We only support auto-logging models that do not contain retrievers
 mlflow.langchain.autolog()
 
 prompt_with_history_str = """
