@@ -1167,7 +1167,14 @@ def _get_metric_history():
     )
     response_message = GetMetricHistory.Response()
     run_id = request_message.run_id or request_message.run_uuid
-    metric_entities = _get_tracking_store().get_metric_history(run_id, request_message.metric_key)
+
+    # Extract max_results and page_token from request
+    max_results = request_message.max_results if request_message.max_results else None
+    page_token = request_message.page_token if request_message.page_token else None
+
+    metric_entities = _get_tracking_store().get_metric_history(
+        run_id, request_message.metric_key, max_results=max_results, page_token=page_token
+    )
     response_message.metrics.extend([m.to_proto() for m in metric_entities])
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
