@@ -5,7 +5,7 @@
 }
 
 .docsDropdown::after {
-  top: 4px;
+  top: 4px !important;
 }
 
 @media (max-width: 996px) {
