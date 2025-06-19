@@ -340,8 +340,7 @@ def test_transformer_model_export(spark_model_transformer, model_path, spark_cus
 
 
 @pytest.mark.skipif(
-    PYSPARK_VERSION.is_devrelease,
-    reason="this test does not support PySpark dev version."
+    PYSPARK_VERSION.is_devrelease, reason="this test does not support PySpark dev version."
 )
 def test_model_deployment(spark_model_iris, model_path, spark_custom_env, monkeypatch):
     monkeypatch.setenv(
