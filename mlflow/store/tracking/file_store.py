@@ -8,7 +8,7 @@ import time
 import uuid
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Any, NamedTuple, Optional
+from typing import Any, NamedTuple, Optional, TypedDict
 
 from mlflow.entities import (
     Dataset,
@@ -163,6 +163,15 @@ def _read_persisted_run_info_dict(run_info_dict):
     if isinstance(dict_copy["experiment_id"], int):
         dict_copy["experiment_id"] = str(dict_copy["experiment_id"])
     return RunInfo.from_dictionary(dict_copy)
+
+
+class DatasetFilter(TypedDict, total=False):
+    """
+    Dataset filter used for search_logged_models.
+    """
+
+    dataset_name: str
+    dataset_digest: str
 
 
 class FileStore(AbstractStore):
@@ -2285,7 +2294,7 @@ class FileStore(AbstractStore):
         self,
         experiment_ids: list[str],
         filter_string: Optional[str] = None,
-        datasets: Optional[list[str]] = None,
+        datasets: Optional[list[DatasetFilter]] = None,
         max_results: Optional[int] = None,
         order_by: Optional[list[dict[str, Any]]] = None,
         page_token: Optional[str] = None,
@@ -2299,8 +2308,8 @@ class FileStore(AbstractStore):
             datasets: List of dictionaries to specify datasets on which to apply metrics filters.
                 The following fields are supported:
 
-                name (str): Required. Name of the dataset.
-                digest (str): Optional. Digest of the dataset.
+                dataset_name (str): Required. Name of the dataset.
+                dataset_digest (str): Optional. Digest of the dataset.
             max_results: Maximum number of logged models desired. Default is 100.
             order_by: List of dictionaries to specify the ordering of the search results.
                 The following fields are supported:
@@ -2321,9 +2330,9 @@ class FileStore(AbstractStore):
             A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
             :py:class:`LoggedModel <mlflow.entities.LoggedModel>` objects.
         """
-        if datasets:
+        if datasets and not all(d.get("dataset_name") for d in datasets):
             raise MlflowException(
-                "Filtering by datasets is not currently supported by FileStore",
+                "`dataset_name` in the `datasets` clause must be specified.",
                 INVALID_PARAMETER_VALUE,
             )
         max_results = max_results or SEARCH_LOGGED_MODEL_MAX_RESULTS_DEFAULT
@@ -2331,7 +2340,7 @@ class FileStore(AbstractStore):
         for experiment_id in experiment_ids:
             models = self._list_models(experiment_id)
             all_models.extend(models)
-        filtered = SearchLoggedModelsUtils.filter_logged_models(all_models, filter_string)
+        filtered = SearchLoggedModelsUtils.filter_logged_models(all_models, filter_string, datasets)
         sorted_logged_models = SearchLoggedModelsUtils.sort(filtered, order_by)
         logged_models, next_page_token = SearchLoggedModelsUtils.paginate(
             sorted_logged_models, page_token, max_results
