@@ -867,8 +867,7 @@ class FileStore(AbstractStore):
         Args:
             run_id: Unique identifier for run.
             metric_key: Metric name within the run.
-            max_results: An indicator for paginated results. This functionality is not
-                implemented for FileStore and is unused in this store's implementation.
+            max_results: An indicator for paginated results.
             page_token: An indicator for paginated results. This functionality is not
                 implemented for FileStore and if the value is overridden with a value other than
                 ``None``, an MlflowException will be thrown.
@@ -896,10 +895,8 @@ class FileStore(AbstractStore):
         if metric_key not in metric_files:
             return PagedList([], None)
 
-        # Read all metric lines first
         all_lines = read_file_lines(parent_path, metric_key)
 
-        # Apply max_results limit if specified
         if max_results is not None:
             all_lines = all_lines[:max_results]
 

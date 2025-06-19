@@ -1021,8 +1021,7 @@ class SqlAlchemyStore(AbstractStore):
         Args:
             run_id: Unique identifier for run.
             metric_key: Metric name within the run.
-            max_results: An indicator for paginated results. This functionality is not
-                implemented for SQLAlchemyStore and is unused in this store's implementation.
+            max_results: An indicator for paginated results.
             page_token: An indicator for paginated results. This functionality is not
                 implemented for SQLAlchemyStore and if the value is overridden with a value other
                 than ``None``, an MlflowException will be thrown.
@@ -1045,7 +1044,6 @@ class SqlAlchemyStore(AbstractStore):
         with self.ManagedSessionMaker() as session:
             query = session.query(SqlMetric).filter_by(run_uuid=run_id, key=metric_key)
 
-            # Apply max_results limit if specified
             if max_results is not None:
                 query = query.limit(max_results)
 
