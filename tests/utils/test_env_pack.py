@@ -101,10 +101,17 @@ def test_pack_env_for_databricks_model_serving_pip_requirements(tmp_path, mock_d
             with tarfile.open(env_tar_path, "r:tar") as tar:
                 members = tar.getmembers()
                 member_names = {m.name for m in members}
-                assert (
-                    f"./lib/python{sys.version_info.major}.{sys.version_info.minor}/site-packages/pip"
-                    in member_names
-                )
+
+                # Check for pip in site-packages based on platform
+                if sys.platform == "win32":
+                    expected_pip_path = "./Lib/site-packages/pip"
+                else:
+                    expected_pip_path = (
+                        f"./lib/python{sys.version_info.major}.{sys.version_info.minor}"
+                        "/site-packages/pip"
+                    )
+
+                assert expected_pip_path in member_names
 
             # Verify subprocess.run was called with correct arguments
             mock_run.assert_called_once()
