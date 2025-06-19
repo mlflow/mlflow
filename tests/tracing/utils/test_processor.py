@@ -1,10 +1,11 @@
 from unittest.mock import patch
+
 import pytest
 
 import mlflow
-from mlflow.entities.span import LiveSpan
 from mlflow.exceptions import MlflowException
-from mlflow.tracing.utils.processor import apply_span_processors, validate_span_processors
+from mlflow.tracing.utils.processor import validate_span_processors
+
 from tests.tracing.helper import get_traces
 
 
@@ -32,6 +33,7 @@ def test_span_processors_no_processors_configured():
 
 def test_span_processors_single_processor_success():
     """Test successful execution of a single processor."""
+
     def test_processor(span):
         span.set_outputs("overridden_output")
         span.set_attribute("test_attribute", "test_value")
@@ -48,6 +50,7 @@ def test_span_processors_single_processor_success():
 
 def test_apply_span_processors_multiple_processors_success():
     """Test successful execution of multiple processors in sequence."""
+
     def processor1(span):
         span.set_outputs("overridden_output_1")
         span.set_attribute("attr_1", "value_1")
@@ -70,6 +73,7 @@ def test_apply_span_processors_multiple_processors_success():
 @patch("mlflow.tracing.utils.processor._logger")
 def test_apply_span_processors_returns_non_none_warning(mock_logger):
     """Test warning is logged when processor returns a non-None value."""
+
     def bad_processor(span):
         return "some_value"  # Should return nothing
 
@@ -92,6 +96,7 @@ def test_apply_span_processors_returns_non_none_warning(mock_logger):
 @patch("mlflow.tracing.utils.processor._logger")
 def test_apply_span_processors_exception_handling(mock_logger):
     """Test that processor exceptions are caught and logged."""
+
     def failing_processor(span):
         raise ValueError("Test error")
 
@@ -135,6 +140,7 @@ def test_validate_span_processors_non_callable_raises_exception():
 
 def test_validate_span_processors_invalid_arguments_raises_exception():
     """Test that processor with no arguments raises MlflowException."""
+
     def processor_no_args():
         return None
 

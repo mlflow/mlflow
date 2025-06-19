@@ -1,6 +1,6 @@
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import List, Callable, Union
+from typing import Callable, Optional
 
 from mlflow.tracing.utils.processor import validate_span_processor
 from mlflow.utils.annotations import experimental
@@ -10,8 +10,9 @@ from mlflow.utils.annotations import experimental
 class TracingConfig:
     """Configuration for MLflow tracing behavior."""
 
+    # TODO: Move more configuration options here, such as async logging, display, etc.
     # A list of functions to process spans before export.
-    span_processors: List[Callable] = None
+    span_processors: Optional[list[Callable]] = None
 
     def __post_init__(self):
         self.span_processors = validate_span_processor(self.span_processors)
@@ -33,7 +34,6 @@ class TracingConfigContext:
         self.is_context_manager = False
 
         # Save the config state before applying any changes
-        global _MLFLOW_TRACING_CONFIG
         self.previous_config = deepcopy(_MLFLOW_TRACING_CONFIG)
 
         # Apply changes immediately for function-style usage
@@ -73,7 +73,7 @@ def reset_config():
 
 @experimental(version="3.2.0")
 def configure(
-    span_processors: Union[List[Callable], object] = _UNSPECIFIED,
+    span_processors: list[Callable] = _UNSPECIFIED,
 ) -> TracingConfigContext:
     """
     Configure MLflow tracing. Can be used as function or context manager.

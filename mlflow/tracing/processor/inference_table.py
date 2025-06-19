@@ -28,7 +28,6 @@ from mlflow.tracing.utils import (
     maybe_get_request_id,
     update_trace_state_from_span_conditionally,
 )
-from mlflow.tracing.utils.processor import apply_span_processors
 from mlflow.utils.mlflow_tags import MLFLOW_DATABRICKS_MODEL_SERVING_ENDPOINT_NAME
 
 _logger = logging.getLogger(__name__)
