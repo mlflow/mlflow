@@ -28,6 +28,7 @@ from mlflow.tracing.utils import (
     update_trace_state_from_span_conditionally,
 )
 from mlflow.tracing.utils.environment import resolve_env_metadata
+from mlflow.tracing.utils.processor import apply_span_processors
 from mlflow.tracking.fluent import (
     _get_active_model_id_global,
     _get_experiment_id,
@@ -202,3 +203,4 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
             trunc_length = MAX_CHARS_IN_TRACE_INFO_METADATA - len(TRUNCATION_SUFFIX)
             value = value[:trunc_length] + TRUNCATION_SUFFIX
         return value
+
