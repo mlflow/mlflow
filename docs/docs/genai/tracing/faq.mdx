@@ -35,29 +35,6 @@ def my_function(input_data):
 
 MLflow provides automatic tracing (autolog) for 20+ popular libraries. See the complete list at [Automatic Tracing Integrations](/genai/tracing/integrations).
 
-### Q: Can I add tracing to custom libraries or unsupported frameworks?
-
-Yes, you can add tracing to any Python code using manual tracing APIs:
-
-**Decorators** for functions:
-```python
-@mlflow.trace(name="Custom Operation")
-def my_custom_function():
-    return "result"
-```
-
-**Context managers** for code blocks:
-```python
-with mlflow.start_span(name="Custom Processing") as span:
-    result = custom_processing()
-    span.set_outputs({"result": result})
-```
-
-**Function wrapping** for third-party libraries:
-```python
-traced_function = mlflow.trace(third_party_function)
-```
-
 ## User Interface and Jupyter Integration
 
 ### Q: Can I view traces directly in Jupyter notebooks?
@@ -112,48 +89,6 @@ def predict(messages: list[dict]) -> str:
     return result
 ```
 
-## Tags and Metadata
-
-### Q: How do I add tags to traces?
-
-There are several ways to add tags depending on when you want to set them:
-
-**During execution** (for active traces):
-```python
-@mlflow.trace
-def my_func(x):
-    mlflow.update_current_trace(tags={"user_id": "123", "session": "abc"})
-    return x + 1
-```
-
-**After completion** (for finished traces):
-```python
-from mlflow.client import MlflowClient
-
-client = MlflowClient()
-client.set_trace_tag(trace_id="trace_id", key="tag_key", value="tag_value")
-```
-
-**Via the MLflow UI**: Click the pencil icon next to tags in the trace view to edit them directly.
-
-### Q: What are the standard MLflow tags I should use?
-
-MLflow provides standard tags for common use cases:
-
-- `mlflow.trace.user`: Associate traces with specific users
-- `mlflow.trace.session`: Group traces from multi-turn conversations
-
-```python
-mlflow.update_current_trace(
-    tags={
-        "mlflow.trace.user": "user-123",
-        "mlflow.trace.session": "session-abc-456",
-        "environment": "production",
-        "app_version": "1.0.0",
-    }
-)
-```
-
 ## Production and Performance
 
 ### Q: Can I use MLflow Tracing for production applications?
@@ -191,6 +126,37 @@ You can configure the detailed behavior of asynchronous logging using the follow
 | `MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS` | Maximum worker threads | `10` |
 | `MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE` | Maximum queued traces | `1000` |
 | `MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT` | Retry timeout in seconds | `500` |
+
+### Q: How to optimize the trace size in production?
+
+MLflow's Automatic Tracing integration captures rich information that are helpful for debugging and evaluating the model/agent. However, this comes at the cost of trace size. For example, you may not want to log the all retrieved document texts from your RAG application.
+
+MLflow supports plugging-in custom post-processing hooks applied to trace data before exporting to the backend. This allows you to reduce the trace size by removing unnecessary data, or applying security guardrails such as masking sensitive data.
+
+To register a custom hooks, use the <APILink fn="mlflow.tracing.configure">`mlflow.tracing.configure`</APILink> API. For example, the following code filters out the document contents from the retriever span output to reduce the trace size:
+```python
+import mlflow
+from mlflow.entities.span import Span, SpanType
+
+
+# Define a custom hook that takes a span as input and mutates it in-place.
+def filter_retrieval_output(span: Span):
+    """Filter out the document contents from the retriever span output and only keep the document ids."""
+    if span.span_type == SpanType.RETRIEVAL:
+        documents = span.outputs.get("documents")
+        document_ids = [doc.id for doc in documents]
+        span.set_outputs({"document_ids": document_ids})
+
+
+# Register the hook
+mlflow.tracing.configure(span_processors=[filter_retrieval_output])
+
+# Any traces created after the configuration will be filtered by the hook.
+...
+```
+
+Refer to the [Making Sensitive Data Safe](/genai/tracing/observe-with-traces/masking) guide for more details about the hook API and examples.
+
 
 ## Troubleshooting
 
