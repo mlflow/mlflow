@@ -1,5 +1,5 @@
 import userEvent from '@testing-library/user-event';
-import { screen, fireEvent, renderWithIntl } from '../../common/utils/TestUtils.react18';
+import { screen, renderWithIntl } from '../../common/utils/TestUtils.react18';
 import { BrowserRouter } from '../../common/utils/RoutingUtils';
 import { Provider } from 'react-redux';
 import thunk from 'redux-thunk';
@@ -8,8 +8,6 @@ import promiseMiddleware from 'redux-promise-middleware';
 import { ExperimentListView } from './ExperimentListView';
 import Fixtures from '../utils/test-utils/Fixtures';
 import { DesignSystemProvider } from '@databricks/design-system';
-import { QueryClient, QueryClientProvider } from '../../common/utils/reactQueryHooks';
-import { useExperimentListQuery } from './experiment-page/hooks/useExperimentListQuery';
 
 jest.mock('./experiment-page/hooks/useExperimentListQuery', () => ({
   useExperimentListQuery: jest.fn(),
@@ -19,17 +17,22 @@ jest.mock('./experiment-page/hooks/useExperimentListQuery', () => ({
 const mountComponent = (props: any) => {
   const experiments = props.experiments.slice(0, 25);
   const mockStore = configureStore([thunk, promiseMiddleware()]);
-  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  jest.mocked(useExperimentListQuery).mockReturnValue({
-    data: experiments,
-    isLoading: false,
-    error: undefined,
-    hasNextPage: false,
-    hasPreviousPage: false,
-    onNextPage: jest.fn(),
-    onPreviousPage: jest.fn(),
-    refetch: jest.fn(),
-  });
+  const experimentListViewProps = {
+    experiments,
+    searchFilter: '',
+    setSearchFilter: jest.fn(),
+    cursorPaginationProps: {
+      hasNextPage: false,
+      hasPreviousPage: false,
+      onNextPage: jest.fn(),
+      onPreviousPage: jest.fn(),
+      pageSizeSelect: {
+        options: [10],
+        default: 10,
+        onChange: jest.fn(),
+      },
+    },
+  };
 
   return renderWithIntl(
     <DesignSystemProvider>
@@ -41,23 +44,12 @@ const mountComponent = (props: any) => {
         })}
       >
         <BrowserRouter>
-          <QueryClientProvider client={queryClient}>
-            <ExperimentListView experiments={experiments} />
-          </QueryClientProvider>
+          <ExperimentListView {...experimentListViewProps} />
         </BrowserRouter>
       </Provider>
     </DesignSystemProvider>,
   );
 };
-
-test('If searchInput is set to "Test" then first shown element in experiment list has the title "Test"', () => {
-  mountComponent({ experiments: Fixtures.experiments });
-  const input = screen.getByTestId('search-experiment-input');
-  fireEvent.change(input, {
-    target: { value: 'Test' },
-  });
-  expect(screen.getAllByTestId('experiment-list-item')[0].textContent).toContain('Test');
-});
 
 test('If button to create experiment is pressed then open CreateExperimentModal', async () => {
   mountComponent({ experiments: Fixtures.experiments });
