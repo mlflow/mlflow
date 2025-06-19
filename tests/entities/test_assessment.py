@@ -426,7 +426,6 @@ def test_run_id_handling(metadata, explicit_run_id, expected_run_id):
     assert feedback.run_id == expected_run_id
     assert not hasattr(feedback.to_proto(), "run_id")
 
-    # Only test proto roundtrip for metadata-extracted run_id
     if expected_run_id and not explicit_run_id:
         recovered = Feedback.from_proto(feedback.to_proto())
         assert recovered.run_id == expected_run_id
