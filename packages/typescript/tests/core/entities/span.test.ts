@@ -5,7 +5,7 @@ import { SpanEvent } from '../../../src/core/entities/span_event';
 import { SpanStatus, SpanStatusCode } from '../../../src/core/entities/span_status';
 import { SpanAttributeKey, SpanType } from '../../../src/core/constants';
 import { convertHrTimeToNanoSeconds } from '../../../src/core/utils';
-import { JSON } from '../../../src/core/utils/json';
+import { JSONBig } from '../../../src/core/utils/json';
 
 // Set up a proper tracer provider
 const provider = new BasicTracerProvider();
@@ -119,7 +119,7 @@ describe('Span', () => {
       it('should create a completed span from an active OpenTelemetry span', () => {
         const traceId = 'tr-12345';
         const span = tracer.startSpan('parent');
-        span.setAttribute(SpanAttributeKey.TRACE_ID, JSON.stringify(traceId));
+        span.setAttribute(SpanAttributeKey.TRACE_ID, JSONBig.stringify(traceId));
         span.setAttribute(SpanAttributeKey.INPUTS, '{"input": 1}');
         span.setAttribute(SpanAttributeKey.OUTPUTS, '2');
         span.setAttribute('custom_attr', 'custom_value');
@@ -260,8 +260,8 @@ describe('Span', () => {
       };
 
       // Convert to JSON string and parse with json-bigint to get proper bigints
-      const jsonString = JSON.stringify(expectedSpanData);
-      const parsedData = JSON.parse(jsonString) as SerializedSpan;
+      const jsonString = JSONBig.stringify(expectedSpanData);
+      const parsedData = JSONBig.parse(jsonString) as SerializedSpan;
 
       // Test fromJson can handle this format
       const span = Span.fromJson(parsedData);

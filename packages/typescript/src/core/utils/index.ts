@@ -1,7 +1,5 @@
 import type { HrTime } from '@opentelemetry/api';
 
-export { JSON } from './json';
-
 /**
  * OpenTelemetry Typescript SDK uses a unique timestamp format `HrTime` to represent
  * timestamps. This function converts a timestamp in nanoseconds to an `HrTime`

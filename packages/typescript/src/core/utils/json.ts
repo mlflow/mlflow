@@ -7,4 +7,4 @@ const JSONBig = JSONBigInt({
   storeAsString: false
 });
 
-export const JSON = JSONBig;
+export { JSONBig };
