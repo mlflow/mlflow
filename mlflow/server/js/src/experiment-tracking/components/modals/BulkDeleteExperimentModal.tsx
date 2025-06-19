@@ -59,6 +59,7 @@ export const BulkDeleteExperimentModal = ({ isOpen, onClose, experiments, onExpe
           description="Experiments page list, delete bulk experiments modal primary button"
         />
       }
+      confirmButtonProps={{ danger: true }}
     />
   );
 };
