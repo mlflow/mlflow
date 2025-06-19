@@ -76,6 +76,8 @@ class Assessment(_MlflowObject):
     valid: Optional[bool] = None
 
     def __post_init__(self):
+        from mlflow.tracing.constant import AssessmentMetadataKey
+
         if (self.expectation is not None) + (self.feedback is not None) != 1:
             raise MlflowException.invalid_parameter_value(
                 "Exactly one of `expectation` or `feedback` should be specified.",
@@ -106,8 +108,12 @@ class Assessment(_MlflowObject):
                 f"Got {type(self.source)} instead."
             )
         # Extract and set run_id from metadata but don't modify the proto representation
-        if self.run_id is None and self.metadata and "run_id" in self.metadata:
-            self.run_id = self.metadata["run_id"]
+        if (
+            self.run_id is None
+            and self.metadata
+            and AssessmentMetadataKey.SOURCE_RUN_ID in self.metadata
+        ):
+            self.run_id = self.metadata[AssessmentMetadataKey.SOURCE_RUN_ID]
 
     def to_proto(self):
         assessment = ProtoAssessment()
