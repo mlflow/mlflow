@@ -1,9 +1,9 @@
-python: "3.9"
+python: "3.10"
 build_dependencies:
   - pip
 dependencies:
-  - numpy==1.21.4
-  - pandas==1.3.2
-  - scipy==1.7.2
-  - scikit-learn==0.24.2
+  - numpy
+  - pandas
+  - scipy
+  - scikit-learn
   - mlflow
