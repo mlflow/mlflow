@@ -238,6 +238,11 @@ const sidebarsGenAI: SidebarsConfig = {
               id: 'tracing/search-traces',
               label: 'Searching for Traces',
             },
+            {
+              type: 'doc',
+              id: 'tracing/observe-with-traces/masking',
+              label: 'Masking Sensitive Data',
+            }
           ],
         },
 
