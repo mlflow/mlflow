@@ -237,7 +237,7 @@ async def test_autolog_agent():
         },
         {
             "role": "tool",
-            "content": "{'assistant': 'Spanish Agent'}",
+            "content": '{"assistant": "Spanish Agent"}',
             "refusal": None,
             "tool_calls": None,
             "tool_call_id": "123",
