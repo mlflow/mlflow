@@ -4,7 +4,6 @@ import mlflow
 from mlflow.tracing.config import TracingConfig, get_config
 
 
-
 @pytest.fixture(autouse=True)
 def reset_tracing_config():
     mlflow.tracing.reset()
@@ -65,7 +64,7 @@ def test_configure_context_manager():
     # Set initial config
     mlflow.tracing.configure(span_processors=[filter1])
 
-    assert  get_config().span_processors == [filter1]
+    assert get_config().span_processors == [filter1]
 
     with mlflow.tracing.configure(span_processors=[filter2]):
         assert get_config().span_processors == [filter2]
@@ -81,6 +80,7 @@ def test_configure_context_manager():
 
 def test_context_manager_with_exception():
     """Test context manager restores config even when exception occurs."""
+
     def filter1(span):
         pass
 
@@ -89,7 +89,7 @@ def test_context_manager_with_exception():
 
     mlflow.tracing.configure(span_processors=[filter1])
 
-    with pytest.raises(ValueError, match="test error"):
+    with pytest.raises(ValueError, match="test error"):  # noqa: PT012
         with mlflow.tracing.configure(span_processors=[filter2]):
             assert get_config().span_processors == [filter2]
             raise ValueError("test error")

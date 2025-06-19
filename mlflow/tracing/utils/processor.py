@@ -1,10 +1,10 @@
 import logging
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING
 
 from mlflow.exceptions import MlflowException
 
 if TYPE_CHECKING:
-    from mlflow.entities.span import LiveSpan
+    pass
 
 _logger = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ def apply_span_processors(span):
         except Exception as e:
             _logger.warning(
                 f"Span processor {processor.__name__} failed: {e}",
-                exc_info=_logger.isEnabledFor(logging.DEBUG)
+                exc_info=_logger.isEnabledFor(logging.DEBUG),
             )
 
 
@@ -43,7 +43,7 @@ def validate_span_processors(span_processors):
             )
 
         # Skip validation for builtin functions and partial functions that don't have __code__
-        if not hasattr(span_processor, '__code__'):
+        if not hasattr(span_processor, "__code__"):
             continue
 
         if (
