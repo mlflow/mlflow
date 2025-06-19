@@ -1035,6 +1035,9 @@ class SqlAlchemyStore(AbstractStore):
 
             # Parse offset from page_token for pagination
             offset = SearchUtils.parse_start_offset_from_page_token(page_token)
+
+            # Add ORDER BY clause to satisfy MSSQL requirement for OFFSET
+            query = query.order_by(SqlMetric.timestamp, SqlMetric.step, SqlMetric.value)
             query = query.offset(offset)
 
             if max_results is not None:
