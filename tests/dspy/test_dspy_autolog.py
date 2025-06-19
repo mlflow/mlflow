@@ -416,8 +416,12 @@ def test_autolog_tracing_during_evaluation_enabled_by_default():
 
     # Evaluate should generate traces by default
     evaluator = Evaluate(devset=trainset)
-    score = evaluator(program, metric=answer_exact_match)
+    eval_res = evaluator(program, metric=answer_exact_match)
 
+    if isinstance(eval_res, float):
+        score = eval_res
+    else:
+        score = eval_res.score
     assert score == 50.0
     traces = get_traces()
     assert len(traces) == 2
