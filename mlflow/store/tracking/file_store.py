@@ -32,7 +32,6 @@ from mlflow.entities import (
     RunStatus,
     RunTag,
     SourceType,
-    Trace,
     TraceInfo,
     ViewType,
     _DatasetSummary,
@@ -1606,48 +1605,6 @@ class FileStore(AbstractStore):
             FileStore.ARTIFACTS_FOLDER_NAME,
         )
 
-    def start_trace(
-        self,
-        experiment_id: str,
-        timestamp_ms: int,
-        request_metadata: dict[str, str],
-        tags: dict[str, str],
-    ) -> TraceInfoV2:
-        """
-        Start an initial TraceInfo object in the backend store.
-
-        Args:
-            experiment_id: String id of the experiment for this run.
-            timestamp_ms: Start time of the trace, in milliseconds since the UNIX epoch.
-            request_metadata: Metadata of the trace.
-            tags: Tags of the trace.
-
-        Returns:
-            The created TraceInfo object.
-        """
-        request_id = generate_request_id_v2()
-        _validate_experiment_id(experiment_id)
-        experiment_dir = self._get_experiment_path(
-            experiment_id, view_type=ViewType.ACTIVE_ONLY, assert_exists=True
-        )
-        mkdir(experiment_dir, FileStore.TRACES_FOLDER_NAME)
-        traces_dir = os.path.join(experiment_dir, FileStore.TRACES_FOLDER_NAME)
-        mkdir(traces_dir, request_id)
-        trace_dir = os.path.join(traces_dir, request_id)
-        artifact_uri = self._get_traces_artifact_dir(experiment_id, request_id)
-        tags.update({MLFLOW_ARTIFACT_LOCATION: artifact_uri})
-        trace_info = TraceInfoV2(
-            request_id=request_id,
-            experiment_id=experiment_id,
-            timestamp_ms=timestamp_ms,
-            execution_time_ms=None,
-            status=TraceStatus.IN_PROGRESS,
-            request_metadata=request_metadata,
-            tags=tags,
-        )
-        self._save_trace_info(trace_info.to_v3(), trace_dir)
-        return trace_info
-
     def _save_trace_info(self, trace_info: TraceInfo, trace_dir, overwrite=False):
         """
         TraceInfo is saved into `traces` folder under the experiment, each trace
@@ -1714,68 +1671,36 @@ class FileStore(AbstractStore):
             dictionary[file_name] = value
         return dictionary
 
-    def end_trace(
-        self,
-        request_id: str,
-        timestamp_ms: int,
-        status: TraceStatus,
-        request_metadata: dict[str, str],
-        tags: dict[str, str],
-    ) -> TraceInfoV2:
-        """
-        Update the TraceInfo object in the backend store with the completed trace info.
-
-        Args:
-            request_id : Unique string identifier of the trace.
-            timestamp_ms: End time of the trace, in milliseconds. The execution time field
-                in the TraceInfo will be calculated by subtracting the start time from this.
-            status: Status of the trace.
-            request_metadata: Metadata of the trace. This will be merged with the existing
-                metadata logged during the start_trace call.
-            tags: Tags of the trace. This will be merged with the existing tags logged
-                during the start_trace or set_trace_tag calls.
-
-        Returns:
-            The updated TraceInfo object.
-        """
-        trace_info, trace_dir = self._get_trace_info_and_dir(request_id)
-        trace_info.execution_duration = timestamp_ms - trace_info.request_time
-        trace_info.state = status.to_state()
-        trace_info.trace_metadata.update(request_metadata)
-        trace_info.tags.update(tags)
-        self._save_trace_info(trace_info, trace_dir, overwrite=True)
-        return TraceInfoV2.from_v3(trace_info)
-
-    def start_trace_v3(self, trace: Trace) -> TraceInfo:
+    def start_trace(self, trace_info: TraceInfo) -> TraceInfo:
         """
         Create a trace using the V3 API format with a complete Trace object.
 
         Args:
-            trace: The Trace object to create, containing both info and data.
+            trace_info: The TraceInfo object to create.
 
         Returns:
             The created TraceInfo object.
         """
-        _validate_experiment_id(trace.info.experiment_id)
+        _validate_experiment_id(trace_info.experiment_id)
         experiment_dir = self._get_experiment_path(
-            trace.info.experiment_id, view_type=ViewType.ACTIVE_ONLY, assert_exists=True
+            trace_info.experiment_id, view_type=ViewType.ACTIVE_ONLY, assert_exists=True
         )
 
         # Create traces directory structure
         mkdir(experiment_dir, FileStore.TRACES_FOLDER_NAME)
         traces_dir = os.path.join(experiment_dir, FileStore.TRACES_FOLDER_NAME)
-        mkdir(traces_dir, trace.info.trace_id)
-        trace_dir = os.path.join(traces_dir, trace.info.trace_id)
+        mkdir(traces_dir, trace_info.trace_id)
+        trace_dir = os.path.join(traces_dir, trace_info.trace_id)
 
         # Add artifact location to tags
-        artifact_uri = self._get_traces_artifact_dir(trace.info.experiment_id, trace.info.trace_id)
-        tags = dict(trace.info.tags)
+        artifact_uri = self._get_traces_artifact_dir(trace_info.experiment_id, trace_info.trace_id)
+        tags = dict(trace_info.tags)
         tags[MLFLOW_ARTIFACT_LOCATION] = artifact_uri
 
         # Create updated TraceInfo with artifact location tag
-        trace.info.tags.update(tags)
-        self._save_trace_info(trace.info, trace_dir)
-        return trace.info
+        trace_info.tags.update(tags)
+        self._save_trace_info(trace_info, trace_dir)
+        return trace_info
 
     def get_trace_info(self, trace_id: str) -> TraceInfo:
         """
@@ -2418,3 +2343,84 @@ class FileStore(AbstractStore):
                     "Malformed model '%s'. Detailed error %s", m_id, str(exc), exc_info=True
                 )
         return models
+
+    #######################################################################################
+    # Below are legacy V2 Tracing APIs. DO NOT USE. Use the V3 APIs instead.
+    #######################################################################################
+    def deprecated_start_trace(
+        self,
+        experiment_id: str,
+        timestamp_ms: int,
+        request_metadata: dict[str, str],
+        tags: dict[str, str],
+    ) -> TraceInfoV2:
+        """
+        DEPRECATED. DO NOT USE.
+
+        Start an initial TraceInfo object in the backend store.
+
+        Args:
+            experiment_id: String id of the experiment for this run.
+            timestamp_ms: Start time of the trace, in milliseconds since the UNIX epoch.
+            request_metadata: Metadata of the trace.
+            tags: Tags of the trace.
+
+        Returns:
+            The created TraceInfo object.
+        """
+        request_id = generate_request_id_v2()
+        _validate_experiment_id(experiment_id)
+        experiment_dir = self._get_experiment_path(
+            experiment_id, view_type=ViewType.ACTIVE_ONLY, assert_exists=True
+        )
+        mkdir(experiment_dir, FileStore.TRACES_FOLDER_NAME)
+        traces_dir = os.path.join(experiment_dir, FileStore.TRACES_FOLDER_NAME)
+        mkdir(traces_dir, request_id)
+        trace_dir = os.path.join(traces_dir, request_id)
+        artifact_uri = self._get_traces_artifact_dir(experiment_id, request_id)
+        tags.update({MLFLOW_ARTIFACT_LOCATION: artifact_uri})
+        trace_info = TraceInfoV2(
+            request_id=request_id,
+            experiment_id=experiment_id,
+            timestamp_ms=timestamp_ms,
+            execution_time_ms=None,
+            status=TraceStatus.IN_PROGRESS,
+            request_metadata=request_metadata,
+            tags=tags,
+        )
+        self._save_trace_info(trace_info.to_v3(), trace_dir)
+        return trace_info
+
+    def deprecated_end_trace(
+        self,
+        request_id: str,
+        timestamp_ms: int,
+        status: TraceStatus,
+        request_metadata: dict[str, str],
+        tags: dict[str, str],
+    ) -> TraceInfoV2:
+        """
+        DEPRECATED. DO NOT USE.
+
+        Update the TraceInfo object in the backend store with the completed trace info.
+
+        Args:
+            request_id : Unique string identifier of the trace.
+            timestamp_ms: End time of the trace, in milliseconds. The execution time field
+                in the TraceInfo will be calculated by subtracting the start time from this.
+            status: Status of the trace.
+            request_metadata: Metadata of the trace. This will be merged with the existing
+                metadata logged during the start_trace call.
+            tags: Tags of the trace. This will be merged with the existing tags logged
+                during the start_trace or set_trace_tag calls.
+
+        Returns:
+            The updated TraceInfo object.
+        """
+        trace_info, trace_dir = self._get_trace_info_and_dir(request_id)
+        trace_info.execution_duration = timestamp_ms - trace_info.request_time
+        trace_info.state = status.to_state()
+        trace_info.trace_metadata.update(request_metadata)
+        trace_info.tags.update(tags)
+        self._save_trace_info(trace_info, trace_dir, overwrite=True)
+        return TraceInfoV2.from_v3(trace_info)

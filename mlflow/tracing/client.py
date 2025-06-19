@@ -2,19 +2,15 @@ import json
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
-from typing import Optional, Sequence, Union
+from typing import Optional, Sequence
 
 import mlflow
-from mlflow.entities.assessment import (
-    Assessment,
-)
+from mlflow.entities.assessment import Assessment
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.span import NO_OP_SPAN_TRACE_ID
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
-from mlflow.entities.trace_info_v2 import TraceInfoV2
-from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_SEARCH_TRACES_MAX_THREADS
 from mlflow.exceptions import (
     MlflowException,
@@ -63,80 +59,17 @@ class TracingClient:
     def store(self):
         return _get_store(self.tracking_uri)
 
-    def start_trace(
-        self,
-        experiment_id: str,
-        timestamp_ms: int,
-        request_metadata: dict[str, str],
-        tags: dict[str, str],
-    ):
+    def start_trace(self, trace_info: TraceInfo) -> TraceInfo:
         """
-        Start an initial TraceInfo object in the backend store.
+        Create a new trace in the backend.
 
         Args:
-            experiment_id: String id of the experiment for this run.
-            timestamp_ms: Start time of the trace, in milliseconds since the UNIX epoch.
-            request_metadata: Metadata of the trace.
-            tags: Tags of the trace.
-
-        Returns:
-            The created TraceInfo object.
-        """
-        tags = exclude_immutable_tags(tags or {})
-        return self.store.start_trace(
-            experiment_id=experiment_id,
-            timestamp_ms=timestamp_ms,
-            request_metadata=request_metadata,
-            tags=tags,
-        )
-
-    def start_trace_v3(self, trace: Trace) -> TraceInfo:
-        """
-        Start a trace using the V3 API format.
-        NB: This method is named "Start" for internal reason in the backend, but actually
-        should be called at the end of the trace. We will migrate this to "CreateTrace"
-        API in the future to avoid confusion.
-
-        Args:
-            trace: The Trace object to create.
+            trace_info: The TraceInfo object to record in the backend.
 
         Returns:
             The returned TraceInfoV3 object from the backend.
         """
-        return self.store.start_trace_v3(trace=trace)
-
-    def end_trace(
-        self,
-        request_id: str,
-        timestamp_ms: int,
-        status: TraceStatus,
-        request_metadata: dict[str, str],
-        tags: dict[str, str],
-    ) -> TraceInfoV2:
-        """
-        Update the TraceInfo object in the backend store with the completed trace info.
-
-        Args:
-            request_id: Unique string identifier of the trace.
-            timestamp_ms: End time of the trace, in milliseconds. The execution time field
-                in the TraceInfo will be calculated by subtracting the start time from this.
-            status: Status of the trace.
-            request_metadata: Metadata of the trace. This will be merged with the existing
-                metadata logged during the start_trace call.
-            tags: Tags of the trace. This will be merged with the existing tags logged
-                during the start_trace or set_trace_tag calls.
-
-        Returns:
-            The updated TraceInfo object.
-        """
-        tags = exclude_immutable_tags(tags or {})
-        return self.store.end_trace(
-            request_id=request_id,
-            timestamp_ms=timestamp_ms,
-            status=status,
-            request_metadata=request_metadata,
-            tags=tags,
-        )
+        return self.store.start_trace(trace_info=trace_info)
 
     def delete_traces(
         self,
@@ -152,43 +85,39 @@ class TracingClient:
             trace_ids=trace_ids,
         )
 
-    def get_trace_info(self, request_id, should_query_v3: bool = False) -> TraceInfo:
+    def get_trace_info(self, trace_id: str) -> TraceInfo:
         """
-        Get the trace info matching the ``request_id``.
+        Get the trace info matching the ``trace_id``.
 
         Args:
-            request_id: String id of the trace to fetch.
-            should_query_v3: If True, the backend store will query the V3 API for the trace info.
-                TODO: Remove this flag once the V3 API is the default in OSS.
+            trace_id: String id of the trace to fetch.
 
         Returns:
             TraceInfo object, of type ``mlflow.entities.trace_info.TraceInfo``.
         """
-        with InMemoryTraceManager.get_instance().get_trace(request_id) as trace:
+        with InMemoryTraceManager.get_instance().get_trace(trace_id) as trace:
             if trace is not None:
                 return trace.info
 
-        return self.store.get_trace_info(request_id)
+        return self.store.get_trace_info(trace_id)
 
-    def get_trace(self, request_id) -> Trace:
+    def get_trace(self, trace_id: str) -> Trace:
         """
-        Get the trace matching the ``request_id``.
+        Get the trace matching the ``trace_id``.
 
         Args:
-            request_id: String id of the trace to fetch.
+            trace_id: String id of the trace to fetch.
 
         Returns:
             The fetched Trace object, of type ``mlflow.entities.Trace``.
         """
-        trace_info = self.get_trace_info(
-            request_id=request_id, should_query_v3=is_databricks_uri(self.tracking_uri)
-        )
+        trace_info = self.get_trace_info(trace_id)
         try:
             trace_data = self._download_trace_data(trace_info)
         except MlflowTraceDataNotFound:
             raise MlflowException(
                 message=(
-                    f"Trace with ID {request_id} cannot be loaded because it is missing span data."
+                    f"Trace with ID {trace_id} cannot be loaded because it is missing span data."
                     " Please try creating or loading another trace."
                 ),
                 error_code=BAD_REQUEST,
@@ -196,7 +125,7 @@ class TracingClient:
         except MlflowTraceDataCorrupted:
             raise MlflowException(
                 message=(
-                    f"Trace with ID {request_id} cannot be loaded because its span data"
+                    f"Trace with ID {trace_id} cannot be loaded because its span data"
                     " is corrupted. Please try creating or loading another trace."
                 ),
                 error_code=BAD_REQUEST,
@@ -324,29 +253,23 @@ class TracingClient:
             else:
                 filter_string = additional_filter
 
-        def download_trace_extra_fields(
-            trace_info: Union[TraceInfoV2, TraceInfo],
-        ) -> Optional[Trace]:
+        is_databricks = is_databricks_uri(self.tracking_uri)
+
+        def download_trace_extra_fields(trace_info: TraceInfo) -> Optional[Trace]:
             """
             Download trace data and assessments for the given trace_info and returns a Trace object.
             If the download fails (e.g., the trace data is missing or corrupted), returns None.
 
             The trace_info parameter can be either TraceInfo or TraceInfoV3 object.
             """
-            from mlflow.entities.trace_info import TraceInfo
-
-            # Determine if this is TraceInfo or TraceInfoV3
-            # Helps while transitioning to V3 traces for offline & online
-            is_v3 = isinstance(trace_info, TraceInfo)
-            trace_id = trace_info.trace_id if is_v3 else trace_info.request_id
-            is_online_trace = is_uuid(trace_id)
+            is_online_trace = is_uuid(trace_info.trace_id)
 
             # For online traces in Databricks, we need to get trace data from a different endpoint
             try:
                 if is_databricks and is_online_trace:
                     # For online traces, get data from the online API
                     trace_data = self.get_online_trace_details(
-                        trace_id=trace_id,
+                        trace_id=trace_info.trace_id,
                         sql_warehouse_id=sql_warehouse_id,
                         source_inference_table=trace_info.request_metadata.get(
                             "mlflow.sourceTable"
@@ -362,7 +285,7 @@ class TracingClient:
             except MlflowTraceDataException as e:
                 _logger.warning(
                     (
-                        f"Failed to download trace data for trace {trace_id!r} "
+                        f"Failed to download trace data for trace {trace_info.trace_id!r} "
                         f"with {e.ctx}. For full traceback, set logging level to DEBUG."
                     ),
                     exc_info=_logger.isEnabledFor(logging.DEBUG),
@@ -409,24 +332,24 @@ class TracingClient:
 
         return PagedList(traces, next_token)
 
-    def set_trace_tags(self, request_id, tags):
+    def set_trace_tags(self, trace_id: str, tags: dict[str, str]):
         """
-        Set tags on the trace with the given request_id.
+        Set tags on the trace with the given trace_id.
 
         Args:
-            request_id: The ID of the trace.
+            trace_id: The ID of the trace.
             tags: A dictionary of key-value pairs.
         """
         tags = exclude_immutable_tags(tags)
         for k, v in tags.items():
-            self.set_trace_tag(request_id, k, v)
+            self.set_trace_tag(trace_id, k, v)
 
-    def set_trace_tag(self, request_id, key, value):
+    def set_trace_tag(self, trace_id: str, key: str, value: str):
         """
         Set a tag on the trace with the given trace ID.
 
         Args:
-            request_id: The ID of the trace to set the tag on.
+            trace_id: The ID of the trace to set the tag on.
             key: The string key of the tag. Must be at most 250 characters long, otherwise
                 it will be truncated when stored.
             value: The string value of the tag. Must be at most 250 characters long, otherwise
@@ -439,7 +362,7 @@ class TracingClient:
             )
 
         # Trying to set the tag on the active trace first
-        with InMemoryTraceManager.get_instance().get_trace(request_id) as trace:
+        with InMemoryTraceManager.get_instance().get_trace(trace_id) as trace:
             if trace:
                 trace.info.tags[key] = str(value)
                 return
@@ -447,33 +370,33 @@ class TracingClient:
         if key in IMMUTABLE_TAGS:
             _logger.warning(f"Tag '{key}' is immutable and cannot be set on a trace.")
         else:
-            self.store.set_trace_tag(request_id, key, str(value))
+            self.store.set_trace_tag(trace_id, key, str(value))
 
-    def delete_trace_tag(self, request_id, key):
+    def delete_trace_tag(self, trace_id: str, key: str):
         """
         Delete a tag on the trace with the given trace ID.
 
         Args:
-            request_id: The ID of the trace to delete the tag from.
+            trace_id: The ID of the trace to delete the tag from.
             key: The string key of the tag. Must be at most 250 characters long, otherwise
                 it will be truncated when stored.
         """
         # Trying to delete the tag on the active trace first
-        with InMemoryTraceManager.get_instance().get_trace(request_id) as trace:
+        with InMemoryTraceManager.get_instance().get_trace(trace_id) as trace:
             if trace:
                 if key in trace.info.tags:
                     trace.info.tags.pop(key)
                     return
                 else:
                     raise MlflowException(
-                        f"Tag with key {key} not found in trace with ID {request_id}.",
+                        f"Tag with key {key} not found in trace with ID {trace_id}.",
                         error_code=RESOURCE_DOES_NOT_EXIST,
                     )
 
         if key in IMMUTABLE_TAGS:
             _logger.warning(f"Tag '{key}' is immutable and cannot be deleted on a trace.")
         else:
-            self.store.delete_trace_tag(request_id, key)
+            self.store.delete_trace_tag(trace_id, key)
 
     def get_assessment(self, trace_id: str, assessment_id: str) -> Assessment:
         """
@@ -569,12 +492,12 @@ class TracingClient:
 
         self.store.delete_assessment(trace_id=trace_id, assessment_id=assessment_id)
 
-    def _get_artifact_repo_for_trace(self, trace_info: TraceInfoV2):
+    def _get_artifact_repo_for_trace(self, trace_info: TraceInfo):
         artifact_uri = get_artifact_uri_for_trace(trace_info)
         artifact_uri = add_databricks_profile_info_to_artifact_uri(artifact_uri, self.tracking_uri)
         return get_artifact_repository(artifact_uri)
 
-    def _download_trace_data(self, trace_info: Union[TraceInfoV2, TraceInfo]) -> TraceData:
+    def _download_trace_data(self, trace_info: TraceInfo) -> TraceData:
         """
         Download trace data from artifact repository.
 
@@ -587,31 +510,10 @@ class TracingClient:
         artifact_repo = self._get_artifact_repo_for_trace(trace_info)
         return TraceData.from_dict(artifact_repo.download_trace_data())
 
-    def _upload_trace_data(self, trace_info: TraceInfoV2, trace_data: TraceData) -> None:
+    def _upload_trace_data(self, trace_info: TraceInfo, trace_data: TraceData) -> None:
         artifact_repo = self._get_artifact_repo_for_trace(trace_info)
         trace_data_json = json.dumps(trace_data.to_dict(), cls=TraceJSONEncoder, ensure_ascii=False)
         return artifact_repo.upload_trace_data(trace_data_json)
-
-    def _upload_ended_trace_info(
-        self,
-        trace_info: TraceInfoV2,
-    ) -> TraceInfoV2:
-        """
-        Update the TraceInfo object in the backend store with the completed trace info.
-
-        Args:
-            trace_info: Updated TraceInfo object to be stored in the backend store.
-
-        Returns:
-            The updated TraceInfo object.
-        """
-        return self.end_trace(
-            request_id=trace_info.request_id,
-            timestamp_ms=trace_info.timestamp_ms + trace_info.execution_time_ms,
-            status=trace_info.status,
-            request_metadata=trace_info.request_metadata,
-            tags=trace_info.tags or {},
-        )
 
     def link_prompt_versions_to_trace(
         self, trace_id: str, prompts: Sequence[PromptVersion]
