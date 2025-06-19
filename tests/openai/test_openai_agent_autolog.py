@@ -1,4 +1,5 @@
 import copy
+from packaging.version import Version
 from unittest import mock
 
 import openai
@@ -204,6 +205,11 @@ async def test_autolog_agent():
             "type": "function",
         },
     ]
+
+    if Version(agents.__version__) >= Version('0.0.18'):
+        tool_content = '{"assistant": "Spanish Agent"}'
+    else:
+        tool_content = "{'assistant': 'Spanish Agent'}"
     assert spans[5].attributes[SpanAttributeKey.CHAT_MESSAGES] == [
         {
             "role": "system",
@@ -237,7 +243,7 @@ async def test_autolog_agent():
         },
         {
             "role": "tool",
-            "content": '{"assistant": "Spanish Agent"}',
+            "content": tool_content,
             "refusal": None,
             "tool_calls": None,
             "tool_call_id": "123",
