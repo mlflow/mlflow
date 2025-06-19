@@ -286,7 +286,7 @@ def enhanced_chat_completion(user_message, conversation_history=None):
 
     # Add performance metrics
     mlflow.update_current_trace(
-        attributes={
+        tags={
             "response_time_seconds": time.time() - start_time,
             "token_count": response.usage.total_tokens,
             "model_used": response.model,
@@ -362,7 +362,7 @@ def embed_query(query):
     """Convert user query to vector embedding."""
     # Embedding logic here
     mlflow.update_current_trace(
-        attributes={
+        tags={
             "query_length": len(query),
             "embedding_model": "text-embedding-ada-002",
         }
@@ -376,7 +376,7 @@ def retrieve_documents(query_embedding, vector_store, top_k=5):
     """Retrieve relevant documents from vector store."""
     # Vector search logic here
     mlflow.update_current_trace(
-        attributes={"top_k": top_k, "search_type": "cosine_similarity"}
+        tags={"top_k": top_k, "search_type": "cosine_similarity"}
     )
 
     # Simulate document retrieval
@@ -386,7 +386,7 @@ def retrieve_documents(query_embedding, vector_store, top_k=5):
     ]
 
     mlflow.update_current_trace(
-        attributes={
+        tags={
             "documents_found": len(documents),
             "avg_relevance_score": sum(d["score"] for d in documents) / len(documents),
         }
@@ -402,7 +402,7 @@ def generate_with_context(question, documents):
     context = "\n".join([doc["content"] for doc in documents])
 
     mlflow.update_current_trace(
-        attributes={"context_length": len(context), "num_context_docs": len(documents)}
+        tags={"context_length": len(context), "num_context_docs": len(documents)}
     )
 
     # Generate response with context
@@ -483,7 +483,7 @@ def predict_fraud(transaction_data):
 
     # Log performance metrics
     mlflow.update_current_trace(
-        attributes={
+        tags={
             "prediction_time_ms": (time.time() - start_time) * 1000,
             "model_version": "v2.1.0",
             "confidence_score": prediction.probability,
@@ -505,7 +505,7 @@ def ml_api_endpoint(request_data, user_id):
     result = make_prediction(request_data)
 
     mlflow.update_current_trace(
-        attributes={
+        tags={
             "request_size_bytes": len(str(request_data)),
             "response_size_bytes": len(str(result)),
         }
