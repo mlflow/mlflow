@@ -1153,6 +1153,37 @@ def test_get_metric_history_paginated_request_raises(store):
         store.get_metric_history("fake_run", "fake_metric", max_results=50, page_token="42")
 
 
+def test_get_metric_history_with_max_results(store):
+    exp_id = store.create_experiment("test_max_results")
+    run = store.create_run(exp_id, user_id="user", start_time=0, tags=[], run_name="test")
+    run_id = run.info.run_id
+
+    metric_key = "test_metric"
+    for i in range(5):
+        metric = Metric(key=metric_key, value=float(i), timestamp=1000 + i, step=i)
+        store.log_metric(run_id, metric)
+
+    # Test without max_results - should return all 5 metrics
+    all_metrics = store.get_metric_history(run_id, metric_key)
+    assert len(all_metrics) == 5
+
+    # Test with max_results=3 - should return only first 3 metrics
+    limited_metrics = store.get_metric_history(run_id, metric_key, max_results=3)
+    assert len(limited_metrics) == 3
+
+    all_values = [m.value for m in all_metrics]
+    limited_values = [m.value for m in limited_metrics]
+    assert limited_values == all_values[:3]
+
+    # Test with max_results=0 - should return no metrics
+    no_metrics = store.get_metric_history(run_id, metric_key, max_results=0)
+    assert len(no_metrics) == 0
+
+    # Test with max_results larger than available metrics - should return all metrics
+    more_metrics = store.get_metric_history(run_id, metric_key, max_results=10)
+    assert len(more_metrics) == 5
+
+
 def _search(
     fs,
     experiment_id,

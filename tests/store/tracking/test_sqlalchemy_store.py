@@ -1401,6 +1401,43 @@ def test_get_metric_history(store: SqlAlchemyStore):
     )
 
 
+def test_get_metric_history_with_max_results(store: SqlAlchemyStore):
+    run = _run_factory(store)
+    run_id = run.info.run_id
+
+    metric_key = "test_metric"
+    expected_metrics = []
+    for i in range(5):
+        metric = models.SqlMetric(
+            key=metric_key, value=float(i), timestamp=1000 + i, step=i
+        ).to_mlflow_entity()
+        store.log_metric(run_id, metric)
+        expected_metrics.append(metric)
+
+    # Test without max_results - should return all 5 metrics
+    all_metrics = store.get_metric_history(run_id, metric_key)
+    assert len(all_metrics) == 5
+
+    # Test with max_results=3 - should return only first 3 metrics
+    limited_metrics = store.get_metric_history(run_id, metric_key, max_results=3)
+    assert len(limited_metrics) == 3
+
+    all_metric_tuples = {(m.key, m.value, m.timestamp, m.step) for m in all_metrics}
+    limited_metric_tuples = {(m.key, m.value, m.timestamp, m.step) for m in limited_metrics}
+    assert limited_metric_tuples.issubset(all_metric_tuples)
+
+    # Test with max_results=0 - should return no metrics
+    no_metrics = store.get_metric_history(run_id, metric_key, max_results=0)
+    assert len(no_metrics) == 0
+
+    # Test with max_results larger than available metrics - should return all metrics
+    more_metrics = store.get_metric_history(run_id, metric_key, max_results=10)
+    assert len(more_metrics) == 5
+
+    more_metric_tuples = {(m.key, m.value, m.timestamp, m.step) for m in more_metrics}
+    assert more_metric_tuples == all_metric_tuples
+
+
 def test_rename_experiment(store: SqlAlchemyStore):
     new_name = "new name"
     experiment_id = _create_experiments(store, "test name")

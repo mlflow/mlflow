@@ -1094,6 +1094,38 @@ def test_get_metric_history_bulk_calls_optimized_impl_when_expected(tmp_path):
         )
 
 
+def test_get_metric_history_respects_max_results(mlflow_client):
+    experiment_id = mlflow_client.create_experiment("test max_results")
+    run = mlflow_client.create_run(experiment_id)
+    run_id = run.info.run_id
+
+    metric_history = [
+        {"key": "test_metric", "value": float(i), "step": i, "timestamp": 1000 + i}
+        for i in range(5)
+    ]
+    for metric in metric_history:
+        mlflow_client.log_metric(run_id, **metric)
+
+    # Test without max_results - should return all metrics
+    all_metrics = mlflow_client.get_metric_history(run_id, "test_metric")
+    assert len(all_metrics) == 5
+
+    # Test with max_results=3 - should return only 3 metrics
+    response = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history",
+        params={"run_id": run_id, "metric_key": "test_metric", "max_results": 3},
+    )
+    assert response.status_code == 200
+    response_data = response.json()
+    assert len(response_data["metrics"]) == 3
+
+    returned_metrics = response_data["metrics"]
+    for i, metric in enumerate(returned_metrics):
+        assert metric["key"] == "test_metric"
+        assert metric["value"] == float(i)
+        assert metric["step"] == i
+
+
 def test_get_metric_history_bulk_interval_rejects_invalid_requests(mlflow_client):
     def assert_response(resp, message_part):
         assert resp.status_code == 400

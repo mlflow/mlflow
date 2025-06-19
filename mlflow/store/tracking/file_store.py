@@ -895,10 +895,18 @@ class FileStore(AbstractStore):
         parent_path, metric_files = self._get_run_files(run_info, "metric")
         if metric_key not in metric_files:
             return PagedList([], None)
+
+        # Read all metric lines first
+        all_lines = read_file_lines(parent_path, metric_key)
+
+        # Apply max_results limit if specified
+        if max_results is not None:
+            all_lines = all_lines[:max_results]
+
         return PagedList(
             [
                 FileStore._get_metric_from_line(run_id, metric_key, line, run_info.experiment_id)
-                for line in read_file_lines(parent_path, metric_key)
+                for line in all_lines
             ],
             None,
         )

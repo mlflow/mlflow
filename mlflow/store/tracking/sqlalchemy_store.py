@@ -1043,7 +1043,13 @@ class SqlAlchemyStore(AbstractStore):
             )
 
         with self.ManagedSessionMaker() as session:
-            metrics = session.query(SqlMetric).filter_by(run_uuid=run_id, key=metric_key).all()
+            query = session.query(SqlMetric).filter_by(run_uuid=run_id, key=metric_key)
+
+            # Apply max_results limit if specified
+            if max_results is not None:
+                query = query.limit(max_results)
+
+            metrics = query.all()
             return PagedList([metric.to_mlflow_entity() for metric in metrics], None)
 
     def get_metric_history_bulk(self, run_ids, metric_key, max_results):
