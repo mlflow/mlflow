@@ -1,7 +1,7 @@
 import { useSearchParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
 
 export function useSearchFilter() {
-  const name = 'searchFilter';
+  const name = 'experimentSearchFilter';
   const [searchParams, setSearchParams] = useSearchParams();
 
   const searchFilter = searchParams.get(name) ?? '';
