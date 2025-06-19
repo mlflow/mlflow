@@ -868,25 +868,14 @@ class FileStore(AbstractStore):
             run_id: Unique identifier for run.
             metric_key: Metric name within the run.
             max_results: An indicator for paginated results.
-            page_token: An indicator for paginated results. This functionality is not
-                implemented for FileStore and if the value is overridden with a value other than
-                ``None``, an MlflowException will be thrown.
+            page_token: Token indicating the page of metric history to fetch.
 
         Returns:
-            A List of :py:class:`mlflow.entities.Metric` entities if ``metric_key`` values
+            A :py:class:`mlflow.store.entities.paged_list.PagedList` of
+            :py:class:`mlflow.entities.Metric` entities if ``metric_key`` values
             have been logged to the ``run_id``, else an empty list.
 
         """
-        # NB: The FileStore does not currently support pagination for this API.
-        # Raise if `page_token` is specified, as the functionality to support paged queries
-        # is not implemented.
-        if page_token is not None:
-            raise MlflowException(
-                "The FileStore backend does not support pagination for the "
-                f"`get_metric_history` API. Supplied argument `page_token` '{page_token}' must "
-                "be `None`."
-            )
-
         _validate_run_id(run_id)
         _validate_metric_name(metric_key)
         run_info = self._get_run_info(run_id)
@@ -897,16 +886,20 @@ class FileStore(AbstractStore):
 
         all_lines = read_file_lines(parent_path, metric_key)
 
-        if max_results is not None:
-            all_lines = all_lines[:max_results]
+        all_metrics = [
+            FileStore._get_metric_from_line(run_id, metric_key, line, run_info.experiment_id)
+            for line in all_lines
+        ]
 
-        return PagedList(
-            [
-                FileStore._get_metric_from_line(run_id, metric_key, line, run_info.experiment_id)
-                for line in all_lines
-            ],
-            None,
-        )
+        if max_results is None:
+            # If no max_results specified, return all metrics but handle page_token if provided
+            offset = SearchUtils.parse_start_offset_from_page_token(page_token)
+            metrics = all_metrics[offset:]
+            next_page_token = None
+        else:
+            metrics, next_page_token = SearchUtils.paginate(all_metrics, page_token, max_results)
+
+        return PagedList(metrics, next_page_token)
 
     @staticmethod
     def _get_param_from_file(parent_path, param_name):

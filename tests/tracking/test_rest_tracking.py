@@ -1126,6 +1126,62 @@ def test_get_metric_history_respects_max_results(mlflow_client):
         assert metric["step"] == i
 
 
+def test_get_metric_history_with_page_token(mlflow_client):
+    experiment_id = mlflow_client.create_experiment("test page_token")
+    run = mlflow_client.create_run(experiment_id)
+    run_id = run.info.run_id
+
+    metric_history = [
+        {"key": "test_metric", "value": float(i), "step": i, "timestamp": 1000 + i}
+        for i in range(10)
+    ]
+    for metric in metric_history:
+        mlflow_client.log_metric(run_id, **metric)
+
+    page_size = 3
+    all_paginated_metrics = []
+    page_token = None
+    page_count = 0
+
+    while True:
+        params = {"run_id": run_id, "metric_key": "test_metric", "max_results": page_size}
+        if page_token:
+            params["page_token"] = page_token
+
+        response = requests.get(
+            f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history",
+            params=params,
+        )
+        assert response.status_code == 200
+        response_data = response.json()
+
+        metrics = response_data["metrics"]
+        all_paginated_metrics.extend(metrics)
+        page_count += 1
+        page_token = response_data.get("next_page_token")
+        if not page_token:
+            break
+
+        assert page_count < 10, "Too many pages, possible infinite loop"
+
+    assert len(all_paginated_metrics) == 10
+
+    for i, metric in enumerate(all_paginated_metrics):
+        assert metric["key"] == "test_metric"
+        assert metric["value"] == float(i)
+        assert metric["step"] == i
+        assert metric["timestamp"] == 1000 + i
+
+    # Test with invalid page_token
+    response = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history",
+        params={"run_id": run_id, "metric_key": "test_metric", "page_token": "invalid_token"},
+    )
+    assert response.status_code == 400
+    response_data = response.json()
+    assert "INVALID_PARAMETER_VALUE" in response_data.get("error_code", "")
+
+
 def test_get_metric_history_bulk_interval_rejects_invalid_requests(mlflow_client):
     def assert_response(resp, message_part):
         assert resp.status_code == 400

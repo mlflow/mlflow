@@ -1145,14 +1145,6 @@ def test_get_metric_history(store):
                     assert metric.value == metric_value
 
 
-def test_get_metric_history_paginated_request_raises(store):
-    with pytest.raises(
-        MlflowException,
-        match="The FileStore backend does not support pagination for the `get_metric_history` API.",
-    ):
-        store.get_metric_history("fake_run", "fake_metric", max_results=50, page_token="42")
-
-
 def test_get_metric_history_with_max_results(store):
     exp_id = store.create_experiment("test_max_results")
     run = store.create_run(exp_id, user_id="user", start_time=0, tags=[], run_name="test")
@@ -1182,6 +1174,55 @@ def test_get_metric_history_with_max_results(store):
     # Test with max_results larger than available metrics - should return all metrics
     more_metrics = store.get_metric_history(run_id, metric_key, max_results=10)
     assert len(more_metrics) == 5
+
+
+def test_get_metric_history_with_page_token(store):
+    exp_id = store.create_experiment("test_page_token")
+    run = store.create_run(exp_id, user_id="user", start_time=0, tags=[], run_name="test")
+    run_id = run.info.run_id
+
+    metric_key = "test_metric"
+    for i in range(10):
+        metric = Metric(key=metric_key, value=float(i), timestamp=1000 + i, step=i)
+        store.log_metric(run_id, metric)
+
+    page_size = 3
+    all_paginated_metrics = []
+    page_token = None
+    page_count = 0
+
+    while True:
+        result = store.get_metric_history(
+            run_id, metric_key, max_results=page_size, page_token=page_token
+        )
+
+        assert hasattr(result, "token"), "Result should be a PagedList with token attribute"
+
+        metrics = list(result)
+        all_paginated_metrics.extend(metrics)
+        page_count += 1
+
+        page_token = result.token
+        if not page_token:
+            break
+
+        assert page_count < 10, "Too many pages, possible infinite loop"
+
+    assert len(all_paginated_metrics) == 10
+
+    for i, metric in enumerate(all_paginated_metrics):
+        assert metric.value == float(i)
+        assert metric.step == i
+        assert metric.timestamp == 1000 + i
+
+    # Test with invalid page_token
+    with pytest.raises(MlflowException, match="Invalid page token"):
+        store.get_metric_history(run_id, metric_key, page_token="invalid_token")
+
+    # Test pagination without max_results (should return all in one page)
+    result = store.get_metric_history(run_id, metric_key, page_token=None)
+    assert len(result) == 10
+    assert result.token is None
 
 
 def _search(

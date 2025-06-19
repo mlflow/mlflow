@@ -1154,15 +1154,6 @@ def test_log_metric_allows_multiple_values_at_same_ts_and_run_data_uses_max_ts_v
     assert metric_obj.value == 20
 
 
-def test_get_metric_history_paginated_request_raises(store: SqlAlchemyStore):
-    with pytest.raises(
-        MlflowException,
-        match="The SQLAlchemyStore backend does not support pagination for the "
-        "`get_metric_history` API.",
-    ):
-        store.get_metric_history("fake_run", "fake_metric", max_results=50, page_token="42")
-
-
 def test_log_null_metric(store: SqlAlchemyStore):
     run = _run_factory(store)
 
@@ -1436,6 +1427,55 @@ def test_get_metric_history_with_max_results(store: SqlAlchemyStore):
 
     more_metric_tuples = {(m.key, m.value, m.timestamp, m.step) for m in more_metrics}
     assert more_metric_tuples == all_metric_tuples
+
+
+def test_get_metric_history_with_page_token(store: SqlAlchemyStore):
+    run = _run_factory(store)
+    run_id = run.info.run_id
+
+    metric_key = "test_metric"
+    for i in range(10):
+        metric = models.SqlMetric(
+            key=metric_key, value=float(i), timestamp=1000 + i, step=i
+        ).to_mlflow_entity()
+        store.log_metric(run_id, metric)
+
+    page_size = 3
+    all_paginated_metrics = []
+    page_token = None
+    page_count = 0
+
+    while True:
+        result = store.get_metric_history(
+            run_id, metric_key, max_results=page_size, page_token=page_token
+        )
+
+        assert hasattr(result, "token"), "Result should be a PagedList with token attribute"
+
+        metrics = list(result)
+        all_paginated_metrics.extend(metrics)
+        page_count += 1
+
+        page_token = result.token
+        if not page_token:
+            break
+
+        assert page_count < 10, "Too many pages, possible infinite loop"
+
+    assert len(all_paginated_metrics) == 10
+
+    metric_values = [m.value for m in all_paginated_metrics]
+    expected_values = [float(i) for i in range(10)]
+    assert sorted(metric_values) == sorted(expected_values)
+
+    # Test with invalid page_token
+    with pytest.raises(MlflowException, match="Invalid page token"):
+        store.get_metric_history(run_id, metric_key, page_token="invalid_token")
+
+    # Test pagination without max_results (should return all in one page)
+    result = store.get_metric_history(run_id, metric_key, page_token=None)
+    assert len(result) == 10
+    assert result.token is None  # No next page
 
 
 def test_rename_experiment(store: SqlAlchemyStore):
