@@ -763,6 +763,10 @@
     "defaultMessage": "Select as compared version",
     "description": "Label for selecting compared prompt version in the comparison view"
   },
+  "9KLNi5": {
+    "defaultMessage": "Delete",
+    "description": "Experiments page list, delete bulk experiments modal primary button"
+  },
   "9KXBFn": {
     "defaultMessage": "Tags",
     "description": "Row group title for tags of runs on the experiment compare runs page"
@@ -1074,6 +1078,10 @@
   "EpFST9": {
     "defaultMessage": "No trace data recorded",
     "description": "Experiment page > traces data drawer > no trace data recorded empty state"
+  },
+  "Epo8/i": {
+    "defaultMessage": "Delete {count, plural, one {# Experiment} other {# Experiments}}",
+    "description": "Experiments page list, delete bulk experiments modal title"
   },
   "EwAZgg": {
     "defaultMessage": "Edit tags",

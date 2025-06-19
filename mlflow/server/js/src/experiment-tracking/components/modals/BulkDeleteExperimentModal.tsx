@@ -5,6 +5,7 @@ import { deleteExperimentApi } from '../../actions';
 import { useDispatch } from 'react-redux';
 import { ThunkDispatch } from '@mlflow/mlflow/src/redux-types';
 import Utils from '@mlflow/mlflow/src/common/utils/Utils';
+import { FormattedMessage } from 'react-intl';
 
 type Props = {
   isOpen: boolean;
@@ -27,7 +28,15 @@ export const BulkDeleteExperimentModal = ({ isOpen, onClose, experiments, onExpe
       isOpen={isOpen}
       onClose={onClose}
       handleSubmit={handleSubmit}
-      title={`Delete ${experiments.length} Experiment(s)`}
+      title={
+        <FormattedMessage
+          defaultMessage="Delete {count, plural, one {# Experiment} other {# Experiments}}"
+          description="Experiments page list, delete bulk experiments modal title"
+          values={{
+            count: experiments.length,
+          }}
+        />
+      }
       helpText={
         <div>
           <Typography.Paragraph>The following experiments will be deleted:</Typography.Paragraph>
@@ -44,7 +53,12 @@ export const BulkDeleteExperimentModal = ({ isOpen, onClose, experiments, onExpe
           </Typography.Paragraph>
         </div>
       }
-      confirmButtonText="Delete"
+      confirmButtonText={
+        <FormattedMessage
+          defaultMessage="Delete"
+          description="Experiments page list, delete bulk experiments modal primary button"
+        />
+      }
     />
   );
 };
