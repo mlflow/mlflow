@@ -38,7 +38,9 @@
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/sdk-node": "^0.201.1",
+    "@types/json-bigint": "^1.0.4",
     "ini": "^5.0.0",
+    "json-bigint": "^1.0.0",
     "node-cache": "^5.1.2"
   },
   "devDependencies": {

@@ -21,19 +21,13 @@
         "varsIgnorePattern": "^_"
       }
     ],
-    "@typescript-eslint/explicit-function-return-type": "off",
     "@typescript-eslint/no-non-null-assertion": "warn",
-    "@typescript-eslint/prefer-nullish-coalescing": "warn",
     "@typescript-eslint/prefer-optional-chain": "error",
     "@typescript-eslint/no-unnecessary-type-assertion": "error",
     "@typescript-eslint/no-loss-of-precision": "error",
-    "@typescript-eslint/consistent-type-imports": [
-      "error",
-      {
-        "prefer": "type-imports",
-        "disallowTypeAnnotations": false
-      }
-    ],
+    // We cannot type everything like user inputs, outputs, json, etc.
+    "@typescript-eslint/no-explicit-any": "off",
+    "@typescript-eslint/no-unsafe-assignment": "off",
 
     // General JavaScript/TypeScript rules
     "no-console": ["warn", { "allow": ["warn", "error"] }],
@@ -41,7 +35,7 @@
     "no-alert": "error",
     "prefer-const": "error",
     "no-var": "error",
-    "eqeqeq": ["error", "always"],
+    "eqeqeq": ["error", "always", { "null": "never" }],
     "curly": ["error", "all"],
     "no-trailing-spaces": "error",
     "no-multiple-empty-lines": ["error", { "max": 2 }],
@@ -53,5 +47,17 @@
     // Promise/Async rules
     "no-async-promise-executor": "error",
     "require-await": "error"
-  }
+  },
+  "overrides": [
+    {
+      "files": ["*.test.ts", "*.spec.ts", "examples/**/*.ts"],
+      "rules": {
+        "no-console": "off",
+        "@typescript-eslint/explicit-function-return-type": "off",
+        "@typescript-eslint/no-unsafe-member-access": "off",
+        "@typescript-eslint/no-unsafe-argument": "off",
+        "@typescript-eslint/no-non-null-assertion": "off"
+      }
+    }
+  ]
 }
