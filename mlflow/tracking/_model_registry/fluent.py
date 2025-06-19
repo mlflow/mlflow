@@ -8,7 +8,12 @@ from typing import Any, Optional, Union
 
 import mlflow
 from mlflow.entities.logged_model import LoggedModel
-from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, RegisteredModel
+from mlflow.entities.model_registry import (
+    ModelVersion,
+    Prompt,
+    PromptVersion,
+    RegisteredModel,
+)
 from mlflow.entities.run import Run
 from mlflow.environment_variables import (
     MLFLOW_PRINT_MODEL_URLS_ON_CREATION,
@@ -16,7 +21,10 @@ from mlflow.environment_variables import (
 )
 from mlflow.exceptions import MlflowException
 from mlflow.models.model import MLMODEL_FILE_NAME
-from mlflow.prompt.registry_utils import parse_prompt_name_or_uri, require_prompt_registry
+from mlflow.prompt.registry_utils import (
+    parse_prompt_name_or_uri,
+    require_prompt_registry,
+)
 from mlflow.protos.databricks_pb2 import (
     ALREADY_EXISTS,
     NOT_FOUND,
@@ -532,7 +540,10 @@ def set_model_version_tag(
 @require_prompt_registry
 def register_prompt(
     name: str,
-    template: str,
+    template: Union[str, list[dict[str, str]]],
+    prompt_type: str = "text",
+    response_format: Optional[Union[dict, type]] = None,
+    config: Optional[dict] = None,
     commit_message: Optional[str] = None,
     tags: Optional[dict[str, str]] = None,
 ) -> PromptVersion:
@@ -546,24 +557,13 @@ def register_prompt(
     If there is no registered prompt with the given name, a new prompt will be created.
     Otherwise, a new version of the existing prompt will be created.
 
-
     Args:
         name: The name of the prompt.
-        template: The template text of the prompt. It can contain variables enclosed in
-            double curly braces, e.g. {variable}, which will be replaced with actual values
-            by the `format` method.
-
-            .. note::
-
-                If you want to use the prompt with a framework that uses single curly braces
-                e.g. LangChain, you can use the `to_single_brace_format` method to convert the
-                loaded prompt to a format that uses single curly braces.
-
-                .. code-block:: python
-
-                    prompt = client.load_prompt("my_prompt")
-                    langchain_format = prompt.to_single_brace_format()
-
+        template: The prompt template. For text prompts, a string with variables in {{variable}}.
+                 For chat prompts, a list of message dictionaries with 'role' and 'content' fields.
+        prompt_type: The type of prompt ("text" or "chat"). Defaults to "text".
+        response_format: Optional Pydantic class or dict defining the response structure.
+        config: Optional model configuration dictionary.
         commit_message: A message describing the changes made to the prompt, similar to a
             Git commit message. Optional.
         tags: A dictionary of tags associated with the **prompt version**.
@@ -572,41 +572,6 @@ def register_prompt(
 
     Returns:
         A :py:class:`Prompt <mlflow.entities.Prompt>` object that was created.
-
-    Example:
-
-    .. code-block:: python
-
-        import mlflow
-
-        # Register a new prompt
-        mlflow.register_prompt(
-            name="my_prompt",
-            template="Respond to the user's message as a {{style}} AI.",
-        )
-
-        # Load the prompt from the registry
-        prompt = mlflow.load_prompt("my_prompt")
-
-        # Use the prompt in your application
-        import openai
-
-        openai_client = openai.OpenAI()
-        openai_client.chat.completion.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": prompt.format(style="friendly")},
-                {"role": "user", "content": "Hello, how are you?"},
-            ],
-        )
-
-        # Update the prompt with a new version
-        prompt = mlflow.register_prompt(
-            name="my_prompt",
-            template="Respond to the user's message as a {{style}} AI. {{greeting}}",
-            commit_message="Add a greeting to the prompt.",
-            tags={"author": "Bob"},
-        )
     """
     warnings.warn(
         PROMPT_API_MIGRATION_MSG.format(func_name="register_prompt"),
@@ -614,9 +579,16 @@ def register_prompt(
         stacklevel=3,
     )
 
+    # Handle None prompt_type by defaulting to "text"
+    if prompt_type is None:
+        prompt_type = "text"
+
     return MlflowClient().register_prompt(
         name=name,
         template=template,
+        prompt_type=prompt_type,
+        response_format=response_format,
+        config=config,
         commit_message=commit_message,
         tags=tags,
     )
@@ -635,7 +607,9 @@ def search_prompts(
 
     def pagination_wrapper_func(number_to_get, next_page_token):
         return MlflowClient().search_prompts(
-            filter_string=filter_string, max_results=number_to_get, page_token=next_page_token
+            filter_string=filter_string,
+            max_results=number_to_get,
+            page_token=next_page_token,
         )
 
     return get_results_from_paginated_fn(
@@ -751,7 +725,8 @@ def load_prompt(
 
             # Start linking in background - don't wait for completion
             link_thread = threading.Thread(
-                target=_link_prompt_async, name=f"link_prompt_thread-{uuid.uuid4().hex[:8]}"
+                target=_link_prompt_async,
+                name=f"link_prompt_thread-{uuid.uuid4().hex[:8]}",
             )
             link_thread.start()
 

@@ -17,7 +17,14 @@ import tempfile
 import urllib
 import uuid
 import warnings
-from typing import TYPE_CHECKING, Any, Literal, Optional, Sequence, Union
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Literal,
+    Optional,
+    Sequence,
+    Union,
+)
 
 import yaml
 
@@ -46,16 +53,24 @@ from mlflow.entities.assessment import (
     Feedback,
 )
 from mlflow.entities.assessment_source import AssessmentSource
-from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, RegisteredModel
+from mlflow.entities.model_registry import (
+    ModelVersion,
+    Prompt,
+    PromptVersion,
+    RegisteredModel,
+)
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, NoOpSpan
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import (
+    CONFIG_TAG_KEY,
     IS_PROMPT_TAG_KEY,
     PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY,
     PROMPT_TEXT_TAG_KEY,
+    PROMPT_TYPE_TAG_KEY,
+    RESPONSE_FORMAT_TAG_KEY,
 )
 from mlflow.prompt.registry_utils import (
     has_prompt_tag,
@@ -80,7 +95,10 @@ from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
-from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_TRACES_DEFAULT_MAX_RESULTS
+from mlflow.store.tracking import (
+    SEARCH_MAX_RESULTS_DEFAULT,
+    SEARCH_TRACES_DEFAULT_MAX_RESULTS,
+)
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX
 from mlflow.tracing.display import get_display_handler
@@ -441,7 +459,10 @@ class MlflowClient:
     def register_prompt(
         self,
         name: str,
-        template: str,
+        template: Union[str, list[dict[str, str]]],
+        prompt_type: str = "text",
+        response_format: Optional[Union[dict, type]] = None,
+        config: Optional[dict] = None,
         commit_message: Optional[str] = None,
         tags: Optional[dict[str, str]] = None,
     ) -> PromptVersion:
@@ -464,10 +485,31 @@ class MlflowClient:
             # Your prompt registry URI
             client = MlflowClient(registry_uri="sqlite:///prompt_registry.db")
 
-            # Register a new prompt
+            # Register a new text prompt
             client.register_prompt(
                 name="my_prompt",
                 template="Respond to the user's message as a {{style}} AI.",
+            )
+
+            # Register a new chat prompt with response format
+            from pydantic import BaseModel
+            from typing import List
+
+
+            class Response(BaseModel):
+                answer: str
+                confidence: float
+
+
+            client.register_prompt(
+                name="chat_prompt",
+                template=[
+                    {"role": "system", "content": "You are a helpful assistant."},
+                    {"role": "user", "content": "{{user_question}}"},
+                ],
+                prompt_type="chat",
+                response_format=Response,
+                config={"model": "gpt-4o-mini", "temperature": 0.2},
             )
 
             # Load the prompt from the registry
@@ -495,9 +537,11 @@ class MlflowClient:
 
         Args:
             name: The name of the prompt.
-            template: The template text of the prompt. It can contain variables enclosed in
-                double curly braces, e.g. {{variable}}, which will be replaced with actual values
-                by the `format` method.
+            template: The prompt template. For text prompts, a string with variables in {{}}.
+                     For chat prompts, a list of message dictionaries with 'role' and 'content'.
+            prompt_type: The type of prompt ("text" or "chat"). Defaults to "text".
+            response_format: Optional Pydantic class or dict defining the response structure.
+            config: Optional model configuration dictionary.
             commit_message: A message describing the changes made to the prompt, similar to a
                 Git commit message. Optional.
             tags: A dictionary of tags associated with the **prompt version**.
@@ -527,6 +571,9 @@ class MlflowClient:
             prompt_version = registry_client.create_prompt_version(
                 name=name,
                 template=template,
+                prompt_type=prompt_type,
+                response_format=response_format,
+                config=config,
                 description=commit_message,
                 tags=tags or {},
             )
@@ -542,7 +589,9 @@ class MlflowClient:
         except MlflowException:
             # Create a new prompt (model) entry
             registry_client.create_registered_model(
-                name, description=commit_message, tags={IS_PROMPT_TAG_KEY: "true", **tags}
+                name,
+                description=commit_message,
+                tags={IS_PROMPT_TAG_KEY: "true", **tags},
             )
             is_new_prompt = True
 
@@ -562,7 +611,36 @@ class MlflowClient:
 
         # Version metadata is represented as ModelVersion tags in the registry
         tags = tags or {}
-        tags.update({IS_PROMPT_TAG_KEY: "true", PROMPT_TEXT_TAG_KEY: template})
+        tags.update({IS_PROMPT_TAG_KEY: "true"})
+
+        # Store template based on type
+        if prompt_type == "chat":
+            tags[PROMPT_TEXT_TAG_KEY] = json.dumps(template)
+        else:
+            tags[PROMPT_TEXT_TAG_KEY] = template
+
+        # Store new fields as tags
+        if prompt_type != "text":
+            tags[PROMPT_TYPE_TAG_KEY] = prompt_type
+
+        if response_format:
+            if isinstance(response_format, type):
+                # Convert Pydantic class to JSON schema
+                try:
+                    from pydantic import BaseModel
+
+                    if issubclass(response_format, BaseModel):
+                        format_dict = response_format.model_json_schema()
+                    else:
+                        format_dict = {"type": "object", "properties": {}}
+                except ImportError:
+                    format_dict = {"type": "object", "properties": {}}
+            else:
+                format_dict = response_format
+            tags[RESPONSE_FORMAT_TAG_KEY] = json.dumps(format_dict)
+
+        if config:
+            tags[CONFIG_TAG_KEY] = json.dumps(config)
 
         try:
             mv: ModelVersion = registry_client.create_model_version(
@@ -579,7 +657,8 @@ class MlflowClient:
             raise
 
         # Fetch the prompt-level tags from the registered model
-        prompt_tags = registry_client.get_registered_model(name)._tags
+        rm = registry_client.get_registered_model(name)
+        prompt_tags = rm._tags if rm is not None else {}
 
         return model_version_to_prompt_version(mv, prompt_tags=prompt_tags)
 
@@ -691,7 +770,10 @@ class MlflowClient:
             return registry_client.get_prompt_version(name, version)
 
         except MlflowException as exc:
-            if allow_missing and exc.error_code in ("RESOURCE_DOES_NOT_EXIST", "NOT_FOUND"):
+            if allow_missing and exc.error_code in (
+                "RESOURCE_DOES_NOT_EXIST",
+                "NOT_FOUND",
+            ):
                 return None
             raise
 
@@ -896,11 +978,13 @@ class MlflowClient:
             pv = registry_client.get_prompt_version(name, version)
             if pv is None:
                 raise MlflowException(
-                    f"Prompt '{name}' version {version} does not exist.", RESOURCE_DOES_NOT_EXIST
+                    f"Prompt '{name}' version {version} does not exist.",
+                    RESOURCE_DOES_NOT_EXIST,
                 )
         except Exception:
             raise MlflowException(
-                f"Prompt '{name}' version {version} does not exist.", RESOURCE_DOES_NOT_EXIST
+                f"Prompt '{name}' version {version} does not exist.",
+                RESOURCE_DOES_NOT_EXIST,
             )
 
     def parse_prompt_uri(self, uri: str) -> tuple[str, str]:
@@ -2869,9 +2953,8 @@ class MlflowClient:
             # See https://github.com/mlflow/mlflow/issues/14136 for more details.
             # Construct a filename uuid that does not start with hex digits
             filename_uuid = f"{random.choice(string.ascii_lowercase[6:])}{filename_uuid[1:]}"
-            uncompressed_filename = (
-                f"images/{sanitized_key}%step%{step}%timestamp%{timestamp}%{filename_uuid}"
-            )
+            uncompressed_filename_prefix = f"images/{sanitized_key}%step%{step}%timestamp%"
+            uncompressed_filename = f"{uncompressed_filename_prefix}{timestamp}%{filename_uuid}"
             compressed_filename = f"{uncompressed_filename}%compressed"
 
             # Save full-resolution image
@@ -3231,18 +3314,21 @@ class MlflowClient:
 
             else:
                 raise MlflowException(
-                    f"Artifact {artifact_file} not found for run {run_id}.", RESOURCE_DOES_NOT_EXIST
+                    f"Artifact {artifact_file} not found for run {run_id}.",
+                    RESOURCE_DOES_NOT_EXIST,
                 )
 
             return existing_predictions
 
         if not runs.empty:
             return pd.concat(
-                [get_artifact_data(run) for _, run in runs.iterrows()], ignore_index=True
+                [get_artifact_data(run) for _, run in runs.iterrows()],
+                ignore_index=True,
             )
         else:
             raise MlflowException(
-                "No runs found with the corresponding table artifact.", RESOURCE_DOES_NOT_EXIST
+                "No runs found with the corresponding table artifact.",
+                RESOURCE_DOES_NOT_EXIST,
             )
 
     def _record_logged_model(self, run_id, mlflow_model):
@@ -3566,7 +3652,12 @@ class MlflowClient:
             tags: {'s.release': '1.1.0-RC'}
         """
         return self._tracking_client.search_runs(
-            experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
+            experiment_ids,
+            filter_string,
+            run_view_type,
+            max_results,
+            order_by,
+            page_token,
         )
 
     # Registry API
@@ -3685,7 +3776,10 @@ class MlflowClient:
         self._get_registry_client().rename_registered_model(name, new_name)
 
     def update_registered_model(
-        self, name: str, description: Optional[str] = None, deployment_job_id: Optional[str] = None
+        self,
+        name: str,
+        description: Optional[str] = None,
+        deployment_job_id: Optional[str] = None,
     ) -> RegisteredModel:
         """
         Updates metadata for RegisteredModel entity. Input field ``description`` should be non-None.
@@ -4442,7 +4536,11 @@ class MlflowClient:
 
     @deprecated(since="2.9.0", impact=_STAGES_DEPRECATION_WARNING)
     def transition_model_version_stage(
-        self, name: str, version: str, stage: str, archive_existing_versions: bool = False
+        self,
+        name: str,
+        version: str,
+        stage: str,
+        archive_existing_versions: bool = False,
     ) -> ModelVersion:
         """
         Update model version stage.
@@ -5388,7 +5486,9 @@ class MlflowClient:
 
     @experimental(version="3.0.0")
     def finalize_logged_model(
-        self, model_id: str, status: Union[Literal["READY", "FAILED"], LoggedModelStatus]
+        self,
+        model_id: str,
+        status: Union[Literal["READY", "FAILED"], LoggedModelStatus],
     ) -> LoggedModel:
         """
         Finalize a model by updating its status.
@@ -5821,7 +5921,10 @@ class MlflowClient:
     @require_prompt_registry
     @translate_prompt_exception
     def search_prompt_versions(
-        self, name: str, max_results: Optional[int] = None, page_token: Optional[str] = None
+        self,
+        name: str,
+        max_results: Optional[int] = None,
+        page_token: Optional[str] = None,
     ):
         """
         Search prompt versions for a given prompt name.

@@ -170,6 +170,420 @@ def test_crud_prompts(tmp_path):
     assert mlflow.load_prompt("does_not_exist", version=1, allow_missing=True) is None
 
 
+def test_register_chat_prompt_basic(tmp_path):
+    """Test basic chat prompt registration through fluent API."""
+    chat_template = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Hello, {{name}}! How are you {{mood}}?"},
+    ]
+
+    prompt_version = mlflow.register_prompt(
+        name="chat_prompt",
+        template=chat_template,
+        prompt_type="chat",
+        commit_message="A chat assistant",
+        tags={"model": "gpt-4"},
+    )
+
+    assert prompt_version.name == "chat_prompt"
+    assert prompt_version.version == 1
+    assert prompt_version.template == chat_template
+    assert prompt_version.prompt_type == "chat"
+    assert prompt_version.response_format is None
+    assert prompt_version.config is None
+    assert prompt_version.variables == {"name", "mood"}
+    assert prompt_version.commit_message == "A chat assistant"
+    assert prompt_version.tags == {"model": "gpt-4"}
+
+
+def test_register_chat_prompt_with_response_format(tmp_path):
+    """Test chat prompt registration with response format through fluent API."""
+    chat_template = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Generate a response for {{topic}}."},
+    ]
+    response_format = {
+        "type": "object",
+        "properties": {
+            "response": {"type": "string"},
+            "confidence": {"type": "number"},
+        },
+    }
+
+    prompt_version = mlflow.register_prompt(
+        name="structured_chat",
+        template=chat_template,
+        prompt_type="chat",
+        response_format=response_format,
+        commit_message="Structured response chat",
+    )
+
+    assert prompt_version.name == "structured_chat"
+    assert prompt_version.version == 1
+    assert prompt_version.template == chat_template
+    assert prompt_version.prompt_type == "chat"
+    assert prompt_version.response_format == response_format
+    assert prompt_version.config is None
+    assert prompt_version.variables == {"topic"}
+
+
+def test_register_prompt_with_config(tmp_path):
+    """Test prompt registration with model configuration through fluent API."""
+    config = {
+        "temperature": 0.7,
+        "max_tokens": 100,
+        "model": "gpt-4",
+        "top_p": 0.9,
+    }
+
+    prompt_version = mlflow.register_prompt(
+        name="configured_prompt",
+        template="Hello, {{name}}!",
+        config=config,
+        commit_message="Prompt with config",
+    )
+
+    assert prompt_version.name == "configured_prompt"
+    assert prompt_version.version == 1
+    assert prompt_version.template == "Hello, {{name}}!"
+    assert prompt_version.prompt_type == "text"  # Default
+    assert prompt_version.response_format is None
+    assert prompt_version.config == config
+    assert prompt_version.variables == {"name"}
+
+
+def test_register_prompt_with_all_features(tmp_path):
+    """Test prompt registration with all new features through fluent API."""
+    chat_template = [
+        {"role": "system", "content": "You are a {{assistant_type}} assistant."},
+        {"role": "user", "content": "Help me with {{task}}."},
+    ]
+    response_format = {
+        "type": "object",
+        "properties": {
+            "answer": {"type": "string"},
+            "explanation": {"type": "string"},
+            "confidence": {"type": "number"},
+        },
+    }
+    config = {
+        "temperature": 0.5,
+        "max_tokens": 200,
+        "model": "gpt-4-turbo",
+    }
+
+    prompt_version = mlflow.register_prompt(
+        name="full_featured_prompt",
+        template=chat_template,
+        prompt_type="chat",
+        response_format=response_format,
+        config=config,
+        commit_message="Full featured prompt",
+        tags={"project": "ai-assistant", "version": "1.0"},
+    )
+
+    assert prompt_version.name == "full_featured_prompt"
+    assert prompt_version.version == 1
+    assert prompt_version.template == chat_template
+    assert prompt_version.prompt_type == "chat"
+    assert prompt_version.response_format == response_format
+    assert prompt_version.config == config
+    assert prompt_version.variables == {"assistant_type", "task"}
+    assert prompt_version.commit_message == "Full featured prompt"
+    assert prompt_version.tags == {"project": "ai-assistant", "version": "1.0"}
+
+
+def test_register_prompt_pydantic_response_format(tmp_path):
+    """Test prompt registration with Pydantic response format via fluent API."""
+    try:
+        from pydantic import BaseModel
+
+        class ResponseModel(BaseModel):
+            answer: str
+            confidence: float
+            metadata: dict
+
+        prompt_version = mlflow.register_prompt(
+            name="pydantic_prompt",
+            template="Answer: {{question}}",
+            response_format=ResponseModel,
+            commit_message="Pydantic response format",
+        )
+
+        assert prompt_version.name == "pydantic_prompt"
+        assert prompt_version.version == 1
+        assert prompt_version.response_format is not None
+        assert "properties" in prompt_version.response_format
+        assert "answer" in prompt_version.response_format["properties"]
+        assert "confidence" in prompt_version.response_format["properties"]
+        assert "metadata" in prompt_version.response_format["properties"]
+
+    except ImportError:
+        pytest.skip("Pydantic not available")
+
+
+def test_register_prompt_versioning_with_new_features(tmp_path):
+    """Test that multiple versions of prompt work correctly via fluent API."""
+    # Register first version
+    v1 = mlflow.register_prompt(
+        name="versioned_prompt",
+        template="Hello, {{name}}!",
+        prompt_type="text",
+        commit_message="Version 1",
+    )
+
+    assert v1.version == 1
+    assert v1.template == "Hello, {{name}}!"
+    assert v1.prompt_type == "text"
+
+    # Register second version with different features
+    chat_template = [
+        {"role": "user", "content": "Hello, {{name}}!"},
+    ]
+    v2 = mlflow.register_prompt(
+        name="versioned_prompt",
+        template=chat_template,
+        prompt_type="chat",
+        response_format={"type": "string"},
+        config={"temperature": 0.7},
+        commit_message="Version 2 - chat",
+    )
+
+    assert v2.version == 2
+    assert v2.template == chat_template
+    assert v2.prompt_type == "chat"
+    assert v2.response_format == {"type": "string"}
+    assert v2.config == {"temperature": 0.7}
+
+    # Verify both versions exist
+    loaded_v1 = mlflow.load_prompt("versioned_prompt", version=1)
+    loaded_v2 = mlflow.load_prompt("versioned_prompt", version=2)
+
+    assert loaded_v1.template == "Hello, {{name}}!"
+    assert loaded_v1.prompt_type == "text"
+    assert loaded_v2.template == chat_template
+    assert loaded_v2.prompt_type == "chat"
+
+
+def test_register_prompt_backward_compatibility(tmp_path):
+    """Test that register_prompt maintains backward compatibility through fluent API."""
+    # Test old-style registration (without new parameters)
+    prompt_version = mlflow.register_prompt(
+        name="backward_compat",
+        template="Hello, {{name}}!",
+        commit_message="Backward compatible",
+    )
+
+    assert prompt_version.name == "backward_compat"
+    assert prompt_version.version == 1
+    assert prompt_version.template == "Hello, {{name}}!"
+    assert prompt_version.prompt_type == "text"  # Default
+    assert prompt_version.response_format is None
+    assert prompt_version.config is None
+    assert prompt_version.variables == {"name"}
+
+
+def test_register_prompt_invalid_chat_template(tmp_path):
+    """Test that invalid chat templates are rejected through fluent API."""
+    # Invalid: not a list
+    with pytest.raises(ValueError, match="Chat template must be a list of message dictionaries"):
+        mlflow.register_prompt(
+            name="invalid_chat",
+            template="Not a list",
+            prompt_type="chat",
+        )
+
+    # Invalid: missing role
+    with pytest.raises(ValueError, match="Each message must have 'role' and 'content' keys"):
+        mlflow.register_prompt(
+            name="invalid_chat",
+            template=[{"content": "Hello"}],
+            prompt_type="chat",
+        )
+
+    # Invalid: missing content
+    with pytest.raises(ValueError, match="Each message must have 'role' and 'content' keys"):
+        mlflow.register_prompt(
+            name="invalid_chat",
+            template=[{"role": "user"}],
+            prompt_type="chat",
+        )
+
+    # Invalid: wrong role
+    with pytest.raises(ValueError, match="Role must be one of: system, user, assistant"):
+        mlflow.register_prompt(
+            name="invalid_chat",
+            template=[{"role": "invalid", "content": "Hello"}],
+            prompt_type="chat",
+        )
+
+
+def test_register_prompt_invalid_prompt_type(tmp_path):
+    """Test that invalid prompt_type is rejected through fluent API."""
+    with pytest.raises(ValueError, match="prompt_type must be 'text' or 'chat'"):
+        mlflow.register_prompt(
+            name="invalid_type",
+            template="Hello",
+            prompt_type="invalid",
+        )
+
+
+def test_register_prompt_invalid_response_format(tmp_path):
+    """Test that invalid response_format is rejected through fluent API."""
+    with pytest.raises(ValueError, match="response_format must be a Pydantic class or dict"):
+        mlflow.register_prompt(
+            name="invalid_format",
+            template="Hello",
+            response_format="not a dict or class",
+        )
+
+
+def test_register_prompt_complex_chat_scenario(tmp_path):
+    """Test complex chat prompt scenario with multiple variables through fluent API."""
+    chat_template = [
+        {
+            "role": "system",
+            "content": "You are a {{assistant_type}} assistant for {{company}}.",
+        },
+        {
+            "role": "user",
+            "content": "Hello! My name is {{name}} and I work at {{company}}.",
+        },
+        {
+            "role": "assistant",
+            "content": "Nice to meet you, {{name}}! I'm here to help with {{task}}.",
+        },
+        {"role": "user", "content": "Can you help me with {{specific_request}}?"},
+    ]
+
+    response_format = {
+        "type": "object",
+        "properties": {
+            "solution": {"type": "string"},
+            "steps": {"type": "array", "items": {"type": "string"}},
+            "estimated_time": {"type": "string"},
+        },
+    }
+
+    config = {
+        "temperature": 0.3,
+        "max_tokens": 500,
+        "model": "gpt-4",
+        "top_p": 0.8,
+    }
+
+    prompt_version = mlflow.register_prompt(
+        name="complex_assistant",
+        template=chat_template,
+        prompt_type="chat",
+        response_format=response_format,
+        config=config,
+        commit_message="Complex assistant prompt",
+        tags={"category": "technical-support", "priority": "high"},
+    )
+
+    assert prompt_version.name == "complex_assistant"
+    assert prompt_version.version == 1
+    assert prompt_version.template == chat_template
+    assert prompt_version.prompt_type == "chat"
+    assert prompt_version.response_format == response_format
+    assert prompt_version.config == config
+    assert prompt_version.variables == {
+        "assistant_type",
+        "company",
+        "name",
+        "task",
+        "specific_request",
+    }
+    assert prompt_version.tags == {"category": "technical-support", "priority": "high"}
+
+
+def test_register_prompt_load_and_verify(tmp_path):
+    """Test that registered prompts can be loaded and verified through fluent API."""
+    # Register a prompt with all features
+    chat_template = [
+        {"role": "system", "content": "You are helpful."},
+        {"role": "user", "content": "Hello, {{name}}!"},
+    ]
+    response_format = {"type": "string"}
+    config = {"temperature": 0.7}
+
+    original = mlflow.register_prompt(
+        name="load_test",
+        template=chat_template,
+        prompt_type="chat",
+        response_format=response_format,
+        config=config,
+        tags={"test": "value"},
+    )
+
+    # Load and verify
+    loaded = mlflow.load_prompt("load_test", version=1)
+
+    assert loaded.name == original.name
+    assert loaded.version == original.version
+    assert loaded.template == original.template
+    assert loaded.prompt_type == original.prompt_type
+    assert loaded.response_format == original.response_format
+    assert loaded.config == original.config
+    assert loaded.tags == original.tags
+    assert loaded.variables == original.variables
+
+
+def test_register_prompt_format_functionality(tmp_path):
+    """Test that registered prompts can be formatted correctly through fluent API."""
+    # Register text prompt
+    text_prompt = mlflow.register_prompt(
+        name="format_text",
+        template="Hello, {{name}}! How are you {{mood}}?",
+        prompt_type="text",
+    )
+
+    # Test formatting
+    formatted = text_prompt.format(name="Alice", mood="happy")
+    assert formatted == "Hello, Alice! How are you happy?"
+
+    # Register chat prompt
+    chat_template = [
+        {"role": "system", "content": "You are a {{assistant_type}} assistant."},
+        {"role": "user", "content": "Hello, {{name}}!"},
+    ]
+    chat_prompt = mlflow.register_prompt(
+        name="format_chat",
+        template=chat_template,
+        prompt_type="chat",
+    )
+
+    # Test formatting
+    formatted = chat_prompt.format_chat(assistant_type="helpful", name="Bob")
+    expected = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Hello, Bob!"},
+    ]
+    assert formatted == expected
+
+
+def test_register_prompt_with_none_values(tmp_path):
+    """Test that None values are handled correctly through fluent API."""
+    prompt_version = mlflow.register_prompt(
+        name="none_values",
+        template="Hello, {{name}}!",
+        prompt_type=None,  # Should default to "text"
+        response_format=None,
+        config=None,
+        commit_message=None,
+        tags=None,
+    )
+
+    assert prompt_version.name == "none_values"
+    assert prompt_version.template == "Hello, {{name}}!"
+    assert prompt_version.prompt_type == "text"  # Default
+    assert prompt_version.response_format is None
+    assert prompt_version.config is None
+    assert prompt_version.commit_message is None
+    assert prompt_version.tags == {}
+
+
 def test_prompt_alias(tmp_path):
     mlflow.register_prompt(name="p1", template="Hi, there!")
     mlflow.register_prompt(name="p1", template="Hi, {{name}}!")
@@ -221,10 +635,12 @@ def test_register_model_prints_uc_model_version_url(monkeypatch):
             return_value="https://databricks.com",
         ) as mock_url,
         mock.patch(
-            "mlflow.tracking._model_registry.fluent.get_workspace_id", return_value=workspace_id
+            "mlflow.tracking._model_registry.fluent.get_workspace_id",
+            return_value=workspace_id,
         ) as mock_workspace_id,
         mock.patch(
-            "mlflow.MlflowClient.create_registered_model", return_value=RegisteredModel(name)
+            "mlflow.MlflowClient.create_registered_model",
+            return_value=RegisteredModel(name),
         ) as mock_create_model,
         mock.patch(
             "mlflow.MlflowClient._create_model_version",
@@ -350,7 +766,8 @@ def test_register_model_with_env_pack(tmp_path, mock_dbr_version):
 
     with (
         mock.patch(
-            "mlflow.utils.env_pack.download_artifacts", return_value=str(mock_artifacts_dir)
+            "mlflow.utils.env_pack.download_artifacts",
+            return_value=str(mock_artifacts_dir),
         ),
         mock.patch("subprocess.run", return_value=mock.Mock(returncode=0)),
         mock.patch(
@@ -403,7 +820,8 @@ def test_register_model_with_env_pack_staging_failure(tmp_path, mock_dbr_version
 
     with (
         mock.patch(
-            "mlflow.utils.env_pack.download_artifacts", return_value=str(mock_artifacts_dir)
+            "mlflow.utils.env_pack.download_artifacts",
+            return_value=str(mock_artifacts_dir),
         ),
         mock.patch("subprocess.run", return_value=mock.Mock(returncode=0)),
         mock.patch(
@@ -873,7 +1291,10 @@ def test_load_prompt_caching_works():
 
         # Call with different version should hit the client again
         mock_client_load.return_value = PromptVersion(
-            name="cached_prompt", version=2, template="Hi, {{name}}!", creation_timestamp=123456790
+            name="cached_prompt",
+            version=2,
+            template="Hi, {{name}}!",
+            creation_timestamp=123456790,
         )
         prompt3 = mlflow.load_prompt("cached_prompt", version=2, link_to_model=False)
         assert prompt3.version == 2
@@ -900,13 +1321,22 @@ def test_load_prompt_caching_respects_env_var():
         with mock.patch("mlflow.MlflowClient.load_prompt") as mock_client_load:
             mock_client_load.side_effect = [
                 PromptVersion(
-                    name="prompt_1", version=1, template="Template 1", creation_timestamp=1
+                    name="prompt_1",
+                    version=1,
+                    template="Template 1",
+                    creation_timestamp=1,
                 ),
                 PromptVersion(
-                    name="prompt_2", version=1, template="Template 2", creation_timestamp=2
+                    name="prompt_2",
+                    version=1,
+                    template="Template 2",
+                    creation_timestamp=2,
                 ),
                 PromptVersion(
-                    name="prompt_1", version=1, template="Template 1", creation_timestamp=1
+                    name="prompt_1",
+                    version=1,
+                    template="Template 1",
+                    creation_timestamp=1,
                 ),
             ]
 
@@ -953,7 +1383,10 @@ def test_load_prompt_skip_cache_for_allow_missing_none():
 
         # But if we find a prompt, the pattern will change
         mock_prompt = PromptVersion(
-            name="nonexistent_prompt", version=1, template="Found!", creation_timestamp=123
+            name="nonexistent_prompt",
+            version=1,
+            template="Found!",
+            creation_timestamp=123,
         )
         mock_client_load.return_value = mock_prompt
 
@@ -1035,7 +1468,10 @@ def test_load_prompt_caching_with_different_parameters():
 
     with mock.patch("mlflow.MlflowClient.load_prompt") as mock_client_load:
         mock_prompt = PromptVersion(
-            name="param_test", version=1, template="Hello, {{name}}!", creation_timestamp=123
+            name="param_test",
+            version=1,
+            template="Hello, {{name}}!",
+            creation_timestamp=123,
         )
         mock_client_load.return_value = mock_prompt
 
