@@ -250,7 +250,7 @@ def handle_user_request(user_id: str, session_id: str, message: str):
 
         # Log success metrics
         mlflow.update_current_trace(
-            attributes={"response_length": len(response), "processing_successful": True}
+            tags={"response_length": len(response), "processing_successful": True}
         )
 
         return response
@@ -258,8 +258,11 @@ def handle_user_request(user_id: str, session_id: str, message: str):
     except Exception as e:
         # Log error information
         mlflow.update_current_trace(
-            tags={"error": True, "error_type": type(e).__name__},
-            attributes={"error_message": str(e)},
+            tags={
+                "error": True,
+                "error_type": type(e).__name__,
+                "error_message": str(e),
+            },
         )
         raise
 ```
