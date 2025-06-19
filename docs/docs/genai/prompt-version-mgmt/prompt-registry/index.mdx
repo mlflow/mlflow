@@ -104,12 +104,9 @@ For the latest updates on Prompt Registry availability and features, monitor the
           template=initial_template,
           # Optional: Provide a commit message to describe the changes
           commit_message="Initial commit",
-          # Optional: Specify any additional metadata about the prompt version
-          version_metadata={
-              "author": "author@example.com",
-          },
           # Optional: Set tags applies to the prompt (across versions)
           tags={
+              "author": "author@example.com",
               "task": "summarization",
               "language": "en",
           },
@@ -170,7 +167,7 @@ This creates a new prompt with the specified template text and metadata. The pro
           name="summarization-prompt",  # Specify the existing prompt name
           template=new_template,
           commit_message="Improvement",
-          version_metadata={
+          tags={
               "author": "author@example.com",
           },
       )
