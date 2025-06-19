@@ -99,7 +99,7 @@ export const ExperimentListView = ({
               />
             </Button>
             <Tooltip
-              componentId="mlflow.experiment_list_view.compare_experiments_button"
+              componentId="mlflow.experiment_list_view.compare_experiments_button_tooltip"
               content={
                 <FormattedMessage
                   defaultMessage="Select at least two experiments from the table to compare them"
@@ -108,7 +108,7 @@ export const ExperimentListView = ({
               }
             >
               <Button
-                componentId="mlflow.experiment_list_view.compare_experiment_button"
+                componentId="mlflow.experiment_list_view.compare_experiments_button"
                 onClick={pushExperimentRoute}
                 data-testid="compare-experiment-button"
                 disabled={checkedKeys.length < 2}
