@@ -555,6 +555,18 @@ class MlflowClient:
 
         validate_prompt_name(name)
 
+        # Auto-detect prompt type based on template structure
+        if prompt_type == "text" and isinstance(template, list):
+            # Check if it's a valid chat template (list of dicts with role and content)
+            if len(template) > 0 and all(
+                isinstance(msg, dict)
+                and "role" in msg
+                and "content" in msg
+                and msg["role"] in ["system", "user", "assistant"]
+                for msg in template
+            ):
+                prompt_type = "chat"
+
         if is_databricks_unity_catalog_uri(self._registry_uri):
             try:
                 registry_client.create_prompt(
