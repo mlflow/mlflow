@@ -107,6 +107,15 @@ class ClassifierEvaluator(BuiltInEvaluator):
             # np.where only works for numpy array, not list
             self.label_list = np.array(self.label_list)
 
+            # Check for labels that don't appear in the actual data
+            data_classes = set(self.y_true) | set(self.y_pred)
+            extra_labels = set(self.label_list) - data_classes
+            if extra_labels:
+                _logger.warning(
+                    f"Labels {extra_labels} were provided but not found in data; "
+                    f"their counts will be zero in metrics calculation."
+                )
+
         # sort label_list ASC, for binary classification it makes sure the last one is pos label
         self.label_list.sort()
 
@@ -121,9 +130,38 @@ class ClassifierEvaluator(BuiltInEvaluator):
                     )
                 self.label_list = np.append(self.label_list, self.pos_label)
             if len(self.label_list) < 2:
-                raise MlflowException(
-                    "Evaluation dataset for classification must contain at least two unique "
-                    f"labels, but only {len(self.label_list)} unique labels were found.",
+                _logger.info(
+                    f"Only one unique label '{self.label_list[0]}' found in data. "
+                    f"Will use automatic padding to enable binary classification metrics."
+                )
+                # Auto-pad with a second label for binary classification
+                single_label = self.label_list[0]
+                if self.pos_label != single_label:
+                    # Use pos_label as the second class
+                    padded_labels = [single_label, self.pos_label]
+                else:
+                    # pos_label is the single class, need to infer a different negative class
+                    if isinstance(single_label, bool):
+                        other_label = not single_label
+                    elif isinstance(single_label, (int, float)):
+                        other_label = 1 - single_label if single_label in [0, 1] else 0
+                    elif isinstance(single_label, str):
+                        # Common binary class names
+                        if single_label.lower() in ["true", "yes", "positive", "pos", "1"]:
+                            other_label = "false"
+                        elif single_label.lower() in ["false", "no", "negative", "neg", "0"]:
+                            other_label = "true"
+                        else:
+                            other_label = "negative" if single_label != "negative" else "positive"
+                    else:
+                        # Generic fallback
+                        other_label = "negative"
+                    padded_labels = [other_label, single_label]
+
+                self.label_list = np.array(padded_labels)
+                _logger.info(
+                    f"Padded with additional label '{padded_labels[0]}' to enable binary "
+                    f"classification. Labels are now: {self.label_list}"
                 )
             with _suppress_class_imbalance_errors(IndexError, log_warning=False):
                 _logger.info(
@@ -494,8 +532,109 @@ def _get_common_classifier_metrics(
 def _get_binary_classifier_metrics(
     *, y_true, y_pred, y_proba=None, labels=None, pos_label=1, sample_weights=None
 ):
+    """
+    Compute binary classification metrics from predictions and true labels.
+
+    This function handles edge cases including single-class data by automatically
+    padding with a second class when necessary to ensure proper confusion matrix structure.
+
+    Parameters
+    ----------
+    y_true : array-like
+        True binary labels.
+    y_pred : array-like
+        Predicted binary labels.
+    y_proba : array-like, optional
+        Predicted probabilities for the positive class.
+    labels : array-like, optional
+        List of labels to use for the confusion matrix. If None, labels are inferred
+        from y_true and y_pred. If only one unique label is found in the data,
+        automatic padding will be applied to create a binary classification scenario.
+    pos_label : scalar, default=1
+        The positive class label. Should be one of the labels if labels is provided.
+    sample_weights : array-like, optional
+        Sample weights for weighted metrics calculation.
+
+    Returns
+    -------
+    dict
+        Dictionary containing binary classification metrics including confusion matrix
+        components (true_negatives, false_positives, false_negatives, true_positives)
+        and derived metrics (accuracy_score, precision_score, recall_score, f1_score).
+
+    Notes
+    -----
+    - Automatically handles single-class scenarios by padding with an inferred second class
+    - Emits warnings when provided labels don't match the data
+    - Supports sample weights for all metrics
+    - Ensures consistent confusion matrix structure regardless of data distribution
+    """
     with _suppress_class_imbalance_errors(ValueError):
-        tn, fp, fn, tp = sk_metrics.confusion_matrix(y_true, y_pred).ravel()
+        # Ensure we always get a 2x2 confusion matrix to avoid unpacking errors
+        data_classes = set(y_true) | set(y_pred)
+
+        if labels is not None and len(labels) == 2:
+            # Convert labels to list for consistency
+            labels_list = labels.tolist() if hasattr(labels, "tolist") else list(labels)
+
+            # Check for unknown labels that don't appear in the data
+            extra_labels = set(labels_list) - data_classes
+            if extra_labels:
+                _logger.warning(
+                    f"Labels {extra_labels} were provided but not found in data; "
+                    f"their counts will be zero in the confusion matrix."
+                )
+
+            # Validate that pos_label is in the provided labels
+            if pos_label not in labels_list:
+                _logger.warning(
+                    f"pos_label '{pos_label}' not found in provided labels {labels_list}. "
+                    f"This may cause unexpected behavior in metrics calculation."
+                )
+
+            cm = sk_metrics.confusion_matrix(y_true, y_pred, labels=labels_list)
+        else:
+            # Auto-detect unique classes and pad if necessary to prevent 1x1 matrix
+            unique_classes = sorted(data_classes)
+
+            if len(unique_classes) == 1:
+                # Pad to two classes to ensure 2x2 confusion matrix
+                single_class = unique_classes[0]
+                if pos_label != single_class:
+                    # Use pos_label as the second class
+                    padded_labels = [single_class, pos_label]
+                else:
+                    # pos_label is the single class, need to infer a different negative class
+                    # Use a reasonable default based on the type
+                    if isinstance(single_class, bool):
+                        other_class = not single_class
+                    elif isinstance(single_class, (int, float)):
+                        other_class = 1 - single_class if single_class in [0, 1] else 0
+                    elif isinstance(single_class, str):
+                        # Common binary class names
+                        if single_class.lower() in ["true", "yes", "positive", "pos", "1"]:
+                            other_class = "false"
+                        elif single_class.lower() in ["false", "no", "negative", "neg", "0"]:
+                            other_class = "true"
+                        else:
+                            other_class = "negative" if single_class != "negative" else "positive"
+                    else:
+                        # Generic fallback
+                        other_class = "negative"
+                    padded_labels = [other_class, single_class]
+
+                _logger.info(
+                    f"Only one class '{single_class}' found in data. Padding with "
+                    f"'{padded_labels[0]}' to ensure proper confusion matrix structure."
+                )
+                final_labels = padded_labels
+            else:
+                # Normal case with 2+ classes - use sorted unique classes for consistency
+                final_labels = unique_classes
+
+            cm = sk_metrics.confusion_matrix(y_true, y_pred, labels=final_labels)
+
+        tn, fp, fn, tp = cm.ravel()
         return {
             "true_negatives": tn,
             "false_positives": fp,
