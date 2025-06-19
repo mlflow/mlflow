@@ -135,6 +135,7 @@ export const ExperimentListView = ({
                 onClick={() => setShowBulkDeleteExperimentModal(true)}
                 data-testid="delete-experiments-button"
                 disabled={checkedKeys.length < 1}
+                danger
               >
                 <FormattedMessage
                   defaultMessage="Delete"
