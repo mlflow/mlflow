@@ -14,6 +14,7 @@ from typing import Any, Iterator, Union
 from clint import rules
 from clint.builtin import BUILTIN_MODULES
 from clint.config import Config
+from clint.noqa import Noqa, iter_noqa_comments
 from clint.resolver import Resolver
 
 PARAM_REGEX = re.compile(r"\s+:param\s+\w+:", re.MULTILINE)
@@ -98,6 +99,10 @@ class Location:
     @classmethod
     def from_node(cls, node: ast.AST) -> "Location":
         return cls(node.lineno - 1, node.col_offset)
+
+    @classmethod
+    def from_noqa(cls, noqa: Noqa) -> "Location":
+        return cls(noqa.lineno - 1, noqa.col_offset)
 
     def __add__(self, other: Location) -> Location:
         return Location(self.lineno + other.lineno, self.col_offset + other.col_offset)
@@ -304,6 +309,9 @@ class Linter(ast.NodeVisitor):
         self.lazy_modules: dict[str, Location] = {}
         self.offset = offset or Location(0, 0)
         self.resolver = Resolver()
+
+        for noqa in iter_noqa_comments(path.read_text()):
+            self.visit_noqa(noqa)
 
     def _check(self, loc: Location, rule: rules.Rule) -> None:
         if (lines := self.ignore.get(rule.name)) and loc.lineno in lines:
@@ -694,6 +702,10 @@ class Linter(ast.NodeVisitor):
             for mod in diff:
                 if loc := self.lazy_modules.get(mod):
                     self._check(loc, rules.LazyModule())
+
+    def visit_noqa(self, noqa: Noqa) -> None:
+        if r := rules.DoNotDisable.check(noqa.rules):
+            self._check(Location.from_noqa(noqa), r)
 
 
 def _has_trace_ui_content(output: dict[str, Any]) -> bool:
