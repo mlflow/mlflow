@@ -42,13 +42,6 @@ export const BulkDeleteExperimentModal = ({ isOpen, onClose, experiments, onExpe
               ))}
             </ul>
           </Typography.Paragraph>
-          {/* @ts-expect-error TS(4111): Property 'MLFLOW_SHOW_GDPR_PURGING_MESSAGES' comes from a... Remove this comment to see the full error message */}
-          {process.env.MLFLOW_SHOW_GDPR_PURGING_MESSAGES === 'true' ? (
-            <Typography.Paragraph>
-              Deleted experiments are restorable for 30 days, after which they are purged along with their associated
-              runs, including metrics, params, tags, and artifacts.
-            </Typography.Paragraph>
-          ) : null}
         </div>
       }
       confirmButtonText="Delete"
