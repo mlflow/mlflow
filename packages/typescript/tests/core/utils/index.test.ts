@@ -48,26 +48,25 @@ describe('utils', () => {
     it('should convert HrTime with zero seconds correctly', () => {
       const hrTime: HrTime = [0, 123456789];
       const result = convertHrTimeToNanoSeconds(hrTime);
-      expect(result).toBe(123456789);
+      expect(result).toBe(123456789n);
     });
 
     it('should convert HrTime with seconds correctly', () => {
       const hrTime: HrTime = [5, 500000000];
       const result = convertHrTimeToNanoSeconds(hrTime);
-      expect(result).toBe(5_500_000_000);
+      expect(result).toBe(5_500_000_000n);
     });
 
     it('should handle zero HrTime', () => {
       const hrTime: HrTime = [0, 0];
       const result = convertHrTimeToNanoSeconds(hrTime);
-      expect(result).toBe(0);
+      expect(result).toBe(0n);
     });
 
     it('should handle large HrTime values', () => {
       const hrTime: HrTime = [1234567890, 123456789];
       const result = convertHrTimeToNanoSeconds(hrTime);
-      // Calculate expected value to avoid precision loss
-      const expected = 1234567890 * 1e9 + 123456789;
+      const expected = 1234567890n * 1_000_000_000n + 123456789n;
       expect(result).toBe(expected);
     });
 
@@ -77,7 +76,7 @@ describe('utils', () => {
       testValues.forEach(nanos => {
         const hrTime = convertNanoSecondsToHrTime(nanos);
         const result = convertHrTimeToNanoSeconds(hrTime);
-        expect(result).toBe(nanos);
+        expect(result).toBe(BigInt(nanos));
       });
     });
   });

@@ -21,7 +21,7 @@ export interface SpanEventParams {
    * The exact time the event occurred, measured in nanoseconds since epoch.
    * If not provided, the current time will be used.
    */
-  timestamp?: number;
+  timestamp?: bigint;
   /**
    * A collection of key-value pairs representing detailed attributes of the event,
    * such as exception stack traces or other contextual information.
@@ -58,12 +58,8 @@ export class SpanEvent {
   /**
    * The exact time the event occurred, measured in nanosecond since epoch.
    * Defaults to current time if not provided during construction.
-   *
-   * NB: Nanosecond unix timestamp exceeds the range of number type in JavaScript. However, we need to
-   * stick to it for keeping the consistent JSON format with Python SDK. This causes precision loss
-   * when converting to/from JSON, but it should be smaller than 1 microsecond so acceptable.
    */
-  readonly timestamp: number;
+  readonly timestamp: bigint;
 
   /**
    * A collection of key-value pairs representing detailed attributes of the event.
@@ -146,7 +142,7 @@ export class SpanEvent {
    * Convert this SpanEvent to JSON format
    * @returns JSON object representation of the span event
    */
-  toJson(): Record<string, string | number | Record<string, AttributeValue>> {
+  toJson(): Record<string, string | bigint | Record<string, AttributeValue>> {
     return {
       name: this.name,
       timestamp: this.timestamp,
@@ -159,7 +155,7 @@ export class SpanEvent {
    *
    * @returns Current timestamp in nanoseconds
    */
-  private getCurrentTimeNano(): number {
-    return Date.now() * 1e6;
+  private getCurrentTimeNano(): bigint {
+    return BigInt(Date.now()) * BigInt(1e6);
   }
 }

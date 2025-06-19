@@ -140,7 +140,7 @@ export class Span implements ISpan {
       return new SpanEvent({
         name: event.name,
         attributes: event.attributes as Record<string, any>,
-        timestamp: seconds * 1e9 + nanoseconds
+        timestamp: BigInt(seconds) * 1_000_000_000n + BigInt(nanoseconds)
       });
     });
   }
@@ -295,7 +295,9 @@ export class LiveSpan extends Span {
    * @param event Event object with name and attributes
    */
   addEvent(event: SpanEvent): void {
-    this._span.addEvent(event.name, event.attributes, event.timestamp);
+    // Convert BigInt timestamp to HrTime for OpenTelemetry
+    const timeInput = convertNanoSecondsToHrTime(event.timestamp);
+    this._span.addEvent(event.name, event.attributes, timeInput);
   }
 
   /**
@@ -443,7 +445,7 @@ export class NoOpSpan implements ISpan {
       span_id: '',
       parent_span_id: null,
       name: '',
-      start_time_unix_nano: 0,
+      start_time_unix_nano: 0n,
       end_time_unix_nano: null,
       status: { code: 'UNSET' },
       attributes: {},
@@ -453,21 +455,19 @@ export class NoOpSpan implements ISpan {
 }
 
 
-interface SerializedSpan {
+export interface SerializedSpan {
   trace_id: string;
   span_id: string;
   parent_span_id: string | null;
   name: string;
-  // NB: Nanosecond unix timestamp exceeds the range of number type in JavaScript. However, we need to
-  // stick to it for keeping the consistent JSON format with Python SDK. This causes precision loss
-  // when converting to/from JSON, but it should be smaller than 1 microsecond so acceptable.
-  start_time_unix_nano: number;
-  end_time_unix_nano: number | null;
+  // Use bigint for nanosecond timestamps to maintain precision
+  start_time_unix_nano: bigint;
+  end_time_unix_nano: bigint | null;
   status: { code: string };
   attributes: Record<string, any>;
   events: {
     name: string;
-    time_unix_nano: number;
+    time_unix_nano: bigint;
     attributes: Record<string, any>;
   }[];
 }

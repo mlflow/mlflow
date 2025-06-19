@@ -1,5 +1,7 @@
 import type { HrTime } from '@opentelemetry/api';
 
+export { JSON } from './json';
+
 /**
  * OpenTelemetry Typescript SDK uses a unique timestamp format `HrTime` to represent
  * timestamps. This function converts a timestamp in nanoseconds to an `HrTime`
@@ -8,14 +10,27 @@ import type { HrTime } from '@opentelemetry/api';
  * @param nanoseconds The timestamp in nanoseconds (number or BigInt)
  * @returns The timestamp in `HrTime` format
  */
-export function convertNanoSecondsToHrTime(nanoseconds: number): HrTime {
-  // Convert BigInt to number safely for HrTime (OpenTelemetry uses number arrays)
+export function convertNanoSecondsToHrTime(nanoseconds: number | bigint): HrTime {
+  // Handle both number and BigInt inputs
+  if (typeof nanoseconds === 'bigint') {
+    // Use BigInt arithmetic to maintain precision
+    const seconds = Number(nanoseconds / 1_000_000_000n);
+    const nanos = Number(nanoseconds % 1_000_000_000n);
+    return [seconds, nanos] as HrTime;
+  }
+  // For regular numbers, use standard arithmetic
   return [Math.floor(nanoseconds / 1e9), nanoseconds % 1e9] as HrTime;
 }
 
-export function convertHrTimeToNanoSeconds(hrTime: HrTime): number {
-  return hrTime[0] * 1e9 + hrTime[1];
+/**
+ * Convert HrTime to nanoseconds as BigInt
+ * @param hrTime HrTime tuple [seconds, nanoseconds]
+ * @returns BigInt nanoseconds
+ */
+export function convertHrTimeToNanoSeconds(hrTime: HrTime): bigint {
+  return BigInt(hrTime[0]) * 1_000_000_000n + BigInt(hrTime[1]);
 }
+
 
 /**
  * Convert a hex span ID to base64 format for JSON serialization
