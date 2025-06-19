@@ -75,7 +75,7 @@ const useExperimentsTableColumns = () => {
           description: 'Header for the description column in the experiments table',
         }),
         id: 'description',
-        accessorFn: ({ tags }) => tags?.find(({ key }) => key === 'mlflow.note.content')?.value,
+        accessorFn: ({ tags }) => tags?.find(({ key }) => key === 'mlflow.note.content')?.value ?? '-',
       },
     ];
 
