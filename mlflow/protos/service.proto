@@ -537,7 +537,7 @@ service MlflowService {
       endpoints: [{
         method: "GET",
         path: "/mlflow/traces/{trace_id}",
-        since {major: 2, minor: 0},
+        since {major: 3, minor: 0},
       }],
       visibility: PUBLIC_UNDOCUMENTED,
       rpc_doc_title: "Get TraceInfo v3",
@@ -725,7 +725,7 @@ service MlflowService {
       endpoints: [{
         method: "GET",
         path: "/mlflow/traces/{trace_id}/assessments/{assessment_id}"
-        since {major: 2, minor: 0},
+        since {major: 3, minor: 0},
       }],
       visibility: PUBLIC_UNDOCUMENTED,
       rpc_doc_title: "Get Assessment",
@@ -738,7 +738,7 @@ service MlflowService {
       endpoints: [{
         method: "POST",
         path: "/mlflow/traces/{assessment.trace_id}/assessments"
-        since {major: 2, minor: 0},
+        since {major: 3, minor: 0},
       }],
       error_codes: [
         INVALID_PARAMETER_VALUE,
@@ -757,7 +757,7 @@ service MlflowService {
       endpoints: [{
         method: "PATCH",
         path: "/mlflow/traces/{trace_id}/assessments/{assessment_id}"
-        since {major: 2, minor: 0},
+        since {major: 3, minor: 0},
       }],
       error_codes: [
         INVALID_PARAMETER_VALUE,
@@ -775,14 +775,14 @@ service MlflowService {
       endpoints: [{
         method: "DELETE",
         path: "/mlflow/traces/{trace_id}/assessments/{assessment_id}"
-        since {major: 2, minor: 0},
+        since {major: 3, minor: 0},
       }],
       visibility: PUBLIC_UNDOCUMENTED,
       rpc_doc_title: "Delete Assessment",
     };
   }
 
-  rpc SearchTracesV3(SearchTracesV3Request) returns (SearchTracesV3Request.Response) {
+  rpc searchTracesV3(SearchTracesV3) returns (SearchTracesV3.Response) {
     option (rpc) = {
       endpoints: [
         {
@@ -2376,7 +2376,7 @@ message LoggedModelParameter {
   optional string value = 2;
 }
 
-message SearchTracesV3Request {
+message SearchTracesV3 {
   option (scalapb.message).extends = "com.databricks.rpc.RPC[$this.Response]";
 
   // A list of MLflow experiments to search over.

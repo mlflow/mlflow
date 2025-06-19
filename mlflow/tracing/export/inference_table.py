@@ -124,7 +124,7 @@ class InferenceTableSpanExporter(SpanExporter):
         except Exception:
             _logger.warning("Failed to add size bytes to trace metadata.", exc_info=True)
 
-        returned_trace_info = self._client.start_trace_v3(trace)
+        returned_trace_info = self._client.start_trace(trace.info)
         self._client._upload_trace_data(returned_trace_info, trace.data)
 
         # Link prompt versions to the trace. Prompt linking is not critical for trace export

@@ -3715,12 +3715,12 @@ def test_predict_with_callbacks_with_tracing(monkeypatch):
     tracer = MlflowLangchainTracer(prediction_context=Context(request_id))
     input_example = {"messages": [{"role": "user", "content": TEST_CONTENT}]}
 
-    with mock.patch("mlflow.tracing.client.TracingClient.start_trace_v3") as mock_start_trace_v3:
+    with mock.patch("mlflow.tracing.client.TracingClient.start_trace") as mock_start_trace:
         pyfunc_model._model_impl._predict_with_callbacks(
             data=input_example, callback_handlers=[tracer]
         )
         mlflow.flush_trace_async_logging()
-        mock_start_trace_v3.assert_called_once()
-        trace = mock_start_trace_v3.call_args[0][0]
+        mock_start_trace.assert_called_once()
+        trace = mock_start_trace.call_args[0][0]
         assert trace.info.client_request_id == request_id
         assert trace.info.request_metadata[TraceMetadataKey.MODEL_ID] == model_info.model_id

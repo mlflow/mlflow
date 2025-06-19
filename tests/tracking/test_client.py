@@ -23,7 +23,7 @@ from mlflow.entities import (
     SpanStatusCode,
     SpanType,
     Trace,
-    TraceInfoV2,
+    TraceInfo,
     ViewType,
 )
 from mlflow.entities.file_info import FileInfo
@@ -34,6 +34,7 @@ from mlflow.entities.model_registry.model_version_status import ModelVersionStat
 from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY
 from mlflow.entities.param import Param
 from mlflow.entities.trace_data import TraceData
+from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
@@ -127,26 +128,26 @@ def mock_databricks_tracking_store():
 
 
 @pytest.fixture
-def mock_store_start_trace_v3():
-    def _mock_start_trace_v3(trace):
+def mock_store_start_trace():
+    def _mock_start_trace(trace_info):
         return create_test_trace_info(
             trace_id="tr-123",
-            experiment_id=trace.info.experiment_id,
-            request_time=trace.info.request_time,
-            execution_duration=trace.info.execution_duration,
-            state=trace.info.state,
-            trace_metadata=trace.info.trace_metadata,
+            experiment_id=trace_info.experiment_id,
+            request_time=trace_info.request_time,
+            execution_duration=trace_info.execution_duration,
+            state=trace_info.state,
+            trace_metadata=trace_info.trace_metadata,
             tags={
                 "mlflow.user": "bob",
                 "mlflow.artifactLocation": "test",
-                **trace.info.tags,
+                **trace_info.tags,
             },
         )
 
     with mock.patch(
-        "mlflow.tracing.client.TracingClient.start_trace_v3", side_effect=_mock_start_trace_v3
-    ) as mock_start_trace_v3:
-        yield mock_start_trace_v3
+        "mlflow.tracing.client.TracingClient.start_trace", side_effect=_mock_start_trace
+    ) as mock_start_trace:
+        yield mock_start_trace
 
 
 @pytest.fixture
@@ -201,12 +202,12 @@ def test_client_create_run_with_name(mock_store, mock_time):
 
 
 def test_client_get_trace(mock_store, mock_artifact_repo):
-    mock_store.get_trace_info.return_value = TraceInfoV2(
-        request_id="tr-1234567",
-        experiment_id="0",
-        timestamp_ms=123,
-        execution_time_ms=456,
-        status=TraceStatus.OK,
+    mock_store.get_trace_info.return_value = TraceInfo(
+        trace_id="tr-1234567",
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=123,
+        execution_duration=456,
+        state=TraceState.OK,
         tags={"mlflow.artifactLocation": "dbfs:/path/to/artifacts"},
     )
     mock_artifact_repo.download_trace_data.return_value = {
@@ -258,12 +259,12 @@ def test_client_get_trace(mock_store, mock_artifact_repo):
 
 
 def test_client_get_trace_throws_for_missing_or_corrupted_data(mock_store, mock_artifact_repo):
-    mock_store.get_trace_info.return_value = TraceInfoV2(
-        request_id="1234567",
-        experiment_id="0",
-        timestamp_ms=123,
-        execution_time_ms=456,
-        status=TraceStatus.OK,
+    mock_store.get_trace_info.return_value = TraceInfo(
+        trace_id="1234567",
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=123,
+        execution_duration=456,
+        state=TraceState.OK,
         tags={"mlflow.artifactLocation": "dbfs:/path/to/artifacts"},
     )
     mock_artifact_repo.download_trace_data.side_effect = MlflowTraceDataNotFound("1234567")
@@ -285,20 +286,20 @@ def test_client_get_trace_throws_for_missing_or_corrupted_data(mock_store, mock_
 @pytest.mark.parametrize("include_spans", [True, False])
 def test_client_search_traces(mock_store, mock_artifact_repo, include_spans):
     mock_traces = [
-        TraceInfoV2(
-            request_id="1234567",
-            experiment_id="1",
-            timestamp_ms=123,
-            execution_time_ms=456,
-            status=TraceStatus.OK,
+        TraceInfo(
+            trace_id="1234567",
+            trace_location=TraceLocation.from_experiment_id("1"),
+            request_time=123,
+            execution_duration=456,
+            state=TraceState.OK,
             tags={"mlflow.artifactLocation": "dbfs:/path/to/artifacts/1"},
         ),
-        TraceInfoV2(
-            request_id="8910",
-            experiment_id="2",
-            timestamp_ms=456,
-            execution_time_ms=789,
-            status=TraceStatus.OK,
+        TraceInfo(
+            trace_id="8910",
+            trace_location=TraceLocation.from_experiment_id("2"),
+            request_time=456,
+            execution_duration=789,
+            state=TraceState.OK,
             tags={"mlflow.artifactLocation": "dbfs:/path/to/artifacts/2"},
         ),
     ]
@@ -348,12 +349,12 @@ def test_client_search_traces_trace_data_download_error(mock_store, include_span
         return_value=CustomArtifactRepository("test"),
     ) as mock_get_artifact_repository:
         mock_traces = [
-            TraceInfoV2(
-                request_id="1234567",
-                experiment_id="1",
-                timestamp_ms=123,
-                execution_time_ms=456,
-                status=TraceStatus.OK,
+            TraceInfo(
+                trace_id="1234567",
+                trace_location=TraceLocation.from_experiment_id("1"),
+                request_time=123,
+                execution_duration=456,
+                state=TraceState.OK,
                 tags={"mlflow.artifactLocation": "test"},
             ),
         ]
@@ -624,7 +625,7 @@ def test_start_and_end_trace_before_all_span_end(async_logging_enabled):
 
 @mock.patch("mlflow.get_tracking_uri", return_value="databricks")
 def test_log_trace_with_databricks_tracking_uri(
-    databricks_tracking_uri, mock_store_start_trace_v3, monkeypatch
+    databricks_tracking_uri, mock_store_start_trace, monkeypatch
 ):
     monkeypatch.setenv("MLFLOW_EXPERIMENT_NAME", "test")
     monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
@@ -690,7 +691,7 @@ def test_log_trace_with_databricks_tracking_uri(
         model.predict(1, 2)
         mlflow.flush_trace_async_logging(terminate=True)
 
-    mock_store_start_trace_v3.assert_called_once()
+    mock_store_start_trace.assert_called_once()
     mock_upload_trace_data.assert_called_once()
 
 

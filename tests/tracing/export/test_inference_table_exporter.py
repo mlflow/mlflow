@@ -83,8 +83,8 @@ def test_export(dual_write_enabled, monkeypatch):
     if dual_write_enabled:
         exporter._async_queue.flush(terminate=True)
 
-        assert mock_tracing_client.start_trace_v3.call_count == 1
-        trace = mock_tracing_client.start_trace_v3.call_args[0][0]
+        assert mock_tracing_client.start_trace.call_count == 1
+        trace = mock_tracing_client.start_trace.call_args[0][0]
         assert isinstance(trace.info, TraceInfo)
         # The trace ID should be updated to the format that MLflow backend accept
         assert trace.info.trace_id == trace_id
@@ -192,7 +192,7 @@ def test_size_bytes_in_trace_sent_to_mlflow_backend(monkeypatch):
 
     # Create mock client that captures the trace
     mock_tracing_client = mock.MagicMock()
-    mock_tracing_client.start_trace_v3.side_effect = mock_log_trace_to_mlflow_backend
+    mock_tracing_client.start_trace.side_effect = mock_log_trace_to_mlflow_backend
 
     with mock.patch(
         "mlflow.tracing.export.inference_table.TracingClient", return_value=mock_tracing_client
@@ -280,10 +280,10 @@ def test_prompt_linking_with_dual_write(monkeypatch):
         mock_link_prompt_versions_to_trace
     )
 
-    # Mock start_trace_v3 to return a mock trace info with the correct trace_id
+    # Mock start_trace to return a mock trace info with the correct trace_id
     mock_trace_info = mock.MagicMock()
     mock_trace_info.trace_id = trace_id
-    mock_tracing_client.start_trace_v3.return_value = mock_trace_info
+    mock_tracing_client.start_trace.return_value = mock_trace_info
 
     with mock.patch(
         "mlflow.tracing.export.inference_table.TracingClient", return_value=mock_tracing_client
@@ -352,7 +352,7 @@ def test_prompt_linking_disabled_without_dual_write(monkeypatch):
         exporter.export([otel_span])
 
     # Verify that no dual write methods were called
-    mock_tracing_client.start_trace_v3.assert_not_called()
+    mock_tracing_client.start_trace.assert_not_called()
     mock_tracing_client.link_prompt_versions_to_trace.assert_not_called()
 
     # But the trace should still be in the inference table buffer
@@ -397,10 +397,10 @@ def test_prompt_linking_with_empty_prompts(monkeypatch):
         mock_link_prompt_versions_to_trace
     )
 
-    # Mock start_trace_v3 to return a mock trace info with the correct trace_id
+    # Mock start_trace to return a mock trace info with the correct trace_id
     mock_trace_info = mock.MagicMock()
     mock_trace_info.trace_id = trace_id
-    mock_tracing_client.start_trace_v3.return_value = mock_trace_info
+    mock_tracing_client.start_trace.return_value = mock_trace_info
 
     with mock.patch(
         "mlflow.tracing.export.inference_table.TracingClient", return_value=mock_tracing_client
@@ -456,10 +456,10 @@ def test_prompt_linking_error_handling_with_dual_write(monkeypatch):
         "Prompt linking failed"
     )
 
-    # Mock start_trace_v3 to return a mock trace info with the correct trace_id
+    # Mock start_trace to return a mock trace info with the correct trace_id
     mock_trace_info = mock.MagicMock()
     mock_trace_info.trace_id = trace_id
-    mock_tracing_client.start_trace_v3.return_value = mock_trace_info
+    mock_tracing_client.start_trace.return_value = mock_trace_info
 
     with (
         mock.patch(
@@ -480,7 +480,7 @@ def test_prompt_linking_error_handling_with_dual_write(monkeypatch):
     )
 
     # Verify other client methods were still called (trace export should succeed)
-    mock_tracing_client.start_trace_v3.assert_called_once()
+    mock_tracing_client.start_trace.assert_called_once()
     mock_tracing_client._upload_trace_data.assert_called_once()
 
     # Verify that the error was logged but didn't crash the export
