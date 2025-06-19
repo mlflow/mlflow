@@ -80,10 +80,7 @@ For example, to disable logging of traces, and instead enable model logging, run
 ```python
 import mlflow
 
-mlflow.langchain.autolog(
-    log_traces=False,
-    log_models=True,
-)
+mlflow.langchain.autolog(log_traces=False)
 ```
 
 :::note
@@ -114,12 +111,7 @@ assert (
 
 # Enable mlflow langchain autologging
 # Note: We only support auto-logging models that do not contain retrievers
-mlflow.langchain.autolog(
-    log_input_examples=True,
-    log_model_signatures=True,
-    log_models=True,
-    registered_model_name="lc_model",
-)
+mlflow.langchain.autolog()
 
 prompt_with_history_str = """
 Here is a history between you and a human: {chat_history}

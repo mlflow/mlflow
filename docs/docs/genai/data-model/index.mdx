@@ -231,10 +231,10 @@ graph LR
 ```python
 # Log feedback programmatically
 mlflow.log_feedback(
-    request_id="trace-123",
-    feedback_name="relevance",
-    feedback_score=4,
-    feedback_rationale="Response was highly relevant to the question",
+    trace_id="trace-123",
+    name="relevance",
+    value=4,
+    rationale="Response was highly relevant to the question",
 )
 ```
 
@@ -345,9 +345,7 @@ graph TD
 
 ```python
 # Create a labeling session
-session = mlflow.create_labeling_session(
-    name="quality-review-session", trace_ids=["trace-1", "trace-2", "trace-3"]
-)
+session = mlflow.genai.create_labeling_session(name="quality-review-session")
 ```
 
 ## Complete Data Model Structure
