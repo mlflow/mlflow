@@ -1431,6 +1431,10 @@
     "defaultMessage": "Prompt template examples",
     "description": "Experiment page > new run modal > prompt examples > modal title"
   },
+  "L/4iQO": {
+    "defaultMessage": "Delete",
+    "description": "Label for the delete experiments action on the experiments list page"
+  },
   "L26D19": {
     "defaultMessage": "X-axis:",
     "description": "Label for the radio button to toggle the control on the X-axis of the metric graph for the experiment"
@@ -2162,6 +2166,10 @@
   "XcKgD5": {
     "defaultMessage": "Details",
     "description": "Title for the details section on the logged model details page"
+  },
+  "XdanFp": {
+    "defaultMessage": "Select experiments from the table to be deleted",
+    "description": "Experiments page delete experiments button tooltip message"
   },
   "Xm5xxu": {
     "defaultMessage": "Request error",
