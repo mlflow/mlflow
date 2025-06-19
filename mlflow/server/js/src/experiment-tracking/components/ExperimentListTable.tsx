@@ -8,8 +8,8 @@ import {
   CursorPagination,
   TableRow,
   TableHeader,
-  TableSkeletonRows,
   TableCell,
+  CursorPaginationProps,
 } from '@databricks/design-system';
 import 'react-virtualized/styles.css';
 import { ExperimentEntity } from '../types';
@@ -26,7 +26,6 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import Utils from '../../common/utils/Utils';
 import { Link } from '../../common/utils/RoutingUtils';
 import Routes from '../routes';
-import { useExperimentListQuery } from './experiment-page/hooks/useExperimentListQuery';
 
 type ExperimentTableColumnDef = ColumnDef<ExperimentEntity>;
 
@@ -70,6 +69,14 @@ const useExperimentsTableColumns = () => {
         id: 'lastModified',
         accessorFn: ({ lastUpdateTime }) => Utils.formatTimestamp(lastUpdateTime, intl),
       },
+      {
+        header: intl.formatMessage({
+          defaultMessage: 'Description',
+          description: 'Header for the description column in the experiments table',
+        }),
+        id: 'description',
+        accessorFn: ({ tags }) => tags?.find(({ key }) => key === 'mlflow.note.content')?.value ?? '-',
+      },
     ];
 
     return resultColumns;
@@ -81,15 +88,16 @@ export const ExperimentListTable = ({
   isFiltered,
   rowSelection,
   setRowSelection,
+  cursorPaginationProps,
 }: {
   experiments?: ExperimentEntity[];
   isFiltered?: boolean;
   rowSelection: RowSelectionState;
   setRowSelection: OnChangeFn<RowSelectionState>;
+  cursorPaginationProps: Omit<CursorPaginationProps, 'componentId'>;
 }) => {
   const { theme } = useDesignSystemTheme();
   const columns = useExperimentsTableColumns();
-  const { isLoading, onNextPage, onPreviousPage, hasNextPage, hasPreviousPage } = useExperimentListQuery();
 
   const table = useReactTable({
     data: experiments ?? [],
@@ -103,7 +111,7 @@ export const ExperimentListTable = ({
   });
 
   const getEmptyState = () => {
-    const isEmptyList = !isLoading && isEmpty(experiments);
+    const isEmptyList = isEmpty(experiments);
     if (isEmptyList && isFiltered) {
       return (
         <Empty
@@ -145,15 +153,7 @@ export const ExperimentListTable = ({
   return (
     <Table
       scrollable
-      pagination={
-        <CursorPagination
-          hasNextPage={hasNextPage}
-          hasPreviousPage={hasPreviousPage}
-          onNextPage={onNextPage}
-          onPreviousPage={onPreviousPage}
-          componentId="mlflow.experiment_list_view.pagination"
-        />
-      }
+      pagination={<CursorPagination {...cursorPaginationProps} componentId="mlflow.experiment_list_view.pagination" />}
       empty={getEmptyState()}
     >
       <TableRow isHeader>
@@ -167,22 +167,18 @@ export const ExperimentListTable = ({
           </TableHeader>
         ))}
       </TableRow>
-      {isLoading ? (
-        <TableSkeletonRows table={table} />
-      ) : (
-        table.getRowModel().rows.map((row) => (
-          <TableRow key={row.id} css={{ height: theme.general.buttonHeight }} data-testid="experiment-list-item">
-            {row.getAllCells().map((cell) => (
-              <TableCell
-                key={cell.id}
-                css={{ alignItems: 'center', ...(cell.column.id === 'select' ? selectColumnStyles : undefined) }}
-              >
-                {flexRender(cell.column.columnDef.cell, cell.getContext())}
-              </TableCell>
-            ))}
-          </TableRow>
-        ))
-      )}
+      {table.getRowModel().rows.map((row) => (
+        <TableRow key={row.id} css={{ height: theme.general.buttonHeight }} data-testid="experiment-list-item">
+          {row.getAllCells().map((cell) => (
+            <TableCell
+              key={cell.id}
+              css={{ alignItems: 'center', ...(cell.column.id === 'select' ? selectColumnStyles : undefined) }}
+            >
+              {flexRender(cell.column.columnDef.cell, cell.getContext())}
+            </TableCell>
+          ))}
+        </TableRow>
+      ))}
     </Table>
   );
 };

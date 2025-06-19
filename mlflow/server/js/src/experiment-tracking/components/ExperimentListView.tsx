@@ -12,6 +12,7 @@ import {
   Typography,
   Alert,
   useDesignSystemTheme,
+  CursorPaginationProps,
 } from '@databricks/design-system';
 import 'react-virtualized/styles.css';
 import Routes from '../routes';
@@ -28,24 +29,34 @@ import { useNavigate } from '../../common/utils/RoutingUtils';
 type Props = {
   experiments: ExperimentEntity[];
   error?: Error;
+  searchFilter: string;
+  setSearchFilter: (searchFilter: string) => void;
+  cursorPaginationProps: Omit<CursorPaginationProps, 'componentId'>;
 };
 
-export const ExperimentListView = ({ experiments, error }: Props) => {
+export const ExperimentListView = ({
+  experiments,
+  error,
+  searchFilter,
+  setSearchFilter,
+  cursorPaginationProps,
+}: Props) => {
   const invalidateExperimentList = useInvalidateExperimentList();
 
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [searchInput, setSearchInput] = useState('');
   const [showCreateExperimentModal, setShowCreateExperimentModal] = useState(false);
 
-  const filterExperiments = (searchInput: string) => {
-    const lowerCasedSearchInput = searchInput.toLowerCase();
-    return lowerCasedSearchInput === ''
-      ? experiments
-      : experiments.filter(({ name }) => name.toLowerCase().includes(lowerCasedSearchInput));
-  };
-
   const handleSearchInputChange: React.ChangeEventHandler<HTMLInputElement> = (event) => {
     setSearchInput(event.target.value);
+  };
+
+  const handleSearchSubmit = () => {
+    setSearchFilter(searchInput);
+  };
+
+  const handleSearchClear = () => {
+    setSearchFilter('');
   };
 
   const handleCreateExperiment = () => {
@@ -67,8 +78,7 @@ export const ExperimentListView = ({ experiments, error }: Props) => {
 
   const { theme } = useDesignSystemTheme();
   const navigate = useNavigate();
-
-  const filteredExperiments = filterExperiments(searchInput);
+  const intl = useIntl();
 
   return (
     <ScrollablePageWrapper css={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -89,7 +99,7 @@ export const ExperimentListView = ({ experiments, error }: Props) => {
               />
             </Button>
             <Tooltip
-              componentId="mlflow.experiment_list_view.compare_experiments_button"
+              componentId="mlflow.experiment_list_view.compare_experiments_button_tooltip"
               content={
                 <FormattedMessage
                   defaultMessage="Select at least two experiments from the table to compare them"
@@ -98,7 +108,7 @@ export const ExperimentListView = ({ experiments, error }: Props) => {
               }
             >
               <Button
-                componentId="mlflow.experiment_list_view.compare_experiment_button"
+                componentId="mlflow.experiment_list_view.compare_experiments_button"
                 onClick={pushExperimentRoute}
                 data-testid="compare-experiment-button"
                 disabled={checkedKeys.length < 2}
@@ -126,18 +136,25 @@ export const ExperimentListView = ({ experiments, error }: Props) => {
         <TableFilterLayout>
           <TableFilterInput
             data-testid="search-experiment-input"
-            placeholder="Search experiments by name"
+            placeholder={intl.formatMessage({
+              defaultMessage: 'Filter experiments by name, tags or attributes',
+              description: 'Placeholder text inside experiments search bar',
+            })}
             componentId="mlflow.experiment_list_view.search"
-            value={searchInput}
+            defaultValue={searchFilter}
             onChange={handleSearchInputChange}
+            onSubmit={handleSearchSubmit}
+            onClear={handleSearchClear}
+            showSearchButton
             suffix={<ModelSearchInputHelpTooltip />}
           />
         </TableFilterLayout>
         <ExperimentListTable
-          experiments={filteredExperiments}
-          isFiltered={Boolean(searchInput)}
+          experiments={experiments}
+          isFiltered={Boolean(searchFilter)}
           rowSelection={rowSelection}
           setRowSelection={setRowSelection}
+          cursorPaginationProps={cursorPaginationProps}
         />
       </div>
       <CreateExperimentModal
