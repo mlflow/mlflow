@@ -483,7 +483,7 @@ def extract_all_api_info_for_service(service, path_prefix):
     return res
 
 
-def get_single_trace_endpoint(request_id, use_v3=False):
+def get_single_trace_endpoint(request_id, use_v3=True):
     """
     Get the endpoint for a single trace.
     For Databricks tracking URIs, use the V3 API.
@@ -502,70 +502,20 @@ def get_logged_model_endpoint(model_id: str) -> str:
     return f"{_REST_API_PATH_PREFIX}/mlflow/logged-models/{model_id}"
 
 
-def get_trace_info_endpoint(request_id):
-    return f"{_TRACE_REST_API_PATH_PREFIX}/{request_id}/info"
-
-
-def get_trace_assessment_endpoint(request_id, is_databricks=False):
-    """
-    Get the endpoint for a trace assessment.
-
-    Args:
-        request_id: The trace ID.
-        is_databricks: Whether the tracking URI is a Databricks URI.
-    """
-    return get_single_trace_endpoint(request_id, use_v3=is_databricks)
-
-
-def get_set_trace_tag_endpoint(request_id, is_databricks=False):
-    """
-    Get the endpoint for setting trace tags.
-
-    Args:
-        request_id: The trace ID.
-        is_databricks: Whether the tracking URI is a Databricks URI.
-    """
-    return f"{get_single_trace_endpoint(request_id, use_v3=is_databricks)}/tags"
-
-
-def get_create_assessment_endpoint(trace_id: str, is_databricks=False):
-    """
-    Get the endpoint for creating an assessment.
-
-    Args:
-        trace_id: The trace ID.
-        is_databricks: Whether the tracking URI is a Databricks URI.
-    """
-    if is_databricks:
-        return f"{_V3_TRACE_REST_API_PATH_PREFIX}/{trace_id}/assessments"
-    return f"{_TRACE_REST_API_PATH_PREFIX}/{trace_id}/assessments"
-
-
-def get_single_assessment_endpoint(trace_id: str, assessment_id: str, is_databricks=False):
+def get_single_assessment_endpoint(trace_id: str, assessment_id: str) -> str:
     """
     Get the endpoint for a single assessment.
 
     Args:
         trace_id: The trace ID.
         assessment_id: The assessment ID.
-        is_databricks: Whether the tracking URI is a Databricks URI.
     """
-    if is_databricks:
-        return f"{_V3_TRACE_REST_API_PATH_PREFIX}/{trace_id}/assessments/{assessment_id}"
-    return f"{_TRACE_REST_API_PATH_PREFIX}/{trace_id}/assessments/{assessment_id}"
+    return f"{_V3_TRACE_REST_API_PATH_PREFIX}/{trace_id}/assessments/{assessment_id}"
 
 
-def get_search_traces_v3_endpoint(is_databricks=False):
-    """
-    Return the endpoint for the SearchTraces API.
-
-    Args:
-        is_databricks: Whether the tracking URI is a Databricks URI. If True,
-                       returns the v3 endpoint, otherwise returns the v2 endpoint.
-    """
-    if is_databricks:
-        return f"{_V3_TRACE_REST_API_PATH_PREFIX}/search"
-    return f"{_TRACE_REST_API_PATH_PREFIX}/search"
+def get_trace_tag_endpoint(trace_id):
+    """Get the endpoint for trace tags. Always use v2 endpoint."""
+    return f"{_REST_API_PATH_PREFIX}/mlflow/traces/{trace_id}/tags"
 
 
 def call_endpoint(

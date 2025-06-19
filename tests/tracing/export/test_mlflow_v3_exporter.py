@@ -81,7 +81,7 @@ def test_export(is_async, monkeypatch):
     mock_call_endpoint.assert_called_once()
     mock_upload_trace_data.assert_called_once()
 
-    # Access the trace that was passed to _start_trace_v3
+    # Access the trace that was passed to _start_trace
     endpoint = mock_call_endpoint.call_args.args[1]
     assert endpoint == "/api/3.0/mlflow/traces"
     trace_info_dict = trace_info.to_dict()
@@ -134,7 +134,7 @@ def test_export_catch_failure(is_async, monkeypatch):
 
     with (
         mock.patch(
-            "mlflow.tracing.client.TracingClient.start_trace_v3",
+            "mlflow.tracing.client.TracingClient.start_trace",
             side_effect=Exception("Failed to start trace"),
         ),
         mock.patch("mlflow.tracing.export.mlflow_v3._logger") as mock_logger,
@@ -168,7 +168,7 @@ def test_async_bulk_export(monkeypatch):
 
     with (
         mock.patch(
-            "mlflow.tracing.client.TracingClient.start_trace_v3", side_effect=_mock_client_method
+            "mlflow.tracing.client.TracingClient.start_trace", side_effect=_mock_client_method
         ) as mock_start_trace,
         mock.patch(
             "mlflow.tracing.client.TracingClient._upload_trace_data", return_value=None
@@ -211,7 +211,7 @@ def test_prompt_linking_in_mlflow_v3_exporter(is_async, monkeypatch):
     # Mock the prompt linking method and other client methods
     with (
         mock.patch(
-            "mlflow.tracing.client.TracingClient.start_trace_v3",
+            "mlflow.tracing.client.TracingClient.start_trace",
             return_value=mock.MagicMock(trace_id="test-trace-id"),
         ) as mock_start_trace,
         mock.patch(
@@ -314,7 +314,7 @@ def test_prompt_linking_with_empty_prompts_mlflow_v3(is_async, monkeypatch):
     # Mock the client methods
     with (
         mock.patch(
-            "mlflow.tracing.client.TracingClient.start_trace_v3",
+            "mlflow.tracing.client.TracingClient.start_trace",
             return_value=mock.MagicMock(trace_id="test-trace-id"),
         ) as mock_start_trace,
         mock.patch(
@@ -380,7 +380,7 @@ def test_prompt_linking_error_handling_mlflow_v3(monkeypatch):
     # Mock the client methods with prompt linking failing
     with (
         mock.patch(
-            "mlflow.tracing.client.TracingClient.start_trace_v3",
+            "mlflow.tracing.client.TracingClient.start_trace",
             return_value=mock.MagicMock(trace_id="test-trace-id"),
         ) as mock_start_trace,
         mock.patch(

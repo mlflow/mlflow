@@ -6,8 +6,6 @@ from unittest import mock
 import pytest
 
 import mlflow
-from mlflow.entities import TraceInfoV2
-from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_ASYNC_LOGGING,
     MLFLOW_ENABLE_ASYNC_TRACE_LOGGING,
@@ -29,29 +27,6 @@ def reset_tracking_uri():
     yield
 
     mlflow.set_tracking_uri(original_tracking_uri)
-
-
-@pytest.fixture
-def mock_upload_trace_data():
-    with (
-        mock.patch(
-            "mlflow.tracking._tracking_service.client.TrackingServiceClient.end_trace",
-            return_value=TraceInfoV2(
-                request_id="tr-1234",
-                experiment_id="0",
-                timestamp_ms=0,
-                execution_time_ms=0,
-                status=TraceStatus.OK,
-                request_metadata={},
-                tags={"mlflow.artifactLocation": "test"},
-            ),
-        ),
-        mock.patch(
-            "mlflow.tracking._tracking_service.client.TrackingServiceClient._upload_trace_data",
-            return_value=None,
-        ) as mock_upload_trace_data,
-    ):
-        yield mock_upload_trace_data
 
 
 @pytest.fixture
