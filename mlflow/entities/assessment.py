@@ -52,6 +52,7 @@ class Assessment(_MlflowObject):
     #   assessment to a trace in the backend eventually.
     #   https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/custom-metrics#-metric-decorator
     trace_id: Optional[str] = None
+    run_id: Optional[str] = None
     rationale: Optional[str] = None
     metadata: Optional[dict[str, str]] = None
     span_id: Optional[str] = None
@@ -104,6 +105,9 @@ class Assessment(_MlflowObject):
                 "`source` must be an instance of `AssessmentSource`. "
                 f"Got {type(self.source)} instead."
             )
+        # Extract and set run_id from metadata but don't modify the proto representation
+        if self.run_id is None and self.metadata and "run_id" in self.metadata:
+            self.run_id = self.metadata["run_id"]
 
     def to_proto(self):
         assessment = ProtoAssessment()

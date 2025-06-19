@@ -406,3 +406,104 @@ def test_assessment_value_assignment():
 
     expectation.value = 0.9
     assert expectation.value == 0.9
+
+
+@pytest.mark.parametrize(
+    ("assessment_class", "assessment_kwargs", "metadata", "expected_run_id"),
+    [
+        (
+            Feedback,
+            {"name": "correctness", "value": True},
+            {"run_id": "run123", "other_key": "other_value"},
+            "run123",
+        ),
+        (
+            Expectation,
+            {"name": "expected_response", "value": "Paris"},
+            {"run_id": "run456", "context": "geography"},
+            "run456",
+        ),
+        (Feedback, {"name": "relevance", "value": True}, {"other_key": "value"}, None),
+        (Feedback, {"name": "completeness", "value": True}, None, None),
+        (Feedback, {"name": "accuracy", "value": True}, {"project": "test"}, None),
+    ],
+)
+def test_run_id_extraction_from_metadata(
+    assessment_class, assessment_kwargs, metadata, expected_run_id
+):
+    assessment = assessment_class(metadata=metadata, **assessment_kwargs)
+    assert assessment.run_id == expected_run_id
+    if expected_run_id:
+        assert assessment.metadata["run_id"] == expected_run_id
+
+
+def test_run_id_explicit_override():
+    feedback = Feedback(name="quality", value=5, metadata={"run_id": "metadata_run123"})
+    feedback.run_id = "explicit_run789"
+    assert feedback.run_id == "explicit_run789"
+
+
+def test_run_id_not_in_proto():
+    feedback = Feedback(name="test_feedback", value=True, metadata={"project": "test"})
+    feedback.run_id = "run123"
+
+    proto = feedback.to_proto()
+    assert not hasattr(proto, "run_id")
+
+
+def test_run_id_proto_conversion():
+    feedback = Feedback(
+        name="test_feedback", value=True, metadata={"run_id": "run123", "project": "test"}
+    )
+
+    proto = feedback.to_proto()
+    recovered_feedback = Feedback.from_proto(proto)
+
+    assert recovered_feedback.run_id == "run123"
+    assert recovered_feedback.metadata["run_id"] == "run123"
+
+
+def test_run_id_dict_conversion():
+    expectation = Expectation(
+        name="test_expectation",
+        value="expected result",
+        metadata={"run_id": "run456", "version": "1.0"},
+    )
+
+    assessment_dict = expectation.to_dictionary()
+    recovered_expectation = Expectation.from_dictionary(assessment_dict)
+
+    assert recovered_expectation.run_id == "run456"
+    assert recovered_expectation.metadata["run_id"] == "run456"
+    feedback = Feedback(
+        name="test_feedback", value=True, run_id="run123", metadata={"project": "test"}
+    )
+
+    proto = feedback.to_proto()
+    assert not hasattr(proto, "run_id")
+
+
+def test_run_id_proto_conversion():
+    feedback = Feedback(
+        name="test_feedback", value=True, metadata={"run_id": "run123", "project": "test"}
+    )
+
+    proto = feedback.to_proto()
+    recovered_feedback = Feedback.from_proto(proto)
+
+    assert recovered_feedback.run_id == "run123"
+    assert recovered_feedback.metadata["run_id"] == "run123"
+
+
+def test_run_id_dict_conversion():
+    expectation = Expectation(
+        name="test_expectation",
+        value="expected result",
+        metadata={"run_id": "run456", "version": "1.0"},
+    )
+
+    assessment_dict = expectation.to_dictionary()
+    recovered_expectation = Expectation.from_dictionary(assessment_dict)
+
+    assert recovered_expectation.run_id == "run456"
+    assert recovered_expectation.metadata["run_id"] == "run456"
