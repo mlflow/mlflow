@@ -93,7 +93,7 @@ def mlflow_client(request, tmp_path):
         yield MlflowClient(url)
 
 
-def skip_if_v3_backend(mlflow_client):
+def skip_if_v3_backend():
     # Skip tests if the backend is SQLAlchemy store because the OSS rest store does not
     # fully support V3 yet. TODO: Remove this once the OSS rest store supports V3.
     if mlflow.get_tracking_uri().startswith("sqlite"):

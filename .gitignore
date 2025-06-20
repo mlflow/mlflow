@@ -121,6 +121,3 @@ a.md
 
 # Ignore a gunicorn config file
 gunicorn.conf.py
-
-# Ignore CLAUDE.md files by default (unless intentionally added)
-CLAUDE.md
