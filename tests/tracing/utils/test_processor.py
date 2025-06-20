@@ -86,7 +86,7 @@ def test_apply_span_processors_returns_non_none_warning(mock_logger):
 
     mock_logger.warning.assert_called_once()
     message = mock_logger.warning.call_args[0][0]
-    assert message.startswith("Span processor bad_processor returned")
+    assert message.startswith("Span processors ['bad_processor'] returned a non-null value")
 
     # Other processors should still be applied
     span = get_traces()[0].data.spans[0]

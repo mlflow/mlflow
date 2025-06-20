@@ -1,10 +1,6 @@
 import logging
-from typing import TYPE_CHECKING
 
 from mlflow.exceptions import MlflowException
-
-if TYPE_CHECKING:
-    pass
 
 _logger = logging.getLogger(__name__)
 
@@ -17,19 +13,23 @@ def apply_span_processors(span):
     if not config.span_processors:
         return
 
+    non_null_return_processors = []
     for processor in config.span_processors:
         try:
             result = processor(span)
             if result is not None:
-                _logger.warning(
-                    f"Span processor {processor.__name__} returned a non-null value, but it "
-                    "will be ignored. Span processor should not return a value."
-                )
+                non_null_return_processors.append(processor.__name__)
         except Exception as e:
             _logger.warning(
                 f"Span processor {processor.__name__} failed: {e}",
                 exc_info=_logger.isEnabledFor(logging.DEBUG),
             )
+
+    if non_null_return_processors:
+        _logger.warning(
+            f"Span processors {non_null_return_processors} returned a non-null value, "
+            "but it will be ignored. Span processors should not return a value."
+        )
 
 
 def validate_span_processors(span_processors):
@@ -55,7 +55,3 @@ def validate_span_processors(span_processors):
             )
 
     return span_processors
-
-
-# Alias for backward compatibility
-validate_span_processor = validate_span_processors

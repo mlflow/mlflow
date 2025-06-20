@@ -1,8 +1,8 @@
 from copy import deepcopy
 from dataclasses import dataclass
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 
-from mlflow.tracing.utils.processor import validate_span_processor
+from mlflow.tracing.utils.processor import validate_span_processors
 from mlflow.utils.annotations import experimental
 
 
@@ -15,23 +15,19 @@ class TracingConfig:
     span_processors: Optional[list[Callable]] = None
 
     def __post_init__(self):
-        self.span_processors = validate_span_processor(self.span_processors)
+        self.span_processors = validate_span_processors(self.span_processors)
 
 
 # Global configuration instance for tracing
 _MLFLOW_TRACING_CONFIG = TracingConfig()
 
-# Sentinel object to detect unspecified arguments
-_UNSPECIFIED = object()
-
 
 class TracingConfigContext:
     """Context manager for temporary tracing configuration changes."""
 
-    def __init__(self, config_updates):
+    def __init__(self, config_updates: dict[str, Any]):
         self.config_updates = config_updates
         self.previous_config = None
-        self.is_context_manager = False
 
         # Save the config state before applying any changes
         self.previous_config = deepcopy(_MLFLOW_TRACING_CONFIG)
@@ -41,16 +37,11 @@ class TracingConfigContext:
             setattr(_MLFLOW_TRACING_CONFIG, key, value)
 
     def __enter__(self):
-        # Mark as context manager
-        self.is_context_manager = True
-        # Changes are already applied from __init__
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         global _MLFLOW_TRACING_CONFIG
-        # Only restore if actually used as context manager
-        if self.is_context_manager and self.previous_config is not None:
-            _MLFLOW_TRACING_CONFIG = self.previous_config
+        _MLFLOW_TRACING_CONFIG = self.previous_config
 
 
 def get_config() -> TracingConfig:
@@ -73,7 +64,7 @@ def reset_config():
 
 @experimental(version="3.2.0")
 def configure(
-    span_processors: list[Callable] = _UNSPECIFIED,
+    span_processors: Optional[list[Callable]] = None,
 ) -> TracingConfigContext:
     """
     Configure MLflow tracing. Can be used as function or context manager.
@@ -105,7 +96,7 @@ def configure(
     """
     # Collect only the arguments that were explicitly provided
     config_updates = {}
-    if span_processors is not _UNSPECIFIED:
+    if span_processors is not None:
         config_updates["span_processors"] = span_processors
 
     # Return TracingConfigContext which handles both function and context manager usage
