@@ -642,12 +642,6 @@ def get_artifact_handler():
     run_id = request.args.get("run_id") or request.args.get("run_uuid")
     model_id = request.args.get("model_id")
 
-    if run_id is None and model_id is None:
-        raise MlflowException(
-            "Either run_id or model_id must be provided",
-            error_code=INVALID_PARAMETER_VALUE,
-        )
-
     path = request.args["path"]
     path = validate_path_is_safe(path)
 
@@ -657,6 +651,11 @@ def get_artifact_handler():
     elif model_id:
         model = _get_tracking_store().get_logged_model(model_id)
         artifact_root = model.artifact_location
+    else:
+        raise MlflowException(
+            "Either run_id or model_id must be provided",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
     if _is_servable_proxied_run_artifact_root(artifact_root):
         artifact_repo = _get_artifact_repo_mlflow_artifacts()
