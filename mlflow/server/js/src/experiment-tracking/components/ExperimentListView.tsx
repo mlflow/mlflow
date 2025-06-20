@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Theme } from '@emotion/react';
 import {
   Button,
-  Tooltip,
   TableFilterLayout,
   TableFilterInput,
   Spacer,
@@ -100,49 +99,29 @@ export const ExperimentListView = ({
                 description="Label for the create experiment action on the experiments list page"
               />
             </Button>
-            <Tooltip
-              componentId="mlflow.experiment_list_view.compare_experiments_button_tooltip"
-              content={
-                <FormattedMessage
-                  defaultMessage="Select at least two experiments from the table to compare them"
-                  description="Experiments page compare experiments button tooltip message"
-                />
-              }
+            <Button
+              componentId="mlflow.experiment_list_view.compare_experiments_button"
+              onClick={pushExperimentRoute}
+              data-testid="compare-experiment-button"
+              disabled={checkedKeys.length < 2}
             >
-              <Button
-                componentId="mlflow.experiment_list_view.compare_experiments_button"
-                onClick={pushExperimentRoute}
-                data-testid="compare-experiment-button"
-                disabled={checkedKeys.length < 2}
-              >
-                <FormattedMessage
-                  defaultMessage="Compare"
-                  description="Label for the compare experiments action on the experiments list page"
-                />
-              </Button>
-            </Tooltip>
-            <Tooltip
-              componentId="mlflow.experiment_list_view.bulk_delete_button_tooltip"
-              content={
-                <FormattedMessage
-                  defaultMessage="Select experiments from the table to be deleted"
-                  description="Experiments page delete experiments button tooltip message"
-                />
-              }
+              <FormattedMessage
+                defaultMessage="Compare"
+                description="Label for the compare experiments action on the experiments list page"
+              />
+            </Button>
+            <Button
+              componentId="mlflow.experiment_list_view.bulk_delete_button"
+              onClick={() => setShowBulkDeleteExperimentModal(true)}
+              data-testid="delete-experiments-button"
+              disabled={checkedKeys.length < 1}
+              danger
             >
-              <Button
-                componentId="mlflow.experiment_list_view.bulk_delete_button"
-                onClick={() => setShowBulkDeleteExperimentModal(true)}
-                data-testid="delete-experiments-button"
-                disabled={checkedKeys.length < 1}
-                danger
-              >
-                <FormattedMessage
-                  defaultMessage="Delete"
-                  description="Label for the delete experiments action on the experiments list page"
-                />
-              </Button>
-            </Tooltip>
+              <FormattedMessage
+                defaultMessage="Delete"
+                description="Label for the delete experiments action on the experiments list page"
+              />
+            </Button>
           </>
         }
       />
