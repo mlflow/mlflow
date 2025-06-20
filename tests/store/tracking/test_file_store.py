@@ -26,6 +26,11 @@ from mlflow.entities import (
     RunData,
     RunStatus,
     RunTag,
+    Trace,
+    TraceData,
+    TraceInfo,
+    TraceLocation,
+    TraceState,
     ViewType,
     _DatasetSummary,
 )
@@ -75,14 +80,30 @@ def store(tmp_path):
 def store_and_trace_info(store):
     exp_id = store.create_experiment("test")
     timestamp_ms = get_current_time_millis()
-    return store, store.start_trace(exp_id, timestamp_ms, {}, {})
+    return store, store.start_trace_v3(
+        trace=Trace(
+            info=TraceInfo(
+                trace_id=f"tr-{uuid.uuid4()}",
+                trace_location=TraceLocation.from_experiment_id(exp_id),
+                request_time=timestamp_ms,
+                execution_duration=0,
+                state=TraceState.OK,
+                tags={},
+                trace_metadata={},
+                client_request_id=f"tr-{uuid.uuid4()}",
+                request_preview=None,
+                response_preview=None,
+            ),
+            data=TraceData(spans=[]),
+        )
+    )
 
 
 class TraceInfos(NamedTuple):
     trace_infos: list[TraceInfoV2]
     store: FileStore
     exp_id: str
-    request_ids: list[str]
+    trace_ids: list[str]
     timestamps: list[int]
 
 
@@ -91,17 +112,33 @@ def generate_trace_infos(store):
     exp_id = store.create_experiment("test")
     timestamps = list(range(0, 100, 10))
     trace_infos = []
-    request_ids = []
+    trace_ids = []
     for i, timestamp in enumerate(timestamps):
-        trace_info = store.start_trace(
-            exp_id,
-            timestamp,
-            {},
-            {TraceTagKey.TRACE_NAME: f"trace_{i}", "test_tag": f"tag_{i}"},
+        if i < 5:
+            state = TraceState.OK
+            execution_duration = 10
+        else:
+            state = TraceState.ERROR
+            execution_duration = 20
+
+        metadata = {TraceMetadataKey.SOURCE_RUN: f"run_{i}"} if i >= 5 else {}
+
+        trace = Trace(
+            info=TraceInfo(
+                trace_id=f"tr-{uuid.uuid4()}",
+                trace_location=TraceLocation.from_experiment_id(exp_id),
+                request_time=timestamp,
+                execution_duration=execution_duration,
+                state=state,
+                tags={TraceTagKey.TRACE_NAME: f"trace_{i}", "test_tag": f"tag_{i}"},
+                trace_metadata=metadata,
+            ),
+            data=TraceData(spans=[]),
         )
+        trace_info = store.start_trace_v3(trace)
         trace_infos.append(trace_info)
-        request_ids.append(trace_info.request_id)
-    return TraceInfos(trace_infos, store, exp_id, request_ids, timestamps)
+        trace_ids.append(trace_info.trace_id)
+    return TraceInfos(trace_infos, store, exp_id, trace_ids, timestamps)
 
 
 def create_experiments(store, experiment_names):
@@ -2984,8 +3021,38 @@ def test_end_trace(store_and_trace_info):
     assert trace_info.request_metadata == {**trace.request_metadata, **request_metadata}
     assert trace_info.tags == {**trace.tags, **tags}
 
-    with pytest.raises(MlflowException, match=r"Trace with request ID 'fake_request_id' not found"):
+    with pytest.raises(MlflowException, match=r"Trace with ID 'fake_request_id' not found"):
         store.end_trace("fake_request_id", timestamp_ms, TraceStatus.OK, request_metadata, tags)
+
+
+def test_start_trace_v3(store):
+    exp_id = store.create_experiment("test_start_trace_v3")
+    timestamp_ms = get_current_time_millis()
+    trace = Trace(
+        info=TraceInfo(
+            trace_id=f"tr-{uuid.uuid4()}",
+            trace_location=TraceLocation.from_experiment_id(exp_id),
+            request_time=timestamp_ms,
+            execution_duration=100,
+            state=TraceState.OK,
+            tags={},
+            trace_metadata={},
+            client_request_id=f"tr-{uuid.uuid4()}",
+            request_preview=None,
+            response_preview=None,
+        ),
+        data=TraceData(spans=[]),
+    )
+    trace_info = store.start_trace_v3(trace)
+
+    assert trace_info.trace_id == trace.info.trace_id
+    assert trace_info.experiment_id == exp_id
+    assert trace_info.timestamp_ms == timestamp_ms
+    assert trace_info.execution_time_ms == 100
+    assert trace_info.state == TraceState.OK
+    assert trace_info.tags["mlflow.artifactLocation"] is not None
+    assert trace_info.trace_metadata == {}
+    assert trace_info.client_request_id == trace.info.client_request_id
 
 
 def test_get_trace_info(store_and_trace_info):
@@ -2993,11 +3060,11 @@ def test_get_trace_info(store_and_trace_info):
     trace_info = store.get_trace_info(trace.request_id)
     assert trace_info == trace
 
-    with pytest.raises(MlflowException, match=r"Trace with request ID 'fake_request_id' not found"):
+    with pytest.raises(MlflowException, match=r"Trace with ID 'fake_request_id' not found"):
         store.get_trace_info("fake_request_id")
 
     mock_trace_info = deepcopy(trace_info)
-    mock_trace_info.request_id = "invalid_request_id"
+    mock_trace_info.trace_id = "invalid_request_id"
     with (
         mock.patch(
             "mlflow.store.tracking.file_store.FileStore._get_trace_info_from_dir",
@@ -3005,49 +3072,49 @@ def test_get_trace_info(store_and_trace_info):
         ),
         pytest.raises(
             MlflowException,
-            match=rf"Trace with request ID '{trace.request_id}' metadata is in invalid state.",
+            match=rf"Trace with ID '{trace.request_id}' metadata is in invalid state.",
         ),
     ):
-        store.get_trace_info(trace.request_id)
+        store.get_trace_info(trace.trace_id)
 
 
 def test_set_trace_tag(store_and_trace_info):
     store, trace = store_and_trace_info
-    store.set_trace_tag(trace.request_id, "some_key", "a")
-    trace_info = store.get_trace_info(trace.request_id)
+    store.set_trace_tag(trace.trace_id, "some_key", "a")
+    trace_info = store.get_trace_info(trace.trace_id)
     assert trace_info.tags["some_key"] == "a"
 
     # test overwrite
-    store.set_trace_tag(trace.request_id, "some_key", "test")
-    trace_info = store.get_trace_info(trace.request_id)
+    store.set_trace_tag(trace.trace_id, "some_key", "test")
+    trace_info = store.get_trace_info(trace.trace_id)
     assert trace_info.tags["some_key"] == "test"
 
     # test value written as string
-    store.set_trace_tag(trace.request_id, "int_key", 1234)
-    trace_info = store.get_trace_info(trace.request_id)
+    store.set_trace_tag(trace.trace_id, "int_key", 1234)
+    trace_info = store.get_trace_info(trace.trace_id)
     assert trace_info.tags["int_key"] == "1234"
 
     # test value length
-    store.set_trace_tag(trace.request_id, "key", "v" * MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE)
-    trace_info = store.get_trace_info(trace.request_id)
+    store.set_trace_tag(trace.trace_id, "key", "v" * MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE)
+    trace_info = store.get_trace_info(trace.trace_id)
     assert trace_info.tags["key"] == "v" * MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE
 
     with pytest.raises(MlflowException, match=r"Missing value for required parameter \'key\'"):
-        store.set_trace_tag(trace.request_id, None, "test")
+        store.set_trace_tag(trace.trace_id, None, "test")
 
 
 def test_delete_trace_tag(store_and_trace_info):
     store, trace = store_and_trace_info
-    store.set_trace_tag(trace.request_id, "some_key", "a")
-    store.delete_trace_tag(trace.request_id, "some_key")
-    trace_info = store.get_trace_info(trace.request_id)
+    store.set_trace_tag(trace.trace_id, "some_key", "a")
+    store.delete_trace_tag(trace.trace_id, "some_key")
+    trace_info = store.get_trace_info(trace.trace_id)
     assert "some_key" not in trace_info.tags
 
     with pytest.raises(
         MlflowException,
-        match=rf"No tag with name: invalid_key in trace with request_id {trace.request_id}.",
+        match=rf"No tag with name: invalid_key in trace with ID {trace.trace_id}.",
     ):
-        store.delete_trace_tag(trace.request_id, "invalid_key")
+        store.delete_trace_tag(trace.trace_id, "invalid_key")
 
 
 def test_delete_traces(store):
@@ -3055,7 +3122,16 @@ def test_delete_traces(store):
     trace_ids = []
     timestamps = list(range(90, -1, -10))
     for i in range(10):
-        trace_info = store.start_trace(exp_id, timestamps[i], {}, {})
+        trace = Trace(
+            info=TraceInfo(
+                trace_id=f"tr-{uuid.uuid4()}",
+                trace_location=TraceLocation.from_experiment_id(exp_id),
+                request_time=timestamps[i],
+                state=TraceState.OK,
+            ),
+            data=TraceData(spans=[]),
+        )
+        trace_info = store.start_trace_v3(trace)
         trace_ids.append(trace_info.trace_id)
 
     # delete with max_timestamp_millis
@@ -3066,10 +3142,10 @@ def test_delete_traces(store):
     assert store.delete_traces(exp_id, max_timestamp_millis=50) == 4
     assert len(store.search_traces([exp_id])[0]) == 4
 
-    # delete with request_ids
+    # delete with trace_ids
     assert store.delete_traces(exp_id, trace_ids=[trace_ids[3]]) == 1
     assert len(store.search_traces([exp_id])[0]) == 3
-    assert store.delete_traces(exp_id, trace_ids=["non_existing_request_id"]) == 0
+    assert store.delete_traces(exp_id, trace_ids=["non_existing_trace_id"]) == 0
     assert len(store.search_traces([exp_id])[0]) == 3
     assert store.delete_traces(exp_id, trace_ids=trace_ids) == 3
     assert len(store.search_traces([exp_id])[0]) == 0
@@ -3111,8 +3187,7 @@ def test_search_traces_filter(generate_trace_infos):
     trace_infos = generate_trace_infos.trace_infos
     store = generate_trace_infos.store
     exp_id = generate_trace_infos.exp_id
-    request_ids = generate_trace_infos.request_ids
-    timestamps = generate_trace_infos.timestamps
+    trace_ids = generate_trace_infos.trace_ids
 
     # by default sort by timestamp_ms DESC, request_id ASC
     _validate_search_traces(store, [exp_id], None, trace_infos[::-1])
@@ -3123,36 +3198,27 @@ def test_search_traces_filter(generate_trace_infos):
     _validate_search_traces(store, [exp_id], "name != 'trace_0'", trace_infos[1:][::-1])
 
     # filter by status
-    _validate_search_traces(store, [exp_id], "status = 'IN_PROGRESS'", trace_infos[::-1])
-    _validate_search_traces(store, [exp_id], "status != 'IN_PROGRESS'", [])
-    for i in range(2):
-        trace_infos[i] = store.end_trace(request_ids[i], timestamps[i] + 10, TraceStatus.OK, {}, {})
-    for i in range(2, 5):
-        trace_infos[i] = store.end_trace(
-            request_ids[i], timestamps[i] + 20, TraceStatus.ERROR, {}, {}
-        )
     _validate_search_traces(
         store,
         [exp_id],
         "status IN ('IN_PROGRESS', 'OK')",
-        (trace_infos[:2] + trace_infos[5:])[::-1],
+        (trace_infos[:5])[::-1],
     )
     _validate_search_traces(
-        store, [exp_id], "status NOT IN ('IN_PROGRESS', 'OK')", trace_infos[2:5][::-1]
+        store, [exp_id], "status NOT IN ('IN_PROGRESS', 'OK')", trace_infos[5:][::-1]
     )
-
     # filter by status w/ attributes. or trace. prefix
     _validate_search_traces(
         store,
         [exp_id],
         "trace.status = 'ERROR'",
-        trace_infos[2:5][::-1],
+        trace_infos[5:][::-1],
     )
     _validate_search_traces(
         store,
         [exp_id],
         "attributes.status IN ('IN_PROGRESS', 'OK')",
-        (trace_infos[:2] + trace_infos[5:])[::-1],
+        (trace_infos[:5])[::-1],
     )
 
     # filter by timestamp
@@ -3165,49 +3231,37 @@ def test_search_traces_filter(generate_trace_infos):
         _validate_search_traces(store, [exp_id], f"{timestamp_key} != 100", trace_infos[::-1])
 
     # filter by request_id
-    _validate_search_traces(store, [exp_id], f"request_id = '{request_ids[0]}'", [trace_infos[0]])
+    _validate_search_traces(store, [exp_id], f"request_id = '{trace_ids[0]}'", [trace_infos[0]])
     _validate_search_traces(
-        store, [exp_id], f"request_id != '{request_ids[0]}'", trace_infos[1:][::-1]
+        store, [exp_id], f"request_id != '{trace_ids[0]}'", trace_infos[1:][::-1]
     )
-    _validate_search_traces(
-        store, [exp_id], f"request_id IN ('{request_ids[0]}')", [trace_infos[0]]
-    )
+    _validate_search_traces(store, [exp_id], f"request_id IN ('{trace_ids[0]}')", [trace_infos[0]])
     _validate_search_traces(
         store,
         [exp_id],
-        f"request_id NOT IN ('{request_ids[0]}')",
+        f"request_id NOT IN ('{trace_ids[0]}')",
         trace_infos[1:][::-1],
     )
 
     # filter by execution_time
     for execution_time_key in ["execution_time", "execution_time_ms"]:
         _validate_search_traces(
-            store, [exp_id], f"{execution_time_key} = 10", trace_infos[:2][::-1]
+            store, [exp_id], f"{execution_time_key} = 10", trace_infos[:5][::-1]
         )
         # value None is always seen as not-match
         _validate_search_traces(
-            store, [exp_id], f"{execution_time_key} != 10", trace_infos[2:5][::-1]
+            store, [exp_id], f"{execution_time_key} != 10", trace_infos[5:][::-1]
         )
         _validate_search_traces(
-            store, [exp_id], f"{execution_time_key} > 10", trace_infos[2:5][::-1]
+            store, [exp_id], f"{execution_time_key} > 10", trace_infos[5:][::-1]
         )
         _validate_search_traces(store, [exp_id], f"{execution_time_key} < 10", [])
+        _validate_search_traces(store, [exp_id], f"{execution_time_key} >= 10", trace_infos[::-1])
         _validate_search_traces(
-            store, [exp_id], f"{execution_time_key} >= 10", trace_infos[:5][::-1]
-        )
-        _validate_search_traces(
-            store, [exp_id], f"{execution_time_key} <= 10", trace_infos[:2][::-1]
+            store, [exp_id], f"{execution_time_key} <= 10", trace_infos[:5][::-1]
         )
 
     # filter by run_id
-    for i in range(5, 10):
-        trace_infos[i] = store.end_trace(
-            request_ids[i],
-            timestamps[i] + 30,
-            TraceStatus.ERROR,
-            {TraceMetadataKey.SOURCE_RUN: f"run_{i}"},
-            {},
-        )
     _validate_search_traces(store, [exp_id], "run_id = 'run_5'", [trace_infos[5]])
     _validate_search_traces(store, [exp_id], "run_id != 'run_5'", trace_infos[6:][::-1])
 
@@ -3230,28 +3284,40 @@ def test_search_traces_filter(generate_trace_infos):
     )
 
 
-def test_search_traces_filter_request_metadata(store):
+def test_search_traces_filter_trace_metadata(store):
     exp_id = store.create_experiment("test")
     timestamp_ms_1 = get_current_time_millis()
-    trace_info_1 = store.start_trace(
-        exp_id,
-        timestamp_ms_1,
-        {
-            TraceMetadataKey.INPUTS: "inputs1",
-            TraceMetadataKey.OUTPUTS: "outputs1",
-        },
-        {},
+    trace_info_1 = store.start_trace_v3(
+        Trace(
+            info=TraceInfo(
+                trace_id=f"tr-{uuid.uuid4()}",
+                trace_location=TraceLocation.from_experiment_id(exp_id),
+                request_time=timestamp_ms_1,
+                state=TraceState.OK,
+                trace_metadata={
+                    TraceMetadataKey.INPUTS: "inputs1",
+                    TraceMetadataKey.OUTPUTS: "outputs1",
+                },
+            ),
+            data=TraceData(spans=[]),
+        )
     )
     time.sleep(0.001)  # ensure unique timestamps
     timestamp_ms_2 = get_current_time_millis()
-    trace_info_2 = store.start_trace(
-        exp_id,
-        timestamp_ms_2,
-        {
-            TraceMetadataKey.INPUTS: "inputs2",
-            TraceMetadataKey.OUTPUTS: "outputs2",
-        },
-        {},
+    trace_info_2 = store.start_trace_v3(
+        Trace(
+            info=TraceInfo(
+                trace_id=f"tr-{uuid.uuid4()}",
+                trace_location=TraceLocation.from_experiment_id(exp_id),
+                request_time=timestamp_ms_2,
+                state=TraceState.OK,
+                trace_metadata={
+                    TraceMetadataKey.INPUTS: "inputs2",
+                    TraceMetadataKey.OUTPUTS: "outputs2",
+                },
+            ),
+            data=TraceData(spans=[]),
+        ),
     )
 
     _validate_search_traces(
@@ -3328,7 +3394,6 @@ def test_search_traces_order(generate_trace_infos):
     trace_infos = generate_trace_infos.trace_infos
     store = generate_trace_infos.store
     exp_id = generate_trace_infos.exp_id
-    request_ids = generate_trace_infos.request_ids
     timestamps = generate_trace_infos.timestamps
     # order by timestamp
     for timestamp_key in ["timestamp", "timestamp_ms"]:
@@ -3338,12 +3403,6 @@ def test_search_traces_order(generate_trace_infos):
         )
 
     # order by execution time
-    for i in range(5):
-        trace_infos[i] = store.end_trace(request_ids[i], timestamps[i] + 10, TraceStatus.OK, {}, {})
-    for i in range(5, 10):
-        trace_infos[i] = store.end_trace(
-            request_ids[i], timestamps[i] + 20, TraceStatus.ERROR, {}, {}
-        )
     for execution_time_key in ["execution_time", "execution_time_ms"]:
         _validate_search_traces(
             store,
@@ -3378,7 +3437,19 @@ def test_search_traces_order(generate_trace_infos):
 
     # order by experiment_id
     exp_id2 = store.create_experiment("test2")
-    trace_infos.append(store.start_trace(exp_id2, timestamps[-1], {}, {}))
+    trace_info = store.start_trace_v3(
+        Trace(
+            info=TraceInfo(
+                trace_id=f"tr-{uuid.uuid4()}",
+                trace_location=TraceLocation.from_experiment_id(exp_id2),
+                request_time=timestamps[-1],
+                state=TraceState.OK,
+            ),
+            data=TraceData(spans=[]),
+        )
+    )
+    trace_infos.append(trace_info)
+
     order = exp_id2 > exp_id
     _validate_search_traces(
         store,
@@ -3393,17 +3464,6 @@ def test_search_traces_order(generate_trace_infos):
         "",
         trace_infos[:10][::-1] + [trace_infos[-1]] if order else trace_infos[::-1],
         order_by=["experiment_id ASC"],
-    )
-
-    for i in range(10):
-        trace_infos.append(store.start_trace(exp_id2, timestamps[i], {}, {}))
-    # by default sort by timestamp DESC, request_id ASC
-    expected_trace_infos = sorted(trace_infos, key=lambda x: (-x.timestamp_ms, x.request_id))
-    _validate_search_traces(
-        store,
-        [exp_id, exp_id2],
-        "",
-        expected_trace_infos,
     )
 
 
