@@ -186,6 +186,24 @@ def clean_up_extra_traces(run_id: str, start_time_ms: int):
             filter_string=f"trace.timestamp >= {start_time_ms}",
             return_type="list",
         )
+
+        # Raise warning if there are failed scorers
+        # NB: If this clean_up_extra_traces function is removed, we should still preserve this
+        # check, keeping here to avoid fetching traces twice.
+        failed_scorers = set()
+        for trace in traces:
+            for assessment in trace.info.assessments:
+                if assessment.error is not None:
+                    failed_scorers.add(assessment.name)
+        if failed_scorers:
+            failed_scorers_str = ", ".join(failed_scorers)
+            if len(failed_scorers_str) > 20:
+                failed_scorers_str = failed_scorers_str[:20] + "..."
+            _logger.warning(
+                f"Found failed scorers during evaluation run: {failed_scorers_str}. "
+                "Check the evaluation result page for more details."
+            )
+
         extra_trace_ids = [
             # Traces from predict function should always have the EVAL_REQUEST_ID tag
             trace.info.trace_id

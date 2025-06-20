@@ -1,5 +1,6 @@
 import importlib
 from collections import defaultdict
+from unittest import mock
 from unittest.mock import call, patch
 
 import pandas as pd
@@ -388,3 +389,49 @@ def test_extra_traces_before_evaluation_execution_should_not_be_cleaned_up():
     assert len(traces) == 2  # 1 for predict_fn, 1 for a trace generated before evaluation
     assert traces[0].data.spans[0].name == "predict"
     assert traces[1].data.spans[0].name == "should_be_kept"
+
+
+def test_warning_when_scorers_fail():
+    def predict(question: str) -> str:
+        return "output: " + str(question)
+
+    @scorer
+    @mlflow.trace
+    def dummy_scorer(inputs):
+        return 0.5
+
+    dummy_scorer.run(inputs={"question": "Hello"})
+    trace = get_traces()[0]
+    trace.info.assessments = [
+        Feedback(
+            name="error_scorer",
+            error=AssessmentError(error_code="500", error_message="This is an error"),
+            source=AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE, source_id="gpt"),
+            metadata={"index": 0},
+        )
+    ]
+
+    with mlflow.start_run() as run:
+        original_search_traces = mlflow.search_traces
+
+        def mock_search_traces(*args, **kwargs):
+            run_id = kwargs.get("run_id")
+            return_type = kwargs.get("return_type")
+            if run_id == run.info.run_id and return_type == "list":
+                return [trace]
+            else:
+                return original_search_traces(*args, **kwargs)
+
+        with (
+            mock.patch("mlflow.genai.utils.trace_utils._logger.warning") as mock_warning,
+            mock.patch("mlflow.search_traces", side_effect=mock_search_traces),
+        ):
+            mlflow.genai.evaluate(
+                data=[{"inputs": {"question": "Hello"}}],
+                scorers=[dummy_scorer],
+                predict_fn=predict,
+            )
+            assert (
+                "Found failed scorers during evaluation run: error_scorer."
+                in mock_warning.call_args[0][0]
+            )
