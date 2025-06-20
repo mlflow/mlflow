@@ -3,6 +3,7 @@ from abc import ABCMeta, abstractmethod
 from typing import Any, Optional
 
 from mlflow.entities import (
+    Assessment,
     DatasetInput,
     LoggedModel,
     LoggedModelInput,
@@ -418,6 +419,77 @@ class AbstractStore:
         Args:
             request_id: The ID of the trace.
             key: The string key of the tag.
+        """
+        raise NotImplementedError
+
+    def get_assessment(self, trace_id: str, assessment_id: str) -> Assessment:
+        """
+        Retrieve an assessment from a given trace.
+
+        Args:
+            trace_id: The ID of the trace.
+            assessment_id: The assessment identifier that denotes a unique assessment entry
+                for a given trace, comprised of a unique key that is a concatenation of
+                (assessment_name.source.span_id).
+
+        Returns:
+            The Assessment object for the given trace and assessment ids.
+        """
+        raise NotImplementedError
+
+    def create_assessment(self, assessment: Assessment) -> Assessment:
+        """
+        Logs an Assessment for a given trace using the compound unique key of
+        (assessment_name.source.span_id) and stores it as a trace tag.
+
+        Args:
+            assessment: An :py:class:`Assessment <mlflow.entities.Assessment>` object that
+                contains the key value mappings of assessment criteria comprised of either
+                expectations or user/system/scorer-provided feedback (label data) on the quality
+                of the trace response.
+
+        Returns:
+            The Assessment object for the logging operation.
+        """
+        raise NotImplementedError
+
+    def update_assessment(
+        self,
+        trace_id: str,
+        assessment_id: str,
+        name: Optional[str] = None,
+        expectation: Optional[str] = None,
+        feedback: Optional[str] = None,
+        rationale: Optional[str] = None,
+        metadata: Optional[dict[str, str]] = None,
+    ) -> Assessment:
+        """
+        Updates the given Assessment's mutable values to overwrite updated values
+        for the given trace and Assessment data.
+
+        Args:
+            trace_id: The ID of the trace.
+            assessment_id: The ID of the assessment upon which overrides will be applied to
+                mutable attributes.
+            name: An Optional override to the name of the assessment.
+            expectation: An Optional override of the expectation for the assessment.
+            feedback: An Optional override to the feedback for a given assessment.
+            rationale: An Optional string defining the reasoning behind the override of
+                the assessment.
+            metadata: An Optional mapping of additional customizable metadata for the assessment.
+
+        Returns:
+            The Assessment object representing the updated state of an assessment for a given trace.
+        """
+        raise NotImplementedError
+
+    def delete_assessment(self, trace_id: str, assessment_id: str):
+        """
+        Delete an assessment for a given trace.
+
+        Args:
+            trace_id: The ID of the trace.
+            assessment_id: The ID of the assessment to be deleted.
         """
         raise NotImplementedError
 
