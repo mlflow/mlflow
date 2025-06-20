@@ -2,30 +2,30 @@ from mlflow.genai import (
     judges,
     scorers,
 )
-from mlflow.genai.evaluation import evaluate, to_predict_fn
-from mlflow.genai.scorers import Scorer, scorer
-
-try:
-    from mlflow.genai.labeling import (
-        Agent,  # noqa: F401
-        LabelingSession,  # noqa: F401
-        ReviewApp,  # noqa: F401
-        create_labeling_session,  # noqa: F401
-        delete_labeling_session,  # noqa: F401
-        get_labeling_session,  # noqa: F401
-        get_labeling_sessions,  # noqa: F401
-        get_review_app,  # noqa: F401
-    )
-except ImportError:
-    # Silently fail if the databricks-agents package is not installed
-    pass
-
 from mlflow.genai.datasets import (
     create_dataset,
     delete_dataset,
     get_dataset,
 )
+from mlflow.genai.evaluation import evaluate, to_predict_fn
+from mlflow.genai.labeling import (
+    Agent,
+    LabelingSession,
+    ReviewApp,
+    create_labeling_session,
+    delete_labeling_session,
+    get_labeling_session,
+    get_labeling_sessions,
+    get_review_app,
+)
 from mlflow.genai.optimize import optimize_prompt
+from mlflow.genai.prompts import (
+    delete_prompt_alias,
+    load_prompt,
+    register_prompt,
+    search_prompts,
+    set_prompt_alias,
+)
 from mlflow.genai.scheduled_scorers import (
     ScorerScheduleConfig,
     add_scheduled_scorer,
@@ -35,6 +35,7 @@ from mlflow.genai.scheduled_scorers import (
     set_scheduled_scorers,
     update_scheduled_scorer,
 )
+from mlflow.genai.scorers import Scorer, scorer
 
 __all__ = [
     "evaluate",
@@ -46,6 +47,11 @@ __all__ = [
     "create_dataset",
     "delete_dataset",
     "get_dataset",
+    "load_prompt",
+    "register_prompt",
+    "search_prompts",
+    "delete_prompt_alias",
+    "set_prompt_alias",
     "optimize_prompt",
     "ScorerScheduleConfig",
     "add_scheduled_scorer",
@@ -54,19 +60,12 @@ __all__ = [
     "get_scheduled_scorer",
     "list_scheduled_scorers",
     "set_scheduled_scorers",
-    # Labeling exports (only included when databricks-agents is installed)
-    *(
-        [
-            "Agent",
-            "LabelingSession",
-            "ReviewApp",
-            "get_review_app",
-            "create_labeling_session",
-            "get_labeling_sessions",
-            "get_labeling_session",
-            "delete_labeling_session",
-        ]
-        if "Agent" in locals()
-        else []
-    ),
+    "Agent",
+    "LabelingSession",
+    "ReviewApp",
+    "get_review_app",
+    "create_labeling_session",
+    "get_labeling_sessions",
+    "get_labeling_session",
+    "delete_labeling_session",
 ]

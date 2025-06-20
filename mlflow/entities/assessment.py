@@ -30,7 +30,7 @@ PbValueType = Union[float, int, str, bool]
 FeedbackValueType = Union[PbValueType, dict[str, PbValueType], list[PbValueType]]
 
 
-@experimental
+@experimental(version="2.21.0")
 @dataclass
 class Assessment(_MlflowObject):
     """
@@ -168,7 +168,7 @@ class Assessment(_MlflowObject):
 DEFAULT_FEEDBACK_NAME = "feedback"
 
 
-@experimental
+@experimental(version="3.0.0")
 @dataclass
 class Feedback(Assessment):
     """
@@ -335,7 +335,7 @@ class Feedback(Assessment):
         return self.feedback.error.error_message if self.feedback.error else None
 
 
-@experimental
+@experimental(version="2.21.0")
 @dataclass
 class Expectation(Assessment):
     """
@@ -456,7 +456,7 @@ class Expectation(Assessment):
 _JSON_SERIALIZATION_FORMAT = "JSON_FORMAT"
 
 
-@experimental
+@experimental(version="3.0.0")
 @dataclass
 class ExpectationValue(_MlflowObject):
     """Represents an expectation value."""
@@ -513,7 +513,7 @@ class ExpectationValue(_MlflowObject):
         return self.value is not None and not isinstance(self.value, (int, float, bool, str))
 
 
-@experimental
+@experimental(version="2.21.0")
 @dataclass
 class FeedbackValue(_MlflowObject):
     """Represents a feedback value."""

@@ -1167,7 +1167,7 @@ def delete_trace_tag(trace_id: str, key: str) -> None:
     TracingClient().delete_trace_tag(trace_id, key)
 
 
-@experimental
+@experimental(version="2.17.0")
 def add_trace(trace: Union[Trace, dict[str, Any]], target: Optional[LiveSpan] = None):
     """
     Add a completed trace object into another trace.
@@ -1284,7 +1284,7 @@ def add_trace(trace: Union[Trace, dict[str, Any]], target: Optional[LiveSpan] = 
         )
 
 
-@experimental
+@experimental(version="2.21.0")
 def log_trace(
     name: str = "Task",
     request: Optional[Any] = None,

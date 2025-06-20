@@ -1048,7 +1048,7 @@ class PyFuncModel:
             info["flavor"] = self._model_meta.flavors[FLAVOR_NAME]["loader_module"]
         return yaml.safe_dump({"mlflow.pyfunc.loaded_model": info}, default_flow_style=False)
 
-    @experimental
+    @experimental(version="2.16.0")
     def get_raw_model(self):
         """
         Get the underlying raw model if the model wrapper implemented `get_raw_model` function.
@@ -1880,7 +1880,7 @@ def _verify_prebuilt_env(spark, local_model_path, env_archive_path):
         )
 
 
-def _prebuild_env_internal(local_model_path, archive_name, save_path):
+def _prebuild_env_internal(local_model_path, archive_name, save_path, env_manager):
     env_root_dir = os.path.join(_PREBUILD_ENV_ROOT_LOCATION, archive_name)
     archive_path = os.path.join(save_path, archive_name + ".tar.gz")
     if os.path.exists(env_root_dir):
@@ -1891,7 +1891,7 @@ def _prebuild_env_internal(local_model_path, archive_name, save_path):
     try:
         pyfunc_backend = get_flavor_backend(
             local_model_path,
-            env_manager="virtualenv",
+            env_manager=env_manager,
             install_mlflow=False,
             create_env_root_dir=False,
             env_root_dir=env_root_dir,
@@ -1899,7 +1899,9 @@ def _prebuild_env_internal(local_model_path, archive_name, save_path):
 
         pyfunc_backend.prepare_env(model_uri=local_model_path, capture_output=False)
         # exclude pip cache from the archive file.
-        shutil.rmtree(os.path.join(env_root_dir, "pip_cache_pkgs"))
+        cache_path = os.path.join(env_root_dir, "pip_cache_pkgs")
+        if os.path.exists(cache_path):
+            shutil.rmtree(cache_path)
 
         return archive_directory(env_root_dir, archive_path)
     finally:
@@ -1947,7 +1949,7 @@ def _download_prebuilt_env_if_needed(prebuilt_env_uri):
     )
 
 
-def build_model_env(model_uri, save_path):
+def build_model_env(model_uri, save_path, env_manager=_EnvManager.VIRTUALENV):
     """
     Prebuild model python environment and generate an archive file saved to provided
     `save_path`.
@@ -1990,6 +1992,9 @@ def build_model_env(model_uri, save_path):
             The path can be either local directory path or
             mounted DBFS path such as '/dbfs/...' or
             mounted UC volume path such as '/Volumes/...'.
+        env_manager: The environment manager to use in order to create the python environment
+            for model inference, the value can be either 'virtualenv' or 'uv', the default
+            value is 'virtualenv'.
 
     Returns:
         Return the path of an archive file containing the python environment data.
@@ -2027,7 +2032,7 @@ def build_model_env(model_uri, save_path):
     tmp_archive_path = None
     try:
         tmp_archive_path = _prebuild_env_internal(
-            local_model_path, archive_name, _PREBUILD_ENV_ROOT_LOCATION
+            local_model_path, archive_name, _PREBUILD_ENV_ROOT_LOCATION, env_manager
         )
         shutil.move(tmp_archive_path, save_path)
         return dest_path
@@ -2164,8 +2169,11 @@ def spark_udf(
             is ``local``, and the following values are supported:
 
             - ``virtualenv``: Use virtualenv to restore the python environment that
+              was used to train the model. This is the default option if ``env_manager``
+              is not set.
+            - ``uv`` : Use uv to restore the python environment that
               was used to train the model.
-            - ``conda``: (Recommended) Use Conda to restore the software environment
+            - ``conda``: Use Conda to restore the software environment
               that was used to train the model.
             - ``local``: Use the current Python environment for model inference, which
               may differ from the environment used to train the model and may lead to
@@ -2226,10 +2234,10 @@ def spark_udf(
     mlflow_testing = _MLFLOW_TESTING.get_raw()
 
     if prebuilt_env_uri:
-        if env_manager not in (None, _EnvManager.VIRTUALENV):
+        if env_manager not in (None, _EnvManager.VIRTUALENV, _EnvManager.UV):
             raise MlflowException(
                 "If 'prebuilt_env_uri' parameter is set, 'env_manager' parameter must "
-                "be either None or 'virtualenv'."
+                "be either None, 'virtualenv', or 'uv'."
             )
         env_manager = _EnvManager.VIRTUALENV
     else:
@@ -2312,7 +2320,7 @@ def spark_udf(
     if (
         is_spark_connect
         and not is_dbconnect_mode
-        and env_manager in (_EnvManager.VIRTUALENV, _EnvManager.CONDA)
+        and env_manager in (_EnvManager.VIRTUALENV, _EnvManager.CONDA, _EnvManager.UV)
     ):
         raise MlflowException.invalid_parameter_value(
             f"Environment manager {env_manager!r} is not supported in Spark Connect "
@@ -2385,13 +2393,13 @@ def spark_udf(
 
     if use_dbconnect_artifact:
         # Upload model artifacts and python environment to NFS as DBConncet artifacts.
-        if env_manager == _EnvManager.VIRTUALENV:
+        if env_manager in (_EnvManager.VIRTUALENV, _EnvManager.UV):
             if not dbconnect_artifact_cache.has_cache_key(env_cache_key):
                 if prebuilt_env_uri:
                     env_archive_path = prebuilt_env_uri
                 else:
                     env_archive_path = _prebuild_env_internal(
-                        local_model_path, env_cache_key, get_or_create_tmp_dir()
+                        local_model_path, env_cache_key, get_or_create_tmp_dir(), env_manager
                     )
                 dbconnect_artifact_cache.add_artifact_archive(env_cache_key, env_archive_path)
 
@@ -2679,6 +2687,7 @@ e.g., struct<a:int, b:array<int>>.
                     target=server_redirect_log_thread_func,
                     args=(scoring_server_proc.stdout,),
                     daemon=True,
+                    name=f"mlflow_pyfunc_model_server_log_redirector_{uuid.uuid4().hex[:8]}",
                 )
                 server_redirect_log_thread.start()
 
@@ -2753,6 +2762,17 @@ e.g., struct<a:int, b:array<int>>.
 
                     if len(row_batch_args[0]) > 0:
                         yield _predict_row_batch(batch_predict_fn, row_batch_args)
+            except SystemError as e:
+                if "error return without exception set" in str(e):
+                    raise MlflowException(
+                        "A system error related to the Python C extension has occurred. "
+                        "This is usually caused by an incompatible Python library that uses the "
+                        "C extension. To address this, we recommend you to log the model "
+                        "with fixed version python libraries that use the C extension "
+                        "(such as 'numpy' library), and set spark_udf `env_manager` argument "
+                        "to 'virtualenv' or 'uv' so that spark_udf can restore the original "
+                        "python library version before running model inference."
+                    ) from e
             finally:
                 if scoring_server_proc is not None:
                     os.kill(scoring_server_proc.pid, signal.SIGTERM)

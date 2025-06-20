@@ -9,10 +9,12 @@ import math
 import os
 import pathlib
 import posixpath
+import subprocess
 import sys
 import time
 import urllib.parse
 from io import StringIO
+from pathlib import Path
 from unittest import mock
 
 import flask
@@ -40,7 +42,11 @@ from mlflow.entities.logged_model_output import LoggedModelOutput
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.environment_variables import MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT
+from mlflow.environment_variables import (
+    MLFLOW_SERVER_GRAPHQL_MAX_ALIASES,
+    MLFLOW_SERVER_GRAPHQL_MAX_ROOT_FIELDS,
+    MLFLOW_SUPPRESS_PRINTING_URL_TO_STDOUT,
+)
 from mlflow.exceptions import MlflowException, RestException
 from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
@@ -61,6 +67,7 @@ from mlflow.utils.os import is_windows
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.time import get_current_time_millis
 
+from tests.helper_functions import get_safe_port
 from tests.integration.utils import invoke_cli_runner
 from tests.tracking.integration_test_utils import (
     _init_server,
@@ -82,6 +89,7 @@ def mlflow_client(request, tmp_path):
         ]
 
     with _init_server(backend_uri, root_artifact_uri=tmp_path.as_uri()) as url:
+        mlflow.set_tracking_uri(backend_uri)
         yield MlflowClient(url)
 
 
@@ -1086,6 +1094,117 @@ def test_get_metric_history_bulk_calls_optimized_impl_when_expected(tmp_path):
         )
 
 
+def test_get_metric_history_respects_max_results(mlflow_client):
+    experiment_id = mlflow_client.create_experiment("test max_results")
+    run = mlflow_client.create_run(experiment_id)
+    run_id = run.info.run_id
+
+    metric_history = [
+        {"key": "test_metric", "value": float(i), "step": i, "timestamp": 1000 + i}
+        for i in range(5)
+    ]
+    for metric in metric_history:
+        mlflow_client.log_metric(run_id, **metric)
+
+    # Test without max_results - should return all metrics
+    all_metrics = mlflow_client.get_metric_history(run_id, "test_metric")
+    assert len(all_metrics) == 5
+
+    # Test with max_results=3 - should return only 3 metrics
+    response = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history",
+        params={"run_id": run_id, "metric_key": "test_metric", "max_results": 3},
+    )
+    assert response.status_code == 200
+    response_data = response.json()
+    assert len(response_data["metrics"]) == 3
+
+    returned_metrics = response_data["metrics"]
+    for i, metric in enumerate(returned_metrics):
+        assert metric["key"] == "test_metric"
+        assert metric["value"] == float(i)
+        assert metric["step"] == i
+
+
+def test_get_metric_history_with_page_token(mlflow_client):
+    experiment_id = mlflow_client.create_experiment("test page_token")
+    run = mlflow_client.create_run(experiment_id)
+    run_id = run.info.run_id
+
+    metric_history = [
+        {"key": "test_metric", "value": float(i), "step": i, "timestamp": 1000 + i}
+        for i in range(10)
+    ]
+    for metric in metric_history:
+        mlflow_client.log_metric(run_id, **metric)
+
+    page_size = 4
+
+    first_response = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history",
+        params={"run_id": run_id, "metric_key": "test_metric", "max_results": page_size},
+    )
+    assert first_response.status_code == 200
+    first_data = first_response.json()
+    first_metrics = first_data["metrics"]
+    first_token = first_data.get("next_page_token")
+
+    assert first_token is not None
+    assert len(first_metrics) == 4
+
+    second_response = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history",
+        params={
+            "run_id": run_id,
+            "metric_key": "test_metric",
+            "max_results": page_size,
+            "page_token": first_token,
+        },
+    )
+    assert second_response.status_code == 200
+    second_data = second_response.json()
+    second_metrics = second_data["metrics"]
+    second_token = second_data.get("next_page_token")
+
+    assert second_token is not None
+    assert len(second_metrics) == 4
+
+    third_response = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history",
+        params={
+            "run_id": run_id,
+            "metric_key": "test_metric",
+            "max_results": page_size,
+            "page_token": second_token,
+        },
+    )
+    assert third_response.status_code == 200
+    third_data = third_response.json()
+    third_metrics = third_data["metrics"]
+    third_token = third_data.get("next_page_token")
+
+    assert third_token is None
+    assert len(third_metrics) == 2
+
+    all_paginated_metrics = first_metrics + second_metrics + third_metrics
+    assert len(all_paginated_metrics) == 10
+
+    for i, metric in enumerate(all_paginated_metrics):
+        assert metric["key"] == "test_metric"
+        assert metric["value"] == float(i)
+        assert metric["step"] == i
+        assert metric["timestamp"] == 1000 + i
+
+    # Test with invalid page_token
+    response = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history",
+        params={"run_id": run_id, "metric_key": "test_metric", "page_token": "invalid_token"},
+    )
+    assert response.status_code == 400
+    response_data = response.json()
+    assert "INVALID_PARAMETER_VALUE" in response_data.get("error_code", "")
+
+
 def test_get_metric_history_bulk_interval_rejects_invalid_requests(mlflow_client):
     def assert_response(resp, message_part):
         assert resp.status_code == 400
@@ -1640,6 +1759,56 @@ def test_create_model_version_with_file_uri(mlflow_client):
     assert "is not a valid remote uri" in response.json()["message"]
 
 
+def test_create_model_version_with_validation_regex(tmp_path: Path):
+    port = get_safe_port()
+    with subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "mlflow",
+            "server",
+            "--port",
+            str(port),
+            "--backend-store-uri",
+            f"sqlite:///{tmp_path / 'mlflow.db'}",
+        ],
+        env=(
+            os.environ.copy()
+            | {
+                "MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX": r"^mlflow-artifacts:/.*$",
+            }
+        ),
+    ) as proc:
+        try:
+            # Wait for the server to start
+            for _ in range(10):
+                try:
+                    if requests.get(f"http://localhost:{port}/health").ok:
+                        break
+                except requests.ConnectionError:
+                    time.sleep(1)
+            else:
+                raise RuntimeError("Failed to connect to the MLflow server")
+
+            # Test that the validation regex works as expected
+            client = MlflowClient(f"http://localhost:{port}")
+            name = "test"
+            client.create_registered_model(name)
+            # Invalid source
+            with pytest.raises(MlflowException, match="Invalid model version source"):
+                client.create_model_version(name, source="s3://path/to/model")
+            # Valid source
+            experiment_id = client.create_experiment("test")
+            run = client.create_run(experiment_id=experiment_id)
+            assert run.info.artifact_uri.startswith("mlflow-artifacts:/")
+            client.create_model_version(
+                name, source=f"{run.info.artifact_uri}/model", run_id=run.info.run_id
+            )
+        finally:
+            proc.terminate()
+            proc.wait()
+
+
 @pytest.mark.xfail(reason="Tracking server does not support logged-model endpoints yet")
 def test_logging_model_with_local_artifact_uri(mlflow_client):
     from sklearn.linear_model import LogisticRegression
@@ -2057,6 +2226,93 @@ def test_graphql_handler(mlflow_client):
     assert response.status_code == 200
 
 
+def test_graphql_handler_batching_raise_error(mlflow_client):
+    # Test max root fields limit
+    batch_query = (
+        "query testQuery {"
+        + " ".join(
+            [
+                f"key_{i}: " + 'test(inputString: "abc") { output }'
+                for i in range(int(MLFLOW_SERVER_GRAPHQL_MAX_ROOT_FIELDS.get()) + 2)
+            ]
+        )
+        + "}"
+    )
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/graphql",
+        json={
+            "query": batch_query,
+            "operationName": "testQuery",
+        },
+        headers={"content-type": "application/json; charset=utf-8"},
+    )
+    assert response.status_code == 200
+    assert (
+        f"GraphQL queries should have at most {MLFLOW_SERVER_GRAPHQL_MAX_ROOT_FIELDS.get()}"
+        in response.json()["errors"][0]
+    )
+
+    # Test max aliases limit
+    batch_query = (
+        'query testQuery {mlflowGetExperiment(input: {experimentId: "123"}) {'
+        + " ".join(
+            f"experiment_{i}: " + "experiment { name }"
+            for i in range(int(MLFLOW_SERVER_GRAPHQL_MAX_ALIASES.get()) + 2)
+        )
+        + "}}"
+    )
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/graphql",
+        json={
+            "query": batch_query,
+            "operationName": "testQuery",
+        },
+    )
+    assert response.status_code == 200
+    assert (
+        f"queries should have at most {MLFLOW_SERVER_GRAPHQL_MAX_ALIASES.get()} aliases"
+        in response.json()["errors"][0]
+    )
+
+    # Test max depth limit
+    inner = "name"
+    for _ in range(12):
+        inner = f"name {{ {inner} }}"
+    deep_query = (
+        'query testQuery { mlflowGetExperiment(input: {experimentId: "123"}) { experiment { '
+        + inner
+        + " } } }"
+    )
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/graphql",
+        json={
+            "query": deep_query,
+            "operationName": "testQuery",
+        },
+    )
+    assert response.status_code == 200
+    assert "Query exceeds maximum depth of 10" in response.json()["errors"][0]
+
+    # Test max selections limit
+    selections = []
+    for i in range(1002):  # Exceed the 1000 selection limit
+        selections.append(f"field_{i} {{ name }}")
+    selections_query = (
+        'query testQuery { mlflowGetExperiment(input: {experimentId: "123"}) { experiment { '
+        + " ".join(selections)
+        + " } } }"
+    )
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/graphql",
+        json={
+            "query": selections_query,
+            "operationName": "testQuery",
+        },
+    )
+    assert response.status_code == 200
+    assert "Query exceeds maximum total selections of 1000" in response.json()["errors"][0]
+
+
 def test_get_experiment_graphql(mlflow_client):
     experiment_id = mlflow_client.create_experiment("GraphqlTest")
     response = requests.post(
@@ -2414,23 +2670,15 @@ def test_list_artifacts_graphql(mlflow_client, tmp_path):
         f"{mlflow_client.tracking_uri}/graphql",
         json={
             "query": f"""
-                fragment FilesFragment on MlflowListArtifactsResponse {{
-                    files {{
-                        path
-                        isDir
-                        fileSize
-                    }}
-                }}
-
                 query testQuery {{
-                    file: mlflowListArtifacts(input: {{ runId: "{created_run_id}" }}) {{
-                        ...FilesFragment
-                    }}
-                    subdir: mlflowListArtifacts(input: {{
+                    files: mlflowListArtifacts(input: {{
                         runId: "{created_run_id}",
-                        path: "testDir",
                     }}) {{
-                        ...FilesFragment
+                            files {{
+                            path
+                            isDir
+                            fileSize
+                        }}
                     }}
                 }}
             """,
@@ -2445,7 +2693,32 @@ def test_list_artifacts_graphql(mlflow_client, tmp_path):
         {"path": "test.txt", "isDir": False, "fileSize": "11"},
         {"path": "testDir", "isDir": True, "fileSize": "0"},
     ]
-    assert json["data"]["file"]["files"] == file_expected
+    assert json["data"]["files"]["files"] == file_expected
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/graphql",
+        json={
+            "query": f"""
+                query testQuery {{
+                    subdir: mlflowListArtifacts(input: {{
+                        runId: "{created_run_id}",
+                        path: "testDir",
+                    }}) {{
+                            files {{
+                            path
+                            isDir
+                            fileSize
+                        }}
+                    }}
+                }}
+            """,
+            "operationName": "testQuery",
+        },
+        headers={"content-type": "application/json; charset=utf-8"},
+    )
+
+    assert response.status_code == 200
+    json = response.json()
     subdir_expected = [
         {"path": "testDir/test.txt", "isDir": False, "fileSize": "11"},
     ]
@@ -2627,20 +2900,20 @@ def test_search_logged_models(mlflow_client: MlflowClient):
     )
     assert [m.name for m in models] == [model_1.name]
 
-    # TODO: test datasets once file store and sqlalchemy store support it
-    # run_1 = mlflow_client.create_run(exp_id)
-    # mlflow_client.log_metric(
-    #     run_1.info.run_id,
-    #     key="metric",
-    #     value=1,
-    #     dataset_name="dataset",
-    #     dataset_digest="123",
-    #     model_id=model_1.model_id,
-    # )
-    # models = mlflow_client.search_logged_models(
-    #     experiment_ids=[exp_id], datasets=[{"dataset_name": "dataset", "dataset_digest": "123"}]
-    # )
-    # assert [m.name for m in models] == [model_1.name]
+    # datasets
+    run_1 = mlflow_client.create_run(exp_id)
+    mlflow_client.log_metric(
+        run_1.info.run_id,
+        key="metric",
+        value=1,
+        dataset_name="dataset",
+        dataset_digest="123",
+        model_id=model_1.model_id,
+    )
+    models = mlflow_client.search_logged_models(
+        experiment_ids=[exp_id], datasets=[{"dataset_name": "dataset", "dataset_digest": "123"}]
+    )
+    assert [m.name for m in models] == [model_1.name]
 
     # order_by
     models = mlflow_client.search_logged_models(

@@ -9,7 +9,7 @@ pytest.importorskip("dspy", minversion="2.6.0")
 
 import mlflow
 from mlflow import register_prompt
-from mlflow.entities.model_registry import Prompt
+from mlflow.entities.model_registry import PromptVersion
 from mlflow.exceptions import MlflowException
 from mlflow.genai.optimize.optimizers import _DSPyMIPROv2Optimizer
 from mlflow.genai.optimize.optimizers.utils.dspy_mipro_callback import _DSPyMIPROv2Callback
@@ -172,9 +172,9 @@ def test_optimize_scenarios(
         assert kwargs["teacher_settings"] == {}
 
     # Verify optimization result
-    assert isinstance(result, Prompt)
+    assert isinstance(result, PromptVersion)
     assert result.version == 2
-    assert result.version_metadata["overall_eval_score"] == "1.0"
+    assert result.tags["overall_eval_score"] == "1.0"
 
     # Verify eval data handling
     compile_args = mock_mipro.return_value.compile.call_args[1]
@@ -258,7 +258,7 @@ def test_optimize_prompt_with_old_dspy_version():
 
 def test_validate_input_fields_with_missing_variables():
     optimizer = _DSPyMIPROv2Optimizer(OptimizerConfig())
-    prompt = Prompt(
+    prompt = PromptVersion(
         name="test_prompt",
         template="Translate {{text}} to {{language}} and explain in {{style}}",
         version=1,
@@ -376,3 +376,27 @@ def test_optimize_with_autolog(
         assert run.data.params["optimized_prompt_uri"] == "prompts:/test_prompt/2"
     else:
         assert len(callbacks) == 0
+
+
+def test_register_prompt_kwargs(mock_mipro, sample_data, sample_prompt, mock_extractor):
+    import dspy
+
+    optimized_program = dspy.Predict("input_text, language -> translation")
+    optimized_program.score = 1.0
+    mock_mipro.return_value.compile.return_value = optimized_program
+    optimizer = _DSPyMIPROv2Optimizer(OptimizerConfig())
+
+    with patch(
+        "mlflow.genai.optimize.optimizers.dspy_mipro_optimizer.register_prompt",
+        wraps=register_prompt,
+    ) as spy_register:
+        optimizer.optimize(
+            prompt=sample_prompt,
+            target_llm_params=LLMParams(model_name="agent/model"),
+            train_data=sample_data,
+            scorers=[sample_scorer],
+        )
+    assert spy_register.called
+    _, kwargs = spy_register.call_args
+    assert kwargs["tags"]["overall_eval_score"] == "1.0"
+    assert kwargs["name"] == "test_prompt"

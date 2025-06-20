@@ -1,3 +1,4 @@
+import json
 import os
 import pathlib
 import time
@@ -676,11 +677,16 @@ def test_save_model_with_prompts():
     model = Model.load(model_info.model_uri)
     assert model.prompts == [prompt_1.uri, prompt_2.uri]
 
-    # Run ID should be recorded in the prompt registry
-    associated_prompts = mlflow.MlflowClient().list_logged_prompts(model_info.run_id)
-    assert len(associated_prompts) == 2
-    assert associated_prompts[0].name == prompt_2.name
-    assert associated_prompts[1].name == prompt_1.name
+    # Check that prompts were linked to the run via the linkedPrompts tag
+    from mlflow.prompt.constants import LINKED_PROMPTS_TAG_KEY
+
+    run = mlflow.MlflowClient().get_run(model_info.run_id)
+    linked_prompts_tag = run.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    assert linked_prompts_tag is not None
+
+    linked_prompts = json.loads(linked_prompts_tag)
+    assert len(linked_prompts) == 2
+    assert {p["name"] for p in linked_prompts} == {prompt_1.name, prompt_2.name}
 
 
 def test_logged_model_status():

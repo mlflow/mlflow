@@ -2,12 +2,13 @@ import json
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
-from typing import Optional, Union
+from typing import Optional, Sequence, Union
 
 import mlflow
 from mlflow.entities.assessment import (
     Assessment,
 )
+from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.span import NO_OP_SPAN_TRACE_ID
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
@@ -289,6 +290,8 @@ class TracingClient:
                 else None
             )
 
+        is_databricks = is_databricks_uri(self.tracking_uri)
+
         if run_id:
             run = self.store.get_run(run_id)
             if run.info.experiment_id not in experiment_ids:
@@ -300,7 +303,11 @@ class TracingClient:
                     error_code=INVALID_PARAMETER_VALUE,
                 )
 
-            additional_filter = f"metadata.{TraceMetadataKey.SOURCE_RUN} = '{run_id}'"
+            additional_filter = (
+                f"attribute.run_id = '{run_id}'"
+                if is_databricks
+                else f"metadata.{TraceMetadataKey.SOURCE_RUN} = '{run_id}'"
+            )
             if filter_string:
                 if TraceMetadataKey.SOURCE_RUN in filter_string:
                     raise MlflowException(
@@ -312,8 +319,6 @@ class TracingClient:
                 filter_string += f" AND {additional_filter}"
             else:
                 filter_string = additional_filter
-
-        is_databricks = is_databricks_uri(self.tracking_uri)
 
         def download_trace_extra_fields(
             trace_info: Union[TraceInfoV2, TraceInfo],
@@ -367,7 +372,11 @@ class TracingClient:
         next_token = page_token
 
         max_workers = MLFLOW_SEARCH_TRACES_MAX_THREADS.get()
-        executor = ThreadPoolExecutor(max_workers=max_workers) if include_spans else nullcontext()
+        executor = (
+            ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="MlflowTracingSearch")
+            if include_spans
+            else nullcontext()
+        )
         with executor:
             while len(traces) < max_results:
                 trace_infos, next_token = self._search_traces(
@@ -599,3 +608,18 @@ class TracingClient:
             request_metadata=trace_info.request_metadata,
             tags=trace_info.tags or {},
         )
+
+    def link_prompt_versions_to_trace(
+        self, trace_id: str, prompts: Sequence[PromptVersion]
+    ) -> None:
+        """
+        Link multiple prompt versions to a trace.
+
+        Args:
+            trace_id: The ID of the trace to link prompts to.
+            prompts: List of PromptVersion objects to link to the trace.
+        """
+        from mlflow.tracking._model_registry.utils import _get_store as _get_model_registry_store
+
+        registry_store = _get_model_registry_store()
+        registry_store.link_prompts_to_trace(prompt_versions=prompts, trace_id=trace_id)

@@ -14,7 +14,7 @@ from mlflow.tracing.client import TracingClient
 from mlflow.utils.annotations import experimental
 
 
-@experimental
+@experimental(version="3.0.0")
 def get_assessment(trace_id: str, assessment_id: str) -> Assessment:
     """
     .. important::
@@ -33,7 +33,7 @@ def get_assessment(trace_id: str, assessment_id: str) -> Assessment:
     return TracingClient().get_assessment(trace_id, assessment_id)
 
 
-@experimental
+@experimental(version="2.21.0")
 def log_assessment(trace_id: str, assessment: Assessment) -> Assessment:
     """
     .. important::
@@ -137,7 +137,7 @@ def log_assessment(trace_id: str, assessment: Assessment) -> Assessment:
     TracingClient().log_assessment(trace_id, assessment)
 
 
-@experimental
+@experimental(version="3.0.0")
 def log_expectation(
     *,
     trace_id: str,
@@ -178,7 +178,7 @@ def log_expectation(
     return TracingClient().log_assessment(trace_id, assessment)
 
 
-@experimental
+@experimental(version="2.21.0")
 def update_assessment(
     trace_id: str,
     assessment_id: str,
@@ -230,7 +230,7 @@ def update_assessment(
     )
 
 
-@experimental
+@experimental(version="2.21.0")
 def delete_assessment(trace_id: str, assessment_id: str):
     """
     .. important::
@@ -246,7 +246,7 @@ def delete_assessment(trace_id: str, assessment_id: str):
     return TracingClient().delete_assessment(trace_id=trace_id, assessment_id=assessment_id)
 
 
-@experimental
+@experimental(version="2.21.0")
 def log_feedback(
     *,
     trace_id: str,
@@ -303,7 +303,7 @@ def log_feedback(
     return TracingClient().log_assessment(trace_id, assessment)
 
 
-@experimental
+@experimental(version="3.0.0")
 def override_feedback(
     *,
     trace_id: str,

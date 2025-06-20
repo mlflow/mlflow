@@ -16,6 +16,7 @@ from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.ml_package_versions import FLAVOR_TO_MODULE_NAME
 from mlflow.tracing.client import TracingClient
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
 from mlflow.tracing.export.inference_table import pop_trace
 from mlflow.tracing.processor.mlflow_v2 import MlflowV2SpanProcessor
 from mlflow.tracing.provider import _get_tracer
@@ -116,13 +117,19 @@ def create_test_trace_info(
     trace_metadata=None,
     tags=None,
 ):
+    # Add schema version to metadata if not provided, to match real trace creation behavior
+    final_metadata = trace_metadata or {}
+    if TRACE_SCHEMA_VERSION_KEY not in final_metadata:
+        final_metadata = final_metadata.copy()
+        final_metadata[TRACE_SCHEMA_VERSION_KEY] = str(TRACE_SCHEMA_VERSION)
+
     return TraceInfo(
         trace_id=trace_id,
         trace_location=TraceLocation.from_experiment_id(experiment_id),
         request_time=request_time,
         execution_duration=execution_duration,
         state=state,
-        trace_metadata=trace_metadata or {},
+        trace_metadata=final_metadata,
         tags=tags or {},
     )
 
@@ -231,3 +238,75 @@ def skip_module_when_testing_trace_sdk():
             "Skipping test because it requires mlflow or mlflow-skinny to be installed.",
             allow_module_level=True,
         )
+
+
+V2_TRACE_DICT = {
+    "info": {
+        "request_id": "58f4e27101304034b15c512b603bf1b2",
+        "experiment_id": "0",
+        "timestamp_ms": 100,
+        "execution_time_ms": 200,
+        "status": "OK",
+        "request_metadata": {
+            "mlflow.trace_schema.version": "2",
+            "mlflow.traceInputs": '{"x": 2, "y": 5}',
+            "mlflow.traceOutputs": "8",
+        },
+        "tags": {
+            "mlflow.source.name": "test",
+            "mlflow.source.type": "LOCAL",
+            "mlflow.traceName": "predict",
+            "mlflow.artifactLocation": "/path/to/artifact",
+        },
+        "assessments": [],
+    },
+    "data": {
+        "spans": [
+            {
+                "name": "predict",
+                "context": {
+                    "span_id": "0d48a6670588966b",
+                    "trace_id": "63076d0c1b90f1df0970f897dc428bd6",
+                },
+                "parent_id": None,
+                "start_time": 100,
+                "end_time": 200,
+                "status_code": "OK",
+                "status_message": "",
+                "attributes": {
+                    "mlflow.traceRequestId": '"58f4e27101304034b15c512b603bf1b2"',
+                    "mlflow.spanType": '"UNKNOWN"',
+                    "mlflow.spanFunctionName": '"predict"',
+                    "mlflow.spanInputs": '{"x": 2, "y": 5}',
+                    "mlflow.spanOutputs": "8",
+                },
+                "events": [],
+            },
+            {
+                "name": "add_one_with_custom_name",
+                "context": {
+                    "span_id": "6fc32f36ef591f60",
+                    "trace_id": "63076d0c1b90f1df0970f897dc428bd6",
+                },
+                "parent_id": "0d48a6670588966b",
+                "start_time": 300,
+                "end_time": 400,
+                "status_code": "OK",
+                "status_message": "",
+                "attributes": {
+                    "mlflow.traceRequestId": '"58f4e27101304034b15c512b603bf1b2"',
+                    "mlflow.spanType": '"LLM"',
+                    "delta": "1",
+                    "metadata": '{"foo": "bar"}',
+                    "datetime": '"2025-04-29 08:37:06.772253"',
+                    "mlflow.spanFunctionName": '"add_one"',
+                    "mlflow.spanInputs": '{"z": 7}',
+                    "mlflow.spanOutputs": "8",
+                },
+                "events": [],
+            },
+        ],
+        "request": '{"x": 2, "y": 5}',
+        "response": "8",
+    },
+}
