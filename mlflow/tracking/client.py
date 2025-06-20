@@ -906,21 +906,35 @@ class MlflowClient:
     def parse_prompt_uri(self, uri: str) -> tuple[str, str]:
         """
         Parse prompt URI into prompt name and prompt version.
-        - 'prompt:/<name>/<version>' -> ('<name>', '<version>')
-        - 'prompt:/<name>@<alias>' -> ('<name>', '<version>')
+        - 'prompts:/<name>/<version>' -> ('<name>', '<version>')
+        - 'prompts:/<name>@<alias>' -> ('<name>', '<version>')
+        
+        This method reuses the existing model URI parsing logic with prompts prefix.
         """
-        parsed = urllib.parse.urlparse(uri)
-
-        if parsed.scheme != "prompts":
+        from mlflow.store.artifact.utils.models import _parse_model_uri
+        
+        # Use the existing model URI parsing utilities with prompts prefix
+        parsed_prompt_uri = _parse_model_uri(uri, prefix="prompts")
+        
+        if parsed_prompt_uri.model_id is not None:
+            # This shouldn't happen for prompts (no model IDs), but handle gracefully
             raise MlflowException.invalid_parameter_value(
-                f"Invalid prompt URI: {uri}. Expected schema 'prompts:/<name>/<version>'"
+                f"Invalid prompt URI format: {uri}"
             )
-
-        # Replace schema to 'models:/' to reuse the model URI parsing logic
-        try:
-            return get_model_name_and_version(self, f"models:{parsed.path}")
-        except MlflowException:
-            raise MlflowException(f"Prompt '{uri}' does not exist.", RESOURCE_DOES_NOT_EXIST)
+        
+        if parsed_prompt_uri.version is not None:
+            # Direct version reference: prompts:/name/version
+            return parsed_prompt_uri.name, parsed_prompt_uri.version
+        
+        if parsed_prompt_uri.alias is not None:
+            # Alias reference: prompts:/name@alias - resolve to version
+            prompt_version = self.get_prompt_version_by_alias(parsed_prompt_uri.name, parsed_prompt_uri.alias)
+            return parsed_prompt_uri.name, str(prompt_version.version)
+        
+        # Handle stage or latest (not supported for prompts)
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid prompt URI: {uri}. Prompts do not support stage-based references."
+        )
 
     ##### Tracing #####
     def delete_traces(

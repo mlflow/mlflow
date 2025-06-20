@@ -18,13 +18,15 @@ def is_using_databricks_registry(uri):
     return is_databricks_uri(profile_uri)
 
 
-def _improper_model_uri_msg(uri):
+def _improper_model_uri_msg(uri, prefix: str = "models"):
+    entity_type = "Models" if prefix == "models" else "Prompts"
     return (
-        f"Not a proper models:/ URI: {uri}. "
-        + "Models URIs must be of the form 'models:/model_name/suffix' "
-        + "or 'models:/model_name@alias' where suffix is a model version, stage, "
-        + f"or the string {_MODELS_URI_SUFFIX_LATEST!r} and where alias is a registered model "
-        + "alias. Only one of suffix or alias can be defined at a time."
+        f"Not a proper {prefix}:/ URI: {uri}. "
+        + f"{entity_type} URIs must be of the form '{prefix}:/name/suffix' "
+        + f"or '{prefix}:/name@alias' where suffix is a version"
+        + (f", stage, or the string {_MODELS_URI_SUFFIX_LATEST!r}" if prefix == "models" else "")
+        + f" and where alias is a registered {prefix[:-1]} alias. "
+        + "Only one of suffix or alias can be defined at a time."
     )
 
 
@@ -48,46 +50,55 @@ class ParsedModelUri(NamedTuple):
     alias: Optional[str] = None
 
 
-def _parse_model_uri(uri) -> ParsedModelUri:
+def _parse_model_uri(uri, prefix: str = "models") -> ParsedModelUri:
     """
-    Returns a ParsedModelUri tuple. Since a models:/ URI can only have one of
+    Returns a ParsedModelUri tuple. Since a models:/ or prompts:/ URI can only have one of
     {version, stage, 'latest', alias}, it will return
         - (id, None, None, None) to look for a specific model by ID,
         - (name, version, None, None) to look for a specific version,
         - (name, None, stage, None) to look for the latest version of a stage,
         - (name, None, None, None) to look for the latest of all versions.
         - (name, None, None, alias) to look for a registered model alias.
+    
+    Args:
+        uri: The URI to parse (e.g., "models:/name/version" or "prompts:/name@alias")
+        prefix: The expected URI scheme prefix (default: "models", can be "prompts")
     """
     parsed = urllib.parse.urlparse(uri, allow_fragments=False)
-    if parsed.scheme != "models":
-        raise MlflowException(_improper_model_uri_msg(uri))
+    if parsed.scheme != prefix:
+        raise MlflowException(_improper_model_uri_msg(uri, prefix))
     path = parsed.path
     if not path.startswith("/") or len(path) <= 1:
-        raise MlflowException(_improper_model_uri_msg(uri))
+        raise MlflowException(_improper_model_uri_msg(uri, prefix))
 
     parts = path.lstrip("/").split("/")
     if len(parts) > 2 or parts[0].strip() == "":
-        raise MlflowException(_improper_model_uri_msg(uri))
+        raise MlflowException(_improper_model_uri_msg(uri, prefix))
 
     if len(parts) == 2:
         name, suffix = parts
         if suffix.strip() == "":
-            raise MlflowException(_improper_model_uri_msg(uri))
+            raise MlflowException(_improper_model_uri_msg(uri, prefix))
         # The URI is in the suffix format
         if suffix.isdigit():
             # The suffix is a specific version, e.g. "models:/AdsModel1/123"
             return ParsedModelUri(name=name, version=suffix)
-        elif suffix.lower() == _MODELS_URI_SUFFIX_LATEST.lower():
+        elif suffix.lower() == _MODELS_URI_SUFFIX_LATEST.lower() and prefix == "models":
             # The suffix is the 'latest' string (case insensitive), e.g. "models:/AdsModel1/latest"
+            # Only supported for models, not prompts
             return ParsedModelUri(name=name)
-        else:
+        elif prefix == "models":
             # The suffix is a specific stage (case insensitive), e.g. "models:/AdsModel1/Production"
+            # Only supported for models, not prompts
             return ParsedModelUri(name=name, stage=suffix)
+        else:
+            # For prompts, only version numbers are supported, not stages or 'latest'
+            raise MlflowException(_improper_model_uri_msg(uri, prefix))
     elif "@" in path:
         # The URI is an alias URI, e.g. "models:/AdsModel1@Champion"
         alias_parts = parts[0].rsplit("@", 1)
         if len(alias_parts) != 2 or alias_parts[1].strip() == "":
-            raise MlflowException(_improper_model_uri_msg(uri))
+            raise MlflowException(_improper_model_uri_msg(uri, prefix))
         return ParsedModelUri(name=alias_parts[0], alias=alias_parts[1])
     else:
         # The URI is of the form "models:/<model_id>"
