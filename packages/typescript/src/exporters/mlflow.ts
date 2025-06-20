@@ -89,7 +89,13 @@ export class MlflowSpanProcessor implements SpanProcessor {
     }
 
     // Update trace info
-    const traceId = JSON.parse(span.attributes[SpanAttributeKey.TRACE_ID] as string) as string;
+    const otelTraceId = span.spanContext().traceId;
+    const traceId = InMemoryTraceManager.getInstance().getMlflowTraceIdFromOtelId(otelTraceId);
+    if (!traceId) {
+      console.warn(`No trace ID found for span ${span.name}. Skipping.`);
+      return;
+    }
+
     const trace = InMemoryTraceManager.getInstance().getTrace(traceId);
     if (!trace) {
       console.warn(`No trace found for span ${span.name}. Skipping.`);
