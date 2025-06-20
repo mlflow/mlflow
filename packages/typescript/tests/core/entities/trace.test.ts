@@ -1,5 +1,5 @@
 import { trace } from '@opentelemetry/api';
-import { BasicTracerProvider } from '@opentelemetry/sdk-trace-base';
+import { BasicTracerProvider } from '@opentelemetry/sdk-trace-node';
 import { Trace } from '../../../src/core/entities/trace';
 import { TraceInfo } from '../../../src/core/entities/trace_info';
 import { TraceData } from '../../../src/core/entities/trace_data';
@@ -68,17 +68,17 @@ describe('Trace', () => {
       expect(json.data).toMatchObject({
         spans: [
           {
-            "name": "parent",
-            "trace_id": expect.any(String),
-            "span_id": expect.any(String),
-            "parent_span_id": null,
-            "start_time_unix_nano": expect.any(BigInt),
-            "end_time_unix_nano": expect.any(BigInt),
-            "attributes": {
-              "mlflow.spanType": "UNKNOWN"
+            name: 'parent',
+            trace_id: expect.any(String),
+            span_id: expect.any(String),
+            parent_span_id: null,
+            start_time_unix_nano: expect.any(BigInt),
+            end_time_unix_nano: expect.any(BigInt),
+            attributes: {
+              'mlflow.spanType': 'UNKNOWN'
             },
-            "status": {"code": "UNSET"},
-            "events": []
+            status: { code: 'UNSET' },
+            events: []
           }
         ]
       });

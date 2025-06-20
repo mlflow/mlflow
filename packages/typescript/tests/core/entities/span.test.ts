@@ -1,5 +1,5 @@
 import { trace } from '@opentelemetry/api';
-import { BasicTracerProvider } from '@opentelemetry/sdk-trace-base';
+import { BasicTracerProvider } from '@opentelemetry/sdk-trace-node';
 import {
   createMlflowSpan,
   Span,

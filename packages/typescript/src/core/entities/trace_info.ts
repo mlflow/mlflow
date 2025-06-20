@@ -147,7 +147,7 @@ export class TraceInfo {
       responsePreview: json.response_preview,
       requestTime: json.request_time ? new Date(json.request_time).getTime() : Date.now(),
       executionDuration: json.execution_duration
-        ? parseFloat((json.execution_duration).replace('s', '')) * 1000
+        ? parseFloat(json.execution_duration.replace('s', '')) * 1000
         : undefined,
       state: json.state,
       traceMetadata: json.trace_metadata || {},
@@ -165,11 +165,11 @@ export interface SerializedTraceInfo {
     type: TraceLocationType;
     mlflow_experiment?: {
       experiment_id: string;
-    },
+    };
     inference_table?: {
       full_table_name: string;
-    }
-  }
+    };
+  };
   request_preview?: string;
   response_preview?: string;
   // "request_time": "2025-06-15T14:07:41.282Z"
