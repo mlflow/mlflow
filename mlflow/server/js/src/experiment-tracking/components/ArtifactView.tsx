@@ -57,6 +57,7 @@ const { Text } = Typography;
 type ArtifactViewImplProps = DesignSystemHocProps & {
   experimentId: string;
   runUuid: string;
+  loggedModelId?: string;
   initialSelectedArtifactPath?: string;
   artifactNode: any; // TODO: PropTypes.instanceOf(ArtifactNode)
   artifactRootUri: string;
@@ -213,12 +214,12 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
     );
   }
 
-  onDownloadClick(runUuid: any, artifactPath: any) {
-    window.location.href = getArtifactLocationUrl(artifactPath, runUuid);
+  onDownloadClick(runUuid: any, artifactPath: any, loggedModelId?: string) {
+    window.location.href = getArtifactLocationUrl(artifactPath, runUuid, loggedModelId);
   }
 
   renderControls() {
-    const { runUuid } = this.props;
+    const { runUuid, loggedModelId } = this.props;
     const { activeNodeId } = this.state;
     return (
       <div style={{ display: 'flex', alignItems: 'flex-start' }}>
@@ -250,7 +251,7 @@ export class ArtifactViewImpl extends Component<ArtifactViewImplProps, ArtifactV
             <Button
               componentId="codegen_mlflow_app_src_experiment-tracking_components_artifactview.tsx_337"
               icon={<DownloadIcon />}
-              onClick={() => this.onDownloadClick(runUuid, activeNodeId)}
+              onClick={() => this.onDownloadClick(runUuid, activeNodeId, loggedModelId)}
             />
           </LegacyTooltip>
         </div>

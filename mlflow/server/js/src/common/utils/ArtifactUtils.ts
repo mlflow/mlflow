@@ -117,7 +117,15 @@ export const getLoggedModelArtifactLocationUrl = (path: string, loggedModelId: s
   )}`;
 };
 
-export const getArtifactLocationUrl = (path: string, runUuid: string) => {
+export const getArtifactLocationUrl = (path: string, runUuid?: string, loggedModelId?: string) => {
   const artifactEndpointPath = 'get-artifact';
-  return `${artifactEndpointPath}?path=${encodeURIComponent(path)}&run_uuid=${encodeURIComponent(runUuid)}`;
+  const params = new URLSearchParams();
+  params.append('path', path);
+  if (runUuid !== undefined) {
+    params.append('run_uuid', runUuid);
+  }
+  if (loggedModelId !== undefined) {
+    params.append('model_id', loggedModelId);
+  }
+  return `${artifactEndpointPath}?${params.toString()}`;
 };
