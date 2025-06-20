@@ -3,7 +3,6 @@ import codecs
 import errno
 import fnmatch
 import gzip
-import importlib
 import importlib.util
 import json
 import logging
