@@ -6,12 +6,14 @@ from packaging.version import Version
 
 import mlflow
 from mlflow.entities.span import SpanType
+from mlflow.tracing.constant import SpanAttributeKey
 
 from tests.tracing.helper import get_traces
 
 _DUMMY_INPUT = "Explain quantum mechanics in simple terms."
 _SMOLAGENTS_VERSION_NEW = Version(smolagents.__version__) >= Version("1.15.0")
 MOCK_INFERENCE_CLIENT_MODEL_METHOD = "generate" if _SMOLAGENTS_VERSION_NEW else "__call__"
+from types import SimpleNamespace
 
 
 def clear_autolog_state():
@@ -29,6 +31,14 @@ def test_run_autolog():
         role="user",
         content='[{"type": "text", "text": "Explain quantum mechanics in simple terms."}]',
     )
+    _DUMMY_OUTPUT.raw = SimpleNamespace(
+        usage=SimpleNamespace(
+            prompt_tokens=10,
+            completion_tokens=18,
+            total_tokens=28,
+        )
+    )
+
     clear_autolog_state()
     agent = CodeAgent(
         tools=[],
@@ -95,6 +105,28 @@ def test_run_autolog():
         assert span_5.inputs is not None
         assert span_5.outputs is not None
 
+        assert span_2.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+            "input_tokens": 10,
+            "output_tokens": 18,
+            "total_tokens": 28,
+        }
+        assert span_4.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+            "input_tokens": 10,
+            "output_tokens": 18,
+            "total_tokens": 28,
+        }
+        assert span_5.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+            "input_tokens": 10,
+            "output_tokens": 18,
+            "total_tokens": 28,
+        }
+
+        assert traces[0].info.token_usage == {
+            "input_tokens": 30,
+            "output_tokens": 54,
+            "total_tokens": 84,
+        }
+
     clear_autolog_state()
 
 
@@ -146,6 +178,13 @@ def test_tool_autolog():
         role="user",
         content='[{"type": "text", "text": "Explain quantum mechanics in simple terms."}]',
     )
+    _DUMMY_OUTPUT.raw = SimpleNamespace(
+        usage=SimpleNamespace(
+            prompt_tokens=10,
+            completion_tokens=18,
+            total_tokens=28,
+        )
+    )
     clear_autolog_state()
     agent = CodeAgent(
         tools=[
@@ -196,5 +235,22 @@ def test_tool_autolog():
         assert span_3.parent_id == span_0.span_id
         assert span_3.inputs is not None
         assert span_3.outputs is not None
+
+        assert span_2.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+            "input_tokens": 10,
+            "output_tokens": 18,
+            "total_tokens": 28,
+        }
+        assert span_3.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+            "input_tokens": 10,
+            "output_tokens": 18,
+            "total_tokens": 28,
+        }
+
+        assert traces[0].info.token_usage == {
+            "input_tokens": 20,
+            "output_tokens": 36,
+            "total_tokens": 56,
+        }
 
     clear_autolog_state()
