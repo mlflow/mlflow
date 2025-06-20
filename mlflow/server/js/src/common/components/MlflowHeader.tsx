@@ -1,26 +1,9 @@
 import ExperimentTrackingRoutes from '../../experiment-tracking/routes';
-import { Link, Location, matchPath, useLocation } from '../utils/RoutingUtils';
-import logo from '../static/home-logo.png';
-import { ModelRegistryRoutes } from '../../model-registry/routes';
+import { Link } from '../utils/RoutingUtils';
 import { HomePageDocsUrl, Version } from '../constants';
 import { DarkThemeSwitch } from '@mlflow/mlflow/src/common/components/DarkThemeSwitch';
-
-const colors = {
-  headerBg: '#0b3574',
-  headerText: '#e7f1fb',
-  headerActiveLink: '#43C9ED',
-};
-
-const classNames = {
-  activeNavLink: { borderBottom: `4px solid ${colors.headerActiveLink}` },
-};
-
-const isExperimentsActive = (location: Location) =>
-  matchPath('/', location.pathname) ||
-  matchPath('/experiments/*', location.pathname) ||
-  matchPath('/compare-experiments/*', location.pathname);
-const isModelsActive = (location: Location) => matchPath('/models/*', location.pathname);
-const isPromptsActive = (location: Location) => matchPath('/prompts/*', location.pathname);
+import { useDesignSystemTheme } from '@databricks/design-system';
+import { MlflowLogo } from './MlflowLogo';
 
 export const MlflowHeader = ({
   isDarkTheme = false,
@@ -29,17 +12,17 @@ export const MlflowHeader = ({
   isDarkTheme?: boolean;
   setIsDarkTheme?: (isDarkTheme: boolean) => void;
 }) => {
-  const location = useLocation();
+  const { theme } = useDesignSystemTheme();
   return (
     <header
       css={{
-        backgroundColor: colors.headerBg,
+        backgroundColor: theme.colors.backgroundSecondary,
         height: '60px',
-        color: colors.headerText,
+        color: theme.colors.textSecondary,
         display: 'flex',
         gap: 24,
         a: {
-          color: colors.headerText,
+          color: theme.colors.textSecondary,
         },
       }}
     >
@@ -50,15 +33,15 @@ export const MlflowHeader = ({
         }}
       >
         <Link to={ExperimentTrackingRoutes.rootRoute}>
-          <img
+          <MlflowLogo
             css={{
+              display: 'block',
               height: 40,
               marginLeft: 24,
               marginTop: 10,
               marginBottom: 10,
+              color: theme.colors.textPrimary,
             }}
-            alt="MLflow"
-            src={logo}
           />
         </Link>
         <span
@@ -70,33 +53,6 @@ export const MlflowHeader = ({
         >
           {Version}
         </span>
-      </div>
-      <div
-        css={{
-          display: 'flex',
-          paddingTop: 20,
-          fontSize: 16,
-          gap: 24,
-        }}
-      >
-        <Link
-          to={ExperimentTrackingRoutes.experimentsObservatoryRoute}
-          style={isExperimentsActive(location) ? classNames.activeNavLink : undefined}
-        >
-          Experiments
-        </Link>
-        <Link
-          to={ModelRegistryRoutes.modelListPageRoute}
-          style={isModelsActive(location) ? classNames.activeNavLink : undefined}
-        >
-          Models
-        </Link>
-        <Link
-          to={ExperimentTrackingRoutes.promptsPageRoute}
-          style={isPromptsActive(location) ? classNames.activeNavLink : undefined}
-        >
-          Prompts
-        </Link>
       </div>
       <div css={{ flex: 1 }} />
       <div css={{ display: 'flex', gap: 24, paddingTop: 20, fontSize: 16, marginRight: 24 }}>

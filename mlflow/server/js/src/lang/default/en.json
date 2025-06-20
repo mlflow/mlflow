@@ -467,6 +467,10 @@
     "defaultMessage": "Source run",
     "description": "Header title for the source run column in the logged model list table"
   },
+  "5y4o+l": {
+    "defaultMessage": "Model",
+    "description": "Sidebar button inside the 'new' popover to create new model"
+  },
   "5yWkFd": {
     "defaultMessage": "Increase or decrease the confidence level of the language model.",
     "description": "Experiment page > prompt lab > temperature parameter help text"
@@ -1723,6 +1727,10 @@
     "defaultMessage": "Delete",
     "description": "Experiment page > traces view controls > Delete button"
   },
+  "QBYbF3": {
+    "defaultMessage": "Prompts",
+    "description": "Sidebar link for prompts tab"
+  },
   "QC5Vjq": {
     "defaultMessage": "Y-axis:",
     "description": "Label where the users can choose the metric of the experiment run to be plotted on the Y-axis"
@@ -1946,6 +1954,10 @@
   "U3btBc": {
     "defaultMessage": "Examples:",
     "description": "Text header for examples of mlflow search syntax"
+  },
+  "U4ox5k": {
+    "defaultMessage": "Experiments",
+    "description": "Sidebar link for experiments tab"
   },
   "U82iv6": {
     "defaultMessage": "Registered Models",
@@ -2187,6 +2199,10 @@
     "defaultMessage": "Search metric charts",
     "description": "Run page > Charts tab > Filter metric charts input > placeholder"
   },
+  "Xuz/xh": {
+    "defaultMessage": "Models",
+    "description": "Sidebar link for models tab"
+  },
   "XvzXs3": {
     "defaultMessage": "The parallel coordinates chart shows runs with columns that are either numbers or strings. If a column has string entries, the runs corresponding to the 30 most recent unique values will be shown. Only runs with all relevant metrics and/or parameters will be displayed.",
     "description": "Experiment page > charts > parallel coordinates chart > tooltip explaining what data is expected to be rendered"
@@ -2254,6 +2270,10 @@
   "YnHiZ6": {
     "defaultMessage": "Relative Time (hours)",
     "description": "Label for the relative axis on the runs compare chart in hours"
+  },
+  "YuWDVj": {
+    "defaultMessage": "Experiment",
+    "description": "Sidebar button inside the 'new' popover to create new experiment"
   },
   "YuYnxd": {
     "defaultMessage": "Delete",
@@ -2598,6 +2618,10 @@
   "dYbJha": {
     "defaultMessage": "Please provide run name",
     "description": "Experiment page > new run modal > invalid state - no run name provided"
+  },
+  "dbps6u": {
+    "defaultMessage": "Prompt",
+    "description": "Sidebar button inside the 'new' popover to create new prompt"
   },
   "dcoaGS": {
     "defaultMessage": "No experiments created",
@@ -3858,6 +3882,10 @@
   "xmpvlI": {
     "defaultMessage": "Unhide run",
     "description": "A tooltip for the visibility icon button in the runs table next to the hidden run"
+  },
+  "xq0Rde": {
+    "defaultMessage": "New",
+    "description": "Sidebar create popover button to create new experiment, model or prompt"
   },
   "y2oQyU": {
     "defaultMessage": "Model name",
