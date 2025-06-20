@@ -1,4 +1,5 @@
 import type { HrTime } from '@opentelemetry/api';
+import { LiveSpan } from '../entities/span';
 
 /**
  * OpenTelemetry Typescript SDK uses a unique timestamp format `HrTime` to represent
@@ -29,6 +30,14 @@ export function convertHrTimeToNanoSeconds(hrTime: HrTime): bigint {
   return BigInt(hrTime[0]) * 1_000_000_000n + BigInt(hrTime[1]);
 }
 
+/**
+ * Convert HrTime to milliseconds
+ * @param hrTime HrTime tuple [seconds, nanoseconds]
+ * @returns Milliseconds
+ */
+export function convertHrTimeToMs(hrTime: HrTime): number {
+  return hrTime[0] * 1e3 + hrTime[1] / 1e6;
+}
 
 /**
  * Convert a hex span ID to base64 format for JSON serialization
@@ -84,4 +93,49 @@ export function decodeIdFromBase64(base64SpanId: string): string {
   return Array.from(bytes)
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
+}
+
+
+/**
+ * Deduplicate span names in the trace data by appending an index number to the span name.
+ *
+ * This is only applied when there are multiple spans with the same name. The span names
+ * are modified in place to avoid unnecessary copying.
+ *
+ * Examples:
+ *   ["red", "red"] -> ["red_1", "red_2"]
+ *   ["red", "red", "blue"] -> ["red_1", "red_2", "blue"]
+ *
+ * @param spans A list of spans to deduplicate
+ */
+export function deduplicateSpanNamesInPlace(spans: LiveSpan[]): void {
+  // Count occurrences of each span name
+  const spanNameCounter = new Map<string, number>();
+
+  for (const span of spans) {
+    const name = span.name;
+    spanNameCounter.set(name, (spanNameCounter.get(name) || 0) + 1);
+  }
+
+  // Apply renaming only for duplicated spans
+  const spanNameIndexes = new Map<string, number>();
+  for (const [name, count] of spanNameCounter.entries()) {
+    if (count > 1) {
+      spanNameIndexes.set(name, 1);
+    }
+  }
+
+  // Add index to the duplicated span names
+  for (const span of spans) {
+    const name = span.name;
+    const currentIndex = spanNameIndexes.get(name);
+
+    if (currentIndex !== undefined) {
+      // Modify the span name in place by accessing the internal OpenTelemetry span
+      // The 'name' field is readonly in OTel but we need to jail-break it here
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      (span._span as any).name = `${name}_${currentIndex}`;
+      spanNameIndexes.set(name, currentIndex + 1);
+    }
+  }
 }
