@@ -112,9 +112,14 @@ def test_set_destination_mlflow_experiment(monkeypatch):
     tracer = _get_tracer("test")
     processors = tracer.span_processor._span_processors
     assert len(processors) == 1
-    assert isinstance(processors[0], MlflowV3SpanProcessor)
-    assert processors[0]._experiment_id == "123"
-    assert isinstance(processors[0].span_exporter, MlflowV3SpanExporter)
+    if mlflow.get_tracking_uri().startswith("sqlite"):
+        assert isinstance(processors[0], MlflowV3SpanProcessor)
+        assert processors[0]._experiment_id == "123"
+        assert isinstance(processors[0].span_exporter, MlflowV3SpanExporter)
+    else:
+        assert isinstance(processors[0], MlflowV2SpanProcessor)
+        assert isinstance(processors[0].span_exporter, MlflowV2SpanExporter)
+
 
     # Set destination with experiment_id and tracking_uri
     mlflow.tracing.set_destination(
