@@ -210,17 +210,16 @@ You can access the UI by navigating to [`http://127.0.0.1:5000`](http://127.0.0.
 
 ### Step 6: Download artifacts
 
-MLflow Tracking Server also serves as a proxy host for artifact access. Artifact access is enabled through the proxy URIs such as `runs:/`, `mlflow-artifacts:/`,
+MLflow Tracking Server also serves as a proxy host for artifact access. Artifact access is enabled through the proxy URIs such as `models:/`, `mlflow-artifacts:/`,
 giving users access to this location without having to manage credentials or permissions of direct access.
 
 ```python
 import mlflow
 
-run_id = "YOUR_RUN_ID"  # You can find run ID in the Tracking UI
-artifact_path = "model"
+model_id = "YOUR_MODEL_ID"  # You can find model ID in the Tracking UI
 
 # Download artifact via the tracking server
-mlflow_artifact_uri = f"runs://{run_id}/{artifact_path}"
+mlflow_artifact_uri = f"models:/{model_id}"
 local_path = mlflow.artifacts.download_artifacts(mlflow_artifact_uri)
 
 # Load the model
