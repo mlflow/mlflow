@@ -94,6 +94,52 @@ MLflow Tracing for Gemini SDK supports embeddings API:
 result = client.models.embed_content(model="text-embedding-004", contents="Hello world")
 ```
 
+## Token usage
+
+MLflow >= 3.1.0 supports token usage tracking for Gemini. The token usage for each LLM call will be logged in the `mlflow.chat.tokenUsage` attribute. The total token usage throughout the trace will be
+available in the `token_usage` field of the trace info object.
+
+```python
+import json
+import mlflow
+
+mlflow.gemini.autolog()
+
+client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+
+# Use the generate_content method to generate responses to your prompts.
+response = client.models.generate_content(
+    model="gemini-1.5-flash", contents="The opposite of hot is"
+)
+
+# Get the trace object just created
+trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+
+# Print the token usage
+total_usage = trace.info.token_usage
+print("== Total token usage: ==")
+print(f"  Input tokens: {total_usage['input_tokens']}")
+print(f"  Output tokens: {total_usage['output_tokens']}")
+print(f"  Total tokens: {total_usage['total_tokens']}")
+```
+
+```bash
+== Total token usage: ==
+  Input tokens: 5
+  Output tokens: 2
+  Total tokens: 7
+```
+
+
+### Supported APIs:
+
+Token usage tracking is supported for the following Gemini APIs:
+
+|Mode|Chat Completion|Completion|
+|:--:|:--:|:--:|
+|Normal|✅|✅|
+|Async|✅|✅|
+
 ### Disable auto-tracing
 
 Auto tracing for Gemini can be disabled globally by calling `mlflow.gemini.autolog(disable=True)` or `mlflow.autolog(disable=True)`.
