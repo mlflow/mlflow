@@ -118,14 +118,7 @@ class ClassifierEvaluator(BuiltInEvaluator):
         if is_binomial:
             if self.pos_label is None:
                 self.pos_label = self.label_list[-1]
-            else:
-                # Check if pos_label is in label_list
-                if self.pos_label not in self.label_list:
-                    raise MlflowException(
-                        f"pos_label {self.pos_label} is not in label_list "
-                        f"{self.label_list}, np.where(self.label_list == self.pos_label)"
-                    )
-                self.label_list = np.append(self.label_list, self.pos_label)
+            # pos_label validation is already done in _evaluate method
             with _suppress_class_imbalance_errors(IndexError, log_warning=False):
                 _logger.info(
                     "The evaluation dataset is inferred as binary dataset, positive label is "
@@ -133,10 +126,8 @@ class ClassifierEvaluator(BuiltInEvaluator):
                 )
         else:
             if self.pos_label is not None:
-                _logger.warning(
-                    f"pos_label {self.pos_label} is ignored for multiclass "
-                    f"classification with {len(self.label_list)} classes"
-                )
+                # pos_label is ignored for multiclass classification - no warning needed
+                pass
 
     def _compute_builtin_metrics(self, model):
         self._evaluate_sklearn_model_score_if_scorable(model, self.y_true, self.sample_weights)
@@ -495,6 +486,21 @@ def _get_common_classifier_metrics(
 def _get_binary_classifier_metrics(
     *, y_true, y_pred, y_proba=None, labels=None, pos_label=1, sample_weights=None
 ):
+    """Compute binary classification metrics.
+
+    Args:
+        y_true: True binary labels.
+        y_pred: Predicted binary labels.
+        y_proba: Predicted probabilities for positive class. Optional.
+        labels: List of labels to use for confusion matrix. If provided, ensures
+               proper 2x2 structure even with single-class data.
+        pos_label: Label of the positive class. Defaults to 1.
+        sample_weights: Sample weights. Optional.
+
+    Returns:
+        Dictionary containing binary classification metrics including true_negatives,
+        false_positives, false_negatives, true_positives, and other common metrics.
+    """
     with _suppress_class_imbalance_errors(ValueError):
         # Use labels parameter to ensure proper 2x2 confusion matrix structure
         cm = sk_metrics.confusion_matrix(y_true, y_pred, labels=labels)
