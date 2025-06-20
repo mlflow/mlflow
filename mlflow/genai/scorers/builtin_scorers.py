@@ -44,6 +44,8 @@ class BuiltInScorer(Scorer):
             builtin_scorer_pydantic_data=pydantic_model_data,
         )
 
+        # Validate before serialization
+        serialized.validate()
         return asdict(serialized)
 
     @classmethod
