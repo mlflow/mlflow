@@ -16,6 +16,7 @@ from mlflow.genai.scorers.validation import valid_data_for_builtin_scorers, vali
 from mlflow.genai.utils.trace_utils import (
     clean_up_extra_traces,
     convert_predict_fn,
+    copy_model_serving_trace_to_eval_run,
 )
 from mlflow.models.evaluation.base import (
     EvaluationResult,
@@ -26,7 +27,6 @@ from mlflow.tracing.constant import (
     DATABRICKS_OUTPUT_KEY,
     RETURN_TRACE_OPTION_KEY,
 )
-from mlflow.tracing.utils.copy import copy_trace_to_current_experiment
 from mlflow.utils.annotations import experimental
 from mlflow.utils.uri import is_databricks_uri
 
@@ -381,7 +381,7 @@ def to_predict_fn(endpoint_uri: str) -> Callable:
         # If the endpoint returns a trace, copy it to the current experiment.
         if trace_dict := result.pop(DATABRICKS_OUTPUT_KEY, {}).get("trace"):
             try:
-                copy_trace_to_current_experiment(trace_dict)
+                copy_model_serving_trace_to_eval_run(trace_dict)
                 return result
             except Exception:
                 logger.debug(
