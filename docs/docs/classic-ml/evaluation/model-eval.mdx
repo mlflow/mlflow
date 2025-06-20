@@ -733,35 +733,86 @@ def reproducible_evaluation(model, eval_data, targets, random_seed=42):
     # Set random seeds
     np.random.seed(random_seed)
 
-    with mlflow.start_run():
-        # Log evaluation configuration
-        mlflow.log_params(
-            {
-                "eval_random_seed": random_seed,
-                "eval_data_size": len(eval_data),
-                "eval_timestamp": pd.Timestamp.now().isoformat(),
-            }
-        )
+    # Consistent data ordering
+    eval_data_sorted = eval_data.sort_values(by=eval_data.columns.tolist()).reset_index(
+        drop=True
+    )
 
-        # Consistent data ordering
-        eval_data_sorted = eval_data.sort_values(
-            by=eval_data.columns.tolist()
-        ).reset_index(drop=True)
+    # Run evaluation
+    result = mlflow.models.evaluate(
+        model,
+        eval_data_sorted,
+        targets=targets,
+        model_type="classifier",
+        evaluator_config={"random_seed": random_seed},
+    )
 
-        # Run evaluation
-        result = mlflow.models.evaluate(
-            model,
-            eval_data_sorted,
-            targets=targets,
-            model_type="classifier",
-            evaluator_config={"random_seed": random_seed},
-        )
-
-        return result
+    return result
 ```
 
   </TabItem>
 </Tabs>
+
+## Handling Single-Class Data in Binary Classification
+
+When evaluating a binary classifier, you may encounter a scenario where your evaluation dataset contains only one of the two classes (e.g., all `True` or all `1`). This is common in highly imbalanced datasets or with specific data batches.
+
+By default, `mlflow.evaluate` will raise an error in this case, as it cannot construct a 2x2 confusion matrix from a single class.
+
+**Solution**: You can instruct MLflow to handle this gracefully by explicitly providing the full set of expected labels via the `evaluator_config`. This ensures that metrics like `true_positives` and `true_negatives` are calculated correctly against the complete label space.
+
+Here's how to configure the `default` evaluator to handle a single-class dataset:
+
+```python
+import pandas as pd
+import numpy as np
+import mlflow
+from mlflow.pyfunc import PythonModel
+
+# 1) Create a toy dataset where only class '1' appears
+df = pd.DataFrame(
+    {
+        "feature": np.random.randn(10),
+        "target": np.ones(10, dtype=int),  # All labels are '1'
+    }
+)
+
+
+# 2) Define a model that always predicts '1'
+class AlwaysOneModel(PythonModel):
+    def predict(self, context, model_input):
+        return np.ones(len(model_input), dtype=int)
+
+
+# 3) Log the model
+with mlflow.start_run() as run:
+    model_info = mlflow.pyfunc.log_model(
+        name="always_one_model",
+        python_model=AlwaysOneModel(),
+    )
+
+# 4) Evaluate with an explicit label_list
+#    This forces a 2x2 confusion matrix, preventing a crash.
+result = mlflow.evaluate(
+    model=model_info.model_uri,
+    data=df,
+    targets="target",
+    model_type="classifier",
+    evaluators=["default"],
+    evaluator_config={
+        "default": {
+            "label_list": [0, 1],  # <-- Force a two-class confusion matrix
+            "pos_label": 1,  # (Optional) Define the positive class
+        }
+    },
+)
+
+# The metrics are calculated correctly against the full label space
+# Expected: true_positives=10, false_negatives=0, true_negatives=0, false_positives=0
+print(result.metrics)
+```
+
+By setting `label_list: [0, 1]`, you tell MLflow to generate a confusion matrix with both classes, even though class `0` never appears in the data. This correctly results in `true_positives` being 10 and all other confusion matrix entries being 0, which is the expected behavior.
 
 ## Conclusion
 
