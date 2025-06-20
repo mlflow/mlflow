@@ -13,6 +13,7 @@ import requests
 from opentelemetry import trace as trace_api
 
 import mlflow
+from mlflow.telemetry.client import set_telemetry_client
 from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
 from mlflow.tracing.export.inference_table import _TRACE_BUFFER
 from mlflow.tracing.fluent import _set_last_active_trace_id
@@ -330,3 +331,8 @@ def mock_is_in_databricks(request):
 @pytest.fixture(autouse=not IS_TRACING_SDK_ONLY)
 def reset_active_model_context():
     clear_active_model()
+
+
+@pytest.fixture(autouse=True)
+def reset_telemetry_client():
+    set_telemetry_client()
