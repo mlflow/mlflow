@@ -33,10 +33,11 @@ from mlflow.utils.databricks_utils import (
 from mlflow.utils.uri import is_databricks_uri
 from mlflow.environment_variables import (
     MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL,
-    MLFLOW_TRACING_DELTA_ARCHIVAL_TABLE,
+    MLFLOW_TRACING_DELTA_ARCHIVAL_SPANS_TABLE,
     MLFLOW_TRACING_DELTA_ARCHIVAL_TOKEN,
-    MLFLOW_TRACING_DELTA_ARCHIVAL_INGEST_URL,
+    MLFLOW_TRACING_DELTA_ARCHIVAL_INGESTION_URL,
     MLFLOW_TRACING_DELTA_ARCHIVAL_WORKSPACE_URL,
+    MLFLOW_TRACING_DELTA_ARCHIVAL_EVENTS_TABLE,
 )
 
 if TYPE_CHECKING:
@@ -217,10 +218,11 @@ def _has_required_delta_archival_config() -> bool:
         True if all required environment variables are set and non-empty, False otherwise.
     """
     required_vars = [
-        MLFLOW_TRACING_DELTA_ARCHIVAL_TABLE,
+        MLFLOW_TRACING_DELTA_ARCHIVAL_SPANS_TABLE,
         MLFLOW_TRACING_DELTA_ARCHIVAL_TOKEN,
-        MLFLOW_TRACING_DELTA_ARCHIVAL_INGEST_URL,
+        MLFLOW_TRACING_DELTA_ARCHIVAL_INGESTION_URL,
         MLFLOW_TRACING_DELTA_ARCHIVAL_WORKSPACE_URL,
+        MLFLOW_TRACING_DELTA_ARCHIVAL_EVENTS_TABLE,
     ]
     
     for var in required_vars:
@@ -292,8 +294,9 @@ def _setup_tracer_provider(disabled=False):
         from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 
         trace_server_config = {
-            "spans_table_name": MLFLOW_TRACING_DELTA_ARCHIVAL_TABLE.get(),
-            "ingest_url": MLFLOW_TRACING_DELTA_ARCHIVAL_INGEST_URL.get(),
+            "spans_table_name": MLFLOW_TRACING_DELTA_ARCHIVAL_SPANS_TABLE.get(),
+            "events_table_name": MLFLOW_TRACING_DELTA_ARCHIVAL_EVENTS_TABLE.get(),
+            "ingest_url": MLFLOW_TRACING_DELTA_ARCHIVAL_INGESTION_URL.get(),
             "workspace_url": MLFLOW_TRACING_DELTA_ARCHIVAL_WORKSPACE_URL.get(),
             "pat": MLFLOW_TRACING_DELTA_ARCHIVAL_TOKEN.get(),
         }

@@ -27,6 +27,11 @@ from mlflow.environment_variables import (
     _MLFLOW_CREATE_LOGGED_MODEL_PARAMS_BATCH_SIZE,
     _MLFLOW_LOG_LOGGED_MODEL_PARAMS_BATCH_SIZE,
     MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
+    MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL,
+    MLFLOW_TRACING_DELTA_ARCHIVAL_TOKEN,
+    MLFLOW_TRACING_DELTA_ARCHIVAL_INGESTION_URL,
+    MLFLOW_TRACING_DELTA_ARCHIVAL_WORKSPACE_URL,
+    MLFLOW_TRACING_DELTA_ARCHIVAL_EVENTS_TABLE,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.protos import databricks_pb2
@@ -646,7 +651,12 @@ class RestStore(AbstractStore):
                 assessment.trace_id, is_databricks=is_databricks
             ),
         )
-        return Assessment.from_proto(response_proto.assessment)
+        created_assessment = Assessment.from_proto(response_proto.assessment)
+        
+        # Also send to delta archival events table if configured
+        self._maybe_log_assessment_to_delta_archival(created_assessment)
+        
+        return created_assessment
 
     def update_assessment(
         self,
@@ -1150,3 +1160,81 @@ class RestStore(AbstractStore):
         """
         req_body = message_to_json(LogOutputs(run_id=run_id, models=[m.to_proto() for m in models]))
         self._call_endpoint(LogOutputs, req_body)
+
+    def _maybe_log_assessment_to_delta_archival(self, assessment: Assessment) -> None:
+        """
+        Log assessment to delta archival events table if configured.
+        
+        Args:
+            assessment: The assessment to potentially log to delta archival.
+        """
+        # Check if delta archival is enabled and events table is configured
+        if not MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL.get():
+            return
+            
+        events_table = MLFLOW_TRACING_DELTA_ARCHIVAL_EVENTS_TABLE.get()
+        if not events_table:
+            return
+            
+        # Check if all required variables are set
+        required_vars = [
+            MLFLOW_TRACING_DELTA_ARCHIVAL_TOKEN,
+            MLFLOW_TRACING_DELTA_ARCHIVAL_INGESTION_URL,
+            MLFLOW_TRACING_DELTA_ARCHIVAL_WORKSPACE_URL,
+        ]
+        
+        for var in required_vars:
+            if not var.get():
+                _logger.warning(
+                    f"Delta archival is enabled but {var.name} is not set. "
+                    "Skipping assessment delta archival."
+                )
+                return
+        
+        try:
+            # Import here to avoid circular imports and optional dependency issues
+            import asyncio
+            import time
+            from mlflow.tracing.export.trace_server_archival_pb2 import Event as ProtoEvent
+            from ingest_api_sdk import IngestApiSdk, TableProperties
+            
+            # Create proto event for the assessment
+            proto_event = ProtoEvent()
+            proto_event.event_name = "genai.assessments.insert"
+            proto_event.trace_id = assessment.trace_id
+            proto_event.span_id = getattr(assessment, "span_id", "") or ""
+            
+            current_time_ns = int(time.time() * 1e9)
+            proto_event.time_unix_nano = current_time_ns
+            proto_event.observed_time_unix_nano = current_time_ns
+            
+            proto_event.severity_number = ""
+            proto_event.severity_text = ""
+            proto_event.body = json.dumps(assessment.to_dict())
+            proto_event.attributes = json.dumps({})
+            proto_event.dropped_attributes_count = 0
+            proto_event.flags = 0
+            
+            # Set up the ingest API SDK
+            sdk = IngestApiSdk(
+                MLFLOW_TRACING_DELTA_ARCHIVAL_INGESTION_URL.get(),
+                MLFLOW_TRACING_DELTA_ARCHIVAL_WORKSPACE_URL.get(),
+                MLFLOW_TRACING_DELTA_ARCHIVAL_TOKEN.get()
+            )
+            
+            # Create table properties and stream
+            table_properties = TableProperties(events_table, ProtoEvent.DESCRIPTOR)
+            
+            # Run the async ingestion
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                stream = loop.run_until_complete(sdk.create_stream(table_properties))
+                loop.run_until_complete(stream.ingest_record(proto_event))
+                loop.run_until_complete(stream.flush())
+                _logger.debug(f"Successfully logged assessment {assessment.assessment_id} to delta archival events table")
+            finally:
+                loop.close()
+                
+        except Exception as e:
+            _logger.warning(f"Failed to log assessment to delta archival: {e}")

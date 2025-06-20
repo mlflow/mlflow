@@ -844,7 +844,7 @@ MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL = _BooleanEnvironmentVariable("MLFLOW_TRACI
 #: Specifies the name of the table to ingest spans into for TraceServer.
 #: This is only used when MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL is set to True.
 #: (default: ``None``)
-MLFLOW_TRACING_DELTA_ARCHIVAL_TABLE = _EnvironmentVariable("MLFLOW_TRACING_DELTA_ARCHIVAL_TABLE", str, None)
+MLFLOW_TRACING_DELTA_ARCHIVAL_SPANS_TABLE = _EnvironmentVariable("MLFLOW_TRACING_DELTA_ARCHIVAL_SPANS_TABLE", str, None)
 
 #: Specifies the personal access token for authentication for TraceServer.
 #: This is only used when MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL is set to True.
@@ -854,9 +854,14 @@ MLFLOW_TRACING_DELTA_ARCHIVAL_TOKEN = _EnvironmentVariable("MLFLOW_TRACING_DELTA
 #: Specifies the URL of the ingest API for TraceServer.
 #: This is only used when MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL is set to True.
 #: (default: ``None``)
-MLFLOW_TRACING_DELTA_ARCHIVAL_INGEST_URL = _EnvironmentVariable("MLFLOW_TRACING_DELTA_ARCHIVAL_INGEST_URL", str, None)
+MLFLOW_TRACING_DELTA_ARCHIVAL_INGESTION_URL = _EnvironmentVariable("MLFLOW_TRACING_DELTA_ARCHIVAL_INGESTION_URL", str, None)
 
 #: Specifies the URL of the Databricks workspace for TraceServer.
 #: This is only used when MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL is set to True.
 #: (default: ``None``)
 MLFLOW_TRACING_DELTA_ARCHIVAL_WORKSPACE_URL = _EnvironmentVariable("MLFLOW_TRACING_DELTA_ARCHIVAL_WORKSPACE_URL", str, None)
+
+#: Specifies the name of the events table to ingest assessments into for TraceServer.
+#: This is only used when MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL is set to True.
+#: (default: ``None``)
+MLFLOW_TRACING_DELTA_ARCHIVAL_EVENTS_TABLE = _EnvironmentVariable("MLFLOW_TRACING_DELTA_ARCHIVAL_EVENTS_TABLE", str, None)
