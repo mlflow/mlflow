@@ -119,22 +119,24 @@ class ClassifierEvaluator(BuiltInEvaluator):
             if self.pos_label is None:
                 self.pos_label = self.label_list[-1]
             else:
-                if self.pos_label in self.label_list:
-                    self.label_list = np.delete(
-                        self.label_list, np.where(self.label_list == self.pos_label)
+                # Check if pos_label is in label_list
+                if self.pos_label not in self.label_list:
+                    raise MlflowException(
+                        f"pos_label {self.pos_label} is not in label_list "
+                        f"{self.label_list}, np.where(self.label_list == self.pos_label)"
                     )
                 self.label_list = np.append(self.label_list, self.pos_label)
             with _suppress_class_imbalance_errors(IndexError, log_warning=False):
                 _logger.info(
                     "The evaluation dataset is inferred as binary dataset, positive label is "
-                    f"{self.label_list[1]}, negative label is {self.label_list[0]}."
+                    f"{self.pos_label}, negative label is {self.label_list[0]}"
                 )
         else:
-            _logger.info(
-                "The evaluation dataset is inferred as multiclass dataset, number of classes "
-                f"is inferred as {len(self.label_list)}. If this is incorrect, please specify the "
-                "`label_list` parameter in `evaluator_config`."
-            )
+            if self.pos_label is not None:
+                _logger.warning(
+                    f"pos_label {self.pos_label} is ignored for multiclass "
+                    f"classification with {len(self.label_list)} classes"
+                )
 
     def _compute_builtin_metrics(self, model):
         self._evaluate_sklearn_model_score_if_scorable(model, self.y_true, self.sample_weights)
@@ -494,6 +496,7 @@ def _get_binary_classifier_metrics(
     *, y_true, y_pred, y_proba=None, labels=None, pos_label=1, sample_weights=None
 ):
     with _suppress_class_imbalance_errors(ValueError):
+        # Use labels parameter to ensure proper 2x2 confusion matrix structure
         cm = sk_metrics.confusion_matrix(y_true, y_pred, labels=labels)
         tn, fp, fn, tp = cm.ravel()
         return {
