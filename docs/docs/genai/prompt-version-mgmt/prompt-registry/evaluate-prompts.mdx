@@ -130,24 +130,65 @@ os.environ["OPENAI_API_KEY"] = getpass("Enter your OpenAI API key: ")
 
       ```python
       import mlflow
+      from pydantic import BaseModel
+      from typing import List
 
-      # Use double curly braces for variables in the template
-      initial_template = """\
+      # Example 1: Simple text prompt
+      text_template = """\
       Summarize content you are provided with in {{ num_sentences }} sentences.
 
       Sentences: {{ sentences }}
       """
 
-      # Register a new prompt
-      prompt = mlflow.genai.register_prompt(
+      # Register a new text prompt
+      text_prompt = mlflow.genai.register_prompt(
           name="summarization-prompt",
-          template=initial_template,
-          # Optional: Provide a commit message to describe the changes
+          template=text_template,
+          prompt_type="text",  # Default, can be omitted
           commit_message="Initial commit",
+          tags={
+              "author": "author@example.com",
+              "task": "summarization",
+          },
       )
 
-      # The prompt object contains information about the registered prompt
-      print(f"Created prompt '{prompt.name}' (version {prompt.version})")
+
+      # Example 2: Chat prompt with structured response format
+      class SummaryResponse(BaseModel):
+          summary: str
+          key_points: List[str]
+          confidence: float
+
+
+      chat_template = [
+          {"role": "system", "content": "You are an expert summarizer."},
+          {
+              "role": "user",
+              "content": "Summarize this text in {{ num_sentences }} sentences: {{ text }}",
+          },
+      ]
+
+      # Register a chat prompt with response format and model config
+      chat_prompt = mlflow.genai.register_prompt(
+          name="structured-summarization",
+          template=chat_template,
+          prompt_type="chat",
+          response_format=SummaryResponse,
+          config={
+              "model": "gpt-4o-mini",
+              "temperature": 0.2,
+              "max_tokens": 500,
+          },
+          commit_message="Structured summarization prompt",
+          tags={
+              "author": "author@example.com",
+              "task": "summarization",
+              "type": "structured",
+          },
+      )
+
+      print(f"Created text prompt '{text_prompt.name}' (version {text_prompt.version})")
+      print(f"Created chat prompt '{chat_prompt.name}' (version {chat_prompt.version})")
       ```
     </div>
 
@@ -210,9 +251,11 @@ MLflow will pass the input columns (`inputs` only in this example) to the functi
 ```python
 import mlflow
 import openai
+import json
 
 
-def predict(data: str) -> str:
+def predict_text(data: str) -> str:
+    """Use text prompt for prediction."""
     prompt = mlflow.genai.load_prompt("prompts:/summarization-prompt/1")
     content = prompt.format(sentences=data, num_sentences=1)
     completion = openai.chat.completions.create(
@@ -221,6 +264,36 @@ def predict(data: str) -> str:
         temperature=0.1,
     )
     return completion.choices[0].message.content
+
+
+def predict_chat(data: str) -> str:
+    """Use chat prompt with structured output for prediction."""
+    prompt = mlflow.genai.load_prompt("prompts:/structured-summarization/1")
+
+    # Format chat messages
+    messages = prompt.format_chat(text=data, num_sentences=1)
+
+    # Get model configuration from prompt
+    model_config = prompt.config or {}
+    model_name = model_config.get("model", "gpt-4o-mini")
+    model_params = {k: v for k, v in model_config.items() if k != "model"}
+
+    # Use chat prompt with structured output
+    completion = openai.chat.completions.create(
+        model=model_name,
+        messages=messages,
+        response_format={"type": "json_object"},
+        **model_params
+    )
+
+    # Parse structured response and extract summary
+    response_content = completion.choices[0].message.content
+    response_data = json.loads(response_content)
+    return response_data["summary"]
+
+
+# Choose which prediction function to use
+predict = predict_text  # or predict_chat
 ```
 
 ### 4. Run Evaluation
