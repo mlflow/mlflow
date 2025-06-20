@@ -2,15 +2,19 @@ import ExperimentTrackingRoutes from '../../experiment-tracking/routes';
 import { Link } from '../utils/RoutingUtils';
 import { HomePageDocsUrl, Version } from '../constants';
 import { DarkThemeSwitch } from '@mlflow/mlflow/src/common/components/DarkThemeSwitch';
-import { useDesignSystemTheme } from '@databricks/design-system';
+import { Button, MenuIcon, useDesignSystemTheme } from '@databricks/design-system';
 import { MlflowLogo } from './MlflowLogo';
 
 export const MlflowHeader = ({
   isDarkTheme = false,
   setIsDarkTheme = (val: boolean) => {},
+  sidebarOpen,
+  toggleSidebar,
 }: {
   isDarkTheme?: boolean;
   setIsDarkTheme?: (isDarkTheme: boolean) => void;
+  sidebarOpen: boolean;
+  toggleSidebar: () => void;
 }) => {
   const { theme } = useDesignSystemTheme();
   return (
@@ -32,12 +36,22 @@ export const MlflowHeader = ({
           alignItems: 'flex-end',
         }}
       >
+        <Button
+          type="tertiary"
+          componentId="mlflow_header.toggle_sidebar_button"
+          css={{ margin: theme.spacing.sm }}
+          onClick={toggleSidebar}
+          aria-label="Toggle sidebar"
+          aria-pressed={sidebarOpen}
+        >
+          <MenuIcon />
+        </Button>
+
         <Link to={ExperimentTrackingRoutes.rootRoute}>
           <MlflowLogo
             css={{
               display: 'block',
               height: 40,
-              marginLeft: 24,
               marginTop: 10,
               marginBottom: 10,
               color: theme.colors.textPrimary,

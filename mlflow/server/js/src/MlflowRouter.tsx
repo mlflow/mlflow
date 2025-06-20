@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { LegacySkeleton, useDesignSystemTheme } from '@databricks/design-system';
 
 import ErrorModal from './experiment-tracking/components/modals/ErrorModal';
@@ -32,6 +32,8 @@ export const MlflowRouter = ({
   // eslint-disable-next-line react-hooks/rules-of-hooks
   useInitializeExperimentRunColors();
 
+  const [showSidebar, setShowSidebar] = useState(true);
+
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const routes = useMemo(
     () => [...getExperimentTrackingRouteDefs(), ...getModelRegistryRouteDefs(), landingRoute, ...getCommonRouteDefs()],
@@ -45,7 +47,12 @@ export const MlflowRouter = ({
       <ErrorModal />
       <HashRouter>
         <AppErrorBoundary>
-          <MlflowHeader isDarkTheme={isDarkTheme} setIsDarkTheme={setIsDarkTheme} />
+          <MlflowHeader
+            isDarkTheme={isDarkTheme}
+            setIsDarkTheme={setIsDarkTheme}
+            sidebarOpen={showSidebar}
+            toggleSidebar={() => setShowSidebar((isOpen) => !isOpen)}
+          />
           <div
             css={{
               backgroundColor: theme.colors.backgroundSecondary,
@@ -55,7 +62,7 @@ export const MlflowRouter = ({
               justifyContent: 'stretch',
             }}
           >
-            <MlflowSidebar />
+            {showSidebar && <MlflowSidebar />}
             <main
               css={{
                 width: '100%',
