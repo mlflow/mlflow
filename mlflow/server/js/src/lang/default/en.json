@@ -763,6 +763,10 @@
     "defaultMessage": "Select as compared version",
     "description": "Label for selecting compared prompt version in the comparison view"
   },
+  "9KLNi5": {
+    "defaultMessage": "Delete",
+    "description": "Experiments page list, delete bulk experiments modal primary button"
+  },
   "9KXBFn": {
     "defaultMessage": "Tags",
     "description": "Row group title for tags of runs on the experiment compare runs page"
@@ -1074,6 +1078,10 @@
   "EpFST9": {
     "defaultMessage": "No trace data recorded",
     "description": "Experiment page > traces data drawer > no trace data recorded empty state"
+  },
+  "Epo8/i": {
+    "defaultMessage": "Delete {count, plural, one {# Experiment} other {# Experiments}}",
+    "description": "Experiments page list, delete bulk experiments modal title"
   },
   "EwAZgg": {
     "defaultMessage": "Edit tags",
@@ -1430,6 +1438,10 @@
   "KzC+38": {
     "defaultMessage": "Prompt template examples",
     "description": "Experiment page > new run modal > prompt examples > modal title"
+  },
+  "L/4iQO": {
+    "defaultMessage": "Delete",
+    "description": "Label for the delete experiments action on the experiments list page"
   },
   "L26D19": {
     "defaultMessage": "X-axis:",
@@ -2162,6 +2174,10 @@
   "XcKgD5": {
     "defaultMessage": "Details",
     "description": "Title for the details section on the logged model details page"
+  },
+  "XdanFp": {
+    "defaultMessage": "Select experiments from the table to be deleted",
+    "description": "Experiments page delete experiments button tooltip message"
   },
   "Xm5xxu": {
     "defaultMessage": "Request error",

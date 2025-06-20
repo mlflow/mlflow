@@ -25,6 +25,7 @@ import { ScrollablePageWrapper } from '../../common/components/ScrollablePageWra
 import { ExperimentSearchSyntaxDocUrl } from '../../common/constants';
 import { ExperimentListTable } from './ExperimentListTable';
 import { useNavigate } from '../../common/utils/RoutingUtils';
+import { BulkDeleteExperimentModal } from './modals/BulkDeleteExperimentModal';
 
 type Props = {
   experiments: ExperimentEntity[];
@@ -46,6 +47,7 @@ export const ExperimentListView = ({
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [searchInput, setSearchInput] = useState('');
   const [showCreateExperimentModal, setShowCreateExperimentModal] = useState(false);
+  const [showBulkDeleteExperimentModal, setShowBulkDeleteExperimentModal] = useState(false);
 
   const handleSearchInputChange: React.ChangeEventHandler<HTMLInputElement> = (event) => {
     setSearchInput(event.target.value);
@@ -119,6 +121,28 @@ export const ExperimentListView = ({
                 />
               </Button>
             </Tooltip>
+            <Tooltip
+              componentId="mlflow.experiment_list_view.bulk_delete_button_tooltip"
+              content={
+                <FormattedMessage
+                  defaultMessage="Select experiments from the table to be deleted"
+                  description="Experiments page delete experiments button tooltip message"
+                />
+              }
+            >
+              <Button
+                componentId="mlflow.experiment_list_view.bulk_delete_button"
+                onClick={() => setShowBulkDeleteExperimentModal(true)}
+                data-testid="delete-experiments-button"
+                disabled={checkedKeys.length < 1}
+                danger
+              >
+                <FormattedMessage
+                  defaultMessage="Delete"
+                  description="Label for the delete experiments action on the experiments list page"
+                />
+              </Button>
+            </Tooltip>
           </>
         }
       />
@@ -161,6 +185,15 @@ export const ExperimentListView = ({
         isOpen={showCreateExperimentModal}
         onClose={handleCloseCreateExperimentModal}
         onExperimentCreated={invalidateExperimentList}
+      />
+      <BulkDeleteExperimentModal
+        experiments={experiments.filter(({ experimentId }) => checkedKeys.includes(experimentId))}
+        isOpen={showBulkDeleteExperimentModal}
+        onClose={() => setShowBulkDeleteExperimentModal(false)}
+        onExperimentsDeleted={() => {
+          invalidateExperimentList();
+          setRowSelection({});
+        }}
       />
     </ScrollablePageWrapper>
   );
