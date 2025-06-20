@@ -120,7 +120,6 @@ def test_set_destination_mlflow_experiment(monkeypatch):
         assert isinstance(processors[0], MlflowV2SpanProcessor)
         assert isinstance(processors[0].span_exporter, MlflowV2SpanExporter)
 
-
     # Set destination with experiment_id and tracking_uri
     mlflow.tracing.set_destination(
         destination=MlflowExperiment(experiment_id="456", tracking_uri="http://localhost")
