@@ -151,3 +151,15 @@ class TraceInfoV2(_MlflowObject):
             tags=self.tags,
             assessments=self.assessments,
         )
+
+    @classmethod
+    def from_v3(cls, trace_info: TraceInfo) -> "TraceInfoV2":
+        return cls(
+            request_id=trace_info.trace_id,
+            experiment_id=trace_info.experiment_id,
+            timestamp_ms=trace_info.request_time,
+            execution_time_ms=trace_info.execution_duration,
+            status=TraceStatus.from_state(trace_info.state),
+            request_metadata=trace_info.trace_metadata,
+            tags=trace_info.tags,
+        )
