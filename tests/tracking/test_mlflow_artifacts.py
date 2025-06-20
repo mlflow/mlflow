@@ -311,6 +311,61 @@ def test_rest_get_artifact_api_proxied_with_artifacts(artifacts_server, tmp_path
     assert get_artifact_response.text == "abcdefg"
 
 
+def test_rest_get_artifact_api_logged_model_artifacts(artifacts_server, tmp_path):
+    url = artifacts_server.url
+    mlflow.set_tracking_uri(url)
+
+    class TestModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            return model_input
+
+    mlflow.set_experiment("logged_model_artifacts_test")
+    model_info = mlflow.pyfunc.log_model(name="test_model", python_model=TestModel())
+
+    get_artifact_response = requests.get(
+        url=f"{url}/get-artifact", params={"model_id": model_info.model_id, "path": "MLmodel"}
+    )
+    get_artifact_response.raise_for_status()
+    assert "mlflow_version" in get_artifact_response.text
+    assert model_info.model_id in get_artifact_response.text
+
+    get_artifact_response = requests.get(
+        url=f"{url}/get-artifact",
+        params={"model_id": model_info.model_id, "path": "python_model.pkl"},
+    )
+    get_artifact_response.raise_for_status()
+    assert len(get_artifact_response.content) > 0
+
+
+def test_rest_get_artifact_api_model_id_validation(artifacts_server):
+    url = artifacts_server.url
+
+    get_artifact_response = requests.get(
+        url=f"{url}/get-artifact", params={"model_id": "invalid_model_id", "path": "MLmodel"}
+    )
+    assert get_artifact_response.status_code == 404
+
+    get_artifact_response = requests.get(url=f"{url}/get-artifact", params={"path": "MLmodel"})
+    assert get_artifact_response.status_code == 400
+    response_json = get_artifact_response.json()
+    assert "Either run_id or model_id must be provided" in response_json.get("message", "")
+
+    # Test with missing path parameter
+    mlflow.set_tracking_uri(url)
+
+    class TestModel(mlflow.pyfunc.PythonModel):
+        def predict(self, context, model_input):
+            return model_input
+
+    mlflow.set_experiment("model_id_validation_test")
+    model_info = mlflow.pyfunc.log_model(name="test_model", python_model=TestModel())
+
+    get_artifact_response = requests.get(
+        url=f"{url}/get-artifact", params={"model_id": model_info.model_id}
+    )
+    assert get_artifact_response.status_code == 400
+
+
 def test_rest_get_model_version_artifact_api_proxied_artifact_root(artifacts_server):
     url = artifacts_server.url
     artifact_file = pathlib.Path(artifacts_server.artifacts_destination, "a.txt")
