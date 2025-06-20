@@ -12,6 +12,7 @@ from mlflow.bedrock.chat import convert_message_to_mlflow_chat, convert_tool_to_
 from mlflow.bedrock.stream import ConverseStreamWrapper, InvokeModelStreamWrapper
 from mlflow.bedrock.utils import skip_if_trace_disabled
 from mlflow.entities import SpanType
+from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.utils import set_span_chat_messages, set_span_chat_tools
 from mlflow.utils.autologging_utils import safe_patch
@@ -75,6 +76,12 @@ def _patched_invoke_model(original, self, *args, **kwargs):
         # with the key "embedding". This might change in the future.
         span_type = SpanType.EMBEDDING if "embedding" in parsed_response_body else SpanType.LLM
         span.set_span_type(span_type)
+
+        # Record token usage if provided in response
+        usage = _parse_usage_from_response(parsed_response_body)
+        if usage:
+            span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
+
         span.set_outputs({**result, "body": parsed_response_body})
 
         return result
@@ -95,7 +102,10 @@ def _patched_invoke_model_with_response_stream(original, self, *args, **kwargs):
     # To avoid consuming the stream during serialization, set dummy outputs for the span.
     span.set_outputs({**result, "body": "EventStream"})
 
-    result["body"] = InvokeModelStreamWrapper(stream=result["body"], span=span)
+    # Wrap streaming body to capture usage events
+    result_body = InvokeModelStreamWrapper(stream=result["body"], span=span)
+    # After stream ends, _buffer_usage events will set CHAT_USAGE attribute
+    result["body"] = result_body
     return result
 
 
@@ -129,6 +139,71 @@ def _parse_invoke_model_response_body(response_body: StreamingBody) -> Union[dic
         response_body._amount_read = 0
 
 
+def _parse_usage_from_response(
+    response_body: Union[dict[str, Any], str],
+) -> Optional[dict[str, int]]:
+    """
+    Parse token usage information from Bedrock response body.
+
+    Different Bedrock models return usage information in different formats:
+    - Anthropic: {"usage": {"input_tokens": int, "output_tokens": int}}
+    - AI21: {"usage": {"prompt_tokens": int, "completion_tokens": int, "total_tokens": int}}
+    - Amazon Nova: {"usage": {"inputTokens": int, "outputTokens": int, "totalTokens": int}}
+    - Meta Llama: {"prompt_token_count": int, "generation_token_count": int}
+    """
+    if not isinstance(response_body, dict):
+        return None
+
+    try:
+        # Handle Anthropic format
+        if "usage" in response_body and isinstance(response_body["usage"], dict):
+            usage = response_body["usage"]
+            if "input_tokens" in usage and "output_tokens" in usage:
+                return {
+                    TokenUsageKey.INPUT_TOKENS: usage["input_tokens"],
+                    TokenUsageKey.OUTPUT_TOKENS: usage["output_tokens"],
+                    TokenUsageKey.TOTAL_TOKENS: usage.get(
+                        "total_tokens",
+                        usage["input_tokens"] + usage["output_tokens"],
+                    ),
+                }
+            # Handle AI21 format
+            elif "prompt_tokens" in usage and "completion_tokens" in usage:
+                return {
+                    TokenUsageKey.INPUT_TOKENS: usage["prompt_tokens"],
+                    TokenUsageKey.OUTPUT_TOKENS: usage["completion_tokens"],
+                    TokenUsageKey.TOTAL_TOKENS: usage.get(
+                        "total_tokens",
+                        usage["prompt_tokens"] + usage["completion_tokens"],
+                    ),
+                }
+            # Handle Amazon Nova format
+            elif "inputTokens" in usage and "outputTokens" in usage:
+                return {
+                    TokenUsageKey.INPUT_TOKENS: usage["inputTokens"],
+                    TokenUsageKey.OUTPUT_TOKENS: usage["outputTokens"],
+                    TokenUsageKey.TOTAL_TOKENS: usage.get(
+                        "totalTokens",
+                        usage["inputTokens"] + usage["outputTokens"],
+                    ),
+                }
+        # Handle Meta Llama format (top-level fields)
+        elif "prompt_token_count" in response_body and "generation_token_count" in response_body:
+            return {
+                TokenUsageKey.INPUT_TOKENS: response_body["prompt_token_count"],
+                TokenUsageKey.OUTPUT_TOKENS: response_body["generation_token_count"],
+                TokenUsageKey.TOTAL_TOKENS: (
+                    response_body["prompt_token_count"] + response_body["generation_token_count"]
+                ),
+            }
+        # Add debug log for unknown usage schema
+        _logger.debug(f"Unknown token usage schema in Bedrock response: {response_body}")
+    except Exception as e:
+        _logger.debug(f"Failed to parse token usage from response: {e}")
+
+    return None
+
+
 @skip_if_trace_disabled
 def _patched_converse(original, self, *args, **kwargs):
     with mlflow.start_span(
@@ -143,6 +218,10 @@ def _patched_converse(original, self, *args, **kwargs):
         try:
             result = original(self, *args, **kwargs)
             span.set_outputs(result)
+            # Use _parse_usage_from_response for all usage extraction
+            usage = _parse_usage_from_response(result)
+            if usage:
+                span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
         finally:
             _set_chat_messages_attributes(span, kwargs.get("messages", []), result)
         return result

@@ -8,6 +8,7 @@ from mlflow.bedrock.chat import convert_message_to_mlflow_chat
 from mlflow.bedrock.utils import capture_exception
 from mlflow.entities.span import LiveSpan
 from mlflow.entities.span_event import SpanEvent
+from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.utils import set_span_chat_messages
 
 _logger = logging.getLogger(__name__)
@@ -65,12 +66,71 @@ class BaseEventStreamWrapper:
 class InvokeModelStreamWrapper(BaseEventStreamWrapper):
     """A wrapper class for a event stream returned by the InvokeModelWithResponseStream API."""
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._usage_buffer = {}
+
     @capture_exception("Failed to handle event for the stream")
     def _handle_event(self, span, event):
         chunk = json.loads(event["chunk"]["bytes"])
         self._span.add_event(SpanEvent(name=chunk["type"], attributes={"json": json.dumps(chunk)}))
 
+        # Buffer usage information from streaming chunks
+        self._buffer_usage(chunk)
+
+    def _buffer_usage(self, chunk: dict):
+        """Buffer token usage information from streaming chunks."""
+        try:
+            # Handle usage in message_start event (Anthropic format)
+            if chunk.get("type") == "message_start" and "usage" in chunk.get("message", {}):
+                usage = chunk["message"]["usage"]
+                if "input_tokens" in usage:
+                    self._usage_buffer[TokenUsageKey.INPUT_TOKENS] = usage["input_tokens"]
+                if "output_tokens" in usage:
+                    self._usage_buffer[TokenUsageKey.OUTPUT_TOKENS] = usage["output_tokens"]
+                    _logger.debug(
+                        f"[InvokeModelStreamWrapper] Set output_tokens to "
+                        f"{usage['output_tokens']} from message_start"
+                    )
+
+            # Handle usage in message_delta event (Anthropic format)
+            elif chunk.get("type") == "message_delta" and "usage" in chunk.get("delta", {}):
+                usage = chunk["delta"]["usage"]
+                # Always update output_tokens if present (take the latest value)
+                if "output_tokens" in usage:
+                    self._usage_buffer[TokenUsageKey.OUTPUT_TOKENS] = usage["output_tokens"]
+                    _logger.debug(
+                        f"[InvokeModelStreamWrapper] Updated output_tokens to "
+                        f"{usage['output_tokens']} from message_delta"
+                    )
+        except Exception as e:
+            _logger.debug(f"Failed to buffer usage from chunk: {e}")
+
     def _close(self):
+        # Set token usage attribute if we have buffered usage information
+        if self._usage_buffer:
+            # Calculate total tokens if not provided
+            if TokenUsageKey.TOTAL_TOKENS not in self._usage_buffer:
+                input_tokens = self._usage_buffer.get(TokenUsageKey.INPUT_TOKENS, 0)
+                output_tokens = self._usage_buffer.get(TokenUsageKey.OUTPUT_TOKENS, 0)
+                self._usage_buffer[TokenUsageKey.TOTAL_TOKENS] = input_tokens + output_tokens
+            usage_dict = {
+                TokenUsageKey.INPUT_TOKENS: self._usage_buffer.get(TokenUsageKey.INPUT_TOKENS),
+                TokenUsageKey.OUTPUT_TOKENS: self._usage_buffer.get(TokenUsageKey.OUTPUT_TOKENS),
+                TokenUsageKey.TOTAL_TOKENS: self._usage_buffer.get(
+                    TokenUsageKey.TOTAL_TOKENS,
+                    (
+                        self._usage_buffer.get(TokenUsageKey.INPUT_TOKENS, 0)
+                        + self._usage_buffer.get(TokenUsageKey.OUTPUT_TOKENS, 0)
+                    ),
+                ),
+            }
+            # Only set if we have valid token counts
+            if (
+                usage_dict[TokenUsageKey.INPUT_TOKENS] is not None
+                and usage_dict[TokenUsageKey.OUTPUT_TOKENS] is not None
+            ):
+                self._span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
         self._end_span()
 
 
@@ -105,6 +165,23 @@ class ConverseStreamWrapper(BaseEventStreamWrapper):
         # Record the accumulated response as the output of the span
         converse_response = self._response_builder.build()
         self._span.set_outputs(converse_response)
+
+        # Record token usage if provided in the response
+        usage = converse_response.get("usage")
+        if isinstance(usage, dict):
+            usage_dict = {
+                TokenUsageKey.INPUT_TOKENS: usage.get("inputTokens"),
+                TokenUsageKey.OUTPUT_TOKENS: usage.get("outputTokens"),
+                TokenUsageKey.TOTAL_TOKENS: usage.get(
+                    "totalTokens", (usage.get("inputTokens", 0) + usage.get("outputTokens", 0))
+                ),
+            }
+            # Only set if we have valid token counts
+            if (
+                usage_dict[TokenUsageKey.INPUT_TOKENS] is not None
+                and usage_dict[TokenUsageKey.OUTPUT_TOKENS] is not None
+            ):
+                self._span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
 
         # Record the chat message attributes in the MLflow's standard format
         messages = self._inputs.get("messages", []) + [converse_response["output"]["message"]]
