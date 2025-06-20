@@ -93,13 +93,6 @@ def mlflow_client(request, tmp_path):
         yield MlflowClient(url)
 
 
-def skip_if_v3_backend():
-    # Skip tests if the backend is SQLAlchemy store because the OSS rest store does not
-    # fully support V3 yet. TODO: Remove this once the OSS rest store supports V3.
-    if mlflow.get_tracking_uri().startswith("sqlite"):
-        pytest.skip("This backend is not migrated to V3 yet. Skipping test.")
-
-
 @pytest.fixture
 def cli_env(mlflow_client):
     """Provides an environment for the MLflow CLI pointed at the local tracking server."""
@@ -2377,8 +2370,6 @@ def test_get_run_and_experiment_graphql(mlflow_client):
 
 
 def test_start_and_end_trace(mlflow_client):
-    skip_if_v3_backend()
-
     experiment_id = mlflow_client.create_experiment("start end trace")
 
     # Trace CRUD APIs are not directly exposed as public API of MlflowClient,
@@ -2448,7 +2439,7 @@ def test_start_and_end_trace(mlflow_client):
 
 
 def test_search_traces(mlflow_client):
-    skip_if_v3_backend()
+    pytest.skip("Rest Store is not migrated to V3 yet")
 
     mlflow.set_tracking_uri(mlflow_client.tracking_uri)
     experiment_id = mlflow_client.create_experiment("search traces")
@@ -2494,7 +2485,7 @@ def test_search_traces(mlflow_client):
 
 
 def test_delete_traces(mlflow_client):
-    skip_if_v3_backend()
+    pytest.skip("Rest Store is not migrated to V3 yet")
 
     mlflow.set_tracking_uri(mlflow_client.tracking_uri)
     experiment_id = mlflow_client.create_experiment("delete traces")
@@ -2550,8 +2541,6 @@ def test_delete_traces(mlflow_client):
 
 
 def test_set_and_delete_trace_tag(mlflow_client):
-    skip_if_v3_backend()
-
     mlflow.set_tracking_uri(mlflow_client.tracking_uri)
     experiment_id = mlflow_client.create_experiment("set delete tag")
 
@@ -2578,7 +2567,7 @@ def test_set_and_delete_trace_tag(mlflow_client):
 
 
 def test_get_trace_artifact_handler(mlflow_client):
-    skip_if_v3_backend()
+    pytest.skip("Rest Store is not migrated to V3 yet")
 
     mlflow.set_tracking_uri(mlflow_client.tracking_uri)
 
