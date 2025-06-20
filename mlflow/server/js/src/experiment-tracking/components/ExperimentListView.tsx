@@ -96,7 +96,7 @@ export const ExperimentListView = ({
               data-testid="create-experiment-button"
             >
               <FormattedMessage
-                defaultMessage="Create experiment"
+                defaultMessage="Create"
                 description="Label for the create experiment action on the experiments list page"
               />
             </Button>
@@ -116,7 +116,7 @@ export const ExperimentListView = ({
                 disabled={checkedKeys.length < 2}
               >
                 <FormattedMessage
-                  defaultMessage="Compare experiments"
+                  defaultMessage="Compare"
                   description="Label for the compare experiments action on the experiments list page"
                 />
               </Button>
