@@ -1177,9 +1177,9 @@ def _get_metric_history():
     )
     response_message.metrics.extend([m.to_proto() for m in metric_entities])
 
-    # Set next_page_token if available (PagedList has token attribute)
-    if hasattr(metric_entities, "token") and metric_entities.token:
-        response_message.next_page_token = metric_entities.token
+    # Set next_page_token if available
+    if next_page_token := metric_entities.token:
+        response_message.next_page_token = next_page_token
 
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))

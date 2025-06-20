@@ -56,6 +56,7 @@ from mlflow.store.db.utils import (
     _get_latest_schema_revision,
     _get_schema_version,
 )
+from mlflow.store.entities import PagedList
 from mlflow.store.tracking import (
     SEARCH_MAX_RESULTS_DEFAULT,
     SEARCH_MAX_RESULTS_THRESHOLD,
@@ -1445,21 +1446,21 @@ def test_get_metric_history_with_page_token(store: SqlAlchemyStore):
     first_page = store.get_metric_history(
         run_id, metric_key, max_results=page_size, page_token=None
     )
-    assert hasattr(first_page, "token"), "Result should be a PagedList with token attribute"
+    assert isinstance(first_page, PagedList)
     assert first_page.token is not None
     assert len(first_page) == 4
 
     second_page = store.get_metric_history(
         run_id, metric_key, max_results=page_size, page_token=first_page.token
     )
-    assert hasattr(second_page, "token"), "Result should be a PagedList with token attribute"
+    assert isinstance(first_page, PagedList)
     assert second_page.token is not None
     assert len(second_page) == 4
 
     third_page = store.get_metric_history(
         run_id, metric_key, max_results=page_size, page_token=second_page.token
     )
-    assert hasattr(third_page, "token"), "Result should be a PagedList with token attribute"
+    assert isinstance(first_page, PagedList)
     assert third_page.token is None
     assert len(third_page) == 2
 
