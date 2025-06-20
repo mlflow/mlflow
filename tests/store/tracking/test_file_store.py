@@ -16,9 +16,13 @@ import pytest
 
 import mlflow
 from mlflow.entities import (
+    AssessmentSource,
+    AssessmentSourceType,
     Dataset,
     DatasetInput,
+    Expectation,
     ExperimentTag,
+    Feedback,
     InputTag,
     LifecycleStage,
     Metric,
@@ -3374,3 +3378,87 @@ def test_traces_not_listed_as_runs(tmp_path):
         with mock.patch("mlflow.store.tracking.file_store.logging.debug") as mock_debug:
             client.search_runs([run.info.experiment_id], "", ViewType.ALL, max_results=1)
             mock_debug.assert_not_called()
+
+
+def test_create_and_get_assessment(store):
+    """Test creating and retrieving assessments with both feedback and expectations"""
+    exp_id = store.create_experiment("test_assessments")
+    timestamp_ms = get_current_time_millis()
+    trace_info = store.start_trace(exp_id, timestamp_ms, {}, {})
+
+    feedback = Feedback(
+        trace_id=trace_info.request_id,
+        name="correctness",
+        value=True,
+        rationale="The response is correct and well-formatted",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.HUMAN, source_id="evaluator@company.com"
+        ),
+        metadata={"project": "test-project", "version": "1.0"},
+        span_id="span-123",
+    )
+
+    created_feedback = store.create_assessment(feedback)
+    assert created_feedback.assessment_id is not None
+    assert created_feedback.assessment_id.startswith("a-")
+    assert created_feedback.trace_id == trace_info.request_id
+    assert created_feedback.create_time_ms is not None
+    assert created_feedback.name == "correctness"
+    assert created_feedback.feedback.value is True
+    assert created_feedback.rationale == "The response is correct and well-formatted"
+    assert created_feedback.metadata == {"project": "test-project", "version": "1.0"}
+    assert created_feedback.span_id == "span-123"
+    assert created_feedback.valid
+
+    expectation = Expectation(
+        trace_id=trace_info.request_id,
+        name="expected_response",
+        value="The capital of France is Paris.",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.HUMAN, source_id="annotator@company.com"
+        ),
+        metadata={"context": "geography-qa", "difficulty": "easy"},
+        span_id="span-456",
+    )
+
+    created_expectation = store.create_assessment(expectation)
+    assert created_expectation.assessment_id != created_feedback.assessment_id
+    assert created_expectation.trace_id == trace_info.request_id
+    assert created_expectation.expectation.value == "The capital of France is Paris."
+    assert created_expectation.metadata == {"context": "geography-qa", "difficulty": "easy"}
+    assert created_expectation.span_id == "span-456"
+    assert created_expectation.valid
+
+    retrieved_feedback = store.get_assessment(trace_info.request_id, created_feedback.assessment_id)
+    assert retrieved_feedback.name == "correctness"
+    assert retrieved_feedback.feedback.value is True
+    assert retrieved_feedback.rationale == "The response is correct and well-formatted"
+    assert retrieved_feedback.metadata == {"project": "test-project", "version": "1.0"}
+    assert retrieved_feedback.span_id == "span-123"
+    assert retrieved_feedback.trace_id == trace_info.request_id
+    assert retrieved_feedback.valid
+
+    retrieved_expectation = store.get_assessment(
+        trace_info.request_id, created_expectation.assessment_id
+    )
+    assert retrieved_expectation.expectation.value == "The capital of France is Paris."
+    assert retrieved_expectation.metadata == {"context": "geography-qa", "difficulty": "easy"}
+    assert retrieved_expectation.span_id == "span-456"
+    assert retrieved_expectation.trace_id == trace_info.request_id
+    assert retrieved_expectation.valid is None
+
+
+def test_get_assessment_errors(store):
+    """Test error cases for get_assessment"""
+    with pytest.raises(MlflowException, match=r"Trace with request ID 'fake_trace' not found"):
+        store.get_assessment("fake_trace", "fake_assessment")
+
+    exp_id = store.create_experiment("test_errors")
+    trace_info = store.start_trace(exp_id, get_current_time_millis(), {}, {})
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Assessment with ID 'fake_assessment' not found for trace "
+        rf"'{trace_info.request_id}'",
+    ):
+        store.get_assessment(trace_info.request_id, "fake_assessment")
