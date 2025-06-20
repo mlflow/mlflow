@@ -401,3 +401,19 @@ async def test_bedrock_request_response(
 
         mock_request.assert_called_once()
         mock_request.assert_called_once_with(model_request)
+
+
+@pytest.mark.parametrize(
+    ("model_name", "expected"),
+    [
+        ("us.anthropic.claude-3-sonnet", AmazonBedrockModelProvider.ANTHROPIC),
+        ("apac.anthropic.claude-3-haiku", AmazonBedrockModelProvider.ANTHROPIC),
+        ("anthropic.claude-3-5-sonnet", AmazonBedrockModelProvider.ANTHROPIC),
+        ("ai21.jamba-1-5-large-v1:0", AmazonBedrockModelProvider.AI21),
+        ("cohere.embed-multilingual-v3", AmazonBedrockModelProvider.COHERE),
+        ("us.amazon.nova-premier-v1:0", AmazonBedrockModelProvider.AMAZON),
+    ],
+)
+def test_amazon_bedrock_model_provider(model_name, expected):
+    provider = AmazonBedrockModelProvider.of_str(model_name)
+    assert provider == expected
