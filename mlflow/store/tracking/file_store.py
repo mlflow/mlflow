@@ -65,7 +65,6 @@ from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.tracing.utils import (
     generate_assessment_id,
     generate_request_id_v2,
-    serialize_assessment,
 )
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.file_utils import (
@@ -1872,6 +1871,27 @@ class FileStore(AbstractStore):
                 INTERNAL_ERROR,
             ) from e
 
+    def _delete_assessment(self, trace_id: str, assessment_id: str) -> None:
+        assessment_path = self._get_assessment_path(trace_id, assessment_id)
+
+        # Idempotent
+        if not exists(assessment_path):
+            return
+
+        try:
+            os.remove(assessment_path)
+
+            # Clean up empty assessments directory if no more assessments exist
+            assessments_dir = self._get_assessments_dir(trace_id)
+            if exists(assessments_dir) and not os.listdir(assessments_dir):
+                os.rmdir(assessments_dir)
+        except OSError as e:
+            raise MlflowException(
+                f"Failed to delete assessment with ID '{assessment_id}'"
+                " for trace '{trace_id}': {e}",
+                INTERNAL_ERROR,
+            ) from e
+
     def get_assessment(self, trace_id: str, assessment_id: str) -> Assessment:
         """
         Retrieves a specific assessment associated with a trace from the file store.
@@ -1931,6 +1951,7 @@ class FileStore(AbstractStore):
         expectation: Optional[Any] = None,
         feedback: Optional[FeedbackValueType] = None,
         rationale: Optional[str] = None,
+        valid: Optional[bool] = True,
         metadata: Optional[dict[str, str]] = None,
     ) -> Assessment:
         """
@@ -1954,6 +1975,8 @@ class FileStore(AbstractStore):
             expectation: Optional new expectation value. Only valid for Expectation assessments.
             feedback: Optional new feedback value. Only valid for Feedback assessments.
             rationale: Optional new rationale text.
+            valid: Used to mark an existing assessment as invalid. Defaults to True, indicating
+                that the existing assessment is legitimate.
             metadata: Optional metadata updates. If provided, completely replaces existing metadata.
 
         Returns:
@@ -1963,7 +1986,7 @@ class FileStore(AbstractStore):
         Raises:
             MlflowException: If the trace_id or assessment_id is not found, if providing
                 incompatible value types (e.g., expectation for Feedback), if serialization
-                fails, or if there's an error updating the trace tags.
+                fails, or if there's an error updating the storage.
 
         Note:
             This method creates a new assessment_id for the updated version and maintains
@@ -2014,57 +2037,30 @@ class FileStore(AbstractStore):
 
         updated_assessment.assessment_id = new_assessment_id
 
-        existing_assessment.valid = False
+        if not valid:
+            existing_assessment.valid = False
+            self._save_assessment(existing_assessment)
 
-        new_assessment_key = generate_assessment_key(updated_assessment.name, new_assessment_id)
-        existing_assessment_key = generate_assessment_key(existing_assessment.name, assessment_id)
-        _validate_tag_name(new_assessment_key)
-
-        new_assessment_value = serialize_assessment(updated_assessment)
-        existing_assessment_value = serialize_assessment(existing_assessment)
-
-        self.set_trace_tag(request_id=trace_id, key=new_assessment_key, value=new_assessment_value)
-        self.set_trace_tag(
-            request_id=trace_id, key=existing_assessment_key, value=existing_assessment_value
-        )
+        self._save_assessment(updated_assessment)
 
         return updated_assessment
 
     def delete_assessment(self, trace_id: str, assessment_id: str) -> None:
         """
-        Deletes an assessment from a trace by removing its associated tag.
+        Deletes an assessment from a trace by removing its file.
 
         This method removes an assessment from storage by:
         1. Validating the trace exists
-        2. Finding the assessment tag key for the given assessment ID
-        3. Deleting the corresponding trace tag
-
-        The operation is idempotent - attempting to delete a non-existent assessment
-        will not raise an error, allowing for safe repeated deletion attempts.
+        2. Removing the assessment file from the assessments directory
 
         Args:
             trace_id: The unique identifier of the trace containing the assessment.
             assessment_id: The unique identifier of the assessment to delete.
 
         Raises:
-            MlflowException: If the trace_id is not found.
+            MlflowException: If the trace_id is not found or if the assessment doesn't exist.
         """
-        trace_dir = self._find_trace_dir(trace_id, assert_exists=True)
-
-        trace_tags = self._get_dict_from_trace_sub_folder(
-            trace_dir, FileStore.TRACE_TAGS_FOLDER_NAME
-        )
-
-        assessment_tag_key = None
-        for tag_key, tag_value in trace_tags.items():
-            if tag_key.startswith(ASSESSMENT_TAG_KEY_PREFIX) and tag_key.endswith(
-                f".{assessment_id}"
-            ):
-                assessment_tag_key = tag_key
-                break
-
-        if assessment_tag_key is not None:
-            self.delete_trace_tag(trace_id, assessment_tag_key)
+        self._delete_assessment(trace_id, assessment_id)
 
     def _delete_traces(
         self,

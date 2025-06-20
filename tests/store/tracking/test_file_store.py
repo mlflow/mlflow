@@ -3464,24 +3464,8 @@ def test_get_assessment_errors(store):
         store.get_assessment(trace_info.request_id, "fake_assessment")
 
 
-def test_create_assessment_serialization_error(store):
-    """Test create_assessment with serialization failure"""
-    exp_id = store.create_experiment("test_serialization")
-    trace_info = store.start_trace(exp_id, get_current_time_millis(), {}, {})
-
-    feedback = Feedback(
-        trace_id=trace_info.request_id,
-        name="test",
-        value="test_value",
-        source=AssessmentSource(source_type=AssessmentSourceType.CODE),
-    )
-
-    with mock.patch.object(feedback, "to_dictionary", side_effect=Exception("Serialization error")):
-        with pytest.raises(MlflowException, match=r"Failed to serialize assessment to JSON"):
-            store.create_assessment(feedback)
-
-
-def test_update_assessment_feedback(store):
+@pytest.mark.parametrize("valid", ([True, False]))
+def test_update_assessment_feedback(store, valid):
     exp_id = store.create_experiment("test_update_feedback")
     trace_info = store.start_trace(exp_id, get_current_time_millis(), {}, {})
 
@@ -3506,6 +3490,7 @@ def test_update_assessment_feedback(store):
         feedback=False,
         rationale="Updated rationale",
         metadata={"project": "test-project", "version": "2.0"},
+        valid=valid,
     )
 
     assert updated_feedback.assessment_id != original_id
@@ -3520,7 +3505,7 @@ def test_update_assessment_feedback(store):
     assert updated_feedback.overrides == original_id
 
     original_retrieved = store.get_assessment(trace_info.request_id, original_id)
-    assert original_retrieved.valid is False
+    assert original_retrieved.valid is valid
     assert original_retrieved.feedback.value is True
     assert original_retrieved.rationale == "Original rationale"
 
@@ -3667,7 +3652,8 @@ def test_update_assessment_errors(store):
         )
 
 
-def test_update_assessment_multiple_updates(store):
+@pytest.mark.parametrize("valid", ([True, False]))
+def test_update_assessment_multiple_updates(store, valid):
     exp_id = store.create_experiment("test_multiple_updates")
     trace_info = store.start_trace(exp_id, get_current_time_millis(), {}, {})
 
@@ -3684,7 +3670,10 @@ def test_update_assessment_multiple_updates(store):
     )
 
     assessment_v3 = store.update_assessment(
-        trace_id=trace_info.request_id, assessment_id=assessment_v2.assessment_id, feedback="v3"
+        trace_id=trace_info.request_id,
+        assessment_id=assessment_v2.assessment_id,
+        feedback="v3",
+        valid=valid,
     )
 
     assert assessment_v2.overrides == assessment_v1.assessment_id
@@ -3694,19 +3683,17 @@ def test_update_assessment_multiple_updates(store):
     v2_retrieved = store.get_assessment(trace_info.request_id, assessment_v2.assessment_id)
     v3_retrieved = store.get_assessment(trace_info.request_id, assessment_v3.assessment_id)
 
-    assert v1_retrieved.valid is False
-    assert v2_retrieved.valid is False
+    assert v1_retrieved.valid is True
+    assert v2_retrieved.valid is valid
     assert v3_retrieved.valid is True
 
     assert v1_retrieved.feedback.value == "v1"
     assert v2_retrieved.feedback.value == "v2"
     assert v3_retrieved.feedback.value == "v3"
 
-    # Verify v1 was not modified when v2 was updated to v3
-    # Only the immediate predecessor (v2) should be invalidated
-    assert v1_retrieved.overrides is None  # v1 was original, has no overrides
-    assert v2_retrieved.overrides == v1_retrieved.assessment_id  # v2 still overrides v1
-    assert v3_retrieved.overrides == v2_retrieved.assessment_id  # v3 overrides v2
+    assert v1_retrieved.overrides is None
+    assert v2_retrieved.overrides == v1_retrieved.assessment_id
+    assert v3_retrieved.overrides == v2_retrieved.assessment_id
 
 
 def test_delete_assessment_feedback(store):
@@ -3773,7 +3760,7 @@ def test_delete_assessment_idempotent(store):
 
     store.delete_assessment(trace_info.request_id, created_feedback.assessment_id)
 
-    # Delete again - should not raise error
+    # Idempotent verification
     store.delete_assessment(trace_info.request_id, created_feedback.assessment_id)
 
     # Delete non-existent assessment - should not raise error

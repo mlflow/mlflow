@@ -15,7 +15,7 @@ from opentelemetry import trace as trace_api
 from opentelemetry.sdk.trace import Span as OTelSpan
 from packaging.version import Version
 
-from mlflow.exceptions import BAD_REQUEST, MlflowException, MlflowTracingException
+from mlflow.exceptions import BAD_REQUEST, MlflowTracingException
 from mlflow.tracing.constant import (
     ASSESSMENT_ID_PREFIX,
     TRACE_REQUEST_ID_PREFIX,
@@ -31,7 +31,7 @@ _logger = logging.getLogger(__name__)
 SPANS_COLUMN_NAME = "spans"
 
 if TYPE_CHECKING:
-    from mlflow.entities import Assessment, LiveSpan, Trace
+    from mlflow.entities import LiveSpan, Trace
     from mlflow.pyfunc.context import Context
     from mlflow.types.chat import ChatMessage, ChatTool
 
