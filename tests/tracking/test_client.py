@@ -236,7 +236,7 @@ def test_client_get_trace(mock_store, mock_artifact_repo):
         ],
     }
     trace = MlflowClient().get_trace("1234567")
-    mock_store.get_trace_info.assert_called_once_with("1234567", should_query_v3=False)
+    mock_store.get_trace_info.assert_called_once_with("1234567")
     mock_artifact_repo.download_trace_data.assert_called_once()
 
     assert trace.info.trace_id == "tr-1234567"
@@ -1710,7 +1710,7 @@ def test_get_trace_throw_if_trace_id_is_online_trace_id():
         client.get_trace(trace_id)
 
     another_client = MlflowClient("mlruns")
-    with pytest.raises(MlflowException, match=r"Trace with request ID '[\w-]+' not found"):
+    with pytest.raises(MlflowException, match=r"Trace with ID '[\w-]+' not found"):
         another_client.get_trace(trace_id)
 
 

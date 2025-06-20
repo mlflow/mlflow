@@ -152,7 +152,7 @@ class TracingClient:
             trace_ids=trace_ids,
         )
 
-    def get_trace_info(self, request_id, should_query_v3: bool = False) -> TraceInfoV2:
+    def get_trace_info(self, request_id, should_query_v3: bool = False) -> TraceInfo:
         """
         Get the trace info matching the ``request_id``.
 
@@ -168,7 +168,7 @@ class TracingClient:
             if trace is not None:
                 return trace.info
 
-        return self.store.get_trace_info(request_id, should_query_v3=should_query_v3)
+        return self.store.get_trace_info(request_id)
 
     def get_trace(self, request_id) -> Trace:
         """
