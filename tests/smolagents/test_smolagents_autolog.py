@@ -1,3 +1,4 @@
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
@@ -13,7 +14,6 @@ from tests.tracing.helper import get_traces
 _DUMMY_INPUT = "Explain quantum mechanics in simple terms."
 _SMOLAGENTS_VERSION_NEW = Version(smolagents.__version__) >= Version("1.15.0")
 MOCK_INFERENCE_CLIENT_MODEL_METHOD = "generate" if _SMOLAGENTS_VERSION_NEW else "__call__"
-from types import SimpleNamespace
 
 
 def clear_autolog_state():
