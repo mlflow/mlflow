@@ -1021,30 +1021,38 @@ class SqlAlchemyStore(AbstractStore):
         Args:
             run_id: Unique identifier for run.
             metric_key: Metric name within the run.
-            max_results: An indicator for paginated results. This functionality is not
-                implemented for SQLAlchemyStore and is unused in this store's implementation.
-            page_token: An indicator for paginated results. This functionality is not
-                implemented for SQLAlchemyStore and if the value is overridden with a value other
-                than ``None``, an MlflowException will be thrown.
+            max_results: An indicator for paginated results.
+            page_token: Token indicating the page of metric history to fetch.
 
         Returns:
-            A List of :py:class:`mlflow.entities.Metric` entities if ``metric_key`` values
+            A :py:class:`mlflow.store.entities.paged_list.PagedList` of
+            :py:class:`mlflow.entities.Metric` entities if ``metric_key`` values
             have been logged to the ``run_id``, else an empty list.
 
         """
-        # NB: The SQLAlchemyStore does not currently support pagination for this API.
-        # Raise if `page_token` is specified, as the functionality to support paged queries
-        # is not implemented.
-        if page_token is not None:
-            raise MlflowException(
-                "The SQLAlchemyStore backend does not support pagination for the "
-                f"`get_metric_history` API. Supplied argument `page_token` '{page_token}' must be "
-                "`None`."
-            )
-
         with self.ManagedSessionMaker() as session:
-            metrics = session.query(SqlMetric).filter_by(run_uuid=run_id, key=metric_key).all()
-            return PagedList([metric.to_mlflow_entity() for metric in metrics], None)
+            query = session.query(SqlMetric).filter_by(run_uuid=run_id, key=metric_key)
+
+            # Parse offset from page_token for pagination
+            offset = SearchUtils.parse_start_offset_from_page_token(page_token)
+
+            # Add ORDER BY clause to satisfy MSSQL requirement for OFFSET
+            query = query.order_by(SqlMetric.timestamp, SqlMetric.step, SqlMetric.value)
+            query = query.offset(offset)
+
+            if max_results is not None:
+                query = query.limit(max_results + 1)
+
+            metrics = query.all()
+
+            # Compute next token if more results are available
+            next_token = None
+            if max_results is not None and len(metrics) == max_results + 1:
+                final_offset = offset + max_results
+                next_token = SearchUtils.create_page_token(final_offset)
+                metrics = metrics[:max_results]
+
+            return PagedList([metric.to_mlflow_entity() for metric in metrics], next_token)
 
     def get_metric_history_bulk(self, run_ids, metric_key, max_results):
         """
