@@ -18,7 +18,6 @@ from packaging.version import Version
 from mlflow.exceptions import BAD_REQUEST, MlflowTracingException
 from mlflow.tracing.constant import (
     ASSESSMENT_ID_PREFIX,
-    ASSESSMENT_TAG_KEY_PREFIX,
     TRACE_REQUEST_ID_PREFIX,
     SpanAttributeKey,
     TokenUsageKey,
@@ -571,4 +570,4 @@ def generate_assessment_key(name: str, assessment_id: str) -> str:
         A constructed unique key for a given assessment for disambiguating
         assessments that are attached to traces.
     """
-    return f"{ASSESSMENT_TAG_KEY_PREFIX}.{name}.{assessment_id}"
+    return f"{name}.{assessment_id}"

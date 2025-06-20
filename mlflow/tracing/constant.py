@@ -92,4 +92,3 @@ DATABRICKS_OUTPUT_KEY = "databricks_output"
 
 # Assessment constants
 ASSESSMENT_ID_PREFIX = "a-"
-ASSESSMENT_TAG_KEY_PREFIX = "mlflow.assessment."

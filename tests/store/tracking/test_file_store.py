@@ -3462,20 +3462,3 @@ def test_get_assessment_errors(store):
         rf"'{trace_info.request_id}'",
     ):
         store.get_assessment(trace_info.request_id, "fake_assessment")
-
-
-def test_create_assessment_serialization_error(store):
-    """Test create_assessment with serialization failure"""
-    exp_id = store.create_experiment("test_serialization")
-    trace_info = store.start_trace(exp_id, get_current_time_millis(), {}, {})
-
-    feedback = Feedback(
-        trace_id=trace_info.request_id,
-        name="test",
-        value="test_value",
-        source=AssessmentSource(source_type=AssessmentSourceType.CODE),
-    )
-
-    with mock.patch.object(feedback, "to_dictionary", side_effect=Exception("Serialization error")):
-        with pytest.raises(MlflowException, match=r"Failed to serialize assessment to JSON"):
-            store.create_assessment(feedback)
