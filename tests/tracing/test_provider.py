@@ -12,11 +12,9 @@ from mlflow.tracing.export.inference_table import (
     _TRACE_BUFFER,
     InferenceTableSpanExporter,
 )
-from mlflow.tracing.export.mlflow_v2 import MlflowV2SpanExporter
 from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.processor.inference_table import InferenceTableSpanProcessor
-from mlflow.tracing.processor.mlflow_v2 import MlflowV2SpanProcessor
 from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 from mlflow.tracing.provider import (
     _get_tracer,
@@ -81,30 +79,6 @@ def test_span_processor_and_exporter_model_serving(mock_databricks_serving_with_
     assert isinstance(processors[0].span_exporter, InferenceTableSpanExporter)
 
 
-@pytest.mark.parametrize(
-    ("tracking_uri", "should_use_v3"),
-    [
-        # OSS (self-host) tracking URI -> V2 exporter should be used
-        ("http://localhost:5000", False),
-        # Databricks tracking URI -> V3 exporter should be used
-        ("databricks", True),
-        ("databricks://default", True),
-    ],
-)
-def test_mlflow_backend_choose_v2_or_v3_correctly(monkeypatch, tracking_uri, should_use_v3):
-    monkeypatch.setattr(mlflow.tracking._tracking_service.utils, "_tracking_uri", tracking_uri)
-
-    tracer = _get_tracer("test")
-    processors = tracer.span_processor._span_processors
-    assert len(processors) == 1
-    if should_use_v3:
-        assert isinstance(processors[0], MlflowV3SpanProcessor)
-        assert isinstance(processors[0].span_exporter, MlflowV3SpanExporter)
-    else:
-        assert isinstance(processors[0], MlflowV2SpanProcessor)
-        assert isinstance(processors[0].span_exporter, MlflowV2SpanExporter)
-
-
 def test_set_destination_mlflow_experiment(monkeypatch):
     # Set destination with experiment_id
     mlflow.tracing.set_destination(destination=MlflowExperiment(experiment_id="123"))
@@ -112,13 +86,9 @@ def test_set_destination_mlflow_experiment(monkeypatch):
     tracer = _get_tracer("test")
     processors = tracer.span_processor._span_processors
     assert len(processors) == 1
-    if mlflow.get_tracking_uri().startswith("sqlite"):
-        assert isinstance(processors[0], MlflowV3SpanProcessor)
-        assert processors[0]._experiment_id == "123"
-        assert isinstance(processors[0].span_exporter, MlflowV3SpanExporter)
-    else:
-        assert isinstance(processors[0], MlflowV2SpanProcessor)
-        assert isinstance(processors[0].span_exporter, MlflowV2SpanExporter)
+    assert isinstance(processors[0], MlflowV3SpanProcessor)
+    assert processors[0]._experiment_id == "123"
+    assert isinstance(processors[0].span_exporter, MlflowV3SpanExporter)
 
     # Set destination with experiment_id and tracking_uri
     mlflow.tracing.set_destination(
