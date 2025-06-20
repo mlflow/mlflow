@@ -1138,32 +1138,55 @@ def test_get_metric_history_with_page_token(mlflow_client):
     for metric in metric_history:
         mlflow_client.log_metric(run_id, **metric)
 
-    page_size = 3
-    all_paginated_metrics = []
-    page_token = None
-    page_count = 0
+    page_size = 4
 
-    while True:
-        params = {"run_id": run_id, "metric_key": "test_metric", "max_results": page_size}
-        if page_token:
-            params["page_token"] = page_token
+    first_response = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history",
+        params={"run_id": run_id, "metric_key": "test_metric", "max_results": page_size},
+    )
+    assert first_response.status_code == 200
+    first_data = first_response.json()
+    first_metrics = first_data["metrics"]
+    first_token = first_data.get("next_page_token")
 
-        response = requests.get(
-            f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history",
-            params=params,
-        )
-        assert response.status_code == 200
-        response_data = response.json()
+    assert first_token is not None
+    assert len(first_metrics) == 4
 
-        metrics = response_data["metrics"]
-        all_paginated_metrics.extend(metrics)
-        page_count += 1
-        page_token = response_data.get("next_page_token")
-        if not page_token:
-            break
+    second_response = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history",
+        params={
+            "run_id": run_id,
+            "metric_key": "test_metric",
+            "max_results": page_size,
+            "page_token": first_token,
+        },
+    )
+    assert second_response.status_code == 200
+    second_data = second_response.json()
+    second_metrics = second_data["metrics"]
+    second_token = second_data.get("next_page_token")
 
-        assert page_count < 10, "Too many pages, possible infinite loop"
+    assert second_token is not None
+    assert len(second_metrics) == 4
 
+    third_response = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history",
+        params={
+            "run_id": run_id,
+            "metric_key": "test_metric",
+            "max_results": page_size,
+            "page_token": second_token,
+        },
+    )
+    assert third_response.status_code == 200
+    third_data = third_response.json()
+    third_metrics = third_data["metrics"]
+    third_token = third_data.get("next_page_token")
+
+    assert third_token is None
+    assert len(third_metrics) == 2
+
+    all_paginated_metrics = first_metrics + second_metrics + third_metrics
     assert len(all_paginated_metrics) == 10
 
     for i, metric in enumerate(all_paginated_metrics):

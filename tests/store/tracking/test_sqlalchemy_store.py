@@ -1440,28 +1440,30 @@ def test_get_metric_history_with_page_token(store: SqlAlchemyStore):
         ).to_mlflow_entity()
         store.log_metric(run_id, metric)
 
-    page_size = 3
-    all_paginated_metrics = []
-    page_token = None
-    page_count = 0
+    page_size = 4
 
-    while True:
-        result = store.get_metric_history(
-            run_id, metric_key, max_results=page_size, page_token=page_token
-        )
+    first_page = store.get_metric_history(
+        run_id, metric_key, max_results=page_size, page_token=None
+    )
+    assert hasattr(first_page, "token"), "Result should be a PagedList with token attribute"
+    assert first_page.token is not None
+    assert len(first_page) == 4
 
-        assert hasattr(result, "token"), "Result should be a PagedList with token attribute"
+    second_page = store.get_metric_history(
+        run_id, metric_key, max_results=page_size, page_token=first_page.token
+    )
+    assert hasattr(second_page, "token"), "Result should be a PagedList with token attribute"
+    assert second_page.token is not None
+    assert len(second_page) == 4
 
-        metrics = list(result)
-        all_paginated_metrics.extend(metrics)
-        page_count += 1
+    third_page = store.get_metric_history(
+        run_id, metric_key, max_results=page_size, page_token=second_page.token
+    )
+    assert hasattr(third_page, "token"), "Result should be a PagedList with token attribute"
+    assert third_page.token is None
+    assert len(third_page) == 2
 
-        page_token = result.token
-        if not page_token:
-            break
-
-        assert page_count < 10, "Too many pages, possible infinite loop"
-
+    all_paginated_metrics = list(first_page) + list(second_page) + list(third_page)
     assert len(all_paginated_metrics) == 10
 
     metric_values = [m.value for m in all_paginated_metrics]
