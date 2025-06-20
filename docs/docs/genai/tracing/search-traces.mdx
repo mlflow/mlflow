@@ -253,7 +253,7 @@ eval_data = traces.rename(
     }
 )
 
-results = mlflow.genai.evaluate(data=eval_data, predict_fn=model, scorers=[...])
+results = mlflow.genai.evaluate(data=eval_data, scorers=[...])
 ```
 
 :::note
@@ -371,7 +371,7 @@ eval_dataset = conversation_data.rename(
 )
 
 # Use with MLflow evaluate
-results = mlflow.genai.evaluate(predict_fn=your_model, data=eval_dataset, scorers=[...])
+results = mlflow.genai.evaluate(data=eval_dataset, scorers=[...])
 ```
 
 ### Environment Monitoring
