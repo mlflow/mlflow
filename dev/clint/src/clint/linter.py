@@ -13,6 +13,7 @@ from typing import Any, Iterator, Union
 
 from clint import rules
 from clint.builtin import BUILTIN_MODULES
+from clint.comments import Noqa, iter_comments
 from clint.config import Config
 from clint.resolver import Resolver
 
@@ -98,6 +99,10 @@ class Location:
     @classmethod
     def from_node(cls, node: ast.AST) -> "Location":
         return cls(node.lineno - 1, node.col_offset)
+
+    @classmethod
+    def from_noqa(cls, noqa: Noqa) -> "Location":
+        return cls(noqa.lineno - 1, noqa.col_offset)
 
     def __add__(self, other: Location) -> Location:
         return Location(self.lineno + other.lineno, self.col_offset + other.col_offset)
@@ -404,6 +409,7 @@ class Linter(ast.NodeVisitor):
             offset=example.loc,
         )
         linter.visit(tree)
+        linter.visit_comments(example.code)
         return [v for v in linter.violations if v.rule.name in config.example_rules]
 
     def visit_decorator(self, node: ast.expr) -> None:
@@ -695,6 +701,15 @@ class Linter(ast.NodeVisitor):
                 if loc := self.lazy_modules.get(mod):
                     self._check(loc, rules.LazyModule())
 
+    def visit_comments(self, src: str) -> None:
+        for comment in iter_comments(src):
+            if noqa := Noqa.parse_token(comment):
+                self.visit_noqa(noqa)
+
+    def visit_noqa(self, noqa: Noqa) -> None:
+        if rule := rules.DoNotDisable.check(noqa.rules):
+            self._check(Location.from_noqa(noqa), rule)
+
 
 def _has_trace_ui_content(output: dict[str, Any]) -> bool:
     """Check if an output contains MLflow trace UI content."""
@@ -740,6 +755,7 @@ def _lint_cell(path: Path, config: Config, cell: dict[str, Any], index: int) -> 
 
     linter = Linter(path=path, config=config, ignore=ignore_map(src), cell=index)
     linter.visit(tree)
+    linter.visit_comments(src)
     violations.extend(linter.violations)
 
     if not src.strip():
@@ -773,5 +789,6 @@ def lint_file(path: Path, config: Config) -> list[Violation]:
     else:
         linter = Linter(path=path, config=config, ignore=ignore_map(code))
         linter.visit(ast.parse(code))
+        linter.visit_comments(code)
         linter.post_visit()
         return linter.violations
