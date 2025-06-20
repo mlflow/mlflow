@@ -1209,7 +1209,7 @@ def test_get_metric_history_with_page_token(store):
     assert third_page.token is None
     assert len(third_page) == 2
 
-    all_paginated_metrics = list(first_page) + list(second_page) + list(third_page)
+    all_paginated_metrics = first_page + second_page + third_page
     assert len(all_paginated_metrics) == 10
 
     for i, metric in enumerate(all_paginated_metrics):
