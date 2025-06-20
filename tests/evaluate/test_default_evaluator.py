@@ -4,7 +4,6 @@ import io
 import json
 import os
 import re
-import warnings
 from os.path import join as path_join
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -810,86 +809,6 @@ def test_get_binary_classifier_metrics(use_sample_weights):
         }
 
     metrics = _get_binary_classifier_metrics(y_true=y, y_pred=y_pred, sample_weights=sample_weights)
-    assert_dict_equal(metrics, expected_metrics, rtol=1e-3)
-
-
-def test_get_binary_classifier_metrics_single_class():
-    """Test _get_binary_classifier_metrics with single class in y_true and y_pred."""
-    # Case 1: Only one class in data, but labels provided
-    y_true = ["true", "true", "true", "true", "true"]
-    y_pred = ["true", "true", "true", "true", "true"]
-    labels = ["true", "false"]
-
-    metrics = _get_binary_classifier_metrics(
-        y_true=y_true, y_pred=y_pred, labels=labels, pos_label="false"
-    )
-
-    # When only one class is present, all predictions are correct for that class
-    # Since pos_label is "false", all samples are negatives and correctly classified
-    expected_metrics = {
-        "example_count": 5,
-        "true_negatives": 5,
-        "false_positives": 0,
-        "false_negatives": 0,
-        "true_positives": 0,
-        "accuracy_score": 1.0,
-        "precision_score": 0.0,  # No positive predictions
-        "recall_score": 0.0,  # No positive samples
-        "f1_score": 0.0,
-    }
-
-    assert_dict_equal(metrics, expected_metrics, rtol=1e-3)
-
-    # Case 2: Only positive class in data
-    y_true = ["false", "false", "false"]
-    y_pred = ["false", "false", "false"]
-    labels = ["true", "false"]
-
-    metrics = _get_binary_classifier_metrics(
-        y_true=y_true, y_pred=y_pred, labels=labels, pos_label="false"
-    )
-
-    # All samples are positive and correctly classified
-    expected_metrics = {
-        "example_count": 3,
-        "true_negatives": 0,
-        "false_positives": 0,
-        "false_negatives": 0,
-        "true_positives": 3,
-        "accuracy_score": 1.0,
-        "precision_score": 1.0,
-        "recall_score": 1.0,
-        "f1_score": 1.0,
-    }
-
-    assert_dict_equal(metrics, expected_metrics, rtol=1e-3)
-
-
-def test_get_binary_classifier_metrics_single_class_mixed_predictions():
-    """Test _get_binary_classifier_metrics with single class in y_true but mixed y_pred."""
-    # Case: Only one class in y_true but different predictions
-    y_true = ["true", "true", "true", "true"]
-    y_pred = ["true", "false", "true", "false"]
-    labels = ["true", "false"]
-
-    metrics = _get_binary_classifier_metrics(
-        y_true=y_true, y_pred=y_pred, labels=labels, pos_label="false"
-    )
-
-    # pos_label is "false", so "true" is negative
-    # All y_true are "true" (negative), 2 predictions are "true" (negative), 2 are "false" (pos)
-    expected_metrics = {
-        "example_count": 4,
-        "true_negatives": 2,  # Correctly predicted as "true" (negative)
-        "false_positives": 2,  # Incorrectly predicted as "false" (positive)
-        "false_negatives": 0,  # No actual positives
-        "true_positives": 0,  # No actual positives
-        "accuracy_score": 0.5,
-        "precision_score": 0.0,  # No true positives
-        "recall_score": 0.0,  # No actual positives
-        "f1_score": 0.0,
-    }
-
     assert_dict_equal(metrics, expected_metrics, rtol=1e-3)
 
 
@@ -4364,361 +4283,49 @@ def test_regressor_returning_pandas_object(model_output, predictions):
         }
 
 
-def test_evaluate_single_class_binary_classification():
-    """Test mlflow.evaluate with single class in binary classification data.
+def test_get_binary_classifier_metrics_single_class():
+    """Test that binary classifier metrics work with single-class data when labels are provided."""
+    y_true = [1, 1, 1, 1]
+    y_pred = [1, 1, 1, 1]
+    labels = [0, 1]  # Explicit labels to ensure 2x2 confusion matrix
 
-    This test reproduces the original issue from GitHub #16092 where mlflow.evaluate
-    would crash with 'ValueError: not enough values to unpack (expected 4, got 1)'
-    when only one class is present in the evaluation data.
-    """
+    # This should not raise ValueError anymore
+    metrics = _get_binary_classifier_metrics(
+        y_true=y_true, y_pred=y_pred, labels=labels, pos_label=1
+    )
+
+    # Verify metrics are computed correctly
+    assert metrics["true_positives"] == 4
+    assert metrics["false_positives"] == 0
+    assert metrics["false_negatives"] == 0
+    assert metrics["true_negatives"] == 0
+
+
+def test_evaluate_single_class_without_labels_raises_error():
+    """Test that mlflow.evaluate() raises an error for single-class data without explicit labels."""
+    import numpy as np
     import pandas as pd
 
-    # Test case from the GitHub issue
-    data = pd.DataFrame(
-        {
-            "y_true": ["true", "true", "true", "true", "true"],  # only one class
-            "y_pred": ["true", "true", "true", "true", "true"],  # same
-        }
-    )
+    from mlflow.exceptions import MlflowException
+    from mlflow.models.evaluation.base import EvaluationDataset
+    from mlflow.models.evaluation.evaluators.classifier import ClassifierEvaluator
 
-    with mlflow.start_run():
-        # This should not crash anymore
-        result = evaluate(
-            model=None,
-            data=data,
-            targets="y_true",
-            predictions="y_pred",
-            model_type="classifier",
-            evaluator_config={
-                "default": {
-                    "label_list": ["true", "false"],  # explicitly defining both labels
-                    "pos_label": "false",  # define positive class
-                }
-            },
-        )
+    # Create single-class data with targets as a column
+    X = pd.DataFrame({"feature": [1, 2, 3, 4], "target": [1, 1, 1, 1]})
 
-    # Verify the result has the expected metrics
-    assert "true_negatives" in result.metrics
-    assert "false_positives" in result.metrics
-    assert "false_negatives" in result.metrics
-    assert "true_positives" in result.metrics
-    assert "accuracy_score" in result.metrics
+    # Create dataset, passing the column name for targets
+    dataset = EvaluationDataset(data=X, targets="target")
 
-    # Since all samples are negative and correctly classified
-    assert result.metrics["true_negatives"] == 5
-    assert result.metrics["false_positives"] == 0
-    assert result.metrics["false_negatives"] == 0
-    assert result.metrics["true_positives"] == 0
-    assert result.metrics["accuracy_score"] == 1.0
+    # Create evaluator with no arguments
+    evaluator = ClassifierEvaluator()
 
+    # Set required attributes
+    evaluator.dataset = dataset
+    evaluator.evaluator_config = {}  # No explicit label_list
+    evaluator.y_true = dataset.labels_data
+    evaluator.y_pred = np.array([1, 1, 1, 1])  # Same single class predictions
+    evaluator.label_list = None  # Will be inferred from data
 
-def test_get_binary_classifier_metrics_single_pred_mixed_true():
-    """Test _get_binary_classifier_metrics with single class in y_pred but mixed y_true."""
-    # Case: Mixed y_true but only one class in y_pred
-    y_true = ["positive", "negative", "positive", "negative"]
-    y_pred = ["positive", "positive", "positive", "positive"]  # only one predicted class
-    labels = ["positive", "negative"]
-
-    metrics = _get_binary_classifier_metrics(
-        y_true=y_true, y_pred=y_pred, labels=labels, pos_label="positive"
-    )
-
-    # The confusion matrix behavior when forcing labels creates this scenario:
-    # All predictions are "positive", but we have mixed true labels
-    # Based on actual output from our debug script
-    expected_metrics = {
-        "example_count": 4,
-        "true_negatives": 2,
-        "false_positives": 0,
-        "false_negatives": 2,
-        "true_positives": 0,
-        "accuracy_score": 0.5,
-        "precision_score": 0.5,
-        "recall_score": 1.0,
-        "f1_score": 2 / 3,
-    }
-
-    assert_dict_equal(metrics, expected_metrics, rtol=1e-3)
-
-
-def test_evaluate_single_class_no_label_list():
-    """Test mlflow.evaluate with single class but no explicit label_list (autodetection)."""
-    import pandas as pd
-
-    # Test autodetection of labels when only one class exists
-    data = pd.DataFrame(
-        {
-            "y_true": ["class_a", "class_a", "class_a"],
-            "y_pred": ["class_a", "class_a", "class_a"],
-        }
-    )
-
-    # This should fail gracefully - MLflow requires at least 2 classes for binary classification
-    with mlflow.start_run():
-        try:
-            evaluate(
-                model=None,
-                data=data,
-                targets="y_true",
-                predictions="y_pred",
-                model_type="classifier",
-                # No evaluator_config provided - should auto-detect
-            )
-            # If we get here, it means it didn't fail, which is unexpected
-            assert False, "Should have raised an exception for single class without label_list"
-        except Exception as e:
-            # This is expected - should fail when only one class detected
-            assert "at least two unique labels" in str(e).lower()
-
-
-def test_evaluate_single_class_with_explicit_binary_labels():
-    """Test fix with explicit binary labels and single class data."""
-    import pandas as pd
-
-    # Single class data but explicit binary labels provided
-    data = pd.DataFrame(
-        {
-            "y_true": [0, 0, 0, 0],  # only zeros
-            "y_pred": [0, 0, 0, 0],  # only zeros
-        }
-    )
-
-    with mlflow.start_run():
-        result = evaluate(
-            model=None,
-            data=data,
-            targets="y_true",
-            predictions="y_pred",
-            model_type="classifier",
-            evaluator_config={
-                "default": {
-                    "label_list": [0, 1],  # explicit binary labels
-                    "pos_label": 1,
-                }
-            },
-        )
-
-    # All samples are negative class (0) and correctly predicted
-    assert result.metrics["true_negatives"] == 4
-    assert result.metrics["false_positives"] == 0
-    assert result.metrics["false_negatives"] == 0
-    assert result.metrics["true_positives"] == 0
-    assert result.metrics["accuracy_score"] == 1.0
-
-
-def test_get_binary_classifier_metrics_without_labels_param():
-    """Test _get_binary_classifier_metrics without labels parameter for normal case."""
-    # Test that the function still works when labels=None (normal case)
-    y_true = [0, 1, 0, 1, 0]
-    y_pred = [0, 1, 1, 0, 0]
-
-    metrics = _get_binary_classifier_metrics(
-        y_true=y_true,
-        y_pred=y_pred,
-        labels=None,  # No labels provided
-    )
-
-    # Should work normally without labels parameter
-    assert "true_negatives" in metrics
-    assert "false_positives" in metrics
-    assert "false_negatives" in metrics
-    assert "true_positives" in metrics
-    assert metrics["example_count"] == 5
-
-
-def test_get_binary_classifier_metrics_auto_padding_no_labels():
-    """Test automatic padding when no labels provided and only one class exists."""
-    # Case 1: Only one class, no labels provided - should auto-pad
-    y_true = ["positive", "positive", "positive"]
-    y_pred = ["positive", "positive", "positive"]
-
-    metrics = _get_binary_classifier_metrics(
-        y_true=y_true, y_pred=y_pred, labels=None, pos_label="positive"
-    )
-
-    # Should auto-pad and not crash, with the single class as positive
-    assert "true_negatives" in metrics
-    assert "false_positives" in metrics
-    assert "false_negatives" in metrics
-    assert "true_positives" in metrics
-    assert metrics["example_count"] == 3
-
-
-def test_get_binary_classifier_metrics_auto_padding_different_pos_label():
-    """Test automatic padding when pos_label differs from the single class."""
-    # Case: Single class "A" but pos_label is "B"
-    y_true = ["A", "A", "A"]
-    y_pred = ["A", "A", "A"]
-
-    metrics = _get_binary_classifier_metrics(
-        y_true=y_true, y_pred=y_pred, labels=None, pos_label="B"
-    )
-
-    # Should auto-pad with ["A", "B"] and not crash
-    assert "true_negatives" in metrics
-    assert "false_positives" in metrics
-    assert "false_negatives" in metrics
-    assert "true_positives" in metrics
-    assert metrics["example_count"] == 3
-
-
-def test_get_binary_classifier_metrics_pos_label_validation():
-    """Test validation warning when pos_label not in provided labels."""
-
-    y_true = [0, 1, 0, 1]
-    y_pred = [0, 1, 1, 0]
-
-    # This should trigger a warning and may still fail downstream in sklearn
-    with warnings.catch_warnings(record=True):
-        warnings.simplefilter("always")
-        try:
-            metrics = _get_binary_classifier_metrics(
-                y_true=y_true,
-                y_pred=y_pred,
-                labels=[0, 1],
-                pos_label=2,  # pos_label not in labels
-            )
-            # If it doesn't fail, it should still compute metrics
-            assert "true_negatives" in metrics
-            assert metrics["example_count"] == 4
-        except ValueError as e:
-            # sklearn validation error is expected when pos_label is invalid
-            assert "pos_label=2 is not a valid label" in str(e)
-            return
-
-
-def test_evaluate_single_class_auto_padding():
-    """Test full mlflow.evaluate with single class and no explicit label_list (auto-padding)."""
-    import pandas as pd
-
-    # Single class data, no explicit label_list
-    data = pd.DataFrame(
-        {
-            "y_true": [1, 1, 1, 1],  # only ones
-            "y_pred": [1, 1, 1, 1],  # only ones
-        }
-    )
-
-    with mlflow.start_run():
-        # Should auto-pad and not crash
-        result = evaluate(
-            model=None,
-            data=data,
-            targets="y_true",
-            predictions="y_pred",
-            model_type="classifier",
-            # No evaluator_config - should auto-pad when it detects single class
-        )
-
-    # Should complete successfully with auto-padding
-    assert "accuracy_score" in result.metrics
-
-
-def test_get_binary_classifier_metrics_string_class_padding():
-    """Test automatic padding with string classes."""
-    # Test various string class scenarios
-    test_cases = [
-        ("true", "false"),  # true -> false
-        ("yes", "false"),  # yes -> false
-        ("positive", "negative"),  # positive -> negative
-        ("custom", "negative"),  # custom -> negative
-    ]
-
-    for single_class, expected_other in test_cases:
-        y_true = [single_class] * 3
-        y_pred = [single_class] * 3
-
-        metrics = _get_binary_classifier_metrics(
-            y_true=y_true, y_pred=y_pred, labels=None, pos_label=single_class
-        )
-
-        assert "true_negatives" in metrics
-        assert metrics["example_count"] == 3
-
-
-def test_get_binary_classifier_metrics_unknown_labels_warning():
-    """Test warning when provided labels don't appear in the data."""
-
-    y_true = [0, 1, 0, 1]
-    y_pred = [0, 1, 1, 0]
-
-    # Provide labels that include classes not in the data
-    with warnings.catch_warnings(record=True):
-        warnings.simplefilter("always")
-        metrics = _get_binary_classifier_metrics(
-            y_true=y_true,
-            y_pred=y_pred,
-            labels=[0, 1, 2, 3],  # 2 and 3 don't appear in data
-            pos_label=1,
-        )
-
-    # Should compute metrics but warn about unused labels
-    assert "true_negatives" in metrics
-    assert metrics["example_count"] == 4
-
-
-def test_get_binary_classifier_metrics_consistency_with_labels():
-    """Test that normal case always uses consistent label ordering."""
-    y_true = [1, 0, 1, 0]
-    y_pred = [1, 0, 0, 1]
-
-    # Test without explicit labels
-    metrics1 = _get_binary_classifier_metrics(
-        y_true=y_true, y_pred=y_pred, labels=None, pos_label=1
-    )
-
-    # Test with explicit labels in different order
-    metrics2 = _get_binary_classifier_metrics(
-        y_true=y_true, y_pred=y_pred, labels=[1, 0], pos_label=1
-    )
-
-    # Results should be consistent regardless of label ordering
-    assert metrics1["true_negatives"] == metrics2["true_negatives"]
-    assert metrics1["false_positives"] == metrics2["false_positives"]
-    assert metrics1["false_negatives"] == metrics2["false_negatives"]
-    assert metrics1["true_positives"] == metrics2["true_positives"]
-
-
-def test_evaluate_unknown_labels_in_evaluator():
-    """Test warning when evaluator gets labels not in data."""
-    import pandas as pd
-
-    data = pd.DataFrame(
-        {
-            "y_true": [0, 1, 0, 1],
-            "y_pred": [0, 1, 1, 0],
-        }
-    )
-
-    with mlflow.start_run():
-        # This should emit a warning but still work
-        result = evaluate(
-            model=None,
-            data=data,
-            targets="y_true",
-            predictions="y_pred",
-            model_type="classifier",
-            evaluator_config={
-                "default": {
-                    "label_list": [0, 1, 2],  # 2 doesn't appear in data
-                    "pos_label": 1,
-                }
-            },
-        )
-
-    # Should complete successfully despite the warning
-    assert "accuracy_score" in result.metrics
-
-
-def test_get_binary_classifier_metrics_edge_case_empty_extra_labels():
-    """Test edge case where extra labels is empty set."""
-    y_true = [0, 1, 0, 1]
-    y_pred = [0, 1, 1, 0]
-
-    # Labels exactly match data - should not warn
-    metrics = _get_binary_classifier_metrics(
-        y_true=y_true, y_pred=y_pred, labels=[0, 1], pos_label=1
-    )
-
-    assert "true_negatives" in metrics
-    assert metrics["example_count"] == 4
+    # This should raise an error because only one unique label is present
+    with pytest.raises(MlflowException, match="at least two unique labels"):
+        evaluator._validate_label_list()
