@@ -11,10 +11,13 @@ from dataclasses import dataclass
 from typing import Any, NamedTuple, Optional, TypedDict
 
 from mlflow.entities import (
+    Assessment,
     Dataset,
     DatasetInput,
+    Expectation,
     Experiment,
     ExperimentTag,
+    Feedback,
     InputTag,
     LoggedModel,
     LoggedModelInput,
@@ -36,6 +39,7 @@ from mlflow.entities import (
     ViewType,
     _DatasetSummary,
 )
+from mlflow.entities.assessment import FeedbackValueType
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.run_info import check_run_is_active
 from mlflow.entities.trace_status import TraceStatus
@@ -58,7 +62,10 @@ from mlflow.store.tracking import (
     SEARCH_TRACES_DEFAULT_MAX_RESULTS,
 )
 from mlflow.store.tracking.abstract_store import AbstractStore
-from mlflow.tracing.utils import generate_request_id_v2
+from mlflow.tracing.utils import (
+    generate_assessment_id,
+    generate_request_id_v2,
+)
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.file_utils import (
     append_to,
@@ -190,6 +197,7 @@ class FileStore(AbstractStore):
     TRACES_FOLDER_NAME = "traces"
     TRACE_TAGS_FOLDER_NAME = "tags"
     TRACE_REQUEST_METADATA_FOLDER_NAME = "request_metadata"
+    ASSESSMENTS_FOLDER_NAME = "assessments"
     MODELS_FOLDER_NAME = "models"
     RESERVED_EXPERIMENT_FOLDERS = [
         EXPERIMENT_TAGS_FOLDER_NAME,
@@ -1831,6 +1839,237 @@ class FileStore(AbstractStore):
                 RESOURCE_DOES_NOT_EXIST,
             )
         os.remove(tag_path)
+
+    def _get_assessments_dir(self, request_id: str) -> str:
+        trace_dir = self._find_trace_dir(request_id, assert_exists=True)
+        return os.path.join(trace_dir, FileStore.ASSESSMENTS_FOLDER_NAME)
+
+    def _get_assessment_path(self, request_id: str, assessment_id: str) -> str:
+        assessments_dir = self._get_assessments_dir(request_id)
+        return os.path.join(assessments_dir, f"{assessment_id}.yaml")
+
+    def _save_assessment(self, assessment: Assessment) -> None:
+        assessment_path = self._get_assessment_path(assessment.trace_id, assessment.assessment_id)
+        make_containing_dirs(assessment_path)
+
+        assessment_dict = assessment.to_dictionary()
+        write_yaml(
+            root=os.path.dirname(assessment_path),
+            file_name=os.path.basename(assessment_path),
+            data=assessment_dict,
+            overwrite=True,
+        )
+
+    def _load_assessment(self, trace_id: str, assessment_id: str) -> Assessment:
+        assessment_path = self._get_assessment_path(trace_id, assessment_id)
+
+        if not exists(assessment_path):
+            raise MlflowException(
+                f"Assessment with ID '{assessment_id}' not found for trace '{trace_id}'",
+                RESOURCE_DOES_NOT_EXIST,
+            )
+
+        try:
+            assessment_dict = FileStore._read_yaml(
+                root=os.path.dirname(assessment_path), file_name=os.path.basename(assessment_path)
+            )
+            return Assessment.from_dictionary(assessment_dict)
+        except Exception as e:
+            raise MlflowException(
+                f"Failed to load assessment with ID '{assessment_id}' for trace '{trace_id}': {e}",
+                INTERNAL_ERROR,
+            ) from e
+
+    def _delete_assessment(self, trace_id: str, assessment_id: str) -> None:
+        assessment_path = self._get_assessment_path(trace_id, assessment_id)
+
+        # Idempotent
+        if not exists(assessment_path):
+            return
+
+        try:
+            os.remove(assessment_path)
+
+            # Clean up empty assessments directory if no more assessments exist
+            assessments_dir = self._get_assessments_dir(trace_id)
+            if exists(assessments_dir) and not os.listdir(assessments_dir):
+                os.rmdir(assessments_dir)
+        except OSError as e:
+            raise MlflowException(
+                f"Failed to delete assessment with ID '{assessment_id}'"
+                " for trace '{trace_id}': {e}",
+                INTERNAL_ERROR,
+            ) from e
+
+    def get_assessment(self, trace_id: str, assessment_id: str) -> Assessment:
+        """
+        Retrieves a specific assessment associated with a trace from the file store.
+
+        Args:
+            trace_id: The unique identifier of the trace containing the assessment.
+            assessment_id: The unique identifier of the assessment to retrieve.
+
+        Returns:
+            Assessment: The requested assessment object (either Expectation or Feedback).
+
+        Raises:
+            MlflowException: If the trace_id is not found, if no assessment with the
+                specified assessment_id exists for the trace, or if the stored
+                assessment data cannot be deserialized.
+        """
+
+        return self._load_assessment(trace_id, assessment_id)
+
+    def create_assessment(self, assessment: Assessment) -> Assessment:
+        """
+        Creates a new assessment record associated with a specific trace.
+
+        This method creates a new assessment record by:
+        1. Generating a unique assessment ID
+        2. Setting creation and update timestamps
+        3. Storing the assessment as a YAML file in the assessments subdirectory
+        4. Returning the updated assessment object with backend-generated metadata
+
+        Args:
+            assessment: The assessment object to create. Can be either an Expectation or
+                Feedback instance. The assessment will be modified in-place to include
+                the generated assessment_id and timestamps.
+
+        Returns:
+            Assessment: The input assessment object updated with backend-generated metadata.
+
+        Raises:
+            MlflowException: If the trace doesn't exist or there's an error saving the assessment.
+        """
+        assessment_id = generate_assessment_id()
+        creation_timestamp = int(time.time() * 1000)
+
+        assessment.assessment_id = assessment_id
+        assessment.create_time_ms = creation_timestamp
+        assessment.last_update_time_ms = creation_timestamp
+        assessment.valid = True
+
+        self._save_assessment(assessment)
+
+        return assessment
+
+    def update_assessment(
+        self,
+        trace_id: str,
+        assessment_id: str,
+        expectation: Optional[Any] = None,
+        feedback: Optional[FeedbackValueType] = None,
+        rationale: Optional[str] = None,
+        valid: Optional[bool] = True,
+        metadata: Optional[dict[str, str]] = None,
+    ) -> Assessment:
+        """
+        Updates an existing assessment by creating a new version with override tracking.
+
+        This method implements copy-on-write updates for assessments in OSS MLflow by:
+        1. Retrieving the existing assessment from storage
+        2. Validating that immutable fields (name, source, span_id) are not being changed
+        3. Creating a new assessment with updated fields and a new ID
+        4. Setting override relationships (new assessment overrides the original)
+        5. Marking the original assessment as invalid
+        6. Storing both assessments to maintain audit trail
+
+        The assessment_name, source, and span_id are immutable because they determine
+        the storage key for the assessment. Only expectation/feedback values, rationale,
+        and metadata can be updated.
+
+        Args:
+            trace_id: The unique identifier of the trace containing the assessment.
+            assessment_id: The unique identifier of the assessment to update.
+            expectation: Optional new expectation value. Only valid for Expectation assessments.
+            feedback: Optional new feedback value. Only valid for Feedback assessments.
+            rationale: Optional new rationale text.
+            valid: Used to mark an existing assessment as invalid. Defaults to True, indicating
+                that the existing assessment is legitimate.
+            metadata: Optional metadata updates. If provided, completely replaces existing metadata.
+
+        Returns:
+            Assessment: The newly created assessment object with updated values, new ID,
+                and override relationship to the original.
+
+        Raises:
+            MlflowException: If the trace_id or assessment_id is not found, if providing
+                incompatible value types (e.g., expectation for Feedback), if serialization
+                fails, or if there's an error updating the storage.
+
+        Note:
+            This method creates a new assessment_id for the updated version and maintains
+            an audit trail by keeping both the original (marked invalid) and new assessments
+            in storage with proper override relationships.
+        """
+        existing_assessment = self.get_assessment(trace_id, assessment_id)
+
+        if expectation is not None and not isinstance(existing_assessment, Expectation):
+            raise MlflowException.invalid_parameter_value(
+                "Cannot update expectation value on a Feedback assessment."
+            )
+
+        if feedback is not None and not isinstance(existing_assessment, Feedback):
+            raise MlflowException.invalid_parameter_value(
+                "Cannot update feedback value on an Expectation assessment."
+            )
+
+        new_assessment_id = generate_assessment_id()
+        updated_timestamp = int(time.time() * 1000)
+
+        if isinstance(existing_assessment, Expectation):
+            updated_assessment = Expectation(
+                name=existing_assessment.name,
+                value=expectation if expectation is not None else existing_assessment.value,
+                source=existing_assessment.source,
+                trace_id=existing_assessment.trace_id,
+                metadata=metadata if metadata is not None else existing_assessment.metadata,
+                span_id=existing_assessment.span_id,
+                create_time_ms=existing_assessment.create_time_ms,
+                last_update_time_ms=updated_timestamp,
+            )
+        else:
+            updated_assessment = Feedback(
+                name=existing_assessment.name,
+                value=feedback if feedback is not None else existing_assessment.value,
+                error=existing_assessment.error,
+                source=existing_assessment.source,
+                trace_id=existing_assessment.trace_id,
+                metadata=metadata if metadata is not None else existing_assessment.metadata,
+                span_id=existing_assessment.span_id,
+                create_time_ms=existing_assessment.create_time_ms,
+                last_update_time_ms=updated_timestamp,
+                rationale=rationale if rationale is not None else existing_assessment.rationale,
+                overrides=existing_assessment.assessment_id,
+                valid=True,
+            )
+
+        updated_assessment.assessment_id = new_assessment_id
+
+        if not valid:
+            existing_assessment.valid = False
+            self._save_assessment(existing_assessment)
+
+        self._save_assessment(updated_assessment)
+
+        return updated_assessment
+
+    def delete_assessment(self, trace_id: str, assessment_id: str) -> None:
+        """
+        Deletes an assessment from a trace by removing its file.
+
+        This method removes an assessment from storage by:
+        1. Validating the trace exists
+        2. Removing the assessment file from the assessments directory
+
+        Args:
+            trace_id: The unique identifier of the trace containing the assessment.
+            assessment_id: The unique identifier of the assessment to delete.
+
+        Raises:
+            MlflowException: If the trace_id is not found or if the assessment doesn't exist.
+        """
+        self._delete_assessment(trace_id, assessment_id)
 
     def _delete_traces(
         self,
