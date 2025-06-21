@@ -1845,13 +1845,18 @@ class _TransformersWrapper:
             data, params = preprocess_llm_inference_input(data, params, self.flavor_config)
         elif self.llm_inference_task == _LLM_INFERENCE_TASK_EMBEDDING:
             data, params = preprocess_llm_embedding_params(data)
-
+        elif self.pipeline.task == "image-text-to-text":
+            data, params = preprocess_llm_inference_input(data, params, {
+                **self.flavor_config,
+                _LLM_INFERENCE_TASK_KEY: _LLM_INFERENCE_TASK_CHAT,
+            })
+            
         if isinstance(data, pd.DataFrame):
             input_data = self._convert_pandas_to_dict(data)
         elif isinstance(data, (dict, str, bytes, np.ndarray)):
             input_data = data
         elif isinstance(data, list):
-            if not all(isinstance(entry, (str, dict)) for entry in data):
+            if not all(isinstance(entry, (str, list, dict)) for entry in data):
                 raise MlflowException(
                     "Invalid data submission. Ensure all elements in the list are strings "
                     "or dictionaries. If dictionaries are supplied, all keys in the "
@@ -1941,6 +1946,9 @@ class _TransformersWrapper:
         elif isinstance(self.pipeline, transformers.AudioClassificationPipeline):
             data = self._convert_audio_input(data)
             output_key = None
+        elif isinstance(self.pipeline, transformers.ImageTextToTextPipeline):
+            if isinstance(self.pipeline.model, (transformers.Qwen2_5_VLForConditionalGeneration, transformers.Qwen2VLForConditionalGeneration)):
+                data = self._convert_qv_image_input(data)
         else:
             raise MlflowException(
                 f"The loaded pipeline type {type(self.pipeline).__name__} is "
@@ -1967,6 +1975,10 @@ class _TransformersWrapper:
             return_tensors = False
             if self.llm_inference_task:
                 return_tensors = True
+                output_key = "generated_token_ids"
+            elif isinstance(self.pipeline, transformers.ImageTextToTextPipeline):
+                return_tensors = True
+                input_key = "input_text"
                 output_key = "generated_token_ids"
 
             raw_output = self._validate_model_config_and_return_output(
@@ -1995,7 +2007,24 @@ class _TransformersWrapper:
                     model_config,
                     self.llm_inference_task,
                 )
+        elif isinstance(self.pipeline, transformers.ImageTextToTextPipeline):
+            output = self._strip_input_from_response_in_instruction_pipelines(
+                [data],
+                [raw_output],
+                output_key,
+                self.flavor_config,
+                include_prompt,
+                collapse_whitespace,
+            )
 
+            output = postprocess_output_for_llm_inference_task(
+                [item.get(input_key) for item in raw_output],
+                output,
+                self.pipeline,
+                self.flavor_config,
+                model_config,
+                _LLM_INFERENCE_TASK_CHAT,
+            )
         elif isinstance(self.pipeline, transformers.FeatureExtractionPipeline):
             if self.llm_inference_task:
                 output = [np.array(tensor[0][0]) for tensor in raw_output]
@@ -2054,6 +2083,7 @@ class _TransformersWrapper:
                     transformers.TranslationPipeline,
                     transformers.SummarizationPipeline,
                     transformers.TokenClassificationPipeline,
+                    transformers.ImageTextToTextPipeline,
                 ),
             )
             and isinstance(data, list)
@@ -2348,7 +2378,7 @@ class _TransformersWrapper:
             ):
                 # If the user has indicated to not preserve the prompt input in the response,
                 # split the response output and trim the input prompt from the response.
-                data_out = data_out[len(data_in) :].lstrip()
+                data_out = data_out[len(data_in):].lstrip()
                 if data_out.startswith("A:"):
                     data_out = data_out[2:].lstrip()
 
@@ -2773,6 +2803,21 @@ class _TransformersWrapper:
             self._validate_str_input_uri_or_file(input_data)
 
         return input_data
+
+    def _convert_qv_image_input(self, input_data):
+        """
+        Convert the qwen imageinput data into the format that the Transformers pipeline expects.
+        """
+        with contextlib.suppress(ImportError):
+            from qwen_vl_utils import process_vision_info
+
+            if isinstance(input_data, list):
+                text = self.pipeline.processor.apply_chat_template(
+                    input_data, tokenize=False, add_generation_prompt=True
+                )
+                image_inputs, video_inputs = process_vision_info(input_data)
+
+                return {"images": image_inputs, "text": text}
 
     def _convert_audio_input(
         self, data: Union[AudioInput, list[dict[int, list[AudioInput]]]]
