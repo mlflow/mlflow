@@ -690,8 +690,13 @@ class Linter(ast.NodeVisitor):
         self.in_type_annotation = False
 
     def visit_If(self, node: ast.If) -> None:
-        if isinstance(node.test, ast.Name) and node.test.id == "TYPE_CHECKING":
-            self.in_TYPE_CHECKING = True
+        # Check if this is a TYPE_CHECKING condition
+        # Resolve the test condition to check for TYPE_CHECKING
+        if resolved := self.resolver.resolve(node.test):
+            # Check if it resolves to typing.TYPE_CHECKING
+            if resolved == ["typing", "TYPE_CHECKING"]:
+                self.in_TYPE_CHECKING = True
+
         self.generic_visit(node)
         self.in_TYPE_CHECKING = False
 
