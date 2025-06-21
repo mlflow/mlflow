@@ -4325,7 +4325,162 @@ def test_evaluate_single_class_without_labels_raises_error():
     evaluator.y_true = dataset.labels_data
     evaluator.y_pred = np.array([1, 1, 1, 1])  # Same single class predictions
     evaluator.label_list = None  # Will be inferred from data
+    evaluator.pos_label = None  # Will be set automatically
 
     # This should raise an error because only one unique label is present
     with pytest.raises(MlflowException, match="at least two unique labels"):
         evaluator._validate_label_list()
+
+
+def test_multiclass_missing_classes_no_label_list():
+    """Test multiclass with missing classes when user does NOT supply label_list."""
+    import numpy as np
+    import pandas as pd
+
+    from mlflow.models.evaluation.base import EvaluationDataset
+    from mlflow.models.evaluation.evaluators.classifier import ClassifierEvaluator
+
+    # Create data with only classes 0 and 2 present (missing classes 1 and 3)
+    X = pd.DataFrame({"feature": [1, 2, 3, 4, 5, 6], "target": [0, 2, 0, 2, 0, 2]})
+
+    # Create dataset
+    dataset = EvaluationDataset(data=X, targets="target")
+
+    # Create evaluator
+    evaluator = ClassifierEvaluator()
+    evaluator.dataset = dataset
+    evaluator.evaluator_config = {}  # No explicit label_list
+    evaluator.y_true = dataset.labels_data
+    evaluator.y_pred = np.array([0, 2, 0, 2, 0, 2])  # Same predictions as targets
+    evaluator.label_list = None  # Will be inferred from data
+    evaluator.pos_label = None  # Will be set automatically
+
+    # This should work and infer only the present classes
+    evaluator._validate_label_list()
+
+    # Should only contain classes that are actually present in the data
+    assert len(evaluator.label_list) == 2
+    assert set(evaluator.label_list) == {0, 2}
+
+
+def test_multiclass_missing_classes_with_label_list():
+    """
+    Test multiclass with missing classes when user DOES supply label_list with all expected classes.
+    """
+    import numpy as np
+    import pandas as pd
+
+    from mlflow.models.evaluation.base import EvaluationDataset
+    from mlflow.models.evaluation.evaluators.classifier import ClassifierEvaluator
+
+    # Create data with only classes 0 and 2 present (missing classes 1 and 3)
+    X = pd.DataFrame({"feature": [1, 2, 3, 4, 5, 6], "target": [0, 2, 0, 2, 0, 2]})
+
+    # Create dataset
+    dataset = EvaluationDataset(data=X, targets="target")
+
+    # Create evaluator
+    evaluator = ClassifierEvaluator()
+    evaluator.dataset = dataset
+    # All expected classes including missing ones
+    evaluator.evaluator_config = {"label_list": [0, 1, 2, 3]}
+    evaluator.y_true = dataset.labels_data
+    evaluator.y_pred = np.array([0, 2, 0, 2, 0, 2])  # Same predictions as targets
+    evaluator.label_list = evaluator.evaluator_config.get("label_list")
+    evaluator.pos_label = None  # Will be set automatically
+
+    # This should work and use the provided label_list
+    evaluator._validate_label_list()
+
+    # Should contain all classes specified in the config, even missing ones
+    assert len(evaluator.label_list) == 4
+    assert set(evaluator.label_list) == {0, 1, 2, 3}
+
+
+def test_multiclass_missing_classes_evaluation_flow():
+    """Test the full mlflow.evaluate flow for multiclass with missing classes scenarios."""
+    import numpy as np
+    import pandas as pd
+
+    # Create a simple model that always predicts class 0
+    def simple_model(X):
+        return np.zeros(len(X), dtype=int)
+
+    # Test case 1: Multiclass with missing classes - user does NOT supply label_list
+    X = pd.DataFrame(np.random.randn(50, 2), columns=["feature1", "feature2"])
+    y_missing_classes = np.random.choice([0, 2], size=50)  # Only classes 0 and 2
+
+    eval_data = X.copy()
+    eval_data["target"] = y_missing_classes
+
+    # This should work and infer only present classes
+    result = mlflow.evaluate(
+        model=simple_model,
+        data=eval_data,
+        targets="target",
+        model_type="classifier",
+        evaluator_config={},  # No explicit label_list
+    )
+
+    # Should have basic multiclass metrics
+    assert "accuracy_score" in result.metrics
+    assert "example_count" in result.metrics
+
+    # Test case 2: Multiclass with missing classes - user DOES supply label_list
+    result_with_config = mlflow.evaluate(
+        model=simple_model,
+        data=eval_data,
+        targets="target",
+        model_type="classifier",
+        evaluator_config={
+            "label_list": [0, 1, 2, 3]
+        },  # All expected classes including missing ones
+    )
+
+    # Should have the same basic metrics
+    assert "accuracy_score" in result_with_config.metrics
+    assert "example_count" in result_with_config.metrics
+
+    # The accuracy should be the same since the model and data are the same
+    assert (
+        abs(result.metrics["accuracy_score"] - result_with_config.metrics["accuracy_score"]) < 1e-10
+    )
+
+
+def test_single_class_with_label_list_success():
+    """Test that single-class data succeeds with explicit label_list."""
+    import numpy as np
+    import pandas as pd
+
+    # Create a simple model that always predicts class 0
+    def simple_model(X):
+        return np.zeros(len(X), dtype=int)
+
+    # Single class data
+    X = pd.DataFrame(np.random.randn(50, 2), columns=["feature1", "feature2"])
+    y_single_class = np.zeros(50)  # Only class 0
+
+    eval_data = X.copy()
+    eval_data["target"] = y_single_class
+
+    # This should succeed with explicit label_list
+    result = mlflow.evaluate(
+        model=simple_model,
+        data=eval_data,
+        targets="target",
+        model_type="classifier",
+        evaluator_config={"label_list": [0, 1]},  # Explicit 2-class label_list
+    )
+
+    # Should have binary classification metrics
+    assert "true_positives" in result.metrics
+    assert "false_positives" in result.metrics
+    assert "false_negatives" in result.metrics
+    assert "true_negatives" in result.metrics
+    assert "accuracy_score" in result.metrics
+
+    # All predictions are class 0, so true_negatives should be 50 (assuming 0 is negative class)
+    assert result.metrics["true_negatives"] == 50
+    assert result.metrics["false_positives"] == 0
+    assert result.metrics["false_negatives"] == 0
+    assert result.metrics["true_positives"] == 0
