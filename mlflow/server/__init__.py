@@ -26,6 +26,7 @@ from mlflow.server.handlers import (
     search_datasets_handler,
     upload_artifact_handler,
 )
+from mlflow.server.rate_limiting import init_rate_limiting
 from mlflow.utils.os import is_windows
 from mlflow.utils.plugins import get_entry_points
 from mlflow.utils.process import _exec_cmd
@@ -50,6 +51,9 @@ IS_FLASK_V1 = Version(importlib.metadata.version("flask")) < Version("2.0")
 for http_path, handler, methods in handlers.get_endpoints():
     app.add_url_rule(http_path, handler.__name__, handler, methods=methods)
 
+# Initialize rate limiting after all endpoints are registered
+init_rate_limiting(app)
+
 if os.getenv(PROMETHEUS_EXPORTER_ENV_VAR):
     from mlflow.server.prometheus_exporter import activate_prometheus_exporter
 
@@ -63,6 +67,14 @@ if os.getenv(PROMETHEUS_EXPORTER_ENV_VAR):
 @app.route("/health")
 def health():
     return "OK", 200
+
+
+# Provide an endpoint to query rate limiting status and configuration
+@app.route("/rate-limit-status")
+def rate_limit_status():
+    from mlflow.server.rate_limiting import get_rate_limit_status
+
+    return get_rate_limit_status(), 200
 
 
 # Provide an endpoint to query the version of mlflow running on the server

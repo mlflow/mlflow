@@ -156,6 +156,32 @@ from mlflow.utils.validation import (
     missing_value,
 )
 
+try:
+    from mlflow.server.rate_limiting import (
+        artifact_limit,
+        experiment_limit,
+        logging_limit,
+        run_limit,
+        search_limit,
+    )
+except ImportError:
+
+    def experiment_limit(func):
+        return func
+
+    def run_limit(func):
+        return func
+
+    def logging_limit(func):
+        return func
+
+    def search_limit(func):
+        return func
+
+    def artifact_limit(func):
+        return func
+
+
 _logger = logging.getLogger(__name__)
 _tracking_store = None
 _model_registry_store = None
@@ -638,6 +664,7 @@ def _disable_if_artifacts_only(func):
 
 
 @catch_mlflow_exception
+@artifact_limit
 def get_artifact_handler():
     run_id = request.args.get("run_id") or request.args.get("run_uuid")
     path = request.args["path"]
@@ -668,6 +695,7 @@ def _not_implemented():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@experiment_limit
 def _create_experiment():
     request_message = _get_request_message(
         CreateExperiment(),
@@ -740,6 +768,7 @@ def _get_experiment_by_name():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@experiment_limit
 def _delete_experiment():
     request_message = _get_request_message(
         DeleteExperiment(), schema={"experiment_id": [_assert_required, _assert_string]}
@@ -753,6 +782,7 @@ def _delete_experiment():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@experiment_limit
 def _restore_experiment():
     request_message = _get_request_message(
         RestoreExperiment(),
@@ -767,6 +797,7 @@ def _restore_experiment():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@experiment_limit
 def _update_experiment():
     request_message = _get_request_message(
         UpdateExperiment(),
@@ -787,6 +818,7 @@ def _update_experiment():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@run_limit
 def _create_run():
     request_message = _get_request_message(
         CreateRun(),
@@ -815,6 +847,7 @@ def _create_run():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@run_limit
 def _update_run():
     request_message = _get_request_message(
         UpdateRun(),
@@ -838,6 +871,7 @@ def _update_run():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@run_limit
 def _delete_run():
     request_message = _get_request_message(
         DeleteRun(), schema={"run_id": [_assert_required, _assert_string]}
@@ -851,6 +885,7 @@ def _delete_run():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@run_limit
 def _restore_run():
     request_message = _get_request_message(
         RestoreRun(), schema={"run_id": [_assert_required, _assert_string]}
@@ -864,6 +899,7 @@ def _restore_run():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@logging_limit
 def _log_metric():
     request_message = _get_request_message(
         LogMetric(),
@@ -898,6 +934,7 @@ def _log_metric():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@logging_limit
 def _log_param():
     request_message = _get_request_message(
         LogParam(),
@@ -918,6 +955,7 @@ def _log_param():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@logging_limit
 def _log_inputs():
     request_message = _get_request_message(
         LogInputs(),
@@ -950,6 +988,7 @@ def _log_inputs():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@logging_limit
 def _log_outputs():
     request_message = _get_request_message(
         LogOutputs(),
@@ -966,6 +1005,7 @@ def _log_outputs():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@logging_limit
 def _set_experiment_tag():
     request_message = _get_request_message(
         SetExperimentTag(),
@@ -985,6 +1025,7 @@ def _set_experiment_tag():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@logging_limit
 def _set_tag():
     request_message = _get_request_message(
         SetTag(),
@@ -1005,6 +1046,7 @@ def _set_tag():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@logging_limit
 def _delete_tag():
     request_message = _get_request_message(
         DeleteTag(),
@@ -1022,6 +1064,7 @@ def _delete_tag():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@search_limit
 def _get_run():
     request_message = _get_request_message(
         GetRun(), schema={"run_id": [_assert_required, _assert_string]}
@@ -1041,6 +1084,7 @@ def get_run_impl(request_message):
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@search_limit
 def _search_runs():
     request_message = _get_request_message(
         SearchRuns(),
@@ -1081,6 +1125,7 @@ def search_runs_impl(request_message):
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+@artifact_limit
 def _list_artifacts():
     request_message = _get_request_message(
         ListArtifacts(),

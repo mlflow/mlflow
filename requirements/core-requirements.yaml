@@ -19,6 +19,10 @@ flask:
   pip_release: Flask
   max_major_version: 3
 
+flask-limiter:
+  pip_release: Flask-Limiter
+  max_major_version: 3
+
 numpy:
   pip_release: numpy
   max_major_version: 2
