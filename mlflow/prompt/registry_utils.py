@@ -1,4 +1,5 @@
 import functools
+import json
 import re
 from textwrap import dedent
 from typing import Any, Optional, Union
@@ -8,8 +9,20 @@ from mlflow.entities.model_registry.model_version import ModelVersion
 from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.entities.model_registry.registered_model_tag import RegisteredModelTag
 from mlflow.exceptions import MlflowException
-from mlflow.prompt.constants import IS_PROMPT_TAG_KEY, PROMPT_NAME_RULE, PROMPT_TEXT_TAG_KEY
-from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE, RESOURCE_ALREADY_EXISTS
+from mlflow.prompt.constants import (
+    CONFIG_TAG_KEY,
+    IS_PROMPT_TAG_KEY,
+    PROMPT_NAME_RULE,
+    PROMPT_TEXT_TAG_KEY,
+    PROMPT_TYPE_CHAT,
+    PROMPT_TYPE_TAG_KEY,
+    PROMPT_TYPE_TEXT,
+    RESPONSE_FORMAT_TAG_KEY,
+)
+from mlflow.protos.databricks_pb2 import (
+    INVALID_PARAMETER_VALUE,
+    RESOURCE_ALREADY_EXISTS,
+)
 
 
 def model_version_to_prompt_version(
@@ -36,10 +49,41 @@ def model_version_to_prompt_version(
             f"Prompt `{model_version.name}` does not contain a prompt text"
         )
 
+    # Extract template and determine prompt type
+    template = model_version.tags[PROMPT_TEXT_TAG_KEY]
+    prompt_type = model_version.tags.get(PROMPT_TYPE_TAG_KEY, PROMPT_TYPE_TEXT)
+
+    # Parse template for chat prompts
+    if prompt_type == PROMPT_TYPE_CHAT:
+        try:
+            template = json.loads(template)
+        except json.JSONDecodeError:
+            # Fallback to text if JSON parsing fails
+            prompt_type = PROMPT_TYPE_TEXT
+
+    # Extract response format and config
+    response_format = None
+    config = None
+
+    if RESPONSE_FORMAT_TAG_KEY in model_version.tags:
+        try:
+            response_format = json.loads(model_version.tags[RESPONSE_FORMAT_TAG_KEY])
+        except json.JSONDecodeError:
+            pass
+
+    if CONFIG_TAG_KEY in model_version.tags:
+        try:
+            config = json.loads(model_version.tags[CONFIG_TAG_KEY])
+        except json.JSONDecodeError:
+            pass
+
     return PromptVersion(
         name=model_version.name,
         version=int(model_version.version),
-        template=model_version.tags[PROMPT_TEXT_TAG_KEY],
+        template=template,
+        prompt_type=prompt_type,
+        response_format=response_format,
+        config=config,
         commit_message=model_version.description,
         creation_timestamp=model_version.creation_timestamp,
         tags=model_version.tags,
@@ -69,7 +113,9 @@ def add_prompt_filter_string(
     return filter_string
 
 
-def has_prompt_tag(tags: Optional[Union[list[RegisteredModelTag], dict[str, str]]]) -> bool:
+def has_prompt_tag(
+    tags: Optional[Union[list[RegisteredModelTag], dict[str, str]]],
+) -> bool:
     """Check if the given tags contain the prompt tag."""
     if isinstance(tags, dict):
         return IS_PROMPT_TAG_KEY in tags if tags else False
@@ -124,14 +170,16 @@ def require_prompt_registry(func):
         return func(*args, **kwargs)
 
     # Add note about prompt support to the docstring
-    func.__doc__ = dedent(f"""\
+    func.__doc__ = dedent(
+        f"""\
         {func.__doc__}
 
         .. note::
 
             This API is supported in OSS MLflow Model Registry and Unity Catalog. It is
             not supported in the legacy Databricks workspace model registry.
-    """)
+    """
+    )
     return wrapper
 
 

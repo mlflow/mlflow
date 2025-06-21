@@ -10,6 +10,20 @@ LINKED_PROMPTS_TAG_KEY = "mlflow.linkedPrompts"
 # A special tag to store associated run IDs for prompts
 PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY = "mlflow.prompt.associatedRunIds"
 
+# New tag keys for enhanced prompt features
+PROMPT_TYPE_TAG_KEY = "mlflow.prompt.type"
+RESPONSE_FORMAT_TAG_KEY = "mlflow.prompt.response_format"
+CONFIG_TAG_KEY = "mlflow.prompt.config"
+
+# Prompt types
+PROMPT_TYPE_TEXT = "text"
+PROMPT_TYPE_CHAT = "chat"
+
+# Response format types
+RESPONSE_FORMAT_TEXT = "text"
+RESPONSE_FORMAT_JSON = "json"
+RESPONSE_FORMAT_STRUCTURED = "structured"
+
 PROMPT_TEMPLATE_VARIABLE_PATTERN = re.compile(
     r"\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)\s*\}\}"
 )
