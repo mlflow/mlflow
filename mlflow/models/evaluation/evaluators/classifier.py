@@ -104,38 +104,30 @@ class ClassifierEvaluator(BuiltInEvaluator):
             # If label list is not specified, infer label list from model output
             self.label_list = np.unique(np.concatenate([self.y_true, self.y_pred]))
         else:
-            # np.where only works for numpy array, not list
             self.label_list = np.array(self.label_list)
 
-        # sort label_list ASC, for binary classification it makes sure the last one is pos label
         self.label_list.sort()
 
-        is_binomial = len(self.label_list) <= 2
+        if len(self.label_list) < 2:
+            raise MlflowException(
+                "Evaluation dataset for classification must contain at least two unique "
+                f"labels, but only {len(self.label_list)} unique label(s) were found.",
+            )
+
+        is_binomial = len(self.label_list) == 2
         if is_binomial:
             if self.pos_label is None:
                 self.pos_label = self.label_list[-1]
-            else:
-                if self.pos_label in self.label_list:
-                    self.label_list = np.delete(
-                        self.label_list, np.where(self.label_list == self.pos_label)
-                    )
-                self.label_list = np.append(self.label_list, self.pos_label)
-            if len(self.label_list) < 2:
-                raise MlflowException(
-                    "Evaluation dataset for classification must contain at least two unique "
-                    f"labels, but only {len(self.label_list)} unique labels were found.",
-                )
+            # pos_label validation is already done in _evaluate method
             with _suppress_class_imbalance_errors(IndexError, log_warning=False):
                 _logger.info(
                     "The evaluation dataset is inferred as binary dataset, positive label is "
-                    f"{self.label_list[1]}, negative label is {self.label_list[0]}."
+                    f"{self.pos_label}, negative label is {self.label_list[0]}"
                 )
         else:
-            _logger.info(
-                "The evaluation dataset is inferred as multiclass dataset, number of classes "
-                f"is inferred as {len(self.label_list)}. If this is incorrect, please specify the "
-                "`label_list` parameter in `evaluator_config`."
-            )
+            if self.pos_label is not None:
+                # pos_label is ignored for multiclass classification - no warning needed
+                pass
 
     def _compute_builtin_metrics(self, model):
         self._evaluate_sklearn_model_score_if_scorable(model, self.y_true, self.sample_weights)
@@ -494,8 +486,25 @@ def _get_common_classifier_metrics(
 def _get_binary_classifier_metrics(
     *, y_true, y_pred, y_proba=None, labels=None, pos_label=1, sample_weights=None
 ):
+    """Compute binary classification metrics.
+
+    Args:
+        y_true: True binary labels.
+        y_pred: Predicted binary labels.
+        y_proba: Predicted probabilities for positive class. Optional.
+        labels: List of labels to use for confusion matrix. If provided, ensures
+               proper 2x2 structure even with single-class data.
+        pos_label: Label of the positive class. Defaults to 1.
+        sample_weights: Sample weights. Optional.
+
+    Returns:
+        Dictionary containing binary classification metrics including true_negatives,
+        false_positives, false_negatives, true_positives, and other common metrics.
+    """
     with _suppress_class_imbalance_errors(ValueError):
-        tn, fp, fn, tp = sk_metrics.confusion_matrix(y_true, y_pred).ravel()
+        # Use labels parameter to ensure proper 2x2 confusion matrix structure
+        cm = sk_metrics.confusion_matrix(y_true, y_pred, labels=labels)
+        tn, fp, fn, tp = cm.ravel()
         return {
             "true_negatives": tn,
             "false_positives": fp,
@@ -558,6 +567,7 @@ def _get_classifier_per_class_metrics_collection_df(y, y_pred, labels, sample_we
         binary_classifier_metrics = _get_binary_classifier_metrics(
             y_true=y_bin,
             y_pred=y_pred_bin,
+            labels=[0, 1],
             pos_label=1,
             sample_weights=sample_weights,
         )
