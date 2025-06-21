@@ -59,3 +59,43 @@ def patched_class_call(original, self, *args, **kwargs):
                     _logger.debug(f"Failed to set chat messages for {span}. Error: {e}")
 
             return outputs
+
+
+async def async_patched_class_call(original, self, *args, **kwargs):
+    config = AutoLoggingConfig.init(flavor_name=mlflow.mistral.FLAVOR_NAME)
+
+    if config.log_traces:
+        with mlflow.start_span(
+            name=f"{self.__class__.__name__}.{original.__name__}",
+            span_type=SpanType.CHAT_MODEL,
+        ) as span:
+            inputs = _construct_full_inputs(original, self, *args, **kwargs)
+            span.set_inputs(inputs)
+
+            if (tools := inputs.get("tools")) is not None:
+                try:
+                    tools = [convert_tool_to_mlflow_chat_tool(tool) for tool in tools if tool]
+                    set_span_chat_tools(span, tools)
+                except Exception as e:
+                    _logger.debug(f"Failed to set tools for {span}. Error: {e}")
+
+            try:
+                messages = [convert_message_to_mlflow_chat(m) for m in inputs.get("messages", [])]
+            except Exception as e:
+                _logger.debug(f"Failed to convert chat messages for {span}. Error: {e}")
+
+            try:
+                outputs = await original(self, *args, **kwargs)
+                span.set_outputs(outputs)
+            finally:
+                try:
+                    for choice in getattr(outputs, "choices", []):
+                        choice_message = getattr(choice, "message", {})
+                        messages.append(convert_message_to_mlflow_chat(choice_message))
+                    set_span_chat_messages(span, messages)
+                except Exception as e:
+                    _logger.debug(f"Failed to set chat messages for {span}. Error: {e}")
+
+            return outputs
+    else:
+        return await original(self, *args, **kwargs)

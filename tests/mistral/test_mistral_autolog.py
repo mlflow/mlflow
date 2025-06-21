@@ -2,6 +2,7 @@ from unittest.mock import patch
 
 import httpx
 import mistralai
+import pytest
 from mistralai.models import (
     AssistantMessage,
     ChatCompletionChoice,
@@ -294,3 +295,26 @@ def test_chat_complete_autolog_tool_calling(mock_complete):
             },
         },
     ]
+
+
+@patch(
+    "mistralai.chat.Chat.do_request_async",
+    return_value=_make_httpx_response(DUMMY_CHAT_COMPLETION_RESPONSE),
+)
+@pytest.mark.asyncio
+async def test_chat_complete_async_autolog(mock_complete_async):
+    mlflow.mistral.autolog()
+    client = mistralai.Mistral(api_key="test_key")
+    await client.chat.complete_async(**DUMMY_CHAT_COMPLETION_REQUEST)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    span = traces[0].data.spans[0]
+    assert span.name == "Chat.complete_async"
+    assert span.span_type == SpanType.CHAT_MODEL
+    assert span.inputs == DUMMY_CHAT_COMPLETION_REQUEST
+    span.outputs["usage"] = {
+        key: span.outputs["usage"][key]
+        for key in ["prompt_tokens", "completion_tokens", "total_tokens"]
+    }
+    assert span.outputs == DUMMY_CHAT_COMPLETION_RESPONSE.model_dump()
