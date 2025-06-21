@@ -761,30 +761,38 @@ def test_extract_predict_fn_and_predict_proba_fn_for_pipeline(
 
 @pytest.mark.parametrize("use_sample_weights", [True, False])
 def test_get_regressor_metrics(use_sample_weights):
-    np.random.seed(0)
-    y = np.random.rand(10)
-    y_pred = np.random.rand(10)
-    sample_weights = np.random.rand(10) if use_sample_weights else None
+    y = [1.1, 2.1, -3.5]
+    y_pred = [1.5, 2.0, -3.0]
+    sample_weights = [1, 2, 3] if use_sample_weights else None
+
     metrics = _get_regressor_metrics(y, y_pred, sample_weights=sample_weights)
-    assert isinstance(metrics, dict)
-    for v in metrics.values():
-        assert isinstance(v, float)
-    assert np.isclose(
-        metrics["example_count"],
-        (
-            10
-            if sample_weights is None
-            else np.sum(sample_weights, dtype=np.float64)
-            if hasattr(np, "float64")
-            else np.sum(sample_weights)
-        ),
-    )
-    assert "mean_absolute_error" in metrics
-    assert "mean_squared_error" in metrics
-    assert "root_mean_squared_error" in metrics
-    assert "r2_score" in metrics
-    assert "mean_absolute_percentage_error" in metrics
-    assert "max_error" in metrics
+
+    if use_sample_weights:
+        expected_metrics = {
+            "example_count": 3,
+            "mean_absolute_error": 0.35000000000000003,
+            "mean_squared_error": 0.155,
+            "root_mean_squared_error": 0.39370039370059057,
+            "sum_on_target": -5.199999999999999,
+            "mean_on_target": -1.7333333333333332,
+            "r2_score": 0.9780003154076644,
+            "max_error": 0.5,
+            "mean_absolute_percentage_error": 0.1479076479076479,
+        }
+    else:
+        expected_metrics = {
+            "example_count": 3,
+            "mean_absolute_error": 0.3333333333333333,
+            "mean_squared_error": 0.13999999999999999,
+            "root_mean_squared_error": 0.3741657386773941,
+            "sum_on_target": -0.2999999999999998,
+            "mean_on_target": -0.09999999999999994,
+            "r2_score": 0.976457399103139,
+            "max_error": 0.5,
+            "mean_absolute_percentage_error": 0.18470418470418468,
+        }
+
+    assert_dict_equal(metrics, expected_metrics, rtol=1e-3)
 
 
 def test_get_binary_sum_up_label_pred_prob():
