@@ -20,6 +20,7 @@ from opentelemetry.sdk.trace import TracerProvider
 
 import mlflow
 from mlflow.exceptions import MlflowException, MlflowTracingException
+from mlflow.tracing.config import reset_config
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.destination import Databricks, MlflowExperiment, TraceDestination
 from mlflow.tracing.utils.exception import raise_as_trace_exception
@@ -472,6 +473,9 @@ def reset():
     # Reset the custom destination set by the user
     global _MLFLOW_TRACE_USER_DESTINATION
     _MLFLOW_TRACE_USER_DESTINATION = None
+
+    # Reset the tracing configuration to defaults
+    reset_config()
 
 
 @raise_as_trace_exception
