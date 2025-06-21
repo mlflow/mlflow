@@ -79,7 +79,10 @@ def download_artifacts(
         pathlib.Path(dst_path).mkdir(exist_ok=True, parents=True)
 
     if artifact_uri is not None:
-        return _download_artifact_from_uri(artifact_uri, output_path=dst_path)
+        return _download_artifact_from_uri(
+            add_databricks_profile_info_to_artifact_uri(artifact_uri, tracking_uri),
+            output_path=dst_path,
+        )
 
     # Use `runs:/<run_id>/<artifact_path>` to download both run and model (if exists) artifacts
     if run_id and artifact_path:
