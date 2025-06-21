@@ -567,6 +567,7 @@ def _get_classifier_per_class_metrics_collection_df(y, y_pred, labels, sample_we
         binary_classifier_metrics = _get_binary_classifier_metrics(
             y_true=y_bin,
             y_pred=y_pred_bin,
+            labels=[0, 1],
             pos_label=1,
             sample_weights=sample_weights,
         )
