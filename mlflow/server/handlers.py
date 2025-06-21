@@ -640,18 +640,31 @@ def _disable_if_artifacts_only(func):
 @catch_mlflow_exception
 def get_artifact_handler():
     run_id = request.args.get("run_id") or request.args.get("run_uuid")
+    model_id = request.args.get("model_id")
+
     path = request.args["path"]
     path = validate_path_is_safe(path)
-    run = _get_tracking_store().get_run(run_id)
 
-    if _is_servable_proxied_run_artifact_root(run.info.artifact_uri):
+    if run_id:
+        run = _get_tracking_store().get_run(run_id)
+        artifact_root = run.info.artifact_uri
+    elif model_id:
+        model = _get_tracking_store().get_logged_model(model_id)
+        artifact_root = model.artifact_location
+    else:
+        raise MlflowException(
+            "Either run_id or model_id must be provided",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+
+    if _is_servable_proxied_run_artifact_root(artifact_root):
         artifact_repo = _get_artifact_repo_mlflow_artifacts()
         artifact_path = _get_proxied_run_artifact_destination_path(
-            proxied_artifact_root=run.info.artifact_uri,
+            proxied_artifact_root=artifact_root,
             relative_path=path,
         )
     else:
-        artifact_repo = _get_artifact_repo(run)
+        artifact_repo = get_artifact_repository(artifact_root)
         artifact_path = path
 
     return _send_artifact(artifact_repo, artifact_path)
