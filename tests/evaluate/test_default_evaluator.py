@@ -59,7 +59,7 @@ from mlflow.models.evaluation.default_evaluator import (
     _get_aggregate_metrics_values,
 )
 from mlflow.models.evaluation.evaluators.classifier import (
-    _extract_predict_fn_and_prodict_proba_fn,
+    _extract_predict_fn_and_predict_proba_fn,
     _gen_classifier_curve,
     _get_binary_classifier_metrics,
     _get_binary_sum_up_label_pred_prob,
@@ -248,13 +248,13 @@ def test_multi_classifier_evaluation(
 
     model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
 
-    predict_fn, predict_proba_fn = _extract_predict_fn_and_prodict_proba_fn(model)
+    predict_fn, predict_proba_fn = _extract_predict_fn_and_predict_proba_fn(model)
     y = iris_dataset.labels_data
     y_pred = predict_fn(iris_dataset.features_data)
-    y_probs = predict_proba_fn(iris_dataset.features_data)
+    y_proba = predict_proba_fn(iris_dataset.features_data)
 
     expected_metrics = _get_multiclass_classifier_metrics(
-        y_true=y, y_pred=y_pred, y_proba=y_probs, sample_weights=sample_weights
+        y_true=y, y_pred=y_pred, y_proba=y_proba, sample_weights=sample_weights
     )
     expected_metrics["score"] = model._model_impl.score(
         iris_dataset.features_data, iris_dataset.labels_data, sample_weight=sample_weights
@@ -307,13 +307,13 @@ def test_multi_classifier_evaluation_disable_logging_metrics_and_artifacts(
 
     model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
 
-    predict_fn, predict_proba_fn = _extract_predict_fn_and_prodict_proba_fn(model)
+    predict_fn, predict_proba_fn = _extract_predict_fn_and_predict_proba_fn(model)
     y = iris_dataset.labels_data
     y_pred = predict_fn(iris_dataset.features_data)
-    y_probs = predict_proba_fn(iris_dataset.features_data)
+    y_proba = predict_proba_fn(iris_dataset.features_data)
 
     expected_metrics = _get_multiclass_classifier_metrics(
-        y_true=y, y_pred=y_pred, y_proba=y_probs, sample_weights=None
+        y_true=y, y_pred=y_pred, y_proba=y_proba, sample_weights=None
     )
     expected_metrics["score"] = model._model_impl.score(
         iris_dataset.features_data, iris_dataset.labels_data
@@ -341,12 +341,12 @@ def test_bin_classifier_evaluation(
 
     model = mlflow.pyfunc.load_model(binary_logistic_regressor_model_uri)
 
-    predict_fn, predict_proba_fn = _extract_predict_fn_and_prodict_proba_fn(model)
+    predict_fn, predict_proba_fn = _extract_predict_fn_and_predict_proba_fn(model)
     y = breast_cancer_dataset.labels_data
     y_pred = predict_fn(breast_cancer_dataset.features_data)
-    y_probs = predict_proba_fn(breast_cancer_dataset.features_data)
+    y_proba = predict_proba_fn(breast_cancer_dataset.features_data)
 
-    expected_metrics = _get_binary_classifier_metrics(y_true=y, y_pred=y_pred, y_proba=y_probs)
+    expected_metrics = _get_binary_classifier_metrics(y_true=y, y_pred=y_pred, y_proba=y_proba)
     expected_metrics["score"] = model._model_impl.score(
         breast_cancer_dataset.features_data,
         breast_cancer_dataset.labels_data,
@@ -404,13 +404,13 @@ def test_bin_classifier_evaluation_disable_logging_metrics_and_artifacts(
     model = mlflow.pyfunc.load_model(binary_logistic_regressor_model_uri)
 
     _, raw_model = _extract_raw_model(model)
-    predict_fn, predict_proba_fn = _extract_predict_fn_and_prodict_proba_fn(model)
+    predict_fn, predict_proba_fn = _extract_predict_fn_and_predict_proba_fn(model)
     y = breast_cancer_dataset.labels_data
     y_pred = predict_fn(breast_cancer_dataset.features_data)
-    y_probs = predict_proba_fn(breast_cancer_dataset.features_data)
+    y_proba = predict_proba_fn(breast_cancer_dataset.features_data)
 
     expected_metrics = _get_binary_classifier_metrics(
-        y_true=y, y_pred=y_pred, y_proba=y_probs, sample_weights=None
+        y_true=y, y_pred=y_pred, y_proba=y_proba, sample_weights=None
     )
     expected_metrics["score"] = model._model_impl.score(
         breast_cancer_dataset.features_data, breast_cancer_dataset.labels_data
@@ -522,10 +522,8 @@ def test_svm_classifier_evaluation(svm_model_uri, breast_cancer_dataset):
     _, metrics, tags, artifacts = get_run_data(run.info.run_id)
 
     model = mlflow.pyfunc.load_model(svm_model_uri)
-
-    predict_fn, _ = _extract_predict_fn_and_prodict_proba_fn(model)
     y = breast_cancer_dataset.labels_data
-    y_pred = predict_fn(breast_cancer_dataset.features_data)
+    y_pred = model.predict(breast_cancer_dataset.features_data)
 
     expected_metrics = _get_binary_classifier_metrics(y_true=y, y_pred=y_pred, sample_weights=None)
     expected_metrics["score"] = model._model_impl.score(
@@ -605,7 +603,7 @@ def test_svm_classifier_evaluation_disable_logging_metrics_and_artifacts(
     model = mlflow.pyfunc.load_model(svm_model_uri)
 
     _, raw_model = _extract_raw_model(model)
-    predict_fn, _ = _extract_predict_fn_and_prodict_proba_fn(model)
+    predict_fn, _ = _extract_predict_fn_and_predict_proba_fn(model)
     y = breast_cancer_dataset.labels_data
     y_pred = predict_fn(breast_cancer_dataset.features_data)
 
@@ -708,18 +706,57 @@ def test_extract_raw_model_and_predict_fn(
     model = mlflow.pyfunc.load_model(binary_logistic_regressor_model_uri)
 
     model_loader_module, raw_model = _extract_raw_model(model)
-    predict_fn, predict_proba_fn = _extract_predict_fn_and_prodict_proba_fn(model)
+    predict_fn, predict_proba_fn = _extract_predict_fn_and_predict_proba_fn(model)
 
     assert model_loader_module == "mlflow.sklearn"
     assert isinstance(raw_model, LogisticRegression)
-    np.testing.assert_allclose(
-        predict_fn(breast_cancer_dataset.features_data),
-        raw_model.predict(breast_cancer_dataset.features_data),
+    assert predict_fn == raw_model.predict
+    assert predict_proba_fn == raw_model.predict_proba
+
+    y_pred = predict_fn(breast_cancer_dataset.features_data)
+    y_proba = predict_proba_fn(breast_cancer_dataset.features_data)
+    assert isinstance(y_pred, np.ndarray)
+    assert isinstance(y_proba, np.ndarray)
+
+
+def test_extract_predict_fn_and_predict_proba_fn_for_pipeline(
+    breast_cancer_dataset,
+):
+    """
+    Tests that for a scikit-learn pipeline model, the predict and predict_proba
+    functions are extracted from the pyfunc model, not the raw model.
+    """
+    from mlflow.utils.file_utils import TempDir
+
+    pipeline = Pipeline(
+        [
+            ("identity", FunctionTransformer()),
+            ("classifier", LogisticRegression()),
+        ]
     )
-    np.testing.assert_allclose(
-        predict_proba_fn(breast_cancer_dataset.features_data),
-        raw_model.predict_proba(breast_cancer_dataset.features_data),
-    )
+    pipeline.fit(breast_cancer_dataset.features_data, breast_cancer_dataset.labels_data)
+
+    with TempDir() as tmp:
+        model_path = tmp.path("model")
+        mlflow.sklearn.save_model(pipeline, model_path)
+        pyfunc_model = mlflow.pyfunc.load_model(model_path)
+
+    predict_fn, predict_proba_fn = _extract_predict_fn_and_predict_proba_fn(pyfunc_model)
+
+    # For sklearn pipelines, we should use the pyfunc's predict methods to ensure
+    # transformers are applied correctly.
+    assert predict_fn == pyfunc_model.predict
+
+    # The pyfunc model will have predict_proba only if the underlying model supports it.
+    if hasattr(pyfunc_model, "predict_proba"):
+        assert predict_proba_fn == pyfunc_model.predict_proba
+        # Verify that the functions are not from the raw, underlying model
+        assert predict_proba_fn != pipeline.predict_proba
+    else:
+        assert predict_proba_fn is None
+
+    # Verify that the predict function is not from the raw, underlying model
+    assert predict_fn != pipeline.predict
 
 
 @pytest.mark.parametrize("use_sample_weights", [True, False])
@@ -728,7 +765,7 @@ def test_get_regressor_metrics(use_sample_weights):
     y_pred = [1.5, 2.0, -3.0]
     sample_weights = [1, 2, 3] if use_sample_weights else None
 
-    metrics = _get_regressor_metrics(y, y_pred, sample_weights)
+    metrics = _get_regressor_metrics(y, y_pred, sample_weights=sample_weights)
 
     if use_sample_weights:
         expected_metrics = {
@@ -3320,7 +3357,7 @@ def test_evaluate_with_correctness():
         grading_prompt=(
             "Correctness: If the answer correctly answer the question, below "
             "are the details for different scores: "
-            "- Score 0: the answer is completely incorrect, doesn’t mention anything about "
+            "- Score 0: the answer is completely incorrect, doesn't mention anything about "
             "the question or is completely contrary to the correct answer. "
             "- Score 1: the answer provides some relevance to the question and answer "
             "one aspect of the question correctly. "
@@ -4281,3 +4318,19 @@ def test_regressor_returning_pandas_object(model_output, predictions):
             "root_mean_squared_error": 0.0,
             "sum_on_target": 3,
         }
+
+
+def test_extract_predict_fn_for_model_without_predict_proba(
+    svm_model_uri,
+):
+    """
+    Tests that for a model without a predict_proba method (e.g., LinearSVC),
+    the predict function is extracted correctly and predict_proba_fn is None.
+    """
+    pyfunc_model = mlflow.pyfunc.load_model(svm_model_uri)
+    _, raw_model = _extract_raw_model(pyfunc_model)
+
+    predict_fn, predict_proba_fn = _extract_predict_fn_and_predict_proba_fn(pyfunc_model)
+
+    assert predict_fn == raw_model.predict
+    assert predict_proba_fn is None
