@@ -456,7 +456,7 @@ class Linter(ast.NodeVisitor):
                     self._check(Location.from_node(node), rules.DocstringParamOrder(params))
 
     def _invalid_abstract_method(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
-        if rules.InvalidAbstractMethod.check(node):
+        if rules.InvalidAbstractMethod.check(node, self.resolver):
             self._check(Location.from_node(node), rules.InvalidAbstractMethod())
 
     def visit_Name(self, node) -> None:
