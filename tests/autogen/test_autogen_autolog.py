@@ -7,6 +7,7 @@ from autogen_ext.models.replay import ReplayChatCompletionClient
 
 import mlflow
 from mlflow.entities.span import SpanType
+from mlflow.tracing.constant import SpanAttributeKey
 
 from tests.tracing.helper import get_traces
 
@@ -92,6 +93,18 @@ async def test_autolog_assistant_agent(disable):
             {"role": "user", "content": "1+1"},
             {"role": "assistant", "content": "2"},
         ]
+
+        assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+            "input_tokens": 6,
+            "output_tokens": 1,
+            "total_tokens": 7,
+        }
+
+        assert traces[0].info.token_usage == {
+            "input_tokens": 6,
+            "output_tokens": 1,
+            "total_tokens": 7,
+        }
 
 
 @pytest.mark.asyncio
@@ -245,6 +258,18 @@ async def test_autolog_tool_agent():
         },
     ]
 
+    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        "input_tokens": 6,
+        "output_tokens": 1,
+        "total_tokens": 7,
+    }
+
+    assert traces[0].info.token_usage == {
+        "input_tokens": 6,
+        "output_tokens": 1,
+        "total_tokens": 7,
+    }
+
 
 @pytest.mark.asyncio
 async def test_autolog_multi_modal():
@@ -328,3 +353,15 @@ async def test_autolog_multi_modal():
         {"role": "user", "content": f"{user_message}\n<image>"},
         {"role": "assistant", "content": "2"},
     ]
+
+    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        "input_tokens": 14,
+        "output_tokens": 1,
+        "total_tokens": 15,
+    }
+
+    assert traces[0].info.token_usage == {
+        "input_tokens": 14,
+        "output_tokens": 1,
+        "total_tokens": 15,
+    }

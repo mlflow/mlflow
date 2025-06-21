@@ -1,3 +1,6 @@
+import logging
+from typing import Any, Optional
+
 from pydantic import BaseModel
 
 import mlflow
@@ -7,6 +10,7 @@ from mlflow.autogen.chat import (
     log_tools,
 )
 from mlflow.entities import SpanType
+from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.utils import construct_full_inputs, set_span_chat_messages
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
@@ -15,6 +19,7 @@ from mlflow.utils.autologging_utils import (
     safe_patch,
 )
 
+_logger = logging.getLogger(__name__)
 FLAVOR_NAME = "autogen"
 
 
@@ -75,6 +80,9 @@ def autolog(
                     if chat_message := convert_assistant_message_to_chat_message(content):
                         set_span_chat_messages(span, [chat_message], append=True)
 
+                if usage := _parse_usage(outputs):
+                    span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
+
                 span.set_outputs(_convert_value_to_dict(outputs))
 
                 return outputs
@@ -120,3 +128,17 @@ def _get_all_subclasses(cls):
         all_subclasses.extend(_get_all_subclasses(subclass))
 
     return all_subclasses
+
+
+def _parse_usage(output: Any) -> Optional[dict[str, int]]:
+    try:
+        usage = getattr(output, "usage", None)
+        if usage:
+            return {
+                TokenUsageKey.INPUT_TOKENS: usage.prompt_tokens,
+                TokenUsageKey.OUTPUT_TOKENS: usage.completion_tokens,
+                TokenUsageKey.TOTAL_TOKENS: usage.prompt_tokens + usage.completion_tokens,
+            }
+    except Exception as e:
+        _logger.debug(f"Failed to parse token usage from output: {e}")
+    return None
