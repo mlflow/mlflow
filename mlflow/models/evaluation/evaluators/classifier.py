@@ -7,6 +7,7 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 from sklearn import metrics as sk_metrics
+from sklearn.pipeline import Pipeline
 
 import mlflow
 from mlflow import MlflowException
@@ -35,7 +36,19 @@ class ClassifierEvaluator(BuiltInEvaluator):
 
     @classmethod
     def can_evaluate(cls, *, model_type, evaluator_config, **kwargs):
-        # TODO: Also the model needs to be pyfunc model, not function or endpoint URI
+        """Checks if the evaluator can handle the given model type.
+
+        Note: This check is currently based only on `model_type` and does not yet
+        validate whether the model is a pyfunc model.
+
+        Args:
+            model_type: The type of the model.
+            evaluator_config: A dictionary of configuration for the evaluator.
+            kwargs: Additional keyword arguments for future extensibility.
+
+        Returns:
+            True if the evaluator can handle the model type, False otherwise.
+        """
         return model_type == _ModelType.CLASSIFIER
 
     def _evaluate(
@@ -44,7 +57,20 @@ class ClassifierEvaluator(BuiltInEvaluator):
         extra_metrics: list[EvaluationMetric],
         custom_artifacts=None,
         **kwargs,
-    ) -> Optional[EvaluationResult]:
+    ) -> EvaluationResult:
+        """Evaluates a classifier model.
+
+        This method computes metrics, generates artifacts, and logs them to MLflow.
+
+        Args:
+            model: An mlflow.pyfunc.PyFuncModel model instance.
+            extra_metrics: A list of extra metrics to compute.
+            custom_artifacts: A list of custom artifacts to log.
+            **kwargs: For future extensibility.
+
+        Returns:
+            An EvaluationResult object containing metrics and artifacts.
+        """
         # Get classification config
         self.y_true = self.dataset.labels_data
         self.label_list = self.evaluator_config.get("label_list")
@@ -91,7 +117,17 @@ class ClassifierEvaluator(BuiltInEvaluator):
         )
 
     def _generate_model_predictions(self, model, input_df):
-        predict_fn, predict_proba_fn = _extract_predict_fn_and_prodict_proba_fn(model)
+        """Generates predictions and probabilities for the input data.
+
+        Args:
+            model: The model to use for prediction.
+            input_df: The input data to predict on.
+
+        Returns:
+            A tuple of (predictions, probabilities). Probabilities may be None
+            if the model does not support predict_proba.
+        """
+        predict_fn, predict_proba_fn = _extract_predict_fn_and_predict_proba_fn(model)
         # Classifier model is guaranteed to output single column of predictions
         y_pred = self.dataset.predictions_data if model is None else predict_fn(input_df)
 
@@ -100,6 +136,15 @@ class ClassifierEvaluator(BuiltInEvaluator):
         return y_pred, y_probs
 
     def _validate_label_list(self):
+        """Validates and processes the label list for classification evaluation.
+
+        Infers label list from data if not provided, validates that at least two
+        unique labels are present, and sets up binary/multiclass classification
+        parameters.
+
+        Raises:
+            MlflowException: If fewer than 2 unique labels are found in the data.
+        """
         if self.label_list is None:
             # If label list is not specified, infer label list from model output
             self.label_list = np.unique(np.concatenate([self.y_true, self.y_pred]))
@@ -138,6 +183,11 @@ class ClassifierEvaluator(BuiltInEvaluator):
             )
 
     def _compute_builtin_metrics(self, model):
+        """Computes all built-in metrics for the classifier.
+
+        Args:
+            model: The model being evaluated.
+        """
         self._evaluate_sklearn_model_score_if_scorable(model, self.y_true, self.sample_weights)
 
         if len(self.label_list) <= 2:
@@ -166,6 +216,7 @@ class ClassifierEvaluator(BuiltInEvaluator):
                 self.metrics_values.update(_get_aggregate_metrics_values(metrics))
 
     def _compute_roc_and_pr_curve(self):
+        """Computes ROC and Precision-Recall curves and their AUCs."""
         if self.y_probs is not None:
             with _suppress_class_imbalance_errors(ValueError, log_warning=False):
                 self.roc_curve = _gen_classifier_curve(
@@ -197,6 +248,12 @@ class ClassifierEvaluator(BuiltInEvaluator):
                 )
 
     def _log_pandas_df_artifact(self, pandas_df, artifact_name):
+        """Logs a pandas DataFrame as a CSV artifact.
+
+        Args:
+            pandas_df: The DataFrame to log.
+            artifact_name: The name of the artifact.
+        """
         artifact_file_name = f"{artifact_name}.csv"
         artifact_file_local_path = self.temp_dir.path(artifact_file_name)
         pandas_df.to_csv(artifact_file_local_path, index=False)
@@ -209,6 +266,7 @@ class ClassifierEvaluator(BuiltInEvaluator):
         self.artifacts[artifact_name] = artifact
 
     def _log_multiclass_classifier_artifacts(self):
+        """Logs artifacts specific to multiclass classification."""
         per_class_metrics_collection_df = _get_classifier_per_class_metrics_collection_df(
             y=self.y_true,
             y_pred=self.y_pred,
@@ -269,18 +327,23 @@ class ClassifierEvaluator(BuiltInEvaluator):
         self._log_pandas_df_artifact(per_class_metrics_collection_df, "per_class_metrics")
 
     def _log_roc_curve(self):
+        """Logs the ROC curve plot artifact."""
+
         def _plot_roc_curve():
             self.roc_curve.plot_fn(**self.roc_curve.plot_fn_args)
 
         self._log_image_artifact(_plot_roc_curve, "roc_curve_plot")
 
     def _log_precision_recall_curve(self):
+        """Logs the Precision-Recall curve plot artifact."""
+
         def _plot_pr_curve():
             self.pr_curve.plot_fn(**self.pr_curve.plot_fn_args)
 
         self._log_image_artifact(_plot_pr_curve, "precision_recall_curve_plot")
 
     def _log_lift_curve(self):
+        """Logs the lift curve plot artifact."""
         from mlflow.models.evaluation.lift_curve import plot_lift_curve
 
         def _plot_lift_curve():
@@ -289,6 +352,7 @@ class ClassifierEvaluator(BuiltInEvaluator):
         self._log_image_artifact(_plot_lift_curve, "lift_curve_plot")
 
     def _log_calibration_curve(self):
+        """Logs the calibration curve plot artifact."""
         from mlflow.models.evaluation.calibration_curve import plot_calibration_curve
 
         def _plot_calibration_curve():
@@ -305,6 +369,7 @@ class ClassifierEvaluator(BuiltInEvaluator):
         self._log_image_artifact(_plot_calibration_curve, "calibration_curve_plot")
 
     def _log_binary_classifier_artifacts(self):
+        """Logs artifacts specific to binary classification."""
         if self.y_probs is not None:
             with _suppress_class_imbalance_errors(log_warning=False):
                 self._log_roc_curve()
@@ -383,13 +448,24 @@ def _infer_model_type_by_labels(labels):
         return None  # Unknown
 
 
-def _extract_predict_fn_and_prodict_proba_fn(model):
+def _extract_predict_fn_and_predict_proba_fn(model):
+    """
+    Extracts predict and predict_proba functions from the given model.
+
+    Args:
+        model: A pyfunc model.
+
+    Returns:
+        A tuple of (predict_fn, predict_proba_fn).
+    """
+    model_loader_module, raw_model = _extract_raw_model(model)
     predict_fn = None
     predict_proba_fn = None
 
-    _, raw_model = _extract_raw_model(model)
-
-    if raw_model is not None:
+    # For sklearn pipelines, we must use the pyfunc's predict method to ensure
+    # transformers are applied correctly. For other "raw" models, we can use
+    # the underlying model's predict method to bypass pyfunc overhead.
+    if raw_model is not None and not isinstance(raw_model, Pipeline):
         predict_fn = raw_model.predict
         predict_proba_fn = getattr(raw_model, "predict_proba", None)
         try:
@@ -398,16 +474,19 @@ def _extract_predict_fn_and_prodict_proba_fn(model):
                 _wrapped_xgboost_model_predict_proba_fn,
             )
 
-            # Because shap evaluation will pass evaluation data in ndarray format
-            # (without feature names), if set validate_features=True it will raise error.
-            predict_fn = _wrapped_xgboost_model_predict_fn(raw_model, validate_features=False)
-            predict_proba_fn = _wrapped_xgboost_model_predict_proba_fn(
-                raw_model, validate_features=False
-            )
+            if model_loader_module == "mlflow.xgboost":
+                # Because shap evaluation will pass evaluation data in ndarray format
+                # (without feature names), if set validate_features=True it will raise error.
+                predict_fn = _wrapped_xgboost_model_predict_fn(raw_model, validate_features=False)
+                predict_proba_fn = _wrapped_xgboost_model_predict_proba_fn(
+                    raw_model, validate_features=False
+                )
         except ImportError:
             pass
+
     elif model is not None:
         predict_fn = model.predict
+        predict_proba_fn = getattr(model, "predict_proba", None)
 
     return predict_fn, predict_proba_fn
 
@@ -439,6 +518,19 @@ def _suppress_class_imbalance_errors(exception_type=Exception, log_warning=True)
 
 
 def _get_binary_sum_up_label_pred_prob(positive_class_index, positive_class, y, y_pred, y_probs):
+    """Converts multiclass labels and predictions to a binary format for a given class.
+
+    Args:
+        positive_class_index: The index of the positive class.
+        positive_class: The label of the positive class.
+        y: The true labels.
+        y_pred: The predicted labels.
+        y_probs: The predicted probabilities.
+
+    Returns:
+        A tuple of (y_bin, y_pred_bin, y_prob_bin) representing the binarized
+        true labels, predicted labels, and probabilities.
+    """
     y = np.array(y)
     y_bin = np.where(y == positive_class, 1, 0)
     y_pred_bin = None
@@ -457,6 +549,20 @@ def _get_binary_sum_up_label_pred_prob(positive_class_index, positive_class, y, 
 def _get_common_classifier_metrics(
     *, y_true, y_pred, y_proba, labels, average, pos_label, sample_weights
 ):
+    """Computes common metrics for all classifier types.
+
+    Args:
+        y_true: True labels.
+        y_pred: Predicted labels.
+        y_proba: Predicted probabilities.
+        labels: List of labels to include in metrics calculation.
+        average: Averaging strategy for multiclass metrics.
+        pos_label: Label of the positive class for binary classification.
+        sample_weights: Sample weights.
+
+    Returns:
+        A dictionary of common classification metrics.
+    """
     metrics = {
         "example_count": len(y_true),
         "accuracy_score": sk_metrics.accuracy_score(y_true, y_pred, sample_weight=sample_weights),
@@ -522,6 +628,19 @@ def _get_multiclass_classifier_metrics(
     average="weighted",
     sample_weights=None,
 ):
+    """Computes multiclass-specific classification metrics.
+
+    Args:
+        y_true: True labels.
+        y_pred: Predicted labels.
+        y_proba: Predicted probabilities.
+        labels: List of labels to include in metrics calculation.
+        average: Averaging strategy for multiclass metrics.
+        sample_weights: Sample weights.
+
+    Returns:
+        A dictionary of multiclass classification metrics.
+    """
     metrics = _get_common_classifier_metrics(
         y_true=y_true,
         y_pred=y_pred,
@@ -545,6 +664,17 @@ def _get_multiclass_classifier_metrics(
 
 
 def _get_classifier_per_class_metrics_collection_df(y, y_pred, labels, sample_weights):
+    """Computes per-class metrics for a classifier and returns them as a DataFrame.
+
+    Args:
+        y: True labels.
+        y_pred: Predicted labels.
+        labels: The list of all class labels.
+        sample_weights: Sample weights.
+
+    Returns:
+        A pandas DataFrame containing per-class metrics.
+    """
     per_class_metrics_list = []
     for positive_class_index, positive_class in enumerate(labels):
         (
