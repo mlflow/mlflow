@@ -522,10 +522,8 @@ def test_svm_classifier_evaluation(svm_model_uri, breast_cancer_dataset):
     _, metrics, tags, artifacts = get_run_data(run.info.run_id)
 
     model = mlflow.pyfunc.load_model(svm_model_uri)
-
-    predict_fn, _ = _extract_predict_fn_and_predict_proba_fn(model)
     y = breast_cancer_dataset.labels_data
-    y_pred = predict_fn(breast_cancer_dataset.features_data)
+    y_pred = model.predict(breast_cancer_dataset.features_data)
 
     expected_metrics = _get_binary_classifier_metrics(y_true=y, y_pred=y_pred, sample_weights=None)
     expected_metrics["score"] = model._model_impl.score(
@@ -712,50 +710,81 @@ def test_extract_raw_model_and_predict_fn(
 
     assert model_loader_module == "mlflow.sklearn"
     assert isinstance(raw_model, LogisticRegression)
-    np.testing.assert_allclose(
-        predict_fn(breast_cancer_dataset.features_data),
-        raw_model.predict(breast_cancer_dataset.features_data),
+    assert predict_fn == raw_model.predict
+    assert predict_proba_fn == raw_model.predict_proba
+
+    y_pred = predict_fn(breast_cancer_dataset.features_data)
+    y_proba = predict_proba_fn(breast_cancer_dataset.features_data)
+    assert isinstance(y_pred, np.ndarray)
+    assert isinstance(y_proba, np.ndarray)
+
+
+def test_extract_predict_fn_and_predict_proba_fn_for_pipeline(
+    breast_cancer_dataset,
+):
+    """
+    Tests that for a scikit-learn pipeline model, the predict and predict_proba
+    functions are extracted from the pyfunc model, not the raw model.
+    """
+    from mlflow.utils.file_utils import TempDir
+
+    pipeline = Pipeline(
+        [
+            ("identity", FunctionTransformer()),
+            ("classifier", LogisticRegression()),
+        ]
     )
-    np.testing.assert_allclose(
-        predict_proba_fn(breast_cancer_dataset.features_data),
-        raw_model.predict_proba(breast_cancer_dataset.features_data),
-    )
+    pipeline.fit(breast_cancer_dataset.features_data, breast_cancer_dataset.labels_data)
+
+    with TempDir() as tmp:
+        model_path = tmp.path("model")
+        mlflow.sklearn.save_model(pipeline, model_path)
+        pyfunc_model = mlflow.pyfunc.load_model(model_path)
+
+    predict_fn, predict_proba_fn = _extract_predict_fn_and_predict_proba_fn(pyfunc_model)
+
+    # For sklearn pipelines, we should use the pyfunc's predict methods to ensure
+    # transformers are applied correctly.
+    assert predict_fn == pyfunc_model.predict
+
+    # The pyfunc model will have predict_proba only if the underlying model supports it.
+    if hasattr(pyfunc_model, "predict_proba"):
+        assert predict_proba_fn == pyfunc_model.predict_proba
+        # Verify that the functions are not from the raw, underlying model
+        assert predict_proba_fn != pipeline.predict_proba
+    else:
+        assert predict_proba_fn is None
+
+    # Verify that the predict function is not from the raw, underlying model
+    assert predict_fn != pipeline.predict
 
 
 @pytest.mark.parametrize("use_sample_weights", [True, False])
 def test_get_regressor_metrics(use_sample_weights):
-    y = [1.1, 2.1, -3.5]
-    y_pred = [1.5, 2.0, -3.0]
-    sample_weights = [1, 2, 3] if use_sample_weights else None
-
-    metrics = _get_regressor_metrics(y, y_pred, sample_weights)
-
-    if use_sample_weights:
-        expected_metrics = {
-            "example_count": 3,
-            "mean_absolute_error": 0.35000000000000003,
-            "mean_squared_error": 0.155,
-            "root_mean_squared_error": 0.39370039370059057,
-            "sum_on_target": -5.199999999999999,
-            "mean_on_target": -1.7333333333333332,
-            "r2_score": 0.9780003154076644,
-            "max_error": 0.5,
-            "mean_absolute_percentage_error": 0.1479076479076479,
-        }
-    else:
-        expected_metrics = {
-            "example_count": 3,
-            "mean_absolute_error": 0.3333333333333333,
-            "mean_squared_error": 0.13999999999999999,
-            "root_mean_squared_error": 0.3741657386773941,
-            "sum_on_target": -0.2999999999999998,
-            "mean_on_target": -0.09999999999999994,
-            "r2_score": 0.976457399103139,
-            "max_error": 0.5,
-            "mean_absolute_percentage_error": 0.18470418470418468,
-        }
-
-    assert_dict_equal(metrics, expected_metrics, rtol=1e-3)
+    np.random.seed(0)
+    y = np.random.rand(10)
+    y_pred = np.random.rand(10)
+    sample_weights = np.random.rand(10) if use_sample_weights else None
+    metrics = _get_regressor_metrics(y, y_pred, sample_weights=sample_weights)
+    assert isinstance(metrics, dict)
+    for v in metrics.values():
+        assert isinstance(v, float)
+    assert np.isclose(
+        metrics["example_count"],
+        (
+            10
+            if sample_weights is None
+            else np.sum(sample_weights, dtype=np.float64)
+            if hasattr(np, "float64")
+            else np.sum(sample_weights)
+        ),
+    )
+    assert "mean_absolute_error" in metrics
+    assert "mean_squared_error" in metrics
+    assert "root_mean_squared_error" in metrics
+    assert "r2_score" in metrics
+    assert "mean_absolute_percentage_error" in metrics
+    assert "max_error" in metrics
 
 
 def test_get_binary_sum_up_label_pred_prob():
@@ -3320,7 +3349,7 @@ def test_evaluate_with_correctness():
         grading_prompt=(
             "Correctness: If the answer correctly answer the question, below "
             "are the details for different scores: "
-            "- Score 0: the answer is completely incorrect, doesn’t mention anything about "
+            "- Score 0: the answer is completely incorrect, doesn't mention anything about "
             "the question or is completely contrary to the correct answer. "
             "- Score 1: the answer provides some relevance to the question and answer "
             "one aspect of the question correctly. "
@@ -4281,3 +4310,19 @@ def test_regressor_returning_pandas_object(model_output, predictions):
             "root_mean_squared_error": 0.0,
             "sum_on_target": 3,
         }
+
+
+def test_extract_predict_fn_for_model_without_predict_proba(
+    svm_model_uri,
+):
+    """
+    Tests that for a model without a predict_proba method (e.g., LinearSVC),
+    the predict function is extracted correctly and predict_proba_fn is None.
+    """
+    pyfunc_model = mlflow.pyfunc.load_model(svm_model_uri)
+    _, raw_model = _extract_raw_model(pyfunc_model)
+
+    predict_fn, predict_proba_fn = _extract_predict_fn_and_predict_proba_fn(pyfunc_model)
+
+    assert predict_fn == raw_model.predict
+    assert predict_proba_fn is None

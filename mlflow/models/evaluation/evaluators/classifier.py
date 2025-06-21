@@ -57,7 +57,7 @@ class ClassifierEvaluator(BuiltInEvaluator):
         extra_metrics: list[EvaluationMetric],
         custom_artifacts=None,
         **kwargs,
-    ) -> EvaluationResult:
+    ) -> Optional[EvaluationResult]:
         """Evaluates a classifier model.
 
         This method computes metrics, generates artifacts, and logs them to MLflow.
