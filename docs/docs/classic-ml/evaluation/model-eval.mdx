@@ -8,6 +8,9 @@ import { CardGroup, PageCard } from "@site/src/components/Card";
 import { APILink } from "@site/src/components/APILink";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
+import pandas as pd
+import numpy as np
+import mlflow
 
 # Model Evaluation
 
@@ -729,25 +732,34 @@ Ensure consistent evaluation results:
 ```python
 def reproducible_evaluation(model, eval_data, targets, random_seed=42):
     """Ensure reproducible evaluation results."""
-
     # Set random seeds
     np.random.seed(random_seed)
 
-    # Consistent data ordering
-    eval_data_sorted = eval_data.sort_values(by=eval_data.columns.tolist()).reset_index(
-        drop=True
-    )
+    with mlflow.start_run():
+        # Log evaluation configuration
+        mlflow.log_params(
+            {
+                "eval_random_seed": random_seed,
+                "eval_data_size": len(eval_data),
+                "eval_timestamp": pd.Timestamp.now().isoformat(),
+            }
+        )
 
-    # Run evaluation
-    result = mlflow.models.evaluate(
-        model,
-        eval_data_sorted,
-        targets=targets,
-        model_type="classifier",
-        evaluator_config={"random_seed": random_seed},
-    )
+        # Consistent data ordering
+        eval_data_sorted = eval_data.sort_values(
+            by=eval_data.columns.tolist()
+        ).reset_index(drop=True)
 
-    return result
+        # Run evaluation
+        result = mlflow.models.evaluate(
+            model,
+            eval_data_sorted,
+            targets=targets,
+            model_type="classifier",
+            evaluator_config={"random_seed": random_seed},
+        )
+
+        return result
 ```
 
   </TabItem>
