@@ -762,24 +762,30 @@ def reproducible_evaluation(model, eval_data, targets, random_seed=42):
   </TabItem>
 </Tabs>
 
-## Handling Single-Class Binary Classification with `label_list`
+## Handling Edge Cases: Single-Class and Missing Class Scenarios
 
-By default, MLflow infers the set of possible classes from your data. However, for binary classification, some evaluation metrics (like the confusion matrix) require both classes to be present. If your evaluation dataset contains only a single class (e.g., all zeros), you **must** specify the full set of possible classes using the `label_list` parameter in `evaluator_config`.
+In production environments, you may encounter evaluation datasets that don't contain all the classes your model was trained on. This commonly occurs with:
 
-**Why is this needed?**
-This ensures that metrics and plots (such as the confusion matrix) are always computed in a consistent 2x2 format, even if only one class is present in your data.
+- **Imbalanced datasets** where rare classes are absent in small evaluation batches
+- **Highly confident models** that predict only one class
+- **Production data drift** where new data lacks certain classes
 
-### Example: Forcing a 2-Class Confusion Matrix
+By default, MLflow infers the set of possible classes from your evaluation data. However, for binary classification, some evaluation metrics (like the confusion matrix) require both classes to be present. When your evaluation dataset contains only a single class, you **must** specify the full set of possible classes using the `label_list` parameter in `evaluator_config`.
+
+### Single-Class Binary Classification
+
+When your evaluation data contains only one class, explicitly specify both expected classes:
 
 ```python
 import mlflow
 import pandas as pd
 import numpy as np
 
-# Assume you have a model logged at model_uri
+# Create evaluation dataset with only one class present
 X = pd.DataFrame(np.random.randn(50, 2), columns=["feature1", "feature2"])
-y = np.zeros(50)  # Only class 0 present
+y = np.zeros(50)  # Only class 0 present in evaluation data
 
+# Evaluate with explicit label_list to handle single-class scenario
 result = mlflow.evaluate(
     model=model_uri,
     data=X,
@@ -789,20 +795,35 @@ result = mlflow.evaluate(
 )
 ```
 
-If you do **not** provide a `label_list` of length 2 for single-class data, MLflow will raise an error:
+Without `label_list`, MLflow will raise an error for single-class data:
 
+```python
+# This will raise an error for single-class data without label_list
+result = mlflow.evaluate(
+    model=model_uri,
+    data=X,
+    targets=y,
+    model_type="classifier",
+    # Missing evaluator_config with label_list
+)
+```
+
+**Error Output:**
 ```
 MlflowException: Evaluation dataset for classification must contain at least two unique labels, but only 1 unique label(s) were found.
 ```
 
-> **Tip:** For normal binary or multiclass data, you do **not** need to specify `label_list`—MLflow will infer it automatically.
+:::tip When to Use `label_list`
+For normal binary or multiclass data, you do **not** need to specify `label_list`—MLflow will infer it automatically. Only use `label_list` when your evaluation data is missing expected classes.
+:::
 
 ### Multiclass with Missing Classes
 
-The same principle applies to multiclass classification. If your evaluation dataset is missing some classes that your model was trained on, you can specify the complete set of expected classes:
+The same principle applies to multiclass classification. If your evaluation dataset is missing some classes that your model was trained on, specify the complete set of expected classes:
 
 ```python
 # Example: Model trained on 4 classes (0, 1, 2, 3) but evaluation data only has classes 0 and 2
+X = pd.DataFrame(np.random.randn(100, 2), columns=["feature1", "feature2"])
 y_missing_classes = np.random.choice([0, 2], size=100)  # Only classes 0 and 2 present
 
 result = mlflow.evaluate(
