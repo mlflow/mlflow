@@ -1,9 +1,15 @@
 import json
+from functools import lru_cache
 from typing import Any, Optional
 
 from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
-from mlflow.tracing.constant import TRACE_REQUEST_RESPONSE_PREVIEW_MAX_LENGTH
+from mlflow.tracing.constant import (
+    TRACE_REQUEST_RESPONSE_PREVIEW_MAX_LENGTH_DBX,
+    TRACE_REQUEST_RESPONSE_PREVIEW_MAX_LENGTH_OSS,
+)
+from mlflow.tracking._tracking_service.utils import get_tracking_uri
+from mlflow.utils.uri import is_databricks_uri
 
 
 def set_request_response_preview(trace_info: TraceInfo, trace_data: TraceData) -> None:
@@ -25,7 +31,9 @@ def _get_truncated_preview(request_or_response: Optional[str], role: str) -> str
     if request_or_response is None:
         return ""
 
-    if len(request_or_response) <= TRACE_REQUEST_RESPONSE_PREVIEW_MAX_LENGTH:
+    max_length = _get_max_length()
+
+    if len(request_or_response) <= max_length:
         return request_or_response
 
     content = None
@@ -42,10 +50,20 @@ def _get_truncated_preview(request_or_response: Optional[str], role: str) -> str
 
     content = content or request_or_response
 
-    if len(content) <= TRACE_REQUEST_RESPONSE_PREVIEW_MAX_LENGTH:
+    if len(content) <= max_length:
         return content
 
-    return content[: TRACE_REQUEST_RESPONSE_PREVIEW_MAX_LENGTH - 3] + "..."
+    return content[: max_length - 3] + "..."
+
+
+@lru_cache(maxsize=1)
+def _get_max_length() -> int:
+    tracking_uri = get_tracking_uri()
+    return (
+        TRACE_REQUEST_RESPONSE_PREVIEW_MAX_LENGTH_DBX
+        if is_databricks_uri(tracking_uri)
+        else TRACE_REQUEST_RESPONSE_PREVIEW_MAX_LENGTH_OSS
+    )
 
 
 def _try_extract_messages(obj: dict[str, Any]) -> Optional[list[dict[str, Any]]]:
