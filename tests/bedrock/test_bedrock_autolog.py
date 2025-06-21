@@ -18,6 +18,16 @@ from tests.tracing.helper import get_traces
 _IS_CONVERSE_API_AVAILABLE = Version(boto3.__version__) >= Version("1.35")
 
 
+@pytest.fixture(autouse=True)
+def reset_trace_state():
+    """Reset trace state between tests to ensure clean isolation."""
+    yield
+    # Clear any traces from previous tests
+    from mlflow.tracing.fluent import InMemoryTraceManager
+
+    InMemoryTraceManager().reset()
+
+
 # https://docs.aws.amazon.com/code-library/latest/ug/python_3_bedrock-runtime_code_examples.html#anthropic_claude
 _ANTHROPIC_REQUEST = {
     "messages": [{"role": "user", "content": "Hi"}],
@@ -110,6 +120,11 @@ _COHERE_RESPONSE = {
         {"role": "CHATBOT", "message": "Hello! How can I help you today?"},
     ],
     "finish_reason": "COMPLETE",
+    "usage": {
+        "input_tokens": 8,
+        "output_tokens": 12,
+        "total_tokens": 20,
+    },
 }
 
 # https://docs.aws.amazon.com/code-library/latest/ug/python_3_bedrock-runtime_code_examples.html#meta_llama
@@ -219,6 +234,122 @@ def test_bedrock_autolog_invoke_model_llm(model_id, llm_request, llm_response):
         "ResponseMetadata": response["ResponseMetadata"],
         "contentType": "application/json",
     }
+
+    # Check token usage
+    assert SpanAttributeKey.CHAT_USAGE in span.attributes
+    usage = span.attributes[SpanAttributeKey.CHAT_USAGE]
+    if "usage" in llm_response:
+        response_usage = llm_response["usage"]
+        # Handle different usage formats
+        if "input_tokens" in response_usage and "output_tokens" in response_usage:
+            assert usage["input_tokens"] == response_usage["input_tokens"]
+            assert usage["output_tokens"] == response_usage["output_tokens"]
+            assert usage["total_tokens"] == response_usage.get(
+                "total_tokens",
+                response_usage["input_tokens"] + response_usage["output_tokens"],
+            )
+        elif "prompt_tokens" in response_usage and "completion_tokens" in response_usage:
+            assert usage["input_tokens"] == response_usage["prompt_tokens"]
+            assert usage["output_tokens"] == response_usage["completion_tokens"]
+            assert usage["total_tokens"] == response_usage.get(
+                "total_tokens",
+                response_usage["prompt_tokens"] + response_usage["completion_tokens"],
+            )
+        elif "inputTokens" in response_usage and "outputTokens" in response_usage:
+            assert usage["input_tokens"] == response_usage["inputTokens"]
+            assert usage["output_tokens"] == response_usage["outputTokens"]
+            assert usage["total_tokens"] == response_usage.get(
+                "totalTokens",
+                response_usage["inputTokens"] + response_usage["outputTokens"],
+            )
+        elif "prompt_token_count" in llm_response and "generation_token_count" in llm_response:
+            assert usage["input_tokens"] == llm_response["prompt_token_count"]
+            assert usage["output_tokens"] == llm_response["generation_token_count"]
+            assert usage["total_tokens"] == (
+                llm_response["prompt_token_count"] + llm_response["generation_token_count"]
+            )
+
+
+def test_bedrock_autolog_token_usage_anthropic():
+    """Test that token usage is correctly captured from Anthropic responses."""
+    mlflow.bedrock.autolog()
+    client = boto3.client("bedrock-runtime", region_name="us-west-2")
+    anthropic_request = json.dumps(_ANTHROPIC_REQUEST)
+    with mock.patch(
+        "botocore.client.BaseClient._make_api_call",
+        return_value=_create_dummy_invoke_model_response(_ANTHROPIC_RESPONSE),
+    ):
+        client.invoke_model(
+            body=anthropic_request, modelId="anthropic.claude-3-5-sonnet-20241022-v2:0"
+        )
+    traces = get_traces()
+    assert len(traces) == 1
+    span = traces[0].data.spans[0]
+    assert SpanAttributeKey.CHAT_USAGE in span.attributes
+    usage = span.attributes[SpanAttributeKey.CHAT_USAGE]
+    assert usage["input_tokens"] == 8
+    assert usage["output_tokens"] == 12
+    assert usage["total_tokens"] == 8 + 12
+
+
+def test_bedrock_autolog_token_usage_ai21():
+    """Test that token usage is correctly captured from AI21 responses."""
+    mlflow.bedrock.autolog()
+    client = boto3.client("bedrock-runtime", region_name="us-west-2")
+    ai21_request = json.dumps(_AI21_JAMBA_REQUEST)
+    with mock.patch(
+        "botocore.client.BaseClient._make_api_call",
+        return_value=_create_dummy_invoke_model_response(_AI21_JAMBA_RESPONSE),
+    ):
+        client.invoke_model(body=ai21_request, modelId="ai21.jamba-instruct-v1:0")
+    traces = get_traces()
+    assert len(traces) == 1
+    span = traces[0].data.spans[0]
+    assert SpanAttributeKey.CHAT_USAGE in span.attributes
+    usage = span.attributes[SpanAttributeKey.CHAT_USAGE]
+    assert usage["input_tokens"] == 8
+    assert usage["output_tokens"] == 12
+    assert usage["total_tokens"] == 20
+
+
+def test_bedrock_autolog_token_usage_nova():
+    """Test that token usage is correctly captured from Amazon Nova responses."""
+    mlflow.bedrock.autolog()
+    client = boto3.client("bedrock-runtime", region_name="us-west-2")
+    nova_request = json.dumps(_AMAZON_NOVA_REQUEST)
+    with mock.patch(
+        "botocore.client.BaseClient._make_api_call",
+        return_value=_create_dummy_invoke_model_response(_AMAZON_NOVA_RESPONSE),
+    ):
+        client.invoke_model(body=nova_request, modelId="us.amazon.nova-lite-v1:0")
+    traces = get_traces()
+    assert len(traces) == 1
+    span = traces[0].data.spans[0]
+    assert SpanAttributeKey.CHAT_USAGE in span.attributes
+    usage = span.attributes[SpanAttributeKey.CHAT_USAGE]
+    assert usage["input_tokens"] == 8
+    assert usage["output_tokens"] == 12
+    assert usage["total_tokens"] == 20
+
+
+def test_bedrock_autolog_token_usage_llama():
+    """Test that token usage is correctly captured from Meta Llama responses."""
+    mlflow.bedrock.autolog()
+    client = boto3.client("bedrock-runtime", region_name="us-west-2")
+    llama_request = json.dumps(_META_LLAMA_REQUEST)
+    with mock.patch(
+        "botocore.client.BaseClient._make_api_call",
+        return_value=_create_dummy_invoke_model_response(_META_LLAMA_RESPONSE),
+    ):
+        client.invoke_model(body=llama_request, modelId="meta.llama3-8b-instruct-v1:0")
+    traces = get_traces()
+    assert len(traces) == 1
+    span = traces[0].data.spans[0]
+    assert SpanAttributeKey.CHAT_USAGE in span.attributes
+    usage = span.attributes[SpanAttributeKey.CHAT_USAGE]
+    assert usage["input_tokens"] == 2
+    assert usage["output_tokens"] == 12
+    assert usage["total_tokens"] == 2 + 12
 
 
 def test_bedrock_autolog_invoke_model_embeddings():
@@ -377,6 +508,107 @@ def test_bedrock_autolog_invoke_model_stream():
     assert len(span.events) == len(dummy_chunks)
     for i in range(len(dummy_chunks)):
         assert span.events[i].name == dummy_chunks[i]["type"]
+        assert json.loads(span.events[i].attributes["json"]) == dummy_chunks[i]
+
+
+def test_bedrock_autolog_stream_token_usage():
+    """Test that token usage is correctly captured from streaming Bedrock responses."""
+    mlflow.bedrock.autolog()
+
+    client = boto3.client("bedrock-runtime", region_name="us-west-2")
+    request_body = json.dumps(_ANTHROPIC_REQUEST)
+
+    dummy_chunks = [
+        {
+            "type": "message_start",
+            "message": {
+                "id": "123",
+                "type": "message",
+                "role": "assistant",
+                "model": "claude-3-5-sonnet-20241022",
+                "content": [],
+                "stop_reason": None,
+                "usage": {"input_tokens": 8, "output_tokens": 1},
+            },
+        },
+        {
+            "type": "content_block_start",
+            "index": 0,
+            "content_block": {"type": "text", "text": ""},
+        },
+        {
+            "type": "content_block_delta",
+            "index": 0,
+            "content_block": {"type": "text", "text": "Hello"},
+        },
+        {
+            "type": "content_block_delta",
+            "index": 0,
+            "delta": {"type": "text_delta", "text": "! How can I "},
+        },
+        {
+            "type": "content_block_delta",
+            "index": 0,
+            "delta": {"type": "text_delta", "text": "help you today?"},
+        },
+        {"type": "content_block_stop", "index": 0},
+        {
+            "type": "message_delta",
+            "delta": {
+                "stop_reason": "end_turn",
+                "stop_sequence": None,
+                "usage": {"output_tokens": 12},
+            },
+        },
+        {"type": "message_stop", "amazon-bedrock-invocationMetrics": {"invocationLatency": 909}},
+    ]
+
+    # Mimic event stream
+    def dummy_stream():
+        for chunk in dummy_chunks:
+            yield {"chunk": {"bytes": json.dumps(chunk).encode("utf-8")}}
+
+    # Ref: https://docs.getmoto.org/en/latest/docs/services/patching_other_services.html
+    with mock.patch(
+        "botocore.client.BaseClient._make_api_call",
+        return_value={"body": dummy_stream()},
+    ):
+        response = client.invoke_model_with_response_stream(
+            body=request_body, modelId=_ANTHROPIC_MODEL_ID
+        )
+
+    # Trace should not be created until the stream is consumed
+    assert get_traces() == []
+
+    # Consume the stream from the "body" key (not "stream")
+    events = list(response["body"])
+    assert len(events) == len(dummy_chunks)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+
+    assert len(traces[0].data.spans) == 1
+    span = traces[0].data.spans[0]
+    assert span.name == "BedrockRuntime.invoke_model_with_response_stream"
+    assert span.span_type == "LLM"
+    assert span.inputs == {"body": request_body, "modelId": _ANTHROPIC_MODEL_ID}
+    assert span.outputs == {"body": "EventStream"}
+
+    # Check that token usage is captured from streaming chunks
+    assert SpanAttributeKey.CHAT_USAGE in span.attributes
+    usage = span.attributes[SpanAttributeKey.CHAT_USAGE]
+    assert usage["input_tokens"] == 8
+    assert usage["output_tokens"] == 12  # Updated from message_delta event
+    assert usage["total_tokens"] == 20  # Calculated as input + output
+
+    # Raw chunks must be recorded as span events with consistent naming
+    assert len(span.events) == len(dummy_chunks)
+    for i in range(len(dummy_chunks)):
+        # Use the exact chunk type as event name (not normalized)
+        assert span.events[i].name == dummy_chunks[i]["type"]
+        # Use consistent attribute key for chunk data
+        assert "json" in span.events[i].attributes
         assert json.loads(span.events[i].attributes["json"]) == dummy_chunks[i]
 
 
@@ -747,6 +979,34 @@ def test_bedrock_autolog_converse(_request, response, expected_chat_attr, expect
 
 
 @pytest.mark.skipif(not _IS_CONVERSE_API_AVAILABLE, reason="Converse API is not available")
+def test_bedrock_autolog_converse_token_usage():
+    """Test that token usage is correctly captured from Bedrock Converse API responses."""
+    mlflow.bedrock.autolog()
+
+    client = boto3.client("bedrock-runtime", region_name="us-west-2")
+
+    with mock.patch("botocore.client.BaseClient._make_api_call", return_value=_CONVERSE_RESPONSE):
+        response = client.converse(**_CONVERSE_REQUEST)
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+
+    assert len(traces[0].data.spans) == 1
+    span = traces[0].data.spans[0]
+    assert span.name == "BedrockRuntime.converse"
+    assert span.inputs == _CONVERSE_REQUEST  # Assert exact inputs
+    assert span.outputs == response
+
+    # Check that token usage is captured (remove conditional assertion)
+    assert SpanAttributeKey.CHAT_USAGE in span.attributes
+    usage = span.attributes[SpanAttributeKey.CHAT_USAGE]
+    assert usage["input_tokens"] == 8
+    assert usage["output_tokens"] == 12
+    assert usage["total_tokens"] == 20  # From response
+
+
+@pytest.mark.skipif(not _IS_CONVERSE_API_AVAILABLE, reason="Converse API is not available")
 def test_bedrock_autolog_converse_error():
     mlflow.bedrock.autolog()
 
@@ -857,6 +1117,48 @@ def test_bedrock_autolog_converse_stream(
     assert span.outputs == expected_response
     assert span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == expected_chat_attr
     assert span.get_attribute(SpanAttributeKey.CHAT_TOOLS) == expected_tool_attr
+    assert len(span.events) > 0
+    assert span.events[0].name == "messageStart"
+    assert json.loads(span.events[0].attributes["json"]) == {"role": "assistant"}
+
+
+@pytest.mark.skipif(not _IS_CONVERSE_API_AVAILABLE, reason="Converse API is not available")
+def test_bedrock_autolog_converse_stream_token_usage():
+    """Test that token usage is correctly captured from Bedrock Converse streaming responses."""
+    mlflow.bedrock.autolog()
+
+    client = boto3.client("bedrock-runtime", region_name="us-west-2")
+
+    with mock.patch(
+        "botocore.client.BaseClient._make_api_call",
+        return_value={"stream": _event_stream(_CONVERSE_RESPONSE)},
+    ):
+        response = client.converse_stream(**_CONVERSE_REQUEST)
+
+    assert get_traces() == []
+
+    # Consume the stream from the "stream" key (converse uses "stream", not "body")
+    chunks = list(response["stream"])
+    assert chunks == list(_event_stream(_CONVERSE_RESPONSE))
+
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+
+    assert len(traces[0].data.spans) == 1
+    span = traces[0].data.spans[0]
+    assert span.name == "BedrockRuntime.converse_stream"
+    assert span.inputs == _CONVERSE_REQUEST
+    assert span.outputs == _CONVERSE_RESPONSE
+
+    # Check that token usage is captured from streaming response (remove conditional assertion)
+    assert SpanAttributeKey.CHAT_USAGE in span.attributes
+    usage = span.attributes[SpanAttributeKey.CHAT_USAGE]
+    assert usage["input_tokens"] == 8
+    assert usage["output_tokens"] == 12
+    assert usage["total_tokens"] == 20  # From response
+
+    assert span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == _CONVERSE_EXPECTED_CHAT_ATTRIBUTE
     assert len(span.events) > 0
     assert span.events[0].name == "messageStart"
     assert json.loads(span.events[0].attributes["json"]) == {"role": "assistant"}
