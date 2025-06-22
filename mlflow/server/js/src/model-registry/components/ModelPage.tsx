@@ -118,12 +118,18 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
     };
   }
 
-  updateUrlWithState = (orderByKey: string, orderByAsc: boolean, page: number) => {
-    const urlParams: Record<string, any> = {
-      orderByKey,
-      orderByAsc,
-      page,
-    };
+  updateUrlWithState = (orderByKey?: string, orderByAsc?: boolean, page?: number) => {
+    const urlParams: Record<string, any> = {};
+    if (orderByKey) {
+      urlParams['orderByKey'] = orderByKey;
+    }
+    if (orderByAsc !== undefined) {
+      urlParams['orderByAsc'] = orderByAsc;
+    }
+    if (page) {
+      urlParams['page'] = page;
+    }
+
     const newUrl = createMLflowRoutePath(
       `${ModelRegistryRoutes.getModelPageRoute(this.props.modelName)}?${Utils.getSearchUrlFromState(urlParams)}`,
     );
@@ -211,7 +217,7 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
       pageTokens
     } = this.state;
     this.setState({ loading: true, error: undefined });
-    this.updateUrlWithState(this.orderByKey, this.orderByAsc, page);
+    this.updateUrlWithState(undefined, undefined, page);
     console.log('loadPage', page, this.orderByKey, this.orderByAsc, getOrderByExpr(this.orderByKey, this.orderByAsc));
     const filters_obj = { name: modelName };
     const promiseValues = [
