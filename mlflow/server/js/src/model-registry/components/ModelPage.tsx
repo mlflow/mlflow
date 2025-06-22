@@ -73,7 +73,7 @@ function getModelPageSessionStore(key: any) {
   return LocalStorageUtils.getSessionScopedStoreForComponent('ModelPage', key);
 }
 
-export function getOrderByExpr(orderByKey: any, orderByAsc: any): string {
+export function getOrderByExpr(orderByKey: string, orderByAsc: boolean): string {
   return orderByKey ? `${orderByKey} ${orderByAsc ? 'ASC' : 'DESC'}` : '';
 }
 
@@ -157,6 +157,7 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
   }
   
   get orderByAsc() {
+    console.log('orderByAsc', this.getUrlState().orderByAsc);
     return this.getUrlState().orderByAsc === 'true';
   }
 
