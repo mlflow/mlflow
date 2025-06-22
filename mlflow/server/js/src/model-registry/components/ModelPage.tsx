@@ -19,8 +19,7 @@ import LocalStorageUtils from '../../common/utils/LocalStorageUtils';
 import { createMLflowRoutePath } from '../../common/utils/RoutingUtils';
 import {
   MODEL_VERSIONS_SEARCH_TIMESTAMP_FIELD,
-  MODEL_VERSIONS_PER_PAGE_COMPACT,
-  AntdTableSortOrder,
+  MODEL_VERSIONS_PER_PAGE_COMPACT
 } from '../constants';
 import { PageContainer } from '../../common/components/PageContainer';
 import RequestStateWrapper, { triggerError } from '../../common/components/RequestStateWrapper';
@@ -30,13 +29,11 @@ import { ModelRegistryRoutes } from '../routes';
 import Utils from '../../common/utils/Utils';
 import { getUUID } from '../../common/utils/ActionUtils';
 import { injectIntl } from 'react-intl';
-import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 import { withRouterNext } from '../../common/utils/withRouterNext';
 import type { WithRouterNextProps } from '../../common/utils/withRouterNext';
 import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../common/utils/ErrorUtils';
 import { ErrorCodes } from '../../common/constants';
-import { has } from 'lodash';
 
 type UrlState = {
   orderByKey?: string;
@@ -45,9 +42,6 @@ type UrlState = {
 };
 
 type ModelPageImplState = {
-  orderByKey: string | undefined;
-  orderByAsc: boolean;
-  currentPage: number;
   maxResultsSelection: number;
   pageTokens: Record<number, string | null>;
   loading: boolean;
@@ -71,6 +65,19 @@ type ModelPageImplProps = WithRouterNextProps<{ subpage: string }> & {
   intl?: any;
 };
 
+/**
+ * Returns a LocalStorageStore instance that can be used to persist data associated with the
+ * ModelRegistry component.
+ */
+function getModelPageSessionStore(key: any) {
+  return LocalStorageUtils.getSessionScopedStoreForComponent('ModelPage', key);
+}
+
+export function getOrderByExpr(orderByKey: any, orderByAsc: any): string {
+  return orderByKey ? `${orderByKey} ${orderByAsc ? 'ASC' : 'DESC'}` : '';
+}
+
+
 export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPageImplState> {
   constructor(props: ModelPageImplProps) {
     super(props);
@@ -79,10 +86,6 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
     const maxResultsForTokens = this.getPersistedMaxResults();
 
     this.state = {
-      orderByKey: urlState.orderByKey ?? MODEL_VERSIONS_SEARCH_TIMESTAMP_FIELD,
-      orderByAsc: urlState.orderByAsc === undefined ? false : urlState.orderByAsc === 'true',
-      currentPage:
-        urlState.page !== undefined && urlState.page in persistedPageTokens ? parseInt(urlState.page, 10) : 1,
       maxResultsSelection: maxResultsForTokens,
       pageTokens: persistedPageTokens,
       loading: true,
@@ -91,9 +94,7 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
   }
   modelPageStoreKey = 'ModelPageStore';
   defaultPersistedPageTokens = { 1: null };
-  getRegisteredModelApiRequestId = getUUID();
 
-  searchModelVersionsApiRequestId = getUUID();
   initSearchModelVersionsApiRequestId = getUUID();
   initgetRegisteredModelApiRequestId = getUUID();
   updateRegisteredModelApiId = getUUID();
@@ -117,14 +118,12 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
     };
   }
 
-  updateUrlWithState = (orderByAsc: boolean, page: number) => {
-    const urlParams: Record<string, any> = {};
-    if (orderByAsc === false) {
-      urlParams['orderByAsc'] = orderByAsc;
-    }
-    if (page && page !== 1) {
-      urlParams['page'] = page;
-    }
+  updateUrlWithState = (orderByKey: string, orderByAsc: boolean, page: number) => {
+    const urlParams: Record<string, any> = {
+      orderByKey,
+      orderByAsc,
+      page,
+    };
     const newUrl = createMLflowRoutePath(
       `${ModelRegistryRoutes.getModelPageRoute(this.props.modelName)}?${Utils.getSearchUrlFromState(urlParams)}`,
     );
@@ -135,14 +134,10 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
 
   resetHistoryState() {
     this.setState((prevState: any) => ({
-      currentPage: 1,
       pageTokens: this.defaultPersistedPageTokens,
     }));
     this.setPersistedPageTokens(this.defaultPersistedPageTokens);
   }
-
-  static getOrderByExpr = (orderByKey: any, orderByAsc: any) =>
-    orderByKey ? `${orderByKey} ${orderByAsc ? 'ASC' : 'DESC'}` : '';
 
   isEmptyPageResponse = (value: any) => {
     return !value || !value.model_versions || !value.next_page_token;
@@ -150,19 +145,23 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
 
   // Loads the initial set of model versions.
   loadModelVersions(isInitialLoading = true) {
-    this.loadPage(this.state.currentPage, isInitialLoading, true);
+    this.loadPage(this.currentPage, isInitialLoading, true);
   }
-
-  /**
-   * Returns a LocalStorageStore instance that can be used to persist data associated with the
-   * ModelRegistry component.
-   */
-  static getLocalStore(key: any) {
-    return LocalStorageUtils.getSessionScopedStoreForComponent('ModelPage', key);
+  get currentPage() {
+    const urlPage = parseInt(this.getUrlState().page || '1', 10);
+    return isNaN(urlPage) ? 1 : urlPage;
+  }
+  
+  get orderByKey() {
+    return this.getUrlState().orderByKey ?? MODEL_VERSIONS_SEARCH_TIMESTAMP_FIELD;
+  }
+  
+  get orderByAsc() {
+    return this.getUrlState().orderByAsc === 'true';
   }
 
   getPersistedPageTokens() {
-    const store = ModelPageImpl.getLocalStore(this.modelPageStoreKey);
+    const store = getModelPageSessionStore(this.modelPageStoreKey);
     if (store && store.getItem('page_tokens')) {
       return JSON.parse(store.getItem('page_tokens'));
     } else {
@@ -171,14 +170,14 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
   }
 
   setPersistedPageTokens(page_tokens: any) {
-    const store = ModelPageImpl.getLocalStore(this.modelPageStoreKey);
+    const store = getModelPageSessionStore(this.modelPageStoreKey);
     if (store) {
       store.setItem('page_tokens', JSON.stringify(page_tokens));
     }
   }
 
   getPersistedMaxResults() {
-    const store = ModelPageImpl.getLocalStore(this.modelPageStoreKey);
+    const store = getModelPageSessionStore(this.modelPageStoreKey);
     if (store && store.getItem('max_results')) {
       return parseInt(store.getItem('max_results'), 10);
     } else {
@@ -187,7 +186,7 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
   }
 
   setMaxResultsInStore(max_results: any) {
-    const store = ModelPageImpl.getLocalStore(this.modelPageStoreKey);
+    const store = getModelPageSessionStore(this.modelPageStoreKey);
     store.setItem('max_results', max_results.toString());
   }
 
@@ -208,21 +207,18 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
   loadPage = (page: number, isInitialLoading: boolean, loadModelMetadata = false) => {
     const { modelName } = this.props;
     const {
-      pageTokens,
-      orderByKey,
-      orderByAsc,
-      // eslint-disable-nextline
+      pageTokens
     } = this.state;
     this.setState({ loading: true, error: undefined });
-    this.updateUrlWithState(orderByAsc, page);
+    this.updateUrlWithState(this.orderByKey, this.orderByAsc, page);
     const filters_obj = { name: modelName };
     const promiseValues = [
       this.props
         .searchModelVersionsApi(
           filters_obj,
-          isInitialLoading ? this.initSearchModelVersionsApiRequestId : this.searchModelVersionsApiRequestId,
+          isInitialLoading ? this.initSearchModelVersionsApiRequestId : null,
           this.state.maxResultsSelection,
-          ModelPageImpl.getOrderByExpr(orderByKey, orderByAsc),
+          getOrderByExpr(this.orderByKey, this.orderByAsc),
           pageTokens[page],
         )
         .then((r: any) => {
@@ -233,7 +229,7 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
       promiseValues.push(
         this.props.getRegisteredModelApi(
           modelName,
-          isInitialLoading === true ? this.initgetRegisteredModelApiRequestId : this.getRegisteredModelApiRequestId,
+          isInitialLoading === true ? this.initgetRegisteredModelApiRequestId : null,
         ),
       );
     }
@@ -264,8 +260,6 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
     const nextPageToken = this.getNextPageTokenFromResponse(response);
     this.setState(
       (prevState: any) => ({
-        currentPage: page,
-
         pageTokens: {
           ...prevState.pageTokens,
           [page + 1]: nextPageToken,
@@ -277,7 +271,7 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
     );
   };
 
-  handleMaxResultsChange = (key: any) => {
+  handleMaxResultsChange = (key: string) => {
     this.setState({ maxResultsSelection: parseInt(key, 10) }, () => {
       this.resetHistoryState();
       const { maxResultsSelection } = this.state;
@@ -287,21 +281,22 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
   };
 
   handleClickNext = () => {
-    const { currentPage } = this.state;
-    this.loadPage(currentPage + 1, false);
+    const nextPage = this.currentPage + 1;
+    this.updateUrlWithState(this.orderByKey, this.orderByAsc, nextPage);
+    this.loadPage(nextPage, false);
   };
 
   handleClickPrev = () => {
-    const { currentPage } = this.state;
-    this.loadPage(currentPage - 1, false);
+    const prevPage = this.currentPage - 1;
+    this.updateUrlWithState(this.orderByKey, this.orderByAsc, prevPage);
+    this.loadPage(prevPage, false);
   };
 
-  handleClickSortableColumn = (orderByKey: any, sortOrder: any) => {
-    const orderByAsc = sortOrder !== AntdTableSortOrder.DESC; // default to true
-    this.setState({ orderByKey, orderByAsc }, () => {
-      this.resetHistoryState();
-      this.loadPage(1, false);
-    });
+  handleClickSortableColumn = (orderByKey: string, orderByDesc: boolean) => {
+    const orderByAsc = !orderByDesc;
+    this.resetHistoryState();
+    this.updateUrlWithState(orderByKey, orderByAsc, 1);
+    this.loadPage(1, false);
   };
 
   getMaxResultsSelection = () => {
@@ -310,13 +305,7 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
 
   render() {
     const { model, modelVersions, navigate, modelName } = this.props;
-    const {
-      orderByKey,
-      orderByAsc,
-      currentPage,
-      pageTokens,
-      // eslint-disable-nextline
-    } = this.state;
+    const { pageTokens } = this.state;
     return (
       <PageContainer>
         <RequestStateWrapper
@@ -380,10 +369,10 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
                   handleDelete={this.handleDelete}
                   navigate={navigate}
                   onMetadataUpdated={this.loadModelVersions}
-                  orderByKey={orderByKey}
-                  orderByAsc={orderByAsc}
-                  currentPage={currentPage}
-                  nextPageToken={pageTokens[currentPage + 1]}
+                  orderByKey={this.orderByKey}
+                  orderByAsc={this.orderByAsc}
+                  currentPage={this.currentPage}
+                  nextPageToken={pageTokens[this.currentPage + 1]}
                   onClickNext={this.handleClickNext}
                   onClickPrev={this.handleClickPrev}
                   onClickSortableColumn={this.handleClickSortableColumn}

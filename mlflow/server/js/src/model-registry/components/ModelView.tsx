@@ -10,7 +10,6 @@ import { ModelVersionTable } from './ModelVersionTable';
 import Utils from '../../common/utils/Utils';
 import { Link, NavigateFunction } from '../../common/utils/RoutingUtils';
 import { ModelRegistryRoutes } from '../routes';
-import LocalStorageUtils from '../../common/utils/LocalStorageUtils';
 import { ACTIVE_STAGES, MODEL_VERSIONS_PER_PAGE_COMPACT, MODEL_VERSIONS_SEARCH_TIMESTAMP_FIELD } from '../constants';
 import { CollapsibleSection } from '../../common/components/CollapsibleSection';
 import { EditableNote } from '../../common/components/EditableNote';
@@ -33,12 +32,18 @@ import { shouldShowModelsNextUI } from '../../common/utils/FeatureUtils';
 import { ModelsNextUIToggleSwitch } from './ModelsNextUIToggleSwitch';
 import { withNextModelsUIContext } from '../hooks/useNextModelsUI';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
+import { ColumnSort } from '@tanstack/react-table';
 
 const CREATION_TIMESTAMP_COLUMN_INDEX = 'creation_timestamp';
 
 export const StageFilters = {
   ALL: 'ALL',
   ACTIVE: 'ACTIVE',
+};
+
+type Sorter = {
+  field: string;
+  order: 'ascend' | 'descend' | 'undefined';
 };
 
 type ModelViewImplProps = {
@@ -62,10 +67,10 @@ type ModelViewImplProps = {
   orderByAsc: boolean;
   currentPage: number;
   nextPageToken: string | null;
-  onClickNext: (...args: any[]) => any;
-  onClickPrev: (...args: any[]) => any;
-  onClickSortableColumn: (...args: any[]) => any;
-  onSetMaxResult: (...args: any[]) => any;
+  onClickNext: () => void;
+  onClickPrev: () => void;
+  onClickSortableColumn: (fieldName: string | null, isDescending: boolean) => void;
+  onSetMaxResult: (key: number) => void;
   maxResultValue: number;
   loading?: boolean;
 };
@@ -91,29 +96,13 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
 
   formRef = React.createRef();
 
-  /**
-   * Returns a LocalStorageStore instance that can be used to persist data associated with the
-   * ModelRegistry component.
-   */
-  static getLocalStore(key: any) {
-    return LocalStorageUtils.getStoreForComponent('ModelView', key);
-  }
-
   componentDidMount() {
     // @ts-expect-error TS(2532): Object is possibly 'undefined'.
     const pageTitle = `${this.props.model.name} - MLflow Model`;
     Utils.updatePageTitle(pageTitle);
   }
 
-  handleClickNext = () => {
-    this.props.onClickNext();
-  };
-
-  handleClickPrev = () => {
-    this.props.onClickPrev();
-  };
-
-  handleSetMaxResult = ({ item, key, keyPath, domEvent }: any) => {
+  handleSetMaxResult = ({ key }: { key: number }) => {
     this.props.onSetMaxResult(key);
   };
 
@@ -126,15 +115,9 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
     }
   };
 
-  unifiedTableSortChange = ({ orderByKey, orderByAsc }: any) => {
-    this.handleTableChange(undefined, undefined, {
-      field: orderByKey,
-      order: orderByAsc ? 'undefined' : 'descend',
-    });
-  };
-
-  handleTableChange = (pagination: any, filters: any, sorter: any) => {
-    this.props.onClickSortableColumn(this.getSortFieldName(sorter.field), sorter.order);
+  handleTableChange = (params: { sorter: ColumnSort }) => {
+    const sorter = params.sorter;
+    this.props.onClickSortableColumn(this.getSortFieldName(sorter.id), sorter.desc);
   };
 
   handleStageFilterChange = (e: any) => {
@@ -472,7 +455,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
             aliases={model?.aliases}
             orderByKey={this.props.orderByKey}
             orderByAsc={this.props.orderByAsc}
-            onSortChange={this.unifiedTableSortChange}
+            onSortChange={this.handleTableChange}
             getSortFieldName={this.getSortFieldName}
             pagination={
               <div
@@ -484,8 +467,8 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
                     componentId="codegen_mlflow_app_src_model-registry_components_modelview.tsx_646"
                     hasNextPage={Boolean(nextPageToken)}
                     hasPreviousPage={currentPage > 1}
-                    onNextPage={this.handleClickNext}
-                    onPreviousPage={this.handleClickPrev}
+                    onNextPage={this.props.onClickNext}
+                    onPreviousPage={this.props.onClickPrev}
                     pageSizeSelect={{
                       onChange: (num) => this.handleSetMaxResult({ key: num }),
                       default: this.props.maxResultValue,

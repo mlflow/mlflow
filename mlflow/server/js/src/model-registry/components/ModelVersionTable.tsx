@@ -15,6 +15,7 @@ import {
   ColumnDef,
   RowSelectionState,
   SortingState,
+  ColumnSort,
   flexRender,
   getCoreRowModel,
   getSortedRowModel,
@@ -55,7 +56,7 @@ type ModelVersionTableProps = {
   activeStageOnly?: boolean;
   onChange: (selectedRowKeys: string[], selectedRows: ModelVersionInfoEntity[]) => void;
   getSortFieldName: (columnId: string) => string | null;
-  onSortChange: (params: { orderByKey: string; orderByAsc: boolean }) => void;
+  onSortChange: (params: { sorter: ColumnSort }) => void;
   modelEntity?: ModelEntity;
   onMetadataUpdated: () => void;
   usingNextModelsUI: boolean;
@@ -289,7 +290,7 @@ export const ModelVersionTable = ({
   const setSorting = (stateUpdater: SortingState | ((state: SortingState) => SortingState)) => {
     const [newSortState] = typeof stateUpdater === 'function' ? stateUpdater(sorting) : stateUpdater;
     if (newSortState) {
-      onSortChange({ orderByKey: newSortState.id, orderByAsc: !newSortState.desc });
+      onSortChange({ sorter: newSortState });
     }
   };
 
