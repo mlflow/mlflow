@@ -11,9 +11,27 @@ from typing import Callable, Sequence
 from mlflow.environment_variables import (
     MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE,
     MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS,
+    MLFLOW_ENABLE_ASYNC_TRACE_LOGGING,
 )
+from mlflow.utils.databricks_utils import is_in_databricks_notebook
 
 _logger = logging.getLogger(__name__)
+
+
+def should_enable_async_logging():
+    if is_in_databricks_notebook():
+        # NB: We don't turn on async logging in Databricks notebook by default
+        # until we are confident that the async logging is working on the
+        # offline workload on Databricks, to derisk the inclusion to the
+        # standard image. When it is enabled explicitly via the env var, we
+        # will respect that.
+        return (
+            MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.get()
+            if MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.is_set()
+            else False
+        )
+
+    return MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.get()
 
 
 @dataclass
@@ -36,7 +54,18 @@ class Task:
 
 
 class AsyncTraceExportQueue:
-    """A queue-based asynchronous tracing export processor."""
+    """A queue-based asynchronous tracing export processor. Implemented as a singleton"""
+
+    _instance_lock = threading.Lock()
+    _instance = None
+
+    @classmethod
+    def instance(cls):
+        if cls._instance is None:
+            with cls._instance_lock:
+                if cls._instance is None:
+                    cls._instance = AsyncTraceExportQueue()
+        return cls._instance
 
     def __init__(self):
         self._queue: Queue[Task] = Queue(maxsize=MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE.get())
@@ -51,6 +80,16 @@ class AsyncTraceExportQueue:
         self._active_tasks = set()
 
         self._last_full_queue_warning_time = None
+
+    @classmethod
+    def is_empty(cls) -> bool:
+        """Check if the queue is empty"""
+        if cls._instance is None:
+            return True
+
+        # If the item is not in the queue but is being processed by a worker,
+        # it should be considered as not empty
+        return cls._instance._queue.empty() and not cls._instance._active_tasks
 
     def put(self, task: Task):
         """Put a new task to the queue for processing."""
