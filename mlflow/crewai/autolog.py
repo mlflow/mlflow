@@ -2,6 +2,7 @@ import inspect
 import json
 import logging
 import warnings
+from typing import Any, Optional
 
 from packaging.version import Version
 
@@ -9,6 +10,7 @@ import mlflow
 from mlflow.crewai.chat import set_span_chat_attributes
 from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
+from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
@@ -33,9 +35,29 @@ def patched_class_call(original, self, *args, **kwargs):
                 )
             # Need to convert the response of generate_content for better visualization
             outputs = result.__dict__ if hasattr(result, "__dict__") else result
+
+            if usage_dict := _parse_usage(result):
+                span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
             span.set_outputs(outputs)
 
             return result
+
+
+def _parse_usage(result: Any) -> Optional[dict[str, int]]:
+    if isinstance(result, tuple) and len(result) == 2:
+        usage = result[1]
+    else:
+        usage = getattr(result, "token_usage", None)
+
+    try:
+        return {
+            TokenUsageKey.INPUT_TOKENS: usage.prompt_tokens,
+            TokenUsageKey.OUTPUT_TOKENS: usage.completion_tokens,
+            TokenUsageKey.TOTAL_TOKENS: usage.total_tokens,
+        }
+    except Exception as e:
+        _logger.debug(f"Failed to parse token usage from output: {e}")
+    return None
 
 
 def _get_span_type(instance) -> str:
