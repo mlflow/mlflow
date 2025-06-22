@@ -1,9 +1,15 @@
 import logging
+import os
 import urllib.parse
+from typing import Iterator, Optional
 
 import mlflow
+from mlflow.entities.file_info import FileInfo
+from mlflow.entities.logged_model import LoggedModel
 from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
+from mlflow.utils.file_utils import create_tmp_dir
 from mlflow.utils.uri import (
     add_databricks_profile_info_to_artifact_uri,
     get_databricks_profile_uri_from_artifact_uri,
@@ -102,10 +108,11 @@ class RunsArtifactRepository(ArtifactRepository):
     def _is_directory(self, artifact_path):
         return self.repo._is_directory(artifact_path)
 
-    def list_artifacts(self, path):
+    def list_artifacts(self, path: Optional[str] = None) -> list[FileInfo]:
         """
         Return all the artifacts for this run_id directly under path. If path is a file, returns
-        an empty list. Will error if path is neither a file nor directory.
+        an empty list. Will error if path is neither a file nor directory. When the run has an
+        associated model, the artifacts of the model are also listed.
 
         Args:
             path: Relative source path that contain desired artifacts
@@ -113,13 +120,68 @@ class RunsArtifactRepository(ArtifactRepository):
         Returns:
             List of artifacts as FileInfo listed directly under path.
         """
+        return self._list_run_artifacts(path) + self._list_model_artifacts(path)
+
+    def _list_run_artifacts(self, path: Optional[str] = None) -> list[FileInfo]:
         return self.repo.list_artifacts(path)
 
-    def download_artifacts(self, artifact_path, dst_path=None):
+    def _get_logged_model_artifact_repo(
+        self, run_id: str, name: str
+    ) -> Optional[ArtifactRepository]:
+        """
+        Get the artifact repository for a logged model with the given name and run ID.
+        Returns None if no such model exists.
+        """
+        from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+
+        client = mlflow.tracking.MlflowClient()
+        experiment_id = client.get_run(run_id).info.experiment_id
+
+        def iter_models() -> Iterator[LoggedModel]:
+            page_token: Optional[str] = None
+            while True:
+                page = client.search_logged_models(
+                    experiment_ids=[experiment_id],
+                    # TODO: Filter by 'source_run_id' once Databricks backend supports it
+                    filter_string=f"name = '{name}'",
+                    page_token=page_token,
+                )
+                yield from page
+                if not page.token:
+                    break
+                page_token = page.token
+
+        if matched := next((m for m in iter_models() if m.source_run_id == run_id), None):
+            return get_artifact_repository(matched.artifact_location)
+
+        return None
+
+    def _list_model_artifacts(self, path: Optional[str] = None) -> list[FileInfo]:
+        """
+        A run can have an associated model. If so, this method lists the artifacts of the model.
+        """
+        full_path = f"{self.artifact_uri}/{path}" if path else self.artifact_uri
+        run_id, rel_path = RunsArtifactRepository.parse_runs_uri(full_path)
+        if not rel_path:
+            # At least one part of the path must be present (e.g. "runs:/<run_id>/<name>")
+            return []
+        [model_name, *rest] = rel_path.split("/", 1)
+        rel_path = rest[0] if rest else ""
+        if repo := self._get_logged_model_artifact_repo(run_id=run_id, name=model_name):
+            artifacts = repo.list_artifacts(path=rel_path)
+            return [
+                FileInfo(path=f"{model_name}/{a.path}", is_dir=a.is_dir, file_size=a.file_size)
+                for a in artifacts
+            ]
+
+        return []
+
+    def download_artifacts(self, artifact_path: str, dst_path: Optional[str] = None) -> str:
         """
         Download an artifact file or directory to a local directory if applicable, and return a
-        local path for it.
-        The caller is responsible for managing the lifecycle of the downloaded artifacts.
+        local path for it. When the run has an associated model, the artifacts of the model are also
+        downloaded to the specified destination directory. The caller is responsible for managing
+        the lifecycle of the downloaded artifacts.
 
         Args:
             artifact_path: Relative source path to the desired artifacts.
@@ -132,63 +194,46 @@ class RunsArtifactRepository(ArtifactRepository):
         Returns:
             Absolute path of the local filesystem location containing the desired artifacts.
         """
+        dst_path = dst_path or create_tmp_dir()
+        run_out_path: Optional[str] = None
         try:
-            return self.repo.download_artifacts(artifact_path, dst_path)
-        except Exception as e:
-            from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
-
-            full_path = f"{self.artifact_uri}/{artifact_path}"
+            # This fails when the run has no artifacts, so we catch the exception
+            run_out_path = self.repo.download_artifacts(artifact_path, dst_path)
+        except Exception:
             _logger.debug(
-                f"Failed to download artifacts from {full_path}. "
-                "Searching for logged models associated with the run instead."
-            )
-            run_id, artifact_path = RunsArtifactRepository.parse_runs_uri(full_path)
-            client = mlflow.tracking.MlflowClient()
-            run = client.get_run(run_id)
-            [model_name, *rest] = artifact_path.split("/", 1)
-            artifact_path = rest[0] if rest else "."
-            page_token = None
-            while True:
-                page = client.search_logged_models(
-                    experiment_ids=[run.info.experiment_id],
-                    # TODO: Filter by 'source_run_id' once Databricks backend supports it
-                    filter_string=f"name = '{model_name}'",
-                    page_token=page_token,
-                )
-                for model in page:
-                    # Return the first model that matches the run_id and artifact_path
-                    if model.source_run_id == run_id:
-                        repo = get_artifact_repository(model.artifact_location)
-                        # TODO: Disabled for now. Consider re-enabling this once we migrate docs
-                        # and examples to use the new model URI format.
-                        # color_warning(
-                        #     "`runs:/<run_id>/artifact_path` is deprecated for loading models, "
-                        #     "use `models:/<model_id>` instead. Alternatively, retrieve "
-                        #     "`model_info.model_uri` from the model_info returned by "
-                        #     "mlflow.<flavor>.log_model. For example: "
-                        #     "model_info = mlflow.<flavor>.log_model(...); "
-                        #     "model = mlflow.<flavor>.load_model(model_info.model_uri)",
-                        #     stacklevel=1,
-                        #     color="yellow",
-                        # )
-                        return repo.download_artifacts(
-                            artifact_path=artifact_path,  # root directory
-                            dst_path=dst_path,
-                        )
-
-                if not page.token:
-                    break
-                page_token = page.token
-            _logger.debug(
-                f"Failed to find any models with name {model_name} associated with the "
-                f"run {run_id}."
+                f"Failed to download artifacts from {self.artifact_uri}/{artifact_path}.",
+                exc_info=True,
             )
 
+        # If there are artifacts with the same name in the run and model, the model artifacts
+        # will overwrite the run artifacts.
+        model_out_path = self._download_model_artifacts(artifact_path, dst_path=dst_path)
+        path = run_out_path or model_out_path
+        if path is None:
             raise MlflowException(
-                f"Failed to download artifacts from {full_path}. "
-                f"No model named {model_name!r} was found for run {run_id}. "
-                f"Please ensure that you've specified the correct model name or artifact path."
-            ) from e
+                f"Failed to download artifacts from path {artifact_path!r}, "
+                "please ensure that the path is correct.",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            )
+        return path
+
+    def _download_model_artifacts(self, artifact_path: str, dst_path: str) -> Optional[str]:
+        """
+        A run can have an associated model. If so, this method downloads the artifacts of the model.
+        """
+        full_path = f"{self.artifact_uri}/{artifact_path}" if artifact_path else self.artifact_uri
+        run_id, rel_path = RunsArtifactRepository.parse_runs_uri(full_path)
+        if not rel_path:
+            # At least one part of the path must be present (e.g. "runs:/<run_id>/<name>")
+            return None
+        [model_name, *rest] = rel_path.split("/", 1)
+        rel_path = rest[0] if rest else ""
+        if repo := self._get_logged_model_artifact_repo(run_id=run_id, name=model_name):
+            dst = os.path.join(dst_path, model_name)
+            os.makedirs(dst, exist_ok=True)
+            return repo.download_artifacts(artifact_path=rel_path, dst_path=dst)
+
+        return None
 
     def _download_file(self, remote_file_path, local_path):
         """

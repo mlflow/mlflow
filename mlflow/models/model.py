@@ -617,7 +617,7 @@ class Model:
     def model_size_bytes(self, value: Optional[int]) -> None:
         self._model_size_bytes = value
 
-    @experimental
+    @experimental(version="2.13.0")
     @property
     def resources(self) -> dict[str, dict[ResourceType, list[dict]]]:
         """
@@ -629,7 +629,7 @@ class Model:
         """
         return self._resources
 
-    @experimental
+    @experimental(version="2.13.0")
     @resources.setter
     def resources(self, value: Optional[Union[str, list[Resource]]]) -> None:
         if isinstance(value, (Path, str)):
@@ -640,7 +640,7 @@ class Model:
             serialized_resource = value
         self._resources = serialized_resource
 
-    @experimental
+    @experimental(version="2.21.0")
     @property
     def auth_policy(self) -> dict[str, dict]:
         """
@@ -652,7 +652,7 @@ class Model:
         """
         return self._auth_policy
 
-    @experimental
+    @experimental(version="2.21.0")
     @auth_policy.setter
     def auth_policy(self, value: Optional[Union[dict, AuthPolicy]]) -> None:
         self._auth_policy = value.to_dict() if isinstance(value, AuthPolicy) else value
@@ -940,8 +940,11 @@ class Model:
                             serving_input=serving_input,
                         )
                     except Exception as e:
+                        serving_input_msg = (
+                            serving_input[:50] + "..." if len(serving_input) > 50 else serving_input
+                        )
                         _logger.warning(
-                            f"Failed to validate serving input example {serving_input}. "
+                            f"Failed to validate serving input example {serving_input_msg}. "
                             "Alternatively, you can avoid passing input example and pass model "
                             "signature instead when logging the model. To ensure the input example "
                             "is valid prior to serving, please try calling "
@@ -985,7 +988,7 @@ class Model:
             if prompts:
                 client = mlflow.MlflowClient()
                 for prompt in prompts:
-                    client.log_prompt(run_id, prompt)
+                    client.link_prompt_version_to_run(run_id, prompt)
 
             mlflow.tracking.fluent.log_artifacts(local_path, mlflow_model.artifact_path, run_id)
 
@@ -1242,8 +1245,13 @@ class Model:
                                 serving_input=serving_input,
                             )
                         except Exception as e:
+                            serving_input_msg = (
+                                serving_input[:50] + "..."
+                                if len(serving_input) > 50
+                                else serving_input
+                            )
                             _logger.warning(
-                                f"Failed to validate serving input example {serving_input}. "
+                                f"Failed to validate serving input example {serving_input_msg}. "
                                 "Alternatively, you can avoid passing input example and pass model "
                                 "signature instead when logging the model. To ensure the input "
                                 "example is valid prior to serving, please try calling "
@@ -1291,11 +1299,10 @@ class Model:
                 # client.finalize_logged_model(model.model_id, status=LoggedModelStatus.READY)
 
                 # Associate prompts to the model Run
-                # TODO: pass model_id to log_prompt
                 if prompts and run_id:
                     client = mlflow.MlflowClient()
                     for prompt in prompts:
-                        client.log_prompt(run_id, prompt)
+                        client.link_prompt_version_to_run(run_id, prompt)
 
                 # if the model_config kwarg is passed in, then log the model config as an params
                 if model_config := kwargs.get("model_config"):
@@ -1584,7 +1591,7 @@ def _validate_llama_index_model(model):
     return _validate_and_prepare_llama_index_model_or_path(model, None)
 
 
-@experimental
+@experimental(version="2.13.0")
 def set_model(model) -> None:
     """
     When logging model as code, this function can be used to set the model object

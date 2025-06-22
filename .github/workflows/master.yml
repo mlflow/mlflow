@@ -317,16 +317,10 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          # GenAI evaluation tests require databricks-agents that only work with Python >= 3.10
-          pip install 'databricks-agents<0.22.0' openai dspy
+          pip install databricks-agents openai dspy
       - uses: ./.github/actions/show-versions
       - name: Run GenAI Tests
         run: |
-          # GenAI evaluation tests require databricks-agents that only work with Python 3.10~
-          pip install openai
-          # Install databricks-agents from a pre-release wheel because the latest released version
-          # is not compatible with MLflow master. Using --no-deps because it pings mlflow to 3.0.0rc2.
-          pip install https://ml-team-public-read.s3.us-west-2.amazonaws.com/wheels/databricks-agents/mlflow/databricks_agents-1.0.0rc3-py3-none-any.whl --no-deps
           pytest tests/genai --ignore tests/genai/test_genai_import_without_agent_sdk.py
 
       - name: Run Tests with Local Spark Session

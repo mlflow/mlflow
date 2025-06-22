@@ -1163,12 +1163,24 @@ def _get_metric_history():
         schema={
             "run_id": [_assert_string, _assert_required],
             "metric_key": [_assert_string, _assert_required],
+            "page_token": [_assert_string],
         },
     )
     response_message = GetMetricHistory.Response()
     run_id = request_message.run_id or request_message.run_uuid
-    metric_entities = _get_tracking_store().get_metric_history(run_id, request_message.metric_key)
+
+    max_results = request_message.max_results if request_message.max_results is not None else None
+    page_token = request_message.page_token if request_message.page_token else None
+
+    metric_entities = _get_tracking_store().get_metric_history(
+        run_id, request_message.metric_key, max_results=max_results, page_token=page_token
+    )
     response_message.metrics.extend([m.to_proto() for m in metric_entities])
+
+    # Set next_page_token if available
+    if next_page_token := metric_entities.token:
+        response_message.next_page_token = next_page_token
+
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
     return response
@@ -2347,6 +2359,9 @@ def _delete_artifact_mlflow_artifacts(artifact_path):
 
 @catch_mlflow_exception
 def _graphql():
+    from graphql import parse
+
+    from mlflow.server.graphql.graphql_no_batching import check_query_safety
     from mlflow.server.graphql.graphql_schema_extensions import schema
 
     # Extracting the query, variables, and operationName from the request
@@ -2355,8 +2370,12 @@ def _graphql():
     variables = request_json.get("variables")
     operation_name = request_json.get("operationName")
 
-    # Executing the GraphQL query using the Graphene schema
-    result = schema.execute(query, variables=variables, operation_name=operation_name)
+    node = parse(query)
+    if check_result := check_query_safety(node):
+        result = check_result
+    else:
+        # Executing the GraphQL query using the Graphene schema
+        result = schema.execute(query, variables=variables, operation_name=operation_name)
 
     # Convert execution result into json.
     result_data = {
@@ -2820,6 +2839,7 @@ def _search_logged_models():
                 _assert_required,
             ],
             "filter": [_assert_string],
+            "datasets": [_assert_array],
             "max_results": [_assert_intlike],
             "order_by": [_assert_array],
             "page_token": [_assert_string],
@@ -2830,6 +2850,17 @@ def _search_logged_models():
         # to avoid serialization issues
         experiment_ids=list(request_message.experiment_ids),
         filter_string=request_message.filter or None,
+        datasets=(
+            [
+                {
+                    "dataset_name": d.dataset_name,
+                    "dataset_digest": d.dataset_digest or None,
+                }
+                for d in request_message.datasets
+            ]
+            if request_message.datasets
+            else None
+        ),
         max_results=request_message.max_results or None,
         order_by=(
             [

@@ -74,7 +74,7 @@ public class MlflowClient implements Serializable, Closeable {
 
     GetMetricHistory.Response response = mapper
             .toGetMetricHistoryResponse(httpCaller.get(builder.toString()));
-    List<Metric> metrics = response.getMetricsList();
+    List<Metric> metrics = new ArrayList<>(response.getMetricsList());
     String token = response.getNextPageToken();
     while (!token.isEmpty()) {
       URIBuilder bld = builder.setParameter("page_token", token);
