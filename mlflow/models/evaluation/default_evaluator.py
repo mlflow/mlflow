@@ -572,6 +572,14 @@ class BuiltInEvaluator(ModelEvaluator):
                 )
                 if artifact_results:
                     for artifact_name, raw_artifact in artifact_results.items():
+                        if artifact_name in self.artifacts:
+                            raise MlflowException(
+                                f"Custom artifact function '{custom_artifact_tuple.name}' at index "
+                                f"{custom_artifact_tuple.index} in the `custom_artifacts` "
+                                f"parameter produced an artifact '{artifact_name}' that cannot be "
+                                "logged because there already exists an artifact with the same "
+                                "name."
+                            )
                         self.artifacts[artifact_name] = self._log_custom_metric_artifact(
                             artifact_name,
                             raw_artifact,

@@ -196,15 +196,57 @@ result = mlflow.models.evaluate(
     <li><code>log_model_explanations</code>: Whether to log individual prediction explanations</li>
   </ul>
 
-  #### Performance Options
+  #### General Options
   <ul>
-    <li><code>pos_label</code>: Positive class label for binary classification metrics</li>
+    <li><code>pos_label</code>: Positive class label for binary classification metrics. Only applies to binary classification. If not specified, MLflow defaults to the last label in <code>label_list</code> (or the inferred list) as the positive class, and logs a warning. <b>bool</b> and <b>int</b> labels are treated as compatible types. When provided, MLflow validates that <code>pos_label</code> exists in <code>label_list</code> (whether explicitly provided or inferred from data). For multiclass classification, <code>pos_label</code> is ignored entirely.</li>
+    <li><code>label_list</code>: For single-class or missing-class evaluation data, you <b>must</b> specify the full set of expected classes using <code>label_list</code>. Otherwise, MLflow will raise an error. For normal binary or multiclass data, you do <b>not</b> need to specify <code>label_list</code>—MLflow will infer it automatically.</li>
     <li><code>average</code>: Averaging strategy for multiclass metrics ("macro", "micro", "weighted")</li>
     <li><code>sample_weights</code>: Sample weights for weighted metrics</li>
     <li><code>normalize</code>: Normalization for confusion matrix ("true", "pred", "all")</li>
   </ul>
 
 </details>
+
+## Classifier Configuration Options
+
+For classification tasks, you can control evaluation behavior with these key parameters:
+
+```python
+# Binary classification with explicit positive label
+result = mlflow.models.evaluate(
+    model_uri,
+    eval_data,
+    targets="label",
+    model_type="classifier",
+    evaluator_config={
+        "pos_label": 1,  # Specify positive class for binary metrics
+        "label_list": [0, 1],  # Explicit class list
+    },
+)
+
+# Multiclass classification with averaging strategy
+result = mlflow.models.evaluate(
+    model_uri,
+    eval_data,
+    targets="label",
+    model_type="classifier",
+    evaluator_config={
+        "average": "weighted",  # "macro", "micro", or "weighted"
+        "label_list": [0, 1, 2, 3],  # All expected classes
+    },
+)
+```
+
+**Key Configuration Parameters:**
+
+- **`pos_label`**: Positive class for binary classification metrics. Only meaningful for binary classification (2 classes). For multiclass, this parameter is ignored.
+- **`label_list`**: Complete set of expected classes. Required when evaluation data is missing expected classes.
+- **`average`**: Averaging strategy for multiclass metrics ("macro", "micro", "weighted").
+
+:::tip Binary vs Multiclass Behavior
+- **Binary classification**: `pos_label` determines which class is treated as positive for metrics like precision, recall, and ROC-AUC
+- **Multiclass classification**: `pos_label` is ignored - all classes are evaluated equally using one-vs-rest approach
+:::
 
 ## Custom Metrics and Artifacts
 
@@ -766,11 +808,13 @@ def reproducible_evaluation(model, eval_data, targets, random_seed=42):
 
 In production environments, you may encounter evaluation datasets that don't contain all the classes your model was trained on. This commonly occurs with:
 
-- **Imbalanced datasets** where rare classes are absent in small evaluation batches
-- **Highly confident models** that predict only one class
-- **Production data drift** where new data lacks certain classes
+- <b>Imbalanced datasets</b> where rare classes are absent in small evaluation batches
+- <b>Highly confident models</b> that predict only one class
+- <b>Production data drift</b> where new data lacks certain classes
 
-By default, MLflow infers the set of possible classes from your evaluation data. However, for binary classification, some evaluation metrics (like the confusion matrix) require both classes to be present. When your evaluation dataset contains only a single class, you **must** specify the full set of possible classes using the `label_list` parameter in `evaluator_config`.
+:::note
+MLflow will raise an error if your labels are of incompatible types (e.g., mixing strings and integers). However, <b>bool</b> and <b>int</b> labels are treated as compatible and can be mixed. Additionally, strings that can be converted to numbers (e.g., "0", "1.5") are compatible with numeric types (int/float).
+:::
 
 ### Single-Class Binary Classification
 
@@ -795,7 +839,7 @@ result = mlflow.evaluate(
 )
 ```
 
-Without `label_list`, MLflow will raise an error for single-class data:
+Without <code>label_list</code>, MLflow will raise an error for single-class data:
 
 ```python
 # This will raise an error for single-class data without label_list
@@ -836,6 +880,13 @@ result = mlflow.evaluate(
 ```
 
 This ensures that confusion matrices and per-class metrics are computed for all expected classes, with zero counts for missing classes.
+
+## Transparency and Auditability
+
+- The positive label used for binary metrics is always logged as a run tag (<code>evaluation.positive_label</code>).
+- For binary classification, the <code>pos_label</code> is also logged as a metric in the evaluation results for transparency.
+- If the default positive label is used, a warning is logged in the run.
+- If the model does not support <code>predict_proba</code>, ROC/PR metrics are skipped and this is robustly handled.
 
 ## Conclusion
 

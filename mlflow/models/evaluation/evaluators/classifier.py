@@ -22,7 +22,6 @@ from mlflow.models.utils import plot_lines
 
 _logger = logging.getLogger(__name__)
 
-
 _Curve = namedtuple("_Curve", ["plot_fn", "plot_fn_args", "auc"])
 
 
@@ -50,10 +49,14 @@ class ClassifierEvaluator(BuiltInEvaluator):
         self.label_list = self.evaluator_config.get("label_list")
         self.pos_label = self.evaluator_config.get("pos_label")
         self.sample_weights = self.evaluator_config.get("sample_weights")
-        if self.pos_label and self.label_list and self.pos_label not in self.label_list:
-            raise MlflowException.invalid_parameter_value(
-                f"'pos_label' {self.pos_label} must exist in 'label_list' {self.label_list}."
-            )
+
+        # Validate pos_label only for binary classification
+        if self.pos_label is not None and self.label_list is not None:
+            if len(self.label_list) == 2 and self.pos_label not in self.label_list:
+                raise MlflowException.invalid_parameter_value(
+                    f"'pos_label' {self.pos_label} must exist in 'label_list' {self.label_list}."
+                )
+            # For multiclass, pos_label is ignored, so no validation needed
 
         # Check if the model_type is consistent with ground truth labels
         inferred_model_type = _infer_model_type_by_labels(self.y_true)
@@ -68,7 +71,19 @@ class ClassifierEvaluator(BuiltInEvaluator):
         input_df = self.X.copy_to_avoid_mutation()
         self.y_pred, self.y_probs = self._generate_model_predictions(model, input_df)
 
+        # Normalize data types to ensure consistency before validation
+        self._normalize_data_types()
         self._validate_label_list()
+        if self.label_list is None:
+            # If label_list is not set due to validation error, stop evaluation
+            return None
+
+        # Tag the chosen positive label on the run for auditability (only for binary)
+        _logger.debug(f"At tag set: label_list={self.label_list}, pos_label={self.pos_label}")
+        if self.label_list is not None and len(self.label_list) == 2:
+            pos_label_to_log = self.pos_label if self.pos_label is not None else self.label_list[-1]
+            mlflow.set_tag("evaluation.positive_label", str(pos_label_to_log))
+        # For multiclass, do not set this tag
 
         self._compute_builtin_metrics(model)
         self.evaluate_metrics(extra_metrics, prediction=self.y_pred, target=self.y_true)
@@ -80,11 +95,17 @@ class ClassifierEvaluator(BuiltInEvaluator):
         self.log_metrics()
         self.log_eval_table(self.y_pred)
 
-        if len(self.label_list) == 2:
+        if self.label_list is not None and len(self.label_list) == 2:
             self._log_binary_classifier_artifacts()
-        else:
+        elif self.label_list is not None:
             self._log_multiclass_classifier_artifacts()
         self._log_confusion_matrix()
+
+        # Expose the chosen pos_label as a "metric" so it shows in the metric table
+        # Only log positive_label for binary classification (for transparency)
+        if self.label_list is not None and len(self.label_list) == 2 and self.pos_label is not None:
+            self.aggregate_metrics["positive_label"] = self.pos_label
+        # For multiclass, do not log positive_label (no single positive class)
 
         return EvaluationResult(
             metrics=self.aggregate_metrics, artifacts=self.artifacts, run_id=self.run_id
@@ -100,14 +121,82 @@ class ClassifierEvaluator(BuiltInEvaluator):
         return y_pred, y_probs
 
     def _validate_label_list(self):
+        # Check for mixed/incompatible types in y_true and y_pred
+        all_labels = list(self.y_true) + list(self.y_pred)
+
+        # Normalize types to handle Python native vs NumPy types
+        def normalize_type(x):
+            if isinstance(x, (np.integer, int, np.bool_, bool)):
+                return int  # treat bool and int as compatible
+            elif isinstance(x, (np.floating, float)):
+                return float
+            elif isinstance(x, (np.str_, str)):
+                return str
+            else:
+                return type(x)
+
+        # Check if we have mixed types that can be coerced
+        types = {normalize_type(x) for x in all_labels}
+
+        if len(types) > 1:
+            is_valid_mix = types.issubset({int, float})
+
+            if not is_valid_mix and (str in types and (int in types or float in types)):
+                try:
+                    numeric_labels = []
+                    for label in all_labels:
+                        if isinstance(label, str):
+                            try:
+                                numeric_labels.append(int(label))
+                            except ValueError:
+                                numeric_labels.append(float(label))
+                        else:
+                            numeric_labels.append(label)
+
+                    numeric_types = {normalize_type(x) for x in numeric_labels}
+                    if numeric_types.issubset({int, float}):
+                        is_valid_mix = True
+                except (ValueError, TypeError):
+                    is_valid_mix = False
+
+            if not is_valid_mix:
+                raise MlflowException.invalid_parameter_value(
+                    f"Inconsistent label types detected in y_true/y_pred: {types}. "
+                    "All labels must be of the same type or compatible numeric types (int/float)."
+                )
+
         if self.label_list is None:
             # If label list is not specified, infer label list from model output
             self.label_list = np.unique(np.concatenate([self.y_true, self.y_pred]))
+            # Sort inferred labels for consistent behavior
+            try:
+                self.label_list.sort()
+            except TypeError:
+                # Handle mixed-type array by converting to string before sorting
+                self.label_list = np.sort(self.label_list.astype(str))
+
+            # If pos_label is provided and we have binary classification,
+            # check it is in the inferred label_list
+            if (
+                self.pos_label is not None
+                and len(self.label_list) == 2
+                and self.pos_label not in self.label_list
+            ):
+                raise MlflowException.invalid_parameter_value(
+                    f"'pos_label' {self.pos_label} must exist in 'label_list' {self.label_list}."
+                )
+            # For multiclass, pos_label is ignored, so no validation needed
         else:
+            # If user provided label_list, preserve their order
             self.label_list = np.array(self.label_list)
 
-        self.label_list.sort()
+            # Validate pos_label is in label_list when explicitly provided
+            if self.pos_label is not None and self.pos_label not in self.label_list:
+                raise MlflowException.invalid_parameter_value(
+                    f"'pos_label' {self.pos_label} must exist in 'label_list' {self.label_list}."
+                )
 
+        # Validate that we have at least 2 classes for classification
         if len(self.label_list) < 2:
             raise MlflowException(
                 "Evaluation dataset for classification must contain at least two unique "
@@ -117,22 +206,62 @@ class ClassifierEvaluator(BuiltInEvaluator):
         is_binomial = len(self.label_list) == 2
         if is_binomial:
             if self.pos_label is None:
+                # Dynamically choose last label as positive by default
                 self.pos_label = self.label_list[-1]
+                _logger.warning(
+                    f"No `pos_label` provided—defaulting to positive label = "
+                    f"{self.pos_label!r}. If this is not what you intended, please "
+                    f"specify `evaluator_config['pos_label']` explicitly."
+                )
             # pos_label validation is already done in _evaluate method
             with _suppress_class_imbalance_errors(IndexError, log_warning=False):
+                negative_label = (
+                    self.label_list[0]
+                    if self.pos_label == self.label_list[1]
+                    else self.label_list[1]
+                )
                 _logger.info(
                     "The evaluation dataset is inferred as binary dataset, positive label is "
-                    f"{self.pos_label}, negative label is {self.label_list[0]}"
+                    f"{self.pos_label}, negative label is {negative_label}"
                 )
         else:
             if self.pos_label is not None:
                 # pos_label is ignored for multiclass classification - no warning needed
                 pass
 
+    def _normalize_data_types(self):
+        """Normalize data types to ensure consistency for sklearn functions."""
+
+        def to_numeric(series):
+            try:
+                return pd.to_numeric(series)
+            except (ValueError, TypeError):
+                return series
+
+        self.y_true = to_numeric(pd.Series(self.y_true)).to_numpy()
+        self.y_pred = to_numeric(pd.Series(self.y_pred)).to_numpy()
+
+        if self.label_list is not None:
+            self.label_list = to_numeric(pd.Series(self.label_list)).to_numpy()
+
+        if self.pos_label is not None:
+            # pos_label might be a string "0" that needs to be converted
+            try:
+                self.pos_label = to_numeric(pd.Series([self.pos_label]))[0]
+            except (ValueError, TypeError):
+                pass
+
     def _compute_builtin_metrics(self, model):
         self._evaluate_sklearn_model_score_if_scorable(model, self.y_true, self.sample_weights)
 
-        if len(self.label_list) <= 2:
+        if self.label_list is not None and len(self.label_list) <= 2:
+            # Check if model supports predict_proba for binary classification
+            if self.y_probs is None and model is not None:
+                _, predict_proba_fn = _extract_predict_fn_and_prodict_proba_fn(model)
+                if predict_proba_fn is None:
+                    _logger.info(
+                        "No predict_proba available—skipping ROC and PR curve computation."
+                    )
             metrics = _get_binary_classifier_metrics(
                 y_true=self.y_true,
                 y_pred=self.y_pred,
@@ -143,7 +272,8 @@ class ClassifierEvaluator(BuiltInEvaluator):
             )
             if metrics:
                 self.metrics_values.update(_get_aggregate_metrics_values(metrics))
-                self._compute_roc_and_pr_curve()
+                if self.y_probs is not None:
+                    self._compute_roc_and_pr_curve()
         else:
             average = self.evaluator_config.get("average", "weighted")
             metrics = _get_multiclass_classifier_metrics(
@@ -158,40 +288,48 @@ class ClassifierEvaluator(BuiltInEvaluator):
                 self.metrics_values.update(_get_aggregate_metrics_values(metrics))
 
     def _compute_roc_and_pr_curve(self):
-        if self.y_probs is not None:
-            with _suppress_class_imbalance_errors(ValueError, log_warning=False):
-                self.roc_curve = _gen_classifier_curve(
-                    is_binomial=True,
-                    y=self.y_true,
-                    y_probs=self.y_probs[:, 1],
-                    labels=self.label_list,
-                    pos_label=self.pos_label,
-                    curve_type="roc",
-                    sample_weights=self.sample_weights,
-                )
+        if self.y_probs is None:
+            return  # nothing to do
+        # Determine which column holds the positive-class probability
+        pos_index = list(self.label_list).index(self.pos_label)
+        # Binarize ground truth
+        y_true_bin = np.array([1 if y == self.pos_label else 0 for y in self.y_true])
+        with _suppress_class_imbalance_errors(ValueError, log_warning=False):
+            self.roc_curve = _gen_classifier_curve(
+                is_binomial=True,
+                y=y_true_bin,
+                y_probs=self.y_probs[:, pos_index],
+                labels=[0, 1],  # work in binary space
+                pos_label=1,  # positive = 1 in this space
+                curve_type="roc",
+                sample_weights=self.sample_weights,
+            )
 
-                self.metrics_values.update(
-                    _get_aggregate_metrics_values({"roc_auc": self.roc_curve.auc})
-                )
-            with _suppress_class_imbalance_errors(ValueError, log_warning=False):
-                self.pr_curve = _gen_classifier_curve(
-                    is_binomial=True,
-                    y=self.y_true,
-                    y_probs=self.y_probs[:, 1],
-                    labels=self.label_list,
-                    pos_label=self.pos_label,
-                    curve_type="pr",
-                    sample_weights=self.sample_weights,
-                )
+            self.metrics_values.update(
+                _get_aggregate_metrics_values({"roc_auc": self.roc_curve.auc})
+            )
+        with _suppress_class_imbalance_errors(ValueError, log_warning=False):
+            self.pr_curve = _gen_classifier_curve(
+                is_binomial=True,
+                y=y_true_bin,
+                y_probs=self.y_probs[:, pos_index],
+                labels=[0, 1],  # work in binary space
+                pos_label=1,  # positive = 1 in this space
+                curve_type="pr",
+                sample_weights=self.sample_weights,
+            )
 
-                self.metrics_values.update(
-                    _get_aggregate_metrics_values({"precision_recall_auc": self.pr_curve.auc})
-                )
+            self.metrics_values.update(
+                _get_aggregate_metrics_values({"precision_recall_auc": self.pr_curve.auc})
+            )
 
     def _log_pandas_df_artifact(self, pandas_df, artifact_name):
-        artifact_file_name = f"{artifact_name}.csv"
+        artifact_file_name = f"{artifact_name}"
+        if not artifact_name.endswith(".csv"):
+            artifact_file_name += ".csv"
+
         artifact_file_local_path = self.temp_dir.path(artifact_file_name)
-        pandas_df.to_csv(artifact_file_local_path, index=False)
+        pandas_df.to_csv(artifact_file_local_path, index=True)
         mlflow.log_artifact(artifact_file_local_path)
         artifact = CsvEvaluationArtifact(
             uri=mlflow.get_artifact_uri(artifact_file_name),
@@ -206,6 +344,7 @@ class ClassifierEvaluator(BuiltInEvaluator):
             y_pred=self.y_pred,
             labels=self.label_list,
             sample_weights=self.sample_weights,
+            pos_label=None,  # No single positive label for multiclass
         )
 
         log_roc_pr_curve = False
@@ -226,37 +365,39 @@ class ClassifierEvaluator(BuiltInEvaluator):
                 )
 
         if log_roc_pr_curve:
-            roc_curve = _gen_classifier_curve(
-                is_binomial=False,
-                y=self.y_true,
-                y_probs=self.y_probs,
-                labels=self.label_list,
-                pos_label=self.pos_label,
-                curve_type="roc",
-                sample_weights=self.sample_weights,
-            )
+            with _suppress_class_imbalance_errors(ValueError, log_warning=False):
+                roc_curve = _gen_classifier_curve(
+                    is_binomial=False,
+                    y=self.y_true,
+                    y_probs=self.y_probs,
+                    labels=self.label_list,
+                    pos_label=None,  # No single positive label for multiclass
+                    curve_type="roc",
+                    sample_weights=self.sample_weights,
+                )
 
-            def plot_roc_curve():
-                roc_curve.plot_fn(**roc_curve.plot_fn_args)
+                def plot_roc_curve():
+                    roc_curve.plot_fn(**roc_curve.plot_fn_args)
 
-            self._log_image_artifact(plot_roc_curve, "roc_curve_plot")
-            per_class_metrics_collection_df["roc_auc"] = roc_curve.auc
+                self._log_image_artifact(plot_roc_curve, "roc_curve_plot")
+                per_class_metrics_collection_df["roc_auc"] = roc_curve.auc
 
-            pr_curve = _gen_classifier_curve(
-                is_binomial=False,
-                y=self.y_true,
-                y_probs=self.y_probs,
-                labels=self.label_list,
-                pos_label=self.pos_label,
-                curve_type="pr",
-                sample_weights=self.sample_weights,
-            )
+            with _suppress_class_imbalance_errors(ValueError, log_warning=False):
+                pr_curve = _gen_classifier_curve(
+                    is_binomial=False,
+                    y=self.y_true,
+                    y_probs=self.y_probs,
+                    labels=self.label_list,
+                    pos_label=None,  # No single positive label for multiclass
+                    curve_type="pr",
+                    sample_weights=self.sample_weights,
+                )
 
-            def plot_pr_curve():
-                pr_curve.plot_fn(**pr_curve.plot_fn_args)
+                def plot_pr_curve():
+                    pr_curve.plot_fn(**pr_curve.plot_fn_args)
 
-            self._log_image_artifact(plot_pr_curve, "precision_recall_curve_plot")
-            per_class_metrics_collection_df["precision_recall_auc"] = pr_curve.auc
+                self._log_image_artifact(plot_pr_curve, "precision_recall_curve_plot")
+                per_class_metrics_collection_df["precision_recall_auc"] = pr_curve.auc
 
         self._log_pandas_df_artifact(per_class_metrics_collection_df, "per_class_metrics")
 
@@ -283,11 +424,14 @@ class ClassifierEvaluator(BuiltInEvaluator):
     def _log_calibration_curve(self):
         from mlflow.models.evaluation.calibration_curve import plot_calibration_curve
 
+        # For binary classification, use pos_label; for multiclass, use None
+        pos_label_for_calibration = self.pos_label if len(self.label_list) == 2 else None
+
         def _plot_calibration_curve():
             return plot_calibration_curve(
                 y_true=self.y_true,
                 y_probs=self.y_probs,
-                pos_label=self.pos_label,
+                pos_label=pos_label_for_calibration,
                 calibration_config={
                     k: v for k, v in self.evaluator_config.items() if k.startswith("calibration_")
                 },
@@ -312,7 +456,7 @@ class ClassifierEvaluator(BuiltInEvaluator):
         Helper method for logging confusion matrix
         """
         # normalize the confusion matrix, keep consistent with sklearn autologging.
-        confusion_matrix = sk_metrics.confusion_matrix(
+        normalized_cm_array = sk_metrics.confusion_matrix(
             self.y_true,
             self.y_pred,
             labels=self.label_list,
@@ -332,7 +476,7 @@ class ClassifierEvaluator(BuiltInEvaluator):
             ):
                 _, ax = plt.subplots(1, 1, figsize=(6.0, 4.0), dpi=175)
                 disp = sk_metrics.ConfusionMatrixDisplay(
-                    confusion_matrix=confusion_matrix,
+                    confusion_matrix=normalized_cm_array,
                     display_labels=self.label_list,
                 ).plot(cmap="Blues", ax=ax)
                 disp.ax_.set_title("Normalized confusion matrix")
@@ -359,8 +503,13 @@ def _is_continuous(values):
     Infer whether input values is continuous on best effort.
     Return True represent they are continuous, return False represent we cannot determine result.
     """
-    dtype_name = pd.Series(values).convert_dtypes().dtype.name.lower()
-    return dtype_name.startswith("float")
+    try:
+        dtype_name = pd.Series(values).convert_dtypes().dtype.name.lower()
+        return dtype_name.startswith("float")
+    except (AttributeError, TypeError, ValueError):
+        # If we can't determine the dtype or if there are issues with the data,
+        # assume it's not continuous to be safe
+        return False
 
 
 def _infer_model_type_by_labels(labels):
@@ -449,6 +598,10 @@ def _get_binary_sum_up_label_pred_prob(positive_class_index, positive_class, y, 
 def _get_common_classifier_metrics(
     *, y_true, y_pred, y_proba, labels, average, pos_label, sample_weights
 ):
+    # For binary classification, if pos_label is None, use the last label as default
+    if average == "binary" and pos_label is None and labels is not None:
+        pos_label = labels[-1]
+
     metrics = {
         "example_count": len(y_true),
         "accuracy_score": sk_metrics.accuracy_score(y_true, y_pred, sample_weight=sample_weights),
@@ -504,21 +657,33 @@ def _get_binary_classifier_metrics(
     with _suppress_class_imbalance_errors(ValueError):
         # Use labels parameter to ensure proper 2x2 confusion matrix structure
         cm = sk_metrics.confusion_matrix(y_true, y_pred, labels=labels)
-        tn, fp, fn, tp = cm.ravel()
+        flat = cm.ravel()
+        if flat.size != 4:
+            _logger.warning(
+                f"Unexpected confusion_matrix shape {cm.shape}; setting TN/FP/FN/TP = 0"
+            )
+            tn = fp = fn = tp = 0
+        else:
+            tn, fp, fn, tp = flat
+
+        # Get common metrics (these will be computed normally even with zero confusion matrix
+        # values)
+        common_metrics = _get_common_classifier_metrics(
+            y_true=y_true,
+            y_pred=y_pred,
+            y_proba=y_proba,
+            labels=labels,
+            average="binary",
+            pos_label=pos_label,
+            sample_weights=sample_weights,
+        )
+
         return {
             "true_negatives": tn,
             "false_positives": fp,
             "false_negatives": fn,
             "true_positives": tp,
-            **_get_common_classifier_metrics(
-                y_true=y_true,
-                y_pred=y_pred,
-                y_proba=y_proba,
-                labels=labels,
-                average="binary",
-                pos_label=pos_label,
-                sample_weights=sample_weights,
-            ),
+            **common_metrics,
         }
 
 
@@ -541,19 +706,25 @@ def _get_multiclass_classifier_metrics(
         sample_weights=sample_weights,
     )
     if average in ("macro", "weighted") and y_proba is not None:
-        metrics.update(
-            roc_auc=sk_metrics.roc_auc_score(
-                y_true=y_true,
-                y_score=y_proba,
-                sample_weight=sample_weights,
-                average=average,
-                multi_class="ovr",
+        try:
+            metrics.update(
+                roc_auc=sk_metrics.roc_auc_score(
+                    y_true=y_true,
+                    y_score=y_proba,
+                    sample_weight=sample_weights,
+                    average=average,
+                    multi_class="ovr",
+                    labels=labels,
+                )
             )
-        )
+        except ValueError:
+            metrics.update(roc_auc=math.nan)
     return metrics
 
 
-def _get_classifier_per_class_metrics_collection_df(y, y_pred, labels, sample_weights):
+def _get_classifier_per_class_metrics_collection_df(
+    y, y_pred, labels, sample_weights, pos_label=None
+):
     per_class_metrics_list = []
     for positive_class_index, positive_class in enumerate(labels):
         (
@@ -564,17 +735,22 @@ def _get_classifier_per_class_metrics_collection_df(y, y_pred, labels, sample_we
             positive_class_index, positive_class, y, y_pred, None
         )
         per_class_metrics = {"positive_class": positive_class}
-        binary_classifier_metrics = _get_binary_classifier_metrics(
-            y_true=y_bin,
-            y_pred=y_pred_bin,
-            labels=[0, 1],
-            pos_label=1,
-            sample_weights=sample_weights,
-        )
+        # Since _get_binary_sum_up_label_pred_prob converts everything to 0/1,
+        # we need to use [0, 1] as labels for the confusion matrix
+        # The pos_label should be 1 since that's what represents the positive class
+        try:
+            binary_classifier_metrics = _get_binary_classifier_metrics(
+                y_true=y_bin,
+                y_pred=y_pred_bin,
+                labels=[0, 1],
+                pos_label=1,
+                sample_weights=sample_weights,
+            )
+        except ValueError:
+            binary_classifier_metrics = {"roc_auc": float("nan")}
         if binary_classifier_metrics:
             per_class_metrics.update(binary_classifier_metrics)
         per_class_metrics_list.append(per_class_metrics)
-
     return pd.DataFrame(per_class_metrics_list)
 
 
@@ -619,7 +795,13 @@ def _gen_classifier_curve(
                 pos_label=_pos_label if _pos_label == pos_label else None,
             )
 
-            auc = sk_metrics.roc_auc_score(y_true=_y, y_score=_y_prob, sample_weight=sample_weights)
+            try:
+                auc = sk_metrics.roc_auc_score(
+                    y_true=_y, y_score=_y_prob, sample_weight=sample_weights
+                )
+            except ValueError:
+                # Handle case where only one class is present in y_true
+                auc = math.nan
             return fpr, tpr, f"AUC={auc:.3f}", auc
 
         xlabel = "False Positive Rate"
@@ -642,9 +824,13 @@ def _gen_classifier_curve(
             )
             # NB: We return average precision score (AP) instead of AUC because AP is more
             # appropriate for summarizing a precision-recall curve
-            ap = sk_metrics.average_precision_score(
-                y_true=_y, y_score=_y_prob, pos_label=_pos_label, sample_weight=sample_weights
-            )
+            try:
+                ap = sk_metrics.average_precision_score(
+                    y_true=_y, y_score=_y_prob, pos_label=_pos_label, sample_weight=sample_weights
+                )
+            except ValueError:
+                # Handle case where only one class is present in y_true
+                ap = math.nan
             return recall, precision, f"AP={ap:.3f}", ap
 
         xlabel = "Recall"
