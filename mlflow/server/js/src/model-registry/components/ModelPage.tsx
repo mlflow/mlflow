@@ -212,6 +212,7 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
     } = this.state;
     this.setState({ loading: true, error: undefined });
     this.updateUrlWithState(this.orderByKey, this.orderByAsc, page);
+    console.log('loadPage', page, this.orderByKey, this.orderByAsc, getOrderByExpr(this.orderByKey, this.orderByAsc));
     const filters_obj = { name: modelName };
     const promiseValues = [
       this.props

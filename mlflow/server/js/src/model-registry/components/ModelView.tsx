@@ -41,11 +41,6 @@ export const StageFilters = {
   ACTIVE: 'ACTIVE',
 };
 
-type Sorter = {
-  field: string;
-  order: 'ascend' | 'descend' | 'undefined';
-};
-
 type ModelViewImplProps = {
   model?: ModelEntity;
   modelVersions?: ModelVersionInfoEntity[];
