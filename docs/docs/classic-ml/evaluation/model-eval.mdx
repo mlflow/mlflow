@@ -114,6 +114,18 @@ print(f"ROC AUC: {metrics['roc_auc']:.3f}")
 | Missing classes (multiclass)   | `label_list`         | Recommended. Otherwise, only present classes used|
 | Binary, want custom pos_label  | `pos_label`          | Use for metrics (default: last in label_list)    |
 
+**Key Configuration Parameters:**
+
+- **`pos_label`**: Positive class for binary classification metrics. Only meaningful for binary classification (2 classes). For multiclass, this parameter is ignored.
+- **`label_list`**: Complete set of expected classes. Required when evaluation data is missing expected classes.
+  > **Note:** All items in `label_list` must be of the same type or convertible to a common numeric type (e.g., int, float, numeric string). Mixing string labels with non-numeric values (e.g., `['cat', 1]`) is not supported and will raise an error.
+- **`average`**: Averaging strategy for multiclass metrics ("macro", "micro", "weighted").
+
+:::tip Binary vs Multiclass Behavior
+- **Binary classification**: `pos_label` determines which class is treated as positive for metrics like precision, recall, and ROC-AUC
+- **Multiclass classification**: `pos_label` is ignored - all classes are evaluated equally using one-vs-rest approach
+:::
+
   </TabItem>
   <TabItem value="regression" label="Regression">
 
@@ -207,7 +219,7 @@ result = mlflow.models.evaluate(
 
   #### General Options
   <ul>
-    <li><code>pos_label</code>: Positive class label for binary classification metrics. Only applies to binary classification. If not specified, MLflow defaults to the last label in <code>label_list</code> (or the inferred list) as the positive class, and logs a warning. <b>bool</b> and <b>int</b> labels are treated as compatible types. When provided, MLflow validates that <code>pos_label</code> exists in <code>label_list</code> (whether explicitly provided or inferred from data). For multiclass classification, <code>pos_label</code> is ignored entirely.</li>
+    <li><code>pos_label</code>: Positive class label for binary classification metrics. Only applies to binary classification. If not specified, MLflow defaults to the last label in <code>label_list</code> (whether explicitly provided or inferred from data). For multiclass classification, <code>pos_label</code> is ignored entirely.</li>
     <li><code>label_list</code>: For single-class or missing-class evaluation data, you <b>must</b> specify the full set of expected classes using <code>label_list</code>. Otherwise, MLflow will raise an error. For normal binary or multiclass data, you do <b>not</b> need to specify <code>label_list</code>—MLflow will infer it automatically.</li>
     <li><code>average</code>: Averaging strategy for multiclass metrics ("macro", "micro", "weighted")</li>
     <li><code>sample_weights</code>: Sample weights for weighted metrics</li>
@@ -245,18 +257,6 @@ result = mlflow.models.evaluate(
     },
 )
 ```
-
-**Key Configuration Parameters:**
-
-- **`pos_label`**: Positive class for binary classification metrics. Only meaningful for binary classification (2 classes). For multiclass, this parameter is ignored.
-- **`label_list`**: Complete set of expected classes. Required when evaluation data is missing expected classes.
-  > **Note:** All items in `label_list` must be of the same type or convertible to a common numeric type (e.g., int, float, numeric string). Mixing string labels with non-numeric values (e.g., `['cat', 1]`) is not supported and will raise an error.
-- **`average`**: Averaging strategy for multiclass metrics ("macro", "micro", "weighted").
-
-:::tip Binary vs Multiclass Behavior
-- **Binary classification**: `pos_label` determines which class is treated as positive for metrics like precision, recall, and ROC-AUC
-- **Multiclass classification**: `pos_label` is ignored - all classes are evaluated equally using one-vs-rest approach
-:::
 
 ## Custom Metrics and Artifacts
 
