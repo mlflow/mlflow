@@ -71,14 +71,10 @@ async def patched_async_class_call(original, self, *args, **kwargs):
         _set_span_attributes(span, self)
 
         result = await original(self, *args, **kwargs)
-        if isinstance(result, tuple) and len(result) == 2:
-            output_obj, usage = result
-            outputs = output_obj.__dict__ if hasattr(output_obj, "__dict__") else output_obj
-        else:
-            outputs = result.__dict__ if hasattr(result, "__dict__") else result
-            usage = getattr(result, "usage", None)
+        outputs = result.__dict__ if hasattr(result, "__dict__") else result
+
         span.set_outputs(outputs)
-        if usage_dict := _parse_usage(usage):
+        if usage_dict := _parse_usage(result):
             span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
         return result
 
@@ -96,15 +92,10 @@ def patched_class_call(original, self, *args, **kwargs):
         _set_span_attributes(span, self)
 
         result = original(self, *args, **kwargs)
-        if isinstance(result, tuple) and len(result) == 2:
-            output_obj, usage = result
-            outputs = output_obj.__dict__ if hasattr(output_obj, "__dict__") else output_obj
-        else:
-            outputs = result.__dict__ if hasattr(result, "__dict__") else result
-            usage = getattr(result, "usage", None)
+        outputs = result.__dict__ if hasattr(result, "__dict__") else result
 
         span.set_outputs(outputs)
-        if usage_dict := _parse_usage(usage):
+        if usage_dict := _parse_usage(result):
             span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
         return result
 
@@ -188,11 +179,13 @@ def _parse_tools(tools):
     return result
 
 
-def _parse_usage(usage: Any) -> Optional[dict[str, int]]:
-    if usage is None:
-        return None
-
+def _parse_usage(result: Any) -> Optional[dict[str, int]]:
     try:
+        if isinstance(result, tuple) and len(result) == 2:
+            usage = result[1]
+        else:
+            usage = getattr(result, "usage", None)
+
         return {
             TokenUsageKey.INPUT_TOKENS: usage.request_tokens,
             TokenUsageKey.OUTPUT_TOKENS: usage.response_tokens,
