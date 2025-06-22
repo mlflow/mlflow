@@ -163,8 +163,7 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
   }
   
   get orderByAsc() {
-    console.log('orderByAsc', this.getUrlState().orderByAsc);
-    return this.getUrlState().orderByAsc === 'true';
+    return String(this.getUrlState().orderByAsc) === 'true';
   }
 
   getPersistedPageTokens() {
@@ -218,7 +217,6 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
     } = this.state;
     this.setState({ loading: true, error: undefined });
     this.updateUrlWithState(undefined, undefined, page);
-    console.log('loadPage', page, this.orderByKey, this.orderByAsc, getOrderByExpr(this.orderByKey, this.orderByAsc));
     const filters_obj = { name: modelName };
     const promiseValues = [
       this.props

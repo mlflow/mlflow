@@ -364,6 +364,7 @@ export const ModelVersionTable = ({
                 const [currentSortColumn] = sorting;
                 const changingDirection = header.column.id === currentSortColumn.id;
                 const sortDesc = changingDirection ? !currentSortColumn.desc : false;
+                console.log("Toggling sort for column:", header.column.id, "to", sortDesc, sorting);
                 header.column.toggleSorting(sortDesc);
               }}
               css={(header.column.columnDef as ModelVersionColumnDef).meta?.styles}
