@@ -160,9 +160,11 @@ class ClassifierEvaluator(BuiltInEvaluator):
                     is_valid_mix = False
 
             if not is_valid_mix:
+                # Mixed types that can't be normalized
+                type_set = {type(x) for x in all_labels}
                 raise MlflowException.invalid_parameter_value(
-                    f"Inconsistent label types detected in y_true/y_pred: {types}. "
-                    "All labels must be of the same type or compatible numeric types (int/float)."
+                    f"Inconsistent types in {self.name}: {type_set}. "
+                    "All values must be numeric or all must be strings."
                 )
 
         if self.label_list is None:
@@ -232,24 +234,59 @@ class ClassifierEvaluator(BuiltInEvaluator):
     def _normalize_data_types(self):
         """Normalize data types to ensure consistency for sklearn functions."""
 
-        def to_numeric(series):
+        def validate_consistent_types(values, name):
+            """Validate that all values can be converted to the same type."""
+            if len(values) == 0:
+                return values
+
+            # Try numeric conversion first
             try:
-                return pd.to_numeric(series)
+                numeric_values = pd.to_numeric(values)
+                # If it's already a numpy array, return it directly
+                if isinstance(numeric_values, np.ndarray):
+                    return numeric_values
+                # Otherwise convert to numpy
+                return numeric_values.to_numpy()
             except (ValueError, TypeError):
-                return series
+                # If numeric conversion fails, check if all are strings
+                if all(isinstance(x, str) for x in values):
+                    return np.array(values)
+                else:
+                    # Mixed types that can't be normalized
+                    type_set = {type(x) for x in values}
+                    raise MlflowException.invalid_parameter_value(
+                        f"Inconsistent types in {name}: {type_set}. "
+                        "All values must be numeric or all must be strings."
+                    )
 
-        self.y_true = to_numeric(pd.Series(self.y_true)).to_numpy()
-        self.y_pred = to_numeric(pd.Series(self.y_pred)).to_numpy()
+        # Normalize y_true and y_pred
+        self.y_true = validate_consistent_types(self.y_true, "y_true")
+        self.y_pred = validate_consistent_types(self.y_pred, "y_pred")
 
+        # Normalize label_list if provided
         if self.label_list is not None:
-            self.label_list = to_numeric(pd.Series(self.label_list)).to_numpy()
+            self.label_list = validate_consistent_types(self.label_list, "label_list")
 
+        # Normalize pos_label if provided
         if self.pos_label is not None:
-            # pos_label might be a string "0" that needs to be converted
             try:
-                self.pos_label = to_numeric(pd.Series([self.pos_label]))[0]
-            except (ValueError, TypeError):
-                pass
+                # Try to convert pos_label to match the type of label_list
+                if self.label_list is not None:
+                    # Use the same type as label_list
+                    if np.issubdtype(self.label_list.dtype, np.number):
+                        self.pos_label = pd.to_numeric([self.pos_label])[0]
+                    else:
+                        self.pos_label = str(self.pos_label)
+                else:
+                    # Try numeric conversion, fall back to string
+                    try:
+                        self.pos_label = pd.to_numeric([self.pos_label])[0]
+                    except (ValueError, TypeError):
+                        self.pos_label = str(self.pos_label)
+            except (ValueError, TypeError) as e:
+                raise MlflowException.invalid_parameter_value(
+                    f"Failed to normalize pos_label {self.pos_label}: {e}"
+                )
 
     def _compute_builtin_metrics(self, model):
         self._evaluate_sklearn_model_score_if_scorable(model, self.y_true, self.sample_weights)
@@ -329,7 +366,9 @@ class ClassifierEvaluator(BuiltInEvaluator):
             artifact_file_name += ".csv"
 
         artifact_file_local_path = self.temp_dir.path(artifact_file_name)
-        pandas_df.to_csv(artifact_file_local_path, index=True)
+        pandas_df.to_csv(
+            artifact_file_local_path, index=False
+        )  # Don't include index for compatibility
         mlflow.log_artifact(artifact_file_local_path)
         artifact = CsvEvaluationArtifact(
             uri=mlflow.get_artifact_uri(artifact_file_name),
@@ -658,9 +697,21 @@ def _get_binary_classifier_metrics(
         # Use labels parameter to ensure proper 2x2 confusion matrix structure
         cm = sk_metrics.confusion_matrix(y_true, y_pred, labels=labels)
         flat = cm.ravel()
-        if flat.size != 4:
+
+        # Strict validation for binary classification
+        if labels is not None:
+            if len(labels) != 2 or cm.shape != (2, 2):
+                raise MlflowException(
+                    f"Expected 2x2 confusion matrix for binary classification with "
+                    f"labels {labels}, but got shape {cm.shape}. This may indicate "
+                    f"a mismatch between provided labels and actual data values."
+                )
+            tn, fp, fn, tp = flat
+        elif flat.size != 4:
+            # For other cases, warn but don't fail
             _logger.warning(
-                f"Unexpected confusion_matrix shape {cm.shape}; setting TN/FP/FN/TP = 0"
+                f"Unexpected confusion_matrix shape {cm.shape} for binary classification; "
+                f"setting TN/FP/FN/TP = 0. This may indicate single-class data or label mismatch."
             )
             tn = fp = fn = tp = 0
         else:

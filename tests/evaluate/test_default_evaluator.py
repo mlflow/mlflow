@@ -4484,3 +4484,214 @@ def test_single_class_with_label_list_success():
     assert result.metrics["false_positives"] == 0
     assert result.metrics["false_negatives"] == 0
     assert result.metrics["true_positives"] == 0
+
+
+def test_mixed_type_validation_raises_error():
+    """Test that mixed types in label_list raise appropriate errors."""
+    import numpy as np
+    import pandas as pd
+
+    from mlflow.exceptions import MlflowException
+    from mlflow.models.evaluation.base import EvaluationDataset
+    from mlflow.models.evaluation.evaluators.classifier import ClassifierEvaluator
+
+    # Test case 1: Mixed numeric and string types
+    X = pd.DataFrame({"feature": [1, 2, 3, 4], "target": [0, 1, 0, 1]})
+    dataset = EvaluationDataset(data=X, targets="target")
+
+    evaluator = ClassifierEvaluator()
+    evaluator.dataset = dataset
+    evaluator.evaluator_config = {"label_list": [0, "spam"]}  # Mixed types
+    evaluator.y_true = dataset.labels_data
+    evaluator.y_pred = np.array([0, 1, 0, 1])
+    evaluator.label_list = evaluator.evaluator_config.get("label_list")
+    evaluator.pos_label = None
+
+    # This should raise an error due to mixed types
+    with pytest.raises(MlflowException, match="Inconsistent types"):
+        evaluator._normalize_data_types()
+
+    # Test case 2: Mixed numeric types that can't be normalized
+    evaluator.evaluator_config = {"label_list": [0, 1.5, "cat"]}  # int, float, string
+    evaluator.label_list = evaluator.evaluator_config.get("label_list")
+
+    with pytest.raises(MlflowException, match="Inconsistent types"):
+        evaluator._normalize_data_types()
+
+
+def test_confusion_matrix_shape_validation():
+    """Test that confusion matrix shape validation works correctly."""
+    from mlflow.exceptions import MlflowException
+    from mlflow.models.evaluation.evaluators.classifier import _get_binary_classifier_metrics
+
+    # Test case 1: Valid binary classification with explicit labels
+    y_true = [0, 1, 0, 1]
+    y_pred = [0, 1, 0, 0]
+    labels = [0, 1]
+
+    # This should work fine
+    metrics = _get_binary_classifier_metrics(
+        y_true=y_true, y_pred=y_pred, labels=labels, pos_label=1
+    )
+    assert metrics["true_positives"] == 1
+    assert metrics["false_positives"] == 0
+    assert metrics["false_negatives"] == 1
+    assert metrics["true_negatives"] == 2
+
+    # Test case 2: Single class with explicit binary labels (should work)
+    y_true = [1, 1, 1, 1]
+    y_pred = [1, 1, 1, 1]
+    labels = [0, 1]
+
+    metrics = _get_binary_classifier_metrics(
+        y_true=y_true, y_pred=y_pred, labels=labels, pos_label=1
+    )
+    assert metrics["true_positives"] == 4
+    assert metrics["false_positives"] == 0
+    assert metrics["false_negatives"] == 0
+    assert metrics["true_negatives"] == 0
+
+    # Test case 3: Mismatched labels should raise error
+    y_true = [0, 1, 0, 1]
+    y_pred = [0, 1, 0, 0]
+    labels = [0, 1, 2]  # 3-class labels for binary data
+
+    # This should raise an error due to shape mismatch
+    with pytest.raises(MlflowException, match="Expected 2x2 confusion matrix"):
+        _get_binary_classifier_metrics(y_true=y_true, y_pred=y_pred, labels=labels, pos_label=1)
+
+
+def test_pos_label_type_consistency():
+    """Test that pos_label type consistency is maintained."""
+    import numpy as np
+    import pandas as pd
+
+    from mlflow.models.evaluation.base import EvaluationDataset
+    from mlflow.models.evaluation.evaluators.classifier import ClassifierEvaluator
+
+    # Test case 1: String labels with string pos_label
+    X = pd.DataFrame({"feature": [1, 2, 3, 4], "target": ["cat", "dog", "cat", "dog"]})
+    dataset = EvaluationDataset(data=X, targets="target")
+
+    evaluator = ClassifierEvaluator()
+    evaluator.dataset = dataset
+    evaluator.evaluator_config = {"label_list": ["cat", "dog"], "pos_label": "dog"}
+    evaluator.y_true = dataset.labels_data
+    evaluator.y_pred = np.array(["cat", "dog", "cat", "dog"])
+    evaluator.label_list = evaluator.evaluator_config.get("label_list")
+    evaluator.pos_label = evaluator.evaluator_config.get("pos_label")
+
+    # This should work and maintain string types
+    evaluator._normalize_data_types()
+    assert evaluator.pos_label == "dog"
+    assert all(isinstance(x, str) for x in evaluator.label_list)
+
+    # Test case 2: Numeric labels with numeric pos_label
+    X = pd.DataFrame({"feature": [1, 2, 3, 4], "target": [0, 1, 0, 1]})
+    dataset = EvaluationDataset(data=X, targets="target")
+
+    evaluator = ClassifierEvaluator()
+    evaluator.dataset = dataset
+    evaluator.evaluator_config = {"label_list": [0, 1], "pos_label": 1}
+    evaluator.y_true = dataset.labels_data
+    evaluator.y_pred = np.array([0, 1, 0, 1])
+    evaluator.label_list = evaluator.evaluator_config.get("label_list")
+    evaluator.pos_label = evaluator.evaluator_config.get("pos_label")
+
+    # This should work and maintain numeric types
+    evaluator._normalize_data_types()
+    assert evaluator.pos_label == 1
+    assert all(isinstance(x, (int, np.integer)) for x in evaluator.label_list)
+
+
+def test_roc_pr_nan_handling():
+    """Test that ROC/PR curves handle NaN values gracefully."""
+    import numpy as np
+
+    from mlflow.models.evaluation.evaluators.classifier import _gen_classifier_curve
+
+    # Test case: Single class data should result in NaN AUC
+    y = np.array([1, 1, 1, 1])  # Only positive class
+    y_probs = np.array([0.9, 0.8, 0.7, 0.6])  # High confidence predictions
+
+    # This should not raise an error and should return NaN AUC
+    curve = _gen_classifier_curve(
+        is_binomial=True,
+        y=y,
+        y_probs=y_probs,
+        labels=[0, 1],
+        pos_label=1,
+        curve_type="roc",
+        sample_weights=None,
+    )
+
+    # AUC should be NaN for single-class data
+    assert np.isnan(curve.auc)
+
+
+def test_csv_artifact_no_index():
+    """Test that CSV artifacts are saved without index for backward compatibility."""
+    import pandas as pd
+
+    from mlflow.models.evaluation.base import EvaluationDataset
+    from mlflow.models.evaluation.evaluators.classifier import ClassifierEvaluator
+
+    # Create test data
+    X = pd.DataFrame({"feature": [1, 2, 3, 4], "target": [0, 1, 0, 1]})
+    dataset = EvaluationDataset(data=X, targets="target")
+
+    evaluator = ClassifierEvaluator()
+    evaluator.dataset = dataset
+    evaluator.evaluator_config = {"label_list": [0, 1]}
+    evaluator.y_true = dataset.labels_data
+    evaluator.y_pred = np.array([0, 1, 0, 1])
+    evaluator.label_list = evaluator.evaluator_config.get("label_list")
+    evaluator.pos_label = 1
+
+    # Mock temp_dir and mlflow.log_artifact
+    class MockTempDir:
+        def path(self, filename):
+            return f"/tmp/{filename}"
+
+    evaluator.temp_dir = MockTempDir()
+    evaluator.artifacts = {}
+
+    # Create a test DataFrame with custom index to ensure index is not written
+    test_df = pd.DataFrame({"col1": [1, 2, 3], "col2": [4, 5, 6]}, index=[10, 20, 30])
+
+    # Mock mlflow.log_artifact to capture the file content
+    original_log_artifact = mlflow.log_artifact
+
+    def mock_log_artifact(path):
+        # Read the CSV file to verify no index was written
+        with open(path) as f:
+            lines = f.readlines()
+
+            # Should have 4 lines: header + 3 data rows
+            assert len(lines) == 4
+
+            # First line should be just the column headers, no index
+            header_line = lines[0].strip()
+            assert header_line == "col1,col2"
+
+            # Data lines should not start with index values (10, 20, 30)
+            for i, line in enumerate(lines[1:], 1):
+                line = line.strip()
+                # Should not contain the index values at the beginning
+                assert not line.startswith("10,")
+                assert not line.startswith("20,")
+                assert not line.startswith("30,")
+                # Should start with the actual data values
+                if i == 1:
+                    assert line.startswith("1,")
+                elif i == 2:
+                    assert line.startswith("2,")
+                elif i == 3:
+                    assert line.startswith("3,")
+
+    mlflow.log_artifact = mock_log_artifact
+
+    try:
+        evaluator._log_pandas_df_artifact(test_df, "test_artifact")
+    finally:
+        mlflow.log_artifact = original_log_artifact

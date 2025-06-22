@@ -105,6 +105,15 @@ print(f"ROC AUC: {metrics['roc_auc']:.3f}")
   <li>Confusion Matrix and Classification Report</li>
 </ul>
 
+**Fast-Reference Table:**
+
+| Scenario                       | Required Parameter(s) | MLflow Behavior                                  |
+|--------------------------------|----------------------|--------------------------------------------------|
+| All classes present            | *(none)*             | Infers all options, no need for `label_list`     |
+| Single-class in eval data      | `label_list`         | Required. Error if not supplied                  |
+| Missing classes (multiclass)   | `label_list`         | Recommended. Otherwise, only present classes used|
+| Binary, want custom pos_label  | `pos_label`          | Use for metrics (default: last in label_list)    |
+
   </TabItem>
   <TabItem value="regression" label="Regression">
 
@@ -241,6 +250,7 @@ result = mlflow.models.evaluate(
 
 - **`pos_label`**: Positive class for binary classification metrics. Only meaningful for binary classification (2 classes). For multiclass, this parameter is ignored.
 - **`label_list`**: Complete set of expected classes. Required when evaluation data is missing expected classes.
+  > **Note:** All items in `label_list` must be of the same type or convertible to a common numeric type (e.g., int, float, numeric string). Mixing string labels with non-numeric values (e.g., `['cat', 1]`) is not supported and will raise an error.
 - **`average`**: Averaging strategy for multiclass metrics ("macro", "micro", "weighted").
 
 :::tip Binary vs Multiclass Behavior
