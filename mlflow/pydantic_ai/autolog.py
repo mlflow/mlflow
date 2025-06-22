@@ -72,7 +72,6 @@ async def patched_async_class_call(original, self, *args, **kwargs):
 
         result = await original(self, *args, **kwargs)
         outputs = result.__dict__ if hasattr(result, "__dict__") else result
-
         span.set_outputs(outputs)
         if usage_dict := _parse_usage(result):
             span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
@@ -93,7 +92,6 @@ def patched_class_call(original, self, *args, **kwargs):
 
         result = original(self, *args, **kwargs)
         outputs = result.__dict__ if hasattr(result, "__dict__") else result
-
         span.set_outputs(outputs)
         if usage_dict := _parse_usage(result):
             span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
