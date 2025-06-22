@@ -10,7 +10,7 @@ _ERROR_MSG = (
 )
 
 
-@experimental
+@experimental(version="3.0.0")
 @dataclass()
 class ScorerScheduleConfig:
     """
@@ -85,7 +85,7 @@ class ScorerScheduleConfig:
 
 
 # Scheduled Scorer CRUD operations
-@experimental
+@experimental(version="3.0.0")
 def add_scheduled_scorer(  # clint: disable=missing-docstring-param  # noqa: D417
     *,
     scheduled_scorer_name: str,
@@ -163,7 +163,7 @@ def add_scheduled_scorer(  # clint: disable=missing-docstring-param  # noqa: D41
     )
 
 
-@experimental
+@experimental(version="3.0.0")
 def update_scheduled_scorer(  # clint: disable=missing-docstring-param  # noqa: D417
     *,
     scheduled_scorer_name: str,
@@ -223,7 +223,7 @@ def update_scheduled_scorer(  # clint: disable=missing-docstring-param  # noqa: 
     )
 
 
-@experimental
+@experimental(version="3.0.0")
 def delete_scheduled_scorer(  # clint: disable=missing-docstring-param  # noqa: D417
     *,
     scheduled_scorer_name: str,
@@ -273,7 +273,7 @@ def delete_scheduled_scorer(  # clint: disable=missing-docstring-param  # noqa: 
     return delete_scheduled_scorer(experiment_id, scheduled_scorer_name, **kwargs)
 
 
-@experimental
+@experimental(version="3.0.0")
 def get_scheduled_scorer(  # clint: disable=missing-docstring-param  # noqa: D417
     *,
     scheduled_scorer_name: str,
@@ -317,7 +317,7 @@ def get_scheduled_scorer(  # clint: disable=missing-docstring-param  # noqa: D41
     return get_scheduled_scorer(experiment_id, scheduled_scorer_name, **kwargs)
 
 
-@experimental
+@experimental(version="3.0.0")
 def list_scheduled_scorers(  # clint: disable=missing-docstring-param  # noqa: D417
     *, experiment_id: Optional[str] = None, **kwargs
 ) -> list[ScorerScheduleConfig]:
@@ -363,7 +363,7 @@ def list_scheduled_scorers(  # clint: disable=missing-docstring-param  # noqa: D
     return list_scheduled_scorers(experiment_id, **kwargs)
 
 
-@experimental
+@experimental(version="3.0.0")
 def set_scheduled_scorers(  # clint: disable=missing-docstring-param  # noqa: D417
     *,
     scheduled_scorers: list[ScorerScheduleConfig],

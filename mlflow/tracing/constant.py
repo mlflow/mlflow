@@ -83,3 +83,9 @@ TRACE_SCHEMA_VERSION_KEY = "mlflow.trace_schema.version"
 
 STREAM_CHUNK_EVENT_NAME_FORMAT = "mlflow.chunk.item.{index}"
 STREAM_CHUNK_EVENT_VALUE_KEY = "mlflow.chunk.value"
+
+
+# Key for Databricks model serving options to return the trace in the response
+DATABRICKS_OPTIONS_KEY = "databricks_options"
+RETURN_TRACE_OPTION_KEY = "return_trace"
+DATABRICKS_OUTPUT_KEY = "databricks_output"

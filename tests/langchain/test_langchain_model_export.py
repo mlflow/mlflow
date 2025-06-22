@@ -3664,16 +3664,21 @@ def test_log_langchain_model_with_prompt():
             prompts=["prompts:/another_prompt/1"],
         )
 
-    logged_prompts = mlflow.MlflowClient().list_logged_prompts(model_info.run_id)
-    assert len(logged_prompts) == 2
-    assert {p.name for p in logged_prompts} == {"qa_prompt", "another_prompt"}
+    # Check that prompts were linked to the run via the linkedPrompts tag
+    from mlflow.prompt.constants import LINKED_PROMPTS_TAG_KEY
+
+    run = mlflow.MlflowClient().get_run(model_info.run_id)
+    linked_prompts_tag = run.data.tags.get(LINKED_PROMPTS_TAG_KEY)
+    assert linked_prompts_tag is not None
+
+    linked_prompts = json.loads(linked_prompts_tag)
+    assert len(linked_prompts) == 2
+    assert {p["name"] for p in linked_prompts} == {"qa_prompt", "another_prompt"}
 
     prompt = mlflow.load_prompt("qa_prompt", 1)
-    assert prompt.run_ids == [model_info.run_id]
     assert prompt.aliases == ["production"]
 
     prompt = mlflow.load_prompt("another_prompt", 1)
-    assert prompt.run_ids == [model_info.run_id]
 
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
     response = pyfunc_model.predict({"product": "shoe"})

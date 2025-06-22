@@ -30,7 +30,7 @@ _ALGORITHMS = {"DSPy/MIPROv2": _DSPyMIPROv2Optimizer}
 _logger = logging.getLogger(__name__)
 
 
-@experimental
+@experimental(version="3.0.0")
 def optimize_prompt(
     *,
     target_llm_params: LLMParams,
@@ -99,7 +99,7 @@ def optimize_prompt(
                 return expectations == outputs
 
 
-            prompt = mlflow.register_prompt(
+            prompt = mlflow.genai.register_prompt(
                 name="qa",
                 template="Answer the following question: {{question}}",
             )

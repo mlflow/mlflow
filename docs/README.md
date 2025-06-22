@@ -6,9 +6,9 @@ This README covers information about the main MLflow documentation. The API refe
 
 **Necessary**
 - NodeJS >= 18.0 (see the [NodeJS documentation](https://nodejs.org/en/download) for installation instructions)
+- (For building MDX files from `.ipynb` files) Python 3.9+, [nbconvert](https://pypi.org/project/nbconvert/), [nbformat](https://pypi.org/project/nbformat/) and [pyyml](https://pypi.org/project/pyyml/)
 
 **Optional**
-- (For building MDX files from `.ipynb` files) Python 3.9+ and [nbconvert](https://pypi.org/project/nbconvert/).
 - (For building API docs) See [doc-requirements.txt](https://github.com/mlflow/mlflow/blob/master/requirements/doc-requirements.txt) for API doc requirements.
 
 ## Installation
@@ -18,6 +18,10 @@ $ yarn
 ```
 
 ## Local Development
+
+1. If you haven't done this before, run `yarn convert-notebooks` to convert `.ipynb` files to `.mdx` files. The generated files are git-ignored.
+
+2. Run the development server:
 
 ```
 $ yarn start

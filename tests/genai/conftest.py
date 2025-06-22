@@ -29,7 +29,7 @@ def spoof_tracking_uri_check():
 
 @pytest.fixture
 def sample_rag_trace():
-    @mlflow.trace(span_type=SpanType.AGENT)
+    @mlflow.trace(name="rag", span_type=SpanType.AGENT)
     def _predict(question):
         # Two retrievers calls
         _retrieve_1(question)

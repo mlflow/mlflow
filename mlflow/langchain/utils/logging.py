@@ -140,9 +140,9 @@ def lc_runnables_types():
 
 def langgraph_types():
     try:
-        from langgraph.graph.graph import CompiledGraph
+        from langgraph.graph.state import CompiledStateGraph
 
-        return (CompiledGraph,)
+        return (CompiledStateGraph,)
     except ImportError:
         return ()
 

@@ -3,6 +3,7 @@ import os
 import posixpath
 
 from mlflow.entities import FileInfo
+from mlflow.environment_variables import MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE
 from mlflow.exceptions import RestException
 from mlflow.protos.databricks_artifacts_pb2 import ArtifactCredentialInfo
 from mlflow.protos.databricks_filesystem_service_pb2 import (
@@ -150,7 +151,10 @@ class PresignedUrlArtifactRepository(CloudArtifactRepository):
             presigned_url = creds.url
             headers = {header.name: header.value for header in creds.headers}
             download_file_using_http_uri(
-                http_uri=presigned_url, download_path=local_path, headers=headers
+                http_uri=presigned_url,
+                download_path=local_path,
+                chunk_size=MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE.get(),
+                headers=headers,
             )
 
         _retry_with_new_creds(try_func=try_func, creds_func=creds_func)

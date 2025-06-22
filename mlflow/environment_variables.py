@@ -607,6 +607,11 @@ MLFLOW_TRACE_BUFFER_TTL_SECONDS = _EnvironmentVariable("MLFLOW_TRACE_BUFFER_TTL_
 # How many traces to be buffered in-memory at client side before being abandoned.
 MLFLOW_TRACE_BUFFER_MAX_SIZE = _EnvironmentVariable("MLFLOW_TRACE_BUFFER_MAX_SIZE", int, 1000)
 
+#: Maximum number of prompt versions to cache in the LRU cache for _load_prompt_version_cached.
+#: This cache improves performance by avoiding repeated network calls for the same prompt version.
+#: (default: ``128``)
+MLFLOW_PROMPT_CACHE_MAX_SIZE = _EnvironmentVariable("MLFLOW_PROMPT_CACHE_MAX_SIZE", int, 128)
+
 #: Private configuration option.
 #: Enables the ability to catch exceptions within MLflow evaluate for classification models
 #: where a class imbalance due to a missing target class would raise an error in the
@@ -851,3 +856,14 @@ MLFLOW_GC_INTERVAL_SECONDS = _EnvironmentVariable("MLFLOW_GC_INTERVAL_SECONDS", 
 #: Specifies the minimum age of runs and experiments to be removed by the
 #: automatic garbage collection worker. Example values: ``1d2h3m``.
 MLFLOW_GC_OLDER_THAN = _EnvironmentVariable("MLFLOW_GC_OLDER_THAN", str, None)
+#: Maximum number of root fields to include in the MLflow server GraphQL request.
+#: (default: ``10``)
+MLFLOW_SERVER_GRAPHQL_MAX_ROOT_FIELDS = _EnvironmentVariable(
+    "MLFLOW_SERVER_GRAPHQL_MAX_ROOT_FIELDS", int, 10
+)
+
+#: Maximum number of aliases to include in the MLflow server GraphQL request.
+#: (default: ``10``)
+MLFLOW_SERVER_GRAPHQL_MAX_ALIASES = _EnvironmentVariable(
+    "MLFLOW_SERVER_GRAPHQL_MAX_ALIASES", int, 10
+)

@@ -41,9 +41,9 @@ def get_review_app(experiment_id: Optional[str] = None) -> "ReviewApp":
 def create_labeling_session(
     name: str,
     *,
-    assigned_users: list[str] = [],  # noqa: B006
+    assigned_users: Optional[list[str]] = None,
     agent: Optional[str] = None,
-    label_schemas: list[str] = [],  # noqa: B006
+    label_schemas: Optional[list[str]] = None,
     enable_multi_turn_chat: bool = False,
     custom_inputs: Optional[dict[str, Any]] = None,
 ) -> LabelingSession:
@@ -72,9 +72,9 @@ def create_labeling_session(
     return LabelingSession(
         _get_review_app().create_labeling_session(
             name=name,
-            assigned_users=assigned_users,
+            assigned_users=assigned_users or [],
             agent=agent,
-            label_schemas=label_schemas,
+            label_schemas=label_schemas or [],
             enable_multi_turn_chat=enable_multi_turn_chat,
             custom_inputs=custom_inputs,
         )
