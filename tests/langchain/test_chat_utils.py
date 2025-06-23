@@ -34,26 +34,6 @@ from mlflow.types.chat import ToolCall as _ToolCall
             ChatMessage(role="assistant", content="foo", id="123"),
         ),
         (
-            AIMessage(
-                content=[
-                    {"type": "text", "text": "Response text"},
-                    {"type": "tool_use", "id": "123", "name": "tool"},
-                ],
-                tool_calls=[{"id": "123", "name": "tool", "args": {}, "type": "tool_call"}],
-            ),
-            ChatMessage(
-                role="assistant",
-                content=[{"type": "text", "text": "Response text"}],
-                tool_calls=[
-                    _ToolCall(
-                        id="123",
-                        type="function",
-                        function=Function(name="tool", arguments="{}"),
-                    )
-                ],
-            ),
-        ),
-        (
             ToolMessage(content="foo", tool_call_id="123"),
             ChatMessage(role="tool", content="foo", tool_call_id="123"),
         ),
@@ -75,24 +55,50 @@ def test_convert_lc_message_to_chat_message(message, expected):
     Version(langchain.__version__) < Version("0.1.0"),
     reason="AIMessage does not have tool_calls attribute",
 )
-def test_convert_lc_message_to_chat_message_too_calls():
-    from langchain_core.messages import ToolCall
-
-    message = AIMessage(
-        content="", tool_calls=[ToolCall(name="tool_name", args={"arg1": "val1"}, id="123")]
-    )
-
-    assert convert_lc_message_to_chat_message(message) == ChatMessage(
-        role="assistant",
-        content=None,
-        tool_calls=[
-            _ToolCall(
-                id="123",
-                type="function",
-                function=Function(name="tool_name", arguments='{"arg1": "val1"}'),
-            )
-        ],
-    )
+@pytest.mark.parametrize(
+    ("message", "expected"),
+    [
+        (
+            AIMessage(
+                content=[
+                    {"type": "text", "text": "Response text"},
+                    {"type": "tool_use", "id": "123", "name": "tool"},
+                ],
+                tool_calls=[{"id": "123", "name": "tool", "args": {}, "type": "tool_call"}],
+            ),
+            ChatMessage(
+                role="assistant",
+                content=[{"type": "text", "text": "Response text"}],
+                tool_calls=[
+                    _ToolCall(
+                        id="123",
+                        type="function",
+                        function=Function(name="tool", arguments="{}"),
+                    )
+                ],
+            ),
+        ),
+        (
+            AIMessage(
+                content="",
+                tool_calls=[{"id": "123", "name": "tool_name", "args": {"arg1": "val1"}}],
+            ),
+            ChatMessage(
+                role="assistant",
+                content=None,
+                tool_calls=[
+                    _ToolCall(
+                        id="123",
+                        type="function",
+                        function=Function(name="tool_name", arguments='{"arg1": "val1"}'),
+                    )
+                ],
+            ),
+        ),
+    ],
+)
+def test_convert_lc_message_to_chat_message_tool_calls(message, expected):
+    assert convert_lc_message_to_chat_message(message) == expected
 
 
 def test_transform_response_to_chat_format_no_conversion():
