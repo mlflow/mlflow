@@ -1834,7 +1834,7 @@ def test_create_prompt_error_handling(tracking_uri):
 
     # Exceeds the max length
     with pytest.raises(MlflowException, match=r"Prompt text exceeds max length of"):
-        client.register_prompt(name="prompt_1", template="Hi" * 10000)
+        client.register_prompt(name="prompt_1", template="a" * 100_001)
 
     # When the first version creation fails, RegisteredModel should not be created
     with pytest.raises(MlflowException, match=r"Prompt with name=prompt_1 not found"):
@@ -1845,7 +1845,7 @@ def test_create_prompt_error_handling(tracking_uri):
 
     # When the subsequent version creation fails, RegisteredModel should remain
     with pytest.raises(MlflowException, match=r"Prompt text exceeds max length of"):
-        client.register_prompt(name="prompt_1", template="Hi" * 10000)
+        client.register_prompt(name="prompt_1", template="a" * 100_001)
 
     assert client.load_prompt("prompt_1", version=1) is not None
 
