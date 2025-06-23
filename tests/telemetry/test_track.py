@@ -1,8 +1,13 @@
-import pytest
+from dataclasses import asdict
+from unittest.mock import patch
 
+import pytest
+import sklearn
+
+import mlflow
 from mlflow.environment_variables import MLFLOW_DISABLE_TELEMETRY
 from mlflow.telemetry.client import TelemetryClient, get_telemetry_client, set_telemetry_client
-from mlflow.telemetry.schemas import APIStatus
+from mlflow.telemetry.schemas import APIStatus, AutologParams
 from mlflow.telemetry.track import track_api_usage
 from mlflow.telemetry.utils import is_telemetry_disabled
 
@@ -29,13 +34,13 @@ def test_track_api_usage():
 
     assert len(telemetry_client.records) == 2
     succeed_record = telemetry_client.records[0]
-    assert succeed_record == {
+    assert asdict(succeed_record) == {
         "api_name": full_func_name(succeed_func),
         "params": None,
         "status": APIStatus.SUCCESS.value,
     }
     fail_record = telemetry_client.records[1]
-    assert fail_record == {
+    assert asdict(fail_record) == {
         "api_name": full_func_name(fail_func),
         "params": None,
         "status": APIStatus.FAILURE.value,
@@ -73,7 +78,7 @@ def test_track_api_usage_update_env_var_after_import(monkeypatch):
 
     test_func()
     assert len(telemetry_client.records) == 1
-    assert telemetry_client.records[0]["api_name"] == full_func_name(test_func)
+    assert telemetry_client.records[0].api_name == full_func_name(test_func)
 
     monkeypatch.setenv("MLFLOW_DISABLE_TELEMETRY", "true")
     test_func()
@@ -82,18 +87,34 @@ def test_track_api_usage_update_env_var_after_import(monkeypatch):
 
 
 def test_track_api_usage_do_not_track_internal_api():
-    @track_api_usage
-    def test_func_internal():
-        return True
-
-    @track_api_usage
     def test_func():
-        test_func_internal()
+        mlflow.sklearn.autolog()
 
-    test_func()
+    with patch("mlflow.telemetry.track.invoked_from_internal_api", return_value=True):
+        test_func()
+        assert len(get_telemetry_client().records) == 0
+
+    # mlflow.sklearn.autolog internally calls mlflow.sklearn.log_model
+    mlflow.sklearn.autolog()
+
+    iris = sklearn.datasets.load_iris()
+    sklearn.cluster.KMeans().fit(iris.data[:, :2], iris.target)
+
+    assert mlflow.last_logged_model() is not None
     records = get_telemetry_client().records
     assert len(records) == 1
-    assert records[0]["api_name"] == full_func_name(test_func)
+    assert asdict(records[0]) == {
+        "api_name": full_func_name(mlflow.sklearn.autolog),
+        "params": asdict(
+            AutologParams(
+                flavor="sklearn",
+                disable=False,
+                log_traces=False,
+                log_models=True,
+            )
+        ),
+        "status": APIStatus.SUCCESS.value,
+    }
 
 
 # TODO: apply track_api_usage to APIs and test the record params

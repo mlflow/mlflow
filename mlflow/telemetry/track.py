@@ -8,8 +8,8 @@ from mlflow.telemetry.client import get_telemetry_client
 from mlflow.telemetry.parser import API_PARSER_MAPPING
 from mlflow.telemetry.schemas import APIStatus, Record
 from mlflow.telemetry.utils import (
+    invoked_from_internal_api,
     is_telemetry_disabled,
-    temporarily_disable_telemetry,
 )
 
 _logger = logging.getLogger(__name__)
@@ -18,15 +18,12 @@ _logger = logging.getLogger(__name__)
 def track_api_usage(func: Callable) -> Callable:
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        if is_telemetry_disabled():
+        if is_telemetry_disabled() or invoked_from_internal_api():
             return func(*args, **kwargs)
 
         success = True
         try:
-            # Temporarily disable telemetry for the function call to avoid recording
-            # telemetry for the subsequent API calls.
-            with temporarily_disable_telemetry():
-                return func(*args, **kwargs)
+            return func(*args, **kwargs)
         except Exception:
             success = False
             raise

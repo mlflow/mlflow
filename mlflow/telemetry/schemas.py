@@ -3,7 +3,6 @@ import sys
 import uuid
 from dataclasses import dataclass
 from enum import Enum
-from typing import TypedDict
 
 from mlflow.version import VERSION
 
@@ -24,7 +23,8 @@ class ModelType(str, Enum):
     RESPONSES_AGENT = "responses_agent"
 
 
-class LogModelParams(TypedDict):
+@dataclass
+class LogModelParams:
     flavor: str
     model: ModelType
     is_pip_requirements_set: bool = False
@@ -34,19 +34,22 @@ class LogModelParams(TypedDict):
     is_metadata_set: bool = False
 
 
-class AutologParams(TypedDict):
+@dataclass
+class AutologParams:
     flavor: str
     disable: bool
     log_traces: bool
     log_models: bool
 
 
-class GenaiEvaluateParams(TypedDict):
+@dataclass
+class GenaiEvaluateParams:
     scorers: list[str]
     is_predict_fn_set: bool = False
 
 
-class Record(TypedDict):
+@dataclass
+class Record:
     api_name: str
     params: dict[str, bool | str] | None = None
     status: APIStatus = APIStatus.UNKNOWN.value
