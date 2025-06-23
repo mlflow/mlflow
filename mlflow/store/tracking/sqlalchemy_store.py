@@ -2243,9 +2243,9 @@ class SqlAlchemyStore(AbstractStore):
             session.add(sql_trace_info)
             return sql_trace_info.to_mlflow_entity()
 
-    def get_trace_info(self, trace_id, should_query_v3=False) -> TraceInfo:
+    def get_trace_info(self, trace_id: str, should_query_v3=False) -> TraceInfo:
         """
-        Fetch the trace info for the given request id.
+        Fetch the trace info for the given trace id.
 
         Args:
             trace_id: Unique string identifier of the trace.
