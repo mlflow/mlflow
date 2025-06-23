@@ -1294,7 +1294,7 @@ def test_set_experiment_tag(store: SqlAlchemyStore):
     experiment = store.get_experiment(exp_id)
     assert experiment.tags["multiline tag"] == "value2\nvalue2\nvalue2"
     # test cannot set tags that are too long
-    long_tag = entities.ExperimentTag("longTagKey", "a" * 5001)
+    long_tag = entities.ExperimentTag("longTagKey", "a" * 100_001)
     with pytest.raises(MlflowException, match="exceeds the maximum length of 5000"):
         store.set_experiment_tag(exp_id, long_tag)
     # test can set tags that are somewhat long
