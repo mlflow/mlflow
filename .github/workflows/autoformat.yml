@@ -48,6 +48,14 @@ jobs:
             const pullInfo = await autoformat.getPullInfo(context, github);
             return { ...pullInfo, shouldAutoformat };
 
+      - name: Check maintainer access
+        if: ${{ fromJSON(steps.judge.outputs.result).shouldAutoformat }}
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
+        with:
+          script: |
+            const autoformat = require('./.github/workflows/autoformat.js');
+            await autoformat.checkMaintainerAccess(context, github);
+
   format:
     runs-on: ubuntu-latest
     timeout-minutes: 30
