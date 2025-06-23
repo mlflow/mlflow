@@ -1,4 +1,9 @@
-import { HrTime, INVALID_SPANID, INVALID_TRACEID, SpanStatusCode as OTelSpanStatusCode } from '@opentelemetry/api';
+import {
+  HrTime,
+  INVALID_SPANID,
+  INVALID_TRACEID,
+  SpanStatusCode as OTelSpanStatusCode
+} from '@opentelemetry/api';
 import type { Span as OTelSpan } from '@opentelemetry/sdk-trace-node';
 import { SpanAttributeKey, SpanType, NO_OP_SPAN_TRACE_ID } from '../constants';
 import { SpanEvent } from './span_event';
@@ -454,7 +459,6 @@ export class NoOpSpan implements ISpan {
   }
 }
 
-
 export interface SerializedSpan {
   trace_id: string;
   span_id: string;
@@ -471,7 +475,6 @@ export interface SerializedSpan {
     attributes: Record<string, any>;
   }[];
 }
-
 
 /**
  * A utility class to manage the span attributes.

@@ -1,6 +1,12 @@
 import { trace } from '@opentelemetry/api';
 import { BasicTracerProvider } from '@opentelemetry/sdk-trace-base';
-import { createMlflowSpan, Span, NoOpSpan, type LiveSpan, type SerializedSpan } from '../../../src/core/entities/span';
+import {
+  createMlflowSpan,
+  Span,
+  NoOpSpan,
+  type LiveSpan,
+  type SerializedSpan
+} from '../../../src/core/entities/span';
 import { SpanEvent } from '../../../src/core/entities/span_event';
 import { SpanStatus, SpanStatusCode } from '../../../src/core/entities/span_status';
 import { SpanAttributeKey, SpanType } from '../../../src/core/constants';

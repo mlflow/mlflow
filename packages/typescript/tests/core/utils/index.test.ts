@@ -73,7 +73,7 @@ describe('utils', () => {
     it('should be reversible with convertNanoSecondsToHrTime', () => {
       const testValues = [0, 123456789, 1_000_000_000, 5_500_000_000];
 
-      testValues.forEach(nanos => {
+      testValues.forEach((nanos) => {
         const hrTime = convertNanoSecondsToHrTime(nanos);
         const result = convertHrTimeToNanoSeconds(hrTime);
         expect(result).toBe(BigInt(nanos));
@@ -188,7 +188,7 @@ describe('utils', () => {
         'deadbeef12345678'
       ];
 
-      testSpanIds.forEach(spanId => {
+      testSpanIds.forEach((spanId) => {
         const encoded = encodeSpanIdToBase64(spanId);
         const decoded = decodeIdFromBase64(encoded);
         expect(decoded).toBe(spanId);
@@ -203,7 +203,7 @@ describe('utils', () => {
         'deadbeef12345678deadbeef12345678'
       ];
 
-      testTraceIds.forEach(traceId => {
+      testTraceIds.forEach((traceId) => {
         const encoded = encodeTraceIdToBase64(traceId);
         const decoded = decodeIdFromBase64(encoded);
         expect(decoded).toBe(traceId);

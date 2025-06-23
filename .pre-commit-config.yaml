@@ -15,7 +15,7 @@ repos:
     rev: "v2.7.1"
     hooks:
       - id: prettier
-        files: '^(?!docs/|mlflow/server/js/).+\.(js|md|json|ya?ml)$'
+        files: '^(?!docs/|mlflow/server/js/|packages/typescript/).+\.(js|md|json|ya?ml)$'
         args: ["--no-config", "--print-width", "100"]
         require_serial: true
   - repo: local
