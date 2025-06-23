@@ -27,7 +27,7 @@ from mlflow.entities.span import SpanType
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.llama_index.tracer import remove_llama_index_tracer, set_llama_index_tracer
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 
 from tests.tracing.helper import get_traces, skip_when_testing_trace_sdk
@@ -77,6 +77,15 @@ def test_trace_llm_complete(is_async):
             "prompt_tokens_details": None,
         }.items()
     )
+    assert (
+        attr[SpanAttributeKey.CHAT_USAGE].items()
+        >= {
+            TokenUsageKey.INPUT_TOKENS: 5,
+            TokenUsageKey.OUTPUT_TOKENS: 7,
+            TokenUsageKey.TOTAL_TOKENS: 12,
+        }.items()
+    )
+
     assert attr["prompt"] == "Hello"
     assert attr["invocation_params"]["model_name"] == model_name
     assert attr["model_dict"]["model"] == model_name
@@ -85,6 +94,14 @@ def test_trace_llm_complete(is_async):
         {"role": "user", "content": "Hello"},
         {"role": "assistant", "content": "Hello"},
     ]
+    assert (
+        traces[0].info.token_usage.items()
+        >= {
+            TokenUsageKey.INPUT_TOKENS: 5,
+            TokenUsageKey.OUTPUT_TOKENS: 7,
+            TokenUsageKey.TOTAL_TOKENS: 12,
+        }.items()
+    )
 
 
 def test_trace_llm_complete_stream():
@@ -124,6 +141,14 @@ def test_trace_llm_complete_stream():
             "prompt_tokens_details": None,
         }.items()
     )
+    assert (
+        attr[SpanAttributeKey.CHAT_USAGE].items()
+        >= {
+            TokenUsageKey.INPUT_TOKENS: 9,
+            TokenUsageKey.OUTPUT_TOKENS: 12,
+            TokenUsageKey.TOTAL_TOKENS: 21,
+        }.items()
+    )
     assert attr["prompt"] == "Hello"
     assert attr["invocation_params"]["model_name"] == model_name
     assert attr["model_dict"]["model"] == model_name
@@ -132,6 +157,14 @@ def test_trace_llm_complete_stream():
         {"role": "user", "content": "Hello"},
         {"content": "Hello world", "role": "assistant"},
     ]
+    assert (
+        traces[0].info.token_usage.items()
+        >= {
+            TokenUsageKey.INPUT_TOKENS: 9,
+            TokenUsageKey.OUTPUT_TOKENS: 12,
+            TokenUsageKey.TOTAL_TOKENS: 21,
+        }.items()
+    )
 
 
 def _get_llm_input_content_json(content):
@@ -201,6 +234,14 @@ def test_trace_llm_chat(is_async):
             "prompt_tokens_details": None,
         }.items()
     )
+    assert (
+        attr[SpanAttributeKey.CHAT_USAGE].items()
+        >= {
+            TokenUsageKey.INPUT_TOKENS: 9,
+            TokenUsageKey.OUTPUT_TOKENS: 12,
+            TokenUsageKey.TOTAL_TOKENS: 21,
+        }.items()
+    )
     assert attr["invocation_params"]["model_name"] == llm.metadata.model_name
     assert attr["model_dict"]["model"] == llm.metadata.model_name
     assert attr[SpanAttributeKey.CHAT_MESSAGES] == [
@@ -213,6 +254,14 @@ def test_trace_llm_chat(is_async):
             "content": '[{"role": "system", "content": "Hello"}]',
         },
     ]
+    assert (
+        traces[0].info.token_usage.items()
+        >= {
+            TokenUsageKey.INPUT_TOKENS: 9,
+            TokenUsageKey.OUTPUT_TOKENS: 12,
+            TokenUsageKey.TOTAL_TOKENS: 21,
+        }.items()
+    )
 
 
 def _get_image_content(image_path):
@@ -357,6 +406,14 @@ def test_trace_llm_chat_stream():
             "prompt_tokens_details": None,
         }.items()
     )
+    assert (
+        attr[SpanAttributeKey.CHAT_USAGE].items()
+        >= {
+            TokenUsageKey.INPUT_TOKENS: 9,
+            TokenUsageKey.OUTPUT_TOKENS: 12,
+            TokenUsageKey.TOTAL_TOKENS: 21,
+        }.items()
+    )
     assert attr["invocation_params"]["model_name"] == llm.metadata.model_name
     assert attr["model_dict"]["model"] == llm.metadata.model_name
     assert attr[SpanAttributeKey.CHAT_MESSAGES] == [
@@ -369,6 +426,14 @@ def test_trace_llm_chat_stream():
             "content": "Hello world",
         },
     ]
+    assert (
+        traces[0].info.token_usage.items()
+        >= {
+            TokenUsageKey.INPUT_TOKENS: 9,
+            TokenUsageKey.OUTPUT_TOKENS: 12,
+            TokenUsageKey.TOTAL_TOKENS: 21,
+        }.items()
+    )
 
 
 @pytest.mark.parametrize("is_stream", [True, False])
