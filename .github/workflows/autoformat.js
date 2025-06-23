@@ -115,12 +115,9 @@ const checkMaintainerAccess = async (context, github) => {
   const { runId } = context;
   const pr = await github.rest.pulls.get({ owner, repo, pull_number });
 
-  // Check if maintainer_can_modify is true
   if (!pr.data.maintainer_can_modify) {
-    // Construct the workflow run URL
     const workflowRunUrl = `https://github.com/${owner}/${repo}/actions/runs/${runId}`;
 
-    // Leave a helpful comment on the PR
     await github.rest.issues.createComment({
       owner,
       repo,
