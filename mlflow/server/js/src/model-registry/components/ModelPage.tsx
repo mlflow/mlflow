@@ -16,7 +16,6 @@ import {
 import { ModelView } from './ModelView';
 import { getModelVersions } from '../reducers';
 import LocalStorageUtils from '../../common/utils/LocalStorageUtils';
-import { createMLflowRoutePath } from '../../common/utils/RoutingUtils';
 import { MODEL_VERSIONS_SEARCH_TIMESTAMP_FIELD, MODEL_VERSIONS_PER_PAGE_COMPACT } from '../constants';
 import { PageContainer } from '../../common/components/PageContainer';
 import RequestStateWrapper, { triggerError } from '../../common/components/RequestStateWrapper';

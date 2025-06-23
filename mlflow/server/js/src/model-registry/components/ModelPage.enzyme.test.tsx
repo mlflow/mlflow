@@ -5,20 +5,15 @@
  * annotations are already looking good, please remove this comment.
  */
 
-import React from 'react';
-import type { ReactWrapper } from 'enzyme';
 import configureStore from 'redux-mock-store';
 import thunk from 'redux-thunk';
 import promiseMiddleware from 'redux-promise-middleware';
 import { mockModelVersionDetailed, mockRegisteredModelDetailed } from '../test-utils';
-import { ModelVersionStatus, Stages, MODEL_VERSIONS_SEARCH_TIMESTAMP_FIELD } from '../constants';
+import { ModelVersionStatus, Stages, MODEL_VERSIONS_PER_PAGE_COMPACT } from '../constants';
 import { Provider } from 'react-redux';
 import { MemoryRouter } from '../../common/utils/RoutingUtils';
 import { ModelPageImpl, ModelPage } from './ModelPage';
-import Utils from '../../common/utils/Utils';
 import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
-import { ModelRegistryRoutes } from '../routes';
-import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 
 describe('ModelPage', () => {
   // @ts-expect-error TS(2709): Cannot use namespace 'ReactWrapper' as a type.
@@ -75,7 +70,6 @@ describe('ModelPage', () => {
     );
     instance = wrapper.find(ModelPageImpl).instance();
     jest.spyOn(instance, 'loadPage').mockImplementation(loadPageMock);
-    expect(instance.state.orderByKey).toBe(MODEL_VERSIONS_SEARCH_TIMESTAMP_FIELD);
-    expect(instance.state.orderByAsc).toBe(false);
+    expect(instance.state.maxResultsSelection).toBe(MODEL_VERSIONS_PER_PAGE_COMPACT);
   });
 });
