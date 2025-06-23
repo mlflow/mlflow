@@ -21,7 +21,7 @@ class Task:
     """A dataclass to represent a simple task."""
 
     handler: Callable[..., Any]
-    args: Sequence
+    args: Sequence[Any]
     error_msg: str = ""
 
     def handle(self) -> None:
