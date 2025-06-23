@@ -1,7 +1,7 @@
 import base64
 import json
 import logging
-from typing import Optional, Union
+from typing import Any, Optional, Union
 
 from mlflow.types.chat import (
     ChatMessage,
@@ -17,7 +17,7 @@ from mlflow.types.chat import (
 _logger = logging.getLogger(__name__)
 
 
-def convert_message_to_mlflow_chat(message: dict) -> ChatMessage:
+def convert_message_to_mlflow_chat(message: dict[str, Any]) -> ChatMessage:
     """
     Convert Bedrock Converse API's message object into MLflow's standard format (OpenAI compatible).
 
@@ -68,7 +68,7 @@ def convert_message_to_mlflow_chat(message: dict) -> ChatMessage:
     return message
 
 
-def _parse_content(content: dict) -> Optional[Union[TextContentPart, ImageContentPart]]:
+def _parse_content(content: dict[str, Any]) -> Optional[Union[TextContentPart, ImageContentPart]]:
     """
     Parse a single content block in the Bedrock message object.
 
@@ -99,7 +99,7 @@ def _parse_content(content: dict) -> Optional[Union[TextContentPart, ImageConten
         return None
 
 
-def convert_tool_to_mlflow_chat_tool(tool: dict) -> ChatTool:
+def convert_tool_to_mlflow_chat_tool(tool: dict[str, Any]) -> ChatTool:
     """
     Convert Bedrock tool definition into MLflow's standard format (OpenAI compatible).
 

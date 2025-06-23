@@ -96,9 +96,9 @@ class APIRequest:
 
     index: int
     lc_model: langchain.chains.base.Chain
-    request_json: dict
+    request_json: dict[str, Any]
     results: list[tuple[int, str]]
-    errors: dict
+    errors: dict[int, str]
     convert_chat_responses: bool
     did_perform_chat_conversion: bool
     stream: bool
