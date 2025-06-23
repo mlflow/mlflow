@@ -12,7 +12,7 @@ from mlflow.bedrock.chat import convert_message_to_mlflow_chat, convert_tool_to_
 from mlflow.bedrock.stream import ConverseStreamWrapper, InvokeModelStreamWrapper
 from mlflow.bedrock.utils import skip_if_trace_disabled
 from mlflow.entities import SpanType
-from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
+from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.utils import set_span_chat_messages, set_span_chat_tools
 from mlflow.utils.autologging_utils import safe_patch
@@ -142,66 +142,20 @@ def _parse_invoke_model_response_body(response_body: StreamingBody) -> Union[dic
 def _parse_usage_from_response(
     response_body: Union[dict[str, Any], str],
 ) -> Optional[dict[str, int]]:
-    """
-    Parse token usage information from Bedrock response body.
+    """Return a standardized token-usage dict for any Bedrock provider.
 
-    Different Bedrock models return usage information in different formats:
-    - Anthropic: {"usage": {"input_tokens": int, "output_tokens": int}}
-    - AI21: {"usage": {"prompt_tokens": int, "completion_tokens": int, "total_tokens": int}}
-    - Amazon Nova: {"usage": {"inputTokens": int, "outputTokens": int, "totalTokens": int}}
-    - Meta Llama: {"prompt_token_count": int, "generation_token_count": int}
+    This wrapper now simply delegates to :func:`mlflow.bedrock.utils.build_token_usage_dict`,
+    which already understands every provider key-schema.  If *response_body* contains a
+    nested ``usage`` field we pass that sub-dict, otherwise we pass the whole body.
     """
+
+    from mlflow.bedrock.utils import build_token_usage_dict
+
     if not isinstance(response_body, dict):
         return None
 
-    try:
-        # Handle Anthropic format
-        if "usage" in response_body and isinstance(response_body["usage"], dict):
-            usage = response_body["usage"]
-            if "input_tokens" in usage and "output_tokens" in usage:
-                return {
-                    TokenUsageKey.INPUT_TOKENS: usage["input_tokens"],
-                    TokenUsageKey.OUTPUT_TOKENS: usage["output_tokens"],
-                    TokenUsageKey.TOTAL_TOKENS: usage.get(
-                        "total_tokens",
-                        usage["input_tokens"] + usage["output_tokens"],
-                    ),
-                }
-            # Handle AI21 format
-            elif "prompt_tokens" in usage and "completion_tokens" in usage:
-                return {
-                    TokenUsageKey.INPUT_TOKENS: usage["prompt_tokens"],
-                    TokenUsageKey.OUTPUT_TOKENS: usage["completion_tokens"],
-                    TokenUsageKey.TOTAL_TOKENS: usage.get(
-                        "total_tokens",
-                        usage["prompt_tokens"] + usage["completion_tokens"],
-                    ),
-                }
-            # Handle Amazon Nova format
-            elif "inputTokens" in usage and "outputTokens" in usage:
-                return {
-                    TokenUsageKey.INPUT_TOKENS: usage["inputTokens"],
-                    TokenUsageKey.OUTPUT_TOKENS: usage["outputTokens"],
-                    TokenUsageKey.TOTAL_TOKENS: usage.get(
-                        "totalTokens",
-                        usage["inputTokens"] + usage["outputTokens"],
-                    ),
-                }
-        # Handle Meta Llama format (top-level fields)
-        elif "prompt_token_count" in response_body and "generation_token_count" in response_body:
-            return {
-                TokenUsageKey.INPUT_TOKENS: response_body["prompt_token_count"],
-                TokenUsageKey.OUTPUT_TOKENS: response_body["generation_token_count"],
-                TokenUsageKey.TOTAL_TOKENS: (
-                    response_body["prompt_token_count"] + response_body["generation_token_count"]
-                ),
-            }
-        # Add debug log for unknown usage schema
-        _logger.debug(f"Unknown token usage schema in Bedrock response: {response_body}")
-    except Exception as e:
-        _logger.debug(f"Failed to parse token usage from response: {e}")
-
-    return None
+    usage_section = response_body.get("usage", response_body)
+    return build_token_usage_dict(raw_usage=usage_section)
 
 
 @skip_if_trace_disabled
