@@ -3,9 +3,10 @@ from unittest import mock
 
 import openai
 import pytest
+from packaging.version import Version
 
 try:
-    import agents  # noqa: F401
+    import agents
 except ImportError:
     pytest.skip("OpenAI SDK is not installed. Skipping tests.", allow_module_level=True)
 
@@ -204,6 +205,11 @@ async def test_autolog_agent():
             "type": "function",
         },
     ]
+
+    if Version(agents.__version__) >= Version("0.0.18"):
+        tool_content = '{"assistant": "Spanish Agent"}'
+    else:
+        tool_content = "{'assistant': 'Spanish Agent'}"
     assert spans[5].attributes[SpanAttributeKey.CHAT_MESSAGES] == [
         {
             "role": "system",
@@ -237,7 +243,7 @@ async def test_autolog_agent():
         },
         {
             "role": "tool",
-            "content": "{'assistant': 'Spanish Agent'}",
+            "content": tool_content,
             "refusal": None,
             "tool_calls": None,
             "tool_call_id": "123",
