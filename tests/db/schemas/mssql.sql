@@ -218,7 +218,7 @@ CREATE TABLE metrics (
 
 CREATE TABLE model_version_tags (
 	key VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
-	value VARCHAR(MAX) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	value VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
 	name VARCHAR(256) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	version INTEGER NOT NULL,
 	CONSTRAINT model_version_tag_pk PRIMARY KEY (key, name, version),
