@@ -54,7 +54,7 @@ MAX_EXPERIMENT_TAG_KEY_LENGTH = 250
 MAX_EXPERIMENT_TAG_VAL_LENGTH = 5000
 MAX_ENTITY_KEY_LENGTH = 250
 MAX_MODEL_REGISTRY_TAG_KEY_LENGTH = 250
-MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH = 5000
+MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH = 100_000
 MAX_EXPERIMENTS_LISTED_PER_PAGE = 50000
 MAX_DATASET_NAME_SIZE = 500
 MAX_DATASET_DIGEST_SIZE = 36
@@ -296,9 +296,13 @@ def _validate_model_version_tag(key, value):
     _validate_tag_value(value)
     _validate_length_limit("key", MAX_MODEL_REGISTRY_TAG_KEY_LENGTH, key)
 
-    # Skip length validation for prompt text tags to allow unlimited length
-    if key != PROMPT_TEXT_TAG_KEY:
-        _validate_length_limit("value", MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH, value)
+    # Check prompt text tag particularly for showing friendly error message
+    if key == PROMPT_TEXT_TAG_KEY and len(value) > MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH:
+        raise MlflowException.invalid_parameter_value(
+            f"Prompt text exceeds max length of {MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH} characters.",
+        )
+
+    _validate_length_limit("value", MAX_MODEL_REGISTRY_TAG_VALUE_LENGTH, value)
 
 
 def _validate_param_keys_unique(params):
