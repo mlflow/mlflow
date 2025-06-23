@@ -41,29 +41,65 @@ export function MlflowSidebar() {
     onSuccess: ({ promptName }) => navigate(Routes.getPromptDetailsPageRoute(promptName)),
   });
 
-  const ulStyles: Interpolation<Theme> = {
-    listStyleType: 'none',
-    padding: 0,
-    margin: 0,
-  };
-
-  const linkStyles: Interpolation<Theme> = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: theme.spacing.sm,
-    color: theme.colors.textPrimary,
-    paddingInline: theme.spacing.md,
-    paddingBlock: theme.spacing.xs,
-    borderRadius: theme.borders.borderRadiusSm,
-    '&:hover': {
-      color: theme.colors.actionLinkHover,
+  const menuItems = [
+    {
+      key: 'experiments',
+      icon: <BeakerIcon />,
+      linkProps: {
+        to: ExperimentTrackingRoutes.experimentsObservatoryRoute,
+        isActive: isExperimentsActive,
+        children: <FormattedMessage defaultMessage="Experiments" description="Sidebar link for experiments tab" />,
+      },
+      dropdownProps: {
+        componentId: 'mlflow_sidebar.create_experiment_button',
+        onClick: () => setShowCreateExperimentModal(true),
+        children: (
+          <FormattedMessage
+            defaultMessage="Experiment"
+            description="Sidebar button inside the 'new' popover to create new experiment"
+          />
+        ),
+      },
     },
-    '&[aria-current="page"]': {
-      backgroundColor: theme.colors.actionDefaultBackgroundPress,
-      color: theme.isDarkMode ? theme.colors.blue300 : theme.colors.blue700,
-      fontWeight: theme.typography.typographyBoldFontWeight,
+    {
+      key: 'models',
+      icon: <ModelsIcon />,
+      linkProps: {
+        to: ModelRegistryRoutes.modelListPageRoute,
+        isActive: isModelsActive,
+        children: <FormattedMessage defaultMessage="Models" description="Sidebar link for models tab" />,
+      },
+      dropdownProps: {
+        componentId: 'mlflow_sidebar.create_model_button',
+        onClick: () => setShowCreateModelModal(true),
+        children: (
+          <FormattedMessage
+            defaultMessage="Model"
+            description="Sidebar button inside the 'new' popover to create new model"
+          />
+        ),
+      },
     },
-  };
+    {
+      key: 'prompts',
+      icon: <TextBoxIcon />,
+      linkProps: {
+        to: ExperimentTrackingRoutes.promptsPageRoute,
+        isActive: isPromptsActive,
+        children: <FormattedMessage defaultMessage="Prompts" description="Sidebar link for prompts tab" />,
+      },
+      dropdownProps: {
+        componentId: 'mlflow_sidebar.create_prompt_button',
+        onClick: openCreatePromptModal,
+        children: (
+          <FormattedMessage
+            defaultMessage="Prompt"
+            description="Sidebar button inside the 'new' popover to create new prompt"
+          />
+        ),
+      },
+    },
+  ];
 
   return (
     <aside
@@ -87,74 +123,51 @@ export function MlflowSidebar() {
         </DropdownMenu.Trigger>
 
         <DropdownMenu.Content side="right" sideOffset={theme.spacing.sm} align="start">
-          <DropdownMenu.Item
-            componentId="mlflow_sidebar.create_experiment_button"
-            onClick={() => setShowCreateExperimentModal(true)}
-          >
-            <DropdownMenu.IconWrapper>
-              <BeakerIcon />
-            </DropdownMenu.IconWrapper>
-            <FormattedMessage
-              defaultMessage="Experiment"
-              description="Sidebar button inside the 'new' popover to create new experiment"
-            />
-          </DropdownMenu.Item>
-          <DropdownMenu.Item
-            componentId="mlflow_sidebar.create_model_button"
-            onClick={() => setShowCreateModelModal(true)}
-          >
-            <DropdownMenu.IconWrapper>
-              <ModelsIcon />
-            </DropdownMenu.IconWrapper>
-            <FormattedMessage
-              defaultMessage="Model"
-              description="Sidebar button inside the 'new' popover to create new model"
-            />
-          </DropdownMenu.Item>
-          <DropdownMenu.Item componentId="mlflow_sidebar.create_prompt_button" onClick={openCreatePromptModal}>
-            <DropdownMenu.IconWrapper>
-              <TextBoxIcon />
-            </DropdownMenu.IconWrapper>
-            <FormattedMessage
-              defaultMessage="Prompt"
-              description="Sidebar button inside the 'new' popover to create new prompt"
-            />
-          </DropdownMenu.Item>
+          {menuItems.map(({ key, icon, dropdownProps }) => (
+            <DropdownMenu.Item key={key} componentId={dropdownProps.componentId} onClick={dropdownProps.onClick}>
+              <DropdownMenu.IconWrapper>{icon}</DropdownMenu.IconWrapper>
+              {dropdownProps.children}
+            </DropdownMenu.Item>
+          ))}
         </DropdownMenu.Content>
       </DropdownMenu.Root>
 
       <nav>
-        <ul css={ulStyles}>
-          <li>
-            <Link
-              to={ExperimentTrackingRoutes.experimentsObservatoryRoute}
-              aria-current={isExperimentsActive(location) ? 'page' : undefined}
-              css={linkStyles}
-            >
-              <BeakerIcon />
-              <FormattedMessage defaultMessage="Experiments" description="Sidebar link for experiments tab" />
-            </Link>
-          </li>
-          <li>
-            <Link
-              to={ModelRegistryRoutes.modelListPageRoute}
-              aria-current={isModelsActive(location) ? 'page' : undefined}
-              css={linkStyles}
-            >
-              <ModelsIcon />
-              <FormattedMessage defaultMessage="Models" description="Sidebar link for models tab" />
-            </Link>
-          </li>
-          <li>
-            <Link
-              to={ExperimentTrackingRoutes.promptsPageRoute}
-              aria-current={isPromptsActive(location) ? 'page' : undefined}
-              css={linkStyles}
-            >
-              <TextBoxIcon />
-              <FormattedMessage defaultMessage="Prompts" description="Sidebar link for prompts tab" />
-            </Link>
-          </li>
+        <ul
+          css={{
+            listStyleType: 'none',
+            padding: 0,
+            margin: 0,
+          }}
+        >
+          {menuItems.map(({ key, icon, linkProps }) => (
+            <li key={key}>
+              <Link
+                to={linkProps.to}
+                aria-current={linkProps.isActive(location) ? 'page' : undefined}
+                css={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: theme.spacing.sm,
+                  color: theme.colors.textPrimary,
+                  paddingInline: theme.spacing.md,
+                  paddingBlock: theme.spacing.xs,
+                  borderRadius: theme.borders.borderRadiusSm,
+                  '&:hover': {
+                    color: theme.colors.actionLinkHover,
+                  },
+                  '&[aria-current="page"]': {
+                    backgroundColor: theme.colors.actionDefaultBackgroundPress,
+                    color: theme.isDarkMode ? theme.colors.blue300 : theme.colors.blue700,
+                    fontWeight: theme.typography.typographyBoldFontWeight,
+                  },
+                }}
+              >
+                {icon}
+                {linkProps.children}
+              </Link>
+            </li>
+          ))}
         </ul>
       </nav>
 
