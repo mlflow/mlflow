@@ -761,6 +761,97 @@ class SqlTraceRequestMetadata(Base):
     )
 
 
+class SqlAssessments(Base):
+    __tablename__ = "assessments"
+
+    assessment_id = Column(String(50), nullable=False)
+    """
+    Assessment ID: `String` (limit 50 characters). *Primary Key* for ``assessments`` table.
+    """
+    trace_id = Column(
+        String(50), ForeignKey("trace_info.request_id", ondelete="CASCADE"), nullable=False
+    )
+    """
+    Trace ID that a given assessment belongs to. *Foreign Key* into ``trace_info`` table.
+    """
+    name = Column(String(250), nullable=False)
+    """
+    Assessment Name: `String` (limit of 250 characters).
+    """
+    assessment_type = Column(String(50), nullable=False)
+    """
+    Assessment type: `String` (limit 50 characters). Either "feedback" or "expectation".
+    """
+    value = Column(Text, nullable=False)
+    """
+    The assessment's value data stored as JSON: `Text` for the actual value content.
+    """
+    error = Column(Text, nullable=True)
+    """
+    AssessmentError stored as JSON: `Text` for error information (feedback only).
+    """
+    created_timestamp = Column(BigInteger, nullable=False)
+    """
+    The assessment's creation timestamp: `BigInteger`.
+    """
+    last_updated_timestamp = Column(BigInteger, nullable=False)
+    """
+    The update time of an assessment if the assessment has been updated: `BigInteger`.
+    """
+    source_type = Column(String(50), nullable=False)
+    """
+    Assessment source type: `String` (limit 50 characters). e.g., "HUMAN", "CODE", "LLM_JUDGE".
+    """
+    source_id = Column(String(250), nullable=True)
+    """
+    Assessment source ID: `String` (limit 250 characters). e.g., "evaluator@company.com".
+    """
+    run_id = Column(String(32), nullable=True)
+    """
+    Run ID associated with the assessment if generated due to a run event:
+    `String` (limit of 32 characters).
+    """
+    span_id = Column(String(50), nullable=True)
+    """
+    Span ID if the assessment is applied to a Span within a Trace:
+    `String` (limit of 50 characters).
+    """
+    rationale = Column(Text, nullable=True)
+    """
+    Justification for the assessment: `Text` for longer explanations.
+    """
+    overrides = Column(String(50), nullable=True)
+    """
+    Overridden assessment_id if an assessment is intended to update and replace an existing
+    assessment: `String` (limit of 50 characters).
+    """
+    valid = Column(Boolean, nullable=False, default=True)
+    """
+    Indicator for whether an assessment has been marked as invalid: `Boolean`. Defaults to True.
+    """
+    assessment_metadata = Column(Text, nullable=True)
+    """
+    Assessment metadata stored as JSON: `Text` for complex metadata structures.
+    """
+
+    trace_info = relationship("SqlTraceInfo", backref=backref("assessments", cascade="all"))
+    """
+    SQLAlchemy relationship (many:one) with
+    :py:class:`mlflow.store.dbmodels.models.SqlTraceInfo`.
+    """
+
+    __table_args__ = (
+        PrimaryKeyConstraint("assessment_id", name="assessments_pkey"),
+        Index(f"index_{__tablename__}_trace_id_created_timestamp", "trace_id", "created_timestamp"),
+        Index(f"index_{__tablename__}_run_id_created_timestamp", "run_id", "created_timestamp"),
+        Index(f"index_{__tablename__}_last_updated_timestamp", "last_updated_timestamp"),
+        Index(f"index_{__tablename__}_assessment_type", "assessment_type"),
+    )
+
+    def __repr__(self):
+        return f"<SqlAssessments({self.assessment_id}, {self.name}, {self.assessment_type})>"
+
+
 class SqlLoggedModel(Base):
     __tablename__ = "logged_models"
 

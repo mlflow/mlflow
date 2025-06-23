@@ -152,6 +152,28 @@ CREATE TABLE trace_info (
 )
 
 
+CREATE TABLE assessments (
+	assessment_id VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	trace_id VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	name VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	assessment_type VARCHAR(20) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	value VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	error VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	created_timestamp BIGINT NOT NULL,
+	last_updated_timestamp BIGINT NOT NULL,
+	source_type VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
+	source_id VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	run_id VARCHAR(32) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	span_id VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	rationale VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	overrides VARCHAR(50) COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	valid BIT NOT NULL,
+	assessment_metadata VARCHAR COLLATE "SQL_Latin1_General_CP1_CI_AS",
+	CONSTRAINT assessments_pk PRIMARY KEY (assessment_id),
+	CONSTRAINT fk_assessments_trace_id FOREIGN KEY(trace_id) REFERENCES trace_info (request_id) ON DELETE CASCADE
+)
+
+
 CREATE TABLE latest_metrics (
 	key VARCHAR(250) COLLATE "SQL_Latin1_General_CP1_CI_AS" NOT NULL,
 	value FLOAT NOT NULL,

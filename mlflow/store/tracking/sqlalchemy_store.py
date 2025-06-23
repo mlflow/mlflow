@@ -17,8 +17,13 @@ from sqlalchemy.future import select
 
 import mlflow.store.db.utils
 from mlflow.entities import (
+    Assessment,
+    AssessmentError,
+    AssessmentSource,
     DatasetInput,
+    Expectation,
     Experiment,
+    Feedback,
     Run,
     RunInputs,
     RunOutputs,
@@ -29,6 +34,7 @@ from mlflow.entities import (
     ViewType,
     _DatasetSummary,
 )
+from mlflow.entities.assessment import FeedbackValueType
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.logged_model import LoggedModel
 from mlflow.entities.logged_model_input import LoggedModelInput
@@ -56,6 +62,7 @@ from mlflow.store.tracking import (
 )
 from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.store.tracking.dbmodels.models import (
+    SqlAssessments,
     SqlDataset,
     SqlExperiment,
     SqlExperimentTag,
@@ -74,7 +81,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceRequestMetadata,
     SqlTraceTag,
 )
-from mlflow.tracing.utils import generate_request_id_v2
+from mlflow.tracing.utils import generate_assessment_id, generate_request_id_v2
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.file_utils import local_file_uri_to_path, mkdir
 from mlflow.utils.mlflow_tags import (
@@ -2390,6 +2397,331 @@ class SqlAlchemyStore(AbstractStore):
                 .filter(and_(*filters))
                 .delete(synchronize_session="fetch")
             )
+
+    def create_assessment(self, assessment: Assessment) -> Assessment:
+        """
+        Create a new assessment in the database.
+
+        Args:
+            assessment: The Assessment object to create (without assessment_id).
+
+        Returns:
+            The created Assessment object with backend-generated metadata.
+        """
+
+        with self.ManagedSessionMaker() as session:
+            self._get_sql_trace_info(session, assessment.trace_id)
+
+            assessment_id = generate_assessment_id()
+            creation_timestamp = get_current_time_millis()
+
+            assessment.assessment_id = assessment_id
+            assessment.create_time_ms = creation_timestamp
+            assessment.last_update_time_ms = creation_timestamp
+            assessment.valid = True
+
+            if assessment.feedback is not None:
+                assessment_type = "feedback"
+                value_json = json.dumps(assessment.feedback.value)
+                error_json = (
+                    json.dumps(assessment.feedback.error.to_dictionary())
+                    if assessment.feedback.error
+                    else None
+                )
+            elif assessment.expectation is not None:
+                assessment_type = "expectation"
+                value_json = json.dumps(assessment.expectation.value)
+                error_json = None
+            else:
+                raise MlflowException.invalid_parameter_value(
+                    "Assessment must have either feedback or expectation value"
+                )
+
+            metadata_json = json.dumps(assessment.metadata) if assessment.metadata else None
+
+            sql_assessment = SqlAssessments(
+                assessment_id=assessment_id,
+                trace_id=assessment.trace_id,
+                name=assessment.name,
+                assessment_type=assessment_type,
+                value=value_json,
+                error=error_json,
+                created_timestamp=creation_timestamp,
+                last_updated_timestamp=creation_timestamp,
+                source_type=assessment.source.source_type,
+                source_id=assessment.source.source_id,
+                run_id=assessment.run_id,
+                span_id=assessment.span_id,
+                rationale=assessment.rationale,
+                overrides=assessment.overrides,
+                valid=True,
+                assessment_metadata=metadata_json,
+            )
+
+            session.add(sql_assessment)
+            return assessment
+
+    def get_assessment(self, trace_id: str, assessment_id: str) -> Assessment:
+        """
+        Fetch the assessment for the given trace_id and assessment_id.
+
+        Args:
+            trace_id: The ID of the trace containing the assessment.
+            assessment_id: The ID of the assessment to retrieve.
+
+        Returns:
+            The Assessment object.
+        """
+
+        with self.ManagedSessionMaker() as session:
+            sql_assessment = self._get_sql_assessment(session, trace_id, assessment_id)
+            return self._sql_to_assessment(sql_assessment)
+
+    def update_assessment(
+        self,
+        trace_id: str,
+        assessment_id: str,
+        expectation: Optional[Any] = None,
+        feedback: Optional[FeedbackValueType] = None,
+        rationale: Optional[str] = None,
+        valid: Optional[bool] = True,
+        metadata: Optional[dict[str, str]] = None,
+    ) -> Assessment:
+        """
+        Update an existing assessment by creating a new version with override tracking.
+
+        Args:
+            trace_id: The unique identifier of the trace containing the assessment.
+            assessment_id: The unique identifier of the assessment to update.
+            expectation: Optional new expectation value.
+            feedback: Optional new feedback value.
+            rationale: Optional new rationale text.
+            valid: Whether the original assessment should remain valid.
+            metadata: Optional metadata updates.
+
+        Returns:
+            Assessment: The newly created assessment object with updated values.
+        """
+        with self.ManagedSessionMaker() as session:
+            existing_sql = self._get_sql_assessment(session, trace_id, assessment_id)
+            existing = self._sql_to_assessment(existing_sql)
+
+            self._validate_update_params(existing, expectation, feedback)
+
+            new_assessment = self._create_updated_assessment(
+                existing, expectation, feedback, rationale, metadata
+            )
+
+            if not valid:
+                existing_sql.valid = False
+                session.merge(existing_sql)
+
+            return self._persist_assessment(session, new_assessment)
+
+    def _sql_to_assessment(self, sql_assessment: SqlAssessments) -> Assessment:
+        """Convert SqlAssessments to Assessment object."""
+        parsed_value = json.loads(sql_assessment.value)
+        parsed_error = None
+        if sql_assessment.error:
+            error_dict = json.loads(sql_assessment.error)
+            parsed_error = AssessmentError.from_dictionary(error_dict)
+
+        parsed_metadata = None
+        if sql_assessment.assessment_metadata:
+            parsed_metadata = json.loads(sql_assessment.assessment_metadata)
+
+        source = AssessmentSource(
+            source_type=sql_assessment.source_type, source_id=sql_assessment.source_id
+        )
+
+        if sql_assessment.assessment_type == "feedback":
+            assessment = Feedback(
+                name=sql_assessment.name,
+                value=parsed_value,
+                error=parsed_error,
+                source=source,
+                trace_id=sql_assessment.trace_id,
+                rationale=sql_assessment.rationale,
+                metadata=parsed_metadata,
+                span_id=sql_assessment.span_id,
+                create_time_ms=sql_assessment.created_timestamp,
+                last_update_time_ms=sql_assessment.last_updated_timestamp,
+                overrides=sql_assessment.overrides,
+                valid=sql_assessment.valid,
+            )
+        elif sql_assessment.assessment_type == "expectation":
+            assessment = Expectation(
+                name=sql_assessment.name,
+                value=parsed_value,
+                source=source,
+                trace_id=sql_assessment.trace_id,
+                metadata=parsed_metadata,
+                span_id=sql_assessment.span_id,
+                create_time_ms=sql_assessment.created_timestamp,
+                last_update_time_ms=sql_assessment.last_updated_timestamp,
+            )
+            assessment.overrides = sql_assessment.overrides
+            assessment.valid = sql_assessment.valid
+        else:
+            raise MlflowException(
+                f"Unknown assessment type: {sql_assessment.assessment_type}",
+                INTERNAL_ERROR,
+            )
+        assessment.run_id = sql_assessment.run_id
+        assessment.assessment_id = sql_assessment.assessment_id
+
+        return assessment
+
+    def _validate_update_params(
+        self,
+        existing: Assessment,
+        expectation: Optional[Any],
+        feedback: Optional[FeedbackValueType],
+    ) -> None:
+        """Validate that update parameters match assessment type."""
+        if expectation is not None and not isinstance(existing, Expectation):
+            raise MlflowException.invalid_parameter_value(
+                "Cannot update expectation value on a Feedback assessment."
+            )
+
+        if feedback is not None and not isinstance(existing, Feedback):
+            raise MlflowException.invalid_parameter_value(
+                "Cannot update feedback value on an Expectation assessment."
+            )
+
+    def _create_updated_assessment(
+        self,
+        existing: Assessment,
+        expectation: Optional[Any],
+        feedback: Optional[FeedbackValueType],
+        rationale: Optional[str],
+        metadata: Optional[dict[str, str]],
+    ) -> Assessment:
+        """Create new assessment with updated values."""
+        new_assessment_id = generate_assessment_id()
+        updated_timestamp = get_current_time_millis()
+
+        if isinstance(existing, Expectation):
+            new_assessment = Expectation(
+                name=existing.name,
+                value=expectation if expectation is not None else existing.value,
+                source=existing.source,
+                trace_id=existing.trace_id,
+                metadata=metadata if metadata is not None else existing.metadata,
+                span_id=existing.span_id,
+                create_time_ms=existing.create_time_ms,
+                last_update_time_ms=updated_timestamp,
+            )
+            new_assessment.overrides = existing.assessment_id
+            new_assessment.valid = True
+        else:
+            new_assessment = Feedback(
+                name=existing.name,
+                value=feedback if feedback is not None else existing.value,
+                error=existing.error,
+                source=existing.source,
+                trace_id=existing.trace_id,
+                metadata=metadata if metadata is not None else existing.metadata,
+                span_id=existing.span_id,
+                create_time_ms=existing.create_time_ms,
+                last_update_time_ms=updated_timestamp,
+                rationale=rationale if rationale is not None else existing.rationale,
+                overrides=existing.assessment_id,
+                valid=True,
+            )
+
+        new_assessment.assessment_id = new_assessment_id
+        new_assessment.run_id = existing.run_id
+
+        return new_assessment
+
+    def _persist_assessment(self, session, assessment: Assessment) -> Assessment:
+        """Persist assessment to database within existing session."""
+        self._get_sql_trace_info(session, assessment.trace_id)
+
+        if assessment.feedback is not None:
+            assessment_type = "feedback"
+            value_json = json.dumps(assessment.feedback.value)
+            error_json = (
+                json.dumps(assessment.feedback.error.to_dictionary())
+                if assessment.feedback.error
+                else None
+            )
+        elif assessment.expectation is not None:
+            assessment_type = "expectation"
+            value_json = json.dumps(assessment.expectation.value)
+            error_json = None
+        else:
+            raise MlflowException.invalid_parameter_value(
+                "Assessment must have either feedback or expectation value"
+            )
+
+        metadata_json = json.dumps(assessment.metadata) if assessment.metadata else None
+
+        sql_assessment = SqlAssessments(
+            assessment_id=assessment.assessment_id,
+            trace_id=assessment.trace_id,
+            name=assessment.name,
+            assessment_type=assessment_type,
+            value=value_json,
+            error=error_json,
+            created_timestamp=assessment.create_time_ms,
+            last_updated_timestamp=assessment.last_update_time_ms,
+            source_type=assessment.source.source_type,
+            source_id=assessment.source.source_id,
+            run_id=assessment.run_id,
+            span_id=assessment.span_id,
+            rationale=assessment.rationale,
+            overrides=assessment.overrides,
+            valid=assessment.valid,
+            assessment_metadata=metadata_json,
+        )
+
+        session.add(sql_assessment)
+        return assessment
+
+    def delete_assessment(self, trace_id: str, assessment_id: str) -> None:
+        """
+        Delete an assessment from a trace.
+
+        Args:
+            trace_id: The ID of the trace containing the assessment.
+            assessment_id: The ID of the assessment to delete.
+        """
+        with self.ManagedSessionMaker() as session:
+            assessments = session.query(SqlAssessments).filter_by(
+                trace_id=trace_id, assessment_id=assessment_id
+            )
+            if assessments.count() == 0:
+                # Idempotent operation - don't raise error if assessment doesn't exist
+                return
+            assessments.delete()
+
+    def _get_sql_assessment(self, session, trace_id: str, assessment_id: str) -> SqlAssessments:
+        """Helper method to get SqlAssessments object."""
+        sql_assessment = (
+            session.query(SqlAssessments)
+            .filter(
+                SqlAssessments.trace_id == trace_id, SqlAssessments.assessment_id == assessment_id
+            )
+            .one_or_none()
+        )
+        if sql_assessment is None:
+            trace_exists = (
+                session.query(SqlTraceInfo).filter(SqlTraceInfo.request_id == trace_id).first()
+                is not None
+            )
+            if not trace_exists:
+                raise MlflowException(
+                    f"Trace with request_id '{trace_id}' not found",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+            else:
+                raise MlflowException(
+                    f"Assessment with ID '{assessment_id}' not found for trace '{trace_id}'",
+                    RESOURCE_DOES_NOT_EXIST,
+                )
+        return sql_assessment
 
 
 def _get_sqlalchemy_filter_clauses(parsed, session, dialect):

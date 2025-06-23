@@ -22,8 +22,12 @@ import mlflow.db
 import mlflow.store.db.base_sql_model
 from mlflow import entities
 from mlflow.entities import (
+    AssessmentSource,
+    AssessmentSourceType,
+    Expectation,
     Experiment,
     ExperimentTag,
+    Feedback,
     Metric,
     Param,
     RunStatus,
@@ -62,6 +66,7 @@ from mlflow.store.tracking import (
 )
 from mlflow.store.tracking.dbmodels import models
 from mlflow.store.tracking.dbmodels.models import (
+    SqlAssessments,
     SqlDataset,
     SqlExperiment,
     SqlExperimentTag,
@@ -5527,3 +5532,405 @@ def test_log_batch_logged_model(store: SqlAlchemyStore):
     actual_metrics = sorted(model.metrics, key=lambda m: m.key)
     expected_metrics = sorted([metric, another_metric, *metrics], key=lambda m: m.key)
     assert actual_metrics == expected_metrics
+
+
+def test_create_and_get_assessment(store):
+    exp_id = store.create_experiment("test_assessments")
+    timestamp_ms = get_current_time_millis()
+    trace_info = store.start_trace(exp_id, timestamp_ms, {}, {})
+
+    feedback = Feedback(
+        trace_id=trace_info.request_id,
+        name="correctness",
+        value=True,
+        rationale="The response is correct and well-formatted",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.HUMAN, source_id="evaluator@company.com"
+        ),
+        metadata={"project": "test-project", "version": "1.0"},
+        span_id="span-123",
+    )
+
+    created_feedback = store.create_assessment(feedback)
+    assert created_feedback.assessment_id is not None
+    assert created_feedback.assessment_id.startswith("a-")
+    assert created_feedback.trace_id == trace_info.request_id
+    assert created_feedback.create_time_ms is not None
+    assert created_feedback.name == "correctness"
+    assert created_feedback.feedback.value is True
+    assert created_feedback.rationale == "The response is correct and well-formatted"
+    assert created_feedback.metadata == {"project": "test-project", "version": "1.0"}
+    assert created_feedback.span_id == "span-123"
+    assert created_feedback.valid
+
+    expectation = Expectation(
+        trace_id=trace_info.request_id,
+        name="expected_response",
+        value="The capital of France is Paris.",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.HUMAN, source_id="annotator@company.com"
+        ),
+        metadata={"context": "geography-qa", "difficulty": "easy"},
+        span_id="span-456",
+    )
+
+    created_expectation = store.create_assessment(expectation)
+    assert created_expectation.assessment_id != created_feedback.assessment_id
+    assert created_expectation.trace_id == trace_info.request_id
+    assert created_expectation.expectation.value == "The capital of France is Paris."
+    assert created_expectation.metadata == {"context": "geography-qa", "difficulty": "easy"}
+    assert created_expectation.span_id == "span-456"
+    assert created_expectation.valid
+
+    retrieved_feedback = store.get_assessment(trace_info.request_id, created_feedback.assessment_id)
+    assert retrieved_feedback.name == "correctness"
+    assert retrieved_feedback.feedback.value is True
+    assert retrieved_feedback.rationale == "The response is correct and well-formatted"
+    assert retrieved_feedback.metadata == {"project": "test-project", "version": "1.0"}
+    assert retrieved_feedback.span_id == "span-123"
+    assert retrieved_feedback.trace_id == trace_info.request_id
+    assert retrieved_feedback.valid
+
+    retrieved_expectation = store.get_assessment(
+        trace_info.request_id, created_expectation.assessment_id
+    )
+    assert retrieved_expectation.expectation.value == "The capital of France is Paris."
+    assert retrieved_expectation.metadata == {"context": "geography-qa", "difficulty": "easy"}
+    assert retrieved_expectation.span_id == "span-456"
+    assert retrieved_expectation.trace_id == trace_info.request_id
+    assert retrieved_expectation.valid
+
+
+def test_get_assessment_errors(store):
+    with pytest.raises(MlflowException, match=r"Trace with request_id 'fake_trace' not found"):
+        store.get_assessment("fake_trace", "fake_assessment")
+
+    exp_id = store.create_experiment("test_errors")
+    trace_info = store.start_trace(exp_id, get_current_time_millis(), {}, {})
+
+    with pytest.raises(
+        MlflowException,
+        match=r"Assessment with ID 'fake_assessment' not found for trace "
+        rf"'{trace_info.request_id}'",
+    ):
+        store.get_assessment(trace_info.request_id, "fake_assessment")
+
+
+def test_create_assessment_with_complex_data_structures(store):
+    exp_id = store.create_experiment("test_complex_data")
+    timestamp_ms = get_current_time_millis()
+    trace_info = store.start_trace(exp_id, timestamp_ms, {}, {})
+
+    complex_feedback_value = {
+        "scores": {"accuracy": 0.95, "precision": 0.87, "recall": 0.92, "f1": 0.895},
+        "categories": ["correct", "well-formatted", "complete"],
+        "details": {
+            "reasoning_steps": [
+                {"step": 1, "description": "Identified key entities", "confidence": 0.9},
+                {"step": 2, "description": "Applied logical reasoning", "confidence": 0.85},
+                {"step": 3, "description": "Generated response", "confidence": 0.88},
+            ],
+            "error_analysis": None,
+            "alternative_answers": ["Paris, France", "Paris"],
+        },
+        "metadata": {
+            "model_version": "v2.1.0",
+            "temperature": 0.7,
+            "max_tokens": 150,
+            "stop_sequences": ["\n\n", "END"],
+        },
+    }
+
+    feedback = Feedback(
+        trace_id=trace_info.request_id,
+        name="detailed_evaluation",
+        value=complex_feedback_value,
+        rationale="Comprehensive evaluation with multiple metrics and detailed analysis",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.LLM_JUDGE, source_id="gpt-4-evaluator"
+        ),
+        metadata={"evaluation_framework": "comprehensive_v1", "batch_id": "eval_001"},
+    )
+
+    created_feedback = store.create_assessment(feedback)
+    assert created_feedback.assessment_id is not None
+    assert created_feedback.assessment_id.startswith("a-")
+    assert created_feedback.name == "detailed_evaluation"
+    assert created_feedback.feedback.value == complex_feedback_value
+    assert (
+        created_feedback.rationale
+        == "Comprehensive evaluation with multiple metrics and detailed analysis"
+    )
+    assert created_feedback.valid
+
+    retrieved_feedback = store.get_assessment(trace_info.request_id, created_feedback.assessment_id)
+    assert retrieved_feedback.feedback.value == complex_feedback_value
+    assert retrieved_feedback.feedback.value["scores"]["accuracy"] == 0.95
+    assert len(retrieved_feedback.feedback.value["categories"]) == 3
+    assert retrieved_feedback.feedback.value["details"]["reasoning_steps"][0]["step"] == 1
+    assert retrieved_feedback.feedback.value["metadata"]["model_version"] == "v2.1.0"
+
+
+@pytest.mark.parametrize("valid", [True, False])
+def test_update_assessment_feedback(store, valid):
+    exp_id = store.create_experiment("test_update_feedback")
+    trace_info = store.start_trace(exp_id, get_current_time_millis(), {}, {})
+
+    original_feedback = Feedback(
+        trace_id=trace_info.request_id,
+        name="correctness",
+        value=True,
+        rationale="Original rationale",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.HUMAN, source_id="evaluator@company.com"
+        ),
+        metadata={"project": "test-project", "version": "1.0"},
+        span_id="span-123",
+    )
+
+    created_feedback = store.create_assessment(original_feedback)
+    original_id = created_feedback.assessment_id
+
+    updated_feedback = store.update_assessment(
+        trace_id=trace_info.request_id,
+        assessment_id=original_id,
+        feedback=False,
+        rationale="Updated rationale",
+        metadata={"project": "test-project", "version": "2.0"},
+        valid=valid,
+    )
+
+    assert updated_feedback.assessment_id != original_id
+    assert updated_feedback.assessment_id.startswith("a-")
+    assert updated_feedback.name == "correctness"
+    assert updated_feedback.feedback.value is False
+    assert updated_feedback.rationale == "Updated rationale"
+    assert updated_feedback.metadata == {"project": "test-project", "version": "2.0"}
+    assert updated_feedback.span_id == "span-123"
+    assert updated_feedback.source.source_id == "evaluator@company.com"
+    assert updated_feedback.valid is True
+    assert updated_feedback.overrides == original_id
+
+    original_retrieved = store.get_assessment(trace_info.request_id, original_id)
+    if valid:
+        assert original_retrieved.valid is True
+    else:
+        assert original_retrieved.valid is False
+
+    assert original_retrieved.feedback.value is True
+    assert original_retrieved.rationale == "Original rationale"
+
+
+def test_update_assessment_expectation(store):
+    exp_id = store.create_experiment("test_update_expectation")
+    trace_info = store.start_trace(exp_id, get_current_time_millis(), {}, {})
+
+    original_expectation = Expectation(
+        trace_id=trace_info.request_id,
+        name="expected_response",
+        value="The capital of France is Paris.",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.HUMAN, source_id="annotator@company.com"
+        ),
+        metadata={"context": "geography-qa"},
+        span_id="span-456",
+    )
+
+    created_expectation = store.create_assessment(original_expectation)
+    original_id = created_expectation.assessment_id
+
+    updated_expectation = store.update_assessment(
+        trace_id=trace_info.request_id,
+        assessment_id=original_id,
+        expectation="The capital and largest city of France is Paris.",
+        metadata={"context": "geography-qa", "updated": "true"},
+    )
+
+    assert updated_expectation.assessment_id != original_id
+    assert (
+        updated_expectation.expectation.value == "The capital and largest city of France is Paris."
+    )
+    assert updated_expectation.metadata == {"context": "geography-qa", "updated": "true"}
+    assert updated_expectation.valid is True
+    assert updated_expectation.overrides == original_id
+
+    # Original expectation should remain valid (default behavior)
+    original_retrieved = store.get_assessment(trace_info.request_id, original_id)
+    assert original_retrieved.valid is True
+
+
+def test_update_assessment_type_validation(store):
+    exp_id = store.create_experiment("test_type_validation")
+    trace_info = store.start_trace(exp_id, get_current_time_millis(), {}, {})
+
+    feedback = Feedback(
+        trace_id=trace_info.request_id,
+        name="test_feedback",
+        value="original",
+        source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+    )
+    created_feedback = store.create_assessment(feedback)
+
+    with pytest.raises(
+        MlflowException, match=r"Cannot update expectation value on a Feedback assessment"
+    ):
+        store.update_assessment(
+            trace_id=trace_info.request_id,
+            assessment_id=created_feedback.assessment_id,
+            expectation="This should fail",
+        )
+
+    expectation = Expectation(
+        trace_id=trace_info.request_id,
+        name="test_expectation",
+        value="original_expected",
+        source=AssessmentSource(source_type=AssessmentSourceType.HUMAN),
+    )
+    created_expectation = store.create_assessment(expectation)
+
+    with pytest.raises(
+        MlflowException, match=r"Cannot update feedback value on an Expectation assessment"
+    ):
+        store.update_assessment(
+            trace_id=trace_info.request_id,
+            assessment_id=created_expectation.assessment_id,
+            feedback="This should fail",
+        )
+
+
+def test_delete_assessment_idempotent(store):
+    exp_id = store.create_experiment("test_delete_idempotent")
+    trace_info = store.start_trace(exp_id, get_current_time_millis(), {}, {})
+
+    feedback = Feedback(
+        trace_id=trace_info.request_id,
+        name="test",
+        value="test_value",
+        source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+    )
+
+    created_feedback = store.create_assessment(feedback)
+
+    retrieved = store.get_assessment(trace_info.request_id, created_feedback.assessment_id)
+    assert retrieved.assessment_id == created_feedback.assessment_id
+
+    store.delete_assessment(trace_info.request_id, created_feedback.assessment_id)
+
+    # Verify assessment is deleted
+    with pytest.raises(
+        MlflowException,
+        match=rf"Assessment with ID '{created_feedback.assessment_id}' not"
+        rf" found for trace '{trace_info.request_id}'",
+    ):
+        store.get_assessment(trace_info.request_id, created_feedback.assessment_id)
+
+    # Test idempotent behavior - should not raise error
+    store.delete_assessment(trace_info.request_id, created_feedback.assessment_id)
+
+    # Delete non-existent assessment - should not raise error
+    store.delete_assessment(trace_info.request_id, "fake_assessment_id")
+
+
+def test_assessment_with_run_id(store):
+    """Test assessments associated with runs"""
+    exp_id = store.create_experiment("test_run_assessments")
+    trace_info = store.start_trace(exp_id, get_current_time_millis(), {}, {})
+
+    run = store.create_run(
+        experiment_id=exp_id,
+        user_id="test_user",
+        start_time=get_current_time_millis(),
+        tags=[],
+        run_name="test_run",
+    )
+
+    feedback = Feedback(
+        trace_id=trace_info.request_id,
+        name="run_feedback",
+        value="excellent",
+        source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+    )
+    feedback.run_id = run.info.run_id
+
+    created_feedback = store.create_assessment(feedback)
+    assert created_feedback.run_id == run.info.run_id
+
+    retrieved_feedback = store.get_assessment(trace_info.request_id, created_feedback.assessment_id)
+    assert retrieved_feedback.run_id == run.info.run_id
+
+
+def test_assessment_with_error(store):
+    """Test feedback assessments with errors including stack trace capture"""
+    exp_id = store.create_experiment("test_error_assessments")
+    trace_info = store.start_trace(exp_id, get_current_time_millis(), {}, {})
+
+    try:
+        raise ValueError("Test error message")
+    except ValueError as test_error:
+        feedback = Feedback(
+            trace_id=trace_info.request_id,
+            name="error_feedback",
+            value=None,
+            error=test_error,
+            source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+        )
+
+    created_feedback = store.create_assessment(feedback)
+    assert created_feedback.feedback.error is not None
+    assert created_feedback.feedback.error.error_message == "Test error message"
+    assert created_feedback.feedback.error.error_code == "ValueError"
+
+    assert created_feedback.feedback.error.stack_trace is not None
+    assert "ValueError: Test error message" in created_feedback.feedback.error.stack_trace
+    assert "test_assessment_with_error" in created_feedback.feedback.error.stack_trace
+
+    retrieved_feedback = store.get_assessment(trace_info.request_id, created_feedback.assessment_id)
+    assert retrieved_feedback.feedback.error is not None
+    assert retrieved_feedback.feedback.error.error_message == "Test error message"
+    assert retrieved_feedback.feedback.error.error_code == "ValueError"
+
+    assert retrieved_feedback.feedback.error.stack_trace is not None
+    assert "ValueError: Test error message" in retrieved_feedback.feedback.error.stack_trace
+    assert "test_assessment_with_error" in retrieved_feedback.feedback.error.stack_trace
+
+    assert (
+        created_feedback.feedback.error.stack_trace == retrieved_feedback.feedback.error.stack_trace
+    )
+
+
+def test_assessment_database_constraints(store):
+    """Test database-level constraints and relationships"""
+    exp_id = store.create_experiment("test_constraints")
+    trace_info = store.start_trace(exp_id, get_current_time_millis(), {}, {})
+
+    feedback = Feedback(
+        trace_id=trace_info.request_id,
+        name="test_feedback",
+        value="test",
+        source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+    )
+
+    created_feedback = store.create_assessment(feedback)
+
+    # Test that deleting trace cascades to assessments
+    with store.ManagedSessionMaker() as session:
+        # Verify assessment exists in database
+        sql_assessment = (
+            session.query(SqlAssessments)
+            .filter_by(assessment_id=created_feedback.assessment_id)
+            .one_or_none()
+        )
+        assert sql_assessment is not None
+
+        # Delete the trace
+        sql_trace = session.query(SqlTraceInfo).filter_by(request_id=trace_info.request_id).one()
+        session.delete(sql_trace)
+        session.commit()
+
+        # Verify assessment was cascade deleted
+        sql_assessment = (
+            session.query(SqlAssessments)
+            .filter_by(assessment_id=created_feedback.assessment_id)
+            .one_or_none()
+        )
+        assert sql_assessment is None
