@@ -35,12 +35,6 @@ import { withErrorBoundary } from '../../common/utils/withErrorBoundary';
 import ErrorUtils from '../../common/utils/ErrorUtils';
 import { ErrorCodes } from '../../common/constants';
 
-type UrlState = {
-  orderByKey?: string;
-  orderByAsc?: string;
-  page?: string;
-};
-
 type ModelPageImplState = {
   maxResultsSelection: number;
   pageTokens: Record<number, string | null>;
@@ -105,18 +99,6 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
 
   componentDidMount() {
     this.loadModelVersions(true);
-  }
-
-  getUrlState(): UrlState {
-    if (!this.props.location) {
-      return {};
-    }
-    const params = Utils.getSearchParamsFromUrl(this.props.location.search);
-    return {
-      orderByKey: params['orderByKey'] as string | undefined,
-      orderByAsc: params['orderByAsc'] as string | undefined,
-      page: params['page'] as string | undefined,
-    };
   }
 
   updateUrlWithState(orderByKey: string, orderByAsc: boolean, page: number): Promise<void> {
