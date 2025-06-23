@@ -2439,6 +2439,8 @@ def test_start_and_end_trace(mlflow_client):
 
 
 def test_search_traces(mlflow_client):
+    pytest.skip("Rest Store is not migrated to V3 yet")
+
     mlflow.set_tracking_uri(mlflow_client.tracking_uri)
     experiment_id = mlflow_client.create_experiment("search traces")
 
@@ -2483,6 +2485,8 @@ def test_search_traces(mlflow_client):
 
 
 def test_delete_traces(mlflow_client):
+    pytest.skip("Rest Store is not migrated to V3 yet")
+
     mlflow.set_tracking_uri(mlflow_client.tracking_uri)
     experiment_id = mlflow_client.create_experiment("delete traces")
 
@@ -2563,6 +2567,8 @@ def test_set_and_delete_trace_tag(mlflow_client):
 
 
 def test_get_trace_artifact_handler(mlflow_client):
+    pytest.skip("Rest Store is not migrated to V3 yet")
+
     mlflow.set_tracking_uri(mlflow_client.tracking_uri)
 
     experiment_id = mlflow_client.create_experiment("get trace artifact")

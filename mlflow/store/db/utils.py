@@ -56,7 +56,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlRun,
     SqlTag,
     SqlTraceInfo,
-    SqlTraceRequestMetadata,
+    SqlTraceMetadata,
     SqlTraceTag,
 )
 
@@ -95,7 +95,7 @@ def _all_tables_exist(engine):
         SqlInputTag.__tablename__,
         SqlTraceInfo.__tablename__,
         SqlTraceTag.__tablename__,
-        SqlTraceRequestMetadata.__tablename__,
+        SqlTraceMetadata.__tablename__,
     }
 
 
