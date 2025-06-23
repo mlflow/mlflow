@@ -11,13 +11,11 @@ import {
   Typography,
   Alert,
   useDesignSystemTheme,
-  CursorPaginationProps,
 } from '@databricks/design-system';
 import 'react-virtualized/styles.css';
 import Routes from '../routes';
 import { CreateExperimentModal } from './modals/CreateExperimentModal';
-import { ExperimentEntity } from '../types';
-import { useInvalidateExperimentList } from './experiment-page/hooks/useExperimentListQuery';
+import { useExperimentListQuery, useInvalidateExperimentList } from './experiment-page/hooks/useExperimentListQuery';
 import { RowSelectionState } from '@tanstack/react-table';
 import { defineMessage, FormattedMessage, useIntl } from 'react-intl';
 import { ScrollablePageWrapper } from '../../common/components/ScrollablePageWrapper';
@@ -27,20 +25,21 @@ import { useNavigate } from '../../common/utils/RoutingUtils';
 import { BulkDeleteExperimentModal } from './modals/BulkDeleteExperimentModal';
 
 type Props = {
-  experiments: ExperimentEntity[];
-  error?: Error;
   searchFilter: string;
   setSearchFilter: (searchFilter: string) => void;
-  cursorPaginationProps: Omit<CursorPaginationProps, 'componentId'>;
 };
 
-export const ExperimentListView = ({
-  experiments,
-  error,
-  searchFilter,
-  setSearchFilter,
-  cursorPaginationProps,
-}: Props) => {
+export const ExperimentListView = ({ searchFilter, setSearchFilter }: Props) => {
+  const {
+    data: experiments,
+    isLoading,
+    error,
+    hasNextPage,
+    hasPreviousPage,
+    onNextPage,
+    onPreviousPage,
+    pageSizeSelect,
+  } = useExperimentListQuery({ searchFilter });
   const invalidateExperimentList = useInvalidateExperimentList();
 
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
@@ -154,10 +153,17 @@ export const ExperimentListView = ({
         </TableFilterLayout>
         <ExperimentListTable
           experiments={experiments}
+          isLoading={isLoading}
           isFiltered={Boolean(searchFilter)}
           rowSelection={rowSelection}
           setRowSelection={setRowSelection}
-          cursorPaginationProps={cursorPaginationProps}
+          cursorPaginationProps={{
+            hasNextPage,
+            hasPreviousPage,
+            onNextPage,
+            onPreviousPage,
+            pageSizeSelect,
+          }}
         />
       </div>
       <CreateExperimentModal
@@ -166,7 +172,7 @@ export const ExperimentListView = ({
         onExperimentCreated={invalidateExperimentList}
       />
       <BulkDeleteExperimentModal
-        experiments={experiments.filter(({ experimentId }) => checkedKeys.includes(experimentId))}
+        experiments={(experiments ?? []).filter(({ experimentId }) => checkedKeys.includes(experimentId))}
         isOpen={showBulkDeleteExperimentModal}
         onClose={() => setShowBulkDeleteExperimentModal(false)}
         onExperimentsDeleted={() => {

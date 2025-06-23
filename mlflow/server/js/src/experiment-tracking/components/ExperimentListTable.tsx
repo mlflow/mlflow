@@ -10,6 +10,7 @@ import {
   TableHeader,
   TableCell,
   CursorPaginationProps,
+  TableSkeletonRows,
 } from '@databricks/design-system';
 import 'react-virtualized/styles.css';
 import { ExperimentEntity } from '../types';
@@ -86,12 +87,14 @@ const useExperimentsTableColumns = () => {
 export const ExperimentListTable = ({
   experiments,
   isFiltered,
+  isLoading,
   rowSelection,
   setRowSelection,
   cursorPaginationProps,
 }: {
   experiments?: ExperimentEntity[];
   isFiltered?: boolean;
+  isLoading: boolean;
   rowSelection: RowSelectionState;
   setRowSelection: OnChangeFn<RowSelectionState>;
   cursorPaginationProps: Omit<CursorPaginationProps, 'componentId'>;
@@ -111,7 +114,7 @@ export const ExperimentListTable = ({
   });
 
   const getEmptyState = () => {
-    const isEmptyList = isEmpty(experiments);
+    const isEmptyList = !isLoading && isEmpty(experiments);
     if (isEmptyList && isFiltered) {
       return (
         <Empty
@@ -167,18 +170,22 @@ export const ExperimentListTable = ({
           </TableHeader>
         ))}
       </TableRow>
-      {table.getRowModel().rows.map((row) => (
-        <TableRow key={row.id} css={{ height: theme.general.buttonHeight }} data-testid="experiment-list-item">
-          {row.getAllCells().map((cell) => (
-            <TableCell
-              key={cell.id}
-              css={{ alignItems: 'center', ...(cell.column.id === 'select' ? selectColumnStyles : undefined) }}
-            >
-              {flexRender(cell.column.columnDef.cell, cell.getContext())}
-            </TableCell>
-          ))}
-        </TableRow>
-      ))}
+      {isLoading ? (
+        <TableSkeletonRows table={table} />
+      ) : (
+        table.getRowModel().rows.map((row) => (
+          <TableRow key={row.id} css={{ height: theme.general.buttonHeight }} data-testid="experiment-list-item">
+            {row.getAllCells().map((cell) => (
+              <TableCell
+                key={cell.id}
+                css={{ alignItems: 'center', ...(cell.column.id === 'select' ? selectColumnStyles : undefined) }}
+              >
+                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+              </TableCell>
+            ))}
+          </TableRow>
+        ))
+      )}
     </Table>
   );
 };
