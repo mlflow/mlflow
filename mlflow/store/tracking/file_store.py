@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from typing import Any, NamedTuple, Optional, TypedDict
 
 from mlflow.entities import (
+    Assessment,
     Dataset,
     DatasetInput,
     Experiment,
@@ -58,7 +59,10 @@ from mlflow.store.tracking import (
     SEARCH_TRACES_DEFAULT_MAX_RESULTS,
 )
 from mlflow.store.tracking.abstract_store import AbstractStore
-from mlflow.tracing.utils import generate_request_id_v2
+from mlflow.tracing.utils import (
+    generate_assessment_id,
+    generate_request_id_v2,
+)
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.file_utils import (
     append_to,
@@ -190,6 +194,7 @@ class FileStore(AbstractStore):
     TRACES_FOLDER_NAME = "traces"
     TRACE_TAGS_FOLDER_NAME = "tags"
     TRACE_REQUEST_METADATA_FOLDER_NAME = "request_metadata"
+    ASSESSMENTS_FOLDER_NAME = "assessments"
     MODELS_FOLDER_NAME = "models"
     RESERVED_EXPERIMENT_FOLDERS = [
         EXPERIMENT_TAGS_FOLDER_NAME,
@@ -1831,6 +1836,98 @@ class FileStore(AbstractStore):
                 RESOURCE_DOES_NOT_EXIST,
             )
         os.remove(tag_path)
+
+    def _get_assessments_dir(self, trace_id: str) -> str:
+        trace_dir = self._find_trace_dir(trace_id, assert_exists=True)
+        return os.path.join(trace_dir, FileStore.ASSESSMENTS_FOLDER_NAME)
+
+    def _get_assessment_path(self, trace_id: str, assessment_id: str) -> str:
+        assessments_dir = self._get_assessments_dir(trace_id)
+        return os.path.join(assessments_dir, f"{assessment_id}.yaml")
+
+    def _save_assessment(self, assessment: Assessment) -> None:
+        assessment_path = self._get_assessment_path(assessment.trace_id, assessment.assessment_id)
+        make_containing_dirs(assessment_path)
+
+        assessment_dict = assessment.to_dictionary()
+        write_yaml(
+            root=os.path.dirname(assessment_path),
+            file_name=os.path.basename(assessment_path),
+            data=assessment_dict,
+            overwrite=True,
+        )
+
+    def _load_assessment(self, trace_id: str, assessment_id: str) -> Assessment:
+        assessment_path = self._get_assessment_path(trace_id, assessment_id)
+
+        if not exists(assessment_path):
+            raise MlflowException(
+                f"Assessment with ID '{assessment_id}' not found for trace '{trace_id}'",
+                RESOURCE_DOES_NOT_EXIST,
+            )
+
+        try:
+            assessment_dict = FileStore._read_yaml(
+                root=os.path.dirname(assessment_path), file_name=os.path.basename(assessment_path)
+            )
+            return Assessment.from_dictionary(assessment_dict)
+        except Exception as e:
+            raise MlflowException(
+                f"Failed to load assessment with ID '{assessment_id}' for trace '{trace_id}': {e}",
+                INTERNAL_ERROR,
+            ) from e
+
+    def get_assessment(self, trace_id: str, assessment_id: str) -> Assessment:
+        """
+        Retrieves a specific assessment associated with a trace from the file store.
+
+        Args:
+            trace_id: The unique identifier of the trace containing the assessment.
+            assessment_id: The unique identifier of the assessment to retrieve.
+
+        Returns:
+            Assessment: The requested assessment object (either Expectation or Feedback).
+
+        Raises:
+            MlflowException: If the trace_id is not found, if no assessment with the
+                specified assessment_id exists for the trace, or if the stored
+                assessment data cannot be deserialized.
+        """
+
+        return self._load_assessment(trace_id, assessment_id)
+
+    def create_assessment(self, assessment: Assessment) -> Assessment:
+        """
+        Creates a new assessment record associated with a specific trace.
+
+        This method creates a new assessment record by:
+        1. Generating a unique assessment ID
+        2. Setting creation and update timestamps
+        3. Storing the assessment as a YAML file in the assessments subdirectory
+        4. Returning the updated assessment object with backend-generated metadata
+
+        Args:
+            assessment: The assessment object to create. Can be either an Expectation or
+                Feedback instance. The assessment will be modified in-place to include
+                the generated assessment_id and timestamps.
+
+        Returns:
+            Assessment: The input assessment object updated with backend-generated metadata.
+
+        Raises:
+            MlflowException: If the trace doesn't exist or there's an error saving the assessment.
+        """
+        assessment_id = generate_assessment_id()
+        creation_timestamp = int(time.time() * 1000)
+
+        assessment.assessment_id = assessment_id
+        assessment.create_time_ms = creation_timestamp
+        assessment.last_update_time_ms = creation_timestamp
+        assessment.valid = True
+
+        self._save_assessment(assessment)
+
+        return assessment
 
     def _delete_traces(
         self,
