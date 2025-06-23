@@ -17,10 +17,7 @@ import { ModelView } from './ModelView';
 import { getModelVersions } from '../reducers';
 import LocalStorageUtils from '../../common/utils/LocalStorageUtils';
 import { createMLflowRoutePath } from '../../common/utils/RoutingUtils';
-import {
-  MODEL_VERSIONS_SEARCH_TIMESTAMP_FIELD,
-  MODEL_VERSIONS_PER_PAGE_COMPACT
-} from '../constants';
+import { MODEL_VERSIONS_SEARCH_TIMESTAMP_FIELD, MODEL_VERSIONS_PER_PAGE_COMPACT } from '../constants';
 import { PageContainer } from '../../common/components/PageContainer';
 import RequestStateWrapper, { triggerError } from '../../common/components/RequestStateWrapper';
 import { Spinner } from '../../common/components/Spinner';
@@ -73,7 +70,6 @@ export function getOrderByExpr(orderByKey: string, orderByAsc: boolean): string 
   return orderByKey ? `${orderByKey} ${orderByAsc ? 'ASC' : 'DESC'}` : '';
 }
 
-
 export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPageImplState> {
   constructor(props: ModelPageImplProps) {
     super(props);
@@ -108,7 +104,7 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
       if (orderByAsc !== undefined) newParams.set('orderByAsc', String(orderByAsc));
       if (page) newParams.set('page', String(page));
       this.props.setSearchParams(newParams);
-      resolve(); 
+      resolve();
     });
   }
 
@@ -135,7 +131,7 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
   get orderByKey() {
     return this.props.searchParams.get('orderByKey') ?? MODEL_VERSIONS_SEARCH_TIMESTAMP_FIELD;
   }
-  
+
   get orderByAsc() {
     return this.props.searchParams.get('orderByAsc') === 'true';
   }
@@ -186,9 +182,7 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
 
   loadPage = (page: number, isInitialLoading: boolean, loadModelMetadata = false) => {
     const { modelName } = this.props;
-    const {
-      pageTokens
-    } = this.state;
+    const { pageTokens } = this.state;
     this.setState({ loading: true, error: undefined });
     const filters_obj = { name: modelName };
     const promiseValues = [
