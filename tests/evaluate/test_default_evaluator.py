@@ -1442,47 +1442,6 @@ def test_custom_metric_produced_multiple_artifacts_with_same_name_throw_exceptio
         )
 
 
-def test_custom_artifacts_duplicate_names_raises_exception(
-    binary_logistic_regressor_model_uri, breast_cancer_dataset
-):
-    """Test that custom artifacts with duplicate names raise an exception."""
-
-    def artifact_fn_1(eval_df, builtin_metrics, artifact_dir):
-        """First artifact function that creates 'my_plot.png'."""
-        import matplotlib.pyplot as plt
-
-        # Create a proper image file
-        fig, ax = plt.subplots()
-        ax.plot([1, 2, 3], [1, 2, 3])
-        plot_path = os.path.join(artifact_dir, "my_plot.png")
-        plt.savefig(plot_path)
-        plt.close()
-        return {"my_plot": plot_path}
-
-    def artifact_fn_2(eval_df, builtin_metrics, artifact_dir):
-        """Second artifact function that also creates 'my_plot.png'."""
-        import matplotlib.pyplot as plt
-
-        # Create a proper image file
-        fig, ax = plt.subplots()
-        ax.plot([1, 2, 3], [3, 2, 1])
-        plot_path = os.path.join(artifact_dir, "my_plot_2.png")
-        plt.savefig(plot_path)
-        plt.close()
-        return {"my_plot": plot_path}  # Same name as first function
-
-    # This should raise an exception due to duplicate artifact names
-    with pytest.raises(
-        MlflowException,
-        match="cannot be logged because there already exists an artifact with the same name",
-    ):
-        _get_results_for_custom_metrics_tests(
-            binary_logistic_regressor_model_uri,
-            breast_cancer_dataset,
-            custom_artifacts=[artifact_fn_1, artifact_fn_2],
-        )
-
-
 def test_custom_metric_mixed(binary_logistic_regressor_model_uri, breast_cancer_dataset):
     def true_count(predictions, targets=None, metrics=None):
         true_negatives = metrics["true_negatives"].aggregate_results["true_negatives"]
