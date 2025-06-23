@@ -18,7 +18,7 @@ from mlflow.ml_package_versions import FLAVOR_TO_MODULE_NAME
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY
 from mlflow.tracing.export.inference_table import pop_trace
-from mlflow.tracing.processor.mlflow_v2 import MlflowV2SpanProcessor
+from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 from mlflow.tracing.provider import _get_tracer
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS, get_autolog_function
@@ -162,7 +162,7 @@ def get_tracer_tracking_uri() -> Optional[str]:
         tracer = tracer._tracer
     span_processor = tracer.span_processor._span_processors[0]
 
-    if isinstance(span_processor, MlflowV2SpanProcessor):
+    if isinstance(span_processor, MlflowV3SpanProcessor):
         return span_processor._client.tracking_uri
 
 
