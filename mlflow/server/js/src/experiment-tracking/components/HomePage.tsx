@@ -1,10 +1,8 @@
-import ExperimentListView from './ExperimentListView';
-import { useSearchFilter } from './experiment-page/hooks/useSearchFilter';
+import { Navigate } from '../../common/utils/RoutingUtils';
+import Routes from '../routes';
 
 const HomePage = () => {
-  const [searchFilter, setSearchFilter] = useSearchFilter();
-
-  return <ExperimentListView searchFilter={searchFilter} setSearchFilter={setSearchFilter} />;
+  return <Navigate to={Routes.experimentsObservatoryRoute} />;
 };
 
 export default HomePage;

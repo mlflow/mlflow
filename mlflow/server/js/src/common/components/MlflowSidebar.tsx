@@ -24,9 +24,7 @@ import Routes from '../../experiment-tracking/routes';
 import { FormattedMessage } from 'react-intl';
 
 const isExperimentsActive = (location: Location) =>
-  matchPath('/', location.pathname) ||
-  matchPath('/experiments/*', location.pathname) ||
-  matchPath('/compare-experiments/*', location.pathname);
+  matchPath('/experiments/*', location.pathname) || matchPath('/compare-experiments/*', location.pathname);
 const isModelsActive = (location: Location) => matchPath('/models/*', location.pathname);
 const isPromptsActive = (location: Location) => matchPath('/prompts/*', location.pathname);
 
