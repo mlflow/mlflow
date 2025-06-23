@@ -62,6 +62,8 @@ type ModelPageImplProps = WithRouterNextProps<{ subpage: string }> & {
   getEmailSubscriptionStatusApi: (...args: any[]) => any;
   getUserLevelEmailSubscriptionStatusApi: (...args: any[]) => any;
   searchEndpointsByModelNameApi: (...args: any[]) => any;
+  searchParams: URLSearchParams;
+  setSearchParams: (params: URLSearchParams | ((prev: URLSearchParams) => URLSearchParams)) => void;
   intl?: any;
 };
 
@@ -81,7 +83,6 @@ export function getOrderByExpr(orderByKey: string, orderByAsc: boolean): string 
 export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPageImplState> {
   constructor(props: ModelPageImplProps) {
     super(props);
-    const urlState = this.getUrlState();
     const persistedPageTokens = this.getPersistedPageTokens();
     const maxResultsForTokens = this.getPersistedMaxResults();
 
@@ -118,25 +119,16 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
     };
   }
 
-  updateUrlWithState = (orderByKey?: string, orderByAsc?: boolean, page?: number) => {
-    const urlParams: Record<string, any> = {};
-    if (orderByKey) {
-      urlParams['orderByKey'] = orderByKey;
-    }
-    if (orderByAsc !== undefined) {
-      urlParams['orderByAsc'] = orderByAsc;
-    }
-    if (page) {
-      urlParams['page'] = page;
-    }
-
-    const newUrl = createMLflowRoutePath(
-      `${ModelRegistryRoutes.getModelPageRoute(this.props.modelName)}?${Utils.getSearchUrlFromState(urlParams)}`,
-    );
-    if (newUrl !== this.props.location.pathname + this.props.location.search) {
-      this.props.navigate(newUrl);
-    }
-  };
+  updateUrlWithState(orderByKey: string, orderByAsc: boolean, page: number): Promise<void> {
+    return new Promise((resolve) => {
+      const newParams = new URLSearchParams(this.props.searchParams);
+      if (orderByKey) newParams.set('orderByKey', orderByKey);
+      if (orderByAsc !== undefined) newParams.set('orderByAsc', String(orderByAsc));
+      if (page) newParams.set('page', String(page));
+      this.props.setSearchParams(newParams);
+      resolve(); 
+    });
+  }
 
   resetHistoryState() {
     this.setState((prevState: any) => ({
@@ -154,16 +146,16 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
     this.loadPage(this.currentPage, isInitialLoading, true);
   }
   get currentPage() {
-    const urlPage = parseInt(this.getUrlState().page || '1', 10);
+    const urlPage = parseInt(this.props.searchParams.get('page') || '1', 10);
     return isNaN(urlPage) ? 1 : urlPage;
   }
-  
+
   get orderByKey() {
-    return this.getUrlState().orderByKey ?? MODEL_VERSIONS_SEARCH_TIMESTAMP_FIELD;
+    return this.props.searchParams.get('orderByKey') ?? MODEL_VERSIONS_SEARCH_TIMESTAMP_FIELD;
   }
   
   get orderByAsc() {
-    return String(this.getUrlState().orderByAsc) === 'true';
+    return this.props.searchParams.get('orderByAsc') === 'true';
   }
 
   getPersistedPageTokens() {
@@ -216,7 +208,6 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
       pageTokens
     } = this.state;
     this.setState({ loading: true, error: undefined });
-    this.updateUrlWithState(undefined, undefined, page);
     const filters_obj = { name: modelName };
     const promiseValues = [
       this.props
@@ -288,21 +279,24 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
 
   handleClickNext = () => {
     const nextPage = this.currentPage + 1;
-    this.updateUrlWithState(this.orderByKey, this.orderByAsc, nextPage);
-    this.loadPage(nextPage, false);
+    this.updateUrlWithState(this.orderByKey, this.orderByAsc, nextPage).then(() => {
+      this.loadPage(nextPage, false);
+    });
   };
 
   handleClickPrev = () => {
     const prevPage = this.currentPage - 1;
-    this.updateUrlWithState(this.orderByKey, this.orderByAsc, prevPage);
-    this.loadPage(prevPage, false);
+    this.updateUrlWithState(this.orderByKey, this.orderByAsc, prevPage).then(() => {
+      this.loadPage(prevPage, false);
+    });
   };
 
   handleClickSortableColumn = (orderByKey: string, orderByDesc: boolean) => {
     const orderByAsc = !orderByDesc;
     this.resetHistoryState();
-    this.updateUrlWithState(orderByKey, orderByAsc, 1);
-    this.loadPage(1, false);
+    this.updateUrlWithState(orderByKey, orderByAsc, 1).then(() => {
+      this.loadPage(1, false);
+    });
   };
 
   getMaxResultsSelection = () => {
