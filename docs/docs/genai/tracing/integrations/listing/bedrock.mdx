@@ -8,7 +8,7 @@ import { APILink } from "@site/src/components/APILink"
 # Tracing Amazon Bedrock with MLflow
 
 MLflow supports automatic tracing for Amazon Bedrock, a fully managed service on AWS that provides high-performing
-foundations from leading AI provides such as Anthropic, Cohere, Meta, Mistral AI, and more. By enabling auto tracing
+foundations from leading AI providers such as Anthropic, Cohere, Meta, Mistral AI, and more. By enabling auto tracing
 for Amazon Bedrock by calling the <APILink fn="mlflow.bedrock.autolog" /> function, MLflow will capture traces for LLM invocation
 and log them to the active MLflow Experiment.
 
@@ -94,6 +94,7 @@ Token usage is extracted from the response for all major Bedrock providers, incl
 - Anthropic (Claude)
 - AI21 (Jamba)
 - Amazon Titan/Nova
+- Cohere (Command)
 - Meta Llama
 
 ### Supported APIs
@@ -105,7 +106,7 @@ Token usage is logged for:
 - `converse_stream`
 
 ```python
-import json
+import boto3
 import mlflow
 
 mlflow.bedrock.autolog()
