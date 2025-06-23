@@ -1828,12 +1828,12 @@ class FileStore(AbstractStore):
             )
         os.remove(tag_path)
 
-    def _get_assessments_dir(self, request_id: str) -> str:
-        trace_dir = self._find_trace_dir(request_id, assert_exists=True)
+    def _get_assessments_dir(self, trace_id: str) -> str:
+        trace_dir = self._find_trace_dir(trace_id, assert_exists=True)
         return os.path.join(trace_dir, FileStore.ASSESSMENTS_FOLDER_NAME)
 
-    def _get_assessment_path(self, request_id: str, assessment_id: str) -> str:
-        assessments_dir = self._get_assessments_dir(request_id)
+    def _get_assessment_path(self, trace_id: str, assessment_id: str) -> str:
+        assessments_dir = self._get_assessments_dir(trace_id)
         return os.path.join(assessments_dir, f"{assessment_id}.yaml")
 
     def _save_assessment(self, assessment: Assessment) -> None:

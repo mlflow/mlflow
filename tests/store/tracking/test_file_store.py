@@ -3462,3 +3462,117 @@ def test_get_assessment_errors(store):
         rf"'{trace_info.request_id}'",
     ):
         store.get_assessment(trace_info.request_id, "fake_assessment")
+
+
+def test_create_assessment_with_complex_data_structures(store):
+    """Test creating assessments with complex JSON-serializable data structures"""
+    exp_id = store.create_experiment("test_complex_data")
+    timestamp_ms = get_current_time_millis()
+    trace_info = store.start_trace(exp_id, timestamp_ms, {}, {})
+
+    complex_feedback_value = {
+        "scores": {"accuracy": 0.95, "precision": 0.87, "recall": 0.92, "f1": 0.895},
+        "categories": ["correct", "well-formatted", "complete"],
+        "details": {
+            "reasoning_steps": [
+                {"step": 1, "description": "Identified key entities", "confidence": 0.9},
+                {"step": 2, "description": "Applied logical reasoning", "confidence": 0.85},
+                {"step": 3, "description": "Generated response", "confidence": 0.88},
+            ],
+            "error_analysis": None,
+            "alternative_answers": ["Paris, France", "Paris"],
+        },
+        "metadata": {
+            "model_version": "v2.1.0",
+            "temperature": 0.7,
+            "max_tokens": 150,
+            "stop_sequences": ["\n\n", "END"],
+        },
+    }
+
+    feedback = Feedback(
+        trace_id=trace_info.request_id,
+        name="detailed_evaluation",
+        value=complex_feedback_value,
+        rationale="Comprehensive evaluation with multiple metrics and detailed analysis",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.LLM_JUDGE, source_id="gpt-4-evaluator"
+        ),
+        metadata={"evaluation_framework": "comprehensive_v1", "batch_id": "eval_001"},
+    )
+
+    created_feedback = store.create_assessment(feedback)
+    assert created_feedback.assessment_id is not None
+    assert created_feedback.assessment_id.startswith("a-")
+    assert created_feedback.name == "detailed_evaluation"
+    assert created_feedback.feedback.value == complex_feedback_value
+    assert (
+        created_feedback.rationale
+        == "Comprehensive evaluation with multiple metrics and detailed analysis"
+    )
+    assert created_feedback.valid
+
+    complex_expectation_value = {
+        "expected_output": {
+            "answer": "The capital of France is Paris.",
+            "reasoning": [
+                "France is a country in Western Europe",
+                "Paris is the largest city in France",
+                "Paris serves as the political and administrative center",
+            ],
+            "confidence_level": "high",
+            "sources": [
+                {"title": "World Geography Handbook", "page": 127},
+                {"title": "European Capitals Guide", "page": 45},
+            ],
+        },
+        "acceptable_variations": ["Paris", "Paris, France", "The capital city of France is Paris"],
+        "evaluation_criteria": {
+            "factual_accuracy": {"weight": 0.4, "required": True},
+            "completeness": {"weight": 0.3, "required": True},
+            "clarity": {"weight": 0.3, "required": False},
+        },
+    }
+
+    expectation = Expectation(
+        trace_id=trace_info.request_id,
+        name="structured_expected_response",
+        value=complex_expectation_value,
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.HUMAN, source_id="subject_matter_expert@company.com"
+        ),
+        metadata={
+            "domain": "geography",
+            "difficulty": "basic",
+            "question_type": "factual_recall",
+            "language": "en-US",
+        },
+    )
+
+    created_expectation = store.create_assessment(expectation)
+    assert created_expectation.assessment_id is not None
+    assert created_expectation.assessment_id != created_feedback.assessment_id
+    assert created_expectation.name == "structured_expected_response"
+    assert created_expectation.expectation.value == complex_expectation_value
+    assert created_expectation.valid
+
+    retrieved_feedback = store.get_assessment(trace_info.request_id, created_feedback.assessment_id)
+    assert retrieved_feedback.feedback.value == complex_feedback_value
+    assert retrieved_feedback.feedback.value["scores"]["accuracy"] == 0.95
+    assert len(retrieved_feedback.feedback.value["categories"]) == 3
+    assert retrieved_feedback.feedback.value["details"]["reasoning_steps"][0]["step"] == 1
+    assert retrieved_feedback.feedback.value["metadata"]["model_version"] == "v2.1.0"
+
+    retrieved_expectation = store.get_assessment(
+        trace_info.request_id, created_expectation.assessment_id
+    )
+    assert retrieved_expectation.expectation.value == complex_expectation_value
+    assert (
+        retrieved_expectation.expectation.value["expected_output"]["answer"]
+        == "The capital of France is Paris."
+    )
+    assert len(retrieved_expectation.expectation.value["acceptable_variations"]) == 3
+    assert (
+        retrieved_expectation.expectation.value["evaluation_criteria"]["factual_accuracy"]["weight"]
+        == 0.4
+    )
