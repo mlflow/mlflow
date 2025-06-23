@@ -2481,6 +2481,7 @@ class SqlAlchemyStore(AbstractStore):
         self,
         trace_id: str,
         assessment_id: str,
+        name: Optional[str] = None,
         expectation: Optional[Any] = None,
         feedback: Optional[FeedbackValueType] = None,
         rationale: Optional[str] = None,
@@ -2493,6 +2494,7 @@ class SqlAlchemyStore(AbstractStore):
         Args:
             trace_id: The unique identifier of the trace containing the assessment.
             assessment_id: The unique identifier of the assessment to update.
+            name: The updated name for the assessment. If not provided, uses the original.
             expectation: Optional new expectation value.
             feedback: Optional new feedback value.
             rationale: Optional new rationale text.
@@ -2509,7 +2511,7 @@ class SqlAlchemyStore(AbstractStore):
             self._validate_update_params(existing, expectation, feedback)
 
             new_assessment = self._create_updated_assessment(
-                existing, expectation, feedback, rationale, metadata
+                existing, name, expectation, feedback, rationale, metadata
             )
 
             if not valid:
@@ -2575,8 +2577,8 @@ class SqlAlchemyStore(AbstractStore):
     def _validate_update_params(
         self,
         existing: Assessment,
-        expectation: Optional[Any],
-        feedback: Optional[FeedbackValueType],
+        expectation: Optional[Expectation] = None,
+        feedback: Optional[Feedback] = None,
     ) -> None:
         """Validate that update parameters match assessment type."""
         if expectation is not None and not isinstance(existing, Expectation):
@@ -2592,19 +2594,22 @@ class SqlAlchemyStore(AbstractStore):
     def _create_updated_assessment(
         self,
         existing: Assessment,
-        expectation: Optional[Any],
-        feedback: Optional[FeedbackValueType],
-        rationale: Optional[str],
-        metadata: Optional[dict[str, str]],
+        name: Optional[str] = None,
+        expectation: Optional[Expectation] = None,
+        feedback: Optional[Feedback] = None,
+        rationale: Optional[str] = None,
+        metadata: Optional[dict[str, str]] = None,
     ) -> Assessment:
         """Create new assessment with updated values."""
         new_assessment_id = generate_assessment_id()
         updated_timestamp = get_current_time_millis()
+        assessment_name = name if name is not None else existing.name
 
         if isinstance(existing, Expectation):
+            new_value = expectation.value if expectation is not None else existing.value
             new_assessment = Expectation(
-                name=existing.name,
-                value=expectation if expectation is not None else existing.value,
+                name=assessment_name,
+                value=new_value,
                 source=existing.source,
                 trace_id=existing.trace_id,
                 metadata=metadata if metadata is not None else existing.metadata,
@@ -2615,10 +2620,12 @@ class SqlAlchemyStore(AbstractStore):
             new_assessment.overrides = existing.assessment_id
             new_assessment.valid = True
         else:
+            new_value = feedback.value if feedback is not None else existing.value
+            new_error = feedback.error if feedback is not None else existing.error
             new_assessment = Feedback(
-                name=existing.name,
-                value=feedback if feedback is not None else existing.value,
-                error=existing.error,
+                name=assessment_name,
+                value=new_value,
+                error=new_error,
                 source=existing.source,
                 trace_id=existing.trace_id,
                 metadata=metadata if metadata is not None else existing.metadata,

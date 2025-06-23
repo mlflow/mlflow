@@ -5694,7 +5694,13 @@ def test_update_assessment_feedback(store, valid):
     updated_feedback = store.update_assessment(
         trace_id=trace_info.request_id,
         assessment_id=original_id,
-        feedback=False,
+        feedback=Feedback(
+            name="correctness",
+            value=False,
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.HUMAN, source_id="evaluator@company.com"
+            ),
+        ),
         rationale="Updated rationale",
         metadata={"project": "test-project", "version": "2.0"},
         valid=valid,
@@ -5702,7 +5708,7 @@ def test_update_assessment_feedback(store, valid):
 
     assert updated_feedback.assessment_id != original_id
     assert updated_feedback.assessment_id.startswith("a-")
-    assert updated_feedback.name == "correctness"
+    assert updated_feedback.name == "correctness"  # Name should remain unchanged
     assert updated_feedback.feedback.value is False
     assert updated_feedback.rationale == "Updated rationale"
     assert updated_feedback.metadata == {"project": "test-project", "version": "2.0"}
@@ -5719,6 +5725,38 @@ def test_update_assessment_feedback(store, valid):
 
     assert original_retrieved.feedback.value is True
     assert original_retrieved.rationale == "Original rationale"
+
+
+def test_update_assessment_name(store):
+    """Test that assessment name can be updated"""
+    exp_id = store.create_experiment("test_update_name")
+    trace_info = store.start_trace(exp_id, get_current_time_millis(), {}, {})
+
+    original_feedback = Feedback(
+        trace_id=trace_info.request_id,
+        name="original_name",
+        value=True,
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.HUMAN, source_id="evaluator@company.com"
+        ),
+    )
+
+    created_feedback = store.create_assessment(original_feedback)
+    original_id = created_feedback.assessment_id
+
+    updated_feedback = store.update_assessment(
+        trace_id=trace_info.request_id,
+        assessment_id=original_id,
+        name="updated_name",
+    )
+
+    assert updated_feedback.name == "updated_name"
+    assert updated_feedback.assessment_id != original_id
+    assert updated_feedback.feedback.value is True  # Value should remain unchanged
+    assert updated_feedback.overrides == original_id
+
+    original_retrieved = store.get_assessment(trace_info.request_id, original_id)
+    assert original_retrieved.name == "original_name"
 
 
 def test_update_assessment_expectation(store):
@@ -5742,21 +5780,31 @@ def test_update_assessment_expectation(store):
     updated_expectation = store.update_assessment(
         trace_id=trace_info.request_id,
         assessment_id=original_id,
-        expectation="The capital and largest city of France is Paris.",
+        expectation=Expectation(
+            name="expected_response",
+            value="The capital and largest city of France is Paris.",
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.HUMAN, source_id="annotator@company.com"
+            ),
+        ),
         metadata={"context": "geography-qa", "updated": "true"},
     )
 
     assert updated_expectation.assessment_id != original_id
+    assert updated_expectation.name == "expected_response"
     assert (
         updated_expectation.expectation.value == "The capital and largest city of France is Paris."
     )
     assert updated_expectation.metadata == {"context": "geography-qa", "updated": "true"}
+    assert updated_expectation.span_id == "span-456"
+    assert updated_expectation.source.source_id == "annotator@company.com"
     assert updated_expectation.valid is True
     assert updated_expectation.overrides == original_id
 
-    # Original expectation should remain valid (default behavior)
     original_retrieved = store.get_assessment(trace_info.request_id, original_id)
     assert original_retrieved.valid is True
+    assert original_retrieved.expectation.value == "The capital of France is Paris."
+    assert original_retrieved.name == "expected_response"
 
 
 def test_update_assessment_type_validation(store):
