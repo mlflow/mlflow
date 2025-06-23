@@ -842,7 +842,7 @@ class TensorInfo:
         return self._dtype
 
     @property
-    def shape(self) -> tuple[Any, ...]:
+    def shape(self) -> tuple[int, ...]:
         """The tensor shape"""
         return self._shape
 
@@ -875,7 +875,7 @@ class TensorSpec:
     def __init__(
         self,
         type: np.dtype,
-        shape: Union[tuple[Any, ...], list[Any]],
+        shape: Union[tuple[int, ...], list[int]],
         name: Optional[str] = None,
     ):
         self._name = name
@@ -895,7 +895,7 @@ class TensorSpec:
         return self._name
 
     @property
-    def shape(self) -> tuple[Any, ...]:
+    def shape(self) -> tuple[int, ...]:
         """The tensor shape"""
         return self._tensorInfo.shape
 

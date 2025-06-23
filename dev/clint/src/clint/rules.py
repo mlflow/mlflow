@@ -453,6 +453,7 @@ class UnparameterizedGeneric(Rule):
         "tuple",
         "frozenset",
         "Callable",
+        "Sequence",
     }
 
     def __init__(self, type_hint: str) -> None:

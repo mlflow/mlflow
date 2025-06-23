@@ -1,6 +1,6 @@
-# Support unwrapped JSON with these keys for LLM use cases of Chat, Completions, Embeddings tasks
 from typing import Any
 
+# Support unwrapped JSON with these keys for LLM use cases of Chat, Completions, Embeddings tasks
 LLM_CHAT_KEY = "messages"
 LLM_COMPLETIONS_KEY = "prompt"
 LLM_EMBEDDINGS_KEY = "input"
