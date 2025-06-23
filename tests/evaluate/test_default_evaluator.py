@@ -1426,14 +1426,14 @@ def test_custom_metric_produced_multiple_artifacts_with_same_name_throw_exceptio
     binary_logistic_regressor_model_uri, breast_cancer_dataset
 ):
     def example_custom_artifact_1(_, __, ___):
-        return {"artifact": "path1"}
+        return {"test_json_artifact": {"a": 2, "b": [1, 2]}}
 
     def example_custom_artifact_2(_, __, ___):
-        return {"artifact": "path2"}
+        return {"test_json_artifact": {"a": 3, "b": [1, 2]}}
 
     with pytest.raises(
         MlflowException,
-        match="Multiple custom artifacts with the same name 'artifact' were produced",
+        match="cannot be logged because there already exists an artifact with the same name",
     ):
         _get_results_for_custom_metrics_tests(
             binary_logistic_regressor_model_uri,
@@ -1481,6 +1481,74 @@ def test_custom_artifacts_duplicate_names_raises_exception(
             breast_cancer_dataset,
             custom_artifacts=[artifact_fn_1, artifact_fn_2],
         )
+
+
+def test_custom_metric_mixed(binary_logistic_regressor_model_uri, breast_cancer_dataset):
+    def true_count(predictions, targets=None, metrics=None):
+        true_negatives = metrics["true_negatives"].aggregate_results["true_negatives"]
+        true_positives = metrics["true_positives"].aggregate_results["true_positives"]
+        return MetricValue(aggregate_results={"true_count": true_negatives + true_positives})
+
+    def positive_count(eval_df, _metrics):
+        return MetricValue(aggregate_results={"positive_count": np.sum(eval_df["prediction"])})
+
+    def example_custom_artifact(_eval_df, _given_metrics, tmp_path):
+        df = pd.DataFrame({"a": [1, 2, 3]})
+        df.to_csv(path_join(tmp_path, "user_logged_df.csv"), index=False)
+        np_array = np.array([1, 2, 3, 4, 5])
+        np.save(path_join(tmp_path, "arr.npy"), np_array)
+        return {
+            "test_json_artifact": {"a": 3, "b": [1, 2]},
+            "test_npy_artifact": path_join(tmp_path, "arr.npy"),
+        }
+
+    result, metrics, artifacts = _get_results_for_custom_metrics_tests(
+        binary_logistic_regressor_model_uri,
+        breast_cancer_dataset,
+        extra_metrics=[
+            make_metric(eval_fn=true_count, greater_is_better=True),
+            make_metric(eval_fn=positive_count, greater_is_better=True),
+        ],
+        custom_artifacts=[example_custom_artifact],
+    )
+
+    model = mlflow.pyfunc.load_model(binary_logistic_regressor_model_uri)
+
+    predict_fn = _extract_predict_fn(model)
+    y = breast_cancer_dataset.labels_data
+    y_pred = predict_fn(breast_cancer_dataset.features_data)
+
+    expected_metrics = _get_binary_classifier_metrics(y_true=y, y_pred=y_pred, sample_weights=None)
+
+    assert "true_count" in metrics
+    assert np.isclose(
+        metrics["true_count"],
+        expected_metrics["true_negatives"] + expected_metrics["true_positives"],
+        rtol=1e-3,
+    )
+    assert "true_count" in result.metrics
+    assert np.isclose(
+        result.metrics["true_count"],
+        expected_metrics["true_negatives"] + expected_metrics["true_positives"],
+        rtol=1e-3,
+    )
+
+    assert "positive_count" in metrics
+    assert np.isclose(metrics["positive_count"], np.sum(y_pred), rtol=1e-3)
+    assert "positive_count" in result.metrics
+    assert np.isclose(result.metrics["positive_count"], np.sum(y_pred), rtol=1e-3)
+
+    assert "test_json_artifact" in result.artifacts
+    assert "test_json_artifact.json" in artifacts
+    assert isinstance(result.artifacts["test_json_artifact"], JsonEvaluationArtifact)
+    assert result.artifacts["test_json_artifact"].content == {"a": 3, "b": [1, 2]}
+
+    assert "test_npy_artifact" in result.artifacts
+    assert "test_npy_artifact.npy" in artifacts
+    assert isinstance(result.artifacts["test_npy_artifact"], NumpyEvaluationArtifact)
+    np.testing.assert_array_equal(
+        result.artifacts["test_npy_artifact"].content, np.array([1, 2, 3, 4, 5])
+    )
 
 
 def test_custom_metric_logs_artifacts_from_paths(
@@ -4663,119 +4731,12 @@ def test_csv_artifact_no_index():
 
     mlflow.log_artifact = mock_log_artifact
 
-    try:
-        evaluator._log_pandas_df_artifact(test_df, "test_artifact")
-    finally:
-        mlflow.log_artifact = original_log_artifact
-
-
-def test_custom_metric_mixed(binary_logistic_regressor_model_uri, breast_cancer_dataset):
-    def true_count(predictions, targets=None, metrics=None):
-        true_negatives = metrics["true_negatives"].aggregate_results["true_negatives"]
-        true_positives = metrics["true_positives"].aggregate_results["true_positives"]
-        return MetricValue(aggregate_results={"true_count": true_negatives + true_positives})
-
-    def positive_count(eval_df, _metrics):
-        return MetricValue(aggregate_results={"positive_count": np.sum(eval_df["prediction"])})
-
-    def example_custom_artifact(_eval_df, _given_metrics, tmp_path):
-        df = pd.DataFrame({"a": [1, 2, 3]})
-        df.to_csv(path_join(tmp_path, "user_logged_df.csv"), index=False)
-        np_array = np.array([1, 2, 3, 4, 5])
-        np.save(path_join(tmp_path, "arr.npy"), np_array)
-        return {
-            "test_json_artifact": {"a": 3, "b": [1, 2]},
-            "test_npy_artifact": path_join(tmp_path, "arr.npy"),
-        }
-
-    result, metrics, artifacts = _get_results_for_custom_metrics_tests(
-        binary_logistic_regressor_model_uri,
-        breast_cancer_dataset,
-        extra_metrics=[
-            make_metric(eval_fn=true_count, greater_is_better=True),
-            make_metric(eval_fn=positive_count, greater_is_better=True),
-        ],
-        custom_artifacts=[example_custom_artifact],
-    )
-
-    model = mlflow.pyfunc.load_model(binary_logistic_regressor_model_uri)
-
-    predict_fn = _extract_predict_fn(model)
-    y = breast_cancer_dataset.labels_data
-    y_pred = predict_fn(breast_cancer_dataset.features_data)
-
-    expected_metrics = _get_binary_classifier_metrics(y_true=y, y_pred=y_pred, sample_weights=None)
-
-    assert "true_count" in metrics
-    assert np.isclose(
-        metrics["true_count"],
-        expected_metrics["true_negatives"] + expected_metrics["true_positives"],
-        rtol=1e-3,
-    )
-    assert "true_count" in result.metrics
-    assert np.isclose(
-        result.metrics["true_count"],
-        expected_metrics["true_negatives"] + expected_metrics["true_positives"],
-        rtol=1e-3,
-    )
-
-    assert "positive_count" in metrics
-    assert np.isclose(metrics["positive_count"], np.sum(y_pred), rtol=1e-3)
-    assert "positive_count" in result.metrics
-    assert np.isclose(result.metrics["positive_count"], np.sum(y_pred), rtol=1e-3)
-
-    assert "test_json_artifact" in result.artifacts
-    assert "test_json_artifact.json" in artifacts
-    assert isinstance(result.artifacts["test_json_artifact"], JsonEvaluationArtifact)
-    assert result.artifacts["test_json_artifact"].content == {"a": 3, "b": [1, 2]}
-
-    assert "test_npy_artifact" in result.artifacts
-    assert "test_npy_artifact.npy" in artifacts
-    assert isinstance(result.artifacts["test_npy_artifact"], NumpyEvaluationArtifact)
-    np.testing.assert_array_equal(
-        result.artifacts["test_npy_artifact"].content, np.array([1, 2, 3, 4, 5])
-    )
-
-
-def test_custom_artifacts_duplicate_names_raises_exception(
-    binary_logistic_regressor_model_uri, breast_cancer_dataset
-):
-    """Test that custom artifacts with duplicate names raise an exception."""
-
-    def artifact_fn_1(eval_df, builtin_metrics, artifact_dir):
-        """First artifact function that creates 'my_plot.png'."""
-        import matplotlib.pyplot as plt
-
-        # Create a proper image file
-        fig, ax = plt.subplots()
-        ax.plot([1, 2, 3], [1, 2, 3])
-        plot_path = os.path.join(artifact_dir, "my_plot.png")
-        plt.savefig(plot_path)
-        plt.close()
-        return {"my_plot": plot_path}
-
-    def artifact_fn_2(eval_df, builtin_metrics, artifact_dir):
-        """Second artifact function that also creates 'my_plot.png'."""
-        import matplotlib.pyplot as plt
-
-        # Create a proper image file
-        fig, ax = plt.subplots()
-        ax.plot([1, 2, 3], [3, 2, 1])
-        plot_path = os.path.join(artifact_dir, "my_plot_2.png")
-        plt.savefig(plot_path)
-        plt.close()
-        return {"my_plot": plot_path}  # Same name as first function
-
-    # This should raise an exception due to duplicate artifact names
-    with pytest.raises(
-        MlflowException,
-        match="cannot be logged because there already exists an artifact with the same name",
-    ):
-        _get_results_for_custom_metrics_tests(
-            binary_logistic_regressor_model_uri,
-            breast_cancer_dataset,
-            custom_artifacts=[artifact_fn_1, artifact_fn_2],
-        )
+    # Run the test within an MLflow run context
+    with mlflow.start_run():
+        try:
+            evaluator._log_pandas_df_artifact(test_df, "test_artifact")
+        finally:
+            mlflow.log_artifact = original_log_artifact
 
 
 def test_pos_label_warning_logged_for_binary_classification(
