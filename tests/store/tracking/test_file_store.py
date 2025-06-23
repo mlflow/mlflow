@@ -3576,7 +3576,7 @@ def test_create_assessment_with_complex_data_structures(store):
         retrieved_expectation.expectation.value["evaluation_criteria"]["factual_accuracy"]["weight"]
         == 0.4
     )
-    
+
 
 @pytest.mark.parametrize("valid", ([True, False]))
 def test_update_assessment_feedback(store, valid):
@@ -3886,4 +3886,3 @@ def test_delete_assessment_errors(store):
 
     with pytest.raises(MlflowException, match=r"Trace with request ID 'fake_trace' not found"):
         store.delete_assessment("fake_trace", "fake_assessment")
-
