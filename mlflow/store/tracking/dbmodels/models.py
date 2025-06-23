@@ -673,7 +673,7 @@ class SqlTraceInfo(Base):
     """
     State of the trace. The values are defined in
     :py:class:`mlflow.entities.trace_status.TraceStatus` enum but we don't enforce
-    constraint at DB level. Named as "st how manyate" in V3 format.
+    constraint at DB level. Named as "state" in V3 format.
     """
     client_request_id = Column(String(50), nullable=True)
     """
