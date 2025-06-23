@@ -152,6 +152,9 @@ CREATE TABLE trace_info (
 	timestamp_ms BIGINT NOT NULL,
 	execution_time_ms BIGINT,
 	status VARCHAR(50) NOT NULL,
+	client_request_id VARCHAR(50),
+	request_preview VARCHAR(1000),
+	response_preview VARCHAR(1000),
 	PRIMARY KEY (request_id),
 	CONSTRAINT fk_trace_info_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
 )

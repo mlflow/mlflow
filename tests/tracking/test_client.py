@@ -380,7 +380,7 @@ def test_client_delete_traces(mock_store):
         experiment_id="0",
         max_timestamp_millis=1,
         max_traces=2,
-        request_ids=["tr-1234"],
+        trace_ids=["tr-1234"],
     )
 
 
@@ -809,6 +809,8 @@ def test_start_span_raise_error_when_parent_id_is_not_provided():
 
 
 def test_log_trace(tracking_uri):
+    pytest.skip("V3 backend does not support _log_trace yet")
+
     client = MlflowClient(tracking_uri)
     experiment_id = client.create_experiment("test_experiment")
 

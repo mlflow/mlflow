@@ -1019,6 +1019,8 @@ def test_delete_traces(delete_traces_kwargs):
     request = DeleteTraces(**delete_traces_kwargs)
     response.text = json.dumps({"traces_deleted": 1})
     with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        if "request_ids" in delete_traces_kwargs:
+            delete_traces_kwargs["trace_ids"] = delete_traces_kwargs.pop("request_ids")
         res = store.delete_traces(**delete_traces_kwargs)
         _verify_requests(mock_http, creds, "traces/delete-traces", "POST", message_to_json(request))
         assert res == 1
