@@ -1210,7 +1210,7 @@ class RestStore(AbstractStore):
             
             proto_event.severity_number = ""
             proto_event.severity_text = ""
-            proto_event.body = json.dumps(assessment.to_dict())
+            proto_event.body = json.dumps(assessment.to_dictionary())
             proto_event.attributes = json.dumps({})
             proto_event.dropped_attributes_count = 0
             proto_event.flags = 0
