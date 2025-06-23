@@ -224,7 +224,7 @@ CREATE TABLE metrics (
 
 CREATE TABLE model_version_tags (
 	key VARCHAR(250) NOT NULL,
-	value VARCHAR(5000),
+	value TEXT,
 	name VARCHAR(256) NOT NULL,
 	version INTEGER NOT NULL,
 	CONSTRAINT model_version_tag_pk PRIMARY KEY (key, name, version),
