@@ -1,7 +1,7 @@
 """add V3 trace schema columns
 
 Revision ID: cbc13b556ace
-Revises: 5b0e9adcef9c
+Revises: bda7b8c39065
 Create Date: 2025-06-17 12:00:00.000000
 
 """
@@ -11,7 +11,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "cbc13b556ace"
-down_revision = "6953534de441"
+down_revision = "bda7b8c39065"
 branch_labels = None
 depends_on = None
 
