@@ -206,6 +206,8 @@ select = [
   "PT023",   # pytest-incorrect-mark-parentheses-style
   "PT026",   # pytest-use-fixtures-without-parameters
   "PT027",   # pytest-unittest-raises-assertion
+  "PT030",   # pytest-warns-too-broad
+  "PT031",   # pytest-warns-with-multiple-statements
   "RET504",  # unnecessary-assign
   "RUF003",  # ambiguous-unicode-character-comment
   "RUF010",  # explicit-f-string-type-conversion
@@ -251,6 +253,7 @@ ignore = [
 mark-parentheses = false
 fixture-parentheses = false
 raises-require-match-for = ["*"]
+warns-require-match-for = ["*"]
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"
