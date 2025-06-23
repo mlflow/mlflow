@@ -429,8 +429,7 @@ class AbstractStore:
         Args:
             trace_id: The ID of the trace.
             assessment_id: The assessment identifier that denotes a unique assessment entry
-                for a given trace, comprised of a unique key that is a concatenation of
-                (assessment_name.source.span_id).
+                for a given trace.
 
         Returns:
             The Assessment object for the given trace and assessment ids.
@@ -439,14 +438,13 @@ class AbstractStore:
 
     def create_assessment(self, assessment: Assessment) -> Assessment:
         """
-        Logs an Assessment for a given trace using the compound unique key of
-        (assessment_name.source.span_id) and stores it as a trace tag.
+        Logs an Assessment for a given trace or a span within a trace.
 
         Args:
             assessment: An :py:class:`Assessment <mlflow.entities.Assessment>` object that
                 contains the key value mappings of assessment criteria comprised of either
                 expectations or user/system/scorer-provided feedback (label data) on the quality
-                of the trace response.
+                of the trace response or for a span within a trace.
 
         Returns:
             The Assessment object for the logging operation.

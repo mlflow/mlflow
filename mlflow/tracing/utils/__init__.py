@@ -555,19 +555,3 @@ def generate_assessment_id() -> str:
     """
     id = uuid.uuid4().hex
     return f"{ASSESSMENT_ID_PREFIX}{id}"
-
-
-def generate_assessment_key(name: str, assessment_id: str) -> str:
-    """
-    Generates a hybrid assessment key for use in storing within trace tags.
-
-    Args:
-        name: The name of the assessment.
-        assessment_id: The backend generated assessment ID created when
-            logging an assessment.
-
-    Returns:
-        A constructed unique key for a given assessment for disambiguating
-        assessments that are attached to traces.
-    """
-    return f"{name}.{assessment_id}"
