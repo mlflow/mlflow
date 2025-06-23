@@ -96,3 +96,24 @@ def test_context_manager_with_exception():
 
     # Config should be restored despite exception
     assert get_config().span_processors == [filter1]
+
+
+def test_context_manager_with_non_copyable_callable():
+    """Test context manager handles non-copyable callables gracefully."""
+
+    # Lambda functions are not deepcopyable
+    lambda_filter = lambda span: None  # noqa: E731
+
+    # Configure with a lambda function
+    mlflow.tracing.configure(span_processors=[lambda_filter])
+    assert get_config().span_processors == [lambda_filter]
+
+    def regular_filter(span):
+        pass
+
+    # Context manager should still work with non-copyable callables
+    with mlflow.tracing.configure(span_processors=[regular_filter]):
+        assert get_config().span_processors == [regular_filter]
+
+    # Config should be restored
+    assert get_config().span_processors == [lambda_filter]

@@ -147,12 +147,6 @@ def test_validate_span_processors_invalid_arguments_raises_exception():
     with pytest.raises(MlflowException, match=r"Span processor must take"):
         validate_span_processors([processor_no_args])
 
-    def processor_wrong_args(invalid):
-        return None
-
-    with pytest.raises(MlflowException, match=r"Span processor must take"):
-        validate_span_processors([processor_wrong_args])
-
     def processor_extra_args(span, extra_arg):
         return None
 

@@ -46,12 +46,9 @@ def validate_span_processors(span_processors):
         if not hasattr(span_processor, "__code__"):
             continue
 
-        if (
-            span_processor.__code__.co_argcount != 1
-            or span_processor.__code__.co_varnames[0] != "span"
-        ):
+        if span_processor.__code__.co_argcount != 1:
             raise MlflowException.invalid_parameter_value(
-                "Span processor must take exactly one argument: `span`"
+                "Span processor must take exactly one argument that accepts a LiveSpan object."
             )
 
     return span_processors
