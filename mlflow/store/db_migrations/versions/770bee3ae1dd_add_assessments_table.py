@@ -5,15 +5,15 @@ Revises: 6953534de441
 Create Date: 2025-06-23 11:26:19.855639
 
 """
-from alembic import op
+
 import sqlalchemy as sa
+from alembic import op
 
 from mlflow.store.tracking.dbmodels.models import SqlAssessments
 
-
 # revision identifiers, used by Alembic.
-revision = '770bee3ae1dd'
-down_revision = '6953534de441'
+revision = "770bee3ae1dd"
+down_revision = "6953534de441"
 branch_labels = None
 depends_on = None
 
@@ -45,27 +45,27 @@ def upgrade():
         ),
         sa.PrimaryKeyConstraint("assessment_id", name="assessments_pk"),
     )
-    
+
     with op.batch_alter_table(SqlAssessments.__tablename__, schema=None) as batch_op:
         batch_op.create_index(
             f"index_{SqlAssessments.__tablename__}_trace_id_created_timestamp",
             ["trace_id", "created_timestamp"],
-            unique=False
+            unique=False,
         )
         batch_op.create_index(
-            f"index_{SqlAssessments.__tablename__}_run_id_created_timestamp", 
+            f"index_{SqlAssessments.__tablename__}_run_id_created_timestamp",
             ["run_id", "created_timestamp"],
-            unique=False
+            unique=False,
         )
         batch_op.create_index(
             f"index_{SqlAssessments.__tablename__}_last_updated_timestamp",
             ["last_updated_timestamp"],
-            unique=False
+            unique=False,
         )
         batch_op.create_index(
             f"index_{SqlAssessments.__tablename__}_assessment_type",
             ["assessment_type"],
-            unique=False
+            unique=False,
         )
 
 
