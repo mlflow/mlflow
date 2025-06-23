@@ -2748,6 +2748,11 @@ def test_vision_pipeline_pyfunc_predict_with_kwargs(small_vision_model):
     )
 
 
+@pytest.mark.skipif(
+    Version(transformers.__version__).is_devrelease,
+    reason="transformers dev version is buggy in this test case."
+    "See https://github.com/huggingface/transformers/issues/38984 for more details.",
+)
 def test_qa_pipeline_pyfunc_predict_with_kwargs(small_qa_pipeline):
     artifact_path = "qa_model"
     data = {
