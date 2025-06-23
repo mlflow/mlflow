@@ -276,6 +276,42 @@ def _find_artifact_path_index(call_path: tuple[str, str]) -> int | None:
     return None
 
 
+class TypeAnnotationVisitor(ast.NodeVisitor):
+    def __init__(self, linter: "Linter") -> None:
+        self.linter = linter
+        self.stack: list[ast.AST] = []
+
+    def visit(self, node: ast.AST) -> None:
+        self.stack.append(node)
+        super().visit(node)
+        self.stack.pop()
+
+    def visit_Name(self, node: ast.Name) -> None:
+        # Check for incorrect type annotations (existing rule)
+        if rules.IncorrectTypeAnnotation.check(node):
+            self.linter._check(Location.from_node(node), rules.IncorrectTypeAnnotation(node.id))
+
+        # Check for unparameterized generic types (new rule)
+        if self._is_bare_generic_type(node):
+            self.linter._check(Location.from_node(node), rules.UnparameterizedGeneric(node.id))
+
+        self.generic_visit(node)
+
+    def _is_bare_generic_type(self, node: ast.Name) -> bool:
+        """Check if this Name node represents a bare generic type (not parameterized)."""
+        if node.id not in rules.UnparameterizedGeneric.UNPARAMETERIZED_TYPES:
+            return False
+
+        # Check if this Name is the value of a Subscript (e.g., the 'dict' in 'dict[str, int]')
+        # We need to look through the stack to find if any parent is a Subscript
+        # where this node is the value part
+        for parent in self.stack:
+            if isinstance(parent, ast.Subscript) and parent.value is node:
+                return False
+
+        return True
+
+
 class Linter(ast.NodeVisitor):
     def __init__(
         self,
@@ -302,7 +338,6 @@ class Linter(ast.NodeVisitor):
         self.ignore = ignore
         self.cell = cell
         self.violations: list[Violation] = []
-        self.in_type_annotation = False
         self.in_TYPE_CHECKING = False
         self.is_mlflow_init_py = path == Path("mlflow", "__init__.py")
         self.imported_modules: set[str] = set()
@@ -460,9 +495,6 @@ class Linter(ast.NodeVisitor):
             self._check(Location.from_node(node), rules.InvalidAbstractMethod())
 
     def visit_Name(self, node) -> None:
-        if self.in_type_annotation and rules.IncorrectTypeAnnotation.check(node):
-            self._check(Location.from_node(node), rules.IncorrectTypeAnnotation(node.id))
-
         self.generic_visit(node)
 
     def _markdown_link(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
@@ -685,9 +717,8 @@ class Linter(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_type_annotation(self, node: ast.AST) -> None:
-        self.in_type_annotation = True
-        self.visit(node)
-        self.in_type_annotation = False
+        visitor = TypeAnnotationVisitor(self)
+        visitor.visit(node)
 
     def visit_If(self, node: ast.If) -> None:
         if (resolved := self.resolver.resolve(node.test)) and resolved == [

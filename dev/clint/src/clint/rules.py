@@ -445,6 +445,30 @@ class InvalidExperimentalDecorator(Rule):
         return False
 
 
+class UnparameterizedGeneric(Rule):
+    UNPARAMETERIZED_TYPES = {
+        "dict",
+        "list",
+        "set",
+        "tuple",
+        "frozenset",
+        "Callable",
+    }
+
+    def __init__(self, type_hint: str) -> None:
+        self.type_hint = type_hint
+
+    @staticmethod
+    def check(node: ast.Name) -> bool:
+        return node.id in UnparameterizedGeneric.UNPARAMETERIZED_TYPES
+
+    def _message(self) -> str:
+        return (
+            f"Generic type `{self.type_hint}` must be parameterized "
+            "(e.g., `list[str]` rather than `list`)."
+        )
+
+
 class DoNotDisable(Rule):
     DO_NOT_DISABLE = {"B006"}
 
