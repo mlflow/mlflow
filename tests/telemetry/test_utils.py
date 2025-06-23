@@ -1,7 +1,4 @@
-from mlflow.genai.scorers import Scorer, scorer
-from mlflow.genai.scorers.builtin_scorers import get_all_scorers
 from mlflow.telemetry.utils import (
-    _sanitize_scorer_name,
     is_telemetry_disabled,
     temporarily_disable_telemetry,
 )
@@ -33,18 +30,3 @@ def test_temporarily_disable_telemetry(monkeypatch):
         assert is_telemetry_disabled() is True
 
     assert is_telemetry_disabled() is True
-
-
-def test_sanitize_scorer_name():
-    built_in_scorers = get_all_scorers()
-    for built_in_scorer in built_in_scorers:
-        assert _sanitize_scorer_name(built_in_scorer) == built_in_scorer.name
-
-    custom_scorer = Scorer(name="test_scorer")
-    assert _sanitize_scorer_name(custom_scorer) == "CustomScorer"
-
-    @scorer
-    def not_empty(outputs) -> bool:
-        return outputs != ""
-
-    assert _sanitize_scorer_name(not_empty) == "CustomScorer"

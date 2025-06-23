@@ -5,9 +5,9 @@ import threading
 from typing import Callable
 
 from mlflow.telemetry.client import get_telemetry_client
+from mlflow.telemetry.parser import API_PARSER_MAPPING
 from mlflow.telemetry.schemas import APIStatus, Record
 from mlflow.telemetry.utils import (
-    API_RECORD_PARAMS_MAPPING,
     is_telemetry_disabled,
     temporarily_disable_telemetry,
 )
@@ -32,6 +32,7 @@ def track_api_usage(func: Callable) -> Callable:
             raise
         finally:
             try:
+                # TODO: move this inside TelemetryClient and use ThreadPoolExecutor
                 thread = threading.Thread(
                     target=_add_telemetry_record,
                     name="add_telemetry_record",
@@ -45,7 +46,8 @@ def track_api_usage(func: Callable) -> Callable:
     return wrapper
 
 
-def _add_telemetry_record(func, args, kwargs, success):
+# TODO: catch exception
+def _add_telemetry_record(func: Callable, args: tuple, kwargs: dict, success: bool):
     signature = inspect.signature(func)
     bound_args = signature.bind(*args, **kwargs)
     bound_args.apply_defaults()
@@ -59,14 +61,12 @@ def _add_telemetry_record(func, args, kwargs, success):
         del arguments["cls"]
 
     full_func_name = f"{func.__module__}.{func.__qualname__}"
-    record_params_func = API_RECORD_PARAMS_MAPPING.get(
-        full_func_name
-    ) or API_RECORD_PARAMS_MAPPING.get(func.__name__)
+    parser = API_PARSER_MAPPING.get(full_func_name) or API_PARSER_MAPPING.get(func.__name__)
 
-    record_params = record_params_func(full_func_name, arguments) if record_params_func else None
+    record_params = parser.extract_params(full_func_name, arguments) if parser else None
     record = Record(
         api_name=full_func_name,
         params=record_params,
-        status=APIStatus.SUCCESS if success else APIStatus.FAILURE,
+        status=APIStatus.SUCCESS.value if success else APIStatus.FAILURE.value,
     )
     get_telemetry_client().add_record(record)

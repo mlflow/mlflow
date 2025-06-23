@@ -29,11 +29,17 @@ def test_track_api_usage():
 
     assert len(telemetry_client.records) == 2
     succeed_record = telemetry_client.records[0]
-    assert succeed_record.api_name == full_func_name(succeed_func)
-    assert succeed_record.status == APIStatus.SUCCESS
+    assert succeed_record == {
+        "api_name": full_func_name(succeed_func),
+        "params": None,
+        "status": APIStatus.SUCCESS.value,
+    }
     fail_record = telemetry_client.records[1]
-    assert fail_record.api_name == full_func_name(fail_func)
-    assert fail_record.status == APIStatus.FAILURE
+    assert fail_record == {
+        "api_name": full_func_name(fail_func),
+        "params": None,
+        "status": APIStatus.FAILURE.value,
+    }
 
 
 @pytest.mark.parametrize(
@@ -67,7 +73,7 @@ def test_track_api_usage_update_env_var_after_import(monkeypatch):
 
     test_func()
     assert len(telemetry_client.records) == 1
-    assert telemetry_client.records[0].api_name == full_func_name(test_func)
+    assert telemetry_client.records[0]["api_name"] == full_func_name(test_func)
 
     monkeypatch.setenv("MLFLOW_DISABLE_TELEMETRY", "true")
     test_func()
@@ -87,7 +93,7 @@ def test_track_api_usage_do_not_track_internal_api():
     test_func()
     records = get_telemetry_client().records
     assert len(records) == 1
-    assert records[0].api_name == full_func_name(test_func)
+    assert records[0]["api_name"] == full_func_name(test_func)
 
 
 # TODO: apply track_api_usage to APIs and test the record params

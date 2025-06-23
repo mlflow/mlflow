@@ -1,11 +1,9 @@
 import platform
 import sys
 import uuid
+from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
-
-import pydantic
-from pydantic import Field
+from typing import TypedDict
 
 from mlflow.version import VERSION
 
@@ -19,46 +17,44 @@ class APIStatus(str, Enum):
 class ModelType(str, Enum):
     MODEL_PATH = "model_path"
     MODEL_OBJECT = "model_object"
+    PYTHON_FUNCTION = "python_function"
     PYTHON_MODEL = "python_model"
     CHAT_MODEL = "chat_model"
     CHAT_AGENT = "chat_agent"
     RESPONSES_AGENT = "responses_agent"
 
 
-class LogModelParams(pydantic.BaseModel):
+class LogModelParams(TypedDict):
     flavor: str
     model: ModelType
-    pip_requirements: bool = False
-    extra_pip_requirements: bool = False
-    code_paths: bool = False
-    params: bool = False
-    metadata: bool = False
-
-    model_config = {"use_enum_values": True}
+    is_pip_requirements_set: bool = False
+    is_extra_pip_requirements_set: bool = False
+    is_code_paths_set: bool = False
+    is_params_set: bool = False
+    is_metadata_set: bool = False
 
 
-class AutologParams(pydantic.BaseModel):
+class AutologParams(TypedDict):
     flavor: str
     disable: bool
     log_traces: bool
     log_models: bool
 
 
-class GenaiEvaluateParams(pydantic.BaseModel):
+class GenaiEvaluateParams(TypedDict):
     scorers: list[str]
-    predict_fn: bool = False
+    is_predict_fn_set: bool = False
 
 
-class Record(pydantic.BaseModel):
+class Record(TypedDict):
     api_name: str
-    params: Optional[dict[str, bool | str]] = None
-    status: APIStatus = Field(default=APIStatus.UNKNOWN.value)
+    params: dict[str, bool | str] | None = None
+    status: APIStatus = APIStatus.UNKNOWN.value
     # TODO: add duration_ms after we get approval
 
-    model_config = {"use_enum_values": True}
 
-
-class TelemetryInfo(pydantic.BaseModel):
+@dataclass
+class TelemetryInfo:
     session_id: str = uuid.uuid4().hex
     mlflow_version: str = VERSION
     python_version: str = (

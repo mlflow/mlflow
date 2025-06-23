@@ -36,7 +36,7 @@ def set_telemetry_client():
     global _MLFLOW_TELEMETRY_CLIENT
 
     if is_telemetry_disabled():
-        _logger.info("MLflow Telemetry is disabled")
+        _logger.debug("MLflow Telemetry is disabled")
         # set to None again so this function can be used to
         # re-initialize the telemetry client
         _MLFLOW_TELEMETRY_CLIENT = None
