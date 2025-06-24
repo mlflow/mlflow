@@ -89,6 +89,10 @@ const sidebarsGenAI: SidebarsConfig = {
       items: [
         {
           type: 'doc',
+          id: 'getting-started/databricks-trial/index',
+        },
+        {
+          type: 'doc',
           id: 'getting-started/connect-environment',
           label: 'Connect to MLflow',
         },
