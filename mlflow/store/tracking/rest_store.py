@@ -123,8 +123,9 @@ class RestStore(AbstractStore):
         super().__init__()
         self.get_host_creds = get_host_creds
         
-        # Cache for delta archival streams
-        self._delta_archival_events_stream = None
+        # Thread-local storage for delta archival streams (each thread gets its own stream)
+        import threading
+        self._thread_local = threading.local()
 
     def _call_endpoint(
         self,
@@ -1167,6 +1168,7 @@ class RestStore(AbstractStore):
     async def _get_events_stream(self, events_table: str):
         """
         Get or create the cached events stream for delta archival.
+        Uses thread-local storage so each thread gets its own stream.
         
         Args:
             events_table: Name of the events table.
@@ -1177,7 +1179,8 @@ class RestStore(AbstractStore):
         Raises:
             Exception: If stream creation fails.
         """
-        if self._delta_archival_events_stream is None:
+        # Get or create stream for this thread
+        if not hasattr(self._thread_local, 'events_stream') or self._thread_local.events_stream is None:
             from mlflow.tracing.export.trace_server_archival_pb2 import Event as ProtoEvent
             from ingest_api_sdk import IngestApiSdk, TableProperties
             
@@ -1188,10 +1191,10 @@ class RestStore(AbstractStore):
             )
             
             table_properties = TableProperties(events_table, ProtoEvent.DESCRIPTOR)
-            self._delta_archival_events_stream = await sdk.create_stream(table_properties)
-            _logger.debug("Created new events stream for delta archival")
+            self._thread_local.events_stream = await sdk.create_stream(table_properties)
+            _logger.debug("Created new thread-local events stream for delta archival")
             
-        return self._delta_archival_events_stream
+        return self._thread_local.events_stream
 
     async def _ingest_assessment_event(self, assessment: Assessment, events_table: str):
         """

@@ -60,8 +60,9 @@ class TraceServerSpanExporter(SpanExporter):
             _logger.info("MLflow is configured to log traces asynchronously.")
             self._async_queue = AsyncTraceExportQueue()
 
-        # Initialize stream (will be created lazily when needed)
-        self._stream = None
+        # Initialize thread-local storage for streams (each thread gets its own stream)
+        import threading
+        self._thread_local = threading.local()
 
     def export(self, spans: Sequence[ReadableSpan]):
         """
@@ -116,13 +117,16 @@ class TraceServerSpanExporter(SpanExporter):
     async def _get_stream(self):
         """
         Get the stream for ingesting spans, creating it if it doesn't exist.
+        Uses thread-local storage so each thread gets its own stream.
         
         Returns:
             A stream object for ingesting records.
         """
-        if self._stream is None:
-            self._stream = await self._sdk_handle.create_stream(self._spans_table_properties)
-        return self._stream
+        # Get or create stream for this thread
+        if not hasattr(self._thread_local, 'stream') or self._thread_local.stream is None:
+            self._thread_local.stream = await self._sdk_handle.create_stream(self._spans_table_properties)
+            _logger.debug("Created new thread-local stream for TraceServer export")
+        return self._thread_local.stream
 
     async def _ingest_spans(self, proto_spans: list[ProtoSpan]):
         """
@@ -148,7 +152,8 @@ class TraceServerSpanExporter(SpanExporter):
         except Exception as e:
             _logger.warning(f"Failed to ingest spans: {e}")
             # If we encounter an error with the stream, reset it so we'll create a new one next time
-            self._stream = None
+            if hasattr(self._thread_local, 'stream'):
+                self._thread_local.stream = None
 
     def _convert_trace_to_proto_spans(self, trace: Trace) -> list[ProtoSpan]:
         """
@@ -244,13 +249,13 @@ class TraceServerSpanExporter(SpanExporter):
             if hasattr(self, '_async_queue'):
                 self._async_queue.flush(terminate=True)
                 
-            # Close the stream if it exists
-            if self._stream is not None:
+            # Close the stream if it exists (though thread-local streams will be cleaned up automatically)
+            if hasattr(self._thread_local, 'stream') and self._thread_local.stream is not None:
                 try:
-                    asyncio.run(self._stream.close())
+                    asyncio.run(self._thread_local.stream.close())
                 except Exception as e:
                     _logger.debug(f"Error closing stream: {e}")
                 finally:
-                    self._stream = None
+                    self._thread_local.stream = None
         except Exception as e:
             _logger.warning(f"Error shutting down exporter: {e}") 
