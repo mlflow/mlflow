@@ -977,7 +977,7 @@ class MlflowClient:
             experiment_id=experiment_id,
             max_timestamp_millis=max_timestamp_millis,
             max_traces=max_traces,
-            request_ids=trace_ids,
+            trace_ids=trace_ids,
         )
 
     @request_id_backward_compatible

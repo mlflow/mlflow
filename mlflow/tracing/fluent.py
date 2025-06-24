@@ -1106,7 +1106,7 @@ def update_current_trace(
             if state not in (TraceState.OK, TraceState.ERROR):
                 raise _invalid_state_error(state)
 
-            trace.info.state = state
+            trace.info.state = TraceState(state) if isinstance(state, str) else state
 
         trace.info.tags.update(tags or {})
         trace.info.trace_metadata.update(metadata or {})

@@ -106,6 +106,81 @@ response = user_proxy.initiate_chat(
 )
 ```
 
+## Token usage
+
+MLflow >= 3.2.0 supports token usage tracking for AG2. The token usage for each LLM call will be logged in the `mlflow.chat.tokenUsage` attribute. The total token usage throughout the trace will be
+available in the `token_usage` field of the trace info object.
+
+```python
+import json
+import mlflow
+
+mlflow.ag2.autolog()
+
+# Register and run the tool signature with the assistant agent which is defined in above section.
+assistant.register_for_llm(name="calculator", description="A simple calculator")(
+    calculator
+)
+user_proxy.register_for_execution(name="calculator")(calculator)
+response = user_proxy.initiate_chat(
+    assistant, message="What is (44231 + 13312 / (230 - 20)) * 4?"
+)
+
+# Get the trace object just created
+last_trace_id = mlflow.get_last_active_trace_id()
+trace = mlflow.get_trace(trace_id=last_trace_id)
+
+# Print the token usage
+total_usage = trace.info.token_usage
+print("== Total token usage: ==")
+print(f"  Input tokens: {total_usage['input_tokens']}")
+print(f"  Output tokens: {total_usage['output_tokens']}")
+print(f"  Total tokens: {total_usage['total_tokens']}")
+
+# Print the token usage for each LLM call
+print("\n== Detailed usage for each LLM call: ==")
+for span in trace.data.spans:
+    if usage := span.get_attribute("mlflow.chat.tokenUsage"):
+        print(f"{span.name}:")
+        print(f"  Input tokens: {usage['input_tokens']}")
+        print(f"  Output tokens: {usage['output_tokens']}")
+        print(f"  Total tokens: {usage['total_tokens']}")
+```
+
+```bash
+== Total token usage: ==
+  Input tokens: 1569
+  Output tokens: 229
+  Total tokens: 1798
+
+== Detailed usage for each LLM call: ==
+chat_completion_1:
+  Input tokens: 110
+  Output tokens: 61
+  Total tokens: 171
+chat_completion_2:
+  Input tokens: 191
+  Output tokens: 61
+  Total tokens: 252
+chat_completion_3:
+  Input tokens: 269
+  Output tokens: 24
+  Total tokens: 293
+chat_completion_4:
+  Input tokens: 302
+  Output tokens: 23
+  Total tokens: 325
+chat_completion_5:
+  Input tokens: 333
+  Output tokens: 22
+  Total tokens: 355
+chat_completion_6:
+  Input tokens: 364
+  Output tokens: 38
+  Total tokens: 402
+```
+
+
 ### Disable auto-tracing
 
 Auto tracing for AG2 can be disabled globally by calling `mlflow.ag2.autolog(disable=True)` or `mlflow.autolog(disable=True)`.

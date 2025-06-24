@@ -72,7 +72,7 @@ from mlflow.genai.scorers import Correctness, RelevanceToQuery
 
 # Evaluate your app with AI-powered metrics
 results = mlflow.genai.evaluate(
-    model=my_app,
+    predict_fn=my_app,
     data=eval_dataset,
     scorers=[
         Correctness(),

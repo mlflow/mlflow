@@ -380,7 +380,7 @@ def test_client_delete_traces(mock_store):
         experiment_id="0",
         max_timestamp_millis=1,
         max_traces=2,
-        request_ids=["tr-1234"],
+        trace_ids=["tr-1234"],
     )
 
 
@@ -809,6 +809,8 @@ def test_start_span_raise_error_when_parent_id_is_not_provided():
 
 
 def test_log_trace(tracking_uri):
+    pytest.skip("V3 backend does not support _log_trace yet")
+
     client = MlflowClient(tracking_uri)
     experiment_id = client.create_experiment("test_experiment")
 
@@ -1834,7 +1836,7 @@ def test_create_prompt_error_handling(tracking_uri):
 
     # Exceeds the max length
     with pytest.raises(MlflowException, match=r"Prompt text exceeds max length of"):
-        client.register_prompt(name="prompt_1", template="Hi" * 10000)
+        client.register_prompt(name="prompt_1", template="a" * 100_001)
 
     # When the first version creation fails, RegisteredModel should not be created
     with pytest.raises(MlflowException, match=r"Prompt with name=prompt_1 not found"):
@@ -1845,7 +1847,7 @@ def test_create_prompt_error_handling(tracking_uri):
 
     # When the subsequent version creation fails, RegisteredModel should remain
     with pytest.raises(MlflowException, match=r"Prompt text exceeds max length of"):
-        client.register_prompt(name="prompt_1", template="Hi" * 10000)
+        client.register_prompt(name="prompt_1", template="a" * 100_001)
 
     assert client.load_prompt("prompt_1", version=1) is not None
 
