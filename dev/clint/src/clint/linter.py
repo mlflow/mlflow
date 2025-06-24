@@ -304,17 +304,16 @@ class TypeAnnotationVisitor(ast.NodeVisitor):
         self.generic_visit(node)
 
     def _is_bare_generic_type(self, node: ast.Name | ast.Attribute) -> bool:
-        """Check if this Name node represents a bare generic type (not parameterized)."""
+        """Check if this node is a bare generic type (e.g., `dict` or `list` without parameters)."""
         if not rules.UnparameterizedGenericType.is_generic_type(node, self.linter.resolver):
             return False
 
-        # Check if this Name is the value of a Subscript (e.g., the 'dict' in 'dict[str, int]')
-        # We need to look through the stack to find if any parent is a Subscript
-        # where this node is the value part
-        return not any(
-            isinstance(parent, ast.Subscript) and parent.value is node
-            for parent in reversed(self.stack)
-        )
+        # Check if this node is the value of a Subscript (e.g., the 'dict' in 'dict[str, int]').
+        # `[:-1]` skips the current node, which is the one being checked.
+        for parent in reversed(self.stack[:-1]):
+            if isinstance(parent, ast.Subscript) and parent.value is node:
+                return False
+        return True
 
 
 class Linter(ast.NodeVisitor):
