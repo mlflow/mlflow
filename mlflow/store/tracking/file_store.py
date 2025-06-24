@@ -1879,7 +1879,6 @@ class FileStore(AbstractStore):
                 INTERNAL_ERROR,
             ) from e
 
-<<<<<<< HEAD
     def _delete_assessment(self, trace_id: str, assessment_id: str) -> None:
         assessment_path = self._get_assessment_path(trace_id, assessment_id)
 
@@ -1901,8 +1900,6 @@ class FileStore(AbstractStore):
                 INTERNAL_ERROR,
             ) from e
 
-=======
->>>>>>> assessments
     def get_assessment(self, trace_id: str, assessment_id: str) -> Assessment:
         """
         Retrieves a specific assessment associated with a trace from the file store.
