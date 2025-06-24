@@ -94,6 +94,37 @@ def test_download_artifacts_throws_for_invalid_arguments():
         mlflow.artifacts.download_artifacts(artifact_path="path", artifact_uri="uri")
 
 
+def test_download_artifacts_with_different_tracking_uri(tmp_path):
+    original_tracking_uri = mlflow.get_tracking_uri()
+
+    tracking_uri_1 = str(tmp_path / "mlruns1")
+    mlflow.set_tracking_uri(tracking_uri_1)
+
+    artifact_content = "test content"
+    local_file = tmp_path / "local_test.txt"
+    local_file.write_text(artifact_content)
+
+    with mlflow.start_run() as run:
+        mlflow.log_artifact(str(local_file))
+        run_id = run.info.run_id
+
+    tracking_uri_2 = str(tmp_path / "mlruns2")
+    mlflow.set_tracking_uri(tracking_uri_2)
+
+    dst_path = tmp_path / "download_dest"
+    download_path = mlflow.artifacts.download_artifacts(
+        run_id=run_id,
+        artifact_path="local_test.txt",
+        tracking_uri=tracking_uri_1,
+        dst_path=str(dst_path),
+    )
+
+    downloaded_file = pathlib.Path(download_path)
+    assert downloaded_file.read_text() == artifact_content
+
+    mlflow.set_tracking_uri(original_tracking_uri)
+
+
 @pytest.fixture
 def run_with_text_artifact():
     artifact_path = "test/file.txt"
@@ -296,6 +327,35 @@ def test_list_artifacts_throws_for_invalid_arguments():
 
     with pytest.raises(MlflowException, match="`artifact_path` cannot be specified"):
         mlflow.artifacts.list_artifacts(artifact_uri="uri", artifact_path="path")
+
+
+def test_list_artifacts_with_different_tracking_uri(tmp_path):
+    original_tracking_uri = mlflow.get_tracking_uri()
+
+    tracking_uri_1 = str(tmp_path / "mlruns1")
+    mlflow.set_tracking_uri(tracking_uri_1)
+
+    local_file1 = tmp_path / "file1.txt"
+    local_file2 = tmp_path / "file2.txt"
+    local_file1.write_text("content1")
+    local_file2.write_text("content2")
+
+    with mlflow.start_run() as run:
+        mlflow.log_artifact(str(local_file1))
+        mlflow.log_artifact(str(local_file2))
+        run_id = run.info.run_id
+
+    tracking_uri_2 = str(tmp_path / "mlruns2")
+    mlflow.set_tracking_uri(tracking_uri_2)
+
+    artifacts = mlflow.artifacts.list_artifacts(run_id=run_id, tracking_uri=tracking_uri_1)
+
+    assert len(artifacts) == 2
+    artifact_names = [a.path for a in artifacts]
+    assert "file1.txt" in artifact_names
+    assert "file2.txt" in artifact_names
+
+    mlflow.set_tracking_uri(original_tracking_uri)
 
 
 def test_download_artifacts_with_run_id_and_artifact_path(tmp_path):

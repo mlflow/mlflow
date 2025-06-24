@@ -82,7 +82,7 @@ def download_artifacts(
         return _download_artifact_from_uri(artifact_uri, output_path=dst_path)
 
     # Use `runs:/<run_id>/<artifact_path>` to download both run and model (if exists) artifacts
-    if run_id and artifact_path:
+    if run_id and artifact_path and tracking_uri is None:
         return _download_artifact_from_uri(
             f"runs:/{posixpath.join(run_id, artifact_path)}", output_path=dst_path
         )
@@ -133,7 +133,7 @@ def list_artifacts(
         return get_artifact_repository(artifact_uri=root_uri).list_artifacts(artifact_path)
 
     # Use `runs:/<run_id>/<artifact_path>` to list both run and model (if exists) artifacts
-    if run_id and artifact_path:
+    if run_id and artifact_path and tracking_uri is None:
         return get_artifact_repository(artifact_uri=f"runs:/{run_id}").list_artifacts(artifact_path)
 
     store = _get_store(store_uri=tracking_uri)
