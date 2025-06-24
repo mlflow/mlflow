@@ -60,13 +60,15 @@ def test_to_predict_fn_return_trace(sample_rag_trace, mock_deploy_client, mock_t
 
     # Trace from endpoint (sample_rag_trace) should be copied to the current experiment
     mock_tracing_client.start_trace.assert_called_once()
-    trace = mock_tracing_client.start_trace.call_args[0][0]
+    trace_info = mock_tracing_client.start_trace.call_args[0][0]
     # Copied trace should have a new trace ID
-    assert trace.info.trace_id != sample_rag_trace.info.trace_id
-    assert trace.info.request_preview == '{"question": "query"}'
-    assert trace.info.response_preview == '"answer"'
-    assert len(trace.data.spans) == 3
-    for old, new in zip(sample_rag_trace.data.spans, trace.data.spans):
+    assert trace_info.trace_id != sample_rag_trace.info.trace_id
+    assert trace_info.request_preview == '{"question": "query"}'
+    assert trace_info.response_preview == '"answer"'
+
+    trace_data = mock_tracing_client._upload_trace_data.call_args[0][1]
+    assert len(trace_data.spans) == 3
+    for old, new in zip(sample_rag_trace.data.spans, trace_data.spans):
         assert old.name == new.name
         assert old.inputs == new.inputs
         assert old.outputs == new.outputs
@@ -74,7 +76,7 @@ def test_to_predict_fn_return_trace(sample_rag_trace, mock_deploy_client, mock_t
         assert old.end_time_ns == new.end_time_ns
         assert old.parent_id == new.parent_id
         assert old.span_id == new.span_id
-    mock_tracing_client._upload_trace_data.assert_called_once_with(mock.ANY, trace.data)
+    mock_tracing_client._upload_trace_data.assert_called_once_with(mock.ANY, trace_data)
 
 
 @pytest.mark.parametrize(
@@ -108,10 +110,11 @@ def test_to_predict_fn_does_not_return_trace(
 
     # Bare-minimum trace should be created when the endpoint does not return a trace
     mock_tracing_client.start_trace.assert_called_once()
-    trace = mock_tracing_client.start_trace.call_args[0][0]
-    assert trace.info.request_preview == json.dumps({"messages": messages})
-    assert len(trace.data.spans) == 1
-    assert trace.data.spans[0].name == "predict"
+    trace_info = mock_tracing_client.start_trace.call_args[0][0]
+    assert trace_info.request_preview == json.dumps({"messages": messages})
+    trace_data = mock_tracing_client._upload_trace_data.call_args[0][1]
+    assert len(trace_data.spans) == 1
+    assert trace_data.spans[0].name == "predict"
 
 
 def test_to_predict_fn_pass_tracing_check(
@@ -141,13 +144,14 @@ def test_to_predict_fn_pass_tracing_check(
     converted(sample_input)
 
     mock_tracing_client.start_trace.assert_called_once()
-    trace = mock_tracing_client.start_trace.call_args[0][0]
-    assert trace.info.request_preview == '{"question": "query"}'
-    assert trace.info.response_preview == '"answer"'
+    trace_info = mock_tracing_client.start_trace.call_args[0][0]
+    assert trace_info.request_preview == '{"question": "query"}'
+    assert trace_info.response_preview == '"answer"'
     # The produced trace should be the one returned from the endpoint (sample_rag_trace)
-    assert trace.data.spans[0].name == "rag"
-    assert trace.data.spans[0].inputs == {"question": "query"}
-    assert trace.data.spans[0].outputs == "answer"
+    trace_data = mock_tracing_client._upload_trace_data.call_args[0][1]
+    assert trace_data.spans[0].name == "rag"
+    assert trace_data.spans[0].inputs == {"question": "query"}
+    assert trace_data.spans[0].outputs == "answer"
 
 
 def test_to_predict_fn_return_v2_trace(mock_deploy_client, mock_tracing_client):
@@ -176,18 +180,19 @@ def test_to_predict_fn_return_v2_trace(mock_deploy_client, mock_tracing_client):
 
     # Trace from endpoint (sample_rag_trace) should be copied to the current experiment
     mock_tracing_client.start_trace.assert_called_once()
-    trace = mock_tracing_client.start_trace.call_args[0][0]
+    trace_info = mock_tracing_client.start_trace.call_args[0][0]
     # Copied trace should have a new trace ID (and v3)
-    isinstance(trace.info, TraceInfo)
-    assert trace.info.trace_id != V2_TRACE_DICT["info"]["request_id"]
-    assert trace.info.request_preview == '{"x": 2, "y": 5}'
-    assert trace.info.response_preview == "8"
-    assert trace.info.trace_metadata[TRACE_SCHEMA_VERSION_KEY] == "3"
-    assert len(trace.data.spans) == 2
-    assert trace.data.spans[0].name == "predict"
-    assert trace.data.spans[0].inputs == {"x": 2, "y": 5}
-    assert trace.data.spans[0].outputs == 8
-    mock_tracing_client._upload_trace_data.assert_called_once_with(mock.ANY, trace.data)
+    isinstance(trace_info, TraceInfo)
+    assert trace_info.trace_id != V2_TRACE_DICT["info"]["request_id"]
+    assert trace_info.request_preview == '{"x": 2, "y": 5}'
+    assert trace_info.response_preview == "8"
+    assert trace_info.trace_metadata[TRACE_SCHEMA_VERSION_KEY] == "3"
+    trace_data = mock_tracing_client._upload_trace_data.call_args[0][1]
+    assert len(trace_data.spans) == 2
+    assert trace_data.spans[0].name == "predict"
+    assert trace_data.spans[0].inputs == {"x": 2, "y": 5}
+    assert trace_data.spans[0].outputs == 8
+    mock_tracing_client._upload_trace_data.assert_called_once_with(mock.ANY, trace_data)
 
 
 def test_to_predict_fn_should_not_pass_databricks_options_to_fmapi(
@@ -213,7 +218,8 @@ def test_to_predict_fn_should_not_pass_databricks_options_to_fmapi(
 
     # Bare-minimum trace should be created when the endpoint does not return a trace
     mock_tracing_client.start_trace.assert_called_once()
-    trace = mock_tracing_client.start_trace.call_args[0][0]
-    assert trace.info.request_preview == json.dumps({"messages": messages})
-    assert len(trace.data.spans) == 1
-    assert trace.data.spans[0].name == "predict"
+    trace_info = mock_tracing_client.start_trace.call_args[0][0]
+    assert trace_info.request_preview == json.dumps({"messages": messages})
+    trace_data = mock_tracing_client._upload_trace_data.call_args[0][1]
+    assert len(trace_data.spans) == 1
+    assert trace_data.spans[0].name == "predict"
