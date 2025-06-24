@@ -55,12 +55,17 @@ def proto_info_to_mlflow_prompt_info(
     if prompt_tags:
         tags.update(prompt_tags)
 
+    # Extract aliases if they exist - convert to dict {alias: version}
+    aliases = {}
+    if hasattr(proto_info, "aliases") and proto_info.aliases:
+        aliases = {alias.alias: alias.version for alias in proto_info.aliases}
+
     return Prompt(
         name=proto_info.name,
         description=proto_info.description,
         tags=tags,
+        aliases=aliases,
     )
-
 
 def proto_to_mlflow_prompt(
     proto_version,  # PromptVersion type from protobuf
@@ -111,7 +116,7 @@ def mlflow_prompt_to_proto(prompt: PromptVersion) -> ProtoPromptVersion:
         proto_version.tags.extend(mlflow_tags_to_proto_version_tags(prompt.tags))
 
     # Add aliases
-    if prompt.aliases:
+    if hasattr(prompt, 'aliases') and prompt.aliases:
         for alias in prompt.aliases:
             alias_proto = ProtoPromptAlias()
             alias_proto.alias = alias
