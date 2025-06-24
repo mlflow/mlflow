@@ -1919,20 +1919,14 @@ class FileStore(AbstractStore):
 
         return self._load_assessment(trace_id, assessment_id)
 
-    def create_assessment(self, assessment: Assessment) -> Assessment:
+    def create_assessment(self, trace_id: str, assessment: Assessment) -> Assessment:
         """
         Creates a new assessment record associated with a specific trace.
 
-        This method creates a new assessment record by:
-        1. Generating a unique assessment ID
-        2. Setting creation and update timestamps
-        3. Storing the assessment as a YAML file in the assessments subdirectory
-        4. Returning the updated assessment object with backend-generated metadata
-
         Args:
-            assessment: The assessment object to create. Can be either an Expectation or
-                Feedback instance. The assessment will be modified in-place to include
-                the generated assessment_id and timestamps.
+            trace_id: The unique identifier of the trace.
+            assessment: The assessment object to create. The assessment will be modified
+                    in-place to include the generated assessment_id and timestamps.
 
         Returns:
             Assessment: The input assessment object updated with backend-generated metadata.
@@ -1940,6 +1934,14 @@ class FileStore(AbstractStore):
         Raises:
             MlflowException: If the trace doesn't exist or there's an error saving the assessment.
         """
+        if assessment.trace_id and assessment.trace_id != trace_id:
+            raise MlflowException.invalid_parameter_value(
+                f"Assessment trace_id '{assessment.trace_id}' does not match provided "
+                "trace_id '{trace_id}'"
+            )
+
+        assessment.trace_id = trace_id
+
         assessment_id = generate_assessment_id()
         creation_timestamp = int(time.time() * 1000)
 
@@ -1948,8 +1950,12 @@ class FileStore(AbstractStore):
         assessment.last_update_time_ms = creation_timestamp
         assessment.valid = True
 
-        self._save_assessment(assessment)
+        if assessment.overrides:
+            original_assessment = self.get_assessment(trace_id, assessment.overrides)
+            original_assessment.valid = False
+            self._save_assessment(original_assessment)
 
+        self._save_assessment(assessment)
         return assessment
 
     def update_assessment(
@@ -1960,24 +1966,30 @@ class FileStore(AbstractStore):
         expectation: Optional[Expectation] = None,
         feedback: Optional[Feedback] = None,
         rationale: Optional[str] = None,
-        valid: Optional[bool] = True,
         metadata: Optional[dict[str, str]] = None,
     ) -> Assessment:
         """
-        Update an existing assessment by creating a new version with override tracking.
+        Updates an existing assessment with new values while preserving immutable fields.
+
+        `source` and `span_id` are immutable and cannot be changed.
+        The last_update_time_ms will always be updated to the current timestamp.
+        Metadata will be merged with the new metadata taking precedence.
 
         Args:
             trace_id: The unique identifier of the trace containing the assessment.
             assessment_id: The unique identifier of the assessment to update.
-            name: The updated name of the assessment.
-            expectation: The updated expectation object for expectation assessments.
-            feedback: The updated feedback object for feedback assessments.
-            rationale: Optional new rationale text.
-            valid: Whether the original assessment should remain valid.
-            metadata: Optional metadata updates.
+            name: The updated name of the assessment. If None, preserves existing name.
+            expectation: Updated expectation value for expectation assessments.
+            feedback: Updated feedback value for feedback assessments.
+            rationale: Updated rationale text. If None, preserves existing rationale.
+            metadata: Updated metadata dict. Will be merged with existing metadata.
 
         Returns:
-            Assessment: The newly created assessment object with updated values.
+            Assessment: The updated assessment object with new last_update_time_ms.
+
+        Raises:
+            MlflowException: If the assessment doesn't exist, if immutable fields have
+                            changed, or if there's an error saving the assessment.
         """
         existing_assessment = self.get_assessment(trace_id, assessment_id)
 
@@ -1996,62 +2008,54 @@ class FileStore(AbstractStore):
                 "Cannot update feedback value on an Expectation assessment."
             )
 
-        new_assessment_id = generate_assessment_id()
-        updated_timestamp = int(time.time() * 1000)
+        merged_metadata = None
+        if existing_assessment.metadata or metadata:
+            merged_metadata = (existing_assessment.metadata or {}).copy()
+            if metadata:
+                merged_metadata.update(metadata)
 
-        assessment_name = name if name is not None else existing_assessment.name
+        updated_timestamp = int(time.time() * 1000)
 
         if isinstance(existing_assessment, Expectation):
             new_value = expectation.value if expectation is not None else existing_assessment.value
 
             updated_assessment = Expectation(
-                name=assessment_name,
+                name=name if name is not None else existing_assessment.name,
                 value=new_value,
                 source=existing_assessment.source,
-                trace_id=existing_assessment.trace_id,
-                metadata=metadata if metadata is not None else existing_assessment.metadata,
+                trace_id=trace_id,
+                metadata=merged_metadata,
                 span_id=existing_assessment.span_id,
                 create_time_ms=existing_assessment.create_time_ms,
                 last_update_time_ms=updated_timestamp,
             )
-            updated_assessment.assessment_id = new_assessment_id
-            updated_assessment.overrides = existing_assessment.assessment_id
-            updated_assessment.valid = True
-            if hasattr(existing_assessment, "run_id"):
-                updated_assessment.run_id = existing_assessment.run_id
         else:
             if feedback is not None:
-                if isinstance(feedback, Feedback):
-                    new_value = feedback.value
-                    new_error = feedback.error
-                else:
-                    new_value = feedback
-                    new_error = existing_assessment.error
+                new_value = feedback.value
+                new_error = feedback.error
             else:
                 new_value = existing_assessment.value
                 new_error = existing_assessment.error
 
             updated_assessment = Feedback(
-                name=assessment_name,
+                name=name if name is not None else existing_assessment.name,
                 value=new_value,
                 error=new_error,
                 source=existing_assessment.source,
-                trace_id=existing_assessment.trace_id,
-                metadata=metadata if metadata is not None else existing_assessment.metadata,
+                trace_id=trace_id,
+                metadata=merged_metadata,
                 span_id=existing_assessment.span_id,
                 create_time_ms=existing_assessment.create_time_ms,
                 last_update_time_ms=updated_timestamp,
                 rationale=rationale if rationale is not None else existing_assessment.rationale,
-                overrides=existing_assessment.assessment_id,
-                valid=True,
             )
-            updated_assessment.assessment_id = new_assessment_id
-            if hasattr(existing_assessment, "run_id"):
-                updated_assessment.run_id = existing_assessment.run_id
 
-        if not valid:
-            existing_assessment.valid = False
-            self._save_assessment(existing_assessment)
+        updated_assessment.assessment_id = existing_assessment.assessment_id
+        updated_assessment.valid = existing_assessment.valid
+        updated_assessment.overrides = existing_assessment.overrides
+
+        if hasattr(existing_assessment, "run_id"):
+            updated_assessment.run_id = existing_assessment.run_id
 
         self._save_assessment(updated_assessment)
 
