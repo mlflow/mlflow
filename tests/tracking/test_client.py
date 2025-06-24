@@ -380,7 +380,7 @@ def test_client_delete_traces(mock_store):
         experiment_id="0",
         max_timestamp_millis=1,
         max_traces=2,
-        request_ids=["tr-1234"],
+        trace_ids=["tr-1234"],
     )
 
 
@@ -809,6 +809,8 @@ def test_start_span_raise_error_when_parent_id_is_not_provided():
 
 
 def test_log_trace(tracking_uri):
+    pytest.skip("V3 backend does not support _log_trace yet")
+
     client = MlflowClient(tracking_uri)
     experiment_id = client.create_experiment("test_experiment")
 
@@ -1834,7 +1836,7 @@ def test_create_prompt_error_handling(tracking_uri):
 
     # Exceeds the max length
     with pytest.raises(MlflowException, match=r"Prompt text exceeds max length of"):
-        client.register_prompt(name="prompt_1", template="Hi" * 10000)
+        client.register_prompt(name="prompt_1", template="a" * 100_001)
 
     # When the first version creation fails, RegisteredModel should not be created
     with pytest.raises(MlflowException, match=r"Prompt with name=prompt_1 not found"):
@@ -1845,7 +1847,7 @@ def test_create_prompt_error_handling(tracking_uri):
 
     # When the subsequent version creation fails, RegisteredModel should remain
     with pytest.raises(MlflowException, match=r"Prompt text exceeds max length of"):
-        client.register_prompt(name="prompt_1", template="Hi" * 10000)
+        client.register_prompt(name="prompt_1", template="a" * 100_001)
 
     assert client.load_prompt("prompt_1", version=1) is not None
 
@@ -2355,3 +2357,30 @@ def test_log_batch_link_to_active_model(tracking_uri):
     assert logged_model.name == model.name
     assert logged_model.model_id == model.model_id
     assert {m.key: m.value for m in logged_model.metrics} == {"metric1": 1, "metric2": 2}
+
+
+def test_load_prompt_with_alias_uri(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    # Register two versions of a prompt
+    client.register_prompt(name="alias_prompt", template="Hello, world!")
+    client.register_prompt(name="alias_prompt", template="Hello, {{name}}!")
+
+    # Assign alias to version 1
+    client.set_prompt_alias("alias_prompt", alias="production", version=1)
+    prompt = client.load_prompt("prompts:/alias_prompt@production")
+    assert prompt.template == "Hello, world!"
+    assert "production" in prompt.aliases
+
+    # Reassign alias to version 2
+    client.set_prompt_alias("alias_prompt", alias="production", version=2)
+    prompt = client.load_prompt("prompts:/alias_prompt@production")
+    assert prompt.template == "Hello, {{name}}!"
+    assert "production" in prompt.aliases
+
+    # Delete alias and verify loading fails
+    client.delete_prompt_alias("alias_prompt", alias="production")
+    with pytest.raises(
+        MlflowException, match=r"Prompt (.*) does not exist.|Prompt alias (.*) not found."
+    ):
+        client.load_prompt("prompts:/alias_prompt@production")

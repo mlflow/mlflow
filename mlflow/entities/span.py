@@ -26,6 +26,7 @@ from mlflow.tracing.utils import (
     encode_span_id,
     encode_trace_id,
 )
+from mlflow.tracing.utils.processor import apply_span_processors
 
 _logger = logging.getLogger(__name__)
 
@@ -512,6 +513,9 @@ class LiveSpan(Span):
             # to OK if it is not ERROR.
             if self.status.status_code != SpanStatusCode.ERROR:
                 self.set_status(SpanStatus(SpanStatusCode.OK))
+
+            # Apply span processors
+            apply_span_processors(self)
 
             self._span.end(end_time=end_time_ns)
 

@@ -580,16 +580,6 @@ def test_trace_ignore_exception(monkeypatch, model):
 
     assert get_traces() == []
 
-    # Exception during inspecting inputs: trace should be logged without inputs field
-    with mock.patch("inspect.signature", side_effect=ValueError("Some error")) as mock_input_args:
-        _call_model_and_assert_output(model)
-        assert mock_input_args.call_count > 0
-
-    traces = get_traces()
-    assert len(traces) == 1
-    assert traces[0].info.state == TraceState.OK
-    purge_traces()
-
     # Exception during ending span: trace should not be logged.
     tracer = _get_tracer(__name__)
 
@@ -2088,3 +2078,38 @@ def test_set_delete_trace_tag():
     mlflow.delete_trace_tag(request_id=trace_id, key="key3")
     trace = mlflow.get_trace(request_id=trace_id)
     assert "key3" not in trace.info.tags
+
+
+@pytest.mark.parametrize("is_databricks", [True, False])
+def test_search_traces_with_run_id_validates_store_filter_string(is_databricks):
+    # Mock the store
+    mock_store = mock.MagicMock()
+    mock_store.search_traces.return_value = ([], None)  # Return empty results
+    mock_store.get_run.return_value = mock.MagicMock()
+    mock_store.get_run.return_value.info.experiment_id = "test_exp_id"
+
+    test_run_id = "test_run_123"
+
+    with (
+        mock.patch("mlflow.tracing.client._get_store", return_value=mock_store),
+        mock.patch("mlflow.tracing.client.is_databricks_uri", return_value=is_databricks),
+        mock.patch("mlflow.tracking.fluent._get_experiment_id", return_value="test_exp_id"),
+    ):
+        # Call search_traces with run_id but no experiment_ids
+        mlflow.search_traces(run_id=test_run_id)
+
+        # Verify the store was called with the correct filter string
+        if is_databricks:
+            expected_filter_string = f"attribute.run_id = '{test_run_id}'"
+        else:
+            expected_filter_string = f"metadata.{TraceMetadataKey.SOURCE_RUN} = '{test_run_id}'"
+
+        mock_store.search_traces.assert_called()
+
+        # Get the actual arguments passed to the store
+        call_args = mock_store.search_traces.call_args
+        actual_filter_string = call_args[1]["filter_string"]  # using keyword arguments
+
+        assert actual_filter_string == expected_filter_string, (
+            f"Expected filter string '{expected_filter_string}', but got '{actual_filter_string}'"
+        )

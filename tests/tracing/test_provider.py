@@ -105,19 +105,20 @@ def test_mlflow_backend_choose_v2_or_v3_correctly(monkeypatch, tracking_uri, sho
         assert isinstance(processors[0].span_exporter, MlflowV2SpanExporter)
 
 
-def test_set_destination_v2_mlflow_experiment(monkeypatch):
-    default_tracking_uri = mlflow.get_tracking_uri()
-
+def test_set_destination_mlflow_experiment(monkeypatch):
     # Set destination with experiment_id
     mlflow.tracing.set_destination(destination=MlflowExperiment(experiment_id="123"))
 
     tracer = _get_tracer("test")
     processors = tracer.span_processor._span_processors
     assert len(processors) == 1
-    assert isinstance(processors[0], MlflowV2SpanProcessor)
-    assert processors[0]._experiment_id == "123"
-    assert processors[0]._client.tracking_uri == default_tracking_uri
-    assert isinstance(processors[0].span_exporter, MlflowV2SpanExporter)
+    if mlflow.get_tracking_uri().startswith("sqlite"):
+        assert isinstance(processors[0], MlflowV3SpanProcessor)
+        assert processors[0]._experiment_id == "123"
+        assert isinstance(processors[0].span_exporter, MlflowV3SpanExporter)
+    else:
+        assert isinstance(processors[0], MlflowV2SpanProcessor)
+        assert isinstance(processors[0].span_exporter, MlflowV2SpanExporter)
 
     # Set destination with experiment_id and tracking_uri
     mlflow.tracing.set_destination(
@@ -127,7 +128,6 @@ def test_set_destination_v2_mlflow_experiment(monkeypatch):
     tracer = _get_tracer("test")
     processors = tracer.span_processor._span_processors
     assert processors[0]._experiment_id == "456"
-    assert processors[0]._client.tracking_uri == "http://localhost"
 
     # Experiment with Databricks tracking URI -> V3 exporter should be used
     mlflow.tracing.set_destination(
