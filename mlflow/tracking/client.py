@@ -919,9 +919,7 @@ class MlflowClient:
 
         if parsed_prompt_uri.model_id is not None:
             # This shouldn't happen for prompts (no model IDs), but handle gracefully
-            raise MlflowException.invalid_parameter_value(
-                f"Invalid prompt URI format: {uri}"
-            )
+            raise MlflowException.invalid_parameter_value(f"Invalid prompt URI format: {uri}")
 
         if parsed_prompt_uri.version is not None:
             # Direct version reference: prompts:/name/version

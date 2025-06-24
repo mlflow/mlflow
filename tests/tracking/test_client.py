@@ -2379,7 +2379,6 @@ def test_load_prompt_with_alias_uri(tracking_uri):
     # Delete alias and verify loading fails
     client.delete_prompt_alias("alias_prompt", alias="production")
     with pytest.raises(
-        MlflowException,
-        match=r"Prompt (.*) does not exist.|Prompt alias (.*) not found."
+        MlflowException, match=r"Prompt (.*) does not exist.|Prompt alias (.*) not found."
     ):
         client.load_prompt("prompts:/alias_prompt@production")
