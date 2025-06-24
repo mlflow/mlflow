@@ -59,9 +59,6 @@ class TraceServerSpanExporter(SpanExporter):
         if self._is_async:
             _logger.info("MLflow is configured to log traces asynchronously.")
             self._async_queue = AsyncTraceExportQueue()
-        
-        # Initialize an event loop for the exporter
-        self._loop = asyncio.new_event_loop()
 
         # Initialize stream (will be created lazily when needed)
         self._stream = None
@@ -96,6 +93,7 @@ class TraceServerSpanExporter(SpanExporter):
     def _log_trace(self, trace: Trace):
         """
         Handles exporting a trace to the Databricks Trace Server using the IngestApi.
+        Uses asyncio.run() to avoid event loop management issues.
         
         Args:
             trace: MLflow Trace object containing spans data.
@@ -108,13 +106,12 @@ class TraceServerSpanExporter(SpanExporter):
             # Convert MLflow trace to OTel proto spans
             proto_spans = self._convert_trace_to_proto_spans(trace)
             
-            # Run the async ingest function in the event loop
-            self._loop.run_until_complete(self._ingest_spans(proto_spans))
+            # Use asyncio.run() for clean event loop management
+            asyncio.run(self._ingest_spans(proto_spans))
                 
         except Exception as e:
             import traceback
             _logger.warning(f"Failed to send trace to Databricks Trace Server: {e}")
-            _logger.warning(f"Stack trace: {traceback.format_exc()}")
 
     async def _get_stream(self):
         """
@@ -240,15 +237,20 @@ class TraceServerSpanExporter(SpanExporter):
         
     def shutdown(self):
         """
-        Shutdown the exporter, closing the stream and event loop.
+        Shutdown the exporter, closing the stream and async queue.
         """
         try:
-            if self._stream is not None:
-                # Close the stream in the event loop
-                self._loop.run_until_complete(self._stream.close())
-                self._stream = None
+            # Shutdown the async queue first
+            if hasattr(self, '_async_queue'):
+                self._async_queue.flush(terminate=True)
                 
-            if not self._loop.is_closed():
-                self._loop.close()
+            # Close the stream if it exists
+            if self._stream is not None:
+                try:
+                    asyncio.run(self._stream.close())
+                except Exception as e:
+                    _logger.debug(f"Error closing stream: {e}")
+                finally:
+                    self._stream = None
         except Exception as e:
             _logger.warning(f"Error shutting down exporter: {e}") 
