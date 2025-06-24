@@ -1,8 +1,6 @@
 const { defineConfig } = require("eslint/config");
-
 const docusaurusEslintPlugin = require("@docusaurus/eslint-plugin");
 const js = require("@eslint/js");
-
 const { FlatCompat } = require("@eslint/eslintrc");
 
 const compat = new FlatCompat({
@@ -12,15 +10,12 @@ const compat = new FlatCompat({
 });
 
 module.exports = defineConfig([
-  {},
   {
     files: ["**/*.md", "**/*.mdx"],
     extends: compat.extends("plugin:mdx/recommended"),
-
     plugins: {
       "@docusaurus": docusaurusEslintPlugin,
     },
-
     rules: {
       "@docusaurus/no-html-links": "error",
     },
