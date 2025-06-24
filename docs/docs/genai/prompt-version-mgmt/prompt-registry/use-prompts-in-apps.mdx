@@ -131,7 +131,7 @@ While automatic detection is a goal, explicitly ensuring your model logging code
 1.  **Consistent URI Usage**: Always use the `prompts:/<name>/<version_or_alias>` URI with `mlflow.genai.load_prompt()` within your model's code.
 2.  **MLflow Model Logging**: When you log your model (e.g., your agent, your LangChain chain) using an appropriate `mlflow.<flavor>.log_model()` function, MLflow flavors designed for GenAI will often inspect the model for these `prompts:/` URIs and record them.
 
-<!-- TODO(image): A diagram or UI screenshot illustrating how a logged MLflow Model version in the Model Registry links to specific Prompt versions in the Prompt Registry. -->
+{/* TODO(image): A diagram or UI screenshot illustrating how a logged MLflow Model version in the Model Registry links to specific Prompt versions in the Prompt Registry. */}
 
 ## Error Handling
 
