@@ -57,10 +57,9 @@ def test_log_expectation(store, legacy_api):
 
     assert store.create_assessment.call_count == 1
     call_args = store.create_assessment.call_args
-    trace_id_arg = call_args[0][0]
-    assessment = call_args[0][1]
+    assessment = call_args[0][0]
 
-    assert trace_id_arg == "1234"
+    assert assessment.trace_id == "1234"
     assert assessment.name == "expected_answer"
     assert assessment.trace_id == "1234"
     assert assessment.span_id is None
@@ -124,10 +123,9 @@ def test_log_feedback(store, legacy_api):
 
     assert store.create_assessment.call_count == 1
     call_args = store.create_assessment.call_args
-    trace_id_arg = call_args[0][0]
-    assessment = call_args[0][1]
+    assessment = call_args[0][0]
 
-    assert trace_id_arg == "1234"
+    assert assessment.trace_id == "1234"
     assert assessment.name == "faithfulness"
     assert assessment.trace_id == "1234"
     assert assessment.span_id is None
@@ -167,7 +165,7 @@ def test_log_feedback_with_error(store, legacy_api):
 
     assert store.create_assessment.call_count == 1
     call_args = store.create_assessment.call_args
-    assessment = call_args[0][1]
+    assessment = call_args[0][0]
 
     assert assessment.name == "faithfulness"
     assert assessment.trace_id == "1234"
@@ -205,7 +203,7 @@ def test_log_feedback_with_exception_object(store, legacy_api):
 
     assert store.create_assessment.call_count == 1
     call_args = store.create_assessment.call_args
-    assessment = call_args[0][1]
+    assessment = call_args[0][0]
 
     assert assessment.name == "faithfulness"
     assert assessment.trace_id == "1234"
@@ -249,7 +247,7 @@ def test_log_feedback_with_value_and_error(store, legacy_api):
 
     assert store.create_assessment.call_count == 1
     call_args = store.create_assessment.call_args
-    assessment = call_args[0][1]
+    assessment = call_args[0][0]
 
     assert assessment.name == "faithfulness"
     assert assessment.trace_id == "1234"
@@ -334,10 +332,9 @@ def test_override_feedback(store):
     # assert that the new feedback is created
     assert store.create_assessment.call_count == 1
     call_args = store.create_assessment.call_args
-    trace_id_arg = call_args[0][0]
-    assessment = call_args[0][1]
+    assessment = call_args[0][0]
 
-    assert trace_id_arg == "tr-321"
+    assert assessment.trace_id == "tr-321"
     assert assessment.name == "faithfulness"
     assert assessment.trace_id == "tr-321"
     assert assessment.span_id is None
@@ -421,7 +418,7 @@ def test_log_feedback_default_source(store):
 
     assert store.create_assessment.call_count == 1
     call_args = store.create_assessment.call_args
-    assessment = call_args[0][1]
+    assessment = call_args[0][0]
 
     assert assessment.name == "faithfulness"
     assert assessment.trace_id == "1234"
@@ -441,7 +438,7 @@ def test_log_expectation_default_source(store):
 
     assert store.create_assessment.call_count == 1
     call_args = store.create_assessment.call_args
-    assessment = call_args[0][1]
+    assessment = call_args[0][0]
 
     assert assessment.name == "expected_answer"
     assert assessment.trace_id == "1234"
@@ -495,10 +492,8 @@ def test_log_assessment_on_in_progress_trace(store, legacy_api):
     # CreateAssessment should be called for the assessment on the other trace (both V2 and V3)
     store.create_assessment.assert_called_once()
     call_args = store.create_assessment.call_args
-    trace_id_arg = call_args[0][0]
-    assessment = call_args[0][1]
+    assessment = call_args[0][0]
 
-    assert trace_id_arg == "other_trace_id"
     assert assessment.trace_id == "other_trace_id"
     assert assessment.name == "other"
     assert assessment.feedback.value == 2.0
@@ -615,8 +610,8 @@ def test_assessment_end_to_end_workflow(store):
     # Verify creation
     assert store.create_assessment.call_count == 1
     call_args = store.create_assessment.call_args
-    assert call_args[0][0] == "tr-123"
-    assert call_args[0][1].value == 0.8
+    assert call_args[0][0].trace_id == "tr-123"
+    assert call_args[0][0].value == 0.8
 
     # Test updating assessment
     updated_assessment = Feedback(
@@ -644,7 +639,7 @@ def test_assessment_end_to_end_workflow(store):
 
     assert store.create_assessment.call_count == 2  # Initial + override
     override_call = store.create_assessment.call_args
-    override_assessment = override_call[0][1]
+    override_assessment = override_call[0][0]
     assert override_assessment.overrides == "original_id"
     assert override_assessment.value == 0.95
 
