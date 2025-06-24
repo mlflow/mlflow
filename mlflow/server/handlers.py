@@ -2711,7 +2711,7 @@ def _create_assessment(trace_id):
 
     assessment = Assessment.from_proto(request_message.assessment)
     assessment.trace_id = trace_id
-    created_assessment = _get_tracking_store().create_assessment(assessment)
+    created_assessment = _get_tracking_store().create_assessment(trace_id, assessment)
 
     response_message = CreateAssessment.Response(assessment=created_assessment.to_proto())
     return _wrap_response(response_message)
