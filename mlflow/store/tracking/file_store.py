@@ -39,7 +39,6 @@ from mlflow.entities import (
     ViewType,
     _DatasetSummary,
 )
-from mlflow.entities.assessment import FeedbackValueType
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.run_info import check_run_is_active
 from mlflow.entities.trace_status import TraceStatus
@@ -1948,52 +1947,35 @@ class FileStore(AbstractStore):
         self,
         trace_id: str,
         assessment_id: str,
-        expectation: Optional[Any] = None,
-        feedback: Optional[FeedbackValueType] = None,
+        name: Optional[str] = None,
+        expectation: Optional[Expectation] = None,
+        feedback: Optional[Feedback] = None,
         rationale: Optional[str] = None,
         valid: Optional[bool] = True,
         metadata: Optional[dict[str, str]] = None,
     ) -> Assessment:
         """
-        Updates an existing assessment by creating a new version with override tracking.
-
-        This method implements copy-on-write updates for assessments in OSS MLflow by:
-        1. Retrieving the existing assessment from storage
-        2. Validating that immutable fields (name, source, span_id) are not being changed
-        3. Creating a new assessment with updated fields and a new ID
-        4. Setting override relationships (new assessment overrides the original)
-        5. Marking the original assessment as invalid
-        6. Storing both assessments to maintain audit trail
-
-        The assessment_name, source, and span_id are immutable because they determine
-        the storage key for the assessment. Only expectation/feedback values, rationale,
-        and metadata can be updated.
+        Update an existing assessment by creating a new version with override tracking.
 
         Args:
             trace_id: The unique identifier of the trace containing the assessment.
             assessment_id: The unique identifier of the assessment to update.
-            expectation: Optional new expectation value. Only valid for Expectation assessments.
-            feedback: Optional new feedback value. Only valid for Feedback assessments.
+            name: The updated name of the assessment.
+            expectation: The updated expectation object for expectation assessments.
+            feedback: The updated feedback object for feedback assessments.
             rationale: Optional new rationale text.
-            valid: Used to mark an existing assessment as invalid. Defaults to True, indicating
-                that the existing assessment is legitimate.
-            metadata: Optional metadata updates. If provided, completely replaces existing metadata.
+            valid: Whether the original assessment should remain valid.
+            metadata: Optional metadata updates.
 
         Returns:
-            Assessment: The newly created assessment object with updated values, new ID,
-                and override relationship to the original.
-
-        Raises:
-            MlflowException: If the trace_id or assessment_id is not found, if providing
-                incompatible value types (e.g., expectation for Feedback), if serialization
-                fails, or if there's an error updating the storage.
-
-        Note:
-            This method creates a new assessment_id for the updated version and maintains
-            an audit trail by keeping both the original (marked invalid) and new assessments
-            in storage with proper override relationships.
+            Assessment: The newly created assessment object with updated values.
         """
         existing_assessment = self.get_assessment(trace_id, assessment_id)
+
+        if expectation is not None and feedback is not None:
+            raise MlflowException.invalid_parameter_value(
+                "Cannot specify both `expectation` and `feedback` parameters."
+            )
 
         if expectation is not None and not isinstance(existing_assessment, Expectation):
             raise MlflowException.invalid_parameter_value(
@@ -2008,10 +1990,14 @@ class FileStore(AbstractStore):
         new_assessment_id = generate_assessment_id()
         updated_timestamp = int(time.time() * 1000)
 
+        assessment_name = name if name is not None else existing_assessment.name
+
         if isinstance(existing_assessment, Expectation):
+            new_value = expectation.value if expectation is not None else existing_assessment.value
+
             updated_assessment = Expectation(
-                name=existing_assessment.name,
-                value=expectation if expectation is not None else existing_assessment.value,
+                name=assessment_name,
+                value=new_value,
                 source=existing_assessment.source,
                 trace_id=existing_assessment.trace_id,
                 metadata=metadata if metadata is not None else existing_assessment.metadata,
@@ -2019,11 +2005,27 @@ class FileStore(AbstractStore):
                 create_time_ms=existing_assessment.create_time_ms,
                 last_update_time_ms=updated_timestamp,
             )
+            updated_assessment.assessment_id = new_assessment_id
+            updated_assessment.overrides = existing_assessment.assessment_id
+            updated_assessment.valid = True
+            if hasattr(existing_assessment, "run_id"):
+                updated_assessment.run_id = existing_assessment.run_id
         else:
+            if feedback is not None:
+                if isinstance(feedback, Feedback):
+                    new_value = feedback.value
+                    new_error = feedback.error
+                else:
+                    new_value = feedback
+                    new_error = existing_assessment.error
+            else:
+                new_value = existing_assessment.value
+                new_error = existing_assessment.error
+
             updated_assessment = Feedback(
-                name=existing_assessment.name,
-                value=feedback if feedback is not None else existing_assessment.value,
-                error=existing_assessment.error,
+                name=assessment_name,
+                value=new_value,
+                error=new_error,
                 source=existing_assessment.source,
                 trace_id=existing_assessment.trace_id,
                 metadata=metadata if metadata is not None else existing_assessment.metadata,
@@ -2034,8 +2036,9 @@ class FileStore(AbstractStore):
                 overrides=existing_assessment.assessment_id,
                 valid=True,
             )
-
-        updated_assessment.assessment_id = new_assessment_id
+            updated_assessment.assessment_id = new_assessment_id
+            if hasattr(existing_assessment, "run_id"):
+                updated_assessment.run_id = existing_assessment.run_id
 
         if not valid:
             existing_assessment.valid = False

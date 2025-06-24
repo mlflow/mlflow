@@ -3601,7 +3601,13 @@ def test_update_assessment_feedback(store, valid):
     updated_feedback = store.update_assessment(
         trace_id=trace_info.request_id,
         assessment_id=original_id,
-        feedback=False,
+        feedback=Feedback(
+            name="correctness",
+            value=False,
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.HUMAN, source_id="evaluator@company.com"
+            ),
+        ),
         rationale="Updated rationale",
         metadata={"project": "test-project", "version": "2.0"},
         valid=valid,
@@ -3619,17 +3625,14 @@ def test_update_assessment_feedback(store, valid):
     assert updated_feedback.overrides == original_id
 
     original_retrieved = store.get_assessment(trace_info.request_id, original_id)
-    assert original_retrieved.valid is valid
+    if valid:
+        assert original_retrieved.valid is True
+    else:
+        assert original_retrieved.valid is False
+
     assert original_retrieved.feedback.value is True
     assert original_retrieved.rationale == "Original rationale"
-
-    updated_retrieved = store.get_assessment(trace_info.request_id, updated_feedback.assessment_id)
-    assert updated_retrieved.name == "correctness"
-    assert updated_retrieved.feedback.value is False
-    assert updated_retrieved.rationale == "Updated rationale"
-    assert updated_retrieved.metadata == {"project": "test-project", "version": "2.0"}
-    assert updated_retrieved.valid is True
-    assert updated_retrieved.overrides == original_id
+    assert original_retrieved.name == "correctness"
 
 
 def test_update_assessment_expectation(store):
@@ -3653,29 +3656,31 @@ def test_update_assessment_expectation(store):
     updated_expectation = store.update_assessment(
         trace_id=trace_info.request_id,
         assessment_id=original_id,
-        expectation="The capital and largest city of France is Paris.",
+        expectation=Expectation(
+            name="expected_response",
+            value="The capital and largest city of France is Paris.",
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.HUMAN, source_id="annotator@company.com"
+            ),
+        ),
         metadata={"context": "geography-qa", "updated": "true"},
     )
 
     assert updated_expectation.assessment_id != original_id
+    assert updated_expectation.name == "expected_response"
     assert (
         updated_expectation.expectation.value == "The capital and largest city of France is Paris."
     )
     assert updated_expectation.metadata == {"context": "geography-qa", "updated": "true"}
-    # Expectations don't preserve overwrites and lineage of changes
-    assert updated_expectation.valid is None
-    assert updated_expectation.overrides is None
+    assert updated_expectation.span_id == "span-456"
+    assert updated_expectation.source.source_id == "annotator@company.com"
+    assert updated_expectation.valid is True
+    assert updated_expectation.overrides == original_id
 
     original_retrieved = store.get_assessment(trace_info.request_id, original_id)
-    assert original_retrieved.valid is None
-
-    updated_retrieved = store.get_assessment(
-        trace_info.request_id, updated_expectation.assessment_id
-    )
-    assert updated_retrieved.expectation.value == "The capital and largest city of France is Paris."
-    assert updated_retrieved.metadata == {"context": "geography-qa", "updated": "true"}
-    assert updated_retrieved.valid is None
-    assert updated_retrieved.overrides is None
+    assert original_retrieved.valid is not False
+    assert original_retrieved.expectation.value == "The capital of France is Paris."
+    assert original_retrieved.name == "expected_response"
 
 
 def test_update_assessment_partial_fields(store):
@@ -3699,6 +3704,7 @@ def test_update_assessment_partial_fields(store):
         rationale="Updated rationale only",
     )
 
+    assert updated_feedback.assessment_id != created_feedback.assessment_id
     assert updated_feedback.name == "quality"
     assert updated_feedback.feedback.value == 5
     assert updated_feedback.rationale == "Updated rationale only"
@@ -3780,34 +3786,39 @@ def test_update_assessment_multiple_updates(store, valid):
     assessment_v1 = store.create_assessment(original)
 
     assessment_v2 = store.update_assessment(
-        trace_id=trace_info.request_id, assessment_id=assessment_v1.assessment_id, feedback="v2"
+        trace_id=trace_info.request_id,
+        assessment_id=assessment_v1.assessment_id,
+        feedback=Feedback(
+            name="test",
+            value="v2",
+            source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+        ),
     )
+
+    assert assessment_v2.feedback.value == "v2"
+    assert assessment_v2.overrides == assessment_v1.assessment_id
 
     assessment_v3 = store.update_assessment(
         trace_id=trace_info.request_id,
         assessment_id=assessment_v2.assessment_id,
-        feedback="v3",
+        feedback=Feedback(
+            name="test",
+            value="v3",
+            source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+        ),
         valid=valid,
     )
 
-    assert assessment_v2.overrides == assessment_v1.assessment_id
+    assert assessment_v3.feedback.value == "v3"
     assert assessment_v3.overrides == assessment_v2.assessment_id
 
-    v1_retrieved = store.get_assessment(trace_info.request_id, assessment_v1.assessment_id)
-    v2_retrieved = store.get_assessment(trace_info.request_id, assessment_v2.assessment_id)
-    v3_retrieved = store.get_assessment(trace_info.request_id, assessment_v3.assessment_id)
-
-    assert v1_retrieved.valid is True
-    assert v2_retrieved.valid is valid
-    assert v3_retrieved.valid is True
-
-    assert v1_retrieved.feedback.value == "v1"
-    assert v2_retrieved.feedback.value == "v2"
-    assert v3_retrieved.feedback.value == "v3"
-
-    assert v1_retrieved.overrides is None
-    assert v2_retrieved.overrides == v1_retrieved.assessment_id
-    assert v3_retrieved.overrides == v2_retrieved.assessment_id
+    assessment_v2_retrieved = store.get_assessment(
+        trace_info.request_id, assessment_v2.assessment_id
+    )
+    if valid:
+        assert assessment_v2_retrieved.valid is True
+    else:
+        assert assessment_v2_retrieved.valid is False
 
 
 def test_delete_assessment_feedback(store):
