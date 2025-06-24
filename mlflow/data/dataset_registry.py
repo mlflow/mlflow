@@ -1,7 +1,7 @@
 import inspect
 import warnings
 from contextlib import suppress
-from typing import Any, Callable, Optional
+from typing import Callable, Optional
 
 import mlflow.data
 from mlflow.data.dataset import Dataset
@@ -62,7 +62,10 @@ class DatasetRegistry:
                 )
 
     @staticmethod
-    def _validate_constructor(constructor_fn: Callable[..., Any], constructor_name: str):
+    def _validate_constructor(
+        constructor_fn: Callable[[Optional[str], Optional[str]], Dataset],
+        constructor_name: str,
+    ):
         if not constructor_name.startswith("load_") and not constructor_name.startswith("from_"):
             raise MlflowException(
                 f"Invalid dataset constructor name: {constructor_name}."
@@ -93,7 +96,8 @@ class DatasetRegistry:
 
 
 def register_constructor(
-    constructor_fn: Callable[..., Any], constructor_name: Optional[str] = None
+    constructor_fn: Callable[[Optional[str], Optional[str]], Dataset],
+    constructor_name: Optional[str] = None,
 ) -> str:
     """Registers a dataset constructor.
 
