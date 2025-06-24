@@ -123,7 +123,7 @@ def register_constructor(
     return registered_constructor_name
 
 
-def get_registered_constructors() -> dict[str, Callable[..., Any]]:
+def get_registered_constructors() -> dict[str, Callable[[Optional[str], Optional[str]], Dataset]]:
     """Obtains the registered dataset constructors.
 
     Returns:
