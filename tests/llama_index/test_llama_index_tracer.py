@@ -79,7 +79,7 @@ def test_trace_llm_complete(is_async):
     )
     assert (
         attr[SpanAttributeKey.CHAT_USAGE].items()
-        >= {
+        == {
             TokenUsageKey.INPUT_TOKENS: 5,
             TokenUsageKey.OUTPUT_TOKENS: 7,
             TokenUsageKey.TOTAL_TOKENS: 12,
@@ -143,7 +143,7 @@ def test_trace_llm_complete_stream():
     )
     assert (
         attr[SpanAttributeKey.CHAT_USAGE].items()
-        >= {
+        == {
             TokenUsageKey.INPUT_TOKENS: 9,
             TokenUsageKey.OUTPUT_TOKENS: 12,
             TokenUsageKey.TOTAL_TOKENS: 21,
@@ -236,7 +236,7 @@ def test_trace_llm_chat(is_async):
     )
     assert (
         attr[SpanAttributeKey.CHAT_USAGE].items()
-        >= {
+        == {
             TokenUsageKey.INPUT_TOKENS: 9,
             TokenUsageKey.OUTPUT_TOKENS: 12,
             TokenUsageKey.TOTAL_TOKENS: 21,
@@ -408,7 +408,7 @@ def test_trace_llm_chat_stream():
     )
     assert (
         attr[SpanAttributeKey.CHAT_USAGE].items()
-        >= {
+        == {
             TokenUsageKey.INPUT_TOKENS: 9,
             TokenUsageKey.OUTPUT_TOKENS: 12,
             TokenUsageKey.TOTAL_TOKENS: 21,
