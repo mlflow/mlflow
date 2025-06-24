@@ -177,7 +177,6 @@ def test_prompt_alias(tmp_path):
     mlflow.set_prompt_alias("p1", alias="production", version=1)
     prompt = mlflow.load_prompt("prompts:/p1@production")
     assert prompt.template == "Hi, there!"
-    assert prompt.aliases == ["production"]
 
     # Reassign alias to a different version
     mlflow.set_prompt_alias("p1", alias="production", version=2)

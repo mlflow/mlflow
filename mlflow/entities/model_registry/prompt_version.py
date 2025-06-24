@@ -37,7 +37,6 @@ class PromptVersion(_ModelRegistryEntity):
         tags: A dictionary of tags associated with the **prompt version**.
             This is useful for storing version-specific information, such as the author of
             the changes. Optional.
-        aliases: List of aliases for this prompt version. Optional.
         last_updated_timestamp: Timestamp of last update. Optional.
         user_id: User ID that created this prompt version. Optional.
     """
@@ -50,7 +49,6 @@ class PromptVersion(_ModelRegistryEntity):
         commit_message: Optional[str] = None,
         creation_timestamp: Optional[int] = None,
         tags: Optional[dict[str, str]] = None,
-        aliases: Optional[list[str]] = None,
         last_updated_timestamp: Optional[int] = None,
         user_id: Optional[str] = None,
     ):
@@ -73,7 +71,6 @@ class PromptVersion(_ModelRegistryEntity):
         self._last_updated_timestamp: Optional[int] = last_updated_timestamp
         self._description: Optional[str] = commit_message
         self._user_id: Optional[str] = user_id
-        self._aliases: list[str] = aliases or []
 
     def __repr__(self) -> str:
         text = (
@@ -173,14 +170,6 @@ class PromptVersion(_ModelRegistryEntity):
         """String. User ID that created this prompt version."""
         return self._user_id
 
-    @property
-    def aliases(self) -> list[str]:
-        """List of aliases (string) for the current prompt version."""
-        return self._aliases
-
-    @aliases.setter
-    def aliases(self, aliases: list[str]):
-        self._aliases = aliases
 
     # Methods
     @classmethod
@@ -237,7 +226,6 @@ class PromptVersion(_ModelRegistryEntity):
                     commit_message=self.commit_message,
                     creation_timestamp=self.creation_timestamp,
                     tags=self.tags,
-                    aliases=self.aliases,
                     last_updated_timestamp=self.last_updated_timestamp,
                     user_id=self.user_id,
                 )

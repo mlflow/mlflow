@@ -3663,7 +3663,6 @@ def test_log_langchain_model_with_prompt():
     assert {p["name"] for p in linked_prompts} == {"qa_prompt", "another_prompt"}
 
     prompt = mlflow.load_prompt("qa_prompt", 1)
-    assert prompt.aliases == ["production"]
 
     prompt = mlflow.load_prompt("another_prompt", 1)
 
