@@ -122,6 +122,9 @@ class RestStore(AbstractStore):
     def __init__(self, get_host_creds):
         super().__init__()
         self.get_host_creds = get_host_creds
+        
+        # Cache for delta archival streams
+        self._delta_archival_events_stream = None
 
     def _call_endpoint(
         self,
@@ -1161,9 +1164,81 @@ class RestStore(AbstractStore):
         req_body = message_to_json(LogOutputs(run_id=run_id, models=[m.to_proto() for m in models]))
         self._call_endpoint(LogOutputs, req_body)
 
+    async def _get_events_stream(self, events_table: str):
+        """
+        Get or create the cached events stream for delta archival.
+        
+        Args:
+            events_table: Name of the events table.
+            
+        Returns:
+            Stream for ingesting events.
+            
+        Raises:
+            Exception: If stream creation fails.
+        """
+        if self._delta_archival_events_stream is None:
+            from mlflow.tracing.export.trace_server_archival_pb2 import Event as ProtoEvent
+            from ingest_api_sdk import IngestApiSdk, TableProperties
+            
+            sdk = IngestApiSdk(
+                MLFLOW_TRACING_DELTA_ARCHIVAL_INGESTION_URL.get(),
+                MLFLOW_TRACING_DELTA_ARCHIVAL_WORKSPACE_URL.get(),
+                MLFLOW_TRACING_DELTA_ARCHIVAL_TOKEN.get()
+            )
+            
+            table_properties = TableProperties(events_table, ProtoEvent.DESCRIPTOR)
+            self._delta_archival_events_stream = await sdk.create_stream(table_properties)
+            _logger.debug("Created new events stream for delta archival")
+            
+        return self._delta_archival_events_stream
+
+    async def _ingest_assessment_event(self, assessment: Assessment, events_table: str):
+        """
+        Ingest an assessment event to the delta archival events table.
+        Handles stream creation, error recovery, and reuse.
+        
+        Args:
+            assessment: The assessment to log.
+            events_table: Name of the events table.
+        """
+        import time
+        import json
+        from mlflow.tracing.export.trace_server_archival_pb2 import Event as ProtoEvent
+        
+        # Create proto event for the assessment
+        proto_event = ProtoEvent()
+        proto_event.event_name = "genai.assessments.insert"
+        proto_event.trace_id = assessment.trace_id
+        proto_event.span_id = getattr(assessment, "span_id", "") or ""
+        
+        current_time_ns = int(time.time() * 1e9)
+        proto_event.time_unix_nano = current_time_ns
+        proto_event.observed_time_unix_nano = current_time_ns
+        
+        proto_event.severity_number = ""
+        proto_event.severity_text = ""
+        proto_event.body = json.dumps(assessment.to_dictionary())
+        proto_event.attributes = json.dumps({})
+        proto_event.dropped_attributes_count = 0
+        proto_event.flags = 0
+        
+        # Handle stream creation separately - these errors are fatal
+        try:
+            stream = await self._get_events_stream(events_table)
+        except Exception as e:
+            _logger.error(f"Cannot create events stream, skipping assessment archival: {e}")
+            return
+            
+        # Handle record ingestion
+        await stream.ingest_record(proto_event)
+        await stream.flush()
+        _logger.debug(f"Successfully logged assessment {assessment.assessment_id} to delta archival events table")
+
     def _maybe_log_assessment_to_delta_archival(self, assessment: Assessment) -> None:
         """
         Log assessment to delta archival events table if configured.
+        Now uses cached streams for better performance.
         
         Args:
             assessment: The assessment to potentially log to delta archival.
@@ -1192,49 +1267,9 @@ class RestStore(AbstractStore):
                 return
         
         try:
-            # Import here to avoid circular imports and optional dependency issues
+            # Use asyncio.run for clean event loop management and cached streams
             import asyncio
-            import time
-            from mlflow.tracing.export.trace_server_archival_pb2 import Event as ProtoEvent
-            from ingest_api_sdk import IngestApiSdk, TableProperties
-            
-            # Create proto event for the assessment
-            proto_event = ProtoEvent()
-            proto_event.event_name = "genai.assessments.insert"
-            proto_event.trace_id = assessment.trace_id
-            proto_event.span_id = getattr(assessment, "span_id", "") or ""
-            
-            current_time_ns = int(time.time() * 1e9)
-            proto_event.time_unix_nano = current_time_ns
-            proto_event.observed_time_unix_nano = current_time_ns
-            
-            proto_event.severity_number = ""
-            proto_event.severity_text = ""
-            proto_event.body = json.dumps(assessment.to_dictionary())
-            proto_event.attributes = json.dumps({})
-            proto_event.dropped_attributes_count = 0
-            proto_event.flags = 0
-            
-            # Set up the ingest API SDK
-            sdk = IngestApiSdk(
-                MLFLOW_TRACING_DELTA_ARCHIVAL_INGESTION_URL.get(),
-                MLFLOW_TRACING_DELTA_ARCHIVAL_WORKSPACE_URL.get(),
-                MLFLOW_TRACING_DELTA_ARCHIVAL_TOKEN.get()
-            )
-            
-            # Create table properties and stream
-            table_properties = TableProperties(events_table, ProtoEvent.DESCRIPTOR)
-            
-            # Run the async ingestion
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                stream = loop.run_until_complete(sdk.create_stream(table_properties))
-                loop.run_until_complete(stream.ingest_record(proto_event))
-                loop.run_until_complete(stream.flush())
-                _logger.debug(f"Successfully logged assessment {assessment.assessment_id} to delta archival events table")
-            finally:
-                loop.close()
+            asyncio.run(self._ingest_assessment_event(assessment, events_table))
                 
         except Exception as e:
             _logger.warning(f"Failed to log assessment to delta archival: {e}")
