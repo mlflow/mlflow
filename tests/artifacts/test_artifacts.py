@@ -97,34 +97,34 @@ def test_download_artifacts_throws_for_invalid_arguments():
 def test_download_artifacts_with_different_tracking_uri(tmp_path):
     original_tracking_uri = mlflow.get_tracking_uri()
 
-    tracking_uri_1 = str(tmp_path / "mlruns1")
-    mlflow.set_tracking_uri(tracking_uri_1)
+    try:
+        tracking_uri_1 = str(tmp_path / "mlruns1")
+        mlflow.set_tracking_uri(tracking_uri_1)
 
-    artifact_content = "test content"
-    local_file = tmp_path / "local_test.txt"
-    local_file.write_text(artifact_content)
+        artifact_content = "test content"
+        local_file = tmp_path / "local_test.txt"
+        local_file.write_text(artifact_content)
 
-    with mlflow.start_run() as run:
-        mlflow.log_artifact(str(local_file))
-        run_id = run.info.run_id
+        with mlflow.start_run() as run:
+            mlflow.log_artifact(str(local_file))
+            run_id = run.info.run_id
 
-    tracking_uri_2 = str(tmp_path / "mlruns2")
-    mlflow.set_tracking_uri(tracking_uri_2)
+        tracking_uri_2 = str(tmp_path / "mlruns2")
+        mlflow.set_tracking_uri(tracking_uri_2)
 
-    dst_path = tmp_path / "download_dest"
-    download_path = mlflow.artifacts.download_artifacts(
-        run_id=run_id,
-        artifact_path="local_test.txt",
-        tracking_uri=tracking_uri_1,
-        dst_path=str(dst_path),
-    )
+        dst_path = tmp_path / "download_dest"
+        download_path = mlflow.artifacts.download_artifacts(
+            run_id=run_id,
+            artifact_path="local_test.txt",
+            tracking_uri=tracking_uri_1,
+            dst_path=str(dst_path),
+        )
 
-    downloaded_file = pathlib.Path(download_path)
-    assert downloaded_file.read_text() == artifact_content
+        downloaded_file = pathlib.Path(download_path)
+        assert downloaded_file.read_text() == artifact_content
 
-    mlflow.set_tracking_uri(original_tracking_uri)
-
-
+    finally:
+        mlflow.set_tracking_uri(original_tracking_uri)
 @pytest.fixture
 def run_with_text_artifact():
     artifact_path = "test/file.txt"
