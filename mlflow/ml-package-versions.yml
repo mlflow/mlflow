@@ -967,6 +967,9 @@ promptflow:
 litellm:
   package_info:
     pip_release: "litellm"
+    # TODO: Uncomment this once https://github.com/BerriAI/litellm/issues/9656 is fixed
+    # install_dev: |
+    #   pip install git+https://github.com/BerriAI/litellm.git
   autologging:
     minimum: "1.52.9"
     maximum: "1.58.4"
