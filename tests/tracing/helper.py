@@ -163,7 +163,7 @@ def get_tracer_tracking_uri() -> Optional[str]:
     span_processor = tracer.span_processor._span_processors[0]
 
     if isinstance(span_processor, MlflowV3SpanProcessor):
-        return span_processor._client.tracking_uri
+        return span_processor.span_exporter._client.tracking_uri
 
 
 @pytest.fixture
