@@ -121,3 +121,6 @@ a.md
 
 # Ignore a gunicorn config file
 gunicorn.conf.py
+
+# Claude Code context file
+CLAUDE.md
