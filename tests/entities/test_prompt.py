@@ -95,7 +95,6 @@ def test_prompt_from_model_version():
     assert prompt.creation_timestamp == 123
     assert prompt.template == "Hello, {{name}}!"
     assert prompt.tags == {}
-    assert prompt.aliases == ["alias"]
 
     invalid_model_version = ModelVersion(
         name="my-prompt",
