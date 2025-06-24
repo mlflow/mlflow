@@ -19,8 +19,11 @@ from google.protobuf import descriptor
 from google.protobuf.json_format import ParseError
 
 from mlflow.entities import (
+    Assessment,
     DatasetInput,
+    Expectation,
     ExperimentTag,
+    Feedback,
     FileInfo,
     Metric,
     Param,
@@ -87,9 +90,11 @@ from mlflow.protos.model_registry_pb2 import (
     UpdateRegisteredModel,
 )
 from mlflow.protos.service_pb2 import (
+    CreateAssessment,
     CreateExperiment,
     CreateLoggedModel,
     CreateRun,
+    DeleteAssessment,
     DeleteExperiment,
     DeleteLoggedModel,
     DeleteLoggedModelTag,
@@ -99,6 +104,7 @@ from mlflow.protos.service_pb2 import (
     DeleteTraceTag,
     EndTrace,
     FinalizeLoggedModel,
+    GetAssessmentRequest,
     GetExperiment,
     GetExperimentByName,
     GetLoggedModel,
@@ -128,6 +134,7 @@ from mlflow.protos.service_pb2 import (
     SetTag,
     SetTraceTag,
     StartTrace,
+    UpdateAssessment,
     UpdateExperiment,
     UpdateRun,
 )
@@ -2687,6 +2694,92 @@ def get_trace_artifact_handler():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
+def _create_assessment():
+    """
+    A request handler for `POST /mlflow/traces/{assessment.trace_id}/assessments` to create a new assessment.
+    """
+    request_message = _get_request_message(
+        CreateAssessment(),
+        schema={
+            "assessment": [_assert_required],
+        },
+    )
+
+    assessment = Assessment.from_proto(request_message.assessment)
+
+    created_assessment = _get_tracking_store().create_assessment(assessment)
+
+    response_message = CreateAssessment.Response(assessment=created_assessment.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_assessment(trace_id, assessment_id):
+    """
+    A request handler for `GET /mlflow/traces/{trace_id}/assessments/{assessment_id}` to get an assessment.
+    """
+    assessment = _get_tracking_store().get_assessment(trace_id, assessment_id)
+
+    response_message = GetAssessmentRequest.Response(assessment=assessment.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _update_assessment(trace_id, assessment_id):
+    """
+    A request handler for `PATCH /mlflow/traces/{trace_id}/assessments/{assessment_id}` to update an assessment.
+    """
+    request_message = _get_request_message(
+        UpdateAssessment(),
+        schema={
+            "assessment": [_assert_required],
+            "update_mask": [_assert_required],
+        },
+    )
+
+    assessment_proto = request_message.assessment
+    update_mask = request_message.update_mask
+
+    kwargs = {}
+
+    for path in update_mask.paths:
+        if path == "assessment_name":
+            kwargs["name"] = assessment_proto.assessment_name
+        elif path == "expectation":
+            kwargs["expectation"] = Expectation.from_proto(assessment_proto)
+        elif path == "feedback":
+            kwargs["feedback"] = Feedback.from_proto(assessment_proto)
+        elif path == "rationale":
+            kwargs["rationale"] = assessment_proto.rationale
+        elif path == "metadata":
+            kwargs["metadata"] = dict(assessment_proto.metadata)
+        elif path == "valid":
+            kwargs["valid"] = assessment_proto.valid
+
+    updated_assessment = _get_tracking_store().update_assessment(
+        trace_id=trace_id, assessment_id=assessment_id, **kwargs
+    )
+
+    response_message = UpdateAssessment.Response(assessment=updated_assessment.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_assessment(trace_id, assessment_id):
+    """
+    A request handler for `DELETE /mlflow/traces/{trace_id}/assessments/{assessment_id}` to delete an assessment.
+    """
+    _get_tracking_store().delete_assessment(trace_id, assessment_id)
+
+    response_message = DeleteAssessment.Response()
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
 def get_logged_model_artifact_handler(model_id: str):
     artifact_file_path = request.args.get("artifact_file_path")
     if not artifact_file_path:
@@ -3040,6 +3133,11 @@ HANDLERS = {
     DeleteTraces: _delete_traces,
     SetTraceTag: _set_trace_tag,
     DeleteTraceTag: _delete_trace_tag,
+    # Assessment APIs
+    CreateAssessment: _create_assessment,
+    GetAssessmentRequest: _get_assessment,
+    UpdateAssessment: _update_assessment,
+    DeleteAssessment: _delete_assessment,
     # Logged Models APIs
     CreateLoggedModel: _create_logged_model,
     GetLoggedModel: _get_logged_model,
