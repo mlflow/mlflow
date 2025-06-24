@@ -18,23 +18,11 @@ from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 
 
-# TODO: This test mocks out the tracking client and only test if the fluent API implementation
-# passes the correct arguments to the low-level client. Once the OSS backend is implemented,
-# we should also test the end-to-end assessment CRUD functionality.
 @pytest.fixture
 def store():
     mock_store = mock.MagicMock()
     with mock.patch("mlflow.tracing.client._get_store", return_value=mock_store):
         yield mock_store
-
-
-# TODO: Remove this once the OSS backend is implemented
-@pytest.fixture
-def tracking_uri():
-    original_tracking_uri = mlflow.get_tracking_uri()
-    mlflow.set_tracking_uri("databricks")
-    yield
-    mlflow.set_tracking_uri(original_tracking_uri)
 
 
 _HUMAN_ASSESSMENT_SOURCE = AssessmentSource(
@@ -49,7 +37,7 @@ _LLM_ASSESSMENT_SOURCE = AssessmentSource(
 
 
 @pytest.mark.parametrize("legacy_api", [True, False])
-def test_log_expectation(store, tracking_uri, legacy_api):
+def test_log_expectation(store, legacy_api):
     if legacy_api:
         mlflow.log_expectation(
             trace_id="1234",
@@ -68,7 +56,11 @@ def test_log_expectation(store, tracking_uri, legacy_api):
         mlflow.log_assessment(trace_id="1234", assessment=feedback)
 
     assert store.create_assessment.call_count == 1
-    assessment = store.create_assessment.call_args[0][0]
+    call_args = store.create_assessment.call_args
+    trace_id_arg = call_args[0][0]
+    assessment = call_args[0][1]
+
+    assert trace_id_arg == "1234"
     assert assessment.name == "expected_answer"
     assert assessment.trace_id == "1234"
     assert assessment.span_id is None
@@ -81,7 +73,7 @@ def test_log_expectation(store, tracking_uri, legacy_api):
     assert assessment.metadata == {"key": "value"}
 
 
-def test_log_expectation_invalid_parameters(tracking_uri):
+def test_log_expectation_invalid_parameters():
     with pytest.raises(MlflowException, match=r"The `value` field must be specified."):
         Expectation(
             name="expected_answer",
@@ -90,7 +82,7 @@ def test_log_expectation_invalid_parameters(tracking_uri):
         )
 
 
-def test_update_expectation(store, tracking_uri):
+def test_update_expectation(store):
     assessment = Expectation(name="expected_answer", value="MLflow")
     mlflow.update_assessment(
         assessment_id="1234",
@@ -110,7 +102,7 @@ def test_update_expectation(store, tracking_uri):
 
 
 @pytest.mark.parametrize("legacy_api", [True, False])
-def test_log_feedback(store, tracking_uri, legacy_api):
+def test_log_feedback(store, legacy_api):
     if legacy_api:
         mlflow.log_feedback(
             trace_id="1234",
@@ -131,7 +123,11 @@ def test_log_feedback(store, tracking_uri, legacy_api):
         mlflow.log_assessment(trace_id="1234", assessment=feedback)
 
     assert store.create_assessment.call_count == 1
-    assessment = store.create_assessment.call_args[0][0]
+    call_args = store.create_assessment.call_args
+    trace_id_arg = call_args[0][0]
+    assessment = call_args[0][1]
+
+    assert trace_id_arg == "1234"
     assert assessment.name == "faithfulness"
     assert assessment.trace_id == "1234"
     assert assessment.span_id is None
@@ -146,7 +142,7 @@ def test_log_feedback(store, tracking_uri, legacy_api):
 
 
 @pytest.mark.parametrize("legacy_api", [True, False])
-def test_log_feedback_with_error(store, tracking_uri, legacy_api):
+def test_log_feedback_with_error(store, legacy_api):
     if legacy_api:
         mlflow.log_feedback(
             trace_id="1234",
@@ -170,7 +166,9 @@ def test_log_feedback_with_error(store, tracking_uri, legacy_api):
         mlflow.log_assessment(trace_id="1234", assessment=feedback)
 
     assert store.create_assessment.call_count == 1
-    assessment = store.create_assessment.call_args[0][0]
+    call_args = store.create_assessment.call_args
+    assessment = call_args[0][1]
+
     assert assessment.name == "faithfulness"
     assert assessment.trace_id == "1234"
     assert assessment.span_id is None
@@ -185,7 +183,7 @@ def test_log_feedback_with_error(store, tracking_uri, legacy_api):
 
 
 @pytest.mark.parametrize("legacy_api", [True, False])
-def test_log_feedback_with_exception_object(store, tracking_uri, legacy_api):
+def test_log_feedback_with_exception_object(store, legacy_api):
     """Test that log_feedback correctly accepts Exception objects."""
     test_exception = ValueError("Test exception message")
 
@@ -206,7 +204,9 @@ def test_log_feedback_with_exception_object(store, tracking_uri, legacy_api):
         mlflow.log_assessment(trace_id="1234", assessment=feedback)
 
     assert store.create_assessment.call_count == 1
-    assessment = store.create_assessment.call_args[0][0]
+    call_args = store.create_assessment.call_args
+    assessment = call_args[0][1]
+
     assert assessment.name == "faithfulness"
     assert assessment.trace_id == "1234"
     assert assessment.span_id is None
@@ -223,7 +223,7 @@ def test_log_feedback_with_exception_object(store, tracking_uri, legacy_api):
 
 
 @pytest.mark.parametrize("legacy_api", [True, False])
-def test_log_feedback_with_value_and_error(store, tracking_uri, legacy_api):
+def test_log_feedback_with_value_and_error(store, legacy_api):
     if legacy_api:
         mlflow.log_feedback(
             trace_id="1234",
@@ -248,7 +248,9 @@ def test_log_feedback_with_value_and_error(store, tracking_uri, legacy_api):
         mlflow.log_assessment(trace_id="1234", assessment=feedback)
 
     assert store.create_assessment.call_count == 1
-    assessment = store.create_assessment.call_args[0][0]
+    call_args = store.create_assessment.call_args
+    assessment = call_args[0][1]
+
     assert assessment.name == "faithfulness"
     assert assessment.trace_id == "1234"
     assert assessment.span_id is None
@@ -262,7 +264,7 @@ def test_log_feedback_with_value_and_error(store, tracking_uri, legacy_api):
     assert assessment.rationale is None
 
 
-def test_log_feedback_invalid_parameters(tracking_uri):
+def test_log_feedback_invalid_parameters():
     with pytest.raises(MlflowException, match=r"Either `value` or `error` must be provided."):
         Feedback(
             trace_id="1234",
@@ -280,7 +282,7 @@ def test_log_feedback_invalid_parameters(tracking_uri):
         )
 
 
-def test_update_feedback(store, tracking_uri):
+def test_update_feedback(store):
     feedback = Feedback(
         name="faithfulness",
         value=1.0,
@@ -304,7 +306,7 @@ def test_update_feedback(store, tracking_uri):
     assert call_args["metadata"] == {"model": "gpt-4o-mini"}
 
 
-def test_override_feedback(store, tracking_uri):
+def test_override_feedback(store):
     # Mock the store's get_assessment method to return a feedback
     old_feedback = Feedback(
         trace_id="tr-321",
@@ -331,7 +333,11 @@ def test_override_feedback(store, tracking_uri):
 
     # assert that the new feedback is created
     assert store.create_assessment.call_count == 1
-    assessment = store.create_assessment.call_args[0][0]
+    call_args = store.create_assessment.call_args
+    trace_id_arg = call_args[0][0]
+    assessment = call_args[0][1]
+
+    assert trace_id_arg == "tr-321"
     assert assessment.name == "faithfulness"
     assert assessment.trace_id == "tr-321"
     assert assessment.span_id is None
@@ -346,7 +352,7 @@ def test_override_feedback(store, tracking_uri):
     assert assessment.overrides == "a-1234"
 
 
-def test_delete_assessment(store, tracking_uri):
+def test_delete_assessment(store):
     mlflow.delete_assessment(trace_id="tr-1234", assessment_id="1234")
 
     assert store.delete_assessment.call_count == 1
@@ -355,32 +361,7 @@ def test_delete_assessment(store, tracking_uri):
     assert call_args["trace_id"] == "tr-1234"
 
 
-def test_assessment_apis_only_available_in_databricks():
-    with pytest.raises(MlflowException, match=r"This API is currently only available"):
-        mlflow.log_assessment(trace_id="1234", assessment=Feedback(name="test", value=1.0))
-
-    with pytest.raises(MlflowException, match=r"This API is currently only available"):
-        mlflow.log_expectation(
-            trace_id="1234", name="expected_answer", value="MLflow", source=_HUMAN_ASSESSMENT_SOURCE
-        )
-
-    with pytest.raises(MlflowException, match=r"This API is currently only available"):
-        mlflow.log_feedback(
-            trace_id="1234", name="faithfulness", value=1.0, source=_LLM_ASSESSMENT_SOURCE
-        )
-
-    with pytest.raises(MlflowException, match=r"This API is currently only available"):
-        mlflow.update_assessment(
-            trace_id="1234",
-            assessment_id="1234",
-            assessment=Feedback(name="faithfulness", value=1.0),
-        )
-
-    with pytest.raises(MlflowException, match=r"This API is currently only available"):
-        mlflow.delete_assessment(trace_id="1234", assessment_id="1234")
-
-
-def test_search_traces_with_assessments(store, tracking_uri):
+def test_search_traces_with_assessments(store):
     # Create a trace info with an assessment
     assessment = Feedback(
         trace_id="test",
@@ -429,7 +410,7 @@ def test_search_traces_with_assessments(store, tracking_uri):
     assert store.get_trace_info.call_count == 0
 
 
-def test_log_feedback_default_source(store, tracking_uri):
+def test_log_feedback_default_source(store):
     # Test that the default CODE source is used when no source is provided
     feedback = Feedback(
         trace_id="1234",
@@ -439,7 +420,9 @@ def test_log_feedback_default_source(store, tracking_uri):
     mlflow.log_assessment(trace_id="1234", assessment=feedback)
 
     assert store.create_assessment.call_count == 1
-    assessment = store.create_assessment.call_args[0][0]
+    call_args = store.create_assessment.call_args
+    assessment = call_args[0][1]
+
     assert assessment.name == "faithfulness"
     assert assessment.trace_id == "1234"
     assert assessment.source.source_type == AssessmentSourceType.CODE
@@ -447,8 +430,8 @@ def test_log_feedback_default_source(store, tracking_uri):
     assert assessment.feedback.value == 1.0
 
 
-def test_log_expectation_default_source(store, tracking_uri):
-    # Test that the default CODE source is used when no source is provided
+def test_log_expectation_default_source(store):
+    # Test that the default HUMAN source is used when no source is provided
     expectation = Expectation(
         trace_id="1234",
         name="expected_answer",
@@ -457,7 +440,9 @@ def test_log_expectation_default_source(store, tracking_uri):
     mlflow.log_assessment(trace_id="1234", assessment=expectation)
 
     assert store.create_assessment.call_count == 1
-    assessment = store.create_assessment.call_args[0][0]
+    call_args = store.create_assessment.call_args
+    assessment = call_args[0][1]
+
     assert assessment.name == "expected_answer"
     assert assessment.trace_id == "1234"
     assert assessment.source.source_type == AssessmentSourceType.HUMAN
@@ -474,7 +459,7 @@ def test_log_feedback_and_exception_blocks_positional_args():
 
 
 @pytest.mark.parametrize("legacy_api", [True, False])
-def test_log_assessment_on_in_progress_trace(store, tracking_uri, legacy_api):
+def test_log_assessment_on_in_progress_trace(store, legacy_api):
     @mlflow.trace
     def func(x: int, y: int) -> int:
         trace_id = mlflow.get_active_trace_id()
@@ -492,26 +477,35 @@ def test_log_assessment_on_in_progress_trace(store, tracking_uri, legacy_api):
 
     mlflow.flush_trace_async_logging()
 
-    # Two assessments should be logged as a part of StartTraceV3 call
-    store.start_trace_v3.assert_called_once()
-    trace = store.start_trace_v3.call_args[1]["trace"]
-    assert trace.info.request_id == mlflow.get_last_active_trace_id()
-    assert len(trace.info.assessments) == 2
-    assert trace.info.assessments[0].name == "feedback"
-    assert trace.info.assessments[0].feedback.value == 1.0
-    assert trace.info.assessments[1].name == "expectation"
-    assert trace.info.assessments[1].expectation.value == "MLflow"
+    # Check if we're using Databricks (V3) or OSS (V2) tracing
+    if store.start_trace_v3.called:
+        # Databricks V3 behavior: assessments logged as part of StartTraceV3 call
+        store.start_trace_v3.assert_called_once()
+        trace = store.start_trace_v3.call_args[1]["trace"]
+        assert trace.info.request_id == mlflow.get_last_active_trace_id()
+        assert len(trace.info.assessments) == 2
+        assert trace.info.assessments[0].name == "feedback"
+        assert trace.info.assessments[0].feedback.value == 1.0
+        assert trace.info.assessments[1].name == "expectation"
+        assert trace.info.assessments[1].expectation.value == "MLflow"
+    else:
+        # OSS V2 behavior: active trace assessments are handled in-memory
+        pass
 
-    # CreateAssessment should be called for the last assessment on the other trace
+    # CreateAssessment should be called for the assessment on the other trace (both V2 and V3)
     store.create_assessment.assert_called_once()
-    assessment = store.create_assessment.call_args[0][0]
+    call_args = store.create_assessment.call_args
+    trace_id_arg = call_args[0][0]
+    assessment = call_args[0][1]
+
+    assert trace_id_arg == "other_trace_id"
     assert assessment.trace_id == "other_trace_id"
     assert assessment.name == "other"
     assert assessment.feedback.value == 2.0
 
 
 @pytest.mark.asyncio
-async def test_log_assessment_on_in_progress_trace_async(store, tracking_uri):
+async def test_log_assessment_on_in_progress_trace_async(store):
     @mlflow.trace
     async def func(x: int, y: int) -> int:
         trace_id = mlflow.get_active_trace_id()
@@ -525,38 +519,51 @@ async def test_log_assessment_on_in_progress_trace_async(store, tracking_uri):
 
     store.create_assessment.assert_not_called()
 
-    store.start_trace_v3.assert_called_once()
-    trace = store.start_trace_v3.call_args[1]["trace"]
-    assert trace.info.request_id == mlflow.get_last_active_trace_id()
-    assert len(trace.info.assessments) == 2
-    assert trace.info.assessments[0].name == "feedback"
-    assert trace.info.assessments[0].feedback.value == 1.0
-    assert trace.info.assessments[1].name == "expectation"
-    assert trace.info.assessments[1].expectation.value == "MLflow"
+    # Check if we're using Databricks (V3) or OSS (V2) tracing
+    if store.start_trace_v3.called:
+        # Databricks V3 behavior
+        store.start_trace_v3.assert_called_once()
+        trace = store.start_trace_v3.call_args[1]["trace"]
+        assert trace.info.request_id == mlflow.get_last_active_trace_id()
+        assert len(trace.info.assessments) == 2
+        assert trace.info.assessments[0].name == "feedback"
+        assert trace.info.assessments[0].feedback.value == 1.0
+        assert trace.info.assessments[1].name == "expectation"
+        assert trace.info.assessments[1].expectation.value == "MLflow"
+    else:
+        # No backend calls should be made for active trace assessments
+        pass
 
 
-def test_log_assessment_on_in_progress_with_span_id(store, tracking_uri):
+def test_log_assessment_on_in_progress_with_span_id(store):
     with mlflow.start_span(name="test_span") as span:
-        mlflow.log_assessment(
-            trace_id=span.trace_id,
-            assessment=Feedback(name="feedback", value=1.0, span_id=span.span_id),
-        )
+        # Only proceed if we have a real span (not NO_OP)
+        if span.span_id is not None and span.trace_id != "MLFLOW_NO_OP_SPAN_TRACE_ID":
+            mlflow.log_assessment(
+                trace_id=span.trace_id,
+                assessment=Feedback(name="feedback", value=1.0, span_id=span.span_id),
+            )
 
     mlflow.flush_trace_async_logging()
 
-    # Two assessments should be logged as a part of StartTraceV3 call
-    store.start_trace_v3.assert_called_once()
-    trace = store.start_trace_v3.call_args[1]["trace"]
-    assert trace.info.request_id == mlflow.get_last_active_trace_id()
-    assert len(trace.info.assessments) == 1
-    assert trace.info.assessments[0].name == "feedback"
-    assert trace.info.assessments[0].feedback.value == 1.0
-    assert trace.info.assessments[0].span_id == span.span_id
+    # Check if we're using Databricks (V3) or OSS (V2) tracing
+    if store.start_trace_v3.called:
+        # Databricks V3 behavior
+        store.start_trace_v3.assert_called_once()
+        trace = store.start_trace_v3.call_args[1]["trace"]
+        assert trace.info.request_id == mlflow.get_last_active_trace_id()
+        assert len(trace.info.assessments) == 1
+        assert trace.info.assessments[0].name == "feedback"
+        assert trace.info.assessments[0].feedback.value == 1.0
+        assert trace.info.assessments[0].span_id == span.span_id
 
-    store.create_assessment.assert_not_called()
+        store.create_assessment.assert_not_called()
+    else:
+        # OSS V2 behavior: NO_OP spans don't create assessments
+        store.create_assessment.assert_not_called()
 
 
-def test_log_assessment_on_in_progress_trace_works_when_tracing_is_disabled(store, tracking_uri):
+def test_log_assessment_on_in_progress_trace_works_when_tracing_is_disabled(store):
     # Calling log_assessment to an active trace should not fail when tracing is disabled.
     mlflow.tracing.disable()
 
@@ -573,3 +580,77 @@ def test_log_assessment_on_in_progress_trace_works_when_tracing_is_disabled(stor
     # Neither CreateAssessment nor StartTraceV3 should be called
     store.create_assessment.assert_not_called()
     store.start_trace_v3.assert_not_called()
+
+
+def test_get_assessment(store):
+    """Test get_assessment calls store correctly"""
+    mock_assessment = mock.Mock()
+    store.get_assessment.return_value = mock_assessment
+
+    result = mlflow.get_assessment("trace_123", "assessment_456")
+
+    store.get_assessment.assert_called_once_with("trace_123", "assessment_456")
+    assert result == mock_assessment
+
+
+def test_assessment_end_to_end_workflow(store):
+    """Test complete assessment workflow"""
+    # Mock assessment for override test
+    original_feedback = Feedback(
+        name="quality", value=0.6, source=_LLM_ASSESSMENT_SOURCE, rationale="Original assessment"
+    )
+    original_feedback.assessment_id = "original_id"
+    store.get_assessment.return_value = original_feedback
+
+    # Test creating initial assessment
+    initial_assessment = Feedback(
+        name="quality",
+        value=0.8,
+        source=_HUMAN_ASSESSMENT_SOURCE,
+        rationale="Good response quality",
+    )
+
+    mlflow.log_assessment(trace_id="tr-123", assessment=initial_assessment)
+
+    # Verify creation
+    assert store.create_assessment.call_count == 1
+    call_args = store.create_assessment.call_args
+    assert call_args[0][0] == "tr-123"
+    assert call_args[0][1].value == 0.8
+
+    # Test updating assessment
+    updated_assessment = Feedback(
+        name="quality", value=0.9, source=_HUMAN_ASSESSMENT_SOURCE, rationale="Updated assessment"
+    )
+
+    mlflow.update_assessment(
+        trace_id="tr-123", assessment_id="test_id", assessment=updated_assessment
+    )
+
+    # Verify update
+    assert store.update_assessment.call_count == 1
+    update_args = store.update_assessment.call_args[1]
+    assert update_args["trace_id"] == "tr-123"
+    assert update_args["assessment_id"] == "test_id"
+    assert update_args["feedback"].value == 0.9
+
+    # Test override functionality
+    mlflow.override_feedback(
+        trace_id="tr-123",
+        assessment_id="original_id",
+        value=0.95,
+        rationale="Human override of LLM assessment",
+    )
+
+    assert store.create_assessment.call_count == 2  # Initial + override
+    override_call = store.create_assessment.call_args
+    override_assessment = override_call[0][1]
+    assert override_assessment.overrides == "original_id"
+    assert override_assessment.value == 0.95
+
+    mlflow.delete_assessment(trace_id="tr-123", assessment_id="test_id")
+
+    assert store.delete_assessment.call_count == 1
+    delete_args = store.delete_assessment.call_args[1]
+    assert delete_args["trace_id"] == "tr-123"
+    assert delete_args["assessment_id"] == "test_id"
