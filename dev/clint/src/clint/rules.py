@@ -446,22 +446,25 @@ class InvalidExperimentalDecorator(Rule):
 
 
 class UnparameterizedGeneric(Rule):
-    UNPARAMETERIZED_TYPES = {
-        "dict",
-        "list",
-        "set",
-        "tuple",
-        "frozenset",
-        "Callable",
-        "Sequence",
-    }
-
     def __init__(self, type_hint: str) -> None:
         self.type_hint = type_hint
 
     @staticmethod
-    def check(node: ast.Name) -> bool:
-        return node.id in UnparameterizedGeneric.UNPARAMETERIZED_TYPES
+    def is_generic_type(node: ast.Name | ast.Attribute, resolver: Resolver) -> bool:
+        if resolved := resolver.resolve(node):
+            return tuple(resolved) in {
+                ("typing", "Callable"),
+                ("typing", "Sequence"),
+            }
+        elif isinstance(node, ast.Name):
+            return node.id in {
+                "dict",
+                "list",
+                "set",
+                "tuple",
+                "frozenset",
+            }
+        return False
 
     def _message(self) -> str:
         return (
