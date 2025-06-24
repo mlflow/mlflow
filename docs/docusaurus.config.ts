@@ -279,6 +279,10 @@ const config: Config = {
             to: "/genai/mlflow-3/genai-agent",
             from: ["/mlflow-3/genai-agent"],
           },
+          {
+            to: "/genai/getting-started/databricks-trial",
+            from: ["/getting-started/databricks-trial", "/getting-started/community-edition", "/ml/getting-started/databricks-trial"],
+          },
           // GenAI/LLM Related Redirects
           {
             to: "/genai/tracing",
@@ -751,10 +755,6 @@ const config: Config = {
           {
             to: "/ml/getting-started",
             from: ["/getting-started"],
-          },
-          {
-            to: "/ml/getting-started/databricks-trial",
-            from: ["/getting-started/databricks-trial", "/getting-started/community-edition"],
           },
           {
             to: "/ml/getting-started/hyperparameter-tuning",
