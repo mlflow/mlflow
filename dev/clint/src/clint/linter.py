@@ -287,11 +287,9 @@ class TypeAnnotationVisitor(ast.NodeVisitor):
         self.stack.pop()
 
     def visit_Name(self, node: ast.Name) -> None:
-        # Check for incorrect type annotations (existing rule)
         if rules.IncorrectTypeAnnotation.check(node):
             self.linter._check(Location.from_node(node), rules.IncorrectTypeAnnotation(node.id))
 
-        # Check for unparameterized generic types (new rule)
         if self._is_bare_generic_type(node):
             self.linter._check(Location.from_node(node), rules.UnparameterizedGeneric(node.id))
 
@@ -305,11 +303,10 @@ class TypeAnnotationVisitor(ast.NodeVisitor):
         # Check if this Name is the value of a Subscript (e.g., the 'dict' in 'dict[str, int]')
         # We need to look through the stack to find if any parent is a Subscript
         # where this node is the value part
-        for parent in self.stack:
-            if isinstance(parent, ast.Subscript) and parent.value is node:
-                return False
-
-        return True
+        return not any(
+            isinstance(parent, ast.Subscript) and parent.value is node
+            for parent in reversed(self.stack)
+        )
 
 
 class Linter(ast.NodeVisitor):
