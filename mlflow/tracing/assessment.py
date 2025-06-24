@@ -126,7 +126,7 @@ def log_assessment(trace_id: str, assessment: Assessment) -> Assessment:
 
 
     """
-    TracingClient().log_assessment(trace_id, assessment)
+    return TracingClient().log_assessment(trace_id, assessment)
 
 
 @experimental(version="3.0.0")
