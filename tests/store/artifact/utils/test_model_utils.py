@@ -135,7 +135,9 @@ def test_improper_model_uri_msg_prompts():
     from mlflow.store.artifact.utils.models import _improper_model_uri_msg
     uri = "prompts:/baduri"
     msg = _improper_model_uri_msg(uri, scheme="prompts")
-    assert "prompts:/" in msg and "Prompts URIs" in msg and "prompts:/name/suffix" in msg, f"Unexpected message: {msg}"
+    assert "prompts:/" in msg, f"Missing 'prompts:/' in message: {msg}"
+    assert "Prompts URIs" in msg, f"Missing 'Prompts URIs' in message: {msg}"
+    assert "prompts:/name/suffix" in msg, f"Missing 'prompts:/name/suffix' in message: {msg}"
 
 
 def test_get_model_name_and_version_with_version():

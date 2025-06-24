@@ -73,8 +73,8 @@ from mlflow.protos.databricks_pb2 import (
     ErrorCode,
 )
 from mlflow.store.artifact.utils.models import (
-    get_model_name_and_version,
     _parse_model_uri,
+    get_model_name_and_version,
 )
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
