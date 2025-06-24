@@ -74,6 +74,7 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.store.artifact.utils.models import (
     get_model_name_and_version,
+    _parse_model_uri,
 )
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
@@ -913,10 +914,8 @@ class MlflowClient:
 
         This method reuses the existing model URI parsing logic with prompts prefix.
         """
-        from mlflow.store.artifact.utils.models import _parse_model_uri
-
-        # Use the existing model URI parsing utilities with prompts prefix
-        parsed_prompt_uri = _parse_model_uri(uri, prefix="prompts")
+        # Use the existing model URI parsing utilities with prompts scheme
+        parsed_prompt_uri = _parse_model_uri(uri, scheme="prompts")
 
         if parsed_prompt_uri.model_id is not None:
             # This shouldn't happen for prompts (no model IDs), but handle gracefully
