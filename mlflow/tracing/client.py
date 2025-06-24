@@ -515,10 +515,7 @@ class TracingClient:
                     )
                 trace.info.assessments.append(assessment)
             return assessment
-        if is_databricks_uri(self.tracking_uri):
-            return self.store.create_assessment(assessment)
-        else:
-            return self.store.create_assessment(trace_id, assessment)
+        return self.store.create_assessment(assessment)
 
     def update_assessment(
         self,
