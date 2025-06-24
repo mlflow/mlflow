@@ -651,6 +651,12 @@ class Linter(ast.NodeVisitor):
         if self.path.parts[0] != "tests" and rules.UnnamedThread.check(node, self.resolver):
             self._check(Location.from_node(node), rules.UnnamedThread())
 
+        if self.path.parts[0] not in (
+            "tests",
+            "examples",
+        ) and rules.ThreadPoolExecutorWithoutThreadNamePrefix.check(node, self.resolver):
+            self._check(Location.from_node(node), rules.ThreadPoolExecutorWithoutThreadNamePrefix())
+
         self.generic_visit(node)
 
     def visit_AnnAssign(self, node: ast.AnnAssign) -> None:

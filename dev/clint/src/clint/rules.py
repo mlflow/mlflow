@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import ast
+import inspect
+import itertools
 import re
 from abc import ABC, abstractmethod
 
@@ -11,16 +13,19 @@ from clint.resolver import Resolver
 
 class Rule(ABC):
     _CLASS_NAME_TO_RULE_NAME_REGEX = re.compile(r"(?<!^)(?=[A-Z])")
+    _id_counter = itertools.count(start=1)
+    _generated_id: str
 
-    @abstractmethod
-    def _id(self) -> str:
-        """
-        Return a unique identifier for this rule.
-        """
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        # Only generate ID for concrete classes
+        if not inspect.isabstract(cls):
+            id_ = next(cls._id_counter)
+            cls._generated_id = f"MLF{id_:04d}"
 
     @property
     def id(self) -> str:
-        return self._id()
+        return self._generated_id
 
     @abstractmethod
     def _message(self) -> str:
@@ -41,49 +46,31 @@ class Rule(ABC):
 
 
 class NoRst(Rule):
-    def _id(self) -> str:
-        return "MLF0001"
-
     def _message(self) -> str:
         return "Do not use RST style. Use Google style instead."
 
 
 class LazyBuiltinImport(Rule):
-    def _id(self) -> str:
-        return "MLF0002"
-
     def _message(self) -> str:
         return "Builtin modules must be imported at the top level."
 
 
 class MlflowClassName(Rule):
-    def _id(self) -> str:
-        return "MLF0003"
-
     def _message(self) -> str:
         return "Should use `Mlflow` in class name, not `MLflow` or `MLFlow`."
 
 
 class TestNameTypo(Rule):
-    def _id(self) -> str:
-        return "MLF0004"
-
     def _message(self) -> str:
         return "This function looks like a test, but its name does not start with 'test_'."
 
 
 class LogModelArtifactPath(Rule):
-    def _id(self) -> str:
-        return "MLF0005"
-
     def _message(self) -> str:
         return "`artifact_path` parameter of `log_model` is deprecated. Use `name` instead."
 
 
 class ExampleSyntaxError(Rule):
-    def _id(self) -> str:
-        return "MLF0006"
-
     def _message(self) -> str:
         return "This example has a syntax error."
 
@@ -91,9 +78,6 @@ class ExampleSyntaxError(Rule):
 class MissingDocstringParam(Rule):
     def __init__(self, params: set[str]) -> None:
         self.params = params
-
-    def _id(self) -> str:
-        return "MLF0007"
 
     def _message(self) -> str:
         return f"Missing parameters in docstring: {self.params}"
@@ -103,9 +87,6 @@ class ExtraneousDocstringParam(Rule):
     def __init__(self, params: set[str]) -> None:
         self.params = params
 
-    def _id(self) -> str:
-        return "MLF0008"
-
     def _message(self) -> str:
         return f"Extraneous parameters in docstring: {self.params}"
 
@@ -114,17 +95,11 @@ class DocstringParamOrder(Rule):
     def __init__(self, params: list[str]) -> None:
         self.params = params
 
-    def _id(self) -> str:
-        return "MLF0009"
-
     def _message(self) -> str:
         return f"Unordered parameters in docstring: {self.params}"
 
 
 class ImplicitOptional(Rule):
-    def _id(self) -> str:
-        return "MLF0010"
-
     def _message(self) -> str:
         return "Use `Optional` if default value is `None`"
 
@@ -170,17 +145,11 @@ class ImplicitOptional(Rule):
 
 
 class OsEnvironSetInTest(Rule):
-    def _id(self) -> str:
-        return "MLF0011"
-
     def _message(self) -> str:
         return "Do not set `os.environ` in test directly. Use `monkeypatch.setenv` (https://docs.pytest.org/en/stable/reference/reference.html#pytest.MonkeyPatch.setenv)."
 
 
 class OsEnvironDeleteInTest(Rule):
-    def _id(self) -> str:
-        return "MLF0012"
-
     def _message(self) -> str:
         return "Do not delete `os.environ` in test directly. Use `monkeypatch.delenv` (https://docs.pytest.org/en/stable/reference/reference.html#pytest.MonkeyPatch.delenv)."
 
@@ -188,9 +157,6 @@ class OsEnvironDeleteInTest(Rule):
 class ForbiddenTopLevelImport(Rule):
     def __init__(self, module: str) -> None:
         self.module = module
-
-    def _id(self) -> str:
-        return "MLF0013"
 
     def _message(self) -> str:
         return (
@@ -200,9 +166,6 @@ class ForbiddenTopLevelImport(Rule):
 
 
 class UseSysExecutable(Rule):
-    def _id(self) -> str:
-        return "MLF0014"
-
     def _message(self) -> str:
         return (
             "Use `[sys.executable, '-m', 'mlflow', ...]` when running mlflow CLI in a subprocess."
@@ -246,9 +209,6 @@ def _is_abstract_method(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
 
 
 class InvalidAbstractMethod(Rule):
-    def _id(self) -> str:
-        return "MLF0015"
-
     def _message(self) -> str:
         return (
             "Abstract method should only contain a single statement/expression, "
@@ -288,9 +248,6 @@ class IncorrectTypeAnnotation(Rule):
     def __init__(self, type_hint: str) -> None:
         self.type_hint = type_hint
 
-    def _id(self) -> str:
-        return "MLF0016"
-
     @staticmethod
     def check(node: ast.Name) -> bool:
         return node.id in IncorrectTypeAnnotation.MAPPING
@@ -309,9 +266,6 @@ class TypingExtensions(Rule):
         self.full_name = full_name
         self.allowlist = allowlist
 
-    def _id(self) -> str:
-        return "MLF0017"
-
     def _message(self) -> str:
         return (
             f"`{self.full_name}` is not allowed to use. Only {self.allowlist} are allowed. "
@@ -322,9 +276,6 @@ class TypingExtensions(Rule):
 
 
 class MarkdownLink(Rule):
-    def _id(self) -> str:
-        return "MLF0018"
-
     def _message(self) -> str:
         return (
             "Markdown link is not supported in docstring. "
@@ -333,25 +284,16 @@ class MarkdownLink(Rule):
 
 
 class LazyModule(Rule):
-    def _id(self) -> str:
-        return "MLF0019"
-
     def _message(self) -> str:
         return "Module loaded by `LazyLoader` must be imported in `TYPE_CHECKING` block."
 
 
 class EmptyNotebookCell(Rule):
-    def _id(self) -> str:
-        return "MLF0020"
-
     def _message(self) -> str:
         return "Empty notebook cell. Remove it or add some content."
 
 
 class ForbiddenSetActiveModelUsage(Rule):
-    def _id(self) -> str:
-        return "MLF0021"
-
     def _message(self) -> str:
         return (
             "Usage of `set_active_model` is not allowed in mlflow, use `_set_active_model` instead."
@@ -369,9 +311,6 @@ class ForbiddenSetActiveModelUsage(Rule):
 
 
 class ForbiddenTraceUIInNotebook(Rule):
-    def _id(self) -> str:
-        return "MLF0022"
-
     def _message(self) -> str:
         return (
             "Found the MLflow Trace UI iframe in the notebook. "
@@ -382,9 +321,6 @@ class ForbiddenTraceUIInNotebook(Rule):
 
 
 class PytestMarkRepeat(Rule):
-    def _id(self) -> str:
-        return "MLF0023"
-
     def _message(self) -> str:
         return (
             "@pytest.mark.repeat decorator should not be committed. "
@@ -411,9 +347,6 @@ def _is_valid_version(version: str) -> bool:
 
 
 class UnnamedThread(Rule):
-    def _id(self) -> str:
-        return "MLF0024"
-
     def _message(self) -> str:
         return (
             "`threading.Thread()` must be called with a `name` argument to improve debugging "
@@ -432,10 +365,26 @@ class UnnamedThread(Rule):
         )
 
 
-class InvalidExperimentalDecorator(Rule):
-    def _id(self) -> str:
-        return "MLF0025"
+class ThreadPoolExecutorWithoutThreadNamePrefix(Rule):
+    def _message(self) -> str:
+        return (
+            "`ThreadPoolExecutor()` must be called with a `thread_name_prefix` argument to improve "
+            "debugging and traceability of thread-related issues."
+        )
 
+    @staticmethod
+    def check(node: ast.Call, resolver: Resolver) -> bool:
+        """
+        Returns True if the call is ThreadPoolExecutor() without a thread_name_prefix parameter.
+        """
+        return (
+            (resolved := resolver.resolve(node))
+            and resolved == ["concurrent", "futures", "ThreadPoolExecutor"]
+            and not any(keyword.arg == "thread_name_prefix" for keyword in node.keywords)
+        )
+
+
+class InvalidExperimentalDecorator(Rule):
     def _message(self) -> str:
         return (
             "Invalid usage of `@experimental` decorator. It must be used with a `version` "
