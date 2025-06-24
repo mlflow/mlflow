@@ -24,7 +24,14 @@ class ModelType(str, Enum):
 
 
 @dataclass
-class LogModelParams:
+class BaseParams:
+    """
+    Base class for params that are logged to telemetry.
+    """
+
+
+@dataclass
+class LogModelParams(BaseParams):
     flavor: str
     model: ModelType
     is_pip_requirements_set: bool = False
@@ -35,7 +42,7 @@ class LogModelParams:
 
 
 @dataclass
-class AutologParams:
+class AutologParams(BaseParams):
     flavor: str
     disable: bool
     log_traces: bool
@@ -43,7 +50,7 @@ class AutologParams:
 
 
 @dataclass
-class GenaiEvaluateParams:
+class GenaiEvaluateParams(BaseParams):
     scorers: list[str]
     is_predict_fn_set: bool = False
 
@@ -51,7 +58,7 @@ class GenaiEvaluateParams:
 @dataclass
 class Record:
     api_name: str
-    params: dict[str, bool | str] | None = None
+    params: BaseParams | None = None
     status: APIStatus = APIStatus.UNKNOWN.value
     # TODO: add duration_ms after we get approval
 
