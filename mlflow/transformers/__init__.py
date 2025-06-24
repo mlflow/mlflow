@@ -1946,9 +1946,10 @@ class _TransformersWrapper:
         elif isinstance(self.pipeline, transformers.AudioClassificationPipeline):
             data = self._convert_audio_input(data)
             output_key = None
-        elif isinstance(self.pipeline, transformers.ImageTextToTextPipeline):
-            if isinstance(self.pipeline.model, (transformers.Qwen2_5_VLForConditionalGeneration, transformers.Qwen2VLForConditionalGeneration)):
-                data = self._convert_qv_image_input(data)
+        elif hasattr(transformers, "ImageTextToTextPipeline") and isinstance(self.pipeline, transformers.ImageTextToTextPipeline):
+            if hasattr(transformers, "Qwen2_5_VLForConditionalGeneration") and hasattr(transformers, "Qwen2VLForConditionalGeneration"):
+                if isinstance(self.pipeline.model, (transformers.Qwen2_5_VLForConditionalGeneration, transformers.Qwen2VLForConditionalGeneration)):
+                    data = self._convert_qv_image_input(data)
         else:
             raise MlflowException(
                 f"The loaded pipeline type {type(self.pipeline).__name__} is "
@@ -1976,7 +1977,7 @@ class _TransformersWrapper:
             if self.llm_inference_task:
                 return_tensors = True
                 output_key = "generated_token_ids"
-            elif isinstance(self.pipeline, transformers.ImageTextToTextPipeline):
+            elif hasattr(transformers, "ImageTextToTextPipeline") and isinstance(self.pipeline, transformers.ImageTextToTextPipeline):
                 return_tensors = True
                 input_key = "input_text"
                 output_key = "generated_token_ids"
@@ -2007,7 +2008,7 @@ class _TransformersWrapper:
                     model_config,
                     self.llm_inference_task,
                 )
-        elif isinstance(self.pipeline, transformers.ImageTextToTextPipeline):
+        elif hasattr(transformers, "ImageTextToTextPipeline") and isinstance(self.pipeline, transformers.ImageTextToTextPipeline):
             output = self._strip_input_from_response_in_instruction_pipelines(
                 [data],
                 [raw_output],
@@ -2083,7 +2084,6 @@ class _TransformersWrapper:
                     transformers.TranslationPipeline,
                     transformers.SummarizationPipeline,
                     transformers.TokenClassificationPipeline,
-                    transformers.ImageTextToTextPipeline,
                 ),
             )
             and isinstance(data, list)
@@ -2122,6 +2122,8 @@ class _TransformersWrapper:
             return [list(entry.values())[0] for entry in data]
         elif isinstance(self.pipeline, transformers.TextClassificationPipeline):
             return self._validate_text_classification_input(data)
+        elif hasattr(transformers, "ImageTextToTextPipeline") and isinstance(self.pipeline, transformers.ImageTextToTextPipeline):
+            return [list(entry.values())[0] for entry in data]
         else:
             return data
 
