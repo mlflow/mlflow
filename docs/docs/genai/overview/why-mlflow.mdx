@@ -1,5 +1,7 @@
 # Why MLflow for GenAI?
 
+import Link from '@docusaurus/Link';
+
 MLflow provides the only open-source platform purpose-built for the entire GenAI application lifecycle. From prototype to production, MLflow gives you the tools, integrations, and workflows you need to build reliable, high-quality AI applications.
 
 ## The MLflow Advantage
@@ -211,7 +213,7 @@ openai_client.chat.completions.create(
   marginTop: '32px',
   marginBottom: '32px'
 }}>
-  <a href="/genai/getting-started" style={{
+  <Link to="/genai/getting-started" style={{
     display: 'flex',
     flexDirection: 'column',
     padding: '24px',
@@ -223,8 +225,10 @@ openai_client.chat.completions.create(
   }}>
     <strong style={{fontSize: '20px', marginBottom: '8px'}}>Start Building →</strong>
     <span>Get up and running in 15 minutes</span>
-  </a>
+  </Link>
 
+  {/* TODO: Fix href and replace `<a>` with `<Link>` */}
+  {/* eslint-disable-next-line @docusaurus/no-html-links */}
   <a href="/genai/tutorials" style={{
     display: 'flex',
     flexDirection: 'column',
