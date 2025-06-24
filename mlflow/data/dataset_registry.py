@@ -15,7 +15,9 @@ class DatasetRegistry:
         self.constructors = {}
 
     def register_constructor(
-        self, constructor_fn: Callable[..., Any], constructor_name: Optional[str] = None
+        self,
+        constructor_fn: Callable[[Optional[str], Optional[str]], Dataset],
+        constructor_name: Optional[str] = None,
     ) -> str:
         """Registers a dataset constructor.
 
