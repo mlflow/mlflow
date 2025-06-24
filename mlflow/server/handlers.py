@@ -2692,11 +2692,15 @@ def get_trace_artifact_handler():
     return _response_with_file_attachment_headers(TRACE_DATA_FILE_NAME, file_sender_response)
 
 
+# Assessments API handlers
+
+
 @catch_mlflow_exception
 @_disable_if_artifacts_only
 def _create_assessment():
     """
-    A request handler for `POST /mlflow/traces/{assessment.trace_id}/assessments` to create a new assessment.
+    A request handler for `POST /mlflow/traces/{assessment.trace_id}/assessments`
+    to create a new assessment.
     """
     request_message = _get_request_message(
         CreateAssessment(),
@@ -2717,7 +2721,8 @@ def _create_assessment():
 @_disable_if_artifacts_only
 def _get_assessment(trace_id, assessment_id):
     """
-    A request handler for `GET /mlflow/traces/{trace_id}/assessments/{assessment_id}` to get an assessment.
+    A request handler for `GET /mlflow/traces/{trace_id}/assessments/{assessment_id}`
+    to get an assessment.
     """
     assessment = _get_tracking_store().get_assessment(trace_id, assessment_id)
 
@@ -2729,7 +2734,8 @@ def _get_assessment(trace_id, assessment_id):
 @_disable_if_artifacts_only
 def _update_assessment(trace_id, assessment_id):
     """
-    A request handler for `PATCH /mlflow/traces/{trace_id}/assessments/{assessment_id}` to update an assessment.
+    A request handler for `PATCH /mlflow/traces/{trace_id}/assessments/{assessment_id}`
+    to update an assessment.
     """
     request_message = _get_request_message(
         UpdateAssessment(),
@@ -2770,7 +2776,8 @@ def _update_assessment(trace_id, assessment_id):
 @_disable_if_artifacts_only
 def _delete_assessment(trace_id, assessment_id):
     """
-    A request handler for `DELETE /mlflow/traces/{trace_id}/assessments/{assessment_id}` to delete an assessment.
+    A request handler for `DELETE /mlflow/traces/{trace_id}/assessments/{assessment_id}`
+    to delete an assessment.
     """
     _get_tracking_store().delete_assessment(trace_id, assessment_id)
 
