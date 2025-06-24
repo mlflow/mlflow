@@ -7,7 +7,7 @@
 [![Twitter](https://img.shields.io/twitter/follow/MLflow?style=for-the-badge&labelColor=00ACEE&logo=twitter&logoColor=white)](https://twitter.com/MLflow)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/mlflow/mlflow)
 
-MLflow is an open-source platform, purpose-built to assist machine learning practitioners and teams in handling the complexities of the machine learning process. MLflow focuses on the full lifecycle for machine learning projects, ensuring that each phase is manageable, traceable, and reproducible
+MLflow is an open-source platform designed to simplify the machine learning lifecycle. It helps ML practitioners and teams manage experiments, track results, package models, and deploy them across various environments. MLflow ensures every step is reproducible, traceable, and collaborative.
 
 ---
 
@@ -145,6 +145,28 @@ response = OpenAI().chat.completions.create(
 ```
 
 Then navigate to the "Traces" tab in the MLflow UI to find the trace records OpenAI query.
+
+### ⚡ Quickstart: Train & Track in 30 Seconds
+
+Want to try MLflow quickly? Here's a minimal working example that logs your first model:
+
+```python
+import mlflow
+import mlflow.sklearn
+from sklearn.linear_model import LinearRegression
+from sklearn.datasets import make_regression
+
+# Enable autologging
+mlflow.sklearn.autolog()
+
+# Create synthetic data
+X, y = make_regression(n_samples=100, n_features=2, noise=0.1)
+
+# Start MLflow tracking
+with mlflow.start_run():
+    model = LinearRegression()
+    model.fit(X, y)
+
 
 ## Community
 
