@@ -331,33 +331,32 @@ def test_list_artifacts_throws_for_invalid_arguments():
 
 def test_list_artifacts_with_different_tracking_uri(tmp_path):
     original_tracking_uri = mlflow.get_tracking_uri()
+    try:
+        tracking_uri_1 = str(tmp_path / "mlruns1")
+        mlflow.set_tracking_uri(tracking_uri_1)
 
-    tracking_uri_1 = str(tmp_path / "mlruns1")
-    mlflow.set_tracking_uri(tracking_uri_1)
+        local_file1 = tmp_path / "file1.txt"
+        local_file2 = tmp_path / "file2.txt"
+        local_file1.write_text("content1")
+        local_file2.write_text("content2")
 
-    local_file1 = tmp_path / "file1.txt"
-    local_file2 = tmp_path / "file2.txt"
-    local_file1.write_text("content1")
-    local_file2.write_text("content2")
+        with mlflow.start_run() as run:
+            mlflow.log_artifact(str(local_file1))
+            mlflow.log_artifact(str(local_file2))
+            run_id = run.info.run_id
 
-    with mlflow.start_run() as run:
-        mlflow.log_artifact(str(local_file1))
-        mlflow.log_artifact(str(local_file2))
-        run_id = run.info.run_id
+        tracking_uri_2 = str(tmp_path / "mlruns2")
+        mlflow.set_tracking_uri(tracking_uri_2)
 
-    tracking_uri_2 = str(tmp_path / "mlruns2")
-    mlflow.set_tracking_uri(tracking_uri_2)
+        artifacts = mlflow.artifacts.list_artifacts(run_id=run_id, tracking_uri=tracking_uri_1)
 
-    artifacts = mlflow.artifacts.list_artifacts(run_id=run_id, tracking_uri=tracking_uri_1)
+        assert len(artifacts) == 2
+        artifact_names = [a.path for a in artifacts]
+        assert "file1.txt" in artifact_names
+        assert "file2.txt" in artifact_names
 
-    assert len(artifacts) == 2
-    artifact_names = [a.path for a in artifacts]
-    assert "file1.txt" in artifact_names
-    assert "file2.txt" in artifact_names
-
-    mlflow.set_tracking_uri(original_tracking_uri)
-
-
+    finally:
+        mlflow.set_tracking_uri(original_tracking_uri)
 def test_download_artifacts_with_run_id_and_artifact_path(tmp_path):
     class DummyModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input: list[str]) -> list[str]:
