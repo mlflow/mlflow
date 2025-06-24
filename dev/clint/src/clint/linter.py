@@ -291,21 +291,21 @@ class TypeAnnotationVisitor(ast.NodeVisitor):
             self.linter._check(Location.from_node(node), rules.IncorrectTypeAnnotation(node.id))
 
         if self._is_bare_generic_type(node):
-            self.linter._check(Location.from_node(node), rules.UnparameterizedGeneric(node.id))
+            self.linter._check(Location.from_node(node), rules.UnparameterizedGenericType(node.id))
 
         self.generic_visit(node)
 
     def visit_Attribute(self, node):
         if self._is_bare_generic_type(node):
             self.linter._check(
-                Location.from_node(node), rules.UnparameterizedGeneric(ast.unparse(node))
+                Location.from_node(node), rules.UnparameterizedGenericType(ast.unparse(node))
             )
 
         self.generic_visit(node)
 
     def _is_bare_generic_type(self, node: ast.Name | ast.Attribute) -> bool:
         """Check if this Name node represents a bare generic type (not parameterized)."""
-        if not rules.UnparameterizedGeneric.is_generic_type(node, self.linter.resolver):
+        if not rules.UnparameterizedGenericType.is_generic_type(node, self.linter.resolver):
             return False
 
         # Check if this Name is the value of a Subscript (e.g., the 'dict' in 'dict[str, int]')

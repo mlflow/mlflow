@@ -445,7 +445,7 @@ class InvalidExperimentalDecorator(Rule):
         return False
 
 
-class UnparameterizedGeneric(Rule):
+class UnparameterizedGenericType(Rule):
     def __init__(self, type_hint: str) -> None:
         self.type_hint = type_hint
 
