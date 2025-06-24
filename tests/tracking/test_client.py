@@ -2355,3 +2355,30 @@ def test_log_batch_link_to_active_model(tracking_uri):
     assert logged_model.name == model.name
     assert logged_model.model_id == model.model_id
     assert {m.key: m.value for m in logged_model.metrics} == {"metric1": 1, "metric2": 2}
+
+
+def test_load_prompt_with_alias_uri(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    # Register two versions of a prompt
+    client.register_prompt(name="alias_prompt", template="Hello, world!")
+    client.register_prompt(name="alias_prompt", template="Hello, {{name}}!")
+
+    # Assign alias to version 1
+    client.set_prompt_alias("alias_prompt", alias="production", version=1)
+    prompt = client.load_prompt("prompts:/alias_prompt@production")
+    assert prompt.template == "Hello, world!"
+    assert "production" in prompt.aliases
+
+    # Reassign alias to version 2
+    client.set_prompt_alias("alias_prompt", alias="production", version=2)
+    prompt = client.load_prompt("prompts:/alias_prompt@production")
+    assert prompt.template == "Hello, {{name}}!"
+    assert "production" in prompt.aliases
+
+    # Delete alias and verify loading fails
+    client.delete_prompt_alias("alias_prompt", alias="production")
+    with pytest.raises(
+        MlflowException, match=r"Prompt (.*) does not exist.|Prompt alias (.*) not found."
+    ):
+        client.load_prompt("prompts:/alias_prompt@production")
