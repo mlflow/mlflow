@@ -407,6 +407,18 @@ export const experimentTagsByExperimentId = (state = {}, action: any) => {
       const tag = { key: action.meta.key, value: action.meta.value };
       return amendExperimentTagsByExperimentId(state, [tag], action.meta.experimentId);
     }
+    case fulfilled(SEARCH_EXPERIMENTS_API): {
+      const newState = { ...state };
+      if (action.payload && action.payload.experiments) {
+        action.payload.experiments.forEach((eJson: any) => {
+          const experiment: ExperimentEntity = eJson;
+          const tags = experiment.tags || [];
+          // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
+          newState[experiment.experimentId] = tagArrToObject(tags);
+        });
+      }
+      return newState;
+    }
     default:
       return state;
   }
