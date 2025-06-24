@@ -15,6 +15,11 @@ from mlflow.telemetry.schemas import AutologParams, GenaiEvaluateParams, LogMode
     ("func_name", "arguments", "expected_params"),
     [
         (
+            "mlflow.autolog",
+            {"log_models": True, "log_traces": True, "disable": False},
+            AutologParams(flavor="all", disable=False, log_traces=True, log_models=True),
+        ),
+        (
             "mlflow.langchain.autolog",
             {"disable": True},
             AutologParams(flavor="langchain", disable=True, log_traces=False, log_models=False),

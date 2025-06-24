@@ -12,6 +12,7 @@ def is_telemetry_disabled() -> bool:
     )
 
 
+# TODO: add whitelist for APIs that's only invoked by MLflow, e.g. MlflowV2SpanExporter.export
 def invoked_from_internal_api() -> bool:
     frame = inspect.currentframe()
     try:

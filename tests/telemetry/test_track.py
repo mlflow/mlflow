@@ -1,4 +1,4 @@
-from dataclasses import asdict
+import threading
 from unittest.mock import patch
 
 import pytest
@@ -7,13 +7,20 @@ import sklearn
 import mlflow
 from mlflow.environment_variables import MLFLOW_DISABLE_TELEMETRY
 from mlflow.telemetry.client import TelemetryClient, get_telemetry_client, set_telemetry_client
-from mlflow.telemetry.schemas import APIStatus, AutologParams
+from mlflow.telemetry.schemas import APIStatus, AutologParams, Record
 from mlflow.telemetry.track import track_api_usage
 from mlflow.telemetry.utils import is_telemetry_disabled
 
 
 def full_func_name(func):
     return f"{func.__module__}.{func.__qualname__}"
+
+
+def wait_for_telemetry_threads(timeout: float = 5.0):
+    """Wait for telemetry threads to finish to avoid race conditions in tests."""
+    for thread in threading.enumerate():
+        if thread != threading.main_thread() and thread.name == "add_telemetry_record":
+            thread.join(timeout=timeout)
 
 
 def test_track_api_usage():
@@ -32,19 +39,21 @@ def test_track_api_usage():
     with pytest.raises(ValueError, match="test"):
         fail_func()
 
+    wait_for_telemetry_threads()
+
     assert len(telemetry_client.records) == 2
     succeed_record = telemetry_client.records[0]
-    assert asdict(succeed_record) == {
-        "api_name": full_func_name(succeed_func),
-        "params": None,
-        "status": APIStatus.SUCCESS.value,
-    }
+    assert succeed_record == Record(
+        api_name=full_func_name(succeed_func),
+        params=None,
+        status=APIStatus.SUCCESS.value,
+    )
     fail_record = telemetry_client.records[1]
-    assert asdict(fail_record) == {
-        "api_name": full_func_name(fail_func),
-        "params": None,
-        "status": APIStatus.FAILURE.value,
-    }
+    assert fail_record == Record(
+        api_name=full_func_name(fail_func),
+        params=None,
+        status=APIStatus.FAILURE.value,
+    )
 
 
 @pytest.mark.parametrize(
@@ -77,6 +86,8 @@ def test_track_api_usage_update_env_var_after_import(monkeypatch):
         pass
 
     test_func()
+
+    wait_for_telemetry_threads()
     assert len(telemetry_client.records) == 1
     assert telemetry_client.records[0].api_name == full_func_name(test_func)
 
@@ -101,20 +112,20 @@ def test_track_api_usage_do_not_track_internal_api():
     sklearn.cluster.KMeans().fit(iris.data[:, :2], iris.target)
 
     assert mlflow.last_logged_model() is not None
+
+    wait_for_telemetry_threads()
     records = get_telemetry_client().records
     assert len(records) == 1
-    assert asdict(records[0]) == {
-        "api_name": full_func_name(mlflow.sklearn.autolog),
-        "params": asdict(
-            AutologParams(
-                flavor="sklearn",
-                disable=False,
-                log_traces=False,
-                log_models=True,
-            )
+    assert records[0] == Record(
+        api_name=full_func_name(mlflow.sklearn.autolog),
+        params=AutologParams(
+            flavor="sklearn",
+            disable=False,
+            log_traces=False,
+            log_models=True,
         ),
-        "status": APIStatus.SUCCESS.value,
-    }
+        status=APIStatus.SUCCESS.value,
+    )
 
 
 # TODO: apply track_api_usage to APIs and test the record params

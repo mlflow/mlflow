@@ -15,6 +15,7 @@ from mlflow.telemetry.utils import (
 _logger = logging.getLogger(__name__)
 
 
+# TODO: add a linter to make sure this decorator is used outmost
 def track_api_usage(func: Callable) -> Callable:
     @functools.wraps(func)
     def wrapper(*args, **kwargs):

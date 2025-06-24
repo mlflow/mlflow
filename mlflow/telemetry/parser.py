@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Any
 
 from mlflow.telemetry.schemas import (
     AutologParams,
+    BaseParams,
     GenaiEvaluateParams,
     LogModelParams,
     ModelType,
@@ -18,13 +19,16 @@ _logger = logging.getLogger(__name__)
 class TelemetryParser(ABC):
     @classmethod
     @abstractmethod
-    def extract_params(cls, func_name: str, arguments: dict[str, Any]) -> Any:
+    def extract_params(cls, func_name: str, arguments: dict[str, Any]) -> BaseParams | None:
         """
         Extract the parameters from the function call.
 
         Args:
             func_name: The full function name.
             arguments: The arguments passed to the function.
+
+        Returns:
+            The parsed params that extend BaseParams.
         """
 
 
@@ -33,7 +37,7 @@ class LogModelParser(TelemetryParser):
     def extract_params(cls, func_name: str, arguments: dict[str, Any]) -> LogModelParams | None:
         splits = func_name.rsplit(".", 2)
         if len(splits) != 3:
-            _logger.warning(f"Failed to extract log model params for function {func_name}")
+            _logger.debug(f"Failed to extract log model params for function {func_name}")
             return
         flavor = splits[1]
 
@@ -82,10 +86,13 @@ class AutologParser(TelemetryParser):
     @classmethod
     def extract_params(cls, func_name: str, arguments: dict[str, Any]) -> AutologParams | None:
         splits = func_name.rsplit(".", 2)
-        if len(splits) != 3:
-            _logger.warning(f"Failed to extract autolog params for function {func_name}")
+        if len(splits) == 2:
+            flavor = "all"
+        elif len(splits) == 3:
+            flavor = splits[1]
+        else:
+            _logger.debug(f"Failed to extract autolog params for function {func_name}")
             return
-        flavor = splits[1]
         record_params = {"flavor": flavor}
         for param in ["disable", "log_traces", "log_models"]:
             record_params[param] = arguments.get(param, False) or False
