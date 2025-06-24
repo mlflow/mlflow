@@ -940,7 +940,9 @@ if IS_PYDANTIC_V2_OR_NEWER:
                 "delta": delta,
             }
 
-        def create_text_output_item(self, text: str, id: str) -> dict[str, Any]:
+        def create_text_output_item(
+            self, text: str, id: str, annotations: Optional[list[dict]] = None
+        ) -> dict[str, Any]:
             """Helper method to create a dictionary conforming to the text output item schema.
 
             Read more at https://mlflow.org/docs/latest/genai/flavors/responses-agent-intro#creating-agent-output.
@@ -948,17 +950,35 @@ if IS_PYDANTIC_V2_OR_NEWER:
             Args:
                 text (str): The text to be outputted.
                 id (str): The id of the output item.
+                annotations (Optional[list[dict]]): The annotations of the output item.
             """
+            content_item = {
+                "text": text,
+                "type": "output_text",
+            }
+            if annotations is not None:
+                content_item["annotations"] = annotations
             return {
                 "id": id,
-                "content": [
-                    {
-                        "text": text,
-                        "type": "output_text",
-                    }
-                ],
+                "content": [content_item],
                 "role": "assistant",
                 "type": "message",
+            }
+
+        def create_reasoning_item(self, id: str, reasoning_text: str) -> dict[str, Any]:
+            """Helper method to create a dictionary conforming to the reasoning item schema.
+
+            Read more at https://www.mlflow.org/docs/latest/llms/responses-agent-intro/#creating-agent-output.
+            """
+            return {
+                "type": "reasoning",
+                "summary": [
+                    {
+                        "type": "summary_text",
+                        "text": reasoning_text,
+                    }
+                ],
+                "id": id,
             }
 
         def create_function_call_item(
