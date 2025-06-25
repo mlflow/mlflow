@@ -225,7 +225,7 @@ describe('Span', () => {
 
       // Validate status format
       expect(json.status).toHaveProperty('code');
-      expect(json.status.code).toBe('OK');
+      expect(json.status.code).toBe('STATUS_CODE_OK');
 
       // Validate timestamps are bigint for precision
       expect(typeof json.start_time_unix_nano).toBe('bigint');

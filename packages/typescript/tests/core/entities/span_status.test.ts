@@ -5,9 +5,9 @@ describe('SpanStatus', () => {
   describe('initialization', () => {
     // Test both enum and string initialization (parameterized test equivalent)
     const testCases = [
-      { input: 'OK', expected: SpanStatusCode.OK },
-      { input: 'ERROR', expected: SpanStatusCode.ERROR },
-      { input: 'UNSET', expected: SpanStatusCode.UNSET }
+      { input: 'STATUS_CODE_OK', expected: SpanStatusCode.OK },
+      { input: 'STATUS_CODE_ERROR', expected: SpanStatusCode.ERROR },
+      { input: 'STATUS_CODE_UNSET', expected: SpanStatusCode.UNSET }
     ];
 
     testCases.forEach(({ input, expected }) => {

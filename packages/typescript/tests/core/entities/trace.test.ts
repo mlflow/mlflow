@@ -71,13 +71,13 @@ describe('Trace', () => {
             name: 'parent',
             trace_id: expect.any(String),
             span_id: expect.any(String),
-            parent_span_id: null,
+            parent_span_id: '',
             start_time_unix_nano: expect.any(BigInt),
             end_time_unix_nano: expect.any(BigInt),
             attributes: {
               'mlflow.spanType': 'UNKNOWN'
             },
-            status: { code: 'UNSET' },
+            status: { code: 'STATUS_CODE_UNSET' },
             events: []
           }
         ]

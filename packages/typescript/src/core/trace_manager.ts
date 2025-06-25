@@ -31,8 +31,9 @@ class _Trace {
     const root_span = traceData.spans.find((span) => span.parentId == null);
     if (root_span) {
       // Accessing the OTel span directly get serialized value directly.
-      this.info.requestPreview = root_span._span.attributes[SpanAttributeKey.INPUTS]?.toString();
-      this.info.responsePreview = root_span._span.attributes[SpanAttributeKey.OUTPUTS]?.toString();
+      // TODO: Implement the smart truncation logic.
+      this.info.requestPreview = root_span._span.attributes[SpanAttributeKey.INPUTS] as string;
+      this.info.responsePreview = root_span._span.attributes[SpanAttributeKey.OUTPUTS] as string;
     }
 
     return new Trace(this.info, traceData);

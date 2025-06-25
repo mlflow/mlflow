@@ -9,15 +9,15 @@ import { SpanStatus as OTelStatus, SpanStatusCode as OTelSpanStatusCode } from '
 
 /**
  * Enum for status code of a span
- * Uses the same set of status codes as OpenTelemetry
+ * Uses the same set of status codes as OTLP SpanStatusCode
  */
 export enum SpanStatusCode {
   /** Status is unset/unspecified */
-  UNSET = 'UNSET',
+  UNSET = 'STATUS_CODE_UNSET',
   /** The operation completed successfully */
-  OK = 'OK',
+  OK = 'STATUS_CODE_OK',
   /** The operation encountered an error */
-  ERROR = 'ERROR'
+  ERROR = 'STATUS_CODE_ERROR'
 }
 
 /**
