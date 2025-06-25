@@ -1,5 +1,8 @@
 const fs = require("fs");
 const path = require("path");
+const { execSync } = require("child_process");
+
+const repoRootCache = new Map();
 
 /**
  * ESLint rule to validate NotebookDownloadButton URLs.
@@ -128,7 +131,7 @@ function validateMlflowUrl(context, hrefAttr, href) {
   }
 
   const filePath = href.substring(expectedPrefix.length);
-  const repoRoot = findRepoRoot(context.filename);
+  const repoRoot = findRepoRoot();
   if (repoRoot) {
     const fullPath = path.join(repoRoot, filePath);
 
@@ -143,23 +146,27 @@ function validateMlflowUrl(context, hrefAttr, href) {
 }
 
 /**
- * Finds the root directory of the git repository.
+ * Finds the root directory of the git repository using git rev-parse.
  *
- * Walks up the directory tree from the given file path until it finds
- * a .git directory, indicating the repository root.
- *
- * @param {string} startPath - The file path to start searching from
  * @returns {string|null} The repository root path or null if not found
  */
-function findRepoRoot(startPath) {
-  let currentDir = path.dirname(startPath);
+function findRepoRoot() {
+  const cacheKey = "repoRoot";
 
-  while (currentDir !== path.dirname(currentDir)) {
-    if (fs.existsSync(path.join(currentDir, ".git"))) {
-      return currentDir;
-    }
-    currentDir = path.dirname(currentDir);
+  if (repoRootCache.has(cacheKey)) {
+    return repoRootCache.get(cacheKey);
   }
 
-  return null;
+  try {
+    const repoRoot = execSync("git rev-parse --show-toplevel", {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+
+    repoRootCache.set(cacheKey, repoRoot);
+    return repoRoot;
+  } catch {
+    repoRootCache.set(cacheKey, null);
+    return null;
+  }
 }
