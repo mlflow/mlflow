@@ -1,5 +1,35 @@
 # CHANGELOG
 
+## 3.1.1 (2025-06-25)
+
+MLflow 3.1.1 includes several major features and improvements
+
+Features:
+
+- [Model Registry / Sqlalchemy] Increase prompt text limit from 5K to 100K (#16377, @harupy)
+- [Tracking] Support pagination in get-history of FileStore and SqlAlchemyStore (#16325, @TomeHirata)
+
+Bug fixes:
+
+- [] Support downloading logged model artifacts (#16356, @TomeHirata)
+- [Models] Fix bedrock provider, configured inference profile compatibility (#15604, @lloydhamilton)
+- [Tracking] Specify attribute.run_id when search_traces filters by run_id (#16295, @artjen)
+- [] Fix graphql batching attacks (#16227, @serena-ruan)
+- [Model Registry] Make the chunk size configurable in DatabricksSDKModelsArtifactRepository (#16247, @TomeHirata)
+
+Documentation updates:
+
+- [Docs] Move the Lighthouse main signup page to GenAI (#16404, @BenWilson2)
+- [Docs] [DOC-FIX] Dspy doc fix (#16397, @joelrobin18)
+- [Docs] Fix(docs): Resolve self-referencing 'Next' link on GenAI Tracing overview page (#16334, @mohammadsubhani)
+- [Docs] Update the docs selector dropdown (#16280, @BenWilson2)
+- [Docs] Update utm_source for source tracking to signup URL (#16316, @BenWilson2)
+- [Docs] Fix footer rendering in docs for light mode display (#16214, @BenWilson2)
+
+Small bug fixes and documentation updates:
+
+#16261, @rohitarun-db; #16411, #16352, #16327, #16324, #16279, #16193, #16197, @harupy; #16409, #16348, #16347, #16290, #16286, #16283, #16271, #16223, @TomeHirata; #16326, @mohammadsubhani; #16364, @BenWilson2; #16308, #16218, @serena-ruan; #16262, @raymondzhou-db; #16191, @copilot-swe-agent; #16212, @B-Step62; #16208, @frontsideair; #16205, #16200, #16198, @daniellok-db
+
 ## 3.0.1 (2025-06-25)
 
 MLflow 3.0.1 includes several major features and improvements
