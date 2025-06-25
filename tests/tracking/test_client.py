@@ -236,7 +236,7 @@ def test_client_get_trace(mock_store, mock_artifact_repo):
         ],
     }
     trace = MlflowClient().get_trace("1234567")
-    mock_store.get_trace_info.assert_called_once_with("1234567", should_query_v3=False)
+    mock_store.get_trace_info.assert_called_once_with("1234567")
     mock_artifact_repo.download_trace_data.assert_called_once()
 
     assert trace.info.trace_id == "tr-1234567"
@@ -1710,7 +1710,7 @@ def test_get_trace_throw_if_trace_id_is_online_trace_id():
         client.get_trace(trace_id)
 
     another_client = MlflowClient("mlruns")
-    with pytest.raises(MlflowException, match=r"Trace with request ID '[\w-]+' not found"):
+    with pytest.raises(MlflowException, match=r"Trace with ID '[\w-]+' not found"):
         another_client.get_trace(trace_id)
 
 
@@ -2357,3 +2357,30 @@ def test_log_batch_link_to_active_model(tracking_uri):
     assert logged_model.name == model.name
     assert logged_model.model_id == model.model_id
     assert {m.key: m.value for m in logged_model.metrics} == {"metric1": 1, "metric2": 2}
+
+
+def test_load_prompt_with_alias_uri(tracking_uri):
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    # Register two versions of a prompt
+    client.register_prompt(name="alias_prompt", template="Hello, world!")
+    client.register_prompt(name="alias_prompt", template="Hello, {{name}}!")
+
+    # Assign alias to version 1
+    client.set_prompt_alias("alias_prompt", alias="production", version=1)
+    prompt = client.load_prompt("prompts:/alias_prompt@production")
+    assert prompt.template == "Hello, world!"
+    assert "production" in prompt.aliases
+
+    # Reassign alias to version 2
+    client.set_prompt_alias("alias_prompt", alias="production", version=2)
+    prompt = client.load_prompt("prompts:/alias_prompt@production")
+    assert prompt.template == "Hello, {{name}}!"
+    assert "production" in prompt.aliases
+
+    # Delete alias and verify loading fails
+    client.delete_prompt_alias("alias_prompt", alias="production")
+    with pytest.raises(
+        MlflowException, match=r"Prompt (.*) does not exist.|Prompt alias (.*) not found."
+    ):
+        client.load_prompt("prompts:/alias_prompt@production")

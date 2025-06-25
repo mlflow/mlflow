@@ -1,5 +1,6 @@
 const { defineConfig } = require("eslint/config");
 const docusaurusEslintPlugin = require("@docusaurus/eslint-plugin");
+const mlflowDocsPlugin = require("./eslint-plugin-mlflow-docs");
 const js = require("@eslint/js");
 const { FlatCompat } = require("@eslint/eslintrc");
 
@@ -15,9 +16,11 @@ module.exports = defineConfig([
     extends: compat.extends("plugin:mdx/recommended"),
     plugins: {
       "@docusaurus": docusaurusEslintPlugin,
+      "mlflow-docs": mlflowDocsPlugin,
     },
     rules: {
       "@docusaurus/no-html-links": "error",
+      "mlflow-docs/valid-notebook-url": "error",
     },
   },
 ]);

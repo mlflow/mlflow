@@ -154,12 +154,16 @@ class TraceInfoV2(_MlflowObject):
 
     @classmethod
     def from_v3(cls, trace_info: TraceInfo) -> "TraceInfoV2":
+        trace_metadata = trace_info.trace_metadata.copy()
+        if TRACE_SCHEMA_VERSION_KEY in trace_metadata:
+            trace_metadata[TRACE_SCHEMA_VERSION_KEY] = "2"
+
         return cls(
             request_id=trace_info.trace_id,
             experiment_id=trace_info.experiment_id,
             timestamp_ms=trace_info.request_time,
             execution_time_ms=trace_info.execution_duration,
             status=TraceStatus.from_state(trace_info.state),
-            request_metadata=trace_info.trace_metadata,
+            request_metadata=trace_metadata,
             tags=trace_info.tags,
         )
