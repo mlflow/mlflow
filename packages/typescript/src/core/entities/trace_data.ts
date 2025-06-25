@@ -38,7 +38,6 @@ export class TraceData {
   }
 }
 
-
 export interface SerializedTraceData {
   spans: SerializedSpan[];
 }

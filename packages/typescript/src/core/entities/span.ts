@@ -4,7 +4,7 @@ import {
   INVALID_TRACEID,
   SpanStatusCode as OTelSpanStatusCode
 } from '@opentelemetry/api';
-import type { Span as OTelSpan } from '@opentelemetry/sdk-trace-node';
+import type { Span as OTelSpan } from '@opentelemetry/sdk-trace-base';
 import { SpanAttributeKey, SpanType, NO_OP_SPAN_TRACE_ID } from '../constants';
 import { SpanEvent } from './span_event';
 import { SpanStatus, SpanStatusCode } from './span_status';
@@ -157,12 +157,14 @@ export class Span implements ISpan {
     return {
       trace_id: encodeTraceIdToBase64(this.traceId),
       span_id: encodeSpanIdToBase64(this.spanId),
-      parent_span_id: this.parentId ? encodeSpanIdToBase64(this.parentId) : null,
+      // Use empty string for parent_span_id if it is not set, to be consistent with Python implementation.
+      parent_span_id: this.parentId ? encodeSpanIdToBase64(this.parentId) : '',
       name: this.name,
       start_time_unix_nano: convertHrTimeToNanoSeconds(this.startTime),
       end_time_unix_nano: this.endTime ? convertHrTimeToNanoSeconds(this.endTime) : null,
       status: {
-        code: this.status?.statusCode || SpanStatusCode.UNSET
+        code: this.status?.statusCode || SpanStatusCode.UNSET,
+        message: this.status?.description
       },
       attributes: this.attributes || {},
       events: this.events.map((event) => ({
@@ -185,7 +187,10 @@ export class Span implements ISpan {
       name: json.name,
       startTime: convertNanoSecondsToHrTime(json.start_time_unix_nano),
       endTime: json.end_time_unix_nano ? convertNanoSecondsToHrTime(json.end_time_unix_nano) : null,
-      status: { code: convertStatusCodeToOTel(json.status.code) },
+      status: {
+        code: convertStatusCodeToOTel(json.status.code),
+        message: json.status.message
+      },
       // For fromJson, attributes are already in their final form (not JSON serialized)
       // so we store them directly
       attributes: json.attributes || {},
@@ -447,11 +452,11 @@ export class NoOpSpan implements ISpan {
     return {
       trace_id: NO_OP_SPAN_TRACE_ID,
       span_id: '',
-      parent_span_id: null,
+      parent_span_id: '',
       name: '',
       start_time_unix_nano: 0n,
       end_time_unix_nano: null,
-      status: { code: 'UNSET' },
+      status: { code: 'UNSET', message: '' },
       attributes: {},
       events: []
     };
@@ -461,12 +466,15 @@ export class NoOpSpan implements ISpan {
 export interface SerializedSpan {
   trace_id: string;
   span_id: string;
-  parent_span_id: string | null;
+  parent_span_id: string;
   name: string;
   // Use bigint for nanosecond timestamps to maintain precision
   start_time_unix_nano: bigint;
   end_time_unix_nano: bigint | null;
-  status: { code: string };
+  status: {
+    code: string;
+    message: string;
+  };
   attributes: Record<string, any>;
   events: {
     name: string;
