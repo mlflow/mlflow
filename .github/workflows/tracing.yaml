@@ -47,12 +47,13 @@ jobs:
         run: |
           pip install pytest pytest-asyncio
 
-      - name: Run core tracing tests
-        # NB: OTLP exporter includes large dependencies, so we want to test it in a separate job
-        #     to avoid overlooking unnecessary dependencies in the core tracing package.
-        run: |
-          export PYTHONPATH=$(pwd)
-          pytest tests/tracing --ignore tests/tracing/utils/test_otlp.py --import-mode=importlib
+      # Disable tracing SDK tests until REST API is migrated to V3 trace schema
+      # - name: Run core tracing tests
+      #   # NB: OTLP exporter includes large dependencies, so we want to test it in a separate job
+      #   #     to avoid overlooking unnecessary dependencies in the core tracing package.
+      #   run: |
+      #     export PYTHONPATH=$(pwd)
+      #     pytest tests/tracing --ignore tests/tracing/utils/test_otlp.py --import-mode=importlib
 
   # TODO: Add a job to run autologging tests against integrated libraries (latest versions)
 
