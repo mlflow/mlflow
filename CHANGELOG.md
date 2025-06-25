@@ -11,10 +11,10 @@ Features:
 
 Bug fixes:
 
-- [] Support downloading logged model artifacts (#16356, @TomeHirata)
+- [Artifacts] Support downloading logged model artifacts (#16356, @TomeHirata)
 - [Models] Fix bedrock provider, configured inference profile compatibility (#15604, @lloydhamilton)
 - [Tracking] Specify attribute.run_id when search_traces filters by run_id (#16295, @artjen)
-- [] Fix graphql batching attacks (#16227, @serena-ruan)
+- [Tracking] Fix graphql batching attacks (#16227, @serena-ruan)
 - [Model Registry] Make the chunk size configurable in DatabricksSDKModelsArtifactRepository (#16247, @TomeHirata)
 
 Documentation updates:
