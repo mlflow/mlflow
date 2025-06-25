@@ -4308,7 +4308,7 @@ def _create_trace(
         tags=tags or {},
         trace_metadata=trace_metadata or {},
     )
-    return store.start_trace(trace_info)
+    return store.start_trace_v3(trace_info)
 
 
 @pytest.fixture

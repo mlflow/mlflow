@@ -126,7 +126,7 @@ def generate_trace_infos(store):
             tags={TraceTagKey.TRACE_NAME: f"trace_{i}", "test_tag": f"tag_{i}"},
             trace_metadata=metadata,
         )
-        trace_info = store.start_trace(trace_info)
+        trace_info = store.start_trace_v3(trace_info)
         trace_infos.append(trace_info)
         trace_ids.append(trace_info.trace_id)
     return TraceInfos(trace_infos, store, exp_id, trace_ids, timestamps)
@@ -3033,7 +3033,7 @@ def test_start_trace(store):
         request_preview=None,
         response_preview=None,
     )
-    new_trace_info = store.start_trace(trace_info)
+    new_trace_info = store.start_trace_v3(trace_info)
 
     assert new_trace_info.trace_id == trace_info.trace_id
     assert new_trace_info.experiment_id == exp_id
@@ -3118,7 +3118,7 @@ def test_delete_traces(store):
             request_time=timestamps[i],
             state=TraceState.OK,
         )
-        trace_info = store.start_trace(trace_info)
+        trace_info = store.start_trace_v3(trace_info)
         trace_ids.append(trace_info.trace_id)
 
     # delete with max_timestamp_millis

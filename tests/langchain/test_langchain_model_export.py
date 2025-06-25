@@ -3708,6 +3708,6 @@ def test_predict_with_callbacks_with_tracing(monkeypatch):
         )
         mlflow.flush_trace_async_logging()
         mock_start_trace.assert_called_once()
-        trace = mock_start_trace.call_args[0][0]
-        assert trace.info.client_request_id == request_id
-        assert trace.info.request_metadata[TraceMetadataKey.MODEL_ID] == model_info.model_id
+        trace_info = mock_start_trace.call_args[0][0]
+        assert trace_info.client_request_id == request_id
+        assert trace_info.request_metadata[TraceMetadataKey.MODEL_ID] == model_info.model_id
