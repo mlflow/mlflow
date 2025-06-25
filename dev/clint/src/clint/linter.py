@@ -720,7 +720,7 @@ class Linter(ast.NodeVisitor):
             self._check(Location.from_node(node), rules.OsEnvironDeleteInTest())
         self.generic_visit(node)
 
-    def visit_type_annotation(self, node: ast.AST) -> None:
+    def visit_type_annotation(self, node: ast.expr) -> None:
         visitor = TypeAnnotationVisitor(self)
         visitor.visit(node)
 
