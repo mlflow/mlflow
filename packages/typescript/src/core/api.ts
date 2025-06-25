@@ -36,10 +36,9 @@ export function startSpan(options: SpanOptions): LiveSpan {
     const tracer = getTracer('default');
 
     // If parent is provided, use it as the parent spanAdd commentMore actions
-    let parentContext = context.active();
-    if (options.parent) {
-      parentContext = trace.setSpan(parentContext, options.parent._span);
-    }
+    const parentContext = options.parent
+      ? trace.setSpan(context.active(), options.parent._span)
+      : context.active();
 
     // Convert startTimeNs to OTel format
     const startTime = options.startTimeNs

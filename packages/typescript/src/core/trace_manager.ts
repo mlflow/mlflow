@@ -21,12 +21,8 @@ class _Trace {
    * Convert the internal trace representation to an MLflow Trace object
    */
   toMlflowTrace(): Trace {
-    const traceData = new TraceData();
-
     // Convert LiveSpan, mutable objects, into immutable Span objects before persisting
-    for (const span of this.spanDict.values()) {
-      traceData.spans.push(span as Span);
-    }
+    const traceData = new TraceData([...this.spanDict.values()] as Span[]);
 
     const root_span = traceData.spans.find((span) => span.parentId == null);
     if (root_span) {
@@ -45,7 +41,7 @@ class _Trace {
  * This class is implemented as a singleton.
  */
 export class InMemoryTraceManager {
-  private static _instance: InMemoryTraceManager | null = null;
+  private static _instance: InMemoryTraceManager | undefined;
 
   // In-memory cache to store trace_id -> _Trace mapping
   // TODO: Add TTL to the trace buffer similarly to Python SDK
@@ -138,7 +134,7 @@ export class InMemoryTraceManager {
     if (InMemoryTraceManager._instance) {
       InMemoryTraceManager._instance._traces.clear();
       InMemoryTraceManager._instance._otelIdToMlflowTraceId.clear();
-      InMemoryTraceManager._instance = null;
+      InMemoryTraceManager._instance = undefined;
     }
   }
 }

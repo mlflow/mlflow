@@ -10,6 +10,8 @@ import { SpanStatus as OTelStatus, SpanStatusCode as OTelSpanStatusCode } from '
 /**
  * Enum for status code of a span
  * Uses the same set of status codes as OTLP SpanStatusCode
+ * https://github.com/open-telemetry/opentelemetry-proto/blob/189b2648d29aa6039aeb2
+lemetry/proto/trace/v1/trace.proto#L314-L322
  */
 export enum SpanStatusCode {
   /** Status is unset/unspecified */
