@@ -1919,12 +1919,11 @@ class FileStore(AbstractStore):
 
         return self._load_assessment(trace_id, assessment_id)
 
-    def create_assessment(self, trace_id: str, assessment: Assessment) -> Assessment:
+    def create_assessment(self, assessment: Assessment) -> Assessment:
         """
         Creates a new assessment record associated with a specific trace.
 
         Args:
-            trace_id: The unique identifier of the trace.
             assessment: The assessment object to create. The assessment will be modified
                     in-place to include the generated assessment_id and timestamps.
 
@@ -1934,13 +1933,6 @@ class FileStore(AbstractStore):
         Raises:
             MlflowException: If the trace doesn't exist or there's an error saving the assessment.
         """
-        if assessment.trace_id and assessment.trace_id != trace_id:
-            raise MlflowException.invalid_parameter_value(
-                f"Assessment trace_id '{assessment.trace_id}' does not match provided "
-                "trace_id '{trace_id}'"
-            )
-
-        assessment.trace_id = trace_id
 
         assessment_id = generate_assessment_id()
         creation_timestamp = int(time.time() * 1000)
@@ -1951,7 +1943,7 @@ class FileStore(AbstractStore):
         assessment.valid = True
 
         if assessment.overrides:
-            original_assessment = self.get_assessment(trace_id, assessment.overrides)
+            original_assessment = self.get_assessment(assessment.trace_id, assessment.overrides)
             original_assessment.valid = False
             self._save_assessment(original_assessment)
 

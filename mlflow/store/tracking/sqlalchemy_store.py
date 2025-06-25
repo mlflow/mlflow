@@ -2398,7 +2398,7 @@ class SqlAlchemyStore(AbstractStore):
                 .delete(synchronize_session="fetch")
             )
 
-    def create_assessment(self, trace_id: str, assessment: Assessment) -> Assessment:
+    def create_assessment(self, assessment: Assessment) -> Assessment:
         """
         Create a new assessment in the database.
 
@@ -2406,19 +2406,11 @@ class SqlAlchemyStore(AbstractStore):
         overridden assessment as invalid.
 
         Args:
-            trace_id: The unique identifier of the trace.
             assessment: The Assessment object to create (without assessment_id).
 
         Returns:
             The created Assessment object with backend-generated metadata.
         """
-        if assessment.trace_id and assessment.trace_id != trace_id:
-            raise MlflowException.invalid_parameter_value(
-                f"Assessment trace_id '{assessment.trace_id}' does not match "
-                "provided trace_id '{trace_id}'"
-            )
-
-        assessment.trace_id = trace_id
 
         with self.ManagedSessionMaker() as session:
             self._get_sql_trace_info(session, assessment.trace_id)
@@ -2435,7 +2427,7 @@ class SqlAlchemyStore(AbstractStore):
                 update_count = (
                     session.query(SqlAssessments)
                     .filter(
-                        SqlAssessments.trace_id == trace_id,
+                        SqlAssessments.trace_id == assessment.trace_id,
                         SqlAssessments.assessment_id == assessment.overrides,
                     )
                     .update({"valid": False})
