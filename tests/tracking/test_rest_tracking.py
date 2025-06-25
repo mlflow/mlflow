@@ -2866,43 +2866,35 @@ def test_assessments_end_to_end(mlflow_client):
     """Test complete assessment CRUD workflow using REST API."""
     # Set up experiment and trace
     experiment_id = mlflow_client.create_experiment("assessment_crud_test")
-    trace_info = mlflow_client.start_trace(
-        name="test_trace", 
-        experiment_id=experiment_id
-    )
+    trace_info = mlflow_client.start_trace(name="test_trace", experiment_id=experiment_id)
     mlflow_client.end_trace(request_id=trace_info.request_id)
-    
+
     # CREATE initial feedback assessment
     feedback_payload = {
         "assessment": {
             "assessment_name": "quality_score",
-            "feedback": {
-                "value": {"rating": 4, "comments": "Good response"}
-            },
-            "source": {
-                "source_type": "HUMAN",
-                "source_id": "evaluator@company.com"
-            },
+            "feedback": {"value": {"rating": 4, "comments": "Good response"}},
+            "source": {"source_type": "HUMAN", "source_id": "evaluator@company.com"},
             "rationale": "Response was accurate and helpful",
-            "metadata": {"model": "gpt-4", "version": "1.0"}
+            "metadata": {"model": "gpt-4", "version": "1.0"},
         }
     }
-    
+
     # CREATE assessment
     create_response = requests.post(
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/traces/{trace_info.request_id}/assessments",
-        json=feedback_payload
+        json=feedback_payload,
     )
     assert create_response.status_code == 200
     assessment = create_response.json()["assessment"]
     assessment_id = assessment["assessment_id"]
-    
+
     # Verify creation
     assert assessment["assessment_name"] == "quality_score"
     assert assessment["feedback"]["value"]["rating"] == 4
     assert assessment["source"]["source_type"] == "HUMAN"
     assert assessment["valid"] is True
-    
+
     # GET assessment
     get_response = requests.get(
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/traces/{trace_info.request_id}/assessments/{assessment_id}"
@@ -2911,62 +2903,55 @@ def test_assessments_end_to_end(mlflow_client):
     retrieved = get_response.json()["assessment"]
     assert retrieved["assessment_id"] == assessment_id
     assert retrieved["feedback"]["value"]["rating"] == 4
-    
+
     # UPDATE assessment
     update_payload = {
         "assessment": {
             "assessment_id": assessment_id,
             "trace_id": trace_info.request_id,
             "assessment_name": "updated_quality_score",
-            "feedback": {
-                "value": {"rating": 5, "comments": "Excellent response"}
-            },
+            "feedback": {"value": {"rating": 5, "comments": "Excellent response"}},
             "rationale": "Actually, the response was excellent",
-            "metadata": {"model": "gpt-4", "version": "2.0"}
+            "metadata": {"model": "gpt-4", "version": "2.0"},
         },
-        "update_mask": "assessmentName,feedback,rationale,metadata"
+        "update_mask": "assessmentName,feedback,rationale,metadata",
     }
-    
+
     update_response = requests.patch(
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/traces/{trace_info.request_id}/assessments/{assessment_id}",
-        json=update_payload
+        json=update_payload,
     )
     assert update_response.status_code == 200
     updated = update_response.json()["assessment"]
     assert updated["assessment_name"] == "updated_quality_score"
     assert updated["feedback"]["value"]["rating"] == 5
     assert updated["rationale"] == "Actually, the response was excellent"
-    
+
     # CREATE override assessment
     override_payload = {
         "assessment": {
             "assessment_name": "corrected_quality_score",
-            "feedback": {
-                "value": {"rating": 3, "comments": "Actually needs improvement"}
-            },
-            "source": {
-                "source_type": "HUMAN", 
-                "source_id": "senior_evaluator@company.com"
-            },
-            "overrides": assessment_id
+            "feedback": {"value": {"rating": 3, "comments": "Actually needs improvement"}},
+            "source": {"source_type": "HUMAN", "source_id": "senior_evaluator@company.com"},
+            "overrides": assessment_id,
         }
     }
-    
+
     override_response = requests.post(
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/traces/{trace_info.request_id}/assessments",
-        json=override_payload
+        json=override_payload,
     )
     assert override_response.status_code == 200
     override_assessment = override_response.json()["assessment"]
     override_id = override_assessment["assessment_id"]
-    
+
     # Verify original is now invalid
     get_original = requests.get(
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/traces/{trace_info.request_id}/assessments/{assessment_id}"
     )
     assert get_original.status_code == 200
     assert get_original.json()["assessment"]["valid"] is False
-    
+
     # Verify override is valid
     get_override = requests.get(
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/traces/{trace_info.request_id}/assessments/{override_id}"
@@ -2974,52 +2959,50 @@ def test_assessments_end_to_end(mlflow_client):
     assert get_override.status_code == 200
     assert get_override.json()["assessment"]["valid"] is True
     assert get_override.json()["assessment"]["overrides"] == assessment_id
-    
+
     # DELETE override assessment (should restore original)
     delete_response = requests.delete(
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/traces/{trace_info.request_id}/assessments/{override_id}"
     )
     assert delete_response.status_code == 200
-    
+
     # Verify override is deleted
     get_deleted = requests.get(
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/traces/{trace_info.request_id}/assessments/{override_id}"
     )
     assert get_deleted.status_code == 404
-    
+
     # Verify original is restored to valid
     get_restored = requests.get(
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/traces/{trace_info.request_id}/assessments/{assessment_id}"
     )
     assert get_restored.status_code == 200
     assert get_restored.json()["assessment"]["valid"] is True
-    
+
     # CREATE expectation assessment to test different type
     expectation_payload = {
         "assessment": {
             "assessment_name": "response_time_check",
-            "expectation": {
-                "value": {"threshold_ms": 1000, "actual_ms": 750, "passed": True}
-            },
-            "source": {
-                "source_type": "CODE",
-                "source_id": "automated_test"
-            }
+            "expectation": {"value": {"threshold_ms": 1000, "actual_ms": 750, "passed": True}},
+            "source": {"source_type": "CODE", "source_id": "automated_test"},
         }
     }
-    
+
     expectation_response = requests.post(
         f"{mlflow_client.tracking_uri}/api/2.0/mlflow/traces/{trace_info.request_id}/assessments",
-        json=expectation_payload
+        json=expectation_payload,
     )
     assert expectation_response.status_code == 200
     expectation = expectation_response.json()["assessment"]
     expectation_id = expectation["assessment_id"]
-    
+
     # Verify expectation was created correctly
-    assert expectation["expectation"]["value"]["passed"] is True
+    expectation_value = json.loads(expectation["expectation"]["serialized_value"]["value"])
+    assert expectation_value["passed"] is True
+    assert expectation_value["threshold_ms"] == 1000
+    assert expectation_value["actual_ms"] == 750
     assert expectation["source"]["source_type"] == "CODE"
-    
+
     # Clean up - delete remaining assessments
     for aid in [assessment_id, expectation_id]:
         delete_resp = requests.delete(

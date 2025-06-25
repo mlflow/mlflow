@@ -1879,27 +1879,6 @@ class FileStore(AbstractStore):
                 INTERNAL_ERROR,
             ) from e
 
-    def _delete_assessment(self, trace_id: str, assessment_id: str) -> None:
-        assessment_path = self._get_assessment_path(trace_id, assessment_id)
-
-        # Idempotent
-        if not exists(assessment_path):
-            return
-
-        try:
-            os.remove(assessment_path)
-
-            # Clean up empty assessments directory if no more assessments exist
-            assessments_dir = self._get_assessments_dir(trace_id)
-            if exists(assessments_dir) and not os.listdir(assessments_dir):
-                os.rmdir(assessments_dir)
-        except OSError as e:
-            raise MlflowException(
-                f"Failed to delete assessment with ID '{assessment_id}'"
-                " for trace '{trace_id}': {e}",
-                INTERNAL_ERROR,
-            ) from e
-
     def get_assessment(self, trace_id: str, assessment_id: str) -> Assessment:
         """
         Retrieves a specific assessment associated with a trace from the file store.
@@ -2055,20 +2034,60 @@ class FileStore(AbstractStore):
 
     def delete_assessment(self, trace_id: str, assessment_id: str) -> None:
         """
-        Deletes an assessment from a trace by removing its file.
+        Delete an assessment from a trace.
 
-        This method removes an assessment from storage by:
-        1. Validating the trace exists
-        2. Removing the assessment file from the assessments directory
+        If the deleted assessment was overriding another assessment, the overridden
+        assessment will be restored to valid=True.
 
         Args:
-            trace_id: The unique identifier of the trace containing the assessment.
-            assessment_id: The unique identifier of the assessment to delete.
+            trace_id: The ID of the trace containing the assessment.
+            assessment_id: The ID of the assessment to delete.
 
         Raises:
-            MlflowException: If the trace_id is not found or if the assessment doesn't exist.
+            MlflowException: If the trace_id is not found or deletion fails.
         """
-        self._delete_assessment(trace_id, assessment_id)
+        # First validate that the trace exists (this will raise if trace not found)
+        self._find_trace_dir(trace_id, assert_exists=True)
+
+        assessment_path = self._get_assessment_path(trace_id, assessment_id)
+
+        # Early return if assessment doesn't exist (idempotent behavior)
+        if not exists(assessment_path):
+            return
+
+        # Get override info before deletion
+        overrides_assessment_id = None
+        try:
+            assessment_to_delete = self._load_assessment(trace_id, assessment_id)
+            overrides_assessment_id = assessment_to_delete.overrides
+        except Exception:
+            pass
+
+        assessment_path = self._get_assessment_path(trace_id, assessment_id)
+        try:
+            os.remove(assessment_path)
+
+            # Clean up empty assessments directory if no more assessments exist
+            assessments_dir = self._get_assessments_dir(trace_id)
+            if exists(assessments_dir) and not os.listdir(assessments_dir):
+                os.rmdir(assessments_dir)
+
+        except OSError as e:
+            raise MlflowException(
+                f"Failed to delete assessment with ID '{assessment_id}' "
+                f"for trace '{trace_id}': {e}",
+                INTERNAL_ERROR,
+            ) from e
+
+        # If this assessment was overriding another assessment, restore the original
+        if overrides_assessment_id:
+            try:
+                original_assessment = self.get_assessment(trace_id, overrides_assessment_id)
+                original_assessment.valid = True
+                original_assessment.last_update_time_ms = int(time.time() * 1000)
+                self._save_assessment(original_assessment)
+            except MlflowException:
+                pass
 
     def _delete_traces(
         self,

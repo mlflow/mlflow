@@ -18,11 +18,6 @@ from sqlalchemy.future import select
 import mlflow.store.db.utils
 from mlflow.entities import (
     Assessment,
-<<<<<<< HEAD
-    AssessmentError,
-    AssessmentSource,
-=======
->>>>>>> assessments
     DatasetInput,
     Expectation,
     Experiment,
