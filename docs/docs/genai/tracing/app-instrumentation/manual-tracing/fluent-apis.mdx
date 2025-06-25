@@ -6,7 +6,6 @@ import { APILink } from "@site/src/components/APILink";
 
 In addition to the [Auto Tracing](/genai/tracing/app-instrumentation/automatic) integrations, you can instrument your Python code using MLflow's manual tracing APIs. This is especially useful when you need to instrument your custom Python code.
 
-
 ## Decorator
 
 The <APILink fn="mlflow.trace" /> decorator allows you to create a span for any function. This approach provides a simple yet effective way to add tracing to your code with minimal effort:
@@ -494,16 +493,19 @@ asyncio.run(async_pipeline(["item1", "item2", "item3"]))
 For advanced scenarios requiring complete control over trace lifecycle, MLflow provides low-level client APIs. These are recommended only when decorators and context managers don't meet your requirements.
 
 **Use client APIs for:**
+
 - 👨‍💼 Manual parent-child relationship control
 - 🛠️ Precise control of span start and end points
 
 **⚠️ Important Limitations:**
+
 - ❌ No automatic parent-child relationship detection
 - 🛠️ Manual exception handling required
 - 🚫 Incompatible with auto-tracing integrations
 - 📋 Requires explicit span lifecycle management
 
 **Basic Example:**
+
 ```python
 from mlflow import MlflowClient
 
@@ -547,6 +549,7 @@ finally:
 ```
 
 **When to Use Different Approaches:**
+
 - 🎯 **Decorators**: Simple function tracing, most common use case
 - 📦 **Context Managers**: Complex code blocks, manual input/output control
 - 🔧 **Client APIs**: Custom trace IDs, distributed tracing, existing system integration

@@ -43,12 +43,15 @@ graph TD
 ## The Experiment as Organizational Foundation
 
 ### 🎯 Single Application Focus
+
 Each Experiment represents one distinct GenAI application or service. Whether you're building a chatbot, document summarizer, or code assistant, all related work happens within a single Experiment container.
 
 ### 🔗 Unified Entity Management
+
 All MLflow entities associated with your GenAI application automatically inherit the Experiment context, creating natural relationships and enabling cross-entity analysis.
 
 ### 📊 Lifecycle Continuity
+
 From development through production, your Experiment maintains continuity across all phases of your application lifecycle.
 
 ## GenAI Entities Within Experiments
@@ -91,6 +94,7 @@ graph TB
 ```
 
 **Relationship to Experiment:**
+
 - All traces belong to exactly one Experiment
 - Traces inherit Experiment-level context and settings
 - Cross-trace analysis happens within the Experiment scope
@@ -131,6 +135,7 @@ graph TB
 ```
 
 **Relationship to Experiment:**
+
 - Models are registered within specific Experiments
 - Model versions track evolution of your GenAI application
 - Traces reference specific model versions for reproducibility
@@ -173,6 +178,7 @@ graph TB
 ```
 
 **Relationship to Experiment:**
+
 - Datasets are scoped to specific Experiments
 - Enable consistent evaluation across model versions
 - Support systematic testing and validation workflows
@@ -214,6 +220,7 @@ graph LR
 ```
 
 **Relationship to Experiment:**
+
 - Evaluation Runs belong to specific Experiments
 - Generate new Traces that become part of the Experiment
 - Enable systematic comparison across models and versions
@@ -254,6 +261,7 @@ graph TB
 ```
 
 **Relationship to Experiment:**
+
 - Assessments are attached to Traces within the Experiment
 - Enable quality tracking across application versions
 - Support data-driven improvement decisions
@@ -295,6 +303,7 @@ graph LR
 ```
 
 **Relationship to Experiment:**
+
 - Labeling Sessions operate on Traces within the Experiment
 - Generate Assessments that enrich the Experiment data
 - Enable expert validation of automated evaluations
@@ -359,21 +368,25 @@ graph TD
 ## Benefits of Experiment-Centric Organization
 
 #### 🎯 Unified Context
+
 - All related entities share common metadata and settings
 - Cross-entity analysis happens naturally within the Experiment scope
 - Consistent organization across development and production
 
 #### 📊 Comprehensive Tracking
+
 - Complete application lifecycle visibility in one location
 - Historical continuity from initial development through production
 - Version comparison and evolution tracking
 
 #### 🔄 Streamlined Workflows
+
 - Natural integration between development, testing, and production
 - Automated relationship management between entities
 - Simplified navigation and discovery of related components
 
 #### 📈 Data-Driven Insights
+
 - Holistic view of application performance and quality
 - Systematic comparison across models, versions, and deployments
 - Foundation for continuous improvement processes
@@ -381,16 +394,19 @@ graph TD
 ## Experiment Management Best Practices
 
 #### 🏗️ Organizational Structure
+
 - **One Experiment per GenAI application**: Maintain clear boundaries between different applications
 - **Descriptive naming**: Use clear, consistent naming conventions for Experiments
 - **Metadata consistency**: Apply consistent tagging and organization patterns
 
 #### 📊 Data Management
+
 - **Trace organization**: Use consistent tagging for effective filtering and analysis
 - **Dataset curation**: Maintain high-quality evaluation datasets within each Experiment
 - **Assessment strategy**: Implement systematic quality measurement approaches
 
 #### 🔄 Workflow Integration
+
 - **CI/CD integration**: Connect deployment pipelines to Experiment tracking
 - **Automated evaluation**: Set up systematic testing using Evaluation Runs
 - **Continuous monitoring**: Implement ongoing assessment of production performance

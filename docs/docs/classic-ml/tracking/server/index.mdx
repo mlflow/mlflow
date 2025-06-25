@@ -72,6 +72,7 @@ then make API requests to your remote tracking server.
         mlflow.log_param("a", 1)
         mlflow.log_metric("b", 2)
     ```
+
   </TabItem>
   <TabItem label="R" value="r">
     ```r
@@ -96,6 +97,7 @@ then make API requests to your remote tracking server.
     val run = client.createRun(experimentId)
     client.logParam(run.getRunId(), "a", "1")
     ```
+
   </TabItem>
 </Tabs>
 
@@ -322,19 +324,22 @@ mlflow server --host 0.0.0.0 --port 5000
 ```
 
 This pattern would allow sources like:
+
 - `s3://production-models/model-v1/`
 - `s3://staging-models/experiment-123/model/`
 
 But reject sources like:
+
 - `s3://untrusted-bucket/model/`
 - `file:///local/path/model`
 
 :::note
+
 - If the environment variable is not set, no source validation is performed.
 - The validation only applies to the `/mlflow/model-versions/create` API endpoint.
 - The regular expression is applied using Python's `re.search()` function.
 - Use standard regular expression syntax for pattern matching.
-:::
+  :::
 
 ## Handling timeout when uploading/downloading large artifacts
 
@@ -379,8 +384,7 @@ Tracking server logs:
 [2025-01-10 11:59:01 +0000] [179] [INFO] Booting worker with pid: 179
 ```
 
-To mitigate this issue, the timeout length can be increased by using the ``--gunicorn-opts`` option when starting the server as shown below:
-
+To mitigate this issue, the timeout length can be increased by using the `--gunicorn-opts` option when starting the server as shown below:
 
 ```bash
 mlflow server --gunicorn-opts "--timeout=60" ...

@@ -38,7 +38,6 @@ MLflow supports automatic tracing for the following Amazon Bedrock APIs:
 - [invoke_model](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-runtime/client/invoke_model.html)
 - [invoke_model_with_response_stream](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-runtime/client/invoke_model_stream.html)
 
-
 ## Basic Example
 
 ```python
@@ -71,7 +70,6 @@ response = bedrock.converse(
 ```
 
 The logged trace, associated with the `Bedrock` experiment, can be seen in the MLflow UI.
-
 
 ## Raw Inputs and Outputs
 
@@ -214,9 +212,7 @@ answer = run_tool_agent(question)
 
 Executing the code above will create a single trace that involves all LLM invocations and the tool calls.
 
-
 ![Bedrock DIY Agent Tracing](/images/llms/tracing/bedrock-tracing-agent.png)
-
 
 ## Disable auto-tracing
 

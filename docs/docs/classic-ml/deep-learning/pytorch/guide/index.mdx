@@ -7,17 +7,19 @@ import { APILink } from "@site/src/components/APILink";
 <details>
   <summary>Why PyTorch is a Researcher's Favorite</summary>
 
-  #### Dynamic Computation Design
-  - 🔄 **Dynamic Computation Graphs**: Build and modify neural networks on-the-fly
-  - 🐞 **Intuitive Debugging**: Step through code execution like normal Python code
-  - 🔬 **Research-First Philosophy**: Designed with experimentation and rapid prototyping in mind
-  - 🧩 **Pythonic Interface**: Feels natural and familiar to Python developers
+#### Dynamic Computation Design
 
-  #### Powerful Ecosystem
-  - 🛠️ **Rich Library Support**: From computer vision (torchvision) to NLP (transformers)
-  - 🚀 **Optimized Performance**: C++ backend with CUDA support for GPU acceleration
-  - 👥 **Vibrant Community**: Extensive documentation, tutorials, and pre-trained models
-  - 🏢 **Industry Adoption**: Widely used in both academic research and production environments
+- 🔄 **Dynamic Computation Graphs**: Build and modify neural networks on-the-fly
+- 🐞 **Intuitive Debugging**: Step through code execution like normal Python code
+- 🔬 **Research-First Philosophy**: Designed with experimentation and rapid prototyping in mind
+- 🧩 **Pythonic Interface**: Feels natural and familiar to Python developers
+
+#### Powerful Ecosystem
+
+- 🛠️ **Rich Library Support**: From computer vision (torchvision) to NLP (transformers)
+- 🚀 **Optimized Performance**: C++ backend with CUDA support for GPU acceleration
+- 👥 **Vibrant Community**: Extensive documentation, tutorials, and pre-trained models
+- 🏢 **Industry Adoption**: Widely used in both academic research and production environments
 
 </details>
 
@@ -41,27 +43,29 @@ Unlike other deep learning frameworks, MLflow doesn't provide automatic logging 
 <details>
   <summary>Alternative: PyTorch Lightning Autologging</summary>
 
-  If you want to use autologging with PyTorch, [Lightning](https://lightning.ai) provides a structured framework that works seamlessly with MLflow's autologging capabilities:
+If you want to use autologging with PyTorch, [Lightning](https://lightning.ai) provides a structured framework that works seamlessly with MLflow's autologging capabilities:
 
-  ```python
-  import mlflow
-  import pytorch_lightning as pl
+```python
+import mlflow
+import pytorch_lightning as pl
 
-  # Enable autologging with Lightning
-  mlflow.pytorch.autolog()
+# Enable autologging with Lightning
+mlflow.pytorch.autolog()
 
-  # Define your Lightning module and train as usual
-  trainer = pl.Trainer(max_epochs=10)
-  trainer.fit(model, train_dataloader, val_dataloader)
-  ```
+# Define your Lightning module and train as usual
+trainer = pl.Trainer(max_epochs=10)
+trainer.fit(model, train_dataloader, val_dataloader)
+```
 
-  With Lightning + MLflow, you get:
-  - 🔄 **Automatic Metric Logging**: Training/validation metrics captured at each epoch
-  - ⚙️ **Hyperparameter Tracking**: Model parameters and training configuration logged automatically
-  - 📦 **Model Checkpointing**: Best models saved and logged to MLflow
-  - 📊 **TensorBoard Integration**: TensorBoard logs accessible through MLflow
+With Lightning + MLflow, you get:
 
-  For more details on Lightning integration, refer to the MLflow Lightning Developer Guide.
+- 🔄 **Automatic Metric Logging**: Training/validation metrics captured at each epoch
+- ⚙️ **Hyperparameter Tracking**: Model parameters and training configuration logged automatically
+- 📦 **Model Checkpointing**: Best models saved and logged to MLflow
+- 📊 **TensorBoard Integration**: TensorBoard logs accessible through MLflow
+
+For more details on Lightning integration, refer to the MLflow Lightning Developer Guide.
+
 </details>
 
 ### Manually Logging PyTorch Experiments
@@ -76,20 +80,23 @@ For standard PyTorch workflows, you can easily integrate MLflow logging into you
 <details>
   <summary>Best Practices for PyTorch Logging</summary>
 
-  #### Initialization Phase
-  - 📋 **Log Configuration Parameters**: Use <APILink fn="mlflow.log_params" /> at the beginning of training to record learning rate, batch size, optimizer configuration, etc.
-  - 🏗️ **Log Model Architecture**: Use `torchinfo` to generate a model summary and log it via <APILink fn="mlflow.log_artifact" />
-  - ⚙️ **Log Dependencies**: Record PyTorch version and key packages to ensure reproducibility
+#### Initialization Phase
 
-  #### Training Phase
-  - 📊 **Batch vs. Epoch Logging**: For long epochs, log key metrics every N batches; otherwise, log per epoch
-  - 📈 **Use Batched Logging**: Prefer <APILink fn="mlflow.log_metrics" /> over multiple <APILink fn="mlflow.log_metric" /> calls for better performance
-  - 🔄 **Track Training Dynamics**: Log not just final metrics but their evolution throughout training
+- 📋 **Log Configuration Parameters**: Use <APILink fn="mlflow.log_params" /> at the beginning of training to record learning rate, batch size, optimizer configuration, etc.
+- 🏗️ **Log Model Architecture**: Use `torchinfo` to generate a model summary and log it via <APILink fn="mlflow.log_artifact" />
+- ⚙️ **Log Dependencies**: Record PyTorch version and key packages to ensure reproducibility
 
-  #### Finalization Phase
-  - 💾 **Save Final Model**: Use <APILink fn="mlflow.pytorch.log_model" /> to save the trained model
-  - 📊 **Log Performance Visualizations**: Create and save plots of training curves, confusion matrices, etc.
-  - 📝 **Add Model Signature**: Include input/output signatures for better model understanding
+#### Training Phase
+
+- 📊 **Batch vs. Epoch Logging**: For long epochs, log key metrics every N batches; otherwise, log per epoch
+- 📈 **Use Batched Logging**: Prefer <APILink fn="mlflow.log_metrics" /> over multiple <APILink fn="mlflow.log_metric" /> calls for better performance
+- 🔄 **Track Training Dynamics**: Log not just final metrics but their evolution throughout training
+
+#### Finalization Phase
+
+- 💾 **Save Final Model**: Use <APILink fn="mlflow.pytorch.log_model" /> to save the trained model
+- 📊 **Log Performance Visualizations**: Create and save plots of training curves, confusion matrices, etc.
+- 📝 **Add Model Signature**: Include input/output signatures for better model understanding
 
 </details>
 
@@ -326,23 +333,25 @@ print("Predictions:", predictions)
 <details>
   <summary>TorchScript Compatibility</summary>
 
-  MLflow seamlessly works with TorchScript, which can optimize your models for production:
+MLflow seamlessly works with TorchScript, which can optimize your models for production:
 
-  ```python
-  # Create a scripted version of your model
-  scripted_model = torch.jit.script(model)
+```python
+# Create a scripted version of your model
+scripted_model = torch.jit.script(model)
 
-  # Log the scripted model to MLflow
-  model_info = mlflow.pytorch.log_model(scripted_model, name="scripted_model")
+# Log the scripted model to MLflow
+model_info = mlflow.pytorch.log_model(scripted_model, name="scripted_model")
 
-  # The logged model will contain the compiled graph
-  ```
+# The logged model will contain the compiled graph
+```
 
-  Benefits of using TorchScript with MLflow:
-  - ⚡ **Performance Optimization**: Compiled graphs for faster inference
-  - 🔒 **Deployment Security**: Protected model architecture for secure deployment
-  - 🌉 **Language Interoperability**: Use models in C++ environments
-  - 📱 **Mobile Deployment**: Optimized for resource-constrained devices
+Benefits of using TorchScript with MLflow:
+
+- ⚡ **Performance Optimization**: Compiled graphs for faster inference
+- 🔒 **Deployment Security**: Protected model architecture for secure deployment
+- 🌉 **Language Interoperability**: Use models in C++ environments
+- 📱 **Mobile Deployment**: Optimized for resource-constrained devices
+
 </details>
 
 You can view the saved model in the MLflow UI:
@@ -389,28 +398,29 @@ The signature will appear in the MLflow UI:
 <details>
   <summary>Manual Signature Definition</summary>
 
-  For complete control over your model signature, you can manually define the input and output schemas:
+For complete control over your model signature, you can manually define the input and output schemas:
 
-  ```python
-  import mlflow
-  import numpy as np
-  from mlflow.types import Schema, TensorSpec
-  from mlflow.models import ModelSignature
+```python
+import mlflow
+import numpy as np
+from mlflow.types import Schema, TensorSpec
+from mlflow.models import ModelSignature
 
-  # Manually define input and output schemas
-  input_schema = Schema([TensorSpec(np.dtype(np.float32), (-1, 28, 28))])
-  output_schema = Schema([TensorSpec(np.dtype(np.float32), (-1, 10))])
-  signature = ModelSignature(inputs=input_schema, outputs=output_schema)
+# Manually define input and output schemas
+input_schema = Schema([TensorSpec(np.dtype(np.float32), (-1, 28, 28))])
+output_schema = Schema([TensorSpec(np.dtype(np.float32), (-1, 10))])
+signature = ModelSignature(inputs=input_schema, outputs=output_schema)
 
-  # Log model with signature
-  model_info = mlflow.pytorch.log_model(model, name="model", signature=signature)
-  ```
+# Log model with signature
+model_info = mlflow.pytorch.log_model(model, name="model", signature=signature)
+```
 
-  Manual definition is useful when:
-  - You need precise control over tensor specifications
-  - Working with complex input/output structures
-  - The automatic inference doesn't capture your intended schema
-  - You want to specify exact data types and shapes upfront
+Manual definition is useful when:
+
+- You need precise control over tensor specifications
+- Working with complex input/output structures
+- The automatic inference doesn't capture your intended schema
+- You want to specify exact data types and shapes upfront
 
 </details>
 
@@ -423,143 +433,144 @@ For more sophisticated tracking, you can implement custom callbacks and visualiz
 <details>
   <summary>Comprehensive Tracking with Visualizations</summary>
 
-  ```python
-  import mlflow
-  import torch
-  import matplotlib.pyplot as plt
-  import seaborn as sns
-  import numpy as np
-  from sklearn.metrics import confusion_matrix
+```python
+import mlflow
+import torch
+import matplotlib.pyplot as plt
+import seaborn as sns
+import numpy as np
+from sklearn.metrics import confusion_matrix
 
 
-  class MLflowTracker:
-      def __init__(self, model, classes):
-          self.model = model
-          self.classes = classes
-          self.train_losses = []
-          self.val_losses = []
-          self.train_accs = []
-          self.val_accs = []
+class MLflowTracker:
+    def __init__(self, model, classes):
+        self.model = model
+        self.classes = classes
+        self.train_losses = []
+        self.val_losses = []
+        self.train_accs = []
+        self.val_accs = []
 
-      def log_epoch(self, epoch, train_loss, train_acc, val_loss, val_acc):
-          """Log metrics for an epoch."""
-          self.train_losses.append(train_loss)
-          self.val_losses.append(val_loss)
-          self.train_accs.append(train_acc)
-          self.val_accs.append(val_acc)
+    def log_epoch(self, epoch, train_loss, train_acc, val_loss, val_acc):
+        """Log metrics for an epoch."""
+        self.train_losses.append(train_loss)
+        self.val_losses.append(val_loss)
+        self.train_accs.append(train_acc)
+        self.val_accs.append(val_acc)
 
-          mlflow.log_metrics(
-              {
-                  "train_loss": train_loss,
-                  "train_accuracy": train_acc,
-                  "val_loss": val_loss,
-                  "val_accuracy": val_acc,
-              },
-              step=epoch,
-          )
+        mlflow.log_metrics(
+            {
+                "train_loss": train_loss,
+                "train_accuracy": train_acc,
+                "val_loss": val_loss,
+                "val_accuracy": val_acc,
+            },
+            step=epoch,
+        )
 
-      def log_confusion_matrix(self, val_loader, device):
-          """Generate and log confusion matrix."""
-          self.model.eval()
-          all_preds = []
-          all_targets = []
+    def log_confusion_matrix(self, val_loader, device):
+        """Generate and log confusion matrix."""
+        self.model.eval()
+        all_preds = []
+        all_targets = []
 
-          with torch.no_grad():
-              for inputs, targets in val_loader:
-                  inputs, targets = inputs.to(device), targets.to(device)
-                  outputs = self.model(inputs)
-                  _, preds = torch.max(outputs, 1)
+        with torch.no_grad():
+            for inputs, targets in val_loader:
+                inputs, targets = inputs.to(device), targets.to(device)
+                outputs = self.model(inputs)
+                _, preds = torch.max(outputs, 1)
 
-                  all_preds.extend(preds.cpu().numpy())
-                  all_targets.extend(targets.cpu().numpy())
+                all_preds.extend(preds.cpu().numpy())
+                all_targets.extend(targets.cpu().numpy())
 
-          # Create confusion matrix
-          cm = confusion_matrix(all_targets, all_preds)
+        # Create confusion matrix
+        cm = confusion_matrix(all_targets, all_preds)
 
-          # Plot
-          plt.figure(figsize=(10, 8))
-          sns.heatmap(
-              cm,
-              annot=True,
-              fmt="d",
-              cmap="Blues",
-              xticklabels=self.classes,
-              yticklabels=self.classes,
-          )
-          plt.title("Confusion Matrix")
-          plt.ylabel("True Label")
-          plt.xlabel("Predicted Label")
-          plt.tight_layout()
+        # Plot
+        plt.figure(figsize=(10, 8))
+        sns.heatmap(
+            cm,
+            annot=True,
+            fmt="d",
+            cmap="Blues",
+            xticklabels=self.classes,
+            yticklabels=self.classes,
+        )
+        plt.title("Confusion Matrix")
+        plt.ylabel("True Label")
+        plt.xlabel("Predicted Label")
+        plt.tight_layout()
 
-          # Save and log
-          plt.savefig("confusion_matrix.png")
-          mlflow.log_artifact("confusion_matrix.png")
-          plt.close()
+        # Save and log
+        plt.savefig("confusion_matrix.png")
+        mlflow.log_artifact("confusion_matrix.png")
+        plt.close()
 
-      def log_training_curves(self):
-          """Generate and log training curves."""
-          plt.figure(figsize=(12, 5))
+    def log_training_curves(self):
+        """Generate and log training curves."""
+        plt.figure(figsize=(12, 5))
 
-          # Loss subplot
-          plt.subplot(1, 2, 1)
-          plt.plot(self.train_losses, label="Train Loss")
-          plt.plot(self.val_losses, label="Validation Loss")
-          plt.title("Loss Curves")
-          plt.xlabel("Epoch")
-          plt.ylabel("Loss")
-          plt.legend()
+        # Loss subplot
+        plt.subplot(1, 2, 1)
+        plt.plot(self.train_losses, label="Train Loss")
+        plt.plot(self.val_losses, label="Validation Loss")
+        plt.title("Loss Curves")
+        plt.xlabel("Epoch")
+        plt.ylabel("Loss")
+        plt.legend()
 
-          # Accuracy subplot
-          plt.subplot(1, 2, 2)
-          plt.plot(self.train_accs, label="Train Accuracy")
-          plt.plot(self.val_accs, label="Validation Accuracy")
-          plt.title("Accuracy Curves")
-          plt.xlabel("Epoch")
-          plt.ylabel("Accuracy (%)")
-          plt.legend()
+        # Accuracy subplot
+        plt.subplot(1, 2, 2)
+        plt.plot(self.train_accs, label="Train Accuracy")
+        plt.plot(self.val_accs, label="Validation Accuracy")
+        plt.title("Accuracy Curves")
+        plt.xlabel("Epoch")
+        plt.ylabel("Accuracy (%)")
+        plt.legend()
 
-          plt.tight_layout()
-          plt.savefig("training_curves.png")
-          mlflow.log_artifact("training_curves.png")
-          plt.close()
-  ```
+        plt.tight_layout()
+        plt.savefig("training_curves.png")
+        mlflow.log_artifact("training_curves.png")
+        plt.close()
+```
 
-  Usage in training loop:
+Usage in training loop:
 
-  ```python
-  # Initialize tracker
-  tracker = MLflowTracker(
-      model,
-      classes=[
-          "T-shirt",
-          "Trouser",
-          "Pullover",
-          "Dress",
-          "Coat",
-          "Sandal",
-          "Shirt",
-          "Sneaker",
-          "Bag",
-          "Ankle boot",
-      ],
-  )
+```python
+# Initialize tracker
+tracker = MLflowTracker(
+    model,
+    classes=[
+        "T-shirt",
+        "Trouser",
+        "Pullover",
+        "Dress",
+        "Coat",
+        "Sandal",
+        "Shirt",
+        "Sneaker",
+        "Bag",
+        "Ankle boot",
+    ],
+)
 
-  with mlflow.start_run():
-      mlflow.log_params(params)
+with mlflow.start_run():
+    mlflow.log_params(params)
 
-      for epoch in range(params["epochs"]):
-          # Training code...
+    for epoch in range(params["epochs"]):
+        # Training code...
 
-          # Log epoch metrics
-          tracker.log_epoch(epoch, train_loss, train_acc, val_loss, val_acc)
+        # Log epoch metrics
+        tracker.log_epoch(epoch, train_loss, train_acc, val_loss, val_acc)
 
-      # Log final visualizations
-      tracker.log_confusion_matrix(test_loader, device)
-      tracker.log_training_curves()
+    # Log final visualizations
+    tracker.log_confusion_matrix(test_loader, device)
+    tracker.log_training_curves()
 
-      # Log model
-      model_info = mlflow.pytorch.log_model(model, name="model")
-  ```
+    # Log model
+    model_info = mlflow.pytorch.log_model(model, name="model")
+```
+
 </details>
 
 ### Hyperparameter Optimization

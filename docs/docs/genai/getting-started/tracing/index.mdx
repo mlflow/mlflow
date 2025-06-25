@@ -22,7 +22,6 @@ Here's how easy it is to add tracing to your GenAI application:
     ```python
     import mlflow
 
-
     @mlflow.trace
     def ask_question(question: str) -> str:
         """Simple traced function that processes a question."""
@@ -32,6 +31,7 @@ Here's how easy it is to add tracing to your GenAI application:
 
     ask_question("What is MLflow?")
     ```
+
   </TabItem>
 
   <TabItem value="autolog" label="Autologging Usage">
@@ -63,7 +63,6 @@ Here's how easy it is to add tracing to your GenAI application:
     ```python
     import mlflow
 
-
     @mlflow.trace(name="qa_pipeline", span_type="CHAIN")
     def qa_pipeline(question: str):
         with mlflow.start_span(name="preprocess") as span:
@@ -79,6 +78,7 @@ Here's how easy it is to add tracing to your GenAI application:
 
     qa_pipeline("What is MLflow?")
     ```
+
   </TabItem>
 </Tabs>
 

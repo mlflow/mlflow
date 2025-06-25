@@ -1,4 +1,3 @@
-
 # GenAI Developer Workflow with MLflow
 
 This guide walks you through the complete development lifecycle of GenAI applications and agents, highlighting common challenges and MLflow's recommended solutions. We'll iteratively build both the development workflow and data flow that enables you to create GenAI applications that **reliably deliver high-quality responses** at optimal cost and latency.
@@ -46,21 +45,25 @@ flowchart LR
 Building reliable GenAI applications presents unique challenges that traditional software development practices don't address:
 
 #### 🎯 **Quality Assessment Challenge**
+
 - **Problem**: Unlike traditional software, GenAI outputs are subjective and context-dependent
 - **MLflow Solution**: Systematic evaluation with automated scorers and human expert feedback
 - **Future Benefit**: Consistent quality measurement across development and production
 
 #### 📊 **Observability Challenge**
+
 - **Problem**: Understanding why GenAI applications fail or produce poor results
 - **MLflow Solution**: Comprehensive tracing of execution flow, inputs, outputs, and context
 - **Future Benefit**: Detailed debugging capabilities and performance optimization insights
 
 #### 🔄 **Iteration Speed Challenge**
+
 - **Problem**: Testing changes against diverse scenarios is time-consuming and manual
 - **MLflow Solution**: Automated evaluation harness with curated datasets from production traffic
 - **Future Benefit**: Rapid validation of improvements with confidence in quality maintenance
 
 #### 💰 **Cost & Performance Challenge**
+
 - **Problem**: Balancing response quality with latency and API costs
 - **MLflow Solution**: Performance monitoring and cost tracking across different configurations
 - **Future Benefit**: Data-driven optimization of cost-performance trade-offs
@@ -68,28 +71,36 @@ Building reliable GenAI applications presents unique challenges that traditional
 ## Core Components
 
 ### 📊 **MLflow Traces**
+
 Capture complete execution details of every request, providing:
+
 - **Input/output tracking**: Full visibility into data transformations
 - **Performance metrics**: Latency, token usage, and cost attribution
 - **Error analysis**: Detailed failure context for debugging
 - **Contextual metadata**: User, session, and environment information
 
 ### 🧪 **Evaluation Harness**
+
 Systematic testing framework that:
+
 - **Runs new versions** against historical production scenarios
 - **Applies consistent scoring** using automated metrics and LLM judges
 - **Compares performance** across different application versions
 - **Validates quality** before production deployment
 
 ### 🎯 **Automated Scorers**
+
 AI-powered quality assessment that provides:
+
 - **Consistent evaluation**: Same criteria applied across development and production
 - **Scalable feedback**: Automated assessment of large volumes of interactions
 - **Expert-aligned ratings**: LLM judges trained on domain expert preferences
 - **Real-time monitoring**: Continuous quality assessment in production
 
 ### 📋 **Evaluation Datasets**
+
 Curated collections of test scenarios that:
+
 - **Represent real usage**: Built from actual production traffic patterns
 - **Include expert annotations**: Ground truth labels from domain experts
 - **Enable regression testing**: Consistent benchmarks across versions
@@ -122,6 +133,7 @@ flowchart LR
 ```
 
 **Key Activities:**
+
 - **Instrument your code** with MLflow tracing decorators
 - **Capture development traces** to understand execution flow
 - **Iterate rapidly** using trace data to identify issues
@@ -172,6 +184,7 @@ flowchart LR
 ```
 
 **Key Capabilities:**
+
 - **Automatic trace collection** from all production requests
 - **Real-time quality monitoring** using automated scorers
 - **Performance tracking** including latency and cost metrics
@@ -181,12 +194,12 @@ flowchart LR
 
 Production traces provide valuable insights:
 
-| Data Type | Purpose | Usage |
-|-----------|---------|-------|
-| **Request/Response Pairs** | Quality assessment | Evaluation dataset creation |
-| **Performance Metrics** | Optimization | Cost and latency analysis |
-| **Error Patterns** | Debugging | Issue identification and resolution |
-| **User Feedback** | Quality validation | Expert annotation and scorer training |
+| Data Type                  | Purpose            | Usage                                 |
+| -------------------------- | ------------------ | ------------------------------------- |
+| **Request/Response Pairs** | Quality assessment | Evaluation dataset creation           |
+| **Performance Metrics**    | Optimization       | Cost and latency analysis             |
+| **Error Patterns**         | Debugging          | Issue identification and resolution   |
+| **User Feedback**          | Quality validation | Expert annotation and scorer training |
 
 ## Evaluation & Improvement
 
@@ -299,18 +312,21 @@ flowchart TB
 ## Benefits & Best Practices
 
 ### 🎯 **Quality Assurance Benefits**
+
 - **Consistent evaluation**: Same quality criteria across development and production
 - **Expert alignment**: Automated scorers trained on domain expert preferences
 - **Regression prevention**: Systematic testing prevents quality degradation
 - **Continuous monitoring**: Real-time quality assessment in production
 
 ### 📊 **Operational Benefits**
+
 - **Complete observability**: Full visibility into application behavior
 - **Performance optimization**: Data-driven cost and latency improvements
 - **Rapid debugging**: Detailed trace data accelerates issue resolution
 - **Scalable monitoring**: Automated quality assessment for high-volume applications
 
 ### 🔄 **Development Benefits**
+
 - **Faster iteration**: Automated evaluation accelerates improvement cycles
 - **Confident deployment**: Quality validation before production release
 - **Data-driven decisions**: Evidence-based approach to application improvements
@@ -319,21 +335,25 @@ flowchart TB
 ### 💡 **Best Practices**
 
 **Start Simple, Scale Systematically:**
+
 - Begin with basic tracing and monitoring
 - Gradually add evaluation datasets and automated scorers
 - Implement systematic workflows as your application matures
 
 **Align Scorers with Business Goals:**
+
 - Train automated scorers on domain expert preferences
 - Regularly validate scorer performance against human judgment
 - Update scoring criteria as business requirements evolve
 
 **Leverage Production Data:**
+
 - Use real user interactions to build evaluation datasets
 - Identify quality issues through production trace analysis
 - Create test scenarios from actual usage patterns
 
 **Implement Continuous Feedback Loops:**
+
 - Collect user feedback systematically
 - Monitor quality trends over time
 - Iterate based on data insights rather than assumptions

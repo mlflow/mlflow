@@ -137,27 +137,23 @@ results = mlflow.evaluate(
 The supported LLM model types and associated metrics are listed below:
 
 - **question-answering**: `model_type="question-answering"`:
-
   - exact-match
   - [toxicity](https://huggingface.co/spaces/evaluate-measurement/toxicity) \[1\]
   - [ari_grade_level](https://en.wikipedia.org/wiki/Automated_readability_index) \[2\]
   - [flesch_kincaid_grade_level](https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests#Flesch%E2%80%93Kincaid_grade_level) \[2\]
 
 - **text-summarization**: `model_type="text-summarization"`:
-
   - [ROUGE](https://huggingface.co/spaces/evaluate-metric/rouge) \[3\]
   - [toxicity](https://huggingface.co/spaces/evaluate-measurement/toxicity) \[1\]
   - [ari_grade_level](https://en.wikipedia.org/wiki/Automated_readability_index) \[2\]
   - [flesch_kincaid_grade_level](https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests#Flesch%E2%80%93Kincaid_grade_level) \[2\]
 
 - **text models**: `model_type="text"`:
-
   - [toxicity](https://huggingface.co/spaces/evaluate-measurement/toxicity) \[1\]
   - [ari_grade_level](https://en.wikipedia.org/wiki/Automated_readability_index) \[2\]
   - [flesch_kincaid_grade_level](https://en.wikipedia.org/wiki/Flesch%E2%80%93Kincaid_readability_tests#Flesch%E2%80%93Kincaid_grade_level) \[2\]
 
 - **retrievers**: `model_type="retriever"`:
-
   - [precision_at_k](<https://en.wikipedia.org/wiki/Evaluation_measures_(information_retrieval)#Precision_at_k>) \[4\]
   - [recall_at_k](<https://en.wikipedia.org/wiki/Evaluation_measures_(information_retrieval)#Recall>) \[4\]
   - [ndcg_at_k](https://en.wikipedia.org/wiki/Discounted_cumulative_gain#Normalized_DCG) \[4\]
@@ -209,8 +205,7 @@ The full reference for supported evaluation metrics can be found <APILink fn="ml
 This is very similar to creating custom traditional metrics, with the exception of returning a <APILink fn="mlflow.metrics.MetricValue" /> instance.
 Basically you need to:
 
-1. Implement An `eval_fn` to define your scoring logic. This function must take in 2 args: `predictions` and ` target``.
- `eval_fn` must return a <APILink fn="mlflow.metrics.MetricValue" /> instance.
+1. Implement An `eval_fn` to define your scoring logic. This function must take in 2 args: `predictions` and `target``.`eval_fn` must return a <APILink fn="mlflow.metrics.MetricValue" /> instance.
 2. Pass `eval_fn` and other arguments to the `mlflow.metrics.make_metric` API to create the metric.
 
 The following code creates a dummy per-row metric called `"over_10_chars"`; if the model output is greater than 10,
@@ -280,17 +275,17 @@ results = mlflow.evaluate(
 Here is the list of built-in LLM-as-a-Judge metrics. Click on the link to see the full documentation for each metric:
 
 - <APILink fn="mlflow.metrics.genai.answer_similarity" />: Evaluate how similar
-  a model's generated output is compared to the information in the ground truth
-  data.
+a model's generated output is compared to the information in the ground truth
+data.
 - <APILink fn="mlflow.metrics.genai.answer_correctness" />: Evaluate how
-  factually correct a model's generated output is based on the information
-  within the ground truth data.
+factually correct a model's generated output is based on the information
+within the ground truth data.
 - <APILink fn="mlflow.metrics.genai.answer_relevance" />: Evaluate how relevant
-  the model generated output is to the input (context is ignored).
+the model generated output is to the input (context is ignored).
 - <APILink fn="mlflow.metrics.genai.relevance" />: Evaluate how relevant the
-  model generated output is with respect to both the input and the context.
+model generated output is with respect to both the input and the context.
 - <APILink fn="mlflow.metrics.genai.faithfulness" />: Evaluate how faithful the
-  model generated output is based on the context provided.
+model generated output is based on the context provided.
 
 #### Selecting the Judge Model
 
@@ -595,9 +590,8 @@ In order to evaluate your model with `mlflow.evaluate()`, your model has to be o
    general we call that MLflow model. The
 2. A python function that takes in string inputs and outputs a single string. Your callable must match the signature of
 
-   <APILink fn="mlflow.pyfunc.PyFuncModel.predict" /> (without `params` argument),
-   briefly it should:
-
+      <APILink fn="mlflow.pyfunc.PyFuncModel.predict" /> (without `params` argument),
+briefly it should:
    - Has `data` as the only argument, which can be a `pandas.Dataframe`, `numpy.ndarray`, python list, dictionary or scipy matrix.
    - Returns one of `pandas.DataFrame`, `pandas.Series`, `numpy.ndarray` or list.
 

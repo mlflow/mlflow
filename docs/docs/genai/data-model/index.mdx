@@ -48,6 +48,7 @@ A **LoggedModel** is a first-class entity that represents your AI model, agent, 
 ### Key Features of LoggedModel
 
 LoggedModel serves as the central hub that connects:
+
 - **Model artifacts** and configuration parameters
 - **Execution traces** from development and production
 - **Evaluation metrics** and performance assessments
@@ -100,6 +101,7 @@ LoggedModel serves as the central hub that connects:
         )
         ```
     </TabItem>
+
 </Tabs>
 
 ### LoggedModel Benefits
@@ -175,6 +177,7 @@ Traces are generated through:
             model="gpt-4", messages=[{"role": "user", "content": "Hello!"}]
         )
         ```
+
   </TabItem>
   <TabItem value="custom" label="Decorators and Context Managers" default>
         Using the MLflow tracing APIs for fine-grained control:
@@ -186,6 +189,7 @@ Traces are generated through:
             result = process_data(input_data)
             return result
         ```
+
   </TabItem>
 </Tabs>
 ### Purpose of Traces
