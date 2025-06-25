@@ -1,4 +1,5 @@
 import os
+import re
 from pathlib import Path
 
 import requests
@@ -37,10 +38,13 @@ def main() -> None:
             )
             changed_pages.append(path.relative_to(DOCS_DIR))
 
-    links = "".join(f'<li><a href="{p}"><h2>{p}</h2></a></li>' for p in changed_pages)
+    # `classic-ml/` is routed as `ml/` in the docs, so we need to adjust the links.
+    regex = re.compile(r"^classic-ml/")
+    links = [regex.sub("ml/", str(p)) for p in changed_pages]
+    items = "".join(f'<li><a href="{l}"><h2>{l}</h2></a></li>' for l in links)
     diff_html = f"""
 <h1>Changed Pages</h1>
-<ul>{links}</ul>
+<ul>{items}</ul>
 """
     BUILD_DIR.mkdir(exist_ok=True)
     BUILD_DIR.joinpath("diff.html").write_text(diff_html)
