@@ -151,6 +151,14 @@ jobs:
         working-directory: mlflow/server/js
         run: |
           yarn i18n
+      - if: steps.diff.outputs.js == 'true'
+        working-directory: docs
+        run: |
+          yarn install
+      - if: steps.diff.outputs.js == 'true'
+        working-directory: docs
+        run: |
+          yarn prettier:fix
       # ************************************************************************
       # R
       # ************************************************************************
