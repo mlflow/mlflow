@@ -3015,9 +3015,7 @@ def test_legacy_end_trace(store_and_trace_info):
     assert trace_info.tags == {**trace.tags, **tags}
 
     with pytest.raises(MlflowException, match=r"Trace with ID 'fake_request_id' not found"):
-        store.end_trace(
-            "fake_request_id", timestamp_ms, TraceStatus.OK, request_metadata, tags
-        )
+        store.end_trace("fake_request_id", timestamp_ms, TraceStatus.OK, request_metadata, tags)
 
 
 def test_start_trace(store):
