@@ -40,11 +40,11 @@ def main() -> None:
 
     # Adjust links because pages under `classic-ml/` are served as `ml/`.
     regex = re.compile(r"^classic-ml/")
-    links = [regex.sub("ml/", str(p)) for p in changed_pages]
-    items = "".join(f'<li><a href="{l}"><h2>{l}</h2></a></li>' for l in links)
+    links = (regex.sub("ml/", str(p)) for p in changed_pages)
+    list_items = "".join(f'<li><a href="{l}"><h2>{l}</h2></a></li>' for l in links)
     diff_html = f"""
 <h1>Changed Pages</h1>
-<ul>{items}</ul>
+<ul>{list_items}</ul>
 """
     BUILD_DIR.mkdir(exist_ok=True)
     BUILD_DIR.joinpath("diff.html").write_text(diff_html)
