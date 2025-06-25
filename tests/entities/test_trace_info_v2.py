@@ -2,7 +2,7 @@ import pytest
 from google.protobuf.duration_pb2 import Duration
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from mlflow.entities import TraceInfoV2
+from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.protos.service_pb2 import TraceInfo as ProtoTraceInfo
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
