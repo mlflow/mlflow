@@ -118,7 +118,7 @@ There are two types of LLM evaluation metrics in MLflow:
 
 See [this page](https://mlflow.org/docs/latest/python_api/mlflow.metrics.html) for the full list of the built-in heuristic metrics.
 
-#### Default Metrics with Pre-defined Model Types {#llm-eval-default-metrics}
+#### Default Metrics with Pre-defined Model Types \{#llm-eval-default-metrics}
 
 MLflow LLM evaluation includes default collections of metrics for pre-selected tasks, e.g, "question-answering". Depending on the
 LLM use case that you are evaluating, these pre-defined collections can greatly simplify the process of running evaluations. To use
@@ -172,7 +172,7 @@ The supported LLM model types and associated metrics are listed below:
 
 \[4\] All retriever metrics have a default `retriever_k` value of `3` that can be overridden by specifying `retriever_k` in the `evaluator_config` argument.
 
-#### Use a Custom List of Metrics {#llm-eval-custom-metrics}
+#### Use a Custom List of Metrics \{#llm-eval-custom-metrics}
 
 Using the pre-defined metrics associated with a given model type is not the only way to generate scoring metrics
 for LLM evaluation in MLflow. You can specify a custom list of metrics in the `extra_metrics` argument in `mlflow.evaluate`:
@@ -639,7 +639,7 @@ to evaluate your model as an MLflow model, we recommend following the steps belo
    )
    ```
 
-### Evaluating with a Custom Function {#llm-eval-custom-function}
+### Evaluating with a Custom Function \{#llm-eval-custom-function}
 
 As of MLflow 2.8.0, <APILink fn="mlflow.evaluate" /> supports evaluating a python function without requiring
 logging the model to MLflow. This is useful when you don't want to log the model and just want to evaluate
@@ -881,7 +881,7 @@ with mlflow.start_run() as run:
 
 Evaluating [External Models in Databricks Model Serving](https://docs.databricks.com/en/generative-ai/external-models/index.html) can be done in the same way, you just need to specify the different URI that points to the serving endpoint like `"endpoints:/your-chat-endpoint"`.
 
-### Evaluating with a Static Dataset {#llm-eval-static-dataset}
+### Evaluating with a Static Dataset \{#llm-eval-static-dataset}
 
 For MLflow >= 2.8.0, <APILink fn="mlflow.evaluate" /> supports evaluating a static dataset without specifying a model.
 This is useful when you save the model output to a column in a Pandas DataFrame or an MLflow PandasDataset, and

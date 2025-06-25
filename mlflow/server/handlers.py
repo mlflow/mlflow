@@ -36,6 +36,7 @@ from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY
 from mlflow.entities.multipart_upload import MultipartUploadPart
+from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
@@ -2515,6 +2516,10 @@ def _start_trace():
         request_metadata=request_metadata,
         tags=tags,
     )
+
+    if isinstance(trace_info, TraceInfo):
+        trace_info = TraceInfoV2.from_v3(trace_info)
+
     response_message = StartTrace.Response(trace_info=trace_info.to_proto())
     return _wrap_response(response_message)
 
@@ -2545,6 +2550,10 @@ def _end_trace(request_id):
         request_metadata=request_metadata,
         tags=tags,
     )
+
+    if isinstance(trace_info, TraceInfo):
+        trace_info = TraceInfoV2.from_v3(trace_info)
+
     response_message = EndTrace.Response(trace_info=trace_info.to_proto())
     return _wrap_response(response_message)
 
@@ -2557,6 +2566,8 @@ def _get_trace_info(request_id):
     an existing TraceInfo record from tracking store.
     """
     trace_info = _get_tracking_store().get_trace_info(request_id)
+    if isinstance(trace_info, TraceInfo):
+        trace_info = TraceInfoV2.from_v3(trace_info)
     response_message = GetTraceInfo.Response(trace_info=trace_info.to_proto())
     return _wrap_response(response_message)
 
@@ -2591,6 +2602,9 @@ def _search_traces():
         order_by=request_message.order_by,
         page_token=request_message.page_token,
     )
+    if traces and isinstance(traces[0], TraceInfo):
+        traces = [TraceInfoV2.from_v3(t) for t in traces]
+
     response_message = SearchTraces.Response()
     response_message.traces.extend([e.to_proto() for e in traces])
     if token:
@@ -2630,7 +2644,7 @@ def _delete_traces():
         experiment_id=request_message.experiment_id,
         max_timestamp_millis=_get_nullable_field("max_timestamp_millis"),
         max_traces=_get_nullable_field("max_traces"),
-        request_ids=request_message.request_ids,
+        trace_ids=request_message.request_ids,
     )
     return _wrap_response(DeleteTraces.Response(traces_deleted=traces_deleted))
 
