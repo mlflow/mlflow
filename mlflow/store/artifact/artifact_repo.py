@@ -78,8 +78,9 @@ class ArtifactRepository:
 
     __metaclass__ = ABCMeta
 
-    def __init__(self, artifact_uri):
+    def __init__(self, artifact_uri: str, tracking_uri: Optional[str] = None) -> None:
         self.artifact_uri = artifact_uri
+        self.tracking_uri = tracking_uri
         # Limit the number of threads used for artifact uploads/downloads. Use at most
         # constants._NUM_MAX_THREADS threads or 2 * the number of CPU cores available on the
         # system (whichever is smaller)
