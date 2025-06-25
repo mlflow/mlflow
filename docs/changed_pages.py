@@ -38,7 +38,7 @@ def main() -> None:
             )
             changed_pages.append(path.relative_to(DOCS_DIR))
 
-    # `classic-ml/` is routed as `ml/` in the docs, so we need to adjust the links.
+    # Adjust links because pages under `classic-ml/` are served as `ml/`.
     regex = re.compile(r"^classic-ml/")
     links = [regex.sub("ml/", str(p)) for p in changed_pages]
     items = "".join(f'<li><a href="{l}"><h2>{l}</h2></a></li>' for l in links)
