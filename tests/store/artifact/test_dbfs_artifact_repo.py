@@ -22,7 +22,7 @@ def test_dbfs_artifact_repo_factory_local_repo(artifact_uri, uri_at_init):
             "mlflow.store.artifact.dbfs_artifact_repo.LocalArtifactRepository", autospec=True
         ) as mock_repo,
     ):
-        repo = dbfs_artifact_repo_factory(artifact_uri, None)
+        repo = dbfs_artifact_repo_factory(artifact_uri)
         assert isinstance(repo, LocalArtifactRepository)
         mock_repo.assert_called_once_with(uri_at_init, None)
 
@@ -49,7 +49,7 @@ def test_dbfs_artifact_repo_factory_dbfs_rest_repo(artifact_uri):
             "mlflow.store.artifact.dbfs_artifact_repo.DbfsRestArtifactRepository", autospec=True
         ) as mock_repo,
     ):
-        repo = dbfs_artifact_repo_factory(artifact_uri, None)
+        repo = dbfs_artifact_repo_factory(artifact_uri)
         assert isinstance(repo, DbfsRestArtifactRepository)
         mock_repo.assert_called_once_with(artifact_uri, None)
 
@@ -68,7 +68,7 @@ def test_dbfs_artifact_repo_factory_acled_paths(artifact_uri):
             "mlflow.store.artifact.dbfs_artifact_repo.DatabricksArtifactRepository", autospec=True
         ) as mock_repo,
     ):
-        repo = dbfs_artifact_repo_factory(artifact_uri, None)
+        repo = dbfs_artifact_repo_factory(artifact_uri)
         assert isinstance(repo, DatabricksArtifactRepository)
         mock_repo.assert_called_once_with(artifact_uri, None)
 
@@ -78,4 +78,4 @@ def test_dbfs_artifact_repo_factory_acled_paths(artifact_uri):
 )
 def test_dbfs_artifact_repo_factory_errors(artifact_uri):
     with pytest.raises(MlflowException, match="DBFS URI must be of the form dbfs"):
-        dbfs_artifact_repo_factory(artifact_uri, None)
+        dbfs_artifact_repo_factory(artifact_uri)
