@@ -897,7 +897,7 @@ def test_get_trace_artifact_repo(location, expected_class, expected_uri, monkeyp
         trace_location=TraceLocation.from_experiment_id("0"),
         request_time=0,
         execution_duration=1,
-        status=TraceState.OK,
+        state=TraceState.OK,
         tags={MLFLOW_ARTIFACT_LOCATION: location},
     )
     repo = _get_trace_artifact_repo(trace_info)

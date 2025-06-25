@@ -39,6 +39,8 @@ from mlflow.entities import (
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.run_info import check_run_is_active
 from mlflow.entities.trace_info_v2 import TraceInfoV2
+from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_TRACKING_DIR
 from mlflow.exceptions import MissingConfigException, MlflowException
@@ -1611,7 +1613,7 @@ class FileStore(AbstractStore):
         timestamp_ms: int,
         request_metadata: dict[str, str],
         tags: dict[str, str],
-    ) -> TraceInfoV2:
+    ) -> TraceInfo:
         """
         Start an initial TraceInfo object in the backend store.
 
@@ -1635,16 +1637,16 @@ class FileStore(AbstractStore):
         trace_dir = os.path.join(traces_dir, request_id)
         artifact_uri = self._get_traces_artifact_dir(experiment_id, request_id)
         tags.update({MLFLOW_ARTIFACT_LOCATION: artifact_uri})
-        trace_info = TraceInfoV2(
-            request_id=request_id,
-            experiment_id=experiment_id,
-            timestamp_ms=timestamp_ms,
-            execution_time_ms=None,
-            status=TraceStatus.IN_PROGRESS,
-            request_metadata=request_metadata,
+        trace_info = TraceInfo(
+            trace_id=request_id,
+            trace_location=TraceLocation.from_experiment_id(experiment_id),
+            request_time=timestamp_ms,
+            execution_duration=None,
+            state=TraceState.IN_PROGRESS,
+            trace_metadata=request_metadata,
             tags=tags,
         )
-        self._save_trace_info(trace_info.to_v3(), trace_dir)
+        self._save_trace_info(trace_info, trace_dir)
         return trace_info
 
     def _save_trace_info(self, trace_info: TraceInfo, trace_dir, overwrite=False):
@@ -1720,7 +1722,7 @@ class FileStore(AbstractStore):
         status: TraceStatus,
         request_metadata: dict[str, str],
         tags: dict[str, str],
-    ) -> TraceInfoV2:
+    ) -> TraceInfo:
         """
         Update the TraceInfo object in the backend store with the completed trace info.
 
@@ -1743,7 +1745,7 @@ class FileStore(AbstractStore):
         trace_info.trace_metadata.update(request_metadata)
         trace_info.tags.update(tags)
         self._save_trace_info(trace_info, trace_dir, overwrite=True)
-        return TraceInfoV2.from_v3(trace_info)
+        return trace_info
 
     def start_trace_v3(self, trace_info: TraceInfo) -> TraceInfo:
         """

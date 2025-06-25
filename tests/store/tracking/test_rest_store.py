@@ -1200,19 +1200,18 @@ def test_get_assessment():
         }
     )
 
-    with mock.patch.object(store, "_is_databricks_tracking_uri", return_value=True):
-        with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
-            res = store.get_assessment(trace_id="tr-1234", assessment_id="1234")
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        res = store.get_assessment(trace_id="tr-1234", assessment_id="1234")
 
-        expected_request_json = {"assessment_id": "1234", "trace_id": "tr-1234"}
-        _verify_requests(
-            mock_http,
-            creds,
-            "traces/tr-1234/assessments/1234",
-            "GET",
-            json.dumps(expected_request_json),
-            use_v3=True,
-        )
+    expected_request_json = {"assessment_id": "1234", "trace_id": "tr-1234"}
+    _verify_requests(
+        mock_http,
+        creds,
+        "traces/tr-1234/assessments/1234",
+        "GET",
+        json.dumps(expected_request_json),
+        use_v3=True,
+    )
 
     assert isinstance(res, Feedback)
     assert res.assessment_id == "1234"
@@ -1230,19 +1229,18 @@ def test_delete_assessment():
     response.status_code = 200
     response.text = "{}"
 
-    with mock.patch.object(store, "_is_databricks_tracking_uri", return_value=True):
-        with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
-            store.delete_assessment(trace_id="tr-1234", assessment_id="1234")
+    with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
+        store.delete_assessment(trace_id="tr-1234", assessment_id="1234")
 
-        expected_request_json = {"assessment_id": "1234", "trace_id": "tr-1234"}
-        _verify_requests(
-            mock_http,
-            creds,
-            "traces/tr-1234/assessments/1234",
-            "DELETE",
-            json.dumps(expected_request_json),
-            use_v3=True,
-        )
+    expected_request_json = {"assessment_id": "1234", "trace_id": "tr-1234"}
+    _verify_requests(
+        mock_http,
+        creds,
+        "traces/tr-1234/assessments/1234",
+        "DELETE",
+        json.dumps(expected_request_json),
+        use_v3=True,
+    )
 
 
 def test_update_assessment_invalid_update():
