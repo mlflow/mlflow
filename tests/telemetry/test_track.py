@@ -1,4 +1,4 @@
-import threading
+import time
 from unittest.mock import patch
 
 import pytest
@@ -18,9 +18,17 @@ def full_func_name(func):
 
 def wait_for_telemetry_threads(timeout: float = 5.0):
     """Wait for telemetry threads to finish to avoid race conditions in tests."""
-    for thread in threading.enumerate():
-        if thread != threading.main_thread() and thread.name == "add_telemetry_record":
-            thread.join(timeout=timeout)
+    telemetry_client = get_telemetry_client()
+    if telemetry_client is None:
+        return
+
+    # Flush the telemetry client to ensure all pending records are processed
+    telemetry_client.flush()
+
+    # Wait for the queue to be empty
+    start_time = time.time()
+    while not telemetry_client._queue.empty() and (time.time() - start_time) < timeout:
+        time.sleep(0.1)
 
 
 def test_track_api_usage():

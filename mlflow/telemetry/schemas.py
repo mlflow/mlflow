@@ -60,7 +60,7 @@ class Record:
     api_name: str
     params: BaseParams | None = None
     status: APIStatus = APIStatus.UNKNOWN.value
-    # TODO: add duration_ms after we get approval
+    # duration_ms: int | None = None
 
 
 @dataclass
