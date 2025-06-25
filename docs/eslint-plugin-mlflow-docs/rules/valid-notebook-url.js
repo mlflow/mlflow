@@ -41,7 +41,6 @@ module.exports = {
        * @param {import('estree').Node} node - The JSX opening element node
        */
       JSXOpeningElement(node) {
-        // Check if it's <NotebookDownloadButton >
         if (
           node.type !== "JSXOpeningElement" ||
           node.name.type !== "JSXIdentifier" ||
@@ -49,8 +48,6 @@ module.exports = {
         ) {
           return;
         }
-
-        // Find href attribute
         const hrefAttr = node.attributes.find(
           (attr) => attr.type === "JSXAttribute" && attr.name.name === "href"
         );
@@ -63,7 +60,6 @@ module.exports = {
           return;
         }
 
-        // Get href value
         const hrefValue = getHrefValue(hrefAttr);
 
         if (!hrefValue) {
@@ -74,7 +70,6 @@ module.exports = {
           return;
         }
 
-        // Validate MLflow repository URL
         validateMlflowUrl(context, hrefAttr, hrefValue);
       },
     };
@@ -88,19 +83,16 @@ module.exports = {
  * @returns {string|null} The href value or null if it can't be determined
  */
 function getHrefValue(attr) {
-  // Guard against attr.value being null or undefined
   if (!attr.value) return null;
-  // Handle string literals: href="value"
+
   if (attr.value.type === "Literal") {
     return attr.value.value;
   }
 
-  // Handle JSX expressions with literals: href={"value"}
   if (attr.value.type === "JSXExpressionContainer" && attr.value.expression.type === "Literal") {
     return attr.value.expression.value;
   }
 
-  // Handle template literals with no expressions: href={`value`}
   if (
     attr.value.type === "JSXExpressionContainer" &&
     attr.value.expression.type === "TemplateLiteral" &&
@@ -127,7 +119,6 @@ function getHrefValue(attr) {
 function validateMlflowUrl(context, hrefAttr, href) {
   const expectedPrefix = "https://raw.githubusercontent.com/mlflow/mlflow/master/";
 
-  // Check if URL starts with the expected prefix
   if (!href.startsWith(expectedPrefix)) {
     context.report({
       node: hrefAttr,
@@ -136,10 +127,7 @@ function validateMlflowUrl(context, hrefAttr, href) {
     return;
   }
 
-  // Extract the path after the prefix
   const filePath = href.substring(expectedPrefix.length);
-
-  // Check if the file exists in the repository
   const repoRoot = findRepoRoot(context.filename);
   if (repoRoot) {
     const fullPath = path.join(repoRoot, filePath);
@@ -166,7 +154,6 @@ function validateMlflowUrl(context, hrefAttr, href) {
 function findRepoRoot(startPath) {
   let currentDir = path.dirname(startPath);
 
-  // Look for .git directory by walking up the directory tree
   while (currentDir !== path.dirname(currentDir)) {
     if (fs.existsSync(path.join(currentDir, ".git"))) {
       return currentDir;
