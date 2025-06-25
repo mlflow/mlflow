@@ -1,5 +1,21 @@
 # CHANGELOG
 
+## 3.0.1 (2025-06-25)
+
+MLflow 3.0.1 includes several major features and improvements
+
+Features:
+
+- [Model Registry / Sqlalchemy] Increase prompt text limit from 5K to 100K (#16377, @harupy)
+
+Bug fixes:
+
+- [Models] Fix bedrock provider, configured inference profile compatibility (#15604, @lloydhamilton)
+
+Small bug fixes and documentation updates:
+
+#16364, @BenWilson2; #16347, @TomeHirata; #16279, #15835, @harupy; #16182, @B-Step62
+
 ## 3.1 (2025-06-11)
 
 MLflow 3 includes several major features and improvements
