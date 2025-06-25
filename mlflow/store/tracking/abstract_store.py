@@ -14,6 +14,8 @@ from mlflow.entities import (
     ViewType,
 )
 from mlflow.entities.metric import MetricWithRunId
+from mlflow.entities.trace import Trace
+from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
@@ -290,6 +292,18 @@ class AbstractStore:
         """
         raise NotImplementedError
 
+    def start_trace_v3(self, trace: Trace) -> TraceInfo:
+        """
+        Create a trace using the V3 API format with a complete Trace object.
+
+        Args:
+            trace: The Trace object to create, containing both info and data.
+
+        Returns:
+            The created TraceInfo object.
+        """
+        raise NotImplementedError
+
     def delete_traces(
         self,
         experiment_id: str,
@@ -343,12 +357,12 @@ class AbstractStore:
     ) -> int:
         raise NotImplementedError
 
-    def get_trace_info(self, request_id: str) -> TraceInfoV2:
+    def get_trace_info(self, trace_id: str) -> TraceInfo:
         """
-        Get the trace matching the `request_id`.
+        Get the trace matching the `trace_id`.
 
         Args:
-            request_id: String id of the trace to fetch.
+            trace_id: String id of the trace to fetch.
 
         Returns:
             The fetched Trace object, of type ``mlflow.entities.TraceInfo``.
@@ -375,7 +389,7 @@ class AbstractStore:
         page_token: Optional[str] = None,
         model_id: Optional[str] = None,
         sql_warehouse_id: Optional[str] = None,
-    ) -> tuple[list[TraceInfoV2], Optional[str]]:
+    ) -> tuple[list[TraceInfo], Optional[str]]:
         """
         Return traces that match the given list of search expressions within the experiments.
 
@@ -400,23 +414,23 @@ class AbstractStore:
         """
         raise NotImplementedError
 
-    def set_trace_tag(self, request_id: str, key: str, value: str):
+    def set_trace_tag(self, trace_id: str, key: str, value: str):
         """
-        Set a tag on the trace with the given request_id.
+        Set a tag on the trace with the given trace_id.
 
         Args:
-            request_id: The ID of the trace.
+            trace_id: The ID of the trace.
             key: The string key of the tag.
             value: The string value of the tag.
         """
         raise NotImplementedError
 
-    def delete_trace_tag(self, request_id: str, key: str):
+    def delete_trace_tag(self, trace_id: str, key: str):
         """
-        Delete a tag on the trace with the given request_id.
+        Delete a tag on the trace with the given trace_id.
 
         Args:
-            request_id: The ID of the trace.
+            trace_id: The ID of the trace.
             key: The string key of the tag.
         """
         raise NotImplementedError
