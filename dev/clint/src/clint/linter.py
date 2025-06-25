@@ -16,6 +16,7 @@ from clint.builtin import BUILTIN_MODULES
 from clint.comments import Noqa, iter_comments
 from clint.config import Config
 from clint.resolver import Resolver
+from clint.symbol_index import SymbolIndex
 
 PARAM_REGEX = re.compile(r"\s+:param\s+\w+:", re.MULTILINE)
 RETURN_REGEX = re.compile(r"\s+:returns?:", re.MULTILINE)
@@ -276,6 +277,50 @@ def _find_artifact_path_index(call_path: tuple[str, str]) -> int | None:
     return None
 
 
+class ExampleVisitor(ast.NodeVisitor):
+    def __init__(self, index: SymbolIndex, path: Path, offset: Location) -> None:
+        self.index = index
+        self.path = path
+        self.offset = offset
+        self.violations: list[Violation] = []
+
+    def _resolve_call(self, node: ast.expr) -> list[str] | None:
+        if isinstance(node, ast.Attribute):
+            base = self._resolve_call(node.value)
+            if base is None:
+                return None
+            return base + [node.attr]
+        elif isinstance(node, ast.Name):
+            return [node.id]
+        return None
+
+    def visit_Call(self, node: ast.Call) -> None:
+        resolved = self._resolve_call(node.func)
+        if (
+            resolved is not None
+            and resolved
+            and resolved[0] == "mlflow"
+            and resolved[:2] != ["mlflow", "data"]
+            and resolved[:2] != ["mlflow", "txtai"]
+        ):
+            function_name = ".".join(resolved)
+            if func_def := self.index.resolve_symbol(function_name):
+                if not (func_def.args.vararg or func_def.args.kwarg):
+                    # Get all argument names from the function signature
+                    all_args = (
+                        func_def.args.args + func_def.args.kwonlyargs + func_def.args.posonlyargs
+                    )
+                    # Skip positional arguments that are already provided
+                    remaining_args = all_args[len(node.args) :]
+                    sig_args = {arg.arg for arg in remaining_args}
+                    call_args = {kw.arg for kw in node.keywords if kw.arg}
+                    if diff := call_args - sig_args:
+                        print(resolved, sig_args, call_args, diff)
+            else:
+                print("Unresolved function:", resolved)
+        self.generic_visit(node)
+
+
 class Linter(ast.NodeVisitor):
     def __init__(
         self,
@@ -285,6 +330,7 @@ class Linter(ast.NodeVisitor):
         ignore: dict[str, set[int]],
         cell: int | None = None,
         offset: Location | None = None,
+        index: SymbolIndex | None = None,
     ):
         """
         Lints a Python file.
@@ -295,6 +341,7 @@ class Linter(ast.NodeVisitor):
             ignore: Mapping of rule name to line numbers to ignore.
             cell: Index of the cell being linted in a Jupyter notebook.
             offset: Offset to apply to the line and column numbers of the violations.
+            index: Symbol index for resolving function signatures.
         """
         self.stack: list[ast.AST] = []
         self.path = path
@@ -309,6 +356,7 @@ class Linter(ast.NodeVisitor):
         self.lazy_modules: dict[str, Location] = {}
         self.offset = offset or Location(0, 0)
         self.resolver = Resolver()
+        self.index = index
 
     def _check(self, loc: Location, rule: rules.Rule) -> None:
         if (lines := self.ignore.get(rule.name)) and loc.lineno in lines:
@@ -396,11 +444,16 @@ class Linter(ast.NodeVisitor):
         )
 
     @classmethod
-    def visit_example(cls, path: Path, config: Config, example: CodeBlock) -> list[Violation]:
+    def visit_example(
+        cls, path: Path, config: Config, example: CodeBlock, index: SymbolIndex
+    ) -> list[Violation]:
         try:
             tree = ast.parse(example.code)
         except SyntaxError:
             return [Violation(rules.ExampleSyntaxError(), path, example.loc)]
+
+        v = ExampleVisitor(index, path, example.loc)
+        v.visit(tree)
 
         linter = cls(
             path=path,
@@ -773,7 +826,7 @@ def _lint_cell(path: Path, config: Config, cell: dict[str, Any], index: int) -> 
     return violations
 
 
-def lint_file(path: Path, config: Config) -> list[Violation]:
+def lint_file(path: Path, config: Config, index: SymbolIndex) -> list[Violation]:
     code = path.read_text()
     if path.suffix == ".ipynb":
         violations = []
@@ -787,7 +840,7 @@ def lint_file(path: Path, config: Config) -> list[Violation]:
             _iter_code_blocks(code) if path.suffix == ".rst" else _iter_md_code_blocks(code)
         )
         for code_block in code_blocks:
-            violations.extend(Linter.visit_example(path, config, code_block))
+            violations.extend(Linter.visit_example(path, config, code_block, index))
         return violations
     else:
         linter = Linter(path=path, config=config, ignore=ignore_map(code))
