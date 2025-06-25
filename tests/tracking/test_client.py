@@ -128,8 +128,8 @@ def mock_databricks_tracking_store():
 
 
 @pytest.fixture
-def mock_store_start_trace():
-    def _mock_start_trace(trace_info):
+def mock_store_start_trace_v3_v3():
+    def _mock_start_trace_v3(trace_info):
         return create_test_trace_info(
             trace_id="tr-123",
             experiment_id=trace_info.experiment_id,
@@ -145,9 +145,9 @@ def mock_store_start_trace():
         )
 
     with mock.patch(
-        "mlflow.tracing.client.TracingClient.start_trace", side_effect=_mock_start_trace
-    ) as mock_start_trace:
-        yield mock_start_trace
+        "mlflow.tracing.client.TracingClient.start_trace_v3", side_effect=_mock_start_trace_v3
+    ) as mock_start_trace_v3:
+        yield mock_start_trace_v3
 
 
 @pytest.fixture
@@ -625,7 +625,7 @@ def test_start_and_end_trace_before_all_span_end(async_logging_enabled):
 
 @mock.patch("mlflow.get_tracking_uri", return_value="databricks")
 def test_log_trace_with_databricks_tracking_uri(
-    databricks_tracking_uri, mock_store_start_trace, monkeypatch
+    databricks_tracking_uri, mock_store_start_trace_v3, monkeypatch
 ):
     monkeypatch.setenv("MLFLOW_EXPERIMENT_NAME", "test")
     monkeypatch.setenv(MLFLOW_TRACKING_USERNAME.name, "bob")
@@ -691,7 +691,7 @@ def test_log_trace_with_databricks_tracking_uri(
         model.predict(1, 2)
         mlflow.flush_trace_async_logging(terminate=True)
 
-    mock_store_start_trace.assert_called_once()
+    mock_store_start_trace_v3.assert_called_once()
     mock_upload_trace_data.assert_called_once()
 
 

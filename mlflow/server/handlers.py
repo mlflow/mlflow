@@ -2500,6 +2500,130 @@ def _abort_multipart_upload_artifact(artifact_path):
 @_disable_if_artifacts_only
 def _start_trace():
     """
+    Deprecated. Use `_start_trace_v3` instead.
+    A request handler for `POST /mlflow/traces` to create a new TraceInfo record in tracking store.
+    """
+    request_message = _get_request_message(
+        StartTrace(),
+        schema={
+            "experiment_id": [_assert_string],
+            "timestamp_ms": [_assert_intlike],
+            "request_metadata": [_assert_map_key_present],
+            "tags": [_assert_map_key_present],
+        },
+    )
+    request_metadata = {e.key: e.value for e in request_message.request_metadata}
+    tags = {e.key: e.value for e in request_message.tags}
+
+    trace_info = _get_tracking_store().start_trace(
+        experiment_id=request_message.experiment_id,
+        timestamp_ms=request_message.timestamp_ms,
+        request_metadata=request_metadata,
+        tags=tags,
+    )
+
+    if isinstance(trace_info, TraceInfo):
+        trace_info = TraceInfoV2.from_v3(trace_info)
+
+    response_message = StartTrace.Response(trace_info=trace_info.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _end_trace(request_id):
+    """
+    Deprecated.
+    A request handler for `PATCH /mlflow/traces/{request_id}` to mark an existing TraceInfo
+    record completed in tracking store.
+    """
+    request_message = _get_request_message(
+        EndTrace(),
+        schema={
+            "timestamp_ms": [_assert_intlike],
+            "status": [_assert_string],
+            "request_metadata": [_assert_map_key_present],
+            "tags": [_assert_map_key_present],
+        },
+    )
+    request_metadata = {e.key: e.value for e in request_message.request_metadata}
+    tags = {e.key: e.value for e in request_message.tags}
+
+    trace_info = _get_tracking_store().end_trace(
+        request_id=request_id,
+        timestamp_ms=request_message.timestamp_ms,
+        status=TraceStatus.from_proto(request_message.status),
+        request_metadata=request_metadata,
+        tags=tags,
+    )
+
+    if isinstance(trace_info, TraceInfo):
+        trace_info = TraceInfoV2.from_v3(trace_info)
+
+    response_message = EndTrace.Response(trace_info=trace_info.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_trace_info(request_id):
+    """
+    Deprecated. Use `_get_trace_info_v3` instead.
+    A request handler for `GET /mlflow/traces/{request_id}/info` to retrieve
+    an existing TraceInfo record from tracking store.
+    """
+    trace_info = _get_tracking_store().get_trace_info(request_id)
+    if isinstance(trace_info, TraceInfo):
+        trace_info = TraceInfoV2.from_v3(trace_info)
+    response_message = GetTraceInfo.Response(trace_info=trace_info.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _search_traces():
+    """
+    Deprecated. Use `_search_traces_v3` instead.
+    A request handler for `GET /mlflow/traces` to search for TraceInfo records in tracking store.
+    """
+    request_message = _get_request_message(
+        SearchTraces(),
+        schema={
+            "experiment_ids": [
+                _assert_array,
+                _assert_item_type_string,
+                _assert_required,
+            ],
+            "filter": [_assert_string],
+            "max_results": [
+                _assert_intlike,
+                lambda x: _assert_less_than_or_equal(int(x), 500),
+            ],
+            "order_by": [_assert_array, _assert_item_type_string],
+            "page_token": [_assert_string],
+        },
+    )
+    traces, token = _get_tracking_store().search_traces(
+        experiment_ids=request_message.experiment_ids,
+        filter_string=request_message.filter,
+        max_results=request_message.max_results,
+        order_by=request_message.order_by,
+        page_token=request_message.page_token,
+    )
+    if traces and isinstance(traces[0], TraceInfo):
+        traces = [TraceInfoV2.from_v3(t) for t in traces]
+
+    response_message = SearchTraces.Response()
+    response_message.traces.extend([e.to_proto() for e in traces])
+    if token:
+        response_message.next_page_token = token
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _start_trace_v3():
+    """
     A request handler for `POST /mlflow/traces` to create a new TraceInfo record in tracking store.
     """
     request_message = _get_request_message(
@@ -2514,7 +2638,7 @@ def _start_trace():
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _get_trace_info(trace_id):
+def _get_trace_info_v3(trace_id):
     """
     A request handler for `GET /mlflow/traces/{trace_id}/info` to retrieve
     an existing TraceInfo record from tracking store.
@@ -2526,7 +2650,7 @@ def _get_trace_info(trace_id):
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only
-def _search_traces():
+def _search_traces_v3():
     """
     A request handler for `GET /mlflow/traces` to search for TraceInfo records in tracking store.
     """
@@ -2659,122 +2783,6 @@ def get_trace_artifact_handler():
         download_name=TRACE_DATA_FILE_NAME,
     )
     return _response_with_file_attachment_headers(TRACE_DATA_FILE_NAME, file_sender_response)
-
-
-# Deprecated MLflow Tracing APIs. Kept for backward compatibility but do not use.
-
-
-@catch_mlflow_exception
-@_disable_if_artifacts_only
-def _deprecated_start_trace_v2():
-    """
-    A request handler for `POST /mlflow/traces` to create a new TraceInfo record in tracking store.
-    """
-    request_message = _get_request_message(
-        StartTrace(),
-        schema={
-            "experiment_id": [_assert_string],
-            "timestamp_ms": [_assert_intlike],
-            "request_metadata": [_assert_map_key_present],
-            "tags": [_assert_map_key_present],
-        },
-    )
-    request_metadata = {e.key: e.value for e in request_message.request_metadata}
-    tags = {e.key: e.value for e in request_message.tags}
-
-    trace_info = _get_tracking_store().deprecated_start_trace(
-        experiment_id=request_message.experiment_id,
-        timestamp_ms=request_message.timestamp_ms,
-        request_metadata=request_metadata,
-        tags=tags,
-    )
-    response_message = StartTrace.Response(trace_info=trace_info.to_proto())
-    return _wrap_response(response_message)
-
-
-@catch_mlflow_exception
-@_disable_if_artifacts_only
-def _deprecated_end_trace_v2(request_id):
-    """
-    A request handler for `PATCH /mlflow/traces/{request_id}` to mark an existing TraceInfo
-    record completed in tracking store.
-    """
-    request_message = _get_request_message(
-        EndTrace(),
-        schema={
-            "timestamp_ms": [_assert_intlike],
-            "status": [_assert_string],
-            "request_metadata": [_assert_map_key_present],
-            "tags": [_assert_map_key_present],
-        },
-    )
-    request_metadata = {e.key: e.value for e in request_message.request_metadata}
-    tags = {e.key: e.value for e in request_message.tags}
-
-    trace_info = _get_tracking_store().deprecated_end_trace(
-        request_id=request_id,
-        timestamp_ms=request_message.timestamp_ms,
-        status=TraceStatus.from_proto(request_message.status),
-        request_metadata=request_metadata,
-        tags=tags,
-    )
-
-    if isinstance(trace_info, TraceInfo):
-        trace_info = TraceInfoV2.from_v3(trace_info)
-
-    response_message = EndTrace.Response(trace_info=trace_info.to_proto())
-    return _wrap_response(response_message)
-
-
-@catch_mlflow_exception
-@_disable_if_artifacts_only
-def _deprecated_get_trace_info_v2(request_id):
-    """
-    A request handler for `GET /mlflow/traces/{request_id}/info` to retrieve
-    an existing TraceInfo record from tracking store.
-    """
-    trace_info = _get_tracking_store().get_trace_info(request_id)
-    trace_info = TraceInfoV2.from_v3(trace_info)
-    response_message = GetTraceInfo.Response(trace_info=trace_info.to_proto())
-    return _wrap_response(response_message)
-
-
-@catch_mlflow_exception
-@_disable_if_artifacts_only
-def _deprecated_search_traces_v2():
-    """
-    A request handler for `GET /mlflow/traces` to search for TraceInfo records in tracking store.
-    """
-    request_message = _get_request_message(
-        SearchTraces(),
-        schema={
-            "experiment_ids": [
-                _assert_array,
-                _assert_item_type_string,
-                _assert_required,
-            ],
-            "filter": [_assert_string],
-            "max_results": [
-                _assert_intlike,
-                lambda x: _assert_less_than_or_equal(int(x), 500),
-            ],
-            "order_by": [_assert_array, _assert_item_type_string],
-            "page_token": [_assert_string],
-        },
-    )
-    traces, token = _get_tracking_store().search_traces(
-        experiment_ids=request_message.experiment_ids,
-        filter_string=request_message.filter,
-        max_results=request_message.max_results,
-        order_by=request_message.order_by,
-        page_token=request_message.page_token,
-    )
-    traces = [TraceInfoV2.from_v3(t) for t in traces]
-    response_message = SearchTraces.Response()
-    response_message.traces.extend([e.to_proto() for e in traces])
-    if token:
-        response_message.next_page_token = token
-    return _wrap_response(response_message)
 
 
 # Logged Models APIs
@@ -3128,17 +3136,17 @@ HANDLERS = {
     CompleteMultipartUpload: _complete_multipart_upload_artifact,
     AbortMultipartUpload: _abort_multipart_upload_artifact,
     # MLflow Tracing APIs (V3)
-    StartTraceV3: _start_trace,
-    GetTraceInfoV3: _get_trace_info,
-    SearchTracesV3: _search_traces,
+    StartTraceV3: _start_trace_v3,
+    GetTraceInfoV3: _get_trace_info_v3,
+    SearchTracesV3: _search_traces_v3,
     DeleteTraces: _delete_traces,
     SetTraceTag: _set_trace_tag,
     DeleteTraceTag: _delete_trace_tag,
     # Legacy MLflow Tracing V2 APIs. Kept for backward compatibility but do not use.
-    StartTrace: _deprecated_start_trace_v2,
-    EndTrace: _deprecated_end_trace_v2,
-    GetTraceInfo: _deprecated_get_trace_info_v2,
-    SearchTraces: _deprecated_search_traces_v2,
+    StartTrace: _start_trace,
+    EndTrace: _end_trace,
+    GetTraceInfo: _get_trace_info,
+    SearchTraces: _search_traces,
     # Logged Models APIs
     CreateLoggedModel: _create_logged_model,
     GetLoggedModel: _get_logged_model,

@@ -324,7 +324,7 @@ def test_trace_with_databricks_tracking_uri(databricks_tracking_uri, monkeypatch
         model.predict(2, 5)
         mlflow.flush_trace_async_logging(terminate=True)
 
-    mock_get_store().start_trace.assert_called_once()
+    mock_get_store().start_trace_v3.assert_called_once()
     mock_upload_trace_data.assert_called_once()
 
 

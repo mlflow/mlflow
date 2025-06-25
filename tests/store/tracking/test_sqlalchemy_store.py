@@ -4200,9 +4200,9 @@ def test_create_run_appends_to_artifact_uri_path_correctly(input_uri, expected_u
     _assert_create_run_appends_to_artifact_uri_path_correctly(input_uri, expected_uri)
 
 
-def test_legacy_start_and_end_trace_v2(store: SqlAlchemyStore):
+def test_start_and_end_trace(store: SqlAlchemyStore):
     experiment_id = store.create_experiment("test_experiment")
-    trace_info = store.deprecated_start_trace(
+    trace_info = store.start_trace(
         experiment_id=experiment_id,
         timestamp_ms=1234,
         request_metadata={"rq1": "foo", "rq2": "bar"},
@@ -4225,7 +4225,7 @@ def test_legacy_start_and_end_trace_v2(store: SqlAlchemyStore):
     }
     assert trace_info == store.get_trace_info(request_id)
 
-    trace_info = store.deprecated_end_trace(
+    trace_info = store.end_trace(
         request_id=request_id,
         timestamp_ms=2345,
         status=TraceStatus.OK,
@@ -4255,7 +4255,7 @@ def test_legacy_start_and_end_trace_v2(store: SqlAlchemyStore):
     assert trace_info == store.get_trace_info(request_id)
 
 
-def test_start_trace(store: SqlAlchemyStore):
+def test_start_trace_v3(store: SqlAlchemyStore):
     experiment_id = store.create_experiment("test_experiment")
     trace_info = TraceInfo(
         trace_id="tr-123",
@@ -4266,7 +4266,7 @@ def test_start_trace(store: SqlAlchemyStore):
         tags={"tag1": "apple", "tag2": "orange"},
         trace_metadata={"rq1": "foo", "rq2": "bar"},
     )
-    trace_info = store.start_trace(trace_info)
+    trace_info = store.start_trace_v3(trace_info)
     trace_id = trace_info.trace_id
 
     assert trace_info.trace_id is not None
