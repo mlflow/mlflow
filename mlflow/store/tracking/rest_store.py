@@ -1181,7 +1181,7 @@ class RestStore(AbstractStore):
         """
         # Get or create stream for this thread
         if not hasattr(self._thread_local, 'events_stream') or self._thread_local.events_stream is None:
-            from mlflow.tracing.export.trace_server_archival_pb2 import Event as ProtoEvent
+            from mlflow.tracing.export.databricks_trace_archival_pb2 import Event as ProtoEvent
             from ingest_api_sdk import IngestApiSdk, TableProperties
             
             sdk = IngestApiSdk(
@@ -1207,7 +1207,7 @@ class RestStore(AbstractStore):
         """
         import time
         import json
-        from mlflow.tracing.export.trace_server_archival_pb2 import Event as ProtoEvent
+        from mlflow.tracing.export.databricks_trace_archival_pb2 import Event as ProtoEvent
         
         # Create proto event for the assessment
         proto_event = ProtoEvent()
@@ -1222,7 +1222,7 @@ class RestStore(AbstractStore):
         proto_event.severity_number = ""
         proto_event.severity_text = ""
         proto_event.body = json.dumps(assessment.to_dictionary())
-        proto_event.attributes = json.dumps({})
+        proto_event.attributes.clear()  # Initialize as empty map
         proto_event.dropped_attributes_count = 0
         proto_event.flags = 0
         

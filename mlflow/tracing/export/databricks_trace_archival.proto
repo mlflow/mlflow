@@ -30,19 +30,19 @@ message Span {
   optional int64 end_time_unix_nano = 9;
 
   // JSON string representation of attributes.
-  optional string attributes = 10;
+  map<string, string> attributes = 10;
 
   // The number of attributes that were discarded.
   optional int32 dropped_attributes_count = 11;
 
   // JSON string representation of events.
-  optional string events = 12;
+  repeated string events = 12;
 
   // The number of dropped events.
   optional int32 dropped_events_count = 13;
 
   // JSON string representation of links.
-  optional string links = 14;
+  repeated string links = 14;
 
   // The number of dropped links.
   optional int32 dropped_links_count = 15;
@@ -80,11 +80,11 @@ message Event {
   optional string body = 8;
 
   // A map of attribute key-value pairs associated with the event.
-  optional string attributes = 9;
+  map<string, string> attributes = 9;
 
   // The number of attributes that were discarded.
   optional int32 dropped_attributes_count = 10;
 
   // Flags, a bit field.
   optional int32 flags = 11;
-} 
+}

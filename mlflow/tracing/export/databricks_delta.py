@@ -12,7 +12,7 @@ from mlflow.entities.trace import Trace
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_ASYNC_TRACE_LOGGING,
 )
-from mlflow.tracing.export.trace_server_archival_pb2 import Span as ProtoSpan
+from mlflow.tracing.export.databricks_trace_archival_pb2 import Span as ProtoSpan
 from mlflow.tracing.export.async_export_queue import AsyncTraceExportQueue, Task
 from mlflow.tracing.fluent import _set_last_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
@@ -22,9 +22,9 @@ from ingest_api_sdk import IngestApiSdk, TableProperties
 _logger = logging.getLogger(__name__)
 
 
-class TraceServerSpanExporter(SpanExporter):
+class DatabricksDeltaExporter(SpanExporter):
     """
-    An exporter implementation that sends OpenTelemetry spans to the Databricks Trace Server
+    An exporter implementation that sends OpenTelemetry spans to Databricks Delta tables
     using the IngestApi.
     """
 
@@ -36,7 +36,7 @@ class TraceServerSpanExporter(SpanExporter):
         pat: str,
     ):
         """
-        Initialize a new TraceServerSpanExporter.
+        Initialize a new DatabricksDeltaExporter.
         
         Args:
             spans_table_name: The name of the table to ingest spans into.
@@ -66,7 +66,7 @@ class TraceServerSpanExporter(SpanExporter):
 
     def export(self, spans: Sequence[ReadableSpan]):
         """
-        Export the spans to the Databricks Trace Server.
+        Export the spans to Databricks Delta tables.
 
         Args:
             spans: A sequence of OpenTelemetry ReadableSpan objects passed from
@@ -85,7 +85,7 @@ class TraceServerSpanExporter(SpanExporter):
                     task=Task(
                         handler=self._log_trace,
                         args=(trace,),
-                        error_msg="Failed to log trace to the trace server.",
+                        error_msg="Failed to log trace to Databricks Delta.",
                     )
                 )
             else:
@@ -93,7 +93,7 @@ class TraceServerSpanExporter(SpanExporter):
 
     def _log_trace(self, trace: Trace):
         """
-        Handles exporting a trace to the Databricks Trace Server using the IngestApi.
+        Handles exporting a trace to Databricks Delta using the IngestApi.
         Uses asyncio.run() to avoid event loop management issues.
         
         Args:
@@ -112,7 +112,7 @@ class TraceServerSpanExporter(SpanExporter):
                 
         except Exception as e:
             import traceback
-            _logger.warning(f"Failed to send trace to Databricks Trace Server: {e}")
+            _logger.warning(f"Failed to send trace to Databricks Delta: {e}")
 
     async def _get_stream(self):
         """
@@ -125,12 +125,12 @@ class TraceServerSpanExporter(SpanExporter):
         # Get or create stream for this thread
         if not hasattr(self._thread_local, 'stream') or self._thread_local.stream is None:
             self._thread_local.stream = await self._sdk_handle.create_stream(self._spans_table_properties)
-            _logger.debug("Created new thread-local stream for TraceServer export")
+            _logger.debug("Created new thread-local stream for Databricks Delta export")
         return self._thread_local.stream
 
-    async def _ingest_spans(self, proto_spans: list[ProtoSpan]):
+    async def _ingest_spans(self, proto_spans: list):
         """
-        Ingest all spans from a trace into the trace server in a batch.
+        Ingest all spans from a trace into Databricks Delta in a batch.
         
         Args:
             proto_spans: A list of ProtoSpan objects to be ingested.
@@ -155,7 +155,7 @@ class TraceServerSpanExporter(SpanExporter):
             if hasattr(self._thread_local, 'stream'):
                 self._thread_local.stream = None
 
-    def _convert_trace_to_proto_spans(self, trace: Trace) -> list[ProtoSpan]:
+    def _convert_trace_to_proto_spans(self, trace: Trace) -> list:
         """
         Convert an MLflow trace to a list of OpenTelemetry Proto Spans.
         
@@ -202,24 +202,26 @@ class TraceServerSpanExporter(SpanExporter):
             proto_span.start_time_unix_nano = start_time_ns
             proto_span.end_time_unix_nano = end_time_ns
             
-            # Convert attributes to JSON string
-            proto_span.attributes = json.dumps(getattr(span, "attributes", {}))
+            # Convert attributes to map<string, string>
+            attributes = getattr(span, "attributes", {})
+            for key, value in attributes.items():
+                # Convert all values to strings as required by the proto map<string, string>
+                proto_span.attributes[str(key)] = str(value)
             proto_span.dropped_attributes_count = 0
             
-            # Convert events to JSON string
-            events = []
+            # Convert events to repeated string (JSON serialized)
             for event in getattr(span, "events", []):
-                events.append({
+                event_data = {
                     "time_unix_nano": getattr(event, "timestamp_ns", current_time_ns),
                     "name": getattr(event, "name", "event"),
                     "attributes": getattr(event, "attributes", {}),
                     "dropped_attributes_count": 0
-                })
-            proto_span.events = json.dumps(events)
+                }
+                proto_span.events.append(json.dumps(event_data))
             proto_span.dropped_events_count = 0
             
-            # Set empty links
-            proto_span.links = json.dumps([])
+            # Set empty links as repeated string
+            # proto_span.links is already initialized as an empty repeated field
             proto_span.dropped_links_count = 0
             
             # Set status
@@ -258,4 +260,4 @@ class TraceServerSpanExporter(SpanExporter):
                 finally:
                     self._thread_local.stream = None
         except Exception as e:
-            _logger.warning(f"Error shutting down exporter: {e}") 
+            _logger.warning(f"Error shutting down exporter: {e}")
