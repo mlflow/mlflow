@@ -29,7 +29,6 @@ export function convertHrTimeToNanoSeconds(hrTime: HrTime): bigint {
   return BigInt(hrTime[0]) * 1_000_000_000n + BigInt(hrTime[1]);
 }
 
-
 /**
  * Convert a hex span ID to base64 format for JSON serialization
  * Following Python implementation: _encode_span_id_to_byte

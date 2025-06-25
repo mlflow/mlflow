@@ -76,7 +76,10 @@ describe('SpanStatus', () => {
       testCases.forEach(({ code, description }) => {
         const originalStatus = new SpanStatus(code, description);
         const json = originalStatus.toJson();
-        const recreatedStatus = new SpanStatus(json.status_code as SpanStatusCode, json.description);
+        const recreatedStatus = new SpanStatus(
+          json.status_code as SpanStatusCode,
+          json.description
+        );
 
         expect(recreatedStatus.statusCode).toBe(originalStatus.statusCode);
         expect(recreatedStatus.description).toBe(originalStatus.description);
