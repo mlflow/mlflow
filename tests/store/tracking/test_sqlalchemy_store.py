@@ -5917,6 +5917,41 @@ def test_delete_assessment_idempotent(store):
     store.delete_assessment(trace_info.request_id, "fake_assessment_id")
 
 
+def test_delete_assessment_override_behavior(store):
+    exp_id = store.create_experiment("test_delete_override")
+    trace_info = store.start_trace(exp_id, get_current_time_millis(), {}, {})
+
+    original = store.create_assessment(
+        trace_info.request_id,
+        Feedback(
+            trace_id=trace_info.request_id,
+            name="original",
+            value="original_value",
+            source=AssessmentSource(source_type=AssessmentSourceType.CODE),
+        ),
+    )
+
+    override = store.create_assessment(
+        trace_info.request_id,
+        Feedback(
+            trace_id=trace_info.request_id,
+            name="override",
+            value="override_value",
+            source=AssessmentSource(source_type=AssessmentSourceType.HUMAN),
+            overrides=original.assessment_id,
+        ),
+    )
+
+    assert store.get_assessment(trace_info.request_id, original.assessment_id).valid is False
+    assert store.get_assessment(trace_info.request_id, override.assessment_id).valid is True
+
+    store.delete_assessment(trace_info.request_id, override.assessment_id)
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_assessment(trace_info.request_id, override.assessment_id)
+    assert store.get_assessment(trace_info.request_id, original.assessment_id).valid is True
+
+
 def test_assessment_with_run_id(store):
     exp_id = store.create_experiment("test_run_assessments")
     trace_info = store.start_trace(exp_id, get_current_time_millis(), {}, {})
