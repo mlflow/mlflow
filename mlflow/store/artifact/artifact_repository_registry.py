@@ -55,7 +55,9 @@ class ArtifactRepositoryRegistry:
                     stacklevel=2,
                 )
 
-    def get_artifact_repository(self, artifact_uri, tracking_uri=None):
+    def get_artifact_repository(
+        self, artifact_uri: str, tracking_uri: Optional[str] = None
+    ) -> ArtifactRepository:
         """
         Get an artifact repository from the registry based on the scheme of artifact_uri
 
