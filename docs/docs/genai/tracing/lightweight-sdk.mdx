@@ -91,6 +91,7 @@ The lightweight SDK works with various observability platforms. Choose your pref
         </div>
       </div>
     </div>
+
   </TabItem>
 
   <TabItem value="databricks" label="Databricks">
@@ -135,6 +136,7 @@ The lightweight SDK works with various observability platforms. Choose your pref
         </div>
       </div>
     </div>
+
   </TabItem>
 
   <TabItem value="sagemaker" label="Amazon SageMaker">
@@ -153,6 +155,7 @@ The lightweight SDK works with various observability platforms. Choose your pref
         </div>
       </div>
     </div>
+
   </TabItem>
 
   <TabItem value="nebius" label="Nebius">
@@ -176,8 +179,8 @@ The lightweight SDK works with various observability platforms. Choose your pref
         </div>
       </div>
     </div>
-  </TabItem>
 
+  </TabItem>
 
 </Tabs>
 
@@ -330,12 +333,13 @@ def your_function():
 
 ## Package Size Comparison
 
-| Package | Size | Dependencies | Use Case |
-|---------|------|--------------|----------|
-| `mlflow` | ~1000MB | 20+ packages | Development, experimentation, full ML lifecycle |
-| `mlflow-tracing` | ~5MB | 5-8 packages | Production tracing, monitoring, observability |
+| Package          | Size    | Dependencies | Use Case                                        |
+| ---------------- | ------- | ------------ | ----------------------------------------------- |
+| `mlflow`         | ~1000MB | 20+ packages | Development, experimentation, full ML lifecycle |
+| `mlflow-tracing` | ~5MB    | 5-8 packages | Production tracing, monitoring, observability   |
 
 The lightweight SDK is **95% smaller** than the full MLflow package, making it ideal for:
+
 - Container deployments
 - Serverless functions
 - Edge computing

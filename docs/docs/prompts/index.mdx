@@ -48,6 +48,7 @@ import TabItem from "@theme/TabItem";
       :::
 
     </div>
+
   </TabItem>
   <TabItem value="python" label="Python" default>
     <div class="flex-column">
@@ -84,6 +85,7 @@ import TabItem from "@theme/TabItem";
       print(f"Created prompt '{prompt.name}' (version {prompt.version})")
       ```
     </div>
+
   </TabItem>
 </Tabs>
 
@@ -108,6 +110,7 @@ This creates a new prompt with the specified template text and metadata. The pro
       4. Click **Create** to register the new version.
 
     </div>
+
   </TabItem>
   <TabItem value="python" label="Python" default>
     <div class="flex-column">
@@ -139,6 +142,7 @@ This creates a new prompt with the specified template text and metadata. The pro
       )
       ```
     </div>
+
   </TabItem>
 </Tabs>
 
@@ -193,28 +197,31 @@ You can discover prompts by name, tag or other registry fields:
   ```python
   import mlflow
 
-  # Fluent API: returns a flat list of all matching prompts
-  prompts = mlflow.genai.search_prompts(filter_string="task='summarization'")
-  print(f"Found {len(prompts)} prompts")
+# Fluent API: returns a flat list of all matching prompts
 
-  # For pagination control, use the client API:
-  from mlflow.tracking import MlflowClient
+prompts = mlflow.genai.search_prompts(filter_string="task='summarization'")
+print(f"Found {len(prompts)} prompts")
 
-  client = MlflowClient()
-  all_prompts = []
-  token = None
-  while True:
-      page = client.search_prompts(
-          filter_string="task='summarization'",
-          max_results=50,
-          page_token=token,
-      )
-      all_prompts.extend(page)
-      token = page.token
-      if not token:
-          break
-  print(f"Total prompts across pages: {len(all_prompts)}")
-  ```
+# For pagination control, use the client API:
+
+from mlflow.tracking import MlflowClient
+
+client = MlflowClient()
+all_prompts = []
+token = None
+while True:
+page = client.search_prompts(
+filter_string="task='summarization'",
+max_results=50,
+page_token=token,
+)
+all_prompts.extend(page)
+token = page.token
+if not token:
+break
+print(f"Total prompts across pages: {len(all_prompts)}")
+
+````
 </TabItem> </Tabs>
 
 ## Prompt Object
@@ -245,10 +252,9 @@ import mlflow
 # Delete a prompt version
 client = mlflow.MlflowClient()
 client.delete_prompt_version("summarization-prompt", version=2)
-```
+````
 
 To avoid accidental deletion, you can only delete one version at a time via API. If you delete the all versions of a prompt, the prompt itself will be deleted.
-
 
 #### Q: Can I update the prompt template of an existing prompt version?
 

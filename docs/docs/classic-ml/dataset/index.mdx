@@ -26,6 +26,7 @@ MLflow's dataset tracking revolves around two main abstractions:
 The `Dataset` abstraction is a metadata tracking object that holds comprehensive information about a logged dataset. The information stored within a `Dataset` object includes:
 
 **Core Properties:**
+
 - **Name**: Descriptive identifier for the dataset (defaults to "dataset" if not specified)
 - **Digest**: Unique hash/fingerprint for dataset identification (automatically computed)
 - **Source**: DatasetSource containing lineage information to the original data location
@@ -33,6 +34,7 @@ The `Dataset` abstraction is a metadata tracking object that holds comprehensive
 - **Profile**: Optional summary statistics (implementation-specific, e.g., row count, column stats)
 
 **Supported Dataset Types:**
+
 - <APILink fn="mlflow.data.pandas_dataset.PandasDataset">`PandasDataset`</APILink> - For Pandas DataFrames
 - <APILink fn="mlflow.data.spark_dataset.SparkDataset">`SparkDataset`</APILink> - For Apache Spark DataFrames
 - <APILink fn="mlflow.data.numpy_dataset.NumpyDataset">`NumpyDataset`</APILink> - For NumPy arrays
@@ -41,6 +43,7 @@ The `Dataset` abstraction is a metadata tracking object that holds comprehensive
 - <APILink fn="mlflow.data.meta_dataset.MetaDataset">`MetaDataset`</APILink> - For metadata-only datasets (no actual data storage)
 
 **Special Dataset Types:**
+
 - `EvaluationDataset` - Internal dataset type used specifically with `mlflow.evaluate()` for model evaluation workflows
 
 ### DatasetSource
@@ -77,6 +80,7 @@ with mlflow.start_run():
     # model = train_model(raw_data)
     # mlflow.sklearn.log_model(model, "model")
 ```
+
   </TabItem>
   <TabItem value="metadata-only" label="Metadata-Only Datasets">
 
@@ -225,6 +229,7 @@ print(f"Dataset schema: {dataset.schema}")  # Optional: implementation-specific 
 ```
 
 Example output:
+
 ```
 Dataset name: wine-quality-white
 Dataset digest: 2a1e42c4
@@ -321,6 +326,7 @@ When you log datasets to MLflow runs, they appear in the MLflow UI with comprehe
 ![Dataset in MLflow UI](/images/tracking/dataset-mlflow-ui.png)
 
 The UI displays:
+
 - Dataset name and digest
 - Schema information with column types
 - Profile statistics (row counts, etc.)
@@ -784,6 +790,7 @@ When working with MLflow datasets, follow these best practices:
 **Version Control**: Track dataset versions explicitly, especially when data preprocessing or collection methods change.
 
 **Digest Computation**: Dataset digests are computed differently for different dataset types:
+
 - **Standard datasets**: Based on data content and structure
 - **MetaDataset**: Based on metadata only (name, source, schema) - no actual data hashing
 - **EvaluationDataset**: Optimized hashing using sample rows for large datasets

@@ -1,25 +1,25 @@
-import { useLocation } from "@docusaurus/router"
-import useBaseUrl from "@docusaurus/useBaseUrl";
-import { Footer } from "@site/src/components/Footer/Footer";
-import React from "react";
+import { useLocation } from '@docusaurus/router';
+import useBaseUrl from '@docusaurus/useBaseUrl';
+import { Footer } from '@site/src/components/Footer/Footer';
+import React from 'react';
 
 function getFooterVariant(pathname: string) {
-  const genAI = useBaseUrl("/genai");
-  const classicalML = useBaseUrl("/ml");
+  const genAI = useBaseUrl('/genai');
+  const classicalML = useBaseUrl('/ml');
 
   if (pathname.startsWith(genAI)) {
-    return "red";
+    return 'red';
   } else if (pathname.startsWith(classicalML)) {
-    return "blue";
+    return 'blue';
   } else {
-    return "colorful";
+    return 'colorful';
   }
 }
 
 function FooterWrapper() {
   const location = useLocation();
   const variant = getFooterVariant(location.pathname);
-  return <Footer variant={variant} />
+  return <Footer variant={variant} />;
 }
 
 export default React.memo(FooterWrapper);

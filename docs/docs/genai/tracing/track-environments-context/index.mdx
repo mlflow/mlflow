@@ -4,7 +4,6 @@ import TabItem from "@theme/TabItem";
 
 # Track Versions & Environments
 
-
 Tracking environments, application versions, and custom contextual information in your GenAI application enables comprehensive observability across different deployment stages, versions, and business-specific dimensions. MLflow provides flexible mechanisms to attach rich metadata to your traces using tags.
 
 ## Why Track Environments & Context?
@@ -63,7 +62,6 @@ Here's how to add various types of context as tags to your traces:
     import os
     import platform
 
-
     @mlflow.trace
     def process_data_with_context(data: dict, app_config: dict):
         """Process data and add environment, version, and custom context."""
@@ -107,6 +105,7 @@ Here's how to add various types of context as tags to your traces:
     - Pass application or model configurations into your traced functions
     - Use `platform` module for system information
     - <APILink fn="mlflow.update_current_trace" /> adds all key-value pairs to the active trace
+
   </TabItem>
   <TabItem value="context-manager" label="Using Context Managers">
     For more complex scenarios, you can use context managers to ensure consistent tagging:
@@ -149,6 +148,7 @@ Here's how to add various types of context as tags to your traces:
 
     result = my_genai_pipeline("What is the weather like?")
     ```
+
   </TabItem>
   <TabItem value="web-app" label="Web Application Example">
     In a production web application, context can be derived from environment variables, request headers, or application configuration:
@@ -215,6 +215,7 @@ Here's how to add various types of context as tags to your traces:
          -H "X-User-ID: user-jane-doe-12345" \
          -d '{"message": "What is my account balance?"}'
     ```
+
   </TabItem>
 </Tabs>
 
@@ -291,6 +292,7 @@ Use the MLflow SDK for more complex analysis or to integrate with other tools:
             f"Version {version}: {data['error_rate']:.1f}% errors, {data['avg_latency']:.1f}ms avg latency"
         )
     ```
+
   </TabItem>
   <TabItem value="environment-analysis" label="Environment Analysis">
     Analyze performance differences across environments:
@@ -328,6 +330,7 @@ Use the MLflow SDK for more complex analysis or to integrate with other tools:
             f"p95: {metrics['p95_latency']:.1f}ms"
         )
     ```
+
   </TabItem>
   <TabItem value="feature-flags" label="Feature Flag Analysis">
     Analyze the impact of feature flags on performance:
@@ -387,6 +390,7 @@ Use the MLflow SDK for more complex analysis or to integrate with other tools:
             f"({impact['latency_change_percent']:.1f}% change)"
         )
     ```
+
   </TabItem>
 </Tabs>
 

@@ -54,22 +54,24 @@ Full integration with MLflow's ecosystem including:
 ### Implementing a ResponsesAgent
 
 #### Getting started
+
 To create your own agent, subclass `mlflow.pyfunc.ResponsesAgent` and implement your agent logic in the `predict` method. The implementation is framework-agnostic, allowing you to use any agent authoring framework. Note that `pydantic>=2` is required to use ResponsesAgent. For example implementations, see the [simple chat agent](#simple-chat-example) and the [tool calling agent](#tool-calling-example) below.
 
 #### Creating agent output
+
 When implementing your agent, you'll work with two main output types: <APILink fn="mlflow.types.responses.ResponsesAgentResponse">`ResponsesAgentResponse`</APILink> and <APILink fn="mlflow.types.responses.ResponsesAgentResponse">`ResponsesAgentStreamEvent`</APILink>. These are the only pydantic objects you should create directly. The remaining classes in `mlflow.types.responses_helpers` are only for validating dictionaries.
 
 If you want to return outputs that don't fit into the standard interface, you can use the `custom_outputs` field.
 
 Below are some helper methods you can use to create common outputs within the ResponsesAgent interface:
+
 - <APILink fn="mlflow.pyfunc.ResponsesAgent.create_text_output_item" />
 - <APILink fn="mlflow.pyfunc.ResponsesAgent.create_function_call_item" />
 - <APILink fn="mlflow.pyfunc.ResponsesAgent.create_function_call_output_item" />
 - <APILink fn="mlflow.pyfunc.ResponsesAgent.create_text_delta" /> (only for streaming)
 
-
-
 Here's an example of a complete tool calling sequence using `ResponsesAgentResponse` with a custom output:
+
 ```python
 from mlflow.pyfunc import ResponsesAgent
 from mlflow.types.responses import ResponsesAgentRequest, ResponsesAgentResponse
@@ -100,12 +102,15 @@ class SimpleResponsesAgent(ResponsesAgent):
 ```
 
 #### Streaming agent output
+
 For real-time processing, you can use streaming events instead of returning a complete response. Streaming allows you to send partial results as they become available, which is useful for long-running operations or when you want to show progress to users.
 
 ##### Basic text streaming
+
 To stream text within the ResponsesAgent interface, you should:
+
 - yield `response.output_text.delta` events with the chunks as they become available
-    - it must have an `item_id` that corresponds related events to a single output item
+  - it must have an `item_id` that corresponds related events to a single output item
 - yield a `response.output_item.done` event to aggregate all chunks
 
 ```python
@@ -141,6 +146,7 @@ class SimpleResponsesAgent(ResponsesAgent):
 ```
 
 ##### Tool calling with streaming
+
 You can also stream tool calls and their results. Each tool call and its output are sent as separate `response.output_item.done` events. This enables MLflow tracing and makes it easier for clients to reconstruct streamed message history.
 
 ```python
@@ -178,10 +184,10 @@ class SimpleResponsesAgent(ResponsesAgent):
         )
 ```
 
-
 ### Logging and Serving
 
 Log your agent using the [Models-from-code](/ml/model/models-from-code) approach. This approach is framework-agnostic and supports all authoring frameworks:
+
 ```python
 with mlflow.start_run():
     logged_agent_info = mlflow.pyfunc.log_model(
@@ -191,15 +197,17 @@ with mlflow.start_run():
 ```
 
 For ease of use, MLflow has built in the following features:
+
 - Automatic model signature inference
-    - An input and output signature that adheres to the ResponsesAgentRequest and ResponsesAgentResponse schemas will be set
+  - An input and output signature that adheres to the ResponsesAgentRequest and ResponsesAgentResponse schemas will be set
 - Metadata
-    - `{"task": "agent/v1/responses"}` will be automatically appended to any metadata that you may pass in when logging the model
+  - `{"task": "agent/v1/responses"}` will be automatically appended to any metadata that you may pass in when logging the model
 - Input Example
-    - Providing an input example is optional, `mlflow.types.responses.RESPONSES_AGENT_INPUT_EXAMPLE` will be used by default
-    - If you do provide an input example, ensure it's a dictionary of the ResponsesAgentRequest schema
+  - Providing an input example is optional, `mlflow.types.responses.RESPONSES_AGENT_INPUT_EXAMPLE` will be used by default
+  - If you do provide an input example, ensure it's a dictionary of the ResponsesAgentRequest schema
 
 To test out a ResponsesAgent, you can pass a single input dictionary that follows the ResponsesAgentRequest schema both before and after logging it:
+
 ```python
 import mlflow
 
@@ -218,6 +226,7 @@ To serve the model, refer to the [`serving options`](#serving-options) for detai
 ## Examples
 
 ### Simple Chat Example
+
 Here's an example of an agent that calls OpenAI's gpt-4o model with a simple tool:
 
 ```python
@@ -263,8 +272,8 @@ agent = SimpleResponsesAgent(model="gpt-4o")
 set_model(agent)
 ```
 
-
 ### Tool Calling Example
+
 Here's an example of an agent that calls OpenAI's gpt-4o model with a simple tool:
 
 ```python
@@ -509,6 +518,7 @@ mlflow.models.set_model(AGENT)
         )
         ```
     </TabItem>
+
 </Tabs>
 
 ## Schema and Types

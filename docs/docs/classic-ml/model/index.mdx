@@ -222,13 +222,13 @@ you can use the <APILink fn="mlflow.models.Model">mlflow.models.Model</APILink> 
 class has four key functions:
 
 - <APILink fn="mlflow.models.Model.add_flavor">add_flavor</APILink> to add a flavor to the model. Each flavor
-  has a string name and a dictionary of key-value attributes, where the values can be any object
-  that can be serialized to YAML.
+has a string name and a dictionary of key-value attributes, where the values can be any object
+that can be serialized to YAML.
 - <APILink fn="mlflow.models.Model.save">save</APILink> to save the model to a local directory.
 - <APILink fn="mlflow.models.Model.log">log</APILink> to log the model as an artifact in the
-  current run using MLflow Tracking.
+current run using MLflow Tracking.
 - <APILink fn="mlflow.models.Model.load">load</APILink> to load a model from a local directory or
-  from an artifact in a previous run.
+from an artifact in a previous run.
 
 ## Models From Code
 
@@ -545,8 +545,8 @@ The `h2o` model flavor enables logging and loading H2O models.
 
 The <APILink fn="mlflow.h2o">mlflow.h2o</APILink> module defines <APILink fn="mlflow.h2o.save_model">save_model()</APILink>
 and <APILink fn="mlflow.h2o.log_model">log_model()</APILink> methods in python,
-and <Link to={useBaseUrl("/api_reference/R-api.html#mlflow-save-model-h2o")} target="_blank">mlflow_save_model</Link>
-and <Link to={useBaseUrl("/api_reference/R-api.html#mlflow-log-model")} target="_blank">mlflow_log_model</Link> in R for saving H2O
+and <Link to={useBaseUrl("/api_reference/R-api.html#mlflow-save-model-h2o")} target="\_blank">mlflow_save_model</Link>
+and <Link to={useBaseUrl("/api_reference/R-api.html#mlflow-log-model")} target="\_blank">mlflow_log_model</Link> in R for saving H2O
 models in MLflow Model format. These methods produce MLflow Models with the `python_function` flavor, allowing you to load them
 as generic Python functions for inference via <APILink fn="mlflow.pyfunc.load_model" />.
 This loaded PyFunc model can be scored with only DataFrame input. When you load
@@ -645,7 +645,6 @@ For more information, see <APILink fn="mlflow.spark">mlflow.spark</APILink>.
 ### TensorFlow (`tensorflow`)
 
 The full guide for the `tensorflow` integration [can be viewed here](/ml/deep-learning/tensorflow/).
-
 
 ### ONNX (`onnx`)
 
@@ -1802,7 +1801,6 @@ with mlflow.start_run() as run:
 
 To read about how to build custom integrations and to see examples of community-developed extended library support, check out the [Community Model Flavors](/ml/community-model-flavors) page.
 
-
 ## Validate Models before Deployment
 
 After logging your model with MLflow Tracking, it is highly recommended to validate the model locally before deploying it to production.
@@ -2053,7 +2051,7 @@ using the <APILink fn="mlflow.deployments">mlflow.deployments Python API</APILin
 - <Link to="/api_reference/cli.html#mlflow-deployments-create" target="_blank">Create</Link>: Deploy an MLflow model to a specified custom target
 - <Link to="/api_reference/cli.html#mlflow-deployments-delete" target="_blank">Delete</Link>: Delete a deployment
 - <Link to="/api_reference/cli.html#mlflow-deployments-update" target="_blank">Update</Link>: Update an existing deployment, for example to
-  deploy a new model version or change the deployment's configuration (e.g. increase replica count)
+deploy a new model version or change the deployment's configuration (e.g. increase replica count)
 - <Link to="/api_reference/cli.html#mlflow-deployments-list" target="_blank">List</Link>: List IDs of all deployments
 - <Link to="/api_reference/cli.html#mlflow-deployments-get" target="_blank">Get</Link>: Print a detailed description of a particular deployment
 - <Link to="/api_reference/cli.html#mlflow-deployments-run-local" target="_blank">Run Local</Link>: Deploy the model locally for testing

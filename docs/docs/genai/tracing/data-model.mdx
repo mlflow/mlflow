@@ -8,7 +8,6 @@ This document provides a detailed overview of the MLflow Trace data model. Under
 
 MLflow Traces are designed to be **compatible with OpenTelemetry specifications**, a widely adopted industry standard for observability. This ensures interoperability and allows MLflow Traces to be exported and used with other OpenTelemetry-compatible systems. MLflow enhances the basic OpenTelemetry Span model by defining specific structures and attributes for Generative AI use cases, providing richer context and deeper insight into quality and performance.
 
-
 ## Structure of Traces
 
 At a high level, an MLflow **Trace** is composed of two primary objects:
@@ -40,6 +39,7 @@ This metadata includes information about the trace's origin, status, and various
     **`state`** (TraceState): State of the trace, represented as a TraceState enum. Can be one of [`OK`, `ERROR`, `IN_PROGRESS`, `STATE_UNSPECIFIED`].
 
     **`execution_duration`** (Optional[int]): Duration of the trace, in milliseconds.
+
   </TabItem>
   <TabItem value="preview-fields" label="Request & Response">
     **`request_preview`** (Optional[str]): Request to the model/agent, equivalent to the input of the root span but JSON-encoded and can be truncated.
@@ -47,6 +47,7 @@ This metadata includes information about the trace's origin, status, and various
     **`response_preview`** (Optional[str]): Response from the model/agent, equivalent to the output of the root span but JSON-encoded and can be truncated.
 
     These preview fields provide a quick overview of what the trace processed without needing to examine the detailed span data.
+
   </TabItem>
   <TabItem value="metadata-fields" label="Metadata & Organization">
     **`client_request_id`** (Optional[str]): Client supplied request ID associated with the trace. This could be used to identify the trace/request from an external system that produced the trace, e.g., a session ID in a web application.
@@ -54,6 +55,7 @@ This metadata includes information about the trace's origin, status, and various
     **`trace_metadata`** (dict[str, str]): Key-value pairs associated with the trace. They are designed for immutable values like run ID associated with the trace.
 
     **`tags`** (dict[str, str]): Tags associated with the trace. They are designed for mutable values, that can be updated after the trace is created via MLflow UI or API.
+
   </TabItem>
 </Tabs>
 
@@ -86,6 +88,7 @@ MLflow uses a set of standard tags for common contextual information about users
 For enterprise and distributed applications, custom tags enable powerful filtering and organization:
 
 **Business Context Tags:**
+
 ```python
 # Business-specific identification
 mlflow.update_current_trace(
@@ -99,6 +102,7 @@ mlflow.update_current_trace(
 ```
 
 **Deployment and Environment Tags:**
+
 ```python
 # Deployment context
 mlflow.update_current_trace(
@@ -112,6 +116,7 @@ mlflow.update_current_trace(
 ```
 
 **Performance and Quality Tags:**
+
 ```python
 # Performance monitoring
 mlflow.update_current_trace(
@@ -135,6 +140,7 @@ The MLflow `TraceData` object, accessible via `Trace.data`, holds the core paylo
     Spans are organized hierarchically via `parent_id` to represent the execution flow.
 
     See the [Span Schema](#span-schema) section below for a detailed breakdown of a Span object.
+
   </TabItem>
   <TabItem value="request-response" label="Request & Response">
     **`request`** (str): A JSON-serialized string representing the input data for the root span of the trace. This is typically the end-user's request or the initial parameters that invoked the traced application or workflow.
@@ -148,6 +154,7 @@ The MLflow `TraceData` object, accessible via `Trace.data`, holds the core paylo
     :::note
     The `request` and `response` properties are preserved for backward compatibility. Their values are looked up from the respective `inputs` and `outputs` attribute of the root span and are not set directly by the user on the `TraceData` object.
     :::
+
   </TabItem>
 </Tabs>
 
@@ -172,6 +179,7 @@ Each Span object contains information about the step being instrumented, includi
     **`parent_id`** (Optional[str]): The identifier that establishes the hierarchical association of a given span with its parent span.
 
     **`name`** (str): The name of the span, either user-defined or automatically generated based on the function or method being instrumented.
+
   </TabItem>
   <TabItem value="timing" label="Timing & Status">
     **`start_time_ns`** (int): The unix timestamp (in nanoseconds) when the span was started.
@@ -179,6 +187,7 @@ Each Span object contains information about the step being instrumented, includi
     **`end_time_ns`** (int): The unix timestamp (in nanoseconds) when the span was ended.
 
     **`status`** (SpanStatus): The status of a span with values of OK, UNSET, or ERROR. The span status object contains an optional description if the status_code is reflecting an error that occurred.
+
   </TabItem>
   <TabItem value="data" label="Data & Context">
     **`inputs`** (Optional[Any]): The inputs are stored as JSON-serialized data, representing the input data that is passed into the particular stage of your application.
@@ -188,6 +197,7 @@ Each Span object contains information about the step being instrumented, includi
     **`attributes`** (Dict[str, Any]): Attributes are metadata that are associated with a given step within your application. These are key-value pairs that provide insight into behavioral modifications for function and method calls.
 
     **`events`** (List[SpanEvent]): Events are a system-level property that is optionally applied to a span only if there was an issue during the execution of the span. These events contain information about exceptions that were thrown in the instrumented call, as well as the stack trace.
+
   </TabItem>
 </Tabs>
 
@@ -200,6 +210,7 @@ When you view your traces within the MLflow UI, you're looking at a collection o
 For production and enterprise use cases, spans can include rich contextual attributes:
 
 **Model and Infrastructure Attributes:**
+
 ```python
 span.set_attributes(
     {
@@ -215,6 +226,7 @@ span.set_attributes(
 ```
 
 **Business Logic Attributes:**
+
 ```python
 span.set_attributes(
     {
@@ -228,6 +240,7 @@ span.set_attributes(
 ```
 
 **Performance and Quality Attributes:**
+
 ```python
 span.set_attributes(
     {
@@ -281,6 +294,7 @@ Span types are a way to categorize spans within a trace. By default, the span ty
         print(span.span_type)
         # Output: MATH
     ```
+
   </TabItem>
   <TabItem value="custom" label="Custom Span Types">
     For specialized applications, you can define custom span types that reflect your domain:
@@ -318,6 +332,7 @@ Span types are a way to categorize spans within a trace. By default, the span ty
     def check_inventory(product_id):
         ...
     ```
+
   </TabItem>
 </Tabs>
 
@@ -334,6 +349,7 @@ Each document in the list should be a dictionary with the following structure:
 **`page_content`** (str): The text content of the retrieved document chunk.
 
 **`metadata`** (Optional[Dict[str, Any]]): A dictionary of additional metadata associated with the document. MLflow UI and evaluation metrics may specifically look for:
+
 - `doc_uri` (str): A string URI for the document source
 - `chunk_id` (str): A string identifier if the document is part of a larger chunked document
 
@@ -584,6 +600,7 @@ def advanced_chat_completion(messages, model_config, user_context):
 Understanding the trace data model enables several powerful use cases:
 
 ### Programmatic Analysis
+
 **Query specific spans**: Search for spans by type, name, or attributes to analyze specific operations
 
 **Extract metrics**: Calculate performance metrics like latency, success rates, and resource usage
@@ -593,6 +610,7 @@ Understanding the trace data model enables several powerful use cases:
 **Cost tracking**: Monitor AI model usage and associated costs across different user tiers
 
 ### Quality Assessment
+
 **Input/output validation**: Verify that data is processed correctly at each step
 
 **Error analysis**: Examine failed spans to understand failure patterns
@@ -602,6 +620,7 @@ Understanding the trace data model enables several powerful use cases:
 **A/B testing**: Compare trace patterns across different model versions or configurations
 
 ### Integration with Evaluation
+
 **Trace-based evaluation**: Use trace data as input for quality assessment
 
 **Span-level metrics**: Evaluate individual operations within larger workflows
@@ -613,6 +632,7 @@ Understanding the trace data model enables several powerful use cases:
 ### Advanced Analytics and Monitoring
 
 #### Cost Analysis Example
+
 ```python
 def analyze_costs_by_user_tier(traces):
     """Analyze AI model costs by user tier"""
@@ -632,6 +652,7 @@ def analyze_costs_by_user_tier(traces):
 ```
 
 #### Performance Monitoring Example
+
 ```python
 def monitor_retrieval_performance(traces):
     """Monitor retrieval system performance"""
@@ -656,6 +677,7 @@ def monitor_retrieval_performance(traces):
 ```
 
 #### Error Pattern Analysis
+
 ```python
 def analyze_error_patterns(traces):
     """Analyze common error patterns across traces"""
@@ -699,4 +721,4 @@ def analyze_error_patterns(traces):
 
 ---
 
-*Understanding the trace data model is essential for leveraging MLflow Tracing effectively. The hierarchical structure of traces and spans, combined with rich metadata and specialized schemas, enables comprehensive observability and analysis of your GenAI applications.*
+_Understanding the trace data model is essential for leveraging MLflow Tracing effectively. The hierarchical structure of traces and spans, combined with rich metadata and specialized schemas, enables comprehensive observability and analysis of your GenAI applications._
