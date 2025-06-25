@@ -157,6 +157,28 @@ CREATE TABLE trace_info (
 )
 
 
+CREATE TABLE assessments (
+	assessment_id VARCHAR(50) NOT NULL,
+	trace_id VARCHAR(50) NOT NULL,
+	name VARCHAR(250) NOT NULL,
+	assessment_type VARCHAR(20) NOT NULL,
+	value TEXT NOT NULL,
+	error TEXT,
+	created_timestamp BIGINT NOT NULL,
+	last_updated_timestamp BIGINT NOT NULL,
+	source_type VARCHAR(50) NOT NULL,
+	source_id VARCHAR(250),
+	run_id VARCHAR(32),
+	span_id VARCHAR(50),
+	rationale TEXT,
+	overrides VARCHAR(50),
+	valid TINYINT NOT NULL,
+	assessment_metadata TEXT,
+	PRIMARY KEY (assessment_id),
+	CONSTRAINT fk_assessments_trace_id FOREIGN KEY(trace_id) REFERENCES trace_info (request_id) ON DELETE CASCADE
+)
+
+
 CREATE TABLE latest_metrics (
 	key VARCHAR(250) NOT NULL,
 	value DOUBLE NOT NULL,
