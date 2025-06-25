@@ -88,6 +88,8 @@ module.exports = {
  * @returns {string|null} The href value or null if it can't be determined
  */
 function getHrefValue(attr) {
+  // Guard against attr.value being null or undefined
+  if (!attr.value) return null;
   // Handle string literals: href="value"
   if (attr.value.type === "Literal") {
     return attr.value.value;
