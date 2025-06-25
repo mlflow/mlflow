@@ -97,7 +97,9 @@ def process_api_requests(
     results: list[tuple[int, Any]] = []
     request_tasks_iter = enumerate(request_tasks)
     _logger.debug(f"Request pool executor will run {len(request_tasks)} requests")
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+    with ThreadPoolExecutor(
+        max_workers=max_workers, thread_name_prefix="MlflowOpenAiApi"
+    ) as executor:
         futures = [
             executor.submit(
                 call_api,

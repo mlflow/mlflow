@@ -36,6 +36,7 @@ from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.model_registry import ModelVersionTag, RegisteredModelTag
 from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY
 from mlflow.entities.multipart_upload import MultipartUploadPart
+from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
@@ -1163,12 +1164,24 @@ def _get_metric_history():
         schema={
             "run_id": [_assert_string, _assert_required],
             "metric_key": [_assert_string, _assert_required],
+            "page_token": [_assert_string],
         },
     )
     response_message = GetMetricHistory.Response()
     run_id = request_message.run_id or request_message.run_uuid
-    metric_entities = _get_tracking_store().get_metric_history(run_id, request_message.metric_key)
+
+    max_results = request_message.max_results if request_message.max_results is not None else None
+    page_token = request_message.page_token if request_message.page_token else None
+
+    metric_entities = _get_tracking_store().get_metric_history(
+        run_id, request_message.metric_key, max_results=max_results, page_token=page_token
+    )
     response_message.metrics.extend([m.to_proto() for m in metric_entities])
+
+    # Set next_page_token if available
+    if next_page_token := metric_entities.token:
+        response_message.next_page_token = next_page_token
+
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
     return response
@@ -2347,6 +2360,9 @@ def _delete_artifact_mlflow_artifacts(artifact_path):
 
 @catch_mlflow_exception
 def _graphql():
+    from graphql import parse
+
+    from mlflow.server.graphql.graphql_no_batching import check_query_safety
     from mlflow.server.graphql.graphql_schema_extensions import schema
 
     # Extracting the query, variables, and operationName from the request
@@ -2355,8 +2371,12 @@ def _graphql():
     variables = request_json.get("variables")
     operation_name = request_json.get("operationName")
 
-    # Executing the GraphQL query using the Graphene schema
-    result = schema.execute(query, variables=variables, operation_name=operation_name)
+    node = parse(query)
+    if check_result := check_query_safety(node):
+        result = check_result
+    else:
+        # Executing the GraphQL query using the Graphene schema
+        result = schema.execute(query, variables=variables, operation_name=operation_name)
 
     # Convert execution result into json.
     result_data = {
@@ -2496,6 +2516,10 @@ def _start_trace():
         request_metadata=request_metadata,
         tags=tags,
     )
+
+    if isinstance(trace_info, TraceInfo):
+        trace_info = TraceInfoV2.from_v3(trace_info)
+
     response_message = StartTrace.Response(trace_info=trace_info.to_proto())
     return _wrap_response(response_message)
 
@@ -2526,6 +2550,10 @@ def _end_trace(request_id):
         request_metadata=request_metadata,
         tags=tags,
     )
+
+    if isinstance(trace_info, TraceInfo):
+        trace_info = TraceInfoV2.from_v3(trace_info)
+
     response_message = EndTrace.Response(trace_info=trace_info.to_proto())
     return _wrap_response(response_message)
 
@@ -2538,6 +2566,8 @@ def _get_trace_info(request_id):
     an existing TraceInfo record from tracking store.
     """
     trace_info = _get_tracking_store().get_trace_info(request_id)
+    if isinstance(trace_info, TraceInfo):
+        trace_info = TraceInfoV2.from_v3(trace_info)
     response_message = GetTraceInfo.Response(trace_info=trace_info.to_proto())
     return _wrap_response(response_message)
 
@@ -2572,6 +2602,9 @@ def _search_traces():
         order_by=request_message.order_by,
         page_token=request_message.page_token,
     )
+    if traces and isinstance(traces[0], TraceInfo):
+        traces = [TraceInfoV2.from_v3(t) for t in traces]
+
     response_message = SearchTraces.Response()
     response_message.traces.extend([e.to_proto() for e in traces])
     if token:
@@ -2611,7 +2644,7 @@ def _delete_traces():
         experiment_id=request_message.experiment_id,
         max_timestamp_millis=_get_nullable_field("max_timestamp_millis"),
         max_traces=_get_nullable_field("max_traces"),
-        request_ids=request_message.request_ids,
+        trace_ids=request_message.request_ids,
     )
     return _wrap_response(DeleteTraces.Response(traces_deleted=traces_deleted))
 
@@ -2820,6 +2853,7 @@ def _search_logged_models():
                 _assert_required,
             ],
             "filter": [_assert_string],
+            "datasets": [_assert_array],
             "max_results": [_assert_intlike],
             "order_by": [_assert_array],
             "page_token": [_assert_string],
@@ -2830,6 +2864,17 @@ def _search_logged_models():
         # to avoid serialization issues
         experiment_ids=list(request_message.experiment_ids),
         filter_string=request_message.filter or None,
+        datasets=(
+            [
+                {
+                    "dataset_name": d.dataset_name,
+                    "dataset_digest": d.dataset_digest or None,
+                }
+                for d in request_message.datasets
+            ]
+            if request_message.datasets
+            else None
+        ),
         max_results=request_message.max_results or None,
         order_by=(
             [

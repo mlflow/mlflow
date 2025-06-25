@@ -246,7 +246,7 @@ def get_enhanced_weather_response(location):
 
     # Add custom attributes
     mlflow.update_current_trace(
-        attributes={
+        tags={
             "response_length": len(result),
             "cleaned_location": cleaned_location,
         }

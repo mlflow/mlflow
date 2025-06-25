@@ -1,5 +1,7 @@
 # Key Challenges in Developing GenAI Applications
 
+import Link from '@docusaurus/Link';
+
 MLflow is built to address the fundamental challenge in delivering production-ready GenAI apps: **It is difficult to create apps that reliably deliver high-quality (accurate) responses at the optimal cost and latency.**
 
 ## The Unique Nature of GenAI Applications
@@ -142,6 +144,8 @@ Understanding these challenges is the first step. Now learn how to address them:
   gap: '16px',
   marginTop: '24px'
 }}>
+  {/* TODO: Fix href and replace `<a>` with `<Link>` */}
+  {/* eslint-disable-next-line @docusaurus/no-html-links */}
   <a href="/genai/overview/how-mlflow-helps" style={{
     display: 'block',
     padding: '20px',
@@ -157,7 +161,7 @@ Understanding these challenges is the first step. Now learn how to address them:
     </p>
   </a>
 
-  <a href="/genai/getting-started" style={{
+  <Link to="/genai/getting-started" style={{
     display: 'block',
     padding: '20px',
     backgroundColor: '#f0fff4',
@@ -170,5 +174,5 @@ Understanding these challenges is the first step. Now learn how to address them:
     <p style={{margin: '8px 0 0 0', fontSize: '14px'}}>
       Begin addressing these challenges today
     </p>
-  </a>
+  </Link>
 </div>

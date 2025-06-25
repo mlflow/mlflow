@@ -143,16 +143,16 @@ class TracingClient:
         experiment_id: str,
         max_timestamp_millis: Optional[int] = None,
         max_traces: Optional[int] = None,
-        request_ids: Optional[list[str]] = None,
+        trace_ids: Optional[list[str]] = None,
     ) -> int:
         return self.store.delete_traces(
             experiment_id=experiment_id,
             max_timestamp_millis=max_timestamp_millis,
             max_traces=max_traces,
-            request_ids=request_ids,
+            trace_ids=trace_ids,
         )
 
-    def get_trace_info(self, request_id, should_query_v3: bool = False) -> TraceInfoV2:
+    def get_trace_info(self, request_id, should_query_v3: bool = False) -> TraceInfo:
         """
         Get the trace info matching the ``request_id``.
 
@@ -164,7 +164,11 @@ class TracingClient:
         Returns:
             TraceInfo object, of type ``mlflow.entities.trace_info.TraceInfo``.
         """
-        return self.store.get_trace_info(request_id, should_query_v3=should_query_v3)
+        with InMemoryTraceManager.get_instance().get_trace(request_id) as trace:
+            if trace is not None:
+                return trace.info
+
+        return self.store.get_trace_info(request_id)
 
     def get_trace(self, request_id) -> Trace:
         """
@@ -290,6 +294,8 @@ class TracingClient:
                 else None
             )
 
+        is_databricks = is_databricks_uri(self.tracking_uri)
+
         if run_id:
             run = self.store.get_run(run_id)
             if run.info.experiment_id not in experiment_ids:
@@ -301,7 +307,11 @@ class TracingClient:
                     error_code=INVALID_PARAMETER_VALUE,
                 )
 
-            additional_filter = f"metadata.{TraceMetadataKey.SOURCE_RUN} = '{run_id}'"
+            additional_filter = (
+                f"attribute.run_id = '{run_id}'"
+                if is_databricks
+                else f"metadata.{TraceMetadataKey.SOURCE_RUN} = '{run_id}'"
+            )
             if filter_string:
                 if TraceMetadataKey.SOURCE_RUN in filter_string:
                     raise MlflowException(
@@ -313,8 +323,6 @@ class TracingClient:
                 filter_string += f" AND {additional_filter}"
             else:
                 filter_string = additional_filter
-
-        is_databricks = is_databricks_uri(self.tracking_uri)
 
         def download_trace_extra_fields(
             trace_info: Union[TraceInfoV2, TraceInfo],
@@ -368,7 +376,11 @@ class TracingClient:
         next_token = page_token
 
         max_workers = MLFLOW_SEARCH_TRACES_MAX_THREADS.get()
-        executor = ThreadPoolExecutor(max_workers=max_workers) if include_spans else nullcontext()
+        executor = (
+            ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="MlflowTracingSearch")
+            if include_spans
+            else nullcontext()
+        )
         with executor:
             while len(traces) < max_results:
                 trace_infos, next_token = self._search_traces(

@@ -93,6 +93,14 @@ def mock_tracking_store():
         yield mock_store
 
 
+@pytest.fixture
+def mock_tracing_client():
+    with mock.patch("mlflow.tracing.client.TracingClient") as mock_tracing_client:
+        mock_client = mock.Mock()
+        mock_tracing_client.return_value = mock_client
+        yield mock_client
+
+
 def test_link_prompt_version_to_model_success(store, mock_tracking_store):
     """Test successful linking of prompt version to model."""
     # Setup
@@ -345,7 +353,7 @@ def test_link_prompt_version_to_model_thread_safety(store, mock_tracking_store):
         assert expected_prompt in final_tag_value
 
 
-def test_link_prompts_to_trace_success(store, mock_tracking_store):
+def test_link_prompts_to_trace_success(store, mock_tracing_client):
     """Test successful linking of prompt versions to a trace."""
     # Setup
     store.add_prompt_version("test_prompt", "1")
@@ -355,23 +363,23 @@ def test_link_prompts_to_trace_success(store, mock_tracking_store):
     mock_trace_info = mock.Mock()
     mock_trace_info.tags = {}
 
-    mock_tracking_store.get_trace_info.return_value = mock_trace_info
+    mock_tracing_client.get_trace_info.return_value = mock_trace_info
 
     # Execute - get the prompt version object
     prompt_version = store.get_prompt_version("test_prompt", "v1")
     store.link_prompts_to_trace(prompt_versions=[prompt_version], trace_id=trace_id)
 
     # Verify
-    mock_tracking_store.set_trace_tag.assert_called_once()
+    mock_tracing_client.set_trace_tag.assert_called_once()
 
-    call_args = mock_tracking_store.set_trace_tag.call_args
+    call_args = mock_tracing_client.set_trace_tag.call_args
     assert call_args[0][0] == "trace_123"
     assert call_args[0][1] == LINKED_PROMPTS_TAG_KEY
     expected_value = [{"name": "test_prompt", "version": "1"}]
     assert json.loads(call_args[0][2]) == expected_value
 
 
-def test_link_prompts_to_trace_append_to_existing(store, mock_tracking_store):
+def test_link_prompts_to_trace_append_to_existing(store, mock_tracing_client):
     """Test linking prompt versions when other prompts are already linked to the trace."""
     # Setup
     store.add_prompt_version("test_prompt", "1")
@@ -381,14 +389,14 @@ def test_link_prompts_to_trace_append_to_existing(store, mock_tracking_store):
     mock_trace_info = mock.Mock()
     mock_trace_info.tags = {LINKED_PROMPTS_TAG_KEY: json.dumps(existing_prompts)}
 
-    mock_tracking_store.get_trace_info.return_value = mock_trace_info
+    mock_tracing_client.get_trace_info.return_value = mock_trace_info
 
     # Execute
     prompt_version = store.get_prompt_version("test_prompt", "v1")
     store.link_prompts_to_trace(prompt_versions=[prompt_version], trace_id=trace_id)
 
     # Verify
-    call_args = mock_tracking_store.set_trace_tag.call_args
+    call_args = mock_tracing_client.set_trace_tag.call_args
     assert call_args[0][0] == trace_id
     assert call_args[0][1] == LINKED_PROMPTS_TAG_KEY
 
@@ -399,11 +407,11 @@ def test_link_prompts_to_trace_append_to_existing(store, mock_tracking_store):
     assert json.loads(call_args[0][2]) == expected_value
 
 
-def test_link_prompts_to_trace_nonexistent_trace(store, mock_tracking_store):
+def test_link_prompts_to_trace_nonexistent_trace(store, mock_tracing_client):
     """Test error handling when trace is not found."""
     # Setup
     store.add_prompt_version("test_prompt", "1")
-    mock_tracking_store.get_trace_info.return_value = None
+    mock_tracing_client.get_trace_info.return_value = None
 
     # Execute & Verify
     prompt_version = store.get_prompt_version("test_prompt", "v1")
@@ -411,11 +419,11 @@ def test_link_prompts_to_trace_nonexistent_trace(store, mock_tracking_store):
         store.link_prompts_to_trace(prompt_versions=[prompt_version], trace_id="nonexistent_trace")
 
     # Verify get_trace_info was called but set_trace_tag was not
-    mock_tracking_store.get_trace_info.assert_called_once_with("nonexistent_trace")
-    mock_tracking_store.set_trace_tag.assert_not_called()
+    mock_tracing_client.get_trace_info.assert_called_once_with("nonexistent_trace")
+    mock_tracing_client.set_trace_tag.assert_not_called()
 
 
-def test_link_prompts_to_trace_invalid_json_tag(store, mock_tracking_store):
+def test_link_prompts_to_trace_invalid_json_tag(store, mock_tracing_client):
     """Test error when existing linked prompts tag has invalid JSON."""
     # Setup
     store.add_prompt_version("test_prompt", "1")
@@ -424,7 +432,7 @@ def test_link_prompts_to_trace_invalid_json_tag(store, mock_tracking_store):
     mock_trace_info = mock.Mock()
     mock_trace_info.tags = {LINKED_PROMPTS_TAG_KEY: "invalid json"}
 
-    mock_tracking_store.get_trace_info.return_value = mock_trace_info
+    mock_tracing_client.get_trace_info.return_value = mock_trace_info
 
     # Execute & Verify
     prompt_version = store.get_prompt_version("test_prompt", "v1")
@@ -432,7 +440,7 @@ def test_link_prompts_to_trace_invalid_json_tag(store, mock_tracking_store):
         store.link_prompts_to_trace(prompt_versions=[prompt_version], trace_id=trace_id)
 
 
-def test_link_prompts_to_trace_invalid_format_tag(store, mock_tracking_store):
+def test_link_prompts_to_trace_invalid_format_tag(store, mock_tracing_client):
     """Test error when existing linked prompts tag has invalid format (not a list)."""
     # Setup
     store.add_prompt_version("test_prompt", "1")
@@ -441,7 +449,7 @@ def test_link_prompts_to_trace_invalid_format_tag(store, mock_tracking_store):
     mock_trace_info = mock.Mock()
     mock_trace_info.tags = {LINKED_PROMPTS_TAG_KEY: json.dumps({"not": "a list"})}
 
-    mock_tracking_store.get_trace_info.return_value = mock_trace_info
+    mock_tracing_client.get_trace_info.return_value = mock_trace_info
 
     # Execute & Verify
     prompt_version = store.get_prompt_version("test_prompt", "v1")
@@ -449,7 +457,7 @@ def test_link_prompts_to_trace_invalid_format_tag(store, mock_tracking_store):
         store.link_prompts_to_trace(prompt_versions=[prompt_version], trace_id=trace_id)
 
 
-def test_link_prompts_to_trace_duplicate_prevention(store, mock_tracking_store):
+def test_link_prompts_to_trace_duplicate_prevention(store, mock_tracing_client):
     """Test that linking the same prompt version twice doesn't create duplicates."""
     # Setup
     store.add_prompt_version("test_prompt", "1")
@@ -463,8 +471,8 @@ def test_link_prompts_to_trace_duplicate_prevention(store, mock_tracking_store):
     def mock_set_tag(trace_id, key, value):
         mock_trace_info.tags[key] = value
 
-    mock_tracking_store.get_trace_info.return_value = mock_trace_info
-    mock_tracking_store.set_trace_tag.side_effect = mock_set_tag
+    mock_tracing_client.get_trace_info.return_value = mock_trace_info
+    mock_tracing_client.set_trace_tag.side_effect = mock_set_tag
 
     # Execute - link the same prompt twice
     prompt_version = store.get_prompt_version("test_prompt", "v1")
@@ -472,7 +480,7 @@ def test_link_prompts_to_trace_duplicate_prevention(store, mock_tracking_store):
     store.link_prompts_to_trace(prompt_versions=[prompt_version], trace_id=trace_id)
 
     # Verify set_trace_tag was called only once (second call should return early)
-    assert mock_tracking_store.set_trace_tag.call_count == 1
+    assert mock_tracing_client.set_trace_tag.call_count == 1
 
     # Verify the tag contains only one entry
     tag_value = mock_trace_info.tags[LINKED_PROMPTS_TAG_KEY]
@@ -482,7 +490,7 @@ def test_link_prompts_to_trace_duplicate_prevention(store, mock_tracking_store):
     assert parsed_value == expected_value
 
 
-def test_link_prompts_to_trace_multiple_prompts(store, mock_tracking_store):
+def test_link_prompts_to_trace_multiple_prompts(store, mock_tracing_client):
     """Test linking multiple prompt versions to a trace at once."""
     # Setup
     store.add_prompt_version("test_prompt_1", "v1")
@@ -492,7 +500,7 @@ def test_link_prompts_to_trace_multiple_prompts(store, mock_tracking_store):
     mock_trace_info = mock.Mock()
     mock_trace_info.tags = {}
 
-    mock_tracking_store.get_trace_info.return_value = mock_trace_info
+    mock_tracing_client.get_trace_info.return_value = mock_trace_info
 
     # Execute
     prompt_version_1 = store.get_prompt_version("test_prompt_1", "v1")
@@ -502,7 +510,7 @@ def test_link_prompts_to_trace_multiple_prompts(store, mock_tracking_store):
     )
 
     # Verify
-    call_args = mock_tracking_store.set_trace_tag.call_args
+    call_args = mock_tracing_client.set_trace_tag.call_args
     assert call_args[0][0] == trace_id
     assert call_args[0][1] == LINKED_PROMPTS_TAG_KEY
 
@@ -513,7 +521,7 @@ def test_link_prompts_to_trace_multiple_prompts(store, mock_tracking_store):
     assert json.loads(call_args[0][2]) == expected_value
 
 
-def test_link_prompts_to_trace_thread_safety(store, mock_tracking_store):
+def test_link_prompts_to_trace_thread_safety(store, mock_tracing_client):
     """Test thread safety of linking prompt versions to traces."""
     # Setup
     store.add_prompt_version("test_prompt_1", "1")
@@ -530,8 +538,8 @@ def test_link_prompts_to_trace_thread_safety(store, mock_tracking_store):
         time.sleep(0.01)
         mock_trace_info.tags[key] = value
 
-    mock_tracking_store.get_trace_info.return_value = mock_trace_info
-    mock_tracking_store.set_trace_tag.side_effect = mock_set_tag
+    mock_tracing_client.get_trace_info.return_value = mock_trace_info
+    mock_tracing_client.set_trace_tag.side_effect = mock_set_tag
 
     # Define thread worker function
     def link_prompt(prompt_name):
@@ -570,7 +578,7 @@ def test_link_prompts_to_trace_thread_safety(store, mock_tracking_store):
         assert expected_prompt in final_tag_value
 
 
-def test_link_prompts_to_trace_no_change_optimization(store, mock_tracking_store):
+def test_link_prompts_to_trace_no_change_optimization(store, mock_tracing_client):
     """Test that tag is not updated when no change is needed."""
     # Setup
     store.add_prompt_version("test_prompt", "1")
@@ -580,35 +588,14 @@ def test_link_prompts_to_trace_no_change_optimization(store, mock_tracking_store
     mock_trace_info = mock.Mock()
     mock_trace_info.tags = {LINKED_PROMPTS_TAG_KEY: json.dumps(existing_prompts)}
 
-    mock_tracking_store.get_trace_info.return_value = mock_trace_info
+    mock_tracing_client.get_trace_info.return_value = mock_trace_info
 
     # Execute - try to link the same prompt that's already linked
     prompt_version = store.get_prompt_version("test_prompt", "v1")
     store.link_prompts_to_trace(prompt_versions=[prompt_version], trace_id=trace_id)
 
     # Verify set_trace_tag was not called since no change was needed
-    mock_tracking_store.set_trace_tag.assert_not_called()
-
-
-def test_link_prompts_to_trace_unsupported_store(store, mock_tracking_store):
-    """Test error handling when tracking store doesn't support get_trace_info."""
-    # Setup
-    store.add_prompt_version("test_prompt", "1")
-    # Mock tracking store that doesn't have get_trace_info method
-    del mock_tracking_store.get_trace_info
-
-    # Execute - should log warning and continue gracefully
-    prompt_version = store.get_prompt_version("test_prompt", "v1")
-
-    # Since get_trace_info is missing, this should not raise an exception
-    # but should not call set_trace_tag either
-    try:
-        store.link_prompts_to_trace(prompt_versions=[prompt_version], trace_id="some_trace")
-    except AttributeError:
-        pass  # Expected if get_trace_info is missing
-
-    # Verify set_trace_tag was not called since get_trace_info failed
-    mock_tracking_store.set_trace_tag.assert_not_called()
+    mock_tracing_client.set_trace_tag.assert_not_called()
 
 
 # Tests for link_prompt_version_to_run

@@ -945,12 +945,12 @@ def load_model(model_uri, dfs_tmpdir=None, dst_path=None):
         spark_model_local_path = os.path.join(local_mlflow_model_path, flavor_conf["model_data"])
         return _load_spark_connect_model(model_class, spark_model_local_path)
 
-    if _should_use_mlflowdbfs(model_uri):
+    if _should_use_mlflowdbfs(model_uri) and (
+        run_id := DatabricksArtifactRepository._extract_run_id(model_uri)
+    ):
         from pyspark.ml.pipeline import PipelineModel
 
-        mlflowdbfs_path = _mlflowdbfs_path(
-            DatabricksArtifactRepository._extract_run_id(model_uri), artifact_path
-        )
+        mlflowdbfs_path = _mlflowdbfs_path(run_id, artifact_path)
         with databricks_utils.MlflowCredentialContext(
             get_databricks_profile_uri_from_artifact_uri(root_uri)
         ):

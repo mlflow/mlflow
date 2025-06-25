@@ -138,7 +138,7 @@ article ul ul ul {
   --ifm-color-emphasis-hover: #000000;
   --ifm-link-color: #0194e2;
 
-  /* Classic ML - Blue theme (default) */
+  /* Dynamic Coloring based on theme selection */
   --ifm-color-primary: #0194e2;
   --ifm-color-primary-dark: #0086cf;
   --ifm-color-primary-darker: #0072b0;
@@ -146,6 +146,9 @@ article ul ul ul {
   --ifm-color-primary-light: #43c9ed;
   --ifm-color-primary-lighter: #4accf0;
   --ifm-color-primary-lightest: #54cef0;
+
+  /* ML - Blue theme */
+  --ml-color-primary: #0194e2;
 
   /* GenAI - Red theme */
   --genai-color-primary: #EB1700;
@@ -384,7 +387,6 @@ html[data-genai-theme="true"] {
 .navbar__link {
   color: var(--ifm-border-color);
   position: relative;
-  padding-bottom: 6px;
   transition: color 0.2s ease;
 }
 
@@ -394,19 +396,7 @@ html[data-genai-theme="true"] {
   background-color: transparent;
 }
 
-/* Navbar underlines */
-.navbar__link--active::after {
-  content: "";
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background-color: var(--ifm-color-emphasis-hover);
-  transition: opacity 0.2s ease;
-}
-
-.navbar__link:hover::before {
+.navbar__item:hover::before {
   content: "";
   position: absolute;
   bottom: 0;
@@ -421,48 +411,6 @@ html[data-genai-theme="true"] {
   display: flex;
   align-items: center;
   flex-wrap: nowrap;
-}
-
-/* --------------------------------
- * 3.1 Navigation with Color Indicators
- * -------------------------------- */
-
-
-/* Basic positioning for indicators */
-.navbar__items a[href$="/ml"],
-.navbar__items a[href^="/ml"],
-.navbar__items a[href$="/genai"],
-.navbar__items a[href^="/genai"] {
-  padding-left: 22px;
-  position: relative;
-}
-
-/* ML blue square indicator */
-.navbar__items a[href$="/ml"]::before,
-.navbar__items a[href^="/ml"]::before {
-  content: "";
-  position: absolute;
-  left: 6px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 10px;
-  height: 10px;
-  background-color: #0194e2;
-  border-radius: 4px;
-}
-
-/* GenAI red square indicator */
-.navbar__items a[href$="/genai"]::before,
-.navbar__items a[href^="/genai"]::before {
-  content: "";
-  position: absolute;
-  left: 6px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 10px;
-  height: 10px;
-  background-color: #EB1700;
-  border-radius: 4px;
 }
 
 /* --------------------------------
