@@ -445,15 +445,16 @@ class Linter(ast.NodeVisitor):
 
     @classmethod
     def visit_example(
-        cls, path: Path, config: Config, example: CodeBlock, index: SymbolIndex
+        cls, path: Path, config: Config, example: CodeBlock, index: SymbolIndex | None = None
     ) -> list[Violation]:
         try:
             tree = ast.parse(example.code)
         except SyntaxError:
             return [Violation(rules.ExampleSyntaxError(), path, example.loc)]
 
-        v = ExampleVisitor(index, path, example.loc)
-        v.visit(tree)
+        if index:
+            v = ExampleVisitor(index, path, example.loc)
+            v.visit(tree)
 
         linter = cls(
             path=path,
