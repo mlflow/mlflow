@@ -2373,7 +2373,7 @@ def test_get_run_and_experiment_graphql(mlflow_client):
     assert json["data"]["mlflowGetRun"]["run"]["modelVersions"][0]["name"] == name
 
 
-def test_legacy_start_and_end_trace_v2(mlflow_client):
+def test_start_and_end_trace(mlflow_client):
     experiment_id = mlflow_client.create_experiment("start end trace")
 
     # Trace CRUD APIs are not directly exposed as public API of MlflowClient,
@@ -2384,12 +2384,13 @@ def test_legacy_start_and_end_trace_v2(mlflow_client):
     def _exclude_system_tags(tags: dict[str, str]):
         return {k: v for k, v in tags.items() if not k.startswith("mlflow.")}
 
-    trace_info = store.deprecated_start_trace(
+    trace_info = store.start_trace(
         experiment_id=experiment_id,
         timestamp_ms=1000,
         request_metadata={
             "meta1": "apple",
             "meta2": "grape",
+            TRACE_SCHEMA_VERSION_KEY: "2",
         },
         tags={
             "tag1": "football",
@@ -2411,7 +2412,7 @@ def test_legacy_start_and_end_trace_v2(mlflow_client):
         "tag2": "basketball",
     }
 
-    trace_info = store.deprecated_end_trace(
+    trace_info = store.end_trace(
         request_id=trace_info.request_id,
         timestamp_ms=3000,
         status=TraceStatus.OK,
@@ -2443,7 +2444,7 @@ def test_legacy_start_and_end_trace_v2(mlflow_client):
     }
 
 
-def test_start_trace(mlflow_client):
+def test_start_trace_v3(mlflow_client):
     experiment_id = mlflow_client.create_experiment("start end trace")
 
     # Trace CRUD APIs are not directly exposed as public API of MlflowClient,

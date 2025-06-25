@@ -2631,7 +2631,7 @@ def _start_trace_v3():
         schema={"trace": [_assert_required]},
     )
     trace_info = TraceInfo.from_proto(request_message.trace.trace_info)
-    trace_info = _get_tracking_store().start_trace(trace_info)
+    trace_info = _get_tracking_store().start_trace_v3(trace_info)
     response_message = StartTraceV3.Response(trace=ProtoTrace(trace_info=trace_info.to_proto()))
     return _wrap_response(response_message)
 
