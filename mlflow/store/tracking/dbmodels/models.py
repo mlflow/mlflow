@@ -1,3 +1,5 @@
+import json
+
 import sqlalchemy as sa
 from sqlalchemy import (
     BigInteger,
@@ -16,9 +18,14 @@ from sqlalchemy import (
 from sqlalchemy.orm import backref, relationship
 
 from mlflow.entities import (
+    Assessment,
+    AssessmentError,
+    AssessmentSource,
     Dataset,
+    Expectation,
     Experiment,
     ExperimentTag,
+    Feedback,
     InputTag,
     Metric,
     Param,
@@ -847,6 +854,61 @@ class SqlAssessments(Base):
         Index(f"index_{__tablename__}_last_updated_timestamp", "last_updated_timestamp"),
         Index(f"index_{__tablename__}_assessment_type", "assessment_type"),
     )
+
+    def to_mlflow_entity(self) -> Assessment:
+        """Convert SqlAssessments to Assessment object."""
+        value_str = self.value
+        error_str = self.error
+        assessment_metadata_str = self.assessment_metadata
+        assessment_type_value = self.assessment_type
+
+        parsed_value = json.loads(value_str)
+        parsed_error = None
+        if error_str is not None:
+            error_dict = json.loads(error_str)
+            parsed_error = AssessmentError.from_dictionary(error_dict)
+
+        parsed_metadata = None
+        if assessment_metadata_str is not None:
+            parsed_metadata = json.loads(assessment_metadata_str)
+
+        source = AssessmentSource(source_type=self.source_type, source_id=self.source_id)
+
+        if assessment_type_value == "feedback":
+            assessment = Feedback(
+                name=self.name,
+                value=parsed_value,
+                error=parsed_error,
+                source=source,
+                trace_id=self.trace_id,
+                rationale=self.rationale,
+                metadata=parsed_metadata,
+                span_id=self.span_id,
+                create_time_ms=self.created_timestamp,
+                last_update_time_ms=self.last_updated_timestamp,
+                overrides=self.overrides,
+                valid=self.valid,
+            )
+        elif assessment_type_value == "expectation":
+            assessment = Expectation(
+                name=self.name,
+                value=parsed_value,
+                source=source,
+                trace_id=self.trace_id,
+                metadata=parsed_metadata,
+                span_id=self.span_id,
+                create_time_ms=self.created_timestamp,
+                last_update_time_ms=self.last_updated_timestamp,
+            )
+            assessment.overrides = self.overrides
+            assessment.valid = self.valid
+        else:
+            raise ValueError(f"Unknown assessment type: {assessment_type_value}")
+
+        assessment.run_id = self.run_id
+        assessment.assessment_id = self.assessment_id
+
+        return assessment
 
     def __repr__(self):
         return f"<SqlAssessments({self.assessment_id}, {self.name}, {self.assessment_type})>"

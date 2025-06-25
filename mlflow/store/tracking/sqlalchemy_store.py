@@ -18,8 +18,11 @@ from sqlalchemy.future import select
 import mlflow.store.db.utils
 from mlflow.entities import (
     Assessment,
+<<<<<<< HEAD
     AssessmentError,
     AssessmentSource,
+=======
+>>>>>>> assessments
     DatasetInput,
     Expectation,
     Experiment,
@@ -2494,7 +2497,7 @@ class SqlAlchemyStore(AbstractStore):
         """
         with self.ManagedSessionMaker() as session:
             sql_assessment = self._get_sql_assessment(session, trace_id, assessment_id)
-            return self._sql_to_assessment(sql_assessment)
+            return sql_assessment.to_mlflow_entity()
 
     def update_assessment(
         self,
@@ -2531,7 +2534,7 @@ class SqlAlchemyStore(AbstractStore):
         """
         with self.ManagedSessionMaker() as session:
             existing_sql = self._get_sql_assessment(session, trace_id, assessment_id)
-            existing = self._sql_to_assessment(existing_sql)
+            existing = existing_sql.to_mlflow_entity()
 
             if expectation is not None and feedback is not None:
                 raise MlflowException.invalid_parameter_value(
@@ -2631,17 +2634,32 @@ class SqlAlchemyStore(AbstractStore):
         """
         Delete an assessment from a trace.
 
+        If the deleted assessment was overriding another assessment, the overridden
+        assessment will be restored to valid=True.
+
         Args:
             trace_id: The ID of the trace containing the assessment.
             assessment_id: The ID of the assessment to delete.
         """
         with self.ManagedSessionMaker() as session:
-            assessments = session.query(SqlAssessments).filter_by(
-                trace_id=trace_id, assessment_id=assessment_id
+            assessment_to_delete = (
+                session.query(SqlAssessments)
+                .filter_by(trace_id=trace_id, assessment_id=assessment_id)
+                .first()
             )
-            if assessments.count() == 0:
+
+            if assessment_to_delete is None:
+                # Assessment doesn't exist - this is idempotent, so just return
                 return
-            assessments.delete()
+
+            # If this assessment was overriding another assessment, restore the original
+            if assessment_to_delete.overrides:
+                session.query(SqlAssessments).filter_by(
+                    assessment_id=assessment_to_delete.overrides
+                ).update({"valid": True})
+
+            session.delete(assessment_to_delete)
+            session.commit()
 
     def _get_sql_assessment(self, session, trace_id: str, assessment_id: str) -> SqlAssessments:
         """Helper method to get SqlAssessments object."""
@@ -2668,60 +2686,6 @@ class SqlAlchemyStore(AbstractStore):
                     RESOURCE_DOES_NOT_EXIST,
                 )
         return sql_assessment
-
-    def _sql_to_assessment(self, sql_assessment: SqlAssessments) -> Assessment:
-        """Convert SqlAssessments to Assessment object."""
-        parsed_value = json.loads(sql_assessment.value)
-        parsed_error = None
-        if sql_assessment.error:
-            error_dict = json.loads(sql_assessment.error)
-            parsed_error = AssessmentError.from_dictionary(error_dict)
-
-        parsed_metadata = None
-        if sql_assessment.assessment_metadata:
-            parsed_metadata = json.loads(sql_assessment.assessment_metadata)
-
-        source = AssessmentSource(
-            source_type=sql_assessment.source_type, source_id=sql_assessment.source_id
-        )
-
-        if sql_assessment.assessment_type == "feedback":
-            assessment = Feedback(
-                name=sql_assessment.name,
-                value=parsed_value,
-                error=parsed_error,
-                source=source,
-                trace_id=sql_assessment.trace_id,
-                rationale=sql_assessment.rationale,
-                metadata=parsed_metadata,
-                span_id=sql_assessment.span_id,
-                create_time_ms=sql_assessment.created_timestamp,
-                last_update_time_ms=sql_assessment.last_updated_timestamp,
-                overrides=sql_assessment.overrides,
-                valid=sql_assessment.valid,
-            )
-        elif sql_assessment.assessment_type == "expectation":
-            assessment = Expectation(
-                name=sql_assessment.name,
-                value=parsed_value,
-                source=source,
-                trace_id=sql_assessment.trace_id,
-                metadata=parsed_metadata,
-                span_id=sql_assessment.span_id,
-                create_time_ms=sql_assessment.created_timestamp,
-                last_update_time_ms=sql_assessment.last_updated_timestamp,
-            )
-            assessment.overrides = sql_assessment.overrides
-            assessment.valid = sql_assessment.valid
-        else:
-            raise MlflowException(
-                f"Unknown assessment type: {sql_assessment.assessment_type}",
-                INTERNAL_ERROR,
-            )
-        assessment.run_id = sql_assessment.run_id
-        assessment.assessment_id = sql_assessment.assessment_id
-
-        return assessment
 
 
 def _get_sqlalchemy_filter_clauses(parsed, session, dialect):
