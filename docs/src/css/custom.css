@@ -210,7 +210,6 @@ a {
 a:hover {
   color: var(--ifm-color-emphasis-hover);
   text-decoration: none;
-  font-weight: bold;
 }
 
 /* Exception for sidebar links which have their own styling */
