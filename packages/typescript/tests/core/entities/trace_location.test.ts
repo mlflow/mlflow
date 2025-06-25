@@ -82,13 +82,5 @@ describe('TraceLocation', () => {
       expect(location.mlflowExperiment?.experimentId).toBe(experimentId);
       expect(location.inferenceTable).toBeUndefined();
     });
-
-    it('should handle null experiment ID', () => {
-      const location = createTraceLocationFromExperimentId(null);
-
-      expect(location.type).toBe(TraceLocationType.MLFLOW_EXPERIMENT);
-      expect(location.mlflowExperiment).toBeDefined();
-      expect(location.mlflowExperiment?.experimentId).toBe('');
-    });
   });
 });

@@ -33,9 +33,6 @@ export class TraceData {
    * @returns TraceData instance
    */
   static fromJson(json: SerializedTraceData): TraceData {
-    if (!json || typeof json !== 'object') {
-      throw new Error(`TraceData.fromJson() expects an object. Got: ${typeof json}`);
-    }
     const spans: ISpan[] = json.spans.map((spanData) => Span.fromJson(spanData));
     return new TraceData(spans);
   }

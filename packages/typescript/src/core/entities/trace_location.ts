@@ -64,11 +64,11 @@ export interface TraceLocation {
  * Create a TraceLocation from an experiment ID
  * @param experimentId The ID of the MLflow experiment
  */
-export function createTraceLocationFromExperimentId(experimentId: string | null): TraceLocation {
+export function createTraceLocationFromExperimentId(experimentId: string): TraceLocation {
   return {
     type: TraceLocationType.MLFLOW_EXPERIMENT,
     mlflowExperiment: {
-      experimentId: experimentId || ''
+      experimentId: experimentId
     }
   };
 }
