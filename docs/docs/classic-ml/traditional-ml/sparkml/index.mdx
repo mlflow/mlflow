@@ -59,7 +59,7 @@ pipeline = Pipeline(stages=[tokenizer, hashingTF, lr])
 # Fit and log the entire pipeline
 model = pipeline.fit(training_df)
 
-model_info = mlflow.spark.log_model(model, name="spark-pipeline")
+model_info = mlflow.spark.log_model(model, artifact_path="spark-pipeline")
 ```
 
 <details>
