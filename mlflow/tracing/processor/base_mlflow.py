@@ -76,6 +76,7 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
         if span.parent is None:
             trace_info = self._start_trace(span)
             trace_id = trace_info.trace_id
+            span.set_attribute(SpanAttributeKey.EXPERIMENT_ID, _get_experiment_id())
 
         span.set_attribute(SpanAttributeKey.REQUEST_ID, json.dumps(trace_id))
 

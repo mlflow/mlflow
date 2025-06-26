@@ -8,6 +8,11 @@ from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.trace import Trace
 from mlflow.environment_variables import (
     MLFLOW_ENABLE_ASYNC_TRACE_LOGGING,
+    MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL,
+    MLFLOW_TRACING_DELTA_ARCHIVAL_SPANS_TABLE,
+    MLFLOW_TRACING_DELTA_ARCHIVAL_TOKEN,
+    MLFLOW_TRACING_DELTA_ARCHIVAL_INGESTION_URL,
+    MLFLOW_TRACING_DELTA_ARCHIVAL_WORKSPACE_URL,
 )
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import TraceTagKey
@@ -18,6 +23,7 @@ from mlflow.tracing.fluent import _EVAL_REQUEST_ID_TO_TRACE_ID, _set_last_active
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import add_size_bytes_to_trace_metadata, maybe_get_request_id
 from mlflow.utils.databricks_utils import is_in_databricks_notebook
+from mlflow.tracing.export.databricks_delta import DatabricksDeltaExporter
 
 _logger = logging.getLogger(__name__)
 
@@ -47,6 +53,9 @@ class MlflowV3SpanExporter(SpanExporter):
         self._should_display_trace = is_in_databricks_notebook()
         if self._should_display_trace:
             self._display_handler = get_display_handler()
+
+        # Initialize Databricks Delta archival if enabled
+        self._delta_exporter = self._get_delta_exporter()
 
     def export(self, spans: Sequence[ReadableSpan]):
         """
@@ -94,6 +103,7 @@ class MlflowV3SpanExporter(SpanExporter):
         Steps:
         1. Create the trace in MLflow
         2. Upload the trace data to blob storage using the returned trace info.
+        3. If enabled, export to Databricks Delta table
         """
         try:
             if trace:
@@ -113,6 +123,10 @@ class MlflowV3SpanExporter(SpanExporter):
                     prompts=prompts,
                     synchronous=False,
                 )
+                
+                # Export to Databricks Delta if enabled
+                if self._delta_exporter:
+                    self._log_trace_to_delta(trace)
             else:
                 _logger.warning("No trace or trace info provided, unable to export")
         except Exception as e:
@@ -140,3 +154,70 @@ class MlflowV3SpanExporter(SpanExporter):
             return False
 
         return self._is_async_enabled
+
+    def _should_enable_delta_archival(self) -> bool:
+        """Check if Databricks Delta archival should be enabled."""
+        if not MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL.get():
+            return False
+        
+        # Check if all required environment variables are set
+        required_vars = [
+            MLFLOW_TRACING_DELTA_ARCHIVAL_SPANS_TABLE,
+            MLFLOW_TRACING_DELTA_ARCHIVAL_TOKEN,
+            MLFLOW_TRACING_DELTA_ARCHIVAL_INGESTION_URL,
+            MLFLOW_TRACING_DELTA_ARCHIVAL_WORKSPACE_URL,
+        ]
+        
+        for var in required_vars:
+            if not var.get():
+                _logger.warning(
+                    f"Delta archival is enabled but {var.name} is not set. "
+                    "Disabling delta archival."
+                )
+                return False
+        
+        return True
+
+    def _get_delta_exporter(self) -> Optional[DatabricksDeltaExporter]:
+        """
+        Initialize Databricks Delta archival by creating a DatabricksDeltaExporter.
+        
+        Returns:
+            DatabricksDeltaExporter instance if successful, None if failed.
+        """
+        if not self._should_enable_delta_archival():
+            return None
+
+        try:            
+            delta_exporter = DatabricksDeltaExporter(
+                spans_table_name=MLFLOW_TRACING_DELTA_ARCHIVAL_SPANS_TABLE.get(),
+                ingest_url=MLFLOW_TRACING_DELTA_ARCHIVAL_INGESTION_URL.get(),
+                workspace_url=MLFLOW_TRACING_DELTA_ARCHIVAL_WORKSPACE_URL.get(),
+                token=MLFLOW_TRACING_DELTA_ARCHIVAL_TOKEN.get(),
+            )
+            _logger.debug("Databricks Delta archival initialized successfully")
+            return delta_exporter
+        except Exception as e:
+            _logger.warning(
+                f"Failed to initialize Databricks Delta exporter: {e}. "
+                "Disabling delta archival."
+            )
+            return None
+
+    def _log_trace_to_delta(self, trace: Trace):
+        """
+        Delegate trace export to Databricks Delta via DatabricksDeltaExporter.
+        
+        Args:
+            trace: MLflow Trace object containing spans data.
+        """
+        if self._delta_exporter is None:
+            _logger.debug("Delta exporter not initialized, skipping delta archival")
+            return
+            
+        try:
+            # Delegate to the DatabricksDeltaExporter's _log_trace method
+            self._delta_exporter._log_trace(trace)
+        except Exception as e:
+            _logger.warning(f"Failed to send trace to Databricks Delta: {e}")
+

@@ -31,14 +31,6 @@ from mlflow.utils.databricks_utils import (
     is_mlflow_tracing_enabled_in_model_serving,
 )
 from mlflow.utils.uri import is_databricks_uri
-from mlflow.environment_variables import (
-    MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL,
-    MLFLOW_TRACING_DELTA_ARCHIVAL_SPANS_TABLE,
-    MLFLOW_TRACING_DELTA_ARCHIVAL_TOKEN,
-    MLFLOW_TRACING_DELTA_ARCHIVAL_INGESTION_URL,
-    MLFLOW_TRACING_DELTA_ARCHIVAL_WORKSPACE_URL,
-    MLFLOW_TRACING_DELTA_ARCHIVAL_EVENTS_TABLE,
-)
 
 if TYPE_CHECKING:
     from mlflow.entities import Span
@@ -210,30 +202,6 @@ def set_destination(destination: TraceDestination):
     _setup_tracer_provider()
 
 
-def _has_required_delta_archival_config() -> bool:
-    """
-    Check if all required environment variables for delta archival are set.
-    
-    Returns:
-        True if all required environment variables are set and non-empty, False otherwise.
-    """
-    required_vars = [
-        MLFLOW_TRACING_DELTA_ARCHIVAL_SPANS_TABLE,
-        MLFLOW_TRACING_DELTA_ARCHIVAL_TOKEN,
-        MLFLOW_TRACING_DELTA_ARCHIVAL_INGESTION_URL,
-        MLFLOW_TRACING_DELTA_ARCHIVAL_WORKSPACE_URL,
-        MLFLOW_TRACING_DELTA_ARCHIVAL_EVENTS_TABLE,
-    ]
-    
-    for var in required_vars:
-        if not var.get():
-            _logger.warning(
-                f"Delta archival is enabled but {var.name} is not set. "
-                "Falling back to default tracing behavior."
-            )
-            return False
-    
-    return True
 
 
 def _get_tracer(module_name: str):
@@ -288,34 +256,7 @@ def _setup_tracer_provider(disabled=False):
             tracking_uri=tracking_uri or mlflow.get_tracking_uri(), experiment_id=experiment_id
         )
 
-    elif MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL.get() and _has_required_delta_archival_config():
-        # Enable dual export to MLflow V3 and Databricks Delta using composite exporter
-        from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
-        from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
-        from mlflow.tracing.export.databricks_delta import DatabricksDeltaExporter
-        from mlflow.tracing.export.composite import CompositeSpanExporter
-
-        # Create MLflow V3 exporter
-        mlflow_exporter = MlflowV3SpanExporter(tracking_uri=mlflow.get_tracking_uri())
-
-        # Create Databricks Delta exporter
-        try:
-            delta_exporter = DatabricksDeltaExporter(
-                spans_table_name=MLFLOW_TRACING_DELTA_ARCHIVAL_SPANS_TABLE.get(),
-                ingest_url=MLFLOW_TRACING_DELTA_ARCHIVAL_INGESTION_URL.get(),
-                workspace_url=MLFLOW_TRACING_DELTA_ARCHIVAL_WORKSPACE_URL.get(),
-                token=MLFLOW_TRACING_DELTA_ARCHIVAL_TOKEN.get(),
-            )
-            # Create composite exporter with sequential mode:
-            # MLflow V3 is primary, Delta archival is backup (only runs if MLflow succeeds)
-            composite_exporter = CompositeSpanExporter([mlflow_exporter, delta_exporter], sequential=True)
-            _logger.info("Enabled composite exporter for MLflow and Databricks Delta Table")
-        except Exception as e:
-            _logger.warning(f"Failed to initialize Databricks Delta exporter, falling back to MLflow V3 only: {e}")
-            composite_exporter = mlflow_exporter
-
-        # Note: only V3 exporter is supported for trace archival
-        processor = MlflowV3SpanProcessor(composite_exporter, experiment_id=None)
+    # Note: Delta archival is now integrated into MlflowV3SpanExporter, so we use the standard flow
 
     elif should_use_otlp_exporter():
         # Export to OpenTelemetry Collector when configured
