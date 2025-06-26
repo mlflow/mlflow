@@ -59,7 +59,6 @@ class FunctionInfo:
 
     @property
     def all_args(self) -> list[str]:
-        """All arguments including positional, keyword-only, and variable arguments."""
         return self.posonlyargs + self.args + self.kwonlyargs
 
 
