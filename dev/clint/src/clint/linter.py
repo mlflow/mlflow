@@ -298,7 +298,11 @@ class ExampleVisitor(ast.NodeVisitor):
             resolved is not None
             and resolved
             and resolved[0] == "mlflow"
+            # Skip `mlflow.data` because its methods are dynamically created and cannot be checked
+            # statically
             and resolved[:2] != ["mlflow", "data"]
+            # Skip `mlflow.txtai` because it is provided by the external `mlflow-txtai` package and
+            # cannot be checked statically
             and resolved[:2] != ["mlflow", "txtai"]
         ):
             function_name = ".".join(resolved)
