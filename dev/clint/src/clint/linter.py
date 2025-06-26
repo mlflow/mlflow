@@ -278,11 +278,9 @@ def _find_artifact_path_index(call_path: tuple[str, str]) -> int | None:
 
 
 class ExampleVisitor(ast.NodeVisitor):
-    def __init__(self, index: SymbolIndex, path: Path, offset: Location) -> None:
+    def __init__(self, linter: Linter, index: SymbolIndex) -> None:
+        self.linter = linter
         self.index = index
-        self.path = path
-        self.offset = offset
-        self.violations: list[Violation] = []
 
     def _resolve_call(self, node: ast.expr) -> list[str] | None:
         if isinstance(node, ast.Attribute):
@@ -313,9 +311,14 @@ class ExampleVisitor(ast.NodeVisitor):
                     sig_args = set(remaining_args)
                     call_args = {kw.arg for kw in node.keywords if kw.arg}
                     if diff := call_args - sig_args:
-                        print(resolved, sig_args, call_args, diff)
+                        self.linter._check(
+                            Location.from_node(node),
+                            rules.UnknownMlflowArguments(function_name, diff),
+                        )
             else:
-                print("Unresolved function:", resolved)
+                self.linter._check(
+                    Location.from_node(node), rules.UnknownMlflowFunction(function_name)
+                )
         self.generic_visit(node)
 
 
@@ -450,16 +453,17 @@ class Linter(ast.NodeVisitor):
         except SyntaxError:
             return [Violation(rules.ExampleSyntaxError(), path, example.loc)]
 
-        if index:
-            v = ExampleVisitor(index, path, example.loc)
-            v.visit(tree)
-
         linter = cls(
             path=path,
             config=config,
             ignore=ignore_map(example.code),
             offset=example.loc,
         )
+
+        if index:
+            v = ExampleVisitor(linter, index)
+            v.visit(tree)
+
         linter.visit(tree)
         linter.visit_comments(example.code)
         return [v for v in linter.violations if v.rule.name in config.example_rules]

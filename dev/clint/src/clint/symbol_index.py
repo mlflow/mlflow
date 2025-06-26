@@ -114,13 +114,12 @@ class SymbolIndex:
 
     @classmethod
     def build(cls) -> SymbolIndex:
-        mapping: dict[str, str] = {}
-        func_mapping: dict[str, FunctionInfo] = {}
-
         py_files = subprocess.check_output(
             ["git", "ls-files", "mlflow/*.py"], text=True
         ).splitlines()
 
+        mapping: dict[str, str] = {}
+        func_mapping: dict[str, FunctionInfo] = {}
         max_workers = min(multiprocessing.cpu_count(), len(py_files))
         with ProcessPoolExecutor(max_workers=max_workers) as executor:
             futures = {
@@ -146,14 +145,3 @@ class SymbolIndex:
             return f
 
         return None
-
-
-def main():
-    symbol_index = SymbolIndex.build()
-    target = "mlflow.MlflowClient"
-    if func := symbol_index.resolve_symbol(target):
-        print(f"Function {target} found with args: {func.args}")
-
-
-if __name__ == "__main__":
-    main()
