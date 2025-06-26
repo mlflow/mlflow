@@ -1,7 +1,7 @@
 """add assessments table
 
 Revision ID: 770bee3ae1dd
-Revises: 6953534de441
+Revises: cbc13b556ace
 Create Date: 2025-06-23 11:26:19.855639
 
 """
@@ -13,7 +13,7 @@ from mlflow.store.tracking.dbmodels.models import SqlAssessments
 
 # revision identifiers, used by Alembic.
 revision = "770bee3ae1dd"
-down_revision = "6953534de441"
+down_revision = "cbc13b556ace"
 branch_labels = None
 depends_on = None
 

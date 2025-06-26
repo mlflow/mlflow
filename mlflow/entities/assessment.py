@@ -139,7 +139,8 @@ class Assessment(_MlflowObject):
             assessment.feedback.CopyFrom(self.feedback.to_proto())
 
         if self.metadata:
-            assessment.metadata.update(self.metadata)
+            for key, value in self.metadata.items():
+                assessment.metadata[key] = str(value)
         if self.overrides:
             assessment.overrides = self.overrides
         if self.valid is not None:

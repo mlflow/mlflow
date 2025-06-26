@@ -5651,7 +5651,7 @@ def test_create_and_get_assessment(store):
         span_id="span-123",
     )
 
-    created_feedback = store.create_assessment(trace_info.request_id, feedback)
+    created_feedback = store.create_assessment(feedback)
     assert created_feedback.assessment_id is not None
     assert created_feedback.assessment_id.startswith("a-")
     assert created_feedback.trace_id == trace_info.request_id
@@ -5674,7 +5674,7 @@ def test_create_and_get_assessment(store):
         span_id="span-456",
     )
 
-    created_expectation = store.create_assessment(trace_info.request_id, expectation)
+    created_expectation = store.create_assessment(expectation)
     assert created_expectation.assessment_id != created_feedback.assessment_id
     assert created_expectation.trace_id == trace_info.request_id
     assert created_expectation.value == "The capital of France is Paris."
@@ -5731,7 +5731,7 @@ def test_update_assessment_feedback(store):
         span_id="span-123",
     )
 
-    created_feedback = store.create_assessment(trace_info.request_id, original_feedback)
+    created_feedback = store.create_assessment(original_feedback)
     original_id = created_feedback.assessment_id
 
     updated_feedback = store.update_assessment(
@@ -5777,7 +5777,7 @@ def test_update_assessment_expectation(store):
         span_id="span-456",
     )
 
-    created_expectation = store.create_assessment(trace_info.request_id, original_expectation)
+    created_expectation = store.create_assessment(original_expectation)
     original_id = created_expectation.assessment_id
 
     updated_expectation = store.update_assessment(
@@ -5808,7 +5808,7 @@ def test_update_assessment_partial_fields(store):
         metadata={"scorer": "automated"},
     )
 
-    created_feedback = store.create_assessment(trace_info.request_id, original_feedback)
+    created_feedback = store.create_assessment(original_feedback)
     original_id = created_feedback.assessment_id
 
     updated_feedback = store.update_assessment(
@@ -5834,7 +5834,7 @@ def test_update_assessment_type_validation(store):
         value="original",
         source=AssessmentSource(source_type=AssessmentSourceType.CODE),
     )
-    created_feedback = store.create_assessment(trace_info.request_id, feedback)
+    created_feedback = store.create_assessment(feedback)
 
     with pytest.raises(
         MlflowException, match=r"Cannot update expectation value on a Feedback assessment"
@@ -5851,7 +5851,7 @@ def test_update_assessment_type_validation(store):
         value="original_expected",
         source=AssessmentSource(source_type=AssessmentSourceType.HUMAN),
     )
-    created_expectation = store.create_assessment(trace_info.request_id, expectation)
+    created_expectation = store.create_assessment(expectation)
 
     with pytest.raises(
         MlflowException, match=r"Cannot update feedback value on an Expectation assessment"
@@ -5895,7 +5895,7 @@ def test_update_assessment_metadata_merging(store):
         metadata={"keep": "this", "override": "old_value", "remove_me": "will_stay"},
     )
 
-    created = store.create_assessment(trace_info.request_id, original)
+    created = store.create_assessment(original)
 
     updated = store.update_assessment(
         trace_id=trace_info.request_id,
@@ -5923,7 +5923,7 @@ def test_update_assessment_timestamps(store):
         source=AssessmentSource(source_type=AssessmentSourceType.CODE),
     )
 
-    created = store.create_assessment(trace_info.request_id, original)
+    created = store.create_assessment(original)
     original_create_time = created.create_time_ms
     original_update_time = created.last_update_time_ms
 
@@ -5950,7 +5950,7 @@ def test_create_assessment_with_overrides(store):
         source=AssessmentSource(source_type=AssessmentSourceType.LLM_JUDGE),
     )
 
-    created_original = store.create_assessment(trace_info.request_id, original_feedback)
+    created_original = store.create_assessment(original_feedback)
 
     override_feedback = Feedback(
         trace_id=trace_info.request_id,
@@ -5960,7 +5960,7 @@ def test_create_assessment_with_overrides(store):
         overrides=created_original.assessment_id,
     )
 
-    created_override = store.create_assessment(trace_info.request_id, override_feedback)
+    created_override = store.create_assessment(override_feedback)
 
     assert created_override.overrides == created_original.assessment_id
     assert created_override.value == "excellent"
@@ -5986,7 +5986,7 @@ def test_create_assessment_override_nonexistent(store):
     with pytest.raises(
         MlflowException, match=r"Assessment with ID 'nonexistent-assessment-id' not found"
     ):
-        store.create_assessment(trace_info.request_id, override_feedback)
+        store.create_assessment(override_feedback)
 
 
 def test_delete_assessment_idempotent(store):
@@ -6000,7 +6000,7 @@ def test_delete_assessment_idempotent(store):
         source=AssessmentSource(source_type=AssessmentSourceType.CODE),
     )
 
-    created_feedback = store.create_assessment(trace_info.request_id, feedback)
+    created_feedback = store.create_assessment(feedback)
 
     retrieved = store.get_assessment(trace_info.request_id, created_feedback.assessment_id)
     assert retrieved.assessment_id == created_feedback.assessment_id
@@ -6022,7 +6022,6 @@ def test_delete_assessment_override_behavior(store):
     trace_info = store.start_trace(exp_id, get_current_time_millis(), {}, {})
 
     original = store.create_assessment(
-        trace_info.request_id,
         Feedback(
             trace_id=trace_info.request_id,
             name="original",
@@ -6032,7 +6031,6 @@ def test_delete_assessment_override_behavior(store):
     )
 
     override = store.create_assessment(
-        trace_info.request_id,
         Feedback(
             trace_id=trace_info.request_id,
             name="override",
@@ -6072,7 +6070,7 @@ def test_assessment_with_run_id(store):
     )
     feedback.run_id = run.info.run_id
 
-    created_feedback = store.create_assessment(trace_info.request_id, feedback)
+    created_feedback = store.create_assessment(feedback)
     assert created_feedback.run_id == run.info.run_id
 
     retrieved_feedback = store.get_assessment(trace_info.request_id, created_feedback.assessment_id)
@@ -6094,7 +6092,7 @@ def test_assessment_with_error(store):
             source=AssessmentSource(source_type=AssessmentSourceType.CODE),
         )
 
-    created_feedback = store.create_assessment(trace_info.request_id, feedback)
+    created_feedback = store.create_assessment(feedback)
     assert created_feedback.error.error_message == "Test error message"
     assert created_feedback.error.error_code == "ValueError"
     assert created_feedback.error.stack_trace is not None

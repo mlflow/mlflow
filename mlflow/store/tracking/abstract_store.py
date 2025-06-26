@@ -450,12 +450,11 @@ class AbstractStore:
         """
         raise NotImplementedError
 
-    def create_assessment(self, trace_id: str, assessment: Assessment) -> Assessment:
+    def create_assessment(self, assessment: Assessment) -> Assessment:
         """
         Logs an Assessment for a given trace or a span within a trace.
 
         Args:
-            trace_id: The trace to which the assessment will be associated.
             assessment: An :py:class:`Assessment <mlflow.entities.Assessment>` object that
                 contains the key value mappings of assessment criteria comprised of either
                 expectations or user/system/scorer-provided feedback (label data) on the quality

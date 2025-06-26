@@ -1056,7 +1056,8 @@ def test_set_trace_tag():
             assert res is None
 
 
-def test_log_assessment_feedback():
+@pytest.mark.parametrize("is_databricks", [True, False])
+def test_log_assessment_feedback(is_databricks):
     creds = MlflowHostCreds("https://hello")
     store = RestStore(lambda: creds)
     response = mock.MagicMock()
@@ -1097,7 +1098,7 @@ def test_log_assessment_feedback():
     )
 
     request = CreateAssessment(assessment=feedback.to_proto())
-    with mock.patch.object(store, "_is_databricks_tracking_uri", return_value=True):
+    with mock.patch.object(store, "_is_databricks_tracking_uri", return_value=is_databricks):
         with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
             res = store.create_assessment(feedback)
 
@@ -1107,14 +1108,15 @@ def test_log_assessment_feedback():
                 "traces/tr-1234/assessments",
                 "POST",
                 message_to_json(request),
-                use_v3=True,
+                use_v3=is_databricks,
             )
             assert isinstance(res, Feedback)
             assert res.assessment_id is not None
             assert res.value == feedback.value
 
 
-def test_log_assessment_expectation():
+@pytest.mark.parametrize("is_databricks", [True, False])
+def test_log_assessment_expectation(is_databricks):
     creds = MlflowHostCreds("https://hello")
     store = RestStore(lambda: creds)
     response = mock.MagicMock()
@@ -1154,7 +1156,7 @@ def test_log_assessment_expectation():
     )
 
     request = CreateAssessment(assessment=expectation.to_proto())
-    with mock.patch.object(store, "_is_databricks_tracking_uri", return_value=True):
+    with mock.patch.object(store, "_is_databricks_tracking_uri", return_value=is_databricks):
         with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
             res = store.create_assessment(expectation)
 
@@ -1164,13 +1166,14 @@ def test_log_assessment_expectation():
                 "traces/tr-1234/assessments",
                 "POST",
                 message_to_json(request),
-                use_v3=True,
+                use_v3=is_databricks,
             )
             assert isinstance(res, Expectation)
             assert res.assessment_id is not None
             assert res.value == expectation.value
 
 
+@pytest.mark.parametrize("is_databricks", [True, False])
 @pytest.mark.parametrize(
     ("updates", "expected_request_json"),
     [
@@ -1215,7 +1218,7 @@ def test_log_assessment_expectation():
         ),
     ],
 )
-def test_update_assessment(updates, expected_request_json):
+def test_update_assessment(updates, expected_request_json, is_databricks):
     creds = MlflowHostCreds("https://hello")
     store = RestStore(lambda: creds)
     response = mock.MagicMock()
@@ -1241,7 +1244,7 @@ def test_update_assessment(updates, expected_request_json):
         }
     )
 
-    with mock.patch.object(store, "_is_databricks_tracking_uri", return_value=True):
+    with mock.patch.object(store, "_is_databricks_tracking_uri", return_value=is_databricks):
         with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
             res = store.update_assessment(
                 trace_id="tr-1234",
@@ -1255,12 +1258,13 @@ def test_update_assessment(updates, expected_request_json):
                 "traces/tr-1234/assessments/1234",
                 "PATCH",
                 json.dumps(expected_request_json),
-                use_v3=True,
+                use_v3=is_databricks,
             )
             assert isinstance(res, Assessment)
 
 
-def test_get_assessment():
+@pytest.mark.parametrize("is_databricks", [True, False])
+def test_get_assessment(is_databricks):
     creds = MlflowHostCreds("https://hello")
     store = RestStore(lambda: creds)
     response = mock.MagicMock()
@@ -1286,7 +1290,7 @@ def test_get_assessment():
         }
     )
 
-    with mock.patch.object(store, "_is_databricks_tracking_uri", return_value=True):
+    with mock.patch.object(store, "_is_databricks_tracking_uri", return_value=is_databricks):
         with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
             res = store.get_assessment(trace_id="tr-1234", assessment_id="1234")
 
@@ -1297,7 +1301,7 @@ def test_get_assessment():
             "traces/tr-1234/assessments/1234",
             "GET",
             json.dumps(expected_request_json),
-            use_v3=True,
+            use_v3=is_databricks,
         )
 
     assert isinstance(res, Feedback)
@@ -1309,14 +1313,15 @@ def test_get_assessment():
     assert res.value == "test value"
 
 
-def test_delete_assessment():
+@pytest.mark.parametrize("is_databricks", [True, False])
+def test_delete_assessment(is_databricks):
     creds = MlflowHostCreds("https://hello")
     store = RestStore(lambda: creds)
     response = mock.MagicMock()
     response.status_code = 200
     response.text = "{}"
 
-    with mock.patch.object(store, "_is_databricks_tracking_uri", return_value=True):
+    with mock.patch.object(store, "_is_databricks_tracking_uri", return_value=is_databricks):
         with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
             store.delete_assessment(trace_id="tr-1234", assessment_id="1234")
 
@@ -1327,7 +1332,7 @@ def test_delete_assessment():
             "traces/tr-1234/assessments/1234",
             "DELETE",
             json.dumps(expected_request_json),
-            use_v3=True,
+            use_v3=is_databricks,
         )
 
 
