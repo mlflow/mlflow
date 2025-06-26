@@ -129,22 +129,28 @@ This comprehensive monitoring capability allows you to track and identify perfor
 
 ## Evaluate and Enhance Application Quality
 
-Systematically assessing and improving the quality of your GenAI applications is a core challenge. MLflow Tracing helps by allowing you to **attach and track [user feedback](/genai/tracing/collect-user-feedback) and the results of [quality evaluations](/genai/eval-monitor)** (from LLM judges or custom metrics) directly to your traces.
+Systematically assessing and improving the quality of your GenAI applications is a core challenge. MLflow Tracing integrates with **[MLflow Assessments](/genai/assessments)** to provide structured feedback collection and quality evaluation directly attached to your traces.
+
+Assessments provide a modern, standardized approach to capturing:
+- **User feedback** and satisfaction signals
+- **Ground truth expectations** from domain experts
+- **Automated quality evaluations** from LLM judges and custom metrics
+- **Audit trails** with complete attribution and rationale
 
 This enables comprehensive quality assessment throughout your application's lifecycle:
 
 <Tabs>
   <TabItem value="development" label="During Development" default>
-    Evaluate traces using human reviewers or LLM judges to measure accuracy, relevance, and other quality aspects. Track quality improvements as you iterate on prompts, models, or retrieval strategies while identifying patterns in quality issues (e.g., specific types of queries that lead to poor responses). This data-driven approach enables you to make systematic improvements to your application.
+    Use assessments to capture structured feedback from human reviewers, domain experts, and automated evaluators. Track quality improvements as you iterate on prompts, models, or retrieval strategies while identifying patterns through assessment data analysis. The structured nature of assessments enables systematic comparison and measurement of improvements.
   </TabItem>
   <TabItem value="production" label="In Production">
-    Monitor and assess quality in real-time by tracking quality metrics (derived from user feedback and evaluation results) across deployments. Identify sudden quality degradation or regressions, trigger alerts for critical quality issues, and help maintain quality Service Level Agreements (SLAs).
+    Monitor quality through real-time assessment collection from users and automated systems. Track assessment trends across deployments, identify quality regressions through structured data analysis, and maintain quality SLAs using reliable assessment metrics with clear attribution and reasoning.
   </TabItem>
 </Tabs>
 
-Traces from both evaluation runs and production monitoring can be explored to identify root causes of quality issues—for instance, insufficiently retrieved documents in a RAG system or degraded performance of a specific model. Traces empower you to analyze these issues in detail and iterate quickly.
+Traces with attached assessments enable powerful root cause analysis. When quality issues arise, you can examine both the execution trace and the assessment rationale to understand exactly what went wrong—for instance, insufficiently retrieved documents in a RAG system or degraded performance identified through user feedback.
 
-Moreover, traces are invaluable for **building high-quality evaluation datasets**. By capturing real user interactions and their outcomes, you can curate representative test cases based on actual usage patterns, build comprehensive evaluation sets that cover diverse scenarios, and use this data to fine-tune models or improve retrieval mechanisms.
+Assessments also provide valuable insights for quality improvement. By analyzing assessment patterns and rationale, you can identify common failure modes, understand user preferences, and make data-driven improvements to your application based on structured feedback rather than intuition.
 
 When combined with [MLflow GenAI Evaluation](/genai/eval-monitor), MLflow offers a seamless experience for assessing and improving your application's quality.
 
@@ -252,8 +258,8 @@ MLflow Tracing captures inputs, outputs, latencies, and metadata automatically. 
   <TabItem value="instrument" label="Instrument Your App" default>
     Start by instrumenting your application to capture traces with the **[App Instrumentation Guide](/genai/tracing/app-instrumentation)** for a complete guide to adding tracing to your application. Use **[Automatic Tracing](/genai/tracing/app-instrumentation/automatic)** for one-line tracing with 20+ supported libraries, or **[Manual Tracing](/genai/tracing/app-instrumentation/manual-tracing)** for custom instrumentation with any Python code.
   </TabItem>
-  <TabItem value="integrations" label="Library Integrations">
-    Explore specific integrations for your framework, including **[OpenAI Integration](/genai/tracing/integrations/listing/openai)** to trace OpenAI API calls, **[LangChain Integration](/genai/tracing/integrations/listing/langchain)** to trace LangChain applications, **[LlamaIndex Integration](/genai/tracing/integrations/listing/llama_index)** to trace LlamaIndex workflows, and **[All Integrations](/genai/tracing/integrations)** to browse all supported libraries.
+  <TabItem value="quality" label="Quality Assessment">
+    Enhance your traces with quality assessment using **[MLflow Assessments](/genai/assessments)** for structured feedback collection, **[Collect User Feedback](/genai/tracing/collect-user-feedback)** for user satisfaction signals, and **[Quality Analysis](/genai/tracing/quality-with-traces)** for data-driven quality improvements.
   </TabItem>
   <TabItem value="analyze" label="Analyze Traces">
     Learn how to work with your trace data through **[Viewing Traces](/genai/tracing/observe-with-traces/ui)** to explore traces in the MLflow UI, **[Querying Traces](/genai/tracing/search-traces)** to programmatically search and retrieve traces, and understanding the **[Trace Data Model](/genai/tracing/data-model)** to comprehend trace structure and components.

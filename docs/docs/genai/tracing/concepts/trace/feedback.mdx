@@ -80,13 +80,21 @@ Feedback can evaluate various aspects of your GenAI application's performance:
 
     **Logical Consistency**: Whether the reasoning and conclusions are sound
 
-    Example feedback:
-    ```json
-    {
-      "name": "factual_accuracy",
-      "value": 0.85,
-      "rationale": "The response correctly identifies 3 out of 4 key facts about MLflow, but incorrectly states the founding year."
-    }
+    Example assessment:
+    ```python
+    import mlflow
+    from mlflow.entities import AssessmentSource, AssessmentSourceType
+
+    # Log factual accuracy assessment
+    mlflow.log_feedback(
+        trace_id="trace_123",
+        name="factual_accuracy",
+        value=0.85,
+        rationale="The response correctly identifies 3 out of 4 key facts about MLflow, but incorrectly states the founding year.",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.HUMAN, source_id="expert_reviewer_001"
+        ),
+    )
     ```
   </TabItem>
   <TabItem value="relevance" label="Relevance & Context">
@@ -96,13 +104,19 @@ Feedback can evaluate various aspects of your GenAI application's performance:
 
     **Topic Adherence**: Staying on-topic and avoiding irrelevant tangents
 
-    Example feedback:
-    ```json
-    {
-      "name": "relevance_to_query",
-      "value": "HIGH",
-      "rationale": "Response directly answers the user's question about MLflow features and provides relevant examples."
-    }
+    Example assessment:
+    ```python
+    # Log relevance assessment with categorical value
+    mlflow.log_feedback(
+        trace_id="trace_123",
+        name="relevance_to_query",
+        value="HIGH",
+        rationale="Response directly answers the user's question about MLflow features and provides relevant examples.",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.LLM_JUDGE,
+            source_id="gpt-4-relevance-evaluator",
+        ),
+    )
     ```
   </TabItem>
   <TabItem value="safety" label="Safety & Guidelines">
@@ -112,13 +126,18 @@ Feedback can evaluate various aspects of your GenAI application's performance:
 
     **Bias Detection**: Identifying unfair bias or discrimination in responses
 
-    Example feedback:
-    ```json
-    {
-      "name": "is_safe",
-      "value": true,
-      "rationale": "Content contains no harmful, toxic, or inappropriate material."
-    }
+    Example assessment:
+    ```python
+    # Log safety assessment
+    mlflow.log_feedback(
+        trace_id="trace_123",
+        name="is_safe",
+        value=True,
+        rationale="Content contains no harmful, toxic, or inappropriate material.",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.CODE, source_id="safety_filter_v2.1"
+        ),
+    )
     ```
   </TabItem>
   <TabItem value="quality" label="Quality & Style">
@@ -128,13 +147,18 @@ Feedback can evaluate various aspects of your GenAI application's performance:
 
     **Helpfulness**: How useful the response is to the user
 
-    Example feedback:
-    ```json
-    {
-      "name": "helpfulness",
-      "value": 4,
-      "rationale": "Response provides clear, actionable information but could include more specific examples."
-    }
+    Example assessment:
+    ```python
+    # Log helpfulness assessment
+    mlflow.log_feedback(
+        trace_id="trace_123",
+        name="helpfulness",
+        value=4,
+        rationale="Response provides clear, actionable information but could include more specific examples.",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.HUMAN, source_id="user_456"
+        ),
+    )
     ```
   </TabItem>
 </Tabs>
@@ -173,167 +197,340 @@ Understanding how feedback flows through your evaluation process:
   </TabItem>
 </Tabs>
 
-## Types of Feedback
+## Assessment Value Types
 
-MLflow supports different types of feedback to accommodate various evaluation needs:
-
-### Scalar Feedback
-**Numeric Scores**: Continuous values representing quality on a scale
-- Range: Often 0.0 to 1.0 or 1 to 5
-- Use case: Measuring degrees of quality like relevance or accuracy
-- Example: `{"name": "relevance", "value": 0.87}`
-
-**Boolean Values**: Binary assessments for pass/fail criteria
-- Values: `true` or `false`
-- Use case: Safety checks, guideline compliance
-- Example: `{"name": "contains_pii", "value": false}`
-
-### Categorical Feedback
-**Labels**: Discrete categories representing quality levels
-- Values: Predefined labels like "EXCELLENT", "GOOD", "POOR"
-- Use case: Human-like quality ratings
-- Example: `{"name": "overall_quality", "value": "GOOD"}`
-
-**Classification**: Specific category assignments
-- Values: Domain-specific categories
-- Use case: Content classification, intent recognition
-- Example: `{"name": "response_type", "value": "INFORMATIONAL"}`
-
-### Structured Feedback
-**Complex Objects**: Rich data structures containing multiple assessment aspects
-- Format: JSON objects with nested properties
-- Use case: Comprehensive evaluations with multiple dimensions
-- Example:
-```json
-{
-  "name": "comprehensive_quality",
-  "value": {
-    "overall_score": 0.85,
-    "accuracy": 0.9,
-    "fluency": 0.8,
-    "confidence": 0.75
-  }
-}
-```
-
-## Evaluation Methods
-
-Different approaches for generating feedback:
+MLflow Assessments support different value types to accommodate various evaluation needs:
 
 <Tabs>
-  <TabItem value="llm-judges" label="LLM Judges" default>
-    **Automated LLM Evaluation**: Using language models to assess quality
+  <TabItem value="numeric" label="Numeric & Boolean Values" default>
+    **Continuous Scores**: Floating-point values representing quality on a scale
+    - Range: Often 0.0 to 1.0 or 1 to 5
+    - Use case: Measuring degrees of quality like relevance or accuracy
 
-    **Advantages**:
-    - Scale to large volumes of data
-    - Evaluate subjective criteria
-    - Provide detailed reasoning
-    - Consistent evaluation criteria
+    **Boolean Values**: Binary assessments for pass/fail criteria
+    - Values: `True` or `False`
+    - Use case: Safety checks, guideline compliance
 
-    **Use Cases**:
-    - Content quality assessment
-    - Relevance evaluation
-    - Style and tone analysis
+    Examples:
+    ```python
+    # Continuous score assessment
+    mlflow.log_feedback(
+        trace_id="trace_123",
+        name="relevance_score",
+        value=0.87,
+        rationale="High relevance to user query with comprehensive coverage",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.LLM_JUDGE, source_id="relevance-evaluator-v2"
+        ),
+    )
+
+    # Boolean assessment
+    mlflow.log_feedback(
+        trace_id="trace_123",
+        name="contains_pii",
+        value=False,
+        rationale="No personally identifiable information detected",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.CODE, source_id="pii-detector-v1.3"
+        ),
+    )
+    ```
+  </TabItem>
+  <TabItem value="categorical" label="Categorical Values">
+    **Quality Labels**: Discrete categories representing quality levels
+    - Values: Predefined labels like "EXCELLENT", "GOOD", "POOR"
+    - Use case: Human-like quality ratings
+
+    **Classification Labels**: Specific category assignments
+    - Values: Domain-specific categories
+    - Use case: Content classification, intent recognition
+
+    Examples:
+    ```python
+    # Quality rating assessment
+    mlflow.log_feedback(
+        trace_id="trace_123",
+        name="overall_quality",
+        value="GOOD",
+        rationale="Response is helpful and accurate but could be more comprehensive",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.HUMAN, source_id="quality_reviewer_001"
+        ),
+    )
+
+    # Classification assessment
+    mlflow.log_feedback(
+        trace_id="trace_123",
+        name="response_type",
+        value="INFORMATIONAL",
+        rationale="Response provides factual information without recommendations",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.CODE, source_id="content-classifier-v2.0"
+        ),
+    )
+    ```
+  </TabItem>
+  <TabItem value="structured" label="Structured Values">
+    **Complex Objects**: Rich data structures containing multiple assessment aspects
+    - Format: JSON objects with nested properties
+    - Use case: Comprehensive evaluations with multiple dimensions
+
+    Example:
+    ```python
+    # Multi-dimensional structured assessment
+    mlflow.log_feedback(
+        trace_id="trace_123",
+        name="comprehensive_quality",
+        value={
+            "overall_score": 0.85,
+            "accuracy": 0.9,
+            "fluency": 0.8,
+            "confidence": 0.75,
+            "safety": 1.0,
+        },
+        rationale="Comprehensive evaluation across multiple quality dimensions",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.LLM_JUDGE,
+            source_id="multi-dimensional-evaluator-v1",
+        ),
+    )
+    ```
+  </TabItem>
+</Tabs>
+
+
+## Assessment Sources and Methods
+
+MLflow Assessments support three source types, each with specific use cases and characteristics:
+
+<Tabs>
+  <TabItem value="llm-judges" label="LLM_JUDGE Sources" default>
+    **AssessmentSourceType.LLM_JUDGE**: Evaluations performed by language models
+
+    **Characteristics**:
+    - Scalable to large volumes of data
+    - Can evaluate subjective, complex criteria
+    - Provide detailed reasoning in rationale
+    - Consistent evaluation methodology
+
+    **Implementation Example**:
+    ```python
+    # LLM judge evaluation
+    def llm_judge_evaluation(trace_id, response_text):
+        # Your LLM evaluation logic here
+        score = evaluate_with_llm_judge(response_text)
+
+        mlflow.log_feedback(
+            trace_id=trace_id,
+            name="llm_judge_quality",
+            value=score,
+            rationale="LLM judge evaluated based on coherence, accuracy, and helpfulness criteria",
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.LLM_JUDGE,
+                source_id="gpt-4-quality-judge-v2",
+            ),
+        )
+    ```
+  </TabItem>
+  <TabItem value="programmatic" label="CODE Sources">
+    **AssessmentSourceType.CODE**: Programmatic, rule-based evaluations
+
+    **Characteristics**:
+    - Deterministic and reproducible
+    - Fast execution and low latency
+    - Objective, measurable criteria
+    - Easy to debug and maintain
+
+    **Implementation Example**:
+    ```python
+    # Simple programmatic evaluation
+    response_text = "Hello! MLflow is a platform for managing machine learning lifecycles."
+
+    # Basic length check
+    meets_length_requirement = len(response_text) >= 50
+
+    # Check for greeting
+    has_greeting = response_text.lower().startswith(("hello", "hi", "greetings"))
+
+    # Log assessment
+    mlflow.log_feedback(
+        trace_id="trace_123",
+        name="basic_quality_check",
+        value=meets_length_requirement and has_greeting,
+        rationale=f"Length adequate: {meets_length_requirement}, Has greeting: {has_greeting}",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.CODE, source_id="basic_validator_v1.0"
+        ),
+    )
+    ```
+  </TabItem>
+  <TabItem value="human-review" label="HUMAN Sources">
+    **AssessmentSourceType.HUMAN**: Manual assessments from human evaluators
+
+    **Characteristics**:
+    - Highest quality for subjective criteria
+    - Nuanced understanding of context
+    - Ground truth establishment
     - Complex reasoning evaluation
 
-    **Example**: An LLM judge evaluating response helpfulness with detailed rationale explaining specific strengths and weaknesses.
-  </TabItem>
-  <TabItem value="programmatic" label="Programmatic Checks">
-    **Rule-Based Evaluation**: Algorithmic assessment using predefined logic
+    **Implementation Example**:
+    ```python
+    # Human evaluation interface
+    def collect_human_feedback(trace_id, rating, comments, evaluator_id):
+        mlflow.log_feedback(
+            trace_id=trace_id,
+            name="human_quality_rating",
+            value=rating,  # 1-5 scale
+            rationale=f"Human evaluator feedback: {comments}",
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.HUMAN, source_id=evaluator_id
+            ),
+        )
 
-    **Advantages**:
-    - Deterministic and consistent
-    - Fast execution
-    - Objective measurement
-    - Easy to understand and debug
 
-    **Use Cases**:
-    - Format validation
-    - Length constraints
-    - Keyword presence/absence
-    - Quantitative metrics
-
-    **Example**: Checking if a response contains required elements or meets length requirements.
-  </TabItem>
-  <TabItem value="human-review" label="Human Review">
-    **Manual Assessment**: Human evaluators providing direct feedback
-
-    **Advantages**:
-    - Highest quality for subjective criteria
-    - Nuanced understanding
-    - Ground truth establishment
-    - Complex context evaluation
-
-    **Use Cases**:
-    - Quality benchmarking
-    - Edge case evaluation
-    - Sensitive content review
-    - Final quality validation
-
-    **Example**: Human reviewers assessing response quality using standardized rubrics and providing detailed feedback.
+    # For expectations (ground truth)
+    # Example: Log what the correct response should be
+    mlflow.log_expectation(
+        trace_id="trace_123",
+        name="expected_response",
+        value="The answer should explain MLflow's core components: tracking, projects, models, and registry.",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.HUMAN, source_id="domain_expert_001"
+        ),
+    )
+    ```
   </TabItem>
 </Tabs>
 
 ## Integration with MLflow
 
-Feedback integrates seamlessly with MLflow's ecosystem:
+MLflow's **Assessments APIs** provide a modern, structured approach to capturing and managing feedback that integrates seamlessly with the tracing ecosystem.
 
-### Trace Connection
-**Direct Association**: Feedback objects are linked to specific traces, providing context about what was evaluated
+### Assessments: The Modern Feedback Standard
 
-**Execution Context**: Access to complete application execution data when performing evaluations
+**Structured Data Model**: Unlike traditional tag-based approaches, assessments provide a standardized format with:
+- Clear value types (boolean, numeric, categorical, structured)
+- Attribution through source tracking (human reviewers, automated systems, LLM judges)
+- Rationale explanations for transparency and debugging
+- Audit trails for tracking changes over time
 
-**Multi-Step Evaluation**: Ability to evaluate individual spans within a trace or the overall trace result
+**Direct Trace Integration**: Assessments are first-class citizens in MLflow tracing:
+- Linked directly to trace IDs for immediate context
+- Searchable through trace query APIs
+- Visualized alongside execution data in the MLflow UI
+- Preserved with complete metadata for analysis
 
-### Evaluation Framework
-**Scorer Functions**: Automated functions that generate feedback based on trace data
+### Assessment Types in MLflow
 
-**Judge Functions**: LLM-based evaluators that provide intelligent assessment
+**Expectations**: Ground truth labels provided by domain experts
+```python
+mlflow.log_expectation(
+    trace_id=trace_id,
+    name="correct_answer",
+    value="MLflow is an open-source platform for managing machine learning lifecycles, including experimentation, reproducibility, deployment, and model registry.",
+    source=AssessmentSource(
+        source_type=AssessmentSourceType.HUMAN, source_id="expert@company.com"
+    ),
+)
+```
 
-**Custom Metrics**: Ability to define domain-specific evaluation criteria
+**Feedback**: Quality evaluations from any source
+```python
+mlflow.log_feedback(
+    trace_id=trace_id,
+    name="user_satisfaction",
+    value=4,  # 1-5 scale
+    rationale="Response was helpful but could be more specific",
+    source=AssessmentSource(
+        source_type=AssessmentSourceType.HUMAN, source_id="user_123"
+    ),
+)
+```
 
-### Analysis and Monitoring
-**Quality Dashboards**: Visualize feedback trends and patterns over time
+### Source Attribution and Tracking
 
-**Performance Tracking**: Monitor how changes to your application affect quality metrics
+Each assessment captures complete attribution information:
 
-**Alerting**: Set up notifications when quality metrics fall below thresholds
+- **Source Type**: Clearly identifies whether feedback came from humans, code, or LLM judges
+- **Source ID**: Specific identifier for the evaluator (user ID, system name, model version)
+- **Rationale**: Explanation of the assessment reasoning
+- **Timestamp**: When the assessment was created
 
-## Best Practices
+This attribution enables you to:
+- Understand the reliability and context of each assessment
+- Track evaluator performance and consistency
+- Filter assessments by source type for analysis
+- Maintain audit trails for quality decisions
 
-### Feedback Design
-**Clear Names**: Use descriptive, consistent names for feedback dimensions
+## Best Practices for Assessments
 
-**Appropriate Scales**: Choose value types and ranges that match your evaluation needs
+<Tabs>
+  <TabItem value="naming" label="Assessment Design" default>
+    **Descriptive Names**: Use clear, consistent naming conventions across your application
+    - Examples: `is_helpful`, `relevance_score`, `safety_check`, `user_satisfaction`
+    - Why: Consistent naming enables easier querying and analysis across teams
+    - Tracking: Standard names allow aggregation and comparison over time
 
-**Meaningful Rationale**: Provide clear explanations that help with debugging and improvement
+    **Appropriate Value Types**: Choose the right data type for your assessment needs
+    - Boolean for binary decisions (`True`/`False`) - simple yes/no evaluations
+    - Numeric for scores and ratings (`1-5`, `0.0-1.0`) - measurable quality levels
+    - Categorical for classifications (`"GOOD"`, `"FAIR"`, `"POOR"`) - discrete quality levels
+    - Structured for complex evaluations (JSON objects) - multi-dimensional assessment
+    - Why: Proper types enable meaningful aggregation and statistical analysis
 
-### Evaluation Strategy
-**Multiple Dimensions**: Assess various aspects of quality, not just a single metric
+    **Meaningful Rationale**: Always provide explanations that aid in debugging and improvement
+    - Why: Rationale enables understanding of assessment reasoning and quality patterns
+    - Usability: Helps developers understand specific improvement areas
+  </TabItem>
+  <TabItem value="sources" label="Source Management">
+    **Clear Attribution**: Use descriptive source IDs that help identify assessment origin
+    - User IDs for human feedback: `"user_123"`, `"expert@company.com"`
+    - System IDs for automated checks: `"safety_filter_v2.1"`, `"format_validator"`
+    - Model IDs for LLM judges: `"gpt-4-quality-evaluator"`, `"claude-3-relevance-judge"`
+    - Why: Clear attribution enables filtering by evaluator reliability and expertise
+    - Tracking: Allows monitoring evaluator consistency and identifying drift
 
-**Balanced Approach**: Combine automated and human evaluation methods
+    **Source Type Accuracy**: Use the correct `AssessmentSourceType` for proper categorization
+    - `HUMAN` for all user and expert feedback - enables filtering for ground truth
+    - `CODE` for programmatic evaluations - identifies deterministic assessments
+    - `LLM_JUDGE` for language model-based assessments - separates AI from human judgment
+    - Why: Accurate typing enables proper analysis and reliability assessment
+    - Usability: Teams can focus on specific feedback types for different purposes
+  </TabItem>
+  <TabItem value="strategy" label="Quality Strategy">
+    **Multi-dimensional Assessment**: Evaluate various quality aspects simultaneously
+    - Why: Comprehensive quality understanding requires multiple perspectives
+    - Tracking: Enables identification of specific quality dimensions that need improvement
+    - Example: Combine accuracy, helpfulness, safety, and relevance assessments
 
-**Regular Review**: Periodically review and update evaluation criteria
+    **Balanced Sources**: Combine human feedback, automated checks, and LLM judges
+    - Human feedback: Ground truth and subjective quality assessment
+    - Automated checks: Consistent, scalable objective measures
+    - LLM judges: Scalable subjective evaluation with reasoning
+    - Why: Different sources provide complementary insights into application quality
+    - Usability: Enables both real-time monitoring and detailed quality analysis
 
-### Quality Monitoring
-**Baseline Establishment**: Set quality baselines for comparison
+    **Temporal Tracking**: Monitor assessment trends to detect quality changes over time
+    - Why: Quality can degrade due to model updates, data drift, or changing user expectations
+    - Tracking: Historical assessment data enables quality regression detection
+    - Usability: Proactive identification of quality issues before user impact
+  </TabItem>
+</Tabs>
 
-**Trend Monitoring**: Track quality changes over time and across versions
+## Getting Started with Assessments
 
-**Root Cause Analysis**: Use feedback and trace data together to understand quality issues
+To begin using MLflow's modern assessment system:
 
-## Getting Started
+**[Assessments Overview](/genai/assessments)**: Comprehensive introduction to expectations, feedback, and sources
 
-To begin using feedback in your GenAI evaluation workflow:
+**[Assessments API Guide](/genai/assessments/api-guide)**: Complete API reference with examples and best practices
 
-**[LLM Evaluation Guide](/genai/eval-monitor)**: Learn how to evaluate your GenAI applications
+**[Collect User Feedback](/genai/tracing/collect-user-feedback)**: Implementation patterns for user feedback collection
 
-**[Custom Metrics](/genai/eval-monitor)**: Create domain-specific evaluation functions
+**[Search Traces](/genai/tracing/search-traces)**: Query traces using assessment data for analysis
 
-**[Trace Analysis](/genai/tracing/search-traces)**: Explore how to query and analyze trace data with feedback
-
-**[Quality Monitoring](/genai/tracing/prod-tracing)**: Set up ongoing quality assessment
+**[Quality Evaluation](/genai/tracing/quality-with-traces)**: Advanced techniques for quality assessment
 
 ---
 
-*Feedback concepts form the foundation for systematic quality assessment in MLflow. By understanding how feedback objects work and integrate with traces, you can build comprehensive evaluation strategies that improve your GenAI applications over time.*
+*MLflow Assessments represent the evolution of feedback concepts, providing a structured, production-ready approach to quality evaluation. By adopting assessments, you gain a robust foundation for systematic quality improvement that scales with your GenAI applications.*

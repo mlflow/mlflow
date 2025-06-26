@@ -297,6 +297,20 @@ const sidebarsGenAI: SidebarsConfig = {
       className: 'sidebar-top-level-category',
       items: [
         {
+          type: 'category',
+          label: 'Feedback & Expectations',
+          items: [
+            {
+              type: 'doc',
+              id: 'assessments/api-guide'
+            }
+          ],
+          link: {
+            type: 'doc',
+            id: 'assessments/index'
+          }
+        },
+        {
           type: 'doc',
           id: 'eval-monitor/llm-evaluation',
           label: 'LLM Evaluation',
