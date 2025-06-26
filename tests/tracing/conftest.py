@@ -8,7 +8,10 @@ import pytest
 import mlflow
 from mlflow.entities import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING
+from mlflow.environment_variables import (
+    MLFLOW_ENABLE_ASYNC_LOGGING,
+    MLFLOW_ENABLE_ASYNC_TRACE_LOGGING,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -60,6 +63,9 @@ def databricks_tracking_uri():
 # Fixture to run the test case with and without async logging enabled
 @pytest.fixture(params=[True, False])
 def async_logging_enabled(request, monkeypatch):
+    monkeypatch.setenv(MLFLOW_ENABLE_ASYNC_TRACE_LOGGING.name, str(request.param))
+    # TODO: V2 Trace depends on this env var rather than MLFLOW_ENABLE_ASYNC_TRACE_LOGGING
+    # We should remove this once the backend is fully migrated to V3
     monkeypatch.setenv(MLFLOW_ENABLE_ASYNC_LOGGING.name, str(request.param))
     return request.param
 

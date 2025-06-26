@@ -4,7 +4,7 @@ exposed to users at the top-level :py:mod:`mlflow` module.
 """
 
 import warnings
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 if TYPE_CHECKING:
     import numpy
@@ -32,7 +32,7 @@ def compress_image_size(
     return image.resize((new_width, new_height))
 
 
-def convert_to_pil_image(image: Union["numpy.ndarray", list]) -> "PIL.Image.Image":
+def convert_to_pil_image(image: Union["numpy.ndarray", list[Any]]) -> "PIL.Image.Image":
     """
     Convert a numpy array to a PIL image.
     """
@@ -129,7 +129,7 @@ class Image:
         pixel_values = image_obj.to_list()
     """
 
-    def __init__(self, image: Union["numpy.ndarray", "PIL.Image.Image", str, list]):
+    def __init__(self, image: Union["numpy.ndarray", "PIL.Image.Image", str, list[Any]]):
         import numpy as np
 
         try:

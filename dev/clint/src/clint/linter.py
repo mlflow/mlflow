@@ -13,6 +13,7 @@ from typing import Any, Iterator, Union
 
 from clint import rules
 from clint.builtin import BUILTIN_MODULES
+from clint.comments import Noqa, iter_comments
 from clint.config import Config
 from clint.resolver import Resolver
 
@@ -98,6 +99,10 @@ class Location:
     @classmethod
     def from_node(cls, node: ast.AST) -> "Location":
         return cls(node.lineno - 1, node.col_offset)
+
+    @classmethod
+    def from_noqa(cls, noqa: Noqa) -> "Location":
+        return cls(noqa.lineno - 1, noqa.col_offset)
 
     def __add__(self, other: Location) -> Location:
         return Location(self.lineno + other.lineno, self.col_offset + other.col_offset)
@@ -271,6 +276,46 @@ def _find_artifact_path_index(call_path: tuple[str, str]) -> int | None:
     return None
 
 
+class TypeAnnotationVisitor(ast.NodeVisitor):
+    def __init__(self, linter: "Linter") -> None:
+        self.linter = linter
+        self.stack: list[ast.AST] = []
+
+    def visit(self, node: ast.AST) -> None:
+        self.stack.append(node)
+        super().visit(node)
+        self.stack.pop()
+
+    def visit_Name(self, node: ast.Name) -> None:
+        if rules.IncorrectTypeAnnotation.check(node):
+            self.linter._check(Location.from_node(node), rules.IncorrectTypeAnnotation(node.id))
+
+        if self._is_bare_generic_type(node):
+            self.linter._check(Location.from_node(node), rules.UnparameterizedGenericType(node.id))
+
+        self.generic_visit(node)
+
+    def visit_Attribute(self, node):
+        if self._is_bare_generic_type(node):
+            self.linter._check(
+                Location.from_node(node), rules.UnparameterizedGenericType(ast.unparse(node))
+            )
+
+        self.generic_visit(node)
+
+    def _is_bare_generic_type(self, node: ast.Name | ast.Attribute) -> bool:
+        """Check if this node is a bare generic type (e.g., `dict` or `list` without parameters)."""
+        if not rules.UnparameterizedGenericType.is_generic_type(node, self.linter.resolver):
+            return False
+
+        # Check if this node is the value of a Subscript (e.g., the 'dict' in 'dict[str, int]').
+        # `[:-1]` skips the current node, which is the one being checked.
+        for parent in reversed(self.stack[:-1]):
+            if isinstance(parent, ast.Subscript) and parent.value is node:
+                return False
+        return True
+
+
 class Linter(ast.NodeVisitor):
     def __init__(
         self,
@@ -297,7 +342,6 @@ class Linter(ast.NodeVisitor):
         self.ignore = ignore
         self.cell = cell
         self.violations: list[Violation] = []
-        self.in_type_annotation = False
         self.in_TYPE_CHECKING = False
         self.is_mlflow_init_py = path == Path("mlflow", "__init__.py")
         self.imported_modules: set[str] = set()
@@ -404,6 +448,7 @@ class Linter(ast.NodeVisitor):
             offset=example.loc,
         )
         linter.visit(tree)
+        linter.visit_comments(example.code)
         return [v for v in linter.violations if v.rule.name in config.example_rules]
 
     def visit_decorator(self, node: ast.expr) -> None:
@@ -450,13 +495,10 @@ class Linter(ast.NodeVisitor):
                     self._check(Location.from_node(node), rules.DocstringParamOrder(params))
 
     def _invalid_abstract_method(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
-        if rules.InvalidAbstractMethod.check(node):
+        if rules.InvalidAbstractMethod.check(node, self.resolver):
             self._check(Location.from_node(node), rules.InvalidAbstractMethod())
 
     def visit_Name(self, node) -> None:
-        if self.in_type_annotation and rules.IncorrectTypeAnnotation.check(node):
-            self._check(Location.from_node(node), rules.IncorrectTypeAnnotation(node.id))
-
         self.generic_visit(node)
 
     def _markdown_link(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
@@ -668,44 +710,25 @@ class Linter(ast.NodeVisitor):
 
         self.generic_visit(node)
 
-    @staticmethod
-    def _is_os_environ(node: ast.AST) -> bool:
-        return (
-            isinstance(node, ast.Attribute)
-            and isinstance(node.value, ast.Name)
-            and node.value.id == "os"
-            and node.attr == "environ"
-        )
-
     def visit_Assign(self, node: ast.Assign):
-        if self._is_in_test():
-            if (
-                len(node.targets) == 1
-                and isinstance(node.targets[0], ast.Subscript)
-                and self._is_os_environ(node.targets[0].value)
-            ):
-                self._check(Location.from_node(node), rules.OsEnvironSetInTest())
-
+        if self._is_in_test() and rules.OsEnvironSetInTest.check(node, self.resolver):
+            self._check(Location.from_node(node), rules.OsEnvironSetInTest())
         self.generic_visit(node)
 
     def visit_Delete(self, node: ast.Delete):
-        if self._is_in_test():
-            if (
-                len(node.targets) == 1
-                and isinstance(node.targets[0], ast.Subscript)
-                and self._is_os_environ(node.targets[0].value)
-            ):
-                self._check(Location.from_node(node), rules.OsEnvironDeleteInTest())
-
+        if self._is_in_test() and rules.OsEnvironDeleteInTest.check(node, self.resolver):
+            self._check(Location.from_node(node), rules.OsEnvironDeleteInTest())
         self.generic_visit(node)
 
-    def visit_type_annotation(self, node: ast.AST) -> None:
-        self.in_type_annotation = True
-        self.visit(node)
-        self.in_type_annotation = False
+    def visit_type_annotation(self, node: ast.expr) -> None:
+        visitor = TypeAnnotationVisitor(self)
+        visitor.visit(node)
 
     def visit_If(self, node: ast.If) -> None:
-        if isinstance(node.test, ast.Name) and node.test.id == "TYPE_CHECKING":
+        if (resolved := self.resolver.resolve(node.test)) and resolved == [
+            "typing",
+            "TYPE_CHECKING",
+        ]:
             self.in_TYPE_CHECKING = True
         self.generic_visit(node)
         self.in_TYPE_CHECKING = False
@@ -715,6 +738,15 @@ class Linter(ast.NodeVisitor):
             for mod in diff:
                 if loc := self.lazy_modules.get(mod):
                     self._check(loc, rules.LazyModule())
+
+    def visit_comments(self, src: str) -> None:
+        for comment in iter_comments(src):
+            if noqa := Noqa.parse_token(comment):
+                self.visit_noqa(noqa)
+
+    def visit_noqa(self, noqa: Noqa) -> None:
+        if rule := rules.DoNotDisable.check(noqa.rules):
+            self._check(Location.from_noqa(noqa), rule)
 
 
 def _has_trace_ui_content(output: dict[str, Any]) -> bool:
@@ -761,6 +793,7 @@ def _lint_cell(path: Path, config: Config, cell: dict[str, Any], index: int) -> 
 
     linter = Linter(path=path, config=config, ignore=ignore_map(src), cell=index)
     linter.visit(tree)
+    linter.visit_comments(src)
     violations.extend(linter.violations)
 
     if not src.strip():
@@ -794,5 +827,6 @@ def lint_file(path: Path, config: Config) -> list[Violation]:
     else:
         linter = Linter(path=path, config=config, ignore=ignore_map(code))
         linter.visit(ast.parse(code))
+        linter.visit_comments(code)
         linter.post_visit()
         return linter.violations

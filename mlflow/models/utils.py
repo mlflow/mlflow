@@ -163,7 +163,7 @@ def _handle_ndarray_nans(x: np.ndarray):
         return x
 
 
-def _handle_ndarray_input(input_array: Union[np.ndarray, dict]):
+def _handle_ndarray_input(input_array: Union[np.ndarray, dict[str, Any]]):
     if isinstance(input_array, dict):
         result = {}
         for name in input_array.keys():
@@ -521,7 +521,9 @@ def _save_example(  # noqa: D417
     return example
 
 
-def _get_mlflow_model_input_example_dict(mlflow_model: Model, uri_or_path: str) -> Optional[dict]:
+def _get_mlflow_model_input_example_dict(
+    mlflow_model: Model, uri_or_path: str
+) -> Optional[dict[str, Any]]:
     """
     Args:
         mlflow_model: Model metadata.
@@ -1778,7 +1780,7 @@ def _convert_llm_ndarray_to_list(data):
     return data
 
 
-def _convert_llm_input_data(data: Any) -> Union[list, dict]:
+def _convert_llm_input_data(data: Any) -> Union[list[Any], dict[str, Any]]:
     """
     Convert input data to a format that can be passed to the model with GenAI flavors such as
     LangChain and LLamaIndex.

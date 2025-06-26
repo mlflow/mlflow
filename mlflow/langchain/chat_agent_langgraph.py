@@ -40,7 +40,10 @@ from mlflow.types.agent import ChatAgentMessage
 from mlflow.utils.annotations import experimental
 
 
-def _add_agent_messages(left: Union[dict, list[dict]], right: Union[dict, list[dict]]):
+def _add_agent_messages(
+    left: Union[dict[str, Any], list[dict[str, Any]]],
+    right: Union[dict[str, Any], list[dict[str, Any]]],
+):
     if not isinstance(left, list):
         left = [left]
     if not isinstance(right, list):
@@ -264,14 +267,14 @@ class ChatAgentState(TypedDict):
     ChatAgent" section of the docstring of :py:class:`ChatAgent <mlflow.pyfunc.ChatAgent>`.
     """
 
-    messages: Annotated[list, _add_agent_messages]
+    messages: Annotated[list[dict[str, Any]], _add_agent_messages]
     context: Optional[dict[str, Any]]
     custom_inputs: Optional[dict[str, Any]]
     custom_outputs: Optional[dict[str, Any]]
 
 
 def parse_message(
-    msg: AnyMessage, name: Optional[str] = None, attachments: Optional[dict] = None
+    msg: AnyMessage, name: Optional[str] = None, attachments: Optional[dict[str, Any]] = None
 ) -> dict[str, Any]:
     """
     Parse different LangChain message types into their ChatAgentMessage schema dict equivalents
