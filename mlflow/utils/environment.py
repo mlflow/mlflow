@@ -525,7 +525,7 @@ def _lock_requirements(
         in_file = tmp_dir_path / "requirements.in"
         in_file.write_text("\n".join(requirements))
         out_file = tmp_dir_path / "requirements.out"
-        constraints_opt: list = []
+        constraints_opt: list[str] = []
         if constraints:
             constraints_file = tmp_dir_path / "constraints.txt"
             constraints_file.write_text("\n".join(constraints))

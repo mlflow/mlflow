@@ -71,7 +71,7 @@ def uc_type_to_json_schema_type(uc_type_json: Union[str, dict[str, Any]]) -> dic
             raise TypeError(f"Unknown type {uc_type_json}. Try upgrading this package.")
 
 
-def extract_param_metadata(p: "FunctionParameterInfo") -> dict:
+def extract_param_metadata(p: "FunctionParameterInfo") -> dict[str, Any]:
     type_json = json.loads(p.type_json)["type"]
     json_schema_type = uc_type_to_json_schema_type(type_json)
     json_schema_type["name"] = p.name

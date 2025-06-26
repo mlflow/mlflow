@@ -279,7 +279,7 @@ def maybe_get_request_id(is_evaluate=False) -> Optional[str]:
     return context.request_id
 
 
-def maybe_get_dependencies_schemas() -> Optional[dict]:
+def maybe_get_dependencies_schemas() -> Optional[dict[str, Any]]:
     context = _try_get_prediction_context()
     if context:
         return context.dependencies_schemas
@@ -350,7 +350,7 @@ def maybe_set_prediction_context(context: Optional["Context"]):
 
 def set_span_chat_messages(
     span: LiveSpan,
-    messages: list[Union[dict, ChatMessage]],
+    messages: list[Union[dict[str, Any], ChatMessage]],
     append=False,
 ):
     """

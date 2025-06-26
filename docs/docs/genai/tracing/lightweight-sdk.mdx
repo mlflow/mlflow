@@ -102,7 +102,7 @@ The lightweight SDK works with various observability platforms. Choose your pref
 
           Lakehouse Monitoring for GenAI can be used regardless of whether your application is hosted on Databricks or not.
 
-          [Sign up for free](https://signup.databricks.com/?destination_url=/ml/experiments-signup?source=OSS_DOCS&dbx_source=TRY_MLFLOW&signup_experience_step=EXPRESS&provider=MLFLOW) and [get started in a minute](https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/monitoring) to run your GenAI application with complete observability.
+          [Sign up for free](https://signup.databricks.com/?destination_url=/ml/experiments-signup?source=OSS_DOCS&dbx_source=TRY_MLFLOW&signup_experience_step=EXPRESS&provider=MLFLOW&utm_source=OSS_DOCS) and [get started in a minute](https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/monitoring) to run your GenAI application with complete observability.
         </div>
 
         <div class="flex-item padding-md">
@@ -250,7 +250,7 @@ def handle_user_request(user_id: str, session_id: str, message: str):
 
         # Log success metrics
         mlflow.update_current_trace(
-            attributes={"response_length": len(response), "processing_successful": True}
+            tags={"response_length": len(response), "processing_successful": True}
         )
 
         return response
@@ -258,8 +258,11 @@ def handle_user_request(user_id: str, session_id: str, message: str):
     except Exception as e:
         # Log error information
         mlflow.update_current_trace(
-            tags={"error": True, "error_type": type(e).__name__},
-            attributes={"error_message": str(e)},
+            tags={
+                "error": True,
+                "error_type": type(e).__name__,
+                "error_message": str(e),
+            },
         )
         raise
 ```

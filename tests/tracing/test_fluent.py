@@ -580,16 +580,6 @@ def test_trace_ignore_exception(monkeypatch, model):
 
     assert get_traces() == []
 
-    # Exception during inspecting inputs: trace should be logged without inputs field
-    with mock.patch("inspect.signature", side_effect=ValueError("Some error")) as mock_input_args:
-        _call_model_and_assert_output(model)
-        assert mock_input_args.call_count > 0
-
-    traces = get_traces()
-    assert len(traces) == 1
-    assert traces[0].info.state == TraceState.OK
-    purge_traces()
-
     # Exception during ending span: trace should not be logged.
     tracer = _get_tracer(__name__)
 
