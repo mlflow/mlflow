@@ -309,7 +309,7 @@ class MlflowModelCheckpointCallback(pl.Callback, MlflowModelCheckpointCallbackBa
         :caption: Example
 
         import mlflow
-        from mlflow.pytorch import MLflowModelCheckpointCallback
+        from mlflow.pytorch import MlflowModelCheckpointCallback
         from pytorch_lightning import Trainer
 
         mlflow.pytorch.autolog(checkpoint=True)
@@ -317,7 +317,7 @@ class MlflowModelCheckpointCallback(pl.Callback, MlflowModelCheckpointCallbackBa
         model = MyLightningModuleNet()  # A custom-pytorch lightning model
         train_loader = create_train_dataset_loader()
 
-        mlflow_checkpoint_callback = MLflowModelCheckpointCallback()
+        mlflow_checkpoint_callback = MlflowModelCheckpointCallback()
 
         trainer = Trainer(callbacks=[mlflow_checkpoint_callback])
 

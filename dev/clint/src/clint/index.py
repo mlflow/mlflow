@@ -57,6 +57,11 @@ class FunctionInfo:
             posonlyargs=[arg.arg for arg in node.args.posonlyargs],
         )
 
+    @property
+    def all_args(self) -> list[str]:
+        """All arguments including positional, keyword-only, and variable arguments."""
+        return self.posonlyargs + self.args + self.kwonlyargs
+
 
 class ModuleSymbolExtractor(ast.NodeVisitor):
     """Extracts function definitions and import mappings from a Python module."""
