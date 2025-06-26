@@ -38,7 +38,7 @@ const sidebarsGenAI: SidebarsConfig = {
       type: 'category',
       label: 'Overview 🌟',
       className: 'sidebar-top-level-category',
-      collapsed: false,
+      collapsed: true,
       items: [
         {
           type: 'doc',
@@ -338,7 +338,7 @@ const sidebarsGenAI: SidebarsConfig = {
       type: 'category',
       label: 'Prompt and Version Management 🔨',
       className: 'sidebar-top-level-category',
-      collapsed: false,
+      collapsed: true,
       items: [
         {
           type: 'category',
