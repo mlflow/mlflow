@@ -3085,7 +3085,7 @@ class MlflowClient:
         artifacts = [f.path for f in self.list_artifacts(run_id, path=artifact_dir)]
         if artifact_file in artifacts:
             with tempfile.TemporaryDirectory() as tmpdir:
-                downloaded_artifact_path = mlflow.artifacts.download_artifacts(
+                downloaded_artifact_path = self.download_artifacts(
                     run_id=run_id, artifact_path=artifact_file, dst_path=tmpdir
                 )
                 existing_predictions = self._read_from_file(downloaded_artifact_path)
@@ -3225,7 +3225,7 @@ class MlflowClient:
             ]
             if artifact_file in artifacts:
                 with tempfile.TemporaryDirectory() as tmpdir:
-                    downloaded_artifact_path = mlflow.artifacts.download_artifacts(
+                    downloaded_artifact_path = self.download_artifacts(
                         run_id=run_id,
                         artifact_path=artifact_file,
                         dst_path=tmpdir,

@@ -33,7 +33,7 @@ class RunsArtifactRepository(ArtifactRepository):
         from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 
         super().__init__(artifact_uri, tracking_uri)
-        uri = RunsArtifactRepository.get_underlying_uri(artifact_uri)
+        uri = RunsArtifactRepository.get_underlying_uri(artifact_uri, tracking_uri)
         self.repo = get_artifact_repository(uri)
 
     @staticmethod
@@ -41,12 +41,16 @@ class RunsArtifactRepository(ArtifactRepository):
         return urllib.parse.urlparse(uri).scheme == "runs"
 
     @staticmethod
-    def get_underlying_uri(runs_uri):
+    def get_underlying_uri(runs_uri: str, tracking_uri: Optional[str] = None) -> str:
         from mlflow.tracking.artifact_utils import get_artifact_uri
 
         (run_id, artifact_path) = RunsArtifactRepository.parse_runs_uri(runs_uri)
-        tracking_uri = get_databricks_profile_uri_from_artifact_uri(runs_uri)
-        uri = get_artifact_uri(run_id, artifact_path, tracking_uri)
+        tracking_uri_from_run = get_databricks_profile_uri_from_artifact_uri(runs_uri)
+        uri = get_artifact_uri(
+            run_id=run_id,
+            artifact_path=artifact_path,
+            tracking_uri=tracking_uri_from_run or tracking_uri,
+        )
         assert not RunsArtifactRepository.is_runs_uri(uri)  # avoid an infinite loop
         return add_databricks_profile_info_to_artifact_uri(uri, tracking_uri)
 
@@ -134,7 +138,7 @@ class RunsArtifactRepository(ArtifactRepository):
         """
         from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 
-        client = mlflow.tracking.MlflowClient()
+        client = mlflow.tracking.MlflowClient(self.tracking_uri)
         experiment_id = client.get_run(run_id).info.experiment_id
 
         def iter_models() -> Iterator[LoggedModel]:
