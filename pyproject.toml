@@ -288,7 +288,12 @@ typing-extensions-allowlist = [
   "typing_extensions.ParamSpec", # Added in 3.10.0
 ]
 # Rules that are only enabled for code examples.
-example-rules = ["lazy-builtin-import", "log-model-artifact-path"]
+example-rules = [
+  "lazy-builtin-import",
+  "log-model-artifact-path",
+  "unknown-mlflow-function",
+  "unknown-mlflow-arguments",
+]
 
 [tool.clint.forbidden-top-level-imports]
 "mlflow/gateway/providers/*" = ["fastapi", "starlette", "aiohttp"]

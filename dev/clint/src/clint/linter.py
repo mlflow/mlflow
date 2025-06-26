@@ -15,6 +15,7 @@ from clint import rules
 from clint.builtin import BUILTIN_MODULES
 from clint.comments import Noqa, iter_comments
 from clint.config import Config
+from clint.index import SymbolIndex
 from clint.resolver import Resolver
 
 PARAM_REGEX = re.compile(r"\s+:param\s+\w+:", re.MULTILINE)
@@ -276,6 +277,53 @@ def _find_artifact_path_index(call_path: tuple[str, str]) -> int | None:
     return None
 
 
+class ExampleVisitor(ast.NodeVisitor):
+    def __init__(self, linter: Linter, index: SymbolIndex) -> None:
+        self.linter = linter
+        self.index = index
+
+    def _resolve_call(self, node: ast.expr) -> list[str] | None:
+        if isinstance(node, ast.Attribute):
+            base = self._resolve_call(node.value)
+            if base is None:
+                return None
+            return base + [node.attr]
+        elif isinstance(node, ast.Name):
+            return [node.id]
+        return None
+
+    def visit_Call(self, node: ast.Call) -> None:
+        if (
+            (resolved := self.linter.resolver.resolve(node.func))
+            and resolved[0] == "mlflow"
+            # Skip `mlflow.data` because its methods are dynamically created and cannot be checked
+            # statically
+            and resolved[:2] != ["mlflow", "data"]
+            # Skip `mlflow.txtai` because it is provided by the external `mlflow-txtai` package and
+            # cannot be checked statically
+            and resolved[:2] != ["mlflow", "txtai"]
+        ):
+            function_name = ".".join(resolved)
+            if func_def := self.index.resolve(function_name):
+                if not (func_def.has_vararg or func_def.has_kwarg):
+                    # Get all argument names from the function signature
+                    all_args = func_def.args + func_def.kwonlyargs + func_def.posonlyargs
+                    # Skip positional arguments that are already provided
+                    remaining_args = all_args[len(node.args) :]
+                    sig_args = set(remaining_args)
+                    call_args = {kw.arg for kw in node.keywords if kw.arg}
+                    if diff := call_args - sig_args:
+                        self.linter._check(
+                            Location.from_node(node),
+                            rules.UnknownMlflowArguments(function_name, diff),
+                        )
+            else:
+                self.linter._check(
+                    Location.from_node(node), rules.UnknownMlflowFunction(function_name)
+                )
+        self.generic_visit(node)
+
+
 class TypeAnnotationVisitor(ast.NodeVisitor):
     def __init__(self, linter: "Linter") -> None:
         self.linter = linter
@@ -325,6 +373,7 @@ class Linter(ast.NodeVisitor):
         ignore: dict[str, set[int]],
         cell: int | None = None,
         offset: Location | None = None,
+        index: SymbolIndex | None = None,
     ):
         """
         Lints a Python file.
@@ -335,6 +384,7 @@ class Linter(ast.NodeVisitor):
             ignore: Mapping of rule name to line numbers to ignore.
             cell: Index of the cell being linted in a Jupyter notebook.
             offset: Offset to apply to the line and column numbers of the violations.
+            index: Symbol index for resolving function signatures.
         """
         self.stack: list[ast.AST] = []
         self.path = path
@@ -348,6 +398,7 @@ class Linter(ast.NodeVisitor):
         self.lazy_modules: dict[str, Location] = {}
         self.offset = offset or Location(0, 0)
         self.resolver = Resolver()
+        self.index = index
 
     def _check(self, loc: Location, rule: rules.Rule) -> None:
         if (lines := self.ignore.get(rule.name)) and loc.lineno in lines:
@@ -435,7 +486,9 @@ class Linter(ast.NodeVisitor):
         )
 
     @classmethod
-    def visit_example(cls, path: Path, config: Config, example: CodeBlock) -> list[Violation]:
+    def visit_example(
+        cls, path: Path, config: Config, example: CodeBlock, index: SymbolIndex | None = None
+    ) -> list[Violation]:
         try:
             tree = ast.parse(example.code)
         except SyntaxError:
@@ -449,6 +502,9 @@ class Linter(ast.NodeVisitor):
         )
         linter.visit(tree)
         linter.visit_comments(example.code)
+        if index:
+            v = ExampleVisitor(linter, index)
+            v.visit(tree)
         return [v for v in linter.violations if v.rule.name in config.example_rules]
 
     def visit_decorator(self, node: ast.expr) -> None:
@@ -808,7 +864,7 @@ def _lint_cell(path: Path, config: Config, cell: dict[str, Any], index: int) -> 
     return violations
 
 
-def lint_file(path: Path, config: Config) -> list[Violation]:
+def lint_file(path: Path, config: Config, index: SymbolIndex) -> list[Violation]:
     code = path.read_text()
     if path.suffix == ".ipynb":
         violations = []
@@ -822,7 +878,7 @@ def lint_file(path: Path, config: Config) -> list[Violation]:
             _iter_code_blocks(code) if path.suffix == ".rst" else _iter_md_code_blocks(code)
         )
         for code_block in code_blocks:
-            violations.extend(Linter.visit_example(path, config, code_block))
+            violations.extend(Linter.visit_example(path, config, code_block, index))
         return violations
     else:
         linter = Linter(path=path, config=config, ignore=ignore_map(code))
