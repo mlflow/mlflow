@@ -155,7 +155,7 @@ class AmazonBedrockModelProvider(Enum):
         name = name.lower()
 
         for opt in cls:
-            if opt.name.lower() == name or opt.value.lower() == name:
+            if opt.name.lower() in name or opt.value.lower() in name:
                 return opt
 
 
@@ -249,8 +249,7 @@ class AmazonBedrockProvider(BaseProvider):
     def _underlying_provider(self):
         if (not self.config.model.name) or "." not in self.config.model.name:
             return None
-        provider = self.config.model.name.split(".")[0]
-        return AmazonBedrockModelProvider.of_str(provider)
+        return AmazonBedrockModelProvider.of_str(self.config.model.name)
 
     @property
     def adapter_class(self) -> type[ProviderAdapter]:

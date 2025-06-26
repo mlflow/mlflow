@@ -404,7 +404,7 @@ class Model:
         flavors=None,
         signature=None,  # ModelSignature
         saved_input_example_info: Optional[dict[str, Any]] = None,
-        model_uuid: Union[str, Callable, None] = lambda: uuid.uuid4().hex,
+        model_uuid: Union[str, Callable[[], str], None] = lambda: uuid.uuid4().hex,
         mlflow_version: Union[str, None] = mlflow.version.VERSION,
         metadata: Optional[dict[str, Any]] = None,
         model_size_bytes: Optional[int] = None,
@@ -619,7 +619,7 @@ class Model:
 
     @experimental(version="2.13.0")
     @property
-    def resources(self) -> dict[str, dict[ResourceType, list[dict]]]:
+    def resources(self) -> dict[str, dict[ResourceType, list[dict[str, Any]]]]:
         """
         An optional dictionary that contains the resources required to serve the model.
 
@@ -642,7 +642,7 @@ class Model:
 
     @experimental(version="2.21.0")
     @property
-    def auth_policy(self) -> dict[str, dict]:
+    def auth_policy(self) -> dict[str, dict[str, Any]]:
         """
         An optional dictionary that contains the auth policy required to serve the model.
 
@@ -654,7 +654,7 @@ class Model:
 
     @experimental(version="2.21.0")
     @auth_policy.setter
-    def auth_policy(self, value: Optional[Union[dict, AuthPolicy]]) -> None:
+    def auth_policy(self, value: Optional[Union[dict[str, Any], AuthPolicy]]) -> None:
         self._auth_policy = value.to_dict() if isinstance(value, AuthPolicy) else value
 
     @property

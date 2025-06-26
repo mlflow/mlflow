@@ -5,7 +5,7 @@ import random
 import time
 import warnings
 from functools import lru_cache
-from typing import Callable
+from typing import Any, Callable
 
 import requests
 
@@ -384,7 +384,7 @@ def _time_sleep(seconds: float) -> None:
 
 def _retry_databricks_sdk_call_with_exponential_backoff(
     *,
-    call_func: Callable,
+    call_func: Callable[..., Any],
     retry_codes: list[int],
     retry_timeout_seconds: int,
     backoff_factor: int,

@@ -8,7 +8,7 @@ Create Date: 2024-05-22 17:44:24.597019
 
 from alembic import op
 
-from mlflow.store.tracking.dbmodels.models import SqlTraceInfo, SqlTraceRequestMetadata, SqlTraceTag
+from mlflow.store.tracking.dbmodels.models import SqlTraceInfo, SqlTraceMetadata, SqlTraceTag
 
 # revision identifiers, used by Alembic.
 revision = "5b0e9adcef9c"
@@ -18,7 +18,7 @@ depends_on = None
 
 
 def upgrade():
-    tables = [SqlTraceTag.__tablename__, SqlTraceRequestMetadata.__tablename__]
+    tables = [SqlTraceTag.__tablename__, SqlTraceMetadata.__tablename__]
     for table in tables:
         fk_tag_constraint_name = f"fk_{table}_request_id"
         # We have to use batch_alter_table as SQLite does not support
