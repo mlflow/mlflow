@@ -1,0 +1,573 @@
+---
+sidebar_label: API Guide
+---
+
+# Assessments API Guide
+
+This guide provides comprehensive coverage of MLflow's Assessments API, showing you how to log expectations and feedback, manage assessments, and integrate human-in-the-loop workflows into your GenAI applications.
+
+## Prerequisites
+
+Before using the Assessments API, ensure you have:
+- MLflow 3.2.0 or later installed
+- An active MLflow tracking server or local tracking setup
+- Traces being logged from your GenAI application
+
+## Core Concepts
+
+### Assessment Types
+
+MLflow supports two types of assessments:
+
+1. **Expectations**: Ground truth labels that define the correct or desired output
+2. **Feedback**: Quality evaluations that rate how well the AI performed
+
+### Assessment Sources
+
+Every assessment must specify its source, which indicates who or what created the annotation:
+
+```python
+from mlflow.entities import AssessmentSource, AssessmentSourceType
+
+# Human annotator
+human_source = AssessmentSource(
+    source_type=AssessmentSourceType.HUMAN,
+    source_id="annotator@company.com"
+)
+
+# Automated code-based evaluation
+code_source = AssessmentSource(
+    source_type=AssessmentSourceType.CODE,
+    source_id="accuracy_checker_v1"
+)
+
+# LLM-as-a-Judge
+llm_source = AssessmentSource(
+    source_type=AssessmentSourceType.LLM_JUDGE,
+    source_id="gpt-4-evaluator"
+)
+```
+
+## Logging Expectations
+
+Expectations capture the ground truth for your AI application. Use them to define what the correct output should be for a given input.
+
+### Basic Expectation Logging
+
+```python
+import mlflow
+from mlflow.entities import AssessmentSource, AssessmentSourceType
+
+# Log a simple text expectation
+expectation = mlflow.log_expectation(
+    trace_id="tr-1234567890abcdef",
+    name="expected_answer",
+    value="The capital of France is Paris.",
+    source=AssessmentSource(
+        source_type=AssessmentSourceType.HUMAN,
+        source_id="expert@company.com"
+    ),
+    metadata={
+        "question_type": "factual",
+        "difficulty": "easy",
+        "annotation_time": "2024-01-15T10:30:00Z"
+    }
+)
+```
+
+### Structured Expectations
+
+Expectations can contain any JSON-serializable value, allowing you to capture complex structured outputs:
+
+```python
+# Log expected classification with multiple fields
+mlflow.log_expectation(
+    trace_id="tr-1234567890abcdef",
+    name="expected_classification",
+    value={
+        "category": "customer_complaint",
+        "severity": "high",
+        "department": "billing",
+        "requires_followup": True
+    },
+    source=AssessmentSource(
+        source_type=AssessmentSourceType.HUMAN,
+        source_id="support_lead@company.com"
+    )
+)
+
+# Log expected LLM response with tool calls
+mlflow.log_expectation(
+    trace_id="tr-1234567890abcdef",
+    name="expected_response",
+    value={
+        "role": "assistant",
+        "content": "I'll help you calculate that total.",
+        "tool_calls": [
+            {
+                "id": "call_123",
+                "type": "function",
+                "function": {
+                    "name": "calculate_sum",
+                    "arguments": {"numbers": [10, 20, 30]}
+                }
+            }
+        ]
+    },
+    source=AssessmentSource(
+        source_type=AssessmentSourceType.CODE,
+        source_id="test_case_generator_v2"
+    )
+)
+```
+
+### Span-Level Expectations
+
+You can associate expectations with specific spans within a trace:
+
+```python
+# Log expectation for a specific retrieval span
+mlflow.log_expectation(
+    trace_id="tr-1234567890abcdef",
+    span_id="sp-9876543210fedcba",  # Specific span ID
+    name="expected_documents",
+    value=["doc_123", "doc_456", "doc_789"],
+    source=AssessmentSource(
+        source_type=AssessmentSourceType.HUMAN,
+        source_id="rag_expert@company.com"
+    ),
+    metadata={
+        "relevance_threshold": 0.8,
+        "expected_count": 3
+    }
+)
+```
+
+## Logging Feedback
+
+Feedback captures quality evaluations of your AI's performance. It can be numeric scores, boolean flags, or structured evaluations.
+
+### Numeric Feedback
+
+```python
+import mlflow
+from mlflow.entities import AssessmentSource, AssessmentSourceType
+
+# Log a simple accuracy score
+feedback = mlflow.log_feedback(
+    trace_id="tr-1234567890abcdef",
+    name="accuracy",
+    value=0.85,
+    rationale="Response was correct but missing some minor details",
+    source=AssessmentSource(
+        source_type=AssessmentSourceType.HUMAN,
+        source_id="reviewer@company.com"
+    )
+)
+
+# Log multiple quality metrics
+mlflow.log_feedback(
+    trace_id="tr-1234567890abcdef",
+    name="quality_metrics",
+    value={
+        "relevance": 0.9,
+        "coherence": 0.95,
+        "completeness": 0.8,
+        "factual_accuracy": 0.85
+    },
+    rationale="High quality response with room for improvement in completeness",
+    source=AssessmentSource(
+        source_type=AssessmentSourceType.LLM_JUDGE,
+        source_id="gpt-4-judge"
+    ),
+    metadata={
+        "evaluation_prompt_version": "v2.1",
+        "temperature": 0.0
+    }
+)
+```
+
+### Boolean Feedback
+
+```python
+# Log pass/fail feedback
+mlflow.log_feedback(
+    trace_id="tr-1234567890abcdef",
+    name="meets_sla",
+    value=True,
+    rationale="Response time under 2 seconds and accuracy above threshold",
+    source=AssessmentSource(
+        source_type=AssessmentSourceType.CODE,
+        source_id="sla_monitor_v1"
+    )
+)
+
+# Log safety check
+mlflow.log_feedback(
+    trace_id="tr-1234567890abcdef",
+    name="is_safe",
+    value=False,
+    rationale="Response contains potentially harmful medical advice",
+    source=AssessmentSource(
+        source_type=AssessmentSourceType.LLM_JUDGE,
+        source_id="safety_classifier"
+    ),
+    metadata={
+        "violation_category": "medical_advice",
+        "confidence": 0.92
+    }
+)
+```
+
+### Handling Evaluation Errors
+
+When feedback generation fails, you can log the error information:
+
+```python
+from mlflow.entities import AssessmentError
+
+# Log feedback with error information
+try:
+    # Attempt to generate feedback
+    score = evaluate_with_llm_judge(response)
+except Exception as e:
+    # Log the error instead of a value
+    mlflow.log_feedback(
+        trace_id="tr-1234567890abcdef",
+        name="llm_judge_score",
+        value=None,  # No value due to error
+        error=AssessmentError(
+            error_code="RATE_LIMIT_EXCEEDED",
+            error_message=f"Judge API rate limit hit: {str(e)}"
+        ),
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.LLM_JUDGE,
+            source_id="gpt-4-judge"
+        )
+    )
+```
+
+## Managing Assessments
+
+### Retrieving Assessments
+
+```python
+# Get a specific assessment by ID
+assessment = mlflow.get_assessment(
+    trace_id="tr-1234567890abcdef",
+    assessment_id="as-0987654321abcdef"
+)
+```
+
+### Updating Assessments
+
+:::note
+The update and delete APIs are currently only available in Databricks Managed MLflow.
+:::
+
+```python
+from mlflow.entities import Expectation
+
+# Update an existing expectation
+mlflow.update_assessment(
+    trace_id="tr-1234567890abcdef",
+    assessment_id="as-0987654321abcdef",
+    assessment=Expectation(
+        name="expected_answer",
+        value="Updated answer with more details"
+    )
+)
+```
+
+### Overriding Feedback
+
+When you need to correct feedback while preserving the original for audit or training purposes:
+
+```python
+# Original LLM feedback
+llm_feedback = mlflow.log_feedback(
+    trace_id="tr-1234567890abcdef",
+    name="relevance",
+    value=0.6,
+    rationale="Response partially addresses the question",
+    source=AssessmentSource(
+        source_type=AssessmentSourceType.LLM_JUDGE,
+        source_id="gpt-4-judge"
+    )
+)
+
+# Human expert disagrees and overrides
+corrected_feedback = mlflow.override_feedback(
+    trace_id="tr-1234567890abcdef",
+    assessment_id=llm_feedback.assessment_id,
+    value=0.9,
+    rationale="Response fully addresses the question with comprehensive examples",
+    source=AssessmentSource(
+        source_type=AssessmentSourceType.HUMAN,
+        source_id="domain_expert@company.com"
+    ),
+    metadata={
+        "override_reason": "LLM judge missed domain-specific context",
+        "review_timestamp": "2024-01-15T14:30:00Z"
+    }
+)
+```
+
+## Common Workflows
+
+### Building Evaluation Datasets
+
+Create high-quality evaluation datasets from production traces:
+
+```python
+import mlflow
+from datetime import datetime, timedelta
+
+# Query recent production traces
+end_time = datetime.now()
+start_time = end_time - timedelta(days=7)
+
+traces = mlflow.search_traces(
+    experiment_ids=["prod-experiment-id"],
+    filter_string="attributes.user_satisfaction = 'high'",
+    max_results=1000,
+    order_by=["timestamp DESC"]
+)
+
+# Annotate high-value traces with expectations
+for trace in traces:
+    if should_annotate(trace):  # Your selection logic
+        mlflow.log_expectation(
+            trace_id=trace.info.trace_id,
+            name="expected_response",
+            value=get_expert_annotation(trace),  # Your annotation process
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.HUMAN,
+                source_id="annotation_team"
+            ),
+            metadata={
+                "dataset_version": "v1.0",
+                "annotation_batch": "2024-01-batch-03"
+            }
+        )
+```
+
+### A/B Testing with Feedback
+
+Compare different model versions using consistent feedback:
+
+```python
+def evaluate_trace(trace_id, model_version):
+    """Evaluate a trace with multiple feedback metrics"""
+    
+    # Get trace data
+    trace = mlflow.get_trace(trace_id)
+    
+    # Run multiple evaluations
+    feedback_results = {}
+    
+    # Relevance check
+    relevance_score = check_relevance(trace)
+    feedback_results['relevance'] = mlflow.log_feedback(
+        trace_id=trace_id,
+        name="relevance",
+        value=relevance_score,
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.CODE,
+            source_id=f"relevance_checker_{model_version}"
+        )
+    )
+    
+    # Factual accuracy (using LLM judge)
+    accuracy_result = llm_judge_accuracy(trace)
+    feedback_results['accuracy'] = mlflow.log_feedback(
+        trace_id=trace_id,
+        name="factual_accuracy",
+        value=accuracy_result['score'],
+        rationale=accuracy_result['explanation'],
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.LLM_JUDGE,
+            source_id="accuracy_judge_gpt4"
+        )
+    )
+    
+    return feedback_results
+
+# Evaluate traces from different model versions
+model_a_scores = []
+model_b_scores = []
+
+for trace_id_a, trace_id_b in get_paired_test_traces():
+    scores_a = evaluate_trace(trace_id_a, "model_a")
+    scores_b = evaluate_trace(trace_id_b, "model_b")
+    
+    model_a_scores.append(scores_a)
+    model_b_scores.append(scores_b)
+
+# Analyze results to determine winning model
+```
+
+### Human-in-the-Loop Improvement
+
+Implement a workflow where human feedback improves model performance:
+
+```python
+import mlflow
+from collections import defaultdict
+
+def collect_improvement_candidates():
+    """Find traces where model output differs from expectations"""
+    
+    improvement_candidates = []
+    
+    # Query traces with both expectations and feedback
+    traces = mlflow.search_traces(
+        filter_string="attributes.has_expectation = 'true'",
+        max_results=1000
+    )
+    
+    for trace in traces:
+        # Get assessments for this trace
+        # Note: This is pseudo-code as bulk assessment retrieval 
+        # will be available in future releases
+        assessments = get_trace_assessments(trace.info.trace_id)
+        
+        expectation = next((a for a in assessments if a.name == "expected_answer"), None)
+        feedback = next((a for a in assessments if a.name == "accuracy"), None)
+        
+        if expectation and feedback and feedback.value < 0.8:
+            improvement_candidates.append({
+                "trace_id": trace.info.trace_id,
+                "expected": expectation.value,
+                "actual": trace.outputs,
+                "accuracy": feedback.value,
+                "feedback_rationale": feedback.rationale
+            })
+    
+    return improvement_candidates
+
+# Collect candidates for improvement
+candidates = collect_improvement_candidates()
+
+# Group by error patterns
+error_patterns = defaultdict(list)
+for candidate in candidates:
+    pattern = categorize_error(candidate)
+    error_patterns[pattern].append(candidate)
+
+# Create targeted improvements based on patterns
+for pattern, examples in error_patterns.items():
+    # Use these examples for fine-tuning, prompt engineering, or RAG improvements
+    pass
+```
+
+## Best Practices
+
+### 1. Consistent Naming Conventions
+
+Establish clear naming standards for assessments:
+
+```python
+# Good: Descriptive, consistent names
+mlflow.log_expectation(trace_id=trace_id, name="expected_sql_query", value=sql)
+mlflow.log_feedback(trace_id=trace_id, name="sql_syntax_valid", value=True)
+mlflow.log_feedback(trace_id=trace_id, name="sql_execution_time_ms", value=245)
+
+# Avoid: Vague or inconsistent names
+mlflow.log_expectation(trace_id=trace_id, name="expected", value=sql)
+mlflow.log_feedback(trace_id=trace_id, name="good", value=True)
+mlflow.log_feedback(trace_id=trace_id, name="time", value=245)
+```
+
+### 2. Rich Metadata
+
+Include relevant context in metadata:
+
+```python
+mlflow.log_feedback(
+    trace_id=trace_id,
+    name="response_quality",
+    value=0.85,
+    source=AssessmentSource(
+        source_type=AssessmentSourceType.HUMAN,
+        source_id="reviewer_team"
+    ),
+    metadata={
+        "reviewer_expertise": "domain_expert",
+        "review_duration_seconds": 45,
+        "confidence": "high",
+        "review_criteria_version": "v2.3",
+        "additional_notes": "Consider adding more examples"
+    }
+)
+```
+
+### 3. Source Attribution
+
+Always provide meaningful source information:
+
+```python
+# Good: Specific source identification
+source = AssessmentSource(
+    source_type=AssessmentSourceType.CODE,
+    source_id="response_validator_v2.1_prod"
+)
+
+# Good: Track human annotators
+source = AssessmentSource(
+    source_type=AssessmentSourceType.HUMAN,
+    source_id="john.doe@company.com"
+)
+
+# Avoid: Generic sources
+source = AssessmentSource(
+    source_type=AssessmentSourceType.CODE,
+    source_id="validator"
+)
+```
+
+### 4. Error Handling
+
+Implement robust error handling for assessment logging:
+
+```python
+def safe_log_feedback(trace_id, name, evaluation_func, **kwargs):
+    """Safely log feedback with error handling"""
+    try:
+        value = evaluation_func()
+        return mlflow.log_feedback(
+            trace_id=trace_id,
+            name=name,
+            value=value,
+            **kwargs
+        )
+    except Exception as e:
+        # Log the error as feedback
+        return mlflow.log_feedback(
+            trace_id=trace_id,
+            name=name,
+            value=None,
+            error=AssessmentError(
+                error_code=e.__class__.__name__,
+                error_message=str(e)
+            ),
+            **kwargs
+        )
+
+# Use the safe wrapper
+feedback = safe_log_feedback(
+    trace_id="tr-123",
+    name="toxicity_score",
+    evaluation_func=lambda: check_toxicity(response),
+    source=AssessmentSource(
+        source_type=AssessmentSourceType.CODE,
+        source_id="toxicity_checker_v1"
+    )
+)
+```
+
+## Next Steps
+
+- Explore the [MLflow Tracing Guide](/genai/tracing) to understand how assessments integrate with traces
+- Learn about [Evaluation Workflows](/genai/eval-monitor) that leverage assessments
+- Review the [Python API Reference](pathname:///python_api/mlflow.html#mlflow.log_assessment) for detailed API documentation
