@@ -31,7 +31,7 @@ class DatabricksDeltaExporter(SpanExporter):
         spans_table_name: str,
         ingest_url: str,
         workspace_url: str,
-        pat: str,
+        token: str,
     ):
         """
         Initialize a new DatabricksDeltaExporter.
@@ -40,7 +40,7 @@ class DatabricksDeltaExporter(SpanExporter):
             spans_table_name: The name of the table to ingest spans into.
             ingest_url: The URL of the ingest API.
             workspace_url: The URL of the Databricks workspace.
-            pat: The personal access token for authentication.
+            token: The personal access token for authentication.
         """
         try:
             from ingest_api_sdk import IngestApiSdk, TableProperties
@@ -57,7 +57,7 @@ class DatabricksDeltaExporter(SpanExporter):
         self._sdk_handle = IngestApiSdk(
             ingest_url,
             workspace_url,
-            pat
+            token
         )
         
         # Set up async handling if enabled

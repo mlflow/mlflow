@@ -304,7 +304,7 @@ def _setup_tracer_provider(disabled=False):
                 spans_table_name=MLFLOW_TRACING_DELTA_ARCHIVAL_SPANS_TABLE.get(),
                 ingest_url=MLFLOW_TRACING_DELTA_ARCHIVAL_INGESTION_URL.get(),
                 workspace_url=MLFLOW_TRACING_DELTA_ARCHIVAL_WORKSPACE_URL.get(),
-                pat=MLFLOW_TRACING_DELTA_ARCHIVAL_TOKEN.get(),
+                token=MLFLOW_TRACING_DELTA_ARCHIVAL_TOKEN.get(),
             )
             # Create composite exporter with sequential mode:
             # MLflow V3 is primary, Delta archival is backup (only runs if MLflow succeeds)
