@@ -474,20 +474,14 @@ def test_log_assessment_on_in_progress_trace(store, legacy_api):
 
     mlflow.flush_trace_async_logging()
 
-    # Check if we're using Databricks (V3) or OSS (V2) tracing
-    if store.start_trace_v3.called:
-        # Databricks V3 behavior: assessments logged as part of StartTraceV3 call
-        store.start_trace_v3.assert_called_once()
-        trace = store.start_trace_v3.call_args[1]["trace"]
-        assert trace.info.request_id == mlflow.get_last_active_trace_id()
-        assert len(trace.info.assessments) == 2
-        assert trace.info.assessments[0].name == "feedback"
-        assert trace.info.assessments[0].feedback.value == 1.0
-        assert trace.info.assessments[1].name == "expectation"
-        assert trace.info.assessments[1].expectation.value == "MLflow"
-    else:
-        # OSS V2 behavior: active trace assessments are handled in-memory
-        pass
+    store.start_trace_v3.assert_called_once()
+    trace = store.start_trace_v3.call_args[1]["trace"]
+    assert trace.info.request_id == mlflow.get_last_active_trace_id()
+    assert len(trace.info.assessments) == 2
+    assert trace.info.assessments[0].name == "feedback"
+    assert trace.info.assessments[0].feedback.value == 1.0
+    assert trace.info.assessments[1].name == "expectation"
+    assert trace.info.assessments[1].expectation.value == "MLflow"
 
     # CreateAssessment should be called for the assessment on the other trace (both V2 and V3)
     store.create_assessment.assert_called_once()
@@ -514,20 +508,14 @@ async def test_log_assessment_on_in_progress_trace_async(store):
 
     store.create_assessment.assert_not_called()
 
-    # Check if we're using Databricks (V3) or OSS (V2) tracing
-    if store.start_trace_v3.called:
-        # Databricks V3 behavior
-        store.start_trace_v3.assert_called_once()
-        trace = store.start_trace_v3.call_args[1]["trace"]
-        assert trace.info.request_id == mlflow.get_last_active_trace_id()
-        assert len(trace.info.assessments) == 2
-        assert trace.info.assessments[0].name == "feedback"
-        assert trace.info.assessments[0].feedback.value == 1.0
-        assert trace.info.assessments[1].name == "expectation"
-        assert trace.info.assessments[1].expectation.value == "MLflow"
-    else:
-        # No backend calls should be made for active trace assessments
-        pass
+    store.start_trace_v3.assert_called_once()
+    trace = store.start_trace_v3.call_args[1]["trace"]
+    assert trace.info.request_id == mlflow.get_last_active_trace_id()
+    assert len(trace.info.assessments) == 2
+    assert trace.info.assessments[0].name == "feedback"
+    assert trace.info.assessments[0].feedback.value == 1.0
+    assert trace.info.assessments[1].name == "expectation"
+    assert trace.info.assessments[1].expectation.value == "MLflow"
 
 
 def test_log_assessment_on_in_progress_with_span_id(store):
@@ -541,21 +529,14 @@ def test_log_assessment_on_in_progress_with_span_id(store):
 
     mlflow.flush_trace_async_logging()
 
-    # Check if we're using Databricks (V3) or OSS (V2) tracing
-    if store.start_trace_v3.called:
-        # Databricks V3 behavior
-        store.start_trace_v3.assert_called_once()
-        trace = store.start_trace_v3.call_args[1]["trace"]
-        assert trace.info.request_id == mlflow.get_last_active_trace_id()
-        assert len(trace.info.assessments) == 1
-        assert trace.info.assessments[0].name == "feedback"
-        assert trace.info.assessments[0].feedback.value == 1.0
-        assert trace.info.assessments[0].span_id == span.span_id
-
-        store.create_assessment.assert_not_called()
-    else:
-        # OSS V2 behavior: NO_OP spans don't create assessments
-        store.create_assessment.assert_not_called()
+    store.start_trace_v3.assert_called_once()
+    trace = store.start_trace_v3.call_args[1]["trace"]
+    assert trace.info.request_id == mlflow.get_last_active_trace_id()
+    assert len(trace.info.assessments) == 1
+    assert trace.info.assessments[0].name == "feedback"
+    assert trace.info.assessments[0].feedback.value == 1.0
+    assert trace.info.assessments[0].span_id == span.span_id
+    store.create_assessment.assert_not_called()
 
 
 def test_log_assessment_on_in_progress_trace_works_when_tracing_is_disabled(store):
