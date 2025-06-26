@@ -4,6 +4,7 @@ import sys
 import urllib.parse
 from contextlib import contextmanager
 from queue import Queue
+from typing import Optional
 
 from mlflow.entities import FileInfo
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
@@ -39,8 +40,8 @@ class _SftpPool:
 class SFTPArtifactRepository(ArtifactRepository):
     """Stores artifacts as files in a remote directory, via sftp."""
 
-    def __init__(self, artifact_uri):
-        self.uri = artifact_uri
+    def __init__(self, artifact_uri: str, tracking_uri: Optional[str] = None) -> None:
+        super().__init__(artifact_uri, tracking_uri)
         parsed = urllib.parse.urlparse(artifact_uri)
         self.config = {
             "host": parsed.hostname,
@@ -81,8 +82,6 @@ class SFTPArtifactRepository(ArtifactRepository):
 
         connections = [pysftp.Connection(**self.config) for _ in range(self.max_workers)]
         self.pool = _SftpPool(connections)
-
-        super().__init__(artifact_uri)
 
     def log_artifact(self, local_file, artifact_path=None):
         artifact_dir = posixpath.join(self.path, artifact_path) if artifact_path else self.path
