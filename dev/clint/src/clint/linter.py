@@ -322,6 +322,46 @@ class ExampleVisitor(ast.NodeVisitor):
         self.generic_visit(node)
 
 
+class TypeAnnotationVisitor(ast.NodeVisitor):
+    def __init__(self, linter: "Linter") -> None:
+        self.linter = linter
+        self.stack: list[ast.AST] = []
+
+    def visit(self, node: ast.AST) -> None:
+        self.stack.append(node)
+        super().visit(node)
+        self.stack.pop()
+
+    def visit_Name(self, node: ast.Name) -> None:
+        if rules.IncorrectTypeAnnotation.check(node):
+            self.linter._check(Location.from_node(node), rules.IncorrectTypeAnnotation(node.id))
+
+        if self._is_bare_generic_type(node):
+            self.linter._check(Location.from_node(node), rules.UnparameterizedGenericType(node.id))
+
+        self.generic_visit(node)
+
+    def visit_Attribute(self, node):
+        if self._is_bare_generic_type(node):
+            self.linter._check(
+                Location.from_node(node), rules.UnparameterizedGenericType(ast.unparse(node))
+            )
+
+        self.generic_visit(node)
+
+    def _is_bare_generic_type(self, node: ast.Name | ast.Attribute) -> bool:
+        """Check if this node is a bare generic type (e.g., `dict` or `list` without parameters)."""
+        if not rules.UnparameterizedGenericType.is_generic_type(node, self.linter.resolver):
+            return False
+
+        # Check if this node is the value of a Subscript (e.g., the 'dict' in 'dict[str, int]').
+        # `[:-1]` skips the current node, which is the one being checked.
+        for parent in reversed(self.stack[:-1]):
+            if isinstance(parent, ast.Subscript) and parent.value is node:
+                return False
+        return True
+
+
 class Linter(ast.NodeVisitor):
     def __init__(
         self,
@@ -350,7 +390,6 @@ class Linter(ast.NodeVisitor):
         self.ignore = ignore
         self.cell = cell
         self.violations: list[Violation] = []
-        self.in_type_annotation = False
         self.in_TYPE_CHECKING = False
         self.is_mlflow_init_py = path == Path("mlflow", "__init__.py")
         self.imported_modules: set[str] = set()
@@ -516,9 +555,6 @@ class Linter(ast.NodeVisitor):
             self._check(Location.from_node(node), rules.InvalidAbstractMethod())
 
     def visit_Name(self, node) -> None:
-        if self.in_type_annotation and rules.IncorrectTypeAnnotation.check(node):
-            self._check(Location.from_node(node), rules.IncorrectTypeAnnotation(node.id))
-
         self.generic_visit(node)
 
     def _markdown_link(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
@@ -740,10 +776,9 @@ class Linter(ast.NodeVisitor):
             self._check(Location.from_node(node), rules.OsEnvironDeleteInTest())
         self.generic_visit(node)
 
-    def visit_type_annotation(self, node: ast.AST) -> None:
-        self.in_type_annotation = True
-        self.visit(node)
-        self.in_type_annotation = False
+    def visit_type_annotation(self, node: ast.expr) -> None:
+        visitor = TypeAnnotationVisitor(self)
+        visitor.visit(node)
 
     def visit_If(self, node: ast.If) -> None:
         if (resolved := self.resolver.resolve(node.test)) and resolved == [

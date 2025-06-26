@@ -445,6 +445,34 @@ class InvalidExperimentalDecorator(Rule):
         return False
 
 
+class UnparameterizedGenericType(Rule):
+    def __init__(self, type_hint: str) -> None:
+        self.type_hint = type_hint
+
+    @staticmethod
+    def is_generic_type(node: ast.Name | ast.Attribute, resolver: Resolver) -> bool:
+        if resolved := resolver.resolve(node):
+            return tuple(resolved) in {
+                ("typing", "Callable"),
+                ("typing", "Sequence"),
+            }
+        elif isinstance(node, ast.Name):
+            return node.id in {
+                "dict",
+                "list",
+                "set",
+                "tuple",
+                "frozenset",
+            }
+        return False
+
+    def _message(self) -> str:
+        return (
+            f"Generic type `{self.type_hint}` must be parameterized "
+            "(e.g., `list[str]` rather than `list`)."
+        )
+
+
 class DoNotDisable(Rule):
     DO_NOT_DISABLE = {"B006"}
 

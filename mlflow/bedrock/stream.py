@@ -123,7 +123,7 @@ class _ConverseMessageBuilder:
         self._tool_use = {}
         self._response = {}
 
-    def process_event(self, event_name: str, event_attr: dict):
+    def process_event(self, event_name: str, event_attr: dict[str, Any]):
         if event_name == "messageStart":
             self._role = event_attr["role"]
         elif event_name == "contentBlockStart":
