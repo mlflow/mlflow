@@ -620,15 +620,6 @@ spark.conf.set("spark.sql.adaptive.coalescePartitions.enabled", "true")
 large_dataset.cache()  # Only when reused multiple times
 ```
 
-**PyFunc Loading Issues:**
-```python
-# Ensure Spark session exists for PyFunc
-from mlflow.utils._spark_utils import _get_active_spark_session
-
-if _get_active_spark_session() is None:
-    spark = SparkSession.builder.appName("MLflowPyFunc").getOrCreate()
-```
-
 </TabItem>
 <TabItem value="optimization" label="Performance Tips">
 

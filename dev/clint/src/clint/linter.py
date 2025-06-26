@@ -294,7 +294,7 @@ class ExampleVisitor(ast.NodeVisitor):
 
     def visit_Call(self, node: ast.Call) -> None:
         if (
-            (resolved := self._resolve_call(node.func))
+            (resolved := self.linter.resolver.resolve(node.func))
             and resolved[0] == "mlflow"
             # Skip `mlflow.data` because its methods are dynamically created and cannot be checked
             # statically
@@ -500,13 +500,11 @@ class Linter(ast.NodeVisitor):
             ignore=ignore_map(example.code),
             offset=example.loc,
         )
-
+        linter.visit(tree)
+        linter.visit_comments(example.code)
         if index:
             v = ExampleVisitor(linter, index)
             v.visit(tree)
-
-        linter.visit(tree)
-        linter.visit_comments(example.code)
         return [v for v in linter.violations if v.rule.name in config.example_rules]
 
     def visit_decorator(self, node: ast.expr) -> None:

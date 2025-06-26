@@ -95,11 +95,17 @@ class ModuleSymbolExtractor(ast.NodeVisitor):
         self.func_mapping[f"{self.mod}.{node.name}"] = FunctionInfo.from_func_def(node)
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
-        for item in node.body:
-            if isinstance(item, ast.FunctionDef) and item.name == "__init__":
-                info = FunctionInfo.from_func_def(item, skip_self=True)
-                self.func_mapping[f"{self.mod}.{node.name}"] = info
-                break
+        for stmt in node.body:
+            if isinstance(stmt, ast.FunctionDef):
+                if stmt.name == "__init__":
+                    info = FunctionInfo.from_func_def(stmt, skip_self=True)
+                    self.func_mapping[f"{self.mod}.{node.name}"] = info
+                elif any(
+                    isinstance(deco, ast.Name) and deco.id in ("classmethod", "staticmethod")
+                    for deco in stmt.decorator_list
+                ):
+                    info = FunctionInfo.from_func_def(stmt, skip_self=True)
+                    self.func_mapping[f"{self.mod}.{node.name}.{stmt.name}"] = info
         else:
             # If no __init__ found, still add the class with *args and **kwargs
             self.func_mapping[f"{self.mod}.{node.name}"] = FunctionInfo(
@@ -161,15 +167,24 @@ class SymbolIndex:
 
         return cls(mapping, func_mapping)
 
+    def _resolve_import(self, target: str) -> str:
+        resolved = target
+        while v := self.import_mapping.get(resolved):
+            resolved = v
+        return resolved
+
     def resolve(self, target: str) -> FunctionInfo | None:
         """Resolve a symbol to its actual definition, following import chains."""
         if f := self.func_mapping.get(target):
             return f
 
-        while v := self.import_mapping.get(target):
-            target = v
+        resolved = self._resolve_import(target)
+        if f := self.func_mapping.get(resolved):
+            return f
 
-        if target and (f := self.func_mapping.get(target)):
+        target, tail = target.rsplit(".", 1)
+        resolved = self._resolve_import(target)
+        if f := self.func_mapping.get(f"{resolved}.{tail}"):
             return f
 
         return None
