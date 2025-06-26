@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Literal
 
 from clint.config import Config
+from clint.index import SymbolIndex
 from clint.linter import lint_file
 
 
@@ -36,8 +37,6 @@ def main():
     if config.exclude:
         regex = re.compile("|".join(map(re.escape, config.exclude)))
         files = [f for f in files if not regex.match(f) and os.path.exists(f)]
-
-    from clint.index import SymbolIndex
 
     index = SymbolIndex.build()
     with ProcessPoolExecutor() as pool:
