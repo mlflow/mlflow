@@ -1,4 +1,7 @@
+import json
 import time
+from dataclasses import asdict
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -6,14 +9,23 @@ import sklearn
 
 import mlflow
 from mlflow.environment_variables import MLFLOW_DISABLE_TELEMETRY
-from mlflow.telemetry.client import TelemetryClient, get_telemetry_client, set_telemetry_client
-from mlflow.telemetry.schemas import APIStatus, AutologParams, Record
+from mlflow.telemetry.client import (
+    DATA_KEY,
+    TelemetryClient,
+    get_telemetry_client,
+    set_telemetry_client,
+)
+from mlflow.telemetry.schemas import APIRecord, APIStatus, AutologParams
 from mlflow.telemetry.track import track_api_usage
 from mlflow.telemetry.utils import is_telemetry_disabled
 
 
 def full_func_name(func):
     return f"{func.__module__}.{func.__qualname__}"
+
+
+def extract_record(data: str) -> dict[str, Any]:
+    return json.loads(data[DATA_KEY])
 
 
 def wait_for_telemetry_threads(timeout: float = 5.0):
@@ -50,18 +62,48 @@ def test_track_api_usage():
     wait_for_telemetry_threads()
 
     assert len(telemetry_client.records) == 2
-    succeed_record = telemetry_client.records[0]
-    assert succeed_record == Record(
-        api_name=full_func_name(succeed_func),
-        params=None,
-        status=APIStatus.SUCCESS.value,
+    succeed_record = extract_record(telemetry_client.records[0])
+    assert (
+        asdict(
+            APIRecord(
+                api_name=full_func_name(succeed_func),
+                params=None,
+                status=APIStatus.SUCCESS.value,
+            )
+        ).items()
+        <= succeed_record.items()
     )
-    fail_record = telemetry_client.records[1]
-    assert fail_record == Record(
-        api_name=full_func_name(fail_func),
-        params=None,
-        status=APIStatus.FAILURE.value,
+    fail_record = extract_record(telemetry_client.records[1])
+    assert (
+        asdict(
+            APIRecord(
+                api_name=full_func_name(fail_func),
+                params=None,
+                status=APIStatus.FAILURE.value,
+            )
+        ).items()
+        <= fail_record.items()
     )
+    telemetry_info = get_telemetry_client().info
+    assert asdict(telemetry_info).items() <= succeed_record.items()
+    assert asdict(telemetry_info).items() <= fail_record.items()
+
+
+def test_backend_store_info(tmp_path):
+    @track_api_usage
+    def succeed_func():
+        return True
+
+    succeed_func()
+    wait_for_telemetry_threads()
+
+    telemetry_client = get_telemetry_client()
+    assert telemetry_client.info.backend_store == "SqlAlchemyStore"
+
+    mlflow.set_tracking_uri(tmp_path)
+    succeed_func()
+    wait_for_telemetry_threads()
+    assert telemetry_client.info.backend_store == "FileStore"
 
 
 @pytest.mark.parametrize(
@@ -97,7 +139,8 @@ def test_track_api_usage_update_env_var_after_import(monkeypatch):
 
     wait_for_telemetry_threads()
     assert len(telemetry_client.records) == 1
-    assert telemetry_client.records[0].api_name == full_func_name(test_func)
+    record = extract_record(telemetry_client.records[0])
+    assert record["api_name"] == full_func_name(test_func)
 
     monkeypatch.setenv("MLFLOW_DISABLE_TELEMETRY", "true")
     test_func()
@@ -124,7 +167,7 @@ def test_track_api_usage_do_not_track_internal_api():
     wait_for_telemetry_threads()
     records = get_telemetry_client().records
     assert len(records) == 1
-    assert records[0] == Record(
+    expected_record = APIRecord(
         api_name=full_func_name(mlflow.sklearn.autolog),
         params=AutologParams(
             flavor="sklearn",
@@ -134,6 +177,7 @@ def test_track_api_usage_do_not_track_internal_api():
         ),
         status=APIStatus.SUCCESS.value,
     )
+    assert asdict(expected_record).items() <= extract_record(records[0]).items()
 
 
 # TODO: apply track_api_usage to APIs and test the record params
