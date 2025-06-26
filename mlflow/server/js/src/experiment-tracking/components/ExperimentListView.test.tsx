@@ -8,6 +8,7 @@ import promiseMiddleware from 'redux-promise-middleware';
 import { ExperimentListView } from './ExperimentListView';
 import Fixtures from '../utils/test-utils/Fixtures';
 import { DesignSystemProvider } from '@databricks/design-system';
+import { useExperimentListQuery } from './experiment-page/hooks/useExperimentListQuery';
 
 jest.mock('./experiment-page/hooks/useExperimentListQuery', () => ({
   useExperimentListQuery: jest.fn(),
@@ -15,24 +16,27 @@ jest.mock('./experiment-page/hooks/useExperimentListQuery', () => ({
 }));
 
 const mountComponent = (props: any) => {
-  const experiments = props.experiments.slice(0, 25);
   const mockStore = configureStore([thunk, promiseMiddleware()]);
   const experimentListViewProps = {
-    experiments,
     searchFilter: '',
     setSearchFilter: jest.fn(),
-    cursorPaginationProps: {
-      hasNextPage: false,
-      hasPreviousPage: false,
-      onNextPage: jest.fn(),
-      onPreviousPage: jest.fn(),
-      pageSizeSelect: {
-        options: [10],
-        default: 10,
-        onChange: jest.fn(),
-      },
-    },
   };
+
+  jest.mocked(useExperimentListQuery).mockImplementation(() => ({
+    data: props.experiments.slice(25),
+    error: undefined,
+    isLoading: false,
+    hasNextPage: false,
+    hasPreviousPage: false,
+    onNextPage: jest.fn(),
+    onPreviousPage: jest.fn(),
+    refetch: jest.fn(),
+    pageSizeSelect: {
+      options: [10],
+      default: 10,
+      onChange: jest.fn(),
+    },
+  }));
 
   return renderWithIntl(
     <DesignSystemProvider>
