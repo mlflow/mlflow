@@ -7,6 +7,8 @@ from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from dataclasses import asdict
 from queue import Empty, Full, Queue
 
+import requests
+
 from mlflow.environment_variables import (
     MLFLOW_TELEMETRY_BATCH_SIZE,
     MLFLOW_TELEMETRY_BATCH_TIME_INTERVAL,
@@ -18,12 +20,14 @@ from mlflow.telemetry.utils import is_telemetry_disabled
 from mlflow.tracking._tracking_service.utils import _get_store
 
 _logger = logging.getLogger(__name__)
-DATA_KEY = "data"
+# TODO: update this url
+TELEMETRY_URL = "http://127.0.0.1:8000/telemetry"
 
 
 class TelemetryClient:
     def __init__(self):
         self.info = TelemetryInfo()
+        self.telemetry_url = TELEMETRY_URL
         self._queue: Queue[list[APIRecord]] = Queue(maxsize=MLFLOW_TELEMETRY_MAX_QUEUE_SIZE.get())
         self._lock = threading.RLock()
         self._max_workers = MLFLOW_TELEMETRY_MAX_WORKERS.get()
@@ -40,9 +44,6 @@ class TelemetryClient:
         self._pending_records: list[TelemetryRecord] = []
         self._last_batch_time = time.time()
         self._batch_lock = threading.Lock()
-
-        # TODO: remove this
-        self.records = []
 
     def add_record(self, record: APIRecord):
         """
@@ -86,9 +87,22 @@ class TelemetryClient:
     def _process_records(self, records: list[TelemetryRecord]):
         """Process a batch of telemetry records."""
         try:
-            # TODO: Implement actual telemetry sending logic here
-            # For now, we just add the records to the requests list for testing purposes
-            self.records.extend(asdict(record) for record in records)
+            data = {
+                "records": [
+                    {"data": record.data, "partition-key": record.partition_key}
+                    for record in records
+                ]
+            }
+            response = requests.post(
+                self.telemetry_url,
+                json=data,
+                headers={"Content-Type": "application/json"},
+            )
+            if response.status_code != 200:
+                _logger.debug(
+                    f"Failed to send telemetry records. Status code: {response.status_code}, "
+                    f"Response: {response.text}"
+                )
         except Exception as e:
             _logger.debug(
                 f"Failed to process telemetry records. Error: {e}.",
@@ -123,7 +137,7 @@ class TelemetryClient:
         except Exception as e:
             # In case it fails to submit the task to the worker thread pool
             # such as interpreter shutdown, handle the task in this thread
-            _logger.warning(
+            _logger.debug(
                 f"Failed to submit task to worker thread pool. Error: {e}",
                 exc_info=True,
             )
