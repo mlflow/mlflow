@@ -1,259 +1,180 @@
-# Collect User Feedback
+# Collect User Feedback with Assessments
 
-Collecting and logging user feedback is essential for understanding the real-world quality of your GenAI application. User feedback provides ground truth about your application's performance and helps identify areas for improvement.
+Captuing user feedback is critical for understanding the real-world quality of your GenAI application. MLflow's **Assessments APIs** provide a structured, standardized approach to collecting, storing, and analyzing both user feedback and ground truth labels directly within your traces.
 
-## Why Collect User Feedback?
+## Why Use Assessments for Feedback?
 
-User feedback provides critical insights that automated metrics cannot capture:
+Assessments APIs offer significant advantages over traditional feedback approaches:
 
-1. **Real-world quality signals** - Understand how actual users perceive your application's outputs
-2. **Continuous improvement** - Identify patterns in user satisfaction to guide development priorities
-3. **Training data creation** - Use feedback to build high-quality evaluation datasets
-4. **Quality monitoring** - Track satisfaction trends over time and across different user segments
-5. **Model optimization** - Leverage feedback data to improve your underlying models
+1. **Structured data model** - Standardized format with clear attribution and rationale
+2. **Direct trace integration** - Feedback is linked directly to specific application executions
+3. **Multiple source types** - Support for human feedback, automated evaluations, and ground truth
+4. **Audit trail** - Complete history of feedback changes with override capabilities
+5. **Production ready** - Available in OSS MLflow 3.2.0+ with no external dependencies
 
-## Types of Feedback
+## Assessment Types for Feedback
 
-Different feedback mechanisms serve different purposes in understanding user satisfaction:
+Assessments support various feedback formats through a unified API:
 
-| Feedback Type            | Description                                | Common Use Cases                     |
+| Assessment Value Type    | Description                                | Example Use Cases                    |
 | ------------------------ | ------------------------------------------ | ------------------------------------ |
-| **Binary feedback**      | Simple thumbs up/down or correct/incorrect | Quick user satisfaction signals      |
-| **Numeric scores**       | Ratings on a scale (e.g., 1-5 stars)       | Detailed quality assessment          |
-| **Categorical feedback** | Multiple choice options                    | Classifying issues or response types |
-| **Text feedback**        | Free-form comments                         | Detailed user explanations           |
+| **Boolean values**       | Simple `True`/`False` assessments         | Thumbs up/down, correct/incorrect    |
+| **Numeric scores**       | Integer or float ratings                   | 1-5 star ratings, confidence scores  |
+| **Categorical labels**   | String classifications                     | "Helpful", "Neutral", "Unhelpful"    |
+| **Structured data**      | Complex objects with multiple dimensions   | Detailed quality breakdowns          |
 
-## Feedback Collection Patterns
+## Assessments-Based Feedback Collection
 
-### Linking Feedback to Traces
+### Core Concepts
 
-The key to effective feedback collection is connecting user feedback back to the specific interaction that generated it. This enables you to:
+**Expectations**: Ground truth labels provided by domain experts that represent the "correct" or "desired" outcome for specific interactions.
 
-- Understand which types of requests lead to positive or negative feedback
-- Analyze the relationship between application performance and user satisfaction
-- Build evaluation datasets from real user interactions
+**Feedback**: Quality evaluations from any source (users, automated systems, or human reviewers) that assess various aspects of application performance.
 
-### Request Tracking Approach
+### Direct Trace Integration
 
-Use unique request identifiers to link feedback to specific traces:
-
-1. **Generate unique IDs** for each user interaction
-2. **Associate IDs with traces** using tags or metadata
-3. **Collect feedback** referencing the same ID
-4. **Store feedback** alongside trace data for analysis
-
-### Implementation Considerations
-
-When implementing feedback collection:
-
-**Frontend Integration:**
-- Make feedback collection frictionless (simple thumbs up/down)
-- Provide optional detailed feedback for users who want to elaborate
-- Consider contextual timing for feedback requests
-
-**Backend Storage:**
-- Link feedback to trace identifiers
-- Store feedback metadata (user ID, timestamp, context)
-- Consider privacy requirements and data anonymization
-
-**Analysis Integration:**
-- Query feedback alongside trace performance data
-- Track feedback trends over time
-- Identify correlations between trace characteristics and user satisfaction
-
-## Using Trace Tags for Feedback
-
-While dedicated feedback APIs are in development, you can implement feedback collection using MLflow's trace tagging system:
-
-### Tagging Strategy
-
-Use consistent tag naming conventions to organize feedback data:
-
-- `feedback_received: true/false` - Whether feedback was provided
-- `feedback_positive: true/false` - Binary satisfaction indicator
-- `feedback_rating: 1-5` - Numeric satisfaction score
-- `feedback_category: helpful/unhelpful/incorrect` - Categorical feedback
-- `feedback_user: user_123` - User identifier (consider anonymization)
-
-### Feedback Analysis
-
-Query traces with feedback tags to analyze patterns:
+Assessments are directly linked to MLflow traces using trace IDs, creating an immediate connection between application execution and quality assessment:
 
 ```python
 import mlflow
+from mlflow.entities import AssessmentSource, AssessmentSourceType
 
-# Find traces with positive feedback
-positive_feedback_traces = mlflow.search_traces(
-    experiment_ids=["1"],
-    filter_string="tags.feedback_positive = 'true'",
-    max_results=100,
+# Your traced application execution
+with mlflow.start_span(name="user_query") as span:
+    response = your_llm_application("What is MLflow?")
+    trace_id = span.trace_id
+
+# Collect user feedback directly on the trace
+mlflow.log_feedback(
+    trace_id=trace_id,
+    name="user_satisfaction",
+    value=True,  # Boolean feedback
+    rationale="Response was helpful and accurate",
+    source=AssessmentSource(
+        source_type=AssessmentSourceType.HUMAN, source_id="user_456"
+    ),
 )
+```
 
-# Find traces with negative feedback
-negative_feedback_traces = mlflow.search_traces(
-    experiment_ids=["1"],
-    filter_string="tags.feedback_positive = 'false'",
-    max_results=100,
+## Implementation Examples
+
+### Simple Boolean Feedback
+
+Collect basic thumbs up/down feedback from users:
+
+```python
+import mlflow
+from mlflow.entities import AssessmentSource, AssessmentSourceType
+
+
+def collect_user_feedback(trace_id, is_helpful, user_id):
+    """Collect simple boolean feedback from users."""
+    mlflow.log_feedback(
+        trace_id=trace_id,
+        name="is_helpful",
+        value=is_helpful,
+        rationale="User indicated response was helpful"
+        if is_helpful
+        else "User indicated response was not helpful",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.HUMAN, source_id=user_id
+        ),
+    )
+
+
+# Usage in your application
+trace_id = "your_trace_id_here"
+collect_user_feedback(trace_id, True, "user_123")
+```
+
+### Detailed Feedback with Ratings
+
+Capture more nuanced feedback with numeric scores:
+
+```python
+def collect_detailed_feedback(trace_id, rating, comments, user_id):
+    """Collect detailed feedback with ratings and comments."""
+    # Log the rating
+    mlflow.log_feedback(
+        trace_id=trace_id,
+        name="quality_rating",
+        value=rating,  # 1-5 scale
+        rationale=f"User provided rating: {rating}/5. Comments: {comments}",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.HUMAN, source_id=user_id
+        ),
+    )
+
+    # Log binary helpfulness based on rating
+    is_helpful = rating >= 4
+    mlflow.log_feedback(
+        trace_id=trace_id,
+        name="is_helpful",
+        value=is_helpful,
+        rationale=f"Derived from rating: {rating}/5",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.HUMAN, source_id=user_id
+        ),
+    )
+
+
+# Usage
+collect_detailed_feedback(
+    trace_id="your_trace_id",
+    rating=4,
+    comments="Good response but could be more specific",
+    user_id="user_123",
 )
-
-# Compare characteristics
-print(f"Positive feedback traces: {len(positive_feedback_traces)}")
-print(f"Negative feedback traces: {len(negative_feedback_traces)}")
 ```
 
 ## Feedback Collection Best Practices
 
 ### 1. Minimize User Friction
 
-- **Simple interfaces**: Start with binary thumbs up/down
-- **Progressive detail**: Allow optional detailed feedback
-- **Contextual timing**: Ask for feedback at natural stopping points
+- **Start simple**: Begin with boolean assessments (thumbs up/down)
+- **Progressive enhancement**: Offer optional detailed feedback for engaged users
+- **Contextual collection**: Gather feedback immediately after user interactions
 
-### 2. Preserve User Privacy
+### 2. Structure Your Assessments
 
-- **Anonymize identifiers**: Use hashed or pseudonymous user IDs
-- **Limit data collection**: Only collect necessary feedback information
-- **Data retention**: Implement appropriate retention policies
+- **Consistent naming**: Use standardized assessment names across your application
+- **Clear rationale**: Always provide meaningful explanations for assessment values
+- **Appropriate sources**: Use `HUMAN` source type for all user-generated feedback
 
-### 3. Design for Analysis
+### 3. Privacy and Security
 
-- **Consistent tagging**: Use standardized tag names across your application
-- **Structured data**: Store feedback in queryable formats
-- **Temporal tracking**: Include timestamps for trend analysis
+- **User anonymization**: Use hashed or pseudonymous identifiers in source_id
+- **Data minimization**: Only collect necessary feedback information
+- **Retention policies**: Implement appropriate data lifecycle management
 
-### 4. Handle Edge Cases
+### 4. Production Considerations
 
+- **Error handling**: Gracefully handle assessment API failures
 - **Rate limiting**: Prevent feedback spam or abuse
-- **Validation**: Ensure feedback data quality
-- **Error handling**: Gracefully handle feedback collection failures
+- **Async processing**: Consider background processing for non-critical feedback
 
-## Analyzing Feedback Data
 
-### Performance Correlation
 
-Analyze the relationship between trace performance and user satisfaction:
-
-```python
-# Compare execution times for positive vs negative feedback
-positive_times = [trace.info.execution_time_ms for trace in positive_feedback_traces]
-negative_times = [trace.info.execution_time_ms for trace in negative_feedback_traces]
-
-if positive_times and negative_times:
-    avg_positive_time = sum(positive_times) / len(positive_times)
-    avg_negative_time = sum(negative_times) / len(negative_times)
-
-    print(f"Average time for positive feedback: {avg_positive_time:.2f}ms")
-    print(f"Average time for negative feedback: {avg_negative_time:.2f}ms")
-```
-
-### Quality Trends
-
-Track feedback trends over time to monitor application quality:
-
-```python
-from datetime import datetime, timedelta
-
-# Get feedback from the last week
-week_ago = datetime.now() - timedelta(days=7)
-timestamp_ms = int(week_ago.timestamp() * 1000)
-
-recent_feedback = mlflow.search_traces(
-    experiment_ids=["1"],
-    filter_string=f"timestamp_ms > {timestamp_ms} AND tags.feedback_received = 'true'",
-    max_results=500,
-)
-
-# Calculate satisfaction rate
-positive_count = len(
-    [t for t in recent_feedback if t.data.tags.get("feedback_positive") == "true"]
-)
-satisfaction_rate = positive_count / len(recent_feedback) if recent_feedback else 0
-
-print(f"Weekly satisfaction rate: {satisfaction_rate:.2%}")
-```
-
-### Building Evaluation Datasets
-
-Use feedback data to create evaluation datasets:
-
-```python
-# Extract high-quality interactions for evaluation datasets
-high_quality_traces = mlflow.search_traces(
-    experiment_ids=["1"],
-    filter_string="tags.feedback_positive = 'true' AND tags.feedback_rating >= '4'",
-    max_results=200,
-)
-
-print(f"Found {len(high_quality_traces)} high-quality interactions")
-print("These can be used as positive examples in evaluation datasets")
-```
-
-## Integration Examples
-
-### Web Application Feedback
-
-Implement feedback collection in web applications by:
-
-1. **Generating request IDs** when processing user requests
-2. **Returning IDs** in API responses for frontend reference
-3. **Collecting feedback** via separate endpoints that reference the ID
-4. **Tagging traces** with received feedback data
-
-### Chat Interface Feedback
-
-For conversational interfaces:
-
-1. **Track conversation context** with session identifiers
-2. **Enable turn-level feedback** for individual responses
-3. **Support conversation-level feedback** for overall satisfaction
-4. **Link feedback** to specific turns or entire conversations
-
-### API Integration Feedback
-
-For API-based applications:
-
-1. **Include feedback endpoints** in your API design
-2. **Support batch feedback** for multiple interactions
-3. **Provide feedback schemas** for consistent data collection
-4. **Document feedback patterns** for API consumers
-
-## Production Considerations
-
-### Monitoring Feedback Health
-
-Track key metrics to ensure effective feedback collection:
-
-- **Feedback collection rate**: Percentage of interactions that receive feedback
-- **Response time impact**: Ensure feedback collection doesn't slow down responses
-- **Data quality**: Monitor for spam or invalid feedback
-- **User engagement**: Track which feedback mechanisms are most effective
-
-### Scalability
-
-Design feedback systems that scale with your application:
-
-- **Asynchronous processing**: Handle feedback collection without blocking responses
-- **Batch operations**: Process feedback in batches for efficiency
-- **Storage optimization**: Use appropriate storage systems for feedback volume
-- **Query performance**: Ensure feedback queries remain fast as data grows
 
 ## Next Steps
 
-- **[Use Traces for Quality Evaluation](/genai/tracing/quality-with-traces)**: Learn how to analyze feedback alongside trace data
-- **[Search Traces](/genai/tracing/search-traces)**: Master techniques for querying traces with feedback
-- **[Production Monitoring](/genai/tracing/prod-tracing)**: Set up comprehensive monitoring including feedback metrics
+- **[Assessments API Guide](/genai/assessments/api-guide)**: Comprehensive guide to all assessment APIs
+- **[Assessments Overview](/genai/assessments)**: Understanding expectations, feedback, and sources
+- **[Search Traces](/genai/tracing/search-traces)**: Query traces with assessment data
+- **[Quality Evaluation](/genai/tracing/quality-with-traces)**: Analyze assessment patterns for quality insights
 
 :::tip
-Start simple with binary feedback (thumbs up/down) and expand to more detailed feedback mechanisms as you understand your users' preferences and your application's needs.
+Start with simple boolean assessments and expand to more detailed feedback as you understand your users' needs. The assessments API scales with your requirements while maintaining data consistency.
 :::
 
 ## Summary
 
-Effective user feedback collection enables continuous improvement of GenAI applications:
+MLflow Assessments provide a modern, structured approach to feedback collection:
 
-- **Strategic value**: Feedback provides ground truth for application quality
-- **Implementation patterns**: Use trace tags and consistent identifiers to link feedback to interactions
-- **Analysis opportunities**: Correlate feedback with performance metrics and trace characteristics
-- **Production readiness**: Design for scale, privacy, and operational monitoring
+- **Structured data model**: Standardized assessments with clear attribution and rationale
+- **Direct integration**: Feedback linked directly to trace execution data
+- **Production ready**: Available in OSS MLflow 3.2.0+ with comprehensive API support
+- **Multiple sources**: Support for human feedback, automated evaluations, and ground truth
+- **Quality insights**: Rich data for understanding and improving application performance
 
-User feedback, combined with comprehensive tracing, provides the observability foundation needed to build and maintain high-quality GenAI applications that truly serve user needs.
+By using assessments for feedback collection, you gain a robust foundation for continuous quality improvement that integrates seamlessly with MLflow's tracing and evaluation ecosystem.
