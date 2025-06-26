@@ -3584,7 +3584,7 @@ def test_create_and_get_assessment(store):
 
 def test_get_assessment_errors(store):
     """Test error cases for get_assessment"""
-    with pytest.raises(MlflowException, match=r"Trace with request ID 'fake_trace' not found"):
+    with pytest.raises(MlflowException, match=r"Trace with ID 'fake_trace' not found"):
         store.get_assessment("fake_trace", "fake_assessment")
 
     exp_id = store.create_experiment("test_errors")
@@ -3879,7 +3879,7 @@ def test_update_assessment_errors(store):
     exp_id = store.create_experiment("test_update_errors")
     trace_info = store.start_trace(exp_id, get_current_time_millis(), {}, {})
 
-    with pytest.raises(MlflowException, match=r"Trace with request ID 'fake_trace' not found"):
+    with pytest.raises(MlflowException, match=r"Trace with ID 'fake_trace' not found"):
         store.update_assessment(
             trace_id="fake_trace", assessment_id="fake_assessment", rationale="This should fail"
         )
@@ -4025,7 +4025,7 @@ def test_delete_assessment_idempotent(store):
 def test_delete_assessment_errors(store):
     store.create_experiment("test_delete_errors")
 
-    with pytest.raises(MlflowException, match=r"Trace with request ID 'fake_trace' not found"):
+    with pytest.raises(MlflowException, match=r"Trace with ID 'fake_trace' not found"):
         store.delete_assessment("fake_trace", "fake_assessment")
 
 
