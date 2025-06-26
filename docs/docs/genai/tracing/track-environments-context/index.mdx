@@ -57,10 +57,13 @@ Here's how to add various types of context as tags to your traces:
 
 <Tabs>
   <TabItem value="basic-example" label="Basic Example" default>
+
+    {/* prettier-ignore-start */}
     ```python
     import mlflow
     import os
     import platform
+
 
     @mlflow.trace
     def process_data_with_context(data: dict, app_config: dict):
@@ -99,6 +102,7 @@ Here's how to add various types of context as tags to your traces:
     processed_result = process_data_with_context(input_data, config)
     print(processed_result)
     ```
+    {/* prettier-ignore-start */}
 
     **Key points:**
     - Use `os.getenv()` to fetch environment variables (e.g., `APP_ENVIRONMENT`, `APP_VERSION`)

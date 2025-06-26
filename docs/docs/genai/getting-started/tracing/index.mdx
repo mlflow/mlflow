@@ -19,8 +19,11 @@ Here's how easy it is to add tracing to your GenAI application:
 
 <Tabs>
   <TabItem value="basic" label="Basic Setup">
+
+    {/* prettier-ignore-start */}
     ```python
     import mlflow
+
 
     @mlflow.trace
     def ask_question(question: str) -> str:
@@ -31,6 +34,7 @@ Here's how easy it is to add tracing to your GenAI application:
 
     ask_question("What is MLflow?")
     ```
+    {/* prettier-ignore-end */}
 
   </TabItem>
 
@@ -60,8 +64,11 @@ Here's how easy it is to add tracing to your GenAI application:
   </TabItem>
 
   <TabItem value="advanced" label="Advanced Usage">
+
+    {/* prettier-ignore-start */}
     ```python
     import mlflow
+
 
     @mlflow.trace(name="qa_pipeline", span_type="CHAIN")
     def qa_pipeline(question: str):
@@ -78,6 +85,7 @@ Here's how easy it is to add tracing to your GenAI application:
 
     qa_pipeline("What is MLflow?")
     ```
+    {/* prettier-ignore-end */}
 
   </TabItem>
 </Tabs>

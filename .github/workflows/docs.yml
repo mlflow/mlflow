@@ -48,9 +48,9 @@ jobs:
       - name: Install dependencies
         run: |
           yarn install --immutable
-      # - name: Run lint
-      #   run: |
-      #     yarn lint
+      - name: Run lint
+        run: |
+          yarn eslint
       - name: Run prettier
         run: |
           yarn prettier:check

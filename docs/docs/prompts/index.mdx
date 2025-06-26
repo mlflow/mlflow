@@ -194,34 +194,37 @@ You can discover prompts by name, tag or other registry fields:
 
 <Tabs>
   <TabItem value="python" label="Python" default>
-  ```python
-  import mlflow
+
+  <!-- prettier-ignore-start -->
+
+```python
+import mlflow
 
 # Fluent API: returns a flat list of all matching prompts
-
 prompts = mlflow.genai.search_prompts(filter_string="task='summarization'")
 print(f"Found {len(prompts)} prompts")
 
 # For pagination control, use the client API:
-
 from mlflow.tracking import MlflowClient
 
 client = MlflowClient()
 all_prompts = []
 token = None
 while True:
-page = client.search_prompts(
-filter_string="task='summarization'",
-max_results=50,
-page_token=token,
-)
-all_prompts.extend(page)
-token = page.token
-if not token:
-break
+    page = client.search_prompts(
+        filter_string="task='summarization'",
+        max_results=50,
+        page_token=token,
+    )
+    all_prompts.extend(page)
+    token = page.token
+    if not token:
+        break
 print(f"Total prompts across pages: {len(all_prompts)}")
+```
 
-````
+  <!-- prettier-ignore-end -->
+
 </TabItem> </Tabs>
 
 ## Prompt Object
@@ -230,15 +233,14 @@ The `Prompt` object is the core entity in MLflow Prompt Registry. It represents 
 
 Key attributes of a Prompt object:
 
-* `Name`: A unique identifier for the prompt.
-* `Template`: The text of the prompt, which can include variables in `{{variable}}` format.
-* `Version`: A sequential number representing the revision of the prompt.
-* `Commit Message`: A description of the changes made in the prompt version, similar to Git commit messages.
-* `Version Metadata`: Optional key-value pairs for adding metadata to the prompt version. For example, you may use this for tracking the author of the prompt version.
-* `Tags`: Optional key-value pairs assigned at the prompt level (across versions)
-for categorization and filtering. For example, you may add tags for project name, language, etc, which apply to all versions of the prompt.
-* `Alias`: An mutable named reference to the prompt. For example, you can create an alias named `production` to refer to the version used in your production system. See [Aliases](/prompts/cm#aliases) for more details.
-
+- `Name`: A unique identifier for the prompt.
+- `Template`: The text of the prompt, which can include variables in `{{variable}}` format.
+- `Version`: A sequential number representing the revision of the prompt.
+- `Commit Message`: A description of the changes made in the prompt version, similar to Git commit messages.
+- `Version Metadata`: Optional key-value pairs for adding metadata to the prompt version. For example, you may use this for tracking the author of the prompt version.
+- `Tags`: Optional key-value pairs assigned at the prompt level (across versions)
+  for categorization and filtering. For example, you may add tags for project name, language, etc, which apply to all versions of the prompt.
+- `Alias`: An mutable named reference to the prompt. For example, you can create an alias named `production` to refer to the version used in your production system. See [Aliases](/prompts/cm#aliases) for more details.
 
 ## FAQ
 
@@ -252,7 +254,7 @@ import mlflow
 # Delete a prompt version
 client = mlflow.MlflowClient()
 client.delete_prompt_version("summarization-prompt", version=2)
-````
+```
 
 To avoid accidental deletion, you can only delete one version at a time via API. If you delete the all versions of a prompt, the prompt itself will be deleted.
 
