@@ -15,8 +15,8 @@ from clint import rules
 from clint.builtin import BUILTIN_MODULES
 from clint.comments import Noqa, iter_comments
 from clint.config import Config
+from clint.index import SymbolIndex
 from clint.resolver import Resolver
-from clint.symbol_index import SymbolIndex
 
 PARAM_REGEX = re.compile(r"\s+:param\s+\w+:", re.MULTILINE)
 RETURN_REGEX = re.compile(r"\s+:returns?:", re.MULTILINE)
@@ -293,10 +293,8 @@ class ExampleVisitor(ast.NodeVisitor):
         return None
 
     def visit_Call(self, node: ast.Call) -> None:
-        resolved = self._resolve_call(node.func)
         if (
-            resolved is not None
-            and resolved
+            (resolved := self._resolve_call(node.func))
             and resolved[0] == "mlflow"
             # Skip `mlflow.data` because its methods are dynamically created and cannot be checked
             # statically
@@ -306,7 +304,7 @@ class ExampleVisitor(ast.NodeVisitor):
             and resolved[:2] != ["mlflow", "txtai"]
         ):
             function_name = ".".join(resolved)
-            if func_def := self.index.resolve_symbol(function_name):
+            if func_def := self.index.resolve(function_name):
                 if not (func_def.has_vararg or func_def.has_kwarg):
                     # Get all argument names from the function signature
                     all_args = func_def.args + func_def.kwonlyargs + func_def.posonlyargs

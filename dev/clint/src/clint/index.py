@@ -1,3 +1,25 @@
+"""Symbol indexing for MLflow codebase.
+
+This module provides efficient indexing and lookup of Python symbols (functions, classes)
+across the MLflow codebase using AST parsing and parallel processing.
+
+Key components:
+- FunctionInfo: Lightweight function signature information
+- ModuleSymbolExtractor: AST visitor for extracting symbols from modules
+- SymbolIndex: Main index class for symbol resolution and lookup
+
+Example usage:
+
+```python
+# Build an index of all MLflow symbols
+index = SymbolIndex.build()
+
+# Look up function signature information
+func_info = index.resolve("mlflow.log_metric")
+print(f"Arguments: {func_info.args}")  # -> ['key, 'value', 'step', ...]
+```
+"""
+
 from __future__ import annotations
 
 import ast
@@ -127,13 +149,13 @@ class SymbolIndex:
             }
             for future in as_completed(futures):
                 if result := future.result():
-                    file_imports, file_funcs = result
+                    file_imports, file_functions = result
                     mapping.update(file_imports)
-                    func_mapping.update(file_funcs)
+                    func_mapping.update(file_functions)
 
         return cls(mapping, func_mapping)
 
-    def resolve_symbol(self, target: str) -> FunctionInfo | None:
+    def resolve(self, target: str) -> FunctionInfo | None:
         """Resolve a symbol to its actual definition, following import chains."""
         if f := self.func_mapping.get(target):
             return f

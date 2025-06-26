@@ -37,7 +37,7 @@ def main():
         regex = re.compile("|".join(map(re.escape, config.exclude)))
         files = [f for f in files if not regex.match(f) and os.path.exists(f)]
 
-    from clint.symbol_index import SymbolIndex
+    from clint.index import SymbolIndex
 
     index = SymbolIndex.build()
     with ProcessPoolExecutor() as pool:
