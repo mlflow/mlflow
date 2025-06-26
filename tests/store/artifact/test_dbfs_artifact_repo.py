@@ -24,7 +24,7 @@ def test_dbfs_artifact_repo_factory_local_repo(artifact_uri, uri_at_init):
     ):
         repo = dbfs_artifact_repo_factory(artifact_uri)
         assert isinstance(repo, LocalArtifactRepository)
-        mock_repo.assert_called_once_with(uri_at_init)
+        mock_repo.assert_called_once_with(uri_at_init, None)
 
 
 @pytest.mark.parametrize(
@@ -51,7 +51,7 @@ def test_dbfs_artifact_repo_factory_dbfs_rest_repo(artifact_uri):
     ):
         repo = dbfs_artifact_repo_factory(artifact_uri)
         assert isinstance(repo, DbfsRestArtifactRepository)
-        mock_repo.assert_called_once_with(artifact_uri)
+        mock_repo.assert_called_once_with(artifact_uri, None)
 
 
 @pytest.mark.parametrize(
@@ -70,7 +70,7 @@ def test_dbfs_artifact_repo_factory_acled_paths(artifact_uri):
     ):
         repo = dbfs_artifact_repo_factory(artifact_uri)
         assert isinstance(repo, DatabricksArtifactRepository)
-        mock_repo.assert_called_once_with(artifact_uri)
+        mock_repo.assert_called_once_with(artifact_uri, None)
 
 
 @pytest.mark.parametrize(
