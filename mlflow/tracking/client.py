@@ -3086,7 +3086,7 @@ class MlflowClient:
         if artifact_file in artifacts:
             with tempfile.TemporaryDirectory() as tmpdir:
                 downloaded_artifact_path = self.download_artifacts(
-                    run_id=run_id, artifact_path=artifact_file, dst_path=tmpdir
+                    run_id=run_id, path=artifact_file, dst_path=tmpdir
                 )
                 existing_predictions = self._read_from_file(downloaded_artifact_path)
             data = pd.concat([existing_predictions, data], ignore_index=True)
@@ -3226,9 +3226,7 @@ class MlflowClient:
             if artifact_file in artifacts:
                 with tempfile.TemporaryDirectory() as tmpdir:
                     downloaded_artifact_path = self.download_artifacts(
-                        run_id=run_id,
-                        artifact_path=artifact_file,
-                        dst_path=tmpdir,
+                        run_id=run_id, path=artifact_file, dst_path=tmpdir
                     )
                     existing_predictions = self._read_from_file(downloaded_artifact_path)
                     if extra_columns is not None:
