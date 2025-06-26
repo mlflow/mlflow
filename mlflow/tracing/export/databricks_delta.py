@@ -17,8 +17,6 @@ from mlflow.tracing.export.async_export_queue import AsyncTraceExportQueue, Task
 from mlflow.tracing.fluent import _set_last_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 
-from ingest_api_sdk import IngestApiSdk, TableProperties
-
 _logger = logging.getLogger(__name__)
 
 
@@ -44,6 +42,14 @@ class DatabricksDeltaExporter(SpanExporter):
             workspace_url: The URL of the Databricks workspace.
             pat: The personal access token for authentication.
         """
+        try:
+            from ingest_api_sdk import IngestApiSdk, TableProperties
+        except ImportError:
+            raise ImportError(
+                "The `ingest_api_sdk` package is required to use DatabricksDeltaExporter. "
+                "Please install it with `pip install databricks_ingest`."
+            )
+            
         self._spans_table_name = spans_table_name
         self._spans_table_properties = TableProperties(spans_table_name, ProtoSpan.DESCRIPTOR)
         
@@ -111,7 +117,6 @@ class DatabricksDeltaExporter(SpanExporter):
             asyncio.run(self._ingest_spans(proto_spans))
                 
         except Exception as e:
-            import traceback
             _logger.warning(f"Failed to send trace to Databricks Delta: {e}")
 
     async def _get_stream(self):
