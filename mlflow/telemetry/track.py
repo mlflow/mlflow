@@ -1,6 +1,7 @@
 import functools
 import inspect
 import logging
+import time
 from typing import Any, Callable
 
 from mlflow.telemetry.client import get_telemetry_client
@@ -22,6 +23,7 @@ def track_api_usage(func: Callable) -> Callable:
             return func(*args, **kwargs)
 
         success = True
+        start_time = time.time()
         try:
             return func(*args, **kwargs)
         except Exception:
@@ -29,7 +31,8 @@ def track_api_usage(func: Callable) -> Callable:
             raise
         finally:
             try:
-                if record := _generate_telemetry_record(func, args, kwargs, success):
+                duration_ms = int((time.time() - start_time) * 1000)
+                if record := _generate_telemetry_record(func, args, kwargs, success, duration_ms):
                     get_telemetry_client().add_record(record)
             except Exception as e:
                 _logger.debug(f"Failed to record telemetry for function {func.__name__}: {e}")
@@ -38,7 +41,7 @@ def track_api_usage(func: Callable) -> Callable:
 
 
 def _generate_telemetry_record(
-    func: Callable, args: tuple, kwargs: dict[str, Any], success: bool
+    func: Callable, args: tuple, kwargs: dict[str, Any], success: bool, duration_ms: int
 ) -> APIRecord | None:
     try:
         signature = inspect.signature(func)
@@ -61,6 +64,7 @@ def _generate_telemetry_record(
             api_name=full_func_name,
             params=record_params,
             status=APIStatus.SUCCESS.value if success else APIStatus.FAILURE.value,
+            duration_ms=duration_ms,
         )
     except Exception:
         _logger.debug(

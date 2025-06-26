@@ -60,7 +60,7 @@ class APIRecord:
     api_name: str
     params: BaseParams | None = None
     status: APIStatus = APIStatus.UNKNOWN.value
-    # duration_ms: int | None = None
+    duration_ms: int | None = None
 
 
 @dataclass
