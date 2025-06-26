@@ -15,7 +15,7 @@ from mlflow.telemetry.client import (
     get_telemetry_client,
     set_telemetry_client,
 )
-from mlflow.telemetry.schemas import APIRecord, APIStatus, AutologParams
+from mlflow.telemetry.schemas import APIStatus, AutologParams
 from mlflow.telemetry.track import track_api_usage
 from mlflow.telemetry.utils import is_telemetry_disabled
 
@@ -49,10 +49,12 @@ def test_track_api_usage():
 
     @track_api_usage
     def succeed_func():
+        time.sleep(0.1)
         return True
 
     @track_api_usage
     def fail_func():
+        time.sleep(0.1)
         raise ValueError("test")
 
     succeed_func()
@@ -63,27 +65,17 @@ def test_track_api_usage():
 
     assert len(telemetry_client.records) == 2
     succeed_record = extract_record(telemetry_client.records[0])
-    assert (
-        asdict(
-            APIRecord(
-                api_name=full_func_name(succeed_func),
-                params=None,
-                status=APIStatus.SUCCESS.value,
-            )
-        ).items()
-        <= succeed_record.items()
-    )
+    assert succeed_record["api_name"] == full_func_name(succeed_func)
+    assert succeed_record["status"] == APIStatus.SUCCESS.value
+    assert succeed_record["params"] is None
+    assert succeed_record["duration_ms"] > 0
+
     fail_record = extract_record(telemetry_client.records[1])
-    assert (
-        asdict(
-            APIRecord(
-                api_name=full_func_name(fail_func),
-                params=None,
-                status=APIStatus.FAILURE.value,
-            )
-        ).items()
-        <= fail_record.items()
-    )
+    assert fail_record["api_name"] == full_func_name(fail_func)
+    assert fail_record["status"] == APIStatus.FAILURE.value
+    assert fail_record["params"] is None
+    assert fail_record["duration_ms"] > 0
+
     telemetry_info = get_telemetry_client().info
     assert asdict(telemetry_info).items() <= succeed_record.items()
     assert asdict(telemetry_info).items() <= fail_record.items()
@@ -167,17 +159,18 @@ def test_track_api_usage_do_not_track_internal_api():
     wait_for_telemetry_threads()
     records = get_telemetry_client().records
     assert len(records) == 1
-    expected_record = APIRecord(
-        api_name=full_func_name(mlflow.sklearn.autolog),
-        params=AutologParams(
+    record = extract_record(records[0])
+    assert record["api_name"] == full_func_name(mlflow.sklearn.autolog)
+    assert record["status"] == APIStatus.SUCCESS.value
+    assert record["params"] == asdict(
+        AutologParams(
             flavor="sklearn",
             disable=False,
             log_traces=False,
             log_models=True,
-        ),
-        status=APIStatus.SUCCESS.value,
+        )
     )
-    assert asdict(expected_record).items() <= extract_record(records[0]).items()
+    assert record["duration_ms"] > 0
 
 
 # TODO: apply track_api_usage to APIs and test the record params
