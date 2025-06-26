@@ -798,7 +798,7 @@ def _enforce_mlflow_datatype(name, values: pd.Series, t: DataType):
         # denotes nanosecond precision. Since MLflow datetime type is precision agnostic, we
         # ignore precision when matching datetime columns.
         try:
-            values.astype(np.dtype("datetime64[ns]"))
+            return values.astype(np.dtype("datetime64[ns]"))
         except TypeError as e:
             raise MlflowException(
                 "Please ensure that the input data of datetime column only contains timezone-naive "
