@@ -159,7 +159,7 @@ with mlflow.start_run(run_name="Feature Pipeline"):
     )
 
     # Log the complete pipeline
-    mlflow.spark.log_model(spark_model=model, name="feature_pipeline")
+    mlflow.spark.log_model(spark_model=model, artifact_path="feature_pipeline")
 ```
 
 </TabItem>
@@ -211,7 +211,9 @@ with mlflow.start_run(run_name="Hyperparameter Tuning"):
     mlflow.log_metric("test_auc", test_auc)
 
     # Log the best model
-    mlflow.spark.log_model(spark_model=cv_model.bestModel, name="best_cv_model")
+    mlflow.spark.log_model(
+        spark_model=cv_model.bestModel, artifact_path="best_cv_model"
+    )
 ```
 
 </TabItem>
@@ -242,7 +244,7 @@ with mlflow.start_run():
     model = pipeline.fit(processed_data)
 
     # Model training and datasource information both captured
-    mlflow.spark.log_model(model, name="model_with_datasource_tracking")
+    mlflow.spark.log_model(model, artifact_path="model_with_datasource_tracking")
 ```
 
 </TabItem>
@@ -301,7 +303,7 @@ signature = infer_signature(vector_data, predictions.select("prediction"))
 with mlflow.start_run():
     mlflow.spark.log_model(
         spark_model=model,
-        name="vector_model",
+        artifact_path="vector_model",
         signature=signature,
         input_example=vector_data.limit(2).toPandas(),
     )
@@ -331,7 +333,7 @@ signature = ModelSignature(inputs=input_schema, outputs=output_schema)
 # Log model with explicit signature
 with mlflow.start_run():
     mlflow.spark.log_model(
-        spark_model=model, name="production_model", signature=signature
+        spark_model=model, artifact_path="production_model", signature=signature
     )
 ```
 
@@ -356,7 +358,9 @@ with mlflow.start_run(run_name="ONNX Conversion"):
     model = pipeline.fit(training_data)
 
     # Log original Spark model
-    spark_model_info = mlflow.spark.log_model(spark_model=model, name="spark_model")
+    spark_model_info = mlflow.spark.log_model(
+        spark_model=model, artifact_path="spark_model"
+    )
 
     try:
         # Convert to ONNX using onnxmltools
@@ -402,7 +406,7 @@ with mlflow.start_run():
     # Log model with registration
     model_info = mlflow.spark.log_model(
         spark_model=model,
-        name="production_candidate",
+        artifact_path="production_candidate",
         registered_model_name="CustomerSegmentationModel",
     )
 
@@ -553,7 +557,9 @@ def train_spark_model_with_error_handling(data_path, model_config):
                 raise ValueError("Model validation failed")
 
             # Log successful model
-            model_info = mlflow.spark.log_model(spark_model=model, name="robust_model")
+            model_info = mlflow.spark.log_model(
+                spark_model=model, artifact_path="robust_model"
+            )
 
             mlflow.log_param("training_status", "success")
             return model_info
@@ -643,7 +649,7 @@ def efficient_spark_ml_logging():
         # Log model with minimal examples for large datasets
         mlflow.spark.log_model(
             spark_model=model,
-            name="efficient_model",
+            artifact_path="efficient_model",
             input_example=sample_data.limit(3).toPandas(),  # Small sample only
         )
 ```
