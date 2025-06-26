@@ -586,17 +586,18 @@ professionalism = mlflow.metrics.genai.make_genai_metric(
 
 In order to evaluate your model with `mlflow.evaluate()`, your model has to be one of the following types:
 
-1. A <APILink fn="mlflow.pyfunc.PyFuncModel" /> instance or a URI pointing to a logged `mlflow.pyfunc.PyFuncModel` model. In
-   general we call that MLflow model. The
-2. A python function that takes in string inputs and outputs a single string. Your callable must match the signature of
+1.  A <APILink fn="mlflow.pyfunc.PyFuncModel" /> instance or a URI pointing to a logged `mlflow.pyfunc.PyFuncModel` model. In
+    general we call that MLflow model. The
+2.  A python function that takes in string inputs and outputs a single string. Your callable must match the signature of
 
-      <APILink fn="mlflow.pyfunc.PyFuncModel.predict" /> (without `params` argument),
-briefly it should:
-   - Has `data` as the only argument, which can be a `pandas.Dataframe`, `numpy.ndarray`, python list, dictionary or scipy matrix.
-   - Returns one of `pandas.DataFrame`, `pandas.Series`, `numpy.ndarray` or list.
+          <APILink fn="mlflow.pyfunc.PyFuncModel.predict" /> (without `params` argument),
 
-3. An MLflow Deployments endpoint URI pointing to a local [MLflow AI Gateway](/genai/governance/ai-gateway), [Databricks Foundation Models API](https://docs.databricks.com/en/machine-learning/model-serving/score-foundation-models.html), and [External Models in Databricks Model Serving](https://docs.databricks.com/en/generative-ai/external-models/index.html).
-4. Set `model=None`, and put model outputs in `data`. Only applicable when the data is a Pandas dataframe.
+    briefly it should:
+    - Has `data` as the only argument, which can be a `pandas.Dataframe`, `numpy.ndarray`, python list, dictionary or scipy matrix.
+    - Returns one of `pandas.DataFrame`, `pandas.Series`, `numpy.ndarray` or list.
+
+3.  An MLflow Deployments endpoint URI pointing to a local [MLflow AI Gateway](/genai/governance/ai-gateway), [Databricks Foundation Models API](https://docs.databricks.com/en/machine-learning/model-serving/score-foundation-models.html), and [External Models in Databricks Model Serving](https://docs.databricks.com/en/generative-ai/external-models/index.html).
+4.  Set `model=None`, and put model outputs in `data`. Only applicable when the data is a Pandas dataframe.
 
 ### Evaluating with an MLflow Model
 
