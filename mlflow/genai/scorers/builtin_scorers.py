@@ -27,7 +27,7 @@ class BuiltInScorer(Scorer):
     name: str
     required_columns: set[str] = set()
 
-    def model_dump(self, **kwargs) -> dict:
+    def model_dump(self, **kwargs) -> dict[str, Any]:
         """Override model_dump to handle builtin scorer serialization."""
         # Use mode='json' to automatically convert sets to lists for JSON compatibility
         from pydantic import BaseModel
