@@ -5,21 +5,28 @@ import threading
 import time
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from dataclasses import asdict
-from queue import Empty, Queue
+from queue import Empty, Full, Queue
 
-from mlflow.telemetry.schemas import Record, TelemetryInfo
+from mlflow.environment_variables import (
+    MLFLOW_TELEMETRY_BATCH_SIZE,
+    MLFLOW_TELEMETRY_BATCH_TIME_INTERVAL,
+    MLFLOW_TELEMETRY_MAX_QUEUE_SIZE,
+    MLFLOW_TELEMETRY_MAX_WORKERS,
+)
+from mlflow.telemetry.schemas import APIRecord, TelemetryInfo, TelemetryRecord
 from mlflow.telemetry.utils import is_telemetry_disabled
 from mlflow.tracking._tracking_service.utils import _get_store
 
 _logger = logging.getLogger(__name__)
+DATA_KEY = "data"
 
 
 class TelemetryClient:
     def __init__(self):
         self.info = TelemetryInfo()
-        self._queue: Queue[list[Record]] = Queue(maxsize=1000)
+        self._queue: Queue[list[APIRecord]] = Queue(maxsize=MLFLOW_TELEMETRY_MAX_QUEUE_SIZE.get())
         self._lock = threading.RLock()
-        self._max_workers = 5
+        self._max_workers = MLFLOW_TELEMETRY_MAX_WORKERS.get()
 
         # Thread event that indicates the queue should stop processing tasks
         self._stop_event = threading.Event()
@@ -28,35 +35,34 @@ class TelemetryClient:
 
         self._active_tasks = set()
 
-        # TODO: make these configurable
-        self._batch_size = 1
-        self._batch_timeout = 30
-        self._pending_records: list[dict[str, str]] = []
+        self._batch_size = MLFLOW_TELEMETRY_BATCH_SIZE.get()
+        self._batch_time_interval = MLFLOW_TELEMETRY_BATCH_TIME_INTERVAL.get()
+        self._pending_records: list[TelemetryRecord] = []
         self._last_batch_time = time.time()
         self._batch_lock = threading.Lock()
 
         # TODO: remove this
         self.records = []
 
-    def add_record(self, record: Record):
+    def add_record(self, record: APIRecord):
         """
         Add a record to be batched and sent to the telemetry server.
         """
         if not self.is_active():
             self.activate()
 
-        # If stop event is set, wait for the queue to be drained before adding the record
+        # If stop event is set, don't add new records
         if self._stop_event.is_set():
-            self._stop_event.wait()
+            _logger.debug("Telemetry is stopped, skipping adding record")
+            return
 
         with self._batch_lock:
             data = self._generate_telemetry_record(record)
             self._pending_records.append(data)
 
-            # TODO: fix the first time batching logic
             should_send = (
                 len(self._pending_records) >= self._batch_size
-                or (time.time() - self._last_batch_time) >= self._batch_timeout
+                or (time.time() - self._last_batch_time) >= self._batch_time_interval
             )
 
             if should_send:
@@ -72,14 +78,17 @@ class TelemetryClient:
         self._pending_records.clear()
         self._last_batch_time = time.time()
 
-        self._queue.put(batch_records, block=False)
+        try:
+            self._queue.put(batch_records, block=False)
+        except Full:
+            _logger.debug("Telemetry queue is full, skipping sending data.")
 
-    def _process_records(self, records: list[dict[str, str]]):
+    def _process_records(self, records: list[TelemetryRecord]):
         """Process a batch of telemetry records."""
         try:
             # TODO: Implement actual telemetry sending logic here
             # For now, we just add the records to the requests list for testing purposes
-            self.records.extend(records)
+            self.records.extend(asdict(record) for record in records)
         except Exception as e:
             _logger.debug(
                 f"Failed to process telemetry records. Error: {e}.",
@@ -154,13 +163,10 @@ class TelemetryClient:
 
     def _at_exit_callback(self) -> None:
         """Callback function executed when the program is exiting."""
-        try:
-            _logger.info(
-                "Flushing the async telemetry queue before program exit. This may take a while..."
-            )
-            self.flush(terminate=True)
-        except Exception as e:
-            _logger.error(f"Error while finishing telemetry requests: {e}")
+        _logger.debug(
+            "Flushing the async telemetry queue before program exit. This may take a while..."
+        )
+        self.flush(terminate=True)
 
     def flush(self, terminate=False) -> None:
         """
@@ -172,23 +178,40 @@ class TelemetryClient:
         if not self.is_active():
             return
 
-        # Send any pending records before flushing
-        with self._batch_lock:
-            if self._pending_records:
-                self._send_batch()
+        try:
+            # Send any pending records before flushing
+            with self._batch_lock:
+                if self._pending_records:
+                    self._send_batch()
 
-        self._stop_event.set()
-        self._consumer_thread.join()
+            self._stop_event.set()
 
-        # Wait for all tasks to be processed
-        self._queue.join()
+            try:
+                self._consumer_thread.join(timeout=30)
+            except Exception as e:
+                _logger.debug(f"Error waiting for consumer thread: {e}")
 
-        self._worker_threadpool.shutdown(wait=True)
-        self._is_active = False
-        # Restart threads to listen to incoming requests after flushing, if not terminating
-        if not terminate:
-            self._stop_event.clear()
-            self.activate()
+            try:
+                self._queue.join()
+            except Exception as e:
+                _logger.debug(f"Error waiting for queue to drain: {e}")
+
+            try:
+                self._worker_threadpool.shutdown(wait=True, timeout=30)
+            except Exception as e:
+                _logger.debug(f"Error shutting down worker thread pool: {e}")
+
+            self._is_active = False
+
+            # Restart threads to listen to incoming requests after flushing, if not terminating
+            if not terminate:
+                self._stop_event.clear()
+                self.activate()
+
+        except Exception as e:
+            _logger.debug(f"Error during telemetry flush: {e}", exc_info=True)
+            # Ensure we mark as inactive even if there was an error
+            self._is_active = False
 
     def _update_backend_store(self):
         """
@@ -198,11 +221,13 @@ class TelemetryClient:
         tracking_store = _get_store()
         self.info.backend_store = tracking_store.__class__.__name__
 
-    def _generate_telemetry_record(self, record: Record) -> dict[str, str]:
+    def _generate_telemetry_record(self, record: APIRecord) -> TelemetryRecord:
         self._update_backend_store()
         telemetry_info = asdict(self.info)
         # TODO: update partition key
-        return {"data": json.dumps(telemetry_info | asdict(record)), "partition-key": "test"}
+        return TelemetryRecord(
+            data=json.dumps(telemetry_info | asdict(record)), partition_key="test"
+        )
 
 
 _MLFLOW_TELEMETRY_CLIENT = None

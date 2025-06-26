@@ -5,7 +5,7 @@ from typing import Any, Callable
 
 from mlflow.telemetry.client import get_telemetry_client
 from mlflow.telemetry.parser import API_PARSER_MAPPING
-from mlflow.telemetry.schemas import APIStatus, Record
+from mlflow.telemetry.schemas import APIRecord, APIStatus
 from mlflow.telemetry.utils import (
     invoked_from_internal_api,
     is_telemetry_disabled,
@@ -39,7 +39,7 @@ def track_api_usage(func: Callable) -> Callable:
 
 def _generate_telemetry_record(
     func: Callable, args: tuple, kwargs: dict[str, Any], success: bool
-) -> Record | None:
+) -> APIRecord | None:
     try:
         signature = inspect.signature(func)
         bound_args = signature.bind(*args, **kwargs)
@@ -57,7 +57,7 @@ def _generate_telemetry_record(
         parser = API_PARSER_MAPPING.get(full_func_name) or API_PARSER_MAPPING.get(func.__name__)
 
         record_params = parser.extract_params(full_func_name, arguments) if parser else None
-        return Record(
+        return APIRecord(
             api_name=full_func_name,
             params=record_params,
             status=APIStatus.SUCCESS.value if success else APIStatus.FAILURE.value,

@@ -863,3 +863,22 @@ MLFLOW_SERVER_GRAPHQL_MAX_ALIASES = _EnvironmentVariable(
 #: Whether to disable telemetry collection in MLflow. If set to True, no telemetry
 #: data will be collected. (default: ``False``)
 MLFLOW_DISABLE_TELEMETRY = _BooleanEnvironmentVariable("MLFLOW_DISABLE_TELEMETRY", False)
+
+
+#: Maximum number of telemetry records to include in each batch.
+#: (default: ``10``)
+MLFLOW_TELEMETRY_BATCH_SIZE = _EnvironmentVariable("MLFLOW_TELEMETRY_BATCH_SIZE", int, 10)
+
+#: The time interval in seconds to wait before sending a batch of telemetry records.
+#: (default: ``30``)
+MLFLOW_TELEMETRY_BATCH_TIME_INTERVAL = _EnvironmentVariable(
+    "MLFLOW_TELEMETRY_BATCH_TIME_INTERVAL", int, 30
+)
+
+#: Maximum number of telemetry records to queue.
+#: (default: ``1000``)
+MLFLOW_TELEMETRY_MAX_QUEUE_SIZE = _EnvironmentVariable("MLFLOW_TELEMETRY_MAX_QUEUE_SIZE", int, 1000)
+
+#: Maximum number of worker threads to use for telemetry.
+#: (default: ``10``)
+MLFLOW_TELEMETRY_MAX_WORKERS = _EnvironmentVariable("MLFLOW_TELEMETRY_MAX_WORKERS", int, 10)
