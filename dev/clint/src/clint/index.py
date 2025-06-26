@@ -26,7 +26,7 @@ import ast
 import multiprocessing
 import subprocess
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 
@@ -36,9 +36,9 @@ class FunctionInfo:
 
     has_vararg: bool  # *args
     has_kwarg: bool  # **kwargs
-    args: list[str]  # Regular arguments
-    kwonlyargs: list[str]  # Keyword-only arguments
-    posonlyargs: list[str]  # Positional-only arguments
+    args: list[str] = field(default_factory=list)  # Regular arguments
+    kwonlyargs: list[str] = field(default_factory=list)  # Keyword-only arguments
+    posonlyargs: list[str] = field(default_factory=list)  # Positional-only arguments
 
     @classmethod
     def from_func_def(
@@ -99,6 +99,12 @@ class ModuleSymbolExtractor(ast.NodeVisitor):
             if isinstance(item, ast.FunctionDef) and item.name == "__init__":
                 info = FunctionInfo.from_func_def(item, skip_self=True)
                 self.func_mapping[f"{self.mod}.{node.name}"] = info
+                break
+        else:
+            # If no __init__ found, still add the class with *args and **kwargs
+            self.func_mapping[f"{self.mod}.{node.name}"] = FunctionInfo(
+                has_vararg=True, has_kwarg=True
+            )
 
 
 def extract_symbols_from_file(
