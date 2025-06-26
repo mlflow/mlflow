@@ -43,7 +43,9 @@ with mlflow.start_run():
     model = pipeline.fit(training)
 
     # Log the entire pipeline
-    model_info = mlflow.spark.log_model(spark_model=model, name="spark-pipeline")
+    model_info = mlflow.spark.log_model(
+        spark_model=model, artifact_path="spark-pipeline"
+    )
 
     # Log parameters manually
     mlflow.log_params(
