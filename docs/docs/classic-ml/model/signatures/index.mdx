@@ -27,11 +27,11 @@ Model signatures and input examples are foundational components that define how 
 
 Model signatures and input examples provide crucial benefits:
 
-**• Consistency**: Ensure all model interactions follow the same data format
-**• Validation**: Catch data format errors before they reach your model
-**• Documentation**: Serve as living documentation for model usage
-**• Deployment Safety**: Enable MLflow deployment tools to validate requests automatically
-**• UI Integration**: Allow MLflow UI to display clear model requirements
+- **Consistency**: Ensure all model interactions follow the same data format
+- **Validation**: Catch data format errors before they reach your model
+- **Documentation**: Serve as living documentation for model usage
+- **Deployment Safety**: Enable MLflow deployment tools to validate requests automatically
+- **UI Integration**: Allow MLflow UI to display clear model requirements
 
 :::warning Databricks Unity Catalog Requirement
 **Model signatures are REQUIRED for registering models in Databricks Unity Catalog.** Unity Catalog enforces concrete type definitions for all registered models and will reject models without proper signatures. Always include a signature when logging models that you plan to register in Databricks environments.
@@ -220,12 +220,12 @@ with mlflow.start_run():
 
 ### Key Benefits
 
-**• Automatic Validation**: Input data validated against type hints at runtime
-**• Schema Inference**: Model signature automatically generated from type annotations
-**• Type Safety**: Catch type mismatches before they reach your model
-**• IDE Support**: Better autocomplete and error detection during development
-**• Documentation**: Type hints serve as self-documenting code
-**• Consistency**: Same validation for PythonModel instances and loaded PyFunc models
+- **Automatic Validation**: Input data validated against type hints at runtime
+- **Schema Inference**: Model signature automatically generated from type annotations
+- **Type Safety**: Catch type mismatches before they reach your model
+- **IDE Support**: Better autocomplete and error detection during development
+- **Documentation**: Type hints serve as self-documenting code
+- **Consistency**: Same validation for PythonModel instances and loaded PyFunc models
 
 ### When to Use Type Hints
 
@@ -1141,11 +1141,11 @@ Input examples serve multiple important purposes beyond signature inference:
 
 ### Benefits of Input Examples
 
-**• Signature Inference**: Automatically generate model signatures
-**• Model Validation**: Verify model works during logging
-**• Dependency Detection**: Help identify required packages
-**• Documentation**: Show developers proper input format
-**• Deployment Testing**: Validate REST endpoint payload format
+- **Signature Inference**: Automatically generate model signatures
+- **Model Validation**: Verify model works during logging
+- **Dependency Detection**: Help identify required packages
+- **Documentation**: Show developers proper input format
+- **Deployment Testing**: Validate REST endpoint payload format
 
 ### Input Example Formats
 
