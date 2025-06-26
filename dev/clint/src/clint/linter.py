@@ -305,14 +305,12 @@ class ExampleVisitor(ast.NodeVisitor):
         ):
             function_name = ".".join(resolved)
             if func_def := self.index.resolve_symbol(function_name):
-                if not (func_def.args.vararg or func_def.args.kwarg):
+                if not (func_def.has_vararg or func_def.has_kwarg):
                     # Get all argument names from the function signature
-                    all_args = (
-                        func_def.args.args + func_def.args.kwonlyargs + func_def.args.posonlyargs
-                    )
+                    all_args = func_def.args + func_def.kwonlyargs + func_def.posonlyargs
                     # Skip positional arguments that are already provided
                     remaining_args = all_args[len(node.args) :]
-                    sig_args = {arg.arg for arg in remaining_args}
+                    sig_args = set(remaining_args)
                     call_args = {kw.arg for kw in node.keywords if kw.arg}
                     if diff := call_args - sig_args:
                         print(resolved, sig_args, call_args, diff)

@@ -4,7 +4,36 @@ import ast
 import multiprocessing
 import subprocess
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from dataclasses import dataclass
 from pathlib import Path
+
+
+@dataclass
+class FunctionInfo:
+    """Lightweight function signature information for efficient serialization."""
+
+    has_vararg: bool  # *args
+    has_kwarg: bool  # **kwargs
+    args: list[str]  # Regular arguments
+    kwonlyargs: list[str]  # Keyword-only arguments
+    posonlyargs: list[str]  # Positional-only arguments
+
+    @classmethod
+    def from_func_def(
+        cls, node: ast.FunctionDef | ast.AsyncFunctionDef, skip_self: bool = False
+    ) -> FunctionInfo:
+        """Create FunctionInfo from an AST function definition node."""
+        args = node.args.args
+        if skip_self and args:
+            args = args[1:]  # Skip 'self' for methods
+
+        return cls(
+            has_vararg=node.args.vararg is not None,
+            has_kwarg=node.args.kwarg is not None,
+            args=[arg.arg for arg in args],
+            kwonlyargs=[arg.arg for arg in node.args.kwonlyargs],
+            posonlyargs=[arg.arg for arg in node.args.posonlyargs],
+        )
 
 
 class ModuleSymbolExtractor(ast.NodeVisitor):
@@ -13,7 +42,7 @@ class ModuleSymbolExtractor(ast.NodeVisitor):
     def __init__(self, mod: str) -> None:
         self.mod = mod
         self.import_mapping: dict[str, str] = {}
-        self.func_mapping: dict[str, ast.FunctionDef | ast.AsyncFunctionDef] = {}
+        self.func_mapping: dict[str, FunctionInfo] = {}
 
     def visit_Import(self, node: ast.Import) -> None:
         for alias in node.names:
@@ -36,22 +65,23 @@ class ModuleSymbolExtractor(ast.NodeVisitor):
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         if node.name.startswith("_"):
             return
-        self.func_mapping[f"{self.mod}.{node.name}"] = node
+        self.func_mapping[f"{self.mod}.{node.name}"] = FunctionInfo.from_func_def(node)
 
     def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
         if node.name.startswith("_"):
             return
-        self.func_mapping[f"{self.mod}.{node.name}"] = node
+        self.func_mapping[f"{self.mod}.{node.name}"] = FunctionInfo.from_func_def(node)
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         for item in node.body:
             if isinstance(item, ast.FunctionDef) and item.name == "__init__":
-                self.func_mapping[f"{self.mod}.{node.name}"] = item
+                info = FunctionInfo.from_func_def(item, skip_self=True)
+                self.func_mapping[f"{self.mod}.{node.name}"] = info
 
 
 def extract_symbols_from_file(
     py_file: Path,
-) -> tuple[dict[str, str], dict[str, ast.FunctionDef | ast.AsyncFunctionDef]] | None:
+) -> tuple[dict[str, str], dict[str, FunctionInfo]] | None:
     """Extract function definitions and import mappings from a Python file."""
     p = Path(py_file)
     if not p.parts or p.parts[0] != "mlflow":
@@ -77,7 +107,7 @@ class SymbolIndex:
     def __init__(
         self,
         import_mapping: dict[str, str],
-        func_mapping: dict[str, ast.FunctionDef | ast.AsyncFunctionDef],
+        func_mapping: dict[str, FunctionInfo],
     ) -> None:
         self.import_mapping = import_mapping
         self.func_mapping = func_mapping
@@ -85,7 +115,7 @@ class SymbolIndex:
     @classmethod
     def build(cls) -> SymbolIndex:
         mapping: dict[str, str] = {}
-        func_mapping: dict[str, ast.FunctionDef | ast.AsyncFunctionDef] = {}
+        func_mapping: dict[str, FunctionInfo] = {}
 
         py_files = subprocess.check_output(
             ["git", "ls-files", "mlflow/*.py"], text=True
@@ -104,7 +134,7 @@ class SymbolIndex:
 
         return cls(mapping, func_mapping)
 
-    def resolve_symbol(self, target: str) -> ast.FunctionDef | ast.AsyncFunctionDef | None:
+    def resolve_symbol(self, target: str) -> FunctionInfo | None:
         """Resolve a symbol to its actual definition, following import chains."""
         if f := self.func_mapping.get(target):
             return f
@@ -122,7 +152,7 @@ def main():
     symbol_index = SymbolIndex.build()
     target = "mlflow.MlflowClient"
     if func := symbol_index.resolve_symbol(target):
-        print(f"Function {target} found at line {func.lineno}")
+        print(f"Function {target} found with args: {func.args}")
 
 
 if __name__ == "__main__":
