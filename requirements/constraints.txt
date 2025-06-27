@@ -18,4 +18,4 @@ pyspark<3.5.6
 # This interferes with `test_autologging_warnings_are_redirected_as_expected`.
 FLAML<2.3.5
 
-openai<1.92.2
+openai<1.92
