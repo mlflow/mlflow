@@ -247,19 +247,6 @@ export OTEL_EXPORTER_OTLP_TRACES_HEADERS="api_key=12345"
 MLflow only exports traces to a single destination. When the `OTEL_EXPORTER_OTLP_ENDPOINT` environment variable is configured, MLflow will **not** export traces to the MLflow Tracking Server and you will not see traces in the MLflow UI.
 :::
 
-## Managed Monitoring with Databricks
-
-Databricks also offers a [managed solution](https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/monitoring) for monitoring your GenAI applications that integrates with MLflow Tracing.
-
-![Monitoring Hero](https://assets.docs.databricks.com/_static/images/generative-ai/monitoring/monitoring-hero.gif)
-
-Capabilities include:
-
-* Track **operational metrics** like request volume, latency, errors, and cost.
-* Monitor **quality metrics** such as correctness, safety, context sufficiency, and more using managed evaluation.
-* Configure **custom metrics** with Python function.
-* Root cause analysis by looking at the recorded **traces** from MLflow Tracing.
-* Support for applications hosted outside of Databricks
 
 ## Production Monitoring Configurations
 
@@ -284,157 +271,94 @@ export MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT=600
 ```
 
 
-## Adding Context to Production Traces
+## Using Tags for Production Context
 
-In production environments, enriching traces with contextual information is crucial for understanding user behavior, debugging issues, and improving your GenAI application. This context enables you to analyze user interactions, track quality across different segments, and identify patterns that lead to better or worse outcomes.
+In production environments, trace tags provide a simple and effective way to add contextual information to your traces. This context helps you understand user behavior, debug issues, and analyze patterns.
 
-### Tracking Request, Session, and User Context
-
-Production applications need to track multiple pieces of context simultaneously. Here's a comprehensive example showing how to track all of these in a FastAPI application:
+### Adding Context with Tags
 
 ```python
 import mlflow
 import os
-from fastapi import FastAPI, Request, HTTPException
-from pydantic import BaseModel
-
-# Initialize FastAPI app
-app = FastAPI()
 
 
-class ChatRequest(BaseModel):
-    message: str
-
-
-@app.post("/chat")  # FastAPI decorator should be outermost
-@mlflow.trace  # Ensure @mlflow.trace is the inner decorator
-def handle_chat(request: Request, chat_request: ChatRequest):
-    # Retrieve all context from request headers
-    client_request_id = request.headers.get("X-Request-ID")
-    session_id = request.headers.get("X-Session-ID")
-    user_id = request.headers.get("X-User-ID")
-
-    # Update the current trace with all context and environment metadata
+@mlflow.trace
+def process_request(user_input: str):
+    # Add contextual information using tags
     mlflow.update_current_trace(
-        client_request_id=client_request_id,
         tags={
-            # Session context - groups traces from multi-turn conversations
-            "mlflow.trace.session": session_id,
-            # User context - associates traces with specific users
-            "mlflow.trace.user": user_id,
-            # Environment metadata - tracks deployment context
+            # Environment and deployment context
             "environment": "production",
             "app_version": os.getenv("APP_VERSION", "1.0.0"),
-            "deployment_id": os.getenv("DEPLOYMENT_ID", "unknown"),
             "region": os.getenv("REGION", "us-east-1"),
-        },
+            # User segmentation
+            "user_tier": "premium",
+            "user_segment": "enterprise",
+            # Feature flags or experiments
+            "feature_flag": "new_rag_pipeline",
+            "experiment_group": "control",
+        }
     )
 
-    # Your application logic for processing the chat message
-    response_text = f"Processed message: '{chat_request.message}'"
-
-    return {"response": response_text}
+    # Your application logic here
+    result = generate_response(user_input)
+    return result
 ```
 
-### Feedback Collection
+### Querying Traces by Tags
 
-Capturing user feedback on specific interactions is essential for understanding quality and improving your GenAI application:
+Use tags to filter and analyze production traces:
 
 ```python
 import mlflow
-from mlflow.client import MlflowClient
-from fastapi import FastAPI, Query, Request
-from pydantic import BaseModel
-from typing import Optional
-from mlflow.entities import AssessmentSource
-
-app = FastAPI()
-
-
-class FeedbackRequest(BaseModel):
-    is_correct: bool  # True for correct, False for incorrect
-    comment: Optional[str] = None
-
-
-@app.post("/chat_feedback")
-def handle_chat_feedback(
-    request: Request,
-    client_request_id: str = Query(
-        ..., description="The client request ID from the original chat request"
-    ),
-    feedback: FeedbackRequest = ...,
-):
-    """
-    Collect user feedback for a specific chat interaction identified by client_request_id.
-    """
-    # Search for the trace with the matching client_request_id
-    client = MlflowClient()
-    experiment = client.get_experiment_by_name("production-genai-app")
-    traces = client.search_traces(experiment_ids=[experiment.experiment_id])
-    traces = [
-        trace for trace in traces if trace.info.client_request_id == client_request_id
-    ][:1]
-
-    if not traces:
-        return {
-            "status": "error",
-            "message": f"Unable to find data for client request ID: {client_request_id}",
-        }, 500
-
-    # Log feedback using MLflow's log_feedback API
-    mlflow.log_feedback(
-        trace_id=traces[0].info.trace_id,
-        name="response_is_correct",
-        value=feedback.is_correct,
-        source=AssessmentSource(
-            source_type="HUMAN", source_id=request.headers.get("X-User-ID")
-        ),
-        rationale=feedback.comment,
-    )
-
-    return {
-        "status": "success",
-        "message": "Feedback recorded successfully",
-        "trace_id": traces[0].info.trace_id,
-    }
-```
-
-### Querying Traces with Context
-
-Use the contextual information to analyze production behavior:
-
-```python
-import mlflow
-
-# Query traces by user
-user_traces = mlflow.search_traces(
-    experiment_ids=[experiment.experiment_id],
-    filter_string="tags.`mlflow.trace.user` = 'user-jane-doe-12345'",
-    max_results=100,
-)
-
-# Query traces by session
-session_traces = mlflow.search_traces(
-    experiment_ids=[experiment.experiment_id],
-    filter_string="tags.`mlflow.trace.session` = 'session-def-456'",
-    max_results=100,
-)
 
 # Query traces by environment
 production_traces = mlflow.search_traces(
-    experiment_ids=[experiment.experiment_id],
+    experiment_ids=["1"],
     filter_string="tags.environment = 'production'",
-    max_results=100,
+    max_results=1000,
 )
+
+# Query traces by user segment
+enterprise_traces = mlflow.search_traces(
+    experiment_ids=["1"],
+    filter_string="tags.user_segment = 'enterprise' AND tags.environment = 'production'",
+    max_results=500,
+)
+
+# Analyze performance by feature flag
+feature_traces = mlflow.search_traces(
+    experiment_ids=["1"],
+    filter_string="tags.feature_flag = 'new_rag_pipeline' AND status = 'OK'",
+    max_results=1000,
+)
+
+# Compare average execution times
+if not feature_traces.empty:
+    avg_time = feature_traces["execution_duration"].mean()
+    print(f"Average execution time with new pipeline: {avg_time:.2f}ms")
 ```
+
+### Best Practices for Production Tags
+
+- **Be Consistent**: Use standardized tag names across your organization
+- **Keep It Simple**: Don't over-tag; focus on tags that provide actionable insights
+- **Plan for Scale**: Consider how tags will be used for filtering and analysis at scale
+- **Avoid PII**: Don't include personally identifiable information in tags
 
 ## Summary
 
 Production monitoring with MLflow Tracing provides comprehensive observability for your GenAI applications. Understanding how users actually interact with your application, monitoring quality and performance in real-world conditions, and tracking the business impact of your GenAI initiatives are all essential for long-term success.
 
-Key recommendations for successful production deployments include using `mlflow-tracing` for production deployments to minimize dependencies and optimize performance, configuring async logging for high-volume applications to prevent blocking, adding rich context with tags and metadata for effective debugging and analysis, implementing feedback collection for quality monitoring and continuous improvement, considering OpenTelemetry integration for enterprise observability platforms, and monitoring performance while implementing proper error handling.
+Key recommendations for successful production deployments include:
+- Use `mlflow-tracing` lightweight SDK for production deployments to minimize dependencies and optimize performance
+- Configure async logging for high-volume applications to prevent blocking
+- Add contextual information using tags for effective debugging and analysis
+- Consider OpenTelemetry integration for enterprise observability platforms
+- Monitor performance metrics and implement proper error handling
+- Use consistent tagging strategies for scalable trace analysis
 
-Whether you're using self-hosted MLflow, integrating with enterprise observability platforms through OpenTelemetry, or leveraging Databricks Mosaic AI's advanced capabilities, MLflow Tracing provides the foundation for understanding and improving your production GenAI applications.
+Whether you're using self-hosted MLflow or integrating with enterprise observability platforms through OpenTelemetry, MLflow Tracing provides the foundation for understanding and improving your production GenAI applications.
 
 ## Next Steps
 

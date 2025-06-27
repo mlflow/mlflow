@@ -1,8 +1,57 @@
 import { APILink } from "@site/src/components/APILink";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
 
 # Tracing FAQ
 
-## Getting Started and Basic Usage
+## Table of Contents
+
+- [Getting Started](#getting-started)
+  - Basic usage and setup
+  - Supported libraries
+  - Manual tracing
+- [Development & Debugging](#development--debugging)
+  - Jupyter integration
+  - UI customization
+  - Common gotchas
+  - Troubleshooting
+- [Tags & Metadata](#tags--metadata)
+  - Working with tags
+  - Metadata vs tags
+- [Production & Performance](#production--performance)
+  - Production deployment
+  - Async logging
+  - Performance optimization
+- [Common Gotchas](#common-gotchas)
+  - Inputs/outputs behavior
+  - Large data handling
+  - Error status
+- [Multi-threading & Concurrency](#multi-threading--concurrency)
+  - Multi-threading and async
+  - Multiprocessing
+- [Configuration & Control](#configuration--control)
+  - Disabling tracing
+  - Environment configuration
+  - Timeouts
+- [MLflow Runs Integration](#mlflow-runs-integration)
+  - Run association
+  - Generators
+- [Data Management](#data-management)
+  - Search and filtering
+  - Filter limitations
+  - Data deletion
+- [Integration & Compatibility](#integration--compatibility)
+  - Observability tools
+  - Manual tracing
+  - Troubleshooting
+- [Getting Help](#getting-help)
+
+---
+
+## Getting Started
+
+<Tabs>
+<TabItem value="basic" label="Basic Usage" default>
 
 ### Q: How do I start using MLflow Tracing?
 
@@ -31,9 +80,15 @@ def my_function(input_data):
     return "processed result"
 ```
 
+</TabItem>
+<TabItem value="libraries" label="Supported Libraries">
+
 ### Q: Which libraries does MLflow Tracing support automatically?
 
 MLflow provides automatic tracing (autolog) for 20+ popular libraries. See the complete list at [Automatic Tracing Integrations](/genai/tracing/integrations).
+
+</TabItem>
+<TabItem value="manual" label="Manual Tracing">
 
 ### Q: Can I add tracing to custom libraries or unsupported frameworks?
 
@@ -58,7 +113,17 @@ with mlflow.start_span(name="Custom Processing") as span:
 traced_function = mlflow.trace(third_party_function)
 ```
 
-## User Interface and Jupyter Integration
+### Q: Can I create custom manual traces and spans?
+
+Yes, MLflow provides comprehensive manual tracing capabilities. Please refer to the [Manual Tracing](/genai/tracing/app-instrumentation/manual-tracing) guide for detailed information on creating traces and spans manually using decorators, context managers, and low-level APIs.
+
+</TabItem>
+</Tabs>
+
+## Development & Debugging
+
+<Tabs>
+<TabItem value="jupyter" label="Jupyter Integration" default>
 
 ### Q: Can I view traces directly in Jupyter notebooks?
 
@@ -93,6 +158,9 @@ mlflow.tracing.disable_notebook_display()
 mlflow.tracing.enable_notebook_display()
 ```
 
+</TabItem>
+<TabItem value="ui-custom" label="UI Customization">
+
 ### Q: How can I customize the request and response previews in the UI?
 
 You can customize what appears in the Request and Response columns of the trace list using <APILink fn="mlflow.update_current_trace" />:
@@ -112,7 +180,139 @@ def predict(messages: list[dict]) -> str:
     return result
 ```
 
-## Tags and Metadata
+</TabItem>
+<TabItem value="gotchas" label="Common Gotchas">
+
+### Q: What happens if I call set_inputs/set_outputs multiple times on the same span?
+
+Only the last call to `set_inputs()` or `set_outputs()` is preserved. Each call completely replaces the previous values:
+
+```python
+@mlflow.trace
+def my_function(x):
+    span = mlflow.get_current_active_span()
+
+    span.set_inputs({"x": x})  # This will be overwritten
+    span.set_inputs({"y": x + 1})  # Only this will be saved
+
+    result = x * 2
+    span.set_outputs({"intermediate": result})  # This will be overwritten
+    span.set_outputs({"final": result + 1})  # Only this will be saved
+
+    return result
+```
+
+:::tip
+If you need to accumulate values, build the complete dictionary first, then call set_inputs/set_outputs once.
+:::
+
+### Q: Why is my trace showing ERROR status when my function completed successfully?
+
+A trace shows ERROR status if any unhandled exception occurs within the traced scope, even if you handle it later:
+
+```python
+@mlflow.trace
+def my_function():
+    try:
+        risky_operation()  # If this throws, trace is ERROR
+    except Exception as e:
+        # Even though you handle it, the trace is already marked as ERROR
+        return "fallback"
+```
+
+To keep the trace as OK when handling expected exceptions:
+
+```python
+@mlflow.trace
+def my_function():
+    with mlflow.start_span("risky_operation") as span:
+        try:
+            result = risky_operation()
+            span.set_outputs({"result": result})
+        except ExpectedException as e:
+            # Handle expected errors without marking the whole trace as ERROR
+            span.set_attributes({"handled_error": str(e)})
+            result = "fallback"
+    return result
+```
+
+### Q: How do I handle large inputs/outputs in traces?
+
+Large inputs and outputs can impact performance and storage. MLflow automatically truncates extremely large values, but you should summarize large data proactively:
+
+```python
+@mlflow.trace
+def process_large_dataset(df):
+    span = mlflow.get_current_active_span()
+
+    # Don't log the entire dataframe
+    # Instead, log a summary
+    span.set_inputs(
+        {
+            "shape": df.shape,
+            "columns": df.columns.tolist(),
+            "sample": df.head(5).to_dict(),
+        }
+    )
+
+    result = expensive_processing(df)
+
+    span.set_outputs(
+        {
+            "result_shape": result.shape,
+            "summary_stats": result.describe().to_dict(),
+        }
+    )
+
+    return result
+```
+
+</TabItem>
+<TabItem value="troubleshooting" label="Troubleshooting">
+
+### Q: I cannot open my trace in the MLflow UI. What should I do?
+
+There are multiple possible reasons why a trace may not be viewable in the MLflow UI:
+
+1. **The trace is not completed yet**: If the trace is still being collected, MLflow cannot display spans in the UI. Ensure that all spans are properly ended with either "OK" or "ERROR" status.
+
+2. **The browser cache is outdated**: When you upgrade MLflow to a new version, the browser cache may contain outdated data and prevent the UI from displaying traces correctly. Clear your browser cache (Shift+F5) and refresh the page.
+
+3. **MLflow server connectivity**: Ensure your MLflow tracking server is running and accessible:
+   ```bash
+   mlflow ui --host 0.0.0.0 --port 5000
+   ```
+
+4. **Experiment permissions**: Verify you have access to the experiment containing the trace.
+
+### Q: My traces are not appearing in the MLflow UI. What could be wrong?
+
+Several issues could prevent traces from appearing:
+
+**Tracking URI not set**: Ensure your tracking URI is configured:
+```python
+import mlflow
+
+mlflow.set_tracking_uri("http://localhost:5000")  # or your server URL
+```
+
+**Experiment not set**: Make sure you're logging to the correct experiment:
+```python
+mlflow.set_experiment("my-tracing-experiment")
+```
+
+**Autolog not called**: For supported libraries, ensure autolog is called before usage:
+```python
+mlflow.openai.autolog()  # Call before using OpenAI
+```
+
+</TabItem>
+</Tabs>
+
+## Tags & Metadata
+
+<Tabs>
+<TabItem value="tags" label="Working with Tags" default>
 
 ### Q: How do I add tags to traces?
 
@@ -136,12 +336,14 @@ client.set_trace_tag(trace_id="trace_id", key="tag_key", value="tag_value")
 
 **Via the MLflow UI**: Click the pencil icon next to tags in the trace view to edit them directly.
 
-### Q: What are the standard MLflow tags I should use?
+### Q: What are the recommended tags for organizing traces?
 
-MLflow provides standard tags for common use cases:
+While MLflow doesn't enforce specific tag names, the following conventions are recommended for common use cases:
 
 - `mlflow.trace.user`: Associate traces with specific users
 - `mlflow.trace.session`: Group traces from multi-turn conversations
+- `environment`: Track deployment environment (production, staging, dev)
+- `app_version`: Track application version for debugging
 
 ```python
 mlflow.update_current_trace(
@@ -154,7 +356,57 @@ mlflow.update_current_trace(
 )
 ```
 
-## Production and Performance
+:::tip
+Tags are mutable and can be updated after a trace is created, making them ideal for adding context that might not be available when the trace starts.
+:::
+
+</TabItem>
+<TabItem value="metadata" label="Metadata vs Tags">
+
+### Q: What's the difference between trace metadata and tags?
+
+Understanding when to use metadata vs tags is important for proper trace organization:
+
+**Metadata**: Immutable values set when the trace is created
+- Cannot be changed after the trace is logged
+- Use for: version info, commit hashes, deployment IDs
+- Limited to 250 characters per key/value
+
+**Tags**: Mutable values that can be updated anytime
+- Can be added/modified/deleted after trace creation
+- Use for: user feedback, quality scores, categorization
+- Limited to 250 characters for keys, 4096 for values
+
+```python
+@mlflow.trace
+def my_function():
+    # Metadata - set once, never changes
+    mlflow.update_current_trace(
+        metadata={
+            "git_commit": "abc123",
+            "model_version": "v1.2.3",
+        }
+    )
+
+    # Tags - can be updated later
+    mlflow.update_current_trace(
+        tags={
+            "quality_score": "pending",
+            "user_satisfaction": "unknown",
+        }
+    )
+
+    # After the trace completes, you can still update tags:
+    # mlflow.set_trace_tag(trace_id, "quality_score", "0.95")
+```
+
+</TabItem>
+</Tabs>
+
+## Production & Performance
+
+<Tabs>
+<TabItem value="production" label="Production Usage" default>
 
 ### Q: Can I use MLflow Tracing for production applications?
 
@@ -162,29 +414,37 @@ Yes, MLflow Tracing is stable and designed to be used in production environments
 
 When using MLflow Tracing in production environments, we recommend using the [MLflow Tracing SDK](https://pypi.org/project/mlflow-tracing/) (`mlflow-tracing`) to instrument your code/models/agents with a minimal set of dependencies and a smaller installation footprint. The SDK is designed to be a perfect fit for production environments where you want an efficient and lightweight tracing solution. Please refer to the [Production Monitoring](/genai/tracing/prod-tracing) section for more details.
 
+</TabItem>
+<TabItem value="async" label="Async Logging">
 
 ### Q: How do I enable asynchronous trace logging?
 
-Asynchronous logging can significantly reduce performance overhead (about 80% for typical workloads):
+Asynchronous trace logging is enabled by default in production environments to reduce performance overhead. You can control this behavior using environment variables:
+
+```bash
+# Ensure async trace logging is enabled (default behavior)
+export MLFLOW_ENABLE_ASYNC_TRACE_LOGGING=true
+
+# Or disable it if needed
+export MLFLOW_ENABLE_ASYNC_TRACE_LOGGING=false
+```
 
 ```python
 import mlflow
 
-# Enable async logging
-mlflow.config.enable_async_logging()
-
-# Traces will be logged asynchronously
+# Traces will be logged asynchronously by default
 with mlflow.start_span(name="foo") as span:
     span.set_inputs({"a": 1})
     span.set_outputs({"b": 2})
-
-# Manually flush if needed
-mlflow.flush_trace_async_logging()
 ```
 
-**Configuration options:**
+:::note
+The `mlflow.config.enable_async_logging()` function enables async logging for ALL MLflow operations (parameters, metrics, etc.), not just traces. For trace-specific async configuration, use the environment variables below.
+:::
 
-You can configure the detailed behavior of asynchronous logging using the following environment variables:
+**Configuration options for trace async logging:**
+
+You can configure the detailed behavior of asynchronous trace logging using the following environment variables:
 
 | Environment Variable | Description | Default |
 |---------------------|-------------|---------|
@@ -192,22 +452,285 @@ You can configure the detailed behavior of asynchronous logging using the follow
 | `MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE` | Maximum queued traces | `1000` |
 | `MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT` | Retry timeout in seconds | `500` |
 
-## Troubleshooting
+</TabItem>
+</Tabs>
 
-### Q: I cannot open my trace in the MLflow UI. What should I do?
+## Common Gotchas
 
-There are multiple possible reasons why a trace may not be viewable in the MLflow UI:
+<Tabs>
+<TabItem value="inputs-outputs" label="Inputs/Outputs" default>
 
-1. **The trace is not completed yet**: If the trace is still being collected, MLflow cannot display spans in the UI. Ensure that all spans are properly ended with either "OK" or "ERROR" status.
+### Q: What happens if I call set_inputs/set_outputs multiple times on the same span?
 
-2. **The browser cache is outdated**: When you upgrade MLflow to a new version, the browser cache may contain outdated data and prevent the UI from displaying traces correctly. Clear your browser cache (Shift+F5) and refresh the page.
+Only the last call to `set_inputs()` or `set_outputs()` is preserved. Each call completely replaces the previous values:
 
-3. **MLflow server connectivity**: Ensure your MLflow tracking server is running and accessible:
-   ```bash
-   mlflow ui --host 0.0.0.0 --port 5000
-   ```
+```python
+@mlflow.trace
+def my_function(x):
+    span = mlflow.get_current_active_span()
 
-4. **Experiment permissions**: Verify you have access to the experiment containing the trace.
+    span.set_inputs({"x": x})  # This will be overwritten
+    span.set_inputs({"y": x + 1})  # Only this will be saved
+
+    result = x * 2
+    span.set_outputs({"intermediate": result})  # This will be overwritten
+    span.set_outputs({"final": result + 1})  # Only this will be saved
+
+    return result
+```
+
+:::tip
+If you need to accumulate values, build the complete dictionary first, then call set_inputs/set_outputs once.
+:::
+
+</TabItem>
+<TabItem value="large-data" label="Large Data">
+
+### Q: How do I handle large inputs/outputs in traces?
+
+Large inputs and outputs can impact performance and storage. MLflow automatically truncates extremely large values, but you should summarize large data proactively:
+
+```python
+@mlflow.trace
+def process_large_dataset(df):
+    span = mlflow.get_current_active_span()
+
+    # Don't log the entire dataframe
+    # Instead, log a summary
+    span.set_inputs(
+        {
+            "shape": df.shape,
+            "columns": df.columns.tolist(),
+            "sample": df.head(5).to_dict(),
+        }
+    )
+
+    result = expensive_processing(df)
+
+    span.set_outputs(
+        {
+            "result_shape": result.shape,
+            "summary_stats": result.describe().to_dict(),
+        }
+    )
+
+    return result
+```
+
+</TabItem>
+<TabItem value="error-status" label="Error Status">
+
+### Q: Why is my trace showing ERROR status when my function completed successfully?
+
+A trace shows ERROR status if any unhandled exception occurs within the traced scope, even if you handle it later:
+
+```python
+@mlflow.trace
+def my_function():
+    try:
+        risky_operation()  # If this throws, trace is ERROR
+    except Exception as e:
+        # Even though you handle it, the trace is already marked as ERROR
+        return "fallback"
+```
+
+To keep the trace as OK when handling expected exceptions:
+
+```python
+@mlflow.trace
+def my_function():
+    with mlflow.start_span("risky_operation") as span:
+        try:
+            result = risky_operation()
+            span.set_outputs({"result": result})
+        except ExpectedException as e:
+            # Handle expected errors without marking the whole trace as ERROR
+            span.set_attributes({"handled_error": str(e)})
+            result = "fallback"
+    return result
+```
+
+</TabItem>
+</Tabs>
+
+## Multi-threading & Concurrency
+
+<Tabs>
+<TabItem value="threading" label="Multi-threading" default>
+
+### Q: My trace is split into multiple traces when doing multi-threading. How can I combine them into a single trace?
+
+As MLflow Tracing depends on Python ContextVar, each thread has its own trace context by default, but it is possible to generate a single trace for multi-threaded applications with a few additional steps.
+
+Here's a quick example:
+
+```python
+import contextvars
+import mlflow
+from concurrent.futures import ThreadPoolExecutor
+
+
+@mlflow.trace
+def worker_function(data):
+    # Worker logic here
+    return process_data(data)
+
+
+@mlflow.trace
+def main_function(data_list):
+    with ThreadPoolExecutor() as executor:
+        futures = []
+        for data in data_list:
+            # Copy context to worker thread
+            ctx = contextvars.copy_context()
+            futures.append(executor.submit(ctx.run, worker_function, data))
+
+        results = [future.result() for future in futures]
+    return results
+```
+
+</TabItem>
+<TabItem value="async" label="Async/Await">
+
+### Q: Does MLflow Tracing work with async/await code?
+
+Yes, MLflow Tracing supports async functions. The `@mlflow.trace` decorator works seamlessly with async functions:
+
+```python
+import asyncio
+import mlflow
+
+
+@mlflow.trace
+async def async_function(query: str):
+    # Async operations are traced normally
+    result = await some_async_operation(query)
+    return result
+
+
+# Usage
+asyncio.run(async_function("test query"))
+```
+
+</TabItem>
+<TabItem value="multiprocessing" label="Multiprocessing">
+
+### Q: My traces are missing when using multiprocessing. Why?
+
+Each process in multiprocessing has its own memory space and trace context. Traces from child processes won't automatically appear in the parent process's trace. This is different from threading where context can be shared.
+
+**Problem example:**
+```python
+from multiprocessing import Pool
+import mlflow
+
+
+@mlflow.trace
+def process_item(item):
+    # This creates a separate trace in each process
+    return item * 2
+
+
+@mlflow.trace
+def main():
+    with Pool(4) as pool:
+        # Each process creates its own traces
+        results = pool.map(process_item, [1, 2, 3, 4])
+    return results
+```
+
+**Workarounds:**
+
+1. **Use threading instead of multiprocessing** when possible
+2. **Log traces independently** from each process with proper experiment/run context
+3. **Use a shared tracking server** that all processes can write to:
+
+```python
+import mlflow
+from multiprocessing import Pool
+
+
+def init_worker():
+    # Each worker process configures MLflow
+    mlflow.set_tracking_uri("http://localhost:5000")
+    mlflow.set_experiment("multiprocess-experiment")
+
+
+def process_item(item):
+    # Each process logs its own trace
+    with mlflow.start_span(name=f"process-{item}") as span:
+        span.set_inputs({"item": item})
+        result = item * 2
+        span.set_outputs({"result": result})
+    return result
+
+
+# Initialize pool with worker setup
+with Pool(4, initializer=init_worker) as pool:
+    results = pool.map(process_item, [1, 2, 3, 4])
+```
+
+</TabItem>
+</Tabs>
+
+## Configuration & Control
+
+<Tabs>
+<TabItem value="disable" label="Disabling Tracing" default>
+
+### Q: How do I temporarily disable tracing?
+
+To **disable** tracing, <APILink fn="mlflow.tracing.disable" /> API will cease the collection of trace data from within MLflow and will not log any data to the MLflow Tracking service regarding traces.
+
+To **enable** tracing (if it had been temporarily disabled), <APILink fn="mlflow.tracing.enable" /> API will re-enable tracing functionality for instrumented models that are invoked.
+
+```python
+import mlflow
+
+# Disable tracing
+mlflow.tracing.disable()
+
+
+# Your traced functions won't generate traces
+@mlflow.trace
+def my_function():
+    return "No trace generated"
+
+
+my_function()
+
+# Re-enable tracing
+mlflow.tracing.enable()
+
+# Now traces will be generated again
+my_function()  # This will generate a trace
+```
+
+</TabItem>
+<TabItem value="env-config" label="Environment Configuration">
+
+### Q: Can I enable/disable tracing for my application without modifying code?
+
+Yes, you can use environment variables and global configuration:
+
+**Environment variable**: Set `MLFLOW_TRACING_ENABLED=false` to disable all tracing:
+```bash
+export MLFLOW_TRACING_ENABLED=false
+python your_app.py  # No traces will be generated
+```
+
+**Conditional tracing**: Use programmatic control:
+```python
+import mlflow
+import os
+
+# Only trace in development
+if os.getenv("ENVIRONMENT") == "development":
+    mlflow.openai.autolog()
+```
+
+</TabItem>
+<TabItem value="timeouts" label="Timeouts">
 
 ### Q: The model execution gets stuck and my trace is "in progress" forever.
 
@@ -249,132 +772,13 @@ long_running()
 MLflow monitors the trace execution time and expiration in a background thread. By default, this check is performed every second and resource consumption is negligible. If you want to adjust the interval, you can set the `MLFLOW_TRACE_TIMEOUT_CHECK_INTERVAL_SECONDS` environment variable.
 :::
 
-### Q: My traces are not appearing in the MLflow UI. What could be wrong?
-
-Several issues could prevent traces from appearing:
-
-**Tracking URI not set**: Ensure your tracking URI is configured:
-```python
-import mlflow
-
-mlflow.set_tracking_uri("http://localhost:5000")  # or your server URL
-```
-
-**Experiment not set**: Make sure you're logging to the correct experiment:
-```python
-mlflow.set_experiment("my-tracing-experiment")
-```
-
-**Autolog not called**: For supported libraries, ensure autolog is called before usage:
-```python
-mlflow.openai.autolog()  # Call before using OpenAI
-```
-
-## Multi-threading and Concurrency
-
-### Q: My trace is split into multiple traces when doing multi-threading. How can I combine them into a single trace?
-
-As MLflow Tracing depends on Python ContextVar, each thread has its own trace context by default, but it is possible to generate a single trace for multi-threaded applications with a few additional steps.
-
-Here's a quick example:
-
-```python
-import contextvars
-import mlflow
-from concurrent.futures import ThreadPoolExecutor
-
-
-@mlflow.trace
-def worker_function(data):
-    # Worker logic here
-    return process_data(data)
-
-
-@mlflow.trace
-def main_function(data_list):
-    with ThreadPoolExecutor() as executor:
-        futures = []
-        for data in data_list:
-            # Copy context to worker thread
-            ctx = contextvars.copy_context()
-            futures.append(executor.submit(ctx.run, worker_function, data))
-
-        results = [future.result() for future in futures]
-    return results
-```
-
-### Q: Does MLflow Tracing work with async/await code?
-
-Yes, MLflow Tracing supports async functions. The `@mlflow.trace` decorator works seamlessly with async functions:
-
-```python
-import asyncio
-import mlflow
-
-
-@mlflow.trace
-async def async_function(query: str):
-    # Async operations are traced normally
-    result = await some_async_operation(query)
-    return result
-
-
-# Usage
-asyncio.run(async_function("test query"))
-```
-
-## Configuration and Control
-
-### Q: How do I temporarily disable tracing?
-
-To **disable** tracing, <APILink fn="mlflow.tracing.disable" /> API will cease the collection of trace data from within MLflow and will not log any data to the MLflow Tracking service regarding traces.
-
-To **enable** tracing (if it had been temporarily disabled), <APILink fn="mlflow.tracing.enable" /> API will re-enable tracing functionality for instrumented models that are invoked.
-
-```python
-import mlflow
-
-# Disable tracing
-mlflow.tracing.disable()
-
-
-# Your traced functions won't generate traces
-@mlflow.trace
-def my_function():
-    return "No trace generated"
-
-
-my_function()
-
-# Re-enable tracing
-mlflow.tracing.enable()
-
-# Now traces will be generated again
-my_function()  # This will generate a trace
-```
-
-### Q: Can I enable/disable tracing for my application without modifying code?
-
-Yes, you can use environment variables and global configuration:
-
-**Environment variable**: Set `MLFLOW_TRACING_ENABLED=false` to disable all tracing:
-```bash
-export MLFLOW_TRACING_ENABLED=false
-python your_app.py  # No traces will be generated
-```
-
-**Conditional tracing**: Use programmatic control:
-```python
-import mlflow
-import os
-
-# Only trace in development
-if os.getenv("ENVIRONMENT") == "development":
-    mlflow.openai.autolog()
-```
-
+</TabItem>
+</Tabs>
 
 ## MLflow Runs Integration
+
+<Tabs>
+<TabItem value="runs" label="Run Association" default>
 
 ### Q: How do I associate traces with MLflow runs?
 
@@ -402,7 +806,218 @@ traces = mlflow.search_traces(run_id=run.info.run_id)
 print(traces)
 ```
 
+</TabItem>
+<TabItem value="generators" label="Generators">
+
+### Q: How do I trace generator functions?
+
+Generator functions require special handling because they don't execute immediately. The `@mlflow.trace` decorator handles generators automatically:
+
+```python
+@mlflow.trace
+def generate_responses(prompts):
+    """This generator is properly traced"""
+    for prompt in prompts:
+        # Each yield happens within the trace context
+        yield f"Response to: {prompt}"
+
+
+# The trace captures the entire generator lifecycle
+for response in generate_responses(["Hello", "Hi"]):
+    print(response)
+```
+
+For manual tracing of generators, ensure the span covers the entire iteration:
+
+```python
+def generate_data():
+    with mlflow.start_span("generator") as span:
+        data = [1, 2, 3, 4, 5]
+        span.set_inputs({"count": len(data)})
+
+        for item in data:
+            yield item * 2
+
+        span.set_outputs({"completed": True})
+```
+
+</TabItem>
+</Tabs>
+
 ## Data Management
+
+<Tabs>
+<TabItem value="search" label="Search & Filtering" default>
+
+### Q: Can I search for traces by client_request_id?
+
+The `client_request_id` field is not directly searchable in filter strings. To find a trace by client_request_id, you need to retrieve all traces and filter programmatically:
+
+```python
+import mlflow
+
+
+def find_trace_by_client_request_id(client_request_id, experiment_id):
+    # Retrieve traces (you may need to paginate for large datasets)
+    traces = mlflow.search_traces(
+        experiment_ids=[experiment_id], max_results=1000, return_type="list"
+    )
+
+    # Filter by client_request_id
+    matching_traces = [
+        trace for trace in traces if trace.info.client_request_id == client_request_id
+    ]
+
+    return matching_traces[0] if matching_traces else None
+```
+
+:::tip
+For searchable request tracking, use tags instead:
+```python
+mlflow.update_current_trace(
+    client_request_id="req-123", tags={"request_id": "req-123"}  # This IS searchable
+)
+```
+:::
+
+### Q: Why are the column names different between filter strings and DataFrame results?
+
+When using `mlflow.search_traces()`, the filter string uses different column names than what appears in the returned DataFrame:
+
+| Filter String | DataFrame Column | Description |
+|--------------|------------------|-------------|
+| `status` | `state` | Trace execution state |
+| `timestamp_ms` | `request_time` | Trace start time |
+| `execution_time_ms` | `execution_duration` | Trace duration |
+
+```python
+# Filter uses 'status' and 'timestamp_ms'
+traces = mlflow.search_traces(
+    filter_string="status = 'ERROR' AND timestamp_ms > 1000000"
+)
+
+# But DataFrame has 'state' and 'request_time' columns
+print(traces.columns)  # Shows: ['state', 'request_time', ...]
+print(traces["state"].unique())  # Not traces['status']
+```
+
+</TabItem>
+<TabItem value="limitations" label="Filter Limitations">
+
+### Q: What are the limitations of the search traces filter syntax?
+
+The MLflow search traces filter syntax has specific rules and limitations you should be aware of:
+
+**Supported Fields for Filtering:**
+- `name` - Trace name (string comparisons)
+- `status` - Trace status (OK, ERROR, IN_PROGRESS)
+- `timestamp_ms` - Start time in milliseconds (numeric comparisons)
+- `execution_time_ms` - Duration in milliseconds (numeric comparisons)
+- `tags.*` or `tag.*` - Tag values (string comparisons only)
+- `metadata.*` - Metadata values (string comparisons only)
+
+**Supported Operators by Field Type:**
+- **Numeric fields** (`timestamp_ms`, `execution_time_ms`): `>`, `>=`, `=`, `!=`, `<`, `<=`
+- **String fields** (`name`, `status`): `=`, `!=`, `IN`, `NOT IN`
+- **Tags/Metadata**: `=`, `!=` only
+
+**NOT Supported:**
+- `LIKE` or `ILIKE` operators (no pattern matching)
+- Regular expressions
+- Case-insensitive comparisons
+- Searching by `client_request_id` directly
+- Searching span-level data
+- OR operators (only AND is supported)
+
+```python
+# ❌ These will NOT work:
+mlflow.search_traces(filter_string="name LIKE 'predict%'")  # LIKE not supported
+mlflow.search_traces(
+    filter_string="status = 'OK' OR status = 'ERROR'"
+)  # OR not supported
+mlflow.search_traces(
+    filter_string="client_request_id = 'req-123'"
+)  # Field not searchable
+
+# ✅ These will work:
+mlflow.search_traces(filter_string="name = 'predict'")
+mlflow.search_traces(filter_string="status IN ('OK', 'ERROR')")
+mlflow.search_traces(filter_string="tags.request_id = 'req-123'")
+```
+
+### Q: How do I handle special characters in tag/metadata names when filtering?
+
+Use backticks (`` ` ``) to wrap field names that contain special characters like dots, hyphens, or spaces:
+
+```python
+# Tag name with dots
+mlflow.search_traces(filter_string="tags.`app.version` = '1.2.3'")
+
+# Tag name with hyphens
+mlflow.search_traces(filter_string="tags.`user-id` = 'abc123'")
+
+# Tag name with spaces
+mlflow.search_traces(filter_string="tags.`user segment` = 'enterprise'")
+
+# Nested paths with special characters
+mlflow.search_traces(filter_string="tags.`feature.flag.name` = 'new-rag'")
+```
+
+**Rules for backticks:**
+- Only the field name needs backticks, not the entire expression
+- Don't use backticks for values, only field names
+- Backticks are required when field names contain: `.`, `-`, spaces, or other special characters
+
+```python
+# ❌ Wrong - don't backtick the whole expression
+mlflow.search_traces(filter_string="`tags.user-id = 'abc'`")
+
+# ❌ Wrong - don't backtick the value
+mlflow.search_traces(filter_string="tags.user = `john.doe`")
+
+# ✅ Correct - backtick only the field name with special chars
+mlflow.search_traces(filter_string="tags.`user.email` = 'john.doe@example.com'")
+```
+
+### Q: How can I work around filter syntax limitations?
+
+When the filter syntax doesn't support what you need, retrieve a larger set of traces and filter programmatically:
+
+```python
+import mlflow
+import re
+
+
+# Example: Pattern matching (LIKE functionality)
+def search_traces_with_pattern(experiment_id, name_pattern):
+    # Get all traces (or use a broader filter)
+    traces = mlflow.search_traces(
+        experiment_ids=[experiment_id], max_results=1000, return_type="list"
+    )
+
+    # Filter using regex
+    pattern = re.compile(name_pattern)
+    return [t for t in traces if pattern.search(t.info.name or "")]
+
+
+# Example: OR conditions
+def search_traces_with_or(experiment_id):
+    # Since OR isn't supported, make multiple queries
+    ok_traces = mlflow.search_traces(
+        experiment_ids=[experiment_id], filter_string="status = 'OK'"
+    )
+    error_traces = mlflow.search_traces(
+        experiment_ids=[experiment_id], filter_string="status = 'ERROR'"
+    )
+
+    # Combine and deduplicate
+    import pandas as pd
+
+    return pd.concat([ok_traces, error_traces]).drop_duplicates("trace_id")
+```
+
+</TabItem>
+<TabItem value="deletion" label="Data Deletion">
 
 ### Q: How do I delete traces?
 
@@ -441,8 +1056,13 @@ Traces are stored in your MLflow tracking backend:
 
 **Artifact store**: Large trace data may be stored in the artifact store (filesystem, S3, etc.)
 
+</TabItem>
+</Tabs>
 
-## Integration and Compatibility
+## Integration & Compatibility
+
+<Tabs>
+<TabItem value="compatibility" label="Observability Tools" default>
 
 ### Q: Is MLflow Tracing compatible with other observability tools?
 
@@ -456,9 +1076,54 @@ Yes, MLflow Tracing is built on OpenTelemetry standards and can integrate with o
 
 For production monitoring, see [Production Tracing](/genai/tracing/prod-tracing) for integration patterns.
 
+</TabItem>
+<TabItem value="manual" label="Manual Tracing">
+
 ### Q: Can I create custom manual traces and spans?
 
 Yes, MLflow provides comprehensive manual tracing capabilities. Please refer to the [Manual Tracing](/genai/tracing/app-instrumentation/manual-tracing) guide for detailed information on creating traces and spans manually using decorators, context managers, and low-level APIs.
+
+</TabItem>
+<TabItem value="troubleshooting" label="Troubleshooting">
+
+### Q: I cannot open my trace in the MLflow UI. What should I do?
+
+There are multiple possible reasons why a trace may not be viewable in the MLflow UI:
+
+1. **The trace is not completed yet**: If the trace is still being collected, MLflow cannot display spans in the UI. Ensure that all spans are properly ended with either "OK" or "ERROR" status.
+
+2. **The browser cache is outdated**: When you upgrade MLflow to a new version, the browser cache may contain outdated data and prevent the UI from displaying traces correctly. Clear your browser cache (Shift+F5) and refresh the page.
+
+3. **MLflow server connectivity**: Ensure your MLflow tracking server is running and accessible:
+   ```bash
+   mlflow ui --host 0.0.0.0 --port 5000
+   ```
+
+4. **Experiment permissions**: Verify you have access to the experiment containing the trace.
+
+### Q: My traces are not appearing in the MLflow UI. What could be wrong?
+
+Several issues could prevent traces from appearing:
+
+**Tracking URI not set**: Ensure your tracking URI is configured:
+```python
+import mlflow
+
+mlflow.set_tracking_uri("http://localhost:5000")  # or your server URL
+```
+
+**Experiment not set**: Make sure you're logging to the correct experiment:
+```python
+mlflow.set_experiment("my-tracing-experiment")
+```
+
+**Autolog not called**: For supported libraries, ensure autolog is called before usage:
+```python
+mlflow.openai.autolog()  # Call before using OpenAI
+```
+
+</TabItem>
+</Tabs>
 
 ## Getting Help
 
