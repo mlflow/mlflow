@@ -52,7 +52,9 @@ class RunsArtifactRepository(ArtifactRepository):
             tracking_uri=tracking_uri_from_run or tracking_uri,
         )
         assert not RunsArtifactRepository.is_runs_uri(uri)  # avoid an infinite loop
-        return add_databricks_profile_info_to_artifact_uri(uri, tracking_uri)
+        return add_databricks_profile_info_to_artifact_uri(
+            uri, tracking_uri_from_run or tracking_uri
+        )
 
     @staticmethod
     def parse_runs_uri(run_uri):
