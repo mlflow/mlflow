@@ -28,15 +28,6 @@ jobs:
     permissions:
       contents: read
     timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-        include:
-          - os: ubuntu-latest
-            shell: bash
-          - os: windows-latest
-            shell: pwsh
     runs-on: ${{ matrix.os }}
     defaults:
       run:
