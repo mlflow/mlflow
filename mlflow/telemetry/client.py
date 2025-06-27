@@ -6,6 +6,7 @@ import time
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from dataclasses import asdict
 from queue import Empty, Full, Queue
+from typing import Optional
 
 import requests
 
@@ -21,7 +22,7 @@ from mlflow.tracking._tracking_service.utils import _get_store
 
 _logger = logging.getLogger(__name__)
 # TODO: update this url
-TELEMETRY_URL = "http://127.0.0.1:8000/telemetry"
+TELEMETRY_URL = "https://n0j6ph91i7.execute-api.us-west-2.amazonaws.com/dev/telemetry"
 
 
 class TelemetryClient:
@@ -259,5 +260,5 @@ def set_telemetry_client():
         _MLFLOW_TELEMETRY_CLIENT = TelemetryClient()
 
 
-def get_telemetry_client() -> TelemetryClient | None:
+def get_telemetry_client() -> Optional[TelemetryClient]:
     return _MLFLOW_TELEMETRY_CLIENT
