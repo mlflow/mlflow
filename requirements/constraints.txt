@@ -18,4 +18,11 @@ pyspark<3.5.6
 # This interferes with `test_autologging_warnings_are_redirected_as_expected`.
 FLAML<2.3.5
 
+langsmith<0.4.3
+openai<1.92.2
+boto3<1.38.45
+botocore<1.38.45
 litellm<1.73.2
+plotly<6.2.0
+transformers<4.53.0
+fastapi<0.115.14
