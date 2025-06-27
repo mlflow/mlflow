@@ -158,7 +158,7 @@ class RunsArtifactRepository(ArtifactRepository):
                 page_token = page.token
 
         if matched := next((m for m in iter_models() if m.source_run_id == run_id), None):
-            return get_artifact_repository(matched.artifact_location)
+            return get_artifact_repository(matched.artifact_location, self.tracking_uri)
 
         return None
 
