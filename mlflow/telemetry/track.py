@@ -2,7 +2,7 @@ import functools
 import inspect
 import logging
 import time
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 from mlflow.telemetry.client import get_telemetry_client
 from mlflow.telemetry.parser import API_PARSER_MAPPING
@@ -42,7 +42,7 @@ def track_api_usage(func: Callable) -> Callable:
 
 def _generate_telemetry_record(
     func: Callable, args: tuple, kwargs: dict[str, Any], success: bool, duration_ms: int
-) -> APIRecord | None:
+) -> Optional[APIRecord]:
     try:
         signature = inspect.signature(func)
         bound_args = signature.bind(*args, **kwargs)
