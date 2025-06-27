@@ -80,6 +80,7 @@ jobs:
           changed_files="$(gh pr view --repo ${{ github.repository }} ${{ needs.check-comment.outputs.pull_number }} --json files --jq '.files.[].path')"
           protos=$([[ -z $(echo "$changed_files" | grep '^\(mlflow/protos\|tests/protos\)') ]] && echo "false" || echo "true")
           js=$([[ -z $(echo "$changed_files" | grep '^mlflow/server/js') ]] && echo "false" || echo "true")
+          docs=$([[ -z $(echo "$changed_files" | grep '^docs') ]] && echo "false" || echo "true")
           r=$([[ -z $(echo "$changed_files" | grep '^mlflow/R/mlflow') ]] && echo "false" || echo "true")
           db=$([[ -z $(echo "$changed_files" | grep '^mlflow/store/db_migrations/') ]] && echo "false" || echo "true")
           echo "protos=$protos" >> $GITHUB_OUTPUT
@@ -155,7 +156,7 @@ jobs:
         working-directory: docs
         run: |
           yarn install
-      - if: steps.diff.outputs.js == 'true'
+      - if: steps.diff.outputs.docs == 'true'
         working-directory: docs
         run: |
           yarn prettier:fix
