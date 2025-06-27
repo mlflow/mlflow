@@ -310,6 +310,32 @@ def test_download_artifacts_with_run_id_and_artifact_path(tmp_path):
     )
 
 
+def test_list_artifacts_with_client_and_tracking_uri(tmp_path: pathlib.Path):
+    tracking_uri = f"sqlite:///{tmp_path}/mlflow-{uuid.uuid4().hex}.db"
+    assert mlflow.get_tracking_uri() != tracking_uri
+    client = mlflow.MlflowClient(tracking_uri)
+    experiment_id = client.create_experiment("my_experiment")
+    run = client.create_run(experiment_id)
+    tmp_dir = tmp_path / "subdir"
+    tmp_dir.mkdir()
+    tmp_file = tmp_dir / "file.txt"
+    tmp_file.touch()
+    client.log_artifacts(run.info.run_id, tmp_dir, "subdir")
+
+    artifacts = mlflow.artifacts.list_artifacts(
+        run_id=run.info.run_id,
+        tracking_uri=tracking_uri,
+    )
+    assert [p.path for p in artifacts] == ["subdir"]
+
+    artifacts = mlflow.artifacts.list_artifacts(
+        run_id=run.info.run_id,
+        artifact_path="subdir",
+        tracking_uri=tracking_uri,
+    )
+    assert [p.path for p in artifacts] == ["subdir/file.txt"]
+
+
 def test_download_artifacts_with_client_and_tracking_uri(tmp_path: pathlib.Path):
     tracking_uri = f"sqlite:///{tmp_path}/mlflow-{uuid.uuid4().hex}.db"
     assert mlflow.get_tracking_uri() != tracking_uri
