@@ -10,10 +10,6 @@ from mlflow import experiments
 from mlflow.runs import list_run
 
 
-def test_foo():
-    assert False
-
-
 def test_list_run():
     with mlflow.start_run(run_name="apple"):
         pass
