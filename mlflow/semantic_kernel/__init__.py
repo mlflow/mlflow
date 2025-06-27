@@ -31,9 +31,8 @@ def autolog(
 
     setup_semantic_kernel_tracing()
 
-    from semantic_kernel.utils.telemetry.model_diagnostics import decorators as model_decorators
+    from semantic_kernel.utils.telemetry.model_diagnostics import decorators
 
-    # https://github.com/microsoft/semantic-kernel/tree/de7ef3d97b227228b2e3a3d93a6227704547941b/python/semantic_kernel/utils/telemetry/agent_diagnostics
     patches = [
         ("_set_completion_input", _semantic_kernel_chat_completion_input_wrapper),
         ("_set_completion_response", _semantic_kernel_chat_completion_response_wrapper),
@@ -43,7 +42,7 @@ def autolog(
     for method_name, wrapper in patches:
         safe_patch(
             FLAVOR_NAME,
-            model_decorators,
+            decorators,
             method_name,
             wrapper,
         )

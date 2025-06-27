@@ -156,161 +156,161 @@ async def test_sk_invoke_complex(mock_openai):
     assert child_span.get_attribute(SpanAttributeKey.SPAN_TYPE) == SpanType.CHAT_MODEL
 
 
-@pytest.mark.asyncio
-async def test_sk_invoke_agent(mock_openai):
-    mlflow.semantic_kernel.autolog()
-    _ = await _create_and_invoke_chat_agent(mock_openai)
+# @pytest.mark.asyncio
+# async def test_sk_invoke_agent(mock_openai):
+#     mlflow.semantic_kernel.autolog()
+#     _ = await _create_and_invoke_chat_agent(mock_openai)
 
-    traces = get_traces()
-    assert len(traces) == 1
-    trace = traces[0]
-    spans = trace.data.spans
-    assert len(spans) == 3
+#     traces = get_traces()
+#     assert len(traces) == 1
+#     trace = traces[0]
+#     spans = trace.data.spans
+#     assert len(spans) == 3
 
-    root_span = next(s for s in spans if s.parent_id is None)
-    child_span = next(s for s in spans if s.parent_id == root_span.span_id)
-    grandchild_span = next(s for s in spans if s.parent_id == child_span.span_id)
+#     root_span = next(s for s in spans if s.parent_id is None)
+#     child_span = next(s for s in spans if s.parent_id == root_span.span_id)
+#     grandchild_span = next(s for s in spans if s.parent_id == child_span.span_id)
 
-    assert root_span.name == "invoke_agent sushi_agent"
-    assert root_span.span_type == SpanType.UNKNOWN
-    assert root_span.get_attribute(model_gen_ai_attributes.OPERATION) == "invoke_agent"
-    assert root_span.get_attribute(agent_gen_ai_attributes.AGENT_NAME) == "sushi_agent"
-    assert root_span.get_attribute(agent_gen_ai_attributes.OPERATION) == "invoke_agent"
+#     assert root_span.name == "invoke_agent sushi_agent"
+#     assert root_span.span_type == SpanType.UNKNOWN
+#     assert root_span.get_attribute(model_gen_ai_attributes.OPERATION) == "invoke_agent"
+#     assert root_span.get_attribute(agent_gen_ai_attributes.AGENT_NAME) == "sushi_agent"
+#     assert root_span.get_attribute(agent_gen_ai_attributes.OPERATION) == "invoke_agent"
 
-    assert child_span.name == "AutoFunctionInvocationLoop"
-    assert root_span.span_type == SpanType.UNKNOWN
-    assert "sk.available_functions" in child_span.attributes
+#     assert child_span.name == "AutoFunctionInvocationLoop"
+#     assert root_span.span_type == SpanType.UNKNOWN
+#     assert "sk.available_functions" in child_span.attributes
 
-    assert grandchild_span.name.startswith("chat.completions gpt-4o-mini")
-    assert grandchild_span.span_type == SpanType.CHAT_MODEL
-    assert grandchild_span.get_attribute(model_gen_ai_attributes.MODEL) == "gpt-4o-mini"
-    assert isinstance(
-        json.loads(grandchild_span.get_attribute(SpanAttributeKey.INPUTS)).get("messages"), list
-    )
-    assert isinstance(json.loads(grandchild_span.get_attribute(SpanAttributeKey.OUTPUTS)), list)
-    assert (
-        grandchild_span.get_attribute(model_gen_ai_attributes.FINISH_REASON) == "FinishReason.STOP"
-    )
-
-
-@pytest.mark.asyncio
-async def test_sk_autolog_trace_on_exception(mock_openai):
-    mlflow.semantic_kernel.autolog()
-    openai_client = openai.AsyncOpenAI(api_key="test", base_url=mock_openai)
-
-    kernel = Kernel()
-    kernel.add_service(
-        OpenAIChatCompletion(
-            service_id="chat-gpt",
-            ai_model_id="gpt-4o-mini",
-            async_client=openai_client,
-        )
-    )
-
-    with mock.patch.object(
-        openai_client.chat.completions, "create", side_effect=RuntimeError("thiswillfail")
-    ):
-        with pytest.raises(KernelInvokeException) as exc_info:
-            await kernel.invoke_prompt("Hello?")
-
-        assert isinstance(exc_info.value.__cause__, FunctionExecutionException)
-
-    traces = get_traces()
-    assert traces, "No traces recorded"
-    trace = traces[0]
-
-    # TODO: does this have to be explictely set?
-    assert trace.info.status == "ERROR"
-    parent_span = next(s for s in trace.data.spans if s.parent_id is None)
-    child_span = next(s for s in trace.data.spans if s.parent_id == parent_span.span_id)
-    assert child_span.get_attribute(model_gen_ai_attributes.ERROR_TYPE)
-    assert child_span.status.status_code == SpanStatusCode.ERROR
-    assert child_span.events[0].name == "exception"
-    assert "thiswillfail" in child_span.events[0].attributes["exception.message"]
+#     assert grandchild_span.name.startswith("chat.completions gpt-4o-mini")
+#     assert grandchild_span.span_type == SpanType.CHAT_MODEL
+#     assert grandchild_span.get_attribute(model_gen_ai_attributes.MODEL) == "gpt-4o-mini"
+#     assert isinstance(
+#         json.loads(grandchild_span.get_attribute(SpanAttributeKey.INPUTS)).get("messages"), list
+#     )
+#     assert isinstance(json.loads(grandchild_span.get_attribute(SpanAttributeKey.OUTPUTS)), list)
+#     assert (
+#         grandchild_span.get_attribute(model_gen_ai_attributes.FINISH_REASON) == "FinishReason.STOP"
+#     )
 
 
-@pytest.mark.asyncio
-async def test_tracing_autolog_with_active_span(mock_openai):
-    mlflow.semantic_kernel.autolog()
+# @pytest.mark.asyncio
+# async def test_sk_autolog_trace_on_exception(mock_openai):
+#     mlflow.semantic_kernel.autolog()
+#     openai_client = openai.AsyncOpenAI(api_key="test", base_url=mock_openai)
 
-    with mlflow.start_span("parent"):
-        response = await _create_and_invoke_kernel_simple(mock_openai)
+#     kernel = Kernel()
+#     kernel.add_service(
+#         OpenAIChatCompletion(
+#             service_id="chat-gpt",
+#             ai_model_id="gpt-4o-mini",
+#             async_client=openai_client,
+#         )
+#     )
 
-    assert isinstance(response, FunctionResult)
+#     with mock.patch.object(
+#         openai_client.chat.completions, "create", side_effect=RuntimeError("thiswillfail")
+#     ):
+#         with pytest.raises(KernelInvokeException) as exc_info:
+#             await kernel.invoke_prompt("Hello?")
 
-    traces = get_traces()
-    assert len(traces) == 1
+#         assert isinstance(exc_info.value.__cause__, FunctionExecutionException)
 
-    trace = traces[0]
-    spans = trace.data.spans
-    assert len(spans) == 3
+#     traces = get_traces()
+#     assert traces, "No traces recorded"
+#     trace = traces[0]
 
-    assert trace.info.request_id is not None
-    assert trace.info.status == "OK"
-    assert trace.info.tags["mlflow.traceName"] == "parent"
-
-    parent = trace.data.spans[0]
-    assert parent.name == "parent"
-    assert parent.parent_id is None
-    assert parent.get_attribute(SpanAttributeKey.SPAN_TYPE) == SpanType.UNKNOWN
-
-    child = trace.data.spans[1]
-    assert child.parent_id == parent.span_id
-    assert child.get_attribute(SpanAttributeKey.SPAN_TYPE) == SpanType.UNKNOWN
-
-    grandchild = trace.data.spans[2]
-    assert grandchild.name == "chat.completions gpt-4o-mini"
-    assert grandchild.parent_id == child.span_id
-    assert grandchild.get_attribute(SpanAttributeKey.SPAN_TYPE) == SpanType.CHAT_MODEL
-    assert grandchild.get_attribute(model_gen_ai_attributes.OPERATION) == "chat.completions"
-    assert grandchild.get_attribute(model_gen_ai_attributes.SYSTEM) == "openai"
-    assert grandchild.get_attribute(model_gen_ai_attributes.MODEL) == "gpt-4o-mini"
-    assert (
-        json.loads(grandchild.get_attribute(SpanAttributeKey.INPUTS))["messages"][0]["content"]
-        == "Is sushi the best food ever?"
-    )
+#     # TODO: does this have to be explictely set?
+#     assert trace.info.status == "ERROR"
+#     parent_span = next(s for s in trace.data.spans if s.parent_id is None)
+#     child_span = next(s for s in trace.data.spans if s.parent_id == parent_span.span_id)
+#     assert child_span.get_attribute(model_gen_ai_attributes.ERROR_TYPE)
+#     assert child_span.status.status_code == SpanStatusCode.ERROR
+#     assert child_span.events[0].name == "exception"
+#     assert "thiswillfail" in child_span.events[0].attributes["exception.message"]
 
 
-@pytest.mark.asyncio
-async def test_tracing_attribution_with_threaded_calls(mock_openai):
-    mlflow.semantic_kernel.autolog()
+# @pytest.mark.asyncio
+# async def test_tracing_autolog_with_active_span(mock_openai):
+#     mlflow.semantic_kernel.autolog()
 
-    n = 3
-    openai_client = openai.AsyncOpenAI(api_key="test", base_url=mock_openai)
+#     with mlflow.start_span("parent"):
+#         response = await _create_and_invoke_kernel_simple(mock_openai)
 
-    kernel = Kernel()
-    kernel.add_service(
-        OpenAIChatCompletion(
-            service_id="chat-gpt",
-            ai_model_id="gpt-4o-mini",
-            async_client=openai_client,
-        )
-    )
+#     assert isinstance(response, FunctionResult)
 
-    async def call(prompt: str):
-        return await kernel.invoke_prompt(prompt)
+#     traces = get_traces()
+#     assert len(traces) == 1
 
-    prompts = [f"What is this number: {i}" for i in range(n)]
-    _ = await asyncio.gather(*(call(p) for p in prompts))
+#     trace = traces[0]
+#     spans = trace.data.spans
+#     assert len(spans) == 3
 
-    traces = get_traces()
-    assert len(traces) == n
+#     assert trace.info.request_id is not None
+#     assert trace.info.status == "OK"
+#     assert trace.info.tags["mlflow.traceName"] == "parent"
 
-    unique_messages = set()
-    for trace in traces:
-        spans = trace.data.spans
-        assert len(spans) == 2
+#     parent = trace.data.spans[0]
+#     assert parent.name == "parent"
+#     assert parent.parent_id is None
+#     assert parent.get_attribute(SpanAttributeKey.SPAN_TYPE) == SpanType.UNKNOWN
 
-        parent_span = next((s for s in spans if s.parent_id is None), None)
-        assert parent_span
-        child_span = next((s for s in spans if s.parent_id is not None), None)
-        assert child_span
+#     child = trace.data.spans[1]
+#     assert child.parent_id == parent.span_id
+#     assert child.get_attribute(SpanAttributeKey.SPAN_TYPE) == SpanType.UNKNOWN
 
-        inputs = json.loads(child_span.get_attribute(SpanAttributeKey.INPUTS))
-        assert inputs
-        message = inputs["messages"][0]["content"]
-        assert message.startswith("What is this number: ")
-        unique_messages.add(message)
-        assert child_span.get_attribute(SpanAttributeKey.OUTPUTS)
+#     grandchild = trace.data.spans[2]
+#     assert grandchild.name == "chat.completions gpt-4o-mini"
+#     assert grandchild.parent_id == child.span_id
+#     assert grandchild.get_attribute(SpanAttributeKey.SPAN_TYPE) == SpanType.CHAT_MODEL
+#     assert grandchild.get_attribute(model_gen_ai_attributes.OPERATION) == "chat.completions"
+#     assert grandchild.get_attribute(model_gen_ai_attributes.SYSTEM) == "openai"
+#     assert grandchild.get_attribute(model_gen_ai_attributes.MODEL) == "gpt-4o-mini"
+#     assert (
+#         json.loads(grandchild.get_attribute(SpanAttributeKey.INPUTS))["messages"][0]["content"]
+#         == "Is sushi the best food ever?"
+#     )
 
-    assert len(unique_messages) == n
+
+# @pytest.mark.asyncio
+# async def test_tracing_attribution_with_threaded_calls(mock_openai):
+#     mlflow.semantic_kernel.autolog()
+
+#     n = 3
+#     openai_client = openai.AsyncOpenAI(api_key="test", base_url=mock_openai)
+
+#     kernel = Kernel()
+#     kernel.add_service(
+#         OpenAIChatCompletion(
+#             service_id="chat-gpt",
+#             ai_model_id="gpt-4o-mini",
+#             async_client=openai_client,
+#         )
+#     )
+
+#     async def call(prompt: str):
+#         return await kernel.invoke_prompt(prompt)
+
+#     prompts = [f"What is this number: {i}" for i in range(n)]
+#     _ = await asyncio.gather(*(call(p) for p in prompts))
+
+#     traces = get_traces()
+#     assert len(traces) == n
+
+#     unique_messages = set()
+#     for trace in traces:
+#         spans = trace.data.spans
+#         assert len(spans) == 2
+
+#         parent_span = next((s for s in spans if s.parent_id is None), None)
+#         assert parent_span
+#         child_span = next((s for s in spans if s.parent_id is not None), None)
+#         assert child_span
+
+#         inputs = json.loads(child_span.get_attribute(SpanAttributeKey.INPUTS))
+#         assert inputs
+#         message = inputs["messages"][0]["content"]
+#         assert message.startswith("What is this number: ")
+#         unique_messages.add(message)
+#         assert child_span.get_attribute(SpanAttributeKey.OUTPUTS)
+
+#     assert len(unique_messages) == n

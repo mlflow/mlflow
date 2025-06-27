@@ -71,7 +71,7 @@ def setup_semantic_kernel_tracing():
 
     if isinstance(get_tracer_provider(), (NoOpTracerProvider, ProxyTracerProvider)):
         _logger.info(
-            "An otel tracer was not found. Falling back to the default MLflow tracer provider."
+            "An otel tracer was not found so we will use the default MLflow tracer provider."
         )
         setup_mlflow_tracing_provider()
 
@@ -87,6 +87,10 @@ def setup_semantic_kernel_tracing():
             "The semantic kernel tracer is already initialized. Using the existing tracer provider."
         )
         get_tracer_provider().add_span_processor(SemanticKernelSpanProcessor())
+
+    sk_span_processor = next(x for x in get_tracer_provider()._active_span_processor._span_processors if isinstance(x, SemanticKernelSpanProcessor))
+    print(f"setup_semantic_kernel_tracing tracer provider memory id: {id(get_tracer_provider())}")
+    print(f"setup_semantic_kernel_tracing span processor memory id: {id(sk_span_processor)}")
 
 
 class DummySpanExporter:
@@ -104,6 +108,8 @@ class SemanticKernelSpanProcessor(SimpleSpanProcessor):
         self.span_exporter = DummySpanExporter()
 
     def on_start(self, span: OTelSpan, parent_context: Optional[Context] = None):
+        print(f"[on_start] {span.name}")
+
         otel_span_id = span.get_span_context().span_id
         parent_span_id = span.parent.span_id if span.parent else None
 
@@ -117,8 +123,11 @@ class SemanticKernelSpanProcessor(SimpleSpanProcessor):
         )
         token = set_span_in_context(mlflow_span)
         self._otel_span_id_to_mlflow_span_and_token[otel_span_id] = (mlflow_span, token)
+        print("[on_start] complete")
+        print(self._otel_span_id_to_mlflow_span_and_token)
 
     def on_end(self, span: OTelReadableSpan) -> None:
+        print(f"[on_end] {span.name}")
         st = self._otel_span_id_to_mlflow_span_and_token.pop(span.get_span_context().span_id, None)
         if st is None:
             _logger.debug("Span not found in the map. Skipping end.")
@@ -142,36 +151,38 @@ class SemanticKernelSpanProcessor(SimpleSpanProcessor):
 
 def _get_live_span_from_otel_span_id(otel_span_id: str) -> LiveSpan:
     tracer_provider = get_tracer_provider()
+    print(f"tracer_provider memory id: {id(tracer_provider)}")
     span_processors = tracer_provider._active_span_processor._span_processors
 
     otel_to_live_span_map = {}
     for span_processor in span_processors:
         if isinstance(span_processor, SemanticKernelSpanProcessor):
+            print(f"_get_live_span_from_otel_span_id span processor memory id: {id(span_processor)}")
             otel_to_live_span_map = span_processor._otel_span_id_to_mlflow_span_and_token
-            break
 
-    if not otel_to_live_span_map:
-        _logger.warning(
-            "No SemanticKernelSpanProcessor found. "
-            "Cannot map OTel span ID to MLflow span ID, so we will skip registering "
-            "additional attributes."
-        )
-        return None
+            if span_and_token := otel_to_live_span_map.get(otel_span_id):
+                return span_and_token[0]
+            else:
+                _logger.warning(
+                    f"Live span not found for OTel span ID: {otel_span_id}. "
+                    "Cannot map OTel span ID to MLflow span ID, so we will skip registering "
+                    "additional attributes. "
+                    f"Available OTel span IDs: {list(otel_to_live_span_map.keys())}"
 
-    if span_and_token := otel_to_live_span_map.get(otel_span_id):
-        return span_and_token[0]
-
+                )
+                return None
+            
     _logger.warning(
-        f"Live span not found for OTel span ID: {otel_span_id}. "
+        "No SemanticKernelSpanProcessor found. "
         "Cannot map OTel span ID to MLflow span ID, so we will skip registering "
         "additional attributes."
     )
+
     return None
 
 
 def _get_span_type(span: OTelSpan) -> str:
     span_type = None
-    # TODO
 
     if hasattr(span, "attributes") and (
         operation := span.attributes.get(model_gen_ai_attributes.OPERATION)
@@ -200,6 +211,8 @@ def _set_token_usage(mlflow_span: LiveSpan, sk_attributes: dict[str, Any]) -> No
 
 
 def _semantic_kernel_chat_completion_input_wrapper(original, *args, **kwargs) -> None:
+    print(f"[wrapper] {get_current_span().get_span_context().span_id}")
+
     # NB: Semantic Kernel logs chat completions, so we need to extract it and add it to the span.
     try:
         prompt = args[1] if len(args) > 1 else kwargs.get("prompt")
@@ -230,6 +243,7 @@ def _semantic_kernel_chat_completion_input_wrapper(original, *args, **kwargs) ->
 
 
 def _semantic_kernel_chat_completion_response_wrapper(original, *args, **kwargs) -> None:
+    print("completionwrappercall")
     # NB: Semantic Kernel logs chat completions, so we need to extract it and add it to the span.
     try:
         current_span = (args[0] if args else kwargs.get("current_span")) or get_current_span()
