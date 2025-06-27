@@ -92,9 +92,6 @@ class LogModelArtifactPath(Rule):
         if second == "spark":
             return False
 
-        if index is None:
-            return False
-
         function_name = f"{first}.{second}.log_model"
         artifact_path_idx = LogModelArtifactPath._find_artifact_path_index(index, function_name)
         if artifact_path_idx is None:
