@@ -1,4 +1,5 @@
 import logging
+import warnings
 from typing import Optional, Sequence
 
 from opentelemetry.sdk.trace import ReadableSpan
@@ -22,7 +23,7 @@ from mlflow.tracing.export.utils import try_link_prompts_to_trace
 from mlflow.tracing.fluent import _EVAL_REQUEST_ID_TO_TRACE_ID, _set_last_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import add_size_bytes_to_trace_metadata, maybe_get_request_id
-from mlflow.utils.databricks_utils import is_in_databricks_notebook
+from mlflow.utils.databricks_utils import is_in_databricks_notebook, get_databricks_host_creds
 from mlflow.tracing.export.databricks_delta import DatabricksDeltaExporter
 
 _logger = logging.getLogger(__name__)
@@ -160,23 +161,95 @@ class MlflowV3SpanExporter(SpanExporter):
         if not MLFLOW_TRACING_ENABLE_DELTA_ARCHIVAL.get():
             return False
         
-        # Check if all required environment variables are set
-        required_vars = [
-            MLFLOW_TRACING_DELTA_ARCHIVAL_SPANS_TABLE,
-            MLFLOW_TRACING_DELTA_ARCHIVAL_TOKEN,
-            MLFLOW_TRACING_DELTA_ARCHIVAL_INGESTION_URL,
-            MLFLOW_TRACING_DELTA_ARCHIVAL_WORKSPACE_URL,
-        ]
+        # Check if spans table is configured
+        if not MLFLOW_TRACING_DELTA_ARCHIVAL_SPANS_TABLE.get():
+            _logger.warning(
+                f"Delta archival is enabled but {MLFLOW_TRACING_DELTA_ARCHIVAL_SPANS_TABLE.name} is not set. "
+                "Disabling delta archival."
+            )
+            return False
         
-        for var in required_vars:
-            if not var.get():
-                _logger.warning(
-                    f"Delta archival is enabled but {var.name} is not set. "
-                    "Disabling delta archival."
-                )
-                return False
+        # Ingestion URL is always required regardless of auth method
+        if not MLFLOW_TRACING_DELTA_ARCHIVAL_INGESTION_URL.get():
+            _logger.warning(
+                f"Delta archival is enabled but {MLFLOW_TRACING_DELTA_ARCHIVAL_INGESTION_URL.name} is not set. "
+                "Disabling delta archival."
+            )
+            return False
+        
+        # Priority 1: Direct token override - if token is explicitly set, use it
+        if MLFLOW_TRACING_DELTA_ARCHIVAL_TOKEN.get():
+            _logger.debug("Using direct token override for delta archival")
+            return True
+        
+        # Priority 2: Try standard Databricks authentication
+        try:
+            get_databricks_host_creds("databricks")
+            return True
+        except Exception as e:
+            _logger.debug(f"Standard Databricks authentication failed: {e}")
+        
+        # Priority 3: Final fallback to legacy custom environment variables
+        # Only workspace URL is needed since token and ingestion URL are already checked above
+        if not MLFLOW_TRACING_DELTA_ARCHIVAL_WORKSPACE_URL.get():
+            _logger.warning(
+                "Delta archival is enabled but no valid authentication method found. "
+                f"Missing: {MLFLOW_TRACING_DELTA_ARCHIVAL_WORKSPACE_URL.name}. "
+                "Disabling delta archival."
+            )
+            return False
         
         return True
+
+    def _resolve_token(self) -> Optional[str]:
+        """
+        Resolve authentication token using priority order:
+        1. Direct token override
+        2. Standard Databricks authentication
+        3. Return None if no token available
+        """
+        # Priority 1: Direct token override
+        if MLFLOW_TRACING_DELTA_ARCHIVAL_TOKEN.get():
+            _logger.debug("Using direct token override")
+            return MLFLOW_TRACING_DELTA_ARCHIVAL_TOKEN.get()
+        
+        # Priority 2: Standard Databricks authentication
+        try:
+            host_creds = get_databricks_host_creds("databricks")
+            if host_creds and host_creds.token:
+                _logger.debug("Using token from standard Databricks authentication")
+                return host_creds.token
+        except Exception as e:
+            _logger.debug(f"Standard Databricks authentication failed: {e}")
+        
+        # No valid token found
+        _logger.debug("No valid authentication token found")
+        return None
+
+    def _resolve_workspace_url(self) -> Optional[str]:
+        """
+        Resolve workspace URL using priority order:
+        1. From custom environment variable (takes priority)
+        2. From standard Databricks authentication (host)
+        3. Return None if no URL available
+        """
+        # Priority 1: Custom environment variable takes priority
+        workspace_url = MLFLOW_TRACING_DELTA_ARCHIVAL_WORKSPACE_URL.get()
+        if workspace_url:
+            _logger.debug("Using workspace URL from custom environment variable")
+            return workspace_url
+        
+        # Priority 2: Fallback to standard Databricks authentication
+        try:
+            host_creds_url = get_databricks_host_creds("databricks").host
+            _logger.debug("Using workspace URL from standard Databricks authentication")
+            return host_creds_url
+        except Exception as e:
+            _logger.debug(f"Could not get workspace URL from standard auth: {e}")
+        
+        # No valid workspace URL found
+        _logger.debug("No valid workspace URL found")
+        return None
 
     def _get_delta_exporter(self) -> Optional[DatabricksDeltaExporter]:
         """
@@ -188,15 +261,31 @@ class MlflowV3SpanExporter(SpanExporter):
         if not self._should_enable_delta_archival():
             return None
 
-        try:            
+        try:
+            spans_table_name = MLFLOW_TRACING_DELTA_ARCHIVAL_SPANS_TABLE.get()
+            # Ingestion URL always comes from environment variable
+            ingest_url = MLFLOW_TRACING_DELTA_ARCHIVAL_INGESTION_URL.get()
+            
+            # 1. Resolve token
+            token = self._resolve_token()
+            if not token:
+                _logger.warning("Failed to resolve authentication token for Databricks Delta archival")
+                return None
+            
+            # 2. Resolve workspace URL  
+            workspace_url = self._resolve_workspace_url()
+            if not workspace_url:
+                _logger.warning("Failed to resolve workspace URL for Databricks Delta archival")
+                return None
+            
             delta_exporter = DatabricksDeltaExporter(
-                spans_table_name=MLFLOW_TRACING_DELTA_ARCHIVAL_SPANS_TABLE.get(),
-                ingest_url=MLFLOW_TRACING_DELTA_ARCHIVAL_INGESTION_URL.get(),
-                workspace_url=MLFLOW_TRACING_DELTA_ARCHIVAL_WORKSPACE_URL.get(),
-                token=MLFLOW_TRACING_DELTA_ARCHIVAL_TOKEN.get(),
+                spans_table_name=spans_table_name,
+                ingest_url=ingest_url,
+                workspace_url=workspace_url,
+                token=token,
             )
-            _logger.debug("Databricks Delta archival initialized successfully")
             return delta_exporter
+            
         except Exception as e:
             _logger.warning(
                 f"Failed to initialize Databricks Delta exporter: {e}. "
