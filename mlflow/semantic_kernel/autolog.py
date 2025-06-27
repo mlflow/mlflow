@@ -44,35 +44,49 @@ from mlflow.tracing.provider import detach_span_from_context, set_span_in_contex
 _logger = logging.getLogger(__name__)
 
 
-def _set_token_usage(mlflow_span: LiveSpan, sk_attributes: dict[str, Any]) -> None:
-    if value := sk_attributes.get(model_gen_ai_attributes.INPUT_TOKENS):
-        mlflow_span.set_attribute(TokenUsageKey.INPUT_TOKENS, value)
-    if value := sk_attributes.get(model_gen_ai_attributes.OUTPUT_TOKENS):
-        mlflow_span.set_attribute(TokenUsageKey.OUTPUT_TOKENS, value)
+def _set_logging_env_variables():
+    # NB: these environment variables are required to enable the telemetry for
+    # genai fields in Semantic Kernel, which are currently marked as experimental.
+    # https://learn.microsoft.com/en-us/semantic-kernel/concepts/enterprise-readiness/observability/telemetry-with-console
+    os.environ["SEMANTICKERNEL_EXPERIMENTAL_GENAI_ENABLE_OTEL_DIAGNOSTICS"] = "true"
+    os.environ["SEMANTICKERNEL_EXPERIMENTAL_GENAI_ENABLE_OTEL_DIAGNOSTICS_SENSITIVE"] = "true"
 
-    if (input_tokens := sk_attributes.get(model_gen_ai_attributes.INPUT_TOKENS)) and (
-        output_tokens := sk_attributes.get(model_gen_ai_attributes.OUTPUT_TOKENS)
-    ):
-        mlflow_span.set_attribute(TokenUsageKey.TOTAL_TOKENS, input_tokens + output_tokens)
+    # Reset the diagnostics module which is initialized at import time
+    from semantic_kernel.utils.telemetry.model_diagnostics.decorators import (
+        MODEL_DIAGNOSTICS_SETTINGS,
+    )
+
+    MODEL_DIAGNOSTICS_SETTINGS.enable_otel_diagnostics = (
+        os.getenv("SEMANTICKERNEL_EXPERIMENTAL_GENAI_ENABLE_OTEL_DIAGNOSTICS", "").lower() == "true"
+    )
+
+    MODEL_DIAGNOSTICS_SETTINGS.enable_otel_diagnostics_sensitive = (
+        os.getenv("SEMANTICKERNEL_EXPERIMENTAL_GENAI_ENABLE_OTEL_DIAGNOSTICS_SENSITIVE", "").lower()
+        == "true"
+    )
 
 
-def _get_span_type(span: OTelSpan) -> str:
-    span_type = None
-    # TODO
+def setup_semantic_kernel_tracing():
+    _set_logging_env_variables()
 
-    # Parse gen_ai.operation.name
-    if hasattr(span, "attributes") and (
-        operation := span.attributes.get(model_gen_ai_attributes.OPERATION)
-    ):
-        span_map = {
-            CHAT_COMPLETION_OPERATION: SpanType.CHAT_MODEL,
-            CHAT_STREAMING_COMPLETION_OPERATION: SpanType.CHAT_MODEL,
-            TEXT_COMPLETION_OPERATION: SpanType.LLM,
-            TEXT_STREAMING_COMPLETION_OPERATION: SpanType.LLM,
-        }
-        span_type = span_map.get(operation)
+    if isinstance(get_tracer_provider(), (NoOpTracerProvider, ProxyTracerProvider)):
+        _logger.info(
+            "An otel tracer was not found. Falling back to the default MLflow tracer provider."
+        )
+        setup_mlflow_tracing_provider()
 
-    return span_type or SpanType.UNKNOWN
+        from mlflow.tracing.provider import _MLFLOW_TRACER_PROVIDER
+
+        _MLFLOW_TRACER_PROVIDER._active_span_processor._span_processors = (
+            SemanticKernelSpanProcessor(),
+        )
+        set_tracer_provider(_MLFLOW_TRACER_PROVIDER)
+
+    else:
+        _logger.info(
+            "The semantic kernel tracer is already initialized. Using the existing tracer provider."
+        )
+        get_tracer_provider().add_span_processor(SemanticKernelSpanProcessor())
 
 
 class DummySpanExporter:
@@ -98,7 +112,6 @@ class SemanticKernelSpanProcessor(SimpleSpanProcessor):
 
         mlflow_span = start_span_no_context(
             name=span.name,
-            span_type=_get_span_type(span),
             parent_span=parent_span,
             attributes=span.attributes,
         )
@@ -120,33 +133,11 @@ class SemanticKernelSpanProcessor(SimpleSpanProcessor):
         mlflow_span.set_attributes(attributes)
         _set_token_usage(mlflow_span, attributes)
 
+        if mlflow_span.span_type or mlflow_span.span_type == SpanType.UNKNOWN:
+            mlflow_span.set_span_type(_get_span_type(span))
+
         detach_span_from_context(token)
         mlflow_span.end()
-
-
-def setup_semantic_kernel_tracing():
-    _set_logging_env_variables()
-
-    if isinstance(get_tracer_provider(), (NoOpTracerProvider, ProxyTracerProvider)):
-        _logger.info(
-            "An otel tracer was not found. Falling back to the default MLflow tracer provider."
-        )
-        setup_mlflow_tracing_provider()
-
-        from mlflow.tracing.provider import _MLFLOW_TRACER_PROVIDER
-
-        _MLFLOW_TRACER_PROVIDER._active_span_processor._span_processors = (
-            SemanticKernelSpanProcessor(),
-        )
-        set_tracer_provider(_MLFLOW_TRACER_PROVIDER)
-
-    else:
-        _logger.info(
-            "The semantic kernel tracer is already initialized. Using the existing tracer provider."
-        )
-        get_tracer_provider().add_span_processor(SemanticKernelSpanProcessor())
-
-    from mlflow.tracing.provider import _MLFLOW_TRACER_PROVIDER
 
 
 def _get_live_span_from_otel_span_id(otel_span_id: str) -> LiveSpan:
@@ -176,6 +167,36 @@ def _get_live_span_from_otel_span_id(otel_span_id: str) -> LiveSpan:
         "additional attributes."
     )
     return None
+
+
+def _get_span_type(span: OTelSpan) -> str:
+    span_type = None
+    # TODO
+
+    if hasattr(span, "attributes") and (
+        operation := span.attributes.get(model_gen_ai_attributes.OPERATION)
+    ):
+        span_map = {
+            CHAT_COMPLETION_OPERATION: SpanType.CHAT_MODEL,
+            CHAT_STREAMING_COMPLETION_OPERATION: SpanType.CHAT_MODEL,
+            TEXT_COMPLETION_OPERATION: SpanType.LLM,
+            TEXT_STREAMING_COMPLETION_OPERATION: SpanType.LLM,
+        }
+        span_type = span_map.get(operation)
+
+    return span_type or SpanType.UNKNOWN
+
+
+def _set_token_usage(mlflow_span: LiveSpan, sk_attributes: dict[str, Any]) -> None:
+    if value := sk_attributes.get(model_gen_ai_attributes.INPUT_TOKENS):
+        mlflow_span.set_attribute(TokenUsageKey.INPUT_TOKENS, value)
+    if value := sk_attributes.get(model_gen_ai_attributes.OUTPUT_TOKENS):
+        mlflow_span.set_attribute(TokenUsageKey.OUTPUT_TOKENS, value)
+
+    if (input_tokens := sk_attributes.get(model_gen_ai_attributes.INPUT_TOKENS)) and (
+        output_tokens := sk_attributes.get(model_gen_ai_attributes.OUTPUT_TOKENS)
+    ):
+        mlflow_span.set_attribute(TokenUsageKey.TOTAL_TOKENS, input_tokens + output_tokens)
 
 
 def _semantic_kernel_chat_completion_input_wrapper(original, *args, **kwargs) -> None:
@@ -255,25 +276,3 @@ def _semantic_kernel_chat_completion_error_wrapper(original, *args, **kwargs) ->
     mlflow_span.set_status(SpanStatusCode.ERROR)
 
     return original(*args, **kwargs)
-
-
-def _set_logging_env_variables():
-    # NB: these environment variables are required to enable the telemetry for
-    # genai fields in Semantic Kernel, which are currently marked as experimental.
-    # https://learn.microsoft.com/en-us/semantic-kernel/concepts/enterprise-readiness/observability/telemetry-with-console
-    os.environ["SEMANTICKERNEL_EXPERIMENTAL_GENAI_ENABLE_OTEL_DIAGNOSTICS"] = "true"
-    os.environ["SEMANTICKERNEL_EXPERIMENTAL_GENAI_ENABLE_OTEL_DIAGNOSTICS_SENSITIVE"] = "true"
-
-    # Reset the diagnostics module which is initialized at import time
-    from semantic_kernel.utils.telemetry.model_diagnostics.decorators import (
-        MODEL_DIAGNOSTICS_SETTINGS,
-    )
-
-    MODEL_DIAGNOSTICS_SETTINGS.enable_otel_diagnostics = (
-        os.getenv("SEMANTICKERNEL_EXPERIMENTAL_GENAI_ENABLE_OTEL_DIAGNOSTICS", "").lower() == "true"
-    )
-
-    MODEL_DIAGNOSTICS_SETTINGS.enable_otel_diagnostics_sensitive = (
-        os.getenv("SEMANTICKERNEL_EXPERIMENTAL_GENAI_ENABLE_OTEL_DIAGNOSTICS_SENSITIVE", "").lower()
-        == "true"
-    )

@@ -32,12 +32,6 @@ def mock_openai():
         yield base_url
 
 
-@pytest.fixture(autouse=True)
-def reset_autolog(reset_autolog_state):
-    # Apply the reset_autolog_state fixture to all tests for LangChain
-    return
-
-
 @pytest.fixture
 def dummy_otel_span_processor():
     """A dummy OpenTelemetry span processor that does nothing."""
