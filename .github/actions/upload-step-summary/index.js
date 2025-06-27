@@ -4,7 +4,6 @@ module.exports = async ({ context, core }) => {
   const os = require("os");
   try {
     const summaryPath = process.env.GITHUB_STEP_SUMMARY;
-
     if (!summaryPath) {
       core.error("GITHUB_STEP_SUMMARY environment variable is not set");
       core.setOutput("exists", "false");
@@ -16,14 +15,11 @@ module.exports = async ({ context, core }) => {
     const outputFileName = `job-summary-${runId}-${runAttempt}.md`;
     const outputFilePath = path.join(os.tmpdir(), outputFileName);
     const summaryContents = [];
-
     const summaryDir = path.dirname(summaryPath);
     const files = fs.readdirSync(summaryDir);
-
-    core.info(`Summary directory: ${summaryDir}`);
-    core.info(`All files in summary directory: ${files.join(", ")}`);
-
-    const summaryFiles = files.filter((file) => file.startsWith("step_summary_")).sort();
+    const summaryFiles = files
+      .filter((file) => file.startsWith("step_summary_") && file.endsWith("-scrubbed"))
+      .sort();
     core.info(`Summary files found: ${summaryFiles.join(", ")}`);
 
     for (const file of summaryFiles) {
