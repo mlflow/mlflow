@@ -59,7 +59,7 @@ from mlflow.models.evaluation.default_evaluator import (
     _get_aggregate_metrics_values,
 )
 from mlflow.models.evaluation.evaluators.classifier import (
-    _extract_predict_fn_and_prodict_proba_fn,
+    _extract_predict_fn_and_predict_proba_fn,
     _gen_classifier_curve,
     _get_binary_classifier_metrics,
     _get_binary_sum_up_label_pred_prob,
@@ -248,7 +248,7 @@ def test_multi_classifier_evaluation(
 
     model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
 
-    predict_fn, predict_proba_fn = _extract_predict_fn_and_prodict_proba_fn(model)
+    predict_fn, predict_proba_fn = _extract_predict_fn_and_predict_proba_fn(model)
     y = iris_dataset.labels_data
     y_pred = predict_fn(iris_dataset.features_data)
     y_probs = predict_proba_fn(iris_dataset.features_data)
@@ -307,7 +307,7 @@ def test_multi_classifier_evaluation_disable_logging_metrics_and_artifacts(
 
     model = mlflow.pyfunc.load_model(multiclass_logistic_regressor_model_uri)
 
-    predict_fn, predict_proba_fn = _extract_predict_fn_and_prodict_proba_fn(model)
+    predict_fn, predict_proba_fn = _extract_predict_fn_and_predict_proba_fn(model)
     y = iris_dataset.labels_data
     y_pred = predict_fn(iris_dataset.features_data)
     y_probs = predict_proba_fn(iris_dataset.features_data)
@@ -341,7 +341,7 @@ def test_bin_classifier_evaluation(
 
     model = mlflow.pyfunc.load_model(binary_logistic_regressor_model_uri)
 
-    predict_fn, predict_proba_fn = _extract_predict_fn_and_prodict_proba_fn(model)
+    predict_fn, predict_proba_fn = _extract_predict_fn_and_predict_proba_fn(model)
     y = breast_cancer_dataset.labels_data
     y_pred = predict_fn(breast_cancer_dataset.features_data)
     y_probs = predict_proba_fn(breast_cancer_dataset.features_data)
@@ -404,7 +404,7 @@ def test_bin_classifier_evaluation_disable_logging_metrics_and_artifacts(
     model = mlflow.pyfunc.load_model(binary_logistic_regressor_model_uri)
 
     _, raw_model = _extract_raw_model(model)
-    predict_fn, predict_proba_fn = _extract_predict_fn_and_prodict_proba_fn(model)
+    predict_fn, predict_proba_fn = _extract_predict_fn_and_predict_proba_fn(model)
     y = breast_cancer_dataset.labels_data
     y_pred = predict_fn(breast_cancer_dataset.features_data)
     y_probs = predict_proba_fn(breast_cancer_dataset.features_data)
@@ -523,7 +523,7 @@ def test_svm_classifier_evaluation(svm_model_uri, breast_cancer_dataset):
 
     model = mlflow.pyfunc.load_model(svm_model_uri)
 
-    predict_fn, _ = _extract_predict_fn_and_prodict_proba_fn(model)
+    predict_fn, _ = _extract_predict_fn_and_predict_proba_fn(model)
     y = breast_cancer_dataset.labels_data
     y_pred = predict_fn(breast_cancer_dataset.features_data)
 
@@ -605,7 +605,7 @@ def test_svm_classifier_evaluation_disable_logging_metrics_and_artifacts(
     model = mlflow.pyfunc.load_model(svm_model_uri)
 
     _, raw_model = _extract_raw_model(model)
-    predict_fn, _ = _extract_predict_fn_and_prodict_proba_fn(model)
+    predict_fn, _ = _extract_predict_fn_and_predict_proba_fn(model)
     y = breast_cancer_dataset.labels_data
     y_pred = predict_fn(breast_cancer_dataset.features_data)
 
@@ -708,7 +708,7 @@ def test_extract_raw_model_and_predict_fn(
     model = mlflow.pyfunc.load_model(binary_logistic_regressor_model_uri)
 
     model_loader_module, raw_model = _extract_raw_model(model)
-    predict_fn, predict_proba_fn = _extract_predict_fn_and_prodict_proba_fn(model)
+    predict_fn, predict_proba_fn = _extract_predict_fn_and_predict_proba_fn(model)
 
     assert model_loader_module == "mlflow.sklearn"
     assert isinstance(raw_model, LogisticRegression)
@@ -3320,7 +3320,7 @@ def test_evaluate_with_correctness():
         grading_prompt=(
             "Correctness: If the answer correctly answer the question, below "
             "are the details for different scores: "
-            "- Score 0: the answer is completely incorrect, doesn’t mention anything about "
+            "- Score 0: the answer is completely incorrect, doesn't mention anything about "
             "the question or is completely contrary to the correct answer. "
             "- Score 1: the answer provides some relevance to the question and answer "
             "one aspect of the question correctly. "
