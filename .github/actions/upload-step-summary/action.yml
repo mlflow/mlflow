@@ -1,0 +1,26 @@
+name: "upload-step-summary"
+description: "Upload GITHUB_STEP_SUMMARY file as a markdown artifact"
+inputs:
+  artifact-name:
+    description: "Name of the artifact to upload"
+    required: false
+    default: "github-step-summary"
+runs:
+  using: "composite"
+  steps:
+    - name: Process GITHUB_STEP_SUMMARY
+      id: process-summary
+      uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+      with:
+        script: |
+          const script = require('.github/actions/upload-step-summary/index.js');
+          await script({context, core});
+
+    - name: Upload summary as artifact
+      if: steps.process-summary.outputs.exists == 'true'
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: ${{ steps.process-summary.outputs.markdown_path }}
+        retention-days: 2
+        if-no-files-found: warn
