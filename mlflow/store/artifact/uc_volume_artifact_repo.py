@@ -1,3 +1,5 @@
+from typing import Optional
+
 import mlflow.utils.databricks_utils
 from mlflow.environment_variables import MLFLOW_ENABLE_UC_VOLUME_FUSE_ARTIFACT_REPO
 from mlflow.exceptions import MlflowException
@@ -18,7 +20,7 @@ class UCVolumesArtifactRepository(DatabricksSdkArtifactRepository):
     Stores artifacts on UC Volumes using the Files REST API.
     """
 
-    def __init__(self, artifact_uri: str) -> None:
+    def __init__(self, artifact_uri: str, tracking_uri: Optional[str] = None) -> None:
         if not is_valid_uc_volumes_uri(artifact_uri):
             raise MlflowException(
                 message=(
@@ -28,10 +30,10 @@ class UCVolumesArtifactRepository(DatabricksSdkArtifactRepository):
                 error_code=INVALID_PARAMETER_VALUE,
             )
         uri = remove_databricks_profile_info_from_artifact_uri(artifact_uri)
-        super().__init__("/" + strip_scheme(uri).strip("/"))
+        super().__init__("/" + strip_scheme(uri).strip("/"), tracking_uri)
 
 
-def uc_volume_artifact_repo_factory(artifact_uri):
+def uc_volume_artifact_repo_factory(artifact_uri: str, tracking_uri: Optional[str] = None):
     """
     Returns an ArtifactRepository subclass for storing artifacts on Volumes.
 
@@ -40,6 +42,7 @@ def uc_volume_artifact_repo_factory(artifact_uri):
 
     Args:
         artifact_uri: Volume root artifact URI.
+        tracking_uri: The tracking URI.
 
     Returns:
         Subclass of ArtifactRepository capable of storing artifacts on DBFS.
@@ -69,5 +72,5 @@ def uc_volume_artifact_repo_factory(artifact_uri):
         # the current workspace's Volumes should still work; it just may be slower.
         uri_without_profile = remove_databricks_profile_info_from_artifact_uri(artifact_uri)
         path = strip_scheme(uri_without_profile).lstrip("/")
-        return LocalArtifactRepository(f"file:///{path}")
-    return UCVolumesArtifactRepository(artifact_uri)
+        return LocalArtifactRepository(f"file:///{path}", tracking_uri)
+    return UCVolumesArtifactRepository(artifact_uri, tracking_uri)

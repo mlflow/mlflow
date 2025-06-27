@@ -143,16 +143,16 @@ class TracingClient:
         experiment_id: str,
         max_timestamp_millis: Optional[int] = None,
         max_traces: Optional[int] = None,
-        request_ids: Optional[list[str]] = None,
+        trace_ids: Optional[list[str]] = None,
     ) -> int:
         return self.store.delete_traces(
             experiment_id=experiment_id,
             max_timestamp_millis=max_timestamp_millis,
             max_traces=max_traces,
-            request_ids=request_ids,
+            trace_ids=trace_ids,
         )
 
-    def get_trace_info(self, request_id, should_query_v3: bool = False) -> TraceInfoV2:
+    def get_trace_info(self, request_id, should_query_v3: bool = False) -> TraceInfo:
         """
         Get the trace info matching the ``request_id``.
 
@@ -164,7 +164,11 @@ class TracingClient:
         Returns:
             TraceInfo object, of type ``mlflow.entities.trace_info.TraceInfo``.
         """
-        return self.store.get_trace_info(request_id, should_query_v3=should_query_v3)
+        with InMemoryTraceManager.get_instance().get_trace(request_id) as trace:
+            if trace is not None:
+                return trace.info
+
+        return self.store.get_trace_info(request_id)
 
     def get_trace(self, request_id) -> Trace:
         """

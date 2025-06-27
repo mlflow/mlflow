@@ -72,7 +72,7 @@ def extract_function_body(func: Callable[..., Any]) -> tuple[str, int]:
     return extractor.function_body, extractor.indent_unit
 
 
-def recreate_function(source: str, signature: str, func_name: str) -> Optional[Callable]:
+def recreate_function(source: str, signature: str, func_name: str) -> Optional[Callable[..., Any]]:
     """
     Recreate a function from its source code, signature, and name.
 

@@ -109,6 +109,36 @@ const approveWorkflowRuns = async (context, github, head_sha) => {
   }
 };
 
+const checkMaintainerAccess = async (context, github) => {
+  const { owner, repo } = context.repo;
+  const pull_number = context.issue.number;
+  const { runId } = context;
+  const pr = await github.rest.pulls.get({ owner, repo, pull_number });
+
+  if (!pr.data.maintainer_can_modify) {
+    const workflowRunUrl = `https://github.com/${owner}/${repo}/actions/runs/${runId}`;
+
+    await github.rest.issues.createComment({
+      owner,
+      repo,
+      issue_number: pull_number,
+      body: `❌ **Autoformat failed**: The "Allow edits and access to secrets by maintainers" checkbox must be checked for autoformat to work properly.
+
+Please:
+1. Check the "Allow edits and access to secrets by maintainers" checkbox on this pull request
+2. Comment \`/autoformat\` again
+
+This permission is required for the autoformat bot to push changes to your branch.
+
+**Details:** [View workflow run](${workflowRunUrl})`,
+    });
+
+    throw new Error(
+      'The "Allow edits and access to secrets by maintainers" checkbox must be checked for autoformat to work properly.'
+    );
+  }
+};
+
 module.exports = {
   shouldAutoformat,
   getPullInfo,
@@ -116,4 +146,5 @@ module.exports = {
   createStatus,
   updateStatus,
   approveWorkflowRuns,
+  checkMaintainerAccess,
 };

@@ -10,6 +10,7 @@ from openai.types.chat.chat_completion import ChatCompletionMessage, Choice
 
 import mlflow
 from mlflow.entities.span import SpanType
+from mlflow.tracing.constant import SpanAttributeKey
 
 from tests.helper_functions import start_mock_openai_server
 from tests.tracing.helper import get_traces
@@ -117,6 +118,24 @@ def test_tracing_agent(llm_config):
     llm_span_2 = span_name_to_dict["chat_completion_2"]
     assert llm_span_2.parent_id == agent_span_2.span_id
 
+    assert llm_span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        "input_tokens": 9,
+        "output_tokens": 12,
+        "total_tokens": 21,
+    }
+
+    assert llm_span_2.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        "input_tokens": 9,
+        "output_tokens": 12,
+        "total_tokens": 21,
+    }
+
+    assert traces[0].info.token_usage == {
+        "input_tokens": 18,
+        "output_tokens": 24,
+        "total_tokens": 42,
+    }
+
 
 def test_tracing_agent_with_error():
     mlflow.ag2.autolog()
@@ -157,6 +176,12 @@ def test_tracing_agent_multiple_chat_sessions(llm_config):
     # Traces should be created for each chat session
     traces = get_traces()
     assert len(traces) == 3
+
+    assert traces[0].info.token_usage == {
+        "input_tokens": 9,
+        "output_tokens": 12,
+        "total_tokens": 21,
+    }
 
 
 def test_tracing_agent_with_function_calling(llm_config):
@@ -285,6 +310,12 @@ def test_tracing_llm_completion_duration_timezone(llm_config, tokyo_timezone):
     root_span = span_name_to_dict["initiate_chat"]
     assert 0 < llm_span.start_time_ns - root_span.start_time_ns <= 1e9
 
+    assert traces[0].info.token_usage == {
+        "input_tokens": 18,
+        "output_tokens": 24,
+        "total_tokens": 42,
+    }
+
 
 def test_tracing_composite_agent(llm_config):
     # Composite agent can call initiate_chat() or generate_reply() method of its sub-agents.
@@ -318,6 +349,12 @@ def test_tracing_composite_agent(llm_config):
         "chat_completion_1",
         "agent_2",
         "chat_completion_2",
+    }
+
+    assert traces[0].info.token_usage == {
+        "input_tokens": 18,
+        "output_tokens": 24,
+        "total_tokens": 42,
     }
 
 

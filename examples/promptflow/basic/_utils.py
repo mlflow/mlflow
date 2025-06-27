@@ -1,5 +1,5 @@
 import re
-from typing import Optional
+from typing import Any, Optional
 
 
 def try_parse_name_and_content(role_prompt):
@@ -56,7 +56,9 @@ def validate_role(role: str, valid_roles: Optional[list[str]] = None):
         raise ValueError(error_message)
 
 
-def parse_chat(chat_str, images: Optional[list] = None, valid_roles: Optional[list[str]] = None):
+def parse_chat(
+    chat_str, images: Optional[list[Any]] = None, valid_roles: Optional[list[str]] = None
+):
     if not valid_roles:
         valid_roles = ["system", "user", "assistant", "function"]
 

@@ -295,7 +295,7 @@ def evaluate(
 
 
 @experimental(version="3.0.0")
-def to_predict_fn(endpoint_uri: str) -> Callable:
+def to_predict_fn(endpoint_uri: str) -> Callable[..., Any]:
     """
     Convert an endpoint URI to a predict function.
 

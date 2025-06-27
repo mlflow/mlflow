@@ -14,7 +14,7 @@ from pydantic import BaseModel
 
 import mlflow.mistral
 from mlflow.entities.span import SpanType
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 
 from tests.tracing.helper import get_traces
 
@@ -184,6 +184,12 @@ def test_chat_complete_autolog(mock_complete):
         },
     ]
 
+    assert traces[0].info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 10,
+        TokenUsageKey.OUTPUT_TOKENS: 18,
+        TokenUsageKey.TOTAL_TOKENS: 28,
+    }
+
     mlflow.mistral.autolog(disable=True)
     client = mistralai.Mistral(api_key="test_key")
     client.chat.complete(**DUMMY_CHAT_COMPLETION_REQUEST)
@@ -294,3 +300,9 @@ def test_chat_complete_autolog_tool_calling(mock_complete):
             },
         },
     ]
+
+    assert traces[0].info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 11,
+        TokenUsageKey.OUTPUT_TOKENS: 19,
+        TokenUsageKey.TOTAL_TOKENS: 30,
+    }

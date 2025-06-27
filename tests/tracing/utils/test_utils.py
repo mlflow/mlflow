@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 import pytest
 from pydantic import ValidationError
 
@@ -14,6 +16,7 @@ from mlflow.tracing.constant import (
 )
 from mlflow.tracing.utils import (
     aggregate_usage_from_spans,
+    capture_function_input_args,
     construct_full_inputs,
     deduplicate_span_names_in_place,
     encode_span_id,
@@ -21,6 +24,15 @@ from mlflow.tracing.utils import (
 )
 
 from tests.tracing.helper import create_mock_otel_span
+
+
+def test_capture_function_input_args_does_not_raise():
+    # Exception during inspecting inputs: trace should be logged without inputs field
+    with patch("inspect.signature", side_effect=ValueError("Some error")) as mock_input_args:
+        args = capture_function_input_args(lambda: None, (), {})
+
+    assert args is None
+    assert mock_input_args.call_count > 0
 
 
 def test_deduplicate_span_names():

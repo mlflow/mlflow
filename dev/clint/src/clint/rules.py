@@ -215,19 +215,6 @@ class UseSysExecutable(Rule):
         return False
 
 
-def _is_abstract_method(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
-    return any(
-        (isinstance(d, ast.Name) and d.id == "abstractmethod")
-        or (
-            isinstance(d, ast.Attribute)
-            and isinstance(d.value, ast.Name)
-            and d.value.id == "abc"
-            and d.attr == "abstractmethod"
-        )
-        for d in node.decorator_list
-    )
-
-
 class InvalidAbstractMethod(Rule):
     def _message(self) -> str:
         return (
@@ -236,27 +223,42 @@ class InvalidAbstractMethod(Rule):
         )
 
     @staticmethod
-    def check(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
-        return _is_abstract_method(node) and (
-            # Does this abstract method have multiple statements/expressions?
-            len(node.body) > 1
-            # This abstract method has a single statement/expression.
-            # Check if it's `pass`, `...`, or a docstring. If not, it's invalid.
-            or not (
-                # pass
-                isinstance(node.body[0], ast.Pass)
-                or (
-                    isinstance(node.body[0], ast.Expr)
-                    and isinstance(node.body[0].value, ast.Constant)
-                    and (
-                        # `...`
-                        node.body[0].value.value is ...
-                        # docstring
-                        or isinstance(node.body[0].value.value, str)
-                    )
-                )
-            )
+    def _is_abstract_method(
+        node: ast.FunctionDef | ast.AsyncFunctionDef, resolver: Resolver
+    ) -> bool:
+        return any(
+            (resolved := resolver.resolve(d)) and resolved == ["abc", "abstractmethod"]
+            for d in node.decorator_list
         )
+
+    @staticmethod
+    def _has_invalid_body(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+        # Does this abstract method have multiple statements/expressions?
+        if len(node.body) > 1:
+            return True
+
+        # This abstract method has a single statement/expression.
+        # Check if it's `pass`, `...`, or a docstring. If not, it's invalid.
+        stmt = node.body[0]
+
+        # Check for `pass`
+        if isinstance(stmt, ast.Pass):
+            return False
+
+        # Check for `...` or docstring
+        if isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Constant):
+            value = stmt.value.value
+            # `...` literal or docstring
+            return not (value is ... or isinstance(value, str))
+
+        # Any other statement is invalid
+        return True
+
+    @staticmethod
+    def check(node: ast.FunctionDef | ast.AsyncFunctionDef, resolver: Resolver) -> bool:
+        return InvalidAbstractMethod._is_abstract_method(
+            node, resolver
+        ) and InvalidAbstractMethod._has_invalid_body(node)
 
 
 class IncorrectTypeAnnotation(Rule):
@@ -441,3 +443,70 @@ class InvalidExperimentalDecorator(Rule):
             return True
 
         return False
+
+
+class UnparameterizedGenericType(Rule):
+    def __init__(self, type_hint: str) -> None:
+        self.type_hint = type_hint
+
+    @staticmethod
+    def is_generic_type(node: ast.Name | ast.Attribute, resolver: Resolver) -> bool:
+        if resolved := resolver.resolve(node):
+            return tuple(resolved) in {
+                ("typing", "Callable"),
+                ("typing", "Sequence"),
+            }
+        elif isinstance(node, ast.Name):
+            return node.id in {
+                "dict",
+                "list",
+                "set",
+                "tuple",
+                "frozenset",
+            }
+        return False
+
+    def _message(self) -> str:
+        return (
+            f"Generic type `{self.type_hint}` must be parameterized "
+            "(e.g., `list[str]` rather than `list`)."
+        )
+
+
+class DoNotDisable(Rule):
+    DO_NOT_DISABLE = {"B006"}
+
+    def __init__(self, rules: set[str]) -> None:
+        self.rules = rules
+
+    @classmethod
+    def check(cls, rules: set[str]) -> "DoNotDisable":
+        if s := rules.intersection(DoNotDisable.DO_NOT_DISABLE):
+            return cls(s)
+
+    def _message(self) -> str:
+        return f"DO NOT DISABLE: {self.rules}."
+
+
+class UnknownMlflowFunction(Rule):
+    def __init__(self, function_name: str) -> None:
+        self.function_name = function_name
+
+    def _message(self) -> str:
+        return (
+            f"Unknown MLflow function: `{self.function_name}`. "
+            "This function may not exist or could be misspelled."
+        )
+
+
+class UnknownMlflowArguments(Rule):
+    def __init__(self, function_name: str, unknown_args: set[str]) -> None:
+        self.function_name = function_name
+        self.unknown_args = unknown_args
+
+    def _message(self) -> str:
+        args_str = ", ".join(f"`{arg}`" for arg in sorted(self.unknown_args))
+        return (
+            f"Unknown arguments {args_str} passed to `{self.function_name}`. "
+            "Check the function signature for valid parameter names."
+        )

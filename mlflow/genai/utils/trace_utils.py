@@ -15,7 +15,7 @@ from mlflow.tracking.client import MlflowClient
 _logger = logging.getLogger(__name__)
 
 
-def convert_predict_fn(predict_fn: Callable, sample_input: Any) -> Callable:
+def convert_predict_fn(predict_fn: Callable[..., Any], sample_input: Any) -> Callable[..., Any]:
     """
     Check the predict_fn is callable and add trace decorator if it is not already traced.
     """
@@ -76,7 +76,7 @@ def parse_output_to_str(output: Any) -> str:
     return input_output_utils.response_to_string(output)
 
 
-def extract_retrieval_context_from_trace(trace: Optional[Trace]) -> dict[str, list]:
+def extract_retrieval_context_from_trace(trace: Optional[Trace]) -> dict[str, list[Any]]:
     """
     Extract the retrieval context from the trace.
     Only consider the last retrieval span in the trace if there are multiple retrieval spans.

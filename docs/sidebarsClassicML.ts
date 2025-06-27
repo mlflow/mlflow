@@ -19,11 +19,7 @@ const sidebarsClassicML: SidebarsConfig = {
       label: 'Getting Started 🚀',
       className: 'sidebar-top-level-category',
       items: [
-        {
-          type: 'doc',
-          id: 'getting-started/databricks-trial/index',
-        },
-        {
+         {
           type: 'doc',
           id: 'getting-started/running-notebooks/index',
         },

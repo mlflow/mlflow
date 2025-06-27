@@ -77,11 +77,12 @@ As the number of prompts and their versions grow, establishing governance polici
 Not all prompt versions will be useful indefinitely.
 
 - **Archiving with Aliases**: You can use aliases like `archived_v1` or `deprecated_2023` to signify that a version is no longer in active use but is kept for historical record.
-- **Deleting Specific Prompt Versions**: If a prompt version is deemed unnecessary or problematic and should not be used at all (even by accident), you can delete specific versions using `mlflow.delete_prompt()` through the Python SDK. _Use this with caution, as version deletion is a permanent action and might break lineage if not managed carefully._
+- **Deleting Specific Prompt Versions**: If a prompt version is deemed unnecessary or problematic and should not be used at all (even by accident), you can delete specific versions using `delete_prompt_version()` through the Python SDK. _Use this with caution, as version deletion is a permanent action and might break lineage if not managed carefully._
 
   ```python
   # Delete a prompt
-  mlflow.delete_prompt(name=prompt_name, version=version_to_delete)
+  client = mlflow.MlflowClient()
+  client.delete_prompt_version(name=prompt_name, version=version_to_delete)
   ```
 
   Generally, you cannot delete a prompt version that an alias currently points to. You would need to move or delete the alias first.

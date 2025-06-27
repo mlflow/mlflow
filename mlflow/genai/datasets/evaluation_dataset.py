@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from mlflow.data import Dataset
 from mlflow.data.digest_utils import compute_pandas_digest
@@ -94,7 +94,7 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
 
     def merge_records(
         self,
-        records: Union[list[dict], "pd.DataFrame", "pyspark.sql.DataFrame"],
+        records: Union[list[dict[str, Any]], "pd.DataFrame", "pyspark.sql.DataFrame"],
     ) -> "EvaluationDataset":
         """Merge records into the dataset."""
         dataset = self._dataset.merge_records(records)

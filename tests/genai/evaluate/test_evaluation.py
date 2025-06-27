@@ -1,5 +1,6 @@
 import uuid
 from importlib import import_module
+from typing import Any
 from unittest import mock
 from unittest.mock import patch
 
@@ -226,7 +227,7 @@ def test_evaluate_with_managed_dataset():
             self.records[dataset_id].extend(records)
 
         def upsert_dataset_record_expectations(
-            self, name: str, dataset_id: str, record_id: str, expectations: list[dict]
+            self, name: str, dataset_id: str, record_id: str, expectations: list[dict[str, Any]]
         ):
             for record in self.records[dataset_id]:
                 if record.id == record_id:

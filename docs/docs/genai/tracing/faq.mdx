@@ -265,11 +265,6 @@ mlflow.set_tracking_uri("http://localhost:5000")  # or your server URL
 mlflow.set_experiment("my-tracing-experiment")
 ```
 
-**Tracing disabled**: Check if tracing is enabled:
-```python
-print(mlflow.tracing.is_tracing_enabled())  # Should return True
-```
-
 **Autolog not called**: For supported libraries, ensure autolog is called before usage:
 ```python
 mlflow.openai.autolog()  # Call before using OpenAI

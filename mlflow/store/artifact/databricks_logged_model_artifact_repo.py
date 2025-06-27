@@ -30,8 +30,8 @@ class DatabricksLoggedModelArtifactRepository(ArtifactRepository):
         r"databricks/mlflow-tracking/(?P<experiment_id>[^/]+)/logged_models/(?P<model_id>[^/]+)(?P<relative_path>/.*)?$"
     )
 
-    def __init__(self, artifact_uri: str) -> None:
-        super().__init__(artifact_uri)
+    def __init__(self, artifact_uri: str, tracking_uri: Optional[str] = None) -> None:
+        super().__init__(artifact_uri, tracking_uri)
         m = self._URI_REGEX.search(artifact_uri)
         if not m:
             raise MlflowException.invalid_parameter_value(

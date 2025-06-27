@@ -1,4 +1,5 @@
 import os
+from typing import Any
 
 import pytest
 
@@ -47,7 +48,7 @@ from mlflow.pyfunc.mlserver import MLServerDefaultModelName, MLServerMLflowRunti
         ({}, {"MLSERVER_MODEL_NAME": MLServerDefaultModelName}),
     ],
 )
-def test_get_cmd(params: dict, expected: dict):
+def test_get_cmd(params: dict[str, Any], expected: dict[str, Any]):
     model_uri = "/foo/bar"
     cmd, cmd_env = get_cmd(model_uri=model_uri, **params)
 

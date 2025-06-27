@@ -360,10 +360,10 @@ def test_set_registered_model_tag(store):
         store.set_registered_model_tag(name1, overriding_tag)
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
     # test cannot set tags that are too long
-    long_tag = RegisteredModelTag("longTagKey", "a" * 5001)
+    long_tag = RegisteredModelTag("longTagKey", "a" * 100_001)
     with pytest.raises(
         MlflowException,
-        match=("'value' exceeds the maximum length of 5000 characters"),
+        match=r"'value' exceeds the maximum length of \d+ characters",
     ) as exception_context:
         store.set_registered_model_tag(name2, long_tag)
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -1394,10 +1394,10 @@ def test_set_model_version_tag(store):
         store.set_model_version_tag(name1, 2, overriding_tag)
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
     # test cannot set tags that are too long
-    long_tag = ModelVersionTag("longTagKey", "a" * 5001)
+    long_tag = ModelVersionTag("longTagKey", "a" * 100_001)
     with pytest.raises(
         MlflowException,
-        match="'value' exceeds the maximum length of 5000 characters",
+        match=r"'value' exceeds the maximum length of \d+ characters",
     ) as exception_context:
         store.set_model_version_tag(name1, 1, long_tag)
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)

@@ -62,7 +62,7 @@ def test_plugin_registration():
     )
     assert repository_instance == mock_plugin.return_value
 
-    mock_plugin.assert_called_once_with("mock-scheme://fake-host/fake-path")
+    mock_plugin.assert_called_once_with("mock-scheme://fake-host/fake-path", None)
 
 
 def test_get_unknown_scheme():
@@ -90,7 +90,7 @@ def test_plugin_registration_via_entrypoints():
         == mock_plugin_function.return_value
     )
 
-    mock_plugin_function.assert_called_once_with("mock-scheme://fake-host/fake-path")
+    mock_plugin_function.assert_called_once_with("mock-scheme://fake-host/fake-path", None)
     mock_get_group_all.assert_called_once_with("mlflow.artifact_repository")
 
 

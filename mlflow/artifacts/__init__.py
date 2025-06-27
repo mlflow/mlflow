@@ -6,7 +6,7 @@ import json
 import pathlib
 import posixpath
 import tempfile
-from typing import Optional
+from typing import Any, Optional
 
 from mlflow.entities.file_info import FileInfo
 from mlflow.exceptions import MlflowException
@@ -178,7 +178,7 @@ def load_text(artifact_uri: str) -> str:
                 raise MlflowException("Unable to form a str object from file content", BAD_REQUEST)
 
 
-def load_dict(artifact_uri: str) -> dict:
+def load_dict(artifact_uri: str) -> dict[str, Any]:
     """Loads the artifact contents as a dictionary.
 
     Args:

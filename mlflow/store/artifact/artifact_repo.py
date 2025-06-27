@@ -78,8 +78,9 @@ class ArtifactRepository:
 
     __metaclass__ = ABCMeta
 
-    def __init__(self, artifact_uri):
+    def __init__(self, artifact_uri: str, tracking_uri: Optional[str] = None) -> None:
         self.artifact_uri = artifact_uri
+        self.tracking_uri = tracking_uri
         # Limit the number of threads used for artifact uploads/downloads. Use at most
         # constants._NUM_MAX_THREADS threads or 2 * the number of CPU cores available on the
         # system (whichever is smaller)
@@ -99,7 +100,12 @@ class ArtifactRepository:
         self._async_logging_queue = AsyncArtifactsLoggingQueue(log_artifact_handler)
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(artifact_uri={self.artifact_uri!r})"
+        return (
+            f"{self.__class__.__name__}("
+            f"artifact_uri={self.artifact_uri!r}, "
+            f"tracking_uri={self.tracking_uri!r}"
+            f")"
+        )
 
     def _create_thread_pool(self):
         return ThreadPoolExecutor(

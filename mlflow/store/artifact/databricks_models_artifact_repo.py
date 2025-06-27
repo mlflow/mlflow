@@ -54,13 +54,13 @@ class DatabricksModelsArtifactRepository(ArtifactRepository):
     when the client is pointing to a Databricks-hosted model registry.
     """
 
-    def __init__(self, artifact_uri):
+    def __init__(self, artifact_uri: str, tracking_uri: Optional[str] = None) -> None:
         if not is_using_databricks_registry(artifact_uri):
             raise MlflowException(
                 message="A valid databricks profile is required to instantiate this repository",
                 error_code=INVALID_PARAMETER_VALUE,
             )
-        super().__init__(artifact_uri)
+        super().__init__(artifact_uri, tracking_uri)
         from mlflow.tracking.client import MlflowClient
 
         self.databricks_profile_uri = (

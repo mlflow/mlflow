@@ -91,7 +91,7 @@ def validate_scorers(scorers: list[Any]) -> list[Scorer]:
 def valid_data_for_builtin_scorers(
     data: "pd.DataFrame",
     builtin_scorers: list[BuiltInScorer],
-    predict_fn: Optional[Callable] = None,
+    predict_fn: Optional[Callable[..., Any]] = None,
 ) -> None:
     """
     Validate that the required columns are present in the data for running the builtin scorers.

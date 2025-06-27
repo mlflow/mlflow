@@ -6,7 +6,7 @@ from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from dataclasses import dataclass
 from queue import Empty, Queue
 from queue import Full as queue_Full
-from typing import Callable, Sequence
+from typing import Any, Callable, Sequence
 
 from mlflow.environment_variables import (
     MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE,
@@ -20,8 +20,8 @@ _logger = logging.getLogger(__name__)
 class Task:
     """A dataclass to represent a simple task."""
 
-    handler: Callable
-    args: Sequence
+    handler: Callable[..., Any]
+    args: Sequence[Any]
     error_msg: str = ""
 
     def handle(self) -> None:

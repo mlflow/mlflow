@@ -8,7 +8,7 @@ IS_PYDANTIC_V2_OR_NEWER = Version(pydantic.VERSION).major >= 2
 
 
 def field_validator(field: str, mode: str = "before"):
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         if IS_PYDANTIC_V2_OR_NEWER:
             from pydantic import field_validator as pydantic_field_validator
 
@@ -26,7 +26,7 @@ def model_validator(mode: str, skip_on_failure: bool = False):
     Note that the `skip_on_failure` argument is only available in Pydantic v1.
     """
 
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         if IS_PYDANTIC_V2_OR_NEWER:
             from pydantic import model_validator as pydantic_model_validator
 

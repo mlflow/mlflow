@@ -35,7 +35,7 @@ class SerializedScorer:
 
     # Builtin scorer fields (for scorers from mlflow.genai.scorers.builtin_scorers)
     builtin_scorer_class: Optional[str] = None
-    builtin_scorer_pydantic_data: Optional[dict] = None
+    builtin_scorer_pydantic_data: Optional[dict[str, Any]] = None
 
     # Decorator scorer fields (for @scorer decorated functions)
     call_source: Optional[str] = None
@@ -46,9 +46,9 @@ class SerializedScorer:
 @experimental(version="3.0.0")
 class Scorer(BaseModel):
     name: str
-    aggregations: Optional[list] = None
+    aggregations: Optional[list[str]] = None
 
-    def model_dump(self, **kwargs) -> dict:
+    def model_dump(self, **kwargs) -> dict[str, Any]:
         """Override model_dump to include source code."""
         # Create serialized scorer with core fields
         serialized = SerializedScorer(
@@ -79,7 +79,7 @@ class Scorer(BaseModel):
 
         return asdict(serialized)
 
-    def _extract_source_code_info(self) -> dict:
+    def _extract_source_code_info(self) -> dict[str, Optional[str]]:
         """Extract source code information for the original decorated function."""
         from mlflow.genai.scorers.scorer_utils import extract_function_body
 
@@ -323,7 +323,12 @@ def scorer(
     *,
     name: Optional[str] = None,
     aggregations: Optional[
-        list[Union[Literal["min", "max", "mean", "median", "variance", "p90", "p99"], Callable]]
+        list[
+            Union[
+                Literal["min", "max", "mean", "median", "variance", "p90", "p99"],
+                Callable[[list[Union[int, float]]], Union[int, float]],
+            ]
+        ]
     ] = None,
 ):
     """
@@ -459,7 +464,7 @@ def scorer(
 
     class CustomScorer(Scorer):
         # Store reference to the original function
-        _original_func: Optional[Callable] = PrivateAttr(default=None)
+        _original_func: Optional[Callable[..., Any]] = PrivateAttr(default=None)
 
         def __init__(self, **data):
             super().__init__(**data)

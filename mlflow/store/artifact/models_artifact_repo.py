@@ -2,7 +2,7 @@ import logging
 import os
 import urllib.parse
 from pathlib import Path
-from typing import Union
+from typing import Optional, Union
 
 import mlflow
 from mlflow.exceptions import MlflowException
@@ -42,10 +42,10 @@ class ModelsArtifactRepository(ArtifactRepository):
     and uses the artifact repository for that URI.
     """
 
-    def __init__(self, artifact_uri):
+    def __init__(self, artifact_uri: str, tracking_uri: Optional[str] = None) -> None:
         from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 
-        super().__init__(artifact_uri)
+        super().__init__(artifact_uri, tracking_uri)
         registry_uri = mlflow.get_registry_uri()
         self.is_logged_model_uri = self._is_logged_model_uri(artifact_uri)
         if is_databricks_unity_catalog_uri(uri=registry_uri) and not self.is_logged_model_uri:

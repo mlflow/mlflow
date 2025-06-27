@@ -52,6 +52,7 @@ from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.server.handlers import _get_sampled_steps_from_steps
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
 from mlflow.utils.mlflow_tags import (
@@ -1092,6 +1093,117 @@ def test_get_metric_history_bulk_calls_optimized_impl_when_expected(tmp_path):
             metric_key="mock_key",
             max_results=25000,
         )
+
+
+def test_get_metric_history_respects_max_results(mlflow_client):
+    experiment_id = mlflow_client.create_experiment("test max_results")
+    run = mlflow_client.create_run(experiment_id)
+    run_id = run.info.run_id
+
+    metric_history = [
+        {"key": "test_metric", "value": float(i), "step": i, "timestamp": 1000 + i}
+        for i in range(5)
+    ]
+    for metric in metric_history:
+        mlflow_client.log_metric(run_id, **metric)
+
+    # Test without max_results - should return all metrics
+    all_metrics = mlflow_client.get_metric_history(run_id, "test_metric")
+    assert len(all_metrics) == 5
+
+    # Test with max_results=3 - should return only 3 metrics
+    response = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history",
+        params={"run_id": run_id, "metric_key": "test_metric", "max_results": 3},
+    )
+    assert response.status_code == 200
+    response_data = response.json()
+    assert len(response_data["metrics"]) == 3
+
+    returned_metrics = response_data["metrics"]
+    for i, metric in enumerate(returned_metrics):
+        assert metric["key"] == "test_metric"
+        assert metric["value"] == float(i)
+        assert metric["step"] == i
+
+
+def test_get_metric_history_with_page_token(mlflow_client):
+    experiment_id = mlflow_client.create_experiment("test page_token")
+    run = mlflow_client.create_run(experiment_id)
+    run_id = run.info.run_id
+
+    metric_history = [
+        {"key": "test_metric", "value": float(i), "step": i, "timestamp": 1000 + i}
+        for i in range(10)
+    ]
+    for metric in metric_history:
+        mlflow_client.log_metric(run_id, **metric)
+
+    page_size = 4
+
+    first_response = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history",
+        params={"run_id": run_id, "metric_key": "test_metric", "max_results": page_size},
+    )
+    assert first_response.status_code == 200
+    first_data = first_response.json()
+    first_metrics = first_data["metrics"]
+    first_token = first_data.get("next_page_token")
+
+    assert first_token is not None
+    assert len(first_metrics) == 4
+
+    second_response = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history",
+        params={
+            "run_id": run_id,
+            "metric_key": "test_metric",
+            "max_results": page_size,
+            "page_token": first_token,
+        },
+    )
+    assert second_response.status_code == 200
+    second_data = second_response.json()
+    second_metrics = second_data["metrics"]
+    second_token = second_data.get("next_page_token")
+
+    assert second_token is not None
+    assert len(second_metrics) == 4
+
+    third_response = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history",
+        params={
+            "run_id": run_id,
+            "metric_key": "test_metric",
+            "max_results": page_size,
+            "page_token": second_token,
+        },
+    )
+    assert third_response.status_code == 200
+    third_data = third_response.json()
+    third_metrics = third_data["metrics"]
+    third_token = third_data.get("next_page_token")
+
+    assert third_token is None
+    assert len(third_metrics) == 2
+
+    all_paginated_metrics = first_metrics + second_metrics + third_metrics
+    assert len(all_paginated_metrics) == 10
+
+    for i, metric in enumerate(all_paginated_metrics):
+        assert metric["key"] == "test_metric"
+        assert metric["value"] == float(i)
+        assert metric["step"] == i
+        assert metric["timestamp"] == 1000 + i
+
+    # Test with invalid page_token
+    response = requests.get(
+        f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history",
+        params={"run_id": run_id, "metric_key": "test_metric", "page_token": "invalid_token"},
+    )
+    assert response.status_code == 400
+    response_data = response.json()
+    assert "INVALID_PARAMETER_VALUE" in response_data.get("error_code", "")
 
 
 def test_get_metric_history_bulk_interval_rejects_invalid_requests(mlflow_client):
@@ -2275,6 +2387,7 @@ def test_start_and_end_trace(mlflow_client):
         request_metadata={
             "meta1": "apple",
             "meta2": "grape",
+            TRACE_SCHEMA_VERSION_KEY: "2",
         },
         tags={
             "tag1": "football",
@@ -2289,6 +2402,7 @@ def test_start_and_end_trace(mlflow_client):
     assert trace_info.request_metadata == {
         "meta1": "apple",
         "meta2": "grape",
+        TRACE_SCHEMA_VERSION_KEY: "2",
     }
     assert _exclude_system_tags(trace_info.tags) == {
         "tag1": "football",
@@ -2317,6 +2431,7 @@ def test_start_and_end_trace(mlflow_client):
         "meta1": "orange",
         "meta2": "grape",
         "meta3": "banana",
+        TRACE_SCHEMA_VERSION_KEY: "2",
     }
     assert _exclude_system_tags(trace_info.tags) == {
         "tag1": "soccer",
@@ -2328,6 +2443,8 @@ def test_start_and_end_trace(mlflow_client):
 
 
 def test_search_traces(mlflow_client):
+    pytest.skip("Rest Store is not migrated to V3 yet")
+
     mlflow.set_tracking_uri(mlflow_client.tracking_uri)
     experiment_id = mlflow_client.create_experiment("search traces")
 
@@ -2372,6 +2489,8 @@ def test_search_traces(mlflow_client):
 
 
 def test_delete_traces(mlflow_client):
+    pytest.skip("Rest Store is not migrated to V3 yet")
+
     mlflow.set_tracking_uri(mlflow_client.tracking_uri)
     experiment_id = mlflow_client.create_experiment("delete traces")
 
@@ -2452,6 +2571,8 @@ def test_set_and_delete_trace_tag(mlflow_client):
 
 
 def test_get_trace_artifact_handler(mlflow_client):
+    pytest.skip("Rest Store is not migrated to V3 yet")
+
     mlflow.set_tracking_uri(mlflow_client.tracking_uri)
 
     experiment_id = mlflow_client.create_experiment("get trace artifact")

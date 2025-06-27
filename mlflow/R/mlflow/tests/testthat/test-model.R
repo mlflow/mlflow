@@ -78,7 +78,7 @@ test_that("mlflow can log model and load it back with a uri", {
       list(some = "stuff"),
       class = "test"
     )
-    predictor <- crate(~ mean(as.matrix(.x)), model)
+    predictor <- crate(~ mean(as.matrix(.x)), model = model)
     predicted <- predictor(0:10)
     expect_true(5 == predicted)
     mlflow_log_model(predictor, testthat_model_name)
@@ -109,7 +109,7 @@ test_that("mlflow log model records correct metadata with the tracking server", 
       list(some = "stuff"),
       class = "test"
     )
-    predictor <- crate(~ mean(as.matrix(.x)), model)
+    predictor <- crate(~ mean(as.matrix(.x)), model = model)
     predicted <- predictor(0:10)
     expect_true(5 == predicted)
     mlflow_log_model(predictor, testthat_model_name)

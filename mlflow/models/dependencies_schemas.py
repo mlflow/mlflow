@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from mlflow.utils.annotations import experimental
 
@@ -172,7 +172,7 @@ def _get_dependencies_schemas():
         _clear_dependencies_schemas()
 
 
-def _get_dependencies_schema_from_model(model: "Model") -> Optional[dict]:
+def _get_dependencies_schema_from_model(model: "Model") -> Optional[dict[str, Any]]:
     """
     Get the dependencies schema from the logged model metadata.
 
@@ -273,7 +273,7 @@ class RetrieverSchema(Schema):
 class DependenciesSchemas:
     retriever_schemas: list[RetrieverSchema] = field(default_factory=list)
 
-    def to_dict(self) -> dict[str, dict[DependenciesSchemasType, list[dict]]]:
+    def to_dict(self) -> dict[str, dict[DependenciesSchemasType, list[dict[str, Any]]]]:
         if not self.retriever_schemas:
             return None
 

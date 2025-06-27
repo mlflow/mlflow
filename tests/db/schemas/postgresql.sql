@@ -153,6 +153,9 @@ CREATE TABLE trace_info (
 	timestamp_ms BIGINT NOT NULL,
 	execution_time_ms BIGINT,
 	status VARCHAR(50) NOT NULL,
+	client_request_id VARCHAR(50),
+	request_preview VARCHAR(1000),
+	response_preview VARCHAR(1000),
 	CONSTRAINT trace_info_pk PRIMARY KEY (request_id),
 	CONSTRAINT fk_trace_info_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
 )
@@ -224,7 +227,7 @@ CREATE TABLE metrics (
 
 CREATE TABLE model_version_tags (
 	key VARCHAR(250) NOT NULL,
-	value VARCHAR(5000),
+	value TEXT,
 	name VARCHAR(256) NOT NULL,
 	version INTEGER NOT NULL,
 	CONSTRAINT model_version_tag_pk PRIMARY KEY (key, name, version),
