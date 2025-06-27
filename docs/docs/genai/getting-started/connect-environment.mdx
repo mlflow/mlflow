@@ -210,10 +210,10 @@ An MLflow Experiment is the container for your GenAI application. Learn more abo
     ```python
     import mlflow
 
-    # This should print your experiment information
+    # Test logging to verify connection
     print(f"MLflow Tracking URI: {mlflow.get_tracking_uri()}")
-    print(f"Active Experiment ID: {mlflow.active_experiment().experiment_id}")
-    print(f"Experiment Name: {mlflow.active_experiment().name}")
+    with mlflow.start_run():
+        print("✓ Successfully connected to MLflow!")
     ```
 
   </TabItem>
@@ -246,10 +246,10 @@ An MLflow Experiment is the container for your GenAI application. Learn more abo
     ```python
     import mlflow
 
-    # This should print your experiment information
+    # Test logging to verify connection
     print(f"MLflow Tracking URI: {mlflow.get_tracking_uri()}")
-    print(f"Active Experiment ID: {mlflow.active_experiment().experiment_id}")
-    print(f"Experiment Name: {mlflow.active_experiment().name}")
+    with mlflow.start_run():
+        print("✓ Successfully connected to MLflow!")
     ```
 
   </TabItem>

@@ -242,7 +242,7 @@ def _cleanup_database(store: SqlAlchemyStore):
             session.execute(sqlalchemy.sql.text(reset_experiment_id))
 
 
-def _create_experiments(store: SqlAlchemyStore, names) -> Union[str, list]:
+def _create_experiments(store: SqlAlchemyStore, names) -> Union[str, list[str]]:
     if isinstance(names, (list, tuple)):
         ids = []
         for name in names:

@@ -286,33 +286,22 @@ with mlflow.start_run():
 Use Go backend directly with MLflow stores:
 
 ```python
-import logging
 import mlflow
 import mlflow_go_backend
 
-# Enable debug logging to see Go backend in action
-logging.basicConfig()
-logging.getLogger("mlflow_go_backend").setLevel(logging.DEBUG)
-
-# Enable Go implementation
+# Enable the Go client implementation (disabled by default)
 mlflow_go_backend.enable_go()
 
-# Get high-performance tracking store
-tracking_store = mlflow.tracking._tracking_service.utils._get_store(
-    "postgresql://user:pass@localhost:5432/mlflow"
-)
+# Set the tracking URI (you can also set it via the environment variable MLFLOW_TRACKING_URI)
+# Currently only database URIs are supported
+mlflow.set_tracking_uri("sqlite:///mlflow.db")
 
-# All operations now use Go backend
-experiment = tracking_store.get_experiment(0)
-runs = tracking_store.search_runs([experiment.experiment_id], "")
+# Use MLflow as usual
+mlflow.set_experiment("my-experiment")
 
-# Get high-performance model registry store
-model_registry_store = mlflow.tracking._model_registry.utils._get_store(
-    "postgresql://user:pass@localhost:5432/mlflow"
-)
-
-# Model registry operations also use Go backend
-latest_versions = model_registry_store.get_latest_versions("production_model")
+with mlflow.start_run():
+    mlflow.log_param("param", 1)
+    mlflow.log_metric("metric", 2)
 ```
 
 #### **Performance Benchmarks**

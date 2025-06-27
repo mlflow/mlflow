@@ -3,7 +3,7 @@ import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import Optional
+from typing import Any, Optional
 from unittest import mock
 
 import opentelemetry.trace as trace_api
@@ -190,7 +190,7 @@ def reset_autolog_state():
     AUTOLOGGING_INTEGRATIONS.clear()
 
 
-def score_in_model_serving(model_uri: str, model_input: dict):
+def score_in_model_serving(model_uri: str, model_input: dict[str, Any]):
     """
     A helper function to emulate model prediction inside a Databricks model serving environment.
 

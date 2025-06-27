@@ -287,7 +287,7 @@ def _deploy(
                             "subnet-123456abc",
                         ],
                     }
-                    mfs.deploy(..., vpc_config=vpc_config)
+                    mfs._deploy(..., vpc_config=vpc_config)
 
         flavor: The name of the flavor of the model to use for deployment. Must be either
             ``None`` or one of mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS. If ``None``,
@@ -322,7 +322,7 @@ def _deploy(
                     "DestinationS3Uri": "s3://my-bucket/path",
                     "CaptureOptions": [{"CaptureMode": "Output"}],
                 }
-                mfs.deploy(..., data_capture_config=data_capture_config)
+                mfs._deploy(..., data_capture_config=data_capture_config)
 
         variant_name: The name to assign to the new production variant.
         async_inference_config: The name to assign to the endpoint_config

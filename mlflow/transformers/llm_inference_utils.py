@@ -81,7 +81,7 @@ def infer_signature_from_llm_inference_task(
     return inferred_signature
 
 
-def convert_messages_to_prompt(messages: list[dict], tokenizer) -> str:
+def convert_messages_to_prompt(messages: list[dict[str, Any]], tokenizer) -> str:
     """For the Chat inference task, apply chat template to messages to create prompt.
 
     Args:
@@ -104,7 +104,7 @@ def convert_messages_to_prompt(messages: list[dict], tokenizer) -> str:
 
 
 def preprocess_llm_inference_input(
-    data: Union[pd.DataFrame, dict],
+    data: Union[pd.DataFrame, dict[str, Any]],
     params: Optional[dict[str, Any]] = None,
     flavor_config: Optional[dict[str, Any]] = None,
 ) -> tuple[list[Any], dict[str, Any]]:

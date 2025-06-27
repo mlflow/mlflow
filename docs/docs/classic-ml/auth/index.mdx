@@ -1,3 +1,5 @@
+import Link from "@docusaurus/Link";
+
 # MLflow Authentication
 
 :::note Experimental Feature
@@ -363,10 +365,10 @@ from flask import Flask
 from mlflow.server import app
 
 
-def create_app(app: Flask = app):
+def create_app(my_app: Flask = app):
     # Extend MLflow app with custom auth logic
-    app.add_url_rule(...)
-    return app
+    my_app.add_url_rule(...)
+    return my_app
 
 
 class MyAuthClient:
@@ -472,4 +474,4 @@ To disable authentication, simply restart the server without the `--app-name bas
 
 ---
 
-**Need Help?** Check the [MLflow Authentication API Reference](https://mlflow.org/docs/latest/python_api/mlflow.server.auth.html) for detailed function documentation.
+**Need Help?** Check the <Link to="/api_reference/auth/python-api.html" target="_blank">MLflow Authentication API Reference</Link> for detailed function documentation.
