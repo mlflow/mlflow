@@ -45,15 +45,15 @@ class RunsArtifactRepository(ArtifactRepository):
         from mlflow.tracking.artifact_utils import get_artifact_uri
 
         (run_id, artifact_path) = RunsArtifactRepository.parse_runs_uri(runs_uri)
-        tracking_uri_from_run = get_databricks_profile_uri_from_artifact_uri(runs_uri)
+        databricks_profile_uri = get_databricks_profile_uri_from_artifact_uri(runs_uri)
         uri = get_artifact_uri(
             run_id=run_id,
             artifact_path=artifact_path,
-            tracking_uri=tracking_uri_from_run or tracking_uri,
+            tracking_uri=databricks_profile_uri or tracking_uri,
         )
         assert not RunsArtifactRepository.is_runs_uri(uri)  # avoid an infinite loop
         return add_databricks_profile_info_to_artifact_uri(
-            uri, tracking_uri_from_run or tracking_uri
+            artifact_uri=uri, databricks_profile_uri=databricks_profile_uri or tracking_uri
         )
 
     @staticmethod
