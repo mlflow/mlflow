@@ -22,6 +22,7 @@
     "prettier": "prettier",
     "prettier:fix": "prettier '**/*.{ts,tsx,md,mdx,css}' --write",
     "prettier:check": "prettier '**/*.{ts,tsx,md,mdx,css}' --check",
+    "check-external-links": "tsx scripts/check-external-links.mts",
     "sitemap": "tsx scripts/compare-sitemaps.ts"
   },
   "dependencies": {
@@ -52,6 +53,7 @@
     "@types/estree-jsx": "^1.0.5",
     "eslint": "^9.29.0",
     "eslint-plugin-mdx": "^3.5.0",
+    "markdown-link-check": "^3.13.7",
     "node-fetch": "^3.3.2",
     "prettier": "^3.6.1",
     "remark-cli": "^12.0.1",
