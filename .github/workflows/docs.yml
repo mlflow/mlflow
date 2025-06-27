@@ -28,10 +28,10 @@ jobs:
     permissions:
       contents: read
     timeout-minutes: 30
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     defaults:
       run:
-        shell: ${{ matrix.shell }}
+        shell: bash
         working-directory: docs
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
