@@ -280,6 +280,58 @@ def test_end_to_end_complex_round_trip():
     assert original_result == deserialized_result is True
 
 
+def test_deserialized_scorer_runs_without_global_context():
+    """Test that deserialized scorer can run without access to original global context."""
+
+    # Create a simple scorer that only uses built-in functions and parameters
+    @scorer(name="isolated_test")
+    def simple_scorer(outputs):
+        # Only use built-in functions and the parameter - no external dependencies
+        return len(outputs.split()) > 2
+
+    # Test original works
+    assert simple_scorer(outputs="one two three") is True
+    assert simple_scorer(outputs="one two") is False
+
+    # Serialize the scorer
+    serialized_data = simple_scorer.model_dump()
+
+    # Test deserialized scorer in completely isolated namespace using exec
+    test_code = """
+# Import required modules in isolated namespace
+from mlflow.genai.scorers import Scorer
+
+# Deserialize the scorer (no external context available)
+deserialized = Scorer.model_validate(serialized_data)
+
+# Test that it can run successfully in isolation
+result1 = deserialized(outputs="one two three")
+result2 = deserialized(outputs="one two")
+result3 = deserialized(outputs="hello world test case")
+
+# Store results for verification
+test_results = {
+    "result1": result1,
+    "result2": result2,
+    "result3": result3,
+    "name": deserialized.name,
+    "aggregations": deserialized.aggregations
+}
+"""
+
+    # Execute in isolated namespace with only serialized_data available
+    isolated_namespace = {"serialized_data": serialized_data}
+    exec(test_code, isolated_namespace)
+
+    # Verify results from isolated execution
+    results = isolated_namespace["test_results"]
+    assert results["result1"] is True  # "one two three" has 3 words > 2
+    assert results["result2"] is False  # "one two" has 2 words, not > 2
+    assert results["result3"] is True  # "hello world test case" has 4 words > 2
+    assert results["name"] == "isolated_test"
+    assert results["aggregations"] is None
+
+
 def test_builtin_scorer_round_trip():
     """Test builtin scorer serialization and execution with mocking."""
     # from mlflow.genai.scorers import relevance_to_query
