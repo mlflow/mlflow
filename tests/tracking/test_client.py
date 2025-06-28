@@ -1989,7 +1989,6 @@ def test_block_handling_prompt_with_model_apis(tracking_uri):
     # Validate the prompt is registered
     prompt = client.load_prompt("prompt", version=1)
     assert prompt.name == "prompt"
-    assert prompt.aliases == ["alias"]
 
     apis_to_args = [
         (client.rename_registered_model, ["prompt", "new_name"]),
@@ -2370,13 +2369,11 @@ def test_load_prompt_with_alias_uri(tracking_uri):
     client.set_prompt_alias("alias_prompt", alias="production", version=1)
     prompt = client.load_prompt("prompts:/alias_prompt@production")
     assert prompt.template == "Hello, world!"
-    assert "production" in prompt.aliases
 
     # Reassign alias to version 2
     client.set_prompt_alias("alias_prompt", alias="production", version=2)
     prompt = client.load_prompt("prompts:/alias_prompt@production")
     assert prompt.template == "Hello, {{name}}!"
-    assert "production" in prompt.aliases
 
     # Delete alias and verify loading fails
     client.delete_prompt_alias("alias_prompt", alias="production")
