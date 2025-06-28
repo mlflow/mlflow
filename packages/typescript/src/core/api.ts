@@ -105,7 +105,7 @@ export function withSpan<T>(
     : optionsOrCallback;
 
   // Generate a default span name if not provided
-  const spanName = spanOptions.name ?? 'span';
+  const spanName = spanOptions.name || DEFAULT_SPAN_NAME;
 
   const tracer = getTracer('default');
 
@@ -124,6 +124,14 @@ export function withSpan<T>(
       spanOptions.attributes
     );
 
+    // Expression function to handle errors consistently
+    const handleSpanError = (error: Error): never => {
+      mlflowSpan.setStatus(SpanStatusCode.ERROR, error.message);
+      mlflowSpan.recordException(error);
+      mlflowSpan.end();
+      throw error;
+    };
+
     try {
       // Execute the callback with the span
       const result = actualCallback(mlflowSpan);
@@ -139,13 +147,7 @@ export function withSpan<T>(
             mlflowSpan.end();
             return value;
           })
-          .catch((error: Error) => {
-            // Set error status and re-throw
-            mlflowSpan.setStatus(SpanStatusCode.ERROR, error.message);
-            mlflowSpan.recordException(error);
-            mlflowSpan.end();
-            throw error;
-          });
+          .catch(handleSpanError);
       } else {
         // Synchronous execution
         if (mlflowSpan.outputs === undefined) {
@@ -155,11 +157,8 @@ export function withSpan<T>(
         return result;
       }
     } catch (error) {
-      // Handle synchronous errors - use the already created span
-      mlflowSpan.setStatus(SpanStatusCode.ERROR, (error as Error).message);
-      mlflowSpan.recordException(error as Error);
-      mlflowSpan.end();
-      throw error;
+      // Handle synchronous errors
+      return handleSpanError(error as Error);
     }
   });
 }

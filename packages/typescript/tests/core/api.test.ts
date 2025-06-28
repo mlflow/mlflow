@@ -239,54 +239,81 @@ describe('API', () => {
 
     describe('options-based usage pattern', () => {
       it('should execute with pre-configured options', () => {
-        const result = withSpan(
-          {
-            name: 'add-function',
-            span_type: SpanType.LLM,
-            inputs: { a: 10, b: 20 },
-            attributes: { model: 'test-model' }
-          },
-          () => {
-            return 10 + 20;
-          }
-        );
+        // Example: Creating a traced addition function
+        const add = (a: number, b: number) => {
+          const sum = withSpan(
+            {
+              name: 'add',
+              span_type: SpanType.TOOL,
+              inputs: { a, b },
+              attributes: { operation: 'addition' }
+            },
+            (span) => {
+              const result = a + b;
+              span.setOutputs(result);
+              return result;
+            }
+          );
+          return sum;
+        };
 
+        const result = add(10, 20);
         expect(result).toBe(30);
 
         const traces = getTraces();
         expect(traces.length).toBe(1);
 
         const loggedSpan = traces[0].data.spans[0];
-        expect(loggedSpan.name).toBe('add-function');
-        expect(loggedSpan.spanType).toBe(SpanType.LLM);
+        expect(loggedSpan.name).toBe('add');
+        expect(loggedSpan.spanType).toBe(SpanType.TOOL);
         expect(loggedSpan.inputs).toEqual({ a: 10, b: 20 });
         expect(loggedSpan.outputs).toEqual(30);
-        expect(loggedSpan.attributes['model']).toBe('test-model');
+        expect(loggedSpan.attributes['operation']).toBe('addition');
       });
 
       it('should execute async with pre-configured options', async () => {
-        const result = await withSpan(
-          {
-            name: 'async-operation',
-            inputs: { data: 'test' },
-            attributes: { version: '1.0' }
-          },
-          async () => {
-            await new Promise((resolve) => setTimeout(resolve, 10));
-            return 'processed-test';
-          }
-        );
+        // Example: Creating a traced async function that fetches user data
+        const fetchUserData = (userId: string) => {
+          return withSpan(
+            {
+              name: 'fetchUserData',
+              span_type: SpanType.RETRIEVER,
+              inputs: { userId },
+              attributes: { service: 'user-api', version: '1.0' }
+            },
+            async (span) => {
+              // Simulate API call
+              await new Promise((resolve) => setTimeout(resolve, 10));
 
-        expect(result).toBe('processed-test');
+              // Mock user data
+              const userData = { id: userId, name: 'John Doe', email: 'john@example.com' };
+
+              span.setOutputs(userData);
+              span.setAttributes({ responseTime: '10ms' });
+
+              return userData;
+            }
+          );
+        };
+
+        const result = await fetchUserData('user-123');
+        expect(result).toEqual({ id: 'user-123', name: 'John Doe', email: 'john@example.com' });
 
         const traces = getTraces();
         expect(traces.length).toBe(1);
 
         const loggedSpan = traces[0].data.spans[0];
-        expect(loggedSpan.name).toBe('async-operation');
-        expect(loggedSpan.inputs).toEqual({ data: 'test' });
-        expect(loggedSpan.outputs).toBe('processed-test');
+        expect(loggedSpan.name).toBe('fetchUserData');
+        expect(loggedSpan.spanType).toBe(SpanType.RETRIEVER);
+        expect(loggedSpan.inputs).toEqual({ userId: 'user-123' });
+        expect(loggedSpan.outputs).toEqual({
+          id: 'user-123',
+          name: 'John Doe',
+          email: 'john@example.com'
+        });
+        expect(loggedSpan.attributes['service']).toBe('user-api');
         expect(loggedSpan.attributes['version']).toBe('1.0');
+        expect(loggedSpan.attributes['responseTime']).toBe('10ms');
       });
 
       it('should handle nested spans with automatic parent-child relationship', () => {
