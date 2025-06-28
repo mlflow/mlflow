@@ -28,8 +28,10 @@ import { ExperimentLoggedModelListCharts } from '../../components/experiment-log
 import { ExperimentLoggedModelListPageRowVisibilityContextProvider } from '../../components/experiment-logged-models/hooks/useExperimentLoggedModelListPageRowVisibility';
 import { RunsChartsSetHighlightContextProvider } from '../../components/runs-charts/hooks/useRunsChartTraceHighlight';
 import { BadRequestError } from '@databricks/web-shared/errors';
+import { useResizableMaxWidth } from '@mlflow/mlflow/src/shared/web-shared/hooks';
 
 const INITIAL_RUN_COLUMN_SIZE = 295;
+const CHARTS_MIN_WIDTH = 350;
 
 const ExperimentLoggedModelListPageImpl = () => {
   const { experimentId } = useParams();
@@ -132,6 +134,8 @@ const ExperimentLoggedModelListPageImpl = () => {
       />
     );
 
+  const { resizableMaxWidth, ref } = useResizableMaxWidth(CHARTS_MIN_WIDTH);
+
   return (
     <ExperimentLoggedModelOpenDatasetDetailsContextProvider>
       <ExperimentLoggedModelListPageRowVisibilityContextProvider
@@ -172,17 +176,22 @@ const ExperimentLoggedModelListPageImpl = () => {
         )}
         {isCompactTableMode ? (
           <RunsChartsSetHighlightContextProvider>
-            <div css={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
+            <div ref={ref} css={{ display: 'flex', flex: 1, overflow: 'hidden', position: 'relative' }}>
               <ExperimentViewRunsTableResizer
                 onResize={setTableAreaWidth}
                 runListHidden={tableHidden}
                 width={tableAreaWidth}
                 onHiddenChange={setTableHidden}
+                maxWidth={resizableMaxWidth}
               >
                 {tableElement}
               </ExperimentViewRunsTableResizer>
               {viewMode === ExperimentLoggedModelListPageMode.CHART && (
-                <ExperimentLoggedModelListCharts loggedModels={loggedModels ?? []} experimentId={experimentId} />
+                <ExperimentLoggedModelListCharts
+                  loggedModels={loggedModels ?? []}
+                  experimentId={experimentId}
+                  minWidth={CHARTS_MIN_WIDTH}
+                />
               )}
             </div>
           </RunsChartsSetHighlightContextProvider>

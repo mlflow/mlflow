@@ -29,10 +29,12 @@ const ExperimentLoggedModelListChartsImpl = memo(
     chartData,
     uiState,
     metricKeysByDataset,
+    minWidth,
   }: {
     chartData: RunsChartsRunData[];
     uiState: ExperimentRunsChartsUIConfiguration;
     metricKeysByDataset: RunsChartsMetricByDatasetEntry[];
+    minWidth: number;
   }) => {
     const { theme } = useDesignSystemTheme();
     const { formatMessage } = useIntl();
@@ -103,6 +105,7 @@ const ExperimentLoggedModelListChartsImpl = memo(
           flex: 1,
           overflow: 'hidden',
           display: 'flex',
+          minWidth,
         }}
       >
         <div
@@ -184,7 +187,15 @@ const ExperimentLoggedModelListChartsImpl = memo(
 );
 
 export const ExperimentLoggedModelListCharts = memo(
-  ({ loggedModels, experimentId }: { loggedModels: LoggedModelProto[]; experimentId: string }) => {
+  ({
+    loggedModels,
+    experimentId,
+    minWidth,
+  }: {
+    loggedModels: LoggedModelProto[];
+    experimentId: string;
+    minWidth: number;
+  }) => {
     const { theme } = useDesignSystemTheme();
 
     // Perform deep comparison on the logged models to avoid re-rendering the charts when the logged models change.
@@ -224,6 +235,7 @@ export const ExperimentLoggedModelListCharts = memo(
           chartData={chartData}
           uiState={chartUIState}
           metricKeysByDataset={metricsByDataset}
+          minWidth={minWidth}
         />
       </RunsChartsUIConfigurationContextProvider>
     );
