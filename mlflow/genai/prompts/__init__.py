@@ -26,7 +26,10 @@ def suppress_genai_migration_warning():
 @require_prompt_registry
 def register_prompt(
     name: str,
-    template: str,
+    template: Union[str, list[dict[str, str]]],
+    prompt_type: str = "text",
+    response_format: Optional[Union[dict, type]] = None,
+    config: Optional[dict] = None,
     commit_message: Optional[str] = None,
     tags: Optional[dict[str, str]] = None,
 ) -> PromptVersion:
@@ -40,24 +43,13 @@ def register_prompt(
     If there is no registered prompt with the given name, a new prompt will be created.
     Otherwise, a new version of the existing prompt will be created.
 
-
     Args:
         name: The name of the prompt.
-        template: The template text of the prompt. It can contain variables enclosed in
-            double curly braces, e.g. {variable}, which will be replaced with actual values
-            by the `format` method.
-
-            .. note::
-
-                If you want to use the prompt with a framework that uses single curly braces
-                e.g. LangChain, you can use the `to_single_brace_format` method to convert the
-                loaded prompt to a format that uses single curly braces.
-
-                .. code-block:: python
-
-                    prompt = client.load_prompt("my_prompt")
-                    langchain_format = prompt.to_single_brace_format()
-
+        template: The prompt template. For text prompts, a string with variables in {{variable}}
+            format. For chat prompts, a list of message dictionaries with 'role' and 'content'.
+        prompt_type: The type of prompt ("text" or "chat"). Defaults to "text".
+        response_format: Optional Pydantic class or dict defining the response structure.
+        config: Optional model configuration dictionary.
         commit_message: A message describing the changes made to the prompt, similar to a
             Git commit message. Optional.
         tags: A dictionary of tags associated with the **prompt version**.
@@ -106,6 +98,9 @@ def register_prompt(
         return registry_api.register_prompt(
             name=name,
             template=template,
+            prompt_type=prompt_type,
+            response_format=response_format,
+            config=config,
             commit_message=commit_message,
             tags=tags,
         )

@@ -11,6 +11,8 @@ The key steps and concepts covered include:
 
 - Creating a brand new prompt in the registry.
 - Defining prompt templates with variables for dynamic content.
+- Supporting both text and chat prompt types.
+- Configuring structured response formats and model configurations.
 - Updating existing prompts, thereby creating new immutable versions.
 - Understanding the immutability of prompt versions.
 - Comparing different versions of a prompt to track changes.
@@ -26,6 +28,9 @@ You can initiate a new prompt in the MLflow Prompt Registry in two primary ways:
 3.  You will be prompted to provide:
     - **Name**: A unique name for your new prompt (e.g., `customer-service-greeting`).
     - **Template**: The initial text of your prompt. You can include variables using the `{{variable_name}}` syntax (e.g., `Hello {{customer_name}}, how can I assist you today?`).
+    - **Prompt Type**: Choose between "text" (default) or "chat" for structured conversation prompts.
+    - **Response Format**: (Optional) Define a structured output format using JSON schema or Pydantic models.
+    - **Model Configuration**: (Optional) Specify model parameters like temperature, max tokens, etc.
     - **Initial Commit Message**: A brief description of this first version (e.g., "Initial version of customer greeting prompt").
     - **(Optional) Version Metadata**: Any structured key-value data relevant to this version.
     - **(Optional) Tags**: Key-value tags for organization (e.g., `app: chatbot`, `language: english`).
@@ -38,21 +43,22 @@ To create a new prompt programmatically, use the `mlflow.genai.register_prompt()
 
 ```python
 import mlflow
+from pydantic import BaseModel
+from typing import List
 
-# Use double curly braces for variables in the template
-initial_template = """\
+# Example 1: Simple text prompt
+text_template = """\
 Summarize content you are provided with in {{ num_sentences }} sentences.
 
 Sentences: {{ sentences }}
 """
 
-# Register a new prompt
-prompt = mlflow.genai.register_prompt(
+# Register a new text prompt
+text_prompt = mlflow.genai.register_prompt(
     name="summarization-prompt",
-    template=initial_template,
-    # Optional: Provide a commit message to describe the changes
+    template=text_template,
+    prompt_type="text",  # Default, can be omitted
     commit_message="Initial commit",
-    # Optional: Set tags applies to the prompt (across versions)
     tags={
         "author": "author@example.com",
         "task": "summarization",
@@ -60,8 +66,43 @@ prompt = mlflow.genai.register_prompt(
     },
 )
 
-# The prompt object contains information about the registered prompt
-print(f"Created prompt '{prompt.name}' (version {prompt.version})")
+
+# Example 2: Chat prompt with structured response format
+class SummaryResponse(BaseModel):
+    summary: str
+    key_points: List[str]
+    confidence: float
+
+
+chat_template = [
+    {"role": "system", "content": "You are an expert summarizer."},
+    {
+        "role": "user",
+        "content": "Summarize this text in {{ num_sentences }} sentences: {{ text }}",
+    },
+]
+
+# Register a chat prompt with response format and model config
+chat_prompt = mlflow.genai.register_prompt(
+    name="structured-summarization",
+    template=chat_template,
+    prompt_type="chat",
+    response_format=SummaryResponse,
+    config={
+        "model": "gpt-4o-mini",
+        "temperature": 0.2,
+        "max_tokens": 500,
+    },
+    commit_message="Structured summarization prompt",
+    tags={
+        "author": "author@example.com",
+        "task": "summarization",
+        "type": "structured",
+    },
+)
+
+print(f"Created text prompt '{text_prompt.name}' (version {text_prompt.version})")
+print(f"Created chat prompt '{chat_prompt.name}' (version {chat_prompt.version})")
 ```
 
 ## Editing an Existing Prompt (Creating New Versions)
@@ -84,8 +125,11 @@ To create a new version of an existing prompt, you again use the `mlflow.genai.r
 
 ```python
 import mlflow
+from pydantic import BaseModel
+from typing import List
 
-new_template = """\
+# Update text prompt
+new_text_template = """\
 You are an expert summarizer. Condense the following content into exactly {{ num_sentences }} clear and informative sentences that capture the key points.
 
 Sentences: {{ sentences }}
@@ -97,13 +141,52 @@ Your summary should:
 - Maintain the same level of formality as the original text
 """
 
-# Register a new version of an existing prompt
-updated_prompt = mlflow.genai.register_prompt(
+# Register a new version of an existing text prompt
+updated_text_prompt = mlflow.genai.register_prompt(
     name="summarization-prompt",  # Specify the existing prompt name
-    template=new_template,
-    commit_message="Improvement",
+    template=new_text_template,
+    commit_message="Improved text prompt",
     tags={
         "author": "author@example.com",
+    },
+)
+
+
+# Update chat prompt with enhanced response format
+class EnhancedSummaryResponse(BaseModel):
+    summary: str
+    key_points: List[str]
+    confidence: float
+    word_count: int
+    reading_time_minutes: float
+
+
+new_chat_template = [
+    {
+        "role": "system",
+        "content": "You are an expert summarizer with advanced analysis capabilities.",
+    },
+    {
+        "role": "user",
+        "content": "Analyze and summarize this text in {{ num_sentences }} sentences: {{ text }}",
+    },
+]
+
+# Register a new version of an existing chat prompt
+updated_chat_prompt = mlflow.genai.register_prompt(
+    name="structured-summarization",
+    template=new_chat_template,
+    prompt_type="chat",
+    response_format=EnhancedSummaryResponse,
+    config={
+        "model": "gpt-4o-mini",
+        "temperature": 0.1,
+        "max_tokens": 800,
+    },
+    commit_message="Enhanced structured summarization",
+    tags={
+        "author": "author@example.com",
+        "version": "enhanced",
     },
 )
 ```
@@ -130,6 +213,8 @@ This comparison capability is invaluable for:
 
 - Prompts are created and versioned in the MLflow Prompt Registry using either the UI or the Python SDK (`mlflow.genai.register_prompt()`).
 - Prompt templates support variables (e.g., `{{variable}}`) for dynamic content generation.
+- MLflow supports both text and chat prompt types with structured response formats.
+- Model configurations can be stored with prompts for consistent deployment.
 - Each prompt version is **immutable**; edits always result in a new version, preserving history.
 - Commit messages, version metadata, and tags are essential for organizing and understanding your prompts.
 - The MLflow UI allows you to visually compare prompt versions to track changes.

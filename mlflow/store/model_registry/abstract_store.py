@@ -13,9 +13,14 @@ from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import (
+    CONFIG_TAG_KEY,
     IS_PROMPT_TAG_KEY,
     LINKED_PROMPTS_TAG_KEY,
     PROMPT_TEXT_TAG_KEY,
+    PROMPT_TYPE_CHAT,
+    PROMPT_TYPE_TAG_KEY,
+    PROMPT_TYPE_TEXT,
+    RESPONSE_FORMAT_TAG_KEY,
 )
 from mlflow.prompt.registry_utils import has_prompt_tag, model_version_to_prompt_version
 from mlflow.protos.databricks_pb2 import (
@@ -679,7 +684,10 @@ class AbstractStore:
     def create_prompt_version(
         self,
         name: str,
-        template: str,
+        template: Union[str, list[dict[str, str]]],
+        prompt_type: str = "text",
+        response_format: Optional[Union[dict, type]] = None,
+        config: Optional[dict] = None,
         description: Optional[str] = None,
         tags: Optional[dict[str, str]] = None,
     ) -> PromptVersion:
@@ -691,7 +699,10 @@ class AbstractStore:
 
         Args:
             name: Name of the prompt.
-            template: The prompt template text.
+            template: The prompt template (string for text, list of dicts for chat).
+            prompt_type: The type of prompt ("text" or "chat").
+            response_format: Optional Pydantic class or dict defining response structure.
+            config: Optional model configuration dictionary.
             description: Optional description of the prompt version.
             tags: Optional dictionary of version tags.
 
@@ -701,8 +712,41 @@ class AbstractStore:
         # Create version tags including template
         version_tags = [
             ModelVersionTag(key=IS_PROMPT_TAG_KEY, value="true"),
-            ModelVersionTag(key=PROMPT_TEXT_TAG_KEY, value=template),
         ]
+
+        # Store template based on type
+        if prompt_type == PROMPT_TYPE_CHAT:
+            version_tags.append(
+                ModelVersionTag(key=PROMPT_TEXT_TAG_KEY, value=json.dumps(template))
+            )
+        else:
+            version_tags.append(ModelVersionTag(key=PROMPT_TEXT_TAG_KEY, value=template))
+
+        # Store new fields as tags
+        if prompt_type is not None and prompt_type != PROMPT_TYPE_TEXT:
+            version_tags.append(ModelVersionTag(key=PROMPT_TYPE_TAG_KEY, value=prompt_type))
+
+        if response_format:
+            if isinstance(response_format, type):
+                # Convert Pydantic class to JSON schema
+                try:
+                    from pydantic import BaseModel
+
+                    if issubclass(response_format, BaseModel):
+                        format_dict = response_format.model_json_schema()
+                    else:
+                        format_dict = {"type": "object", "properties": {}}
+                except ImportError:
+                    format_dict = {"type": "object", "properties": {}}
+            else:
+                format_dict = response_format
+            version_tags.append(
+                ModelVersionTag(key=RESPONSE_FORMAT_TAG_KEY, value=json.dumps(format_dict))
+            )
+
+        if config:
+            version_tags.append(ModelVersionTag(key=CONFIG_TAG_KEY, value=json.dumps(config)))
+
         if tags:
             version_tags.extend([ModelVersionTag(key=k, value=v) for k, v in tags.items()])
 
@@ -716,7 +760,9 @@ class AbstractStore:
 
         # Get prompt-level tags from registered model
         rm = self.get_registered_model(name)
-        if isinstance(rm.tags, dict):
+        if rm is None:
+            prompt_tags = {}
+        elif isinstance(rm.tags, dict):
             prompt_tags = rm.tags.copy()
         else:
             prompt_tags = {tag.key: tag.value for tag in rm.tags}
@@ -839,7 +885,10 @@ class AbstractStore:
         self.delete_registered_model_alias(name, alias)
 
     def search_prompt_versions(
-        self, name: str, max_results: Optional[int] = None, page_token: Optional[str] = None
+        self,
+        name: str,
+        max_results: Optional[int] = None,
+        page_token: Optional[str] = None,
     ):
         """
         Search prompt versions for a given prompt name.
