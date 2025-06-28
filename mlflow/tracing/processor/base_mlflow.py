@@ -126,7 +126,7 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
         return _get_experiment_id()
 
     def _get_basic_trace_metadata(self) -> dict[str, Any]:
-        metadata = {**self._env_metadata}
+        metadata = self._env_metadata.copy()
 
         # If the span is started within an active MLflow run, we should record it as a trace tag
         # Note `mlflow.active_run()` can only get thread-local active run,

@@ -342,7 +342,7 @@ class RestStore(AbstractStore):
                 retry_timeout_seconds=MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT.get(),
             )
             return TraceInfo.from_proto(response_proto.trace.trace_info)
-        except Exception as e:
+        except MlflowException as e:
             if e.error_code == databricks_pb2.ErrorCode.Name(databricks_pb2.ENDPOINT_NOT_FOUND):
                 _logger.debug(
                     "Server does not support StartTraceV3 API yet. Falling back to V2 API."
@@ -441,7 +441,7 @@ class RestStore(AbstractStore):
         res = self._call_endpoint(DeleteTraces, req_body)
         return res.traces_deleted
 
-    def get_trace_info(self, trace_id) -> TraceInfo:
+    def get_trace_info(self, trace_id: str) -> TraceInfo:
         """
         Get the trace matching the `trace_id`.
 
@@ -458,7 +458,7 @@ class RestStore(AbstractStore):
                 GetTraceInfoV3, trace_v3_req_body, endpoint=trace_v3_endpoint
             )
             return TraceInfo.from_proto(trace_v3_response_proto.trace.trace_info)
-        except Exception as e:
+        except MlflowException as e:
             # If the tracking server does not support V3 trace API yet, fallback to V2 API.
             if e.error_code != databricks_pb2.ErrorCode.Name(databricks_pb2.ENDPOINT_NOT_FOUND):
                 raise
@@ -523,7 +523,7 @@ class RestStore(AbstractStore):
 
             try:
                 response_proto = self._call_endpoint(SearchTracesV3, req_body, v3_endpoint)
-            except Exception as e:
+            except MlflowException as e:
                 if e.error_code == databricks_pb2.ErrorCode.Name(databricks_pb2.ENDPOINT_NOT_FOUND):
                     _logger.debug(
                         "Server does not support SearchTracesV3 API yet. Falling back to V2 API."
