@@ -211,7 +211,26 @@ async def test_chat_completions_autolog_streaming(client, include_usage):
     span = trace.data.spans[0]
     assert span.span_type == SpanType.CHAT_MODEL
     assert span.inputs == input_params
-    assert span.outputs == "Hello world"  # aggregated string of streaming response
+
+    # Expect ChatCompletion dict structure instead of simple string
+    assert isinstance(span.outputs, dict)
+    assert span.outputs["object"] == "chat.completion"
+    assert span.outputs["id"] == "chatcmpl-123"
+    assert span.outputs["model"] == "gpt-4o-mini"
+    assert len(span.outputs["choices"]) == 1
+
+    choice = span.outputs["choices"][0]
+    assert choice["message"]["role"] == "assistant"
+    assert choice["message"]["content"] == "Hello world"  # aggregated content
+    assert choice["finish_reason"] == "stop"
+
+    # Check usage information if included
+    if include_usage:
+        assert "usage" in span.outputs
+        usage = span.outputs["usage"]
+        assert usage["prompt_tokens"] == 9
+        assert usage["completion_tokens"] == 12
+        assert usage["total_tokens"] == 21
 
     stream_event_data = trace.data.spans[0].events
     assert stream_event_data[0].name == "mlflow.chunk.item.0"
