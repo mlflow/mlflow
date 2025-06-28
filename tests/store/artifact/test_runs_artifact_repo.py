@@ -104,3 +104,54 @@ def test_runs_artifact_repo_uses_repo_download_artifacts():
     runs_repo.repo = Mock()
     runs_repo.download_artifacts("artifact_path", "dst_path")
     runs_repo.repo.download_artifacts.assert_called_once()
+
+def test_download_artifacts_run_and_model_conflict_behavior(tmp_path):
+    import shutil
+    from sklearn.linear_model import LinearRegression
+
+    mlflow.set_tracking_uri(tmp_path.as_uri())
+    mlflow.set_experiment("download_artifact_test")
+
+    model = LinearRegression().fit([[1, 2]], [3])
+
+    with mlflow.start_run() as run:
+        run_id = run.info.run_id
+
+        # Log model
+        mlflow.sklearn.log_model(model, "model")
+
+        # Log run artifact inside "model/" folder
+        mlflow.log_text("run_artifact_content", "model/my_file.txt")
+
+        # Test: Download run artifact
+        run_artifact_path = mlflow.artifacts.download_artifacts(
+            run_id=run_id,
+            artifact_path="model/my_file.txt",
+            dst_path=str(tmp_path / "dst1")
+        )
+        with open(run_artifact_path) as f:
+            assert f.read() == "run_artifact_content"
+
+        # Now log conflicting file as model artifact (simulate by re-logging model + another text)
+        mlflow.sklearn.log_model(model, "model")
+        mlflow.log_text("model_content_conflict", "model/conflict.txt")
+        mlflow.log_text("run_content_priority", "model/conflict.txt")
+
+        # Download conflicting file and check that run artifact wins
+        conflict_path = mlflow.artifacts.download_artifacts(
+            run_id=run_id,
+            artifact_path="model/conflict.txt",
+            dst_path=str(tmp_path / "dst2")
+        )
+        with open(conflict_path) as f:
+            assert f.read() == "run_content_priority"
+
+        # Test: Download nonexistent file
+        with pytest.raises(MlflowException, match="Failed to download artifacts from path"):
+            mlflow.artifacts.download_artifacts(
+                run_id=run_id,
+                artifact_path="model/does_not_exist.txt",
+                dst_path=str(tmp_path / "dst3")
+            )
+
+    print("✅ download_artifacts conflict behavior test passed.")

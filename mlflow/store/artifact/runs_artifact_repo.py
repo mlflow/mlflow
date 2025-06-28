@@ -179,43 +179,54 @@ class RunsArtifactRepository(ArtifactRepository):
     def download_artifacts(self, artifact_path: str, dst_path: Optional[str] = None) -> str:
         """
         Download an artifact file or directory to a local directory if applicable, and return a
-        local path for it. When the run has an associated model, the artifacts of the model are also
-        downloaded to the specified destination directory. The caller is responsible for managing
-        the lifecycle of the downloaded artifacts.
+        local path for it. Downloads from both the run's artifact store and associated model artifact
+        repo (if applicable). If both exist without conflict, both are downloaded. If neither exists,
+        raises MlflowException.
 
         Args:
             artifact_path: Relative source path to the desired artifacts.
             dst_path: Absolute path of the local filesystem destination directory to which to
                 download the specified artifacts. This directory must already exist.
-                If unspecified, the artifacts will either be downloaded to a new
-                uniquely-named directory on the local filesystem or will be returned
-                directly in the case of the LocalArtifactRepository.
+                If unspecified, a new temp directory is created.
 
         Returns:
             Absolute path of the local filesystem location containing the desired artifacts.
         """
         dst_path = dst_path or create_tmp_dir()
-        run_out_path: Optional[str] = None
+        found_any = False
+        run_out_path = None
+        model_out_path = None
+
+        # Try downloading from run artifact repo
         try:
-            # This fails when the run has no artifacts, so we catch the exception
             run_out_path = self.repo.download_artifacts(artifact_path, dst_path)
+            found_any = True
         except Exception:
             _logger.debug(
-                f"Failed to download artifacts from {self.artifact_uri}/{artifact_path}.",
+                f"Failed to download artifacts from run artifact repo at {self.artifact_uri}/{artifact_path}.",
                 exc_info=True,
             )
 
-        # If there are artifacts with the same name in the run and model, the model artifacts
-        # will overwrite the run artifacts.
-        model_out_path = self._download_model_artifacts(artifact_path, dst_path=dst_path)
-        path = run_out_path or model_out_path
-        if path is None:
+        # Try downloading from model artifact repo (if applicable)
+        try:
+            model_out_path = self._download_model_artifacts(artifact_path, dst_path=dst_path)
+            if model_out_path:
+                found_any = True
+        except Exception:
+            _logger.debug(
+                f"Failed to download artifacts from model artifact repo for {artifact_path}.",
+                exc_info=True,
+            )
+
+        if not found_any:
             raise MlflowException(
                 f"Failed to download artifacts from path {artifact_path!r}, "
                 "please ensure that the path is correct.",
                 error_code=RESOURCE_DOES_NOT_EXIST,
             )
-        return path
+
+        # Return run_out_path if available, else model_out_path
+        return run_out_path or model_out_path
 
     def _download_model_artifacts(self, artifact_path: str, dst_path: str) -> Optional[str]:
         """
