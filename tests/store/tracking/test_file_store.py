@@ -3508,3 +3508,20 @@ def test_traces_not_listed_as_runs(tmp_path):
         with mock.patch("mlflow.store.tracking.file_store.logging.debug") as mock_debug:
             client.search_runs([run.info.experiment_id], "", ViewType.ALL, max_results=1)
             mock_debug.assert_not_called()
+
+def test_get_experiment_by_name_missing_metadata(tmp_path):
+    fs = FileStore(str(tmp_path))
+    exp_id = fs.create_experiment("demo_experiment")
+
+    # Delete the metadata file to simulate corruption or missing file
+    exp_dir = fs._get_experiment_path(exp_id)
+    exp_meta_path = os.path.join(exp_dir, FileStore.META_DATA_FILE_NAME)
+
+    if os.path.exists(exp_meta_path):
+        os.remove(exp_meta_path)
+    else:
+        print(f"meta.yaml not found in {exp_meta_path}")
+
+    # Should return None — not raise TypeError
+    result = fs.get_experiment_by_name("demo_experiment")
+    assert result is None
