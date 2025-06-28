@@ -91,6 +91,7 @@ pyfunc = LazyLoader("mlflow.pyfunc", globals(), "mlflow.pyfunc")
 pyspark = LazyLoader("mlflow.pyspark", globals(), "mlflow.pyspark")
 pytorch = LazyLoader("mlflow.pytorch", globals(), "mlflow.pytorch")
 rfunc = LazyLoader("mlflow.rfunc", globals(), "mlflow.rfunc")
+semantic_kernel = LazyLoader("mlflow.semantic_kernel", globals(), "mlflow.semantic_kernel")
 sentence_transformers = LazyLoader(
     "mlflow.sentence_transformers",
     globals(),
