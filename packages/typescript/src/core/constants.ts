@@ -50,6 +50,11 @@ export const TRACE_SCHEMA_VERSION = '3';
 export const TRACE_ID_PREFIX = 'tr-';
 
 /**
+ * The default name for spans if the name is not provided when starting a span
+ */
+export const DEFAULT_SPAN_NAME = 'span';
+
+/**
  * Trace ID for no-op spans
  */
 export const NO_OP_SPAN_TRACE_ID = 'no-op-span-trace-id';

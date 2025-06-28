@@ -106,6 +106,19 @@ export class InMemoryTraceManager {
   }
 
   /**
+   * Get the span for the given trace ID and span ID.
+   * @param traceId The trace ID
+   * @param spanId The span ID
+   */
+  getSpan(traceId: string, spanId: string): LiveSpan | null {
+    const trace = this._traces.get(traceId);
+    if (trace) {
+      return trace.spanDict.get(spanId) || null;
+    }
+    return null;
+  }
+
+  /**
    * Pop trace data for the given OpenTelemetry trace ID and return it as
    * a ready-to-publish Trace object.
    * @param otelTraceId The OpenTelemetry trace ID
