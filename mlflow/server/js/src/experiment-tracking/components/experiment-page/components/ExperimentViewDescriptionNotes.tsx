@@ -63,7 +63,8 @@ export const ExperimentViewDescriptionNotes = ({
   });
   setShowAddDescriptionButton(!storedNote);
 
-  const [tmpNote, setTmpNote] = useState(storedNote);
+  const effectiveNote = storedNote || defaultValue;
+  const [tmpNote, setTmpNote] = useState(effectiveNote);
   const [selectedTab, setSelectedTab] = useState<'write' | 'preview' | undefined>('write');
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -89,7 +90,7 @@ export const ExperimentViewDescriptionNotes = ({
 
   return (
     <div>
-      {(tmpNote ?? defaultValue) && (
+      {effectiveNote && (
         <div
           style={{
             whiteSpace: isExpanded ? 'normal' : 'pre-wrap',
@@ -113,7 +114,7 @@ export const ExperimentViewDescriptionNotes = ({
           >
             <div
               // eslint-disable-next-line react/no-danger
-              dangerouslySetInnerHTML={{ __html: getSanitizedHtmlContent(tmpNote ?? defaultValue) }}
+              dangerouslySetInnerHTML={{ __html: getSanitizedHtmlContent(effectiveNote) }}
             />
           </div>
           <Button
@@ -159,7 +160,7 @@ export const ExperimentViewDescriptionNotes = ({
           setEditing(false);
         }}
         onCancel={() => {
-          setTmpNote(storedNote);
+          setTmpNote(effectiveNote);
           setEditing(false);
         }}
       >
