@@ -17,6 +17,7 @@ import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/util
 import type { LoggedModelProto } from '../../types';
 import { type RunPageModelVersionSummary } from './hooks/useUnifiedRegisteredModelVersionsSummariesForRun';
 import { useExperimentTrackingDetailsPageLayoutStyles } from '../../hooks/useExperimentTrackingDetailsPageLayoutStyles';
+import { LINKED_PROMPTS_TAG_KEY } from '../../pages/prompts/utils';
 
 jest.mock('../../hooks/useExperimentTrackingDetailsPageLayoutStyles', () => ({
   useExperimentTrackingDetailsPageLayoutStyles: jest.fn(),
@@ -40,6 +41,7 @@ jest.mock('@mlflow/mlflow/src/common/utils/FeatureUtils', () => ({
 
 const testPromptName = 'test-prompt';
 const testPromptVersion = 1;
+const testPromptName2 = 'test-prompt-2';
 
 jest.mock('../../pages/prompts/hooks/usePromptVersionsForRunQuery', () => ({
   usePromptVersionsForRunQuery: jest.fn(() => ({
@@ -361,7 +363,22 @@ describe('RunViewOverview integration', () => {
     });
   });
 
-  test('Run overview contains prompts', async () => {
+  test('Run overview contains prompts from run tags', async () => {
+    renderComponent({
+      tags: {
+        [LINKED_PROMPTS_TAG_KEY]: {
+          key: LINKED_PROMPTS_TAG_KEY,
+          value: JSON.stringify([{ name: testPromptName2, version: testPromptVersion.toString() }]),
+        },
+      },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText(`${testPromptName2} (v${testPromptVersion})`)).toBeInTheDocument();
+    });
+  });
+
+  test('Run overview contains prompts from prompt version tags', async () => {
     renderComponent();
 
     await waitFor(() => {
