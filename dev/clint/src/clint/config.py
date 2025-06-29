@@ -14,7 +14,7 @@ class Config:
     forbidden_top_level_imports: dict[str, list[str]] = field(default_factory=dict)
     typing_extensions_allowlist: list[str] = field(default_factory=list)
     example_rules: list[str] = field(default_factory=list)
-    # Compiled regex pattern -> List of rule names to ignore for files matching the pattern
+    # Compiled regex pattern -> Set of rule names to ignore for files matching the pattern
     per_file_ignores: dict[re.Pattern[str], set[str]] = field(default_factory=dict)
 
     @classmethod
