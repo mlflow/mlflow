@@ -296,6 +296,14 @@ example-rules = [
   "unknown-mlflow-arguments",
 ]
 
+[tool.clint.per-file-ignores]
+# Rules that should only be enabled for files in the root mlflow directory
+"^(?!mlflow/).*\\.py$" = [
+  "forbidden-set-active-model-usage",
+  "unnamed-thread",
+  "thread-pool-executor-without-thread-name-prefix",
+]
+
 [tool.clint.forbidden-top-level-imports]
 "mlflow/gateway/providers/*" = ["fastapi", "starlette", "aiohttp"]
 # Databricks SDK/Agents should not be imported at the top level
