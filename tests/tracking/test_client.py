@@ -810,8 +810,6 @@ def test_start_span_raise_error_when_parent_id_is_not_provided():
 
 
 def test_log_trace(tracking_uri):
-    pytest.skip("V3 backend does not support _log_trace yet")
-
     client = MlflowClient(tracking_uri)
     experiment_id = client.create_experiment("test_experiment")
 
@@ -839,8 +837,8 @@ def test_log_trace(tracking_uri):
     assert backend_traces[0].info.experiment_id == experiment_id
     assert backend_traces[0].info.status == trace.info.status
     assert backend_traces[0].info.tags["custom_tag"] == "tag_value"
-    assert backend_traces[0].data.request == trace.data.request
-    assert backend_traces[0].data.response == trace.data.response
+    assert backend_traces[0].info.request_preview == trace.info.request_preview
+    assert backend_traces[0].info.response_preview == trace.info.response_preview
     assert len(backend_traces[0].data.spans) == len(trace.data.spans)
     assert backend_traces[0].data.spans[0].name == trace.data.spans[0].name
 
