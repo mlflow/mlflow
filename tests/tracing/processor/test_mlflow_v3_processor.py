@@ -90,10 +90,6 @@ def test_on_start_during_run(monkeypatch):
 
 def test_on_start_with_experiment_id_override(monkeypatch):
     mlflow.set_experiment(experiment_id=DEFAULT_EXPERIMENT_ID)
-
-    mock_logger = mock.MagicMock()
-    monkeypatch.setattr("mlflow.tracing.processor.mlflow_v2._logger", mock_logger)
-
     processor = MlflowV3SpanProcessor(
         span_exporter=mock.MagicMock(), experiment_id="another_experiment"
     )
