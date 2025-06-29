@@ -118,7 +118,7 @@ def test_backwards_compatibility_with_v2():
 
     assert trace_info.request_id == trace_info.trace_id
     assert trace_info.experiment_id == "123"
-    assert trace_info.request_metadata == {"foo": "bar"}
+    assert trace_info.request_metadata == {"foo": "bar", TRACE_SCHEMA_VERSION_KEY: "3"}
     assert trace_info.timestamp_ms == 1234567890
     assert trace_info.execution_time_ms is None
 

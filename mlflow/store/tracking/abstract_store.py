@@ -10,12 +10,11 @@ from mlflow.entities import (
     LoggedModelParameter,
     LoggedModelStatus,
     LoggedModelTag,
-    TraceInfoV2,
     ViewType,
 )
 from mlflow.entities.metric import MetricWithRunId
-from mlflow.entities.trace import Trace
 from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
@@ -292,15 +291,15 @@ class AbstractStore:
         """
         raise NotImplementedError
 
-    def start_trace_v3(self, trace: Trace) -> TraceInfo:
+    def start_trace_v3(self, trace_info: TraceInfo) -> TraceInfo:
         """
         Create a trace using the V3 API format with a complete Trace object.
 
         Args:
-            trace: The Trace object to create, containing both info and data.
+            trace_info: The TraceInfo object to create in the backend.
 
         Returns:
-            The created TraceInfo object.
+            The created TraceInfo object from the backend.
         """
         raise NotImplementedError
 

@@ -26,15 +26,12 @@ from mlflow.entities import (
     RunData,
     RunStatus,
     RunTag,
-    Trace,
-    TraceData,
     TraceInfo,
     TraceLocation,
     TraceState,
     ViewType,
     _DatasetSummary,
 )
-from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MissingConfigException, MlflowException
 from mlflow.models import Model
@@ -49,6 +46,7 @@ from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.file_store import FileStore
 from mlflow.tracing.constant import (
     MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE,
+    TRACE_SCHEMA_VERSION_KEY,
     TraceMetadataKey,
     TraceTagKey,
 )
@@ -81,26 +79,23 @@ def store_and_trace_info(store):
     exp_id = store.create_experiment("test")
     timestamp_ms = get_current_time_millis()
     return store, store.start_trace_v3(
-        trace=Trace(
-            info=TraceInfo(
-                trace_id=f"tr-{uuid.uuid4()}",
-                trace_location=TraceLocation.from_experiment_id(exp_id),
-                request_time=timestamp_ms,
-                execution_duration=0,
-                state=TraceState.OK,
-                tags={},
-                trace_metadata={},
-                client_request_id=f"tr-{uuid.uuid4()}",
-                request_preview=None,
-                response_preview=None,
-            ),
-            data=TraceData(spans=[]),
-        )
+        TraceInfo(
+            trace_id=f"tr-{uuid.uuid4()}",
+            trace_location=TraceLocation.from_experiment_id(exp_id),
+            request_time=timestamp_ms,
+            execution_duration=0,
+            state=TraceState.OK,
+            tags={},
+            trace_metadata={},
+            client_request_id=f"tr-{uuid.uuid4()}",
+            request_preview=None,
+            response_preview=None,
+        ),
     )
 
 
 class TraceInfos(NamedTuple):
-    trace_infos: list[TraceInfoV2]
+    trace_infos: list[TraceInfo]
     store: FileStore
     exp_id: str
     trace_ids: list[str]
@@ -123,19 +118,16 @@ def generate_trace_infos(store):
 
         metadata = {TraceMetadataKey.SOURCE_RUN: f"run_{i}"} if i >= 5 else {}
 
-        trace = Trace(
-            info=TraceInfo(
-                trace_id=f"tr-{uuid.uuid4()}",
-                trace_location=TraceLocation.from_experiment_id(exp_id),
-                request_time=timestamp,
-                execution_duration=execution_duration,
-                state=state,
-                tags={TraceTagKey.TRACE_NAME: f"trace_{i}", "test_tag": f"tag_{i}"},
-                trace_metadata=metadata,
-            ),
-            data=TraceData(spans=[]),
+        trace_info = TraceInfo(
+            trace_id=f"tr-{uuid.uuid4()}",
+            trace_location=TraceLocation.from_experiment_id(exp_id),
+            request_time=timestamp,
+            execution_duration=execution_duration,
+            state=state,
+            tags={TraceTagKey.TRACE_NAME: f"trace_{i}", "test_tag": f"tag_{i}"},
+            trace_metadata=metadata,
         )
-        trace_info = store.start_trace_v3(trace)
+        trace_info = store.start_trace_v3(trace_info)
         trace_infos.append(trace_info)
         trace_ids.append(trace_info.trace_id)
     return TraceInfos(trace_infos, store, exp_id, trace_ids, timestamps)
@@ -2986,7 +2978,7 @@ def test_search_datasets_returns_no_more_than_max_results(store):
     assert len(results) == 1000
 
 
-def test_start_trace(store):
+def test_legacy_start_trace_v2(store):
     exp_id = store.create_experiment("test")
     timestamp_ms = get_current_time_millis()
     tags = {"some_key": "test"}
@@ -2996,19 +2988,20 @@ def test_start_trace(store):
     assert trace_info.timestamp_ms == timestamp_ms
     assert trace_info.execution_time_ms is None
     assert trace_info.status == TraceStatus.IN_PROGRESS
-    assert trace_info.request_metadata == {}
+    assert trace_info.request_metadata == {TRACE_SCHEMA_VERSION_KEY: "3"}
     assert trace_info.tags == tags
 
     with pytest.raises(MlflowException, match=r"Experiment fake_exp_id does not exist."):
         store.start_trace("fake_exp_id", timestamp_ms, {}, {})
 
 
-def test_end_trace(store_and_trace_info):
+def test_legacy_end_trace(store_and_trace_info):
     store, trace = store_and_trace_info
     timestamp_ms = get_current_time_millis()
     request_metadata = {
         TraceMetadataKey.INPUTS: {"query": "test"},
         TraceMetadataKey.OUTPUTS: "test",
+        TRACE_SCHEMA_VERSION_KEY: "3",
     }
     tags = {TraceTagKey.TRACE_NAME: "mlflow_trace"}
     trace_info = store.end_trace(
@@ -3025,34 +3018,31 @@ def test_end_trace(store_and_trace_info):
         store.end_trace("fake_request_id", timestamp_ms, TraceStatus.OK, request_metadata, tags)
 
 
-def test_start_trace_v3(store):
-    exp_id = store.create_experiment("test_start_trace_v3")
+def test_start_trace(store):
+    exp_id = store.create_experiment("test_start_trace")
     timestamp_ms = get_current_time_millis()
-    trace = Trace(
-        info=TraceInfo(
-            trace_id=f"tr-{uuid.uuid4()}",
-            trace_location=TraceLocation.from_experiment_id(exp_id),
-            request_time=timestamp_ms,
-            execution_duration=100,
-            state=TraceState.OK,
-            tags={},
-            trace_metadata={},
-            client_request_id=f"tr-{uuid.uuid4()}",
-            request_preview=None,
-            response_preview=None,
-        ),
-        data=TraceData(spans=[]),
+    trace_info = TraceInfo(
+        trace_id=f"tr-{uuid.uuid4()}",
+        trace_location=TraceLocation.from_experiment_id(exp_id),
+        request_time=timestamp_ms,
+        execution_duration=100,
+        state=TraceState.OK,
+        tags={},
+        trace_metadata={},
+        client_request_id=f"tr-{uuid.uuid4()}",
+        request_preview=None,
+        response_preview=None,
     )
-    trace_info = store.start_trace_v3(trace)
+    new_trace_info = store.start_trace_v3(trace_info)
 
-    assert trace_info.trace_id == trace.info.trace_id
-    assert trace_info.experiment_id == exp_id
-    assert trace_info.timestamp_ms == timestamp_ms
-    assert trace_info.execution_time_ms == 100
-    assert trace_info.state == TraceState.OK
-    assert trace_info.tags["mlflow.artifactLocation"] is not None
-    assert trace_info.trace_metadata == {}
-    assert trace_info.client_request_id == trace.info.client_request_id
+    assert new_trace_info.trace_id == trace_info.trace_id
+    assert new_trace_info.experiment_id == exp_id
+    assert new_trace_info.timestamp_ms == timestamp_ms
+    assert new_trace_info.execution_time_ms == 100
+    assert new_trace_info.state == TraceState.OK
+    assert new_trace_info.tags["mlflow.artifactLocation"] is not None
+    assert new_trace_info.trace_metadata == {TRACE_SCHEMA_VERSION_KEY: "3"}
+    assert new_trace_info.client_request_id == trace_info.client_request_id
 
 
 def test_get_trace_info(store_and_trace_info):
@@ -3122,16 +3112,13 @@ def test_delete_traces(store):
     trace_ids = []
     timestamps = list(range(90, -1, -10))
     for i in range(10):
-        trace = Trace(
-            info=TraceInfo(
-                trace_id=f"tr-{uuid.uuid4()}",
-                trace_location=TraceLocation.from_experiment_id(exp_id),
-                request_time=timestamps[i],
-                state=TraceState.OK,
-            ),
-            data=TraceData(spans=[]),
+        trace_info = TraceInfo(
+            trace_id=f"tr-{uuid.uuid4()}",
+            trace_location=TraceLocation.from_experiment_id(exp_id),
+            request_time=timestamps[i],
+            state=TraceState.OK,
         )
-        trace_info = store.start_trace_v3(trace)
+        trace_info = store.start_trace_v3(trace_info)
         trace_ids.append(trace_info.trace_id)
 
     # delete with max_timestamp_millis
@@ -3288,35 +3275,29 @@ def test_search_traces_filter_trace_metadata(store):
     exp_id = store.create_experiment("test")
     timestamp_ms_1 = get_current_time_millis()
     trace_info_1 = store.start_trace_v3(
-        Trace(
-            info=TraceInfo(
-                trace_id=f"tr-{uuid.uuid4()}",
-                trace_location=TraceLocation.from_experiment_id(exp_id),
-                request_time=timestamp_ms_1,
-                state=TraceState.OK,
-                trace_metadata={
-                    TraceMetadataKey.INPUTS: "inputs1",
-                    TraceMetadataKey.OUTPUTS: "outputs1",
-                },
-            ),
-            data=TraceData(spans=[]),
-        )
+        TraceInfo(
+            trace_id=f"tr-{uuid.uuid4()}",
+            trace_location=TraceLocation.from_experiment_id(exp_id),
+            request_time=timestamp_ms_1,
+            state=TraceState.OK,
+            trace_metadata={
+                TraceMetadataKey.INPUTS: "inputs1",
+                TraceMetadataKey.OUTPUTS: "outputs1",
+            },
+        ),
     )
     time.sleep(0.001)  # ensure unique timestamps
     timestamp_ms_2 = get_current_time_millis()
     trace_info_2 = store.start_trace_v3(
-        Trace(
-            info=TraceInfo(
-                trace_id=f"tr-{uuid.uuid4()}",
-                trace_location=TraceLocation.from_experiment_id(exp_id),
-                request_time=timestamp_ms_2,
-                state=TraceState.OK,
-                trace_metadata={
-                    TraceMetadataKey.INPUTS: "inputs2",
-                    TraceMetadataKey.OUTPUTS: "outputs2",
-                },
-            ),
-            data=TraceData(spans=[]),
+        TraceInfo(
+            trace_id=f"tr-{uuid.uuid4()}",
+            trace_location=TraceLocation.from_experiment_id(exp_id),
+            request_time=timestamp_ms_2,
+            state=TraceState.OK,
+            trace_metadata={
+                TraceMetadataKey.INPUTS: "inputs2",
+                TraceMetadataKey.OUTPUTS: "outputs2",
+            },
         ),
     )
 
@@ -3438,15 +3419,12 @@ def test_search_traces_order(generate_trace_infos):
     # order by experiment_id
     exp_id2 = store.create_experiment("test2")
     trace_info = store.start_trace_v3(
-        Trace(
-            info=TraceInfo(
-                trace_id=f"tr-{uuid.uuid4()}",
-                trace_location=TraceLocation.from_experiment_id(exp_id2),
-                request_time=timestamps[-1],
-                state=TraceState.OK,
-            ),
-            data=TraceData(spans=[]),
-        )
+        TraceInfo(
+            trace_id=f"tr-{uuid.uuid4()}",
+            trace_location=TraceLocation.from_experiment_id(exp_id2),
+            request_time=timestamps[-1],
+            state=TraceState.OK,
+        ),
     )
     trace_infos.append(trace_info)
 

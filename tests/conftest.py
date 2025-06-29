@@ -44,12 +44,14 @@ def remote_backend_for_tracing_sdk_test():
     port = get_safe_port()
     # Start a remote backend to test mlflow-tracing package integration.
     with tempfile.TemporaryDirectory() as temp_dir:
+        mlflow_root = os.path.dirname(os.path.dirname(__file__))
         with subprocess.Popen(
             [
                 "uv",
                 "run",
                 "--with",
-                "mlflow",
+                # Install from the dev version
+                mlflow_root,
                 "--python",
                 # Get current python version
                 f"{sys.version_info.major}.{sys.version_info.minor}",
