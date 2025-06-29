@@ -298,7 +298,7 @@ example-rules = [
 
 [tool.clint.per-file-ignores]
 # Rules that should only be enabled for files in the root mlflow directory
-"^(?!mlflow/).*\\.py$" = [
+"^(?!mlflow/).*$" = [
   "forbidden-set-active-model-usage",
   "unnamed-thread",
   "thread-pool-executor-without-thread-name-prefix",
