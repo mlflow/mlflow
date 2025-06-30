@@ -1,6 +1,8 @@
 from typing import Any, Optional
 
 from mlflow.entities.span import LiveSpan, Span
+from mlflow.exceptions import MlflowException
+from mlflow.protos.databricks_pb2 import INVALID_STATE
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 
 
@@ -17,7 +19,8 @@ def copy_trace_to_experiment(
         experiment_id: The ID of the experiment to copy the trace to.
             If not provided, the trace will be copied to the current experiment.
     """
-    new_trace_id, new_root_span = None, None
+    new_trace_id = None
+    new_root_span = None
     trace_manager = InMemoryTraceManager.get_instance()
     spans = [Span.from_dict(span_dict) for span_dict in trace_dict["data"]["spans"]]
 
@@ -36,6 +39,12 @@ def copy_trace_to_experiment(
         if old_span.parent_id is None:
             new_root_span = new_span
             new_trace_id = new_span.trace_id
+
+    if new_trace_id is None:
+        raise MlflowException(
+            "Root span not found in the trace. Perhaps the trace data is corrupted.",
+            error_code=INVALID_STATE,
+        )
 
     user_tags = {k: v for k, v in trace_dict["info"]["tags"].items() if not k.startswith("mlflow.")}
     with trace_manager.get_trace(trace_id=new_trace_id) as trace:
