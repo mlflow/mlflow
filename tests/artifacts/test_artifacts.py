@@ -358,7 +358,7 @@ def test_download_artifacts_with_client_and_tracking_uri(tmp_path: pathlib.Path)
     assert tmp_file.name in [p.name for p in dst_path.rglob("*")]
 
 
-def test_run_artifact_download_when_both_run_and_model_artifacts_exist(tmp_path):
+def test_single_run_artifact_download_when_both_run_and_model_artifacts_exist(tmp_path):
     class DummyModel(mlflow.pyfunc.PythonModel):
         def predict(self, model_input: list[str]) -> list[str]:
             return model_input
