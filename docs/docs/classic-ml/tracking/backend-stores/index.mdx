@@ -49,7 +49,7 @@ When using database-backed stores, please note:
 - **Model Registry Integration**: [Model Registry](/ml/model-registry) functionality requires a database-backed store. See [this FAQ](/ml/tracking#tracking-with-model-registry) for more information.
 
 - **Schema Migrations**: `mlflow server` will fail against a database with an out-of-date schema. Always run `mlflow db upgrade [db_uri]` to upgrade your database schema before starting the server. Schema migrations can result in database downtime and may take longer on larger databases. **Always backup your database before running migrations.**
-:::
+  :::
 
 :::note parameter-limits
 In Sep 2023, we increased the max length for params recorded in a Run from 500 to 8k (but we limit param value max length to 6000 internally).

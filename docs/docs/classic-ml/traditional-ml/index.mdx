@@ -16,16 +16,17 @@ MLflow provides comprehensive support for traditional ML workflows, making it ef
 <details>
   <summary>Why Traditional ML Needs MLflow</summary>
 
-  #### The Challenges of Traditional ML at Scale
+#### The Challenges of Traditional ML at Scale
 
-  - 🔄 **Extensive Experimentation**: Traditional ML requires systematic testing of algorithms, features, and hyperparameters to find optimal solutions
-  - 📊 **Model Comparison**: Comparing performance across different algorithms and configurations becomes complex at scale
-  - 🔧 **Pipeline Management**: Managing preprocessing, feature engineering, and model training workflows requires careful orchestration
-  - 👥 **Team Collaboration**: Data scientists need to share experiments, models, and insights across projects
-  - 🚀 **Deployment Complexity**: Moving from notebook experiments to production systems introduces operational challenges
-  - 📋 **Regulatory Compliance**: Many industries require detailed model documentation and audit trails
+- 🔄 **Extensive Experimentation**: Traditional ML requires systematic testing of algorithms, features, and hyperparameters to find optimal solutions
+- 📊 **Model Comparison**: Comparing performance across different algorithms and configurations becomes complex at scale
+- 🔧 **Pipeline Management**: Managing preprocessing, feature engineering, and model training workflows requires careful orchestration
+- 👥 **Team Collaboration**: Data scientists need to share experiments, models, and insights across projects
+- 🚀 **Deployment Complexity**: Moving from notebook experiments to production systems introduces operational challenges
+- 📋 **Regulatory Compliance**: Many industries require detailed model documentation and audit trails
 
-  MLflow addresses these challenges with purpose-built tools for traditional ML workflows, providing structure and clarity throughout the entire machine learning lifecycle.
+MLflow addresses these challenges with purpose-built tools for traditional ML workflows, providing structure and clarity throughout the entire machine learning lifecycle.
+
 </details>
 
 ## Key Features for Traditional ML
@@ -42,16 +43,16 @@ MLflow's autologging capabilities are designed specifically for traditional ML l
 <details>
   <summary>Advanced Autologging Features</summary>
 
-  #### Beyond Basic Tracking
+#### Beyond Basic Tracking
 
-  MLflow's autologging system provides sophisticated capabilities for traditional ML:
+MLflow's autologging system provides sophisticated capabilities for traditional ML:
 
-  - **Pipeline Stage Tracking**: Automatically log parameters and transformations for each pipeline component
-  - **Hyperparameter Search Integration**: Native support for GridSearchCV, RandomizedSearchCV, and popular optimization libraries
-  - **Cross-Validation Results**: Capture detailed CV metrics and fold-by-fold performance
-  - **Feature Importance**: Automatically log feature importance scores for supported models
-  - **Model Signatures**: Infer and store input/output schemas for deployment validation
-  - **Custom Metrics**: Seamlessly integrate domain-specific evaluation functions
+- **Pipeline Stage Tracking**: Automatically log parameters and transformations for each pipeline component
+- **Hyperparameter Search Integration**: Native support for GridSearchCV, RandomizedSearchCV, and popular optimization libraries
+- **Cross-Validation Results**: Capture detailed CV metrics and fold-by-fold performance
+- **Feature Importance**: Automatically log feature importance scores for supported models
+- **Model Signatures**: Infer and store input/output schemas for deployment validation
+- **Custom Metrics**: Seamlessly integrate domain-specific evaluation functions
 
 </details>
 
@@ -154,15 +155,15 @@ Traditional ML workflows often involve complex preprocessing and feature enginee
 <details>
   <summary>Enterprise Pipeline Features</summary>
 
-  #### Production-Ready Pipeline Management
+#### Production-Ready Pipeline Management
 
-  MLflow provides enterprise-grade capabilities for traditional ML pipelines:
+MLflow provides enterprise-grade capabilities for traditional ML pipelines:
 
-  - **Schema Evolution**: Handle changes in input data schemas gracefully
-  - **Batch Processing**: Support for large-scale batch inference workflows
-  - **Model Monitoring**: Track data drift and model performance degradation
-  - **A/B Testing**: Compare model versions in production environments
-  - **Rollback Capabilities**: Quickly revert to previous model versions when issues arise
+- **Schema Evolution**: Handle changes in input data schemas gracefully
+- **Batch Processing**: Support for large-scale batch inference workflows
+- **Model Monitoring**: Track data drift and model performance degradation
+- **A/B Testing**: Compare model versions in production environments
+- **Rollback Capabilities**: Quickly revert to previous model versions when issues arise
 
 </details>
 
@@ -180,15 +181,15 @@ Deploy traditional ML models across various environments and use cases:
 <details>
   <summary>Advanced Deployment Options</summary>
 
-  #### Beyond Basic Model Serving
+#### Beyond Basic Model Serving
 
-  MLflow supports sophisticated deployment patterns for traditional ML:
+MLflow supports sophisticated deployment patterns for traditional ML:
 
-  - **Multi-Model Endpoints**: Serve multiple models from a single endpoint with routing logic
-  - **Ensemble Serving**: Deploy model ensembles with custom combination strategies
-  - **Preprocessing Integration**: Include feature engineering pipelines in served models
-  - **Monitoring Integration**: Connect to observability platforms for production tracking
-  - **Auto-Scaling**: Handle variable loads with dynamic resource allocation
+- **Multi-Model Endpoints**: Serve multiple models from a single endpoint with routing logic
+- **Ensemble Serving**: Deploy model ensembles with custom combination strategies
+- **Preprocessing Integration**: Include feature engineering pipelines in served models
+- **Monitoring Integration**: Connect to observability platforms for production tracking
+- **Auto-Scaling**: Handle variable loads with dynamic resource allocation
 
 </details>
 
@@ -211,58 +212,58 @@ MLflow provides native support for all major traditional ML libraries, enabling 
 <details>
   <summary>Quick Setup Guide</summary>
 
-  ### 1. Install MLflow
+### 1. Install MLflow
 
-  ```bash
-  pip install mlflow
-  ```
+```bash
+pip install mlflow
+```
 
-  For specific integrations, install the corresponding packages:
+For specific integrations, install the corresponding packages:
 
-  ```bash
-  # For scikit-learn
-  pip install scikit-learn
+```bash
+# For scikit-learn
+pip install scikit-learn
 
-  # For XGBoost
-  pip install xgboost
-  ```
+# For XGBoost
+pip install xgboost
+```
 
-  ### 2. Enable Autologging
+### 2. Enable Autologging
 
-  ```python
-  import mlflow
+```python
+import mlflow
 
-  # For scikit-learn
-  mlflow.sklearn.autolog()
+# For scikit-learn
+mlflow.sklearn.autolog()
 
-  # For XGBoost
-  mlflow.xgboost.autolog()
+# For XGBoost
+mlflow.xgboost.autolog()
 
-  # For all supported frameworks
-  mlflow.autolog()
-  ```
+# For all supported frameworks
+mlflow.autolog()
+```
 
-  ### 3. Train Your Model Normally
+### 3. Train Your Model Normally
 
-  ```python
-  from sklearn.ensemble import RandomForestClassifier
-  from sklearn.model_selection import train_test_split
+```python
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
 
-  # Your existing training code works unchanged!
-  X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+# Your existing training code works unchanged!
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
 
-  with mlflow.start_run():
-      model = RandomForestClassifier(n_estimators=100)
-      model.fit(X_train, y_train)
-  ```
+with mlflow.start_run():
+    model = RandomForestClassifier(n_estimators=100)
+    model.fit(X_train, y_train)
+```
 
-  ### 4. View Results
+### 4. View Results
 
-  Open the MLflow UI to see your tracked experiments:
+Open the MLflow UI to see your tracked experiments:
 
-  ```bash
-  mlflow ui
-  ```
+```bash
+mlflow ui
+```
 
 </details>
 

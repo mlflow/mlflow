@@ -64,12 +64,12 @@ This simple example automatically logs all XGBoost parameters and training confi
 
 MLflow's XGBoost autologging captures comprehensive information about your gradient boosting process automatically:
 
-| **Category** | **Information Captured** |
-|--------------|--------------------------|
-| **Parameters** | All booster parameters, training configuration, callback settings |
-| **Metrics** | Training/validation metrics per iteration, early stopping metrics |
+| **Category**           | **Information Captured**                                           |
+| ---------------------- | ------------------------------------------------------------------ |
+| **Parameters**         | All booster parameters, training configuration, callback settings  |
+| **Metrics**            | Training/validation metrics per iteration, early stopping metrics  |
 | **Feature Importance** | Weight, gain, cover, and total_gain importance with visualizations |
-| **Artifacts** | Trained model, feature importance plots, JSON importance data |
+| **Artifacts**          | Trained model, feature importance plots, JSON importance data      |
 
 The autologging system is designed to be comprehensive yet non-intrusive. It captures everything you need for reproducibility without requiring changes to your existing XGBoost code.
 
@@ -1140,6 +1140,7 @@ def comprehensive_xgboost_evaluation(model, X_test, y_test, X_train=None, y_trai
 
         mlflow.log_metric("average_precision", avg_precision)
 ```
+
   </TabItem>
 </Tabs>
 

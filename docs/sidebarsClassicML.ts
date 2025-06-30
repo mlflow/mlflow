@@ -1,5 +1,5 @@
 import type { SidebarsConfig } from '@docusaurus/plugin-content-docs';
-import { apiReferencePrefix } from "./docusaurusConfigUtils";
+import { apiReferencePrefix } from './docusaurusConfigUtils';
 
 const sidebarsClassicML: SidebarsConfig = {
   classicMLSidebar: [
@@ -19,7 +19,7 @@ const sidebarsClassicML: SidebarsConfig = {
       label: 'Getting Started 🚀',
       className: 'sidebar-top-level-category',
       items: [
-         {
+        {
           type: 'doc',
           id: 'getting-started/running-notebooks/index',
         },
@@ -59,18 +59,18 @@ const sidebarsClassicML: SidebarsConfig = {
                   type: 'doc',
                   id: 'getting-started/logging-first-model/notebooks/logging-first-model-ipynb',
                   label: 'Logging First Model',
-                }
+                },
               ],
               link: {
                 type: 'doc',
                 id: 'getting-started/logging-first-model/notebooks/index',
-              }
-            }
+              },
+            },
           ],
           link: {
             type: 'doc',
             id: 'getting-started/logging-first-model/index',
-          }
+          },
         },
         {
           type: 'doc',
@@ -94,8 +94,8 @@ const sidebarsClassicML: SidebarsConfig = {
             },
             {
               type: 'doc',
-              id: 'getting-started/registering-first-model/step3-load-model'
-            }
+              id: 'getting-started/registering-first-model/step3-load-model',
+            },
           ],
           link: {
             type: 'doc',
@@ -105,12 +105,12 @@ const sidebarsClassicML: SidebarsConfig = {
         {
           type: 'doc',
           id: 'getting-started/tracking-server-overview/index',
-        }
+        },
       ],
       link: {
         type: 'doc',
         id: 'getting-started/index',
-      }
+      },
     },
     {
       type: 'category',
@@ -158,7 +158,7 @@ const sidebarsClassicML: SidebarsConfig = {
                       link: {
                         type: 'doc',
                         id: 'traditional-ml/tutorials/hyperparameter-tuning/notebooks/index',
-                      }
+                      },
                     },
                   ],
                   link: {
@@ -200,14 +200,14 @@ const sidebarsClassicML: SidebarsConfig = {
                       ],
                       link: {
                         type: 'doc',
-                        id: 'traditional-ml/tutorials/creating-custom-pyfunc/notebooks/index'
-                      }
+                        id: 'traditional-ml/tutorials/creating-custom-pyfunc/notebooks/index',
+                      },
                     },
                   ],
                   link: {
                     type: 'doc',
                     id: 'traditional-ml/tutorials/creating-custom-pyfunc/index',
-                  }
+                  },
                 },
                 {
                   type: 'category',
@@ -224,7 +224,7 @@ const sidebarsClassicML: SidebarsConfig = {
                     id: 'traditional-ml/tutorials/serving-multiple-models-with-pyfunc/index',
                   },
                 },
-              ]
+              ],
             },
             {
               type: 'category',
@@ -238,13 +238,13 @@ const sidebarsClassicML: SidebarsConfig = {
                 {
                   type: 'doc',
                   id: 'traditional-ml/sklearn/guide/index',
-                  label: 'Scikit Learn within MLflow'
+                  label: 'Scikit Learn within MLflow',
                 },
               ],
               link: {
                 type: 'doc',
-                id: 'traditional-ml/sklearn/index'
-              }
+                id: 'traditional-ml/sklearn/index',
+              },
             },
             {
               type: 'category',
@@ -258,13 +258,13 @@ const sidebarsClassicML: SidebarsConfig = {
                 {
                   type: 'doc',
                   id: 'traditional-ml/xgboost/guide/index',
-                  label: 'XGBoost within MLflow'
+                  label: 'XGBoost within MLflow',
                 },
               ],
               link: {
                 type: 'doc',
-                id: 'traditional-ml/xgboost/index'
-              }
+                id: 'traditional-ml/xgboost/index',
+              },
             },
             {
               type: 'category',
@@ -288,19 +288,19 @@ const sidebarsClassicML: SidebarsConfig = {
                 {
                   type: 'doc',
                   id: 'traditional-ml/prophet/guide/index',
-                  label: 'Prophet within MLflow'
+                  label: 'Prophet within MLflow',
                 },
               ],
               link: {
                 type: 'doc',
-                id: 'traditional-ml/prophet/index'
-              }
+                id: 'traditional-ml/prophet/index',
+              },
             },
           ],
           link: {
             type: 'doc',
-            id: 'traditional-ml/index'
-          }
+            id: 'traditional-ml/index',
+          },
         },
         {
           type: 'category',
@@ -379,7 +379,7 @@ const sidebarsClassicML: SidebarsConfig = {
                 {
                   type: 'doc',
                   id: 'deep-learning/transformers/task/index',
-                  label: 'Transformers Task Types'
+                  label: 'Transformers Task Types',
                 },
                 {
                   type: 'category',
@@ -429,7 +429,7 @@ const sidebarsClassicML: SidebarsConfig = {
                   link: {
                     type: 'doc',
                     id: 'deep-learning/transformers/tutorials/index',
-                  }
+                  },
                 },
               ],
               link: {
@@ -464,18 +464,18 @@ const sidebarsClassicML: SidebarsConfig = {
                     {
                       type: 'doc',
                       id: 'deep-learning/sentence-transformers/tutorials/semantic-similarity/semantic-similarity-sentence-transformers-ipynb',
-                    }
+                    },
                   ],
                   link: {
                     type: 'doc',
-                    id: 'deep-learning/sentence-transformers/tutorials/index'
-                  }
-                }
+                    id: 'deep-learning/sentence-transformers/tutorials/index',
+                  },
+                },
               ],
               link: {
                 type: 'doc',
                 id: 'deep-learning/sentence-transformers/index',
-              }
+              },
             },
             {
               type: 'category',
@@ -495,9 +495,9 @@ const sidebarsClassicML: SidebarsConfig = {
           link: {
             type: 'doc',
             id: 'deep-learning/index',
-          }
-        }
-      ]
+          },
+        },
+      ],
     },
     {
       type: 'category',
@@ -516,12 +516,12 @@ const sidebarsClassicML: SidebarsConfig = {
                 {
                   type: 'doc',
                   id: 'tracking/quickstart/notebooks/tracking_quickstart-ipynb',
-                }
+                },
               ],
               link: {
                 type: 'doc',
                 id: 'tracking/quickstart/index',
-              }
+              },
             },
             {
               type: 'doc',
@@ -549,14 +549,14 @@ const sidebarsClassicML: SidebarsConfig = {
                     {
                       type: 'autogenerated',
                       dirName: 'tracking/tutorials',
-                    }
+                    },
                   ],
-                }
+                },
               ],
               link: {
                 type: 'doc',
                 id: 'tracking/server/index',
-              }
+              },
             },
             {
               type: 'category',
@@ -574,18 +574,18 @@ const sidebarsClassicML: SidebarsConfig = {
                   type: 'doc',
                   id: 'search/search-experiments/index',
                 },
-              ]
+              ],
             },
             {
               type: 'doc',
               id: 'tracking/system-metrics/index',
-              label: 'System Metrics 🌡️'
+              label: 'System Metrics 🌡️',
             },
             {
               type: 'doc',
               id: 'tracking/tracking-api/index',
-              label: 'Tracking APIs 🛠️'
-            }
+              label: 'Tracking APIs 🛠️',
+            },
           ],
           link: {
             type: 'doc',
@@ -611,7 +611,7 @@ const sidebarsClassicML: SidebarsConfig = {
           type: 'doc',
           id: 'dataset/index',
           label: 'MLflow Datasets 🗃️',
-        }
+        },
       ],
     },
     {
@@ -646,8 +646,8 @@ const sidebarsClassicML: SidebarsConfig = {
       ],
       link: {
         type: 'doc',
-        id: 'evaluation/index'
-      }
+        id: 'evaluation/index',
+      },
     },
     {
       type: 'category',
@@ -666,7 +666,7 @@ const sidebarsClassicML: SidebarsConfig = {
           link: {
             type: 'doc',
             id: 'model-registry/index',
-          }
+          },
         },
         {
           type: 'category',
@@ -674,7 +674,7 @@ const sidebarsClassicML: SidebarsConfig = {
           items: [
             {
               type: 'doc',
-              id: 'deployment/deploy-model-locally/index'
+              id: 'deployment/deploy-model-locally/index',
             },
             {
               type: 'category',
@@ -683,12 +683,12 @@ const sidebarsClassicML: SidebarsConfig = {
                 {
                   type: 'doc',
                   id: 'deployment/deploy-model-to-kubernetes/tutorial',
-                }
+                },
               ],
               link: {
                 type: 'doc',
                 id: 'deployment/deploy-model-to-kubernetes/index',
-              }
+              },
             },
             {
               type: 'doc',
@@ -697,14 +697,14 @@ const sidebarsClassicML: SidebarsConfig = {
           ],
           link: {
             type: 'doc',
-            id: 'deployment/index'
-          }
+            id: 'deployment/index',
+          },
         },
         {
           type: 'doc',
           id: 'docker/index',
-          label: 'Docker'
-        }
+          label: 'Docker',
+        },
       ],
     },
     {
@@ -716,12 +716,12 @@ const sidebarsClassicML: SidebarsConfig = {
         {
           type: 'link',
           href: '/ml/tracking/#tracking-setup',
-          label: 'Self-Hosting'
+          label: 'Self-Hosting',
         },
         {
           type: 'link',
           href: '/ml/#running-mlflow-anywhere',
-          label: 'Managed Services'
+          label: 'Managed Services',
         },
         {
           type: 'doc',
@@ -733,7 +733,7 @@ const sidebarsClassicML: SidebarsConfig = {
           id: 'projects/index',
           label: 'MLflow Projects 📦',
         },
-      ]
+      ],
     },
     {
       type: 'category',
@@ -765,8 +765,8 @@ const sidebarsClassicML: SidebarsConfig = {
           type: 'link',
           label: 'CLI',
           href: `${apiReferencePrefix()}cli.html`,
-        }
-      ]
+        },
+      ],
     },
     {
       type: 'category',
@@ -787,14 +787,14 @@ const sidebarsClassicML: SidebarsConfig = {
         {
           type: 'doc',
           id: 'plugins/index',
-          label: 'MLflow Plugins 🔌'
+          label: 'MLflow Plugins 🔌',
         },
         {
           type: 'doc',
           id: 'tutorials-and-examples/index',
           label: 'External Tutorials',
-        }
-      ]
+        },
+      ],
     },
   ],
 };

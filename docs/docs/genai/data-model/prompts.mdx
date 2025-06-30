@@ -55,12 +55,15 @@ graph TD
 ## Prompt as a Versioned Entity
 
 ### Centralized Template Management
+
 The Prompt entity provides a single source of truth for template definitions, enabling consistent reuse across multiple applications and teams while maintaining version history and change tracking.
 
 ### Git-Inspired Versioning
+
 Prompt versioning follows Git-like principles with sequential version numbers, commit messages describing changes, and immutable versions that ensure reproducibility and rollback capabilities.
 
 ### Dynamic Variable Support
+
 Templates support variable interpolation using double-brace syntax (`{{variable}}`), enabling flexible content generation while maintaining template structure and reusability.
 
 ## Prompt Core Properties
@@ -240,6 +243,7 @@ Prompts are loaded and used through systematic patterns:
         num_sentences=3, content="Your content here...", tone="professional"
     )
     ```
+
   </TabItem>
   <TabItem value="alias" label="Alias Reference">
     ```python
@@ -251,6 +255,7 @@ Prompts are loaded and used through systematic patterns:
         num_sentences=3, content="Your content here...", tone="professional"
     )
     ```
+
   </TabItem>
   <TabItem value="search" label="Discovery and Search">
     ```python
@@ -260,6 +265,7 @@ Prompts are loaded and used through systematic patterns:
     # Load discovered prompt
     prompt = mlflow.genai.load_prompt(f"prompts:/{prompts[0].name}/{prompts[0].version}")
     ```
+
   </TabItem>
 </Tabs>
 

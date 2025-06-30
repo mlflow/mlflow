@@ -65,6 +65,7 @@ with mlflow.start_run():
 ```
 
 This approach is perfect when:
+
 <ul>
   <li>You have batch prediction results from a production system</li>
   <li>You want to evaluate historical predictions</li>
@@ -556,6 +557,7 @@ def memory_efficient_evaluation(large_dataset_path, chunk_size=10000):
 ```
 
 **Memory Management Tips:**
+
 <ul>
   <li><strong>Chunked Processing</strong>: Use chunked processing for datasets larger than 1GB</li>
   <li><strong>Data Types</strong>: Use appropriate data types (int32 vs int64) to reduce memory usage</li>

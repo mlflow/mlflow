@@ -60,6 +60,7 @@ print(f"Model logged with URI: {model_info.model_uri}")
 ```
 
 This simple example automatically logs:
+
 - The complete Spark ML pipeline with all stages
 - Model parameters from each pipeline stage
 - The trained model in both Spark native and PyFunc formats
@@ -114,12 +115,14 @@ print(predictions)
 <TabItem value="conversion" label="Format Conversion">
 
 **Automatic Conversion Process:**
+
 - **Input Handling**: PyFunc automatically converts pandas DataFrames to Spark DataFrames
 - **Spark Context**: Creates a local Spark session if none exists
 - **Output Processing**: Converts Spark ML vector outputs to arrays for pandas compatibility
 - **Performance Trade-offs**: Initialization overhead vs deployment flexibility
 
 **When to Use Each Format:**
+
 - **Native Spark**: Large-scale batch processing, existing Spark infrastructure
 - **PyFunc**: REST API deployment, edge computing, non-Spark environments
 
@@ -253,11 +256,13 @@ with mlflow.start_run():
 <TabItem value="setup" label="Setup Requirements">
 
 **Requirements:**
+
 - **Spark Version**: Requires Spark 3.0 or above
 - **MLflow-Spark JAR**: Must be included in Spark session configuration
 - **Environment**: Not supported on Databricks shared/serverless clusters
 
 **JAR Configuration:**
+
 ```python
 from pyspark.sql import SparkSession
 
@@ -270,6 +275,7 @@ spark = (
 ```
 
 **What Gets Logged:**
+
 - **Path Information**: Complete paths to data sources
 - **Format Details**: File formats (parquet, delta, csv, etc.)
 - **Version Information**: For versioned sources like Delta Lake
@@ -597,6 +603,7 @@ def create_pipeline(config):
 **Common Issues and Solutions:**
 
 **Serialization Issues:**
+
 ```python
 # Test model serialization
 def test_model_serialization(model):
@@ -611,6 +618,7 @@ def test_model_serialization(model):
 ```
 
 **Memory Issues:**
+
 ```python
 # Configure Spark for large models
 spark.conf.set("spark.sql.adaptive.enabled", "true")
@@ -624,6 +632,7 @@ large_dataset.cache()  # Only when reused multiple times
 <TabItem value="optimization" label="Performance Tips">
 
 **Efficient Logging:**
+
 ```python
 def efficient_spark_ml_logging():
     """Configure efficient logging for Spark ML."""
@@ -648,6 +657,7 @@ def efficient_spark_ml_logging():
 ```
 
 **Spark Configuration:**
+
 ```python
 # Optimize Spark for MLflow operations
 def configure_spark_for_mlflow():

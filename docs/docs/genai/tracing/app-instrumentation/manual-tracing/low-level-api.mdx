@@ -4,7 +4,6 @@ import { APILink } from "@site/src/components/APILink";
 
 # Low-level Client APIs (Advanced)
 
-
 The MLflow Client APIs provide direct, fine-grained control over trace lifecycle management. While the [high-level APIs](/genai/tracing/app-instrumentation/manual-tracing/fluent-apis) handle most use cases elegantly, client APIs are essential for advanced scenarios requiring explicit control over trace creation, custom trace IDs, or integration with existing observability systems.
 
 :::warning Use With Caution
@@ -15,7 +14,7 @@ The MLflow Client APIs provide direct, fine-grained control over trace lifecycle
 - 🚫 Incompatible with auto-tracing integrations
 - 🎛️ Full control over trace lifecycle
 - 🆔 Custom trace ID management
-:::
+  :::
 
 ## Core Concepts
 
@@ -192,6 +191,7 @@ client.end_trace(
                 status="OK",
             )
     ```
+
   </TabItem>
   <TabItem value="custom-management" label="Custom Trace Management">
     Implement custom trace ID generation and management for integration with existing systems:
@@ -241,6 +241,7 @@ client.end_trace(
         user_id="user123", operation="report_generation", report_type="quarterly"
     )
     ```
+
   </TabItem>
   <TabItem value="batch-processing" label="Batch Processing">
     Track complex workflows with multiple levels of nesting:
@@ -322,6 +323,7 @@ client.end_trace(
 
         return results
     ```
+
   </TabItem>
 </Tabs>
 
@@ -360,6 +362,7 @@ client.end_trace(
         # Your code here
         result = perform_operation()
     ```
+
   </TabItem>
   <TabItem value="state-management" label="State Management">
     Manage trace state for complex applications:
@@ -410,6 +413,7 @@ client.end_trace(
                 # End root trace
                 self.client.end_trace(request_id=span.request_id, **kwargs)
     ```
+
   </TabItem>
   <TabItem value="attributes" label="Meaningful Attributes">
     Enrich your traces with context that aids debugging:
@@ -441,6 +445,7 @@ client.end_trace(
         attributes={"step": 1, "data": "some data"},
     )
     ```
+
   </TabItem>
 </Tabs>
 
@@ -454,7 +459,7 @@ client.end_trace(
 - 🔀 **Mixing high-level and low-level APIs** - They don't interoperate
 - 🔐 **Hardcoding trace IDs** - Always generate unique IDs
 - 🧵 **Ignoring thread safety** - Client APIs are not thread-safe by default
-:::
+  :::
 
 ## Performance Considerations
 

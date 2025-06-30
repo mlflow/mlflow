@@ -13,7 +13,6 @@ import TabItem from "@theme/TabItem";
 
 ![OpenAI Tracing via autolog](/images/llms/tracing/openai-tracing.gif)
 
-
 [MLflow Tracing](/genai/tracing) provides automatic tracing capability for OpenAI. By enabling auto tracing
 for OpenAI by calling the <APILink fn="mlflow.openai.autolog" /> function, MLflow will capture traces for LLM invocation and log them to the active MLflow Experiment.
 
@@ -25,13 +24,13 @@ mlflow.openai.autolog()
 
 MLflow trace automatically captures the following information about OpenAI calls:
 
-* Prompts and completion responses
-* Latencies
-* Model name
-* Additional metadata such as `temperature`, `max_tokens`, if specified.
-* Function calling if returned in the response
-* Built-in tools such as web search, file search, computer use, etc.
-* Any exception if raised
+- Prompts and completion responses
+- Latencies
+- Model name
+- Additional metadata such as `temperature`, `max_tokens`, if specified.
+- Function calling if returned in the response
+- Built-in tools such as web search, file search, computer use, etc.
+- Any exception if raised
 
 :::tip
 
@@ -45,15 +44,15 @@ MLflow supports automatic tracing for the following OpenAI APIs. To request supp
 
 #### Chat Completion API
 
-|Normal|Function Calling|Structured Outputs|Streaming|Async|Image|Audio|
-|:--:|:--:|:--:|:--:|:--:|:--:|:--:|
-|✅|✅|✅(>=2.21.0)|✅ (>=2.15.0)| ✅(>=2.21.0)|-|-|
+| Normal | Function Calling | Structured Outputs |   Streaming   |    Async     | Image | Audio |
+| :----: | :--------------: | :----------------: | :-----------: | :----------: | :---: | :---: |
+|   ✅   |        ✅        |    ✅(>=2.21.0)    | ✅ (>=2.15.0) | ✅(>=2.21.0) |   -   |   -   |
 
 #### Responses API
 
-|Normal|Function Calling|Structured Outputs|Web Search|File Search|Computer Use|Reasoning|Streaming|Async|Image|
-|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|
-|✅|✅|✅|✅|✅|✅|✅|✅|✅|-|
+| Normal | Function Calling | Structured Outputs | Web Search | File Search | Computer Use | Reasoning | Streaming | Async | Image |
+| :----: | :--------------: | :----------------: | :--------: | :---------: | :----------: | :-------: | :-------: | :---: | :---: |
+|   ✅   |        ✅        |         ✅         |     ✅     |     ✅      |      ✅      |    ✅     |    ✅     |  ✅   |   -   |
 
 Responses API is supported since MLflow 2.22.0.
 
@@ -63,10 +62,9 @@ See [OpenAI Agents SDK Tracing](/genai/tracing/integrations/listing/openai-agent
 
 #### Embedding API
 
-|Normal|Async|
-|:--:|:--:|
-|✅|✅|
-
+| Normal | Async |
+| :----: | :---: |
+|   ✅   |  ✅   |
 
 ## Basic Example
 
@@ -99,6 +97,7 @@ See [OpenAI Agents SDK Tracing](/genai/tracing/integrations/listing/openai-agent
         max_tokens=100,
     )
     ```
+
   </TabItem>
   <TabItem value="responses" label="Responses API">
     ```python
@@ -118,6 +117,7 @@ See [OpenAI Agents SDK Tracing](/genai/tracing/integrations/listing/openai-agent
         model="gpt-4o-mini", input="What is the capital of France?"
     )
     ```
+
   </TabItem>
 </Tabs>
 
@@ -146,6 +146,7 @@ MLflow Tracing supports streaming API of the OpenAI SDK. With the same set up of
     for chunk in stream:
         print(chunk.choices[0].delta.content or "", end="")
     ```
+
   </TabItem>
   <TabItem value="responses" label="Responses API">
     ```python
@@ -165,10 +166,9 @@ MLflow Tracing supports streaming API of the OpenAI SDK. With the same set up of
     for event in stream:
         print(event)
     ```
+
   </TabItem>
 </Tabs>
-
-
 
 ## Async
 
@@ -194,6 +194,7 @@ MLflow Tracing supports asynchronous API of the OpenAI SDK since MLflow 2.21.0. 
         # stream=True
     )
     ```
+
   </TabItem>
   <TabItem value="responses" label="Responses API" default>
 
@@ -209,6 +210,7 @@ MLflow Tracing supports asynchronous API of the OpenAI SDK since MLflow 2.21.0. 
         model="gpt-4o-mini", input="How fast would a glass of water freeze on Titan?"
     )
     ```
+
   </TabItem>
 </Tabs>
 
@@ -301,6 +303,7 @@ The following example implements a simple function calling agent using OpenAI Fu
     question = "What's the weather like in Paris today?"
     answer = run_tool_agent(question)
     ```
+
   </TabItem>
   <TabItem value="responses" label="Responses API" default>
     ```python
@@ -382,10 +385,9 @@ The following example implements a simple function calling agent using OpenAI Fu
     question = "What's the weather like in Paris today?"
     answer = run_tool_agent(question)
     ```
+
   </TabItem>
 </Tabs>
-
-
 
 ## Token usage
 
@@ -440,19 +442,17 @@ Completions_2:
   Total tokens: 47
 ```
 
-
 ### Supported APIs:
 
 Token usage tracking is supported for the following OpenAI APIs:
 
-|Mode|Chat Completion|Responses|
-|:--:|:--:|:--:|
-|Normal|✅|✅|
-|Streaming|✅(*1)|✅|
-|Async|✅|✅|
+|   Mode    | Chat Completion | Responses |
+| :-------: | :-------------: | :-------: |
+|  Normal   |       ✅        |    ✅     |
+| Streaming |     ✅(\*1)     |    ✅     |
+|   Async   |       ✅        |    ✅     |
 
-(*1) By default, OpenAI does not return token usage information for Chat Completion API when streaming. To track token usage, you need to specify `stream_options={"include_usage": True}` in the request ([OpenAI API Reference](https://platform.openai.com/docs/api-reference/chat/create)).
-
+(\*1) By default, OpenAI does not return token usage information for Chat Completion API when streaming. To track token usage, you need to specify `stream_options={"include_usage": True}` in the request ([OpenAI API Reference](https://platform.openai.com/docs/api-reference/chat/create)).
 
 ## Disable auto-tracing
 

@@ -9,17 +9,19 @@ import TabItem from "@theme/TabItem";
 <details>
   <summary>Why Sentence Transformers Excel at Semantic Understanding</summary>
 
-  #### Semantic Vector Magic
-  - 🔍 **Meaning-Based Representation**: Convert sentences into vectors where similar meanings cluster together
-  - 🌐 **Multilingual Capabilities**: Work across 100+ languages with shared semantic space
-  - 📏 **Fixed-Size Embeddings**: Transform variable-length text into consistent vector dimensions
-  - ⚡ **Efficient Inference**: Generate embeddings in milliseconds for real-time applications
+#### Semantic Vector Magic
 
-  #### Versatile Architecture Options
-  - 🏗️ **Bi-Encoder Models**: Independent encoding for scalable similarity search and clustering
-  - 🔄 **Cross-Encoder Models**: Joint encoding for maximum accuracy in pairwise comparisons
-  - 🎯 **Task-Specific Models**: Pre-trained models optimized for specific domains and use cases
-  - 📊 **Flexible Pooling**: Multiple strategies to aggregate token representations into sentence embeddings
+- 🔍 **Meaning-Based Representation**: Convert sentences into vectors where similar meanings cluster together
+- 🌐 **Multilingual Capabilities**: Work across 100+ languages with shared semantic space
+- 📏 **Fixed-Size Embeddings**: Transform variable-length text into consistent vector dimensions
+- ⚡ **Efficient Inference**: Generate embeddings in milliseconds for real-time applications
+
+#### Versatile Architecture Options
+
+- 🏗️ **Bi-Encoder Models**: Independent encoding for scalable similarity search and clustering
+- 🔄 **Cross-Encoder Models**: Joint encoding for maximum accuracy in pairwise comparisons
+- 🎯 **Task-Specific Models**: Pre-trained models optimized for specific domains and use cases
+- 📊 **Flexible Pooling**: Multiple strategies to aggregate token representations into sentence embeddings
 
 </details>
 
@@ -93,45 +95,46 @@ print("Predictions shape:", predictions.shape)
 <details>
   <summary>Understanding Model Signatures for Embeddings</summary>
 
-  Model signatures are crucial for sentence transformers as they define the expected input format and output structure:
+Model signatures are crucial for sentence transformers as they define the expected input format and output structure:
 
-  ```python
-  import mlflow
-  import numpy as np
-  from sentence_transformers import SentenceTransformer
-  from mlflow.models import infer_signature
+```python
+import mlflow
+import numpy as np
+from sentence_transformers import SentenceTransformer
+from mlflow.models import infer_signature
 
-  model = SentenceTransformer("all-MiniLM-L6-v2")
+model = SentenceTransformer("all-MiniLM-L6-v2")
 
-  # Single sentence input
-  single_input = "This is a sample sentence."
-  single_output = model.encode(single_input)
+# Single sentence input
+single_input = "This is a sample sentence."
+single_output = model.encode(single_input)
 
-  # Multiple sentences input
-  batch_input = [
-      "First sentence for encoding.",
-      "Second sentence for batch processing.",
-      "Third sentence to demonstrate batching.",
-  ]
-  batch_output = model.encode(batch_input)
+# Multiple sentences input
+batch_input = [
+    "First sentence for encoding.",
+    "Second sentence for batch processing.",
+    "Third sentence to demonstrate batching.",
+]
+batch_output = model.encode(batch_input)
 
-  # Infer signature for batch processing (recommended)
-  signature = infer_signature(batch_input, batch_output)
+# Infer signature for batch processing (recommended)
+signature = infer_signature(batch_input, batch_output)
 
-  with mlflow.start_run():
-      mlflow.sentence_transformers.log_model(
-          model=model,
-          name="batch_encoder",
-          signature=signature,
-          input_example=batch_input,
-      )
-  ```
+with mlflow.start_run():
+    mlflow.sentence_transformers.log_model(
+        model=model,
+        name="batch_encoder",
+        signature=signature,
+        input_example=batch_input,
+    )
+```
 
-  Benefits of proper signatures:
-  - 📝 **Input Validation**: Ensures correct data format during inference
-  - 🔍 **API Documentation**: Clear specification of expected inputs and outputs
-  - 🚀 **Deployment Readiness**: Enables automatic endpoint generation and validation
-  - 📊 **Type Safety**: Prevents runtime errors in production environments
+Benefits of proper signatures:
+
+- 📝 **Input Validation**: Ensures correct data format during inference
+- 🔍 **API Documentation**: Clear specification of expected inputs and outputs
+- 🚀 **Deployment Readiness**: Enables automatic endpoint generation and validation
+- 📊 **Type Safety**: Prevents runtime errors in production environments
 
 </details>
 
@@ -599,6 +602,7 @@ def create_production_ready_model():
 # Create production model
 production_model = create_production_ready_model()
 ```
+
 </TabItem>
 <TabItem value="batch-processing" label="Batch Processing Pipeline" default>
 
@@ -973,16 +977,19 @@ legal_results = create_domain_evaluation_pipeline("legal", legal_test_cases)
 ## Best Practices and Optimization
 
 ### Experiment Organization
+
 - 🏷️ **Consistent Tagging**: Use descriptive tags to organize experiments by use case, model type, and evaluation stage
 - 📊 **Comprehensive Metrics**: Track both technical metrics (encoding speed, embedding dimensions) and task-specific performance
 - 📝 **Documentation**: Include detailed descriptions of experimental setup, data sources, and intended use cases
 
 ### Model Management
+
 - 🔄 **Version Control**: Maintain clear versioning for models, datasets, and evaluation protocols
 - 📦 **Artifact Organization**: Store related artifacts (datasets, evaluation results, visualizations) together
 - 🚀 **Deployment Readiness**: Ensure models include proper signatures, dependencies, and usage examples
 
 ### Performance Optimization
+
 - ⚡ **Batch Processing**: Use batch encoding for better throughput when processing multiple texts
 - 🎯 **Model Selection**: Choose models that balance quality and speed for your specific use case
 - 💾 **Caching Strategies**: Cache embeddings for frequently accessed content to improve response times
