@@ -199,7 +199,9 @@ def deduplicate_span_names_in_place(spans: list[LiveSpan]):
 
 def aggregate_usage_from_spans(spans: list[LiveSpan]) -> Optional[dict[str, int]]:
     """Aggregate token usage information from all spans in the trace."""
-    input_tokens, output_tokens, total_tokens = 0, 0, 0
+    input_tokens = 0
+    output_tokens = 0
+    total_tokens = 0
     has_usage_data = False
 
     span_id_to_spans = {span.span_id: span for span in spans}
@@ -278,7 +280,7 @@ def maybe_get_request_id(is_evaluate=False) -> Optional[str]:
     return context.request_id
 
 
-def maybe_get_dependencies_schemas() -> Optional[dict]:
+def maybe_get_dependencies_schemas() -> Optional[dict[str, Any]]:
     context = _try_get_prediction_context()
     if context:
         return context.dependencies_schemas
@@ -349,7 +351,7 @@ def maybe_set_prediction_context(context: Optional["Context"]):
 
 def set_span_chat_messages(
     span: LiveSpan,
-    messages: list[Union[dict, ChatMessage]],
+    messages: list[Union[dict[str, Any], ChatMessage]],
     append=False,
 ):
     """

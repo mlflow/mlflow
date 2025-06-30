@@ -1,5 +1,6 @@
 import textwrap
 import warnings
+from typing import Any
 
 from mlflow.ml_package_versions import _ML_PACKAGE_VERSIONS
 from mlflow.utils.autologging_utils.versioning import (
@@ -11,7 +12,7 @@ def _create_placeholder(key: str):
     return "{{ " + key + " }}"
 
 
-def _replace_keys_with_placeholders(d: dict) -> dict:
+def _replace_keys_with_placeholders(d: dict[str, Any]) -> dict[str, Any]:
     return {_create_placeholder(k): v for k, v in d.items()}
 
 

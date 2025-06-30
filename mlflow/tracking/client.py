@@ -601,7 +601,7 @@ class MlflowClient:
 
         Args:
             filter_string (Optional[str]):
-                An additional registry‐search expression to apply (e.g.
+                An additional registry-search expression to apply (e.g.
                 `"name LIKE 'my_prompt%'"`).  For Unity Catalog registries, must include
                 catalog and schema: "catalog = 'catalog_name' AND schema = 'schema_name'".
             max_results (int):
@@ -3085,8 +3085,8 @@ class MlflowClient:
         artifacts = [f.path for f in self.list_artifacts(run_id, path=artifact_dir)]
         if artifact_file in artifacts:
             with tempfile.TemporaryDirectory() as tmpdir:
-                downloaded_artifact_path = mlflow.artifacts.download_artifacts(
-                    run_id=run_id, artifact_path=artifact_file, dst_path=tmpdir
+                downloaded_artifact_path = self.download_artifacts(
+                    run_id=run_id, path=artifact_file, dst_path=tmpdir
                 )
                 existing_predictions = self._read_from_file(downloaded_artifact_path)
             data = pd.concat([existing_predictions, data], ignore_index=True)
@@ -3225,10 +3225,8 @@ class MlflowClient:
             ]
             if artifact_file in artifacts:
                 with tempfile.TemporaryDirectory() as tmpdir:
-                    downloaded_artifact_path = mlflow.artifacts.download_artifacts(
-                        run_id=run_id,
-                        artifact_path=artifact_file,
-                        dst_path=tmpdir,
+                    downloaded_artifact_path = self.download_artifacts(
+                        run_id=run_id, path=artifact_file, dst_path=tmpdir
                     )
                     existing_predictions = self._read_from_file(downloaded_artifact_path)
                     if extra_columns is not None:

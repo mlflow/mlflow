@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import sys
 import threading
+from pathlib import Path
 
 import pytest
 
@@ -253,14 +254,22 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
     failed_test_reports = terminalreporter.stats.get("failed", [])
     if failed_test_reports:
         if len(failed_test_reports) <= 30:
-            terminalreporter.section("command to run failed test cases")
             ids = [repr(report.nodeid) for report in failed_test_reports]
         else:
-            terminalreporter.section("command to run failed test suites")
             # Use dict.fromkeys to preserve the order
             ids = list(dict.fromkeys(report.fspath for report in failed_test_reports))
+        terminalreporter.section("command to run failed tests")
         terminalreporter.write(" ".join(["pytest"] + ids))
         terminalreporter.write("\n" * 2)
+
+        if summary_path := os.environ.get("GITHUB_STEP_SUMMARY"):
+            summary_path = Path(summary_path).resolve()
+            with summary_path.open("a") as f:
+                f.write("## Failed tests\n")
+                f.write("Run the following command to run the failed tests:\n")
+                f.write("```bash\n")
+                f.write(" ".join(["pytest"] + ids) + "\n")
+                f.write("```\n\n")
 
         # If some tests failed at installing mlflow, we suggest using `--serve-wheel` flag.
         # Some test cases try to install mlflow via pip e.g. model loading. They pins

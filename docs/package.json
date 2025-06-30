@@ -45,6 +45,8 @@
     "@docusaurus/module-type-aliases": "^3.6.3",
     "@docusaurus/tsconfig": "^3.5.2",
     "@docusaurus/types": "^3.5.2",
+    "@types/estree": "^1.0.8",
+    "@types/estree-jsx": "^1.0.5",
     "eslint": "^9.29.0",
     "eslint-plugin-mdx": "^3.5.0",
     "node-fetch": "^3.3.2",

@@ -138,7 +138,6 @@ mlflow.tensorflow.autolog(
     log_models=True,
     log_input_examples=True,
     log_model_signatures=True,
-    log_dataset_info=True,
     log_every_n_steps=1,
 )
 ```
@@ -189,8 +188,6 @@ with mlflow.start_run() as run:
 
   ```python
   mlflow.tensorflow.MlflowCallback(
-      run=None,  # MLflow run object (current run used if None)
-      log_models=True,  # Whether to log models
       log_every_epoch=True,  # Log metrics at the end of each epoch
       log_every_n_steps=None,  # Log metrics every N steps (overrides log_every_epoch)
   )

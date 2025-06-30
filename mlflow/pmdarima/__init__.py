@@ -196,7 +196,8 @@ def save_model(
 
         # Split the data into train/test
         train_size = int(0.8 * len(sales_data))
-        train, test = sales_data[:train_size], sales_data[train_size:]
+        train = sales_data[:train_size]
+        test = sales_data[train_size:]
 
         with mlflow.start_run():
             # Create the model
@@ -376,7 +377,8 @@ def log_model(
 
         # Split the data into train/test
         train_size = int(0.8 * len(sales_data))
-        train, test = sales_data[:train_size], sales_data[train_size:]
+        train = sales_data[:train_size]
+        test = sales_data[train_size:]
 
         with mlflow.start_run():
             # Create the model
@@ -459,7 +461,8 @@ def load_model(model_uri, dst_path=None):
 
         # Split the data into train/test
         train_size = int(0.8 * len(sales_data))
-        train, test = sales_data[:train_size], sales_data[train_size:]
+        train = sales_data[:train_size]
+        test = sales_data[train_size:]
 
         with mlflow.start_run():
             # Create the model

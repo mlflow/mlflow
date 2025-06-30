@@ -73,7 +73,8 @@ class GeminiAdapter(ProviderAdapter):
 
         payload = rename_payload_keys(payload, GENERATION_CONFIG_KEY_MAPPING)
 
-        contents, system_message = [], None
+        contents = []
+        system_message = None
         for message in payload["messages"]:
             role = message["role"]
 

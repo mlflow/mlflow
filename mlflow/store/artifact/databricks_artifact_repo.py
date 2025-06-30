@@ -16,6 +16,7 @@ from mlflow.azure.client import (
     put_block,
     put_block_list,
 )
+from mlflow.entities import FileInfo
 from mlflow.environment_variables import (
     MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT,
     MLFLOW_MULTIPART_DOWNLOAD_CHUNK_SIZE,
@@ -98,7 +99,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
     - databricks/mlflow-tracking/<EXP_ID>/logged_models/<MODEL_ID>/artifacts/<path>
     """
 
-    def __init__(self, artifact_uri):
+    def __init__(self, artifact_uri: str, tracking_uri: Optional[str] = None) -> None:
         if not is_valid_dbfs_uri(artifact_uri):
             raise MlflowException(
                 message="DBFS URI must be of the form dbfs:/<path> or "
@@ -115,7 +116,9 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             )
         # The dbfs:/ path ultimately used for artifact operations should not contain the
         # Databricks profile info, so strip it before setting ``artifact_uri``.
-        super().__init__(remove_databricks_profile_info_from_artifact_uri(artifact_uri))
+        super().__init__(
+            remove_databricks_profile_info_from_artifact_uri(artifact_uri), tracking_uri
+        )
 
         self.databricks_profile_uri = (
             get_databricks_profile_uri_from_artifact_uri(artifact_uri)
@@ -719,7 +722,7 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
             artifact_file_path=artifact_file_path,
         )
 
-    def list_artifacts(self, path: Optional[str] = None) -> list:
+    def list_artifacts(self, path: Optional[str] = None) -> list[FileInfo]:
         return self.resource.list_artifacts(path)
 
     def delete_artifacts(self, artifact_path=None):

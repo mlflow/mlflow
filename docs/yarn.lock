@@ -3051,14 +3051,14 @@
     "@types/estree" "*"
     "@types/json-schema" "*"
 
-"@types/estree-jsx@^1.0.0":
+"@types/estree-jsx@^1.0.0", "@types/estree-jsx@^1.0.5":
   version "1.0.5"
   resolved "https://registry.yarnpkg.com/@types/estree-jsx/-/estree-jsx-1.0.5.tgz#858a88ea20f34fe65111f005a689fa1ebf70dc18"
   integrity sha512-52CcUVNFyfb1A2ALocQw/Dd1BQFNmSdkuC3BkZ6iqhdMfQz7JWOFRuJFloOzjk+6WijU56m9oKXFAXc7o3Towg==
   dependencies:
     "@types/estree" "*"
 
-"@types/estree@*", "@types/estree@^1.0.0", "@types/estree@^1.0.6":
+"@types/estree@*", "@types/estree@^1.0.0", "@types/estree@^1.0.6", "@types/estree@^1.0.8":
   version "1.0.8"
   resolved "https://registry.yarnpkg.com/@types/estree/-/estree-1.0.8.tgz#958b91c991b1867ced318bedea0e215ee050726e"
   integrity sha512-dWHzHa2WqEXI/O1E9OjrocMTKJl2mSrEolh1Iomrv6U+JuNwaHXsXx9bLu5gG7BUWFIN0skIQJQ/L1rIex4X6w==

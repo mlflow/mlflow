@@ -29,26 +29,32 @@ class RunsArtifactRepository(ArtifactRepository):
     users should take special care when constructing the URI.
     """
 
-    def __init__(self, artifact_uri):
+    def __init__(self, artifact_uri: str, tracking_uri: Optional[str] = None) -> None:
         from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 
-        super().__init__(artifact_uri)
-        uri = RunsArtifactRepository.get_underlying_uri(artifact_uri)
-        self.repo = get_artifact_repository(uri)
+        super().__init__(artifact_uri, tracking_uri)
+        uri = RunsArtifactRepository.get_underlying_uri(artifact_uri, tracking_uri)
+        self.repo = get_artifact_repository(uri, self.tracking_uri)
 
     @staticmethod
     def is_runs_uri(uri):
         return urllib.parse.urlparse(uri).scheme == "runs"
 
     @staticmethod
-    def get_underlying_uri(runs_uri):
+    def get_underlying_uri(runs_uri: str, tracking_uri: Optional[str] = None) -> str:
         from mlflow.tracking.artifact_utils import get_artifact_uri
 
         (run_id, artifact_path) = RunsArtifactRepository.parse_runs_uri(runs_uri)
-        tracking_uri = get_databricks_profile_uri_from_artifact_uri(runs_uri)
-        uri = get_artifact_uri(run_id, artifact_path, tracking_uri)
+        databricks_profile_uri = get_databricks_profile_uri_from_artifact_uri(runs_uri)
+        uri = get_artifact_uri(
+            run_id=run_id,
+            artifact_path=artifact_path,
+            tracking_uri=databricks_profile_uri or tracking_uri,
+        )
         assert not RunsArtifactRepository.is_runs_uri(uri)  # avoid an infinite loop
-        return add_databricks_profile_info_to_artifact_uri(uri, tracking_uri)
+        return add_databricks_profile_info_to_artifact_uri(
+            artifact_uri=uri, databricks_profile_uri=databricks_profile_uri or tracking_uri
+        )
 
     @staticmethod
     def parse_runs_uri(run_uri):
@@ -134,7 +140,7 @@ class RunsArtifactRepository(ArtifactRepository):
         """
         from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 
-        client = mlflow.tracking.MlflowClient()
+        client = mlflow.tracking.MlflowClient(self.tracking_uri)
         experiment_id = client.get_run(run_id).info.experiment_id
 
         def iter_models() -> Iterator[LoggedModel]:
@@ -152,7 +158,7 @@ class RunsArtifactRepository(ArtifactRepository):
                 page_token = page.token
 
         if matched := next((m for m in iter_models() if m.source_run_id == run_id), None):
-            return get_artifact_repository(matched.artifact_location)
+            return get_artifact_repository(matched.artifact_location, self.tracking_uri)
 
         return None
 
@@ -207,7 +213,14 @@ class RunsArtifactRepository(ArtifactRepository):
 
         # If there are artifacts with the same name in the run and model, the model artifacts
         # will overwrite the run artifacts.
-        model_out_path = self._download_model_artifacts(artifact_path, dst_path=dst_path)
+        model_out_path: Optional[str] = None
+        try:
+            model_out_path = self._download_model_artifacts(artifact_path, dst_path=dst_path)
+        except Exception:
+            _logger.debug(
+                f"Failed to download model artifacts from {self.artifact_uri}/{artifact_path}.",
+                exc_info=True,
+            )
         path = run_out_path or model_out_path
         if path is None:
             raise MlflowException(
