@@ -365,10 +365,10 @@ from flask import Flask
 from mlflow.server import app
 
 
-def create_app(app: Flask = app):
+def create_app(my_app: Flask = app):
     # Extend MLflow app with custom auth logic
-    app.add_url_rule(...)
-    return app
+    my_app.add_url_rule(...)
+    return my_app
 
 
 class MyAuthClient:

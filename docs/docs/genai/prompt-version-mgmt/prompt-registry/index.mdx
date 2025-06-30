@@ -483,7 +483,8 @@ A: You can delete a prompt version using the MLflow UI or Python API:
 import mlflow
 
 # Delete a prompt version
-mlflow.delete_prompt("summarization-prompt", version=2)
+client = mlflow.MlflowClient()
+client.delete_prompt_version("summarization-prompt", version=2)
 ```
 
 To avoid accidental deletion, you can only delete one version at a time via API. If you delete the all versions of a prompt, the prompt itself will be deleted.

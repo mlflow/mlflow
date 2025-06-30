@@ -167,10 +167,10 @@ following parameters:
 
   ├── MLmodel
   ├── code
-  │   ├── sklearn_iris.py
+  │   ├── sklearn_iris.py
   │
   ├── data
-  │   └── model.pkl
+  │   └── model.pkl
   └── mlflow_env.yml
 
 ::
@@ -3299,7 +3299,7 @@ def save_model(
                     )
                 except Exception as e:
                     raise MlflowException.invalid_parameter_value(
-                        f"Input example does not match the model signature. Error: {e}"
+                        f"Input example does not match the model signature. {e}"
                     )
 
     with _get_dependencies_schemas() as dependencies_schemas:

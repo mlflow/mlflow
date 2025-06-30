@@ -601,7 +601,7 @@ class MlflowClient:
 
         Args:
             filter_string (Optional[str]):
-                An additional registry‐search expression to apply (e.g.
+                An additional registry-search expression to apply (e.g.
                 `"name LIKE 'my_prompt%'"`).  For Unity Catalog registries, must include
                 catalog and schema: "catalog = 'catalog_name' AND schema = 'schema_name'".
             max_results (int):

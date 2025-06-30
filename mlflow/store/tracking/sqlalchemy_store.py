@@ -25,7 +25,6 @@ from mlflow.entities import (
     RunStatus,
     RunTag,
     SourceType,
-    Trace,
     TraceInfo,
     ViewType,
     _DatasetSummary,
@@ -2202,54 +2201,53 @@ class SqlAlchemyStore(AbstractStore):
                 session.merge(SqlTraceTag(request_id=request_id, key=k, value=v))
             return sql_trace_info.to_mlflow_entity()
 
-    def start_trace_v3(self, trace: "Trace") -> TraceInfo:
+    def start_trace_v3(self, trace_info: TraceInfo) -> TraceInfo:
         """
         Create a trace using the V3 API format with a complete Trace object.
 
         Args:
-            trace: The Trace object to create, containing both info and data.
+            trace_info: The TraceInfo object to create in the backend.
 
         Returns:
-            The created TraceInfo object.
+            The created TraceInfo object from the backend.
         """
         with self.ManagedSessionMaker() as session:
-            experiment = self.get_experiment(trace.info.experiment_id)
+            experiment = self.get_experiment(trace_info.experiment_id)
             self._check_experiment_is_active(experiment)
 
             # Use the provided trace_id
-            trace_id = trace.info.trace_id
+            trace_id = trace_info.trace_id
 
             # Create SqlTraceInfo with V3 fields directly
             sql_trace_info = SqlTraceInfo(
                 request_id=trace_id,
-                experiment_id=trace.info.experiment_id,
-                timestamp_ms=trace.info.request_time,
-                execution_time_ms=trace.info.execution_duration,
-                status=trace.info.state.value,
-                client_request_id=trace.info.client_request_id,
-                request_preview=trace.info.request_preview,
-                response_preview=trace.info.response_preview,
+                experiment_id=trace_info.experiment_id,
+                timestamp_ms=trace_info.request_time,
+                execution_time_ms=trace_info.execution_duration,
+                status=trace_info.state.value,
+                client_request_id=trace_info.client_request_id,
+                request_preview=trace_info.request_preview,
+                response_preview=trace_info.response_preview,
             )
 
             sql_trace_info.tags = [
-                SqlTraceTag(request_id=trace_id, key=k, value=v) for k, v in trace.info.tags.items()
+                SqlTraceTag(request_id=trace_id, key=k, value=v) for k, v in trace_info.tags.items()
             ]
             sql_trace_info.tags.append(self._get_trace_artifact_location_tag(experiment, trace_id))
 
             sql_trace_info.request_metadata = [
                 SqlTraceMetadata(request_id=trace_id, key=k, value=v)
-                for k, v in trace.info.trace_metadata.items()
+                for k, v in trace_info.trace_metadata.items()
             ]
             session.add(sql_trace_info)
             return sql_trace_info.to_mlflow_entity()
 
-    def get_trace_info(self, trace_id: str, should_query_v3=False) -> TraceInfo:
+    def get_trace_info(self, trace_id: str) -> TraceInfo:
         """
         Fetch the trace info for the given trace id.
 
         Args:
             trace_id: Unique string identifier of the trace.
-            should_query_v3: Not used. Will be removed soon.
 
         Returns:
             The TraceInfo object.
