@@ -40,6 +40,8 @@ export const ExperimentListView = ({ searchFilter, setSearchFilter }: Props) => 
     onNextPage,
     onPreviousPage,
     pageSizeSelect,
+    sorting,
+    setSorting,
   } = useExperimentListQuery({ searchFilter });
   const invalidateExperimentList = useInvalidateExperimentList();
 
@@ -174,6 +176,7 @@ export const ExperimentListView = ({ searchFilter, setSearchFilter }: Props) => 
             onPreviousPage,
             pageSizeSelect,
           }}
+          sortingProps={{ sorting, setSorting }}
         />
       </div>
       <CreateExperimentModal

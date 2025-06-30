@@ -4,15 +4,19 @@ import { useCallback, useContext, useRef, useState } from 'react';
 import { SearchExperimentsApiResponse } from '../../../types';
 import { useLocalStorage } from '@mlflow/mlflow/src/shared/web-shared/hooks/useLocalStorage';
 import { CursorPaginationProps } from '@databricks/design-system';
+import { SortingState } from '@tanstack/react-table';
 
-const STORE_KEY = 'experiments_page_page_size';
+const STORE_KEY = {
+  PAGE_SIZE: 'experiments_page.page_size',
+  SORTING_STATE: 'experiments_page.sorting_state',
+};
 const DEFAULT_PAGE_SIZE = 25;
 
 const ExperimentListQueryKeyHeader = 'experiment_list';
 
 type ExperimentListQueryKey = [
   typeof ExperimentListQueryKeyHeader,
-  { searchFilter?: string; pageToken?: string; pageSize?: number },
+  { searchFilter?: string; pageToken?: string; pageSize?: number; sorting?: SortingState },
 ];
 
 export const useInvalidateExperimentList = () => {
@@ -23,12 +27,22 @@ export const useInvalidateExperimentList = () => {
 };
 
 const queryFn = ({ queryKey }: QueryFunctionContext<ExperimentListQueryKey>) => {
-  const [, { searchFilter, pageToken, pageSize }] = queryKey;
-  return MlflowService.searchExperiments({
-    filter: searchFilter,
-    max_results: String(pageSize),
-    page_token: pageToken,
-  });
+  const [, { searchFilter, pageToken, pageSize, sorting }] = queryKey;
+
+  // NOTE: REST API docs are not detailed enough, see: mlflow/store/tracking/abstract_store.py#search_experiments
+  const orderBy = sorting?.map((column) => ['order_by', `${column.id} ${column.desc ? 'DESC' : 'ASC'}`]) ?? [];
+
+  const data = [['max_results', String(pageSize)], ...orderBy];
+
+  if (searchFilter) {
+    data.push(['filter', searchFilter]);
+  }
+
+  if (pageToken) {
+    data.push(['page_token', pageToken]);
+  }
+
+  return MlflowService.searchExperiments(data);
 };
 
 export const useExperimentListQuery = ({ searchFilter }: { searchFilter?: string } = {}) => {
@@ -36,7 +50,17 @@ export const useExperimentListQuery = ({ searchFilter }: { searchFilter?: string
 
   const [currentPageToken, setCurrentPageToken] = useState<string | undefined>(undefined);
 
-  const [pageSize, setPageSize] = useLocalStorage({ key: STORE_KEY, version: 0, initialValue: DEFAULT_PAGE_SIZE });
+  const [pageSize, setPageSize] = useLocalStorage({
+    key: STORE_KEY.PAGE_SIZE,
+    version: 0,
+    initialValue: DEFAULT_PAGE_SIZE,
+  });
+
+  const [sorting, setSorting] = useLocalStorage<SortingState>({
+    key: STORE_KEY.SORTING_STATE,
+    version: 0,
+    initialValue: [{ id: 'last_update_time', desc: true }],
+  });
 
   const pageSizeSelect: CursorPaginationProps['pageSizeSelect'] = {
     options: [10, 25, 50, 100],
@@ -52,7 +76,7 @@ export const useExperimentListQuery = ({ searchFilter }: { searchFilter?: string
     Error,
     SearchExperimentsApiResponse,
     ExperimentListQueryKey
-  >([ExperimentListQueryKeyHeader, { searchFilter, pageToken: currentPageToken, pageSize }], {
+  >([ExperimentListQueryKeyHeader, { searchFilter, pageToken: currentPageToken, pageSize, sorting }], {
     queryFn,
     retry: false,
   });
@@ -77,5 +101,7 @@ export const useExperimentListQuery = ({ searchFilter }: { searchFilter?: string
     onPreviousPage,
     refetch: queryResult.refetch,
     pageSizeSelect,
+    sorting,
+    setSorting,
   };
 };

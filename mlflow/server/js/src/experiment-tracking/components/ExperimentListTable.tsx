@@ -20,6 +20,7 @@ import {
   getCoreRowModel,
   OnChangeFn,
   RowSelectionState,
+  SortingState,
   useReactTable,
 } from '@tanstack/react-table';
 import { isEmpty } from 'lodash';
@@ -44,6 +45,7 @@ const useExperimentsTableColumns = () => {
         ),
         id: 'select',
         cell: ExperimentListCheckbox,
+        enableSorting: false,
       },
       {
         header: intl.formatMessage({
@@ -53,22 +55,25 @@ const useExperimentsTableColumns = () => {
         accessorKey: 'name',
         id: 'name',
         cell: ExperimentListTableCell,
+        enableSorting: true,
       },
       {
         header: intl.formatMessage({
           defaultMessage: 'Time created',
           description: 'Header for the time created column in the experiments table',
         }),
-        id: 'timeCreated',
+        id: 'creation_time',
         accessorFn: ({ creationTime }) => Utils.formatTimestamp(creationTime, intl),
+        enableSorting: true,
       },
       {
         header: intl.formatMessage({
           defaultMessage: 'Last modified',
           description: 'Header for the last modified column in the experiments table',
         }),
-        id: 'lastModified',
+        id: 'last_update_time',
         accessorFn: ({ lastUpdateTime }) => Utils.formatTimestamp(lastUpdateTime, intl),
+        enableSorting: true,
       },
       {
         header: intl.formatMessage({
@@ -77,6 +82,7 @@ const useExperimentsTableColumns = () => {
         }),
         id: 'description',
         accessorFn: ({ tags }) => tags?.find(({ key }) => key === 'mlflow.note.content')?.value ?? '-',
+        enableSorting: false,
       },
     ];
 
@@ -91,6 +97,7 @@ export const ExperimentListTable = ({
   rowSelection,
   setRowSelection,
   cursorPaginationProps,
+  sortingProps: { sorting, setSorting },
 }: {
   experiments?: ExperimentEntity[];
   isFiltered?: boolean;
@@ -98,6 +105,7 @@ export const ExperimentListTable = ({
   rowSelection: RowSelectionState;
   setRowSelection: OnChangeFn<RowSelectionState>;
   cursorPaginationProps: Omit<CursorPaginationProps, 'componentId'>;
+  sortingProps: { sorting: SortingState; setSorting: OnChangeFn<SortingState> };
 }) => {
   const { theme } = useDesignSystemTheme();
   const columns = useExperimentsTableColumns();
@@ -110,7 +118,8 @@ export const ExperimentListTable = ({
     enableRowSelection: true,
     enableMultiRowSelection: true,
     onRowSelectionChange: setRowSelection,
-    state: { rowSelection },
+    onSortingChange: setSorting,
+    state: { rowSelection, sorting },
   });
 
   const getEmptyState = () => {
@@ -165,6 +174,9 @@ export const ExperimentListTable = ({
             componentId="mlflow.experiment_list_view.table.header"
             key={header.id}
             css={header.column.id === 'select' ? selectColumnStyles : undefined}
+            sortable={header.column.getCanSort()}
+            sortDirection={header.column.getIsSorted() || 'none'}
+            onToggleSort={header.column.getToggleSortingHandler()}
           >
             {flexRender(header.column.columnDef.header, header.getContext())}
           </TableHeader>
