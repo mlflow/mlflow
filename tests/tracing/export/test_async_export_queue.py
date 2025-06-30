@@ -6,6 +6,8 @@ from unittest import mock
 
 from mlflow.tracing.export.async_export_queue import AsyncTraceExportQueue, Task
 
+from tests.tracing.helper import skip_when_testing_trace_sdk
+
 
 def test_async_queue_handle_tasks():
     queue = AsyncTraceExportQueue()
@@ -39,6 +41,7 @@ def exporter_process(counter):
         queue.put(task)
 
 
+@skip_when_testing_trace_sdk
 def test_async_queue_complete_task_process_finished():
     multiprocessing.set_start_method("spawn", force=True)
     counter = multiprocessing.Value("i", 0)

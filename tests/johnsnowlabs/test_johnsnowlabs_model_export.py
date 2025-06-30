@@ -85,7 +85,8 @@ def fix_dataframe_with_respect_for_nlu_issues(df1, df2):
 
 
 def validate_model(original_model, new_model):
-    df1, df2 = original_model.predict("Hello World"), new_model.predict("Hello World")
+    df1 = original_model.predict("Hello World")
+    df2 = new_model.predict("Hello World")
     if isinstance(df2, str):
         df2 = (
             pd.DataFrame(json.loads(df2))

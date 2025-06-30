@@ -16,6 +16,7 @@ from clint.comments import Noqa, iter_comments
 from clint.config import Config
 from clint.index import SymbolIndex
 from clint.resolver import Resolver
+from clint.utils import get_ignored_rules_for_file
 
 PARAM_REGEX = re.compile(r"\s+:param\s+\w+:", re.MULTILINE)
 RETURN_REGEX = re.compile(r"\s+:returns?:", re.MULTILINE)
@@ -40,19 +41,6 @@ def ignore_map(code: str) -> dict[str, set[int]]:
         if m := DISABLE_COMMENT_REGEX.search(tok.string):
             mapping.setdefault(m.group(1), set()).add(tok.start[0] - 1)
     return mapping
-
-
-def _is_set_active_model(node: ast.AST) -> bool:
-    """
-    Is this node a call to `set_active_model`?
-    """
-    if isinstance(node, ast.Name):
-        return "set_active_model" == node.id
-
-    elif isinstance(node, ast.Attribute):
-        return "set_active_model" == node.attr
-
-    return False
 
 
 @dataclass
@@ -355,9 +343,14 @@ class Linter(ast.NodeVisitor):
         self.offset = offset or Location(0, 0)
         self.resolver = Resolver()
         self.index = index
+        self.ignored_rules = get_ignored_rules_for_file(path, config.per_file_ignores)
 
     def _check(self, loc: Location, rule: rules.Rule) -> None:
+        # Check line-level ignores
         if (lines := self.ignore.get(rule.name)) and loc.lineno in lines:
+            return
+        # Check per-file ignores
+        if rule.name in self.ignored_rules:
             return
         self.violations.append(
             Violation(
@@ -619,7 +612,7 @@ class Linter(ast.NodeVisitor):
         if self._is_at_top_level() and not self.in_TYPE_CHECKING:
             self._check_forbidden_top_level_import(node, node.module)
 
-        if self.path.parts[0] != "tests" and not self.is_mlflow_init_py:
+        if not self.is_mlflow_init_py:
             for alias in node.names:
                 if alias.name.split(".")[-1] == "set_active_model":
                     self._check_forbidden_set_active_model_usage(node)
@@ -667,18 +660,13 @@ class Linter(ast.NodeVisitor):
         if rules.UseSysExecutable.check(node, self.resolver):
             self._check(Location.from_node(node), rules.UseSysExecutable())
 
-        if self.path.parts[0] != "tests" and rules.ForbiddenSetActiveModelUsage.check(
-            node, self.resolver
-        ):
+        if rules.ForbiddenSetActiveModelUsage.check(node, self.resolver):
             self._check(Location.from_node(node), rules.ForbiddenSetActiveModelUsage())
 
-        if self.path.parts[0] != "tests" and rules.UnnamedThread.check(node, self.resolver):
+        if rules.UnnamedThread.check(node, self.resolver):
             self._check(Location.from_node(node), rules.UnnamedThread())
 
-        if self.path.parts[0] not in (
-            "tests",
-            "examples",
-        ) and rules.ThreadPoolExecutorWithoutThreadNamePrefix.check(node, self.resolver):
+        if rules.ThreadPoolExecutorWithoutThreadNamePrefix.check(node, self.resolver):
             self._check(Location.from_node(node), rules.ThreadPoolExecutorWithoutThreadNamePrefix())
 
         self.generic_visit(node)
@@ -695,6 +683,10 @@ class Linter(ast.NodeVisitor):
     def visit_Assign(self, node: ast.Assign):
         if self._is_in_test() and rules.OsEnvironSetInTest.check(node, self.resolver):
             self._check(Location.from_node(node), rules.OsEnvironSetInTest())
+
+        if rules.MultiAssign.check(node):
+            self._check(Location.from_node(node), rules.MultiAssign())
+
         self.generic_visit(node)
 
     def visit_Delete(self, node: ast.Delete):
@@ -779,7 +771,7 @@ def _lint_cell(
         # Ignore non-python cells such as `!pip install ...`
         return violations
 
-    linter = Linter(path=path, config=config, ignore=ignore_map(src), index=index, cell=index)
+    linter = Linter(path=path, config=config, ignore=ignore_map(src), index=index, cell=cell_index)
     linter.visit(tree)
     linter.visit_comments(src)
     violations.extend(linter.violations)
@@ -790,7 +782,7 @@ def _lint_cell(
                 rules.EmptyNotebookCell(),
                 path,
                 Location(0, 0),
-                cell=index,
+                cell=cell_index,
             )
         )
     return violations

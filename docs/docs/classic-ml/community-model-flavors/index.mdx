@@ -106,7 +106,8 @@ import mlflavors
 
 # Generate synthetic data
 contamination = 0.1
-n_train, n_test = 200, 100
+n_train = 200
+n_test = 100
 X_train, X_test, _, y_test = generate_data(
     n_train=n_train, n_test=n_test, contamination=contamination
 )
