@@ -585,7 +585,7 @@ def test_get_metric_history_on_non_existent_metric_key():
         assert metrics == []
 
 
-def test_start_trace():
+def test_deprecated_start_trace_v2():
     creds = MlflowHostCreds("https://hello")
     store = RestStore(lambda: creds)
 
@@ -619,7 +619,7 @@ def test_start_trace():
         }
     )
     with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
-        res = store.start_trace(
+        res = store.deprecated_start_trace_v2(
             experiment_id=experiment_id,
             timestamp_ms=timestamp_ms,
             request_metadata=metadata,
@@ -636,7 +636,7 @@ def test_start_trace():
         assert res.tags == {k: str(v) for k, v in tags.items()}
 
 
-def test_start_trace_v3(monkeypatch):
+def test_start_trace(monkeypatch):
     monkeypatch.setenv(MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT.name, "1")
 
     creds = MlflowHostCreds("https://hello")
@@ -662,7 +662,7 @@ def test_start_trace_v3(monkeypatch):
     expected_request = StartTraceV3(trace=trace.to_proto())
 
     with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
-        store.start_trace_v3(trace.info)
+        store.start_trace(trace.info)
         _verify_requests(
             mock_http,
             creds,
@@ -674,7 +674,7 @@ def test_start_trace_v3(monkeypatch):
         )
 
 
-def test_end_trace():
+def test_deprecated_end_trace_v2():
     creds = MlflowHostCreds("https://hello")
     store = RestStore(lambda: creds)
 
@@ -708,7 +708,7 @@ def test_end_trace():
     )
 
     with mock.patch("mlflow.utils.rest_utils.http_request", return_value=response) as mock_http:
-        res = store.end_trace(
+        res = store.deprecated_end_trace_v2(
             request_id=request_id,
             timestamp_ms=timestamp_ms,
             status=status,
