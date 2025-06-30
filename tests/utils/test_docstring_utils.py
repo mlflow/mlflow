@@ -9,12 +9,14 @@ from mlflow.utils.docstring_utils import (
 
 
 def test_indent_empty():
-    a, b = "", " " * 4
+    a = ""
+    b = " " * 4
     assert _indent(a, b) == a
 
 
 def test_indent_single_line():
-    a, b = "x", " " * 4
+    a = "x"
+    b = " " * 4
     assert _indent(a, b) == a
 
 

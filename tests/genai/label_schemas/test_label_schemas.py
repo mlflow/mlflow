@@ -497,7 +497,8 @@ def test_integration_complete_workflow_categorical():
 def test_integration_complete_workflow_numeric():
     """Test complete workflow with numeric input."""
     # Create InputNumeric
-    min_val, max_val = 0.0, 10.0
+    min_val = 0.0
+    max_val = 10.0
     input_numeric = InputNumeric(min_value=min_val, max_value=max_val)
 
     # Convert to Databricks input and back
