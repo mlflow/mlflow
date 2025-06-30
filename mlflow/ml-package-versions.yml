@@ -704,6 +704,8 @@ langgraph:
           "uvicorn",
         ]
       ">= 0.3.0": ["langgraph-prebuilt"]
+      # `langgraph == 0.4.*` is incompatible with `langgraph-prebuilt >= 0.5`
+      "== 0.4.*": ["langgraph-prebuilt<0.5"]
     run: |
       pytest tests/langgraph --ignore tests/langgraph/test_langgraph_autolog.py
 
@@ -719,6 +721,8 @@ langgraph:
           "uvicorn",
         ]
       ">= 0.3.0": ["langgraph-prebuilt"]
+      # `langgraph == 0.4.*` is incompatible with `langgraph-prebuilt >= 0.5`
+      "== 0.4.*": ["langgraph-prebuilt<0.5"]
     run: |
       pytest tests/langgraph/test_langgraph_autolog.py
     test_tracing_sdk: true
