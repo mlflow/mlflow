@@ -36,7 +36,7 @@ export function convertHrTimeToNanoSeconds(hrTime: HrTime): bigint {
  * @returns Milliseconds
  */
 export function convertHrTimeToMs(hrTime: HrTime): number {
-  return hrTime[0] * 1e3 + hrTime[1] / 1e6;
+  return Math.floor(hrTime[0] * 1e3 + hrTime[1] / 1e6);
 }
 
 /**

@@ -49,6 +49,9 @@ export class InMemoryTraceManager {
   // Store mapping between OpenTelemetry trace ID and MLflow trace ID
   private _otelIdToMlflowTraceId: Map<string, string>;
 
+  // Store the last active trace ID
+  lastActiveTraceId: string | undefined;
+
   /**
    * Singleton pattern implementation
    */

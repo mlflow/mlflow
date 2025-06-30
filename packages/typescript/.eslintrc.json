@@ -28,6 +28,8 @@
     // We cannot type everything like user inputs, outputs, json, etc.
     "@typescript-eslint/no-explicit-any": "off",
     "@typescript-eslint/no-unsafe-assignment": "off",
+    // Namespaces are useful for organizing API specifications
+    "@typescript-eslint/no-namespace": "off",
 
     // General JavaScript/TypeScript rules
     "no-console": ["warn", { "allow": ["debug", "warn", "error"] }],
