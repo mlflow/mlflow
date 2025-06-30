@@ -294,6 +294,7 @@ example-rules = [
   "log-model-artifact-path",
   "unknown-mlflow-function",
   "unknown-mlflow-arguments",
+  "multi-assign",
 ]
 
 [tool.clint.per-file-ignores]
