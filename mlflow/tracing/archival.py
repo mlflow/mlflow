@@ -100,28 +100,27 @@ def enable_trace_archival(experiment_id: str, catalog: str, schema: str, table_p
         response_data = res.json()
         spans_table_name = response_data["spans_table_name"]
         events_table_name = response_data["events_table_name"]
-        _logger.info(f"Trace destination created. Spans table: {spans_table_name}, "
+        _logger.debug(f"Trace destination created. Spans table: {spans_table_name}, "
                     f"Events table: {events_table_name}")
         
         # 4. Create the spans and events tables
-        _logger.info("Creating spans and events tables. Spans table: {spans_table_name}, "
+        _logger.debug("Creating spans and events tables. Spans table: {spans_table_name}, "
                     f"Events table: {events_table_name}")
         _create_spans_table(spans_table_name)
         _create_events_table(events_table_name)
         
         # 5. Create the logical view
-        view_name = f"{catalog}.{schema}.trace_logs_{experiment_id}"
-        _logger.info(f"Creating trace archival view: {view_name}")
-        _create_genai_trace_view(view_name, spans_table_name, events_table_name)
+        trace_archival_location = f"{catalog}.{schema}.trace_logs_{experiment_id}"
+        _logger.info(f"Creating trace archival at: {trace_archival_location}")
+        _create_genai_trace_view(trace_archival_location, spans_table_name, events_table_name)
         
         # 6. Set experiment tag to track the archival location
-        _logger.info(f"Setting experiment tag for archival location...")
-        mlflow.set_experiment_tag("trace_archival_table", view_name)
+        mlflow.set_experiment_tag("trace_archival_table", trace_archival_location)
         
         _logger.info(f"Trace archival enabled successfully for experiment {experiment_id}. "
-                    f"View created: {view_name}")
+                    f"View created: {trace_archival_location}")
         
-        return view_name
+        return trace_archival_location
         
     except Exception as e:
         _logger.error(f"Failed to enable trace archival for experiment {experiment_id}: {str(e)}")
@@ -167,7 +166,7 @@ def _create_spans_table(spans_table_name: str) -> None:
             USING DELTA;
         """)
         
-        _logger.info(f"Successfully created spans table: {spans_table_name}")
+        _logger.debug(f"Successfully created spans table: {spans_table_name}")
         
     except Exception as e:
         raise MlflowException(f"Failed to create spans table {spans_table_name}: {str(e)}") from e
@@ -203,7 +202,7 @@ def _create_events_table(events_table_name: str) -> None:
             USING DELTA;
         """)
         
-        _logger.info(f"Successfully created events table: {events_table_name}")
+        _logger.debug(f"Successfully created events table: {events_table_name}")
         
     except Exception as e:
         raise MlflowException(f"Failed to create events table {events_table_name}: {str(e)}") from e
