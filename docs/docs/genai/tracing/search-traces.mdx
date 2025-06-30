@@ -253,9 +253,7 @@ eval_data = traces.rename(
     }
 )
 
-results = mlflow.genai.evaluate(
-    model, eval_data, targets="ground_truth", model_type="question-answering"
-)
+results = mlflow.genai.evaluate(data=eval_data, scorers=[...])
 ```
 
 :::note
@@ -373,9 +371,7 @@ eval_dataset = conversation_data.rename(
 )
 
 # Use with MLflow evaluate
-results = mlflow.genai.evaluate(
-    predict_fn=your_model, data=eval_dataset, scorers=["default"]
-)
+results = mlflow.genai.evaluate(data=eval_dataset, scorers=[...])
 ```
 
 ### Environment Monitoring
@@ -447,7 +443,7 @@ print("Created example traces with different statuses and timing")
 import mlflow
 import time
 import random
-from mlflow.tracing import trace
+from mlflow import trace
 
 mlflow.set_experiment("trace-search-guide")
 
@@ -481,7 +477,7 @@ for i in range(20):
 
             with trace(
                 name=f"{op_type}_{i}",
-                tags={
+                attributes={
                     "operation_type": op_type,
                     "model_name": model_name,
                     "environment": environment,

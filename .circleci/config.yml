@@ -85,6 +85,11 @@ jobs:
               exit 1
             fi
       - run:
+          name: Lint
+          working_directory: docs
+          command: |
+            yarn eslint
+      - run:
           name: Build documentation
           working_directory: docs
           environment:
@@ -93,6 +98,12 @@ jobs:
           command: |
             yarn build-all -- --no-r
             python changed_pages.py
+      - run:
+          name: Show docs build size
+          working_directory: docs
+          command: |
+            echo "Total size of docs/build/latest directory:"
+            du -sh ./build/latest
       - run:
           name: Compare sitemaps
           working_directory: docs

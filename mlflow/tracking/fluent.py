@@ -2884,8 +2884,12 @@ def search_runs(
             "start_time": [],
             "end_time": [],
         }
-        params, metrics, tags = ({}, {}, {})
-        PARAM_NULL, METRIC_NULL, TAG_NULL = (None, np.nan, None)
+        params = {}
+        metrics = {}
+        tags = {}
+        PARAM_NULL = None
+        METRIC_NULL = np.nan
+        TAG_NULL = None
         for i, run in enumerate(runs):
             info["run_id"].append(run.info.run_id)
             info["experiment_id"].append(run.info.experiment_id)
@@ -3549,6 +3553,10 @@ def clear_active_model() -> None:
     MLFLOW_ACTIVE_MODEL_ID.unset()
     _MLFLOW_ACTIVE_MODEL_ID.unset()
 
+    # Reset the active model context to avoid the active model ID set by other threads
+    # to be used when creating a new ActiveModelContext
+    _ACTIVE_MODEL_CONTEXT.reset()
     # set_by_user is False because this API clears the state of active model
     # and MLflow might still set the active model in cases like `load_model`
     _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext(set_by_user=False))
+    _logger.info("Active model is cleared")

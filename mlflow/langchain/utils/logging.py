@@ -12,7 +12,7 @@ import types
 import warnings
 from functools import lru_cache
 from importlib.util import find_spec
-from typing import Callable, NamedTuple
+from typing import Any, Callable, NamedTuple
 
 import cloudpickle
 import yaml
@@ -140,9 +140,9 @@ def lc_runnables_types():
 
 def langgraph_types():
     try:
-        from langgraph.graph.graph import CompiledGraph
+        from langgraph.graph.state import CompiledStateGraph
 
-        return (CompiledGraph,)
+        return (CompiledStateGraph,)
     except ImportError:
         return ()
 
@@ -162,7 +162,7 @@ def get_unsupported_model_message(model_type):
 @lru_cache
 def custom_type_to_loader_dict():
     # helper function to load output_parsers from config
-    def _load_output_parser(config: dict) -> dict:
+    def _load_output_parser(config: dict[str, Any]) -> Any:
         """Load output parser."""
         from langchain.schema.output_parser import StrOutputParser
 
@@ -439,7 +439,7 @@ def _get_path_by_key(root_path, key, conf):
     return os.path.join(root_path, key_path) if key_path else None
 
 
-def _patch_loader(loader_func: Callable) -> Callable:
+def _patch_loader(loader_func: Callable[..., Any]) -> Callable[..., Any]:
     """
     Patch LangChain loader function like load_chain() to handle the breaking change introduced in
     LangChain 0.1.12.

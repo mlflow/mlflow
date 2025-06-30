@@ -940,7 +940,7 @@ def autolog(
             the model is considered the "best" model according to the quantity
             monitored and previous checkpoint model is overwritten.
         checkpoint_save_weights_only: In automatic model checkpointing, if True, then
-            only the model’s weights will be saved. Otherwise, the optimizer states,
+            only the model's weights will be saved. Otherwise, the optimizer states,
             lr-scheduler states, etc are added in the checkpoint too.
         checkpoint_save_freq: `"epoch"` or integer. When using `"epoch"`, the callback
             saves the model after each epoch. When using integer, the callback
@@ -1165,7 +1165,7 @@ __all__ = [
 try:
     from mlflow.pytorch._lightning_autolog import MlflowModelCheckpointCallback  # noqa: F401
 
-    __all__.append("MLflowModelCheckpointCallback")
+    __all__.append("MlflowModelCheckpointCallback")
 except ImportError:
     # Swallow exception if pytorch-lightning is not installed.
     pass

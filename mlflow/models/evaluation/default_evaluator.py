@@ -61,7 +61,7 @@ def _extract_raw_model(model):
 
 
 def _extract_output_and_other_columns(
-    model_predictions: Union[list, dict, pd.DataFrame, pd.Series],
+    model_predictions: Union[list[Any], dict[str, Any], pd.DataFrame, pd.Series],
     output_column_name: Optional[str],
 ) -> tuple[pd.Series, Optional[pd.DataFrame], str]:
     y_pred = None
@@ -146,7 +146,7 @@ def _extract_output_and_other_columns(
     )
 
 
-def _extract_predict_fn(model: Any) -> Optional[Callable]:
+def _extract_predict_fn(model: Any) -> Optional[Callable[..., Any]]:
     """
     Extracts the predict function from the given model or raw_model.
 
@@ -223,7 +223,7 @@ class _CustomArtifact(NamedTuple):
     artifacts_dir : the path to a temporary directory to store produced artifacts of the function
     """
 
-    function: Callable
+    function: Callable[..., Any]
     name: str
     index: int
     artifacts_dir: str

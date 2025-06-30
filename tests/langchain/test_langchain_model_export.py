@@ -482,33 +482,20 @@ def test_save_model_with_partner_package(tmp_path):
     from langchain_community.chat_models import ChatOpenAI as ChatOpenAICommunity
     from langchain_openai import ChatOpenAI as ChatOpenAIPartner
 
-    def _is_partner_pkg_warning_issued(ws):
-        # Dummy warning to ensure at least one warning is issued. Otherwise the pytest.warns
-        # context manager will raise an exception at exit.
-        warnings.warn("dummy")
-        return any(
-            str(w.message).startswith(
-                "Your model contains a class imported from the LangChain "
-                "partner package `langchain-openai`."
-            )
-            for w in ws
-        )
-
     # 1. Saving a model with LLM from a community package
     #    -> no warning should be raised
     chain = ChatOpenAICommunity() | StrOutputParser()
 
-    with pytest.warns() as ws:
+    with warnings.catch_warnings():
+        warnings.filterwarnings("error", message=".*LangChain partner package.*")
         mlflow.langchain.save_model(chain, tmp_path / "community-model")
-        assert not _is_partner_pkg_warning_issued(ws)
 
     # 2. Saving a model with LLM from a partner package
     #    -> a warning should be raised and incorrect class is loaded
     chain = ChatOpenAIPartner() | StrOutputParser()
 
-    with pytest.warns() as ws:
+    with pytest.warns(match=r".*LangChain partner package.*"):
         mlflow.langchain.save_model(chain, tmp_path / "partner-model")
-        assert _is_partner_pkg_warning_issued(ws)
 
     loaded_model = mlflow.langchain.load_model(tmp_path / "partner-model")
     loaded_llm = loaded_model.steps[0]
@@ -528,12 +515,12 @@ mlflow.models.set_model(chain)
 """
         )
 
-    with pytest.warns() as ws:
+    with warnings.catch_warnings():
+        warnings.filterwarnings("error", message=".*LangChain partner package.*")
         mlflow.langchain.save_model(
             lc_model=str(tmp_path / "model.py"),
             path=tmp_path / "model-from-code",
         )
-        assert not _is_partner_pkg_warning_issued(ws)
 
     loaded_model = mlflow.langchain.load_model(tmp_path / "model-from-code")
     loaded_llm = loaded_model.steps[0]
@@ -3715,12 +3702,12 @@ def test_predict_with_callbacks_with_tracing(monkeypatch):
     tracer = MlflowLangchainTracer(prediction_context=Context(request_id))
     input_example = {"messages": [{"role": "user", "content": TEST_CONTENT}]}
 
-    with mock.patch("mlflow.tracing.client.TracingClient.start_trace_v3") as mock_start_trace_v3:
+    with mock.patch("mlflow.tracing.client.TracingClient.start_trace") as mock_start_trace:
         pyfunc_model._model_impl._predict_with_callbacks(
             data=input_example, callback_handlers=[tracer]
         )
         mlflow.flush_trace_async_logging()
-        mock_start_trace_v3.assert_called_once()
-        trace = mock_start_trace_v3.call_args[0][0]
-        assert trace.info.client_request_id == request_id
-        assert trace.info.request_metadata[TraceMetadataKey.MODEL_ID] == model_info.model_id
+        mock_start_trace.assert_called_once()
+        trace_info = mock_start_trace.call_args[0][0]
+        assert trace_info.client_request_id == request_id
+        assert trace_info.request_metadata[TraceMetadataKey.MODEL_ID] == model_info.model_id

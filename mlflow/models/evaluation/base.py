@@ -883,7 +883,7 @@ def resolve_evaluators_and_configs(
             # If evaluator config is passed but any of available evaluator key is not
             # in the evaluator config, we assume the evaluator config to be a flat dict,
             # which is globally applied to all evaluators.
-            evaluator_config = {ev: evaluator_config for ev in evaluators}
+            evaluator_config = dict.fromkeys(evaluators, evaluator_config)
 
         # Filter out evaluators that cannot evaluate the model type.
         resolved = []

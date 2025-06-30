@@ -73,6 +73,7 @@ from mlflow.protos.databricks_pb2 import (
     ErrorCode,
 )
 from mlflow.store.artifact.utils.models import (
+    _parse_model_uri,
     get_model_name_and_version,
 )
 from mlflow.store.entities.paged_list import PagedList
@@ -86,6 +87,7 @@ from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX
 from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.trace_manager import InMemoryTraceManager
+from mlflow.tracing.utils.copy import copy_trace_to_experiment
 from mlflow.tracing.utils.warning import request_id_backward_compatible
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._model_registry import utils as registry_utils
@@ -600,7 +602,7 @@ class MlflowClient:
 
         Args:
             filter_string (Optional[str]):
-                An additional registry‐search expression to apply (e.g.
+                An additional registry-search expression to apply (e.g.
                 `"name LIKE 'my_prompt%'"`).  For Unity Catalog registries, must include
                 catalog and schema: "catalog = 'catalog_name' AND schema = 'schema_name'".
             max_results (int):
@@ -678,18 +680,20 @@ class MlflowClient:
         """
         parsed_name_or_uri, parsed_version = parse_prompt_name_or_uri(name_or_uri, version)
         if parsed_name_or_uri.startswith("prompts:/"):
-            # URI case: parse the URI to extract name and version
-            name, version = self.parse_prompt_uri(parsed_name_or_uri)
+            # URI case: parse the URI to extract name and version/alias
+            name, version_or_alias = self.parse_prompt_uri(parsed_name_or_uri)
         else:
             # Name case: use the name and provided version
             name = parsed_name_or_uri
-            version = parsed_version
+            version_or_alias = parsed_version
 
         registry_client = self._get_registry_client()
         try:
-            # Use get_prompt_version for specific version/alias
-            return registry_client.get_prompt_version(name, version)
-
+            # If version_or_alias is not a digit, treat as alias
+            if isinstance(version_or_alias, str) and not version_or_alias.isdigit():
+                return registry_client.get_prompt_version_by_alias(name, version_or_alias)
+            else:
+                return registry_client.get_prompt_version(name, version_or_alias)
         except MlflowException as exc:
             if allow_missing and exc.error_code in ("RESOURCE_DOES_NOT_EXIST", "NOT_FOUND"):
                 return None
@@ -906,21 +910,33 @@ class MlflowClient:
     def parse_prompt_uri(self, uri: str) -> tuple[str, str]:
         """
         Parse prompt URI into prompt name and prompt version.
-        - 'prompt:/<name>/<version>' -> ('<name>', '<version>')
-        - 'prompt:/<name>@<alias>' -> ('<name>', '<version>')
+        - 'prompts:/<name>/<version>' -> ('<name>', '<version>')
+        - 'prompts:/<name>@<alias>' -> ('<name>', '<version>')
+
+        This method reuses the existing model URI parsing logic with prompts prefix.
         """
-        parsed = urllib.parse.urlparse(uri)
+        # Use the existing model URI parsing utilities with prompts scheme
+        parsed_prompt_uri = _parse_model_uri(uri, scheme="prompts")
 
-        if parsed.scheme != "prompts":
-            raise MlflowException.invalid_parameter_value(
-                f"Invalid prompt URI: {uri}. Expected schema 'prompts:/<name>/<version>'"
+        if parsed_prompt_uri.model_id is not None:
+            # This shouldn't happen for prompts (no model IDs), but handle gracefully
+            raise MlflowException.invalid_parameter_value(f"Invalid prompt URI format: {uri}")
+
+        if parsed_prompt_uri.version is not None:
+            # Direct version reference: prompts:/name/version
+            return parsed_prompt_uri.name, parsed_prompt_uri.version
+
+        if parsed_prompt_uri.alias is not None:
+            # Alias reference: prompts:/name@alias - resolve to version
+            prompt_version = self.get_prompt_version_by_alias(
+                parsed_prompt_uri.name, parsed_prompt_uri.alias
             )
+            return parsed_prompt_uri.name, str(prompt_version.version)
 
-        # Replace schema to 'models:/' to reuse the model URI parsing logic
-        try:
-            return get_model_name_and_version(self, f"models:{parsed.path}")
-        except MlflowException:
-            raise MlflowException(f"Prompt '{uri}' does not exist.", RESOURCE_DOES_NOT_EXIST)
+        # Handle stage or latest (not supported for prompts)
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid prompt URI: {uri}. Prompts do not support stage-based references."
+        )
 
     ##### Tracing #####
     def delete_traces(
@@ -977,7 +993,7 @@ class MlflowClient:
             experiment_id=experiment_id,
             max_timestamp_millis=max_timestamp_millis,
             max_traces=max_traces,
-            request_ids=trace_ids,
+            trace_ids=trace_ids,
         )
 
     @request_id_backward_compatible
@@ -1227,31 +1243,7 @@ class MlflowClient:
         Returns:
             The trace ID of the logged trace.
         """
-        from mlflow.tracking.fluent import _get_experiment_id
-
-        # If the trace is created outside MLflow experiment (e.g. model serving), it does
-        # not have an experiment ID, but we need to log it to the tracking server.
-        experiment_id = trace.info.experiment_id or _get_experiment_id()
-
-        # Create trace info entry in the backend
-        # Note that the backend generates a new request ID for the trace. Currently there is
-        # no way to insert the trace with a specific request ID given by the user.
-        new_info = self._tracing_client.start_trace(
-            experiment_id=experiment_id,
-            timestamp_ms=trace.info.timestamp_ms,
-            request_metadata={},
-            tags={},
-        )
-        self._tracing_client.end_trace(
-            request_id=new_info.trace_id,
-            # Compute the end time of the original trace
-            timestamp_ms=trace.info.timestamp_ms + trace.info.execution_time_ms,
-            status=trace.info.status,
-            request_metadata=trace.info.request_metadata,
-            tags=trace.info.tags,
-        )
-        self._tracing_client._upload_trace_data(new_info, trace.data)
-        return new_info.trace_id
+        return copy_trace_to_experiment(trace.to_dict(), experiment_id=trace.info.experiment_id)
 
     @request_id_backward_compatible
     def start_span(
@@ -3070,8 +3062,8 @@ class MlflowClient:
         artifacts = [f.path for f in self.list_artifacts(run_id, path=artifact_dir)]
         if artifact_file in artifacts:
             with tempfile.TemporaryDirectory() as tmpdir:
-                downloaded_artifact_path = mlflow.artifacts.download_artifacts(
-                    run_id=run_id, artifact_path=artifact_file, dst_path=tmpdir
+                downloaded_artifact_path = self.download_artifacts(
+                    run_id=run_id, path=artifact_file, dst_path=tmpdir
                 )
                 existing_predictions = self._read_from_file(downloaded_artifact_path)
             data = pd.concat([existing_predictions, data], ignore_index=True)
@@ -3210,10 +3202,8 @@ class MlflowClient:
             ]
             if artifact_file in artifacts:
                 with tempfile.TemporaryDirectory() as tmpdir:
-                    downloaded_artifact_path = mlflow.artifacts.download_artifacts(
-                        run_id=run_id,
-                        artifact_path=artifact_file,
-                        dst_path=tmpdir,
+                    downloaded_artifact_path = self.download_artifacts(
+                        run_id=run_id, path=artifact_file, dst_path=tmpdir
                     )
                     existing_predictions = self._read_from_file(downloaded_artifact_path)
                     if extra_columns is not None:

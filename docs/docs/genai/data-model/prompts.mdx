@@ -377,7 +377,7 @@ prompt = mlflow.genai.register_prompt(
 )
 
 # 2. Create production alias
-mlflow.set_registered_prompt_alias("customer-support", "production", 1)
+mlflow.set_prompt_alias("customer-support", "production", 1)
 
 # 3. Load and use in application
 production_prompt = mlflow.genai.load_prompt("prompts:/customer-support@production")

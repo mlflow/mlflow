@@ -55,7 +55,7 @@ While the Prompt Registry manages the prompts themselves, monitoring their usage
 - **Performance Metrics**: Track LLM response times, token counts, and error rates. Segment these metrics by prompt version to identify if a new prompt version has impacted performance.
 - **Quality Metrics**: Collect user feedback (e.g., thumbs up/down, explicit feedback) and run offline evaluations or online monitoring with LLM judges on production traffic, associating results back to the prompt versions used.
 
-<!-- TODO(image): Conceptual diagram showing a deployed app, requests coming in, app loading prompt via alias from Registry, interaction with LLM, and traces/logs capturing prompt version info. -->
+{/* TODO(image): Conceptual diagram showing a deployed app, requests coming in, app loading prompt via alias from Registry, interaction with LLM, and traces/logs capturing prompt version info. */}
 
 ## Utilizing Aliases for A/B Testing and Rollbacks
 
@@ -64,7 +64,7 @@ Aliases are also invaluable for advanced deployment strategies:
 - **A/B Testing**: You can introduce a new prompt version to a subset of users or traffic. For example, have a separate alias like `experimental-parser` pointing to version `4`. Your application or load balancer could route a percentage of requests to use this experimental alias, allowing you to compare its performance against the main `production` alias before a full rollout.
 - **Easy Rollbacks**: If a newly promoted prompt version (e.g., version `3` pointed to by `production`) is found to have issues, you can quickly roll back by simply updating the `production` alias to point back to the previously stable version (e.g., version `2`). This can be done in seconds without a stressful redeployment.
 
-<!-- TODO(image): Diagram illustrating A/B testing with two aliases (`production` and `experimental`) pointing to different prompt versions, with traffic split between them. -->
+{/* TODO(image): Diagram illustrating A/B testing with two aliases (`production` and `experimental`) pointing to different prompt versions, with traffic split between them. */}
 
 ## Key Takeaways
 

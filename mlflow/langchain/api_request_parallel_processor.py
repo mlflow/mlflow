@@ -96,9 +96,9 @@ class APIRequest:
 
     index: int
     lc_model: langchain.chains.base.Chain
-    request_json: dict
+    request_json: dict[str, Any]
     results: list[tuple[int, str]]
-    errors: dict
+    errors: dict[int, str]
     convert_chat_responses: bool
     did_perform_chat_conversion: bool
     stream: bool
@@ -240,7 +240,9 @@ def process_api_requests(
     ) = transform_request_json_for_chat_if_necessary(requests, lc_model)
 
     requests_iter = enumerate(converted_chat_requests)
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+    with ThreadPoolExecutor(
+        max_workers=max_workers, thread_name_prefix="MlflowLangChainApi"
+    ) as executor:
         while True:
             # get next request (if one is not already waiting for capacity)
             if not retry_queue.empty():

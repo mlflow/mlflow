@@ -20,6 +20,7 @@ from opentelemetry.sdk.trace import TracerProvider
 
 import mlflow
 from mlflow.exceptions import MlflowException, MlflowTracingException
+from mlflow.tracing.config import reset_config
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.destination import Databricks, MlflowExperiment, TraceDestination
 from mlflow.tracing.utils.exception import raise_as_trace_exception
@@ -30,7 +31,6 @@ from mlflow.utils.databricks_utils import (
     is_in_databricks_model_serving_environment,
     is_mlflow_tracing_enabled_in_model_serving,
 )
-from mlflow.utils.uri import is_databricks_uri
 
 if TYPE_CHECKING:
     from mlflow.entities import Span
@@ -302,24 +302,12 @@ def _get_mlflow_span_processor(tracking_uri: str, experiment_id: Optional[str] =
     """
     Get the MLflow span processor instance that is used by the current tracer provider.
     """
-    if is_databricks_uri(tracking_uri):
-        from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
-        from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
+    # Databricks and SQL backends support V3 traces
+    from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
+    from mlflow.tracing.processor.mlflow_v3 import MlflowV3SpanProcessor
 
-        exporter = MlflowV3SpanExporter(tracking_uri=tracking_uri)
-        processor = MlflowV3SpanProcessor(exporter, experiment_id=experiment_id)
-
-    else:
-        from mlflow.tracing.export.mlflow_v2 import MlflowV2SpanExporter
-        from mlflow.tracing.processor.mlflow_v2 import MlflowV2SpanProcessor
-
-        exporter = MlflowV2SpanExporter(tracking_uri=tracking_uri)
-        processor = MlflowV2SpanProcessor(
-            span_exporter=exporter,
-            tracking_uri=tracking_uri,
-            experiment_id=experiment_id,
-        )
-    return processor
+    exporter = MlflowV3SpanExporter(tracking_uri=tracking_uri)
+    return MlflowV3SpanProcessor(exporter, experiment_id=experiment_id)
 
 
 @raise_as_trace_exception
@@ -432,11 +420,13 @@ def trace_disabled(f):
             if is_tracing_enabled():
                 disable()
                 try:
-                    is_func_called, result = True, f(*args, **kwargs)
+                    is_func_called = True
+                    result = f(*args, **kwargs)
                 finally:
                     enable()
             else:
-                is_func_called, result = True, f(*args, **kwargs)
+                is_func_called = True
+                result = f(*args, **kwargs)
         # We should only catch the exception from disable() and enable()
         # and let other exceptions propagate.
         except MlflowTracingException as e:
@@ -472,6 +462,9 @@ def reset():
     # Reset the custom destination set by the user
     global _MLFLOW_TRACE_USER_DESTINATION
     _MLFLOW_TRACE_USER_DESTINATION = None
+
+    # Reset the tracing configuration to defaults
+    reset_config()
 
 
 @raise_as_trace_exception
