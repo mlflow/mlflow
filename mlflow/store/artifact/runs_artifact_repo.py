@@ -213,7 +213,14 @@ class RunsArtifactRepository(ArtifactRepository):
 
         # If there are artifacts with the same name in the run and model, the model artifacts
         # will overwrite the run artifacts.
-        model_out_path = self._download_model_artifacts(artifact_path, dst_path=dst_path)
+        model_out_path: Optional[str] = None
+        try:
+            model_out_path = self._download_model_artifacts(artifact_path, dst_path=dst_path)
+        except Exception:
+            _logger.debug(
+                f"Failed to download model artifacts from {self.artifact_uri}/{artifact_path}.",
+                exc_info=True,
+            )
         path = run_out_path or model_out_path
         if path is None:
             raise MlflowException(
