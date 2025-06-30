@@ -22,7 +22,7 @@ from mlflow.tracking._tracking_service.utils import _get_store
 
 _logger = logging.getLogger(__name__)
 # TODO: update this url
-TELEMETRY_URL = "https://n0j6ph91i7.execute-api.us-west-2.amazonaws.com/dev/telemetry"
+TELEMETRY_URL = "https://a0ts9eoqp5.execute-api.us-west-2.amazonaws.com/dev/telemetry"
 
 
 class TelemetryClient:
