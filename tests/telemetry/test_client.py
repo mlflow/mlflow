@@ -7,18 +7,13 @@ import pytest
 from mlflow.telemetry.client import TelemetryClient
 from mlflow.telemetry.schemas import APIRecord, APIStatus, LogModelParams, ModelType
 
-from tests.telemetry.helper_functions import (
-    MockTelemetryServer,
-    wait_for_telemetry_threads,
-)
+from tests.telemetry.helper_functions import wait_for_telemetry_threads
 
 
 @pytest.fixture
-def telemetry_client(mock_server: MockTelemetryServer):
-    """Fixture to provide a telemetry client connected to the mock server."""
-    client = TelemetryClient()
-    client.telemetry_url = f"http://127.0.0.1:{mock_server.port}/telemetry"
-    return client
+def telemetry_client():
+    """Fixture to provide a telemetry client."""
+    return TelemetryClient()
 
 
 def test_telemetry_client_initialization():
@@ -30,7 +25,7 @@ def test_telemetry_client_initialization():
     assert not client.is_active()
 
 
-def test_add_record_and_send(telemetry_client: TelemetryClient, mock_server: MockTelemetryServer):
+def test_add_record_and_send(telemetry_client: TelemetryClient, mock_requests):
     """Test adding a record and sending it to the mock server."""
     # Create a test record
     record = APIRecord(
@@ -44,10 +39,10 @@ def test_add_record_and_send(telemetry_client: TelemetryClient, mock_server: Moc
     wait_for_telemetry_threads(client=telemetry_client)
 
     # Verify record was sent
-    assert mock_server.get_record_count() == 1
+    assert len(mock_requests) == 1
 
     # Check the received data structure
-    received_record = mock_server.received_records[0]
+    received_record = mock_requests[0]
     assert "data" in received_record
     assert "partition-key" in received_record
 
@@ -57,7 +52,7 @@ def test_add_record_and_send(telemetry_client: TelemetryClient, mock_server: Moc
     assert data["status"] == "success"
 
 
-def test_batch_processing(telemetry_client: TelemetryClient, mock_server: MockTelemetryServer):
+def test_batch_processing(telemetry_client: TelemetryClient, mock_requests):
     """Test that multiple records are batched correctly."""
     telemetry_client._batch_size = 3  # Set small batch size for testing
 
@@ -72,10 +67,10 @@ def test_batch_processing(telemetry_client: TelemetryClient, mock_server: MockTe
 
     wait_for_telemetry_threads(client=telemetry_client)
 
-    assert mock_server.get_record_count() == 5
+    assert len(mock_requests) == 5
 
 
-def test_flush_functionality(telemetry_client: TelemetryClient, mock_server: MockTelemetryServer):
+def test_flush_functionality(telemetry_client: TelemetryClient, mock_requests):
     """Test that flush properly sends pending records."""
     record = APIRecord(
         api_name="test_api",
@@ -86,10 +81,10 @@ def test_flush_functionality(telemetry_client: TelemetryClient, mock_server: Moc
 
     telemetry_client.flush()
 
-    assert mock_server.get_record_count() == 1
+    assert len(mock_requests) == 1
 
 
-def test_client_shutdown(telemetry_client: TelemetryClient, mock_server: MockTelemetryServer):
+def test_client_shutdown(telemetry_client: TelemetryClient, mock_requests):
     """Test that client shuts down gracefully."""
     record = APIRecord(
         api_name="test_api",
@@ -124,7 +119,7 @@ def test_error_handling():
     assert client.is_active()
 
 
-def test_stop_event_handling(telemetry_client: TelemetryClient, mock_server: MockTelemetryServer):
+def test_stop_event_handling(telemetry_client: TelemetryClient, mock_requests):
     """Test that records are not added when stop event is set."""
     # Set stop event
     telemetry_client._stop_event.set()
@@ -139,12 +134,10 @@ def test_stop_event_handling(telemetry_client: TelemetryClient, mock_server: Moc
     wait_for_telemetry_threads(client=telemetry_client)
 
     # No records should be sent
-    assert mock_server.get_record_count() == 0
+    assert len(mock_requests) == 0
 
 
-def test_concurrent_record_addition(
-    telemetry_client: TelemetryClient, mock_server: MockTelemetryServer
-):
+def test_concurrent_record_addition(telemetry_client: TelemetryClient, mock_requests):
     """Test adding records from multiple threads."""
 
     def add_records(thread_id):
@@ -171,12 +164,10 @@ def test_concurrent_record_addition(
     wait_for_telemetry_threads(client=telemetry_client)
 
     # Should have received records from all threads
-    assert mock_server.get_record_count() == 15
+    assert len(mock_requests) == 15
 
 
-def test_telemetry_info_inclusion(
-    telemetry_client: TelemetryClient, mock_server: MockTelemetryServer
-):
+def test_telemetry_info_inclusion(telemetry_client: TelemetryClient, mock_requests):
     """Test that telemetry info is included in records."""
     record = APIRecord(
         api_name="test_api",
@@ -188,7 +179,7 @@ def test_telemetry_info_inclusion(
     wait_for_telemetry_threads(client=telemetry_client)
 
     # Verify telemetry info is included
-    received_record = mock_server.received_records[0]
+    received_record = mock_requests[0]
     data = json.loads(received_record["data"])
 
     # Check that telemetry info fields are present
@@ -206,7 +197,7 @@ def test_telemetry_info_inclusion(
     assert data["status"] == "success"
 
 
-def test_partition_key(telemetry_client: TelemetryClient, mock_server: MockTelemetryServer):
+def test_partition_key(telemetry_client: TelemetryClient, mock_requests):
     """Test that partition key is set correctly."""
     record = APIRecord(
         api_name="test_api",
@@ -218,5 +209,5 @@ def test_partition_key(telemetry_client: TelemetryClient, mock_server: MockTelem
     wait_for_telemetry_threads(client=telemetry_client)
 
     # Verify partition key
-    received_record = mock_server.received_records[0]
+    received_record = mock_requests[0]
     assert received_record["partition-key"] == "test"

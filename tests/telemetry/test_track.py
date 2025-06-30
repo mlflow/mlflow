@@ -18,10 +18,7 @@ from mlflow.telemetry.schemas import APIStatus, AutologParams
 from mlflow.telemetry.track import track_api_usage
 from mlflow.telemetry.utils import is_telemetry_disabled
 
-from tests.telemetry.helper_functions import (
-    MockTelemetryServer,
-    wait_for_telemetry_threads,
-)
+from tests.telemetry.helper_functions import wait_for_telemetry_threads
 
 
 def full_func_name(func):
@@ -32,14 +29,8 @@ def extract_record(data: str) -> dict[str, Any]:
     return json.loads(data["data"])
 
 
-@pytest.fixture(autouse=True)
-def default_telemetry_client(mock_server: MockTelemetryServer):
-    client = get_telemetry_client()
-    client.telemetry_url = f"http://127.0.0.1:{mock_server.port}/telemetry"
-
-
-def test_track_api_usage(mock_server: MockTelemetryServer):
-    assert mock_server.received_records == []
+def test_track_api_usage(mock_requests):
+    assert len(mock_requests) == 0
 
     @track_api_usage
     def succeed_func():
@@ -57,14 +48,14 @@ def test_track_api_usage(mock_server: MockTelemetryServer):
 
     wait_for_telemetry_threads()
 
-    assert len(mock_server.received_records) == 2
-    succeed_record = extract_record(mock_server.received_records[0])
+    assert len(mock_requests) == 2
+    succeed_record = extract_record(mock_requests[0])
     assert succeed_record["api_name"] == full_func_name(succeed_func)
     assert succeed_record["status"] == APIStatus.SUCCESS.value
     assert succeed_record["params"] is None
     assert succeed_record["duration_ms"] > 0
 
-    fail_record = extract_record(mock_server.received_records[1])
+    fail_record = extract_record(mock_requests[1])
     assert fail_record["api_name"] == full_func_name(fail_func)
     assert fail_record["status"] == APIStatus.FAILURE.value
     assert fail_record["params"] is None
@@ -113,7 +104,7 @@ def test_track_api_usage_respect_env_var(monkeypatch, env_var, value, expected_r
         assert isinstance(telemetry_client, expected_result)
 
 
-def test_track_api_usage_update_env_var_after_import(monkeypatch, mock_server: MockTelemetryServer):
+def test_track_api_usage_update_env_var_after_import(monkeypatch, mock_requests):
     telemetry_client = get_telemetry_client()
     assert isinstance(telemetry_client, TelemetryClient)
 
@@ -124,23 +115,23 @@ def test_track_api_usage_update_env_var_after_import(monkeypatch, mock_server: M
     test_func()
 
     wait_for_telemetry_threads()
-    assert len(mock_server.received_records) == 1
-    record = extract_record(mock_server.received_records[0])
+    assert len(mock_requests) == 1
+    record = extract_record(mock_requests[0])
     assert record["api_name"] == full_func_name(test_func)
 
     monkeypatch.setenv("MLFLOW_DISABLE_TELEMETRY", "true")
     test_func()
     # no new record should be added
-    assert len(mock_server.received_records) == 1
+    assert len(mock_requests) == 1
 
 
-def test_track_api_usage_do_not_track_internal_api(mock_server: MockTelemetryServer):
+def test_track_api_usage_do_not_track_internal_api(mock_requests):
     def test_func():
         mlflow.sklearn.autolog()
 
     with patch("mlflow.telemetry.track.invoked_from_internal_api", return_value=True):
         test_func()
-        assert len(mock_server.received_records) == 0
+        assert len(mock_requests) == 0
 
     # mlflow.sklearn.autolog internally calls mlflow.sklearn.log_model
     mlflow.sklearn.autolog()
@@ -151,8 +142,8 @@ def test_track_api_usage_do_not_track_internal_api(mock_server: MockTelemetrySer
     assert mlflow.last_logged_model() is not None
 
     wait_for_telemetry_threads()
-    assert len(mock_server.received_records) == 1
-    record = extract_record(mock_server.received_records[0])
+    assert len(mock_requests) == 1
+    record = extract_record(mock_requests[0])
     assert record["api_name"] == full_func_name(mlflow.sklearn.autolog)
     assert record["status"] == APIStatus.SUCCESS.value
     assert record["params"] == asdict(
