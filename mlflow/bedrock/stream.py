@@ -5,9 +5,10 @@ from typing import Any, Optional
 from botocore.eventstream import EventStream
 
 from mlflow.bedrock.chat import convert_message_to_mlflow_chat
-from mlflow.bedrock.utils import capture_exception
+from mlflow.bedrock.utils import build_token_usage_dict, capture_exception
 from mlflow.entities.span import LiveSpan
 from mlflow.entities.span_event import SpanEvent
+from mlflow.tracing.constant import TokenUsageKey
 from mlflow.tracing.utils import set_span_chat_messages
 
 _logger = logging.getLogger(__name__)
@@ -65,12 +66,90 @@ class BaseEventStreamWrapper:
 class InvokeModelStreamWrapper(BaseEventStreamWrapper):
     """A wrapper class for a event stream returned by the InvokeModelWithResponseStream API."""
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._usage_buffer = {}
+
     @capture_exception("Failed to handle event for the stream")
     def _handle_event(self, span, event):
         chunk = json.loads(event["chunk"]["bytes"])
         self._span.add_event(SpanEvent(name=chunk["type"], attributes={"json": json.dumps(chunk)}))
 
+        # Buffer usage information from streaming chunks
+        self._buffer_usage(chunk)
+
+    def _buffer_usage(self, chunk: dict):
+        """Buffer token usage information from streaming chunks."""
+
+        def _extract_and_buffer_tokens(usage: dict):
+            # For streaming, we need to handle partial updates where only some token counts
+            # are provided. Extract individual token counts and update buffer directly.
+
+            def _pick(d: dict, *names):
+                for n in names:
+                    if n in d:
+                        return d[n]
+                return None
+
+            # Extract each token type separately
+            input_tokens = _pick(
+                usage,
+                "input_tokens",
+                "inputTokens",
+                "prompt_tokens",
+                "promptTokens",
+                "prompt_token_count",
+            )
+            output_tokens = _pick(
+                usage,
+                "output_tokens",
+                "outputTokens",
+                "completion_tokens",
+                "completionTokens",
+                "generation_token_count",
+            )
+            total_tokens = _pick(
+                usage,
+                "total_tokens",
+                "totalTokens",
+            )
+
+            # Update buffer with any non-None values (partial updates are allowed)
+            if input_tokens is not None:
+                self._usage_buffer[TokenUsageKey.INPUT_TOKENS] = input_tokens
+            if output_tokens is not None:
+                self._usage_buffer[TokenUsageKey.OUTPUT_TOKENS] = output_tokens
+            if total_tokens is not None:
+                self._usage_buffer[TokenUsageKey.TOTAL_TOKENS] = total_tokens
+
+            _logger.debug(
+                f"[TokenUsage] Updated buffer: {self._usage_buffer} from chunk usage: {usage}"
+            )
+
+        try:
+            if chunk.get("type") == "message_start" and "usage" in chunk.get("message", {}):
+                _extract_and_buffer_tokens(chunk["message"]["usage"])
+
+            elif chunk.get("type") == "message_delta" and "usage" in chunk.get("delta", {}):
+                _extract_and_buffer_tokens(chunk["delta"]["usage"])
+
+            elif "usage" in chunk:
+                _extract_and_buffer_tokens(chunk["usage"])
+        except Exception as e:
+            _logger.debug(f"Failed to buffer usage from chunk: {e}")
+
     def _close(self):
+        # Build a standardized usage dict and set it on the span if valid
+        usage_dict = build_token_usage_dict(
+            input_tokens=self._usage_buffer.get(TokenUsageKey.INPUT_TOKENS),
+            output_tokens=self._usage_buffer.get(TokenUsageKey.OUTPUT_TOKENS),
+            total_tokens=self._usage_buffer.get(TokenUsageKey.TOTAL_TOKENS),
+        )
+
+        from mlflow.bedrock.utils import set_chat_usage_if_valid
+
+        set_chat_usage_if_valid(self._span, usage_dict)
+
         self._end_span()
 
 
@@ -105,6 +184,14 @@ class ConverseStreamWrapper(BaseEventStreamWrapper):
         # Record the accumulated response as the output of the span
         converse_response = self._response_builder.build()
         self._span.set_outputs(converse_response)
+
+        # Build a standardized usage dict and set it on the span if valid
+        usage = converse_response.get("usage")
+        usage_dict = build_token_usage_dict(raw_usage=usage) if isinstance(usage, dict) else None
+
+        from mlflow.bedrock.utils import set_chat_usage_if_valid
+
+        set_chat_usage_if_valid(self._span, usage_dict)
 
         # Record the chat message attributes in the MLflow's standard format
         messages = self._inputs.get("messages", []) + [converse_response["output"]["message"]]

@@ -12,6 +12,7 @@ from mlflow.bedrock.chat import convert_message_to_mlflow_chat, convert_tool_to_
 from mlflow.bedrock.stream import ConverseStreamWrapper, InvokeModelStreamWrapper
 from mlflow.bedrock.utils import skip_if_trace_disabled
 from mlflow.entities import SpanType
+from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.utils import set_span_chat_messages, set_span_chat_tools
 from mlflow.utils.autologging_utils import safe_patch
@@ -75,6 +76,12 @@ def _patched_invoke_model(original, self, *args, **kwargs):
         # with the key "embedding". This might change in the future.
         span_type = SpanType.EMBEDDING if "embedding" in parsed_response_body else SpanType.LLM
         span.set_span_type(span_type)
+
+        # Record token usage if provided in response
+        usage = _parse_usage_from_response(parsed_response_body)
+        if usage:
+            span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
+
         span.set_outputs({**result, "body": parsed_response_body})
 
         return result
@@ -95,7 +102,10 @@ def _patched_invoke_model_with_response_stream(original, self, *args, **kwargs):
     # To avoid consuming the stream during serialization, set dummy outputs for the span.
     span.set_outputs({**result, "body": "EventStream"})
 
-    result["body"] = InvokeModelStreamWrapper(stream=result["body"], span=span)
+    # Wrap streaming body to capture usage events
+    result_body = InvokeModelStreamWrapper(stream=result["body"], span=span)
+    # After stream ends, _buffer_usage events will set CHAT_USAGE attribute
+    result["body"] = result_body
     return result
 
 
@@ -129,6 +139,25 @@ def _parse_invoke_model_response_body(response_body: StreamingBody) -> Union[dic
         response_body._amount_read = 0
 
 
+def _parse_usage_from_response(
+    response_body: Union[dict[str, Any], str],
+) -> Optional[dict[str, int]]:
+    """Return a standardized token-usage dict for any Bedrock provider.
+
+    This wrapper now simply delegates to :func:`mlflow.bedrock.utils.build_token_usage_dict`,
+    which already understands every provider key-schema.  If *response_body* contains a
+    nested ``usage`` field we pass that sub-dict, otherwise we pass the whole body.
+    """
+
+    from mlflow.bedrock.utils import build_token_usage_dict
+
+    if not isinstance(response_body, dict):
+        return None
+
+    usage_section = response_body.get("usage", response_body)
+    return build_token_usage_dict(raw_usage=usage_section)
+
+
 @skip_if_trace_disabled
 def _patched_converse(original, self, *args, **kwargs):
     with mlflow.start_span(
@@ -143,6 +172,10 @@ def _patched_converse(original, self, *args, **kwargs):
         try:
             result = original(self, *args, **kwargs)
             span.set_outputs(result)
+            # Use _parse_usage_from_response for all usage extraction
+            usage = _parse_usage_from_response(result)
+            if usage:
+                span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
         finally:
             _set_chat_messages_attributes(span, kwargs.get("messages", []), result)
         return result
