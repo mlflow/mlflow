@@ -1343,8 +1343,10 @@ def test_set_tag(store: SqlAlchemyStore, monkeypatch):
 
 def test_delete_tag(store: SqlAlchemyStore):
     run = _run_factory(store)
-    k0, v0 = "tag0", "val0"
-    k1, v1 = "tag1", "val1"
+    k0 = "tag0"
+    v0 = "val0"
+    k1 = "tag1"
+    v1 = "val1"
     tag0 = entities.RunTag(k0, v0)
     tag1 = entities.RunTag(k1, v1)
     store.set_tag(run.info.run_id, tag0)
@@ -4204,9 +4206,9 @@ def test_create_run_appends_to_artifact_uri_path_correctly(input_uri, expected_u
     _assert_create_run_appends_to_artifact_uri_path_correctly(input_uri, expected_uri)
 
 
-def test_start_and_end_trace(store: SqlAlchemyStore):
+def test_legacy_start_and_end_trace_v2(store: SqlAlchemyStore):
     experiment_id = store.create_experiment("test_experiment")
-    trace_info = store.start_trace(
+    trace_info = store.deprecated_start_trace_v2(
         experiment_id=experiment_id,
         timestamp_ms=1234,
         request_metadata={"rq1": "foo", "rq2": "bar"},
@@ -4222,7 +4224,7 @@ def test_start_and_end_trace(store: SqlAlchemyStore):
     assert trace_info.request_metadata == {
         "rq1": "foo",
         "rq2": "bar",
-        TRACE_SCHEMA_VERSION_KEY: "3",
+        TRACE_SCHEMA_VERSION_KEY: "2",
     }
     artifact_location = trace_info.tags[MLFLOW_ARTIFACT_LOCATION]
     assert artifact_location.endswith(f"/{experiment_id}/traces/{request_id}/artifacts")
@@ -4231,9 +4233,9 @@ def test_start_and_end_trace(store: SqlAlchemyStore):
         "tag2": "orange",
         MLFLOW_ARTIFACT_LOCATION: artifact_location,
     }
-    assert trace_info == store.get_trace_info(request_id)
+    assert trace_info.to_v3() == store.get_trace_info(request_id)
 
-    trace_info = store.end_trace(
+    trace_info = store.deprecated_end_trace_v2(
         request_id=request_id,
         timestamp_ms=2345,
         status=TraceStatus.OK,
@@ -4253,7 +4255,7 @@ def test_start_and_end_trace(store: SqlAlchemyStore):
         "rq1": "updated",
         "rq2": "bar",
         "rq3": "baz",
-        TRACE_SCHEMA_VERSION_KEY: "3",
+        TRACE_SCHEMA_VERSION_KEY: "2",
     }
     assert trace_info.tags == {
         "tag1": "updated",
@@ -4261,10 +4263,10 @@ def test_start_and_end_trace(store: SqlAlchemyStore):
         "tag3": "grape",
         MLFLOW_ARTIFACT_LOCATION: artifact_location,
     }
-    assert trace_info == store.get_trace_info(request_id)
+    assert trace_info.to_v3() == store.get_trace_info(request_id)
 
 
-def test_start_trace_v3(store: SqlAlchemyStore):
+def test_start_trace(store: SqlAlchemyStore):
     experiment_id = store.create_experiment("test_experiment")
     trace_info = TraceInfo(
         trace_id="tr-123",
@@ -4275,7 +4277,7 @@ def test_start_trace_v3(store: SqlAlchemyStore):
         tags={"tag1": "apple", "tag2": "orange"},
         trace_metadata={"rq1": "foo", "rq2": "bar"},
     )
-    trace_info = store.start_trace_v3(trace_info)
+    trace_info = store.start_trace(trace_info)
     trace_id = trace_info.trace_id
 
     assert trace_info.trace_id is not None
@@ -4317,7 +4319,7 @@ def _create_trace(
         tags=tags or {},
         trace_metadata=trace_metadata or {},
     )
-    return store.start_trace_v3(trace_info)
+    return store.start_trace(trace_info)
 
 
 @pytest.fixture

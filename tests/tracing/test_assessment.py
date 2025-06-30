@@ -494,8 +494,8 @@ def test_log_assessment_on_in_progress_trace(store, tracking_uri, legacy_api):
     mlflow.flush_trace_async_logging()
 
     # Two assessments should be logged as a part of StartTraceV3 call
-    store.start_trace_v3.assert_called_once()
-    trace_info = store.start_trace_v3.call_args[1]["trace_info"]
+    store.start_trace.assert_called_once()
+    trace_info = store.start_trace.call_args[1]["trace_info"]
     assert trace_info.request_id == mlflow.get_last_active_trace_id()
     assert len(trace_info.assessments) == 2
     assert trace_info.assessments[0].name == "feedback"
@@ -526,8 +526,8 @@ async def test_log_assessment_on_in_progress_trace_async(store, tracking_uri):
 
     store.create_assessment.assert_not_called()
 
-    store.start_trace_v3.assert_called_once()
-    trace_info = store.start_trace_v3.call_args[1]["trace_info"]
+    store.start_trace.assert_called_once()
+    trace_info = store.start_trace.call_args[1]["trace_info"]
     assert trace_info.request_id == mlflow.get_last_active_trace_id()
     assert len(trace_info.assessments) == 2
     assert trace_info.assessments[0].name == "feedback"
@@ -546,8 +546,8 @@ def test_log_assessment_on_in_progress_with_span_id(store, tracking_uri):
     mlflow.flush_trace_async_logging()
 
     # Two assessments should be logged as a part of StartTraceV3 call
-    store.start_trace_v3.assert_called_once()
-    trace_info = store.start_trace_v3.call_args[1]["trace_info"]
+    store.start_trace.assert_called_once()
+    trace_info = store.start_trace.call_args[1]["trace_info"]
     assert trace_info.request_id == mlflow.get_last_active_trace_id()
     assert len(trace_info.assessments) == 1
     assert trace_info.assessments[0].name == "feedback"
@@ -573,4 +573,4 @@ def test_log_assessment_on_in_progress_trace_works_when_tracing_is_disabled(stor
 
     # Neither CreateAssessment nor StartTraceV3 should be called
     store.create_assessment.assert_not_called()
-    store.start_trace_v3.assert_not_called()
+    store.start_trace.assert_not_called()
