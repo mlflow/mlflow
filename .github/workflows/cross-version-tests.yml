@@ -146,15 +146,22 @@ jobs:
       - uses: ./.github/actions/setup-java
         with:
           java-version: ${{ matrix.java }}
-      # TODO: Remove this step once we remove the pyspark constraint in requirements/constraints.txt
-      - name: Remove pyspark constraint
+      - name: Remove constraints
         run: |
           if [ "${{ matrix.package }}" = "pyspark" ]; then
+            # TODO: Remove once we remove the pyspark constraint in requirements/constraints.txt
             sed -i '/^pyspark/d' requirements/constraints.txt
+          elif [ "${{ matrix.package }}" = "transformers" ]; then
+            # TODO: Remove once https://github.com/huggingface/transformers/issues/39115 is resolved
+            sed -i '/^transformers</d' requirements/constraints.txt
+          fi
+
+          if ! git diff --exit-code requirements/constraints.txt; then
+            git diff
             git config user.name 'mlflow-app[bot]'
             git config user.email 'mlflow-app[bot]@users.noreply.github.com'
             git add requirements/constraints.txt
-            git commit -m "Remove pyspark constraints for testing"
+            git commit -m "Remove constraints for testing"
           fi
       - name: Install mlflow & test dependencies
         run: |
@@ -210,15 +217,22 @@ jobs:
       - uses: ./.github/actions/setup-java
         with:
           java-version: ${{ matrix.java }}
-      # TODO: Remove this step once we remove the pyspark constraint in requirements/constraints.txt
-      - name: Remove pyspark constraint
+      - name: Remove constraints
         run: |
           if [ "${{ matrix.package }}" = "pyspark" ]; then
+            # TODO: Remove once we remove the pyspark constraint in requirements/constraints.txt
             sed -i '/^pyspark/d' requirements/constraints.txt
+          elif [ "${{ matrix.package }}" = "transformers" ]; then
+            # TODO: Remove once https://github.com/huggingface/transformers/issues/39115 is resolved
+            sed -i '/^transformers</d' requirements/constraints.txt
+          fi
+
+          if ! git diff --exit-code requirements/constraints.txt; then
+            git diff
             git config user.name 'mlflow-app[bot]'
             git config user.email 'mlflow-app[bot]@users.noreply.github.com'
             git add requirements/constraints.txt
-            git commit -m "Remove pyspark constraints for testing"
+            git commit -m "Remove constraints for testing"
           fi
       - name: Install mlflow & test dependencies
         run: |
