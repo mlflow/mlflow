@@ -16,7 +16,7 @@ _logger = logging.getLogger(__name__)
 
 
 # TODO: add a linter to make sure this decorator is used outmost
-def track_api_usage(func: Callable) -> Callable:
+def track_api_usage(func: Callable[..., Any]) -> Callable[..., Any]:
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         if is_telemetry_disabled() or invoked_from_internal_api():
@@ -41,7 +41,11 @@ def track_api_usage(func: Callable) -> Callable:
 
 
 def _generate_telemetry_record(
-    func: Callable, args: tuple, kwargs: dict[str, Any], success: bool, duration_ms: int
+    func: Callable[..., Any],
+    args: tuple[Any, ...],
+    kwargs: dict[str, Any],
+    success: bool,
+    duration_ms: int,
 ) -> Optional[APIRecord]:
     try:
         signature = inspect.signature(func)
