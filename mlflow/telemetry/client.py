@@ -18,7 +18,6 @@ from mlflow.environment_variables import (
 )
 from mlflow.telemetry.schemas import APIRecord, TelemetryInfo, TelemetryRecord
 from mlflow.telemetry.utils import is_telemetry_disabled
-from mlflow.tracking._tracking_service.utils import _get_store
 
 _logger = logging.getLogger(__name__)
 # TODO: update this url
@@ -233,6 +232,9 @@ class TelemetryClient:
         Backend store might be changed after mlflow is imported, we should use this
         method to update the backend store info at sending telemetry step.
         """
+        # import here to avoid circular import
+        from mlflow.tracking._tracking_service.utils import _get_store
+
         tracking_store = _get_store()
         self.info.backend_store = tracking_store.__class__.__name__
 
