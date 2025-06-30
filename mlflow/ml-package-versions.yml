@@ -282,7 +282,6 @@ spark:
       ">= 3.5.0": ["torch<2.6.0", "scikit-learn", "torcheval"]
       ">= 3.5.0, < dev": ["pyspark[connect]"]
     run: |
-      echo test
       SAGEMAKER_OUT=$(mktemp)
       if mlflow sagemaker build-and-push-container --no-push --mlflow-home . > $SAGEMAKER_OUT 2>&1; then
         echo "Sagemaker container build succeeded.";
@@ -310,7 +309,6 @@ spark:
       ">= 0.0.0": ["scikit-learn", "numpy<2"]
       "< 3.4.0": ["pandas<2"]
     run: |
-      echo test
       # Build Java package
       # Pyspark 4.0 ('dev' version) exclusively supports Scala 2.13
       if [[ $(python -c "import pyspark;from packaging.version import Version;print(Version(pyspark.__version__).major >= 4)") = "True" ]]; then
@@ -479,7 +477,6 @@ transformers:
       export PYTHONPATH=./
       python tests/transformers/helper.py
     run: |
-      echo test
       # Run all Transformers tests except autologging
       pytest tests/transformers --ignore tests/transformers/test_transformers_autolog.py
       pip uninstall -y accelerate
@@ -518,7 +515,6 @@ transformers:
       "< 4.41": ["huggingface_hub<0.24.0", "datasets<=2.4.0", "evaluate<0.4.3"]
       "< 4.52.0.dev0": ["accelerate<1"]
     run: |
-      echo test
       pytest tests/transformers/test_transformers_autolog.py
 
 openai:
