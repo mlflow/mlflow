@@ -683,6 +683,10 @@ class Linter(ast.NodeVisitor):
     def visit_Assign(self, node: ast.Assign):
         if self._is_in_test() and rules.OsEnvironSetInTest.check(node, self.resolver):
             self._check(Location.from_node(node), rules.OsEnvironSetInTest())
+
+        if rules.MultiAssign.check(node):
+            self._check(Location.from_node(node), rules.MultiAssign())
+
         self.generic_visit(node)
 
     def visit_Delete(self, node: ast.Delete):
