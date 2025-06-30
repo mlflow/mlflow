@@ -58,7 +58,7 @@ export const MlflowRouter = ({
               backgroundColor: theme.colors.backgroundSecondary,
               display: 'flex',
               flexDirection: 'row',
-              minHeight: 'calc(100% - 60px)', // 60px comes from header height
+              height: '100%',
               justifyContent: 'stretch',
             }}
           >
