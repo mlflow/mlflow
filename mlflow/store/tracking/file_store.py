@@ -467,7 +467,7 @@ class FileStore(AbstractStore):
                 "Experiment ID mismatch for exp %s. ID recorded as '%s' in meta data. "
                 "Experiment will be ignored.",
                 experiment_id,
-                    experiment.experiment_id,
+                experiment.experiment_id,
                 exc_info=True,
             )
             return None
