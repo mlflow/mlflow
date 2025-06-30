@@ -69,7 +69,7 @@ class TracingClient:
         Returns:
             The returned TraceInfoV3 object from the backend.
         """
-        return self.store.start_trace_v3(trace_info=trace_info)
+        return self.store.start_trace(trace_info=trace_info)
 
     def delete_traces(
         self,

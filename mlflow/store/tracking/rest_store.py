@@ -269,51 +269,7 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(CreateRun, req_body)
         return Run.from_proto(response_proto.run)
 
-    def start_trace(
-        self,
-        experiment_id: str,
-        timestamp_ms: int,
-        request_metadata: dict[str, str],
-        tags: dict[str, str],
-    ) -> TraceInfoV2:
-        """
-        Start an initial TraceInfo object in the backend store.
-
-        Args:
-            experiment_id: String id of the experiment for this run.
-            timestamp_ms: Start time of the trace, in milliseconds since the UNIX epoch.
-            request_metadata: Metadata of the trace.
-            tags: Tags of the trace.
-
-        Returns:
-            The created TraceInfo object.
-        """
-        request_metadata_proto = []
-        for key, value in request_metadata.items():
-            attr = TraceRequestMetadata()
-            attr.key = key
-            attr.value = str(value)
-            request_metadata_proto.append(attr)
-
-        tags_proto = []
-        for key, value in tags.items():
-            tag = TraceTag()
-            tag.key = key
-            tag.value = str(value)
-            tags_proto.append(tag)
-
-        req_body = message_to_json(
-            StartTrace(
-                experiment_id=str(experiment_id),
-                timestamp_ms=timestamp_ms,
-                request_metadata=request_metadata_proto,
-                tags=tags_proto,
-            )
-        )
-        response_proto = self._call_endpoint(StartTrace, req_body)
-        return TraceInfoV2.from_proto(response_proto.trace_info)
-
-    def start_trace_v3(self, trace_info: TraceInfo) -> TraceInfo:
+    def start_trace(self, trace_info: TraceInfo) -> TraceInfo:
         """
         Create a new trace using the V3 API format.
 
@@ -369,59 +325,6 @@ class RestStore(AbstractStore):
             tags=trace_info.tags,
         )
         return trace_info_v2.to_v3()
-
-    def end_trace(
-        self,
-        request_id: str,
-        timestamp_ms: int,
-        status: TraceStatus,
-        request_metadata: dict[str, str],
-        tags: dict[str, str],
-    ) -> TraceInfoV2:
-        """
-        Update the TraceInfo object in the backend store with the completed trace info.
-
-        Args:
-            request_id: Unique string identifier of the trace.
-            timestamp_ms: End time of the trace, in milliseconds. The execution time field
-                in the TraceInfo will be calculated by subtracting the start time from this.
-            status: Status of the trace.
-            request_metadata: Metadata of the trace. This will be merged with the existing
-                metadata logged during the start_trace call.
-            tags: Tags of the trace. This will be merged with the existing tags logged
-                during the start_trace or set_trace_tag calls.
-
-        Returns:
-            The updated TraceInfo object.
-        """
-        request_metadata_proto = []
-        for key, value in request_metadata.items():
-            attr = TraceRequestMetadata()
-            attr.key = key
-            attr.value = str(value)
-            request_metadata_proto.append(attr)
-
-        tags_proto = []
-        for key, value in tags.items():
-            tag = TraceTag()
-            tag.key = key
-            tag.value = str(value)
-            tags_proto.append(tag)
-
-        req_body = message_to_json(
-            EndTrace(
-                request_id=request_id,
-                timestamp_ms=timestamp_ms,
-                status=status.to_proto(),
-                request_metadata=request_metadata_proto,
-                tags=tags_proto,
-            )
-        )
-        # EndTrace endpoint is a dynamic path built with the request_id
-        # Always use v2 endpoint (not v3) for this endpoint to maintain compatibility
-        endpoint = get_single_trace_endpoint(request_id, use_v3=False)
-        response_proto = self._call_endpoint(EndTrace, req_body, endpoint=endpoint)
-        return TraceInfoV2.from_proto(response_proto.trace_info)
 
     def _delete_traces(
         self,
@@ -1122,3 +1025,107 @@ class RestStore(AbstractStore):
         """
         req_body = message_to_json(LogOutputs(run_id=run_id, models=[m.to_proto() for m in models]))
         self._call_endpoint(LogOutputs, req_body)
+
+    ############################################################################################
+    # Deprecated MLflow Tracing APIs. Kept for backward compatibility but do not use.
+    ############################################################################################
+    def deprecated_start_trace_v2(
+        self,
+        experiment_id: str,
+        timestamp_ms: int,
+        request_metadata: dict[str, str],
+        tags: dict[str, str],
+    ) -> TraceInfoV2:
+        """
+        DEPRECATED. DO NOT USE.
+
+        Start an initial TraceInfo object in the backend store.
+
+        Args:
+            experiment_id: String id of the experiment for this run.
+            timestamp_ms: Start time of the trace, in milliseconds since the UNIX epoch.
+            request_metadata: Metadata of the trace.
+            tags: Tags of the trace.
+
+        Returns:
+            The created TraceInfo object.
+        """
+        request_metadata_proto = []
+        for key, value in request_metadata.items():
+            attr = TraceRequestMetadata()
+            attr.key = key
+            attr.value = str(value)
+            request_metadata_proto.append(attr)
+
+        tags_proto = []
+        for key, value in tags.items():
+            tag = TraceTag()
+            tag.key = key
+            tag.value = str(value)
+            tags_proto.append(tag)
+
+        req_body = message_to_json(
+            StartTrace(
+                experiment_id=str(experiment_id),
+                timestamp_ms=timestamp_ms,
+                request_metadata=request_metadata_proto,
+                tags=tags_proto,
+            )
+        )
+        response_proto = self._call_endpoint(StartTrace, req_body)
+        return TraceInfoV2.from_proto(response_proto.trace_info)
+
+    def deprecated_end_trace_v2(
+        self,
+        request_id: str,
+        timestamp_ms: int,
+        status: TraceStatus,
+        request_metadata: dict[str, str],
+        tags: dict[str, str],
+    ) -> TraceInfoV2:
+        """
+        DEPRECATED. DO NOT USE.
+
+        Update the TraceInfo object in the backend store with the completed trace info.
+
+        Args:
+            request_id: Unique string identifier of the trace.
+            timestamp_ms: End time of the trace, in milliseconds. The execution time field
+                in the TraceInfo will be calculated by subtracting the start time from this.
+            status: Status of the trace.
+            request_metadata: Metadata of the trace. This will be merged with the existing
+                metadata logged during the start_trace call.
+            tags: Tags of the trace. This will be merged with the existing tags logged
+                during the start_trace or set_trace_tag calls.
+
+        Returns:
+            The updated TraceInfo object.
+        """
+        request_metadata_proto = []
+        for key, value in request_metadata.items():
+            attr = TraceRequestMetadata()
+            attr.key = key
+            attr.value = str(value)
+            request_metadata_proto.append(attr)
+
+        tags_proto = []
+        for key, value in tags.items():
+            tag = TraceTag()
+            tag.key = key
+            tag.value = str(value)
+            tags_proto.append(tag)
+
+        req_body = message_to_json(
+            EndTrace(
+                request_id=request_id,
+                timestamp_ms=timestamp_ms,
+                status=status.to_proto(),
+                request_metadata=request_metadata_proto,
+                tags=tags_proto,
+            )
+        )
+        # EndTrace endpoint is a dynamic path built with the request_id
+        # Always use v2 endpoint (not v3) for this endpoint to maintain compatibility
+        endpoint = f"{_REST_API_PATH_PREFIX}/mlflow/traces/{request_id}"
+        response_proto = self._call_endpoint(EndTrace, req_body, endpoint=endpoint)
+        return TraceInfoV2.from_proto(response_proto.trace_info)
