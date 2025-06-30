@@ -193,8 +193,8 @@ export class ModelPageImpl extends React.Component<ModelPageImplProps, ModelPage
           getOrderByExpr(this.orderByKey, this.orderByAsc),
           pageTokens[page],
         )
-        .then((r: any) => {
-          this.updatePageState(page, r);
+        .then((response: any) => {
+          this.updatePageState(page, response);
         }),
     ];
     if (loadModelMetadata) {

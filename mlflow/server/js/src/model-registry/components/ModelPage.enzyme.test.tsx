@@ -16,8 +16,7 @@ import { ModelPageImpl, ModelPage } from './ModelPage';
 import { mountWithIntl } from '@mlflow/mlflow/src/common/utils/TestUtils.enzyme';
 
 describe('ModelPage', () => {
-  // @ts-expect-error TS(2709): Cannot use namespace 'ReactWrapper' as a type.
-  let wrapper: ReactWrapper;
+  let wrapper;
   let instance;
   let minimalProps: any;
   let minimalStore: any;

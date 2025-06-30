@@ -110,7 +110,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
     }
   };
 
-  handleTableChange = (params: { sorter: ColumnSort }) => {
+  handleSortChange = (params: { sorter: ColumnSort }) => {
     const sorter = params.sorter;
     this.props.onClickSortableColumn(this.getSortFieldName(sorter.id), sorter.desc);
   };
@@ -450,7 +450,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
             aliases={model?.aliases}
             orderByKey={this.props.orderByKey}
             orderByAsc={this.props.orderByAsc}
-            onSortChange={this.handleTableChange}
+            onSortChange={this.handleSortChange}
             getSortFieldName={this.getSortFieldName}
             pagination={
               <div
