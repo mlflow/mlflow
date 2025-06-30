@@ -114,8 +114,18 @@ def _autolog(
     for task in (ChatCompletions, Completions, Embeddings):
         safe_patch(FLAVOR_NAME, task, "create", patched_call)
 
+    if hasattr(ChatCompletions, "parse"):
+        # In openai>=1.92.0, `ChatCompletions` has a `parse` method:
+        # https://github.com/openai/openai-python/commit/0e358ed66b317038705fb38958a449d284f3cb88
+        safe_patch(FLAVOR_NAME, ChatCompletions, "parse", patched_call)
+
     for task in (AsyncChatCompletions, AsyncCompletions, AsyncEmbeddings):
         safe_patch(FLAVOR_NAME, task, "create", async_patched_call)
+
+    if hasattr(AsyncChatCompletions, "parse"):
+        # In openai>=1.92.0, `AsyncChatCompletions` has a `parse` method:
+        # https://github.com/openai/openai-python/commit/0e358ed66b317038705fb38958a449d284f3cb88
+        safe_patch(FLAVOR_NAME, AsyncChatCompletions, "parse", async_patched_call)
 
     try:
         from openai.resources.beta.chat.completions import AsyncCompletions, Completions
@@ -188,7 +198,9 @@ def _get_span_type(task: type) -> str:
         span_type_mapping[BetaChatCompletions] = SpanType.CHAT_MODEL
         span_type_mapping[BetaAsyncChatCompletions] = SpanType.CHAT_MODEL
     except ImportError:
-        pass
+        _logger.debug(
+            "Failed to import `BetaChatCompletions` or `BetaAsyncChatCompletions`", exc_info=True
+        )
 
     try:
         # Responses API only available in openai>=1.66.0
