@@ -6,7 +6,7 @@ import { useLocalStorage } from '@mlflow/mlflow/src/shared/web-shared/hooks/useL
 import { CursorPaginationProps } from '@databricks/design-system';
 
 const STORE_KEY = 'experiments_page_page_size';
-const DEFAULT_PAGE_SIZE = 10;
+const DEFAULT_PAGE_SIZE = 25;
 
 const ExperimentListQueryKeyHeader = 'experiment_list';
 
