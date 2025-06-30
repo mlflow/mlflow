@@ -14,7 +14,6 @@ module.exports = async () => {
   const mlflowRoot = join(__dirname, '../../..'); // Use the local dev version
 
   // Only start a server if one is not already running
-  // check if tracking uri
   try {
     const response = await fetch(TEST_TRACKING_URI);
     if (response.ok) {

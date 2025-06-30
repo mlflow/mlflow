@@ -6,6 +6,7 @@
  */
 
 import type { TraceInfo } from '../core/entities/trace_info';
+import { ArtifactCredentialType } from './artifacts/databricks';
 
 /**
  * Create a new TraceInfo entity in the backend.
@@ -61,5 +62,35 @@ export namespace DeleteExperiment {
 
   export interface Request {
     experiment_id: string;
+  }
+}
+
+/**
+ * Get credentials for uploading trace data to the artifact store. Only used for Databricks.
+ */
+export namespace GetCredentialsForTraceDataUpload {
+  export const getEndpoint = (host: string, traceId: string) =>
+    `${host}/api/2.0/mlflow/traces/${traceId}/credentials-for-data-upload`;
+
+  export interface Response {
+    credential_info: {
+      type: ArtifactCredentialType;
+      signed_uri: string;
+    };
+  }
+}
+
+/**
+ * Get credentials for downloading trace data from the artifact store. Only used for Databricks.
+ */
+export namespace GetCredentialsForTraceDataDownload {
+  export const getEndpoint = (host: string, traceId: string) =>
+    `${host}/api/2.0/mlflow/traces/${traceId}/credentials-for-data-download`;
+
+  export interface Response {
+    credential_info: {
+      type: ArtifactCredentialType;
+      signed_uri: string;
+    };
   }
 }
