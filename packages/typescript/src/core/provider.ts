@@ -1,12 +1,32 @@
 import { trace, Tracer } from '@opentelemetry/api';
 import { MlflowSpanExporter, MlflowSpanProcessor } from '../exporters/mlflow';
 import { NodeSDK } from '@opentelemetry/sdk-node';
+import { getConfig } from './config';
 
-// TODO: Implement branching logic to actually set span processor and exporter
-const exporter = new MlflowSpanExporter();
-const processor = new MlflowSpanProcessor(exporter);
-const sdk = new NodeSDK({ spanProcessors: [processor] });
-sdk.start();
+let sdk: NodeSDK | null = null;
+
+export function initializeSDK(): void {
+  if (sdk) {
+    sdk.shutdown().catch((error) => {
+      console.warn('Error shutting down existing SDK:', error);
+    });
+  }
+
+  try {
+    const hostConfig = getConfig();
+    if (!hostConfig.host) {
+      console.warn('MLflow tracking server not configured. Call init() before using tracing APIs.');
+      return;
+    }
+
+    const exporter = new MlflowSpanExporter(hostConfig);
+    const processor = new MlflowSpanProcessor(exporter);
+    sdk = new NodeSDK({ spanProcessors: [processor] });
+    sdk.start();
+  } catch (error) {
+    console.warn('Failed to initialize MLflow tracing:', error);
+  }
+}
 
 export function getTracer(module_name: string): Tracer {
   return trace.getTracer(module_name);

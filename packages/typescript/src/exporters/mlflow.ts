@@ -13,6 +13,7 @@ import { createTraceLocationFromExperimentId } from '../core/entities/trace_loca
 import { fromOtelStatus, TraceState } from '../core/entities/trace_state';
 import { SpanAttributeKey, TRACE_ID_PREFIX } from '../core/constants';
 import { convertHrTimeToMs, deduplicateSpanNamesInPlace } from '../core/utils';
+import { MLflowTracingConfig } from '../core/config';
 
 // TODO: Remove these once we have a proper exporter.
 let _traces: Trace[] = [];
@@ -137,6 +138,10 @@ export class MlflowSpanProcessor implements SpanProcessor {
 }
 
 export class MlflowSpanExporter implements SpanExporter {
+  constructor(private hostConfig: MLflowTracingConfig) {
+    this.hostConfig = hostConfig;
+  }
+
   export(spans: OTelReadableSpan[], _resultCallback: (result: ExportResult) => void): void {
     for (const span of spans) {
       // Only export root spans
