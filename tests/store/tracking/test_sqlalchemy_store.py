@@ -37,8 +37,6 @@ from mlflow.entities.logged_model_output import LoggedModelOutput
 from mlflow.entities.logged_model_parameter import LoggedModelParameter
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
-from mlflow.entities.trace import Trace
-from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
@@ -85,7 +83,11 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceTag,
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore, _get_orderby_clauses
-from mlflow.tracing.constant import MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE, TraceMetadataKey
+from mlflow.tracing.constant import (
+    MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE,
+    TRACE_SCHEMA_VERSION_KEY,
+    TraceMetadataKey,
+)
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import (
@@ -1341,8 +1343,10 @@ def test_set_tag(store: SqlAlchemyStore, monkeypatch):
 
 def test_delete_tag(store: SqlAlchemyStore):
     run = _run_factory(store)
-    k0, v0 = "tag0", "val0"
-    k1, v1 = "tag1", "val1"
+    k0 = "tag0"
+    v0 = "val0"
+    k1 = "tag1"
+    v1 = "val1"
     tag0 = entities.RunTag(k0, v0)
     tag1 = entities.RunTag(k1, v1)
     store.set_tag(run.info.run_id, tag0)
@@ -4202,9 +4206,9 @@ def test_create_run_appends_to_artifact_uri_path_correctly(input_uri, expected_u
     _assert_create_run_appends_to_artifact_uri_path_correctly(input_uri, expected_uri)
 
 
-def test_start_and_end_trace(store: SqlAlchemyStore):
+def test_legacy_start_and_end_trace_v2(store: SqlAlchemyStore):
     experiment_id = store.create_experiment("test_experiment")
-    trace_info = store.start_trace(
+    trace_info = store.deprecated_start_trace_v2(
         experiment_id=experiment_id,
         timestamp_ms=1234,
         request_metadata={"rq1": "foo", "rq2": "bar"},
@@ -4217,7 +4221,11 @@ def test_start_and_end_trace(store: SqlAlchemyStore):
     assert trace_info.timestamp_ms == 1234
     assert trace_info.execution_time_ms is None
     assert trace_info.status == TraceStatus.IN_PROGRESS
-    assert trace_info.request_metadata == {"rq1": "foo", "rq2": "bar"}
+    assert trace_info.request_metadata == {
+        "rq1": "foo",
+        "rq2": "bar",
+        TRACE_SCHEMA_VERSION_KEY: "2",
+    }
     artifact_location = trace_info.tags[MLFLOW_ARTIFACT_LOCATION]
     assert artifact_location.endswith(f"/{experiment_id}/traces/{request_id}/artifacts")
     assert trace_info.tags == {
@@ -4225,9 +4233,9 @@ def test_start_and_end_trace(store: SqlAlchemyStore):
         "tag2": "orange",
         MLFLOW_ARTIFACT_LOCATION: artifact_location,
     }
-    assert trace_info == store.get_trace_info(request_id)
+    assert trace_info.to_v3() == store.get_trace_info(request_id)
 
-    trace_info = store.end_trace(
+    trace_info = store.deprecated_end_trace_v2(
         request_id=request_id,
         timestamp_ms=2345,
         status=TraceStatus.OK,
@@ -4247,6 +4255,7 @@ def test_start_and_end_trace(store: SqlAlchemyStore):
         "rq1": "updated",
         "rq2": "bar",
         "rq3": "baz",
+        TRACE_SCHEMA_VERSION_KEY: "2",
     }
     assert trace_info.tags == {
         "tag1": "updated",
@@ -4254,34 +4263,21 @@ def test_start_and_end_trace(store: SqlAlchemyStore):
         "tag3": "grape",
         MLFLOW_ARTIFACT_LOCATION: artifact_location,
     }
-    assert trace_info == store.get_trace_info(request_id)
+    assert trace_info.to_v3() == store.get_trace_info(request_id)
 
 
-def test_start_trace_with_invalid_experiment_id(store: SqlAlchemyStore):
-    with pytest.raises(MlflowException, match="No Experiment with id=123"):
-        store.start_trace(
-            experiment_id="123",
-            timestamp_ms=0,
-            request_metadata={},
-            tags={},
-        )
-
-
-def test_start_trace_v3(store: SqlAlchemyStore):
+def test_start_trace(store: SqlAlchemyStore):
     experiment_id = store.create_experiment("test_experiment")
-    trace = Trace(
-        info=TraceInfo(
-            trace_id="tr-123",
-            trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
-            request_time=1234,
-            execution_duration=100,
-            state=TraceState.OK,
-            tags={"tag1": "apple", "tag2": "orange"},
-            trace_metadata={"rq1": "foo", "rq2": "bar"},
-        ),
-        data=TraceData(spans=[]),
+    trace_info = TraceInfo(
+        trace_id="tr-123",
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1234,
+        execution_duration=100,
+        state=TraceState.OK,
+        tags={"tag1": "apple", "tag2": "orange"},
+        trace_metadata={"rq1": "foo", "rq2": "bar"},
     )
-    trace_info = store.start_trace_v3(trace)
+    trace_info = store.start_trace(trace_info)
     trace_id = trace_info.trace_id
 
     assert trace_info.trace_id is not None
@@ -4289,7 +4285,7 @@ def test_start_trace_v3(store: SqlAlchemyStore):
     assert trace_info.request_time == 1234
     assert trace_info.execution_duration == 100
     assert trace_info.state == TraceState.OK
-    assert trace_info.trace_metadata == {"rq1": "foo", "rq2": "bar"}
+    assert trace_info.trace_metadata == {"rq1": "foo", "rq2": "bar", TRACE_SCHEMA_VERSION_KEY: "3"}
     artifact_location = trace_info.tags[MLFLOW_ARTIFACT_LOCATION]
     assert artifact_location.endswith(f"/{experiment_id}/traces/{trace_id}/artifacts")
     assert trace_info.tags == {
@@ -4314,19 +4310,16 @@ def _create_trace(
     if not store.get_experiment(experiment_id):
         store.create_experiment(store, experiment_id)
 
-    trace = Trace(
-        info=TraceInfo(
-            trace_id=trace_id,
-            trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
-            request_time=request_time,
-            execution_duration=execution_duration,
-            state=state,
-            tags=tags or {},
-            trace_metadata=trace_metadata or {},
-        ),
-        data=TraceData(spans=[]),
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=request_time,
+        execution_duration=execution_duration,
+        state=state,
+        tags=tags or {},
+        trace_metadata=trace_metadata or {},
     )
-    return store.start_trace_v3(trace)
+    return store.start_trace(trace_info)
 
 
 @pytest.fixture

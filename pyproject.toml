@@ -294,6 +294,15 @@ example-rules = [
   "log-model-artifact-path",
   "unknown-mlflow-function",
   "unknown-mlflow-arguments",
+  "multi-assign",
+]
+
+[tool.clint.per-file-ignores]
+# Rules that should only be enabled for files in the root mlflow directory
+"^(?!mlflow/).*$" = [
+  "forbidden-set-active-model-usage",
+  "unnamed-thread",
+  "thread-pool-executor-without-thread-name-prefix",
 ]
 
 [tool.clint.forbidden-top-level-imports]
