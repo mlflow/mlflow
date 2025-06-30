@@ -54,7 +54,8 @@ def random_train_data():
 
 @pytest.fixture
 def random_one_hot_labels():
-    n, n_class = (150, 3)
+    n = 150
+    n_class = 3
     classes = np.random.randint(0, n_class, n)
     labels = np.zeros((n, n_class))
     labels[np.arange(n), classes] = 1

@@ -62,7 +62,8 @@ import pandas as pd
 
 # Load data and train model
 iris = load_iris(as_frame=True)
-X, y = iris.data, iris.target
+X = iris.data
+y = iris.target
 model = RandomForestClassifier().fit(X, y)
 
 with mlflow.start_run():

@@ -1432,7 +1432,8 @@ def get_model_info(model_uri: str) -> ModelInfo:
 
         with mlflow.start_run() as run:
             params = {"n_estimators": 3, "random_state": 42}
-            X, y = [[0, 1]], [1]
+            X = [[0, 1]]
+            y = [1]
             signature = mlflow.models.infer_signature(X, y)
             rfr = RandomForestRegressor(**params).fit(X, y)
             mlflow.log_params(params)
