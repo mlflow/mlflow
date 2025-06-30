@@ -155,6 +155,7 @@ jobs:
             sed -i '/^transformers</d' requirements/constraints.txt
             git config user.name 'mlflow-app[bot]'
             git config user.email 'mlflow-app[bot]@users.noreply.github.com'
+            git diff
             git add requirements/constraints.txt
             git commit -m "Remove constraints for testing"
           fi
@@ -221,6 +222,7 @@ jobs:
             sed -i '/^transformers</d' requirements/constraints.txt
             git config user.name 'mlflow-app[bot]'
             git config user.email 'mlflow-app[bot]@users.noreply.github.com'
+            git diff
             git add requirements/constraints.txt
             git commit -m "Remove constraints for testing"
           fi
