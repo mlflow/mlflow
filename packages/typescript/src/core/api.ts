@@ -11,7 +11,7 @@ import { SpanStatusCode } from './entities/span_status';
  * Options for starting a span
  *
  * @param name The name of the span.
- * @param span_type The type of the span.
+ * @param spanType The type of the span.
  * @param inputs The inputs of the span.
  * @param attributes The attributes of the span.
  * @param startTimeNs The start time of the span in nanoseconds. If not provided, the current time will be used.
@@ -87,7 +87,7 @@ export function startSpan(options: SpanOptions): LiveSpan {
  * 2. Options: withSpan((span) => { ... }, { name: 'test', ... }) - span properties set via options object
  *
  * @param callback The callback function to execute within the span context
- * @param options Optional span options (name, span_type, inputs, attributes, startTimeNs)
+ * @param options Optional span options (name, spanType, inputs, attributes, startTimeNs)
  * @returns The result of the callback function
  */
 export function withSpan<T>(
