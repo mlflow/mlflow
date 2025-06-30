@@ -221,7 +221,8 @@ def copy_model_serving_trace_to_eval_run(trace_dict: dict[str, Any]):
         trace_dict: The trace dictionary returned from model serving endpoint.
             This can be either V2 or V3 trace.
     """
-    new_trace_id, new_root_span = None, None
+    new_trace_id = None
+    new_root_span = None
     spans = [Span.from_dict(span_dict) for span_dict in trace_dict["data"]["spans"]]
 
     # Create a copy of spans in the current experiment

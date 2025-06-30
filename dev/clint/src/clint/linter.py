@@ -683,6 +683,10 @@ class Linter(ast.NodeVisitor):
     def visit_Assign(self, node: ast.Assign):
         if self._is_in_test() and rules.OsEnvironSetInTest.check(node, self.resolver):
             self._check(Location.from_node(node), rules.OsEnvironSetInTest())
+
+        if rules.MultiAssign.check(node):
+            self._check(Location.from_node(node), rules.MultiAssign())
+
         self.generic_visit(node)
 
     def visit_Delete(self, node: ast.Delete):
@@ -767,7 +771,7 @@ def _lint_cell(
         # Ignore non-python cells such as `!pip install ...`
         return violations
 
-    linter = Linter(path=path, config=config, ignore=ignore_map(src), index=index, cell=index)
+    linter = Linter(path=path, config=config, ignore=ignore_map(src), index=index, cell=cell_index)
     linter.visit(tree)
     linter.visit_comments(src)
     violations.extend(linter.violations)
@@ -778,7 +782,7 @@ def _lint_cell(
                 rules.EmptyNotebookCell(),
                 path,
                 Location(0, 0),
-                cell=index,
+                cell=cell_index,
             )
         )
     return violations

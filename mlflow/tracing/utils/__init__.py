@@ -199,7 +199,9 @@ def deduplicate_span_names_in_place(spans: list[LiveSpan]):
 
 def aggregate_usage_from_spans(spans: list[LiveSpan]) -> Optional[dict[str, int]]:
     """Aggregate token usage information from all spans in the trace."""
-    input_tokens, output_tokens, total_tokens = 0, 0, 0
+    input_tokens = 0
+    output_tokens = 0
+    total_tokens = 0
     has_usage_data = False
 
     span_id_to_spans = {span.span_id: span for span in spans}

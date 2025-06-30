@@ -173,7 +173,8 @@ with mlflow.start_run():
         total = 0
 
         for batch_idx, (data, target) in enumerate(train_loader):
-            data, target = data.to(device), target.to(device)
+            data = data.to(device)
+            target = target.to(device)
 
             # Forward pass
             optimizer.zero_grad()
@@ -211,7 +212,8 @@ with mlflow.start_run():
 
         with torch.no_grad():
             for data, target in test_loader:
-                data, target = data.to(device), target.to(device)
+                data = data.to(device)
+                target = target.to(device)
                 output = model(data)
                 loss = loss_fn(output, target)
 
@@ -252,7 +254,8 @@ with mlflow.start_run():
 
     with torch.no_grad():
         for data, target in test_loader:
-            data, target = data.to(device), target.to(device)
+            data = data.to(device)
+            target = target.to(device)
             output = model(data)
             loss = loss_fn(output, target)
 
@@ -466,7 +469,8 @@ For more sophisticated tracking, you can implement custom callbacks and visualiz
 
           with torch.no_grad():
               for inputs, targets in val_loader:
-                  inputs, targets = inputs.to(device), targets.to(device)
+                  inputs = inputs.to(device)
+                  targets = targets.to(device)
                   outputs = self.model(inputs)
                   _, preds = torch.max(outputs, 1)
 

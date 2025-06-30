@@ -420,11 +420,13 @@ def trace_disabled(f):
             if is_tracing_enabled():
                 disable()
                 try:
-                    is_func_called, result = True, f(*args, **kwargs)
+                    is_func_called = True
+                    result = f(*args, **kwargs)
                 finally:
                     enable()
             else:
-                is_func_called, result = True, f(*args, **kwargs)
+                is_func_called = True
+                result = f(*args, **kwargs)
         # We should only catch the exception from disable() and enable()
         # and let other exceptions propagate.
         except MlflowTracingException as e:

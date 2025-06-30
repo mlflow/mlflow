@@ -199,13 +199,10 @@ class AmazonBedrockProvider(BaseProvider):
         session = boto3.Session(**self._construct_session_args())
 
         try:
-            self._client, self._client_created = (
-                session.client(
-                    service_name="bedrock-runtime",
-                    **self._construct_client_args(session),
-                ),
-                time.monotonic_ns(),
+            self._client = session.client(
+                service_name="bedrock-runtime", **self._construct_client_args(session)
             )
+            self._client_created = time.monotonic_ns()
             return self._client
         except botocore.exceptions.UnknownServiceError as e:
             raise AIGatewayConfigException(

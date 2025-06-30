@@ -1398,8 +1398,10 @@ def test_basic_post_training_metric_autologging():
     with mlflow.start_run() as run:
         model.fit(X, y)
 
-        eval1_X, eval1_y = X[0::3], y[0::3]
-        eval2_X, eval2_y = X[1::3], y[1::3]
+        eval1_X = X[0::3]
+        eval1_y = y[0::3]
+        eval2_X = X[1::3]
+        eval2_y = y[1::3]
 
         pred1_y = model.predict(X=eval1_X)
         pred2_y = model.predict(eval2_X)
@@ -1416,7 +1418,8 @@ def test_basic_post_training_metric_autologging():
         scorer2 = sklmetrics.make_scorer(sklmetrics.recall_score, average="macro")
         recall_score4_data2 = scorer2(model, eval2_X, eval2_y)
 
-        eval1_X, eval1_y = eval1_X.copy(), eval1_y.copy()
+        eval1_X = eval1_X.copy()
+        eval1_y = eval1_y.copy()
         # In metric key, it will include dataset name as "eval1_X-2"
         lor_score_data1_2 = model.score(eval1_X, eval1_y)
 
@@ -1510,7 +1513,8 @@ def test_nested_metric_call_is_disabled():
     mlflow.sklearn.autolog()
 
     X, y = get_iris()
-    eval1_X, eval1_y = X[0::3], y[0::3]
+    eval1_X = X[0::3]
+    eval1_y = y[0::3]
     lr_model = sklearn.linear_model.LinearRegression()
 
     with mlflow.start_run():
@@ -1535,8 +1539,10 @@ def test_multi_model_interleaved_fit_and_post_train_metric_call():
     from sklearn.metrics import mean_squared_error
 
     X, y = get_iris()
-    eval1_X, eval1_y = X[0::3], y[0::3]
-    eval2_X, eval2_y = X[1::3], y[1::3]
+    eval1_X = X[0::3]
+    eval1_y = y[0::3]
+    eval2_X = X[1::3]
+    eval2_y = y[1::3]
 
     lr_model1 = sklearn.linear_model.LinearRegression(fit_intercept=True)
     lr_model2 = sklearn.linear_model.LinearRegression(fit_intercept=False)
@@ -1608,7 +1614,8 @@ def test_meta_estimator_disable_nested_post_training_autologging(scoring):
 )
 def test_meta_estimator_post_training_autologging(scoring):
     X, y = get_iris()
-    eval1_X, eval1_y = X[0::3], y[0::3]
+    eval1_X = X[0::3]
+    eval1_y = y[0::3]
 
     mlflow.sklearn.autolog()
 

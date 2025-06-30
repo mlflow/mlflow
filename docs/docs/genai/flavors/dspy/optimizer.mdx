@@ -88,7 +88,8 @@ dspy.configure(lm=lm)
 
 gsm8k = GSM8K()
 
-trainset, devset = gsm8k.train, gsm8k.dev[:50]
+trainset = gsm8k.train
+devset = gsm8k.dev[:50]
 
 program = dspy.ChainOfThought("question -> answer")
 

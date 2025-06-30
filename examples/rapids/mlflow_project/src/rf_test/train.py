@@ -43,7 +43,9 @@ def _train(params, fpath, hyperopt=False):
         dict with fields 'loss' (scalar loss) and 'status' (success/failure status of run).
     """
     max_depth, max_features, n_estimators = params
-    max_depth, max_features, n_estimators = (int(max_depth), float(max_features), int(n_estimators))
+    max_depth = int(max_depth)
+    max_features = float(max_features)
+    n_estimators = int(n_estimators)
 
     X_train, X_test, y_train, y_test = load_data(fpath)
 
