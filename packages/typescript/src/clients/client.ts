@@ -3,6 +3,7 @@ import { Trace } from '../core/entities/trace';
 import { CreateExperiment, DeleteExperiment, GetTraceInfoV3, StartTraceV3 } from './spec';
 import { getRequestHeaders, makeRequest } from './utils';
 import { TraceData } from '../core/entities/trace_data';
+import { ArtifactsClient, getArtifactsClient } from './artifacts';
 
 /**
  * Client for MLflow tracing operations
@@ -12,11 +13,15 @@ export class MlflowClient {
   private host: string;
   /** Databricks personal access token */
   private databricksToken?: string;
+  /** Client implementation to upload/download trace data artifacts */
+  private artifactsClient: ArtifactsClient;
 
   constructor(options: { host: string; databricksToken?: string }) {
     // The host is guaranteed to be set by the init() function
-    this.host = options.host;
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    this.host = options.host!;
     this.databricksToken = options.databricksToken;
+    this.artifactsClient = getArtifactsClient(options.host);
   }
 
   // === TRACE LOGGING METHODS ===
@@ -47,8 +52,8 @@ export class MlflowClient {
    */
   async getTrace(traceId: string): Promise<Trace> {
     const traceInfo = await this.getTraceInfo(traceId);
-    // TODO: Implement trace data download
-    return new Trace(traceInfo, new TraceData([]));
+    const traceData = await this.artifactsClient.downloadTraceData(traceInfo);
+    return new Trace(traceInfo, traceData);
   }
 
   /**
@@ -69,6 +74,13 @@ export class MlflowClient {
     }
 
     throw new Error(`Invalid response format: missing trace_info: ${JSON.stringify(response)}`);
+  }
+
+  /**
+   * Upload trace data to the artifact store.
+   */
+  async uploadTraceData(traceInfo: TraceInfo, traceData: TraceData): Promise<void> {
+    await this.artifactsClient.uploadTraceData(traceInfo, traceData);
   }
 
   // === EXPERIMENT METHODS  ===

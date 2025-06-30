@@ -40,6 +40,13 @@ export const TraceMetadataKey = {
 };
 
 /**
+ * Constants for MLflow trace tag keys
+ */
+export const TraceTagKey = {
+  MLFLOW_ARTIFACT_LOCATION: 'mlflow.artifactLocation'
+};
+
+/**
  * Current version of the MLflow trace schema
  */
 export const TRACE_SCHEMA_VERSION = '3';

@@ -57,8 +57,6 @@ describe('API', () => {
         convertHrTimeToMs(span.endTime!) - convertHrTimeToMs(span.startTime)
       );
 
-      return; // TODO: Remove this once we implement trace data export
-
       expect(trace.data.spans.length).toBe(1);
       const loggedSpan = trace.data.spans[0];
       expect(loggedSpan.traceId).toBe(span.traceId);
@@ -67,8 +65,8 @@ describe('API', () => {
       expect(loggedSpan.inputs).toEqual({ prompt: 'Hello, world!' });
       expect(loggedSpan.outputs).toEqual({ response: 'Hello, world!' });
       expect(loggedSpan.attributes['model']).toBe('gpt-4');
-      expect(loggedSpan.startTime).toBe(span.startTime);
-      expect(loggedSpan.endTime).toBe(span.endTime);
+      expect(loggedSpan.startTime).toEqual(span.startTime);
+      expect(loggedSpan.endTime).toEqual(span.endTime);
       expect(loggedSpan.status?.statusCode).toBe(SpanStatusCode.OK);
     });
 
@@ -94,7 +92,6 @@ describe('API', () => {
       expect(trace.info.requestTime).toBeCloseTo(1e3); // requestTime is in milliseconds
       expect(trace.info.executionDuration).toBeCloseTo(2e3); // executionDuration is in milliseconds
 
-      return; // TODO: Remove this once we implement trace data export
       const loggedSpan = trace.data.spans[0];
       expect(loggedSpan.traceId).toBe(span.traceId);
       expect(loggedSpan.name).toBe('test-span');
@@ -124,9 +121,6 @@ describe('API', () => {
       expect(trace.info.executionDuration).toBeCloseTo(
         convertHrTimeToMs(span.endTime!) - convertHrTimeToMs(span.startTime)
       );
-
-      return; // TODO: Remove this once we implement trace data export
-
       expect(trace.data.spans.length).toBe(1);
 
       const loggedSpan = trace.data.spans[0];
@@ -149,13 +143,12 @@ describe('API', () => {
 
       parentSpan.end();
 
-      return; // TODO: Remove this once we implement trace data export
-
-      const trace1 = await client.getTrace(parentSpan.traceId);
+      await flushTraces();
+      const trace1 = await client.getTrace(independentSpan.traceId);
       expect(trace1.data.spans.length).toBe(1);
       expect(trace1.data.spans[0].name).toBe('independent-span');
 
-      const trace2 = await client.getTrace(independentSpan.traceId);
+      const trace2 = await client.getTrace(parentSpan.traceId);
       expect(trace2.data.spans.length).toBe(4);
       expect(trace2.data.spans[0].name).toBe('parent-span');
       expect(trace2.data.spans[1].name).toBe('child-span-1');
@@ -180,8 +173,6 @@ describe('API', () => {
         const trace = await getLastActiveTrace();
         expect(trace.info.state).toBe(TraceState.OK);
 
-        return; // TODO: Remove this once we implement trace data export
-
         const loggedSpan = trace.data.spans[0];
         expect(loggedSpan.name).toBe('span');
         expect(loggedSpan.inputs).toEqual({ a: 5, b: 3 });
@@ -202,8 +193,6 @@ describe('API', () => {
         const trace = await getLastActiveTrace();
         expect(trace.info.state).toBe(TraceState.OK);
 
-        return; // TODO: Remove this once we implement trace data export
-
         const loggedSpan = trace.data.spans[0];
         expect(loggedSpan.outputs).toEqual({ result: 8 }); // Explicit outputs take precedence
       });
@@ -220,8 +209,6 @@ describe('API', () => {
 
         const trace = await getLastActiveTrace();
         expect(trace.info.state).toBe(TraceState.OK);
-
-        return; // TODO: Remove this once we implement trace data export
 
         const loggedSpan = trace.data.spans[0];
         expect(loggedSpan.inputs).toEqual({ delay: 100 });
@@ -240,8 +227,6 @@ describe('API', () => {
         const trace = await getLastActiveTrace();
         expect(trace.info.state).toBe(TraceState.ERROR);
 
-        return; // TODO: Remove this once we implement trace data export
-
         const loggedSpan = trace.data.spans[0];
         expect(loggedSpan.status?.statusCode).toBe(SpanStatusCode.ERROR);
         expect(loggedSpan.status?.description).toBe('Division by zero');
@@ -258,8 +243,6 @@ describe('API', () => {
 
         const trace = await getLastActiveTrace();
         expect(trace.info.state).toBe(TraceState.ERROR);
-
-        return; // TODO: Remove this once we implement trace data export
 
         const loggedSpan = trace.data.spans[0];
         expect(loggedSpan.status?.statusCode).toBe(SpanStatusCode.ERROR);
@@ -293,8 +276,6 @@ describe('API', () => {
         const trace = await getLastActiveTrace();
         expect(trace.info.state).toBe(TraceState.OK);
 
-        return; // TODO: Remove this once we implement trace data export
-
         const loggedSpan = trace.data.spans[0];
         expect(loggedSpan.name).toBe('add');
         expect(loggedSpan.spanType).toBe(SpanType.TOOL);
@@ -323,7 +304,7 @@ describe('API', () => {
               name: 'fetchUserData',
               span_type: SpanType.RETRIEVER,
               inputs: { userId },
-              attributes: { service: 'user-api', version: '1.0' }
+              attributes: { service: 'user-api', version: 1 }
             }
           );
         };
@@ -333,8 +314,6 @@ describe('API', () => {
 
         const trace = await getLastActiveTrace();
         expect(trace.info.state).toBe(TraceState.OK);
-
-        return; // TODO: Remove this once we implement trace data export
 
         const loggedSpan = trace.data.spans[0];
         expect(loggedSpan.name).toBe('fetchUserData');
@@ -346,7 +325,7 @@ describe('API', () => {
           email: 'john@example.com'
         });
         expect(loggedSpan.attributes['service']).toBe('user-api');
-        expect(loggedSpan.attributes['version']).toBe('1.0');
+        expect(loggedSpan.attributes['version']).toBe(1);
         expect(loggedSpan.attributes['responseTime']).toBe('10ms');
       });
 
@@ -378,8 +357,6 @@ describe('API', () => {
 
         const trace = await getLastActiveTrace();
         expect(trace.info.state).toBe(TraceState.OK);
-
-        return; // TODO: Remove this once we implement trace data export
         expect(trace.data.spans.length).toBe(2);
 
         const parentSpan = trace.data.spans.find((s) => s.name === 'parent');
@@ -406,8 +383,6 @@ describe('API', () => {
         const trace = await getLastActiveTrace();
         expect(trace.info.state).toBe(TraceState.OK);
 
-        return; // TODO: Remove this once we implement trace data export
-
         const loggedSpan = trace.data.spans[0];
         expect(loggedSpan.outputs).toBe(null); // Should auto-set null
       });
@@ -428,20 +403,21 @@ describe('API', () => {
         const trace = await getLastActiveTrace();
         expect(trace.info.state).toBe(TraceState.OK);
 
-        return; // TODO: Remove this once we implement trace data export
-
         const loggedSpan = trace.data.spans[0];
         expect(loggedSpan.outputs).toEqual(complexObject);
       });
 
       it('should handle multiple async tasks with proper parent-child relationships', async () => {
         // Test complex async scenario with multiple traces and nested spans
+
+        const traceIds: Record<string, string> = {};
         const results = await Promise.all([
           // First trace with nested async operations
           withSpan(
             async (parentSpan) => {
               // Simulate some async work
               await new Promise((resolve) => setTimeout(resolve, 5));
+              traceIds['trace1-parent'] = parentSpan.traceId;
 
               // Create multiple child spans in parallel
               const childResults = await Promise.all([
@@ -481,7 +457,7 @@ describe('API', () => {
           withSpan(
             async (parentSpan) => {
               await new Promise((resolve) => setTimeout(resolve, 4));
-
+              traceIds['trace2-parent'] = parentSpan.traceId;
               const result = await withSpan(
                 async () => {
                   await new Promise((resolve) => setTimeout(resolve, 2));
@@ -499,6 +475,7 @@ describe('API', () => {
           // Third independent trace with synchronous operation
           withSpan(
             (span) => {
+              traceIds['trace3-simple'] = span.traceId;
               span.setOutputs({ immediate: true });
               return 'trace3-result';
             },
@@ -511,57 +488,58 @@ describe('API', () => {
         expect(results[1]).toBe('trace2-child-result');
         expect(results[2]).toBe('trace3-result');
 
-        // TODO: Uncomment this once we implement trace data export
+        await flushTraces();
 
-        // // Verify first trace (most complex with grandchild)
-        // const trace1 = traces.find((t) => t.data.spans.some((s) => s.name === 'trace1-parent'));
-        // expect(trace1).toBeDefined();
-        // expect(trace1!.data.spans.length).toBe(4); // parent + 2 children + 1 grandchild
+        // Verify first trace (most complex with grandchild)
+        const trace1 = await client.getTrace(traceIds['trace1-parent']);
+        expect(trace1).toBeDefined();
+        expect(trace1.data.spans.length).toBe(4); // parent + 2 children + 1 grandchild
 
-        // const trace1Parent = trace1!.data.spans.find((s) => s.name === 'trace1-parent');
-        // const trace1Child1 = trace1!.data.spans.find((s) => s.name === 'trace1-child1');
-        // const trace1Child2 = trace1!.data.spans.find((s) => s.name === 'trace1-child2');
-        // const trace1Grandchild = trace1!.data.spans.find((s) => s.name === 'trace1-grandchild');
+        const trace1Parent = trace1.data.spans.find((s) => s.name === 'trace1-parent');
+        const trace1Child1 = trace1.data.spans.find((s) => s.name === 'trace1-child1');
+        const trace1Child2 = trace1.data.spans.find((s) => s.name === 'trace1-child2');
+        const trace1Grandchild = trace1.data.spans.find((s) => s.name === 'trace1-grandchild');
 
-        // expect(trace1Parent).toBeDefined();
-        // expect(trace1Child1).toBeDefined();
-        // expect(trace1Child2).toBeDefined();
-        // expect(trace1Grandchild).toBeDefined();
+        expect(trace1Parent).toBeDefined();
+        expect(trace1Child1).toBeDefined();
+        expect(trace1Child2).toBeDefined();
+        expect(trace1Grandchild).toBeDefined();
 
-        // // Verify parent-child relationships in trace1
-        // expect(trace1Child1!.parentId).toBe(trace1Parent!.spanId);
-        // expect(trace1Child2!.parentId).toBe(trace1Parent!.spanId);
-        // expect(trace1Grandchild!.parentId).toBe(trace1Child2!.spanId);
+        // Verify parent-child relationships in trace1
+        expect(trace1Parent?.parentId).toBeNull();
+        expect(trace1Child1?.parentId).toBe(trace1Parent?.spanId);
+        expect(trace1Child2?.parentId).toBe(trace1Parent?.spanId);
+        expect(trace1Grandchild?.parentId).toBe(trace1Child2?.spanId);
 
-        // // Verify outputs
-        // expect(trace1Parent!.outputs).toEqual({ childResults: ['child1-result', 'child2-result'] });
-        // expect(trace1Child1!.outputs).toEqual({ processed: true });
-        // expect(trace1Child2!.outputs).toEqual({ grandchildResult: 'grandchild-result' });
-        // expect(trace1Grandchild!.outputs).toBe('grandchild-result');
+        // Verify outputs
+        expect(trace1Parent?.outputs).toEqual({ childResults: ['child1-result', 'child2-result'] });
+        expect(trace1Child1?.outputs).toEqual({ processed: true });
+        expect(trace1Child2?.outputs).toEqual({ grandchildResult: 'grandchild-result' });
+        expect(trace1Grandchild?.outputs).toBe('grandchild-result');
 
-        // // Verify second trace
-        // const trace2 = traces.find((t) => t.data.spans.some((s) => s.name === 'trace2-parent'));
-        // expect(trace2).toBeDefined();
-        // expect(trace2!.data.spans.length).toBe(2); // parent + 1 child
+        // Verify second trace
+        const trace2 = await client.getTrace(traceIds['trace2-parent']);
+        expect(trace2).toBeDefined();
+        expect(trace2.data.spans.length).toBe(2); // parent + 1 child
 
-        // const trace2Parent = trace2!.data.spans.find((s) => s.name === 'trace2-parent');
-        // const trace2Child = trace2!.data.spans.find((s) => s.name === 'trace2-child');
+        const trace2Parent = trace2.data.spans.find((s) => s.name === 'trace2-parent');
+        const trace2Child = trace2.data.spans.find((s) => s.name === 'trace2-child');
 
-        // expect(trace2Parent).toBeDefined();
-        // expect(trace2Child).toBeDefined();
-        // expect(trace2Child!.parentId).toBe(trace2Parent!.spanId);
-        // expect(trace2Parent!.outputs).toEqual({ childResult: 'trace2-child-result' });
-        // expect(trace2Child!.outputs).toBe('trace2-child-result');
+        expect(trace2Parent).toBeDefined();
+        expect(trace2Child).toBeDefined();
+        expect(trace2Child?.parentId).toBe(trace2Parent?.spanId);
+        expect(trace2Parent?.outputs).toEqual({ childResult: 'trace2-child-result' });
+        expect(trace2Child?.outputs).toBe('trace2-child-result');
 
-        // // Verify third trace (simple synchronous)
-        // const trace3 = traces.find((t) => t.data.spans.some((s) => s.name === 'trace3-simple'));
-        // expect(trace3).toBeDefined();
-        // expect(trace3!.data.spans.length).toBe(1);
+        // Verify third trace (simple synchronous)
+        const trace3 = await client.getTrace(traceIds['trace3-simple']);
+        expect(trace3).toBeDefined();
+        expect(trace3.data.spans.length).toBe(1);
 
-        // const trace3Span = trace3!.data.spans[0];
-        // expect(trace3Span.name).toBe('trace3-simple');
-        // expect(trace3Span.parentId).toBeNull();
-        // expect(trace3Span.outputs).toEqual({ immediate: true });
+        const trace3Span = trace3.data.spans[0];
+        expect(trace3Span.name).toBe('trace3-simple');
+        expect(trace3Span.parentId).toBeNull();
+        expect(trace3Span.outputs).toEqual({ immediate: true });
       });
     });
   });
