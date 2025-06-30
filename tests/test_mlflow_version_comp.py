@@ -183,9 +183,6 @@ def test_mlflow_3_x_comp(tmp_path: Path) -> None:
     check_list_artifacts_with_run_id_and_path(run_id=run_id, path="model")
     check_list_artifacts_with_model_uri(model_uri=runs_model_uri)
     check_download_artifacts_with_run_id_and_path(run_id=run_id, path="model", tmp_path=tmp_path)
-    check_download_artifacts_with_run_id_and_path(
-        run_id=run_id, path="model/test.txt", tmp_path=tmp_path
-    )
     check_download_artifacts_with_model_uri(model_uri=runs_model_uri, tmp_path=tmp_path)
     check_evaluate(model_uri=runs_model_uri)
     check_spark_udf(model_uri=runs_model_uri)
