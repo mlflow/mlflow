@@ -58,8 +58,7 @@ export const MlflowRouter = ({
               backgroundColor: theme.colors.backgroundSecondary,
               display: 'flex',
               flexDirection: 'row',
-              height: '100%',
-              justifyContent: 'stretch',
+              flexGrow: 1,
             }}
           >
             {showSidebar && <MlflowSidebar />}
@@ -70,6 +69,7 @@ export const MlflowRouter = ({
                 margin: theme.spacing.sm,
                 borderRadius: theme.borders.borderRadiusMd,
                 boxShadow: theme.shadows.md,
+                overflowX: 'auto',
               }}
             >
               <React.Suspense fallback={<LegacySkeleton />}>
