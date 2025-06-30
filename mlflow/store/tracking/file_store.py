@@ -457,10 +457,9 @@ class FileStore(AbstractStore):
             )
         meta = FileStore._read_yaml(experiment_dir, FileStore.META_DATA_FILE_NAME)
         if meta is None:
-            logging.warning(
-                f"Experiment metadata for ID '{experiment_id}' is missing or invalid in directory '{experiment_dir}'."
+            raise MissingConfigException(
+                f"Experiment {experiment_id} is invalid with empty {FileStore.META_DATA_FILE_NAME} in directory '{experiment_dir}'."
             )
-            return None
         meta["tags"] = self.get_all_experiment_tags(experiment_id)
         experiment = _read_persisted_experiment_dict(meta)
         if experiment_id != experiment.experiment_id:
@@ -468,11 +467,12 @@ class FileStore(AbstractStore):
                 "Experiment ID mismatch for exp %s. ID recorded as '%s' in meta data. "
                 "Experiment will be ignored.",
                 experiment_id,
-                experiment.experiment_id,
+                    experiment.experiment_id,
                 exc_info=True,
             )
             return None
         return experiment
+
 
     def get_experiment(self, experiment_id):
         """
