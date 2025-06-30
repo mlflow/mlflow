@@ -97,6 +97,11 @@ jobs:
             --ignore-flavors --ignore=tests/examples --ignore=tests/evaluate \
             --ignore tests/genai tests
 
+      - uses: ./.github/actions/upload-step-summary
+        if: always()
+        with:
+          artifact-name: python-test-summary-${{ matrix.group }}
+
   py310:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     runs-on: ubuntu-latest
