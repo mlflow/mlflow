@@ -356,3 +356,18 @@ def test_download_artifacts_with_client_and_tracking_uri(tmp_path: pathlib.Path)
         dst_path=dst_path,
     )
     assert tmp_file.name in [p.name for p in dst_path.rglob("*")]
+
+
+def test_single_run_artifact_download_when_both_run_and_model_artifacts_exist(tmp_path):
+    class DummyModel(mlflow.pyfunc.PythonModel):
+        def predict(self, model_input: list[str]) -> list[str]:
+            return model_input
+
+    with mlflow.start_run() as run:
+        mlflow.pyfunc.log_model(python_model=DummyModel(), name="model")
+        mlflow.log_text("test", "model/file.txt")
+
+    out = mlflow.artifacts.download_artifacts(
+        run_id=run.info.run_id, artifact_path="model/file.txt", dst_path=tmp_path
+    )
+    assert pathlib.Path(out).read_text() == "test"
