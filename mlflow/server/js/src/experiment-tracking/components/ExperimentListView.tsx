@@ -23,6 +23,7 @@ import { ExperimentSearchSyntaxDocUrl } from '../../common/constants';
 import { ExperimentListTable } from './ExperimentListTable';
 import { useNavigate } from '../../common/utils/RoutingUtils';
 import { BulkDeleteExperimentModal } from './modals/BulkDeleteExperimentModal';
+import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 
 type Props = {
   searchFilter: string;
@@ -129,7 +130,16 @@ export const ExperimentListView = ({ searchFilter, setSearchFilter }: Props) => 
         <Alert
           css={{ marginBlockEnd: theme.spacing.sm }}
           type="error"
-          message={error.message || 'A network error occurred.'}
+          message={
+            error instanceof ErrorWrapper
+              ? error.getMessageField()
+              : error.message || (
+                  <FormattedMessage
+                    defaultMessage="A network error occurred."
+                    description="Error message for generic network error"
+                  />
+                )
+          }
           componentId="mlflow.experiment_list_view.error"
           closable={false}
         />

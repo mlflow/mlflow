@@ -747,6 +747,10 @@
     "defaultMessage": "Delete Model Version",
     "description": "Title text for model version deletion modal in model versions view page"
   },
+  "9Bj7oS": {
+    "defaultMessage": "A network error occurred.",
+    "description": "Error message for generic network error"
+  },
   "9CqEWy": {
     "defaultMessage": "Load more",
     "description": "Load more button text to load more experiment runs"

@@ -21,55 +21,51 @@ export const MlflowHeader = ({
     <header
       css={{
         backgroundColor: theme.colors.backgroundSecondary,
-        height: '60px',
         color: theme.colors.textSecondary,
         display: 'flex',
-        gap: 24,
+        paddingLeft: theme.spacing.sm,
+        paddingRight: theme.spacing.md,
+        paddingTop: theme.spacing.sm + theme.spacing.xs,
+        paddingBottom: theme.spacing.xs,
         a: {
           color: theme.colors.textSecondary,
         },
+        alignItems: 'center',
       }}
     >
       <div
         css={{
           display: 'flex',
-          alignItems: 'flex-end',
+          alignItems: 'center',
         }}
       >
         <Button
           type="tertiary"
           componentId="mlflow_header.toggle_sidebar_button"
-          css={{ margin: theme.spacing.sm }}
           onClick={toggleSidebar}
           aria-label="Toggle sidebar"
           aria-pressed={sidebarOpen}
-        >
-          <MenuIcon />
-        </Button>
-
+          icon={<MenuIcon />}
+        />
         <Link to={ExperimentTrackingRoutes.rootRoute}>
           <MlflowLogo
             css={{
               display: 'block',
-              height: 40,
-              marginTop: 10,
-              marginBottom: 10,
+              height: theme.spacing.md * 2,
               color: theme.colors.textPrimary,
             }}
           />
         </Link>
         <span
           css={{
-            fontSize: 12,
-            marginLeft: 5,
-            marginBottom: 13,
+            fontSize: theme.typography.fontSizeSm,
           }}
         >
           {Version}
         </span>
       </div>
       <div css={{ flex: 1 }} />
-      <div css={{ display: 'flex', gap: 24, paddingTop: 20, fontSize: 16, marginRight: 24 }}>
+      <div css={{ display: 'flex', gap: theme.spacing.lg }}>
         <DarkThemeSwitch isDarkTheme={isDarkTheme} setIsDarkTheme={setIsDarkTheme} />
         <a href="https://github.com/mlflow/mlflow">GitHub</a>
         <a href={HomePageDocsUrl}>Docs</a>
