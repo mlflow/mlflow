@@ -72,7 +72,7 @@ export const MlflowRouter = ({
                 overflowX: 'auto',
               }}
             >
-              <React.Suspense fallback={<LegacySkeleton />}>
+              <React.Suspense fallback={<LegacySkeleton css={{ padding: theme.spacing.md }} />}>
                 <Routes>
                   {routes.map(({ element, pageId, path }) => (
                     <Route key={pageId} path={path} element={element} />
