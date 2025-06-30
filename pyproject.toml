@@ -27,6 +27,7 @@ classifiers = [
 ]
 requires-python = ">=3.9"
 dependencies = [
+  "Flask-Limiter<4",
   "Flask<4",
   "alembic<2,!=1.10.0",
   "cachetools<7,>=5.0.0",

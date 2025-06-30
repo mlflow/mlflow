@@ -1,0 +1,643 @@
+---
+sidebar_label: Rate Limiting
+sidebar_position: 3
+---
+
+import Link from "@docusaurus/Link";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import { APILink } from "@site/src/components/APILink";
+
+# MLflow Tracking Server Rate Limiting
+
+MLflow tracking server rate limiting provides protection against high volumes of incoming requests, prevents abuse, and improves system reliability and scalability. The feature uses [Flask-Limiter](https://flask-limiter.readthedocs.io/) to implement configurable rate limits on different types of tracking operations.
+
+## Overview
+
+The rate limiting system operates at the Flask application level and provides:
+
+- **Configurable rate limits** per endpoint category
+- **Multiple storage backends** (memory, Redis)
+- **Flexible client identification** (IP, user, session)
+- **Category-specific limits** for different operation types
+- **Graceful fallback** when rate limiting is disabled
+
+## Quick Start
+
+Enable rate limiting with default settings:
+
+<Tabs>
+  <TabItem default label="Environment Variables" value="env">
+    ```bash # Enable rate limiting export
+    MLFLOW_TRACKING_SERVER_RATE_LIMITING_ENABLED=true # Start MLflow server
+    mlflow server --host 0.0.0.0 --port 5000 ```
+  </TabItem>
+  <TabItem label="Docker" value="docker">
+    ```dockerfile FROM python:3.9-slim RUN pip install mlflow[extras]
+    flask-limiter ENV MLFLOW_TRACKING_SERVER_RATE_LIMITING_ENABLED=true ENV
+    MLFLOW_TRACKING_SERVER_RATE_LIMITING_DEFAULT_LIMITS="1000 per hour, 50 per
+    minute" EXPOSE 5000 CMD ["mlflow", "server", "--host", "0.0.0.0", "--port",
+    "5000"] ```
+  </TabItem>
+</Tabs>
+
+## Architecture
+
+### Core Components
+
+**Rate Limiting Module** (`mlflow.server.rate_limiting`)
+: Core implementation providing Flask-Limiter integration and configuration management.
+
+**Environment Variables** (`mlflow.environment_variables`)
+: Configuration system with 8 new rate limiting environment variables.
+
+**Handler Decorators** (`mlflow.server.handlers`)
+: Endpoint protection via category-specific rate limiting decorators.
+
+**Flask App Integration** (`mlflow.server.__init__`)
+: Server initialization with rate limiting setup and status endpoint.
+
+### Endpoint Categories
+
+The system applies different rate limits to different types of operations:
+
+| Category       | Decorator           | Affected Endpoints                            |
+| -------------- | ------------------- | --------------------------------------------- |
+| **Experiment** | `@experiment_limit` | Create, delete, update, restore experiments   |
+| **Run**        | `@run_limit`        | Create, delete, update, restore runs          |
+| **Logging**    | `@logging_limit`    | Log metrics, parameters, tags                 |
+| **Search**     | `@search_limit`     | Search runs, get run data, experiment queries |
+| **Artifact**   | `@artifact_limit`   | Upload, download, list artifacts              |
+
+## Configuration
+
+### Environment Variables
+
+All configuration is done through environment variables:
+
+| Variable                                              | Default                          | Description                  |
+| ----------------------------------------------------- | -------------------------------- | ---------------------------- |
+| `MLFLOW_TRACKING_SERVER_RATE_LIMITING_ENABLED`        | `false`                          | Enable/disable rate limiting |
+| `MLFLOW_TRACKING_SERVER_RATE_LIMITING_STORAGE_URI`    | `memory://`                      | Storage backend URI          |
+| `MLFLOW_TRACKING_SERVER_RATE_LIMITING_KEY_FUNC`       | `ip`                             | Client identification method |
+| `MLFLOW_TRACKING_SERVER_RATE_LIMITING_DEFAULT_LIMITS` | `"1000 per hour, 50 per minute"` | Default rate limits          |
+
+### Rate Limit Format
+
+Rate limits use Flask-Limiter format with multiple limits separated by commas:
+
+```bash
+# Single limit
+export MLFLOW_TRACKING_SERVER_RATE_LIMITING_DEFAULT_LIMITS="100 per hour"
+
+# Multiple limits (most restrictive applies)
+export MLFLOW_TRACKING_SERVER_RATE_LIMITING_DEFAULT_LIMITS="1000 per hour, 50 per minute"
+
+# Alternative format
+export MLFLOW_TRACKING_SERVER_RATE_LIMITING_DEFAULT_LIMITS="100/hour, 10/minute"
+```
+
+### Category-Specific Limits
+
+Set different limits for different operation types:
+
+<Tabs>
+  <TabItem default label="Development" value="dev">
+    ```bash # Development settings export
+    MLFLOW_TRACKING_SERVER_RATE_LIMITING_ENABLED=true export
+    MLFLOW_TRACKING_SERVER_RATE_LIMITING_DEFAULT_LIMITS="1000 per hour, 50 per
+    minute" export MLFLOW_TRACKING_SERVER_RATE_LIMITING_EXPERIMENT_LIMITS="100
+    per hour, 10 per minute" export
+    MLFLOW_TRACKING_SERVER_RATE_LIMITING_RUN_LIMITS="500 per hour, 20 per
+    minute" export MLFLOW_TRACKING_SERVER_RATE_LIMITING_LOGGING_LIMITS="5000 per
+    hour, 100 per minute" ```
+  </TabItem>
+  <TabItem label="Production" value="prod">
+    ```bash # Production settings export
+    MLFLOW_TRACKING_SERVER_RATE_LIMITING_ENABLED=true export
+    MLFLOW_TRACKING_SERVER_RATE_LIMITING_STORAGE_URI=redis://localhost:6379
+    export MLFLOW_TRACKING_SERVER_RATE_LIMITING_DEFAULT_LIMITS="500 per hour, 25
+    per minute" export
+    MLFLOW_TRACKING_SERVER_RATE_LIMITING_EXPERIMENT_LIMITS="50 per hour, 5 per
+    minute" export MLFLOW_TRACKING_SERVER_RATE_LIMITING_RUN_LIMITS="200 per
+    hour, 10 per minute" export
+    MLFLOW_TRACKING_SERVER_RATE_LIMITING_LOGGING_LIMITS="2000 per hour, 50 per
+    minute" export MLFLOW_TRACKING_SERVER_RATE_LIMITING_SEARCH_LIMITS="1000 per
+    hour, 50 per minute" export
+    MLFLOW_TRACKING_SERVER_RATE_LIMITING_ARTIFACT_LIMITS="500 per hour, 25 per
+    minute" ```
+  </TabItem>
+  <TabItem label="High Throughput" value="high">
+    ```bash # High throughput settings export
+    MLFLOW_TRACKING_SERVER_RATE_LIMITING_ENABLED=true export
+    MLFLOW_TRACKING_SERVER_RATE_LIMITING_STORAGE_URI=redis://redis-cluster:6379
+    export MLFLOW_TRACKING_SERVER_RATE_LIMITING_DEFAULT_LIMITS="5000 per hour,
+    200 per minute" export
+    MLFLOW_TRACKING_SERVER_RATE_LIMITING_LOGGING_LIMITS="20000 per hour, 500 per
+    minute" export MLFLOW_TRACKING_SERVER_RATE_LIMITING_RUN_LIMITS="2000 per
+    hour, 100 per minute" ```
+  </TabItem>
+</Tabs>
+
+## Client Identification
+
+Rate limits are applied per client, identified using different methods:
+
+### IP-based (Default)
+
+```bash
+export MLFLOW_TRACKING_SERVER_RATE_LIMITING_KEY_FUNC=ip
+```
+
+Rate limits apply per IP address. Simple and works out of the box.
+
+### User-based
+
+```bash
+export MLFLOW_TRACKING_SERVER_RATE_LIMITING_KEY_FUNC=user
+```
+
+Rate limits apply per user. Requires clients to send user identification:
+
+```bash
+curl -H "X-User-ID: alice" http://localhost:5000/api/2.0/mlflow/experiments/list
+```
+
+### Session-based
+
+```bash
+export MLFLOW_TRACKING_SERVER_RATE_LIMITING_KEY_FUNC=session
+```
+
+Rate limits apply per session. Clients can send session identification:
+
+```bash
+curl -H "X-Session-ID: session123" http://localhost:5000/api/2.0/mlflow/runs/create
+```
+
+## Storage Backends
+
+### Memory Storage
+
+**Configuration:**
+
+```bash
+export MLFLOW_TRACKING_SERVER_RATE_LIMITING_STORAGE_URI=memory://
+```
+
+**Characteristics:**
+
+- ✅ Fast and lightweight
+- ✅ No external dependencies
+- ❌ Data lost on server restart
+- ✅ Suitable for development and testing
+
+### Redis Storage
+
+**Configuration:**
+
+```bash
+# Basic Redis
+export MLFLOW_TRACKING_SERVER_RATE_LIMITING_STORAGE_URI=redis://localhost:6379
+
+# Redis with authentication
+export MLFLOW_TRACKING_SERVER_RATE_LIMITING_STORAGE_URI=redis://:password@localhost:6379
+
+# Redis with database selection
+export MLFLOW_TRACKING_SERVER_RATE_LIMITING_STORAGE_URI=redis://localhost:6379/1
+```
+
+**Characteristics:**
+
+- ✅ Persistent across server restarts
+- ✅ Suitable for production deployments
+- ✅ Supports clustering and high availability
+- ❌ Requires Redis server
+
+**Redis Setup:**
+
+```bash
+# Install and start Redis
+sudo apt-get install redis-server
+sudo systemctl start redis-server
+
+# Verify Redis is running
+redis-cli ping
+```
+
+## API Reference
+
+### Rate Limit Status Endpoint
+
+**GET** `/rate-limit-status`
+
+Returns the current rate limiting configuration and status.
+
+<Tabs>
+  <TabItem default label="Request" value="request">
+    ```bash
+    curl http://localhost:5000/rate-limit-status
+    ```
+  </TabItem>
+  <TabItem label="Response (Enabled)" value="enabled">
+    ```json
+    {
+      "enabled": true,
+      "storage_uri": "redis://localhost:6379",
+      "key_function": "ip",
+      "default_limits": ["1000 per hour", "50 per minute"],
+      "experiment_limits": ["100 per hour", "10 per minute"],
+      "run_limits": ["500 per hour", "20 per minute"],
+      "logging_limits": ["5000 per hour", "100 per minute"],
+      "search_limits": ["2000 per hour", "100 per minute"],
+      "artifact_limits": ["1000 per hour", "50 per minute"]
+    }
+    ```
+  </TabItem>
+  <TabItem label="Response (Disabled)" value="disabled">
+    ```json
+    {
+      "enabled": false
+    }
+    ```
+  </TabItem>
+</Tabs>
+
+### Rate Limit Headers
+
+When rate limiting is active, responses include standard rate limit headers:
+
+```http
+X-RateLimit-Limit: 50
+X-RateLimit-Remaining: 49
+X-RateLimit-Reset: 1640995200
+```
+
+### Rate Limit Exceeded Response
+
+When rate limits are exceeded, the server returns a `429 Too Many Requests` response:
+
+```json
+{
+  "error_code": "RESOURCE_EXHAUSTED",
+  "message": "Rate limit exceeded: 50 per minute"
+}
+```
+
+## Deployment Examples
+
+### Docker Compose
+
+```yaml
+version: "3.8"
+
+services:
+  mlflow:
+    image: mlflow:latest
+    ports:
+      - "5000:5000"
+    environment:
+      - MLFLOW_TRACKING_SERVER_RATE_LIMITING_ENABLED=true
+      - MLFLOW_TRACKING_SERVER_RATE_LIMITING_STORAGE_URI=redis://redis:6379
+      - MLFLOW_TRACKING_SERVER_RATE_LIMITING_DEFAULT_LIMITS=1000 per hour, 50 per minute
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+```
+
+### Kubernetes
+
+**ConfigMap:**
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mlflow-rate-limiting-config
+data:
+  MLFLOW_TRACKING_SERVER_RATE_LIMITING_ENABLED: "true"
+  MLFLOW_TRACKING_SERVER_RATE_LIMITING_STORAGE_URI: "redis://redis-service:6379"
+  MLFLOW_TRACKING_SERVER_RATE_LIMITING_DEFAULT_LIMITS: "1000 per hour, 50 per minute"
+  MLFLOW_TRACKING_SERVER_RATE_LIMITING_LOGGING_LIMITS: "5000 per hour, 100 per minute"
+```
+
+**Deployment:**
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mlflow-server
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: mlflow-server
+  template:
+    metadata:
+      labels:
+        app: mlflow-server
+    spec:
+      containers:
+        - name: mlflow
+          image: mlflow:latest
+          ports:
+            - containerPort: 5000
+          envFrom:
+            - configMapRef:
+                name: mlflow-rate-limiting-config
+```
+
+## Monitoring
+
+### Status Monitoring
+
+Monitor rate limiting status programmatically:
+
+```python
+import requests
+import time
+
+
+def monitor_rate_limits():
+    response = requests.get("http://localhost:5000/rate-limit-status")
+    status = response.json()
+
+    if status["enabled"]:
+        print(f"Rate limiting active:")
+        print(f"  Storage: {status['storage_uri']}")
+        print(f"  Key function: {status['key_function']}")
+        print(f"  Default limits: {status['default_limits']}")
+    else:
+        print("Rate limiting disabled")
+
+
+# Monitor every 60 seconds
+while True:
+    monitor_rate_limits()
+    time.sleep(60)
+```
+
+### Logging Integration
+
+Rate limiting events are logged using Python's logging system:
+
+```python
+import logging
+
+# Configure logging to capture rate limiting events
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+
+# Rate limiting logs will appear as:
+# INFO mlflow.server.rate_limiting: Rate limiting initialized successfully
+# INFO mlflow.server.rate_limiting: Default rate limits: ['1000 per hour', '50 per minute']
+```
+
+## Troubleshooting
+
+### Common Issues
+
+**Rate Limiting Not Working**
+
+1. Verify `MLFLOW_TRACKING_SERVER_RATE_LIMITING_ENABLED=true`
+2. Check server logs for initialization messages
+3. Ensure Flask-Limiter is installed: `pip install flask-limiter`
+
+**Rate Limits Too Restrictive**
+
+1. Check current limits: `curl http://localhost:5000/rate-limit-status`
+2. Adjust environment variables and restart server
+3. Consider different limits for different endpoint categories
+
+**Redis Connection Issues**
+
+1. Verify Redis is running: `redis-cli ping`
+2. Check Redis URI format and credentials
+3. Test Redis connectivity from the MLflow server host
+
+### Performance Impact
+
+- **Memory storage**: Minimal performance impact
+- **Redis storage**: Slight latency increase (< 1ms typical)
+- **Disabled rate limiting**: Zero performance impact
+- **Rate limit checking**: Sub-millisecond overhead per request
+
+## Migration Guide
+
+### Upgrading Existing Installations
+
+1. **Install Flask-Limiter dependency:**
+
+   ```bash
+   pip install flask-limiter
+   ```
+
+2. **Update MLflow to version with rate limiting support**
+
+3. **Configure rate limiting (optional):**
+
+   ```bash
+   export MLFLOW_TRACKING_SERVER_RATE_LIMITING_ENABLED=true
+   ```
+
+4. **Restart MLflow server**
+
+5. **Verify rate limiting status:**
+   ```bash
+   curl http://localhost:5000/rate-limit-status
+   ```
+
+### Backward Compatibility
+
+:::note
+Rate limiting is **disabled by default** and provides complete backward compatibility:
+
+- All existing API endpoints remain unchanged
+- No breaking changes to client libraries
+- New `/rate-limit-status` endpoint added
+- Graceful fallback when Flask-Limiter unavailable
+  :::
+
+## Security Considerations
+
+**Client Identification**
+
+- IP-based limiting can be bypassed with proxies
+- User-based limiting requires proper authentication
+- Session-based limiting provides middle ground
+
+**Storage Security**
+
+- Redis storage should be secured with authentication
+- Consider Redis encryption for sensitive environments
+- Monitor Redis access logs
+
+**Rate Limit Bypass**
+
+- Rate limits are advisory, not security controls
+- Implement proper authentication and authorization
+- Use rate limiting as part of defense-in-depth strategy
+
+## Python API
+
+The rate limiting system provides several Python functions and decorators for programmatic access:
+
+### Core Functions
+
+**`mlflow.server.rate_limiting.init_rate_limiting(app)`**
+: Initialize rate limiting for a Flask application
+:
+: `python
+: from flask import Flask
+: from mlflow.server.rate_limiting import init_rate_limiting
+:
+: app = Flask(__name__)
+: limiter = init_rate_limiting(app)
+: `
+
+**`mlflow.server.rate_limiting.get_rate_limit_status()`**
+: Get current rate limiting configuration and status
+:
+: `python
+: from mlflow.server.rate_limiting import get_rate_limit_status
+:
+: status = get_rate_limit_status()
+: print(f"Rate limiting enabled: {status['enabled']}")
+: `
+
+**`mlflow.server.rate_limiting.get_client_id()`**
+: Get client identification for rate limiting
+:
+: `python
+: from mlflow.server.rate_limiting import get_client_id
+:
+: client_id = get_client_id()
+: `
+
+### Rate Limiting Decorators
+
+**`@experiment_limit`**
+: Apply experiment-specific rate limits to a function
+:
+: `python
+: from mlflow.server.rate_limiting import experiment_limit
+:
+: @experiment_limit
+: def create_experiment():
+:     # This function is protected by experiment-specific rate limits
+:     pass
+: `
+
+**`@run_limit`**
+: Apply run-specific rate limits to a function
+:
+: `python
+: from mlflow.server.rate_limiting import run_limit
+:
+: @run_limit
+: def create_run():
+:     # This function is protected by run-specific rate limits
+:     pass
+: `
+
+**`@logging_limit`**
+: Apply logging-specific rate limits to a function
+:
+: `python
+: from mlflow.server.rate_limiting import logging_limit
+:
+: @logging_limit
+: def log_metric():
+:     # This function is protected by logging-specific rate limits
+:     pass
+: `
+
+**`@search_limit`**
+: Apply search-specific rate limits to a function
+:
+: `python
+: from mlflow.server.rate_limiting import search_limit
+:
+: @search_limit
+: def search_runs():
+:     # This function is protected by search-specific rate limits
+:     pass
+: `
+
+**`@artifact_limit`**
+: Apply artifact-specific rate limits to a function
+:
+: `python
+: from mlflow.server.rate_limiting import artifact_limit
+:
+: @artifact_limit
+: def upload_artifact():
+:     # This function is protected by artifact-specific rate limits
+:     pass
+: `
+
+### Example Usage
+
+**Basic Setup:**
+
+```python
+from flask import Flask
+from mlflow.server.rate_limiting import init_rate_limiting, get_rate_limit_status
+
+# Create Flask app
+app = Flask(__name__)
+
+# Initialize rate limiting
+limiter = init_rate_limiting(app)
+
+# Check status
+status = get_rate_limit_status()
+print(f"Rate limiting enabled: {status['enabled']}")
+```
+
+**Custom Rate Limiting:**
+
+```python
+from mlflow.server.rate_limiting import get_limiter, experiment_limit
+
+# Get the global limiter instance
+limiter = get_limiter()
+
+if limiter:
+    # Apply custom rate limits to a function
+    @limiter.limit("10 per minute")
+    def my_custom_endpoint():
+        return "Custom endpoint with rate limiting"
+
+
+# Use predefined decorators
+@experiment_limit
+def my_experiment_function():
+    return "Protected experiment operation"
+```
+
+**Testing with Rate Limiting:**
+
+```python
+import pytest
+from unittest.mock import patch
+from mlflow.server.rate_limiting import experiment_limit
+
+
+def test_rate_limited_function():
+    # Test function with rate limiting disabled
+    with patch("mlflow.server.rate_limiting._limiter", None):
+
+        @experiment_limit
+        def test_func():
+            return "success"
+
+        result = test_func()
+        assert result == "success"
+```
