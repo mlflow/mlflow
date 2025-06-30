@@ -30,7 +30,8 @@ export const RegisteringModelDocUrl = DOCS_ROOT + '/model-registry.html#adding-a
 
 export const ExperimentCliDocUrl = `${DOCS_ROOT}/cli.html#mlflow-experiments`;
 
-export const ExperimentSearchSyntaxDocUrl = `${DOCS_ROOT}/search-runs.html`;
+export const ExperimentSearchSyntaxDocUrl = `${DOCS_ROOT}/search-experiments.html`;
+export const ExperimentRunSearchSyntaxDocUrl = `${DOCS_ROOT}/search-runs.html`;
 
 export const PyfuncDocUrl = `${DOCS_ROOT}/python_api/mlflow.pyfunc.html`;
 export const CustomPyfuncModelsDocUrl = DOCS_ROOT + '/python_api/mlflow.pyfunc.html#creating-custom-pyfunc-models';

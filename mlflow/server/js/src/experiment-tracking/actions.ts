@@ -22,17 +22,6 @@ import { MLFLOW_LOGGED_IMAGE_ARTIFACTS_PATH } from './constants';
 import { ErrorWrapper } from '../common/utils/ErrorWrapper';
 export const RUNS_SEARCH_MAX_RESULTS = 100;
 
-export const SEARCH_EXPERIMENTS_API = 'SEARCH_EXPERIMENTS_API';
-export const searchExperimentsApi = (id = getUUID()) => {
-  return {
-    type: SEARCH_EXPERIMENTS_API,
-    payload: MlflowService.searchExperiments({
-      max_results: 20000,
-    }),
-    meta: { id: id },
-  };
-};
-
 export const GET_EXPERIMENT_API = 'GET_EXPERIMENT_API';
 export const getExperimentApi = (experimentId: any, id = getUUID()) => {
   return {

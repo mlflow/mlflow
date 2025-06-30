@@ -29,8 +29,8 @@ describe('CreateExperimentModal', () => {
         const response = { value: { experiment_id: fakeExperimentId } };
         return Promise.resolve(response);
       },
-      searchExperimentsApi: () => Promise.resolve([]),
       navigate,
+      onExperimentCreated: jest.fn(),
     };
     wrapper = shallow(<CreateExperimentModalImpl {...minimalProps} />);
   });
@@ -50,10 +50,6 @@ describe('CreateExperimentModal', () => {
   });
   test('handleCreateExperiment does not perform redirection if API requests fail', async () => {
     const propsVals = [
-      {
-        ...minimalProps,
-        searchExperimentsApi: () => Promise.reject(new Error('SearchExperiments failed!')),
-      },
       {
         ...minimalProps,
         createExperimentApi: () => Promise.reject(new Error('CreateExperiment failed!')),
