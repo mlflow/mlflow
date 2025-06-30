@@ -456,11 +456,6 @@ class FileStore(AbstractStore):
                 databricks_pb2.RESOURCE_DOES_NOT_EXIST,
             )
         meta = FileStore._read_yaml(experiment_dir, FileStore.META_DATA_FILE_NAME)
-        if meta is None:
-            logging.warning(
-                f"Experiment metadata for ID '{experiment_id}' is missing or invalid in directory '{experiment_dir}'."
-            )
-            return None
         meta["tags"] = self.get_all_experiment_tags(experiment_id)
         experiment = _read_persisted_experiment_dict(meta)
         if experiment_id != experiment.experiment_id:
