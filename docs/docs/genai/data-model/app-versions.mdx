@@ -43,6 +43,7 @@ graph TD
 An **Experiment** serves as the root container for all versions of your GenAI application. Within a single experiment, you can track multiple application versions, environments, and deployment states while maintaining a unified view of your application's evolution.
 
 **Key characteristics:**
+
 - **Single namespace**: One experiment contains all versions of your application
 - **Cross-version analysis**: Compare performance across different versions within the same container
 - **Historical continuity**: Maintain complete version history in one location
@@ -109,11 +110,11 @@ graph TB
 
 **Standard vs Custom Version Tags:**
 
-| Tag Type | Purpose | Examples |
-|----------|---------|----------|
-| **Automatic** | MLflow-populated metadata | `mlflow.source.git.commit`, `mlflow.source.name` |
-| **Standard** | Reserved for specific meanings | `mlflow.trace.session`, `mlflow.trace.user` |
-| **Custom** | Application-specific context | `app_version`, `environment`, `deployment_id` |
+| Tag Type      | Purpose                        | Examples                                         |
+| ------------- | ------------------------------ | ------------------------------------------------ |
+| **Automatic** | MLflow-populated metadata      | `mlflow.source.git.commit`, `mlflow.source.name` |
+| **Standard**  | Reserved for specific meanings | `mlflow.trace.session`, `mlflow.trace.user`      |
+| **Custom**    | Application-specific context   | `app_version`, `environment`, `deployment_id`    |
 
 ### 📊 Assessments: Version-Specific Quality Judgments
 
@@ -490,21 +491,25 @@ erDiagram
 ## Key Benefits of the Version Tracking Data Model
 
 #### 🔍 Comprehensive Observability
+
 - **Cross-version visibility**: Compare performance across all application versions
 - **Environment-specific insights**: Understand how versions behave in different deployment contexts
 - **Historical analysis**: Track application evolution over time
 
 #### 📊 Data-Driven Decision Making
+
 - **Regression detection**: Automatically identify performance or quality regressions
 - **Improvement validation**: Confirm that new versions deliver expected benefits
 - **Deployment confidence**: Make informed decisions about production deployments
 
 #### 🔄 Efficient Development Workflow
+
 - **Systematic testing**: Consistent evaluation processes across version changes
 - **Quick iteration**: Rapid feedback on version performance and quality
 - **Risk mitigation**: Early detection of issues before production deployment
 
 #### 🎯 Quality Assurance
+
 - **Automated evaluation**: Consistent quality measurement across versions
 - **Human validation**: Expert review processes for critical version changes
 - **Continuous monitoring**: Ongoing assessment of production version performance

@@ -48,6 +48,7 @@ mlflow.sklearn.log_model(
 # ❌ Will fail in Databricks Unity Catalog
 mlflow.sklearn.log_model(model, name="my_model")  # No signature
 ```
+
 :::
 
 ## Quick Start: Adding Signatures to Your Models
@@ -73,6 +74,7 @@ with mlflow.start_run():
 ```
 
 MLflow automatically:
+
 1. **Infers the signature from your input example**
 2. **Validates the model works with the example**
 3. **Stores both signature and example with your model**
@@ -165,12 +167,14 @@ signature = ModelSignature(
 MLflow supports two primary signature types:
 
 **Column-Based Signatures** - For tabular data (DataFrames, dictionaries):
+
 ```python
 # Perfect for traditional ML models
 {"feature_1": 1.5, "feature_2": "category_a", "feature_3": [1, 2, 3]}
 ```
 
 **Tensor-Based Signatures** - For array data (images, audio, embeddings):
+
 ```python
 # Perfect for deep learning models
 np.array([[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [1, 2, 3]]])  # Shape: (2, 2, 3)
@@ -261,6 +265,7 @@ def predict(self, model_input: str) -> str:
 def predict(self, model_input: Message) -> Dict:
     ...
 ```
+
 :::
 
 ### Primitive Types
@@ -305,13 +310,13 @@ List[UserData]  # Clean, validated structure
 
 ### Type Hint to Schema Mapping
 
-| Type Hint | Generated Schema |
-|-----------|-----------------|
-| `List[str]` | `Schema([ColSpec(type=DataType.string)])` |
-| `List[List[str]]` | `Schema([ColSpec(type=Array(DataType.string))])` |
-| `List[Dict[str, str]]` | `Schema([ColSpec(type=Map(DataType.string))])` |
-| `List[Union[int, str]]` | `Schema([ColSpec(type=AnyType())])` |
-| `List[Message]` | `Schema([ColSpec(type=Object(...))])` |
+| Type Hint               | Generated Schema                                 |
+| ----------------------- | ------------------------------------------------ |
+| `List[str]`             | `Schema([ColSpec(type=DataType.string)])`        |
+| `List[List[str]]`       | `Schema([ColSpec(type=Array(DataType.string))])` |
+| `List[Dict[str, str]]`  | `Schema([ColSpec(type=Map(DataType.string))])`   |
+| `List[Union[int, str]]` | `Schema([ColSpec(type=AnyType())])`              |
+| `List[Message]`         | `Schema([ColSpec(type=Object(...))])`            |
 
   </TabItem>
   <TabItem value="pydantic-models" label="Pydantic Models">
@@ -408,6 +413,7 @@ def flexible_predict(model_input: List[BaseMessage]) -> List[str]:
 ### Pydantic Best Practices
 
 **Always provide defaults for optional fields:**
+
 ```python
 # ✅ Good - Optional fields have defaults
 class Message(pydantic.BaseModel):
@@ -626,6 +632,7 @@ curl -X POST http://127.0.0.1:5000/invocations \
 ### Deployment Best Practices
 
 **Input Example Validation:**
+
 ```python
 # Always provide input examples that match your type hints
 with mlflow.start_run():
@@ -639,6 +646,7 @@ with mlflow.start_run():
 ```
 
 **Testing Before Deployment:**
+
 ```python
 # Test locally first
 model = CustomModel()
@@ -659,6 +667,7 @@ result = loaded_model.predict(test_input)
 ### Production Considerations
 
 **Error Handling:**
+
 ```python
 class RobustModel(mlflow.pyfunc.PythonModel):
     def predict(self, model_input: List[Message]) -> List[str]:
@@ -679,6 +688,7 @@ Type validation adds minimal overhead, Pydantic validation is highly optimized, 
 ### Type Hints Best Practices
 
 **Development Workflow:**
+
 ```python
 # ✅ Recommended pattern
 class MyModel(mlflow.pyfunc.PythonModel):
@@ -690,6 +700,7 @@ class MyModel(mlflow.pyfunc.PythonModel):
 ```
 
 **Key Guidelines:**
+
 - Use Pydantic models for complex data structures
 - Set default values for optional fields in Pydantic models
 - Don't pass explicit `signature` parameter when using type hints
@@ -698,10 +709,11 @@ class MyModel(mlflow.pyfunc.PythonModel):
 - Test validation locally before deployment
 
 :::warning Important Notes
+
 - **Never pass explicit `signature` parameter** when using type hints - MLflow will use the inferred signature and warn if they don't match
 - **Union types become AnyType** - use Pydantic discriminated unions for proper validation
 - **Input examples are required** for `TypeFromExample` and legacy type hints
-:::
+  :::
 
 ## Data Types and Examples
 
@@ -716,23 +728,24 @@ class MyModel(mlflow.pyfunc.PythonModel):
 Usage of these types support only scalar definitions or 1-dimensional Arrays. Mixed types are not permitted.
 :::
 
-| Python Type | MLflow Type | Example | Notes |
-|-------------|-------------|---------|--------|
-| `str` | `string` | `"hello world"` | |
-| `int` | `long` | `42` | 64-bit integers |
-| `np.int32` | `integer` | `np.int32(42)` | 32-bit integers |
-| `float` | `double` | `3.14159` | 64-bit floats |
-| `np.float32` | `float` | `np.float32(3.14)` | 32-bit floats |
-| `bool` | `boolean` | `True` | |
-| `np.bool_` | `boolean` | `np.bool_(True)` | NumPy boolean |
-| `datetime` | `datetime` | `pd.Timestamp("2023-01-01")` | |
-| `bytes` | `binary` | `b"binary data"` | |
-| `bytearray` | `binary` | `bytearray(b"data")` | |
-| `np.bytes_` | `binary` | `np.bytes_(b"data")` | NumPy bytes |
+| Python Type  | MLflow Type | Example                      | Notes           |
+| ------------ | ----------- | ---------------------------- | --------------- |
+| `str`        | `string`    | `"hello world"`              |                 |
+| `int`        | `long`      | `42`                         | 64-bit integers |
+| `np.int32`   | `integer`   | `np.int32(42)`               | 32-bit integers |
+| `float`      | `double`    | `3.14159`                    | 64-bit floats   |
+| `np.float32` | `float`     | `np.float32(3.14)`           | 32-bit floats   |
+| `bool`       | `boolean`   | `True`                       |                 |
+| `np.bool_`   | `boolean`   | `np.bool_(True)`             | NumPy boolean   |
+| `datetime`   | `datetime`  | `pd.Timestamp("2023-01-01")` |                 |
+| `bytes`      | `binary`    | `b"binary data"`             |                 |
+| `bytearray`  | `binary`    | `bytearray(b"data")`         |                 |
+| `np.bytes_`  | `binary`    | `np.bytes_(b"data")`         | NumPy bytes     |
 
 ### Composite Types
 
 **Arrays (Lists/NumPy arrays):**
+
 ```python
 {
     "simple_list": ["a", "b", "c"],
@@ -742,11 +755,13 @@ Usage of these types support only scalar definitions or 1-dimensional Arrays. Mi
 ```
 
 **Objects (Dictionaries):**
+
 ```python
 {"user_profile": {"name": "Alice", "age": 30, "preferences": ["sports", "music"]}}
 ```
 
 **Optional Fields:**
+
 ```python
 # Include None values to make fields optional
 pd.DataFrame(
@@ -762,6 +777,7 @@ pd.DataFrame(
 :::warning version compatibility
 
 **Version Requirements:**
+
 - **Array and Object types**: Require MLflow ≥ 2.10.0
 - **Spark ML vectors**: Require MLflow ≥ 2.15.0
 - **AnyType**: Requires MLflow ≥ 2.19.0
@@ -802,6 +818,7 @@ TensorSpec(np.dtype(np.float32), (10,))
 ### Common Patterns
 
 **Computer Vision:**
+
 ```python
 # Grayscale images
 TensorSpec(np.dtype(np.uint8), (-1, 28, 28, 1))
@@ -814,6 +831,7 @@ TensorSpec(np.dtype(np.float32), (-1, 512, 7, 7))
 ```
 
 **Natural Language Processing:**
+
 ```python
 # Token IDs
 TensorSpec(np.dtype(np.int64), (-1, 512))
@@ -845,20 +863,21 @@ ParamSpec(
 
 **Parameters must be scalars or 1D arrays only.** Multi-dimensional arrays are not supported for inference parameters.
 
-| MLflow Type | Python Type | Scalar Example | 1D Array Example |
-|-------------|-------------|----------------|-------------------|
-| `string` | `str` | `"gpt-4"` | `["stop1", "stop2"]` |
-| `long` | `int` (64-bit) | `100` | `[100, 200, 300]` |
-| `integer` | `int` (32-bit) | `50` | `[10, 20, 30]` |
-| `double` | `float` (64-bit) | `0.7` | `[0.1, 0.5, 0.9]` |
-| `float` | `float` (32-bit) | `0.5` | `[0.1, 0.2, 0.3]` |
-| `boolean` | `bool` | `True` | `[True, False, True]` |
-| `datetime` | `datetime` | `datetime.now()` | `[datetime1, datetime2]` |
-| `binary` | `bytes` | `b"data"` | `[b"data1", b"data2"]` |
+| MLflow Type | Python Type      | Scalar Example   | 1D Array Example         |
+| ----------- | ---------------- | ---------------- | ------------------------ |
+| `string`    | `str`            | `"gpt-4"`        | `["stop1", "stop2"]`     |
+| `long`      | `int` (64-bit)   | `100`            | `[100, 200, 300]`        |
+| `integer`   | `int` (32-bit)   | `50`             | `[10, 20, 30]`           |
+| `double`    | `float` (64-bit) | `0.7`            | `[0.1, 0.5, 0.9]`        |
+| `float`     | `float` (32-bit) | `0.5`            | `[0.1, 0.2, 0.3]`        |
+| `boolean`   | `bool`           | `True`           | `[True, False, True]`    |
+| `datetime`  | `datetime`       | `datetime.now()` | `[datetime1, datetime2]` |
+| `binary`    | `bytes`          | `b"data"`        | `[b"data1", b"data2"]`   |
 
 ### Common Parameter Patterns
 
 **Text Generation:**
+
 ```python
 params_schema = ParamSchema(
     [
@@ -872,6 +891,7 @@ params_schema = ParamSchema(
 ```
 
 **Model Selection:**
+
 ```python
 params_schema = ParamSchema(
     [
@@ -905,6 +925,7 @@ result = loaded_model.predict(input_data, params={"temperature": 0.1, "max_token
 </div>
 
 MLflow automatically validates inputs against your model signature when:
+
 - Loading models as PyFunc (`mlflow.pyfunc.load_model`)
 - Using MLflow deployment tools
 - Serving models via MLflow's REST API
@@ -912,12 +933,14 @@ MLflow automatically validates inputs against your model signature when:
 ### Validation Rules
 
 **Input Validation:**
+
 - **Required fields**: Must be present or validation fails
 - **Optional fields**: Can be missing without errors
 - **Extra fields**: Ignored (not passed to model)
 - **Type conversion**: Safe conversions applied when possible
 
 **Parameter Validation:**
+
 - **Type checking**: Parameters must match specified types
 - **Shape validation**: List parameters validated for correct shape
 - **Default values**: Applied when parameters not provided
@@ -926,6 +949,7 @@ MLflow automatically validates inputs against your model signature when:
 ### Handling Common Issues
 
 **Integer Columns with Missing Values:**
+
 ```python
 # ❌ Problem: Integer column with NaN becomes float, causing type mismatch
 df = pd.DataFrame({"int_col": [1, 2, None]})  # Becomes float64
@@ -935,6 +959,7 @@ df = pd.DataFrame({"int_col": [1.0, 2.0, None]})  # Stays float64
 ```
 
 **Type Conversion Examples:**
+
 ```text
 # ✅ Safe conversions (allowed)
 int → long     # 32-bit to 64-bit integer
@@ -1274,10 +1299,10 @@ with mlflow.start_run():
 
 **Generated Files:**
 
-| File | Content | Purpose |
-|------|---------|---------|
-| `input_example.json` | `{"question": "What is MLflow?"}` | Original input format |
-| `serving_input_example.json` | `{"inputs": {"question": "What is MLflow?"}}` | REST endpoint format |
+| File                         | Content                                       | Purpose               |
+| ---------------------------- | --------------------------------------------- | --------------------- |
+| `input_example.json`         | `{"question": "What is MLflow?"}`             | Original input format |
+| `serving_input_example.json` | `{"inputs": {"question": "What is MLflow?"}}` | REST endpoint format  |
 
 ### Validating Serving Examples
 
@@ -1409,6 +1434,7 @@ print(infer_signature(multi_tensor))
 ### Development Workflow
 
 **Always Include Input Examples**
+
 ```python
 # ✅ Good: Always provide examples
 mlflow.sklearn.log_model(model, name="model", input_example=X_sample)
@@ -1418,6 +1444,7 @@ mlflow.sklearn.log_model(model, name="model")  # No signature or validation
 ```
 
 **Test Your Signatures**
+
 ```python
 # Validate signature works as expected
 signature = infer_signature(X_test, y_pred)
@@ -1434,6 +1461,7 @@ except Exception as e:
 ### Performance Considerations
 
 **For Large DataFrames:**
+
 ```python
 # Use a representative sample for input_example
 large_df = pd.DataFrame(...)  # 1M+ rows
@@ -1443,6 +1471,7 @@ mlflow.sklearn.log_model(model, name="model", input_example=sample_df)
 ```
 
 **For Complex Objects:**
+
 ```python
 # Provide minimal but representative examples
 minimal_example = {
@@ -1455,6 +1484,7 @@ minimal_example = {
 ### Common Pitfalls
 
 **Integer Handling:**
+
 ```python
 # ❌ Problem: Integers with NaN become floats
 df = pd.DataFrame({"int_col": [1, 2, None]})  # Type becomes float64
@@ -1464,6 +1494,7 @@ df = pd.DataFrame({"int_col": [1.0, 2.0, None]})  # Explicit float64
 ```
 
 **Nested Structure Consistency:**
+
 ```python
 # ❌ Problem: Inconsistent nesting
 inconsistent = [
@@ -1479,6 +1510,7 @@ consistent = [
 ```
 
 **Type Hints for PythonModel** (MLflow 2.20.0+):
+
 ```python
 from typing import Dict, List
 

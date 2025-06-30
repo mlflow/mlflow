@@ -394,7 +394,7 @@ run `kubectl get inferenceservice mlflow-wine-classifier -oyaml`.
 
 Once the deployment is ready, you can send a test request to the server.
 
-First, create a JSON file with test data and save it as `test-input.json`. Ensure the request data is formatted for the [V2 Inference Protocol](https://kserve.github.io/website/latest/modelserving/inference_api/#inference-request-json-object),
+First, create a JSON file with test data and save it as `test-input.json`. Ensure the request data is formatted for the [V2 Inference Protocol](https://kserve.github.io/website/latest/reference/swagger-ui/#modelinferrequestinferinputtensor),
 because we created the model with `protocolVersion: v2`. The request should look like this:
 
 ```json

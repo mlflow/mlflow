@@ -5,10 +5,12 @@ This README covers information about the main MLflow documentation. The API refe
 ## Prerequisites
 
 **Necessary**
+
 - NodeJS >= 18.0 (see the [NodeJS documentation](https://nodejs.org/en/download) for installation instructions)
 - (For building MDX files from `.ipynb` files) Python 3.9+, [nbconvert](https://pypi.org/project/nbconvert/), [nbformat](https://pypi.org/project/nbformat/) and [pyyml](https://pypi.org/project/pyyml/)
 
 **Optional**
+
 - (For building API docs) See [doc-requirements.txt](https://github.com/mlflow/mlflow/blob/master/requirements/doc-requirements.txt) for API doc requirements.
 
 ## Installation
@@ -36,7 +38,7 @@ This command starts a local development server and opens up a browser window. Mo
 In order to build the full MLflow documentation (i.e. the contents of https://mlflow.org/docs/latest/), please follow the following steps:
 
 1. Run `yarn build-api-docs` in order to build the API reference and copy the generated HTML to `static/api_reference`.
-  a. To speed up the build locally, you can run `yarn build-api-docs:no-r` to skip building R documentation
+   a. To speed up the build locally, you can run `yarn build-api-docs:no-r` to skip building R documentation
 2. Run `yarn convert-notebooks` to convert `.ipynb` files to `.mdx` files. The generated files are git-ignored.
 3. **⚠️ Important!** Run `export DOCS_BASE_URL=/docs/latest` (or wherever the docs are expected to be served). This configures the [Docusaurus baseUrl](https://docusaurus.io/docs/api/docusaurus-config#baseUrl), and the site may not render correctly if this is improperly set.
 4. Finally, run `yarn build`. This generates static files in the `build` directory, which can then be served.

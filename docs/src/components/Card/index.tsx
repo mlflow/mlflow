@@ -1,30 +1,25 @@
-import clsx from "clsx";
-import styles from "./card.module.css";
-import Link from "@docusaurus/Link";
+import clsx from 'clsx';
+import styles from './card.module.css';
+import Link from '@docusaurus/Link';
 
 export const CardGroup = ({ children, isSmall, cols }): JSX.Element => (
   <div
     className={clsx(
       styles.CardGroup,
-      isSmall ? styles.AutofillColumns : cols ? styles[`Cols${cols}`] : styles.MaxThreeColumns
+      isSmall ? styles.AutofillColumns : cols ? styles[`Cols${cols}`] : styles.MaxThreeColumns,
     )}
   >
     {children}
   </div>
 );
 
-export const Card = ({ children, link = "" }): JSX.Element => {
+export const Card = ({ children, link = '' }): JSX.Element => {
   if (!link) {
-    return (
-      <div className={clsx(styles.Card, styles.CardBordered)}>{children}</div>
-    );
+    return <div className={clsx(styles.Card, styles.CardBordered)}>{children}</div>;
   }
 
   return (
-    <Link
-      className={clsx(styles.Link, styles.Card, styles.CardBordered)}
-      to={link}
-    >
+    <Link className={clsx(styles.Link, styles.Card, styles.CardBordered)} to={link}>
       {children}
     </Link>
   );
@@ -33,14 +28,7 @@ export const Card = ({ children, link = "" }): JSX.Element => {
 export const PageCard = ({ headerText, link, text }): JSX.Element => (
   <Card link={link}>
     <span>
-      <div
-        className={clsx(
-          styles.CardTitle,
-          styles.BoxRoot,
-          styles.PaddingBottom4
-        )}
-        style={{ pointerEvents: "none" }}
-      >
+      <div className={clsx(styles.CardTitle, styles.BoxRoot, styles.PaddingBottom4)} style={{ pointerEvents: 'none' }}>
         <div
           className={clsx(
             styles.BoxRoot,
@@ -48,18 +36,13 @@ export const PageCard = ({ headerText, link, text }): JSX.Element => (
             styles.FlexAlignItemsCenter,
             styles.FlexDirectionRow,
             styles.FlexJustifyContentFlexStart,
-            styles.FlexWrapNowrap
+            styles.FlexWrapNowrap,
           )}
-          style={{ marginLeft: "-4px", marginTop: "-4px" }}
+          style={{ marginLeft: '-4px', marginTop: '-4px' }}
         >
           <div
-            className={clsx(
-              styles.BoxRoot,
-              styles.BoxHideIfEmpty,
-              styles.MarginTop4,
-              styles.MarginLeft4
-            )}
-            style={{ pointerEvents: "auto" }}
+            className={clsx(styles.BoxRoot, styles.BoxHideIfEmpty, styles.MarginTop4, styles.MarginLeft4)}
+            style={{ pointerEvents: 'auto' }}
           >
             <span className="">{headerText}</span>
           </div>
@@ -84,24 +67,14 @@ export const LogoCard = ({ description, children, link }): JSX.Element => (
 export const SmallLogoCard = ({ children, link }) => (
   <Card link={link}>
     <div className={styles.SmallLogoCardContent}>
-      <div
-        className={clsx("max-height-img-container", styles.SmallLogoCardImage)}
-      >
-        {children}
-      </div>
+      <div className={clsx('max-height-img-container', styles.SmallLogoCardImage)}>{children}</div>
     </div>
   </Card>
 );
 
-const RELEASE_URL = "https://github.com/mlflow/mlflow/releases/tag/v";
+const RELEASE_URL = 'https://github.com/mlflow/mlflow/releases/tag/v';
 
-export const NewFeatureCard = ({
-  children,
-  description,
-  name,
-  releaseVersion,
-  learnMoreLink = "",
-}) => (
+export const NewFeatureCard = ({ children, description, name, releaseVersion, learnMoreLink = '' }) => (
   <Card>
     <div className={styles.NewFeatureCardWrapper}>
       <div className={styles.NewFeatureCardContent}>
@@ -119,18 +92,12 @@ export const NewFeatureCard = ({
       <div className={styles.NewFeatureCardTags}>
         <div>
           {learnMoreLink && (
-            <Link
-              className="button button--outline button--sm button--primary"
-              to={learnMoreLink}
-            >
+            <Link className="button button--outline button--sm button--primary" to={learnMoreLink}>
               Learn more
             </Link>
           )}
         </div>
-        <Link
-          className="button button--outline button--sm button--primary"
-          to={`${RELEASE_URL}${releaseVersion}`}
-        >
+        <Link className="button button--outline button--sm button--primary" to={`${RELEASE_URL}${releaseVersion}`}>
           released in {releaseVersion}
         </Link>
       </div>
@@ -138,13 +105,13 @@ export const NewFeatureCard = ({
   </Card>
 );
 
-export const TitleCard = ({ title, description, link = "" }): JSX.Element => (
+export const TitleCard = ({ title, description, link = '' }): JSX.Element => (
   <Card link={link}>
     <div className={styles.TitleCardContent}>
-      <div className={clsx(styles.TitleCardTitle)} style={{ textAlign: "left", fontWeight: "bold" }}>
+      <div className={clsx(styles.TitleCardTitle)} style={{ textAlign: 'left', fontWeight: 'bold' }}>
         {title}
       </div>
-      <hr className={clsx(styles.TitleCardSeparator)} style={{ margin: "12px 0" }} />
+      <hr className={clsx(styles.TitleCardSeparator)} style={{ margin: '12px 0' }} />
       <p className={clsx(styles.TextColor)}>{description}</p>
     </div>
   </Card>

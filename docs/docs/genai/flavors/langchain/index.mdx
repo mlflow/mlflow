@@ -57,7 +57,7 @@ Autologging is a powerful one stop solution to achieve all the above benefits wi
 - [Runnables](https://python.langchain.com/v0.1/docs/expression_language/interface/)
 - [LangGraph Complied Graph](https://langchain-ai.github.io/langgraph/reference/graphs/) (only supported via [Model-from-Code](#logging-models-from-code))
 - [LLMChain](https://python.langchain.com/docs/versions/v0_2/deprecations/#llmchain) (deprecated, only support for `langchain<0.3.0`)
-- [RetrievalQA](https://js.langchain.com/docs/modules/chains/popular/vector_db_qa) (deprecated, only support for `langchain<0.3.0`)
+- [RetrievalQA](https://js.langchain.com/docs/modules/chains/popular/vector_db_qa) (deprecated, only support for `langchain<0.3.0`) {/* <!-- markdown-link-check-disable-line --> */}
 
 :::warning
 There is a known deserialization issue when logging chains or agents dependent upon LangChain components from [the partner packages](https://python.langchain.com/v0.1/docs/integrations/platforms/#partner-packages) such as `langchain-openai`. If you log such models using the legacy serialization based logging, some components may be loaded from the respective `langchain-community` package instead of the partner package library, which can lead to unexpected behavior or import errors when executing your code.

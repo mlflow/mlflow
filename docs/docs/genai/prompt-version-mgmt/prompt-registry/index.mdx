@@ -297,7 +297,6 @@ with mlflow.start_run():
 
 If you haven't already created a prompt, follow [this step](#1-create-a-prompt) to create a new prompt.
 
-
 #### 2. Define a Chain using the registered prompts
 
 ```python
@@ -347,8 +346,6 @@ Moreover, you can view the list of models (runs) that use a specific prompt in t
 
 ![Associated Prompts](/images/llms/prompt-registry/prompt-logged-model-links.png)
 
-
-
 ### Example 2: Automatic Prompt Logging with Models-from-Code
 
 [Models-from-Code](/ml/model/models-from-code) is a feature that allows you to define and log models in code.
@@ -356,7 +353,6 @@ Logging a model with code brings several benefits, such as portability, readabil
 
 Combining with MLflow Prompt Registry, the feature unlocks even more flexibility to manage prompt versions. Notably,
 if your model code uses a prompt from MLflow Prompt Registry, MLflow **automatically** logs it with the model for you.
-
 
 In the following example, we use LangGraph to define a very simple chat bot using the registered prompt.
 
@@ -374,7 +370,7 @@ prompt = mlflow.genai.register_prompt(
 
 #### 2. Define a Graph using the registered prompt
 
-Create a Python script ``chatbot.py`` with the following content.
+Create a Python script `chatbot.py` with the following content.
 
 :::tip
 
@@ -434,7 +430,6 @@ mlflow.models.set_model(graph)
 #### 3. Log the Graph to MLflow
 
 Specify the file path to the script in the `model` parameter:
-
 
 ```python
 with mlflow.start_run():

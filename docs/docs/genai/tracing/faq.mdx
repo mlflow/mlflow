@@ -40,6 +40,7 @@ MLflow provides automatic tracing (autolog) for 20+ popular libraries. See the c
 Yes, you can add tracing to any Python code using manual tracing APIs:
 
 **Decorators** for functions:
+
 ```python
 @mlflow.trace(name="Custom Operation")
 def my_custom_function():
@@ -47,6 +48,7 @@ def my_custom_function():
 ```
 
 **Context managers** for code blocks:
+
 ```python
 with mlflow.start_span(name="Custom Processing") as span:
     result = custom_processing()
@@ -54,6 +56,7 @@ with mlflow.start_span(name="Custom Processing") as span:
 ```
 
 **Function wrapping** for third-party libraries:
+
 ```python
 traced_function = mlflow.trace(third_party_function)
 ```
@@ -85,6 +88,7 @@ my_function()
 ```
 
 To control the display:
+
 ```python
 # Disable notebook display
 mlflow.tracing.disable_notebook_display()
@@ -119,6 +123,7 @@ def predict(messages: list[dict]) -> str:
 There are several ways to add tags depending on when you want to set them:
 
 **During execution** (for active traces):
+
 ```python
 @mlflow.trace
 def my_func(x):
@@ -127,6 +132,7 @@ def my_func(x):
 ```
 
 **After completion** (for finished traces):
+
 ```python
 from mlflow.client import MlflowClient
 
@@ -162,7 +168,6 @@ Yes, MLflow Tracing is stable and designed to be used in production environments
 
 When using MLflow Tracing in production environments, we recommend using the [MLflow Tracing SDK](https://pypi.org/project/mlflow-tracing/) (`mlflow-tracing`) to instrument your code/models/agents with a minimal set of dependencies and a smaller installation footprint. The SDK is designed to be a perfect fit for production environments where you want an efficient and lightweight tracing solution. Please refer to the [Production Monitoring](/genai/tracing/prod-tracing) section for more details.
 
-
 ### Q: How do I enable asynchronous trace logging?
 
 Asynchronous logging can significantly reduce performance overhead (about 80% for typical workloads):
@@ -186,11 +191,11 @@ mlflow.flush_trace_async_logging()
 
 You can configure the detailed behavior of asynchronous logging using the following environment variables:
 
-| Environment Variable | Description | Default |
-|---------------------|-------------|---------|
-| `MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS` | Maximum worker threads | `10` |
-| `MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE` | Maximum queued traces | `1000` |
-| `MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT` | Retry timeout in seconds | `500` |
+| Environment Variable                        | Description              | Default |
+| ------------------------------------------- | ------------------------ | ------- |
+| `MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS`    | Maximum worker threads   | `10`    |
+| `MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE` | Maximum queued traces    | `1000`  |
+| `MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT`  | Retry timeout in seconds | `500`   |
 
 ## Troubleshooting
 
@@ -203,6 +208,7 @@ There are multiple possible reasons why a trace may not be viewable in the MLflo
 2. **The browser cache is outdated**: When you upgrade MLflow to a new version, the browser cache may contain outdated data and prevent the UI from displaying traces correctly. Clear your browser cache (Shift+F5) and refresh the page.
 
 3. **MLflow server connectivity**: Ensure your MLflow tracking server is running and accessible:
+
    ```bash
    mlflow ui --host 0.0.0.0 --port 5000
    ```
@@ -254,6 +260,7 @@ MLflow monitors the trace execution time and expiration in a background thread. 
 Several issues could prevent traces from appearing:
 
 **Tracking URI not set**: Ensure your tracking URI is configured:
+
 ```python
 import mlflow
 
@@ -261,11 +268,13 @@ mlflow.set_tracking_uri("http://localhost:5000")  # or your server URL
 ```
 
 **Experiment not set**: Make sure you're logging to the correct experiment:
+
 ```python
 mlflow.set_experiment("my-tracing-experiment")
 ```
 
 **Autolog not called**: For supported libraries, ensure autolog is called before usage:
+
 ```python
 mlflow.openai.autolog()  # Call before using OpenAI
 ```
@@ -358,12 +367,14 @@ my_function()  # This will generate a trace
 Yes, you can use environment variables and global configuration:
 
 **Environment variable**: Set `MLFLOW_TRACING_ENABLED=false` to disable all tracing:
+
 ```bash
 export MLFLOW_TRACING_ENABLED=false
 python your_app.py  # No traces will be generated
 ```
 
 **Conditional tracing**: Use programmatic control:
+
 ```python
 import mlflow
 import os
@@ -372,7 +383,6 @@ import os
 if os.getenv("ENVIRONMENT") == "development":
     mlflow.openai.autolog()
 ```
-
 
 ## MLflow Runs Integration
 
@@ -441,7 +451,6 @@ Traces are stored in your MLflow tracking backend:
 
 **Artifact store**: Large trace data may be stored in the artifact store (filesystem, S3, etc.)
 
-
 ## Integration and Compatibility
 
 ### Q: Is MLflow Tracing compatible with other observability tools?
@@ -476,4 +485,4 @@ Yes, MLflow provides comprehensive manual tracing capabilities. Please refer to 
 
 ---
 
-*For additional questions or issues not covered here, please check the [MLflow documentation](/genai/tracing) or reach out to the community.*
+_For additional questions or issues not covered here, please check the [MLflow documentation](/genai/tracing) or reach out to the community._

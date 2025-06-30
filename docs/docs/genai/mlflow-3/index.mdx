@@ -15,6 +15,7 @@ Discover the next generation of MLflow, designed to streamline your AI experimen
 ## What is MLflow 3?
 
 MLflow 3 delivers best-in-class experiment tracking, observability, and performance evaluation for machine learning models, AI applications, and agents! With MLflow 3, it's now easier than ever to:
+
 - Centrally track and analyze the performance of your models, prompts, agents, and AI applications **across all environments**, from interactive queries in a development notebook through production batch or real-time serving deployments.
 - Select the best models, prompts, agents, and AI applications for production with an **enhanced performance comparison experience** powered by MLflow's tracing and evaluation capabilities.
 
@@ -36,7 +37,6 @@ Here are the short highlights of what's new in MLflow 3:
   <TitleCard title="📚 Revamped Website and Documentation" link="https://mlflow.org/" description="The MLflow documentation and website has been fully redesigned to support two main user journeys: GenAI development and classic machine learning workflows. The new structure offers dedicated sections for GenAI features (including LLMs, prompt engineering, and tracing), and traditional ML capabilities such as experiment tracking, model registry, deployment, and evaluation." />
 </CardGroup>
 
-
 ### Getting Started
 
 Install MLflow 3 by running the following command:
@@ -51,12 +51,15 @@ Resources:
 ### Quickstart
 
 #### Prerequisites
+
 Run the following command to install MLflow 3 and OpenAI packages.
+
 ```
 pip install mlflow openai -U
 ```
 
 Set `OPENAI_API_KEY` environment variable in CLI to authenticate to OpenAI APIs.
+
 ```bash
 export OPENAI_API_KEY=your_api_key_here
 ```
@@ -93,6 +96,7 @@ prompt = mlflow.genai.register_prompt(
     commit_message="Initial version of AI assistant",
 )
 ```
+
 Switch to the **Prompts** tab to view the registered prompt:
 
 <div className="center-div" style={{ width: "100%" }}>
@@ -267,6 +271,7 @@ MLflow 3 introduces some key API changes while also removes some outdated featur
       <td>model artifacts are stored as run artifacts.</td>
       <td>Model artifacts are stored into models artifacts location. Note: this impacts the behavior of <APILink fn="mlflow.client.MlflowClient.list_artifacts">list_artifacts</APILink> API.</td>
     </tr>
+
   </tbody>
 </table>
 
@@ -274,8 +279,8 @@ MLflow 3 introduces some key API changes while also removes some outdated featur
 
 - MLflow Recipes
 - Flavors: the following model flavors are no longer supported
-    - fastai
-    - mleap
+  - fastai
+  - mleap
 - AI gateway client APIs: use deployments APIs instead
 
 ### Breaking changes

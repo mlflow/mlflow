@@ -6,7 +6,6 @@ import { APILink } from "@site/src/components/APILink";
 
 This guide introduces the core concepts of tracing and observability for GenAI applications. If you're new to tracing, this conceptual overview will help you understand the fundamental building blocks before diving into implementation.
 
-
 ## What is Tracing?
 
 **Tracing** is an observability technique that captures the complete execution flow of a request through your application. Unlike traditional logging that captures discrete events, tracing creates a detailed map of how data flows through your system, recording every operation, transformation, and decision point.
@@ -28,6 +27,7 @@ MLflow traces follow a simple but powerful structure: **`Trace = TraceInfo + Tra
     This separation allows for efficient querying and filtering of traces while maintaining detailed execution information.
 
     ![Trace Architecture](/images/llms/tracing/schema/trace_architecture.png)
+
   </TabItem>
   <TabItem value="trace-info" label="TraceInfo: The Metadata">
     **TraceInfo** provides a lightweight snapshot of critical data about the overall trace, including:
@@ -43,6 +43,7 @@ MLflow traces follow a simple but powerful structure: **`Trace = TraceInfo + Tra
     **Organization**: Tags and metadata for searching and filtering
 
     ![Trace Info Architecture](/images/llms/tracing/schema/trace_info_architecture.png)
+
   </TabItem>
   <TabItem value="trace-data" label="TraceData: The Execution Details">
     **TraceData** contains the core execution information as a list of <APILink fn="mlflow.entities.Span">Span</APILink> objects. These spans are organized in a hierarchical relationship that shows the complete flow of operations in your application.
@@ -50,6 +51,7 @@ MLflow traces follow a simple but powerful structure: **`Trace = TraceInfo + Tra
     Each span represents a single operation and includes detailed information about inputs, outputs, timing, and any errors that occurred.
 
     ![Trace Data Architecture](/images/llms/tracing/schema/trace_data_architecture.png)
+
   </TabItem>
   <TabItem value="span-structure" label="Span: Individual Operations">
     **Spans** are the fundamental building blocks that represent individual operations. Each span complies with the [OpenTelemetry Span specification](https://opentelemetry.io/docs/concepts/signals/traces#spans) and includes:
@@ -63,20 +65,24 @@ MLflow traces follow a simple but powerful structure: **`Trace = TraceInfo + Tra
     **Context**: Attributes and events for debugging
 
     ![Span Architecture](/images/llms/tracing/schema/span_architecture.png)
+
   </TabItem>
 </Tabs>
 
 ## Key Concepts
 
 ### Trace
+
 A **trace** represents the complete journey of a single request through your application. It's a collection of related operations (spans) that together tell the story of how your system processed a user's input to generate an output.
 
 **Example**: A user asks "What's the weather in Paris?" - the trace captures everything from parsing the question to returning the final weather report.
 
 ### Span
+
 A **span** represents a single, discrete operation within a trace. Each span has a clear beginning and end, and captures the inputs, outputs, timing, and metadata for that specific operation.
 
 **Key span properties**:
+
 - **Name**: Human-readable identifier (e.g., "Document Retrieval", "LLM Call")
 - **Duration**: How long the operation took (measured in nanoseconds for precision)
 - **Status**: Success, failure, or error with detailed information
@@ -86,6 +92,7 @@ A **span** represents a single, discrete operation within a trace. Each span has
 - **Events**: Significant moments during execution (errors, warnings, checkpoints)
 
 ### Parent-Child Relationships
+
 Spans form hierarchical relationships that mirror your application's call structure:
 
 - **Root span**: The top-level operation representing the entire request
@@ -109,6 +116,7 @@ MLflow categorizes spans by their purpose to make traces easier to understand an
     Typically captures: model name, parameters, prompt, response, token usage
 
     *Special attributes*: `mlflow.chat.messages` and `mlflow.chat.tools` for rich UI display
+
   </TabItem>
   <TabItem value="retrieval-types" label="Retrieval & Data">
     **SpanType.RETRIEVER**: Operations that fetch relevant information
@@ -122,6 +130,7 @@ MLflow categorizes spans by their purpose to make traces easier to understand an
     **SpanType.EMBEDDING**: Vector embedding generation
 
     **SpanType.PARSER**: Data parsing and transformation operations
+
   </TabItem>
   <TabItem value="workflow-types" label="Workflow & Logic">
     **SpanType.CHAIN**: Multi-step workflows or pipelines
@@ -135,6 +144,7 @@ MLflow categorizes spans by their purpose to make traces easier to understand an
     **SpanType.TOOL**: External tool or function calls
 
     Examples: API calls, database queries, file operations, calculations
+
   </TabItem>
   <TabItem value="other-types" label="Other Types">
     **SpanType.RERANKER**: Re-ranking operations for retrieved contexts
@@ -142,6 +152,7 @@ MLflow categorizes spans by their purpose to make traces easier to understand an
     **SpanType.UNKNOWN**: General operations that don't fit other categories
 
     *Custom types*: You can also define your own span types as strings for specialized operations
+
   </TabItem>
 </Tabs>
 
@@ -180,6 +191,7 @@ Each span captures specific information relevant to its operation type, and the 
 Understanding these concepts enables several powerful observability capabilities:
 
 ### Debugging
+
 **Root cause analysis**: Trace the exact path that led to an error or unexpected result
 
 **Performance bottlenecks**: Identify which operations consume the most time using precise nanosecond timing
@@ -187,6 +199,7 @@ Understanding these concepts enables several powerful observability capabilities
 **Data flow validation**: Verify that data is transformed correctly at each step by examining inputs and outputs
 
 ### Optimization
+
 **Cost tracking**: Monitor token usage, API calls, and resource consumption across operations using span attributes
 
 **Latency analysis**: Understand where delays occur in your application with detailed timing data
@@ -194,6 +207,7 @@ Understanding these concepts enables several powerful observability capabilities
 **Quality correlation**: Connect input quality (e.g., retrieval relevance scores) to output quality
 
 ### Monitoring
+
 **System health**: Track success rates and error patterns across different components using span status
 
 **Usage patterns**: Understand how users interact with your application through trace metadata
@@ -205,21 +219,24 @@ Understanding these concepts enables several powerful observability capabilities
 Some span types have specialized schemas that enable enhanced functionality:
 
 ### Retriever Spans
+
 For `RETRIEVER` spans, the output should conform to a `List[Document]` structure:
+
 - **page_content**: The text content of the document
 - **metadata**: Additional context including `doc_uri` for links and `chunk_id` for evaluation
 
 This enables rich document display in the UI and proper evaluation metric calculation.
 
 ### Chat Model Spans
+
 For `CHAT_MODEL` and `LLM` spans, special attributes provide enhanced conversation display:
+
 - **mlflow.chat.messages**: Structured conversation data for rich UI rendering
 - **mlflow.chat.tools**: Available tools for function calling scenarios
 
 These attributes can be set using helper functions like <APILink fn="mlflow.tracing.set_span_chat_messages" />.
 
 ## Use Cases
-
 
 <Tabs>
 
@@ -466,6 +483,7 @@ This process is wholly visible - the email content and spam/not-spam label are b
 While qualitative model performance assessment may not require tracing, it can still provide value for:
 
 #### 1. Performance Monitoring
+
 ```python
 import mlflow
 import time
@@ -494,6 +512,7 @@ def predict_fraud(transaction_data):
 ```
 
 #### 2. API Access Logging
+
 ```python
 @mlflow.trace
 def ml_api_endpoint(request_data, user_id):
@@ -515,6 +534,7 @@ def ml_api_endpoint(request_data, user_id):
 ```
 
 #### 3. Multi-Model Pipelines
+
 ```python
 @mlflow.trace
 def ensemble_prediction(input_data):
@@ -528,16 +548,15 @@ def ensemble_prediction(input_data):
 
 ### Differences from GenAI Tracing
 
-| Aspect | Traditional ML | GenAI Applications |
-|--------|---------------|-------------------|
-| **Complexity** | Simple input → output | Multi-step, contextual processes |
-| **Transparency** | High (interpretable I/O) | Low (complex internal processing) |
-| **Debugging Need** | Performance & infrastructure | Quality, relevance, hallucinations |
-| **Trace Value** | Operational monitoring | Essential for development & debugging |
+| Aspect             | Traditional ML               | GenAI Applications                    |
+| ------------------ | ---------------------------- | ------------------------------------- |
+| **Complexity**     | Simple input → output        | Multi-step, contextual processes      |
+| **Transparency**   | High (interpretable I/O)     | Low (complex internal processing)     |
+| **Debugging Need** | Performance & infrastructure | Quality, relevance, hallucinations    |
+| **Trace Value**    | Operational monitoring       | Essential for development & debugging |
 
 </TabItem>
 </Tabs>
-
 
 ## Getting Started with Concepts
 
@@ -553,4 +572,4 @@ Now that you understand these fundamental concepts:
 
 ---
 
-*These concepts form the foundation for understanding how MLflow Tracing provides observability into your GenAI applications. The hierarchical structure of traces and spans, combined with rich metadata capture and specialized schemas, enables deep insights into your application's behavior and performance.*
+_These concepts form the foundation for understanding how MLflow Tracing provides observability into your GenAI applications. The hierarchical structure of traces and spans, combined with rich metadata capture and specialized schemas, enables deep insights into your application's behavior and performance._
