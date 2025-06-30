@@ -64,6 +64,7 @@ export interface RunsCompareProps {
   globalLineChartConfig?: RunsChartsGlobalLineChartConfig;
   chartsSearchFilter?: string;
   storageKey: string;
+  minWidth: number;
 }
 
 /**
@@ -147,6 +148,7 @@ const RunsCompareImpl = ({
   hideEmptyCharts,
   globalLineChartConfig,
   chartsSearchFilter,
+  minWidth,
 }: RunsCompareProps) => {
   // Updater function for the general experiment view UI state
   const updateUIState = useUpdateExperimentViewUIState();
@@ -385,7 +387,7 @@ const RunsCompareImpl = ({
         overflowY: 'auto' as const,
 
         // Make sure charts are visible even on small screens
-        minWidth: 320,
+        minWidth,
       }}
       data-testid="experiment-view-compare-runs-chart-area"
     >
