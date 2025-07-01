@@ -157,8 +157,8 @@ def _validate_scorers(scorers: list[Scorer]) -> None:
     for scorer in scorers:
         if not isinstance(scorer, Scorer):
             raise MlflowException.invalid_parameter_value(
-                f"Invalid scorer: {scorer}\n"
-                f"   Use @scorer decorator on your function or inherit from Scorer class\n"
+                f"Invalid scorer: {scorer}. Please use @scorer decorator "
+                "on your function or inherit from Scorer class"
             )
 
         signature = inspect.signature(scorer)
