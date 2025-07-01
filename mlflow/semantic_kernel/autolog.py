@@ -7,6 +7,7 @@ from typing import Any, Optional
 from opentelemetry.context import Context
 from opentelemetry.sdk.trace import ReadableSpan as OTelReadableSpan
 from opentelemetry.sdk.trace import Span as OTelSpan
+from opentelemetry.sdk.trace import TracerProvider as SDKTracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.trace import (
     NoOpTracerProvider,
@@ -33,15 +34,19 @@ from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
+from mlflow.entities.trace_status import TraceStatus
 from mlflow.tracing.constant import (
     SpanAttributeKey,
     TokenUsageKey,
 )
 from mlflow.tracing.fluent import start_span_no_context
-from mlflow.tracing.provider import _setup_tracer_provider as setup_mlflow_tracing_provider
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 
 _logger = logging.getLogger(__name__)
+
+# NB: Use global variable instead of the instance variable of the processor, because sometimes
+# multiple span processor instances can be created and we need to share the same map.
+_OTEL_SPAN_ID_TO_MLFLOW_SPAN_AND_TOKEN = {}
 
 
 def _set_logging_env_variables():
@@ -69,28 +74,24 @@ def _set_logging_env_variables():
 def setup_semantic_kernel_tracing():
     _set_logging_env_variables()
 
-    if isinstance(get_tracer_provider(), (NoOpTracerProvider, ProxyTracerProvider)):
-        _logger.info(
-            "An otel tracer was not found so we will use the default MLflow tracer provider."
-        )
-        setup_mlflow_tracing_provider()
-
-        from mlflow.tracing.provider import _MLFLOW_TRACER_PROVIDER
-
-        _MLFLOW_TRACER_PROVIDER._active_span_processor._span_processors = (
-            SemanticKernelSpanProcessor(),
-        )
-        set_tracer_provider(_MLFLOW_TRACER_PROVIDER)
-
+    # NB: This logic has a known issue that it does not work when Semantic Kernel program is
+    # executed # before calling this setup is called. This is because Semantic Kernel caches the
+    # tracer instance # in each module (ref:https://github.com/microsoft/semantic-kernel/blob/6ecf2b9c2c893dc6da97abeb5962dfc49bed062d/python/semantic_kernel/functions/kernel_function.py#L46),
+    # which prevent us from updating the span processor setup for the tracer.
+    # Therefore, `mlflow.semantic_kernel.autolog()` should always be called before running the
+    # Semantic Kernel program.
+    provider = get_tracer_provider()
+    sk_processor = SemanticKernelSpanProcessor()
+    if isinstance(provider, (NoOpTracerProvider, ProxyTracerProvider)):
+        new_provider = SDKTracerProvider()
+        new_provider.add_span_processor(sk_processor)
+        set_tracer_provider(new_provider)
     else:
-        _logger.info(
-            "The semantic kernel tracer is already initialized. Using the existing tracer provider."
-        )
-        get_tracer_provider().add_span_processor(SemanticKernelSpanProcessor())
-
-    sk_span_processor = next(x for x in get_tracer_provider()._active_span_processor._span_processors if isinstance(x, SemanticKernelSpanProcessor))
-    print(f"setup_semantic_kernel_tracing tracer provider memory id: {id(get_tracer_provider())}")
-    print(f"setup_semantic_kernel_tracing span processor memory id: {id(sk_span_processor)}")
+        if not any(
+            isinstance(p, SemanticKernelSpanProcessor)
+            for p in provider._active_span_processor._span_processors
+        ):
+            provider.add_span_processor(sk_processor)
 
 
 class DummySpanExporter:
@@ -104,16 +105,12 @@ class DummySpanExporter:
 
 class SemanticKernelSpanProcessor(SimpleSpanProcessor):
     def __init__(self):
-        self._otel_span_id_to_mlflow_span_and_token = {}
         self.span_exporter = DummySpanExporter()
 
     def on_start(self, span: OTelSpan, parent_context: Optional[Context] = None):
-        print(f"[on_start] {span.name}")
-
         otel_span_id = span.get_span_context().span_id
         parent_span_id = span.parent.span_id if span.parent else None
-
-        parent_st = self._otel_span_id_to_mlflow_span_and_token.get(parent_span_id)
+        parent_st = _OTEL_SPAN_ID_TO_MLFLOW_SPAN_AND_TOKEN.get(parent_span_id)
         parent_span = parent_st[0] if parent_st else None
 
         mlflow_span = start_span_no_context(
@@ -122,13 +119,10 @@ class SemanticKernelSpanProcessor(SimpleSpanProcessor):
             attributes=span.attributes,
         )
         token = set_span_in_context(mlflow_span)
-        self._otel_span_id_to_mlflow_span_and_token[otel_span_id] = (mlflow_span, token)
-        print("[on_start] complete")
-        print(self._otel_span_id_to_mlflow_span_and_token)
+        _OTEL_SPAN_ID_TO_MLFLOW_SPAN_AND_TOKEN[otel_span_id] = (mlflow_span, token)
 
     def on_end(self, span: OTelReadableSpan) -> None:
-        print(f"[on_end] {span.name}")
-        st = self._otel_span_id_to_mlflow_span_and_token.pop(span.get_span_context().span_id, None)
+        st = _OTEL_SPAN_ID_TO_MLFLOW_SPAN_AND_TOKEN.pop(span.get_span_context().span_id, None)
         if st is None:
             _logger.debug("Span not found in the map. Skipping end.")
             return
@@ -150,35 +144,15 @@ class SemanticKernelSpanProcessor(SimpleSpanProcessor):
 
 
 def _get_live_span_from_otel_span_id(otel_span_id: str) -> LiveSpan:
-    tracer_provider = get_tracer_provider()
-    print(f"tracer_provider memory id: {id(tracer_provider)}")
-    span_processors = tracer_provider._active_span_processor._span_processors
-
-    otel_to_live_span_map = {}
-    for span_processor in span_processors:
-        if isinstance(span_processor, SemanticKernelSpanProcessor):
-            print(f"_get_live_span_from_otel_span_id span processor memory id: {id(span_processor)}")
-            otel_to_live_span_map = span_processor._otel_span_id_to_mlflow_span_and_token
-
-            if span_and_token := otel_to_live_span_map.get(otel_span_id):
-                return span_and_token[0]
-            else:
-                _logger.warning(
-                    f"Live span not found for OTel span ID: {otel_span_id}. "
-                    "Cannot map OTel span ID to MLflow span ID, so we will skip registering "
-                    "additional attributes. "
-                    f"Available OTel span IDs: {list(otel_to_live_span_map.keys())}"
-
-                )
-                return None
-            
-    _logger.warning(
-        "No SemanticKernelSpanProcessor found. "
-        "Cannot map OTel span ID to MLflow span ID, so we will skip registering "
-        "additional attributes."
-    )
-
-    return None
+    if span_and_token := _OTEL_SPAN_ID_TO_MLFLOW_SPAN_AND_TOKEN.get(otel_span_id):
+        return span_and_token[0]
+    else:
+        _logger.warning(
+            f"Live span not found for OTel span ID: {otel_span_id}. "
+            "Cannot map OTel span ID to MLflow span ID, so we will skip registering "
+            "additional attributes. "
+        )
+        return None
 
 
 def _get_span_type(span: OTelSpan) -> str:
@@ -211,8 +185,6 @@ def _set_token_usage(mlflow_span: LiveSpan, sk_attributes: dict[str, Any]) -> No
 
 
 def _semantic_kernel_chat_completion_input_wrapper(original, *args, **kwargs) -> None:
-    print(f"[wrapper] {get_current_span().get_span_context().span_id}")
-
     # NB: Semantic Kernel logs chat completions, so we need to extract it and add it to the span.
     try:
         prompt = args[1] if len(args) > 1 else kwargs.get("prompt")
@@ -243,7 +215,6 @@ def _semantic_kernel_chat_completion_input_wrapper(original, *args, **kwargs) ->
 
 
 def _semantic_kernel_chat_completion_response_wrapper(original, *args, **kwargs) -> None:
-    print("completionwrappercall")
     # NB: Semantic Kernel logs chat completions, so we need to extract it and add it to the span.
     try:
         current_span = (args[0] if args else kwargs.get("current_span")) or get_current_span()
@@ -288,5 +259,9 @@ def _semantic_kernel_chat_completion_error_wrapper(original, *args, **kwargs) ->
 
     mlflow_span.add_event(SpanEvent.from_exception(error))
     mlflow_span.set_status(SpanStatusCode.ERROR)
+    from mlflow.tracing.trace_manager import InMemoryTraceManager
+
+    with InMemoryTraceManager.get_instance().get_trace(mlflow_span.trace_id) as t:
+        t.info.status = TraceStatus.ERROR
 
     return original(*args, **kwargs)

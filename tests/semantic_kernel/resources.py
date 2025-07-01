@@ -51,7 +51,9 @@ async def _create_and_invoke_kernel_complex(mock_openai):
 
     # Prepare input
     chat_history = ChatHistory(
-        system_message="You are a chat bot named Mosscap, dedicated to figuring out what people need."
+        system_message=(
+            "You are a chat bot named Mosscap, dedicated to figuring out what people need."
+        )
     )
     chat_history.add_user_message("Hi there, who are you?")
     chat_history.add_assistant_message(

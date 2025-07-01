@@ -1,9 +1,8 @@
 import importlib
 
-import asyncio
-import mlflow.tracing
 import openai
 import pytest
+import pytest_asyncio
 from opentelemetry import trace as trace_api
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.util._once import Once
@@ -57,17 +56,9 @@ def dummy_otel_span_processor():
     return DummySpanProcessor(DummySpanExporter())
 
 
-def _reset_tracing_globals() -> None:
+@pytest_asyncio.fixture(autouse=True)
+async def post_test_tracing_cleanup():
+    yield
 
     trace_api._TRACER_PROVIDER_SET_ONCE = Once()
     trace_api._TRACER_PROVIDER = None
-    trace_api._PROXY_TRACER_PROVIDER = trace_api.ProxyTracerProvider()
-
-    mlflow.tracing.provider.reset()
-    mlflow.tracing.trace_manager.InMemoryTraceManager.get_instance().reset()
-
-@pytest.fixture(autouse=True)
-async def post_test_tracing_cleanup():
-    yield 
-    await asyncio.sleep(0.1)
-    _reset_tracing_globals()
