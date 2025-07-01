@@ -138,6 +138,12 @@ article ul ul ul {
   --ifm-color-emphasis-hover: #000000;
   --ifm-link-color: #0194e2;
 
+  /* Site-wide shadow colors */
+  --ifm-shadow-light: rgba(0, 0, 0, 0.1);
+  --ifm-shadow-medium: rgba(0, 0, 0, 0.15);
+  --ifm-shadow-heavy: rgba(0, 0, 0, 0.25);
+  --ifm-shadow-tile-hover: 0 10px 30px var(--ifm-shadow-light);
+
   /* Dynamic Coloring based on theme selection */
   --ifm-color-primary: #0194e2;
   --ifm-color-primary-dark: #0086cf;
@@ -327,6 +333,12 @@ code, pre, kbd {
   --ifm-border-color: #9CA3AF;
   --ifm-color-emphasis-hover: #FFFFFF;
   --ifm-link-color: #43c9ed;
+
+  /* Dark mode shadow colors */
+  --ifm-shadow-light: rgba(255, 255, 255, 0.1);
+  --ifm-shadow-medium: rgba(255, 255, 255, 0.15);
+  --ifm-shadow-heavy: rgba(255, 255, 255, 0.25);
+  --ifm-shadow-tile-hover: 0 10px 30px var(--ifm-shadow-light);
 
   /* Inverted shadows */
   --card-shadow1: rgba(162, 162, 162, 0.5);
@@ -653,7 +665,7 @@ html[data-theme='dark'] .menu__link--active {
   width: 100%;
   height: auto;
   border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--ifm-shadow-tile-hover);
 }
 
 /* Tiles Grid */

@@ -1,18 +1,20 @@
 .tileCard {
   background: var(--ifm-background-color);
-  border: 1px solid rgba(107, 114, 128, 0.4);
+  border: 1px solid var(--ifm-border-color);
   border-radius: 12px;
   padding: 2rem;
   text-align: center;
   transition: all 0.3s ease;
   position: relative;
   overflow: hidden;
+  opacity: 0.7;
 }
 
 .tileCard:hover {
   transform: translateY(-4px);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--ifm-shadow-tile-hover);
   border-color: #0194e2;
+  opacity: 1;
 }
 
 .tileCard:hover .tileIcon {
