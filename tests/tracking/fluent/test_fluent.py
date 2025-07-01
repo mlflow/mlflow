@@ -14,6 +14,7 @@ from itertools import zip_longest
 from unittest import mock
 
 import pandas as pd
+import polars as pl
 import pytest
 
 import mlflow
@@ -1369,6 +1370,23 @@ def test_log_inputs(tmp_path):
     assert json.loads(dataset_inputs[2].dataset.source) == {"uri": str(path3)}
     assert dataset_inputs[2].tags[0].key == mlflow_tags.MLFLOW_DATASET_CONTEXT
     assert dataset_inputs[2].tags[0].value == "train3"
+
+
+def test_log_input_polars(tmp_path):
+    df = pl.DataFrame({"a": [1, 2, 3], "b": [4, 5, 6], "c": [7, 8, 9]})
+    path = tmp_path / "temp.csv"
+    df.write_csv(path)
+    dataset = mlflow.data.from_polars(df, source=path)
+    with start_run() as run:
+        mlflow.log_input(dataset, "train")
+
+    logged_inputs = MlflowClient().get_run(run.info.run_id).inputs
+    dataset_inputs = logged_inputs.dataset_inputs
+
+    assert len(dataset_inputs) == 1
+    assert dataset_inputs[0].dataset.name == "dataset"
+    assert dataset_inputs[0].dataset.digest == "17158191685003305501"
+    assert dataset_inputs[0].dataset.source_type == "local"
 
 
 def test_log_input_metadata_only():

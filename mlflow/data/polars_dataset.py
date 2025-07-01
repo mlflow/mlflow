@@ -2,7 +2,7 @@ import json
 import logging
 from functools import cached_property
 from inspect import isclass
-from typing import Any, Dict, Final, Optional, TypedDict, Union
+from typing import Any, Final, Optional, TypedDict, Union
 
 import polars as pl
 from polars.datatypes.classes import DataType as PolarsDataType
@@ -27,7 +27,7 @@ def hash_polars_df(df: pl.DataFrame) -> str:
 
 
 ColSpecType = Union[DataType, Array, Object, str]
-TYPE_MAP: Final[Dict[PolarsDataTypeClass, DataType]] = {
+TYPE_MAP: Final[dict[PolarsDataTypeClass, DataType]] = {
     pl.Binary: DataType.binary,
     pl.Boolean: DataType.boolean,
     pl.Datetime: DataType.datetime,
@@ -40,7 +40,7 @@ TYPE_MAP: Final[Dict[PolarsDataTypeClass, DataType]] = {
     pl.String: DataType.string,
     pl.Utf8: DataType.string,
 }
-CLOSE_MAP: Final[Dict[PolarsDataTypeClass, DataType]] = {
+CLOSE_MAP: Final[dict[PolarsDataTypeClass, DataType]] = {
     pl.Categorical: DataType.string,
     pl.Enum: DataType.string,
     pl.Date: DataType.datetime,
