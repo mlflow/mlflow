@@ -75,34 +75,18 @@ export function startSpan(options: SpanOptions): LiveSpan {
  * parent-child relationships between spans.
  *
  * This function supports two usage patterns:
- * 1. Inline: withSpan(callback) - span properties set within the callback
- * 2. Options: withSpan(options, callback) - span properties set via options object
+ * 1. Inline: withSpan((span) => { ... }) - span properties set within the callback
+ * 2. Options: withSpan((span) => { ... }, { name: 'test', ... }) - span properties set via options object
  *
- * @param optionsOrCallback Either span options or the callback function
- * @param callback The callback function (when options are provided)
+ * @param callback The callback function to execute within the span context
+ * @param options Optional span options (name, span_type, inputs, attributes, startTimeNs)
  * @returns The result of the callback function
  */
-export function withSpan<T>(callback: (span: LiveSpan) => T | Promise<T>): T | Promise<T>;
 export function withSpan<T>(
-  options: Omit<SpanOptions, 'parent'>,
-  callback: (span: LiveSpan) => T | Promise<T>
-): T | Promise<T>;
-
-export function withSpan<T>(
-  optionsOrCallback: Omit<SpanOptions, 'parent'> | ((span: LiveSpan) => T | Promise<T>),
-  callback?: (span: LiveSpan) => T | Promise<T>
+  callback: (span: LiveSpan) => T | Promise<T>,
+  options?: Omit<SpanOptions, 'parent'>
 ): T | Promise<T> {
-  // Determine if first argument is options or callback
-  const isOptionsProvided = typeof optionsOrCallback === 'object' && optionsOrCallback != null;
-  const spanOptions: Omit<SpanOptions, 'parent'> = isOptionsProvided
-    ? optionsOrCallback
-    : { name: DEFAULT_SPAN_NAME };
-  const actualCallback = isOptionsProvided
-    ? (callback ??
-      (() => {
-        throw new Error('Callback is required when options are provided');
-      }))
-    : optionsOrCallback;
+  const spanOptions: Omit<SpanOptions, 'parent'> = options ?? { name: DEFAULT_SPAN_NAME };
 
   // Generate a default span name if not provided
   const spanName = spanOptions.name || DEFAULT_SPAN_NAME;
@@ -134,7 +118,7 @@ export function withSpan<T>(
 
     try {
       // Execute the callback with the span
-      const result = actualCallback(mlflowSpan);
+      const result = callback(mlflowSpan);
 
       // Handle both sync and async results
       if (result instanceof Promise) {

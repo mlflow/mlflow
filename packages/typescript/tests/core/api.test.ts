@@ -242,16 +242,16 @@ describe('API', () => {
         // Example: Creating a traced addition function
         const add = (a: number, b: number) => {
           const sum = withSpan(
+            (span) => {
+              const result = a + b;
+              span.setOutputs(result);
+              return result;
+            },
             {
               name: 'add',
               span_type: SpanType.TOOL,
               inputs: { a, b },
               attributes: { operation: 'addition' }
-            },
-            (span) => {
-              const result = a + b;
-              span.setOutputs(result);
-              return result;
             }
           );
           return sum;
@@ -275,12 +275,6 @@ describe('API', () => {
         // Example: Creating a traced async function that fetches user data
         const fetchUserData = (userId: string) => {
           return withSpan(
-            {
-              name: 'fetchUserData',
-              span_type: SpanType.RETRIEVER,
-              inputs: { userId },
-              attributes: { service: 'user-api', version: '1.0' }
-            },
             async (span) => {
               // Simulate API call
               await new Promise((resolve) => setTimeout(resolve, 10));
@@ -292,6 +286,12 @@ describe('API', () => {
               span.setAttributes({ responseTime: '10ms' });
 
               return userData;
+            },
+            {
+              name: 'fetchUserData',
+              span_type: SpanType.RETRIEVER,
+              inputs: { userId },
+              attributes: { service: 'user-api', version: '1.0' }
             }
           );
         };
@@ -318,25 +318,25 @@ describe('API', () => {
 
       it('should handle nested spans with automatic parent-child relationship', () => {
         const result = withSpan(
-          {
-            name: 'parent',
-            inputs: { operation: 'parent operation' }
-          },
           (parentSpan) => {
             // Nested withSpan call - should automatically be a child of the parent
             const childResult = withSpan(
-              {
-                name: 'child',
-                inputs: { nested: true }
-              },
               (childSpan) => {
                 childSpan.setAttributes({ nested: true });
                 return 'child result';
+              },
+              {
+                name: 'child',
+                inputs: { nested: true }
               }
             );
 
             parentSpan.setOutputs({ childResult });
             return childResult;
+          },
+          {
+            name: 'parent',
+            inputs: { operation: 'parent operation' }
           }
         );
 
@@ -398,57 +398,72 @@ describe('API', () => {
         // Test complex async scenario with multiple traces and nested spans
         const results = await Promise.all([
           // First trace with nested async operations
-          withSpan({ name: 'trace1-parent', inputs: { traceId: 1 } }, async (parentSpan) => {
-            // Simulate some async work
-            await new Promise((resolve) => setTimeout(resolve, 5));
+          withSpan(
+            async (parentSpan) => {
+              // Simulate some async work
+              await new Promise((resolve) => setTimeout(resolve, 5));
 
-            // Create multiple child spans in parallel
-            const childResults = await Promise.all([
-              withSpan({ name: 'trace1-child1', inputs: { childId: 1 } }, async (childSpan) => {
-                await new Promise((resolve) => setTimeout(resolve, 3));
-                childSpan.setOutputs({ processed: true });
-                return 'child1-result';
-              }),
-              withSpan({ name: 'trace1-child2', inputs: { childId: 2 } }, async (childSpan) => {
-                await new Promise((resolve) => setTimeout(resolve, 2));
-                // Nested grandchild
-                const grandchildResult = await withSpan(
-                  { name: 'trace1-grandchild', inputs: { grandchildId: 1 } },
-                  async () => {
-                    await new Promise((resolve) => setTimeout(resolve, 1));
-                    return 'grandchild-result';
-                  }
-                );
-                childSpan.setOutputs({ grandchildResult });
-                return 'child2-result';
-              })
-            ]);
+              // Create multiple child spans in parallel
+              const childResults = await Promise.all([
+                withSpan(
+                  async (childSpan) => {
+                    await new Promise((resolve) => setTimeout(resolve, 3));
+                    childSpan.setOutputs({ processed: true });
+                    return 'child1-result';
+                  },
+                  { name: 'trace1-child1', inputs: { childId: 1 } }
+                ),
+                withSpan(
+                  async (childSpan) => {
+                    await new Promise((resolve) => setTimeout(resolve, 2));
+                    // Nested grandchild
+                    const grandchildResult = await withSpan(
+                      async () => {
+                        await new Promise((resolve) => setTimeout(resolve, 1));
+                        return 'grandchild-result';
+                      },
+                      { name: 'trace1-grandchild', inputs: { grandchildId: 1 } }
+                    );
+                    childSpan.setOutputs({ grandchildResult });
+                    return 'child2-result';
+                  },
+                  { name: 'trace1-child2', inputs: { childId: 2 } }
+                )
+              ]);
 
-            parentSpan.setOutputs({ childResults });
-            return childResults;
-          }),
+              parentSpan.setOutputs({ childResults });
+              return childResults;
+            },
+            { name: 'trace1-parent', inputs: { traceId: 1 } }
+          ),
 
           // Second independent trace running concurrently
-          withSpan({ name: 'trace2-parent', inputs: { traceId: 2 } }, async (parentSpan) => {
-            await new Promise((resolve) => setTimeout(resolve, 4));
+          withSpan(
+            async (parentSpan) => {
+              await new Promise((resolve) => setTimeout(resolve, 4));
 
-            const result = await withSpan(
-              { name: 'trace2-child', inputs: { childId: 1 } },
-              async () => {
-                await new Promise((resolve) => setTimeout(resolve, 2));
-                return 'trace2-child-result';
-              }
-            );
+              const result = await withSpan(
+                async () => {
+                  await new Promise((resolve) => setTimeout(resolve, 2));
+                  return 'trace2-child-result';
+                },
+                { name: 'trace2-child', inputs: { childId: 1 } }
+              );
 
-            parentSpan.setOutputs({ childResult: result });
-            return result;
-          }),
+              parentSpan.setOutputs({ childResult: result });
+              return result;
+            },
+            { name: 'trace2-parent', inputs: { traceId: 2 } }
+          ),
 
           // Third independent trace with synchronous operation
-          withSpan({ name: 'trace3-simple', inputs: { traceId: 3 } }, (span) => {
-            span.setOutputs({ immediate: true });
-            return 'trace3-result';
-          })
+          withSpan(
+            (span) => {
+              span.setOutputs({ immediate: true });
+              return 'trace3-result';
+            },
+            { name: 'trace3-simple', inputs: { traceId: 3 } }
+          )
         ]);
 
         // Verify results
