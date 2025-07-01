@@ -295,11 +295,11 @@ def _create_genai_trace_view(final_view: str, raw_spans_table: str, raw_events_t
             -- Parse the JSON body string into individual fields
             GET_JSON_OBJECT(body, '$.assessment_id') AS assessment_id,
             GET_JSON_OBJECT(body, '$.trace_id') AS assessment_trace_id,
-            GET_JSON_OBJECT(body, '$.name') AS assessment_name,
+            GET_JSON_OBJECT(body, '$.assessment_name') AS assessment_name,
             GET_JSON_OBJECT(body, '$.source.source_id') AS source_id,
             GET_JSON_OBJECT(body, '$.source.source_type') AS source_type,
-            CAST(GET_JSON_OBJECT(body, '$.create_time_ms') AS LONG) AS create_time_ms,
-            CAST(GET_JSON_OBJECT(body, '$.last_update_time_ms') AS LONG) AS last_update_time_ms,
+            CAST(GET_JSON_OBJECT(body, '$.create_time') AS TIMESTAMP) AS create_time,
+            CAST(GET_JSON_OBJECT(body, '$.last_update_time') AS TIMESTAMP) AS last_update_time,
             GET_JSON_OBJECT(body, '$.expectation.value') AS expectation_value,
             GET_JSON_OBJECT(body, '$.feedback.value') AS feedback_value,
             GET_JSON_OBJECT(body, '$.feedback.error.error_code') AS feedback_error_code,
@@ -322,8 +322,8 @@ def _create_genai_trace_view(final_view: str, raw_spans_table: str, raw_events_t
                 'source_id', source_id,
                 'source_type', source_type
               ),
-              'create_time', TIMESTAMP(create_time_ms / 1000),
-              'last_update_time', TIMESTAMP(last_update_time_ms / 1000),
+              'create_time', create_time,
+              'last_update_time', last_update_time,
               'expectation', NAMED_STRUCT('value', expectation_value),
               'feedback', NAMED_STRUCT(
                 'value', feedback_value,
