@@ -324,7 +324,7 @@ def from_polars(
         import polars as pl
 
         x = pl.DataFrame(
-            [["tom", 10, 1, 1], ["nick", 15, 0, 1], ["juli", 14, 1, 1]],
+            [["tom", 10, 1, 1], ["nick", 15, 0, 1], ["julie", 14, 1, 1]],
             schema=["Name", "Age", "Label", "ModelOutput"],
         )
         dataset = mlflow.data.from_polars(x, targets="Label", predictions="ModelOutput")
