@@ -79,7 +79,7 @@ The SDK communicates with MLflow backends through REST APIs:
 
 ### High-Level APIs (`src/core/api.ts`)
 
-**`withSpan(options?, callback)`**:
+**`withSpan(callback, options?)`**:
 
 - Automatic span lifecycle management
 - Supports both inline and options-based usage
