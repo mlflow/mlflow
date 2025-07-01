@@ -46,7 +46,7 @@ from mlflow.protos.databricks_pb2 import (
 )
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.store.tracking.file_store import FileStore
+from mlflow.store.tracking.file_store import FileStore, MissingConfigException
 from mlflow.tracing.constant import (
     MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE,
     TraceMetadataKey,
@@ -3509,19 +3509,30 @@ def test_traces_not_listed_as_runs(tmp_path):
             client.search_runs([run.info.experiment_id], "", ViewType.ALL, max_results=1)
             mock_debug.assert_not_called()
 
-def test_get_experiment_by_name_missing_metadata(tmp_path):
+def test_get_experiment_missing_metadata_file(tmp_path):
+
     fs = FileStore(str(tmp_path))
-    exp_id = fs.create_experiment("demo_experiment")
 
-    # Delete the metadata file to simulate corruption or missing file
-    exp_dir = fs._get_experiment_path(exp_id)
-    exp_meta_path = os.path.join(exp_dir, FileStore.META_DATA_FILE_NAME)
+    exp_id = "Demo_Experiment"
+    exp_dir = tmp_path / exp_id
+    exp_dir.mkdir()
 
-    if os.path.exists(exp_meta_path):
-        os.remove(exp_meta_path)
-    else:
-        print(f"meta.yaml not found in {exp_meta_path}")
+    # No meta.yaml — should raise MissingConfigException about missing file
+    with pytest.raises(MissingConfigException, match=f"Yaml file '.*{exp_id}/meta.yaml' does not exist."):
+        fs._get_experiment(exp_id)
 
-    # Should return None — not raise TypeError
-    result = fs.get_experiment_by_name("demo_experiment")
-    assert result is None
+def test_get_experiment_with_empty_metadata(tmp_path):
+    
+    fs = FileStore(str(tmp_path))
+
+    # Manually create experiment directory without meta.yaml
+    exp_id = "Demo_Experiment"
+    exp_dir = tmp_path / exp_id
+    exp_dir.mkdir()
+
+    # Create an empty meta.yaml file to simulate corruption
+    (exp_dir / FileStore.META_DATA_FILE_NAME).write_text("")
+
+    # This should now raise MissingConfigException about empty meta.yaml
+    with pytest.raises(MissingConfigException, match=f"Experiment {exp_id} is invalid with empty"):
+        fs._get_experiment(exp_id)

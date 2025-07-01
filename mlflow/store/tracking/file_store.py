@@ -473,7 +473,6 @@ class FileStore(AbstractStore):
             return None
         return experiment
 
-
     def get_experiment(self, experiment_id):
         """
         Fetch the experiment.
