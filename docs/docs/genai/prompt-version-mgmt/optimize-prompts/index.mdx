@@ -22,11 +22,11 @@ This feature helps you improve your prompts automatically by leveraging evaluati
 
 In order to use <APILink fn="mlflow.genai.optimize_prompt" /> API, you need to prepare the following:
 
-| Component | Definition | Example |
-|-----------|------------|---------|
-| **Registered Prompt** | A prompt registered in MLflow. See [Prompt Management](/genai/prompt-version-mgmt/prompt-registry/) for how to register a prompt. | <pre><code>mlflow.register_prompt(name="qa", template="Answer \{\{question\}\}")</code></pre> |
-| **Scorer Objects** | A set of <APILink fn="mlflow.genai.Scorer">Scorer</APILink> objects that evaluate the quality of the prompt. See <APILink fn="mlflow.genai.scorer" /> for how to define a custom scorer. | <pre><code>@scorer<br/>def exact_match(expectations: dict, outputs: dict)<br/>    return expectations == outputs</code></pre> |
-| **Training(+Validation) Data** | A set of training data and optionally validation data containing inputs and expected outputs. | \[\{"inputs": \{"question": "2+2"\}, "expectations": \{"answer": "4"\}}, \{"inputs": \{"question": "2+3"\}, "expectations": \{"answer": "5"\}\}\]|
+| Component                      | Definition                                                                                                                                                                               | Example                                                                                                                                           |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Registered Prompt**          | A prompt registered in MLflow. See [Prompt Management](/genai/prompt-version-mgmt/prompt-registry/) for how to register a prompt.                                                        | <pre><code>mlflow.register_prompt(name="qa", template="Answer \{\{question\}\}")</code></pre>                                                     |
+| **Scorer Objects**             | A set of <APILink fn="mlflow.genai.Scorer">Scorer</APILink> objects that evaluate the quality of the prompt. See <APILink fn="mlflow.genai.scorer" /> for how to define a custom scorer. | <pre><code>@scorer<br/>def exact_match(expectations: dict, outputs: dict)<br/> return expectations == outputs</code></pre>                        |
+| **Training(+Validation) Data** | A set of training data and optionally validation data containing inputs and expected outputs.                                                                                            | \[\{"inputs": \{"question": "2+2"\}, "expectations": \{"answer": "4"\}}, \{"inputs": \{"question": "2+3"\}, "expectations": \{"answer": "5"\}\}\] |
 
 ## Getting Started
 

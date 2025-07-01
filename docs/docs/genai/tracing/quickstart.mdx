@@ -5,7 +5,6 @@ import TabItem from '@theme/TabItem';
 
 This quickstart guide will walk you through setting up a simple GenAI application with MLflow Tracing. In less than 10 minutes, you'll enable tracing, run a basic application, and explore the generated traces in the MLflow UI.
 
-
 ## Prerequisites
 
 This guide requires the following packages:
@@ -71,7 +70,6 @@ This will prompt you for your configuration details (Databricks Host url and a P
 
 </Tabs>
 
-
 ### Configure OpenAI API Key
 
 Set your OpenAI API key as an environment variable:
@@ -90,6 +88,7 @@ You can also set the environment variable in your shell before running the scrip
 export OPENAI_API_KEY="your-api-key-here"
 export MLFLOW_TRACKING_URI="http://your-mlflow-server:5000"  # Optional: for remote server, set as 'databricks' if connecting to a Databricks account
 ```
+
 :::
 
 ## Step 2: Create a simple application with tracing
@@ -271,39 +270,41 @@ print("\nEnhanced traces captured! Check the MLflow UI for detailed trace inform
 Now that you have basic tracing working, explore these advanced features:
 
 1. **Search and Filter Traces**
-Learn how to find specific traces using the [search functionality](/genai/tracing/search-traces).
+   Learn how to find specific traces using the [search functionality](/genai/tracing/search-traces).
 
 2. **Add Tags and Context**
-Organize your traces with [custom tags](/genai/tracing/attach-tags) for better monitoring.
+   Organize your traces with [custom tags](/genai/tracing/attach-tags) for better monitoring.
 
 3. **Production Deployment**
-Set up [production monitoring](/genai/tracing/prod-tracing) with the lightweight SDK.
+   Set up [production monitoring](/genai/tracing/prod-tracing) with the lightweight SDK.
 
 4. **Integration with Other Libraries**
-Explore [automatic tracing](/genai/tracing/integrations/) for LangChain, LlamaIndex, and more.
+   Explore [automatic tracing](/genai/tracing/integrations/) for LangChain, LlamaIndex, and more.
 
 5. **Manual Instrumentation**
-Learn [manual tracing techniques](/genai/tracing/app-instrumentation/manual-tracing) for custom applications.
+   Learn [manual tracing techniques](/genai/tracing/app-instrumentation/manual-tracing) for custom applications.
 
 ## Troubleshooting
 
 ### Common Issues
 
 **Traces not appearing in UI:**
+
 - Verify MLflow server is running and accessible
 - Check that `MLFLOW_TRACKING_URI` is set correctly
 - Ensure experiment exists (MLflow creates it automatically if it doesn't)
 
 **OpenAI API errors:**
+
 - Verify your `OPENAI_API_KEY` is set correctly
 - Check that you have API credits available
 - Ensure the model name (`gpt-4o-mini`) is correct and accessible
 
 **MLflow server not starting:**
+
 - Check if port 5000 is already in use: `lsof -i :5000`
 - Try a different port: `mlflow ui --port 5001`
 - Verify MLflow installation: `mlflow --version`
-
 
 ## Summary
 

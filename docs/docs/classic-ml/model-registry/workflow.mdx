@@ -73,8 +73,8 @@ tags, and description.
 
 ## API Workflow
 
-An alternative way to interact with Model Registry is using the <Link to={"/api_reference/python_api/index.html"} target="\_blank">MLflow model flavor</Link>
-o <Link to={"/api_reference/python_api/mlflow.client.html"} target="\_blank">MLflow Client Tracking API</Link> interface. In particular, you can register a model during an
+An alternative way to interact with Model Registry is using the <Link to="/api_reference/python_api/index.html" target="_blank">MLflow model flavor</Link>
+o <Link to="/api_reference/python_api/mlflow.client.html" target="_blank">MLflow Client Tracking API</Link> interface. In particular, you can register a model during an
 MLflow experiment run or after all your experiment runs.
 
 ### Adding an MLflow Model to the Model Registry
@@ -621,7 +621,7 @@ using MLflow Model fluent APIs.
 
 To work around this problem, you can create an instance of a <APILink fn="mlflow.pyfunc">`mlflow.pyfunc`</APILink>
 model flavor and embed your NLP model inside it, allowing you to save, log or register the model. Once registered,
-load the model from the Model Registry and score using the <Link to={"/api_reference/python_api/mlflow.pyfunc.html#mlflow.pyfunc.PyFuncModel.predict"} target="\_blank">`predict`</Link>
+load the model from the Model Registry and score using the <Link to="/api_reference/python_api/mlflow.pyfunc.html#mlflow.pyfunc.PyFuncModel.predict" target="_blank">`predict`</Link>
 function.
 
 The code sections below demonstrate how to create a `PythonFuncModel` class with a `vaderSentiment` model embedded in it,

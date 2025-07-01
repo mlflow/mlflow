@@ -15,6 +15,7 @@ Feedback serves as the bridge between running your application and understanding
 ## Core Concepts
 
 ### Feedback Object
+
 The **Feedback object** (also referred to as an **Assessment** in some contexts) is the fundamental building block of MLflow's evaluation system. It serves as a standardized container for the result of any quality check, providing a common language for assessment across different evaluation methods.
 
 <Tabs>
@@ -34,6 +35,7 @@ The **Feedback object** (also referred to as an **Assessment** in some contexts)
     **Rationale**: A string explaining why the assessment resulted in the given value
 
     This explanation is crucial for transparency, debugging, and understanding evaluation behavior, especially for LLM-based assessments.
+
   </TabItem>
   <TabItem value="sources" label="Feedback Sources">
     Feedback can originate from multiple sources, each with different characteristics:
@@ -54,6 +56,7 @@ The **Feedback object** (also referred to as an **Assessment** in some contexts)
     - Essential for establishing ground truth
 
     All feedback types are treated equally in MLflow and can be combined to provide comprehensive quality assessment.
+
   </TabItem>
   <TabItem value="attachment" label="Trace Attachment">
     Feedback objects are attached to **MLflow Traces**, creating a direct connection between application execution and quality assessment:
@@ -65,6 +68,7 @@ The **Feedback object** (also referred to as an **Assessment** in some contexts)
     **Historical Analysis**: Attached feedback enables tracking quality trends over time and across different application versions
 
     **Debugging Context**: When quality issues arise, you can examine both the execution trace and the assessment rationale
+
   </TabItem>
 </Tabs>
 
@@ -88,6 +92,7 @@ Feedback can evaluate various aspects of your GenAI application's performance:
       "rationale": "The response correctly identifies 3 out of 4 key facts about MLflow, but incorrectly states the founding year."
     }
     ```
+
   </TabItem>
   <TabItem value="relevance" label="Relevance & Context">
     **Query Relevance**: How well the response addresses the specific user question
@@ -104,6 +109,7 @@ Feedback can evaluate various aspects of your GenAI application's performance:
       "rationale": "Response directly answers the user's question about MLflow features and provides relevant examples."
     }
     ```
+
   </TabItem>
   <TabItem value="safety" label="Safety & Guidelines">
     **Content Safety**: Detecting harmful, inappropriate, or toxic content
@@ -120,6 +126,7 @@ Feedback can evaluate various aspects of your GenAI application's performance:
       "rationale": "Content contains no harmful, toxic, or inappropriate material."
     }
     ```
+
   </TabItem>
   <TabItem value="quality" label="Quality & Style">
     **Writing Quality**: Grammar, clarity, and coherence of the response
@@ -136,6 +143,7 @@ Feedback can evaluate various aspects of your GenAI application's performance:
       "rationale": "Response provides clear, actionable information but could include more specific examples."
     }
     ```
+
   </TabItem>
 </Tabs>
 
@@ -152,6 +160,7 @@ Understanding how feedback flows through your evaluation process:
     **Multiple Evaluators**: Different evaluation methods can assess the same trace, creating multiple feedback objects
 
     **Batch or Real-time**: Feedback can be generated immediately or in batch processes
+
   </TabItem>
   <TabItem value="attachment" label="Attachment">
     **Trace Association**: Each feedback object is linked to a specific trace using trace IDs
@@ -161,6 +170,7 @@ Understanding how feedback flows through your evaluation process:
     **Metadata Preservation**: All context about the evaluation method and timing is maintained
 
     **Version Tracking**: Changes to feedback or re-evaluations are tracked over time
+
   </TabItem>
   <TabItem value="aggregation" label="Aggregation">
     **Quality Metrics**: Individual feedback objects can be aggregated into overall quality scores
@@ -170,6 +180,7 @@ Understanding how feedback flows through your evaluation process:
     **Comparative Analysis**: Compare feedback across different model versions, prompts, or configurations
 
     **Reporting**: Generate quality reports and dashboards from aggregated feedback data
+
   </TabItem>
 </Tabs>
 
@@ -178,32 +189,41 @@ Understanding how feedback flows through your evaluation process:
 MLflow supports different types of feedback to accommodate various evaluation needs:
 
 ### Scalar Feedback
+
 **Numeric Scores**: Continuous values representing quality on a scale
+
 - Range: Often 0.0 to 1.0 or 1 to 5
 - Use case: Measuring degrees of quality like relevance or accuracy
 - Example: `{"name": "relevance", "value": 0.87}`
 
 **Boolean Values**: Binary assessments for pass/fail criteria
+
 - Values: `true` or `false`
 - Use case: Safety checks, guideline compliance
 - Example: `{"name": "contains_pii", "value": false}`
 
 ### Categorical Feedback
+
 **Labels**: Discrete categories representing quality levels
+
 - Values: Predefined labels like "EXCELLENT", "GOOD", "POOR"
 - Use case: Human-like quality ratings
 - Example: `{"name": "overall_quality", "value": "GOOD"}`
 
 **Classification**: Specific category assignments
+
 - Values: Domain-specific categories
 - Use case: Content classification, intent recognition
 - Example: `{"name": "response_type", "value": "INFORMATIONAL"}`
 
 ### Structured Feedback
+
 **Complex Objects**: Rich data structures containing multiple assessment aspects
+
 - Format: JSON objects with nested properties
 - Use case: Comprehensive evaluations with multiple dimensions
 - Example:
+
 ```json
 {
   "name": "comprehensive_quality",
@@ -237,6 +257,7 @@ Different approaches for generating feedback:
     - Complex reasoning evaluation
 
     **Example**: An LLM judge evaluating response helpfulness with detailed rationale explaining specific strengths and weaknesses.
+
   </TabItem>
   <TabItem value="programmatic" label="Programmatic Checks">
     **Rule-Based Evaluation**: Algorithmic assessment using predefined logic
@@ -254,6 +275,7 @@ Different approaches for generating feedback:
     - Quantitative metrics
 
     **Example**: Checking if a response contains required elements or meets length requirements.
+
   </TabItem>
   <TabItem value="human-review" label="Human Review">
     **Manual Assessment**: Human evaluators providing direct feedback
@@ -271,6 +293,7 @@ Different approaches for generating feedback:
     - Final quality validation
 
     **Example**: Human reviewers assessing response quality using standardized rubrics and providing detailed feedback.
+
   </TabItem>
 </Tabs>
 
@@ -279,6 +302,7 @@ Different approaches for generating feedback:
 Feedback integrates seamlessly with MLflow's ecosystem:
 
 ### Trace Connection
+
 **Direct Association**: Feedback objects are linked to specific traces, providing context about what was evaluated
 
 **Execution Context**: Access to complete application execution data when performing evaluations
@@ -286,6 +310,7 @@ Feedback integrates seamlessly with MLflow's ecosystem:
 **Multi-Step Evaluation**: Ability to evaluate individual spans within a trace or the overall trace result
 
 ### Evaluation Framework
+
 **Scorer Functions**: Automated functions that generate feedback based on trace data
 
 **Judge Functions**: LLM-based evaluators that provide intelligent assessment
@@ -293,6 +318,7 @@ Feedback integrates seamlessly with MLflow's ecosystem:
 **Custom Metrics**: Ability to define domain-specific evaluation criteria
 
 ### Analysis and Monitoring
+
 **Quality Dashboards**: Visualize feedback trends and patterns over time
 
 **Performance Tracking**: Monitor how changes to your application affect quality metrics
@@ -302,6 +328,7 @@ Feedback integrates seamlessly with MLflow's ecosystem:
 ## Best Practices
 
 ### Feedback Design
+
 **Clear Names**: Use descriptive, consistent names for feedback dimensions
 
 **Appropriate Scales**: Choose value types and ranges that match your evaluation needs
@@ -309,6 +336,7 @@ Feedback integrates seamlessly with MLflow's ecosystem:
 **Meaningful Rationale**: Provide clear explanations that help with debugging and improvement
 
 ### Evaluation Strategy
+
 **Multiple Dimensions**: Assess various aspects of quality, not just a single metric
 
 **Balanced Approach**: Combine automated and human evaluation methods
@@ -316,6 +344,7 @@ Feedback integrates seamlessly with MLflow's ecosystem:
 **Regular Review**: Periodically review and update evaluation criteria
 
 ### Quality Monitoring
+
 **Baseline Establishment**: Set quality baselines for comparison
 
 **Trend Monitoring**: Track quality changes over time and across versions
@@ -336,4 +365,4 @@ To begin using feedback in your GenAI evaluation workflow:
 
 ---
 
-*Feedback concepts form the foundation for systematic quality assessment in MLflow. By understanding how feedback objects work and integrate with traces, you can build comprehensive evaluation strategies that improve your GenAI applications over time.*
+_Feedback concepts form the foundation for systematic quality assessment in MLflow. By understanding how feedback objects work and integrate with traces, you can build comprehensive evaluation strategies that improve your GenAI applications over time._
