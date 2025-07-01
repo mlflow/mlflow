@@ -9,8 +9,9 @@ from mlflow.entities.model_registry import Prompt
 from mlflow.exceptions import MlflowException
 from mlflow.genai.optimize.optimizers.dspy_optimizer import _DSPyOptimizer
 from mlflow.genai.optimize.types import OBJECTIVE_FN, LLMParams
+from mlflow.genai.prompts import register_prompt
 from mlflow.genai.scorers import Scorer
-from mlflow.tracking._model_registry.fluent import active_run, register_prompt
+from mlflow.tracking._model_registry.fluent import active_run
 from mlflow.tracking.fluent import log_metric, log_param
 
 if TYPE_CHECKING:
