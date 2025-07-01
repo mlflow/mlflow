@@ -59,6 +59,7 @@ export const MlflowRouter = ({
               display: 'flex',
               flexDirection: 'row',
               flexGrow: 1,
+              minHeight: 0,
             }}
           >
             {showSidebar && <MlflowSidebar />}
