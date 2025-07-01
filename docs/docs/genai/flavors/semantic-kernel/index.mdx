@@ -1,0 +1,43 @@
+import { APILink } from "@site/src/components/APILink";
+import { CardGroup, PageCard } from "@site/src/components/Card";
+
+# MLflow Semantic Kernel Flavor
+
+**NOTE**: Currently, only MLflow tracing is supported for the Semantic Kernel flavor.
+
+## Introduction
+
+**Semantic Kernel** is a lightweight, open-source SDK that functions as AI middleware, enabling 
+you to integrate AI models into your C#, Python, or Java codebase via a uniform API layer. By 
+abstracting model interactions, it lets you swap in new models without rewriting your application 
+logic. 
+
+Beyond simple prompts, Semantic Kernel automates business processes by translating natural-language 
+requests into function calls—calling your existing code or external services and returning results 
+to the model. Its modular extensibility, powered by out-of-the-box connectors and OpenAPI-based 
+plugins (e.g., Microsoft 365 Copilot), lets both professional and low-code developers share and 
+reuse AI-powered workflows. This combination of flexibility, security, and ease of integration 
+makes Semantic Kernel ideal for rapidly building responsible, future-proof AI solutions.
+
+## Why use Semantic Kernel with MLflow?
+
+The integration of the Semantic Kernel library with MLflow provides tracing support, allow you to easily log and view granular and asynchronous execution traces.
+
+- [MLflow Tracing](/genai/tracing) is a powerful observability tool for monitoring and debugging what happens inside the Semantic Kernel models, helping you identify potential bottlenecks or issues quickly. With its powerful automatic logging capability, you can instrument your SemanticKernel application without needing to add any code apart from running a single command.
+
+This flavor is under active development and more features may be added soon.
+
+## Getting Started
+
+In these introductory tutorials, you will learn the most fundamental components of Semantic Kernel and how to leverage the integration with MLflow to bring better maintainability and observability to your SemanticKernel applications.
+
+<CardGroup>
+  <PageCard
+    headerText="MLflow Tracing with Semantic Kernel"
+    link="/genai/flavors/semantic-kernel/notebooks/semantic-kernel-quickstart/"
+    text="Get started with MLflow and Semantic Kernel by building a simple chat completions Kernel. Leverage MLlfow tracing to get granular execution information.
+  />
+</CardGroup>
+
+
+
