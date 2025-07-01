@@ -17,7 +17,6 @@ import userEvent from '@testing-library/user-event';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { getTableRowByCellText } from '@databricks/design-system/test-utils/rtl';
 import { MockedReduxStoreProvider } from '../../../common/utils/TestUtils';
-import { REGISTERED_PROMPT_SOURCE_RUN_ID, REGISTERED_PROMPT_SOURCE_RUN_IDS } from './utils';
 
 jest.setTimeout(30000); // increase timeout due to heavier use of tables, modals and forms
 
