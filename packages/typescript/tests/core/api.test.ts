@@ -11,8 +11,8 @@ import { getTraces, resetTraces } from '../../src/exporters/mlflow';
 describe('API', () => {
   beforeEach(() => {
     init({
-      tracking_uri: 'http://localhost:5000',
-      experiment_id: '123456789'
+      trackingUri: 'http://localhost:5000',
+      experimentId: '123456789'
     });
   });
 

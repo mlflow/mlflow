@@ -5,6 +5,25 @@ import { parse as parseIni } from 'ini';
 import { initializeSDK } from './provider';
 
 /**
+ * Default Databricks profile name
+ */
+const DEFAULT_PROFILE = 'DEFAULT';
+
+/**
+ * Validate that a URI has a proper protocol (http or https)
+ * @param uri The URI to validate
+ * @returns true if valid, false otherwise
+ */
+function isValidHttpUri(uri: string): boolean {
+  try {
+    const url = new URL(uri);
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Configuration options for the MLflow tracing SDK
  */
 export interface MLflowTracingConfig {
@@ -15,17 +34,17 @@ export interface MLflowTracingConfig {
    * - "databricks" (uses default profile)
    * - "databricks://profile" (uses specific profile)
    */
-  tracking_uri: string;
+  trackingUri: string;
 
   /**
    * The experiment ID where traces will be logged
    */
-  experiment_id: string;
+  experimentId: string;
 
   /**
    * The location of the Databricks config file, default to ~/.databrickscfg
    */
-  databricks_config_path?: string;
+  databricksConfigPath?: string;
 
   /**
    * The Databricks host. If not provided, the host will be read from the Databricks config file.
@@ -35,7 +54,7 @@ export interface MLflowTracingConfig {
   /**
    * The Databricks token. If not provided, the token will be read from the Databricks config file.
    */
-  token?: string;
+  databricksToken?: string;
 }
 
 /**
@@ -47,7 +66,7 @@ let globalConfig: MLflowTracingConfig | null = null;
  * Configure the MLflow tracing SDK with tracking location settings.
  * This must be called before using other tracing functions.
  *
- * @param config Configuration object with tracking_uri and experiment_id
+ * @param config Configuration object with trackingUri and experimentId
  *
  * @example
  * ```typescript
@@ -55,35 +74,35 @@ let globalConfig: MLflowTracingConfig | null = null;
  *
  * // Option 1: Use MLflow Tracking Server
  * init({
- *   tracking_uri: "http://localhost:5000",
- *   experiment_id: "123456789"
+ *   trackingUri: "http://localhost:5000",
+ *   experimentId: "123456789"
  * });
  *
  * // Option 2: Use default Databricks profile from ~/.databrickscfg
  * init({
- *   tracking_uri: "databricks",
- *   experiment_id: "123456789"
+ *   trackingUri: "databricks",
+ *   experimentId: "123456789"
  * });
  *
  * // Option 3: Use specific Databricks profile
  * init({
- *   tracking_uri: "databricks://my-profile",
- *   experiment_id: "123456789"
+ *   trackingUri: "databricks://my-profile",
+ *   experimentId: "123456789"
  * });
  *
  * // Option 4: Custom config file path
  * init({
- *   tracking_uri: "databricks",
- *   experiment_id: "123456789",
- *   databricks_config_path: "/path/to/my/databrickscfg"
+ *   trackingUri: "databricks",
+ *   experimentId: "123456789",
+ *   databricksConfigPath: "/path/to/my/databrickscfg"
  * });
  *
  * // Option 5: Override with explicit host/token (bypasses config file)
  * init({
- *   tracking_uri: "databricks",
- *   experiment_id: "123456789",
+ *   trackingUri: "databricks",
+ *   experimentId: "123456789",
  *   host: "https://my-workspace.databricks.com",
- *   token: "my-token"
+ *   databricksToken: "my-token"
  * });
  *
  * // Now you can use tracing functions
@@ -100,57 +119,76 @@ let globalConfig: MLflowTracingConfig | null = null;
  * ```
  */
 export function init(config: MLflowTracingConfig): void {
-  if (!config.tracking_uri) {
-    throw new Error('tracking_uri is required in configuration');
+  if (!config.trackingUri) {
+    throw new Error('trackingUri is required in configuration');
   }
 
-  if (!config.experiment_id) {
-    throw new Error('experiment_id is required in configuration');
+  if (!config.experimentId) {
+    throw new Error('experimentId is required in configuration');
   }
 
-  if (typeof config.tracking_uri !== 'string') {
-    throw new Error('tracking_uri must be a string');
+  if (typeof config.trackingUri !== 'string') {
+    throw new Error('trackingUri must be a string');
   }
 
-  if (typeof config.experiment_id !== 'string') {
-    throw new Error('experiment_id must be a string');
+  if (typeof config.experimentId !== 'string') {
+    throw new Error('experimentId must be a string');
   }
 
   // Set default Databricks config path if not provided
-  if (!config.databricks_config_path) {
-    config.databricks_config_path = path.join(os.homedir(), '.databrickscfg');
+  if (!config.databricksConfigPath) {
+    config.databricksConfigPath = path.join(os.homedir(), '.databrickscfg');
   }
 
-  if (config.tracking_uri === 'databricks' || config.tracking_uri.startsWith('databricks://')) {
-    // Parse host and token from Databricks config file for databricks URIs
-    if (!config.host || !config.token) {
-      // Determine profile name from tracking_uri
-      let profile = 'DEFAULT';
-      if (config.tracking_uri.startsWith('databricks://')) {
-        const profilePart = config.tracking_uri.slice(13); // Remove 'databricks://'
-        if (profilePart && profilePart.length > 0) {
-          profile = profilePart;
-        }
-      }
+  if (config.trackingUri === 'databricks' || config.trackingUri.startsWith('databricks://')) {
+    // Parse host and token from Databricks config file or environment variables for databricks URIs
+    if (!config.host || !config.databricksToken) {
+      // First try environment variables
+      const envHost = process.env.DATABRICKS_HOST;
+      const envToken = process.env.DATABRICKS_TOKEN;
 
-      try {
-        const { host, token } = readDatabricksConfig(config.databricks_config_path, profile);
+      if (envHost && envToken) {
         if (!config.host) {
-          config.host = host;
+          config.host = envHost;
         }
-        if (!config.token) {
-          config.token = token;
+        if (!config.databricksToken) {
+          config.databricksToken = envToken;
         }
-      } catch (error) {
-        throw new Error(
-          `Failed to read Databricks configuration for profile '${profile}': ${(error as Error).message}. ` +
-            `Make sure your ${config.databricks_config_path} file exists and contains valid credentials.`
-        );
+      } else {
+        // Fall back to config file
+        // Determine profile name from trackingUri
+        let profile = DEFAULT_PROFILE;
+        if (config.trackingUri.startsWith('databricks://')) {
+          const profilePart = config.trackingUri.slice(13); // Remove 'databricks://'
+          if (profilePart && profilePart.length > 0) {
+            profile = profilePart;
+          }
+        }
+
+        try {
+          const { host, token } = readDatabricksConfig(config.databricksConfigPath, profile);
+          if (!config.host) {
+            config.host = host;
+          }
+          if (!config.databricksToken) {
+            config.databricksToken = token;
+          }
+        } catch (error) {
+          throw new Error(
+            `Failed to read Databricks configuration for profile '${profile}': ${(error as Error).message}. ` +
+              `Make sure your ${config.databricksConfigPath} file exists and contains valid credentials, or set DATABRICKS_HOST and DATABRICKS_TOKEN environment variables.`
+          );
+        }
       }
     }
   } else {
-    // For self-hosted MLflow tracking server, use the tracking_uri as the host
-    config.host = config.tracking_uri;
+    // For self-hosted MLflow tracking server, validate and use the trackingUri as the host
+    if (!isValidHttpUri(config.trackingUri)) {
+      throw new Error(
+        `Invalid trackingUri: '${config.trackingUri}'. Must be a valid HTTP or HTTPS URL.`
+      );
+    }
+    config.host = config.trackingUri;
   }
 
   globalConfig = { ...config };
@@ -166,7 +204,7 @@ export function init(config: MLflowTracingConfig): void {
 export function getConfig(): MLflowTracingConfig {
   if (!globalConfig) {
     throw new Error(
-      'MLflow tracing is not configured. Please call init() with host and experiment_id before using tracing functions.'
+      'The MLflow Tracing client is not configured. Please call init() with host and experimentId before using tracing functions.'
     );
   }
   return globalConfig;
@@ -174,11 +212,12 @@ export function getConfig(): MLflowTracingConfig {
 
 /**
  * Read Databricks configuration from .databrickscfg file
+ * @internal This function is exported only for testing purposes
  * @param configPath Path to the Databricks config file
  * @param profile Profile name to read (defaults to 'DEFAULT')
  * @returns Object containing host and token
  */
-export function readDatabricksConfig(configPath: string, profile: string = 'DEFAULT') {
+export function readDatabricksConfig(configPath: string, profile: string = DEFAULT_PROFILE) {
   try {
     if (!fs.existsSync(configPath)) {
       throw new Error(`Databricks config file not found at ${configPath}`);

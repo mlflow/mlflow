@@ -8,7 +8,7 @@ let sdk: NodeSDK | null = null;
 export function initializeSDK(): void {
   if (sdk) {
     sdk.shutdown().catch((error) => {
-      console.warn('Error shutting down existing SDK:', error);
+      console.error('Error shutting down existing SDK:', error);
     });
   }
 
@@ -24,7 +24,7 @@ export function initializeSDK(): void {
     sdk = new NodeSDK({ spanProcessors: [processor] });
     sdk.start();
   } catch (error) {
-    console.warn('Failed to initialize MLflow tracing:', error);
+    console.error('Failed to initialize MLflow tracing:', error);
   }
 }
 

@@ -138,9 +138,7 @@ export class MlflowSpanProcessor implements SpanProcessor {
 }
 
 export class MlflowSpanExporter implements SpanExporter {
-  constructor(private hostConfig: MLflowTracingConfig) {
-    this.hostConfig = hostConfig;
-  }
+  constructor(private hostConfig: MLflowTracingConfig) {}
 
   export(spans: OTelReadableSpan[], _resultCallback: (result: ExportResult) => void): void {
     for (const span of spans) {

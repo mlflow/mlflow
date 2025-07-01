@@ -7,58 +7,69 @@ describe('Config', () => {
   describe('init and getConfig', () => {
     it('should initialize with MLflow tracking server configuration', () => {
       const config = {
-        tracking_uri: 'http://localhost:5000',
-        experiment_id: '123456789'
+        trackingUri: 'http://localhost:5000',
+        experimentId: '123456789'
       };
 
       init(config);
 
       const result = getConfig();
-      expect(result.tracking_uri).toBe('http://localhost:5000');
-      expect(result.experiment_id).toBe('123456789');
+      expect(result.trackingUri).toBe('http://localhost:5000');
+      expect(result.experimentId).toBe('123456789');
       expect(result.host).toBe('http://localhost:5000');
     });
 
-    it('should throw error if tracking_uri is missing', () => {
+    it('should throw error if trackingUri is missing', () => {
       const config = {
-        tracking_uri: '',
-        experiment_id: '123456789'
+        trackingUri: '',
+        experimentId: '123456789'
       };
 
-      expect(() => init(config)).toThrow('tracking_uri is required in configuration');
+      expect(() => init(config)).toThrow('trackingUri is required in configuration');
     });
 
-    it('should throw error if experiment_id is missing', () => {
+    it('should throw error if experimentId is missing', () => {
       const config = {
-        tracking_uri: 'http://localhost:5000',
-        experiment_id: ''
+        trackingUri: 'http://localhost:5000',
+        experimentId: ''
       };
 
-      expect(() => init(config)).toThrow('experiment_id is required in configuration');
+      expect(() => init(config)).toThrow('experimentId is required in configuration');
     });
 
-    it('should throw error if tracking_uri is not a string', () => {
+    it('should throw error if trackingUri is not a string', () => {
       const config = {
-        tracking_uri: 123 as any,
-        experiment_id: '123456789'
+        trackingUri: 123 as any,
+        experimentId: '123456789'
       };
 
-      expect(() => init(config)).toThrow('tracking_uri must be a string');
+      expect(() => init(config)).toThrow('trackingUri must be a string');
     });
 
-    it('should throw error if experiment_id is not a string', () => {
+    it('should throw error if experimentId is not a string', () => {
       const config = {
-        tracking_uri: 'http://localhost:5000',
-        experiment_id: 123 as any
+        trackingUri: 'http://localhost:5000',
+        experimentId: 123 as any
       };
 
-      expect(() => init(config)).toThrow('experiment_id must be a string');
+      expect(() => init(config)).toThrow('experimentId must be a string');
+    });
+
+    it('should throw error for malformed trackingUri', () => {
+      const config = {
+        trackingUri: 'not-a-valid-uri',
+        experimentId: '123456789'
+      };
+
+      expect(() => init(config)).toThrow(
+        "Invalid trackingUri: 'not-a-valid-uri'. Must be a valid HTTP or HTTPS URL."
+      );
     });
 
     it.skip('should throw error if getConfig is called without init', () => {
       // Skip this test as it interferes with other tests due to module state
       expect(() => getConfig()).toThrow(
-        'MLflow tracing is not configured. Please call init() with host and experiment_id before using tracing functions.'
+        'The MLflow Tracing client is not configured. Please call init() with host and experimentId before using tracing functions.'
       );
     });
 
@@ -86,16 +97,16 @@ token = dapi987654321fedcba`;
         fs.writeFileSync(configPath, configContent);
 
         const config = {
-          tracking_uri: 'databricks',
-          experiment_id: '123456789',
-          databricks_config_path: configPath
+          trackingUri: 'databricks',
+          experimentId: '123456789',
+          databricksConfigPath: configPath
         };
 
         init(config);
 
         const result = getConfig();
         expect(result.host).toBe('https://my-workspace.databricks.com');
-        expect(result.token).toBe('dapi123456789abcdef');
+        expect(result.databricksToken).toBe('dapi123456789abcdef');
       });
 
       it('should read Databricks config for specific profile', () => {
@@ -110,16 +121,16 @@ token = dapi987654321fedcba`;
         fs.writeFileSync(configPath, configContent);
 
         const config = {
-          tracking_uri: 'databricks://dev',
-          experiment_id: '123456789',
-          databricks_config_path: configPath
+          trackingUri: 'databricks://dev',
+          experimentId: '123456789',
+          databricksConfigPath: configPath
         };
 
         init(config);
 
         const result = getConfig();
         expect(result.host).toBe('https://dev-workspace.databricks.com');
-        expect(result.token).toBe('dapi987654321fedcba');
+        expect(result.databricksToken).toBe('dapi987654321fedcba');
       });
 
       it('should use explicit host/token over config file', () => {
@@ -130,25 +141,25 @@ token = dapi123456789abcdef`;
         fs.writeFileSync(configPath, configContent);
 
         const config = {
-          tracking_uri: 'databricks',
-          experiment_id: '123456789',
-          databricks_config_path: configPath,
+          trackingUri: 'databricks',
+          experimentId: '123456789',
+          databricksConfigPath: configPath,
           host: 'https://override-workspace.databricks.com',
-          token: 'override-token'
+          databricksToken: 'override-token'
         };
 
         init(config);
 
         const result = getConfig();
         expect(result.host).toBe('https://override-workspace.databricks.com');
-        expect(result.token).toBe('override-token');
+        expect(result.databricksToken).toBe('override-token');
       });
 
       it('should throw error if Databricks config file not found', () => {
         const config = {
-          tracking_uri: 'databricks',
-          experiment_id: '123456789',
-          databricks_config_path: '/nonexistent/path/.databrickscfg'
+          trackingUri: 'databricks',
+          experimentId: '123456789',
+          databricksConfigPath: '/nonexistent/path/.databrickscfg'
         };
 
         expect(() => init(config)).toThrow(/Failed to read Databricks configuration/);
@@ -165,9 +176,9 @@ token = dapi123456789abcdef`;
         fs.writeFileSync(configPath, configContent);
 
         const config = {
-          tracking_uri: 'databricks://nonexistent',
-          experiment_id: '123456789',
-          databricks_config_path: configPath
+          trackingUri: 'databricks://nonexistent',
+          experimentId: '123456789',
+          databricksConfigPath: configPath
         };
 
         expect(() => init(config)).toThrow(
@@ -183,16 +194,44 @@ token = dapi123456789abcdef`;
         fs.writeFileSync(configPath, configContent);
 
         const config = {
-          tracking_uri: 'databricks://',
-          experiment_id: '123456789',
-          databricks_config_path: configPath
+          trackingUri: 'databricks://',
+          experimentId: '123456789',
+          databricksConfigPath: configPath
         };
 
         init(config);
 
         const result = getConfig();
         expect(result.host).toBe('https://my-workspace.databricks.com');
-        expect(result.token).toBe('dapi123456789abcdef');
+        expect(result.databricksToken).toBe('dapi123456789abcdef');
+      });
+
+      it('should use environment variables over config file', () => {
+        const configContent = `[DEFAULT]
+host = https://config-workspace.databricks.com
+token = config-token`;
+
+        fs.writeFileSync(configPath, configContent);
+
+        // Set environment variables
+        process.env.DATABRICKS_HOST = 'https://env-workspace.databricks.com';
+        process.env.DATABRICKS_TOKEN = 'env-token';
+
+        const config = {
+          trackingUri: 'databricks',
+          experimentId: '123456789',
+          databricksConfigPath: configPath
+        };
+
+        init(config);
+
+        const result = getConfig();
+        expect(result.host).toBe('https://env-workspace.databricks.com');
+        expect(result.databricksToken).toBe('env-token');
+
+        // Clean up environment variables
+        delete process.env.DATABRICKS_HOST;
+        delete process.env.DATABRICKS_TOKEN;
       });
     });
   });
