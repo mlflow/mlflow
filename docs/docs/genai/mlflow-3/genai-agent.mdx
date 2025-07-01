@@ -7,13 +7,16 @@ import { APILink } from "@site/src/components/APILink";
 # GenAI Agent with MLflow 3
 
 ## Prerequisites
+
 Run the following command to install MLflow 3 and langchain-openai packages.
+
 ```
 pip install --upgrade 'mlflow>=3.0.0rc0' --pre
 pip install langchain-openai
 ```
 
 Set `OPENAI_API_KEY` environment variable in CLI to authenticate to OpenAI APIs.
+
 ```bash
 export OPENAI_API_KEY=your_api_key_here
 ```
@@ -35,6 +38,7 @@ system_prompt = mlflow.genai.register_prompt(
     commit_message="Initial version of chatbot",
 )
 ```
+
 Switch to the **Prompts** tab to view the registered prompt and its details:
 
 <div className="center-div" style={{ width: "100%" }}>
@@ -89,7 +93,7 @@ mlflow.search_traces(model_id=active_model_id)
 # 2  42b100851f934c969c352930f699308d  Trace(trace_id=42b100851f934c969c352930f699308d)  ...           []  42b100851f934c969c352930f699308d
 ```
 
-Check out the **Models** tab in the experiment to view the new logged model with name ``langchain_model``.
+Check out the **Models** tab in the experiment to view the new logged model with name `langchain_model`.
 
 <div className="center-div" style={{ width: "100%" }}>
     ![The MLflow UI showing the logged models in an experiment](/images/mlflow-3/genai/logged_models_tab.png)
@@ -112,7 +116,7 @@ Navigating to the **Traces** tab of the model's page, you can view the traces th
 Finally, we use <APILink fn="mlflow.evaluate" /> to assess the performance of the chain on an evaluation dataset.
 This step involves calculating additional metrics, such as answer correctness, to gain deeper insights into the model's behavior and accuracy.
 
-```python
+````python
 # Prepare the eval dataset in a pandas DataFrame
 import pandas as pd
 
@@ -154,7 +158,8 @@ result.tables["eval_results_table"]
 # 0  What is MLflow Tracking and how does it work?  ...  The output directly addresses the input questi...
 # 1                         What is Unity Catalog?  ...  The output is completely irrelevant to the inp...
 # 2        What are user-defined functions (UDFs)?  ...  The output directly addresses the input questi...
-```
+````
+
 Navigating to the active model, you can see the metrics and their details displayed in the MLflow UI. This includes metrics like answer correctness and answer relevance, providing insights into the model's performance.
 
 <div className="center-div" style={{ width: "100%" }}>

@@ -67,6 +67,7 @@ When you use these standard metadata fields, MLflow automatically enables filter
     - The `@mlflow.trace` decorator automatically creates a trace for function execution
     - <APILink fn="mlflow.update_current_trace" /> adds the user ID and session ID to the active trace
     - Use consistent ID formats across your application for reliable analysis
+
   </TabItem>
   <TabItem value="web-app" label="Web Application">
     In production web applications, extract user and session information from request headers:
@@ -112,6 +113,7 @@ When you use these standard metadata fields, MLflow automatically enables filter
          -H "X-User-ID: user-jane-doe-12345" \
          -d '{"message": "What is my account balance?"}'
     ```
+
   </TabItem>
 </Tabs>
 
@@ -133,6 +135,7 @@ When you use these standard metadata fields, MLflow automatically enables filter
     ```
 
     The MLflow UI provides powerful filtering and grouping capabilities when you use the standard user and session metadata.
+
   </TabItem>
   <TabItem value="user-analysis" label="User Analysis">
     Analyze user behavior patterns programmatically:
@@ -184,6 +187,7 @@ When you use these standard metadata fields, MLflow automatically enables filter
         f"User has {user_stats['total_interactions']} interactions across {user_stats['unique_sessions']} sessions"
     )
     ```
+
   </TabItem>
   <TabItem value="session-analysis" label="Session Analysis">
     Analyze conversation flow within sessions:
@@ -239,6 +243,7 @@ When you use these standard metadata fields, MLflow automatically enables filter
         f"Session had {session_analysis['total_turns']} turns over {session_analysis['session_duration_ms']}ms"
     )
     ```
+
   </TabItem>
 </Tabs>
 

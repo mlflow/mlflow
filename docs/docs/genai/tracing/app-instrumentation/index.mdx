@@ -6,7 +6,6 @@ import { APILink } from "@site/src/components/APILink";
 
 Learn how to instrument your GenAI application with MLflow Tracing to capture and visualize the execution flow of your application. MLflow offers two main approaches to implementing tracing that can be used independently or together for comprehensive observability.
 
-
 ## Prerequisites
 
 This guide requires the following packages:
@@ -45,6 +44,7 @@ Before running the examples below, configure your environment:
     mlflow.set_tracking_uri("http://127.0.0.1:5000")
     mlflow.set_experiment("my-tracing-experiment")
     ```
+
   </TabItem>
   <TabItem value="remote" label="Remote Server">
     For remote MLflow servers, configure the tracking URI:
@@ -55,6 +55,7 @@ Before running the examples below, configure your environment:
     mlflow.set_tracking_uri("https://your-mlflow-server.com")
     mlflow.set_experiment("my-tracing-experiment")
     ```
+
   </TabItem>
   <TabItem value="databricks" label="Databricks">
     If you're working on tracing with Databricks, configure your authentication:
@@ -66,9 +67,9 @@ Before running the examples below, configure your environment:
     os.environ["DATABRICKS_HOST"] = "https://your-workspace.databricks.com"
     os.environ["DATABRICKS_TOKEN"] = "your-databricks-token"
     ```
+
   </TabItem>
 </Tabs>
-
 
 ## Tracing Approaches
 
@@ -173,7 +174,6 @@ print(result)
 Generally, we recommend starting with [automatic tracing](/genai/tracing/app-instrumentation/automatic) and only moving to [manual tracing](/genai/tracing/app-instrumentation/manual-tracing) if your application's logic is not accurately captured or you need more control.
 :::
 
-
 ## Automatic Tracing
 
 Automatic tracing provides zero-code observability for supported libraries. Simply call the autolog function for your library and MLflow will automatically capture all relevant operations.
@@ -219,6 +219,7 @@ Manual tracing gives you fine-grained control over what gets traced and how. Use
 
         return {"entities": entities, "summary": summary, "token_count": len(tokens)}
     ```
+
   </TabItem>
   <TabItem value="context-manager" label="Context Manager">
     Use context managers for instrumenting code blocks:
@@ -239,6 +240,7 @@ Manual tracing gives you fine-grained control over what gets traced and how. Use
 
         return prediction
     ```
+
   </TabItem>
   <TabItem value="combining" label="Combining with Auto Tracing">
     The most powerful approach combines both automatic and manual tracing:
@@ -275,6 +277,7 @@ Manual tracing gives you fine-grained control over what gets traced and how. Use
 
         return response.choices[0].message.content
     ```
+
   </TabItem>
 </Tabs>
 
@@ -311,6 +314,7 @@ After instrumenting your application, you can view and analyze your traces in se
     To browse the span data of an individual trace, simply click on the link in the "Trace ID" or "Trace name" columns to open the trace viewer:
 
     ![Trace Browser](/images/llms/tracing/tracing-top.gif)
+
   </TabItem>
   <TabItem value="jupyter" label="Jupyter Notebooks">
     :::note
@@ -333,7 +337,6 @@ After instrumenting your application, you can view and analyze your traces in se
 
     To disable the display, simply call <APILink fn="mlflow.tracing.disable_notebook_display" />, and rerun the cell containing the UI. To enable it again, call <APILink fn="mlflow.tracing.enable_notebook_display" />.
 
-
   </TabItem>
   <TabItem value="programmatic" label="Programmatic Access">
     Query and analyze traces programmatically:
@@ -351,6 +354,7 @@ After instrumenting your application, you can view and analyze your traces in se
     # Get a specific trace
     trace = mlflow.get_trace("trace-id-here")
     ```
+
   </TabItem>
 </Tabs>
 
@@ -369,6 +373,7 @@ Now that you understand the basics of instrumenting your app with MLflow Tracing
     **[Combining Approaches](/genai/tracing/app-instrumentation/manual-tracing/fluent-apis#combining-with-auto-tracing)**: Mix automatic and manual tracing for optimal observability
 
     **[Trace Data Model](/genai/tracing/data-model)**: Understand the structure of MLflow traces
+
   </TabItem>
   <TabItem value="integrations" label="Integration Examples">
     **Library-Specific Guides:**
@@ -380,6 +385,7 @@ Now that you understand the basics of instrumenting your app with MLflow Tracing
     **[LlamaIndex Integration](/genai/tracing/integrations/listing/llama_index)**: Trace LlamaIndex workflows and components
 
     **[All Integrations](/genai/tracing/integrations)**: Browse all supported libraries and frameworks
+
   </TabItem>
   <TabItem value="working-with-traces" label="Working with Traces">
     **Analyze and Use Your Trace Data:**
@@ -389,6 +395,7 @@ Now that you understand the basics of instrumenting your app with MLflow Tracing
     **[Search and Filter](/genai/tracing/search-traces)**: Advanced search techniques and filtering options
 
     **[Production Monitoring](/genai/tracing/prod-tracing)**: Scale tracing for production workloads
+
   </TabItem>
 </Tabs>
 

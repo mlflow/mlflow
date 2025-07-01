@@ -4,7 +4,6 @@ import TabItem from "@theme/TabItem";
 
 # Delete Traces
 
-
 You can delete traces based on specific criteria using the <APILink fn="mlflow.client.MlflowClient.delete_traces" /> method. This method allows you to delete traces by **experiment ID**, **maximum timestamp**, or **trace IDs**.
 
 :::tip
@@ -47,6 +46,7 @@ Deleting a trace is an irreversible process. Ensure that the parameters provided
         experiment_id="1", max_timestamp_millis=timestamp_ms
     )
     ```
+
   </TabItem>
   <TabItem value="by-trace-ids" label="By Trace IDs">
     Delete specific traces by their trace IDs:
@@ -63,6 +63,7 @@ Deleting a trace is an irreversible process. Ensure that the parameters provided
 
     print(f"Deleted {deleted_count} traces")
     ```
+
   </TabItem>
   <TabItem value="batch-deletion" label="Batch Deletion">
     Delete traces in batches for better performance:
@@ -104,6 +105,7 @@ Deleting a trace is an irreversible process. Ensure that the parameters provided
     # Usage
     cleanup_old_traces(experiment_id="1", days_old=7)
     ```
+
   </TabItem>
 </Tabs>
 
@@ -143,6 +145,7 @@ Deleting a trace is an irreversible process. Ensure that the parameters provided
     # Usage
     delete_error_traces("1")
     ```
+
   </TabItem>
   <TabItem value="dry-run" label="Dry Run Mode">
     Test deletion criteria before actual deletion:
@@ -178,6 +181,7 @@ Deleting a trace is an irreversible process. Ensure that the parameters provided
     if count < 100:  # Only proceed if reasonable number
         delete_with_dry_run("1", 1234567890000, dry_run=False)
     ```
+
   </TabItem>
   <TabItem value="error-handling" label="Error Handling">
     Handle deletion errors gracefully:
@@ -215,6 +219,7 @@ Deleting a trace is an irreversible process. Ensure that the parameters provided
     # Usage
     safe_delete_traces("1", max_timestamp_millis=1234567890000, max_traces=50)
     ```
+
   </TabItem>
 </Tabs>
 
@@ -232,12 +237,12 @@ Deleting a trace is an irreversible process. Ensure that the parameters provided
 
 ## Parameters Reference
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `experiment_id` | str | **Required.** The ID of the experiment containing traces to delete |
-| `max_timestamp_millis` | int | Delete traces created before this timestamp (in milliseconds) |
-| `trace_ids` | List[str] | Delete traces with these specific trace IDs |
-| `max_traces` | int | Maximum number of traces to delete in this operation |
+| Parameter              | Type      | Description                                                        |
+| ---------------------- | --------- | ------------------------------------------------------------------ |
+| `experiment_id`        | str       | **Required.** The ID of the experiment containing traces to delete |
+| `max_timestamp_millis` | int       | Delete traces created before this timestamp (in milliseconds)      |
+| `trace_ids`            | List[str] | Delete traces with these specific trace IDs                        |
+| `max_traces`           | int       | Maximum number of traces to delete in this operation               |
 
 :::note
 You must specify either `max_timestamp_millis` or `trace_ids`, but not both. The `max_traces` parameter cannot be used with `trace_ids`.

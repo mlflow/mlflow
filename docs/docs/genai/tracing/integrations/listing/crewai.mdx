@@ -26,11 +26,11 @@ mlflow.crewai.autolog()
 
 MLflow trace automatically captures the following information about CrewAI agents:
 
-* Tasks and Agent who executes each task
-* Every LLM calls with input prompts, completion responses, and various metadata
-* Memory load and writes operations
-* Latency of each operation
-* Any exception if raised
+- Tasks and Agent who executes each task
+- Every LLM calls with input prompts, completion responses, and various metadata
+- Memory load and writes operations
+- Latency of each operation
+- Any exception if raised
 
 :::note
 
@@ -39,7 +39,6 @@ Currently, MLflow CrewAI integration only support tracing for synchronous task e
 :::
 
 ### Example Usage
-
 
 First, enable auto-tracing for CrewAI, and optionally create an MLflow experiment to write traces to. This helps organizing your traces better.
 
