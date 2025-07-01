@@ -3523,9 +3523,9 @@ def test_get_experiment_missing_and_empty_metadata_file(tmp_path):
     ):
         fs._get_experiment(exp_id)
 
-    # Empty meta.yaml — should raise MissingConfigException about invalid metadata
+    # Create an empty meta.yaml
     (exp_dir / FileStore.META_DATA_FILE_NAME).write_text("")
-
+    # Should raise MissingConfigException about invalid metadata
     with pytest.raises(
         MissingConfigException,
         match=fr"Experiment {exp_id} is invalid with empty"
