@@ -160,7 +160,7 @@ export const ExperimentListTable = ({
     return null;
   };
 
-  const selectColumnStyles = { flex: 'none', height: 40 };
+  const selectColumnStyles = { flex: 'none', height: theme.general.heightBase };
 
   return (
     <Table
