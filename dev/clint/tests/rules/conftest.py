@@ -1,6 +1,3 @@
-import uuid
-from pathlib import Path
-
 import pytest
 from clint.config import Config
 from clint.index import SymbolIndex
