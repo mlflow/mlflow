@@ -545,8 +545,8 @@ The `h2o` model flavor enables logging and loading H2O models.
 
 The <APILink fn="mlflow.h2o">mlflow.h2o</APILink> module defines <APILink fn="mlflow.h2o.save_model">save_model()</APILink>
 and <APILink fn="mlflow.h2o.log_model">log_model()</APILink> methods in python,
-and <Link to={useBaseUrl("/api_reference/R-api.html#mlflow-save-model-h2o")} target="\_blank">mlflow_save_model</Link>
-and <Link to={useBaseUrl("/api_reference/R-api.html#mlflow-log-model")} target="\_blank">mlflow_log_model</Link> in R for saving H2O
+and <Link to="/api_reference/R-api.html#mlflow-save-model-h2o" target="_blank">mlflow_save_model</Link>
+and <Link to="/api_reference/R-api.html#mlflow-log-model" target="_blank">mlflow_log_model</Link> in R for saving H2O
 models in MLflow Model format. These methods produce MLflow Models with the `python_function` flavor, allowing you to load them
 as generic Python functions for inference via <APILink fn="mlflow.pyfunc.load_model" />.
 This loaded PyFunc model can be scored with only DataFrame input. When you load
