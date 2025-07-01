@@ -131,8 +131,8 @@ Ideal for custom training loops, advanced experimentation, or when you need prec
 
 | Function | Purpose | Example |
 |----------|---------|---------|
-| <APILink fn="mlflow.log_artifact" /> | Log single file/directory | `mlflow.log_artifact("model.pkl")` |
-| <APILink fn="mlflow.log_artifacts" /> | Log entire directory | `mlflow.log_artifacts("./plots/")` |
+| <APILink fn="mlflow.log_artifact" /> | Log a single file or directory | `mlflow.log_artifact("model.pkl")` |
+| <APILink fn="mlflow.log_artifacts" /> | Log all files in a directory (**not for single files**) | `mlflow.log_artifacts("./plots/")` |
 | <APILink fn="mlflow.get_artifact_uri" /> | Get artifact storage location | `uri = mlflow.get_artifact_uri()` |
 
 ### Model Management (New in MLflow 3)
