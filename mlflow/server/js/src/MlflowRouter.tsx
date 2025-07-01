@@ -58,8 +58,8 @@ export const MlflowRouter = ({
               backgroundColor: theme.colors.backgroundSecondary,
               display: 'flex',
               flexDirection: 'row',
-              minHeight: 'calc(100% - 60px)', // 60px comes from header height
-              justifyContent: 'stretch',
+              flexGrow: 1,
+              minHeight: 0,
             }}
           >
             {showSidebar && <MlflowSidebar />}
@@ -70,9 +70,10 @@ export const MlflowRouter = ({
                 margin: theme.spacing.sm,
                 borderRadius: theme.borders.borderRadiusMd,
                 boxShadow: theme.shadows.md,
+                overflowX: 'auto',
               }}
             >
-              <React.Suspense fallback={<LegacySkeleton />}>
+              <React.Suspense fallback={<LegacySkeleton css={{ padding: theme.spacing.md }} />}>
                 <Routes>
                   {routes.map(({ element, pageId, path }) => (
                     <Route key={pageId} path={path} element={element} />

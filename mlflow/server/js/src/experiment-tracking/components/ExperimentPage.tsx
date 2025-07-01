@@ -20,11 +20,11 @@ const ExperimentPage = () => {
   const shouldRenderTabbedView = isExperimentLoggedModelsUIEnabled() && Boolean(tabName);
 
   return (
-    <div css={{ display: 'flex', height: 'calc(100% - 60px)' }}>
+    <div css={{ display: 'flex', height: '100%' }}>
       {shouldRenderTabbedView && <ExperimentPageTabs />}
       {!shouldRenderTabbedView && (
         // Main content with the experiment view
-        <div css={{ height: '100%', flex: 1, padding: theme.spacing.md }}>
+        <div css={{ height: '100%', flex: 1, padding: theme.spacing.md, width: '100%' }}>
           <GetExperimentsContextProvider actions={getExperimentActions}>
             <ExperimentView />
           </GetExperimentsContextProvider>

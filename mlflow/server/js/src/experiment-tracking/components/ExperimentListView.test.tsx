@@ -36,6 +36,8 @@ const mountComponent = (props: any) => {
       default: 10,
       onChange: jest.fn(),
     },
+    sorting: [],
+    setSorting: jest.fn(),
   }));
 
   return renderWithIntl(
