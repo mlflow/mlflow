@@ -187,17 +187,15 @@ def test_optimize_scenarios(
 
     # Verify logging
     captured = capsys.readouterr()
-    assert "Started optimizing prompt" in captured.err
-    assert "Please wait as this process typically takes several minutes" in captured.err
+    assert "Starting prompt optimization" in captured.err
+    assert "This may take several minutes depending on dataset size" in captured.err
     if initial_score == 1.0 == optimized_program.score:
-        assert (
-            "Prompt optimization completed. Evaluation score did not change. Score 1.0"
-            in captured.err
-        )
+        assert "Optimization complete! Score remained stable at: 1.00" in captured.err
     else:
         assert (
-            "Prompt optimization completed. Evaluation score changed from 0.0 to 1.0."
-            in captured.err
+            "Optimization complete!\n"
+            "   Initial score: 0.00\n"
+            "   Final score:   1.00\n" in captured.err
         )
 
 
@@ -267,7 +265,7 @@ def test_validate_input_fields_with_missing_variables():
 
     with pytest.raises(
         MlflowException,
-        match=r"The following variables of the prompt are missing from the dataset: {'style'}",
+        match=r"Validation failed: Missing prompt variables in dataset",
     ):
         optimizer._validate_input_fields(input_fields, prompt)
 

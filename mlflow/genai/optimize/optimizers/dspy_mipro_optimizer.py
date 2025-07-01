@@ -37,9 +37,9 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
         from mlflow.genai.optimize.optimizers.utils.dspy_mipro_utils import format_optimized_prompt
 
         _logger.info(
-            f"Started optimizing prompt {prompt.uri}. "
-            "Please wait as this process typically takes several minutes, "
-            "but can take longer with large datasets..."
+            f"🎯 Starting prompt optimization for: {prompt.uri}\n"
+            f"⏱️ This may take several minutes depending on dataset size...\n"
+            f"📊 Training with {len(train_data)} examples"
         )
 
         input_fields = self._get_input_fields(train_data)
@@ -143,8 +143,9 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
     def _validate_input_fields(self, input_fields: dict[str, type], prompt: Prompt) -> None:
         if missing_fields := set(prompt.variables) - set(input_fields.keys()):
             raise MlflowException(
-                "The following variables of the prompt are missing from "
-                f"the dataset: {missing_fields}"
+                f"Validation failed: Missing prompt variables in dataset\n"
+                f"   Required variables: {missing_fields}\n"
+                f"   Please ensure your dataset contains columns for all prompt variables"
             )
 
     def _extract_instructions(self, template: str, lm: "dspy.LM") -> str:
@@ -199,14 +200,13 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
             initial_score = None
         if initial_score is not None:
             if initial_score == score:
-                _logger.info(
-                    f"Prompt optimization completed. Evaluation score did not change. Score {score}"
-                )
+                _logger.info(f"✅ Optimization complete! Score remained stable at: {score:.2f}")
                 return
             else:
                 _logger.info(
-                    "Prompt optimization completed. Evaluation score changed "
-                    f"from {initial_score} to {score}."
+                    f"🎉 Optimization complete!\n"
+                    f"   Initial score: {initial_score:.2f}\n"
+                    f"   Final score:   {score:.2f}\n"
                 )
 
     def _log_optimization_result(self, final_score: Optional[float], optimized_prompt: Prompt):
