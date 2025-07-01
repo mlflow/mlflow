@@ -63,3 +63,8 @@ jobs:
           NO_FIX: "true"
         run: |
           pre-commit run --all-files
+
+      - name: Test clint
+        run: |
+          uv run --isolated --no-project --with pytest==8.4.0 --with ./dev/clint \
+            pytest --confcutdir=dev/clint dev/clint
