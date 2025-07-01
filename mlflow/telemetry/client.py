@@ -11,26 +11,26 @@ from typing import Optional
 import requests
 
 from mlflow.environment_variables import (
-    MLFLOW_TELEMETRY_BATCH_SIZE,
-    MLFLOW_TELEMETRY_BATCH_TIME_INTERVAL,
-    MLFLOW_TELEMETRY_MAX_QUEUE_SIZE,
-    MLFLOW_TELEMETRY_MAX_WORKERS,
+    _MLFLOW_TELEMETRY_BATCH_SIZE,
+    _MLFLOW_TELEMETRY_BATCH_TIME_INTERVAL,
+    _MLFLOW_TELEMETRY_MAX_QUEUE_SIZE,
+    _MLFLOW_TELEMETRY_MAX_WORKERS,
 )
 from mlflow.telemetry.schemas import APIRecord, TelemetryInfo, TelemetryRecord
 from mlflow.telemetry.utils import is_telemetry_disabled
 
 _logger = logging.getLogger(__name__)
-# TODO: update this url
-TELEMETRY_URL = "https://a0ts9eoqp5.execute-api.us-west-2.amazonaws.com/dev/telemetry"
+# TODO: update this url with a custom domain
+TELEMETRY_URL = "https://twqhrx9tai.execute-api.us-west-2.amazonaws.com/test/telemetry"
 
 
 class TelemetryClient:
     def __init__(self):
         self.info = TelemetryInfo()
         self.telemetry_url = TELEMETRY_URL
-        self._queue: Queue[list[APIRecord]] = Queue(maxsize=MLFLOW_TELEMETRY_MAX_QUEUE_SIZE.get())
+        self._queue: Queue[list[APIRecord]] = Queue(maxsize=_MLFLOW_TELEMETRY_MAX_QUEUE_SIZE.get())
         self._lock = threading.RLock()
-        self._max_workers = MLFLOW_TELEMETRY_MAX_WORKERS.get()
+        self._max_workers = _MLFLOW_TELEMETRY_MAX_WORKERS.get()
 
         # Thread event that indicates the queue should stop processing tasks
         self._stop_event = threading.Event()
@@ -39,8 +39,8 @@ class TelemetryClient:
 
         self._active_tasks = set()
 
-        self._batch_size = MLFLOW_TELEMETRY_BATCH_SIZE.get()
-        self._batch_time_interval = MLFLOW_TELEMETRY_BATCH_TIME_INTERVAL.get()
+        self._batch_size = _MLFLOW_TELEMETRY_BATCH_SIZE.get()
+        self._batch_time_interval = _MLFLOW_TELEMETRY_BATCH_TIME_INTERVAL.get()
         self._pending_records: list[TelemetryRecord] = []
         self._last_batch_time = time.time()
         self._batch_lock = threading.Lock()
