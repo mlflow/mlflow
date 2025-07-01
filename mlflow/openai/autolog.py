@@ -375,7 +375,10 @@ def _reconstruct_completion_from_stream(chunks: list[Any]) -> Any:
 
     if chunks[0].object == "text_completion":
         # Handling for the deprecated Completions API. Keep the legacy behavior for now.
-        return "".join(chunk.choices[0].text for chunk in chunks)
+        def _extract_content(chunk: Any) -> str:
+            return chunk.choices[0].text if chunk.choices else ""
+
+        return "".join(_extract_content(chunk) or "" for chunk in chunks)
 
     if chunks[0].object != "chat.completion.chunk":
         return chunks  # Ignore non-chat chunks
@@ -409,7 +412,6 @@ def _reconstruct_completion_from_stream(chunks: list[Any]) -> Any:
         created=last_chunk.created,
         model=last_chunk.model,
         object="chat.completion",
-        service_tier=last_chunk.service_tier,
         system_fingerprint=last_chunk.system_fingerprint,
         usage=last_chunk.usage,
     )
