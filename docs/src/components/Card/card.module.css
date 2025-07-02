@@ -20,12 +20,12 @@
 }
 @media (max-width: 750px) {
   .MaxThreeColumns {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 @media (max-width: 650px) {
   .MaxThreeColumns {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
   }
 }
 
@@ -220,7 +220,10 @@
 }
 
 @media (max-width: 750px) {
-  .Cols6, .Cols5, .Cols4, .Cols3, .Cols2 {
+  .Cols6, .Cols5, .Cols4, .Cols3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .Cols2 {
     grid-template-columns: 1fr;
   }
 }
