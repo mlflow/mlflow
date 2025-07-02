@@ -10,4 +10,4 @@ def index() -> SymbolIndex:
 
 @pytest.fixture(scope="session")
 def config() -> Config:
-    return Config.load()
+    return Config()

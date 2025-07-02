@@ -673,7 +673,7 @@ class Linter(ast.NodeVisitor):
 
     def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
         if rules.ImplicitOptional.check(node):
-            self._check(Location.from_node(node), rules.ImplicitOptional())
+            self._check(Location.from_node(node.annotation), rules.ImplicitOptional())
 
         if node.annotation:
             self.visit_type_annotation(node.annotation)
