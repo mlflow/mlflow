@@ -1,8 +1,5 @@
 version: 2.1
 
-orbs:
-  win: circleci/windows@5.0.0
-
 commands:
   fetch_merge_ref:
     description: "Fetch the merge ref for a pull request"
@@ -113,18 +110,8 @@ jobs:
           command: |
             make test-examples
 
-  # A job to get a free Windows VM for testing. See https://circleci.com/docs/ssh-access-jobs/ for how to set up SSH access.
-  windows:
-    executor:
-      name: win/default
-      size: "medium"
-
-    steps:
-      - checkout
-
 workflows:
   build:
     jobs:
       - build_doc
       - build_doc_r
-      - windows
