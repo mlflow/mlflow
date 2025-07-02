@@ -2,7 +2,7 @@ import functools
 import inspect
 import logging
 import threading
-from typing import Callable
+from typing import Any, Callable
 
 from mlflow.telemetry.client import get_telemetry_client
 from mlflow.telemetry.parser import API_PARSER_MAPPING
@@ -15,8 +15,7 @@ from mlflow.telemetry.utils import (
 _logger = logging.getLogger(__name__)
 
 
-# TODO: add a linter to make sure this decorator is used outmost
-def track_api_usage(func: Callable) -> Callable:
+def track_api_usage(func: Callable[..., Any]) -> Callable[..., Any]:
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
         if is_telemetry_disabled() or invoked_from_internal_api():
@@ -45,7 +44,12 @@ def track_api_usage(func: Callable) -> Callable:
 
 
 # TODO: catch exception
-def _add_telemetry_record(func: Callable, args: tuple, kwargs: dict, success: bool):
+def _add_telemetry_record(
+    func: Callable[..., Any],
+    args: tuple[Any, ...],
+    kwargs: dict[str, Any],
+    success: bool,
+):
     signature = inspect.signature(func)
     bound_args = signature.bind(*args, **kwargs)
     bound_args.apply_defaults()

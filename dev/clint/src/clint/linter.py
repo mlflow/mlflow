@@ -461,6 +461,13 @@ class Linter(ast.NodeVisitor):
         if rules.InvalidExperimentalDecorator.check(node, self.resolver):
             self._check(Location.from_node(node), rules.InvalidExperimentalDecorator())
 
+        # Check track_api_usage decorator ordering if we're in a function
+        if self._is_in_function():
+            func_node = self.stack[-1]
+            if isinstance(func_node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                if rules.TrackApiUsageOutermost.check(node, self.resolver, func_node):
+                    self._check(Location.from_node(node), rules.TrackApiUsageOutermost())
+
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         self.stack.append(node)
         self._no_rst(node)
