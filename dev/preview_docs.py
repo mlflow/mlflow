@@ -74,10 +74,10 @@ def deploy_to_netlify(artifact_url: str, pull_number: int, site_name: str, actio
             message,
         ]
         subprocess.run(
-            command, 
-            check=True, 
-            capture_output=True, 
-            text=True, 
+            command,
+            check=True,
+            capture_output=True,
+            text=True,
             env=os.environ.copy(),
         )
         return f"https://{alias}--{site_name}.netlify.app"
@@ -106,6 +106,7 @@ def main():
     repo = "mlflow/mlflow"
     build_doc_job_name = "build_doc"
     job_id = None
+    job_url = None
     workflow_run_link = f"https://github.com/{repo}/actions/runs/{args.workflow_run_id}"
     for _ in range(5):
         status = github_session.get(
@@ -117,6 +118,7 @@ def main():
         )
         if build_doc_status:
             job_id = urlparse(build_doc_status["target_url"]).path.split("/")[-1]
+            job_url = build_doc_status["target_url"]
             break
         print(f"Waiting for {build_doc_job_name} job status to be available...")
         time.sleep(3)
@@ -140,12 +142,76 @@ Failed to find a documentation preview for {args.commit_sha}.
         upsert_comment(github_session, repo, args.pull_number, comment_body)
         return
 
-    # Get the artifact URL of the top level index.html
+    # Post initial comment with CircleCI job link
+    initial_comment_body = f"""
+Documentation preview for {args.commit_sha} will be available when [this CircleCI job]({job_url})
+completes successfully.
+
+<details>
+<summary>More info</summary>
+
+- Ignore this comment if this PR does not change the documentation.
+- It takes a few minutes for the preview to be available.
+- The preview is updated when a new commit is pushed to this PR.
+- This comment was created by {workflow_run_link}.
+
+</details>
+"""
+    upsert_comment(github_session, repo, args.pull_number, initial_comment_body)
+
+    # Wait for the build_doc job to complete
+    print("Waiting for CircleCI job to complete...")
+    for _ in range(60):  # Wait up to 3 minutes (60 * 3 seconds)
+        status = github_session.get(
+            f"https://api.github.com/repos/{repo}/commits/{args.commit_sha}/status"
+        )
+        build_doc_status = next(
+            filter(lambda s: s["context"].endswith(build_doc_job_name), status["statuses"]),
+            None,
+        )
+        if build_doc_status and build_doc_status["state"] == "success":
+            print("CircleCI job completed successfully")
+            break
+        elif build_doc_status and build_doc_status["state"] == "failure":
+            print("CircleCI job failed")
+            failure_comment_body = f"""
+Documentation preview for {args.commit_sha} failed to build.
+
+The [CircleCI job]({job_url}) failed. Please check the job logs for more details.
+
+<details>
+<summary>More info</summary>
+
+- This comment was created by {workflow_run_link}.
+
+</details>
+"""
+            upsert_comment(github_session, repo, args.pull_number, failure_comment_body)
+            return
+        print(f"Job status: {build_doc_status['state'] if build_doc_status else 'not found'}, waiting...")
+        time.sleep(3)
+    else:
+        print("Timed out waiting for CircleCI job to complete")
+        timeout_comment_body = f"""
+Documentation preview for {args.commit_sha} is taking longer than expected to build.
+
+The [CircleCI job]({job_url}) is still running. Please check back later or check the job directly.
+
+<details>
+<summary>More info</summary>
+
+- This comment was created by {workflow_run_link}.
+
+</details>
+"""
+        upsert_comment(github_session, repo, args.pull_number, timeout_comment_body)
+        return
+
+    # Get CircleCI job details and deploy to Netlify
     for _ in range(5):
         try:
             # Despite using a valid CircleCI token, the request occasionally fails with a 403 error.
             job = circle_session.get(f"https://circleci.com/api/v2/project/gh/{repo}/job/{job_id}")
-            job_url = job["web_url"]
             workflow_id = job["latest_workflow"]["id"]
             workflow = circle_session.get(f"https://circleci.com/api/v2/workflow/{workflow_id}/job")
             break
@@ -172,14 +238,16 @@ Failed to find a documentation preview for {args.commit_sha}.
     build_doc_job_id = build_doc_job["id"]
     artifact_url = f"https://output.circle-artifacts.com/output/job/{build_doc_job_id}/artifacts/0/docs-html.zip"
 
-    # Post the artifact URL as a comment
-    netlify_url = deploy_to_netlify(
-        artifact_url,
-        args.pull_number,
-        args.netlify_site_name,
-        args.action_url,
-    )
-    comment_body = f"""
+    # Deploy to Netlify and update comment with preview URL
+    print("Deploying to Netlify...")
+    try:
+        netlify_url = deploy_to_netlify(
+            artifact_url,
+            args.pull_number,
+            args.netlify_site_name,
+            args.action_url,
+        )
+        final_comment_body = f"""
 Documentation preview for {args.commit_sha} is available at:
 
 - {netlify_url}
@@ -193,7 +261,23 @@ Documentation preview for {args.commit_sha} is available at:
 
 </details>
 """
-    upsert_comment(github_session, repo, args.pull_number, comment_body)
+        upsert_comment(github_session, repo, args.pull_number, final_comment_body)
+        print(f"Documentation preview deployed successfully: {netlify_url}")
+    except Exception as e:
+        print(f"Failed to deploy to Netlify: {e}")
+        deployment_error_comment_body = f"""
+Documentation preview for {args.commit_sha} failed to deploy.
+
+The [CircleCI job]({job_url}) completed successfully, but deployment to Netlify failed: {str(e)}
+
+<details>
+<summary>More info</summary>
+
+- This comment was created by {workflow_run_link}.
+
+</details>
+"""
+        upsert_comment(github_session, repo, args.pull_number, deployment_error_comment_body)
 
 
 if __name__ == "__main__":
