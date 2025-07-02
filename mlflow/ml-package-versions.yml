@@ -231,7 +231,7 @@ semantic_kernel:
     python:
       "<= 1.34.0": "3.10"
     requirements:
-      "<= 1.34.0": ["pydantic<2"]
+      "<= 1.34.0": ["pydantic>=2.0"]
     run: |
       pytest tests/semantic_kernel/test_semantic_kernel_autolog.py
 
