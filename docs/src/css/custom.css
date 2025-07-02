@@ -657,7 +657,6 @@ html[data-theme='dark'] .menu__link--active {
   margin-bottom: 2.5rem;
 }
 
-
 .hero-image {
   flex: 1;
   max-width: 500px;
@@ -718,7 +717,6 @@ html[data-theme='dark'] .menu__link--active {
   margin-bottom: 0;
 }
 
-
 /* Responsive Design */
 @media (max-width: 996px) {
   .hero-content {
@@ -726,25 +724,25 @@ html[data-theme='dark'] .menu__link--active {
     text-align: center;
     gap: 2rem;
   }
-  
+
   .hero-text h1 {
     font-size: 2.5rem;
   }
-  
+
   .tiles-grid {
     grid-template-columns: repeat(2, 1fr);
     gap: 1.5rem;
   }
-  
+
   .why-content {
     flex-direction: column;
     gap: 2rem;
   }
-  
+
   .value-prop-badge {
     justify-content: center;
   }
-  
+
   .feature-highlights {
     grid-template-columns: 1fr;
     gap: 1.5rem;
@@ -755,17 +753,17 @@ html[data-theme='dark'] .menu__link--active {
   .hero-section {
     padding: 2rem 1rem;
   }
-  
+
   .hero-text h1 {
     font-size: 2rem;
   }
-  
+
   .tiles-grid {
     grid-template-columns: 1fr;
     gap: 1rem;
     padding: 1rem;
   }
-  
+
   .tile-card {
     padding: 1.5rem;
   }
