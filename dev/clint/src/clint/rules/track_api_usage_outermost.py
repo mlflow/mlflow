@@ -1,5 +1,4 @@
 import ast
-from typing import Union
 
 from clint.resolver import Resolver
 from clint.rules.base import Rule
@@ -16,7 +15,7 @@ class TrackApiUsageOutermost(Rule):
     def check(
         node: ast.expr,
         resolver: Resolver,
-        function_node: Union[ast.FunctionDef, ast.AsyncFunctionDef],
+        decorator_list: list[ast.expr],
     ) -> bool:
         """
         Returns True if the `@track_api_usage` decorator from mlflow.telemetry.track is not
@@ -25,7 +24,7 @@ class TrackApiUsageOutermost(Rule):
         Args:
             node: The decorator node being checked
             resolver: The resolver to identify the decorator
-            function_node: The function definition that owns this decorator
+            decorator_list: The list of decorators for the node
         """
         resolved = resolver.resolve(node)
         if not resolved:
@@ -35,10 +34,9 @@ class TrackApiUsageOutermost(Rule):
             return False
 
         # Check if this decorator is not the outermost (first) in the decorator list
-        if function_node.decorator_list:
-            for i, decorator in enumerate(function_node.decorator_list):
-                if decorator is node:
-                    # If it's not at position 0 (outermost), it's a violation
-                    return i != 0
+        for i, decorator in enumerate(decorator_list):
+            if decorator is node:
+                # If it's not at position 0 (outermost), it's a violation
+                return i != 0
 
         return False
