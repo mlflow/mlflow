@@ -376,9 +376,11 @@ def _reconstruct_completion_from_stream(chunks: list[Any]) -> Any:
     if chunks[0].object == "text_completion":
         # Handling for the deprecated Completions API. Keep the legacy behavior for now.
         def _extract_content(chunk: Any) -> str:
-            return chunk.choices[0].text if chunk.choices else ""
+            if not chunk.choices:
+                return ""
+            return chunk.choices[0].text or ""
 
-        return "".join(_extract_content(chunk) or "" for chunk in chunks)
+        return "".join(map(_extract_content, chunks))
 
     if chunks[0].object != "chat.completion.chunk":
         return chunks  # Ignore non-chat chunks
@@ -389,19 +391,20 @@ def _reconstruct_completion_from_stream(chunks: list[Any]) -> Any:
 
     # Build the base message
     def _extract_content(chunk: Any) -> str:
-        return chunk.choices[0].delta.content if chunk.choices else ""
+        if not chunk.choices:
+            return ""
+        return chunk.choices[0].delta.content or ""
 
     message = ChatCompletionMessage(
-        role="assistant", content="".join(_extract_content(chunk) or "" for chunk in chunks)
+        role="assistant", content="".join(map(_extract_content, chunks))
     )
 
     # Extract metadata from the last chunk
     last_chunk = chunks[-1]
     finish_reason = "stop"
-    if hasattr(last_chunk, "choices") and last_chunk.choices:
-        chunk_choice = last_chunk.choices[0]
-        if hasattr(chunk_choice, "finish_reason") and chunk_choice.finish_reason:
-            finish_reason = chunk_choice.finish_reason
+    if choices := getattr(last_chunk, "choices", None):
+        if chunk_choice := choices[0]:
+            finish_reason = getattr(chunk_choice, "finish_reason") or finish_reason
 
     choice = Choice(index=0, message=message, finish_reason=finish_reason)
 
