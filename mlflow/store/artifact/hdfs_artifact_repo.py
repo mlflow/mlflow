@@ -2,6 +2,7 @@ import os
 import posixpath
 import urllib.parse
 from contextlib import contextmanager
+from typing import Optional
 
 try:
     from pyarrow.fs import FileSelector, FileType, HadoopFileSystem
@@ -26,9 +27,9 @@ class HdfsArtifactRepository(ArtifactRepository):
     together with the RestStore.
     """
 
-    def __init__(self, artifact_uri):
+    def __init__(self, artifact_uri: str, tracking_uri: Optional[str] = None) -> None:
+        super().__init__(artifact_uri, tracking_uri)
         self.scheme, self.host, self.port, self.path = _resolve_connection_params(artifact_uri)
-        super().__init__(artifact_uri)
 
     def log_artifact(self, local_file, artifact_path=None):
         """

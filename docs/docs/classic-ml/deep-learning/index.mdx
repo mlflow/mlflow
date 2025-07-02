@@ -16,17 +16,18 @@ MLflow provides a comprehensive solution for tracking, managing, and deploying d
 <details>
   <summary>Why Deep Learning Needs MLflow</summary>
 
-  #### The Challenges of Modern Deep Learning
+#### The Challenges of Modern Deep Learning
 
-  - 🔄 **Iterative Development**: Deep learning requires extensive experimentation with architectures, hyperparameters, and training regimes
-  - 📊 **Complex Metrics**: Models generate numerous metrics across training steps that must be tracked and compared
-  - 💾 **Large Artifacts**: Models, checkpoints, and visualizations need systematic storage and versioning
-  - 🧩 **Framework Diversity**: Teams often work across PyTorch, TensorFlow, Keras, and other specialized libraries
-  - 🔬 **Reproducibility Crisis**: Without proper tracking, recreating results becomes nearly impossible
-  - 👥 **Team Collaboration**: Multiple researchers need visibility into experiments and the ability to build on each other's work
-  - 🚀 **Deployment Complexities**: Moving from successful experiments to production introduces new challenges
+- 🔄 **Iterative Development**: Deep learning requires extensive experimentation with architectures, hyperparameters, and training regimes
+- 📊 **Complex Metrics**: Models generate numerous metrics across training steps that must be tracked and compared
+- 💾 **Large Artifacts**: Models, checkpoints, and visualizations need systematic storage and versioning
+- 🧩 **Framework Diversity**: Teams often work across PyTorch, TensorFlow, Keras, and other specialized libraries
+- 🔬 **Reproducibility Crisis**: Without proper tracking, recreating results becomes nearly impossible
+- 👥 **Team Collaboration**: Multiple researchers need visibility into experiments and the ability to build on each other's work
+- 🚀 **Deployment Complexities**: Moving from successful experiments to production introduces new challenges
 
-  MLflow addresses these challenges with a framework-agnostic platform that brings structure and clarity to the entire deep learning lifecycle.
+MLflow addresses these challenges with a framework-agnostic platform that brings structure and clarity to the entire deep learning lifecycle.
+
 </details>
 
 ## Key Features for Deep Learning
@@ -43,17 +44,18 @@ MLflow's tracking capabilities are tailor-made for the iterative nature of deep 
 <details>
   <summary>Advanced Tracking Capabilities</summary>
 
-  #### Beyond Basic Metrics
+#### Beyond Basic Metrics
 
-  MLflow's tracking system supports the specialized needs of deep learning workflows:
+MLflow's tracking system supports the specialized needs of deep learning workflows:
 
-  - **Model Architecture Logging**: Automatically capture neural network structures and parameter counts
-  - **Dataset Tracking**: Record dataset versions, preprocessing steps, and augmentation parameters
-  - **Visual Debugging**: Store sample predictions, attention maps, and other visual artifacts
-  - **Distributed Training**: Monitor metrics across multiple nodes in distributed training setups
-  - **Custom Artifacts**: Log confusion matrices, embedding projections, and other specialized visualizations
-  - **Hardware Profiling**: Track GPU/TPU utilization, memory consumption, and throughput metrics
-  - **Early Stopping Points**: Record when early stopping occurred and store the best model states
+- **Model Architecture Logging**: Automatically capture neural network structures and parameter counts
+- **Dataset Tracking**: Record dataset versions, preprocessing steps, and augmentation parameters
+- **Visual Debugging**: Store sample predictions, attention maps, and other visual artifacts
+- **Distributed Training**: Monitor metrics across multiple nodes in distributed training setups
+- **Custom Artifacts**: Log confusion matrices, embedding projections, and other specialized visualizations
+- **Hardware Profiling**: Track GPU/TPU utilization, memory consumption, and throughput metrics
+- **Early Stopping Points**: Record when early stopping occurred and store the best model states
+
 </details>
 
 <Tabs>
@@ -65,6 +67,7 @@ MLflow's tracking capabilities are tailor-made for the iterative nature of deep 
     <div style={{ width: "90%" }}>
       ![Training convergence comparison](/images/deep-learning/dl-run-selection.gif)
     </div>
+
   </TabItem>
 
   <TabItem label="Chart Customization" value="chart-customization">
@@ -75,6 +78,7 @@ MLflow's tracking capabilities are tailor-made for the iterative nature of deep 
     <div style={{ width: "90%" }}>
       ![Chart customization](/images/deep-learning/dl-run-navigation.gif)
     </div>
+
   </TabItem>
 
   <TabItem label="Run Comparison" value="run-comparison">
@@ -85,6 +89,7 @@ MLflow's tracking capabilities are tailor-made for the iterative nature of deep 
     <div style={{ width: "90%" }}>
       ![Parameter comparison](/images/deep-learning/dl-run-comparison.gif)
     </div>
+
   </TabItem>
 
   <TabItem label="Statistical Evaluation" value="statistical-evaluation">
@@ -95,6 +100,7 @@ MLflow's tracking capabilities are tailor-made for the iterative nature of deep 
     <div style={{ width: "90%" }}>
       ![Statistical evaluation](/images/deep-learning/dl-boxplot.gif)
     </div>
+
   </TabItem>
 
   <TabItem label="Realtime Tracking" value="realtime-tracking">
@@ -105,6 +111,7 @@ MLflow's tracking capabilities are tailor-made for the iterative nature of deep 
     <div style={{ width: "90%" }}>
       ![Realtime tracking](/images/deep-learning/dl-tracking.gif)
     </div>
+
   </TabItem>
 
   <TabItem label="Model Comparison" value="model-comparison">
@@ -115,6 +122,7 @@ MLflow's tracking capabilities are tailor-made for the iterative nature of deep 
     <div  style={{ width: "90%" }}>
       ![](/images/deep-learning/dl-model-comparison.gif)
     </div>
+
   </TabItem>
 </Tabs>
 
@@ -132,17 +140,18 @@ Deep learning models are valuable assets that require careful management:
 <details>
   <summary>Model Registry for Teams</summary>
 
-  #### Collaborative Model Development
+#### Collaborative Model Development
 
-  The MLflow Model Registry enhances team productivity through:
+The MLflow Model Registry enhances team productivity through:
 
-  - **Transition Requests**: Team members can request model promotion with documented justifications
-  - **Approval Workflows**: Implement governance with required approvals for production deployments (managed MLflow only)
-  - **Performance Baselines**: Set threshold requirements before models can advance to production
-  - **Rollback Capabilities**: Quickly revert to previous versions if issues arise
-  - **Activity Feeds**: Track who made changes to models and when (managed MLflow only)
-  - **Webhook Integration**: Trigger CI/CD pipelines and notifications based on registry events (managed MLflow only)
-  - **Model Documentation**: Store comprehensive documentation alongside model artifacts
+- **Transition Requests**: Team members can request model promotion with documented justifications
+- **Approval Workflows**: Implement governance with required approvals for production deployments (managed MLflow only)
+- **Performance Baselines**: Set threshold requirements before models can advance to production
+- **Rollback Capabilities**: Quickly revert to previous versions if issues arise
+- **Activity Feeds**: Track who made changes to models and when (managed MLflow only)
+- **Webhook Integration**: Trigger CI/CD pipelines and notifications based on registry events (managed MLflow only)
+- **Model Documentation**: Store comprehensive documentation alongside model artifacts
+
 </details>
 
 ### 🚀 Simplified Deployment
@@ -159,17 +168,18 @@ Move from successful experiments to production with ease:
 <details>
   <summary>Advanced Deployment Options</summary>
 
-  #### Beyond Basic Serving
+#### Beyond Basic Serving
 
-  MLflow supports sophisticated deployment scenarios for deep learning:
+MLflow supports sophisticated deployment scenarios for deep learning:
 
-  - **Model Ensembling**: Deploy multiple models with voting or averaging mechanisms
-  - **Custom Preprocessing/Postprocessing**: Attach data transformation pipelines to your model
-  - **Optimized Inference**: Support for quantization, pruning, and other optimization techniques
-  - **Monitoring Integration**: Connect to observability platforms for production tracking
-  - **Hardware Acceleration**: Leverage GPU/TPU resources for high-throughput inference in cloud provider infrastructure
-  - **Scalable Architecture**: Handle variable loads with auto-scaling capabilities (managed MLflow only)
-  - **Multi-Framework Deployment**: Mix models from different frameworks in the same serving environment
+- **Model Ensembling**: Deploy multiple models with voting or averaging mechanisms
+- **Custom Preprocessing/Postprocessing**: Attach data transformation pipelines to your model
+- **Optimized Inference**: Support for quantization, pruning, and other optimization techniques
+- **Monitoring Integration**: Connect to observability platforms for production tracking
+- **Hardware Acceleration**: Leverage GPU/TPU resources for high-throughput inference in cloud provider infrastructure
+- **Scalable Architecture**: Handle variable loads with auto-scaling capabilities (managed MLflow only)
+- **Multi-Framework Deployment**: Mix models from different frameworks in the same serving environment
+
 </details>
 
 ## Framework Integrations
@@ -199,60 +209,61 @@ MLflow provides native support for all major deep learning frameworks, allowing 
 <details>
   <summary>Quick Setup Guide</summary>
 
-  ### 1. Install MLflow
+### 1. Install MLflow
 
-  ```bash
-  pip install mlflow
-  ```
+```bash
+pip install mlflow
+```
 
-  Ensure that you have the appropriate DL integration package installed. For example, for PyTorch with image model support:
+Ensure that you have the appropriate DL integration package installed. For example, for PyTorch with image model support:
 
-  ```bash
-  pip install torch torchvision
-  ```
+```bash
+pip install torch torchvision
+```
 
-  ### 2. Start Tracking Server (Optional)
+### 2. Start Tracking Server (Optional)
 
-  ```bash
-  # Start a local tracking server
-  mlflow server --host 0.0.0.0 --port 5000
-  ```
+```bash
+# Start a local tracking server
+mlflow server --host 0.0.0.0 --port 5000
+```
 
-  ### 3. Enable Autologging
+### 3. Enable Autologging
 
-  ```python
-  import mlflow
+```python
+import mlflow
 
-  # For TensorFlow/Keras
-  mlflow.tensorflow.autolog()
+# For TensorFlow/Keras
+mlflow.tensorflow.autolog()
 
-  # For PyTorch Lightning
-  mlflow.pytorch.autolog()
+# For PyTorch Lightning
+mlflow.pytorch.autolog()
 
-  # For all supported frameworks
-  mlflow.autolog()
-  ```
+# For all supported frameworks
+mlflow.autolog()
+```
 
-  ### 4. Train Your Model Normally
+### 4. Train Your Model Normally
 
-  ```python
-  # Your existing training code works unchanged!
-  model.fit(train_data, train_labels, epochs=10, validation_data=(val_data, val_labels))
-  ```
+```python
+# Your existing training code works unchanged!
+model.fit(train_data, train_labels, epochs=10, validation_data=(val_data, val_labels))
+```
 
-  ### 5. View Results
+### 5. View Results
 
-  Open the MLflow UI to see your tracked experiments:
+Open the MLflow UI to see your tracked experiments:
 
-  ```bash
-  mlflow ui
-  ```
+```bash
+mlflow ui
+```
 
-  Or if using a tracking server:
+Or if using a tracking server:
 
-  ```
-  http://localhost:5000
-  ```
+```
+http://localhost:5000
+```
+
 </details>
 
 ## Real-World Applications
@@ -273,128 +284,131 @@ Deep learning with MLflow powers a wide range of applications across industries:
 <details>
   <summary>Distributed Training Integration</summary>
 
-  MLflow integrates seamlessly with distributed training frameworks:
+MLflow integrates seamlessly with distributed training frameworks:
 
-  - **Horovod**: Track metrics across distributed TensorFlow and PyTorch training
-  - **PyTorch DDP**: Monitor distributed data parallel training
-  - **TensorFlow Distribution Strategies**: Log metrics from multi-GPU and multi-node training
-  - **Ray**: Integrate with Ray's distributed computing ecosystem
+- **Horovod**: Track metrics across distributed TensorFlow and PyTorch training
+- **PyTorch DDP**: Monitor distributed data parallel training
+- **TensorFlow Distribution Strategies**: Log metrics from multi-GPU and multi-node training
+- **Ray**: Integrate with Ray's distributed computing ecosystem
 
-  Example with PyTorch DDP:
+Example with PyTorch DDP:
 
-  ```python
-  import mlflow
-  import torch.distributed as dist
-  from torch.nn.parallel import DistributedDataParallel
+```python
+import mlflow
+import torch.distributed as dist
+from torch.nn.parallel import DistributedDataParallel
 
-  mlflow.pytorch.autolog()
+mlflow.pytorch.autolog()
 
-  # Initialize process group
-  dist.init_process_group(backend="nccl")
+# Initialize process group
+dist.init_process_group(backend="nccl")
 
-  # Create model and move to GPU with DDP wrapper
-  model = DistributedDataParallel(model.to(rank))
+# Create model and move to GPU with DDP wrapper
+model = DistributedDataParallel(model.to(rank))
 
-  # MLflow tracking works normally with DDP
-  with mlflow.start_run():
-      trainer.fit(model)
-  ```
+# MLflow tracking works normally with DDP
+with mlflow.start_run():
+    trainer.fit(model)
+```
+
 </details>
 
 <details>
   <summary>Hyperparameter Optimization</summary>
 
-  MLflow integrates with popular hyperparameter optimization frameworks:
+MLflow integrates with popular hyperparameter optimization frameworks:
 
-  - **Optuna**: Track trials and visualize optimization results
-  - **Ray Tune**: Monitor distributed hyperparameter sweeps
-  - **Weights & Biases Sweeps**: Synchronize W&B sweeps with MLflow tracking
-  - **HyperOpt**: Organize and compare hyperparameter search results
+- **Optuna**: Track trials and visualize optimization results
+- **Ray Tune**: Monitor distributed hyperparameter sweeps
+- **Weights & Biases Sweeps**: Synchronize W&B sweeps with MLflow tracking
+- **HyperOpt**: Organize and compare hyperparameter search results
 
-  Example with Optuna:
+Example with Optuna:
 
-  ```python
-  import mlflow
-  import optuna
-
-
-  def objective(trial):
-      with mlflow.start_run(nested=True):
-          # Suggest hyperparameters
-          lr = trial.suggest_float("lr", 1e-5, 1e-1, log=True)
-          batch_size = trial.suggest_categorical("batch_size", [16, 32, 64, 128])
-
-          # Log parameters to MLflow
-          mlflow.log_params({"lr": lr, "batch_size": batch_size})
-
-          # Train model
-          model = create_model(lr)
-          result = train_model(model, batch_size)
-
-          # Log results
-          mlflow.log_metrics({"accuracy": result["accuracy"]})
-
-          return result["accuracy"]
+```python
+import mlflow
+import optuna
 
 
-  # Create study
-  with mlflow.start_run():
-      study = optuna.create_study(direction="maximize")
-      study.optimize(objective, n_trials=100)
+def objective(trial):
+    with mlflow.start_run(nested=True):
+        # Suggest hyperparameters
+        lr = trial.suggest_float("lr", 1e-5, 1e-1, log=True)
+        batch_size = trial.suggest_categorical("batch_size", [16, 32, 64, 128])
 
-      # Log best parameters
-      mlflow.log_params({f"best_{k}": v for k, v in study.best_params.items()})
-      mlflow.log_metric("best_accuracy", study.best_value)
-  ```
+        # Log parameters to MLflow
+        mlflow.log_params({"lr": lr, "batch_size": batch_size})
+
+        # Train model
+        model = create_model(lr)
+        result = train_model(model, batch_size)
+
+        # Log results
+        mlflow.log_metrics({"accuracy": result["accuracy"]})
+
+        return result["accuracy"]
+
+
+# Create study
+with mlflow.start_run():
+    study = optuna.create_study(direction="maximize")
+    study.optimize(objective, n_trials=100)
+
+    # Log best parameters
+    mlflow.log_params({f"best_{k}": v for k, v in study.best_params.items()})
+    mlflow.log_metric("best_accuracy", study.best_value)
+```
+
 </details>
 
 <details>
   <summary>Transfer Learning Workflows</summary>
 
-  MLflow helps organize transfer learning and fine-tuning workflows:
+MLflow helps organize transfer learning and fine-tuning workflows:
 
-  - **Base Model Registry**: Maintain a catalog of pre-trained models
-  - **Fine-Tuning Tracking**: Monitor performance as you adapt models to new tasks
-  - **Layer Freezing Analysis**: Compare different layer freezing strategies
-  - **Learning Rate Scheduling**: Track the impact of different learning rate strategies for fine-tuning
+- **Base Model Registry**: Maintain a catalog of pre-trained models
+- **Fine-Tuning Tracking**: Monitor performance as you adapt models to new tasks
+- **Layer Freezing Analysis**: Compare different layer freezing strategies
+- **Learning Rate Scheduling**: Track the impact of different learning rate strategies for fine-tuning
 
-  Example tracking a fine-tuning run:
+Example tracking a fine-tuning run:
 
-  ```python
-  import mlflow
-  import torch
-  from transformers import AutoModelForSequenceClassification
+```python
+import mlflow
+import torch
+from transformers import AutoModelForSequenceClassification
 
-  with mlflow.start_run():
-      # Log base model information
-      base_model_name = "bert-base-uncased"
-      mlflow.log_param("base_model", base_model_name)
+with mlflow.start_run():
+    # Log base model information
+    base_model_name = "bert-base-uncased"
+    mlflow.log_param("base_model", base_model_name)
 
-      # Create and customize model for fine-tuning
-      model = AutoModelForSequenceClassification.from_pretrained(base_model_name)
+    # Create and customize model for fine-tuning
+    model = AutoModelForSequenceClassification.from_pretrained(base_model_name)
 
-      # Log which layers are frozen
-      frozen_layers = ["embeddings", "encoder.layer.0", "encoder.layer.1"]
-      mlflow.log_param("frozen_layers", frozen_layers)
+    # Log which layers are frozen
+    frozen_layers = ["embeddings", "encoder.layer.0", "encoder.layer.1"]
+    mlflow.log_param("frozen_layers", frozen_layers)
 
-      # Freeze specified layers
-      for name, param in model.named_parameters():
-          if any(layer in name for layer in frozen_layers):
-              param.requires_grad = False
+    # Freeze specified layers
+    for name, param in model.named_parameters():
+        if any(layer in name for layer in frozen_layers):
+            param.requires_grad = False
 
-      # Log trainable parameter count
-      trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
-      total_params = sum(p.numel() for p in model.parameters())
-      mlflow.log_params(
-          {
-              "trainable_params": trainable_params,
-              "total_params": total_params,
-              "trainable_percentage": trainable_params / total_params,
-          }
-      )
+    # Log trainable parameter count
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    total_params = sum(p.numel() for p in model.parameters())
+    mlflow.log_params(
+        {
+            "trainable_params": trainable_params,
+            "total_params": total_params,
+            "trainable_percentage": trainable_params / total_params,
+        }
+    )
 
-      # Fine-tune and track results...
-  ```
+    # Fine-tune and track results...
+```
+
 </details>
 
 ## Learn More

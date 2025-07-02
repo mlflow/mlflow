@@ -678,7 +678,7 @@ def load_prompt(
         prompt = mlflow.load_prompt("my_prompt", version=1)
 
         # Load a specific version of the prompt by URI
-        prompt = mlflow.load_prompt(uri="prompts:/my_prompt/1")
+        prompt = mlflow.load_prompt("prompts:/my_prompt/1")
 
         # Load a prompt version with an alias "production"
         prompt = mlflow.load_prompt("prompts:/my_prompt@production")

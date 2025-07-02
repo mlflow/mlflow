@@ -12,7 +12,7 @@ You create account with your email only and won't get charged unless you decide 
 
 ## Start your trial
 
-To get started with Databricks Free Trial, visit the [Databricks Trial Signup Page](https://signup.databricks.com/?destination_url=/ml/experiments-signup?source=OSS_DOCS&dbx_source=TRY_MLFLOW&signup_experience_step=EXPRESS&provider=MLFLOW)
+To get started with Databricks Free Trial, visit the [Databricks Trial Signup Page](https://signup.databricks.com/?destination_url=/ml/experiments-signup?source=OSS_DOCS&dbx_source=TRY_MLFLOW&signup_experience_step=EXPRESS&provider=MLFLOW&utm_source=OSS_DOCS)
 and follow the instructions outlined there. It takes about 5 minutes to set up, after which you'll have access to a nearly fully-functional Databricks Workspace for logging your tutorial experiments, traces, models, and artifacts.
 
 :::tip
@@ -83,6 +83,7 @@ If you are following along in the Tracing Tutorial, these steps are handled for 
 Otherwise, follow the steps in [this guide](https://docs.databricks.com/aws/en/dev-tools/auth/pat) to create a PAT for remotely accessing your Databricks Workspace.
 
 #### Install Dependencies
+
 Run the following command in your dev environment to install dependencies.
 
 ```bash
@@ -129,6 +130,7 @@ In order to keep all of your artifacts within a single place, you can opt to use
 Firstly, you need to create a Unity Catalog Volume `test.mlflow.check-databricks-connection` by following [this guide](https://docs.databricks.com/aws/en/volumes/utility-commands#create-a-volume).
 Then, you can run the following code to start an experiment with the Unity Catalog Volume and log metrics to it.
 Note that your experiment name must follow the `/Users/<your email>/<experiment_name>` format when using a Databricks Workspace.
+
 ```python
 mlflow.create_experiment(
     "/Users/<your email>/check-databricks-connection",

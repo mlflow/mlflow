@@ -72,7 +72,9 @@ def test_get_artifact_uri(uri, expected_tracking_uri, mock_uri, expected_result_
     ) as get_artifact_uri_mock:
         result_uri = RunsArtifactRepository.get_underlying_uri(uri)
         get_artifact_uri_mock.assert_called_once_with(
-            "1234abcdf1394asdfwer33", "path/model", expected_tracking_uri
+            run_id="1234abcdf1394asdfwer33",
+            artifact_path="path/model",
+            tracking_uri=expected_tracking_uri,
         )
         assert result_uri == expected_result_uri
 

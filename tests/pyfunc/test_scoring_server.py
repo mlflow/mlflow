@@ -5,6 +5,7 @@ import random
 import signal
 from collections import namedtuple
 from io import StringIO
+from typing import Any
 
 import keras
 import numpy as np
@@ -764,7 +765,7 @@ def test_parse_json_input_including_path():
         ({"timeout": 30}, "", "30"),
     ],
 )
-def test_get_cmd(args: dict, expected: str, timeout: str):
+def test_get_cmd(args: dict[str, Any], expected: str, timeout: str):
     cmd, env = get_cmd(model_uri="foo", **args)
 
     assert cmd == (f"uvicorn {expected} mlflow.pyfunc.scoring_server.app:app")

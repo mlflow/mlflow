@@ -53,6 +53,7 @@ with mlflow.start_run():
 ```
 
 This automatically generates:
+
 <ul>
   <li><strong>Feature importance plots</strong> showing which features matter most</li>
   <li><strong>SHAP summary plots</strong> displaying feature impact distributions</li>
@@ -111,14 +112,16 @@ result = mlflow.evaluate(
 <details>
   <summary>Configuration Options</summary>
 
-  #### Explainer Types
+#### Explainer Types
+
   <ul>
     <li><code>"exact"</code>: Precise SHAP values using the exact algorithm (slower)</li>
     <li><code>"permutation"</code>: Permutation-based explanations (faster, approximate)</li>
     <li><code>"partition"</code>: Tree-based explanations for tree models</li>
   </ul>
 
-  #### Output Control
+#### Output Control
+
   <ul>
     <li><code>log_explainer</code>: Whether to save the SHAP explainer as a model</li>
     <li><code>max_error_examples</code>: Number of misclassified examples to explain in detail</li>
@@ -309,14 +312,16 @@ def custom_shap_analysis(model, data, feature_names):
 <details>
   <summary>SHAP Visualization Types</summary>
 
-  #### Summary Plots
+#### Summary Plots
+
   <ul>
     <li><strong>Bar plots</strong>: Average feature importance across all predictions</li>
     <li><strong>Dot plots</strong>: Feature importance distribution showing positive/negative impacts</li>
     <li><strong>Violin plots</strong>: Distribution of SHAP values for each feature</li>
   </ul>
 
-  #### Individual Explanations
+#### Individual Explanations
+
   <ul>
     <li><strong>Waterfall plots</strong>: Step-by-step breakdown of a single prediction</li>
     <li><strong>Force plots</strong>: Visual representation of feature contributions</li>
@@ -526,6 +531,7 @@ def memory_efficient_shap_evaluation(model_uri, eval_data, targets, sample_size=
 ```
 
 **Performance Guidelines:**
+
 <ul>
   <li><strong>Small datasets (&lt; 1,000 samples)</strong>: Use exact SHAP methods for precision</li>
   <li><strong>Medium datasets (1,000 - 50,000 samples)</strong>: Standard SHAP analysis works well</li>
@@ -551,6 +557,7 @@ SHAP integration provides the most value in these scenarios:
 ### Performance Considerations
 
 **Dataset Size Guidelines:**
+
 <ul>
   <li><strong>Small datasets (&lt; 1,000 samples)</strong>: Use exact SHAP methods for precision</li>
   <li><strong>Medium datasets (1,000 - 50,000 samples)</strong>: Standard SHAP analysis works well</li>
@@ -559,6 +566,7 @@ SHAP integration provides the most value in these scenarios:
 </ul>
 
 **Memory Management:**
+
 <ul>
   <li>Process explanations in batches for large datasets</li>
   <li>Use approximate SHAP methods when exact precision isn't required</li>
