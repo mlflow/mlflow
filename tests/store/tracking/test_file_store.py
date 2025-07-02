@@ -3509,6 +3509,7 @@ def test_traces_not_listed_as_runs(tmp_path):
             client.search_runs([run.info.experiment_id], "", ViewType.ALL, max_results=1)
             mock_debug.assert_not_called()
 
+
 def test_get_experiment_missing_and_empty_metadata_file(tmp_path):
     fs = FileStore(str(tmp_path))
 
@@ -3518,16 +3519,12 @@ def test_get_experiment_missing_and_empty_metadata_file(tmp_path):
 
     # Missing meta.yaml — should raise MissingConfigException about missing file
     with pytest.raises(
-        MissingConfigException,
-        match=fr"Yaml file '.*{exp_id}[\\/]+meta.yaml' does not exist."
+        MissingConfigException, match=rf"Yaml file '.*{exp_id}[\\/]+meta.yaml' does not exist."
     ):
         fs._get_experiment(exp_id)
 
     # Create an empty meta.yaml
     (exp_dir / FileStore.META_DATA_FILE_NAME).write_text("")
     # Should raise MissingConfigException about invalid metadata
-    with pytest.raises(
-        MissingConfigException,
-        match=fr"Experiment {exp_id} is invalid with empty"
-    ):
+    with pytest.raises(MissingConfigException, match=rf"Experiment {exp_id} is invalid with empty"):
         fs._get_experiment(exp_id)
