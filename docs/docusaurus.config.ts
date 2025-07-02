@@ -15,6 +15,9 @@ const config: Config = {
   tagline: "MLflow Documentation",
   favicon: "images/favicon.ico",
 
+  // Docusaurus sets the canonical URL to the preferred one, so the pages are consolidated and double search results are prevented.
+  trailingSlash: true,
+
   // Set the production url of your site here
   url: "https://mlflow.org",
 
