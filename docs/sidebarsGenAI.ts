@@ -78,6 +78,11 @@ const sidebarsGenAI: SidebarsConfig = {
               id: 'tracing/quickstart/python-openai',
               label: 'Getting Started (Python)',
             },
+            {
+              type: 'doc',
+              id: 'tracing/quickstart/typescript-openai',
+              label: 'Getting Started (TS/JS)',
+            },
           ],
         },
         {

@@ -6,6 +6,12 @@ import TabsWrapper from '@site/src/components/TabsWrapper';
 
 # Tracing Quickstart (Python)
 
+:::info
+
+The TypeScript/JavaScript quickstart is available <ins>[here](/genai/tracing/quickstart/typescript-openai)</ins>.
+
+:::
+
 This quickstart guide will walk you through setting up a simple GenAI application with MLflow Tracing. In less than 10 minutes, you'll enable tracing, run a basic application, and explore the generated traces in the MLflow UI.
 
 ## Prerequisites
@@ -144,40 +150,46 @@ Let's define a Python function that fetches the weather information from a weath
 ```python
 import requests
 
+
 # Decorated with @mlflow.trace to trace the function call.
 @mlflow.trace(span_type=SpanType.TOOL)
 def get_weather(latitude, longitude):
-    response = requests.get(f"https://api.open-meteo.com/v1/forecast?latitude={latitude}&longitude={longitude}&current=temperature_2m,wind_speed_10m&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m")
+    response = requests.get(
+        f"https://api.open-meteo.com/v1/forecast?latitude={latitude}&longitude={longitude}&current=temperature_2m,wind_speed_10m&hourly=temperature_2m,relative_humidity_2m,wind_speed_10m"
+    )
     data = response.json()
-    return data['current']['temperature_2m']
+    return data["current"]["temperature_2m"]
 ```
 
 To pass the function as a tool to the LLM, we need to define the JSON schema for the function.
 
 ```python
-tools = [{
-    "type": "function",
-    "function": {
-        "name": "get_weather",
-        "description": "Get current temperature for provided coordinates in celsius.",
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "latitude": {"type": "number"},
-                "longitude": {"type": "number"}
+tools = [
+    {
+        "type": "function",
+        "function": {
+            "name": "get_weather",
+            "description": "Get current temperature for provided coordinates in celsius.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "latitude": {"type": "number"},
+                    "longitude": {"type": "number"},
+                },
+                "required": ["latitude", "longitude"],
+                "additionalProperties": False,
             },
-            "required": ["latitude", "longitude"],
-            "additionalProperties": False
+            "strict": True,
         },
-        "strict": True
     }
-}]
+]
 ```
 
 Lastly, define a simple flow that first ask LLM to get instruction for calling the tool, invoke the tool function, and return the result to the LLM.
 
 ```python
 import json
+
 
 # Define a simple tool calling agent
 @mlflow.trace(span_type=SpanType.AGENT)
@@ -213,9 +225,7 @@ def run_tool_agent(question: str):
             )
 
         # Sent the tool results to the model and get a new response
-        response = client.chat.completions.create(
-            model="o4-mini", messages=messages
-        )
+        response = client.chat.completions.create(model="o4-mini", messages=messages)
 
     return response.choices[0].message.content
 ```
