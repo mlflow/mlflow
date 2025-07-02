@@ -54,25 +54,9 @@ const sidebarsGenAI: SidebarsConfig = {
           label: 'Evaluate your GenAI App',
         },
         {
-          type: 'category',
+          type: 'link',
+          href: '/genai/tracing/quickstart/index',
           label: 'Tracing',
-          items: [
-            {
-              type: 'doc',
-              id: 'getting-started/tracing/index',
-              label: 'Overview',
-            },
-            {
-              type: 'doc',
-              id: 'getting-started/tracing/tracing-ide',
-              label: 'Tracing a GenAI App (IDE)',
-            },
-            {
-              type: 'doc',
-              id: 'getting-started/tracing/tracing-notebook',
-              label: 'Tracing a GenAI App (Notebook)',
-            },
-          ],
         },
       ],
       link: {
@@ -86,9 +70,15 @@ const sidebarsGenAI: SidebarsConfig = {
       className: 'sidebar-top-level-category',
       items: [
         {
-          type: 'doc',
-          id: 'tracing/quickstart',
+          type: 'category',
           label: 'Quickstart',
+          items: [
+            {
+              type: 'doc',
+              id: 'tracing/quickstart/python-openai',
+              label: 'Getting Started (Python)',
+            },
+          ],
         },
         {
           type: 'category',
