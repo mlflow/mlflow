@@ -10,6 +10,7 @@ import TileCard from '@site/src/components/TileCard';
 import SearchBox from '@site/src/components/SearchBox';
 import TilesGrid from '@site/src/components/TilesGrid';
 import { CardGroup, SmallLogoCard } from '@site/src/components/Card';
+import FeatureHighlights from '@site/src/components/FeatureHighlights';
 import Platform from "@site/src/content/platform.mdx"
 import TraceUIImageUrl from '@site/static/images/mlflow-3-trace-ui.png';
 
@@ -105,44 +106,32 @@ import TraceUIImageUrl from '@site/static/images/mlflow-3-trace-ui.png';
 
 ## Why choose MLflow?
 
-<div className="feature-highlights">
-  <div className="highlight-item">
-    <div className="highlight-content">
-      <h4>Open Source</h4>
-      <p>Join thousands of teams building GenAI with MLflow. As part of the Linux Foundation, MLflow ensures your AI infrastructure remains open and vendor-neutral.</p>
-    </div>
-  </div>
-  <div className="highlight-item">
-    <div className="highlight-content">
-      <h4>Production-Ready Platform</h4>
-      <p>Deploy anywhere with confidence. From local servers to cloud platforms, MLflow handles the complexity of GenAI deployment, monitoring, and optimization.</p>
-    </div>
-  </div>
-  <div className="highlight-item">
-    <div className="highlight-content">
-      <h4>End-to-End Lifecycle</h4>
-      <p>Manage the complete GenAI journey from experimentation to production. Track prompts, evaluate quality, deploy models, and monitor performance in one platform.</p>
-    </div>
-  </div>
-  <div className="highlight-item">
-    <div className="highlight-content">
-      <h4>Framework Integration</h4>
-      <p>Use any GenAI framework or model provider. With 20+ native integrations and extensible APIs, MLflow adapts to your tech stack, not the other way around.</p>
-    </div>
-  </div>
-  <div className="highlight-item">
-    <div className="highlight-content">
-      <h4>Complete Observability</h4>
-      <p>See inside every AI decision with comprehensive tracing that captures prompts, retrievals, tool calls, and model responses. Debug complex workflows with confidence.</p>
-    </div>
-  </div>
-  <div className="highlight-item">
-    <div className="highlight-content">
-      <h4>Automated Quality Assurance</h4>
-      <p>Stop manual testing with LLM judges and custom metrics. Systematically evaluate every change to ensure consistent improvements in your AI applications.</p>
-    </div>
-  </div>
-</div>
+<FeatureHighlights features={[
+  {
+    title: "Open Source",
+    description: "Join thousands of teams building GenAI with MLflow. As part of the Linux Foundation, MLflow ensures your AI infrastructure remains open and vendor-neutral."
+  },
+  {
+    title: "Production-Ready Platform",
+    description: "Deploy anywhere with confidence. From local servers to cloud platforms, MLflow handles the complexity of GenAI deployment, monitoring, and optimization."
+  },
+  {
+    title: "End-to-End Lifecycle",
+    description: "Manage the complete GenAI journey from experimentation to production. Track prompts, evaluate quality, deploy models, and monitor performance in one platform."
+  },
+  {
+    title: "Framework Integration",
+    description: "Use any GenAI framework or model provider. With 20+ native integrations and extensible APIs, MLflow adapts to your tech stack, not the other way around."
+  },
+  {
+    title: "Complete Observability",
+    description: "See inside every AI decision with comprehensive tracing that captures prompts, retrievals, tool calls, and model responses. Debug complex workflows with confidence."
+  },
+  {
+    title: "Automated Quality Assurance",
+    description: "Stop manual testing with LLM judges and custom metrics. Systematically evaluate every change to ensure consistent improvements in your AI applications."
+  }
+]} />
 
 ## Running Anywhere
 

@@ -295,7 +295,7 @@ const sidebarsGenAI: SidebarsConfig = {
       type: 'category',
       label: 'Prompt and Version Management',
       className: 'sidebar-top-level-category',
-      collapsed: true,
+      collapsed: false,
       items: [
         {
           type: 'category',
