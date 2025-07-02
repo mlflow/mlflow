@@ -8,9 +8,5 @@ export interface TilesGridProps {
 }
 
 export default function TilesGrid({ children, className }: TilesGridProps): JSX.Element {
-  return (
-    <div className={clsx(styles.tilesGrid, className)}>
-      {children}
-    </div>
-  );
+  return <div className={clsx(styles.tilesGrid, className)}>{children}</div>;
 }

@@ -15,10 +15,9 @@ export interface SearchBoxProps {
 }
 
 export default function SearchBox({
-  placeholder = "What do you want to learn?",
+  placeholder = 'What do you want to learn?',
   className,
 }: SearchBoxProps): JSX.Element {
-
   const openRunLLM = () => {
     // Open RunLLM widget when user clicks the input
     if (typeof window !== 'undefined' && (window as any).runllm) {
@@ -29,13 +28,7 @@ export default function SearchBox({
   return (
     <div className={clsx(styles.searchContainer, className)}>
       <div className={styles.searchWrapper}>
-        <input
-          type="text"
-          className={styles.searchInput}
-          placeholder={placeholder}
-          onClick={openRunLLM}
-          readOnly
-        />
+        <input type="text" className={styles.searchInput} placeholder={placeholder} onClick={openRunLLM} readOnly />
         <button type="button" className={styles.searchButton} onClick={openRunLLM}>
           <Search size={20} />
         </button>
