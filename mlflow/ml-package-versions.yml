@@ -720,6 +720,8 @@ langgraph:
           "uvicorn",
         ]
       ">= 0.3.0": ["langgraph-prebuilt"]
+      # `langgraph == 0.4.*` is incompatible with `langgraph-prebuilt >= 0.5`
+      "== 0.4.*": ["langgraph-prebuilt<0.5"]
     run: |
       pytest tests/langgraph --ignore tests/langgraph/test_langgraph_autolog.py
 
@@ -735,6 +737,8 @@ langgraph:
           "uvicorn",
         ]
       ">= 0.3.0": ["langgraph-prebuilt"]
+      # `langgraph == 0.4.*` is incompatible with `langgraph-prebuilt >= 0.5`
+      "== 0.4.*": ["langgraph-prebuilt<0.5"]
     run: |
       pytest tests/langgraph/test_langgraph_autolog.py
     test_tracing_sdk: true
@@ -983,8 +987,9 @@ promptflow:
 litellm:
   package_info:
     pip_release: "litellm"
-    install_dev: |
-      pip install git+https://github.com/BerriAI/litellm.git
+    # TODO: Uncomment this once https://github.com/BerriAI/litellm/issues/9656 is fixed
+    # install_dev: |
+    #   pip install git+https://github.com/BerriAI/litellm.git
   autologging:
     minimum: "1.52.9"
     maximum: "1.58.4"

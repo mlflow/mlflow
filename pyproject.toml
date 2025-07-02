@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mlflow"
-version = "3.1.1.dev0"
+version = "3.1.2.dev0"
 description = "MLflow is an open source platform for the complete machine learning lifecycle"
 readme = "README.md"
 keywords = ["mlflow", "ai", "databricks"]
@@ -156,7 +156,7 @@ exclude = ["tests", "tests.*"]
 [tool.ruff]
 line-length = 100
 target-version = "py310"
-required-version = "0.11.13"
+required-version = "0.12.0"
 force-exclude = true
 extend-include = ["*.ipynb"]
 extend-exclude = [
@@ -206,7 +206,10 @@ select = [
   "PT023",   # pytest-incorrect-mark-parentheses-style
   "PT026",   # pytest-use-fixtures-without-parameters
   "PT027",   # pytest-unittest-raises-assertion
+  "PT030",   # pytest-warns-too-broad
+  "PT031",   # pytest-warns-with-multiple-statements
   "RET504",  # unnecessary-assign
+  "RUF002",  # ambiguous-unicode-character-docstring
   "RUF003",  # ambiguous-unicode-character-comment
   "RUF010",  # explicit-f-string-type-conversion
   "RUF013",  # implicit-optional
@@ -251,6 +254,7 @@ ignore = [
 mark-parentheses = false
 fixture-parentheses = false
 raises-require-match-for = ["*"]
+warns-require-match-for = ["*"]
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"
@@ -285,7 +289,21 @@ typing-extensions-allowlist = [
   "typing_extensions.ParamSpec", # Added in 3.10.0
 ]
 # Rules that are only enabled for code examples.
-example-rules = ["lazy-builtin-import", "log-model-artifact-path"]
+example-rules = [
+  "lazy-builtin-import",
+  "log-model-artifact-path",
+  "unknown-mlflow-function",
+  "unknown-mlflow-arguments",
+  "multi-assign",
+]
+
+[tool.clint.per-file-ignores]
+# Rules that should only be enabled for files in the root mlflow directory
+"^(?!mlflow/).*$" = [
+  "forbidden-set-active-model-usage",
+  "unnamed-thread",
+  "thread-pool-executor-without-thread-name-prefix",
+]
 
 [tool.clint.forbidden-top-level-imports]
 "mlflow/gateway/providers/*" = ["fastapi", "starlette", "aiohttp"]

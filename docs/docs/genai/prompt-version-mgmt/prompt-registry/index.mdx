@@ -297,7 +297,6 @@ with mlflow.start_run():
 
 If you haven't already created a prompt, follow [this step](#1-create-a-prompt) to create a new prompt.
 
-
 #### 2. Define a Chain using the registered prompts
 
 ```python
@@ -347,8 +346,6 @@ Moreover, you can view the list of models (runs) that use a specific prompt in t
 
 ![Associated Prompts](/images/llms/prompt-registry/prompt-logged-model-links.png)
 
-
-
 ### Example 2: Automatic Prompt Logging with Models-from-Code
 
 [Models-from-Code](/ml/model/models-from-code) is a feature that allows you to define and log models in code.
@@ -356,7 +353,6 @@ Logging a model with code brings several benefits, such as portability, readabil
 
 Combining with MLflow Prompt Registry, the feature unlocks even more flexibility to manage prompt versions. Notably,
 if your model code uses a prompt from MLflow Prompt Registry, MLflow **automatically** logs it with the model for you.
-
 
 In the following example, we use LangGraph to define a very simple chat bot using the registered prompt.
 
@@ -374,7 +370,7 @@ prompt = mlflow.genai.register_prompt(
 
 #### 2. Define a Graph using the registered prompt
 
-Create a Python script ``chatbot.py`` with the following content.
+Create a Python script `chatbot.py` with the following content.
 
 :::tip
 
@@ -435,7 +431,6 @@ mlflow.models.set_model(graph)
 
 Specify the file path to the script in the `model` parameter:
 
-
 ```python
 with mlflow.start_run():
     model_info = mlflow.langchain.log_model(
@@ -483,7 +478,8 @@ A: You can delete a prompt version using the MLflow UI or Python API:
 import mlflow
 
 # Delete a prompt version
-mlflow.delete_prompt("summarization-prompt", version=2)
+client = mlflow.MlflowClient()
+client.delete_prompt_version("summarization-prompt", version=2)
 ```
 
 To avoid accidental deletion, you can only delete one version at a time via API. If you delete the all versions of a prompt, the prompt itself will be deleted.

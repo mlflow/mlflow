@@ -3,6 +3,7 @@ import codecs
 import errno
 import fnmatch
 import gzip
+import importlib.util
 import json
 import logging
 import math
@@ -51,6 +52,13 @@ ENCODING = "utf-8"
 _PROGRESS_BAR_DISPLAY_THRESHOLD = 500_000_000  # 500 MB
 
 _logger = logging.getLogger(__name__)
+
+# This is for backward compatibility with databricks-feature-engineering<=0.10.2
+if importlib.util.find_spec("yaml") is not None:
+    try:
+        from yaml import CSafeDumper as YamlSafeDumper
+    except ImportError:
+        from yaml import SafeDumper as YamlSafeDumper  # noqa: F401
 
 
 class ArtifactProgressBar:

@@ -121,6 +121,7 @@ loaded_model = mlflow.pyfunc.load_model(f"models:/{best_model.model_id}")
 ```
 
 **Key Features:**
+
 - **SQL-like filtering**: Use `metrics.`, `params.`, and attribute prefixes to build complex queries
 - **Dataset-aware search**: Filter metrics based on specific datasets for fair model comparison
 - **Flexible ordering**: Sort by multiple criteria to find the best models
@@ -234,6 +235,7 @@ loaded_model = mlflow.pyfunc.load_model(model_uri)
 ```
 
 This new approach provides several advantages:
+
 - **Direct model reference**: No need to know the run ID and artifact path
 - **Better model lifecycle management**: Each model checkpoint has its own unique identifier
 - **Improved model comparison**: Easily compare different checkpoints within the same run
@@ -256,6 +258,7 @@ The Tracking UI lets you visually explore your experiments, runs, and models, as
 - Downloading run results (artifacts and metadata)
 
 These features are available for models as well, as shown below.
+
 <figure>
   ![MLflow UI Experiment view page models tab](/images/tracking/tracking-models-ui.png)
   <figcaption>A screenshot of the MLflow Tracking UI on the models tab, showing a list of models under the experiment.</figcaption>

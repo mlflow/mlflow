@@ -39,7 +39,8 @@ def validate_scorers(scorers: list[Any]) -> list[Scorer]:
             "available built-in scorers."
         )
 
-    valid_scorers, legacy_metrics = [], []
+    valid_scorers = []
+    legacy_metrics = []
 
     for scorer in scorers:
         if isinstance(scorer, Scorer):
@@ -91,7 +92,7 @@ def validate_scorers(scorers: list[Any]) -> list[Scorer]:
 def valid_data_for_builtin_scorers(
     data: "pd.DataFrame",
     builtin_scorers: list[BuiltInScorer],
-    predict_fn: Optional[Callable] = None,
+    predict_fn: Optional[Callable[..., Any]] = None,
 ) -> None:
     """
     Validate that the required columns are present in the data for running the builtin scorers.

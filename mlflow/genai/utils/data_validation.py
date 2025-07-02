@@ -8,7 +8,7 @@ from mlflow.tracing.provider import trace_disabled
 _logger = logging.getLogger(__name__)
 
 
-def check_model_prediction(predict_fn: Callable, sample_input: Any):
+def check_model_prediction(predict_fn: Callable[..., Any], sample_input: Any):
     """
     Validate if the predict function executes properly with the provided input.
 
@@ -32,8 +32,8 @@ def check_model_prediction(predict_fn: Callable, sample_input: Any):
 
 
 def _validate_function_and_input_compatibility(
-    predict_fn: Callable, sample_input: dict[str, Any], e: Exception
-) -> Callable:
+    predict_fn: Callable[..., Any], sample_input: dict[str, Any], e: Exception
+) -> Callable[..., Any]:
     """
     Validate the data format in the input column against the predict_fn.
 

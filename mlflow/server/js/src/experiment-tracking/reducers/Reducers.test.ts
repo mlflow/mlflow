@@ -1389,7 +1389,7 @@ describe('test public accessors', () => {
     const A = {
       experimentId: 'a',
       name: 'A',
-      tags: [{ name: 'a', value: 'A' }, 'b'],
+      tags: [{ key: 'a', value: 'A' }],
     };
     const B = {
       experimentId: 'b',
@@ -1400,11 +1400,12 @@ describe('test public accessors', () => {
       payload: { experiments: [A, B] },
     });
     const state = rootReducer(undefined, action);
-    expect(state.entities.experimentTagsByExperimentId).toEqual({});
+    const expectedTags = { a: { a: (ExperimentTag as any).fromJs({ key: 'a', value: 'A' }) }, b: {} };
+    expect(state.entities.experimentTagsByExperimentId).toEqual(expectedTags);
     expect(getExperiments(state)).toEqual([A, B]);
     expect(getExperiment(A.experimentId, state)).toEqual(A);
-    expect(getExperimentTags(B.experimentId, state)).toEqual({});
-    expect(getExperimentTags(A.experimentId, state)).toEqual({});
+    expect(getExperimentTags(A.experimentId, state)).toEqual(expectedTags.a);
+    expect(getExperimentTags(B.experimentId, state)).toEqual(expectedTags.b);
   });
   test('tags, params and runinfo', () => {
     const key1 = 'key1';

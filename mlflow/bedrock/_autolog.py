@@ -172,7 +172,9 @@ def _patched_converse_stream(original, self, *args, **kwargs):
     return result
 
 
-def _set_chat_messages_attributes(span, messages: list[dict], response: Optional[dict]):
+def _set_chat_messages_attributes(
+    span, messages: list[dict[str, Any]], response: Optional[dict[str, Any]]
+):
     """
     Extract standard chat span attributes for the Bedrock Converse API call.
 

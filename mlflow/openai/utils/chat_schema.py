@@ -325,7 +325,7 @@ def _parse_tools(inputs: dict[str, Any]) -> list[ChatTool]:
     return parsed_tools
 
 
-def _parse_usage(output: Any) -> Optional[dict]:
+def _parse_usage(output: Any) -> Optional[dict[str, Any]]:
     """
     Parse token usage information from OpenAI response objects.
 
