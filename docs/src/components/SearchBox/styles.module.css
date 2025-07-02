@@ -53,3 +53,10 @@
   background: rgba(1, 148, 226, 0.1);
 }
 
+/* Hide SearchBox on mobile devices */
+@media (max-width: 768px) {
+  .searchContainer {
+    display: none;
+  }
+}
+

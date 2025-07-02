@@ -48,15 +48,15 @@ export default function TileCard({
   className,
 }: TileCardProps): JSX.Element {
   return (
-    <div className={clsx(styles.tileCard, className)}>
+    <Link href={href} className={clsx(styles.tileCard, className)}>
       <div className={styles.tileIcon}>
         <Icon size={iconSize} />
       </div>
       <h3>{title}</h3>
       <p>{description}</p>
-      <Link href={href} className={styles.tileLink}>
+      <div className={styles.tileLink}>
         {linkText}
-      </Link>
-    </div>
+      </div>
+    </Link>
   );
 }
