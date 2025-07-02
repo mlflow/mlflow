@@ -1,3 +1,2 @@
-# Exclude vendor/generated CSS files with sourcemaps
-api_reference/theme/mlflow/static/css/badge_only.css
-api_reference/theme/mlflow/static/css/theme.css
+# Exclude vendor/theme CSS files in api_reference directory
+api_reference/**/*.css
