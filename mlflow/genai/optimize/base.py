@@ -145,9 +145,9 @@ def optimize_prompt(
 def _select_optimizer(optimizer_config: OptimizerConfig) -> _BaseOptimizer:
     if optimizer_config.algorithm not in _ALGORITHMS:
         raise ValueError(
-            f"Unsupported algorithm: '{optimizer_config.algorithm}' "
-            f"Available algorithms: {list(_ALGORITHMS.keys())} "
-            "Please choose from the supported algorithms above"
+            f"Unsupported algorithm: '{optimizer_config.algorithm}'. "
+            f"Available algorithms: {list(_ALGORITHMS.keys())}. "
+            "Please choose from the supported algorithms above."
         )
 
     return _ALGORITHMS[optimizer_config.algorithm](optimizer_config)
@@ -158,7 +158,7 @@ def _validate_scorers(scorers: list[Scorer]) -> None:
         if not isinstance(scorer, Scorer):
             raise MlflowException.invalid_parameter_value(
                 f"Invalid scorer: {scorer}. Please use @scorer decorator "
-                "on your function or inherit from Scorer class"
+                "on your function or inherit from Scorer class."
             )
 
         signature = inspect.signature(scorer)
@@ -166,7 +166,7 @@ def _validate_scorers(scorers: list[Scorer]) -> None:
             raise MlflowException.invalid_parameter_value(
                 f"Invalid scorer parameter: {scorer} contains 'trace' parameter. "
                 "Optimization scorers can only use: inputs, outputs, or expectations. "
-                "Remove 'trace' parameter from your scorer function"
+                "Remove 'trace' parameter from your scorer function."
             )
 
 
@@ -180,7 +180,7 @@ def _maybe_start_autolog(
 ):
     if optimizer_config.autolog:
         with start_run() as run:
-            _logger.info(f"🚀 MLflow Run `{run.info.run_id}` started for prompt optimization! ")
+            _logger.info(f"🚀 MLflow Run `{run.info.run_id}` started for prompt optimization!")
             log_table(train_data, "train_data.json")
             if eval_data is not None:
                 log_table(eval_data, "eval_data.json")
