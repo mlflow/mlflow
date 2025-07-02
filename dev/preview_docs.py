@@ -188,7 +188,9 @@ The [CircleCI job]({job_url}) failed. Please check the job logs for more details
 """
             upsert_comment(github_session, repo, args.pull_number, failure_comment_body)
             return
-        print(f"Job status: {build_doc_status['state'] if build_doc_status else 'not found'}, waiting...")
+        print(
+            f"Job status: {build_doc_status['state'] if build_doc_status else 'not found'}, waiting"
+        )
         time.sleep(3)
     else:
         print("Timed out waiting for CircleCI job to complete")
@@ -268,7 +270,7 @@ Documentation preview for {args.commit_sha} is available at:
         deployment_error_comment_body = f"""
 Documentation preview for {args.commit_sha} failed to deploy.
 
-The [CircleCI job]({job_url}) completed successfully, but deployment to Netlify failed: {str(e)}
+The [CircleCI job]({job_url}) completed successfully, but deployment to Netlify failed: {e!s}
 
 <details>
 <summary>More info</summary>
