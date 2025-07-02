@@ -260,7 +260,7 @@ def test_validate_input_fields_with_missing_variables():
 
     with pytest.raises(
         MlflowException,
-        match=r"Validation failed: Missing prompt variables in dataset",
+        match=r"Validation failed. Missing prompt variables in dataset: {'style'}",
     ):
         optimizer._validate_input_fields(input_fields, prompt)
 

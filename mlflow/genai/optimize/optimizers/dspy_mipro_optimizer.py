@@ -39,7 +39,7 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
         _logger.info(
             f"🎯 Starting prompt optimization for: {prompt.uri}\n"
             f"⏱️ This may take several minutes or longer depending on dataset size...\n"
-            f"📊 Training with {len(train_data)} examples"
+            f"📊 Training with {len(train_data)} examples."
         )
 
         input_fields = self._get_input_fields(train_data)
@@ -143,7 +143,7 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
     def _validate_input_fields(self, input_fields: dict[str, type], prompt: Prompt) -> None:
         if missing_fields := set(prompt.variables) - set(input_fields.keys()):
             raise MlflowException(
-                f"Validation failed: Missing prompt variables in dataset: {missing_fields}. "
+                f"Validation failed. Missing prompt variables in dataset: {missing_fields}. "
                 "Please ensure your dataset contains columns for all prompt variables."
             )
 
@@ -199,7 +199,7 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
             initial_score = None
         if initial_score is not None:
             if initial_score == score:
-                _logger.info(f"✅ Optimization complete! Score remained stable at: {score:.2f}")
+                _logger.info(f"✅ Optimization complete! Score remained stable at: {score:.2f}.")
                 return
             else:
                 _logger.info(
