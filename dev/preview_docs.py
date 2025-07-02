@@ -40,10 +40,7 @@ def upsert_comment(session, repo, pull_number, comment_body):
 
 
 def _get_comment_template(
-    commit_sha: str,
-    workflow_run_link: str,
-    docs_workflow_run_url: str,
-    main_message: str
+    commit_sha: str, workflow_run_link: str, docs_workflow_run_url: str, main_message: str
 ) -> str:
     return f"""
 Documentation preview for {commit_sha} {main_message}
@@ -59,6 +56,7 @@ Documentation preview for {commit_sha} {main_message}
 
 </details>
 """
+
 
 def main():
     parser = argparse.ArgumentParser()
