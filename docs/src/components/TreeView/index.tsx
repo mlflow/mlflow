@@ -13,7 +13,7 @@ export function TreeView({ items }: TreeViewProps) {
   }
 
   return (
-    <ul style={{ fontSize: "1.25rem" }}>
+    <ul style={{ fontSize: '1.25rem' }}>
       {items.map((i) => (
         <>
           <li className="badge badge--info">{i.name}</li>

@@ -7,8 +7,7 @@ sidebar_label: DeepSeek
 
 ![Deepseek Tracing via autolog](/images/llms/deepseek/deepseek-tracing-agent.png)
 
-
-[MLflow Tracing](../) provides automatic tracing capability for Deepseek models through the OpenAI SDK integration. Since DeepSeek uses an OpenAI-compatible API format, you can use `mlflow.openai.autolog()` to trace interactions with DeepSeek models.
+[MLflow Tracing](../../) provides automatic tracing capability for Deepseek models through the OpenAI SDK integration. Since DeepSeek uses an OpenAI-compatible API format, you can use `mlflow.openai.autolog()` to trace interactions with DeepSeek models.
 
 ```python
 import mlflow
@@ -18,6 +17,7 @@ mlflow.openai.autolog()
 ```
 
 MLflow trace automatically captures the following information about DeepSeek calls:
+
 - Prompts and completion responses
 - Latencies
 - Model name
@@ -25,14 +25,13 @@ MLflow trace automatically captures the following information about DeepSeek cal
 - Function calling if returned in the response
 - Any exception if raised
 
-
 ## Supported APIs
 
 MLflow supports automatic tracing for the following DeepSeek APIs through the OpenAI integration:
 
-| Chat Completion | Function Calling | Streaming | Async |
-|-----------------|------------------|-----------|-------|
-| ✅              | ✅               | ✅ (*1)   | ✅ (*2)|
+| Chat Completion | Function Calling | Streaming | Async    |
+| --------------- | ---------------- | --------- | -------- |
+| ✅              | ✅               | ✅ (\*1)  | ✅ (\*2) |
 
 (*1) Streaming support requires MLflow 2.15.0 or later.
 (*2) Async support requires MLflow 2.21.0 or later.
@@ -76,7 +75,7 @@ The above example should generate a trace in the `DeepSeek` experiment in the ML
 
 ## Streaming and Async Support
 
-MLflow supports tracing for streaming and async DeepSeek APIs. Visit the [OpenAI Tracing documentation](openai) for example code snippets for tracing streaming and async calls through OpenAI SDK.
+MLflow supports tracing for streaming and async DeepSeek APIs. Visit the [OpenAI Tracing documentation](../openai) for example code snippets for tracing streaming and async calls through OpenAI SDK.
 
 ## Advanced Example: Function Calling Agent
 

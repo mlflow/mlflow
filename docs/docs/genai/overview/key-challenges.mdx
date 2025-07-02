@@ -17,6 +17,7 @@ Unlike traditional software with predictable inputs and outputs, GenAI applicati
 **Why it matters**: Traditional software expects structured inputs (like form fields or API parameters). GenAI apps must handle the infinite variety of human expression.
 
 **Example**: Consider a customer support chatbot. These queries all express the same intent:
+
 - "My Wi-Fi keeps dropping—please fix it"
 - "Can you help? The internet here is dead"
 - "Connection issues again... this is so frustrating!"
@@ -31,6 +32,7 @@ Your app must recognize these as the same issue despite completely different wor
 **Why it matters**: A perfectly functioning app can degrade over time as user behavior changes, making continuous monitoring essential.
 
 **Example**: Your support chatbot was designed to handle "internet outage" queries. Over time, new patterns emerge:
+
 - After a service disruption: "Will I get a bill credit for yesterday's outage?"
 - During remote work surge: "Can you upgrade my speed for video calls?"
 - Following a competitor's offer: "I saw [competitor] has faster speeds—can you match?"
@@ -44,6 +46,7 @@ These evolving patterns require ongoing attention to maintain quality.
 **Why it matters**: You can't use simple string matching or rule-based validation. Quality checks must understand semantic meaning, not just compare text.
 
 **Example**: These responses convey the same solution but use entirely different words:
+
 - "Please power-cycle your modem by unplugging it for 30 seconds"
 - "Try turning the router off for half a minute, then plug it back in"
 - "Disconnect your internet box from power, wait 30 sec, and reconnect"
@@ -57,6 +60,7 @@ Traditional testing would flag these as different, but they're functionally iden
 **Why it matters**: Without expert validation, apps can confidently provide incorrect or even harmful information.
 
 **Example**: For the modem reset instruction above, you need a network specialist to verify:
+
 - Is 30 seconds the correct duration for all modem models?
 - Should users press the reset button or just unplug?
 - Are there models where this could cause configuration loss?
@@ -71,11 +75,11 @@ Only domain experts can catch these nuances that could frustrate or harm users.
 
 **Example**: Consider these model choices for your support chatbot:
 
-| Model | Response Time | Cost per Query | Quality Impact |
-|-------|--------------|----------------|----------------|
-| GPT-4o | 3-5 seconds | $0.03 | Handles complex billing questions accurately |
-| GPT-4o-mini | 0.5-1 second | $0.003 | May miss nuances in refund policies |
-| Fine-tuned Llama | 1-2 seconds | $0.001 | Good for common issues, struggles with edge cases |
+| Model            | Response Time | Cost per Query | Quality Impact                                    |
+| ---------------- | ------------- | -------------- | ------------------------------------------------- |
+| GPT-4o           | 3-5 seconds   | $0.03          | Handles complex billing questions accurately      |
+| GPT-4o-mini      | 0.5-1 second  | $0.003         | May miss nuances in refund policies               |
+| Fine-tuned Llama | 1-2 seconds   | $0.001         | Good for common issues, struggles with edge cases |
 
 Each choice dramatically impacts user experience and operational costs.
 
@@ -84,6 +88,7 @@ Each choice dramatically impacts user experience and operational costs.
 ### 🚫 Fixed Test Cases Don't Work
 
 Traditional software testing relies on predetermined inputs and expected outputs. GenAI apps face:
+
 - **Infinite input variations**: Users can phrase requests in unlimited ways
 - **Context-dependent correctness**: The "right" answer depends on conversation history
 - **Evolving expectations**: What users consider helpful changes over time
@@ -91,6 +96,7 @@ Traditional software testing relies on predetermined inputs and expected outputs
 ### 🚫 Code Coverage Isn't Meaningful
 
 In traditional software, code coverage indicates test completeness. For GenAI:
+
 - **Prompt changes affect behavior**: Modifying a prompt template changes outputs without touching code
 - **Model updates impact quality**: Upgrading to a new model version can break working features
 - **External dependencies matter**: Changes in knowledge cutoffs or training data affect responses
@@ -98,6 +104,7 @@ In traditional software, code coverage indicates test completeness. For GenAI:
 ### 🚫 Binary Pass/Fail Doesn't Apply
 
 Traditional tests either pass or fail. GenAI quality exists on a spectrum:
+
 - **Partial correctness**: Responses can be mostly right with minor issues
 - **Subjective quality**: Different users may prefer different response styles
 - **Trade-off decisions**: A "worse" response might be acceptable if it's 10x faster
@@ -115,21 +122,25 @@ These challenges don't exist in isolation—they compound:
 MLflow provides an integrated platform designed specifically for these GenAI challenges:
 
 ### 🔍 **Comprehensive Tracing**
+
 - Capture every interaction to understand real user patterns
 - See exactly how your app processes diverse inputs
 - Identify failure modes you couldn't predict
 
 ### 📊 **AI-Powered Evaluation**
+
 - LLM judges that understand semantic meaning, not just string matching
 - Custom scorers aligned with domain expert judgment
 - Consistent metrics across development and production
 
 ### 👥 **Human-in-the-Loop Workflows**
+
 - Collect feedback from real users and domain experts
 - Build evaluation datasets from production data
 - Continuously improve quality based on real-world usage
 
 ### ⚖️ **Multi-Dimensional Optimization**
+
 - Track quality, latency, and cost for every configuration
 - Compare versions across all dimensions
 - Make informed trade-off decisions with data

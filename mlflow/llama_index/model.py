@@ -430,8 +430,7 @@ def log_model(
                 # the rest of the model definition...
 
         code_paths: {{ code_paths }}
-        registered_model_name: This argument may change or be removed in a
-            future release without warning. If given, create a model
+        registered_model_name: If given, create a model
             version under ``registered_model_name``, also creating a
             registered model if one with the given name does not exist.
         signature: A Model Signature object that describes the input and output Schema of the

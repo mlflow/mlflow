@@ -9,17 +9,19 @@ TensorFlow's Keras API provides an intuitive interface for building and training
 <details>
   <summary>Why TensorFlow Leads the Industry</summary>
 
-  #### Complete ML Ecosystem
-  - 🏗️ **Production-Ready**: End-to-end platform from experimentation to deployment
-  - 📱 **Multi-Platform Deployment**: Run models on browsers, mobile devices, edge hardware, and servers
-  - 🔬 **Research Flexibility**: High-level and low-level APIs for both beginners and experts
-  - 📊 **TensorBoard Integration**: Rich visualization of model architecture and training metrics
+#### Complete ML Ecosystem
 
-  #### Powerful Core Features
-  - ⚡ **Graph Execution**: Optimized execution for maximum performance
-  - 🔄 **Eager Execution**: Immediate evaluation for intuitive debugging
-  - 🧩 **Modular Design**: Customize any part of your ML pipeline
-  - 🌐 **Global Community**: Extensive resources, tutorials, and pre-trained models
+- 🏗️ **Production-Ready**: End-to-end platform from experimentation to deployment
+- 📱 **Multi-Platform Deployment**: Run models on browsers, mobile devices, edge hardware, and servers
+- 🔬 **Research Flexibility**: High-level and low-level APIs for both beginners and experts
+- 📊 **TensorBoard Integration**: Rich visualization of model architecture and training metrics
+
+#### Powerful Core Features
+
+- ⚡ **Graph Execution**: Optimized execution for maximum performance
+- 🔄 **Eager Execution**: Immediate evaluation for intuitive debugging
+- 🧩 **Modular Design**: Customize any part of your ML pipeline
+- 🌐 **Global Community**: Extensive resources, tutorials, and pre-trained models
 
 </details>
 
@@ -77,21 +79,24 @@ with mlflow.start_run():
 <details>
   <summary>Autologging Requirements and Limitations</summary>
 
-  #### Requirements
-  - ✅ **TensorFlow Version**: Only TensorFlow >= 2.3.0 is supported
-  - ✅ **Training API**: Must use the `model.fit()` Keras API
-  - ✅ **Run Context**: Works both with and without an active MLflow run
+#### Requirements
 
-  #### Limitations
-  - ❌ **Custom Training Loops**: Not supported (use manual logging instead)
-  - ❌ **Older TensorFlow Versions**: Not supported (use manual logging instead)
-  - ❌ **Non-Keras TensorFlow**: Not supported (use manual logging instead)
+- ✅ **TensorFlow Version**: Only TensorFlow >= 2.3.0 is supported
+- ✅ **Training API**: Must use the `model.fit()` Keras API
+- ✅ **Run Context**: Works both with and without an active MLflow run
 
-  :::warning attention
-  Autologging is only supported when you are using the `model.fit()` Keras API to train
-  the model. Additionally, only TensorFlow >= 2.3.0 is supported. If you are using an older version
-  of TensorFlow or TensorFlow without Keras, please use manual logging.
-  :::
+#### Limitations
+
+- ❌ **Custom Training Loops**: Not supported (use manual logging instead)
+- ❌ **Older TensorFlow Versions**: Not supported (use manual logging instead)
+- ❌ **Non-Keras TensorFlow**: Not supported (use manual logging instead)
+
+:::warning attention
+Autologging is only supported when you are using the `model.fit()` Keras API to train
+the model. Additionally, only TensorFlow >= 2.3.0 is supported. If you are using an older version
+of TensorFlow or TensorFlow without Keras, please use manual logging.
+:::
+
 </details>
 
 ### What Gets Automatically Logged
@@ -99,36 +104,43 @@ with mlflow.start_run():
 <details>
   <summary>Comprehensive Autologging Details</summary>
 
-  #### Model Information
-  - 📋 **Model Summary**: Complete architecture overview as returned by `model.summary()`
-  - 🧩 **Layer Configuration**: Details of each layer in the model
-  - 📐 **Parameter Count**: Total number of trainable and non-trainable parameters
+#### Model Information
 
-  #### Training Parameters
-  - ⚙️ **Batch Size**: Number of samples per gradient update
-  - 🔢 **Epochs**: Number of complete passes through the training dataset
-  - 🧮 **Steps Per Epoch**: Number of batch iterations per epoch
-  - 📏 **Validation Steps**: Number of batch iterations for validation
+- 📋 **Model Summary**: Complete architecture overview as returned by `model.summary()`
+- 🧩 **Layer Configuration**: Details of each layer in the model
+- 📐 **Parameter Count**: Total number of trainable and non-trainable parameters
 
-  #### Optimizer Configuration
-  - 🧠 **Optimizer Name**: Type of optimizer used (Adam, SGD, etc.)
-  - 📉 **Learning Rate**: Step size for gradient updates
-  - 🎯 **Epsilon**: Small constant for numerical stability
-  - 🔄 **Other Optimizer Parameters**: Beta values, momentum, etc.
+#### Training Parameters
 
-  #### Dataset Information
-  - 📊 **Dataset Shape**: Input and output dimensions
-  - 🔢 **Sample Count**: Number of training and validation samples
+- ⚙️ **Batch Size**: Number of samples per gradient update
+- 🔢 **Epochs**: Number of complete passes through the training dataset
+- 🧮 **Steps Per Epoch**: Number of batch iterations per epoch
+- 📏 **Validation Steps**: Number of batch iterations for validation
 
-  #### Training Metrics
-  - 📉 **Training Loss**: Loss value for each epoch
-  - 📈 **Validation Loss**: Loss on validation data
-  - 🎯 **Custom Metrics**: Any metrics specified in `model.compile()`
-  - 🔄 **Early Stopping Metrics**: `stopped_epoch`, `restored_epoch`, etc.
+#### Optimizer Configuration
 
-  #### Artifacts
-  - 🤖 **Saved Model**: Complete model in TensorFlow SavedModel format
-  - 📊 **TensorBoard Logs**: Training and validation metrics
+- 🧠 **Optimizer Name**: Type of optimizer used (Adam, SGD, etc.)
+- 📉 **Learning Rate**: Step size for gradient updates
+- 🎯 **Epsilon**: Small constant for numerical stability
+- 🔄 **Other Optimizer Parameters**: Beta values, momentum, etc.
+
+#### Dataset Information
+
+- 📊 **Dataset Shape**: Input and output dimensions
+- 🔢 **Sample Count**: Number of training and validation samples
+
+#### Training Metrics
+
+- 📉 **Training Loss**: Loss value for each epoch
+- 📈 **Validation Loss**: Loss on validation data
+- 🎯 **Custom Metrics**: Any metrics specified in `model.compile()`
+- 🔄 **Early Stopping Metrics**: `stopped_epoch`, `restored_epoch`, etc.
+
+#### Artifacts
+
+- 🤖 **Saved Model**: Complete model in TensorFlow SavedModel format
+- 📊 **TensorBoard Logs**: Training and validation metrics
+
 </details>
 
 You can customize autologging behavior by passing arguments to <APILink fn="mlflow.tensorflow.autolog" />:
@@ -145,13 +157,14 @@ mlflow.tensorflow.autolog(
 <details>
   <summary>How TensorFlow Autologging Works</summary>
 
-  MLflow's TensorFlow autologging uses a custom Keras callback attached to your model via monkey patching. This callback:
+MLflow's TensorFlow autologging uses a custom Keras callback attached to your model via monkey patching. This callback:
 
-  1. **Captures Initial State**: At training start, logs model architecture, hyperparameters, and optimizer settings
-  2. **Monitors Training**: Tracks metrics at each epoch or at specified intervals
-  3. **Records Completion**: Saves the final trained model when training completes
+1. **Captures Initial State**: At training start, logs model architecture, hyperparameters, and optimizer settings
+2. **Monitors Training**: Tracks metrics at each epoch or at specified intervals
+3. **Records Completion**: Saves the final trained model when training completes
 
-  This approach integrates seamlessly with TensorFlow's existing callback system, ensuring compatibility with your other callbacks like early stopping or learning rate scheduling.
+This approach integrates seamlessly with TensorFlow's existing callback system, ensuring compatibility with your other callbacks like early stopping or learning rate scheduling.
+
 </details>
 
 ## Logging to MLflow with Keras Callback
@@ -184,18 +197,19 @@ with mlflow.start_run() as run:
 <details>
   <summary>Callback Configuration Options</summary>
 
-  The `MlflowCallback` accepts several parameters to customize logging behavior:
+The `MlflowCallback` accepts several parameters to customize logging behavior:
 
-  ```python
-  mlflow.tensorflow.MlflowCallback(
-      log_every_epoch=True,  # Log metrics at the end of each epoch
-      log_every_n_steps=None,  # Log metrics every N steps (overrides log_every_epoch)
-  )
-  ```
+```python
+mlflow.tensorflow.MlflowCallback(
+    log_every_epoch=True,  # Log metrics at the end of each epoch
+    log_every_n_steps=None,  # Log metrics every N steps (overrides log_every_epoch)
+)
+```
 
-  - **Epoch-based Logging**: Set `log_every_epoch=True` (default) to log at the end of each epoch
-  - **Batch-based Logging**: Set `log_every_n_steps=N` to log every N batches
-  - **Selective Model Logging**: Set `log_models=False` to disable model saving
+- **Epoch-based Logging**: Set `log_every_epoch=True` (default) to log at the end of each epoch
+- **Batch-based Logging**: Set `log_every_n_steps=N` to log every N batches
+- **Selective Model Logging**: Set `log_models=False` to disable model saving
+
 </details>
 
 ### Customizing MLflow Logging
@@ -233,20 +247,22 @@ class CustomMlflowCallback(keras.callbacks.Callback):
 <details>
   <summary>Keras Callback Lifecycle Hooks</summary>
 
-  Keras callbacks provide various hooks into the training process:
+Keras callbacks provide various hooks into the training process:
 
-  - **Training Setup**: `on_train_begin`, `on_train_end`
-  - **Epoch Progress**: `on_epoch_begin`, `on_epoch_end`
-  - **Batch Progress**: `on_batch_begin`, `on_batch_end`
-  - **Validation**: `on_test_begin`, `on_test_end`
-  - **Prediction**: `on_predict_begin`, `on_predict_end`
+- **Training Setup**: `on_train_begin`, `on_train_end`
+- **Epoch Progress**: `on_epoch_begin`, `on_epoch_end`
+- **Batch Progress**: `on_batch_begin`, `on_batch_end`
+- **Validation**: `on_test_begin`, `on_test_end`
+- **Prediction**: `on_predict_begin`, `on_predict_end`
 
-  The `logs` dictionary passed to these methods contains metrics like:
-  - `loss`: Training loss
-  - `val_loss`: Validation loss
-  - Any custom metrics defined in `model.compile()`
+The `logs` dictionary passed to these methods contains metrics like:
 
-  For full documentation, see [keras.callbacks.Callback](https://www.tensorflow.org/api_docs/python/tf/keras/callbacks/Callback).
+- `loss`: Training loss
+- `val_loss`: Validation loss
+- Any custom metrics defined in `model.compile()`
+
+For full documentation, see [keras.callbacks.Callback](https://www.tensorflow.org/api_docs/python/tf/keras/callbacks/Callback).
+
 </details>
 
 ## Saving Your TensorFlow Model to MLflow
@@ -285,15 +301,16 @@ predictions = loaded_model.predict(tf.random.uniform([1, 28, 28, 3]))
 <details>
   <summary>Understanding MLflow Model Saving</summary>
 
-  When you save a TensorFlow model with MLflow:
+When you save a TensorFlow model with MLflow:
 
-  1. **Format Conversion**: The model is converted to a generic MLflow `pyfunc` model to support deployment, loaded via `mlflow.pyfunc.load_model()`
-  2. **Preservation of Original Format**: The model is still capable of being loaded as a native TensorFlow object via `mlflow.tensorflow.load_model()`
-  3. **Metadata Creation**: Model metadata is stored, including dependencies and signature
-  4. **Artifact Storage**: The model is saved to the MLflow artifact store
-  5. **Loading Capability**: The model can be loaded back as either a native TensorFlow model or a generic `pyfunc` model
+1. **Format Conversion**: The model is converted to a generic MLflow `pyfunc` model to support deployment, loaded via `mlflow.pyfunc.load_model()`
+2. **Preservation of Original Format**: The model is still capable of being loaded as a native TensorFlow object via `mlflow.tensorflow.load_model()`
+3. **Metadata Creation**: Model metadata is stored, including dependencies and signature
+4. **Artifact Storage**: The model is saved to the MLflow artifact store
+5. **Loading Capability**: The model can be loaded back as either a native TensorFlow model or a generic `pyfunc` model
 
-  This approach enables consistent model management regardless of the framework used.
+This approach enables consistent model management regardless of the framework used.
+
 </details>
 
 ### Model Formats
@@ -315,24 +332,28 @@ mlflow.tensorflow.log_model(
 <details>
   <summary>Comparing Model Formats</summary>
 
-  #### TensorFlow SavedModel (Default)
-  - ✅ **Complete Serialization**: Includes model architecture, weights, and compilation information
-  - ✅ **Deployment Ready**: Optimized for production environments
-  - ✅ **TensorFlow Serving**: Compatible with TensorFlow Serving
-  - ✅ **Cross-Platform**: Can be deployed across different platforms
+#### TensorFlow SavedModel (Default)
 
-  #### H5 Format
-  - ✅ **Weights Storage**: Efficiently stores model weights
-  - ✅ **Smaller Size**: Generally smaller than SavedModel format
-  - ❌ **Limited Information**: Doesn't include the full computation graph
-  - ❌ **Deployment Limitations**: Not ideal for certain deployment scenarios
+- ✅ **Complete Serialization**: Includes model architecture, weights, and compilation information
+- ✅ **Deployment Ready**: Optimized for production environments
+- ✅ **TensorFlow Serving**: Compatible with TensorFlow Serving
+- ✅ **Cross-Platform**: Can be deployed across different platforms
 
-  #### Keras Format
-  - ✅ **Native Keras**: Uses Keras' native serialization
-  - ✅ **Compatibility**: Works well with newer Keras versions
-  - ❌ **Deployment**: May require additional steps for deployment
+#### H5 Format
 
-  For most production use cases, the default SavedModel format is recommended. For more details, see [TensorFlow Save and Load Guide](https://www.tensorflow.org/guide/keras/save_and_serialize).
+- ✅ **Weights Storage**: Efficiently stores model weights
+- ✅ **Smaller Size**: Generally smaller than SavedModel format
+- ❌ **Limited Information**: Doesn't include the full computation graph
+- ❌ **Deployment Limitations**: Not ideal for certain deployment scenarios
+
+#### Keras Format
+
+- ✅ **Native Keras**: Uses Keras' native serialization
+- ✅ **Compatibility**: Works well with newer Keras versions
+- ❌ **Deployment**: May require additional steps for deployment
+
+For most production use cases, the default SavedModel format is recommended. For more details, see [TensorFlow Save and Load Guide](https://www.tensorflow.org/guide/keras/save_and_serialize).
+
 </details>
 
 ### Model Signatures
@@ -369,47 +390,48 @@ The signature appears in the MLflow UI:
 <details>
   <summary>Manual Signature Definition</summary>
 
-  For complete control over your model signature, you can manually define the input and output schemas:
+For complete control over your model signature, you can manually define the input and output schemas:
 
-  ```python
-  import mlflow
-  import tensorflow as tf
-  import numpy as np
-  from tensorflow import keras
-  from mlflow.types import Schema, TensorSpec
-  from mlflow.models import ModelSignature
+```python
+import mlflow
+import tensorflow as tf
+import numpy as np
+from tensorflow import keras
+from mlflow.types import Schema, TensorSpec
+from mlflow.models import ModelSignature
 
-  # Define model
-  model = keras.Sequential(
-      [
-          keras.Input([28, 28, 3]),
-          keras.layers.Conv2D(8, 2),
-          keras.layers.MaxPool2D(2),
-          keras.layers.Flatten(),
-          keras.layers.Dense(2),
-          keras.layers.Softmax(),
-      ]
-  )
+# Define model
+model = keras.Sequential(
+    [
+        keras.Input([28, 28, 3]),
+        keras.layers.Conv2D(8, 2),
+        keras.layers.MaxPool2D(2),
+        keras.layers.Flatten(),
+        keras.layers.Dense(2),
+        keras.layers.Softmax(),
+    ]
+)
 
-  # Define input schema
-  input_schema = Schema(
-      [
-          TensorSpec(np.dtype(np.float32), (-1, 28, 28, 3), "input"),
-      ]
-  )
+# Define input schema
+input_schema = Schema(
+    [
+        TensorSpec(np.dtype(np.float32), (-1, 28, 28, 3), "input"),
+    ]
+)
 
-  # Create signature with input schema
-  signature = ModelSignature(inputs=input_schema)
+# Create signature with input schema
+signature = ModelSignature(inputs=input_schema)
 
-  # Log model with signature
-  model_info = mlflow.tensorflow.log_model(model, name="model", signature=signature)
-  ```
+# Log model with signature
+model_info = mlflow.tensorflow.log_model(model, name="model", signature=signature)
+```
 
-  Manual definition is useful when:
-  - You need precise control over tensor specifications
-  - Working with complex input/output structures
-  - The automatic inference doesn't capture your intended schema
-  - You want to specify exact data types and shapes upfront
+Manual definition is useful when:
+
+- You need precise control over tensor specifications
+- Working with complex input/output structures
+- The automatic inference doesn't capture your intended schema
+- You want to specify exact data types and shapes upfront
 
 </details>
 
@@ -422,75 +444,77 @@ For more sophisticated models, you might want to track additional information:
 <details>
   <summary>Tracking Transfer Learning</summary>
 
-  ```python
-  import mlflow
-  import tensorflow as tf
-  import matplotlib.pyplot as plt
+```python
+import mlflow
+import tensorflow as tf
+import matplotlib.pyplot as plt
 
-  # Load pre-trained model
-  base_model = tf.keras.applications.MobileNetV2(
-      input_shape=(224, 224, 3), include_top=False, weights="imagenet"
-  )
+# Load pre-trained model
+base_model = tf.keras.applications.MobileNetV2(
+    input_shape=(224, 224, 3), include_top=False, weights="imagenet"
+)
 
-  # Freeze base model
-  base_model.trainable = False
+# Freeze base model
+base_model.trainable = False
 
-  # Create new model head
-  inputs = tf.keras.Input(shape=(224, 224, 3))
-  x = base_model(inputs, training=False)
-  x = tf.keras.layers.GlobalAveragePooling2D()(x)
-  x = tf.keras.layers.Dense(256, activation="relu")(x)
-  outputs = tf.keras.layers.Dense(10, activation="softmax")(x)
-  model = tf.keras.Model(inputs, outputs)
+# Create new model head
+inputs = tf.keras.Input(shape=(224, 224, 3))
+x = base_model(inputs, training=False)
+x = tf.keras.layers.GlobalAveragePooling2D()(x)
+x = tf.keras.layers.Dense(256, activation="relu")(x)
+outputs = tf.keras.layers.Dense(10, activation="softmax")(x)
+model = tf.keras.Model(inputs, outputs)
 
-  with mlflow.start_run() as run:
-      # Log base model information
-      mlflow.log_param("base_model", "MobileNetV2")
-      mlflow.log_param("base_model_trainable", False)
-      mlflow.log_param("new_layers", "GlobalAveragePooling2D, Dense(256), Dense(10)")
+with mlflow.start_run() as run:
+    # Log base model information
+    mlflow.log_param("base_model", "MobileNetV2")
+    mlflow.log_param("base_model_trainable", False)
+    mlflow.log_param("new_layers", "GlobalAveragePooling2D, Dense(256), Dense(10)")
 
-      # Log base model summary
-      with open("base_model_summary.txt", "w") as f:
-          base_model.summary(print_fn=lambda x: f.write(x + "\n"))
-      mlflow.log_artifact("base_model_summary.txt")
+    # Log base model summary
+    with open("base_model_summary.txt", "w") as f:
+        base_model.summary(print_fn=lambda x: f.write(x + "\n"))
+    mlflow.log_artifact("base_model_summary.txt")
 
-      # Log model visualization
-      tf.keras.utils.plot_model(model, to_file="model_architecture.png", show_shapes=True)
-      mlflow.log_artifact("model_architecture.png")
+    # Log model visualization
+    tf.keras.utils.plot_model(model, to_file="model_architecture.png", show_shapes=True)
+    mlflow.log_artifact("model_architecture.png")
 
-      # Continue with normal training...
-  ```
+    # Continue with normal training...
+```
+
 </details>
 
 <details>
   <summary>Tracking Multi-Model Experiments</summary>
 
-  ```python
-  import mlflow
+```python
+import mlflow
 
-  # Main experiment run
-  with mlflow.start_run(run_name="ensemble_experiment") as parent_run:
-      mlflow.log_param("experiment_type", "ensemble")
+# Main experiment run
+with mlflow.start_run(run_name="ensemble_experiment") as parent_run:
+    mlflow.log_param("experiment_type", "ensemble")
 
-      # Train first model
-      with mlflow.start_run(run_name="model_1", nested=True) as child_run_1:
-          model_1 = create_model_1()
-          # Train model_1
-          mlflow.tensorflow.log_model(model_1, name="model_1")
-          mlflow.log_metric("accuracy", accuracy_1)
+    # Train first model
+    with mlflow.start_run(run_name="model_1", nested=True) as child_run_1:
+        model_1 = create_model_1()
+        # Train model_1
+        mlflow.tensorflow.log_model(model_1, name="model_1")
+        mlflow.log_metric("accuracy", accuracy_1)
 
-      # Train second model
-      with mlflow.start_run(run_name="model_2", nested=True) as child_run_2:
-          model_2 = create_model_2()
-          # Train model_2
-          mlflow.tensorflow.log_model(model_2, name="model_2")
-          mlflow.log_metric("accuracy", accuracy_2)
+    # Train second model
+    with mlflow.start_run(run_name="model_2", nested=True) as child_run_2:
+        model_2 = create_model_2()
+        # Train model_2
+        mlflow.tensorflow.log_model(model_2, name="model_2")
+        mlflow.log_metric("accuracy", accuracy_2)
 
-      # Create and log ensemble model
-      ensemble_model = create_ensemble([model_1, model_2])
-      mlflow.tensorflow.log_model(ensemble_model, name="ensemble_model")
-      mlflow.log_metric("ensemble_accuracy", ensemble_accuracy)
-  ```
+    # Create and log ensemble model
+    ensemble_model = create_ensemble([model_1, model_2])
+    mlflow.tensorflow.log_model(ensemble_model, name="ensemble_model")
+    mlflow.log_metric("ensemble_accuracy", ensemble_accuracy)
+```
+
 </details>
 
 ### Hyperparameter Optimization
@@ -614,24 +638,25 @@ print("Predictions:", predictions)
 <details>
   <summary>Advanced Deployment Options</summary>
 
-  The `mlflow models serve` command supports several options for customization:
+The `mlflow models serve` command supports several options for customization:
 
-  ```bash
-  # Specify environment manager
-  mlflow models serve -m models:/<model_id> -p 5000 --env-manager conda
+```bash
+# Specify environment manager
+mlflow models serve -m models:/<model_id> -p 5000 --env-manager conda
 
-  # Enable MLServer for enhanced inference capabilities
-  mlflow models serve -m models:/<model_id> -p 5000 --enable-mlserver
+# Enable MLServer for enhanced inference capabilities
+mlflow models serve -m models:/<model_id> -p 5000 --enable-mlserver
 
-  # Set custom host
-  mlflow models serve -m models:/<model_id> -p 5000 --host 0.0.0.0
-  ```
+# Set custom host
+mlflow models serve -m models:/<model_id> -p 5000 --host 0.0.0.0
+```
 
-  For production deployments, consider:
-  - Using MLServer (`--enable-mlserver`) for better performance and additional features
-  - Building Docker images with `mlflow models build-docker`
-  - Deploying to cloud platforms like Azure ML or Amazon SageMaker
-  - Setting up proper environment management and dependency isolation
+For production deployments, consider:
+
+- Using MLServer (`--enable-mlserver`) for better performance and additional features
+- Building Docker images with `mlflow models build-docker`
+- Deploying to cloud platforms like Azure ML or Amazon SageMaker
+- Setting up proper environment management and dependency isolation
 
 </details>
 

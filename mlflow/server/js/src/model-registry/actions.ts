@@ -171,7 +171,14 @@ export const resolveFilterValue = (value: any, includeWildCard = false) => {
 };
 
 export const SEARCH_MODEL_VERSIONS = 'SEARCH_MODEL_VERSIONS';
-export const searchModelVersionsApi = (filterObj: any, id = getUUID(), maxResults: number | undefined = undefined) => {
+
+export const searchModelVersionsApi = (
+  filterObj: Record<string, any>,
+  id: string = getUUID(),
+  maxResults?: number,
+  orderBy?: string,
+  pageToken?: string,
+) => {
   const filter = Object.keys(filterObj)
     .map((key) => {
       if (Array.isArray(filterObj[key]) && filterObj[key].length > 1) {
@@ -183,17 +190,14 @@ export const searchModelVersionsApi = (filterObj: any, id = getUUID(), maxResult
       }
     })
     .join('&');
-
-  const reqBody: any = {
-    filter,
-  };
-  if (maxResults) {
-    reqBody['max_results'] = maxResults;
-  }
-
   return {
     type: SEARCH_MODEL_VERSIONS,
-    payload: Services.searchModelVersions(reqBody),
+    payload: Services.searchModelVersions({
+      filter,
+      ...(maxResults !== undefined && maxResults > 0 ? { max_results: maxResults } : null),
+      ...(orderBy !== undefined ? { order_by: orderBy } : null),
+      ...(pageToken ? { page_token: pageToken } : null),
+    }),
     meta: { id },
   };
 };

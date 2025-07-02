@@ -16,12 +16,7 @@ interface PathSelectorProps {
   }[];
 }
 
-function PathSelector({ 
-  title,
-  description,
-  color,
-  buttons
-}: PathSelectorProps): JSX.Element {
+function PathSelector({ title, description, color, buttons }: PathSelectorProps): JSX.Element {
   return (
     <div className={clsx(styles.glossyCard, styles[`glossyCard${color}`])}>
       <div className={styles.cardContent}>
@@ -67,15 +62,16 @@ export default function Home(): JSX.Element {
   return (
     <Layout
       title={siteConfig.title}
-      description="MLflow Documentation - Machine Learning and GenAI lifecycle management">
+      description="MLflow Documentation - Machine Learning and GenAI lifecycle management"
+    >
       <main className={styles.homeContainer}>
         <div className={styles.contentGrid}>
           <div className={styles.textColumn}>
             <h1 className={styles.megaHeading}>Documentation</h1>
             <p className={styles.introText}>
-              Welcome to the MLflow Documentation. Our documentation is organized into two sections
-              to help you find exactly what you need. Choose Model Training for traditional ML workflows,
-              or select GenAI Apps & Agents for generative AI applications, tracing, and evaluation tools.
+              Welcome to the MLflow Documentation. Our documentation is organized into two sections to help you find
+              exactly what you need. Choose Model Training for traditional ML workflows, or select GenAI Apps & Agents
+              for generative AI applications, tracing, and evaluation tools.
             </p>
           </div>
 
@@ -88,13 +84,13 @@ export default function Home(): JSX.Element {
               color="blue"
               buttons={[
                 {
-                  text: "Open Source",
-                  link: useBaseUrl("/ml/")
+                  text: 'Open Source',
+                  link: useBaseUrl('/ml/'),
                 },
                 {
-                  text: "MLflow on Databricks",
-                  link: "https://docs.databricks.com/aws/en/mlflow/"
-                }
+                  text: 'MLflow on Databricks',
+                  link: 'https://docs.databricks.com/aws/en/mlflow/',
+                },
               ]}
             />
 
@@ -106,13 +102,13 @@ export default function Home(): JSX.Element {
               color="red"
               buttons={[
                 {
-                  text: "Open Source",
-                  link: useBaseUrl("/genai/")
+                  text: 'Open Source',
+                  link: useBaseUrl('/genai/'),
                 },
                 {
-                  text: "MLflow on Databricks",
-                  link: "https://docs.databricks.com/aws/en/mlflow3/genai/"
-                }
+                  text: 'MLflow on Databricks',
+                  link: 'https://docs.databricks.com/aws/en/mlflow3/genai/',
+                },
               ]}
             />
           </div>
