@@ -35,6 +35,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.0.0",
     "fast-xml-parser": "^5.2.3",
+    "lucide-react": "^0.522.0",
     "postcss": "^8.5.4",
     "prism-react-renderer": "^2.3.0",
     "react": "^18.0.0",
