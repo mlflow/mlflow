@@ -38,7 +38,7 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
 
         _logger.info(
             f"🎯 Starting prompt optimization for: {prompt.uri}\n"
-            f"⏱️ This may take several minutes or longerdepending on dataset size...\n"
+            f"⏱️ This may take several minutes or longer depending on dataset size...\n"
             f"📊 Training with {len(train_data)} examples"
         )
 
