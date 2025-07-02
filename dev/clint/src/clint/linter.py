@@ -803,6 +803,19 @@ def lint_file(path: Path, config: Config, index: SymbolIndex) -> list[Violation]
                         cell_index=cell_idx,
                     )
                 )
+            if not any(
+                line.strip().startswith("# ")
+                for cell in cells
+                if cell.get("cell_type") == "markdown"
+                for line in cell.get("source", [])
+            ):
+                violations.append(
+                    Violation(
+                        rules.MissingNotebookH1Header(),
+                        path,
+                        Location(0, 0),
+                    )
+                )
         return violations
     elif path.suffix in {".rst", ".md", ".mdx"}:
         violations = []
