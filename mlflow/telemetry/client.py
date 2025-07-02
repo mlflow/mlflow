@@ -49,7 +49,7 @@ class TelemetryClient:
         """
         Add a record to be batched and sent to the telemetry server.
         """
-        if not self.is_active():
+        if not self.is_active:
             self.activate()
 
         # If stop event is set, don't add new records
@@ -146,7 +146,7 @@ class TelemetryClient:
     def activate(self) -> None:
         """Activate the async queue to accept and handle incoming tasks."""
         with self._lock:
-            if self._is_active:
+            if self.is_active:
                 return
 
             self._set_up_threads()
@@ -156,10 +156,15 @@ class TelemetryClient:
                 atexit.register(self._at_exit_callback)
                 self._atexit_callback_registered = True
 
-            self._is_active = True
+            self.is_active = True
 
+    @property
     def is_active(self) -> bool:
         return self._is_active
+
+    @is_active.setter
+    def is_active(self, value: bool) -> None:
+        self._is_active = value
 
     def _set_up_threads(self) -> None:
         """Set up the consumer and worker threads."""
@@ -189,19 +194,20 @@ class TelemetryClient:
         Args:
             terminate: If True, shut down the telemetry threads after flushing.
         """
-        if not self.is_active():
+        if not self.is_active:
             return
 
-        try:
-            # Send any pending records before flushing
-            with self._batch_lock:
-                if self._pending_records:
-                    self._send_batch()
+        # Send any pending records before flushing
+        with self._batch_lock:
+            if self._pending_records:
+                self._send_batch()
 
+        if terminate:
+            # Full shutdown for termination
             self._stop_event.set()
 
             try:
-                self._consumer_thread.join(timeout=30)
+                self._consumer_thread.join(timeout=5)
             except Exception as e:
                 _logger.debug(f"Error waiting for consumer thread: {e}")
 
@@ -211,21 +217,17 @@ class TelemetryClient:
                 _logger.debug(f"Error waiting for queue to drain: {e}")
 
             try:
-                self._worker_threadpool.shutdown(wait=True, timeout=30)
+                self._worker_threadpool.shutdown(wait=True, timeout=5)
             except Exception as e:
                 _logger.debug(f"Error shutting down worker thread pool: {e}")
 
-            self._is_active = False
-
-            # Restart threads to listen to incoming requests after flushing, if not terminating
-            if not terminate:
-                self._stop_event.clear()
-                self.activate()
-
-        except Exception as e:
-            _logger.debug(f"Error during telemetry flush: {e}", exc_info=True)
-            # Ensure we mark as inactive even if there was an error
-            self._is_active = False
+            self.is_active = False
+        else:
+            # For non-terminating flush, just wait for queue to empty
+            try:
+                self._queue.join()
+            except Exception as e:
+                _logger.debug(f"Error waiting for queue to drain: {e}")
 
     def _update_backend_store(self):
         """

@@ -53,7 +53,7 @@ def _generate_telemetry_record(
         bound_args.apply_defaults()
 
         arguments = dict(bound_args.arguments)
-        if arguments.get("self") is not None:
+        if "self" in arguments:
             del arguments["self"]
 
         params = list(arguments.keys())

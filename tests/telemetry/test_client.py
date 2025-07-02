@@ -22,7 +22,7 @@ def test_telemetry_client_initialization():
     assert client.info is not None
     assert client._queue.maxsize == 1000
     assert client._max_workers == 10
-    assert not client.is_active()
+    assert not client.is_active
 
 
 def test_add_record_and_send(telemetry_client: TelemetryClient, mock_requests):
@@ -97,7 +97,7 @@ def test_client_shutdown(telemetry_client: TelemetryClient, mock_requests):
     telemetry_client.flush(terminate=True)
 
     # Verify client is inactive
-    assert not telemetry_client.is_active()
+    assert not telemetry_client.is_active
 
 
 def test_error_handling():
@@ -116,7 +116,7 @@ def test_error_handling():
     wait_for_telemetry_threads(client=client)
 
     # Client should still be active despite errors
-    assert client.is_active()
+    assert client.is_active
 
 
 def test_stop_event_handling(telemetry_client: TelemetryClient, mock_requests):
