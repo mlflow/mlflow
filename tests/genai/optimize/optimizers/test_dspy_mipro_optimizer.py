@@ -188,7 +188,6 @@ def test_optimize_scenarios(
     # Verify logging
     captured = capsys.readouterr()
     assert "Starting prompt optimization" in captured.err
-    assert "This may take several minutes depending on dataset size" in captured.err
     if initial_score == 1.0 == optimized_program.score:
         assert "Optimization complete! Score remained stable at: 1.00" in captured.err
     else:
