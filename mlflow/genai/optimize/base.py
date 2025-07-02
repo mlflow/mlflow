@@ -180,7 +180,10 @@ def _maybe_start_autolog(
 ):
     if optimizer_config.autolog:
         with start_run() as run:
-            _logger.info(f"🚀 MLflow Run `{run.info.run_id}` started for prompt optimization!")
+            _logger.info(
+                f"🚀 MLflow Run `{run.info.run_id}` started for prompt optimization! "
+                "Watch the run to track the optimization progress."
+            )
             log_table(train_data, "train_data.json")
             if eval_data is not None:
                 log_table(eval_data, "eval_data.json")

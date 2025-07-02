@@ -204,8 +204,8 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
             else:
                 _logger.info(
                     f"🎉 Optimization complete! "
-                    f"Initial score: {initial_score:.2f}. "
-                    f"Final score: {score:.2f}."
+                    f"Initial score: {initial_score}. "
+                    f"Final score: {score}."
                 )
 
     def _log_optimization_result(self, final_score: Optional[float], optimized_prompt: Prompt):

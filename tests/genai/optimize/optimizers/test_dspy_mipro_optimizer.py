@@ -189,9 +189,9 @@ def test_optimize_scenarios(
     captured = capsys.readouterr()
     assert "Starting prompt optimization" in captured.err
     if initial_score == 1.0 == optimized_program.score:
-        assert "Optimization complete! Score remained stable at: 1.00" in captured.err
+        assert "Optimization complete! Score remained stable at: 1.0" in captured.err
     else:
-        assert "Optimization complete! Initial score: 0.00. Final score: 1.00" in captured.err
+        assert "Optimization complete! Initial score: 0.0. Final score: 1.0" in captured.err
 
 
 def test_convert_to_dspy_metric():
