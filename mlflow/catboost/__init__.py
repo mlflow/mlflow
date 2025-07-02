@@ -229,8 +229,7 @@ def log_model(
         code_paths: A list of local filesystem paths to Python file dependencies (or directories
             containing file dependencies). These files are *prepended* to the system
             path when the model is loaded.
-        registered_model_name: This argument may change or be removed in a
-            future release without warning. If given, create a model
+        registered_model_name: If given, create a model
             version under ``registered_model_name``, also creating a
             registered model if one with the given name does not exist.
         signature: {{ signature }}
