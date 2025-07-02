@@ -41,6 +41,9 @@ from mlflow.tracing.constant import (
 )
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
+from mlflow.tracing.trace_manager import InMemoryTraceManager
+from mlflow.tracing.processor.base_mlflow import BaseMlflowSpanProcessor
+from mlflow.tracing.constant import TraceMetadataKey
 
 _logger = logging.getLogger(__name__)
 
@@ -74,8 +77,8 @@ def _set_logging_env_variables():
 def setup_semantic_kernel_tracing():
     _set_logging_env_variables()
 
-    # NB: This logic has a known issue that it does not work when Semantic Kernel program is
-    # executed # before calling this setup is called. This is because Semantic Kernel caches the
+    # NB: This logic has a known issue that it does not work when Semantic Kernel program is 
+    # executed # before calling this setup is called. This is because Semantic Kernel caches the 
     # tracer instance # in each module (ref:https://github.com/microsoft/semantic-kernel/blob/6ecf2b9c2c893dc6da97abeb5962dfc49bed062d/python/semantic_kernel/functions/kernel_function.py#L46),
     # which prevent us from updating the span processor setup for the tracer.
     # Therefore, `mlflow.semantic_kernel.autolog()` should always be called before running the
@@ -138,6 +141,8 @@ class SemanticKernelSpanProcessor(SimpleSpanProcessor):
 
         if mlflow_span.span_type or mlflow_span.span_type == SpanType.UNKNOWN:
             mlflow_span.set_span_type(_get_span_type(span))
+
+
 
         detach_span_from_context(token)
         mlflow_span.end()
@@ -208,6 +213,26 @@ def _semantic_kernel_chat_completion_input_wrapper(original, *args, **kwargs) ->
                 "Span is not found or recording. Skipping registering chat "
                 f"completion attributes to {SpanAttributeKey.INPUTS}."
             )
+
+        # NB: Semantic Kernel typically creates a wrapping span which does not call the 
+        # inputs/output parsing decorators, which are wrapped below. We need to propagate the
+        # span type and inputs/outputs attributes to trace manually.
+
+        # This will never overwrite, leading to the first span's input being registered as the
+        # input of the entire trace.
+        print('settinginputs')
+        with InMemoryTraceManager.get_instance().get_trace(mlflow_span.trace_id) as t:
+            print('tracefound')
+            inputs_value = json.dumps(prompt_value_with_message)
+            if not t.info.trace_metadata.get(TraceMetadataKey.INPUTS) and inputs_value:
+                t.info.trace_metadata[TraceMetadataKey.INPUTS] = BaseMlflowSpanProcessor._truncate_metadata(inputs_value)
+                print("traceinputs were set")
+                print(t.info.trace_metadata.get(TraceMetadataKey.INPUTS))
+
+        with InMemoryTraceManager.get_instance().get_trace(mlflow_span.trace_id) as t:
+            print("showingoutput")
+            print(t.info.trace_metadata)
+
     except Exception as e:
         _logger.warning(f"Failed to set inputs attribute: {e}")
 
@@ -246,6 +271,11 @@ def _semantic_kernel_chat_completion_response_wrapper(original, *args, **kwargs)
             mlflow_span.set_outputs(json.dumps(full_responses))
             mlflow_span.set_attribute(SpanAttributeKey.CHAT_MESSAGES, json.dumps(full_responses))
 
+            # with InMemoryTraceManager.get_instance().get_trace(mlflow_span.trace_id) as t:
+            #     if t.info.response is None:
+            #         if last_agent_message := next((message for message in reversed(full_responses) if message.get("role") == "assistant"), None):
+            #             t.info.response_preview = _get_truncated_preview(last_agent_message.get("content"), role="assistant")
+
     except Exception as e:
         _logger.warning(f"Failed to set outputs attribute: {e}")
 
@@ -259,7 +289,6 @@ def _semantic_kernel_chat_completion_error_wrapper(original, *args, **kwargs) ->
 
     mlflow_span.add_event(SpanEvent.from_exception(error))
     mlflow_span.set_status(SpanStatusCode.ERROR)
-    from mlflow.tracing.trace_manager import InMemoryTraceManager
 
     with InMemoryTraceManager.get_instance().get_trace(mlflow_span.trace_id) as t:
         t.info.status = TraceStatus.ERROR
