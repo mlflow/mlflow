@@ -161,7 +161,7 @@ completes successfully.
 
     # Wait for the build_doc job to complete
     print("Waiting for CircleCI job to complete...")
-    for _ in range(60):  # Wait up to 3 minutes (60 * 3 seconds)
+    for _ in range(15):  # Wait up to 15 minutes (15 * 60 seconds)
         status = github_session.get(
             f"https://api.github.com/repos/{repo}/commits/{args.commit_sha}/status"
         )
@@ -191,7 +191,7 @@ The [CircleCI job]({job_url}) failed. Please check the job logs for more details
         print(
             f"Job status: {build_doc_status['state'] if build_doc_status else 'not found'}, waiting"
         )
-        time.sleep(3)
+        time.sleep(60)
     else:
         print("Timed out waiting for CircleCI job to complete")
         timeout_comment_body = f"""
