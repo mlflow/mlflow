@@ -14,15 +14,20 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-node
       - name: Install dependencies
         run: |
           pip install requests
+          npm install -g netlify-cli
       - name: Create preview link
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CIRCLE_TOKEN: ${{ secrets.CIRCLE_TOKEN }}
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
         run: |
           python dev/preview_docs.py \
             --commit-sha ${{ github.event.pull_request.head.sha }} \
             --pull-number ${{ github.event.pull_request.number }} \
-            --workflow-run-id ${{ github.run_id }}
+            --workflow-run-id ${{ github.run_id }} \
+            --netlify-site-name "mlflow-docs-preview" \

@@ -109,8 +109,15 @@ jobs:
           working_directory: docs
           command: |
             yarn sitemap https://mlflow.org/docs/latest/sitemap.xml ./build/latest/sitemap.xml
+      - run:
+          name: Create docs archive
+          working_directory: docs/build
+          command: |
+            zip -r docs-html.zip latest
       - store_artifacts:
           path: docs/build/latest
+      - store_artifacts:
+          path: docs/build/docs-html.zip
       - run:
           name: Test examples
           working_directory: docs/api_reference

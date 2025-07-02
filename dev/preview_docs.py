@@ -1,6 +1,9 @@
 import argparse
 import os
+import subprocess
+import tempfile
 import time
+import zipfile
 from urllib.parse import urlparse
 
 import requests
@@ -41,11 +44,54 @@ def upsert_comment(session, repo, pull_number, comment_body):
         session.patch(preview_docs_comment["url"], json={"body": comment_body_with_marker})
 
 
+def deploy_to_netlify(artifact_url: str, pull_number: int, site_name: str, action_url: str) -> str:
+    with tempfile.TemporaryDirectory() as tmpdir:
+        artifact_path = os.path.join(tmpdir, "docs-html.zip")
+        response = requests.get(artifact_url, stream=True)
+        response.raise_for_status()
+        with open(artifact_path, "wb") as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+
+        with zipfile.ZipFile(artifact_path, "r") as zip_ref:
+            zip_ref.extractall(tmpdir)
+
+        build_dir = os.path.join(tmpdir, "build")
+        if not os.path.isdir(build_dir):
+            raise Exception(f"'build' directory not found in the artifact: {os.listdir(tmpdir)}")
+
+        alias = f"pr-{pull_number}"
+        message = f"PR Preview #{pull_number} - GitHub Action: {action_url}"
+        command = [
+            "netlify",
+            "deploy",
+            "--dir",
+            build_dir,
+            "--alias",
+            alias,
+            "--no-build",
+            "--message",
+            message,
+        ]
+        subprocess.run(
+            command, 
+            check=True, 
+            capture_output=True, 
+            text=True, 
+            env=os.environ.copy(),
+        )
+        return f"https://{alias}--{site_name}.netlify.app"
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--commit-sha", required=True)
     parser.add_argument("--pull-number", required=True)
     parser.add_argument("--workflow-run-id", required=True)
+    parser.add_argument("--netlify-site-name", required=True)
+    parser.add_argument("--action-url", required=True)
+    parser.add_argument("--netlify-site-name", required=True)
+    parser.add_argument("--action-url", required=True)
     args = parser.parse_args()
 
     github_session = Session()
@@ -124,23 +170,24 @@ Failed to find a documentation preview for {args.commit_sha}.
 
     build_doc_job = next(filter(lambda s: s["name"] == build_doc_job_name, workflow["items"]))
     build_doc_job_id = build_doc_job["id"]
-    top_page = f"https://output.circle-artifacts.com/output/job/{build_doc_job_id}/artifacts/0/docs/build/latest/index.html"
-    changed_pages = f"https://output.circle-artifacts.com/output/job/{build_doc_job_id}/artifacts/0/docs/build/latest/diff.html"
+    artifact_url = f"https://output.circle-artifacts.com/output/job/{build_doc_job_id}/artifacts/0/docs-html.zip"
 
     # Post the artifact URL as a comment
+    netlify_url = deploy_to_netlify(
+        artifact_url,
+        args.pull_number,
+        args.netlify_site_name,
+        args.action_url,
+    )
     comment_body = f"""
-Documentation preview for {args.commit_sha} will be available when [this CircleCI job]({job_url})
-completes successfully. You may encounter a `{{"message":"not found"}}` error when reloading
-a page. If so, add `/index.html` to the URL.
+Documentation preview for {args.commit_sha} is available at:
 
-- [Top page]({top_page})
-- [Changed pages]({changed_pages}) (⚠️ only MDX file changes are detected ⚠️)
+- {netlify_url}
 
 <details>
 <summary>More info</summary>
 
 - Ignore this comment if this PR does not change the documentation.
-- It takes a few minutes for the preview to be available.
 - The preview is updated when a new commit is pushed to this PR.
 - This comment was created by {workflow_run_link}.
 
