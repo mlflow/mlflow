@@ -38,7 +38,7 @@ jobs:
       - uses: ./.github/actions/setup-python
       - name: Install dependencies
         run: |
-          pip install --progress-bar off -r requirements/doc-requirements.txt
+          pip install -r ../requirements/doc-requirements.txt
           yarn install --immutable
       - name: Run lint
         run: |
