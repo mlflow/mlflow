@@ -788,6 +788,15 @@ def _lint_cell(
     return violations
 
 
+def _has_h1_header(cells: list[dict[str, Any]]) -> bool:
+    return any(
+        line.strip().startswith("# ")
+        for cell in cells
+        if cell.get("cell_type") == "markdown"
+        for line in cell.get("source", [])
+    )
+
+
 def lint_file(path: Path, config: Config, index: SymbolIndex) -> list[Violation]:
     code = path.read_text()
     if path.suffix == ".ipynb":
@@ -803,12 +812,7 @@ def lint_file(path: Path, config: Config, index: SymbolIndex) -> list[Violation]
                         cell_index=cell_idx,
                     )
                 )
-            if not any(
-                line.strip().startswith("# ")
-                for cell in cells
-                if cell.get("cell_type") == "markdown"
-                for line in cell.get("source", [])
-            ):
+            if not _has_h1_header(cells):
                 violations.append(
                     Violation(
                         rules.MissingNotebookH1Header(),
