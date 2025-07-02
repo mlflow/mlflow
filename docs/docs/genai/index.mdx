@@ -8,6 +8,7 @@ hide_title: true
 import { Play, Settings, BookOpen, Search, CheckCircle, Edit3, Rocket, BarChart3, Link } from 'lucide-react';
 import TileCard from '@site/src/components/TileCard';
 import SearchBox from '@site/src/components/SearchBox';
+import TilesGrid from '@site/src/components/TilesGrid';
 import { CardGroup, SmallLogoCard } from '@site/src/components/Card';
 import Platform from "@site/src/content/platform.mdx"
 
@@ -17,10 +18,7 @@ import Platform from "@site/src/content/platform.mdx"
       <h1>Build with MLflow GenAI</h1>
       <p>Learn how to get started with MLflow for building production-ready GenAI applications.</p>
 
-      <SearchBox
-        assistantId="116"
-        placeholder="What do you want to know about MLflow?"
-      />
+      <SearchBox placeholder="What do you want to know about MLflow?" />
     </div>
 
     <div className="hero-image">
@@ -29,7 +27,7 @@ import Platform from "@site/src/content/platform.mdx"
   </div>
 </div>
 
-<div className="tiles-grid">
+<TilesGrid>
   <TileCard
     icon={Play}
     title="Get Started"
@@ -101,7 +99,7 @@ import Platform from "@site/src/content/platform.mdx"
     href="/genai/tracing/integrations"
     linkText="View integrations →"
   />
-</div>
+</TilesGrid>
 
 ## Why choose MLflow?
 
