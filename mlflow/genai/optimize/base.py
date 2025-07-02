@@ -16,8 +16,8 @@ from mlflow.genai.optimize.types import (
     OptimizerConfig,
     PromptOptimizationResult,
 )
+from mlflow.genai.prompts import load_prompt
 from mlflow.genai.scorers import Scorer
-from mlflow.tracking._model_registry.fluent import load_prompt
 from mlflow.tracking.fluent import log_params, log_table, start_run
 from mlflow.utils.annotations import experimental
 
