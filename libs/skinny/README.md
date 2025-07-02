@@ -17,5 +17,5 @@
 pip install ./skinny
 
 # If you want to install the latest version from GitHub
-pip install git+https://github.com/mlflow/mlflow.git#subdirectory=skinny
+pip install git+https://github.com/mlflow/mlflow.git#subdirectory=libs/skinny
 ```
