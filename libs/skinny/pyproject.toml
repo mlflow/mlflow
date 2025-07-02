@@ -17,7 +17,7 @@ classifiers = [
   "Intended Audience :: End Users/Desktop",
   "Intended Audience :: Science/Research",
   "Intended Audience :: Information Technology",
-  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Scientific/Engineering :: Artificial lIntelligence",
   "Topic :: Software Development :: Libraries :: Python Modules",
   "License :: OSI Approved :: Apache Software License",
   "Operating System :: OS Independent",
