@@ -274,6 +274,8 @@ module.exports = function () {
 
         const moduleNameMapper = {
           ...jestConfig.moduleNameMapper,
+          '@databricks/i18n': '<rootDir>/node_modules/react-intl',
+          '@databricks/web-shared/query-client': '<rootDir>/src/common/utils/reactQueryHooks',
           '@databricks/design-system/(.+)': '<rootDir>/node_modules/@databricks/design-system/dist/$1',
           '@databricks/web-shared/(.*)': '<rootDir>/src/shared/web-shared/$1',
           '@mlflow/mlflow/(.*)': '<rootDir>/$1',
