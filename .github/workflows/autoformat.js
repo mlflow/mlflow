@@ -118,11 +118,8 @@ const checkMaintainerAccess = async (context, github) => {
   // Skip maintainer access check for copilot bot PRs
   // Copilot bot creates PRs that are owned by the repository and don't need the same permission model
   if (
-    pr.data.user &&
-    pr.data.user.type &&
-    pr.data.user.type.toLowerCase() === "bot" &&
-    pr.data.user.login &&
-    pr.data.user.login.toLowerCase() === "copilot"
+    pr.data.user?.type?.toLowerCase() === "bot" &&
+    pr.data.user?.login?.toLowerCase() === "copilot"
   ) {
     console.log(`Skipping maintainer access check for copilot bot PR #${pull_number}`);
     return;
