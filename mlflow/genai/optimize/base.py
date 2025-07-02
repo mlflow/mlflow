@@ -145,9 +145,9 @@ def optimize_prompt(
 def _select_optimizer(optimizer_config: OptimizerConfig) -> _BaseOptimizer:
     if optimizer_config.algorithm not in _ALGORITHMS:
         raise ValueError(
-            f"Unsupported algorithm: '{optimizer_config.algorithm}'\n"
-            f"   Available algorithms: {list(_ALGORITHMS.keys())}\n"
-            f"   Please choose from the supported algorithms above"
+            f"Unsupported algorithm: '{optimizer_config.algorithm}' "
+            f"Available algorithms: {list(_ALGORITHMS.keys())} "
+            "Please choose from the supported algorithms above"
         )
 
     return _ALGORITHMS[optimizer_config.algorithm](optimizer_config)
@@ -164,9 +164,9 @@ def _validate_scorers(scorers: list[Scorer]) -> None:
         signature = inspect.signature(scorer)
         if "trace" in signature.parameters:
             raise MlflowException.invalid_parameter_value(
-                f"Invalid scorer parameter: {scorer} contains 'trace' parameter\n"
-                f"   Optimization scorers can only use: inputs, outputs, or expectations\n"
-                f"   Remove 'trace' parameter from your scorer function"
+                f"Invalid scorer parameter: {scorer} contains 'trace' parameter. "
+                "Optimization scorers can only use: inputs, outputs, or expectations. "
+                "Remove 'trace' parameter from your scorer function"
             )
 
 
