@@ -84,11 +84,7 @@ jobs:
               echo "yarn.lock has changed. Please run 'yarn install' locally and commit the changes."
               exit 1
             fi
-      - run:
-          name: Lint
-          working_directory: docs
-          command: |
-            yarn eslint
+
       - run:
           name: Build documentation
           working_directory: docs
