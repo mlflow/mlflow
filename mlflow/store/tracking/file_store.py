@@ -458,8 +458,10 @@ class FileStore(AbstractStore):
         meta = FileStore._read_yaml(experiment_dir, FileStore.META_DATA_FILE_NAME)
         if meta is None:
             raise MissingConfigException(
-                f"Experiment {experiment_id} is invalid with empty {FileStore.META_DATA_FILE_NAME} in directory '{experiment_dir}'."
+                f"Experiment {experiment_id} is invalid with empty "
+                f"{FileStore.META_DATA_FILE_NAME} in directory '{experiment_dir}'."
             )
+
         meta["tags"] = self.get_all_experiment_tags(experiment_id)
         experiment = _read_persisted_experiment_dict(meta)
         if experiment_id != experiment.experiment_id:
