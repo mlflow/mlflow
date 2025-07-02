@@ -57,8 +57,8 @@ class TelemetryClient:
             _logger.debug("Telemetry is stopped, skipping adding record")
             return
 
+        data = self._generate_telemetry_record(record)
         with self._batch_lock:
-            data = self._generate_telemetry_record(record)
             self._pending_records.append(data)
 
             should_send = (
@@ -82,6 +82,7 @@ class TelemetryClient:
         try:
             self._queue.put(batch_records, block=False)
         except Full:
+            # TODO: record this case
             _logger.debug("Telemetry queue is full, skipping sending data.")
 
     def _process_records(self, records: list[TelemetryRecord]):
