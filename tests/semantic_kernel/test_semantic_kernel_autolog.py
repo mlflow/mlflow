@@ -136,7 +136,7 @@ async def test_sk_invoke_complex(mock_openai):
     root_span = next(s for s in spans if s.parent_id is None)
     child_span = next(s for s in spans if s.parent_id == root_span.span_id)
 
-    assert root_span.name == "ChatBot-Chat"
+    assert root_span.name == "execute_tool ChatBot-Chat"
     assert root_span.get_attribute(SpanAttributeKey.REQUEST_ID) == trace.info.request_id
     assert root_span.get_attribute(SpanAttributeKey.SPAN_TYPE)
 
