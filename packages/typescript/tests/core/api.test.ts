@@ -1,4 +1,5 @@
 import { startSpan, withSpan } from '../../src/core/api';
+import { init } from '../../src/core/config';
 import { SpanType } from '../../src/core/constants';
 import { LiveSpan } from '../../src/core/entities/span';
 import { SpanStatus, SpanStatusCode } from '../../src/core/entities/span_status';
@@ -8,6 +9,13 @@ import { convertHrTimeToMs } from '../../src/core/utils';
 import { getTraces, resetTraces } from '../../src/exporters/mlflow';
 
 describe('API', () => {
+  beforeEach(() => {
+    init({
+      trackingUri: 'http://localhost:5000',
+      experimentId: '123456789'
+    });
+  });
+
   describe('startSpan', () => {
     it('should create a span with span type', () => {
       const span = startSpan({ name: 'test-span' });
