@@ -875,7 +875,7 @@ _MLFLOW_TELEMETRY_BATCH_TIME_INTERVAL = _EnvironmentVariable(
     "_MLFLOW_TELEMETRY_BATCH_TIME_INTERVAL", int, 30
 )
 
-#: Maximum number of telemetry records to queue.
+#: Maximum size of the telemetry queue.
 #: (default: ``1000``)
 _MLFLOW_TELEMETRY_MAX_QUEUE_SIZE = _EnvironmentVariable(
     "_MLFLOW_TELEMETRY_MAX_QUEUE_SIZE", int, 1000
