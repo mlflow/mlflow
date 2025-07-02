@@ -89,9 +89,10 @@ def main():
 
         DIST_DIR = Path("dist")
         DIST_DIR.mkdir(exist_ok=True)
-        if package.type in (SKINNY, TRACING):
+        if package.type in (SKINNY.type, TRACING.type):
             # Move `libs/xyz/dist/*` to `dist/`
-            for src in (package.build_path / "dist").glob("*"):
+            for src in (Path(package.build_path) / "dist").glob("*"):
+                print(src)
                 dst = DIST_DIR / src.name
                 if dst.exists():
                     dst.unlink()
