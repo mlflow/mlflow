@@ -54,9 +54,7 @@ export default function TileCard({
       </div>
       <h3>{title}</h3>
       <p>{description}</p>
-      <div className={styles.tileLink}>
-        {linkText}
-      </div>
+      <div className={styles.tileLink}>{linkText}</div>
     </Link>
   );
 }
