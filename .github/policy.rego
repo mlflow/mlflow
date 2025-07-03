@@ -49,7 +49,39 @@ deny_unpinned_actions[msg] {
         [concat(", ", unpinned_actions)])
 }
 
+# Rule to check run commands for script injection
+deny_script_injection[msg] {
+    # Check for script injection in run commands
+    some job in input.jobs
+    some step in job.steps
+    step.run
+    contains_github_expression(step.run)
+    
+    msg := script_injection_message
+}
+
+# Rule to check github-script action for script injection
+deny_script_injection_github_script[msg] {
+    # Check for script injection in github-script action
+    some job in input.jobs
+    some step in job.steps
+    startswith(step.uses, "actions/github-script@")
+    step["with"]["script"]
+    contains_github_expression(step["with"]["script"])
+    
+    msg := script_injection_message
+}
+
 ###########################   RULE HELPERS   ##################################
+
+# Helper function to check for GitHub expressions
+contains_github_expression(text) {
+    regex.match("\\$\\{\\{[^}]*\\}\\}", text)
+}
+
+# Shared error message for script injection
+script_injection_message := "Potential script injection risk. Using `${{ ... }}` expressions directly in scripts can be unsafe when handling untrusted input. Consider using environment variables instead. See https://docs.github.com/en/actions/security-guides/security-hardening-for-github-actions#understanding-the-risk-of-script-injections"
+
 get_jobs_without_permissions(jobs) = jobs_without_permissions {
     jobs_without_permissions := { job_id |
         job := jobs[job_id]
