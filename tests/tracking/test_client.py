@@ -29,24 +29,14 @@ from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY
 from mlflow.entities.param import Param
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
-from mlflow.exceptions import (
-    MlflowException,
-    MlflowTraceDataCorrupted,
-    MlflowTraceDataNotFound,
-)
+from mlflow.exceptions import MlflowException, MlflowTraceDataCorrupted, MlflowTraceDataNotFound
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.model_registry.sqlalchemy_store import (
     SqlAlchemyStore as SqlAlchemyModelRegistryStore,
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.store.tracking.sqlalchemy_store import (
-    SqlAlchemyStore as SqlAlchemyTrackingStore,
-)
-from mlflow.tracing.constant import (
-    TRACE_SCHEMA_VERSION,
-    TRACE_SCHEMA_VERSION_KEY,
-    TraceMetadataKey,
-)
+from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as SqlAlchemyTrackingStore
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION, TRACE_SCHEMA_VERSION_KEY, TraceMetadataKey
 from mlflow.tracing.fluent import TRACE_BUFFER
 from mlflow.tracing.provider import _get_tracer, trace_disabled
 from mlflow.tracing.trace_manager import InMemoryTraceManager
@@ -114,8 +104,7 @@ def mock_databricks_tracking_store():
 
         def get_run(self, *args, **kwargs):
             return Run(
-                RunInfo(self.run_id, self.experiment_id, "userid", "status", 0, 1, None),
-                None,
+                RunInfo(self.run_id, self.experiment_id, "userid", "status", 0, 1, None), None
             )
 
     mock_tracking_store = MockDatabricksTrackingStore(run_id, experiment_id)
@@ -584,10 +573,7 @@ def test_start_and_end_trace_before_all_span_end(async_logging_enabled):
     assert non_ended_span.status.status_code == SpanStatusCode.UNSET
 
 
-@mock.patch(
-    "mlflow.tracking._tracking_service.utils.get_tracking_uri",
-    return_value="databricks",
-)
+@mock.patch("mlflow.tracking._tracking_service.utils.get_tracking_uri", return_value="databricks")
 def test_log_trace_with_databricks_tracking_uri(
     databricks_tracking_uri, mock_store_for_tracing, monkeypatch, async_logging_enabled
 ):
@@ -1333,10 +1319,7 @@ def test_create_model_version_run_link_with_configured_profile(
     )
 
     with (
-        mock.patch(
-            "mlflow.utils.databricks_utils.is_in_databricks_notebook",
-            return_value=False,
-        ),
+        mock.patch("mlflow.utils.databricks_utils.is_in_databricks_notebook", return_value=False),
         mock.patch(
             "mlflow.utils.databricks_utils.get_workspace_info_from_databricks_secrets",
             return_value=(hostname, workspace_id),

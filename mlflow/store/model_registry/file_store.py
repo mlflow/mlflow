@@ -61,11 +61,7 @@ from mlflow.utils.file_utils import (
     write_to,
     write_yaml,
 )
-from mlflow.utils.search_utils import (
-    SearchModelUtils,
-    SearchModelVersionUtils,
-    SearchUtils,
-)
+from mlflow.utils.search_utils import SearchModelUtils, SearchModelVersionUtils, SearchUtils
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.validation import (
@@ -977,9 +973,7 @@ class FileStore(AbstractStore):
                 RESOURCE_DOES_NOT_EXIST,
             )
         return os.path.join(
-            registered_model_path,
-            FileStore.REGISTERED_MODELS_ALIASES_FOLDER_NAME,
-            alias,
+            registered_model_path, FileStore.REGISTERED_MODELS_ALIASES_FOLDER_NAME, alias
         )
 
     def set_registered_model_alias(self, name, alias, version):

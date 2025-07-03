@@ -77,10 +77,7 @@ from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
     SEARCH_WEBHOOKS_MAX_RESULTS_DEFAULT,
 )
-from mlflow.store.tracking import (
-    SEARCH_MAX_RESULTS_DEFAULT,
-    SEARCH_TRACES_DEFAULT_MAX_RESULTS,
-)
+from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing.constant import (
     TRACE_REQUEST_ID_PREFIX,
     SpanAttributeKey,
@@ -516,9 +513,7 @@ class MlflowClient:
         except MlflowException:
             # Create a new prompt (model) entry
             registry_client.create_registered_model(
-                name,
-                description=commit_message,
-                tags={IS_PROMPT_TAG_KEY: "true", **tags},
+                name, description=commit_message, tags={IS_PROMPT_TAG_KEY: "true", **tags}
             )
             is_new_prompt = True
 
@@ -666,10 +661,7 @@ class MlflowClient:
             run_ids = [run_id]
 
         self._get_registry_client().set_model_version_tag(
-            prompt.name,
-            prompt.version,
-            PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY,
-            ",".join(run_ids),
+            prompt.name, prompt.version, PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY, ",".join(run_ids)
         )
 
     # TODO: Use model_id in MLflow 3.0
@@ -3182,21 +3174,18 @@ class MlflowClient:
 
             else:
                 raise MlflowException(
-                    f"Artifact {artifact_file} not found for run {run_id}.",
-                    RESOURCE_DOES_NOT_EXIST,
+                    f"Artifact {artifact_file} not found for run {run_id}.", RESOURCE_DOES_NOT_EXIST
                 )
 
             return existing_predictions
 
         if not runs.empty:
             return pd.concat(
-                [get_artifact_data(run) for _, run in runs.iterrows()],
-                ignore_index=True,
+                [get_artifact_data(run) for _, run in runs.iterrows()], ignore_index=True
             )
         else:
             raise MlflowException(
-                "No runs found with the corresponding table artifact.",
-                RESOURCE_DOES_NOT_EXIST,
+                "No runs found with the corresponding table artifact.", RESOURCE_DOES_NOT_EXIST
             )
 
     def _record_logged_model(self, run_id, mlflow_model):
@@ -3515,12 +3504,7 @@ class MlflowClient:
             tags: {'s.release': '1.1.0-RC'}
         """
         return self._tracking_client.search_runs(
-            experiment_ids,
-            filter_string,
-            run_view_type,
-            max_results,
-            order_by,
-            page_token,
+            experiment_ids, filter_string, run_view_type, max_results, order_by, page_token
         )
 
     # Registry API
@@ -3528,10 +3512,7 @@ class MlflowClient:
     # Registered Model Methods
 
     def create_registered_model(
-        self,
-        name: str,
-        tags: Optional[dict[str, Any]] = None,
-        description: Optional[str] = None,
+        self, name: str, tags: Optional[dict[str, Any]] = None, description: Optional[str] = None
     ) -> RegisteredModel:
         """
         Create a new registered model in backend store.
@@ -4382,11 +4363,7 @@ class MlflowClient:
 
     @deprecated(since="2.9.0", impact=_STAGES_DEPRECATION_WARNING)
     def transition_model_version_stage(
-        self,
-        name: str,
-        version: str,
-        stage: str,
-        archive_existing_versions: bool = False,
+        self, name: str, version: str, stage: str, archive_existing_versions: bool = False
     ) -> ModelVersion:
         """
         Update model version stage.
@@ -4403,7 +4380,7 @@ class MlflowClient:
         Returns:
             A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
 
-            .. code-block:: python
+        .. code-block:: python
             :caption: Example
 
             import mlflow.sklearn
