@@ -74,30 +74,10 @@ deny_script_injection_github_script[msg] {
 
 ###########################   RULE HELPERS   ##################################
 
-# Helper function to check for potentially dangerous GitHub expressions with user-controlled input
+# Helper function to check for any GitHub expressions
 contains_dangerous_github_expression(text) {
-    # Check for potentially dangerous patterns that involve user-controlled input
-    regex.match("\\$\\{\\{[^}]*github\\.event\\.pull_request\\.(title|body)[^}]*\\}\\}", text)
-}
-
-contains_dangerous_github_expression(text) {
-    regex.match("\\$\\{\\{[^}]*github\\.event\\.head_commit\\.message[^}]*\\}\\}", text)
-}
-
-contains_dangerous_github_expression(text) {
-    regex.match("\\$\\{\\{[^}]*github\\.event\\.issue\\.(title|body)[^}]*\\}\\}", text)
-}
-
-contains_dangerous_github_expression(text) {
-    regex.match("\\$\\{\\{[^}]*github\\.event\\.comment\\.body[^}]*\\}\\}", text)
-}
-
-contains_dangerous_github_expression(text) {
-    regex.match("\\$\\{\\{[^}]*github\\.event\\.review\\.body[^}]*\\}\\}", text)
-}
-
-contains_dangerous_github_expression(text) {
-    regex.match("\\$\\{\\{[^}]*github\\.event\\.pull_request\\.head\\.ref[^}]*\\}\\}", text)
+    # Check for any ${{ ... }} expressions
+    regex.match("\\$\\{\\{[^}]*\\}\\}", text)
 }
 
 # Shared error message for script injection
