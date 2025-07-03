@@ -17,7 +17,9 @@ module.exports = async ({ github, context, env }) => {
 
   try {
     // INFO: https://octokit.github.io/rest.js/v22/#actions-list-workflow-run-artifacts
-    const { artifacts } = await github.rest.actions.listWorkflowRunArtifacts({
+    const {
+      data: { artifacts },
+    } = await github.rest.actions.listWorkflowRunArtifacts({
       owner,
       repo: repoName,
       run_id: runId,
