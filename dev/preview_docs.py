@@ -99,5 +99,7 @@ def main():
         upsert_comment(github_session, repo, args.pull_number, comment_body)
 
 
+# TODO: rewrite this in JavaScript so we don't have to setup both node (to deploy to netlify)
+# and python (to upsert pr comments with this script)
 if __name__ == "__main__":
     main()
