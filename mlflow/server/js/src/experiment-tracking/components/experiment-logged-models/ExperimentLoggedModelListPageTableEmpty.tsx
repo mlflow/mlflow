@@ -183,8 +183,8 @@ export const ExperimentLoggedModelListPageTableEmpty = ({
       >
         <Typography.Text>
           <FormattedMessage
-            defaultMessage="Install <code>mlflow</code> version 3 or later:"
-            description="Instruction for installing MLflow version 3 or later in log MLflow 3 models"
+            defaultMessage="Install <code>mlflow</code> 3:"
+            description="Instruction for installing MLflow version 3 to log MLflow 3 models"
             values={{ code: (chunks) => <code>{chunks}</code> }}
           />
         </Typography.Text>
