@@ -19,6 +19,7 @@ async function upsertComment(github, repo, pullNumber, commentBody) {
     owner,
     repo: repoName,
     issue_number: pullNumber,
+    per_page: 100,
   });
 
   // Find existing preview docs comment
