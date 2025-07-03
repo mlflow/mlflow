@@ -1,3 +1,6 @@
+import json
+from dataclasses import asdict
+
 import pytest
 from autogen_agentchat.agents import AssistantAgent
 from autogen_agentchat.messages import MultiModalMessage
@@ -7,8 +10,10 @@ from autogen_ext.models.replay import ReplayChatCompletionClient
 
 import mlflow
 from mlflow.entities.span import SpanType
+from mlflow.telemetry.schemas import AutologParams
 from mlflow.tracing.constant import SpanAttributeKey
 
+from tests.helper_functions import wait_for_telemetry_threads
 from tests.tracing.helper import get_traces
 
 _SYSTEM_MESSAGE = "You are a helpful assistant."
@@ -365,3 +370,26 @@ async def test_autolog_multi_modal():
         "output_tokens": 1,
         "total_tokens": 15,
     }
+
+
+def test_autolog_sends_telemetry_record(mock_requests):
+    mlflow.autogen.autolog(log_traces=True, disable=False)
+
+    # Wait for telemetry to be sent
+    wait_for_telemetry_threads()
+
+    # Check that telemetry record was sent
+    assert len(mock_requests) == 1
+    autolog_record = mock_requests[0]
+    data = json.loads(autolog_record["data"])
+    assert data["api_module"] == mlflow.autogen.autolog.__module__
+    assert data["api_name"] == "autolog"
+    assert data["params"] == asdict(
+        AutologParams(
+            flavor="autogen",
+            disable=False,
+            log_traces=True,
+            log_models=False,
+        )
+    )
+    assert data["status"] == "success"

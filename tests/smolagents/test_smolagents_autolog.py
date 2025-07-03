@@ -1,3 +1,5 @@
+import json
+from dataclasses import asdict
 from unittest.mock import patch
 
 import pytest
@@ -6,7 +8,9 @@ from packaging.version import Version
 
 import mlflow
 from mlflow.entities.span import SpanType
+from mlflow.telemetry.schemas import AutologParams
 
+from tests.helper_functions import wait_for_telemetry_threads
 from tests.tracing.helper import get_traces
 
 _DUMMY_INPUT = "Explain quantum mechanics in simple terms."
@@ -198,3 +202,26 @@ def test_tool_autolog():
         assert span_3.outputs is not None
 
     clear_autolog_state()
+
+
+def test_autolog_sends_telemetry_record(mock_requests):
+    mlflow.smolagents.autolog(log_traces=True, disable=False)
+
+    # Wait for telemetry to be sent
+    wait_for_telemetry_threads()
+
+    # Check that telemetry record was sent
+    assert len(mock_requests) == 1
+    autolog_record = mock_requests[0]
+    data = json.loads(autolog_record["data"])
+    assert data["api_module"] == mlflow.smolagents.autolog.__module__
+    assert data["api_name"] == "autolog"
+    assert data["params"] == asdict(
+        AutologParams(
+            flavor="smolagents",
+            disable=False,
+            log_traces=True,
+            log_models=False,
+        )
+    )
+    assert data["status"] == "success"

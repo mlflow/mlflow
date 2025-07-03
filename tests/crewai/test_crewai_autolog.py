@@ -1,3 +1,5 @@
+import json
+from dataclasses import asdict
 from unittest.mock import patch
 
 import crewai
@@ -9,8 +11,10 @@ from packaging.version import Version
 
 import mlflow
 from mlflow.entities.span import SpanType
+from mlflow.telemetry.schemas import AutologParams
 from mlflow.version import IS_TRACING_SDK_ONLY
 
+from tests.helper_functions import wait_for_telemetry_threads
 from tests.tracing.helper import get_traces
 
 # This is a special word for CrewAI to complete the agent execution: https://github.com/crewAIInc/crewAI/blob/c6a6c918e0eba167be1fb82831c73dd664c641e3/src/crewai/agents/parser.py#L7
@@ -1041,3 +1045,26 @@ def test_flow(simple_agent_1, task_1, autolog):
         }
     }
     assert span_5.outputs is None
+
+
+def test_autolog_sends_telemetry_record(mock_requests):
+    mlflow.crewai.autolog(log_traces=True, disable=False)
+
+    # Wait for telemetry to be sent
+    wait_for_telemetry_threads()
+
+    # Check that telemetry record was sent
+    assert len(mock_requests) == 1
+    autolog_record = mock_requests[0]
+    data = json.loads(autolog_record["data"])
+    assert data["api_module"] == mlflow.crewai.autolog.__module__
+    assert data["api_name"] == "autolog"
+    assert data["params"] == asdict(
+        AutologParams(
+            flavor="crewai",
+            disable=False,
+            log_traces=True,
+            log_models=False,
+        )
+    )
+    assert data["status"] == "success"

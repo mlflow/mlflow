@@ -1,6 +1,7 @@
 import logging
 
 from mlflow.langchain.constant import FLAVOR_NAME
+from mlflow.telemetry.track import track_api_usage
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import autologging_integration
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
@@ -9,6 +10,7 @@ from mlflow.utils.autologging_utils.safety import safe_patch
 logger = logging.getLogger(__name__)
 
 
+@track_api_usage
 @experimental(version="2.10.0")
 @autologging_integration(FLAVOR_NAME)
 def autolog(
