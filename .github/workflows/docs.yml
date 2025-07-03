@@ -22,16 +22,36 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
+defaults:
+  run:
+    working-directory: docs
+
 jobs:
-  docs:
+  check:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     permissions:
       contents: read
     timeout-minutes: 30
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: docs
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: ./.github/actions/setup-node
+      - name: Install dependencies
+        run: |
+          yarn install --immutable
+      - name: Run lint
+        run: |
+          yarn eslint
+      - name: Run prettier
+        run: |
+          yarn prettier:check
+
+  build:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    permissions:
+      contents: read
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/setup-node
@@ -40,12 +60,6 @@ jobs:
         run: |
           pip install -r ../requirements/doc-requirements.txt
           yarn install --immutable
-      - name: Run lint
-        run: |
-          yarn eslint
-      - name: Run prettier
-        run: |
-          yarn prettier:check
       - name: Build docs
         run: |
           yarn convert-notebooks
