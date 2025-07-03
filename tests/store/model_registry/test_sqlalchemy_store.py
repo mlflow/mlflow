@@ -30,6 +30,7 @@ from mlflow.store.model_registry.dbmodels.models import (
     SqlWebhook,
 )
 from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
+
 from tests.helper_functions import random_str
 
 pytestmark = pytest.mark.notrackingurimock
@@ -40,9 +41,7 @@ GO_MOCK_TIME_TAG = "mock.time.go.testing.tag"
 @pytest.fixture
 def store(tmp_sqlite_uri):
     db_uri_from_env_var = MLFLOW_TRACKING_URI.get()
-    store = SqlAlchemyStore(
-        db_uri_from_env_var if db_uri_from_env_var else tmp_sqlite_uri
-    )
+    store = SqlAlchemyStore(db_uri_from_env_var if db_uri_from_env_var else tmp_sqlite_uri)
     yield store
 
     if db_uri_from_env_var is not None:
@@ -311,16 +310,12 @@ def test_get_latest_versions(store):
         "Production": "3",
         "Staging": "4",
     }
-    assert _extract_latest_by_stage(
-        store.get_latest_versions(name=name, stages=None)
-    ) == {
+    assert _extract_latest_by_stage(store.get_latest_versions(name=name, stages=None)) == {
         "None": "1",
         "Production": "3",
         "Staging": "4",
     }
-    assert _extract_latest_by_stage(
-        store.get_latest_versions(name=name, stages=[])
-    ) == {
+    assert _extract_latest_by_stage(store.get_latest_versions(name=name, stages=[])) == {
         "None": "1",
         "Production": "3",
         "Staging": "4",
@@ -346,9 +341,7 @@ def test_get_latest_versions(store):
         "Production": "2",
         "Staging": "4",
     }
-    assert _extract_latest_by_stage(
-        store.get_latest_versions(name=name, stages=None)
-    ) == {
+    assert _extract_latest_by_stage(store.get_latest_versions(name=name, stages=None)) == {
         "None": "1",
         "Production": "2",
         "Staging": "4",
@@ -411,9 +404,7 @@ def test_set_registered_model_tag(store):
     with pytest.raises(
         MlflowException, match=r"Missing value for required parameter 'name'"
     ) as exception_context:
-        store.set_registered_model_tag(
-            None, RegisteredModelTag(key="key", value="value")
-        )
+        store.set_registered_model_tag(None, RegisteredModelTag(key="key", value="value"))
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
 
 
@@ -555,9 +546,7 @@ def test_update_model_version(store):
     assert mvd2.description is None
 
     # update description
-    store.update_model_version(
-        name=mv1.name, version=mv1.version, description="test model version"
-    )
+    store.update_model_version(name=mv1.name, version=mv1.version, description="test model version")
     mvd3 = store.get_model_version(name=mv1.name, version=mv1.version)
     assert mvd3.name == name
     assert int(mvd3.version) == 1
@@ -671,9 +660,7 @@ def test_transition_model_version_stage_when_archive_existing_versions_is_true(s
         store.transition_model_version_stage(mv2.name, mv2.version, "None", False)
 
         # stage names are case-insensitive and auto-corrected to system stage names
-        store.transition_model_version_stage(
-            mv2.name, mv2.version, uncanonical_stage_name, True
-        )
+        store.transition_model_version_stage(mv2.name, mv2.version, uncanonical_stage_name, True)
 
         mvd1 = store.get_model_version(name=mv1.name, version=mv1.version)
         mvd2 = store.get_model_version(name=mv2.name, version=mv2.version)
@@ -733,9 +720,7 @@ def test_delete_model_version_redaction(store):
     # delete the MV now
     store.delete_model_version(name, mv.version)
     # verify that the relevant fields are redacted
-    mvd_deleted = store._get_sql_model_version_including_deleted(
-        name=name, version=mv.version
-    )
+    mvd_deleted = store._get_sql_model_version_including_deleted(name=name, version=mv.version)
     assert "REDACTED" in mvd_deleted.run_link
     assert "REDACTED" in mvd_deleted.source
     assert "REDACTED" in mvd_deleted.run_id
@@ -751,10 +736,7 @@ def test_get_model_version_download_uri(store):
     assert mvd1.source == source_path
 
     # download location points to source
-    assert (
-        store.get_model_version_download_uri(name=mv.name, version=mv.version)
-        == source_path
-    )
+    assert store.get_model_version_download_uri(name=mv.name, version=mv.version) == source_path
 
     # download URI does not change even if model version is updated
     store.transition_model_version_stage(
@@ -763,15 +745,10 @@ def test_get_model_version_download_uri(store):
         stage="Production",
         archive_existing_versions=False,
     )
-    store.update_model_version(
-        name=mv.name, version=mv.version, description="Test for Path"
-    )
+    store.update_model_version(name=mv.name, version=mv.version, description="Test for Path")
     mvd2 = store.get_model_version(name=mv.name, version=mv.version)
     assert mvd2.source == source_path
-    assert (
-        store.get_model_version_download_uri(name=mv.name, version=mv.version)
-        == source_path
-    )
+    assert store.get_model_version_download_uri(name=mv.name, version=mv.version) == source_path
 
     # cannot retrieve download URI for deleted model versions
     store.delete_model_version(name=mv.name, version=mv.version)
@@ -802,9 +779,7 @@ def test_search_model_versions(store):
     def search_versions(filter_string, max_results=10, order_by=None, page_token=None):
         return [
             mvd.version
-            for mvd in store.search_model_versions(
-                filter_string, max_results, order_by, page_token
-            )
+            for mvd in store.search_model_versions(filter_string, max_results, order_by, page_token)
         ]
 
     # search using name should return all 4 versions
@@ -831,9 +806,7 @@ def test_search_model_versions(store):
 
     # search IN operator with other conditions
     assert set(
-        search_versions(
-            f"version_number=2 AND run_id IN ('{run_id_1.upper()}','{run_id_2}')"
-        )
+        search_versions(f"version_number=2 AND run_id IN ('{run_id_1.upper()}','{run_id_2}')")
     ) == {2}
 
     # search IN operator with right-hand side value containing whitespaces
@@ -954,9 +927,7 @@ def test_search_model_versions_order_by_simple(store):
     for name in set(names):
         _rm_maker(store, name)
     for i in range(6):
-        time.sleep(
-            0.001
-        )  # sleep to ensure each model version has a different creation_time
+        time.sleep(0.001)  # sleep to ensure each model version has a different creation_time
         _mv_maker(store, name=names[i], source=sources[i], run_id=run_ids[i])
 
     # by default order by last_updated_timestamp DESC
@@ -970,24 +941,18 @@ def test_search_model_versions_order_by_simple(store):
     assert [mv.version for mv in mvs] == [2, 1, 1, 1, 2, 1]
 
     # order by version DESC
-    mvs = store.search_model_versions(
-        filter_string=None, order_by=["version_number DESC"]
-    )
+    mvs = store.search_model_versions(filter_string=None, order_by=["version_number DESC"])
     assert [mv.name for mv in mvs] == ["RM1", "RM4", "RM1", "RM2", "RM3", "RM4"]
     assert [mv.version for mv in mvs] == [2, 2, 1, 1, 1, 1]
 
     # order by creation_timestamp DESC
-    mvs = store.search_model_versions(
-        filter_string=None, order_by=["creation_timestamp DESC"]
-    )
+    mvs = store.search_model_versions(filter_string=None, order_by=["creation_timestamp DESC"])
     assert [mv.name for mv in mvs] == names[::-1]
     assert [mv.version for mv in mvs] == [2, 2, 1, 1, 1, 1]
 
     # order by last_updated_timestamp ASC
     store.update_model_version(names[0], 1, "latest updated")
-    mvs = store.search_model_versions(
-        filter_string=None, order_by=["last_updated_timestamp ASC"]
-    )
+    mvs = store.search_model_versions(filter_string=None, order_by=["last_updated_timestamp ASC"])
     assert mvs[-1].name == names[0]
     assert mvs[-1].version == 1
 
@@ -1011,9 +976,7 @@ def test_search_model_versions_order_by_errors(store):
         )
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     # test that invalid columns with random text throw even if they come after valid columns
-    with pytest.raises(
-        MlflowException, match=r"Invalid order_by clause '.+'"
-    ) as exception_context:
+    with pytest.raises(MlflowException, match=r"Invalid order_by clause '.+'") as exception_context:
         store.search_model_versions(
             query,
             page_token=None,
@@ -1122,9 +1085,7 @@ def test_search_model_versions_by_tag(store):
     assert search_versions("tag.t2 like 'x%' and tag.t2 != 'xyz'") == [2]
 
 
-def _search_registered_models(
-    store, filter_string, max_results=10, order_by=None, page_token=None
-):
+def _search_registered_models(store, filter_string, max_results=10, order_by=None, page_token=None):
     result = store.search_registered_models(
         filter_string=filter_string,
         max_results=max_results,
@@ -1182,9 +1143,7 @@ def test_search_registered_models(store):
     assert rms == [names[4]]
 
     # case-insensitive prefix search using ILIKE should return both rm5 and rm6
-    rms, _ = _search_registered_models(
-        store, "name ILIKE '{}%'".format(prefix + "RM4A")
-    )
+    rms, _ = _search_registered_models(store, "name ILIKE '{}%'".format(prefix + "RM4A"))
     assert rms == names[4:]
 
     # case-insensitive postfix search with ILIKE
@@ -1192,9 +1151,7 @@ def test_search_registered_models(store):
     assert rms == names[4:]
 
     # case-insensitive prefix search using ILIKE should return both rm5 and rm6
-    rms, _ = _search_registered_models(
-        store, "name ILIKE '{}%'".format(prefix + "cats")
-    )
+    rms, _ = _search_registered_models(store, "name ILIKE '{}%'".format(prefix + "cats"))
     assert rms == []
 
     # confirm that ILIKE is not case-sensitive
@@ -1255,9 +1212,7 @@ def test_search_registered_models(store):
     )
 
     # case-insensitive prefix search using ILIKE should return both rm5 and rm6
-    assert _search_registered_models(
-        store, "name ILIKE '{}%'".format(prefix + "RM4A")
-    ) == (
+    assert _search_registered_models(store, "name ILIKE '{}%'".format(prefix + "RM4A")) == (
         [names[4]],
         None,
     )
@@ -1324,9 +1279,7 @@ def test_parse_search_registered_models_order_by():
         )
 
     with pytest.raises(MlflowException, match=msg):
-        SqlAlchemyStore._parse_search_registered_models_order_by(
-            ["timestamp", "timestamp"]
-        )
+        SqlAlchemyStore._parse_search_registered_models_order_by(["timestamp", "timestamp"])
 
     with pytest.raises(MlflowException, match=msg):
         SqlAlchemyStore._parse_search_registered_models_order_by(
@@ -1350,14 +1303,10 @@ def test_search_registered_model_pagination(store):
     # test flow with fixed max_results
     returned_rms = []
     query = "name LIKE 'RM%'"
-    result, token = _search_registered_models(
-        store, query, page_token=None, max_results=5
-    )
+    result, token = _search_registered_models(store, query, page_token=None, max_results=5)
     returned_rms.extend(result)
     while token:
-        result, token = _search_registered_models(
-            store, query, page_token=token, max_results=5
-        )
+        result, token = _search_registered_models(store, query, page_token=token, max_results=5)
         returned_rms.extend(result)
     assert rms == returned_rms
 
@@ -1367,21 +1316,15 @@ def test_search_registered_model_pagination(store):
     assert token1 is not None
     assert result == rms[0:5]
 
-    result, token2 = _search_registered_models(
-        store, query, page_token=token1, max_results=10
-    )
+    result, token2 = _search_registered_models(store, query, page_token=token1, max_results=10)
     assert token2 is not None
     assert result == rms[5:15]
 
-    result, token3 = _search_registered_models(
-        store, query, page_token=token2, max_results=20
-    )
+    result, token3 = _search_registered_models(store, query, page_token=token2, max_results=20)
     assert token3 is not None
     assert result == rms[15:35]
 
-    result, token4 = _search_registered_models(
-        store, query, page_token=token3, max_results=100
-    )
+    result, token4 = _search_registered_models(store, query, page_token=token3, max_results=100)
     # assert that page token is None
     assert token4 is None
     assert result == rms[35:]
@@ -1409,9 +1352,7 @@ def test_search_registered_model_order_by(store):
             "mlflow.store.model_registry.sqlalchemy_store.get_current_time_millis",
             return_value=i,
         ):
-            rms.append(
-                _rm_maker(store, f"RM{i:03}", _add_go_test_tags([], f"{i}")).name
-            )
+            rms.append(_rm_maker(store, f"RM{i:03}", _add_go_test_tags([], f"{i}")).name)
 
     # test flow with fixed max_results and order_by (test stable order across pages)
     returned_rms = []
@@ -1577,9 +1518,7 @@ def test_search_registered_model_order_by_errors(store):
         )
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     # test that invalid columns with random text throw even if they come after valid columns
-    with pytest.raises(
-        MlflowException, match=r"Invalid order_by clause '.+'"
-    ) as exception_context:
+    with pytest.raises(MlflowException, match=r"Invalid order_by clause '.+'") as exception_context:
         _search_registered_models(
             store,
             query,
@@ -1767,9 +1706,7 @@ def test_delete_model_version_deletes_alias(store):
     store.delete_model_version(model_name, 2)
     model = store.get_registered_model(model_name)
     assert model.aliases == {}
-    with pytest.raises(
-        MlflowException, match=r"Registered model alias test_alias not found."
-    ):
+    with pytest.raises(MlflowException, match=r"Registered model alias test_alias not found."):
         store.get_model_version_by_alias(model_name, "test_alias")
 
 
@@ -1820,10 +1757,7 @@ def test_copy_model_version(store, copy_to_same_model):
     assert copied_mv.last_updated_timestamp >= timestamp
     assert copied_mv.description == "test description"
     assert copied_mv.source == f"models:/{src_mv.name}/{src_mv.version}"
-    assert (
-        store.get_model_version_download_uri(dst_mv.name, dst_mv.version)
-        == src_mv.source
-    )
+    assert store.get_model_version_download_uri(dst_mv.name, dst_mv.version) == src_mv.source
     assert copied_mv.run_link == "dummylink"
     assert copied_mv.run_id == src_mv.run_id
     assert copied_mv.status == "READY"
@@ -1833,16 +1767,11 @@ def test_copy_model_version(store, copy_to_same_model):
     # Copy a model version copy
     double_copy_mv = store.copy_model_version(copied_mv, "test_for_copy_MV3")
     assert double_copy_mv.source == f"models:/{copied_mv.name}/{copied_mv.version}"
-    assert (
-        store.get_model_version_download_uri(dst_mv.name, dst_mv.version)
-        == src_mv.source
-    )
+    assert store.get_model_version_download_uri(dst_mv.name, dst_mv.version) == src_mv.source
 
 
 def test_search_prompts(store):
-    store.create_registered_model(
-        "model", tags=[RegisteredModelTag(key="fruit", value="apple")]
-    )
+    store.create_registered_model("model", tags=[RegisteredModelTag(key="fruit", value="apple")])
 
     store.create_registered_model(
         "prompt_1", tags=[RegisteredModelTag(key=IS_PROMPT_TAG_KEY, value="true")]
@@ -1860,15 +1789,11 @@ def test_search_prompts(store):
     assert len(rms) == 1
     assert rms[0].name == "model"
 
-    rms = store.search_registered_models(
-        filter_string="tags.fruit = 'apple'", max_results=10
-    )
+    rms = store.search_registered_models(filter_string="tags.fruit = 'apple'", max_results=10)
     assert len(rms) == 1
     assert rms[0].name == "model"
 
-    rms = store.search_registered_models(
-        filter_string="name = 'prompt_1'", max_results=10
-    )
+    rms = store.search_registered_models(filter_string="name = 'prompt_1'", max_results=10)
     assert len(rms) == 0
 
     rms = store.search_registered_models(
@@ -1952,9 +1877,7 @@ def test_search_prompts_versions(store):
     assert len(mvs) == 1
     assert mvs[0].name == "model"
 
-    mvs = store.search_model_versions(
-        filter_string="tags.fruit = 'apple'", max_results=10
-    )
+    mvs = store.search_model_versions(filter_string="tags.fruit = 'apple'", max_results=10)
     assert len(mvs) == 1
     assert mvs[0].name == "model"
 
@@ -1997,9 +1920,7 @@ def test_create_registered_model_handle_prompt_properly(store):
 
     store.create_registered_model("prompt", tags=prompt_tags)
 
-    with pytest.raises(
-        MlflowException, match=r"Registered Model \(name=model\) already exists"
-    ):
+    with pytest.raises(MlflowException, match=r"Registered Model \(name=model\) already exists"):
         store.create_registered_model("model")
 
     with pytest.raises(MlflowException, match=r"Prompt \(name=prompt\) already exists"):
@@ -2193,9 +2114,7 @@ def test_delete_webhook(store):
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
 
 
-def _search_webhooks(
-    store, filter_string, max_results=10, order_by=None, page_token=None
-):
+def _search_webhooks(store, filter_string, max_results=10, order_by=None, page_token=None):
     result = store.search_webhooks(
         filter_string=filter_string,
         max_results=max_results,
@@ -2248,9 +2167,7 @@ def test_search_webhooks(store):
     assert webhooks == names
 
     # case-sensitive prefix search using LIKE should return just WEBHOOK4
-    webhooks, _ = _search_webhooks(
-        store, "name LIKE '{}%'".format(prefix + "WEBHOOK4A")
-    )
+    webhooks, _ = _search_webhooks(store, "name LIKE '{}%'".format(prefix + "WEBHOOK4A"))
     assert webhooks == [names[4]]
 
     # case-sensitive prefix search using LIKE should return no webhooks if no match
@@ -2261,15 +2178,11 @@ def test_search_webhooks(store):
     webhooks, _ = _search_webhooks(store, "name lIkE '%blah%'")
     assert webhooks == []
 
-    webhooks, _ = _search_webhooks(
-        store, "name like '{}%'".format(prefix + "WEBHOOK4A")
-    )
+    webhooks, _ = _search_webhooks(store, "name like '{}%'".format(prefix + "WEBHOOK4A"))
     assert webhooks == [names[4]]
 
     # case-insensitive prefix search using ILIKE should return both WEBHOOK5 and WEBHOOK6
-    webhooks, _ = _search_webhooks(
-        store, "name ILIKE '{}%'".format(prefix + "WEBHOOK4A")
-    )
+    webhooks, _ = _search_webhooks(store, "name ILIKE '{}%'".format(prefix + "WEBHOOK4A"))
     assert webhooks == names[4:]
 
     # case-insensitive postfix search with ILIKE
@@ -2528,9 +2441,7 @@ def test_search_webhook_order_by(store):
     )
     assert result == [webhook2, webhook1, webhook4, webhook3]
     # confiwebhook that name ascending is the default, even if ties exist on other fields
-    result, _ = _search_webhooks(
-        store, query, page_token=None, order_by=[], max_results=100
-    )
+    result, _ = _search_webhooks(store, query, page_token=None, order_by=[], max_results=100)
     assert result == [webhook1, webhook2, webhook3, webhook4]
     # test default tiebreak with descending timestamps
     result, _ = _search_webhooks(
@@ -2600,9 +2511,7 @@ def test_search_webhook_order_by_errors(store):
         )
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
     # test that invalid columns with random text throw even if they come after valid columns
-    with pytest.raises(
-        MlflowException, match=r"Invalid order_by clause '.+'"
-    ) as exception_context:
+    with pytest.raises(MlflowException, match=r"Invalid order_by clause '.+'") as exception_context:
         _search_webhooks(
             store,
             query,
