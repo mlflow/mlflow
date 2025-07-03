@@ -1,6 +1,6 @@
 import React from 'react';
 import { FormattedMessage } from 'react-intl';
-import { ExperimentSearchSyntaxDocUrl } from '../../../../../common/constants';
+import { ExperimentRunSearchSyntaxDocUrl } from '../../../../../common/constants';
 
 export const RunsSearchTooltipContent = () => {
   return (
@@ -15,7 +15,7 @@ export const RunsSearchTooltipContent = () => {
         description="Learn more tooltip link to learn more on how to search in an experiments run table"
         values={{
           link: (chunks: any) => (
-            <a href={ExperimentSearchSyntaxDocUrl} target="_blank" rel="noopener noreferrer">
+            <a href={ExperimentRunSearchSyntaxDocUrl} target="_blank" rel="noopener noreferrer">
               {chunks}
             </a>
           ),
