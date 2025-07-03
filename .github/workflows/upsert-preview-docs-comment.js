@@ -1,7 +1,5 @@
 /**
  * Script to manage documentation preview comments on pull requests.
- * This replaces the Python script dev/preview_docs.py to eliminate the need for Python setup
- * in the preview-docs workflow.
  */
 
 const MARKER = "<!-- documentation preview -->";
