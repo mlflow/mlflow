@@ -1,0 +1,38 @@
+/**
+ * Main function to handle documentation preview comments
+ * @param {object} params - Parameters object containing context and github
+ * @param {object} params.github - GitHub API client
+ * @param {object} params.context - GitHub context
+ * @param {object} params.env - Environment variables
+ */
+module.exports = async ({ github, context, env }) => {
+  const artifactName = env.ARTIFACT_ID;
+  const runId = env.RUN_ID;
+
+  if (!artifactName || !runId) {
+    throw new Error("Missing required parameters: ARTIFACT_ID, RUN_ID");
+  }
+
+  const repo = "mlflow/mlflow";
+  const [owner, repoName] = repo.split("/");
+
+  try {
+    // INFO: https://octokit.github.io/rest.js/v22/#actions-list-workflow-run-artifacts
+    const [artifact] = await octokit.rest.actions.listWorkflowRunArtifacts({
+      owner,
+      repo: repoName,
+      run_id: runId,
+      name: artifactName,
+    });
+
+    // INFO: https://octokit.github.io/rest.js/v22/#actions-delete-artifact
+    await github.rest.actions.deleteArtifact({
+      owner,
+      repo: repoName,
+      artifact_id: artifact.id,
+    });
+  } catch (error) {
+    console.error(`Could not find or delete the artifact for ${runId} and ${artifactName}`);
+    throw error;
+  }
+};

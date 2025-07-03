@@ -83,7 +83,13 @@ jobs:
             --stage ${{ steps.netlify_deploy.outcome == 'success' && 'completed' || 'failed' }} \
             --netlify-url $NETLIFY_URL
       - name: Delete Build Artifact
-        uses: joutvhu/delete-artifact@e8511ee448fc8cfa02508df13dc0c0974f20d52d # v2.0.1
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        env:
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          ARTIFACT_NAME: docs-build-${{ github.event.workflow_run.id }}
         with:
-          run-id: ${{ github.event.workflow_run.id }}
-          name: docs-build-${{ github.event.workflow_run.id }}
+          script: |
+            const script = require(
+              `${process.env.GITHUB_WORKSPACE}/.github/workflows/delete-artifact.js`
+            );
+            await script({ context, github, env: process.env });
