@@ -13,6 +13,7 @@ jobs:
       - uses: ./.github/actions/setup-python
       - name: pre-commit setup
         run: |
+          uv pip install --system .
           uv pip install --system -r requirements/lint-requirements.txt
           dev/install-taplo.sh
           dev/install-typos.sh
