@@ -63,7 +63,7 @@ def main():
     parser.add_argument("--commit-sha", required=True)
     parser.add_argument("--pull-number", required=True)
     parser.add_argument("--workflow-run-id", required=True)
-    parser.add_argument("--stage", choices=["requested", "completed", "failed"], required=True)
+    parser.add_argument("--stage", choices=["completed", "failed"], required=True)
     parser.add_argument("--netlify-url", required=False)
     parser.add_argument("--docs-workflow-run-url", required=True)
     args = parser.parse_args()
@@ -75,14 +75,7 @@ def main():
     repo = "mlflow/mlflow"
     workflow_run_link = f"https://github.com/{repo}/actions/runs/{args.workflow_run_id}"
 
-    if args.stage == "requested":
-        main_message = "will be available soon."
-        comment_body = _get_comment_template(
-            args.commit_sha, workflow_run_link, args.docs_workflow_run_url, main_message
-        )
-        upsert_comment(github_session, repo, args.pull_number, comment_body)
-
-    elif args.stage == "completed":
+    if args.stage == "completed":
         if not args.netlify_url:
             raise ValueError("netlify-url is required for completed stage")
         main_message = f"is available at:\n\n- {args.netlify_url}"
