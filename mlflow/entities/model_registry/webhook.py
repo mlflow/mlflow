@@ -131,9 +131,9 @@ class Webhook(_ModelRegistryEntity):
         self._payload = json.loads(payload)
 
     @classmethod
-    def from_proto(self, proto) -> dict:
+    def from_proto(cls, proto) -> "Webhook":
         """Convert webhook to dictionary representation"""
-        return self(
+        return cls(
             name=proto.name,
             description=proto.description,
             url=proto.url,
