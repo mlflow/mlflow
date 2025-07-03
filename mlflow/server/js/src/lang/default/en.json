@@ -1291,6 +1291,10 @@
     "defaultMessage": "Edit",
     "description": "Text for the edit button next to the description section title on\n             the model version view page"
   },
+  "Ila3mn": {
+    "defaultMessage": "Install <code>mlflow</code> 3:",
+    "description": "Instruction for installing MLflow version 3 to log MLflow 3 models"
+  },
   "IsIgE2": {
     "defaultMessage": "Automatically log traces for Gemini conversations by calling the {code} function. For example:",
     "description": "Description of how to log traces for API calls to Google's Gemini API using MLflow autologging. This message is followed by a code example."
@@ -3402,10 +3406,6 @@
   "r3/K3V": {
     "defaultMessage": "Make Predictions",
     "description": "Heading text for the prediction section on the registered model from the experiment run"
-  },
-  "r4a52n": {
-    "defaultMessage": "Install <code>mlflow</code> from <code>mlflow-3</code> branch:",
-    "description": "Instruction for installing MLflow from mlflow-3 branch in log MLflow 3 models"
   },
   "r5JI+N": {
     "defaultMessage": "Please select metrics",
