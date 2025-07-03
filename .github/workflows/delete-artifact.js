@@ -6,11 +6,11 @@
  * @param {object} params.env - Environment variables
  */
 module.exports = async ({ github, context, env }) => {
-  const artifactName = env.ARTIFACT_ID;
+  const artifactName = env.ARTIFACT_NAME;
   const runId = env.RUN_ID;
 
   if (!artifactName || !runId) {
-    throw new Error("Missing required parameters: ARTIFACT_ID, RUN_ID");
+    throw new Error("Missing required parameters: ARTIFACT_NAME, RUN_ID");
   }
 
   const repo = "mlflow/mlflow";
