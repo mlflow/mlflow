@@ -59,8 +59,6 @@ jobs:
       - uses: ./.github/actions/setup-pyenv
       - uses: ./.github/actions/setup-java
       - name: Install dependencies
-        env:
-          PROTOBUF_MAJOR_VERSION: ${{ matrix.protobuf_major_version }}
         run: |
           pip install -U pip setuptools wheel
           pip install --no-dependencies tests/resources/mlflow-test-plugin
@@ -74,15 +72,12 @@ jobs:
           pip install torch transformers tf-keras
           pip install -r requirements/test-requirements.txt
           # Test the latest minor version in protobuf_major_version
-          pip install "protobuf==$PROTOBUF_MAJOR_VERSION.*"
+          pip install "protobuf==${{ matrix.protobuf_major_version }}.*"
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
-        env:
-          MATRIX_SPLITS: ${{ matrix.splits }}
-          MATRIX_GROUP: ${{ matrix.group }}
         run: |
-          pytest --splits=$MATRIX_SPLITS --group=$MATRIX_GROUP \
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
             --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/evaluate \
             --ignore=tests/optuna --ignore=tests/pyspark/optuna --ignore=tests/genai \
             tests

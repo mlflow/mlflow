@@ -74,9 +74,6 @@ jobs:
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
-        env:
-          MATRIX_SPLITS: ${{ matrix.splits }}
-          MATRIX_GROUP: ${{ matrix.group }}
         run: |
           source .venv/bin/activate
-          pytest --splits=$MATRIX_SPLITS --group=$MATRIX_GROUP tests/pyfunc/docker
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/pyfunc/docker

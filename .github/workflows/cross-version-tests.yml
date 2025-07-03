@@ -155,13 +155,11 @@ jobs:
         with:
           java-version: ${{ matrix.java }}
       - name: Remove constraints
-        env:
-          MATRIX_PACKAGE: ${{ matrix.package }}
         run: |
-          if [ "$MATRIX_PACKAGE" = "pyspark" ]; then
+          if [ "${{ matrix.package }}" = "pyspark" ]; then
             # TODO: Remove once we remove the pyspark constraint in requirements/constraints.txt
             sed -i '/^pyspark/d' requirements/constraints.txt
-          elif [ "$MATRIX_PACKAGE" = "transformers" ]; then
+          elif [ "${{ matrix.package }}" = "transformers" ]; then
             # TODO: Remove once https://github.com/huggingface/transformers/issues/39115 is resolved
             sed -i '/^transformers</d' requirements/constraints.txt
           fi
@@ -174,12 +172,10 @@ jobs:
             git commit -m "Remove constraints for testing"
           fi
       - name: Install mlflow & test dependencies
-        env:
-          MATRIX_CATEGORY: ${{ matrix.category }}
         run: |
           pip install -U pip wheel setuptools
           # For tracing SDK test, install the tracing package from the local path and minimal test dependencies
-          if [[ "$MATRIX_CATEGORY" == "tracing-sdk" ]]; then
+          if [[ "${{ matrix.category }}" == "tracing-sdk" ]]; then
             pip install packages/tracing
             pip install pytest pytest-asyncio pytest-cov
           # Other two categories of tests (model/autologging)
@@ -188,27 +184,22 @@ jobs:
             pip install -r requirements/test-requirements.txt
           fi
       - name: Install ${{ matrix.package }} ${{ matrix.version }}
-        env:
-          MATRIX_INSTALL: ${{ matrix.install }}
         run: |
-          $MATRIX_INSTALL
+          ${{ matrix.install }}
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Pre-test
         if: matrix.pre_test
-        env:
-          MATRIX_PRE_TEST: ${{ matrix.pre_test }}
         run: |
-          $MATRIX_PRE_TEST
+          ${{ matrix.pre_test }}
       - name: Run tests
         env:
           MLFLOW_CONDA_HOME: /usr/share/miniconda
           SPARK_LOCAL_IP: localhost
           JOHNSNOWLABS_LICENSE_JSON: ${{ secrets.JOHNSNOWLABS_LICENSE_JSON }}
           HF_HUB_ENABLE_HF_TRANSFER: 1
-          MATRIX_RUN: ${{ matrix.run }}
         run: |
-          $MATRIX_RUN
+          ${{ matrix.run }}
 
   test2:
     needs: set-matrix
@@ -235,13 +226,11 @@ jobs:
         with:
           java-version: ${{ matrix.java }}
       - name: Remove constraints
-        env:
-          MATRIX_PACKAGE: ${{ matrix.package }}
         run: |
-          if [ "$MATRIX_PACKAGE" = "pyspark" ]; then
+          if [ "${{ matrix.package }}" = "pyspark" ]; then
             # TODO: Remove once we remove the pyspark constraint in requirements/constraints.txt
             sed -i '/^pyspark/d' requirements/constraints.txt
-          elif [ "$MATRIX_PACKAGE" = "transformers" ]; then
+          elif [ "${{ matrix.package }}" = "transformers" ]; then
             # TODO: Remove once https://github.com/huggingface/transformers/issues/39115 is resolved
             sed -i '/^transformers</d' requirements/constraints.txt
           fi
@@ -254,12 +243,10 @@ jobs:
             git commit -m "Remove constraints for testing"
           fi
       - name: Install mlflow & test dependencies
-        env:
-          MATRIX_CATEGORY: ${{ matrix.category }}
         run: |
           pip install -U pip wheel setuptools
           # For tracing SDK test, install the tracing package from the local path and minimal test dependencies
-          if [[ "$MATRIX_CATEGORY" == "tracing-sdk" ]]; then
+          if [[ "${{ matrix.category }}" == "tracing-sdk" ]]; then
             pip install packages/tracing
             pip install pytest pytest-asyncio pytest-cov
           # Other two categories of tests (model/autologging)
@@ -268,24 +255,19 @@ jobs:
             pip install -r requirements/test-requirements.txt
           fi
       - name: Install ${{ matrix.package }} ${{ matrix.version }}
-        env:
-          MATRIX_INSTALL: ${{ matrix.install }}
         run: |
-          $MATRIX_INSTALL
+          ${{ matrix.install }}
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Pre-test
         if: matrix.pre_test
-        env:
-          MATRIX_PRE_TEST: ${{ matrix.pre_test }}
         run: |
-          $MATRIX_PRE_TEST
+          ${{ matrix.pre_test }}
       - name: Run tests
         env:
           MLFLOW_CONDA_HOME: /usr/share/miniconda
           SPARK_LOCAL_IP: localhost
           JOHNSNOWLABS_LICENSE_JSON: ${{ secrets.JOHNSNOWLABS_LICENSE_JSON }}
           HF_HUB_ENABLE_HF_TRANSFER: 1
-          MATRIX_RUN: ${{ matrix.run }}
         run: |
-          $MATRIX_RUN
+          ${{ matrix.run }}

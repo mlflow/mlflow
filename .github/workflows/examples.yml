@@ -89,10 +89,8 @@ jobs:
         if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || steps.check-diff.outputs.examples_changed == 'true' }}
         env:
           SPARK_LOCAL_IP: localhost
-          MATRIX_SPLITS: ${{ matrix.splits }}
-          MATRIX_GROUP: ${{ matrix.group }}
         run: |
-          pytest --splits=$MATRIX_SPLITS --group=$MATRIX_GROUP --serve-wheel tests/examples --durations=30
+          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --serve-wheel tests/examples --durations=30
 
       - name: Remove conda environments
         run: |
