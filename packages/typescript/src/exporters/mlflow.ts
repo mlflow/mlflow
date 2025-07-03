@@ -116,7 +116,7 @@ export class MlflowSpanProcessor implements SpanProcessor {
    * opportunity for processor to do any cleanup required.
    */
   async shutdown() {
-    await this.forceFlush();
+    await this._exporter.shutdown();
   }
 
   /**
@@ -131,9 +131,13 @@ export class MlflowSpanProcessor implements SpanProcessor {
 export class MlflowSpanExporter implements SpanExporter {
   private _client: MlflowClient;
   private _pendingExports: Record<string, Promise<void>> = {}; // traceId -> export promise
+  _id: string;
 
   constructor(client: MlflowClient) {
     this._client = client;
+
+    // generate a random id for this exporter
+    this._id = Math.random().toString(36).substring(2, 15);
   }
 
   export(spans: OTelReadableSpan[], _resultCallback: (result: ExportResult) => void): void {
@@ -182,8 +186,6 @@ export class MlflowSpanExporter implements SpanExporter {
    * Waits for all async export operations to complete.
    */
   async forceFlush(): Promise<void> {
-    // Wait for 0.1 seconds to make sure the span promise is created.
-    await new Promise((resolve) => setTimeout(resolve, 100));
     await Promise.all(Object.values(this._pendingExports));
     this._pendingExports = {};
   }

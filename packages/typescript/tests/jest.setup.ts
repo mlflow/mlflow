@@ -31,6 +31,8 @@ beforeAll(async () => {
   // eslint-disable-next-line no-console
   console.log(`Starting MLflow server on port ${TEST_PORT}. This may take a few seconds...
     To speed up the test, you can manually start the server and keep it running during local development.`);
+
+  console.log(mlflowRoot);
   mlflowProcess = spawn(
     'uv',
     [
@@ -43,8 +45,6 @@ beforeAll(async () => {
       'server',
       '--port',
       TEST_PORT.toString(),
-      '--backend-store-uri',
-      `sqlite:///${join(tempDir, 'mlflow.db')}`
     ],
     {
       cwd: tempDir,

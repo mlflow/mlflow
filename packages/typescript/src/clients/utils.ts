@@ -18,6 +18,8 @@ export function getRequestHeaders(token?: string): Record<string, string> {
 
 /**
  * Make a request to the given URL with the given method, headers, body, and timeout.
+ *
+ * TODO: add retry logic for transient errors
  */
 export async function makeRequest<T>(
   method: string,
@@ -25,7 +27,6 @@ export async function makeRequest<T>(
   headers: Record<string, string>,
   body?: any,
   timeout?: number,
-  handleError?: (response: Response) => Promise<never>
 ): Promise<T> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout ?? getDefaultTimeout());
@@ -40,8 +41,8 @@ export async function makeRequest<T>(
 
     clearTimeout(timeoutId);
 
-    if (!response.ok && handleError) {
-      await handleError(response);
+    if (!response.ok) {
+      await handleErrorResponse(response);
     }
 
     // Handle empty responses (like DELETE operations)
@@ -64,31 +65,31 @@ export async function makeRequest<T>(
   }
 }
 
-export async function handleErrorResponse(response: Response): Promise<never> {
-  let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+export async function handleErrorResponse(response: Response): Promise<void> {
 
-  try {
-    const contentType = response.headers.get('content-type');
+let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
 
-    if (contentType?.includes('application/json')) {
-      const errorText = await response.text();
-      const errorBody = JSONBig.parse(errorText) as { message?: string; error_code?: string };
-      if (errorBody.message) {
-        errorMessage = errorBody.message;
-      } else if (errorBody.error_code) {
-        errorMessage = `${errorBody.error_code}: ${errorBody.message || 'Unknown error'}`;
-      }
-    } else {
-      // Not JSON, get first 200 chars of text for debugging
-      const errorText = await response.text();
-      console.error(`Non-JSON error response: ${errorText.substring(0, 200)}...`);
-      errorMessage = `${errorMessage} (received ${contentType || 'unknown'} instead of JSON)`;
+try {
+  const contentType = response.headers.get('content-type');
+
+  if (contentType?.includes('application/json')) {
+    const errorText = await response.text();
+    const errorBody = JSONBig.parse(errorText) as { message?: string; error_code?: string };
+    if (errorBody.message) {
+      errorMessage = errorBody.message;
+    } else if (errorBody.error_code) {
+      errorMessage = `${errorBody.error_code}: ${errorBody.message || 'Unknown error'}`;
     }
-  } catch (parseError) {
-    console.error(`Failed to parse error response: ${String(parseError)}`);
+  } else {
+    // Not JSON, get first 200 chars of text for debugging
+    const errorText = await response.text();
+    console.debug(`Non-JSON error response: ${errorText.substring(0, 200)}...`);
+    errorMessage = `${errorMessage} (received ${contentType || 'unknown'} instead of JSON)`;
   }
+} catch (parseError) {
+  console.debug(`Failed to parse error response: ${String(parseError)}`);
+}
 
-  throw new Error(errorMessage);
 }
 
 function getDefaultTimeout(): number {

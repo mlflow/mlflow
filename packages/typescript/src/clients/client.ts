@@ -3,6 +3,7 @@ import { Trace } from '../core/entities/trace';
 import { CreateExperiment, DeleteExperiment, GetTraceInfoV3, StartTraceV3 } from './spec';
 import { getRequestHeaders, makeRequest } from './utils';
 import { TraceData } from '../core/entities/trace_data';
+import { MLflowTracingConfig } from '../core/config';
 
 /**
  * Client for MLflow tracing operations
@@ -10,14 +11,13 @@ import { TraceData } from '../core/entities/trace_data';
 export class MlflowClient {
   /** MLflow tracking server host or Databricks workspace URL */
   private host: string;
-  /** Personal access token */
-  private token?: string;
+  /** Databricks personal access token */
+  private databricksToken?: string;
 
-  constructor(options: { host: string; token?: string }) {
+  constructor(options: { host: string; databricksToken?: string }) {
     // The host is guaranteed to be set by the init() function
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    this.host = options.host!;
-    this.token = options.token;
+    this.host = options.host;
+    this.databricksToken = options.databricksToken;
   }
 
   // === TRACE LOGGING METHODS ===
@@ -34,7 +34,7 @@ export class MlflowClient {
     const response = await makeRequest<StartTraceV3.Response>(
       'POST',
       url,
-      getRequestHeaders(this.token),
+      getRequestHeaders(this.databricksToken),
       payload
     );
     return TraceInfo.fromJson(response.trace.trace_info);
@@ -61,7 +61,7 @@ export class MlflowClient {
     const response = await makeRequest<GetTraceInfoV3.Response>(
       'GET',
       url,
-      getRequestHeaders(this.token)
+      getRequestHeaders(this.databricksToken)
     );
 
     // The V3 API returns a Trace object with trace_info field
@@ -86,7 +86,7 @@ export class MlflowClient {
     const response = await makeRequest<CreateExperiment.Response>(
       'POST',
       url,
-      getRequestHeaders(this.token),
+      getRequestHeaders(this.databricksToken),
       payload
     );
     return response.experiment_id;
@@ -98,6 +98,6 @@ export class MlflowClient {
   async deleteExperiment(experimentId: string): Promise<void> {
     const url = DeleteExperiment.getEndpoint(this.host);
     const payload: DeleteExperiment.Request = { experiment_id: experimentId };
-    await makeRequest<void>('POST', url, getRequestHeaders(this.token), payload);
+    await makeRequest<void>('POST', url, getRequestHeaders(this.databricksToken), payload);
   }
 }

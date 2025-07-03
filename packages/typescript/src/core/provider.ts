@@ -5,6 +5,8 @@ import { getConfig } from './config';
 import { MlflowClient } from '../clients';
 
 let sdk: NodeSDK | null = null;
+// Keep a reference to the span processor for flushing
+let processor: MlflowSpanProcessor | null = null;
 
 export function initializeSDK(): void {
   if (sdk) {
@@ -20,9 +22,9 @@ export function initializeSDK(): void {
       return;
     }
 
-    const client = new MlflowClient({ host: hostConfig.host });
+    const client = new MlflowClient({ host: hostConfig.host, databricksToken: hostConfig.databricksToken });
     const exporter = new MlflowSpanExporter(client);
-    const processor = new MlflowSpanProcessor(exporter);
+    processor = new MlflowSpanProcessor(exporter);
     sdk = new NodeSDK({ spanProcessors: [processor] });
     sdk.start();
   } catch (error) {
@@ -36,12 +38,9 @@ export function getTracer(module_name: string): Tracer {
 
 /**
  * Force flush all pending trace exports.
- * This is useful for testing to ensure all async trace exports complete.
  */
 export async function flushTraces(): Promise<void> {
-  if (sdk) {
-    // Force flush the SDK to ensure all exports complete
-    await sdk.shutdown();
-    initializeSDK();
+  if (processor) {
+    await processor.forceFlush();
   }
 }

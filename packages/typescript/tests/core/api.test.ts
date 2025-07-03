@@ -56,6 +56,7 @@ describe('API', () => {
       expect(trace.info.executionDuration).toBeCloseTo(
         convertHrTimeToMs(span.endTime!) - convertHrTimeToMs(span.startTime)
       );
+
       return; // TODO: Remove this once we implement trace data export
 
       expect(trace.data.spans.length).toBe(1);
