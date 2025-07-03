@@ -199,7 +199,7 @@ class _DSPyMIPROv2Optimizer(_DSPyOptimizer):
             initial_score = None
         if initial_score is not None:
             if initial_score == score:
-                _logger.info(f"✅ Optimization complete! Score remained stable at: {score:.2f}.")
+                _logger.info(f"Optimization complete! Score remained stable at: {score}.")
                 return
             else:
                 _logger.info(
