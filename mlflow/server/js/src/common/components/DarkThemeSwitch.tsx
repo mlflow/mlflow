@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { Switch } from '@databricks/design-system';
+import { ToggleIconButton } from './ToggleIconButton';
 
 const MoonIcon = () => (
   <svg xmlns="http://www.w3.org/2000/svg" height="1em" viewBox="0 0 384 512" css={{ fill: 'white' }}>
@@ -29,11 +29,12 @@ export const DarkThemeSwitch = ({
       paddingTop: 4,
     }}
   >
-    <Switch
+    <ToggleIconButton
       componentId="codegen_mlflow_app_src_common_components_darkthemeswitch.tsx_32"
-      checked={isDarkTheme}
-      onChange={setIsDarkTheme}
+      pressed={isDarkTheme}
+      onClick={() => setIsDarkTheme(!isDarkTheme)}
+      icon={isDarkTheme ? <MoonIcon /> : <SunIcon />}
+      aria-label={isDarkTheme ? 'Switch to light theme' : 'Switch to dark theme'}
     />
-    {isDarkTheme ? <MoonIcon /> : <SunIcon />}
   </span>
 );
