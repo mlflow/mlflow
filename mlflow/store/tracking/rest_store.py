@@ -146,6 +146,20 @@ class RestStore(AbstractStore):
         order_by=None,
         page_token=None,
     ):
+        """
+        Search for experiments that satisfy the search criteria.
+
+        Args:
+            view_type: One of ``ACTIVE_ONLY``, ``DELETED_ONLY``, or ``ALL``.
+            max_results: The maximum number of experiments to retrieve.
+            filter_string: A filter string such as "name = 'my-experiment-name'".
+            order_by: A list of order_by clauses specified as strings.
+            page_token: A page token, returned by a previous call to this method.
+
+        Returns:
+            A :py:class:`mlflow.store.entities.PagedList` of
+            :py:class:`mlflow.entities.Experiment` objects.
+        """
         req_body = message_to_json(
             SearchExperiments(
                 view_type=view_type,
@@ -199,14 +213,33 @@ class RestStore(AbstractStore):
         return Experiment.from_proto(response_proto.experiment)
 
     def delete_experiment(self, experiment_id):
+        """
+        Delete an experiment.
+
+        Args:
+            experiment_id: String id for the experiment.
+        """
         req_body = message_to_json(DeleteExperiment(experiment_id=str(experiment_id)))
         self._call_endpoint(DeleteExperiment, req_body)
 
     def restore_experiment(self, experiment_id):
+        """
+        Restore a deleted experiment.
+
+        Args:
+            experiment_id: String id for the experiment.
+        """
         req_body = message_to_json(RestoreExperiment(experiment_id=str(experiment_id)))
         self._call_endpoint(RestoreExperiment, req_body)
 
     def rename_experiment(self, experiment_id, new_name):
+        """
+        Rename an experiment.
+
+        Args:
+            experiment_id: String id for the experiment.
+            new_name: The new name for the experiment.
+        """
         req_body = message_to_json(
             UpdateExperiment(experiment_id=str(experiment_id), new_name=new_name)
         )
@@ -739,19 +772,31 @@ class RestStore(AbstractStore):
         self._call_endpoint(RestoreRun, req_body)
 
     def get_experiment_by_name(self, experiment_name):
+        """
+        Args:
+            experiment_name: The experiment name.
+
+        Returns:
+            A single :py:class:`mlflow.entities.Experiment` object if an experiment with the
+            specified name exists, otherwise returns ``None``.
+        """
         try:
             req_body = message_to_json(GetExperimentByName(experiment_name=experiment_name))
             response_proto = self._call_endpoint(GetExperimentByName, req_body)
             return Experiment.from_proto(response_proto.experiment)
         except MlflowException as e:
-            if e.error_code == databricks_pb2.ErrorCode.Name(
-                databricks_pb2.RESOURCE_DOES_NOT_EXIST
-            ):
+            if e.error_code == "RESOURCE_DOES_NOT_EXIST" or e.get_http_status_code() == 404:
                 return None
-            else:
-                raise
+            # TODO: Stop catching RESOURCE_ALREADY_EXISTS. This is a workaround for the bug that
+            # the Databricks MLflow tracking server throws RESOURCE_ALREADY_EXISTS instead of
+            # INVALID_PARAMETER_VALUE for `get_experiment_by_name` with an experiment name
+            # that is a path.
+            if e.error_code == "RESOURCE_ALREADY_EXISTS":
+                return None
+            raise
 
     def log_batch(self, run_id, metrics, params, tags):
+        # NB: This is a legacy implementation which is based on the deprecated `log-batch`
         metric_protos = [metric.to_proto() for metric in metrics]
         param_protos = [param.to_proto() for param in params]
         tag_protos = [tag.to_proto() for tag in tags]
