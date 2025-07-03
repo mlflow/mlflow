@@ -5,7 +5,7 @@ from clint.resolver import Resolver
 from clint.rules.base import Rule
 
 
-class TrackApiUsageOutermost(Rule):
+class TrackApiUsageTopMost(Rule):
     def _message(self) -> str:
         return (
             "The `@track_api_usage` decorator must be applied as the topmost decorator "

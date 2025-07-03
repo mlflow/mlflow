@@ -3,18 +3,16 @@ from pathlib import Path
 from clint.config import Config
 from clint.index import SymbolIndex
 from clint.linter import lint_file
-from clint.rules import TrackApiUsageOutermost
+from clint.rules import TrackApiUsageTopMost
 
 
-def test_track_api_usage_outermost_check(
-    index: SymbolIndex, config: Config, tmp_path: Path
-) -> None:
+def test_track_api_usage_topmost_check(index: SymbolIndex, config: Config, tmp_path: Path) -> None:
     tmp_file = tmp_path / "file.py"
     tmp_file.write_text(
         """
 from mlflow.telemetry.track import track_api_usage
 
-# Valid: @track_api_usage is the outermost decorator
+# Valid: @track_api_usage is the topmost decorator
 
 @track_api_usage
 @property
@@ -52,7 +50,7 @@ def some_function():
 """
     )
     violations = lint_file(tmp_file, config, index)
-    assert all(isinstance(v.rule, TrackApiUsageOutermost) for v in violations)
+    assert all(isinstance(v.rule, TrackApiUsageTopMost) for v in violations)
     assert len(violations) == 3
     assert violations[0].loc.lineno == 23
     assert violations[1].loc.lineno == 29
