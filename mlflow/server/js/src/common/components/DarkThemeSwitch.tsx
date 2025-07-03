@@ -30,10 +30,7 @@ export const DarkThemeSwitch = ({
     icon={isDarkTheme ? <MoonIcon /> : <SunIcon />}
     aria-label={isDarkTheme ? 'Switch to light theme' : 'Switch to dark theme'}
     css={{
-      background: 'transparent !important',
-      '&:hover': {
-        background: 'rgba(255, 255, 255, 0.1) !important',
-      },
+      background: 'transparent',
     }}
   />
 );
