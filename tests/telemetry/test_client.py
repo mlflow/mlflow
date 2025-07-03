@@ -4,11 +4,7 @@ import time
 
 import pytest
 
-from mlflow.environment_variables import (
-    _MLFLOW_TELEMETRY_MAX_QUEUE_SIZE,
-    _MLFLOW_TELEMETRY_MAX_WORKERS,
-)
-from mlflow.telemetry.client import TelemetryClient
+from mlflow.telemetry.client import MAX_QUEUE_SIZE, MAX_WORKERS, TelemetryClient
 from mlflow.telemetry.schemas import APIRecord, APIStatus, LogModelParams, ModelType
 
 from tests.telemetry.helper_functions import wait_for_telemetry_threads
@@ -24,8 +20,8 @@ def test_telemetry_client_initialization():
     """Test that TelemetryClient initializes correctly."""
     client = TelemetryClient()
     assert client.info is not None
-    assert client._queue.maxsize == _MLFLOW_TELEMETRY_MAX_QUEUE_SIZE.get()
-    assert client._max_workers == _MLFLOW_TELEMETRY_MAX_WORKERS.get()
+    assert client._queue.maxsize == MAX_QUEUE_SIZE
+    assert client._max_workers == MAX_WORKERS
     assert not client.is_active
 
 
@@ -222,26 +218,13 @@ def test_partition_key(telemetry_client: TelemetryClient, mock_requests):
     assert received_record["partition-key"] == "test"
 
 
-def test_max_workers_setup(monkeypatch):
+def test_max_workers_setup():
     """Test max_workers configuration and validation."""
     # Test default value
     client = TelemetryClient()
-    assert client._max_workers == _MLFLOW_TELEMETRY_MAX_WORKERS.get()
+    assert client._max_workers == MAX_WORKERS
 
-    # Test invalid value (0 or negative)
-    monkeypatch.setenv("_MLFLOW_TELEMETRY_MAX_WORKERS", "0")
-    client = TelemetryClient()
-    assert client._max_workers == 1  # Should default to 1
-
-    monkeypatch.setenv("_MLFLOW_TELEMETRY_MAX_WORKERS", "-5")
-    client = TelemetryClient()
-    assert client._max_workers == 1  # Should default to 1
-
-    # Test valid value
-    monkeypatch.setenv("_MLFLOW_TELEMETRY_MAX_WORKERS", "8")
-    client = TelemetryClient()
-    assert client._max_workers == 8
-
+    client._max_workers = 8
     # Test that correct number of threads are created
     client.activate()
     assert len(client._consumer_threads) == 8
@@ -254,11 +237,10 @@ def test_max_workers_setup(monkeypatch):
 
 def test_batch_time_interval(monkeypatch, mock_requests):
     """Test that batching respects time interval configuration."""
-    # Set batch time interval to 1 second for testing
-    monkeypatch.setenv("_MLFLOW_TELEMETRY_BATCH_TIME_INTERVAL", "1")
 
     client = TelemetryClient()
-    assert client._batch_time_interval == 1
+    # Set batch time interval to 1 second for testing
+    client._batch_time_interval = 1
 
     # Add first record
     record1 = APIRecord(
