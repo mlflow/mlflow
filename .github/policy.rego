@@ -55,7 +55,7 @@ deny_script_injection[msg] {
     some job in input.jobs
     some step in job.steps
     step.run
-    contains_github_expression(step.run)
+    contains_dangerous_github_expression(step.run)
     
     msg := script_injection_message
 }
@@ -67,16 +67,37 @@ deny_script_injection_github_script[msg] {
     some step in job.steps
     startswith(step.uses, "actions/github-script@")
     step["with"]["script"]
-    contains_github_expression(step["with"]["script"])
+    contains_dangerous_github_expression(step["with"]["script"])
     
     msg := script_injection_message
 }
 
 ###########################   RULE HELPERS   ##################################
 
-# Helper function to check for GitHub expressions
-contains_github_expression(text) {
-    regex.match("\\$\\{\\{[^}]*\\}\\}", text)
+# Helper function to check for potentially dangerous GitHub expressions with user-controlled input
+contains_dangerous_github_expression(text) {
+    # Check for potentially dangerous patterns that involve user-controlled input
+    regex.match("\\$\\{\\{[^}]*github\\.event\\.pull_request\\.(title|body)[^}]*\\}\\}", text)
+}
+
+contains_dangerous_github_expression(text) {
+    regex.match("\\$\\{\\{[^}]*github\\.event\\.head_commit\\.message[^}]*\\}\\}", text)
+}
+
+contains_dangerous_github_expression(text) {
+    regex.match("\\$\\{\\{[^}]*github\\.event\\.issue\\.(title|body)[^}]*\\}\\}", text)
+}
+
+contains_dangerous_github_expression(text) {
+    regex.match("\\$\\{\\{[^}]*github\\.event\\.comment\\.body[^}]*\\}\\}", text)
+}
+
+contains_dangerous_github_expression(text) {
+    regex.match("\\$\\{\\{[^}]*github\\.event\\.review\\.body[^}]*\\}\\}", text)
+}
+
+contains_dangerous_github_expression(text) {
+    regex.match("\\$\\{\\{[^}]*github\\.event\\.pull_request\\.head\\.ref[^}]*\\}\\}", text)
 }
 
 # Shared error message for script injection
