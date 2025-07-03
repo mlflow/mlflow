@@ -6,7 +6,7 @@ on:
     types: [requested, completed]
 
 jobs:
-  placeholder_comment:
+  pre-deploy:
     if: github.repository == 'mlflow/mlflow' && github.event.workflow_run.status == 'requested'
     runs-on: ubuntu-latest
     permissions:
