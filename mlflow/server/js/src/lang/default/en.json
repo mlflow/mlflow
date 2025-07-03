@@ -1293,7 +1293,7 @@
   },
   "Ila3mn": {
     "defaultMessage": "Install <code>mlflow</code> 3:",
-    "description": "Instruction for installing MLflow version 3 to log MLflow 3 models"
+    "description": "Instruction for installing MLflow 3 to log MLflow 3 models"
   },
   "IsIgE2": {
     "defaultMessage": "Automatically log traces for Gemini conversations by calling the {code} function. For example:",
