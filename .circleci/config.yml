@@ -102,8 +102,6 @@ jobs:
           working_directory: docs
           command: |
             yarn sitemap https://mlflow.org/docs/latest/sitemap.xml ./build/latest/sitemap.xml
-      - store_artifacts:
-          path: docs/build/latest
       - run:
           name: Test examples
           working_directory: docs/api_reference
