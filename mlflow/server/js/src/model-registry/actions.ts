@@ -107,7 +107,7 @@ export const createModelVersionApi = (
   meta: { id, name, runId },
 });
 
-const GET_MODEL_VERSION_ARTIFACT = 'GET_MODEL_VERSION_ARTIFACT';
+export const GET_MODEL_VERSION_ARTIFACT = 'GET_MODEL_VERSION_ARTIFACT';
 export const getModelVersionArtifactApi = (modelName: any, version: any, id = getUUID()) => {
   const baseUri = 'model-versions/get-artifact?path=MLmodel';
   const uriEncodedModelName = `name=${encodeURIComponent(modelName)}`;
@@ -150,13 +150,35 @@ export const parseMlModelFile = (modelName: any, version: any, mlModelFile: any,
   }
 };
 
+export const GET_MODEL_VERSION_ACTIVITIES = 'GET_MODEL_VERSION_ACTIVITIES';
+// @ts-expect-error TS(7006): Parameter 'modelName' implicitly has an 'any' type... Remove this comment to see the full error message
+export const getModelVersionActivitiesApi = (modelName, version, id = getUUID()) => ({
+  type: GET_MODEL_VERSION_ACTIVITIES,
+
+  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+  // @ts-ignore - OSS specific ignore
+  payload: Services.getModelVersionActivities({
+    name: modelName,
+    version: version,
+  }),
+
+  meta: { id, modelName, version },
+});
+
 export const resolveFilterValue = (value: any, includeWildCard = false) => {
   const wrapper = includeWildCard ? '%' : '';
   return value.includes("'") ? `"${wrapper}${value}${wrapper}"` : `'${wrapper}${value}${wrapper}'`;
 };
 
 export const SEARCH_MODEL_VERSIONS = 'SEARCH_MODEL_VERSIONS';
-export const searchModelVersionsApi = (filterObj: any, id = getUUID(), maxResults: number | undefined = undefined) => {
+
+export const searchModelVersionsApi = (
+  filterObj: Record<string, any>,
+  id: string = getUUID(),
+  maxResults?: number,
+  orderBy?: string,
+  pageToken?: string,
+) => {
   const filter = Object.keys(filterObj)
     .map((key) => {
       if (Array.isArray(filterObj[key]) && filterObj[key].length > 1) {
@@ -168,17 +190,14 @@ export const searchModelVersionsApi = (filterObj: any, id = getUUID(), maxResult
       }
     })
     .join('&');
-
-  const reqBody: any = {
-    filter,
-  };
-  if (maxResults) {
-    reqBody['max_results'] = maxResults;
-  }
-
   return {
     type: SEARCH_MODEL_VERSIONS,
-    payload: Services.searchModelVersions(reqBody),
+    payload: Services.searchModelVersions({
+      filter,
+      ...(maxResults !== undefined && maxResults > 0 ? { max_results: maxResults } : null),
+      ...(orderBy !== undefined ? { order_by: orderBy } : null),
+      ...(pageToken ? { page_token: pageToken } : null),
+    }),
     meta: { id },
   };
 };
@@ -197,7 +216,7 @@ export const updateModelVersionApi = (modelName, version, description, id = getU
   meta: { id },
 });
 
-const TRANSITION_MODEL_VERSION_STAGE = 'TRANSITION_MODEL_VERSION_STAGE';
+export const TRANSITION_MODEL_VERSION_STAGE = 'TRANSITION_MODEL_VERSION_STAGE';
 export const transitionModelVersionStageApi = (
   // @ts-expect-error TS(7006): Parameter 'modelName' implicitly has an 'any' type... Remove this comment to see the full error message
   modelName,

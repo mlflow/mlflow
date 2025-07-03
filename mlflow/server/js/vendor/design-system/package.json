@@ -1,6 +1,6 @@
 {
   "name": "@databricks/design-system",
-  "version": "1.0.0-00454544",
+  "version": "1.0.0-7032265c",
   "description": "DuBois Design System",
   "keywords": [],
   "license": "ISC",
@@ -128,7 +128,7 @@
     "@jest/types": "^29.3.1",
     "@radix-ui/react-switch": "^1.0.0",
     "@svgr/cli": "^8.1.0",
-    "@swc/core": "^1.7.35",
+    "@swc/core": "^1.11.24",
     "@swc/register": "^0.1.10",
     "@tanstack/react-table": "^8.8.2",
     "@testing-library/jest-dom": "^6.4.2",

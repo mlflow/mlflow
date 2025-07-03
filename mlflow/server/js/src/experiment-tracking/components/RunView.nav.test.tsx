@@ -10,6 +10,7 @@ import { testRoute, TestRouter } from '../../common/utils/RoutingTestUtils';
 import userEvent from '@testing-library/user-event';
 import { RoutePaths } from '../routes';
 import { useRunDetailsPageData } from './run-page/hooks/useRunDetailsPageData';
+import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
 
 // Mock tab contents
 jest.mock('./run-page/RunViewMetricCharts', () => ({
@@ -38,12 +39,15 @@ describe('RunView navigation integration test', () => {
         hasComparedExperimentsBefore: false,
       },
     };
+    const queryClient = new QueryClient();
     const renderResult = renderWithIntl(
       <Provider store={mockStore(mockState)}>
-        <TestRouter
-          initialEntries={[createMLflowRoutePath(initialRoute)]}
-          routes={[testRoute(<RunPage />, RoutePaths.runPageWithTab)]}
-        />
+        <QueryClientProvider client={queryClient}>
+          <TestRouter
+            initialEntries={[createMLflowRoutePath(initialRoute)]}
+            routes={[testRoute(<RunPage />, RoutePaths.runPageWithTab)]}
+          />
+        </QueryClientProvider>
       </Provider>,
     );
 

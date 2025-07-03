@@ -160,7 +160,7 @@ def test_model_log(spacy_model_with_data, tracking_uri_mock):
                 artifact_path = "model"
                 if should_start_run:
                     mlflow.start_run()
-                model_info = mlflow.spacy.log_model(spacy_model, artifact_path)
+                model_info = mlflow.spacy.log_model(spacy_model, name=artifact_path)
                 model_uri = model_info.model_uri
                 assert model_info.model_uri == model_uri
 
@@ -292,7 +292,7 @@ def test_model_log_persists_specified_conda_env_in_mlflow_model_directory(
     with mlflow.start_run():
         model_info = mlflow.spacy.log_model(
             spacy_model_with_data.model,
-            artifact_path,
+            name=artifact_path,
             conda_env=spacy_custom_env,
         )
         model_path = _download_artifact_from_uri(model_info.model_uri)
@@ -316,7 +316,7 @@ def test_model_log_persists_requirements_in_mlflow_model_directory(
     with mlflow.start_run():
         model_info = mlflow.spacy.log_model(
             spacy_model_with_data.model,
-            artifact_path,
+            name=artifact_path,
             conda_env=spacy_custom_env,
         )
         model_path = _download_artifact_from_uri(model_info.model_uri)
@@ -337,14 +337,14 @@ def test_model_log_without_specified_conda_env_uses_default_env_with_expected_de
 ):
     artifact_path = "model"
     with mlflow.start_run():
-        model_info = mlflow.spacy.log_model(spacy_model_with_data.model, artifact_path)
+        model_info = mlflow.spacy.log_model(spacy_model_with_data.model, name=artifact_path)
     _assert_pip_requirements(model_info.model_uri, mlflow.spacy.get_default_pip_requirements())
 
 
 def test_model_log_with_pyfunc_flavor(spacy_model_with_data):
     artifact_path = "model"
     with mlflow.start_run():
-        model_info = mlflow.spacy.log_model(spacy_model_with_data.model, artifact_path)
+        model_info = mlflow.spacy.log_model(spacy_model_with_data.model, name=artifact_path)
 
         loaded_model = Model.load(model_info.model_uri)
         assert pyfunc.FLAVOR_NAME in loaded_model.flavors
@@ -366,7 +366,7 @@ def test_model_log_without_pyfunc_flavor():
 
     # Ensure the pyfunc flavor is not present after logging and loading the model
     with mlflow.start_run():
-        model_info = mlflow.spacy.log_model(nlp, artifact_path)
+        model_info = mlflow.spacy.log_model(nlp, name=artifact_path)
         model_path = _download_artifact_from_uri(model_info.model_uri)
 
         loaded_model = Model.load(model_path)
@@ -385,7 +385,7 @@ def test_pyfunc_serve_and_score(spacy_model_with_data):
             extra_pip_requirements = None
         model_info = mlflow.spacy.log_model(
             model,
-            artifact_path,
+            name=artifact_path,
             extra_pip_requirements=extra_pip_requirements,
             input_example=inference_dataframe,
         )
@@ -408,7 +408,7 @@ def test_log_model_with_code_paths(spacy_model_with_data):
         mock.patch("mlflow.spacy._add_code_from_conf_to_system_path") as add_mock,
     ):
         model_info = mlflow.spacy.log_model(
-            spacy_model_with_data.model, artifact_path, code_paths=[__file__]
+            spacy_model_with_data.model, name=artifact_path, code_paths=[__file__]
         )
         _compare_logged_code_paths(__file__, model_info.model_uri, mlflow.spacy.FLAVOR_NAME)
         mlflow.spacy.load_model(model_info.model_uri)
@@ -475,7 +475,7 @@ def test_model_log_with_metadata(spacy_model_with_data):
     with mlflow.start_run():
         model_info = mlflow.spacy.log_model(
             spacy_model_with_data.model,
-            artifact_path,
+            name=artifact_path,
             metadata={"metadata_key": "metadata_value"},
         )
 

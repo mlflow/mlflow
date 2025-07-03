@@ -11,7 +11,9 @@ from mlflow.tracing.display import (
     get_notebook_iframe_html,
 )
 
-from tests.tracing.helper import create_trace
+from tests.tracing.helper import create_trace, skip_module_when_testing_trace_sdk
+
+skip_module_when_testing_trace_sdk()
 
 
 class MockEventRegistry:

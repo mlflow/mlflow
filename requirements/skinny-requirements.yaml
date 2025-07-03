@@ -35,7 +35,7 @@ requests:
 
 packaging:
   pip_release: packaging
-  max_major_version: 24
+  max_major_version: 25
 
 importlib_metadata:
   pip_release: importlib_metadata
@@ -57,7 +57,7 @@ sqlparse:
 cachetools:
   pip_release: cachetools
   minimum: "5.0.0"
-  max_major_version: 5
+  max_major_version: 6
 
 # 1.9.0 is the minimum supported version as NoOpTracer was introduced in 1.9.0
 opentelemetry-api:

@@ -3,6 +3,10 @@
     "defaultMessage" : "등록 시간:",
     "description" : "Label name for registered timestamp metadata in model version page"
   },
+  "+5+fnP" : {
+    "defaultMessage" : "모델 전문화",
+    "description" : "Label for Model Specialization tile type"
+  },
   "+5IQqd" : {
     "defaultMessage" : "메트릭 데이터 다운로드",
     "description" : "Experiments > metric charts > download full CSV data modal > title"
@@ -63,6 +67,10 @@
     "defaultMessage" : "모델 프로모션",
     "description" : "Button text to pomote the model to a different registered model"
   },
+  "+YV0/o" : {
+    "defaultMessage" : "실험 목록으로 이동",
+    "description" : "A CTA button shown on the experiment page if user has no permissions to open the experiment"
+  },
   "+dGAnC" : {
     "defaultMessage" : "미리 보기",
     "description" : "Run page > artifact view > logged table view > preview box > title"
@@ -86,6 +94,10 @@
   "+hkg/y" : {
     "defaultMessage" : "최대",
     "description" : "Column title for the column displaying the maximum metric values for a metric"
+  },
+  "+i+0te" : {
+    "defaultMessage" : "평가를 위한 샘플링 비율입니다. 값이 0.1이면 추적의 10%가 AI Judge에 의해 평가됨을 의미합니다.",
+    "description" : "Hint for the sample rate field in the Agent Monitoring create form"
   },
   "+iY2p8" : {
     "defaultMessage" : "사용자 지정",
@@ -195,6 +207,10 @@
     "defaultMessage" : "모든 실행이 완료되었으며 아래 테이블에 추가되었습니다.",
     "description" : "Message displayed to the user when they've completed an AutoML and not registed the result or model to UC"
   },
+  "/e0MBD" : {
+    "defaultMessage" : "카탈로그",
+    "description" : "Label for the catalog field in the Agent Monitoring create form"
+  },
   "/fwKFW" : {
     "defaultMessage" : "생성된 프롬프트 없음",
     "description" : "A header for the empty state in the prompts table"
@@ -203,6 +219,10 @@
     "defaultMessage" : "기계 학습 모델을 공유하고 관리합니다.",
     "description" : "Default text for model registry onboarding on the model list page"
   },
+  "/hP8AG" : {
+    "defaultMessage" : "모델 로드 중",
+    "description" : "Label for a loading spinner when table containing models is being loaded"
+  },
   "/iaU14" : {
     "defaultMessage" : "업데이트 취소",
     "description" : "Title text for cancel update modal on endpoint view page"
@@ -210,6 +230,10 @@
   "/nPZbt" : {
     "defaultMessage" : "총 토큰 수: {totalTokens}",
     "description" : "Experiment page > artifact compare view > results table > total number of evaluated tokens"
+  },
+  "/sk75d" : {
+    "defaultMessage" : "실험을 찾을 수 없음",
+    "description" : "A title shown on the experiment page if the experiment is not found"
   },
   "/v6KuF" : {
     "defaultMessage" : "{code} 함수를 호출하여 LlamaIndex 쿼리에 대한 추적을 자동으로 기록합니다.  예:",
@@ -239,6 +263,10 @@
     "defaultMessage" : "취소됨",
     "description" : "AutoML Step description canceled training"
   },
+  "0HAdiA" : {
+    "defaultMessage" : "코드 블록 로딩 표시기",
+    "description" : "Aria label for loading code block"
+  },
   "0HbGko" : {
     "defaultMessage" : "모델",
     "description" : "Run page > Overview > Logged models > Unknown model flavor"
@@ -246,6 +274,10 @@
   "0HqSXX" : {
     "defaultMessage" : "요청 ID",
     "description" : "Experiment page > traces table > request id column header"
+  },
+  "0IVF6w" : {
+    "defaultMessage" : "Log된 모델 삭제",
+    "description" : "A header of the modal used for deleting logged models"
   },
   "0N8/HY" : {
     "defaultMessage" : "취소",
@@ -291,6 +323,10 @@
     "defaultMessage" : "지수 이동 평균을 기반으로 점 사이의 선을 \"매끄럽게\" 만듭니다. 스무딩은 log하는 빈도가 높을 때 전체 추세를 표시하는 데 유용할 수 있습니다.",
     "description" : "Helpful tooltip message to help with line smoothness for the metrics plot"
   },
+  "0hKo94" : {
+    "defaultMessage" : "AI Judge",
+    "description" : "Label for the catalog field in the Agent Monitoring create form"
+  },
   "0ja5l/" : {
     "defaultMessage" : "태그를 찾을 수 없습니다.",
     "description" : "Text for no tags found in editable form table in MLflow"
@@ -306,10 +342,6 @@
   "0pdAuV" : {
     "defaultMessage" : "활성",
     "description" : "Linked model dropdown option to show active experiment runs"
-  },
-  "0raqAA" : {
-    "defaultMessage" : "실행이 완료되면 {evaluationMetric} 이(가) 가장 우수한 모델이 실행 테이블의 맨 위에 채워집니다.",
-    "description" : "Info text about AutoML running"
   },
   "0svcNb" : {
     "defaultMessage" : "사용이 종료되었는지 확인하려면 여기를 클릭하세요.",
@@ -367,9 +399,17 @@
     "defaultMessage" : "버전",
     "description" : "Text for version in select option for logs pane dropdown"
   },
+  "1CGUz7" : {
+    "defaultMessage" : "1. Databricks 워크스페이스의 상단 표시줄에서 사용자 이름을 클릭합니다.",
+    "description" : "Text displayed to explain how to get to the preview settings page."
+  },
   "1ECve7" : {
     "defaultMessage" : "이제 차트 보기로 전환하여 실행을 비교할 수 있습니다",
     "description" : "Tooltip to push users to use the chart view instead of compare view"
+  },
+  "1EzSlb" : {
+    "defaultMessage" : "이 필드는 필수입니다",
+    "description" : "Validation message for required fields in Agent Monitoring form wizard"
   },
   "1GSTtH" : {
     "defaultMessage" : "정형 및 비정형 데이터에서 개인 식별 정보(PII)를 탐지하고 차단하거나 마스킹합니다. <link>자세히 알아보세요</link>.",
@@ -402,6 +442,10 @@
   "1NZEtl" : {
     "defaultMessage" : "fallback",
     "description" : "Endpoint details page > External model details > AI Gateway details > Fallbacks section label"
+  },
+  "1Pkie1" : {
+    "defaultMessage" : "SQL warehouse를 찾을 수 없습니다. SQL warehouse를 생성하고 다시 시도하세요.",
+    "description" : "Text displayed when no SQL warehouse is found."
   },
   "1Q47v+" : {
     "defaultMessage" : "일부 모델은 학습되지 않았을 수 있습니다. 더 긴 시계열 데이터로 AutoML을 다시 실행합니다.",
@@ -490,6 +534,10 @@
   "1tRtls" : {
     "defaultMessage" : "등록 시간",
     "description" : "Header for the registration time column in the registered prompts table"
+  },
+  "1wfVV5" : {
+    "defaultMessage" : "현재 정렬 기준",
+    "description" : "Label for the custom column group in the logged model column selector"
   },
   "1xjS1n" : {
     "defaultMessage" : "데이터 탐색 노트북 실패",
@@ -583,6 +631,14 @@
     "defaultMessage" : "취소",
     "description" : "Key-value tag editor modal > Manage Tag cancel button"
   },
+  "2bp4WY" : {
+    "defaultMessage" : "Model Serving의 에이전트 프레임워크를 사용하여 배포된 에이전트는 이 모니터에 자동으로 기록됩니다.",
+    "description" : "MLFlow Experiment > Monitoring tab > create form > box describing how to log production traces > description"
+  },
+  "2deqxk" : {
+    "defaultMessage" : "귀하의 검색 조건과 일치하는 모델을 찾을 수 없습니다. 검색 필터를 변경해 보세요.",
+    "description" : "Empty state message displayed when all models are filtered out in the logged models list page"
+  },
   "2f2qeb" : {
     "defaultMessage" : "유형",
     "description" : "Text for type column in schema table in model version page"
@@ -602,6 +658,10 @@
   "2lKtlK" : {
     "defaultMessage" : "높음",
     "description" : "Text describing a high severity AutoML warning"
+  },
+  "2mRfvl" : {
+    "defaultMessage" : "요청 오류",
+    "description" : "A title shown on the experiment page if the runs request fails"
   },
   "2mtI55" : {
     "defaultMessage" : "Endpoint",
@@ -699,6 +759,10 @@
     "defaultMessage" : "<link>더 알아보기</link>",
     "description" : "Learn more tooltip link to learn more on how to search models"
   },
+  "3gbNyI" : {
+    "defaultMessage" : "URL",
+    "description" : "Label for 'URL' value on Endpoint details page sidebar"
+  },
   "3geT+I" : {
     "defaultMessage" : "Log 아티팩트 API를 사용하여 MLflow 실행의 파일 출력을 저장합니다.",
     "description" : "Information in the empty state explaining how one could log artifacts output files for the experiment runs"
@@ -710,6 +774,10 @@
   "3nkNre" : {
     "defaultMessage" : "만든 사람",
     "description" : "Run page > Overview > FinetuneDetails > Run author section label"
+  },
+  "3v1IWn" : {
+    "defaultMessage" : "포함 기능에서 null이 너무 많은 열을 제거하세요.",
+    "description" : "User action recommendation when columns with too many nulls are removed from include features"
   },
   "3xnigx" : {
     "defaultMessage" : "Google Cloud VertexAI용 개인 키",
@@ -914,10 +982,6 @@
     "defaultMessage" : "{sectionName} 스키마",
     "description" : "Field name text for schema table in the model comparison page"
   },
-  "5TRN+F" : {
-    "defaultMessage" : "열",
-    "description" : "Experiment page > traces table > column selector > title"
-  },
   "5YOBk/" : {
     "defaultMessage" : "CSV로 내보내기",
     "description" : "Experiment page > compare runs tab > chart header > export CSV data option"
@@ -953,10 +1017,6 @@
   "5fDqTz" : {
     "defaultMessage" : "AutoML에서 데이터가 부족한 일부 시계열을 데이터 집합에서 제외했습니다. 더 짧은 기간을 설정하거나 해당 시계열에 대한 데이터를 추가한 후 AutoML을 다시 실행하세요.",
     "description" : "Action recommended when some time-series have insufficient data after splitting."
-  },
-  "5iUdnt" : {
-    "defaultMessage" : "PII 탐지",
-    "description" : "Endpoint details page > External model details > AI Gateway details > indicator for PII detection feature being enabled"
   },
   "5jS5aY" : {
     "defaultMessage" : "경고",
@@ -1018,6 +1078,10 @@
     "defaultMessage" : "입력에 유효하지 않은 키워드",
     "description" : "Label for configuring invalid keywords for input when configuring AI gateway while creating/editing serving endpoint"
   },
+  "68Lzvp" : {
+    "defaultMessage" : "서빙 Endpoint",
+    "description" : "Label for the serving endpoint field in the Agent Monitoring create form"
+  },
   "6BpB/j" : {
     "defaultMessage" : "UC Delta Table",
     "description" : "Experiment dataset drawer > source type > UC delta table source type label"
@@ -1073,6 +1137,10 @@
   "6Nk5AH" : {
     "defaultMessage" : "이름 또는 태그로 등록된 모델 필터링",
     "description" : "Placeholder text inside model search bar"
+  },
+  "6O/fZo" : {
+    "defaultMessage" : "이 워크스페이스에 대해 Lakehouse Monitoring for GenAI가 활성화되지 않습니다.",
+    "description" : "Info message that the Lakehouse Monitoring for GenAI preview is not enabled."
   },
   "6P8+34" : {
     "defaultMessage" : "지원되는 피처 열이 있는 데이터 집합에서 AutoML을 다시 실행합니다.",
@@ -1154,6 +1222,10 @@
     "defaultMessage" : "인기 있는 파운데이션 모델 선택",
     "description" : "Placeholder text for selecting a popular foundation model dropdown"
   },
+  "6vII7y" : {
+    "defaultMessage" : "취소",
+    "description" : "A cancel label for the modal used for deleting logged models"
+  },
   "6w4eSj" : {
     "defaultMessage" : "이 시간 범위에 대한 평가를 찾을 수 없습니다.",
     "description" : "Message when no assessments are found, with link to docs"
@@ -1225,6 +1297,10 @@
   "7FyDN/" : {
     "defaultMessage" : "최신",
     "description" : "Experiment page > runs table > metric column header > label for a checkbox toggle button that selects latest metric aggregate type"
+  },
+  "7G1NsK" : {
+    "defaultMessage" : "최대 {maxLength}자여야 합니다",
+    "description" : "Validation message for fields that require a maximum length in Agent Monitoring form wizard"
   },
   "7KKvmS" : {
     "defaultMessage" : "만든 사람",
@@ -1390,6 +1466,10 @@
     "defaultMessage" : "Y축",
     "description" : "Label for Y axis in Contour chart configurator in compare runs chart config modal"
   },
+  "8f4/Zi" : {
+    "defaultMessage" : "간소화된 버전의 SQL {whereBold} 절을 사용하여 기록된 모델을 검색합니다.",
+    "description" : "Tooltip string to explain how to search logged models from the listing page"
+  },
   "8flziy" : {
     "defaultMessage" : "시간(Wall)",
     "description" : "Radio button option to choose the time wall control option for the X-axis for metric graph on the experiment runs"
@@ -1498,6 +1578,10 @@
     "defaultMessage" : "API 키 시크릿",
     "description" : "Label for API key secret reference input for external models"
   },
+  "9T0V5C" : {
+    "defaultMessage" : "모델 서빙 Endpoint는 에이전트 프레임워크를 사용하여 배포해야 합니다.",
+    "description" : "Agent Monitoring > create monitor > catalog field description"
+  },
   "9TOU1G" : {
     "defaultMessage" : "이 섹션에는 차트가 없음",
     "description" : "Runs compare page > Charts tab > No charts placeholder title"
@@ -1525,6 +1609,10 @@
   "9W3kev" : {
     "defaultMessage" : "등록",
     "description" : "Confirmation text to register the model"
+  },
+  "9WWaJU" : {
+    "defaultMessage" : "더 알아보기",
+    "description" : "MLFlow Experiment > Monitoring tab > create form > box describing how to log production traces > learn more button"
   },
   "9dX4XQ" : {
     "defaultMessage" : "parameter 또는 메트릭 선택",
@@ -1585,6 +1673,10 @@
   "9y+yUQ" : {
     "defaultMessage" : "파일이 너무 커서 미리 볼 수 없음",
     "description" : "Label to indicate that the file is too large to preview"
+  },
+  "9zFSfg" : {
+    "defaultMessage" : "빈도가 일치하지 않습니다",
+    "description" : "AutoML warning shown when the frequency does not match in time series"
   },
   "A+5KMV" : {
     "defaultMessage" : "모델 ID",
@@ -1690,6 +1782,10 @@
     "defaultMessage" : "{code} 함수를 호출하여 Anthropic API 호출 추적을 자동으로 log합니다. 예:",
     "description" : "Description of how to log traces for the Anthropic package using MLflow autologging. This message is followed by a code example."
   },
+  "AzdZPn" : {
+    "defaultMessage" : "이 Log된 모델을 삭제하시겠습니까?",
+    "description" : "A content of the delete logged model confirmation modal"
+  },
   "B0wNnL" : {
     "defaultMessage" : "만들기",
     "description" : "Text for button to create a serving endpoint"
@@ -1745,6 +1841,10 @@
   "BWpQZ7" : {
     "defaultMessage" : "{unsyncedDataEntriesCount, plural, other {<strong>{unsyncedDataEntriesCount}</strong> 개의 저장되지 않은 평가 값이 있습니다. 아티팩트 데이터를 동기화하려면 &quot;저장&quot; 버튼을 클릭하거나 {keyCombination} 키를 을 눌러주세요.}}",
     "description" : "Experiment page > artifact compare view > prompt lab artifact synchronization > pending changes indicator"
+  },
+  "BbYn5I" : {
+    "defaultMessage" : "이제 MLflow 3를 사용할 수 있습니다! 새로운 기능을 사용해보고 피드백을 제공해 주세요. <link>더 알아보기</link>",
+    "description" : "Promotional message for MLflow 3 preview"
   },
   "Bbm59f" : {
     "defaultMessage" : "100",
@@ -1950,6 +2050,10 @@
     "defaultMessage" : "출력 Delta Live Table 이름",
     "description" : "Output table name placeholder on the configure inference form"
   },
+  "DFoZo8" : {
+    "defaultMessage" : "Log 프로덕션 추적",
+    "description" : "MLFlow Experiment > Monitoring tab > create form > box describing how to log production traces > title"
+  },
   "DHO5TT" : {
     "defaultMessage" : "태그 편집",
     "description" : "Label for the edit tags button on the registered prompt details page\""
@@ -2013,6 +2117,10 @@
   "E4Te7L" : {
     "defaultMessage" : "Experiment 로드 오류: {errorMessage}",
     "description" : "Error message displayed on logged models page when experiment data fails to load"
+  },
+  "E4eALP" : {
+    "defaultMessage" : "오름차순 정렬",
+    "description" : "Label for the sort ascending button in the logged model list page"
   },
   "E5Ruk+" : {
     "defaultMessage" : "현재 표시된 실행에서 Logs된 이미지를 찾을 수 없음",
@@ -2086,6 +2194,10 @@
     "defaultMessage" : "마지막 수정",
     "description" : "Title text for the feature page last modified metadata field."
   },
+  "EcjcgN" : {
+    "defaultMessage" : "메트릭",
+    "description" : "Label for the ungrouped metrics column group in the logged model column selector"
+  },
   "EdaSNm" : {
     "defaultMessage" : "무제한",
     "description" : "External model serving configuration form > AI Gateway section > rate limits section > label for checkbox that disables rate limit"
@@ -2093,6 +2205,10 @@
   "EeSKt9" : {
     "defaultMessage" : "태그",
     "description" : "Endpoint form summary title for tags"
+  },
+  "EiWGRz" : {
+    "defaultMessage" : "모니터 생성 중 오류 발생",
+    "description" : "Error message when creating a monitor in the Agent Monitoring create form"
   },
   "EkUD0b" : {
     "defaultMessage" : "결과 없음",
@@ -2206,10 +2322,6 @@
     "defaultMessage" : "모두 지우기",
     "description" : "String for the clear button to clear any selected parameters and metrics"
   },
-  "FfwElP" : {
-    "defaultMessage" : "더 알아보기",
-    "description" : "Learn more about monitoring link text"
-  },
   "FiKsFK" : {
     "defaultMessage" : "마지막 수정",
     "description" : "Header for the last modified column in the registered prompts table"
@@ -2217,6 +2329,10 @@
   "Fl6fGf" : {
     "defaultMessage" : "피드백 제공",
     "description" : "Link to a survey for users to give feedback"
+  },
+  "FmV7ce" : {
+    "defaultMessage" : "다음",
+    "description" : "Label for a button that moves to the next step in Databricks App creation process"
   },
   "FmqNVi" : {
     "defaultMessage" : "트레이닝 데이터",
@@ -2230,10 +2346,6 @@
     "defaultMessage" : "Playground에서 사용해 보세요",
     "description" : "Deep link to the AI playground page"
   },
-  "Fy+g4S" : {
-    "defaultMessage" : "{model_units} 모델 단위/분",
-    "description" : "description of provisioned model units of a served model"
-  },
   "FzOnYY" : {
     "defaultMessage" : "실행 중지",
     "description" : "A button label to stop the foundation model training run. Only shown if the run is in progress."
@@ -2245,6 +2357,10 @@
   "G/eKAa" : {
     "defaultMessage" : "버전",
     "description" : "Title for version column on served models table"
+  },
+  "G/zTTY" : {
+    "defaultMessage" : "오류",
+    "description" : "A generic error message for error state in MLflow UI"
   },
   "G0gYkS" : {
     "defaultMessage" : "종료 시간:",
@@ -2362,7 +2478,7 @@
     "defaultMessage" : "찾아보기",
     "description" : "Button text for browsing tables on the configure inference form"
   },
-  "K32dke" : {
+  "H+4gFh" : {
     "defaultMessage" : "차이점만 표시",
     "description" : "Toggle text that determines whether to show diff only in the model\n                      comparison page"
   },
@@ -2389,6 +2505,10 @@
   "H5VL08" : {
     "defaultMessage" : "{number} QPM(Endpoint당)",
     "description" : "Endpoint details page > External model details > AI Gateway details > rate limit > per-endpoint rate limit label (QPM = queries per minute)"
+  },
+  "H8zsRt" : {
+    "defaultMessage" : "특수 열은 포함 기능에서 자동으로 제거됩니다.",
+    "description" : "AutoML warning shown when special columns are removed from include features"
   },
   "HBOFi3" : {
     "defaultMessage" : "다음으로 전환",
@@ -2436,6 +2556,10 @@
   "HeNa8H" : {
     "defaultMessage" : "모두",
     "description" : "Option for the start select dropdown to filter runs from the beginning of time"
+  },
+  "HgaB9x" : {
+    "defaultMessage" : "미리 보기를 활성화하려면 관리자에게 문의하여 다음 단계를 수행합니다.",
+    "description" : "Text displayed when the Lakehouse Monitoring for GenAI preview is not enabled."
   },
   "Hk0RSH" : {
     "defaultMessage" : "Y축:",
@@ -2553,6 +2677,10 @@
     "defaultMessage" : "태그를 추가하지 못했습니다. 오류: {userVisibleError}",
     "description" : "Text for user visible error when adding tag in model version view"
   },
+  "IXP2hi" : {
+    "defaultMessage" : "모델 단위",
+    "description" : "Label showing unit of model units"
+  },
   "IXPpwQ" : {
     "defaultMessage" : "404: 리소스를 찾을 수 없음",
     "description" : "Generic 404 user-friendly error for the MLflow UI"
@@ -2613,13 +2741,13 @@
     "defaultMessage" : "대상 레이블당 행 수가 충분한 데이터 집합을 사용하여 AutoML을 다시 실행하거나 대상 레이블 수 줄이기",
     "description" : "Action that AutoML took when there is insufficient data per target label"
   },
+  "J/MIyO" : {
+    "defaultMessage" : "endpoint는 0개의 모델 단위에서 동적으로 확장됩니다.",
+    "description" : "Hint displaying the provisioned model units"
+  },
   "J2XCE/" : {
     "defaultMessage" : "모델에 텍스트 생성을 중지하도록 신호를 보내는 시퀀스를 지정합니다.",
     "description" : "Experiment page > prompt lab > stop parameter help text"
-  },
-  "J8wA/B" : {
-    "defaultMessage" : "0-{model_units} 모델 단위/분",
-    "description" : "description of provisioned model units of a served model"
   },
   "J9gwwW" : {
     "defaultMessage" : "에이전트",
@@ -2693,6 +2821,10 @@
     "defaultMessage" : "열에 숫자 의미 형식이 감지됨",
     "description" : "AutoML warning shown when columns have numeric semantic type"
   },
+  "Jrbygg" : {
+    "defaultMessage" : "태그",
+    "description" : "Header for sidebar section of Endpoint details page"
+  },
   "Jrri/Y" : {
     "defaultMessage" : "온도",
     "description" : "Experiment page > prompt lab > temperature parameter label"
@@ -2713,13 +2845,17 @@
     "defaultMessage" : "진행 중인 추적에는 추적 데이터를 사용할 수 없습니다. 추적이 완료될 때까지 기다려 주세요.",
     "description" : "Experiment page > traces data drawer > in-progress description"
   },
-  "K2yGwi" : {
-    "defaultMessage" : "핵심 정보 추출",
-    "description" : "Label for Key Information Extraction tile type"
-  },
   "K5rmCE" : {
     "defaultMessage" : "S3",
     "description" : "Experiment dataset drawer > source type > S3 source type label"
+  },
+  "K81Asu" : {
+    "defaultMessage" : "이 Endpoint 정보",
+    "description" : "Header for sidebar section of Endpoint details page"
+  },
+  "K8JcAN" : {
+    "defaultMessage" : "데이터 집합",
+    "description" : "Label for the datasets filter dropdown in the logged model list page"
   },
   "K8LdMX" : {
     "defaultMessage" : "{code} 함수를 호출하여 CrewAI 실행 추적을 자동으로 log합니다. 예:",
@@ -2824,6 +2960,10 @@
   "L26D19" : {
     "defaultMessage" : "X축:",
     "description" : "Label for the radio button to toggle the control on the X-axis of the metric graph for the experiment"
+  },
+  "L7p3Bw" : {
+    "defaultMessage" : "태스크",
+    "description" : "Label for 'Task' value on Endpoint details page sidebar"
   },
   "LCWRcv" : {
     "defaultMessage" : "실행 ID",
@@ -2953,6 +3093,10 @@
     "defaultMessage" : "특성",
     "description" : "Experiment tracking > runs charts > cards > RunsChartsDifferenceChartCard > attributes heading"
   },
+  "MDiegl" : {
+    "defaultMessage" : "Endpoint 상태",
+    "description" : "Label for the 'Endpoint state' value on Endpoint details page sidebar"
+  },
   "MEUk2a" : {
     "defaultMessage" : "가져온 사람",
     "description" : "Title text for the feature table imported metadata field."
@@ -3029,9 +3173,17 @@
     "defaultMessage" : "모델을 찾을 수 없나요?",
     "description" : "Title for foundation model card on retired models"
   },
+  "N79Rdb" : {
+    "defaultMessage" : "{count, plural, other {{count,number}개월 전}}",
+    "description" : "Time duration in months"
+  },
   "N7gNch" : {
     "defaultMessage" : "단계 전환을 요청함",
     "description" : "Activity title text for requested transition in model versions page"
+  },
+  "N8YuIr" : {
+    "defaultMessage" : "메트릭 페이지 로드 중 오류 발생",
+    "description" : "Title of the error state on the metric page"
   },
   "N8yUJE" : {
     "defaultMessage" : "가격 모델",
@@ -3052,6 +3204,10 @@
   "NEMZsy" : {
     "defaultMessage" : "AutoML이 열을 삭제했습니다.",
     "description" : "Action that AutoML took for large categories"
+  },
+  "NF6ePS" : {
+    "defaultMessage" : "{count, plural, other {{count,number}년 전}}",
+    "description" : "Time duration in years"
   },
   "NFUJyk" : {
     "defaultMessage" : "모델 로드",
@@ -3189,6 +3345,10 @@
     "defaultMessage" : "외부 모델 이름",
     "description" : "Endpoint details page > active configuration table > Column headers > External model name"
   },
+  "O7jPN+" : {
+    "defaultMessage" : "만든 사람",
+    "description" : "Label for the 'Created by' value on Endpoint details page sidebar"
+  },
   "O7wfe7" : {
     "defaultMessage" : "제공된 엔터티 추가",
     "description" : "A CTA button displayed when there are no served entities in the served entities table"
@@ -3245,9 +3405,9 @@
     "defaultMessage" : "아직 등록된 모델이 없습니다. <link>모델 등록에 대해 자세히 알아보세요</link>.",
     "description" : "Models table > no models present yet"
   },
-  "OmxT3D" : {
-    "defaultMessage" : "추적 데이터를 가져오는 동안 오류가 발생했습니다. 잠시 기다렸다가 다시 시도하세요.",
-    "description" : "Experiment page > traces data drawer > error state description"
+  "On3YQN" : {
+    "defaultMessage" : "이름",
+    "description" : "Label for the name field in the Agent Monitoring create form"
   },
   "On3g1B" : {
     "defaultMessage" : "실행 중",
@@ -3309,6 +3469,10 @@
     "defaultMessage" : "새 실행",
     "description" : "Button used to pop up a modal to create a new run"
   },
+  "PEZuqX" : {
+    "defaultMessage" : "애플리케이션 유형",
+    "description" : "Label for the application type field in the Agent Monitoring create form"
+  },
   "PGbCZD" : {
     "defaultMessage" : "프로덕션",
     "description" : "Column title for production phase version in the registered model page"
@@ -3349,6 +3513,14 @@
     "defaultMessage" : "없음",
     "description" : "Default text for no content in an editable note in MLflow"
   },
+  "PRwcGm" : {
+    "defaultMessage" : "검색",
+    "description" : "Placeholder for the search input in the logged model list page sort column selector"
+  },
+  "PSFpHG" : {
+    "defaultMessage" : "요청된 실험을 열 수 있는 권한이 없습니다.",
+    "description" : "A message shown on the experiment page if user has no permissions to open the experiment"
+  },
   "PUQxu5" : {
     "defaultMessage" : "기준선 실행 선택"
   },
@@ -3379,6 +3551,10 @@
   "PfsnDw" : {
     "defaultMessage" : "먼저 등록된 모델을 선택하세요",
     "description" : "Tooltip text for model version selection dropdown when registered model is not selected"
+  },
+  "Pg8t1L" : {
+    "defaultMessage" : "포함 기능에서 특수 열을 제거하세요. 특수 열은 split_column, target_column 및 custom_weights_column입니다",
+    "description" : "User action recommendation when special columns are removed from include features"
   },
   "PiV0Uz" : {
     "defaultMessage" : "실행 중",
@@ -3440,6 +3616,10 @@
     "defaultMessage" : "업데이트된 시간",
     "description" : "Label for the last update time on the registered prompt details page"
   },
+  "QLnH3C" : {
+    "defaultMessage" : "실험 목록으로 이동",
+    "description" : "A CTA button shown on the experiment page if the experiment is not found"
+  },
   "QPADAU" : {
     "defaultMessage" : "마지막 실행",
     "description" : "Title text for the producer last run column."
@@ -3459,6 +3639,10 @@
   "QUMV9L" : {
     "defaultMessage" : "켜짐",
     "description" : "Runs charts > line chart > display points > on setting label"
+  },
+  "QYCXMy" : {
+    "defaultMessage" : "{provisioned_model_units} 개의 프로비저닝된 모델 단위",
+    "description" : "description of provisioned model units of a served model"
   },
   "QcaE8t" : {
     "defaultMessage" : "대기 중",
@@ -3568,6 +3752,10 @@
     "defaultMessage" : "Lakeview 대시보드에서 열기",
     "description" : "Run page > Header > open in lakeview dashboard CTA button label"
   },
+  "RjffUj" : {
+    "defaultMessage" : "모니터 만들기",
+    "description" : "Button label for creating the monitor in the Agent Monitoring create form"
+  },
   "RjwyBI" : {
     "defaultMessage" : "지원되지 않는 샘플 가중치 유형",
     "description" : "AutoML warning shown when an unsupported sample weight type is used"
@@ -3591,6 +3779,10 @@
   "RtKhwd" : {
     "defaultMessage" : "데이터 집합",
     "description" : "Experiment page > group by runs control > group by dataset"
+  },
+  "Rv42AD" : {
+    "defaultMessage" : "MLflow Python 클라이언트를 사용하여 GenAI 앱을 계측하세요.",
+    "description" : "MLFlow Experiment > Monitoring tab > create form > box describing how to log production traces > description"
   },
   "RzZVxC" : {
     "defaultMessage" : "이 구성 요소를 렌더링하는 동안 오류가 발생했습니다.",
@@ -3647,6 +3839,10 @@
   "SJZRNI" : {
     "defaultMessage" : "{modelName} 은(는) {deprecationDate} 부터 더 이상 사용되지 않습니다.",
     "description" : "Deprecation message for FMAPIs"
+  },
+  "SJieiW" : {
+    "defaultMessage" : "모니터 업데이트",
+    "description" : "Button label for creating the monitor in the Agent Monitoring create form"
   },
   "SLHSXV" : {
     "defaultMessage" : "parameter 검색",
@@ -3828,10 +4024,6 @@
     "defaultMessage" : "만들기",
     "description" : "A label for the confirm button in the create prompt modal in the prompt management UI"
   },
-  "TT0zeT" : {
-    "defaultMessage" : "모니터를 찾을 수 없습니다. <link>여기</link>에 설명된 단계에 따라 모니터를 생성하세요.",
-    "description" : "Text displayed when no monitors are found in the experiment evaluation monitoring page"
-  },
   "TUSUQY" : {
     "defaultMessage" : "UC에서 보기",
     "description" : "Text for the UC file link in the experiment run dataset drawer"
@@ -3884,9 +4076,17 @@
     "defaultMessage" : "카탈로그",
     "description" : "UC Models page > Catalog column header"
   },
+  "Tpj2su" : {
+    "defaultMessage" : "특성",
+    "description" : "Label for the attributes column group in the logged model column selector"
+  },
   "TpmJlu" : {
     "defaultMessage" : "사용자 지정",
     "description" : "Option for the start select dropdown to filter runs with a custom time range"
+  },
+  "Tq4iur" : {
+    "defaultMessage" : "샘플링 비율",
+    "description" : "Label for the sample rate field in the Agent Monitoring create form"
   },
   "Tqtctv" : {
     "defaultMessage" : "더 긴 시계열 데이터로 AutoML을 다시 실행합니다.",
@@ -3895,6 +4095,10 @@
   "Trd9L3" : {
     "defaultMessage" : "이름 바꾸기",
     "description" : "Text for rename button on experiment view page header"
+  },
+  "U+2XCK" : {
+    "defaultMessage" : "삭제",
+    "description" : "Delete action for logged model"
   },
   "U+Jzcv" : {
     "defaultMessage" : "<link>버전 {versionNumber}</link>",
@@ -3972,6 +4176,10 @@
     "defaultMessage" : "이 Endpoint에 대한 트래픽을 관리하기 위해 요청 속도 제한을 적용합니다.",
     "description" : "External model serving configuration form > AI Gateway section > rate limits configuration section description"
   },
+  "UtUq/x" : {
+    "defaultMessage" : "등록된 모델",
+    "description" : "Header title for the registered models column in the logged model list table"
+  },
   "Uue10g" : {
     "defaultMessage" : "모델",
     "description" : "Breadcrumb for models tab of experiments page on the logged model details page"
@@ -4012,6 +4220,10 @@
     "defaultMessage" : "이름",
     "description" : "Header for \"type\" column in the UC table schema"
   },
+  "V2jnxe" : {
+    "defaultMessage" : "모니터 업데이트 중 오류 발생",
+    "description" : "Error message when updating a monitor in the Agent Monitoring create form"
+  },
   "V3BImd" : {
     "defaultMessage" : "생성 시간",
     "description" : "Experiment page > traces table > time created column header"
@@ -4047,6 +4259,10 @@
   "VGlQUC" : {
     "defaultMessage" : "그런 다음 모델을 Unity Catalog에 등록합니다. 필요에 따라 카탈로그, 스키마, 모델 이름을 사용자 지정합니다",
     "description" : "Second step for registering an ML model to Unity Catalog"
+  },
+  "VMVNTR" : {
+    "defaultMessage" : "요청한 실험을 찾을 수 없습니다.",
+    "description" : "A message shown on the experiment page if the experiment is not found"
   },
   "VOlxKH" : {
     "defaultMessage" : "보류 중",
@@ -4103,6 +4319,10 @@
   "VqRtYq" : {
     "defaultMessage" : "시크릿을 일반 텍스트 형식으로 제공하거나 <link>Databricks Secret</link> 참조로 제공하세요.",
     "description" : "Hint text for plaintext secret or secret reference for OpenAI API key."
+  },
+  "VrKhen" : {
+    "defaultMessage" : "모니터 업데이트",
+    "description" : "Done button text, specifing the button to close the monitor settings modal"
   },
   "Vrm3OM" : {
     "defaultMessage" : "온라인 스토어를 찾을 수 없습니다.",
@@ -4232,6 +4452,10 @@
     "defaultMessage" : "아직 생성된 Endpoint가 없습니다. <link>모델 서빙에 대해 자세히 알아보세요</link>.",
     "description" : "Endpoints table > empty table with no endpoints in database"
   },
+  "WjiwUD" : {
+    "defaultMessage" : "에이전트 모니터링",
+    "description" : "Monitoring button for endpoints, clicking will take you to the Agent Monitoring page"
+  },
   "WksiYp" : {
     "defaultMessage" : "트래픽(%)",
     "description" : "Label for the traffic config for the served entity of the endpoint"
@@ -4239,6 +4463,10 @@
   "Wl58Q1" : {
     "defaultMessage" : "사용자당",
     "description" : "External model serving configuration form > AI Gateway section > label for rate limits per user"
+  },
+  "Wm6dYs" : {
+    "defaultMessage" : "삭제",
+    "description" : "A confirmation label of the modal used for deleting logged models"
   },
   "WmDiY9" : {
     "defaultMessage" : "소스",
@@ -4276,6 +4504,10 @@
     "defaultMessage" : "리뷰 앱 열기",
     "description" : "Query button for endpoints, clicking will open a modal in which users can query the endpoint"
   },
+  "X6P8tX" : {
+    "defaultMessage" : "모델을 찾을 수 없음",
+    "description" : "Empty state title displayed when all models are filtered out in the logged models list page"
+  },
   "X6XurQ" : {
     "defaultMessage" : "<bold> 참고: </bold>{featureNameText}을(를) 성공적으로 활성화하려면 범용 클러스터를 생성할 권한이 있어야 합니다.",
     "description" : "Error message description when failing to fetch cluster permissions in\n                  enable serving page."
@@ -4299,6 +4531,10 @@
   "XKfqiI" : {
     "defaultMessage" : "비활성화됨",
     "description" : "\"Disabled\" for payload logging on this endpoint"
+  },
+  "XKhxMB" : {
+    "defaultMessage" : "Databricks에서 호스팅되는 에이전트 프레임워크 애플리케이션 모니터링",
+    "description" : "Agent Monitoring > create form > creation mode selector (from template or custom) > description for agent framework option"
   },
   "XLSmZx" : {
     "defaultMessage" : "프롬프트 버전 만들기",
@@ -4347,6 +4583,10 @@
     "defaultMessage" : "라벨링 세션",
     "description" : "A button enabling labeling sessions on the experiment page. A labeling session is set of traces or dataset records that require labeling from an SME"
   },
+  "Xm5xxu" : {
+    "defaultMessage" : "요청 오류",
+    "description" : "Error state title displayed in the logged models list page"
+  },
   "XndLXA" : {
     "defaultMessage" : "소유자",
     "description" : "Title text for the table owner column."
@@ -4367,9 +4607,17 @@
     "defaultMessage" : "병렬 좌표 차트에는 숫자 또는 문자열 열이 포함된 실행이 표시됩니다. 열에 문자열 항목이 있는 경우 가장 최근의 고유 값 30개에 해당하는 실행이 표시됩니다. 모든 관련 메트릭 및/또는 parameter가 포함된 실행만 표시됩니다.",
     "description" : "Experiment page > charts > parallel coordinates chart > tooltip explaining what data is expected to be rendered"
   },
+  "XwD3hV" : {
+    "defaultMessage" : "{count, plural, other {{count,number}일 전}}",
+    "description" : "Time duration in days"
+  },
   "XwkX9B" : {
     "defaultMessage" : "기록된 지표 없음",
     "description" : "Placeholder text when no metrics are recorded for a logged model"
+  },
+  "Y+3eTt" : {
+    "defaultMessage" : "endpoint는 보장된 throughput의 {provisionedModelUnits} 모델 단위를 제공합니다.",
+    "description" : "Hint displaying the provisioned model units"
   },
   "Y/A4/2" : {
     "defaultMessage" : "트래픽(%)이 필요함",
@@ -4435,6 +4683,10 @@
     "defaultMessage" : "트레이닝",
     "description" : "AutoML Step title train"
   },
+  "YNJNoC" : {
+    "defaultMessage" : "사용자 지정 공급자 모델 URL 도구 설명",
+    "description" : "The URL must point to a specific API endpoint; for example, `https://api.provider.com/chat/completions`."
+  },
   "YOH2W5" : {
     "defaultMessage" : "모델 레지스트리 페이지에서 이 모델에 대한 기존 실시간 유추 Endpoint를 봅니다.",
     "description" : "Text for form description on viewing real-time inference"
@@ -4450,6 +4702,10 @@
   "YQ+Eon" : {
     "defaultMessage" : "모델 등록",
     "description" : "Button text to register the model for deployment"
+  },
+  "YRBURU" : {
+    "defaultMessage" : "정렬: {sortBy}",
+    "description" : "Label for the filter button in the logged model list page. sortBy is the name of the column by which the table is currently sorted."
   },
   "YRFAGK" : {
     "defaultMessage" : "음의 무한대({metricKey})",
@@ -4482,6 +4738,10 @@
   "YamyaP" : {
     "defaultMessage" : "자동 refresh",
     "description" : "String for the auto-refresh button that refreshes the runs list automatically"
+  },
+  "Yb+guI" : {
+    "defaultMessage" : "정보 추출",
+    "description" : "Label for Information Extraction tile type"
   },
   "YfspJh" : {
     "defaultMessage" : "이 예제는 MLflow 버전 {minVersion} 이상이 필요합니다. MLflow 버전이 이보다 오래된 경우 노트북 셀에서 {installCommand}을(를) 실행하고, 명령이 완료되면 커널을 다시 시작하세요.",
@@ -4547,6 +4807,10 @@
     "defaultMessage" : "정렬 기준",
     "description" : "Search page: default label for sort-by dropdown that allows user to sort results"
   },
+  "ZDPrE6" : {
+    "defaultMessage" : "뒤로",
+    "description" : "Button label for going back to the previous step in the Agent Monitoring create form"
+  },
   "ZEp/ot" : {
     "defaultMessage" : "마지막 게시자",
     "description" : "Title text for the online store last published by column."
@@ -4563,6 +4827,14 @@
     "defaultMessage" : "AI Gateway 기능 편집",
     "description" : "External model serving > AI Gateway features edit page > page title"
   },
+  "ZO8PZt" : {
+    "defaultMessage" : "{count, plural, other {{count,number}분 전}}",
+    "description" : "Time duration in minutes"
+  },
+  "ZOsiNc" : {
+    "defaultMessage" : "방금",
+    "description" : "Indicates a time duration that just passed"
+  },
   "ZPKPrl" : {
     "defaultMessage" : "유추 테이블 활성화",
     "description" : "External model serving configuration form > AI Gateway section > label for checkbox enabling logging to inference tables"
@@ -4574,6 +4846,10 @@
   "ZQDBu0" : {
     "defaultMessage" : "내 특징",
     "description" : "Select source for the entity in the entity selector; this source is feature spec functions in the Databricks unity catalog"
+  },
+  "ZSddz2" : {
+    "defaultMessage" : "실행이 완료되면 실행 tab 상단에 가장 적합한 모델이 표시됩니다.",
+    "description" : "Info text about AutoML running"
   },
   "ZXUtU8" : {
     "defaultMessage" : "자세히 보려면 클릭",
@@ -4691,9 +4967,9 @@
     "defaultMessage" : "시스템 지표",
     "description" : "Run page > Overview > Metrics table > System charts section > title"
   },
-  "aGxV3k" : {
-    "defaultMessage" : "텍스트 대 텍스트",
-    "description" : "Label for Text to Text tile type"
+  "aGbPyL" : {
+    "defaultMessage" : "현재 이러한 모델 유형에는 하나의 서비스 엔티티만 지원됩니다.",
+    "description" : "Error message for when multiple served entities use model units"
   },
   "aHWstb" : {
     "defaultMessage" : "유추 테이블",
@@ -4823,6 +5099,10 @@
     "defaultMessage" : "클라우드",
     "description" : "Title text for the online store cloud metadata field."
   },
+  "b7S8K0" : {
+    "defaultMessage" : "마지막 수정",
+    "description" : "Label for \"Last modified\" value on Endpoint details page sidebar"
+  },
   "b8rdDM" : {
     "defaultMessage" : "모델",
     "description" : "A button navigating to logged models table on the experiment page"
@@ -4927,6 +5207,9 @@
     "defaultMessage" : "세부 정보 보기",
     "description" : "Endpoints list page > Suggested models carousel > Dropdown menu > View details button"
   },
+  "c0lylo" : {
+    "defaultMessage" : "자세한 내용은 <previews>미리 보기 관리</previews> 및 <docs>Lakehouse Monitoring for GenAI</docs>를 참조하세요."
+  },
   "c0slEY" : {
     "defaultMessage" : "개별 실행을 클릭하면 관련된 모든 모델을 볼 수 있습니다",
     "description" : "MLflow experiment detail page > runs table > tooltip on ML \"Models\" column header"
@@ -4935,9 +5218,17 @@
     "defaultMessage" : "속도 제한(Endpoint당)",
     "description" : "Endpoint details page > External model details > Metadata table > Rate limit per endpoint label"
   },
+  "c4KA32" : {
+    "defaultMessage" : "추적 데이터를 가져오는 동안 오류가 발생했습니다. 잠시 기다렸다가 다시 시도하세요.",
+    "description" : "Experiment page > traces data drawer > error state description"
+  },
   "c4ULkZ" : {
     "defaultMessage" : "트래픽",
     "description" : "Endpoint details page > active configuration table > Column headers > Traffic"
+  },
+  "c4bR6N" : {
+    "defaultMessage" : "코드 블록 로드 대기 중",
+    "description" : "Aria value text for loading code block"
   },
   "c5AQYh" : {
     "defaultMessage" : "비교 기준",
@@ -4974,6 +5265,10 @@
   "cI+F/q" : {
     "defaultMessage" : "이름",
     "description" : "Column title for name column in editable tags table view in MLflow"
+  },
+  "cIV9pX" : {
+    "defaultMessage" : "사용 권한이 거부되었습니다",
+    "description" : "A title shown on the experiment page if user has no permissions to open the experiment"
   },
   "cJKERI" : {
     "defaultMessage" : "Databricks의 지리적 위치에 대해 더 알아보기"
@@ -5054,6 +5349,10 @@
     "defaultMessage" : "카탈로그",
     "description" : "Create Endpoint > Select Model > Unity Catalog > Select Catalog Text"
   },
+  "d0x/a/" : {
+    "defaultMessage" : "가이드라인",
+    "description" : "Label for the catalog field in the Agent Monitoring create form"
+  },
   "d1Ou4x" : {
     "defaultMessage" : "실행",
     "description" : "Column title for the column displaying the run names for a metric"
@@ -5133,6 +5432,10 @@
   "ddAFCW" : {
     "defaultMessage" : "500: 내부 서버 오류",
     "description" : "Generic 500 user-friendly error for the MLflow UI"
+  },
+  "dhp2Xh" : {
+    "defaultMessage" : "가이드라인 추가",
+    "description" : "Button label for adding a guideline in the Agent Monitoring create form"
   },
   "diywSK" : {
     "defaultMessage" : "최소",
@@ -5378,6 +5681,10 @@
     "defaultMessage" : "열",
     "description" : "Run page > artifact view > logged table view > columns selector label"
   },
+  "fOdGgL" : {
+    "defaultMessage" : "PII 마스킹",
+    "description" : "Endpoint details page > External model details > AI Gateway details > indicator for PII detection feature being enabled"
+  },
   "fQfjfz" : {
     "defaultMessage" : "예산 정책과 관련된 태그는 자동으로 서빙 Endpoint의 청구 Logs에 전파됩니다.",
     "description" : "Informational tooltip to advertise that budget policy details on serving endpoints are automatically propagated to that endpoint's billing logs"
@@ -5466,6 +5773,10 @@
     "defaultMessage" : "사용된 데이터세트",
     "description" : "Run page > Overview > Run datasets section label"
   },
+  "fyVs2o" : {
+    "defaultMessage" : "예:",
+    "description" : "Text header for examples of logged models search syntax"
+  },
   "g17Es2" : {
     "defaultMessage" : "이름",
     "description" : "Column title for model name in the registered model page"
@@ -5545,6 +5856,14 @@
   "gNHNV0" : {
     "defaultMessage" : "AWS 액세스 키 ID 시크릿 참조",
     "description" : "Label for access key input for Amazon Bedrock"
+  },
+  "gPyGW/" : {
+    "defaultMessage" : "PII 차단",
+    "description" : "Endpoint details page > External model details > AI Gateway details > indicator for PII detection feature being enabled"
+  },
+  "gQB+Vs" : {
+    "defaultMessage" : "{count, plural, other {{count,number}초 전}}",
+    "description" : "Time duration in seconds"
   },
   "gRz1nB" : {
     "defaultMessage" : "{count, plural, other {추적 삭제}}",
@@ -5774,6 +6093,10 @@
     "defaultMessage" : "검색 필터와 일치하는 지표 없음",
     "description" : "Message displayed when no metrics match the search filter in the logged model details metrics table"
   },
+  "i+RyPC" : {
+    "defaultMessage" : "요청을 처리할 수 없습니다. 다시 시도하세요.",
+    "description" : "A message shown on the experiment page if the runs request fails"
+  },
   "i/pJvo" : {
     "defaultMessage" : "{code} 함수를 호출하여 AutoGen 대화 추적을 자동으로 기록합니다.  예:",
     "description" : "Description of how to log traces for the AutoGen package using MLflow autologging. This message is followed by a code example."
@@ -5781,6 +6104,10 @@
   "i0i2tv" : {
     "defaultMessage" : "{endpointName}에 대한 과거 서비스 Log 파일",
     "description" : "Modal title for historical service log files modal"
+  },
+  "i1Hj20" : {
+    "defaultMessage" : "{count, plural, other {{count,number}시간 전}}",
+    "description" : "Time duration in hours"
   },
   "i1ovHH" : {
     "defaultMessage" : "기능 테이블, 기능 또는 데이터 소스로 필터링...",
@@ -5857,10 +6184,6 @@
   "iT8ODo" : {
     "defaultMessage" : "최소",
     "description" : "Experiment page > group by runs control > minimum aggregate function"
-  },
-  "iTjTQt" : {
-    "defaultMessage" : "검색 필터와 일치하는 지표 없음",
-    "description" : "Run page > Overview > Metrics table > No results after filtering"
   },
   "iXb99e" : {
     "defaultMessage" : "상자 그림",
@@ -5970,6 +6293,10 @@
     "defaultMessage" : "{isRun, select, true {이 탭에는 이 실행에 기록된 모든 추적이 표시됩니다.  MLflow는 많은 인기 있는 생성형 AI 프레임워크에 대한 자동 추적을 지원합니다.  첫 번째 추적을 기록하려면 아래 단계를 따르세요.  MLflow 추적에 대한 자세한 내용은 <a>MLflow 설명서</a>를 참조하세요.} other {이 탭에는 이 실험에 기록된 모든 추적이 표시됩니다.  MLflow는 많은 인기 있는 생성형 AI 프레임워크에 대한 자동 추적을 지원합니다.  첫 번째 추적을 기록하려면 아래 단계를 따르세요.  MLflow 추적에 대한 자세한 내용은 <a>MLflow 설명서</a>를 참조하세요.}}",
     "description" : "Message that explains the function of the 'Traces' tab in the MLflow UI.This message is followed by a tutorial explaining how to get started with MLflow Tracing."
   },
+  "jOyo3+" : {
+    "defaultMessage" : "단계",
+    "description" : "Header title for the step column in the logged model list table. Step indicates the run step where the model was logged."
+  },
   "jPdZ2S" : {
     "defaultMessage" : "마지막 Job 실행의 start 시간입니다.",
     "description" : "Text on the tooltip of the last run column describing the start time of the last job run."
@@ -5981,6 +6308,10 @@
   "jSsS0I" : {
     "defaultMessage" : "조정",
     "description" : "AutoML Step title tuning"
+  },
+  "jULSKd" : {
+    "defaultMessage" : "출력",
+    "description" : "Label indicating that the logged model was the output of the experiment run Displayed in logged model list table on the run page."
   },
   "jXfgov" : {
     "defaultMessage" : "모든 실행이 숨겨져 있습니다. 차트를 보려면 하나 이상의 실행을 선택합니다.",
@@ -6158,6 +6489,10 @@
     "defaultMessage" : "AutoML이 열을 삭제했습니다.",
     "description" : "Action that AutoML took"
   },
+  "km8vtM" : {
+    "defaultMessage" : "Log된 모델({length})",
+    "description" : "A header for a table of logged models displayed on the run page. The 'length' variable is being replaced with the number of displayed logged models."
+  },
   "kmWZRO" : {
     "defaultMessage" : "모델",
     "description" : "Create Endpoint > Select Model > Unity Catalog > Select Model Text"
@@ -6258,6 +6593,10 @@
     "defaultMessage" : "작업",
     "description" : "Column name text for actions in pending requests table in model\n                   registry"
   },
+  "lT1Joh" : {
+    "defaultMessage" : "검색 필터와 일치하는 메트릭 없음",
+    "description" : "Message displayed when no metrics match the search filter in the run details page details metrics table"
+  },
   "lTngfr" : {
     "defaultMessage" : "미리 보기를 표시할 셀을 선택하세요",
     "description" : "Experiment page > artifact compare view > preview sidebar > nothing selected"
@@ -6281,6 +6620,10 @@
   "loe2Ov" : {
     "defaultMessage" : "버전 {version}",
     "description" : "A label for the version number in the prompt details page"
+  },
+  "ltqNpe" : {
+    "defaultMessage" : "생성 시간",
+    "description" : "Label for the creation time column in the logged model list page"
   },
   "m4159e" : {
     "defaultMessage" : "지표({length})",
@@ -6474,6 +6817,10 @@
     "defaultMessage" : "노트북으로 이동",
     "description" : "Text for the notebook link in the experiment run dataset drawer"
   },
+  "nGOEiI" : {
+    "defaultMessage" : "최소 {minLength}자여야 합니다",
+    "description" : "Validation message for fields that require a minimum length in Agent Monitoring form wizard"
+  },
   "nNIors" : {
     "defaultMessage" : "관련 실행 데이터를 가져올 때 오류 발생: {error}",
     "description" : "Error message displayed when logged model details page couldn't fetch related runs data"
@@ -6501,10 +6848,6 @@
   "nVndit" : {
     "defaultMessage" : "{registeredDate}에 등록됨",
     "description" : "Label to display at what date the model was registered"
-  },
-  "nWPVyw" : {
-    "defaultMessage" : "모니터링 구성",
-    "description" : "Monitoring Config title, specifing the header for the monitoring config"
   },
   "nWeQCU" : {
     "defaultMessage" : "차이점만 표시",
@@ -6590,9 +6933,9 @@
     "defaultMessage" : "잘못된 Log 값",
     "description" : "Experiment tracking > runs charts > line chart configuration > invalid log value message"
   },
-  "o4IP1L" : {
-    "defaultMessage" : "완료",
-    "description" : "Done button text, specifing the button to close the monitor settings modal"
+  "o4hZo4" : {
+    "defaultMessage" : "데이터베이스가 준비되지 않았습니다. 나중에 다시 시도하세요.",
+    "description" : "Message displayed when the database is not ready."
   },
   "o7dzKo" : {
     "defaultMessage" : "마지막 수정",
@@ -6789,6 +7132,10 @@
     "defaultMessage" : "추가",
     "description" : "Model registry > model version table > aliases column > 'add' button label"
   },
+  "pUpSQt" : {
+    "defaultMessage" : "스키마",
+    "description" : "Label for the schema field in the Agent Monitoring create form"
+  },
   "pUpVtO" : {
     "defaultMessage" : "없음",
     "description" : "External model serving configuration form > AI Gateway section > guardrails configuration section > PII behavior dropdown option for none"
@@ -6836,6 +7183,10 @@
   "pniESF" : {
     "defaultMessage" : "브라우저",
     "description" : "SegmentedControl text for the browser call the model section on the model version's serving page"
+  },
+  "pnqgdy" : {
+    "defaultMessage" : "더 알아보기",
+    "description" : "Agent monitoring log external traces instructions learn more link"
   },
   "poH+mg" : {
     "defaultMessage" : "보류 중인 요청이 없습니다.",
@@ -6945,6 +7296,10 @@
     "defaultMessage" : "AI 게이트웨이",
     "description" : "External model serving configuration form > AI Gateway section > title label"
   },
+  "qcojPN" : {
+    "defaultMessage" : "모니터링 설정",
+    "description" : "MLFLow Experiment > Monitoring > Setup monitoring > title"
+  },
   "qeemlg" : {
     "defaultMessage" : "가져옴",
     "description" : "Title text for the feature page imported timestamp field."
@@ -6952,6 +7307,10 @@
   "qkRBUr" : {
     "defaultMessage" : "선 평활화",
     "description" : "Runs charts > line chart > configuration > label for line smoothing slider control. The control allows changing data trace line smoothness from 1 to 100, where 1 is the original data trace and 100 is the smoothest trace. Line smoothing helps eliminate noise in the data."
+  },
+  "qmzpQD" : {
+    "defaultMessage" : "null이 너무 많은 열은 포함 기능에서 자동으로 제거됩니다",
+    "description" : "AutoML warning shown when columns with too many nulls are removed from include features"
   },
   "qpEAFw" : {
     "defaultMessage" : "기능 ({length})",
@@ -7189,6 +7548,10 @@
     "defaultMessage" : "베어러 토큰",
     "description" : "Label for bearer token input"
   },
+  "sP9XPd" : {
+    "defaultMessage" : "예제",
+    "description" : "Title for code block in markdown"
+  },
   "sPjdP+" : {
     "defaultMessage" : "URL",
     "description" : "Endpoint details page > Tile model details > Metadata table > URL label"
@@ -7253,6 +7616,10 @@
     "defaultMessage" : "{subMessage}, <link>홈 페이지</link>로 돌아갑니다.",
     "description" : "Default error message for error views in MLflow"
   },
+  "styBjn" : {
+    "defaultMessage" : "제공된 모든 엔터티는 동일한 throughput 단위(모델 단위 또는 토큰/초)를 사용해야 합니다.",
+    "description" : "Error message for when only some served entities use model units"
+  },
   "swGuWh" : {
     "defaultMessage" : "입력 테이블",
     "description" : "Input table label on the configure inference form"
@@ -7313,6 +7680,10 @@
     "defaultMessage" : "Experiment 실행을 삭제하는 동안 오류가 발생했습니다.",
     "description" : "Experiment tracking > delete run modal > error message"
   },
+  "tesl24" : {
+    "defaultMessage" : "주파수가 데이터 주파수와 일치하는지 확인하고 AutoML을 다시 실행하세요.",
+    "description" : "User action recommendation when the frequency does not match in time series"
+  },
   "tjZdHb" : {
     "defaultMessage" : "취소",
     "description" : "Create Endpoint > Select entity > Cancel button text"
@@ -7320,6 +7691,10 @@
   "tkAOSa" : {
     "defaultMessage" : "사용자 지정 표현식",
     "description" : "Experiment tracking > runs charts > line chart configuration > custom expression label"
+  },
+  "tkc+sv" : {
+    "defaultMessage" : "데이터 집합 없음",
+    "description" : "Label for the metrics column group header that are not grouped by dataset"
   },
   "tstu7I" : {
     "defaultMessage" : "참고: 이 작업을 수행하면 이 Experiment에 해당하는 노트북의 권한도 수정됩니다.",
@@ -7353,6 +7728,10 @@
     "defaultMessage" : "상관 관계를 찾았습니다. 자세한 내용은 데이터 탐색 노트북을 참조하세요.",
     "description" : "Action that AutoML took for correlation columns"
   },
+  "u3YPUX" : {
+    "defaultMessage" : "기록된 추적 없음",
+    "description" : "Run page > Evaluations tab > No traces logged"
+  },
   "u73gNJ" : {
     "defaultMessage" : "마지막 유효 시간이 자동으로 선택됨",
     "description" : "Warning message when user choose start time for more than 14 days old"
@@ -7360,6 +7739,10 @@
   "u765v5" : {
     "defaultMessage" : "AWS 액세스 키 ID",
     "description" : "Label for access key input for Amazon Bedrock"
+  },
+  "u8hl1s" : {
+    "defaultMessage" : "소문자, 숫자, 대시만 허용됩니다. 영숫자로 시작하고 영숫자로 끝나야 합니다.",
+    "description" : "Validation message for fields that require URL-friendly values in Agent Monitoring form wizard"
   },
   "u8iYhX" : {
     "defaultMessage" : "준비 안 됨",
@@ -7372,6 +7755,10 @@
   "uAnanv" : {
     "defaultMessage" : "Experiment 중지",
     "description" : "Button to stop an AutoML run"
+  },
+  "uB7rmB" : {
+    "defaultMessage" : "추가 작업",
+    "description" : "A label for the dropdown menu trigger on the logged model details page"
   },
   "uBTAtY" : {
     "defaultMessage" : "프롬프트 Template",
@@ -7396,6 +7783,10 @@
   "uMkq/n" : {
     "defaultMessage" : "나에게 알림",
     "description" : "Notification setting status message when enabled on the model view page"
+  },
+  "uQsaMa" : {
+    "defaultMessage" : "모니터링 체크포인트 테이블은 이 스키마에 저장됩니다. 스키마에 대한 CREATE TABLE 권한이 있어야 합니다.",
+    "description" : "Agent Monitoring > create monitor > catalog field description"
   },
   "ua6IVs" : {
     "defaultMessage" : "비교 실행 페이지 로드 중 오류 발생",
@@ -7457,6 +7848,10 @@
     "defaultMessage" : "Logs",
     "description" : "Run page > Overview > Job output > Logs link"
   },
+  "uuPC22" : {
+    "defaultMessage" : "2. 메뉴에서 미리 보기를 선택하고 'Lakehouse Monitoring for GenAI'를 찾아 토글을 활성화합니다.",
+    "description" : "Text displayed to explain how to toggle the preview."
+  },
   "uuQtH8" : {
     "defaultMessage" : "Endpoint 상태",
     "description" : "Endpoint details page > Tile model details > Metadata table > Status cell label"
@@ -7512,6 +7907,10 @@
   "vLOkP5" : {
     "defaultMessage" : "{count, plural, =0 {일치하는 Endpoint 없음} other {일치하는 Endpoint {count,number}개}}",
     "description" : "Matching endpoints count in endpoint list"
+  },
+  "vLiuUc" : {
+    "defaultMessage" : "프로비저닝",
+    "description" : "Label for the model units selector"
   },
   "vNRmQa" : {
     "defaultMessage" : "노트북 사용",
@@ -7584,6 +7983,10 @@
   "vxY1CI" : {
     "defaultMessage" : "상태",
     "description" : "Run page > Overview > Run status section label"
+  },
+  "w/sljb" : {
+    "defaultMessage" : "내림차순 정렬",
+    "description" : "Label for the sort descending button in the logged model list page"
   },
   "w2+rkp" : {
     "defaultMessage" : "지표 검색",
@@ -7677,6 +8080,10 @@
     "defaultMessage" : "''{tag}'을(를) 추가하지 않고 저장하고 닫으시겠습니까?",
     "description" : "Key-value tag editor modal > Unsaved tag message"
   },
+  "wdqv1v" : {
+    "defaultMessage" : "가이드라인",
+    "description" : "Label for the guidelines field in the Agent Monitoring create form"
+  },
   "weY3Kh" : {
     "defaultMessage" : "데이터 집합은 pyspark의 <code>{sampleMethod}</code> 메서드를 사용하여 {sampleType} 샘플링으로 {samplePercentage}% 샘플링되었습니다.",
     "description" : "Indicate sampling method details"
@@ -7708,6 +8115,10 @@
   "wrNl6F" : {
     "defaultMessage" : "미리 보기",
     "description" : "Label for the preview mode on the registered prompt details page"
+  },
+  "wusz4l" : {
+    "defaultMessage" : "입력",
+    "description" : "Label indicating that the logged model was the input of the experiment run. Displayed in logged model list table on the run page."
   },
   "wxHQHb" : {
     "defaultMessage" : "지원되는 요청 형식:",
@@ -7857,6 +8268,10 @@
     "defaultMessage" : "제공된 엔터티 추가",
     "description" : "Empty state title for served entities table when there are no active served entities"
   },
+  "y9OCxQ" : {
+    "defaultMessage" : "제로 모델 단위에서 동적으로 확장됩니다",
+    "description" : "description of provisioned model units of a served model"
+  },
   "yAuDRt" : {
     "defaultMessage" : "다음 입력의 값을 확인할 수 없기 때문에 평가할 수 없습니다({missingParamList}). \"그룹화 기준\" 설정에 입력 열을 추가하거나 \"행 추가\" 버튼을 사용하여 새 parameter 세트를 정의합니다.",
     "description" : "Experiment page > artifact compare view > text cell > missing evaluation parameter values tooltip"
@@ -7968,6 +8383,10 @@
     "defaultMessage" : "소스 실행",
     "description" : "Label for the column indicating a run being the source of the logged model's metric (i.e. source run). Displayed in the logged model details metrics table."
   },
+  "z9H78B" : {
+    "defaultMessage" : "Databricks 외부에서 호스팅되는 GenAI 애플리케이션 모니터링",
+    "description" : "Agent Monitoring > create form > creation mode selector (from template or custom) > description for external option"
+  },
   "z9UqPZ" : {
     "defaultMessage" : "설명",
     "description" : "Title text for the description section on the model version view page"
@@ -8035,6 +8454,10 @@
   "zbzV1A" : {
     "defaultMessage" : "요청 오류율(초당)",
     "description" : "Graph title for request error rates metrics graph"
+  },
+  "zd5Jw4" : {
+    "defaultMessage" : "열 선택",
+    "description" : "Experiment page > traces table > column selector dropdown aria label"
   },
   "zdYXP8" : {
     "defaultMessage" : "상위 실행",

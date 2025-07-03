@@ -36,7 +36,7 @@ def test_keras_save_model_export():
     with mlflow.start_run():
         model_info = mlflow.keras.log_model(
             model,
-            model_path,
+            name=model_path,
             save_exported_model=True,
             signature=signature,
         )
@@ -70,7 +70,7 @@ def test_keras_save_model_non_export():
     )
 
     with mlflow.start_run():
-        model_info = mlflow.keras.log_model(model, "model", save_exported_model=False)
+        model_info = mlflow.keras.log_model(model, name="model", save_exported_model=False)
 
     loaded_model = mlflow.keras.load_model(model_info.model_uri)
 
@@ -100,7 +100,7 @@ def test_save_model_with_signature():
     assert signature.outputs.input_types()[0] == np.dtype("float16")
     model_path = "model"
     with mlflow.start_run():
-        model_info = mlflow.keras.log_model(model, model_path, signature=signature)
+        model_info = mlflow.keras.log_model(model, name=model_path, signature=signature)
 
     loaded_pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
 

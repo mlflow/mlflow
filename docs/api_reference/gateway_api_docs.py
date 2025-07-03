@@ -50,9 +50,9 @@ API_HTML = """
 
 def main():
     config = """
-routes:
+endpoints:
   - name: chat
-    route_type: llm/v1/chat
+    endpoint_type: llm/v1/chat
     model:
       provider: openai
       name: gpt-4o-mini
@@ -60,7 +60,7 @@ routes:
         openai_api_key: key
 
   - name: completions
-    route_type: llm/v1/completions
+    endpoint_type: llm/v1/completions
     model:
       provider: openai
       name: gpt-4o-mini
@@ -68,7 +68,7 @@ routes:
         openai_api_key: key
 
   - name: embeddings
-    route_type: llm/v1/embeddings
+    endpoint_type: llm/v1/embeddings
     model:
       provider: openai
       name: text-embedding-ada-002

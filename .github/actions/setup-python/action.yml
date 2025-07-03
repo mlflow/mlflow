@@ -30,15 +30,24 @@ runs:
             python_version="3.9.18"
           fi
         elif [[ "$python_version" == "3.10" ]]; then
-          python_version="3.10.14"
+          if [ ${{ runner.os }} == "Windows" ]; then
+            python_version="3.10.11"
+          else
+            python_version="3.10.16"
+          fi
         else
-          echo "Invalid python version: '$python_version'. Must be '3.8', '3.9', or '3.10'."
+          echo "Invalid python version: '$python_version'. Must be '3.9', or '3.10'."
           exit 1
         fi
         echo "version=$python_version" >> $GITHUB_OUTPUT
-    - uses: actions/setup-python@v5
+    - uses: actions/setup-python@8d9ed9ac5c53483de85588cdf95a591a75ab9f55 # v5.5.0
       with:
         python-version: ${{ steps.get-python-version.outputs.version }}
-    - uses: astral-sh/setup-uv@v3
+    - uses: astral-sh/setup-uv@f0ec1fc3b38f5e7cd731bb6ce540c5af426746bb # v6.1.0
       with:
-        version: 0.5.4
+        version: 0.7.8
+    - run: |
+        # The default `first-index` strategy is too strict. Use `unsafe-first-match` instead.
+        # https://docs.astral.sh/uv/configuration/environment/#uv_index_strategy
+        echo "UV_INDEX_STRATEGY=unsafe-first-match" >> $GITHUB_ENV
+      shell: bash

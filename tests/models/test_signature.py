@@ -213,7 +213,7 @@ def test_signature_inference_infers_datime_types_as_expected():
 def test_set_signature_to_logged_model():
     artifact_path = "regr-model"
     with mlflow.start_run():
-        model_info = mlflow.sklearn.log_model(RandomForestRegressor(), artifact_path)
+        model_info = mlflow.sklearn.log_model(RandomForestRegressor(), name=artifact_path)
     signature = infer_signature(np.array([1]))
     set_signature(model_info.model_uri, signature)
     model_info = get_model_info(model_info.model_uri)
@@ -237,7 +237,7 @@ def test_set_signature_overwrite():
     with mlflow.start_run():
         model_info = mlflow.sklearn.log_model(
             RandomForestRegressor(),
-            artifact_path,
+            name=artifact_path,
             signature=infer_signature(np.array([1])),
         )
     new_signature = infer_signature(np.array([1]), np.array([1]))
@@ -249,7 +249,8 @@ def test_set_signature_overwrite():
 def test_cannot_set_signature_on_models_scheme_uris():
     signature = infer_signature(np.array([1]))
     with pytest.raises(
-        MlflowException, match="Model URIs with the `models:/` scheme are not supported."
+        MlflowException,
+        match="Model URIs with the `models:/<name>/<version>` scheme are not supported.",
     ):
         set_signature("models:/dummy_model@champion", signature)
 

@@ -27,6 +27,7 @@ import { FormattedMessage } from 'react-intl';
 import { LoggedModelProto, RunEntity } from '../../types';
 import { ExperimentLoggedModelDetailsTableRunCellRenderer } from './ExperimentLoggedModelDetailsTableRunCellRenderer';
 import { ExperimentLoggedModelDatasetButton } from './ExperimentLoggedModelDatasetButton';
+import { useExperimentTrackingDetailsPageLayoutStyles } from '../../hooks/useExperimentTrackingDetailsPageLayoutStyles';
 
 interface RunsTableRow {
   experimentId?: string;
@@ -72,6 +73,8 @@ export const ExperimentLoggedModelDetailsPageRunsTable = ({
   relatedRunsLoading?: boolean;
 }) => {
   const { theme } = useDesignSystemTheme();
+  const { detailsPageTableStyles, detailsPageNoEntriesStyles, detailsPageNoResultsWrapperStyles } =
+    useExperimentTrackingDetailsPageLayoutStyles();
   const intl = useIntl();
   const [filter, setFilter] = useState('');
 
@@ -163,7 +166,7 @@ export const ExperimentLoggedModelDetailsPageRunsTable = ({
     }
     if (!runsWithDatasets.length) {
       return (
-        <div css={{ flex: '1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div css={detailsPageNoEntriesStyles}>
           <Empty
             description={
               <FormattedMessage
@@ -198,7 +201,7 @@ export const ExperimentLoggedModelDetailsPageRunsTable = ({
           ref={(element) => element?.setAttribute('data-testid', 'logged-model-details-runs-table')}
           empty={
             areAllResultsFiltered ? (
-              <div css={{ marginTop: theme.spacing.md * 4 }}>
+              <div css={detailsPageNoResultsWrapperStyles}>
                 <Empty
                   description={
                     <FormattedMessage
@@ -210,6 +213,7 @@ export const ExperimentLoggedModelDetailsPageRunsTable = ({
               </div>
             ) : null
           }
+          css={detailsPageTableStyles}
         >
           <TableRow isHeader>
             {table.getLeafHeaders().map((header, index) => (

@@ -17,7 +17,7 @@ from tests.gateway.tools import MockAsyncResponse, MockAsyncStreamingResponse
 def chat_config():
     return {
         "name": "chat",
-        "route_type": "llm/v1/chat",
+        "endpoint_type": "llm/v1/chat",
         "model": {
             "provider": "cohere",
             "name": "command",
@@ -251,7 +251,7 @@ async def test_chat_stream():
 def completions_config():
     return {
         "name": "completions",
-        "route_type": "llm/v1/completions",
+        "endpoint_type": "llm/v1/completions",
         "model": {
             "provider": "cohere",
             "name": "command",
@@ -422,7 +422,7 @@ async def test_completions_stream():
 def embeddings_config():
     return {
         "name": "embeddings",
-        "route_type": "llm/v1/embeddings",
+        "endpoint_type": "llm/v1/embeddings",
         "model": {
             "provider": "cohere",
             "name": "embed-english-light-v2.0",

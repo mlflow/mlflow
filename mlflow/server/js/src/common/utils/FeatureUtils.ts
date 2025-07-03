@@ -44,6 +44,12 @@ export const shouldEnableToggleIndividualRunsInGroups = () => false;
  * Update relative time axis to use date
  */
 export const shouldEnableRelativeTimeDateAxis = () => false;
+/**
+ * Should enable new difference view charts
+ */
+export const shouldEnableNewDifferenceViewCharts = () => false;
+export const shouldEnableDifferenceViewChartsV3 = () => false;
+export const shouldEnableMinMaxMetricsOnExperimentPage = () => false;
 
 export const shouldEnableTracingUI = () => true;
 export const shouldEnableRunDetailsPageTracesTab = () => true;
@@ -52,24 +58,28 @@ export const shouldEnableUnifiedChartDataTraceHighlight = () => true;
 export const shouldUseRegexpBasedAutoRunsSearchFilter = () => true;
 export const shouldUseRunRowsVisibilityMap = () => true;
 export const isUnstableNestedComponentsMigrated = () => true;
+export const shouldUsePredefinedErrorsInExperimentTracking = () => true;
 
 /**
  * Determines if logged models UI (part of model-centric IA shift) is enabled
  */
-export const isExperimentLoggedModelsUIEnabled = () => false;
+export const isExperimentLoggedModelsUIEnabled = () => true;
+export const isLoggedModelsFilteringAndSortingEnabled = () => true;
 export const isRunPageLoggedModelsTableEnabled = () => isExperimentLoggedModelsUIEnabled();
 
 /**
  * Determines if evaluation results online monitoring UI is enabled
  */
 export const isExperimentEvalResultsMonitoringUIEnabled = () => false;
+export const shouldUseRenamedUnifiedTracesTab = () => true;
 
 /**
  * Flags enabling fetching data via GraphQL for particular views:
  */
-export const shouldEnableGraphQLRunDetailsPage = () => false;
+export const shouldEnableGraphQLRunDetailsPage = () => true;
 export const shouldEnableGraphQLSampledMetrics = () => false;
 export const shouldEnableGraphQLModelVersionsForRunDetails = () => false;
+export const shouldRerunExperimentUISeeding = () => false;
 
 /**
  * A flag determining if we should display the new models UI.

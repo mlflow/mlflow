@@ -4,6 +4,9 @@ import { ModelListPage } from './ModelListPage';
 const ModelListPageWrapperImpl = () => {
   return <ModelListPage />;
 };
-const ModelListPageWrapper = withErrorBoundary(ErrorUtils.mlflowServices.MODEL_REGISTRY, ModelListPageWrapperImpl);
+export const ModelListPageWrapper = withErrorBoundary(
+  ErrorUtils.mlflowServices.MODEL_REGISTRY,
+  ModelListPageWrapperImpl,
+);
 
 export default ModelListPageWrapper;

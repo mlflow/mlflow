@@ -20,7 +20,7 @@ from tests.gateway.tools import MockAsyncResponse, mock_http_client
 def completions_config():
     return {
         "name": "completions",
-        "route_type": "llm/v1/completions",
+        "endpoint_type": "llm/v1/completions",
         "model": {
             "provider": "mlflow-model-serving",
             "name": "text2text",
@@ -155,7 +155,7 @@ def test_invalid_return_key_from_mlflow_serving():
 def embedding_config():
     return {
         "name": "embeddings",
-        "route_type": "llm/v1/embeddings",
+        "endpoint_type": "llm/v1/embeddings",
         "model": {
             "provider": "mlflow-model-serving",
             "name": "sentence-piece",
@@ -234,7 +234,7 @@ def test_invalid_embeddings_response(response):
 def chat_config():
     return {
         "name": "chat",
-        "route_type": "llm/v1/chat",
+        "endpoint_type": "llm/v1/chat",
         "model": {
             "provider": "mlflow-model-serving",
             "name": "chat-bot-9000",

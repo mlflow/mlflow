@@ -1,5 +1,5 @@
 import type { WizardStep } from './WizardStep';
-import type { StepperProps } from '../../development/Stepper';
+import type { StepperProps } from '../../design-system/Stepper';
 export interface HorizontalWizardStepsContentProps {
     steps: WizardStep[];
     currentStepIndex: number;

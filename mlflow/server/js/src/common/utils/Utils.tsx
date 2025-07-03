@@ -7,12 +7,6 @@
 
 import React from 'react';
 import moment from 'moment';
-import notebookSvg from '../static/notebook.svg';
-import revisionSvg from '../static/revision.svg';
-import emptySvg from '../static/empty.svg';
-import laptopSvg from '../static/laptop.svg';
-import projectSvg from '../static/project.svg';
-import workflowsIconSvg from '../static/WorkflowsIcon.svg';
 import qs from 'qs';
 import { MLFLOW_INTERNAL_PREFIX } from './TagUtils';
 import _ from 'lodash';
@@ -20,7 +14,6 @@ import { ErrorCodes, SupportPageUrl } from '../constants';
 import { FormattedMessage, IntlShape } from 'react-intl';
 import { ErrorWrapper } from './ErrorWrapper';
 import { KeyValueEntity, RunInfoEntity } from '../../experiment-tracking/types';
-import { FileCodeIcon, FolderBranchIcon, NotebookIcon, WorkflowsIcon } from '@databricks/design-system';
 import { NOTE_CONTENT_TAG } from '../../experiment-tracking/utils/NoteUtils';
 
 class Utils {
@@ -622,8 +615,8 @@ class Utils {
     return Utils.getRunName(runInfo) || 'Run ' + runUuid;
   }
 
-  static getRunName(runInfo: RunInfoEntity) {
-    return runInfo.runName || '';
+  static getRunName(runInfo?: RunInfoEntity) {
+    return runInfo?.runName || '';
   }
 
   static getRunNameFromTags(runTags: any) {

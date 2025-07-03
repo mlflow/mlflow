@@ -3,7 +3,6 @@ import json
 import logging
 import os
 import pathlib
-import posixpath
 import shlex
 import signal
 import subprocess
@@ -44,7 +43,7 @@ _logger = logging.getLogger(__name__)
 _STDIN_SERVER_SCRIPT = Path(__file__).parent.joinpath("stdin_server.py")
 
 # Flavors that require Java to be installed in the environment
-JAVA_FLAVORS = {"johnsnowlabs", "h2o", "mleap", "spark"}
+JAVA_FLAVORS = {"johnsnowlabs", "h2o", "spark"}
 
 # Some flavor requires additional packages to be installed in the environment
 FLAVOR_SPECIFIC_APT_PACKAGES = {
@@ -419,8 +418,13 @@ class PyFuncBackend(FlavorBackend):
                 if env_manager == em.LOCAL:
                     raise MlflowException.invalid_parameter_value(LOCAL_ENV_MANAGER_ERROR_MESSAGE)
 
+            copy_src = os.path.relpath(model_path, start=output_dir)
             model_install_steps = self._model_installation_steps(
-                model_path, env_manager, install_mlflow, enable_mlserver
+                copy_src,
+                model_path,
+                env_manager,
+                install_mlflow,
+                enable_mlserver,
             )
             entrypoint = f"from mlflow.models import container as C; C._serve('{env_manager}')"
 
@@ -488,12 +492,13 @@ class PyFuncBackend(FlavorBackend):
             )
             return UBUNTU_BASE_IMAGE
 
-    def _model_installation_steps(self, model_path, env_manager, install_mlflow, enable_mlserver):
-        model_dir = str(posixpath.join(_MODEL_DIR_NAME, os.path.basename(model_path)))
+    def _model_installation_steps(
+        self, copy_src, model_path, env_manager, install_mlflow, enable_mlserver
+    ):
         # Copy model to image if model_uri is specified
         steps = (
             "# Copy model to image and install dependencies\n"
-            f"COPY {model_dir} /opt/ml/model\nRUN python -c "
+            f"COPY {copy_src} /opt/ml/model\nRUN python -c "
         )
         steps += (
             f'"{self._get_install_pyfunc_deps_cmd(env_manager, install_mlflow, enable_mlserver)}"'

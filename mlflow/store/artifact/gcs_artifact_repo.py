@@ -4,6 +4,7 @@ import os
 import posixpath
 import urllib.parse
 from collections import namedtuple
+from typing import Optional
 
 from packaging.version import Version
 
@@ -14,7 +15,6 @@ from mlflow.entities.multipart_upload import (
 )
 from mlflow.environment_variables import (
     MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT,
-    MLFLOW_GCS_DEFAULT_TIMEOUT,
     MLFLOW_GCS_DOWNLOAD_CHUNK_SIZE,
     MLFLOW_GCS_UPLOAD_CHUNK_SIZE,
 )
@@ -40,8 +40,14 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             credentials as described in https://google-cloud.readthedocs.io/en/latest/core/auth.html
     """
 
-    def __init__(self, artifact_uri, client=None, credential_refresh_def=None):
-        super().__init__(artifact_uri)
+    def __init__(
+        self,
+        artifact_uri: str,
+        tracking_uri: Optional[str] = None,
+        client=None,
+        credential_refresh_def=None,
+    ) -> None:
+        super().__init__(artifact_uri, tracking_uri)
         from google.auth.exceptions import DefaultCredentialsError
         from google.cloud import storage as gcs_storage
         from google.cloud.storage.constants import _DEFAULT_TIMEOUT
@@ -49,9 +55,7 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         self._GCS_DOWNLOAD_CHUNK_SIZE = MLFLOW_GCS_DOWNLOAD_CHUNK_SIZE.get()
         self._GCS_UPLOAD_CHUNK_SIZE = MLFLOW_GCS_UPLOAD_CHUNK_SIZE.get()
         self._GCS_DEFAULT_TIMEOUT = (
-            MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT.get()
-            or MLFLOW_GCS_DEFAULT_TIMEOUT.get()
-            or _DEFAULT_TIMEOUT
+            MLFLOW_ARTIFACT_UPLOAD_DOWNLOAD_TIMEOUT.get() or _DEFAULT_TIMEOUT
         )
         # Method to use for refresh
         self.credential_refresh_def = credential_refresh_def

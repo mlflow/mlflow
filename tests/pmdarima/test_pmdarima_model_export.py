@@ -192,7 +192,7 @@ def test_pmdarima_log_model(auto_arima_model, tmp_path, should_start_run):
         _mlflow_conda_env(conda_env, additional_pip_deps=["pmdarima"])
         model_info = mlflow.pmdarima.log_model(
             auto_arima_model,
-            artifact_path,
+            name=artifact_path,
             conda_env=str(conda_env),
         )
         reloaded_model = mlflow.pmdarima.load_model(model_uri=model_info.model_uri)
@@ -215,7 +215,7 @@ def test_pmdarima_log_model_calls_register_model(auto_arima_object_model, tmp_pa
         _mlflow_conda_env(conda_env, additional_pip_deps=["pmdarima"])
         model_info = mlflow.pmdarima.log_model(
             auto_arima_object_model,
-            artifact_path,
+            name=artifact_path,
             conda_env=str(conda_env),
             registered_model_name="PmdarimaModel",
         )
@@ -232,7 +232,7 @@ def test_pmdarima_log_model_no_registered_model_name(auto_arima_model, tmp_path)
     with mlflow.start_run(), register_model_patch:
         conda_env = tmp_path.joinpath("conda_env.yaml")
         _mlflow_conda_env(conda_env, additional_pip_deps=["pmdarima"])
-        mlflow.pmdarima.log_model(auto_arima_model, artifact_path, conda_env=str(conda_env))
+        mlflow.pmdarima.log_model(auto_arima_model, name=artifact_path, conda_env=str(conda_env))
         mlflow.tracking._model_registry.fluent._register_model.assert_not_called()
 
 
@@ -268,14 +268,14 @@ def test_pmdarima_log_model_with_pip_requirements(auto_arima_object_model, tmp_p
     req_file.write_text("a")
     with mlflow.start_run():
         model_info = mlflow.pmdarima.log_model(
-            auto_arima_object_model, "model", pip_requirements=str(req_file)
+            auto_arima_object_model, name="model", pip_requirements=str(req_file)
         )
         _assert_pip_requirements(model_info.model_uri, [expected_mlflow_version, "a"], strict=True)
 
     # List of requirements
     with mlflow.start_run():
         model_info = mlflow.pmdarima.log_model(
-            auto_arima_object_model, "model", pip_requirements=[f"-r {req_file}", "b"]
+            auto_arima_object_model, name="model", pip_requirements=[f"-r {req_file}", "b"]
         )
         _assert_pip_requirements(
             model_info.model_uri, [expected_mlflow_version, "a", "b"], strict=True
@@ -284,7 +284,7 @@ def test_pmdarima_log_model_with_pip_requirements(auto_arima_object_model, tmp_p
     # Constraints file
     with mlflow.start_run():
         model_info = mlflow.pmdarima.log_model(
-            auto_arima_object_model, "model", pip_requirements=[f"-c {req_file}", "b"]
+            auto_arima_object_model, name="model", pip_requirements=[f"-c {req_file}", "b"]
         )
         _assert_pip_requirements(
             model_info.model_uri,
@@ -303,7 +303,7 @@ def test_pmdarima_log_model_with_extra_pip_requirements(auto_arima_model, tmp_pa
     req_file.write_text("a")
     with mlflow.start_run():
         model_info = mlflow.pmdarima.log_model(
-            auto_arima_model, "model", extra_pip_requirements=str(req_file)
+            auto_arima_model, name="model", extra_pip_requirements=str(req_file)
         )
         _assert_pip_requirements(
             model_info.model_uri, [expected_mlflow_version, *default_reqs, "a"]
@@ -312,7 +312,7 @@ def test_pmdarima_log_model_with_extra_pip_requirements(auto_arima_model, tmp_pa
     # List of requirements
     with mlflow.start_run():
         model_info = mlflow.pmdarima.log_model(
-            auto_arima_model, "model", extra_pip_requirements=[f"-r {req_file}", "b"]
+            auto_arima_model, name="model", extra_pip_requirements=[f"-r {req_file}", "b"]
         )
         _assert_pip_requirements(
             model_info.model_uri, [expected_mlflow_version, *default_reqs, "a", "b"]
@@ -321,7 +321,7 @@ def test_pmdarima_log_model_with_extra_pip_requirements(auto_arima_model, tmp_pa
     # Constraints file
     with mlflow.start_run():
         model_info = mlflow.pmdarima.log_model(
-            auto_arima_model, "model", extra_pip_requirements=[f"-c {req_file}", "b"]
+            auto_arima_model, name="model", extra_pip_requirements=[f"-c {req_file}", "b"]
         )
         _assert_pip_requirements(
             model_uri=model_info.model_uri,
@@ -343,7 +343,7 @@ def test_pmdarima_model_log_without_conda_env_uses_default_env_with_expected_dep
 ):
     artifact_path = "model"
     with mlflow.start_run():
-        model_info = mlflow.pmdarima.log_model(auto_arima_object_model, artifact_path)
+        model_info = mlflow.pmdarima.log_model(auto_arima_object_model, name=artifact_path)
     _assert_pip_requirements(model_info.model_uri, mlflow.pmdarima.get_default_pip_requirements())
 
 
@@ -352,7 +352,7 @@ def test_pmdarima_pyfunc_serve_and_score(auto_arima_model):
     with mlflow.start_run():
         model_info = mlflow.pmdarima.log_model(
             auto_arima_model,
-            artifact_path,
+            name=artifact_path,
             input_example=pd.DataFrame({"n_periods": 30}, index=[0]),
         )
     local_predict = auto_arima_model.predict(30)
@@ -412,7 +412,7 @@ def test_log_model_with_code_paths(auto_arima_model):
         mock.patch("mlflow.pmdarima._add_code_from_conf_to_system_path") as add_mock,
     ):
         model_info = mlflow.pmdarima.log_model(
-            auto_arima_model, artifact_path, code_paths=[__file__]
+            auto_arima_model, name=artifact_path, code_paths=[__file__]
         )
         _compare_logged_code_paths(__file__, model_info.model_uri, mlflow.pmdarima.FLAVOR_NAME)
         mlflow.pmdarima.load_model(model_info.model_uri)
@@ -442,7 +442,7 @@ def test_model_log_with_metadata(auto_arima_model):
     with mlflow.start_run():
         model_info = mlflow.pmdarima.log_model(
             auto_arima_model,
-            artifact_path,
+            name=artifact_path,
             metadata={"metadata_key": "metadata_value"},
         )
 
@@ -456,7 +456,7 @@ def test_model_log_with_signature_inference(auto_arima_model):
 
     with mlflow.start_run():
         model_info = mlflow.pmdarima.log_model(
-            auto_arima_model, artifact_path, input_example=example
+            auto_arima_model, name=artifact_path, input_example=example
         )
 
     model_info_loaded = Model.load(model_info.model_uri)

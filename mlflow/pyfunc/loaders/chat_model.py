@@ -9,7 +9,6 @@ from mlflow.pyfunc.model import (
     _load_context_model_and_signature,
 )
 from mlflow.types.llm import ChatCompletionChunk, ChatCompletionResponse, ChatMessage, ChatParams
-from mlflow.utils.annotations import experimental
 
 _logger = logging.getLogger(__name__)
 
@@ -19,7 +18,6 @@ def _load_pyfunc(model_path: str, model_config: Optional[dict[str, Any]] = None)
     return _ChatModelPyfuncWrapper(chat_model=chat_model, context=context, signature=signature)
 
 
-@experimental
 class _ChatModelPyfuncWrapper:
     """
     Wrapper class that converts dict inputs to pydantic objects accepted by :class:`~ChatModel`.

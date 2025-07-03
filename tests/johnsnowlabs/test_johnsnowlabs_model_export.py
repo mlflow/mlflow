@@ -85,7 +85,8 @@ def fix_dataframe_with_respect_for_nlu_issues(df1, df2):
 
 
 def validate_model(original_model, new_model):
-    df1, df2 = original_model.predict("Hello World"), new_model.predict("Hello World")
+    df1 = original_model.predict("Hello World")
+    df2 = new_model.predict("Hello World")
     if isinstance(df2, str):
         df2 = (
             pd.DataFrame(json.loads(df2))
@@ -217,7 +218,7 @@ def test_log_model_with_signature_and_examples(jsl_model):
             with mlflow.start_run():
                 mlflow.johnsnowlabs.log_model(
                     jsl_model,
-                    artifact_path,
+                    name=artifact_path,
                     signature=signature,
                     input_example=example,
                 )
@@ -249,7 +250,7 @@ def test_johnsnowlabs_model_log(tmp_path, jsl_model, should_start_run, use_dfs_t
         artifact_path = "model"
         mlflow.johnsnowlabs.log_model(
             jsl_model,
-            artifact_path,
+            name=artifact_path,
             dfs_tmpdir=dfs_tmpdir,
         )
         model_uri = f"runs:/{mlflow.active_run().info.run_id}/{artifact_path}"
@@ -268,7 +269,7 @@ def test_log_model_calls_register_model(tmp_path, jsl_model):
     with mlflow.start_run(), register_model_patch:
         mlflow.johnsnowlabs.log_model(
             jsl_model,
-            artifact_path,
+            name=artifact_path,
             dfs_tmpdir=dfs_tmp_dir,
             registered_model_name="AdsModel1",
         )

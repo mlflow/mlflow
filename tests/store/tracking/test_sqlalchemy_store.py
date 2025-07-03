@@ -8,6 +8,7 @@ import shutil
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Union
 from unittest import mock
@@ -30,11 +31,16 @@ from mlflow.entities import (
     SourceType,
     ViewType,
     _DatasetSummary,
+    trace_location,
 )
+from mlflow.entities.logged_model_output import LoggedModelOutput
+from mlflow.entities.logged_model_parameter import LoggedModelParameter
+from mlflow.entities.logged_model_status import LoggedModelStatus
+from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
-    _MLFLOW_GO_STORE_TESTING,
     MLFLOW_TRACKING_URI,
 )
 from mlflow.exceptions import MlflowException
@@ -51,6 +57,7 @@ from mlflow.store.db.utils import (
     _get_latest_schema_revision,
     _get_schema_version,
 )
+from mlflow.store.entities import PagedList
 from mlflow.store.tracking import (
     SEARCH_MAX_RESULTS_DEFAULT,
     SEARCH_MAX_RESULTS_THRESHOLD,
@@ -63,16 +70,24 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlInput,
     SqlInputTag,
     SqlLatestMetric,
+    SqlLoggedModel,
+    SqlLoggedModelMetric,
+    SqlLoggedModelParam,
+    SqlLoggedModelTag,
     SqlMetric,
     SqlParam,
     SqlRun,
     SqlTag,
     SqlTraceInfo,
-    SqlTraceRequestMetadata,
+    SqlTraceMetadata,
     SqlTraceTag,
 )
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore, _get_orderby_clauses
-from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.constant import (
+    MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE,
+    TRACE_SCHEMA_VERSION_KEY,
+    TraceMetadataKey,
+)
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.mlflow_tags import (
@@ -204,6 +219,10 @@ def _cleanup_database(store: SqlAlchemyStore):
     with store.ManagedSessionMaker() as session:
         # Delete all rows in all tables
         for model in (
+            SqlLoggedModel,
+            SqlLoggedModelMetric,
+            SqlLoggedModelParam,
+            SqlLoggedModelTag,
             SqlParam,
             SqlMetric,
             SqlLatestMetric,
@@ -213,7 +232,7 @@ def _cleanup_database(store: SqlAlchemyStore):
             SqlDataset,
             SqlRun,
             SqlTraceTag,
-            SqlTraceRequestMetadata,
+            SqlTraceMetadata,
             SqlTraceInfo,
             SqlExperimentTag,
             SqlExperiment,
@@ -225,7 +244,7 @@ def _cleanup_database(store: SqlAlchemyStore):
             session.execute(sqlalchemy.sql.text(reset_experiment_id))
 
 
-def _create_experiments(store: SqlAlchemyStore, names) -> Union[str, list]:
+def _create_experiments(store: SqlAlchemyStore, names) -> Union[str, list[str]]:
     if isinstance(names, (list, tuple)):
         ids = []
         for name in names:
@@ -828,6 +847,9 @@ def test_run_info(store: SqlAlchemyStore):
         ]:
             continue
 
+        if k == "run_uuid":
+            k = "run_id"
+
         v2 = getattr(run.info, k)
         if k == "source_type":
             assert v == SourceType.to_string(v2)
@@ -989,9 +1011,9 @@ def test_get_deleted_runs(store: SqlAlchemyStore):
     deleted_run_ids = store._get_deleted_runs()
     assert deleted_run_ids == []
 
-    store.delete_run(run.info.run_uuid)
+    store.delete_run(run.info.run_id)
     deleted_run_ids = store._get_deleted_runs()
-    assert deleted_run_ids == [run.info.run_uuid]
+    assert deleted_run_ids == [run.info.run_id]
 
 
 def test_log_metric(store: SqlAlchemyStore):
@@ -1138,15 +1160,6 @@ def test_log_metric_allows_multiple_values_at_same_ts_and_run_data_uses_max_ts_v
     assert metric_obj.value == 20
 
 
-def test_get_metric_history_paginated_request_raises(store: SqlAlchemyStore):
-    with pytest.raises(
-        MlflowException,
-        match="The SQLAlchemyStore backend does not support pagination for the "
-        "`get_metric_history` API.",
-    ):
-        store.get_metric_history("fake_run", "fake_metric", max_results=50, page_token="42")
-
-
 def test_log_null_metric(store: SqlAlchemyStore):
     run = _run_factory(store)
 
@@ -1286,7 +1299,7 @@ def test_set_experiment_tag(store: SqlAlchemyStore):
     experiment = store.get_experiment(exp_id)
     assert experiment.tags["multiline tag"] == "value2\nvalue2\nvalue2"
     # test cannot set tags that are too long
-    long_tag = entities.ExperimentTag("longTagKey", "a" * 5001)
+    long_tag = entities.ExperimentTag("longTagKey", "a" * 100_001)
     with pytest.raises(MlflowException, match="exceeds the maximum length of 5000"):
         store.set_experiment_tag(exp_id, long_tag)
     # test can set tags that are somewhat long
@@ -1330,8 +1343,10 @@ def test_set_tag(store: SqlAlchemyStore, monkeypatch):
 
 def test_delete_tag(store: SqlAlchemyStore):
     run = _run_factory(store)
-    k0, v0 = "tag0", "val0"
-    k1, v1 = "tag1", "val1"
+    k0 = "tag0"
+    v0 = "val0"
+    k1 = "tag1"
+    v1 = "val1"
     tag0 = entities.RunTag(k0, v0)
     tag1 = entities.RunTag(k1, v1)
     store.set_tag(run.info.run_id, tag0)
@@ -1383,6 +1398,94 @@ def test_get_metric_history(store: SqlAlchemyStore):
     ) == sorted(
         [(m.key, m.value, m.timestamp) for m in actual],
     )
+
+
+def test_get_metric_history_with_max_results(store: SqlAlchemyStore):
+    run = _run_factory(store)
+    run_id = run.info.run_id
+
+    metric_key = "test_metric"
+    expected_metrics = []
+    for i in range(5):
+        metric = models.SqlMetric(
+            key=metric_key, value=float(i), timestamp=1000 + i, step=i
+        ).to_mlflow_entity()
+        store.log_metric(run_id, metric)
+        expected_metrics.append(metric)
+
+    # Test without max_results - should return all 5 metrics
+    all_metrics = store.get_metric_history(run_id, metric_key)
+    assert len(all_metrics) == 5
+
+    # Test with max_results=3 - should return only first 3 metrics
+    limited_metrics = store.get_metric_history(run_id, metric_key, max_results=3)
+    assert len(limited_metrics) == 3
+
+    all_metric_tuples = {(m.key, m.value, m.timestamp, m.step) for m in all_metrics}
+    limited_metric_tuples = {(m.key, m.value, m.timestamp, m.step) for m in limited_metrics}
+    assert limited_metric_tuples.issubset(all_metric_tuples)
+
+    # Test with max_results=0 - should return no metrics
+    no_metrics = store.get_metric_history(run_id, metric_key, max_results=0)
+    assert len(no_metrics) == 0
+
+    # Test with max_results larger than available metrics - should return all metrics
+    more_metrics = store.get_metric_history(run_id, metric_key, max_results=10)
+    assert len(more_metrics) == 5
+
+    more_metric_tuples = {(m.key, m.value, m.timestamp, m.step) for m in more_metrics}
+    assert more_metric_tuples == all_metric_tuples
+
+
+def test_get_metric_history_with_page_token(store: SqlAlchemyStore):
+    run = _run_factory(store)
+    run_id = run.info.run_id
+
+    metric_key = "test_metric"
+    for i in range(10):
+        metric = models.SqlMetric(
+            key=metric_key, value=float(i), timestamp=1000 + i, step=i
+        ).to_mlflow_entity()
+        store.log_metric(run_id, metric)
+
+    page_size = 4
+
+    first_page = store.get_metric_history(
+        run_id, metric_key, max_results=page_size, page_token=None
+    )
+    assert isinstance(first_page, PagedList)
+    assert first_page.token is not None
+    assert len(first_page) == 4
+
+    second_page = store.get_metric_history(
+        run_id, metric_key, max_results=page_size, page_token=first_page.token
+    )
+    assert isinstance(first_page, PagedList)
+    assert second_page.token is not None
+    assert len(second_page) == 4
+
+    third_page = store.get_metric_history(
+        run_id, metric_key, max_results=page_size, page_token=second_page.token
+    )
+    assert isinstance(first_page, PagedList)
+    assert third_page.token is None
+    assert len(third_page) == 2
+
+    all_paginated_metrics = list(first_page) + list(second_page) + list(third_page)
+    assert len(all_paginated_metrics) == 10
+
+    metric_values = [m.value for m in all_paginated_metrics]
+    expected_values = [float(i) for i in range(10)]
+    assert sorted(metric_values) == sorted(expected_values)
+
+    # Test with invalid page_token
+    with pytest.raises(MlflowException, match="Invalid page token"):
+        store.get_metric_history(run_id, metric_key, page_token="invalid_token")
+
+    # Test pagination without max_results (should return all in one page)
+    result = store.get_metric_history(run_id, metric_key, page_token=None)
+    assert len(result) == 10
+    assert result.token is None  # No next page
 
 
 def test_rename_experiment(store: SqlAlchemyStore):
@@ -2986,7 +3089,7 @@ def _generate_large_data(store, nb_runs=1000):
             tags=[],
             user_id="Anderson",
             run_name="name",
-        ).info.run_uuid
+        ).info.run_id
 
         run_ids.append(run_id)
 
@@ -3088,14 +3191,14 @@ def test_search_runs_keep_all_runs_when_sorting(store: SqlAlchemyStore):
         tags=[],
         user_id="Me",
         run_name="name",
-    ).info.run_uuid
+    ).info.run_id
     r2 = store.create_run(
         experiment_id=experiment_id,
         start_time=0,
         tags=[],
         user_id="Me",
         run_name="name",
-    ).info.run_uuid
+    ).info.run_id
     store.set_tag(r1, RunTag(key="t1", value="1"))
     store.set_tag(r1, RunTag(key="t2", value="1"))
     store.set_tag(r2, RunTag(key="t2", value="1"))
@@ -4103,9 +4206,9 @@ def test_create_run_appends_to_artifact_uri_path_correctly(input_uri, expected_u
     _assert_create_run_appends_to_artifact_uri_path_correctly(input_uri, expected_uri)
 
 
-def test_start_and_end_trace(store: SqlAlchemyStore):
+def test_legacy_start_and_end_trace_v2(store: SqlAlchemyStore):
     experiment_id = store.create_experiment("test_experiment")
-    trace_info = store.start_trace(
+    trace_info = store.deprecated_start_trace_v2(
         experiment_id=experiment_id,
         timestamp_ms=1234,
         request_metadata={"rq1": "foo", "rq2": "bar"},
@@ -4118,7 +4221,11 @@ def test_start_and_end_trace(store: SqlAlchemyStore):
     assert trace_info.timestamp_ms == 1234
     assert trace_info.execution_time_ms is None
     assert trace_info.status == TraceStatus.IN_PROGRESS
-    assert trace_info.request_metadata == {"rq1": "foo", "rq2": "bar"}
+    assert trace_info.request_metadata == {
+        "rq1": "foo",
+        "rq2": "bar",
+        TRACE_SCHEMA_VERSION_KEY: "2",
+    }
     artifact_location = trace_info.tags[MLFLOW_ARTIFACT_LOCATION]
     assert artifact_location.endswith(f"/{experiment_id}/traces/{request_id}/artifacts")
     assert trace_info.tags == {
@@ -4126,9 +4233,9 @@ def test_start_and_end_trace(store: SqlAlchemyStore):
         "tag2": "orange",
         MLFLOW_ARTIFACT_LOCATION: artifact_location,
     }
-    assert trace_info == store.get_trace_info(request_id)
+    assert trace_info.to_v3() == store.get_trace_info(request_id)
 
-    trace_info = store.end_trace(
+    trace_info = store.deprecated_end_trace_v2(
         request_id=request_id,
         timestamp_ms=2345,
         status=TraceStatus.OK,
@@ -4148,6 +4255,7 @@ def test_start_and_end_trace(store: SqlAlchemyStore):
         "rq1": "updated",
         "rq2": "bar",
         "rq3": "baz",
+        TRACE_SCHEMA_VERSION_KEY: "2",
     }
     assert trace_info.tags == {
         "tag1": "updated",
@@ -4155,62 +4263,63 @@ def test_start_and_end_trace(store: SqlAlchemyStore):
         "tag3": "grape",
         MLFLOW_ARTIFACT_LOCATION: artifact_location,
     }
-    assert trace_info == store.get_trace_info(request_id)
+    assert trace_info.to_v3() == store.get_trace_info(request_id)
 
 
-def test_start_trace_with_invalid_experiment_id(store: SqlAlchemyStore):
-    with pytest.raises(MlflowException, match="No Experiment with id=123"):
-        store.start_trace(
-            experiment_id="123",
-            timestamp_ms=0,
-            request_metadata={},
-            tags={},
-        )
+def test_start_trace(store: SqlAlchemyStore):
+    experiment_id = store.create_experiment("test_experiment")
+    trace_info = TraceInfo(
+        trace_id="tr-123",
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1234,
+        execution_duration=100,
+        state=TraceState.OK,
+        tags={"tag1": "apple", "tag2": "orange"},
+        trace_metadata={"rq1": "foo", "rq2": "bar"},
+    )
+    trace_info = store.start_trace(trace_info)
+    trace_id = trace_info.trace_id
+
+    assert trace_info.trace_id is not None
+    assert trace_info.experiment_id == experiment_id
+    assert trace_info.request_time == 1234
+    assert trace_info.execution_duration == 100
+    assert trace_info.state == TraceState.OK
+    assert trace_info.trace_metadata == {"rq1": "foo", "rq2": "bar", TRACE_SCHEMA_VERSION_KEY: "3"}
+    artifact_location = trace_info.tags[MLFLOW_ARTIFACT_LOCATION]
+    assert artifact_location.endswith(f"/{experiment_id}/traces/{trace_id}/artifacts")
+    assert trace_info.tags == {
+        "tag1": "apple",
+        "tag2": "orange",
+        MLFLOW_ARTIFACT_LOCATION: artifact_location,
+    }
+    assert trace_info == store.get_trace_info(trace_id)
 
 
 def _create_trace(
     store: SqlAlchemyStore,
-    request_id: str,
+    trace_id: str,
     experiment_id=0,
-    timestamp_ms=0,
-    execution_time_ms=0,
-    status=TraceStatus.OK,
-    request_metadata=None,
+    request_time=0,
+    execution_duration=0,
+    state=TraceState.OK,
+    trace_metadata=None,
     tags=None,
 ) -> TraceInfo:
     """Helper function to create a test trace in the database."""
     if not store.get_experiment(experiment_id):
         store.create_experiment(store, experiment_id)
 
-    with mock.patch(
-        "mlflow.store.tracking.sqlalchemy_store.generate_request_id",
-        side_effect=lambda: request_id,
-    ):
-        # In case if under the hood of `store` is a GO implementation, it is
-        # not possible to mock `generate.request_id`. Let's send generated `request_id`
-        # via special tag='mock.generate_request_id.go.testing.tag'
-        # so GO implementation can catch it.
-        if _MLFLOW_GO_STORE_TESTING.get():
-            if tags:
-                tags["mock.generate_request_id.go.testing.tag"] = request_id
-            else:
-                tags = {"mock.generate_request_id.go.testing.tag": request_id}
-
-        trace_info = store.start_trace(
-            experiment_id=experiment_id,
-            timestamp_ms=timestamp_ms,
-            request_metadata=request_metadata or {},
-            tags=tags or {},
-        )
-
-    store.end_trace(
-        request_id=request_id,
-        timestamp_ms=timestamp_ms + execution_time_ms,
-        status=status,
-        request_metadata={},
-        tags={},
+    trace_info = TraceInfo(
+        trace_id=trace_id,
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=request_time,
+        execution_duration=execution_duration,
+        state=state,
+        tags=tags or {},
+        trace_metadata=trace_metadata or {},
     )
-    return trace_info
+    return store.start_trace(trace_info)
 
 
 @pytest.fixture
@@ -4223,47 +4332,47 @@ def store_with_traces(tmp_path):
         store,
         "tr-0",
         exp2,
-        timestamp_ms=0,
-        execution_time_ms=6,
-        status=TraceStatus.OK,
+        request_time=0,
+        execution_duration=6,
+        state=TraceState.OK,
         tags={"mlflow.traceName": "ddd"},
-        request_metadata={TraceMetadataKey.SOURCE_RUN: "run0"},
+        trace_metadata={TraceMetadataKey.SOURCE_RUN: "run0"},
     )
     _create_trace(
         store,
         "tr-1",
         exp2,
-        timestamp_ms=1,
-        execution_time_ms=2,
-        status=TraceStatus.ERROR,
+        request_time=1,
+        execution_duration=2,
+        state=TraceState.ERROR,
         tags={"mlflow.traceName": "aaa", "fruit": "apple", "color": "red"},
-        request_metadata={TraceMetadataKey.SOURCE_RUN: "run1"},
+        trace_metadata={TraceMetadataKey.SOURCE_RUN: "run1"},
     )
     _create_trace(
         store,
         "tr-2",
         exp1,
-        timestamp_ms=2,
-        execution_time_ms=4,
-        status=TraceStatus.UNSPECIFIED,
+        request_time=2,
+        execution_duration=4,
+        state=TraceState.STATE_UNSPECIFIED,
         tags={"mlflow.traceName": "bbb", "fruit": "apple", "color": "green"},
     )
     _create_trace(
         store,
         "tr-3",
         exp1,
-        timestamp_ms=3,
-        execution_time_ms=10,
-        status=TraceStatus.OK,
+        request_time=3,
+        execution_duration=10,
+        state=TraceState.OK,
         tags={"mlflow.traceName": "ccc", "fruit": "orange"},
     )
     _create_trace(
         store,
         "tr-4",
         exp1,
-        timestamp_ms=4,
-        execution_time_ms=10,
-        status=TraceStatus.OK,
+        request_time=4,
+        execution_duration=10,
+        state=TraceState.OK,
         tags={"mlflow.traceName": "ddd", "color": "blue"},
     )
 
@@ -4309,7 +4418,7 @@ def test_search_traces_order_by(store_with_traces, order_by, expected_ids):
         max_results=5,
         order_by=order_by,
     )
-    actual_ids = [trace_info.request_id for trace_info in trace_infos]
+    actual_ids = [trace_info.trace_id for trace_info in trace_infos]
     assert actual_ids == expected_ids
 
 
@@ -4351,7 +4460,7 @@ def test_search_traces_with_filter(store_with_traces, filter_string, expected_id
         max_results=5,
         order_by=[],
     )
-    actual_ids = [trace_info.request_id for trace_info in trace_infos]
+    actual_ids = [trace_info.trace_id for trace_info in trace_infos]
     assert actual_ids == expected_ids
 
 
@@ -4403,13 +4512,13 @@ def test_search_traces_pagination(store_with_traces):
     ]
 
     traces, token = store_with_traces.search_traces(exps, max_results=2)
-    assert [t.request_id for t in traces] == ["tr-4", "tr-3"]
+    assert [t.trace_id for t in traces] == ["tr-4", "tr-3"]
 
     traces, token = store_with_traces.search_traces(exps, max_results=2, page_token=token)
-    assert [t.request_id for t in traces] == ["tr-2", "tr-1"]
+    assert [t.trace_id for t in traces] == ["tr-2", "tr-1"]
 
     traces, token = store_with_traces.search_traces(exps, max_results=2, page_token=token)
-    assert [t.request_id for t in traces] == ["tr-0"]
+    assert [t.trace_id for t in traces] == ["tr-0"]
     assert token is None
 
 
@@ -4418,52 +4527,56 @@ def test_search_traces_pagination_tie_breaker(store):
     # works correctly.
     exp1 = store.create_experiment("exp1")
 
-    request_ids = [f"tr-{i}" for i in range(5)]
-    random.shuffle(request_ids)
+    trace_ids = [f"tr-{i}" for i in range(5)]
+    random.shuffle(trace_ids)
     # Insert traces with random order
-    for rid in request_ids:
-        _create_trace(store, rid, exp1, timestamp_ms=0)
+    for rid in trace_ids:
+        _create_trace(store, rid, exp1, request_time=0)
 
     # Insert 5 more traces with newer timestamp
-    request_ids = [f"tr-{i + 5}" for i in range(5)]
-    random.shuffle(request_ids)
-    for rid in request_ids:
-        _create_trace(store, rid, exp1, timestamp_ms=1)
+    trace_ids = [f"tr-{i + 5}" for i in range(5)]
+    random.shuffle(trace_ids)
+    for rid in trace_ids:
+        _create_trace(store, rid, exp1, request_time=1)
 
     traces, token = store.search_traces([exp1], max_results=3)
-    assert [t.request_id for t in traces] == ["tr-5", "tr-6", "tr-7"]
+    assert [t.trace_id for t in traces] == ["tr-5", "tr-6", "tr-7"]
     traces, token = store.search_traces([exp1], max_results=3, page_token=token)
-    assert [t.request_id for t in traces] == ["tr-8", "tr-9", "tr-0"]
+    assert [t.trace_id for t in traces] == ["tr-8", "tr-9", "tr-0"]
     traces, token = store.search_traces([exp1], max_results=3, page_token=token)
-    assert [t.request_id for t in traces] == ["tr-1", "tr-2", "tr-3"]
+    assert [t.trace_id for t in traces] == ["tr-1", "tr-2", "tr-3"]
     traces, token = store.search_traces([exp1], max_results=3, page_token=token)
-    assert [t.request_id for t in traces] == ["tr-4"]
+    assert [t.trace_id for t in traces] == ["tr-4"]
 
 
 def test_set_and_delete_tags(store: SqlAlchemyStore):
     exp1 = store.create_experiment("exp1")
-    request_id = "tr-123"
-    _create_trace(store, request_id, experiment_id=exp1)
+    trace_id = "tr-123"
+    _create_trace(store, trace_id, experiment_id=exp1)
 
     # Delete system tag for easier testing
-    store.delete_trace_tag(request_id, MLFLOW_ARTIFACT_LOCATION)
+    store.delete_trace_tag(trace_id, MLFLOW_ARTIFACT_LOCATION)
 
-    assert store.get_trace_info(request_id).tags == {}
+    assert store.get_trace_info(trace_id).tags == {}
 
-    store.set_trace_tag(request_id, "tag1", "apple")
-    assert store.get_trace_info(request_id).tags == {"tag1": "apple"}
+    store.set_trace_tag(trace_id, "tag1", "apple")
+    assert store.get_trace_info(trace_id).tags == {"tag1": "apple"}
 
-    store.set_trace_tag(request_id, "tag1", "grape")
-    assert store.get_trace_info(request_id).tags == {"tag1": "grape"}
+    store.set_trace_tag(trace_id, "tag1", "grape")
+    assert store.get_trace_info(trace_id).tags == {"tag1": "grape"}
 
-    store.set_trace_tag(request_id, "tag2", "orange")
-    assert store.get_trace_info(request_id).tags == {"tag1": "grape", "tag2": "orange"}
+    store.set_trace_tag(trace_id, "tag2", "orange")
+    assert store.get_trace_info(trace_id).tags == {"tag1": "grape", "tag2": "orange"}
 
-    store.delete_trace_tag(request_id, "tag1")
-    assert store.get_trace_info(request_id).tags == {"tag2": "orange"}
+    store.delete_trace_tag(trace_id, "tag1")
+    assert store.get_trace_info(trace_id).tags == {"tag2": "orange"}
+
+    # test value length
+    store.set_trace_tag(trace_id, "key", "v" * MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE)
+    assert store.get_trace_info(trace_id).tags["key"] == "v" * MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE
 
     with pytest.raises(MlflowException, match="No trace tag with key 'tag1'"):
-        store.delete_trace_tag(request_id, "tag1")
+        store.delete_trace_tag(trace_id, "tag1")
 
 
 @pytest.mark.parametrize(
@@ -4493,11 +4606,11 @@ def test_set_invalid_tag(key, value, expected_error, store: SqlAlchemyStore):
 
 def test_set_tag_truncate_too_long_tag(store: SqlAlchemyStore):
     exp1 = store.create_experiment("exp1")
-    request_id = "tr-123"
-    _create_trace(store, request_id, experiment_id=exp1)
+    trace_id = "tr-123"
+    _create_trace(store, trace_id, experiment_id=exp1)
 
-    store.set_trace_tag(request_id, "key", "123" + "a" * 8000)
-    tags = store.get_trace_info(request_id).tags
+    store.set_trace_tag(trace_id, "key", "123" + "a" * 8000)
+    tags = store.get_trace_info(trace_id).tags
     assert len(tags["key"]) == 8000
     assert tags["key"] == "123" + "a" * 7997
 
@@ -4513,14 +4626,14 @@ def test_delete_traces(store):
             f"tr-exp1-{i}",
             exp1,
             tags={"tag": "apple"},
-            request_metadata={"rq": "foo"},
+            trace_metadata={"rq": "foo"},
         )
         _create_trace(
             store,
             f"tr-exp2-{i}",
             exp2,
             tags={"tag": "orange"},
-            request_metadata={"rq": "bar"},
+            trace_metadata={"rq": "bar"},
         )
 
     traces, _ = store.search_traces([exp1, exp2])
@@ -4545,7 +4658,7 @@ def test_delete_traces(store):
 def test_delete_traces_with_max_timestamp(store):
     exp1 = store.create_experiment("exp1")
     for i in range(10):
-        _create_trace(store, f"tr-{i}", exp1, timestamp_ms=i)
+        _create_trace(store, f"tr-{i}", exp1, request_time=i)
 
     deleted = store.delete_traces(exp1, max_timestamp_millis=3)
     assert deleted == 4  # inclusive (0, 1, 2, 3)
@@ -4563,7 +4676,7 @@ def test_delete_traces_with_max_timestamp(store):
 def test_delete_traces_with_max_count(store):
     exp1 = store.create_experiment("exp1")
     for i in range(10):
-        _create_trace(store, f"tr-{i}", exp1, timestamp_ms=i)
+        _create_trace(store, f"tr-{i}", exp1, request_time=i)
 
     deleted = store.delete_traces(exp1, max_traces=4, max_timestamp_millis=10)
     assert deleted == 4
@@ -4579,16 +4692,16 @@ def test_delete_traces_with_max_count(store):
     assert len(traces) == 1
 
 
-def test_delete_traces_with_request_ids(store):
+def test_delete_traces_with_trace_ids(store):
     exp1 = store.create_experiment("exp1")
     for i in range(10):
-        _create_trace(store, f"tr-{i}", exp1, timestamp_ms=i)
+        _create_trace(store, f"tr-{i}", exp1, request_time=i)
 
-    deleted = store.delete_traces(exp1, request_ids=[f"tr-{i}" for i in range(8)])
+    deleted = store.delete_traces(exp1, trace_ids=[f"tr-{i}" for i in range(8)])
     assert deleted == 8
     traces, _ = store.search_traces([exp1])
     assert len(traces) == 2
-    assert [trace.request_id for trace in traces] == ["tr-9", "tr-8"]
+    assert [trace.trace_id for trace in traces] == ["tr-9", "tr-8"]
 
 
 def test_delete_traces_raises_error(store):
@@ -4596,20 +4709,914 @@ def test_delete_traces_raises_error(store):
 
     with pytest.raises(
         MlflowException,
-        match=r"Either `max_timestamp_millis` or `request_ids` must be specified.",
+        match=r"Either `max_timestamp_millis` or `trace_ids` must be specified.",
     ):
         store.delete_traces(exp_id)
     with pytest.raises(
         MlflowException,
-        match=r"Only one of `max_timestamp_millis` and `request_ids` can be specified.",
+        match=r"Only one of `max_timestamp_millis` and `trace_ids` can be specified.",
     ):
-        store.delete_traces(exp_id, max_timestamp_millis=100, request_ids=["request_id"])
+        store.delete_traces(exp_id, max_timestamp_millis=100, trace_ids=["trace_id"])
     with pytest.raises(
         MlflowException,
-        match=r"`max_traces` can't be specified if `request_ids` is specified.",
+        match=r"`max_traces` can't be specified if `trace_ids` is specified.",
     ):
-        store.delete_traces(exp_id, max_traces=2, request_ids=["request_id"])
+        store.delete_traces(exp_id, max_traces=2, trace_ids=["trace_id"])
     with pytest.raises(
         MlflowException, match=r"`max_traces` must be a positive integer, received 0"
     ):
         store.delete_traces(exp_id, 100, max_traces=0)
+
+
+def test_log_outputs(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    run = store.create_run(
+        experiment_id=exp_id, user_id="user", start_time=0, run_name="test", tags=[]
+    )
+    model = store.create_logged_model(experiment_id=exp_id)
+    store.log_outputs(run.info.run_id, [LoggedModelOutput(model.model_id, 1)])
+    run = store.get_run(run.info.run_id)
+    assert run.outputs.model_outputs == [LoggedModelOutput(model.model_id, 1)]
+
+
+@pytest.mark.parametrize("tags_count", [0, 1, 2])
+def test_get_run_inputs(store, tags_count):
+    run = _run_factory(store)
+
+    dataset = entities.Dataset(
+        name="name1",
+        digest="digest1",
+        source_type="st1",
+        source="source1",
+        schema="schema1",
+        profile="profile1",
+    )
+
+    tags = [entities.InputTag(key=f"foo{i}", value=f"bar{i}") for i in range(tags_count)]
+
+    dataset_inputs = [entities.DatasetInput(dataset, tags)]
+
+    store.log_inputs(run.info.run_id, dataset_inputs)
+
+    with store.ManagedSessionMaker() as session:
+        actual = store._get_run_inputs(session, [run.info.run_id])
+
+    assert len(actual) == 1
+    assert_dataset_inputs_equal(actual[0], dataset_inputs)
+
+
+def test_get_run_inputs_run_order(store):
+    exp_id = _create_experiments(store, "test_get_run_inputs_run_order")
+    config = _get_run_configs(exp_id)
+
+    run_with_one_input = _run_factory(store, config)
+    run_with_no_inputs = _run_factory(store, config)
+    run_with_two_inputs = _run_factory(store, config)
+
+    dataset1 = entities.Dataset(
+        name="name1",
+        digest="digest1",
+        source_type="st1",
+        source="source1",
+        schema="schema1",
+        profile="profile1",
+    )
+
+    dataset2 = entities.Dataset(
+        name="name2",
+        digest="digest2",
+        source_type="st2",
+        source="source2",
+        schema="schema2",
+        profile="profile2",
+    )
+
+    tags_1 = [entities.InputTag(key="foo1", value="bar1")]
+
+    tags_2 = [
+        entities.InputTag(key="foo2", value="bar2"),
+        entities.InputTag(key="foo3", value="bar3"),
+    ]
+
+    tags_3 = [
+        entities.InputTag(key="foo4", value="bar4"),
+        entities.InputTag(key="foo5", value="bar5"),
+        entities.InputTag(key="foo6", value="bar6"),
+    ]
+
+    dataset_inputs_1 = [entities.DatasetInput(dataset1, tags_1)]
+    dataset_inputs_2 = [
+        entities.DatasetInput(dataset2, tags_2),
+        entities.DatasetInput(dataset1, tags_3),
+    ]
+
+    store.log_inputs(run_with_one_input.info.run_id, dataset_inputs_1)
+    store.log_inputs(run_with_two_inputs.info.run_id, dataset_inputs_2)
+
+    expected = [dataset_inputs_1, [], dataset_inputs_2]
+
+    runs = [run_with_one_input, run_with_no_inputs, run_with_two_inputs]
+    run_uuids = [run.info.run_id for run in runs]
+
+    with store.ManagedSessionMaker() as session:
+        actual = store._get_run_inputs(session, run_uuids)
+
+    assert len(expected) == len(actual)
+    for expected_i, actual_i in zip(expected, actual):
+        assert_dataset_inputs_equal(expected_i, actual_i)
+
+
+def test_create_logged_model(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    model = store.create_logged_model(experiment_id=exp_id)
+    assert model.experiment_id == exp_id
+    assert model.name is not None
+    assert model.metrics is None
+    assert model.tags == {}
+    assert model.params == {}
+
+    # name
+    model = store.create_logged_model(experiment_id=exp_id, name="my_model")
+    assert model.name == "my_model"
+
+    # source_run_id
+    run = store.create_run(
+        experiment_id=exp_id, user_id="user", start_time=0, run_name="test", tags=[]
+    )
+    model = store.create_logged_model(experiment_id=exp_id, source_run_id=run.info.run_id)
+    assert model.source_run_id == run.info.run_id
+
+    # model_type
+    model = store.create_logged_model(experiment_id=exp_id, model_type="my_model_type")
+    assert model.model_type == "my_model_type"
+
+    # tags
+    model = store.create_logged_model(
+        experiment_id=exp_id,
+        name="my_model",
+        tags=[LoggedModelTag("tag1", "apple")],
+    )
+    assert model.tags == {"tag1": "apple"}
+
+    # params
+    model = store.create_logged_model(
+        experiment_id=exp_id,
+        name="my_model",
+        params=[LoggedModelParameter("param1", "apple")],
+    )
+    assert model.params == {"param1": "apple"}
+
+    # Should not be able to create a logged model in a non-active experiment
+    store.delete_experiment(exp_id)
+    with pytest.raises(MlflowException, match="must be in the 'active' state"):
+        store.create_logged_model(experiment_id=exp_id)
+
+
+def test_log_logged_model_params(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    model = store.create_logged_model(experiment_id=exp_id)
+    assert not model.params
+    store.log_logged_model_params(
+        model_id=model.model_id, params=[LoggedModelParameter("param1", "apple")]
+    )
+    loaded_model = store.get_logged_model(model_id=model.model_id)
+    assert loaded_model.params == {"param1": "apple"}
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "",
+        "my/model",
+        "my.model",
+        "my:model",
+        "my%model",
+        "my'model",
+        'my"model',
+    ],
+)
+def test_create_logged_model_invalid_name(store: SqlAlchemyStore, name: str):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    with pytest.raises(MlflowException, match="Invalid model name"):
+        store.create_logged_model(exp_id, name=name)
+
+
+def test_get_logged_model(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    model = store.create_logged_model(experiment_id=exp_id)
+    fetched_model = store.get_logged_model(model.model_id)
+    assert fetched_model.name == model.name
+    assert fetched_model.model_id == model.model_id
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_logged_model("does-not-exist")
+
+
+def test_delete_logged_model(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    run = store.create_run(exp_id, "user", 0, [], "test_run")
+    model = store.create_logged_model(experiment_id=exp_id, source_run_id=run.info.run_id)
+    metric = Metric(
+        key="metric",
+        value=0,
+        timestamp=0,
+        step=0,
+        model_id=model.model_id,
+        run_id=run.info.run_id,
+    )
+    store.log_metric(run.info.run_id, metric)
+    store.delete_logged_model(model.model_id)
+    with pytest.raises(MlflowException, match="not found"):
+        store.get_logged_model(model.model_id)
+
+    models = store.search_logged_models(experiment_ids=[exp_id])
+    assert len(models) == 0
+
+
+def test_finalize_logged_model(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    model = store.create_logged_model(experiment_id=exp_id)
+    store.finalize_logged_model(model.model_id, status=LoggedModelStatus.READY)
+    assert store.get_logged_model(model.model_id).status == LoggedModelStatus.READY
+
+    store.finalize_logged_model(model.model_id, status=LoggedModelStatus.FAILED)
+    assert store.get_logged_model(model.model_id).status == LoggedModelStatus.FAILED
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.finalize_logged_model("does-not-exist", status=LoggedModelStatus.READY)
+
+
+def test_set_logged_model_tags(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    model = store.create_logged_model(experiment_id=exp_id)
+    store.set_logged_model_tags(model.model_id, [LoggedModelTag("tag1", "apple")])
+    assert store.get_logged_model(model.model_id).tags == {"tag1": "apple"}
+
+    # New tag
+    store.set_logged_model_tags(model.model_id, [LoggedModelTag("tag2", "orange")])
+    assert store.get_logged_model(model.model_id).tags == {"tag1": "apple", "tag2": "orange"}
+
+    # Exieting tag
+    store.set_logged_model_tags(model.model_id, [LoggedModelTag("tag2", "grape")])
+    assert store.get_logged_model(model.model_id).tags == {"tag1": "apple", "tag2": "grape"}
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.set_logged_model_tags("does-not-exist", [LoggedModelTag("tag1", "apple")])
+
+    # Multiple tags
+    store.set_logged_model_tags(
+        model.model_id, [LoggedModelTag("tag3", "val3"), LoggedModelTag("tag4", "val4")]
+    )
+    assert store.get_logged_model(model.model_id).tags == {
+        "tag1": "apple",
+        "tag2": "grape",
+        "tag3": "val3",
+        "tag4": "val4",
+    }
+
+
+def test_delete_logged_model_tag(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    model = store.create_logged_model(experiment_id=exp_id)
+    store.set_logged_model_tags(model.model_id, [LoggedModelTag("tag1", "apple")])
+    store.delete_logged_model_tag(model.model_id, "tag1")
+    assert store.get_logged_model(model.model_id).tags == {}
+
+    with pytest.raises(MlflowException, match="not found"):
+        store.delete_logged_model_tag("does-not-exist", "tag1")
+
+    with pytest.raises(MlflowException, match="No tag with key"):
+        store.delete_logged_model_tag(model.model_id, "tag1")
+
+
+def test_search_logged_models(store: SqlAlchemyStore):
+    exp_id_1 = store.create_experiment(f"exp-{uuid.uuid4()}")
+
+    model_1 = store.create_logged_model(experiment_id=exp_id_1)
+    time.sleep(0.001)  # Ensure the next model has a different timestamp
+    models = store.search_logged_models(experiment_ids=[exp_id_1])
+    assert [m.name for m in models] == [model_1.name]
+
+    model_2 = store.create_logged_model(experiment_id=exp_id_1)
+    time.sleep(0.001)
+    models = store.search_logged_models(experiment_ids=[exp_id_1])
+    assert [m.name for m in models] == [model_2.name, model_1.name]
+
+    exp_id_2 = store.create_experiment(f"exp-{uuid.uuid4()}")
+    model_3 = store.create_logged_model(experiment_id=exp_id_2)
+    models = store.search_logged_models(experiment_ids=[exp_id_2])
+    assert [m.name for m in models] == [model_3.name]
+
+    models = store.search_logged_models(experiment_ids=[exp_id_1, exp_id_2])
+    assert [m.name for m in models] == [model_3.name, model_2.name, model_1.name]
+
+
+def test_search_logged_models_filter_string(store: SqlAlchemyStore):
+    exp_id_1 = store.create_experiment(f"exp-{uuid.uuid4()}")
+    model_1 = store.create_logged_model(experiment_id=exp_id_1)
+    time.sleep(0.001)  # Ensure the next model has a different timestamp
+    models = store.search_logged_models(experiment_ids=[exp_id_1])
+
+    # Search by string attribute
+    models = store.search_logged_models(
+        experiment_ids=[exp_id_1],
+        filter_string=f"name = '{model_1.name}'",
+    )
+    assert [m.name for m in models] == [model_1.name]
+    assert models.token is None
+
+    models = store.search_logged_models(
+        experiment_ids=[exp_id_1],
+        filter_string=f"attributes.name = '{model_1.name}'",
+    )
+    assert [m.name for m in models] == [model_1.name]
+    assert models.token is None
+
+    models = store.search_logged_models(
+        experiment_ids=[exp_id_1],
+        filter_string=f"name LIKE '{model_1.name[:3]}%'",
+    )
+    assert [m.name for m in models] == [model_1.name]
+    assert models.token is None
+
+    for val in (
+        # A single item without a comma
+        f"('{model_1.name}')",
+        # A single item with a comma
+        f"('{model_1.name}',)",
+        # Multiple items
+        f"('{model_1.name}', 'foo')",
+    ):
+        # IN
+        models = store.search_logged_models(
+            experiment_ids=[exp_id_1],
+            filter_string=f"name IN {val}",
+        )
+        assert [m.name for m in models] == [model_1.name]
+        assert models.token is None
+        # NOT IN
+        models = store.search_logged_models(
+            experiment_ids=[exp_id_1],
+            filter_string=f"name NOT IN {val}",
+        )
+        assert [m.name for m in models] == []
+
+    # Search by numeric attribute
+    models = store.search_logged_models(
+        experiment_ids=[exp_id_1],
+        filter_string="creation_timestamp > 0",
+    )
+    assert [m.name for m in models] == [model_1.name]
+    assert models.token is None
+    models = store.search_logged_models(
+        experiment_ids=[exp_id_1],
+        filter_string="creation_timestamp = 0",
+    )
+    assert models == []
+    assert models.token is None
+
+    # Search by param
+    model_2 = store.create_logged_model(
+        experiment_id=exp_id_1, params=[LoggedModelParameter("param1", "val1")]
+    )
+    time.sleep(0.001)
+    models = store.search_logged_models(
+        experiment_ids=[exp_id_1],
+        filter_string="params.param1 = 'val1'",
+    )
+    assert [m.name for m in models] == [model_2.name]
+    assert models.token is None
+
+    # Search by tag
+    model_3 = store.create_logged_model(
+        experiment_id=exp_id_1, tags=[LoggedModelTag("tag1", "val1")]
+    )
+    time.sleep(0.001)
+    models = store.search_logged_models(
+        experiment_ids=[exp_id_1],
+        filter_string="tags.tag1 = 'val1'",
+    )
+    assert [m.name for m in models] == [model_3.name]
+    assert models.token is None
+
+    # Search by metric
+    model_4 = store.create_logged_model(experiment_id=exp_id_1)
+    run = store.create_run(
+        experiment_id=exp_id_1, user_id="user", start_time=0, run_name="test", tags=[]
+    )
+    store.log_batch(
+        run.info.run_id,
+        metrics=[
+            Metric(
+                key="metric",
+                value=1,
+                timestamp=int(time.time() * 1000),
+                step=0,
+                model_id=model_4.model_id,
+                dataset_name="dataset_name",
+                dataset_digest="dataset_digest",
+                run_id=run.info.run_id,
+            )
+        ],
+        params=[],
+        tags=[],
+    )
+    time.sleep(0.001)
+    models = store.search_logged_models(
+        experiment_ids=[exp_id_1],
+        filter_string="metrics.metric = 1",
+    )
+    assert [m.name for m in models] == [model_4.name]
+    assert models.token is None
+
+    models = store.search_logged_models(
+        experiment_ids=[exp_id_1],
+        filter_string="metrics.metric > 0.5",
+    )
+    assert [m.name for m in models] == [model_4.name]
+    assert models.token is None
+
+    models = store.search_logged_models(
+        experiment_ids=[exp_id_1],
+        filter_string="metrics.metric < 3",
+    )
+    assert [m.name for m in models] == [model_4.name]
+    assert models.token is None
+
+    # Search by multiple entities
+    model_5 = store.create_logged_model(
+        experiment_id=exp_id_1,
+        params=[LoggedModelParameter("param2", "val2")],
+        tags=[LoggedModelTag("tag2", "val2")],
+    )
+    time.sleep(0.001)
+    models = store.search_logged_models(
+        experiment_ids=[exp_id_1],
+        filter_string="params.param2 = 'val2' AND tags.tag2 = 'val2'",
+    )
+    assert [m.name for m in models] == [model_5.name]
+    assert models.token is None
+
+    # Search by tag with key containing whitespace
+    model_6 = store.create_logged_model(
+        experiment_id=exp_id_1, tags=[LoggedModelTag("tag 3", "val3")]
+    )
+    time.sleep(0.001)
+    models = store.search_logged_models(
+        experiment_ids=[exp_id_1],
+        filter_string="tags.`tag 3` = 'val3'",
+    )
+    assert [m.name for m in models] == [model_6.name]
+    assert models.token is None
+
+    # Pagination with filter_string
+    first_page = store.search_logged_models(
+        experiment_ids=[exp_id_1], max_results=2, filter_string="creation_timestamp > 0"
+    )
+    assert [m.name for m in first_page] == [model_6.name, model_5.name]
+    assert first_page.token is not None
+    second_page = store.search_logged_models(
+        experiment_ids=[exp_id_1],
+        filter_string="creation_timestamp > 0",
+        page_token=first_page.token,
+    )
+    assert [m.name for m in second_page] == [model_4.name, model_3.name, model_2.name, model_1.name]
+    assert second_page.token is None
+
+
+def test_search_logged_models_invalid_filter_string(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    with pytest.raises(MlflowException, match="Invalid filter string"):
+        store.search_logged_models(
+            experiment_ids=[exp_id],
+            filter_string="Foo",
+        )
+
+    with pytest.raises(MlflowException, match="Invalid filter string"):
+        store.search_logged_models(
+            experiment_ids=[exp_id],
+            filter_string="name = 'foo' OR name = 'bar'",
+        )
+
+    with pytest.raises(MlflowException, match="Invalid entity type"):
+        store.search_logged_models(
+            experiment_ids=[exp_id],
+            filter_string="foo.bar = 'a'",
+        )
+
+    with pytest.raises(MlflowException, match="Invalid comparison operator"):
+        store.search_logged_models(
+            experiment_ids=[exp_id],
+            filter_string="name > 'foo'",
+        )
+
+    with pytest.raises(MlflowException, match="Invalid comparison operator"):
+        store.search_logged_models(
+            experiment_ids=[exp_id],
+            filter_string="metrics.foo LIKE 0",
+        )
+
+
+def test_search_logged_models_order_by(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    model_1 = store.create_logged_model(name="model_1", experiment_id=exp_id)
+    time.sleep(0.001)  # Ensure the next model has a different timestamp
+    model_2 = store.create_logged_model(name="model_2", experiment_id=exp_id)
+    time.sleep(0.001)  # Ensure the next model has a different timestamp
+    run = store.create_run(
+        experiment_id=exp_id, user_id="user", start_time=0, run_name="test", tags=[]
+    )
+
+    store.log_batch(
+        run.info.run_id,
+        metrics=[
+            Metric(
+                key="metric",
+                value=1,
+                timestamp=int(time.time() * 1000),
+                step=0,
+                model_id=model_1.model_id,
+                dataset_name="dataset_name",
+                dataset_digest="dataset_digest",
+                run_id=run.info.run_id,
+            ),
+            Metric(
+                key="metric",
+                value=1,
+                timestamp=int(time.time() * 1000),
+                step=0,
+                model_id=model_1.model_id,
+                dataset_name="dataset_name",
+                dataset_digest="dataset_digest",
+                run_id=run.info.run_id,
+            ),
+            Metric(
+                key="metric_2",
+                value=1,
+                timestamp=int(time.time() * 1000),
+                step=0,
+                model_id=model_1.model_id,
+                dataset_name="dataset_name",
+                dataset_digest="dataset_digest",
+                run_id=run.info.run_id,
+            ),
+        ],
+        params=[],
+        tags=[],
+    )
+    store.log_batch(
+        run.info.run_id,
+        metrics=[
+            Metric(
+                key="metric",
+                value=2,
+                timestamp=int(time.time() * 1000),
+                step=0,
+                model_id=model_2.model_id,
+                dataset_name="dataset_name",
+                dataset_digest="dataset_digest",
+                run_id=run.info.run_id,
+            )
+        ],
+        params=[],
+        tags=[],
+    )
+
+    # Should be sorted by creation time in descending order by default
+    models = store.search_logged_models(experiment_ids=[exp_id])
+    assert [m.name for m in models] == [model_2.name, model_1.name]
+
+    models = store.search_logged_models(
+        experiment_ids=[exp_id],
+        order_by=[{"field_name": "creation_timestamp", "ascending": True}],
+    )
+    assert [m.name for m in models] == [model_1.name, model_2.name]
+
+    # Alias for creation_timestamp
+    models = store.search_logged_models(
+        experiment_ids=[exp_id],
+        order_by=[{"field_name": "creation_time", "ascending": True}],
+    )
+    assert [m.name for m in models] == [model_1.name, model_2.name]
+
+    # Sort by name
+    models = store.search_logged_models(
+        experiment_ids=[exp_id],
+        order_by=[{"field_name": "name"}],
+    )
+    assert [m.name for m in models] == [model_1.name, model_2.name]
+
+    # Sort by metric
+    models = store.search_logged_models(
+        experiment_ids=[exp_id],
+        order_by=[{"field_name": "metrics.metric"}],
+    )
+    assert [m.name for m in models] == [model_1.name, model_2.name]
+
+    # Sort by metric in descending order
+    models = store.search_logged_models(
+        experiment_ids=[exp_id],
+        order_by=[{"field_name": "metrics.metric", "ascending": False}],
+    )
+    assert [m.name for m in models] == [model_2.name, model_1.name]
+
+    # model 2 doesn't have metric_2, should be sorted last
+    for ascending in (True, False):
+        models = store.search_logged_models(
+            experiment_ids=[exp_id],
+            order_by=[{"field_name": "metrics.metric_2", "ascending": ascending}],
+        )
+        assert [m.name for m in models] == [model_1.name, model_2.name]
+
+
+@dataclass
+class DummyDataset:
+    name: str
+    digest: str
+
+
+def test_search_logged_models_order_by_dataset(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    model_1 = store.create_logged_model(experiment_id=exp_id)
+    time.sleep(0.001)  # Ensure the next model has a different timestamp
+    model_2 = store.create_logged_model(experiment_id=exp_id)
+    time.sleep(0.001)  # Ensure the next model has a different timestamp
+    run = store.create_run(
+        experiment_id=exp_id, user_id="user", start_time=0, run_name="test", tags=[]
+    )
+    dataset_1 = DummyDataset("dataset1", "digest1")
+    dataset_2 = DummyDataset("dataset2", "digest2")
+
+    # For dataset_1, model_1 has a higher accuracy
+    # For dataset_2, model_2 has a higher accuracy
+    store.log_batch(
+        run.info.run_id,
+        metrics=[
+            Metric(
+                key="accuracy",
+                value=0.9,
+                timestamp=1,
+                step=0,
+                model_id=model_1.model_id,
+                dataset_name=dataset_1.name,
+                dataset_digest=dataset_1.digest,
+                run_id=run.info.run_id,
+            ),
+            Metric(
+                key="accuracy",
+                value=0.8,
+                timestamp=2,
+                step=0,
+                model_id=model_1.model_id,
+                dataset_name=dataset_2.name,
+                dataset_digest=dataset_2.digest,
+                run_id=run.info.run_id,
+            ),
+        ],
+        params=[],
+        tags=[],
+    )
+    store.log_batch(
+        run.info.run_id,
+        metrics=[
+            Metric(
+                key="accuracy",
+                value=0.8,
+                timestamp=3,
+                step=0,
+                model_id=model_2.model_id,
+                dataset_name=dataset_1.name,
+                dataset_digest=dataset_1.digest,
+                run_id=run.info.run_id,
+            ),
+            Metric(
+                key="accuracy",
+                value=0.9,
+                timestamp=4,
+                step=0,
+                model_id=model_2.model_id,
+                dataset_name=dataset_2.name,
+                dataset_digest=dataset_2.digest,
+                run_id=run.info.run_id,
+            ),
+        ],
+        params=[],
+        tags=[],
+    )
+
+    # Sorted by accuracy for dataset_1
+    models = store.search_logged_models(
+        experiment_ids=[exp_id],
+        order_by=[
+            {
+                "field_name": "metrics.accuracy",
+                "dataset_name": dataset_1.name,
+                "dataset_digest": dataset_1.digest,
+            }
+        ],
+    )
+    assert [m.name for m in models] == [model_2.name, model_1.name]
+
+    # Sorted by accuracy for dataset_2
+    models = store.search_logged_models(
+        experiment_ids=[exp_id],
+        order_by=[
+            {
+                "field_name": "metrics.accuracy",
+                "dataset_name": dataset_2.name,
+                "dataset_digest": dataset_2.digest,
+            }
+        ],
+    )
+    assert [m.name for m in models] == [model_1.name, model_2.name]
+
+    # Sort by accuracy with only name
+    models = store.search_logged_models(
+        experiment_ids=[exp_id],
+        order_by=[
+            {
+                "field_name": "metrics.accuracy",
+                "dataset_name": dataset_1.name,
+            }
+        ],
+    )
+    assert [m.name for m in models] == [model_2.name, model_1.name]
+
+    # Sort by accuracy with only digest
+    models = store.search_logged_models(
+        experiment_ids=[exp_id],
+        order_by=[
+            {
+                "field_name": "metrics.accuracy",
+                "dataset_digest": dataset_1.digest,
+            }
+        ],
+    )
+    assert [m.name for m in models] == [model_2.name, model_1.name]
+
+
+def test_search_logged_models_pagination(store: SqlAlchemyStore):
+    exp_id_1 = store.create_experiment(f"exp-{uuid.uuid4()}")
+
+    model_1 = store.create_logged_model(experiment_id=exp_id_1)
+    time.sleep(0.001)  # Ensure the next model has a different timestamp
+    model_2 = store.create_logged_model(experiment_id=exp_id_1)
+
+    page = store.search_logged_models(experiment_ids=[exp_id_1], max_results=3)
+    assert [m.name for m in page] == [model_2.name, model_1.name]
+    assert page.token is None
+
+    page_1 = store.search_logged_models(experiment_ids=[exp_id_1], max_results=1)
+    assert [m.name for m in page_1] == [model_2.name]
+    assert page_1.token is not None
+
+    page_2 = store.search_logged_models(
+        experiment_ids=[exp_id_1], max_results=1, page_token=page_1.token
+    )
+    assert [m.name for m in page_2] == [model_1.name]
+    assert page_2.token is None
+
+    page_2 = store.search_logged_models(
+        experiment_ids=[exp_id_1], max_results=100, page_token=page_1.token
+    )
+    assert [m.name for m in page_2] == [model_1.name]
+    assert page_2.token is None
+
+    # Search params must match the page token
+    exp_id_2 = store.create_experiment(f"exp-{uuid.uuid4()}")
+    with pytest.raises(MlflowException, match="Experiment IDs in the page token do not match"):
+        store.search_logged_models(experiment_ids=[exp_id_2], page_token=page_1.token)
+
+    with pytest.raises(MlflowException, match="Order by in the page token does not match"):
+        store.search_logged_models(
+            experiment_ids=[exp_id_1],
+            order_by=[{"field_name": "creation_time"}],
+            page_token=page_1.token,
+        )
+
+    with pytest.raises(MlflowException, match="Filter string in the page token does not match"):
+        store.search_logged_models(
+            experiment_ids=[exp_id_1],
+            filter_string=f"name = '{model_1.name}'",
+            page_token=page_1.token,
+        )
+
+
+def test_search_logged_models_datasets_filter(store):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    run_id = store.create_run(exp_id, "user", 0, [], "test_run").info.run_id
+    model1 = store.create_logged_model(exp_id, source_run_id=run_id)
+    model2 = store.create_logged_model(exp_id, source_run_id=run_id)
+    model3 = store.create_logged_model(exp_id, source_run_id=run_id)
+    store.log_batch(
+        run_id,
+        metrics=[
+            Metric(
+                key="metric1",
+                value=0.1,
+                timestamp=0,
+                step=0,
+                model_id=model1.model_id,
+                dataset_name="dataset1",
+                dataset_digest="digest1",
+            ),
+            Metric(
+                key="metric1",
+                value=0.2,
+                timestamp=0,
+                step=0,
+                model_id=model2.model_id,
+                dataset_name="dataset1",
+                dataset_digest="digest2",
+            ),
+            Metric(key="metric2", value=0.1, timestamp=0, step=0, model_id=model3.model_id),
+        ],
+        params=[],
+        tags=[],
+    )
+
+    # Restrict results to models with metrics on dataset1
+    models = store.search_logged_models(
+        experiment_ids=[exp_id],
+        filter_string="metrics.metric1 >= 0.1",
+        datasets=[{"dataset_name": "dataset1"}],
+    )
+    assert {m.name for m in models} == {model1.name, model2.name}
+    # Restrict results to models with metrics on dataset1 and digest1
+    models = store.search_logged_models(
+        experiment_ids=[exp_id],
+        filter_string="metrics.metric1 >= 0.1",
+        datasets=[{"dataset_name": "dataset1", "dataset_digest": "digest1"}],
+    )
+    assert {m.name for m in models} == {model1.name}
+    # No filter string, match models with any metrics on the dataset
+    models = store.search_logged_models(
+        experiment_ids=[exp_id], datasets=[{"dataset_name": "dataset1"}]
+    )
+    assert {m.name for m in models} == {model1.name, model2.name}
+
+
+def test_log_batch_logged_model(store: SqlAlchemyStore):
+    exp_id = store.create_experiment(f"exp-{uuid.uuid4()}")
+    run = store.create_run(
+        experiment_id=exp_id, user_id="user", start_time=0, run_name="test", tags=[]
+    )
+    model = store.create_logged_model(experiment_id=exp_id)
+    metric = Metric(
+        key="metric1",
+        value=1,
+        timestamp=int(time.time() * 1000),
+        step=3,
+        model_id=model.model_id,
+        dataset_name="dataset_name",
+        dataset_digest="dataset_digest",
+        run_id=run.info.run_id,
+    )
+    store.log_batch(run.info.run_id, metrics=[metric], params=[], tags=[])
+    model = store.get_logged_model(model.model_id)
+    assert model.metrics == [metric]
+
+    # Log the same metric, should not throw
+    store.log_batch(run.info.run_id, metrics=[metric], params=[], tags=[])
+    assert model.metrics == [metric]
+
+    # Log an empty batch, should not throw
+    store.log_batch(run.info.run_id, metrics=[], params=[], tags=[])
+    assert model.metrics == [metric]
+
+    another_metric = Metric(
+        key="metric2",
+        value=2,
+        timestamp=int(time.time() * 1000),
+        step=4,
+        model_id=model.model_id,
+        dataset_name="dataset_name",
+        dataset_digest="dataset_digest",
+        run_id=run.info.run_id,
+    )
+    store.log_batch(run.info.run_id, metrics=[another_metric], params=[], tags=[])
+    model = store.get_logged_model(model.model_id)
+    actual_metrics = sorted(model.metrics, key=lambda m: m.key)
+    expected_metrics = sorted([metric, another_metric], key=lambda m: m.key)
+    assert actual_metrics == expected_metrics
+
+    # Log multiple metrics
+    metrics = [
+        Metric(
+            key=f"metric{i + 3}",
+            value=3,
+            timestamp=int(time.time() * 1000),
+            step=5,
+            model_id=model.model_id,
+            dataset_name="dataset_name",
+            dataset_digest="dataset_digest",
+            run_id=run.info.run_id,
+        )
+        for i in range(3)
+    ]
+
+    store.log_batch(run.info.run_id, metrics=metrics, params=[], tags=[])
+    model = store.get_logged_model(model.model_id)
+    actual_metrics = sorted(model.metrics, key=lambda m: m.key)
+    expected_metrics = sorted([metric, another_metric, *metrics], key=lambda m: m.key)
+    assert actual_metrics == expected_metrics

@@ -1,4 +1,4 @@
-import { NavigationMenu, useDesignSystemTheme } from '@databricks/design-system';
+import { InfoPopover, NavigationMenu, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { PreviewBadge } from '@mlflow/mlflow/src/shared/building_blocks/PreviewBadge';
 import { FeatureBadge } from '@mlflow/mlflow/src/shared/building_blocks/FeatureBadge';
 import { FormattedMessage } from 'react-intl';
@@ -7,9 +7,9 @@ import Routes from '../../../../routes';
 import type { ExperimentViewRunsCompareMode } from '../../../../types';
 import { EXPERIMENT_PAGE_VIEW_MODE_QUERY_PARAM_KEY } from '../../hooks/useExperimentPageViewMode';
 import {
-  isExperimentEvalResultsMonitoringUIEnabled,
   isExperimentLoggedModelsUIEnabled,
   shouldEnableTracingUI,
+  shouldUseRenamedUnifiedTracesTab,
 } from '../../../../../common/utils/FeatureUtils';
 import { ExperimentPageTabName } from '../../../../constants';
 
@@ -32,6 +32,39 @@ export const ExperimentViewRunsModeSwitchV2 = ({ experimentId = '', activeTab }:
       '?',
     );
 
+  const evaluationTabLabel = (
+    <FormattedMessage
+      defaultMessage="Evaluation"
+      description="A button enabling compare runs (evaluation) mode on the experiment page"
+    />
+  );
+
+  const migratedEvaluationTabElement = (
+    <span css={{ display: 'inline-flex', gap: theme.spacing.xs, alignItems: 'center' }}>
+      <Typography.Text disabled bold>
+        {evaluationTabLabel}
+      </Typography.Text>
+      <InfoPopover popoverProps={{ maxWidth: 350 }}>
+        <FormattedMessage
+          defaultMessage='Accessing artifact evaluation by "Evaluation" tab is being discontinued. In order to use this feature, use <link>"Artifacts evaluation" mode in Runs tab</link> instead.'
+          description="A button enabling compare runs (evaluation) mode on the experiment page"
+          values={{
+            link: (children) => <Link to={getLinkToMode('ARTIFACT')}>{children}</Link>,
+          }}
+        />
+      </InfoPopover>
+    </span>
+  );
+
+  const evaluationTabLink = shouldUseRenamedUnifiedTracesTab() ? (
+    <>{migratedEvaluationTabElement}</>
+  ) : (
+    <Link to={getLinkToMode('ARTIFACT')}>
+      {evaluationTabLabel}
+      <PreviewBadge />
+    </Link>
+  );
+
   return (
     <NavigationMenu.Root>
       <NavigationMenu.List
@@ -52,6 +85,14 @@ export const ExperimentViewRunsModeSwitchV2 = ({ experimentId = '', activeTab }:
           },
         }}
       >
+        <NavigationMenu.Item key="RUNS">
+          <Link to={getLinkToMode('TABLE')}>
+            <FormattedMessage
+              defaultMessage="Runs"
+              description="A button enabling combined runs table and charts mode on the experiment page"
+            />
+          </Link>
+        </NavigationMenu.Item>
         {isExperimentLoggedModelsUIEnabled() && (
           <NavigationMenu.Item key="MODELS" active={activeTab === ExperimentPageTabName.Models}>
             <Link to={Routes.getExperimentPageTabRoute(experimentId, ExperimentPageTabName.Models)}>
@@ -63,23 +104,7 @@ export const ExperimentViewRunsModeSwitchV2 = ({ experimentId = '', activeTab }:
             </Link>
           </NavigationMenu.Item>
         )}
-        <NavigationMenu.Item key="RUNS">
-          <Link to={getLinkToMode('TABLE')}>
-            <FormattedMessage
-              defaultMessage="Runs"
-              description="A button enabling combined runs table and charts mode on the experiment page"
-            />
-          </Link>
-        </NavigationMenu.Item>
-        <NavigationMenu.Item key="ARTIFACT">
-          <Link to={getLinkToMode('ARTIFACT')}>
-            <FormattedMessage
-              defaultMessage="Evaluation"
-              description="A button enabling compare runs (evaluation) mode on the experiment page"
-            />
-            <PreviewBadge />
-          </Link>
-        </NavigationMenu.Item>
+        <NavigationMenu.Item key="ARTIFACT">{evaluationTabLink}</NavigationMenu.Item>
         {shouldEnableTracingUI() && (
           <NavigationMenu.Item key="TRACES">
             <Link to={getLinkToMode('TRACES')}>

@@ -6,15 +6,13 @@ import shutil
 import subprocess
 import sys
 import threading
+from pathlib import Path
 
-import click
 import pytest
 
 from mlflow.environment_variables import _MLFLOW_TESTING, MLFLOW_TRACKING_URI
 from mlflow.utils.os import is_windows
-from mlflow.version import VERSION
-
-from tests.helper_functions import get_safe_port
+from mlflow.version import IS_TRACING_SDK_ONLY, VERSION
 
 
 def pytest_addoption(parser):
@@ -69,7 +67,10 @@ def pytest_configure(config):
 
 
 @pytest.hookimpl(tryfirst=True)
-def pytest_cmdline_main(config):
+def pytest_cmdline_main(config: pytest.Config):
+    if not_exists := [p for p in config.getoption("ignore") or [] if not os.path.exists(p)]:
+        raise pytest.UsageError(f"The following paths are ignored but do not exist: {not_exists}")
+
     group = config.getoption("group")
     splits = config.getoption("splits")
 
@@ -92,6 +93,11 @@ def pytest_cmdline_main(config):
 
 
 def pytest_sessionstart(session):
+    if IS_TRACING_SDK_ONLY:
+        return
+
+    import click
+
     if uri := MLFLOW_TRACKING_URI.get():
         click.echo(
             click.style(
@@ -163,6 +169,7 @@ def pytest_ignore_collect(collection_path, config):
         # Ignored files and directories must be included in dev/run-python-flavor-tests.sh
         model_flavors = [
             # Tests of flavor modules.
+            "tests/ag2",
             "tests/anthropic",
             "tests/autogen",
             "tests/azureml",
@@ -171,7 +178,6 @@ def pytest_ignore_collect(collection_path, config):
             "tests/crewai",
             "tests/diviner",
             "tests/dspy",
-            "tests/fastai",
             "tests/gemini",
             "tests/groq",
             "tests/h2o",
@@ -184,7 +190,6 @@ def pytest_ignore_collect(collection_path, config):
             "tests/lightgbm",
             "tests/litellm",
             "tests/mistral",
-            "tests/mleap",
             "tests/models",
             "tests/onnx",
             "tests/openai",
@@ -192,12 +197,14 @@ def pytest_ignore_collect(collection_path, config):
             "tests/pmdarima",
             "tests/promptflow",
             "tests/prophet",
+            "tests/pydantic_ai",
             "tests/pyfunc",
             "tests/pytorch",
             "tests/sagemaker",
             "tests/sentence_transformers",
             "tests/shap",
             "tests/sklearn",
+            "tests/smolagents",
             "tests/spacy",
             "tests/spark",
             "tests/statsmodels",
@@ -247,14 +254,22 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
     failed_test_reports = terminalreporter.stats.get("failed", [])
     if failed_test_reports:
         if len(failed_test_reports) <= 30:
-            terminalreporter.section("command to run failed test cases")
             ids = [repr(report.nodeid) for report in failed_test_reports]
         else:
-            terminalreporter.section("command to run failed test suites")
             # Use dict.fromkeys to preserve the order
             ids = list(dict.fromkeys(report.fspath for report in failed_test_reports))
+        terminalreporter.section("command to run failed tests")
         terminalreporter.write(" ".join(["pytest"] + ids))
         terminalreporter.write("\n" * 2)
+
+        if summary_path := os.environ.get("GITHUB_STEP_SUMMARY"):
+            summary_path = Path(summary_path).resolve()
+            with summary_path.open("a") as f:
+                f.write("## Failed tests\n")
+                f.write("Run the following command to run the failed tests:\n")
+                f.write("```bash\n")
+                f.write(" ".join(["pytest"] + ids) + "\n")
+                f.write("```\n\n")
 
         # If some tests failed at installing mlflow, we suggest using `--serve-wheel` flag.
         # Some test cases try to install mlflow via pip e.g. model loading. They pins
@@ -302,7 +317,7 @@ def pytest_terminal_summary(terminalreporter, exitstatus, config):
                 terminalreporter.write(f"{idx}: {child}\n")
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="module", autouse=not IS_TRACING_SDK_ONLY)
 def clean_up_envs():
     """
     Clean up virtualenvs and conda environments created during tests to save disk space.
@@ -331,7 +346,7 @@ def enable_mlflow_testing():
         yield
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="session", autouse=not IS_TRACING_SDK_ONLY)
 def serve_wheel(request, tmp_path_factory):
     """
     Models logged during tests have a dependency on the dev version of MLflow built from
@@ -340,6 +355,8 @@ def serve_wheel(request, tmp_path_factory):
     PyPI repository running on localhost and appends the repository URL to the
     `PIP_EXTRA_INDEX_URL` environment variable to make the wheel available to pip.
     """
+    from tests.helper_functions import get_safe_port
+
     if not request.config.getoption("--serve-wheel"):
         yield  # pytest expects a generator fixture to yield
         return

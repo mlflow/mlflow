@@ -238,7 +238,9 @@ def _prune_packages(packages):
     requires = {req for req in requires if not req.startswith("llama-index-")}
 
     # Do not exclude mlflow's dependencies
-    return packages - (requires - set(_get_requires("mlflow")))
+    # Do not exclude databricks-connect since it conflicts with pyspark during execution time,
+    # and we need to determine if pyspark needs to be stripped based on the inferred packages
+    return packages - (requires - set(_get_requires("mlflow")) - {"databricks-connect"})
 
 
 def _run_command(cmd, timeout_seconds, env=None):
@@ -441,7 +443,7 @@ def _init_modules_to_packages_map():
     global _MODULES_TO_PACKAGES
     if _MODULES_TO_PACKAGES is None:
         # Note `importlib_metadata.packages_distributions` only captures packages installed into
-        # Python’s site-packages directory via tools such as pip:
+        # Python's site-packages directory via tools such as pip:
         # https://importlib-metadata.readthedocs.io/en/latest/using.html#using-importlib-metadata
         _MODULES_TO_PACKAGES = importlib_metadata.packages_distributions()
 
@@ -474,25 +476,6 @@ def _init_packages_to_modules_map():
             _PACKAGES_TO_MODULES[pkg_name] = module
 
 
-# Represents the PyPI package index at a particular date
-# :param date: The YYYY-MM-DD formatted string date on which the index was fetched.
-# :param package_names: The set of package names in the index.
-_PyPIPackageIndex = namedtuple("_PyPIPackageIndex", ["date", "package_names"])
-
-
-def _load_pypi_package_index():
-    with Path(mlflow.__file__).parent.joinpath("pypi_package_index.json").open() as f:
-        index_dict = json.load(f)
-
-    return _PyPIPackageIndex(
-        date=index_dict["index_date"],
-        package_names=set(index_dict["package_names"]),
-    )
-
-
-_PYPI_PACKAGE_INDEX = None
-
-
 def _infer_requirements(model_uri, flavor, raise_on_error=False, extra_env_vars=None):
     """Infers the pip requirements of the specified model by creating a subprocess and loading
     the model in it to determine which packages are imported.
@@ -509,9 +492,6 @@ def _infer_requirements(model_uri, flavor, raise_on_error=False, extra_env_vars=
 
     """
     _init_modules_to_packages_map()
-    global _PYPI_PACKAGE_INDEX
-    if _PYPI_PACKAGE_INDEX is None:
-        _PYPI_PACKAGE_INDEX = _load_pypi_package_index()
 
     modules = _capture_imported_modules(model_uri, flavor, extra_env_vars=extra_env_vars)
     packages = _flatten([_MODULES_TO_PACKAGES.get(module, []) for module in modules])
@@ -529,22 +509,6 @@ def _infer_requirements(model_uri, flavor, raise_on_error=False, extra_env_vars=
         *_MODULES_TO_PACKAGES.get("mlflow", []),
     ]
     packages = packages - set(excluded_packages)
-
-    # manually exclude mlflow[gateway] as it isn't listed separately in PYPI_PACKAGE_INDEX
-    unrecognized_packages = packages - _PYPI_PACKAGE_INDEX.package_names - {"mlflow[gateway]"}
-    if unrecognized_packages:
-        if raise_on_error:
-            raise MlflowException(
-                "Failed to infer requirements for the model due to unrecognized packages: "
-                f"{unrecognized_packages}"
-            )
-        _logger.warning(
-            "The following packages were not found in the public PyPI package index as of"
-            " %s; if these packages are not present in the public PyPI index, you must install"
-            " them manually before loading your model: %s",
-            _PYPI_PACKAGE_INDEX.date,
-            unrecognized_packages,
-        )
 
     # Handle pandas incompatibility issue with numpy 2.x https://github.com/pandas-dev/pandas/issues/55519
     # pandas == 2.2.*: compatible with numpy >= 2

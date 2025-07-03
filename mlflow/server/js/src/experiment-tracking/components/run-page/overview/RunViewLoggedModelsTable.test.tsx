@@ -1,5 +1,5 @@
 import { IntlProvider } from 'react-intl';
-import { render, waitFor } from '../../../../common/utils/TestUtils.react18';
+import { render, screen, waitFor, within } from '../../../../common/utils/TestUtils.react18';
 import { LoggedModelStatusProtoEnum, type RunInfoEntity } from '../../../types';
 import type { UseGetRunQueryResponseInputs, UseGetRunQueryResponseOutputs } from '../hooks/useGetRunQuery';
 import { RunViewLoggedModelsTable } from './RunViewLoggedModelsTable';
@@ -52,8 +52,8 @@ describe('RunViewLoggedModelsTable', () => {
   const outputs: UseGetRunQueryResponseOutputs = {
     __typename: 'MlflowRunOutputs',
     modelOutputs: [
-      { __typename: 'MlflowModelOutput', modelId: 'output-model-1', step: '0' },
-      { __typename: 'MlflowModelOutput', modelId: 'output-model-2', step: '0' },
+      { __typename: 'MlflowModelOutput', modelId: 'output-model-1', step: '2' },
+      { __typename: 'MlflowModelOutput', modelId: 'output-model-2', step: '7' },
     ],
   };
   const runInfo: RunInfoEntity = {
@@ -108,6 +108,25 @@ describe('RunViewLoggedModelsTable', () => {
 
     expect(getAllByRole('gridcell', { name: 'Input' })).toHaveLength(2);
     expect(getAllByRole('gridcell', { name: 'Output' })).toHaveLength(2);
+  });
+
+  it('renders corresponding steps for logged models', async () => {
+    const { getByRole } = renderTestComponent();
+
+    // Wait for the first cell to appear
+    await waitFor(() => {
+      expect(getByRole('gridcell', { name: /output-model-1-name/ })).toBeInTheDocument();
+    });
+
+    const [outputModelOneRow, outputModelTwoRow] = [/output-model-1-name/, /output-model-2-name/].map(
+      (cellContent) => getByRole('gridcell', { name: cellContent }).closest('[role="row"]') as HTMLElement,
+    );
+
+    // Due to lack of accessibility labels in ag-grid, we are using column IDs
+    const stepColId = getByRole('columnheader', { name: 'Step' }).getAttribute('col-id');
+
+    expect(outputModelOneRow.querySelector(`[col-id="${stepColId}"]`)).toHaveTextContent('2');
+    expect(outputModelTwoRow.querySelector(`[col-id="${stepColId}"]`)).toHaveTextContent('7');
   });
 
   it('renders error message when request fails', async () => {

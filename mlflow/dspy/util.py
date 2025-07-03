@@ -2,7 +2,7 @@ import logging
 import tempfile
 from collections import defaultdict
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from dspy import Example
 
@@ -66,8 +66,8 @@ def log_dspy_dataset(dataset: list["Example"], file_name: str):
 
 
 def _flatten_dspy_module_state(
-    d, parent_key="", sep=".", exclude_keys: Optional[set] = None
-) -> dict:
+    d, parent_key="", sep=".", exclude_keys: Optional[set[str]] = None
+) -> dict[str, Any]:
     """
     Flattens a nested dictionary and accumulates the key names.
 
@@ -84,7 +84,7 @@ def _flatten_dspy_module_state(
         >>> _flatten_dspy_module_state({"a": {"b": [5, 6]}})
         {'a.b.0': 5, 'a.b.1': 6}
     """
-    items = {}
+    items: dict[str, Any] = {}
 
     if isinstance(d, dict):
         for k, v in d.items():
@@ -92,13 +92,15 @@ def _flatten_dspy_module_state(
                 continue
             new_key = f"{parent_key}{sep}{k}" if parent_key else k
             if isinstance(v, Example):
-                v = v.toDict()
+                # Don't flatten Example objects further even if it has dict or list values
+                v = {key: str(value) for key, value in v.items()}
             items.update(_flatten_dspy_module_state(v, new_key, sep))
     elif isinstance(d, list):
         for i, v in enumerate(d):
             new_key = f"{parent_key}{sep}{i}" if parent_key else str(i)
             if isinstance(v, Example):
-                v = v.toDict()
+                # Don't flatten Example objects further even if it has dict or list values
+                v = {key: str(value) for key, value in v.items()}
             items.update(_flatten_dspy_module_state(v, new_key, sep))
     else:
         if d is not None:

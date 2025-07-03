@@ -1,4 +1,4 @@
-import type { Step } from '../../development/Stepper';
+import type { Step } from '../../design-system/Stepper';
 /**
  * Represents one step in the wizard
  */

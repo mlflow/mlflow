@@ -7,6 +7,24 @@ from mlflow.server.graphql.graphql_errors import ApiError
 from mlflow.utils.proto_json_utils import parse_dict
 
 
+class MlflowDeploymentJobConnectionState(graphene.Enum):
+    DEPLOYMENT_JOB_CONNECTION_STATE_UNSPECIFIED = 1
+    NOT_SET_UP = 2
+    CONNECTED = 3
+    NOT_FOUND = 4
+    REQUIRED_PARAMETERS_CHANGED = 5
+
+
+class MlflowModelVersionDeploymentJobStateDeploymentJobRunState(graphene.Enum):
+    DEPLOYMENT_JOB_RUN_STATE_UNSPECIFIED = 1
+    NO_VALID_DEPLOYMENT_JOB_FOUND = 2
+    RUNNING = 3
+    SUCCEEDED = 4
+    FAILED = 5
+    PENDING = 6
+    APPROVAL = 7
+
+
 class MlflowModelVersionStatus(graphene.Enum):
     PENDING_REGISTRATION = 1
     FAILED_REGISTRATION = 2
@@ -25,6 +43,30 @@ class MlflowViewType(graphene.Enum):
     ACTIVE_ONLY = 1
     DELETED_ONLY = 2
     ALL = 3
+
+
+class MlflowModelVersionDeploymentJobState(graphene.ObjectType):
+    job_id = graphene.String()
+    run_id = graphene.String()
+    job_state = graphene.Field(MlflowDeploymentJobConnectionState)
+    run_state = graphene.Field(MlflowModelVersionDeploymentJobStateDeploymentJobRunState)
+    current_task_name = graphene.String()
+
+
+class MlflowModelMetric(graphene.ObjectType):
+    key = graphene.String()
+    value = graphene.Float()
+    timestamp = LongString()
+    step = LongString()
+    dataset_name = graphene.String()
+    dataset_digest = graphene.String()
+    model_id = graphene.String()
+    run_id = graphene.String()
+
+
+class MlflowModelParam(graphene.ObjectType):
+    name = graphene.String()
+    value = graphene.String()
 
 
 class MlflowModelVersionTag(graphene.ObjectType):
@@ -47,6 +89,10 @@ class MlflowModelVersion(graphene.ObjectType):
     tags = graphene.List(graphene.NonNull(MlflowModelVersionTag))
     run_link = graphene.String()
     aliases = graphene.List(graphene.String)
+    model_id = graphene.String()
+    model_params = graphene.List(graphene.NonNull(MlflowModelParam))
+    model_metrics = graphene.List(graphene.NonNull(MlflowModelMetric))
+    deployment_job_state = graphene.Field(MlflowModelVersionDeploymentJobState)
 
 
 class MlflowSearchModelVersionsResponse(graphene.ObjectType):
@@ -93,6 +139,19 @@ class MlflowListArtifactsResponse(graphene.ObjectType):
     apiError = graphene.Field(ApiError)
 
 
+class MlflowModelOutput(graphene.ObjectType):
+    model_id = graphene.String()
+    step = LongString()
+
+
+class MlflowRunOutputs(graphene.ObjectType):
+    model_outputs = graphene.List(graphene.NonNull(MlflowModelOutput))
+
+
+class MlflowModelInput(graphene.ObjectType):
+    model_id = graphene.String()
+
+
 class MlflowDataset(graphene.ObjectType):
     name = graphene.String()
     digest = graphene.String()
@@ -114,6 +173,7 @@ class MlflowDatasetInput(graphene.ObjectType):
 
 class MlflowRunInputs(graphene.ObjectType):
     dataset_inputs = graphene.List(graphene.NonNull(MlflowDatasetInput))
+    model_inputs = graphene.List(graphene.NonNull(MlflowModelInput))
 
 
 class MlflowRunTag(graphene.ObjectType):
@@ -131,6 +191,10 @@ class MlflowMetric(graphene.ObjectType):
     value = graphene.Float()
     timestamp = LongString()
     step = LongString()
+    dataset_name = graphene.String()
+    dataset_digest = graphene.String()
+    model_id = graphene.String()
+    run_id = graphene.String()
 
 
 class MlflowRunData(graphene.ObjectType):
@@ -156,6 +220,7 @@ class MlflowRun(graphene.ObjectType):
     info = graphene.Field(MlflowRunInfo)
     data = graphene.Field(MlflowRunData)
     inputs = graphene.Field(MlflowRunInputs)
+    outputs = graphene.Field(MlflowRunOutputs)
 
 
 class MlflowSearchRunsResponse(graphene.ObjectType):

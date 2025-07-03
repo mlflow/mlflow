@@ -400,7 +400,6 @@ def _infer_signature_from_type_hints(
     if _contains_params(input_example):
         input_example, params = input_example
 
-    _logger.info("Inferring model signature from type hints")
     try:
         input_schema = _infer_schema_from_list_type_hint(type_hints.input)
     except InvalidTypeHintException:
@@ -547,7 +546,7 @@ def _infer_signature_from_input_example(
         except Exception:
             # try assign output schema if failing to infer it from prediction for langchain models
             try:
-                from mlflow.langchain import _LangChainModelWrapper
+                from mlflow.langchain.model import _LangChainModelWrapper
                 from mlflow.langchain.utils.chat import _ChatResponse
             except ImportError:
                 pass
@@ -602,12 +601,14 @@ def set_signature(
             - ``s3://my_bucket/path/to/model``
             - ``runs:/<mlflow_run_id>/run-relative/path/to/model``
             - ``mlflow-artifacts:/path/to/model``
+            - ``models:/<model_id>``
 
             For more information about supported URI schemes, see
             `Referencing Artifacts <https://www.mlflow.org/docs/latest/concepts.html#
             artifact-locations>`_.
 
-            Please note that model URIs with the ``models:/`` scheme are not supported.
+            Please note that model URIs with the ``models:/<name>/<version>`` scheme are not
+            supported.
 
         signature: ModelSignature to set on the model.
 
@@ -634,16 +635,19 @@ def set_signature(
     assert isinstance(signature, ModelSignature), (
         "The signature argument must be a ModelSignature object"
     )
-    if ModelsArtifactRepository.is_models_uri(model_uri):
+    resolved_uri = model_uri
+    if RunsArtifactRepository.is_runs_uri(model_uri):
+        resolved_uri = RunsArtifactRepository.get_underlying_uri(model_uri)
+    elif ModelsArtifactRepository._is_logged_model_uri(model_uri):
+        resolved_uri = ModelsArtifactRepository.get_underlying_uri(model_uri)
+    elif ModelsArtifactRepository.is_models_uri(model_uri):
         raise MlflowException(
-            f'Failed to set signature on "{model_uri}". '
-            + "Model URIs with the `models:/` scheme are not supported.",
+            f"Failed to set signature on {model_uri!r}. "
+            "Model URIs with the `models:/<name>/<version>` scheme are not supported.",
             INVALID_PARAMETER_VALUE,
         )
+
     try:
-        resolved_uri = model_uri
-        if RunsArtifactRepository.is_runs_uri(model_uri):
-            resolved_uri = RunsArtifactRepository.get_underlying_uri(model_uri)
         ml_model_file = _download_artifact_from_uri(
             artifact_uri=append_to_uri_path(resolved_uri, MLMODEL_FILE_NAME)
         )

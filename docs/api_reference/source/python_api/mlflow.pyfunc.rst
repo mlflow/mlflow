@@ -35,3 +35,9 @@ mlflow.pyfunc
 .. autoclass:: mlflow.pyfunc.ChatAgent
     :members:
     :undoc-members:
+
+.. Include ``ResponsesAgent``, which is imported from `mlflow.pyfunc.model`, in the
+   `mlflow.pyfunc` namespace
+.. autoclass:: mlflow.pyfunc.ResponsesAgent
+    :members:
+    :undoc-members:

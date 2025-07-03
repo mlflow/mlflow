@@ -4,6 +4,8 @@ import logging.config
 import re
 import sys
 
+from mlflow.environment_variables import MLFLOW_LOGGING_LEVEL
+
 # Logging format example:
 # 2018/11/20 12:36:37 INFO mlflow.sagemaker: Creating new SageMaker endpoint
 LOGGING_LINE_FORMAT = "%(asctime)s %(levelname)s %(name)s: %(message)s"
@@ -119,7 +121,7 @@ def _configure_mlflow_loggers(root_module_name):
             "loggers": {
                 root_module_name: {
                     "handlers": ["mlflow_handler"],
-                    "level": "INFO",
+                    "level": (MLFLOW_LOGGING_LEVEL.get() or "INFO").upper(),
                     "propagate": False,
                 },
             },
@@ -157,3 +159,10 @@ def suppress_logs(module: str, filter_regex: re.Pattern):
         yield
     finally:
         logger.removeFilter(filter)
+
+
+def _debug(s: str) -> None:
+    """
+    Debug function to test logging level.
+    """
+    logging.getLogger(__name__).debug(s)

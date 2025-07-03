@@ -17,25 +17,43 @@ import type { ColDef, ColGroupDef } from '@ag-grid-community/core';
 import { ExperimentLoggedModelListPageColumnSelector } from './ExperimentLoggedModelListPageColumnSelector';
 import { coerceToEnum } from '@databricks/web-shared/utils';
 import { ExperimentLoggedModelListPageMode } from './hooks/useExperimentLoggedModelListPageMode';
+import { ExperimentLoggedModelListPageAutoComplete } from './ExperimentLoggedModelListPageAutoComplete';
+import { LoggedModelMetricDataset, LoggedModelProto } from '../../types';
+import { ExperimentLoggedModelListPageDatasetDropdown } from './ExperimentLoggedModelListPageDatasetDropdown';
+import { ExperimentLoggedModelListPageOrderBySelector } from './ExperimentLoggedModelListPageOrderBySelector';
 
 export const ExperimentLoggedModelListPageControls = ({
-  orderByField,
+  orderByColumn,
   orderByAsc,
+  sortingAndFilteringEnabled,
   onChangeOrderBy,
   onUpdateColumns,
   columnDefs,
   columnVisibility = {},
   viewMode,
   setViewMode,
+  searchQuery = '',
+  onChangeSearchQuery,
+  loggedModelsData,
+  selectedFilterDatasets,
+  onToggleDataset,
+  onClearSelectedDatasets,
 }: {
-  orderByField?: string;
+  orderByColumn?: string;
   orderByAsc?: boolean;
-  onChangeOrderBy: (orderByField: string, orderByAsc: boolean) => void;
+  sortingAndFilteringEnabled?: boolean;
+  onChangeOrderBy: (orderByColumn: string, orderByAsc: boolean) => void;
   onUpdateColumns: (columnVisibility: Record<string, boolean>) => void;
   columnDefs?: (ColDef | ColGroupDef)[];
   columnVisibility?: Record<string, boolean>;
   viewMode: ExperimentLoggedModelListPageMode;
   setViewMode: (mode: ExperimentLoggedModelListPageMode) => void;
+  searchQuery?: string;
+  onChangeSearchQuery: (searchFilter: string) => void;
+  loggedModelsData: LoggedModelProto[];
+  selectedFilterDatasets?: LoggedModelMetricDataset[];
+  onToggleDataset?: (dataset: LoggedModelMetricDataset) => void;
+  onClearSelectedDatasets?: () => void;
 }) => {
   const intl = useIntl();
   const { theme } = useDesignSystemTheme();
@@ -87,46 +105,40 @@ export const ExperimentLoggedModelListPageControls = ({
           </span>
         </SegmentedControlButton>
       </SegmentedControlGroup>
-      {/* TODO: enable when filtering is available */}
-      {/* <Input
-        prefix={<SearchIcon />}
-        componentId="mlflow.logged_model.list.search"
-        css={{ width: 430 }}
-        placeholder={intl.formatMessage({
-          defaultMessage: 'Search models',
-          description: 'Placeholder for the search input in the logged model list page',
-        })}
-        allowClear
-        value={searchQuery}
-        onChange={(e) => onChangeSearchQuery(e.target.value)}
-      /> */}
-
-      {/* TODO: enable when filtering is available */}
-      {/* <DropdownMenu.Root>
-        <DropdownMenu.Trigger asChild>
-          <Button componentId="mlflow.logged_model.list.filter" icon={<FilterIcon />}>
-            <FormattedMessage
-              defaultMessage="Filter"
-              description="Label for the filter button in the logged model list page"
-            />
-          </Button>
-        </DropdownMenu.Trigger>
-        <DropdownMenu.Content>
-          <DropdownMenu.Item componentId="">[TODO: implement filters]</DropdownMenu.Item>
-        </DropdownMenu.Content>
-      </DropdownMenu.Root> */}
-      <Button
-        componentId="mlflow.logged_model.list.sort"
-        icon={orderByAsc ? <SortAscendingIcon /> : <SortDescendingIcon />}
-        onClick={() => {
-          orderByField && onChangeOrderBy(orderByField, !orderByAsc);
-        }}
-      >
-        <FormattedMessage
-          defaultMessage="Sort: Created"
-          description="Label for the sort button in the logged model list page"
-        />
-      </Button>
+      {sortingAndFilteringEnabled ? (
+        <>
+          <ExperimentLoggedModelListPageAutoComplete
+            searchQuery={searchQuery}
+            onChangeSearchQuery={onChangeSearchQuery}
+            loggedModelsData={loggedModelsData}
+          />
+          <ExperimentLoggedModelListPageDatasetDropdown
+            loggedModelsData={loggedModelsData}
+            onToggleDataset={onToggleDataset}
+            onClearSelectedDatasets={onClearSelectedDatasets}
+            selectedFilterDatasets={selectedFilterDatasets}
+          />
+          <ExperimentLoggedModelListPageOrderBySelector
+            orderByColumn={orderByColumn ?? ''}
+            orderByAsc={orderByAsc}
+            onChangeOrderBy={onChangeOrderBy}
+            columnDefs={columnDefs}
+          />
+        </>
+      ) : (
+        <Button
+          componentId="mlflow.logged_model.list.sort"
+          icon={orderByAsc ? <SortAscendingIcon /> : <SortDescendingIcon />}
+          onClick={() => {
+            orderByColumn && onChangeOrderBy(orderByColumn, !orderByAsc);
+          }}
+        >
+          <FormattedMessage
+            defaultMessage="Sort: Created"
+            description="Label for the sort button in the logged model list page"
+          />
+        </Button>
+      )}
       <ExperimentLoggedModelListPageColumnSelector
         columnDefs={columnDefs}
         columnVisibility={columnVisibility}

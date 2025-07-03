@@ -29,7 +29,7 @@ johnsnowlabs_model.predict(["I hate COVID,", "I love COVID"])
 
 # 5) Export model with pyfunc and johnsnowlabs flavors
 with mlflow.start_run():
-    model_info = mlflow.johnsnowlabs.log_model(johnsnowlabs_model, model_save_path)
+    model_info = mlflow.johnsnowlabs.log_model(johnsnowlabs_model, name=model_save_path)
 
 # 6) Load model with johnsnowlabs flavor
 mlflow.johnsnowlabs.load_model(model_info.model_uri)

@@ -1,5 +1,8 @@
+import functools
 import importlib
 import logging
+import warnings
+from typing import Optional
 
 _logger = logging.getLogger(__name__)
 
@@ -43,3 +46,31 @@ def suppress_warning(module: str, message: str):
     except Exception as e:
         _logger.debug(f"Failed to suppress the warning for {module}", exc_info=e)
         raise
+
+
+def request_id_backward_compatible(func):
+    """
+    A decorator to support backward compatibility for the `request_id` parameter,
+    which is deprecated and replaced by the `trace_id` parameter in tracing APIs.
+
+    This decorator will adds `request_id` to the function signature and issue
+    a deprecation warning if `request_id` is used with non-null value.
+    """
+
+    @functools.wraps(func)
+    def wrapper(*args, request_id: Optional[str] = None, **kwargs):
+        if request_id is not None:
+            warnings.warn(
+                f"The request_id parameter is deprecated from the {func.__name__} API "
+                "and will be removed in a future version. Please use the `trace_id` "
+                "parameter instead.",
+                category=DeprecationWarning,
+                stacklevel=2,
+            )
+
+            if kwargs.get("trace_id") is None:
+                kwargs["trace_id"] = request_id
+
+        return func(*args, **kwargs)
+
+    return wrapper

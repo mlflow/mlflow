@@ -51,7 +51,7 @@ def test_prediction_context_pyfunc_predict():
                 yield context.request_id
 
     with mlflow.start_run():
-        model_info = mlflow.pyfunc.log_model("model", python_model=MyModel())
+        model_info = mlflow.pyfunc.log_model(name="model", python_model=MyModel())
     pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
 
     with set_prediction_context(Context(request_id="request_1")):

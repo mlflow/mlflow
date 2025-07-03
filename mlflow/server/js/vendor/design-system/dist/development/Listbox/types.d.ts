@@ -1,11 +1,13 @@
 import type { ReactNode } from 'react';
+import type { DesignSystemEventProviderAnalyticsEventTypes } from '../../design-system/DesignSystemEventProvider/DesignSystemEventProvider';
+import type { AnalyticsEventValueChangeNoPiiFlagProps } from '../../design-system/types';
 export interface ListboxOption {
     value: string;
     label: string;
     renderOption?: (additionalProps: any) => ReactNode;
     href?: string;
 }
-export interface ListboxProps {
+export interface ListboxProps extends AnalyticsEventValueChangeNoPiiFlagProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange | DesignSystemEventProviderAnalyticsEventTypes.OnView> {
     /**
      * Array of options to display in the listbox
      */

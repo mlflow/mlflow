@@ -31,7 +31,7 @@ Single variable
 
     with mlflow.start_run():
         model_info = mlflow.openai.log_model(
-            artifact_path="model",
+            name="model",
             model="gpt-4o-mini",
             task=openai.chat.completions,
             messages=[
@@ -93,7 +93,7 @@ Multiple variables
 
     with mlflow.start_run():
         model_info = mlflow.openai.log_model(
-            artifact_path="model",
+            name="model",
             model="gpt-4o-mini",
             task=openai.chat.completions,
             messages=[
@@ -154,7 +154,7 @@ with ``role = user``.
 
     with mlflow.start_run():
         model_info = mlflow.openai.log_model(
-            artifact_path="model",
+            name="model",
             model="gpt-4o-mini",
             task=openai.chat.completions,
             messages=[
@@ -214,7 +214,7 @@ sent to the OpenAI chat completion API as-is with ``role = user``.
 
     with mlflow.start_run():
         model_info = mlflow.openai.log_model(
-            artifact_path="model",
+            name="model",
             model="gpt-4o-mini",
             task=openai.chat.completions,
         )

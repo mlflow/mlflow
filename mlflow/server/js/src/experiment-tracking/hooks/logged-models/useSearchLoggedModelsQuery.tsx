@@ -1,6 +1,6 @@
 import { useInfiniteQuery } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
-import { last } from 'lodash';
-import { LoggedModelProto } from '../../types';
+import { isEmpty, last, uniqBy } from 'lodash';
+import { LoggedModelMetricDataset, LoggedModelProto } from '../../types';
 import { loggedModelsDataRequest } from './request.utils';
 import { useMemo } from 'react';
 
@@ -14,10 +14,18 @@ export const useSearchLoggedModelsQuery = (
     experimentIds,
     orderByAsc,
     orderByField,
+    searchQuery,
+    selectedFilterDatasets,
+    orderByDatasetName,
+    orderByDatasetDigest,
   }: {
     experimentIds?: string[];
     orderByAsc?: boolean;
     orderByField?: string;
+    searchQuery?: string;
+    selectedFilterDatasets?: LoggedModelMetricDataset[];
+    orderByDatasetName?: string;
+    orderByDatasetDigest?: string;
   },
   {
     enabled = true,
@@ -25,8 +33,17 @@ export const useSearchLoggedModelsQuery = (
     enabled?: boolean;
   } = {},
 ) => {
-  // Uniquely identify the query by the experiment IDs, order by field, and order by asc
-  const queryKey = ['SEARCH_LOGGED_MODELS', JSON.stringify(experimentIds), orderByField, orderByAsc];
+  // Uniquely identify the query by the experiment IDs, order by, filter query and datasets, and order by asc
+  const queryKey = [
+    'SEARCH_LOGGED_MODELS',
+    JSON.stringify(experimentIds),
+    orderByField,
+    orderByAsc,
+    searchQuery,
+    JSON.stringify(selectedFilterDatasets),
+    orderByDatasetName,
+    orderByDatasetDigest,
+  ];
 
   const { data, isLoading, isFetching, fetchNextPage, refetch, error } = useInfiniteQuery<
     UseSearchLoggedModelsQueryResponseType,
@@ -36,11 +53,21 @@ export const useSearchLoggedModelsQuery = (
     queryFn: async ({ pageParam }) => {
       const requestBody = {
         experiment_ids: experimentIds,
-        order_by: [{ field_name: orderByField ?? 'creation_time', ascending: orderByAsc ?? false }],
+        order_by: [
+          {
+            field_name: orderByField ?? 'creation_time',
+            ascending: orderByAsc ?? false,
+            dataset_name: orderByDatasetName,
+            dataset_digest: orderByDatasetDigest,
+          },
+        ],
+
         page_token: pageParam,
+        filter: searchQuery,
+        datasets: !isEmpty(selectedFilterDatasets) ? selectedFilterDatasets : undefined,
       };
 
-      return loggedModelsDataRequest('/ajax-api/2.0/mlflow/logged-models/search', 'POST', requestBody);
+      return loggedModelsDataRequest('ajax-api/2.0/mlflow/logged-models/search', 'POST', requestBody);
     },
     cacheTime: 0,
     getNextPageParam: (lastPage) => lastPage.next_page_token,

@@ -10,7 +10,7 @@ import cloudpickle
 import yaml
 
 from mlflow.exceptions import MlflowException
-from mlflow.langchain.utils import (
+from mlflow.langchain.utils.logging import (
     _BASE_LOAD_KEY,
     _CONFIG_LOAD_KEY,
     _MODEL_DATA_FOLDER_NAME,

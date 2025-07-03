@@ -12,7 +12,7 @@ X_train, X_test, y_train, y_test = train_test_split(
 
 with mlflow.start_run() as run:
     model = LinearRegression().fit(X_train, y_train)
-    model_info = mlflow.sklearn.log_model(model, "model")
+    model_info = mlflow.sklearn.log_model(model, name="model")
 
     result = mlflow.evaluate(
         model_info.model_uri,

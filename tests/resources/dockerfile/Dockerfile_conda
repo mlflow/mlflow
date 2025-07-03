@@ -18,13 +18,6 @@ WORKDIR /opt/mlflow
 # Install MLflow
 RUN pip install mlflow==${{ MLFLOW_VERSION }}
 
-# Install Java mlflow-scoring from Maven Central
-RUN mvn --batch-mode dependency:copy -Dartifact=org.mlflow:mlflow-scoring:${{ MLFLOW_VERSION }}:pom -DoutputDirectory=/opt/java 
-RUN mvn --batch-mode dependency:copy -Dartifact=org.mlflow:mlflow-scoring:${{ MLFLOW_VERSION }}:jar -DoutputDirectory=/opt/java/jars 
-RUN cp /opt/java/mlflow-scoring-${{ MLFLOW_VERSION }}.pom /opt/java/pom.xml
-RUN cd /opt/java && mvn --batch-mode dependency:copy-dependencies -DoutputDirectory=/opt/java/jars 
-
-
 # Copy model to image and install dependencies
 COPY model_dir/model /opt/ml/model
 RUN python -c "from mlflow.models import container as C; C._install_pyfunc_deps('/opt/ml/model', install_mlflow=False, enable_mlserver=False, env_manager='conda');"

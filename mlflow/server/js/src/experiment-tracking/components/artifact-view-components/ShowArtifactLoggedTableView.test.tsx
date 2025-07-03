@@ -25,13 +25,20 @@ jest.mock('../../../common/utils/ArtifactUtils', () => ({
 
 describe('ShowArtifactLoggedTableView', () => {
   const renderComponent = () => {
-    render(<ShowArtifactLoggedTableView runUuid="test-run-uuid" path="/path/to/artifact" />, {
-      wrapper: ({ children }) => (
-        <IntlProvider locale="en">
-          <DesignSystemProvider>{children}</DesignSystemProvider>
-        </IntlProvider>
-      ),
-    });
+    render(
+      <ShowArtifactLoggedTableView
+        runUuid="test-run-uuid"
+        experimentId="test-experiment-id"
+        path="/path/to/artifact"
+      />,
+      {
+        wrapper: ({ children }) => (
+          <IntlProvider locale="en">
+            <DesignSystemProvider>{children}</DesignSystemProvider>
+          </IntlProvider>
+        ),
+      },
+    );
   };
 
   beforeEach(() => {

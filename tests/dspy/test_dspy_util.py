@@ -30,7 +30,12 @@ def test_save_dspy_module_state(tmp_path):
 
 
 def test_log_dspy_module_state_params():
-    program = dspy.Predict("question -> answer")
+    program = dspy.Predict("question -> answer: list[str]")
+    program.demos = [
+        dspy.Example(question="What are cities in Japan?", answer=["Tokyo", "Osaka"]).with_inputs(
+            "question"
+        ),
+    ]
 
     with mlflow.start_run() as run:
         log_dspy_module_params(program)
@@ -42,6 +47,8 @@ def test_log_dspy_module_state_params():
         "Predict.signature.fields.1.description": "${answer}",
         "Predict.signature.fields.1.prefix": "Answer:",
         "Predict.signature.instructions": "Given the fields `question`, produce the fields `answer`.",  # noqa: E501
+        "Predict.demos.0.answer": "['Tokyo', 'Osaka']",
+        "Predict.demos.0.question": "What are cities in Japan?",
     }
 
 

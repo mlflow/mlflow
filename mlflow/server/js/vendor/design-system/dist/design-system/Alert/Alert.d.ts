@@ -24,6 +24,7 @@ export interface AlertProps extends Omit<AntDAlertProps, 'closeText' | 'showIcon
     showMoreText?: string;
     /** Text for "Show details" modal title. Defaults to "Details" */
     showMoreModalTitle?: string;
+    size?: 'small' | 'large';
 }
 export declare const Alert: React.FC<AlertProps>;
 //# sourceMappingURL=Alert.d.ts.map

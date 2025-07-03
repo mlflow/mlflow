@@ -159,9 +159,12 @@ class BaseRequestPayload(BaseModel):
 
     temperature: float = Field(0.0, ge=0, le=2)
     n: int = Field(1, ge=1)
-    stop: Optional[list[str]] = Field(None, min_items=1)
+    stop: Optional[list[str]] = (
+        Field(None, min_length=1) if IS_PYDANTIC_V2_OR_NEWER else Field(None, min_items=1)
+    )
     max_tokens: Optional[int] = Field(None, ge=1)
     stream: Optional[bool] = None
+    stream_options: Optional[dict[str, Any]] = None
     model: Optional[str] = None
 
 
@@ -213,8 +216,12 @@ class ChatCompletionRequest(BaseRequestPayload):
     https://platform.openai.com/docs/api-reference/chat
     """
 
-    messages: list[ChatMessage] = Field(..., min_items=1)
-    tools: Optional[list[ChatTool]] = Field(None, min_items=1)
+    messages: list[ChatMessage] = (
+        Field(..., min_length=1) if IS_PYDANTIC_V2_OR_NEWER else Field(..., min_items=1)
+    )
+    tools: Optional[list[ChatTool]] = (
+        Field(None, min_length=1) if IS_PYDANTIC_V2_OR_NEWER else Field(None, min_items=1)
+    )
 
 
 class ChatCompletionResponse(BaseModel):

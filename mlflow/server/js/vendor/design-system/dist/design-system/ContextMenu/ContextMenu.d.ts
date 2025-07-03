@@ -24,15 +24,15 @@ export interface ContextMenuSubContentProps extends RadixContextMenuSubContentPr
     minWidth?: number;
 }
 export declare const SubContent: ({ children, minWidth, ...childrenProps }: ContextMenuSubContentProps) => import("@emotion/react/jsx-runtime").JSX.Element;
-export interface ContextMenuItemProps extends RadixContextMenuItemProps, AnalyticsEventProps<DesignSystemEventProviderAnalyticsEventTypes.OnClick> {
+export interface ContextMenuItemProps extends RadixContextMenuItemProps, AnalyticsEventProps<DesignSystemEventProviderAnalyticsEventTypes.OnClick | DesignSystemEventProviderAnalyticsEventTypes.OnView> {
     disabledReason?: React.ReactNode;
 }
 export declare const Item: ({ children, disabledReason, onClick, componentId, analyticsEvents, asChild, ...props }: ContextMenuItemProps) => import("@emotion/react/jsx-runtime").JSX.Element;
-export interface ContextMenuCheckboxItemProps extends RadixContextMenuCheckboxItemProps, AnalyticsEventProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
+export interface ContextMenuCheckboxItemProps extends RadixContextMenuCheckboxItemProps, AnalyticsEventProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange | DesignSystemEventProviderAnalyticsEventTypes.OnView> {
     disabledReason?: React.ReactNode;
 }
 export declare const CheckboxItem: ({ children, disabledReason, onCheckedChange, componentId, analyticsEvents, ...props }: ContextMenuCheckboxItemProps) => import("@emotion/react/jsx-runtime").JSX.Element;
-export interface ContextMenuRadioGroupProps extends RadixContextMenuRadioGroupProps, AnalyticsEventValueChangeNoPiiFlagProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
+export interface ContextMenuRadioGroupProps extends RadixContextMenuRadioGroupProps, AnalyticsEventValueChangeNoPiiFlagProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange | DesignSystemEventProviderAnalyticsEventTypes.OnView> {
 }
 export declare const RadioGroup: ({ onValueChange, componentId, analyticsEvents, valueHasNoPii, ...props }: ContextMenuRadioGroupProps) => import("@emotion/react/jsx-runtime").JSX.Element;
 export interface ContextMenuRadioItemProps extends RadixContextMenuRadioItemProps {

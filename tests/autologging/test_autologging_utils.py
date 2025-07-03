@@ -120,7 +120,9 @@ def test_log_fn_args_as_params(args, kwargs, expected, start_run):
 def test_log_fn_args_as_params_ignores_unwanted_parameters(
     start_run,
 ):
-    args, kwargs, unlogged = ("arg1", {"arg2": "value"}, ["arg1", "arg2", "arg3"])
+    args = "arg1"
+    kwargs = {"arg2": "value"}
+    unlogged = ["arg1", "arg2", "arg3"]
     log_fn_args_as_params(dummy_fn, args, kwargs, unlogged)
     client = MlflowClient()
     params = client.get_run(mlflow.active_run().info.run_id).data.params
@@ -731,11 +733,11 @@ def test_is_autologging_integration_supported(flavor, module_version, expected_r
 @pytest.mark.parametrize(
     ("flavor", "module_version", "expected_result"),
     [
-        ("pyspark.ml", "3.10.1.dev0", False),
+        ("pyspark.ml", "99.0.0.dev0", False),
         ("pyspark.ml", "3.5.0.dev0", True),
         ("pyspark.ml", "3.3.0.dev0", True),
         ("pyspark.ml", "3.2.1.dev0", True),
-        ("pyspark.ml", "3.1.2.dev0", True),
+        ("pyspark.ml", "3.1.2.dev0", False),
         ("pyspark.ml", "3.0.1.dev0", False),
         ("pyspark.ml", "3.0.0.dev0", False),
         ("pyspark.ml", "2.4.8.dev0", False),

@@ -107,8 +107,15 @@ class DBConnectArtifactCache:
         if cache_key not in self._cache:
             raise RuntimeError(f"The artifact '{cache_key}' does not exist.")
         archive_file_name = self._cache[cache_key]
-        session_id = os.environ["DB_SESSION_UUID"]
-        return f"/local_disk0/.ephemeral_nfs/artifacts/{session_id}/archives/{archive_file_name}"
+
+        if session_id := os.environ.get("DB_SESSION_UUID"):
+            return (
+                f"/local_disk0/.ephemeral_nfs/artifacts/{session_id}/archives/{archive_file_name}"
+            )
+
+        # If 'DB_SESSION_UUID' environment variable does not exist, it means it is running
+        # in a dedicated mode Spark cluster.
+        return os.path.join(os.getcwd(), archive_file_name)
 
 
 def archive_directory(input_dir, archive_file_path):

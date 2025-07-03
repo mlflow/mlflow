@@ -7,7 +7,6 @@ from typing import Optional
 from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation import EvaluationResult
 from mlflow.protos.databricks_pb2 import BAD_REQUEST, INVALID_PARAMETER_VALUE
-from mlflow.utils.annotations import deprecated
 
 _logger = logging.getLogger(__name__)
 
@@ -20,7 +19,7 @@ class MetricThreshold:
     Args:
         threshold: (Optional) A number representing the value threshold for the metric.
 
-            - If higher is better for the metric, the metric value has to be
+            - If greater is better for the metric, the metric value has to be
               >= threshold to pass validation.
             - Otherwise, the metric value has to be <= threshold to pass the validation.
 
@@ -28,7 +27,7 @@ class MetricThreshold:
             change required for candidate model to pass validation with
             the baseline model.
 
-            - If higher is better for the metric, metric value has to be
+            - If greater is better for the metric, metric value has to be
               >= baseline model metric value + min_absolute_change to pass the validation.
             - Otherwise, metric value has to be <= baseline model metric value - min_absolute_change
               to pass the validation.
@@ -38,25 +37,19 @@ class MetricThreshold:
             baseline model metric value) for candidate model
             to pass the comparison with the baseline model.
 
-            - If higher is better for the metric, metric value has to be
+            - If greater is better for the metric, metric value has to be
               >= baseline model metric value * (1 + min_relative_change)
             - Otherwise, metric value has to be
               <= baseline model metric value * (1 - min_relative_change)
             - Note that if the baseline model metric value is equal to 0, the
               threshold falls back performing a simple verification that the
               candidate metric value is better than the baseline metric value,
-              i.e. metric value >= baseline model metric value + 1e-10 if higher
+              i.e. metric value >= baseline model metric value + 1e-10 if greater
               is better; metric value <= baseline model metric value - 1e-10 if
               lower is better.
 
-        greater_is_better: A required boolean representing whether higher value is
+        greater_is_better: A required boolean representing whether greater value is
             better for the metric.
-
-        higher_is_better:
-            .. deprecated:: 2.3.0
-                Use ``greater_is_better`` instead.
-
-            A required boolean representing whether higher value is better for the metric.
     """
 
     def __init__(
@@ -65,7 +58,6 @@ class MetricThreshold:
         min_absolute_change=None,
         min_relative_change=None,
         greater_is_better=None,
-        higher_is_better=None,
     ):
         if threshold is not None and type(threshold) not in {int, float}:
             raise MetricThresholdClassException("`threshold` parameter must be a number.")
@@ -84,14 +76,8 @@ class MetricThreshold:
                 raise MetricThresholdClassException(
                     "`min_relative_change` parameter must be between 0 and 1."
                 )
-        if higher_is_better is None and greater_is_better is None:
-            raise MetricThresholdClassException("`greater_is_better` parameter must be defined.")
-        if higher_is_better is not None and greater_is_better is not None:
-            raise MetricThresholdClassException(
-                "`higher_is_better` parameter must be None when `greater_is_better` is defined."
-            )
         if greater_is_better is None:
-            greater_is_better = higher_is_better
+            raise MetricThresholdClassException("`greater_is_better` parameter must be defined.")
         if not isinstance(greater_is_better, bool):
             raise MetricThresholdClassException("`greater_is_better` parameter must be a boolean.")
         if threshold is None and min_absolute_change is None and min_relative_change is None:
@@ -124,17 +110,9 @@ class MetricThreshold:
         return self._min_relative_change
 
     @property
-    @deprecated("The attribute `higher_is_better` is deprecated. Use `greater_is_better` instead.")
-    def higher_is_better(self):
-        """
-        Boolean value representing whether higher value is better for the metric.
-        """
-        return self._greater_is_better
-
-    @property
     def greater_is_better(self):
         """
-        Boolean value representing whether higher value is better for the metric.
+        Boolean value representing whether greater value is better for the metric.
         """
         return self._greater_is_better
 
@@ -151,7 +129,7 @@ class MetricThreshold:
             threshold_strs.append(f"Minimum Relative Change: {self._min_relative_change}.")
         if self._greater_is_better is not None:
             if self._greater_is_better:
-                threshold_strs.append("Higher value is better.")
+                threshold_strs.append("Greater value is better.")
             else:
                 threshold_strs.append("Lower value is better.")
         return " ".join(threshold_strs)
@@ -387,14 +365,14 @@ def _validate(
         candidate_metric_value = candidate_metrics[metric_name]
         baseline_metric_value = baseline_metrics[metric_name] if baseline_metrics else None
 
-        # If metric is higher is better, >= is used, otherwise <= is used
+        # If metric is greater is better, >= is used, otherwise <= is used
         # for thresholding metric value and model comparison
         comparator_fn = operator.__ge__ if metric_threshold.greater_is_better else operator.__le__
         operator_fn = operator.add if metric_threshold.greater_is_better else operator.sub
 
         if metric_threshold.threshold is not None:
             # metric threshold fails
-            # - if not (metric_value >= threshold) for higher is better
+            # - if not (metric_value >= threshold) for greater is better
             # - if not (metric_value <= threshold) for lower is better
             validation_result.threshold_failed = not comparator_fn(
                 candidate_metric_value, metric_threshold.threshold
@@ -408,7 +386,7 @@ def _validate(
 
         if metric_threshold.min_absolute_change is not None:
             # metric comparison absolute change fails
-            # - if not (metric_value >= baseline + min_absolute_change) for higher is better
+            # - if not (metric_value >= baseline + min_absolute_change) for greater is better
             # - if not (metric_value <= baseline - min_absolute_change) for lower is better
             validation_result.min_absolute_change_failed = not comparator_fn(
                 Decimal(candidate_metric_value),
@@ -429,7 +407,7 @@ def _validate(
                 )
                 continue
             # metric comparison relative change fails
-            # - if (metric_value - baseline) / baseline < min_relative_change for higher is better
+            # - if (metric_value - baseline) / baseline < min_relative_change for greater is better
             # - if (baseline - metric_value) / baseline < min_relative_change for lower is better
             if metric_threshold.greater_is_better:
                 relative_change = (

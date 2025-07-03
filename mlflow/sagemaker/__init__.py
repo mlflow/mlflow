@@ -17,7 +17,7 @@ from typing import Any, Optional
 
 import mlflow
 import mlflow.version
-from mlflow import mleap, pyfunc
+from mlflow import pyfunc
 from mlflow.deployments import BaseDeploymentClient, PredictionsResponse
 from mlflow.environment_variables import (
     MLFLOW_DEPLOYMENT_FLAVOR_NAME,
@@ -70,9 +70,7 @@ def _get_preferred_deployment_flavor(model_config):
     Returns:
         The name of the preferred deployment flavor for the specified model
     """
-    if mleap.FLAVOR_NAME in model_config.flavors:
-        return mleap.FLAVOR_NAME
-    elif pyfunc.FLAVOR_NAME in model_config.flavors:
+    if pyfunc.FLAVOR_NAME in model_config.flavors:
         return pyfunc.FLAVOR_NAME
     else:
         raise MlflowException(
@@ -289,7 +287,7 @@ def _deploy(
                             "subnet-123456abc",
                         ],
                     }
-                    mfs.deploy(..., vpc_config=vpc_config)
+                    mfs._deploy(..., vpc_config=vpc_config)
 
         flavor: The name of the flavor of the model to use for deployment. Must be either
             ``None`` or one of mlflow.sagemaker.SUPPORTED_DEPLOYMENT_FLAVORS. If ``None``,
@@ -324,7 +322,7 @@ def _deploy(
                     "DestinationS3Uri": "s3://my-bucket/path",
                     "CaptureOptions": [{"CaptureMode": "Output"}],
                 }
-                mfs.deploy(..., data_capture_config=data_capture_config)
+                mfs._deploy(..., data_capture_config=data_capture_config)
 
         variant_name: The name to assign to the new production variant.
         async_inference_config: The name to assign to the endpoint_config

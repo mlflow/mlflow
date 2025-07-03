@@ -426,6 +426,7 @@ export interface SearchRunsApiResponse {
 
 export interface SearchExperimentsApiResponse {
   experiments: ExperimentEntity[];
+  next_page_token?: string;
 }
 
 export interface GetExperimentApiResponse {
@@ -450,6 +451,8 @@ export interface LoggedModelMetricProto {
   timestamp?: number;
   value?: number;
 }
+
+export type LoggedModelMetricDataset = Pick<LoggedModelMetricProto, 'dataset_digest' | 'dataset_name'>;
 
 export interface LoggedModelKeyValueProto {
   key?: string;

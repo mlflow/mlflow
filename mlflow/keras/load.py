@@ -10,7 +10,6 @@ from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
-from mlflow.utils.annotations import experimental
 
 _MODEL_SAVE_PATH = "model"
 
@@ -72,7 +71,6 @@ def _load_keras_model(path, model_conf, custom_objects=None, **load_model_kwargs
         )
 
 
-@experimental
 def load_model(model_uri, dst_path=None, custom_objects=None, load_model_kwargs=None):
     """
     Load Keras model from MLflow.

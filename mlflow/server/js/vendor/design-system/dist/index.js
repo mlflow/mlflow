@@ -1,12 +1,12 @@
-import { G as useDesignSystemContext, u as useDesignSystemTheme, I as Icon, H as Spinner, D as DesignSystemAntDConfigProvider, y as RestoreAntDDefaultClsPrefix, d as DesignSystemEventProviderAnalyticsEventTypes, f as useDesignSystemEventComponentCallbacks, h as DesignSystemEventProviderComponentTypes, z as addDebugOutlineStylesIfEnabled, c as getAnimationCss, a as useDesignSystemSafexFlags, k as DesignSystemEventProviderComponentSubTypeMap, l as useNotifyOnFirstView, B as Button, T as Typography, b as addDebugOutlineIfEnabled, C as CloseIcon, A as getDarkModePortalStyles, J as useUniqueId, R as Root$8, m as Trigger$4, n as Content$5, K as Arrow$2, q as ChevronRightIcon, L as LoadingState, M as visuallyHidden, t as DesignSystemEventSuppressInteractionProviderContext, v as DesignSystemEventSuppressInteractionTrueContextValue, i as importantify, e as useFormContext, N as CheckIcon, O as ComponentFinderContext, r as getComboboxOptionItemWrapperStyles, P as getComboboxContentWrapperStyles, Q as getFooterStyles, U as highlightFirstNonDisabledOption, V as getInfoIconStyles, X as getKeyboardNavigationFunctions, Y as dialogComboboxLookAheadKeyDown, Z as getCheckboxStyles, _ as getDialogComboboxOptionLabelWidth, $ as getContentOptions, a0 as findHighlightedOption, a1 as highlightOption, a2 as findClosestOptionSibling, a3 as getComboboxOptionLabelStyles, a4 as getSelectItemWithHintColumnStyles, a5 as getHintColumnStyles, a6 as useComponentFinderContext, g as getValidationStateColor, a7 as ApplyDesignSystemContextOverrides, E as getShadowScrollStyles, j as DangerIcon, W as WarningIcon, a8 as LoadingIcon, w as safex, a9 as Title$2, aa as AccessibleContainer, o as ChevronLeftIcon, ab as DU_BOIS_ENABLE_ANIMATION_CLASSNAME, ac as lightColorList, ad as getDefaultStyles, ae as getPrimaryStyles, af as getDisabledSplitButtonStyles, ag as getDisabledPrimarySplitButtonStyles } from './Stepper-VOpjC9TY.js';
-export { aq as ApplyDesignSystemFlags, aB as ColorVars, an as DesignSystemContext, ak as DesignSystemEventProvider, aj as DesignSystemEventProviderComponentSubTypes, ap as DesignSystemProvider, am as DesignSystemThemeContext, ao as DesignSystemThemeProvider, aw as LoadingStateContext, av as NewWindowIcon, ax as Popover, au as WithDesignSystemThemeHoc, x as augmentWithDataComponentProps, az as getBottomOnlyShadowScrollStyles, ai as getButtonEmotionStyles, ah as getMemoizedButtonEmotionStyles, ay as getTypographyColor, aA as getVirtualizedComboboxMenuItemStyles, as as isOptionDisabled, at as resetTabIndexToFocusedElement, ar as useAntDConfigProviderContext, al as useDesignSystemEventSuppressInteractionContext } from './Stepper-VOpjC9TY.js';
+import { H as useDesignSystemContext, u as useDesignSystemTheme, I as Icon, S as Spinner, J as DesignSystemEventProvider, D as DesignSystemAntDConfigProvider, y as RestoreAntDDefaultClsPrefix, s as safex, e as DesignSystemEventProviderAnalyticsEventTypes, f as useDesignSystemEventComponentCallbacks, h as DesignSystemEventProviderComponentTypes, l as useNotifyOnFirstView, z as addDebugOutlineStylesIfEnabled, c as getAnimationCss, a as useDesignSystemSafexFlags, k as DesignSystemEventProviderComponentSubTypeMap, B as Button, T as Typography, b as addDebugOutlineIfEnabled, C as CloseIcon, A as getDarkModePortalStyles, K as useUniqueId, R as Root$8, m as Trigger$4, n as Content$5, M as Arrow$2, q as ChevronRightIcon, N as LoadingState, O as visuallyHidden, v as DesignSystemEventSuppressInteractionProviderContext, w as DesignSystemEventSuppressInteractionTrueContextValue, i as importantify, d as useFormContext, P as ComponentFinderContext, r as getComboboxOptionItemWrapperStyles, Q as getComboboxContentWrapperStyles, U as getFooterStyles, V as highlightFirstNonDisabledOption, X as getInfoIconStyles, Y as getKeyboardNavigationFunctions, Z as dialogComboboxLookAheadKeyDown, _ as getCheckboxStyles, $ as getDialogComboboxOptionLabelWidth, a0 as getContentOptions, a1 as findHighlightedOption, a2 as highlightOption, a3 as findClosestOptionSibling, a4 as getComboboxOptionLabelStyles, a5 as getSelectItemWithHintColumnStyles, a6 as getHintColumnStyles, a7 as useComponentFinderContext, g as getValidationStateColor, a8 as ApplyDesignSystemContextOverrides, E as getShadowScrollStyles, j as DangerIcon, W as WarningIcon, L as LoadingIcon, a9 as Title$2, aa as AccessibleContainer, o as ChevronLeftIcon, ab as DU_BOIS_ENABLE_ANIMATION_CLASSNAME, ac as getDefaultStyles, ad as getPrimaryStyles, ae as getDisabledSplitButtonStyles, af as getDisabledPrimarySplitButtonStyles } from './Popover-CwN5G-JZ.js';
+export { ao as ApplyDesignSystemFlags, az as ColorVars, al as DesignSystemContext, ai as DesignSystemEventProviderComponentSubTypes, an as DesignSystemProvider, ak as DesignSystemThemeContext, am as DesignSystemThemeProvider, au as LoadingStateContext, at as NewWindowIcon, av as Popover, as as WithDesignSystemThemeHoc, x as augmentWithDataComponentProps, ax as getBottomOnlyShadowScrollStyles, ah as getButtonEmotionStyles, ag as getMemoizedButtonEmotionStyles, aw as getTypographyColor, ay as getVirtualizedComboboxMenuItemStyles, aq as isOptionDisabled, ar as resetTabIndexToFocusedElement, ap as useAntDConfigProviderContext, aj as useDesignSystemEventSuppressInteractionContext } from './Popover-CwN5G-JZ.js';
 import * as React from 'react';
 import React__default, { useRef, useMemo, forwardRef, createContext, useContext, useCallback, useState, useEffect, useImperativeHandle, Children, Fragment as Fragment$1, useLayoutEffect } from 'react';
 import { jsx, jsxs, Fragment } from '@emotion/react/jsx-runtime';
-import { I as Input, S as SearchIcon } from './index-CH9ufzDw.js';
-export { C as ClockIcon, M as MegaphoneIcon, g as getInputStyles, u as useCallbackOnEnter } from './index-CH9ufzDw.js';
-import { d as Modal, e as useModalContext, I as InfoIcon, S as Spacer, L as ListIcon, T as Tooltip$1 } from './WizardStepContentWrapper-Dkc7JDxZ.js';
-export { C as Content, f as DangerModal, D as DocumentationSidebar, F as FIXED_VERTICAL_STEPPER_WIDTH, M as MAX_VERTICAL_WIZARD_CONTENT_WIDTH, N as Nav, g as NavButton, P as Panel, k as PanelBody, h as PanelHeader, j as PanelHeaderButtons, i as PanelHeaderTitle, l as Sidebar, W as Wizard, a as WizardControlled, b as WizardModal, c as WizardStepContentWrapper, u as useWizardCurrentStep } from './WizardStepContentWrapper-Dkc7JDxZ.js';
+import { d as Modal, e as useModalContext, I as InfoIcon, C as CheckIcon, S as Spacer, L as ListIcon, T as Tooltip$1 } from './WizardStepContentWrapper-CZPRo5Ra.js';
+export { h as Content, f as DangerModal, D as DocumentationSidebar, F as FIXED_VERTICAL_STEPPER_WIDTH, M as MAX_VERTICAL_WIZARD_CONTENT_WIDTH, N as Nav, g as NavButton, P as Panel, l as PanelBody, i as PanelHeader, k as PanelHeaderButtons, j as PanelHeaderTitle, m as Sidebar, n as Stepper, W as Wizard, a as WizardControlled, b as WizardModal, c as WizardStepContentWrapper, u as useWizardCurrentStep } from './WizardStepContentWrapper-CZPRo5Ra.js';
+import { I as Input, S as SearchIcon } from './index-BIb0Gz-W.js';
+export { C as ClockIcon, L as LockIcon, M as MegaphoneIcon, g as getInputStyles, u as useCallbackOnEnter } from './index-BIb0Gz-W.js';
 import { css, Global, keyframes, ClassNames, createElement } from '@emotion/react';
 import { Collapse, Alert as Alert$1, AutoComplete as AutoComplete$1, Tooltip, Breadcrumb as Breadcrumb$1, Checkbox as Checkbox$1, DatePicker, Dropdown as Dropdown$1, Select as Select$1, Radio as Radio$1, Switch as Switch$1, Col as Col$1, Row as Row$1, Space as Space$1, Layout as Layout$1, Form, notification, Popover as Popover$1, Skeleton, Pagination as Pagination$1, Table as Table$1, Tabs as Tabs$1, Menu as Menu$1, Button as Button$1, Steps as Steps$1, Tree as Tree$1 } from 'antd';
 import classnames from 'classnames';
@@ -36,12 +36,12 @@ import * as Toggle from '@radix-ui/react-toggle';
 import chroma from 'chroma-js';
 import _isEqual from 'lodash/isEqual';
 import '@radix-ui/react-tooltip';
+import 'lodash/memoize';
 import 'lodash/endsWith';
 import 'lodash/isBoolean';
 import 'lodash/isNumber';
 import 'lodash/isString';
 import 'lodash/mapValues';
-import 'lodash/memoize';
 import '@emotion/unitless';
 import 'lodash/noop';
 import 'react-resizable';
@@ -3674,6 +3674,61 @@ const FolderNewIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
 });
 FolderNewIcon.displayName = 'FolderNewIcon';
 
+function SvgFolderOpenIcon(props) {
+  return jsx("svg", {
+    xmlns: "http://www.w3.org/2000/svg",
+    width: "1em",
+    height: "1em",
+    fill: "none",
+    viewBox: "0 0 16 16",
+    ...props,
+    children: jsx("path", {
+      fill: "currentColor",
+      fillRule: "evenodd",
+      d: "M0 2.75A.75.75 0 0 1 .75 2h3.922c.729 0 1.428.29 1.944.805L7.811 4h5.439a.75.75 0 0 1 .75.75V7h1.25a.75.75 0 0 1 .658 1.11l-3 5.5a.75.75 0 0 1-.658.39H.75a.747.747 0 0 1-.75-.75zm1.5 7.559L3.092 7.39A.75.75 0 0 1 3.75 7h8.75V5.5h-5a.75.75 0 0 1-.53-.22L5.555 3.866a1.25 1.25 0 0 0-.883-.366H1.5z",
+      clipRule: "evenodd"
+    })
+  });
+}
+const FolderOpenIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
+  return jsx(Icon, {
+    ref: forwardedRef,
+    ...props,
+    component: SvgFolderOpenIcon
+  });
+});
+FolderOpenIcon.displayName = 'FolderOpenIcon';
+
+function SvgFolderOpenPipelineIcon(props) {
+  return jsxs("svg", {
+    xmlns: "http://www.w3.org/2000/svg",
+    width: "1em",
+    height: "1em",
+    fill: "none",
+    viewBox: "0 0 16 16",
+    ...props,
+    children: [jsx("path", {
+      fill: "currentColor",
+      fillRule: "evenodd",
+      d: "M0 1.75A.75.75 0 0 1 .75 1h3.922c.729 0 1.428.29 1.944.805L7.811 3h5.439a.75.75 0 0 1 .75.75V6h1.25a.75.75 0 0 1 .658 1.11L14.56 9.58A4.99 4.99 0 0 0 10.5 7.5H9.25A2.25 2.25 0 0 0 7 9.75v2.5q.002.396.128.75H.75a.747.747 0 0 1-.75-.75zm1.5 7.559L3.092 6.39A.75.75 0 0 1 3.75 6h8.75V4.5h-5a.75.75 0 0 1-.53-.22L5.555 2.866a1.25 1.25 0 0 0-.883-.366H1.5z",
+      clipRule: "evenodd"
+    }), jsx("path", {
+      fill: "currentColor",
+      fillRule: "evenodd",
+      d: "M8.5 9.75A.75.75 0 0 1 9.25 9h1.25a3.5 3.5 0 0 1 3.465 3h.785a.75.75 0 0 1 .75.75v2.5a.75.75 0 0 1-.75.75H13.5a3.5 3.5 0 0 1-3.465-3H9.25a.75.75 0 0 1-.75-.75zm1.5.75v1h.5a1 1 0 0 1 1 1 2 2 0 0 0 2 2h.5v-1h-.5a1 1 0 0 1-1-1 2 2 0 0 0-2-2z",
+      clipRule: "evenodd"
+    })]
+  });
+}
+const FolderOpenPipelineIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
+  return jsx(Icon, {
+    ref: forwardedRef,
+    ...props,
+    component: SvgFolderOpenPipelineIcon
+  });
+});
+FolderOpenPipelineIcon.displayName = 'FolderOpenPipelineIcon';
+
 function SvgFolderOutlinePipelineIcon(props) {
   return jsxs("svg", {
     xmlns: "http://www.w3.org/2000/svg",
@@ -4816,34 +4871,6 @@ const LockFillIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
 });
 LockFillIcon.displayName = 'LockFillIcon';
 
-function SvgLockIcon(props) {
-  return jsxs("svg", {
-    xmlns: "http://www.w3.org/2000/svg",
-    width: "1em",
-    height: "1em",
-    fill: "none",
-    viewBox: "0 0 16 16",
-    ...props,
-    children: [jsx("path", {
-      fill: "currentColor",
-      d: "M7.25 9v4h1.5V9z"
-    }), jsx("path", {
-      fill: "currentColor",
-      fillRule: "evenodd",
-      d: "M12 6V4a4 4 0 0 0-8 0v2H2.75a.75.75 0 0 0-.75.75v8.5c0 .414.336.75.75.75h10.5a.75.75 0 0 0 .75-.75v-8.5a.75.75 0 0 0-.75-.75zm.5 1.5v7h-9v-7zM5.5 4v2h5V4a2.5 2.5 0 0 0-5 0",
-      clipRule: "evenodd"
-    })]
-  });
-}
-const LockIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
-  return jsx(Icon, {
-    ref: forwardedRef,
-    ...props,
-    component: SvgLockIcon
-  });
-});
-LockIcon.displayName = 'LockIcon';
-
 function SvgLockShareIcon(props) {
   return jsxs("svg", {
     xmlns: "http://www.w3.org/2000/svg",
@@ -5216,6 +5243,36 @@ const NotebookIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
   });
 });
 NotebookIcon.displayName = 'NotebookIcon';
+
+function SvgNotebookPipelineIcon(props) {
+  return jsxs("svg", {
+    xmlns: "http://www.w3.org/2000/svg",
+    width: "1em",
+    height: "1em",
+    fill: "none",
+    viewBox: "0 0 16 16",
+    ...props,
+    children: [jsx("path", {
+      fill: "currentColor",
+      fillRule: "evenodd",
+      d: "M3 1.75A.75.75 0 0 1 3.75 1h10.5a.75.75 0 0 1 .75.75V8h-1.5V2.5h-6v11h2V15H3.75a.75.75 0 0 1-.75-.75V12.5H1V11h2V8.75H1v-1.5h2V5H1V3.5h2zm1.5.75v11H6v-11z",
+      clipRule: "evenodd"
+    }), jsx("path", {
+      fill: "currentColor",
+      fillRule: "evenodd",
+      d: "M9.25 8.5a.75.75 0 0 0-.75.75v2.5c0 .414.336.75.75.75h.785a3.5 3.5 0 0 0 3.465 3h1.25a.75.75 0 0 0 .75-.75v-2.5a.75.75 0 0 0-.75-.75h-.785a3.5 3.5 0 0 0-3.465-3zM10 11v-1h.5a2 2 0 0 1 2 2 1 1 0 0 0 1 1h.5v1h-.5a2 2 0 0 1-2-2 1 1 0 0 0-1-1z",
+      clipRule: "evenodd"
+    })]
+  });
+}
+const NotebookPipelineIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
+  return jsx(Icon, {
+    ref: forwardedRef,
+    ...props,
+    component: SvgNotebookPipelineIcon
+  });
+});
+NotebookPipelineIcon.displayName = 'NotebookPipelineIcon';
 
 function SvgNotificationIcon(props) {
   return jsx("svg", {
@@ -7083,6 +7140,31 @@ const SpeechBubblePlusIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
 });
 SpeechBubblePlusIcon.displayName = 'SpeechBubblePlusIcon';
 
+function SvgSpeechBubbleQuestionMarkFillIcon(props) {
+  return jsx("svg", {
+    xmlns: "http://www.w3.org/2000/svg",
+    width: "1em",
+    height: "1em",
+    fill: "none",
+    viewBox: "0 0 16 16",
+    ...props,
+    children: jsx("path", {
+      fill: "currentColor",
+      fillRule: "evenodd",
+      d: "M0 7a6 6 0 0 1 6-6h4a6 6 0 0 1 0 12h-.94l-2.78 2.78A.75.75 0 0 1 5 15.25v-2.299A5.75 5.75 0 0 1 0 7.25zm10.079-.389A2.25 2.25 0 1 0 5.75 5.75h1.5A.75.75 0 1 1 8 6.5h-.75V8H8a2.25 2.25 0 0 0 2.079-1.389M8 10.5A.75.75 0 1 1 8 9a.75.75 0 0 1 0 1.5",
+      clipRule: "evenodd"
+    })
+  });
+}
+const SpeechBubbleQuestionMarkFillIcon = /*#__PURE__*/forwardRef((props, forwardedRef) => {
+  return jsx(Icon, {
+    ref: forwardedRef,
+    ...props,
+    component: SvgSpeechBubbleQuestionMarkFillIcon
+  });
+});
+SpeechBubbleQuestionMarkFillIcon.displayName = 'SpeechBubbleQuestionMarkFillIcon';
+
 function SvgSpeechBubbleQuestionMarkIcon(props) {
   return jsx("svg", {
     xmlns: "http://www.w3.org/2000/svg",
@@ -8678,7 +8760,8 @@ const dialogComboboxContextDefaults = {
   scrollToSelectedElement: true,
   rememberLastScrollPosition: false,
   disableMouseOver: false,
-  setDisableMouseOver: () => {}
+  setDisableMouseOver: () => {},
+  onView: () => {}
 };
 const DialogComboboxContext = /*#__PURE__*/createContext(dialogComboboxContextDefaults);
 const DialogComboboxContextProvider = _ref => {
@@ -8820,6 +8903,31 @@ const getCommonTabsTriggerStyles = theme => {
   };
 };
 
+const setupDesignSystemEventProviderForTesting = eventCallback => {
+  const eventCallbackWrapper = arg => {
+    if (arg !== null && arg !== void 0 && arg.componentViewId) {
+      const {
+        componentViewId,
+        ...rest
+      } = arg; // strip componentViewId out of jest call args
+      eventCallback(rest);
+      return;
+    }
+    eventCallback(arg);
+  };
+  return {
+    DesignSystemEventProviderForTest: _ref => {
+      let {
+        children
+      } = _ref;
+      return jsx(DesignSystemEventProvider, {
+        callback: eventCallbackWrapper,
+        children: children
+      });
+    }
+  };
+};
+
 function getAccordionEmotionStyles(_ref) {
   let {
     clsPrefix,
@@ -8916,7 +9024,7 @@ const Accordion = /* #__PURE__ */(() => {
       dangerouslySetAntdProps,
       dangerouslyAppendEmotionCSS,
       displayMode = 'multiple',
-      analyticsEvents = [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange],
+      analyticsEvents,
       componentId,
       valueHasNoPii,
       onChange,
@@ -8924,18 +9032,24 @@ const Accordion = /* #__PURE__ */(() => {
       chevronAlignment = 'right',
       ...props
     } = _ref3;
+    const emitOnView = safex('databricks.fe.observability.defaultComponentView.accordion', false);
     const {
       theme,
       getPrefixedClassName
     } = useDesignSystemTheme();
     // While this component is called `Accordion` for correctness, in AntD it is called `Collapse`.
     const clsPrefix = getPrefixedClassName('collapse');
-    const memoizedAnalyticsEvents = useMemo(() => analyticsEvents, [analyticsEvents]);
+    const memoizedAnalyticsEvents = useMemo(() => analyticsEvents !== null && analyticsEvents !== void 0 ? analyticsEvents : emitOnView ? [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange, DesignSystemEventProviderAnalyticsEventTypes.OnView] : [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange], [analyticsEvents, emitOnView]);
     const eventContext = useDesignSystemEventComponentCallbacks({
       componentType: DesignSystemEventProviderComponentTypes.Accordion,
       componentId,
       analyticsEvents: memoizedAnalyticsEvents,
       valueHasNoPii
+    });
+    const {
+      elementRef: accordionRef
+    } = useNotifyOnFirstView({
+      onView: eventContext.onView
     });
     const onChangeWrapper = useCallback(newValue => {
       if (Array.isArray(newValue)) {
@@ -8950,7 +9064,8 @@ const Accordion = /* #__PURE__ */(() => {
       // eslint-disable-next-line @databricks/no-unstable-nested-components -- go/no-nested-components
       , {
         expandIcon: () => jsx(ChevronDownIcon, {
-          ...eventContext.dataComponentProps
+          ...eventContext.dataComponentProps,
+          ref: accordionRef
         }),
         expandIconPosition: chevronAlignment,
         accordion: displayMode === 'single',
@@ -8986,6 +9101,15 @@ const SeverityIcon = /*#__PURE__*/forwardRef(function (props, ref) {
   });
 });
 
+function _EMOTION_STRINGIFIED_CSS_ERROR__$v() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
+var _ref2$j = process.env.NODE_ENV === "production" ? {
+  name: "qbt5ty",
+  styles: "align-self:center"
+} : {
+  name: "13fhwfc-Alert",
+  styles: "align-self:center;label:Alert;",
+  toString: _EMOTION_STRINGIFIED_CSS_ERROR__$v
+};
 const Alert = _ref => {
   let {
     componentId,
@@ -8999,6 +9123,7 @@ const Alert = _ref => {
     showMoreText = 'Show details',
     showMoreModalTitle = 'Details',
     forceVerticalActionsPlacement = false,
+    size = 'large',
     ...props
   } = _ref;
   const {
@@ -9006,7 +9131,9 @@ const Alert = _ref => {
     getPrefixedClassName
   } = useDesignSystemTheme();
   const {
-    useNewBorderRadii
+    useNewBorderRadii,
+    useNewLargeAlertSizing,
+    useNewBorderColors
   } = useDesignSystemSafexFlags();
   const memoizedAnalyticsEvents = useMemo(() => analyticsEvents, [analyticsEvents]);
   const eventContext = useDesignSystemEventComponentCallbacks({
@@ -9055,34 +9182,46 @@ const Alert = _ref => {
 
   // Determine action placement based on number of actions
   const actionsPlacement = (actions === null || actions === void 0 ? void 0 : actions.length) === 1 && !forceVerticalActionsPlacement ? 'horizontal' : 'vertical';
-  const description = jsxs("div", {
+  const description = jsx("div", {
     css: /*#__PURE__*/css({
-      ...(actionsPlacement === 'horizontal' && {
+      ...(useNewLargeAlertSizing ? {
         display: 'flex',
         flexDirection: 'row',
-        justifyContent: 'space-between',
         gap: theme.spacing.sm,
-        alignItems: 'flex-start'
-      })
+        justifyContent: 'space-between'
+      } : {})
     }, process.env.NODE_ENV === "production" ? "" : ";label:description;"),
-    children: [jsxs("div", {
-      children: [props.description, ' ', showMoreContent && jsx(Typography.Link, {
-        href: "#",
-        componentId: componentId ? `${componentId}.show_more` : 'alert.show_more',
-        onClick: e => {
-          e.preventDefault();
-          setIsModalOpen(true);
-        },
-        children: showMoreText
-      })]
-    }), memoizedActions && actionsPlacement === 'horizontal' && jsx("div", {
+    children: jsxs("div", {
       css: /*#__PURE__*/css({
-        display: 'flex',
-        gap: theme.spacing.sm,
-        marginBottom: theme.spacing.xs
+        ...(actionsPlacement === 'horizontal' && {
+          display: 'flex',
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          gap: theme.spacing.sm,
+          alignItems: 'flex-start'
+        })
       }, process.env.NODE_ENV === "production" ? "" : ";label:description;"),
-      children: memoizedActions
-    })]
+      children: [jsxs("div", {
+        children: [props.description, ' ', showMoreContent && jsx(Typography.Link, {
+          href: "#",
+          componentId: componentId ? `${componentId}.show_more` : 'alert.show_more',
+          onClick: e => {
+            e.preventDefault();
+            setIsModalOpen(true);
+          },
+          children: showMoreText
+        })]
+      }), !useNewLargeAlertSizing && memoizedActions && actionsPlacement === 'horizontal' && jsx("div", {
+        css: /*#__PURE__*/css({
+          display: 'flex',
+          gap: theme.spacing.sm,
+          ...(useNewLargeAlertSizing ? {
+            alignSelf: 'center'
+          } : {})
+        }, process.env.NODE_ENV === "production" ? "" : ";label:description;"),
+        children: memoizedActions
+      })]
+    })
   });
 
   // Create a separate section for vertical actions if needed
@@ -9090,7 +9229,7 @@ const Alert = _ref => {
     css: /*#__PURE__*/css({
       display: 'flex',
       gap: theme.spacing.sm,
-      marginTop: theme.spacing.sm,
+      marginTop: useNewLargeAlertSizing ? theme.spacing.xs : theme.spacing.sm,
       marginBottom: theme.spacing.xs
     }, process.env.NODE_ENV === "production" ? "" : ";label:verticalActions;"),
     children: memoizedActions
@@ -9106,23 +9245,33 @@ const Alert = _ref => {
       ...mergedProps,
       onClose: onCloseWrapper,
       className: classnames(mergedProps.className),
-      css: getAlertEmotionStyles(clsPrefix, theme, mergedProps, useNewBorderRadii),
+      css: getAlertEmotionStyles(clsPrefix, theme, mergedProps, size, Boolean(actions === null || actions === void 0 ? void 0 : actions.length), forceVerticalActionsPlacement, useNewBorderRadii, useNewLargeAlertSizing, useNewBorderColors),
       icon: jsx(SeverityIcon, {
         severity: mergedProps.type,
         ref: elementRef
       })
       // Antd calls this prop `closeText` but we can use it to set any React element to replace the close icon.
       ,
-      closeText: mergedProps.closable && jsx(CloseIcon, {
+      closeText: mergedProps.closable && (useNewLargeAlertSizing ? jsx("div", {
+        css: /*#__PURE__*/css({
+          marginTop: actionsPlacement === 'horizontal' ? theme.spacing.xs : 0
+        }, process.env.NODE_ENV === "production" ? "" : ";label:Alert;"),
+        children: jsx(CloseSmallIcon, {
+          ref: closeIconRef,
+          "aria-label": closeIconLabel,
+          css: _ref2$j
+        })
+      }) : jsx(CloseIcon, {
         ref: closeIconRef,
         "aria-label": closeIconLabel,
         css: /*#__PURE__*/css({
           fontSize: theme.general.iconSize
         }, process.env.NODE_ENV === "production" ? "" : ";label:Alert;")
-      })
+      }))
       // Always set a description for consistent styling (e.g. icon size)
       ,
       description: finalDescription,
+      action: mergedProps.action ? mergedProps.action : useNewLargeAlertSizing && actionsPlacement === 'horizontal' ? memoizedActions : undefined,
       ...dangerouslySetAntdProps,
       ...eventContext.dataComponentProps
     }), showMoreContent && jsx(Modal, {
@@ -9136,7 +9285,9 @@ const Alert = _ref => {
     })]
   });
 };
-const getAlertEmotionStyles = (clsPrefix, theme, props, useNewBorderRadii) => {
+const getAlertEmotionStyles = (clsPrefix, theme, props, size, hasActions, isVertical, useNewBorderRadii, useNewLargeAlertSizing, useNewBorderColors) => {
+  const isSmall = size === 'small';
+  const classContent = `.${clsPrefix}-content`;
   const classCloseIcon = `.${clsPrefix}-close-icon`;
   const classCloseButton = `.${clsPrefix}-close-button`;
   const classCloseText = `.${clsPrefix}-close-text`;
@@ -9144,19 +9295,38 @@ const getAlertEmotionStyles = (clsPrefix, theme, props, useNewBorderRadii) => {
   const classMessage = `.${clsPrefix}-message`;
   const classWithDescription = `.${clsPrefix}-with-description`;
   const classWithIcon = `.${clsPrefix}-icon`;
+  const classAction = `.${clsPrefix}-action`;
   const ALERT_ICON_HEIGHT = 16;
   const ALERT_ICON_FONT_SIZE = 16;
+  const BORDER_SIZE = theme.general.borderWidth;
+  const LARGE_SIZE_PADDING = theme.spacing.xs * 3;
+  const SMALL_SIZE_PADDING = theme.spacing.sm;
   const styles = {
     // General
     padding: theme.spacing.sm,
+    ...(useNewLargeAlertSizing && {
+      padding: `${LARGE_SIZE_PADDING - BORDER_SIZE}px ${LARGE_SIZE_PADDING}px`,
+      boxSizing: 'border-box',
+      ...(isSmall && {
+        padding: `${theme.spacing.xs + BORDER_SIZE}px ${SMALL_SIZE_PADDING}px`
+      }),
+      [classAction]: {
+        alignSelf: 'center'
+      }
+    }),
     ...(useNewBorderRadii && {
       borderRadius: theme.borders.borderRadiusSm
     }),
+    ...(useNewBorderColors && {
+      borderColor: theme.colors.border
+    }),
     [`${classMessage}, &${classWithDescription} ${classMessage}`]: {
-      // TODO(giles): These three rules are all the same as the H3 styles. We can refactor them out into a shared object.
       fontSize: theme.typography.fontSizeBase,
       fontWeight: theme.typography.typographyBoldFontWeight,
-      lineHeight: theme.typography.lineHeightBase
+      lineHeight: theme.typography.lineHeightBase,
+      ...(useNewLargeAlertSizing && {
+        marginBottom: 0
+      })
     },
     [`${classDescription}`]: {
       lineHeight: theme.typography.lineHeightBase
@@ -9182,7 +9352,11 @@ const getAlertEmotionStyles = (clsPrefix, theme, props, useNewBorderRadii) => {
     },
     [classWithIcon]: {
       fontSize: ALERT_ICON_FONT_SIZE,
-      marginTop: 2
+      marginTop: 2,
+      ...(useNewLargeAlertSizing && {
+        alignSelf: 'flex-start',
+        marginTop: isSmall ? 0 : 2
+      })
     },
     [`${classCloseIcon}, ${classCloseButton}, ${classCloseText} > span`]: {
       lineHeight: theme.typography.lineHeightBase,
@@ -9190,8 +9364,10 @@ const getAlertEmotionStyles = (clsPrefix, theme, props, useNewBorderRadii) => {
       width: ALERT_ICON_HEIGHT,
       fontSize: ALERT_ICON_FONT_SIZE,
       marginTop: 2,
-      '& > span': {
-        lineHeight: theme.typography.lineHeightBase
+      '& > span, & > span > span': {
+        lineHeight: theme.typography.lineHeightBase,
+        display: 'inline-flex',
+        alignItems: 'center'
       }
     },
     // No description
@@ -9200,7 +9376,11 @@ const getAlertEmotionStyles = (clsPrefix, theme, props, useNewBorderRadii) => {
       alignItems: 'center',
       [classWithIcon]: {
         fontSize: ALERT_ICON_FONT_SIZE,
-        marginTop: 0
+        marginTop: 0,
+        ...(useNewLargeAlertSizing && {
+          alignSelf: 'flex-start',
+          marginTop: 2
+        })
       },
       [classMessage]: {
         margin: 0
@@ -9210,6 +9390,19 @@ const getAlertEmotionStyles = (clsPrefix, theme, props, useNewBorderRadii) => {
       },
       [classCloseIcon]: {
         alignSelf: 'baseline'
+      }
+    }),
+    // No description with icons
+    ...(!props.description && hasActions && {
+      ...(!isVertical && {
+        [classContent]: {
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between'
+        }
+      }),
+      [classDescription]: {
+        display: 'flex'
       }
     }),
     // Warning
@@ -9271,14 +9464,15 @@ const AutoComplete = /* #__PURE__ */(() => {
       theme
     } = useDesignSystemTheme();
     const {
-      useNewShadows
+      useNewShadows,
+      useNewBorderColors
     } = useDesignSystemSafexFlags();
     return jsx(DesignSystemAntDConfigProvider, {
       children: jsx(AutoComplete$1, {
         ...addDebugOutlineIfEnabled(),
         dropdownStyle: {
           boxShadow: theme.general.shadowLow,
-          ...getDarkModePortalStyles(theme, useNewShadows)
+          ...getDarkModePortalStyles(theme, useNewShadows, useNewBorderColors)
         },
         ...props,
         ...dangerouslySetAntdProps,
@@ -9342,7 +9536,8 @@ const LegacyTooltip = _ref => {
     theme
   } = useDesignSystemTheme();
   const {
-    useNewShadows
+    useNewShadows,
+    useNewBorderColors
   } = useDesignSystemSafexFlags();
   const tooltipRef = useRef(null);
   const duboisId = useUniqueId('dubois-tooltip-component-');
@@ -9433,7 +9628,7 @@ const LegacyTooltip = _ref => {
         padding: '4px 8px',
         boxShadow: theme.general.shadowLow,
         ...overlayInnerStyle,
-        ...getDarkModePortalStyles(theme, useNewShadows)
+        ...getDarkModePortalStyles(theme, useNewShadows, useNewBorderColors)
       },
       overlayStyle: {
         zIndex: theme.options.zIndexBase + 70,
@@ -10210,6 +10405,26 @@ const repeatingElementsStyles = {
     toString: _EMOTION_STRINGIFIED_CSS_ERROR__$q
   }
 };
+const hideIconButtonActionCellClassName = `hide-icon-button-${randomString()}`;
+const hideIconButtonRowStyles = /*#__PURE__*/css({
+  [`&& .${hideIconButtonActionCellClassName} button:has(> span.anticon[role="img"]:only-child),
+    && .${hideIconButtonActionCellClassName} button:has(> i.fa:only-child)`]: {
+    opacity: 0,
+    transition: 'opacity 0.1s ease !important'
+  },
+  // Show on hover/focus-within
+  [`&:hover .${hideIconButtonActionCellClassName} button:has(> span.anticon[role="img"]:only-child),
+    &:hover .${hideIconButtonActionCellClassName} button:has(> i.fa:only-child),
+    &:focus-within .${hideIconButtonActionCellClassName} button:has(> span.anticon[role="img"]:only-child),
+    &:focus-within .${hideIconButtonActionCellClassName} button:has(> i.fa:only-child)`]: {
+    opacity: 1
+  },
+  // Keep visible when actively clicked or when dropdown is open
+  [`.${hideIconButtonActionCellClassName} button[aria-expanded="true"]:has(> span.anticon[role="img"]:only-child),
+    .${hideIconButtonActionCellClassName} button[aria-expanded="true"]:has(> i.fa:only-child)`]: {
+    opacity: 1
+  }
+}, process.env.NODE_ENV === "production" ? "" : ";label:hideIconButtonRowStyles;");
 
 // For performance, these styles are defined outside of the component so they are not redefined on every render.
 // We're also using CSS Variables rather than any dynamic styles so that the style object remains static.
@@ -10312,13 +10527,20 @@ const Table = /*#__PURE__*/forwardRef(function Table(_ref, ref) {
     className,
     scrollable = false,
     grid = false,
+    noMinHeight = false,
     ...rest
   } = _ref;
   const {
     theme
   } = useDesignSystemTheme();
+  const {
+    useNewBorderColors
+  } = useDesignSystemSafexFlags();
   const tableContentRef = useRef(null);
   useImperativeHandle(ref, () => tableContentRef.current);
+  const minHeightCss = noMinHeight ? {} : {
+    minHeight: !empty && pagination ? 150 : 100
+  };
   return jsx(DesignSystemEventSuppressInteractionProviderContext.Provider, {
     value: DesignSystemEventSuppressInteractionTrueContextValue,
     children: jsx(TableContext.Provider, {
@@ -10344,15 +10566,13 @@ const Table = /*#__PURE__*/forwardRef(function Table(_ref, ref) {
           ['--table-header-sort-icon-color']: theme.colors.textSecondary,
           ['--table-header-text-color']: theme.colors.actionDefaultTextDefault,
           ['--table-row-hover']: theme.colors.tableRowHover,
-          ['--table-separator-color']: theme.colors.borderDecorative,
+          ['--table-separator-color']: useNewBorderColors ? theme.colors.border : theme.colors.borderDecorative,
           ['--table-resize-handle-color']: theme.colors.borderDecorative,
           ['--table-spacing-md']: `${theme.spacing.md}px`,
           ['--table-spacing-sm']: `${theme.spacing.sm}px`,
           ['--table-spacing-xs']: `${theme.spacing.xs}px`
         },
-        css: [tableStyles.tableWrapper, /*#__PURE__*/css({
-          minHeight: !empty && pagination ? 150 : 100
-        }, process.env.NODE_ENV === "production" ? "" : ";label:Table;"), process.env.NODE_ENV === "production" ? "" : ";label:Table;"],
+        css: [tableStyles.tableWrapper, minHeightCss, process.env.NODE_ENV === "production" ? "" : ";label:Table;"],
         className: classnames({
           'table-isScrollable': scrollable,
           'table-isGrid': grid
@@ -10442,6 +10662,7 @@ const TableRow = /*#__PURE__*/forwardRef(function TableRow(_ref, ref) {
     className,
     style,
     isHeader = false,
+    skipIconHiding = false,
     verticalAlignment,
     ...rest
   } = _ref;
@@ -10479,7 +10700,7 @@ const TableRow = /*#__PURE__*/forwardRef(function TableRow(_ref, ref) {
       }
       // PE-259 Use more performance className for grid but keep css= for consistency.
       ,
-      css: !grid ? repeatingElementsStyles.row : undefined,
+      css: [!isHeader && !skipIconHiding && hideIconButtonRowStyles, !grid && repeatingElementsStyles.row, process.env.NODE_ENV === "production" ? "" : ";label:TableRow;"],
       className: classnames(className, grid && tableClassNames.row, {
         'table-isHeader': isHeader,
         'table-row-isGrid': grid
@@ -10525,7 +10746,7 @@ const TableRowAction = /*#__PURE__*/forwardRef(function TableRowAction(_ref, ref
       ['--vertical-padding']: size === 'default' ? `${theme.spacing.xs}px` : 0
     },
     css: TableRowActionStyles.container,
-    className: className,
+    className: classnames(className, !isHeader && hideIconButtonActionCellClassName),
     children: children
   });
 });
@@ -10709,10 +10930,11 @@ const Card = _ref => {
     navigateFn,
     anchorProps,
     componentId,
-    analyticsEvents = [DesignSystemEventProviderAnalyticsEventTypes.OnClick],
+    analyticsEvents,
     shouldStartInteraction,
     ...dataAndAttributes
   } = _ref;
+  const emitOnView = safex('databricks.fe.observability.defaultComponentView.card', false);
   const {
     theme
   } = useDesignSystemTheme();
@@ -10743,7 +10965,7 @@ const Card = _ref => {
     children: topBarContent
   }) : null;
   const contentPadding = hasTopBar || hasBottomBar ? theme.spacing.lg : 0;
-  const memoizedAnalyticsEvents = useMemo(() => analyticsEvents, [analyticsEvents]);
+  const memoizedAnalyticsEvents = useMemo(() => analyticsEvents !== null && analyticsEvents !== void 0 ? analyticsEvents : emitOnView ? [DesignSystemEventProviderAnalyticsEventTypes.OnClick, DesignSystemEventProviderAnalyticsEventTypes.OnView] : [DesignSystemEventProviderAnalyticsEventTypes.OnClick], [analyticsEvents, emitOnView]);
   const eventContext = useDesignSystemEventComponentCallbacks({
     componentType: DesignSystemEventProviderComponentTypes.Card,
     componentId,
@@ -11064,9 +11286,10 @@ const DuboisCheckbox = /*#__PURE__*/forwardRef(function Checkbox(_ref2, ref) {
     dangerouslySetAntdProps,
     className,
     componentId,
-    analyticsEvents = [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange],
+    analyticsEvents,
     ...restProps
   } = _ref2;
+  const emitOnView = safex('databricks.fe.observability.defaultComponentView.checkbox', false);
   const {
     theme,
     classNamePrefix,
@@ -11078,12 +11301,18 @@ const DuboisCheckbox = /*#__PURE__*/forwardRef(function Checkbox(_ref2, ref) {
     useNewBorderRadii
   } = useDesignSystemSafexFlags();
   const clsPrefix = getPrefixedClassName('checkbox');
-  const memoizedAnalyticsEvents = useMemo(() => analyticsEvents, [analyticsEvents]);
+  const memoizedAnalyticsEvents = useMemo(() => analyticsEvents !== null && analyticsEvents !== void 0 ? analyticsEvents : emitOnView ? [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange, DesignSystemEventProviderAnalyticsEventTypes.OnView] : [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange], [analyticsEvents, emitOnView]);
   const eventContext = useDesignSystemEventComponentCallbacks({
     componentType: DesignSystemEventProviderComponentTypes.Checkbox,
     componentId,
     analyticsEvents: memoizedAnalyticsEvents,
     valueHasNoPii: true
+  });
+  const {
+    elementRef: checkboxRef
+  } = useNotifyOnFirstView({
+    onView: eventContext.onView,
+    value: isChecked !== null && isChecked !== void 0 ? isChecked : restProps.defaultChecked
   });
   const onChangeHandler = event => {
     eventContext.onValueChange(event.target.checked);
@@ -11099,6 +11328,7 @@ const DuboisCheckbox = /*#__PURE__*/forwardRef(function Checkbox(_ref2, ref) {
         wrapperStyle,
         useNewFormUISpacing
       }),
+      ref: checkboxRef,
       children: jsx(Checkbox$1, {
         checked: isChecked === null ? undefined : isChecked,
         ref: ref,
@@ -11331,6 +11561,7 @@ const Content$4 = /*#__PURE__*/forwardRef(function Content(_ref2, ref) {
   let {
     children,
     minWidth = 220,
+    matchTriggerWidth,
     forceCloseOnEscape,
     onEscapeKeyDown,
     onKeyDown,
@@ -11343,7 +11574,8 @@ const Content$4 = /*#__PURE__*/forwardRef(function Content(_ref2, ref) {
     theme
   } = useDesignSystemTheme();
   const {
-    useNewShadows
+    useNewShadows,
+    useNewBorderColors
   } = useDesignSystemSafexFlags();
   const {
     setIsOpen
@@ -11357,9 +11589,11 @@ const Content$4 = /*#__PURE__*/forwardRef(function Content(_ref2, ref) {
       ...addDebugOutlineIfEnabled(),
       ref: ref,
       loop: true,
-      css: [contentStyles(theme, useNewShadows), {
+      css: [contentStyles(theme, useNewShadows, useNewBorderColors), {
         minWidth
-      }, process.env.NODE_ENV === "production" ? "" : ";label:Content;"],
+      }, matchTriggerWidth ? {
+        width: 'var(--radix-dropdown-menu-trigger-width)'
+      } : {}, process.env.NODE_ENV === "production" ? "" : ";label:Content;"],
       sideOffset: 4,
       align: "start",
       onKeyDown: e => {
@@ -11407,7 +11641,8 @@ const SubContent$1 = /*#__PURE__*/forwardRef(function Content(_ref3, ref) {
     theme
   } = useDesignSystemTheme();
   const {
-    useNewShadows
+    useNewShadows,
+    useNewBorderColors
   } = useDesignSystemSafexFlags();
   const [contentFitsInViewport, setContentFitsInViewport] = React__default.useState(true);
   const [dataSide, setDataSide] = React__default.useState(null);
@@ -11462,7 +11697,7 @@ const SubContent$1 = /*#__PURE__*/forwardRef(function Content(_ref3, ref) {
       ...addDebugOutlineIfEnabled(),
       ref: elemRef,
       loop: true,
-      css: [contentStyles(theme, useNewShadows), {
+      css: [contentStyles(theme, useNewShadows, useNewBorderColors), {
         minWidth
       }, contentFitsInViewport ? '' : responsiveCss, process.env.NODE_ENV === "production" ? "" : ";label:Content;"],
       sideOffset: -2,
@@ -11498,16 +11733,17 @@ const Item$2 = /*#__PURE__*/forwardRef(function Item(_ref5, ref) {
     danger,
     onClick,
     componentId,
-    analyticsEvents = [DesignSystemEventProviderAnalyticsEventTypes.OnClick],
+    analyticsEvents,
     ...props
   } = _ref5;
+  const emitOnView = safex('databricks.fe.observability.defaultComponentView.dropdownMenu', false);
   const formContext = useFormContext();
   const {
     itemHtmlType
   } = useDropdownContext();
   const itemRef = useRef(null);
   useImperativeHandle(ref, () => itemRef.current);
-  const memoizedAnalyticsEvents = useMemo(() => analyticsEvents, [analyticsEvents]);
+  const memoizedAnalyticsEvents = useMemo(() => analyticsEvents !== null && analyticsEvents !== void 0 ? analyticsEvents : emitOnView ? [DesignSystemEventProviderAnalyticsEventTypes.OnClick, DesignSystemEventProviderAnalyticsEventTypes.OnView] : [DesignSystemEventProviderAnalyticsEventTypes.OnClick], [analyticsEvents, emitOnView]);
   const eventContext = useDesignSystemEventComponentCallbacks({
     componentType: DesignSystemEventProviderComponentTypes.DropdownMenuItem,
     componentId,
@@ -11515,9 +11751,15 @@ const Item$2 = /*#__PURE__*/forwardRef(function Item(_ref5, ref) {
     // If the item is a submit item and is part of a form, it is not the subject of the interaction, the form submission is
     isInteractionSubject: !(itemHtmlType === 'submit' && formContext.componentId)
   });
+  const {
+    elementRef: dropdownMenuItemRef
+  } = useNotifyOnFirstView({
+    onView: !props.asChild ? eventContext.onView : () => {}
+  });
+  const mergedRefs = useMergeRefs([itemRef, dropdownMenuItemRef]);
   return jsx(DropdownMenu$1.Item, {
     css: theme => [dropdownItemStyles, danger && dangerItemStyles(theme)],
-    ref: itemRef,
+    ref: mergedRefs,
     onClick: e => {
       if (props.disabled) {
         e.preventDefault();
@@ -11619,29 +11861,38 @@ const SubTrigger$1 = /*#__PURE__*/forwardRef(function TriggerItem(_ref8, ref) {
  */
 const TriggerItem = SubTrigger$1;
 const CheckboxItem$1 = /*#__PURE__*/forwardRef(function CheckboxItem(_ref9, ref) {
+  var _props$checked;
   let {
     children,
     disabledReason,
     componentId,
-    analyticsEvents = [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange],
+    analyticsEvents,
     onCheckedChange,
     ...props
   } = _ref9;
+  const emitOnView = safex('databricks.fe.observability.defaultComponentView.dropdownMenu', false);
   const checkboxItemRef = useRef(null);
   useImperativeHandle(ref, () => checkboxItemRef.current);
-  const memoizedAnalyticsEvents = useMemo(() => analyticsEvents, [analyticsEvents]);
+  const memoizedAnalyticsEvents = useMemo(() => analyticsEvents !== null && analyticsEvents !== void 0 ? analyticsEvents : emitOnView ? [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange, DesignSystemEventProviderAnalyticsEventTypes.OnView] : [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange], [analyticsEvents, emitOnView]);
   const eventContext = useDesignSystemEventComponentCallbacks({
     componentType: DesignSystemEventProviderComponentTypes.DropdownMenuCheckboxItem,
     componentId,
     analyticsEvents: memoizedAnalyticsEvents,
     valueHasNoPii: true
   });
+  const {
+    elementRef: checkboxItemOnViewRef
+  } = useNotifyOnFirstView({
+    onView: eventContext.onView,
+    value: (_props$checked = props.checked) !== null && _props$checked !== void 0 ? _props$checked : props.defaultChecked
+  });
+  const mergedRefs = useMergeRefs([checkboxItemRef, checkboxItemOnViewRef]);
   const onCheckedChangeWrapper = useCallback(checked => {
     eventContext.onValueChange(checked);
     onCheckedChange === null || onCheckedChange === void 0 || onCheckedChange(checked);
   }, [eventContext, onCheckedChange]);
   return jsx(DropdownMenu$1.CheckboxItem, {
-    ref: checkboxItemRef,
+    ref: mergedRefs,
     css: theme => [dropdownItemStyles, checkboxItemStyles(theme)],
     onCheckedChange: onCheckedChangeWrapper,
     onKeyDown: e => {
@@ -11657,29 +11908,38 @@ const CheckboxItem$1 = /*#__PURE__*/forwardRef(function CheckboxItem(_ref9, ref)
   });
 });
 const RadioGroup$1 = /*#__PURE__*/forwardRef(function RadioGroup(_ref10, ref) {
+  var _props$value;
   let {
     children,
     componentId,
-    analyticsEvents = [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange],
+    analyticsEvents,
     onValueChange,
     valueHasNoPii,
     ...props
   } = _ref10;
+  const emitOnView = safex('databricks.fe.observability.defaultComponentView.dropdownMenu', false);
   const radioGroupItemRef = useRef(null);
   useImperativeHandle(ref, () => radioGroupItemRef.current);
-  const memoizedAnalyticsEvents = useMemo(() => analyticsEvents, [analyticsEvents]);
+  const memoizedAnalyticsEvents = useMemo(() => analyticsEvents !== null && analyticsEvents !== void 0 ? analyticsEvents : emitOnView ? [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange, DesignSystemEventProviderAnalyticsEventTypes.OnView] : [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange], [analyticsEvents, emitOnView]);
   const eventContext = useDesignSystemEventComponentCallbacks({
     componentType: DesignSystemEventProviderComponentTypes.DropdownMenuRadioGroup,
     componentId,
     analyticsEvents: memoizedAnalyticsEvents,
     valueHasNoPii
   });
+  const {
+    elementRef: radioGroupItemOnViewRef
+  } = useNotifyOnFirstView({
+    onView: eventContext.onView,
+    value: (_props$value = props.value) !== null && _props$value !== void 0 ? _props$value : props.defaultValue
+  });
+  const mergedRef = useMergeRefs([radioGroupItemRef, radioGroupItemOnViewRef]);
   const onValueChangeWrapper = useCallback(value => {
     eventContext.onValueChange(value);
     onValueChange === null || onValueChange === void 0 || onValueChange(value);
   }, [eventContext, onValueChange]);
   return jsx(DropdownMenu$1.RadioGroup, {
-    ref: radioGroupItemRef,
+    ref: mergedRef,
     onValueChange: onValueChangeWrapper,
     ...props,
     ...eventContext.dataComponentProps,
@@ -11866,11 +12126,11 @@ const CONSTANTS$1 = {
     return 2;
   }
 };
-const dropdownContentStyles = (theme, useNewShadows) => ({
+const dropdownContentStyles = (theme, useNewShadows, useNewBorderColors) => ({
   backgroundColor: theme.colors.backgroundPrimary,
   color: theme.colors.textPrimary,
   lineHeight: theme.typography.lineHeightBase,
-  border: `1px solid ${theme.colors.borderDecorative}`,
+  border: `1px solid ${useNewBorderColors ? theme.colors.border : theme.colors.borderDecorative}`,
   borderRadius: theme.borders.borderRadiusSm,
   padding: `${theme.spacing.xs}px 0`,
   boxShadow: useNewShadows ? theme.shadows.lg : theme.general.shadowLow,
@@ -11878,7 +12138,7 @@ const dropdownContentStyles = (theme, useNewShadows) => ({
   // Allow for scrolling within the dropdown when viewport is too small
   overflowY: 'auto',
   maxHeight: 'var(--radix-dropdown-menu-content-available-height)',
-  ...getDarkModePortalStyles(theme, useNewShadows),
+  ...getDarkModePortalStyles(theme, useNewShadows, useNewBorderColors),
   // Ant Design uses 1000s for their zIndex space; this ensures Radix works with that, but
   // we'll likely need to be sure that all Radix components are using the same zIndex going forward.
   //
@@ -11894,8 +12154,8 @@ const dropdownContentStyles = (theme, useNewShadows) => ({
     }
   })
 });
-const contentStyles = (theme, useNewShadows) => ({
-  ...dropdownContentStyles(theme, useNewShadows)
+const contentStyles = (theme, useNewShadows, useNewBorderColors) => ({
+  ...dropdownContentStyles(theme, useNewShadows, useNewBorderColors)
 });
 const dropdownItemStyles = theme => ({
   padding: `${CONSTANTS$1.itemPaddingVertical(theme)}px ${CONSTANTS$1.itemPaddingHorizontal(theme)}px`,
@@ -11915,7 +12175,7 @@ const dropdownItemStyles = theme => ({
   },
   '&[data-disabled]': {
     pointerEvents: 'none',
-    color: theme.colors.actionDisabledText
+    color: `${theme.colors.actionDisabledText} !important`
   }
 });
 const dangerItemStyles = theme => ({
@@ -12050,12 +12310,19 @@ const Content$3 = _ref3 => {
     setIsOpen
   } = useContextMenuProps();
   const {
-    useNewShadows
+    useNewShadows,
+    useNewBorderColors
   } = useDesignSystemSafexFlags();
   return jsx(ContextMenuPortal, {
     container: getPopupContainer && getPopupContainer(),
     children: isOpen && jsx(ContextMenuContent, {
       ...addDebugOutlineIfEnabled(),
+      onWheel: e => {
+        e.stopPropagation();
+      },
+      onTouchMove: e => {
+        e.stopPropagation();
+      },
       onKeyDown: e => {
         // This is a workaround for Radix's ContextMenu.Content not receiving Escape key events
         // when nested inside a modal. We need to stop propagation of the event so that the modal
@@ -12073,7 +12340,7 @@ const Content$3 = _ref3 => {
         onKeyDown === null || onKeyDown === void 0 || onKeyDown(e);
       },
       ...childrenProps,
-      css: [dropdownContentStyles(theme, useNewShadows), {
+      css: [dropdownContentStyles(theme, useNewShadows, useNewBorderColors), {
         minWidth
       }, process.env.NODE_ENV === "production" ? "" : ";label:Content;"],
       children: children
@@ -12093,14 +12360,21 @@ const SubContent = _ref4 => {
     theme
   } = useDesignSystemTheme();
   const {
-    useNewShadows
+    useNewShadows,
+    useNewBorderColors
   } = useDesignSystemSafexFlags();
   return jsx(ContextMenuPortal, {
     container: getPopupContainer && getPopupContainer(),
     children: jsx(ContextMenuSubContent, {
       ...addDebugOutlineIfEnabled(),
       ...childrenProps,
-      css: [dropdownContentStyles(theme, useNewShadows), {
+      onWheel: e => {
+        e.stopPropagation();
+      },
+      onTouchMove: e => {
+        e.stopPropagation();
+      },
+      css: [dropdownContentStyles(theme, useNewShadows, useNewBorderColors), {
         minWidth
       }, process.env.NODE_ENV === "production" ? "" : ";label:SubContent;"],
       onKeyDown: e => {
@@ -12121,20 +12395,27 @@ const Item$1 = _ref5 => {
     disabledReason,
     onClick,
     componentId,
-    analyticsEvents = [DesignSystemEventProviderAnalyticsEventTypes.OnClick],
+    analyticsEvents,
     asChild,
     ...props
   } = _ref5;
+  const emitOnView = safex('databricks.fe.observability.defaultComponentView.contextMenu', false);
   const {
     theme
   } = useDesignSystemTheme();
   const ref = useRef(null);
-  const memoizedAnalyticsEvents = useMemo(() => analyticsEvents, [analyticsEvents]);
+  const memoizedAnalyticsEvents = useMemo(() => analyticsEvents !== null && analyticsEvents !== void 0 ? analyticsEvents : emitOnView ? [DesignSystemEventProviderAnalyticsEventTypes.OnClick, DesignSystemEventProviderAnalyticsEventTypes.OnView] : [DesignSystemEventProviderAnalyticsEventTypes.OnClick], [analyticsEvents, emitOnView]);
   const eventContext = useDesignSystemEventComponentCallbacks({
     componentType: DesignSystemEventProviderComponentTypes.ContextMenuItem,
     componentId,
     analyticsEvents: memoizedAnalyticsEvents
   });
+  const {
+    elementRef: contextMenuItemRef
+  } = useNotifyOnFirstView({
+    onView: !asChild ? eventContext.onView : () => {}
+  });
+  const mergedRef = useMergeRefs([ref, contextMenuItemRef]);
   const onClickWrapper = useCallback(e => {
     if (!asChild) {
       eventContext.onClick(e);
@@ -12146,7 +12427,7 @@ const Item$1 = _ref5 => {
     asChild: asChild,
     onClick: onClickWrapper,
     css: dropdownItemStyles(theme),
-    ref: ref,
+    ref: mergedRef,
     onKeyDown: e => {
       var _props$onKeyDown2;
       if (e.key === 'Tab' || e.key === 'ArrowDown' || e.key === 'ArrowUp') {
@@ -12159,25 +12440,34 @@ const Item$1 = _ref5 => {
   });
 };
 const CheckboxItem = _ref6 => {
+  var _props$checked;
   let {
     children,
     disabledReason,
     onCheckedChange,
     componentId,
-    analyticsEvents = [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange],
+    analyticsEvents,
     ...props
   } = _ref6;
+  const emitOnView = safex('databricks.fe.observability.defaultComponentView.contextMenu', false);
   const {
     theme
   } = useDesignSystemTheme();
   const ref = useRef(null);
-  const memoizedAnalyticsEvents = useMemo(() => analyticsEvents, [analyticsEvents]);
+  const memoizedAnalyticsEvents = useMemo(() => analyticsEvents !== null && analyticsEvents !== void 0 ? analyticsEvents : emitOnView ? [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange, DesignSystemEventProviderAnalyticsEventTypes.OnView] : [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange], [analyticsEvents, emitOnView]);
   const eventContext = useDesignSystemEventComponentCallbacks({
     componentType: DesignSystemEventProviderComponentTypes.ContextMenuCheckboxItem,
     componentId,
     analyticsEvents: memoizedAnalyticsEvents,
     valueHasNoPii: true
   });
+  const {
+    elementRef: contextMenuCheckboxItemRef
+  } = useNotifyOnFirstView({
+    onView: eventContext.onView,
+    value: (_props$checked = props.checked) !== null && _props$checked !== void 0 ? _props$checked : props.defaultChecked
+  });
+  const mergedRef = useMergeRefs([ref, contextMenuCheckboxItemRef]);
   const onCheckedChangeWrapper = useCallback(checked => {
     eventContext.onValueChange(checked);
     onCheckedChange === null || onCheckedChange === void 0 || onCheckedChange(checked);
@@ -12186,7 +12476,7 @@ const CheckboxItem = _ref6 => {
     ...props,
     onCheckedChange: onCheckedChangeWrapper,
     css: dropdownItemStyles(theme),
-    ref: ref,
+    ref: mergedRef,
     onKeyDown: e => {
       var _props$onKeyDown3;
       if (e.key === 'Tab' || e.key === 'ArrowDown' || e.key === 'ArrowUp') {
@@ -12206,25 +12496,34 @@ const CheckboxItem = _ref6 => {
   });
 };
 const RadioGroup = _ref7 => {
+  var _props$value;
   let {
     onValueChange,
     componentId,
-    analyticsEvents = [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange],
+    analyticsEvents,
     valueHasNoPii,
     ...props
   } = _ref7;
-  const memoizedAnalyticsEvents = useMemo(() => analyticsEvents, [analyticsEvents]);
+  const emitOnView = safex('databricks.fe.observability.defaultComponentView.contextMenu', false);
+  const memoizedAnalyticsEvents = useMemo(() => analyticsEvents !== null && analyticsEvents !== void 0 ? analyticsEvents : emitOnView ? [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange, DesignSystemEventProviderAnalyticsEventTypes.OnView] : [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange], [analyticsEvents, emitOnView]);
   const eventContext = useDesignSystemEventComponentCallbacks({
     componentType: DesignSystemEventProviderComponentTypes.ContextMenuRadioGroup,
     componentId,
     analyticsEvents: memoizedAnalyticsEvents,
     valueHasNoPii
   });
+  const {
+    elementRef: contextMenuRadioGroupRef
+  } = useNotifyOnFirstView({
+    onView: eventContext.onView,
+    value: (_props$value = props.value) !== null && _props$value !== void 0 ? _props$value : props.defaultValue
+  });
   const onValueChangeWrapper = useCallback(value => {
     eventContext.onValueChange(value);
     onValueChange === null || onValueChange === void 0 || onValueChange(value);
   }, [eventContext, onValueChange]);
   return jsx(ContextMenuRadioGroup, {
+    ref: contextMenuRadioGroupRef,
     ...props,
     onValueChange: onValueChangeWrapper,
     ...eventContext.dataComponentProps
@@ -12645,18 +12944,24 @@ const DialogCombobox = _ref => {
     scrollToSelectedElement = true,
     rememberLastScrollPosition = false,
     componentId,
-    analyticsEvents = [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange],
+    analyticsEvents,
     valueHasNoPii,
+    onOpenChange,
     ...props
   } = _ref;
+  const emitOnView = safex('databricks.fe.observability.defaultComponentView.dialogCombobox', false);
   // Used to avoid infinite loop when value is controlled from within the component (DialogComboboxOptionControlledList)
   // We can't remove setValue altogether because uncontrolled component users need to be able to set the value from root for trigger to update
   const [isControlled, setIsControlled] = useState(false);
   const [selectedValue, setSelectedValue] = useState(value);
-  const [isOpen, setIsOpen] = useState(Boolean(open));
+  const [isOpen, setIsOpenState] = useState(Boolean(open));
+  const setIsOpen = useCallback(isOpen => {
+    setIsOpenState(isOpen);
+    onOpenChange === null || onOpenChange === void 0 || onOpenChange(isOpen);
+  }, [setIsOpenState, onOpenChange]);
   const [contentWidth, setContentWidth] = useState();
   const [textOverflowMode, setTextOverflowMode] = useState('multiline');
-  const memoizedAnalyticsEvents = useMemo(() => analyticsEvents, [analyticsEvents]);
+  const memoizedAnalyticsEvents = useMemo(() => analyticsEvents !== null && analyticsEvents !== void 0 ? analyticsEvents : emitOnView ? [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange, DesignSystemEventProviderAnalyticsEventTypes.OnView] : [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange], [analyticsEvents, emitOnView]);
   const [disableMouseOver, setDisableMouseOver] = useState(false);
   const eventContext = useDesignSystemEventComponentCallbacks({
     componentType: DesignSystemEventProviderComponentTypes.DialogCombobox,
@@ -12699,7 +13004,8 @@ const DialogCombobox = _ref => {
       analyticsEvents,
       valueHasNoPii,
       disableMouseOver,
-      setDisableMouseOver
+      setDisableMouseOver,
+      onView: eventContext.onView
     },
     children: jsx(Root$5, {
       open: open !== undefined ? open : isOpen,
@@ -12718,22 +13024,30 @@ const Root$5 = props => {
     children,
     stayOpenOnSelection,
     multiSelect,
-    onOpenChange,
     ...restProps
   } = props;
   const {
     value,
-    setIsOpen
+    setIsOpen,
+    onView
   } = useDialogComboboxContext();
+  const firstView = useRef(true);
+  useEffect(() => {
+    if (firstView.current) {
+      onView(value);
+      firstView.current = false;
+    }
+  }, [onView, value]);
   const handleOpenChange = open => {
     setIsOpen(open);
-    onOpenChange === null || onOpenChange === void 0 || onOpenChange(open);
   };
   useEffect(() => {
     if (!stayOpenOnSelection && (typeof stayOpenOnSelection === 'boolean' || !multiSelect)) {
       setIsOpen(false);
     }
-  }, [value, stayOpenOnSelection, multiSelect, setIsOpen]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value, stayOpenOnSelection, multiSelect]); // Don't trigger when setIsOpen changes.
+
   return jsx(Popover.Root, {
     onOpenChange: handleOpenChange,
     ...restProps,
@@ -12832,7 +13146,8 @@ const DialogComboboxContent = /*#__PURE__*/forwardRef((_ref, forwardedRef) => {
     getPopupContainer
   } = useDesignSystemContext();
   const {
-    useNewShadows
+    useNewShadows,
+    useNewBorderColors
   } = useDesignSystemSafexFlags();
   const [lastScrollPosition, setLastScrollPosition] = useState(0);
   if (!isInsideDialogCombobox) {
@@ -12888,7 +13203,8 @@ const DialogComboboxContent = /*#__PURE__*/forwardRef((_ref, forwardedRef) => {
         minHeight,
         minWidth,
         width: realContentWidth,
-        useNewShadows
+        useNewShadows,
+        useNewBorderColors
       }),
       align: align,
       side: side,
@@ -13271,6 +13587,7 @@ const DialogComboboxOptionListSearch = /*#__PURE__*/forwardRef((_ref, forwardedR
     hasWrapper,
     controlledValue,
     setControlledValue,
+    rightSearchControls,
     ...restProps
   } = _ref;
   const {
@@ -13371,22 +13688,29 @@ const DialogComboboxOptionListSearch = /*#__PURE__*/forwardRef((_ref, forwardedR
         background: theme.colors.backgroundPrimary,
         zIndex: theme.options.zIndexBase + 1
       }, process.env.NODE_ENV === "production" ? "" : ";label:DialogComboboxOptionListSearch;"),
-      children: jsx(Input, {
-        componentId: componentId ? `${componentId}.search` : 'codegen_design_system_src_design_system_dialogcombobox_dialogcomboboxoptionlistsearch.tsx_173',
-        type: "search",
-        name: "search",
-        ref: forwardedRef,
-        prefix: jsx(SearchIcon, {}),
-        placeholder: "Search",
-        onChange: handleOnChange,
-        onKeyDown: event => {
-          var _restProps$onKeyDown;
-          handleOnKeyDown(event);
-          (_restProps$onKeyDown = restProps.onKeyDown) === null || _restProps$onKeyDown === void 0 || _restProps$onKeyDown.call(restProps, event);
-        },
-        value: controlledValue !== null && controlledValue !== void 0 ? controlledValue : searchValue,
-        shouldPreventFormSubmission: true,
-        ...restProps
+      children: jsxs("div", {
+        css: /*#__PURE__*/css({
+          display: 'flex',
+          flexDirection: 'row',
+          gap: theme.spacing.sm
+        }, process.env.NODE_ENV === "production" ? "" : ";label:DialogComboboxOptionListSearch;"),
+        children: [jsx(Input, {
+          componentId: componentId ? `${componentId}.search` : 'codegen_design_system_src_design_system_dialogcombobox_dialogcomboboxoptionlistsearch.tsx_173',
+          type: "search",
+          name: "search",
+          ref: forwardedRef,
+          prefix: jsx(SearchIcon, {}),
+          placeholder: "Search",
+          onChange: handleOnChange,
+          onKeyDown: event => {
+            var _restProps$onKeyDown;
+            handleOnKeyDown(event);
+            (_restProps$onKeyDown = restProps.onKeyDown) === null || _restProps$onKeyDown === void 0 || _restProps$onKeyDown.call(restProps, event);
+          },
+          value: controlledValue !== null && controlledValue !== void 0 ? controlledValue : searchValue,
+          shouldPreventFormSubmission: true,
+          ...restProps
+        }), rightSearchControls]
       })
     }), virtualized ? children : (hasWrapper && (_filteredChildren = filteredChildren) !== null && _filteredChildren !== void 0 && (_filteredChildren = _filteredChildren.props.children) !== null && _filteredChildren !== void 0 && _filteredChildren.length || !hasWrapper && (_filteredChildren2 = filteredChildren) !== null && _filteredChildren2 !== void 0 && _filteredChildren2.length) && childrenIsNotEmpty ? jsx("div", {
       "aria-live": "polite",
@@ -14150,6 +14474,11 @@ const MAX_WIDTH = '90vw';
 const DEFAULT_POSITION = 'right';
 const ZINDEX_OVERLAY = 1;
 const ZINDEX_CONTENT = ZINDEX_OVERLAY + 1;
+
+/** Context to track if drawer is nested within a parent drawer */
+const DrawerContext = /*#__PURE__*/React__default.createContext({
+  isParentDrawerOpen: false
+});
 var _ref2$a = process.env.NODE_ENV === "production" ? {
   name: "zh83op",
   styles: "flex-grow:1;margin-bottom:0;margin-top:0;white-space:nowrap;overflow:hidden"
@@ -14195,6 +14524,9 @@ const Content$2 = _ref => {
   const {
     useNewShadows
   } = useDesignSystemSafexFlags();
+  const {
+    isParentDrawerOpen
+  } = React__default.useContext(DrawerContext);
   const {
     elementRef: onViewRef
   } = useNotifyOnFirstView({
@@ -14243,9 +14575,11 @@ const Content$2 = _ref => {
     '&:focus': {
       outline: 'none'
     },
-    '@media (prefers-reduced-motion: no-preference)': {
-      animation: `${overlayShow} 350ms cubic-bezier(0.16, 1, 0.3, 1)`
-    }
+    ...(isParentDrawerOpen ? {} : {
+      '@media (prefers-reduced-motion: no-preference)': {
+        animation: `${overlayShow} 350ms cubic-bezier(0.16, 1, 0.3, 1)`
+      }
+    })
   }, process.env.NODE_ENV === "production" ? "" : ";label:dialogPrimitiveContentStyle;");
   return jsxs(DialogPrimitive.Portal, {
     container: getPopupContainer && getPopupContainer(),
@@ -14257,7 +14591,7 @@ const Content$2 = _ref => {
         inset: 0,
         // needed so that it covers the PersonaNavSidebar
         zIndex: theme.options.zIndexBase + ZINDEX_OVERLAY,
-        opacity: seeThrough ? 0 : 1
+        opacity: seeThrough || isParentDrawerOpen ? 0 : 1
       }, process.env.NODE_ENV === "production" ? "" : ";label:Content;")
     }), jsx(DialogPrimitive.DialogContent, {
       ...addDebugOutlineIfEnabled(),
@@ -14273,6 +14607,12 @@ const Content$2 = _ref => {
             boxShadow: 'none'
           })
         })
+      },
+      onWheel: e => {
+        e.stopPropagation();
+      },
+      onTouchMove: e => {
+        e.stopPropagation();
       },
       "aria-hidden": seeThrough,
       ref: contentContainerRef,
@@ -14342,7 +14682,12 @@ const Content$2 = _ref => {
             height: expandContentToFullHeight ? '100%' : undefined,
             ...(!useCustomScrollBehavior ? getShadowScrollStyles(theme) : {})
           }, process.env.NODE_ENV === "production" ? "" : ";label:Content;"),
-          children: [children, !footer && jsx(Spacer, {
+          children: [jsx(DrawerContext.Provider, {
+            value: {
+              isParentDrawerOpen: true
+            },
+            children: children
+          }), !footer && jsx(Spacer, {
             size: size === 'small' ? 'md' : 'lg'
           })]
         }), footer && jsx("div", {
@@ -14779,7 +15124,9 @@ function getSelectEmotionStyles(_ref) {
       '.anticon': {
         // For some reason ant sets this to 'auto'. Need to set it back to 'none' to allow the element below to receive
         // the click event.
-        pointerEvents: 'none'
+        pointerEvents: 'none',
+        // anticon default line height is 0 and that wrongly shifts the icon down
+        lineHeight: 1
       },
       [`&${classArrowLoading}`]: {
         top: (theme.general.heightSm - theme.general.iconFontSize) / 2,
@@ -14922,13 +15269,13 @@ function getSelectEmotionStyles(_ref) {
   const importantStyles = importantify(styles);
   return /*#__PURE__*/css(importantStyles, process.env.NODE_ENV === "production" ? "" : ";label:getSelectEmotionStyles;");
 }
-function getDropdownStyles(clsPrefix, theme, useNewShadows) {
+function getDropdownStyles(clsPrefix, theme, useNewShadows, useNewBorderColors) {
   const classItem = `.${clsPrefix}-item-option`;
   const classItemActive = `.${clsPrefix}-item-option-active`;
   const classItemSelected = `.${clsPrefix}-item-option-selected`;
   const classItemState = `.${clsPrefix}-item-option-state`;
   const styles = {
-    borderColor: theme.colors.borderDecorative,
+    borderColor: useNewBorderColors ? theme.colors.border : theme.colors.borderDecorative,
     borderWidth: 1,
     borderStyle: 'solid',
     zIndex: theme.options.zIndexBase + 50,
@@ -14964,7 +15311,7 @@ function getDropdownStyles(clsPrefix, theme, useNewShadows) {
       display: 'block'
     },
     ...getAnimationCss(theme.options.enableAnimation),
-    ...getDarkModePortalStyles(theme, useNewShadows)
+    ...getDarkModePortalStyles(theme, useNewShadows, useNewBorderColors)
   };
   const importantStyles = importantify(styles);
   return /*#__PURE__*/css(importantStyles, process.env.NODE_ENV === "production" ? "" : ";label:getDropdownStyles;");
@@ -15004,7 +15351,8 @@ function DuboisSelect(_ref2, ref) {
   } = useDesignSystemTheme();
   const {
     useNewShadows,
-    useNewFormUISpacing
+    useNewFormUISpacing,
+    useNewBorderColors
   } = useDesignSystemSafexFlags();
   const clsPrefix = getPrefixedClassName('select');
   const [isOpen, setIsOpen] = useState(false);
@@ -15081,7 +15429,7 @@ function DuboisSelect(_ref2, ref) {
             }, process.env.NODE_ENV === "production" ? "" : ";label:DuboisSelect;"),
             children: "No results found"
           }),
-          dropdownClassName: css$1([getDropdownStyles(clsPrefix, theme, useNewShadows), dropdownClassName]),
+          dropdownClassName: css$1([getDropdownStyles(clsPrefix, theme, useNewShadows, useNewBorderColors), dropdownClassName]),
           listHeight: MAX_HEIGHT,
           maxTagPlaceholder: items => `+ ${items.length} more`,
           mode: mode,
@@ -15254,9 +15602,10 @@ const getRadioInputStyles = _ref => {
         },
         // Focus
         [`&:not(.${clsPrefix}-disabled) > .${clsPrefix}-input:focus-visible + .${clsPrefix}-inner`]: {
-          background: theme.colors.actionDefaultBackgroundPress,
+          background: theme.colors.actionPrimaryBackgroundDefault,
           borderColor: theme.colors.actionDefaultBorderFocus,
-          boxShadow: `0 0 0 1px ${theme.colors.actionDefaultBackgroundDefault}, 0 0 0 3px ${theme.colors.actionDefaultBorderFocus}`
+          outline: `1px solid ${theme.colors.actionPrimaryBackgroundDefault}`,
+          outlineOffset: 1
         },
         // Active
         [`&:not(.${clsPrefix}-disabled) > .${clsPrefix}-input:active + .${clsPrefix}-inner`]: {
@@ -15403,11 +15752,12 @@ const DuboisRadio = /*#__PURE__*/forwardRef(function Radio(_ref6, ref) {
     dangerouslySetAntdProps,
     __INTERNAL_DISABLE_RADIO_ROLE,
     componentId,
-    analyticsEvents = [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange],
+    analyticsEvents,
     valueHasNoPii,
     onChange,
     ...props
   } = _ref6;
+  const emitOnView = safex('databricks.fe.observability.defaultComponentView.radio', false);
   const {
     theme,
     getPrefixedClassName
@@ -15419,13 +15769,21 @@ const DuboisRadio = /*#__PURE__*/forwardRef(function Radio(_ref6, ref) {
     useNewShadows
   } = useDesignSystemSafexFlags();
   const clsPrefix = getPrefixedClassName('radio');
-  const memoizedAnalyticsEvents = useMemo(() => analyticsEvents, [analyticsEvents]);
+  const memoizedAnalyticsEvents = useMemo(() => analyticsEvents !== null && analyticsEvents !== void 0 ? analyticsEvents : emitOnView ? [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange, DesignSystemEventProviderAnalyticsEventTypes.OnView] : [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange], [analyticsEvents, emitOnView]);
   const eventContext = useDesignSystemEventComponentCallbacks({
     componentType: DesignSystemEventProviderComponentTypes.Radio,
     componentId,
     analyticsEvents: memoizedAnalyticsEvents,
     valueHasNoPii
   });
+  const firstView = useRef(true);
+  useEffect(() => {
+    // Only call the onView callback if the Radio is standalone and not part of a RadioGroup
+    if (componentId && contextualComponentId === undefined && firstView.current) {
+      eventContext.onView(props.value);
+      firstView.current = false;
+    }
+  }, [eventContext, componentId, contextualComponentId, props.value]);
   const onChangeWrapper = useCallback(e => {
     // Only call the onValueChange callback if the Radio is standalone and not part of a RadioGroup
     if (contextualComponentId === undefined) {
@@ -15458,16 +15816,17 @@ const DuboisRadio = /*#__PURE__*/forwardRef(function Radio(_ref6, ref) {
   });
 });
 const StyledRadioGroup = /*#__PURE__*/forwardRef(function StyledRadioGroup(_ref7, ref) {
-  var _props$defaultValue;
+  var _props$defaultValue, _props$value;
   let {
     children,
     dangerouslySetAntdProps,
     componentId,
-    analyticsEvents = [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange],
+    analyticsEvents,
     valueHasNoPii,
     onChange,
     ...props
   } = _ref7;
+  const emitOnView = safex('databricks.fe.observability.defaultComponentView.radio', false);
   const {
     theme,
     getPrefixedClassName,
@@ -15477,7 +15836,7 @@ const StyledRadioGroup = /*#__PURE__*/forwardRef(function StyledRadioGroup(_ref7
     useNewShadows
   } = useDesignSystemSafexFlags();
   const clsPrefix = getPrefixedClassName('radio');
-  const memoizedAnalyticsEvents = useMemo(() => analyticsEvents, [analyticsEvents]);
+  const memoizedAnalyticsEvents = useMemo(() => analyticsEvents !== null && analyticsEvents !== void 0 ? analyticsEvents : emitOnView ? [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange, DesignSystemEventProviderAnalyticsEventTypes.OnView] : [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange], [analyticsEvents, emitOnView]);
   const [value, setValue] = React__default.useState((_props$defaultValue = props.defaultValue) !== null && _props$defaultValue !== void 0 ? _props$defaultValue : '');
   const eventContext = useDesignSystemEventComponentCallbacks({
     componentType: DesignSystemEventProviderComponentTypes.RadioGroup,
@@ -15487,6 +15846,13 @@ const StyledRadioGroup = /*#__PURE__*/forwardRef(function StyledRadioGroup(_ref7
   });
   const internalRef = useRef();
   useImperativeHandle(ref, () => internalRef.current);
+  const {
+    elementRef: radioGroupRef
+  } = useNotifyOnFirstView({
+    onView: eventContext.onView,
+    value: (_props$value = props.value) !== null && _props$value !== void 0 ? _props$value : props.defaultValue
+  });
+  const mergedRef = useMergeRefs([internalRef, radioGroupRef]);
   const onChangeWrapper = useCallback(e => {
     var _eventContext$onValue2;
     (_eventContext$onValue2 = eventContext.onValueChange) === null || _eventContext$onValue2 === void 0 || _eventContext$onValue2.call(eventContext, e.target.value);
@@ -15533,7 +15899,7 @@ const StyledRadioGroup = /*#__PURE__*/forwardRef(function StyledRadioGroup(_ref7
         value: value,
         onChange: onChangeWrapper,
         ...dangerouslySetAntdProps,
-        ref: internalRef,
+        ref: mergedRef,
         children: jsx(RestoreAntDDefaultClsPrefix, {
           children: children
         })
@@ -15757,10 +16123,11 @@ const SimpleSelect = /*#__PURE__*/forwardRef((_ref, ref) => {
     validationState,
     forceCloseOnEscape,
     componentId,
-    analyticsEvents = [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange],
+    analyticsEvents,
     valueHasNoPii,
     ...rest
   } = _ref;
+  const emitOnView = safex('databricks.fe.observability.defaultComponentView.simpleSelect', false);
   const [defaultLabel] = useState(() => {
     if (value) {
       return getSelectedOptionLabel(children, value);
@@ -15774,12 +16141,18 @@ const SimpleSelect = /*#__PURE__*/forwardRef((_ref, ref) => {
   const [internalValue, setInternalValue] = useState(value);
   const [selectedLabel, setSelectedLabel] = useState(defaultLabel);
   const isControlled = value !== undefined;
-  const memoizedAnalyticsEvents = useMemo(() => analyticsEvents, [analyticsEvents]);
+  const memoizedAnalyticsEvents = useMemo(() => analyticsEvents !== null && analyticsEvents !== void 0 ? analyticsEvents : emitOnView ? [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange, DesignSystemEventProviderAnalyticsEventTypes.OnView] : [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange], [analyticsEvents, emitOnView]);
   const eventContext = useDesignSystemEventComponentCallbacks({
     componentType: DesignSystemEventProviderComponentTypes.SimpleSelect,
     componentId,
     analyticsEvents: memoizedAnalyticsEvents,
     valueHasNoPii
+  });
+  const {
+    elementRef: simpleSelectRef
+  } = useNotifyOnFirstView({
+    onView: eventContext.onView,
+    value: value !== null && value !== void 0 ? value : defaultValue
   });
 
   // Controlled state setup.
@@ -15845,6 +16218,7 @@ const SimpleSelect = /*#__PURE__*/forwardRef((_ref, ref) => {
       children: jsxs(SimpleSelectContentWrapper, {
         onOpenChange: onOpenChange,
         children: [jsx(SelectTrigger, {
+          ref: simpleSelectRef,
           ...rest,
           validationState: validationState,
           onClear: () => {
@@ -16105,10 +16479,11 @@ const Switch = _ref2 => {
     inactiveLabel,
     disabledLabel,
     componentId,
-    analyticsEvents = [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange],
+    analyticsEvents,
     onChange,
     ...props
   } = _ref2;
+  const emitOnView = safex('databricks.fe.observability.defaultComponentView.switch', false);
   const {
     theme,
     classNamePrefix
@@ -16119,12 +16494,18 @@ const Switch = _ref2 => {
   } = useDesignSystemSafexFlags();
   const uniqueId = (_props$id = props.id) !== null && _props$id !== void 0 ? _props$id : duboisId;
   const [isChecked, setIsChecked] = useState(props.checked || props.defaultChecked);
-  const memoizedAnalyticsEvents = useMemo(() => analyticsEvents, [analyticsEvents]);
+  const memoizedAnalyticsEvents = useMemo(() => analyticsEvents !== null && analyticsEvents !== void 0 ? analyticsEvents : emitOnView ? [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange, DesignSystemEventProviderAnalyticsEventTypes.OnView] : [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange], [analyticsEvents, emitOnView]);
   const eventContext = useDesignSystemEventComponentCallbacks({
     componentType: DesignSystemEventProviderComponentTypes.Switch,
     componentId,
     analyticsEvents: memoizedAnalyticsEvents,
     valueHasNoPii: true
+  });
+  const {
+    elementRef: viewRef
+  } = useNotifyOnFirstView({
+    onView: eventContext.onView,
+    value: isChecked
   });
   const handleToggle = (newState, event) => {
     eventContext.onValueChange(newState);
@@ -16163,7 +16544,8 @@ const Switch = _ref2 => {
         disabled: props.disabled,
         useNewShadows
       })
-    }, process.env.NODE_ENV === "production" ? "" : ";label:switchComponent;")
+    }, process.env.NODE_ENV === "production" ? "" : ";label:switchComponent;"),
+    ref: viewRef
   });
   const labelComponent = jsx(Label, {
     inline: true,
@@ -16190,7 +16572,8 @@ const Switch = _ref2 => {
         children: [labelComponent, jsx("span", {
           style: {
             marginLeft: 'auto',
-            marginRight: theme.spacing.sm
+            marginRight: theme.spacing.sm,
+            color: theme.colors.textPrimary
           },
           children: `${stateMessage}${props.disabled ? ` (${disabledLabel})` : ''}`
         }), switchComponent]
@@ -16214,7 +16597,8 @@ const Switch = _ref2 => {
           useNewShadows
         })
       }, process.env.NODE_ENV === "production" ? "" : ";label:Switch;"),
-      ...eventContext.dataComponentProps
+      ...eventContext.dataComponentProps,
+      ref: viewRef
     })
   });
 };
@@ -16268,6 +16652,13 @@ const TypeaheadComboboxRoot = /*#__PURE__*/forwardRef((_ref, ref) => {
     middleware: [offset(4), flip(), shift()],
     placement: 'bottom-start'
   });
+  const {
+    elementRef: typeaheadComboboxRootRef
+  } = useNotifyOnFirstView({
+    onView: comboboxState.onView,
+    value: comboboxState.firstOnViewValue
+  });
+  const mergedRef = useMergeRefs([ref, typeaheadComboboxRootRef]);
   return jsx(TypeaheadComboboxContextProvider, {
     value: {
       componentId: comboboxState.componentId,
@@ -16283,7 +16674,7 @@ const TypeaheadComboboxRoot = /*#__PURE__*/forwardRef((_ref, ref) => {
       className: `${classNamePrefix}-typeahead-combobox`,
       css: _ref2$8,
       ...props,
-      ref: ref,
+      ref: mergedRef,
       "data-component-type": DesignSystemEventProviderComponentTypes.TypeaheadCombobox,
       "data-component-id": comboboxState.componentId,
       children: children
@@ -16297,6 +16688,7 @@ const mapItemsToString = (items, itemToString) => {
 const TypeaheadComboboxStateChangeTypes = useCombobox.stateChangeTypes;
 const TypeaheadComboboxMultiSelectStateChangeTypes = useMultipleSelection.stateChangeTypes;
 function useComboboxState(_ref) {
+  var _props$initialSelecte;
   let {
     allItems,
     items,
@@ -16308,12 +16700,12 @@ function useComboboxState(_ref) {
     formOnBlur,
     componentId,
     valueHasNoPii,
-    analyticsEvents = [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange],
+    analyticsEvents,
     matcher,
-    shouldSetItemsOnAllItemsChanges = safex('databricks.fe.designsystem.useComboboxStateUpdatesItemsWithEffect', false),
     preventUnsetOnBlur = false,
     ...props
   } = _ref;
+  const emitOnView = safex('databricks.fe.observability.defaultComponentView.typeaheadCombobox', false);
   const getFilteredItems = useCallback(inputValue => {
     var _inputValue$toLowerCa;
     const lowerCasedInputValue = (_inputValue$toLowerCa = inputValue === null || inputValue === void 0 ? void 0 : inputValue.toLowerCase()) !== null && _inputValue$toLowerCa !== void 0 ? _inputValue$toLowerCa : '';
@@ -16321,7 +16713,7 @@ function useComboboxState(_ref) {
     return allItems.filter(item => !inputValue || !matcher || matcher(item, lowerCasedInputValue));
   }, [allItems, matcher]);
   const [inputValue, setInputValue] = useState();
-  const memoizedAnalyticsEvents = useMemo(() => analyticsEvents, [analyticsEvents]);
+  const memoizedAnalyticsEvents = useMemo(() => analyticsEvents !== null && analyticsEvents !== void 0 ? analyticsEvents : emitOnView ? [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange, DesignSystemEventProviderAnalyticsEventTypes.OnView] : [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange], [analyticsEvents, emitOnView]);
   const eventContext = useDesignSystemEventComponentCallbacks({
     componentType: DesignSystemEventProviderComponentTypes.TypeaheadCombobox,
     componentId,
@@ -16334,13 +16726,13 @@ function useComboboxState(_ref) {
   const prevAllItems = useRef(allItems);
   useEffect(() => {
     // When allItems changes, re-apply filter so users don't see stale items values in the dropdown box
-    if (shouldSetItemsOnAllItemsChanges && !props.multiSelect && (allItems.length !== prevAllItems.current.length ||
+    if (!props.multiSelect && (allItems.length !== prevAllItems.current.length ||
     // Avoid redundant or endless updates by checking individual elements as allItems may have an unstable reference.
     allItems.some((item, index) => itemToStringWithDefaultToString(item) !== itemToStringWithDefaultToString(prevAllItems.current[index])))) {
       props.setItems(getFilteredItems(inputValue));
       prevAllItems.current = allItems;
     }
-  }, [allItems, inputValue, getFilteredItems, props, itemToStringWithDefaultToString, shouldSetItemsOnAllItemsChanges]);
+  }, [allItems, inputValue, getFilteredItems, props, itemToStringWithDefaultToString]);
   const comboboxState = {
     ...useCombobox({
       onIsOpenChange: onIsOpenChange,
@@ -16452,7 +16844,9 @@ function useComboboxState(_ref) {
     }),
     componentId,
     analyticsEvents,
-    valueHasNoPii
+    valueHasNoPii,
+    onView: eventContext.onView,
+    firstOnViewValue: props.multiSelect ? mapItemsToString(props.selectedItems, itemToStringWithDefaultToString) : itemToStringWithDefaultToString((_props$initialSelecte = props.initialSelectedItem) !== null && _props$initialSelecte !== void 0 ? _props$initialSelecte : null)
   };
   return comboboxState;
 }
@@ -16538,7 +16932,8 @@ const TypeaheadComboboxMenu = /*#__PURE__*/forwardRef((_ref2, ref) => {
     suppressRefError: true
   });
   const {
-    useNewShadows
+    useNewShadows,
+    useNewBorderColors
   } = useDesignSystemSafexFlags();
   const [viewPortMaxHeight, setViewPortMaxHeight] = useState(undefined);
   const {
@@ -16613,7 +17008,8 @@ const TypeaheadComboboxMenu = /*#__PURE__*/forwardRef((_ref2, ref) => {
       minHeight,
       minWidth,
       width,
-      useNewShadows
+      useNewShadows,
+      useNewBorderColors
     }), getTypeaheadComboboxMenuStyles(), matchTriggerWidth && inputWidth && {
       width: inputWidth
     }, process.env.NODE_ENV === "production" ? "" : ";label:TypeaheadComboboxMenu;"],
@@ -17001,12 +17397,15 @@ var _ref$5 = process.env.NODE_ENV === "production" ? {
 const getContainerStyles$1 = () => {
   return _ref$5;
 };
-const getInputStyles$1 = (theme, showComboboxToggleButton, useNewBorderRadii) => /*#__PURE__*/css({
+const getInputStyles$1 = (theme, showComboboxToggleButton, useNewBorderRadii, useNewBorderColors) => /*#__PURE__*/css({
   paddingRight: showComboboxToggleButton ? 52 : 26,
   width: '100%',
   minWidth: 72,
   ...(useNewBorderRadii && {
     borderRadius: theme.borders.borderRadiusSm
+  }),
+  ...(useNewBorderColors && {
+    borderColor: theme.colors.actionDefaultBorderDefault
   }),
   '&:disabled': {
     borderColor: theme.colors.actionDisabledBorder,
@@ -17058,7 +17457,8 @@ const TypeaheadComboboxInput = /*#__PURE__*/forwardRef((_ref2, ref) => {
     theme
   } = useDesignSystemTheme();
   const {
-    useNewBorderRadii
+    useNewBorderRadii,
+    useNewBorderColors
   } = useDesignSystemSafexFlags();
   const handleClick = e => {
     onClick === null || onClick === void 0 || onClick(e);
@@ -17116,7 +17516,7 @@ const TypeaheadComboboxInput = /*#__PURE__*/forwardRef((_ref2, ref) => {
       ...downshiftProps,
       "aria-controls": comboboxState.isOpen ? downshiftProps['aria-controls'] : undefined,
       onClick: handleClick,
-      css: getInputStyles$1(theme, showComboboxToggleButton, useNewBorderRadii),
+      css: getInputStyles$1(theme, showComboboxToggleButton, useNewBorderRadii, useNewBorderColors),
       ...restProps
     }), jsx(TypeaheadComboboxControls, {
       getDownshiftToggleButtonProps: getToggleButtonProps,
@@ -17238,13 +17638,13 @@ const CountBadge = _ref => {
 };
 
 function _EMOTION_STRINGIFIED_CSS_ERROR__$7() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
-const getContainerStyles = (theme, validationState, width, maxHeight, disabled) => {
+const getContainerStyles = (theme, validationState, width, maxHeight, disabled, useNewBorderColors) => {
   const validationColor = getValidationStateColor(theme, validationState);
   return /*#__PURE__*/css({
     cursor: 'text',
     display: 'inline-block',
     verticalAlign: 'top',
-    border: `1px solid ${theme.colors.border}`,
+    border: `1px solid ${useNewBorderColors ? theme.colors.actionDefaultBorderDefault : theme.colors.border}`,
     borderRadius: theme.general.borderRadiusBase,
     minHeight: 32,
     height: 'auto',
@@ -17408,6 +17808,9 @@ const TypeaheadComboboxMultiSelectInput = /*#__PURE__*/forwardRef((_ref3, ref) =
   const {
     theme
   } = useDesignSystemTheme();
+  const {
+    useNewBorderColors
+  } = useDesignSystemSafexFlags();
   const [inputWidth, setInputWidth] = useState(0);
   const shouldShowCountBadge = selectedItems.length > showTagAfterValueCount;
   const [showTooltip, setShowTooltip] = useState(shouldShowCountBadge);
@@ -17464,7 +17867,7 @@ const TypeaheadComboboxMultiSelectInput = /*#__PURE__*/forwardRef((_ref3, ref) =
     ...addDebugOutlineIfEnabled(),
     onClick: handleClick,
     ref: mergedContainerRef,
-    css: getContainerStyles(theme, validationState, width, maxHeight, restProps.disabled),
+    css: getContainerStyles(theme, validationState, width, maxHeight, restProps.disabled, useNewBorderColors),
     tabIndex: restProps.disabled ? -1 : 0,
     children: [jsxs("div", {
       ref: itemsRef,
@@ -18371,9 +18774,13 @@ const HoverCard = _ref => {
   const {
     getPopupContainer
   } = useDesignSystemContext();
+  const {
+    useNewBorderColors
+  } = useDesignSystemSafexFlags();
   const hoverCardStyles = useHoverCardStyles({
     minWidth,
-    maxWidth
+    maxWidth,
+    useNewBorderColors
   });
   return jsxs(RadixHoverCard.Root, {
     ...props,
@@ -18418,7 +18825,8 @@ const CONSTANTS = {
 const useHoverCardStyles = _ref2 => {
   let {
     minWidth,
-    maxWidth
+    maxWidth,
+    useNewBorderColors
   } = _ref2;
   const {
     theme
@@ -18431,7 +18839,7 @@ const useHoverCardStyles = _ref2 => {
       backgroundColor: theme.colors.backgroundPrimary,
       color: theme.colors.textPrimary,
       lineHeight: theme.typography.lineHeightBase,
-      border: `1px solid ${theme.colors.borderDecorative}`,
+      border: `1px solid ${useNewBorderColors ? theme.colors.border : theme.colors.borderDecorative}`,
       borderRadius: theme.borders.borderRadiusSm,
       padding: `${theme.spacing.sm}px`,
       boxShadow: useNewShadows ? theme.shadows.lg : theme.general.shadowLow,
@@ -18439,7 +18847,7 @@ const useHoverCardStyles = _ref2 => {
       zIndex: theme.options.zIndexBase + 30,
       minWidth,
       maxWidth,
-      ...getDarkModePortalStyles(theme, useNewShadows),
+      ...getDarkModePortalStyles(theme, useNewShadows, useNewBorderColors),
       a: importantify({
         color: theme.colors.actionTertiaryTextDefault,
         cursor: 'default',
@@ -18835,7 +19243,7 @@ const LegacySkeleton = /* #__PURE__ */(() => {
 })();
 
 function _EMOTION_STRINGIFIED_CSS_ERROR__$5() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
-function getPaginationEmotionStyles(clsPrefix, theme, useNewShadows) {
+function getPaginationEmotionStyles(clsPrefix, theme, useNewShadows, useNewBorderColors) {
   const classRoot = `.${clsPrefix}-pagination`;
   const classItem = `.${clsPrefix}-pagination-item`;
   const classLink = `.${clsPrefix}-pagination-item-link`;
@@ -18845,10 +19253,12 @@ function getPaginationEmotionStyles(clsPrefix, theme, useNewShadows) {
   const classPrev = `.${clsPrefix}-pagination-prev`;
   const classJumpNext = `.${clsPrefix}-pagination-jump-next`;
   const classJumpPrev = `.${clsPrefix}-pagination-jump-prev`;
+  const classQuickJumper = `.${clsPrefix}-pagination-options-quick-jumper`;
   const classSizeChanger = `.${clsPrefix}-pagination-options-size-changer`;
   const classOptions = `.${clsPrefix}-pagination-options`;
   const classDisabled = `.${clsPrefix}-pagination-disabled`;
   const classSelector = `.${clsPrefix}-select-selector`;
+  const classDropdown = `.${clsPrefix}-select-dropdown`;
   const styles = {
     'span[role=img]': {
       color: theme.colors.textSecondary,
@@ -18942,12 +19352,23 @@ function getPaginationEmotionStyles(clsPrefix, theme, useNewShadows) {
       [`input,  ${classOptions}`]: {
         height: '32px'
       },
-      ...(useNewShadows && {
-        [`${classSelector}`]: {
+      [`${classSelector}`]: {
+        ...(useNewShadows && {
           boxShadow: theme.shadows.xs
-        }
-      })
-    }
+        }),
+        ...(useNewBorderColors && {
+          borderColor: theme.colors.actionDefaultBorderDefault
+        })
+      }
+    },
+    ...(useNewBorderColors && {
+      [`${classQuickJumper} > input`]: {
+        borderColor: theme.colors.actionDefaultBorderDefault
+      },
+      [`${classDropdown}`]: {
+        borderColor: theme.colors.actionDefaultBorderDefault
+      }
+    })
   };
   const importantStyles = importantify(styles);
   return /*#__PURE__*/css(importantStyles, process.env.NODE_ENV === "production" ? "" : ";label:getPaginationEmotionStyles;");
@@ -18962,14 +19383,16 @@ const Pagination = function Pagination(_ref) {
     hideOnSinglePage,
     dangerouslySetAntdProps,
     componentId,
-    analyticsEvents = [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange]
+    analyticsEvents
   } = _ref;
+  const emitOnView = safex('databricks.fe.observability.defaultComponentView.pagination', false);
   const {
     classNamePrefix,
     theme
   } = useDesignSystemTheme();
   const {
-    useNewShadows
+    useNewShadows,
+    useNewBorderColors
   } = useDesignSystemSafexFlags();
   const {
     pageSizeSelectAriaLabel,
@@ -18977,7 +19400,7 @@ const Pagination = function Pagination(_ref) {
     ...restDangerouslySetAntdProps
   } = dangerouslySetAntdProps !== null && dangerouslySetAntdProps !== void 0 ? dangerouslySetAntdProps : {};
   const ref = useRef(null);
-  const memoizedAnalyticsEvents = useMemo(() => analyticsEvents, [analyticsEvents]);
+  const memoizedAnalyticsEvents = useMemo(() => analyticsEvents !== null && analyticsEvents !== void 0 ? analyticsEvents : emitOnView ? [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange, DesignSystemEventProviderAnalyticsEventTypes.OnView] : [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange], [analyticsEvents, emitOnView]);
   const eventContext = useDesignSystemEventComponentCallbacks({
     componentType: DesignSystemEventProviderComponentTypes.Pagination,
     componentId,
@@ -18988,6 +19411,12 @@ const Pagination = function Pagination(_ref) {
     eventContext.onValueChange(pageIndex);
     onChange(pageIndex, pageSize);
   }, [eventContext, onChange]);
+  const {
+    elementRef: paginationRef
+  } = useNotifyOnFirstView({
+    onView: eventContext.onView
+  });
+  const mergedRef = useMergeRefs([ref, paginationRef]);
   useEffect(() => {
     if (ref && ref.current) {
       const selectDropdown = ref.current.querySelector(`.${classNamePrefix}-select-selection-search-input`);
@@ -19002,10 +19431,10 @@ const Pagination = function Pagination(_ref) {
   }, [pageQuickJumperAriaLabel, pageSizeSelectAriaLabel, classNamePrefix]);
   return jsx(DesignSystemAntDConfigProvider, {
     children: jsx("div", {
-      ref: ref,
+      ref: mergedRef,
       children: jsx(Pagination$1, {
         ...addDebugOutlineIfEnabled(),
-        css: getPaginationEmotionStyles(classNamePrefix, theme, useNewShadows),
+        css: getPaginationEmotionStyles(classNamePrefix, theme, useNewShadows, useNewBorderColors),
         current: currentPageIndex,
         pageSize: pageSize,
         responsive: false,
@@ -19107,10 +19536,10 @@ const CursorPagination = function CursorPagination(_ref2) {
   });
 };
 
-const getTableEmotionStyles = (classNamePrefix, theme, scrollableInFlexibleContainer) => {
+const getTableEmotionStyles = (classNamePrefix, theme, scrollableInFlexibleContainer, useNewShadows, useNewBorderColors) => {
   const styles = [/*#__PURE__*/css({
     [`.${classNamePrefix}-table-pagination`]: {
-      ...getPaginationEmotionStyles(classNamePrefix, theme)
+      ...getPaginationEmotionStyles(classNamePrefix, theme, useNewShadows, useNewBorderColors)
     }
   }, process.env.NODE_ENV === "production" ? "" : ";label:styles;")];
   if (scrollableInFlexibleContainer) {
@@ -19162,6 +19591,10 @@ const LegacyTable = props => {
     theme
   } = useDesignSystemTheme();
   const {
+    useNewShadows,
+    useNewBorderColors
+  } = useDesignSystemSafexFlags();
+  const {
     loading,
     scrollableInFlexibleContainer,
     children,
@@ -19178,7 +19611,7 @@ const LegacyTable = props => {
         y: 'auto'
       } : undefined,
       ...tableProps,
-      css: getTableEmotionStyles(classNamePrefix, theme, Boolean(scrollableInFlexibleContainer))
+      css: getTableEmotionStyles(classNamePrefix, theme, Boolean(scrollableInFlexibleContainer), useNewShadows, useNewBorderColors)
       // ES-902549 this allows column names of "children", using a name that is less likely to be hit
       ,
       expandable: {
@@ -19576,7 +20009,7 @@ const swipeOutAnimation = keyframes({
     transform: 'translateX(calc(100% + 12px))'
   }
 });
-const getToastRootStyle = (theme, classNamePrefix, useNewShadows) => {
+const getToastRootStyle = (theme, classNamePrefix, useNewShadows, useNewBorderColors) => {
   return /*#__PURE__*/css({
     '&&': {
       position: 'relative',
@@ -19587,9 +20020,12 @@ const getToastRootStyle = (theme, classNamePrefix, useNewShadows) => {
       boxShadow: useNewShadows ? theme.shadows.lg : theme.general.shadowLow,
       borderRadius: theme.borders.borderRadiusSm,
       lineHeight: '20px',
+      ...(useNewBorderColors && {
+        borderColor: `1px solid ${theme.colors.border}`
+      }),
       gridTemplateRows: '[header] auto [content] auto',
       gridTemplateColumns: '[icon] auto [content] 1fr [close] auto',
-      ...getDarkModePortalStyles(theme, useNewShadows)
+      ...getDarkModePortalStyles(theme, useNewShadows, useNewBorderColors)
     },
     [`.${classNamePrefix}-notification-severity-icon`]: {
       gridRow: 'header / content',
@@ -19645,7 +20081,8 @@ const Root$2 = /*#__PURE__*/forwardRef(function (_ref, ref) {
     classNamePrefix
   } = useDesignSystemTheme();
   const {
-    useNewShadows
+    useNewShadows,
+    useNewBorderColors
   } = useDesignSystemSafexFlags();
   const memoizedAnalyticsEvents = useMemo(() => analyticsEvents, [analyticsEvents]);
   const eventContext = useDesignSystemEventComponentCallbacks({
@@ -19663,7 +20100,7 @@ const Root$2 = /*#__PURE__*/forwardRef(function (_ref, ref) {
   });
   return jsxs(Toast.Root, {
     ref: ref,
-    css: getToastRootStyle(theme, classNamePrefix, useNewShadows),
+    css: getToastRootStyle(theme, classNamePrefix, useNewShadows, useNewBorderColors),
     ...props,
     ...addDebugOutlineIfEnabled(),
     children: [jsx(SeverityIcon, {
@@ -19831,40 +20268,19 @@ function getTagEmotionStyles(theme) {
   let color = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : 'default';
   let clickable = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : false;
   let closable = arguments.length > 3 && arguments[3] !== undefined ? arguments[3] : false;
-  let useNewTagColors = arguments.length > 4 ? arguments[4] : undefined;
   let textColor = theme.colors.tagText;
   let backgroundColor = theme.colors[oldTagColorsMap[color]];
   let iconColor = '';
   let outlineColor = theme.colors.actionDefaultBorderFocus;
-  if (useNewTagColors) {
-    const capitalizedColor = color.charAt(0).toUpperCase() + color.slice(1);
-    textColor = theme.DU_BOIS_INTERNAL_ONLY.colors[`tagText${capitalizedColor}`];
-    backgroundColor = theme.DU_BOIS_INTERNAL_ONLY.colors[`tagBackground${capitalizedColor}`];
-    iconColor = theme.DU_BOIS_INTERNAL_ONLY.colors[`tagIcon${capitalizedColor}`];
-    if (color === 'charcoal') {
-      outlineColor = theme.colors.white;
-    }
+  const capitalizedColor = color.charAt(0).toUpperCase() + color.slice(1);
+  textColor = theme.DU_BOIS_INTERNAL_ONLY.colors[`tagText${capitalizedColor}`];
+  backgroundColor = theme.DU_BOIS_INTERNAL_ONLY.colors[`tagBackground${capitalizedColor}`];
+  iconColor = theme.DU_BOIS_INTERNAL_ONLY.colors[`tagIcon${capitalizedColor}`];
+  if (color === 'charcoal') {
+    outlineColor = theme.colors.white;
   }
-  let iconHover = theme.colors.tagIconHover;
-  let iconPress = theme.colors.tagIconPress;
-  let tagHover = theme.colors.tagHover;
-  let tagPress = theme.colors.tagPress;
-
-  // Because the default tag background color changes depending on system theme, so do its other variables.
-  if (color === 'default' && !useNewTagColors) {
-    textColor = theme.colors.textPrimary;
-    iconHover = theme.colors.actionTertiaryTextHover;
-    iconPress = theme.colors.actionTertiaryTextPress;
-  }
-
-  // Because lemon is a light yellow, all its variables pull from the light mode palette, regardless of system theme.
-  if (color === 'lemon' && !useNewTagColors) {
-    textColor = lightColorList.textPrimary;
-    iconHover = lightColorList.actionTertiaryTextHover;
-    iconPress = lightColorList.actionTertiaryTextPress;
-    tagHover = lightColorList.actionTertiaryBackgroundHover;
-    tagPress = lightColorList.actionTertiaryBackgroundPress;
-  }
+  const iconHover = theme.colors.tagIconHover;
+  const iconPress = theme.colors.tagIconPress;
   return {
     wrapper: {
       backgroundColor: backgroundColor,
@@ -19876,42 +20292,38 @@ function getTagEmotionStyles(theme) {
     tag: {
       border: 'none',
       color: textColor,
-      padding: useNewTagColors ? '' : '2px 4px',
-      backgroundColor: useNewTagColors ? 'transparent' : backgroundColor,
+      padding: '',
+      backgroundColor: 'transparent',
       borderRadius: theme.borders.borderRadiusSm,
       marginRight: theme.spacing.sm,
       display: 'inline-block',
       cursor: clickable ? 'pointer' : 'default',
-      ...(useNewTagColors && {
-        ...(closable && {
-          borderTopRightRadius: 0,
-          borderBottomRightRadius: 0
-        }),
-        ...(clickable && {
-          '&:hover': {
-            '& > div': {
-              backgroundColor: theme.colors.actionDefaultBackgroundHover
-            }
-          },
-          '&:active': {
-            '& > div': {
-              backgroundColor: theme.colors.actionDefaultBackgroundPress
-            }
+      ...(closable && {
+        borderTopRightRadius: 0,
+        borderBottomRightRadius: 0
+      }),
+      ...(clickable && {
+        '&:hover': {
+          '& > div': {
+            backgroundColor: theme.colors.actionDefaultBackgroundHover
           }
-        })
+        },
+        '&:active': {
+          '& > div': {
+            backgroundColor: theme.colors.actionDefaultBackgroundPress
+          }
+        }
       })
     },
     content: {
       display: 'flex',
       alignItems: 'center',
       minWidth: 0,
-      ...(useNewTagColors && {
-        height: theme.typography.lineHeightBase
-      })
+      height: theme.typography.lineHeightBase
     },
     close: {
-      height: useNewTagColors ? theme.typography.lineHeightBase : theme.general.iconFontSize,
-      width: useNewTagColors ? theme.typography.lineHeightBase : theme.general.iconFontSize,
+      height: theme.typography.lineHeightBase,
+      width: theme.typography.lineHeightBase,
       lineHeight: `${theme.general.iconFontSize}px`,
       padding: 0,
       color: textColor,
@@ -19922,27 +20334,22 @@ function getTagEmotionStyles(theme) {
       background: 'none',
       cursor: 'pointer',
       marginLeft: theme.spacing.xs,
-      ...(useNewTagColors ? {
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        margin: 0
-      } : {
-        marginRight: -theme.spacing.xs,
-        margin: '-2px -4px -2px 4px'
-      }),
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      margin: 0,
       '&:hover': {
-        backgroundColor: useNewTagColors ? theme.colors.actionDefaultBackgroundHover : tagHover,
+        backgroundColor: theme.colors.actionDefaultBackgroundHover,
         color: iconHover
       },
       '&:active': {
-        backgroundColor: useNewTagColors ? theme.colors.actionDefaultBackgroundPress : tagPress,
+        backgroundColor: theme.colors.actionDefaultBackgroundPress,
         color: iconPress
       },
       '&:focus-visible': {
         outlineStyle: 'solid',
         outlineWidth: 1,
-        outlineOffset: useNewTagColors ? -2 : 1,
+        outlineOffset: -2,
         outlineColor
       },
       '.anticon': {
@@ -20002,15 +20409,15 @@ const Tag = /*#__PURE__*/forwardRef((props, forwardedRef) => {
     onClose,
     role = 'status',
     closeButtonProps,
-    analyticsEvents = [DesignSystemEventProviderAnalyticsEventTypes.OnClick],
+    analyticsEvents,
     componentId,
     icon,
     onClick,
     ...attributes
   } = props;
+  const emitOnView = safex('databricks.fe.observability.defaultComponentView.tag', false);
   const isClickable = Boolean(props.onClick);
-  const useNewTagColors = safex('databricks.fe.designsystem.useNewTagColors', false);
-  const memoizedAnalyticsEvents = useMemo(() => analyticsEvents, [analyticsEvents]);
+  const memoizedAnalyticsEvents = useMemo(() => analyticsEvents !== null && analyticsEvents !== void 0 ? analyticsEvents : emitOnView ? [DesignSystemEventProviderAnalyticsEventTypes.OnClick, DesignSystemEventProviderAnalyticsEventTypes.OnView] : [DesignSystemEventProviderAnalyticsEventTypes.OnClick], [analyticsEvents, emitOnView]);
   const eventContext = useDesignSystemEventComponentCallbacks({
     componentType: DesignSystemEventProviderComponentTypes.Tag,
     componentId,
@@ -20041,14 +20448,15 @@ const Tag = /*#__PURE__*/forwardRef((props, forwardedRef) => {
       onClose();
     }
   }, [closeButtonEventContext, onClose]);
-  const styles = getTagEmotionStyles(theme, color, isClickable, closable, useNewTagColors);
-  return useNewTagColors ? jsxs("div", {
+  const styles = getTagEmotionStyles(theme, color, isClickable, closable);
+  return jsxs("div", {
     ref: mergedRef,
     role: role,
     onClick: handleClick,
     css: [styles.wrapper, process.env.NODE_ENV === "production" ? "" : ";label:Tag;"],
     ...attributes,
     ...addDebugOutlineIfEnabled(),
+    ...eventContext.dataComponentProps,
     // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
     tabIndex: isClickable ? 0 : -1,
     children: [jsxs("div", {
@@ -20077,33 +20485,6 @@ const Tag = /*#__PURE__*/forwardRef((props, forwardedRef) => {
         }, process.env.NODE_ENV === "production" ? "" : ";label:Tag;")
       })
     })]
-  }) : jsx("div", {
-    ref: mergedRef,
-    role: role,
-    ...attributes,
-    onClick: handleClick,
-    css: styles.tag,
-    ...addDebugOutlineIfEnabled(),
-    ...eventContext.dataComponentProps,
-    children: jsxs("div", {
-      css: [styles.content, styles.text, process.env.NODE_ENV === "production" ? "" : ";label:Tag;"],
-      children: [children, closable && jsx("button", {
-        css: styles.close,
-        tabIndex: 0,
-        onClick: handleCloseClick,
-        onMouseDown: e => {
-          // Keeps dropdowns of any underlying select from opening.
-          e.stopPropagation();
-        },
-        ...closeButtonProps,
-        ...closeButtonEventContext.dataComponentProps,
-        children: jsx(CloseIcon, {
-          css: /*#__PURE__*/css({
-            fontSize: theme.general.iconFontSize - 4
-          }, process.env.NODE_ENV === "production" ? "" : ";label:Tag;")
-        })
-      })]
-    })
   });
 });
 
@@ -20221,6 +20602,11 @@ const PreviewCard = _ref => {
     componentId,
     analyticsEvents: memoizedAnalyticsEvents
   });
+  const {
+    elementRef: previewCardRef
+  } = useNotifyOnFirstView({
+    onView: eventContext.onView
+  });
   const onClickWrapper = useCallback(e => {
     if (onClick) {
       eventContext.onClick(e);
@@ -20245,6 +20631,7 @@ const PreviewCard = _ref => {
     "aria-disabled": disabled,
     "aria-pressed": selected,
     ...props,
+    ref: previewCardRef,
     children: [image && jsx("div", {
       css: styles['image'],
       children: image
@@ -20469,6 +20856,7 @@ const RadioTile = props => {
   } = useRadioGroupContext();
   return jsxs("button", {
     role: "radio",
+    type: "button",
     "aria-checked": groupValue === props.value,
     onClick: () => {
       if (props.disabled) {
@@ -20777,28 +21165,37 @@ const SegmentedControlButton = /*#__PURE__*/forwardRef(function SegmentedControl
   });
 });
 const SegmentedControlGroup = /*#__PURE__*/forwardRef(function SegmentedControlGroup(_ref2, ref) {
+  var _props$value;
   let {
     dangerouslySetAntdProps,
     size = 'middle',
     spaced = false,
     onChange,
     componentId,
-    analyticsEvents = [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange],
+    analyticsEvents,
     valueHasNoPii,
     dontTruncate,
     ...props
   } = _ref2;
+  const emitOnView = safex('databricks.fe.observability.defaultComponentView.segmentedControlGroup', false);
   const {
     classNamePrefix
   } = useDesignSystemTheme();
   const truncateButtons = safex('databricks.fe.designsystem.truncateSegmentedControlText', false) && !dontTruncate;
-  const memoizedAnalyticsEvents = useMemo(() => analyticsEvents, [analyticsEvents]);
+  const memoizedAnalyticsEvents = useMemo(() => analyticsEvents !== null && analyticsEvents !== void 0 ? analyticsEvents : emitOnView ? [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange, DesignSystemEventProviderAnalyticsEventTypes.OnView] : [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange], [analyticsEvents, emitOnView]);
   const eventContext = useDesignSystemEventComponentCallbacks({
     componentType: DesignSystemEventProviderComponentTypes.SegmentedControlGroup,
     componentId,
     analyticsEvents: memoizedAnalyticsEvents,
     valueHasNoPii
   });
+  const {
+    elementRef: segmentedControlGroupRef
+  } = useNotifyOnFirstView({
+    onView: eventContext.onView,
+    value: (_props$value = props.value) !== null && _props$value !== void 0 ? _props$value : props.defaultValue
+  });
+  const mergedRef = useMergeRefs([ref, segmentedControlGroupRef]);
   const onChangeWrapper = useCallback(e => {
     eventContext.onValueChange(e.target.value);
     onChange === null || onChange === void 0 || onChange(e);
@@ -20816,7 +21213,7 @@ const SegmentedControlGroup = /*#__PURE__*/forwardRef(function SegmentedControlG
         css: getSegmentedControlGroupEmotionStyles(classNamePrefix, spaced, truncateButtons),
         onChange: onChangeWrapper,
         ...dangerouslySetAntdProps,
-        ref: ref,
+        ref: mergedRef,
         ...eventContext.dataComponentProps
       })
     })
@@ -21230,6 +21627,7 @@ const SplitButton = props => {
   });
 };
 
+/** @deprecated Please use the supported Stepper widget instead. See https://ui-infra.dev.databricks.com/storybook/js/packages/du-bois/index.html?path=/docs/primitives-stepper--docs */
 const Steps = /* #__PURE__ */(() => {
   function Steps(_ref) {
     let {
@@ -21540,10 +21938,11 @@ const TableHeader = /*#__PURE__*/forwardRef(function TableHeader(_ref2, ref) {
     header,
     setColumnSizing,
     componentId,
-    analyticsEvents = [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange],
+    analyticsEvents,
     'aria-label': ariaLabel,
     ...rest
   } = _ref2;
+  const emitOnView = safex('databricks.fe.observability.defaultComponentView.tableHeader', false);
   // Pulling props from the column and header props with deprecated fallbacks.
   // Doing this to avoid breaking changes + have a cleaner mechanism for testing removal of deprecated props.
   const resizable = (column === null || column === void 0 ? void 0 : column.getCanResize()) || rest.resizable || false;
@@ -21557,13 +21956,20 @@ const TableHeader = /*#__PURE__*/forwardRef(function TableHeader(_ref2, ref) {
     isHeader
   } = useContext(TableRowContext);
   const [currentSortDirection, setCurrentSortDirection] = useState(sortDirection);
-  const memoizedAnalyticsEvents = useMemo(() => analyticsEvents, [analyticsEvents]);
+  const memoizedAnalyticsEvents = useMemo(() => analyticsEvents !== null && analyticsEvents !== void 0 ? analyticsEvents : emitOnView ? [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange, DesignSystemEventProviderAnalyticsEventTypes.OnView] : [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange], [analyticsEvents, emitOnView]);
   const eventContext = useDesignSystemEventComponentCallbacks({
     componentType: DesignSystemEventProviderComponentTypes.TableHeader,
     componentId,
     analyticsEvents: memoizedAnalyticsEvents,
     valueHasNoPii: true
   });
+  const {
+    elementRef: tableHeaderRef
+  } = useNotifyOnFirstView({
+    onView: eventContext.onView,
+    value: currentSortDirection
+  });
+  const mergedRef = useMergeRefs([ref, tableHeaderRef]);
   if (!isHeader) {
     throw new Error('`TableHeader` a must be used within a `TableRow` with `isHeader` set to true.');
   }
@@ -21633,7 +22039,7 @@ const TableHeader = /*#__PURE__*/forwardRef(function TableHeader(_ref2, ref) {
   const isSortButtonVisible = sortable && !isResizing;
   return jsxs("div", {
     ...rest,
-    ref: ref
+    ref: mergedRef
     // PE-259 Use more performance className for grid but keep css= for compatibility.
     ,
     css: !grid ? [repeatingElementsStyles.cell, repeatingElementsStyles.header] : undefined,
@@ -21756,13 +22162,14 @@ const Root = /*#__PURE__*/React__default.forwardRef((_ref, forwardedRef) => {
     defaultValue,
     onValueChange,
     componentId,
-    analyticsEvents = [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange],
+    analyticsEvents,
     valueHasNoPii,
     ...props
   } = _ref;
+  const emitOnView = safex('databricks.fe.observability.defaultComponentView.tabs', false);
   const isControlled = value !== undefined;
   const [uncontrolledActiveValue, setUncontrolledActiveValue] = React__default.useState(defaultValue);
-  const memoizedAnalyticsEvents = useMemo(() => analyticsEvents, [analyticsEvents]);
+  const memoizedAnalyticsEvents = useMemo(() => analyticsEvents !== null && analyticsEvents !== void 0 ? analyticsEvents : emitOnView ? [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange, DesignSystemEventProviderAnalyticsEventTypes.OnView] : [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange], [analyticsEvents, emitOnView]);
   const eventContext = useDesignSystemEventComponentCallbacks({
     componentType: DesignSystemEventProviderComponentTypes.Tabs,
     componentId,
@@ -21770,6 +22177,13 @@ const Root = /*#__PURE__*/React__default.forwardRef((_ref, forwardedRef) => {
     valueHasNoPii,
     shouldStartInteraction: true
   });
+  const {
+    elementRef: tabsRootRef
+  } = useNotifyOnFirstView({
+    onView: eventContext.onView,
+    value: value !== null && value !== void 0 ? value : defaultValue
+  });
+  const mergedRef = useMergeRefs([forwardedRef, tabsRootRef]);
   const onValueChangeWrapper = value => {
     eventContext.onValueChange(value);
     if (onValueChange) {
@@ -21789,7 +22203,7 @@ const Root = /*#__PURE__*/React__default.forwardRef((_ref, forwardedRef) => {
       defaultValue: defaultValue,
       onValueChange: onValueChangeWrapper,
       ...props,
-      ref: forwardedRef
+      ref: mergedRef
     })
   });
 });
@@ -22203,9 +22617,10 @@ const ToggleButton = /*#__PURE__*/forwardRef((_ref, ref) => {
     icon,
     size = 'middle',
     componentId,
-    analyticsEvents = [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange],
+    analyticsEvents,
     ...props
   } = _ref;
+  const emitOnView = safex('databricks.fe.observability.defaultComponentView.toggleButton', false);
   const {
     theme
   } = useDesignSystemTheme();
@@ -22213,13 +22628,20 @@ const ToggleButton = /*#__PURE__*/forwardRef((_ref, ref) => {
     useNewShadows
   } = useDesignSystemSafexFlags();
   const [isPressed, setIsPressed] = React__default.useState(defaultPressed);
-  const memoizedAnalyticsEvents = useMemo(() => analyticsEvents, [analyticsEvents]);
+  const memoizedAnalyticsEvents = useMemo(() => analyticsEvents !== null && analyticsEvents !== void 0 ? analyticsEvents : emitOnView ? [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange, DesignSystemEventProviderAnalyticsEventTypes.OnView] : [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange], [analyticsEvents, emitOnView]);
   const eventContext = useDesignSystemEventComponentCallbacks({
     componentType: DesignSystemEventProviderComponentTypes.ToggleButton,
     componentId: componentId,
     analyticsEvents: memoizedAnalyticsEvents,
     valueHasNoPii: true
   });
+  const {
+    elementRef: toggleButtonRef
+  } = useNotifyOnFirstView({
+    onView: eventContext.onView,
+    value: pressed !== null && pressed !== void 0 ? pressed : defaultPressed
+  });
+  const mergedRef = useMergeRefs([ref, toggleButtonRef]);
   const handleOnPressedChange = useCallback(pressed => {
     var _props$onPressedChang;
     eventContext.onValueChange(pressed);
@@ -22244,7 +22666,7 @@ const ToggleButton = /*#__PURE__*/forwardRef((_ref, ref) => {
     ...props,
     pressed: isPressed,
     onPressedChange: handleOnPressedChange,
-    ref: ref,
+    ref: mergedRef,
     ...eventContext.dataComponentProps,
     children: [jsx("span", {
       className: "togglebutton-icon-wrapper",
@@ -22376,7 +22798,7 @@ function getTreeCheckboxEmotionStyles(clsPrefix, theme) {
   };
   return styles;
 }
-function getTreeEmotionStyles(clsPrefix, theme, size) {
+function getTreeEmotionStyles(clsPrefix, theme, size, useNewBorderColors) {
   const classNode = `.${clsPrefix}-tree-treenode`;
   const classNodeSelected = `.${clsPrefix}-tree-treenode-selected`;
   const classNodeActive = `.${clsPrefix}-tree-treenode-active`;
@@ -22549,8 +22971,11 @@ function getTreeEmotionStyles(clsPrefix, theme, size) {
     [classIndent]: {
       width: sizeMap[size].indent
     },
-    [`${classIndent}:before`]: {
-      height: '100%'
+    [`${classIndent}::before`]: {
+      height: '100%',
+      ...(useNewBorderColors && {
+        borderColor: theme.colors.border
+      })
     },
     [classTreeList]: {
       [`&:hover ${classScrollbar}`]: {
@@ -22596,6 +23021,9 @@ const Tree = /*#__PURE__*/forwardRef(function Tree(_ref, ref) {
     theme,
     classNamePrefix
   } = useDesignSystemTheme();
+  const {
+    useNewBorderColors
+  } = useDesignSystemSafexFlags();
   let calculatedShowLine = showLine !== null && showLine !== void 0 ? showLine : false;
   if (hideLinesForSizes.includes(size)) {
     calculatedShowLine = false;
@@ -22610,7 +23038,7 @@ const Tree = /*#__PURE__*/forwardRef(function Tree(_ref, ref) {
       defaultSelectedKeys: defaultSelectedKeys,
       defaultCheckedKeys: defaultCheckedKeys,
       disabled: disabled,
-      css: getTreeEmotionStyles(classNamePrefix, theme, size),
+      css: getTreeEmotionStyles(classNamePrefix, theme, size, useNewBorderColors),
       switcherIcon: jsx(ChevronDownIcon, {
         css: _ref2
       }),
@@ -22628,5 +23056,5 @@ const Tree = /*#__PURE__*/forwardRef(function Tree(_ref, ref) {
   });
 });
 
-export { AccessibleContainer, Accordion, AccordionPanel, Alert, AlignCenterIcon, AlignLeftIcon, AlignRightIcon, AppIcon, ApplyDesignSystemContextOverrides, ApplyGlobalStyles, ArrowDownDotIcon, ArrowDownIcon, ArrowInIcon, ArrowLeftIcon, ArrowOverIcon, ArrowRightIcon, ArrowUpDotIcon, ArrowUpIcon, ArrowsUpDownIcon, AssistantAvatar, AssistantIcon, AtIcon, AutoComplete, Avatar, AvatarGroup, AzHorizontalIcon, AzVerticalIcon, BadgeCodeIcon, BadgeCodeOffIcon, BarChartIcon, BarGroupedIcon, BarStackedIcon, BarStackedPercentageIcon, BarsAscendingHorizontalIcon, BarsAscendingVerticalIcon, BarsDescendingHorizontalIcon, BarsDescendingVerticalIcon, BeakerIcon, BinaryIcon, BlockQuoteIcon, BoldIcon, BookIcon, BookmarkFillIcon, BookmarkIcon, BooksIcon, BracketsCurlyIcon, BracketsSquareIcon, BracketsXIcon, BranchIcon, Breadcrumb, BriefcaseFillIcon, BriefcaseIcon, BugIcon, Button, CalendarClockIcon, CalendarEventIcon, CalendarIcon, CalendarRangeIcon, Card, CaretDownSquareIcon, CaretUpSquareIcon, CatalogCloudIcon, CatalogGearIcon, CatalogHIcon, CatalogHomeIcon, CatalogIcon, CatalogOffIcon, CatalogSharedIcon, CellsSquareIcon, ChainIcon, ChartLineIcon, CheckCircleBadgeIcon, CheckCircleFillIcon, CheckCircleIcon, CheckIcon, CheckLineIcon, CheckSmallIcon, Checkbox, CheckboxIcon, ChecklistIcon, ChevronDoubleDownIcon, ChevronDoubleLeftIcon, ChevronDoubleRightIcon, ChevronDoubleUpIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon, CircleIcon, CircleOffIcon, CircleOutlineIcon, ClipboardIcon, ClockKeyIcon, CloseIcon, CloseSmallIcon, CloudDatabaseIcon, CloudDownloadIcon, CloudIcon, CloudKeyIcon, CloudModelIcon, CloudOffIcon, CloudUploadIcon, CodeIcon, Col, ColorFillIcon, ColumnIcon, ColumnsIcon, CommandIcon, CommandPaletteIcon, ComponentFinderContext, ConnectIcon, ContextMenu$1 as ContextMenu, CopyIcon, CreditCardIcon, CursorIcon, CursorPagination, CursorTypeIcon, CustomAppIcon, DBAssistantAvatar, DIcon, DU_BOIS_ENABLE_ANIMATION_CLASSNAME, DagHorizontalIcon, DagIcon, DagVerticalIcon, DangerFillIcon, DangerIcon, DashIcon, DashboardIcon, DataIcon, DatabaseIcon, DecimalIcon, DesignSystemAntDConfigProvider, DesignSystemEventProviderAnalyticsEventTypes, DesignSystemEventProviderComponentSubTypeMap, DesignSystemEventProviderComponentTypes, DesignSystemEventSuppressInteractionProviderContext, DesignSystemEventSuppressInteractionTrueContextValue, DialogCombobox, DialogComboboxAddButton, DialogComboboxContent, DialogComboboxCountBadge, DialogComboboxCustomButtonTriggerWrapper, EmptyResults as DialogComboboxEmpty, DialogComboboxFooter, DialogComboboxHintRow, DialogComboboxOptionControlledList, DialogComboboxOptionList, DialogComboboxOptionListCheckboxItem, DialogComboboxOptionListSearch, DialogComboboxOptionListSelectItem, DialogComboboxSectionHeader, DialogComboboxSeparator, DialogComboboxTrigger, DotsCircleIcon, DownloadIcon, DragIcon, Drawer, Dropdown, DropdownMenu, DuboisDatePicker, Empty, ErdIcon, ExpandLessIcon, ExpandMoreIcon, FaceFrownIcon, FaceNeutralIcon, FaceSmileIcon, FileCodeIcon, FileDocumentIcon, FileIcon, FileImageIcon, FileLockIcon, FileModelIcon, FileNewIcon, FilePipelineIcon, FilterIcon, FlagPointerIcon, FloatIcon, FolderBranchFillIcon, FolderBranchIcon, FolderCloudFilledIcon, FolderCloudIcon, FolderCubeIcon, FolderFillIcon, FolderIcon, FolderNewIcon, FolderOutlinePipelineIcon, FolderSolidPipelineIcon, FontIcon, ForkIcon, FormUI, FullscreenExitIcon, FullscreenIcon, FunctionIcon, GearFillIcon, GearIcon, GenericSkeleton, GiftIcon, GitCommitIcon, GlobeIcon, GridDashIcon, GridIcon, H1Icon, H2Icon, H3Icon, Header$1 as Header, HistoryIcon, HomeIcon, HoverCard, Icon, ImageIcon, IndentDecreaseIcon, IndentIncreaseIcon, InfinityIcon, InfoBookIcon, InfoFillIcon, InfoIcon, InfoPopover, InfoTooltip, IngestionIcon, Input, ItalicIcon, KeyIcon, KeyboardIcon, LayerGraphIcon, LayerIcon, Layout, LeafIcon, LegacyDatePicker, LegacyForm, LegacyFormDubois, LegacyInfoTooltip, LegacyOptGroup, LegacyOption, LegacyPopover, LegacySelect, LegacySelectOptGroup, LegacySelectOption, LegacySkeleton, LegacyTabPane, LegacyTable, LegacyTabs, LegacyTooltip, LettersIcon, LettersNumbersIcon, LibrariesIcon, LightbulbIcon, LightningIcon, LinkIcon, LinkOffIcon, ListBorderIcon, ListClearIcon, ListIcon, LoadingIcon, LoadingState, LockFillIcon, LockIcon, LockShareIcon, LockUnlockedIcon, LoopIcon, MIcon, MailIcon, MapIcon, MeasureIcon, Menu, MenuIcon, MinusCircleFillIcon, MinusCircleIcon, MinusSquareIcon, Modal, ModelsIcon, NavigationMenu, NoIcon, NotebookIcon, Notification, NotificationIcon, NotificationOffIcon, NumbersIcon, OfficeIcon, Overflow, OverflowIcon, PageBottomIcon, PageFirstIcon, PageLastIcon, PageTopIcon, PageWrapper, Pagination, PanelDockedIcon, PanelFloatingIcon, PaperclipIcon, ParagraphSkeleton, PauseIcon, PencilIcon, PencilSparkleIcon, PieChartIcon, PinCancelIcon, PinFillIcon, PinIcon, PipelineCodeIcon, PipelineIcon, PlayCircleFillIcon, PlayCircleIcon, PlayIcon, PlugIcon, PlusCircleFillIcon, PlusCircleIcon, PlusIcon, PlusMinusSquareIcon, PlusSquareIcon, PreviewCard, QueryEditorIcon, QueryIcon, QuestionMarkFillIcon, QuestionMarkIcon, RHFControlledComponents, ROW_GUTTER_SIZE, Radio, RadioIcon, RadioTile, ReaderModeIcon, RedoIcon, RefreshIcon, ReplyIcon, ResizeIcon, ResourceStatusIndicator, RestoreAntDDefaultClsPrefix, RobotIcon, RocketIcon, Row, RunningIcon, SaveClockIcon, SaveIcon, SchemaIcon, SchoolIcon, SearchDataIcon, SearchIcon, SegmentedControlButton, SegmentedControlGroup, Select, SelectContent, SelectOption, SelectOptionGroup, SelectTrigger, SendIcon, ShareIcon, ShieldCheckIcon, ShieldIcon, ShieldOffIcon, ShortcutIcon, SidebarAutoIcon, SidebarCollapseIcon, SidebarExpandIcon, SidebarIcon, SimpleSelect, SimpleSelectOption, SimpleSelectOptionGroup, SlashSquareIcon, Slider, SlidersIcon, SortAscendingIcon, SortDescendingIcon, SortUnsortedIcon, Space, Spacer, SparkleDoubleFillIcon, SparkleDoubleIcon, SparkleFillIcon, SparkleIcon, SparkleRectangleIcon, SpeechBubbleIcon, SpeechBubblePlusIcon, SpeechBubbleQuestionMarkIcon, SpeechBubbleStarIcon, Spinner, SplitButton, StarFillIcon, StarIcon, Steps, StopCircleFillIcon, StopCircleIcon, StopIcon, StorefrontIcon, StreamIcon, StrikeThroughIcon, Switch, SyncIcon, Table, TableCell, TableContext, TableFilterInput, TableFilterLayout, TableGlassesIcon, TableGlobeIcon, TableHeader, TableIcon, TableLightningIcon, TableMeasureIcon, TableModelIcon, TableRow, TableRowAction, TableRowActionHeader, TableRowContext, TableRowMenuContainer, TableRowSelectCell, TableSkeleton, TableSkeletonRows, TableStreamIcon, TableVectorIcon, TableViewIcon, Tabs, Tag, TagIcon, TargetIcon, TerminalIcon, TextBoxIcon, TextUnderlineIcon, ThumbsDownIcon, ThumbsUpIcon, TitleSkeleton, ToggleButton, Tooltip$1 as Tooltip, TrashIcon, Tree, TreeIcon, TypeaheadComboboxAddButton, TypeaheadComboboxCheckboxItem, TypeaheadComboboxFooter, TypeaheadComboboxInput, TypeaheadComboboxMenu, TypeaheadComboboxMenuItem, TypeaheadComboboxMultiSelectInput, TypeaheadComboboxMultiSelectStateChangeTypes, TypeaheadComboboxRoot, TypeaheadComboboxSectionHeader, TypeaheadComboboxSelectedItem, TypeaheadComboboxSeparator, TypeaheadComboboxStateChangeTypes, TypeaheadComboboxToggleButton, Typography, UnderlineIcon, UndoIcon, UploadIcon, UsbIcon, UserBadgeIcon, UserCircleIcon, UserGroupIcon, UserIcon, UserKeyIconIcon, UserSparkleIcon, VisibleIcon, VisibleOffIcon, WarningFillIcon, WarningIcon, WorkflowCodeIcon, WorkflowsIcon, WorkspacesIcon, WrenchIcon, WrenchSparkleIcon, XCircleFillIcon, XCircleIcon, ZaHorizontalIcon, ZaVerticalIcon, ZoomInIcon, ZoomMarqueeSelection, ZoomOutIcon, ZoomToFitIcon, __INTERNAL_DO_NOT_USE__FormItem, __INTERNAL_DO_NOT_USE__Group, __INTERNAL_DO_NOT_USE__HorizontalGroup, __INTERNAL_DO_NOT_USE__VerticalGroup, dialogComboboxLookAheadKeyDown, findClosestOptionSibling, findHighlightedOption, getAnimationCss, getComboboxOptionItemWrapperStyles, getComboboxOptionLabelStyles, getContentOptions, getDarkModePortalStyles, getDialogComboboxOptionLabelWidth, getGlobalStyles, getKeyboardNavigationFunctions, getLegacyTabEmotionStyles, getPaginationEmotionStyles, getRadioStyles, getShadowScrollStyles, getValidationStateColor, getWrapperStyle, highlightFirstNonDisabledOption, highlightOption, importantify, useComboboxState, useComponentFinderContext, useDesignSystemEventComponentCallbacks, useDesignSystemFlags, useDesignSystemSafexFlags, useDesignSystemTheme, useLegacyNotification, useModalContext, useMultipleSelectionState, useNotifyOnFirstView, useRadioGroupContext, useThemedStyles, useTypeaheadComboboxContext, visuallyHidden, withNotifications };
+export { AccessibleContainer, Accordion, AccordionPanel, Alert, AlignCenterIcon, AlignLeftIcon, AlignRightIcon, AppIcon, ApplyDesignSystemContextOverrides, ApplyGlobalStyles, ArrowDownDotIcon, ArrowDownIcon, ArrowInIcon, ArrowLeftIcon, ArrowOverIcon, ArrowRightIcon, ArrowUpDotIcon, ArrowUpIcon, ArrowsUpDownIcon, AssistantAvatar, AssistantIcon, AtIcon, AutoComplete, Avatar, AvatarGroup, AzHorizontalIcon, AzVerticalIcon, BadgeCodeIcon, BadgeCodeOffIcon, BarChartIcon, BarGroupedIcon, BarStackedIcon, BarStackedPercentageIcon, BarsAscendingHorizontalIcon, BarsAscendingVerticalIcon, BarsDescendingHorizontalIcon, BarsDescendingVerticalIcon, BeakerIcon, BinaryIcon, BlockQuoteIcon, BoldIcon, BookIcon, BookmarkFillIcon, BookmarkIcon, BooksIcon, BracketsCurlyIcon, BracketsSquareIcon, BracketsXIcon, BranchIcon, Breadcrumb, BriefcaseFillIcon, BriefcaseIcon, BugIcon, Button, CalendarClockIcon, CalendarEventIcon, CalendarIcon, CalendarRangeIcon, Card, CaretDownSquareIcon, CaretUpSquareIcon, CatalogCloudIcon, CatalogGearIcon, CatalogHIcon, CatalogHomeIcon, CatalogIcon, CatalogOffIcon, CatalogSharedIcon, CellsSquareIcon, ChainIcon, ChartLineIcon, CheckCircleBadgeIcon, CheckCircleFillIcon, CheckCircleIcon, CheckIcon, CheckLineIcon, CheckSmallIcon, Checkbox, CheckboxIcon, ChecklistIcon, ChevronDoubleDownIcon, ChevronDoubleLeftIcon, ChevronDoubleRightIcon, ChevronDoubleUpIcon, ChevronDownIcon, ChevronLeftIcon, ChevronRightIcon, ChevronUpIcon, CircleIcon, CircleOffIcon, CircleOutlineIcon, ClipboardIcon, ClockKeyIcon, CloseIcon, CloseSmallIcon, CloudDatabaseIcon, CloudDownloadIcon, CloudIcon, CloudKeyIcon, CloudModelIcon, CloudOffIcon, CloudUploadIcon, CodeIcon, Col, ColorFillIcon, ColumnIcon, ColumnsIcon, CommandIcon, CommandPaletteIcon, ComponentFinderContext, ConnectIcon, ContextMenu$1 as ContextMenu, CopyIcon, CreditCardIcon, CursorIcon, CursorPagination, CursorTypeIcon, CustomAppIcon, DBAssistantAvatar, DIcon, DU_BOIS_ENABLE_ANIMATION_CLASSNAME, DagHorizontalIcon, DagIcon, DagVerticalIcon, DangerFillIcon, DangerIcon, DashIcon, DashboardIcon, DataIcon, DatabaseIcon, DecimalIcon, DesignSystemAntDConfigProvider, DesignSystemEventProvider, DesignSystemEventProviderAnalyticsEventTypes, DesignSystemEventProviderComponentSubTypeMap, DesignSystemEventProviderComponentTypes, DesignSystemEventSuppressInteractionProviderContext, DesignSystemEventSuppressInteractionTrueContextValue, DialogCombobox, DialogComboboxAddButton, DialogComboboxContent, DialogComboboxCountBadge, DialogComboboxCustomButtonTriggerWrapper, EmptyResults as DialogComboboxEmpty, DialogComboboxFooter, DialogComboboxHintRow, DialogComboboxOptionControlledList, DialogComboboxOptionList, DialogComboboxOptionListCheckboxItem, DialogComboboxOptionListSearch, DialogComboboxOptionListSelectItem, DialogComboboxSectionHeader, DialogComboboxSeparator, DialogComboboxTrigger, DotsCircleIcon, DownloadIcon, DragIcon, Drawer, Dropdown, DropdownMenu, DuboisDatePicker, Empty, ErdIcon, ExpandLessIcon, ExpandMoreIcon, FaceFrownIcon, FaceNeutralIcon, FaceSmileIcon, FileCodeIcon, FileDocumentIcon, FileIcon, FileImageIcon, FileLockIcon, FileModelIcon, FileNewIcon, FilePipelineIcon, FilterIcon, FlagPointerIcon, FloatIcon, FolderBranchFillIcon, FolderBranchIcon, FolderCloudFilledIcon, FolderCloudIcon, FolderCubeIcon, FolderFillIcon, FolderIcon, FolderNewIcon, FolderOpenIcon, FolderOpenPipelineIcon, FolderOutlinePipelineIcon, FolderSolidPipelineIcon, FontIcon, ForkIcon, FormUI, FullscreenExitIcon, FullscreenIcon, FunctionIcon, GearFillIcon, GearIcon, GenericSkeleton, GiftIcon, GitCommitIcon, GlobeIcon, GridDashIcon, GridIcon, H1Icon, H2Icon, H3Icon, Header$1 as Header, HistoryIcon, HomeIcon, HoverCard, Icon, ImageIcon, IndentDecreaseIcon, IndentIncreaseIcon, InfinityIcon, InfoBookIcon, InfoFillIcon, InfoIcon, InfoPopover, InfoTooltip, IngestionIcon, Input, ItalicIcon, KeyIcon, KeyboardIcon, LayerGraphIcon, LayerIcon, Layout, LeafIcon, LegacyDatePicker, LegacyForm, LegacyFormDubois, LegacyInfoTooltip, LegacyOptGroup, LegacyOption, LegacyPopover, LegacySelect, LegacySelectOptGroup, LegacySelectOption, LegacySkeleton, LegacyTabPane, LegacyTable, LegacyTabs, LegacyTooltip, LettersIcon, LettersNumbersIcon, LibrariesIcon, LightbulbIcon, LightningIcon, LinkIcon, LinkOffIcon, ListBorderIcon, ListClearIcon, ListIcon, LoadingIcon, LoadingState, LockFillIcon, LockShareIcon, LockUnlockedIcon, LoopIcon, MIcon, MailIcon, MapIcon, MeasureIcon, Menu, MenuIcon, MinusCircleFillIcon, MinusCircleIcon, MinusSquareIcon, Modal, ModelsIcon, NavigationMenu, NoIcon, NotebookIcon, NotebookPipelineIcon, Notification, NotificationIcon, NotificationOffIcon, NumbersIcon, OfficeIcon, Overflow, OverflowIcon, PageBottomIcon, PageFirstIcon, PageLastIcon, PageTopIcon, PageWrapper, Pagination, PanelDockedIcon, PanelFloatingIcon, PaperclipIcon, ParagraphSkeleton, PauseIcon, PencilIcon, PencilSparkleIcon, PieChartIcon, PinCancelIcon, PinFillIcon, PinIcon, PipelineCodeIcon, PipelineIcon, PlayCircleFillIcon, PlayCircleIcon, PlayIcon, PlugIcon, PlusCircleFillIcon, PlusCircleIcon, PlusIcon, PlusMinusSquareIcon, PlusSquareIcon, PreviewCard, QueryEditorIcon, QueryIcon, QuestionMarkFillIcon, QuestionMarkIcon, RHFControlledComponents, ROW_GUTTER_SIZE, Radio, RadioIcon, RadioTile, ReaderModeIcon, RedoIcon, RefreshIcon, ReplyIcon, ResizeIcon, ResourceStatusIndicator, RestoreAntDDefaultClsPrefix, RobotIcon, RocketIcon, Row, RunningIcon, SaveClockIcon, SaveIcon, SchemaIcon, SchoolIcon, SearchDataIcon, SearchIcon, SegmentedControlButton, SegmentedControlGroup, Select, SelectContent, SelectContext, SelectContextProvider, SelectOption, SelectOptionGroup, SelectTrigger, SendIcon, ShareIcon, ShieldCheckIcon, ShieldIcon, ShieldOffIcon, ShortcutIcon, SidebarAutoIcon, SidebarCollapseIcon, SidebarExpandIcon, SidebarIcon, SimpleSelect, SimpleSelectOption, SimpleSelectOptionGroup, SlashSquareIcon, Slider, SlidersIcon, SortAscendingIcon, SortDescendingIcon, SortUnsortedIcon, Space, Spacer, SparkleDoubleFillIcon, SparkleDoubleIcon, SparkleFillIcon, SparkleIcon, SparkleRectangleIcon, SpeechBubbleIcon, SpeechBubblePlusIcon, SpeechBubbleQuestionMarkFillIcon, SpeechBubbleQuestionMarkIcon, SpeechBubbleStarIcon, Spinner, SplitButton, StarFillIcon, StarIcon, Steps, StopCircleFillIcon, StopCircleIcon, StopIcon, StorefrontIcon, StreamIcon, StrikeThroughIcon, Switch, SyncIcon, Table, TableCell, TableContext, TableFilterInput, TableFilterLayout, TableGlassesIcon, TableGlobeIcon, TableHeader, TableIcon, TableLightningIcon, TableMeasureIcon, TableModelIcon, TableRow, TableRowAction, TableRowActionHeader, TableRowContext, TableRowMenuContainer, TableRowSelectCell, TableSkeleton, TableSkeletonRows, TableStreamIcon, TableVectorIcon, TableViewIcon, Tabs, Tag, TagIcon, TargetIcon, TerminalIcon, TextBoxIcon, TextUnderlineIcon, ThumbsDownIcon, ThumbsUpIcon, TitleSkeleton, ToggleButton, Tooltip$1 as Tooltip, TrashIcon, Tree, TreeIcon, TypeaheadComboboxAddButton, TypeaheadComboboxCheckboxItem, TypeaheadComboboxFooter, TypeaheadComboboxInput, TypeaheadComboboxMenu, TypeaheadComboboxMenuItem, TypeaheadComboboxMultiSelectInput, TypeaheadComboboxMultiSelectStateChangeTypes, TypeaheadComboboxRoot, TypeaheadComboboxSectionHeader, TypeaheadComboboxSelectedItem, TypeaheadComboboxSeparator, TypeaheadComboboxStateChangeTypes, TypeaheadComboboxToggleButton, Typography, UnderlineIcon, UndoIcon, UploadIcon, UsbIcon, UserBadgeIcon, UserCircleIcon, UserGroupIcon, UserIcon, UserKeyIconIcon, UserSparkleIcon, VisibleIcon, VisibleOffIcon, WarningFillIcon, WarningIcon, WorkflowCodeIcon, WorkflowsIcon, WorkspacesIcon, WrenchIcon, WrenchSparkleIcon, XCircleFillIcon, XCircleIcon, ZaHorizontalIcon, ZaVerticalIcon, ZoomInIcon, ZoomMarqueeSelection, ZoomOutIcon, ZoomToFitIcon, __INTERNAL_DO_NOT_USE__FormItem, __INTERNAL_DO_NOT_USE__Group, __INTERNAL_DO_NOT_USE__HorizontalGroup, __INTERNAL_DO_NOT_USE__VerticalGroup, dialogComboboxLookAheadKeyDown, findClosestOptionSibling, findHighlightedOption, getAnimationCss, getComboboxOptionItemWrapperStyles, getComboboxOptionLabelStyles, getContentOptions, getDarkModePortalStyles, getDialogComboboxOptionLabelWidth, getGlobalStyles, getKeyboardNavigationFunctions, getLegacyTabEmotionStyles, getPaginationEmotionStyles, getRadioStyles, getShadowScrollStyles, getValidationStateColor, getWrapperStyle, highlightFirstNonDisabledOption, highlightOption, importantify, setupDesignSystemEventProviderForTesting, useComboboxState, useComponentFinderContext, useDesignSystemEventComponentCallbacks, useDesignSystemFlags, useDesignSystemSafexFlags, useDesignSystemTheme, useLegacyNotification, useModalContext, useMultipleSelectionState, useNotifyOnFirstView, useRadioGroupContext, useThemedStyles, useTypeaheadComboboxContext, visuallyHidden, withNotifications };
 //# sourceMappingURL=index.js.map

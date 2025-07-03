@@ -8,7 +8,6 @@ from typing import Any
 
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
-from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.utils.os import is_windows
 from mlflow.utils.validation import _validate_db_type_string
 
@@ -139,6 +138,22 @@ def construct_db_uri_from_profile(profile):
         return "databricks://" + profile
 
 
+def construct_db_uc_uri_from_profile(profile):
+    """
+    Construct a databricks-uc URI from a profile.
+
+    Args:
+        profile: The profile name, optionally with key_prefix (e.g., "profile" or "scope:key")
+
+    Returns:
+        A databricks-uc URI string, or the scheme alone if no profile is provided
+    """
+    if profile:
+        return f"{_DATABRICKS_UNITY_CATALOG_SCHEME}://{profile}"
+    else:
+        return _DATABRICKS_UNITY_CATALOG_SCHEME
+
+
 # Both scope and key_prefix should not contain special chars for URIs, like '/'
 # and ':'.
 def validate_db_scope_prefix_info(scope, prefix):
@@ -260,6 +275,8 @@ def extract_db_type_from_uri(db_uri):
 
 
 def get_uri_scheme(uri_or_path):
+    from mlflow.store.db.db_types import DATABASE_ENGINES
+
     scheme = urllib.parse.urlparse(uri_or_path).scheme
     if any(scheme.lower().startswith(db) for db in DATABASE_ENGINES):
         return extract_db_type_from_uri(uri_or_path)
@@ -544,3 +561,12 @@ def strip_scheme(uri: str) -> str:
     # `_replace` looks like a private method, but it's actually part of the public API:
     # https://docs.python.org/3/library/collections.html#collections.somenamedtuple._replace
     return urllib.parse.urlunparse(parsed._replace(scheme=""))
+
+
+def is_models_uri(uri: str) -> bool:
+    try:
+        parsed = urllib.parse.urlparse(uri)
+    except ValueError:
+        return False
+
+    return parsed.scheme == "models"

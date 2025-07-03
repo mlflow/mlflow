@@ -5,11 +5,12 @@ import traceback
 from dataclasses import dataclass, field
 from datetime import datetime
 
+from google.protobuf.json_format import ParseDict
+from google.protobuf.struct_pb2 import Value
 from opentelemetry.util.types import AttributeValue
 
 from mlflow.entities._mlflow_object import _MlflowObject
 from mlflow.protos.databricks_trace_server_pb2 import Span as ProtoSpan
-from mlflow.utils.proto_json_utils import set_pb_value
 
 
 @dataclass
@@ -20,7 +21,7 @@ class SpanEvent(_MlflowObject):
 
     Args:
         name: Name of the event.
-        timestamp:  The exact time the event occurred, measured in microseconds.
+        timestamp:  The exact time the event occurred, measured in nanoseconds.
             If not provided, the current time will be used.
         attributes: A collection of key-value pairs representing detailed
             attributes of the event, such as the exception stack trace.
@@ -72,14 +73,11 @@ class SpanEvent(_MlflowObject):
 
     def to_proto(self):
         """Convert into OTLP compatible proto object to sent to the Databricks Trace Server."""
-        proto = ProtoSpan.Event(
+        return ProtoSpan.Event(
             name=self.name,
             time_unix_nano=self.timestamp,
+            attributes={k: ParseDict(v, Value()) for k, v in self.attributes.items()},
         )
-        # Trace server's proto uses map<string, google.protobuf.Value> for attributes
-        for key, value in self.attributes.items():
-            set_pb_value(proto.attributes[key], value)
-        return proto
 
 
 class CustomEncoder(json.JSONEncoder):

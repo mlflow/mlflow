@@ -7,6 +7,7 @@ from sqlalchemy import (
     Integer,
     PrimaryKeyConstraint,
     String,
+    Text,
 )
 from sqlalchemy.orm import backref, relationship
 
@@ -155,7 +156,7 @@ class SqlModelVersionTag(Base):
 
     key = Column(String(250), nullable=False)
 
-    value = Column(String(5000), nullable=True)
+    value = Column(Text, nullable=True)
 
     # linked entities
     model_version = relationship(

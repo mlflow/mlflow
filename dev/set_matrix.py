@@ -35,7 +35,7 @@ import shutil
 import sys
 import warnings
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator, Optional, TypeVar
 
@@ -76,7 +76,7 @@ class PackageInfo(BaseModel, extra="forbid"):
 class TestConfig(BaseModel, extra="forbid"):
     minimum: Version
     maximum: Version
-    unsupported: Optional[list[Version]] = None
+    unsupported: Optional[list[SpecifierSet]] = None
     requirements: Optional[dict[str, list[str]]] = None
     python: Optional[dict[str, str]] = None
     runs_on: Optional[dict[str, str]] = None
@@ -85,6 +85,7 @@ class TestConfig(BaseModel, extra="forbid"):
     allow_unreleased_max_version: Optional[bool] = None
     pre_test: Optional[str] = None
     test_every_n_versions: int = 1
+    test_tracing_sdk: bool = False
 
     class Config:
         arbitrary_types_allowed = True
@@ -99,7 +100,7 @@ class TestConfig(BaseModel, extra="forbid"):
 
     @validator("unsupported", pre=True)
     def validate_unsupported(cls, v):
-        return [Version(v) for v in v] if v else None
+        return [SpecifierSet(x) for x in v] if v else None
 
 
 class FlavorConfig(BaseModel, extra="forbid"):
@@ -158,8 +159,9 @@ def read_yaml(location, if_error=None):
 
 
 def uploaded_recently(dist: dict[str, Any]) -> bool:
-    if ut := dist.get("upload_time"):
-        return (datetime.now() - datetime.fromisoformat(ut)).days < 1
+    if ut := dist.get("upload_time_iso_8601"):
+        delta = datetime.now(timezone.utc) - datetime.fromisoformat(ut.replace("Z", "+00:00"))
+        return delta.days < 1
     return False
 
 
@@ -205,7 +207,12 @@ def get_latest_micro_versions(versions):
 
 
 def filter_versions(
-    flavor, versions, min_ver, max_ver, unsupported=None, allow_unreleased_max_version=False
+    flavor: str,
+    versions: list[Version],
+    min_ver: Version,
+    max_ver: Version,
+    unsupported: list[SpecifierSet],
+    allow_unreleased_max_version: bool = False,
 ):
     """
     Returns the versions that satisfy the following conditions:
@@ -213,7 +220,6 @@ def filter_versions(
     2. Older than or equal to `max_ver.major`.
     3. Not in `unsupported`.
     """
-    unsupported = unsupported or []
     # Prevent specifying non-existent versions
     assert min_ver in versions, (
         f"Minimum version {min_ver} is not in the list of versions for {flavor}"
@@ -221,12 +227,12 @@ def filter_versions(
     assert max_ver in versions or allow_unreleased_max_version, (
         f"Minimum version {max_ver} is not in the list of versions for {flavor}"
     )
-    assert all(v in versions for v in unsupported), (
-        f"Unsupported versions {unsupported} are not in the list of versions for {flavor}"
-    )
 
-    def _is_not_unsupported(v):
-        return v not in unsupported
+    def _is_supported(v):
+        for specified_set in unsupported:
+            if v in specified_set:
+                return False
+        return True
 
     def _is_older_than_or_equal_to_max_major_version(v):
         return v.major <= max_ver.major
@@ -238,7 +244,7 @@ def filter_versions(
         functools.reduce(
             lambda vers, f: filter(f, vers),
             [
-                _is_not_unsupported,
+                _is_supported,
                 _is_older_than_or_equal_to_max_major_version,
                 _is_newer_than_or_equal_to_min_version,
             ],
@@ -280,7 +286,7 @@ def get_java_version(java: Optional[dict[str, str]], version: str) -> str:
     if java and (match := next(_find_matches(java, version), None)):
         return match
 
-    return "11"
+    return "17"
 
 
 @functools.lru_cache(maxsize=128)
@@ -306,7 +312,7 @@ def infer_python_version(package: str, version: str) -> str:
     """
     Infer the minimum Python version required by the package.
     """
-    candidates = ("3.9", "3.10")
+    candidates = ("3.10", "3.11")
     if rp := _requires_python(package, version):
         spec = SpecifierSet(rp)
         return next(filter(spec.contains, candidates), candidates[0])
@@ -606,6 +612,29 @@ def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[Matrix
                     )
                 )
 
+            # Add tracing SDK test with the latest stable version
+            if len(versions) > 0 and category == "autologging" and cfg.test_tracing_sdk:
+                version = sorted(versions)[-1]  # Test against the latest stable version
+                matrix.add(
+                    MatrixItem(
+                        name=f"{name}-tracing",
+                        flavor=flavor,
+                        category="tracing-sdk",
+                        job_name=f"{name} / tracing-sdk / {version}",
+                        install=install,
+                        # --import-mode=importlib is required for testing tracing SDK
+                        # (mlflow-tracing) works properly, without being affected by environment.
+                        run=run.replace("pytest", "pytest --import-mode=importlib"),
+                        package=package_info.pip_release,
+                        version=version,
+                        java=java,
+                        supported=version <= cfg.maximum,
+                        free_disk_space=free_disk_space,
+                        python=python,
+                        runs_on=runs_on,
+                    )
+                )
+
             if package_info.install_dev:
                 install_dev = remove_comments(package_info.install_dev)
                 requirements = get_matched_requirements(cfg.requirements or {}, DEV_VERSION)
@@ -645,7 +674,7 @@ def apply_changed_files(changed_files, matrix):
     changed_flavors = (
         # If this file has been changed, re-run all tests
         all_flavors
-        if (__file__ in changed_files)
+        if str(Path(__file__).relative_to(Path.cwd())) in changed_files
         else get_changed_flavors(changed_files, all_flavors)
     )
 
@@ -753,7 +782,6 @@ def main(args):
     print(json.dumps(args, indent=2))
     matrix = generate_matrix(args)
     matrix = sorted(matrix, key=lambda x: (x.name, x.category, x.version))
-    matrix = [x for x in matrix if x.flavor != "mleap"]
     assert len(matrix) <= MAX_ITEMS * 2, f"Too many jobs: {len(matrix)} > {MAX_ITEMS * NUM_JOBS}"
     for idx, mat in enumerate(split(matrix, NUM_JOBS), start=1):
         mat = {"include": mat, "job_name": [x.job_name for x in mat]}

@@ -1,7 +1,8 @@
 import json
 import logging
 import time
-from typing import Any, Union
+from collections import defaultdict
+from typing import Any, Optional, Union
 
 import pydantic
 from langchain_core.messages import (
@@ -18,6 +19,7 @@ from langchain_core.outputs.generation import Generation
 
 from mlflow.environment_variables import MLFLOW_CONVERT_MESSAGES_DICT_FOR_LANGCHAIN
 from mlflow.exceptions import MlflowException
+from mlflow.tracing.constant import TokenUsageKey
 from mlflow.types.chat import (
     ChatChoice,
     ChatChoiceDelta,
@@ -31,6 +33,17 @@ from mlflow.types.chat import (
 from mlflow.utils import IS_PYDANTIC_V2_OR_NEWER
 
 _logger = logging.getLogger(__name__)
+
+
+_TOKEN_USAGE_KEY_MAPPING = {
+    # OpenAI
+    "prompt_tokens": TokenUsageKey.INPUT_TOKENS,
+    "completion_tokens": TokenUsageKey.OUTPUT_TOKENS,
+    "total_tokens": TokenUsageKey.TOTAL_TOKENS,
+    # OpenAI Streaming, Anthropic, etc.
+    "input_tokens": TokenUsageKey.INPUT_TOKENS,
+    "output_tokens": TokenUsageKey.OUTPUT_TOKENS,
+}
 
 
 def convert_lc_message_to_chat_message(lc_message: Union[BaseMessage]) -> ChatMessage:
@@ -89,7 +102,7 @@ def _chat_model_to_langchain_message(message: ChatMessage) -> BaseMessage:
         )
 
 
-def _get_tool_calls_from_ai_message(message: AIMessage) -> list[dict]:
+def _get_tool_calls_from_ai_message(message: AIMessage) -> list[dict[str, Any]]:
     # AIMessage does not have tool_calls field in LangChain < 0.1.0.
     if not hasattr(message, "tool_calls"):
         return []
@@ -149,7 +162,7 @@ def convert_lc_generation_to_chat_message(lc_gen: Generation) -> ChatMessage:
     return ChatMessage(role="assistant", content=lc_gen.text)
 
 
-def try_transform_response_to_chat_format(response: Any) -> dict:
+def try_transform_response_to_chat_format(response: Any) -> dict[str, Any]:
     """
     Try to convert the response to the standard chat format and return its dict representation.
 
@@ -249,7 +262,7 @@ def _convert_chat_request_or_throw(chat_request: dict[str, Any]) -> list[Union[B
     return [_chat_model_to_langchain_message(message) for message in model.messages]
 
 
-def _convert_chat_request(chat_request: Union[dict, list[dict]]):
+def _convert_chat_request(chat_request: Union[dict[str, Any], list[dict[str, Any]]]):
     if isinstance(chat_request, list):
         return [_convert_chat_request_or_throw(request) for request in chat_request]
     else:
@@ -316,7 +329,7 @@ def transform_request_json_for_chat_if_necessary(request_json, lc_model):
             and isinstance(json_message["messages"], list)
         )
 
-    def is_list_of_chat_messages(json_message: list[dict]):
+    def is_list_of_chat_messages(json_message: list[dict[str, Any]]):
         return isinstance(json_message, list) and all(
             json_dict_might_be_chat_request(message) for message in json_message
         )
@@ -345,3 +358,45 @@ def transform_request_json_for_chat_if_necessary(request_json, lc_model):
             return request_json, False
     else:
         return request_json, False
+
+
+def parse_token_usage(
+    lc_generations: list[Generation],
+) -> Optional[dict[str, int]]:
+    """Parse the token usage from the LangChain generations."""
+    aggregated = defaultdict(int)
+    for generation in lc_generations:
+        if token_usage := _parse_token_usage_from_generation(generation):
+            for key in token_usage:
+                aggregated[key] += token_usage[key]
+
+    return dict(aggregated) if aggregated else None
+
+
+def _parse_token_usage_from_generation(generation: Generation) -> Optional[dict[str, int]]:
+    message = getattr(generation, "message", None)
+    if not message:
+        return None
+
+    metadata = (
+        message.usage_metadata
+        or message.response_metadata.get("usage")
+        or message.response_metadata.get("token_usage")
+    )
+    return _parse_token_counts(metadata) if metadata else None
+
+
+def _parse_token_counts(usage_metadata: dict[str, Any]) -> dict[str, int]:
+    """Standardize token usage metadata keys to MLflow's token usage keys."""
+    usage = {}
+    for key, value in usage_metadata.items():
+        if usage_key := _TOKEN_USAGE_KEY_MAPPING.get(key):
+            usage[usage_key] = value
+
+    # If the total tokens are not present, calculate it from the input and output tokens
+    if usage and usage.get(TokenUsageKey.TOTAL_TOKENS) is None:
+        usage[TokenUsageKey.TOTAL_TOKENS] = usage.get(TokenUsageKey.INPUT_TOKENS, 0) + usage.get(
+            TokenUsageKey.OUTPUT_TOKENS, 0
+        )
+
+    return usage

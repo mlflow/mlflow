@@ -3,11 +3,32 @@ class TraceMetadataKey:
     INPUTS = "mlflow.traceInputs"
     OUTPUTS = "mlflow.traceOutputs"
     SOURCE_RUN = "mlflow.sourceRun"
+    MODEL_ID = "mlflow.modelId"
+    SIZE_BYTES = "mlflow.trace.sizeBytes"
+    # Aggregated token usage information in a single trace, stored as a dumped JSON string.
+    TOKEN_USAGE = "mlflow.trace.tokenUsage"
+    # Store the user ID/name of the application request. Do not confuse this with mlflow.user
+    # tag, which stores "who created the trace" i.e. developer or system name.
+    TRACE_USER = "mlflow.trace.user"
+    # Store the session ID of the application request.
+    TRACE_SESSION = "mlflow.trace.session"
 
 
 class TraceTagKey:
     TRACE_NAME = "mlflow.traceName"
     EVAL_REQUEST_ID = "eval.requestId"
+
+
+class TokenUsageKey:
+    """Key for the token usage information in the `mlflow.chat.tokenUsage` span attribute."""
+
+    INPUT_TOKENS = "input_tokens"
+    OUTPUT_TOKENS = "output_tokens"
+    TOTAL_TOKENS = "total_tokens"
+
+    @classmethod
+    def all_keys(cls):
+        return [cls.INPUT_TOKENS, cls.OUTPUT_TOKENS, cls.TOTAL_TOKENS]
 
 
 # A set of reserved attribute keys
@@ -25,6 +46,9 @@ class SpanAttributeKey:
     # such as evaluation
     CHAT_MESSAGES = "mlflow.chat.messages"
     CHAT_TOOLS = "mlflow.chat.tools"
+    # This attribute is used to store token usage information from LLM responses.
+    # Stored in {"input_tokens": int, "output_tokens": int, "total_tokens": int} format.
+    CHAT_USAGE = "mlflow.chat.tokenUsage"
     # This attribute is used to populate `intermediate_outputs` property of a trace data
     # representing intermediate outputs of the trace. This attribute is not empty only on
     # the root span of a trace created by the `mlflow.log_trace` API. The `intermediate_outputs`
@@ -32,15 +56,26 @@ class SpanAttributeKey:
     INTERMEDIATE_OUTPUTS = "mlflow.trace.intermediate_outputs"
 
 
-# All storage backends are guaranteed to support key values up to 250 characters
-MAX_CHARS_IN_TRACE_INFO_METADATA_AND_TAGS = 250
+class AssessmentMetadataKey:
+    SOURCE_RUN_ID = "mlflow.assessment.sourceRunId"
+
+
+# All storage backends are guaranteed to support request_metadata key/value up to 250 characters
+MAX_CHARS_IN_TRACE_INFO_METADATA = 250
+# All storage backends are guaranteed to support tag keys up to 250 characters,
+# values up to 4096 characters
+MAX_CHARS_IN_TRACE_INFO_TAGS_KEY = 250
+MAX_CHARS_IN_TRACE_INFO_TAGS_VALUE = 4096
 TRUNCATION_SUFFIX = "..."
+
+TRACE_REQUEST_RESPONSE_PREVIEW_MAX_LENGTH_DBX = 10000
+TRACE_REQUEST_RESPONSE_PREVIEW_MAX_LENGTH_OSS = 1000
 
 # Trace request ID must have the prefix "tr-" appended to the OpenTelemetry trace ID
 TRACE_REQUEST_ID_PREFIX = "tr-"
 
 # Schema version of traces and spans.
-TRACE_SCHEMA_VERSION = 2
+TRACE_SCHEMA_VERSION = 3
 
 # Key for the trace schema version in the trace. This key is also used in
 # Databricks model serving to be careful when modifying it.
@@ -49,3 +84,9 @@ TRACE_SCHEMA_VERSION_KEY = "mlflow.trace_schema.version"
 
 STREAM_CHUNK_EVENT_NAME_FORMAT = "mlflow.chunk.item.{index}"
 STREAM_CHUNK_EVENT_VALUE_KEY = "mlflow.chunk.value"
+
+
+# Key for Databricks model serving options to return the trace in the response
+DATABRICKS_OPTIONS_KEY = "databricks_options"
+RETURN_TRACE_OPTION_KEY = "return_trace"
+DATABRICKS_OUTPUT_KEY = "databricks_output"

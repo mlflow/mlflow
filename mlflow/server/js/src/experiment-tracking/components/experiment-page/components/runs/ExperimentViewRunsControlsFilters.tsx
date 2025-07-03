@@ -24,12 +24,14 @@ import {
   ListIcon,
   Tooltip,
   ChartLineIcon,
+  TableIcon,
 } from '@databricks/design-system';
 import { Theme } from '@emotion/react';
 
 import {
   shouldEnableExperimentPageAutoRefresh,
   shouldEnablePromptLab,
+  shouldUseRenamedUnifiedTracesTab,
 } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import React, { useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
@@ -56,7 +58,6 @@ import {
   createExperimentPageSearchFacetsState,
 } from '../../models/ExperimentPageSearchFacetsState';
 import { useUpdateExperimentViewUIState } from '../../contexts/ExperimentPageUIStateContext';
-import { useShouldShowCombinedRunsTab } from '../../hooks/useShouldShowCombinedRunsTab';
 
 export type ExperimentViewRunsControlsFiltersProps = {
   searchFacetsState: ExperimentPageSearchFacetsState;
@@ -71,6 +72,7 @@ export type ExperimentViewRunsControlsFiltersProps = {
   viewMaximized: boolean;
   autoRefreshEnabled?: boolean;
   hideEmptyCharts?: boolean;
+  areRunsGrouped?: boolean;
 };
 
 export const ExperimentViewRunsControlsFilters = React.memo(
@@ -87,9 +89,9 @@ export const ExperimentViewRunsControlsFilters = React.memo(
     viewMaximized,
     autoRefreshEnabled = false,
     hideEmptyCharts = false,
+    areRunsGrouped = false,
   }: ExperimentViewRunsControlsFiltersProps) => {
     const setUrlSearchFacets = useUpdateExperimentPageSearchFacets();
-    const showCombinedRuns = useShouldShowCombinedRunsTab();
 
     const [pageViewMode, setViewModeInURL] = useExperimentPageViewMode();
     const updateUIState = useUpdateExperimentViewUIState();
@@ -166,7 +168,7 @@ export const ExperimentViewRunsControlsFilters = React.memo(
             flexWrap: 'wrap' as const,
           }}
         >
-          {showCombinedRuns && pageViewMode !== 'ARTIFACT' && (
+          {(pageViewMode !== 'ARTIFACT' || shouldUseRenamedUnifiedTracesTab()) && (
             <SegmentedControlGroup
               componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_184"
               name="runs-view-mode"
@@ -204,6 +206,27 @@ export const ExperimentViewRunsControlsFilters = React.memo(
                   <ChartLineIcon />
                 </Tooltip>
               </SegmentedControlButton>
+              {shouldUseRenamedUnifiedTracesTab() && (
+                <SegmentedControlButton value="ARTIFACT" disabled={areRunsGrouped}>
+                  <Tooltip
+                    componentId="mlflow.experiment_page.mode.artifact"
+                    content={
+                      areRunsGrouped
+                        ? intl.formatMessage({
+                            defaultMessage: 'Unavailable when runs are grouped',
+                            description: 'Experiment page > view mode switch > evaluation mode disabled tooltip',
+                          })
+                        : intl.formatMessage({
+                            defaultMessage: 'Artifact evaluation',
+                            description:
+                              'A tooltip for the view mode switcher in the experiment view, corresponding to artifact evaluation view',
+                          })
+                    }
+                  >
+                    <TableIcon />
+                  </Tooltip>
+                </SegmentedControlButton>
+              )}
             </SegmentedControlGroup>
           )}
 
@@ -448,7 +471,6 @@ export const ExperimentViewRunsControlsFilters = React.memo(
               <DropdownMenu.Trigger asChild>
                 <Button
                   componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_415"
-                  type={showCombinedRuns ? undefined : 'primary'}
                   icon={<PlusIcon />}
                 >
                   <FormattedMessage

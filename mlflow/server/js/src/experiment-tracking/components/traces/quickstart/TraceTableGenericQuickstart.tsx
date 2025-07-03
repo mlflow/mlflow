@@ -4,6 +4,7 @@ import { CopyButton } from '@mlflow/mlflow/src/shared/building_blocks/CopyButton
 
 import { QUICKSTART_CONTENT } from './TraceTableQuickstart.utils';
 import { FormattedMessage } from 'react-intl';
+import { useTracesViewTableNoTracesQuickstartContext } from './TracesViewTableNoTracesQuickstartContext';
 
 export const TraceTableGenericQuickstart = ({
   flavorName,
@@ -14,6 +15,7 @@ export const TraceTableGenericQuickstart = ({
 }) => {
   const { theme } = useDesignSystemTheme();
   const { getContent, getCodeSource, minVersion } = QUICKSTART_CONTENT[flavorName];
+  const { displayVersionWarnings = true } = useTracesViewTableNoTracesQuickstartContext();
   const content = getContent(baseComponentId);
   const versionCheck = `import mlflow
 from packaging.version import Version
@@ -45,20 +47,22 @@ assert Version(mlflow.__version__) >= Version("${minVersion}"), (
 
   return (
     <div>
-      <Alert
-        componentId={`${baseComponentId}.traces_table.${flavorName}_quickstart_alert`}
-        css={{ marginBottom: theme.spacing.md }}
-        closable={false}
-        message={
-          <FormattedMessage
-            defaultMessage="Requires MLflow >= {minVersion}"
-            description="Alert title informing the user of the minimum required MLflow version to run the code example"
-            values={{ minVersion }}
-          />
-        }
-        description={alertContent}
-        type="info"
-      />
+      {displayVersionWarnings && (
+        <Alert
+          componentId={`${baseComponentId}.traces_table.${flavorName}_quickstart_alert`}
+          css={{ marginBottom: theme.spacing.md }}
+          closable={false}
+          message={
+            <FormattedMessage
+              defaultMessage="Requires MLflow >= {minVersion}"
+              description="Alert title informing the user of the minimum required MLflow version to run the code example"
+              values={{ minVersion }}
+            />
+          }
+          description={alertContent}
+          type="info"
+        />
+      )}
       <Typography.Text>{content}</Typography.Text>
       <div css={{ position: 'relative', width: 'min-content' }}>
         <CopyButton

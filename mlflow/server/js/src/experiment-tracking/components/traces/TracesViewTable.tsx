@@ -262,17 +262,17 @@ export const TracesViewTable = React.memo(
           id: ExperimentViewTracesTableColumns.timestampMs,
           accessorFn: (data) => data.timestamp_ms,
           enableSorting: true,
-          enableResizing: false,
+          enableResizing: true,
           cell: TracesViewTableTimestampCell,
-          meta: { styles: { minWidth: 140, maxWidth: 140 } },
+          meta: { styles: { minWidth: 100 } },
         },
         {
           header: intl.formatMessage(ExperimentViewTracesTableColumnLabels[ExperimentViewTracesTableColumns.status]),
           id: ExperimentViewTracesTableColumns.status,
           enableSorting: false,
-          enableResizing: false,
+          enableResizing: true,
           cell: TracesViewTableStatusCell,
-          meta: { styles: { minWidth: 110, maxWidth: 110 } },
+          meta: { styles: { minWidth: 100 } },
         },
         {
           header: intl.formatMessage(ExperimentViewTracesTableColumnLabels[ExperimentViewTracesTableColumns.inputs]),
@@ -344,7 +344,7 @@ export const TracesViewTable = React.memo(
         {
           header: intl.formatMessage(ExperimentViewTracesTableColumnLabels[ExperimentViewTracesTableColumns.latency]),
           enableSorting: false,
-          enableResizing: false,
+          enableResizing: true,
           id: ExperimentViewTracesTableColumns.latency,
           accessorFn: (data) => {
             if (isNil(data.execution_time_ms) || !isFinite(data.execution_time_ms)) {
@@ -352,7 +352,7 @@ export const TracesViewTable = React.memo(
             }
             return Utils.formatDuration(data.execution_time_ms);
           },
-          meta: { styles: { width: 120 } },
+          meta: { styles: { minWidth: 100 } },
         },
         {
           header: intl.formatMessage(ExperimentViewTracesTableColumnLabels[ExperimentViewTracesTableColumns.tags]),

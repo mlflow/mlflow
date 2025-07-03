@@ -178,10 +178,10 @@ def save_model(
                 opt.step()
                 opt.clear_grad()
         mlflow.log_param("learning_rate", 0.01)
-        mlflow.paddle.log_model(model, "model")
+        mlflow.paddle.log_model(model, name="model")
         sk_path_dir = "./test-out"
         mlflow.paddle.save_model(model, sk_path_dir)
-        print("Model saved in run %s" % mlflow.active_run().info.run_uuid)
+        print("Model saved in run %s" % mlflow.active_run().info.run_id)
     """
     import paddle
 
@@ -326,7 +326,7 @@ def load_model(model_uri, model=None, dst_path=None, **kwargs):
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     pd_model,
-    artifact_path,
+    artifact_path: Optional[str] = None,
     training=False,
     conda_env=None,
     code_paths=None,
@@ -337,6 +337,12 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    name: Optional[str] = None,
+    params: Optional[dict[str, Any]] = None,
+    tags: Optional[dict[str, Any]] = None,
+    model_type: Optional[str] = None,
+    step: int = 0,
+    model_id: Optional[str] = None,
 ):
     """
     Log a paddle model as an MLflow artifact for the current run. Produces an MLflow Model
@@ -348,7 +354,7 @@ def log_model(
 
     Args:
         pd_model: paddle model to be saved.
-        artifact_path: Run-relative artifact path.
+        artifact_path: Deprecated. Use `name` instead.
         training: Only valid when saving a model trained using the PaddlePaddle high level API.
             If set to True, the saved model supports both re-training and
             inference. If set to False, it only supports inference.
@@ -365,6 +371,12 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        name: {{ name }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -391,12 +403,13 @@ def log_model(
         for epoch_id in range(EPOCH_NUM):
             ...
         mlflow.log_param("learning_rate", 0.01)
-        mlflow.paddle.log_model(model, "model")
+        mlflow.paddle.log_model(model, name="model")
         sk_path_dir = ...
         mlflow.paddle.save_model(model, sk_path_dir)
     """
     return Model.log(
         artifact_path=artifact_path,
+        name=name,
         flavor=mlflow.paddle,
         pd_model=pd_model,
         conda_env=conda_env,
@@ -409,6 +422,11 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
     )
 
 

@@ -1,28 +1,28 @@
 import { css, useTheme } from '@emotion/react';
 import React__default, { useMemo, forwardRef, useState, useRef, useEffect, useCallback, useImperativeHandle, createContext, useContext, useReducer } from 'react';
 import { jsx, Fragment, jsxs } from '@emotion/react/jsx-runtime';
-import { M as MegaphoneIcon, I as Input, C as ClockIcon, S as SearchIcon } from './index-CH9ufzDw.js';
-import { W as WarningIcon, j as DangerIcon, d as DesignSystemEventProviderAnalyticsEventTypes, u as useDesignSystemTheme, f as useDesignSystemEventComponentCallbacks, h as DesignSystemEventProviderComponentTypes, k as DesignSystemEventProviderComponentSubTypeMap, l as useNotifyOnFirstView, B as Button$1, C as CloseIcon, b as addDebugOutlineIfEnabled, T as Typography, p as primitiveColors, R as Root$3, m as Trigger, n as Content, o as ChevronLeftIcon, q as ChevronRightIcon, r as getComboboxOptionItemWrapperStyles, a as useDesignSystemSafexFlags, i as importantify } from './Stepper-VOpjC9TY.js';
-export { F as Form, s as RhfForm, S as Stepper, e as useFormContext } from './Stepper-VOpjC9TY.js';
+import { M as MegaphoneIcon, I as Input, C as ClockIcon, S as SearchIcon } from './index-BIb0Gz-W.js';
+import { W as WarningIcon, j as DangerIcon, e as DesignSystemEventProviderAnalyticsEventTypes, u as useDesignSystemTheme, f as useDesignSystemEventComponentCallbacks, h as DesignSystemEventProviderComponentTypes, k as DesignSystemEventProviderComponentSubTypeMap, l as useNotifyOnFirstView, B as Button$1, C as CloseIcon, b as addDebugOutlineIfEnabled, T as Typography, p as primitiveColors, R as Root$3, m as Trigger, n as Content, o as ChevronLeftIcon, q as ChevronRightIcon, r as getComboboxOptionItemWrapperStyles, a as useDesignSystemSafexFlags, i as importantify } from './Popover-CwN5G-JZ.js';
+export { F as Form, t as RhfForm, d as useFormContext } from './Popover-CwN5G-JZ.js';
 import { startOfToday, startOfYesterday, sub, format, isValid, startOfWeek, endOfToday, endOfYesterday, isAfter, isBefore } from 'date-fns';
 import { DayPicker, useDayRender, Button as Button$2 } from 'react-day-picker';
 import { RadioGroup, RadioGroupItem } from '@radix-ui/react-radio-group';
 import * as Progress$1 from '@radix-ui/react-progress';
 import * as RadixToolbar from '@radix-ui/react-toolbar';
 import 'antd';
-import '@radix-ui/react-popover';
-import 'lodash/isUndefined';
+import '@floating-ui/react';
 import '@ant-design/icons';
+import 'lodash/uniqueId';
+import '@radix-ui/react-popover';
 import '@radix-ui/react-tooltip';
+import 'lodash/memoize';
 import 'lodash/isNil';
 import 'lodash/endsWith';
 import 'lodash/isBoolean';
 import 'lodash/isNumber';
 import 'lodash/isString';
 import 'lodash/mapValues';
-import 'lodash/memoize';
 import '@emotion/unitless';
-import 'lodash/uniqueId';
 
 function _EMOTION_STRINGIFIED_CSS_ERROR__$2() { return "You have tried to stringify object returned from `css` function. It isn't supposed to be used directly (e.g. as value of the `className` prop), but rather handed to emotion so it can handle it (e.g. as value of `css` prop)."; }
 const {
@@ -341,6 +341,7 @@ const DatePicker = /*#__PURE__*/forwardRef((props, ref) => {
     allowClear,
     onClear,
     includeTime,
+    includeSeconds,
     defaultTime,
     onOpenChange,
     open,
@@ -360,7 +361,7 @@ const DatePicker = /*#__PURE__*/forwardRef((props, ref) => {
     customTimeZoneLabel,
     ...restProps
   } = props;
-  const format$1 = includeTime ? 'yyyy-MM-dd HH:mm' : 'yyyy-MM-dd';
+  const format$1 = includeTime ? includeSeconds ? 'yyyy-MM-dd HH:mm:ss' : 'yyyy-MM-dd HH:mm' : 'yyyy-MM-dd';
   const [date, setDate] = useState(value);
   const [timezone, setTimezone] = useState(customTimeZoneLabel);
   const [isVisible, setIsVisible] = useState(Boolean(open));
@@ -428,9 +429,13 @@ const DatePicker = /*#__PURE__*/forwardRef((props, ref) => {
         const timeSplit = defaultTime.split(':');
         date === null || date === void 0 || date.setHours(+timeSplit[0]);
         date === null || date === void 0 || date.setMinutes(+timeSplit[1]);
+        date.setSeconds(timeSplit.length > 2 ? +timeSplit[2] : 0);
       } else if (prevDate && date && includeTime) {
         date.setHours(prevDate.getHours());
         date.setMinutes(prevDate.getMinutes());
+        if (includeSeconds) {
+          date.setSeconds(prevDate.getSeconds());
+        }
       }
       handleChange === null || handleChange === void 0 || handleChange(date, true);
       return date;
@@ -448,6 +453,9 @@ const DatePicker = /*#__PURE__*/forwardRef((props, ref) => {
     if (date && updatedDate && includeTime) {
       updatedDate.setHours(updatedDate.getHours());
       updatedDate.setMinutes(updatedDate.getMinutes());
+      if (includeSeconds) {
+        updatedDate.setSeconds(updatedDate.getSeconds());
+      }
     }
     setDate(updatedDate);
     handleChange === null || handleChange === void 0 || handleChange(updatedDate, false);
@@ -463,13 +471,16 @@ const DatePicker = /*#__PURE__*/forwardRef((props, ref) => {
   const handleTimeUpdate = e => {
     var _e$nativeEvent;
     const newTime = (_e$nativeEvent = e.nativeEvent) === null || _e$nativeEvent === void 0 || (_e$nativeEvent = _e$nativeEvent.target) === null || _e$nativeEvent === void 0 ? void 0 : _e$nativeEvent.value;
-    const time = date && isValid(date) ? format(date, 'HH:mm') : undefined;
+    const time = date && isValid(date) ? format(date, includeSeconds ? 'HH:mm:ss' : 'HH:mm') : undefined;
     if (newTime && newTime !== time) {
       if (date) {
         const updatedDate = new Date(date);
         const timeSplit = newTime.split(':');
         updatedDate.setHours(+timeSplit[0]);
         updatedDate.setMinutes(+timeSplit[1]);
+        if (includeSeconds) {
+          updatedDate.setSeconds(+timeSplit[2]);
+        }
         handleInputUpdate(updatedDate);
       }
     }
@@ -535,7 +546,7 @@ const DatePicker = /*#__PURE__*/forwardRef((props, ref) => {
             suffix: showTimeZone ? jsx("span", {
               children: timezone
             }) : undefined,
-            max: includeTime ? '9999-12-31T23:59' : '9999-12-31',
+            max: includeTime ? includeSeconds ? '9999-12-31T23:59:59' : '9999-12-31T23:59' : '9999-12-31',
             ...restProps,
             css: /*#__PURE__*/css({
               '*::-webkit-calendar-picker-indicator': {
@@ -559,6 +570,7 @@ const DatePicker = /*#__PURE__*/forwardRef((props, ref) => {
               })
             }, process.env.NODE_ENV === "production" ? "" : ";label:DatePicker;"),
             type: includeTime ? 'datetime-local' : 'date',
+            step: includeTime && includeSeconds ? 1 : undefined,
             onKeyDown: event => handleInputKeyDown(event, setIsVisible),
             onChange: e => handleInputUpdate(new Date(e.target.value)),
             value: date && isValid(date) ? format(date, format$1) : undefined
@@ -608,10 +620,11 @@ const DatePicker = /*#__PURE__*/forwardRef((props, ref) => {
         }), includeTime && jsx(Input, {
           componentId: "codegen_design-system_src_development_datepicker_datepicker.tsx_306",
           type: "time",
+          step: includeSeconds ? 1 : undefined,
           "aria-label": "Time",
           role: "textbox",
           ...timeInputProps,
-          value: date && isValid(date) ? format(date, 'HH:mm') : undefined,
+          value: date && isValid(date) ? format(date, includeSeconds ? 'HH:mm:ss' : 'HH:mm') : undefined,
           onChange: handleTimeUpdate,
           css: /*#__PURE__*/css({
             '*::-webkit-calendar-picker-indicator': {
@@ -691,6 +704,7 @@ const RangePicker = props => {
     startDatePickerProps,
     endDatePickerProps,
     includeTime,
+    includeSeconds,
     allowClear,
     minWidth,
     maxWidth,
@@ -764,8 +778,15 @@ const RangePicker = props => {
                 to: value[1]
               });
               onChange === null || onChange === void 0 || onChange({
-                from: value[0],
-                to: value[1]
+                target: {
+                  name: props.name,
+                  value: {
+                    from: value[0],
+                    to: value[1]
+                  }
+                },
+                type: 'change',
+                updateLocation: 'preset'
               });
               (_action$onClick = action.onClick) === null || _action$onClick === void 0 || _action$onClick.call(action, value);
               setIsFromVisible(false);
@@ -777,7 +798,7 @@ const RangePicker = props => {
       });
     }
     return quickActions;
-  }, [quickActions, onChange]);
+  }, [quickActions, onChange, props.name]);
   const handleUpdateDate = useCallback((e, isStart) => {
     const date = e.target.value;
     const newRange = isStart ? {
@@ -805,8 +826,15 @@ const RangePicker = props => {
       endDatePickerProps === null || endDatePickerProps === void 0 || (_endDatePickerProps$o = endDatePickerProps.onChange) === null || _endDatePickerProps$o === void 0 || _endDatePickerProps$o.call(endDatePickerProps, e);
     }
     setRange(newRange);
-    onChange === null || onChange === void 0 || onChange(newRange);
-  }, [onChange, includeTime, startDatePickerProps, endDatePickerProps, range]);
+    onChange === null || onChange === void 0 || onChange({
+      target: {
+        name: props.name,
+        value: newRange
+      },
+      type: 'change',
+      updateLocation: e.updateLocation
+    });
+  }, [onChange, includeTime, startDatePickerProps, endDatePickerProps, range, props.name]);
 
   // Use useMemo to calculate disabled dates
   const disabledDates = useMemo(() => {
@@ -868,6 +896,7 @@ const RangePicker = props => {
       disabled: disabled || (startDatePickerProps === null || startDatePickerProps === void 0 ? void 0 : startDatePickerProps.disabled),
       onChange: e => handleUpdateDate(e, true),
       includeTime: includeTime,
+      includeSeconds: includeSeconds,
       allowClear: allowClear,
       datePickerProps: {
         ...(startDatePickerProps === null || startDatePickerProps === void 0 ? void 0 : startDatePickerProps.datePickerProps),
@@ -909,6 +938,7 @@ const RangePicker = props => {
       disabled: disabled || (endDatePickerProps === null || endDatePickerProps === void 0 ? void 0 : endDatePickerProps.disabled),
       onChange: e => handleUpdateDate(e, false),
       includeTime: includeTime,
+      includeSeconds: includeSeconds,
       open: isToVisible,
       onOpenChange: setIsToVisible,
       allowClear: allowClear,
@@ -1220,13 +1250,29 @@ const Listbox = _ref3 => {
     initialSelectedValue,
     filterInputPlaceholder,
     'aria-label': ariaLabel,
+    componentId,
+    analyticsEvents = [DesignSystemEventProviderAnalyticsEventTypes.OnValueChange],
+    valueHasNoPii,
     className
   } = _ref3;
   const [filterValue, setFilterValue] = useState('');
+  const memoizedAnalyticsEvents = useMemo(() => analyticsEvents, [analyticsEvents]);
+  const eventContext = useDesignSystemEventComponentCallbacks({
+    componentType: DesignSystemEventProviderComponentTypes.Listbox,
+    componentId,
+    analyticsEvents: memoizedAnalyticsEvents,
+    valueHasNoPii
+  });
   const handleSelect = useCallback(value => {
+    eventContext.onValueChange(value);
     onSelect === null || onSelect === void 0 || onSelect(value);
-  }, [onSelect]);
-  const listBoxDivRef = useRef(null);
+  }, [eventContext, onSelect]);
+  const {
+    elementRef: listBoxDivRef
+  } = useNotifyOnFirstView({
+    onView: eventContext.onView,
+    value: initialSelectedValue
+  });
   return jsx(ListboxRoot, {
     className: className,
     onSelect: handleSelect,
@@ -1319,7 +1365,8 @@ const useRadioGroupItemStyles = (size, iconClass) => {
     theme
   } = useDesignSystemTheme();
   const {
-    useNewShadows
+    useNewShadows,
+    useNewBorderColors
   } = useDesignSystemSafexFlags();
   return {
     textOverflow: 'ellipsis',
@@ -1334,7 +1381,7 @@ const useRadioGroupItemStyles = (size, iconClass) => {
     border: '1px solid',
     cursor: 'pointer',
     backgroundColor: theme.colors.actionDefaultBackgroundDefault,
-    borderColor: theme.colors.border,
+    borderColor: useNewBorderColors ? theme.colors.actionDefaultBorderDefault : theme.colors.border,
     color: theme.colors.textPrimary,
     lineHeight: theme.typography.lineHeightBase,
     height: 32,
@@ -1527,11 +1574,11 @@ var Progress = /*#__PURE__*/Object.freeze({
   Root: Root$1
 });
 
-const getRootStyles = (theme, useNewShadows) => {
+const getRootStyles = (theme, useNewShadows, useNewBorderColors) => {
   return /*#__PURE__*/css({
     alignItems: 'center',
     backgroundColor: theme.colors.backgroundSecondary,
-    border: `1px solid ${theme.colors.borderDecorative}`,
+    border: `1px solid ${useNewBorderColors ? theme.colors.border : theme.colors.borderDecorative}`,
     borderRadius: theme.borders.borderRadiusSm,
     boxShadow: useNewShadows ? theme.shadows.lg : theme.general.shadowLow,
     display: 'flex',
@@ -1545,11 +1592,12 @@ const Root = /*#__PURE__*/forwardRef((props, ref) => {
     theme
   } = useDesignSystemTheme();
   const {
-    useNewShadows
+    useNewShadows,
+    useNewBorderColors
   } = useDesignSystemSafexFlags();
   return jsx(RadixToolbar.Root, {
     ...addDebugOutlineIfEnabled(),
-    css: getRootStyles(theme, useNewShadows),
+    css: getRootStyles(theme, useNewShadows, useNewBorderColors),
     ...props,
     ref: ref
   });

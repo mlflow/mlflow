@@ -1,6 +1,7 @@
 import base64
 import io
 import json
+from pathlib import Path
 from unittest import mock
 
 import boto3
@@ -632,7 +633,8 @@ _CONVERSE_TOOL_CALLING_EXPECTED_TOOL_ATTRIBUTE = [
 
 
 def _get_test_image(is_base64: bool):
-    with open("tests/resources/images/test.png", "rb") as f:
+    image_dir = Path(__file__).parent.parent / "resources" / "images"
+    with open(image_dir / "test.png", "rb") as f:
         image_bytes = f.read()
         return base64.b64encode(image_bytes).decode("utf-8") if is_base64 else image_bytes
 

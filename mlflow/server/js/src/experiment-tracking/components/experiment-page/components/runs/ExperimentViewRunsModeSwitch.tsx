@@ -1,31 +1,17 @@
-import {
-  Button,
-  Popover,
-  LegacyTabs,
-  Tag,
-  LegacyTooltip,
-  Typography,
-  useDesignSystemTheme,
-} from '@databricks/design-system';
-import React, { useState, useEffect, useCallback } from 'react';
+import { InfoPopover, LegacyTabs, LegacyTooltip, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
 import { ExperimentPageViewState } from '../../models/ExperimentPageViewState';
-import { useExperimentViewLocalStore } from '../../hooks/useExperimentViewLocalStore';
 import type { ExperimentViewRunsCompareMode } from '../../../../types';
 import { PreviewBadge } from '@mlflow/mlflow/src/shared/building_blocks/PreviewBadge';
 import { FeatureBadge } from '@mlflow/mlflow/src/shared/building_blocks/FeatureBadge';
 import { getExperimentPageDefaultViewMode, useExperimentPageViewMode } from '../../hooks/useExperimentPageViewMode';
 import {
-  isExperimentEvalResultsMonitoringUIEnabled,
   isExperimentLoggedModelsUIEnabled,
   shouldEnableTracingUI,
+  shouldUseRenamedUnifiedTracesTab,
 } from '../../../../../common/utils/FeatureUtils';
 import { MONITORING_BETA_EXPIRATION_DATE } from '../../../../constants';
-import { useShouldShowCombinedRunsTab } from '../../hooks/useShouldShowCombinedRunsTab';
 import { useExperimentPageSearchFacets } from '../../hooks/useExperimentPageSearchFacets';
-
-const COMPARE_RUNS_TOOLTIP_STORAGE_KEY = 'compareRunsTooltip';
-const COMPARE_RUNS_TOOLTIP_STORAGE_ITEM = 'seenBefore';
 
 export interface ExperimentViewRunsModeSwitchProps {
   viewState?: ExperimentPageViewState;
@@ -34,66 +20,6 @@ export interface ExperimentViewRunsModeSwitchProps {
   explicitViewMode?: ExperimentViewRunsCompareMode;
   experimentId?: string;
 }
-
-const ChartViewButtonTooltip: React.FC<{
-  isTableMode: boolean;
-  multipleRunsSelected: boolean;
-}> = ({ multipleRunsSelected, isTableMode }) => {
-  const seenTooltipStore = useExperimentViewLocalStore(COMPARE_RUNS_TOOLTIP_STORAGE_KEY);
-  const [isToolTipOpen, setToolTipOpen] = useState(
-    multipleRunsSelected && !seenTooltipStore.getItem(COMPARE_RUNS_TOOLTIP_STORAGE_ITEM),
-  );
-
-  useEffect(() => {
-    const hasSeenTooltipBefore = seenTooltipStore.getItem(COMPARE_RUNS_TOOLTIP_STORAGE_ITEM);
-    if (multipleRunsSelected && isTableMode && !hasSeenTooltipBefore) {
-      setToolTipOpen(true);
-    } else {
-      setToolTipOpen(false);
-    }
-  }, [multipleRunsSelected, isTableMode, seenTooltipStore]);
-
-  const updateIsTooltipOpen = useCallback(
-    (isOpen) => {
-      setToolTipOpen(isOpen);
-      seenTooltipStore.setItem(COMPARE_RUNS_TOOLTIP_STORAGE_ITEM, true);
-    },
-    [setToolTipOpen, seenTooltipStore],
-  );
-
-  return (
-    <>
-      <Popover.Root
-        componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunsmodeswitch.tsx_60"
-        open={isToolTipOpen}
-      >
-        <Popover.Trigger asChild>
-          <div css={{ position: 'absolute', inset: 0 }} />
-        </Popover.Trigger>
-        <Popover.Content align="start">
-          <div css={{ maxWidth: '200px' }}>
-            <Typography.Paragraph>
-              <FormattedMessage
-                defaultMessage="You can now switch to the chart view to compare runs"
-                description="Tooltip to push users to use the chart view instead of compare view"
-              />
-            </Typography.Paragraph>
-            <div css={{ textAlign: 'right' }}>
-              <Button
-                componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunsmodeswitch.tsx_65"
-                onClick={() => updateIsTooltipOpen(false)}
-                type="primary"
-              >
-                <FormattedMessage defaultMessage="Got it" description="Button action text for chart switcher tooltip" />
-              </Button>
-            </div>
-          </div>
-          <Popover.Arrow />
-        </Popover.Content>
-      </Popover.Root>
-    </>
-  );
-};
 
 /**
  * Allows switching between various modes of the experiment page view.
@@ -106,11 +32,12 @@ export const ExperimentViewRunsModeSwitch = ({
   hideBorder = true,
 }: ExperimentViewRunsModeSwitchProps) => {
   const [, experimentIds] = useExperimentPageSearchFacets();
+  const { theme } = useDesignSystemTheme();
   const [viewMode, setViewModeInURL] = useExperimentPageViewMode();
-  const { classNamePrefix, theme } = useDesignSystemTheme();
+  const { classNamePrefix } = useDesignSystemTheme();
   const currentViewMode = viewMode || getExperimentPageDefaultViewMode();
-  const showCombinedRuns = useShouldShowCombinedRunsTab();
-  const activeTab = showCombinedRuns && ['TABLE', 'CHART'].includes(currentViewMode) ? 'RUNS' : currentViewMode;
+  const validRunsTabModes = shouldUseRenamedUnifiedTracesTab() ? ['TABLE', 'CHART', 'ARTIFACT'] : ['TABLE', 'CHART'];
+  const activeTab = validRunsTabModes.includes(currentViewMode) ? 'RUNS' : currentViewMode;
 
   // Extract experiment ID from the URL but only if it's a single experiment.
   // In case of multiple experiments (compare mode), the experiment ID is undefined.
@@ -141,6 +68,17 @@ export const ExperimentViewRunsModeSwitch = ({
         setViewModeInURL(newValue, singleExperimentId);
       }}
     >
+      <LegacyTabs.TabPane
+        tab={
+          <span data-testid="experiment-runs-mode-switch-combined">
+            <FormattedMessage
+              defaultMessage="Runs"
+              description="A button enabling combined runs table and charts mode on the experiment page"
+            />
+          </span>
+        }
+        key="RUNS"
+      />
       {/* Display the "Models" tab if we have only one experiment and the feature is enabled. */}
       {singleExperimentId && isExperimentLoggedModelsUIEnabled() && (
         <LegacyTabs.TabPane
@@ -156,57 +94,12 @@ export const ExperimentViewRunsModeSwitch = ({
           }
         />
       )}
-      {showCombinedRuns ? (
-        <LegacyTabs.TabPane
-          tab={
-            <span data-testid="experiment-runs-mode-switch-combined">
-              <FormattedMessage
-                defaultMessage="Runs"
-                description="A button enabling combined runs table and charts mode on the experiment page"
-              />
-            </span>
-          }
-          key="RUNS"
-        />
-      ) : (
-        <>
-          <LegacyTabs.TabPane
-            tab={
-              <span data-testid="experiment-runs-mode-switch-list">
-                <FormattedMessage
-                  defaultMessage="Table"
-                  description="A button enabling table mode on the experiment page"
-                />
-              </span>
-            }
-            key="TABLE"
-          />
-          <LegacyTabs.TabPane
-            tab={
-              <>
-                <span data-testid="experiment-runs-mode-switch-compare">
-                  <FormattedMessage
-                    defaultMessage="Chart"
-                    description="A button enabling compare runs (chart) mode on the experiment page"
-                  />
-                </span>
-                <ChartViewButtonTooltip
-                  isTableMode={viewMode === 'TABLE'}
-                  multipleRunsSelected={viewState ? Object.keys(viewState.runsSelected).length > 1 : false}
-                />
-              </>
-            }
-            key="CHART"
-          />
-        </>
-      )}
-
       <LegacyTabs.TabPane
-        disabled={runsAreGrouped}
+        disabled={shouldUseRenamedUnifiedTracesTab() || runsAreGrouped}
         tab={
           <LegacyTooltip
             title={
-              runsAreGrouped ? (
+              !shouldUseRenamedUnifiedTracesTab() && runsAreGrouped ? (
                 <FormattedMessage
                   defaultMessage="Unavailable when runs are grouped"
                   description="Experiment page > view mode switch > evaluation mode disabled tooltip"
@@ -214,31 +107,48 @@ export const ExperimentViewRunsModeSwitch = ({
               ) : undefined
             }
           >
-            <span data-testid="experiment-runs-mode-switch-evaluation">
+            <span
+              data-testid="experiment-runs-mode-switch-evaluation"
+              css={
+                shouldUseRenamedUnifiedTracesTab() && {
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: theme.spacing.xs,
+                }
+              }
+            >
               <FormattedMessage
                 defaultMessage="Evaluation"
                 description="A button enabling compare runs (evaluation) mode on the experiment page"
               />
-              <PreviewBadge />
+              {shouldUseRenamedUnifiedTracesTab() ? (
+                <InfoPopover popoverProps={{ maxWidth: 350 }} iconProps={{ style: { marginRight: 0 } }}>
+                  <FormattedMessage
+                    defaultMessage='Accessing artifact evaluation by "Evaluation" tab is being discontinued. In order to use this feature, use <link>"Artifacts evaluation" mode in Runs tab</link> instead.'
+                    description="A button enabling compare runs (evaluation) mode on the experiment page"
+                    values={{
+                      link: (children) =>
+                        viewMode === 'ARTIFACT' ? (
+                          children
+                        ) : (
+                          <Typography.Link
+                            componentId="mlflow.experiment_page.evaluation_tab_migration_info_link"
+                            onClick={() => setViewModeInURL('ARTIFACT', singleExperimentId)}
+                          >
+                            {children}
+                          </Typography.Link>
+                        ),
+                    }}
+                  />
+                </InfoPopover>
+              ) : (
+                <PreviewBadge />
+              )}
             </span>
           </LegacyTooltip>
         }
         key="ARTIFACT"
       />
-      {singleExperimentId && isExperimentEvalResultsMonitoringUIEnabled() && (
-        <LegacyTabs.TabPane
-          tab={
-            <span data-testid="experiment-runs-mode-evaluation-results">
-              <FormattedMessage
-                defaultMessage="Monitoring"
-                description="A button enabling evaluation results monitoring mode on the experiment page"
-              />
-              <FeatureBadge type="beta" expirationDate={MONITORING_BETA_EXPIRATION_DATE} />
-            </span>
-          }
-          key="EVAL_RESULTS"
-        />
-      )}
       {shouldEnableTracingUI() && (
         <LegacyTabs.TabPane
           tab={

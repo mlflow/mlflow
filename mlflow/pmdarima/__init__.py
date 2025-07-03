@@ -46,7 +46,7 @@ Pmdarima format
     with mlflow.start_run():
         wrapper = PmdarimaWrapper()
         mlflow.pyfunc.log_model(
-            artifact_path="model",
+            name="model",
             python_model=wrapper,
             artifacts={"model": mlflow.pyfunc.model_to_dict(model)},
         )
@@ -196,7 +196,8 @@ def save_model(
 
         # Split the data into train/test
         train_size = int(0.8 * len(sales_data))
-        train, test = sales_data[:train_size], sales_data[train_size:]
+        train = sales_data[:train_size]
+        test = sales_data[train_size:]
 
         with mlflow.start_run():
             # Create the model
@@ -281,7 +282,7 @@ def save_model(
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     pmdarima_model,
-    artifact_path,
+    artifact_path: Optional[str] = None,
     conda_env=None,
     code_paths=None,
     registered_model_name=None,
@@ -291,6 +292,12 @@ def log_model(
     pip_requirements=None,
     extra_pip_requirements=None,
     metadata=None,
+    name: Optional[str] = None,
+    params: Optional[dict[str, Any]] = None,
+    tags: Optional[dict[str, Any]] = None,
+    model_type: Optional[str] = None,
+    step: int = 0,
+    model_id: Optional[str] = None,
     **kwargs,
 ):
     """
@@ -299,11 +306,10 @@ def log_model(
     Args:
         pmdarima_model: pmdarima ``ARIMA`` or ``Pipeline`` model that has been ``fit`` on a
             temporal series.
-        artifact_path: Run-relative artifact path to save the model instance to.
+        artifact_path: Deprecated. Use `name` instead.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
-        registered_model_name: This argument may change or be removed in a
-            future release without warning. If given, create a model
+        registered_model_name: If given, create a model
             version under ``registered_model_name``, also creating a
             registered model if one with the given name does not exist.
         signature: an instance of the :py:class:`ModelSignature <mlflow.models.ModelSignature>`
@@ -339,6 +345,12 @@ def log_model(
         pip_requirements: {{ pip_requirements }}
         extra_pip_requirements: {{ extra_pip_requirements }}
         metadata: {{ metadata }}
+        name: {{ name }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
         kwargs: Additional arguments for :py:class:`mlflow.models.model.Model`
 
     Returns:
@@ -364,7 +376,8 @@ def log_model(
 
         # Split the data into train/test
         train_size = int(0.8 * len(sales_data))
-        train, test = sales_data[:train_size], sales_data[train_size:]
+        train = sales_data[:train_size]
+        test = sales_data[train_size:]
 
         with mlflow.start_run():
             # Create the model
@@ -380,11 +393,11 @@ def log_model(
             signature = infer_signature(input_sample, output_sample)
 
             # Log model
-            mlflow.pmdarima.log_model(model, ARTIFACT_PATH, signature=signature)
+            mlflow.pmdarima.log_model(model, name=ARTIFACT_PATH, signature=signature)
     """
-
     return Model.log(
         artifact_path=artifact_path,
+        name=name,
         flavor=mlflow.pmdarima,
         registered_model_name=registered_model_name,
         pmdarima_model=pmdarima_model,
@@ -396,6 +409,11 @@ def log_model(
         pip_requirements=pip_requirements,
         extra_pip_requirements=extra_pip_requirements,
         metadata=metadata,
+        params=params,
+        tags=tags,
+        model_type=model_type,
+        step=step,
+        model_id=model_id,
         **kwargs,
     )
 
@@ -442,7 +460,8 @@ def load_model(model_uri, dst_path=None):
 
         # Split the data into train/test
         train_size = int(0.8 * len(sales_data))
-        train, test = sales_data[:train_size], sales_data[train_size:]
+        train = sales_data[:train_size]
+        test = sales_data[train_size:]
 
         with mlflow.start_run():
             # Create the model
@@ -460,7 +479,7 @@ def load_model(model_uri, dst_path=None):
             # Log model
             input_example = input_sample.head()
             mlflow.pmdarima.log_model(
-                model, ARTIFACT_PATH, signature=signature, input_example=input_example
+                model, name=ARTIFACT_PATH, signature=signature, input_example=input_example
             )
 
             # Get the model URI for loading

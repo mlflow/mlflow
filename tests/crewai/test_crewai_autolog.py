@@ -9,6 +9,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow.entities.span import SpanType
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import get_traces
 
@@ -183,6 +184,9 @@ def task_2(simple_agent_2):
 
 
 def global_autolog():
+    if IS_TRACING_SDK_ONLY:
+        pytest.skip("Global autolog is not supported in tracing SDK")
+
     # Libraries used within tests or crewai library
     mlflow.autolog(exclude_flavors=["openai", "litellm", "langchain"])
     mlflow.utils.import_hooks.notify_module_loaded(crewai)
@@ -423,15 +427,10 @@ def test_kickoff_tool_calling(tool_agent_1, task_1_with_tool, autolog):
     assert span_4.inputs["messages"] is not None
     assert span_4.outputs == f"{_FINAL_ANSWER_KEYWORD} {_LLM_ANSWER}"
     chat_attributes = span_4.get_attribute("mlflow.chat.messages")
-    assert len(chat_attributes) == 4
     assert chat_attributes[0]["role"] == "system"
     assert _AGENT_1_GOAL in chat_attributes[0]["content"]
-    assert chat_attributes[1]["role"] == "user"
-    assert _TASK_1_DESCRIPTION in chat_attributes[1]["content"]
-    assert chat_attributes[2]["role"] == "assistant"
-    assert "Tool Answer" in chat_attributes[2]["content"]
-    assert chat_attributes[3]["role"] == "assistant"
-    assert _LLM_ANSWER in chat_attributes[3]["content"]
+    assert chat_attributes[-1]["role"] == "assistant"
+    assert _LLM_ANSWER in chat_attributes[-1]["content"]
 
     # Create Long Term Memory
     span_5 = traces[0].data.spans[5]

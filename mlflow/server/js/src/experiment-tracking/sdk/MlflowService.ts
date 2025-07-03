@@ -255,6 +255,16 @@ export class MlflowService {
     }) as Promise<GetExperimentTraceInfoResponse>;
   };
 
+  static getExperimentTraceInfoV3 = (requestId: string) => {
+    type GetExperimentTraceInfoResponse = {
+      trace_info?: ModelTraceInfo;
+    };
+
+    return getJson({
+      relativeUrl: `ajax-api/3.0/mlflow/traces/${requestId}/info`,
+    }) as Promise<GetExperimentTraceInfoResponse>;
+  };
+
   /**
    * Traces API: get credentials for data download
    */
@@ -280,6 +290,29 @@ export class MlflowService {
     });
 
   /**
+   * Traces API: set trace tag V3
+   */
+  static setExperimentTraceTagV3 = (traceRequestId: string, key: string, value: string) =>
+    patchJson({
+      relativeUrl: `ajax-api/3.0/mlflow/traces/${traceRequestId}/tags`,
+      data: {
+        key,
+        value,
+      },
+    });
+
+  /**
+   * Traces API: delete trace tag V3
+   */
+  static deleteExperimentTraceTagV3 = (traceRequestId: string, key: string) =>
+    deleteJson({
+      relativeUrl: `ajax-api/3.0/mlflow/traces/${traceRequestId}/tags`,
+      data: {
+        key,
+      },
+    });
+
+  /**
    * Traces API: delete trace tag
    */
   static deleteExperimentTraceTag = (traceRequestId: string, key: string) =>
@@ -289,6 +322,15 @@ export class MlflowService {
         key,
       },
     });
+
+  static deleteTracesV3 = (experimentId: string, traceRequestIds: string[]) =>
+    postJson({
+      relativeUrl: `ajax-api/3.0/mlflow/traces/delete-traces`,
+      data: {
+        experiment_id: experimentId,
+        request_ids: traceRequestIds,
+      },
+    }) as Promise<{ traces_deleted: number }>;
 
   static deleteTraces = (experimentId: string, traceRequestIds: string[]) =>
     postJson({

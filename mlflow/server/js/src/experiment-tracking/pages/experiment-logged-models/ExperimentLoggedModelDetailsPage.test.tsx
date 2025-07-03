@@ -14,12 +14,17 @@ import { first } from 'lodash';
 import { LoggedModelStatusProtoEnum } from '../../types';
 import Utils from '../../../common/utils/Utils';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
+import { useExperimentTrackingDetailsPageLayoutStyles } from '../../hooks/useExperimentTrackingDetailsPageLayoutStyles';
 
 jest.setTimeout(90000); // Larger timeout for integration testing (tables rendering)
 
 jest.mock('../../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual<typeof import('../../../common/utils/FeatureUtils')>('../../../common/utils/FeatureUtils'),
   isExperimentLoggedModelsUIEnabled: jest.fn(() => true),
+}));
+
+jest.mock('../../hooks/useExperimentTrackingDetailsPageLayoutStyles', () => ({
+  useExperimentTrackingDetailsPageLayoutStyles: jest.fn(),
 }));
 
 const testExperimentName = '/Some test experiment';
@@ -179,10 +184,13 @@ describe('ExperimentLoggedModelListPage', () => {
   });
 
   beforeEach(() => {
+    jest
+      .mocked<any>(useExperimentTrackingDetailsPageLayoutStyles)
+      .mockReturnValue({ usingUnifiedDetailsLayout: false });
     server.resetHandlers();
   });
 
-  test('should display page with the sample data', async () => {
+  test('should display page with the sample data (legacy layout)', async () => {
     const { container } = renderTestComponent();
 
     await waitFor(() => {
@@ -197,6 +205,22 @@ describe('ExperimentLoggedModelListPage', () => {
     // Expect the experiment name to be visible in the breadcrumbs
     await waitFor(() => {
       expect(screen.getByRole('link', { name: testExperimentName })).toBeInTheDocument();
+    });
+  });
+
+  test('should display page with the sample data (unified sidebar layout)', async () => {
+    jest.mocked<any>(useExperimentTrackingDetailsPageLayoutStyles).mockReturnValue({ usingUnifiedDetailsLayout: true });
+
+    const { container, getByRole } = renderTestComponent();
+
+    await waitFor(() => {
+      expect(container.textContent).toMatch(/Status\s*Ready/);
+      expect(container.textContent).toMatch(/Model ID\s*m-1/);
+      expect(container.textContent).toMatch(/Source run ID\s*run-id-\d/);
+    });
+
+    await waitFor(() => {
+      expect(container.textContent).toMatch(/Source run\s*run-name-\d/);
     });
   });
 

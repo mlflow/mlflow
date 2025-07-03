@@ -51,12 +51,13 @@ type ShowArtifactPageProps = {
 class ShowArtifactPage extends Component<ShowArtifactPageProps> {
   render() {
     if (this.props.path) {
-      const { loggedModelId, isLoggedModelsMode, path, runUuid } = this.props;
+      const { loggedModelId, isLoggedModelsMode, path, runUuid, experimentId } = this.props;
       const commonArtifactProps = {
         loggedModelId,
         isLoggedModelsMode,
         path,
         runUuid,
+        experimentId,
       };
 
       const normalizedExtension = getExtension(this.props.path);
@@ -84,6 +85,7 @@ class ShowArtifactPage extends Component<ShowArtifactPageProps> {
               path={this.props.path}
               artifactRootUri={this.props.artifactRootUri}
               registeredModelLink={registeredModelLink}
+              experimentId={this.props.experimentId}
             />
           );
         }

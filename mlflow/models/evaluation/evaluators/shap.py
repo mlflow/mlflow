@@ -218,17 +218,20 @@ class ShapEvaluator(BuiltInEvaluator):
             )
             _logger.debug("", exc_info=True)
             return
-        try:
-            mlflow.shap.log_explainer(explainer, artifact_path="explainer")
-        except Exception as e:
-            # TODO: The explainer saver is buggy, if `get_underlying_model_flavor` return "unknown",
-            #   then fallback to shap explainer saver, and shap explainer will call `model.save`
-            #   for sklearn model, there is no `.save` method, so error will happen.
-            _logger.warning(
-                f"Logging explainer failed. Reason: {e!r}. "
-                "Set logging level to DEBUG to see the full traceback."
-            )
-            _logger.debug("", exc_info=True)
+
+        if self.evaluator_config.get("log_explainer", False):
+            try:
+                mlflow.shap.log_explainer(explainer, name="explainer")
+            except Exception as e:
+                # TODO: The explainer saver is buggy, if `get_underlying_model_flavor` return
+                #   "unknown", then fallback to shap explainer saver, and shap explainer will call
+                #   `model.save` for sklearn model, there is no `.save` method, so error will
+                #   happen.
+                _logger.warning(
+                    f"Logging explainer failed. Reason: {e!r}. "
+                    "Set logging level to DEBUG to see the full traceback."
+                )
+                _logger.debug("", exc_info=True)
 
         def _adjust_color_bar():
             pyplot.gcf().axes[-1].set_aspect("auto")

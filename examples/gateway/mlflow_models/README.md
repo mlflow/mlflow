@@ -58,7 +58,7 @@ artifact_path = "embeddings_model"
 with mlflow.start_run():
     mlflow.sentence_transformers.log_model(
         model,
-        artifact_path=artifact_path,
+        name=artifact_path,
     )
     model_uri = mlflow.get_artifact_uri(artifact_path)
 ```
@@ -134,7 +134,7 @@ components = {"model": model, "tokenizer": tokenizer}
 with mlflow.start_run():
     mlflow.transformers.log_model(
         transformers_model=components,
-        artifact_path=artifact_path,
+        name=artifact_path,
     )
     model_uri = mlflow.get_artifact_uri(artifact_path)
 ```
@@ -303,7 +303,7 @@ input_example = pd.DataFrame(
 
 with mlflow.start_run():
     mlflow.pyfunc.log_model(
-        "mpt-7b-instruct",
+        name="mpt-7b-instruct",
         python_model=MPT(),
         artifacts={"snapshot": snapshot_location},
         pip_requirements=[

@@ -11,6 +11,7 @@ from mlflow.entities.model_registry import (
     RegisteredModelTag,
 )
 from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY
+from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY
 from mlflow.entities.model_registry.webhook import WebhookEventTrigger
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import (
@@ -19,8 +20,9 @@ from mlflow.protos.databricks_pb2 import (
     ErrorCode,
 )
 from mlflow.store.model_registry.file_store import FileStore
-from mlflow.utils.file_utils import path_to_local_file_uri, write_yaml
+from mlflow.utils.file_utils import path_to_local_file_uri
 from mlflow.utils.time import get_current_time_millis
+from mlflow.utils.yaml_utils import write_yaml
 
 from tests.helper_functions import random_int, random_str
 
@@ -360,10 +362,10 @@ def test_set_registered_model_tag(store):
         store.set_registered_model_tag(name1, overriding_tag)
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
     # test cannot set tags that are too long
-    long_tag = RegisteredModelTag("longTagKey", "a" * 5001)
+    long_tag = RegisteredModelTag("longTagKey", "a" * 100_001)
     with pytest.raises(
         MlflowException,
-        match=("'value' exceeds the maximum length of 5000 characters"),
+        match=r"'value' exceeds the maximum length of \d+ characters",
     ) as exception_context:
         store.set_registered_model_tag(name2, long_tag)
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -1394,10 +1396,10 @@ def test_set_model_version_tag(store):
         store.set_model_version_tag(name1, 2, overriding_tag)
     assert exception_context.value.error_code == ErrorCode.Name(RESOURCE_DOES_NOT_EXIST)
     # test cannot set tags that are too long
-    long_tag = ModelVersionTag("longTagKey", "a" * 5001)
+    long_tag = ModelVersionTag("longTagKey", "a" * 100_001)
     with pytest.raises(
         MlflowException,
-        match="'value' exceeds the maximum length of 5000 characters",
+        match=r"'value' exceeds the maximum length of \d+ characters",
     ) as exception_context:
         store.set_model_version_tag(name1, 1, long_tag)
     assert exception_context.value.error_code == ErrorCode.Name(INVALID_PARAMETER_VALUE)
@@ -1556,9 +1558,11 @@ def test_pyfunc_model_registry_with_file_store(store):
 
     mlflow.set_registry_uri(path_to_local_file_uri(store.root_directory))
     with mlflow.start_run():
-        mlflow.pyfunc.log_model("foo", python_model=MyModel(), registered_model_name="model1")
-        mlflow.pyfunc.log_model("foo", python_model=MyModel(), registered_model_name="model2")
-        mlflow.pyfunc.log_model("model", python_model=MyModel(), registered_model_name="model1")
+        mlflow.pyfunc.log_model(name="foo", python_model=MyModel(), registered_model_name="model1")
+        mlflow.pyfunc.log_model(name="foo", python_model=MyModel(), registered_model_name="model2")
+        mlflow.pyfunc.log_model(
+            name="model", python_model=MyModel(), registered_model_name="model1"
+        )
 
     with mlflow.start_run():
         mlflow.log_param("A", "B")

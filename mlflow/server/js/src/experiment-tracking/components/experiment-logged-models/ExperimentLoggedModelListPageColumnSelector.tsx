@@ -6,6 +6,7 @@ import { useMemo } from 'react';
 import {
   ExperimentLoggedModelListPageKnownColumnGroups,
   ExperimentLoggedModelListPageStaticColumns,
+  LOGGED_MODEL_LIST_METRIC_COLUMN_PREFIX,
 } from './hooks/useExperimentLoggedModelListPageTableColumns';
 
 interface BasicColumnDef {
@@ -64,20 +65,16 @@ export const ExperimentLoggedModelListPageColumnSelector = ({
 
     // Next, get all the dataset-grouped metric column groups
     const metricColumnGroups = columnDefs
-      .filter((col) => col.groupId?.startsWith('metrics.'))
-      .map((col) => ({ ...col, headerName: `Dataset: ${col.headerName}` }));
-
-    // Special case: add a group for metrics without a dataset
-    const ungroupedColumnGroup = columnDefs.find((col) => col.groupId === 'metrics');
-    if (ungroupedColumnGroup) {
-      metricColumnGroups.push({
-        ...ungroupedColumnGroup,
-        headerName: intl.formatMessage({
-          defaultMessage: 'No dataset',
-          description: 'Label for the ungrouped metrics column group in the logged model column selector',
-        }),
-      });
-    }
+      .filter((col) => col.groupId?.startsWith(LOGGED_MODEL_LIST_METRIC_COLUMN_PREFIX))
+      .map((col) => ({
+        ...col,
+        headerName: col.headerName
+          ? `Dataset: ${col.headerName}`
+          : intl.formatMessage({
+              defaultMessage: 'No dataset',
+              description: 'Label for the ungrouped metrics column group in the logged model column selector',
+            }),
+      }));
 
     // Aggregate all metric column groups into a single group
     if (metricColumnGroups.length > 0) {

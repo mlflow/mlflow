@@ -6,8 +6,9 @@ import shutil
 import sys
 import time
 import uuid
+from collections import defaultdict
 from dataclasses import dataclass
-from typing import NamedTuple, Optional
+from typing import Any, NamedTuple, Optional, TypedDict
 
 from mlflow.entities import (
     Dataset,
@@ -15,12 +16,19 @@ from mlflow.entities import (
     Experiment,
     ExperimentTag,
     InputTag,
+    LoggedModel,
+    LoggedModelInput,
+    LoggedModelOutput,
+    LoggedModelParameter,
+    LoggedModelStatus,
+    LoggedModelTag,
     Metric,
     Param,
     Run,
     RunData,
     RunInfo,
     RunInputs,
+    RunOutputs,
     RunStatus,
     RunTag,
     SourceType,
@@ -30,6 +38,7 @@ from mlflow.entities import (
 )
 from mlflow.entities.lifecycle_stage import LifecycleStage
 from mlflow.entities.run_info import check_run_is_active
+from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_TRACKING_DIR
 from mlflow.exceptions import MissingConfigException, MlflowException
@@ -39,17 +48,18 @@ from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     RESOURCE_DOES_NOT_EXIST,
 )
-from mlflow.protos.internal_pb2 import InputVertexType
+from mlflow.protos.internal_pb2 import InputVertexType, OutputVertexType
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry.file_store import FileStore as ModelRegistryFileStore
 from mlflow.store.tracking import (
     DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH,
+    SEARCH_LOGGED_MODEL_MAX_RESULTS_DEFAULT,
     SEARCH_MAX_RESULTS_DEFAULT,
     SEARCH_MAX_RESULTS_THRESHOLD,
     SEARCH_TRACES_DEFAULT_MAX_RESULTS,
 )
 from mlflow.store.tracking.abstract_store import AbstractStore
-from mlflow.tracing.utils import generate_request_id
+from mlflow.tracing.utils import generate_request_id_v2
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.file_utils import (
     append_to,
@@ -63,13 +73,10 @@ from mlflow.utils.file_utils import (
     make_containing_dirs,
     mkdir,
     mv,
-    overwrite_yaml,
     path_to_local_file_uri,
     read_file,
     read_file_lines,
-    read_yaml,
     write_to,
-    write_yaml,
 )
 from mlflow.utils.mlflow_tags import (
     MLFLOW_ARTIFACT_LOCATION,
@@ -81,6 +88,7 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.name_utils import _generate_random_name, _generate_unique_integer_id
 from mlflow.utils.search_utils import (
     SearchExperimentsUtils,
+    SearchLoggedModelsUtils,
     SearchTraceUtils,
     SearchUtils,
 )
@@ -96,6 +104,7 @@ from mlflow.utils.validation import (
     _validate_experiment_artifact_location_length,
     _validate_experiment_id,
     _validate_experiment_name,
+    _validate_logged_model_name,
     _validate_metric,
     _validate_metric_name,
     _validate_param,
@@ -104,6 +113,7 @@ from mlflow.utils.validation import (
     _validate_run_id,
     _validate_tag_name,
 )
+from mlflow.utils.yaml_utils import overwrite_yaml, read_yaml, write_yaml
 
 _logger = logging.getLogger(__name__)
 
@@ -156,6 +166,15 @@ def _read_persisted_run_info_dict(run_info_dict):
     return RunInfo.from_dictionary(dict_copy)
 
 
+class DatasetFilter(TypedDict, total=False):
+    """
+    Dataset filter used for search_logged_models.
+    """
+
+    dataset_name: str
+    dataset_digest: str
+
+
 class FileStore(AbstractStore):
     TRASH_FOLDER_NAME = ".trash"
     ARTIFACTS_FOLDER_NAME = "artifacts"
@@ -165,16 +184,21 @@ class FileStore(AbstractStore):
     EXPERIMENT_TAGS_FOLDER_NAME = "tags"
     DATASETS_FOLDER_NAME = "datasets"
     INPUTS_FOLDER_NAME = "inputs"
+    OUTPUTS_FOLDER_NAME = "outputs"
     META_DATA_FILE_NAME = "meta.yaml"
     DEFAULT_EXPERIMENT_ID = "0"
     TRACE_INFO_FILE_NAME = "trace_info.yaml"
     TRACES_FOLDER_NAME = "traces"
     TRACE_TAGS_FOLDER_NAME = "tags"
-    TRACE_REQUEST_METADATA_FOLDER_NAME = "request_metadata"
+    # "request_metadata" field is renamed to "trace_metadata" in V3,
+    # but we keep the old name for backward compatibility
+    TRACE_TRACE_METADATA_FOLDER_NAME = "request_metadata"
+    MODELS_FOLDER_NAME = "models"
     RESERVED_EXPERIMENT_FOLDERS = [
         EXPERIMENT_TAGS_FOLDER_NAME,
         DATASETS_FOLDER_NAME,
         TRACES_FOLDER_NAME,
+        MODELS_FOLDER_NAME,
     ]
 
     def __init__(self, root_directory=None, artifact_root_uri=None):
@@ -243,6 +267,12 @@ class FileStore(AbstractStore):
             self._get_run_dir(experiment_id, run_uuid),
             FileStore.METRICS_FOLDER_NAME,
             metric_key,
+        )
+
+    def _get_model_metric_path(self, experiment_id: str, model_id: str, metric_key: str) -> str:
+        _validate_metric_name(metric_key)
+        return os.path.join(
+            self._get_model_dir(experiment_id, model_id), FileStore.METRICS_FOLDER_NAME, metric_key
         )
 
     def _get_param_path(self, experiment_id, run_uuid, param_name):
@@ -426,6 +456,12 @@ class FileStore(AbstractStore):
                 databricks_pb2.RESOURCE_DOES_NOT_EXIST,
             )
         meta = FileStore._read_yaml(experiment_dir, FileStore.META_DATA_FILE_NAME)
+        if meta is None:
+            raise MissingConfigException(
+                f"Experiment {experiment_id} is invalid with empty "
+                f"{FileStore.META_DATA_FILE_NAME} in directory '{experiment_dir}'."
+            )
+
         meta["tags"] = self.get_all_experiment_tags(experiment_id)
         experiment = _read_persisted_experiment_dict(meta)
         if experiment_id != experiment.experiment_id:
@@ -590,10 +626,10 @@ class FileStore(AbstractStore):
         )
         deleted_run_ids = []
         for deleted_run in deleted_runs:
-            _, run_dir = self._find_run_root(deleted_run.info.run_uuid)
+            _, run_dir = self._find_run_root(deleted_run.info.run_id)
             meta = read_yaml(run_dir, FileStore.META_DATA_FILE_NAME)
             if "deleted_time" not in meta or current_time - int(meta["deleted_time"]) >= older_than:
-                deleted_run_ids.append(deleted_run.info.run_uuid)
+                deleted_run_ids.append(deleted_run.info.run_id)
 
         return deleted_run_ids
 
@@ -668,7 +704,6 @@ class FileStore(AbstractStore):
         run_uuid = uuid.uuid4().hex
         artifact_uri = self._get_artifact_dir(experiment_id, run_uuid)
         run_info = RunInfo(
-            run_uuid=run_uuid,
             run_id=run_uuid,
             run_name=run_name,
             experiment_id=experiment_id,
@@ -710,11 +745,12 @@ class FileStore(AbstractStore):
         params = self._get_all_params(run_info)
         tags = self._get_all_tags(run_info)
         inputs: RunInputs = self._get_all_inputs(run_info)
+        outputs: RunOutputs = self._get_all_outputs(run_info)
         if not run_info.run_name:
             run_name = _get_run_name_from_tags(tags)
             if run_name:
                 run_info._set_run_name(run_name)
-        return Run(run_info, RunData(metrics, params, tags), inputs)
+        return Run(run_info, RunData(metrics, params, tags), inputs, outputs)
 
     def _get_run_info(self, run_uuid):
         """
@@ -775,10 +811,12 @@ class FileStore(AbstractStore):
         return source_dirs[0], file_names
 
     @staticmethod
-    def _get_metric_from_file(parent_path, metric_name, exp_id):
+    def _get_metric_from_file(
+        parent_path: str, metric_name: str, run_id: str, exp_id: str
+    ) -> Metric:
         _validate_metric_name(metric_name)
         metric_objs = [
-            FileStore._get_metric_from_line(metric_name, line, exp_id)
+            FileStore._get_metric_from_line(run_id, metric_name, line, exp_id)
             for line in read_file_lines(parent_path, metric_name)
         ]
         if len(metric_objs) == 0:
@@ -799,24 +837,38 @@ class FileStore(AbstractStore):
         metrics = []
         for metric_file in metric_files:
             metrics.append(
-                self._get_metric_from_file(parent_path, metric_file, run_info.experiment_id)
+                self._get_metric_from_file(
+                    parent_path, metric_file, run_info.run_id, run_info.experiment_id
+                )
             )
         return metrics
 
     @staticmethod
-    def _get_metric_from_line(metric_name, metric_line, exp_id):
+    def _get_metric_from_line(
+        run_id: str, metric_name: str, metric_line: str, exp_id: str
+    ) -> Metric:
         metric_parts = metric_line.strip().split(" ")
-        if len(metric_parts) != 2 and len(metric_parts) != 3:
+        if len(metric_parts) != 2 and len(metric_parts) != 3 and len(metric_parts) != 5:
             raise MlflowException(
                 f"Metric '{metric_name}' is malformed; persisted metric data contained "
-                f"{len(metric_parts)} fields. Expected 2 or 3 fields. "
+                f"{len(metric_parts)} fields. Expected 2, 3, or 5 fields. "
                 f"Experiment id: {exp_id}",
                 databricks_pb2.INTERNAL_ERROR,
             )
         ts = int(metric_parts[0])
         val = float(metric_parts[1])
         step = int(metric_parts[2]) if len(metric_parts) == 3 else 0
-        return Metric(key=metric_name, value=val, timestamp=ts, step=step)
+        dataset_name = str(metric_parts[3]) if len(metric_parts) == 5 else None
+        dataset_digest = str(metric_parts[4]) if len(metric_parts) == 5 else None
+        return Metric(
+            key=metric_name,
+            value=val,
+            timestamp=ts,
+            step=step,
+            dataset_name=dataset_name,
+            dataset_digest=dataset_digest,
+            run_id=run_id,
+        )
 
     def get_metric_history(self, run_id, metric_key, max_results=None, page_token=None):
         """
@@ -825,27 +877,15 @@ class FileStore(AbstractStore):
         Args:
             run_id: Unique identifier for run.
             metric_key: Metric name within the run.
-            max_results: An indicator for paginated results. This functionality is not
-                implemented for FileStore and is unused in this store's implementation.
-            page_token: An indicator for paginated results. This functionality is not
-                implemented for FileStore and if the value is overridden with a value other than
-                ``None``, an MlflowException will be thrown.
+            max_results: An indicator for paginated results.
+            page_token: Token indicating the page of metric history to fetch.
 
         Returns:
-            A List of :py:class:`mlflow.entities.Metric` entities if ``metric_key`` values
+            A :py:class:`mlflow.store.entities.paged_list.PagedList` of
+            :py:class:`mlflow.entities.Metric` entities if ``metric_key`` values
             have been logged to the ``run_id``, else an empty list.
 
         """
-        # NB: The FileStore does not currently support pagination for this API.
-        # Raise if `page_token` is specified, as the functionality to support paged queries
-        # is not implemented.
-        if page_token is not None:
-            raise MlflowException(
-                "The FileStore backend does not support pagination for the "
-                f"`get_metric_history` API. Supplied argument `page_token` '{page_token}' must "
-                "be `None`."
-            )
-
         _validate_run_id(run_id)
         _validate_metric_name(metric_key)
         run_info = self._get_run_info(run_id)
@@ -853,13 +893,23 @@ class FileStore(AbstractStore):
         parent_path, metric_files = self._get_run_files(run_info, "metric")
         if metric_key not in metric_files:
             return PagedList([], None)
-        return PagedList(
-            [
-                FileStore._get_metric_from_line(metric_key, line, run_info.experiment_id)
-                for line in read_file_lines(parent_path, metric_key)
-            ],
-            None,
-        )
+
+        all_lines = read_file_lines(parent_path, metric_key)
+
+        all_metrics = [
+            FileStore._get_metric_from_line(run_id, metric_key, line, run_info.experiment_id)
+            for line in all_lines
+        ]
+
+        if max_results is None:
+            # If no max_results specified, return all metrics but handle page_token if provided
+            offset = SearchUtils.parse_start_offset_from_page_token(page_token)
+            metrics = all_metrics[offset:]
+            next_page_token = None
+        else:
+            metrics, next_page_token = SearchUtils.paginate(all_metrics, page_token, max_results)
+
+        return PagedList(metrics, next_page_token)
 
     @staticmethod
     def _get_param_from_file(parent_path, param_name):
@@ -978,17 +1028,45 @@ class FileStore(AbstractStore):
         runs, next_page_token = SearchUtils.paginate(sorted_runs, page_token, max_results)
         return runs, next_page_token
 
-    def log_metric(self, run_id, metric):
+    def log_metric(self, run_id: str, metric: Metric):
         _validate_run_id(run_id)
         _validate_metric(metric.key, metric.value, metric.timestamp, metric.step)
         run_info = self._get_run_info(run_id)
         check_run_is_active(run_info)
         self._log_run_metric(run_info, metric)
+        if metric.model_id is not None:
+            self._log_model_metric(
+                experiment_id=run_info.experiment_id,
+                model_id=metric.model_id,
+                run_id=run_id,
+                metric=metric,
+            )
 
     def _log_run_metric(self, run_info, metric):
         metric_path = self._get_metric_path(run_info.experiment_id, run_info.run_id, metric.key)
         make_containing_dirs(metric_path)
-        append_to(metric_path, f"{metric.timestamp} {metric.value} {metric.step}\n")
+        if metric.dataset_name is not None and metric.dataset_digest is not None:
+            append_to(
+                metric_path,
+                f"{metric.timestamp} {metric.value} {metric.step} {metric.dataset_name} "
+                f"{metric.dataset_digest}\n",
+            )
+        else:
+            append_to(metric_path, f"{metric.timestamp} {metric.value} {metric.step}\n")
+
+    def _log_model_metric(self, experiment_id: str, model_id: str, run_id: str, metric: Metric):
+        metric_path = self._get_model_metric_path(
+            experiment_id=experiment_id, model_id=model_id, metric_key=metric.key
+        )
+        make_containing_dirs(metric_path)
+        if metric.dataset_name is not None and metric.dataset_digest is not None:
+            append_to(
+                metric_path,
+                f"{metric.timestamp} {metric.value} {metric.step} {run_id} {metric.dataset_name} "
+                f"{metric.dataset_digest}\n",
+            )
+        else:
+            append_to(metric_path, f"{metric.timestamp} {metric.value} {metric.step} {run_id}\n")
 
     def _writeable_value(self, tag_value):
         if tag_value is None:
@@ -1110,6 +1188,13 @@ class FileStore(AbstractStore):
                 self._log_run_param(run_info, param)
             for metric in metrics:
                 self._log_run_metric(run_info, metric)
+                if metric.model_id is not None:
+                    self._log_model_metric(
+                        experiment_id=run_info.experiment_id,
+                        model_id=metric.model_id,
+                        run_id=run_id,
+                        metric=metric,
+                    )
             for tag in tags:
                 # NB: If the tag run name value is set, update the run info to assure
                 # synchronization.
@@ -1145,13 +1230,20 @@ class FileStore(AbstractStore):
         except Exception as e:
             raise MlflowException(e, INTERNAL_ERROR)
 
-    def log_inputs(self, run_id: str, datasets: Optional[list[DatasetInput]] = None):
+    def log_inputs(
+        self,
+        run_id: str,
+        datasets: Optional[list[DatasetInput]] = None,
+        models: Optional[list[LoggedModelInput]] = None,
+    ):
         """
-        Log inputs, such as datasets, to the specified run.
+        Log inputs, such as datasets and models, to the specified run.
 
         Args:
             run_id: String id for the run
             datasets: List of :py:class:`mlflow.entities.DatasetInput` instances to log
+                as inputs to the run.
+            models: List of :py:class:`mlflow.entities.LoggedModelInput` instances to log
                 as inputs to the run.
 
         Returns:
@@ -1161,13 +1253,13 @@ class FileStore(AbstractStore):
         run_info = self._get_run_info(run_id)
         check_run_is_active(run_info)
 
-        if datasets is None:
+        if datasets is None and models is None:
             return
 
         experiment_dir = self._get_experiment_path(run_info.experiment_id, assert_exists=True)
         run_dir = self._get_run_dir(run_info.experiment_id, run_id)
 
-        for dataset_input in datasets:
+        for dataset_input in datasets or []:
             dataset = dataset_input.dataset
             dataset_id = FileStore._get_dataset_id(
                 dataset_name=dataset.name, dataset_digest=dataset.digest
@@ -1177,7 +1269,7 @@ class FileStore(AbstractStore):
                 os.makedirs(dataset_dir, exist_ok=True)
                 write_yaml(dataset_dir, FileStore.META_DATA_FILE_NAME, dict(dataset))
 
-            input_id = FileStore._get_input_id(dataset_id=dataset_id, run_id=run_id)
+            input_id = FileStore._get_dataset_input_id(dataset_id=dataset_id, run_id=run_id)
             input_dir = os.path.join(run_dir, FileStore.INPUTS_FOLDER_NAME, input_id)
             if not os.path.exists(input_dir):
                 os.makedirs(input_dir, exist_ok=True)
@@ -1190,6 +1282,57 @@ class FileStore(AbstractStore):
                 )
                 fs_input.write_yaml(input_dir, FileStore.META_DATA_FILE_NAME)
 
+        for model_input in models or []:
+            model_id = model_input.model_id
+            input_id = FileStore._get_model_input_id(model_id=model_id, run_id=run_id)
+            input_dir = os.path.join(run_dir, FileStore.INPUTS_FOLDER_NAME, input_id)
+            if not os.path.exists(input_dir):
+                os.makedirs(input_dir, exist_ok=True)
+                fs_input = FileStore._FileStoreInput(
+                    source_type=InputVertexType.MODEL,
+                    source_id=model_id,
+                    destination_type=InputVertexType.RUN,
+                    destination_id=run_id,
+                    tags={},
+                )
+                fs_input.write_yaml(input_dir, FileStore.META_DATA_FILE_NAME)
+
+    def log_outputs(self, run_id: str, models: list[LoggedModelOutput]):
+        """
+        Log outputs, such as models, to the specified run.
+
+        Args:
+            run_id: String id for the run
+            models: List of :py:class:`mlflow.entities.LoggedModelOutput` instances to log
+                as outputs of the run.
+
+        Returns:
+            None.
+        """
+        _validate_run_id(run_id)
+        run_info = self._get_run_info(run_id)
+        check_run_is_active(run_info)
+
+        if models is None:
+            return
+
+        run_dir = self._get_run_dir(run_info.experiment_id, run_id)
+
+        for model_output in models:
+            model_id = model_output.model_id
+            output_dir = os.path.join(run_dir, FileStore.OUTPUTS_FOLDER_NAME, model_id)
+            if not os.path.exists(output_dir):
+                os.makedirs(output_dir, exist_ok=True)
+                fs_output = FileStore._FileStoreOutput(
+                    source_type=OutputVertexType.RUN_OUTPUT,
+                    source_id=model_id,
+                    destination_type=OutputVertexType.MODEL_OUTPUT,
+                    destination_id=run_id,
+                    tags={},
+                    step=model_output.step,
+                )
+                fs_output.write_yaml(output_dir, FileStore.META_DATA_FILE_NAME)
+
     @staticmethod
     def _get_dataset_id(dataset_name: str, dataset_digest: str) -> str:
         md5 = hashlib.md5(dataset_name.encode("utf-8"), usedforsecurity=False)
@@ -1197,8 +1340,14 @@ class FileStore(AbstractStore):
         return md5.hexdigest()
 
     @staticmethod
-    def _get_input_id(dataset_id: str, run_id: str) -> str:
+    def _get_dataset_input_id(dataset_id: str, run_id: str) -> str:
         md5 = hashlib.md5(dataset_id.encode("utf-8"), usedforsecurity=False)
+        md5.update(run_id.encode("utf-8"))
+        return md5.hexdigest()
+
+    @staticmethod
+    def _get_model_input_id(model_id: str, run_id: str) -> str:
+        md5 = hashlib.md5(model_id.encode("utf-8"), usedforsecurity=False)
         md5.update(run_id.encode("utf-8"))
         return md5.hexdigest()
 
@@ -1230,13 +1379,54 @@ class FileStore(AbstractStore):
                 tags=dict_from_yaml["tags"],
             )
 
+    class _FileStoreOutput(NamedTuple):
+        source_type: int
+        source_id: str
+        destination_type: int
+        destination_id: str
+        tags: dict[str, str]
+        step: int
+
+        def write_yaml(self, root: str, file_name: str):
+            dict_for_yaml = {
+                "source_type": OutputVertexType.Name(self.source_type),
+                "source_id": self.source_id,
+                "destination_type": OutputVertexType.Name(self.destination_type),
+                "destination_id": self.source_id,
+                "tags": self.tags,
+                "step": self.step,
+            }
+            write_yaml(root, file_name, dict_for_yaml)
+
+        @classmethod
+        def from_yaml(cls, root, file_name):
+            dict_from_yaml = FileStore._read_yaml(root, file_name)
+            return cls(
+                source_type=OutputVertexType.Value(dict_from_yaml["source_type"]),
+                source_id=dict_from_yaml["source_id"],
+                destination_type=OutputVertexType.Value(dict_from_yaml["destination_type"]),
+                destination_id=dict_from_yaml["destination_id"],
+                tags=dict_from_yaml["tags"],
+                step=dict_from_yaml["step"],
+            )
+
     def _get_all_inputs(self, run_info: RunInfo) -> RunInputs:
         run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_id)
         inputs_parent_path = os.path.join(run_dir, FileStore.INPUTS_FOLDER_NAME)
+        if not os.path.exists(inputs_parent_path):
+            return RunInputs(dataset_inputs=[], model_inputs=[])
+
         experiment_dir = self._get_experiment_path(run_info.experiment_id, assert_exists=True)
-        datasets_parent_path = os.path.join(experiment_dir, FileStore.DATASETS_FOLDER_NAME)
-        if not os.path.exists(inputs_parent_path) or not os.path.exists(datasets_parent_path):
-            return RunInputs(dataset_inputs=[])
+        dataset_inputs = self._get_dataset_inputs(run_info, inputs_parent_path, experiment_dir)
+        model_inputs = self._get_model_inputs(inputs_parent_path, experiment_dir)
+        return RunInputs(dataset_inputs=dataset_inputs, model_inputs=model_inputs)
+
+    def _get_dataset_inputs(
+        self, run_info: RunInfo, inputs_parent_path: str, experiment_dir_path: str
+    ) -> list[DatasetInput]:
+        datasets_parent_path = os.path.join(experiment_dir_path, FileStore.DATASETS_FOLDER_NAME)
+        if not os.path.exists(datasets_parent_path):
+            return []
 
         dataset_dirs = os.listdir(datasets_parent_path)
         dataset_inputs = []
@@ -1246,9 +1436,6 @@ class FileStore(AbstractStore):
                 input_dir_full_path, FileStore.META_DATA_FILE_NAME
             )
             if fs_input.source_type != InputVertexType.DATASET:
-                logging.warning(
-                    f"Encountered invalid run input source type '{fs_input.source_type}'. Skipping."
-                )
                 continue
 
             matching_dataset_dirs = [d for d in dataset_dirs if d == fs_input.source_id]
@@ -1271,7 +1458,51 @@ class FileStore(AbstractStore):
             )
             dataset_inputs.append(dataset_input)
 
-        return RunInputs(dataset_inputs=dataset_inputs)
+        return dataset_inputs
+
+    def _get_model_inputs(
+        self, inputs_parent_path: str, experiment_dir_path: str
+    ) -> list[LoggedModelInput]:
+        model_inputs = []
+        for input_dir in os.listdir(inputs_parent_path):
+            input_dir_full_path = os.path.join(inputs_parent_path, input_dir)
+            fs_input = FileStore._FileStoreInput.from_yaml(
+                input_dir_full_path, FileStore.META_DATA_FILE_NAME
+            )
+            if fs_input.source_type != InputVertexType.MODEL:
+                continue
+
+            model_input = LoggedModelInput(model_id=fs_input.source_id)
+            model_inputs.append(model_input)
+
+        return model_inputs
+
+    def _get_all_outputs(self, run_info: RunInfo) -> RunOutputs:
+        run_dir = self._get_run_dir(run_info.experiment_id, run_info.run_id)
+        outputs_parent_path = os.path.join(run_dir, FileStore.OUTPUTS_FOLDER_NAME)
+        if not os.path.exists(outputs_parent_path):
+            return RunOutputs(model_outputs=[])
+
+        experiment_dir = self._get_experiment_path(run_info.experiment_id, assert_exists=True)
+        model_outputs = self._get_model_outputs(outputs_parent_path, experiment_dir)
+        return RunOutputs(model_outputs=model_outputs)
+
+    def _get_model_outputs(
+        self, outputs_parent_path: str, experiment_dir: str
+    ) -> list[LoggedModelOutput]:
+        model_outputs = []
+        for output_dir in os.listdir(outputs_parent_path):
+            output_dir_full_path = os.path.join(outputs_parent_path, output_dir)
+            fs_output = FileStore._FileStoreOutput.from_yaml(
+                output_dir_full_path, FileStore.META_DATA_FILE_NAME
+            )
+            if fs_output.destination_type != OutputVertexType.MODEL_OUTPUT:
+                continue
+
+            model_output = LoggedModelOutput(model_id=fs_output.destination_id, step=fs_output.step)
+            model_outputs.append(model_output)
+
+        return model_outputs
 
     def _search_datasets(self, experiment_ids) -> list[_DatasetSummary]:
         """
@@ -1373,71 +1604,29 @@ class FileStore(AbstractStore):
 
         return _read_helper(root, file_name, attempts_remaining=retries)
 
-    def _get_traces_artifact_dir(self, experiment_id, request_id):
+    def _get_traces_artifact_dir(self, experiment_id, trace_id):
         return append_to_uri_path(
             self.get_experiment(experiment_id).artifact_location,
             FileStore.TRACES_FOLDER_NAME,
-            request_id,
+            trace_id,
             FileStore.ARTIFACTS_FOLDER_NAME,
         )
-
-    def start_trace(
-        self,
-        experiment_id: str,
-        timestamp_ms: int,
-        request_metadata: dict[str, str],
-        tags: dict[str, str],
-    ) -> TraceInfo:
-        """
-        Start an initial TraceInfo object in the backend store.
-
-        Args:
-            experiment_id: String id of the experiment for this run.
-            timestamp_ms: Start time of the trace, in milliseconds since the UNIX epoch.
-            request_metadata: Metadata of the trace.
-            tags: Tags of the trace.
-
-        Returns:
-            The created TraceInfo object.
-        """
-        request_id = generate_request_id()
-        _validate_experiment_id(experiment_id)
-        experiment_dir = self._get_experiment_path(
-            experiment_id, view_type=ViewType.ACTIVE_ONLY, assert_exists=True
-        )
-        mkdir(experiment_dir, FileStore.TRACES_FOLDER_NAME)
-        traces_dir = os.path.join(experiment_dir, FileStore.TRACES_FOLDER_NAME)
-        mkdir(traces_dir, request_id)
-        trace_dir = os.path.join(traces_dir, request_id)
-        artifact_uri = self._get_traces_artifact_dir(experiment_id, request_id)
-        tags.update({MLFLOW_ARTIFACT_LOCATION: artifact_uri})
-        trace_info = TraceInfo(
-            request_id=request_id,
-            experiment_id=experiment_id,
-            timestamp_ms=timestamp_ms,
-            execution_time_ms=None,
-            status=TraceStatus.IN_PROGRESS,
-            request_metadata=request_metadata,
-            tags=tags,
-        )
-        self._save_trace_info(trace_info, trace_dir)
-        return trace_info
 
     def _save_trace_info(self, trace_info: TraceInfo, trace_dir, overwrite=False):
         """
         TraceInfo is saved into `traces` folder under the experiment, each trace
-        is saved in the folder named by its request_id.
+        is saved in the folder named by its trace_id.
         `request_metadata` and `tags` folder store their key-value pairs such that each
         key is the file name, and value is written as the string value.
         Detailed directories structure is as below:
         | - experiment_id
         |   - traces
-        |     - request_id1
+        |     - trace_id1
         |       - trace_info.yaml
         |       - request_metadata
         |         - key
         |       - tags
-        |     - request_id2
+        |     - trace_id2
         |     - ...
         |   - run_id1 ...
         |   - run_id2 ...
@@ -1450,11 +1639,11 @@ class FileStore(AbstractStore):
             trace_info_dict,
             overwrite=overwrite,
         )
-        # Save request_metadata to its own folder
+        # Save trace_metadata to its own folder
         self._write_dict_to_trace_sub_folder(
             trace_dir,
-            FileStore.TRACE_REQUEST_METADATA_FOLDER_NAME,
-            trace_info.request_metadata,
+            FileStore.TRACE_TRACE_METADATA_FOLDER_NAME,
+            trace_info.trace_metadata,
         )
         # Save tags to its own folder
         self._write_dict_to_trace_sub_folder(
@@ -1467,7 +1656,7 @@ class FileStore(AbstractStore):
         Drop request_metadata and tags as they're saved into separate files.
         """
         trace_info_dict = trace_info.to_dict()
-        trace_info_dict.pop("request_metadata", None)
+        trace_info_dict.pop("trace_metadata", None)
         trace_info_dict.pop("tags", None)
         return trace_info_dict
 
@@ -1489,78 +1678,70 @@ class FileStore(AbstractStore):
             dictionary[file_name] = value
         return dictionary
 
-    def end_trace(
-        self,
-        request_id: str,
-        timestamp_ms: int,
-        status: TraceStatus,
-        request_metadata: dict[str, str],
-        tags: dict[str, str],
-    ) -> TraceInfo:
+    def start_trace(self, trace_info: TraceInfo) -> TraceInfo:
         """
-        Update the TraceInfo object in the backend store with the completed trace info.
+        Create a trace using the V3 API format with a complete Trace object.
 
         Args:
-            request_id : Unique string identifier of the trace.
-            timestamp_ms: End time of the trace, in milliseconds. The execution time field
-                in the TraceInfo will be calculated by subtracting the start time from this.
-            status: Status of the trace.
-            request_metadata: Metadata of the trace. This will be merged with the existing
-                metadata logged during the start_trace call.
-            tags: Tags of the trace. This will be merged with the existing tags logged
-                during the start_trace or set_trace_tag calls.
+            trace_info: The TraceInfo object to create in the backend.
 
         Returns:
-            The updated TraceInfo object.
+            The created TraceInfo object from the backend.
         """
-        trace_info, trace_dir = self._get_trace_info_and_dir(request_id)
-        trace_info.execution_time_ms = timestamp_ms - trace_info.timestamp_ms
-        trace_info.status = status
-        trace_info.request_metadata.update(request_metadata)
+        _validate_experiment_id(trace_info.experiment_id)
+        experiment_dir = self._get_experiment_path(
+            trace_info.experiment_id, view_type=ViewType.ACTIVE_ONLY, assert_exists=True
+        )
+
+        # Create traces directory structure
+        mkdir(experiment_dir, FileStore.TRACES_FOLDER_NAME)
+        traces_dir = os.path.join(experiment_dir, FileStore.TRACES_FOLDER_NAME)
+        mkdir(traces_dir, trace_info.trace_id)
+        trace_dir = os.path.join(traces_dir, trace_info.trace_id)
+
+        # Add artifact location to tags
+        artifact_uri = self._get_traces_artifact_dir(trace_info.experiment_id, trace_info.trace_id)
+        tags = dict(trace_info.tags)
+        tags[MLFLOW_ARTIFACT_LOCATION] = artifact_uri
+
+        # Create updated TraceInfo with artifact location tag
         trace_info.tags.update(tags)
-        self._save_trace_info(trace_info, trace_dir, overwrite=True)
+        self._save_trace_info(trace_info, trace_dir)
         return trace_info
 
-    def get_trace_info(self, request_id: str, should_query_v3: bool = False) -> TraceInfo:
+    def get_trace_info(self, trace_id: str) -> TraceInfo:
         """
-        Get the trace matching the `request_id`.
+        Get the trace matching the `trace_id`.
 
         Args:
-            request_id: String id of the trace to fetch.
-            should_query_v3: If True, the backend store will query the V3 API for the trace info.
-                TODO: Remove this flag once the V3 API is the default in OSS.
+            trace_id: String id of the trace to fetch.
 
         Returns:
             The fetched Trace object, of type ``mlflow.entities.TraceInfo``.
         """
-        if should_query_v3:
-            raise MlflowException.invalid_parameter_value(
-                "GetTraceInfoV3 API is not supported in the FileStore backend.",
-            )
+        return self._get_trace_info_and_dir(trace_id)[0]
 
-        return self._get_trace_info_and_dir(request_id)[0]
-
-    def _get_trace_info_and_dir(self, request_id: str) -> tuple[TraceInfo, str]:
-        trace_dir = self._find_trace_dir(request_id, assert_exists=True)
+    def _get_trace_info_and_dir(self, trace_id: str) -> tuple[TraceInfo, str]:
+        trace_dir = self._find_trace_dir(trace_id, assert_exists=True)
         trace_info = self._get_trace_info_from_dir(trace_dir)
-        if trace_info and trace_info.request_id != request_id:
+        if trace_info and trace_info.trace_id != trace_id:
             raise MlflowException(
-                f"Trace with request ID '{request_id}' metadata is in invalid state.",
+                f"Trace with ID '{trace_id}' metadata is in invalid state.",
                 databricks_pb2.INVALID_STATE,
             )
         return trace_info, trace_dir
 
-    def _find_trace_dir(self, request_id, assert_exists=False):
+    def _find_trace_dir(self, trace_id, assert_exists=False):
         self._check_root_dir()
         all_experiments = self._get_active_experiments(True) + self._get_deleted_experiments(True)
         for experiment_dir in all_experiments:
             traces_dir = os.path.join(experiment_dir, FileStore.TRACES_FOLDER_NAME)
             if exists(traces_dir):
-                if traces := find(traces_dir, request_id, full_path=True):
+                if traces := find(traces_dir, trace_id, full_path=True):
                     return traces[0]
         if assert_exists:
             raise MlflowException(
-                f"Trace with request ID '{request_id}' not found",
+                f"Trace with ID '{trace_id}' not found",
                 RESOURCE_DOES_NOT_EXIST,
             )
 
@@ -1569,42 +1750,42 @@ class FileStore(AbstractStore):
             return None
         trace_info_dict = FileStore._read_yaml(trace_dir, FileStore.TRACE_INFO_FILE_NAME)
         trace_info = TraceInfo.from_dict(trace_info_dict)
-        trace_info.request_metadata = self._get_dict_from_trace_sub_folder(
-            trace_dir, FileStore.TRACE_REQUEST_METADATA_FOLDER_NAME
+        trace_info.trace_metadata = self._get_dict_from_trace_sub_folder(
+            trace_dir, FileStore.TRACE_TRACE_METADATA_FOLDER_NAME
         )
         trace_info.tags = self._get_dict_from_trace_sub_folder(
             trace_dir, FileStore.TRACE_TAGS_FOLDER_NAME
         )
         return trace_info
 
-    def set_trace_tag(self, request_id: str, key: str, value: str):
+    def set_trace_tag(self, trace_id: str, key: str, value: str):
         """
-        Set a tag on the trace with the given request_id.
+        Set a tag on the trace with the given trace_id.
 
         Args:
-            request_id: The ID of the trace.
+            trace_id: The ID of the trace.
             key: The string key of the tag.
             value: The string value of the tag.
         """
-        trace_dir = self._find_trace_dir(request_id, assert_exists=True)
+        trace_dir = self._find_trace_dir(trace_id, assert_exists=True)
         self._write_dict_to_trace_sub_folder(
             trace_dir, FileStore.TRACE_TAGS_FOLDER_NAME, {key: value}
         )
 
-    def delete_trace_tag(self, request_id: str, key: str):
+    def delete_trace_tag(self, trace_id: str, key: str):
         """
-        Delete a tag on the trace with the given request_id.
+        Delete a tag on the trace with the given trace_id.
 
         Args:
-            request_id: The ID of the trace.
+            trace_id: The ID of the trace.
             key: The string key of the tag.
         """
         _validate_tag_name(key)
-        trace_dir = self._find_trace_dir(request_id, assert_exists=True)
+        trace_dir = self._find_trace_dir(trace_id, assert_exists=True)
         tag_path = os.path.join(trace_dir, FileStore.TRACE_TAGS_FOLDER_NAME, key)
         if not exists(tag_path):
             raise MlflowException(
-                f"No tag with name: {key} in trace with request_id {request_id}.",
+                f"No tag with name: {key} in trace with ID {trace_id}.",
                 RESOURCE_DOES_NOT_EXIST,
             )
         os.remove(tag_path)
@@ -1614,13 +1795,13 @@ class FileStore(AbstractStore):
         experiment_id: str,
         max_timestamp_millis: Optional[int] = None,
         max_traces: Optional[int] = None,
-        request_ids: Optional[list[str]] = None,
+        trace_ids: Optional[list[str]] = None,
     ) -> int:
         """
         Delete traces based on the specified criteria.
 
-        - Either `max_timestamp_millis` or `request_ids` must be specified, but not both.
-        - `max_traces` can't be specified if `request_ids` is specified.
+        - Either `max_timestamp_millis` or `trace_ids` must be specified, but not both.
+        - `max_traces` can't be specified if `trace_ids` is specified.
 
         Args:
             experiment_id: ID of the associated experiment.
@@ -1629,7 +1810,7 @@ class FileStore(AbstractStore):
             max_traces: The maximum number of traces to delete. If max_traces is specified, and
                 it is less than the number of traces that would be deleted based on the
                 max_timestamp_millis, the oldest traces will be deleted first.
-            request_ids: A set of request IDs to delete.
+            trace_ids: A set of trace IDs to delete.
 
         Returns:
             The number of traces deleted.
@@ -1647,9 +1828,9 @@ class FileStore(AbstractStore):
                         trace_info_and_paths.append((trace_info, trace_path))
                 except MissingConfigException as e:
                     # trap malformed trace exception and log warning
-                    request_id = os.path.basename(trace_path)
+                    trace_id = os.path.basename(trace_path)
                     _logger.warning(
-                        f"Malformed trace with request_id '{request_id}'. Detailed error {e}",
+                        f"Malformed trace with ID '{trace_id}'. Detailed error {e}",
                         exc_info=_logger.isEnabledFor(logging.DEBUG),
                     )
             trace_info_and_paths.sort(key=lambda x: x[0].timestamp_ms)
@@ -1659,9 +1840,9 @@ class FileStore(AbstractStore):
             for _, trace_path in trace_info_and_paths:
                 shutil.rmtree(trace_path)
             return deleted_traces
-        if request_ids:
-            for request_id in request_ids:
-                trace_path = os.path.join(traces_path, request_id)
+        if trace_ids:
+            for trace_id in trace_ids:
+                trace_path = os.path.join(traces_path, trace_id)
                 # Do not throw if the trace doesn't exist
                 if exists(trace_path):
                     shutil.rmtree(trace_path)
@@ -1675,7 +1856,9 @@ class FileStore(AbstractStore):
         max_results: int = SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         order_by: Optional[list[str]] = None,
         page_token: Optional[str] = None,
-    ):
+        model_id: Optional[str] = None,
+        sql_warehouse_id: Optional[str] = None,
+    ) -> tuple[list[TraceInfo], Optional[str]]:
         """
         Return traces that match the given list of search expressions within the experiments.
 
@@ -1688,6 +1871,9 @@ class FileStore(AbstractStore):
                       we sort by timestamp_ms DESC.
             page_token: Token specifying the next page of results. It should be obtained from
                 a ``search_traces`` call.
+            model_id: If specified, return traces associated with the model ID.
+            sql_warehouse_id: Only used in Databricks. The ID of the SQL warehouse to use for
+                searching traces in inference tables.
 
         Returns:
             A tuple of a list of :py:class:`TraceInfo <mlflow.entities.TraceInfo>` objects that
@@ -1725,9 +1911,523 @@ class FileStore(AbstractStore):
                     trace_infos.append(trace_info)
             except MissingConfigException as e:
                 # trap malformed trace exception and log warning
-                request_id = os.path.basename(trace_path)
+                trace_id = os.path.basename(trace_path)
                 logging.warning(
-                    f"Malformed trace with request_id '{request_id}'. Detailed error {e}",
+                    f"Malformed trace with ID '{trace_id}'. Detailed error {e}",
                     exc_info=_logger.isEnabledFor(logging.DEBUG),
                 )
         return trace_infos
+
+    def create_logged_model(
+        self,
+        experiment_id: str = DEFAULT_EXPERIMENT_ID,
+        name: Optional[str] = None,
+        source_run_id: Optional[str] = None,
+        tags: Optional[list[LoggedModelTag]] = None,
+        params: Optional[list[LoggedModelParameter]] = None,
+        model_type: Optional[str] = None,
+    ) -> LoggedModel:
+        """
+        Create a new logged model.
+
+        Args:
+            experiment_id: ID of the experiment to which the model belongs.
+            name: Name of the model. If not specified, a random name will be generated.
+            source_run_id: ID of the run that produced the model.
+            tags: Tags to set on the model.
+            params: Parameters to set on the model.
+            model_type: Type of the model.
+
+        Returns:
+            The created model.
+        """
+        _validate_logged_model_name(name)
+        experiment = self.get_experiment(experiment_id)
+        if experiment is None:
+            raise MlflowException(
+                f"Could not create model under experiment with ID {experiment_id} - no such "
+                "experiment exists." % experiment_id,
+                databricks_pb2.RESOURCE_DOES_NOT_EXIST,
+            )
+        if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
+            raise MlflowException(
+                f"Could not create model under non-active experiment with ID {experiment_id}.",
+                databricks_pb2.INVALID_STATE,
+            )
+        for param in params or []:
+            _validate_param(param.key, param.value)
+
+        name = name or _generate_random_name()
+        model_id = f"m-{str(uuid.uuid4()).replace('-', '')}"
+        artifact_location = self._get_model_artifact_dir(experiment_id, model_id)
+        creation_timestamp = int(time.time() * 1000)
+        model = LoggedModel(
+            experiment_id=experiment_id,
+            model_id=model_id,
+            name=name,
+            artifact_location=artifact_location,
+            creation_timestamp=creation_timestamp,
+            last_updated_timestamp=creation_timestamp,
+            source_run_id=source_run_id,
+            status=LoggedModelStatus.PENDING,
+            tags=tags,
+            params=params,
+            model_type=model_type,
+        )
+
+        # Persist model metadata and create directories for logging metrics, tags
+        model_dir = self._get_model_dir(experiment_id, model_id)
+        mkdir(model_dir)
+        model_info_dict: dict[str, Any] = self._make_persisted_model_dict(model)
+        model_info_dict["lifecycle_stage"] = LifecycleStage.ACTIVE
+        write_yaml(model_dir, FileStore.META_DATA_FILE_NAME, model_info_dict)
+        mkdir(model_dir, FileStore.METRICS_FOLDER_NAME)
+        mkdir(model_dir, FileStore.PARAMS_FOLDER_NAME)
+        self.log_logged_model_params(model_id=model_id, params=params or [])
+        self.set_logged_model_tags(model_id=model_id, tags=tags or [])
+
+        return self.get_logged_model(model_id=model_id)
+
+    def log_logged_model_params(self, model_id: str, params: list[LoggedModelParameter]):
+        """
+        Set parameters on the specified logged model.
+
+        Args:
+            model_id: ID of the model.
+            params: Parameters to set on the model.
+
+        Returns:
+            None
+        """
+        for param in params or []:
+            _validate_param(param.key, param.value)
+
+        model = self.get_logged_model(model_id)
+        for param in params:
+            param_path = os.path.join(
+                self._get_model_dir(model.experiment_id, model.model_id),
+                FileStore.PARAMS_FOLDER_NAME,
+                param.key,
+            )
+            make_containing_dirs(param_path)
+            # Don't add trailing newline
+            write_to(param_path, self._writeable_value(param.value))
+
+    def finalize_logged_model(self, model_id: str, status: LoggedModelStatus) -> LoggedModel:
+        """
+        Finalize a model by updating its status.
+
+        Args:
+            model_id: ID of the model to finalize.
+            status: Final status to set on the model.
+
+        Returns:
+            The updated model.
+        """
+        model_dict = self._get_model_dict(model_id)
+        model = LoggedModel.from_dictionary(model_dict)
+        model.status = status
+        model.last_updated_timestamp = int(time.time() * 1000)
+        model_dir = self._get_model_dir(model.experiment_id, model.model_id)
+        model_info_dict = self._make_persisted_model_dict(model)
+        write_yaml(model_dir, FileStore.META_DATA_FILE_NAME, model_info_dict, overwrite=True)
+        return self.get_logged_model(model_id)
+
+    def set_logged_model_tags(self, model_id: str, tags: list[LoggedModelTag]) -> None:
+        """
+        Set tags on the specified logged model.
+
+        Args:
+            model_id: ID of the model.
+            tags: Tags to set on the model.
+
+        Returns:
+            None
+        """
+        model = self.get_logged_model(model_id)
+        for tag in tags:
+            _validate_tag_name(tag.key)
+            tag_path = os.path.join(
+                self._get_model_dir(model.experiment_id, model.model_id),
+                FileStore.TAGS_FOLDER_NAME,
+                tag.key,
+            )
+            make_containing_dirs(tag_path)
+            # Don't add trailing newline
+            write_to(tag_path, self._writeable_value(tag.value))
+
+    def delete_logged_model_tag(self, model_id: str, key: str) -> None:
+        """
+        Delete a tag on the specified logged model.
+
+        Args:
+            model_id: ID of the model.
+            key: The string key of the tag.
+
+        Returns:
+            None
+        """
+        _validate_tag_name(key)
+        model = self.get_logged_model(model_id)
+        tag_path = os.path.join(
+            self._get_model_dir(model.experiment_id, model.model_id),
+            FileStore.TAGS_FOLDER_NAME,
+            key,
+        )
+        if not exists(tag_path):
+            raise MlflowException(
+                f"No tag with key {key!r} found for model with ID {model_id!r}.",
+                RESOURCE_DOES_NOT_EXIST,
+            )
+        os.remove(tag_path)
+
+    def get_logged_model(self, model_id: str) -> LoggedModel:
+        """
+        Fetch the logged model with the specified ID.
+
+        Args:
+            model_id: ID of the model to fetch.
+
+        Returns:
+            The fetched model.
+        """
+        return LoggedModel.from_dictionary(self._get_model_dict(model_id))
+
+    def delete_logged_model(self, model_id: str) -> None:
+        model = self.get_logged_model(model_id)
+        model_dict = self._make_persisted_model_dict(model)
+        model_dict["lifecycle_stage"] = LifecycleStage.DELETED
+        model_dir = self._get_model_dir(model.experiment_id, model.model_id)
+        write_yaml(
+            model_dir,
+            FileStore.META_DATA_FILE_NAME,
+            model_dict,
+            overwrite=True,
+        )
+
+    def _get_model_artifact_dir(self, experiment_id: str, model_id: str) -> str:
+        return append_to_uri_path(
+            self.get_experiment(experiment_id).artifact_location,
+            FileStore.MODELS_FOLDER_NAME,
+            model_id,
+            FileStore.ARTIFACTS_FOLDER_NAME,
+        )
+
+    def _make_persisted_model_dict(self, model: LoggedModel) -> dict[str, Any]:
+        model_dict = model.to_dictionary()
+        for field in ("tags", "params", "metrics"):
+            model_dict.pop(field, None)
+        return model_dict
+
+    def _get_model_dict(self, model_id: str) -> dict[str, Any]:
+        exp_id, model_dir = self._find_model_root(model_id)
+        if model_dir is None:
+            raise MlflowException(
+                f"Model '{model_id}' not found", databricks_pb2.RESOURCE_DOES_NOT_EXIST
+            )
+        model_dict: dict[str, Any] = self._get_model_info_from_dir(model_dir)
+        if model_dict.get("lifecycle_stage") == LifecycleStage.DELETED:
+            raise MlflowException(
+                f"Model '{model_id}' not found", databricks_pb2.RESOURCE_DOES_NOT_EXIST
+            )
+
+        if model_dict["experiment_id"] != exp_id:
+            raise MlflowException(
+                f"Model '{model_id}' metadata is in invalid state.", databricks_pb2.INVALID_STATE
+            )
+        return model_dict
+
+    def _get_model_dir(self, experiment_id: str, model_id: str) -> str:
+        if not self._has_experiment(experiment_id):
+            return None
+        return os.path.join(
+            self._get_experiment_path(experiment_id, assert_exists=True),
+            FileStore.MODELS_FOLDER_NAME,
+            model_id,
+        )
+
+    def _find_model_root(self, model_id):
+        self._check_root_dir()
+        all_experiments = self._get_active_experiments(False) + self._get_deleted_experiments(False)
+        for experiment_dir in all_experiments:
+            models_dir_path = os.path.join(
+                self.root_directory, experiment_dir, FileStore.MODELS_FOLDER_NAME
+            )
+            if not os.path.exists(models_dir_path):
+                continue
+            models = find(models_dir_path, model_id, full_path=True)
+            if len(models) == 0:
+                continue
+            return os.path.basename(os.path.dirname(os.path.abspath(models_dir_path))), models[0]
+        return None, None
+
+    def _get_model_from_dir(self, model_dir: str) -> LoggedModel:
+        return LoggedModel.from_dictionary(self._get_model_info_from_dir(model_dir))
+
+    def _get_model_info_from_dir(self, model_dir: str) -> dict[str, Any]:
+        model_dict = FileStore._read_yaml(model_dir, FileStore.META_DATA_FILE_NAME)
+        model_dict["tags"] = self._get_all_model_tags(model_dir)
+        model_dict["params"] = {p.key: p.value for p in self._get_all_model_params(model_dir)}
+        model_dict["metrics"] = self._get_all_model_metrics(
+            model_id=model_dict["model_id"], model_dir=model_dir
+        )
+        return model_dict
+
+    def _get_all_model_tags(self, model_dir: str) -> list[LoggedModelTag]:
+        parent_path, tag_files = self._get_resource_files(model_dir, FileStore.TAGS_FOLDER_NAME)
+        tags = []
+        for tag_file in tag_files:
+            tags.append(self._get_tag_from_file(parent_path, tag_file))
+        return tags
+
+    def _get_all_model_params(self, model_dir: str) -> list[LoggedModelParameter]:
+        parent_path, param_files = self._get_resource_files(model_dir, FileStore.PARAMS_FOLDER_NAME)
+        return [self._get_param_from_file(parent_path, param_file) for param_file in param_files]
+
+    def _get_all_model_metrics(self, model_id: str, model_dir: str) -> list[Metric]:
+        parent_path, metric_files = self._get_resource_files(
+            model_dir, FileStore.METRICS_FOLDER_NAME
+        )
+        metrics = []
+        for metric_file in metric_files:
+            metrics.extend(
+                FileStore._get_model_metrics_from_file(
+                    model_id=model_id, parent_path=parent_path, metric_name=metric_file
+                )
+            )
+        return metrics
+
+    @staticmethod
+    def _get_model_metrics_from_file(
+        model_id: str, parent_path: str, metric_name: str
+    ) -> list[Metric]:
+        _validate_metric_name(metric_name)
+        metric_objs = [
+            FileStore._get_model_metric_from_line(model_id, metric_name, line)
+            for line in read_file_lines(parent_path, metric_name)
+        ]
+        if len(metric_objs) == 0:
+            raise ValueError(f"Metric '{metric_name}' is malformed. No data found.")
+
+        # Group metrics by (dataset_name, dataset_digest)
+        grouped_metrics = defaultdict(list)
+        for metric in metric_objs:
+            key = (metric.dataset_name, metric.dataset_digest)
+            grouped_metrics[key].append(metric)
+
+        # Compute the max for each group
+        return [
+            max(group, key=lambda m: (m.step, m.timestamp, m.value))
+            for group in grouped_metrics.values()
+        ]
+
+    @staticmethod
+    def _get_model_metric_from_line(model_id: str, metric_name: str, metric_line: str) -> Metric:
+        metric_parts = metric_line.strip().split(" ")
+        if len(metric_parts) not in [4, 6]:
+            raise MlflowException(
+                f"Metric '{metric_name}' is malformed; persisted metric data contained "
+                f"{len(metric_parts)} fields. Expected 4 or 6 fields.",
+                databricks_pb2.INTERNAL_ERROR,
+            )
+        ts = int(metric_parts[0])
+        val = float(metric_parts[1])
+        step = int(metric_parts[2])
+        run_id = str(metric_parts[3])
+        dataset_name = str(metric_parts[4]) if len(metric_parts) == 6 else None
+        dataset_digest = str(metric_parts[5]) if len(metric_parts) == 6 else None
+        # TODO: Read run ID from the metric file and pass it to the Metric constructor
+        return Metric(
+            key=metric_name,
+            value=val,
+            timestamp=ts,
+            step=step,
+            model_id=model_id,
+            dataset_name=dataset_name,
+            dataset_digest=dataset_digest,
+            run_id=run_id,
+        )
+
+    def search_logged_models(
+        self,
+        experiment_ids: list[str],
+        filter_string: Optional[str] = None,
+        datasets: Optional[list[DatasetFilter]] = None,
+        max_results: Optional[int] = None,
+        order_by: Optional[list[dict[str, Any]]] = None,
+        page_token: Optional[str] = None,
+    ) -> PagedList[LoggedModel]:
+        """
+        Search for logged models that match the specified search criteria.
+
+        Args:
+            experiment_ids: List of experiment ids to scope the search.
+            filter_string: A search filter string.
+            datasets: List of dictionaries to specify datasets on which to apply metrics filters.
+                The following fields are supported:
+
+                dataset_name (str): Required. Name of the dataset.
+                dataset_digest (str): Optional. Digest of the dataset.
+            max_results: Maximum number of logged models desired. Default is 100.
+            order_by: List of dictionaries to specify the ordering of the search results.
+                The following fields are supported:
+
+                field_name (str): Required. Name of the field to order by, e.g. "metrics.accuracy".
+                ascending: (bool): Optional. Whether the order is ascending or not.
+                dataset_name: (str): Optional. If ``field_name`` refers to a metric, this field
+                    specifies the name of the dataset associated with the metric. Only metrics
+                    associated with the specified dataset name will be considered for ordering.
+                    This field may only be set if ``field_name`` refers to a metric.
+                dataset_digest (str): Optional. If ``field_name`` refers to a metric, this field
+                    specifies the digest of the dataset associated with the metric. Only metrics
+                    associated with the specified dataset name and digest will be considered for
+                    ordering. This field may only be set if ``dataset_name`` is also set.
+            page_token: Token specifying the next page of results.
+
+        Returns:
+            A :py:class:`PagedList <mlflow.store.entities.PagedList>` of
+            :py:class:`LoggedModel <mlflow.entities.LoggedModel>` objects.
+        """
+        if datasets and not all(d.get("dataset_name") for d in datasets):
+            raise MlflowException(
+                "`dataset_name` in the `datasets` clause must be specified.",
+                INVALID_PARAMETER_VALUE,
+            )
+        max_results = max_results or SEARCH_LOGGED_MODEL_MAX_RESULTS_DEFAULT
+        all_models = []
+        for experiment_id in experiment_ids:
+            models = self._list_models(experiment_id)
+            all_models.extend(models)
+        filtered = SearchLoggedModelsUtils.filter_logged_models(all_models, filter_string, datasets)
+        sorted_logged_models = SearchLoggedModelsUtils.sort(filtered, order_by)
+        logged_models, next_page_token = SearchLoggedModelsUtils.paginate(
+            sorted_logged_models, page_token, max_results
+        )
+        return PagedList(logged_models, next_page_token)
+
+    def _list_models(self, experiment_id: str) -> list[LoggedModel]:
+        self._check_root_dir()
+        if not self._has_experiment(experiment_id):
+            return []
+        experiment_dir = self._get_experiment_path(experiment_id, assert_exists=True)
+        models_folder = os.path.join(experiment_dir, FileStore.MODELS_FOLDER_NAME)
+        if not exists(models_folder):
+            return []
+        model_dirs = list_all(
+            models_folder,
+            filter_func=lambda x: all(
+                os.path.basename(os.path.normpath(x)) != reservedFolderName
+                for reservedFolderName in FileStore.RESERVED_EXPERIMENT_FOLDERS
+            )
+            and os.path.isdir(x),
+            full_path=True,
+        )
+        models = []
+        for m_dir in model_dirs:
+            try:
+                # trap and warn known issues, will raise unexpected exceptions to caller
+                m_dict = self._get_model_info_from_dir(m_dir)
+                if m_dict.get("lifecycle_stage") == LifecycleStage.DELETED:
+                    continue
+                model = LoggedModel.from_dictionary(m_dict)
+                if model.experiment_id != experiment_id:
+                    logging.warning(
+                        "Wrong experiment ID (%s) recorded for model '%s'. "
+                        "It should be %s. Model will be ignored.",
+                        str(model.experiment_id),
+                        str(model.model_id),
+                        str(experiment_id),
+                        exc_info=True,
+                    )
+                    continue
+                models.append(model)
+            except MissingConfigException as exc:
+                # trap malformed model exception and log
+                # this is at debug level because if the same store is used for
+                # artifact storage, it's common the folder is not a run folder
+                m_id = os.path.basename(m_dir)
+                logging.debug(
+                    "Malformed model '%s'. Detailed error %s", m_id, str(exc), exc_info=True
+                )
+        return models
+
+    #######################################################################################
+    # Below are legacy V2 Tracing APIs. DO NOT USE. Use the V3 APIs instead.
+    #######################################################################################
+    def deprecated_start_trace_v2(
+        self,
+        experiment_id: str,
+        timestamp_ms: int,
+        request_metadata: dict[str, str],
+        tags: dict[str, str],
+    ) -> TraceInfoV2:
+        """
+        DEPRECATED. DO NOT USE.
+
+        Start an initial TraceInfo object in the backend store.
+
+        Args:
+            experiment_id: String id of the experiment for this run.
+            timestamp_ms: Start time of the trace, in milliseconds since the UNIX epoch.
+            request_metadata: Metadata of the trace.
+            tags: Tags of the trace.
+
+        Returns:
+            The created TraceInfo object.
+        """
+        request_id = generate_request_id_v2()
+        _validate_experiment_id(experiment_id)
+        experiment_dir = self._get_experiment_path(
+            experiment_id, view_type=ViewType.ACTIVE_ONLY, assert_exists=True
+        )
+        mkdir(experiment_dir, FileStore.TRACES_FOLDER_NAME)
+        traces_dir = os.path.join(experiment_dir, FileStore.TRACES_FOLDER_NAME)
+        mkdir(traces_dir, request_id)
+        trace_dir = os.path.join(traces_dir, request_id)
+        artifact_uri = self._get_traces_artifact_dir(experiment_id, request_id)
+        tags.update({MLFLOW_ARTIFACT_LOCATION: artifact_uri})
+        trace_info = TraceInfoV2(
+            request_id=request_id,
+            experiment_id=experiment_id,
+            timestamp_ms=timestamp_ms,
+            execution_time_ms=None,
+            status=TraceStatus.IN_PROGRESS,
+            request_metadata=request_metadata,
+            tags=tags,
+        )
+        self._save_trace_info(trace_info.to_v3(), trace_dir)
+        return trace_info
+
+    def deprecated_end_trace_v2(
+        self,
+        request_id: str,
+        timestamp_ms: int,
+        status: TraceStatus,
+        request_metadata: dict[str, str],
+        tags: dict[str, str],
+    ) -> TraceInfoV2:
+        """
+        DEPRECATED. DO NOT USE.
+
+        Update the TraceInfo object in the backend store with the completed trace info.
+
+        Args:
+            request_id : Unique string identifier of the trace.
+            timestamp_ms: End time of the trace, in milliseconds. The execution time field
+                in the TraceInfo will be calculated by subtracting the start time from this.
+            status: Status of the trace.
+            request_metadata: Metadata of the trace. This will be merged with the existing
+                metadata logged during the start_trace call.
+            tags: Tags of the trace. This will be merged with the existing tags logged
+                during the start_trace or set_trace_tag calls.
+
+        Returns:
+            The updated TraceInfo object.
+        """
+        trace_info, trace_dir = self._get_trace_info_and_dir(request_id)
+        trace_info.execution_duration = timestamp_ms - trace_info.request_time
+        trace_info.state = status.to_state()
+        trace_info.trace_metadata.update(request_metadata)
+        trace_info.tags.update(tags)
+        self._save_trace_info(trace_info, trace_dir, overwrite=True)
+        return TraceInfoV2.from_v3(trace_info)

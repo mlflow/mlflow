@@ -5,6 +5,7 @@ ALLOWED_PATTERNS='Mlflow\(|"Mlflow"|import Mlflow$'
 EXCLUDED_FILES=(
     # ignore typos in i18n files, since they're not controlled by us
     "mlflow/server/js/src/lang/*.json"
+    "mlflow/server/js/src/common/utils/StringUtils.ts"
 )
 
 EXCLUDE_ARGS=""

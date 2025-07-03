@@ -5,7 +5,7 @@ from unittest import mock
 import pytest
 
 import mlflow
-from mlflow.entities import ViewType
+from mlflow.entities import TraceInfo, TraceLocation, TraceState, ViewType
 from mlflow.entities.model_registry import (
     ModelVersion,
     ModelVersionTag,
@@ -13,6 +13,7 @@ from mlflow.entities.model_registry import (
     RegisteredModelTag,
 )
 from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY, PROMPT_TEXT_TAG_KEY
+from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY, PROMPT_TEXT_TAG_KEY
 from mlflow.entities.model_registry.webhook import Webhook, WebhookEventTrigger
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.exceptions import MlflowException
@@ -88,7 +89,7 @@ from mlflow.server.handlers import (
     _update_model_version,
     _update_registered_model,
     _update_webhook,
-    _validate_source,
+    _validate_source_run,
     catch_mlflow_exception,
     get_endpoints,
 )
@@ -1054,7 +1055,7 @@ def test_local_file_read_write_by_pass_vulnerability(uri):
                 "run specified by the run_id"
             ),
         ):
-            _validate_source("/local/path/xyz", run_id)
+            _validate_source_run("/local/path/xyz", run_id)
 
 
 @pytest.mark.parametrize(
@@ -1079,7 +1080,14 @@ def test_local_file_read_write_by_pass_vulnerability(uri):
 def test_get_trace_artifact_repo(location, expected_class, expected_uri, monkeypatch):
     monkeypatch.setenv(SERVE_ARTIFACTS_ENV_VAR, "true")
     monkeypatch.setenv(ARTIFACTS_DESTINATION_ENV_VAR, "s3://bucket")
-    trace_info = TraceInfo("123", "0", 0, 1, "OK", tags={MLFLOW_ARTIFACT_LOCATION: location})
+    trace_info = TraceInfo(
+        trace_id="123",
+        trace_location=TraceLocation.from_experiment_id("0"),
+        request_time=0,
+        execution_duration=1,
+        state=TraceState.OK,
+        tags={MLFLOW_ARTIFACT_LOCATION: location},
+    )
     repo = _get_trace_artifact_repo(trace_info)
     assert isinstance(repo, expected_class)
     assert repo.artifact_uri == expected_uri

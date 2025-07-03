@@ -55,6 +55,7 @@ export * from './Space';
 export * from './Spacer';
 export * from './Spinner';
 export * from './SplitButton';
+export * from './Stepper';
 export * from './Steps';
 export * from './Switch';
 export * from './TableUI';

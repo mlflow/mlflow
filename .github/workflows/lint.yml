@@ -25,15 +25,17 @@ defaults:
 
 env:
   PIP_EXTRA_INDEX_URL: https://download.pytorch.org/whl/cpu
+  PIP_CONSTRAINT: ${{ github.workspace }}/requirements/constraints.txt
 
 jobs:
   lint:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    permissions: {}
+    permissions:
+      contents: read
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/untracked
       - uses: ./.github/actions/setup-python
         id: setup-python
@@ -48,14 +50,12 @@ jobs:
           uv pip install --system -r requirements/lint-requirements.txt
           dev/install-taplo.sh
           dev/install-typos.sh
-          mkdir -p /tmp/conftest/bin
-          curl -s -L "https://github.com/open-policy-agent/conftest/releases/download/v0.56.0/conftest_0.56.0_Linux_x86_64.tar.gz" | tar -xz -C /tmp/conftest/bin
-          echo "/tmp/conftest/bin" >> $GITHUB_PATH
+          dev/install-conftest.sh
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Install pre-commit hooks
         run: |
-          pre-commit install
+          pre-commit install --install-hooks
       - name: Run pre-commit
         id: pre-commit
         env:
@@ -63,3 +63,8 @@ jobs:
           NO_FIX: "true"
         run: |
           pre-commit run --all-files
+
+      - name: Test clint
+        run: |
+          uv run --isolated --no-project --with pytest==8.4.0 --with ./dev/clint \
+            pytest --confcutdir=dev/clint dev/clint

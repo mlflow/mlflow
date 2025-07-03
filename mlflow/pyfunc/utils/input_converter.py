@@ -18,7 +18,7 @@ def _is_optional_dataclass(field_type) -> bool:
     return False
 
 
-@experimental
+@experimental(version="2.18.0")
 def _hydrate_dataclass(dataclass_type, data):
     """Recursively create an instance of the dataclass_type from data."""
     if not (is_dataclass(dataclass_type) or _is_optional_dataclass(dataclass_type)):

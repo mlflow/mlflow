@@ -20,6 +20,7 @@ import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
 import { ArtifactViewSkeleton } from './ArtifactViewSkeleton';
 import { ArtifactViewErrorState } from './ArtifactViewErrorState';
 import type { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
+import { fetchArtifactUnified, type FetchArtifactUnifiedFn } from './utils/fetchArtifactUnified';
 
 // See: https://github.com/wojtekmaj/react-pdf/blob/master/README.md#enable-pdfjs-worker for how
 // workerSrc is supposed to be specified.
@@ -28,7 +29,7 @@ pdfjs.GlobalWorkerOptions.workerSrc = `./static-files/pdf.worker.js`;
 type Props = {
   runUuid: string;
   path: string;
-  getArtifact?: (...args: any[]) => any;
+  getArtifact: FetchArtifactUnifiedFn;
 } & LoggedModelArtifactViewerProps;
 
 type State = any;
@@ -43,20 +44,15 @@ class ShowArtifactPdfView extends Component<Props, State> {
   };
 
   static defaultProps = {
-    getArtifact: getArtifactBytesContent,
+    getArtifact: fetchArtifactUnified,
   };
 
   /** Fetches artifacts and updates component state with the result */
   fetchPdf() {
-    const { path, runUuid, isLoggedModelsMode, loggedModelId } = this.props;
-
-    const artifactLocation =
-      isLoggedModelsMode && loggedModelId
-        ? getLoggedModelArtifactLocationUrl(path, loggedModelId)
-        : getArtifactLocationUrl(path, runUuid);
+    const { path, runUuid, isLoggedModelsMode, loggedModelId, experimentId } = this.props;
 
     this.props
-      .getArtifact?.(artifactLocation)
+      .getArtifact?.({ path, runUuid, isLoggedModelsMode, loggedModelId, experimentId }, getArtifactBytesContent)
       .then((artifactPdfData: any) => {
         this.setState({ pdfData: { data: artifactPdfData }, loading: false });
       })

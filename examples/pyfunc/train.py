@@ -28,16 +28,14 @@ predictions = classifier.predict(X)
 signature = infer_signature(X, predictions)
 
 with mlflow.start_run(run_name="test_pyfunc") as run:
-    model_info = mlflow.sklearn.log_model(
-        sk_model=classifier, artifact_path="model", signature=signature
-    )
+    model_info = mlflow.sklearn.log_model(sk_model=classifier, name="model", signature=signature)
 
     # start a child run to create custom imagine model
     with mlflow.start_run(run_name="test_custom_model", nested=True):
         print(f"Pyfunc run ID: {run.info.run_id}")
         # log a custom model
         mlflow.pyfunc.log_model(
-            artifact_path="artifacts",
+            name="artifacts",
             code_paths=[os.getcwd()],
             artifacts={"custom_model": model_info.model_uri},
             python_model=CustomPredict(),

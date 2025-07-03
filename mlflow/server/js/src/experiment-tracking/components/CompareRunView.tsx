@@ -8,8 +8,7 @@
 import React, { Component } from 'react';
 import { connect } from 'react-redux';
 import { injectIntl, FormattedMessage, type IntlShape } from 'react-intl';
-import { Spacer, Switch, LegacyTabs, LegacyTooltip, Table, TableRow, TableCell } from '@databricks/design-system';
-import { type Theme } from '@emotion/react';
+import { Spacer, Switch, LegacyTabs, LegacyTooltip } from '@databricks/design-system';
 
 import { getExperiment, getParams, getRunInfo, getRunTags } from '../reducers/Reducers';
 import './CompareRunView.css';
@@ -45,13 +44,7 @@ type CompareRunViewProps = {
   intl: IntlShape;
 };
 
-type CompareRunViewState = {
-  tableWidth: number | null;
-  onlyShowParamDiff: boolean;
-  onlyShowTagDiff: boolean;
-  onlyShowMetricDiff: boolean;
-};
-
+type CompareRunViewState = any;
 class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState> {
   compareRunViewRef: any;
   runDetailsTableRef: any;
@@ -60,9 +53,9 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
     super(props);
     this.state = {
       tableWidth: null,
-      onlyShowParamDiff: true,
-      onlyShowTagDiff: true,
-      onlyShowMetricDiff: true,
+      onlyShowParamDiff: false,
+      onlyShowTagDiff: false,
+      onlyShowMetricDiff: false,
     };
     this.onResizeHandler = this.onResizeHandler.bind(this);
     this.onCompareRunTableScrollHandler = this.onCompareRunTableScrollHandler.bind(this);
@@ -114,7 +107,9 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
     const minColWidth = 200;
     let colWidth = minColWidth;
 
+    // @ts-expect-error TS(4111): Property 'tableWidth' comes from an index signatur... Remove this comment to see the full error message
     if (this.state.tableWidth !== null) {
+      // @ts-expect-error TS(4111): Property 'tableWidth' comes from an index signatur... Remove this comment to see the full error message
       colWidth = Math.round(this.state.tableWidth / (this.props.runInfos.length + 1));
       if (colWidth < minColWidth) {
         colWidth = minColWidth;
@@ -130,11 +125,11 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
       // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
       const { name, basename } = experimentNameMap[experimentId];
       return (
-        <TableCell className="meta-info" key={runUuid}>
+        <td className="meta-info" key={runUuid}>
           <Link to={Routes.getExperimentPageRoute(experimentId)} title={name}>
             {basename}
           </Link>
-        </TableCell>
+        </td>
       );
     });
   }
@@ -215,6 +210,7 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
     const dataRows = this.renderDataRows(
       this.props.paramLists,
       colWidth,
+      // @ts-expect-error TS(4111): Property 'onlyShowParamDiff' comes from an index s... Remove this comment to see the full error message
       this.state.onlyShowParamDiff,
       true,
       (key: any, data: any) => key,
@@ -244,14 +240,13 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
       );
     }
     return (
-      <Table
+      <table
         className="table compare-table compare-run-table"
         css={{ maxHeight: '500px' }}
-        // @ts-expect-error TS(2322): Property 'onScroll' does not exist... Remove this comment to see the full error message
         onScroll={this.onCompareRunTableScrollHandler}
       >
-        {dataRows}
-      </Table>
+        <tbody>{dataRows}</tbody>
+      </table>
     );
   }
 
@@ -263,8 +258,9 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
     const dataRows = this.renderDataRows(
       this.props.metricLists,
       colWidth,
+      // @ts-expect-error TS(4111): Property 'onlyShowMetricDiff' comes from an index ... Remove this comment to see the full error message
       this.state.onlyShowMetricDiff,
-      true,
+      false,
       (key, data) => {
         return (
           <Link
@@ -293,23 +289,28 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
       );
     }
     return (
-      <Table
+      <table
         className="table compare-table compare-run-table"
         css={{ maxHeight: '300px' }}
-        // @ts-expect-error TS(2322): Property 'onScroll' does not exist... Remove this comment to see the full error message
         onScroll={this.onCompareRunTableScrollHandler}
       >
-        {dataRows}
-      </Table>
+        <tbody>{dataRows}</tbody>
+      </table>
     );
   }
 
-  renderArtifactTable(colWidth: number) {
+  renderArtifactTable(colWidth: any) {
     return <CompareRunArtifactView runUuids={this.props.runUuids} runInfos={this.props.runInfos} colWidth={colWidth} />;
   }
 
-  renderTagTable(colWidth: number) {
-    const dataRows = this.renderDataRows(this.props.tagLists, colWidth, this.state.onlyShowTagDiff, true);
+  renderTagTable(colWidth: any) {
+    const dataRows = this.renderDataRows(
+      this.props.tagLists,
+      colWidth,
+      // @ts-expect-error TS(4111): Property 'onlyShowTagDiff' comes from an index sig... Remove this comment to see the full error message
+      this.state.onlyShowTagDiff,
+      true,
+    );
     if (dataRows.length === 0) {
       return (
         <h2>
@@ -321,18 +322,17 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
       );
     }
     return (
-      <Table
+      <table
         className="table compare-table compare-run-table"
         css={{ maxHeight: '500px' }}
-        // @ts-expect-error TS(2322): Property 'onScroll' does not exist... Remove this comment to see the full error message
         onScroll={this.onCompareRunTableScrollHandler}
       >
-        {dataRows}
-      </Table>
+        <tbody>{dataRows}</tbody>
+      </table>
     );
   }
 
-  renderTimeRows(colWidthStyle: Record<string, string>) {
+  renderTimeRows(colWidthStyle: any) {
     const unknown = (
       <FormattedMessage
         defaultMessage="(unknown)"
@@ -383,15 +383,12 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
       },
     ];
     return rows.map(({ key, title, data }) => (
-      <TableRow key={key} className="compare-table-row">
-        <TableCell
-          className="head-value sticky-header"
-          css={{ backgroundColor: 'var(--table-header-background-color)', ...colWidthStyle }}
-        >
+      <tr key={key}>
+        <th scope="row" className="head-value sticky-header" css={colWidthStyle}>
           {title}
-        </TableCell>
+        </th>
         {data.map(([runUuid, value]) => (
-          <TableCell className="data-value" key={runUuid as string} css={colWidthStyle}>
+          <td className="data-value" key={runUuid as string} css={colWidthStyle}>
             <LegacyTooltip
               title={value}
               // @ts-expect-error TS(2322): Type '{ children: any; title: any; color: string; ... Remove this comment to see the full error message
@@ -403,9 +400,9 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
             >
               {value}
             </LegacyTooltip>
-          </TableCell>
+          </td>
         ))}
-      </TableRow>
+      </tr>
     ));
   }
 
@@ -518,86 +515,84 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
             description: 'Compare table title on the compare runs page',
           })}
         >
-          <Table
+          <table
             className="table compare-table compare-run-table"
             ref={this.runDetailsTableRef}
-            // @ts-expect-error TS(2322): Property 'onScroll' does not exist... Remove this comment to see the full error message
             onScroll={this.onCompareRunTableScrollHandler}
           >
-            <TableRow className="compare-table-row">
-              <TableCell
-                className="head-value sticky-header"
-                css={{ backgroundColor: 'var(--table-header-background-color)', ...colWidthStyle }}
-              >
-                <FormattedMessage
-                  defaultMessage="Run ID:"
-                  description="Row title for the run id on the experiment compare runs page"
-                />
-              </TableCell>
-              {this.props.runInfos.map((r) => (
-                <TableCell className="data-value" key={r.runUuid} css={colWidthStyle}>
-                  <LegacyTooltip
-                    title={r.runUuid}
-                    // @ts-expect-error TS(2322): Type '{ children: Element; title: any; color: stri... Remove this comment to see the full error message
-                    color="gray"
-                    placement="topLeft"
-                    overlayStyle={{ maxWidth: '400px' }}
-                    mouseEnterDelay={1.0}
-                  >
-                    <Link to={Routes.getRunPageRoute(r.experimentId ?? '0', r.runUuid ?? '')}>{r.runUuid}</Link>
-                  </LegacyTooltip>
-                </TableCell>
-              ))}
-            </TableRow>
-            <TableRow className="compare-table-row">
-              <TableCell
-                className="head-value sticky-header"
-                css={{ backgroundColor: 'var(--table-header-background-color)', ...colWidthStyle }}
-              >
-                <FormattedMessage
-                  defaultMessage="Run Name:"
-                  description="Row title for the run name on the experiment compare runs page"
-                />
-              </TableCell>
-              {runNames.map((runName, i) => {
-                return (
-                  <TableCell className="data-value" key={runInfos[i].runUuid} css={colWidthStyle}>
-                    <div className="truncate-text single-line">
-                      <LegacyTooltip
-                        title={runName}
-                        // @ts-expect-error TS(2322): Type '{ children: string; title: string; color: st... Remove this comment to see the full error message
-                        color="gray"
-                        placement="topLeft"
-                        overlayStyle={{ maxWidth: '400px' }}
-                        mouseEnterDelay={1.0}
-                      >
-                        {runName}
-                      </LegacyTooltip>
-                    </div>
-                  </TableCell>
-                );
-              })}
-            </TableRow>
-            {this.renderTimeRows(colWidthStyle)}
-            {this.shouldShowExperimentNameRow() && (
-              <TableRow className="compare-table-row">
-                <TableCell className="data-value">
+            <thead>
+              <tr>
+                <th scope="row" className="head-value sticky-header" css={colWidthStyle}>
                   <FormattedMessage
-                    defaultMessage="Experiment Name:"
-                    // eslint-disable-next-line max-len
-                    description="Row title for the experiment IDs of runs on the experiment compare runs page"
+                    defaultMessage="Run ID:"
+                    description="Row title for the run id on the experiment compare runs page"
                   />
-                </TableCell>
-                {this.renderExperimentNameRowItems()}
-              </TableRow>
-            )}
-          </Table>
+                </th>
+                {this.props.runInfos.map((r) => (
+                  <th scope="row" className="data-value" key={r.runUuid} css={colWidthStyle}>
+                    <LegacyTooltip
+                      title={r.runUuid}
+                      // @ts-expect-error TS(2322): Type '{ children: Element; title: any; color: stri... Remove this comment to see the full error message
+                      color="gray"
+                      placement="topLeft"
+                      overlayStyle={{ maxWidth: '400px' }}
+                      mouseEnterDelay={1.0}
+                    >
+                      <Link to={Routes.getRunPageRoute(r.experimentId ?? '0', r.runUuid ?? '')}>{r.runUuid}</Link>
+                    </LegacyTooltip>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row" className="head-value sticky-header" css={colWidthStyle}>
+                  <FormattedMessage
+                    defaultMessage="Run Name:"
+                    description="Row title for the run name on the experiment compare runs page"
+                  />
+                </th>
+                {runNames.map((runName, i) => {
+                  return (
+                    <td className="data-value" key={runInfos[i].runUuid} css={colWidthStyle}>
+                      <div className="truncate-text single-line">
+                        <LegacyTooltip
+                          title={runName}
+                          // @ts-expect-error TS(2322): Type '{ children: string; title: string; color: st... Remove this comment to see the full error message
+                          color="gray"
+                          placement="topLeft"
+                          overlayStyle={{ maxWidth: '400px' }}
+                          mouseEnterDelay={1.0}
+                        >
+                          {runName}
+                        </LegacyTooltip>
+                      </div>
+                    </td>
+                  );
+                })}
+              </tr>
+              {this.renderTimeRows(colWidthStyle)}
+              {this.shouldShowExperimentNameRow() && (
+                <tr>
+                  <th scope="row" className="data-value">
+                    <FormattedMessage
+                      defaultMessage="Experiment Name:"
+                      // eslint-disable-next-line max-len
+                      description="Row title for the experiment IDs of runs on the experiment compare runs page"
+                    />
+                  </th>
+                  {this.renderExperimentNameRowItems()}
+                </tr>
+              )}
+            </tbody>
+          </table>
         </CollapsibleSection>
         <CollapsibleSection title={paramsLabel}>
           <Switch
             componentId="codegen_mlflow_app_src_experiment-tracking_components_comparerunview.tsx_570"
             label={diffOnlyLabel}
             aria-label={[paramsLabel, diffOnlyLabel].join(' - ')}
+            // @ts-expect-error TS(4111): Property 'onlyShowParamDiff' comes from an index s... Remove this comment to see the full error message
             checked={this.state.onlyShowParamDiff}
             onChange={(checked, e) => this.setState({ onlyShowParamDiff: checked })}
           />
@@ -609,6 +604,7 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
             componentId="codegen_mlflow_app_src_experiment-tracking_components_comparerunview.tsx_581"
             label={diffOnlyLabel}
             aria-label={[metricsLabel, diffOnlyLabel].join(' - ')}
+            // @ts-expect-error TS(4111): Property 'onlyShowMetricDiff' comes from an index ... Remove this comment to see the full error message
             checked={this.state.onlyShowMetricDiff}
             onChange={(checked, e) => this.setState({ onlyShowMetricDiff: checked })}
           />
@@ -621,6 +617,7 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
             componentId="codegen_mlflow_app_src_experiment-tracking_components_comparerunview.tsx_592"
             label={diffOnlyLabel}
             aria-label={[tagsLabel, diffOnlyLabel].join(' - ')}
+            // @ts-expect-error TS(4111): Property 'onlyShowTagDiff' comes from an index sig... Remove this comment to see the full error message
             checked={this.state.onlyShowTagDiff}
             onChange={(checked, e) => this.setState({ onlyShowTagDiff: checked })}
           />
@@ -631,7 +628,7 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
     );
   }
 
-  genWidthStyle(width: number): Record<string, string> {
+  genWidthStyle(width: any) {
     return {
       width: `${width}px`,
       minWidth: `${width}px`,
@@ -672,17 +669,14 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
           const { values, hasDiff } = data[k];
           const rowClass = highlightDiff && hasDiff ? 'diff-row' : undefined;
           return (
-            <TableRow key={k} className={`${rowClass} compare-table-row`}>
-              <TableCell
-                className="head-value sticky-header"
-                css={{ backgroundColor: 'var(--table-header-background-color)', ...colWidthStyle }}
-              >
+            <tr key={k} className={rowClass}>
+              <th scope="row" className="head-value sticky-header" css={colWidthStyle}>
                 {headerMap(k, values)}
-              </TableCell>
+              </th>
               {values.map((value: any, i: any) => {
                 const cellText = value === undefined ? '' : formatter(value);
                 return (
-                  <TableCell className="data-value" key={this.props.runInfos[i].runUuid} css={colWidthStyle}>
+                  <td className="data-value" key={this.props.runInfos[i].runUuid} css={colWidthStyle}>
                     <LegacyTooltip
                       title={cellText}
                       // @ts-expect-error TS(2322): Type '{ children: Element; title: any; color: stri... Remove this comment to see the full error message
@@ -693,10 +687,10 @@ class CompareRunView extends Component<CompareRunViewProps, CompareRunViewState>
                     >
                       <span className="truncate-text single-line">{cellText}</span>
                     </LegacyTooltip>
-                  </TableCell>
+                  </td>
                 );
               })}
-            </TableRow>
+            </tr>
           );
         })
     );

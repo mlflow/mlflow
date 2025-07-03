@@ -190,6 +190,7 @@ def _get_func_info_if_type_hint_supported(func) -> Optional[FuncInfo]:
             " for more details.",
             stacklevel=1,
             color="yellow",
+            category=UserWarning,
         )
 
 

@@ -24,6 +24,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
 from mlflow.store.tracking import DEFAULT_ARTIFACTS_URI, DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
 from mlflow.tracking import _get_store
+from mlflow.tracking._tracking_service.utils import is_tracking_uri_set, set_tracking_uri
 from mlflow.utils import cli_args
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.os import is_windows
@@ -184,8 +185,7 @@ def run(
     local projects run from the project's root directory.
     """
     if experiment_id is not None and experiment_name is not None:
-        eprint("Specify only one of 'experiment-name' or 'experiment-id' options.")
-        sys.exit(1)
+        raise click.UsageError("Specify only one of 'experiment-name' or 'experiment-id' options.")
 
     param_dict = _user_args_to_dict(param_list)
     args_dict = _user_args_to_dict(docker_args, argument_type="A")
@@ -194,12 +194,10 @@ def run(
         try:
             backend_config = json.loads(backend_config)
         except ValueError as e:
-            eprint(f"Invalid backend config JSON. Parse error: {e}")
-            raise
+            raise click.UsageError(f"Invalid backend config JSON. Parse error: {e}") from e
     if backend == "kubernetes":
         if backend_config is None:
-            eprint("Specify 'backend_config' when using kubernetes mode.")
-            sys.exit(1)
+            raise click.UsageError("Specify 'backend_config' when using kubernetes mode.")
     try:
         projects.run(
             uri,
@@ -235,14 +233,12 @@ def _user_args_to_dict(arguments, argument_type="P"):
             name = split[0]
             value = split[1]
         else:
-            eprint(
+            raise click.UsageError(
                 f"Invalid format for -{argument_type} parameter: '{arg}'. "
                 f"Use -{argument_type} name=value."
             )
-            sys.exit(1)
         if name in user_dict:
-            eprint(f"Repeated parameter: '{name}'")
-            sys.exit(1)
+            raise click.UsageError(f"Repeated parameter: '{name}'")
         user_dict[name] = value
     return user_dict
 
@@ -494,7 +490,12 @@ def server(
     "all of their associated runs. If experiment ids are not specified, data is removed for all "
     "experiments in the `deleted` lifecycle stage.",
 )
-def gc(older_than, backend_store_uri, artifacts_destination, run_ids, experiment_ids):
+@click.option(
+    "--tracking-uri",
+    default=os.environ.get("MLFLOW_TRACKING_URI"),
+    help="Tracking URI to use for deleting 'deleted' runs e.g. http://127.0.0.1:8080",
+)
+def gc(older_than, backend_store_uri, artifacts_destination, run_ids, experiment_ids, tracking_uri):
     """
     Permanently delete runs in the `deleted` lifecycle stage from the specified backend store.
     This command deletes all artifacts and metadata associated with the specified runs.
@@ -543,6 +544,15 @@ def gc(older_than, backend_store_uri, artifacts_destination, run_ids, experiment
             )
         time_params = {name: float(param) for name, param in parts.groupdict().items() if param}
         time_delta = int(timedelta(**time_params).total_seconds() * 1000)
+
+    if tracking_uri:
+        set_tracking_uri(tracking_uri)
+
+    if not is_tracking_uri_set():
+        raise MlflowException(
+            "Tracking URL is not set. Please set MLFLOW_TRACKING_URI environment variable "
+            "or provide --tracking-uri cli option."
+        )
 
     deleted_run_ids_older_than = backend_store._get_deleted_runs(older_than=time_delta)
     run_ids = run_ids.split(",") if run_ids else deleted_run_ids_older_than
@@ -676,13 +686,6 @@ try:
     import mlflow.models.cli
 
     cli.add_command(mlflow.models.cli.commands)
-except ImportError:
-    pass
-
-try:
-    import mlflow.recipes.cli
-
-    cli.add_command(mlflow.recipes.cli.commands)
 except ImportError:
     pass
 

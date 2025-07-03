@@ -57,7 +57,7 @@ from typing import Any, Optional
 import yaml
 
 import mlflow
-from mlflow import mleap, pyfunc
+from mlflow import pyfunc
 from mlflow.environment_variables import MLFLOW_DFS_TMP
 from mlflow.models import Model
 from mlflow.models.model import MLMODEL_FILE_NAME
@@ -76,7 +76,6 @@ from mlflow.tracking.artifact_utils import (
     _get_root_uri_and_artifact_path,
 )
 from mlflow.utils import databricks_utils
-from mlflow.utils.annotations import experimental
 from mlflow.utils.docstring_utils import LOG_MODEL_PARAM_DOCS, format_docstring
 from mlflow.utils.environment import (
     _CONDA_ENV_FILE_NAME,
@@ -132,7 +131,6 @@ def _set_env_vars():
     os.environ.update({k: str(v) for k, v in loaded_license.items() if v is not None})
 
 
-@experimental
 def get_default_pip_requirements():
     """
     Returns:
@@ -182,7 +180,6 @@ def get_default_pip_requirements():
     return deps
 
 
-@experimental
 def get_default_conda_env():
     """
     Returns:
@@ -192,15 +189,13 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
-@experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="johnsnowlabs"))
 def log_model(
     spark_model,
-    artifact_path,
+    artifact_path: Optional[str] = None,
     conda_env=None,
     code_paths=None,
     dfs_tmpdir=None,
-    sample_input=None,
     registered_model_name=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
@@ -209,6 +204,12 @@ def log_model(
     extra_pip_requirements=None,
     metadata=None,
     store_license=False,
+    name: Optional[str] = None,
+    params: Optional[dict[str, Any]] = None,
+    tags: Optional[dict[str, Any]] = None,
+    model_type: Optional[str] = None,
+    step: int = 0,
+    model_id: Optional[str] = None,
 ):
     """
     Log a ``Johnsnowlabs NLUPipeline`` created via `nlp.load()
@@ -221,7 +222,7 @@ def log_model(
     Args:
         spark_model: NLUPipeline obtained via `nlp.load()
             <https://nlp.johnsnowlabs.com/docs/en/jsl/load_api>`_
-        artifact_path: Run relative artifact path.
+        artifact_path: Deprecated. Use `name` instead.
         conda_env: Either a dictionary representation of a Conda environment or the path to a
             Conda environment yaml file. If provided, this describes the environment
             this model should be run in. At minimum, it should specify the dependencies
@@ -245,9 +246,6 @@ def log_model(
             necessary as Spark ML models read from and write to DFS if running on a
             cluster. If this operation completes successfully, all temporary files
             created on the DFS are removed. Defaults to ``/tmp/mlflow``.
-        sample_input: A sample input used to add the MLeap flavor to the model.
-            This must be a PySpark DataFrame that the model can evaluate. If
-            ``sample_input`` is ``None``, the MLeap flavor is not added.
         registered_model_name: If given, create a model version under
             ``registered_model_name``, also creating a registered model if one
             with the given name does not exist.
@@ -275,6 +273,12 @@ def log_model(
         metadata:  {{ metadata }}
         store_license: If True, the license will be stored with the model and used and re-loading
             it.
+        name: {{ name }}
+        params: {{ params }}
+        tags: {{ tags }}
+        model_type: {{ model_type }}
+        step: {{ step }}
+        model_id: {{ model_id }}
 
     Returns:
         A :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
@@ -315,7 +319,7 @@ def log_model(
         trained_classifier.predict("He hates covid")
 
         # Log it
-        mlflow.johnsnowlabs.log_model(trained_classifier, "my_trained_model")
+        mlflow.johnsnowlabs.log_model(trained_classifier, name="my_trained_model")
     """
 
     _validate_env_vars()
@@ -331,16 +335,16 @@ def log_model(
     # artifact repo via Spark. If this fails, we defer to Model.log().
     if is_local_uri(run_root_artifact_uri) or not _maybe_save_model(
         spark_model,
-        append_to_uri_path(run_root_artifact_uri, artifact_path),
+        append_to_uri_path(run_root_artifact_uri, name),
     ):
         return Model.log(
             artifact_path=artifact_path,
+            name=name,
             flavor=mlflow.johnsnowlabs,
             spark_model=spark_model,
             conda_env=conda_env,
             code_paths=code_paths,
             dfs_tmpdir=dfs_tmpdir,
-            sample_input=sample_input,
             registered_model_name=registered_model_name,
             signature=signature,
             input_example=input_example,
@@ -348,16 +352,27 @@ def log_model(
             pip_requirements=pip_requirements,
             extra_pip_requirements=extra_pip_requirements,
             metadata=metadata,
+            params=params,
+            tags=tags,
+            model_type=model_type,
+            step=step,
+            model_id=model_id,
         )
     # Otherwise, override the default model log behavior and save model directly to artifact repo
-    mlflow_model = Model(artifact_path=artifact_path, run_id=run_id)
+    logged_model = mlflow.initialize_logged_model(
+        name=name,
+        source_run_id=run.info.run_id if (run := mlflow.active_run()) else None,
+        model_type=model_type,
+        params=params,
+        tags=tags,
+    )
+    mlflow_model = Model(artifact_path=logged_model.artifact_location, run_id=run_id)
     with TempDir() as tmp:
         tmp_model_metadata_dir = tmp.path()
         _save_model_metadata(
             tmp_model_metadata_dir,
             spark_model,
             mlflow_model,
-            sample_input,
             conda_env,
             code_paths,
             signature=signature,
@@ -367,11 +382,11 @@ def log_model(
             remote_model_path=remote_model_path,
             store_license=store_license,
         )
-        mlflow.tracking.fluent.log_artifacts(tmp_model_metadata_dir, artifact_path)
+        mlflow.tracking.fluent.log_artifacts(tmp_model_metadata_dir, name)
         mlflow.tracking.fluent._record_logged_model(mlflow_model)
         if registered_model_name is not None:
             mlflow.register_model(
-                f"runs:/{run_id}/{artifact_path}",
+                f"runs:/{logged_model.model_id}",
                 registered_model_name,
                 await_registration_for,
             )
@@ -382,7 +397,6 @@ def _save_model_metadata(
     dst_dir,
     spark_model,
     mlflow_model,
-    sample_input,
     conda_env,
     code_paths,
     signature=None,
@@ -400,13 +414,6 @@ def _save_model_metadata(
     be loaded from the remote_model_path.
     """
 
-    if sample_input is not None:
-        mleap.add_to_model(
-            mlflow_model=mlflow_model,
-            path=dst_dir,
-            spark_model=spark_model,
-            sample_input=sample_input,
-        )
     if signature is not None:
         mlflow_model.signature = signature
     if input_example is not None:
@@ -485,7 +492,6 @@ def _save_jars_and_lic(dst_dir, store_license=False):
             deps_data_path.joinpath("license.json").write(secrets.json())
 
 
-@experimental
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="johnsnowlabs"))
 def save_model(
     spark_model,
@@ -494,7 +500,6 @@ def save_model(
     conda_env=None,
     code_paths=None,
     dfs_tmpdir=None,
-    sample_input=None,
     signature: ModelSignature = None,
     input_example: ModelInputExample = None,
     pip_requirements=None,
@@ -506,8 +511,6 @@ def save_model(
     Save a Spark johnsnowlabs Model to a local path.
 
     By default, this function saves models using the Spark MLlib persistence mechanism.
-    Additionally, if a sample input is specified using the ``sample_input`` parameter, the model
-    is also serialized in MLeap format and the MLeap flavor is added.
 
     Args:
         spark_model: Either a pyspark.ml.pipeline.PipelineModel or nlu.NLUPipeline object to be
@@ -538,9 +541,6 @@ def save_model(
             as Spark ML models read from and write to DFS if running on a cluster. All
             temporary files created on the DFS are removed if this operation
             completes successfully. Defaults to ``/tmp/mlflow``.
-        sample_input: A sample input that is used to add the MLeap flavor to the model.
-            This must be a PySpark DataFrame that the model can evaluate. If
-            ``sample_input`` is ``None``, the MLeap flavor is not added.
         signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
             describes model input and output :py:class:`Schema <mlflow.types.Schema>`.
             The model signature can be :py:func:`inferred <mlflow.models.infer_signature>`
@@ -621,7 +621,6 @@ def save_model(
         dst_dir=path,
         spark_model=spark_model,
         mlflow_model=mlflow_model,
-        sample_input=sample_input,
         conda_env=conda_env,
         code_paths=code_paths,
         signature=signature,
@@ -795,7 +794,6 @@ def _get_or_create_sparksession(model_path=None):  # noqa: D417
         os.environ["PYSPARK_DRIVER_PYTHON"] = sys.executable
         if model_path:
             jar_paths, license_path = _fetch_deps_from_path(model_path)
-            # jar_paths += get_mleap_jars().split(',')  # TODO when to load MLleap Jars
             if license_path:
                 with open(license_path) as f:
                     loaded_license = json.load(f)

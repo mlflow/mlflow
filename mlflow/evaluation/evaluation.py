@@ -1,6 +1,8 @@
 """
-THE 'mlflow.evaluation` MODULE IS LEGACY AND WILL BE REMOVED SOON. PLEASE DO NOT USE THESE CLASSES
-IN NEW CODE. INSTEAD, USE `mlflow/entities/assessment.py` FOR ASSESSMENT CLASSES.
+THE 'mlflow.evaluation` MODULE IS LEGACY AND WILL BE REMOVED IN MLFLOW 3.0.
+For assessment functionality, use `mlflow.entities.assessment` for assessment classes and
+`mlflow.tracing.assessments` for assessment APIs. There are no alternatives for Evaluation and
+EvaluationEntity objects and related APIs.
 """
 
 import hashlib
@@ -14,10 +16,10 @@ from mlflow.evaluation.evaluation_tag import (
     EvaluationTag,  # Assuming EvaluationTag is in this module
 )
 from mlflow.tracing.utils import TraceJSONEncoder
-from mlflow.utils.annotations import experimental
+from mlflow.utils.annotations import deprecated
 
 
-@experimental
+@deprecated(since="3.0.0")
 class EvaluationEntity(_MlflowObject):
     """
     Evaluation result data, including inputs, outputs, targets, assessments, and more.
@@ -201,7 +203,7 @@ class EvaluationEntity(_MlflowObject):
         )
 
 
-@experimental
+@deprecated(since="3.0.0")
 class Evaluation(_MlflowObject):
     """
     Evaluation result data.

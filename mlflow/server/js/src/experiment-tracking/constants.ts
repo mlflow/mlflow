@@ -70,8 +70,10 @@ export const DEFAULT_MODEL_VERSION_FILTER = MODEL_VERSION_FILTER.ALL_RUNS;
 export const MAX_DETECT_NEW_RUNS_RESULTS = 26; // so the refresh button badge can be 25+
 export const POLL_INTERVAL = 15000;
 
-const AUTOML_TAG_PREFIX = '_databricks_automl';
+export const AUTOML_TAG_PREFIX = '_databricks_automl';
 export const AUTOML_EVALUATION_METRIC_TAG = `${AUTOML_TAG_PREFIX}.evaluation_metric`;
+
+export const AUTOML_TEST_EVALUATION_METRIC_PREFIX = 'test_';
 
 export const MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME = 'mlflow.experiment.primaryMetric.name';
 export const MLFLOW_RUN_DATASET_CONTEXT_TAG = 'mlflow.data.context';
@@ -139,3 +141,7 @@ export enum ExperimentPageTabName {
   Datasets = 'datasets',
   LabelingSessions = 'labeling-sessions',
 }
+
+export const getMlflow3DocsLink = () => {
+  return 'https://docs.databricks.com/aws/en/mlflow/mlflow-3-install';
+};

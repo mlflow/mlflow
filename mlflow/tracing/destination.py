@@ -1,12 +1,11 @@
 from dataclasses import dataclass
 from typing import Optional
 
-import mlflow
 from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
 
 
-@experimental
+@experimental(version="2.21.0")
 @dataclass
 class TraceDestination:
     """A configuration object for specifying the destination of trace data."""
@@ -17,7 +16,7 @@ class TraceDestination:
         raise NotImplementedError
 
 
-@experimental
+@experimental(version="2.21.0")
 @dataclass
 class MlflowExperiment(TraceDestination):
     """
@@ -41,7 +40,7 @@ class MlflowExperiment(TraceDestination):
         return "experiment"
 
 
-@experimental
+@experimental(version="2.22.0")
 @dataclass
 class Databricks(TraceDestination):
     """
@@ -67,7 +66,10 @@ class Databricks(TraceDestination):
             self.experiment_id = str(self.experiment_id)
 
         if self.experiment_name is not None:
-            experiment_id = mlflow.get_experiment_by_name(self.experiment_name).experiment_id
+            from mlflow.tracking._tracking_service.utils import _get_store
+
+            # NB: Use store directly rather than fluent API to avoid dependency on MLflowClient
+            experiment_id = _get_store().get_experiment_by_name(self.experiment_name).experiment_id
             if self.experiment_id is not None and self.experiment_id != experiment_id:
                 raise MlflowException.invalid_parameter_value(
                     "experiment_id and experiment_name must refer to the same experiment"

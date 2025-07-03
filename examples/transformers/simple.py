@@ -16,7 +16,7 @@ parameters = {"max_length": 512, "do_sample": True}
 with mlflow.start_run() as run:
     model_info = mlflow.transformers.log_model(
         transformers_model=generation_pipeline,
-        artifact_path="text_generator",
+        name="text_generator",
         input_example=(["prompt 1", "prompt 2", "prompt 3"], parameters),
     )
 

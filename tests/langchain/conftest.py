@@ -1,6 +1,5 @@
 import importlib
 
-import numpy as np
 import openai
 import pytest
 from langchain.embeddings.base import Embeddings
@@ -39,6 +38,8 @@ class DeterministicDummyEmbeddings(Embeddings, BaseModel):
     size: int
 
     def _get_embedding(self, text: str) -> list[float]:
+        import numpy as np
+
         seed = abs(hash(text)) % (10**8)
         np.random.seed(seed)
         return list(np.random.normal(size=self.size))

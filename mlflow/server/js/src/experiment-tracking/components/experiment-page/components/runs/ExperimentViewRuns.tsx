@@ -32,6 +32,9 @@ import { ExperimentPageSearchFacetsState } from '../../models/ExperimentPageSear
 import { useIsTabActive } from '../../../../../common/hooks/useIsTabActive';
 import { ExperimentViewRunsTableResizer } from './ExperimentViewRunsTableResizer';
 import { RunsChartsSetHighlightContextProvider } from '../../../runs-charts/hooks/useRunsChartTraceHighlight';
+import { useLoggedModelsForExperimentRunsTable } from '../../hooks/useLoggedModelsForExperimentRunsTable';
+import { ExperimentViewRunsRequestError } from '../ExperimentViewRunsRequestError';
+import { useResizableMaxWidth } from '@mlflow/mlflow/src/shared/web-shared/hooks';
 
 export interface ExperimentViewRunsOwnProps {
   isLoading: boolean;
@@ -65,6 +68,7 @@ const createCurrentTime = () => {
 };
 
 const INITIAL_RUN_COLUMN_SIZE = 295;
+const CHARTS_MIN_WIDTH = 350;
 
 export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) => {
   const [compareRunsMode] = useExperimentPageViewMode();
@@ -154,6 +158,8 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
 
   const experimentIds = useMemo(() => experiments.map(({ experimentId }) => experimentId), [experiments]);
 
+  // Fetch logged models (MLflow v3) for the experiment to be displayed in the runs table
+  const loggedModelsV3ByRunUuid = useLoggedModelsForExperimentRunsTable(experimentIds);
   // Use new, memoized version of the row creation function.
   // Internally disabled if the flag is not set.
   const visibleRuns = useExperimentRunRows({
@@ -175,6 +181,7 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
     runsVisibilityMap: uiState.runsVisibilityMap,
     useGroupedValuesInCharts: uiState.useGroupedValuesInCharts,
     searchFacetsState,
+    loggedModelsV3ByRunUuid,
   });
 
   const [notificationsFn, notificationContainer] = useLegacyNotification();
@@ -203,24 +210,27 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
   const autoRefreshEnabled = uiState.autoRefreshEnabled && shouldEnableExperimentPageAutoRefresh() && isTabActive;
   const usingGroupedValuesInCharts = uiState.useGroupedValuesInCharts ?? true;
 
-  const tableElement = (
-    <ExperimentViewRunsTable
-      experiments={experiments}
-      runsData={runsData}
-      searchFacetsState={searchFacetsState}
-      viewState={viewState}
-      isLoading={isLoadingRuns}
-      updateViewState={updateViewState}
-      onAddColumnClicked={addColumnClicked}
-      rowsData={visibleRuns}
-      loadMoreRunsFunc={loadMoreRunsCallback}
-      moreRunsAvailable={moreRunsAvailable}
-      onDatasetSelected={datasetSelected}
-      expandRows={expandRows}
-      uiState={uiState}
-      compareRunsMode={compareRunsMode}
-    />
-  );
+  const tableElement =
+    requestError instanceof Error && !isLoadingRuns ? (
+      <ExperimentViewRunsRequestError error={requestError} />
+    ) : (
+      <ExperimentViewRunsTable
+        experiments={experiments}
+        runsData={runsData}
+        searchFacetsState={searchFacetsState}
+        viewState={viewState}
+        isLoading={isLoadingRuns}
+        updateViewState={updateViewState}
+        onAddColumnClicked={addColumnClicked}
+        rowsData={visibleRuns}
+        loadMoreRunsFunc={loadMoreRunsCallback}
+        moreRunsAvailable={moreRunsAvailable}
+        onDatasetSelected={datasetSelected}
+        expandRows={expandRows}
+        uiState={uiState}
+        compareRunsMode={compareRunsMode}
+      />
+    );
 
   // Generate a unique storage key based on the experiment IDs
   const configStorageKey = useMemo(
@@ -231,6 +241,8 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
         .join(','),
     [experiments],
   );
+
+  const { resizableMaxWidth, ref } = useResizableMaxWidth(CHARTS_MIN_WIDTH);
 
   return (
     <CreateNewRunContextProvider visibleRuns={visibleRuns} refreshRuns={refreshRuns}>
@@ -249,6 +261,7 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
           isLoading={isLoadingRuns}
         />
         <div
+          ref={ref}
           css={{
             minHeight: 225, // This is the exact height for displaying a minimum five rows and table header
             height: '100%',
@@ -261,6 +274,7 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
               onResize={setTableAreaWidth}
               runListHidden={runListHidden}
               width={tableAreaWidth}
+              maxWidth={resizableMaxWidth}
             >
               {tableElement}
             </ExperimentViewRunsTableResizer>
@@ -282,6 +296,7 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
               globalLineChartConfig={uiState.globalLineChartConfig}
               chartsSearchFilter={uiState.chartsSearchFilter}
               storageKey={configStorageKey}
+              minWidth={CHARTS_MIN_WIDTH}
             />
           )}
           {compareRunsMode === 'ARTIFACT' && (

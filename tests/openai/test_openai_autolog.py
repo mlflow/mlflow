@@ -8,13 +8,18 @@ from packaging.version import Version
 from pydantic import BaseModel
 
 import mlflow
-from mlflow import MlflowClient
 from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
-from mlflow.tracing.constant import STREAM_CHUNK_EVENT_VALUE_KEY, SpanAttributeKey, TraceMetadataKey
+from mlflow.openai.utils.chat_schema import _parse_tools
+from mlflow.tracing.constant import (
+    STREAM_CHUNK_EVENT_VALUE_KEY,
+    SpanAttributeKey,
+    TokenUsageKey,
+    TraceMetadataKey,
+)
 
 from tests.openai.mock_openai import EMPTY_CHOICES
-from tests.tracing.helper import get_traces
+from tests.tracing.helper import get_traces, skip_when_testing_trace_sdk
 
 MOCK_TOOLS = [
     {
@@ -53,10 +58,45 @@ def client(request, monkeypatch, mock_openai):
         return client
 
 
+@pytest.fixture
+def completion_models():
+    model_infos = []
+    for temp in [0.1, 0.2, 0.3]:
+        model_infos.append(
+            mlflow.openai.log_model(
+                "gpt-4o-mini",
+                "completions",
+                name="model",
+                temperature=temp,
+                prompt="Say {text}",
+                pip_requirements=["mlflow"],  # Hard code for speed up
+            )
+        )
+    return model_infos
+
+
+@pytest.fixture
+def embedding_models():
+    float_model = mlflow.openai.log_model(
+        "text-embedding-ada-002",
+        "embeddings",
+        name="model",
+        encoding_format="float",
+        pip_requirements=["mlflow"],  # Hard code for speed up
+    )
+    base64_model = mlflow.openai.log_model(
+        "text-embedding-ada-002",
+        "embeddings",
+        name="model",
+        encoding_format="base64",
+        pip_requirements=["mlflow"],  # Hard code for speed up
+    )
+    return [float_model, base64_model]
+
+
 @pytest.mark.asyncio
-@pytest.mark.parametrize("log_models", [True, False])
-async def test_chat_completions_autolog(client, log_models):
-    mlflow.openai.autolog(log_models=log_models)
+async def test_chat_completions_autolog(client):
+    mlflow.openai.autolog()
 
     messages = [{"role": "user", "content": "test"}]
     response = client.chat.completions.create(
@@ -81,20 +121,18 @@ async def test_chat_completions_autolog(client, log_models):
     assert span.attributes["model"] == "gpt-4o-mini"
     assert span.attributes["temperature"] == 0
 
-    if log_models:
-        run_id = client.chat.completions._mlflow_run_id
-        assert run_id is not None
-        assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run_id
-        loaded_model = mlflow.openai.load_model(f"runs:/{run_id}/model")
-        assert loaded_model == {
-            "model": "gpt-4o-mini",
-            "task": "chat.completions",
-        }
-        pyfunc_model = mlflow.pyfunc.load_model(f"runs:/{run_id}/model")
-        assert pyfunc_model.predict("test") == [json.dumps(messages)]
+    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        TokenUsageKey.INPUT_TOKENS: 9,
+        TokenUsageKey.OUTPUT_TOKENS: 12,
+        TokenUsageKey.TOTAL_TOKENS: 21,
+    }
 
-    else:
-        assert TraceMetadataKey.SOURCE_RUN not in trace.info.request_metadata
+    assert TraceMetadataKey.SOURCE_RUN not in trace.info.request_metadata
+    assert trace.info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 9,
+        TokenUsageKey.OUTPUT_TOKENS: 12,
+        TokenUsageKey.TOTAL_TOKENS: 21,
+    }
 
 
 @pytest.mark.asyncio
@@ -104,41 +142,60 @@ async def test_chat_completions_autolog_under_current_active_span(client):
 
     messages = [{"role": "user", "content": "test"}]
     with mlflow.start_span(name="parent"):
-        response = client.chat.completions.create(
-            messages=messages,
-            model="gpt-4o-mini",
-            temperature=0,
-        )
+        for _ in range(3):
+            response = client.chat.completions.create(
+                messages=messages,
+                model="gpt-4o-mini",
+                temperature=0,
+            )
 
-        if client._is_async:
-            await response
+            if client._is_async:
+                await response
 
     traces = get_traces()
     assert len(traces) == 1
     trace = traces[0]
     assert trace is not None
     assert trace.info.status == "OK"
-    assert len(trace.data.spans) == 2
+    assert len(trace.data.spans) == 4
     parent_span = trace.data.spans[0]
     assert parent_span.name == "parent"
     child_span = trace.data.spans[1]
-    assert child_span.name == "AsyncCompletions" if client._is_async else "Completions"
+    assert child_span.name == "AsyncCompletions_1" if client._is_async else "Completions_1"
     assert child_span.inputs == {"messages": messages, "model": "gpt-4o-mini", "temperature": 0}
     assert child_span.outputs["id"] == "chatcmpl-123"
     assert child_span.parent_id == parent_span.span_id
 
+    # Token usage should be aggregated correctly
+    assert trace.info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 27,
+        TokenUsageKey.OUTPUT_TOKENS: 36,
+        TokenUsageKey.TOTAL_TOKENS: 63,
+    }
+
 
 @pytest.mark.asyncio
-async def test_chat_completions_autolog_streaming(client):
+@pytest.mark.parametrize("include_usage", [True, False])
+async def test_chat_completions_autolog_streaming(client, include_usage):
     mlflow.openai.autolog()
 
+    stream_options_supported = Version(openai.__version__) >= Version("1.26")
+
+    if not stream_options_supported and include_usage:
+        pytest.skip("OpenAI SDK version does not support usage tracking in streaming")
+
     messages = [{"role": "user", "content": "test"}]
-    stream = client.chat.completions.create(
-        messages=messages,
-        model="gpt-4o-mini",
-        temperature=0,
-        stream=True,
-    )
+
+    input_params = {
+        "messages": messages,
+        "model": "gpt-4o-mini",
+        "temperature": 0,
+        "stream": True,
+    }
+    if stream_options_supported:
+        input_params["stream_options"] = {"include_usage": include_usage}
+
+    stream = client.chat.completions.create(**input_params)
 
     if client._is_async:
         async for _ in await stream:
@@ -147,18 +204,13 @@ async def test_chat_completions_autolog_streaming(client):
         for _ in stream:
             pass
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace is not None
     assert trace.info.status == "OK"
     assert len(trace.data.spans) == 1
     span = trace.data.spans[0]
     assert span.span_type == SpanType.CHAT_MODEL
-    assert span.inputs == {
-        "messages": messages,
-        "model": "gpt-4o-mini",
-        "temperature": 0,
-        "stream": True,
-    }
+    assert span.inputs == input_params
     assert span.outputs == "Hello world"  # aggregated string of streaming response
 
     stream_event_data = trace.data.spans[0].events
@@ -170,6 +222,13 @@ async def test_chat_completions_autolog_streaming(client):
     chunk_2 = json.loads(stream_event_data[1].attributes[STREAM_CHUNK_EVENT_VALUE_KEY])
     assert chunk_2["id"] == "chatcmpl-123"
     assert chunk_2["choices"][0]["delta"]["content"] == " world"
+
+    if include_usage:
+        assert trace.info.token_usage == {
+            TokenUsageKey.INPUT_TOKENS: 9,
+            TokenUsageKey.OUTPUT_TOKENS: 12,
+            TokenUsageKey.TOTAL_TOKENS: 21,
+        }
 
 
 @pytest.mark.asyncio
@@ -186,7 +245,7 @@ async def test_chat_completions_autolog_tracing_error(client):
         if client._is_async:
             await response
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace.info.status == "ERROR"
 
     assert len(trace.data.spans) == 1
@@ -237,7 +296,7 @@ async def test_chat_completions_autolog_tracing_error_with_parent_span(client):
         with pytest.raises(MlflowException, match="Failed to create completions"):
             create_completions("test")
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace.info.status == "ERROR"
 
     assert len(trace.data.spans) == 2
@@ -278,14 +337,13 @@ async def test_chat_completions_streaming_empty_choices(client):
     # Ensure the stream has a chunk with empty choices
     assert chunks[0].choices == []
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace.info.status == "OK"
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("log_models", [True, False])
-async def test_completions_autolog(client, log_models):
-    mlflow.openai.autolog(log_models=log_models)
+async def test_completions_autolog(client):
+    mlflow.openai.autolog()
 
     response = client.completions.create(
         prompt="test",
@@ -296,7 +354,7 @@ async def test_completions_autolog(client, log_models):
     if client._is_async:
         await response
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace is not None
     assert trace.info.status == "OK"
     assert len(trace.data.spans) == 1
@@ -305,19 +363,7 @@ async def test_completions_autolog(client, log_models):
     assert span.inputs == {"prompt": "test", "model": "gpt-4o-mini", "temperature": 0}
     assert span.outputs["id"] == "cmpl-uqkvlQyYK7bGYrRHQ0eXlWi7"
 
-    if log_models:
-        run_id = client.completions._mlflow_run_id
-        assert run_id is not None
-        assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run_id
-        loaded_model = mlflow.openai.load_model(f"runs:/{run_id}/model")
-        assert loaded_model == {
-            "model": "gpt-4o-mini",
-            "task": "completions",
-        }
-        pyfunc_model = mlflow.pyfunc.load_model(f"runs:/{run_id}/model")
-        assert pyfunc_model.predict("test") == ["test"]
-    else:
-        assert TraceMetadataKey.SOURCE_RUN not in trace.info.request_metadata
+    assert TraceMetadataKey.SOURCE_RUN not in trace.info.request_metadata
 
 
 @pytest.mark.asyncio
@@ -339,7 +385,7 @@ async def test_completions_autolog_streaming_empty_choices(client):
     # Ensure the stream has a chunk with empty choices
     assert chunks[0].choices == []
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace.info.status == "OK"
 
 
@@ -360,7 +406,7 @@ async def test_completions_autolog_streaming(client):
         for _ in stream:
             pass
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace is not None
     assert trace.info.status == "OK"
     assert len(trace.data.spans) == 1
@@ -387,9 +433,8 @@ async def test_completions_autolog_streaming(client):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("log_models", [True, False])
-async def test_embeddings_autolog(client, log_models):
-    mlflow.openai.autolog(log_models=log_models)
+async def test_embeddings_autolog(client):
+    mlflow.openai.autolog()
 
     response = client.embeddings.create(
         input="test",
@@ -399,7 +444,7 @@ async def test_embeddings_autolog(client, log_models):
     if client._is_async:
         await response
 
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert trace is not None
     assert trace.info.status == "OK"
     assert len(trace.data.spans) == 1
@@ -408,44 +453,13 @@ async def test_embeddings_autolog(client, log_models):
     assert span.inputs == {"input": "test", "model": "text-embedding-ada-002"}
     assert span.outputs["data"][0]["embedding"] == list(range(1536))
 
-    if log_models:
-        run_id = client.embeddings._mlflow_run_id
-        assert run_id is not None
-        assert trace.info.request_metadata[TraceMetadataKey.SOURCE_RUN] == run_id
-        loaded_model = mlflow.openai.load_model(f"runs:/{run_id}/model")
-        assert loaded_model == {
-            "model": "text-embedding-ada-002",
-            "task": "embeddings",
-        }
-        pyfunc_model = mlflow.pyfunc.load_model(f"runs:/{run_id}/model")
-        output = pyfunc_model.predict("test")
-        assert len(output) == 1
-        assert len(output[0]) == 1536
-    else:
-        assert TraceMetadataKey.SOURCE_RUN not in trace.info.request_metadata
+    assert TraceMetadataKey.SOURCE_RUN not in trace.info.request_metadata
 
 
+@skip_when_testing_trace_sdk
 @pytest.mark.asyncio
-async def test_autolog_with_registered_model_name(client):
-    registered_model_name = "test_model"
-    mlflow.openai.autolog(log_models=True, registered_model_name=registered_model_name)
-    response = client.chat.completions.create(
-        messages=[{"role": "user", "content": "test"}],
-        model="gpt-4o-mini",
-        temperature=0,
-    )
-
-    if client._is_async:
-        await response
-
-    registered_model = MlflowClient().get_registered_model(registered_model_name)
-    assert registered_model.name == registered_model_name
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize("log_models", [True, False])
-async def test_autolog_use_active_run_id(client, log_models):
-    mlflow.openai.autolog(log_models=log_models)
+async def test_autolog_use_active_run_id(client):
+    mlflow.openai.autolog()
 
     messages = [{"role": "user", "content": "test"}]
 
@@ -458,22 +472,13 @@ async def test_autolog_use_active_run_id(client, log_models):
     with mlflow.start_run() as run_1:
         await _call_create()
 
-    assert client.chat.completions._mlflow_run_id == run_1.info.run_id
-
     with mlflow.start_run() as run_2:
         await _call_create()
         await _call_create()
 
-    assert client.chat.completions._mlflow_run_id == run_2.info.run_id
-
     with mlflow.start_run() as run_3:
-        mlflow.openai.autolog(
-            log_models=log_models,
-            extra_tags={"foo": "bar"},
-        )
+        mlflow.openai.autolog()
         await _call_create()
-
-    assert client.chat.completions._mlflow_run_id == run_3.info.run_id
 
     traces = get_traces()[::-1]  # reverse order to sort by timestamp in ascending order
     assert len(traces) == 4
@@ -490,20 +495,19 @@ async def test_autolog_raw_response(client):
 
     messages = [{"role": "user", "content": "test"}]
 
-    with mlflow.start_run():
-        resp = client.chat.completions.with_raw_response.create(
-            model="gpt-4o-mini",
-            messages=messages,
-            tools=MOCK_TOOLS,
-        )
+    resp = client.chat.completions.with_raw_response.create(
+        model="gpt-4o-mini",
+        messages=messages,
+        tools=MOCK_TOOLS,
+    )
 
-        if client._is_async:
-            resp = await resp
+    if client._is_async:
+        resp = await resp
 
-        resp = resp.parse()  # ensure the raw response is returned
+    resp = resp.parse()  # ensure the raw response is returned
 
     assert resp.choices[0].message.content == '[{"role": "user", "content": "test"}]'
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert len(trace.data.spans) == 1
     span = trace.data.spans[0]
     assert span.span_type == SpanType.CHAT_MODEL
@@ -516,6 +520,12 @@ async def test_autolog_raw_response(client):
     )
     assert span.attributes[SpanAttributeKey.CHAT_TOOLS] == MOCK_TOOLS
 
+    assert trace.info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 9,
+        TokenUsageKey.OUTPUT_TOKENS: 12,
+        TokenUsageKey.TOTAL_TOKENS: 21,
+    }
+
 
 @pytest.mark.asyncio
 async def test_autolog_raw_response_stream(client):
@@ -523,25 +533,24 @@ async def test_autolog_raw_response_stream(client):
 
     messages = [{"role": "user", "content": "test"}]
 
-    with mlflow.start_run():
-        resp = client.chat.completions.with_raw_response.create(
-            model="gpt-4o-mini",
-            messages=messages,
-            tools=MOCK_TOOLS,
-            stream=True,
-        )
+    resp = client.chat.completions.with_raw_response.create(
+        model="gpt-4o-mini",
+        messages=messages,
+        tools=MOCK_TOOLS,
+        stream=True,
+    )
 
-        if client._is_async:
-            resp = await resp
+    if client._is_async:
+        resp = await resp
 
-        resp = resp.parse()  # ensure the raw response is returned
+    resp = resp.parse()  # ensure the raw response is returned
 
     if client._is_async:
         chunks = [c.choices[0].delta.content async for c in resp]
     else:
         chunks = [c.choices[0].delta.content for c in resp]
     assert chunks == ["Hello", " world"]
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert len(trace.data.spans) == 1
     span = trace.data.spans[0]
     assert span.span_type == SpanType.CHAT_MODEL
@@ -630,8 +639,175 @@ async def test_response_format(client):
             response = await response
 
     assert response.choices[0].message.parsed == Person(name="Angelo", age=42)
-    trace = mlflow.get_last_active_trace()
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     assert len(trace.data.spans) == 1
     span = trace.data.spans[0]
     assert span.outputs["choices"][0]["message"]["content"] == '{"name":"Angelo","age":42}'
     assert span.span_type == SpanType.CHAT_MODEL
+
+    assert trace.info.trace_metadata.get(TraceMetadataKey.TOKEN_USAGE) == json.dumps(
+        {
+            TokenUsageKey.INPUT_TOKENS: 68,
+            TokenUsageKey.OUTPUT_TOKENS: 11,
+            TokenUsageKey.TOTAL_TOKENS: 79,
+        }
+    )
+
+
+@skip_when_testing_trace_sdk
+@pytest.mark.asyncio
+async def test_autolog_link_traces_to_loaded_model_chat_completions(client, completion_models):
+    mlflow.openai.autolog()
+
+    for model_info in completion_models:
+        model_dict = mlflow.openai.load_model(model_info.model_uri)
+        resp = client.chat.completions.create(
+            messages=[{"role": "user", "content": f"test {model_info.model_id}"}],
+            model=model_dict["model"],
+            temperature=model_dict["temperature"],
+        )
+        if client._is_async:
+            await resp
+
+    traces = get_traces()
+    assert len(traces) == len(completion_models)
+    for trace in traces:
+        span = trace.data.spans[0]
+        model_id = trace.info.request_metadata[TraceMetadataKey.MODEL_ID]
+        assert model_id is not None
+        assert span.inputs["messages"][0]["content"] == f"test {model_id}"
+
+
+@skip_when_testing_trace_sdk
+@pytest.mark.asyncio
+async def test_autolog_link_traces_to_loaded_model_completions(client, completion_models):
+    mlflow.openai.autolog()
+
+    for model_info in completion_models:
+        model_dict = mlflow.openai.load_model(model_info.model_uri)
+        resp = client.completions.create(
+            prompt=f"test {model_info.model_id}",
+            model=model_dict["model"],
+            temperature=model_dict["temperature"],
+        )
+        if client._is_async:
+            await resp
+
+    traces = get_traces()
+    assert len(traces) == len(completion_models)
+    for trace in traces:
+        span = trace.data.spans[0]
+        model_id = trace.info.request_metadata[TraceMetadataKey.MODEL_ID]
+        assert model_id is not None
+        assert span.inputs["prompt"] == f"test {model_id}"
+
+
+@skip_when_testing_trace_sdk
+@pytest.mark.asyncio
+async def test_autolog_link_traces_to_loaded_model_embeddings(client, embedding_models):
+    mlflow.openai.autolog()
+
+    for model_info in embedding_models:
+        model_dict = mlflow.openai.load_model(model_info.model_uri)
+        resp = client.embeddings.create(
+            input=f"test {model_info.model_id}",
+            model=model_dict["model"],
+            encoding_format=model_dict["encoding_format"],
+        )
+        if client._is_async:
+            await resp
+
+    traces = get_traces()
+    assert len(traces) == len(embedding_models)
+    for trace in traces:
+        span = trace.data.spans[0]
+        model_id = trace.info.request_metadata[TraceMetadataKey.MODEL_ID]
+        assert model_id is not None
+        assert span.inputs["input"] == f"test {model_id}"
+
+
+@skip_when_testing_trace_sdk
+def test_autolog_link_traces_to_loaded_model_embeddings_pyfunc(
+    monkeypatch, mock_openai, embedding_models
+):
+    monkeypatch.setenvs(
+        {
+            "OPENAI_API_KEY": "test",
+            "OPENAI_API_BASE": mock_openai,
+        }
+    )
+
+    mlflow.openai.autolog()
+
+    for model_info in embedding_models:
+        pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+        assert mlflow.get_active_model_id() == model_info.model_id
+        pyfunc_model.predict(f"test {model_info.model_id}")
+
+    traces = get_traces()
+    assert len(traces) == len(embedding_models)
+    for trace in traces:
+        span = trace.data.spans[0]
+        model_id = trace.info.request_metadata[TraceMetadataKey.MODEL_ID]
+        assert model_id is not None
+        assert span.inputs["input"] == [f"test {model_id}"]
+
+
+@skip_when_testing_trace_sdk
+def test_autolog_link_traces_to_active_model(monkeypatch, mock_openai, embedding_models):
+    monkeypatch.setenvs(
+        {
+            "OPENAI_API_KEY": "test",
+            "OPENAI_API_BASE": mock_openai,
+        }
+    )
+
+    model = mlflow.create_external_model(name="test_model")
+    mlflow.set_active_model(model_id=model.model_id)
+    mlflow.openai.autolog()
+
+    for model_info in embedding_models:
+        pyfunc_model = mlflow.pyfunc.load_model(model_info.model_uri)
+        pyfunc_model.predict(model_info.model_id)
+
+    traces = get_traces()
+    assert len(traces) == len(embedding_models)
+    for trace in traces:
+        span = trace.data.spans[0]
+        assert trace.info.request_metadata[TraceMetadataKey.MODEL_ID] == model.model_id
+        logged_model_id = span.inputs["input"][0]
+        assert logged_model_id != model.model_id
+
+
+@pytest.mark.parametrize(
+    "sentinel",
+    [None, 42, object()],
+)
+def test_parse_tools_handles_openai_not_given_sentinel(sentinel):
+    assert _parse_tools({"tools": sentinel}) == []
+
+
+@skip_when_testing_trace_sdk
+@pytest.mark.asyncio
+async def test_model_loading_set_active_model_id_without_fetching_logged_model(
+    client, completion_models
+):
+    mlflow.openai.autolog()
+
+    model_info = completion_models[0]
+    with mock.patch("mlflow.get_logged_model", side_effect=Exception("get_logged_model failed")):
+        model_dict = mlflow.openai.load_model(model_info.model_uri)
+    resp = client.chat.completions.create(
+        messages=[{"role": "user", "content": f"test {model_info.model_id}"}],
+        model=model_dict["model"],
+        temperature=model_dict["temperature"],
+    )
+    if client._is_async:
+        await resp
+
+    traces = get_traces()
+    assert len(traces) == 1
+    span = traces[0].data.spans[0]
+    model_id = traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID]
+    assert model_id is not None
+    assert span.inputs["messages"][0]["content"] == f"test {model_id}"

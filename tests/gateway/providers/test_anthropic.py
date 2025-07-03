@@ -35,7 +35,7 @@ def completions_response():
 def completions_config():
     return {
         "name": "completions",
-        "route_type": "llm/v1/completions",
+        "endpoint_type": "llm/v1/completions",
         "model": {
             "provider": "anthropic",
             "name": "claude-instant-1",
@@ -176,7 +176,7 @@ async def test_completions_throws_with_stream_set_to_true():
 def chat_config():
     return {
         "name": "chat",
-        "route_type": "llm/v1/chat",
+        "endpoint_type": "llm/v1/chat",
         "model": {
             "provider": "anthropic",
             "name": "claude-2.1",
@@ -379,7 +379,7 @@ async def test_chat_stream():
 def embedding_config():
     return {
         "name": "embeddings",
-        "route_type": "llm/v1/embeddings",
+        "endpoint_type": "llm/v1/embeddings",
         "model": {
             "provider": "anthropic",
             "name": "claude-1.3-100k",

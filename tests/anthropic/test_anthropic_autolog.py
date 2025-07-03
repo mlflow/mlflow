@@ -1,5 +1,6 @@
 import asyncio
 import base64
+from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
@@ -207,6 +208,18 @@ def test_messages_autolog(is_async):
         },
     ]
 
+    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        "input_tokens": 10,
+        "output_tokens": 18,
+        "total_tokens": 28,
+    }
+
+    assert traces[0].info.token_usage == {
+        "input_tokens": 10,
+        "output_tokens": 18,
+        "total_tokens": 28,
+    }
+
     mlflow.anthropic.autolog(disable=True)
     _call_anthropic(DUMMY_CREATE_MESSAGE_REQUEST, DUMMY_CREATE_MESSAGE_RESPONSE, is_async)
 
@@ -218,7 +231,8 @@ def test_messages_autolog(is_async):
 def test_messages_autolog_multi_modal(is_async):
     mlflow.anthropic.autolog()
 
-    with open("tests/resources/images/test.png", "rb") as f:
+    image_dir = Path(__file__).parent.parent / "resources" / "images"
+    with open(image_dir / "test.png", "rb") as f:
         image_bytes = f.read()
         image_base64 = base64.b64encode(image_bytes).decode("utf-8")
 
@@ -280,6 +294,18 @@ def test_messages_autolog_multi_modal(is_async):
         },
     ]
 
+    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        "input_tokens": 10,
+        "output_tokens": 18,
+        "total_tokens": 28,
+    }
+
+    assert traces[0].info.token_usage == {
+        "input_tokens": 10,
+        "output_tokens": 18,
+        "total_tokens": 28,
+    }
+
 
 def test_messages_autolog_tool_calling(is_async):
     mlflow.anthropic.autolog()
@@ -296,7 +322,7 @@ def test_messages_autolog_tool_calling(is_async):
     assert span.name == "AsyncMessages.create" if is_async else "Messages.create"
     assert span.span_type == SpanType.CHAT_MODEL
     assert span.inputs == DUMMY_CREATE_MESSAGE_WITH_TOOLS_REQUEST
-    assert span.outputs == DUMMY_CREATE_MESSAGE_WITH_TOOLS_RESPONSE.to_dict()
+    assert span.outputs == DUMMY_CREATE_MESSAGE_WITH_TOOLS_RESPONSE.to_dict(exclude_unset=False)
 
     assert span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
         {
@@ -390,6 +416,18 @@ def test_messages_autolog_tool_calling(is_async):
         },
     ]
 
+    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        "input_tokens": 10,
+        "output_tokens": 18,
+        "total_tokens": 28,
+    }
+
+    assert traces[0].info.token_usage == {
+        "input_tokens": 10,
+        "output_tokens": 18,
+        "total_tokens": 28,
+    }
+
 
 @pytest.mark.skipif(not _is_thinking_supported, reason="Thinking block is not supported")
 def test_messages_autolog_with_thinking(is_async):
@@ -434,3 +472,15 @@ def test_messages_autolog_with_thinking(is_async):
             ],
         },
     ]
+
+    assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
+        "input_tokens": 10,
+        "output_tokens": 18,
+        "total_tokens": 28,
+    }
+
+    assert traces[0].info.token_usage == {
+        "input_tokens": 10,
+        "output_tokens": 18,
+        "total_tokens": 28,
+    }

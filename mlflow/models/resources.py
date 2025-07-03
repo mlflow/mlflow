@@ -20,6 +20,7 @@ class ResourceType(Enum):
     FUNCTION = "function"
     GENIE_SPACE = "genie_space"
     TABLE = "table"
+    APP = "app"
 
 
 class Resource(ABC):
@@ -105,7 +106,7 @@ class DatabricksUCConnection(DatabricksResource):
         used to create the tool which was used to build the model.
         on_behalf_of_user (Optional[bool]): If True, the resource is accessed with
         with the permission of the invoker of the model in the serving endpoint. If set to
-        None or False, the resources is accesssed with the permissions of the creator
+        None or False, the resource is accessed with the permissions of the creator
     """
 
     @property
@@ -124,7 +125,7 @@ class DatabricksServingEndpoint(DatabricksResource):
         endpoint_name (str): The name of all the databricks endpoints used by the model.
         on_behalf_of_user (Optional[bool]): If True, the resource is accessed with
         with the permission of the invoker of the model in the serving endpoint. If set to
-        None or False, the resources is accesssed with the permissions of the creator
+        None or False, the resource is accessed with the permissions of the creator
     """
 
     @property
@@ -144,7 +145,7 @@ class DatabricksVectorSearchIndex(DatabricksResource):
         used by the model
         on_behalf_of_user (Optional[bool]): If True, the resource is accessed with
         with the permission of the invoker of the model in the serving endpoint. If set to
-        None or False, the resources is accesssed with the permissions of the creator
+        None or False, the resource is accessed with the permissions of the creator
     """
 
     @property
@@ -163,7 +164,7 @@ class DatabricksSQLWarehouse(DatabricksResource):
         warehouse_id (str): The id of the sql warehouse used by the model
         on_behalf_of_user (Optional[bool]): If True, the resource is accessed with
         with the permission of the invoker of the model in the serving endpoint. If set to
-        None or False, the resources is accesssed with the permissions of the creator
+        None or False, the resource is accessed with the permissions of the creator
     """
 
     @property
@@ -182,7 +183,7 @@ class DatabricksFunction(DatabricksResource):
         function_name (str): The name of the function used by the model
         on_behalf_of_user (Optional[bool]): If True, the resource is accessed with
         with the permission of the invoker of the model in the serving endpoint. If set to
-        None or False, the resources is accesssed with the permissions of the creator
+        None or False, the resource is accessed with the permissions of the creator
     """
 
     @property
@@ -201,7 +202,7 @@ class DatabricksGenieSpace(DatabricksResource):
         genie_space_id (str): The genie space id
         on_behalf_of_user (Optional[bool]): If True, the resource is accessed with
         with the permission of the invoker of the model in the serving endpoint. If set to
-        None or False, the resources is accesssed with the permissions of the creator
+        None or False, the resource is accessed with the permissions of the creator
     """
 
     @property
@@ -222,7 +223,7 @@ class DatabricksTable(DatabricksResource):
          table_name (str): The name of the table used by the model
          on_behalf_of_user (Optional[bool]): If True, the resource is accessed with
         with the permission of the invoker of the model in the serving endpoint. If set to
-        None or False, the resources is accesssed with the permissions of the creator
+        None or False, the resource is accessed with the permissions of the creator
     """
 
     @property
@@ -231,6 +232,27 @@ class DatabricksTable(DatabricksResource):
 
     def __init__(self, table_name: str, on_behalf_of_user: Optional[bool] = None):
         super().__init__(table_name, on_behalf_of_user)
+
+
+class DatabricksApp(DatabricksResource):
+    """
+    Defines a Databricks Unity Catalog (UC) Table, which establishes table dependencies
+    for Model Serving. This table will be referenced in Agent Model Serving endpoints,
+    where an agent queries a SQL table via either Genie or UC Functions.
+
+     Args:
+         table_name (str): The name of the table used by the model
+         on_behalf_of_user (Optional[bool]): If True, the resource is accessed with
+        with the permission of the invoker of the model in the serving endpoint. If set to
+        None or False, the resource is accessed with the permissions of the creator
+    """
+
+    @property
+    def type(self) -> ResourceType:
+        return ResourceType.APP
+
+    def __init__(self, app_name: str, on_behalf_of_user: Optional[bool] = None):
+        super().__init__(app_name, on_behalf_of_user)
 
 
 def _get_resource_class_by_type(target_uri: str, resource_type: ResourceType):
@@ -243,6 +265,7 @@ def _get_resource_class_by_type(target_uri: str, resource_type: ResourceType):
             ResourceType.FUNCTION.value: DatabricksFunction,
             ResourceType.GENIE_SPACE.value: DatabricksGenieSpace,
             ResourceType.TABLE.value: DatabricksTable,
+            ResourceType.APP.value: DatabricksApp,
         }
     }
     resource = resource_classes.get(target_uri)
@@ -259,7 +282,7 @@ class _ResourceBuilder:
     @staticmethod
     def from_resources(
         resources: list[Resource], api_version: str = DEFAULT_API_VERSION
-    ) -> dict[str, dict[ResourceType, list[dict]]]:
+    ) -> dict[str, dict[ResourceType, list[dict[str, Any]]]]:
         resource_dict = {}
         for resource in resources:
             resource_data = resource.to_dict()
@@ -272,7 +295,7 @@ class _ResourceBuilder:
         return resource_dict
 
     @staticmethod
-    def from_dict(data) -> dict[str, dict[ResourceType, list[dict]]]:
+    def from_dict(data) -> dict[str, dict[ResourceType, list[dict[str, Any]]]]:
         resources = []
         api_version = data.pop("api_version")
         if api_version == "1":
@@ -289,7 +312,7 @@ class _ResourceBuilder:
         return _ResourceBuilder.from_resources(resources, api_version)
 
     @staticmethod
-    def from_yaml_file(path: str) -> dict[str, dict[ResourceType, list[dict]]]:
+    def from_yaml_file(path: str) -> dict[str, dict[ResourceType, list[dict[str, Any]]]]:
         if not os.path.exists(path):
             raise OSError(f"No such file or directory: '{path}'")
         path = os.path.abspath(path)

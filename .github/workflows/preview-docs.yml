@@ -1,28 +1,84 @@
 name: Preview docs
 
 on:
-  pull_request_target:
+  workflow_run:
+    workflows: [docs]
+    types: [completed]
 
 jobs:
-  main:
-    if: github.repository == 'mlflow/mlflow'
+  fail-early:
+    if: github.repository == 'mlflow/mlflow' && github.event.workflow_run.status == 'completed'
     runs-on: ubuntu-latest
     permissions:
-      statuses: read # preview_docs.py checks PR statuses
       pull-requests: write # preview_docs.py comments on PRs
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        if: github.event.workflow_run.conclusion == 'failure'
       - uses: ./.github/actions/setup-python
+        if: github.event.workflow_run.conclusion == 'failure'
+      - name: Install dependencies
+        if: github.event.workflow_run.conclusion == 'failure'
+        run: |
+          pip install requests
+      - name: Handle docs workflow failure
+        if: github.event.workflow_run.conclusion == 'failure'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+        run: |
+          python dev/preview_docs.py \
+            --commit-sha ${{ github.event.workflow_run.head_sha }} \
+            --pull-number $PR_NUMBER \
+            --workflow-run-id ${{ github.run_id }} \
+            --docs-workflow-run-url ${{ github.event.workflow_run.html_url }} \
+            --stage failed
+          exit 1
+
+  main:
+    needs: [fail-early]
+    if: needs.fail-early.outputs.status == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write # preview_docs.py comments on PRs
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Download build artifact
+        uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
+        with:
+          name: docs-build-${{ github.event.workflow_run.id }}
+          path: downloaded-artifact
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-node
       - name: Install dependencies
         run: |
           pip install requests
+          npm install -g netlify-cli
+      - name: Deploy to Netlify
+        id: netlify_deploy
+        working-directory: downloaded-artifact
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+        run: |-
+          netlify deploy \
+            --dir=. \
+            --no-build \
+            --message="PR Preview #${PR_NUMBER} - GitHub Run ID: ${{ github.run_id }}" \
+            --alias="pr-${PR_NUMBER}"
+        continue-on-error: true
       - name: Create preview link
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          CIRCLE_TOKEN: ${{ secrets.CIRCLE_TOKEN }}
+          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+          NETLIFY_URL: https://pr-${PR_NUMBER}--mlflow-docs-preview.netlify.app
         run: |
           python dev/preview_docs.py \
-            --commit-sha ${{ github.event.pull_request.head.sha }} \
-            --pull-number ${{ github.event.pull_request.number }} \
-            --workflow-run-id ${{ github.run_id }}
+            --commit-sha ${{ github.event.workflow_run.head_sha }} \
+            --pull-number $PR_NUMBER \
+            --workflow-run-id ${{ github.run_id }} \
+            --docs-workflow-run-url ${{ github.event.workflow_run.html_url }} \
+            --stage ${{ steps.netlify_deploy.outcome == 'success' && 'completed' || 'failed' }} \
+            --netlify-url $NETLIFY_URL

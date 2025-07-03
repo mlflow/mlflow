@@ -74,7 +74,7 @@ def test_llama_index_native_save_and_load_model(request, index_fixture, model_pa
 def test_llama_index_native_log_and_load_model(request, index_fixture):
     index = request.getfixturevalue(index_fixture)
     with mlflow.start_run():
-        logged_model = mlflow.llama_index.log_model(index, "model", engine_type="query")
+        logged_model = mlflow.llama_index.log_model(index, name="model", engine_type="query")
 
     loaded_model = mlflow.llama_index.load_model(logged_model.model_uri)
 
@@ -102,7 +102,7 @@ def test_llama_index_load_with_model_config(single_index):
     with mlflow.start_run():
         logged_model = mlflow.llama_index.log_model(
             single_index,
-            "model",
+            name="model",
             engine_type="query",
             model_config={"response_mode": "refine"},
         )
@@ -190,7 +190,7 @@ def test_query_engine_predict(single_index, with_input_example, payload):
     with mlflow.start_run():
         model_info = mlflow.llama_index.log_model(
             single_index,
-            "model",
+            name="model",
             input_example=payload if with_input_example else None,
             engine_type="query",
         )
@@ -226,7 +226,7 @@ def test_query_engine_predict_list(single_index, with_input_example, payload):
     with mlflow.start_run():
         model_info = mlflow.llama_index.log_model(
             single_index,
-            "model",
+            name="model",
             input_example=payload if with_input_example else None,
             engine_type="query",
         )
@@ -287,7 +287,7 @@ def test_chat_engine_predict(single_index, with_input_example, payload):
     with mlflow.start_run():
         model_info = mlflow.llama_index.log_model(
             single_index,
-            "model",
+            name="model",
             input_example=payload if with_input_example else None,
             engine_type="chat",
         )
@@ -337,7 +337,7 @@ def test_retriever_engine_predict(single_index, with_input_example):
     with mlflow.start_run():
         model_info = mlflow.llama_index.log_model(
             single_index,
-            "model",
+            name="model",
             input_example=payload if with_input_example else None,
             engine_type="retriever",
         )
@@ -420,7 +420,7 @@ def test_save_load_index_as_code_index(index_code_path, vector_store_class):
     with mlflow.start_run():
         model_info = mlflow.llama_index.log_model(
             index_code_path,
-            "model",
+            name="model",
             engine_type="query",
             input_example="hi",
         )
@@ -443,7 +443,7 @@ def test_save_load_query_engine_as_code():
     with mlflow.start_run():
         model_info = mlflow.llama_index.log_model(
             index_code_path,
-            "model",
+            name="model",
             input_example="hi",
         )
 
@@ -467,7 +467,7 @@ def test_save_load_chat_engine_as_code():
     with mlflow.start_run():
         model_info = mlflow.llama_index.log_model(
             index_code_path,
-            "model",
+            name="model",
             input_example="hi",
         )
 
@@ -501,7 +501,7 @@ def test_save_load_as_code_with_model_config(index_code_path, model_config):
     with mlflow.start_run():
         logged_model = mlflow.llama_index.log_model(
             index_code_path,
-            "model",
+            name="model",
             model_config=model_config,
         )
 
@@ -514,7 +514,7 @@ def test_save_load_as_code_with_model_config(index_code_path, model_config):
 def test_save_engine_with_engine_type_issues_warning(model_path):
     index_code_path = "tests/llama_index/sample_code/query_engine_with_reranker.py"
 
-    with mock.patch("mlflow.llama_index._logger") as mock_logger:
+    with mock.patch("mlflow.llama_index.model._logger") as mock_logger:
         mlflow.llama_index.save_model(
             llama_index_model=index_code_path,
             path=model_path,
@@ -537,7 +537,7 @@ async def test_save_load_workflow_as_code():
     with mlflow.start_run():
         model_info = mlflow.llama_index.log_model(
             index_code_path,
-            "model",
+            name="model",
             input_example={"topic": "pirates"},
         )
 

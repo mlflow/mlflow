@@ -3,7 +3,13 @@ import { useMemo } from 'react';
 import { type LoggedModelProto } from '../../types';
 import { ExperimentLoggedModelDatasetButton } from './ExperimentLoggedModelDatasetButton';
 
-export const ExperimentLoggedModelAllDatasetsList = ({ loggedModel }: { loggedModel: LoggedModelProto }) => {
+export const ExperimentLoggedModelAllDatasetsList = ({
+  loggedModel,
+  empty,
+}: {
+  loggedModel: LoggedModelProto;
+  empty?: React.ReactElement;
+}) => {
   const uniqueDatasets = useMemo(() => {
     const allMetrics = loggedModel.data?.metrics ?? [];
     return allMetrics.reduce<{ dataset_name: string; dataset_digest: string; run_id: string | undefined }[]>(
@@ -24,7 +30,7 @@ export const ExperimentLoggedModelAllDatasetsList = ({ loggedModel }: { loggedMo
   }, [loggedModel]);
 
   if (!uniqueDatasets.length) {
-    return <>-</>;
+    return empty ?? <>-</>;
   }
 
   return (

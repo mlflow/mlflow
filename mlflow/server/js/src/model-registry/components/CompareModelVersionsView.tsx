@@ -10,18 +10,10 @@ import { connect } from 'react-redux';
 import { Link } from '../../common/utils/RoutingUtils';
 import _ from 'lodash';
 import { FormattedMessage, injectIntl, IntlShape } from 'react-intl';
-import {
-  Switch,
-  LegacyTabs,
-  useDesignSystemTheme,
-  TableRow,
-  TableCell,
-  Table,
-  Spacer,
-} from '@databricks/design-system';
+import { Switch, LegacyTabs, useDesignSystemTheme } from '@databricks/design-system';
 
 import { getParams, getRunInfo } from '../../experiment-tracking/reducers/Reducers';
-import './CompareModelVersionsView.css';
+import '../../experiment-tracking/components/CompareRunView.css';
 import { CompareRunScatter } from '../../experiment-tracking/components/CompareRunScatter';
 import { CompareRunBox } from '../../experiment-tracking/components/CompareRunBox';
 import CompareRunContour from '../../experiment-tracking/components/CompareRunContour';
@@ -34,11 +26,8 @@ import { ModelRegistryRoutes } from '../routes';
 import { getModelVersionSchemas } from '../reducers';
 import { PageHeader } from '../../shared/building_blocks/PageHeader';
 import type { RunInfoEntity } from '../../experiment-tracking/types';
-import { CollapsibleSection } from '../../common/components/CollapsibleSection';
 
 const { TabPane } = LegacyTabs;
-
-const DEFAULT_TABLE_COLUMN_WIDTH = 200;
 
 function CenteredText(props: any) {
   const { theme } = useDesignSystemTheme();
@@ -47,6 +36,43 @@ function CenteredText(props: any) {
       css={{
         textAlign: 'center',
         color: theme.colors.textSecondary,
+      }}
+      {...props}
+    />
+  );
+}
+
+function CompareTable(props: any) {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <table
+      className="compare-table table"
+      css={{
+        'th.main-table-header': {
+          backgroundColor: theme.colors.white,
+          padding: 0,
+        },
+        'td.highlight-data': {
+          backgroundColor: theme.colors.backgroundValidationWarning,
+        },
+      }}
+      {...props}
+    />
+  );
+}
+
+function CollapseButton(props: any) {
+  const { theme } = useDesignSystemTheme();
+  return (
+    <button
+      css={{
+        textAlign: 'left',
+        display: 'flex',
+        alignItems: 'center',
+        border: 'none',
+        backgroundColor: theme.colors.white,
+        paddingLeft: 0,
+        cursor: 'pointer',
       }}
       {...props}
     />
@@ -80,21 +106,16 @@ export class CompareModelVersionsViewImpl extends Component<
   CompareModelVersionsViewImplProps,
   CompareModelVersionsViewImplState
 > {
-  compareModelVersionViewRef: any;
-
-  constructor(props: CompareModelVersionsViewImplProps) {
-    super(props);
-    this.compareModelVersionViewRef = React.createRef();
-    this.onCompareModelTableScrollHandler = this.onCompareModelTableScrollHandler.bind(this);
-  }
-
   state = {
     inputActive: true,
     outputActive: true,
-    onlyShowParameterDiff: true,
-    onlyShowSchemaDiff: true,
-    onlyShowMetricDiff: true,
+    paramsToggle: true,
+    paramsActive: true,
+    schemaToggle: true,
     compareByColumnNameToggle: false,
+    schemaActive: true,
+    metricToggle: true,
+    metricActive: true,
   };
 
   icons = {
@@ -111,30 +132,6 @@ export class CompareModelVersionsViewImpl extends Component<
     }));
   };
 
-  onCompareModelTableScrollHandler(e: React.ChangeEvent<HTMLDivElement>) {
-    const blocks = this.compareModelVersionViewRef.current?.querySelectorAll('.compare-model-table');
-    blocks.forEach((_: any, index: any) => {
-      const block = blocks[index];
-      if (block !== e.target) {
-        block.scrollLeft = e.target.scrollLeft;
-      }
-    });
-  }
-
-  getTableHeaderColumnWidth() {
-    return {
-      width: `${DEFAULT_TABLE_COLUMN_WIDTH}px`,
-      minWidth: `${DEFAULT_TABLE_COLUMN_WIDTH}px`,
-      maxWidth: `${DEFAULT_TABLE_COLUMN_WIDTH}px`,
-    };
-  }
-
-  getTableBodyColumnWidth() {
-    const runInfoLength = this.props.runInfos.length;
-    const widthStyle = `max(${DEFAULT_TABLE_COLUMN_WIDTH}px, calc(100vw / ${runInfoLength}))`;
-    return { width: widthStyle, minWidth: widthStyle, maxWidth: widthStyle };
-  }
-
   render() {
     const {
       inputsListByIndex,
@@ -147,7 +144,6 @@ export class CompareModelVersionsViewImpl extends Component<
       runDisplayNames,
       paramLists,
       metricLists,
-      intl,
     } = this.props;
     const title = (
       <FormattedMessage
@@ -166,125 +162,96 @@ export class CompareModelVersionsViewImpl extends Component<
       <Link to={ModelRegistryRoutes.getModelPageRoute(modelName)}>{modelName}</Link>,
     ];
 
-    const showdiffIntlMessage = intl.formatMessage({
-      defaultMessage: 'Show diff only',
-      description: 'Toggle text that determines whether to show diff only in the model comparison page',
-    });
-
     return (
-      <div>
+      <div
+        className="CompareModelVersionsView"
+        // @ts-expect-error TS(2322): Type '{ '.compare-table': { minWidth: number; }; '... Remove this comment to see the full error message
+        css={{
+          ...styles.compareModelVersionsView,
+          ...styles.wrapper(runInfos.length),
+        }}
+      >
         <PageHeader title={title} breadcrumbs={breadcrumbs} />
-        <div ref={this.compareModelVersionViewRef}>
-          {this.renderTable(
-            <>
-              {this.renderTableHeader()}
-              {this.renderModelVersionInfo()}
-            </>,
-          )}
-          <CollapsibleSection
-            title={intl.formatMessage({
-              defaultMessage: 'Parameters',
-              description: 'Table title text for parameters table in the model comparison page',
-            })}
-          >
-            <Switch
-              componentId="mlflow.model-registry.compare-model-versions-parameters-diff-switch"
-              label={showdiffIntlMessage}
-              checked={this.state.onlyShowParameterDiff}
-              onChange={(checked, e) => this.setState({ onlyShowParameterDiff: checked })}
-            />
-            <Spacer size="sm" />
-            {this.renderTable(this.renderParams())}
-          </CollapsibleSection>
-          <CollapsibleSection
-            title={intl.formatMessage({
-              defaultMessage: 'Schema',
-              description: 'Table title text for schema table in the model comparison page',
-            })}
-          >
-            <Switch
-              componentId="mlflow.model-registry.compare-model-versions-schema-ignore-column-order-switch"
-              label={intl.formatMessage({
-                defaultMessage: 'Ignore column ordering',
-                description:
-                  'Toggle text that determines whether to ignore column order in the\n                      model comparison page',
-              })}
-              checked={this.state.compareByColumnNameToggle}
-              onChange={(checked, e) => this.setState({ compareByColumnNameToggle: checked })}
-            />
-            <Spacer size="sm" />
-            <Switch
-              componentId="mlflow.model-registry.compare-model-versions-schema-diff-switch"
-              label={showdiffIntlMessage}
-              checked={this.state.onlyShowSchemaDiff}
-              onChange={(checked, e) => this.setState({ onlyShowSchemaDiff: checked })}
-            />
-            <Spacer size="sm" />
-            <div>
-              {this.renderSchemaSectionHeader(
-                'inputActive',
-                <FormattedMessage
-                  defaultMessage="Inputs"
-                  description="Table subtitle for schema inputs in the model comparison page"
-                />,
-              )}
-              {this.state.inputActive && (
-                <>
-                  {this.renderTable(
-                    this.renderSchema(
-                      'inputActive',
-                      <FormattedMessage
-                        defaultMessage="Inputs"
-                        description="Table section name for schema inputs in the model comparison page"
-                      />,
-                      inputsListByIndex,
-                      inputsListByName,
-                    ),
-                  )}
-                </>
-              )}
-            </div>
-            <Spacer size="sm" />
-            <div>
-              {this.renderSchemaSectionHeader(
-                'outputActive',
-                <FormattedMessage
-                  defaultMessage="Outputs"
-                  description="Table subtitle for schema outputs in the model comparison page"
-                />,
-              )}
-              {this.state.outputActive && (
-                <>
-                  {this.renderTable(
-                    this.renderSchema(
-                      'outputActive',
-                      <FormattedMessage
-                        defaultMessage="Outputs"
-                        description="Table section name for schema outputs in the model comparison page"
-                      />,
-                      outputsListByIndex,
-                      outputsListByName,
-                    ),
-                  )}
-                </>
-              )}
-            </div>
-          </CollapsibleSection>
-          <CollapsibleSection
-            title={intl.formatMessage({
-              defaultMessage: 'Metrics',
-              description: 'Table title text for metrics table in the model comparison page',
-            })}
-          >
-            <Switch
-              componentId="mlflow.model-registry.compare-model-versions-metrics-diff-switch"
-              label={showdiffIntlMessage}
-              checked={this.state.onlyShowMetricDiff}
-              onChange={(checked, e) => this.setState({ onlyShowMetricDiff: checked })}
-            />
-            <Spacer size="sm" />
-            {this.renderTable(this.renderMetrics())}
-          </CollapsibleSection>
+        <div className="responsive-table-container">
+          <CompareTable>
+            {this.renderTableHeader()}
+            {this.renderModelVersionInfo()}
+            {this.renderSectionHeader(
+              'paramsActive',
+              'paramsToggle',
+              <FormattedMessage
+                defaultMessage="Parameters"
+                description="Table title text for parameters table in the model comparison page"
+              />,
+            )}
+            {this.renderParams()}
+            {this.renderSectionHeader(
+              'schemaActive',
+              'schemaToggle',
+              <FormattedMessage
+                defaultMessage="Schema"
+                description="Table title text for schema table in the model comparison page"
+              />,
+              false,
+              // @ts-expect-error TS(2345): Argument of type 'Element' is not assignable to pa... Remove this comment to see the full error message
+              <Switch
+                className="toggle-switch"
+                // @ts-expect-error TS(2322): Type '{ className: string; style: { marginLeft: st... Remove this comment to see the full error message
+                style={{ marginLeft: 'auto' }}
+                onChange={() => this.onToggleClick('compareByColumnNameToggle')}
+              />,
+              <div className="padding-left-text padding-right-text">
+                <span>
+                  <FormattedMessage
+                    defaultMessage="Ignore column ordering"
+                    description="Toggle text that determines whether to ignore column order in the
+                      model comparison page"
+                  />
+                </span>
+              </div>,
+            )}
+            {this.renderSchemaSectionHeader(
+              'inputActive',
+              <FormattedMessage
+                defaultMessage="Inputs"
+                description="Table subtitle for schema inputs in the model comparison page"
+              />,
+            )}
+            {this.renderSchema(
+              'inputActive',
+              <FormattedMessage
+                defaultMessage="Inputs"
+                description="Table section name for schema inputs in the model comparison page"
+              />,
+              inputsListByIndex,
+              inputsListByName,
+            )}
+            {this.renderSchemaSectionHeader(
+              'outputActive',
+              <FormattedMessage
+                defaultMessage="Outputs"
+                description="Table subtitle for schema outputs in the model comparison page"
+              />,
+            )}
+            {this.renderSchema(
+              'outputActive',
+              <FormattedMessage
+                defaultMessage="Outputs"
+                description="Table section name for schema outputs in the model comparison page"
+              />,
+              outputsListByIndex,
+              outputsListByName,
+            )}
+            {this.renderSectionHeader(
+              'metricActive',
+              'metricToggle',
+              <FormattedMessage
+                defaultMessage="Metrics"
+                description="Table title text for metrics table in the model comparison page"
+              />,
+            )}
+            {this.renderMetrics()}
+          </CompareTable>
         </div>
         <LegacyTabs>
           <TabPane
@@ -336,156 +303,182 @@ export class CompareModelVersionsViewImpl extends Component<
     );
   }
 
-  renderTable(children: React.ReactNode): React.ReactNode {
-    return (
-      // @ts-expect-error TS(2322): Property 'onScroll' does not exist... Remove this comment to see the full error message
-      <Table className="table compare-table compare-model-table" onScroll={this.onCompareModelTableScrollHandler}>
-        {children}
-      </Table>
-    );
-  }
-
   renderTableHeader() {
     const { runInfos, runInfosValid } = this.props;
     return (
-      <TableRow className="compare-table-row">
-        <TableCell
-          className="head-value sticky-header"
-          css={{
-            backgroundColor: 'var(--table-header-background-color)',
-            ...this.getTableHeaderColumnWidth(),
-          }}
-        >
-          <FormattedMessage
-            defaultMessage="Run ID:"
-            description="Text for run ID header in the main table in the model comparison page"
-          />
-        </TableCell>
-        {runInfos.map((r, idx) => (
-          <TableCell className="data-value" css={{ ...this.getTableBodyColumnWidth() }} key={r.runUuid}>
-            {/* Do not show links for invalid run IDs */}
-            {runInfosValid[idx] ? (
-              <Link to={Routes.getRunPageRoute(r.experimentId ?? '0', r.runUuid ?? '')}>{r.runUuid}</Link>
-            ) : (
-              r.runUuid
-            )}
-          </TableCell>
-        ))}
-      </TableRow>
+      <thead>
+        <tr className="table-row">
+          <th scope="row" className="row-header block-content">
+            <FormattedMessage
+              defaultMessage="Run ID:"
+              description="Text for run ID header in the main table in the model comparison page"
+            />
+          </th>
+          {runInfos.map((r, idx) => (
+            <th scope="column" className="data-value block-content" key={r.runUuid}>
+              {/* Do not show links for invalid run IDs */}
+              {runInfosValid[idx] ? (
+                <Link to={Routes.getRunPageRoute(r.experimentId ?? '0', r.runUuid ?? '')}>{r.runUuid}</Link>
+              ) : (
+                r.runUuid
+              )}
+            </th>
+          ))}
+        </tr>
+      </thead>
     );
   }
 
   renderModelVersionInfo() {
     const { runInfos, runInfosValid, versionsToRuns, runNames, modelName } = this.props;
     return (
-      <>
-        <TableRow className="compare-table-row">
-          <TableCell
-            className="head-value sticky-header"
-            css={{
-              backgroundColor: 'var(--table-header-background-color)',
-              ...this.getTableHeaderColumnWidth(),
-            }}
-          >
+      <tbody className="scrollable-table">
+        <tr className="table-row">
+          <th scope="row" className="data-value block-content">
             <FormattedMessage
               defaultMessage="Model Version:"
               description="Text for model version row header in the main table in the model
                 comparison page"
             />
-          </TableCell>
+          </th>
           {Object.keys(versionsToRuns).map((modelVersion) => {
             const run = versionsToRuns[modelVersion];
             return (
-              <TableCell className="data-value" key={run} css={{ ...this.getTableBodyColumnWidth() }}>
+              <td className="meta-info block-content" key={run}>
                 <Link to={ModelRegistryRoutes.getModelVersionPageRoute(modelName, modelVersion)}>{modelVersion}</Link>
-              </TableCell>
+              </td>
             );
           })}
-        </TableRow>
-        <TableRow className="compare-table-row">
-          <TableCell
-            className="head-value sticky-header"
-            css={{
-              backgroundColor: 'var(--table-header-background-color)',
-              ...this.getTableHeaderColumnWidth(),
-            }}
-          >
+        </tr>
+        <tr className="table-row">
+          <th scope="row" className="data-value block-content">
             <FormattedMessage
               defaultMessage="Run Name:"
               description="Text for run name row header in the main table in the model comparison
                 page"
             />
-          </TableCell>
+          </th>
           {runNames.map((runName, i) => {
             return (
-              <TableCell className="data-value" key={runInfos[i].runUuid} css={{ ...this.getTableBodyColumnWidth() }}>
+              <td className="meta-info block-content" key={runInfos[i].runUuid}>
                 <div className="truncate-text single-line cell-content">{runName}</div>
-              </TableCell>
+              </td>
             );
           })}
-        </TableRow>
-        <TableRow className="compare-table-row">
-          <TableCell
-            className="head-value sticky-header"
-            css={{
-              backgroundColor: 'var(--table-header-background-color)',
-              ...this.getTableHeaderColumnWidth(),
-            }}
-          >
+        </tr>
+        <tr className="table-row">
+          <th scope="row" className="data-value block-content">
             <FormattedMessage
               defaultMessage="Start Time:"
               description="Text for start time row header in the main table in the model comparison
                 page"
             />
-          </TableCell>
+          </th>
           {runInfos.map((run, idx) => {
             /* Do not attempt to get timestamps for invalid run IDs */
             const startTime =
               run.startTime && runInfosValid[idx] ? Utils.formatTimestamp(run.startTime, this.props.intl) : '(unknown)';
             return (
-              <TableCell className="data-value" key={run.runUuid} css={{ ...this.getTableBodyColumnWidth() }}>
+              <td className="meta-info block-content" key={run.runUuid}>
                 {startTime}
-              </TableCell>
+              </td>
             );
           })}
-        </TableRow>
-      </>
+        </tr>
+      </tbody>
+    );
+  }
+
+  /* additional Switch and Text are antd Switch component and the text followed by the toggle switch
+  this is currently used in schema section where we have an additional switch toggle for
+  ignore column ordering, same logic can be applied if future section needs additional toggle */
+  renderSectionHeader(
+    activeSection: any,
+    toggleSection: any,
+    sectionName: any,
+    leftToggle = true,
+    additionalSwitch = null,
+    additionalSwitchText = null,
+  ) {
+    const { runInfos } = this.props;
+    // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
+    const isActive = this.state[activeSection];
+    const { downIcon, rightIcon } = this.icons;
+    return (
+      <tbody>
+        <tr>
+          <th scope="rowgroup" className="block-content main-table-header" colSpan={runInfos.length + 1}>
+            <div className="switch-button-container">
+              <CollapseButton onClick={() => this.onToggleClick(activeSection)}>
+                {isActive ? downIcon : rightIcon}
+                <span className="header">{sectionName}</span>
+              </CollapseButton>
+              {additionalSwitch}
+              {additionalSwitchText}
+              <Switch
+                defaultChecked
+                className="toggle-switch"
+                // @ts-expect-error TS(2322): Type '{ defaultChecked: true; className: string; s... Remove this comment to see the full error message
+                style={leftToggle ? { marginLeft: 'auto' } : {}}
+                onChange={() => this.onToggleClick(toggleSection)}
+              />
+              <div className="padding-left-text">
+                <span>
+                  <FormattedMessage
+                    defaultMessage="Show diff only"
+                    description="Toggle text that determines whether to show diff only in the model
+                      comparison page"
+                  />
+                </span>
+              </div>
+            </div>
+          </th>
+        </tr>
+      </tbody>
     );
   }
 
   renderParams() {
     return (
-      <>
+      <tbody className="scrollable-table">
         {this.renderDataRows(
           this.props.paramLists,
           <FormattedMessage
             defaultMessage="Parameters"
             description="Field name text for parameters table in the model comparison page"
           />,
-          true,
-          this.state.onlyShowParameterDiff,
+          this.state.paramsActive,
+          this.state.paramsToggle,
         )}
-      </>
+      </tbody>
     );
   }
 
-  renderSchemaSectionHeader(activeSection: string, sectionName: React.ReactNode) {
+  renderSchemaSectionHeader(activeSection: any, sectionName: any) {
+    const { runInfos } = this.props;
+    const { schemaActive } = this.state;
     // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
     const isActive = this.state[activeSection];
     const { minusIcon, plusIcon } = this.icons;
     return (
-      <button onClick={() => this.onToggleClick(activeSection)}>
-        {isActive ? minusIcon : plusIcon}
-        <strong style={{ paddingLeft: 4 }}>{sectionName}</strong>
-      </button>
+      <tbody>
+        <tr className={`${schemaActive ? '' : 'hidden-row'}`}>
+          <th scope="rowgroup" className="schema-table-header block-content" colSpan={runInfos.length + 1}>
+            <button className="schema-collapse-button" onClick={() => this.onToggleClick(activeSection)}>
+              {isActive ? minusIcon : plusIcon}
+              <strong style={{ paddingLeft: 4 }}>{sectionName}</strong>
+            </button>
+          </th>
+        </tr>
+      </tbody>
     );
   }
 
   renderSchema(activeSection: any, sectionName: any, listByIndex: any, listByName: any) {
-    const { compareByColumnNameToggle } = this.state;
+    const { schemaActive, compareByColumnNameToggle, schemaToggle } = this.state;
     // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
     const isActive = this.state[activeSection];
-    const showSchemaSection = isActive;
+    const showSchemaSection = schemaActive && isActive;
     const showListByIndex = !compareByColumnNameToggle && !_.isEmpty(listByIndex);
     const showListByName = compareByColumnNameToggle && !_.isEmpty(listByName);
     const listByIndexHeaderMap = (key: any, data: any) => (
@@ -503,12 +496,12 @@ export class CompareModelVersionsViewImpl extends Component<
       />
     );
     return (
-      <>
+      <tbody className="scrollable-table schema-scrollable-table">
         {this.renderDataRows(
           listByIndex,
           schemaFieldName,
           showSchemaSection && showListByIndex,
-          this.state.onlyShowSchemaDiff,
+          schemaToggle,
           listByIndexHeaderMap,
           schemaFormatter,
         )}
@@ -516,16 +509,17 @@ export class CompareModelVersionsViewImpl extends Component<
           listByName,
           schemaFieldName,
           showSchemaSection && showListByName,
-          this.state.onlyShowSchemaDiff,
+          schemaToggle,
           listByNameHeaderMap,
           schemaFormatter,
         )}
-      </>
+      </tbody>
     );
   }
 
   renderMetrics() {
     const { runInfos, metricLists } = this.props;
+    const { metricActive, metricToggle } = this.state;
     const { chartIcon } = this.icons;
     const metricsHeaderMap = (key: any, data: any) => {
       return (
@@ -546,30 +540,31 @@ export class CompareModelVersionsViewImpl extends Component<
       );
     };
     return (
-      <>
+      <tbody className="scrollable-table">
         {this.renderDataRows(
           metricLists,
           <FormattedMessage
             defaultMessage="Metrics"
             description="Field name text for metrics table in the model comparison page"
           />,
-          true,
-          this.state.onlyShowMetricDiff,
+          metricActive,
+          metricToggle,
           metricsHeaderMap,
           Utils.formatMetric,
         )}
-      </>
+      </tbody>
     );
   }
 
+  // eslint-disable-next-line no-unused-vars
   renderDataRows(
     list: any,
     fieldName: any,
     show = true,
-    onlyShowDiff = false,
+    toggle = false,
     headerMap = (key: any, data: any) => key,
     formatter = (value: any) => (isNaN(value) ? `"${value}"` : value),
-  ): React.ReactNode {
+  ) {
     // @ts-expect-error TS(2554): Expected 2 arguments, but got 1.
     const keys = CompareRunUtil.getKeys(list);
     const data = {};
@@ -583,14 +578,8 @@ export class CompareModelVersionsViewImpl extends Component<
     });
     if (_.isEmpty(keys) || _.isEmpty(list)) {
       return (
-        <TableRow className="compare-table-row">
-          <TableCell
-            className="head-value sticky-header"
-            css={{
-              backgroundColor: 'var(--table-header-background-color)',
-              ...this.getTableHeaderColumnWidth(),
-            }}
-          >
+        <tr className={`table-row ${show ? '' : 'hidden-row'}`}>
+          <th scope="row" className="rowHeader block-content">
             <CenteredText>
               <FormattedMessage
                 defaultMessage="{fieldName} are empty"
@@ -599,8 +588,8 @@ export class CompareModelVersionsViewImpl extends Component<
                 values={{ fieldName: fieldName }}
               />
             </CenteredText>
-          </TableCell>
-        </TableRow>
+          </th>
+        </tr>
       );
     }
     // @ts-expect-error TS(2345): Argument of type 'string' is not assignable to par... Remove this comment to see the full error message
@@ -614,54 +603,41 @@ export class CompareModelVersionsViewImpl extends Component<
     const resultRows = keys.map((k) => {
       // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
       const isDifferent = data[k].length > 1 && _.uniq(data[k]).length > 1;
-      if (onlyShowDiff && !isDifferent) {
-        return null;
-      }
       identical = !isDifferent && identical;
       return (
-        <TableRow
-          key={k}
-          style={{ display: `${(onlyShowDiff && !isDifferent) || !show ? 'none' : ''}` }}
-          className={`compare-table-row ${isDifferent ? 'diff-row' : ''}`}
-        >
-          <TableCell
-            className="head-value sticky-header"
-            css={{
-              backgroundColor: 'var(--table-header-background-color)',
-              ...this.getTableHeaderColumnWidth(),
-            }}
-          >
+        <tr key={k} className={`table-row ${(toggle && !isDifferent) || !show ? 'hidden-row' : ''}`}>
+          <th scope="row" className="rowHeader block-content">
             {/* @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message */}
             {headerMap(k, data[k])}
-          </TableCell>
+          </th>
           {/* @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message */}
           {data[k].map((value: any, i: any) => (
-            <TableCell
-              className={`data-value`}
-              css={{ ...this.getTableBodyColumnWidth() }}
+            <td
+              className={`data-value block-content ${isDifferent ? 'highlight-data' : ''}`}
               key={this.props.runInfos[i].runUuid}
             >
               <span className="truncate-text single-line cell-content">
                 {value === undefined ? '-' : formatter(value)}
               </span>
-            </TableCell>
+            </td>
           ))}
-        </TableRow>
+        </tr>
       );
     });
-    if (identical && onlyShowDiff) {
+    if (identical && toggle) {
       return (
-        <TableRow className={`compare-table-row`} style={{ display: `${show ? '' : 'none'}` }}>
-          <TableCell className="data-value" css={{ ...this.getTableBodyColumnWidth() }}>
+        <tr className={`table-row ${show ? '' : 'hidden-row'}`}>
+          <th scope="row" className="rowHeader block-content">
             <CenteredText>
               <FormattedMessage
                 defaultMessage="{fieldName} are identical"
+                // eslint-disable-next-line max-len
                 description="Default text in data table where items are identical in the model comparison page"
                 values={{ fieldName: fieldName }}
               />
             </CenteredText>
-          </TableCell>
-        </TableRow>
+          </th>
+        </tr>
       );
     }
     return resultRows;
@@ -683,10 +659,11 @@ const getModelVersionSchemaColumnsByIndex = (columns: any) => {
 };
 
 const getModelVersionSchemaColumnsByName = (columns: any) => {
-  const columnsByName: Record<string, { key: string; value: string }> = {};
+  const columnsByName = {};
   columns.forEach((column: any) => {
     const name = column.name ? column.name : '-';
     const type = column.type ? column.type : '-';
+    // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
     columnsByName[name] = {
       key: name,
       value: type,
@@ -754,6 +731,88 @@ const mapStateToProps = (state: any, ownProps: any) => {
     outputsListByName,
     outputsListByIndex,
   };
+};
+
+const DEFAULT_COLUMN_WIDTH = 200;
+
+const styles = {
+  wrapper: (numRuns: any) => ({
+    '.compare-table': {
+      // 1 extra unit for header column
+      minWidth: (numRuns + 1) * DEFAULT_COLUMN_WIDTH,
+    },
+  }),
+  compareModelVersionsView: {
+    'button:focus': {
+      outline: 'none',
+      boxShadow: 'none',
+    },
+    'td.block-content th.block-content': {
+      whiteSpace: 'nowrap',
+      textOverflow: 'ellipsis',
+      tableLayout: 'fixed',
+      boxSizing: 'content-box',
+    },
+    'th.schema-table-header': {
+      height: 28,
+      padding: 0,
+    },
+    'tr.table-row': {
+      display: 'table',
+      width: '100%',
+      tableLayout: 'fixed',
+    },
+    'tr.hidden-row': {
+      display: 'none',
+    },
+    'tbody.scrollable-table': {
+      width: '100%',
+      display: 'block',
+      border: 'none',
+      maxHeight: 400,
+      overflowY: 'auto',
+    },
+    'tbody.schema-scrollable-table': {
+      maxHeight: 200,
+    },
+    '.switch-button-container': {
+      display: 'flex',
+      paddingTop: 16,
+      paddingBottom: 16,
+    },
+    'button.schema-collapse-button': {
+      textAlign: 'left',
+      display: 'block',
+      width: '100%',
+      height: '100%',
+      border: 'none',
+    },
+    '.collapse-button': {
+      textAlign: 'left',
+      display: 'flex',
+      alignItems: 'center',
+      border: 'none',
+      backgroundColor: 'white',
+      paddingLeft: 0,
+    },
+    '.cell-content': {
+      maxWidth: '200px',
+      minWidth: '100px',
+    },
+    '.padding-left-text': {
+      paddingLeft: 8,
+    },
+    '.padding-right-text': {
+      paddingRight: 16,
+    },
+    '.toggle-switch': {
+      marginTop: 2,
+    },
+    '.header': {
+      paddingLeft: 8,
+      fontSize: 16,
+    },
+  },
 };
 
 export const CompareModelVersionsView = connect(mapStateToProps)(injectIntl(CompareModelVersionsViewImpl));

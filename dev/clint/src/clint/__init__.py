@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Literal
 
 from clint.config import Config
+from clint.index import SymbolIndex
 from clint.linter import lint_file
 
 
@@ -31,14 +32,15 @@ class Args:
 
 def main():
     config = Config.load()
-    EXCLUDE_REGEX = re.compile("|".join(map(re.escape, config.exclude)))
     args = Args.parse()
+    files = args.files
+    if config.exclude:
+        regex = re.compile("|".join(map(re.escape, config.exclude)))
+        files = [f for f in files if not regex.match(f) and os.path.exists(f)]
+
+    index = SymbolIndex.build()
     with ProcessPoolExecutor() as pool:
-        futures = [
-            pool.submit(lint_file, Path(f), config)
-            for f in args.files
-            if not EXCLUDE_REGEX.match(f) and os.path.exists(f)
-        ]
+        futures = [pool.submit(lint_file, Path(f), config, index) for f in files]
         violations_iter = itertools.chain.from_iterable(f.result() for f in as_completed(futures))
         if violations := list(violations_iter):
             if args.output_format == "json":

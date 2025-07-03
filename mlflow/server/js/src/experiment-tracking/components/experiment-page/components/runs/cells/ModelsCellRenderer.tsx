@@ -6,6 +6,7 @@ import Routes from '../../../../../routes';
 import { RunRowModelsInfo } from '../../../utils/experimentPage.row-types';
 import { Link } from '../../../../../../common/utils/RoutingUtils';
 import { ReactComponent as RegisteredModelOkIcon } from '../../../../../../common/static/registered-model-grey-ok.svg';
+import type { LoggedModelProto } from '../../../../../types';
 import { FormattedMessage } from 'react-intl';
 
 const EMPTY_CELL_PLACEHOLDER = '-';
@@ -100,6 +101,28 @@ const ModelLink = ({
   );
 };
 
+const LoggedModelV3Link = ({ model }: { model: LoggedModelProto }) => {
+  const { theme } = useDesignSystemTheme();
+
+  if (!model.info?.model_id || !model.info?.experiment_id) {
+    return null;
+  }
+  return (
+    <div css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs, overflow: 'hidden' }}>
+      <div css={{ width: 20, display: 'flex', alignItems: 'center', justifyContent: 'flex-start', flexShrink: 0 }}>
+        <ModelsIcon css={{ color: theme.colors.actionPrimaryBackgroundDefault }} />
+      </div>
+      <Link
+        to={Routes.getExperimentLoggedModelDetailsPage(model.info.experiment_id, model.info.model_id)}
+        target="_blank"
+        css={{ textOverflow: 'ellipsis', overflow: 'hidden', cursor: 'pointer' }}
+      >
+        {model.info.name}
+      </Link>
+    </div>
+  );
+};
+
 export const ModelsCellRenderer = React.memo((props: ModelsCellRendererProps) => {
   if (!props.value) {
     return <>{EMPTY_CELL_PLACEHOLDER}</>;
@@ -107,7 +130,7 @@ export const ModelsCellRenderer = React.memo((props: ModelsCellRendererProps) =>
   const { registeredModels, loggedModels, experimentId, runUuid } = props.value;
   const models: CombinedModelType[] = Utils.mergeLoggedAndRegisteredModels(loggedModels, registeredModels) as any[];
 
-  const containsModels = Boolean(models?.length);
+  const containsModels = Boolean(models?.length || props.value.loggedModelsV3?.length);
 
   if (containsModels) {
     return (
@@ -116,6 +139,9 @@ export const ModelsCellRenderer = React.memo((props: ModelsCellRendererProps) =>
         <Overflow>
           {models.map((model, index) => (
             <ModelLink model={model} key={model.artifactPath || index} experimentId={experimentId} runUuid={runUuid} />
+          ))}
+          {props.value.loggedModelsV3?.map((model, index) => (
+            <LoggedModelV3Link key={model.info?.model_id ?? index} model={model} />
           ))}
         </Overflow>
       </div>

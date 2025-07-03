@@ -20,6 +20,7 @@ import { ColumnDef, flexRender, getCoreRowModel, getExpandedRowModel, useReactTa
 import { Interpolation, Theme } from '@emotion/react';
 import { ExpandedJSONValueCell } from '@mlflow/mlflow/src/common/components/ExpandableCell';
 import { isUnstableNestedComponentsMigrated } from '../../common/utils/FeatureUtils';
+import { useExperimentTrackingDetailsPageLayoutStyles } from '../hooks/useExperimentTrackingDetailsPageLayoutStyles';
 
 type ParamsColumnDef = ColumnDef<KeyValueEntity> & {
   meta?: { styles?: Interpolation<Theme>; multiline?: boolean };
@@ -168,7 +169,8 @@ export const DetailsOverviewParamsTable = ({ params }: { params: Record<string, 
   const intl = useIntl();
   const [filter, setFilter] = useState('');
   const autoExpandedRowsList = useRef<Record<string, boolean>>({});
-
+  const { detailsPageTableStyles, detailsPageNoEntriesStyles, detailsPageNoResultsWrapperStyles } =
+    useExperimentTrackingDetailsPageLayoutStyles();
   const paramsValues = useMemo(() => values(params), [params]);
 
   const paramsList = useMemo(
@@ -236,7 +238,7 @@ export const DetailsOverviewParamsTable = ({ params }: { params: Record<string, 
   const renderTableContent = () => {
     if (!paramsValues.length) {
       return (
-        <div css={{ flex: '1', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div css={detailsPageNoEntriesStyles}>
           <Empty
             description={
               <FormattedMessage
@@ -270,7 +272,7 @@ export const DetailsOverviewParamsTable = ({ params }: { params: Record<string, 
           scrollable
           empty={
             areAllResultsFiltered ? (
-              <div css={{ marginTop: theme.spacing.md * 4 }}>
+              <div css={detailsPageNoResultsWrapperStyles}>
                 <Empty
                   description={
                     <FormattedMessage
@@ -282,6 +284,7 @@ export const DetailsOverviewParamsTable = ({ params }: { params: Record<string, 
               </div>
             ) : null
           }
+          css={detailsPageTableStyles}
         >
           <TableRow isHeader>
             {table.getLeafHeaders().map((header, index) => (

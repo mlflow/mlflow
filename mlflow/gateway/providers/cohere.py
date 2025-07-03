@@ -191,7 +191,7 @@ class CohereAdapter(ProviderAdapter):
         payload = cls._scale_temperature(payload)
 
         messages = payload.pop("messages")
-        last_message = messages.pop()  # pydantic enforces min_items=1
+        last_message = messages.pop()  # pydantic enforces min_length=1
         if last_message["role"] != "user":
             raise AIGatewayException(
                 status_code=422,

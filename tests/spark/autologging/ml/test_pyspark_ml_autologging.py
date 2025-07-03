@@ -40,6 +40,7 @@ from pyspark.sql.functions import col
 import mlflow
 from mlflow import MlflowClient
 from mlflow.entities import RunStatus
+from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelSignature
 from mlflow.pyspark.ml import (
     _gen_estimator_metadata,
@@ -205,7 +206,7 @@ def test_basic_estimator(dataset_binomial):
         )
         assert run_data.tags == get_expected_class_tags(estimator)
         if isinstance(estimator, MultilayerPerceptronClassifier):
-            with pytest.raises(OSError, match=r"No such file or directory"):
+            with pytest.raises(MlflowException, match=r"Failed to download artifacts"):
                 load_model_by_run_id(run_id)
         else:
             loaded_model = load_model_by_run_id(run_id)
@@ -589,6 +590,7 @@ def test_param_search_estimator(
     )
     assert len(child_runs) == len(search_results)
 
+    # best_model_run_metrics = None
     for row_index, row in search_results.iterrows():
         row_params = json.loads(row.get("params", "{}"))
         for param_name, param_value in row_params.items():
@@ -606,6 +608,9 @@ def test_param_search_estimator(
         child_run = child_runs[0]
         assert child_run.info.status == RunStatus.to_string(RunStatus.FINISHED)
         run_data = get_run_data(child_run.info.run_id)
+        # TODO: Enable once spark flavor supports logged models
+        # if row_params == best_params:
+        #     best_model_run_metrics = run_data.metrics
         child_estimator = estimator.getEstimator().copy(
             estimator.getEstimatorParamMaps()[row_index]
         )
@@ -636,6 +641,11 @@ def test_param_search_estimator(
             std_metric_value = model.stdMetrics[row_index]
             assert math.isclose(std_metric_value, run_data.metrics[std_metric_name], rel_tol=1e-6)
             assert math.isclose(std_metric_value, float(row.get(std_metric_name)), rel_tol=1e-6)
+
+    # TODO: Enable once spark flavor supports logged models
+    # assert best_model_run_metrics is not None
+    # best_logged_model = get_logged_model_by_name("best_model")
+    # assert best_model_run_metrics == {m.key: m.value for m in best_logged_model.metrics}
 
 
 def test_get_params_to_log(spark_session):
@@ -883,6 +893,11 @@ def test_basic_post_training_metric_autologging(dataset_iris_binomial):
     area_under_roc_original = bce.evaluate(pred_result)
     assert np.isclose(area_under_roc, area_under_roc_original)
 
+    # TODO: Enable once spark flavor supports logged models
+    # logged_model = get_logged_model_by_name("model")
+    # assert logged_model is not None
+    # assert run_data.metrics == {m.key: m.value for m in logged_model.metrics}
+
 
 def test_multi_model_interleaved_fit_and_post_train_metric_call(dataset_iris_binomial):
     mlflow.pyspark.ml.autolog()
@@ -905,11 +920,23 @@ def test_multi_model_interleaved_fit_and_post_train_metric_call(dataset_iris_bin
     logloss1 = mce.evaluate(pred1_result)
     logloss2 = mce.evaluate(pred2_result)
 
+    # TODO: Uncomment commented-out code once spark flavor supports logged models
+    # logged_models = mlflow.search_logged_models(
+    #     filter_string="name='model'",
+    #     output_format="list",
+    # )
+    # assert len(logged_models) == 2
+    # logged_model2, logged_model1 = logged_models
+
     metrics1 = get_run_data(run1.info.run_id).metrics
     assert np.isclose(logloss1, metrics1["logLoss_eval_dataset1"])
+    # assert logged_model1 is not None
+    # assert metrics1 == {m.key: m.value for m in logged_model1.metrics}
 
     metrics2 = get_run_data(run2.info.run_id).metrics
     assert np.isclose(logloss2, metrics2["logLoss_eval_dataset2"])
+    # assert logged_model2 is not None
+    # assert metrics2 == {m.key: m.value for m in logged_model2.metrics}
 
 
 def test_meta_estimator_disable_post_training_autologging(dataset_regression):

@@ -1,0 +1,280 @@
+syntax = "proto2";
+
+package mlflow.unitycatalog;
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+import "databricks.proto";
+import "scalapb/scalapb.proto";
+
+option java_package = "com.databricks.api.proto.managedcatalog";
+option java_generate_equals_and_hash = true;
+option py_generic_services = true;
+option (scalapb.options) = {
+  flat_package: true,
+};
+
+// Common message types
+message Prompt {
+  reserved 5;
+  reserved "experiment_id";
+
+  // Full three tier UC name of the prompt.
+  optional string name = 1;
+  // Timestamp recorded when this prompt was created.
+  optional google.protobuf.Timestamp creation_timestamp = 2;
+  // Timestamp recorded when metadata for this prompt was last updated.
+  optional google.protobuf.Timestamp last_updated_timestamp = 3;
+  // Description of this prompt.
+  optional string description = 4;
+  // Registered Prompt Aliases on this prompt.
+  repeated PromptAlias aliases = 6;
+  // Tags associated with this prompt.
+  repeated PromptTag tags = 7;
+}
+
+message PromptVersion {
+  // Full three tier UC name of the prompt.
+  optional string name = 1;
+  // Prompt's version number.
+  optional string version = 2;
+  // Timestamp recorded when this prompt_version was created.
+  optional google.protobuf.Timestamp creation_timestamp = 3;
+  // Timestamp recorded when metadata for this prompt_version was last updated.
+  optional google.protobuf.Timestamp last_updated_timestamp = 4;
+  // Description of this prompt_version.
+  optional string description = 5;
+  // The prompt template stored in this version
+  optional string template = 6;
+  // Registered Prompt Aliases on this prompt version.
+  repeated PromptAlias aliases = 7;
+  // Tags associated with this prompt version.
+  repeated PromptVersionTag tags = 8;
+}
+
+message PromptTag {
+  // Name (key) of the tag.
+  optional string key = 1;
+  // Value of the tag associated with the key, could be empty
+  optional string value = 2;
+}
+
+message PromptVersionTag {
+  // Name (key) of the tag.
+  optional string key = 1;
+  // Value of the tag associated with the key, could be empty
+  optional string value = 2;
+}
+
+message PromptAlias {
+  // Unique name for the alias.
+  optional string alias = 1;
+  // Prompt version number that the alias references.
+  optional string version = 2;
+}
+
+message UnityCatalogSchema {
+  optional string catalog_name = 4;
+  optional string schema_name = 5;
+}
+
+// Request/Response messages
+message CreatePromptRequest {
+  // The name of the prompt from the path
+  optional string name = 1;
+  // The prompt to create
+  optional Prompt prompt = 2;
+}
+
+
+
+message UpdatePromptRequest {
+  optional string name = 1;
+  optional Prompt prompt = 2;
+}
+
+
+
+message DeletePromptRequest {
+  // Registered Prompt unique name identifier.
+  optional string name = 1;
+}
+
+message DeletePromptResponse {
+}
+
+message GetPromptRequest {
+  // Registered Prompt unique name identifier.
+  optional string name = 1;
+}
+
+
+
+message SearchPromptsRequest {
+  reserved 2;
+  reserved "experiment_id";
+
+  // String filter condition, like "name='my-prompt-name'". Must be a single boolean condition,
+  // with string values wrapped in single quotes.
+  optional string filter = 1;
+  // Search for prompts given a specific location.
+  oneof location {
+    UnityCatalogSchema catalog_schema = 3;
+  }
+  // Maximum number of Prompts desired. Default is 100.
+  optional int64 max_results = 4;
+  // Pagination token to go to the next page based on a previous search query.
+  optional string page_token = 5;
+}
+
+message SearchPromptsResponse {
+  // Registered Prompts that match the search criteria.
+  repeated Prompt prompts = 1;
+  // Pagination token to request the next page of Prompts.
+  optional string next_page_token = 2;
+}
+
+message CreatePromptVersionRequest {
+  reserved 2;
+  reserved "version";
+
+  // The name of the prompt from the path
+  optional string name = 1;
+  // The prompt version to create
+  optional PromptVersion prompt_version = 3;
+}
+
+message UpdatePromptVersionRequest {
+  // Name of the registered prompt
+  optional string name = 1;
+  // Prompt version number
+  optional string version = 2;
+  optional PromptVersion prompt_version = 3;
+}
+
+message DeletePromptVersionRequest {
+  // Name of the registered prompt
+  optional string name = 1;
+  // Prompt version number
+  optional string version = 2;
+}
+
+message GetPromptVersionRequest {
+  // Name of the registered prompt
+  optional string name = 1;
+  // Prompt version number
+  optional string version = 2;
+}
+
+message SearchPromptVersionsRequest {
+  optional string name = 1;
+  // Maximum number of prompt versions desired. Default value and max threshold are set in the managed catalog service.
+  optional int64 max_results = 2;
+  // Pagination token to go to next page based on previous search query.
+  optional string page_token = 3;
+}
+
+message SearchPromptVersionsResponse {
+  // Prompt versions that match the search criteria
+  repeated PromptVersion prompt_versions = 1;
+  // Pagination token to request next page of prompts for the same search query.
+  optional string next_page_token = 2;
+}
+
+message SetPromptAliasRequest {
+  // Name of the prompt
+  optional string name = 1;
+  // Name of the prompt alias
+  optional string alias = 2;
+  // Prompt version number that alias will reference
+  optional string version = 3;
+}
+
+message DeletePromptAliasRequest {
+  // Name of the prompt
+  optional string name = 1;
+  // Name of the registered prompt alias
+  optional string alias = 2;
+}
+
+message GetPromptVersionByAliasRequest {
+  // Name of the prompt
+  optional string name = 1;
+  // Name of the registered prompt alias
+  optional string alias = 2;
+}
+
+message SetPromptTagRequest {
+  // Name of the prompt
+  optional string name = 1;
+  // Name (key) of the tag
+  optional string key = 2;
+  // Value of the tag associated with the key
+  optional string value = 3;
+}
+
+message DeletePromptTagRequest {
+  // Name of the prompt
+  optional string name = 1;
+  // Name (key) of the tag
+  optional string key = 2;
+}
+
+message SetPromptVersionTagRequest {
+  // Name of the prompt
+  optional string name = 1;
+  // Prompt version number
+  optional string version = 2;
+  // Name (key) of the tag
+  optional string key = 3;
+  // Value of the tag associated with the key
+  optional string value = 4;
+}
+
+message DeletePromptVersionTagRequest {
+  // Name of the prompt
+  optional string name = 1;
+  // Prompt version number
+  optional string version = 2;
+  // Name (key) of the tag
+  optional string key = 3;
+}
+
+message LinkPromptVersionsToModelsRequest {
+  option (scalapb.message).extends = "UcModelRegistryRoutableRPC[com.google.protobuf.empty.Empty]";
+
+  // Prompt version entries to link to the models.
+  repeated PromptVersionLinkEntry prompt_versions = 1;
+
+  // IDs of the models to which to link each prompt version.
+  repeated string model_ids = 2;
+}
+
+message LinkPromptsToTracesRequest {
+  option (scalapb.message).extends = "UcModelRegistryRoutableRPC[com.google.protobuf.empty.Empty]";
+
+  // Prompt version entries to link to the traces.
+  repeated PromptVersionLinkEntry prompt_versions = 1;
+
+  // IDs of the traces to which to link each prompt version.
+  repeated string trace_ids = 2;
+}
+
+message LinkPromptVersionsToRunsRequest {
+  option (scalapb.message).extends = "UcModelRegistryRoutableRPC[com.google.protobuf.empty.Empty]";
+
+  // Prompt version entries to link to the runs.
+  repeated PromptVersionLinkEntry prompt_versions = 1;
+
+  // IDs of the runs to which to link each prompt version.
+  repeated string run_ids = 2;
+}
+
+message PromptVersionLinkEntry {
+  // Name of the prompt to link to another entity (e.g. trace, model, or run).
+  optional string name = 1 [(validate_required) = true];
+
+  // Version of the prompt to link to another entity (e.g. trace, model, or run).
+  optional string version = 2 [(validate_required) = true];
+}

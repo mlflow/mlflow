@@ -28,7 +28,7 @@ export declare function getValidationStateColor(theme: Theme, validationState?: 
     warningColor?: string;
     successColor?: string;
 }): string | undefined;
-export declare function getDarkModePortalStyles(theme: Theme, useNewShadows: boolean): React.CSSProperties;
+export declare function getDarkModePortalStyles(theme: Theme, useNewShadows: boolean, useNewBorderColors: boolean): React.CSSProperties;
 type GetShadowScrollFunction = (theme: Theme, options?: {
     backgroundColor?: string;
     orientation?: 'vertical' | 'horizontal';

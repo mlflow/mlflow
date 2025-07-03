@@ -5,6 +5,7 @@ import urllib.parse
 from datetime import datetime
 from functools import lru_cache
 from mimetypes import guess_type
+from typing import Optional
 
 from mlflow.entities import FileInfo
 from mlflow.entities.multipart_upload import (
@@ -124,9 +125,14 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
     """Stores artifacts on Amazon S3."""
 
     def __init__(
-        self, artifact_uri, access_key_id=None, secret_access_key=None, session_token=None
-    ):
-        super().__init__(artifact_uri)
+        self,
+        artifact_uri: str,
+        tracking_uri: Optional[str] = None,
+        access_key_id=None,
+        secret_access_key=None,
+        session_token=None,
+    ) -> None:
+        super().__init__(artifact_uri, tracking_uri)
         self._access_key_id = access_key_id
         self._secret_access_key = secret_access_key
         self._session_token = session_token
@@ -203,6 +209,7 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         dest_path = artifact_path
         if path:
             dest_path = posixpath.join(dest_path, path)
+        dest_path = dest_path.rstrip("/") if dest_path else ""
         infos = []
         prefix = dest_path + "/" if dest_path else ""
         s3_client = self._get_s3_client()
@@ -250,10 +257,10 @@ class S3ArtifactRepository(ArtifactRepository, MultipartUploadMixin):
         if artifact_path:
             dest_path = posixpath.join(dest_path, artifact_path)
 
-        prefix = dest_path or ""
+        dest_path = dest_path.rstrip("/") if dest_path else ""
         s3_client = self._get_s3_client()
         paginator = s3_client.get_paginator("list_objects_v2")
-        results = paginator.paginate(Bucket=bucket, Prefix=prefix)
+        results = paginator.paginate(Bucket=bucket, Prefix=dest_path)
         for result in results:
             keys = []
             for to_delete_obj in result.get("Contents", []):

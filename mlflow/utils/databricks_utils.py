@@ -9,6 +9,9 @@ import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, NamedTuple, Optional, TypeVar
 
+from mlflow.utils.logging_utils import eprint
+from mlflow.utils.request_utils import augmented_raise_for_status
+
 if TYPE_CHECKING:
     from pyspark.sql.connect.session import SparkSession as SparkConnectSession
 
@@ -28,7 +31,7 @@ from mlflow.legacy_databricks_cli.configure.provider import (
     SparkTaskContextConfigProvider,
 )
 from mlflow.utils._spark_utils import _get_active_spark_session
-from mlflow.utils.rest_utils import MlflowHostCreds
+from mlflow.utils.rest_utils import MlflowHostCreds, http_request
 from mlflow.utils.uri import (
     _DATABRICKS_UNITY_CATALOG_SCHEME,
     get_db_info_from_uri,
@@ -684,7 +687,9 @@ def _fail_malformed_databricks_auth(uri):
         "Please ensure that the 'databricks-sdk' PyPI library is installed, the tracking "
         "URI is set correctly, and Databricks authentication is properly configured. "
         f"The {uri_name} can be either '{uri_scheme}' "
-        f"(using 'DEFAULT' authentication profile) or '{uri_scheme}://{{profile}}'. "
+        f"(using profile name specified by 'DATABRICKS_CONFIG_PROFILE' environment variable "
+        f"or using 'DEFAULT' authentication profile if 'DATABRICKS_CONFIG_PROFILE' environment "
+        f"variable does not exist) or '{uri_scheme}://{{profile}}'. "
         "You can configure Databricks authentication in several ways, for example by "
         "specifying environment variables (e.g. DATABRICKS_HOST + DATABRICKS_TOKEN) or "
         "logging in using 'databricks auth login'. \n"
@@ -770,6 +775,7 @@ def get_databricks_host_creds(server_uri=None):
         from databricks.sdk import WorkspaceClient
 
         profile, key_prefix = get_db_info_from_uri(server_uri)
+        profile = profile or os.environ.get("DATABRICKS_CONFIG_PROFILE")
         if key_prefix is not None:
             try:
                 config = TrackingURIConfigProvider(server_uri).get_config()
@@ -1067,6 +1073,65 @@ def _construct_databricks_model_version_url(
     return model_version_url
 
 
+def _construct_databricks_logged_model_url(
+    workspace_url: str, experiment_id: str, model_id: str, workspace_id: Optional[str] = None
+) -> str:
+    """
+    Get a Databricks URL for a given registered model version in Unity Catalog.
+
+    Args:
+        workspace_url: The URL of the workspace the registered model is in.
+        experiment_id: The ID of the experiment the model is logged to.
+        model_id: The ID of the logged model to create the URL for.
+        workspace_id: The ID of the workspace to include as a query parameter (if provided).
+
+    Returns:
+        The Databricks URL for a registered model in Unity Catalog.
+    """
+    query = f"?o={workspace_id}" if (workspace_id and workspace_id != "0") else ""
+    return f"{workspace_url}/ml/experiments/{experiment_id}/models/{model_id}{query}"
+
+
+def _construct_databricks_uc_registered_model_url(
+    workspace_url: str, registered_model_name: str, version: str, workspace_id: Optional[str] = None
+) -> str:
+    """
+    Get a Databricks URL for a given registered model version in Unity Catalog.
+
+    Args:
+        workspace_url: The URL of the workspace the registered model is in.
+        registered_model_name: The full name of the registered model containing the version.
+        version: The version of the registered model to create the URL for.
+        workspace_id: The ID of the workspace to include as a query parameter (if provided).
+
+    Returns:
+        The Databricks URL for a registered model in Unity Catalog.
+    """
+    path = registered_model_name.replace(".", "/")
+    query = f"?o={workspace_id}" if (workspace_id and workspace_id != "0") else ""
+    return f"{workspace_url}/explore/data/models/{path}/version/{version}{query}"
+
+
+def _print_databricks_deployment_job_url(
+    model_name: str,
+    job_id: str,
+    workspace_url: Optional[str] = None,
+    workspace_id: Optional[str] = None,
+) -> str:
+    if not workspace_url:
+        workspace_url = get_workspace_url()
+    if not workspace_id:
+        workspace_id = get_workspace_id()
+    # If there is no workspace_url, we cannot print the job URL
+    if not workspace_url:
+        return None
+
+    query = f"?o={workspace_id}" if (workspace_id and workspace_id != "0") else ""
+    job_url = f"{workspace_url}/jobs/{job_id}{query}"
+    eprint(f"🔗 Linked deployment job to '{model_name}': {job_url}")
+    return job_url
+
+
 def _get_databricks_creds_config(tracking_uri):
     # Note:
     # `_get_databricks_creds_config` reads credential token values or password and
@@ -1177,8 +1242,8 @@ class DatabricksRuntimeVersion(NamedTuple):
     minor: int
 
     @classmethod
-    def parse(cls):
-        dbr_version = get_databricks_runtime_version()
+    def parse(cls, databricks_runtime: Optional[str] = None):
+        dbr_version = databricks_runtime or get_databricks_runtime_version()
         try:
             dbr_version_splits = dbr_version.split(".", maxsplit=2)
             if dbr_version_splits[0] == "client":
@@ -1355,3 +1420,17 @@ def get_databricks_local_temp_dir():
         except Exception:
             # fallback
             return entry_point.getReplLocalTempDir()
+
+
+def stage_model_for_databricks_model_serving(model_name: str, model_version: str):
+    response = http_request(
+        host_creds=get_databricks_host_creds(),
+        endpoint="/api/2.0/serving-endpoints:stageDeployment",
+        method="POST",
+        raise_on_status=False,
+        json={
+            "model_name": model_name,
+            "model_version": model_version,
+        },
+    )
+    augmented_raise_for_status(response)

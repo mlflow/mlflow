@@ -83,11 +83,7 @@ export const TraceDataDrawer = ({
     () =>
       traceData
         ? {
-            // We're assigning values redunantly due to a name change in the upstream interface,
-            // will be cleaned up shortly
-            trace_info: traceInfoToUse || {},
             info: traceInfoToUse || {},
-            trace_data: traceData,
             data: traceData,
           }
         : undefined,

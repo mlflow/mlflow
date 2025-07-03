@@ -38,10 +38,10 @@ from mlflow.entities import LiveSpan, SpanEvent, SpanType
 from mlflow.entities.document import Document
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.llama_index.chat import get_chat_messages_from_event
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
+from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracing.utils import set_span_chat_messages, set_span_chat_tools
-from mlflow.tracking.client import MlflowClient
 from mlflow.utils.pydantic_utils import model_dump_compat
 
 _logger = logging.getLogger(__name__)
@@ -59,7 +59,6 @@ def set_llama_index_tracer():
     from llama_index.core.instrumentation import get_dispatcher
 
     dsp = get_dispatcher()
-
     span_handler = None
     for handler in dsp.span_handlers:
         if isinstance(handler, MlflowSpanHandler):
@@ -123,11 +122,7 @@ def _end_span(span: LiveSpan, status=SpanStatusCode.OK, outputs=None, token=None
         outputs = span.outputs
 
     try:
-        if span.parent_id is None:
-            # NB: Initiate the new client every time to handle tracking URI updates.
-            MlflowClient().end_trace(span.request_id, status=status, outputs=outputs)
-        else:
-            MlflowClient().end_span(span.request_id, span.span_id, status=status, outputs=outputs)
+        span.end(status=status, outputs=outputs)
     finally:
         # We should detach span even when end_span / end_trace API call fails
         if token:
@@ -166,23 +161,13 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
             input_args = bound_args.arguments
             attributes = self._get_instance_attributes(instance)
             span_type = self._get_span_type(instance) or SpanType.UNKNOWN
-            if parent_span:
-                # NB: Initiate the new client every time to handle tracking URI updates.
-                span = MlflowClient().start_span(
-                    request_id=parent_span.request_id,
-                    parent_id=parent_span.span_id,
-                    name=id_.partition("-")[0],
-                    span_type=span_type,
-                    inputs=input_args,
-                    attributes=attributes,
-                )
-            else:
-                span = MlflowClient().start_trace(
-                    name=id_.partition("-")[0],
-                    span_type=span_type,
-                    inputs=input_args,
-                    attributes=attributes,
-                )
+            span = start_span_no_context(
+                name=id_.partition("-")[0],
+                parent_span=parent_span,
+                span_type=span_type,
+                inputs=input_args,
+                attributes=attributes,
+            )
 
             token = set_span_in_context(span)
             self._span_id_to_token[span.span_id] = token
@@ -400,6 +385,8 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
     @_handle_event.register
     def _(self, event: LLMCompletionEndEvent, span: LiveSpan):
         span.set_attribute("usage", self._extract_token_usage(event.response))
+        token_counts = self._parse_usage(span)
+        span.set_attribute(SpanAttributeKey.CHAT_USAGE, token_counts)
         self._extract_and_set_chat_messages(span, event)
         self._span_handler.resolve_pending_stream_span(span, event)
 
@@ -412,6 +399,8 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
     @_handle_event.register
     def _(self, event: LLMChatEndEvent, span: LiveSpan):
         span.set_attribute("usage", self._extract_token_usage(event.response))
+        token_counts = self._parse_usage(span)
+        span.set_attribute(SpanAttributeKey.CHAT_USAGE, token_counts)
         self._extract_and_set_chat_messages(span, event)
         self._span_handler.resolve_pending_stream_span(span, event)
 
@@ -455,6 +444,19 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
                 if (v := additional_kwargs.get(k)) is not None:
                     usage[k] = v
         return usage
+
+    def _parse_usage(self, span: LiveSpan):
+        try:
+            usage = span.get_attribute("usage")
+            return {
+                TokenUsageKey.INPUT_TOKENS: usage["prompt_tokens"],
+                TokenUsageKey.OUTPUT_TOKENS: usage["completion_tokens"],
+                TokenUsageKey.TOTAL_TOKENS: usage.get(
+                    "total_tokens", usage["prompt_tokens"] + usage["completion_tokens"]
+                ),
+            }
+        except Exception as e:
+            _logger.debug(f"Failed to set TokenUsage to the span: {e}", exc_info=True)
 
     def _extract_and_set_chat_messages(self, span: LiveSpan, event: BaseEvent):
         try:

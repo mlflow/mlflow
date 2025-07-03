@@ -6,49 +6,42 @@ import importlib
 import inspect
 import json
 import logging
+from contextvars import ContextVar
 from typing import TYPE_CHECKING, Any, Callable, Generator, Literal, Optional, Union
 
 from cachetools import TTLCache
 from opentelemetry import trace as trace_api
 
-from mlflow import MlflowClient
 from mlflow.entities import NoOpSpan, SpanType, Trace
-from mlflow.entities.span import LiveSpan, create_mlflow_span
+from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, LiveSpan, create_mlflow_span
 from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatusCode
+from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.environment_variables import (
-    MLFLOW_TRACE_BUFFER_MAX_SIZE,
-    MLFLOW_TRACE_BUFFER_TTL_SECONDS,
-)
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import BAD_REQUEST
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing import provider
+from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import (
     STREAM_CHUNK_EVENT_NAME_FORMAT,
     STREAM_CHUNK_EVENT_VALUE_KEY,
     SpanAttributeKey,
 )
-from mlflow.tracing.provider import (
-    is_tracing_enabled,
-    safe_set_span_in_context,
-)
+from mlflow.tracing.provider import is_tracing_enabled, safe_set_span_in_context
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import (
     SPANS_COLUMN_NAME,
     TraceJSONEncoder,
     capture_function_input_args,
     encode_span_id,
-    end_client_span_or_trace,
+    exclude_immutable_tags,
     get_otel_attribute,
-    start_client_span_or_trace,
+    set_chat_attributes_special_case,
 )
 from mlflow.tracing.utils.search import extract_span_inputs_outputs, traces_to_df
-from mlflow.tracking.fluent import _get_experiment_id
+from mlflow.tracing.utils.warning import request_id_backward_compatible
 from mlflow.utils import get_results_from_paginated_fn
 from mlflow.utils.annotations import experimental
-from mlflow.utils.databricks_utils import is_in_databricks_model_serving_environment
 
 _logger = logging.getLogger(__name__)
 
@@ -56,22 +49,22 @@ if TYPE_CHECKING:
     import pandas
 
 
-# Traces are stored in memory after completion so they can be retrieved conveniently.
-# For example, Databricks model serving fetches the trace data from the buffer after
-# making the prediction request, and logging them into the Inference Table.
-TRACE_BUFFER = TTLCache(
-    maxsize=MLFLOW_TRACE_BUFFER_MAX_SIZE.get(),
-    ttl=MLFLOW_TRACE_BUFFER_TTL_SECONDS.get(),
-)
+_LAST_ACTIVE_TRACE_ID_GLOBAL = None
+_LAST_ACTIVE_TRACE_ID_THREAD_LOCAL = ContextVar("last_active_trace_id", default=None)
+
+# Cache mapping between evaluation request ID to MLflow backend request ID.
+# This is necessary for evaluation harness to access generated traces during
+# evaluation using the dataset row ID (evaluation request ID).
+_EVAL_REQUEST_ID_TO_TRACE_ID = TTLCache(maxsize=10000, ttl=3600)
 
 
 def trace(
-    func: Optional[Callable] = None,
+    func: Optional[Callable[..., Any]] = None,
     name: Optional[str] = None,
     span_type: str = SpanType.UNKNOWN,
     attributes: Optional[dict[str, Any]] = None,
-    output_reducer: Optional[Callable] = None,
-) -> Callable:
+    output_reducer: Optional[Callable[[list[Any]], Any]] = None,
+) -> Callable[..., Any]:
     """
     A decorator that creates a new span for the decorated function.
 
@@ -132,6 +125,10 @@ def trace(
           - ✅ (>= 2.20.2)
         * - Async Generator
           - ✅ (>= 2.20.2)
+        * - ClassMethod
+          - ✅ (>= 3.0.0)
+        * - StaticMethod
+          - ✅ (>= 3.0.0)
 
     For more examples of using the @mlflow.trace decorator, including streaming/async
     handling, see the `MLflow Tracing documentation <https://www.mlflow.org/docs/latest/tracing/api/manual-instrumentation#decorator>`_.
@@ -164,24 +161,46 @@ def trace(
     """
 
     def decorator(fn):
-        if inspect.isgeneratorfunction(fn) or inspect.isasyncgenfunction(fn):
-            return _wrap_generator(fn, name, span_type, attributes, output_reducer)
+        # Check if the function is a classmethod or staticmethod
+        is_classmethod = isinstance(fn, classmethod)
+        is_staticmethod = isinstance(fn, staticmethod)
+
+        # Extract the original function if it's a descriptor
+        original_fn = fn.__func__ if is_classmethod or is_staticmethod else fn
+
+        # Apply the appropriate wrapper to the original function
+        if inspect.isgeneratorfunction(original_fn) or inspect.isasyncgenfunction(original_fn):
+            wrapped = _wrap_generator(
+                original_fn,
+                name,
+                span_type,
+                attributes,
+                output_reducer,
+            )
         else:
             if output_reducer is not None:
                 raise MlflowException.invalid_parameter_value(
                     "The output_reducer argument is only supported for generator functions."
                 )
-            return _wrap_function(fn, name, span_type, attributes)
+            wrapped = _wrap_function(original_fn, name, span_type, attributes)
+
+        # If the original was a descriptor, wrap the result back as the same type of descriptor
+        if is_classmethod:
+            return classmethod(wrapped)
+        elif is_staticmethod:
+            return staticmethod(wrapped)
+        else:
+            return wrapped
 
     return decorator(func) if func else decorator
 
 
 def _wrap_function(
-    fn: Callable,
+    fn: Callable[..., Any],
     name: Optional[str] = None,
     span_type: str = SpanType.UNKNOWN,
     attributes: Optional[dict[str, Any]] = None,
-) -> Callable:
+) -> Callable[..., Any]:
     class _WrappingContext:
         # define the wrapping logic as a coroutine to avoid code duplication
         # between sync and async cases
@@ -191,9 +210,13 @@ def _wrap_function(
 
             with start_span(name=span_name, span_type=span_type, attributes=attributes) as span:
                 span.set_attribute(SpanAttributeKey.FUNCTION_NAME, fn.__name__)
-                span.set_inputs(capture_function_input_args(fn, args, kwargs))
+                inputs = capture_function_input_args(fn, args, kwargs)
+                span.set_inputs(inputs)
                 result = yield  # sync/async function output to be sent here
                 span.set_outputs(result)
+
+                set_chat_attributes_special_case(span, inputs=inputs, outputs=result)
+
                 try:
                     yield result
                 except GeneratorExit:
@@ -227,22 +250,20 @@ def _wrap_function(
             with _WrappingContext(fn, args, kwargs) as wrapping_coro:
                 return wrapping_coro.send(fn(*args, **kwargs))
 
-    return functools.wraps(fn)(wrapper)
+    return _wrap_function_safe(fn, wrapper)
 
 
 def _wrap_generator(
-    fn: Callable,
+    fn: Callable[..., Any],
     name: Optional[str] = None,
     span_type: str = SpanType.UNKNOWN,
     attributes: Optional[dict[str, Any]] = None,
-    output_reducer: Optional[Callable] = None,
-) -> Callable:
+    output_reducer: Optional[Callable[[list[Any]], Any]] = None,
+) -> Callable[..., Any]:
     """
     Wrap a generator function to create a span.
-
     Generator functions need special handling because of its lazy evaluation nature.
     Let's say we have a generator function like this:
-
     ```
     @mlflow.trace
     def generate_stream():
@@ -260,22 +281,20 @@ def _wrap_generator(
         pass
     # F
     ```
-
     The execution order is A -> B -> C -> D -> C -> D -> ... -> E -> F.
     The span should only be "active" at B, C, and E, namely, when the code execution
     is inside the generator function. Otherwise it will create wrong span tree, or
     even worse, leak span context and pollute subsequent traces.
     """
 
-    def _start_stream_span(fn, args, kwargs):
+    def _start_stream_span(fn, inputs):
         try:
-            return start_client_span_or_trace(
-                client=MlflowClient(),
+            return start_span_no_context(
                 name=name or fn.__name__,
                 parent_span=get_current_active_span(),
                 span_type=span_type,
                 attributes=attributes,
-                inputs=capture_function_input_args(fn, args, kwargs),
+                inputs=inputs,
             )
         except Exception as e:
             _logger.debug(f"Failed to start stream span: {e}")
@@ -283,14 +302,14 @@ def _wrap_generator(
 
     def _end_stream_span(
         span: LiveSpan,
+        inputs: Optional[dict[str, Any]] = None,
         outputs: Optional[list[Any]] = None,
-        output_reducer: Optional[Callable] = None,
+        output_reducer: Optional[Callable[[list[Any]], Any]] = None,
         error: Optional[Exception] = None,
     ):
-        client = MlflowClient()
         if error:
             span.add_event(SpanEvent.from_exception(error))
-            end_client_span_or_trace(client, span, status=SpanStatusCode.ERROR)
+            span.end(status=SpanStatusCode.ERROR)
             return
 
         if output_reducer:
@@ -298,7 +317,9 @@ def _wrap_generator(
                 outputs = output_reducer(outputs)
             except Exception as e:
                 _logger.debug(f"Failed to reduce outputs from stream: {e}")
-        end_client_span_or_trace(client, span, outputs=outputs)
+
+        set_chat_attributes_special_case(span, inputs=inputs, outputs=outputs)
+        span.end(outputs=outputs)
 
     def _record_chunk_event(span: LiveSpan, chunk: Any, chunk_index: int):
         try:
@@ -314,7 +335,8 @@ def _wrap_generator(
     if inspect.isgeneratorfunction(fn):
 
         def wrapper(*args, **kwargs):
-            span = _start_stream_span(fn, args, kwargs)
+            inputs = capture_function_input_args(fn, args, kwargs)
+            span = _start_stream_span(fn, inputs)
             generator = fn(*args, **kwargs)
 
             i = 0
@@ -334,11 +356,12 @@ def _wrap_generator(
                     _record_chunk_event(span, value, i)
                     yield value
                     i += 1
-            _end_stream_span(span, outputs, output_reducer)
+            _end_stream_span(span, inputs, outputs, output_reducer)
     else:
 
         async def wrapper(*args, **kwargs):
-            span = _start_stream_span(fn, args, kwargs)
+            inputs = capture_function_input_args(fn, args, kwargs)
+            span = _start_stream_span(fn, inputs)
             generator = fn(*args, **kwargs)
 
             i = 0
@@ -357,9 +380,19 @@ def _wrap_generator(
                     _record_chunk_event(span, value, i)
                     yield value
                     i += 1
-            _end_stream_span(span, outputs, output_reducer)
+            _end_stream_span(span, inputs, outputs, output_reducer)
 
-    return functools.wraps(fn)(wrapper)
+    return _wrap_function_safe(fn, wrapper)
+
+
+def _wrap_function_safe(fn: Callable[..., Any], wrapper: Callable[..., Any]) -> Callable[..., Any]:
+    wrapped = functools.wraps(fn)(wrapper)
+    # Update the signature of the wrapper to match the signature of the original (safely)
+    try:
+        wrapped.__signature__ = inspect.signature(fn)
+    except Exception:
+        pass
+    return wrapped
 
 
 @contextlib.contextmanager
@@ -402,24 +435,16 @@ def start_span(
     .. tip::
 
         If you want more explicit control over the trace lifecycle, you can use
-        :py:func:`MLflow Client APIs <mlflow.client.MlflowClient.start_trace>`. It provides lower
-        level to start and end traces manually, as well as setting the parent spans explicitly.
+        the `mlflow.start_span_no_context()` API. It provides lower
+        level to start spans and control the parent-child relationships explicitly.
         However, it is generally recommended to use this context manager as long as it satisfies
         your requirements, because it requires less boilerplate code and is less error-prone.
 
     .. note::
 
-        The context manager doesn't propagate the span context across threads. If you want to create
-        a child span in a different thread, you should use
-        :py:func:`MLflow Client APIs <mlflow.client.MlflowClient.start_trace>`
-        and pass the parent span ID explicitly.
-
-    .. note::
-
-        All spans created under the root span (i.e. a single trace) are buffered in memory and
-        not exported until the root span is ended. The buffer has a default size of 1000 traces
-        and TTL of 1 hour. You can configure the buffer size and TTL using the environment variables
-        ``MLFLOW_TRACE_BUFFER_MAX_SIZE`` and ``MLFLOW_TRACE_BUFFER_TTL_SECONDS`` respectively.
+        The context manager doesn't propagate the span context across threads by default. see
+        `Multi Threading <https://mlflow.org/docs/latest/tracing/api/manual-instrumentation#multi-threading>`_
+        for how to propagate the span context across threads.
 
     Args:
         name: The name of the span.
@@ -436,7 +461,8 @@ def start_span(
         # Create a new MLflow span and register it to the in-memory trace manager
         request_id = get_otel_attribute(otel_span, SpanAttributeKey.REQUEST_ID)
         mlflow_span = create_mlflow_span(otel_span, request_id, span_type)
-        mlflow_span.set_attributes(attributes or {})
+        attributes = dict(attributes) if attributes is not None else {}
+        mlflow_span.set_attributes(attributes)
         InMemoryTraceManager.get_instance().register_span(mlflow_span)
 
     except Exception:
@@ -457,7 +483,111 @@ def start_span(
             _logger.debug(f"Failed to end span {mlflow_span.span_id}.", exc_info=True)
 
 
-def get_trace(request_id: str) -> Optional[Trace]:
+def start_span_no_context(
+    name: str,
+    span_type: str = SpanType.UNKNOWN,
+    parent_span: Optional[LiveSpan] = None,
+    inputs: Optional[Any] = None,
+    attributes: Optional[dict[str, str]] = None,
+    tags: Optional[dict[str, str]] = None,
+    experiment_id: Optional[str] = None,
+    start_time_ns: Optional[int] = None,
+) -> LiveSpan:
+    """
+    Start a span without attaching it to the global tracing context.
+
+    This is useful when you want to create a span without automatically linking
+    with a parent span and instead manually manage the parent-child relationships.
+
+    The span started with this function must be ended manually using the
+    `end()` method of the span object.
+
+    Args:
+        name: The name of the span.
+        span_type: The type of the span. Can be either a string or
+            a :py:class:`SpanType <mlflow.entities.SpanType>` enum value
+        parent_span: The parent span to link with. If None, the span will be treated as a root span.
+        inputs: The input data for the span.
+        attributes: A dictionary of attributes to set on the span.
+        tags: A dictionary of tags to set on the trace.
+        experiment_id: The experiment ID to associate with the trace. If not provided,
+            the current active experiment will be used.
+        start_time_ns: The start time of the span in nanoseconds. If not provided,
+            the current time will be used.
+
+    Returns:
+        A :py:class:`mlflow.entities.Span` that represents the created span.
+
+    Example:
+        .. code-block:: python
+            :test:
+
+            import mlflow
+
+            root_span = mlflow.start_span_no_context("my_trace")
+
+            # Create a child span
+            child_span = mlflow.start_span_no_context(
+                "child_span",
+                # Manually specify the parent span
+                parent_span=root_span,
+            )
+            # Do something...
+            child_span.end()
+
+            root_span.end()
+
+    """
+    # If parent span is no-op span, the child should also be no-op too
+    if parent_span and parent_span.trace_id == NO_OP_SPAN_TRACE_ID:
+        return NoOpSpan()
+
+    try:
+        # Create new trace and a root span
+        # Once OTel span is created, SpanProcessor.on_start is invoked
+        # TraceInfo is created and logged into backend store inside on_start method
+        otel_span = provider.start_detached_span(
+            name,
+            parent=parent_span._span if parent_span else None,
+            start_time_ns=start_time_ns,
+            experiment_id=experiment_id,
+        )
+
+        if parent_span:
+            trace_id = parent_span.trace_id
+        else:
+            trace_id = get_otel_attribute(otel_span, SpanAttributeKey.REQUEST_ID)
+
+        mlflow_span = create_mlflow_span(otel_span, trace_id, span_type)
+
+        # # If the span is a no-op span i.e. tracing is disabled, do nothing
+        if isinstance(mlflow_span, NoOpSpan):
+            return mlflow_span
+
+        if inputs is not None:
+            mlflow_span.set_inputs(inputs)
+        mlflow_span.set_attributes(attributes or {})
+
+        trace_manager = InMemoryTraceManager.get_instance()
+        if tags := exclude_immutable_tags(tags or {}):
+            # Update trace tags for trace in in-memory trace manager
+            with trace_manager.get_trace(trace_id) as trace:
+                trace.info.tags.update(tags)
+
+        # Register new span in the in-memory trace manager
+        trace_manager.register_span(mlflow_span)
+
+        return mlflow_span
+    except Exception as e:
+        _logger.warning(
+            f"Failed to start span {name}: {e}. For full traceback, set logging level to debug.",
+            exc_info=_logger.isEnabledFor(logging.DEBUG),
+        )
+    return NoOpSpan()
+
+
+@request_id_backward_compatible
+def get_trace(trace_id: str) -> Optional[Trace]:
     """
     Get a trace by the given request ID if it exists.
 
@@ -466,7 +596,7 @@ def get_trace(request_id: str) -> Optional[Trace]:
     it returns None.
 
     Args:
-        request_id: The request ID of the trace.
+        trace_id: The ID of the trace.
 
 
     .. code-block:: python
@@ -478,19 +608,18 @@ def get_trace(request_id: str) -> Optional[Trace]:
         with mlflow.start_span(name="span") as span:
             span.set_attribute("key", "value")
 
-        trace = mlflow.get_trace(span.request_id)
+        trace = mlflow.get_trace(span.trace_id)
         print(trace)
 
 
     Returns:
         A :py:class:`mlflow.entities.Trace` objects with the given request ID.
     """
-    # Try to get the trace from the in-memory buffer first
-    if trace := TRACE_BUFFER.get(request_id, None):
-        return trace
+    # Special handling for evaluation request ID.
+    trace_id = _EVAL_REQUEST_ID_TO_TRACE_ID.get(trace_id) or trace_id
 
     try:
-        return MlflowClient().get_trace(request_id, display=False)
+        return TracingClient().get_trace(trace_id)
     except MlflowException as e:
         _logger.warning(
             f"Failed to get trace from the tracking store: {e}"
@@ -507,7 +636,10 @@ def search_traces(
     order_by: Optional[list[str]] = None,
     extract_fields: Optional[list[str]] = None,
     run_id: Optional[str] = None,
-    return_type: Literal["pandas", "list"] = "pandas",
+    return_type: Optional[Literal["pandas", "list"]] = None,
+    model_id: Optional[str] = None,
+    sql_warehouse_id: Optional[str] = None,
+    include_spans: bool = True,
 ) -> Union["pandas.DataFrame", list[Trace]]:
     """
     Return traces that match the given list of search expressions within the experiments.
@@ -557,13 +689,22 @@ def search_traces(
             it will be associated with the run and you can filter on the run id to retrieve the
             trace. See the example below for how to filter traces by run id.
 
-        return_type: The type of the return value. The following return types are supported. Default
-            is ``"pandas"``.
+        return_type: The type of the return value. The following return types are supported. If
+            the pandas library is installed, the default return type is "pandas". Otherwise, the
+            default return type is "list".
 
             - `"pandas"`: Returns a Pandas DataFrame containing information about traces
                 where each row represents a single trace and each column represents a field of the
-                trace e.g. request_id, spans, etc.
+                trace e.g. trace_id, spans, etc.
             - `"list"`: Returns a list of :py:class:`Trace <mlflow.entities.Trace>` objects.
+
+        model_id: If specified, search traces associated with the given model ID.
+        sql_warehouse_id: Only used in Databricks. The ID of the SQL warehouse to use for
+            searching traces in inference tables.
+
+        include_spans: If ``True``, include spans in the returned traces. Otherwise, only
+            the trace metadata is returned, e.g., trace ID, start time, end time, etc,
+            without any spans. Default to ``True``.
 
     Returns:
         Traces that satisfy the search expressions. Either as a list of
@@ -618,6 +759,17 @@ def search_traces(
         mlflow.search_traces(run_id=run.info.run_id, return_type="list")
 
     """
+    from mlflow.tracking.fluent import _get_experiment_id
+
+    # Default to "pandas" only if the pandas library is installed
+    if return_type is None:
+        try:
+            import pandas  # noqa: F401
+
+            return_type = "pandas"
+        except ImportError:
+            return_type = "list"
+
     if return_type not in ["pandas", "list"]:
         raise MlflowException.invalid_parameter_value(
             f"Invalid return type: {return_type}. Return type must be either 'pandas' or 'list'."
@@ -632,7 +784,7 @@ def search_traces(
             raise MlflowException(
                 message=(
                     "The `pandas` library is not installed. Please install `pandas` to use"
-                    " the `return_type='pandas'` option."
+                    " the `return_type='pandas'` option, or set `return_type='list'`."
                 ),
             )
 
@@ -646,13 +798,16 @@ def search_traces(
             )
 
     def pagination_wrapper_func(number_to_get, next_page_token):
-        return MlflowClient().search_traces(
+        return TracingClient().search_traces(
             experiment_ids=experiment_ids,
             run_id=run_id,
             max_results=number_to_get,
             filter_string=filter_string,
             order_by=order_by,
             page_token=next_page_token,
+            model_id=model_id,
+            sql_warehouse_id=sql_warehouse_id,
+            include_spans=include_spans,
         )
 
     results = get_results_from_paginated_fn(
@@ -680,7 +835,8 @@ def get_current_active_span() -> Optional[LiveSpan]:
     .. attention::
 
         This only works when the span is created with fluent APIs like `@mlflow.trace` or
-        `with mlflow.start_span`. If a span is created with MlflowClient APIs, it won't be
+        `with mlflow.start_span`. If a span is created with the
+        `mlflow.start_span_no_context` APIs, it won't be
         attached to the global context so this function will not return it.
 
 
@@ -712,28 +868,54 @@ def get_current_active_span() -> Optional[LiveSpan]:
     return trace_manager.get_span_from_id(request_id, encode_span_id(otel_span.context.span_id))
 
 
-def get_last_active_trace() -> Optional[Trace]:
+def get_active_trace_id() -> Optional[str]:
     """
-    Get the last active trace in the same process if exists.
+    Get the active trace ID in the current process.
+
+    This function is thread-safe.
+
+    Example:
+
+    .. code-block:: python
+        :test:
+
+        import mlflow
+
+
+        @mlflow.trace
+        def f():
+            trace_id = mlflow.get_active_trace_id()
+            print(trace_id)
+
+
+        f()
+
+    Returns:
+        The ID of the current active trace if exists, otherwise None.
+    """
+    active_span = get_current_active_span()
+    if active_span:
+        return active_span.trace_id
+    return None
+
+
+def get_last_active_trace_id(thread_local: bool = False) -> Optional[str]:
+    """
+    Get the **LAST** active trace in the same process if exists.
 
     .. warning::
 
-        This function DOES NOT work in the model deployed in Databricks model serving.
+        This function is not thread-safe by default, returns the last active trace in
+        the same process. If you want to get the last active trace in the current thread,
+        set the `thread_local` parameter to True.
 
-    .. note::
+    Args:
 
-        The last active trace is only stored in-memory for the time defined by the TTL
-        (Time To Live) configuration. By default, the TTL is 1 hour and can be configured
-        using the environment variable ``MLFLOW_TRACE_BUFFER_TTL_SECONDS``.
+        thread_local: If True, returns the last active trace in the current thread. Otherwise,
+            returns the last active trace in the same process. Default is False.
 
-    .. note::
-
-        This function returns an immutable copy of the original trace that is logged
-        in the tracking store. Any changes made to the returned object will not be reflected
-        in the original trace. To modify the already ended trace (while most of the data is
-        immutable after the trace is ended, you can still edit some fields such as `tags`),
-        please use the respective MlflowClient APIs with the request ID of the trace, as
-        shown in the example below.
+    Returns:
+        The ID of the last active trace if exists, otherwise None.
 
     .. code-block:: python
         :test:
@@ -748,74 +930,244 @@ def get_last_active_trace() -> Optional[Trace]:
 
         f()
 
-        trace = mlflow.get_last_active_trace()
+        trace_id = mlflow.get_last_active_trace_id()
 
+        # Set a tag on the trace
+        mlflow.set_trace_tag(trace_id, "key", "value")
 
-        # Use MlflowClient APIs to mutate the ended trace
-        mlflow.MlflowClient().set_trace_tag(trace.info.request_id, "key", "value")
-
-    Returns:
-        The last active trace if exists, otherwise None.
+        # Get the full trace object
+        trace = mlflow.get_trace(trace_id)
     """
-    if is_in_databricks_model_serving_environment():
-        raise MlflowException(
-            "The function `mlflow.get_last_active_trace` is not supported in "
-            "Databricks model serving.",
-            error_code=BAD_REQUEST,
-        )
+    return (
+        _LAST_ACTIVE_TRACE_ID_THREAD_LOCAL.get() if thread_local else _LAST_ACTIVE_TRACE_ID_GLOBAL
+    )
 
-    if len(TRACE_BUFFER) > 0:
-        last_active_request_id = list(TRACE_BUFFER.keys())[-1]
-        return TRACE_BUFFER.get(last_active_request_id)
-    else:
-        return None
+
+def _set_last_active_trace_id(trace_id: str):
+    """Internal function to set the last active trace ID."""
+    global _LAST_ACTIVE_TRACE_ID_GLOBAL
+    _LAST_ACTIVE_TRACE_ID_GLOBAL = trace_id
+    _LAST_ACTIVE_TRACE_ID_THREAD_LOCAL.set(trace_id)
 
 
 def update_current_trace(
     tags: Optional[dict[str, str]] = None,
+    metadata: Optional[dict[str, str]] = None,
+    client_request_id: Optional[str] = None,
+    request_preview: Optional[str] = None,
+    response_preview: Optional[str] = None,
+    state: Optional[Union[TraceState, str]] = None,
 ):
     """
-    Update the current active trace with the given tags.
+    Update the current active trace with the given options.
 
-    You can use this function either within a function decorated with `@mlflow.trace` or within the
-    scope of the `with mlflow.start_span` context manager. If there is no active trace found, this
-    function will raise an exception.
+    Args:
+        tags: A dictionary of tags to update the trace with Tags are designed for mutable values,
+            that can be updated after the trace is created via MLflow UI or API.
+        metadata: A dictionary of metadata to update the trace with. Metadata cannot be updated
+            once the trace is logged. It is suitable for recording immutable values like the
+            git hash of the application version that produced the trace.
+        client_request_id: Client supplied request ID to associate with the trace. This is
+            useful for linking the trace back to a specific request in your application or
+            external system. If None, the client request ID is not updated.
+        request_preview: A preview of the request to be shown in the Trace list view in the UI.
+            By default, MLflow will truncate the trace request naively by limiting the length.
+            This parameter allows you to specify a custom preview string.
+        response_preview: A preview of the response to be shown in the Trace list view in the UI.
+            By default, MLflow will truncate the trace response naively by limiting the length.
+            This parameter allows you to specify a custom preview string.
+        state: The state to set on the trace. Can be a TraceState enum value or string.
+            Only "OK" and "ERROR" are allowed. This overrides the overall trace state without
+            affecting the status of the current span.
 
-    Using within a function decorated with `@mlflow.trace`:
+    Example:
 
-    .. code-block:: python
+        You can use this function either within a function decorated with ``@mlflow.trace`` or
+        within the scope of the `with mlflow.start_span` context manager. If there is no active
+        trace found, this function will raise an exception.
 
-        @mlflow.trace
-        def my_func(x):
-            mlflow.update_current_trace(tags={"fruit": "apple"})
-            return x + 1
+        Using within a function decorated with `@mlflow.trace`:
 
-    Using within the `with mlflow.start_span` context manager:
+        .. code-block:: python
 
-    .. code-block:: python
+            @mlflow.trace
+            def my_func(x):
+                mlflow.update_current_trace(tags={"fruit": "apple"}, client_request_id="req-12345")
+                return x + 1
 
-        with mlflow.start_span("span"):
-            mlflow.update_current_trace(tags={"fruit": "apple"})
+        Using within the ``with mlflow.start_span`` context manager:
+
+        .. code-block:: python
+
+            with mlflow.start_span("span"):
+                mlflow.update_current_trace(tags={"fruit": "apple"}, client_request_id="req-12345")
+
+        Updating source information of the trace. These keys are reserved ones and MLflow populate
+        them from environment information by default. You can override them if needed. Please refer
+        to the MLflow Tracing documentation for the full list of reserved metadata keys.
+
+        .. code-block:: python
+
+            mlflow.update_current_trace(
+                metadata={
+                    "mlflow.trace.session": "session-4f855da00427",
+                    "mlflow.trace.user": "user-id-cc156f29bcfb",
+                    "mlflow.source.name": "inference.py",
+                    "mlflow.source.git.commit": "1234567890",
+                    "mlflow.source.git.repoURL": "https://github.com/mlflow/mlflow",
+                },
+            )
+
+        Updating request preview:
+
+        .. code-block:: python
+
+            import mlflow
+            import openai
+
+
+            @mlflow.trace
+            def predict(messages: list[dict]) -> str:
+                # Customize the request preview to show the first and last messages
+                custom_preview = f"{messages[0]['content'][:10]} ... {messages[-1]['content'][:10]}"
+                mlflow.update_current_trace(request_preview=custom_preview)
+
+                # Call the model
+                response = openai.chat.completions.create(
+                    model="o4-mini",
+                    messages=messages,
+                )
+
+                return response.choices[0].message.content
+
+
+            messages = [
+                {"role": "user", "content": "Hi, how are you?"},
+                {"role": "assistant", "content": "I'm good, thank you!"},
+                {"role": "user", "content": "What's your name?"},
+                # ... (long message history)
+                {"role": "assistant", "content": "Bye!"},
+            ]
+            predict(messages)
+
+            # The request preview rendered in the UI will be:
+            #     "Hi, how are you? ... Bye!"
 
     """
     active_span = get_current_active_span()
 
     if not active_span:
-        raise MlflowException(
+        _logger.warning(
             "No active trace found. Please create a span using `mlflow.start_span` or "
-            "`@mlflow.trace` before calling this function.",
-            error_code=BAD_REQUEST,
+            "`@mlflow.trace` before calling `mlflow.update_current_trace`.",
+        )
+        return
+
+    def _warn_non_string_values(d: dict[str, Any], field_name: str):
+        non_string_items = {k: v for k, v in d.items() if not isinstance(v, str)}
+        if non_string_items:
+            _logger.warning(
+                f"Found non-string values in {field_name}. Non-string values in {field_name} will "
+                f"automatically be stringified when the trace is logged. Non-string items: "
+                f"{non_string_items}"
+            )
+
+    _warn_non_string_values(tags or {}, "tags")
+    _warn_non_string_values(metadata or {}, "metadata")
+
+    # Update tags and client request ID for the trace stored in-memory rather than directly
+    # updating the backend store. The in-memory trace will be exported when it is ended.
+    # By doing this, we can avoid unnecessary server requests for each tag update.
+    if request_preview is not None and not isinstance(request_preview, str):
+        raise MlflowException.invalid_parameter_value(
+            "The `request_preview` parameter must be a string."
+        )
+    if response_preview is not None and not isinstance(response_preview, str):
+        raise MlflowException.invalid_parameter_value(
+            "The `response_preview` parameter must be a string."
         )
 
-    # Update tags for the trace stored in-memory rather than directly updating the
+    # Update trace info for the trace stored in-memory rather than directly updating the
     # backend store. The in-memory trace will be exported when it is ended. By doing
     # this, we can avoid unnecessary server requests for each tag update.
     request_id = active_span.request_id
     with InMemoryTraceManager.get_instance().get_trace(request_id) as trace:
+        if request_preview:
+            trace.info.request_preview = request_preview
+        if response_preview:
+            trace.info.response_preview = response_preview
+        if state is not None:
+
+            def _invalid_state_error(value):
+                return MlflowException.invalid_parameter_value(
+                    f"State must be either 'OK' or 'ERROR', but got '{value}'."
+                )
+
+            if state not in (TraceState.OK, TraceState.ERROR):
+                raise _invalid_state_error(state)
+
+            trace.info.state = TraceState(state) if isinstance(state, str) else state
+
         trace.info.tags.update(tags or {})
+        trace.info.trace_metadata.update(metadata or {})
+        if client_request_id is not None:
+            trace.info.client_request_id = str(client_request_id)
 
 
-@experimental
+@request_id_backward_compatible
+def set_trace_tag(trace_id: str, key: str, value: str):
+    """
+    Set a tag on the trace with the given trace ID.
+
+    The trace can be an active one or the one that has already ended and recorded in the
+    backend. Below is an example of setting a tag on an active trace. You can replace the
+    ``trace_id`` parameter to set a tag on an already ended trace.
+
+    .. code-block:: python
+        :test:
+
+        import mlflow
+
+        with mlflow.start_span(name="span") as span:
+            mlflow.set_trace_tag(span.trace_id, "key", "value")
+
+    Args:
+        trace_id: The ID of the trace to set the tag on.
+        key: The string key of the tag. Must be at most 250 characters long, otherwise
+            it will be truncated when stored.
+        value: The string value of the tag. Must be at most 250 characters long, otherwise
+            it will be truncated when stored.
+    """
+    TracingClient().set_trace_tag(trace_id, key, value)
+
+
+@request_id_backward_compatible
+def delete_trace_tag(trace_id: str, key: str) -> None:
+    """
+    Delete a tag on the trace with the given trace ID.
+
+    The trace can be an active one or the one that has already ended and recorded in the
+    backend. Below is an example of deleting a tag on an active trace. You can replace the
+    ``trace_id`` parameter to delete a tag on an already ended trace.
+
+    .. code-block:: python
+        :test:
+
+        import mlflow
+
+        with mlflow.start_span("my_span") as span:
+            mlflow.set_trace_tag(span.trace_id, "key", "value")
+            mlflow.delete_trace_tag(span.trace_id, "key")
+
+    Args:
+        trace_id: The ID of the trace to delete the tag from.
+        key: The string key of the tag. Must be at most 250 characters long, otherwise
+            it will be truncated when stored.
+    """
+    TracingClient().delete_trace_tag(trace_id, key)
+
+
+@experimental(version="2.17.0")
 def add_trace(trace: Union[Trace, dict[str, Any]], target: Optional[LiveSpan] = None):
     """
     Add a completed trace object into another trace.
@@ -848,13 +1200,12 @@ def add_trace(trace: Union[Trace, dict[str, Any]], target: Optional[LiveSpan] = 
 
         def predict(input):
             # Create a local span
-            span = MlflowClient().start_span(name="predict")
+            with mlflow.start_span(name="predict") as span:
+                resp = requests.get("https://your-service-endpoint", ...)
+                trace_json = resp.json().get("trace")
 
-            resp = requests.get("https://your-service-endpoint", ...)
-            trace_json = resp.json().get("trace")
-
-            # Merge the remote trace under the span created above
-            mlflow.add_trace(trace_json, target=span)
+                # Merge the remote trace under the span created above
+                mlflow.add_trace(trace_json, target=span)
 
     Args:
         trace: A :py:class:`Trace <mlflow.entities.Trace>` object or a dictionary representation
@@ -902,16 +1253,15 @@ def add_trace(trace: Union[Trace, dict[str, Any]], target: Optional[LiveSpan] = 
     if target_span := target or get_current_active_span():
         _merge_trace(
             trace=trace,
-            target_request_id=target_span.request_id,
+            target_trace_id=target_span.trace_id,
             target_parent_span_id=target_span.span_id,
         )
     else:
         # If there is no target span, create a new root span named "Remote Trace <...>"
         # and put the remote trace under it. This design aims to keep the trace export
         # logic simpler and consistent, rather than directly exporting the remote trace.
-        client = MlflowClient()
         remote_root_span = trace.data.spans[0]
-        span = client.start_trace(
+        span = start_span_no_context(
             name=f"Remote Trace <{remote_root_span.name}>",
             inputs=remote_root_span.inputs,
             attributes={
@@ -924,18 +1274,17 @@ def add_trace(trace: Union[Trace, dict[str, Any]], target: Optional[LiveSpan] = 
         )
         _merge_trace(
             trace=trace,
-            target_request_id=span.request_id,
+            target_trace_id=span.trace_id,
             target_parent_span_id=span.span_id,
         )
-        client.end_trace(
-            request_id=span.request_id,
+        span.end(
             status=trace.info.status,
             outputs=remote_root_span.outputs,
             end_time_ns=remote_root_span.end_time_ns,
         )
 
 
-@experimental
+@experimental(version="2.21.0")
 def log_trace(
     name: str = "Task",
     request: Optional[Any] = None,
@@ -965,7 +1314,7 @@ def log_trace(
         execution_time_ms: The execution time of the trace in milliseconds since the UNIX epoch.
 
     Returns:
-        The request ID of the logged trace.
+        The ID of the logged trace.
 
     Example:
 
@@ -975,7 +1324,7 @@ def log_trace(
         import time
         import mlflow
 
-        request_id = mlflow.log_trace(
+        trace_id = mlflow.log_trace(
             request="Does mlflow support tracing?",
             response="Yes",
             intermediate_outputs={
@@ -985,38 +1334,36 @@ def log_trace(
             start_time_ms=int(time.time() * 1000),
             execution_time_ms=5129,
         )
-        trace = mlflow.get_trace(request_id)
+        trace = mlflow.get_trace(trace_id)
 
         print(trace.data.intermediate_outputs)
     """
-    client = MlflowClient()
     if intermediate_outputs:
         if attributes:
             attributes.update(SpanAttributeKey.INTERMEDIATE_OUTPUTS, intermediate_outputs)
         else:
             attributes = {SpanAttributeKey.INTERMEDIATE_OUTPUTS: intermediate_outputs}
 
-    span = client.start_trace(
+    span = start_span_no_context(
         name=name,
         inputs=request,
         attributes=attributes,
         tags=tags,
         start_time_ns=start_time_ms * 1000000 if start_time_ms else None,
     )
-    client.end_trace(
-        request_id=span.request_id,
+    span.end(
         outputs=response,
         end_time_ns=(start_time_ms + execution_time_ms) * 1000000
         if start_time_ms and execution_time_ms
         else None,
     )
 
-    return span.request_id
+    return span.trace_id
 
 
 def _merge_trace(
     trace: Trace,
-    target_request_id: str,
+    target_trace_id: str,
     target_parent_span_id: str,
 ):
     """
@@ -1024,17 +1371,15 @@ def _merge_trace(
 
     Args:
         trace: The trace object to be merged.
-        target_request_id: The request ID of the parent trace.
+        target_trace_id: The ID of the parent trace.
         target_parent_span_id: The parent span ID, under which the child trace should be merged.
     """
     trace_manager = InMemoryTraceManager.get_instance()
 
     # The merged trace should have the same trace ID as the parent trace.
-    with trace_manager.get_trace(target_request_id) as parent_trace:
+    with trace_manager.get_trace(target_trace_id) as parent_trace:
         if not parent_trace:
-            _logger.warning(
-                f"Parent trace with request ID {target_request_id} not found. Skipping merge."
-            )
+            _logger.warning(f"Parent trace with ID {target_trace_id} not found. Skipping merge.")
             return
 
         new_trace_id = parent_trace.span_dict[target_parent_span_id]._trace_id
@@ -1046,7 +1391,7 @@ def _merge_trace(
         # works upon the assumption that the parent span always comes before its children.
         # This is guaranteed in current implementation, but if it changes in the future,
         # we have to traverse the tree to determine the order.
-        if not trace_manager.get_span_from_id(target_request_id, parent_span_id):
+        if not trace_manager.get_span_from_id(target_trace_id, parent_span_id):
             raise MlflowException.invalid_parameter_value(
                 f"Span with ID {parent_span_id} not found. Please make sure the "
                 "spans in the trace are ordered correctly i.e. the parent span comes before "
@@ -1056,17 +1401,17 @@ def _merge_trace(
         cloned_span = LiveSpan.from_immutable_span(
             span=span,
             parent_span_id=parent_span_id,
-            request_id=target_request_id,
-            trace_id=new_trace_id,
+            trace_id=target_trace_id,
+            otel_trace_id=new_trace_id,
         )
         trace_manager.register_span(cloned_span)
 
     # Merge the tags and metadata from the child trace to the parent trace.
-    with trace_manager.get_trace(target_request_id) as parent_trace:
+    with trace_manager.get_trace(target_trace_id) as parent_trace:
         # Order of merging is important to ensure the parent trace's metadata is
         # not overwritten by the child trace's metadata if they have the same key.
         parent_trace.info.tags = {**trace.info.tags, **parent_trace.info.tags}
-        parent_trace.info.request_metadata = {
+        parent_trace.info.trace_metadata = {
             **trace.info.request_metadata,
-            **parent_trace.info.request_metadata,
+            **parent_trace.info.trace_metadata,
         }

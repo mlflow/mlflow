@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Table,
   TableCell,
@@ -8,15 +8,19 @@ import {
   useDesignSystemTheme,
   MinusSquareIcon,
   PlusSquareIcon,
+  Input,
+  Spacer,
 } from '@databricks/design-system';
 import { LogModelWithSignatureUrl } from '../../common/constants';
 import { ColumnSpec, TensorSpec, ColumnType } from '../types/model-schema';
-import { FormattedMessage } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { Interpolation, Theme } from '@emotion/react';
-import { isEmpty } from 'lodash';
+import { identity, isEmpty, isFunction } from 'lodash';
+import { useSafeDeferredValue } from '../../common/hooks/useSafeDeferredValue';
 
 const { Text } = Typography;
 const INDENTATION_SPACES = 2;
+const LIMIT_VISIBLE_COLUMNS = 100;
 
 type Props = {
   schema?: any;
@@ -91,7 +95,29 @@ function ColumnSchema({ spec }: { spec: ColumnSpec | TensorSpec }): React.ReactE
 }
 
 const SchemaTableRow = ({ schemaData }: { schemaData?: (ColumnSpec | TensorSpec)[] }) => {
-  if (isEmpty(schemaData)) {
+  const isEmptySchema = isEmpty(schemaData);
+  const intl = useIntl();
+
+  // Determine if the schema is too large (more than LIMIT_VISIBLE_COLUMNS = 100 rows) to display all at once
+  const isLargeSchema = Boolean(schemaData && schemaData.length > LIMIT_VISIBLE_COLUMNS);
+  const [searchText, setSearchText] = useState('');
+
+  // Defer the search text to avoid blocking the UI when typing
+  const deferredSearchText = useSafeDeferredValue(searchText);
+
+  const filteredSchemaData = useMemo(() => {
+    if (!isLargeSchema) {
+      return schemaData;
+    }
+    const normalizedSearchText = deferredSearchText.toLowerCase();
+    return schemaData
+      ?.filter((schemaRow) => {
+        return 'name' in schemaRow && schemaRow.name.toLowerCase().includes(normalizedSearchText);
+      })
+      .slice(0, LIMIT_VISIBLE_COLUMNS);
+  }, [schemaData, deferredSearchText, isLargeSchema]);
+
+  if (isEmptySchema) {
     return (
       <TableRow>
         <TableCell>
@@ -112,9 +138,36 @@ const SchemaTableRow = ({ schemaData }: { schemaData?: (ColumnSpec | TensorSpec)
       </TableRow>
     );
   }
+
   return (
     <>
-      {schemaData?.map((schemaRow, index) => (
+      {isLargeSchema && (
+        <>
+          <Spacer />
+          <Typography.Hint>
+            <FormattedMessage
+              defaultMessage="Schema is too large to display all rows. Please search for a column name to filter the results. Currently showing {currentResults} results from {allResults} total rows."
+              description="Text for model inputs/outputs schema table when schema is too large to display all rows"
+              values={{
+                currentResults: filteredSchemaData?.length,
+                allResults: schemaData?.length,
+              }}
+            />
+          </Typography.Hint>
+          <Spacer />
+          <Input
+            placeholder={intl.formatMessage({
+              defaultMessage: 'Search for a field',
+              description: 'Placeholder for search input in schema table',
+            })}
+            componentId="mlflow.schema_table.search_input"
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+          />
+          <Spacer />
+        </>
+      )}
+      {filteredSchemaData?.map((schemaRow, index) => (
         <TableRow key={index}>
           <TableCell css={{ flex: 2, alignItems: 'center' }}>
             <ColumnName spec={schemaRow} />

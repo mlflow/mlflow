@@ -10,7 +10,7 @@ import { ModelVersionTable } from './ModelVersionTable';
 import Utils from '../../common/utils/Utils';
 import { Link, NavigateFunction } from '../../common/utils/RoutingUtils';
 import { ModelRegistryRoutes } from '../routes';
-import { ACTIVE_STAGES } from '../constants';
+import { ACTIVE_STAGES, MODEL_VERSIONS_PER_PAGE_COMPACT, MODEL_VERSIONS_SEARCH_TIMESTAMP_FIELD } from '../constants';
 import { CollapsibleSection } from '../../common/components/CollapsibleSection';
 import { EditableNote } from '../../common/components/EditableNote';
 import { EditableTagsTableView } from '../../common/components/EditableTagsTableView';
@@ -19,13 +19,22 @@ import { setRegisteredModelTagApi, deleteRegisteredModelTagApi } from '../action
 import { connect } from 'react-redux';
 import { OverflowMenu, PageHeader } from '../../shared/building_blocks/PageHeader';
 import { FormattedMessage, type IntlShape, injectIntl } from 'react-intl';
-import { Button, SegmentedControlGroup, SegmentedControlButton, DangerModal } from '@databricks/design-system';
+import {
+  Button,
+  SegmentedControlGroup,
+  SegmentedControlButton,
+  DangerModal,
+  CursorPagination,
+} from '@databricks/design-system';
 import { Descriptions } from '../../common/components/Descriptions';
 import { ModelVersionInfoEntity, type ModelEntity } from '../../experiment-tracking/types';
 import { shouldShowModelsNextUI } from '../../common/utils/FeatureUtils';
 import { ModelsNextUIToggleSwitch } from './ModelsNextUIToggleSwitch';
 import { withNextModelsUIContext } from '../hooks/useNextModelsUI';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
+import { ColumnSort } from '@tanstack/react-table';
+
+const CREATION_TIMESTAMP_COLUMN_INDEX = 'creation_timestamp';
 
 export const StageFilters = {
   ALL: 'ALL',
@@ -49,6 +58,16 @@ type ModelViewImplProps = {
   intl: IntlShape;
   onMetadataUpdated: () => void;
   usingNextModelsUI: boolean;
+  orderByKey: string;
+  orderByAsc: boolean;
+  currentPage: number;
+  nextPageToken: string | null;
+  onClickNext: () => void;
+  onClickPrev: () => void;
+  onClickSortableColumn: (fieldName: string | null, isDescending: boolean) => void;
+  onSetMaxResult: (key: number) => void;
+  maxResultValue: number;
+  loading?: boolean;
 };
 
 type ModelViewImplState = any;
@@ -60,6 +79,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
   }
 
   state = {
+    maxResultsSelection: MODEL_VERSIONS_PER_PAGE_COMPACT,
     stageFilter: StageFilters.ALL,
     showDescriptionEditor: false,
     isDeleteModalVisible: false,
@@ -76,6 +96,24 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
     const pageTitle = `${this.props.model.name} - MLflow Model`;
     Utils.updatePageTitle(pageTitle);
   }
+
+  handleSetMaxResult = ({ key }: { key: number }) => {
+    this.props.onSetMaxResult(key);
+  };
+
+  getSortFieldName = (column: any) => {
+    switch (column) {
+      case CREATION_TIMESTAMP_COLUMN_INDEX:
+        return MODEL_VERSIONS_SEARCH_TIMESTAMP_FIELD;
+      default:
+        return null;
+    }
+  };
+
+  handleSortChange = (params: { sorter: ColumnSort }) => {
+    const sorter = params.sorter;
+    this.props.onClickSortableColumn(this.getSortFieldName(sorter.id), sorter.desc);
+  };
 
   handleStageFilterChange = (e: any) => {
     this.setState({ stageFilter: e.target.value });
@@ -235,7 +273,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
   }
 
   renderDetails = () => {
-    const { model, modelVersions, tags } = this.props;
+    const { model, modelVersions, tags, currentPage, nextPageToken } = this.props;
     const {
       stageFilter,
       showDescriptionEditor,
@@ -401,6 +439,7 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
             </div>
           )}
           <ModelVersionTable
+            isLoading={this.props.loading || false}
             activeStageOnly={stageFilter === StageFilters.ACTIVE && !this.props.usingNextModelsUI}
             modelName={modelName}
             modelVersions={modelVersions}
@@ -409,6 +448,31 @@ export class ModelViewImpl extends React.Component<ModelViewImplProps, ModelView
             onMetadataUpdated={this.props.onMetadataUpdated}
             usingNextModelsUI={this.props.usingNextModelsUI}
             aliases={model?.aliases}
+            orderByKey={this.props.orderByKey}
+            orderByAsc={this.props.orderByAsc}
+            onSortChange={this.handleSortChange}
+            getSortFieldName={this.getSortFieldName}
+            pagination={
+              <div
+                data-testid="model-view-pagination-section"
+                css={{ width: '100%', alignItems: 'center', display: 'flex' }}
+              >
+                <div css={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+                  <CursorPagination
+                    componentId="codegen_mlflow_app_src_model-registry_components_modelview.tsx_646"
+                    hasNextPage={Boolean(nextPageToken)}
+                    hasPreviousPage={currentPage > 1}
+                    onNextPage={this.props.onClickNext}
+                    onPreviousPage={this.props.onClickPrev}
+                    pageSizeSelect={{
+                      onChange: (num) => this.handleSetMaxResult({ key: num }),
+                      default: this.props.maxResultValue,
+                      options: [10, 25, 50, 100],
+                    }}
+                  />
+                </div>
+              </div>
+            }
           />
         </CollapsibleSection>
 

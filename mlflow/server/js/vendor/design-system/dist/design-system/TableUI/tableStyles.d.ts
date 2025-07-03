@@ -8,6 +8,8 @@ export declare const repeatingElementsStyles: {
     header: import("@emotion/utils").SerializedStyles;
     row: import("@emotion/utils").SerializedStyles;
 };
+export declare const hideIconButtonActionCellClassName: string;
+export declare const hideIconButtonRowStyles: import("@emotion/utils").SerializedStyles;
 declare const tableStyles: {
     tableWrapper: import("@emotion/utils").SerializedStyles;
     table: import("@emotion/utils").SerializedStyles;

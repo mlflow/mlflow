@@ -33,7 +33,6 @@ from mlflow.models import (
 from mlflow.utils.annotations import experimental
 
 
-@experimental
 def latency() -> EvaluationMetric:
     """
     This function will create a metric for calculating latency. Latency is determined by the time
@@ -48,11 +47,13 @@ def latency() -> EvaluationMetric:
 
 
 # general text metrics
-@experimental
 def token_count() -> EvaluationMetric:
     """
     This function will create a metric for calculating token_count. Token count is calculated
     using tiktoken by using the `cl100k_base` tokenizer.
+
+    Note: For air-gapped environments, you can set the TIKTOKEN_CACHE_DIR environment variable
+    to specify a local cache directory for tiktoken to avoid downloading the tokenizer files.
     """
     return make_metric(
         eval_fn=_token_count_eval_fn,
@@ -61,7 +62,6 @@ def token_count() -> EvaluationMetric:
     )
 
 
-@experimental
 def toxicity() -> EvaluationMetric:
     """
     This function will create a metric for evaluating `toxicity`_ using the model
@@ -87,7 +87,6 @@ def toxicity() -> EvaluationMetric:
     )
 
 
-@experimental
 def flesch_kincaid_grade_level() -> EvaluationMetric:
     """
     This function will create a metric for calculating `flesch kincaid grade level`_ using
@@ -111,7 +110,6 @@ def flesch_kincaid_grade_level() -> EvaluationMetric:
     )
 
 
-@experimental
 def ari_grade_level() -> EvaluationMetric:
     """
     This function will create a metric for calculating `automated readability index`_ using
@@ -136,7 +134,6 @@ def ari_grade_level() -> EvaluationMetric:
 
 
 # question answering metrics
-@experimental
 def exact_match() -> EvaluationMetric:
     """
     This function will create a metric for calculating `accuracy`_ using sklearn.
@@ -151,7 +148,6 @@ def exact_match() -> EvaluationMetric:
 
 
 # text summarization metrics
-@experimental
 def rouge1() -> EvaluationMetric:
     """
     This function will create a metric for evaluating `rouge1`_.
@@ -172,7 +168,6 @@ def rouge1() -> EvaluationMetric:
     )
 
 
-@experimental
 def rouge2() -> EvaluationMetric:
     """
     This function will create a metric for evaluating `rouge2`_.
@@ -193,7 +188,6 @@ def rouge2() -> EvaluationMetric:
     )
 
 
-@experimental
 def rougeL() -> EvaluationMetric:
     """
     This function will create a metric for evaluating `rougeL`_.
@@ -214,7 +208,6 @@ def rougeL() -> EvaluationMetric:
     )
 
 
-@experimental
 def rougeLsum() -> EvaluationMetric:
     """
     This function will create a metric for evaluating `rougeLsum`_.
@@ -235,7 +228,6 @@ def rougeLsum() -> EvaluationMetric:
     )
 
 
-@experimental
 def precision_at_k(k) -> EvaluationMetric:
     """
     This function will create a metric for calculating ``precision_at_k`` for retriever models.
@@ -254,7 +246,6 @@ def precision_at_k(k) -> EvaluationMetric:
     )
 
 
-@experimental
 def recall_at_k(k) -> EvaluationMetric:
     """
     This function will create a metric for calculating ``recall_at_k`` for retriever models.
@@ -275,7 +266,6 @@ def recall_at_k(k) -> EvaluationMetric:
     )
 
 
-@experimental
 def ndcg_at_k(k) -> EvaluationMetric:
     """
     This function will create a metric for evaluating `NDCG@k`_ for retriever models.
@@ -436,7 +426,7 @@ def f1_score() -> EvaluationMetric:
     return make_metric(eval_fn=_f1_score_eval_fn, greater_is_better=True, name="f1_score")
 
 
-@experimental
+@experimental(version="2.18.0")
 def bleu() -> EvaluationMetric:
     """
     This function will create a metric for evaluating `bleu`_.
