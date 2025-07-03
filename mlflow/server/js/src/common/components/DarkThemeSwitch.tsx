@@ -23,23 +23,17 @@ export const DarkThemeSwitch = ({
   isDarkTheme: boolean;
   setIsDarkTheme: (isDarkTheme: boolean) => void;
 }) => (
-  <span
+  <ToggleIconButton
+    componentId="codegen_mlflow_app_src_common_components_darkthemeswitch.tsx_32"
+    pressed={isDarkTheme}
+    onClick={() => setIsDarkTheme(!isDarkTheme)}
+    icon={isDarkTheme ? <MoonIcon /> : <SunIcon />}
+    aria-label={isDarkTheme ? 'Switch to light theme' : 'Switch to dark theme'}
     css={{
-      display: 'flex',
+      background: 'transparent !important',
+      '&:hover': {
+        background: 'rgba(255, 255, 255, 0.1) !important',
+      },
     }}
-  >
-    <ToggleIconButton
-      componentId="codegen_mlflow_app_src_common_components_darkthemeswitch.tsx_32"
-      pressed={isDarkTheme}
-      onClick={() => setIsDarkTheme(!isDarkTheme)}
-      icon={isDarkTheme ? <MoonIcon /> : <SunIcon />}
-      aria-label={isDarkTheme ? 'Switch to light theme' : 'Switch to dark theme'}
-      css={{
-        background: 'transparent !important',
-        '&:hover': {
-          background: 'rgba(255, 255, 255, 0.1) !important',
-        },
-      }}
-    />
-  </span>
+  />
 );
