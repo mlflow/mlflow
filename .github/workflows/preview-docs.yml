@@ -27,13 +27,21 @@ jobs:
             --docs-workflow-run-url ${{ github.event.workflow_run.html_url }} \
             --stage requested
 
-  main:
+  fail-early:
     if: github.repository == 'mlflow/mlflow' && github.event.workflow_run.status == 'completed'
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write # preview_docs.py comments on PRs
     timeout-minutes: 10
     steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        if: github.event.workflow_run.conclusion == 'failure'
+      - uses: ./.github/actions/setup-python
+        if: github.event.workflow_run.conclusion == 'failure'
+      - name: Install dependencies
+        if: github.event.workflow_run.conclusion == 'failure'
+        run: |
+          pip install requests
       - name: Handle docs workflow failure
         if: github.event.workflow_run.conclusion == 'failure'
         env:
@@ -46,15 +54,24 @@ jobs:
             --workflow-run-id ${{ github.run_id }} \
             --docs-workflow-run-url ${{ github.event.workflow_run.html_url }} \
             --stage failed
-          exit 0 # Exit the job if the docs workflow failed
+          exit 1
+
+  main:
+    needs: [fail-early]
+    if: needs.fail-early.outputs.status == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write # preview_docs.py comments on PRs
+    timeout-minutes: 10
+    steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - uses: ./.github/actions/setup-python
-      - uses: ./.github/actions/setup-node
       - name: Download build artifact
         uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
         with:
           name: docs-build-${{ github.event.workflow_run.id }}
           path: downloaded-artifact
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-node
       - name: Install dependencies
         run: |
           pip install requests
