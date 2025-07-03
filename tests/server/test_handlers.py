@@ -16,11 +16,7 @@ from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY, PROMPT_TEXT
 from mlflow.entities.model_registry.webhook import Webhook, WebhookEventTrigger
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.exceptions import MlflowException
-from mlflow.protos.databricks_pb2 import (
-    INTERNAL_ERROR,
-    INVALID_PARAMETER_VALUE,
-    ErrorCode,
-)
+from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.protos.model_registry_pb2 import (
     CreateModelVersion,
     CreateRegisteredModel,
@@ -217,10 +213,7 @@ def test_can_parse_post_json_with_unknown_fields():
     request.method = "POST"
     request.content_type = "application/json"
     request.get_json = mock.MagicMock()
-    request.get_json.return_value = {
-        "name": "hello",
-        "WHAT IS THIS FIELD EVEN": "DOING",
-    }
+    request.get_json.return_value = {"name": "hello", "WHAT IS THIS FIELD EVEN": "DOING"}
     msg = _get_request_message(CreateExperiment(), flask_request=request)
     assert msg.name == "hello"
 
@@ -448,12 +441,7 @@ def test_search_registered_models(mock_get_request_message, mock_model_registry_
     mock_model_registry_store.search_registered_models.return_value = PagedList([rmds[0]], "tik")
     resp = _search_registered_models()
     _, args = mock_model_registry_store.search_registered_models.call_args
-    assert args == {
-        "filter_string": "hi",
-        "max_results": 5,
-        "order_by": [],
-        "page_token": "",
-    }
+    assert args == {"filter_string": "hi", "max_results": 5, "order_by": [], "page_token": ""}
     assert json.loads(resp.get_data()) == {
         "registered_models": jsonify([rmds[0]]),
         "next_page_token": "tik",
@@ -549,11 +537,7 @@ def test_create_model_version(mock_get_request_message, mock_model_registry_stor
         tags=[tag.to_proto() for tag in tags],
     )
     mv = ModelVersion(
-        name="model_1",
-        version="12",
-        creation_timestamp=123,
-        tags=tags,
-        run_link=run_link,
+        name="model_1", version="12", creation_timestamp=123, tags=tags, run_link=run_link
     )
     mock_model_registry_store.create_model_version.return_value = mv
     resp = _create_model_version()
@@ -756,18 +740,12 @@ def test_search_model_versions(mock_get_request_message, mock_model_registry_sto
     }
 
     mock_get_request_message.return_value = SearchModelVersions(
-        filter="version<=12",
-        max_results=2,
-        order_by=["version DESC"],
-        page_token="prev",
+        filter="version<=12", max_results=2, order_by=["version DESC"], page_token="prev"
     )
     mock_model_registry_store.search_model_versions.return_value = PagedList(mvds[1:3], "next")
     resp = _search_model_versions()
     mock_model_registry_store.search_model_versions.assert_called_with(
-        filter_string="version<=12",
-        max_results=2,
-        order_by=["version DESC"],
-        page_token="prev",
+        filter_string="version<=12", max_results=2, order_by=["version DESC"], page_token="prev"
     )
     assert json.loads(resp.get_data()) == {
         "model_versions": jsonify(mvds[1:3]),
@@ -1095,11 +1073,7 @@ def test_local_file_read_write_by_pass_vulnerability(uri):
             S3ArtifactRepository,
             "s3://bucket/2/traces/123",
         ),
-        (
-            "mlflow-artifacts:/1/traces/123",
-            S3ArtifactRepository,
-            "s3://bucket/1/traces/123",
-        ),
+        ("mlflow-artifacts:/1/traces/123", S3ArtifactRepository, "s3://bucket/1/traces/123"),
     ],
 )
 def test_get_trace_artifact_repo(location, expected_class, expected_uri, monkeypatch):
