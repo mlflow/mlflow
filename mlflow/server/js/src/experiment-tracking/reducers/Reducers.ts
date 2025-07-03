@@ -12,7 +12,6 @@ import {
   GET_RUN_API,
   LIST_ARTIFACTS_API,
   LIST_ARTIFACTS_LOGGED_MODEL_API,
-  SEARCH_EXPERIMENTS_API,
   OPEN_ERROR_MODAL,
   SEARCH_RUNS_API,
   LOAD_MORE_RUNS_API,
@@ -70,21 +69,6 @@ export const getExperiment = (id: any, state: any) => {
 
 export const experimentsById = (state = {}, action: any): any => {
   switch (action.type) {
-    case fulfilled(SEARCH_EXPERIMENTS_API): {
-      let newState = Object.assign({}, state);
-      if (action.payload && action.payload.experiments) {
-        // reset experimentsById state
-        // doing this enables us to capture if an experiment was deleted
-        // if we kept the old state and updated the experiments based on their id,
-        // deleted experiments (via CLI or UI) would remain until the page is refreshed
-        newState = {};
-        action.payload.experiments.forEach((eJson: any) => {
-          const experiment: ExperimentEntity = eJson;
-          newState = Object.assign(newState, { [experiment.experimentId]: experiment });
-        });
-      }
-      return newState;
-    }
     case fulfilled(GET_EXPERIMENT_API): {
       const { experiment } = action.payload;
 
@@ -406,18 +390,6 @@ export const experimentTagsByExperimentId = (state = {}, action: any) => {
     case fulfilled(SET_EXPERIMENT_TAG_API): {
       const tag = { key: action.meta.key, value: action.meta.value };
       return amendExperimentTagsByExperimentId(state, [tag], action.meta.experimentId);
-    }
-    case fulfilled(SEARCH_EXPERIMENTS_API): {
-      const newState = { ...state };
-      if (action.payload && action.payload.experiments) {
-        action.payload.experiments.forEach((eJson: any) => {
-          const experiment: ExperimentEntity = eJson;
-          const tags = experiment.tags || [];
-          // @ts-expect-error TS(7053): Element implicitly has an 'any' type because expre... Remove this comment to see the full error message
-          newState[experiment.experimentId] = tagArrToObject(tags);
-        });
-      }
-      return newState;
     }
     default:
       return state;

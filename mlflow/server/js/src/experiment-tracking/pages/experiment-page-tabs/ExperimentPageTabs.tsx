@@ -72,7 +72,6 @@ const ExperimentPageTabs = () => {
         display: 'flex',
         flexDirection: 'column',
         padding: theme.spacing.md,
-        paddingTop: theme.spacing.lg,
       }}
     >
       <ExperimentPageTabsImpl />
