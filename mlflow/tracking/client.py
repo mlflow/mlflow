@@ -5438,18 +5438,18 @@ class MlflowClient:
                 identifiers, comparators, and logical operators are supported.
 
                 Identifiers
-                - ``name``: webhook name.
-                - ``tags.<tag_key>``: webhook tag. If ``tag_key`` contains spaces, it
+                  - ``name``: webhook name.
+                  - ``tags.<tag_key>``: webhook tag. If ``tag_key`` contains spaces, it
                     must be wrapped with backticks (e.g., "tags.`extra key`").
 
                 Comparators
-                - ``=``: Equal to.
-                - ``!=``: Not equal to.
-                - ``LIKE``: Case-sensitive pattern match.
-                - ``ILIKE``: Case-insensitive pattern match.
+                  - ``=``: Equal to.
+                  - ``!=``: Not equal to.
+                  - ``LIKE``: Case-sensitive pattern match.
+                  - ``ILIKE``: Case-insensitive pattern match.
 
                 Logical operators
-                - ``AND``: Combines two sub-queries and returns True if both of them are True.
+                  - ``AND``: Combines two sub-queries and returns True if both of them are True.
 
             max_results: Maximum number of webhooks desired.
             order_by: List of column names with ASC|DESC annotation, to be used for ordering
