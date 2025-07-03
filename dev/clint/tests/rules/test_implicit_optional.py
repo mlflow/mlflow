@@ -7,8 +7,8 @@ from clint.rules import ImplicitOptional
 
 
 def test_implicit_optional(index: SymbolIndex, config: Config, tmp_path: Path) -> None:
-    test_file = tmp_path / "test.py"
-    test_file.write_text(
+    tmp_file = tmp_path / "test.py"
+    tmp_file.write_text(
         """
 from typing import Optional
 
@@ -23,7 +23,7 @@ class Good:
     x: Optional[str] = None
 """
     )
-    results = lint_file(test_file, config, index)
+    results = lint_file(tmp_file, config, index)
     assert len(results) == 2
     assert all(isinstance(r.rule, ImplicitOptional) for r in results)
     assert results[0].loc == Location(4, 5)
