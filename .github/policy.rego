@@ -76,8 +76,10 @@ deny_script_injection_github_script[msg] {
 
 # Helper function to check for any GitHub expressions
 contains_dangerous_github_expression(text) {
-    # Check for any ${{ ... }} expressions
+    # Check for ${{ ... }} expressions
     regex.match("\\$\\{\\{[^}]*\\}\\}", text)
+    # But exclude matrix expressions
+    not regex.match("\\$\\{\\{\\s*matrix\\.[^}]*\\}\\}", text)
 }
 
 # Shared error message for script injection
