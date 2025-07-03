@@ -62,7 +62,6 @@ Documentation preview for ${commitSha} ${mainMessage}
 <summary>More info</summary>
 
 - Ignore this comment if this PR does not change the documentation.
-- It takes a few minutes for the preview to be available.
 - The preview is updated when a new commit is pushed to this PR.
 - This comment was created by [this workflow run](${workflowRunLink}).
 - The documentation was built by [this workflow run](${docsWorkflowRunUrl}).
