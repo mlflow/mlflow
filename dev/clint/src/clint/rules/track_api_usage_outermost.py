@@ -7,7 +7,11 @@ from clint.rules.base import Rule
 
 class TrackApiUsageOutermost(Rule):
     def _message(self) -> str:
-        return "The `@track_api_usage` decorator must be applied as the outermost decorator."
+        return (
+            "The `@track_api_usage` decorator must be applied as the outermost decorator "
+            "to ensure proper telemetry tracking. It needs to wrap the complete decorated "
+            "function to accurately check if the API is invoked from internal MLflow code."
+        )
 
     @staticmethod
     def check(
