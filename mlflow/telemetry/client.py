@@ -38,8 +38,7 @@ class TelemetryClient:
             )
             self._max_workers = 1
 
-        # Thread event that indicates the queue should stop processing tasks
-        self._stop_event = threading.Event()
+        self._is_stopped = False
         self._is_active = False
         self._atexit_callback_registered = False
 
@@ -59,8 +58,7 @@ class TelemetryClient:
         if not self.is_active:
             self.activate()
 
-        # If stop event is set, don't add new records
-        if self._stop_event.is_set():
+        if self._is_stopped:
             _logger.debug("Telemetry is stopped, skipping adding record")
             return
 
@@ -118,7 +116,7 @@ class TelemetryClient:
 
     def _consumer(self) -> None:
         """Individual consumer that processes records from the queue."""
-        while not self._stop_event.is_set():
+        while not self._is_stopped:
             try:
                 records = self._queue.get(timeout=1)
             except Empty:
@@ -188,7 +186,7 @@ class TelemetryClient:
 
         if terminate:
             # Full shutdown for termination
-            self._stop_event.set()
+            self._is_stopped = True
 
             per_thread_timeout = 5 / len(self._consumer_threads) if self._consumer_threads else 5
             for thread in self._consumer_threads:

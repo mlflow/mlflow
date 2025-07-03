@@ -127,10 +127,9 @@ def test_error_handling():
     assert client.is_active
 
 
-def test_stop_event_handling(telemetry_client: TelemetryClient, mock_requests):
-    """Test that records are not added when stop event is set."""
-    # Set stop event
-    telemetry_client._stop_event.set()
+def test_stop_event(telemetry_client: TelemetryClient, mock_requests):
+    """Test that records are not added when telemetry client is stopped."""
+    telemetry_client._is_stopped = True
 
     record = APIRecord(
         api_name="test_api",
