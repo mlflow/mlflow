@@ -22,10 +22,10 @@ async function upsertComment(github, repo, pullNumber, commentBody) {
   });
 
   // Find existing preview docs comment
-  const previewDocsComment = comments.find((comment) => comment.body.includes(MARKER));
+  const existingComment = comments.find((comment) => comment.body.includes(MARKER));
   const commentBodyWithMarker = `${MARKER}\n\n${commentBody}`;
 
-  if (!previewDocsComment) {
+  if (!existingComment) {
     console.log("Creating comment");
     await github.rest.issues.createComment({
       owner,
@@ -38,7 +38,7 @@ async function upsertComment(github, repo, pullNumber, commentBody) {
     await github.rest.issues.updateComment({
       owner,
       repo: repoName,
-      comment_id: previewDocsComment.id,
+      comment_id: existingComment.id,
       body: commentBodyWithMarker,
     });
   }
