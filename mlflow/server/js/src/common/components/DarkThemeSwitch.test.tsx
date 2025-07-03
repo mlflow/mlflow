@@ -19,7 +19,7 @@ describe('DarkThemeSwitch', () => {
   });
 
   test('should render toggle button with moon icon when dark theme is active', () => {
-    renderWithIntl(<DarkThemeSwitch isDarkTheme={true} setIsDarkTheme={mockSetIsDarkTheme} />);
+    renderWithIntl(<DarkThemeSwitch isDarkTheme setIsDarkTheme={mockSetIsDarkTheme} />);
     
     const button = screen.getByRole('button');
     expect(button).toBeInTheDocument();
@@ -36,7 +36,7 @@ describe('DarkThemeSwitch', () => {
   });
 
   test('should call setIsDarkTheme with opposite value when clicked in dark mode', async () => {
-    renderWithIntl(<DarkThemeSwitch isDarkTheme={true} setIsDarkTheme={mockSetIsDarkTheme} />);
+    renderWithIntl(<DarkThemeSwitch isDarkTheme setIsDarkTheme={mockSetIsDarkTheme} />);
     
     const button = screen.getByRole('button');
     await userEvent.click(button);
