@@ -13,8 +13,7 @@ module.exports = async ({ github, context, env }) => {
     throw new Error("Missing required parameters: ARTIFACT_NAME, RUN_ID");
   }
 
-  const repo = "mlflow/mlflow";
-  const [owner, repoName] = repo.split("/");
+  const { owner, repo } = context.repo;
 
   try {
     // INFO: https://octokit.github.io/rest.js/v22/#actions-list-workflow-run-artifacts
