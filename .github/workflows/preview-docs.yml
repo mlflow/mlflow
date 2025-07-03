@@ -30,7 +30,7 @@ jobs:
         with:
           script: |
             const script = require(
-              `${process.env.GITHUB_WORKSPACE}/.github/workflows/preview-docs.js`
+              `${process.env.GITHUB_WORKSPACE}/.github/workflows/upsert-preview-docs-comment.js`
             );
             await script({ context, github, env: process.env });
       - name: Exit with failure
@@ -84,6 +84,6 @@ jobs:
         with:
           script: |
             const script = require(
-              `${process.env.GITHUB_WORKSPACE}/.github/workflows/preview-docs.js`
+              `${process.env.GITHUB_WORKSPACE}/.github/workflows/upsert-preview-docs-comment.js`
             );
             await script({ context, github, env: process.env });
