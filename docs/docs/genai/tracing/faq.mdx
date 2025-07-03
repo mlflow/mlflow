@@ -134,6 +134,7 @@ MLflow's Automatic Tracing integration captures rich information that are helpfu
 MLflow supports plugging-in custom post-processing hooks applied to trace data before exporting to the backend. This allows you to reduce the trace size by removing unnecessary data, or applying security guardrails such as masking sensitive data.
 
 To register a custom hooks, use the <APILink fn="mlflow.tracing.configure">`mlflow.tracing.configure`</APILink> API. For example, the following code filters out the document contents from the retriever span output to reduce the trace size:
+
 ```python
 import mlflow
 from mlflow.entities.span import Span, SpanType
@@ -156,7 +157,6 @@ mlflow.tracing.configure(span_processors=[filter_retrieval_output])
 ```
 
 Refer to the [Redacting Sensitive Data Safe](/genai/tracing/observe-with-traces/masking) guide for more details about the hook API and examples.
-
 
 ## Troubleshooting
 

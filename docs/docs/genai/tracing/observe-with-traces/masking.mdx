@@ -4,7 +4,6 @@ import { APILink } from "@site/src/components/APILink";
 
 Traces capture powerful insights for debugging and monitoring your application, however, they may contain sensitive data, such as **Personal Identifiable Information (PII)**, that you don't want to share with others. MLflow provides a fully configurable way to mask sensitive data from traces before they are saved to the backend.
 
-
 ## How It Works
 
 MLflow allows you to configure a list of post-processing hooks that are applied to each span in a trace. Each span processor is a function that takes a span as input and returns a span.
@@ -15,7 +14,6 @@ MLflow allows you to configure a list of post-processing hooks that are applied 
 
 Since the filters are applied at **client side** before sending the span to the backend, the sensitive data never goes out of your application.
 
-
 ## Filtering Function
 
 A filtering function must take a single argument, which is a <APILink fn="mlflow.entities.span.Span">`Span`</APILink> object. It can mutate the span in-place. It must not return a value.
@@ -24,7 +22,6 @@ A filtering function must take a single argument, which is a <APILink fn="mlflow
 def filter_function(span: Span) -> None:
     ...
 ```
-
 
 ## Example 1: Redacting E-mail Address
 
@@ -229,5 +226,3 @@ Alternatively, you can call <APILink fn="mlflow.tracing.reset">`mlflow.tracing.r
 ```python
 mlflow.tracing.reset()
 ```
-
-

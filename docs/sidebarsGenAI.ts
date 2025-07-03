@@ -253,7 +253,7 @@ const sidebarsGenAI: SidebarsConfig = {
               type: 'doc',
               id: 'tracing/observe-with-traces/masking',
               label: 'Redacting Sensitive Data',
-            }
+            },
           ],
         },
 
