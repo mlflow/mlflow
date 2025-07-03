@@ -82,7 +82,8 @@ jobs:
             --docs-workflow-run-url ${{ github.event.workflow_run.html_url }} \
             --stage ${{ steps.netlify_deploy.outcome == 'success' && 'completed' || 'failed' }} \
             --netlify-url $NETLIFY_URL
-      - name: Delete build artifact
-        uses: geekyeggo/delete-artifact@f275313e70c08f6120db482d7a6b98377786765b # v5.1.0
+      - name: Delete Build Artifact
+        uses: joutvhu/delete-artifact@e8511ee448fc8cfa02508df13dc0c0974f20d52d # v2.0.1
         with:
+          run-id: ${{ github.event.workflow_run.id }}
           name: docs-build-${{ github.event.workflow_run.id }}
