@@ -36,7 +36,7 @@ jobs:
         working-directory: packages/typescript
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-
+      - uses: ./.github/actions/setup-python # Required for running a tracking server
       - name: Setup Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
@@ -46,6 +46,10 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Install uv
+        # UV is used for installing Python dependencies for the tracking server
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
 
       - name: Run format check
         run: npm run format:check
