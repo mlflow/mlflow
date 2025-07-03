@@ -22,7 +22,6 @@ class TrackApiUsageOutermost(Rule):
             decorator_list: The list of decorators for the node
         """
 
-        # Check if this decorator is not the outermost (first) in the decorator list
         for i, decorator in enumerate(decorator_list):
             resolved = resolver.resolve(decorator)
             # If it's not at position 0 (outermost), it's a violation
