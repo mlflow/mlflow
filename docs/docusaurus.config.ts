@@ -401,7 +401,7 @@ const config: Config = {
 
           // LLM Flavors Redirects
           {
-            to: '/genai/overview',
+            to: '/genai',
             from: [
               '/llms/rag',
               '/llms/rag/notebooks',
