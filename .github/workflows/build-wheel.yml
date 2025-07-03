@@ -58,15 +58,18 @@ jobs:
 
       - name: Build distribution files
         id: build-dist
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          MATRIX_TYPE: ${{ matrix.type }}
         run: |
           # if workflow_dispatch is triggered, use the specified ref
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          if [ "$EVENT_NAME" == "workflow_dispatch" ]; then
             SHA_OPT="--sha $(git rev-parse HEAD)"
           else
             SHA_OPT=""
           fi
 
-          if [ "${{ matrix.type }}" == "skinny" ]; then
+          if [ "$MATRIX_TYPE" == "skinny" ]; then
             PACKAGE_TYPE_OPT="--package-type skinny"
           else
             PACKAGE_TYPE_OPT=""
@@ -87,32 +90,45 @@ jobs:
           echo "wheel-size=${wheel_size}" >> $GITHUB_OUTPUT
 
       - name: List files in source distribution
+        env:
+          SDIST_PATH: ${{ steps.build-dist.outputs.sdist-path }}
         run: |
-          tar -tf ${{ steps.build-dist.outputs.sdist-path }}
+          tar -tf $SDIST_PATH
 
       - name: List files in binary distribution
+        env:
+          WHEEL_PATH: ${{ steps.build-dist.outputs.wheel-path }}
         run: |
-          unzip -l ${{ steps.build-dist.outputs.wheel-path }}
+          unzip -l $WHEEL_PATH
 
       - name: Compare files in source and binary distributions
+        env:
+          SDIST_PATH: ${{ steps.build-dist.outputs.sdist-path }}
+          WHEEL_PATH: ${{ steps.build-dist.outputs.wheel-path }}
         run: |
-          tar -tzf ${{ steps.build-dist.outputs.sdist-path }} | grep -v '/$' | cut -d'/' -f2- | sort > /tmp/source.txt
-          zipinfo -1 ${{ steps.build-dist.outputs.wheel-path }} | sort > /tmp/wheel.txt
+          tar -tzf $SDIST_PATH | grep -v '/$' | cut -d'/' -f2- | sort > /tmp/source.txt
+          zipinfo -1 $WHEEL_PATH | sort > /tmp/wheel.txt
           diff /tmp/source.txt /tmp/wheel.txt || true
 
       - name: Run twine check
+        env:
+          WHEEL_PATH: ${{ steps.build-dist.outputs.wheel-path }}
         run: |
-          twine check --strict ${{ steps.build-dist.outputs.wheel-path }}
+          twine check --strict $WHEEL_PATH
 
       - name: Test installation from tarball
+        env:
+          SDIST_PATH: ${{ steps.build-dist.outputs.sdist-path }}
         run: |
-          pip install ${{ steps.build-dist.outputs.sdist-path }}
+          pip install $SDIST_PATH
           python -c "import mlflow; print(mlflow.__version__)"
           python -c "from mlflow import *"
 
       - name: Test installation from wheel
+        env:
+          WHEEL_PATH: ${{ steps.build-dist.outputs.wheel-path }}
         run: |
-          pip install --force-reinstall ${{ steps.build-dist.outputs.wheel-path }}
+          pip install --force-reinstall $WHEEL_PATH
           python -c "import mlflow; print(mlflow.__version__)"
           python -c "from mlflow import *"
 
@@ -120,8 +136,9 @@ jobs:
         env:
           REPO: ${{ github.repository }}
           REF: ${{ github.ref }}
+          MATRIX_TYPE: ${{ matrix.type }}
         run: |
-          if [ "${{ matrix.type }}" == "skinny" ]; then
+          if [ "$MATRIX_TYPE" == "skinny" ]; then
             URL="git+https://github.com/${REPO}.git@${REF}#subdirectory=skinny"
           else
             URL="git+https://github.com/${REPO}.git@${REF}"
@@ -132,17 +149,22 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: github.event_name == 'workflow_dispatch'
         id: upload-wheel
+        env:
+          WHEEL_NAME: ${{ steps.build-dist.outputs.wheel-name }}
+          WHEEL_PATH: ${{ steps.build-dist.outputs.wheel-path }}
         with:
-          name: ${{ steps.build-dist.outputs.wheel-name }}
-          path: ${{ steps.build-dist.outputs.wheel-path }}
+          name: $WHEEL_NAME
+          path: $WHEEL_PATH
           retention-days: 7
           if-no-files-found: error
 
       - name: Generate summary
         if: github.event_name == 'workflow_dispatch'
+        env:
+          ARTIFACT_URL: ${{ steps.upload-wheel.outputs.artifact-url }}
         run: |
           echo "### Download URL" >> $GITHUB_STEP_SUMMARY
-          echo "${{ steps.upload-wheel.outputs.artifact-url }}" >> $GITHUB_STEP_SUMMARY
+          echo "$ARTIFACT_URL" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Notes" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
