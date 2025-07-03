@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { getMlflow3DocsLink } from '../../constants';
 
-const EXAMPLE_INSTALL_CODE = `pip install mlflow>=3`;
+const EXAMPLE_INSTALL_CODE = `pip install 'mlflow>=3'`;
 const EXAMPLE_CODE = `
 import pandas as pd
 from sklearn.linear_model import ElasticNet
