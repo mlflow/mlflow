@@ -4,6 +4,10 @@ import time
 
 import pytest
 
+from mlflow.environment_variables import (
+    _MLFLOW_TELEMETRY_MAX_QUEUE_SIZE,
+    _MLFLOW_TELEMETRY_MAX_WORKERS,
+)
 from mlflow.telemetry.client import TelemetryClient
 from mlflow.telemetry.schemas import APIRecord, APIStatus, LogModelParams, ModelType
 
@@ -20,8 +24,8 @@ def test_telemetry_client_initialization():
     """Test that TelemetryClient initializes correctly."""
     client = TelemetryClient()
     assert client.info is not None
-    assert client._queue.maxsize == 1000
-    assert client._max_workers == 10
+    assert client._queue.maxsize == _MLFLOW_TELEMETRY_MAX_QUEUE_SIZE.get()
+    assert client._max_workers == _MLFLOW_TELEMETRY_MAX_WORKERS.get()
     assert not client.is_active
 
 
@@ -85,18 +89,22 @@ def test_flush_functionality(telemetry_client: TelemetryClient, mock_requests):
 
 
 def test_client_shutdown(telemetry_client: TelemetryClient, mock_requests):
-    """Test that client shuts down gracefully."""
-    record = APIRecord(
-        api_name="test_api",
-        status=APIStatus.SUCCESS,
-        params=LogModelParams(flavor="test_flavor", model=ModelType.PYTHON_FUNCTION),
-    )
-    telemetry_client.add_record(record)
+    for _ in range(100):
+        record = APIRecord(
+            api_name="test_api",
+            status=APIStatus.SUCCESS,
+            params=LogModelParams(flavor="test_flavor", model=ModelType.PYTHON_FUNCTION),
+        )
+        telemetry_client.add_record(record)
+    assert len(mock_requests) == 0
 
-    # Shutdown with terminate=True
+    start_time = time.time()
     telemetry_client.flush(terminate=True)
+    end_time = time.time()
 
-    # Verify client is inactive
+    assert end_time - start_time < 5
+    assert len(mock_requests) == 100
+
     assert not telemetry_client.is_active
 
 
@@ -211,3 +219,33 @@ def test_partition_key(telemetry_client: TelemetryClient, mock_requests):
     # Verify partition key
     received_record = mock_requests[0]
     assert received_record["partition-key"] == "test"
+
+
+def test_max_workers_setup(monkeypatch):
+    """Test max_workers configuration and validation."""
+    # Test default value
+    client = TelemetryClient()
+    assert client._max_workers == _MLFLOW_TELEMETRY_MAX_WORKERS.get()
+
+    # Test invalid value (0 or negative)
+    monkeypatch.setenv("_MLFLOW_TELEMETRY_MAX_WORKERS", "0")
+    client = TelemetryClient()
+    assert client._max_workers == 1  # Should default to 1
+
+    monkeypatch.setenv("_MLFLOW_TELEMETRY_MAX_WORKERS", "-5")
+    client = TelemetryClient()
+    assert client._max_workers == 1  # Should default to 1
+
+    # Test valid value
+    monkeypatch.setenv("_MLFLOW_TELEMETRY_MAX_WORKERS", "8")
+    client = TelemetryClient()
+    assert client._max_workers == 8
+
+    # Test that correct number of threads are created
+    client.activate()
+    assert len(client._consumer_threads) == 8
+
+    # Verify thread names
+    for i, thread in enumerate(client._consumer_threads):
+        assert thread.name == f"MLflowTelemetryConsumer-{i}"
+        assert thread.daemon is True
