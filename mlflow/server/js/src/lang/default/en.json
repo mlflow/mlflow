@@ -1323,10 +1323,6 @@
     "defaultMessage": "Edit",
     "description": "Text for the edit button next to the description section title on\n             the model version view page"
   },
-  "Ila3mn": {
-    "defaultMessage": "Install <code>mlflow</code> 3:",
-    "description": "Instruction for installing MLflow 3 to log MLflow 3 models"
-  },
   "IsIgE2": {
     "defaultMessage": "Automatically log traces for Gemini conversations by calling the {code} function. For example:",
     "description": "Description of how to log traces for API calls to Google's Gemini API using MLflow autologging. This message is followed by a code example."
@@ -3462,6 +3458,10 @@
   "qE/ZB7": {
     "defaultMessage": "{registeredCount}/{loggedCount} logged models are registered",
     "description": "Run page > Header > Register model dropdown > Button tooltip"
+  },
+  "qGvbGt": {
+    "defaultMessage": "Install <code>mlflow</code> 3:",
+    "description": "Instruction for installing MLflow 3 to log MLflow 3 models"
   },
   "qH2cN+": {
     "defaultMessage": "Experiment id copied",
