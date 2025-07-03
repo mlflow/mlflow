@@ -457,12 +457,12 @@ class Linter(ast.NodeVisitor):
             v.visit(tree)
         return [v for v in linter.violations if v.rule.name in config.example_rules]
 
-    def visit_decorator(self, node: ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef) -> None:
-        for decorator in node.decorator_list:
+    def visit_decorators(self, decorator_list: list[ast.expr]) -> None:
+        for decorator in decorator_list:
             if rules.InvalidExperimentalDecorator.check(decorator, self.resolver):
                 self._check(Location.from_node(decorator), rules.InvalidExperimentalDecorator())
 
-            if rules.TrackApiUsageOutermost.check(decorator, self.resolver, node.decorator_list):
+            if rules.TrackApiUsageOutermost.check(decorator, self.resolver, decorator_list):
                 self._check(Location.from_node(decorator), rules.TrackApiUsageOutermost())
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
@@ -470,7 +470,7 @@ class Linter(ast.NodeVisitor):
         self._no_rst(node)
         self._syntax_error_example(node)
         self._mlflow_class_name(node)
-        self.visit_decorator(node)
+        self.visit_decorators(node.decorator_list)
         with self.resolver.scope():
             self.generic_visit(node)
         self.stack.pop()
@@ -544,7 +544,7 @@ class Linter(ast.NodeVisitor):
 
         self.stack.append(node)
         self._no_rst(node)
-        self.visit_decorator(node)
+        self.visit_decorators(node.decorator_list)
         with self.resolver.scope():
             self.generic_visit(node)
         self.stack.pop()
@@ -558,7 +558,7 @@ class Linter(ast.NodeVisitor):
         self._pytest_mark_repeat(node)
         self.stack.append(node)
         self._no_rst(node)
-        self.visit_decorator(node)
+        self.visit_decorators(node.decorator_list)
         with self.resolver.scope():
             self.generic_visit(node)
         self.stack.pop()
