@@ -13,14 +13,10 @@ from mlflow.entities.model_registry.model_version_stages import (
     STAGE_DELETED_INTERNAL,
     get_canonical_stage,
 )
-from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY
 from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY
 from mlflow.entities.model_registry.webhook import WebhookEventTrigger
 from mlflow.exceptions import MlflowException
-from mlflow.prompt.registry_utils import (
-    handle_resource_already_exist_error,
-    has_prompt_tag,
-)
+from mlflow.prompt.registry_utils import handle_resource_already_exist_error, has_prompt_tag
 from mlflow.protos.databricks_pb2 import (
     INVALID_PARAMETER_VALUE,
     INVALID_STATE,
@@ -47,11 +43,7 @@ from mlflow.store.model_registry.dbmodels.models import (
     SqlWebhook,
 )
 from mlflow.tracking.client import MlflowClient
-from mlflow.utils.search_utils import (
-    SearchModelUtils,
-    SearchModelVersionUtils,
-    SearchUtils,
-)
+from mlflow.utils.search_utils import SearchModelUtils, SearchModelVersionUtils, SearchUtils
 from mlflow.utils.time import get_current_time_millis
 from mlflow.utils.uri import extract_db_type_from_uri
 from mlflow.utils.validation import (
@@ -382,8 +374,7 @@ class SqlAlchemyStore(AbstractStore):
             if type_ == "attribute":
                 if key != "name":
                     raise MlflowException(
-                        f"Invalid attribute name: {key}",
-                        error_code=INVALID_PARAMETER_VALUE,
+                        f"Invalid attribute name: {key}", error_code=INVALID_PARAMETER_VALUE
                     )
                 if comparator not in ("=", "!=", "LIKE", "ILIKE"):
                     raise MlflowException(
@@ -417,11 +408,7 @@ class SqlAlchemyStore(AbstractStore):
 
         if not cls._is_querying_prompt(parsed_filters):
             rm_query = cls._update_query_to_exclude_prompts(
-                rm_query,
-                tag_filters,
-                dialect,
-                SqlRegisteredModel,
-                SqlRegisteredModelTag,
+                rm_query, tag_filters, dialect, SqlRegisteredModel, SqlRegisteredModelTag
             )
 
         if tag_filters:
@@ -452,8 +439,7 @@ class SqlAlchemyStore(AbstractStore):
             if type_ == "attribute":
                 if key not in SearchModelVersionUtils.VALID_SEARCH_ATTRIBUTE_KEYS:
                     raise MlflowException(
-                        f"Invalid attribute name: {key}",
-                        error_code=INVALID_PARAMETER_VALUE,
+                        f"Invalid attribute name: {key}", error_code=INVALID_PARAMETER_VALUE
                     )
                 if key in SearchModelVersionUtils.NUMERIC_ATTRIBUTES:
                     if (
@@ -573,9 +559,7 @@ class SqlAlchemyStore(AbstractStore):
             .subquery()
         )
         return query.join(
-            prompts_subquery,
-            main_db_model.name == prompts_subquery.c.name,
-            isouter=True,
+            prompts_subquery, main_db_model.name == prompts_subquery.c.name, isouter=True
         ).filter(prompts_subquery.c.name.is_(None))
 
     @classmethod

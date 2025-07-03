@@ -67059,106 +67059,164 @@ public final class ModelRegistry {
       "ame\030\001 \001(\tB\004\370\206\031\001\022\023\n\005alias\030\002 \001(\tB\004\370\206\031\001\0327\n\010" +
       "Response\022+\n\rmodel_version\030\001 \001(\0132\024.mlflow" +
       ".ModelVersion:+\342?(\n&com.databricks.rpc.R" +
-      "PC[$this.Response]*R\n\022ModelVersionStatus" +
-      "\022\030\n\024PENDING_REGISTRATION\020\001\022\027\n\023FAILED_REG" +
-      "ISTRATION\020\002\022\t\n\005READY\020\0032\200\036\n\024ModelRegistry" +
-      "Service\022\256\001\n\025createRegisteredModel\022\035.mlfl" +
-      "ow.CreateRegisteredModel\032&.mlflow.Create" +
-      "RegisteredModel.Response\"N\362\206\031J\n.\n\004POST\022 " +
-      "/mlflow/registered-models/create\032\004\010\002\020\000\020\001" +
-      "*\026Create RegisteredModel\022\256\001\n\025renameRegis" +
-      "teredModel\022\035.mlflow.RenameRegisteredMode" +
-      "l\032&.mlflow.RenameRegisteredModel.Respons" +
-      "e\"N\362\206\031J\n.\n\004POST\022 /mlflow/registered-mode" +
-      "ls/rename\032\004\010\002\020\000\020\001*\026Rename RegisteredMode" +
-      "l\022\257\001\n\025updateRegisteredModel\022\035.mlflow.Upd" +
-      "ateRegisteredModel\032&.mlflow.UpdateRegist" +
-      "eredModel.Response\"O\362\206\031K\n/\n\005PATCH\022 /mlfl" +
-      "ow/registered-models/update\032\004\010\002\020\000\020\001*\026Upd" +
-      "ate RegisteredModel\022\260\001\n\025deleteRegistered" +
-      "Model\022\035.mlflow.DeleteRegisteredModel\032&.m" +
-      "lflow.DeleteRegisteredModel.Response\"P\362\206" +
-      "\031L\n0\n\006DELETE\022 /mlflow/registered-models/" +
-      "delete\032\004\010\002\020\000\020\001*\026Delete RegisteredModel\022\236" +
-      "\001\n\022getRegisteredModel\022\032.mlflow.GetRegist" +
-      "eredModel\032#.mlflow.GetRegisteredModel.Re" +
-      "sponse\"G\362\206\031C\n*\n\003GET\022\035/mlflow/registered-" +
-      "models/get\032\004\010\002\020\000\020\001*\023Get RegisteredModel\022" +
-      "\261\001\n\026searchRegisteredModels\022\036.mlflow.Sear" +
-      "chRegisteredModels\032\'.mlflow.SearchRegist" +
-      "eredModels.Response\"N\362\206\031J\n-\n\003GET\022 /mlflo" +
-      "w/registered-models/search\032\004\010\002\020\000\020\001*\027Sear" +
-      "ch RegisteredModels\022\357\001\n\021getLatestVersion" +
-      "s\022\031.mlflow.GetLatestVersions\032\".mlflow.Ge" +
-      "tLatestVersions.Response\"\232\001\362\206\031\225\001\n;\n\004POST" +
-      "\022-/mlflow/registered-models/get-latest-v" +
-      "ersions\032\004\010\002\020\000\n:\n\003GET\022-/mlflow/registered" +
-      "-models/get-latest-versions\032\004\010\002\020\000\020\001*\030Get" +
-      " Latest ModelVersions\022\237\001\n\022createModelVer" +
-      "sion\022\032.mlflow.CreateModelVersion\032#.mlflo" +
-      "w.CreateModelVersion.Response\"H\362\206\031D\n+\n\004P" +
-      "OST\022\035/mlflow/model-versions/create\032\004\010\002\020\000" +
-      "\020\001*\023Create ModelVersion\022\240\001\n\022updateModelV" +
-      "ersion\022\032.mlflow.UpdateModelVersion\032#.mlf" +
-      "low.UpdateModelVersion.Response\"I\362\206\031E\n,\n" +
-      "\005PATCH\022\035/mlflow/model-versions/update\032\004\010" +
-      "\002\020\000\020\001*\023Update ModelVersion\022\316\001\n\033transitio" +
-      "nModelVersionStage\022#.mlflow.TransitionMo" +
-      "delVersionStage\032,.mlflow.TransitionModel" +
-      "VersionStage.Response\"\\\362\206\031X\n5\n\004POST\022\'/ml" +
-      "flow/model-versions/transition-stage\032\004\010\002" +
-      "\020\000\020\001*\035Transition ModelVersion Stage\022\241\001\n\022" +
-      "deleteModelVersion\022\032.mlflow.DeleteModelV" +
-      "ersion\032#.mlflow.DeleteModelVersion.Respo" +
-      "nse\"J\362\206\031F\n-\n\006DELETE\022\035/mlflow/model-versi" +
-      "ons/delete\032\004\010\002\020\000\020\001*\023Delete ModelVersion\022" +
-      "\217\001\n\017getModelVersion\022\027.mlflow.GetModelVer" +
-      "sion\032 .mlflow.GetModelVersion.Response\"A" +
-      "\362\206\031=\n\'\n\003GET\022\032/mlflow/model-versions/get\032" +
-      "\004\010\002\020\000\020\001*\020Get ModelVersion\022\246\001\n\023searchMode" +
-      "lVersions\022\033.mlflow.SearchModelVersions\032$" +
-      ".mlflow.SearchModelVersions.Response\"L\362\206" +
-      "\031D\n*\n\003GET\022\035/mlflow/model-versions/search" +
-      "\032\004\010\002\020\000\020\001*\024Search ModelVersions\272\214\031\000\022\330\001\n\032g" +
-      "etModelVersionDownloadUri\022\".mlflow.GetMo" +
-      "delVersionDownloadUri\032+.mlflow.GetModelV" +
-      "ersionDownloadUri.Response\"i\362\206\031e\n4\n\003GET\022" +
-      "\'/mlflow/model-versions/get-download-uri" +
-      "\032\004\010\002\020\000\020\001*+Get Download URI For ModelVers" +
-      "ion Artifacts\022\261\001\n\025setRegisteredModelTag\022" +
-      "\035.mlflow.SetRegisteredModelTag\032&.mlflow." +
-      "SetRegisteredModelTag.Response\"Q\362\206\031M\n/\n\004" +
-      "POST\022!/mlflow/registered-models/set-tag\032" +
-      "\004\010\002\020\000\020\001*\030Set Registered Model Tag\022\242\001\n\022se" +
-      "tModelVersionTag\022\032.mlflow.SetModelVersio" +
-      "nTag\032#.mlflow.SetModelVersionTag.Respons" +
-      "e\"K\362\206\031G\n,\n\004POST\022\036/mlflow/model-versions/" +
-      "set-tag\032\004\010\002\020\000\020\001*\025Set Model Version Tag\022\302" +
-      "\001\n\030deleteRegisteredModelTag\022 .mlflow.Del" +
-      "eteRegisteredModelTag\032).mlflow.DeleteReg" +
-      "isteredModelTag.Response\"Y\362\206\031U\n4\n\006DELETE" +
-      "\022$/mlflow/registered-models/delete-tag\032\004" +
-      "\010\002\020\000\020\001*\033Delete Registered Model Tag\022\263\001\n\025" +
-      "deleteModelVersionTag\022\035.mlflow.DeleteMod" +
-      "elVersionTag\032&.mlflow.DeleteModelVersion" +
-      "Tag.Response\"S\362\206\031O\n1\n\006DELETE\022!/mlflow/mo" +
-      "del-versions/delete-tag\032\004\010\002\020\000\020\001*\030Delete " +
-      "Model Version Tag\022\267\001\n\027setRegisteredModel" +
-      "Alias\022\037.mlflow.SetRegisteredModelAlias\032(" +
-      ".mlflow.SetRegisteredModelAlias.Response" +
-      "\"Q\362\206\031M\n-\n\004POST\022\037/mlflow/registered-model" +
-      "s/alias\032\004\010\002\020\000\020\001*\032Set Registered Model Al" +
-      "ias\022\305\001\n\032deleteRegisteredModelAlias\022\".mlf" +
-      "low.DeleteRegisteredModelAlias\032+.mlflow." +
-      "DeleteRegisteredModelAlias.Response\"V\362\206\031" +
-      "R\n/\n\006DELETE\022\037/mlflow/registered-models/a" +
-      "lias\032\004\010\002\020\000\020\001*\035Delete Registered Model Al" +
-      "ias\022\263\001\n\026getModelVersionByAlias\022\036.mlflow." +
-      "GetModelVersionByAlias\032\'.mlflow.GetModel" +
-      "VersionByAlias.Response\"P\362\206\031L\n,\n\003GET\022\037/m" +
-      "lflow/registered-models/alias\032\004\010\002\020\000\020\001*\032G" +
-      "et Model Version by AliasB!\n\024org.mlflow." +
-      "api.proto\220\001\001\240\001\001\342?\002\020\001"
+      "PC[$this.Response]\"\367\002\n\007Webhook\022\014\n\004name\030\001" +
+      " \001(\t\022\032\n\022creation_timestamp\030\002 \001(\003\022\036\n\026last" +
+      "_updated_timestamp\030\003 \001(\003\022\017\n\007user_id\030\004 \001(" +
+      "\t\022\013\n\003url\030\005 \001(\t\022\025\n\revent_trigger\030\006 \001(\t\022\013\n" +
+      "\003key\030\007 \001(\t\022\r\n\005value\030\010 \001(\t\022-\n\007headers\030\t \003" +
+      "(\0132\034.mlflow.Webhook.HeadersEntry\022-\n\007payl" +
+      "oad\030\n \003(\0132\034.mlflow.Webhook.PayloadEntry\022" +
+      "\023\n\013description\030\013 \001(\t\032.\n\014HeadersEntry\022\013\n\003" +
+      "key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t:\0028\001\032.\n\014PayloadE" +
+      "ntry\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t:\0028\001\"\235\003\n" +
+      "\rCreateWebhook\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\013\n\003ur" +
+      "l\030\002 \001(\t\022\025\n\revent_trigger\030\003 \001(\t\022\013\n\003key\030\004 " +
+      "\001(\t\022\r\n\005value\030\005 \001(\t\0223\n\007headers\030\006 \003(\0132\".ml" +
+      "flow.CreateWebhook.HeadersEntry\0223\n\007paylo" +
+      "ad\030\007 \003(\0132\".mlflow.CreateWebhook.PayloadE" +
+      "ntry\022\023\n\013description\030\010 \001(\t\032.\n\014HeadersEntr" +
+      "y\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t:\0028\001\032.\n\014Pay" +
+      "loadEntry\022\013\n\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t:\0028" +
+      "\001\032,\n\010Response\022 \n\007webhook\030\001 \001(\0132\017.mlflow." +
+      "Webhook:+\342?(\n&com.databricks.rpc.RPC[$th" +
+      "is.Response]\"\220\001\n\rRenameWebhook\022\022\n\004name\030\001" +
+      " \001(\tB\004\370\206\031\001\022\020\n\010new_name\030\002 \001(\t\032,\n\010Response" +
+      "\022 \n\007webhook\030\001 \001(\0132\017.mlflow.Webhook:+\342?(\n" +
+      "&com.databricks.rpc.RPC[$this.Response]\"" +
+      "\223\001\n\rUpdateWebhook\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\022\023\n" +
+      "\013description\030\002 \001(\t\032,\n\010Response\022 \n\007webhoo" +
+      "k\030\001 \001(\0132\017.mlflow.Webhook:+\342?(\n&com.datab" +
+      "ricks.rpc.RPC[$this.Response]\"\\\n\rDeleteW" +
+      "ebhook\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\032\n\n\010Response:+" +
+      "\342?(\n&com.databricks.rpc.RPC[$this.Respon" +
+      "se]\"{\n\nGetWebhook\022\022\n\004name\030\001 \001(\tB\004\370\206\031\001\032,\n" +
+      "\010Response\022 \n\007webhook\030\001 \001(\0132\017.mlflow.Webh" +
+      "ook:+\342?(\n&com.databricks.rpc.RPC[$this.R" +
+      "esponse]\"\325\001\n\016SearchWebhooks\022\016\n\006filter\030\001 " +
+      "\001(\t\022\030\n\013max_results\030\002 \001(\003:\003100\022\020\n\010order_b" +
+      "y\030\003 \003(\t\022\022\n\npage_token\030\004 \001(\t\032F\n\010Response\022" +
+      "!\n\010webhooks\030\001 \003(\0132\017.mlflow.Webhook\022\027\n\017ne" +
+      "xt_page_token\030\002 \001(\t:+\342?(\n&com.databricks" +
+      ".rpc.RPC[$this.Response]*R\n\022ModelVersion" +
+      "Status\022\030\n\024PENDING_REGISTRATION\020\001\022\027\n\023FAIL" +
+      "ED_REGISTRATION\020\002\022\t\n\005READY\020\0032\245$\n\024ModelRe" +
+      "gistryService\022\256\001\n\025createRegisteredModel\022" +
+      "\035.mlflow.CreateRegisteredModel\032&.mlflow." +
+      "CreateRegisteredModel.Response\"N\362\206\031J\n.\n\004" +
+      "POST\022 /mlflow/registered-models/create\032\004" +
+      "\010\002\020\000\020\001*\026Create RegisteredModel\022\256\001\n\025renam" +
+      "eRegisteredModel\022\035.mlflow.RenameRegister" +
+      "edModel\032&.mlflow.RenameRegisteredModel.R" +
+      "esponse\"N\362\206\031J\n.\n\004POST\022 /mlflow/registere" +
+      "d-models/rename\032\004\010\002\020\000\020\001*\026Rename Register" +
+      "edModel\022\257\001\n\025updateRegisteredModel\022\035.mlfl" +
+      "ow.UpdateRegisteredModel\032&.mlflow.Update" +
+      "RegisteredModel.Response\"O\362\206\031K\n/\n\005PATCH\022" +
+      " /mlflow/registered-models/update\032\004\010\002\020\000\020" +
+      "\001*\026Update RegisteredModel\022\260\001\n\025deleteRegi" +
+      "steredModel\022\035.mlflow.DeleteRegisteredMod" +
+      "el\032&.mlflow.DeleteRegisteredModel.Respon" +
+      "se\"P\362\206\031L\n0\n\006DELETE\022 /mlflow/registered-m" +
+      "odels/delete\032\004\010\002\020\000\020\001*\026Delete RegisteredM" +
+      "odel\022\236\001\n\022getRegisteredModel\022\032.mlflow.Get" +
+      "RegisteredModel\032#.mlflow.GetRegisteredMo" +
+      "del.Response\"G\362\206\031C\n*\n\003GET\022\035/mlflow/regis" +
+      "tered-models/get\032\004\010\002\020\000\020\001*\023Get Registered" +
+      "Model\022\261\001\n\026searchRegisteredModels\022\036.mlflo" +
+      "w.SearchRegisteredModels\032\'.mlflow.Search" +
+      "RegisteredModels.Response\"N\362\206\031J\n-\n\003GET\022 " +
+      "/mlflow/registered-models/search\032\004\010\002\020\000\020\001" +
+      "*\027Search RegisteredModels\022\357\001\n\021getLatestV" +
+      "ersions\022\031.mlflow.GetLatestVersions\032\".mlf" +
+      "low.GetLatestVersions.Response\"\232\001\362\206\031\225\001\n;" +
+      "\n\004POST\022-/mlflow/registered-models/get-la" +
+      "test-versions\032\004\010\002\020\000\n:\n\003GET\022-/mlflow/regi" +
+      "stered-models/get-latest-versions\032\004\010\002\020\000\020" +
+      "\001*\030Get Latest ModelVersions\022\237\001\n\022createMo" +
+      "delVersion\022\032.mlflow.CreateModelVersion\032#" +
+      ".mlflow.CreateModelVersion.Response\"H\362\206\031" +
+      "D\n+\n\004POST\022\035/mlflow/model-versions/create" +
+      "\032\004\010\002\020\000\020\001*\023Create ModelVersion\022\240\001\n\022update" +
+      "ModelVersion\022\032.mlflow.UpdateModelVersion" +
+      "\032#.mlflow.UpdateModelVersion.Response\"I\362" +
+      "\206\031E\n,\n\005PATCH\022\035/mlflow/model-versions/upd" +
+      "ate\032\004\010\002\020\000\020\001*\023Update ModelVersion\022\316\001\n\033tra" +
+      "nsitionModelVersionStage\022#.mlflow.Transi" +
+      "tionModelVersionStage\032,.mlflow.Transitio" +
+      "nModelVersionStage.Response\"\\\362\206\031X\n5\n\004POS" +
+      "T\022\'/mlflow/model-versions/transition-sta" +
+      "ge\032\004\010\002\020\000\020\001*\035Transition ModelVersion Stag" +
+      "e\022\241\001\n\022deleteModelVersion\022\032.mlflow.Delete" +
+      "ModelVersion\032#.mlflow.DeleteModelVersion" +
+      ".Response\"J\362\206\031F\n-\n\006DELETE\022\035/mlflow/model" +
+      "-versions/delete\032\004\010\002\020\000\020\001*\023Delete ModelVe" +
+      "rsion\022\217\001\n\017getModelVersion\022\027.mlflow.GetMo" +
+      "delVersion\032 .mlflow.GetModelVersion.Resp" +
+      "onse\"A\362\206\031=\n\'\n\003GET\022\032/mlflow/model-version" +
+      "s/get\032\004\010\002\020\000\020\001*\020Get ModelVersion\022\246\001\n\023sear" +
+      "chModelVersions\022\033.mlflow.SearchModelVers" +
+      "ions\032$.mlflow.SearchModelVersions.Respon" +
+      "se\"L\362\206\031D\n*\n\003GET\022\035/mlflow/model-versions/" +
+      "search\032\004\010\002\020\000\020\001*\024Search ModelVersions\272\214\031\000" +
+      "\022\330\001\n\032getModelVersionDownloadUri\022\".mlflow" +
+      ".GetModelVersionDownloadUri\032+.mlflow.Get" +
+      "ModelVersionDownloadUri.Response\"i\362\206\031e\n4" +
+      "\n\003GET\022\'/mlflow/model-versions/get-downlo" +
+      "ad-uri\032\004\010\002\020\000\020\001*+Get Download URI For Mod" +
+      "elVersion Artifacts\022\261\001\n\025setRegisteredMod" +
+      "elTag\022\035.mlflow.SetRegisteredModelTag\032&.m" +
+      "lflow.SetRegisteredModelTag.Response\"Q\362\206" +
+      "\031M\n/\n\004POST\022!/mlflow/registered-models/se" +
+      "t-tag\032\004\010\002\020\000\020\001*\030Set Registered Model Tag\022" +
+      "\242\001\n\022setModelVersionTag\022\032.mlflow.SetModel" +
+      "VersionTag\032#.mlflow.SetModelVersionTag.R" +
+      "esponse\"K\362\206\031G\n,\n\004POST\022\036/mlflow/model-ver" +
+      "sions/set-tag\032\004\010\002\020\000\020\001*\025Set Model Version" +
+      " Tag\022\302\001\n\030deleteRegisteredModelTag\022 .mlfl" +
+      "ow.DeleteRegisteredModelTag\032).mlflow.Del" +
+      "eteRegisteredModelTag.Response\"Y\362\206\031U\n4\n\006" +
+      "DELETE\022$/mlflow/registered-models/delete" +
+      "-tag\032\004\010\002\020\000\020\001*\033Delete Registered Model Ta" +
+      "g\022\263\001\n\025deleteModelVersionTag\022\035.mlflow.Del" +
+      "eteModelVersionTag\032&.mlflow.DeleteModelV" +
+      "ersionTag.Response\"S\362\206\031O\n1\n\006DELETE\022!/mlf" +
+      "low/model-versions/delete-tag\032\004\010\002\020\000\020\001*\030D" +
+      "elete Model Version Tag\022\267\001\n\027setRegistere" +
+      "dModelAlias\022\037.mlflow.SetRegisteredModelA" +
+      "lias\032(.mlflow.SetRegisteredModelAlias.Re" +
+      "sponse\"Q\362\206\031M\n-\n\004POST\022\037/mlflow/registered" +
+      "-models/alias\032\004\010\002\020\000\020\001*\032Set Registered Mo" +
+      "del Alias\022\305\001\n\032deleteRegisteredModelAlias" +
+      "\022\".mlflow.DeleteRegisteredModelAlias\032+.m" +
+      "lflow.DeleteRegisteredModelAlias.Respons" +
+      "e\"V\362\206\031R\n/\n\006DELETE\022\037/mlflow/registered-mo" +
+      "dels/alias\032\004\010\002\020\000\020\001*\035Delete Registered Mo" +
+      "del Alias\022\263\001\n\026getModelVersionByAlias\022\036.m" +
+      "lflow.GetModelVersionByAlias\032\'.mlflow.Ge" +
+      "tModelVersionByAlias.Response\"P\362\206\031L\n,\n\003G" +
+      "ET\022\037/mlflow/registered-models/alias\032\004\010\002\020" +
+      "\000\020\001*\032Get Model Version by Alias\022\205\001\n\rcrea" +
+      "teWebhook\022\025.mlflow.CreateWebhook\032\036.mlflo" +
+      "w.CreateWebhook.Response\"=\362\206\0319\n%\n\004POST\022\027" +
+      "/mlflow/webhooks/create\032\004\010\002\020\000\020\001*\016Create " +
+      "Webhook\022\205\001\n\rrenameWebhook\022\025.mlflow.Renam" +
+      "eWebhook\032\036.mlflow.RenameWebhook.Response" +
+      "\"=\362\206\0319\n%\n\004POST\022\027/mlflow/webhooks/rename\032" +
+      "\004\010\002\020\000\020\001*\016Rename Webhook\022\206\001\n\rupdateWebhoo" +
+      "k\022\025.mlflow.UpdateWebhook\032\036.mlflow.Update" +
+      "Webhook.Response\">\362\206\031:\n&\n\005PATCH\022\027/mlflow" +
+      "/webhooks/update\032\004\010\002\020\000\020\001*\016Update Webhook" +
+      "\022\207\001\n\rdeleteWebhook\022\025.mlflow.DeleteWebhoo" +
+      "k\032\036.mlflow.DeleteWebhook.Response\"?\362\206\031;\n" +
+      "\'\n\006DELETE\022\027/mlflow/webhooks/delete\032\004\010\002\020\000" +
+      "\020\001*\016Delete Webhook\022u\n\ngetWebhook\022\022.mlflo" +
+      "w.GetWebhook\032\033.mlflow.GetWebhook.Respons" +
+      "e\"6\362\206\0312\n!\n\003GET\022\024/mlflow/webhooks/get\032\004\010\002" +
+      "\020\000\020\001*\013Get Webhook\022\210\001\n\016searchWebhooks\022\026.m" +
+      "lflow.SearchWebhooks\032\037.mlflow.SearchWebh" +
+      "ooks.Response\"=\362\206\0319\n$\n\003GET\022\027/mlflow/webh" +
+      "ooks/search\032\004\010\002\020\000\020\001*\017Search WebhooksB!\n\024" +
+      "org.mlflow.api.proto\220\001\001\240\001\001\342?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
@@ -67473,7 +67531,7 @@ public final class ModelRegistry {
         internal_static_mlflow_GetModelVersionByAlias_Response_descriptor,
         new java.lang.String[] { "ModelVersion", });
     internal_static_mlflow_Webhook_descriptor =
-      getDescriptor().getMessageTypes().get(26);
+      getDescriptor().getMessageTypes().get(30);
     internal_static_mlflow_Webhook_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_Webhook_descriptor,
@@ -67491,7 +67549,7 @@ public final class ModelRegistry {
         internal_static_mlflow_Webhook_PayloadEntry_descriptor,
         new java.lang.String[] { "Key", "Value", });
     internal_static_mlflow_CreateWebhook_descriptor =
-      getDescriptor().getMessageTypes().get(27);
+      getDescriptor().getMessageTypes().get(31);
     internal_static_mlflow_CreateWebhook_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_CreateWebhook_descriptor,
@@ -67515,7 +67573,7 @@ public final class ModelRegistry {
         internal_static_mlflow_CreateWebhook_Response_descriptor,
         new java.lang.String[] { "Webhook", });
     internal_static_mlflow_RenameWebhook_descriptor =
-      getDescriptor().getMessageTypes().get(28);
+      getDescriptor().getMessageTypes().get(32);
     internal_static_mlflow_RenameWebhook_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_RenameWebhook_descriptor,
@@ -67527,7 +67585,7 @@ public final class ModelRegistry {
         internal_static_mlflow_RenameWebhook_Response_descriptor,
         new java.lang.String[] { "Webhook", });
     internal_static_mlflow_UpdateWebhook_descriptor =
-      getDescriptor().getMessageTypes().get(29);
+      getDescriptor().getMessageTypes().get(33);
     internal_static_mlflow_UpdateWebhook_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_UpdateWebhook_descriptor,
@@ -67539,7 +67597,7 @@ public final class ModelRegistry {
         internal_static_mlflow_UpdateWebhook_Response_descriptor,
         new java.lang.String[] { "Webhook", });
     internal_static_mlflow_DeleteWebhook_descriptor =
-      getDescriptor().getMessageTypes().get(30);
+      getDescriptor().getMessageTypes().get(34);
     internal_static_mlflow_DeleteWebhook_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_DeleteWebhook_descriptor,
@@ -67551,7 +67609,7 @@ public final class ModelRegistry {
         internal_static_mlflow_DeleteWebhook_Response_descriptor,
         new java.lang.String[] { });
     internal_static_mlflow_GetWebhook_descriptor =
-      getDescriptor().getMessageTypes().get(31);
+      getDescriptor().getMessageTypes().get(35);
     internal_static_mlflow_GetWebhook_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_GetWebhook_descriptor,
@@ -67563,7 +67621,7 @@ public final class ModelRegistry {
         internal_static_mlflow_GetWebhook_Response_descriptor,
         new java.lang.String[] { "Webhook", });
     internal_static_mlflow_SearchWebhooks_descriptor =
-      getDescriptor().getMessageTypes().get(32);
+      getDescriptor().getMessageTypes().get(36);
     internal_static_mlflow_SearchWebhooks_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_mlflow_SearchWebhooks_descriptor,

@@ -18,10 +18,7 @@ from mlflow.entities.model_registry import (
     RegisteredModelAlias,
     RegisteredModelTag,
 )
-from mlflow.entities.model_registry.model_version_stages import (
-    STAGE_DELETED_INTERNAL,
-    STAGE_NONE,
-)
+from mlflow.entities.model_registry.model_version_stages import STAGE_DELETED_INTERNAL, STAGE_NONE
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.entities.model_registry.webhook import Webhook
 from mlflow.store.db.base_sql_model import Base
