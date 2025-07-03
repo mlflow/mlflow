@@ -1062,12 +1062,12 @@ class FileStore(AbstractStore):
 
     # CRUD API for Webhook objects
 
-    def _get_webhook_path(self, name):
+    def _get_webhook_path(self, name: str) -> str:
         self._check_root_dir()
         _validate_model_name(name)
         return join(self.root_directory, FileStore.WEBHOOKS_FOLDER_NAME, name)
 
-    def _validate_webhook_does_not_exist(self, name):
+    def _validate_webhook_does_not_exist(self, name: str) -> None:
         webhook_path = self._get_webhook_path(name)
         if exists(webhook_path):
             raise MlflowException(
@@ -1075,7 +1075,12 @@ class FileStore(AbstractStore):
                 RESOURCE_ALREADY_EXISTS,
             )
 
-    def _save_webhook_as_meta_file(self, webhook, meta_dir=None, overwrite=True):
+    def _save_webhook_as_meta_file(
+        self,
+        webhook: Webhook,
+        meta_dir: Optional[str] = None,
+        overwrite: bool = True,
+    ) -> None:
         webhook_dict = dict(webhook)
         meta_dir = meta_dir or self._get_webhook_path(webhook.name)
         if overwrite:
@@ -1091,19 +1096,19 @@ class FileStore(AbstractStore):
                 webhook_dict,
             )
 
-    def _get_webhook_from_path(self, webhook_path):
+    def _get_webhook_from_path(self, webhook_path: str) -> Webhook:
         meta = FileStore._read_yaml(webhook_path, FileStore.META_DATA_FILE_NAME)
         return Webhook.from_dictionary(meta)
 
-    def _get_all_webhooks_paths(self):
+    def _get_all_webhooks_paths(self) -> list[str]:
         self._check_root_dir()
         return list_subdirs(
             join(self.root_directory, FileStore.WEBHOOKS_FOLDER_NAME), full_path=True
         )
 
-    def _list_all_webhooks(self):
+    def _list_all_webhooks(self) -> list[Webhook]:
         webhooks_paths = self._get_all_webhooks_paths()
-        webhooks = []
+        webhooks: list[Webhook] = []
         for path in webhooks_paths:
             webhooks.append(self._get_webhook_from_path(path))
         return webhooks
@@ -1117,7 +1122,7 @@ class FileStore(AbstractStore):
         value: Optional[str] = None,
         headers: Optional[dict[str, str]] = None,
         payload: Optional[dict[str, str]] = None,
-        description=None,
+        description: Optional[str] = None,
     ) -> Webhook:
         """
         Create a new webhook.
@@ -1161,7 +1166,7 @@ class FileStore(AbstractStore):
         self._save_webhook_as_meta_file(webhook, meta_dir=meta_dir, overwrite=False)
         return webhook
 
-    def update_webhook(self, name, description):
+    def update_webhook(self, name: str, description: str) -> Webhook:
         """
         Update description of the Webhook.
 
@@ -1180,7 +1185,7 @@ class FileStore(AbstractStore):
         self._save_webhook_as_meta_file(webhook)
         return webhook
 
-    def rename_webhook(self, name, new_name):
+    def rename_webhook(self, name: str, new_name: str) -> Webhook:
         """
         Rename the Webhook.
 
@@ -1216,7 +1221,7 @@ class FileStore(AbstractStore):
 
         return webhook
 
-    def delete_webhook(self, name):
+    def delete_webhook(self, name: str) -> None:
         """
         Delete the Webhook.
         Backend raises exception if a Webhook with given name does not exist.
@@ -1235,7 +1240,7 @@ class FileStore(AbstractStore):
             )
         shutil.rmtree(meta_dir)
 
-    def get_webhook(self, name):
+    def get_webhook(self, name: str) -> Webhook:
         """
         Get webhook by name.
 
@@ -1254,7 +1259,7 @@ class FileStore(AbstractStore):
             )
         return self._get_webhook_from_path(webhook_path)
 
-    def list_webhooks(self, max_results, page_token):
+    def list_webhooks(self, max_results: int, page_token: Optional[str]) -> PagedList[Webhook]:
         """
         List of all webhooks.
 
@@ -1271,7 +1276,13 @@ class FileStore(AbstractStore):
         """
         return self.search_webhooks(max_results=max_results, page_token=page_token)
 
-    def search_webhooks(self, filter_string=None, max_results=None, order_by=None, page_token=None):
+    def search_webhooks(
+        self,
+        filter_string: Optional[str] = None,
+        max_results: Optional[int] = None,
+        order_by: Optional[list[str]] = None,
+        page_token: Optional[str] = None,
+    ) -> PagedList[Webhook]:
         """
         Search for webhooks in backend that satisfy the filter criteria.
 

@@ -14,7 +14,7 @@ from mlflow.entities.model_registry.model_version_stages import (
     get_canonical_stage,
 )
 from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY
-from mlflow.entities.model_registry.webhook import WebhookEventTrigger
+from mlflow.entities.model_registry.webhook import Webhook, WebhookEventTrigger
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.registry_utils import handle_resource_already_exist_error, has_prompt_tag
 from mlflow.protos.databricks_pb2 import (
@@ -1300,8 +1300,8 @@ class SqlAlchemyStore(AbstractStore):
         value: Optional[str] = None,
         headers: Optional[dict[str, str]] = None,
         payload: Optional[dict[str, str]] = None,
-        description=None,
-    ):
+        description: Optional[str] = None,
+    ) -> Webhook:
         """
         Create a new Webhook in backend store.
 
@@ -1345,7 +1345,7 @@ class SqlAlchemyStore(AbstractStore):
                 )
 
     @classmethod
-    def _get_webhook(cls, session, name):
+    def _get_webhook(cls, session, name: str):
         _validate_model_name(name)
         webhooks = session.query(SqlWebhook).filter(SqlWebhook.name == name).all()
 
@@ -1358,7 +1358,7 @@ class SqlAlchemyStore(AbstractStore):
             )
         return webhooks[0]
 
-    def update_webhook(self, name, description):
+    def update_webhook(self, name: str, description: str) -> Webhook:
         """
         Update description of the Webhook.
 
@@ -1379,7 +1379,7 @@ class SqlAlchemyStore(AbstractStore):
             session.flush()
             return sql_webhook.to_mlflow_entity()
 
-    def rename_webhook(self, name, new_name):
+    def rename_webhook(self, name: str, new_name: str) -> Webhook:
         """
         Rename the Webhook.
 
@@ -1407,7 +1407,7 @@ class SqlAlchemyStore(AbstractStore):
                     RESOURCE_ALREADY_EXISTS,
                 )
 
-    def delete_webhook(self, name):
+    def delete_webhook(self, name: str) -> None:
         """
         Delete the Webhook.
         Backend raises exception if a Webhook with given name does not exist.
@@ -1423,7 +1423,7 @@ class SqlAlchemyStore(AbstractStore):
             session.delete(sql_webhook)
 
     @classmethod
-    def _get_search_webhooks_filter_query(cls, parsed_filters, dialect):
+    def _get_search_webhooks_filter_query(cls, parsed_filters: list[dict[str, Any]], dialect: str):
         attribute_filters = []
         for f in parsed_filters:
             type_ = f["type"]
@@ -1452,7 +1452,7 @@ class SqlAlchemyStore(AbstractStore):
         return select(SqlWebhook).filter(*attribute_filters)
 
     @classmethod
-    def _parse_search_webhooks_order_by(cls, order_by_list):
+    def _parse_search_webhooks_order_by(cls, order_by_list: Optional[list[str]]):
         """Sorts a set of webhooks based on their natural ordering and an overriding set
         of order_bys. webhooks are naturally ordered first by name ascending.
         """
@@ -1489,11 +1489,11 @@ class SqlAlchemyStore(AbstractStore):
 
     def search_webhooks(
         self,
-        filter_string=None,
-        max_results=SEARCH_WEBHOOKS_MAX_RESULTS_DEFAULT,
-        order_by=None,
-        page_token=None,
-    ):
+        filter_string: Optional[str] = None,
+        max_results: int = SEARCH_WEBHOOKS_MAX_RESULTS_DEFAULT,
+        order_by: Optional[list[str]] = None,
+        page_token: Optional[str] = None,
+    ) -> PagedList[Webhook]:
         """
         Search for Webhooks in backend that satisfy the filter criteria.
 
@@ -1542,7 +1542,7 @@ class SqlAlchemyStore(AbstractStore):
             ]
             return PagedList(webhook_entities, next_page_token)
 
-    def get_webhook(self, name):
+    def get_webhook(self, name: str) -> Webhook:
         """
         Get Webhook instance by name.
 

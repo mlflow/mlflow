@@ -11,7 +11,7 @@ from mlflow.entities.model_registry.model_version_status import ModelVersionStat
 from mlflow.entities.model_registry.model_version_tag import ModelVersionTag
 from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.entities.model_registry.prompt_version import PromptVersion
-from mlflow.entities.model_registry.webhook import WebhookEventTrigger
+from mlflow.entities.model_registry.webhook import Webhook, WebhookEventTrigger
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import (
     IS_PROMPT_TAG_KEY,
@@ -506,8 +506,8 @@ class AbstractStore:
         value: Optional[str] = None,
         headers: Optional[dict[str, str]] = None,
         payload: Optional[dict[str, str]] = None,
-        description=None,
-    ):
+        description: Optional[str] = None,
+    ) -> Webhook:
         """
         Create a new webhook in backend.
 
@@ -526,7 +526,7 @@ class AbstractStore:
         """
 
     @abstractmethod
-    def update_webhookl(self, name, description):
+    def update_webhook(self, name: str, description: str) -> Webhook:
         """
         Update description of the Webhook.
 
@@ -539,7 +539,7 @@ class AbstractStore:
         """
 
     @abstractmethod
-    def rename_webhookl(self, name, new_name):
+    def rename_webhook(self, name: str, new_name: str) -> Webhook:
         """
         Rename the Webhook.
 
@@ -552,7 +552,7 @@ class AbstractStore:
         """
 
     @abstractmethod
-    def delete_webhookl(self, name):
+    def delete_webhook(self, name: str) -> None:
         """
         Delete the Webhook.
         Backend raises exception if a Webhook with given name does not exist.
@@ -568,7 +568,7 @@ class AbstractStore:
     def get_webhook(
         self,
         name: str,
-    ):
+    ) -> Webhook:
         """
         Get webhook by name.
 
@@ -580,7 +580,13 @@ class AbstractStore:
         """
 
     @abstractmethod
-    def search_webhooks(self, filter_string=None, max_results=None, order_by=None, page_token=None):
+    def search_webhooks(
+        self,
+        filter_string: Optional[str] = None,
+        max_results: Optional[int] = None,
+        order_by: Optional[list[str]] = None,
+        page_token: Optional[str] = None,
+    ) -> PagedList[Webhook]:
         """
         Search for webhooks in backend that satisfy the filter criteria.
 

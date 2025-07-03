@@ -4,7 +4,7 @@ import queue
 import threading
 import time
 import traceback
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Optional
 
@@ -50,9 +50,9 @@ class EventsChannel:
         and create listeners.
         """
         self._max_size = max_size
-        self._channel = queue.Queue(maxsize=max_size)
+        self._channel: queue.Queue[RegisteredModelEvent] = queue.Queue(maxsize=max_size)
         self._session = requests.Session()
-        self._workers = []
+        self._workers: list[threading.Thread] = []
         self._worker_count = os.cpu_count() or 1
         self._running = True
         _logger.info(
@@ -61,7 +61,7 @@ class EventsChannel:
 
         # Webhook synchronization and caching
         self._mlflow_client = MlflowClient()
-        self.webhooks = []
+        self.webhooks: list[Webhook] = []
         self._webhook_lock = threading.RLock()  # Reentrant lock for thread safety
         self._last_webhook_update = 0  # Timestamp of last update
         self._webhook_update_in_progress = False  # Flag to prevent concurrent updates
@@ -77,7 +77,7 @@ class EventsChannel:
 
         self._initialize_consumers()
 
-    def _update_webhooks(self, force=False):
+    def _update_webhooks(self, force: bool = False) -> bool:
         """
         Fetches the latest webhooks from the data store with thread synchronization.
 
@@ -122,7 +122,7 @@ class EventsChannel:
             with self._webhook_lock:
                 self._webhook_update_in_progress = False
 
-    def _get_current_webhooks(self):
+    def _get_current_webhooks(self) -> list[Webhook]:
         """
         Gets the current webhook list, ensuring it's up to date before processing.
 
@@ -136,7 +136,7 @@ class EventsChannel:
         with self._webhook_lock:
             return self.webhooks.copy()  # Return a copy to avoid thread issues
 
-    def _initialize_consumers(self):
+    def _initialize_consumers(self) -> None:
         """Start listeners in the background to listen for incoming events."""
         for i in range(self._worker_count):
             worker = threading.Thread(
@@ -148,7 +148,7 @@ class EventsChannel:
             worker.start()
             _logger.debug(f"Started worker thread {worker.name}")
 
-    def _listen_for_webhook_events(self):
+    def _listen_for_webhook_events(self) -> None:
         """
         Main worker loop that continuously processes messages from the queue.
         Blocks until a message is available, then processes it.
@@ -171,7 +171,7 @@ class EventsChannel:
             except Exception as e:
                 _logger.error(f"{thread_name} encountered error: {e}")
 
-    def _handle_event(self, event: RegisteredModelEvent):
+    def _handle_event(self, event: RegisteredModelEvent) -> None:
         """
         Process an event by filtering webhooks and sending requests to matching ones.
 
@@ -181,7 +181,7 @@ class EventsChannel:
         _logger.debug(f"Processing event of type {event.event_trigger}")
 
         # Filter webhooks based on event type
-        matching_webhooks = []
+        matching_webhooks: list[Webhook] = []
         for webhook in self._get_current_webhooks():
             if (
                 event.event_trigger.value == webhook.event_trigger
@@ -199,12 +199,12 @@ class EventsChannel:
         )
 
         # Submit webhook requests to thread pool for parallel processing
-        futures = []
+        futures: list[Future[None]] = []
         for webhook in matching_webhooks:
             future = self._webhook_executor.submit(self._send_webhook, webhook, event)
             futures.append(future)
 
-    def _send_webhook(self, webhook: Webhook, event: RegisteredModelEvent):
+    def _send_webhook(self, webhook: Webhook, event: RegisteredModelEvent) -> None:
         """
         Send a webhook request to the specified URL.
 
@@ -263,7 +263,7 @@ class EventsChannel:
 
             _logger.warning(f"[{thread_name}] Traceback: {traceback.format_exc()}")
 
-    def send(self, message: RegisteredModelEvent) -> queue.Queue:
+    def send(self, message: RegisteredModelEvent) -> None:
         """
         Sends a message to the channel.
         This is a non blocking operation: The message will be dropped if the channel is full,
@@ -277,7 +277,7 @@ class EventsChannel:
         except queue.Full:
             _logger.warning("Channel is full. Dropping message.")
 
-    def shutdown(self, wait: bool = True):
+    def shutdown(self, wait: bool = True) -> None:
         """
         Shutdown the worker threads.
 
