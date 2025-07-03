@@ -3,7 +3,6 @@ import { Trace } from '../core/entities/trace';
 import { CreateExperiment, DeleteExperiment, GetTraceInfoV3, StartTraceV3 } from './spec';
 import { getRequestHeaders, makeRequest } from './utils';
 import { TraceData } from '../core/entities/trace_data';
-import { MLflowTracingConfig } from '../core/config';
 
 /**
  * Client for MLflow tracing operations

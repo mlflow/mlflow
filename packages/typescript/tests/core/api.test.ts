@@ -6,7 +6,7 @@ import { SpanStatus, SpanStatusCode } from '../../src/core/entities/span_status'
 import { TraceState } from '../../src/core/entities/trace_state';
 import { convertHrTimeToMs } from '../../src/core/utils';
 import { Trace } from '../../src/core/entities/trace';
-import { TEST_TRACKING_URI } from '../jest.setup';
+import { TEST_TRACKING_URI } from '../helper';
 
 describe('API', () => {
   let client: MlflowClient;

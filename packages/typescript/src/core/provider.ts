@@ -22,7 +22,10 @@ export function initializeSDK(): void {
       return;
     }
 
-    const client = new MlflowClient({ host: hostConfig.host, databricksToken: hostConfig.databricksToken });
+    const client = new MlflowClient({
+      host: hostConfig.host,
+      databricksToken: hostConfig.databricksToken
+    });
     const exporter = new MlflowSpanExporter(client);
     processor = new MlflowSpanProcessor(exporter);
     sdk = new NodeSDK({ spanProcessors: [processor] });

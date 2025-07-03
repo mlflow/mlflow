@@ -2,7 +2,7 @@ import { MlflowClient } from '../../src/clients/client';
 import { TraceInfo } from '../../src/core/entities/trace_info';
 import { TraceLocationType } from '../../src/core/entities/trace_location';
 import { TraceState } from '../../src/core/entities/trace_state';
-import { TEST_TRACKING_URI } from '../jest.setup';
+import { TEST_TRACKING_URI } from '../helper';
 
 describe('MlflowClient', () => {
   let client: MlflowClient;

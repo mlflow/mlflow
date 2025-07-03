@@ -52,7 +52,7 @@
   },
   "overrides": [
     {
-      "files": ["*.test.ts", "*.spec.ts", "examples/**/*.ts"],
+      "files": ["*.test.ts", "*.spec.ts", "examples/**/*.ts", "jest.*.ts"],
       "rules": {
         "no-console": "off",
         "@typescript-eslint/explicit-function-return-type": "off",

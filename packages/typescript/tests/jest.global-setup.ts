@@ -1,20 +1,16 @@
-import { spawn, ChildProcess } from 'child_process';
+import { spawn } from 'child_process';
 import { tmpdir } from 'os';
-import { mkdtempSync, rmSync } from 'fs';
+import { mkdtempSync } from 'fs';
 import { join } from 'path';
-
-let mlflowProcess: ChildProcess;
-let tempDir: string;
-
-const TEST_PORT = 5000;
-export const TEST_TRACKING_URI = `http://localhost:${TEST_PORT}`;
+import { TEST_PORT, TEST_TRACKING_URI } from './helper';
 
 /**
  * Start MLflow Python server. This is necessary for testing Typescript SDK because
  * the SDK does not have a server implementation and talks to the Python server instead.
  */
-beforeAll(async () => {
-  tempDir = mkdtempSync(join(tmpdir(), 'mlflow-test-'));
+module.exports = async () => {
+  const tempDir = mkdtempSync(join(tmpdir(), 'mlflow-test-'));
+
   const mlflowRoot = join(__dirname, '../../..'); // Use the local dev version
 
   // Only start a server if one is not already running
@@ -30,10 +26,9 @@ beforeAll(async () => {
 
   // eslint-disable-next-line no-console
   console.log(`Starting MLflow server on port ${TEST_PORT}. This may take a few seconds...
-    To speed up the test, you can manually start the server and keep it running during local development.`);
+      To speed up the test, you can manually start the server and keep it running during local development.`);
 
-  console.log(mlflowRoot);
-  mlflowProcess = spawn(
+  const mlflowProcess = spawn(
     'uv',
     [
       'run',
@@ -44,11 +39,13 @@ beforeAll(async () => {
       'mlflow',
       'server',
       '--port',
-      TEST_PORT.toString(),
+      TEST_PORT.toString()
     ],
     {
       cwd: tempDir,
-      stdio: 'inherit'
+      stdio: 'inherit',
+      // Create a new process group so we can kill the entire group
+      detached: true
     }
   );
 
@@ -60,7 +57,12 @@ beforeAll(async () => {
     console.error('Failed to start MLflow server:', error);
     throw error;
   }
-}, 30000);
+
+  // Set global variables for cleanup in jest.global-teardown.ts
+  const globals = globalThis as any;
+  globals.mlflowProcess = mlflowProcess;
+  globals.tempDir = tempDir;
+};
 
 async function waitForServer(maxAttempts: number = 30): Promise<void> {
   for (let i = 0; i < maxAttempts; i++) {
@@ -76,12 +78,3 @@ async function waitForServer(maxAttempts: number = 30): Promise<void> {
   }
   throw new Error('Failed to start MLflow server');
 }
-
-afterAll(() => {
-  if (mlflowProcess) {
-    mlflowProcess.kill();
-  }
-  if (tempDir) {
-    rmSync(tempDir, { recursive: true, force: true });
-  }
-});

@@ -26,7 +26,7 @@ export async function makeRequest<T>(
   url: string,
   headers: Record<string, string>,
   body?: any,
-  timeout?: number,
+  timeout?: number
 ): Promise<T> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout ?? getDefaultTimeout());
@@ -42,7 +42,7 @@ export async function makeRequest<T>(
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      await handleErrorResponse(response);
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
     }
 
     // Handle empty responses (like DELETE operations)
@@ -63,33 +63,6 @@ export async function makeRequest<T>(
     }
     throw new Error(`API request failed: ${String(error)}`);
   }
-}
-
-export async function handleErrorResponse(response: Response): Promise<void> {
-
-let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-
-try {
-  const contentType = response.headers.get('content-type');
-
-  if (contentType?.includes('application/json')) {
-    const errorText = await response.text();
-    const errorBody = JSONBig.parse(errorText) as { message?: string; error_code?: string };
-    if (errorBody.message) {
-      errorMessage = errorBody.message;
-    } else if (errorBody.error_code) {
-      errorMessage = `${errorBody.error_code}: ${errorBody.message || 'Unknown error'}`;
-    }
-  } else {
-    // Not JSON, get first 200 chars of text for debugging
-    const errorText = await response.text();
-    console.debug(`Non-JSON error response: ${errorText.substring(0, 200)}...`);
-    errorMessage = `${errorMessage} (received ${contentType || 'unknown'} instead of JSON)`;
-  }
-} catch (parseError) {
-  console.debug(`Failed to parse error response: ${String(parseError)}`);
-}
-
 }
 
 function getDefaultTimeout(): number {

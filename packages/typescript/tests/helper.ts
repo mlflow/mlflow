@@ -2,6 +2,13 @@ import { LiveSpan } from '../src/core/entities/span';
 import { SpanType } from '../src/core/constants';
 
 /**
+ * Port and tracking URI for the local MLflow server used for testing.
+ * If the server is not running, jest.global-setup.ts will start it.
+ */
+export const TEST_PORT = 5000;
+export const TEST_TRACKING_URI = `http://localhost:${TEST_PORT}`;
+
+/**
  * Mock OpenTelemetry span class for testing
  */
 export class MockOtelSpan {
