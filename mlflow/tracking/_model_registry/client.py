@@ -783,10 +783,7 @@ class ModelRegistryClient:
         self.store.delete_prompt_alias(name, alias)
 
     def search_prompt_versions(
-        self,
-        name: str,
-        max_results: Optional[int] = None,
-        page_token: Optional[str] = None,
+        self, name: str, max_results: Optional[int] = None, page_token: Optional[str] = None
     ):
         """
         Search prompt versions for a given prompt name.

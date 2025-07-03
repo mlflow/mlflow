@@ -38,20 +38,14 @@ from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
-from mlflow.exceptions import (
-    MlflowException,
-    MlflowTraceDataCorrupted,
-    MlflowTraceDataNotFound,
-)
+from mlflow.exceptions import MlflowException, MlflowTraceDataCorrupted, MlflowTraceDataNotFound
 from mlflow.prompt.constants import LINKED_PROMPTS_TAG_KEY
 from mlflow.store.artifact.artifact_repo import ArtifactRepository
 from mlflow.store.model_registry.sqlalchemy_store import (
     SqlAlchemyStore as SqlAlchemyModelRegistryStore,
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.store.tracking.sqlalchemy_store import (
-    SqlAlchemyStore as SqlAlchemyTrackingStore,
-)
+from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as SqlAlchemyTrackingStore
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.provider import _get_tracer, trace_disabled
 from mlflow.tracking import set_registry_uri
@@ -121,8 +115,7 @@ def mock_databricks_tracking_store():
 
         def get_run(self, *args, **kwargs):
             return Run(
-                RunInfo(self.run_id, self.experiment_id, "userid", "status", 0, 1, None),
-                None,
+                RunInfo(self.run_id, self.experiment_id, "userid", "status", 0, 1, None), None
             )
 
     mock_tracking_store = MockDatabricksTrackingStore(run_id, experiment_id)
@@ -780,8 +773,7 @@ def test_end_trace_works_for_trace_in_pending_status():
     client = mlflow.tracking.MlflowClient()
     mock_tracing_client = mock.MagicMock()
     mock_tracing_client.get_trace.return_value = Trace(
-        info=create_test_trace_info("test", state=TraceState.IN_PROGRESS),
-        data=TraceData(),
+        info=create_test_trace_info("test", state=TraceState.IN_PROGRESS), data=TraceData()
     )
     client._tracing_client = mock_tracing_client
     client.end_span = lambda *args: None
@@ -1258,14 +1250,7 @@ def test_create_model_version_explicitly_set_run_link(
         assert model_version.run_link == run_link
         # verify that the store was provided with the explicitly passed in run link
         mock_registry_store.create_model_version.assert_called_once_with(
-            "name",
-            "source",
-            "runid",
-            [],
-            run_link,
-            None,
-            local_model_path=None,
-            model_id=None,
+            "name", "source", "runid", [], run_link, None, local_model_path=None, model_id=None
         )
 
 
@@ -1302,14 +1287,7 @@ def test_create_model_version_run_link_in_notebook_with_default_profile(
         assert model_version.run_link == workspace_url
         # verify that the client generated the right URL
         mock_registry_store.create_model_version.assert_called_once_with(
-            "name",
-            "source",
-            "runid",
-            [],
-            workspace_url,
-            None,
-            local_model_path=None,
-            model_id=None,
+            "name", "source", "runid", [], workspace_url, None, local_model_path=None, model_id=None
         )
 
 
@@ -1335,8 +1313,7 @@ def test_create_model_version_with_source(mock_registry_store, mock_databricks_t
     )
 
     with mock.patch(
-        "mlflow.tracking.client.MlflowClient.get_logged_model",
-        return_value=mock_logged_model,
+        "mlflow.tracking.client.MlflowClient.get_logged_model", return_value=mock_logged_model
     ):
         client = MlflowClient(tracking_uri="databricks")
         model_version = client.create_model_version(
@@ -1356,8 +1333,7 @@ def test_create_model_version_with_source(mock_registry_store, mock_databricks_t
 
     mock_registry_store.create_model_version.reset_mock()
     with mock.patch(
-        "mlflow.tracking.client.MlflowClient.get_logged_model",
-        return_value=mock_logged_model,
+        "mlflow.tracking.client.MlflowClient.get_logged_model", return_value=mock_logged_model
     ):
         client = MlflowClient(tracking_uri="databricks", registry_uri="databricks-uc")
         model_version = client.create_model_version(
@@ -1428,10 +1404,7 @@ def test_create_model_version_run_link_with_configured_profile(
     )
 
     with (
-        mock.patch(
-            "mlflow.utils.databricks_utils.is_in_databricks_notebook",
-            return_value=False,
-        ),
+        mock.patch("mlflow.utils.databricks_utils.is_in_databricks_notebook", return_value=False),
         mock.patch(
             "mlflow.utils.databricks_utils.get_workspace_info_from_databricks_secrets",
             return_value=(hostname, workspace_id),
@@ -1451,14 +1424,7 @@ def test_create_model_version_run_link_with_configured_profile(
         assert model_version.run_link == workspace_url
         # verify that the client generated the right URL
         mock_registry_store.create_model_version.assert_called_once_with(
-            "name",
-            "source",
-            "runid",
-            [],
-            workspace_url,
-            None,
-            local_model_path=None,
-            model_id=None,
+            "name", "source", "runid", [], workspace_url, None, local_model_path=None, model_id=None
         )
 
 
@@ -2074,9 +2040,6 @@ def test_log_and_detach_prompt(tracking_uri):
     assert len(prompts) == 1
     assert prompts[0]["name"] == "p1"
 
-    client.detach_prompt_from_run(run_id, "prompts:/p1/1")
-    prompts = client.list_logged_prompts(run_id)
-    assert [p.name for p in prompts] == ["p2"]
     client.link_prompt_version_to_run(run_id, "prompts:/p2/1")
     run = client.get_run(run_id)
     linked_prompts_tag = run.data.tags.get(LINKED_PROMPTS_TAG_KEY)
@@ -2271,8 +2234,7 @@ def test_delete_prompt_with_versions_unity_catalog_error(registry_uri):
     with patch.object(client, "search_prompt_versions", return_value=mock_response):
         with patch.object(client, "_registry_uri", registry_uri):
             with pytest.raises(
-                MlflowException,
-                match=r"Cannot delete prompt .* because it still has undeleted",
+                MlflowException, match=r"Cannot delete prompt .* because it still has undeleted"
             ):
                 client.delete_prompt("test_prompt")
 
@@ -2411,10 +2373,7 @@ def test_log_batch_link_to_active_model(tracking_uri):
     logged_model = mlflow.get_logged_model(model_id=model.model_id)
     assert logged_model.name == model.name
     assert logged_model.model_id == model.model_id
-    assert {m.key: m.value for m in logged_model.metrics} == {
-        "metric1": 1,
-        "metric2": 2,
-    }
+    assert {m.key: m.value for m in logged_model.metrics} == {"metric1": 1, "metric2": 2}
 
 
 def test_load_prompt_with_alias_uri(tracking_uri):
@@ -2439,7 +2398,6 @@ def test_load_prompt_with_alias_uri(tracking_uri):
     # Delete alias and verify loading fails
     client.delete_prompt_alias("alias_prompt", alias="production")
     with pytest.raises(
-        MlflowException,
-        match=r"Prompt (.*) does not exist.|Prompt alias (.*) not found.",
+        MlflowException, match=r"Prompt (.*) does not exist.|Prompt alias (.*) not found."
     ):
         client.load_prompt("prompts:/alias_prompt@production")

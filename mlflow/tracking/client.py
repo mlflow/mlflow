@@ -49,10 +49,7 @@ from mlflow.entities.assessment_source import AssessmentSource
 from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.entities.model_registry.webhook import Webhook, WebhookEventTrigger
-from mlflow.entities.span import (
-    NO_OP_SPAN_TRACE_ID,
-    NoOpSpan,
-)
+from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, NoOpSpan
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING
 from mlflow.exceptions import MlflowException
@@ -4454,7 +4451,7 @@ class MlflowClient:
         Returns:
             A single :py:class:`mlflow.entities.model_registry.ModelVersion` object.
 
-        .. code-block:: python
+         .. code-block:: python
             :caption: Example
 
             import mlflow.sklearn
