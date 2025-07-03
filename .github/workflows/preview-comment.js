@@ -99,8 +99,8 @@ module.exports = async ({ github, context, env }) => {
     throw new Error("netlify-url is required for completed stage");
   }
 
-  const repo = "mlflow/mlflow";
-  const workflowRunLink = `https://github.com/${repo}/actions/runs/${workflowRunId}`;
+  const { owner, repo } = context.repo;
+  const workflowRunLink = `https://github.com/${owner}/${repo}/actions/runs/${workflowRunId}`;
 
   let mainMessage;
   if (stage === "completed") {
@@ -115,5 +115,5 @@ module.exports = async ({ github, context, env }) => {
     docsWorkflowRunUrl,
     mainMessage
   );
-  await upsertComment(github, repo, pullNumber, commentBody);
+  await upsertComment(github, `${owner}/${repo}`, pullNumber, commentBody);
 };
