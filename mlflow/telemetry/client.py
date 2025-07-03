@@ -185,31 +185,12 @@ class TelemetryClient:
                 self._send_batch()
 
         if terminate:
-            # Full shutdown for termination
+            # Full shutdown for termination - signal stop and exit immediately
             self._is_stopped = True
-
-            per_thread_timeout = 5 / len(self._consumer_threads) if self._consumer_threads else 5
-            for thread in self._consumer_threads:
-                try:
-                    thread.join(timeout=per_thread_timeout)
-                except Exception as e:
-                    _logger.debug(f"Error waiting for consumer thread {thread.name}: {e}")
-
-            # Drain any remaining tasks on main thread
-            while not self._queue.empty():
-                try:
-                    records = self._queue.get_nowait()
-                    self._process_records(records)
-                    self._queue.task_done()
-                except Empty:
-                    break
-
-            try:
-                self._queue.join()
-            except Exception as e:
-                _logger.debug(f"Error waiting for queue to drain: {e}")
-
             self.is_active = False
+            _logger.debug(
+                f"Telemetry shutdown complete, dropping {self._queue.qsize()} pending records"
+            )
         else:
             # For non-terminating flush, just wait for queue to empty
             try:

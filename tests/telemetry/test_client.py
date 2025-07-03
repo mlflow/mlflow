@@ -102,13 +102,14 @@ def test_client_shutdown(telemetry_client: TelemetryClient, mock_requests):
     telemetry_client.flush(terminate=True)
     end_time = time.time()
 
-    assert end_time - start_time < 5
-    assert len(mock_requests) == 100
+    assert end_time - start_time < 0.1
+    # remaining records are dropped
+    assert len(mock_requests) == 0
 
     assert not telemetry_client.is_active
 
 
-def test_error_handling():
+def test_error_handling(mock_requests):
     """Test that client handles server errors gracefully."""
     client = TelemetryClient()
     client.telemetry_url = "http://127.0.0.1:9999/nonexistent"  # Invalid URL
@@ -125,6 +126,7 @@ def test_error_handling():
 
     # Client should still be active despite errors
     assert client.is_active
+    assert len(mock_requests) == 0
 
 
 def test_stop_event(telemetry_client: TelemetryClient, mock_requests):
@@ -248,3 +250,55 @@ def test_max_workers_setup(monkeypatch):
     for i, thread in enumerate(client._consumer_threads):
         assert thread.name == f"MLflowTelemetryConsumer-{i}"
         assert thread.daemon is True
+
+
+def test_batch_time_interval(monkeypatch, mock_requests):
+    """Test that batching respects time interval configuration."""
+    # Set batch time interval to 1 second for testing
+    monkeypatch.setenv("_MLFLOW_TELEMETRY_BATCH_TIME_INTERVAL", "1")
+
+    client = TelemetryClient()
+    assert client._batch_time_interval == 1
+
+    # Add first record
+    record1 = APIRecord(
+        api_name="test_api_1",
+        status=APIStatus.SUCCESS,
+        params=LogModelParams(flavor="test_flavor", model=ModelType.PYTHON_FUNCTION),
+    )
+    client.add_record(record1)
+
+    # Should not send immediately since batch size is not reached
+    assert len(mock_requests) == 0
+
+    # Add second record before time interval
+    record2 = APIRecord(
+        api_name="test_api_2",
+        status=APIStatus.SUCCESS,
+        params=LogModelParams(flavor="test_flavor", model=ModelType.PYTHON_FUNCTION),
+    )
+    client.add_record(record2)
+
+    # Should still not send
+    assert len(mock_requests) == 0
+
+    # Wait for time interval to pass
+    time.sleep(1.1)
+
+    # Add third record which should trigger sending due to time interval
+    record3 = APIRecord(
+        api_name="test_api_3",
+        status=APIStatus.SUCCESS,
+        params=LogModelParams(flavor="test_flavor", model=ModelType.PYTHON_FUNCTION),
+    )
+    client.add_record(record3)
+
+    # Wait for processing
+    wait_for_telemetry_threads(client=client)
+
+    # Should have sent all 3 records in one batch
+    assert len(mock_requests) == 3
+
+    # Verify all records were sent
+    api_names = {json.loads(req["data"])["api_name"] for req in mock_requests}
+    assert api_names == {"test_api_1", "test_api_2", "test_api_3"}

@@ -10,7 +10,7 @@ from mlflow.telemetry.client import TELEMETRY_URL
 def cleanup_zombie_threads():
     for thread in threading.enumerate():
         if thread != threading.main_thread():
-            thread.join(timeout=1)
+            thread.join(timeout=0.1)
 
 
 @pytest.fixture

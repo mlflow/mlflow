@@ -870,9 +870,9 @@ MLFLOW_DISABLE_TELEMETRY = _BooleanEnvironmentVariable("MLFLOW_DISABLE_TELEMETRY
 _MLFLOW_TELEMETRY_BATCH_SIZE = _EnvironmentVariable("_MLFLOW_TELEMETRY_BATCH_SIZE", int, 512)
 
 #: The time interval in seconds to wait before sending a batch of telemetry records.
-#: (default: ``120``)
+#: (default: ``30``)
 _MLFLOW_TELEMETRY_BATCH_TIME_INTERVAL = _EnvironmentVariable(
-    "_MLFLOW_TELEMETRY_BATCH_TIME_INTERVAL", int, 120
+    "_MLFLOW_TELEMETRY_BATCH_TIME_INTERVAL", int, 30
 )
 
 #: Maximum size of the telemetry queue.
