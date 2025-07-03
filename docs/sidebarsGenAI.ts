@@ -36,55 +36,7 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Overview 🌟',
-      className: 'sidebar-top-level-category',
-      collapsed: true,
-      items: [
-        {
-          type: 'doc',
-          id: 'overview/key-challenges',
-          label: 'Key Challenges',
-        },
-        {
-          type: 'doc',
-          id: 'overview/why-mlflow',
-          label: 'Why use MLflow',
-        },
-      ],
-      link: {
-        type: 'doc',
-        id: 'overview/index',
-      },
-    },
-    {
-      type: 'category',
-      label: 'Developer Workflow 👉',
-      className: 'sidebar-top-level-category',
-      items: [
-        {
-          type: 'doc',
-          id: 'developer-workflow/phase1-build-improve',
-          label: 'Building & Iterating',
-        },
-        {
-          type: 'doc',
-          id: 'developer-workflow/phase2-systematically-test',
-          label: 'Evaluate & Test',
-        },
-        {
-          type: 'doc',
-          id: 'developer-workflow/phase3-monitor',
-          label: 'Monitor in Production',
-        },
-      ],
-      link: {
-        type: 'doc',
-        id: 'developer-workflow/index',
-      },
-    },
-    {
-      type: 'category',
-      label: 'Getting Started 🚀',
+      label: 'Getting Started',
       className: 'sidebar-top-level-category',
       items: [
         {
@@ -130,7 +82,7 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Tracing (Observability) 🔎',
+      label: 'Tracing (Observability)',
       className: 'sidebar-top-level-category',
       items: [
         {
@@ -298,7 +250,7 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Evaluate & Monitor 📊',
+      label: 'Evaluate & Monitor',
       className: 'sidebar-top-level-category',
       items: [
         {
@@ -341,7 +293,7 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Prompt and Version Management 🔨',
+      label: 'Prompt and Version Management',
       className: 'sidebar-top-level-category',
       collapsed: true,
       items: [
@@ -586,7 +538,7 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Application Serving ⛵',
+      label: 'Application Serving',
       className: 'sidebar-top-level-category',
       items: [
         {
@@ -607,7 +559,7 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Governance 🛡️',
+      label: 'Governance',
       className: 'sidebar-top-level-category',
       items: [
         {
@@ -648,7 +600,7 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Data Model 🧩',
+      label: 'Data Model',
       className: 'sidebar-top-level-category',
       items: [
         {
