@@ -57,25 +57,3 @@ jobs:
           path: docs/build
           retention-days: 1
           if-no-files-found: error
-      # NOTE: the following is only for testing, will be removed before the PR is merged
-      - name: Download build artifact
-        uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
-        with:
-          name: docs-build-${{ github.run_id }}
-          path: downloaded-artifact
-      - name: Install netlify
-        run: |
-          npm install -g netlify-cli
-      - name: Deploy to Netlify
-        id: netlify_deploy
-        working-directory: downloaded-artifact
-        env:
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
-          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
-        run: |-
-          netlify deploy \
-            --dir=. \
-            --no-build \
-            --message="PR Preview #${PR_NUMBER} - GitHub Run ID: ${{ github.run_id }}" \
-            --alias="pr-${PR_NUMBER}"
