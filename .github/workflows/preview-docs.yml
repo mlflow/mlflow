@@ -70,7 +70,7 @@ jobs:
           netlify deploy \
             --dir=. \
             --no-build \
-            --message="PR Preview #${PR_NUMBER} - GitHub Run ID: ${github.run_id}" \
+            --message="PR Preview #${PR_NUMBER} - GitHub Run ID: ${{ github.run_id }}" \
             --alias="pr-${PR_NUMBER}"
         continue-on-error: true
       - name: Create preview link
