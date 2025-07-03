@@ -26,7 +26,7 @@ _logger.setLevel(logging.INFO)
 
 # revision identifiers, used by Alembic.
 revision = "e396268937fc"
-down_revision = "0584bdc529eb"
+down_revision = "cbc13b556ace"
 branch_labels = None
 depends_on = None
 
