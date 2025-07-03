@@ -90,10 +90,13 @@ jobs:
           # that might conflict with the built-in modules (e.g. `types`).
           python -I tests/check_mlflow_lazily_imports_ml_packages.py
       - name: Run tests
+        env:
+          MATRIX_SPLITS: ${{ matrix.splits }}
+          MATRIX_GROUP: ${{ matrix.group }}
         run: |
           source .venv/bin/activate
           source dev/setup-ssh.sh
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --quiet --requires-ssh \
+          pytest --splits=$MATRIX_SPLITS --group=$MATRIX_GROUP --quiet --requires-ssh \
             --ignore-flavors --ignore=tests/examples --ignore=tests/evaluate \
             --ignore tests/genai tests
 
@@ -262,8 +265,11 @@ jobs:
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
+        env:
+          MATRIX_SPLITS: ${{ matrix.splits }}
+          MATRIX_GROUP: ${{ matrix.group }}
         run: |
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/models
+          pytest --splits=$MATRIX_SPLITS --group=$MATRIX_GROUP tests/models
 
   # NOTE: numpy is pinned in this suite due to its heavy reliance on shap, which internally uses
   # references to the now fully deprecated (as of 1.24.x) numpy types (i.e., np.bool).
@@ -294,8 +300,11 @@ jobs:
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
+        env:
+          MATRIX_SPLITS: ${{ matrix.splits }}
+          MATRIX_GROUP: ${{ matrix.group }}
         run: |
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} tests/evaluate --ignore=tests/evaluate/test_default_evaluator_delta.py
+          pytest --splits=$MATRIX_SPLITS --group=$MATRIX_GROUP tests/evaluate --ignore=tests/evaluate/test_default_evaluator_delta.py
       - name: Run tests with delta
         run: |
           pytest tests/evaluate/test_default_evaluator_delta.py
@@ -385,16 +394,22 @@ jobs:
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
+        env:
+          MATRIX_SPLITS: ${{ matrix.splits }}
+          MATRIX_GROUP: ${{ matrix.group }}
         run: |
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations=30 \
+          pytest --splits=$MATRIX_SPLITS --group=$MATRIX_GROUP --durations=30 \
             tests/pyfunc tests/types --ignore tests/pyfunc/test_spark_connect.py
 
           # test_spark_connect.py fails if it's run with other tests, so run it separately.
           pytest tests/pyfunc/test_spark_connect.py
       - name: Run tests on pydantic v1
+        env:
+          MATRIX_SPLITS: ${{ matrix.splits }}
+          MATRIX_GROUP: ${{ matrix.group }}
         run: |
           pip install 'pydantic<2'
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --durations=30 \
+          pytest --splits=$MATRIX_SPLITS --group=$MATRIX_GROUP --durations=30 \
             tests/types tests/pyfunc/test_pyfunc_model_with_type_hints.py tests/utils/test_pydantic_utils.py
 
   sagemaker:
@@ -465,12 +480,14 @@ jobs:
           # files created during tests on Windows as it keeps the DB connection open until
           # it's explicitly disposed.
           MLFLOW_SQLALCHEMYSTORE_POOLCLASS: "NullPool"
+          MATRIX_SPLITS: ${{ matrix.splits }}
+          MATRIX_GROUP: ${{ matrix.group }}
         run: |
           source .venv/Scripts/activate
           # Set Hadoop environment variables required for testing Spark integrations on Windows
           export HADOOP_HOME=/tmp/winutils/hadoop-3.2.2
           export PATH=$PATH:$HADOOP_HOME/bin
           # Run Windows tests
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} \
+          pytest --splits=$MATRIX_SPLITS --group=$MATRIX_GROUP \
             --ignore-flavors --ignore=tests/projects --ignore=tests/examples --ignore=tests/evaluate --ignore=tests/optuna \
             --ignore=tests/pyspark/optuna --ignore=tests/genai tests

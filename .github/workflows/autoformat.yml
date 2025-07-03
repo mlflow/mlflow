@@ -76,8 +76,10 @@ jobs:
         id: diff
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PULL_NUMBER: ${{ needs.check-comment.outputs.pull_number }}
         run: |
-          changed_files="$(gh pr view --repo ${{ github.repository }} ${{ needs.check-comment.outputs.pull_number }} --json files --jq '.files.[].path')"
+          changed_files="$(gh pr view --repo $REPO $PULL_NUMBER --json files --jq '.files.[].path')"
           protos=$([[ -z $(echo "$changed_files" | grep '^\(mlflow/protos\|tests/protos\)') ]] && echo "false" || echo "true")
           js=$([[ -z $(echo "$changed_files" | grep '^mlflow/server/js') ]] && echo "false" || echo "true")
           docs=$([[ -z $(echo "$changed_files" | grep '^docs/') ]] && echo "false" || echo "true")
@@ -89,12 +91,15 @@ jobs:
           echo "db=$db" >> $GITHUB_OUTPUT
       # Merge the base branch (which is usually master) to apply formatting using the latest configurations.
       - name: Merge base branch
+        env:
+          BASE_REPO: ${{ needs.check-comment.outputs.base_repo }}
+          BASE_REF: ${{ needs.check-comment.outputs.base_ref }}
         run: |
           git config user.name 'mlflow-app[bot]'
           git config user.email 'mlflow-app[bot]@users.noreply.github.com'
-          git remote add base https://github.com/${{ needs.check-comment.outputs.base_repo }}.git
-          git fetch base ${{ needs.check-comment.outputs.base_ref }}
-          git merge base/${{ needs.check-comment.outputs.base_ref }}
+          git remote add base https://github.com/$BASE_REPO.git
+          git fetch base $BASE_REF
+          git merge base/$BASE_REF
       - uses: ./.github/actions/setup-python
       # ************************************************************************
       # pre-commit
@@ -172,17 +177,21 @@ jobs:
       # ************************************************************************
       - name: Create patch
         id: patch
+        env:
+          RUN_ID: ${{ github.run_id }}
         run: |
           git add -N .
-          git diff > ${{ github.run_id }}.diff
-          reformatted=$([[ -s ${{ github.run_id }}.diff ]] && echo "true" || echo "false")
+          git diff > $RUN_ID.diff
+          reformatted=$([[ -s $RUN_ID.diff ]] && echo "true" || echo "false")
           echo "reformatted=$reformatted" >> $GITHUB_OUTPUT
 
       - name: Upload patch
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        env:
+          RUN_ID: ${{ github.run_id }}
         with:
-          name: ${{ github.run_id }}.diff
-          path: ${{ github.run_id }}.diff
+          name: $RUN_ID.diff
+          path: $RUN_ID.diff
 
   push:
     runs-on: ubuntu-latest
@@ -256,12 +265,16 @@ jobs:
             .github
       - name: Update status
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        env:
+          NEEDS_JSON: ${{ toJson(needs) }}
+          HEAD_SHA: ${{ needs.check-comment.outputs.head_sha }}
+          PUSH_HEAD_SHA: ${{ needs.push.outputs.head_sha }}
         with:
           script: |
-            const needs = ${{ toJson(needs) }};
-            const head_sha = '${{ needs.check-comment.outputs.head_sha }}'
+            const needs = JSON.parse(process.env.NEEDS_JSON);
+            const head_sha = process.env.HEAD_SHA;
             const autoformat = require('./.github/workflows/autoformat.js');
-            const push_head_sha = '${{ needs.push.outputs.head_sha }}';
+            const push_head_sha = process.env.PUSH_HEAD_SHA;
             if (push_head_sha) {
               await autoformat.approveWorkflowRuns(context, github, push_head_sha);
             }

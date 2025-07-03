@@ -21,8 +21,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CIRCLE_TOKEN: ${{ secrets.CIRCLE_TOKEN }}
+          COMMIT_SHA: ${{ github.event.pull_request.head.sha }}
+          PULL_NUMBER: ${{ github.event.pull_request.number }}
+          WORKFLOW_RUN_ID: ${{ github.run_id }}
         run: |
           python dev/preview_docs.py \
-            --commit-sha ${{ github.event.pull_request.head.sha }} \
-            --pull-number ${{ github.event.pull_request.number }} \
-            --workflow-run-id ${{ github.run_id }}
+            --commit-sha $COMMIT_SHA \
+            --pull-number $PULL_NUMBER \
+            --workflow-run-id $WORKFLOW_RUN_ID

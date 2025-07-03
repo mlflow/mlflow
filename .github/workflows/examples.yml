@@ -61,14 +61,18 @@ jobs:
       - name: Check diff
         id: check-diff
         if: github.event_name == 'pull_request'
+        env:
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          BASE_REF: ${{ github.base_ref }}
         run: |
-          REPO="${{ github.repository }}"
-          PR_NUMBER="${{ github.event.pull_request.number }}"
-          BASE_REF="${{ github.base_ref }}"
+          REPO="$REPO"
+          PR_NUMBER="$PR_NUMBER"
+          BASE_REF="$BASE_REF"
           CHANGED_FILES=$(python dev/list_changed_files.py --repository $REPO --pr-num $PR_NUMBER | grep "tests/examples\|examples" || true);
           EXAMPLES_CHANGED=$([[ ! -z "$CHANGED_FILES" ]] && echo "true" || echo "false")
 
-          echo -e "CHANGED_FILES:\nCHANGED_FILES"
+          echo -e "CHANGED_FILES:\n$CHANGED_FILES"
           echo "EXAMPLES_CHANGED: $EXAMPLES_CHANGED"
           echo "examples_changed=$EXAMPLES_CHANGED" >> $GITHUB_OUTPUT
 
@@ -85,8 +89,10 @@ jobs:
         if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || steps.check-diff.outputs.examples_changed == 'true' }}
         env:
           SPARK_LOCAL_IP: localhost
+          MATRIX_SPLITS: ${{ matrix.splits }}
+          MATRIX_GROUP: ${{ matrix.group }}
         run: |
-          pytest --splits=${{ matrix.splits }} --group=${{ matrix.group }} --serve-wheel tests/examples --durations=30
+          pytest --splits=$MATRIX_SPLITS --group=$MATRIX_GROUP --serve-wheel tests/examples --durations=30
 
       - name: Remove conda environments
         run: |
@@ -110,12 +116,15 @@ jobs:
       - name: Check diff
         id: check-diff
         if: github.event_name == 'pull_request'
+        env:
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          REPO="${{ github.repository }}"
-          PR_NUMBER="${{ github.event.pull_request.number }}"
+          REPO="$REPO"
+          PR_NUMBER="$PR_NUMBER"
           CHANGED_FILES=$(python dev/list_changed_files.py --repository $REPO --pr-num $PR_NUMBER | grep "Dockerfile\|\.dockerignore" || true);
           DOCKER_CHANGED=$([[ ! -z "$CHANGED_FILES" ]] && echo "true" || echo "false")
-          echo -e "CHANGED_FILES:\nCHANGED_FILES"
+          echo -e "CHANGED_FILES:\n$CHANGED_FILES"
           echo "DOCKER_CHANGED: $DOCKER_CHANGED"
           echo "docker_changed=$DOCKER_CHANGED" >> $GITHUB_OUTPUT
 

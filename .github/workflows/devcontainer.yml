@@ -47,11 +47,13 @@ jobs:
         with:
           platforms: ${{ matrix.arch }}
       - name: Build image
+        env:
+          MATRIX_ARCH: ${{ matrix.arch }}
         run: |
           docker buildx build \
           --cache-from type=registry,ref=$IMAGE_NAME \
           --cache-to type=inline \
-          --platform linux/${{ matrix.arch }} \
+          --platform linux/$MATRIX_ARCH \
           --progress plain \
           -f .devcontainer/Dockerfile.devcontainer \
           -t $IMAGE_NAME \
@@ -63,11 +65,13 @@ jobs:
         run: |
           docker image inspect $IMAGE_NAME
       - name: Test Image
+        env:
+          MATRIX_ARCH: ${{ matrix.arch }}
         run: |
           docker run \
           --rm \
           -v $(pwd):/workspaces/mlflow \
-          --platform linux/${{ matrix.arch }} \
+          --platform linux/$MATRIX_ARCH \
           $IMAGE_NAME \
           bash -c "pip install --no-deps -e . && pytest tests/test_version.py"
       - uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
@@ -78,6 +82,8 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Push image by digest
         if: github.event_name == 'push'
+        env:
+          MATRIX_ARCH: ${{ matrix.arch }}
         run: |
           skopeo="docker run --rm \
             -v /var/run/docker.sock:/var/run/docker.sock \
@@ -86,7 +92,7 @@ jobs:
             quay.io/skopeo/stable:latest"
           digest=$($skopeo inspect docker-daemon:$IMAGE_NAME:latest --format "{{ .Digest }}")
           $skopeo copy docker-daemon:$IMAGE_NAME:latest docker://$IMAGE_NAME@$digest
-          echo $digest > devcontainer-image-digest-${{ matrix.arch }}.txt
+          echo $digest > devcontainer-image-digest-$MATRIX_ARCH.txt
       - name: Upload image digest artifact
         if: github.event_name == 'push'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -115,7 +121,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Merge images and push # necessary to parallelize arch builds
+        env:
+          REPO: ${{ needs.devcontainer.outputs.repo }}
         run: |
-          repo=${{ needs.devcontainer.outputs.repo }}
+          repo=$REPO
           docker buildx imagetools create --tag $repo \
             $(printf "$repo@%s " $(cat devcontainer-image-digest-*.txt))
