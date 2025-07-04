@@ -7,5 +7,10 @@ module.exports = {
   moduleFileExtensions: ['ts', 'js', 'json', 'node'],
   transform: {
     '^.+\\.tsx?$': ['ts-jest', { tsconfig: 'tsconfig.json' }]
-  }
+  },
+  globalSetup: '<rootDir>/tests/jest.global-setup.ts',
+  globalTeardown: '<rootDir>/tests/jest.global-teardown.ts',
+  testTimeout: 30000,
+  forceExit: true,
+  detectOpenHandles: true
 };

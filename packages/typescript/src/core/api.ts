@@ -184,3 +184,8 @@ function createAndRegisterMlflowSpan(
 
   return mlflowSpan;
 }
+
+export function getLastActiveTraceId(): string | undefined {
+  const traceManager = InMemoryTraceManager.getInstance();
+  return traceManager.lastActiveTraceId;
+}

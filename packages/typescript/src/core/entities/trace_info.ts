@@ -116,7 +116,8 @@ export class TraceInfo {
       request_preview: this.requestPreview,
       response_preview: this.responsePreview,
       request_time: new Date(this.requestTime).toISOString(),
-      execution_duration: this.executionDuration ? `${this.executionDuration / 1000}s` : undefined,
+      execution_duration:
+        this.executionDuration != null ? `${this.executionDuration / 1000}s` : undefined,
       state: this.state,
       trace_metadata: this.traceMetadata,
       tags: this.tags,
@@ -145,10 +146,11 @@ export class TraceInfo {
       },
       requestPreview: json.request_preview,
       responsePreview: json.response_preview,
-      requestTime: json.request_time ? new Date(json.request_time).getTime() : Date.now(),
-      executionDuration: json.execution_duration
-        ? parseFloat(json.execution_duration.replace('s', '')) * 1000
-        : undefined,
+      requestTime: json.request_time != null ? new Date(json.request_time).getTime() : Date.now(),
+      executionDuration:
+        json.execution_duration != null
+          ? parseFloat(json.execution_duration.replace('s', '')) * 1000
+          : undefined,
       state: json.state,
       traceMetadata: json.trace_metadata || {},
       tags: json.tags || {},

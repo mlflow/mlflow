@@ -2,8 +2,11 @@ import { trace, Tracer } from '@opentelemetry/api';
 import { MlflowSpanExporter, MlflowSpanProcessor } from '../exporters/mlflow';
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { getConfig } from './config';
+import { MlflowClient } from '../clients';
 
 let sdk: NodeSDK | null = null;
+// Keep a reference to the span processor for flushing
+let processor: MlflowSpanProcessor | null = null;
 
 export function initializeSDK(): void {
   if (sdk) {
@@ -19,8 +22,12 @@ export function initializeSDK(): void {
       return;
     }
 
-    const exporter = new MlflowSpanExporter(hostConfig);
-    const processor = new MlflowSpanProcessor(exporter);
+    const client = new MlflowClient({
+      host: hostConfig.host,
+      databricksToken: hostConfig.databricksToken
+    });
+    const exporter = new MlflowSpanExporter(client);
+    processor = new MlflowSpanProcessor(exporter);
     sdk = new NodeSDK({ spanProcessors: [processor] });
     sdk.start();
   } catch (error) {
@@ -30,4 +37,11 @@ export function initializeSDK(): void {
 
 export function getTracer(module_name: string): Tracer {
   return trace.getTracer(module_name);
+}
+
+/**
+ * Force flush all pending trace exports.
+ */
+export async function flushTraces(): Promise<void> {
+  await processor?.forceFlush();
 }

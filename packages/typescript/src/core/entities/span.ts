@@ -15,6 +15,7 @@ import {
   encodeTraceIdToBase64,
   decodeIdFromBase64
 } from '../utils';
+import { InMemoryTraceManager } from '../trace_manager';
 /**
  * MLflow Span interface
  */
@@ -368,6 +369,10 @@ export class LiveSpan extends Span {
     // OTel SDK default end time to current time if not provided
     const endTime = options?.endTimeNs ? convertNanoSecondsToHrTime(options.endTimeNs) : undefined;
     this._span.end(endTime);
+
+    // Set the last active trace ID
+    const traceManager = InMemoryTraceManager.getInstance();
+    traceManager.lastActiveTraceId = this.traceId;
   }
 }
 
