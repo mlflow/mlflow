@@ -173,7 +173,6 @@ def format_input_example_for_special_cases(input_example, pipeline):
     return input_data if not isinstance(input_example, tuple) else (input_data, input_example[1])
 
 
-import warnings
 
 
 def generate_signature_output(pipeline, data, model_config=None, flavor_config=None, params=None):
