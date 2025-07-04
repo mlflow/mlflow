@@ -173,7 +173,30 @@ def format_input_example_for_special_cases(input_example, pipeline):
     return input_data if not isinstance(input_example, tuple) else (input_data, input_example[1])
 
 
+import warnings
+
+
 def generate_signature_output(pipeline, data, model_config=None, flavor_config=None, params=None):
+    """
+    .. warning::
+        This function is deprecated. MLflow now supports inferring the signature directly from
+        an ``input_example`` when logging a model with
+        :py:func:`mlflow.transformers.log_model`.
+        Please pass your input example directly to ``mlflow.transformers.log_model`` via the
+        ``input_example`` parameter.
+
+    Generates a typical signature output for a Transformers pipeline.
+    This is used by :py:func:`mlflow.models.infer_signature` to determine the model signature.
+    """
+    warnings.warn(
+        "The function `mlflow.transformers.generate_signature_output` is deprecated. "
+        "MLflow now supports inferring the signature directly from an `input_example` "
+        "when logging a model with `mlflow.transformers.log_model`. "
+        "Please pass your input example directly to `mlflow.transformers.log_model` "
+        "via the `input_example` parameter.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     # Lazy import to avoid circular dependencies. Ideally we should move _TransformersWrapper
     # out from __init__.py to avoid this.
     from mlflow.transformers import _TransformersWrapper
