@@ -202,6 +202,15 @@ def test_size_bytes_in_trace_sent_to_mlflow_backend(monkeypatch):
     assert size_stats[TraceSizeStatsKey.NUM_SPANS] == 1
     assert size_stats[TraceSizeStatsKey.MAX_SPAN_SIZE_BYTES] > 0
 
+    # Verify percentile stats are included
+    assert TraceSizeStatsKey.P25_SPAN_SIZE_BYTES in size_stats
+    assert TraceSizeStatsKey.P50_SPAN_SIZE_BYTES in size_stats
+    assert TraceSizeStatsKey.P75_SPAN_SIZE_BYTES in size_stats
+
+    # With only one span, all percentiles should equal the max span size
+    assert size_stats[TraceSizeStatsKey.P25_SPAN_SIZE_BYTES] == size_stats[TraceSizeStatsKey.MAX_SPAN_SIZE_BYTES]
+    assert size_stats[TraceSizeStatsKey.P50_SPAN_SIZE_BYTES] == size_stats[TraceSizeStatsKey.MAX_SPAN_SIZE_BYTES]
+    assert size_stats[TraceSizeStatsKey.P75_SPAN_SIZE_BYTES] == size_stats[TraceSizeStatsKey.MAX_SPAN_SIZE_BYTES]
 
 def test_prompt_linking_with_dual_write(monkeypatch):
     """Test that prompts are correctly linked when dual write to MLflow backend is enabled."""

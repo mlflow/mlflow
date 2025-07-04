@@ -38,7 +38,10 @@ class TokenUsageKey:
 class TraceSizeStatsKey:
     TOTAL_SIZE_BYTES = "total_size_bytes"
     NUM_SPANS = "num_spans"
-    MAX_SPAN_SIZE_BYTES = "max_span_size_bytes"
+    MAX_SPAN_SIZE_BYTES = "max"
+    P25_SPAN_SIZE_BYTES = "p25"
+    P50_SPAN_SIZE_BYTES = "p50"
+    P75_SPAN_SIZE_BYTES = "p75"
 
 
 # A set of reserved attribute keys
