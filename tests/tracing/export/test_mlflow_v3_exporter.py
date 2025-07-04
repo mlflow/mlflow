@@ -241,7 +241,6 @@ def test_prompt_linking_in_mlflow_v3_exporter(is_async, monkeypatch):
     with (
         mock.patch(
             "mlflow.tracing.client.TracingClient.start_trace",
-            return_value=mock.MagicMock(trace_id="test-trace-id"),
         ) as mock_start_trace,
         mock.patch(
             "mlflow.tracing.client.TracingClient._upload_trace_data", return_value=None
@@ -315,7 +314,7 @@ def test_prompt_linking_in_mlflow_v3_exporter(is_async, monkeypatch):
     assert prompt_names == {"test_prompt_1", "test_prompt_2"}
 
     # Verify the trace ID matches
-    assert captured_trace_id == "test-trace-id"
+    assert captured_trace_id == trace_id
 
     # Verify other client methods were also called
     mock_start_trace.assert_called_once()
