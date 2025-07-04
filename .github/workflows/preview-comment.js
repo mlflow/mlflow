@@ -8,13 +8,14 @@ const MARKER = "<!-- documentation preview -->";
 
 /**
  * Fetch changed files from a pull request
- * @param {object} github - GitHub API client
- * @param {string} owner - Repository owner
- * @param {string} repo - Repository name
- * @param {string} pullNumber - Pull request number
+ * @param {object} params - Parameters object
+ * @param {object} params.github - GitHub API client
+ * @param {string} params.owner - Repository owner
+ * @param {string} params.repo - Repository name
+ * @param {string} params.pullNumber - Pull request number
  * @returns {Promise<string[]>} Array of changed file paths
  */
-async function fetchChangedFiles(github, owner, repo, pullNumber) {
+async function fetchChangedFiles({ github, owner, repo, pullNumber }) {
   const iterator = github.paginate.iterator(github.rest.pulls.listFiles, {
     owner,
     repo,
@@ -68,13 +69,14 @@ function getChangedDocPages(changedFiles) {
 
 /**
  * Create or update a PR comment with documentation preview information
- * @param {object} github - GitHub API client
- * @param {string} owner - Repository owner
- * @param {string} repo - Repository name
- * @param {string} pullNumber - Pull request number
- * @param {string} commentBody - Comment body content
+ * @param {object} params - Parameters object
+ * @param {object} params.github - GitHub API client
+ * @param {string} params.owner - Repository owner
+ * @param {string} params.repo - Repository name
+ * @param {string} params.pullNumber - Pull request number
+ * @param {string} params.commentBody - Comment body content
  */
-async function upsertComment(github, owner, repo, pullNumber, commentBody) {
+async function upsertComment({ github, owner, repo, pullNumber, commentBody }) {
   // Get existing comments on the PR
   const { data: comments } = await github.rest.issues.listComments({
     owner,
@@ -108,20 +110,21 @@ async function upsertComment(github, owner, repo, pullNumber, commentBody) {
 
 /**
  * Generate the comment template for documentation preview
- * @param {string} commitSha - Git commit SHA
- * @param {string} workflowRunLink - Link to the workflow run
- * @param {string} docsWorkflowRunUrl - Link to the docs workflow run
- * @param {string} mainMessage - Main message content
- * @param {string[]} changedPages - Array of changed documentation page links
+ * @param {object} params - Parameters object
+ * @param {string} params.commitSha - Git commit SHA
+ * @param {string} params.workflowRunLink - Link to the workflow run
+ * @param {string} params.docsWorkflowRunUrl - Link to the docs workflow run
+ * @param {string} params.mainMessage - Main message content
+ * @param {string[]} params.changedPages - Array of changed documentation page links
  * @returns {string} Comment template
  */
-function getCommentTemplate(
+function getCommentTemplate({
   commitSha,
   workflowRunLink,
   docsWorkflowRunUrl,
   mainMessage,
-  changedPages
-) {
+  changedPages,
+}) {
   let changedPagesSection = "";
 
   if (changedPages && changedPages.length > 0) {
@@ -193,7 +196,7 @@ module.exports = async ({ github, context, env }) => {
 
     // Fetch changed files and get documentation pages
     try {
-      const changedFiles = await fetchChangedFiles(github, owner, repo, pullNumber);
+      const changedFiles = await fetchChangedFiles({ github, owner, repo, pullNumber });
       const docPages = getChangedDocPages(changedFiles);
 
       // Convert to clickable links if we have changed pages
@@ -208,12 +211,12 @@ module.exports = async ({ github, context, env }) => {
     mainMessage = "failed to build or deploy.";
   }
 
-  const commentBody = getCommentTemplate(
+  const commentBody = getCommentTemplate({
     commitSha,
     workflowRunLink,
     docsWorkflowRunUrl,
     mainMessage,
-    changedPages
-  );
-  await upsertComment(github, owner, repo, pullNumber, commentBody);
+    changedPages,
+  });
+  await upsertComment({ github, owner, repo, pullNumber, commentBody });
 };
