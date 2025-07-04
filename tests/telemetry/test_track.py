@@ -34,12 +34,13 @@ def test_track_api_usage(mock_requests):
 
     @track_api_usage
     def succeed_func():
-        time.sleep(0.1)
+        # sleep to make sure duration_ms > 0
+        time.sleep(0.01)
         return True
 
     @track_api_usage
     def fail_func():
-        time.sleep(0.1)
+        time.sleep(0.01)
         raise ValueError("test")
 
     succeed_func()

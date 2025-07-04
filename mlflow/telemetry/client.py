@@ -11,7 +11,7 @@ import requests
 
 from mlflow.telemetry.constant import (
     BATCH_SIZE,
-    BATCH_TIME_INTERVAL,
+    BATCH_TIME_INTERVAL_SECONDS,
     MAX_QUEUE_SIZE,
     MAX_WORKERS,
     TELEMETRY_URL,
@@ -38,7 +38,7 @@ class TelemetryClient:
         self._consumer_threads = []
 
         self._batch_size = BATCH_SIZE
-        self._batch_time_interval = BATCH_TIME_INTERVAL
+        self._batch_time_interval = BATCH_TIME_INTERVAL_SECONDS
         self._pending_records: list[TelemetryRecord] = []
         self._last_batch_time = time.time()
         self._batch_lock = threading.Lock()
