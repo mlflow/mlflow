@@ -58,6 +58,7 @@ class GenaiEvaluateParams(BaseParams):
 
 @dataclass
 class APIRecord:
+    api_module: str
     api_name: str
     params: Optional[BaseParams] = None
     status: APIStatus = APIStatus.UNKNOWN.value

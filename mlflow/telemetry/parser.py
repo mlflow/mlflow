@@ -1,6 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 from mlflow.telemetry.schemas import (
     AutologParams,
@@ -19,12 +19,14 @@ _logger = logging.getLogger(__name__)
 class TelemetryParser(ABC):
     @classmethod
     @abstractmethod
-    def extract_params(cls, func_name: str, arguments: dict[str, Any]) -> Optional[BaseParams]:
+    def extract_params(
+        cls, func: Callable[..., Any], arguments: dict[str, Any]
+    ) -> Optional[BaseParams]:
         """
         Extract the parameters from the function call.
 
         Args:
-            func_name: The full function name.
+            func: The function.
             arguments: The arguments passed to the function.
 
         Returns:
@@ -32,14 +34,21 @@ class TelemetryParser(ABC):
         """
 
 
+def _parse_flavor_from_module_name(module_name: str) -> Optional[str]:
+    if module_name.startswith("mlflow."):
+        return module_name.split(".")[1]
+
+
 class LogModelParser(TelemetryParser):
     @classmethod
-    def extract_params(cls, func_name: str, arguments: dict[str, Any]) -> Optional[LogModelParams]:
-        splits = func_name.rsplit(".", 2)
-        if len(splits) != 3:
-            _logger.debug(f"Failed to extract log model params for function {func_name}")
+    def extract_params(
+        cls, func: Callable[..., Any], arguments: dict[str, Any]
+    ) -> Optional[LogModelParams]:
+        if flavor := _parse_flavor_from_module_name(func.__module__):
+            flavor = flavor
+        else:
+            _logger.debug(f"Failed to extract log model params for function {func.__name__}")
             return
-        flavor = splits[1]
 
         # model parameter is the first positional argument
         model = next(iter(arguments.values()), None)
@@ -84,14 +93,13 @@ class LogModelParser(TelemetryParser):
 
 class AutologParser(TelemetryParser):
     @classmethod
-    def extract_params(cls, func_name: str, arguments: dict[str, Any]) -> Optional[AutologParams]:
-        splits = func_name.rsplit(".", 2)
-        if len(splits) == 2:
-            flavor = "all"
-        elif len(splits) == 3:
-            flavor = splits[1]
-        else:
-            _logger.debug(f"Failed to extract autolog params for function {func_name}")
+    def extract_params(
+        cls, func: Callable[..., Any], arguments: dict[str, Any]
+    ) -> Optional[AutologParams]:
+        # autolog functions decorated with @autologging_integration have integration_name attribute
+        flavor = getattr(func, "integration_name", _parse_flavor_from_module_name(func.__module__))
+        if flavor is None:
+            _logger.debug(f"Failed to extract autolog params for function {func.__name__}")
             return
         record_params = {"flavor": flavor}
         for param in ["disable", "log_traces", "log_models"]:
@@ -101,7 +109,9 @@ class AutologParser(TelemetryParser):
 
 class GenaiEvaluateParser(TelemetryParser):
     @classmethod
-    def extract_params(cls, func_name: str, arguments: dict[str, Any]) -> GenaiEvaluateParams:
+    def extract_params(
+        cls, func: Callable[..., Any], arguments: dict[str, Any]
+    ) -> GenaiEvaluateParams:
         scorers = arguments.get("scorers", [])
         scorers = [cls.sanitize_scorer_name(scorer) for scorer in scorers]
         is_predict_fn_set = arguments.get("predict_fn") is not None

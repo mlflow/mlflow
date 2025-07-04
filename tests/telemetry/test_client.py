@@ -32,6 +32,7 @@ def test_add_record_and_send(telemetry_client: TelemetryClient, mock_requests):
     """Test adding a record and sending it to the mock server."""
     # Create a test record
     record = APIRecord(
+        api_module="test_module",
         api_name="test_api",
         status=APIStatus.SUCCESS,
         params=LogModelParams(flavor="test_flavor", model=ModelType.PYTHON_FUNCTION),
@@ -51,6 +52,7 @@ def test_add_record_and_send(telemetry_client: TelemetryClient, mock_requests):
 
     # Parse the data to verify content
     data = json.loads(received_record["data"])
+    assert data["api_module"] == "test_module"
     assert data["api_name"] == "test_api"
     assert data["status"] == "success"
 
@@ -62,6 +64,7 @@ def test_batch_processing(telemetry_client: TelemetryClient, mock_requests):
     # Add multiple records
     for i in range(5):
         record = APIRecord(
+            api_module="test_module",
             api_name=f"test_api_{i}",
             status=APIStatus.SUCCESS,
             params=LogModelParams(flavor="test_flavor", model=ModelType.PYTHON_FUNCTION),
@@ -76,6 +79,7 @@ def test_batch_processing(telemetry_client: TelemetryClient, mock_requests):
 def test_flush_functionality(telemetry_client: TelemetryClient, mock_requests):
     """Test that flush properly sends pending records."""
     record = APIRecord(
+        api_module="test_module",
         api_name="test_api",
         status=APIStatus.SUCCESS,
         params=LogModelParams(flavor="test_flavor", model=ModelType.PYTHON_FUNCTION),
@@ -90,6 +94,7 @@ def test_flush_functionality(telemetry_client: TelemetryClient, mock_requests):
 def test_client_shutdown(telemetry_client: TelemetryClient, mock_requests):
     for _ in range(100):
         record = APIRecord(
+            api_module="test_module",
             api_name="test_api",
             status=APIStatus.SUCCESS,
             params=LogModelParams(flavor="test_flavor", model=ModelType.PYTHON_FUNCTION),
@@ -114,6 +119,7 @@ def test_error_handling(mock_requests, telemetry_client):
 
     # Add a record - should not crash
     record = APIRecord(
+        api_module="test_module",
         api_name="test_api",
         status=APIStatus.SUCCESS,
         params=LogModelParams(flavor="test_flavor", model=ModelType.PYTHON_FUNCTION),
@@ -132,6 +138,7 @@ def test_stop_event(telemetry_client: TelemetryClient, mock_requests):
     telemetry_client._is_stopped = True
 
     record = APIRecord(
+        api_module="test_module",
         api_name="test_api",
         status=APIStatus.SUCCESS,
         params=LogModelParams(flavor="test_flavor", model=ModelType.PYTHON_FUNCTION),
@@ -150,6 +157,7 @@ def test_concurrent_record_addition(telemetry_client: TelemetryClient, mock_requ
     def add_records(thread_id):
         for i in range(5):
             record = APIRecord(
+                api_module="test_module",
                 api_name=f"thread_{thread_id}_api_{i}",
                 status=APIStatus.SUCCESS,
                 params=LogModelParams(flavor="test_flavor", model=ModelType.PYTHON_FUNCTION),
@@ -177,6 +185,7 @@ def test_concurrent_record_addition(telemetry_client: TelemetryClient, mock_requ
 def test_telemetry_info_inclusion(telemetry_client: TelemetryClient, mock_requests):
     """Test that telemetry info is included in records."""
     record = APIRecord(
+        api_module="test_module",
         api_name="test_api",
         status=APIStatus.SUCCESS,
         params=LogModelParams(flavor="test_flavor", model=ModelType.PYTHON_FUNCTION),
@@ -207,6 +216,7 @@ def test_telemetry_info_inclusion(telemetry_client: TelemetryClient, mock_reques
 def test_partition_key(telemetry_client: TelemetryClient, mock_requests):
     """Test that partition key is set correctly."""
     record = APIRecord(
+        api_module="test_module",
         api_name="test_api",
         status=APIStatus.SUCCESS,
         params=LogModelParams(flavor="test_flavor", model=ModelType.PYTHON_FUNCTION),
@@ -254,6 +264,7 @@ def test_log_suppression_in_consumer_thread(mock_requests, capsys, telemetry_cli
     telemetry_client._process_records = process_with_log
 
     record = APIRecord(
+        api_module="test_module",
         api_name="test_api",
         status=APIStatus.SUCCESS,
         params=LogModelParams(flavor="test_flavor", model=ModelType.PYTHON_FUNCTION),
@@ -285,6 +296,7 @@ def test_consumer_thread_no_stderr_output(mock_requests, capsys, telemetry_clien
     # Add multiple records to ensure consumer thread processes them
     for i in range(5):
         record = APIRecord(
+            api_module="test_module",
             api_name=f"test_api_{i}",
             status=APIStatus.SUCCESS,
             params=LogModelParams(flavor="test_flavor", model=ModelType.PYTHON_FUNCTION),
@@ -315,6 +327,7 @@ def test_batch_time_interval(mock_requests, telemetry_client):
 
     # Add first record
     record1 = APIRecord(
+        api_module="test_module",
         api_name="test_api_1",
         status=APIStatus.SUCCESS,
         params=LogModelParams(flavor="test_flavor", model=ModelType.PYTHON_FUNCTION),
@@ -326,6 +339,7 @@ def test_batch_time_interval(mock_requests, telemetry_client):
 
     # Add second record before time interval
     record2 = APIRecord(
+        api_module="test_module",
         api_name="test_api_2",
         status=APIStatus.SUCCESS,
         params=LogModelParams(flavor="test_flavor", model=ModelType.PYTHON_FUNCTION),
@@ -340,6 +354,7 @@ def test_batch_time_interval(mock_requests, telemetry_client):
 
     # Add third record which should trigger sending due to time interval
     record3 = APIRecord(
+        api_module="test_module",
         api_name="test_api_3",
         status=APIStatus.SUCCESS,
         params=LogModelParams(flavor="test_flavor", model=ModelType.PYTHON_FUNCTION),
