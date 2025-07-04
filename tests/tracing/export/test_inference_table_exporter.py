@@ -1,3 +1,4 @@
+import json
 from typing import Optional
 from unittest import mock
 
@@ -7,7 +8,7 @@ import mlflow
 from mlflow.entities import LiveSpan, Trace
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.trace_info import TraceInfo
-from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.constant import TraceMetadataKey, TraceSizeStatsKey
 from mlflow.tracing.export.inference_table import (
     _TRACE_BUFFER,
     InferenceTableSpanExporter,
@@ -189,26 +190,17 @@ def test_size_bytes_in_trace_sent_to_mlflow_backend(monkeypatch):
     trace_info = mock_tracing_client.start_trace.call_args[0][0]
     trace_data = mock_tracing_client._upload_trace_data.call_args[0][1]
 
-    # Verify the trace sent to MLflow backend has SIZE_BYTES
-    assert trace_info is not None, "Trace was not sent to MLflow backend"
-    assert TraceMetadataKey.SIZE_BYTES in trace_info.trace_metadata, (
-        "SIZE_BYTES missing in trace metadata"
-    )
+    # Using pop() to exclude the size of these fields when computing the expected size
+    size_stats = json.loads(trace_info.trace_metadata.pop(TraceMetadataKey.SIZE_STATS))
+    size_bytes = int(trace_info.trace_metadata.pop(TraceMetadataKey.SIZE_BYTES))
 
-    # Get the size bytes that were set
-    size_bytes = int(trace_info.trace_metadata[TraceMetadataKey.SIZE_BYTES])
+    # The total size of the trace should much with the size of the trace object
+    expected_size_bytes = len(Trace(info=trace_info, data=trace_data).to_json().encode("utf-8"))
 
-    # Remove the size metadata to calculate the expected size
-    del trace_info.trace_metadata[TraceMetadataKey.SIZE_BYTES]
-
-    # Calculate size exactly the same way the function does
-    trace = Trace(info=trace_info, data=trace_data)
-    expected_size_bytes = len(trace.to_json().encode("utf-8"))
-
-    # Verify that size_bytes matches the expected calculation
-    assert size_bytes == expected_size_bytes, (
-        f"Size bytes mismatch: got {size_bytes}, expected {expected_size_bytes}"
-    )
+    assert size_bytes == expected_size_bytes
+    assert size_stats[TraceSizeStatsKey.TOTAL_SIZE_BYTES] == expected_size_bytes
+    assert size_stats[TraceSizeStatsKey.NUM_SPANS] == 1
+    assert size_stats[TraceSizeStatsKey.MAX_SPAN_SIZE_BYTES] > 0
 
 
 def test_prompt_linking_with_dual_write(monkeypatch):

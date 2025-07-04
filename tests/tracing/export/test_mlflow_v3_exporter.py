@@ -23,7 +23,7 @@ from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.protos import service_pb2 as pb
-from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.constant import TraceMetadataKey, TraceSizeStatsKey
 from mlflow.tracing.destination import Databricks
 from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
 from mlflow.tracing.provider import _get_trace_exporter
@@ -84,18 +84,24 @@ def test_export(is_async, monkeypatch):
     # Access the trace that was passed to _start_trace
     endpoint = mock_call_endpoint.call_args.args[1]
     assert endpoint == "/api/3.0/mlflow/traces"
-    trace_info_dict = trace_info.to_dict()
     trace_data = mock_upload_trace_data.call_args.args[1]
 
     # Basic validation of the trace object
     assert trace_info.trace_id is not None
 
-    assert TraceMetadataKey.SIZE_BYTES in trace_info_dict["trace_metadata"]
-    size_bytes = int(trace_info_dict["trace_metadata"][TraceMetadataKey.SIZE_BYTES])
-    trace_for_expected_size = Trace(info=trace_info, data=trace_data)
-    del trace_for_expected_size.info.trace_metadata[TraceMetadataKey.SIZE_BYTES]
-    actual_size_bytes = len(trace_for_expected_size.to_json().encode("utf-8"))
-    assert size_bytes == actual_size_bytes
+    # Validate the size stats metadata
+    # Using pop() to exclude the size of these fields when computing the expected size
+    size_stats = json.loads(trace_info.trace_metadata.pop(TraceMetadataKey.SIZE_STATS))
+    size_bytes = int(trace_info.trace_metadata.pop(TraceMetadataKey.SIZE_BYTES))
+
+    # The total size of the trace should much with the size of the trace object
+    expected_size_bytes = len(Trace(info=trace_info, data=trace_data).to_json().encode("utf-8"))
+
+    assert size_bytes == expected_size_bytes
+    assert size_stats[TraceSizeStatsKey.TOTAL_SIZE_BYTES] == expected_size_bytes
+    assert size_stats[TraceSizeStatsKey.NUM_SPANS] == 2
+    assert size_stats[TraceSizeStatsKey.MAX_SPAN_SIZE_BYTES] > 0
+    assert size_stats is None
 
     # Validate the data was passed to upload_trace_data
     call_args = mock_upload_trace_data.call_args
