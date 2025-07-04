@@ -23,6 +23,7 @@ export function initializeSDK(): void {
     }
 
     const client = new MlflowClient({
+      trackingUri: hostConfig.trackingUri,
       host: hostConfig.host,
       databricksToken: hostConfig.databricksToken
     });

@@ -16,10 +16,14 @@ export class MlflowClient {
   /** Client implementation to upload/download trace data artifacts */
   private artifactsClient: ArtifactsClient;
 
-  constructor(options: { host: string; databricksToken?: string }) {
+  constructor(options: { trackingUri: string; host: string; databricksToken?: string }) {
     this.host = options.host;
     this.databricksToken = options.databricksToken;
-    this.artifactsClient = getArtifactsClient(options.host);
+    this.artifactsClient = getArtifactsClient({
+      trackingUri: options.trackingUri,
+      host: options.host,
+      databricksToken: options.databricksToken
+    });
   }
 
   // === TRACE LOGGING METHODS ===
