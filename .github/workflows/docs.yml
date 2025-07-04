@@ -57,7 +57,7 @@ jobs:
       - uses: ./.github/actions/setup-node
       - uses: ./.github/actions/setup-python
       - run: |
-          uv pip install --system . -r ../requirements/doc-requirements.txt
+          uv pip install --system .. -r ../requirements/doc-requirements.txt
       - run: |
           yarn install --immutable
       - name: Build docs
