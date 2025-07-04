@@ -56,9 +56,9 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: ./.github/actions/setup-node
       - uses: ./.github/actions/setup-python
-      - name: Install dependencies
-        run: |
-          pip install -r ../requirements/doc-requirements.txt
+      - run: |
+          uv pip install --system .. -r ../requirements/doc-requirements.txt
+      - run: |
           yarn install --immutable
       - name: Build docs
         run: |
@@ -69,5 +69,19 @@ jobs:
         with:
           name: docs-build-${{ github.run_id }}
           path: docs/build
+          retention-days: 1
+          if-no-files-found: error
+
+      # `github.event.workflow_run.pull_requests` is empty when a PR is created from a fork:
+      # https://github.com/orgs/community/discussions/25220#discussioncomment-11001085
+      - name: Save PR number
+        env:
+          PR_NUMBER: ${{ github.event.number }}
+        run: |
+          echo $PR_NUMBER > /tmp/pr_number.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: pr_number
+          path: /tmp/pr_number.txt
           retention-days: 1
           if-no-files-found: error
