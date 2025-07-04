@@ -5,6 +5,9 @@ on:
     # Runs at 00:00 UTC every day
     - cron: "0 13 * * *"
   workflow_dispatch: # Allow manual runs
+  push:
+    paths:
+      - ".github/workflows/link-checker.yml"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
