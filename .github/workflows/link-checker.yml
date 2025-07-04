@@ -5,7 +5,7 @@ on:
     # Runs at 00:00 UTC every day
     - cron: "0 13 * * *"
   workflow_dispatch: # Allow manual runs
-  push:
+  pull_request:
     paths:
       - ".github/workflows/link-checker.yml"
 
