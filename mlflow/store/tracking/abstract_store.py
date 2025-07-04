@@ -431,6 +431,15 @@ class AbstractStore:
             tag: :py:class:`mlflow.entities.ExperimentTag` instance to set.
         """
 
+    def delete_experiment_tag(self, experiment_id, key):
+        """
+        Delete a tag from the specified experiment
+
+        Args:
+            experiment_id: String id for the experiment.
+            key: String name of the tag to be deleted.
+        """
+
     def set_tag(self, run_id, tag):
         """
         Set a tag for the specified run
