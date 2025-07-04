@@ -5,6 +5,7 @@ import re
 import sys
 
 from mlflow.environment_variables import MLFLOW_LOGGING_LEVEL
+from mlflow.utils.thread_utils import ThreadLocalVariable
 
 # Logging format example:
 # 2018/11/20 12:36:37 INFO mlflow.sagemaker: Creating new SageMaker endpoint
@@ -99,6 +100,18 @@ class MlflowFormatter(logging.Formatter):
         return f"\033[{code}m"
 
 
+# Thread-local variable to suppress logs in the certain thread, used
+# in telemetry client to suppress logs in the consumer thread
+suppress_logs_in_thread = ThreadLocalVariable(default_factory=lambda: False)
+
+
+class SuppressLogFilter(logging.Filter):
+    def filter(self, record):
+        if suppress_logs_in_thread.get():
+            return False
+        return super().filter(record)
+
+
 def _configure_mlflow_loggers(root_module_name):
     logging.config.dictConfig(
         {
@@ -116,6 +129,7 @@ def _configure_mlflow_loggers(root_module_name):
                     "formatter": "mlflow_formatter",
                     "class": "logging.StreamHandler",
                     "stream": MLFLOW_LOGGING_STREAM,
+                    "filters": ["suppress_by_thread"],
                 },
             },
             "loggers": {
@@ -124,6 +138,11 @@ def _configure_mlflow_loggers(root_module_name):
                     "level": (MLFLOW_LOGGING_LEVEL.get() or "INFO").upper(),
                     "propagate": False,
                 },
+            },
+            "filters": {
+                "suppress_by_thread": {
+                    "()": SuppressLogFilter,
+                }
             },
         }
     )
@@ -159,6 +178,21 @@ def suppress_logs(module: str, filter_regex: re.Pattern):
         yield
     finally:
         logger.removeFilter(filter)
+
+
+@contextlib.contextmanager
+def suppress_logs_in_modules(modules: list[str]):
+    filters = []
+    for module in modules:
+        logger = logging.getLogger(module)
+        filter = LoggerMessageFilter(module=module, filter_regex=re.compile(".*"))
+        filters.append((logger, filter))
+        logger.addFilter(filter)
+    try:
+        yield
+    finally:
+        for logger, filter in filters:
+            logger.removeFilter(filter)
 
 
 def _debug(s: str) -> None:
