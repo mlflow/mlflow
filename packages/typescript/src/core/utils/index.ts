@@ -138,3 +138,105 @@ export function deduplicateSpanNamesInPlace(spans: LiveSpan[]): void {
     }
   }
 }
+
+/**
+ * Map function arguments to an object with parameter names as keys
+ * @param func The function to extract parameter names from
+ * @param args The arguments passed to the function
+ * @returns Object mapping parameter names to argument values
+ */
+export function mapArgsToObject(func: Function, args: any[]): Record<string, any> {
+  const paramNames = getParameterNames(func);
+
+  // If we can't extract parameter names, return the args as an array
+  if (paramNames.length === 0) {
+    return args.length === 0 ? {} : { args };
+  }
+
+  const result: Record<string, any> = {};
+
+  paramNames.forEach((name, index) => {
+    if (index < args.length) {
+      result[name] = args[index];
+    }
+  });
+
+  return result;
+}
+
+/**
+ * Extract parameter names from a function using string parsing
+ * @param func The function to extract parameter names from
+ * @returns Array of parameter names
+ */
+function getParameterNames(func: Function): string[] {
+  const funcStr = func.toString();
+
+  // Handle arrow functions and regular functions
+  let paramMatch: RegExpMatchArray | null;
+
+  // Try arrow function pattern: (a, b) => or a =>
+  const arrowMatch = funcStr.match(/^[^(]*\(?([^)=]*)\)?\s*=>/);
+  if (arrowMatch) {
+    const params = arrowMatch[1].trim();
+    if (!params) {
+      return [];
+    }
+
+    // Handle single parameter without parentheses
+    if (!params.includes(',') && !funcStr.includes('(')) {
+      return [params.trim()];
+    }
+
+    paramMatch = ['', params];
+  } else {
+    // Try regular function pattern: function name(a, b) or (a, b)
+    paramMatch = funcStr.match(/(?:function\s*[^(]*)??\(([^)]*)\)/);
+  }
+
+  if (!paramMatch?.[1]) {
+    return [];
+  }
+
+  // Split parameters while handling nested brackets/braces
+  const params = [];
+  let current = '';
+  let depth = 0;
+
+  const paramStr = paramMatch[1];
+  for (let i = 0; i < paramStr.length; i++) {
+    const char = paramStr[i];
+
+    if (char === '{' || char === '[') {
+      depth++;
+    } else if (char === '}' || char === ']') {
+      depth--;
+    } else if (char === ',' && depth === 0) {
+      params.push(current.trim());
+      current = '';
+      continue;
+    }
+    current += char;
+  }
+  if (current.trim()) {
+    params.push(current.trim());
+  }
+
+  return params
+    .map((param) => {
+      let name = param.trim();
+
+      // Skip destructured parameters
+      if (name.includes('{') || name.includes('[')) {
+        return null;
+      }
+
+      name = name.split('=')[0].trim(); // Remove default values: a = 5
+      name = name.split(':')[0].trim(); // Remove type annotations: a: number
+      if (name.startsWith('...')) {
+        return null; // Ignore rest operator: ...args
+      }
+      return name;
+    })
+    .filter((name): name is string => name != null && name !== '');
+}
