@@ -22,6 +22,7 @@ class Prompt:
         description: Optional[str] = None,
         creation_timestamp: Optional[int] = None,
         tags: Optional[dict[str, str]] = None,
+        aliases: Optional[dict[str, str]] = None,
     ):
         """
         Construct a Prompt entity.
@@ -31,11 +32,13 @@ class Prompt:
             description: Description of the prompt.
             creation_timestamp: Timestamp when the prompt was created.
             tags: Prompt-level metadata as key-value pairs.
+            aliases: Dict of aliases for this prompt, mapping alias name to version. Optional.
         """
         self._name = name
         self._description = description
         self._creation_timestamp = creation_timestamp
         self._tags = tags or {}
+        self._aliases = aliases or {}
 
     @property
     def name(self) -> str:
@@ -57,6 +60,11 @@ class Prompt:
         """Prompt-level metadata as key-value pairs."""
         return self._tags.copy()
 
+    @property
+    def aliases(self) -> dict[str, str]:
+        """Dict of aliases for this prompt, mapping alias name to version."""
+        return self._aliases.copy()
+
     def __eq__(self, other) -> bool:
         if not isinstance(other, Prompt):
             return False
@@ -65,9 +73,11 @@ class Prompt:
             and self.description == other.description
             and self.creation_timestamp == other.creation_timestamp
             and self.tags == other.tags
+            and self.aliases == other.aliases
         )
 
     def __repr__(self) -> str:
         return (
-            f"<PromptInfo: name='{self.name}', description='{self.description}', tags={self.tags}>"
+            f"<PromptInfo: name='{self.name}', description='{self.description}', "
+            f"tags={self.tags}, aliases={self.aliases}>"
         )
