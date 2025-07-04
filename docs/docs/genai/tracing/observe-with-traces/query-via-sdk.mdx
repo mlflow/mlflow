@@ -16,11 +16,11 @@ The MLflow UI is great for interactive exploration, but programmatic access enab
 The `search_traces` API returns a pandas DataFrame by default (if pandas is installed), but can also return a list of Trace objects when `return_type="list"` is specified.
 
 **Syntax Differences**: When using DataFrame return type, the column names used in `filter_string` differ from those in the returned DataFrame:
+
 - Filter: `status` → DataFrame: `state`
 - Filter: `timestamp_ms` → DataFrame: `request_time`
 - Filter: `execution_time_ms` → DataFrame: `execution_duration`
-:::
-
+  :::
 
 ## Basic Query Methods
 
@@ -59,12 +59,14 @@ for trace in error_traces_list[:3]:
 ### Choosing the Right Return Type
 
 **Use DataFrame (default) when**:
+
 - You need to perform statistical analysis on trace data
 - You want to aggregate metrics across multiple traces
 - You're creating visualizations or reports
 - You're familiar with pandas and want to leverage its powerful data manipulation capabilities
 
 **Use List of Trace objects when**:
+
 - You need access to the full Trace object methods and properties
 - You're integrating with other MLflow APIs that expect Trace objects
 - You want to work with individual traces in detail
@@ -165,8 +167,6 @@ if not user_traces.empty:
         status = "✅" if trace["state"] == "OK" else "❌"
         print(f"  {status} {trace['execution_duration']:.1f}ms")
 ```
-
-
 
 ## Best Practices
 

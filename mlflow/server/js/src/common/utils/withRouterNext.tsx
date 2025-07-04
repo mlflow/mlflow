@@ -9,6 +9,7 @@ import {
   useNavigate,
   useParams,
 } from './RoutingUtils';
+import { useSearchParams } from './RoutingUtils';
 
 export interface WithRouterNextProps<Params extends RouterDOMParams = RouterDOMParams> {
   navigate: ReturnType<typeof useNavigate>;
@@ -42,13 +43,15 @@ export const withRouterNext =
     const location = useLocation();
     const navigate = useNavigate();
     const params = useParams<Params>();
-
+    const [searchParams, setSearchParams] = useSearchParams();
     return (
       <Component
         /* prettier-ignore */
         params={params as Params}
         location={location}
         navigate={navigate}
+        searchParams={searchParams}
+        setSearchParams={setSearchParams}
         {...(props as Props)}
       />
     );

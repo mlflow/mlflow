@@ -1,0 +1,89 @@
+name: docs
+
+on:
+  # TODO: Support deploying docs on push
+  # push:
+  #   paths:
+  #     - docs/**
+  #     - .github/workflows/docs.yml
+  #   branches:
+  #     - master
+  #     - branch-[0-9]+.[0-9]+
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+    paths:
+      - docs/**
+      - .github/workflows/docs.yml
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: docs
+
+jobs:
+  check:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    permissions:
+      contents: read
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: ./.github/actions/setup-node
+      - name: Install dependencies
+        run: |
+          yarn install --immutable
+      - name: Run lint
+        run: |
+          yarn eslint
+      - name: Run prettier
+        run: |
+          yarn prettier:check
+
+  build:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    permissions:
+      contents: read
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: ./.github/actions/setup-node
+      - uses: ./.github/actions/setup-python
+      - run: |
+          uv pip install --system .. -r ../requirements/doc-requirements.txt
+      - run: |
+          yarn install --immutable
+      - name: Build docs
+        run: |
+          yarn convert-notebooks
+          yarn build
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: docs-build-${{ github.run_id }}
+          path: docs/build
+          retention-days: 1
+          if-no-files-found: error
+
+      # `github.event.workflow_run.pull_requests` is empty when a PR is created from a fork:
+      # https://github.com/orgs/community/discussions/25220#discussioncomment-11001085
+      - name: Save PR number
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          echo $PR_NUMBER > /tmp/pr_number.txt
+          cat /tmp/pr_number.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: pr_number
+          path: /tmp/pr_number.txt
+          retention-days: 1
+          if-no-files-found: error

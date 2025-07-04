@@ -7,7 +7,7 @@ export const ScrollablePageWrapper = ({ children, className }: { children: React
   return (
     <PageWrapper
       // Subtract header height
-      css={{ height: 'calc(100% - 60px)' }}
+      css={{ height: '100%' }}
       className={className}
     >
       {children}

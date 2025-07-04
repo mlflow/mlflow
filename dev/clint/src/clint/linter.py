@@ -457,17 +457,20 @@ class Linter(ast.NodeVisitor):
             v.visit(tree)
         return [v for v in linter.violations if v.rule.name in config.example_rules]
 
-    def visit_decorator(self, node: ast.expr) -> None:
-        if rules.InvalidExperimentalDecorator.check(node, self.resolver):
-            self._check(Location.from_node(node), rules.InvalidExperimentalDecorator())
+    def visit_decorators(self, decorator_list: list[ast.expr]) -> None:
+        for decorator in decorator_list:
+            if rules.InvalidExperimentalDecorator.check(decorator, self.resolver):
+                self._check(Location.from_node(decorator), rules.InvalidExperimentalDecorator())
+
+        if decorator := rules.TrackApiUsageTopMost.check(self.resolver, decorator_list):
+            self._check(Location.from_node(decorator), rules.TrackApiUsageTopMost())
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
         self.stack.append(node)
         self._no_rst(node)
         self._syntax_error_example(node)
         self._mlflow_class_name(node)
-        for deco in node.decorator_list:
-            self.visit_decorator(deco)
+        self.visit_decorators(node.decorator_list)
         with self.resolver.scope():
             self.generic_visit(node)
         self.stack.pop()
@@ -541,8 +544,7 @@ class Linter(ast.NodeVisitor):
 
         self.stack.append(node)
         self._no_rst(node)
-        for deco in node.decorator_list:
-            self.visit_decorator(deco)
+        self.visit_decorators(node.decorator_list)
         with self.resolver.scope():
             self.generic_visit(node)
         self.stack.pop()
@@ -556,8 +558,7 @@ class Linter(ast.NodeVisitor):
         self._pytest_mark_repeat(node)
         self.stack.append(node)
         self._no_rst(node)
-        for deco in node.decorator_list:
-            self.visit_decorator(deco)
+        self.visit_decorators(node.decorator_list)
         with self.resolver.scope():
             self.generic_visit(node)
         self.stack.pop()
@@ -673,7 +674,7 @@ class Linter(ast.NodeVisitor):
 
     def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
         if rules.ImplicitOptional.check(node):
-            self._check(Location.from_node(node), rules.ImplicitOptional())
+            self._check(Location.from_node(node.annotation), rules.ImplicitOptional())
 
         if node.annotation:
             self.visit_type_annotation(node.annotation)
@@ -788,6 +789,15 @@ def _lint_cell(
     return violations
 
 
+def _has_h1_header(cells: list[dict[str, Any]]) -> bool:
+    return any(
+        line.strip().startswith("# ")
+        for cell in cells
+        if cell.get("cell_type") == "markdown"
+        for line in cell.get("source", [])
+    )
+
+
 def lint_file(path: Path, config: Config, index: SymbolIndex) -> list[Violation]:
     code = path.read_text()
     if path.suffix == ".ipynb":
@@ -801,6 +811,14 @@ def lint_file(path: Path, config: Config, index: SymbolIndex) -> list[Violation]
                         index=index,
                         cell=cell,
                         cell_index=cell_idx,
+                    )
+                )
+            if not _has_h1_header(cells):
+                violations.append(
+                    Violation(
+                        rules.MissingNotebookH1Header(),
+                        path,
+                        Location(0, 0),
                     )
                 )
         return violations

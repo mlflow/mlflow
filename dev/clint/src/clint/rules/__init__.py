@@ -16,6 +16,7 @@ from clint.rules.lazy_module import LazyModule
 from clint.rules.log_model_artifact_path import LogModelArtifactPath
 from clint.rules.markdown_link import MarkdownLink
 from clint.rules.missing_docstring_param import MissingDocstringParam
+from clint.rules.missing_notebook_h1_header import MissingNotebookH1Header
 from clint.rules.mlflow_class_name import MlflowClassName
 from clint.rules.multi_assign import MultiAssign
 from clint.rules.no_rst import NoRst
@@ -26,6 +27,7 @@ from clint.rules.test_name_typo import TestNameTypo
 from clint.rules.thread_pool_executor_without_thread_name_prefix import (
     ThreadPoolExecutorWithoutThreadNamePrefix,
 )
+from clint.rules.track_api_usage_topmost import TrackApiUsageTopMost
 from clint.rules.typing_extensions import TypingExtensions
 from clint.rules.unknown_mlflow_arguments import UnknownMlflowArguments
 from clint.rules.unknown_mlflow_function import UnknownMlflowFunction
@@ -52,6 +54,7 @@ __all__ = [
     "LogModelArtifactPath",
     "MarkdownLink",
     "MissingDocstringParam",
+    "MissingNotebookH1Header",
     "MlflowClassName",
     "NoRst",
     "OsEnvironDeleteInTest",
@@ -59,6 +62,7 @@ __all__ = [
     "PytestMarkRepeat",
     "TestNameTypo",
     "ThreadPoolExecutorWithoutThreadNamePrefix",
+    "TrackApiUsageTopMost",
     "TypingExtensions",
     "UnknownMlflowArguments",
     "UnknownMlflowFunction",

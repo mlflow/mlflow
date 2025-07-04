@@ -311,13 +311,13 @@ class RestStore(AbstractStore):
         Create a new trace using the V2 API format. This is a fallback for the case where the
         client is v3 but the tracking server does not support v3 yet(<= 3.2.0).
         """
-        trace_info_v2 = self.start_trace(
+        trace_info_v2 = self.deprecated_start_trace_v2(
             experiment_id=trace_info.experiment_id,
             timestamp_ms=trace_info.request_time,
             request_metadata=trace_info.trace_metadata,
             tags=trace_info.tags,
         )
-        self.end_trace(
+        self.deprecated_end_trace_v2(
             request_id=trace_info_v2.request_id,
             timestamp_ms=trace_info.request_time + trace_info.execution_duration,
             status=trace_info.status,

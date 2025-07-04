@@ -4281,3 +4281,320 @@ def test_regressor_returning_pandas_object(model_output, predictions):
             "root_mean_squared_error": 0.0,
             "sum_on_target": 3,
         }
+
+
+@pytest.mark.parametrize(
+    (
+        "data",
+        "evaluator_config",
+        "expected_metrics",
+        "expected_artifacts",
+        "description",
+    ),
+    [
+        # Binary classification with single class data + explicit labels
+        (
+            pd.DataFrame({"target": [0, 0, 0, 0], "prediction": [0, 0, 0, 0]}),
+            {"label_list": [0, 1]},
+            {
+                "accuracy_score": 1.0,
+                "true_negatives": 4,
+                "false_positives": 0,
+                "false_negatives": 0,
+                "true_positives": 0,
+            },
+            {"confusion_matrix": True},
+            "single_class_with_explicit_labels",
+        ),
+        # Normal binary classification
+        (
+            pd.DataFrame({"target": [0, 1, 0, 1], "prediction": [0, 1, 1, 0]}),
+            {},
+            {
+                "accuracy_score": 0.5,
+                "true_negatives": 1,
+                "false_positives": 1,
+                "false_negatives": 1,
+                "true_positives": 1,
+            },
+            {"confusion_matrix": True},
+            "binary_classification",
+        ),
+        # Multiclass with string labels
+        (
+            pd.DataFrame(
+                {
+                    "target": ["cat", "dog", "bird", "cat", "dog", "bird"],
+                    "prediction": ["cat", "dog", "cat", "dog", "bird", "bird"],
+                }
+            ),
+            {},
+            {"accuracy_score": 0.5},
+            {"per_class_metrics": True, "confusion_matrix": True},
+            "multiclass_string_labels",
+        ),
+        # Multiclass with missing class in data
+        (
+            pd.DataFrame(
+                {
+                    "target": ["cat", "dog", "cat", "dog"],
+                    "prediction": ["cat", "dog", "dog", "cat"],
+                }
+            ),
+            {"label_list": ["cat", "dog", "bird"]},
+            {"accuracy_score": 0.5},
+            {"per_class_metrics": True},
+            "multiclass_missing_class",
+        ),
+        # Multiclass with numeric labels
+        (
+            pd.DataFrame(
+                {
+                    "target": [0, 1, 2, 0, 1],
+                    "prediction": [0, 1, 1, 2, 1],
+                }
+            ),
+            {"label_list": [0, 1, 2]},
+            {"accuracy_score": 0.6},
+            {"per_class_metrics": True},
+            "multiclass_numeric_labels",
+        ),
+        # Auto-inferred binary with string labels
+        (
+            pd.DataFrame({"target": ["x", "y", "x", "y"], "prediction": ["x", "y", "y", "x"]}),
+            {},
+            {"accuracy_score": 0.5},
+            {"confusion_matrix": True},
+            "binary_auto_inferred_strings",
+        ),
+    ],
+)
+def test_classifier_evaluation_scenarios(
+    data, evaluator_config, expected_metrics, expected_artifacts, description
+):
+    """Test various classifier evaluation scenarios with different data types and configurations."""
+    result = mlflow.evaluate(
+        data=data,
+        targets="target",
+        predictions="prediction",
+        model_type="classifier",
+        evaluator_config=evaluator_config,
+    )
+
+    # Verify evaluation completed successfully
+    assert result is not None
+    assert "accuracy_score" in result.metrics
+
+    # Check specific expected metrics
+    for metric_name, expected_value in expected_metrics.items():
+        if isinstance(expected_value, float):
+            assert abs(result.metrics[metric_name] - expected_value) < 1e-6, (
+                f"Metric {metric_name} mismatch"
+            )
+        else:
+            assert result.metrics[metric_name] == expected_value, f"Metric {metric_name} mismatch"
+
+    # Check expected artifacts
+    for artifact_name, should_exist in expected_artifacts.items():
+        if should_exist:
+            assert artifact_name in result.artifacts, f"Missing artifact: {artifact_name}"
+
+    # Special validations for per-class metrics
+    if "per_class_metrics" in expected_artifacts:
+        per_class_df = result.artifacts["per_class_metrics"].content
+        # Verify structure
+        assert "positive_class" in per_class_df.columns
+        required_columns = {
+            "true_negatives",
+            "false_positives",
+            "false_negatives",
+            "true_positives",
+        }
+        assert required_columns.issubset(set(per_class_df.columns))
+
+        # Verify consistency: each row should sum to total number of samples
+        for _, row in per_class_df.iterrows():
+            total = sum(row[col] for col in required_columns)
+            assert total == len(data), (
+                f"Confusion matrix sum mismatch for class {row['positive_class']}"
+            )
+
+
+@pytest.mark.parametrize(
+    (
+        "data",
+        "evaluator_config",
+        "expected_error",
+        "error_message_pattern",
+        "description",
+    ),
+    [
+        # Single class without explicit labels
+        (
+            pd.DataFrame({"target": [0, 0, 0, 0], "prediction": [0, 0, 0, 0]}),
+            {},
+            MlflowException,
+            (
+                "Evaluation dataset for classification must contain at least two unique "
+                "labels, but only 1 unique labels were found\\."
+            ),
+            "single_class_no_labels",
+        ),
+        # Invalid pos_label
+        (
+            pd.DataFrame({"target": [0, 1, 0, 1], "prediction": [0, 1, 1, 0]}),
+            {"label_list": [0, 1], "pos_label": 2},
+            MlflowException,
+            "'pos_label' 2 must exist in 'label_list'",
+            "invalid_pos_label",
+        ),
+        # Single element label_list
+        (
+            pd.DataFrame({"target": [1, 1, 1, 1], "prediction": [1, 1, 1, 1]}),
+            {"label_list": [1]},
+            MlflowException,
+            (
+                "Evaluation dataset for classification must contain at least two unique "
+                "labels, but only 1 unique labels were found\\."
+            ),
+            "single_element_label_list",
+        ),
+        # Empty label_list
+        (
+            pd.DataFrame({"target": [0, 1, 0, 1], "prediction": [0, 1, 1, 0]}),
+            {"label_list": []},
+            MlflowException,
+            (
+                "Evaluation dataset for classification must contain at least two unique "
+                "labels, but only 0 unique labels were found\\."
+            ),
+            "empty_label_list",
+        ),
+    ],
+)
+def test_classifier_evaluation_error_conditions(
+    data, evaluator_config, expected_error, error_message_pattern, description
+):
+    """Test error conditions in classifier evaluation."""
+    with pytest.raises(expected_error, match=error_message_pattern):
+        mlflow.evaluate(
+            data=data,
+            targets="target",
+            predictions="prediction",
+            model_type="classifier",
+            evaluator_config=evaluator_config,
+        )
+
+
+@pytest.mark.parametrize(
+    (
+        "data",
+        "evaluator_config",
+        "expected_binary_metrics",
+        "expected_classes",
+        "description",
+    ),
+    [
+        # Binary with explicit labels and pos_label
+        (
+            pd.DataFrame({"target": [0, 1, 0, 1], "prediction": [0, 1, 1, 0]}),
+            {"label_list": [0, 1], "pos_label": 1},
+            True,  # Should have binary metrics
+            2,  # Two classes
+            "binary_explicit_pos_label",
+        ),
+        # Multiclass (3 classes)
+        (
+            pd.DataFrame({"target": [0, 1, 2, 0, 1], "prediction": [0, 1, 1, 2, 1]}),
+            {"label_list": [0, 1, 2]},
+            False,  # Should NOT have binary metrics
+            3,  # Three classes
+            "multiclass_three_classes",
+        ),
+        # Auto-inferred binary
+        (
+            pd.DataFrame({"target": ["x", "y", "x", "y"], "prediction": ["x", "y", "y", "x"]}),
+            {},
+            True,  # Should have binary metrics (auto-inferred)
+            2,  # Two classes
+            "binary_auto_inferred",
+        ),
+    ],
+)
+def test_label_validation_and_classification_type(
+    data, evaluator_config, expected_binary_metrics, expected_classes, description
+):
+    """Test label validation and binary vs multiclass classification detection."""
+    result = mlflow.evaluate(
+        data=data,
+        targets="target",
+        predictions="prediction",
+        model_type="classifier",
+        evaluator_config=evaluator_config,
+    )
+
+    assert result is not None
+    assert "accuracy_score" in result.metrics
+
+    # Check if binary metrics are present based on classification type
+    binary_metric_names = {
+        "true_negatives",
+        "false_positives",
+        "false_negatives",
+        "true_positives",
+    }
+    has_binary_metrics = all(metric in result.metrics for metric in binary_metric_names)
+
+    assert has_binary_metrics == expected_binary_metrics, (
+        f"Binary metrics presence mismatch for {description}"
+    )
+
+    # For multiclass, check per-class metrics
+    if not expected_binary_metrics:
+        assert "per_class_metrics" in result.artifacts
+        per_class_df = result.artifacts["per_class_metrics"].content
+        assert len(per_class_df) == expected_classes
+
+
+def test_multiclass_per_class_metrics_with_missing_class_failure():
+    """
+    Critical test demonstrating why labels=[0,1] is essential in per-class metrics.
+
+    This test validates that the hardcoded labels=[0,1] in per-class metrics calculation
+    prevents crashes when classes are missing from evaluation data.
+    """
+    # Create multiclass data where class 'C' is completely missing from evaluation
+    data = pd.DataFrame(
+        {
+            "target": ["A", "B", "A", "A", "B", "A", "B", "A"],  # Only A and B present
+            "prediction": ["A", "B", "A", "A", "B", "A", "B", "A"],  # Only A and B predicted
+        }
+    )
+
+    # Model was trained on A, B, C but evaluation data missing C
+    label_list = ["A", "B", "C"]  # C missing from actual data!
+
+    # This should work with proper labels=[0,1] hardcoding
+    result = mlflow.evaluate(
+        data=data,
+        targets="target",
+        predictions="prediction",
+        model_type="classifier",
+        evaluator_config={"label_list": label_list},
+    )
+
+    # Verify the evaluation completed successfully
+    assert result is not None
+    assert "per_class_metrics" in result.artifacts
+
+    # Check that per-class metrics were computed for all classes
+    per_class_df = result.artifacts["per_class_metrics"].content
+    assert len(per_class_df) == 3  # Should have metrics for A, B, C
+    assert set(per_class_df["positive_class"]) == {"A", "B", "C"}
+
+    # Verify class C has proper zero metrics (since it's missing from data)
+    class_c_metrics = per_class_df[per_class_df["positive_class"] == "C"].iloc[0]
+    assert class_c_metrics["true_negatives"] == 8  # All samples are negative for C
+    assert class_c_metrics["false_positives"] == 0  # No false positives
+    assert class_c_metrics["false_negatives"] == 0  # No false negatives
+    assert class_c_metrics["true_positives"] == 0  # No true positives

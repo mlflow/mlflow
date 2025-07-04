@@ -1,9 +1,7 @@
-import { Alert, LegacySkeleton, Typography, useDesignSystemTheme } from '@databricks/design-system';
+import { LegacySkeleton } from '@databricks/design-system';
 
 import { useEffect, useState } from 'react';
 import { ErrorCodes } from '../../../common/constants';
-import NotFoundPage from '../NotFoundPage';
-import { PermissionDeniedView } from '../PermissionDeniedView';
 import { ExperimentViewHeaderCompare } from './components/header/ExperimentViewHeaderCompare';
 import { ExperimentViewRuns } from './components/runs/ExperimentViewRuns';
 import { useExperiments } from './hooks/useExperiments';
@@ -32,7 +30,6 @@ import { ExperimentViewHeader } from './components/header/ExperimentViewHeader';
 import invariant from 'invariant';
 import { useExperimentPageViewMode } from './hooks/useExperimentPageViewMode';
 import { ExperimentViewTraces } from './components/ExperimentViewTraces';
-import { FormattedMessage } from 'react-intl';
 import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
 import { NotFoundError, PermissionError } from '@databricks/web-shared/errors';
 import { ExperimentViewNotFound } from './components/ExperimentViewNotFound';
@@ -42,7 +39,6 @@ import { ErrorViewV2 } from '../../../common/components/ErrorViewV2';
 // END-EDGE
 export const ExperimentView = () => {
   const dispatch = useDispatch<ThunkDispatch>();
-  const { theme } = useDesignSystemTheme();
 
   const [searchFacets, experimentIds, isPreview] = useExperimentPageSearchFacets();
   const [viewMode] = useExperimentPageViewMode();

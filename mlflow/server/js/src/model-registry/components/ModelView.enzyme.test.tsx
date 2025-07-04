@@ -57,6 +57,10 @@ describe('ModelView', () => {
     global.fetch = jest.fn(() => Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve('') }));
     navigateMock.mockClear();
     minimalProps = {
+      orderByKey: 'creation_timestamp',
+      orderByAsc: false,
+      currentPage: 1,
+      nextPageToken: null,
       model: mockRegisteredModelDetailed(
         mockModel.name,
         // @ts-expect-error TS(2345): Argument of type '{ name: any; creation_timestamp:... Remove this comment to see the full error message
