@@ -674,7 +674,7 @@ class Linter(ast.NodeVisitor):
 
     def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
         if rules.ImplicitOptional.check(node):
-            self._check(Location.from_node(node), rules.ImplicitOptional())
+            self._check(Location.from_node(node.annotation), rules.ImplicitOptional())
 
         if node.annotation:
             self.visit_type_annotation(node.annotation)
@@ -789,6 +789,15 @@ def _lint_cell(
     return violations
 
 
+def _has_h1_header(cells: list[dict[str, Any]]) -> bool:
+    return any(
+        line.strip().startswith("# ")
+        for cell in cells
+        if cell.get("cell_type") == "markdown"
+        for line in cell.get("source", [])
+    )
+
+
 def lint_file(path: Path, config: Config, index: SymbolIndex) -> list[Violation]:
     code = path.read_text()
     if path.suffix == ".ipynb":
@@ -802,6 +811,14 @@ def lint_file(path: Path, config: Config, index: SymbolIndex) -> list[Violation]
                         index=index,
                         cell=cell,
                         cell_index=cell_idx,
+                    )
+                )
+            if not _has_h1_header(cells):
+                violations.append(
+                    Violation(
+                        rules.MissingNotebookH1Header(),
+                        path,
+                        Location(0, 0),
                     )
                 )
         return violations

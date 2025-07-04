@@ -965,7 +965,7 @@ def test_search_traces_yields_expected_dataframe_contents(monkeypatch):
     ]
     for idx, trace in enumerate(expected_traces):
         assert df.iloc[idx].trace_id == trace.info.trace_id
-        assert df.iloc[idx].trace.info.trace_id == trace.info.trace_id
+        assert Trace.from_json(df.iloc[idx].trace).info.trace_id == trace.info.trace_id
         assert df.iloc[idx].client_request_id == trace.info.client_request_id
         assert df.iloc[idx].state == trace.info.state
         assert df.iloc[idx].request_time == trace.info.request_time
@@ -984,7 +984,7 @@ def test_search_traces_handles_missing_response_tags_and_metadata(mock_client):
         [
             Trace(
                 info=TraceInfo(
-                    trace_id=5,
+                    trace_id="5",
                     trace_location=TraceLocation.from_experiment_id("test"),
                     request_time=1,
                     execution_duration=2,

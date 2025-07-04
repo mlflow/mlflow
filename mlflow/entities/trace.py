@@ -111,7 +111,7 @@ class Trace(_MlflowObject):
     def to_pandas_dataframe_row(self) -> dict[str, Any]:
         return {
             "trace_id": self.info.trace_id,
-            "trace": self,
+            "trace": self.to_json(),  # json string to be compatible with Spark DataFrame
             "client_request_id": self.info.client_request_id,
             "state": self.info.state,
             "request_time": self.info.request_time,
@@ -121,7 +121,7 @@ class Trace(_MlflowObject):
             "trace_metadata": self.info.trace_metadata,
             "tags": self.info.tags,
             "spans": [span.to_dict() for span in self.data.spans],
-            "assessments": self.info.assessments,
+            "assessments": [assessment.to_dictionary() for assessment in self.info.assessments],
         }
 
     def _deserialize_json_attr(self, value: str):

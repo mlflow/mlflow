@@ -1,6 +1,10 @@
 name: copilot-setup-steps
 
-on: workflow_dispatch
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/copilot-setup-steps.yml
 
 jobs:
   copilot-setup-steps:
@@ -13,7 +17,7 @@ jobs:
       - uses: ./.github/actions/setup-python
       - name: pre-commit setup
         run: |
-          uv pip install --system -r requirements/lint-requirements.txt
+          uv pip install --system . -r requirements/lint-requirements.txt
           dev/install-taplo.sh
           dev/install-typos.sh
           dev/install-conftest.sh
