@@ -59,12 +59,14 @@ def _generate_telemetry_record(
         if params and params[0] == "cls" and isinstance(arguments["cls"], type):
             del arguments["cls"]
 
+        # TODO: simplify this
         full_func_name = f"{func.__module__}.{func.__qualname__}"
         parser = API_PARSER_MAPPING.get(full_func_name) or API_PARSER_MAPPING.get(func.__name__)
 
-        record_params = parser.extract_params(full_func_name, arguments) if parser else None
+        record_params = parser.extract_params(func, arguments) if parser else None
         return APIRecord(
-            api_name=full_func_name,
+            api_module=func.__module__,
+            api_name=func.__qualname__,
             params=record_params,
             status=APIStatus.SUCCESS.value if success else APIStatus.FAILURE.value,
             duration_ms=duration_ms,
