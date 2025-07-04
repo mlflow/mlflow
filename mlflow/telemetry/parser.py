@@ -1,6 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Optional
 
 from mlflow.telemetry.schemas import (
     AutologParams,
@@ -19,7 +19,7 @@ _logger = logging.getLogger(__name__)
 class TelemetryParser(ABC):
     @classmethod
     @abstractmethod
-    def extract_params(cls, func_name: str, arguments: dict[str, Any]) -> BaseParams | None:
+    def extract_params(cls, func_name: str, arguments: dict[str, Any]) -> Optional[BaseParams]:
         """
         Extract the parameters from the function call.
 
@@ -34,7 +34,7 @@ class TelemetryParser(ABC):
 
 class LogModelParser(TelemetryParser):
     @classmethod
-    def extract_params(cls, func_name: str, arguments: dict[str, Any]) -> LogModelParams | None:
+    def extract_params(cls, func_name: str, arguments: dict[str, Any]) -> Optional[LogModelParams]:
         splits = func_name.rsplit(".", 2)
         if len(splits) != 3:
             _logger.debug(f"Failed to extract log model params for function {func_name}")
@@ -84,7 +84,7 @@ class LogModelParser(TelemetryParser):
 
 class AutologParser(TelemetryParser):
     @classmethod
-    def extract_params(cls, func_name: str, arguments: dict[str, Any]) -> AutologParams | None:
+    def extract_params(cls, func_name: str, arguments: dict[str, Any]) -> Optional[AutologParams]:
         splits = func_name.rsplit(".", 2)
         if len(splits) == 2:
             flavor = "all"

@@ -3,6 +3,7 @@ import sys
 import uuid
 from dataclasses import dataclass
 from enum import Enum
+from typing import Optional
 
 from mlflow.version import VERSION
 
@@ -56,11 +57,11 @@ class GenaiEvaluateParams(BaseParams):
 
 
 @dataclass
-class Record:
+class APIRecord:
     api_name: str
-    params: BaseParams | None = None
+    params: Optional[BaseParams] = None
     status: APIStatus = APIStatus.UNKNOWN.value
-    # TODO: add duration_ms after we get approval
+    duration_ms: Optional[int] = None
 
 
 @dataclass
@@ -71,4 +72,10 @@ class TelemetryInfo:
         f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
     )
     operating_system: str = platform.platform()
-    backend_store: str | None = None
+    backend_store: Optional[str] = None
+
+
+@dataclass
+class TelemetryRecord:
+    data: str
+    partition_key: str
