@@ -108,7 +108,7 @@ export const RunViewOverview = ({
             description="Run page > Overview > Run prompts section label"
           />
         }
-        value={<RunViewRegisteredPromptsBox runUuid={runUuid} />}
+        value={<RunViewRegisteredPromptsBox tags={tags} runUuid={runUuid} />}
       />
     );
   };

@@ -83,6 +83,7 @@ with mlflow.start_run(run_name="Basic Prophet Forecast"):
 ```
 
 This example automatically captures:
+
 - All Prophet model parameters and configuration
 - Cross-validation performance metrics
 - The trained model ready for deployment
@@ -147,81 +148,83 @@ def prepare_prophet_data(data, date_col, value_col, freq="D"):
 <details>
   <summary>Data Preparation Patterns</summary>
 
-  #### Multiple Time Series
-  ```python
-  def prepare_multiple_series(data, date_col, value_col, series_col):
-      """Prepare multiple time series for separate Prophet models."""
+#### Multiple Time Series
 
-      results = {}
+```python
+def prepare_multiple_series(data, date_col, value_col, series_col):
+    """Prepare multiple time series for separate Prophet models."""
 
-      for series_name in data[series_col].unique():
-          series_data = data[data[series_col] == series_name]
-          prophet_data = prepare_prophet_data(series_data, date_col, value_col)
-          results[series_name] = prophet_data
+    results = {}
 
-      return results
+    for series_name in data[series_col].unique():
+        series_data = data[data[series_col] == series_name]
+        prophet_data = prepare_prophet_data(series_data, date_col, value_col)
+        results[series_name] = prophet_data
+
+    return results
 
 
-  # Train separate models for each series
-  def train_multiple_prophet_models(series_dict):
-      """Train Prophet models for multiple time series."""
+# Train separate models for each series
+def train_multiple_prophet_models(series_dict):
+    """Train Prophet models for multiple time series."""
 
-      models = {}
+    models = {}
 
-      with mlflow.start_run(run_name="Multiple Series Forecasting"):
-          for series_name, data in series_dict.items():
-              with mlflow.start_run(run_name=f"Series_{series_name}", nested=True):
-                  model = Prophet()
-                  model.fit(data)
+    with mlflow.start_run(run_name="Multiple Series Forecasting"):
+        for series_name, data in series_dict.items():
+            with mlflow.start_run(run_name=f"Series_{series_name}", nested=True):
+                model = Prophet()
+                model.fit(data)
 
-                  # Log series-specific metrics
-                  mlflow.log_param("series_name", series_name)
-                  mlflow.log_param("data_points", len(data))
+                # Log series-specific metrics
+                mlflow.log_param("series_name", series_name)
+                mlflow.log_param("data_points", len(data))
 
-                  models[series_name] = model
+                models[series_name] = model
 
-                  # Log individual model
-                  mlflow.prophet.log_model(pr_model=model, name=f"model_{series_name}")
+                # Log individual model
+                mlflow.prophet.log_model(pr_model=model, name=f"model_{series_name}")
 
-      return models
-  ```
+    return models
+```
 
-  #### Irregular Time Series
-  ```python
-  def handle_irregular_timeseries(df, min_frequency="W"):
-      """Handle irregular time series data."""
+#### Irregular Time Series
 
-      # Aggregate to regular frequency if needed
-      df["ds"] = pd.to_datetime(df["ds"])
-      df.set_index("ds", inplace=True)
+```python
+def handle_irregular_timeseries(df, min_frequency="W"):
+    """Handle irregular time series data."""
 
-      # Resample to regular frequency
-      if min_frequency == "W":
-          df_regular = (
-              df.resample("W")
-              .agg(
-                  {
-                      "y": "sum",  # or 'mean' depending on your use case
-                  }
-              )
-              .reset_index()
-          )
-      elif min_frequency == "M":
-          df_regular = (
-              df.resample("M")
-              .agg(
-                  {
-                      "y": "sum",
-                  }
-              )
-              .reset_index()
-          )
+    # Aggregate to regular frequency if needed
+    df["ds"] = pd.to_datetime(df["ds"])
+    df.set_index("ds", inplace=True)
 
-      # Remove any remaining NaN values
-      df_regular = df_regular.dropna()
+    # Resample to regular frequency
+    if min_frequency == "W":
+        df_regular = (
+            df.resample("W")
+            .agg(
+                {
+                    "y": "sum",  # or 'mean' depending on your use case
+                }
+            )
+            .reset_index()
+        )
+    elif min_frequency == "M":
+        df_regular = (
+            df.resample("M")
+            .agg(
+                {
+                    "y": "sum",
+                }
+            )
+            .reset_index()
+        )
 
-      return df_regular
-  ```
+    # Remove any remaining NaN values
+    df_regular = df_regular.dropna()
+
+    return df_regular
+```
 
 </details>
 
@@ -348,98 +351,100 @@ model_with_custom, enhanced_df = add_custom_components(model_with_custom, df.cop
 <details>
   <summary>Holiday and Event Modeling</summary>
 
-  #### Built-in Holiday Support
-  ```python
-  from prophet.make_holidays import make_holidays_df
+#### Built-in Holiday Support
+
+```python
+from prophet.make_holidays import make_holidays_df
 
 
-  def add_holiday_effects():
-      """Add holiday effects to Prophet model."""
+def add_holiday_effects():
+    """Add holiday effects to Prophet model."""
 
-      with mlflow.start_run(run_name="Holiday Modeling"):
-          # Create holidays dataframe for specific countries
-          holidays = make_holidays_df(
-              year_list=range(2010, 2025),
-              country="US",  # Built-in support for many countries
-          )
+    with mlflow.start_run(run_name="Holiday Modeling"):
+        # Create holidays dataframe for specific countries
+        holidays = make_holidays_df(
+            year_list=range(2010, 2025),
+            country="US",  # Built-in support for many countries
+        )
 
-          # Add custom holidays/events
-          custom_events = pd.DataFrame(
-              {
-                  "holiday": "black_friday",
-                  "ds": pd.to_datetime(
-                      ["2020-11-27", "2021-11-26", "2022-11-25", "2023-11-24"]
-                  ),
-                  "lower_window": -1,  # Effect starts 1 day before
-                  "upper_window": 2,  # Effect lasts 2 days after
-              }
-          )
+        # Add custom holidays/events
+        custom_events = pd.DataFrame(
+            {
+                "holiday": "black_friday",
+                "ds": pd.to_datetime(
+                    ["2020-11-27", "2021-11-26", "2022-11-25", "2023-11-24"]
+                ),
+                "lower_window": -1,  # Effect starts 1 day before
+                "upper_window": 2,  # Effect lasts 2 days after
+            }
+        )
 
-          # Combine built-in and custom holidays
-          all_holidays = pd.concat([holidays, custom_events])
+        # Combine built-in and custom holidays
+        all_holidays = pd.concat([holidays, custom_events])
 
-          # Create model with holidays
-          model = Prophet(
-              holidays=all_holidays,
-              holidays_prior_scale=15,  # Increase for stronger holiday effects
-          )
+        # Create model with holidays
+        model = Prophet(
+            holidays=all_holidays,
+            holidays_prior_scale=15,  # Increase for stronger holiday effects
+        )
 
-          model.fit(df)
+        model.fit(df)
 
-          # Log holiday information
-          mlflow.log_params(
-              {
-                  "country_holidays": "US",
-                  "custom_events": ["black_friday"],
-                  "total_holidays": len(all_holidays),
-                  "holidays_prior_scale": 15,
-              }
-          )
+        # Log holiday information
+        mlflow.log_params(
+            {
+                "country_holidays": "US",
+                "custom_events": ["black_friday"],
+                "total_holidays": len(all_holidays),
+                "holidays_prior_scale": 15,
+            }
+        )
 
-          return model
-  ```
+        return model
+```
 
-  #### Business Calendar Integration
-  ```python
-  def create_business_calendar(start_date, end_date):
-      """Create business-specific calendar events."""
+#### Business Calendar Integration
 
-      business_events = []
+```python
+def create_business_calendar(start_date, end_date):
+    """Create business-specific calendar events."""
 
-      # Quarterly business reviews
-      for year in range(start_date.year, end_date.year + 1):
-          for quarter in [1, 2, 3, 4]:
-              if quarter == 1:
-                  date = f"{year}-03-31"
-              elif quarter == 2:
-                  date = f"{year}-06-30"
-              elif quarter == 3:
-                  date = f"{year}-09-30"
-              else:
-                  date = f"{year}-12-31"
+    business_events = []
 
-              business_events.append(
-                  {
-                      "holiday": "quarterly_review",
-                      "ds": pd.to_datetime(date),
-                      "lower_window": -7,  # Week before
-                      "upper_window": 0,
-                  }
-              )
+    # Quarterly business reviews
+    for year in range(start_date.year, end_date.year + 1):
+        for quarter in [1, 2, 3, 4]:
+            if quarter == 1:
+                date = f"{year}-03-31"
+            elif quarter == 2:
+                date = f"{year}-06-30"
+            elif quarter == 3:
+                date = f"{year}-09-30"
+            else:
+                date = f"{year}-12-31"
 
-      # Annual planning periods
-      for year in range(start_date.year, end_date.year + 1):
-          business_events.append(
-              {
-                  "holiday": "annual_planning",
-                  "ds": pd.to_datetime(f"{year}-11-15"),
-                  "lower_window": -14,  # Two weeks of planning
-                  "upper_window": 14,
-              }
-          )
+            business_events.append(
+                {
+                    "holiday": "quarterly_review",
+                    "ds": pd.to_datetime(date),
+                    "lower_window": -7,  # Week before
+                    "upper_window": 0,
+                }
+            )
 
-      return pd.DataFrame(business_events)
-  ```
+    # Annual planning periods
+    for year in range(start_date.year, end_date.year + 1):
+        business_events.append(
+            {
+                "holiday": "annual_planning",
+                "ds": pd.to_datetime(f"{year}-11-15"),
+                "lower_window": -14,  # Two weeks of planning
+                "upper_window": 14,
+            }
+        )
+
+    return pd.DataFrame(business_events)
+```
 
 </details>
 
@@ -718,102 +723,102 @@ best_model, best_config, all_results = optimize_prophet_hyperparameters(df)
 <details>
   <summary>Bayesian Hyperparameter Optimization</summary>
 
-  ```python
-  import optuna
+```python
+import optuna
 
 
-  def objective(trial, df):
-      """Optuna objective function for Prophet optimization."""
+def objective(trial, df):
+    """Optuna objective function for Prophet optimization."""
 
-      # Define hyperparameter search space
-      params = {
-          "changepoint_prior_scale": trial.suggest_float(
-              "changepoint_prior_scale", 0.001, 1.0, log=True
-          ),
-          "seasonality_prior_scale": trial.suggest_float(
-              "seasonality_prior_scale", 0.01, 50.0, log=True
-          ),
-          "holidays_prior_scale": trial.suggest_float(
-              "holidays_prior_scale", 0.01, 50.0, log=True
-          ),
-          "seasonality_mode": trial.suggest_categorical(
-              "seasonality_mode", ["additive", "multiplicative"]
-          ),
-          "yearly_seasonality": trial.suggest_categorical(
-              "yearly_seasonality", [True, False, "auto"]
-          ),
-          "weekly_seasonality": trial.suggest_categorical(
-              "weekly_seasonality", [True, False, "auto"]
-          ),
-          "daily_seasonality": trial.suggest_categorical(
-              "daily_seasonality", [True, False, "auto"]
-          ),
-      }
+    # Define hyperparameter search space
+    params = {
+        "changepoint_prior_scale": trial.suggest_float(
+            "changepoint_prior_scale", 0.001, 1.0, log=True
+        ),
+        "seasonality_prior_scale": trial.suggest_float(
+            "seasonality_prior_scale", 0.01, 50.0, log=True
+        ),
+        "holidays_prior_scale": trial.suggest_float(
+            "holidays_prior_scale", 0.01, 50.0, log=True
+        ),
+        "seasonality_mode": trial.suggest_categorical(
+            "seasonality_mode", ["additive", "multiplicative"]
+        ),
+        "yearly_seasonality": trial.suggest_categorical(
+            "yearly_seasonality", [True, False, "auto"]
+        ),
+        "weekly_seasonality": trial.suggest_categorical(
+            "weekly_seasonality", [True, False, "auto"]
+        ),
+        "daily_seasonality": trial.suggest_categorical(
+            "daily_seasonality", [True, False, "auto"]
+        ),
+    }
 
-      with mlflow.start_run(nested=True):
-          try:
-              # Create and train model
-              model = Prophet(**params)
+    with mlflow.start_run(nested=True):
+        try:
+            # Create and train model
+            model = Prophet(**params)
 
-              # Time series cross-validation
-              cv_results = cross_validation(
-                  model.fit(df),
-                  initial="730 days",
-                  period="180 days",
-                  horizon="90 days",
-                  parallel="threads",
-              )
+            # Time series cross-validation
+            cv_results = cross_validation(
+                model.fit(df),
+                initial="730 days",
+                period="180 days",
+                horizon="90 days",
+                parallel="threads",
+            )
 
-              # Calculate performance metric
-              metrics = performance_metrics(cv_results)
-              mape = metrics["mape"].mean()
+            # Calculate performance metric
+            metrics = performance_metrics(cv_results)
+            mape = metrics["mape"].mean()
 
-              # Log trial results
-              mlflow.log_params(params)
-              mlflow.log_metric("cv_mape", mape)
+            # Log trial results
+            mlflow.log_params(params)
+            mlflow.log_metric("cv_mape", mape)
 
-              return mape
+            return mape
 
-          except Exception as e:
-              print(f"Trial failed: {e}")
-              return float("inf")
-
-
-  def optuna_prophet_optimization(df, n_trials=100):
-      """Run Optuna optimization for Prophet."""
-
-      with mlflow.start_run(run_name="Optuna Prophet Optimization"):
-          # Create study
-          study = optuna.create_study(
-              direction="minimize", sampler=optuna.samplers.TPESampler(seed=42)
-          )
-
-          # Optimize
-          study.optimize(
-              lambda trial: objective(trial, df),
-              n_trials=n_trials,
-              show_progress_bar=True,
-          )
-
-          # Log best results
-          best_params = study.best_params
-          best_value = study.best_value
-
-          mlflow.log_params({f"best_{k}": v for k, v in best_params.items()})
-          mlflow.log_metric("best_mape", best_value)
-
-          # Train final model
-          final_model = Prophet(**best_params)
-          final_model.fit(df)
-
-          mlflow.prophet.log_model(pr_model=final_model, name="optuna_best_model")
-
-          return final_model, study
+        except Exception as e:
+            print(f"Trial failed: {e}")
+            return float("inf")
 
 
-  # Usage
-  # optimized_model, study = optuna_prophet_optimization(df, n_trials=50)
-  ```
+def optuna_prophet_optimization(df, n_trials=100):
+    """Run Optuna optimization for Prophet."""
+
+    with mlflow.start_run(run_name="Optuna Prophet Optimization"):
+        # Create study
+        study = optuna.create_study(
+            direction="minimize", sampler=optuna.samplers.TPESampler(seed=42)
+        )
+
+        # Optimize
+        study.optimize(
+            lambda trial: objective(trial, df),
+            n_trials=n_trials,
+            show_progress_bar=True,
+        )
+
+        # Log best results
+        best_params = study.best_params
+        best_value = study.best_value
+
+        mlflow.log_params({f"best_{k}": v for k, v in best_params.items()})
+        mlflow.log_metric("best_mape", best_value)
+
+        # Train final model
+        final_model = Prophet(**best_params)
+        final_model.fit(df)
+
+        mlflow.prophet.log_model(pr_model=final_model, name="optuna_best_model")
+
+        return final_model, study
+
+
+# Usage
+# optimized_model, study = optuna_prophet_optimization(df, n_trials=50)
+```
 
 </details>
 
@@ -943,56 +948,56 @@ is_fresh, message = forecaster.check_model_freshness()
 <details>
   <summary>Batch Prediction Pipeline</summary>
 
-  ```python
-  def batch_prophet_predictions(model_registry_name, stage="Production"):
-      """Run batch predictions for multiple time series."""
+```python
+def batch_prophet_predictions(model_registry_name, stage="Production"):
+    """Run batch predictions for multiple time series."""
 
-      with mlflow.start_run(run_name="Batch Prophet Predictions"):
-          # Load production model
-          model_uri = f"models:/{model_registry_name}/{stage}"
-          model = mlflow.prophet.load_model(model_uri)
+    with mlflow.start_run(run_name="Batch Prophet Predictions"):
+        # Load production model
+        model_uri = f"models:/{model_registry_name}/{stage}"
+        model = mlflow.prophet.load_model(model_uri)
 
-          # Generate predictions for different horizons
-          horizons = [30, 90, 365]  # Days
-          predictions = {}
+        # Generate predictions for different horizons
+        horizons = [30, 90, 365]  # Days
+        predictions = {}
 
-          for horizon in horizons:
-              future = model.make_future_dataframe(periods=horizon)
-              if model.growth == "logistic":
-                  future["cap"] = 10000  # Set capacity
+        for horizon in horizons:
+            future = model.make_future_dataframe(periods=horizon)
+            if model.growth == "logistic":
+                future["cap"] = 10000  # Set capacity
 
-              forecast = model.predict(future)
+            forecast = model.predict(future)
 
-              # Store predictions
-              predictions[f"{horizon}_days"] = forecast[
-                  ["ds", "yhat", "yhat_lower", "yhat_upper"]
-              ].tail(horizon)
+            # Store predictions
+            predictions[f"{horizon}_days"] = forecast[
+                ["ds", "yhat", "yhat_lower", "yhat_upper"]
+            ].tail(horizon)
 
-              # Log prediction summary
-              pred_summary = {
-                  f"{horizon}d_mean_forecast": forecast["yhat"].tail(horizon).mean(),
-                  f"{horizon}d_forecast_range": forecast["yhat"].tail(horizon).max()
-                  - forecast["yhat"].tail(horizon).min(),
-              }
-              mlflow.log_metrics(pred_summary)
+            # Log prediction summary
+            pred_summary = {
+                f"{horizon}d_mean_forecast": forecast["yhat"].tail(horizon).mean(),
+                f"{horizon}d_forecast_range": forecast["yhat"].tail(horizon).max()
+                - forecast["yhat"].tail(horizon).min(),
+            }
+            mlflow.log_metrics(pred_summary)
 
-          # Save predictions as artifacts
-          for horizon, pred_df in predictions.items():
-              filename = f"predictions_{horizon}.csv"
-              pred_df.to_csv(filename, index=False)
-              mlflow.log_artifact(filename)
+        # Save predictions as artifacts
+        for horizon, pred_df in predictions.items():
+            filename = f"predictions_{horizon}.csv"
+            pred_df.to_csv(filename, index=False)
+            mlflow.log_artifact(filename)
 
-          # Log batch prediction metadata
-          mlflow.log_params(
-              {
-                  "model_uri": model_uri,
-                  "prediction_date": pd.Timestamp.now().isoformat(),
-                  "horizons": horizons,
-              }
-          )
+        # Log batch prediction metadata
+        mlflow.log_params(
+            {
+                "model_uri": model_uri,
+                "prediction_date": pd.Timestamp.now().isoformat(),
+                "horizons": horizons,
+            }
+        )
 
-          return predictions
-  ```
+        return predictions
+```
 
 </details>
 
@@ -1098,146 +1103,146 @@ def monitor_forecast_accuracy(model_uri, actuals_df, prediction_horizon_days=30)
 <details>
   <summary>Production Model Update Pipeline</summary>
 
-  ```python
-  def automated_prophet_retraining(
-      current_model_name, new_data, performance_threshold_mape=10.0, min_data_points=100
-  ):
-      """Automated Prophet model retraining pipeline."""
+```python
+def automated_prophet_retraining(
+    current_model_name, new_data, performance_threshold_mape=10.0, min_data_points=100
+):
+    """Automated Prophet model retraining pipeline."""
 
-      with mlflow.start_run(run_name="Automated Prophet Retraining"):
-          # Load current production model
-          current_model_uri = f"models:/{current_model_name}/Production"
+    with mlflow.start_run(run_name="Automated Prophet Retraining"):
+        # Load current production model
+        current_model_uri = f"models:/{current_model_name}/Production"
 
-          try:
-              current_model = mlflow.prophet.load_model(current_model_uri)
-              mlflow.log_param("current_model_loaded", True)
-          except Exception as e:
-              print(f"Could not load current model: {e}")
-              current_model = None
-              mlflow.log_param("current_model_loaded", False)
+        try:
+            current_model = mlflow.prophet.load_model(current_model_uri)
+            mlflow.log_param("current_model_loaded", True)
+        except Exception as e:
+            print(f"Could not load current model: {e}")
+            current_model = None
+            mlflow.log_param("current_model_loaded", False)
 
-          # Data quality checks
-          data_quality_passed = True
-          quality_issues = []
+        # Data quality checks
+        data_quality_passed = True
+        quality_issues = []
 
-          # Check data quantity
-          if len(new_data) < min_data_points:
-              data_quality_passed = False
-              quality_issues.append(
-                  f"Insufficient data: {len(new_data)} < {min_data_points}"
-              )
+        # Check data quantity
+        if len(new_data) < min_data_points:
+            data_quality_passed = False
+            quality_issues.append(
+                f"Insufficient data: {len(new_data)} < {min_data_points}"
+            )
 
-          # Check for missing values
-          missing_values = new_data[["ds", "y"]].isnull().sum().sum()
-          if missing_values > 0:
-              quality_issues.append(f"Missing values found: {missing_values}")
+        # Check for missing values
+        missing_values = new_data[["ds", "y"]].isnull().sum().sum()
+        if missing_values > 0:
+            quality_issues.append(f"Missing values found: {missing_values}")
 
-          # Check date continuity
-          new_data = new_data.sort_values("ds")
-          date_gaps = pd.to_datetime(new_data["ds"]).diff().dt.days
-          large_gaps = (date_gaps > 7).sum()  # Gaps larger than 7 days
-          if large_gaps > 0:
-              quality_issues.append(f"Large date gaps found: {large_gaps}")
+        # Check date continuity
+        new_data = new_data.sort_values("ds")
+        date_gaps = pd.to_datetime(new_data["ds"]).diff().dt.days
+        large_gaps = (date_gaps > 7).sum()  # Gaps larger than 7 days
+        if large_gaps > 0:
+            quality_issues.append(f"Large date gaps found: {large_gaps}")
 
-          mlflow.log_params(
-              {
-                  "data_quality_passed": data_quality_passed,
-                  "data_points": len(new_data),
-                  "quality_issues": "; ".join(quality_issues),
-              }
-          )
+        mlflow.log_params(
+            {
+                "data_quality_passed": data_quality_passed,
+                "data_points": len(new_data),
+                "quality_issues": "; ".join(quality_issues),
+            }
+        )
 
-          if not data_quality_passed:
-              print("Data quality checks failed. Skipping retraining.")
-              return None
+        if not data_quality_passed:
+            print("Data quality checks failed. Skipping retraining.")
+            return None
 
-          # Train new model
-          new_model = Prophet(
-              yearly_seasonality=True,
-              weekly_seasonality=True,
-              daily_seasonality=False,
-              changepoint_prior_scale=0.05,
-          )
+        # Train new model
+        new_model = Prophet(
+            yearly_seasonality=True,
+            weekly_seasonality=True,
+            daily_seasonality=False,
+            changepoint_prior_scale=0.05,
+        )
 
-          new_model.fit(new_data)
+        new_model.fit(new_data)
 
-          # Evaluate new model performance
-          cv_results = cross_validation(
-              new_model,
-              initial="365 days",
-              period="90 days",
-              horizon="30 days",
-              parallel="threads",
-          )
+        # Evaluate new model performance
+        cv_results = cross_validation(
+            new_model,
+            initial="365 days",
+            period="90 days",
+            horizon="30 days",
+            parallel="threads",
+        )
 
-          metrics = performance_metrics(cv_results)
-          new_mape = metrics["mape"].mean()
+        metrics = performance_metrics(cv_results)
+        new_mape = metrics["mape"].mean()
 
-          mlflow.log_metric("new_model_mape", new_mape)
+        mlflow.log_metric("new_model_mape", new_mape)
 
-          # Compare with current model if available
-          should_deploy = True
-          if current_model is not None:
-              try:
-                  # Test current model on new data
-                  current_cv = cross_validation(
-                      current_model,
-                      initial="365 days",
-                      period="90 days",
-                      horizon="30 days",
-                  )
-                  current_metrics = performance_metrics(current_cv)
-                  current_mape = current_metrics["mape"].mean()
+        # Compare with current model if available
+        should_deploy = True
+        if current_model is not None:
+            try:
+                # Test current model on new data
+                current_cv = cross_validation(
+                    current_model,
+                    initial="365 days",
+                    period="90 days",
+                    horizon="30 days",
+                )
+                current_metrics = performance_metrics(current_cv)
+                current_mape = current_metrics["mape"].mean()
 
-                  mlflow.log_metric("current_model_mape", current_mape)
+                mlflow.log_metric("current_model_mape", current_mape)
 
-                  # Deploy if new model is significantly better
-                  improvement = (current_mape - new_mape) / current_mape * 100
-                  mlflow.log_metric("performance_improvement_percent", improvement)
+                # Deploy if new model is significantly better
+                improvement = (current_mape - new_mape) / current_mape * 100
+                mlflow.log_metric("performance_improvement_percent", improvement)
 
-                  should_deploy = improvement > 5.0  # Deploy if >5% improvement
+                should_deploy = improvement > 5.0  # Deploy if >5% improvement
 
-              except Exception as e:
-                  print(f"Could not evaluate current model: {e}")
-                  should_deploy = new_mape < performance_threshold_mape
-          else:
-              should_deploy = new_mape < performance_threshold_mape
+            except Exception as e:
+                print(f"Could not evaluate current model: {e}")
+                should_deploy = new_mape < performance_threshold_mape
+        else:
+            should_deploy = new_mape < performance_threshold_mape
 
-          mlflow.log_params(
-              {
-                  "should_deploy": should_deploy,
-                  "performance_threshold": performance_threshold_mape,
-              }
-          )
+        mlflow.log_params(
+            {
+                "should_deploy": should_deploy,
+                "performance_threshold": performance_threshold_mape,
+            }
+        )
 
-          # Log and potentially deploy new model
-          model_info = mlflow.prophet.log_model(
-              pr_model=new_model,
-              name="retrained_model",
-              registered_model_name=current_model_name if should_deploy else None,
-          )
+        # Log and potentially deploy new model
+        model_info = mlflow.prophet.log_model(
+            pr_model=new_model,
+            name="retrained_model",
+            registered_model_name=current_model_name if should_deploy else None,
+        )
 
-          if should_deploy:
-              # Transition to production
-              client = mlflow.MlflowClient()
-              latest_version = client.get_latest_versions(
-                  current_model_name, stages=["None"]
-              )[0]
+        if should_deploy:
+            # Transition to production
+            client = mlflow.MlflowClient()
+            latest_version = client.get_latest_versions(
+                current_model_name, stages=["None"]
+            )[0]
 
-              client.transition_model_version_stage(
-                  name=current_model_name,
-                  version=latest_version.version,
-                  stage="Production",
-              )
+            client.transition_model_version_stage(
+                name=current_model_name,
+                version=latest_version.version,
+                stage="Production",
+            )
 
-              print(f"New model deployed to production with MAPE: {new_mape:.2f}%")
-          else:
-              print(
-                  f"New model not deployed. MAPE: {new_mape:.2f}% did not meet criteria."
-              )
+            print(f"New model deployed to production with MAPE: {new_mape:.2f}%")
+        else:
+            print(
+                f"New model not deployed. MAPE: {new_mape:.2f}% did not meet criteria."
+            )
 
-          return new_model, should_deploy
-  ```
+        return new_model, should_deploy
+```
 
 </details>
 
@@ -1325,58 +1330,58 @@ print("Validation Results:", validation_results)
 <details>
   <summary>Prophet Performance Tips</summary>
 
-  ```python
-  def optimize_prophet_performance():
-      """Tips for optimizing Prophet performance."""
+```python
+def optimize_prophet_performance():
+    """Tips for optimizing Prophet performance."""
 
-      optimization_tips = {
-          "parallel_processing": {
-              "cross_validation": "Use parallel='threads' or 'processes' in cross_validation()",
-              "multiple_models": "Use joblib.Parallel for training multiple models",
-          },
-          "model_configuration": {
-              "mcmc_samples": "Set mcmc_samples=0 for faster MAP estimation",
-              "uncertainty_samples": "Reduce uncertainty_samples for faster predictions",
-              "stan_backend": "Use 'CMDSTANPY' backend for better performance",
-          },
-          "data_preprocessing": {
-              "frequency": "Aggregate to appropriate frequency (daily vs hourly)",
-              "outliers": "Remove extreme outliers before training",
-              "data_size": "Consider sampling for very large datasets",
-          },
-      }
+    optimization_tips = {
+        "parallel_processing": {
+            "cross_validation": "Use parallel='threads' or 'processes' in cross_validation()",
+            "multiple_models": "Use joblib.Parallel for training multiple models",
+        },
+        "model_configuration": {
+            "mcmc_samples": "Set mcmc_samples=0 for faster MAP estimation",
+            "uncertainty_samples": "Reduce uncertainty_samples for faster predictions",
+            "stan_backend": "Use 'CMDSTANPY' backend for better performance",
+        },
+        "data_preprocessing": {
+            "frequency": "Aggregate to appropriate frequency (daily vs hourly)",
+            "outliers": "Remove extreme outliers before training",
+            "data_size": "Consider sampling for very large datasets",
+        },
+    }
 
-      return optimization_tips
+    return optimization_tips
 
 
-  # Example of parallel cross-validation
-  def parallel_prophet_evaluation(models_dict, df):
-      """Evaluate multiple Prophet models in parallel."""
+# Example of parallel cross-validation
+def parallel_prophet_evaluation(models_dict, df):
+    """Evaluate multiple Prophet models in parallel."""
 
-      from joblib import Parallel, delayed
+    from joblib import Parallel, delayed
 
-      def evaluate_single_model(name, model):
-          try:
-              cv_results = cross_validation(
-                  model.fit(df),
-                  initial="365 days",
-                  period="90 days",
-                  horizon="30 days",
-                  parallel="threads",
-              )
-              metrics = performance_metrics(cv_results)
-              return name, metrics["mape"].mean()
-          except Exception as e:
-              return name, float("inf")
+    def evaluate_single_model(name, model):
+        try:
+            cv_results = cross_validation(
+                model.fit(df),
+                initial="365 days",
+                period="90 days",
+                horizon="30 days",
+                parallel="threads",
+            )
+            metrics = performance_metrics(cv_results)
+            return name, metrics["mape"].mean()
+        except Exception as e:
+            return name, float("inf")
 
-      # Parallel evaluation
-      results = Parallel(n_jobs=-1)(
-          delayed(evaluate_single_model)(name, model)
-          for name, model in models_dict.items()
-      )
+    # Parallel evaluation
+    results = Parallel(n_jobs=-1)(
+        delayed(evaluate_single_model)(name, model)
+        for name, model in models_dict.items()
+    )
 
-      return dict(results)
-  ```
+    return dict(results)
+```
 
 </details>
 

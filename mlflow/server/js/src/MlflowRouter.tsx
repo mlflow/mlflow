@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { LegacySkeleton } from '@databricks/design-system';
+import React, { useMemo, useState } from 'react';
+import { LegacySkeleton, useDesignSystemTheme } from '@databricks/design-system';
 
 import ErrorModal from './experiment-tracking/components/modals/ErrorModal';
 import AppErrorBoundary from './common/components/error-boundaries/AppErrorBoundary';
@@ -11,6 +11,7 @@ import { getRouteDefs as getExperimentTrackingRouteDefs } from './experiment-tra
 import { getRouteDefs as getModelRegistryRouteDefs } from './model-registry/route-defs';
 import { getRouteDefs as getCommonRouteDefs } from './common/route-defs';
 import { useInitializeExperimentRunColors } from './experiment-tracking/components/experiment-page/hooks/useExperimentRunColor';
+import { MlflowSidebar } from './common/components/MlflowSidebar';
 
 /**
  * This is the MLflow default entry/landing route.
@@ -31,24 +32,56 @@ export const MlflowRouter = ({
   // eslint-disable-next-line react-hooks/rules-of-hooks
   useInitializeExperimentRunColors();
 
+  const [showSidebar, setShowSidebar] = useState(true);
+
   // eslint-disable-next-line react-hooks/rules-of-hooks
   const routes = useMemo(
     () => [...getExperimentTrackingRouteDefs(), ...getModelRegistryRouteDefs(), landingRoute, ...getCommonRouteDefs()],
     [],
   );
+
+  const { theme } = useDesignSystemTheme();
+
   return (
     <>
       <ErrorModal />
       <HashRouter>
         <AppErrorBoundary>
-          <MlflowHeader isDarkTheme={isDarkTheme} setIsDarkTheme={setIsDarkTheme} />
-          <React.Suspense fallback={<LegacySkeleton />}>
-            <Routes>
-              {routes.map(({ element, pageId, path }) => (
-                <Route key={pageId} path={path} element={element} />
-              ))}
-            </Routes>
-          </React.Suspense>
+          <MlflowHeader
+            isDarkTheme={isDarkTheme}
+            setIsDarkTheme={setIsDarkTheme}
+            sidebarOpen={showSidebar}
+            toggleSidebar={() => setShowSidebar((isOpen) => !isOpen)}
+          />
+          <div
+            css={{
+              backgroundColor: theme.colors.backgroundSecondary,
+              display: 'flex',
+              flexDirection: 'row',
+              flexGrow: 1,
+              minHeight: 0,
+            }}
+          >
+            {showSidebar && <MlflowSidebar />}
+            <main
+              css={{
+                width: '100%',
+                backgroundColor: theme.colors.backgroundPrimary,
+                margin: theme.spacing.sm,
+                borderRadius: theme.borders.borderRadiusMd,
+                boxShadow: theme.shadows.md,
+                overflowX: 'auto',
+              }}
+            >
+              <React.Suspense fallback={<LegacySkeleton css={{ padding: theme.spacing.md }} />}>
+                <Routes>
+                  {routes.map(({ element, pageId, path }) => (
+                    <Route key={pageId} path={path} element={element} />
+                  ))}
+                </Routes>
+              </React.Suspense>
+            </main>
+          </div>
         </AppErrorBoundary>
       </HashRouter>
     </>

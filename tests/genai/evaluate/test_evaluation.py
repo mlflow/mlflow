@@ -8,9 +8,10 @@ import pytest
 from packaging.version import Version
 
 import mlflow
-from mlflow.entities.assessment import Expectation, Feedback
+from mlflow.entities.assessment import Assessment, Expectation, Feedback
 from mlflow.entities.assessment_source import AssessmentSource
 from mlflow.entities.span import SpanType
+from mlflow.entities.trace import Trace
 from mlflow.exceptions import MlflowException
 from mlflow.genai.datasets import create_dataset
 from mlflow.genai.scorers.base import scorer
@@ -152,34 +153,45 @@ def test_evaluate_with_traces(pass_full_dataframe):
     assert len(data) == len(questions)
 
     # OSS MLflow backend doesn't support assessment APIs now, so we need to manually add them
-    data.iloc[0]["trace"].info.assessments = [
-        Expectation(
-            name="expected_response",
-            trace_id="tr-123",
-            value="MLflow is a tool for ML",
-            source=AssessmentSource(source_id="me", source_type="HUMAN"),
-        ),
-        Expectation(
-            name="max_length",
-            trace_id="tr-123",
-            value=100,
-            source=AssessmentSource(source_id="me", source_type="HUMAN"),
-        ),
-    ]
-    data.iloc[1]["trace"].info.assessments = [
-        Expectation(
-            name="expected_response",
-            trace_id="tr-123",
-            value="Spark is a fast data processing engine",
-            source=AssessmentSource(source_id="me", source_type="HUMAN"),
-        ),
-        Expectation(
-            name="max_length",
-            trace_id="tr-123",
-            value=1,
-            source=AssessmentSource(source_id="me", source_type="HUMAN"),
-        ),
-    ]
+    def add_assessment_to_trace_json(trace_json: str, assessments: list[Assessment]):
+        trace = Trace.from_json(trace_json)
+        trace.info.assessments = assessments
+        return trace.to_json()
+
+    data.at[0, "trace"] = add_assessment_to_trace_json(
+        data.at[0, "trace"],
+        [
+            Expectation(
+                name="expected_response",
+                trace_id="tr-123",
+                value="MLflow is a tool for ML",
+                source=AssessmentSource(source_id="me", source_type="HUMAN"),
+            ),
+            Expectation(
+                name="max_length",
+                trace_id="tr-123",
+                value=100,
+                source=AssessmentSource(source_id="me", source_type="HUMAN"),
+            ),
+        ],
+    )
+    data.at[1, "trace"] = add_assessment_to_trace_json(
+        data.at[1, "trace"],
+        [
+            Expectation(
+                name="expected_response",
+                trace_id="tr-123",
+                value="Spark is a fast data processing engine",
+                source=AssessmentSource(source_id="me", source_type="HUMAN"),
+            ),
+            Expectation(
+                name="max_length",
+                trace_id="tr-123",
+                value=1,
+                source=AssessmentSource(source_id="me", source_type="HUMAN"),
+            ),
+        ],
+    )
 
     if not pass_full_dataframe:
         data = data[["trace"]]
