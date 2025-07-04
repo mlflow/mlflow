@@ -516,25 +516,25 @@ def set_chat_attributes_special_case(span: LiveSpan, inputs: Any, outputs: Any):
 def _calculate_percentile(sorted_data: list[float], percentile: float) -> float:
     """
     Calculate the percentile value from sorted data.
-    
+
     Args:
         sorted_data: A sorted list of numeric values
         percentile: The percentile to calculate (e.g., 0.25 for 25th percentile)
-    
+
     Returns:
         The percentile value
     """
     if not sorted_data:
         return 0.0
-    
+
     n = len(sorted_data)
     index = percentile * (n - 1)
     lower = int(index)
     upper = lower + 1
-    
+
     if upper >= n:
         return sorted_data[-1]
-    
+
     # Linear interpolation between two nearest values
     weight = index - lower
     return sorted_data[lower] * (1 - weight) + sorted_data[upper] * weight
@@ -568,17 +568,23 @@ def add_size_stats_to_trace_metadata(trace: Trace):
 
         # NB: len(span_sizes) *2 count the size of comma separators between spans (", ").
         trace_size_bytes = sum(span_sizes) + metadata_size + (len(span_sizes) - 1) * 2
-        
+
         # Sort span sizes for percentile calculation
         sorted_span_sizes = sorted(span_sizes)
-        
+
         size_stats = {
             TraceSizeStatsKey.TOTAL_SIZE_BYTES: trace_size_bytes,
             TraceSizeStatsKey.NUM_SPANS: len(span_sizes),
             TraceSizeStatsKey.MAX_SPAN_SIZE_BYTES: max(span_sizes),
-            TraceSizeStatsKey.P25_SPAN_SIZE_BYTES: int(_calculate_percentile(sorted_span_sizes, 0.25)),
-            TraceSizeStatsKey.P50_SPAN_SIZE_BYTES: int(_calculate_percentile(sorted_span_sizes, 0.50)),
-            TraceSizeStatsKey.P75_SPAN_SIZE_BYTES: int(_calculate_percentile(sorted_span_sizes, 0.75)),
+            TraceSizeStatsKey.P25_SPAN_SIZE_BYTES: int(
+                _calculate_percentile(sorted_span_sizes, 0.25)
+            ),
+            TraceSizeStatsKey.P50_SPAN_SIZE_BYTES: int(
+                _calculate_percentile(sorted_span_sizes, 0.50)
+            ),
+            TraceSizeStatsKey.P75_SPAN_SIZE_BYTES: int(
+                _calculate_percentile(sorted_span_sizes, 0.75)
+            ),
         }
 
         trace.info.trace_metadata[TraceMetadataKey.SIZE_STATS] = json.dumps(size_stats)

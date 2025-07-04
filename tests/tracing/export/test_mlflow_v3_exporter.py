@@ -113,9 +113,18 @@ def test_export(is_async, monkeypatch):
     assert isinstance(size_stats[TraceSizeStatsKey.P75_SPAN_SIZE_BYTES], int)
 
     # Verify percentile ordering: P25 <= P50 <= P75 <= max
-    assert size_stats[TraceSizeStatsKey.P25_SPAN_SIZE_BYTES] <= size_stats[TraceSizeStatsKey.P50_SPAN_SIZE_BYTES]
-    assert size_stats[TraceSizeStatsKey.P50_SPAN_SIZE_BYTES] <= size_stats[TraceSizeStatsKey.P75_SPAN_SIZE_BYTES]
-    assert size_stats[TraceSizeStatsKey.P75_SPAN_SIZE_BYTES] <= size_stats[TraceSizeStatsKey.MAX_SPAN_SIZE_BYTES]
+    assert (
+        size_stats[TraceSizeStatsKey.P25_SPAN_SIZE_BYTES]
+        <= size_stats[TraceSizeStatsKey.P50_SPAN_SIZE_BYTES]
+    )
+    assert (
+        size_stats[TraceSizeStatsKey.P50_SPAN_SIZE_BYTES]
+        <= size_stats[TraceSizeStatsKey.P75_SPAN_SIZE_BYTES]
+    )
+    assert (
+        size_stats[TraceSizeStatsKey.P75_SPAN_SIZE_BYTES]
+        <= size_stats[TraceSizeStatsKey.MAX_SPAN_SIZE_BYTES]
+    )
 
     # Validate the data was passed to upload_trace_data
     call_args = mock_upload_trace_data.call_args
