@@ -41,7 +41,7 @@ jobs:
       - name: Install mlflow-tracing SDK
         run: |
           pip install pip setuptools --upgrade
-          pip install ./packages/tracing
+          pip install ./libs/tracing
 
       - name: Install test dependencies
         run: |
