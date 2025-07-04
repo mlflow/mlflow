@@ -2,9 +2,9 @@ import markdownLinkCheck from 'markdown-link-check';
 import { glob } from 'glob';
 import * as fs from 'fs/promises';
 
-let encounteredBrokenLinks = false;
-
 async function main() {
+  let encounteredBrokenLinks = false;
+
   const checkExternalLinks = process.env.CHECK_EXTERNAL_LINKS === 'true';
   for (const filename of await glob('docs/**/*.mdx')) {
     console.log('[CHECKING FILE]', filename);
@@ -15,6 +15,7 @@ async function main() {
     if (brokenLinks.length > 0) {
       console.log('[BROKEN LINKS]');
       brokenLinks.forEach((result) => console.log(`${result.link} ${result.statusCode}`));
+      encounteredBrokenLinks = true;
     } else {
       console.log('[NO BROKEN LINKS]');
     }
@@ -70,7 +71,6 @@ async function check(content: string, checkExternalLinks: boolean): Promise<Resu
           console.info(`[INFO] ${result.link} is ${result.status} ${result.statusCode}`);
           if (result.status === 'dead') {
             brokenLinks.push(result);
-            encounteredBrokenLinks = true;
           }
         });
 
