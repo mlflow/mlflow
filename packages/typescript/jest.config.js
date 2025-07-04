@@ -11,7 +11,6 @@ module.exports = {
   globalSetup: '<rootDir>/tests/jest.global-setup.ts',
   globalTeardown: '<rootDir>/tests/jest.global-teardown.ts',
   testTimeout: 30000,
-  maxWorkers: 1,
   forceExit: true,
   detectOpenHandles: true
 };

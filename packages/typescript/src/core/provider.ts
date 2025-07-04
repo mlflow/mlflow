@@ -43,7 +43,5 @@ export function getTracer(module_name: string): Tracer {
  * Force flush all pending trace exports.
  */
 export async function flushTraces(): Promise<void> {
-  if (processor) {
-    await processor.forceFlush();
-  }
+  await processor?.forceFlush();
 }

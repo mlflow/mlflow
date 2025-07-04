@@ -131,13 +131,9 @@ export class MlflowSpanProcessor implements SpanProcessor {
 export class MlflowSpanExporter implements SpanExporter {
   private _client: MlflowClient;
   private _pendingExports: Record<string, Promise<void>> = {}; // traceId -> export promise
-  _id: string;
 
   constructor(client: MlflowClient) {
     this._client = client;
-
-    // generate a random id for this exporter
-    this._id = Math.random().toString(36).substring(2, 15);
   }
 
   export(spans: OTelReadableSpan[], _resultCallback: (result: ExportResult) => void): void {
