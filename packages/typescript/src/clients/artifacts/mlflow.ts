@@ -36,7 +36,7 @@ export class MlflowArtifactsClient implements ArtifactsClient {
 
     // Upload trace data to the artifact store
     const artifactUrl = this.getArtifactUrlForTrace(traceInfo);
-    const headers = getRequestHeaders(undefined);
+    const headers = getRequestHeaders();
     await makeRequest<void>('PUT', artifactUrl, headers, traceDataJson);
   }
 
@@ -52,7 +52,7 @@ export class MlflowArtifactsClient implements ArtifactsClient {
   async downloadTraceData(traceInfo: TraceInfo): Promise<TraceData> {
     // Download the trace data file
     const artifactUrl = this.getArtifactUrlForTrace(traceInfo);
-    const headers = getRequestHeaders(undefined);
+    const headers = getRequestHeaders();
 
     const traceDataJson = await makeRequest<SerializedTraceData>('GET', artifactUrl, headers);
 

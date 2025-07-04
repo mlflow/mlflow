@@ -17,9 +17,7 @@ export class MlflowClient {
   private artifactsClient: ArtifactsClient;
 
   constructor(options: { host: string; databricksToken?: string }) {
-    // The host is guaranteed to be set by the init() function
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    this.host = options.host!;
+    this.host = options.host;
     this.databricksToken = options.databricksToken;
     this.artifactsClient = getArtifactsClient(options.host);
   }
