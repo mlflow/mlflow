@@ -682,41 +682,6 @@ html[data-theme='dark'] .menu__link--active {
   padding: 2rem;
 }
 
-/* Feature Highlights */
-.feature-highlights {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1.5rem;
-}
-
-.highlight-item {
-  display: flex;
-  align-items: flex-start;
-  gap: 1rem;
-  padding: 1rem;
-  text-align: left;
-}
-
-.highlight-icon {
-  font-size: 1.5rem;
-  flex-shrink: 0;
-  margin-top: 0.25rem;
-}
-
-.highlight-content h4 {
-  font-size: 1.1rem;
-  margin-bottom: 0.5rem;
-  color: var(--ifm-color-emphasis-hover);
-  margin-top: 0;
-}
-
-.highlight-content p {
-  color: var(--ifm-border-color);
-  font-size: 0.9rem;
-  line-height: 1.5;
-  margin-bottom: 0;
-}
-
 /* Responsive Design */
 @media (max-width: 996px) {
   .hero-content {
