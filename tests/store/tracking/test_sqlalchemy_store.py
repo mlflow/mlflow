@@ -2676,6 +2676,32 @@ def test_search_datasets(store: SqlAlchemyStore):
     assert_has_same_elements(results, expected_results)
 
 
+def test_search_datasets_includes_shared_datasets(store: SqlAlchemyStore):
+    exp_id1 = _create_experiments(store, "test_shared_datasets_1")
+    exp_id2 = _create_experiments(store, "test_shared_datasets_2")
+
+    run1 = _run_factory(store, dict(_get_run_configs(exp_id1), start_time=1))
+    run2 = _run_factory(store, dict(_get_run_configs(exp_id2), start_time=2))
+
+    dataset = entities.Dataset(
+        name="shared",
+        digest="digest-shared",
+        source_type="st",
+        source="source",
+        schema="schema",
+        profile="profile",
+    )
+
+    train_tag = [entities.InputTag(key=MLFLOW_DATASET_CONTEXT, value="train")]
+    eval_tag = [entities.InputTag(key=MLFLOW_DATASET_CONTEXT, value="eval")]
+
+    store.log_inputs(run1.info.run_id, [entities.DatasetInput(dataset, train_tag)])
+    store.log_inputs(run2.info.run_id, [entities.DatasetInput(dataset, eval_tag)])
+
+    results = store._search_datasets([exp_id2])
+    assert results == [_DatasetSummary(exp_id1, dataset.name, dataset.digest, "eval")]
+
+    
 def test_search_datasets_returns_no_more_than_max_results(store: SqlAlchemyStore):
     exp_id = store.create_experiment("test_search_datasets")
     run = _run_factory(store, dict(_get_run_configs(exp_id), start_time=1))
