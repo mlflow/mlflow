@@ -859,3 +859,7 @@ MLFLOW_SERVER_GRAPHQL_MAX_ROOT_FIELDS = _EnvironmentVariable(
 MLFLOW_SERVER_GRAPHQL_MAX_ALIASES = _EnvironmentVariable(
     "MLFLOW_SERVER_GRAPHQL_MAX_ALIASES", int, 10
 )
+
+#: Whether to disable telemetry collection in MLflow. If set to True, no telemetry
+#: data will be collected. (default: ``False``)
+MLFLOW_DISABLE_TELEMETRY = _BooleanEnvironmentVariable("MLFLOW_DISABLE_TELEMETRY", False)
