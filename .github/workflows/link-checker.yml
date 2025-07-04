@@ -33,4 +33,6 @@ jobs:
           yarn install --immutable
       - name: Run external links checker
         run: |
-          yarn run check-external-links
+          yarn run check-links
+        env:
+          CHECK_EXTERNAL_LINKS: "true"

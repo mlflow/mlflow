@@ -48,7 +48,9 @@ jobs:
           yarn prettier:check
       - name: Run external links checker
         run: |
-          yarn run check-external-links
+          yarn run check-links
+        env:
+          CHECK_EXTERNAL_LINKS: "false"
 
   build:
     if: github.event_name != 'pull_request' || github.event.pull_request.draft == false

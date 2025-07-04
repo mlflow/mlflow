@@ -5,11 +5,12 @@ import * as fs from 'fs/promises';
 let encounteredBrokenLinks = false;
 
 async function main() {
+  const checkExternalLinks = process.env.CHECK_EXTERNAL_LINKS === 'true';
   for (const filename of await glob('docs/**/*.mdx')) {
     console.log('[CHECKING FILE]', filename);
 
     const content = await fs.readFile(filename, 'utf8');
-    const brokenLinks = await check(filename, content);
+    const brokenLinks = await check(content, checkExternalLinks);
 
     if (brokenLinks.length > 0) {
       console.log('[BROKEN LINKS]');
@@ -34,7 +35,7 @@ type Result = {
   err: Error | null;
 };
 
-async function check(filename: string, content: string): Promise<Result[]> {
+async function check(content: string, checkExternalLinks: boolean): Promise<Result[]> {
   return new Promise((resolve, reject) => {
     const config = {
       httpHeaders: [
@@ -46,12 +47,16 @@ async function check(filename: string, content: string): Promise<Result[]> {
           },
         },
       ],
-      ignorePatterns: [
-        { pattern: '^(?!http)' }, // internal links
-        { pattern: '^http://127.0.0.1' }, // local dev
-        { pattern: '^http://localhost' },
-        { pattern: '^https://YOUR_DATABRICKS_HOST' },
-      ],
+      ignorePatterns: checkExternalLinks
+        ? [
+            { pattern: '^(?!http)' }, // relative links
+            { pattern: '^http:\/\/127\.0\.0\.1' }, // local dev
+            { pattern: '^http:\/\/localhost' },
+            { pattern: '^https:\/\/YOUR_DATABRICKS_HOST' },
+          ]
+        : [
+            { pattern: '^(?!https?:\/\/(www\.)?mlflow.org)' }, // internal links
+          ],
     };
 
     markdownLinkCheck(content, config, function (err: Error | null, results: Result[]) {
