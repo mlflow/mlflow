@@ -18,7 +18,7 @@ from mlflow.telemetry.schemas import APIStatus, AutologParams
 from mlflow.telemetry.track import track_api_usage
 from mlflow.telemetry.utils import is_telemetry_disabled
 
-from tests.telemetry.helper_functions import wait_for_telemetry_threads
+from tests.helper_functions import wait_for_telemetry_threads
 
 
 def full_func_name(func):
