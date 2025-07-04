@@ -55,7 +55,7 @@ async function check(content: string, checkExternalLinks: boolean): Promise<Resu
             { pattern: '^https:\/\/YOUR_DATABRICKS_HOST' },
           ]
         : [
-            { pattern: '^(?!https?:\/\/(www\.)?mlflow.org)' }, // internal links
+            { pattern: '^(?!https?:\/\/(www\.)?mlflow.org|https:\/\/(www\.)?github\.com\/mlflow\/mlflow)' }, // internal links or mlflow/mlflow repo
           ],
     };
 
