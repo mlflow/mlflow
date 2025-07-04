@@ -832,7 +832,7 @@ def set_experiment_tag(key: str, value: Any) -> None:
 
 def delete_experiment_tag(key: str) -> None:
     """
-    Delete a from on the current experiment.
+    Delete a tag from the current experiment.
 
     Args:
         key: Tag name. This string may only contain alphanumerics, underscores (_), dashes (-),
