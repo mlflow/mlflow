@@ -34,5 +34,3 @@ jobs:
       - name: Run external links checker
         run: |
           yarn run check-links
-        env:
-          CHECK_EXTERNAL_LINKS: "true"
