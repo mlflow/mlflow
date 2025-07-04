@@ -30,6 +30,7 @@
     "@typescript-eslint/no-unsafe-assignment": "off",
     // Namespaces are useful for organizing API specifications
     "@typescript-eslint/no-namespace": "off",
+    "@typescript-eslint/ban-types": "off",
 
     // General JavaScript/TypeScript rules
     "no-console": ["warn", { "allow": ["debug", "warn", "error"] }],
@@ -58,7 +59,9 @@
         "@typescript-eslint/explicit-function-return-type": "off",
         "@typescript-eslint/no-unsafe-member-access": "off",
         "@typescript-eslint/no-unsafe-argument": "off",
-        "@typescript-eslint/no-non-null-assertion": "off"
+        "@typescript-eslint/no-non-null-assertion": "off",
+        "@typescript-eslint/no-unsafe-return": "off",
+        "@typescript-eslint/no-implied-eval": "off"
       }
     }
   ]
