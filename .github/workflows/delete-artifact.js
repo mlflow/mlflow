@@ -21,7 +21,7 @@ module.exports = async ({ github, context, env }) => {
       data: { artifacts },
     } = await github.rest.actions.listWorkflowRunArtifacts({
       owner,
-      repo: repoName,
+      repo,
       run_id: runId,
       name: artifactName,
     });
@@ -31,7 +31,7 @@ module.exports = async ({ github, context, env }) => {
     // INFO: https://octokit.github.io/rest.js/v22/#actions-delete-artifact
     await github.rest.actions.deleteArtifact({
       owner,
-      repo: repoName,
+      repo,
       artifact_id: artifact.id,
     });
   } catch (error) {
