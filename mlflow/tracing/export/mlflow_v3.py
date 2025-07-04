@@ -16,7 +16,7 @@ from mlflow.tracing.export.async_export_queue import AsyncTraceExportQueue, Task
 from mlflow.tracing.export.utils import try_link_prompts_to_trace
 from mlflow.tracing.fluent import _EVAL_REQUEST_ID_TO_TRACE_ID, _set_last_active_trace_id
 from mlflow.tracing.trace_manager import InMemoryTraceManager
-from mlflow.tracing.utils import add_size_bytes_to_trace_metadata, maybe_get_request_id
+from mlflow.tracing.utils import add_size_stats_to_trace_metadata, maybe_get_request_id
 from mlflow.utils.databricks_utils import is_in_databricks_notebook
 
 _logger = logging.getLogger(__name__)
@@ -88,26 +88,27 @@ class MlflowV3SpanExporter(SpanExporter):
         """
         try:
             if trace:
-                try:
-                    add_size_bytes_to_trace_metadata(trace)
-                except Exception:
-                    _logger.warning("Failed to add size bytes to trace metadata.", exc_info=True)
+                add_size_stats_to_trace_metadata(trace)
                 returned_trace_info = self._client.start_trace_v3(trace)
                 self._client._upload_trace_data(returned_trace_info, trace.data)
-                # Always run prompt linking asynchronously since (1) prompt linking API calls
-                # would otherwise add latency to the export procedure and (2) prompt linking is not
-                # critical for trace export (if the prompt fails to link, the user's workflow is
-                # minorly affected), so we don't have to await successful linking
-                try_link_prompts_to_trace(
-                    client=self._client,
-                    trace_id=returned_trace_info.trace_id,
-                    prompts=prompts,
-                    synchronous=False,
-                )
             else:
                 _logger.warning("No trace or trace info provided, unable to export")
         except Exception as e:
             _logger.warning(f"Failed to send trace to MLflow backend: {e}")
+
+        try:
+            # Always run prompt linking asynchronously since (1) prompt linking API calls
+            # would otherwise add latency to the export procedure and (2) prompt linking is not
+            # critical for trace export (if the prompt fails to link, the user's workflow is
+            # minorly affected), so we don't have to await successful linking
+            try_link_prompts_to_trace(
+                client=self._client,
+                trace_id=trace.info.trace_id,
+                prompts=prompts,
+                synchronous=False,
+            )
+        except Exception as e:
+            _logger.warning(f"Failed to link prompts to trace: {e}")
 
     def _should_enable_async_logging(self):
         if is_in_databricks_notebook():
