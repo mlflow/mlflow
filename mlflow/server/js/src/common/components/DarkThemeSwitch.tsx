@@ -31,9 +31,6 @@ export const DarkThemeSwitch = ({
     aria-label={isDarkTheme ? 'Switch to light theme' : 'Switch to dark theme'}
     css={{
       background: 'transparent',
-      width: '1.5em',
-      height: '1.5em',
-      fontSize: '16px',
     }}
   />
 );
