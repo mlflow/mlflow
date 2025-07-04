@@ -1,5 +1,6 @@
 import pytest
 
+import mlflow
 from mlflow.genai.scorers import Scorer, scorer
 from mlflow.genai.scorers.builtin_scorers import Correctness, Safety, get_all_scorers
 from mlflow.pyfunc.model import PythonModel
@@ -12,39 +13,39 @@ from mlflow.telemetry.schemas import AutologParams, GenaiEvaluateParams, LogMode
 
 
 @pytest.mark.parametrize(
-    ("func_name", "arguments", "expected_params"),
+    ("func", "arguments", "expected_params"),
     [
         (
-            "mlflow.autolog",
+            mlflow.autolog,
             {"log_models": True, "log_traces": True, "disable": False},
-            AutologParams(flavor="all", disable=False, log_traces=True, log_models=True),
+            AutologParams(flavor="mlflow", disable=False, log_traces=True, log_models=True),
         ),
         (
-            "mlflow.langchain.autolog",
+            mlflow.langchain.autolog,
             {"disable": True},
             AutologParams(flavor="langchain", disable=True, log_traces=False, log_models=False),
         ),
         (
-            "mlflow.langchain.autolog",
+            mlflow.langchain.autolog,
             {"disable": False, "log_traces": True},
             AutologParams(flavor="langchain", disable=False, log_traces=True, log_models=False),
         ),
         (
-            "mlflow.sklearn.autolog",
+            mlflow.sklearn.autolog,
             {"log_models": True},
             AutologParams(flavor="sklearn", disable=False, log_traces=False, log_models=True),
         ),
     ],
 )
-def test_autolog_parser(func_name, arguments, expected_params):
-    assert AutologParser.extract_params(func_name, arguments) == expected_params
+def test_autolog_parser(func, arguments, expected_params):
+    assert AutologParser.extract_params(func, arguments) == expected_params
 
 
 @pytest.mark.parametrize(
-    ("func_name", "arguments", "expected_params"),
+    ("func", "arguments", "expected_params"),
     [
         (
-            "mlflow.langchain.log_model",
+            mlflow.langchain.log_model,
             {"model": "model_path", "extra_pip_requirements": ["pandas", "numpy"]},
             LogModelParams(
                 flavor="langchain",
@@ -57,7 +58,7 @@ def test_autolog_parser(func_name, arguments, expected_params):
             ),
         ),
         (
-            "mlflow.pyfunc.log_model",
+            mlflow.pyfunc.log_model,
             {"model": lambda x: x, "pip_requirements": ["pandas"], "code_paths": ["/path/to/code"]},
             LogModelParams(
                 flavor="pyfunc",
@@ -70,7 +71,7 @@ def test_autolog_parser(func_name, arguments, expected_params):
             ),
         ),
         (
-            "mlflow.pyfunc.log_model",
+            mlflow.pyfunc.log_model,
             {"model": PythonModel(), "metadata": {"key": "value"}},
             LogModelParams(
                 flavor="pyfunc",
@@ -83,7 +84,7 @@ def test_autolog_parser(func_name, arguments, expected_params):
             ),
         ),
         (
-            "mlflow.sklearn.log_model",
+            mlflow.sklearn.log_model,
             {"model": object(), "params": {"key": "value"}},
             LogModelParams(
                 flavor="sklearn",
@@ -97,8 +98,8 @@ def test_autolog_parser(func_name, arguments, expected_params):
         ),
     ],
 )
-def test_log_model_parser(func_name, arguments, expected_params):
-    assert LogModelParser.extract_params(func_name, arguments) == expected_params
+def test_log_model_parser(func, arguments, expected_params):
+    assert LogModelParser.extract_params(func, arguments) == expected_params
 
 
 @scorer
@@ -118,20 +119,20 @@ def test_sanitize_scorer_name():
 
 
 @pytest.mark.parametrize(
-    ("func_name", "arguments", "expected_params"),
+    ("func", "arguments", "expected_params"),
     [
         (
-            "mlflow.genai.evaluate",
+            mlflow.genai.evaluate,
             {"data": ["a", "b", "c"], "scorers": [Safety(), not_empty]},
             GenaiEvaluateParams(scorers=["safety", "CustomScorer"], is_predict_fn_set=False),
         ),
         (
-            "mlflow.genai.evaluate",
+            mlflow.genai.evaluate,
             {"scorers": [Safety(), Correctness()], "predict_fn": lambda x: x},
             GenaiEvaluateParams(scorers=["safety", "correctness"], is_predict_fn_set=True),
         ),
         (
-            "mlflow.genai.evaluate",
+            mlflow.genai.evaluate,
             {
                 "data": ["a", "b", "c"],
                 "scorers": [Scorer(name="test_scorer"), not_empty],
@@ -141,5 +142,5 @@ def test_sanitize_scorer_name():
         ),
     ],
 )
-def test_genai_evaluate_parser(func_name, arguments, expected_params):
-    assert GenaiEvaluateParser.extract_params(func_name, arguments) == expected_params
+def test_genai_evaluate_parser(func, arguments, expected_params):
+    assert GenaiEvaluateParser.extract_params(func, arguments) == expected_params

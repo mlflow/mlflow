@@ -18,11 +18,7 @@ from mlflow.telemetry.schemas import APIStatus, AutologParams
 from mlflow.telemetry.track import track_api_usage
 from mlflow.telemetry.utils import is_telemetry_disabled
 
-from tests.telemetry.helper_functions import wait_for_telemetry_threads
-
-
-def full_func_name(func):
-    return f"{func.__module__}.{func.__qualname__}"
+from tests.helper_functions import wait_for_telemetry_threads
 
 
 def extract_record(data: str) -> dict[str, Any]:
@@ -51,13 +47,15 @@ def test_track_api_usage(mock_requests):
 
     assert len(mock_requests) == 2
     succeed_record = extract_record(mock_requests[0])
-    assert succeed_record["api_name"] == full_func_name(succeed_func)
+    assert succeed_record["api_module"] == succeed_func.__module__
+    assert succeed_record["api_name"] == succeed_func.__qualname__
     assert succeed_record["status"] == APIStatus.SUCCESS.value
     assert succeed_record["params"] is None
     assert succeed_record["duration_ms"] > 0
 
     fail_record = extract_record(mock_requests[1])
-    assert fail_record["api_name"] == full_func_name(fail_func)
+    assert fail_record["api_module"] == fail_func.__module__
+    assert fail_record["api_name"] == fail_func.__qualname__
     assert fail_record["status"] == APIStatus.FAILURE.value
     assert fail_record["params"] is None
     assert fail_record["duration_ms"] > 0
@@ -118,7 +116,8 @@ def test_track_api_usage_update_env_var_after_import(monkeypatch, mock_requests)
     wait_for_telemetry_threads()
     assert len(mock_requests) == 1
     record = extract_record(mock_requests[0])
-    assert record["api_name"] == full_func_name(test_func)
+    assert record["api_module"] == test_func.__module__
+    assert record["api_name"] == test_func.__qualname__
 
     monkeypatch.setenv("MLFLOW_DISABLE_TELEMETRY", "true")
     test_func()
@@ -145,7 +144,8 @@ def test_track_api_usage_do_not_track_internal_api(mock_requests):
     wait_for_telemetry_threads()
     assert len(mock_requests) == 1
     record = extract_record(mock_requests[0])
-    assert record["api_name"] == full_func_name(mlflow.sklearn.autolog)
+    assert record["api_module"] == "mlflow.sklearn"
+    assert record["api_name"] == "autolog"
     assert record["status"] == APIStatus.SUCCESS.value
     assert record["params"] == asdict(
         AutologParams(
@@ -156,6 +156,3 @@ def test_track_api_usage_do_not_track_internal_api(mock_requests):
         )
     )
     assert record["duration_ms"] > 0
-
-
-# TODO: apply track_api_usage to APIs and test the record params

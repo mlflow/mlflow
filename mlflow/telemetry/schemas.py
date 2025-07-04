@@ -58,6 +58,7 @@ class GenaiEvaluateParams(BaseParams):
 
 @dataclass
 class APIRecord:
+    api_module: str
     api_name: str
     params: Optional[BaseParams] = None
     status: APIStatus = APIStatus.UNKNOWN.value
@@ -73,9 +74,3 @@ class TelemetryInfo:
     )
     operating_system: str = platform.platform()
     backend_store: Optional[str] = None
-
-
-@dataclass
-class TelemetryRecord:
-    data: str
-    partition_key: str

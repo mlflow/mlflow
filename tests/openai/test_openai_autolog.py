@@ -1,4 +1,5 @@
 import json
+from dataclasses import asdict
 from unittest import mock
 
 import httpx
@@ -11,6 +12,7 @@ import mlflow
 from mlflow.entities.span import SpanType
 from mlflow.exceptions import MlflowException
 from mlflow.openai.utils.chat_schema import _parse_tools
+from mlflow.telemetry.schemas import AutologParams
 from mlflow.tracing.constant import (
     STREAM_CHUNK_EVENT_VALUE_KEY,
     SpanAttributeKey,
@@ -18,6 +20,7 @@ from mlflow.tracing.constant import (
     TraceMetadataKey,
 )
 
+from tests.helper_functions import wait_for_telemetry_threads
 from tests.openai.mock_openai import EMPTY_CHOICES
 from tests.tracing.helper import get_traces, skip_when_testing_trace_sdk
 
@@ -834,3 +837,26 @@ async def test_model_loading_set_active_model_id_without_fetching_logged_model(
     model_id = traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID]
     assert model_id is not None
     assert span.inputs["messages"][0]["content"] == f"test {model_id}"
+
+
+def test_autolog_sends_telemetry_record(mock_requests):
+    mlflow.openai.autolog(log_traces=True, disable=False)
+
+    # Wait for telemetry to be sent
+    wait_for_telemetry_threads()
+
+    # Check that telemetry record was sent
+    assert len(mock_requests) == 1
+    autolog_record = mock_requests[0]
+    data = json.loads(autolog_record["data"])
+    assert data["api_module"] == mlflow.openai.autolog.__module__
+    assert data["api_name"] == "autolog"
+    assert data["params"] == asdict(
+        AutologParams(
+            flavor="openai",
+            disable=False,
+            log_traces=True,
+            log_models=False,
+        )
+    )
+    assert data["status"] == "success"

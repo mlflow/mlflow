@@ -1,4 +1,5 @@
 import json
+from dataclasses import asdict
 from unittest.mock import patch
 
 import groq
@@ -15,8 +16,10 @@ from groq.types.chat.chat_completion import (
 
 import mlflow.groq
 from mlflow.entities.span import SpanType
+from mlflow.telemetry.schemas import AutologParams
 from mlflow.tracing.constant import SpanAttributeKey
 
+from tests.helper_functions import wait_for_telemetry_threads
 from tests.tracing.helper import get_traces
 
 DUMMY_CHAT_COMPLETION_REQUEST = {
@@ -358,3 +361,26 @@ def test_audio_translation_autolog():
     # No new trace should be created
     traces = get_traces()
     assert len(traces) == 1
+
+
+def test_autolog_sends_telemetry_record(mock_requests):
+    mlflow.groq.autolog(log_traces=True, disable=False)
+
+    # Wait for telemetry to be sent
+    wait_for_telemetry_threads()
+
+    # Check that telemetry record was sent
+    assert len(mock_requests) == 1
+    autolog_record = mock_requests[0]
+    data = json.loads(autolog_record["data"])
+    assert data["api_module"] == mlflow.groq.autolog.__module__
+    assert data["api_name"] == "autolog"
+    assert data["params"] == asdict(
+        AutologParams(
+            flavor="groq",
+            disable=False,
+            log_traces=True,
+            log_models=False,
+        )
+    )
+    assert data["status"] == "success"

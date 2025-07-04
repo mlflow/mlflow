@@ -1,8 +1,14 @@
+import json
+from dataclasses import asdict
+
 import paddle
 import pytest
 
 import mlflow
 from mlflow import MlflowClient
+from mlflow.telemetry.schemas import AutologParams
+
+from tests.helper_functions import wait_for_telemetry_threads
 
 NUM_EPOCHS = 6
 
@@ -128,3 +134,26 @@ def test_extra_tags_paddle_autolog():
     run = mlflow.last_active_run()
     assert run.data.tags["test_tag"] == "paddle_autolog"
     assert run.data.tags[mlflow.utils.mlflow_tags.MLFLOW_AUTOLOGGING] == "paddle"
+
+
+def test_autolog_sends_telemetry_record(mock_requests):
+    mlflow.paddle.autolog(log_models=True, disable=False)
+
+    # Wait for telemetry to be sent
+    wait_for_telemetry_threads()
+
+    # Check that telemetry record was sent
+    assert len(mock_requests) == 1
+    autolog_record = mock_requests[0]
+    data = json.loads(autolog_record["data"])
+    assert data["api_module"] == mlflow.paddle.autolog.__module__
+    assert data["api_name"] == "autolog"
+    assert data["params"] == asdict(
+        AutologParams(
+            flavor="paddle",
+            disable=False,
+            log_traces=False,
+            log_models=True,
+        )
+    )
+    assert data["status"] == "success"
