@@ -102,7 +102,7 @@ class MlflowV3SpanExporter(SpanExporter):
             # minorly affected), so we don't have to await successful linking
             try_link_prompts_to_trace(
                 client=self._client,
-                trace_id=returned_trace_info.trace_id,
+                trace_id=trace.info.trace_id,
                 prompts=prompts,
                 synchronous=False,
             )

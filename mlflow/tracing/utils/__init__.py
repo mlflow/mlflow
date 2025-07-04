@@ -566,7 +566,7 @@ def add_size_stats_to_trace_metadata(trace: Trace):
         empty_trace = Trace(info=trace.info, data=TraceData(spans=[]))
         metadata_size = len(empty_trace.to_json().encode("utf-8"))
 
-        # NB: len(span_sizes) *2 count the size of comma separators between spans (", ").
+        # NB: the third term is the size of comma separators between spans (", ").
         trace_size_bytes = sum(span_sizes) + metadata_size + (len(span_sizes) - 1) * 2
 
         # Sort span sizes for percentile calculation
