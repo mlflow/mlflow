@@ -465,15 +465,13 @@ def _load_model_from_local_file(path, serialization_format):
             ),
             error_code=INVALID_PARAMETER_VALUE,
         )
-    with open(path, "rb") as f:
-        # Models serialized with Cloudpickle cannot necessarily be deserialized using Pickle;
-        # That's why we check the serialization format of the model before deserializing
-        if serialization_format == SERIALIZATION_FORMAT_PICKLE:
-            return pickle.load(f)
-        elif serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE:
-            import cloudpickle
-
-            return cloudpickle.load(f)
+    # Genesis-Flow: Use secure model loading to prevent code execution attacks
+    from mlflow.utils.secure_loading import SecureModelLoader
+    
+    if serialization_format == SERIALIZATION_FORMAT_PICKLE:
+        return SecureModelLoader.safe_pickle_load(path)
+    elif serialization_format == SERIALIZATION_FORMAT_CLOUDPICKLE:
+        return SecureModelLoader.safe_cloudpickle_load(path)
 
 
 def _load_pyfunc(path):

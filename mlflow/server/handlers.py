@@ -153,6 +153,7 @@ from mlflow.utils.file_utils import local_file_uri_to_path
 from mlflow.utils.mime_type_utils import _guess_mime_type
 from mlflow.utils.promptlab_utils import _create_promptlab_run_impl
 from mlflow.utils.proto_json_utils import message_to_json, parse_dict
+from mlflow.utils.security_validation import InputValidator, SecurityValidationError
 from mlflow.utils.string_utils import is_string_type
 from mlflow.utils.uri import is_local_uri, validate_path_is_safe, validate_query_string
 from mlflow.utils.validation import (
@@ -683,10 +684,42 @@ def _create_experiment():
         },
     )
 
-    tags = [ExperimentTag(tag.key, tag.value) for tag in request_message.tags]
+    # Security validation for experiment name
+    try:
+        validated_name = InputValidator.validate_experiment_name(request_message.name)
+    except SecurityValidationError as e:
+        raise MlflowException(
+            f"Invalid experiment name: {e}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
 
-    # Validate query string in artifact location to prevent attacks
-    parsed_artifact_location = urllib.parse.urlparse(request_message.artifact_location)
+    # Security validation for tags
+    validated_tags = []
+    for tag in request_message.tags:
+        try:
+            validated_key = InputValidator.validate_tag_key(tag.key)
+            validated_value = InputValidator.validate_tag_value(tag.value)
+            validated_tags.append(ExperimentTag(validated_key, validated_value))
+        except SecurityValidationError as e:
+            raise MlflowException(
+                f"Invalid tag: {e}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+
+    # Security validation for artifact location
+    if request_message.artifact_location:
+        try:
+            validated_artifact_location = InputValidator.validate_uri(request_message.artifact_location)
+        except SecurityValidationError as e:
+            raise MlflowException(
+                f"Invalid artifact location: {e}",
+                error_code=INVALID_PARAMETER_VALUE,
+            )
+    else:
+        validated_artifact_location = request_message.artifact_location
+
+    # Validate query string in artifact location to prevent attacks  
+    parsed_artifact_location = urllib.parse.urlparse(validated_artifact_location)
     if parsed_artifact_location.fragment or parsed_artifact_location.params:
         raise MlflowException(
             "'artifact_location' URL can't include fragments or params.",
@@ -694,7 +727,7 @@ def _create_experiment():
         )
     validate_query_string(parsed_artifact_location.query)
     experiment_id = _get_tracking_store().create_experiment(
-        request_message.name, request_message.artifact_location, tags
+        validated_name, validated_artifact_location, validated_tags
     )
     response_message = CreateExperiment.Response()
     response_message.experiment_id = experiment_id
@@ -883,8 +916,18 @@ def _log_metric():
             "dataset_digest": [_assert_string],
         },
     )
+    
+    # Security validation for metric key
+    try:
+        validated_key = InputValidator.validate_metric_key(request_message.key)
+    except SecurityValidationError as e:
+        raise MlflowException(
+            f"Invalid metric key: {e}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    
     metric = Metric(
-        request_message.key,
+        validated_key,
         request_message.value,
         request_message.timestamp,
         request_message.step,
@@ -912,7 +955,18 @@ def _log_param():
             "value": [_assert_string],
         },
     )
-    param = Param(request_message.key, request_message.value)
+    
+    # Security validation for parameter key and value
+    try:
+        validated_key = InputValidator.validate_param_key(request_message.key)
+        validated_value = InputValidator.validate_param_value(request_message.value)
+    except SecurityValidationError as e:
+        raise MlflowException(
+            f"Invalid parameter: {e}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    
+    param = Param(validated_key, validated_value)
     run_id = request_message.run_id or request_message.run_uuid
     _get_tracking_store().log_param(run_id, param)
     response_message = LogParam.Response()
@@ -1567,7 +1621,17 @@ def upload_artifact_handler():
             message="Request must specify path.",
             error_code=INVALID_PARAMETER_VALUE,
         )
-    path = validate_path_is_safe(path)
+    
+    # Security validation for artifact path
+    try:
+        validated_path = InputValidator.validate_artifact_path(path)
+    except SecurityValidationError as e:
+        raise MlflowException(
+            f"Invalid artifact path: {e}",
+            error_code=INVALID_PARAMETER_VALUE,
+        )
+    
+    path = validate_path_is_safe(validated_path)
 
     if request.content_length and request.content_length > 10 * 1024 * 1024:
         raise MlflowException(

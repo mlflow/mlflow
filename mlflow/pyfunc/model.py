@@ -818,10 +818,28 @@ def _maybe_compress_cloudpickle_dump(python_model, path, compression):
 
 
 def _maybe_decompress_cloudpickle_load(path, compression):
+    """
+    Genesis-Flow: Secure model loading with safety checks.
+    """
+    from mlflow.utils.secure_loading import SecureModelLoader, SecurityError
+    
     _check_compression_supported(compression)
-    file_open = _COMPRESSION_INFO.get(compression, {}).get("open", open)
-    with file_open(path, "rb") as f:
-        return cloudpickle.load(f)
+    
+    # For compressed files, we need to decompress first then load securely
+    if compression and compression != "none":
+        import tempfile
+        file_open = _COMPRESSION_INFO.get(compression, {}).get("open", open)
+        with file_open(path, "rb") as compressed_f:
+            with tempfile.NamedTemporaryFile(delete=False) as temp_f:
+                temp_f.write(compressed_f.read())
+                temp_path = temp_f.name
+        try:
+            return SecureModelLoader.safe_cloudpickle_load(temp_path)
+        finally:
+            os.unlink(temp_path)
+    else:
+        # Direct secure loading for uncompressed files
+        return SecureModelLoader.safe_cloudpickle_load(path)
 
 
 if IS_PYDANTIC_V2_OR_NEWER:
