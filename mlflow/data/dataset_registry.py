@@ -166,3 +166,7 @@ with suppress(ImportError):
     from mlflow.data.polars_dataset import from_polars
 
     _dataset_registry.register_constructor(from_polars)
+with suppress(ImportError):
+    from mlflow.data.arrow_dataset import from_arrow
+
+    _dataset_registry.register_constructor(from_arrow)
