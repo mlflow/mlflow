@@ -393,7 +393,6 @@ graph TD
     subgraph "Genesis Services"
         GS[genesis-service-modelhub]
         GSS[genesis-studio-service]
-        OBS[autonomize-observer]
     end
     
     subgraph "Genesis-Flow"
@@ -402,12 +401,26 @@ graph TD
         ABS[Azure Blob Store]
     end
     
+    subgraph "Observability Layer"
+        OBS[autonomize-observer SDK]
+        WRK[Observer Worker<br/>in genesis-service-modelhub]
+    end
+    
     GS --> GF
     GSS --> GF
-    OBS -.->|Observability| GF
     GF --> MDB
     GF --> ABS
+    
+    WRK -->|Uses CostTracker| OBS
+    WRK -->|Writes Traces| MDB
 ```
+
+### Observability Integration Details
+
+The **autonomize-observer** SDK is used within the genesis-service-modelhub workers for:
+- **Cost Tracking**: Using the SDK's `CostTracker` for LLM cost calculations
+- **Trace Processing**: Workers consume Kafka events and process observability data
+- **Direct Integration**: The SDK is imported directly in worker processes, not through Genesis-Flow
 
 ### Authentication Flow
 
