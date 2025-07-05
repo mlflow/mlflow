@@ -1,8 +1,8 @@
-# Genesis Platform: Microservices Architecture Transformation
+# Genesis Modelhub Platform: Microservices Architecture Transformation
 
 ## Executive Summary
 
-This document presents a comprehensive microservices architecture for the Genesis ML Platform, transforming the current monolithic `genesis-service-modelhub` into a scalable, maintainable ecosystem of specialized services. The proposed architecture emphasizes separation of concerns, independent scalability, and optional high-performance components using Go.
+This document presents a comprehensive microservices architecture for the Genesis Modelhub Platform, transforming the current monolithic `genesis-service-modelhub` into a scalable, maintainable ecosystem of specialized services. The proposed architecture emphasizes separation of concerns, independent scalability, and optional high-performance components using Go.
 
 ## Current State Analysis
 
@@ -68,34 +68,30 @@ graph TB
         GW[genesis-gateway<br/>API Gateway<br/>Node.js/NestJS]
     end
     
-    subgraph "Core Services Layer"
-        ES[Experiment Service<br/>Python/FastAPI]
-        MS[Model Registry Service<br/>Python/FastAPI]
+    subgraph "Core Services - Phase 1"
+        MLS[ML Lifecycle Service<br/>Python/FastAPI<br/>+ Genesis-Flow]
         DS[Dataset Service<br/>Python/FastAPI]
-        PS[Prompt Service<br/>Python/FastAPI]
         OBS[Observability Service<br/>Python/FastAPI]
-        PLS[Pipeline Service<br/>Python/FastAPI]
         IS[Inference Service<br/>Python/FastAPI]
-        SS[Secrets Service<br/>Go/Gin]
+        SS[Secrets Service<br/>Python/FastAPI]
     end
     
-    subgraph "High-Performance Services"
-        MAS[Metrics Aggregator<br/>Go]
-        EPS[Event Processor<br/>Go]
-        QS[Query Service<br/>Go]
+    subgraph "Future Services - Phase 2"
+        PS[Prompt Service<br/>Python/FastAPI]
+        PLS[Pipeline Service<br/>Python/FastAPI]
+        EVS[Evaluation Service<br/>Python/FastAPI]
     end
     
     subgraph "Worker Layer"
         OW[Observer Workers<br/>Python]
         EW[Evaluator Workers<br/>Python]
-        MW[Monitoring Workers<br/>Go]
+        FW[Future Workers]
     end
     
     subgraph "Data Layer"
         MDB[(MongoDB/<br/>Cosmos DB)]
-        REDIS[(Redis)]
-        TS[(TimescaleDB)]
         BLOB[Azure Blob]
+        REDIS[(Redis)]
     end
     
     subgraph "Infrastructure"
@@ -108,44 +104,44 @@ graph TB
     CLI --> GW
     SDK --> GW
     
-    GW --> ES
-    GW --> MS
+    GW --> MLS
     GW --> DS
-    GW --> PS
     GW --> OBS
-    GW --> PLS
     GW --> IS
     GW --> SS
+    GW -.-> PS
+    GW -.-> PLS
+    GW -.-> EVS
     
-    ES --> MDB
-    MS --> MDB
+    MLS --> MDB
+    MLS --> BLOB
     DS --> MDB
     DS --> BLOB
-    PS --> MDB
     OBS --> MDB
-    OBS --> TS
-    PLS --> ARGO
     IS --> K8S
-    SS --> REDIS
+    SS --> MDB
     
-    MAS --> TS
-    EPS --> KAFKA
-    QS --> MDB
-    QS --> REDIS
+    PS -.-> MDB
+    PLS -.-> ARGO
+    EVS -.-> MDB
     
     OW --> KAFKA
     EW --> KAFKA
-    MW --> KAFKA
+    FW -.-> KAFKA
     
-    style GW fill:#ff9999
-    style SS fill:#99ff99
-    style MAS fill:#99ff99
-    style EPS fill:#99ff99
-    style QS fill:#99ff99
-    style MW fill:#99ff99
+    style GW fill:#4a86e8,color:#fff
+    style MLS fill:#0d9488,color:#fff
+    style DS fill:#0d9488,color:#fff
+    style OBS fill:#0d9488,color:#fff
+    style IS fill:#0d9488,color:#fff
+    style SS fill:#0d9488,color:#fff
+    style PS fill:#9ca3af,color:#fff
+    style PLS fill:#9ca3af,color:#fff
+    style EVS fill:#9ca3af,color:#fff
+    style FW fill:#9ca3af,color:#fff
 ```
 
-### Service Breakdown
+### Service Breakdown - Phase 1 (Core Services)
 
 #### 1. API Gateway (genesis-gateway)
 **Current**: `genesis-bff-modelhub`  
@@ -168,39 +164,52 @@ graph LR
         TRANSFORM[Data Transform]
         LOG[Request Logging]
     end
+    
+    style AUTH fill:#3b82f6,color:#fff
+    style ROUTE fill:#3b82f6,color:#fff
+    style LIMIT fill:#3b82f6,color:#fff
+    style CACHE fill:#3b82f6,color:#fff
+    style TRANSFORM fill:#3b82f6,color:#fff
+    style LOG fill:#3b82f6,color:#fff
 ```
 
-#### 2. Experiment Service
-**Extracted From**: Experiments and runs endpoints  
+#### 2. ML Lifecycle Service (Consolidated)
+**Extracted From**: Experiments, runs, models, and MLflow endpoints  
 **Technology**: Python/FastAPI + Genesis-Flow  
 **Responsibilities**:
-- MLflow experiment management
-- Run tracking and metadata
-- Metrics and parameters storage
+- **Experiment Management**: MLflow experiments and runs
+- **Model Registry**: Model versioning and lifecycle
+- **Metrics & Parameters**: Tracking and storage
+- **Prompts**: Prompt template management and versioning
 - Direct MongoDB integration via Genesis-Flow
 
 ```mermaid
 graph TD
-    subgraph "Experiment Service"
+    subgraph "ML Lifecycle Service"
         API[FastAPI]
         GF[Genesis-Flow]
+        
+        subgraph "Domains"
+            EXP[Experiments]
+            RUNS[Runs]
+            MODELS[Models]
+            PROMPTS[Prompts]
+        end
         
         API --> GF
         GF --> MDB[(MongoDB)]
         GF --> BLOB[Blob Storage]
     end
+    
+    style API fill:#0d9488,color:#fff
+    style GF fill:#0d9488,color:#fff
+    style EXP fill:#14b8a6,color:#fff
+    style RUNS fill:#14b8a6,color:#fff
+    style MODELS fill:#14b8a6,color:#fff
+    style PROMPTS fill:#14b8a6,color:#fff
 ```
 
-#### 3. Model Registry Service
-**Extracted From**: Model management endpoints  
-**Technology**: Python/FastAPI + Genesis-Flow  
-**Responsibilities**:
-- Model versioning and lifecycle
-- Model metadata and tags
-- Model serving preparation
-- Integration with container registry
-
-#### 4. Dataset Service
+#### 3. Dataset Service
 **Extracted From**: Dataset endpoints  
 **Technology**: Python/FastAPI  
 **Responsibilities**:
@@ -209,16 +218,7 @@ graph TD
 - Integration with Evidently
 - Large file handling with streaming
 
-#### 5. Prompt Engineering Service
-**Extracted From**: Prompt endpoints  
-**Technology**: Python/FastAPI  
-**Responsibilities**:
-- Prompt template management
-- Version control for prompts
-- A/B testing support
-- Prompt evaluation metrics
-
-#### 6. Observability Service
+#### 4. Observability Service
 **Extracted From**: Observability endpoints  
 **Technology**: Python/FastAPI  
 **Responsibilities**:
@@ -240,21 +240,17 @@ graph TD
         API --> DS
         
         TS --> MDB[(MongoDB)]
-        MS --> TDB[(TimescaleDB)]
+        MS --> MDB
         DS --> CACHE[(Redis)]
     end
+    
+    style API fill:#0d9488,color:#fff
+    style TS fill:#14b8a6,color:#fff
+    style MS fill:#14b8a6,color:#fff
+    style DS fill:#14b8a6,color:#fff
 ```
 
-#### 7. Pipeline Service
-**Extracted From**: Pipeline endpoints  
-**Technology**: Python/FastAPI  
-**Responsibilities**:
-- Argo workflow management
-- Pipeline templates
-- Execution monitoring
-- Pipeline versioning
-
-#### 8. Inference Service
+#### 5. Inference Service
 **Extracted From**: KServe endpoints  
 **Technology**: Python/FastAPI  
 **Responsibilities**:
@@ -263,48 +259,52 @@ graph TD
 - Autoscaling configuration
 - Traffic routing
 
-#### 9. Secrets Service (Go)
+#### 6. Secrets Service
 **Extracted From**: Variables endpoints  
-**Technology**: Go with Gin framework  
-**Why Go**: High-performance, secure handling of sensitive data  
+**Technology**: Python/FastAPI  
 **Responsibilities**:
 - Kubernetes secrets management
-- Encryption/decryption
+- Environment variable management
 - Access control
 - Audit logging
 
-```go
-// Example Go service structure
-type SecretsService struct {
-    k8sClient kubernetes.Interface
-    cache     *redis.Client
-    encryptor crypto.Encryptor
-}
+### Future Services - Phase 2
 
-func (s *SecretsService) GetSecret(ctx context.Context, name string) (*Secret, error) {
-    // Fast path: check cache
-    if cached, err := s.cache.Get(ctx, name); err == nil {
-        return s.decrypt(cached)
-    }
-    
-    // Slow path: fetch from K8s
-    secret, err := s.k8sClient.CoreV1().
-        Secrets(namespace).
-        Get(ctx, name, metav1.GetOptions{})
-    
-    // Cache for next time
-    s.cache.Set(ctx, name, encrypted, ttl)
-    
-    return s.decrypt(secret)
-}
-```
+#### 1. Prompt Service (Dedicated)
+**Why Separate**: As prompt engineering grows, it may need its own service  
+**Technology**: Python/FastAPI  
+**Responsibilities**:
+- Advanced prompt management
+- A/B testing infrastructure
+- Prompt analytics
+- Template marketplace
 
-### High-Performance Go Services
+#### 2. Pipeline Service
+**Extracted From**: Pipeline endpoints  
+**Technology**: Python/FastAPI  
+**Responsibilities**:
+- Argo workflow management
+- Pipeline templates
+- Execution monitoring
+- Pipeline versioning
+
+#### 3. Evaluation Service
+**New Service**: Dedicated evaluation infrastructure  
+**Technology**: Python/FastAPI  
+**Responsibilities**:
+- Model evaluation pipelines
+- A/B testing for models
+- Performance benchmarking
+- Evaluation metrics storage
+
+
+### Optional High-Performance Go Services (Future Consideration)
 
 #### 1. Metrics Aggregator Service
 **Purpose**: Real-time metrics aggregation and processing  
 **Technology**: Go  
-**Why Go**: High throughput, low latency, efficient memory usage
+**Why Go**: High throughput, low latency, efficient memory usage  
+**When to Consider**: When processing >100K metrics/second
 
 ```mermaid
 graph LR
@@ -327,47 +327,14 @@ graph LR
 #### 2. Event Processor Service
 **Purpose**: High-throughput event processing  
 **Technology**: Go  
-**Why Go**: Excellent concurrency primitives, low GC overhead
-
-```go
-// High-performance event processor
-type EventProcessor struct {
-    workers   int
-    inputCh   chan Event
-    outputCh  chan ProcessedEvent
-    processor EventHandler
-}
-
-func (ep *EventProcessor) Start(ctx context.Context) {
-    // Fan-out pattern for parallel processing
-    for i := 0; i < ep.workers; i++ {
-        go ep.worker(ctx)
-    }
-}
-
-func (ep *EventProcessor) worker(ctx context.Context) {
-    for {
-        select {
-        case event := <-ep.inputCh:
-            processed := ep.processor.Process(event)
-            ep.outputCh <- processed
-        case <-ctx.Done():
-            return
-        }
-    }
-}
-```
+**Why Go**: Excellent concurrency primitives, low GC overhead  
+**When to Consider**: When handling >50K events/second
 
 #### 3. Query Service
 **Purpose**: Fast read queries with caching  
 **Technology**: Go  
-**Why Go**: Fast JSON serialization, efficient caching
-
-**Features**:
-- Multi-level caching (Redis + in-memory)
-- Query optimization
-- Connection pooling
-- Response streaming for large datasets
+**Why Go**: Fast JSON serialization, efficient caching  
+**When to Consider**: When query latency becomes critical (<10ms requirement)
 
 ### Worker Architecture
 
@@ -376,172 +343,211 @@ graph TD
     subgraph "Worker Pool Architecture"
         K[Kafka]
         
-        subgraph "Python Workers"
+        subgraph "Current Workers"
             OW1[Observer Worker 1]
             OW2[Observer Worker 2]
             EW1[Evaluator Worker 1]
             EW2[Evaluator Worker 2]
         end
         
-        subgraph "Go Workers"
-            MW1[Monitoring Worker 1]
-            MW2[Monitoring Worker 2]
-            MW3[Monitoring Worker 3]
+        subgraph "Future Workers"
+            MW[Monitoring Workers]
+            PW[Pipeline Workers]
         end
         
         K --> OW1
         K --> OW2
         K --> EW1
         K --> EW2
-        K --> MW1
-        K --> MW2
-        K --> MW3
+        K -.-> MW
+        K -.-> PW
         
         OW1 --> MDB[(MongoDB)]
         OW2 --> MDB
         EW1 --> MDB
         EW2 --> MDB
-        MW1 --> TS[(TimescaleDB)]
-        MW2 --> TS
-        MW3 --> TS
+        MW -.-> MDB
+        PW -.-> MDB
     end
+    
+    style OW1 fill:#0d9488,color:#fff
+    style OW2 fill:#0d9488,color:#fff
+    style EW1 fill:#0d9488,color:#fff
+    style EW2 fill:#0d9488,color:#fff
+    style MW fill:#9ca3af,color:#fff
+    style PW fill:#9ca3af,color:#fff
 ```
 
-#### Worker Types
+#### Current Worker Types
 
 1. **Observer Workers** (Python)
-   - Process observability traces
-   - Use autonomize-observer SDK
-   - Write to MongoDB
+   - Process observability traces from Kafka
+   - Use autonomize-observer SDK for cost tracking
+   - Write processed data to MongoDB
 
 2. **Evaluator Workers** (Python)
    - Evaluate prompts and models
    - Complex ML computations
    - Integration with ML libraries
 
-3. **Monitoring Workers** (Go)
-   - High-frequency metrics collection
+#### Future Worker Types
+
+3. **Monitoring Workers** (Python/Go)
    - System resource monitoring
+   - Performance metrics collection
    - Real-time alerting
+
+4. **Pipeline Workers** (Python)
+   - Argo workflow execution
+   - Pipeline status updates
+   - Resource management
 
 ### Event-Driven Architecture
 
 ```mermaid
 graph LR
     subgraph "Event Flow"
-        P1[Experiment Service]
-        P2[Model Service]
-        P3[Dataset Service]
+        P1[ML Lifecycle Service]
+        P2[Dataset Service]
+        P3[Inference Service]
         
         K[Kafka]
         
         C1[Observer Worker]
         C2[Evaluator Worker]
-        C3[Notification Service]
         
         P1 -->|experiment.created| K
-        P2 -->|model.deployed| K
-        P3 -->|dataset.updated| K
+        P1 -->|model.deployed| K
+        P2 -->|dataset.updated| K
+        P3 -->|endpoint.created| K
         
         K --> C1
         K --> C2
-        K --> C3
     end
+    
+    style P1 fill:#0d9488,color:#fff
+    style P2 fill:#0d9488,color:#fff
+    style P3 fill:#0d9488,color:#fff
+    style C1 fill:#14b8a6,color:#fff
+    style C2 fill:#14b8a6,color:#fff
 ```
 
 ### Data Architecture
 
 ```mermaid
 graph TD
-    subgraph "Polyglot Persistence"
+    subgraph "Data Storage - Phase 1"
         subgraph "Document Store"
             MDB[(MongoDB/Cosmos DB)]
-            DESC1[Experiments, Runs,<br/>Models, Prompts]
+            DESC1[Experiments, Runs,<br/>Models, Prompts,<br/>Traces, Datasets]
         end
         
-        subgraph "Time Series"
-            TS[(TimescaleDB)]
-            DESC2[Metrics, Monitoring,<br/>Performance Data]
+        subgraph "Object Store"
+            BLOB[Azure Blob]
+            DESC2[Model Files, Dataset Files,<br/>Artifacts, Logs]
         end
         
         subgraph "Cache Layer"
             REDIS[(Redis)]
             DESC3[Sessions, Hot Data,<br/>Query Cache]
         end
-        
-        subgraph "Object Store"
-            BLOB[Azure Blob]
-            DESC4[Models, Datasets,<br/>Artifacts, Logs]
+    end
+    
+    subgraph "Future Storage"
+        subgraph "Time Series"
+            TS[(TimescaleDB)]
+            DESC4[High-frequency Metrics,<br/>Performance Data]
         end
     end
+    
+    style MDB fill:#0d9488,color:#fff
+    style BLOB fill:#0d9488,color:#fff
+    style REDIS fill:#0d9488,color:#fff
+    style TS fill:#9ca3af,color:#fff
 ```
 
 ## Migration Strategy
 
-### Phase 1: Strangler Fig Pattern
+### Phase 1: Core Services Extraction
 ```mermaid
 graph LR
-    subgraph "Phase 1"
-        MON[Monolith]
-        GW[API Gateway]
-        NS1[New Service 1]
-        
-        GW --> MON
-        GW -.->|Selected Routes| NS1
-    end
-```
-
-### Phase 2: Progressive Decomposition
-```mermaid
-graph LR
-    subgraph "Phase 2"
+    subgraph "Phase 1 - Q1 2025"
         MON[Reduced Monolith]
         GW[API Gateway]
-        NS1[Service 1]
-        NS2[Service 2]
-        NS3[Service 3]
+        OBS[Observability Service]
+        DS[Dataset Service]
         
         GW --> MON
-        GW --> NS1
-        GW --> NS2
-        GW --> NS3
+        GW --> OBS
+        GW --> DS
     end
+    
+    style OBS fill:#0d9488,color:#fff
+    style DS fill:#0d9488,color:#fff
+```
+
+### Phase 2: ML Services Consolidation
+```mermaid
+graph LR
+    subgraph "Phase 2 - Q2 2025"
+        MON[Minimal Monolith]
+        GW[API Gateway]
+        MLS[ML Lifecycle Service]
+        OBS[Observability Service]
+        DS[Dataset Service]
+        IS[Inference Service]
+        
+        GW --> MON
+        GW --> MLS
+        GW --> OBS
+        GW --> DS
+        GW --> IS
+    end
+    
+    style MLS fill:#0d9488,color:#fff
+    style OBS fill:#0d9488,color:#fff
+    style DS fill:#0d9488,color:#fff
+    style IS fill:#0d9488,color:#fff
 ```
 
 ### Phase 3: Complete Migration
 ```mermaid
 graph LR
-    subgraph "Phase 3"
+    subgraph "Phase 3 - Q3 2025"
         GW[API Gateway]
-        NS1[Service 1]
-        NS2[Service 2]
-        NS3[Service 3]
-        NS4[Service 4]
-        NS5[Service 5]
+        MLS[ML Lifecycle Service]
+        OBS[Observability Service]
+        DS[Dataset Service]
+        IS[Inference Service]
+        SS[Secrets Service]
         
-        GW --> NS1
-        GW --> NS2
-        GW --> NS3
-        GW --> NS4
-        GW --> NS5
+        GW --> MLS
+        GW --> OBS
+        GW --> DS
+        GW --> IS
+        GW --> SS
     end
+    
+    style MLS fill:#0d9488,color:#fff
+    style OBS fill:#0d9488,color:#fff
+    style DS fill:#0d9488,color:#fff
+    style IS fill:#0d9488,color:#fff
+    style SS fill:#0d9488,color:#fff
 ```
 
 ### Migration Priority
 
-1. **High Priority** (Phase 1)
-   - Secrets Service (security critical)
-   - Observability Service (already semi-independent)
-   - Dataset Service (clear boundaries)
+1. **Phase 1 - Q1 2025**
+   - Observability Service (already semi-independent with workers)
+   - Dataset Service (clear boundaries, existing Kafka integration)
 
-2. **Medium Priority** (Phase 2)
-   - Model Registry Service
-   - Prompt Engineering Service
-   - Pipeline Service
+2. **Phase 2 - Q2 2025**
+   - ML Lifecycle Service (consolidate experiments, runs, models, prompts)
+   - Inference Service (KServe management)
 
-3. **Lower Priority** (Phase 3)
-   - Experiment Service
-   - Inference Service
+3. **Phase 3 - Q3 2025**
+   - Secrets Service (variables management)
+   - Decommission remaining monolith
 
 ## Service Communication Patterns
 
@@ -603,6 +609,18 @@ graph TD
             AUDIT[Audit Logging]
         end
     end
+    
+    style WAF fill:#3b82f6,color:#fff
+    style DDoS fill:#3b82f6,color:#fff
+    style AUTH fill:#3b82f6,color:#fff
+    style AUTHZ fill:#3b82f6,color:#fff
+    style LIMIT fill:#3b82f6,color:#fff
+    style mTLS fill:#3b82f6,color:#fff
+    style RBAC fill:#3b82f6,color:#fff
+    style SECRETS fill:#3b82f6,color:#fff
+    style ENC fill:#3b82f6,color:#fff
+    style TLS fill:#3b82f6,color:#fff
+    style AUDIT fill:#3b82f6,color:#fff
 ```
 
 ## Deployment Architecture
@@ -687,31 +705,33 @@ graph TD
         end
         
         subgraph "Logging"
-            FLUENT[Fluentd]
-            ELASTIC[Elasticsearch]
-            KIBANA[Kibana]
+            AI[Application Insights]
         end
         
         subgraph "Tracing"
-            JAEGER[Jaeger]
-            TEMPO[Tempo]
+            OBS[Observability Service]
+            AO[autonomize-observer]
         end
         
-        subgraph "Application Monitoring"
-            APM[Application Insights]
+        subgraph "Dashboards"
             CUSTOM[Custom Dashboards]
         end
     end
     
     Services --> PROM
-    Services --> FLUENT
-    Services --> JAEGER
-    Services --> APM
+    Services --> AI
+    Services --> AO
+    AO --> OBS
     
     PROM --> GRAF
-    FLUENT --> ELASTIC
-    ELASTIC --> KIBANA
-    JAEGER --> TEMPO
+    OBS --> CUSTOM
+    
+    style PROM fill:#3b82f6,color:#fff
+    style GRAF fill:#3b82f6,color:#fff
+    style AI fill:#3b82f6,color:#fff
+    style OBS fill:#0d9488,color:#fff
+    style AO fill:#0d9488,color:#fff
+    style CUSTOM fill:#0d9488,color:#fff
 ```
 
 ## Performance Optimization Strategies
@@ -756,13 +776,13 @@ graph TD
 | Service | Language | Min Replicas | Max Replicas | CPU Request | Memory Request |
 |---------|----------|--------------|--------------|-------------|----------------|
 | Gateway | Node.js | 3 | 10 | 200m | 512Mi |
-| Experiment | Python | 2 | 6 | 100m | 256Mi |
-| Model Registry | Python | 2 | 6 | 100m | 256Mi |
-| Dataset | Python | 2 | 8 | 200m | 512Mi |
+| ML Lifecycle | Python | 3 | 8 | 200m | 512Mi |
+| Dataset | Python | 2 | 6 | 200m | 512Mi |
 | Observability | Python | 3 | 10 | 200m | 512Mi |
-| Secrets | Go | 2 | 4 | 50m | 64Mi |
-| Metrics Aggregator | Go | 3 | 8 | 100m | 128Mi |
-| Event Processor | Go | 3 | 10 | 100m | 128Mi |
+| Inference | Python | 2 | 6 | 100m | 256Mi |
+| Secrets | Python | 2 | 4 | 100m | 256Mi |
+| Observer Worker | Python | 2 | 8 | 100m | 256Mi |
+| Evaluator Worker | Python | 2 | 6 | 200m | 512Mi |
 
 ### Estimated Cost Savings
 
@@ -772,72 +792,79 @@ graph TD
 
 ## Implementation Roadmap
 
-### Quarter 1: Foundation
-- [ ] Set up API Gateway with routing rules
-- [ ] Extract Secrets Service (Go)
-- [ ] Extract Observability Service
-- [ ] Implement service discovery
-
-### Quarter 2: Core Services
+### Q1 2025: Foundation Phase
+- [ ] Set up API Gateway routing rules in genesis-bff-modelhub
+- [ ] Extract Observability Service (leverage existing workers)
 - [ ] Extract Dataset Service
-- [ ] Extract Prompt Engineering Service
-- [ ] Implement Metrics Aggregator (Go)
-- [ ] Set up monitoring infrastructure
+- [ ] Implement service discovery and health checks
 
-### Quarter 3: ML Services
-- [ ] Extract Model Registry Service
-- [ ] Extract Pipeline Service
-- [ ] Implement Event Processor (Go)
-- [ ] Migration of 50% traffic
+### Q2 2025: Core Services
+- [ ] Create ML Lifecycle Service with Genesis-Flow
+- [ ] Migrate experiments, runs, models, prompts endpoints
+- [ ] Extract Inference Service (KServe management)
+- [ ] Set up comprehensive monitoring
 
-### Quarter 4: Completion
-- [ ] Extract Experiment Service
-- [ ] Extract Inference Service
-- [ ] Complete migration
+### Q3 2025: Completion
+- [ ] Extract Secrets Service
+- [ ] Complete traffic migration
+- [ ] Performance optimization
 - [ ] Decommission monolith
+
+### Future Enhancements (Post Q3 2025)
+- [ ] Dedicated Prompt Service (if needed)
+- [ ] Pipeline Service for complex workflows
+- [ ] Go-based high-performance services (if required)
+- [ ] Advanced evaluation infrastructure
 
 ## Technology Stack Summary
 
-### Primary Languages
-- **Python**: ML services, complex business logic
-- **Go**: High-performance services, workers
-- **Node.js**: API Gateway (existing)
-
-### Recommended Go Services
-1. **Secrets Service**: Security and performance critical
-2. **Metrics Aggregator**: High-throughput data processing
-3. **Event Processor**: Real-time event handling
-4. **Query Service**: Fast read operations
-5. **Monitoring Workers**: System metrics collection
-
-### Data Stores
+### Current Stack (Phase 1)
+- **Python**: All services (leveraging existing expertise)
+- **Node.js**: API Gateway (existing genesis-bff-modelhub)
 - **MongoDB/Cosmos DB**: Primary document store
-- **TimescaleDB**: Time-series metrics
-- **Redis**: Caching and sessions
 - **Azure Blob**: Object storage
-
-### Infrastructure
+- **Redis**: Caching layer
 - **Kubernetes**: Container orchestration
 - **Kafka**: Event streaming
-- **Istio**: Service mesh (optional)
-- **ArgoCD**: GitOps deployment
+
+### Optional Go Services (Future)
+When to consider Go services:
+- **Metrics processing** exceeding 100K/second
+- **Event processing** exceeding 50K/second
+- **Sub-10ms latency** requirements
+- **Memory constraints** (Go uses 10x less memory)
+
+Potential candidates:
+1. **Metrics Aggregator**: For high-frequency telemetry
+2. **Event Processor**: For real-time stream processing
+3. **Query Cache Service**: For ultra-low latency reads
 
 ## Conclusion
 
-The proposed microservices architecture transforms the Genesis ML Platform into a modern, scalable system that:
+The proposed microservices architecture for the Genesis Modelhub Platform provides:
 
-1. **Enables Independent Scaling**: Each service scales based on its needs
-2. **Improves Development Velocity**: Teams work independently
-3. **Enhances Reliability**: Failure isolation and circuit breaking
-4. **Optimizes Performance**: Go services for critical paths
-5. **Reduces Costs**: Efficient resource utilization
+### Phase 1 Benefits (5 Core Services)
+1. **Simplified Architecture**: From monolith to 5 focused services
+2. **Leverages Existing Work**: Uses current workers and integrations
+3. **Consolidation with Genesis-Flow**: ML Lifecycle Service handles experiments, runs, models, prompts
+4. **Independent Scaling**: Each service scales based on demand
+5. **Reduced Complexity**: Maintains Python stack for easier adoption
 
-The architecture maintains Python for ML-specific services while strategically introducing Go for performance-critical components, creating a best-of-both-worlds solution for the Genesis platform.
+### Key Design Decisions
+- **ML Lifecycle Service**: Consolidates all MLflow-related functionality using Genesis-Flow
+- **Existing Workers**: Leverage current observer and evaluator workers
+- **Python-First**: Focus on team expertise, consider Go only when performance demands it
+- **Phased Approach**: Start with clear service boundaries, add more services as needed
+
+### Future Flexibility
+- **Prompt Service**: Can be extracted when prompt engineering needs grow
+- **Pipeline Service**: Add when Argo workflow management becomes complex
+- **Go Services**: Introduce only when hitting performance limits
 
 ---
 
 **Next Steps:**
-1. Review and approve the architecture
-2. Create detailed API specifications
-3. Set up CI/CD pipelines
-4. Begin Phase 1 implementation with Secrets Service
+1. Review and approve the simplified architecture
+2. Start with Observability Service extraction (Q1 2025)
+3. Create ML Lifecycle Service with Genesis-Flow
+4. Maintain flexibility for future service additions

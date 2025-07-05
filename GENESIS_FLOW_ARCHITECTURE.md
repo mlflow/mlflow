@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-Genesis-Flow is a secure, lightweight fork of MLflow designed specifically for the Genesis platform. It eliminates the need for a separate MLflow server by integrating directly with MongoDB/Azure Cosmos DB, while maintaining 100% API compatibility with standard MLflow.
+Genesis-Flow is a secure, lightweight fork of MLflow designed specifically for the Genesis Modelhub Platform. It eliminates the need for a separate MLflow server by integrating directly with MongoDB/Azure Cosmos DB, while maintaining 100% API compatibility with standard MLflow.
 
 ## Current Architecture vs. New Architecture
 
@@ -36,9 +36,9 @@ graph TB
     MLFS --> FS
     MS --> MONGO
     
-    style MLFS fill:#ff9999
-    style PG fill:#ff9999
-    style FS fill:#ff9999
+    style MLFS fill:#ff6b6b,color:#fff
+    style PG fill:#ff6b6b,color:#fff
+    style FS fill:#ff6b6b,color:#fff
 ```
 
 ### New Architecture (with Genesis-Flow)
@@ -67,9 +67,9 @@ graph TB
     MS -->|Direct Connection| COSMOS
     MS -->|Direct Connection| BLOB
     
-    style MS fill:#99ff99
-    style COSMOS fill:#99ccff
-    style BLOB fill:#99ccff
+    style MS fill:#10b981,color:#fff
+    style COSMOS fill:#3b82f6,color:#fff
+    style BLOB fill:#3b82f6,color:#fff
 ```
 
 ## Key Architectural Changes
@@ -384,7 +384,7 @@ MLFLOW_DEFAULT_ARTIFACT_ROOT=azure://mlflow-artifacts/
 AZURE_STORAGE_CONNECTION_STRING=<connection-string>
 ```
 
-## Integration with Genesis Platform
+## Integration with Genesis Modelhub Platform
 
 ### Service Integration Points
 
@@ -489,7 +489,7 @@ Genesis-Flow represents a significant architectural improvement over the standar
 - **Scalable**: Cloud-native storage backends with infinite scale
 - **Compatible**: No code changes required for migration
 
-The elimination of the MLflow server reduces operational complexity while improving performance and security, making it ideal for enterprise deployments on the Genesis platform.
+The elimination of the MLflow server reduces operational complexity while improving performance and security, making it ideal for enterprise deployments on the Genesis Modelhub Platform.
 
 ## Next Steps
 
