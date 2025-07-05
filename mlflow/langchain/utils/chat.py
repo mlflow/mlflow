@@ -145,23 +145,6 @@ def _get_tool_calls_from_ai_message(message: AIMessage) -> list[dict[str, Any]]:
     ]
 
 
-def convert_lc_generation_to_chat_message(lc_gen: Generation) -> ChatMessage:
-    """
-    Convert LangChain's generation format to the MLflow's standard chat message format.
-    """
-    if isinstance(lc_gen, ChatGeneration):
-        try:
-            return convert_lc_message_to_chat_message(lc_gen.message)
-        except Exception as e:
-            # When failed to convert the message, return as assistant message
-            _logger.debug(
-                f"Failed to convert the message from ChatGeneration to ResponseMessage: {e}",
-                exc_info=True,
-            )
-
-    return ChatMessage(role="assistant", content=lc_gen.text)
-
-
 def try_transform_response_to_chat_format(response: Any) -> dict[str, Any]:
     """
     Try to convert the response to the standard chat format and return its dict representation.
