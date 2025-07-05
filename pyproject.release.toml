@@ -34,6 +34,7 @@ dependencies = [
   "graphene<4",
   "gunicorn<24; platform_system != 'Windows'",
   "matplotlib<4",
+  "narwhals<3,>=1.32.0",
   "numpy<3",
   "pandas<3",
   "pyarrow<21,>=4.0.0",
