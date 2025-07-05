@@ -49,7 +49,6 @@ if not IS_TRACING_SDK_ONLY:
         exceptions,  # noqa: F401
         genai,  # noqa: F401
         models,  # noqa: F401
-        projects,  # noqa: F401
         tracking,  # noqa: F401
     )
 
@@ -59,54 +58,34 @@ from mlflow.exceptions import MlflowException
 from mlflow.utils.lazy_load import LazyLoader
 from mlflow.utils.logging_utils import _configure_mlflow_loggers
 
-# Lazily load mlflow flavors to avoid excessive dependencies.
+# Genesis-Flow: Lazily load essential mlflow flavors only
 anthropic = LazyLoader("mlflow.anthropic", globals(), "mlflow.anthropic")
 ag2 = LazyLoader("mlflow.ag2", globals(), "mlflow.ag2")
 autogen = LazyLoader("mlflow.autogen", globals(), "mlflow.autogen")
 bedrock = LazyLoader("mlflow.bedrock", globals(), "mlflow.bedrock")
-catboost = LazyLoader("mlflow.catboost", globals(), "mlflow.catboost")
 crewai = LazyLoader("mlflow.crewai", globals(), "mlflow.crewai")
-diviner = LazyLoader("mlflow.diviner", globals(), "mlflow.diviner")
 dspy = LazyLoader("mlflow.dspy", globals(), "mlflow.dspy")
 gemini = LazyLoader("mlflow.gemini", globals(), "mlflow.gemini")
 groq = LazyLoader("mlflow.groq", globals(), "mlflow.groq")
-h2o = LazyLoader("mlflow.h2o", globals(), "mlflow.h2o")
 johnsnowlabs = LazyLoader("mlflow.johnsnowlabs", globals(), "mlflow.johnsnowlabs")
-keras = LazyLoader("mlflow.keras", globals(), "mlflow.keras")
 langchain = LazyLoader("mlflow.langchain", globals(), "mlflow.langchain")
-lightgbm = LazyLoader("mlflow.lightgbm", globals(), "mlflow.lightgbm")
 litellm = LazyLoader("mlflow.litellm", globals(), "mlflow.litellm")
 llama_index = LazyLoader("mlflow.llama_index", globals(), "mlflow.llama_index")
 llm = LazyLoader("mlflow.llm", globals(), "mlflow.llm")
 metrics = LazyLoader("mlflow.metrics", globals(), "mlflow.metrics")
 mistral = LazyLoader("mlflow.mistral", globals(), "mlflow.mistral")
-onnx = LazyLoader("mlflow.onnx", globals(), "mlflow.onnx")
 openai = LazyLoader("mlflow.openai", globals(), "mlflow.openai")
-paddle = LazyLoader("mlflow.paddle", globals(), "mlflow.paddle")
-pmdarima = LazyLoader("mlflow.pmdarima", globals(), "mlflow.pmdarima")
 promptflow = LazyLoader("mlflow.promptflow", globals(), "mlflow.promptflow")
-prophet = LazyLoader("mlflow.prophet", globals(), "mlflow.prophet")
 pydantic_ai = LazyLoader("mlflow.pydantic_ai", globals(), "mlflow.pydantic_ai")
 pyfunc = LazyLoader("mlflow.pyfunc", globals(), "mlflow.pyfunc")
-pyspark = LazyLoader("mlflow.pyspark", globals(), "mlflow.pyspark")
 pytorch = LazyLoader("mlflow.pytorch", globals(), "mlflow.pytorch")
 rfunc = LazyLoader("mlflow.rfunc", globals(), "mlflow.rfunc")
-sentence_transformers = LazyLoader(
-    "mlflow.sentence_transformers",
-    globals(),
-    "mlflow.sentence_transformers",
-)
 shap = LazyLoader("mlflow.shap", globals(), "mlflow.shap")
 sklearn = LazyLoader("mlflow.sklearn", globals(), "mlflow.sklearn")
 smolagents = LazyLoader("mlflow.smolagents", globals(), "mlflow.smolagents")
-spacy = LazyLoader("mlflow.spacy", globals(), "mlflow.spacy")
-spark = LazyLoader("mlflow.spark", globals(), "mlflow.spark")
-statsmodels = LazyLoader("mlflow.statsmodels", globals(), "mlflow.statsmodels")
-tensorflow = LazyLoader("mlflow.tensorflow", globals(), "mlflow.tensorflow")
 # TxtAI integration is defined at https://github.com/neuml/mlflow-txtai
 txtai = LazyLoader("mlflow.txtai", globals(), "mlflow_txtai")
 transformers = LazyLoader("mlflow.transformers", globals(), "mlflow.transformers")
-xgboost = LazyLoader("mlflow.xgboost", globals(), "mlflow.xgboost")
 
 if TYPE_CHECKING:
     # Do not move this block above the lazy-loaded modules above.
@@ -116,43 +95,27 @@ if TYPE_CHECKING:
         anthropic,
         autogen,
         bedrock,
-        catboost,
         crewai,
-        diviner,
         dspy,
         gemini,
         groq,
-        h2o,
         johnsnowlabs,
-        keras,
         langchain,
-        lightgbm,
         litellm,
         llama_index,
         llm,
         metrics,
         mistral,
-        onnx,
         openai,
-        paddle,
-        pmdarima,
         promptflow,
-        prophet,
         pydantic_ai,
         pyfunc,
-        pyspark,
         pytorch,
         rfunc,
-        sentence_transformers,
         shap,
         sklearn,
         smolagents,
-        spacy,
-        spark,
-        statsmodels,
-        tensorflow,
         transformers,
-        xgboost,
     )
 
 if MLFLOW_CONFIGURE_LOGGING.get() is True:
@@ -245,7 +208,6 @@ if not IS_TRACING_SDK_ONLY:
     )
     from mlflow.models.evaluation.deprecated import evaluate
     from mlflow.models.evaluation.validation import validate_evaluation_results
-    from mlflow.projects import run
     from mlflow.tracking._model_registry.fluent import (
         # TODO: Prompt Registry APIs are moved to the `mlflow.genai` namespace and direct
         # imports from mlflow will be deprecated in the future.
@@ -366,7 +328,6 @@ if not IS_TRACING_SDK_ONLY:
         "login",
         "pyfunc",
         "register_model",
-        "run",
         "search_experiments",
         "search_logged_models",
         "search_model_versions",
@@ -399,10 +360,4 @@ if not IS_TRACING_SDK_ONLY:
     ]
 
 
-# `mlflow.gateway` depends on optional dependencies such as pydantic, psutil, and has version
-# restrictions for dependencies. Importing this module fails if they are not installed or
-# if invalid versions of these required packages are installed.
-with contextlib.suppress(Exception):
-    from mlflow import gateway  # noqa: F401
-
-    __all__.append("gateway")
+# Genesis-Flow: Gateway module removed

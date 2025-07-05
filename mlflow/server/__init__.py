@@ -41,9 +41,10 @@ PROMETHEUS_EXPORTER_ENV_VAR = "prometheus_multiproc_dir"
 SERVE_ARTIFACTS_ENV_VAR = "_MLFLOW_SERVER_SERVE_ARTIFACTS"
 ARTIFACTS_ONLY_ENV_VAR = "_MLFLOW_SERVER_ARTIFACTS_ONLY"
 
-REL_STATIC_DIR = "js/build"
+# Genesis-Flow: UI removed, no static directory needed
+REL_STATIC_DIR = None
 
-app = Flask(__name__, static_folder=REL_STATIC_DIR)
+app = Flask(__name__)
 IS_FLASK_V1 = Version(importlib.metadata.version("flask")) < Version("2.0")
 
 
@@ -133,36 +134,24 @@ def serve_get_logged_model_artifact(model_id: str):
     return get_logged_model_artifact_handler(model_id)
 
 
-# We expect the react app to be built assuming it is hosted at /static-files, so that requests for
-# CSS/JS resources will be made to e.g. /static-files/main.css and we can handle them here.
-# The files are hashed based on source code, so ok to send Cache-Control headers via max_age.
+# Genesis-Flow: No static files to serve (UI removed)
 @app.route(_add_static_prefix("/static-files/<path:path>"))
 def serve_static_file(path):
-    if IS_FLASK_V1:
-        return send_from_directory(app.static_folder, path, cache_timeout=2419200)
-    else:
-        return send_from_directory(app.static_folder, path, max_age=2419200)
+    return Response("Genesis-Flow: Static files not available (UI removed)", status=404, mimetype="text/plain")
 
 
-# Serve the index.html for the React App for all other routes.
+# Genesis-Flow: API-only server, no UI
 @app.route(_add_static_prefix("/"))
 def serve():
-    if os.path.exists(os.path.join(app.static_folder, "index.html")):
-        return send_from_directory(app.static_folder, "index.html")
-
     text = textwrap.dedent(
         """
-    Unable to display MLflow UI - landing page (index.html) not found.
-
-    You are very likely running the MLflow server using a source installation of the Python MLflow
-    package.
-
-    If you are a developer making MLflow source code changes and intentionally running a source
-    installation of MLflow, you can view the UI by running the Javascript dev server:
-    https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md#running-the-javascript-dev-server
-
-    Otherwise, uninstall MLflow via 'pip uninstall mlflow', reinstall an official MLflow release
-    from PyPI via 'pip install mlflow', and rerun the MLflow server.
+    Genesis-Flow API Server
+    
+    This is an API-only MLflow-compatible server without UI components.
+    Access the REST API endpoints at /api/2.0/mlflow/
+    
+    Health check: /health
+    Version: /version
     """
     )
     return Response(text, mimetype="text/plain")
