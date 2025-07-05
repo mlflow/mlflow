@@ -703,6 +703,20 @@ def get_run(run_id: str) -> Run:
     return MlflowClient().get_run(run_id)
 
 
+def get_metric_history(run_id: str, key: str):
+    """
+    Return a list of metric objects corresponding to all values logged for a given metric.
+
+    Args:
+        run_id: Unique identifier for the run
+        key: Metric name
+
+    Returns:
+        A list of Metric entities if logged, else empty list
+    """
+    return MlflowClient().get_metric_history(run_id, key)
+
+
 def get_parent_run(run_id: str) -> Optional[Run]:
     """Gets the parent run for the given run id if one exists.
 
