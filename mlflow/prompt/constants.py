@@ -7,6 +7,14 @@ PROMPT_TEXT_TAG_KEY = "mlflow.prompt.text"
 
 LINKED_PROMPTS_TAG_KEY = "mlflow.linkedPrompts"
 
+# New tag keys for enhanced prompt features
+PROMPT_TYPE_TAG_KEY = "mlflow.prompt.type"
+RESPONSE_FORMAT_TAG_KEY = "mlflow.prompt.response_format"
+
+# Prompt types
+PROMPT_TYPE_TEXT = "text"
+PROMPT_TYPE_CHAT = "chat"
+
 # A special tag to store associated run IDs for prompts
 PROMPT_ASSOCIATED_RUN_IDS_TAG_KEY = "mlflow.prompt.associatedRunIds"
 
