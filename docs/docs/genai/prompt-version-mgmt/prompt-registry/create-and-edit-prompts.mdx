@@ -39,31 +39,61 @@ You can initiate a new prompt in the MLflow Prompt Registry in two primary ways:
       initial_template = """\
       Summarize content you are provided with in {{ num_sentences }} sentences.
 
-      Sentences: {{ sentences }}
-      """
+```python
+import mlflow
+from pydantic import BaseModel
 
-      # Register a new prompt
-      prompt = mlflow.genai.register_prompt(
-          name="summarization-prompt",
-          template=initial_template,
-          # Optional: Provide a commit message to describe the changes
-          commit_message="Initial commit",
-          # Optional: Set tags applies to the prompt (across versions)
-          tags={
-              "author": "author@example.com",
-              "task": "summarization",
-              "language": "en",
-          },
-      )
+# Text prompt with response format
+text_template = """\
+Summarize content you are provided with in {{ num_sentences }} sentences.
 
       # The prompt object contains information about the registered prompt
       print(f"Created prompt '{prompt.name}' (version {prompt.version})")
       ```
     </div>
 
-  </TabItem>
-</Tabs>
-</TabsWrapper>
+
+# Define response format for structured output
+class SummaryResponse(BaseModel):
+    summary: str
+    key_points: list[str]
+    word_count: int
+
+
+# Register a text prompt
+text_prompt = mlflow.genai.register_prompt(
+    name="summarization-prompt",
+    template=text_template,
+    response_format=SummaryResponse,
+    # Optional: Provide a commit message to describe the changes
+    commit_message="Initial commit",
+    # Optional: Set tags applies to the prompt (across versions)
+    tags={
+        "author": "author@example.com",
+        "task": "summarization",
+        "language": "en",
+    },
+)
+
+# Chat prompt example
+chat_template = [
+    {"role": "system", "content": "You are a helpful {{ style }} assistant."},
+    {"role": "user", "content": "{{ question }}"},
+]
+
+# Register a chat prompt
+chat_prompt = mlflow.genai.register_prompt(
+    name="assistant-prompt",
+    template=chat_template,
+    response_format={"type": "string", "description": "A helpful response"},
+    commit_message="Initial chat prompt",
+    tags={"type": "chat", "style": "friendly"},
+)
+
+# The prompt object contains information about the registered prompt
+print(f"Created text prompt '{text_prompt.name}' (version {text_prompt.version})")
+print(f"Created chat prompt '{chat_prompt.name}' (version {chat_prompt.version})")
+```
 
 ## Editing an Existing Prompt (Creating New Versions)
 
@@ -93,14 +123,13 @@ Once a prompt version is created, its template and initial metadata are **immuta
       new_template = """\
       You are an expert summarizer. Condense the following content into exactly {{ num_sentences }} clear and informative sentences that capture the key points.
 
-      Sentences: {{ sentences }}
+```python
+import mlflow
+from pydantic import BaseModel
 
-      Your summary should:
-      - Contain exactly {{ num_sentences }} sentences
-      - Include only the most important information
-      - Be written in a neutral, objective tone
-      - Maintain the same level of formality as the original text
-      """
+# Update text prompt with enhanced response format
+new_text_template = """\
+You are an expert summarizer. Condense the following content into exactly {{ num_sentences }} clear and informative sentences that capture the key points.
 
       # Register a new version of an existing prompt
       updated_prompt = mlflow.genai.register_prompt(
@@ -114,9 +143,61 @@ Once a prompt version is created, its template and initial metadata are **immuta
       ```
     </div>
 
-  </TabItem>
-</Tabs>
-</TabsWrapper>
+Your summary should:
+- Contain exactly {{ num_sentences }} sentences
+- Include only the most important information
+- Be written in a neutral, objective tone
+- Maintain the same level of formality as the original text
+"""
+
+
+# Enhanced response format
+class EnhancedSummaryResponse(BaseModel):
+    summary: str
+    key_points: list[str]
+    word_count: int
+    confidence_score: float
+    reading_level: str
+
+
+# Register a new version of an existing text prompt
+updated_text_prompt = mlflow.genai.register_prompt(
+    name="summarization-prompt",  # Specify the existing prompt name
+    template=new_text_template,
+    response_format=EnhancedSummaryResponse,
+    commit_message="Enhanced with confidence scoring and reading level",
+    tags={
+        "author": "author@example.com",
+        "enhanced": "true",
+    },
+)
+
+# Update chat prompt with additional messages
+new_chat_template = [
+    {
+        "role": "system",
+        "content": "You are a helpful {{ style }} assistant with expertise in {{ domain }}.",
+    },
+    {"role": "user", "content": "{{ question }}"},
+    {
+        "role": "assistant",
+        "content": "I'll help you with that. Let me provide a detailed response.",
+    },
+    {"role": "user", "content": "Please elaborate on {{ specific_aspect }}."},
+]
+
+# Register a new version of an existing chat prompt
+updated_chat_prompt = mlflow.genai.register_prompt(
+    name="assistant-prompt",
+    template=new_chat_template,
+    response_format={
+        "type": "object",
+        "properties": {"answer": {"type": "string"}, "sources": {"type": "array"}},
+    },
+    commit_message="Added multi-turn conversation support",
+    tags={"type": "chat", "style": "friendly", "multi_turn": "true"},
+)
+```
 
 ## Understanding Immutability
 

@@ -111,10 +111,15 @@ graph TB
 
 ### Template Structure
 
-Prompt templates support sophisticated variable interpolation:
+Prompt templates support sophisticated variable interpolation and multiple formats:
+
+<Tabs>
+<TabItem value="text" label="Text Templates" default>
+
+Text templates use string-based content with variable interpolation:
 
 ```python
-# Example template with variables
+# Example text template with variables
 template = """
 You are an expert {{ role }}. Analyze the following {{ content_type }} and provide {{ num_points }} key insights.
 
@@ -129,9 +134,34 @@ Requirements:
 # Variables automatically extracted: role, content_type, num_points, content, focus_area, tone, max_length
 ```
 
-### Tags
+</TabItem>
+<TabItem value="chat" label="Chat Templates">
 
-Use `tags` for storing version-specific information, such as the author of the changes.
+Chat templates use structured message arrays for conversational AI:
+
+```python
+# Example chat template with multiple messages
+chat_template = [
+    {"role": "system", "content": "You are a helpful {{ style }} assistant."},
+    {"role": "user", "content": "{{ question }}"},
+    {"role": "assistant", "content": "I'll help you with that."},
+    {"role": "user", "content": "Can you provide more details about {{ topic }}?"},
+]
+
+# Variables automatically extracted: style, question, topic
+```
+
+</TabItem>
+</Tabs>
+
+### Tags and Response Formats
+
+Use `tags` for storing version-specific information and `response_format` for structured output specifications.
+
+<Tabs>
+<TabItem value="tags" label="Tags" default>
+
+Tags store version-specific metadata and prompt type information:
 
 ```python
 # Register prompt with comprehensive tags
@@ -148,6 +178,47 @@ prompt = mlflow.genai.register_prompt(
     },
 )
 ```
+
+</TabItem>
+<TabItem value="response-format" label="Response Format">
+
+Response formats define expected output structures for structured generation:
+
+```python
+from pydantic import BaseModel
+
+
+class AnalysisResponse(BaseModel):
+    summary: str
+    key_points: list[str]
+    confidence_score: float
+
+
+# Register prompt with response format
+prompt = mlflow.genai.register_prompt(
+    name="content-analyzer",
+    template=template,
+    response_format=AnalysisResponse,
+    commit_message="Added structured response format",
+)
+
+# Or use dictionary format
+prompt = mlflow.genai.register_prompt(
+    name="qa-prompt",
+    template="Answer: {{ question }}",
+    response_format={
+        "type": "object",
+        "properties": {
+            "answer": {"type": "string"},
+            "confidence": {"type": "number"},
+            "sources": {"type": "array", "items": {"type": "string"}},
+        },
+    },
+)
+```
+
+</TabItem>
+</Tabs>
 
 ## Prompt Lifecycle Management
 
@@ -230,31 +301,64 @@ graph TB
 
 ### Loading and Formatting
 
-Prompts are loaded and used through systematic patterns:
+Prompts are loaded and used through systematic patterns with support for different template types:
 
 <Tabs>
-  <TabItem value="specific" label="Specific Version" default>
-    ```python
-    # Load specific version
-    prompt = mlflow.genai.load_prompt("prompts:/summarization-prompt/2")
+<TabItem value="text-prompts" label="Text Prompts" default>
 
-    # Format with variables
-    formatted_text = prompt.format(
-        num_sentences=3, content="Your content here...", tone="professional"
-    )
-    ```
+Text prompts use string-based templates with variable interpolation:
 
-  </TabItem>
-  <TabItem value="alias" label="Alias Reference">
-    ```python
-    # Load via alias for deployment flexibility
-    prompt = mlflow.genai.load_prompt("prompts:/summarization-prompt@production")
+```python
+# Load specific version
+prompt = mlflow.genai.load_prompt("prompts:/summarization-prompt/2")
 
-    # Same formatting interface
-    formatted_text = prompt.format(
-        num_sentences=3, content="Your content here...", tone="professional"
-    )
-    ```
+# Check prompt properties
+print(f"Is text prompt: {prompt.is_text_prompt}")
+print(f"Response format: {prompt.response_format}")
+
+# Format with variables
+formatted_text = prompt.format(
+    num_sentences=3, content="Your content here...", tone="professional"
+)
+```
+
+</TabItem>
+<TabItem value="chat-prompts" label="Chat Prompts">
+
+Chat prompts use structured message arrays for conversational AI:
+
+```python
+# Load specific version of chat prompt
+chat_prompt = mlflow.genai.load_prompt("prompts:/assistant-prompt/2")
+
+# Check prompt properties
+print(f"Is text prompt: {chat_prompt.is_text_prompt}")
+print(f"Response format: {chat_prompt.response_format}")
+
+# Format with variables
+formatted_messages = chat_prompt.format(
+    style="friendly",
+    domain="machine learning",
+    question="What is MLflow?",
+    specific_aspect="its tracking capabilities",
+)
+```
+
+</TabItem>
+<TabItem value="alias-loading" label="Alias Loading">
+
+Load prompts via aliases for deployment flexibility:
+
+```python
+# Load via alias for deployment flexibility
+prompt = mlflow.genai.load_prompt("prompts:/summarization-prompt@production")
+
+# Same formatting interface works for both types
+if prompt.is_text_prompt:
+    formatted = prompt.format(num_sentences=3, content="Your content here...")
+else:
+    formatted = prompt.format(style="professional", question="Your question here...")
+```
 
   </TabItem>
   <TabItem value="search" label="Discovery and Search">
@@ -274,24 +378,51 @@ Prompts are loaded and used through systematic patterns:
 Prompts integrate seamlessly with popular GenAI frameworks:
 
 ```python
-# Integration with LangChain
 from langchain.prompts import PromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
 
-# Load from MLflow and convert format
-mlflow_prompt = mlflow.genai.load_prompt("prompts:/qa-prompt/1")
-langchain_prompt = PromptTemplate.from_template(mlflow_prompt.to_single_brace_format())
+# Load text prompt from MLflow and convert format
+text_prompt = mlflow.genai.load_prompt("prompts:/qa-prompt/1")
+langchain_text_prompt = PromptTemplate.from_template(
+    text_prompt.to_single_brace_format()
+)
 
-# Integration with OpenAI
+# Load chat prompt from MLflow
+chat_prompt = mlflow.genai.load_prompt("prompts:/assistant-prompt/1")
+formatted_messages = chat_prompt.format(style="friendly", question="What is MLflow?")
+langchain_chat_prompt = ChatPromptTemplate.from_messages(formatted_messages)
+```
+
+</TabItem>
+<TabItem value="openai" label="OpenAI">
+
+OpenAI integration works with both prompt types:
+
+```python
 import openai
 
 client = openai.OpenAI()
-response = client.chat.completions.create(
+
+# Use text prompt
+text_prompt = mlflow.genai.load_prompt("prompts:/qa-prompt/1")
+text_response = client.chat.completions.create(
     messages=[
-        {"role": "user", "content": mlflow_prompt.format(question="What is MLflow?")}
+        {"role": "user", "content": text_prompt.format(question="What is MLflow?")}
     ],
     model="gpt-4",
 )
+
+# Use chat prompt directly
+chat_prompt = mlflow.genai.load_prompt("prompts:/assistant-prompt/1")
+formatted_messages = chat_prompt.format(style="friendly", question="What is MLflow?")
+chat_response = client.chat.completions.create(
+    messages=formatted_messages,
+    model="gpt-4",
+)
 ```
+
+</TabItem>
+</Tabs>
 
 ## Prompt Comparison and Evolution
 
@@ -374,23 +505,45 @@ Creating and managing prompts involves several key steps:
 # Complete workflow example
 import mlflow
 
-# 1. Register initial prompt
-prompt = mlflow.genai.register_prompt(
+# 1. Register initial text prompt
+text_prompt = mlflow.genai.register_prompt(
     name="customer-support",
     template="You are a helpful {{ role }}. Please {{ action }} for: {{ query }}",
+    response_format=SupportResponse,
     commit_message="Initial customer support template",
     tags={"domain": "support", "language": "en"},
 )
 
-# 2. Create production alias
-mlflow.set_prompt_alias("customer-support", "production", 1)
+# 2. Register chat prompt
+chat_prompt = mlflow.genai.register_prompt(
+    name="assistant-chat",
+    template=[
+        {"role": "system", "content": "You are a {{ style }} assistant."},
+        {"role": "user", "content": "{{ question }}"},
+    ],
+    response_format={"type": "object", "properties": {"response": {"type": "string"}}},
+    commit_message="Initial chat assistant template",
+    tags={"domain": "assistant", "language": "en"},
+)
 
-# 3. Load and use in application
-production_prompt = mlflow.genai.load_prompt("prompts:/customer-support@production")
-formatted = production_prompt.format(
+# 3. Create production aliases
+mlflow.set_prompt_alias("customer-support", "production", 1)
+mlflow.set_prompt_alias("assistant-chat", "production", 1)
+
+# 4. Load and use in application
+production_text_prompt = mlflow.genai.load_prompt(
+    "prompts:/customer-support@production"
+)
+formatted_text = production_text_prompt.format(
     role="customer service agent",
     action="provide assistance",
     query="How do I reset my password?",
+)
+
+production_chat_prompt = mlflow.genai.load_prompt("prompts:/assistant-chat@production")
+formatted_messages = production_chat_prompt.format(
+    style="friendly",
+    question="What is MLflow?",
 )
 ```
 
