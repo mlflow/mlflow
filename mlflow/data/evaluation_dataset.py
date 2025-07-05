@@ -1,10 +1,16 @@
+from __future__ import annotations
+
 import hashlib
 import json
 import logging
 import math
 import struct
 import sys
+from contextlib import suppress
+from typing import TYPE_CHECKING
 
+import narwhals.stable.v1 as nw
+from narwhals.dependencies import is_polars_dataframe, is_pyarrow_table
 from packaging.version import Version
 
 import mlflow
@@ -13,12 +19,29 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.string_utils import generate_feature_name_if_not_string
 
-try:
+if TYPE_CHECKING:
+    import polars as pl
+    import pyarrow as pa
+
+SUPPORTED_DATAFRAME_TYPES = [nw.DataFrame]
+
+with suppress(ImportError):
     # `numpy` and `pandas` are not required for `mlflow-skinny`.
     import numpy as np
     import pandas as pd
-except ImportError:
-    pass
+
+    SUPPORTED_DATAFRAME_TYPES.append(pd.DataFrame)
+
+with suppress(ImportError):
+    import polars as pl
+
+    SUPPORTED_DATAFRAME_TYPES.append(pl.DataFrame)
+
+
+with suppress(ImportError):
+    import pyarrow as pa
+
+    SUPPORTED_DATAFRAME_TYPES.append(pa.Table)
 
 _logger = logging.getLogger(__name__)
 
@@ -103,12 +126,31 @@ def _hash_dict_as_bytes(data_dict):
     return result
 
 
+def _hash_pyarrow_table_as_bytes(table: pa.Table) -> bytes:
+    """
+    Convert a pyarrow table to bytes for hashing.
+    """
+    import pyarrow as pa
+
+    sink = pa.BufferOutputStream()
+    with pa.ipc.new_stream(sink, table.schema) as writer:
+        writer.write_table(table)
+    return sink.getvalue().to_pybytes()
+
+
+def _hash_polars_table_as_bytes(frame: pl.DataFrame) -> bytes:
+    """
+    Convert a polars dataframe to bytes for hashing.
+    """
+    return frame.write_ipc(file=None).getvalue()
+
+
 def _hash_array_like_obj_as_bytes(data):
     """
-    Helper method to convert pandas dataframe/numpy array/list into bytes for
-    MD5 calculation purpose.
+    Helper method to convert pandas dataframe/polars dataframe/pyarrow table/numpy array/list into
+    bytes for MD5 calculation purpose.
     """
-    if isinstance(data, pd.DataFrame):
+    if isinstance(data, tuple(SUPPORTED_DATAFRAME_TYPES)):
         # add checking `'pyspark' in sys.modules` to avoid importing pyspark when user
         # run code not related to pyspark.
         if "pyspark" in sys.modules:
@@ -130,10 +172,15 @@ def _hash_array_like_obj_as_bytes(data):
             except TypeError:
                 return b""  # Skip unhashable types by returning an empty byte string
 
-        if Version(pd.__version__) >= Version("2.1.0"):
-            data = data.map(_hash_array_like_element_as_bytes)
+        if is_polars_dataframe(data):
+            return _hash_polars_table_as_bytes(data)
+        elif is_pyarrow_table(data):
+            return _hash_pyarrow_table_as_bytes(data)
         else:
-            data = data.applymap(_hash_array_like_element_as_bytes)
+            if Version(pd.__version__) >= Version("2.1.0"):
+                data = data.map(_hash_array_like_element_as_bytes)
+            else:
+                data = data.applymap(_hash_array_like_element_as_bytes)
         return _hash_uint64_ndarray_as_bytes(pd.util.hash_pandas_object(data))
     elif isinstance(data, np.ndarray) and len(data) > 0 and isinstance(data[0], list):
         # convert numpy array of lists into numpy array of the string representation of the lists
@@ -165,10 +212,11 @@ def _gen_md5_for_arraylike_obj(md5_gen, data):
     if len(data) < EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH * 2:
         md5_gen.update(_hash_array_like_obj_as_bytes(data))
     else:
-        if isinstance(data, pd.DataFrame):
-            # Access rows of pandas Df with iloc
-            head_rows = data.iloc[: EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH]
-            tail_rows = data.iloc[-EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH :]
+        if isinstance(data, tuple(SUPPORTED_DATAFRAME_TYPES)):
+            # Access rows of dataframe via head and tail methods
+            data_nw = nw.from_native(data, eager_only=True, pass_through=False)
+            head_rows = data_nw.head(EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH).to_native()
+            tail_rows = data_nw.tail(EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH).to_native()
         else:
             head_rows = data[: EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH]
             tail_rows = data[-EvaluationDataset.NUM_SAMPLE_ROWS_FOR_HASH :]
@@ -178,7 +226,7 @@ def _gen_md5_for_arraylike_obj(md5_gen, data):
 
 def convert_data_to_mlflow_dataset(data, targets=None, predictions=None):
     """Convert input data to mlflow dataset."""
-    supported_dataframe_types = [pd.DataFrame]
+    supported_dataframe_types = SUPPORTED_DATAFRAME_TYPES.copy()
     if "pyspark" in sys.modules:
         from mlflow.utils.spark_utils import get_spark_dataframe_type
 
@@ -202,6 +250,10 @@ def convert_data_to_mlflow_dataset(data, targets=None, predictions=None):
         return mlflow.data.from_numpy(data, targets=targets)
     elif isinstance(data, pd.DataFrame):
         return mlflow.data.from_pandas(df=data, targets=targets, predictions=predictions)
+    elif is_polars_dataframe(data):
+        return mlflow.data.from_polars(df=data, targets=targets, predictions=predictions)
+    elif is_pyarrow_table(data):
+        return mlflow.data.from_arrow(df=data, targets=targets, predictions=predictions)
     elif "pyspark" in sys.modules and isinstance(data, spark_df_type):
         return mlflow.data.from_spark(df=data, targets=targets, predictions=predictions)
     else:
@@ -217,7 +269,7 @@ def _validate_dataset_type_supports_predictions(data, supported_predictions_data
     """
     Validate that the dataset type supports a user-specified "predictions" column.
     """
-    if not any(isinstance(data, sdt) for sdt in supported_predictions_dataset_types):
+    if not isinstance(data, tuple(supported_predictions_dataset_types)):
         raise MlflowException(
             message=(
                 "If predictions is specified, data must be one of the following types, or an"
@@ -266,7 +318,7 @@ class EvaluationDataset:
         self._user_specified_name = name
         self._path = path
         self._hash = None
-        self._supported_dataframe_types = (pd.DataFrame,)
+        self._supported_dataframe_types = tuple(SUPPORTED_DATAFRAME_TYPES)
         self._spark_df_type = None
         self._labels_data = None
         self._targets_name = None
@@ -276,17 +328,15 @@ class EvaluationDataset:
         self._has_predictions = predictions is not None
         self._digest = digest
 
-        try:
+        with suppress(ImportError):
             # add checking `'pyspark' in sys.modules` to avoid importing pyspark when user
             # run code not related to pyspark.
             if "pyspark" in sys.modules:
                 from mlflow.utils.spark_utils import get_spark_dataframe_type
 
                 spark_df_type = get_spark_dataframe_type()
-                self._supported_dataframe_types = (pd.DataFrame, spark_df_type)
+                self._supported_dataframe_types = (*self._supported_dataframe_types, spark_df_type)
                 self._spark_df_type = spark_df_type
-        except ImportError:
-            pass
 
         if feature_names is not None and len(set(feature_names)) < len(list(feature_names)):
             raise MlflowException(
@@ -378,29 +428,30 @@ class EvaluationDataset:
                     )
                 data = data.limit(EvaluationDataset.SPARK_DATAFRAME_LIMIT).toPandas()
 
+            data_nw = nw.from_native(data, eager_only=True, pass_through=False)
             if has_targets:
-                self._labels_data = data[targets].to_numpy()
+                self._labels_data = data_nw[targets].to_numpy()
                 self._targets_name = targets
 
             if self._has_predictions:
-                self._predictions_data = data[predictions].to_numpy()
+                self._predictions_data = data_nw[predictions].to_numpy()
                 self._predictions_name = predictions
 
             if feature_names is not None:
-                self._features_data = data[list(feature_names)]
+                self._features_data = data_nw.select(nw.col(feature_names)).to_native()
                 self._feature_names = feature_names
             else:
-                features_data = data
+                features_data = data_nw
 
                 if has_targets:
-                    features_data = features_data.drop(targets, axis=1, inplace=False)
+                    features_data = features_data.drop(targets)
 
                 if self._has_predictions:
-                    features_data = features_data.drop(predictions, axis=1, inplace=False)
+                    features_data = features_data.drop(predictions)
 
-                self._features_data = features_data
+                self._features_data = features_data.to_native()
                 self._feature_names = [
-                    generate_feature_name_if_not_string(c) for c in self._features_data.columns
+                    generate_feature_name_if_not_string(c) for c in features_data.columns
                 ]
         else:
             raise MlflowException(
@@ -427,7 +478,8 @@ class EvaluationDataset:
     @property
     def features_data(self):
         """
-        return features data as a numpy array or a pandas DataFrame.
+        return features data as a numpy array, a pandas DataFrame, a polars DataFrame, or
+        a pyarrow Table.
         """
         return self._features_data
 
