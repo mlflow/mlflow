@@ -800,3 +800,205 @@ def test_link_prompt_version_to_run_thread_safety(store, mock_tracking_store):
     assert len(final_tag_value) == 2
     for expected_prompt in expected_prompts:
         assert expected_prompt in final_tag_value
+
+
+def test_link_chat_prompt_to_model(store, mock_tracking_store):
+    """Test linking chat prompts to models works correctly."""
+    # Create chat prompt
+    chat_template = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Hello {{name}}!"},
+    ]
+
+    prompt_version = PromptVersion("test_chat", 1, chat_template)
+    store.prompt_versions["test_chat:1"] = prompt_version
+
+    # Test linking
+    model_id = "model_123"
+    logged_model = LoggedModel(
+        experiment_id="exp_123",
+        model_id=model_id,
+        name="test_model",
+        artifact_location="/path/to/model",
+        creation_timestamp=1234567890,
+        last_updated_timestamp=1234567890,
+        tags={},
+    )
+
+    mock_tracking_store.get_logged_model.return_value = logged_model
+
+    store.link_prompt_version_to_model("test_chat", "1", model_id)
+
+    # Verify linking worked
+    mock_tracking_store.set_logged_model_tags.assert_called_once()
+    call_args = mock_tracking_store.set_logged_model_tags.call_args
+    logged_model_tags = call_args[0][1]
+    assert len(logged_model_tags) == 1
+
+    tag_value = json.loads(logged_model_tags[0].value)
+    assert tag_value == [{"name": "test_chat", "version": "1"}]
+
+
+def test_link_prompt_with_response_format_to_model(store, mock_tracking_store):
+    """Test linking prompts with response format to models."""
+    response_format = {"type": "string", "description": "A response"}
+    prompt_version = PromptVersion(
+        "test_response", 1, "Hello {{name}}!", response_format=response_format
+    )
+
+    store.prompt_versions["test_response:1"] = prompt_version
+
+    model_id = "model_123"
+    logged_model = LoggedModel(
+        experiment_id="exp_123",
+        model_id=model_id,
+        name="test_model",
+        artifact_location="/path/to/model",
+        creation_timestamp=1234567890,
+        last_updated_timestamp=1234567890,
+        tags={},
+    )
+
+    mock_tracking_store.get_logged_model.return_value = logged_model
+
+    store.link_prompt_version_to_model("test_response", "1", model_id)
+
+    # Verify linking worked
+    mock_tracking_store.set_logged_model_tags.assert_called_once()
+    call_args = mock_tracking_store.set_logged_model_tags.call_args
+    logged_model_tags = call_args[0][1]
+    assert len(logged_model_tags) == 1
+
+    tag_value = json.loads(logged_model_tags[0].value)
+    assert tag_value == [{"name": "test_response", "version": "1"}]
+
+
+def test_link_chat_prompt_to_run(store, mock_tracking_store):
+    """Test linking chat prompts to runs works correctly."""
+    chat_template = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Hello {{name}}!"},
+    ]
+
+    prompt_version = PromptVersion("test_chat", 1, chat_template)
+    store.prompt_versions["test_chat:1"] = prompt_version
+
+    run_id = "run_123"
+    run_data = RunData(metrics=[], params=[], tags={})
+    run_info = RunInfo(
+        run_id=run_id,
+        experiment_id="exp_123",
+        user_id="user_123",
+        status="FINISHED",
+        start_time=1234567890,
+        end_time=1234567890,
+        lifecycle_stage="active",
+    )
+    run = Run(run_info=run_info, run_data=run_data)
+
+    mock_tracking_store.get_run.return_value = run
+
+    store.link_prompt_version_to_run("test_chat", "1", run_id)
+
+    # Verify linking worked
+    mock_tracking_store.set_tag.assert_called_once()
+    call_args = mock_tracking_store.set_tag.call_args
+    run_tag = call_args[0][1]
+    assert run_tag.key == LINKED_PROMPTS_TAG_KEY
+
+    tag_value = json.loads(run_tag.value)
+    assert tag_value == [{"name": "test_chat", "version": "1"}]
+
+
+def test_link_prompt_with_response_format_to_run(store, mock_tracking_store):
+    """Test linking prompts with response format to runs."""
+    response_format = {
+        "type": "object",
+        "properties": {"answer": {"type": "string"}},
+    }
+    prompt_version = PromptVersion(
+        "test_response", 1, "What is {{question}}?", response_format=response_format
+    )
+
+    store.prompt_versions["test_response:1"] = prompt_version
+
+    run_id = "run_123"
+    run_data = RunData(metrics=[], params=[], tags={})
+    run_info = RunInfo(
+        run_id=run_id,
+        experiment_id="exp_123",
+        user_id="user_123",
+        status="FINISHED",
+        start_time=1234567890,
+        end_time=1234567890,
+        lifecycle_stage="active",
+    )
+    run = Run(run_info=run_info, run_data=run_data)
+
+    mock_tracking_store.get_run.return_value = run
+
+    store.link_prompt_version_to_run("test_response", "1", run_id)
+
+    # Verify linking worked
+    mock_tracking_store.set_tag.assert_called_once()
+    call_args = mock_tracking_store.set_tag.call_args
+    run_tag = call_args[0][1]
+    assert run_tag.key == LINKED_PROMPTS_TAG_KEY
+
+    tag_value = json.loads(run_tag.value)
+    assert tag_value == [{"name": "test_response", "version": "1"}]
+
+
+def test_link_multiple_prompt_types_to_model(store, mock_tracking_store):
+    """Test linking both text and chat prompts to the same model."""
+    # Create text prompt
+    text_prompt = PromptVersion("test_text", 1, "Hello {{name}}!")
+
+    # Create chat prompt
+    chat_template = [
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "{{question}}"},
+    ]
+    chat_prompt = PromptVersion("test_chat", 1, chat_template)
+
+    store.prompt_versions["test_text:1"] = text_prompt
+    store.prompt_versions["test_chat:1"] = chat_prompt
+
+    model_id = "model_123"
+    logged_model = LoggedModel(
+        experiment_id="exp_123",
+        model_id=model_id,
+        name="test_model",
+        artifact_location="/path/to/model",
+        creation_timestamp=1234567890,
+        last_updated_timestamp=1234567890,
+        tags={},
+    )
+
+    # Mock the behavior where set_logged_model_tags updates the model's tags
+    def mock_set_tags(model_id, tags):
+        for tag in tags:
+            logged_model.tags[tag.key] = tag.value
+
+    mock_tracking_store.get_logged_model.return_value = logged_model
+    mock_tracking_store.set_logged_model_tags.side_effect = mock_set_tags
+
+    # Link both prompts
+    store.link_prompt_version_to_model("test_text", "1", model_id)
+    store.link_prompt_version_to_model("test_chat", "1", model_id)
+
+    # Verify both were linked
+    assert mock_tracking_store.set_logged_model_tags.call_count == 2
+
+    # Check final state
+    final_call = mock_tracking_store.set_logged_model_tags.call_args_list[-1]
+    logged_model_tags = final_call[0][1]
+    tag_value = json.loads(logged_model_tags[0].value)
+
+    expected_prompts = [
+        {"name": "test_text", "version": "1"},
+        {"name": "test_chat", "version": "1"},
+    ]
+    assert len(tag_value) == 2
+    for expected_prompt in expected_prompts:
+        assert expected_prompt in tag_value
