@@ -515,9 +515,6 @@ async def test_autolog_raw_response(client):
     assert (
         span.outputs["choices"][0]["message"]["content"] == '[{"role": "user", "content": "test"}]'
     )
-    assert span.attributes[SpanAttributeKey.CHAT_MESSAGES] == (
-        messages + [{"role": "assistant", "content": '[{"role": "user", "content": "test"}]'}]
-    )
     assert span.attributes[SpanAttributeKey.CHAT_TOOLS] == MOCK_TOOLS
 
     assert trace.info.token_usage == {
@@ -555,9 +552,6 @@ async def test_autolog_raw_response_stream(client):
     span = trace.data.spans[0]
     assert span.span_type == SpanType.CHAT_MODEL
     assert span.outputs == "Hello world"
-    assert span.attributes[SpanAttributeKey.CHAT_MESSAGES] == (
-        messages + [{"role": "assistant", "content": "Hello world"}]
-    )
     assert span.attributes[SpanAttributeKey.CHAT_TOOLS] == MOCK_TOOLS
 
 

@@ -40,11 +40,6 @@ class SpanAttributeKey:
     SPAN_TYPE = "mlflow.spanType"
     FUNCTION_NAME = "mlflow.spanFunctionName"
     START_TIME_NS = "mlflow.spanStartTimeNs"
-    # these attributes are for standardized chat messages and tool definitions
-    # in CHAT_MODEL and LLM spans. they are used for rendering the rich chat
-    # display in the trace UI, as well as downstream consumers of trace data
-    # such as evaluation
-    CHAT_MESSAGES = "mlflow.chat.messages"
     CHAT_TOOLS = "mlflow.chat.tools"
     # This attribute is used to store token usage information from LLM responses.
     # Stored in {"input_tokens": int, "output_tokens": int, "total_tokens": int} format.
