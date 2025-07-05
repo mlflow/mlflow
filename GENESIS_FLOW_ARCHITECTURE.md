@@ -1,8 +1,8 @@
-# Genesis-Flow: Architectural Changes and Benefits
+# Genesis-Modelhub-Platform: Architectural Changes and Benefits
 
 ## Executive Summary
 
-Genesis-Flow is a secure, lightweight fork of MLflow designed specifically for the Genesis Modelhub Platform. It eliminates the need for a separate MLflow server by integrating directly with MongoDB/Azure Cosmos DB, while maintaining 100% API compatibility with standard MLflow.
+Genesis-Flow(mlflow-fork) is a secure, lightweight fork of MLflow designed specifically for the Genesis Modelhub Platform. It eliminates the need for a separate MLflow server by integrating directly with MongoDB/Azure Cosmos DB, while maintaining 100% API compatibility with standard MLflow.
 
 ## Current Architecture vs. New Architecture
 
