@@ -1,5 +1,5 @@
 import shap
-import xgboost
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 
 import mlflow
@@ -11,8 +11,8 @@ X, y = shap.datasets.adult()
 # Split the data into training and test sets
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
 
-# Fit an XGBoost binary classifier on the training data split
-model = xgboost.XGBClassifier().fit(X_train, y_train)
+# Fit a Random Forest binary classifier on the training data split
+model = RandomForestClassifier(n_estimators=100, random_state=42).fit(X_train, y_train)
 
 # Infer model signature
 predictions = model.predict(X_train)
@@ -23,7 +23,7 @@ eval_data = X_test
 eval_data["label"] = y_test
 
 with mlflow.start_run() as run:
-    # Log the XGBoost binary classifier model to MLflow
+    # Log the Random Forest binary classifier model to MLflow
     model_info = mlflow.sklearn.log_model(model, name="model", signature=signature)
 
     # Evaluate the logged model

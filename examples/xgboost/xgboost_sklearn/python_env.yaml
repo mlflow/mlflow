@@ -1,7 +1,0 @@
-build_dependencies:
-  - pip
-dependencies:
-  - mlflow
-  - pandas
-  - scikit-learn
-  - xgboost

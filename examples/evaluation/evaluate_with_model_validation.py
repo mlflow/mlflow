@@ -1,6 +1,6 @@
 import shap
-import xgboost
 from sklearn.dummy import DummyClassifier
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 
 import mlflow
@@ -10,8 +10,8 @@ from mlflow.models import MetricThreshold, infer_signature, make_metric
 X, y = shap.datasets.adult()
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.33, random_state=42)
 
-# train a candidate XGBoost model
-candidate_model = xgboost.XGBClassifier().fit(X_train, y_train)
+# train a candidate Random Forest model
+candidate_model = RandomForestClassifier(n_estimators=100, random_state=42).fit(X_train, y_train)
 candidate_signature = infer_signature(X_train, candidate_model.predict(X_train))
 
 # train a baseline dummy model
