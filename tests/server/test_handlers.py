@@ -13,30 +13,38 @@ from mlflow.entities.model_registry import (
     RegisteredModelTag,
 )
 from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY, PROMPT_TEXT_TAG_KEY
+from mlflow.entities.model_registry.webhook import Webhook, WebhookEventTrigger
+from mlflow.entities.trace_info import TraceInfo
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INTERNAL_ERROR, INVALID_PARAMETER_VALUE, ErrorCode
 from mlflow.protos.model_registry_pb2 import (
     CreateModelVersion,
     CreateRegisteredModel,
+    CreateWebhook,
     DeleteModelVersion,
     DeleteModelVersionTag,
     DeleteRegisteredModel,
     DeleteRegisteredModelAlias,
     DeleteRegisteredModelTag,
+    DeleteWebhook,
     GetLatestVersions,
     GetModelVersion,
     GetModelVersionByAlias,
     GetModelVersionDownloadUri,
     GetRegisteredModel,
+    GetWebhook,
     RenameRegisteredModel,
+    RenameWebhook,
     SearchModelVersions,
     SearchRegisteredModels,
+    SearchWebhooks,
     SetModelVersionTag,
     SetRegisteredModelAlias,
     SetRegisteredModelTag,
     TransitionModelVersionStage,
     UpdateModelVersion,
     UpdateRegisteredModel,
+    UpdateWebhook,
 )
 from mlflow.protos.service_pb2 import CreateExperiment, SearchRuns
 from mlflow.server import (
@@ -50,12 +58,14 @@ from mlflow.server.handlers import (
     _create_experiment,
     _create_model_version,
     _create_registered_model,
+    _create_webhook,
     _delete_artifact_mlflow_artifacts,
     _delete_model_version,
     _delete_model_version_tag,
     _delete_registered_model,
     _delete_registered_model_alias,
     _delete_registered_model_tag,
+    _delete_webhook,
     _get_latest_versions,
     _get_model_version,
     _get_model_version_by_alias,
@@ -63,17 +73,21 @@ from mlflow.server.handlers import (
     _get_registered_model,
     _get_request_message,
     _get_trace_artifact_repo,
+    _get_webhook,
     _log_batch,
     _rename_registered_model,
+    _rename_webhook,
     _search_model_versions,
     _search_registered_models,
     _search_runs,
+    _search_webhooks,
     _set_model_version_tag,
     _set_registered_model_alias,
     _set_registered_model_tag,
     _transition_stage,
     _update_model_version,
     _update_registered_model,
+    _update_webhook,
     _validate_source_run,
     catch_mlflow_exception,
     get_endpoints,
@@ -85,6 +99,7 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_THRESHOLD,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
+    SEARCH_WEBHOOKS_MAX_RESULTS_DEFAULT,
 )
 from mlflow.utils.mlflow_tags import MLFLOW_ARTIFACT_LOCATION
 from mlflow.utils.proto_json_utils import message_to_json
@@ -806,6 +821,178 @@ def test_get_model_version_by_alias(mock_get_request_message, mock_model_registr
     _, args = mock_model_registry_store.get_model_version_by_alias.call_args
     assert args == {"name": name, "alias": alias}
     assert json.loads(resp.get_data()) == {"model_version": jsonify(mvd)}
+
+
+def test_create_webhook(mock_get_request_message, mock_model_registry_store):
+    mock_get_request_message.return_value = CreateWebhook(
+        name="webhook_1",
+        description="le webhook",
+        url="http://example.com",
+        event_trigger=WebhookEventTrigger.TAG.value,
+        key="key",
+        value="value",
+    )
+    webhook = Webhook(
+        name="webhook_1",
+        description="le webhook",
+        url="http://example.com",
+        event_trigger=WebhookEventTrigger.TAG,
+        key="key",
+        value="value",
+    )
+    mock_model_registry_store.create_webhook.return_value = webhook
+    resp = _create_webhook()
+    _, args = mock_model_registry_store.create_webhook.call_args
+    assert args["name"] == "webhook_1"
+    assert args["description"] == "le webhook"
+    assert args["url"] == "http://example.com"
+    assert args["event_trigger"] == WebhookEventTrigger.TAG.value
+    assert args["key"] == "key"
+    assert args["value"] == "value"
+    assert json.loads(resp.get_data()) == {"webhook": jsonify(webhook)}
+
+
+def test_get_webhook(mock_get_request_message, mock_model_registry_store):
+    name = "webhook_2"
+    mock_get_request_message.return_value = GetWebhook(name=name)
+    webhook = Webhook(
+        name="webhook_2",
+        description="le webhook",
+        url="http://example.com",
+        event_trigger=WebhookEventTrigger.TAG,
+        key="key",
+        value="value",
+    )
+    mock_model_registry_store.get_webhook.return_value = webhook
+    resp = _get_webhook()
+    _, args = mock_model_registry_store.get_webhook.call_args
+    assert args == {"name": name}
+    assert json.loads(resp.get_data()) == {"webhook": jsonify(webhook)}
+
+
+def test_update_webhook(mock_get_request_message, mock_model_registry_store):
+    name = "webhook_3"
+    description = "mon webhook"
+    mock_get_request_message.return_value = UpdateWebhook(name=name, description=description)
+    webhook = Webhook(
+        name=name,
+        description=description,
+        url="http://example.com",
+        event_trigger=WebhookEventTrigger.TAG,
+        key="key",
+        value="value",
+    )
+    mock_model_registry_store.update_webhook.return_value = webhook
+    resp = _update_webhook()
+    _, args = mock_model_registry_store.update_webhook.call_args
+    assert args == {"name": name, "description": "mon webhook"}
+    assert json.loads(resp.get_data()) == {"webhook": jsonify(webhook)}
+
+
+def test_rename_webhook(mock_get_request_message, mock_model_registry_store):
+    name = "webhook_4"
+    new_name = "webhook_5"
+    mock_get_request_message.return_value = RenameWebhook(name=name, new_name=new_name)
+    webhook = Webhook(
+        name=new_name,
+        description="al description",
+        url="http://example.com",
+        event_trigger=WebhookEventTrigger.TAG,
+        key="key",
+        value="value",
+    )
+    mock_model_registry_store.rename_webhook.return_value = webhook
+    resp = _rename_webhook()
+    _, args = mock_model_registry_store.rename_webhook.call_args
+    assert args == {"name": name, "new_name": new_name}
+    assert json.loads(resp.get_data()) == {"webhook": jsonify(webhook)}
+
+
+def test_delete_webhook(mock_get_request_message, mock_model_registry_store):
+    name = "webhook_6"
+    mock_get_request_message.return_value = DeleteWebhook(name=name)
+    _delete_webhook()
+    _, args = mock_model_registry_store.delete_webhook.call_args
+    assert args == {"name": name}
+
+
+def test_search_webhooks(mock_get_request_message, mock_model_registry_store):
+    webhooks = [
+        Webhook(
+            name="webhook_7",
+            description="al webhook",
+            url="http://example.com",
+            event_trigger=WebhookEventTrigger.TAG,
+            key="key",
+            value="value",
+        ),
+        Webhook(
+            name="webhook_8",
+            description="le webhook",
+            url="http://example.com",
+            event_trigger=WebhookEventTrigger.TAG,
+            key="key",
+            value="value",
+        ),
+    ]
+    mock_get_request_message.return_value = SearchWebhooks()
+    mock_model_registry_store.search_webhooks.return_value = PagedList(webhooks, None)
+    resp = _search_webhooks()
+    _, args = mock_model_registry_store.search_webhooks.call_args
+    assert args == {
+        "filter_string": "",
+        "max_results": SEARCH_WEBHOOKS_MAX_RESULTS_DEFAULT,
+        "order_by": [],
+        "page_token": "",
+    }
+    assert json.loads(resp.get_data()) == {"webhooks": jsonify(webhooks)}
+
+    mock_get_request_message.return_value = SearchWebhooks(filter="al")
+    mock_model_registry_store.search_webhooks.return_value = PagedList(webhooks[:1], "tok")
+    resp = _search_webhooks()
+    _, args = mock_model_registry_store.search_webhooks.call_args
+    assert args == {
+        "filter_string": "al",
+        "max_results": SEARCH_WEBHOOKS_MAX_RESULTS_DEFAULT,
+        "order_by": [],
+        "page_token": "",
+    }
+    assert json.loads(resp.get_data()) == {
+        "webhooks": jsonify(webhooks[:1]),
+        "next_page_token": "tok",
+    }
+
+    mock_get_request_message.return_value = SearchWebhooks(filter="hi", max_results=5)
+    mock_model_registry_store.search_webhooks.return_value = PagedList([webhooks[0]], "tik")
+    resp = _search_webhooks()
+    _, args = mock_model_registry_store.search_webhooks.call_args
+    assert args == {
+        "filter_string": "hi",
+        "max_results": 5,
+        "order_by": [],
+        "page_token": "",
+    }
+    assert json.loads(resp.get_data()) == {
+        "webhooks": jsonify([webhooks[0]]),
+        "next_page_token": "tik",
+    }
+
+    mock_get_request_message.return_value = SearchWebhooks(
+        filter="ahla", max_results=500, order_by=["a", "B desc"], page_token="prev"
+    )
+    mock_model_registry_store.search_webhooks.return_value = PagedList(webhooks, "DONE")
+    resp = _search_webhooks()
+    _, args = mock_model_registry_store.search_webhooks.call_args
+    assert args == {
+        "filter_string": "ahla",
+        "max_results": 500,
+        "order_by": ["a", "B desc"],
+        "page_token": "prev",
+    }
+    assert json.loads(resp.get_data()) == {
+        "webhooks": jsonify(webhooks),
+        "next_page_token": "DONE",
+    }
 
 
 @pytest.mark.parametrize(
