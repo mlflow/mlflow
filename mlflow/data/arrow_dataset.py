@@ -43,6 +43,7 @@ def from_arrow(
     .. code-block:: python
         :test:
         :caption: Example
+
         import mlflow
         import pyarrow as pa
 
