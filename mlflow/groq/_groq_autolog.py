@@ -4,7 +4,7 @@ from typing import Any, Optional
 import mlflow
 from mlflow.entities import SpanType
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
-from mlflow.tracing.utils import set_span_chat_messages, set_span_chat_tools
+from mlflow.tracing.utils import set_span_chat_tools
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 _logger = logging.getLogger(__name__)
@@ -46,14 +46,6 @@ def patched_call(original, self, *args, **kwargs):
             outputs = original(self, *args, **kwargs)
             span.set_outputs(outputs)
 
-            if isinstance(outputs, ChatCompletion):
-                try:
-                    messages = kwargs.get("messages", [])
-                    set_span_chat_messages(
-                        span, [*messages, outputs.choices[0].message.model_dump()]
-                    )
-                except Exception:
-                    _logger.debug(f"Failed to set chat messages for {span}.", exc_info=True)
             if usage := _parse_usage(outputs):
                 span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
 
