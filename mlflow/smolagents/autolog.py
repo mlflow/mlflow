@@ -4,6 +4,7 @@ import logging
 import mlflow
 from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
+from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 _logger = logging.getLogger(__name__)
@@ -126,7 +127,7 @@ def _parse_tools(tools):
 
 
 def _get_model_attributes(instance):
-    model = {}
+    model = {SpanAttributeKey.MESSAGE_FORMAT: "smolagents"}
     for key, value in instance.__dict__.items():
         if value is None or key == "api_key":
             continue

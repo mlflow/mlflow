@@ -63,6 +63,7 @@ def autolog(
                 span.set_inputs(
                     {key: _convert_value_to_dict(value) for key, value in inputs.items()}
                 )
+                span.set_attribute(SpanAttributeKey.MESSAGE_FORMAT, "autogen")
 
                 if tools := inputs.get("tools"):
                     log_tools(span, tools)

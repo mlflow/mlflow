@@ -206,6 +206,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
 
         if metadata:
             kwargs.update({"metadata": metadata})
+        kwargs[SpanAttributeKey.MESSAGE_FORMAT] = "langchain"
 
         span = self._start_span(
             span_name=name or self._assign_span_name(serialized, "chat model"),
@@ -234,6 +235,7 @@ class MlflowLangchainTracer(BaseCallbackHandler, metaclass=ExceptionSafeAbstract
         """Run when LLM (non-chat models) starts running."""
         if metadata:
             kwargs.update({"metadata": metadata})
+        kwargs[SpanAttributeKey.MESSAGE_FORMAT] = "langchain"
 
         span = self._start_span(
             span_name=name or self._assign_span_name(serialized, "llm"),

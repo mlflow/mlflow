@@ -14,6 +14,7 @@ from mlflow.entities import SpanStatusCode, SpanType
 from mlflow.entities.run_status import RunStatus
 from mlflow.entities.span_event import SpanEvent
 from mlflow.exceptions import MlflowException
+from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracing.utils import maybe_set_prediction_context
@@ -104,6 +105,7 @@ class MlflowCallback(BaseCallback):
             "model": instance.model,
             "model_type": instance.model_type,
             "cache": instance.cache,
+            SpanAttributeKey.MESSAGE_FORMAT: "dspy",
         }
 
         inputs = self._unpack_kwargs(inputs)

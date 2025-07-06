@@ -282,7 +282,7 @@ class MlflowSpanHandler(BaseSpanHandler[_LlamaSpan], extra="allow"):
         return self._get_llm_attributes(instance)
 
     def _get_llm_attributes(self, instance) -> dict[str, Any]:
-        attr = {}
+        attr = {SpanAttributeKey.MESSAGE_FORMAT: "llamaindex"}
         if metadata := instance.metadata:
             attr["model_name"] = metadata.model_name
             if params_str := metadata.json(exclude_unset=True):

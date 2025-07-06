@@ -33,6 +33,7 @@ def patched_class_call(original, self, *args, **kwargs):
         ) as span:
             inputs = _construct_full_inputs(original, self, *args, **kwargs)
             span.set_inputs(inputs)
+            span.set_attribute(SpanAttributeKey.MESSAGE_FORMAT, "mistral")
 
             if (tools := inputs.get("tools")) is not None:
                 try:

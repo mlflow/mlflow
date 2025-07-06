@@ -7,6 +7,7 @@ from mlflow.entities import SpanType
 from mlflow.gemini.chat import (
     convert_gemini_func_to_mlflow_chat_tool,
 )
+from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.utils import set_span_chat_tools
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
@@ -43,6 +44,7 @@ def patched_class_call(original, self, *args, **kwargs):
         ) as span:
             inputs = _construct_full_inputs(original, self, *args, **kwargs)
             span.set_inputs(inputs)
+            span.set_attribute(SpanAttributeKey.MESSAGE_FORMAT, "gemini")
             if has_generativeai and isinstance(self, generativeai.GenerativeModel):
                 _log_generativeai_tool_definition(self, span)
             if has_genai and isinstance(self, (genai.models.Models, genai.chats.Chat)):
@@ -72,6 +74,7 @@ def patched_module_call(original, *args, **kwargs):
         ) as span:
             inputs = _construct_full_inputs(original, *args, **kwargs)
             span.set_inputs(inputs)
+            span.set_attribute(SpanAttributeKey.MESSAGE_FORMAT, "gemini")
             result = original(*args, **kwargs)
             # need to convert the response of generate_content for better visualization
             outputs = result.to_dict() if hasattr(result, "to_dict") else result

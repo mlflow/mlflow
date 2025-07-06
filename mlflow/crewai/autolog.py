@@ -8,6 +8,7 @@ from packaging.version import Version
 import mlflow
 from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
+from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.utils import TraceJSONEncoder
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
@@ -15,7 +16,7 @@ _logger = logging.getLogger(__name__)
 
 
 def patched_class_call(original, self, *args, **kwargs):
-    config = AutoLoggingConfig.init(flavor_name=mlflow.gemini.FLAVOR_NAME)
+    config = AutoLoggingConfig.init(flavor_name=mlflow.crewai.FLAVOR_NAME)
 
     if config.log_traces:
         fullname = f"{self.__class__.__name__}.{original.__name__}"
@@ -175,7 +176,7 @@ def _get_task_attributes(instance):
 
 
 def _get_llm_attributes(instance):
-    llm = {}
+    llm = {SpanAttributeKey.MESSAGE_FORMAT: "crewai"}
     for key, value in instance.__dict__.items():
         if value is None:
             continue

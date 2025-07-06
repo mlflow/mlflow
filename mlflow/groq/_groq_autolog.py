@@ -36,6 +36,7 @@ def patched_call(original, self, *args, **kwargs):
             span_type=_get_span_type(self.__class__),
         ) as span:
             span.set_inputs(kwargs)
+            span.set_attribute(SpanAttributeKey.MESSAGE_FORMAT, "groq")
 
             if tools := kwargs.get("tools"):
                 try:
