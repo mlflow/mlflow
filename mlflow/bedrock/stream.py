@@ -4,11 +4,9 @@ from typing import Any, Optional
 
 from botocore.eventstream import EventStream
 
-from mlflow.bedrock.chat import convert_message_to_mlflow_chat
 from mlflow.bedrock.utils import capture_exception
 from mlflow.entities.span import LiveSpan
 from mlflow.entities.span_event import SpanEvent
-from mlflow.tracing.utils import set_span_chat_messages
 
 _logger = logging.getLogger(__name__)
 
@@ -106,10 +104,6 @@ class ConverseStreamWrapper(BaseEventStreamWrapper):
         converse_response = self._response_builder.build()
         self._span.set_outputs(converse_response)
 
-        # Record the chat message attributes in the MLflow's standard format
-        messages = self._inputs.get("messages", []) + [converse_response["output"]["message"]]
-        mlflow_messages = [convert_message_to_mlflow_chat(m) for m in messages]
-        set_span_chat_messages(self._span, mlflow_messages)
 
         self._end_span()
 
