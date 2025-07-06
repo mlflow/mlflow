@@ -77,7 +77,7 @@ MLflow provides two complementary approaches to tracing:
 
 **[Automatic Tracing](#automatic-tracing)**: Just add 1 line of code `mlflow.<library>.autolog()` to automatically capture your app's logic. Automatic tracing works with 20+ [supported libraries and frameworks](/genai/tracing/integrations) out of the box
 
-**[Manual Tracing](#manual-tracing)**: Designed for custom logic and complex workflows, manual tracing gives you full control over what gets traced and how using [high-level APIs (decorators and fluent context managers)](manual-tracing/fluent-apis) or [low-level APIs](/genai/tracing/app-instrumentation/manual-tracing/low-level-api).
+**[Manual Tracing](#manual-tracing)**: Designed for custom logic and complex workflows, manual tracing gives you full control over what gets traced and how.
 
 :::note
 Automatic and manual tracing can be used together. For example, you could use the auto-tracing for OpenAI's SDK and manual tracing to combine multiple LLM calls into a single trace that represents your application's end to end logic.
@@ -370,7 +370,7 @@ Now that you understand the basics of instrumenting your app with MLflow Tracing
 
     **[Manual Tracing](/genai/tracing/app-instrumentation/manual-tracing)**: Learn advanced techniques for custom instrumentation and complex workflows
 
-    **[Combining Approaches](/genai/tracing/app-instrumentation/manual-tracing/fluent-apis#combining-with-auto-tracing)**: Mix automatic and manual tracing for optimal observability
+    **[Combining Approaches](/genai/tracing/app-instrumentation/manual-tracing#combining-with-auto-tracing)**: Mix automatic and manual tracing for optimal observability
 
   </TabItem>
   <TabItem value="integrations" label="Integration Examples">

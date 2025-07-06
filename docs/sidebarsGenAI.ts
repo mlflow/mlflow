@@ -94,23 +94,9 @@ const sidebarsGenAI: SidebarsConfig = {
               id: 'tracing/app-instrumentation/automatic',
             },
             {
-              type: 'category',
-              label: 'Manual Tracing',
-              items: [
-                {
-                  type: 'doc',
-                  id: 'tracing/app-instrumentation/manual-tracing/fluent-apis',
-                },
-                {
-                  type: 'doc',
-                  id: 'tracing/app-instrumentation/manual-tracing/low-level-api',
-                },
-              ],
-              link: {
-                type: 'doc',
-                id: 'tracing/app-instrumentation/manual-tracing/index',
-              },
-            },
+              type: 'doc',
+              id: 'tracing/app-instrumentation/manual-tracing',
+            }
           ],
           link: {
             type: 'doc',

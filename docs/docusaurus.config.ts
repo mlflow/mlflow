@@ -279,7 +279,7 @@ const config: Config = {
             from: ['/tracing/api/search', '/llms/tracing/search-traces'],
           },
           {
-            to: '/genai/tracing/app-instrumentation/manual-tracing/low-level-api',
+            to: '/genai/tracing/app-instrumentation/manual-tracing',
             from: ['/tracing/api/client'],
           },
           {
