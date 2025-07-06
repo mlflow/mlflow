@@ -4,14 +4,10 @@ from typing import Any, Optional
 from pydantic import BaseModel
 
 import mlflow
-from mlflow.autogen.chat import (
-    convert_assistant_message_to_chat_message,
-    log_chat_messages,
-    log_tools,
-)
+from mlflow.autogen.chat import log_tools
 from mlflow.entities import SpanType
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
-from mlflow.tracing.utils import construct_full_inputs, set_span_chat_messages
+from mlflow.tracing.utils import construct_full_inputs
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import (
     autologging_integration,
@@ -71,14 +67,9 @@ def autolog(
                 if tools := inputs.get("tools"):
                     log_tools(span, tools)
 
-                if messages := inputs.get("messages"):
-                    log_chat_messages(span, messages)
 
                 outputs = await original(self, *args, **kwargs)
 
-                if content := getattr(outputs, "content", None):
-                    if chat_message := convert_assistant_message_to_chat_message(content):
-                        set_span_chat_messages(span, [chat_message], append=True)
 
                 if usage := _parse_usage(outputs):
                     span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
