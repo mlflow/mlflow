@@ -11,6 +11,7 @@ from botocore.response import StreamingBody
 from packaging.version import Version
 
 import mlflow
+from mlflow.bedrock.utils import _pick
 from mlflow.tracing.constant import SpanAttributeKey
 
 from tests.tracing.helper import get_traces
@@ -1307,3 +1308,38 @@ def test_bedrock_autolog_stream_token_usage_edge_cases(test_case):
         assert usage == test_case["expected_usage"], (
             f"Test case '{test_case['name']}' usage mismatch"
         )
+
+
+@pytest.mark.parametrize(
+    ("usage_dict", "keys", "expected"),
+    [
+        # Standard key
+        ({"input_tokens": 10, "output_tokens": 5}, ["input_tokens"], 10),
+        # Multiple keys, first present
+        ({"input_tokens": 10, "output_tokens": 5}, ["input_tokens", "output_tokens"], 10),
+        # Multiple keys, second present
+        ({"output_tokens": 5}, ["input_tokens", "output_tokens"], 5),
+        # None present
+        ({"foo": 1}, ["input_tokens", "output_tokens"], None),
+        # String value (should be ignored)
+        ({"input_tokens": "10"}, ["input_tokens"], None),
+        # Float value (should be ignored)
+        ({"input_tokens": 10.5}, ["input_tokens"], None),
+        # Multiple possible input keys
+        ({"prompt_tokens": 7}, ["input_tokens", "inputTokens", "prompt_tokens"], 7),
+        # Multiple possible output keys
+        ({"completion_tokens": 8}, ["output_tokens", "outputTokens", "completion_tokens"], 8),
+        # Multiple possible total keys
+        ({"totalTokens": 9}, ["total_tokens", "totalTokens"], 9),
+        # All missing
+        ({}, ["input_tokens", "output_tokens"], None),
+        # Multiple possible keys, all present (should pick the first in the list)
+        (
+            {"input_tokens": 10, "inputTokens": 20, "prompt_tokens": 30},
+            ["input_tokens", "inputTokens", "prompt_tokens"],
+            10,
+        ),
+    ],
+)
+def test_pick_key_mapping_and_type(usage_dict, keys, expected):
+    assert _pick(usage_dict, *keys) == expected
