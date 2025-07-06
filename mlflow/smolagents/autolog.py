@@ -4,7 +4,6 @@ import logging
 import mlflow
 from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
-from mlflow.smolagents.chat import set_span_chat_attributes
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 _logger = logging.getLogger(__name__)
@@ -25,10 +24,6 @@ def patched_class_call(original, self, *args, **kwargs):
 
                 # Need to convert the response of smolagents API for better visualization
                 outputs = result.__dict__ if hasattr(result, "__dict__") else result
-                if span_type == SpanType.CHAT_MODEL:
-                    set_span_chat_attributes(
-                        span=span, messages=inputs.get("messages", []), output=outputs
-                    )
                 span.set_outputs(outputs)
                 return result
     except Exception as e:
