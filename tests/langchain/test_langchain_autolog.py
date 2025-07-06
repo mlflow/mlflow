@@ -286,6 +286,7 @@ def test_chat_model_autolog():
     assert span.outputs["generations"][0][0]["message"]["content"] == response.content
     assert span.get_attribute("invocation_params")["model"] == "gpt-4o-mini"
     assert span.get_attribute("invocation_params")["temperature"] == 0.9
+    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "langchain"
 
 
 @pytest.mark.skipif(
@@ -333,6 +334,7 @@ def test_chat_model_bind_tool_autolog():
             },
         }
     ]
+    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "langchain"
 
 
 @skip_when_testing_trace_sdk

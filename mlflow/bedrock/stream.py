@@ -104,7 +104,6 @@ class ConverseStreamWrapper(BaseEventStreamWrapper):
         converse_response = self._response_builder.build()
         self._span.set_outputs(converse_response)
 
-
         self._end_span()
 
 

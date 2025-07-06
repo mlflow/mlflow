@@ -35,5 +35,3 @@ def log_tools(span: Span, tools: list[Union["BaseTool", "ToolSchema"]]):
         set_span_chat_tools(span, tools)
     except Exception:
         _logger.debug(f"Failed to log tools to Span {span}.", exc_info=True)
-
-

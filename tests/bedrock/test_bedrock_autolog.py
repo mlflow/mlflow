@@ -743,6 +743,7 @@ def test_bedrock_autolog_converse(_request, response, expected_chat_attr, expect
     assert span.inputs is not None  # request with bytes is stringified and not recoverable
     assert span.outputs == response
     assert span.get_attribute(SpanAttributeKey.CHAT_TOOLS) == expected_tool_attr
+    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "bedrock.converse"
 
 
 @pytest.mark.skipif(not _IS_CONVERSE_API_AVAILABLE, reason="Converse API is not available")

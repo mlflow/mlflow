@@ -52,7 +52,6 @@ def patched_class_call(original, self, *args, **kwargs):
 
             result = original(self, *args, **kwargs)
 
-
             # need to convert the response of generate_content for better visualization
             outputs = result.to_dict() if hasattr(result, "to_dict") else result
             span.set_outputs(outputs)
@@ -89,8 +88,6 @@ def _get_keys(dic, keys):
             return dic[key]
 
     return None
-
-
 
 
 def _log_generativeai_tool_definition(model, span):

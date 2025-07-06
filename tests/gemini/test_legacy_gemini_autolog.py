@@ -63,11 +63,6 @@ _DUMMY_COUNT_TOKENS_RESPONSE = {"total_count": 10}
 
 _DUMMY_EMBEDDING_RESPONSE = {"embedding": [1, 2, 3]}
 
-_CHAT_MESSAGES = [
-    {"role": "user", "content": "test content"},
-    {"role": "assistant", "content": [{"type": "text", "text": "test answer"}]},
-]
-
 
 def generate_content(self, contents):
     return _DUMMY_GENERATE_CONTENT_RESPONSE
@@ -196,24 +191,6 @@ def test_generate_content_tool_calling_autolog():
         genai.protos.GenerateContentResponse(raw_response)
     )
 
-    chat_messages = [
-        {
-            "content": "I have 57 cats, each owns 44 mittens, how many mittens is that in total?",
-            "role": "user",
-        },
-        {
-            "role": "assistant",
-            "content": None,
-            "tool_calls": [
-                {
-                    "id": "multiply",
-                    "type": "function",
-                    "function": {"name": "multiply", "arguments": '{"a": 57.0, "b": 44.0}'},
-                }
-            ],
-        },
-    ]
-
     def generate_content(self, content):
         return response
 
@@ -289,45 +266,6 @@ def test_generate_content_tool_calling_chat_history_autolog():
     response = genai.types.GenerateContentResponse.from_response(
         genai.protos.GenerateContentResponse(raw_response)
     )
-
-    # Gemini added "id" field in the tool response from version 0.8.3
-    if Version(genai.__version__) <= Version("0.8.3"):
-        tool_result = "{'name': 'multiply', 'response': {'result': 2508.0}}"
-    else:
-        tool_result = "{'name': 'multiply', 'response': {'result': 2508.0}, 'id': ''}"
-
-    chat_messages = [
-        {
-            "content": [
-                {
-                    "type": "text",
-                    "text": "I have 57 cats, each owns 44 mittens, how many mittens in total?",
-                },
-            ],
-            "role": "user",
-        },
-        {
-            "role": "assistant",
-            "content": None,
-            "tool_calls": [
-                {
-                    "id": "multiply",
-                    "type": "function",
-                    "function": {"name": "multiply", "arguments": '{"a": 57.0, "b": 44.0}'},
-                }
-            ],
-        },
-        {
-            "role": "user",
-            "content": [{"type": "text", "text": tool_result}],
-        },
-        {
-            "role": "assistant",
-            "content": [
-                {"type": "text", "text": "57 cats * 44 mittens/cat = 2508 mittens in total."}
-            ],
-        },
-    ]
 
     def generate_content(self, content):
         return response

@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING
 
 from mlflow.types.chat import (
     ChatTool,
@@ -66,12 +66,6 @@ def convert_gemini_func_call_to_mlflow_tool_call(
         type="function",
         function=Function(name=func_call.name, arguments=json.dumps(dict(args))),
     )
-
-
-
-
-
-
 
 
 def _convert_gemini_param_property_to_mlflow_param_property(param_property) -> ParamProperty:

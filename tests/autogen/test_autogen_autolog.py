@@ -95,6 +95,8 @@ async def test_autolog_assistant_agent(disable):
             "total_tokens": 7,
         }
 
+        assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "autogen"
+
         assert traces[0].info.token_usage == {
             "input_tokens": 6,
             "output_tokens": 1,

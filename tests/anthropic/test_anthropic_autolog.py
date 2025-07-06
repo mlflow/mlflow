@@ -192,12 +192,12 @@ def test_messages_autolog(is_async):
     }
     assert span.outputs == DUMMY_CREATE_MESSAGE_RESPONSE.to_dict()
 
-
     assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
         "input_tokens": 10,
         "output_tokens": 18,
         "total_tokens": 28,
     }
+    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
 
     assert traces[0].info.token_usage == {
         "input_tokens": 10,
@@ -258,6 +258,7 @@ def test_messages_autolog_multi_modal(is_async):
         "output_tokens": 18,
         "total_tokens": 28,
     }
+    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
 
     assert traces[0].info.token_usage == {
         "input_tokens": 10,
@@ -282,7 +283,6 @@ def test_messages_autolog_tool_calling(is_async):
     assert span.span_type == SpanType.CHAT_MODEL
     assert span.inputs == DUMMY_CREATE_MESSAGE_WITH_TOOLS_REQUEST
     assert span.outputs == DUMMY_CREATE_MESSAGE_WITH_TOOLS_RESPONSE.to_dict(exclude_unset=False)
-
 
     assert span.get_attribute(SpanAttributeKey.CHAT_TOOLS) == [
         {
@@ -332,6 +332,8 @@ def test_messages_autolog_tool_calling(is_async):
         "total_tokens": 28,
     }
 
+    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
+
     assert traces[0].info.token_usage == {
         "input_tokens": 10,
         "output_tokens": 18,
@@ -363,12 +365,12 @@ def test_messages_autolog_with_thinking(is_async):
     }
     assert span.outputs == DUMMY_CREATE_MESSAGE_WITH_THINKING_RESPONSE.to_dict()
 
-
     assert span.get_attribute(SpanAttributeKey.CHAT_USAGE) == {
         "input_tokens": 10,
         "output_tokens": 18,
         "total_tokens": 28,
     }
+    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "anthropic"
 
     assert traces[0].info.token_usage == {
         "input_tokens": 10,

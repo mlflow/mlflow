@@ -90,6 +90,8 @@ def test_chat_completion_autolog():
         "total_tokens": 668,
     }
 
+    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "groq"
+
     assert traces[0].info.token_usage == {
         "input_tokens": 20,
         "output_tokens": 648,
@@ -190,6 +192,8 @@ def test_tool_calling_autolog():
         "total_tokens": 668,
     }
 
+    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "groq"
+
     assert traces[0].info.token_usage == {
         "input_tokens": 20,
         "output_tokens": 648,
@@ -266,6 +270,8 @@ def test_tool_response_autolog():
         "output_tokens": 648,
         "total_tokens": 668,
     }
+
+    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "groq"
 
     assert traces[0].info.token_usage == {
         "input_tokens": 20,

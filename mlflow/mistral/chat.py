@@ -6,10 +6,6 @@ from mlflow.types.chat import (
 )
 
 
-
-
-
-
 def convert_tool_to_mlflow_chat_tool(tool: dict[str, Any]) -> ChatTool:
     """
     Convert Mistral AI tool definition into MLflow's standard format (OpenAI compatible).

@@ -68,9 +68,7 @@ def autolog(
                 if tools := inputs.get("tools"):
                     log_tools(span, tools)
 
-
                 outputs = await original(self, *args, **kwargs)
-
 
                 if usage := _parse_usage(outputs):
                     span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)

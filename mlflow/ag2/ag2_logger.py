@@ -187,7 +187,7 @@ class MlflowAg2Logger(BaseLogger):
         # Add MESSAGE_FORMAT attribute for AG2 spans
         attributes = attributes or {}
         attributes[SpanAttributeKey.MESSAGE_FORMAT] = "ag2"
-        
+
         return start_span_no_context(
             # Tentatively set the parent ID to the session root span, because we
             # cannot create a span without a parent span (otherwise it will start

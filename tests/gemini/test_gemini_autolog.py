@@ -13,6 +13,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow.entities.span import SpanType
+from mlflow.tracing.constant import SpanAttributeKey
 
 from tests.tracing.helper import get_traces
 
@@ -56,11 +57,6 @@ _DUMMY_GENERATE_CONTENT_RESPONSE = _generate_content_response(_CONTENT)
 _DUMMY_COUNT_TOKENS_RESPONSE = {"total_count": 10}
 
 _DUMMY_EMBEDDING_RESPONSE = {"embedding": [1, 2, 3]}
-
-_CHAT_MESSAGES = [
-    {"role": "user", "content": "test content"},
-    {"role": "assistant", "content": [{"type": "text", "text": "test answer"}]},
-]
 
 
 def _generate_content(self, model, contents, config):
@@ -225,24 +221,6 @@ def test_generate_content_tool_calling_autolog():
 
     response = _generate_content_response(tool_call_content)
 
-    chat_messages = [
-        {
-            "content": "I have 57 cats, each owns 44 mittens, how many mittens is that in total?",
-            "role": "user",
-        },
-        {
-            "role": "assistant",
-            "content": None,
-            "tool_calls": [
-                {
-                    "id": "multiply",
-                    "type": "function",
-                    "function": {"name": "multiply", "arguments": '{"a": 57.0, "b": 44.0}'},
-                }
-            ],
-        },
-    ]
-
     def _generate_content(self, model, contents, config):
         return response
 
@@ -270,7 +248,8 @@ def test_generate_content_tool_calling_autolog():
         span.inputs["contents"]
         == "I have 57 cats, each owns 44 mittens, how many mittens is that in total?"
     )
-    assert span.get_attribute("mlflow.chat.tools") == TOOL_ATTRIBUTE
+    assert span.get_attribute(SpanAttributeKey.CHAT_TOOLS) == TOOL_ATTRIBUTE
+    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "gemini"
 
     span1 = traces[0].data.spans[1]
     assert span1.name == "Models._generate_content"
@@ -280,7 +259,8 @@ def test_generate_content_tool_calling_autolog():
         span1.inputs["contents"]
         == "I have 57 cats, each owns 44 mittens, how many mittens is that in total?"
     )
-    assert span1.get_attribute("mlflow.chat.tools") == TOOL_ATTRIBUTE
+    assert span1.get_attribute(SpanAttributeKey.CHAT_TOOLS) == TOOL_ATTRIBUTE
+    assert span1.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "gemini"
 
 
 def test_generate_content_tool_calling_chat_history_autolog():
@@ -332,46 +312,6 @@ def test_generate_content_tool_calling_chat_history_autolog():
         )
     )
 
-    tool_result = (
-        # https://github.com/googleapis/python-genai/commit/6258dad0f9634b5e40e6562353e1911fe3c2d1a6
-        # added `will_continue` and `scheduling` fields
-        '{"will_continue":null,"scheduling":null,"id":null,"name":"multiply","response":{"result":2508.0}}'
-        if google_gemini_version >= Version("1.16.0")
-        else '{"id":null,"name":"multiply","response":{"result":2508.0}}'
-    )
-    chat_messages = [
-        {
-            "content": [
-                {
-                    "type": "text",
-                    "text": "I have 57 cats, each owns 44 mittens, how many mittens in total?",
-                },
-            ],
-            "role": "user",
-        },
-        {
-            "role": "assistant",
-            "content": None,
-            "tool_calls": [
-                {
-                    "id": "multiply",
-                    "type": "function",
-                    "function": {"name": "multiply", "arguments": '{"a": 57.0, "b": 44.0}'},
-                }
-            ],
-        },
-        {
-            "role": "user",
-            "content": [{"type": "text", "text": tool_result}],
-        },
-        {
-            "role": "assistant",
-            "content": [
-                {"type": "text", "text": "57 cats * 44 mittens/cat = 2508 mittens in total."}
-            ],
-        },
-    ]
-
     def _generate_content(self, model, contents, config):
         return response
 
@@ -402,6 +342,7 @@ def test_generate_content_tool_calling_chat_history_autolog():
     ]
     assert span.inputs["model"] == "gemini-1.5-flash"
     assert span.get_attribute("mlflow.chat.tools") == TOOL_ATTRIBUTE
+    assert span.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "gemini"
 
     span1 = traces[0].data.spans[1]
     assert span1.name == "Models._generate_content"
@@ -414,6 +355,7 @@ def test_generate_content_tool_calling_chat_history_autolog():
     ]
     assert span1.inputs["model"] == "gemini-1.5-flash"
     assert span1.get_attribute("mlflow.chat.tools") == TOOL_ATTRIBUTE
+    assert span1.get_attribute(SpanAttributeKey.MESSAGE_FORMAT) == "gemini"
 
 
 def test_chat_session_autolog():

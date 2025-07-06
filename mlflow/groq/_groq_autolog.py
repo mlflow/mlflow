@@ -26,8 +26,6 @@ def _get_span_type(resource: type) -> str:
 
 
 def patched_call(original, self, *args, **kwargs):
-    from groq.types.chat.chat_completion import ChatCompletion
-
     config = AutoLoggingConfig.init(flavor_name=mlflow.groq.FLAVOR_NAME)
 
     if config.log_traces:

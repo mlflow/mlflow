@@ -2,7 +2,7 @@ import logging
 import threading
 from collections import defaultdict
 from functools import wraps
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 import dspy
 from dspy.utils.callback import BaseCallback
@@ -110,7 +110,7 @@ class MlflowCallback(BaseCallback):
 
         inputs = self._unpack_kwargs(inputs)
 
-        span = self._start_span(
+        self._start_span(
             call_id,
             name=f"{instance.__class__.__name__}.__call__",
             span_type=span_type,
@@ -118,14 +118,11 @@ class MlflowCallback(BaseCallback):
             attributes=attributes,
         )
 
-
     @skip_if_trace_disabled
     def on_lm_end(
         self, call_id: str, outputs: Optional[Any], exception: Optional[Exception] = None
     ):
-
         self._end_span(call_id, outputs, exception)
-
 
     @skip_if_trace_disabled
     def on_adapter_format_start(self, call_id: str, instance: Any, inputs: dict[str, Any]):
