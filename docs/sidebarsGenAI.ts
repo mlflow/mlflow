@@ -96,6 +96,10 @@ const sidebarsGenAI: SidebarsConfig = {
             {
               type: 'doc',
               id: 'tracing/app-instrumentation/manual-tracing',
+            },
+            {
+              type: 'doc',
+              id: 'tracing/app-instrumentation/typescript-sdk',
             }
           ],
           link: {
