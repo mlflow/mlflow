@@ -129,7 +129,6 @@ def test_generate_content_enable_disable_autolog():
         assert span.span_type == SpanType.LLM
         assert span.inputs == {"contents": "test content"}
         assert span.outputs == _GENERATE_CONTENT_RESPONSE
-        assert span.get_attribute("mlflow.chat.messages") == _CHAT_MESSAGES
 
         mlflow.gemini.autolog(disable=True)
         model = genai.GenerativeModel("gemini-1.5-flash")
@@ -174,19 +173,6 @@ def test_generate_content_image_autolog():
     assert span.span_type == SpanType.LLM
     assert span.inputs == {"contents": request}
     assert span.outputs == _GENERATE_CONTENT_RESPONSE
-    assert span.get_attribute("mlflow.chat.messages") == [
-        {
-            "role": "user",
-            "content": [
-                {
-                    "type": "image_url",
-                    "image_url": {"detail": "auto", "url": f"data:image/jpeg;base64,{image}"},
-                },
-                {"type": "text", "text": "Caption this image"},
-            ],
-        },
-        {"role": "assistant", "content": [{"type": "text", "text": "test answer"}]},
-    ]
 
 
 def test_generate_content_tool_calling_autolog():
@@ -249,7 +235,6 @@ def test_generate_content_tool_calling_autolog():
         "content": "I have 57 cats, each owns 44 mittens, how many mittens is that in total?"
     }
     assert span.get_attribute("mlflow.chat.tools") == TOOL_ATTRIBUTE
-    assert span.get_attribute("mlflow.chat.messages") == chat_messages
 
 
 def test_generate_content_tool_calling_chat_history_autolog():
@@ -363,7 +348,6 @@ def test_generate_content_tool_calling_chat_history_autolog():
         "content": [str(question_content), str(tool_call_content), str(tool_response_content)]
     }
     assert span.get_attribute("mlflow.chat.tools") == TOOL_ATTRIBUTE
-    assert span.get_attribute("mlflow.chat.messages") == chat_messages
 
 
 def test_chat_session_autolog():
@@ -382,7 +366,6 @@ def test_chat_session_autolog():
         assert span.span_type == SpanType.CHAT_MODEL
         assert span.inputs == {"content": "test content"}
         assert span.outputs == _GENERATE_CONTENT_RESPONSE
-        assert span.get_attribute("mlflow.chat.messages") == _CHAT_MESSAGES
 
         mlflow.gemini.autolog(disable=True)
         model = genai.GenerativeModel("gemini-1.5-flash")

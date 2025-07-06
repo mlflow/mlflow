@@ -123,7 +123,6 @@ def test_generate_content_enable_disable_autolog():
         assert span.span_type == SpanType.LLM
         assert span.inputs == {"contents": "test content", "model": "gemini-1.5-flash"}
         assert span.outputs == _DUMMY_GENERATE_CONTENT_RESPONSE.dict()
-        assert span.get_attribute("mlflow.chat.messages") == _CHAT_MESSAGES
 
         span1 = traces[0].data.spans[1]
         assert span1.name == "Models._generate_content"
@@ -134,7 +133,6 @@ def test_generate_content_enable_disable_autolog():
             "config": None,
         }
         assert span1.outputs == _DUMMY_GENERATE_CONTENT_RESPONSE.dict()
-        assert span1.get_attribute("mlflow.chat.messages") == _CHAT_MESSAGES
 
         mlflow.gemini.autolog(disable=True)
         client = genai.Client(api_key="dummy")
@@ -194,19 +192,6 @@ def test_generate_content_image_autolog():
     }
     assert span.inputs["contents"][1] == "Caption this image"
     assert span.outputs == _DUMMY_GENERATE_CONTENT_RESPONSE.dict()
-    assert span.get_attribute("mlflow.chat.messages") == [
-        {
-            "role": "user",
-            "content": [
-                {
-                    "type": "image_url",
-                    "image_url": {"detail": "auto", "url": "data:image/jpeg;base64,b'image'"},
-                },
-                {"type": "text", "text": "Caption this image"},
-            ],
-        },
-        {"role": "assistant", "content": [{"type": "text", "text": "test answer"}]},
-    ]
 
     span1 = traces[0].data.spans[1]
     assert span1.name == "Models._generate_content"
@@ -286,7 +271,6 @@ def test_generate_content_tool_calling_autolog():
         == "I have 57 cats, each owns 44 mittens, how many mittens is that in total?"
     )
     assert span.get_attribute("mlflow.chat.tools") == TOOL_ATTRIBUTE
-    assert span.get_attribute("mlflow.chat.messages") == chat_messages
 
     span1 = traces[0].data.spans[1]
     assert span1.name == "Models._generate_content"
@@ -297,7 +281,6 @@ def test_generate_content_tool_calling_autolog():
         == "I have 57 cats, each owns 44 mittens, how many mittens is that in total?"
     )
     assert span1.get_attribute("mlflow.chat.tools") == TOOL_ATTRIBUTE
-    assert span1.get_attribute("mlflow.chat.messages") == chat_messages
 
 
 def test_generate_content_tool_calling_chat_history_autolog():
@@ -419,7 +402,6 @@ def test_generate_content_tool_calling_chat_history_autolog():
     ]
     assert span.inputs["model"] == "gemini-1.5-flash"
     assert span.get_attribute("mlflow.chat.tools") == TOOL_ATTRIBUTE
-    assert span.get_attribute("mlflow.chat.messages") == chat_messages
 
     span1 = traces[0].data.spans[1]
     assert span1.name == "Models._generate_content"
@@ -432,7 +414,6 @@ def test_generate_content_tool_calling_chat_history_autolog():
     ]
     assert span1.inputs["model"] == "gemini-1.5-flash"
     assert span1.get_attribute("mlflow.chat.tools") == TOOL_ATTRIBUTE
-    assert span1.get_attribute("mlflow.chat.messages") == chat_messages
 
 
 def test_chat_session_autolog():
@@ -451,7 +432,6 @@ def test_chat_session_autolog():
         assert span.span_type == SpanType.CHAT_MODEL
         assert span.inputs == {"message": "test content"}
         assert span.outputs == _DUMMY_GENERATE_CONTENT_RESPONSE.dict()
-        assert span.get_attribute("mlflow.chat.messages") == _CHAT_MESSAGES
 
         mlflow.gemini.autolog(disable=True)
         chat = client.chats.create(model="gemini-1.5-flash")

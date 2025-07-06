@@ -6,10 +6,8 @@ import mlflow.gemini
 from mlflow.entities import SpanType
 from mlflow.gemini.chat import (
     convert_gemini_func_to_mlflow_chat_tool,
-    parse_gemini_content_to_mlflow_chat_messages,
 )
-from mlflow.tracing.utils import set_span_chat_messages, set_span_chat_tools
-from mlflow.types.chat import ChatMessage
+from mlflow.tracing.utils import set_span_chat_tools
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
 
 try:
@@ -52,19 +50,6 @@ def patched_class_call(original, self, *args, **kwargs):
 
             result = original(self, *args, **kwargs)
 
-            if (
-                has_generativeai and isinstance(result, generativeai.types.GenerateContentResponse)
-            ) or (has_genai and isinstance(result, genai.types.GenerateContentResponse)):
-                try:
-                    content = _get_keys(inputs, ["contents", "content", "message"])
-                    messages = parse_gemini_content_to_mlflow_chat_messages(content)
-                    messages += _parse_outputs(result)
-                    if messages:
-                        set_span_chat_messages(span=span, messages=messages)
-                except Exception as e:
-                    _logger.warning(
-                        f"An exception occurred on logging chat attributes for {span}. Error: {e}"
-                    )
 
             # need to convert the response of generate_content for better visualization
             outputs = result.to_dict() if hasattr(result, "to_dict") else result
@@ -103,19 +88,6 @@ def _get_keys(dic, keys):
     return None
 
 
-def _parse_outputs(outputs) -> list[ChatMessage]:
-    """
-    This method extract chat messages from genai.types.generation_types.GenerateContentResponse
-    """
-    # content always exist on output
-    # https://github.com/googleapis/googleapis/blob/9e966149c59f47f6305d66c98e2a9e7d9c26a2eb/google/ai/generativelanguage/v1beta/generative_service.proto#L490
-    return sum(
-        [
-            parse_gemini_content_to_mlflow_chat_messages(candidate.content)
-            for candidate in outputs.candidates
-        ],
-        [],
-    )
 
 
 def _log_generativeai_tool_definition(model, span):
