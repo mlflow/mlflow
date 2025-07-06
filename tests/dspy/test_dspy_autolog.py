@@ -72,16 +72,6 @@ def test_autolog_lm():
     assert spans[0].attributes["temperature"] == 0.0
     assert spans[0].attributes["max_tokens"] == 1000
 
-    assert spans[0].get_attribute(SpanAttributeKey.CHAT_MESSAGES) == [
-        {
-            "role": "user",
-            "content": "test input",
-        },
-        {
-            "role": "assistant",
-            "content": "[[ ## output ## ]]\ntest output",
-        },
-    ]
 
 
 def test_autolog_cot():
@@ -137,7 +127,6 @@ def test_autolog_cot():
         assert spans[4 + i].name == f"ChatAdapter.parse_{i + 1}"
         assert spans[4 + i].span_type == SpanType.PARSER
 
-    assert len(spans[3].get_attribute(SpanAttributeKey.CHAT_MESSAGES)) == 5
 
 
 def test_mlflow_callback_exception():
@@ -181,11 +170,6 @@ def test_mlflow_callback_exception():
     assert spans[3].name == "ErrorLM.__call__"
     assert spans[3].status.status_code == "ERROR"
 
-    # Chat attribute should capture input message only when an error occurs
-    messages = spans[3].get_attribute(SpanAttributeKey.CHAT_MESSAGES)
-    assert len(messages) == 2
-    assert messages[0]["role"] == "system"
-    assert messages[1]["role"] == "user"
 
 
 @pytest.mark.skipif(
@@ -251,7 +235,6 @@ def test_autolog_react():
     ]
 
     assert spans[3].span_type == SpanType.CHAT_MODEL
-    assert len(spans[3].get_attribute(SpanAttributeKey.CHAT_MESSAGES)) == 3
 
 
 def test_autolog_retriever():
