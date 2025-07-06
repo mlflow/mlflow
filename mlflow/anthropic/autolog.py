@@ -3,7 +3,7 @@ from typing import Any, Optional
 
 import mlflow
 import mlflow.anthropic
-from mlflow.anthropic.chat import convert_message_to_mlflow_chat, convert_tool_to_mlflow_chat_tool
+from mlflow.anthropic.chat import convert_tool_to_mlflow_chat_tool
 from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
 from mlflow.entities.span_event import SpanEvent
@@ -12,7 +12,6 @@ from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.utils import (
     construct_full_inputs,
-    set_span_chat_messages,
     set_span_chat_tools,
 )
 from mlflow.utils.autologging_utils.config import AutoLoggingConfig
@@ -81,7 +80,7 @@ class TracingSession:
             else:
                 status = SpanStatusCode.OK
 
-            _set_chat_message_attribute(self.span, self.inputs, self.output)
+            _set_token_usage_attribute(self.span, self.output)
             self.span.end(status=status, outputs=self.output)
 
 
@@ -103,16 +102,12 @@ def _set_tool_attribute(span: LiveSpan, inputs: dict[str, Any]):
             _logger.debug(f"Failed to set tools for {span}. Error: {e}")
 
 
-def _set_chat_message_attribute(span: LiveSpan, inputs: dict[str, Any], output: Any):
+def _set_token_usage_attribute(span: LiveSpan, output: Any):
     try:
-        messages = [convert_message_to_mlflow_chat(msg) for msg in inputs.get("messages", [])]
-        if output is not None:
-            messages.append(convert_message_to_mlflow_chat(output))
-        set_span_chat_messages(span, messages)
         if usage := _parse_usage(output):
             span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
     except Exception as e:
-        _logger.debug(f"Failed to set chat messages for {span}. Error: {e}")
+        _logger.debug(f"Failed to set token usage for {span}. Error: {e}")
 
 
 def _parse_usage(output: Any) -> Optional[dict[str, int]]:
