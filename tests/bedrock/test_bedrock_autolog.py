@@ -160,36 +160,41 @@ def _create_dummy_invoke_model_response(llm_response):
 
 
 @pytest.mark.parametrize(
-    ("model_id", "llm_request", "llm_response"),
+    ("model_id", "llm_request", "llm_response", "expected_usage"),
     [
         (
             "anthropic.claude-3-5-sonnet-20241022-v2:0",
             _ANTHROPIC_REQUEST,
             _ANTHROPIC_RESPONSE,
+            {"input_tokens": 8, "output_tokens": 12, "total_tokens": 20},
         ),
         (
             "ai21.jamba-instruct-v1:0",
             _AI21_JAMBA_REQUEST,
             _AI21_JAMBA_RESPONSE,
+            {"input_tokens": 8, "output_tokens": 12, "total_tokens": 20},
         ),
         (
             "us.amazon.nova-lite-v1:0",
             _AMAZON_NOVA_REQUEST,
             _AMAZON_NOVA_RESPONSE,
+            {"input_tokens": 8, "output_tokens": 12, "total_tokens": 20},
         ),
         (
             "cohere.command-r-plus-v1:0",
             _COHERE_REQUEST,
             _COHERE_RESPONSE,
+            None,  # No usage in response
         ),
         (
             "meta.llama3-8b-instruct-v1:0",
             _META_LLAMA_REQUEST,
             _META_LLAMA_RESPONSE,
+            {"input_tokens": 2, "output_tokens": 12, "total_tokens": 14},
         ),
     ],
 )
-def test_bedrock_autolog_invoke_model_llm(model_id, llm_request, llm_response):
+def test_bedrock_autolog_invoke_model_llm(model_id, llm_request, llm_response, expected_usage):
     mlflow.bedrock.autolog()
 
     client = boto3.client("bedrock-runtime", region_name="us-west-2")
@@ -219,6 +224,15 @@ def test_bedrock_autolog_invoke_model_llm(model_id, llm_request, llm_response):
         "ResponseMetadata": response["ResponseMetadata"],
         "contentType": "application/json",
     }
+
+    # Check token usage validation using parameterized expected values
+    if (
+        expected_usage is not None
+        and (usage := span.attributes.get(SpanAttributeKey.CHAT_USAGE)) is not None
+    ):
+        assert usage == expected_usage
+    else:
+        assert SpanAttributeKey.CHAT_USAGE not in span.attributes
 
 
 def test_bedrock_autolog_invoke_model_embeddings():
@@ -296,6 +310,7 @@ def test_bedrock_autolog_invoke_model_capture_exception():
 
 
 def test_bedrock_autolog_invoke_model_stream():
+    """Test Bedrock invoke_model_with_response_stream autologging including token usage capture."""
     mlflow.bedrock.autolog()
 
     client = boto3.client("bedrock-runtime", region_name="us-west-2")
@@ -378,6 +393,13 @@ def test_bedrock_autolog_invoke_model_stream():
     for i in range(len(dummy_chunks)):
         assert span.events[i].name == dummy_chunks[i]["type"]
         assert json.loads(span.events[i].attributes["json"]) == dummy_chunks[i]
+
+    # Check that token usage is captured from streaming chunks
+    assert SpanAttributeKey.CHAT_USAGE in span.attributes
+    usage = span.attributes[SpanAttributeKey.CHAT_USAGE]
+    assert usage["input_tokens"] == 8
+    assert usage["output_tokens"] == 12  # Updated from message_delta event
+    assert usage["total_tokens"] == 20  # Calculated as input + output
 
 
 @pytest.mark.parametrize("config", [{"disable": True}, {"log_traces": False}])
@@ -693,7 +715,7 @@ _CONVERSE_MULTI_MODAL_EXPECTED_CHAT_ATTRIBUTE = [
 
 @pytest.mark.skipif(not _IS_CONVERSE_API_AVAILABLE, reason="Converse API is not available")
 @pytest.mark.parametrize(
-    ("_request", "response", "expected_chat_attr", "expected_tool_attr"),
+    ("_request", "response", "expected_chat_attr", "expected_tool_attr", "expected_usage"),
     [
         # 1. Normal conversation
         (
@@ -701,6 +723,7 @@ _CONVERSE_MULTI_MODAL_EXPECTED_CHAT_ATTRIBUTE = [
             _CONVERSE_RESPONSE,
             _CONVERSE_EXPECTED_CHAT_ATTRIBUTE,
             None,
+            {"input_tokens": 8, "output_tokens": 12, "total_tokens": 20},
         ),
         # 2. Conversation with tool calling
         (
@@ -708,6 +731,7 @@ _CONVERSE_MULTI_MODAL_EXPECTED_CHAT_ATTRIBUTE = [
             _CONVERSE_TOOL_CALLING_RESPONSE,
             _CONVERSE_TOOL_CALLING_EXPECTED_CHAT_ATTRIBUTE,
             _CONVERSE_TOOL_CALLING_EXPECTED_TOOL_ATTRIBUTE,
+            {"input_tokens": 8, "output_tokens": 12, "total_tokens": 20},
         ),
         # 3. Conversation with image input (raw bytes)
         (
@@ -715,17 +739,22 @@ _CONVERSE_MULTI_MODAL_EXPECTED_CHAT_ATTRIBUTE = [
             _CONVERSE_MULTI_MODAL_RESPONSE,
             _CONVERSE_MULTI_MODAL_EXPECTED_CHAT_ATTRIBUTE,
             None,
+            {"input_tokens": 8, "output_tokens": 2, "total_tokens": 10},
         ),
-        # 2. Conversation with image input (base64)
+        # 4. Conversation with image input (base64)
         (
             _get_converse_multi_modal_request(is_base64=True),
             _CONVERSE_MULTI_MODAL_RESPONSE,
             _CONVERSE_MULTI_MODAL_EXPECTED_CHAT_ATTRIBUTE,
             None,
+            {"input_tokens": 8, "output_tokens": 2, "total_tokens": 10},
         ),
     ],
 )
-def test_bedrock_autolog_converse(_request, response, expected_chat_attr, expected_tool_attr):
+def test_bedrock_autolog_converse(
+    _request, response, expected_chat_attr, expected_tool_attr, expected_usage
+):
+    """Test Bedrock Converse API autologging including token usage capture."""
     mlflow.bedrock.autolog()
 
     client = boto3.client("bedrock-runtime", region_name="us-west-2")
@@ -744,6 +773,13 @@ def test_bedrock_autolog_converse(_request, response, expected_chat_attr, expect
     assert span.outputs == response
     assert span.get_attribute(SpanAttributeKey.CHAT_MESSAGES) == expected_chat_attr
     assert span.get_attribute(SpanAttributeKey.CHAT_TOOLS) == expected_tool_attr
+
+    # Validate token usage against parameterized expected values
+    if (
+        expected_usage is not None
+        and (usage := span.attributes.get(SpanAttributeKey.CHAT_USAGE)) is not None
+    ):
+        assert usage == expected_usage
 
 
 @pytest.mark.skipif(not _IS_CONVERSE_API_AVAILABLE, reason="Converse API is not available")
@@ -810,7 +846,7 @@ def test_bedrock_autolog_converse_skip_unsupported_content():
 
 @pytest.mark.skipif(not _IS_CONVERSE_API_AVAILABLE, reason="Converse API is not available")
 @pytest.mark.parametrize(
-    ("_request", "expected_response", "expected_chat_attr", "expected_tool_attr"),
+    ("_request", "expected_response", "expected_chat_attr", "expected_tool_attr", "expected_usage"),
     [
         # 1. Normal conversation
         (
@@ -818,6 +854,7 @@ def test_bedrock_autolog_converse_skip_unsupported_content():
             _CONVERSE_RESPONSE,
             _CONVERSE_EXPECTED_CHAT_ATTRIBUTE,
             None,
+            {"input_tokens": 8, "output_tokens": 12, "total_tokens": 20},
         ),
         # 2. Conversation with tool calling
         (
@@ -825,12 +862,14 @@ def test_bedrock_autolog_converse_skip_unsupported_content():
             _CONVERSE_TOOL_CALLING_RESPONSE,
             _CONVERSE_TOOL_CALLING_EXPECTED_CHAT_ATTRIBUTE,
             _CONVERSE_TOOL_CALLING_EXPECTED_TOOL_ATTRIBUTE,
+            {"input_tokens": 8, "output_tokens": 12, "total_tokens": 20},
         ),
     ],
 )
 def test_bedrock_autolog_converse_stream(
-    _request, expected_response, expected_chat_attr, expected_tool_attr
+    _request, expected_response, expected_chat_attr, expected_tool_attr, expected_usage
 ):
+    """Test Bedrock Converse Stream API autologging including token usage capture."""
     mlflow.bedrock.autolog()
 
     client = boto3.client("bedrock-runtime", region_name="us-west-2")
@@ -861,6 +900,13 @@ def test_bedrock_autolog_converse_stream(
     assert span.events[0].name == "messageStart"
     assert json.loads(span.events[0].attributes["json"]) == {"role": "assistant"}
 
+    # Validate token usage against parameterized expected values
+    if (
+        expected_usage is not None
+        and (usage := span.attributes.get(SpanAttributeKey.CHAT_USAGE)) is not None
+    ):
+        assert usage == expected_usage
+
 
 def _event_stream(raw_response, chunk_size=10):
     """Split the raw response into chunks to simulate the event stream."""
@@ -878,7 +924,7 @@ def _event_stream(raw_response, chunk_size=10):
 
     yield {"messageStop": {"stopReason": "end_turn"}}
 
-    yield {"metadata": {"usage": raw_response["usage"], "metrics": {"latencyMs": 551}}}
+    yield {"metadata": {"usage": raw_response.get("usage"), "metrics": {"latencyMs": 551}}}
 
 
 def _generate_tool_use_chunks_if_present(content, chunk_size=10):
@@ -901,3 +947,363 @@ def _generate_tool_use_chunks_if_present(content, chunk_size=10):
                 }
             }
         yield {"contentBlockStop": {}}
+
+
+TOKEN_USAGE_EDGE_CASES = [
+    # 1. Missing usage field entirely
+    {
+        "name": "missing_usage_field",
+        "response": {
+            "id": "id-123",
+            "type": "message",
+            "role": "assistant",
+            "content": [{"type": "text", "text": "Hello!"}],
+            # No usage field at all
+        },
+        "expected_usage": None,
+    },
+    # 2. Empty usage dict
+    {
+        "name": "empty_usage_dict",
+        "response": {
+            "id": "id-123",
+            "type": "message",
+            "role": "assistant",
+            "content": [{"type": "text", "text": "Hello!"}],
+            "usage": {},  # Empty dict
+        },
+        "expected_usage": None,
+    },
+    # 3. Usage with only input tokens
+    {
+        "name": "only_input_tokens",
+        "response": {
+            "id": "id-123",
+            "type": "message",
+            "role": "assistant",
+            "content": [{"type": "text", "text": "Hello!"}],
+            "usage": {"input_tokens": 10},  # Only input
+        },
+        "expected_usage": None,  # Should return None since output is missing
+    },
+    # 4. Usage with only output tokens
+    {
+        "name": "only_output_tokens",
+        "response": {
+            "id": "id-123",
+            "type": "message",
+            "role": "assistant",
+            "content": [{"type": "text", "text": "Hello!"}],
+            "usage": {"output_tokens": 5},  # Only output
+        },
+        "expected_usage": None,  # Should return None since input is missing
+    },
+    # 5. Zero token values
+    {
+        "name": "zero_token_values",
+        "response": {
+            "id": "id-123",
+            "type": "message",
+            "role": "assistant",
+            "content": [{"type": "text", "text": "Hello!"}],
+            "usage": {"input_tokens": 0, "output_tokens": 0},
+        },
+        "expected_usage": {"input_tokens": 0, "output_tokens": 0, "total_tokens": 0},
+    },
+    # 6. Very large token values
+    {
+        "name": "large_token_values",
+        "response": {
+            "id": "id-123",
+            "type": "message",
+            "role": "assistant",
+            "content": [{"type": "text", "text": "Hello!"}],
+            "usage": {"input_tokens": 999999, "output_tokens": 888888},
+        },
+        "expected_usage": {
+            "input_tokens": 999999,
+            "output_tokens": 888888,
+            "total_tokens": 1888887,
+        },
+    },
+    # 7. Usage with None values
+    {
+        "name": "none_token_values",
+        "response": {
+            "id": "id-123",
+            "type": "message",
+            "role": "assistant",
+            "content": [{"type": "text", "text": "Hello!"}],
+            "usage": {"input_tokens": None, "output_tokens": None},
+        },
+        "expected_usage": None,
+    },
+    # 8. Usage with string values (should be ignored)
+    {
+        "name": "string_token_values",
+        "response": {
+            "id": "id-123",
+            "type": "message",
+            "role": "assistant",
+            "content": [{"type": "text", "text": "Hello!"}],
+            "usage": {"input_tokens": "10", "output_tokens": "5"},
+        },
+        "expected_usage": None,  # Should return None since values are strings
+    },
+    # 9. Same key appears multiple times (last value should be used)
+    {
+        "name": "duplicate_keys_in_usage",
+        "response": {
+            "id": "id-123",
+            "type": "message",
+            "role": "assistant",
+            "content": [{"type": "text", "text": "Hello!"}],
+            "usage": {
+                "input_tokens": 8,
+                "output_tokens": 1,
+                "input_tokens": 10,  # noqa: F601 - Testing duplicate key behavior
+                "output_tokens": 5,  # noqa: F601 - Testing duplicate key behavior
+            },
+        },
+        "expected_usage": {"input_tokens": 10, "output_tokens": 5, "total_tokens": 15},
+    },
+]
+
+
+@pytest.mark.parametrize(
+    "test_case", TOKEN_USAGE_EDGE_CASES, ids=[c["name"] for c in TOKEN_USAGE_EDGE_CASES]
+)
+def test_bedrock_autolog_token_usage_edge_cases(test_case):
+    mlflow.bedrock.autolog()
+    client = boto3.client("bedrock-runtime", region_name="us-west-2")
+
+    with mock.patch(
+        "botocore.client.BaseClient._make_api_call",
+        return_value=_create_dummy_invoke_model_response(test_case["response"]),
+    ):
+        client.invoke_model(
+            body=json.dumps(_ANTHROPIC_REQUEST),
+            modelId="anthropic.claude-3-5-sonnet-20241022-v2:0",
+        )
+
+    traces = get_traces()
+    assert len(traces) == 1
+    span = traces[0].data.spans[0]
+
+    # Check token usage
+    if test_case["expected_usage"] is None:
+        assert SpanAttributeKey.CHAT_USAGE not in span.attributes, (
+            f"Test case '{test_case['name']}' should not have usage"
+        )
+    else:
+        assert SpanAttributeKey.CHAT_USAGE in span.attributes, (
+            f"Test case '{test_case['name']}' should have usage"
+        )
+        usage = span.attributes[SpanAttributeKey.CHAT_USAGE]
+        assert usage == test_case["expected_usage"], (
+            f"Test case '{test_case['name']}' usage mismatch"
+        )
+
+
+STREAM_TOKEN_USAGE_EDGE_CASES = [
+    # 1. No usage in any chunk
+    {
+        "name": "no_usage_in_stream",
+        "chunks": [
+            {
+                "type": "message_start",
+                "message": {
+                    "id": "123",
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [],
+                    # No usage field
+                },
+            },
+            {
+                "type": "content_block_delta",
+                "index": 0,
+                "content_block": {"type": "text", "text": "Hello!"},
+            },
+            {"type": "message_stop"},
+        ],
+        "expected_usage": None,
+    },
+    # 2. Usage only in first chunk
+    {
+        "name": "usage_only_in_first_chunk",
+        "chunks": [
+            {
+                "type": "message_start",
+                "message": {
+                    "id": "123",
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [],
+                    "usage": {"input_tokens": 8, "output_tokens": 1},
+                },
+            },
+            {
+                "type": "content_block_delta",
+                "index": 0,
+                "content_block": {"type": "text", "text": "Hello!"},
+            },
+            {"type": "message_stop"},
+        ],
+        "expected_usage": {"input_tokens": 8, "output_tokens": 1, "total_tokens": 9},
+    },
+    # 3. Usage updated in later chunk
+    {
+        "name": "usage_updated_in_later_chunk",
+        "chunks": [
+            {
+                "type": "message_start",
+                "message": {
+                    "id": "123",
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [],
+                    "usage": {"input_tokens": 8, "output_tokens": 1},
+                },
+            },
+            {
+                "type": "content_block_delta",
+                "index": 0,
+                "content_block": {"type": "text", "text": "Hello!"},
+            },
+            {
+                "type": "message_delta",
+                "delta": {},
+                "usage": {"output_tokens": 12},  # Updated output tokens
+            },
+            {"type": "message_stop"},
+        ],
+        "expected_usage": {"input_tokens": 8, "output_tokens": 12, "total_tokens": 20},
+    },
+    # 4. Malformed usage in chunk
+    {
+        "name": "malformed_usage_in_chunk",
+        "chunks": [
+            {
+                "type": "message_start",
+                "message": {
+                    "id": "123",
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [],
+                    "usage": "not_a_dict",  # Malformed usage
+                },
+            },
+            {
+                "type": "content_block_delta",
+                "index": 0,
+                "content_block": {"type": "text", "text": "Hello!"},
+            },
+            {"type": "message_stop"},
+        ],
+        "expected_usage": None,
+    },
+    # 5. Usage with None values
+    {
+        "name": "usage_with_none_values",
+        "chunks": [
+            {
+                "type": "message_start",
+                "message": {
+                    "id": "123",
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [],
+                    "usage": {"input_tokens": None, "output_tokens": None},
+                },
+            },
+            {
+                "type": "content_block_delta",
+                "index": 0,
+                "content_block": {"type": "text", "text": "Hello!"},
+            },
+            {"type": "message_stop"},
+        ],
+        "expected_usage": None,
+    },
+    # 6. Same key appears in multiple chunks (later should overwrite earlier)
+    {
+        "name": "same_key_in_multiple_chunks",
+        "chunks": [
+            {
+                "type": "message_start",
+                "message": {
+                    "id": "123",
+                    "type": "message",
+                    "role": "assistant",
+                    "content": [],
+                    "usage": {"input_tokens": 8, "output_tokens": 1},
+                },
+            },
+            {
+                "type": "content_block_delta",
+                "index": 0,
+                "content_block": {"type": "text", "text": "Hello!"},
+            },
+            {
+                "type": "message_delta",
+                "delta": {},
+                "usage": {"input_tokens": 10, "output_tokens": 5},  # Overwrites earlier values
+            },
+            {
+                "type": "message_delta",
+                "delta": {},
+                "usage": {"output_tokens": 12},  # Only updates output_tokens
+            },
+            {"type": "message_stop"},
+        ],
+        "expected_usage": {"input_tokens": 10, "output_tokens": 12, "total_tokens": 22},
+    },
+]
+
+
+@pytest.mark.parametrize(
+    "test_case",
+    STREAM_TOKEN_USAGE_EDGE_CASES,
+    ids=[c["name"] for c in STREAM_TOKEN_USAGE_EDGE_CASES],
+)
+def test_bedrock_autolog_stream_token_usage_edge_cases(test_case):
+    """Test edge cases for token usage in streaming responses."""
+    mlflow.bedrock.autolog()
+
+    client = boto3.client("bedrock-runtime", region_name="us-west-2")
+    request_body = json.dumps(_ANTHROPIC_REQUEST)
+
+    # Mimic event stream
+    def dummy_stream():
+        for chunk in test_case["chunks"]:
+            yield {"chunk": {"bytes": json.dumps(chunk).encode("utf-8")}}
+
+    with mock.patch(
+        "botocore.client.BaseClient._make_api_call",
+        return_value={"body": dummy_stream()},
+    ):
+        response = client.invoke_model_with_response_stream(
+            body=request_body, modelId=_ANTHROPIC_MODEL_ID
+        )
+
+        # Consume the stream
+        list(response["body"])
+
+    traces = get_traces()
+    assert len(traces) == 1
+    span = traces[0].data.spans[0]
+
+    # Check token usage
+    if test_case["expected_usage"] is None:
+        assert SpanAttributeKey.CHAT_USAGE not in span.attributes, (
+            f"Test case '{test_case['name']}' should not have usage"
+        )
+    else:
+        assert SpanAttributeKey.CHAT_USAGE in span.attributes, (
+            f"Test case '{test_case['name']}' should have usage"
+        )
+        usage = span.attributes[SpanAttributeKey.CHAT_USAGE]
+        assert usage == test_case["expected_usage"], (
+            f"Test case '{test_case['name']}' usage mismatch"
+        )

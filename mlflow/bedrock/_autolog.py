@@ -10,8 +10,9 @@ import mlflow
 from mlflow.bedrock import FLAVOR_NAME
 from mlflow.bedrock.chat import convert_message_to_mlflow_chat, convert_tool_to_mlflow_chat_tool
 from mlflow.bedrock.stream import ConverseStreamWrapper, InvokeModelStreamWrapper
-from mlflow.bedrock.utils import skip_if_trace_disabled
+from mlflow.bedrock.utils import build_token_usage_dict, skip_if_trace_disabled
 from mlflow.entities import SpanType
+from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.utils import set_span_chat_messages, set_span_chat_tools
 from mlflow.utils.autologging_utils import safe_patch
@@ -59,6 +60,31 @@ def patch_bedrock_runtime_client(client_class: type[BaseClient]):
         safe_patch(FLAVOR_NAME, client_class, "converse_stream", _patched_converse_stream)
 
 
+def _parse_usage_from_response(
+    response_body: Union[dict[str, Any], str],
+) -> Optional[dict[str, int]]:
+    """Return a standardized token-usage dict for any Bedrock provider.
+
+    This wrapper delegates to :func:`mlflow.bedrock.utils.build_token_usage_dict`,
+    which understands every provider key-schema. If *response_body* is a dict and contains
+    a ``usage`` field, we pass that sub-dict; otherwise, we pass the whole response_body.
+    If *response_body* is not a dict, returns None.
+
+    Args:
+        response_body: The response body from Bedrock API, either a dict or string.
+
+    Returns:
+        A standardized token usage dictionary with keys like 'input_tokens', 'output_tokens',
+        'total_tokens', or None if the response body cannot be parsed.
+    """
+
+    return (
+        build_token_usage_dict(raw_usage=response_body.get("usage", response_body))
+        if isinstance(response_body, dict)
+        else None
+    )
+
+
 @skip_if_trace_disabled
 def _patched_invoke_model(original, self, *args, **kwargs):
     with mlflow.start_span(name=f"{_BEDROCK_SPAN_PREFIX}{original.__name__}") as span:
@@ -75,6 +101,10 @@ def _patched_invoke_model(original, self, *args, **kwargs):
         # with the key "embedding". This might change in the future.
         span_type = SpanType.EMBEDDING if "embedding" in parsed_response_body else SpanType.LLM
         span.set_span_type(span_type)
+
+        # Record token usage if provided in response
+        if usage := _parse_usage_from_response(parsed_response_body):
+            span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
         span.set_outputs({**result, "body": parsed_response_body})
 
         return result
@@ -143,6 +173,9 @@ def _patched_converse(original, self, *args, **kwargs):
         try:
             result = original(self, *args, **kwargs)
             span.set_outputs(result)
+            # Use _parse_usage_from_response for all usage extraction
+            if usage := _parse_usage_from_response(result):
+                span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage)
         finally:
             _set_chat_messages_attributes(span, kwargs.get("messages", []), result)
         return result

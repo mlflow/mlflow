@@ -5,9 +5,17 @@ from typing import Any, Optional
 from botocore.eventstream import EventStream
 
 from mlflow.bedrock.chat import convert_message_to_mlflow_chat
-from mlflow.bedrock.utils import capture_exception
+from mlflow.bedrock.utils import (
+    INPUT_TOKEN_KEYS,
+    OUTPUT_TOKEN_KEYS,
+    TOTAL_TOKEN_KEYS,
+    _pick,
+    build_token_usage_dict,
+    capture_exception,
+)
 from mlflow.entities.span import LiveSpan
 from mlflow.entities.span_event import SpanEvent
+from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.utils import set_span_chat_messages
 
 _logger = logging.getLogger(__name__)
@@ -65,12 +73,55 @@ class BaseEventStreamWrapper:
 class InvokeModelStreamWrapper(BaseEventStreamWrapper):
     """A wrapper class for a event stream returned by the InvokeModelWithResponseStream API."""
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._usage_buffer = {}
+
     @capture_exception("Failed to handle event for the stream")
     def _handle_event(self, span, event):
         chunk = json.loads(event["chunk"]["bytes"])
         self._span.add_event(SpanEvent(name=chunk["type"], attributes={"json": json.dumps(chunk)}))
 
+        # Buffer usage information from streaming chunks
+        self._buffer_usage(chunk)
+
+    def _buffer_usage(self, chunk: dict[str, Any]):
+        """Buffer token usage information from streaming chunks, always using the latest value."""
+
+        def _extract_and_buffer_tokens(usage: dict[str, Any]):
+            for k, v in {
+                TokenUsageKey.INPUT_TOKENS: _pick(usage, *INPUT_TOKEN_KEYS),
+                TokenUsageKey.OUTPUT_TOKENS: _pick(usage, *OUTPUT_TOKEN_KEYS),
+                TokenUsageKey.TOTAL_TOKENS: _pick(usage, *TOTAL_TOKEN_KEYS),
+            }.items():
+                if v is not None:
+                    self._usage_buffer[k] = v  # Always overwrite with the latest value
+            _logger.debug(
+                f"[TokenUsage] Updated buffer: {self._usage_buffer} from chunk usage: {usage}"
+            )
+
+        try:
+            usage = (
+                chunk.get("message", {}).get("usage")
+                if chunk.get("type") == "message_start"
+                else chunk.get("usage")
+            )
+            if usage:
+                _extract_and_buffer_tokens(usage)
+        except Exception as e:
+            _logger.debug(f"Failed to buffer usage from chunk: {e}")
+
     def _close(self):
+        # Build a standardized usage dict and set it on the span if valid
+        usage_dict = build_token_usage_dict(
+            input_tokens=self._usage_buffer.get(TokenUsageKey.INPUT_TOKENS),
+            output_tokens=self._usage_buffer.get(TokenUsageKey.OUTPUT_TOKENS),
+            total_tokens=self._usage_buffer.get(TokenUsageKey.TOTAL_TOKENS),
+        )
+
+        if usage_dict:
+            self._span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
+
         self._end_span()
 
 
@@ -105,6 +156,14 @@ class ConverseStreamWrapper(BaseEventStreamWrapper):
         # Record the accumulated response as the output of the span
         converse_response = self._response_builder.build()
         self._span.set_outputs(converse_response)
+
+        # Build a standardized usage dict and set it on the span if valid
+        if (
+            usage_dict := build_token_usage_dict(raw_usage=converse_response.get("usage"))
+            if isinstance(converse_response.get("usage"), dict)
+            else None
+        ):
+            self._span.set_attribute(SpanAttributeKey.CHAT_USAGE, usage_dict)
 
         # Record the chat message attributes in the MLflow's standard format
         messages = self._inputs.get("messages", []) + [converse_response["output"]["message"]]
