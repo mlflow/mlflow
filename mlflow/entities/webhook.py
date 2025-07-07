@@ -209,9 +209,9 @@ class WebhookTestResult:
     def from_proto(cls, proto: ProtoWebhookTestResult) -> "WebhookTestResult":
         return cls(
             success=proto.success,
-            response_status=proto.response_status if proto.HasField("response_status") else None,
-            response_body=proto.response_body if proto.HasField("response_body") else None,
-            error_message=proto.error_message if proto.HasField("error_message") else None,
+            response_status=proto.response_status or None,
+            response_body=proto.response_body or None,
+            error_message=proto.error_message or None,
         )
 
     def to_proto(self) -> ProtoWebhookTestResult:
