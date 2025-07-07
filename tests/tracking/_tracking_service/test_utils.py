@@ -24,6 +24,7 @@ from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
 from mlflow.tracking._tracking_service.registry import TrackingStoreRegistry
 from mlflow.tracking._tracking_service.utils import (
     _get_store,
+    _get_store_type,
     _resolve_tracking_uri,
     get_tracking_uri,
     set_tracking_uri,
@@ -47,6 +48,7 @@ def test_get_store_file_store(tmp_path, monkeypatch):
     store = _get_store()
     assert isinstance(store, FileStore)
     assert os.path.abspath(store.root_directory) == os.path.abspath("mlruns")
+    assert _get_store_type() == "FileStore"
 
 
 def test_get_store_file_store_from_arg(tmp_path, monkeypatch):
@@ -54,6 +56,7 @@ def test_get_store_file_store_from_arg(tmp_path, monkeypatch):
     store = _get_store("other/path")
     assert isinstance(store, FileStore)
     assert os.path.abspath(store.root_directory) == os.path.abspath("other/path")
+    assert _get_store_type() == "FileStore"
 
 
 @pytest.mark.parametrize("uri", ["other/path", "file:other/path"])
@@ -63,6 +66,7 @@ def test_get_store_file_store_from_env(tmp_path, monkeypatch, uri):
     store = _get_store()
     assert isinstance(store, FileStore)
     assert os.path.abspath(store.root_directory) == os.path.abspath("other/path")
+    assert _get_store_type() == "FileStore"
 
 
 def test_get_store_basic_rest_store(monkeypatch):
@@ -71,6 +75,7 @@ def test_get_store_basic_rest_store(monkeypatch):
     assert isinstance(store, RestStore)
     assert store.get_host_creds().host == "https://my-tracking-server:5050"
     assert store.get_host_creds().token is None
+    assert _get_store_type() == "RestStore"
 
 
 def test_get_store_rest_store_with_password(monkeypatch):
@@ -157,6 +162,7 @@ def test_get_store_sqlalchemy_store(tmp_path, monkeypatch, db_type):
             assert store.artifact_root_uri == Path.cwd().joinpath("mlruns").as_uri()
         else:
             assert store.artifact_root_uri == Path.cwd().joinpath("mlruns").as_posix()
+        assert _get_store_type() == "SqlAlchemyStore"
 
     mock_create_engine.assert_called_once_with(uri, pool_pre_ping=True)
 
@@ -201,6 +207,7 @@ def test_get_store_databricks(monkeypatch):
     store = _get_store()
     assert isinstance(store, RestStore)
     assert store.get_host_creds().use_databricks_sdk
+    assert _get_store_type() == "DatabricksRestStore"
 
 
 def test_get_store_databricks_profile(monkeypatch):
@@ -276,6 +283,7 @@ def test_standard_store_registry_with_installed_plugin(tmp_path, monkeypatch):
     plugin_file_store = mlflow.tracking._tracking_service.utils._get_store()
     assert isinstance(plugin_file_store, PluginFileStore)
     assert plugin_file_store.is_plugin
+    assert _get_store_type() == "CustomStore"
 
 
 def test_plugin_registration():
@@ -402,9 +410,14 @@ def test_get_store_raises_on_uc_uri(store_uri):
         "supported in the current version of the MLflow client",
     ):
         mlflow.tracking.MlflowClient()
+    assert _get_store_type() == "DatabricksUCRestStore"
 
 
 @pytest.mark.parametrize("tracking_uri", ["file:///tmp/mlruns", "sqlite:///tmp/mlruns.db", ""])
 def test_set_get_tracking_uri_consistency(tracking_uri):
     mlflow.set_tracking_uri(tracking_uri)
     assert mlflow.get_tracking_uri() == tracking_uri
+
+
+def test_get_store_type_for_oss_uc():
+    assert _get_store_type("uc://profile@databricks") == "OSSUCRestStore"

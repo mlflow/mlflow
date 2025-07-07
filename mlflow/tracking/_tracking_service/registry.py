@@ -1,9 +1,25 @@
 import threading
 from functools import lru_cache
 
+from mlflow.store.db.db_types import DATABASE_ENGINES
 from mlflow.tracking.registry import StoreRegistry
+from mlflow.utils.uri import (
+    _DATABRICKS_UNITY_CATALOG_SCHEME,
+    _OSS_UNITY_CATALOG_SCHEME,
+    get_uri_scheme,
+)
 
 _building_store_lock = threading.Lock()
+
+_TRACKING_STORE_TYPE_MAPPING = {
+    "": "FileStore",
+    "file": "FileStore",
+    "databricks": "DatabricksRestStore",
+    _DATABRICKS_UNITY_CATALOG_SCHEME: "DatabricksUCRestStore",
+    _OSS_UNITY_CATALOG_SCHEME: "OSSUCRestStore",
+    "http": "RestStore",
+    "https": "RestStore",
+} | dict.fromkeys(DATABASE_ENGINES, "SqlAlchemyStore")
 
 
 class TrackingStoreRegistry(StoreRegistry):
@@ -54,3 +70,18 @@ class TrackingStoreRegistry(StoreRegistry):
         with _building_store_lock:
             builder = self.get_store_builder(resolved_store_uri)
             return builder(store_uri=resolved_store_uri, artifact_uri=artifact_uri)
+
+    def _get_store_type(self, store_uri=None) -> str:
+        """
+        Get the type of the store associated with a resolved (non-None) store URI.
+        """
+        from mlflow.tracking._tracking_service import utils
+
+        resolved_store_uri = utils._resolve_tracking_uri(store_uri)
+        scheme = (
+            resolved_store_uri
+            if resolved_store_uri in {"databricks", "databricks-uc", "uc"}
+            else get_uri_scheme(resolved_store_uri)
+        )
+        # sanitize the value if user registers a custom store
+        return _TRACKING_STORE_TYPE_MAPPING.get(scheme, "CustomStore")

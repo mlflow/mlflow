@@ -211,6 +211,10 @@ def _get_store(store_uri=None, artifact_uri=None):
     return _tracking_store_registry.get_store(store_uri, artifact_uri)
 
 
+def _get_store_type(store_uri=None) -> str:
+    return _tracking_store_registry._get_store_type(store_uri)
+
+
 _artifact_repos_cache = OrderedDict()
 
 
