@@ -118,10 +118,10 @@ message Webhook {
   optional WebhookStatus status = 7;
 
   // Timestamp when webhook was created
-  optional int64 created_at = 8;
+  optional int64 creation_timestamp = 8;
 
   // Timestamp when webhook was last updated
-  optional int64 updated_at = 9;
+  optional int64 last_updated_timestamp = 9;
 }
 
 // Test webhook result
