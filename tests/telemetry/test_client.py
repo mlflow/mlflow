@@ -36,7 +36,7 @@ def test_add_record_and_send(telemetry_client: TelemetryClient, mock_requests):
 
     # Add record and wait for processing
     telemetry_client.add_record(record)
-    telemetry_client._wait_for_consumer_threads()
+    telemetry_client.flush()
 
     # Verify record was sent
     assert len(mock_requests) == 1
@@ -65,7 +65,7 @@ def test_batch_processing(telemetry_client: TelemetryClient, mock_requests):
         )
         telemetry_client.add_record(record)
 
-    telemetry_client._wait_for_consumer_threads()
+    telemetry_client.flush()
 
     assert len(mock_requests) == 5
 
@@ -117,7 +117,7 @@ def test_error_handling(mock_requests, telemetry_client):
     )
     telemetry_client.add_record(record)
 
-    telemetry_client._wait_for_consumer_threads()
+    telemetry_client.flush()
 
     # Client should still be active despite errors
     assert telemetry_client.is_active
@@ -135,7 +135,7 @@ def test_stop_event(telemetry_client: TelemetryClient, mock_requests):
     )
     telemetry_client.add_record(record)
 
-    telemetry_client._wait_for_consumer_threads()
+    telemetry_client.flush()
 
     # No records should be sent
     assert len(mock_requests) == 0
@@ -165,7 +165,7 @@ def test_concurrent_record_addition(telemetry_client: TelemetryClient, mock_requ
     for thread in threads:
         thread.join()
 
-    telemetry_client._wait_for_consumer_threads()
+    telemetry_client.flush()
 
     # Should have received records from all threads
     assert len(mock_requests) == 15
@@ -180,7 +180,7 @@ def test_telemetry_info_inclusion(telemetry_client: TelemetryClient, mock_reques
     )
     telemetry_client.add_record(record)
 
-    telemetry_client._wait_for_consumer_threads()
+    telemetry_client.flush()
 
     # Verify telemetry info is included
     received_record = mock_requests[0]
@@ -210,7 +210,7 @@ def test_partition_key(telemetry_client: TelemetryClient, mock_requests):
     )
     telemetry_client.add_record(record)
 
-    telemetry_client._wait_for_consumer_threads()
+    telemetry_client.flush()
 
     # Verify partition key
     received_record = mock_requests[0]
@@ -273,7 +273,7 @@ def test_batch_time_interval(mock_requests, telemetry_client):
     telemetry_client.add_record(record3)
 
     # Wait for processing
-    telemetry_client._wait_for_consumer_threads()
+    telemetry_client.flush()
 
     # Should have sent all 3 records in one batch
     assert len(mock_requests) == 3

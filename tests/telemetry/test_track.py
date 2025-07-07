@@ -45,7 +45,7 @@ def test_track_api_usage(mock_requests):
     with pytest.raises(ValueError, match="test"):
         fail_func()
 
-    get_telemetry_client()._wait_for_consumer_threads()
+    get_telemetry_client().flush()
 
     assert len(mock_requests) == 2
     succeed_record = extract_record(mock_requests[0])
@@ -71,14 +71,14 @@ def test_backend_store_info(tmp_path):
         return True
 
     succeed_func()
-    get_telemetry_client()._wait_for_consumer_threads()
+    get_telemetry_client().flush()
 
     telemetry_client = get_telemetry_client()
     assert telemetry_client.info.backend_store == "SqlAlchemyStore"
 
     mlflow.set_tracking_uri(tmp_path)
     succeed_func()
-    get_telemetry_client()._wait_for_consumer_threads()
+    get_telemetry_client().flush()
     assert telemetry_client.info.backend_store == "FileStore"
 
 
@@ -113,7 +113,7 @@ def test_track_api_usage_update_env_var_after_import(monkeypatch, mock_requests)
 
     test_func()
 
-    get_telemetry_client()._wait_for_consumer_threads()
+    get_telemetry_client().flush()
     assert len(mock_requests) == 1
     record = extract_record(mock_requests[0])
     assert record["api_name"] == full_func_name(test_func)
@@ -140,7 +140,7 @@ def test_track_api_usage_do_not_track_internal_api(mock_requests):
 
     assert mlflow.last_logged_model() is not None
 
-    get_telemetry_client()._wait_for_consumer_threads()
+    get_telemetry_client().flush()
     assert len(mock_requests) == 1
     record = extract_record(mock_requests[0])
     assert record["api_name"] == full_func_name(mlflow.sklearn.autolog)
