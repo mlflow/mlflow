@@ -11,7 +11,7 @@ from mlflow.entities.model_registry.model_version_status import ModelVersionStat
 from mlflow.entities.model_registry.model_version_tag import ModelVersionTag
 from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.entities.model_registry.prompt_version import PromptVersion
-from mlflow.entities.model_registry.webhook import Webhook, WebhookTestResult
+from mlflow.entities.webhook import Webhook, WebhookEvent, WebhookStatus, WebhookTestResult
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import (
     IS_PROMPT_TAG_KEY,
@@ -1086,12 +1086,10 @@ class AbstractStore:
         self,
         name: str,
         url: str,
-        events: list[str],
-        creation_timestamp: Optional[int] = None,
-        last_updated_timestamp: Optional[int] = None,
+        events: list[WebhookEvent],
         description: Optional[str] = None,
         secret: Optional[str] = None,
-        status: Optional[str] = None,
+        status: Optional[WebhookStatus] = None,
     ) -> Webhook:
         """
         Create a new webhook in the backend store.
@@ -1100,8 +1098,6 @@ class AbstractStore:
             name: Unique name for the webhook.
             url: Webhook endpoint URL.
             events: List of event types that trigger this webhook.
-            creation_timestamp: Optional timestamp for when the webhook was created.
-            last_updated_timestamp: Optional timestamp for the last update to the webhook.
             description: Optional description of the webhook.
             secret: Optional secret for HMAC signature verification.
             status: Webhook status (defaults to ACTIVE).
@@ -1147,9 +1143,9 @@ class AbstractStore:
         name: Optional[str] = None,
         description: Optional[str] = None,
         url: Optional[str] = None,
-        events: Optional[list[str]] = None,
+        events: Optional[list[WebhookEvent]] = None,
         secret: Optional[str] = None,
-        status: Optional[str] = None,
+        status: Optional[WebhookStatus] = None,
     ) -> Webhook:
         """
         Update an existing webhook.
