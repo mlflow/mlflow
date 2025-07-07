@@ -1,6 +1,6 @@
 import pytest
 
-from mlflow.entities.webhook import Webhook, WebhookEvent, WebhookStatus
+from mlflow.entities.webhook import Webhook, WebhookEvent, WebhookStatus, WebhookTestResult
 from mlflow.exceptions import MlflowException
 from mlflow.protos.webhooks_pb2 import WebhookEvent as ProtoWebhookEvent
 from mlflow.protos.webhooks_pb2 import WebhookStatus as ProtoWebhookStatus
@@ -85,3 +85,18 @@ def test_webhook_invalid_events():
             creation_timestamp=1234567900,
             last_updated_timestamp=1234567900,
         )
+
+
+def test_webhook_test_result_proto_conversion():
+    result = WebhookTestResult(
+        success=True,
+        response_status=200,
+        response_body='{"message": "success"}',
+        error_message=None,
+    )
+    proto_result = result.to_proto()
+    result_from_proto = WebhookTestResult.from_proto(proto_result)
+    assert result_from_proto.success == result.success
+    assert result_from_proto.response_status == result.response_status
+    assert result_from_proto.response_body == result.response_body
+    assert result_from_proto.error_message == result.error_message

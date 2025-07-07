@@ -5,6 +5,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.protos.webhooks_pb2 import Webhook as ProtoWebhook
 from mlflow.protos.webhooks_pb2 import WebhookEvent as ProtoWebhookEvent
 from mlflow.protos.webhooks_pb2 import WebhookStatus as ProtoWebhookStatus
+from mlflow.protos.webhooks_pb2 import WebhookTestResult as ProtoWebhookTestResult
 
 
 class WebhookStatus(str, Enum):
@@ -138,22 +139,16 @@ class Webhook:
         )
 
     def to_proto(self):
-        webhook = ProtoWebhook()
-        webhook.webhook_id = self.webhook_id
-        webhook.name = self.name
-        webhook.url = self.url
-
-        event_values = [ProtoWebhookEvent.Value(event) for event in self.events]
-        webhook.events.extend(event_values)
-
-        if self.description is not None:
-            webhook.description = self.description
-
-        webhook.status = self.status.to_proto()
-        webhook.creation_timestamp = self.creation_timestamp
-        webhook.last_updated_timestamp = self.last_updated_timestamp
-
-        return webhook
+        return ProtoWebhook(
+            webhook_id=self.webhook_id,
+            name=self.name,
+            url=self.url,
+            events=[event.to_proto() for event in self.events],
+            description=self.description,
+            status=self.status.to_proto(),
+            creation_timestamp=self.creation_timestamp,
+            last_updated_timestamp=self.last_updated_timestamp,
+        )
 
     def __repr__(self) -> str:
         return (
@@ -163,5 +158,74 @@ class Webhook:
             f"url='{self.url}', "
             f"status='{self.status}', "
             f"events={self.events}"
+            f")"
+        )
+
+
+class WebhookTestResult:
+    """
+    MLflow entity for WebhookTestResult.
+    """
+
+    def __init__(
+        self,
+        success: bool,
+        response_status: Optional[int] = None,
+        response_body: Optional[str] = None,
+        error_message: Optional[str] = None,
+    ):
+        """
+        Initialize a WebhookTestResult entity.
+
+        Args:
+            success: Whether the test succeeded
+            response_status: HTTP response status code if available
+            response_body: Response body if available
+            error_message: Error message if test failed
+        """
+        self._success = success
+        self._response_status = response_status
+        self._response_body = response_body
+        self._error_message = error_message
+
+    @property
+    def success(self) -> bool:
+        return self._success
+
+    @property
+    def response_status(self) -> Optional[int]:
+        return self._response_status
+
+    @property
+    def response_body(self) -> Optional[str]:
+        return self._response_body
+
+    @property
+    def error_message(self) -> Optional[str]:
+        return self._error_message
+
+    @classmethod
+    def from_proto(cls, proto: ProtoWebhookTestResult) -> "WebhookTestResult":
+        return cls(
+            success=proto.success,
+            response_status=proto.response_status if proto.HasField("response_status") else None,
+            response_body=proto.response_body if proto.HasField("response_body") else None,
+            error_message=proto.error_message if proto.HasField("error_message") else None,
+        )
+
+    def to_proto(self) -> ProtoWebhookTestResult:
+        return ProtoWebhookTestResult(
+            success=self.success,
+            response_status=self.response_status,
+            response_body=self.response_body,
+            error_message=self.error_message,
+        )
+
+    def __repr__(self) -> str:
+        return (
+            f"WebhookTestResult("
+            f"success={self.success}, "
+            f"response_status={self.response_status}, "
+            f"error_message='{self.error_message}'"
             f")"
         )
