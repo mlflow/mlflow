@@ -154,12 +154,7 @@ chat_template = [
 </TabItem>
 </Tabs>
 
-### Tags and Response Formats
-
-Use `tags` for storing version-specific information and `response_format` for structured output specifications.
-
-<Tabs>
-<TabItem value="tags" label="Tags" default>
+### Tags
 
 Tags store version-specific metadata and prompt type information:
 
@@ -179,8 +174,7 @@ prompt = mlflow.genai.register_prompt(
 )
 ```
 
-</TabItem>
-<TabItem value="response-format" label="Response Format">
+### Response Formats
 
 Response formats define expected output structures for structured generation:
 
@@ -216,9 +210,6 @@ prompt = mlflow.genai.register_prompt(
     },
 )
 ```
-
-</TabItem>
-</Tabs>
 
 ## Prompt Lifecycle Management
 
@@ -504,6 +495,14 @@ Creating and managing prompts involves several key steps:
 ```python
 # Complete workflow example
 import mlflow
+from pydantic import BaseModel
+
+
+class SupportResponse(BaseModel):
+    response: str
+    confidence: float
+    suggested_actions: list[str]
+
 
 # 1. Register initial text prompt
 text_prompt = mlflow.genai.register_prompt(

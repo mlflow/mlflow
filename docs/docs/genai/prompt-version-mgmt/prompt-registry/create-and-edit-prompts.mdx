@@ -41,9 +41,8 @@ You can initiate a new prompt in the MLflow Prompt Registry in two primary ways:
 
 ```python
 import mlflow
-from pydantic import BaseModel
 
-# Text prompt with response format
+# Text prompt template
 text_template = """\
 Summarize content you are provided with in {{ num_sentences }} sentences.
 
@@ -52,19 +51,10 @@ Summarize content you are provided with in {{ num_sentences }} sentences.
       ```
     </div>
 
-
-# Define response format for structured output
-class SummaryResponse(BaseModel):
-    summary: str
-    key_points: list[str]
-    word_count: int
-
-
 # Register a text prompt
 text_prompt = mlflow.genai.register_prompt(
     name="summarization-prompt",
     template=text_template,
-    response_format=SummaryResponse,
     # Optional: Provide a commit message to describe the changes
     commit_message="Initial commit",
     # Optional: Set tags applies to the prompt (across versions)
@@ -75,7 +65,7 @@ text_prompt = mlflow.genai.register_prompt(
     },
 )
 
-# Chat prompt example
+# Chat prompt template
 chat_template = [
     {"role": "system", "content": "You are a helpful {{ style }} assistant."},
     {"role": "user", "content": "{{ question }}"},
@@ -85,7 +75,6 @@ chat_template = [
 chat_prompt = mlflow.genai.register_prompt(
     name="assistant-prompt",
     template=chat_template,
-    response_format={"type": "string", "description": "A helpful response"},
     commit_message="Initial chat prompt",
     tags={"type": "chat", "style": "friendly"},
 )
@@ -125,9 +114,8 @@ Once a prompt version is created, its template and initial metadata are **immuta
 
 ```python
 import mlflow
-from pydantic import BaseModel
 
-# Update text prompt with enhanced response format
+# Update text prompt template
 new_text_template = """\
 You are an expert summarizer. Condense the following content into exactly {{ num_sentences }} clear and informative sentences that capture the key points.
 
@@ -150,22 +138,11 @@ Your summary should:
 - Maintain the same level of formality as the original text
 """
 
-
-# Enhanced response format
-class EnhancedSummaryResponse(BaseModel):
-    summary: str
-    key_points: list[str]
-    word_count: int
-    confidence_score: float
-    reading_level: str
-
-
 # Register a new version of an existing text prompt
 updated_text_prompt = mlflow.genai.register_prompt(
     name="summarization-prompt",  # Specify the existing prompt name
     template=new_text_template,
-    response_format=EnhancedSummaryResponse,
-    commit_message="Enhanced with confidence scoring and reading level",
+    commit_message="Enhanced with better instructions and formatting",
     tags={
         "author": "author@example.com",
         "enhanced": "true",
@@ -190,10 +167,6 @@ new_chat_template = [
 updated_chat_prompt = mlflow.genai.register_prompt(
     name="assistant-prompt",
     template=new_chat_template,
-    response_format={
-        "type": "object",
-        "properties": {"answer": {"type": "string"}, "sources": {"type": "array"}},
-    },
     commit_message="Added multi-turn conversation support",
     tags={"type": "chat", "style": "friendly", "multi_turn": "true"},
 )

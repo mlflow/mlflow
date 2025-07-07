@@ -81,13 +81,11 @@ def register_prompt(
     .. code-block:: python
 
         import mlflow
-        from pydantic import BaseModel
 
         # Register a text prompt
         mlflow.genai.register_prompt(
             name="greeting_prompt",
             template="Respond to the user's message as a {{style}} AI.",
-            response_format={"type": "string", "description": "A friendly response"},
         )
 
         # Register a chat prompt with multiple messages
