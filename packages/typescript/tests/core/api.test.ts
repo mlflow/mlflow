@@ -571,8 +571,7 @@ describe('API', () => {
       const tracedFunc = mlflow.trace(myFunc, {
         name: 'custom_span_name',
         spanType: SpanType.LLM,
-        attributes: { key: 'value' },
-        clientRequestId: 'abc-xyz'
+        attributes: { key: 'value' }
       });
 
       const result = tracedFunc(2, 3);
@@ -580,7 +579,6 @@ describe('API', () => {
 
       const trace = await getLastActiveTrace();
       expect(trace.info.state).toBe('OK');
-      expect(trace.info.clientRequestId).toBe('abc-xyz');
       expect(trace.data.spans.length).toBe(1);
 
       const loggedSpan = trace.data.spans[0];

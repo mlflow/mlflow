@@ -419,6 +419,7 @@ describe('mapArgsToObject', () => {
     {
       description: 'null and undefined arguments',
       func: function nullable(a: any, b: any, c: any) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
         return a + b + c;
       },
       args: [null, undefined, 'value'],
@@ -434,6 +435,7 @@ describe('mapArgsToObject', () => {
     },
     {
       description: 'fallback to args array when parameter extraction fails',
+      // eslint-disable-next-line @typescript-eslint/no-implied-eval
       func: new Function('return arguments[0] + arguments[1];'),
       args: [1, 2],
       expected: { args: [1, 2] }
@@ -449,6 +451,12 @@ describe('mapArgsToObject', () => {
       func: () => {},
       args: [],
       expected: {}
+    },
+    {
+      description: 'functions with object destructuring parameters (JS/TS kwarg-only pattern)',
+      func: ({ a, b }: { a: number; b: number }) => a + b,
+      args: [{ a: 5, b: 10 }],
+      expected: { args: [{ a: 5, b: 10 }] }
     }
   ])('should handle $description', ({ func, args, expected }) => {
     const result = mapArgsToObject(func, args);

@@ -101,21 +101,6 @@ export class InMemoryTraceManager {
   }
 
   /**
-   * Set the client request ID for the given trace ID.
-   * @param traceId The trace ID to set the client request ID for
-   * @param clientRequestId The client request ID to set
-   */
-  setClientRequestId(traceId: string, clientRequestId: string): void {
-    const trace = this._traces.get(traceId);
-    if (trace) {
-      trace.info.clientRequestId = clientRequestId;
-    } else {
-      console.debug(`Tried to set client request ID ${clientRequestId} for trace ${traceId}
-                     but trace not found. Please make sure to register the trace first.`);
-    }
-  }
-
-  /**
    * Get the MLflow trace ID for the given OpenTelemetry trace ID.
    * @param otelTraceId The OpenTelemetry trace ID
    */

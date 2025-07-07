@@ -32,7 +32,6 @@ export interface SpanOptions {
 export interface TraceOptions
   extends Omit<SpanOptions, 'parent' | 'startTimeNs' | 'inputs' | 'name'> {
   name?: string;
-  clientRequestId?: string;
 }
 
 /**
@@ -194,7 +193,6 @@ function createAndRegisterMlflowSpan(
   return mlflowSpan;
 }
 
-
 /**
  * Create a traced version of a function.
  *
@@ -206,7 +204,7 @@ function createAndRegisterMlflowSpan(
  * - Any exception thrown by the function
  *
  * @param func The function to trace
- * @param options Optional trace options including name, spanType, attributes, and clientRequestId
+ * @param options Optional trace options including name, spanType, and attributes
  * @returns The traced function
  *
  * @example
@@ -232,14 +230,7 @@ export function trace<T extends (...args: any[]) => any>(func: T, options?: Trac
     };
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-    return withSpan((span) => {
-      // Set the client request ID for the trace
-      if (options?.clientRequestId) {
-        InMemoryTraceManager.getInstance().setClientRequestId(
-          span.traceId,
-          options.clientRequestId
-        );
-      }
+    return withSpan((_span) => {
       // eslint-disable-next-line @typescript-eslint/no-unsafe-return
       return func.apply(this, args);
     }, spanOptions) as ReturnType<T>;
