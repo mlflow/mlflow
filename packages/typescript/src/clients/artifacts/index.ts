@@ -18,7 +18,7 @@ export function getArtifactsClient({
   databricksToken?: string;
 }): ArtifactsClient {
   if (trackingUri.startsWith('databricks')) {
-    return new DatabricksArtifactsClient({ host, token: databricksToken });
+    return new DatabricksArtifactsClient({ host, databricksToken });
   } else {
     return new MlflowArtifactsClient({ host });
   }

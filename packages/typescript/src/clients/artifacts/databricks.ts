@@ -7,18 +7,11 @@ import { ArtifactsClient } from './base';
 
 export class DatabricksArtifactsClient implements ArtifactsClient {
   private host: string;
-  private token?: string;
+  private databricksToken?: string;
 
-  constructor(options: { host: string; token?: string }) {
+  constructor(options: { host: string; databricksToken?: string }) {
     this.host = options.host;
-    this.token = options.token;
-  }
-
-  /**
-   * Private wrapper for fetch to enable easier testing
-   */
-  private async httpFetch(url: string, options?: RequestInit): Promise<Response> {
-    return await fetch(url, options);
+    this.databricksToken = options.databricksToken;
   }
 
   /**
@@ -34,7 +27,7 @@ export class DatabricksArtifactsClient implements ArtifactsClient {
       const traceDataJson = JSONBig.stringify(traceData.toJson());
       await this.uploadToCloudStorage(credentials, traceDataJson);
     } catch (error) {
-      console.warn(`Trace data upload failed for ${traceInfo.traceId}:`, error);
+      console.error(`Trace data upload failed for ${traceInfo.traceId}:`, error);
       throw error;
     }
   }
@@ -49,7 +42,7 @@ export class DatabricksArtifactsClient implements ArtifactsClient {
       const traceDataJson = await this.downloadFromSignedUrl(credentials);
       return TraceData.fromJson(traceDataJson);
     } catch (error) {
-      console.warn(`Failed to download trace data for ${traceInfo.traceId}:`, error);
+      console.error(`Failed to download trace data for ${traceInfo.traceId}:`, error);
 
       // Return empty trace data if download fails
       // This allows getting trace info even if data is missing
@@ -66,7 +59,7 @@ export class DatabricksArtifactsClient implements ArtifactsClient {
     const response = await makeRequest<GetCredentialsForTraceDataUpload.Response>(
       'GET',
       url,
-      getRequestHeaders(this.token)
+      getRequestHeaders(this.databricksToken)
     );
     return response.credential_info;
   }
@@ -82,7 +75,7 @@ export class DatabricksArtifactsClient implements ArtifactsClient {
     const response = await makeRequest<GetCredentialsForTraceDataDownload.Response>(
       'GET',
       url,
-      getRequestHeaders(this.token)
+      getRequestHeaders(this.databricksToken)
     );
 
     if (response.credential_info) {
@@ -136,7 +129,7 @@ export class DatabricksArtifactsClient implements ArtifactsClient {
     credentialType: string
   ): Promise<void> {
     try {
-      const response = await this.httpFetch(signedUrl, {
+      const response = await fetch(signedUrl, {
         method: 'PUT',
         headers,
         body: data
@@ -168,7 +161,7 @@ export class DatabricksArtifactsClient implements ArtifactsClient {
     }
 
     try {
-      const response = await this.httpFetch(credentials.signed_uri, {
+      const response = await fetch(credentials.signed_uri, {
         method: 'GET',
         headers
       });
