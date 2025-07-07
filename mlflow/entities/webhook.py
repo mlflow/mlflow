@@ -98,18 +98,15 @@ class Webhook:
         return self._url
 
     @property
-    def events(self) -> list[str]:
+    def events(self) -> list[WebhookEvent]:
         return self._events
 
     @property
     def description(self) -> Optional[str]:
         return self._description
 
-    def description(self, new_description: Optional[str]) -> None:
-        self._description = new_description
-
     @property
-    def status(self) -> str:
+    def status(self) -> WebhookStatus:
         return self._status
 
     @property
