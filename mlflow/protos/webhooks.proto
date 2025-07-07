@@ -97,7 +97,7 @@ enum WebhookStatus {
 // Webhook entity
 message Webhook {
   // Unique identifier for the webhook
-  optional string id = 1;
+  optional string webhook_id = 1;
 
   // Name of the webhook
   optional string name = 2;
