@@ -37,6 +37,7 @@ from mlflow.protos.service_pb2 import (
     CreateRun,
     DeleteAssessment,
     DeleteExperiment,
+    DeleteExperimentTag,
     DeleteLoggedModel,
     DeleteLoggedModelTag,
     DeleteRun,
@@ -71,7 +72,6 @@ from mlflow.protos.service_pb2 import (
     SearchTracesV3,
     SearchUnifiedTraces,
     SetExperimentTag,
-    DeleteExperimentTag,
     SetLoggedModelTags,
     SetTag,
     SetTraceTag,
@@ -663,9 +663,7 @@ class RestStore(AbstractStore):
             experiment_id: String ID of the experiment
             key: String name of the tag to be deleted
         """
-        req_body = message_to_json(
-            DeleteExperimentTag(experiment_id=experiment_id, key=key)
-        )
+        req_body = message_to_json(DeleteExperimentTag(experiment_id=experiment_id, key=key))
         self._call_endpoint(DeleteExperimentTag, req_body)
 
     def set_tag(self, run_id, tag):

@@ -92,6 +92,7 @@ from mlflow.protos.service_pb2 import (
     CreateLoggedModel,
     CreateRun,
     DeleteExperiment,
+    DeleteExperimentTag,
     DeleteLoggedModel,
     DeleteLoggedModelTag,
     DeleteRun,
@@ -127,7 +128,6 @@ from mlflow.protos.service_pb2 import (
     SearchTraces,
     SearchTracesV3,
     SetExperimentTag,
-    DeleteExperimentTag,
     SetLoggedModelTags,
     SetTag,
     SetTraceTag,
@@ -987,6 +987,7 @@ def _set_experiment_tag():
     response = Response(mimetype="application/json")
     response.set_data(message_to_json(response_message))
     return response
+
 
 @catch_mlflow_exception
 @_disable_if_artifacts_only

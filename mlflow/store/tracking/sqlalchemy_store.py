@@ -1297,7 +1297,11 @@ class SqlAlchemyStore(AbstractStore):
                 session, experiment_id, ViewType.ALL
             ).to_mlflow_entity()
             self._check_experiment_is_active(experiment)
-            filtered_tags = session.query(SqlExperimentTag).filter_by(experiment_id=experiment_id, key=key).all()
+            filtered_tags = (
+                session.query(SqlExperimentTag)
+                .filter_by(experiment_id=experiment_id, key=key)
+                .all()
+            )
             if len(filtered_tags) == 0:
                 raise MlflowException(
                     f"No tag with name: {key} in experiment with id {experiment_id}",
@@ -1311,7 +1315,6 @@ class SqlAlchemyStore(AbstractStore):
                     error_code=INVALID_STATE,
                 )
             session.delete(filtered_tags[0])
-
 
     def set_tag(self, run_id, tag):
         """
