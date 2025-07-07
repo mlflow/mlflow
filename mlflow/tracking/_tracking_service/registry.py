@@ -73,11 +73,18 @@ class TrackingStoreRegistry(StoreRegistry):
 
     def _get_store_type(self, store_uri=None) -> str:
         """
-        Get the type of the store associated with a resolved (non-None) store URI.
+        Get the type of the store associated with a store URI.
         """
         from mlflow.tracking._tracking_service import utils
 
         resolved_store_uri = utils._resolve_tracking_uri(store_uri)
+        return self._get_store_type_with_resolved_uri(resolved_store_uri)
+
+    @lru_cache(maxsize=100)
+    def _get_store_type_with_resolved_uri(self, resolved_store_uri: str) -> str:
+        """
+        Get the type of the store associated with a resolved (non-None) store URI.
+        """
         scheme = (
             resolved_store_uri
             if resolved_store_uri in {"databricks", "databricks-uc", "uc"}
