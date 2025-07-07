@@ -470,7 +470,7 @@ class MongoDBStore(AbstractStore):
         
         logger.info(f"Deleted experiment: {experiment_id}")
     
-    def search_experiments(self, view_type: ViewType = ViewType.ACTIVE_ONLY, max_results: int = 1000, filter_string: str = "", order_by: List[str] = None) -> PagedList[Experiment]:
+    def search_experiments(self, view_type: ViewType = ViewType.ACTIVE_ONLY, max_results: int = 1000, filter_string: str = "", order_by: List[str] = None, page_token: str = None) -> PagedList[Experiment]:
         """Search experiments in MongoDB."""
         # Build query based on view type
         query = {}

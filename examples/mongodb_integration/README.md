@@ -1,14 +1,88 @@
-# Genesis-Flow MongoDB Integration Example
+# Genesis-Flow MongoDB Integration Examples
 
-This example demonstrates how to use Genesis-Flow with MongoDB as the tracking store, eliminating the need for a separate MLflow server.
+This directory contains comprehensive examples demonstrating all MLflow functionality with MongoDB backend integration. These examples showcase the complete compatibility between Genesis-Flow's MongoDB implementation and standard MLflow operations.
 
 ## Overview
 
-Genesis-Flow provides direct MongoDB integration that allows you to:
-- Store experiment metadata directly in MongoDB/Azure Cosmos DB
-- Eliminate the MLflow server dependency
-- Maintain 100% MLflow API compatibility
-- Achieve better performance with direct database connections
+Genesis-Flow is a secure MLflow fork that provides direct MongoDB integration, eliminating the need for a separate MLflow tracking server. All examples store metadata in MongoDB while maintaining 100% API compatibility with standard MLflow.
+
+Key benefits:
+- **Direct MongoDB Integration**: Store experiment metadata directly in MongoDB/Azure Cosmos DB
+- **Eliminate MLflow Server**: No need for separate tracking server infrastructure
+- **100% API Compatibility**: All MLflow functions work exactly the same
+- **Enhanced Performance**: Direct database connections for faster operations
+- **Secure by Design**: Built-in security validation and model verification
+
+## Examples Overview
+
+### 1. Model Logging Examples (`01_model_logging_example.py`)
+
+**Demonstrates**: Comprehensive model logging with different frameworks
+- **Scikit-learn models** with signatures and metadata
+- **Custom PyFunc models** with preprocessing pipelines  
+- **Dataset tracking** with model training
+- **Model versioning** for comparison
+- **Model loading** from MongoDB storage
+
+**Key Features**:
+- Model signatures and input examples
+- Feature importance logging
+- Custom preprocessing pipelines
+- Dataset artifact logging
+- Multiple model versions for A/B testing
+
+### 2. Model Registry Examples (`02_model_registry_example.py`)
+
+**Demonstrates**: Complete MLflow Model Registry workflow
+- **Model registration** with descriptions and metadata
+- **Version management** across multiple model types
+- **Stage transitions**: None → Staging → Production → Archived
+- **Model aliases** for flexible deployment
+- **Search and discovery** of registered models
+- **Deployment workflows** with comprehensive metadata
+
+**Key Features**:
+- Multi-algorithm model comparison
+- Stage-based promotion workflow
+- Model alias management ("champion", "challenger", "stable")
+- Comprehensive metadata tagging
+- Production deployment simulation
+
+### 3. Artifacts & Datasets Examples (`03_artifacts_datasets_example.py`)
+
+**Demonstrates**: Comprehensive artifact management
+- **Data artifacts**: CSV, JSON, Parquet files
+- **Visualizations**: Plots, charts, analysis graphs
+- **Model artifacts**: Configurations, analysis results
+- **Code artifacts**: Scripts, notebooks, requirements
+- **Artifact retrieval** and management
+
+**Key Features**:
+- Multiple data format support
+- Rich visualization logging
+- Model analysis artifacts
+- Code and configuration versioning
+- Artifact download and management
+
+### 4. Complete MLflow Workflow (`04_complete_mlflow_workflow.py`)
+
+**Demonstrates**: End-to-end production ML workflow
+- **7-stage workflow**:
+  1. Data ingestion and validation
+  2. Hyperparameter tuning (GridSearch)
+  3. Model comparison and selection
+  4. Model registration and staging
+  5. Model validation and testing
+  6. Production deployment
+  7. Monitoring and maintenance
+
+**Key Features**:
+- Multi-algorithm comparison (RandomForest, GradientBoosting, LogisticRegression)
+- Automated model selection based on F1 score
+- Complete validation pipeline
+- Production deployment simulation
+- Monitoring and alerting simulation
+- Comprehensive reporting at each stage
 
 ## Prerequisites
 
@@ -40,18 +114,60 @@ mongosh --eval "db.adminCommand('ismaster')"
 ### 2. Python Dependencies
 
 ```bash
-# Install Genesis-Flow and dependencies
-pip install scikit-learn pandas numpy pymongo motor
+# Install required packages
+pip install scikit-learn pandas numpy matplotlib seaborn pymongo motor
 
 # Install Genesis-Flow (from local development)
 cd /path/to/genesis-flow
 pip install -e .
 ```
 
-## Configuration
+## Running the Examples
 
-### Environment Variables
+### Individual Examples
+```bash
+# Run each example independently
+python 01_model_logging_example.py
+python 02_model_registry_example.py
+python 03_artifacts_datasets_example.py
+python 04_complete_mlflow_workflow.py
+```
 
+### All Examples Sequentially
+```bash
+# Run all examples in sequence
+for script in 01_model_logging_example.py 02_model_registry_example.py 03_artifacts_datasets_example.py 04_complete_mlflow_workflow.py; do
+    echo "Running $script..."
+    python $script
+    echo "Completed $script"
+    echo "========================="
+done
+```
+
+## Configuration Examples
+
+### Basic MongoDB Configuration
+```python
+import mlflow
+
+# Local MongoDB
+tracking_uri = "mongodb://localhost:27017/genesis_flow"
+registry_uri = "mongodb://localhost:27017/genesis_flow"
+
+mlflow.set_tracking_uri(tracking_uri)
+mlflow.set_registry_uri(registry_uri)
+```
+
+### Azure Cosmos DB Configuration
+```python
+# Azure Cosmos DB with connection string
+cosmos_uri = "mongodb://account:key@account.mongo.cosmos.azure.com:10255/database?ssl=true&replicaSet=globaldb&maxIdleTimeMS=120000&appName=@account@"
+
+mlflow.set_tracking_uri(cosmos_uri)
+mlflow.set_registry_uri(cosmos_uri)
+```
+
+### Environment Variables (Optional)
 ```bash
 # MongoDB Connection (choose one)
 
@@ -71,106 +187,178 @@ export MLFLOW_DEFAULT_ARTIFACT_ROOT="azure://container/path"
 export AZURE_STORAGE_CONNECTION_STRING="DefaultEndpointsProtocol=https;..."
 ```
 
-## Running the Example
+## MongoDB Storage Details
 
-### Basic Test
+### Database Structure
 
-```bash
-cd examples/mongodb_integration
-python test_genesis_flow_mongodb.py
+Each example uses a dedicated MongoDB database:
+- `genesis_flow_models`: Model logging examples
+- `genesis_flow_registry`: Model registry examples  
+- `genesis_flow_artifacts`: Artifacts and datasets
+- `genesis_flow_production_classifier`: Complete workflow
+
+### Collections Schema
+
+**Experiments Collection**:
+```json
+{
+  "_id": "experiment_id",
+  "name": "experiment_name", 
+  "artifact_location": "azure://artifacts/exp_id",
+  "lifecycle_stage": "active",
+  "tags": {},
+  "creation_time": 1234567890,
+  "last_update_time": 1234567890
+}
 ```
 
-### With Custom Configuration
-
-```bash
-# Test with local MongoDB
-MLFLOW_TRACKING_URI="mongodb://localhost:27017/my_test_db" \
-python test_genesis_flow_mongodb.py
-
-# Test with Azure Cosmos DB
-MLFLOW_TRACKING_URI="mongodb://your-cosmos-account.mongo.cosmos.azure.com:10255/genesis_flow?ssl=true" \
-MLFLOW_DEFAULT_ARTIFACT_ROOT="azure://mlflow-artifacts/" \
-python test_genesis_flow_mongodb.py
+**Runs Collection**:
+```json
+{
+  "_id": "run_id",
+  "experiment_id": "exp_id",
+  "user_id": "user",
+  "status": "FINISHED",
+  "start_time": 1234567890,
+  "end_time": 1234567890,
+  "artifact_uri": "azure://artifacts/exp_id/run_id",
+  "lifecycle_stage": "active",
+  "name": "run_name"
+}
 ```
 
-## What the Example Tests
-
-### 1. Experiment Management
-- ✅ Create experiments with metadata
-- ✅ Set active experiments
-- ✅ Add experiment tags
-
-### 2. Model Training and Logging
-- ✅ Train multiple ML models (Random Forest, Logistic Regression)
-- ✅ Log parameters, metrics, and tags
-- ✅ Log model artifacts with signatures
-- ✅ Log additional files and reports
-
-### 3. Model Loading and Inference
-- ✅ Load models from MongoDB storage
-- ✅ Perform inference with loaded models
-- ✅ Test model prediction capabilities
-
-### 4. Experiment Search and Comparison
-- ✅ Search runs across experiments
-- ✅ Compare model performance
-- ✅ Retrieve run metadata and metrics
-
-### 5. Genesis-Flow Specific Features
-- ✅ Direct MongoDB connection testing
-- ✅ Artifact storage validation
-- ✅ Performance measurement
-
-## Expected Output
-
-```
-🎯 Genesis-Flow MongoDB Integration Test
-==================================================
-🔗 Setting up Genesis-Flow with MongoDB tracking URI: mongodb://localhost:27017/genesis_flow_test
-📁 Artifact storage: file:///tmp/genesis_flow_artifacts
-📊 Creating sample dataset...
-✅ Dataset created: 1000 samples, 20 features
-
-🧪 Testing Experiment Management...
-✅ Experiment created: genesis_flow_test_20241207_143022 (ID: 1)
-
-🤖 Testing Model Training and Logging...
-🔄 Training random_forest...
-✅ random_forest logged - Accuracy: 0.9200, Time: 0.15s
-🔄 Training logistic_regression...
-✅ logistic_regression logged - Accuracy: 0.8800, Time: 0.08s
-
-🔮 Testing Model Loading and Inference...
-🔄 Loading random_forest from Genesis-Flow...
-✅ random_forest loaded successfully
-   Predictions: [1 0 1 0 1]
-   Probabilities shape: (5, 2)
-🔄 Loading logistic_regression from Genesis-Flow...
-✅ logistic_regression loaded successfully
-   Predictions: [0 1 1 0 1]
-   Probabilities shape: (5, 2)
-
-🔍 Testing Experiment Search and Comparison...
-✅ Found 2 runs in experiment
-📊 Top runs by accuracy:
-  1. random_forest: Accuracy=0.92, Time=0.15s
-  2. logistic_regression: Accuracy=0.88, Time=0.08s
-
-🚀 Testing Genesis-Flow Specific Features...
-✅ Tracking URI: mongodb://localhost:27017/genesis_flow_test
-✅ Using MongoDB tracking store (Genesis-Flow)
-✅ Genesis-Flow features test completed - Run ID: abc123...
-
-🎉 Genesis-Flow MongoDB Integration Test Complete!
-==================================================
-📊 Experiment: genesis_flow_test_20241207_143022
-🔗 Tracking URI: mongodb://localhost:27017/genesis_flow_test
-📁 Artifacts: file:///tmp/genesis_flow_artifacts
-🏃 Runs completed: 2
-🏆 Best model: random_forest (Accuracy: 0.92)
+**Parameters/Metrics/Tags Collections**:
+```json
+{
+  "_id": ObjectId(),
+  "run_id": "run_id",
+  "key": "parameter_name",
+  "value": "parameter_value",
+  "timestamp": 1234567890
+}
 ```
 
-## Architecture Benefits Demonstrated
+## Verification and Testing
+
+### Check MongoDB Data
+```python
+import pymongo
+
+# Connect to MongoDB
+client = pymongo.MongoClient("mongodb://localhost:27017/")
+
+# List databases created by examples
+print("Databases:", [db for db in client.list_database_names() if 'genesis_flow' in db])
+
+# Check collections in a database
+db = client['genesis_flow_models']
+print("Collections:", db.list_collection_names())
+
+# Count documents
+print("Experiments:", db.experiments.count_documents({}))
+print("Runs:", db.runs.count_documents({}))
+print("Parameters:", db.params.count_documents({}))
+print("Metrics:", db.metrics.count_documents({}))
+```
+
+### Verify Model Loading
+```python
+import mlflow
+
+# Set tracking URI
+mlflow.set_tracking_uri("mongodb://localhost:27017/genesis_flow_models")
+
+# Load latest model
+experiment = mlflow.get_experiment_by_name("sklearn_model_logging_demo")
+runs = mlflow.search_runs(experiment_ids=[experiment.experiment_id])
+latest_run = runs.iloc[0]['run_id']
+
+# Load and test model
+model = mlflow.sklearn.load_model(f"runs:/{latest_run}/model")
+print("Model loaded successfully:", type(model).__name__)
+```
+
+## Integration with Azure
+
+### Azure Cosmos DB
+- Provides global distribution and automatic scaling
+- Compatible with MongoDB API
+- Built-in backup and disaster recovery
+
+### Azure Blob Storage
+- Scalable artifact storage
+- Integration with Azure Machine Learning
+- Lifecycle management policies
+
+### Example Azure Configuration
+```python
+# Azure Cosmos DB connection
+cosmos_connection = "mongodb://genesis-flow:key@genesis-flow.mongo.cosmos.azure.com:10255/mlflow?ssl=true&replicaSet=globaldb"
+
+# Azure Blob Storage for artifacts
+artifact_root = "azure://mlflow-artifacts@genesisflow.blob.core.windows.net/"
+
+mlflow.set_tracking_uri(cosmos_connection)
+mlflow.set_registry_uri(cosmos_connection)
+```
+
+## API Compatibility
+
+Genesis-Flow maintains 100% API compatibility with MLflow:
+
+- ✅ All `mlflow.log_*()` functions
+- ✅ All `mlflow.sklearn.*`, `mlflow.pytorch.*`, etc. functions  
+- ✅ Model Registry operations
+- ✅ Experiment and run management
+- ✅ Artifact logging and retrieval
+- ✅ Search and filtering operations
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Connection Timeout**:
+   ```python
+   # Increase timeout
+   client = pymongo.MongoClient(uri, serverSelectionTimeoutMS=30000)
+   ```
+
+2. **Missing Collections**:
+   ```python
+   # Collections are created automatically on first write
+   # Ensure MongoDB is running and accessible
+   ```
+
+3. **Artifact Storage**:
+   ```python
+   # For local testing, use file:// URI
+   mlflow.set_tracking_uri("mongodb://localhost:27017/test")
+   # Artifacts will be stored locally by default
+   ```
+
+### Debug Mode
+```python
+import logging
+logging.basicConfig(level=logging.DEBUG)
+
+# Enable MLflow debug logging
+import mlflow
+mlflow.set_tracking_uri("mongodb://localhost:27017/debug")
+```
+
+## Performance Considerations
+
+### MongoDB Optimization
+- **Indexes**: Automatically created for run_id, experiment_id queries
+- **Connection Pooling**: Configured for optimal concurrent access
+- **Write Concerns**: Set to 'majority' for data consistency
+
+### Scaling Recommendations
+- **Azure Cosmos DB**: Use for production workloads requiring global distribution
+- **MongoDB Atlas**: Managed MongoDB service with automatic scaling
+- **Sharding**: Consider for very large deployments (>1M runs)
+
+## Architecture Benefits
 
 ### 1. No MLflow Server Required
 - Direct MongoDB connection eliminates server dependency
@@ -192,53 +380,19 @@ python test_genesis_flow_mongodb.py
 - No exposed MLflow server endpoints
 - Secure model loading and validation
 
-## Troubleshooting
-
-### Common Issues
-
-#### MongoDB Connection Failed
-```bash
-# Check MongoDB is running
-mongosh --eval "db.adminCommand('ismaster')"
-
-# Check connection string format
-echo $MLFLOW_TRACKING_URI
-```
-
-#### Permission Errors
-```bash
-# Ensure MongoDB user has read/write permissions
-# Check Azure Cosmos DB firewall settings
-```
-
-#### Module Import Errors
-```bash
-# Ensure Genesis-Flow is installed
-pip install -e /path/to/genesis-flow
-
-# Check Python path
-python -c "import mlflow; print(mlflow.__file__)"
-```
-
-### Performance Tips
-
-1. **Use Connection Pooling**: MongoDB connections are pooled automatically
-2. **Index Strategy**: Genesis-Flow creates appropriate indexes for queries
-3. **Artifact Storage**: Use Azure Blob Storage for large artifacts
-4. **Batch Operations**: Use MLflow's batch logging for better performance
-
 ## Next Steps
 
-After running this example successfully:
+1. **Production Deployment**: Configure Azure Cosmos DB and Blob Storage
+2. **CI/CD Integration**: Add MongoDB tracking to your ML pipelines
+3. **Monitoring**: Set up alerts and dashboards for model performance
+4. **Scaling**: Consider sharding for large-scale deployments
 
-1. **Integration Testing**: Test with your existing ML workflows
-2. **Performance Benchmarking**: Compare with current MLflow server setup
-3. **Production Setup**: Configure Azure Cosmos DB and Blob Storage
-4. **Migration Planning**: Use the migration tools to move existing data
+## Support
 
-## Related Documentation
+- **Documentation**: See MLflow documentation for API reference
+- **Issues**: Report Genesis-Flow specific issues to the project repository
+- **Community**: Join the MLflow community for general questions
 
-- [Genesis-Flow Architecture](../../docs/architecture/genesis-flow-architecture.md)
-- [MongoDB Store Implementation](../../mlflow/store/tracking/mongodb_store.py)
-- [Migration Guide](../../tools/migration/mlflow_to_genesis_flow.py)
-- [Security Features](../../mlflow/utils/security_validation.py)
+---
+
+**Note**: These examples demonstrate the complete feature parity between Genesis-Flow's MongoDB backend and standard MLflow operations. All metadata is stored in MongoDB while maintaining full compatibility with the MLflow ecosystem.
