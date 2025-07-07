@@ -147,6 +147,14 @@ def _get_rest_store(store_uri, **_):
     return RestStore(partial(get_default_host_creds, store_uri))
 
 
+def _get_mongodb_tracking_store(store_uri, artifact_uri=None):
+    from mlflow.store.tracking.mongodb_store import MongoDBStore
+    
+    if artifact_uri is None:
+        artifact_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+    return MongoDBStore(store_uri, artifact_uri)
+
+
 def _get_databricks_rest_store(store_uri, **_):
     return RestStore(partial(get_databricks_host_creds, store_uri))
 
@@ -190,6 +198,9 @@ def _register_tracking_stores():
         _DATABRICKS_UNITY_CATALOG_SCHEME, _get_databricks_uc_rest_store
     )
     _tracking_store_registry.register(_OSS_UNITY_CATALOG_SCHEME, _get_databricks_uc_rest_store)
+
+    # Register MongoDB scheme for Genesis-Flow
+    _tracking_store_registry.register("mongodb", _get_mongodb_tracking_store)
 
     for scheme in ["http", "https"]:
         _tracking_store_registry.register(scheme, _get_rest_store)

@@ -30,6 +30,8 @@ from mlflow.entities import (
     Run,
     RunData,
     RunInfo,
+    RunInputs,
+    RunOutputs,
     RunStatus,
     RunTag,
     ViewType,
@@ -80,8 +82,21 @@ class MongoDBStore(AbstractStore):
         parsed_uri = urlparse(db_uri)
         self.database_name = parsed_uri.path.lstrip('/') or "genesis_flow"
         
-        # Initialize MongoDB client
+        # Initialize MongoDB client (both sync and async)
         try:
+            # Synchronous client for blocking operations
+            import pymongo
+            self.sync_client = pymongo.MongoClient(
+                db_uri,
+                serverSelectionTimeoutMS=5000,
+                maxPoolSize=50,
+                retryWrites=True,
+                w='majority',  # Write concern for data consistency
+                readPreference='primaryPreferred'
+            )
+            self.sync_db = self.sync_client[self.database_name]
+            
+            # Asynchronous client for non-blocking operations
             self.client = motor.motor_asyncio.AsyncIOMotorClient(
                 db_uri,
                 serverSelectionTimeoutMS=5000,
@@ -308,7 +323,8 @@ class MongoDBStore(AbstractStore):
         """Create a new experiment."""
         import asyncio
         try:
-            return asyncio.run(self._create_experiment_async(name, artifact_location, tags))
+            # Use synchronous implementation to avoid asyncio issues
+            return self._create_experiment_sync(name, artifact_location, tags)
         except Exception as e:
             logger.error(f"Failed to create experiment: {e}")
             raise MlflowException(f"MongoDB create experiment failed: {e}")
@@ -348,14 +364,53 @@ class MongoDBStore(AbstractStore):
         logger.info(f"Created experiment: {name} (ID: {experiment_id})")
         return experiment_id
     
+    def _create_experiment_sync(self, name: str, artifact_location: Optional[str], tags: Optional[List[ExperimentTag]]) -> str:
+        """Synchronous implementation of create experiment."""
+        # Check if experiment already exists
+        logger.debug(f"Checking if experiment '{name}' exists in collection: {self.EXPERIMENTS_COLLECTION}")
+        existing = self.sync_db[self.EXPERIMENTS_COLLECTION].find_one({"name": name})
+        logger.debug(f"Query result for experiment '{name}': {existing}")
+        if existing:
+            logger.error(f"Experiment '{name}' already exists: {existing}")
+            raise MlflowException(
+                f"Experiment '{name}' already exists.",
+                error_code=RESOURCE_ALREADY_EXISTS
+            )
+        
+        # Generate experiment ID
+        experiment_id = self._generate_experiment_id()
+        
+        # Set artifact location (default to Azure Blob Storage)
+        if not artifact_location:
+            artifact_location = f"{self.default_artifact_root}/{experiment_id}"
+        
+        # Create experiment document
+        current_time = get_current_time_millis()
+        experiment_doc = {
+            "experiment_id": experiment_id,
+            "name": name,
+            "artifact_location": artifact_location,
+            "lifecycle_stage": LifecycleStage.ACTIVE,
+            "creation_time": current_time,
+            "last_update_time": current_time,
+            "tags": [{"key": tag.key, "value": tag.value} for tag in (tags or [])],
+        }
+        
+        # Insert into MongoDB
+        self.sync_db[self.EXPERIMENTS_COLLECTION].insert_one(experiment_doc)
+        
+        logger.info(f"Created experiment: {name} (ID: {experiment_id})")
+        return experiment_id
+    
     def get_experiment(self, experiment_id: str) -> Experiment:
         """Get experiment by ID."""
-        import asyncio
-        try:
-            return asyncio.run(self._get_experiment_async(experiment_id))
-        except Exception as e:
-            logger.error(f"Failed to get experiment: {e}")
-            raise MlflowException(f"MongoDB get experiment failed: {e}")
+        doc = self.sync_db[self.EXPERIMENTS_COLLECTION].find_one({"experiment_id": experiment_id})
+        if not doc:
+            raise MlflowException(
+                f"Experiment with id '{experiment_id}' not found",
+                error_code=RESOURCE_DOES_NOT_EXIST
+            )
+        return self._experiment_doc_to_entity(doc)
     
     async def _get_experiment_async(self, experiment_id: str) -> Experiment:
         """Async implementation of get experiment."""
@@ -370,12 +425,13 @@ class MongoDBStore(AbstractStore):
     
     def get_experiment_by_name(self, experiment_name: str) -> Experiment:
         """Get experiment by name."""
-        import asyncio
-        try:
-            return asyncio.run(self._get_experiment_by_name_async(experiment_name))
-        except Exception as e:
-            logger.error(f"Failed to get experiment by name: {e}")
-            raise MlflowException(f"MongoDB get experiment by name failed: {e}")
+        doc = self.sync_db[self.EXPERIMENTS_COLLECTION].find_one({"name": experiment_name})
+        if not doc:
+            raise MlflowException(
+                f"Experiment with name '{experiment_name}' not found",
+                error_code=RESOURCE_DOES_NOT_EXIST
+            )
+        return self._experiment_doc_to_entity(doc)
     
     async def _get_experiment_by_name_async(self, experiment_name: str) -> Experiment:
         """Async implementation of get experiment by name."""
@@ -390,12 +446,66 @@ class MongoDBStore(AbstractStore):
     
     def delete_experiment(self, experiment_id: str):
         """Delete (mark as deleted) an experiment."""
-        import asyncio
-        try:
-            return asyncio.run(self._delete_experiment_async(experiment_id))
-        except Exception as e:
-            logger.error(f"Failed to delete experiment: {e}")
-            raise MlflowException(f"MongoDB delete experiment failed: {e}")
+        # Check if experiment exists
+        doc = self.sync_db[self.EXPERIMENTS_COLLECTION].find_one({"experiment_id": experiment_id})
+        if not doc:
+            raise MlflowException(
+                f"Experiment with id '{experiment_id}' not found",
+                error_code=RESOURCE_DOES_NOT_EXIST
+            )
+        
+        # Mark as deleted
+        current_time = get_current_time_millis()
+        self.sync_db[self.EXPERIMENTS_COLLECTION].update_one(
+            {"experiment_id": experiment_id},
+            {
+                "$set": {
+                    "lifecycle_stage": LifecycleStage.DELETED,
+                    "last_update_time": current_time
+                }
+            }
+        )
+        
+        logger.info(f"Deleted experiment: {experiment_id}")
+    
+    def search_experiments(self, view_type: ViewType = ViewType.ACTIVE_ONLY, max_results: int = 1000, filter_string: str = "", order_by: List[str] = None) -> PagedList[Experiment]:
+        """Search experiments in MongoDB."""
+        # Build query based on view type
+        query = {}
+        if view_type == ViewType.ACTIVE_ONLY:
+            query["lifecycle_stage"] = LifecycleStage.ACTIVE
+        elif view_type == ViewType.DELETED_ONLY:
+            query["lifecycle_stage"] = LifecycleStage.DELETED
+        # ViewType.ALL includes both active and deleted
+        
+        # Build sort criteria
+        sort_criteria = []
+        if order_by:
+            for order_item in order_by:
+                if "creation_time" in order_item:
+                    direction = DESCENDING if "DESC" in order_item else ASCENDING
+                    sort_criteria.append(("creation_time", direction))
+                elif "last_update_time" in order_item:
+                    direction = DESCENDING if "DESC" in order_item else ASCENDING
+                    sort_criteria.append(("last_update_time", direction))
+        
+        if not sort_criteria:
+            sort_criteria = [("creation_time", DESCENDING)]  # Default sort
+        
+        # Execute query
+        cursor = self.sync_db[self.EXPERIMENTS_COLLECTION].find(query).sort(sort_criteria).limit(max_results)
+        
+        # Convert documents to Experiment objects
+        experiments = []
+        for exp_doc in cursor:
+            try:
+                experiment = self._experiment_doc_to_entity(exp_doc)
+                experiments.append(experiment)
+            except Exception as e:
+                logger.warning(f"Failed to convert experiment document to Experiment object: {e}")
+                continue
+        
+        return PagedList(experiments, None)  # No pagination token for now
     
     async def _delete_experiment_async(self, experiment_id: str):
         """Async implementation of delete experiment."""
@@ -499,55 +609,638 @@ class MongoDBStore(AbstractStore):
     # These will be implemented in subsequent iterations
     
     def get_run(self, run_id: str) -> Run:
-        """Get run by ID - placeholder implementation."""
-        raise NotImplementedError("Run operations will be implemented in next iteration")
+        """Get a run by ID from MongoDB."""
+        # Get run document
+        run_doc = self.sync_db[self.RUNS_COLLECTION].find_one({"run_uuid": run_id})
+        if not run_doc:
+            raise MlflowException(
+                f"Run with id '{run_id}' not found",
+                error_code=RESOURCE_DOES_NOT_EXIST
+            )
+        
+        # Get parameters
+        param_docs = list(self.sync_db[self.PARAMS_COLLECTION].find({"run_uuid": run_id}))
+        params = [Param(key=doc["key"], value=doc["value"]) for doc in param_docs]
+        
+        # Get metrics (latest values only)
+        metric_pipeline = [
+            {"$match": {"run_uuid": run_id}},
+            {"$sort": {"timestamp": -1, "step": -1}},
+            {"$group": {
+                "_id": "$key",
+                "latest": {"$first": "$$ROOT"}
+            }},
+            {"$replaceRoot": {"newRoot": "$latest"}}
+        ]
+        
+        metric_docs = list(self.sync_db[self.METRICS_COLLECTION].aggregate(metric_pipeline))
+        metrics = [
+            Metric(
+                key=doc["key"],
+                value=doc["value"],
+                timestamp=doc["timestamp"],
+                step=doc["step"]
+            )
+            for doc in metric_docs
+        ]
+        
+        # Get tags from TAGS collection
+        tag_docs = list(self.sync_db[self.TAGS_COLLECTION].find({"run_uuid": run_id}))
+        tags_dict = {doc["key"]: doc["value"] for doc in tag_docs}
+        
+        # Add tags from run document (merge, don't duplicate)
+        if run_doc.get("tags"):
+            for tag_data in run_doc["tags"]:
+                tags_dict[tag_data["key"]] = tag_data["value"]
+        
+        # Convert to RunTag objects
+        tags = [RunTag(key=key, value=value) for key, value in tags_dict.items()]
+        
+        # Create RunInfo
+        run_info = RunInfo(
+            run_id=run_doc["run_uuid"],
+            run_name=run_doc.get("run_name"),
+            experiment_id=run_doc["experiment_id"],
+            user_id=run_doc.get("user_id"),
+            status=run_doc["status"],
+            start_time=run_doc["start_time"],
+            end_time=run_doc.get("end_time"),
+            artifact_uri=run_doc["artifact_uri"],
+            lifecycle_stage=run_doc.get("lifecycle_stage", LifecycleStage.ACTIVE)
+        )
+        
+        # Create RunData
+        run_data = RunData(
+            metrics=metrics,
+            params=params,
+            tags=tags
+        )
+        
+        # Create empty RunInputs and RunOutputs
+        run_inputs = RunInputs(dataset_inputs=[])
+        run_outputs = RunOutputs(model_outputs=[])
+        
+        return Run(run_info=run_info, run_data=run_data, run_inputs=run_inputs, run_outputs=run_outputs)
     
     def update_run_info(self, run_id: str, run_status: RunStatus, end_time: int, run_name: str) -> RunInfo:
-        """Update run info - placeholder implementation."""
-        raise NotImplementedError("Run operations will be implemented in next iteration")
+        """Update run information in MongoDB."""
+        # Validate run exists
+        run_doc = self.sync_db[self.RUNS_COLLECTION].find_one({"run_uuid": run_id})
+        if not run_doc:
+            raise MlflowException(
+                f"Run with id '{run_id}' not found",
+                error_code=RESOURCE_DOES_NOT_EXIST
+            )
+        
+        # Prepare update document
+        update_doc = {}
+        if run_status is not None:
+            update_doc["status"] = RunStatus.to_string(run_status)
+        if end_time is not None:
+            update_doc["end_time"] = end_time
+        if run_name is not None:
+            update_doc["run_name"] = run_name
+        
+        # Update run document
+        if update_doc:
+            result = self.sync_db[self.RUNS_COLLECTION].update_one(
+                {"run_uuid": run_id},
+                {"$set": update_doc}
+            )
+            
+            if result.matched_count == 0:
+                raise MlflowException(f"Failed to update run {run_id}")
+        
+        # Get updated run document
+        updated_run_doc = self.sync_db[self.RUNS_COLLECTION].find_one({"run_uuid": run_id})
+        
+        # Create RunInfo
+        run_info = RunInfo(
+            run_id=updated_run_doc["run_uuid"],
+            run_name=updated_run_doc.get("run_name"),
+            experiment_id=updated_run_doc["experiment_id"],
+            user_id=updated_run_doc.get("user_id"),
+            status=updated_run_doc["status"],
+            start_time=updated_run_doc["start_time"],
+            end_time=updated_run_doc.get("end_time"),
+            artifact_uri=updated_run_doc["artifact_uri"],
+            lifecycle_stage=updated_run_doc.get("lifecycle_stage", LifecycleStage.ACTIVE)
+        )
+        
+        logger.info(f"Updated run {run_id}: status={run_status}, end_time={end_time}")
+        return run_info
     
     def create_run(self, experiment_id: str, user_id: str, start_time: int, tags: List[RunTag], run_name: str) -> Run:
-        """Create run - placeholder implementation.""" 
-        raise NotImplementedError("Run operations will be implemented in next iteration")
+        """Create a new run in MongoDB."""
+        # Generate unique run UUID
+        import uuid
+        run_uuid = uuid.uuid4().hex
+        
+        # Validate experiment exists
+        experiment = self.sync_db[self.EXPERIMENTS_COLLECTION].find_one({"experiment_id": experiment_id})
+        if not experiment:
+            raise MlflowException(
+                f"Experiment with id '{experiment_id}' not found",
+                error_code=RESOURCE_DOES_NOT_EXIST
+            )
+        
+        # Set default artifact URI
+        artifact_uri = f"{self.default_artifact_root}/{experiment_id}/{run_uuid}/artifacts"
+        
+        current_time = start_time or get_current_time_millis()
+        
+        # Create run document
+        run_doc = {
+            "run_uuid": run_uuid,
+            "run_name": run_name,
+            "experiment_id": experiment_id,
+            "user_id": user_id,
+            "status": RunStatus.to_string(RunStatus.RUNNING),
+            "start_time": current_time,
+            "end_time": None,
+            "artifact_uri": artifact_uri,
+            "lifecycle_stage": LifecycleStage.ACTIVE,
+            "tags": [{"key": tag.key, "value": tag.value} for tag in (tags or [])],
+            "creation_time": current_time,
+        }
+        
+        # Insert run into MongoDB
+        result = self.sync_db[self.RUNS_COLLECTION].insert_one(run_doc)
+        
+        if not result.inserted_id:
+            raise MlflowException(f"Failed to create run for experiment {experiment_id}")
+        
+        # Create RunInfo and RunData objects
+        run_info = RunInfo(
+            run_id=run_uuid,
+            run_name=run_name,
+            experiment_id=experiment_id,
+            user_id=user_id,
+            status=RunStatus.to_string(RunStatus.RUNNING),
+            start_time=current_time,
+            end_time=None,
+            artifact_uri=artifact_uri,
+            lifecycle_stage=LifecycleStage.ACTIVE
+        )
+        
+        run_data = RunData(
+            metrics=[],
+            params=[],
+            tags=tags or []
+        )
+        
+        # Create empty RunInputs and RunOutputs
+        run_inputs = RunInputs(dataset_inputs=[])
+        run_outputs = RunOutputs(model_outputs=[])
+        
+        logger.info(f"Created run: {run_uuid} for experiment: {experiment_id}")
+        return Run(run_info=run_info, run_data=run_data, run_inputs=run_inputs, run_outputs=run_outputs)
     
     def delete_run(self, run_id: str):
-        """Delete run - placeholder implementation."""
-        raise NotImplementedError("Run operations will be implemented in next iteration")
+        """Delete a run and all its associated data from MongoDB."""
+        # Validate run exists
+        run_doc = self.sync_db[self.RUNS_COLLECTION].find_one({"run_uuid": run_id})
+        if not run_doc:
+            raise MlflowException(
+                f"Run with id '{run_id}' not found",
+                error_code=RESOURCE_DOES_NOT_EXIST
+            )
+        
+        # Delete run and all associated data
+        self.sync_db[self.RUNS_COLLECTION].delete_one({"run_uuid": run_id})
+        self.sync_db[self.PARAMS_COLLECTION].delete_many({"run_uuid": run_id})
+        self.sync_db[self.METRICS_COLLECTION].delete_many({"run_uuid": run_id})
+        self.sync_db[self.TAGS_COLLECTION].delete_many({"run_uuid": run_id})
+        
+        logger.info(f"Deleted run: {run_id} and all associated data")
     
     def restore_run(self, run_id: str):
-        """Restore run - placeholder implementation."""
-        raise NotImplementedError("Run operations will be implemented in next iteration")
+        """Restore a deleted run by changing its lifecycle stage to ACTIVE."""
+        # Validate run exists
+        run_doc = self.sync_db[self.RUNS_COLLECTION].find_one({"run_uuid": run_id})
+        if not run_doc:
+            raise MlflowException(
+                f"Run with id '{run_id}' not found",
+                error_code=RESOURCE_DOES_NOT_EXIST
+            )
+        
+        # Update lifecycle stage to ACTIVE
+        result = self.sync_db[self.RUNS_COLLECTION].update_one(
+            {"run_uuid": run_id},
+            {"$set": {"lifecycle_stage": LifecycleStage.ACTIVE}}
+        )
+        
+        if result.matched_count == 0:
+            raise MlflowException(f"Failed to restore run {run_id}")
+        
+        logger.info(f"Restored run: {run_id}")
     
     def search_runs(self, experiment_ids: List[str], filter_string: str = "", run_view_type: ViewType = ViewType.ACTIVE_ONLY, max_results: int = 1000, order_by: List[str] = None, page_token: str = None) -> PagedList[Run]:
-        """Search runs - placeholder implementation."""
-        raise NotImplementedError("Run operations will be implemented in next iteration")
+        """Search runs in MongoDB with filtering and sorting."""
+        # Build query
+        query = {}
+        
+        # Filter by experiment IDs
+        if experiment_ids:
+            query["experiment_id"] = {"$in": experiment_ids}
+        
+        # Filter by lifecycle stage based on view type
+        if run_view_type == ViewType.ACTIVE_ONLY:
+            query["lifecycle_stage"] = LifecycleStage.ACTIVE
+        elif run_view_type == ViewType.DELETED_ONLY:
+            query["lifecycle_stage"] = LifecycleStage.DELETED
+        # ViewType.ALL includes both active and deleted
+        
+        # Basic filter string parsing (simplified for now)
+        # In a full implementation, this would parse MLflow filter syntax
+        if filter_string:
+            # Simple status filter example
+            if "status" in filter_string.lower():
+                if "FINISHED" in filter_string:
+                    query["status"] = RunStatus.to_string(RunStatus.FINISHED)
+                elif "RUNNING" in filter_string:
+                    query["status"] = RunStatus.to_string(RunStatus.RUNNING)
+        
+        # Handle pagination
+        skip = 0
+        if page_token:
+            try:
+                skip = int(page_token)
+            except ValueError:
+                skip = 0
+        
+        # Build sort criteria
+        sort_criteria = []
+        if order_by:
+            for order_item in order_by:
+                if order_item.startswith("start_time"):
+                    direction = DESCENDING if "DESC" in order_item else ASCENDING
+                    sort_criteria.append(("start_time", direction))
+                elif order_item.startswith("end_time"):
+                    direction = DESCENDING if "DESC" in order_item else ASCENDING
+                    sort_criteria.append(("end_time", direction))
+        
+        if not sort_criteria:
+            sort_criteria = [("start_time", DESCENDING)]  # Default sort
+        
+        # Execute query with pagination
+        cursor = self.sync_db[self.RUNS_COLLECTION].find(query).sort(sort_criteria)
+        
+        # Get total count for pagination
+        total_count = self.sync_db[self.RUNS_COLLECTION].count_documents(query)
+        
+        # Apply pagination
+        cursor = cursor.skip(skip).limit(max_results)
+        
+        # Convert documents to Run objects
+        runs = []
+        for run_doc in cursor:
+            try:
+                run = self._doc_to_run(run_doc)
+                runs.append(run)
+            except Exception as e:
+                logger.warning(f"Failed to convert run document to Run object: {e}")
+                continue
+        
+        # Determine next page token
+        next_page_token = None
+        if skip + len(runs) < total_count:
+            next_page_token = str(skip + max_results)
+        
+        return PagedList(runs, next_page_token)
+    
+    def _doc_to_run(self, run_doc: Dict) -> Run:
+        """Convert MongoDB document to Run object."""
+        run_uuid = run_doc["run_uuid"]
+        
+        # Get parameters
+        param_docs = list(self.sync_db[self.PARAMS_COLLECTION].find({"run_uuid": run_uuid}))
+        params = [Param(key=doc["key"], value=doc["value"]) for doc in param_docs]
+        
+        # Get metrics (latest values only)
+        metric_pipeline = [
+            {"$match": {"run_uuid": run_uuid}},
+            {"$sort": {"timestamp": -1, "step": -1}},
+            {"$group": {
+                "_id": "$key",
+                "latest": {"$first": "$$ROOT"}
+            }},
+            {"$replaceRoot": {"newRoot": "$latest"}}
+        ]
+        
+        metric_docs = list(self.sync_db[self.METRICS_COLLECTION].aggregate(metric_pipeline))
+        metrics = [
+            Metric(
+                key=doc["key"],
+                value=doc["value"],
+                timestamp=doc["timestamp"],
+                step=doc["step"]
+            )
+            for doc in metric_docs
+        ]
+        
+        # Get tags from TAGS collection
+        tag_docs = list(self.sync_db[self.TAGS_COLLECTION].find({"run_uuid": run_uuid}))
+        tags_dict = {doc["key"]: doc["value"] for doc in tag_docs}
+        
+        # Add tags from run document (merge, don't duplicate)
+        if run_doc.get("tags"):
+            for tag_data in run_doc["tags"]:
+                tags_dict[tag_data["key"]] = tag_data["value"]
+        
+        # Convert to RunTag objects
+        tags = [RunTag(key=key, value=value) for key, value in tags_dict.items()]
+        
+        # Create RunInfo
+        run_info = RunInfo(
+            run_id=run_doc["run_uuid"],
+            run_name=run_doc.get("run_name"),
+            experiment_id=run_doc["experiment_id"],
+            user_id=run_doc.get("user_id"),
+            status=run_doc["status"],
+            start_time=run_doc["start_time"],
+            end_time=run_doc.get("end_time"),
+            artifact_uri=run_doc["artifact_uri"],
+            lifecycle_stage=run_doc.get("lifecycle_stage", LifecycleStage.ACTIVE)
+        )
+        
+        # Create RunData
+        run_data = RunData(
+            metrics=metrics,
+            params=params,
+            tags=tags
+        )
+        
+        # Create empty RunInputs and RunOutputs
+        run_inputs = RunInputs(dataset_inputs=[])
+        run_outputs = RunOutputs(model_outputs=[])
+        
+        return Run(run_info=run_info, run_data=run_data, run_inputs=run_inputs, run_outputs=run_outputs)
     
     def log_metric(self, run_id: str, metric: Metric):
-        """Log metric - placeholder implementation."""
-        raise NotImplementedError("Metric operations will be implemented in next iteration")
+        """Log a metric to MongoDB."""
+        # Validate run exists
+        run = self.sync_db[self.RUNS_COLLECTION].find_one({"run_uuid": run_id})
+        if not run:
+            raise MlflowException(
+                f"Run with id '{run_id}' not found",
+                error_code=RESOURCE_DOES_NOT_EXIST
+            )
+        
+        # Create metric document
+        metric_doc = {
+            "run_uuid": run_id,
+            "key": metric.key,
+            "value": metric.value,
+            "timestamp": metric.timestamp,
+            "step": metric.step or 0,
+            "is_nan": str(metric.value).lower() == 'nan',
+            "creation_time": get_current_time_millis(),
+        }
+        
+        # Insert metric (allow duplicates for time series)
+        result = self.sync_db[self.METRICS_COLLECTION].insert_one(metric_doc)
+        
+        if not result.inserted_id:
+            raise MlflowException(f"Failed to log metric {metric.key} for run {run_id}")
+        
+        logger.debug(f"Logged metric {metric.key}={metric.value} for run {run_id}")
     
     def log_param(self, run_id: str, param: Param):
-        """Log parameter - placeholder implementation."""
-        raise NotImplementedError("Parameter operations will be implemented in next iteration")
+        """Log a parameter to MongoDB."""
+        # Validate run exists
+        run = self.sync_db[self.RUNS_COLLECTION].find_one({"run_uuid": run_id})
+        if not run:
+            raise MlflowException(
+                f"Run with id '{run_id}' not found",
+                error_code=RESOURCE_DOES_NOT_EXIST
+            )
+        
+        # Check if parameter already exists (parameters are immutable)
+        existing_param = self.sync_db[self.PARAMS_COLLECTION].find_one({
+            "run_uuid": run_id,
+            "key": param.key
+        })
+        
+        if existing_param:
+            if existing_param["value"] != param.value:
+                raise MlflowException(
+                    f"Changing param values is not allowed. Param with key='{param.key}' was already "
+                    f"logged with value='{existing_param['value']}' for run ID='{run_id}'. "
+                    f"Attempted logging new value '{param.value}'.",
+                    error_code=INVALID_PARAMETER_VALUE
+                )
+            # Parameter already exists with same value, no need to log again
+            return
+        
+        # Create parameter document
+        param_doc = {
+            "run_uuid": run_id,
+            "key": param.key,
+            "value": param.value,
+            "creation_time": get_current_time_millis(),
+        }
+        
+        # Insert parameter
+        result = self.sync_db[self.PARAMS_COLLECTION].insert_one(param_doc)
+        
+        if not result.inserted_id:
+            raise MlflowException(f"Failed to log param {param.key} for run {run_id}")
+        
+        logger.debug(f"Logged param {param.key}={param.value} for run {run_id}")
     
     def set_experiment_tag(self, experiment_id: str, tag: ExperimentTag):
-        """Set experiment tag - placeholder implementation."""
-        raise NotImplementedError("Tag operations will be implemented in next iteration")
+        """Set an experiment tag in MongoDB."""
+        # Validate experiment exists
+        experiment = self.sync_db[self.EXPERIMENTS_COLLECTION].find_one({"experiment_id": experiment_id})
+        if not experiment:
+            raise MlflowException(
+                f"Experiment with id '{experiment_id}' not found",
+                error_code=RESOURCE_DOES_NOT_EXIST
+            )
+        
+        # Update experiment with tag
+        result = self.sync_db[self.EXPERIMENTS_COLLECTION].update_one(
+            {"experiment_id": experiment_id},
+            {
+                "$push": {
+                    "tags": {"key": tag.key, "value": tag.value}
+                },
+                "$set": {
+                    "last_update_time": get_current_time_millis()
+                }
+            }
+        )
+        
+        if result.matched_count == 0 and not result.upserted_id:
+            raise MlflowException(f"Failed to set tag {tag.key} for experiment {experiment_id}")
+        
+        logger.debug(f"Set experiment tag {tag.key}={tag.value} for experiment {experiment_id}")
     
     def set_tag(self, run_id: str, tag: RunTag):
-        """Set run tag - placeholder implementation."""
-        raise NotImplementedError("Tag operations will be implemented in next iteration")
+        """Set a tag for a run in MongoDB."""
+        # Validate run exists
+        run = self.sync_db[self.RUNS_COLLECTION].find_one({"run_uuid": run_id})
+        if not run:
+            raise MlflowException(
+                f"Run with id '{run_id}' not found",
+                error_code=RESOURCE_DOES_NOT_EXIST
+            )
+        
+        # Create tag document
+        tag_doc = {
+            "run_uuid": run_id,
+            "key": tag.key,
+            "value": tag.value,
+            "creation_time": get_current_time_millis(),
+        }
+        
+        # Use upsert to replace existing tag with same key
+        result = self.sync_db[self.TAGS_COLLECTION].replace_one(
+            {"run_uuid": run_id, "key": tag.key},
+            tag_doc,
+            upsert=True
+        )
+        
+        if result.matched_count == 0 and not result.upserted_id:
+            raise MlflowException(f"Failed to set tag {tag.key} for run {run_id}")
+        
+        logger.debug(f"Set tag {tag.key}={tag.value} for run {run_id}")
     
     def get_metric_history(self, run_id: str, metric_key: str) -> List[Metric]:
-        """Get metric history - placeholder implementation."""
-        raise NotImplementedError("Metric operations will be implemented in next iteration")
+        """Get the history of a metric for a run."""
+        # Validate run exists
+        run = self.sync_db[self.RUNS_COLLECTION].find_one({"run_uuid": run_id})
+        if not run:
+            raise MlflowException(
+                f"Run with id '{run_id}' not found",
+                error_code=RESOURCE_DOES_NOT_EXIST
+            )
+        
+        # Get all metric values for this key, sorted by timestamp and step
+        metric_docs = list(
+            self.sync_db[self.METRICS_COLLECTION].find(
+                {"run_uuid": run_id, "key": metric_key}
+            ).sort([("timestamp", ASCENDING), ("step", ASCENDING)])
+        )
+        
+        # Convert to Metric objects
+        metrics = [
+            Metric(
+                key=doc["key"],
+                value=doc["value"],
+                timestamp=doc["timestamp"],
+                step=doc["step"]
+            )
+            for doc in metric_docs
+        ]
+        
+        return metrics
+    
+    def log_batch(self, run_id, metrics, params, tags):
+        """Log a batch of metrics, params, and tags for a run."""
+        # Validate run exists
+        run = self.sync_db[self.RUNS_COLLECTION].find_one({"run_uuid": run_id})
+        if not run:
+            raise MlflowException(
+                f"Run with id '{run_id}' not found",
+                error_code=RESOURCE_DOES_NOT_EXIST
+            )
+        
+        current_time = get_current_time_millis()
+        
+        # Log metrics
+        if metrics:
+            metric_docs = []
+            for metric in metrics:
+                metric_doc = {
+                    "run_uuid": run_id,
+                    "key": metric.key,
+                    "value": metric.value,
+                    "timestamp": metric.timestamp,
+                    "step": metric.step or 0,
+                    "is_nan": str(metric.value).lower() == 'nan',
+                    "creation_time": current_time,
+                }
+                metric_docs.append(metric_doc)
+            
+            if metric_docs:
+                self.sync_db[self.METRICS_COLLECTION].insert_many(metric_docs)
+                logger.debug(f"Logged {len(metric_docs)} metrics for run {run_id}")
+        
+        # Log parameters
+        if params:
+            param_docs = []
+            for param in params:
+                # Check if parameter already exists
+                existing_param = self.sync_db[self.PARAMS_COLLECTION].find_one({
+                    "run_uuid": run_id,
+                    "key": param.key
+                })
+                
+                if existing_param:
+                    if existing_param["value"] != param.value:
+                        raise MlflowException(
+                            f"Changing param values is not allowed. Param with key='{param.key}' was already "
+                            f"logged with value='{existing_param['value']}' for run ID='{run_id}'. "
+                            f"Attempted logging new value '{param.value}'.",
+                            error_code=INVALID_PARAMETER_VALUE
+                        )
+                else:
+                    param_doc = {
+                        "run_uuid": run_id,
+                        "key": param.key,
+                        "value": param.value,
+                        "creation_time": current_time,
+                    }
+                    param_docs.append(param_doc)
+            
+            if param_docs:
+                self.sync_db[self.PARAMS_COLLECTION].insert_many(param_docs)
+                logger.debug(f"Logged {len(param_docs)} params for run {run_id}")
+        
+        # Log tags
+        if tags:
+            for tag in tags:
+                tag_doc = {
+                    "run_uuid": run_id,
+                    "key": tag.key,
+                    "value": tag.value,
+                    "creation_time": current_time,
+                }
+                
+                # Use upsert to replace existing tag with same key
+                self.sync_db[self.TAGS_COLLECTION].replace_one(
+                    {"run_uuid": run_id, "key": tag.key},
+                    tag_doc,
+                    upsert=True
+                )
+            
+            logger.debug(f"Logged {len(tags)} tags for run {run_id}")
+    
+    def record_logged_model(self, run_id: str, mlflow_model):
+        """Record a logged model (placeholder implementation)."""
+        # This would typically store model metadata in MongoDB
+        # For now, we'll just log a debug message
+        logger.debug(f"Record logged model for run {run_id}: {mlflow_model}")
+        pass
     
     def list_artifacts(self, run_id: str, path: str = None) -> List[FileInfo]:
-        """List artifacts - delegates to artifact repository."""
-        # This will delegate to the artifact repository (Azure Blob Storage)
-        # For now, return empty list as placeholder
+        """List artifacts for a run (placeholder implementation)."""
+        # This would typically interact with artifact storage (Azure Blob, S3, etc.)
+        # For now, return empty list
+        logger.debug(f"List artifacts for run {run_id}, path: {path}")
         return []
     
-    def log_batch(self, run_id: str, metrics: List[Metric] = None, params: List[Param] = None, tags: List[RunTag] = None):
-        """Log batch - placeholder implementation."""
-        raise NotImplementedError("Batch operations will be implemented in next iteration")
+    def download_artifacts(self, run_id: str, path: str, dst_path: str = None) -> str:
+        """Download artifacts for a run (placeholder implementation)."""
+        # This would typically download from artifact storage
+        logger.debug(f"Download artifacts for run {run_id}, path: {path}, dst: {dst_path}")
+        raise NotImplementedError("Artifact operations require artifact store implementation")
+    
+    def log_artifacts(self, run_id: str, local_dir: str, artifact_path: str = None):
+        """Log artifacts for a run (placeholder implementation)."""
+        # This would typically upload to artifact storage
+        logger.debug(f"Log artifacts for run {run_id}, local_dir: {local_dir}, artifact_path: {artifact_path}")
+        raise NotImplementedError("Artifact operations require artifact store implementation")
+    
