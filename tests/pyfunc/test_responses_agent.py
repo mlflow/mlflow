@@ -1,3 +1,5 @@
+import pathlib
+import pickle
 from typing import Generator
 
 import pytest
@@ -115,6 +117,91 @@ class SimpleResponsesAgent(ResponsesAgent):
         self, request: ResponsesAgentRequest
     ) -> Generator[ResponsesAgentStreamEvent, None, None]:
         yield from [ResponsesAgentStreamEvent(**r) for r in get_stream_mock_response()]
+
+
+class ResponsesAgentWithContext(ResponsesAgent):
+    def load_context(self, context):
+        predict_path = pathlib.Path(context.artifacts["predict_fn"])
+        self.predict_fn = pickle.loads(predict_path.read_bytes())
+
+    def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
+        return ResponsesAgentResponse(
+            output=[
+                {
+                    "type": "message",
+                    "id": "test-id",
+                    "status": "completed",
+                    "role": "assistant",
+                    "content": [
+                        {
+                            "type": "output_text",
+                            "text": self.predict_fn(),
+                        }
+                    ],
+                }
+            ]
+        )
+
+    def predict_stream(
+        self, request: ResponsesAgentRequest
+    ) -> Generator[ResponsesAgentStreamEvent, None, None]:
+        yield ResponsesAgentStreamEvent(
+            type="response.output_item.added",
+            output_index=0,
+            item={
+                "type": "message",
+                "id": "test-id",
+                "status": "completed",
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "output_text",
+                        "text": self.predict_fn(),
+                    }
+                ],
+            },
+        )
+
+
+def mock_responses_predict():
+    return "hello from context"
+
+
+def test_responses_agent_with_context_saves_successfully(tmp_path):
+    model_path = tmp_path / "model"
+    predict_path = tmp_path / "predict.pkl"
+    predict_path.write_bytes(pickle.dumps(mock_responses_predict))
+
+    model = ResponsesAgentWithContext()
+    mlflow.pyfunc.save_model(
+        python_model=model,
+        path=model_path,
+        artifacts={"predict_fn": str(predict_path)},
+    )
+
+    loaded_model = mlflow.pyfunc.load_model(model_path)
+
+    response = loaded_model.predict(RESPONSES_AGENT_INPUT_EXAMPLE)
+    assert response["output"][0]["content"][0]["text"] == "hello from context"
+
+
+def test_responses_agent_with_context_predict_stream(tmp_path):
+    model_path = tmp_path / "model"
+    predict_path = tmp_path / "predict.pkl"
+    predict_path.write_bytes(pickle.dumps(mock_responses_predict))
+
+    model = ResponsesAgentWithContext()
+    mlflow.pyfunc.save_model(
+        python_model=model,
+        path=model_path,
+        artifacts={"predict_fn": str(predict_path)},
+    )
+
+    loaded_model = mlflow.pyfunc.load_model(model_path)
+
+    responses = list(loaded_model.predict_stream(RESPONSES_AGENT_INPUT_EXAMPLE))
+    assert len(responses) == 1
+    assert responses[0]["item"]["content"][0]["text"] == "hello from context"
 
 
 def test_responses_agent_save_load_signatures(tmp_path):
