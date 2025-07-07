@@ -14,7 +14,7 @@ import requests
 from opentelemetry import trace as trace_api
 
 import mlflow
-from mlflow.telemetry.client import TELEMETRY_URL, set_telemetry_client
+from mlflow.telemetry.client import TELEMETRY_URL, get_telemetry_client, set_telemetry_client
 from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
 from mlflow.tracing.export.inference_table import _TRACE_BUFFER
 from mlflow.tracing.fluent import _set_last_active_trace_id
@@ -24,7 +24,7 @@ from mlflow.utils.os import is_windows
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.autologging.fixtures import enable_test_mode
-from tests.helper_functions import get_safe_port, wait_for_telemetry_threads
+from tests.helper_functions import get_safe_port
 from tests.tracing.helper import purge_traces
 
 if not IS_TRACING_SDK_ONLY:
@@ -339,7 +339,9 @@ def reset_active_model_context():
 @pytest.fixture(autouse=True)
 def reset_telemetry_client():
     yield
-    wait_for_telemetry_threads(terminate=True)
+    client = get_telemetry_client()
+    if client:
+        client._wait_for_consumer_threads(terminate=True)
     set_telemetry_client()
 
 

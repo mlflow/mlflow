@@ -209,6 +209,22 @@ class TelemetryClient:
             data=json.dumps(telemetry_info | asdict(record)), partition_key="test"
         )
 
+    def _wait_for_consumer_threads(self, terminate: bool = False) -> None:
+        """
+        Wait for telemetry threads to finish to avoid race conditions in tests.
+
+        Args:
+            terminate: If True, terminates the threads after flushing.
+        """
+        # Flush the telemetry client to ensure all pending records are processed
+        self.flush(terminate=terminate)
+
+        if terminate:
+            # Wait for threads to finish -- consumer threads will be terminated
+            for thread in self._consumer_threads:
+                if thread.is_alive():
+                    thread.join(timeout=1)
+
 
 _MLFLOW_TELEMETRY_CLIENT = None
 

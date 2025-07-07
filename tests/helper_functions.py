@@ -22,7 +22,6 @@ import requests
 
 import mlflow
 from mlflow.entities.logged_model import LoggedModel
-from mlflow.telemetry.client import TelemetryClient, get_telemetry_client
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.os import is_windows
@@ -818,24 +817,3 @@ def get_logged_model_by_name(name: str) -> Optional[LoggedModel]:
         filter_string=f"name='{name}'", output_format="list", max_results=1
     )
     return logged_models[0] if len(logged_models) >= 1 else None
-
-
-def wait_for_telemetry_threads(client: TelemetryClient = None, terminate: bool = False):
-    """Wait for telemetry threads to finish to avoid race conditions in tests.
-
-    Args:
-        client: The telemetry client to wait for. If None, uses the global client.
-        terminate: If True, terminates the threads after flushing.
-    """
-    telemetry_client = client or get_telemetry_client()
-    if telemetry_client is None:
-        return
-
-    # Flush the telemetry client to ensure all pending records are processed
-    telemetry_client.flush(terminate=terminate)
-
-    if terminate:
-        # Wait for threads to finish -- consumer threads will be terminated
-        for thread in telemetry_client._consumer_threads:
-            if thread.is_alive():
-                thread.join(timeout=1)
