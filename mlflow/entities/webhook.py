@@ -42,10 +42,7 @@ class WebhookEvent(str, Enum):
 
 class Webhook:
     """
-    MLflow entity for Model Registry Webhook.
-
-    A webhook represents a configuration for receiving notifications
-    about model registry events via HTTP POST requests.
+    MLflow entity for Webhook.
     """
 
     def __init__(
