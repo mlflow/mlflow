@@ -130,7 +130,7 @@ class Webhook:
             webhook_id=proto.webhook_id,
             name=proto.name,
             url=proto.url,
-            events=[WebhookEvent.from_proto(event).value for event in proto.events],
+            events=[WebhookEvent.from_proto(e) for e in proto.events],
             description=proto.description or None,
             status=WebhookStatus.from_proto(proto.status),
             creation_timestamp=proto.creation_timestamp,
