@@ -157,7 +157,9 @@ class Webhook:
             f"name='{self.name}', "
             f"url='{self.url}', "
             f"status='{self.status}', "
-            f"events={self.events}"
+            f"events={self.events}, "
+            f"creation_timestamp={self.creation_timestamp}, "
+            f"last_updated_timestamp={self.last_updated_timestamp}"
             f")"
         )
 
