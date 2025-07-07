@@ -61,8 +61,8 @@ def test_track_api_usage(mock_requests):
     assert fail_record["duration_ms"] > 0
 
     telemetry_info = get_telemetry_client().info
-    assert asdict(telemetry_info).items() <= succeed_record.items()
-    assert asdict(telemetry_info).items() <= fail_record.items()
+    assert telemetry_info.items() <= succeed_record.items()
+    assert telemetry_info.items() <= fail_record.items()
 
 
 def test_backend_store_info(tmp_path):
@@ -74,12 +74,12 @@ def test_backend_store_info(tmp_path):
     get_telemetry_client().flush()
 
     telemetry_client = get_telemetry_client()
-    assert telemetry_client.info.backend_store == "SqlAlchemyStore"
+    assert telemetry_client.info["backend_store_scheme"] == "sqlite"
 
     mlflow.set_tracking_uri(tmp_path)
     succeed_func()
     get_telemetry_client().flush()
-    assert telemetry_client.info.backend_store == "FileStore"
+    assert telemetry_client.info["backend_store_scheme"] == "file"
 
 
 @pytest.mark.parametrize(

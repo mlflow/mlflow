@@ -72,10 +72,4 @@ class TelemetryInfo:
         f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
     )
     operating_system: str = platform.platform()
-    backend_store: Optional[str] = None
-
-
-@dataclass
-class TelemetryRecord:
-    data: str
-    partition_key: str
+    backend_store_scheme: Optional[str] = None

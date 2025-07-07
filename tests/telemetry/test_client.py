@@ -1,4 +1,5 @@
 import json
+import logging
 import threading
 import time
 
@@ -187,14 +188,7 @@ def test_telemetry_info_inclusion(telemetry_client: TelemetryClient, mock_reques
     data = json.loads(received_record["data"])
 
     # Check that telemetry info fields are present
-    for field in [
-        "session_id",
-        "mlflow_version",
-        "python_version",
-        "operating_system",
-        "backend_store",
-    ]:
-        assert data[field] == getattr(telemetry_client.info, field)
+    assert telemetry_client.info.items() <= data.items()
 
     # Check that record fields are present
     assert data["api_name"] == "test_api"
@@ -231,6 +225,77 @@ def test_max_workers_setup(telemetry_client: TelemetryClient):
     for i, thread in enumerate(telemetry_client._consumer_threads):
         assert thread.name == f"MLflowTelemetryConsumer-{i}"
         assert thread.daemon is True
+
+
+def test_log_suppression_in_consumer_thread(mock_requests, capsys, telemetry_client):
+    """Test that logs are suppressed in the consumer thread but not in main thread."""
+    # Clear any existing captured output
+    capsys.readouterr()
+
+    # Log from main thread - this should be captured
+    logger = logging.getLogger("mlflow.telemetry.client")
+    logger.info("TEST LOG FROM MAIN THREAD")
+
+    original_process = telemetry_client._process_records
+
+    def process_with_log(records):
+        logger.info("TEST LOG FROM CONSUMER THREAD")
+        original_process(records)
+
+    telemetry_client._process_records = process_with_log
+
+    record = APIRecord(
+        api_name="test_api",
+        status=APIStatus.SUCCESS,
+        params=LogModelParams(flavor="test_flavor", model=ModelType.PYTHON_FUNCTION),
+    )
+    telemetry_client.add_record(record)
+
+    telemetry_client.flush()
+    assert len(mock_requests) == 1
+
+    captured = capsys.readouterr()
+
+    assert "TEST LOG FROM MAIN THREAD" in captured.err
+    # Verify that the consumer thread log was suppressed
+    assert "TEST LOG FROM CONSUMER THREAD" not in captured.err
+
+
+def test_consumer_thread_no_stderr_output(mock_requests, capsys, telemetry_client):
+    """Test that consumer thread produces no stderr output at all."""
+    # Clear any existing captured output
+    capsys.readouterr()
+
+    # Log from main thread - this should be captured
+    logger = logging.getLogger("mlflow.telemetry.client")
+    logger.info("MAIN THREAD LOG BEFORE CLIENT")
+
+    # Clear output after client initialization to focus on consumer thread output
+    capsys.readouterr()
+
+    # Add multiple records to ensure consumer thread processes them
+    for i in range(5):
+        record = APIRecord(
+            api_name=f"test_api_{i}",
+            status=APIStatus.SUCCESS,
+            params=LogModelParams(flavor="test_flavor", model=ModelType.PYTHON_FUNCTION),
+        )
+        telemetry_client.add_record(record)
+
+    telemetry_client.flush()
+    # Wait for all records to be processed
+    assert len(mock_requests) == 5
+
+    # Capture output after consumer thread has processed all records
+    captured = capsys.readouterr()
+
+    # Verify consumer thread produced no stderr output
+    assert captured.err == ""
+
+    # Log from main thread after processing - this should be captured
+    logger.info("MAIN THREAD LOG AFTER PROCESSING")
+    captured_after = capsys.readouterr()
+    assert "MAIN THREAD LOG AFTER PROCESSING" in captured_after.err
 
 
 def test_batch_time_interval(mock_requests, telemetry_client):

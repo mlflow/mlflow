@@ -16,15 +16,16 @@ from mlflow.telemetry.constant import (
     MAX_WORKERS,
     TELEMETRY_URL,
 )
-from mlflow.telemetry.schemas import APIRecord, TelemetryInfo, TelemetryRecord
+from mlflow.telemetry.schemas import APIRecord, TelemetryInfo
 from mlflow.telemetry.utils import is_telemetry_disabled
+from mlflow.utils.logging_utils import suppress_logs_in_thread
 
 _logger = logging.getLogger(__name__)
 
 
 class TelemetryClient:
     def __init__(self):
-        self.info = TelemetryInfo()
+        self.info = asdict(TelemetryInfo())
         self.telemetry_url = TELEMETRY_URL
         self._queue: Queue[list[APIRecord]] = Queue(maxsize=MAX_QUEUE_SIZE)
         self._lock = threading.RLock()
@@ -39,7 +40,7 @@ class TelemetryClient:
 
         self._batch_size = BATCH_SIZE
         self._batch_time_interval = BATCH_TIME_INTERVAL_SECONDS
-        self._pending_records: list[TelemetryRecord] = []
+        self._pending_records: list[APIRecord] = []
         self._last_batch_time = time.time()
         self._batch_lock = threading.Lock()
 
@@ -54,9 +55,8 @@ class TelemetryClient:
             _logger.debug("Telemetry is stopped, skipping adding record")
             return
 
-        data = self._generate_telemetry_record(record)
         with self._batch_lock:
-            self._pending_records.append(data)
+            self._pending_records.append(record)
 
             should_send = (
                 len(self._pending_records) >= self._batch_size
@@ -81,18 +81,21 @@ class TelemetryClient:
             # TODO: record this case
             _logger.debug("Telemetry queue is full, skipping sending data.")
 
-    def _process_records(self, records: list[TelemetryRecord]):
+    def _process_records(self, records: list[APIRecord]):
         """Process a batch of telemetry records."""
         try:
-            data = {
-                "records": [
-                    {"data": record.data, "partition-key": record.partition_key}
-                    for record in records
-                ]
-            }
+            telemetry_info = self._get_telemetry_info()
+            records = [
+                {
+                    "data": json.dumps(telemetry_info | asdict(record)),
+                    # TODO: update partition key
+                    "partition-key": "test",
+                }
+                for record in records
+            ]
             response = requests.post(
                 self.telemetry_url,
-                json=data,
+                json={"records": records},
                 headers={"Content-Type": "application/json"},
             )
             if response.status_code != 200:
@@ -108,6 +111,10 @@ class TelemetryClient:
 
     def _consumer(self) -> None:
         """Individual consumer that processes records from the queue."""
+        # suppress logs in the consumer thread to avoid emitting any irrelevant
+        # logs during telemetry collection.
+        suppress_logs_in_thread.set(True)
+
         while not self._is_stopped:
             try:
                 records = self._queue.get(timeout=1)
@@ -196,18 +203,15 @@ class TelemetryClient:
         method to update the backend store info at sending telemetry step.
         """
         # import here to avoid circular import
-        from mlflow.tracking._tracking_service.utils import _get_store
+        from mlflow.tracking._tracking_service.utils import _get_tracking_scheme
 
-        tracking_store = _get_store()
-        self.info.backend_store = tracking_store.__class__.__name__
+        self.info["backend_store_scheme"] = _get_tracking_scheme()
 
-    def _generate_telemetry_record(self, record: APIRecord) -> TelemetryRecord:
+    # NB: this function should only be called inside consumer thread, to
+    # avoid emitting any logs to the main thread
+    def _get_telemetry_info(self) -> dict[str, str]:
         self._update_backend_store()
-        telemetry_info = asdict(self.info)
-        # TODO: update partition key
-        return TelemetryRecord(
-            data=json.dumps(telemetry_info | asdict(record)), partition_key="test"
-        )
+        return self.info
 
     def _wait_for_consumer_threads(self, terminate: bool = False) -> None:
         """
