@@ -42,8 +42,8 @@ You can initiate a new prompt in the MLflow Prompt Registry in two primary ways:
 ```python
 import mlflow
 
-# Text prompt template
-text_template = """\
+# Use double curly braces for variables in the template
+initial_template = """\
 Summarize content you are provided with in {{ num_sentences }} sentences.
 
       # The prompt object contains information about the registered prompt
@@ -51,10 +51,10 @@ Summarize content you are provided with in {{ num_sentences }} sentences.
       ```
     </div>
 
-# Register a text prompt
-text_prompt = mlflow.genai.register_prompt(
+# Register a new prompt
+prompt = mlflow.genai.register_prompt(
     name="summarization-prompt",
-    template=text_template,
+    template=initial_template,
     # Optional: Provide a commit message to describe the changes
     commit_message="Initial commit",
     # Optional: Set tags applies to the prompt (across versions)
@@ -65,23 +65,8 @@ text_prompt = mlflow.genai.register_prompt(
     },
 )
 
-# Chat prompt template
-chat_template = [
-    {"role": "system", "content": "You are a helpful {{ style }} assistant."},
-    {"role": "user", "content": "{{ question }}"},
-]
-
-# Register a chat prompt
-chat_prompt = mlflow.genai.register_prompt(
-    name="assistant-prompt",
-    template=chat_template,
-    commit_message="Initial chat prompt",
-    tags={"type": "chat", "style": "friendly"},
-)
-
 # The prompt object contains information about the registered prompt
-print(f"Created text prompt '{text_prompt.name}' (version {text_prompt.version})")
-print(f"Created chat prompt '{chat_prompt.name}' (version {chat_prompt.version})")
+print(f"Created prompt '{prompt.name}' (version {prompt.version})")
 ```
 
 ## Editing an Existing Prompt (Creating New Versions)
@@ -115,8 +100,7 @@ Once a prompt version is created, its template and initial metadata are **immuta
 ```python
 import mlflow
 
-# Update text prompt template
-new_text_template = """\
+new_template = """\
 You are an expert summarizer. Condense the following content into exactly {{ num_sentences }} clear and informative sentences that capture the key points.
 
       # Register a new version of an existing prompt
@@ -138,37 +122,14 @@ Your summary should:
 - Maintain the same level of formality as the original text
 """
 
-# Register a new version of an existing text prompt
-updated_text_prompt = mlflow.genai.register_prompt(
+# Register a new version of an existing prompt
+updated_prompt = mlflow.genai.register_prompt(
     name="summarization-prompt",  # Specify the existing prompt name
-    template=new_text_template,
-    commit_message="Enhanced with better instructions and formatting",
+    template=new_template,
+    commit_message="Improvement",
     tags={
         "author": "author@example.com",
-        "enhanced": "true",
     },
-)
-
-# Update chat prompt with additional messages
-new_chat_template = [
-    {
-        "role": "system",
-        "content": "You are a helpful {{ style }} assistant with expertise in {{ domain }}.",
-    },
-    {"role": "user", "content": "{{ question }}"},
-    {
-        "role": "assistant",
-        "content": "I'll help you with that. Let me provide a detailed response.",
-    },
-    {"role": "user", "content": "Please elaborate on {{ specific_aspect }}."},
-]
-
-# Register a new version of an existing chat prompt
-updated_chat_prompt = mlflow.genai.register_prompt(
-    name="assistant-prompt",
-    template=new_chat_template,
-    commit_message="Added multi-turn conversation support",
-    tags={"type": "chat", "style": "friendly", "multi_turn": "true"},
 )
 ```
 
