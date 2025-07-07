@@ -188,14 +188,7 @@ def test_telemetry_info_inclusion(telemetry_client: TelemetryClient, mock_reques
     data = json.loads(received_record["data"])
 
     # Check that telemetry info fields are present
-    for field in [
-        "session_id",
-        "mlflow_version",
-        "python_version",
-        "operating_system",
-        "backend_store",
-    ]:
-        assert data[field] == getattr(telemetry_client.info, field)
+    assert telemetry_client.info.items() <= data.items()
 
     # Check that record fields are present
     assert data["api_name"] == "test_api"

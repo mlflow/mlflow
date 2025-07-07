@@ -129,7 +129,7 @@ def _configure_mlflow_loggers(root_module_name):
                     "formatter": "mlflow_formatter",
                     "class": "logging.StreamHandler",
                     "stream": MLFLOW_LOGGING_STREAM,
-                    "filters": ["suppress_by_thread"],
+                    "filters": ["suppress_in_thread"],
                 },
             },
             "loggers": {
@@ -140,7 +140,7 @@ def _configure_mlflow_loggers(root_module_name):
                 },
             },
             "filters": {
-                "suppress_by_thread": {
+                "suppress_in_thread": {
                     "()": SuppressLogFilter,
                 }
             },

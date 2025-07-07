@@ -25,7 +25,7 @@ _logger = logging.getLogger(__name__)
 
 class TelemetryClient:
     def __init__(self):
-        self.info = TelemetryInfo()
+        self.info = asdict(TelemetryInfo())
         self.telemetry_url = TELEMETRY_URL
         self._queue: Queue[list[APIRecord]] = Queue(maxsize=MAX_QUEUE_SIZE)
         self._lock = threading.RLock()
@@ -84,7 +84,7 @@ class TelemetryClient:
     def _process_records(self, records: list[APIRecord]):
         """Process a batch of telemetry records."""
         try:
-            telemetry_info = self._get_telemetry_info_dict()
+            telemetry_info = self._get_telemetry_info()
             records = [
                 {
                     "data": json.dumps(telemetry_info | asdict(record)),
@@ -203,15 +203,15 @@ class TelemetryClient:
         method to update the backend store info at sending telemetry step.
         """
         # import here to avoid circular import
-        from mlflow.tracking._tracking_service.utils import _get_store_type
+        from mlflow.tracking._tracking_service.utils import _get_tracking_scheme
 
-        self.info.backend_store = _get_store_type()
+        self.info["backend_store_scheme"] = _get_tracking_scheme()
 
     # NB: this function should only be called inside consumer thread, to
     # avoid emitting any logs to the main thread
-    def _get_telemetry_info_dict(self) -> dict[str, str]:
+    def _get_telemetry_info(self) -> dict[str, str]:
         self._update_backend_store()
-        return asdict(self.info)
+        return self.info
 
     def _wait_for_consumer_threads(self, terminate: bool = False) -> None:
         """
