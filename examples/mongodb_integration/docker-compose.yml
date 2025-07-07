@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: genesis-flow-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: genesis
+      MONGO_INITDB_ROOT_PASSWORD: genesis_flow_test
+      MONGO_INITDB_DATABASE: genesis_flow_test
+    volumes:
+      - mongodb_data:/data/db
+      - ./init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
+    networks:
+      - genesis-flow-network
+
+  genesis-flow-test:
+    build:
+      context: ../../
+      dockerfile: examples/mongodb_integration/Dockerfile
+    container_name: genesis-flow-test
+    depends_on:
+      - mongodb
+    environment:
+      MLFLOW_TRACKING_URI: "mongodb://genesis:genesis_flow_test@mongodb:27017/genesis_flow_test?authSource=admin"
+      MLFLOW_DEFAULT_ARTIFACT_ROOT: "/tmp/genesis_flow_artifacts"
+      PYTHONPATH: "/app"
+    volumes:
+      - ../../:/app
+      - artifacts_data:/tmp/genesis_flow_artifacts
+    networks:
+      - genesis-flow-network
+    command: ["python", "/app/examples/mongodb_integration/test_genesis_flow_mongodb.py"]
+
+  mongo-express:
+    image: mongo-express:1.0.0
+    container_name: genesis-flow-mongo-express
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    environment:
+      ME_CONFIG_MONGODB_ADMINUSERNAME: genesis
+      ME_CONFIG_MONGODB_ADMINPASSWORD: genesis_flow_test
+      ME_CONFIG_MONGODB_URL: mongodb://genesis:genesis_flow_test@mongodb:27017/
+      ME_CONFIG_BASICAUTH: false
+    depends_on:
+      - mongodb
+    networks:
+      - genesis-flow-network
+
+volumes:
+  mongodb_data:
+    driver: local
+  artifacts_data:
+    driver: local
+
+networks:
+  genesis-flow-network:
+    driver: bridge

@@ -1,0 +1,25 @@
+# Genesis-Flow MongoDB Integration Example Requirements
+
+# Core ML libraries
+scikit-learn>=1.3.0
+pandas>=1.5.0
+numpy>=1.21.0
+
+# MongoDB drivers
+pymongo>=4.3.0
+motor>=3.1.0
+
+# MLflow dependencies (satisfied by Genesis-Flow)
+# mlflow  # Provided by Genesis-Flow installation
+
+# Optional: Azure Storage (for artifact storage)
+azure-storage-blob>=12.14.0
+azure-identity>=1.12.0
+
+# Optional: Visualization and reporting
+matplotlib>=3.5.0
+seaborn>=0.11.0
+
+# Development and testing
+pytest>=7.0.0
+pytest-asyncio>=0.21.0
