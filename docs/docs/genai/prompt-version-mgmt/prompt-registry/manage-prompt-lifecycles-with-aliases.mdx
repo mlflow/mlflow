@@ -9,22 +9,19 @@ import TOCInline from "@theme/TOCInline";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 
-
 # Manage Prompt Lifecycles
 
 Managing changes of prompts is crucial for maintaining quality, improving performance, and ensuring consistency across different environments. This page provides a comprehensive guide to change management in MLflow Prompt Registry.
 
 ![Aliases List](/images/llms/prompt-registry/prompt-aliases-list.png)
 
-
 ## Commit-based Versioning
 
 The design of the prompt registry is inspired by version control systems like Git.
 
-* **🪨 Immutable versions**: Once created, a prompt version cannot be modified. This ensures that the prompt's behavior remains consistent across different applications and experiments.
-* **✉️ Commit message**:  When creating a new prompt version, you can provide a commit message to document the changes made in the new version. This helps you and your team understand the context of the changes and track the evolution of the prompt over time.
-* **🔍 Difference view**: The MLflow UI provides a side-by-side comparison of prompt versions, highlighting the changes between versions. This makes it easy to understand the differences and track the evolution of the prompt.
-
+- **🪨 Immutable versions**: Once created, a prompt version cannot be modified. This ensures that the prompt's behavior remains consistent across different applications and experiments.
+- **✉️ Commit message**: When creating a new prompt version, you can provide a commit message to document the changes made in the new version. This helps you and your team understand the context of the changes and track the evolution of the prompt over time.
+- **🔍 Difference view**: The MLflow UI provides a side-by-side comparison of prompt versions, highlighting the changes between versions. This makes it easy to understand the differences and track the evolution of the prompt.
 
 :::tip Why not use Git?
 
@@ -40,7 +37,6 @@ MLflow Prompt Registry UI provides a side-by-side comparison of prompt versions,
   ![Compare Prompt Versions](/images/llms/prompt-registry/compare-prompt-versions.png)
 </div>
 
-
 ## Aliases
 
 Alias is a strong mechanism to managing prompt versions in production systems, without hardcoding version numbers in the application code. You can create an alias for a specific version of a prompt using either the MLflow UI or Python API.
@@ -48,7 +44,6 @@ Alias is a strong mechanism to managing prompt versions in production systems, w
 The common use case for aliases is to build a robust **deployment pipeline** for your GenAI applications. For example, you can
 set a stage name such as `beta`, `staging`, `production`, etc., to refer to the version used in that environment. By switching the alias to a different version, you can easily maintain multiple prompt versions for different environments and perform tasks such as
 roll-back A/B testing.
-
 
 ### Create an Alias
 
@@ -65,6 +60,7 @@ roll-back A/B testing.
       4. Click **Save aliases** to apply the changes.
 
     </div>
+
   </TabItem>
   <TabItem value="python" label="Python" default>
     <div class="flex-column">

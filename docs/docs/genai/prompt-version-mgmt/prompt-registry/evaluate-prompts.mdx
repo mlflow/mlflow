@@ -8,7 +8,6 @@ import TabItem from "@theme/TabItem";
 
 Combining [MLflow Prompt Registry](/genai/prompt-version-mgmt/prompt-registry) with [MLflow LLM Evaluation](/genai/eval-monitor) enables you to evaluate prompt performance across different models and datasets, and track the evaluation results in a centralized registry. You can also inspect model outputs from the **traces** logged during evaluation to understand how the model responds to different prompts.
 
-
 :::tip Key Benefits of MLflow Prompt Evaluation
 
 - **Effective Evaluation**: `MLflow's LLM Evaluation API provides a simple and consistent way to evaluate prompts across different models and datasets without writing boilerplate code.
@@ -53,6 +52,7 @@ os.environ["OPENAI_API_KEY"] = getpass("Enter your OpenAI API key: ")
       5. Click **Create** to register the prompt.
 
     </div>
+
   </TabItem>
   <TabItem value="python" label="Python" default>
     <div class="flex-column">
@@ -80,6 +80,7 @@ os.environ["OPENAI_API_KEY"] = getpass("Enter your OpenAI API key: ")
       print(f"Created prompt '{prompt.name}' (version {prompt.version})")
       ```
     </div>
+
   </TabItem>
 </Tabs>
 
