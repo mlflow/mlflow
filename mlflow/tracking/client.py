@@ -2134,12 +2134,17 @@ class MlflowClient:
             # Create an experiment and set its tag
             client = MlflowClient()
             experiment_id = client.create_experiment("Social Media NLP Experiments")
+            client.set_experiment_tag(experiment_id, "nlp.framework", "Spark NLP")
+
+            # Fetch experiment metadata information, validate that tag is set
+            experiment = client.get_experiment(experiment_id)
+            assert experiment.tags == {"nlp.framework": "Spark NLP"}
+
             client.delete_experiment_tag(experiment_id, "nlp.framework")
 
-            # Fetch experiment metadata information
+            # Fetch experiment metadata information, validate that tag is deleted
             experiment = client.get_experiment(experiment_id)
-            print(f"Name: {experiment.name}")
-            print(f"Tags: {experiment.tags}")
+            assert experiment.tags == {}
 
         """
         self._tracking_client.delete_experiment_tag(experiment_id, key)

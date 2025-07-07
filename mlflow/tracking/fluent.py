@@ -845,8 +845,9 @@ def delete_experiment_tag(key: str) -> None:
 
         import mlflow
 
-        with mlflow.start_run():
-            mlflow.delete_experiment_tag("release.version")
+        mlflow.set_experiment("test-delete-tag")
+        mlflow.set_experiment_tag("release.version", "1.0")
+        mlflow.delete_experiment_tag("release.version")
     """
     experiment_id = _get_experiment_id()
     MlflowClient().delete_experiment_tag(experiment_id, key)
