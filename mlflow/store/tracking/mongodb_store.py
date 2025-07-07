@@ -47,6 +47,8 @@ from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.utils.search_utils import SearchUtils
 from mlflow.utils.uri import extract_and_normalize_path
 from mlflow.utils.time import get_current_time_millis
+from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME, _get_run_name_from_tags
+from mlflow.utils.name_utils import _generate_random_name
 
 logger = logging.getLogger(__name__)
 
@@ -744,6 +746,25 @@ class MongoDBStore(AbstractStore):
                 error_code=RESOURCE_DOES_NOT_EXIST
             )
         
+        # Handle run name and mlflow.runName tag logic (same as SQLAlchemy store)
+        tags = tags or []  # Ensure tags is not None
+        run_name_tag = _get_run_name_from_tags(tags)
+        
+        # Validate consistency between run_name parameter and mlflow.runName tag
+        if run_name and run_name_tag and (run_name != run_name_tag):
+            raise MlflowException(
+                "Both 'run_name' argument and 'mlflow.runName' tag are specified, but with "
+                f"different values (run_name='{run_name}', mlflow.runName='{run_name_tag}').",
+                error_code=INVALID_PARAMETER_VALUE
+            )
+        
+        # Determine final run name (use provided name, tag name, or generate random)
+        run_name = run_name or run_name_tag or _generate_random_name()
+        
+        # Automatically add mlflow.runName tag if not present
+        if not run_name_tag:
+            tags.append(RunTag(key=MLFLOW_RUN_NAME, value=run_name))
+        
         # Set default artifact URI
         artifact_uri = f"{self.default_artifact_root}/{experiment_id}/{run_uuid}/artifacts"
         
@@ -786,7 +807,7 @@ class MongoDBStore(AbstractStore):
         run_data = RunData(
             metrics=[],
             params=[],
-            tags=tags or []
+            tags=tags  # Use the updated tags list that includes mlflow.runName
         )
         
         # Create empty RunInputs and RunOutputs
