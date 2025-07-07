@@ -54,7 +54,7 @@ class Webhook:
         creation_timestamp: int,
         last_updated_timestamp: int,
         description: Optional[str] = None,
-        status: Union[str, WebhookEvent] = WebhookStatus.ACTIVE,
+        status: Union[str, WebhookStatus] = WebhookStatus.ACTIVE,
         secret: Optional[str] = None,
     ):
         """
