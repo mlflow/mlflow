@@ -105,7 +105,6 @@ class Webhook:
     def description(self) -> Optional[str]:
         return self._description
 
-    @description.setter
     def description(self, new_description: Optional[str]) -> None:
         self._description = new_description
 
