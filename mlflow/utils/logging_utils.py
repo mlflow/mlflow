@@ -180,21 +180,6 @@ def suppress_logs(module: str, filter_regex: re.Pattern):
         logger.removeFilter(filter)
 
 
-@contextlib.contextmanager
-def suppress_logs_in_modules(modules: list[str]):
-    filters = []
-    for module in modules:
-        logger = logging.getLogger(module)
-        filter = LoggerMessageFilter(module=module, filter_regex=re.compile(".*"))
-        filters.append((logger, filter))
-        logger.addFilter(filter)
-    try:
-        yield
-    finally:
-        for logger, filter in filters:
-            logger.removeFilter(filter)
-
-
 def _debug(s: str) -> None:
     """
     Debug function to test logging level.
