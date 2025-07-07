@@ -1265,6 +1265,17 @@ def test_set_experiment_tags():
         assert str(exact_expected_tags[tag_key]) == tag_value
 
 
+def test_delete_experiment_tag():
+    with start_run() as active_run:
+        test_experiment = active_run.info.experiment_id
+        mlflow.set_experiment_tag("a", "b")
+        current_experiment = mlflow.tracking.MlflowClient().get_experiment(test_experiment)
+        assert len(current_experiment.tags) == 1
+        mlflow.delete_experiment_tag("a")
+        finished_experiment = mlflow.tracking.MlflowClient().get_experiment(test_experiment)
+        assert len(finished_experiment.tags) == 0
+
+
 @pytest.mark.parametrize("error_code", [RESOURCE_DOES_NOT_EXIST, TEMPORARILY_UNAVAILABLE])
 def test_set_experiment_throws_for_unexpected_error(error_code: int):
     with mock.patch(
