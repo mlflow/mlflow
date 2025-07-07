@@ -51,8 +51,7 @@ def test_webhook_proto_conversion():
     assert webhook_from_proto.webhook_id == webhook.webhook_id
     assert webhook_from_proto.name == webhook.name
     assert webhook_from_proto.url == webhook.url
-    # Compare event strings since events property returns strings
-    assert [str(e) for e in webhook_from_proto.events] == [str(e) for e in webhook.events]
+    assert webhook_from_proto.events == webhook.events
     assert webhook_from_proto.description == webhook.description
     assert webhook_from_proto.status == webhook.status
     assert webhook_from_proto.creation_timestamp == webhook.creation_timestamp
