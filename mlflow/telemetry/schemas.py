@@ -73,9 +73,3 @@ class TelemetryInfo:
     )
     operating_system: str = platform.platform()
     backend_store: Optional[str] = None
-
-
-@dataclass
-class TelemetryRecord:
-    data: str
-    partition_key: str
