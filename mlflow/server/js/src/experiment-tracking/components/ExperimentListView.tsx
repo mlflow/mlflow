@@ -24,6 +24,7 @@ import { ExperimentListTable } from './ExperimentListTable';
 import { useNavigate } from '../../common/utils/RoutingUtils';
 import { BulkDeleteExperimentModal } from './modals/BulkDeleteExperimentModal';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
+import { useUpdateExperimentTags } from './experiment-page/hooks/useUpdateExperimentTags';
 
 type Props = {
   searchFilter: string;
@@ -44,6 +45,10 @@ export const ExperimentListView = ({ searchFilter, setSearchFilter }: Props) => 
     setSorting,
   } = useExperimentListQuery({ searchFilter });
   const invalidateExperimentList = useInvalidateExperimentList();
+
+  const { EditTagsModal, showEditExperimentTagsModal } = useUpdateExperimentTags({
+    onSuccess: invalidateExperimentList,
+  });
 
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [searchInput, setSearchInput] = useState('');
@@ -177,6 +182,7 @@ export const ExperimentListView = ({ searchFilter, setSearchFilter }: Props) => 
             pageSizeSelect,
           }}
           sortingProps={{ sorting, setSorting }}
+          onEditTags={showEditExperimentTagsModal}
         />
       </div>
       <CreateExperimentModal
@@ -193,6 +199,7 @@ export const ExperimentListView = ({ searchFilter, setSearchFilter }: Props) => 
           setRowSelection({});
         }}
       />
+      {EditTagsModal}
     </ScrollablePageWrapper>
   );
 };
