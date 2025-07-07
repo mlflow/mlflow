@@ -1,6 +1,7 @@
 from enum import Enum
 from typing import Optional, Union
 
+from mlflow.exceptions import MlflowException
 from mlflow.protos.webhooks_pb2 import Webhook as ProtoWebhook
 from mlflow.protos.webhooks_pb2 import WebhookEvent as ProtoWebhookEvent
 from mlflow.protos.webhooks_pb2 import WebhookStatus as ProtoWebhookStatus
@@ -77,7 +78,9 @@ class Webhook:
         self._webhook_id = webhook_id
         self._name = name
         self._url = url
-        self._events = [WebhookEvent(e) if isinstance(e, str) else e for e in (events or [])]
+        if not events:
+            raise MlflowException.invalid_parameter_value("Webhook events cannot be empty")
+        self._events = [(WebhookEvent(e) if isinstance(e, str) else e) for e in events]
         self._description = description
         self._status = WebhookStatus(status) if isinstance(status, str) else status
         self._secret = secret

@@ -1,6 +1,7 @@
 import pytest
 
 from mlflow.entities.webhook import Webhook, WebhookEvent, WebhookStatus
+from mlflow.exceptions import MlflowException
 from mlflow.protos.webhooks_pb2 import WebhookEvent as ProtoWebhookEvent
 from mlflow.protos.webhooks_pb2 import WebhookStatus as ProtoWebhookStatus
 
@@ -71,3 +72,17 @@ def test_webhook_no_secret_in_repr():
         secret="my-secret",
     )
     assert "my-secret" not in repr(webhook)
+
+
+def test_webhook_invalid_events():
+    with pytest.raises(MlflowException, match="Webhook events cannot be empty"):
+        Webhook(
+            webhook_id="webhook123",
+            name="Test Webhook",
+            url="https://example.com/webhook",
+            events=[],
+            description="Test webhook description",
+            status=WebhookStatus.ACTIVE,
+            creation_timestamp=1234567900,
+            last_updated_timestamp=1234567900,
+        )
