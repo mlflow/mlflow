@@ -3,6 +3,7 @@ import uuid
 from unittest import mock
 
 import pytest
+from sqlalchemy import create_engine, text
 
 from mlflow.entities.model_registry import (
     ModelVersion,
@@ -10,6 +11,7 @@ from mlflow.entities.model_registry import (
     RegisteredModelTag,
 )
 from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY
+from mlflow.entities.webhook import WebhookEvent, WebhookStatus
 from mlflow.environment_variables import (
     _MLFLOW_GO_STORE_TESTING,
     MLFLOW_TRACKING_URI,
@@ -26,6 +28,7 @@ from mlflow.store.model_registry.dbmodels.models import (
     SqlModelVersionTag,
     SqlRegisteredModel,
     SqlRegisteredModelTag,
+    SqlWebhook,
 )
 from mlflow.store.model_registry.sqlalchemy_store import SqlAlchemyStore
 
@@ -49,6 +52,7 @@ def store(tmp_sqlite_uri):
                 SqlRegisteredModelTag,
                 SqlModelVersion,
                 SqlRegisteredModel,
+                SqlWebhook,
             ):
                 session.query(model).delete()
 
@@ -1931,3 +1935,223 @@ def test_create_registered_model_handle_prompt_properly(store):
         r"but the name is already taken by a prompt.",
     ):
         store.create_registered_model("prompt")
+
+
+def test_create_webhook(store):
+    events = [WebhookEvent.MODEL_VERSION_CREATED, WebhookEvent.REGISTERED_MODEL_CREATED]
+    webhook = store.create_webhook(
+        name="test_webhook",
+        url="https://example.com/webhook",
+        events=events,
+        description="Test webhook",
+        secret="secret123",
+        status=WebhookStatus.ACTIVE,
+    )
+
+    assert webhook.name == "test_webhook"
+    assert webhook.url == "https://example.com/webhook"
+    assert webhook.events == events
+    assert webhook.description == "Test webhook"
+    assert webhook.status == WebhookStatus.ACTIVE
+    assert webhook.webhook_id is not None
+    assert webhook.creation_timestamp is not None
+    assert webhook.last_updated_timestamp is not None
+    assert webhook.secret is None  # Should not be exposed in response
+
+
+def test_create_webhook_invalid_params(store):
+    # Test empty name
+    with pytest.raises(MlflowException, match="Webhook name cannot be empty"):
+        store.create_webhook(
+            name="", url="https://example.com", events=[WebhookEvent.MODEL_VERSION_CREATED]
+        )
+
+    # Test empty URL
+    with pytest.raises(MlflowException, match="Webhook URL cannot be empty"):
+        store.create_webhook(name="test", url="", events=[WebhookEvent.MODEL_VERSION_CREATED])
+
+    # Test empty events
+    with pytest.raises(MlflowException, match="Webhook events must be a non-empty list"):
+        store.create_webhook(name="test", url="https://example.com", events=[])
+
+    # Test non-list events
+    with pytest.raises(MlflowException, match="Webhook events must be a non-empty list"):
+        store.create_webhook(name="test", url="https://example.com", events=None)
+
+
+def test_get_webhook(store):
+    events = [WebhookEvent.MODEL_VERSION_CREATED]
+    created_webhook = store.create_webhook(
+        name="test_webhook", url="https://example.com/webhook", events=events
+    )
+
+    retrieved_webhook = store.get_webhook(created_webhook.webhook_id)
+
+    assert retrieved_webhook.webhook_id == created_webhook.webhook_id
+    assert retrieved_webhook.name == "test_webhook"
+    assert retrieved_webhook.url == "https://example.com/webhook"
+    assert retrieved_webhook.events == events
+
+
+def test_get_webhook_not_found(store):
+    with pytest.raises(MlflowException, match="Webhook with ID nonexistent not found"):
+        store.get_webhook("nonexistent")
+
+
+def test_list_webhooks(store):
+    # Create multiple webhooks
+    webhook1 = store.create_webhook(
+        name="webhook1", url="https://example.com/1", events=[WebhookEvent.MODEL_VERSION_CREATED]
+    )
+    webhook2 = store.create_webhook(
+        name="webhook2", url="https://example.com/2", events=[WebhookEvent.REGISTERED_MODEL_CREATED]
+    )
+
+    webhooks, token = store.list_webhooks()
+
+    assert len(webhooks) == 2
+    assert token is None
+    webhook_ids = {w.webhook_id for w in webhooks}
+    assert webhook1.webhook_id in webhook_ids
+    assert webhook2.webhook_id in webhook_ids
+
+
+def test_list_webhooks_pagination(store):
+    # Create more webhooks than max_results
+    created_webhooks = []
+    for i in range(5):
+        webhook = store.create_webhook(
+            name=f"webhook{i}",
+            url=f"https://example.com/{i}",
+            events=[WebhookEvent.MODEL_VERSION_CREATED],
+        )
+        created_webhooks.append(webhook)
+
+    # Test pagination with max_results=2
+    webhooks, token = store.list_webhooks(max_results=2)
+    assert len(webhooks) == 2
+    assert token is not None
+
+    # Get next page
+    next_webhooks, next_token = store.list_webhooks(max_results=2, page_token=token)
+    assert len(next_webhooks) == 2
+    assert next_token is not None
+
+    # Verify we don't get duplicates
+    first_page_ids = {w.webhook_id for w in webhooks}
+    second_page_ids = {w.webhook_id for w in next_webhooks}
+    assert first_page_ids.isdisjoint(second_page_ids)
+
+
+def test_list_webhooks_invalid_max_results(store):
+    with pytest.raises(MlflowException, match="max_results must be between 1 and 1000"):
+        store.list_webhooks(max_results=1001)
+
+
+def test_update_webhook(store):
+    events = [WebhookEvent.MODEL_VERSION_CREATED]
+    webhook = store.create_webhook(
+        name="original_name", url="https://example.com/original", events=events
+    )
+
+    # Update webhook
+    new_events = [WebhookEvent.REGISTERED_MODEL_CREATED, WebhookEvent.MODEL_VERSION_CREATED]
+    updated_webhook = store.update_webhook(
+        webhook_id=webhook.webhook_id,
+        name="updated_name",
+        url="https://example.com/updated",
+        events=new_events,
+        description="Updated description",
+        secret="new_secret",
+        status=WebhookStatus.DISABLED,
+    )
+
+    assert updated_webhook.webhook_id == webhook.webhook_id
+    assert updated_webhook.name == "updated_name"
+    assert updated_webhook.url == "https://example.com/updated"
+    assert updated_webhook.events == new_events
+    assert updated_webhook.description == "Updated description"
+    assert updated_webhook.status == WebhookStatus.DISABLED
+    assert updated_webhook.last_updated_timestamp > webhook.last_updated_timestamp
+
+
+def test_update_webhook_partial(store):
+    events = [WebhookEvent.MODEL_VERSION_CREATED]
+    webhook = store.create_webhook(
+        name="original_name", url="https://example.com/original", events=events
+    )
+
+    # Update only name
+    updated_webhook = store.update_webhook(webhook_id=webhook.webhook_id, name="new_name")
+
+    assert updated_webhook.name == "new_name"
+    assert updated_webhook.url == "https://example.com/original"  # Should remain unchanged
+    assert updated_webhook.events == events  # Should remain unchanged
+
+
+def test_update_webhook_not_found(store):
+    with pytest.raises(MlflowException, match="Webhook with ID nonexistent not found"):
+        store.update_webhook(
+            webhook_id="nonexistent", name="new_name", url="https://example.com/new"
+        )
+
+
+def test_delete_webhook(store):
+    events = [WebhookEvent.MODEL_VERSION_CREATED]
+    webhook = store.create_webhook(
+        name="test_webhook",
+        url="https://example.com/webhook",
+        events=events,
+    )
+
+    store.delete_webhook(webhook.webhook_id)
+
+    with pytest.raises(MlflowException, match=r"Webhook with ID .* not found"):
+        store.get_webhook(webhook.webhook_id)
+
+    webhooks, _ = store.list_webhooks()
+    webhook_ids = {w.webhook_id for w in webhooks}
+    assert webhook.webhook_id not in webhook_ids
+
+
+def test_delete_webhook_not_found(store):
+    with pytest.raises(MlflowException, match="Webhook with ID nonexistent not found"):
+        store.delete_webhook("nonexistent")
+
+
+def test_webhook_status_transitions(store):
+    events = [WebhookEvent.MODEL_VERSION_CREATED]
+
+    webhook = store.create_webhook(
+        name="test_webhook",
+        url="https://example.com/webhook",
+        events=events,
+        status=WebhookStatus.ACTIVE,
+    )
+    assert webhook.status == WebhookStatus.ACTIVE
+
+    # Update to inactive
+    updated_webhook = store.update_webhook(
+        webhook_id=webhook.webhook_id, status=WebhookStatus.DISABLED
+    )
+    assert updated_webhook.status == WebhookStatus.DISABLED
+
+    # Update back to active
+    updated_webhook = store.update_webhook(
+        webhook_id=webhook.webhook_id, status=WebhookStatus.ACTIVE
+    )
+    assert updated_webhook.status == WebhookStatus.ACTIVE
+
+
+def test_webhook_secret_encryption(store):
+    store.create_webhook(
+        name="test_webhook",
+        url="https://example.com/webhook",
+        events=[WebhookEvent.MODEL_VERSION_CREATED],
+        secret="my_secret",
+    )
+    engine = create_engine(store.db_uri)
+    with engine.connect() as conn:
+        (raw_secret,) = conn.execute(text("SELECT secret FROM webhooks")).fetchone()
+        assert raw_secret is not None
+        assert raw_secret != "my_secret"  # Should be encrypted

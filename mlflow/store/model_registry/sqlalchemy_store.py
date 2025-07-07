@@ -1,9 +1,12 @@
+import json
 import logging
 import urllib
+import uuid
 from typing import Any, Optional, Union
 
 import sqlalchemy
 from sqlalchemy.future import select
+from sqlalchemy.orm import Session
 
 import mlflow.store.db.utils
 from mlflow.entities.model_registry.model_version_stages import (
@@ -14,6 +17,7 @@ from mlflow.entities.model_registry.model_version_stages import (
     get_canonical_stage,
 )
 from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY
+from mlflow.entities.webhook import Webhook, WebhookEvent, WebhookStatus
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.registry_utils import handle_resource_already_exist_error, has_prompt_tag
 from mlflow.protos.databricks_pb2 import (
@@ -37,6 +41,7 @@ from mlflow.store.model_registry.dbmodels.models import (
     SqlRegisteredModel,
     SqlRegisteredModelAlias,
     SqlRegisteredModelTag,
+    SqlWebhook,
 )
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.search_utils import SearchModelUtils, SearchModelVersionUtils, SearchUtils
@@ -123,6 +128,7 @@ class SqlAlchemyStore(AbstractStore):
         expected_tables = [
             SqlRegisteredModel.__tablename__,
             SqlModelVersion.__tablename__,
+            SqlWebhook.__tablename__,
         ]
         if any(table not in inspected_tables for table in expected_tables):
             # TODO: Replace the MlflowException with the following line once it's possible to run
@@ -1284,3 +1290,147 @@ class SqlAlchemyStore(AbstractStore):
         Does not wait for the model version to become READY as a successful creation will
         immediately place the model version in a READY state.
         """
+
+    # Webhook CRUD operations
+    def create_webhook(
+        self,
+        name: str,
+        url: str,
+        events: list[WebhookEvent],
+        description: Optional[str] = None,
+        secret: Optional[str] = None,
+        status: Optional[WebhookStatus] = None,
+    ) -> Webhook:
+        if not name:
+            raise MlflowException("Webhook name cannot be empty.", INVALID_PARAMETER_VALUE)
+        if not url:
+            raise MlflowException("Webhook URL cannot be empty.", INVALID_PARAMETER_VALUE)
+        if not events or not isinstance(events, list):
+            raise MlflowException(
+                "Webhook events must be a non-empty list.", INVALID_PARAMETER_VALUE
+            )
+
+        with self.ManagedSessionMaker() as session:
+            webhook_id = str(uuid.uuid4())
+            creation_time = get_current_time_millis()
+            webhook = SqlWebhook(
+                webhook_id=webhook_id,
+                name=name,
+                url=url,
+                events=json.dumps([str(e) for e in events]),  # Store as JSON string
+                description=description,
+                secret=secret,
+                status=str(status or WebhookStatus.ACTIVE),
+                creation_timestamp=creation_time,
+                last_updated_timestamp=creation_time,
+            )
+
+            session.add(webhook)
+            session.flush()
+            return webhook.to_mlflow_entity()
+
+    def get_webhook(self, webhook_id: str) -> Webhook:
+        with self.ManagedSessionMaker() as session:
+            webhook = self._get_webhook_by_id(session, webhook_id)
+            return webhook.to_mlflow_entity()
+
+    def list_webhooks(
+        self,
+        max_results: Optional[int] = None,
+        page_token: Optional[str] = None,
+    ) -> tuple[list[Webhook], Optional[str]]:
+        max_results = max_results or 100
+        if max_results < 1 or max_results > 1000:
+            raise MlflowException(
+                "max_results must be between 1 and 1000.", INVALID_PARAMETER_VALUE
+            )
+
+        offset = SearchUtils.parse_start_offset_from_page_token(page_token)
+        with self.ManagedSessionMaker() as session:
+            query = (
+                session.query(SqlWebhook)
+                .filter(SqlWebhook.deleted_timestamp.is_(None))
+                .order_by(SqlWebhook.creation_timestamp.desc())
+                .limit(max_results + 1)
+            )
+
+            if page_token:
+                query = query.offset(offset)
+
+            webhooks = query.all()
+
+            # Check if there's a next page
+            has_next_page = len(webhooks) > max_results
+            if has_next_page:
+                webhooks = webhooks[:max_results]
+
+            next_page_token = None
+            if has_next_page:
+                next_page_token = SearchUtils.create_page_token(offset + max_results)
+
+            return ([w.to_mlflow_entity() for w in webhooks], next_page_token)
+
+    def update_webhook(
+        self,
+        webhook_id: str,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        url: Optional[str] = None,
+        events: Optional[list[WebhookEvent]] = None,
+        secret: Optional[str] = None,
+        status: Optional[WebhookStatus] = None,
+    ) -> Webhook:
+        with self.ManagedSessionMaker() as session:
+            webhook = self._get_webhook_by_id(session, webhook_id)
+
+            # Update fields if provided
+            if name is not None:
+                webhook.name = name
+            if url is not None:
+                webhook.url = url
+            if events is not None:
+                event_strings = [str(e) for e in events]
+                webhook.events = json.dumps(event_strings)
+            if description is not None:
+                webhook.description = description
+            if secret is not None:
+                webhook.secret = secret
+            if status is not None:
+                webhook.status = str(status)
+
+            webhook.last_updated_timestamp = get_current_time_millis()
+
+            session.add(webhook)
+            session.flush()
+
+            return webhook.to_mlflow_entity()
+
+    def delete_webhook(self, webhook_id: str) -> None:
+        with self.ManagedSessionMaker() as session:
+            webhook = self._get_webhook_by_id(session, webhook_id)
+
+            # Soft delete by setting deleted_timestamp
+            webhook.deleted_timestamp = get_current_time_millis()
+            webhook.last_updated_timestamp = webhook.deleted_timestamp
+
+            session.add(webhook)
+            session.flush()
+
+    # Helper methods for webhooks
+
+    def _get_webhook_by_id(self, session: Session, webhook_id: str) -> SqlWebhook:
+        webhook = (
+            session.query(SqlWebhook)
+            .filter(
+                SqlWebhook.webhook_id == webhook_id,
+                SqlWebhook.deleted_timestamp.is_(None),
+            )
+            .first()
+        )
+
+        if not webhook:
+            raise MlflowException(
+                f"Webhook with ID {webhook_id} not found.", RESOURCE_DOES_NOT_EXIST
+            )
+
+        return webhook

@@ -12,6 +12,9 @@ class WebhookStatus(str, Enum):
     ACTIVE = "ACTIVE"
     DISABLED = "DISABLED"
 
+    def __str__(self) -> str:
+        return self.value
+
     @classmethod
     def from_proto(cls, proto: int) -> "WebhookStatus":
         return WebhookStatus(ProtoWebhookStatus.Name(proto))
@@ -32,6 +35,9 @@ class WebhookEvent(str, Enum):
     # Model Version Alias Events
     MODEL_VERSION_ALIAS_CREATED = "MODEL_VERSION_ALIAS_CREATED"
     MODEL_VERSION_ALIAS_DELETED = "MODEL_VERSION_ALIAS_DELETED"
+
+    def __str__(self) -> str:
+        return self.value
 
     @classmethod
     def from_proto(cls, proto: int) -> "WebhookEvent":
