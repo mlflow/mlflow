@@ -108,20 +108,17 @@ message Webhook {
   // URL to send webhook events to
   optional string url = 4;
 
-  // Optional secret key for HMAC signature verification
-  optional string secret = 5;
-
   // List of event types this webhook is subscribed to
-  repeated string events = 6;
+  repeated string events = 5;
 
   // Current status of the webhook
-  optional WebhookStatus status = 7;
+  optional WebhookStatus status = 6;
 
   // Timestamp when webhook was created
-  optional int64 creation_timestamp = 8;
+  optional int64 creation_timestamp = 7;
 
   // Timestamp when webhook was last updated
-  optional int64 last_updated_timestamp = 9;
+  optional int64 last_updated_timestamp = 8;
 }
 
 // Test webhook result
