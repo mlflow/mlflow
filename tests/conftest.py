@@ -7,13 +7,14 @@ import tempfile
 import time
 import uuid
 from unittest import mock
+from unittest.mock import Mock, patch
 
 import pytest
 import requests
 from opentelemetry import trace as trace_api
 
 import mlflow
-from mlflow.telemetry.client import set_telemetry_client
+from mlflow.telemetry.client import TELEMETRY_URL, get_telemetry_client, set_telemetry_client
 from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
 from mlflow.tracing.export.inference_table import _TRACE_BUFFER
 from mlflow.tracing.fluent import _set_last_active_trace_id
@@ -337,4 +338,32 @@ def reset_active_model_context():
 
 @pytest.fixture(autouse=True)
 def reset_telemetry_client():
+    yield
+    client = get_telemetry_client()
+    if client:
+        client._wait_for_consumer_threads(terminate=True)
     set_telemetry_client()
+
+
+@pytest.fixture
+def mock_requests():
+    """Fixture to mock requests.post and capture telemetry records."""
+    captured_records = []
+
+    def mock_post(url, json=None, **kwargs):
+        if url != TELEMETRY_URL:
+            mock_response = Mock()
+            mock_response.status_code = 404
+            return mock_response
+        if json and "records" in json:
+            captured_records.extend(json["records"])
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "status": "success",
+            "count": len(json.get("records", [])) if json else 0,
+        }
+        return mock_response
+
+    with patch("requests.post", side_effect=mock_post):
+        yield captured_records
