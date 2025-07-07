@@ -93,6 +93,16 @@ enum WebhookStatus {
   DISABLED = 2;   // Webhook is disabled and not receiving events
 }
 
+// Webhook events enumeration
+enum WebhookEvent {
+  REGISTERED_MODEL_CREATED = 1;
+  MODEL_VERSION_CREATED = 2;
+  MODEL_VERSION_TAG_SET = 3;
+  MODEL_VERSION_TAG_DELETED = 4;
+  MODEL_VERSION_ALIAS_CREATED = 5;
+  MODEL_VERSION_ALIAS_DELETED = 6;
+}
+
 // Webhook entity
 message Webhook {
   // Unique identifier for the webhook
@@ -108,7 +118,7 @@ message Webhook {
   optional string url = 4;
 
   // List of event types this webhook is subscribed to
-  repeated string events = 5;
+  repeated WebhookEvent events = 5;
 
   // Current status of the webhook
   optional WebhookStatus status = 6;
@@ -133,7 +143,6 @@ message WebhookTestResult {
 
   // Error message if test failed
   optional string error_message = 4;
-
 }
 
 // Create webhook request
@@ -243,8 +252,9 @@ message TestWebhook {
   // ID of the webhook to test
   optional string webhook_id = 1 [(validate_required) = true];
 
-  // Optional custom payload for testing
-  optional string test_payload = 2;
+  // Optional event type to test. If not specified, defaults to the first event type
+  // in the webhook's subscribed events.
+  optional WebhookEvent event = 2;
 
   message Response {
     optional WebhookTestResult result = 1;
