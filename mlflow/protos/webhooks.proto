@@ -89,10 +89,9 @@ service WebhookService {
 
 // Webhook status enumeration
 enum WebhookStatus {
-  WEBHOOK_STATUS_UNSPECIFIED = 0;
   ACTIVE = 1;     // Webhook is active and receiving events
-  INACTIVE = 2;   // Webhook is temporarily disabled
-  DISABLED = 3;   // Webhook is permanently disabled
+  DISABLED = 2;   // Webhook is disabled and not receiving events
+  DELETED = 3;    // Webhook has been soft-deleted and is no longer active
 }
 
 // Webhook entity
