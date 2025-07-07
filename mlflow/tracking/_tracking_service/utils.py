@@ -2,7 +2,7 @@ import logging
 import os
 from collections import OrderedDict
 from contextlib import contextmanager
-from functools import partial
+from functools import lru_cache, partial
 from pathlib import Path
 from typing import Generator, Union
 
@@ -217,6 +217,11 @@ def _get_store(store_uri=None, artifact_uri=None):
 
 def _get_tracking_scheme(store_uri=None) -> str:
     resolved_store_uri = _resolve_tracking_uri(store_uri)
+    return _get_tracking_scheme_with_resolved_uri(resolved_store_uri)
+
+
+@lru_cache(maxsize=100)
+def _get_tracking_scheme_with_resolved_uri(resolved_store_uri: str) -> str:
     scheme = (
         resolved_store_uri
         if resolved_store_uri in {"databricks", "databricks-uc", "uc"}
