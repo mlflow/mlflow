@@ -3,11 +3,18 @@ import contextlib
 import shutil
 import subprocess
 import sys
-from collections import namedtuple
+from dataclasses import dataclass
 from pathlib import Path
 
-# Supported package types
-Package = namedtuple("Package", ["pypi_name", "type", "build_path"])
+
+@dataclass(frozen=True)
+class Package:
+    # name of the package on PyPI.
+    pypi_name: str
+    # type of the package, one of "dev", "skinny", "tracing", "release"
+    type: str
+    # path to the package relative to the root of the repository
+    build_path: str
 
 
 DEV = Package("mlflow", "dev", ".")
@@ -75,7 +82,7 @@ def main():
 
     with restore_changes():
         pyproject = Path("pyproject.toml")
-        if package.type == RELEASE:
+        if package == RELEASE:
             pyproject.write_text(Path("pyproject.release.toml").read_text())
 
         subprocess.check_call(
@@ -89,7 +96,7 @@ def main():
 
         DIST_DIR = Path("dist")
         DIST_DIR.mkdir(exist_ok=True)
-        if package.type in (SKINNY.type, TRACING.type):
+        if package in (SKINNY, TRACING):
             # Move `libs/xyz/dist/*` to `dist/`
             for src in (Path(package.build_path) / "dist").glob("*"):
                 print(src)

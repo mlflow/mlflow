@@ -129,12 +129,8 @@ jobs:
             URL="git+https://github.com/${REPO}.git@${REF}"
           fi
 
-          if [ "${{ matrix.type }}" == "tracing" ]; then
-            # Tracing package doesn't have command line entry point
-            docker run --rm python:3.10 bash -c "pip install $URL && python -c 'import mlflow; print(mlflow.__version__)'"
-          else
-            docker run --rm python:3.10 bash -c "pip install $URL && mlflow --version"
-          fi
+          docker run --rm python:3.10 bash -c "pip install uv && uv pip install --system $URL && python -c 'import mlflow; print(mlflow.__version__)'"
+
       # Anyone with read access can download the uploaded wheel on GitHub.
       - name: Upload wheel
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
