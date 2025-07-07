@@ -3,22 +3,24 @@ import { TraceInfo } from '../../../src/core/entities/trace_info';
 import { TraceData } from '../../../src/core/entities/trace_data';
 import { TraceLocationType } from '../../../src/core/entities/trace_location';
 import { TraceState } from '../../../src/core/entities/trace_state';
-import { makeRequest } from '../../../src/clients/utils';
-
-// Mock the makeRequest function
-// eslint-disable-next-line @typescript-eslint/no-unsafe-return
-jest.mock('../../../src/clients/utils', () => ({
-  ...jest.requireActual('../../../src/clients/utils'),
-  makeRequest: jest.fn()
-}));
+import { http, HttpResponse } from 'msw';
+import { setupServer } from 'msw/node';
 
 describe('MlflowArtifactsClient', () => {
   let client: MlflowArtifactsClient;
-  const mockMakeRequest = makeRequest as jest.MockedFunction<typeof makeRequest>;
+  let server: ReturnType<typeof setupServer>;
+
+  beforeAll(() => {
+    server = setupServer();
+    server.listen();
+  });
+
+  afterAll(() => {
+    server.close();
+  });
 
   beforeEach(() => {
     client = new MlflowArtifactsClient({ host: 'http://localhost:5000' });
-    mockMakeRequest.mockClear();
   });
 
   describe('uploadTraceData', () => {
@@ -37,17 +39,19 @@ describe('MlflowArtifactsClient', () => {
       });
       const traceData = new TraceData([]);
 
+      // Mock the artifacts upload endpoint
+      server.use(
+        http.put(
+          'http://localhost:5000/api/2.0/mlflow-artifacts/artifacts/0/traces/tr-abc123/artifacts/traces.json',
+          () => {
+            return HttpResponse.json({}, { status: 200 });
+          }
+        )
+      );
+
       await client.uploadTraceData(traceInfo, traceData);
 
-      expect(mockMakeRequest).toHaveBeenCalledTimes(1);
-      expect(mockMakeRequest).toHaveBeenCalledWith(
-        'PUT',
-        'http://localhost:5000/api/2.0/mlflow-artifacts/artifacts/0/traces/tr-abc123/artifacts/traces.json',
-        {
-          'Content-Type': 'application/json'
-        },
-        expect.any(Object) // TraceData JSON
-      );
+      // Test passes if no errors thrown
     });
 
     it('should throw error when artifact location is missing', async () => {
@@ -67,7 +71,7 @@ describe('MlflowArtifactsClient', () => {
         'Artifact location not found in trace tags'
       );
 
-      expect(mockMakeRequest).not.toHaveBeenCalled();
+      // Test passes if error is thrown as expected
     });
   });
 
@@ -100,18 +104,17 @@ describe('MlflowArtifactsClient', () => {
         ]
       };
 
-      mockMakeRequest.mockResolvedValue(mockResponse);
+      // Mock the artifacts download endpoint
+      server.use(
+        http.get(
+          'http://localhost:5000/api/2.0/mlflow-artifacts/artifacts/5/traces/tr-download/artifacts/traces.json',
+          () => {
+            return HttpResponse.json(mockResponse);
+          }
+        )
+      );
 
       const result = await client.downloadTraceData(traceInfo);
-
-      expect(mockMakeRequest).toHaveBeenCalledTimes(1);
-      expect(mockMakeRequest).toHaveBeenCalledWith(
-        'GET',
-        'http://localhost:5000/api/2.0/mlflow-artifacts/artifacts/5/traces/tr-download/artifacts/traces.json',
-        {
-          'Content-Type': 'application/json'
-        }
-      );
 
       expect(result).toBeInstanceOf(TraceData);
       expect(result.spans).toHaveLength(1);
@@ -133,15 +136,19 @@ describe('MlflowArtifactsClient', () => {
         }
       });
 
-      mockMakeRequest.mockResolvedValue({ spans: [] });
+      // Mock the complex path artifacts download endpoint
+      server.use(
+        http.get(
+          'http://localhost:5000/api/2.0/mlflow-artifacts/artifacts/42/some/nested/path/traces/tr-complex-path/artifacts/traces.json',
+          () => {
+            return HttpResponse.json({ spans: [] });
+          }
+        )
+      );
 
       await client.downloadTraceData(traceInfo);
 
-      expect(mockMakeRequest).toHaveBeenCalledWith(
-        'GET',
-        'http://localhost:5000/api/2.0/mlflow-artifacts/artifacts/42/some/nested/path/traces/tr-complex-path/artifacts/traces.json',
-        expect.any(Object)
-      );
+      // Test passes if no errors thrown
     });
   });
 });

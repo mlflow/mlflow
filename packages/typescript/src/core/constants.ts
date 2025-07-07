@@ -65,3 +65,17 @@ export const DEFAULT_SPAN_NAME = 'span';
  * Trace ID for no-op spans
  */
 export const NO_OP_SPAN_TRACE_ID = 'no-op-span-trace-id';
+
+/**
+ * Constants for token usage keys used in OpenAI API responses
+ */
+export const TokenUsageKey = {
+  INPUT_TOKENS: 'input_tokens',
+  OUTPUT_TOKENS: 'output_tokens',
+  TOTAL_TOKENS: 'total_tokens'
+};
+
+/**
+ * Maximum length for trace request/response preview strings
+ */
+export const TRACE_REQUEST_RESPONSE_PREVIEW_MAX_LENGTH = 1000;

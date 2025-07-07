@@ -1,4 +1,5 @@
 import { ArtifactsClient } from './base';
+import { DatabricksArtifactsClient } from './databricks';
 import { MlflowArtifactsClient } from './mlflow';
 
 /**
@@ -7,8 +8,20 @@ import { MlflowArtifactsClient } from './mlflow';
  * @param trackingUri - The tracking URI to use to determine the artifacts client.
  * @returns The appropriate artifacts client.
  */
-export function getArtifactsClient(host: string): ArtifactsClient {
-  return new MlflowArtifactsClient({ host });
+export function getArtifactsClient({
+  trackingUri,
+  host,
+  databricksToken
+}: {
+  trackingUri: string;
+  host: string;
+  databricksToken?: string;
+}): ArtifactsClient {
+  if (trackingUri.startsWith('databricks')) {
+    return new DatabricksArtifactsClient({ host, databricksToken });
+  } else {
+    return new MlflowArtifactsClient({ host });
+  }
 }
 
 export { ArtifactsClient };

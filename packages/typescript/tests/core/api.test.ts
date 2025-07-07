@@ -20,7 +20,7 @@ describe('API', () => {
   };
 
   beforeAll(async () => {
-    client = new MlflowClient({ host: TEST_TRACKING_URI });
+    client = new MlflowClient({ trackingUri: TEST_TRACKING_URI, host: TEST_TRACKING_URI });
 
     // Create a new experiment
     const experimentName = `test-experiment-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
