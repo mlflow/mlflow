@@ -641,8 +641,7 @@ def test_delete_experiment_tag(mlflow_client):
     # test that deleting a tag works
     mlflow_client.delete_experiment_tag(experiment_id, "dataset")
     experiment = mlflow_client.get_experiment(experiment_id)
-    assert "dataset" in experiment.tags
-    assert experiment.tags.length == 0
+    assert len(experiment.tags) == 0
 
 
 def test_delete_tag(mlflow_client):

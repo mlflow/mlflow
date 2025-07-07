@@ -1836,7 +1836,7 @@ def test_delete_experiment_tags(store):
     store.delete_experiment_tag(FileStore.DEFAULT_EXPERIMENT_ID, "tag0")
     experiment = store.get_experiment(FileStore.DEFAULT_EXPERIMENT_ID)
     assert "tag0" not in experiment.tags.keys()
-    assert experiment.tags.length == 1
+    assert len(experiment.tags) == 1
 
 
 def test_set_tags(store):
