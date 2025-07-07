@@ -91,7 +91,6 @@ service WebhookService {
 enum WebhookStatus {
   ACTIVE = 1;     // Webhook is active and receiving events
   DISABLED = 2;   // Webhook is disabled and not receiving events
-  DELETED = 3;    // Webhook has been soft-deleted and is no longer active
 }
 
 // Webhook entity
@@ -126,17 +125,15 @@ message WebhookTestResult {
   // Whether the test succeeded
   optional bool success = 1;
 
-  // HTTP response status code
+  // HTTP response status code if available
   optional int32 response_status = 2;
 
-  // Response body
+  // Response body if available
   optional string response_body = 3;
 
   // Error message if test failed
   optional string error_message = 4;
 
-  // Response time in milliseconds
-  optional int64 response_time_ms = 5;
 }
 
 // Create webhook request
