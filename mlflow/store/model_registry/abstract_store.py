@@ -11,6 +11,7 @@ from mlflow.entities.model_registry.model_version_status import ModelVersionStat
 from mlflow.entities.model_registry.model_version_tag import ModelVersionTag
 from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.entities.model_registry.prompt_version import PromptVersion
+from mlflow.entities.model_registry.webhook import Webhook, WebhookTestResult
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import (
     IS_PROMPT_TAG_KEY,
@@ -1079,3 +1080,114 @@ class AbstractStore:
                 parsed_prompts_tag_value.append(new_prompt_entry)
 
         return json.dumps(parsed_prompts_tag_value)
+
+    # CRUD API for Webhook objects
+    def create_webhook(
+        self,
+        name: str,
+        url: str,
+        events: list[str],
+        creation_timestamp: Optional[int] = None,
+        last_updated_timestamp: Optional[int] = None,
+        description: Optional[str] = None,
+        secret: Optional[str] = None,
+        status: Optional[str] = None,
+    ) -> Webhook:
+        """
+        Create a new webhook in the backend store.
+
+        Args:
+            name: Unique name for the webhook.
+            url: Webhook endpoint URL.
+            events: List of event types that trigger this webhook.
+            creation_timestamp: Optional timestamp for when the webhook was created.
+            last_updated_timestamp: Optional timestamp for the last update to the webhook.
+            description: Optional description of the webhook.
+            secret: Optional secret for HMAC signature verification.
+            status: Webhook status (defaults to ACTIVE).
+
+        Returns:
+            A single :py:class:`mlflow.entities.model_registry.Webhook` object
+            created in the backend.
+        """
+        raise NotImplementedError(f"{self.__class__.__name__} does not support create_webhook")
+
+    def get_webhook(self, webhook_id: str) -> Webhook:
+        """
+        Get webhook instance by ID.
+
+        Args:
+            webhook_id: Webhook ID.
+
+        Returns:
+            A single :py:class:`mlflow.entities.model_registry.Webhook` object.
+        """
+        raise NotImplementedError(f"{self.__class__.__name__} does not support get_webhook")
+
+    def list_webhooks(
+        self,
+        max_results: Optional[int] = None,
+        page_token: Optional[str] = None,
+    ) -> tuple[list[Webhook], Optional[str]]:
+        """
+        List webhooks in the backend store.
+
+        Args:
+            max_results: Maximum number of webhooks to return.
+            page_token: Token specifying the next page of results.
+
+        Returns:
+            A tuple of (list of Webhook objects, next_page_token).
+        """
+        raise NotImplementedError(f"{self.__class__.__name__} does not support list_webhooks")
+
+    def update_webhook(
+        self,
+        webhook_id: str,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        url: Optional[str] = None,
+        events: Optional[list[str]] = None,
+        secret: Optional[str] = None,
+        status: Optional[str] = None,
+    ) -> Webhook:
+        """
+        Update an existing webhook.
+
+        Args:
+            webhook_id: Webhook ID.
+            name: New webhook name.
+            description: New webhook description.
+            url: New webhook URL.
+            events: New list of event types.
+            secret: New webhook secret.
+            status: New webhook status.
+
+        Returns:
+            A single updated :py:class:`mlflow.entities.model_registry.Webhook` object.
+        """
+        raise NotImplementedError(f"{self.__class__.__name__} does not support update_webhook")
+
+    def delete_webhook(self, webhook_id: str) -> None:
+        """
+        Delete a webhook.
+
+        Args:
+            webhook_id: Webhook ID.
+
+        Returns:
+            None
+        """
+        raise NotImplementedError(f"{self.__class__.__name__} does not support delete_webhook")
+
+    def test_webhook(self, webhook_id: str) -> WebhookTestResult:
+        """
+        Test a webhook by sending a test payload.
+
+        Args:
+            webhook_id: Webhook ID to test.
+
+        Returns:
+            A test result object with success status and response details.
+        """
+        raise NotImplementedError(f"{self.__class__.__name__} does not support test_webhook")
