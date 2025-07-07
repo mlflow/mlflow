@@ -1,6 +1,7 @@
 import json
 import os
 from collections import namedtuple
+from dataclasses import asdict
 from pathlib import Path
 from unittest import mock
 
@@ -19,6 +20,8 @@ from mlflow import pyfunc
 from mlflow.models import Model, ModelSignature
 from mlflow.models.utils import _read_example, load_serving_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
+from mlflow.telemetry.client import get_telemetry_client
+from mlflow.telemetry.schemas import LogModelParams, ModelType
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import DataType
 from mlflow.types.schema import ColSpec, Schema, TensorSpec
@@ -546,3 +549,34 @@ def test_model_log_with_signature_inference(lgb_model):
         ),
         outputs=Schema([TensorSpec(np.dtype("float64"), (-1, 3))]),
     )
+
+
+def test_log_model_sends_telemetry_record(mock_requests, lgb_model):
+    """Test that log_model sends telemetry records."""
+    mlflow.lightgbm.log_model(
+        lgb_model.model,
+        name="model",
+        input_example=lgb_model.inference_dataframe,
+        params={"param1": "value1"},
+    )
+    # Wait for telemetry to be sent
+    get_telemetry_client().flush()
+
+    # Check that telemetry record was sent
+    assert len(mock_requests) == 1
+    record = mock_requests[0]
+    data = json.loads(record["data"])
+    assert data["api_module"] == mlflow.lightgbm.log_model.__module__
+    assert data["api_name"] == "log_model"
+    assert data["params"] == asdict(
+        LogModelParams(
+            flavor="lightgbm",
+            model=ModelType.MODEL_OBJECT,
+            is_pip_requirements_set=False,
+            is_extra_pip_requirements_set=False,
+            is_code_paths_set=False,
+            is_params_set=True,
+            is_metadata_set=False,
+        )
+    )
+    assert data["status"] == "success"

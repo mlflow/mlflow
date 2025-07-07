@@ -3,6 +3,7 @@ import json
 import logging
 import os
 from collections import namedtuple
+from dataclasses import asdict
 from pathlib import Path
 from unittest import mock
 
@@ -33,6 +34,8 @@ from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.store.artifact.unity_catalog_models_artifact_repo import (
     UnityCatalogModelsArtifactRepository,
 )
+from mlflow.telemetry.client import get_telemetry_client
+from mlflow.telemetry.schemas import LogModelParams, ModelType
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import DataType
 from mlflow.types.schema import ColSpec, Schema
@@ -1030,3 +1033,34 @@ def test_log_model_with_vector_input_type_signature(spark, spark_model_estimator
     ).toPandas()
     preds = pyfunc_model.predict(infer_data)
     assert spark_model_estimator.predictions == preds
+
+
+def test_log_model_sends_telemetry_record(mock_requests, spark_model_iris):
+    """Test that log_model sends telemetry records."""
+    mlflow.spark.log_model(
+        spark_model_iris.model,
+        name="model",
+        input_example=spark_model_iris.inference_dataframe,
+        params={"param1": "value1"},
+    )
+    # Wait for telemetry to be sent
+    get_telemetry_client().flush()
+
+    # Check that telemetry record was sent
+    assert len(mock_requests) == 1
+    record = mock_requests[0]
+    data = json.loads(record["data"])
+    assert data["api_module"] == mlflow.spark.log_model.__module__
+    assert data["api_name"] == "log_model"
+    assert data["params"] == asdict(
+        LogModelParams(
+            flavor="spark",
+            model=ModelType.MODEL_OBJECT,
+            is_pip_requirements_set=False,
+            is_extra_pip_requirements_set=False,
+            is_code_paths_set=False,
+            is_params_set=True,
+            is_metadata_set=False,
+        )
+    )
+    assert data["status"] == "success"

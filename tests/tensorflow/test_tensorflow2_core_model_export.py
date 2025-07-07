@@ -1,5 +1,7 @@
 import collections
+import json
 import os
+from dataclasses import asdict
 from unittest import mock
 
 import numpy as np
@@ -8,6 +10,8 @@ import tensorflow as tf
 
 import mlflow.tensorflow
 from mlflow.models import Model, infer_signature
+from mlflow.telemetry.client import get_telemetry_client
+from mlflow.telemetry.schemas import LogModelParams, ModelType
 
 
 class ToyModel(tf.Module):
@@ -131,3 +135,34 @@ def test_load_with_options(tmp_path, tf2_toy_model):
     with mock.patch("tensorflow.saved_model.load") as mock_load:
         mlflow.tensorflow.load_model(model_path, saved_model_kwargs=saved_model_kwargs)
         mock_load.assert_called_once_with(mock.ANY, **saved_model_kwargs)
+
+
+def test_log_model_sends_telemetry_record(mock_requests, tf_core_model):
+    """Test that log_model sends telemetry records."""
+    mlflow.tensorflow.log_model(
+        tf_core_model.model,
+        name="model",
+        input_example=tf_core_model.inference_data,
+        params={"param1": "value1"},
+    )
+    # Wait for telemetry to be sent
+    get_telemetry_client().flush()
+
+    # Check that telemetry record was sent
+    assert len(mock_requests) == 1
+    record = mock_requests[0]
+    data = json.loads(record["data"])
+    assert data["api_module"] == mlflow.tensorflow.log_model.__module__
+    assert data["api_name"] == "log_model"
+    assert data["params"] == asdict(
+        LogModelParams(
+            flavor="tensorflow",
+            model=ModelType.MODEL_OBJECT,
+            is_pip_requirements_set=False,
+            is_extra_pip_requirements_set=False,
+            is_code_paths_set=False,
+            is_params_set=True,
+            is_metadata_set=False,
+        )
+    )
+    assert data["status"] == "success"

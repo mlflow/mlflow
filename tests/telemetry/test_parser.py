@@ -59,7 +59,11 @@ def test_autolog_parser(func, arguments, expected_params):
         ),
         (
             mlflow.pyfunc.log_model,
-            {"model": lambda x: x, "pip_requirements": ["pandas"], "code_paths": ["/path/to/code"]},
+            {
+                "python_model": lambda x: x,
+                "pip_requirements": ["pandas"],
+                "code_paths": ["/path/to/code"],
+            },
             LogModelParams(
                 flavor="pyfunc",
                 model=ModelType.PYTHON_FUNCTION.value,
@@ -72,7 +76,7 @@ def test_autolog_parser(func, arguments, expected_params):
         ),
         (
             mlflow.pyfunc.log_model,
-            {"model": PythonModel(), "metadata": {"key": "value"}},
+            {"python_model": PythonModel(), "metadata": {"key": "value"}},
             LogModelParams(
                 flavor="pyfunc",
                 model=ModelType.PYTHON_MODEL.value,

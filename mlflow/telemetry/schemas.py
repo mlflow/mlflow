@@ -22,6 +22,9 @@ class ModelType(str, Enum):
     CHAT_MODEL = "chat_model"
     CHAT_AGENT = "chat_agent"
     RESPONSES_AGENT = "responses_agent"
+    # pyfunc log_model can accept either python_model or loader_module,
+    # we set model type to LOADER_MODULE if loader_module is specified
+    LOADER_MODULE = "loader_module"
 
 
 @dataclass

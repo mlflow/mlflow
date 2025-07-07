@@ -1,6 +1,7 @@
 import json
 import os
 from collections import namedtuple
+from dataclasses import asdict
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from unittest import mock
@@ -21,6 +22,8 @@ from mlflow import pyfunc
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example, load_serving_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
+from mlflow.telemetry.client import get_telemetry_client
+from mlflow.telemetry.schemas import LogModelParams, ModelType
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -481,3 +484,34 @@ def test_model_log_with_signature_inference(prophet_model):
 
     loaded_model = Model.load(model_info.model_uri)
     assert loaded_model.signature == signature
+
+
+def test_log_model_sends_telemetry_record(mock_requests, prophet_model):
+    """Test that log_model sends telemetry records."""
+    mlflow.prophet.log_model(
+        prophet_model.model,
+        name="model",
+        input_example=prophet_model.inference_dataframe,
+        params={"param1": "value1"},
+    )
+    # Wait for telemetry to be sent
+    get_telemetry_client().flush()
+
+    # Check that telemetry record was sent
+    assert len(mock_requests) == 1
+    record = mock_requests[0]
+    data = json.loads(record["data"])
+    assert data["api_module"] == mlflow.prophet.log_model.__module__
+    assert data["api_name"] == "log_model"
+    assert data["params"] == asdict(
+        LogModelParams(
+            flavor="prophet",
+            model=ModelType.MODEL_OBJECT,
+            is_pip_requirements_set=False,
+            is_extra_pip_requirements_set=False,
+            is_code_paths_set=False,
+            is_params_set=True,
+            is_metadata_set=False,
+        )
+    )
+    assert data["status"] == "success"

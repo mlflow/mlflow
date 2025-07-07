@@ -1,6 +1,9 @@
 import json
+from dataclasses import asdict
 
 import mlflow
+from mlflow.telemetry.client import get_telemetry_client
+from mlflow.telemetry.parser import LogModelParams, ModelType
 from mlflow.types.schema import Object, ParamSchema, ParamSpec, Property
 
 
@@ -77,3 +80,33 @@ def test_langgraph_model_invoke_with_dictionary_params(monkeypatch):
     assert len(pyfunc_model.predict(input_example, params)[0]["messages"]) == len(
         result["messages"]
     )
+
+
+def test_log_model_sends_telemetry_record(mock_requests):
+    """Test that log_model sends telemetry records."""
+    mlflow.langchain.log_model(
+        "tests/langgraph/sample_code/langgraph_prebuilt.py",
+        name="langgraph",
+        input_example={"messages": [{"role": "user", "content": "what is the weather in sf?"}]},
+    )
+    # Wait for telemetry to be sent
+    get_telemetry_client().flush()
+
+    # Check that telemetry record was sent
+    assert len(mock_requests) == 1
+    record = mock_requests[0]
+    data = json.loads(record["data"])
+    assert data["api_module"] == mlflow.langchain.log_model.__module__
+    assert data["api_name"] == "log_model"
+    assert data["params"] == asdict(
+        LogModelParams(
+            flavor="langchain",
+            model=ModelType.MODEL_PATH,
+            is_pip_requirements_set=False,
+            is_extra_pip_requirements_set=False,
+            is_code_paths_set=False,
+            is_params_set=False,
+            is_metadata_set=False,
+        )
+    )
+    assert data["status"] == "success"

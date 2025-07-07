@@ -1,4 +1,5 @@
 import json
+from dataclasses import asdict
 from typing import Any
 from uuid import uuid4
 
@@ -12,6 +13,8 @@ from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import load_serving_example
 from mlflow.pyfunc.loaders.chat_agent import _ChatAgentPyfuncWrapper
 from mlflow.pyfunc.model import ChatAgent
+from mlflow.telemetry.client import get_telemetry_client
+from mlflow.telemetry.parser import LogModelParams, ModelType
 from mlflow.tracing.constant import TraceTagKey
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.agent import (
@@ -430,3 +433,35 @@ def test_chat_agent_predict_with_params(tmp_path):
     responses = list(loaded_model.predict_stream(CHAT_AGENT_INPUT_EXAMPLE, params=None))
     for i, resp in enumerate(responses[:-1]):
         assert resp["delta"]["content"] == f"message {i}"
+
+
+def test_log_model_sends_telemetry_record(mock_requests):
+    """Test that log_model sends telemetry records."""
+
+    client = get_telemetry_client()
+    mlflow.pyfunc.log_model(
+        python_model=SimpleChatAgent(),
+        name="model",
+        input_example={"messages": [{"role": "user", "content": "Hello!"}]},
+    )
+    # Wait for telemetry to be sent
+    client.flush()
+
+    # Check that telemetry record was sent
+    assert len(mock_requests) == 1
+    record = mock_requests[0]
+    data = json.loads(record["data"])
+    assert data["api_module"] == mlflow.pyfunc.log_model.__module__
+    assert data["api_name"] == "log_model"
+    assert data["params"] == asdict(
+        LogModelParams(
+            flavor="pyfunc",
+            model=ModelType.CHAT_AGENT,
+            is_pip_requirements_set=False,
+            is_extra_pip_requirements_set=False,
+            is_code_paths_set=False,
+            is_params_set=False,
+            is_metadata_set=False,
+        )
+    )
+    assert data["status"] == "success"

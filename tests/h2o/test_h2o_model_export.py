@@ -3,6 +3,7 @@
 import json
 import os
 from collections import namedtuple
+from dataclasses import asdict
 from unittest import mock
 
 import h2o
@@ -19,6 +20,8 @@ import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow import pyfunc
 from mlflow.models import Model, ModelSignature
 from mlflow.models.utils import _read_example, load_serving_example
+from mlflow.telemetry.client import get_telemetry_client
+from mlflow.telemetry.schemas import LogModelParams, ModelType
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import DataType
 from mlflow.types.schema import ColSpec, Schema
@@ -391,3 +394,34 @@ def test_model_log_with_signature_inference(h2o_iris_model, h2o_iris_model_signa
 
     mlflow_model = Model.load(model_info.model_uri)
     assert mlflow_model.signature == h2o_iris_model_signature
+
+
+def test_log_model_sends_telemetry_record(mock_requests, h2o_iris_model):
+    """Test that log_model sends telemetry records."""
+    mlflow.h2o.log_model(
+        h2o_iris_model.model,
+        name="model",
+        input_example=h2o_iris_model.inference_data,
+        params={"param1": "value1"},
+    )
+    # Wait for telemetry to be sent
+    get_telemetry_client().flush()
+
+    # Check that telemetry record was sent
+    assert len(mock_requests) == 1
+    record = mock_requests[0]
+    data = json.loads(record["data"])
+    assert data["api_module"] == mlflow.h2o.log_model.__module__
+    assert data["api_name"] == "log_model"
+    assert data["params"] == asdict(
+        LogModelParams(
+            flavor="h2o",
+            model=ModelType.MODEL_OBJECT,
+            is_pip_requirements_set=False,
+            is_extra_pip_requirements_set=False,
+            is_code_paths_set=False,
+            is_params_set=True,
+            is_metadata_set=False,
+        )
+    )
+    assert data["status"] == "success"

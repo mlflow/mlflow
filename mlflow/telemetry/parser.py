@@ -44,16 +44,12 @@ class LogModelParser(TelemetryParser):
     def extract_params(
         cls, func: Callable[..., Any], arguments: dict[str, Any]
     ) -> Optional[LogModelParams]:
-        if flavor := _parse_flavor_from_module_name(func.__module__):
-            flavor = flavor
-        else:
+        flavor = _parse_flavor_from_module_name(func.__module__)
+        if flavor is None:
             _logger.debug(f"Failed to extract log model params for function {func.__name__}")
             return
 
-        # model parameter is the first positional argument
-        model = next(iter(arguments.values()), None)
-        model_type = ModelType.MODEL_PATH if isinstance(model, str) else cls.parse_model_type(model)
-
+        model_type = cls.parse_model_type(flavor, arguments)
         record_params = {"flavor": flavor, "model": model_type.value}
         for param in [
             "pip_requirements",
@@ -67,28 +63,39 @@ class LogModelParser(TelemetryParser):
         return LogModelParams(**record_params)
 
     @classmethod
-    def parse_model_type(cls, model: Any) -> ModelType:
-        try:
-            from mlflow.pyfunc.model import ChatAgent, ChatModel, PythonModel
-        except ImportError:
-            pass
-        else:
-            if isinstance(model, PythonModel):
-                return ModelType.PYTHON_MODEL
-            elif isinstance(model, ChatModel):
-                return ModelType.CHAT_MODEL
-            elif isinstance(model, ChatAgent):
-                return ModelType.CHAT_AGENT
+    def parse_model_type(cls, flavor: str, arguments: dict[str, Any]) -> ModelType:
+        if flavor == "pyfunc":
+            model = arguments.get("python_model")
+            # either python_model or loader_module must be specified
+            if model is None and arguments.get("loader_module"):
+                return ModelType.LOADER_MODULE
 
-        try:
-            from mlflow.pyfunc.model import ResponsesAgent
-        except ImportError:
-            pass
-        else:
-            if isinstance(model, ResponsesAgent):
-                return ModelType.RESPONSES_AGENT
+            try:
+                from mlflow.pyfunc.model import ResponsesAgent
+            except ImportError:
+                pass
+            else:
+                if isinstance(model, ResponsesAgent):
+                    return ModelType.RESPONSES_AGENT
 
-        return ModelType.PYTHON_FUNCTION if callable(model) else ModelType.MODEL_OBJECT
+            try:
+                from mlflow.pyfunc.model import ChatAgent, ChatModel, PythonModel
+            except ImportError:
+                pass
+            else:
+                if isinstance(model, ChatModel):
+                    return ModelType.CHAT_MODEL
+                elif isinstance(model, ChatAgent):
+                    return ModelType.CHAT_AGENT
+                # This check should be at the end because it's the most generic model type
+                elif isinstance(model, PythonModel):
+                    return ModelType.PYTHON_MODEL
+
+            return ModelType.PYTHON_FUNCTION if callable(model) else ModelType.MODEL_OBJECT
+        else:
+            # model parameter is the first positional argument
+            model = next(iter(arguments.values()), None)
+            return ModelType.MODEL_PATH if isinstance(model, str) else ModelType.MODEL_OBJECT
 
 
 class AutologParser(TelemetryParser):

@@ -138,6 +138,7 @@ def get_global_custom_objects():
         pass
 
 
+@track_api_usage
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     model,

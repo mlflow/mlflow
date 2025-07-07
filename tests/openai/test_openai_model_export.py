@@ -1,5 +1,6 @@
 import importlib
 import json
+from dataclasses import asdict
 from unittest import mock
 
 import numpy as np
@@ -13,6 +14,8 @@ import mlflow
 import mlflow.pyfunc.scoring_server as pyfunc_scoring_server
 from mlflow.models.signature import ModelSignature
 from mlflow.models.utils import load_serving_example
+from mlflow.telemetry.client import get_telemetry_client
+from mlflow.telemetry.schemas import LogModelParams, ModelType
 from mlflow.types.schema import ColSpec, ParamSchema, ParamSpec, Schema, TensorSpec
 
 from tests.helper_functions import pyfunc_serve_and_score_model
@@ -615,3 +618,33 @@ def test_inference_params_overlap(tmp_path):
                 params=ParamSchema([ParamSpec(name="prefix", default=None, dtype="string")]),
             ),
         )
+
+
+def test_log_model_sends_telemetry_record(mock_requests, model_with_fixed_response):
+    """Test that log_model sends telemetry records."""
+    mlflow.openai.log_model(
+        model_with_fixed_response,
+        name="model",
+        params={"param1": "value1"},
+    )
+    # Wait for telemetry to be sent
+    get_telemetry_client().flush()
+
+    # Check that telemetry record was sent
+    assert len(mock_requests) == 1
+    record = mock_requests[0]
+    data = json.loads(record["data"])
+    assert data["api_module"] == mlflow.openai.log_model.__module__
+    assert data["api_name"] == "log_model"
+    assert data["params"] == asdict(
+        LogModelParams(
+            flavor="openai",
+            model=ModelType.MODEL_OBJECT,
+            is_pip_requirements_set=False,
+            is_extra_pip_requirements_set=False,
+            is_code_paths_set=False,
+            is_params_set=True,
+            is_metadata_set=False,
+        )
+    )
+    assert data["status"] == "success"

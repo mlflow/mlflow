@@ -4,6 +4,7 @@ import logging
 import os
 import pickle
 import re
+from dataclasses import asdict
 from pathlib import Path
 from unittest import mock
 
@@ -25,6 +26,8 @@ from mlflow.models import Model, ModelSignature
 from mlflow.models.utils import _read_example, load_serving_example
 from mlflow.pytorch import pickle_module as mlflow_pytorch_pickle_module
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
+from mlflow.telemetry.client import get_telemetry_client
+from mlflow.telemetry.schemas import LogModelParams, ModelType
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import Schema, TensorSpec
 from mlflow.utils.environment import _mlflow_conda_env
@@ -1201,3 +1204,36 @@ def test_passing_params_to_model(data):
         np.testing.assert_array_almost_equal(
             pyfunc_model.predict(x, {"y": 2}), model(x, 2), decimal=4
         )
+
+
+def test_log_model_sends_telemetry_record(mock_requests, data):
+    """Test that log_model sends telemetry records."""
+    model = get_sequential_model()
+    train_model(model=model, data=data)
+
+    mlflow.pytorch.log_model(
+        model,
+        name="model",
+        params={"param1": "value1"},
+    )
+    # Wait for telemetry to be sent
+    get_telemetry_client().flush()
+
+    # Check that telemetry record was sent
+    assert len(mock_requests) == 1
+    record = mock_requests[0]
+    data = json.loads(record["data"])
+    assert data["api_module"] == mlflow.pytorch.log_model.__module__
+    assert data["api_name"] == "log_model"
+    assert data["params"] == asdict(
+        LogModelParams(
+            flavor="pytorch",
+            model=ModelType.MODEL_OBJECT,
+            is_pip_requirements_set=False,
+            is_extra_pip_requirements_set=False,
+            is_code_paths_set=False,
+            is_params_set=True,
+            is_metadata_set=False,
+        )
+    )
+    assert data["status"] == "success"
