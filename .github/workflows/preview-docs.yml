@@ -14,7 +14,19 @@ jobs:
     timeout-minutes: 10
     outputs:
       should_continue: ${{ github.event.workflow_run.conclusion == 'success' }}
+      pr_number: ${{ steps.pr_number.outputs.pr_number }}
     steps:
+      - uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
+          name: pr_number
+          path: /tmp
+      - name: Set PR number
+        id: pr_number
+        run: |
+          cat /tmp/pr_number.txt
+          echo "pr_number=$(cat /tmp/pr_number.txt)" >> $GITHUB_OUTPUT
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         if: github.event.workflow_run.conclusion == 'failure'
         with:
@@ -25,7 +37,7 @@ jobs:
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         env:
           COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
-          PULL_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+          PULL_NUMBER: ${{ steps.pr_number.outputs.pr_number }}
           WORKFLOW_RUN_ID: ${{ github.run_id }}
           STAGE: failed
           DOCS_WORKFLOW_RUN_URL: ${{ github.event.workflow_run.html_url }}
@@ -52,6 +64,8 @@ jobs:
       - name: Download build artifact
         uses: actions/download-artifact@95815c38cf2ff2164869cbab79da8d1f422bc89e # v4.2.1
         with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
           name: docs-build-${{ github.event.workflow_run.id }}
           path: downloaded-artifact
       - uses: ./.github/actions/setup-node
@@ -61,7 +75,7 @@ jobs:
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
-          PR_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+          PR_NUMBER: ${{ needs.fail-early.outputs.pr_number }}
           RUN_ID: ${{ github.run_id }}
         run: |-
           OUTPUT=$(npx -y netlify-cli deploy \
@@ -77,7 +91,7 @@ jobs:
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         env:
           COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
-          PULL_NUMBER: ${{ github.event.workflow_run.pull_requests[0].number }}
+          PULL_NUMBER: ${{ needs.fail-early.outputs.pr_number }}
           WORKFLOW_RUN_ID: ${{ github.run_id }}
           STAGE: ${{ steps.netlify_deploy.outcome == 'success' && 'completed' || 'failed' }}
           NETLIFY_URL: ${{ steps.netlify_deploy.outputs.deploy_url }}
