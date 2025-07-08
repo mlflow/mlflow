@@ -76,7 +76,6 @@ docker run -p 5000:5000 mlflow/mlflow:latest
 
 If you have a remote MLflow tracking server already running, skip this step.
 
-
 </TabItem>
 
 <TabItem value="databricks" label="Databricks">
@@ -172,6 +171,7 @@ Create a new MLflow experiment in the MLflow UI, or choose an existing experimen
     ```
 
     </TabItem>
+
   </Tabs>
 </TabsWrapper>
 
@@ -213,7 +213,6 @@ By clicking on the request row (the linked request text), you can view the detai
 <ImageBox src="/images/llms/tracing/quickstart/single-openai-trace-detail.png" alt="Single Trace Detail" width="80%" />
 
 The "Chat" view in the above screenshot shows the full chat messages exchanged between the user and the model. By clicking other table like "Inputs / Outputs", "Attributes", you can see different aspects of the trace, such as the raw input payload, token usage breakdown, and more.
-
 
 ## Step 3: Trace a tool calling agent
 
@@ -259,7 +258,7 @@ const tools = [{
 
 Lastly, define a simple flow that first ask LLM to get instruction for calling the tool, invoke the tool function, and return the result to the LLM. This example uses the `mlflow.withSpan` API to create a parent span for the agent flow, but you can also achieve the same by using the `mlflow.trace` API like the previous example.
 
-```python
+```typescript
 async function runToolAgent(question: string) {
     console.log(`\n🤖 Running tool agent with question: "${question}"`);
 
@@ -317,7 +316,7 @@ async function runToolAgent(question: string) {
 
 Now we can run the application.
 
-```python
+```typescript
 # Run the tool calling agent
 const question = "What's the weather like in Seattle?";
 await runToolAgent(question);
@@ -349,7 +348,6 @@ The aggregated score in the experiment can be seen in the Trace list. You can do
 
 <ImageBox src="/images/llms/tracing/quickstart/openai-trace-feedback-aggregate.png" alt="Feedback Aggregated" width="90%" />
 
-
 ## Summary
 
 Congratulations! You've successfully:
@@ -362,7 +360,6 @@ Congratulations! You've successfully:
 
 MLflow Tracing provides powerful observability for your GenAI applications, helping you monitor performance, debug issues, and understand user interactions. Continue exploring the advanced features to get the most out of your tracing setup!
 
-
 ## Next Steps
 
 Now that you have basic tracing working, explore these advanced features:
@@ -370,4 +367,3 @@ Now that you have basic tracing working, explore these advanced features:
 - [Integration with Other Libraries](/genai/tracing/integrations/): Use MLflow Tracing with other LLM providers and frameworks, such as LangGraph, Pydantic AI.
 - [Automatic Evaluation](/genai/eval-monitor): Learn how to set up automatic evaluation for traces using MLflow's GenAI evaluation feature.
 - [Production Monitoring](/genai/tracing/prod-tracing): Learn how to use MLflow Tracing in production set up with the optimized SDK.
-

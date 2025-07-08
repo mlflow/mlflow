@@ -140,7 +140,6 @@ The table view shows primary metadata of the trace, such as the trace ID, execut
 
 The "Chat" view in the above screenshot shows the full chat messages exchanged between the user and the model. By clicking other table like "Inputs / Outputs", "Attributes", you can see different aspects of the trace, such as the raw input payload, token usage breakdown, and more.
 
-
 ## Step 3: Trace a tool calling agent
 
 Next, let's add a bit more complexity to the application. To get the real-time weather information, we will use an external weather API as a tool. The application will include a tool calling flow, not only a simple LLM call. To instrument that custom Python flow, we will use the <APILink fn="mlflow.trace">`@mlflow.trace`</APILink> decorator. The powerful decorator generates a span for the function call and automatically capture the function inputs, outputs, latency, and exceptions.
@@ -264,7 +263,6 @@ The aggregated score in the experiment can be seen in the Trace list. You can do
 
 <ImageBox src="/images/llms/tracing/quickstart/openai-trace-feedback-aggregate.png" alt="Feedback Aggregated" width="90%" />
 
-
 ## Summary
 
 Congratulations! You've successfully:
@@ -277,7 +275,6 @@ Congratulations! You've successfully:
 
 MLflow Tracing provides powerful observability for your GenAI applications, helping you monitor performance, debug issues, and understand user interactions. Continue exploring the advanced features to get the most out of your tracing setup!
 
-
 ## Next Steps
 
 Now that you have basic tracing working, explore these advanced features:
@@ -285,4 +282,3 @@ Now that you have basic tracing working, explore these advanced features:
 - [Integration with Other Libraries](/genai/tracing/integrations/): Use MLflow Tracing with other LLM providers and frameworks, such as LangGraph, Pydantic AI.
 - [Automatic Evaluation](/genai/eval-monitor): Learn how to set up automatic evaluation for traces using MLflow's GenAI evaluation feature.
 - [Production Monitoring](/genai/tracing/prod-tracing): Learn how to use MLflow Tracing in production set up with the optimized SDK.
-
