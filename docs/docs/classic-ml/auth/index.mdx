@@ -99,6 +99,16 @@ export MLFLOW_TRACKING_USERNAME=your_username
 export MLFLOW_TRACKING_PASSWORD=your_password
 ```
 
+or
+
+```python
+import os
+os.environ["MLFLOW_TRACKING_USERNAME"]="your_username"
+os.environ["MLFLOW_TRACKING_PASSWORD"]="your_password"
+```
+
+and use those to authenticate with the tracking server:
+
 ```python
 import mlflow
 
