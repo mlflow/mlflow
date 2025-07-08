@@ -11,6 +11,7 @@ from mlflow.protos.databricks_trace_server_pb2 import (
     CreateTraceDestinationRequest,
     TraceLocation as ProtoTraceLocation,
 )
+from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import get_databricks_host_creds
 from mlflow.utils.rest_utils import http_request
 from mlflow.utils._spark_utils import _get_active_spark_session
@@ -18,7 +19,7 @@ from google.protobuf.json_format import MessageToDict
 
 _logger = logging.getLogger(__name__)
 
-
+@experimental(version="3.2.0")
 def enable_trace_archival(experiment_id: str, catalog: str, schema: str, table_prefix: str = "trace_logs") -> str:
     """
     Enable trace archival for an MLflow experiment by creating Delta tables and views.
