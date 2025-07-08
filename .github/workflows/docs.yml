@@ -76,6 +76,9 @@ jobs:
         working-directory: docs/api_reference
         run: |
           make test-examples
+      - name: Check sitemap
+        run: |
+          yarn sitemap https://mlflow.org/docs/latest/sitemap.xml ./build/latest/sitemap.xml
       - name: Move build artifacts
         run: |
           mkdir -p /tmp/docs-build/docs
