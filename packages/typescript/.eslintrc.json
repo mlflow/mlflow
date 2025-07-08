@@ -30,6 +30,7 @@
     "@typescript-eslint/no-unsafe-assignment": "off",
     // Namespaces are useful for organizing API specifications
     "@typescript-eslint/no-namespace": "off",
+    "@typescript-eslint/ban-types": "off",
 
     // General JavaScript/TypeScript rules
     "no-console": ["warn", { "allow": ["debug", "warn", "error"] }],

@@ -5,21 +5,34 @@ import {
   encodeSpanIdToBase64,
   encodeTraceIdToBase64,
   decodeIdFromBase64,
-  deduplicateSpanNamesInPlace
+  deduplicateSpanNamesInPlace,
+  mapArgsToObject
 } from '../../../src/core/utils';
 import { createTestSpan } from '../../helper';
 import { LiveSpan } from '../../../src/core/entities/span';
 
 describe('utils', () => {
   describe('convertNanoSecondsToHrTime', () => {
-    it('should convert small nanosecond values correctly', () => {
-      const result = convertNanoSecondsToHrTime(123456789);
-      expect(result).toEqual([0, 123456789]);
-    });
-
-    it('should convert values exactly at 1 second', () => {
-      const result = convertNanoSecondsToHrTime(1_000_000_000);
-      expect(result).toEqual([1, 0]);
+    // Using table-driven tests with test.each for time conversion
+    test.each([
+      {
+        description: 'small nanosecond values',
+        input: 123456789,
+        expected: [0, 123456789]
+      },
+      {
+        description: 'values exactly at 1 second',
+        input: 1_000_000_000,
+        expected: [1, 0]
+      },
+      {
+        description: 'zero',
+        input: 0,
+        expected: [0, 0]
+      }
+    ])('should convert $description correctly', ({ input, expected }) => {
+      const result = convertNanoSecondsToHrTime(input);
+      expect(result).toEqual(expected);
     });
 
     it('should convert large nanosecond values correctly', () => {
@@ -32,11 +45,6 @@ describe('utils', () => {
       expect(result[0]).toBe(seconds);
       // Due to precision loss in the calculation above
       expect(result[1]).toBe(123456768);
-    });
-
-    it('should handle zero', () => {
-      const result = convertNanoSecondsToHrTime(0);
-      expect(result).toEqual([0, 0]);
     });
 
     it('should handle maximum safe integer', () => {
@@ -85,29 +93,15 @@ describe('utils', () => {
   });
 
   describe('encodeSpanIdToBase64', () => {
-    it('should encode a standard 16-character hex span ID', () => {
-      const spanId = '0123456789abcdef';
+    // Using array syntax for test.each (alternative to object syntax)
+    test.each([
+      ['standard 16-character hex span ID', '0123456789abcdef', 'ASNFZ4mrze8='],
+      ['short span IDs with zero padding', 'abc', 'AAAAAAAACrw='],
+      ['all zeros', '0000000000000000', 'AAAAAAAAAAA='],
+      ['all F characters', 'ffffffffffffffff', '//////////8=']
+    ])('should encode %s', (description, spanId, expected) => {
       const result = encodeSpanIdToBase64(spanId);
-      expect(result).toBe('ASNFZ4mrze8=');
-    });
-
-    it('should pad short span IDs with zeros', () => {
-      const spanId = 'abc';
-      const result = encodeSpanIdToBase64(spanId);
-      // Should be padded to '0000000000000abc'
-      expect(result).toBe('AAAAAAAACrw=');
-    });
-
-    it('should handle all zeros', () => {
-      const spanId = '0000000000000000';
-      const result = encodeSpanIdToBase64(spanId);
-      expect(result).toBe('AAAAAAAAAAA=');
-    });
-
-    it('should handle all F characters', () => {
-      const spanId = 'ffffffffffffffff';
-      const result = encodeSpanIdToBase64(spanId);
-      expect(result).toBe('//////////8=');
+      expect(result).toBe(expected);
     });
 
     it('should handle mixed case hex strings', () => {
@@ -342,5 +336,130 @@ describe('deduplicateSpanNamesInPlace', () => {
 
     expect(() => deduplicateSpanNamesInPlace(spans)).not.toThrow();
     expect(spans.length).toBe(0);
+  });
+});
+
+describe('mapArgsToObject', () => {
+  // Basic argument mapping test cases
+  test.each([
+    {
+      description: 'regular functions',
+      func: function add(a: number, b: number) {
+        return a + b;
+      },
+      args: [5, 10],
+      expected: { a: 5, b: 10 }
+    },
+    {
+      description: 'arrow functions',
+      func: (x: number, y: number) => x * y,
+      args: [3, 4],
+      expected: { x: 3, y: 4 }
+    },
+    {
+      description: 'single parameter functions',
+      func: (value: number) => value * 2,
+      args: [7],
+      expected: { value: 7 }
+    },
+    {
+      description: 'functions with no parameters',
+      func: () => 42,
+      args: [],
+      expected: {}
+    },
+    {
+      description: 'functions with default parameters',
+      func: function withDefaults(name: string, greeting: string = 'Hello') {
+        return greeting + ' ' + name;
+      },
+      args: ['World'],
+      expected: { name: 'World' }
+    },
+    {
+      description: 'functions with type annotations',
+      func: function typed(id: number, name: string, active: boolean) {
+        return { id, name, active };
+      },
+      args: [123, 'John', true],
+      expected: { id: 123, name: 'John', active: true }
+    },
+    {
+      description: 'anonymous functions',
+      func: function (first: string, second: number) {
+        return first + second;
+      },
+      args: ['hello', 42],
+      expected: { first: 'hello', second: 42 }
+    },
+    {
+      description: 'fewer arguments than parameters',
+      func: function threeParams(a: number, b: number, c: number) {
+        return a + b + c;
+      },
+      args: [1, 2],
+      expected: { a: 1, b: 2 }
+    },
+    {
+      description: 'more arguments than parameters',
+      func: function twoParams(a: number, b: number) {
+        return a + b;
+      },
+      args: [1, 2, 3, 4],
+      expected: { a: 1, b: 2 }
+    },
+    {
+      description: 'complex argument types (objects, arrays)',
+      func: function complex(obj: object, arr: any[], str: string) {
+        return { obj, arr, str };
+      },
+      args: [{ key: 'value' }, [1, 2, 3], 'test'],
+      expected: { obj: { key: 'value' }, arr: [1, 2, 3], str: 'test' }
+    },
+    {
+      description: 'null and undefined arguments',
+      func: function nullable(a: any, b: any, c: any) {
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+        return a + b + c;
+      },
+      args: [null, undefined, 'value'],
+      expected: { a: null, b: undefined, c: 'value' }
+    },
+    {
+      description: 'functions with destructured parameters gracefully',
+      func: function withDestructuring({ prop }: any, normal: string) {
+        return prop + normal;
+      },
+      args: [{ prop: 'value' }, 'normal'],
+      expected: { normal: { prop: 'value' } }
+    },
+    {
+      description: 'fallback to args array when parameter extraction fails',
+      // eslint-disable-next-line @typescript-eslint/no-implied-eval
+      func: new Function('return arguments[0] + arguments[1];'),
+      args: [1, 2],
+      expected: { args: [1, 2] }
+    },
+    {
+      description: 'empty object for no parameters and no arguments',
+      func: () => {},
+      args: [],
+      expected: {}
+    },
+    {
+      description: 'edge case with only whitespace parameters',
+      func: () => {},
+      args: [],
+      expected: {}
+    },
+    {
+      description: 'functions with object destructuring parameters (JS/TS kwarg-only pattern)',
+      func: ({ a, b }: { a: number; b: number }) => a + b,
+      args: [{ a: 5, b: 10 }],
+      expected: { args: [{ a: 5, b: 10 }] }
+    }
+  ])('should handle $description', ({ func, args, expected }) => {
+    const result = mapArgsToObject(func, args);
+    expect(result).toEqual(expected);
   });
 });

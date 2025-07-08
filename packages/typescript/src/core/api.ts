@@ -1,10 +1,10 @@
-import { trace, context, Span as ApiSpan } from '@opentelemetry/api';
+import { trace as otelTrace, context, Span as ApiSpan } from '@opentelemetry/api';
 import { Span as OTelSpan } from '@opentelemetry/sdk-trace-node';
 import { DEFAULT_SPAN_NAME, SpanType } from './constants';
 import { createMlflowSpan, LiveSpan, NoOpSpan } from './entities/span';
 import { getTracer } from './provider';
 import { InMemoryTraceManager } from './trace_manager';
-import { convertNanoSecondsToHrTime } from './utils';
+import { convertNanoSecondsToHrTime, mapArgsToObject } from './utils';
 import { SpanStatusCode } from './entities/span_status';
 
 /*
@@ -19,11 +19,19 @@ import { SpanStatusCode } from './entities/span_status';
  */
 export interface SpanOptions {
   name: string;
-  span_type?: SpanType;
+  spanType?: SpanType;
   inputs?: any;
   attributes?: Record<string, any>;
   startTimeNs?: number;
   parent?: LiveSpan;
+}
+
+/**
+ * Options for tracing a function
+ */
+export interface TraceOptions
+  extends Omit<SpanOptions, 'parent' | 'startTimeNs' | 'inputs' | 'name'> {
+  name?: string;
 }
 
 /**
@@ -38,7 +46,7 @@ export function startSpan(options: SpanOptions): LiveSpan {
 
     // If parent is provided, use it as the parent spanAdd commentMore actions
     const parentContext = options.parent
-      ? trace.setSpan(context.active(), options.parent._span)
+      ? otelTrace.setSpan(context.active(), options.parent._span)
       : context.active();
 
     // Convert startTimeNs to OTel format
@@ -55,7 +63,7 @@ export function startSpan(options: SpanOptions): LiveSpan {
     // Create and register the MLflow span
     const mlflowSpan = createAndRegisterMlflowSpan(
       otelSpan,
-      options.span_type,
+      options.spanType,
       options.inputs,
       options.attributes
     );
@@ -103,7 +111,7 @@ export function withSpan<T>(
     // Create and register the MLflow span
     const mlflowSpan = createAndRegisterMlflowSpan(
       otelSpan,
-      spanOptions.span_type,
+      spanOptions.spanType,
       spanOptions.inputs,
       spanOptions.attributes
     );
@@ -185,6 +193,68 @@ function createAndRegisterMlflowSpan(
   return mlflowSpan;
 }
 
+/**
+ * Create a traced version of a function.
+ *
+ * When the function is called, the span will automatically capture:
+ * - The function inputs
+ * - The function outputs
+ * - The function name as the span name
+ * - The function execution time
+ * - Any exception thrown by the function
+ *
+ * @param func The function to trace
+ * @param options Optional trace options including name, spanType, and attributes
+ * @returns The traced function
+ *
+ * @example
+ * // With no options (uses function name as span name)
+ * const tracedFunc = trace(myFunc);
+ *
+ * @example
+ * // With options
+ * const tracedFunc = trace(myFunc, { name: 'custom_span_name', spanType: 'LLM' });
+
+ * @example
+ * // Inline declaration
+ * const myFunc = trace(async (a: number, b: number) => a + b, { spanType: 'TOOL' });
+ */
+export function trace<T extends (...args: any[]) => any>(func: T, options?: TraceOptions): T {
+  // Create a wrapper function that preserves the original function's properties
+  const wrapper = function (this: any, ...args: Parameters<T>): ReturnType<T> {
+    const spanOptions: Omit<SpanOptions, 'parent'> = {
+      name: options?.name || func.name || DEFAULT_SPAN_NAME,
+      spanType: options?.spanType,
+      attributes: options?.attributes,
+      inputs: mapArgsToObject(func, args)
+    };
+
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+    return withSpan((_span) => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
+      return func.apply(this, args);
+    }, spanOptions) as ReturnType<T>;
+  };
+
+  // Preserve function properties
+  Object.defineProperty(wrapper, 'length', { value: func.length });
+  Object.defineProperty(wrapper, 'name', { value: func.name });
+
+  // Copy any additional properties from the original function
+  for (const prop in func) {
+    if (Object.prototype.hasOwnProperty.call(func, prop)) {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      (wrapper as any)[prop] = (func as any)[prop];
+    }
+  }
+
+  return wrapper as T;
+}
+
+/**
+ * Get the last active trace ID.
+ * @returns The last active trace ID.
+ */
 export function getLastActiveTraceId(): string | undefined {
   const traceManager = InMemoryTraceManager.getInstance();
   return traceManager.lastActiveTraceId;

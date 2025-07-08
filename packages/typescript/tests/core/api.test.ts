@@ -1,5 +1,5 @@
 import { MlflowClient } from '../../src/clients';
-import { getLastActiveTraceId, flushTraces, init, startSpan, withSpan } from '../../src';
+import * as mlflow from '../../src';
 import { SpanType } from '../../src/core/constants';
 import { LiveSpan } from '../../src/core/entities/span';
 import { SpanStatus, SpanStatusCode } from '../../src/core/entities/span_status';
@@ -13,8 +13,8 @@ describe('API', () => {
   let experimentId: string;
 
   const getLastActiveTrace = async (): Promise<Trace> => {
-    await flushTraces();
-    const traceId = getLastActiveTraceId();
+    await mlflow.flushTraces();
+    const traceId = mlflow.getLastActiveTraceId();
     const trace = await client.getTrace(traceId!);
     return trace;
   };
@@ -25,7 +25,7 @@ describe('API', () => {
     // Create a new experiment
     const experimentName = `test-experiment-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
     experimentId = await client.createExperiment(experimentName);
-    init({
+    mlflow.init({
       trackingUri: TEST_TRACKING_URI,
       experimentId: experimentId
     });
@@ -37,7 +37,7 @@ describe('API', () => {
 
   describe('startSpan', () => {
     it('should create a span with span type', async () => {
-      const span = startSpan({ name: 'test-span' });
+      const span = mlflow.startSpan({ name: 'test-span' });
       expect(span).toBeInstanceOf(LiveSpan);
 
       span.setInputs({ prompt: 'Hello, world!' });
@@ -47,7 +47,7 @@ describe('API', () => {
       span.end();
 
       // Validate traces pushed to the backend
-      await flushTraces();
+      await mlflow.flushTraces();
       const trace = await client.getTrace(span.traceId);
 
       expect(trace.info.traceId).toBe(span.traceId);
@@ -71,9 +71,9 @@ describe('API', () => {
     });
 
     it('should create a span with other options', async () => {
-      const span = startSpan({
+      const span = mlflow.startSpan({
         name: 'test-span',
-        span_type: SpanType.LLM,
+        spanType: SpanType.LLM,
         inputs: { prompt: 'Hello, world!' },
         attributes: { model: 'gpt-4' },
         startTimeNs: 1e9 // 1 second
@@ -107,14 +107,14 @@ describe('API', () => {
     });
 
     it('should create a span with an exception', async () => {
-      const span = startSpan({ name: 'test-span-with-exception', span_type: SpanType.LLM });
+      const span = mlflow.startSpan({ name: 'test-span-with-exception', spanType: SpanType.LLM });
       expect(span).toBeInstanceOf(LiveSpan);
 
       span.recordException(new Error('test-error'));
       span.end({ status: new SpanStatus(SpanStatusCode.ERROR, 'test-error') });
 
       // Validate traces pushed to the backend
-      await flushTraces();
+      await mlflow.flushTraces();
       const trace = await client.getTrace(span.traceId);
       expect(trace.info.state).toBe(TraceState.ERROR);
       expect(trace.info.requestTime).toBeCloseTo(convertHrTimeToMs(span.startTime));
@@ -129,21 +129,21 @@ describe('API', () => {
     });
 
     it('should create nested spans', async () => {
-      const parentSpan = startSpan({ name: 'parent-span' });
-      const childSpan1 = startSpan({ name: 'child-span-1', parent: parentSpan });
+      const parentSpan = mlflow.startSpan({ name: 'parent-span' });
+      const childSpan1 = mlflow.startSpan({ name: 'child-span-1', parent: parentSpan });
       childSpan1.end();
-      const childSpan2 = startSpan({ name: 'child-span-2', parent: parentSpan });
-      const childSpan3 = startSpan({ name: 'child-span-3', parent: childSpan2 });
+      const childSpan2 = mlflow.startSpan({ name: 'child-span-2', parent: parentSpan });
+      const childSpan3 = mlflow.startSpan({ name: 'child-span-3', parent: childSpan2 });
       childSpan3.end();
       childSpan2.end();
 
       // This should not be a child of parentSpan
-      const independentSpan = startSpan({ name: 'independent-span' });
+      const independentSpan = mlflow.startSpan({ name: 'independent-span' });
       independentSpan.end();
 
       parentSpan.end();
 
-      await flushTraces();
+      await mlflow.flushTraces();
       const trace1 = await client.getTrace(independentSpan.traceId);
       expect(trace1.data.spans.length).toBe(1);
       expect(trace1.data.spans[0].name).toBe('independent-span');
@@ -163,7 +163,7 @@ describe('API', () => {
   describe('withSpan', () => {
     describe('inline usage pattern', () => {
       it('should execute synchronous callback and auto-set outputs', async () => {
-        const result = withSpan((span) => {
+        const result = mlflow.withSpan((span) => {
           span.setInputs({ a: 5, b: 3 });
           return 5 + 3; // Auto-set outputs from return value
         });
@@ -181,7 +181,7 @@ describe('API', () => {
       });
 
       it('should execute synchronous callback with explicit outputs', async () => {
-        const result = withSpan((span) => {
+        const result = mlflow.withSpan((span) => {
           span.setInputs({ a: 5, b: 3 });
           const sum = 5 + 3;
           span.setOutputs({ result: sum });
@@ -198,7 +198,7 @@ describe('API', () => {
       });
 
       it('should execute asynchronous callback and auto-set outputs', async () => {
-        const result = await withSpan(async (span) => {
+        const result = await mlflow.withSpan(async (span) => {
           span.setInputs({ delay: 100 });
           await new Promise((resolve) => setTimeout(resolve, 10));
           const value = 'async result';
@@ -218,7 +218,7 @@ describe('API', () => {
 
       it('should handle synchronous errors', async () => {
         expect(() => {
-          void withSpan((span) => {
+          void mlflow.withSpan((span) => {
             span.setInputs({ operation: 'divide by zero' });
             throw new Error('Division by zero');
           });
@@ -234,7 +234,7 @@ describe('API', () => {
 
       it('should handle asynchronous errors', async () => {
         await expect(
-          withSpan(async (span) => {
+          mlflow.withSpan(async (span) => {
             span.setInputs({ operation: 'async error' });
             await new Promise((resolve) => setTimeout(resolve, 10));
             throw new Error('Async error');
@@ -254,7 +254,7 @@ describe('API', () => {
       it('should execute with pre-configured options', async () => {
         // Example: Creating a traced addition function
         const add = (a: number, b: number) => {
-          const sum = withSpan(
+          const sum = mlflow.withSpan(
             (span) => {
               const result = a + b;
               span.setOutputs(result);
@@ -262,7 +262,7 @@ describe('API', () => {
             },
             {
               name: 'add',
-              span_type: SpanType.TOOL,
+              spanType: SpanType.TOOL,
               inputs: { a, b },
               attributes: { operation: 'addition' }
             }
@@ -287,7 +287,7 @@ describe('API', () => {
       it('should execute async with pre-configured options', async () => {
         // Example: Creating a traced async function that fetches user data
         const fetchUserData = (userId: string) => {
-          return withSpan(
+          return mlflow.withSpan(
             async (span) => {
               // Simulate API call
               await new Promise((resolve) => setTimeout(resolve, 10));
@@ -302,7 +302,7 @@ describe('API', () => {
             },
             {
               name: 'fetchUserData',
-              span_type: SpanType.RETRIEVER,
+              spanType: SpanType.RETRIEVER,
               inputs: { userId },
               attributes: { service: 'user-api', version: 1 }
             }
@@ -330,10 +330,10 @@ describe('API', () => {
       });
 
       it('should handle nested spans with automatic parent-child relationship', async () => {
-        const result = withSpan(
+        const result = mlflow.withSpan(
           (parentSpan) => {
             // Nested withSpan call - should automatically be a child of the parent
-            const childResult = withSpan(
+            const childResult = mlflow.withSpan(
               (childSpan) => {
                 childSpan.setAttributes({ nested: true });
                 return 'child result';
@@ -373,7 +373,7 @@ describe('API', () => {
 
     describe('edge cases', () => {
       it('should handle null return values', async () => {
-        const result = withSpan((span) => {
+        const result = mlflow.withSpan((span) => {
           span.setInputs({ test: true });
           return null;
         });
@@ -393,7 +393,7 @@ describe('API', () => {
           metadata: { type: 'array', length: 3 }
         };
 
-        const result = withSpan((span) => {
+        const result = mlflow.withSpan((span) => {
           span.setInputs({ operation: 'create complex object' });
           return complexObject;
         });
@@ -413,7 +413,7 @@ describe('API', () => {
         const traceIds: Record<string, string> = {};
         const results = await Promise.all([
           // First trace with nested async operations
-          withSpan(
+          mlflow.withSpan(
             async (parentSpan) => {
               // Simulate some async work
               await new Promise((resolve) => setTimeout(resolve, 5));
@@ -421,7 +421,7 @@ describe('API', () => {
 
               // Create multiple child spans in parallel
               const childResults = await Promise.all([
-                withSpan(
+                mlflow.withSpan(
                   async (childSpan) => {
                     await new Promise((resolve) => setTimeout(resolve, 3));
                     childSpan.setOutputs({ processed: true });
@@ -429,11 +429,11 @@ describe('API', () => {
                   },
                   { name: 'trace1-child1', inputs: { childId: 1 } }
                 ),
-                withSpan(
+                mlflow.withSpan(
                   async (childSpan) => {
                     await new Promise((resolve) => setTimeout(resolve, 2));
                     // Nested grandchild
-                    const grandchildResult = await withSpan(
+                    const grandchildResult = await mlflow.withSpan(
                       async () => {
                         await new Promise((resolve) => setTimeout(resolve, 1));
                         return 'grandchild-result';
@@ -454,11 +454,11 @@ describe('API', () => {
           ),
 
           // Second independent trace running concurrently
-          withSpan(
+          mlflow.withSpan(
             async (parentSpan) => {
               await new Promise((resolve) => setTimeout(resolve, 4));
               traceIds['trace2-parent'] = parentSpan.traceId;
-              const result = await withSpan(
+              const result = await mlflow.withSpan(
                 async () => {
                   await new Promise((resolve) => setTimeout(resolve, 2));
                   return 'trace2-child-result';
@@ -473,7 +473,7 @@ describe('API', () => {
           ),
 
           // Third independent trace with synchronous operation
-          withSpan(
+          mlflow.withSpan(
             (span) => {
               traceIds['trace3-simple'] = span.traceId;
               span.setOutputs({ immediate: true });
@@ -488,7 +488,7 @@ describe('API', () => {
         expect(results[1]).toBe('trace2-child-result');
         expect(results[2]).toBe('trace3-result');
 
-        await flushTraces();
+        await mlflow.flushTraces();
 
         // Verify first trace (most complex with grandchild)
         const trace1 = await client.getTrace(traceIds['trace1-parent']);
@@ -542,5 +542,170 @@ describe('API', () => {
         expect(trace3Span.outputs).toEqual({ immediate: true });
       });
     });
+  });
+
+  describe('trace wrapper function', () => {
+    it('should trace a synchronous function', async () => {
+      const myFunc = (x: number) => x * 2;
+
+      const tracedFunc = mlflow.trace(myFunc);
+      const result = tracedFunc(5);
+      expect(result).toBe(10);
+
+      const trace = await getLastActiveTrace();
+      expect(trace.info.state).toBe('OK');
+      expect(trace.data.spans.length).toBe(1);
+
+      const loggedSpan = trace.data.spans[0];
+      expect(loggedSpan.name).toBe('myFunc');
+      expect(loggedSpan.spanType).toBe(SpanType.UNKNOWN);
+      expect(loggedSpan.inputs).toEqual({ x: 5 });
+      expect(loggedSpan.outputs).toEqual(10);
+      expect(loggedSpan.startTime).toBeDefined();
+      expect(loggedSpan.endTime).toBeDefined();
+    });
+
+    it('should trace a synchronous function with options', async () => {
+      const myFunc = (a: number, b: number) => a + b;
+
+      const tracedFunc = mlflow.trace(myFunc, {
+        name: 'custom_span_name',
+        spanType: SpanType.LLM,
+        attributes: { key: 'value' }
+      });
+
+      const result = tracedFunc(2, 3);
+      expect(result).toBe(5);
+
+      const trace = await getLastActiveTrace();
+      expect(trace.info.state).toBe('OK');
+      expect(trace.data.spans.length).toBe(1);
+
+      const loggedSpan = trace.data.spans[0];
+      expect(loggedSpan.name).toBe('custom_span_name');
+      expect(loggedSpan.spanType).toBe(SpanType.LLM);
+      expect(loggedSpan.attributes['key']).toBe('value');
+    });
+
+    it('should trace an async function', async () => {
+      async function myAsyncFunc(a: number, b: number): Promise<number> {
+        await new Promise((resolve) => setTimeout(resolve, 10));
+        return a + b;
+      }
+
+      const tracedFunc = mlflow.trace(myAsyncFunc, {
+        name: 'async_span',
+        spanType: SpanType.CHAIN
+      });
+
+      const result = await tracedFunc(10, 20);
+      expect(result).toBe(30);
+
+      const trace = await getLastActiveTrace();
+      expect(trace.info.state).toBe('OK');
+      expect(trace.data.spans.length).toBe(1);
+
+      const loggedSpan = trace.data.spans[0];
+      expect(loggedSpan.name).toBe('async_span');
+      expect(loggedSpan.spanType).toBe(SpanType.CHAIN);
+      expect(loggedSpan.inputs).toEqual({ a: 10, b: 20 });
+      expect(loggedSpan.outputs).toEqual(30);
+      expect(loggedSpan.startTime).toBeDefined();
+      expect(loggedSpan.endTime).toBeDefined();
+    });
+
+    it('should support inline function declaration', async () => {
+      const myFunc = mlflow.trace(
+        function myInlineFunc(a: number, b: number) {
+          return a + b;
+        },
+        { spanType: SpanType.AGENT }
+      );
+
+      const result = myFunc(3, 4);
+      expect(result).toBe(7);
+
+      const trace = await getLastActiveTrace();
+      expect(trace.info.state).toBe('OK');
+      expect(trace.data.spans.length).toBe(1);
+
+      const loggedSpan = trace.data.spans[0];
+      expect(loggedSpan.name).toBe('myInlineFunc');
+      expect(loggedSpan.spanType).toBe(SpanType.AGENT);
+      expect(loggedSpan.inputs).toEqual({ a: 3, b: 4 });
+      expect(loggedSpan.outputs).toEqual(7);
+      expect(loggedSpan.startTime).toBeDefined();
+      expect(loggedSpan.endTime).toBeDefined();
+    });
+
+    it('should support inline async function', async () => {
+      const myFunc = mlflow.trace(
+        async (prompt: string) => {
+          await new Promise((resolve) => setTimeout(resolve, 5));
+          return `Response to: ${prompt}`;
+        },
+        { spanType: SpanType.LLM }
+      );
+
+      const result = await myFunc('Hello');
+      expect(result).toBe('Response to: Hello');
+
+      const trace = await getLastActiveTrace();
+      expect(trace.info.state).toBe('OK');
+      expect(trace.data.spans.length).toBe(1);
+
+      const loggedSpan = trace.data.spans[0];
+      expect(loggedSpan.name).toBe('span'); // arrow function doesn't have a name
+      expect(loggedSpan.spanType).toBe(SpanType.LLM);
+      expect(loggedSpan.inputs).toEqual({ prompt: 'Hello' });
+      expect(loggedSpan.outputs).toEqual('Response to: Hello');
+      expect(loggedSpan.startTime).toBeDefined();
+      expect(loggedSpan.endTime).toBeDefined();
+    });
+  });
+
+  it('should handle synchronous errors in the traced function', async () => {
+    const errorFunc = mlflow.trace(() => {
+      throw new Error('Test error');
+    });
+
+    expect(() => errorFunc()).toThrow('Test error');
+
+    const trace = await getLastActiveTrace();
+    expect(trace.info.state).toBe('ERROR');
+    expect(trace.data.spans.length).toBe(1);
+
+    const loggedSpan = trace.data.spans[0];
+    expect(loggedSpan.name).toBe('span'); // arrow function doesn't have a name
+    expect(loggedSpan.inputs).toEqual({});
+    expect(loggedSpan.outputs).toBeUndefined();
+    expect(loggedSpan.startTime).toBeDefined();
+    expect(loggedSpan.endTime).toBeDefined();
+    expect(loggedSpan.status?.statusCode).toBe(SpanStatusCode.ERROR);
+  });
+
+  it('should handle async errors in the traced function', async () => {
+    const errorFunc = mlflow.trace(
+      async () => {
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        throw new Error('Async test error');
+      },
+      { name: 'async_error_span', spanType: SpanType.LLM }
+    );
+
+    await expect(errorFunc()).rejects.toThrow('Async test error');
+
+    const trace = await getLastActiveTrace();
+    expect(trace.info.state).toBe('ERROR');
+    expect(trace.data.spans.length).toBe(1);
+
+    const loggedSpan = trace.data.spans[0];
+    expect(loggedSpan.name).toBe('async_error_span');
+    expect(loggedSpan.spanType).toBe(SpanType.LLM);
+    expect(loggedSpan.inputs).toEqual({});
+    expect(loggedSpan.outputs).toBeUndefined();
+    expect(loggedSpan.startTime).toBeDefined();
+    expect(loggedSpan.endTime).toBeDefined();
+    expect(loggedSpan.status?.statusCode).toBe(SpanStatusCode.ERROR);
   });
 });
