@@ -1,0 +1,57 @@
+{
+  "source": {
+    "type": "postgresql",
+    "host": "autonomize-database-1002.cwpqzu4drrfr.us-east-1.rds.amazonaws.com",
+    "port": 5432,
+    "database": "mlflow",
+    "user": "postgres",
+    "password": "7HrX26sHIZz8yffytPc0",
+    "connection_uri": "postgresql://postgres:7HrX26sHIZz8yffytPc0@autonomize-database-1002.cwpqzu4drrfr.us-east-1.rds.amazonaws.com:5432/mlflow"
+  },
+  "destination": {
+    "type": "mongodb",
+    "examples": {
+      "local_mongodb": "mongodb://localhost:27017/mlflow_migrated",
+      "mongodb_atlas": "mongodb+srv://username:password@cluster.mongodb.net/mlflow_migrated",
+      "azure_cosmos_db": "mongodb://account:key@account.mongo.cosmos.azure.com:10255/mlflow_migrated?ssl=true&replicaSet=globaldb&retrywrites=false&maxIdleTimeMS=120000&appName=@account@"
+    },
+    "recommended": "mongodb://localhost:27017/mlflow_migrated"
+  },
+  "migration_settings": {
+    "batch_size": 1000,
+    "dry_run": false,
+    "validate_data": true,
+    "create_indexes": true,
+    "preserve_timestamps": true
+  },
+  "tables_to_migrate": [
+    "experiments",
+    "runs", 
+    "metrics",
+    "params",
+    "tags",
+    "registered_models",
+    "model_versions"
+  ],
+  "notes": {
+    "postgresql_preparation": [
+      "Ensure PostgreSQL is accessible from migration host",
+      "Verify database credentials and permissions",
+      "Consider creating read-only user for migration",
+      "Check if all MLflow tables exist in source database"
+    ],
+    "mongodb_preparation": [
+      "Ensure MongoDB is running and accessible",
+      "Create target database if it doesn't exist",
+      "Verify write permissions on target database",
+      "Consider setting up replica set for production"
+    ],
+    "migration_considerations": [
+      "Large datasets may take significant time to migrate",
+      "Use batch_size parameter to optimize for your system",
+      "Monitor disk space during migration",
+      "Consider running during low-traffic periods",
+      "Always test with dry_run first"
+    ]
+  }
+}
