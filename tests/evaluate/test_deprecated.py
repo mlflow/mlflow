@@ -1,3 +1,4 @@
+import json
 import warnings
 from contextlib import contextmanager
 from unittest.mock import patch
@@ -6,6 +7,7 @@ import pandas as pd
 import pytest
 
 import mlflow
+from mlflow.telemetry import get_telemetry_client
 
 _TEST_DATA = pd.DataFrame({"x": [1, 2, 3], "y": [4, 5, 6]})
 
@@ -46,3 +48,24 @@ def test_models_evaluate_does_not_warn(tracking_uri):
                 model=lambda x: x["x"] * 2,
                 extra_metrics=[mlflow.metrics.latency()],
             )
+
+
+def test_deprecated_evaluate_sends_telemetry_record(mock_requests):
+    """Test that deprecated evaluate sends telemetry records."""
+    # Use non-databricks tracking URI to avoid deprecation warning
+    with patch("mlflow.get_tracking_uri", return_value="sqlite://"):
+        mlflow.evaluate(
+            data=_TEST_DATA,
+            model=lambda x: x["x"] * 2,
+            extra_metrics=[mlflow.metrics.latency()],
+        )
+
+    get_telemetry_client().flush()
+
+    assert len(mock_requests) == 1
+    record = mock_requests[0]
+    data = json.loads(record["data"])
+    assert data["api_module"] == mlflow.evaluate.__module__
+    assert data["api_name"] == "evaluate"
+    assert data["params"] is None
+    assert data["status"] == "success"

@@ -82,6 +82,7 @@ from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_TRACES_DEFAULT_MAX_RESULTS
+from mlflow.telemetry.track import track_api_usage
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX
 from mlflow.tracing.display import get_display_handler
@@ -437,6 +438,7 @@ class MlflowClient:
 
     ##### Prompt Registry #####
 
+    @track_api_usage
     @experimental(version="2.21.0")
     @require_prompt_registry
     @translate_prompt_exception
@@ -643,6 +645,7 @@ class MlflowClient:
             page_token=page_token,
         )
 
+    @track_api_usage
     @experimental(version="2.21.0")
     @require_prompt_registry
     @translate_prompt_exception
@@ -1028,6 +1031,7 @@ class MlflowClient:
             get_display_handler().display_traces([trace])
         return trace
 
+    @track_api_usage
     def search_traces(
         self,
         experiment_ids: list[str],
@@ -1245,6 +1249,7 @@ class MlflowClient:
         """
         return copy_trace_to_experiment(trace.to_dict(), experiment_id=trace.info.experiment_id)
 
+    @track_api_usage
     @request_id_backward_compatible
     def start_span(
         self,
@@ -1492,6 +1497,8 @@ class MlflowClient:
         """
         self._tracing_client.delete_trace_tag(trace_id, key)
 
+    # TODO: add test for telemetry after this function is fixed
+    @track_api_usage
     def log_assessment(
         self,
         trace_id: str,
@@ -5377,6 +5384,7 @@ class MlflowClient:
             experiment_id, name, source_run_id, tags, params, model_type
         )
 
+    @track_api_usage
     @experimental(version="3.0.0")
     def log_model_params(self, model_id: str, params: dict[str, str]) -> None:
         """
@@ -5450,6 +5458,7 @@ class MlflowClient:
         _validate_model_id_specified(model_id)
         return self._tracking_client.delete_logged_model(model_id)
 
+    @track_api_usage
     @experimental(version="3.0.0")
     def set_logged_model_tags(self, model_id: str, tags: dict[str, Any]) -> None:
         """

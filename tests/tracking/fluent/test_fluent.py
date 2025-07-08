@@ -2381,3 +2381,96 @@ def test_autolog_sends_telemetry_record(mock_requests):
     assert data["status"] == "success"
     # mlflow.autolog has side-effect, we should turn it off to avoid affecting other tests
     mlflow.autolog(disable=True)
+
+
+def test_set_active_model_sends_telemetry_record(mock_requests):
+    """Test that set_active_model sends telemetry records."""
+    mlflow.set_active_model(name="test_model")
+    get_telemetry_client().flush()
+
+    assert len(mock_requests) == 1
+    record = mock_requests[0]
+    data = json.loads(record["data"])
+    assert data["api_module"] == mlflow.set_active_model.__module__
+    assert data["api_name"] == "set_active_model"
+    assert data["params"] is None
+    assert data["status"] == "success"
+
+
+def test_clear_active_model_sends_telemetry_record(mock_requests):
+    """Test that clear_active_model sends telemetry records."""
+    mlflow.set_active_model(name="test_model")
+    mlflow.clear_active_model()
+    get_telemetry_client().flush()
+
+    assert len(mock_requests) == 2
+    # Check the clear_active_model record (second one)
+    record = mock_requests[1]
+    data = json.loads(record["data"])
+    assert data["api_module"] == mlflow.clear_active_model.__module__
+    assert data["api_name"] == "clear_active_model"
+    assert data["params"] is None
+    assert data["status"] == "success"
+
+
+def test_initialize_logged_model_sends_telemetry_record(mock_requests):
+    """Test that initialize_logged_model sends telemetry records."""
+    mlflow.initialize_logged_model(name="test_model")
+
+    get_telemetry_client().flush()
+
+    assert len(mock_requests) == 1
+    record = mock_requests[0]
+    data = json.loads(record["data"])
+    assert data["api_module"] == mlflow.initialize_logged_model.__module__
+    assert data["api_name"] == "initialize_logged_model"
+    assert data["params"] is None
+    assert data["status"] == "success"
+
+
+def test_create_external_model_sends_telemetry_record(mock_requests):
+    """Test that create_external_model sends telemetry records."""
+    mlflow.create_external_model(name="test_external_model")
+    get_telemetry_client().flush()
+
+    assert len(mock_requests) == 1
+    record = mock_requests[0]
+    data = json.loads(record["data"])
+    assert data["api_module"] == mlflow.create_external_model.__module__
+    assert data["api_name"] == "create_external_model"
+    assert data["params"] is None
+    assert data["status"] == "success"
+
+
+def test_log_model_params_sends_telemetry_record(mock_requests):
+    """Test that log_model_params sends telemetry records."""
+    model = mlflow.initialize_logged_model(name="test_model")
+    mlflow.log_model_params(model_id=model.model_id, params={"param1": "value1"})
+
+    get_telemetry_client().flush()
+
+    assert len(mock_requests) == 2
+    # Check the log_model_params record (second one)
+    record = mock_requests[1]
+    data = json.loads(record["data"])
+    assert data["api_module"] == mlflow.log_model_params.__module__
+    assert data["api_name"] == "log_model_params"
+    assert data["params"] is None
+    assert data["status"] == "success"
+
+
+def test_set_logged_model_tags_sends_telemetry_record(mock_requests):
+    """Test that set_logged_model_tags sends telemetry records."""
+    model = mlflow.initialize_logged_model(name="test_model")
+    mlflow.set_logged_model_tags(model_id=model.model_id, tags={"tag1": "value1"})
+
+    get_telemetry_client().flush()
+
+    assert len(mock_requests) == 2
+    # Check the set_logged_model_tags record (second one)
+    record = mock_requests[1]
+    data = json.loads(record["data"])
+    assert data["api_module"] == mlflow.set_logged_model_tags.__module__
+    assert data["api_name"] == "set_logged_model_tags"
+    assert data["params"] is None
+    assert data["status"] == "success"

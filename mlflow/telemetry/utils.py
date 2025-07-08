@@ -21,6 +21,7 @@ def invoked_from_internal_api() -> bool:
         # skip the current frame and the API call frames
         frame = frame.f_back.f_back if frame and frame.f_back else None
         module = inspect.getmodule(frame)
+        # TODO: consider recording module name if False
         return module and module.__name__.startswith("mlflow")
     finally:
         del frame

@@ -53,6 +53,7 @@ from mlflow.models.evaluation.base import (
 from mlflow.models.evaluation.evaluator_registry import _model_evaluation_registry
 from mlflow.pyfunc import _ServedPyFuncModel
 from mlflow.pyfunc.scoring_server.client import ScoringServerClient
+from mlflow.telemetry import get_telemetry_client
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracking.artifact_utils import get_artifact_uri
 from mlflow.utils.file_utils import TempDir
@@ -2392,3 +2393,32 @@ def test_mlflow_evaluate_logs_traces_to_active_model():
         assert len(traces) == 5
         assert traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID] == model_info.model_id
     # TODO: test registered ModelVersion's model_id works after it's supported
+
+
+def test_evaluate_sends_telemetry_record(mock_requests):
+    """Test that evaluate sends telemetry records."""
+    eval_data = pd.DataFrame(
+        {
+            "inputs": [
+                "What is MLflow?",
+                "What is Spark?",
+            ],
+            "ground_truth": ["What is MLflow?", "Not what is Spark?"],
+        }
+    )
+
+    @mlflow.trace
+    def model(inputs):
+        return inputs
+
+    evaluate(model, eval_data, targets="ground_truth", extra_metrics=[mlflow.metrics.exact_match()])
+
+    get_telemetry_client().flush()
+
+    assert len(mock_requests) == 1
+    record = mock_requests[0]
+    data = json.loads(record["data"])
+    assert data["api_module"] == evaluate.__module__
+    assert data["api_name"] == "evaluate"
+    assert data["params"] is None
+    assert data["status"] == "success"

@@ -27,6 +27,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.evaluation.utils.trace import configure_autologging_for_evaluation
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.utils.models import _parse_model_id_if_present
+from mlflow.telemetry.track import track_api_usage
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import _set_active_model
@@ -1098,6 +1099,7 @@ def _get_model_from_deployment_endpoint_uri(
     return _PythonModelPyfuncWrapper(python_model, None, None)
 
 
+@track_api_usage
 def evaluate(  # noqa: D417
     model=None,
     data=None,
