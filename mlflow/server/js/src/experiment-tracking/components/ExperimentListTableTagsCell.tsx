@@ -26,22 +26,14 @@ export const ExperimentListTableTagsCell: ExperimentTableColumnDef['cell'] = ({
         ))}
       </div>
       <Button
-        componentId="mlflow.prompts.list.tag.add"
+        componentId="mlflow.experiment.list.tag.add"
         size="small"
         icon={!containsTags ? undefined : <PencilIcon />}
         onClick={() => onEditTags?.(original)}
         aria-label={intl.formatMessage({
           defaultMessage: 'Edit tags',
-          description: 'Label for the edit tags button in the registered prompts table',
+          description: 'Label for the edit tags button in the experiment list table',
         })}
-        children={
-          !containsTags ? (
-            <FormattedMessage
-              defaultMessage="Add tags"
-              description="Label for the add tags button in the registered prompts table"
-            />
-          ) : undefined
-        }
         css={{
           flexShrink: 0,
           opacity: 0,
@@ -53,7 +45,14 @@ export const ExperimentListTableTagsCell: ExperimentTableColumnDef['cell'] = ({
           },
         }}
         type="tertiary"
-      />
+      >
+        {!containsTags ? (
+          <FormattedMessage
+            defaultMessage="Add tags"
+            description="Label for the add tags button in the experiment list table"
+          />
+        ) : undefined}
+      </Button>
     </div>
   );
 };

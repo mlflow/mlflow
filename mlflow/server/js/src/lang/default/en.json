@@ -2063,6 +2063,10 @@
     "defaultMessage": "Deleted traces cannot be restored. Are you sure you want to proceed?",
     "description": "Experiment page > traces view controls > Delete traces modal > Confirmation message"
   },
+  "Vk+30L": {
+    "defaultMessage": "Edit tags",
+    "description": "Label for the edit tags button in the experiment list table"
+  },
   "Vkr4Bs": {
     "defaultMessage": "Add description",
     "description": "experiment page > description modal > title"
@@ -2542,6 +2546,10 @@
   "cI+F/q": {
     "defaultMessage": "Name",
     "description": "Column title for name column in editable tags table view in MLflow"
+  },
+  "cI0kqF": {
+    "defaultMessage": "Add tags",
+    "description": "Label for the add tags button in the experiment list table"
   },
   "cIV9pX": {
     "defaultMessage": "Permission denied",
