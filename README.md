@@ -196,6 +196,36 @@ plugin_paths = /path/to/custom/plugins
 
 ## 🧪 Testing
 
+### MLflow Compatibility Testing
+
+Genesis-Flow provides **100% API compatibility** with MLflow. Run comprehensive compatibility tests to verify all functionality works correctly with MongoDB backend:
+
+```bash
+# Run comprehensive MLflow compatibility test suite
+python run_compatibility_tests.py
+
+# Or run with pytest directly
+pytest tests/integration/test_mlflow_compatibility.py -v
+
+# Run specific test categories
+pytest tests/integration/test_mlflow_compatibility.py::TestMLflowCompatibility::test_experiment_management -v
+pytest tests/integration/test_mlflow_compatibility.py::TestChatModelCompatibility -v
+```
+
+**Verified Compatible Features:**
+- ✅ Experiment Management (create, list, search)
+- ✅ Run Lifecycle (start, end, delete, restore)
+- ✅ Parameter & Metric Logging (single, batch, history)
+- ✅ Tag Management (set, get, search)
+- ✅ Artifact Logging (JSON, text, tables, files)
+- ✅ Dataset Logging & Tracking
+- ✅ Model Logging (sklearn, pytorch, custom PyFunc)
+- ✅ Model Registry (register, version, stage transitions)
+- ✅ Search & Query Operations (filters, sorting)
+- ✅ ChatModel Support (OpenAI-compatible)
+- ✅ Batch Operations (bulk logging)
+- ✅ Error Handling & Edge Cases
+
 ### Run All Tests
 
 ```bash
@@ -208,8 +238,16 @@ python tests/integration/test_full_integration.py
 # Run performance tests
 python tests/performance/load_test.py --tracking-uri file:///tmp/perf_test
 
-# Run compatibility tests
-python tools/compatibility/test_compatibility.py
+# Run MongoDB compatibility tests (NEW)
+pytest tests/integration/test_mongodb_compatibility.py
+
+# Run comprehensive examples
+cd examples/mongodb_integration
+python 01_model_logging_example.py
+python 02_model_registry_example.py
+python 03_artifacts_datasets_example.py
+python 04_complete_mlflow_workflow.py
+python 05_chat_model_example.py
 ```
 
 ### Validate Deployment
@@ -220,10 +258,13 @@ python tools/deployment/validate_deployment.py \
     --tracking-uri mongodb://localhost:27017/mlflow_db \
     --artifact-root azure://container/artifacts
 
-# Test with custom configuration
+# Test MongoDB backend specifically
+python run_compatibility_tests.py
+
+# Validate with Azure Cosmos DB
 python tools/deployment/validate_deployment.py \
-    --tracking-uri postgresql://user:pass@host:5432/mlflow \
-    --mongodb-config config/mongodb.json
+    --tracking-uri "mongodb://account:key@account.mongo.cosmos.azure.com:10255/mlflow?ssl=true" \
+    --artifact-root azure://container/artifacts
 ```
 
 ## 🚀 Deployment
