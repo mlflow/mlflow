@@ -919,7 +919,7 @@ def load_model(model_uri, dfs_tmpdir=None, dst_path=None):
     .. code-block:: python
         :caption: Example
 
-        from mlflow import spark
+        import mlflow
 
         model = mlflow.spark.load_model("spark-model")
         # Prepare test documents, which are unlabeled (id, text) tuples.

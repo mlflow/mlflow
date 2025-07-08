@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { FormattedMessage } from 'react-intl';
 import { getMlflow3DocsLink } from '../../constants';
 
-const EXAMPLE_INSTALL_CODE = `pip install git+https://github.com/mlflow/mlflow@mlflow-3`;
+const EXAMPLE_INSTALL_CODE = `pip install 'mlflow>=3'`;
 const EXAMPLE_CODE = `
 import pandas as pd
 from sklearn.linear_model import ElasticNet
@@ -183,8 +183,8 @@ export const ExperimentLoggedModelListPageTableEmpty = ({
       >
         <Typography.Text>
           <FormattedMessage
-            defaultMessage="Install <code>mlflow</code> from <code>mlflow-3</code> branch:"
-            description="Instruction for installing MLflow from mlflow-3 branch in log MLflow 3 models"
+            defaultMessage="Install <code>mlflow</code> 3:"
+            description="Instruction for installing MLflow 3 to log MLflow 3 models"
             values={{ code: (chunks) => <code>{chunks}</code> }}
           />
         </Typography.Text>

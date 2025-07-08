@@ -939,7 +939,7 @@ def _backported_all_estimators(type_filter=None):
     Use this backported `all_estimators` in old versions of sklearn because:
     1. An inferior version of `all_estimators` that old versions of sklearn use for testing,
        might function differently from a newer version.
-    2. This backported `all_estimators` works on old versions of sklearn that don’t even define
+    2. This backported `all_estimators` works on old versions of sklearn that don't even define
        the testing utility variant of `all_estimators`.
 
     ========== original docstring ==========

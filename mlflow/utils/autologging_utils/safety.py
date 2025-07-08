@@ -2,10 +2,9 @@ import abc
 import functools
 import inspect
 import itertools
-import typing
 import uuid
 from contextlib import asynccontextmanager, contextmanager
-from typing import Optional
+from typing import Any, Callable, NamedTuple, Optional
 
 import mlflow
 import mlflow.utils.autologging_utils
@@ -850,7 +849,7 @@ def _validate_autologging_run(autologging_integration, run_id):
     )
 
 
-class ValidationExemptArgument(typing.NamedTuple):
+class ValidationExemptArgument(NamedTuple):
     """
     A NamedTuple representing the properties of an argument that is exempt from validation
 
@@ -864,7 +863,7 @@ class ValidationExemptArgument(typing.NamedTuple):
 
     autologging_integration: str
     function_name: str
-    type_function: typing.Callable
+    type_function: Callable[..., Any]
     positional_argument_index: Optional[int] = None
     keyword_argument_name: Optional[str] = None
 

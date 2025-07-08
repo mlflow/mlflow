@@ -296,7 +296,7 @@ class MlflowModelCheckpointCallback(pl.Callback, MlflowModelCheckpointCallbackBa
             if save_best_only=True, the decision to overwrite the current save file is made
             based on either the maximization or the minimization of the monitored quantity.
         save_weights_only: In automatic model checkpointing, if True, then
-            only the model’s weights will be saved. Otherwise, the optimizer states,
+            only the model's weights will be saved. Otherwise, the optimizer states,
             lr-scheduler states, etc are added in the checkpoint too.
         save_freq: `"epoch"` or integer. When using `"epoch"`, the callback
             saves the model after each epoch. When using integer, the callback
@@ -309,7 +309,7 @@ class MlflowModelCheckpointCallback(pl.Callback, MlflowModelCheckpointCallbackBa
         :caption: Example
 
         import mlflow
-        from mlflow.pytorch import MLflowModelCheckpointCallback
+        from mlflow.pytorch import MlflowModelCheckpointCallback
         from pytorch_lightning import Trainer
 
         mlflow.pytorch.autolog(checkpoint=True)
@@ -317,7 +317,7 @@ class MlflowModelCheckpointCallback(pl.Callback, MlflowModelCheckpointCallbackBa
         model = MyLightningModuleNet()  # A custom-pytorch lightning model
         train_loader = create_train_dataset_loader()
 
-        mlflow_checkpoint_callback = MLflowModelCheckpointCallback()
+        mlflow_checkpoint_callback = MlflowModelCheckpointCallback()
 
         trainer = Trainer(callbacks=[mlflow_checkpoint_callback])
 
