@@ -250,6 +250,7 @@ Key attributes of a Prompt object:
 ### Prompt Types
 
 #### Text Prompts
+
 Text prompts use a simple string template with variables enclosed in double curly braces:
 
 ```python
@@ -257,6 +258,7 @@ text_template = "Hello {{ name }}, how are you today?"
 ```
 
 #### Chat Prompts
+
 Chat prompts use a list of message dictionaries, each with 'role' and 'content' keys:
 
 ```python
@@ -267,6 +269,7 @@ chat_template = [
 ```
 
 ### Response Format
+
 The `response_format` property allows you to specify the expected structure of responses from LLM calls. This can be either a Pydantic model class or a dictionary defining the schema:
 
 ```python
