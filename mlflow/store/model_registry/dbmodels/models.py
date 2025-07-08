@@ -218,7 +218,7 @@ class EncryptedText(TypeDecorator):
     and decrypts it when retrieving.
     """
 
-    impl = Text
+    impl = String(1000)
     cache_ok = True
 
     def __init__(self):

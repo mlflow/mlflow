@@ -34,7 +34,7 @@ def upgrade():
             sa.Column("url", sa.String(length=500), nullable=False),
             sa.Column("events", sa.Text(), nullable=False),
             sa.Column("status", sa.String(length=20), nullable=False, server_default="ACTIVE"),
-            sa.Column("secret", sa.Text(), nullable=True),  # Stored as encrypted text
+            sa.Column("secret", sa.String(length=1000), nullable=True),  # Stored as encrypted text
             sa.Column("creation_timestamp", sa.BigInteger(), nullable=True),
             sa.Column("last_updated_timestamp", sa.BigInteger(), nullable=True),
             sa.Column("deleted_timestamp", sa.BigInteger(), nullable=True),  # For soft deletes
