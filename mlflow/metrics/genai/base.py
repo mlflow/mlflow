@@ -21,7 +21,7 @@ class EvaluationExample:
     .. code-block:: python
         :caption: Example for creating an EvaluationExample
 
-        from mlflow.metrics.base import EvaluationExample
+        from mlflow.metrics.genai import EvaluationExample
 
         example = EvaluationExample(
             input="What is MLflow?",

@@ -227,7 +227,8 @@ def test_log_explanation_with_small_features():
     assert num_rows < mlflow.shap._MAXIMUM_BACKGROUND_DATA_SIZE
 
     X, y = get_diabetes()
-    X, y = X.iloc[:num_rows], y[:num_rows]
+    X = X.iloc[:num_rows]
+    y = y[:num_rows]
     model = RandomForestRegressor()
     model.fit(X, y)
 

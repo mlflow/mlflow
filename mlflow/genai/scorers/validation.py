@@ -39,7 +39,8 @@ def validate_scorers(scorers: list[Any]) -> list[Scorer]:
             "available built-in scorers."
         )
 
-    valid_scorers, legacy_metrics = [], []
+    valid_scorers = []
+    legacy_metrics = []
 
     for scorer in scorers:
         if isinstance(scorer, Scorer):

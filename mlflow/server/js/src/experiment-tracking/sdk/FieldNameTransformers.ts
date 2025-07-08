@@ -49,6 +49,7 @@ const transformExperimentEntity = (snakeCaseExperimentEntity: any): Omit<Experim
   experimentId: snakeCaseExperimentEntity.experiment_id,
   lastUpdateTime: snakeCaseExperimentEntity.last_update_time,
   lifecycleStage: snakeCaseExperimentEntity.lifecycle_stage,
+  tags: snakeCaseExperimentEntity.tags ?? [],
 });
 
 export const transformGetRunResponse = (originalResponse: any): GetRunApiResponse => {

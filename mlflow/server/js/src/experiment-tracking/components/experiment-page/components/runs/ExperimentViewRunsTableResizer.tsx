@@ -16,11 +16,13 @@ export const ExperimentViewRunsTableResizer = ({
   onResize,
   children,
   onHiddenChange,
+  maxWidth,
 }: React.PropsWithChildren<{
   runListHidden: boolean;
   width: number;
   onResize: React.Dispatch<React.SetStateAction<number>>;
   onHiddenChange?: (isHidden: boolean) => void;
+  maxWidth: number | undefined;
 }>) => {
   const updateUIState = useUpdateExperimentViewUIState();
   const [dragging, setDragging] = useState(false);
@@ -34,6 +36,7 @@ export const ExperimentViewRunsTableResizer = ({
         axis="x"
         resizeHandles={['e']}
         minConstraints={[250, 0]}
+        maxConstraints={maxWidth === undefined ? undefined : [maxWidth, 0]}
         handle={
           <ExperimentViewRunsTableResizerHandle
             runListHidden={runListHidden}

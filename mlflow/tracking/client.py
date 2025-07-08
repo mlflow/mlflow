@@ -81,6 +81,7 @@ from mlflow.tracing.constant import TRACE_REQUEST_ID_PREFIX
 from mlflow.tracing.display import get_display_handler
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.trace_manager import InMemoryTraceManager
+from mlflow.tracing.utils.copy import copy_trace_to_experiment
 from mlflow.tracing.utils.warning import request_id_backward_compatible
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking._model_registry import utils as registry_utils
@@ -595,7 +596,7 @@ class MlflowClient:
 
         Args:
             filter_string (Optional[str]):
-                An additional registry‐search expression to apply (e.g.
+                An additional registry-search expression to apply (e.g.
                 `"name LIKE 'my_prompt%'"`).  For Unity Catalog registries, must include
                 catalog and schema: "catalog = 'catalog_name' AND schema = 'schema_name'".
             max_results (int):
@@ -1236,31 +1237,7 @@ class MlflowClient:
         Returns:
             The trace ID of the logged trace.
         """
-        from mlflow.tracking.fluent import _get_experiment_id
-
-        # If the trace is created outside MLflow experiment (e.g. model serving), it does
-        # not have an experiment ID, but we need to log it to the tracking server.
-        experiment_id = trace.info.experiment_id or _get_experiment_id()
-
-        # Create trace info entry in the backend
-        # Note that the backend generates a new request ID for the trace. Currently there is
-        # no way to insert the trace with a specific request ID given by the user.
-        new_info = self._tracing_client.start_trace(
-            experiment_id=experiment_id,
-            timestamp_ms=trace.info.timestamp_ms,
-            request_metadata={},
-            tags={},
-        )
-        self._tracing_client.end_trace(
-            request_id=new_info.trace_id,
-            # Compute the end time of the original trace
-            timestamp_ms=trace.info.timestamp_ms + trace.info.execution_time_ms,
-            status=trace.info.status,
-            request_metadata=trace.info.request_metadata,
-            tags=trace.info.tags,
-        )
-        self._tracing_client._upload_trace_data(new_info, trace.data)
-        return new_info.trace_id
+        return copy_trace_to_experiment(trace.to_dict(), experiment_id=trace.info.experiment_id)
 
     @request_id_backward_compatible
     def start_span(
@@ -2090,6 +2067,36 @@ class MlflowClient:
 
         """
         self._tracking_client.set_experiment_tag(experiment_id, key, value)
+
+    def delete_experiment_tag(self, experiment_id: str, key: str) -> None:
+        """
+        Delete a tag from the experiment with the specified ID.
+
+        Args:
+            experiment_id: String ID of the experiment.
+            key: Name of the tag to be deleted.
+
+        .. code-block:: python
+
+            from mlflow import MlflowClient
+
+            # Create an experiment and set its tag
+            client = MlflowClient()
+            experiment_id = client.create_experiment("Social Media NLP Experiments")
+            client.set_experiment_tag(experiment_id, "nlp.framework", "Spark NLP")
+
+            # Fetch experiment metadata information, validate that tag is set
+            experiment = client.get_experiment(experiment_id)
+            assert experiment.tags == {"nlp.framework": "Spark NLP"}
+
+            client.delete_experiment_tag(experiment_id, "nlp.framework")
+
+            # Fetch experiment metadata information, validate that tag is deleted
+            experiment = client.get_experiment(experiment_id)
+            assert experiment.tags == {}
+
+        """
+        self._tracking_client.delete_experiment_tag(experiment_id, key)
 
     def set_tag(
         self, run_id: str, key: str, value: Any, synchronous: Optional[bool] = None
@@ -3034,8 +3041,8 @@ class MlflowClient:
         artifacts = [f.path for f in self.list_artifacts(run_id, path=artifact_dir)]
         if artifact_file in artifacts:
             with tempfile.TemporaryDirectory() as tmpdir:
-                downloaded_artifact_path = mlflow.artifacts.download_artifacts(
-                    run_id=run_id, artifact_path=artifact_file, dst_path=tmpdir
+                downloaded_artifact_path = self.download_artifacts(
+                    run_id=run_id, path=artifact_file, dst_path=tmpdir
                 )
                 existing_predictions = self._read_from_file(downloaded_artifact_path)
             data = pd.concat([existing_predictions, data], ignore_index=True)
@@ -3174,10 +3181,8 @@ class MlflowClient:
             ]
             if artifact_file in artifacts:
                 with tempfile.TemporaryDirectory() as tmpdir:
-                    downloaded_artifact_path = mlflow.artifacts.download_artifacts(
-                        run_id=run_id,
-                        artifact_path=artifact_file,
-                        dst_path=tmpdir,
+                    downloaded_artifact_path = self.download_artifacts(
+                        run_id=run_id, path=artifact_file, dst_path=tmpdir
                     )
                     existing_predictions = self._read_from_file(downloaded_artifact_path)
                     if extra_columns is not None:

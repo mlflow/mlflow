@@ -613,28 +613,27 @@ def expand_config(config: dict[str, Any], *, is_ref: bool = False) -> set[Matrix
                 )
 
             # Add tracing SDK test with the latest stable version
-            # TODO: Uncomment when REST store is migrated to V3 trace schema
-            # if len(versions) > 0 and category == "autologging" and cfg.test_tracing_sdk:
-            #     version = sorted(versions)[-1]  # Test against the latest stable version
-            #     matrix.add(
-            #         MatrixItem(
-            #             name=f"{name}-tracing",
-            #             flavor=flavor,
-            #             category="tracing-sdk",
-            #             job_name=f"{name} / tracing-sdk / {version}",
-            #             install=install,
-            #             # --import-mode=importlib is required for testing tracing SDK
-            #             # (mlflow-tracing) works properly, without being affected by environment.
-            #             run=run.replace("pytest", "pytest --import-mode=importlib"),
-            #             package=package_info.pip_release,
-            #             version=version,
-            #             java=java,
-            #             supported=version <= cfg.maximum,
-            #             free_disk_space=free_disk_space,
-            #             python=python,
-            #             runs_on=runs_on,
-            #         )
-            #     )
+            if len(versions) > 0 and category == "autologging" and cfg.test_tracing_sdk:
+                version = sorted(versions)[-1]  # Test against the latest stable version
+                matrix.add(
+                    MatrixItem(
+                        name=f"{name}-tracing",
+                        flavor=flavor,
+                        category="tracing-sdk",
+                        job_name=f"{name} / tracing-sdk / {version}",
+                        install=install,
+                        # --import-mode=importlib is required for testing tracing SDK
+                        # (mlflow-tracing) works properly, without being affected by environment.
+                        run=run.replace("pytest", "pytest --import-mode=importlib"),
+                        package=package_info.pip_release,
+                        version=version,
+                        java=java,
+                        supported=version <= cfg.maximum,
+                        free_disk_space=free_disk_space,
+                        python=python,
+                        runs_on=runs_on,
+                    )
+                )
 
             if package_info.install_dev:
                 install_dev = remove_comments(package_info.install_dev)

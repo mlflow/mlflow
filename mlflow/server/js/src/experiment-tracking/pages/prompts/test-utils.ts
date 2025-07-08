@@ -1,5 +1,5 @@
 import { rest } from 'msw';
-import { REGISTERED_PROMPT_CONTENT_TAG_KEY, REGISTERED_PROMPT_SOURCE_RUN_ID } from './utils';
+import { REGISTERED_PROMPT_CONTENT_TAG_KEY } from './utils';
 import { KeyValueEntity, ModelAliasMap } from '../../types';
 
 export const getMockedRegisteredPromptSetTagsResponse = (spyFn = jest.fn()) =>
