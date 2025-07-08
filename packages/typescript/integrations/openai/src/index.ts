@@ -2,7 +2,8 @@
  * Main tracedOpenAI wrapper function for MLflow tracing integration
  */
 
-import { withSpan, LiveSpan, SpanType } from 'mlflow-tracing';
+import { withSpan, LiveSpan, SpanAttributeKey, SpanType, TokenUsage } from 'mlflow-tracing';
+import { OpenAIUsage } from './types';
 
 // NB: 'Completions' represents chat.completions
 const SUPPORTED_MODULES = ['Completions', 'Responses', 'Embeddings'];
@@ -86,6 +87,16 @@ function wrapWithTracing(fn: Function, moduleName: string): Function {
         // TODO: Handle streaming responses
         span.setOutputs(result);
 
+        // Add token usage
+        try {
+          const usage = extractTokenUsage(result);
+          if (usage) {
+            span.setAttribute(SpanAttributeKey.TOKEN_USAGE, usage);
+          }
+        } catch (error) {
+          console.debug('Error extracting token usage', error);
+        }
+
         // eslint-disable-next-line @typescript-eslint/no-unsafe-return
         return result;
       },
@@ -109,4 +120,37 @@ function getSpanType(moduleName: string): SpanType | undefined {
     default:
       return undefined;
   }
+}
+
+/**
+ * Extract token usage information from OpenAI response
+ * Supports both ChatCompletion API format and Responses API format
+ */
+function extractTokenUsage(response: any): TokenUsage | undefined {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+  const usage = response?.usage as OpenAIUsage | undefined;
+
+  if (!usage) {
+    return undefined;
+  }
+
+  // Try Responses API format first (input_tokens, output_tokens)
+  if ('input_tokens' in usage) {
+    return {
+      input_tokens: usage.input_tokens,
+      output_tokens: usage.output_tokens,
+      total_tokens: usage.total_tokens || usage.input_tokens + usage.output_tokens
+    };
+  }
+
+  // Fall back to ChatCompletion API format (prompt_tokens, completion_tokens)
+  if ('prompt_tokens' in usage) {
+    return {
+      input_tokens: usage.prompt_tokens,
+      output_tokens: usage.completion_tokens,
+      total_tokens: usage.total_tokens || usage.prompt_tokens + usage.completion_tokens
+    };
+  }
+
+  return undefined;
 }

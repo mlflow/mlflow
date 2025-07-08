@@ -9,6 +9,6 @@ export { getLastActiveTraceId, flushTraces, init, startSpan, trace, withSpan, Ml
 export * from './core/constants';
 export type { LiveSpan, Span } from './core/entities/span';
 export type { Trace } from './core/entities/trace';
-export type { TraceInfo } from './core/entities/trace_info';
+export type { TraceInfo, TokenUsage } from './core/entities/trace_info';
 export type { TraceData } from './core/entities/trace_data';
 export { SpanStatusCode } from './core/entities/span_status';

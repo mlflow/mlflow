@@ -11,8 +11,12 @@ import { InMemoryTraceManager } from '../core/trace_manager';
 import { TraceInfo } from '../core/entities/trace_info';
 import { createTraceLocationFromExperimentId } from '../core/entities/trace_location';
 import { fromOtelStatus, TraceState } from '../core/entities/trace_state';
-import { SpanAttributeKey, TRACE_ID_PREFIX } from '../core/constants';
-import { convertHrTimeToMs, deduplicateSpanNamesInPlace } from '../core/utils';
+import { SpanAttributeKey, TRACE_ID_PREFIX, TraceMetadataKey } from '../core/constants';
+import {
+  convertHrTimeToMs,
+  deduplicateSpanNamesInPlace,
+  aggregateUsageFromSpans
+} from '../core/utils';
 import { getConfig } from '../core/config';
 import { MlflowClient } from '../clients';
 
@@ -97,6 +101,13 @@ export class MlflowSpanProcessor implements SpanProcessor {
 
     this.updateTraceInfo(trace.info, span);
     deduplicateSpanNamesInPlace(Array.from(trace.spanDict.values()));
+
+    // Aggregate token usage from all spans and add to trace metadata
+    const allSpans = Array.from(trace.spanDict.values());
+    const aggregatedUsage = aggregateUsageFromSpans(allSpans);
+    if (aggregatedUsage) {
+      trace.info.traceMetadata[TraceMetadataKey.TOKEN_USAGE] = JSON.stringify(aggregatedUsage);
+    }
 
     this._exporter.export([span], (_) => {});
   }
