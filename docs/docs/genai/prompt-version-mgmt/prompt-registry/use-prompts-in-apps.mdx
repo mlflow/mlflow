@@ -30,7 +30,7 @@ mlflow.genai.load_prompt(name_or_uri=f"prompts:/{prompt_name}@staging")
 
 ## Formatting Prompts with Variables
 
-Once you have loaded a prompt object (which is a `PromptVersion` instance), you can populate its template variables using the `prompt.format()` method. This method takes keyword arguments where the keys match the variable names in your prompt template (without the `{{ }}` braces).
+Once you have loaded a prompt object (which is a `Prompt` instance), you can populate its template variables using the `prompt.format()` method. This method takes keyword arguments where the keys match the variable names in your prompt template (without the `{{ }}` braces).
 
 ```python
 import mlflow
