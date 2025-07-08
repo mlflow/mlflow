@@ -708,4 +708,101 @@ describe('API', () => {
     expect(loggedSpan.endTime).toBeDefined();
     expect(loggedSpan.status?.statusCode).toBe(SpanStatusCode.ERROR);
   });
+
+  describe('getCurrentActiveSpan', () => {
+    it('should return undefined when no span is active', () => {
+      const activeSpan = mlflow.getCurrentActiveSpan();
+      expect(activeSpan).toBeUndefined();
+    });
+
+    it('should return the current active span within withSpan context', () => {
+      void mlflow.withSpan(
+        (span) => {
+          const activeSpan = mlflow.getCurrentActiveSpan();
+          expect(activeSpan).toBeDefined();
+          expect(activeSpan?.spanId).toBe(span.spanId);
+          expect(activeSpan?.traceId).toBe(span.traceId);
+        },
+        { name: 'test-span' }
+      );
+    });
+
+    it('should return the current active span within traced function', () => {
+      const tracedFunc = mlflow.trace(() => {
+        const activeSpan = mlflow.getCurrentActiveSpan();
+        expect(activeSpan).toBeDefined();
+        expect(activeSpan?.name).toBe('span'); // Default span name when function name is not available
+        return 'result';
+      });
+
+      tracedFunc();
+    });
+  });
+
+  describe('updateCurrentTrace', () => {
+    it('should warn when called outside of a trace context', () => {
+      const consoleSpy = jest.spyOn(console, 'warn').mockImplementation();
+
+      mlflow.updateCurrentTrace({ tags: { test: 'value' } });
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        'No active trace found. Please create a span using `withSpan` or ' +
+          '`@trace` before calling `updateCurrentTrace`.'
+      );
+
+      consoleSpy.mockRestore();
+    });
+
+    it('should update trace tags and metadata within withSpan context', async () => {
+      void mlflow.withSpan(
+        (_span) => {
+          mlflow.updateCurrentTrace({
+            tags: {
+              fruit: 'apple',
+              color: 'red'
+            },
+            metadata: {
+              'mlflow.source.name': 'test.ts',
+              'mlflow.source.git.commit': '1234567890'
+            }
+          });
+        },
+        { name: 'test-span' }
+      );
+
+      const trace = await getLastActiveTrace();
+      expect(trace.info.tags.fruit).toBe('apple');
+      expect(trace.info.tags.color).toBe('red');
+      expect(trace.info.traceMetadata['mlflow.source.name']).toBe('test.ts');
+      expect(trace.info.traceMetadata['mlflow.source.git.commit']).toBe('1234567890');
+    });
+
+    it('should update client request ID', async () => {
+      const predict = mlflow.trace(function predict(question: string) {
+        mlflow.updateCurrentTrace({ clientRequestId: 'req-12345' });
+        return `answer to ${question}`;
+      });
+
+      predict('What is the capital of France?');
+
+      const trace = await getLastActiveTrace();
+      expect(trace.info.clientRequestId).toBe('req-12345');
+    });
+
+    it('should update request and response previews', async () => {
+      void mlflow.withSpan(
+        (_span) => {
+          mlflow.updateCurrentTrace({
+            requestPreview: 'Custom request preview',
+            responsePreview: 'Custom response preview'
+          });
+        },
+        { name: 'test-span' }
+      );
+
+      const trace = await getLastActiveTrace();
+      expect(trace.info.requestPreview).toBe('Custom request preview');
+      expect(trace.info.responsePreview).toBe('Custom response preview');
+    });
+  });
 });

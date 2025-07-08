@@ -259,3 +259,167 @@ export function getLastActiveTraceId(): string | undefined {
   const traceManager = InMemoryTraceManager.getInstance();
   return traceManager.lastActiveTraceId;
 }
+
+/**
+ * Get the current active span in the global context.
+ *
+ * This only works when the span is created with fluent APIs like `@trace` or
+ * `withSpan`. If a span is created with the `startSpan` API, it won't be
+ * attached to the global context so this function will not return it.
+ *
+ * @returns The current active span if exists, otherwise undefined.
+ *
+ * @example
+ * ```typescript
+ * const tracedFunc = trace(() => {
+ *   const span = getCurrentActiveSpan();
+ *   span?.setAttribute("key", "value");
+ *   return 0;
+ * });
+ *
+ * tracedFunc();
+ * ```
+ */
+export function getCurrentActiveSpan(): LiveSpan | undefined {
+  const otelSpan = otelTrace.getActiveSpan();
+
+  // If no active span or it's a NonRecordingSpan, return undefined
+  if (!otelSpan || otelSpan.spanContext().traceId === '00000000000000000000000000000000') {
+    return undefined;
+  }
+
+  const traceManager = InMemoryTraceManager.getInstance();
+  const otelTraceId = otelSpan.spanContext().traceId;
+  const mlflowTraceId = traceManager.getMlflowTraceIdFromOtelId(otelTraceId);
+
+  if (!mlflowTraceId) {
+    return undefined;
+  }
+
+  const spanId = otelSpan.spanContext().spanId;
+  return traceManager.getSpan(mlflowTraceId, spanId) || undefined;
+}
+
+/**
+ * Options for updating the current trace
+ */
+export interface UpdateCurrentTraceOptions {
+  /**
+   * A dictionary of tags to update the trace with. Tags are designed for mutable values
+   * that can be updated after the trace is created via MLflow UI or API.
+   */
+  tags?: Record<string, string>;
+
+  /**
+   * A dictionary of metadata to update the trace with. Metadata cannot be updated
+   * once the trace is logged. It is suitable for recording immutable values like the
+   * git hash of the application version that produced the trace.
+   */
+  metadata?: Record<string, string>;
+
+  /**
+   * Client supplied request ID to associate with the trace. This is useful for linking
+   * the trace back to a specific request in your application or external system.
+   */
+  clientRequestId?: string;
+
+  /**
+   * A preview of the request to be shown in the Trace list view in the UI.
+   * By default, MLflow will truncate the trace request naively by limiting the length.
+   * This parameter allows you to specify a custom preview string.
+   */
+  requestPreview?: string;
+
+  /**
+   * A preview of the response to be shown in the Trace list view in the UI.
+   * By default, MLflow will truncate the trace response naively by limiting the length.
+   * This parameter allows you to specify a custom preview string.
+   */
+  responsePreview?: string;
+}
+
+/**
+ * Update the current active trace with the given options.
+ *
+ * You can use this function either within a function decorated with `@trace` or
+ * within the scope of the `withSpan` context. If there is no active trace found,
+ * this function will log a warning and return.
+ *
+ * @param options Options for updating the trace
+ *
+ * @example
+ * Using within a function decorated with `@trace`:
+ * ```typescript
+ * const myFunc = trace((x: number) => {
+ *   updateCurrentTrace({ tags: { fruit: "apple" }, clientRequestId: "req-12345" });
+ *   return x + 1;
+ * });
+ * ```
+ *
+ * @example
+ * Using within the `withSpan` context:
+ * ```typescript
+ * withSpan((span) => {
+ *   updateCurrentTrace({ tags: { fruit: "apple" }, clientRequestId: "req-12345" });
+ * }, { name: "span" });
+ * ```
+ *
+ * @example
+ * Updating source information of the trace:
+ * ```typescript
+ * updateCurrentTrace({
+ *   metadata: {
+ *     "mlflow.trace.session": "session-4f855da00427",
+ *     "mlflow.trace.user": "user-id-cc156f29bcfb",
+ *     "mlflow.source.name": "inference.ts",
+ *     "mlflow.source.git.commit": "1234567890",
+ *     "mlflow.source.git.repoURL": "https://github.com/mlflow/mlflow"
+ *   }
+ * });
+ * ```
+ */
+export function updateCurrentTrace(options: UpdateCurrentTraceOptions): void {
+  const activeSpan = getCurrentActiveSpan();
+
+  if (!activeSpan) {
+    console.warn(
+      'No active trace found. Please create a span using `withSpan` or ' +
+        '`@trace` before calling `updateCurrentTrace`.'
+    );
+    return;
+  }
+
+  // Validate string parameters
+  if (options.requestPreview !== undefined && typeof options.requestPreview !== 'string') {
+    throw new Error('The `requestPreview` parameter must be a string.');
+  }
+  if (options.responsePreview !== undefined && typeof options.responsePreview !== 'string') {
+    throw new Error('The `responsePreview` parameter must be a string.');
+  }
+
+  // Update trace info for the trace stored in-memory
+  const traceManager = InMemoryTraceManager.getInstance();
+  const trace = traceManager.getTrace(activeSpan.traceId);
+
+  if (!trace) {
+    console.warn(`Trace ${activeSpan.traceId} does not exist or already finished.`);
+    return;
+  }
+
+  // Update trace info properties
+  if (options.requestPreview != null) {
+    trace.info.requestPreview = options.requestPreview;
+  }
+  if (options.responsePreview != null) {
+    trace.info.responsePreview = options.responsePreview;
+  }
+  if (options.tags != null) {
+    Object.assign(trace.info.tags, options.tags);
+  }
+  if (options.metadata != null) {
+    Object.assign(trace.info.traceMetadata, options.metadata);
+  }
+  if (options.clientRequestId != null) {
+    trace.info.clientRequestId = String(options.clientRequestId);
+  }
+}
