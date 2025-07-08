@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
 
-from mlflow.version import VERSION
+from mlflow.version import IS_TRACING_SDK_ONLY, VERSION
 
 
 class APIStatus(str, Enum):
@@ -69,6 +69,7 @@ class APIRecord:
 class TelemetryInfo:
     session_id: str = uuid.uuid4().hex
     mlflow_version: str = VERSION
+    is_tracing_sdk: bool = IS_TRACING_SDK_ONLY
     python_version: str = (
         f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
     )
