@@ -41,6 +41,7 @@ from mlflow.store.model_registry.dbmodels.models import (
     SqlRegisteredModelAlias,
     SqlRegisteredModelTag,
     SqlWebhook,
+    SqlWebhookEvent,
 )
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils.search_utils import SearchModelUtils, SearchModelVersionUtils, SearchUtils
@@ -1305,10 +1306,7 @@ class SqlAlchemyStore(AbstractStore):
     ) -> Webhook:
         _validate_webhook_name(name)
         _validate_webhook_url(url)
-        if not events or not isinstance(events, list):
-            raise MlflowException(
-                "Webhook events must be a non-empty list.", INVALID_PARAMETER_VALUE
-            )
+        _validate_webhook_events(events)
 
         with self.ManagedSessionMaker() as session:
             webhook_id = str(uuid.uuid4())
@@ -1317,15 +1315,14 @@ class SqlAlchemyStore(AbstractStore):
                 webhook_id=webhook_id,
                 name=name,
                 url=url,
-                events=[e.value for e in events],
                 description=description,
                 secret=secret,
                 status=(status or WebhookStatus.ACTIVE).value,
                 creation_timestamp=creation_time,
                 last_updated_timestamp=creation_time,
             )
-
             session.add(webhook)
+            session.add_all(SqlWebhookEvent(webhook_id=webhook_id, event=e.value) for e in events)
             session.flush()
             return webhook.to_mlflow_entity()
 
@@ -1392,7 +1389,14 @@ class SqlAlchemyStore(AbstractStore):
                 webhook.url = url
             if events is not None:
                 _validate_webhook_events(events)
-                webhook.events = [e.value for e in events]
+                # Delete existing webhook events
+                session.query(SqlWebhookEvent).filter(
+                    SqlWebhookEvent.webhook_id == webhook_id
+                ).delete()
+                # Create new webhook events
+                session.add_all(
+                    SqlWebhookEvent(webhook_id=webhook_id, event=e.value) for e in events
+                )
             if description is not None:
                 webhook.description = description
             if secret is not None:

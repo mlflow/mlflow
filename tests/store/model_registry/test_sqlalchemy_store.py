@@ -2119,7 +2119,7 @@ def test_update_webhook(store):
     )
 
     # Update webhook
-    new_events = [WebhookEvent.REGISTERED_MODEL_CREATED, WebhookEvent.MODEL_VERSION_CREATED]
+    new_events = [WebhookEvent.MODEL_VERSION_CREATED, WebhookEvent.REGISTERED_MODEL_CREATED]
     updated_webhook = store.update_webhook(
         webhook_id=webhook.webhook_id,
         name="updated_name",

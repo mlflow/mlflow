@@ -2,7 +2,6 @@ import os
 
 from cryptography.fernet import Fernet
 from sqlalchemy import (
-    JSON,
     BigInteger,
     Column,
     ForeignKey,
@@ -248,7 +247,6 @@ class SqlWebhook(Base):
     name = Column(String(256), nullable=False)
     description = Column(String(1000), nullable=True)
     url = Column(String(500), nullable=False)
-    events = Column(JSON, nullable=False)  # Array of WebhookEvent values
     status = Column(String(20), nullable=False, default="ACTIVE")
     secret = Column(EncryptedString(), nullable=True)  # Encrypted storage for HMAC secret
     creation_timestamp = Column(BigInteger, default=get_current_time_millis)
@@ -264,17 +262,31 @@ class SqlWebhook(Base):
         )
 
     def to_mlflow_entity(self):
-        # Convert events from JSON array
-        events = [WebhookEvent(event) for event in self.events]
-
         return Webhook(
             webhook_id=self.webhook_id,
             name=self.name,
             url=self.url,
-            events=events,
+            events=sorted(WebhookEvent(we.event) for we in self.webhook_events),
             creation_timestamp=self.creation_timestamp,
             last_updated_timestamp=self.last_updated_timestamp,
             description=self.description,
             status=WebhookStatus(self.status),
             secret=self.secret,
         )
+
+
+class SqlWebhookEvent(Base):
+    __tablename__ = "webhook_events"
+
+    webhook_id = Column(String(256), ForeignKey("webhooks.webhook_id", ondelete="cascade"))
+    event = Column(String(50), nullable=False)
+
+    # Relationship
+    webhook = relationship(
+        "SqlWebhook", backref=backref("webhook_events", cascade="all, delete-orphan")
+    )
+
+    __table_args__ = (PrimaryKeyConstraint("webhook_id", "event", name="webhook_event_pk"),)
+
+    def __repr__(self):
+        return f"<SqlWebhookEvent ({self.webhook_id}, {self.event})>"
