@@ -21,6 +21,7 @@ from mlflow.tracing.constant import (
     SpanAttributeKey,
     TokenUsageKey,
     TraceMetadataKey,
+    TraceSizeStatsKey,
 )
 from mlflow.utils.mlflow_tags import IMMUTABLE_TAGS
 from mlflow.version import IS_TRACING_SDK_ONLY
@@ -510,17 +511,85 @@ def set_chat_attributes_special_case(span: LiveSpan, inputs: Any, outputs: Any):
         pass
 
 
-def add_size_bytes_to_trace_metadata(trace: Trace):
+def _calculate_percentile(sorted_data: list[float], percentile: float) -> float:
     """
-    Calculate the size of the trace in bytes and add it as a tag to the trace.
+    Calculate the percentile value from sorted data.
+
+    Args:
+        sorted_data: A sorted list of numeric values
+        percentile: The percentile to calculate (e.g., 0.25 for 25th percentile)
+
+    Returns:
+        The percentile value
+    """
+    if not sorted_data:
+        return 0.0
+
+    n = len(sorted_data)
+    index = percentile * (n - 1)
+    lower = int(index)
+    upper = lower + 1
+
+    if upper >= n:
+        return sorted_data[-1]
+
+    # Linear interpolation between two nearest values
+    weight = index - lower
+    return sorted_data[lower] * (1 - weight) + sorted_data[upper] * weight
+
+
+def add_size_stats_to_trace_metadata(trace: Trace):
+    """
+    Calculate the stats of trace and span sizes and add it as a metadata to the trace.
 
     This method modifies the trace object in place by adding a new tag.
 
     Note: For simplicity, we calculate the size without considering the size metadata itself.
     This provides a close approximation without requiring complex calculations.
+
+    This function must not throw an exception.
     """
-    trace_size_bytes = len(trace.to_json().encode("utf-8"))
-    trace.info.trace_metadata[TraceMetadataKey.SIZE_BYTES] = str(trace_size_bytes)
+    from mlflow.entities import Trace, TraceData
+
+    try:
+        span_sizes = []
+        for span in trace.data.spans:
+            span_json = json.dumps(span.to_dict(), cls=TraceJSONEncoder)
+            span_sizes.append(len(span_json.encode("utf-8")))
+
+        # NB: To compute the size of the total trace, we need to include the size of the
+        # the trace info and the parent dicts for the spans. To avoid serializing spans
+        # again (which can be expensive), we compute the size of the trace without spans
+        # and combine it with the total size of the spans.
+        empty_trace = Trace(info=trace.info, data=TraceData(spans=[]))
+        metadata_size = len(empty_trace.to_json().encode("utf-8"))
+
+        # NB: the third term is the size of comma separators between spans (", ").
+        trace_size_bytes = sum(span_sizes) + metadata_size + (len(span_sizes) - 1) * 2
+
+        # Sort span sizes for percentile calculation
+        sorted_span_sizes = sorted(span_sizes)
+
+        size_stats = {
+            TraceSizeStatsKey.TOTAL_SIZE_BYTES: trace_size_bytes,
+            TraceSizeStatsKey.NUM_SPANS: len(span_sizes),
+            TraceSizeStatsKey.MAX_SPAN_SIZE_BYTES: max(span_sizes),
+            TraceSizeStatsKey.P25_SPAN_SIZE_BYTES: int(
+                _calculate_percentile(sorted_span_sizes, 0.25)
+            ),
+            TraceSizeStatsKey.P50_SPAN_SIZE_BYTES: int(
+                _calculate_percentile(sorted_span_sizes, 0.50)
+            ),
+            TraceSizeStatsKey.P75_SPAN_SIZE_BYTES: int(
+                _calculate_percentile(sorted_span_sizes, 0.75)
+            ),
+        }
+
+        trace.info.trace_metadata[TraceMetadataKey.SIZE_STATS] = json.dumps(size_stats)
+        # Keep the total size as a separate metadata for backward compatibility
+        trace.info.trace_metadata[TraceMetadataKey.SIZE_BYTES] = str(trace_size_bytes)
+    except Exception:
+        _logger.warning("Failed to add size stats to trace metadata.", exc_info=True)
 
 
 def update_trace_state_from_span_conditionally(trace, root_span):

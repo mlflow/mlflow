@@ -283,6 +283,16 @@ def _get_lc_model_input_fields(lc_model) -> set[str]:
 
 
 def _should_transform_request_json_for_chat(lc_model):
+    # Don't convert the request to LangChain's Message format for LangGraph models.
+    # Inputs may have key like "messages", but they are graph state fields, not OAI chat format.
+    try:
+        from langgraph.graph.state import CompiledStateGraph
+
+        if isinstance(lc_model, CompiledStateGraph):
+            return False
+    except ImportError:
+        pass
+
     # Avoid converting the request to LangChain's Message format if the chain
     # is an AgentExecutor, as LangChainChatMessage might not be accepted by the chain
     from langchain.agents import AgentExecutor

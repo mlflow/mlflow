@@ -211,21 +211,21 @@ flowchart TD
 
 Chat model spans capture LLM interactions with special attributes for conversation data:
 
-| Attribute | Purpose | Content |
-|-----------|---------|---------|
+| Attribute                | Purpose              | Content                                |
+| ------------------------ | -------------------- | -------------------------------------- |
 | **mlflow.chat.messages** | Conversation history | List of system/user/assistant messages |
-| **mlflow.chat.tools** | Available functions | Tool definitions for function calling |
+| **mlflow.chat.tools**    | Available functions  | Tool definitions for function calling  |
 
 ### Retriever Spans
 
 Retriever spans capture document search operations with structured output:
 
-| Field | Purpose | Content |
-|-------|---------|---------|
-| **page_content** | Document text | Retrieved document content |
-| **metadata.doc_uri** | Source location | Document source URI |
-| **metadata.chunk_id** | Fragment identifier | Specific chunk reference |
-| **id** | Unique identifier | Document chunk ID |
+| Field                 | Purpose             | Content                    |
+| --------------------- | ------------------- | -------------------------- |
+| **page_content**      | Document text       | Retrieved document content |
+| **metadata.doc_uri**  | Source location     | Document source URI        |
+| **metadata.chunk_id** | Fragment identifier | Specific chunk reference   |
+| **id**                | Unique identifier   | Document chunk ID          |
 
 ## Tags: Searchable Context
 
@@ -389,21 +389,25 @@ Rich tagging enables business-focused analysis:
 ## Benefits of the Trace Data Model
 
 #### 🔍 **Complete Observability**
+
 - **Hierarchical visibility**: Understand nested operation relationships
 - **Rich context**: Tags and attributes provide searchable metadata
 - **OpenTelemetry compatibility**: Integrate with existing observability tools
 
 #### 📊 **Data-Driven Decisions**
+
 - **Performance optimization**: Identify bottlenecks and improvement opportunities
 - **Quality tracking**: Monitor application quality trends over time
 - **Cost management**: Track resource usage and optimization opportunities
 
 #### 🔄 **Development Integration**
+
 - **Debug support**: Detailed execution flow for troubleshooting
 - **Evaluation datasets**: Create test cases from production traces
 - **Continuous improvement**: Systematic quality enhancement workflows
 
 #### 🎯 **Business Alignment**
+
 - **User-centric analysis**: Track experience by user segments
 - **Feature validation**: Measure impact of new capabilities
 - **Compliance support**: Audit trails and data governance

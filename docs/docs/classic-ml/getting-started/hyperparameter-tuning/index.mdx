@@ -19,6 +19,7 @@ By the end of this tutorial, you'll know how to:
 ## Prerequisites & Setup
 
 ### Quick Setup
+
 For this quickstart, we'll use a local MLflow tracking server. Start it with:
 
 ```bash
@@ -28,11 +29,13 @@ mlflow ui --port 5000
 Keep this running in a separate terminal. Your MLflow UI will be available at [http://localhost:5000](http://localhost:5000).
 
 ### Install Dependencies
+
 ```bash
 pip install mlflow[extras] hyperopt tensorflow scikit-learn pandas numpy
 ```
 
 ### Set Environment Variable
+
 ```bash
 export MLFLOW_TRACKING_URI=http://localhost:5000
 ```
@@ -44,6 +47,7 @@ For production environments or team collaboration, consider using [MLflow Tracki
 ## The Challenge: Wine Quality Prediction
 
 We'll optimize a neural network that predicts wine quality from chemical properties. Our goal is to minimize **Root Mean Square Error (RMSE)** by finding the optimal combination of:
+
 - **Learning Rate**: How aggressively the model learns
 - **Momentum**: How much the optimizer considers previous updates
 
@@ -293,6 +297,7 @@ with mlflow.start_run(run_name="hyperparameter-sweep"):
 Open [http://localhost:5000](http://localhost:5000) in your browser to explore your results:
 
 ### Table View Analysis
+
 1. **Navigate to your experiment**: Click on "wine-quality-optimization"
 2. **Add key columns**: Click "Columns" and add:
    - `Metrics | val_rmse`
@@ -301,6 +306,7 @@ Open [http://localhost:5000](http://localhost:5000) in your browser to explore y
 3. **Sort by performance**: Click the `val_rmse` column header to sort by best performance
 
 ### Visual Analysis
+
 1. **Switch to Chart view**: Click the "Chart" tab
 2. **Create parallel coordinates plot**:
    - Select "Parallel coordinates"
@@ -312,6 +318,7 @@ Open [http://localhost:5000](http://localhost:5000) in your browser to explore y
    - Look for patterns in successful parameter combinations
 
 ### Key Insights to Look For
+
 - **Learning rate patterns**: Too high causes instability, too low causes slow convergence
 - **Momentum effects**: Moderate momentum (0.3-0.7) often works best
 - **Training curves**: Check artifacts to see if models converged properly
@@ -366,6 +373,7 @@ curl -X POST http://localhost:5002/invocations \
 ```
 
 **Expected Response:**
+
 ```json
 {
   "predictions": [5.31]
@@ -450,6 +458,7 @@ Your Docker container is now ready for cloud deployment:
 ### Popular Cloud Options
 
 **AWS**: Deploy to ECS, EKS, or SageMaker
+
 ```bash
 # Example: Push to ECR and deploy to ECS
 aws ecr create-repository --repository-name wine-quality-api
@@ -458,6 +467,7 @@ docker push <your-account>.dkr.ecr.us-east-1.amazonaws.com/wine-quality-api:late
 ```
 
 **Azure**: Deploy to Container Instances or AKS
+
 ```bash
 # Example: Deploy to Azure Container Instances
 az container create \
@@ -468,6 +478,7 @@ az container create \
 ```
 
 **Google Cloud**: Deploy to Cloud Run or GKE
+
 ```bash
 # Example: Deploy to Cloud Run
 gcloud run deploy wine-quality-api \
@@ -477,6 +488,7 @@ gcloud run deploy wine-quality-api \
 ```
 
 **Databricks**: Deploy with Mosaic AI Model Serving
+
 ```python
 # First, register your model in Unity Catalog
 import mlflow
@@ -500,6 +512,7 @@ with mlflow.start_run():
 ```
 
 Or use the Databricks deployment client programmatically:
+
 ```python
 from mlflow.deployments import get_deploy_client
 
@@ -561,12 +574,14 @@ response = client.predict(
 ## Next Steps
 
 ### Enhance Your MLOps Skills
+
 - **Advanced Optimization**: Try [Optuna](https://optuna.org/) or [Ray Tune](https://docs.ray.io/en/latest/tune/index.html) for more sophisticated hyperparameter optimization. Both work seamlessly with MLflow.
 - **Model Monitoring**: Implement drift detection and performance monitoring in production
 - **A/B Testing**: Compare model versions in production using MLflow's model registry
 - **CI/CD Integration**: Automate model training and deployment with GitHub Actions or similar
 
 ### Scale Your Infrastructure with a [Tracking Server](/ml/getting-started/tracking-server-overview)
+
 - **MLflow on Kubernetes**: Deploy MLflow tracking server on K8s for team collaboration
 - **Database Backend**: Use PostgreSQL or MySQL instead of file-based storage
 - **Artifact Storage**: Configure S3, Azure Blob, or GCS for model artifacts

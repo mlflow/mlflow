@@ -19,17 +19,19 @@ robust pipeline architecture, spaCy enables developers to build sophisticated NL
 <details>
   <summary>Why spaCy Leads Industrial NLP</summary>
 
-  #### Production-Ready Architecture
-  - ⚡ **Lightning Fast**: Optimized Cython codebase delivering industry-leading performance
-  - 🏭 **Battle-Tested**: Powers NLP systems at Netflix, Airbnb, Quora, and thousands of production applications
-  - 🎯 **Accuracy-Focused**: State-of-the-art models trained on massive datasets with rigorous evaluation
-  - 🔧 **Memory Efficient**: Designed for processing large documents and high-throughput applications
+#### Production-Ready Architecture
 
-  #### Comprehensive NLP Ecosystem
-  - 🧠 **Pre-trained Models**: 75+ models across 23 languages with transformer-based architectures
-  - 🔤 **Full Pipeline**: Tokenization, POS tagging, NER, dependency parsing, and text classification
-  - 📊 **Custom Training**: Easy fine-tuning and custom model development with modern ML techniques
-  - 🌐 **Multilingual**: First-class support for diverse languages and writing systems
+- ⚡ **Lightning Fast**: Optimized Cython codebase delivering industry-leading performance
+- 🏭 **Battle-Tested**: Powers NLP systems at Netflix, Airbnb, Quora, and thousands of production applications
+- 🎯 **Accuracy-Focused**: State-of-the-art models trained on massive datasets with rigorous evaluation
+- 🔧 **Memory Efficient**: Designed for processing large documents and high-throughput applications
+
+#### Comprehensive NLP Ecosystem
+
+- 🧠 **Pre-trained Models**: 75+ models across 23 languages with transformer-based architectures
+- 🔤 **Full Pipeline**: Tokenization, POS tagging, NER, dependency parsing, and text classification
+- 📊 **Custom Training**: Easy fine-tuning and custom model development with modern ML techniques
+- 🌐 **Multilingual**: First-class support for diverse languages and writing systems
 
 </details>
 
@@ -65,23 +67,26 @@ model_info = mlflow.spacy.log_model(nlp, name="spacy_model")
 <details>
   <summary>What Gets Automatically Captured</summary>
 
-  #### Model Architecture & Components
-  - 🧠 **Pipeline Components**: Tokenizer, tagger, parser, NER, text categorizer, and custom components
-  - 📐 **Model Configuration**: Architecture details, hyperparameters, and training settings
-  - 🎯 **Component Performance**: Individual component metrics and pipeline-level performance
-  - 🔧 **Custom Components**: User-defined pipeline components and extensions
+#### Model Architecture & Components
 
-  #### Training Artifacts & Metadata
-  - 📊 **Performance Metrics**: Precision, recall, F1-scores for all NLP tasks
-  - 📈 **Training Curves**: Loss progression, convergence patterns, and validation metrics
-  - 🎛️ **Hyperparameters**: Learning rates, batch sizes, dropout rates, and optimization settings
-  - 📝 **Training Data**: Dataset information, corpus statistics, and preprocessing details
+- 🧠 **Pipeline Components**: Tokenizer, tagger, parser, NER, text categorizer, and custom components
+- 📐 **Model Configuration**: Architecture details, hyperparameters, and training settings
+- 🎯 **Component Performance**: Individual component metrics and pipeline-level performance
+- 🔧 **Custom Components**: User-defined pipeline components and extensions
 
-  #### Deployment-Ready Packaging
-  - 🤖 **Model Serialization**: Complete model state with all components and vocabularies
-  - 📦 **Dependency Management**: Automatic environment capture and requirements specification
-  - 🔄 **PyFunc Integration**: Generic Python function interface for universal deployment
-  - 🏷️ **Model Signatures**: Input/output schemas for validation and documentation
+#### Training Artifacts & Metadata
+
+- 📊 **Performance Metrics**: Precision, recall, F1-scores for all NLP tasks
+- 📈 **Training Curves**: Loss progression, convergence patterns, and validation metrics
+- 🎛️ **Hyperparameters**: Learning rates, batch sizes, dropout rates, and optimization settings
+- 📝 **Training Data**: Dataset information, corpus statistics, and preprocessing details
+
+#### Deployment-Ready Packaging
+
+- 🤖 **Model Serialization**: Complete model state with all components and vocabularies
+- 📦 **Dependency Management**: Automatic environment capture and requirements specification
+- 🔄 **PyFunc Integration**: Generic Python function interface for universal deployment
+- 🏷️ **Model Signatures**: Input/output schemas for validation and documentation
 
 </details>
 
@@ -106,11 +111,11 @@ predictions = loaded_model.predict(test_dataframe)
 <details>
   <summary>Text Classification Excellence</summary>
 
-  - 🎯 **Automatic PyFunc Generation**: Text categorizer models automatically get PyFunc flavor for easy deployment
-  - 📊 **Multi-label Support**: Handle complex classification scenarios with multiple categories
-  - 🔄 **Batch Processing**: Efficient inference on large datasets with optimized batch operations
-  - 📈 **Performance Tracking**: Monitor classification metrics throughout training and validation
-  - 🎨 **Custom Categories**: Support for domain-specific classification tasks and custom label sets
+- 🎯 **Automatic PyFunc Generation**: Text categorizer models automatically get PyFunc flavor for easy deployment
+- 📊 **Multi-label Support**: Handle complex classification scenarios with multiple categories
+- 🔄 **Batch Processing**: Efficient inference on large datasets with optimized batch operations
+- 📈 **Performance Tracking**: Monitor classification metrics throughout training and validation
+- 🎨 **Custom Categories**: Support for domain-specific classification tasks and custom label sets
 
 </details>
 
@@ -121,40 +126,41 @@ Deep integration with spaCy's training system through custom MLflow loggers:
 <details>
   <summary>Training Integration Capabilities</summary>
 
-  ```python
-  import spacy
-  import mlflow
+```python
+import spacy
+import mlflow
 
 
-  @spacy.registry.loggers("mlflow_logger.v1")
-  def mlflow_logger():
-      def setup_logger(nlp, stdout, stderr):
-          def log_step(info):
-              if info:
-                  step = info["step"]
-                  metrics = {}
-                  for pipe_name in nlp.pipe_names:
-                      loss = info["losses"][pipe_name]
-                      score = info["score"]
-                      metrics[f"{pipe_name}_loss"] = loss
-                      metrics[f"{pipe_name}_score"] = score
-                  mlflow.log_metrics(metrics, step=step)
+@spacy.registry.loggers("mlflow_logger.v1")
+def mlflow_logger():
+    def setup_logger(nlp, stdout, stderr):
+        def log_step(info):
+            if info:
+                step = info["step"]
+                metrics = {}
+                for pipe_name in nlp.pipe_names:
+                    loss = info["losses"][pipe_name]
+                    score = info["score"]
+                    metrics[f"{pipe_name}_loss"] = loss
+                    metrics[f"{pipe_name}_score"] = score
+                mlflow.log_metrics(metrics, step=step)
 
-          def finalize():
-              mlflow.spacy.log_model(nlp, name="trained_model")
-              mlflow.end_run()
+        def finalize():
+            mlflow.spacy.log_model(nlp, name="trained_model")
+            mlflow.end_run()
 
-          return log_step, finalize
+        return log_step, finalize
 
-      return setup_logger
-  ```
+    return setup_logger
+```
 
-  #### Custom Logger Benefits
-  - 📊 **Real-time Tracking**: Monitor training progress as it happens
-  - 🎯 **Component-level Metrics**: Track performance for each pipeline component
-  - 🔄 **Automatic Model Saving**: Save final models with complete training history
-  - 📈 **Custom Metrics**: Log domain-specific evaluation metrics and business KPIs
-  - ⚙️ **Configuration Tracking**: Capture all training parameters and model configurations
+#### Custom Logger Benefits
+
+- 📊 **Real-time Tracking**: Monitor training progress as it happens
+- 🎯 **Component-level Metrics**: Track performance for each pipeline component
+- 🔄 **Automatic Model Saving**: Save final models with complete training history
+- 📈 **Custom Metrics**: Log domain-specific evaluation metrics and business KPIs
+- ⚙️ **Configuration Tracking**: Capture all training parameters and model configurations
 
 </details>
 
@@ -190,26 +196,29 @@ Our guide will help to transform you from a spaCy beginner to an MLflow-powered 
 <details>
   <summary>Mastery Path Overview</summary>
 
-  #### Foundation Skills
-  - 🚀 Log spaCy models with `mlflow.spacy.log_model()` and automatic flavor detection
-  - 📊 Implement custom training loggers for real-time experiment tracking
-  - 🎯 Master text classification workflows with automatic PyFunc generation
-  - 🔄 Create reproducible NLP experiments with proper environment management
-  - 📈 Visualize training progress and model performance with integrated dashboards
+#### Foundation Skills
 
-  #### Advanced Techniques
-  - 🧠 Track custom pipeline components and specialized NLP architectures
-  - ⚡ Optimize model performance with hyperparameter tracking and comparison
-  - 🔍 Implement advanced model evaluation with custom metrics and validation strategies
-  - 📦 Create custom model flavors for specialized NLP applications and deployment needs
-  - 🎨 Build comprehensive experiment dashboards with domain-specific visualizations
+- 🚀 Log spaCy models with `mlflow.spacy.log_model()` and automatic flavor detection
+- 📊 Implement custom training loggers for real-time experiment tracking
+- 🎯 Master text classification workflows with automatic PyFunc generation
+- 🔄 Create reproducible NLP experiments with proper environment management
+- 📈 Visualize training progress and model performance with integrated dashboards
 
-  #### Production Excellence
-  - 🏭 Deploy spaCy models to production with MLflow serving infrastructure and monitoring
-  - 🔄 Implement CI/CD pipelines for automated model training, validation, and deployment
-  - 📊 Monitor model performance and detect concept drift in production NLP systems
-  - 👥 Set up collaborative workflows for team-based NLP research and development
-  - 🛡️ Implement model governance, approval processes, and compliance frameworks
+#### Advanced Techniques
+
+- 🧠 Track custom pipeline components and specialized NLP architectures
+- ⚡ Optimize model performance with hyperparameter tracking and comparison
+- 🔍 Implement advanced model evaluation with custom metrics and validation strategies
+- 📦 Create custom model flavors for specialized NLP applications and deployment needs
+- 🎨 Build comprehensive experiment dashboards with domain-specific visualizations
+
+#### Production Excellence
+
+- 🏭 Deploy spaCy models to production with MLflow serving infrastructure and monitoring
+- 🔄 Implement CI/CD pipelines for automated model training, validation, and deployment
+- 📊 Monitor model performance and detect concept drift in production NLP systems
+- 👥 Set up collaborative workflows for team-based NLP research and development
+- 🛡️ Implement model governance, approval processes, and compliance frameworks
 
 </details>
 

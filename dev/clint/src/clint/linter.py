@@ -746,13 +746,38 @@ def _lint_cell(path: Path, config: Config, cell: dict[str, Any], index: int) -> 
     return violations
 
 
-def lint_file(path: Path, config: Config) -> list[Violation]:
+def _has_h1_header(cells: list[dict[str, Any]]) -> bool:
+    return any(
+        line.strip().startswith("# ")
+        for cell in cells
+        if cell.get("cell_type") == "markdown"
+        for line in cell.get("source", [])
+    )
+
+
+def lint_file(path: Path, config: Config, index: SymbolIndex) -> list[Violation]:
     code = path.read_text()
     if path.suffix == ".ipynb":
         violations = []
         if cells := json.loads(code).get("cells"):
-            for idx, cell in enumerate(cells, start=1):
-                violations.extend(_lint_cell(path, config, cell, idx))
+            for cell_idx, cell in enumerate(cells, start=1):
+                violations.extend(
+                    _lint_cell(
+                        path=path,
+                        config=config,
+                        index=index,
+                        cell=cell,
+                        cell_index=cell_idx,
+                    )
+                )
+            if not _has_h1_header(cells):
+                violations.append(
+                    Violation(
+                        rules.MissingNotebookH1Header(),
+                        path,
+                        Location(0, 0),
+                    )
+                )
         return violations
     elif path.suffix in {".rst", ".md", ".mdx"}:
         violations = []
