@@ -28,8 +28,11 @@ import { FormattedMessage, useIntl } from 'react-intl';
 import Utils from '../../common/utils/Utils';
 import { Link } from '../../common/utils/RoutingUtils';
 import Routes from '../routes';
+import { ExperimentListTableTagsCell } from './ExperimentListTableTagsCell';
 
-type ExperimentTableColumnDef = ColumnDef<ExperimentEntity>;
+export type ExperimentTableColumnDef = ColumnDef<ExperimentEntity>;
+
+export type ExperimentTableMetadata = { onEditTags: (editedEntity: ExperimentEntity) => void };
 
 const useExperimentsTableColumns = () => {
   const intl = useIntl();
@@ -84,6 +87,16 @@ const useExperimentsTableColumns = () => {
         accessorFn: ({ tags }) => tags?.find(({ key }) => key === 'mlflow.note.content')?.value ?? '-',
         enableSorting: false,
       },
+      {
+        header: intl.formatMessage({
+          defaultMessage: 'Tags',
+          description: 'Header for the tags column in the experiments table',
+        }),
+        id: 'tags',
+        accessorKey: 'tags',
+        enableSorting: false,
+        cell: ExperimentListTableTagsCell,
+      },
     ];
 
     return resultColumns;
@@ -98,6 +111,7 @@ export const ExperimentListTable = ({
   setRowSelection,
   cursorPaginationProps,
   sortingProps: { sorting, setSorting },
+  onEditTags,
 }: {
   experiments?: ExperimentEntity[];
   isFiltered?: boolean;
@@ -106,6 +120,7 @@ export const ExperimentListTable = ({
   setRowSelection: OnChangeFn<RowSelectionState>;
   cursorPaginationProps: Omit<CursorPaginationProps, 'componentId'>;
   sortingProps: { sorting: SortingState; setSorting: OnChangeFn<SortingState> };
+  onEditTags: (editedEntity: ExperimentEntity) => void;
 }) => {
   const { theme } = useDesignSystemTheme();
   const columns = useExperimentsTableColumns();
@@ -120,6 +135,7 @@ export const ExperimentListTable = ({
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
     state: { rowSelection, sorting },
+    meta: { onEditTags } satisfies ExperimentTableMetadata,
   });
 
   const getEmptyState = () => {
@@ -202,7 +218,7 @@ export const ExperimentListTable = ({
   );
 };
 
-const ExperimentListTableCell: ColumnDef<ExperimentEntity>['cell'] = ({ row: { original } }) => {
+const ExperimentListTableCell: ExperimentTableColumnDef['cell'] = ({ row: { original } }) => {
   return (
     <Link
       className="experiment-link"
@@ -216,7 +232,7 @@ const ExperimentListTableCell: ColumnDef<ExperimentEntity>['cell'] = ({ row: { o
   );
 };
 
-const ExperimentListCheckbox: ColumnDef<ExperimentEntity>['cell'] = ({ row }) => {
+const ExperimentListCheckbox: ExperimentTableColumnDef['cell'] = ({ row }) => {
   return (
     <Checkbox
       componentId="mlflow.experiment_list_view.check_box"
