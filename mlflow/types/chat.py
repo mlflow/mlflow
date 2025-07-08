@@ -69,7 +69,9 @@ ContentPartsList = list[
 ]
 
 
-ContentType = Annotated[Union[str, ContentPartsList], Field(union_mode="left_to_right")]
+ContentType = Annotated[
+    Union[str, ContentPartsList, dict[str, Any]], Field(union_mode="left_to_right")
+]
 
 
 class Function(BaseModel):
