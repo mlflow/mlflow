@@ -92,7 +92,12 @@ class ToolCall(BaseModel):
 
 class ChatMessage(BaseModel):
     """
-    A chat request. ``content`` can be a string, or an array of content parts.
+    A chat request. ``content`` can be a string, a dict, or an array of content parts.
+
+    dict is a mini object describing one part, with at least:
+
+    - ``type`` (str): one of `"text"`, `"image"`, or `"audio"`
+    - ``payload`` (Any): the actual data (e.g. text string, image URL, audio bytes)
 
     A content part is one of the following:
 
