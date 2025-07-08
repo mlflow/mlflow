@@ -7,11 +7,13 @@ import logging
 import numbers
 import posixpath
 import re
+import urllib.parse
 from typing import Optional
 
 from mlflow.entities import Dataset, DatasetInput, InputTag, Param, RunTag
 from mlflow.entities.model_registry.prompt_version import PROMPT_TEXT_TAG_KEY
 from mlflow.environment_variables import (
+    _MLFLOW_WEBHOOK_ALLOWED_SCHEMES,
     MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH,
     MLFLOW_TRUNCATE_LONG_VALUES,
 )
@@ -659,4 +661,38 @@ def _validate_logged_model_name(name: Optional[str]) -> None:
             f"Invalid model name ({name!r}) provided. Model name must be a non-empty string "
             f"and cannot contain the following characters: {bad_chars}",
             INVALID_PARAMETER_VALUE,
+        )
+
+
+def _validate_webhook_name(name: str) -> None:
+    if not isinstance(name, str):
+        raise MlflowException.invalid_parameter_value(
+            f"Webhook name must be a string, got {type(name).__name__!r}"
+        )
+
+    if not name.strip():
+        raise MlflowException.invalid_parameter_value(
+            "Webhook name cannot be empty or just whitespace."
+        )
+
+
+def _validate_webhook_url(url: str) -> None:
+    if not isinstance(url, str):
+        raise MlflowException.invalid_parameter_value(
+            f"Webhook URL must be a string, got {type(url).__name__!r}"
+        )
+
+    if not url.strip():
+        raise MlflowException.invalid_parameter_value(
+            f"Webhook URL cannot be empty or just whitespace: {url!r}"
+        )
+
+    try:
+        parsed_url = urllib.parse.urlparse(url)
+    except ValueError as e:
+        raise MlflowException.invalid_parameter_value(f"Invalid webhook URL {url!r}: {e!r}") from e
+    schemes = _MLFLOW_WEBHOOK_ALLOWED_SCHEMES.get()
+    if parsed_url.scheme not in schemes:
+        raise MlflowException.invalid_parameter_value(
+            f"Invalid webhook URL scheme: {parsed_url.scheme!r}. Allowed schemes are: {schemes}."
         )

@@ -859,3 +859,14 @@ MLFLOW_SERVER_GRAPHQL_MAX_ROOT_FIELDS = _EnvironmentVariable(
 MLFLOW_SERVER_GRAPHQL_MAX_ALIASES = _EnvironmentVariable(
     "MLFLOW_SERVER_GRAPHQL_MAX_ALIASES", int, 10
 )
+
+
+def _split_strip(s: str) -> list[str]:
+    return [s.strip() for s in s.split(",")]
+
+
+# Specifies the allowed schemes for MLflow webhook URLs.
+# This environment variable is not intended for production use.
+_MLFLOW_WEBHOOK_ALLOWED_SCHEMES = _EnvironmentVariable(
+    "MLFLOW_WEBHOOK_ALLOWED_SCHEMES", _split_strip, ["https"]
+)

@@ -1978,6 +1978,12 @@ def test_create_webhook_invalid_params(store):
     with pytest.raises(MlflowException, match="Webhook events must be a non-empty list"):
         store.create_webhook(name="test", url="https://example.com", events=None)
 
+    # Test invalid URL format
+    with pytest.raises(MlflowException, match="Invalid URL format"):
+        store.create_webhook(
+            name="test", url="invalid_url", events=[WebhookEvent.MODEL_VERSION_CREATED]
+        )
+
 
 def test_get_webhook(store):
     events = [WebhookEvent.MODEL_VERSION_CREATED]

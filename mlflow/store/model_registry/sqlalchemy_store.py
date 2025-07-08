@@ -55,6 +55,8 @@ from mlflow.utils.validation import (
     _validate_model_version_tag,
     _validate_registered_model_tag,
     _validate_tag_name,
+    _validate_webhook_name,
+    _validate_webhook_url,
 )
 
 _logger = logging.getLogger(__name__)
@@ -1301,10 +1303,8 @@ class SqlAlchemyStore(AbstractStore):
         secret: Optional[str] = None,
         status: Optional[WebhookStatus] = None,
     ) -> Webhook:
-        if not name:
-            raise MlflowException("Webhook name cannot be empty.", INVALID_PARAMETER_VALUE)
-        if not url:
-            raise MlflowException("Webhook URL cannot be empty.", INVALID_PARAMETER_VALUE)
+        _validate_webhook_name(name)
+        _validate_webhook_url(url)
         if not events or not isinstance(events, list):
             raise MlflowException(
                 "Webhook events must be a non-empty list.", INVALID_PARAMETER_VALUE
@@ -1384,18 +1384,21 @@ class SqlAlchemyStore(AbstractStore):
             webhook = self._get_webhook_by_id(session, webhook_id)
 
             # Update fields if provided
-            if name is not None:
+            if name:
+                _validate_webhook_name(name)
                 webhook.name = name
-            if url is not None:
+            if url:
                 webhook.url = url
-            if events is not None:
+            if url:
+                _validate_webhook_url(url)
+            if events:
                 event_strings = [str(e) for e in events]
                 webhook.events = json.dumps(event_strings)
-            if description is not None:
+            if description:
                 webhook.description = description
-            if secret is not None:
+            if secret:
                 webhook.secret = secret
-            if status is not None:
+            if status:
                 webhook.status = str(status)
 
             webhook.last_updated_timestamp = get_current_time_millis()
