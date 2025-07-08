@@ -276,5 +276,5 @@ class SqlWebhook(Base):
             last_updated_timestamp=self.last_updated_timestamp,
             description=self.description,
             status=WebhookStatus(self.status),
-            secret=None,  # Don't expose secret in response
+            secret=self.secret,
         )

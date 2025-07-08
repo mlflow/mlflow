@@ -1956,7 +1956,7 @@ def test_create_webhook(store):
     assert webhook.webhook_id is not None
     assert webhook.creation_timestamp is not None
     assert webhook.last_updated_timestamp is not None
-    assert webhook.secret is None  # Should not be exposed in response
+    assert webhook.secret == "secret123"
 
 
 @pytest.mark.parametrize(
