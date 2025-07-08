@@ -26,9 +26,8 @@ def enable_trace_archival(experiment_id: str, catalog: str, schema: str, table_p
     This function sets up the infrastructure needed to archive traces from an MLflow experiment
     to Unity Catalog Delta tables. It:
     1. Calls the Databricks trace server to create trace destination metadata
-    2. Creates spans and events tables in the specified Unity Catalog location
-    3. Creates a logical view that combines the spans and events tables
-    4. Sets an experiment tag indicating where the archival data is stored
+    2. Creates a logical view that combines the raw otel spans and events tables created by trace server
+    3. Sets an experiment tag indicating where the archival data is stored
     
     Args:
         experiment_id: The MLflow experiment ID to enable archival for.
@@ -103,18 +102,14 @@ def enable_trace_archival(experiment_id: str, catalog: str, schema: str, table_p
         _logger.debug(f"Trace destination created. Spans table: {spans_table_name}, "
                     f"Events table: {events_table_name}")
         
-        # 4. Create the spans and events tables
-        _logger.debug("Creating spans and events tables. Spans table: {spans_table_name}, "
-                    f"Events table: {events_table_name}")
-        _create_spans_table(spans_table_name)
-        _create_events_table(events_table_name)
         
-        # 5. Create the logical view
+        # 4. Create the logical view
+        # TODO: validate the table version before creating the view 
         trace_archival_location = f"{catalog}.{schema}.trace_logs_{experiment_id}"
         _logger.info(f"Creating trace archival at: {trace_archival_location}")
         _create_genai_trace_view(trace_archival_location, spans_table_name, events_table_name)
         
-        # 6. Set experiment tag to track the archival location
+        # 5. Set experiment tag to track the archival location
         mlflow.set_experiment_tag("trace_archival_table", trace_archival_location)
         
         _logger.info(f"Trace archival enabled successfully for experiment {experiment_id}. "
@@ -127,86 +122,6 @@ def enable_trace_archival(experiment_id: str, catalog: str, schema: str, table_p
         raise MlflowException(
             f"Failed to enable trace archival for experiment {experiment_id}: {str(e)}"
         ) from e
-
-
-def _create_spans_table(spans_table_name: str) -> None:
-    """
-    Create a Delta table for storing OpenTelemetry spans.
-    
-    Args:
-        spans_table_name: The full qualified name of the spans table to create.
-    """
-    try:
-        spark = _get_active_spark_session()
-        if spark is None:
-            from pyspark.sql import SparkSession
-            spark = SparkSession.builder.getOrCreate()
-        
-        spark.sql(f"""
-            CREATE TABLE IF NOT EXISTS {spans_table_name}
-            (
-              trace_id STRING,
-              span_id STRING,
-              trace_state STRING,
-              parent_span_id STRING,
-              flags INT,
-              name STRING,
-              kind STRING,
-              start_time_unix_nano LONG,
-              end_time_unix_nano LONG,
-              attributes MAP<STRING, STRING>,
-              dropped_attributes_count INT,
-              events ARRAY<STRING>,
-              dropped_events_count INT,
-              links ARRAY<STRING>,
-              dropped_links_count INT,
-              status_code STRING,
-              status_message STRING
-            )
-            USING DELTA;
-        """)
-        
-        _logger.debug(f"Successfully created spans table: {spans_table_name}")
-        
-    except Exception as e:
-        raise MlflowException(f"Failed to create spans table {spans_table_name}: {str(e)}") from e
-
-
-def _create_events_table(events_table_name: str) -> None:
-    """
-    Create a Delta table for storing OpenTelemetry events.
-    
-    Args:
-        events_table_name: The full qualified name of the events table to create.
-    """
-    try:
-        spark = _get_active_spark_session()
-        if spark is None:
-            from pyspark.sql import SparkSession
-            spark = SparkSession.builder.getOrCreate()
-        
-        spark.sql(f"""  
-            CREATE TABLE IF NOT EXISTS {events_table_name} (
-              event_name STRING,
-              trace_id STRING,
-              span_id STRING,
-              time_unix_nano LONG,
-              observed_time_unix_nano LONG,
-              severity_number STRING,
-              severity_text STRING,
-              body STRING,
-              attributes MAP<STRING, STRING>,
-              dropped_attributes_count INT,
-              flags INT
-            )
-            USING DELTA;
-        """)
-        
-        _logger.debug(f"Successfully created events table: {events_table_name}")
-        
-    except Exception as e:
-        raise MlflowException(f"Failed to create events table {events_table_name}: {str(e)}") from e
-
 
 def _create_genai_trace_view(final_view: str, raw_spans_table: str, raw_events_table: str) -> None:
     """
@@ -225,224 +140,204 @@ def _create_genai_trace_view(final_view: str, raw_spans_table: str, raw_events_t
         
         query = f"""
         CREATE OR REPLACE VIEW {final_view} AS
-        -- Identify root spans (spans without parent or with parent outside trace)
-        WITH root_spans AS (
-          SELECT *
-          FROM {raw_spans_table}
-          WHERE parent_span_id = '' OR parent_span_id IS NULL
-        ),
-
-        -- Parse attributes MAP for root spans and extract trace metadata
-        trace_metadata AS (
+        WITH root_spans AS ( -- 1. Filter and extract attributes efficiently
           SELECT
             trace_id,
+            -- Extract all needed attributes in single pass
             attributes['mlflow.traceRequestId'] AS client_request_id,
-            TIMESTAMP(start_time_unix_nano / 1000000000) AS request_time,
-            status_code AS state,
-            (end_time_unix_nano - start_time_unix_nano) / 1000000 AS execution_duration_ms,
             attributes['mlflow.spanInputs'] AS request,
             attributes['mlflow.spanOutputs'] AS response,
-            -- Store the full attributes MAP as trace_metadata
+            attributes['mlflow.experimentId'] AS experiment_id,
+            attributes['inference.table_name'] AS inference_table_name,
             attributes AS trace_metadata,
-            -- Create trace_location structure based on attributes
-            CASE 
-              WHEN attributes['mlflow.experimentId'] IS NOT NULL THEN 
-                NAMED_STRUCT(
-                  'type', 'mlflow_experiment',
-                  'mlflow_experiment', NAMED_STRUCT(
-                    'experiment_id', attributes['mlflow.experimentId']
-                  ),
-                  'inference_table', CAST(NULL AS STRUCT<full_table_name: STRING>)
-                )
-              WHEN attributes['inference.table_name'] IS NOT NULL THEN 
-                NAMED_STRUCT(
-                  'type', 'inference_table',
-                  'mlflow_experiment', CAST(NULL AS STRUCT<experiment_id: STRING>),
-                  'inference_table', NAMED_STRUCT(
-                    'full_table_name', attributes['inference.table_name']
-                  )
-                )
-              ELSE 
-                NAMED_STRUCT(
-                  'type', CAST(NULL AS STRING),
-                  'mlflow_experiment', CAST(NULL AS STRUCT<experiment_id: STRING>),
-                  'inference_table', CAST(NULL AS STRUCT<full_table_name: STRING>)
-                )
-            END AS trace_location
-          FROM root_spans
+            TIMESTAMP(start_time_unix_nano / 1000000000) AS request_time,
+            GET_JSON_OBJECT(status, '$.code') AS state,
+            (end_time_unix_nano - start_time_unix_nano) / 1000000 AS execution_duration_ms
+          FROM
+            {raw_spans_table}
+          WHERE
+            (
+              parent_span_id = ''
+              OR parent_span_id IS NULL
+            )
+            AND start_time_unix_nano IS NOT NULL
         ),
-
-        -- Process tags from events (taking the latest event)
-        latest_tags AS (
-          SELECT 
-            trace_id,
-            body AS tag_json
-          FROM (
-            SELECT 
-              trace_id,
-              body,
-              ROW_NUMBER() OVER (PARTITION BY trace_id ORDER BY time_unix_nano DESC) AS rn
-            FROM {raw_events_table}
-            WHERE event_name = 'genai.tags.insert'
-          ) ranked_tags
-          WHERE rn = 1
-        ),
-
-        -- Collect and parse assessment events
-        assessment_events AS (
+        -- 2. Optimize spans aggregation
+        spans_agg AS (
           SELECT
-            trace_id,
-            -- Parse the JSON body string into individual fields
-            GET_JSON_OBJECT(body, '$.assessment_id') AS assessment_id,
-            GET_JSON_OBJECT(body, '$.trace_id') AS assessment_trace_id,
-            GET_JSON_OBJECT(body, '$.assessment_name') AS assessment_name,
-            GET_JSON_OBJECT(body, '$.source.source_id') AS source_id,
-            GET_JSON_OBJECT(body, '$.source.source_type') AS source_type,
-            CAST(GET_JSON_OBJECT(body, '$.create_time') AS TIMESTAMP) AS create_time,
-            CAST(GET_JSON_OBJECT(body, '$.last_update_time') AS TIMESTAMP) AS last_update_time,
-            GET_JSON_OBJECT(body, '$.expectation.value') AS expectation_value,
-            GET_JSON_OBJECT(body, '$.feedback.value') AS feedback_value,
-            GET_JSON_OBJECT(body, '$.feedback.error.error_code') AS feedback_error_code,
-            GET_JSON_OBJECT(body, '$.feedback.error.error_message') AS feedback_error_message,
-            GET_JSON_OBJECT(body, '$.rationale') AS rationale,
-            GET_JSON_OBJECT(body, '$.metadata') AS metadata_json,
-            GET_JSON_OBJECT(body, '$.span_id') AS assessment_span_id
-          FROM {raw_events_table}
-          WHERE event_name = 'genai.assessments.insert'
-        ),
-
-        assessments_transformed AS (
-          SELECT
-            trace_id,
-            NAMED_STRUCT(
-              'assessment_id', assessment_id,
-              'trace_id', assessment_trace_id,
-              'name', assessment_name,
-              'source', NAMED_STRUCT(
-                'source_id', source_id,
-                'source_type', source_type
-              ),
-              'create_time', create_time,
-              'last_update_time', last_update_time,
-              'expectation', NAMED_STRUCT('value', expectation_value),
-              'feedback', NAMED_STRUCT(
-                'value', feedback_value,
-                'error', NAMED_STRUCT(
-                  'error_code', feedback_error_code,
-                  'error_message', feedback_error_message
-                )
-              ),
-              'rationale', rationale,
-              'metadata', FROM_JSON(metadata_json, 'MAP<STRING, STRING>'),
-              'span_id', assessment_span_id
-            ) AS assessment
-          FROM assessment_events
-        ),
-
-        -- Group assessments by trace_id
-        assessments_grouped AS (
-          SELECT
-            trace_id,
-            COLLECT_LIST(assessment) AS assessments
-          FROM assessments_transformed
-          GROUP BY trace_id
-        ),
-
-        -- Transform all spans - handle events as ARRAY<STRING>
-        transformed_spans AS (
-          SELECT
-            span_id,
-            trace_id,
-            parent_span_id AS parent_id,
-            TIMESTAMP(start_time_unix_nano / 1000000000) AS start_time,
-            TIMESTAMP(end_time_unix_nano / 1000000000) AS end_time,
-            status_code,
-            status_message,
-            name,
-            attributes,
-            -- Handle events as ARRAY<STRING> - parse each JSON string in the array
-            CASE 
-              WHEN events IS NOT NULL AND size(events) > 0 THEN
-                TRANSFORM(
-                  events,
-                  event_json -> FROM_JSON(event_json, 'STRUCT<name: STRING, time_unix_nano: LONG, attributes: STRING>')
-                )
-              ELSE 
-                ARRAY()
-            END AS parsed_events
-          FROM {raw_spans_table}
-        ),
-
-        -- Transform parsed events to final format
-        spans_with_events AS (
-          SELECT
-            span_id,
-            trace_id,
-            parent_id,
-            start_time,
-            end_time,
-            status_code,
-            status_message,
-            name,
-            attributes,
-            -- Transform events to match expected structure
-            TRANSFORM(
-              parsed_events,
-              e -> NAMED_STRUCT(
-                'name', e.name,
-                'timestamp', TIMESTAMP(e.time_unix_nano / 1000000000),
-                'attributes', e.attributes
-              )
-            ) AS events
-          FROM transformed_spans
-        ),
-
-        -- Group spans by trace_id
-        spans_grouped AS (
-          SELECT 
             trace_id,
             COLLECT_LIST(
               NAMED_STRUCT(
-                'span_id', span_id,
-                'trace_id', trace_id,
-                'parent_id', parent_id,
-                'start_time', start_time,
-                'end_time', end_time,
-                'status_code', status_code,
-                'status_message', status_message,
-                'name', name,
-                'attributes', attributes,
-                'events', events
+                'span_id',
+                span_id,
+                'trace_id',
+                trace_id,
+                'parent_id',
+                parent_span_id,
+                'start_time',
+                TIMESTAMP(start_time_unix_nano / 1000000000),
+                'end_time',
+                TIMESTAMP(end_time_unix_nano / 1000000000),
+                'status_code',
+                GET_JSON_OBJECT(status, '$.code'),
+                'status_message',
+                GET_JSON_OBJECT(status, '$.message'),
+                'name',
+                name,
+                'attributes',
+                attributes,
+                -- Simplified event processing
+                'events',
+                CASE
+                  WHEN
+                    events IS NOT NULL
+                    AND size(events) > 0
+                  THEN
+                    TRANSFORM(
+                      events,
+                      e -> NAMED_STRUCT(
+                        'name',
+                        GET_JSON_OBJECT(e, '$.name'),
+                        'timestamp',
+                        TIMESTAMP(CAST(GET_JSON_OBJECT(e, '$.time_unix_nano') AS BIGINT) / 1000000000),
+                        'attributes',
+                        GET_JSON_OBJECT(e, '$.attributes')
+                      )
+                    )
+                  ELSE ARRAY()
+                END
               )
             ) AS spans
-          FROM spans_with_events
-          GROUP BY trace_id
+          FROM
+            {raw_spans_table}
+          GROUP BY
+            trace_id
+        ),
+        -- 3. Batch JSON parsing for assessments
+        assessment_events_parsed AS (
+          SELECT
+            trace_id,
+            -- Use single FROM_JSON instead of multiple GET_JSON_OBJECT calls
+            FROM_JSON(
+              body,
+              'STRUCT<
+                    assessment_id: STRING,
+                    trace_id: STRING,
+                    assessment_name: STRING,
+                    source: STRUCT<source_id: STRING, source_type: STRING>,
+                    create_time: STRING,
+                    last_update_time: STRING,
+                    expectation: STRUCT<value: STRING>,
+                    feedback: STRUCT<
+                      value: STRING,
+                      error: STRUCT<error_code: STRING, error_message: STRING>
+                    >,
+                    rationale: STRING,
+                    metadata: STRING,
+                    span_id: STRING
+                  >'
+            ) AS parsed_body
+          FROM
+            {raw_events_table}
+          WHERE
+            event_name = 'genai.assessments.insert'
+        ),
+        -- 4. Aggregate assessments
+        assessments_agg AS (
+          SELECT
+            trace_id,
+            COLLECT_LIST(
+              NAMED_STRUCT(
+                'assessment_id',
+                parsed_body.assessment_id,
+                'trace_id',
+                parsed_body.trace_id,
+                'name',
+                parsed_body.assessment_name,
+                'source',
+                parsed_body.source,
+                'create_time',
+                CAST(parsed_body.create_time AS TIMESTAMP),
+                'last_update_time',
+                CAST(parsed_body.last_update_time AS TIMESTAMP),
+                'expectation',
+                parsed_body.expectation,
+                'feedback',
+                parsed_body.feedback,
+                'rationale',
+                parsed_body.rationale,
+                'metadata',
+                FROM_JSON(parsed_body.metadata, 'MAP<STRING, STRING>'),
+                'span_id',
+                parsed_body.span_id
+              )
+            ) AS assessments
+          FROM
+            assessment_events_parsed
+          GROUP BY
+            trace_id
+        ),
+        -- 5. Optimize tags with window function
+        latest_tags AS (
+          SELECT
+            trace_id,
+            -- Use FIRST_VALUE with proper window frame
+            FIRST_VALUE(body) OVER (
+                PARTITION BY trace_id
+                ORDER BY time_unix_nano DESC
+                ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING
+              ) AS tag_json
+          FROM
+            {raw_events_table}
+          WHERE
+            event_name = 'genai.tags.insert'
+          QUALIFY
+            ROW_NUMBER() OVER (PARTITION BY trace_id ORDER BY time_unix_nano DESC) = 1
         )
-
-        -- Main query joining all components
+        -- 6. Main query with optimized structure
         SELECT
-          tm.trace_id,
-          tm.client_request_id,
-          tm.request_time,
-          tm.state,
-          tm.execution_duration_ms,
-          tm.request,
-          tm.response,
-          tm.trace_metadata,
-          -- Parse tags JSON into map
-          CASE WHEN lt.tag_json IS NOT NULL 
-            THEN FROM_JSON(lt.tag_json, 'MAP<STRING, STRING>') 
-            ELSE MAP()
-          END AS tags,
-          tm.trace_location,
-          -- Add assessments
-          COALESCE(ag.assessments, ARRAY()) AS assessments,
-          -- Add spans
-          COALESCE(sg.spans, ARRAY()) AS spans
-        FROM trace_metadata tm
-        LEFT JOIN latest_tags lt ON tm.trace_id = lt.trace_id
-        LEFT JOIN assessments_grouped ag ON tm.trace_id = ag.trace_id
-        LEFT JOIN spans_grouped sg ON tm.trace_id = sg.trace_id
+          rs.trace_id,
+          rs.client_request_id,
+          rs.request_time,
+          rs.state,
+          rs.execution_duration_ms,
+          rs.request,
+          rs.response,
+          rs.trace_metadata,
+          -- Optimized tags processing
+          COALESCE(FROM_JSON(lt.tag_json, 'MAP<STRING, STRING>'), MAP()) AS tags,
+          -- Simplified trace_location construction
+          NAMED_STRUCT(
+            'type',
+            CASE
+              WHEN rs.experiment_id IS NOT NULL THEN 'mlflow_experiment'
+              WHEN rs.inference_table_name IS NOT NULL THEN 'inference_table'
+              ELSE NULL
+            END,
+            'mlflow_experiment',
+            CASE
+              WHEN rs.experiment_id IS NOT NULL THEN NAMED_STRUCT('experiment_id', rs.experiment_id)
+              ELSE CAST(NULL AS STRUCT<experiment_id: STRING>)
+            END,
+            'inference_table',
+            CASE
+              WHEN
+                rs.inference_table_name IS NOT NULL
+              THEN
+                NAMED_STRUCT('full_table_name', rs.inference_table_name)
+              ELSE CAST(NULL AS STRUCT<full_table_name: STRING>)
+            END
+          ) AS trace_location,
+          COALESCE(aa.assessments, ARRAY()) AS assessments,
+          COALESCE(sa.spans, ARRAY()) AS spans
+        FROM
+          root_spans rs
+            LEFT JOIN latest_tags lt
+              ON rs.trace_id = lt.trace_id
+            LEFT JOIN assessments_agg aa
+              ON rs.trace_id = aa.trace_id
+            LEFT JOIN spans_agg sa
+              ON rs.trace_id = sa.trace_id
         """
         
         spark.sql(query)
