@@ -664,6 +664,10 @@ def _validate_logged_model_name(name: Optional[str]) -> None:
         )
 
 
+# Only allow characters that are allowed in a URI
+_WEBHOOK_NAME_REGEX = re.compile(r"[A-Za-z0-9._-]+")
+
+
 def _validate_webhook_name(name: str) -> None:
     if not isinstance(name, str):
         raise MlflowException.invalid_parameter_value(
@@ -672,7 +676,13 @@ def _validate_webhook_name(name: str) -> None:
 
     if not name.strip():
         raise MlflowException.invalid_parameter_value(
-            "Webhook name cannot be empty or just whitespace."
+            f"Webhook name cannot be empty or just whitespace: {name!r}"
+        )
+
+    if not _WEBHOOK_NAME_REGEX.fullmatch(name):
+        raise MlflowException.invalid_parameter_value(
+            f"Webhook name {name!r} contains invalid characters. Only alphanumeric characters, "
+            "underscores (_), hyphens (-), and periods (.) are allowed."
         )
 
 

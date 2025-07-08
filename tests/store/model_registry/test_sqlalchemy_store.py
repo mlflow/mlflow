@@ -1959,17 +1959,46 @@ def test_create_webhook(store):
     assert webhook.secret is None  # Should not be exposed in response
 
 
-def test_create_webhook_invalid_params(store):
-    # Test empty name
-    with pytest.raises(MlflowException, match="Webhook name cannot be empty"):
+@pytest.mark.parametrize(
+    ("invalid_name", "expected_match"),
+    [
+        ("", r"Webhook name cannot be empty or just whitespace"),
+        ("   ", r"Webhook name cannot be empty or just whitespace"),
+        ("webhook<script>", r"contains invalid characters"),
+        ("webhook@test", r"contains invalid characters"),
+        ("webhook#hash", r"contains invalid characters"),
+        ("webhook/slash", r"contains invalid characters"),
+        ("webhook\\backslash", r"contains invalid characters"),
+    ],
+)
+def test_create_webhook_invalid_names(store, invalid_name, expected_match):
+    with pytest.raises(MlflowException, match=expected_match):
         store.create_webhook(
-            name="", url="https://example.com", events=[WebhookEvent.MODEL_VERSION_CREATED]
+            name=invalid_name,
+            url="https://example.com",
+            events=[WebhookEvent.MODEL_VERSION_CREATED],
         )
 
-    # Test empty URL
-    with pytest.raises(MlflowException, match="Webhook URL cannot be empty"):
-        store.create_webhook(name="test", url="", events=[WebhookEvent.MODEL_VERSION_CREATED])
 
+@pytest.mark.parametrize(
+    ("invalid_url", "expected_match"),
+    [
+        ("", r"Webhook URL cannot be empty or just whitespace"),
+        ("   ", r"Webhook URL cannot be empty or just whitespace"),
+        ("example.com/webhook", r"Invalid webhook URL"),
+        ("ftp://example.com/webhook", r"Invalid webhook URL scheme"),
+        ("http://[invalid-url", r"Invalid webhook URL"),
+        ("invalid_url", r"Invalid webhook URL"),
+    ],
+)
+def test_create_webhook_invalid_urls(store, invalid_url, expected_match):
+    with pytest.raises(MlflowException, match=expected_match):
+        store.create_webhook(
+            name="test", url=invalid_url, events=[WebhookEvent.MODEL_VERSION_CREATED]
+        )
+
+
+def test_create_webhook_invalid_events(store):
     # Test empty events
     with pytest.raises(MlflowException, match="Webhook events must be a non-empty list"):
         store.create_webhook(name="test", url="https://example.com", events=[])
@@ -1977,12 +2006,6 @@ def test_create_webhook_invalid_params(store):
     # Test non-list events
     with pytest.raises(MlflowException, match="Webhook events must be a non-empty list"):
         store.create_webhook(name="test", url="https://example.com", events=None)
-
-    # Test invalid URL format
-    with pytest.raises(MlflowException, match="Invalid URL format"):
-        store.create_webhook(
-            name="test", url="invalid_url", events=[WebhookEvent.MODEL_VERSION_CREATED]
-        )
 
 
 def test_get_webhook(store):
@@ -2100,6 +2123,47 @@ def test_update_webhook_not_found(store):
         store.update_webhook(
             webhook_id="nonexistent", name="new_name", url="https://example.com/new"
         )
+
+
+@pytest.mark.parametrize(
+    ("invalid_name", "expected_match"),
+    [
+        ("   ", r"Webhook name cannot be empty or just whitespace"),
+        ("webhook@invalid", r"contains invalid characters"),
+        ("webhook<tag>", r"contains invalid characters"),
+        ("webhook#test", r"contains invalid characters"),
+    ],
+)
+def test_update_webhook_invalid_names(store, invalid_name, expected_match):
+    # Create a valid webhook first
+    webhook = store.create_webhook(
+        name="test_webhook",
+        url="https://example.com/webhook",
+        events=[WebhookEvent.MODEL_VERSION_CREATED],
+    )
+
+    with pytest.raises(MlflowException, match=expected_match):
+        store.update_webhook(webhook_id=webhook.webhook_id, name=invalid_name)
+
+
+@pytest.mark.parametrize(
+    ("invalid_url", "expected_match"),
+    [
+        ("   ", r"Webhook URL cannot be empty or just whitespace"),
+        ("ftp://example.com", r"Invalid webhook URL scheme"),
+        ("http://[invalid", r"Invalid webhook URL"),
+    ],
+)
+def test_update_webhook_invalid_urls(store, invalid_url, expected_match):
+    # Create a valid webhook first
+    webhook = store.create_webhook(
+        name="test_webhook",
+        url="https://example.com/webhook",
+        events=[WebhookEvent.MODEL_VERSION_CREATED],
+    )
+
+    with pytest.raises(MlflowException, match=expected_match):
+        store.update_webhook(webhook_id=webhook.webhook_id, url=invalid_url)
 
 
 def test_delete_webhook(store):
