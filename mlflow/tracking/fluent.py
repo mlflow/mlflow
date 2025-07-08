@@ -835,9 +835,7 @@ def delete_experiment_tag(key: str) -> None:
     Delete a tag from the current experiment.
 
     Args:
-        key: Tag name. This string may only contain alphanumerics, underscores (_), dashes (-),
-            periods (.), spaces ( ), and slashes (/). All backend stores will support keys up to
-            length 250, but some may support larger keys.
+        key: Name of the tag to be deleted.
 
     .. code-block:: python
         :test:
@@ -845,9 +843,11 @@ def delete_experiment_tag(key: str) -> None:
 
         import mlflow
 
-        mlflow.set_experiment("test-delete-tag")
+        exp = mlflow.set_experiment("test-delete-tag")
         mlflow.set_experiment_tag("release.version", "1.0")
         mlflow.delete_experiment_tag("release.version")
+        exp = mlflow.get_experiment(exp.experiment_id)
+        assert "release.version" not in exp.tags
     """
     experiment_id = _get_experiment_id()
     MlflowClient().delete_experiment_tag(experiment_id, key)

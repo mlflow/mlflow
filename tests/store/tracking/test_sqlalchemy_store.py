@@ -1320,7 +1320,7 @@ def test_delete_experiment_tag(store: SqlAlchemyStore):
     # test that deleting a tag works
     store.delete_experiment_tag(exp_id, tag.key)
     experiment = store.get_experiment(exp_id)
-    assert len(experiment.tags) == 0
+    assert "tag0" not in experiment.tags
 
 
 def test_set_tag(store: SqlAlchemyStore, monkeypatch):

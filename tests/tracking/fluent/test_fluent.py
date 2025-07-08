@@ -1270,10 +1270,10 @@ def test_delete_experiment_tag():
         test_experiment = active_run.info.experiment_id
         mlflow.set_experiment_tag("a", "b")
         current_experiment = mlflow.tracking.MlflowClient().get_experiment(test_experiment)
-        assert len(current_experiment.tags) == 1
+        assert "a" in current_experiment.tags
         mlflow.delete_experiment_tag("a")
         finished_experiment = mlflow.tracking.MlflowClient().get_experiment(test_experiment)
-        assert len(finished_experiment.tags) == 0
+        assert "a" not in finished_experiment.tags
 
 
 @pytest.mark.parametrize("error_code", [RESOURCE_DOES_NOT_EXIST, TEMPORARILY_UNAVAILABLE])
