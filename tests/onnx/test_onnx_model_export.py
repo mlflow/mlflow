@@ -744,7 +744,7 @@ def test_model_log_with_metadata(onnx_model):
 def test_log_model_sends_telemetry_record(mock_requests, onnx_model):
     """Test that log_model sends telemetry records."""
     mlflow.onnx.log_model(
-        onnx_model.model,
+        onnx_model,
         name="model",
         params={"param1": "value1"},
     )

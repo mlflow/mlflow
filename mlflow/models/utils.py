@@ -1935,6 +1935,30 @@ def _mock_dbutils(globals_dict):
             del globals_dict[module_name]
 
 
+@contextmanager
+def _avoid_telemetry_tracking():
+    """
+    Context manager to avoid telemetry tracking.
+    This needs to be used to avoid tracking unnecessary APIs that are called by the model code
+    during model logging/loading.
+    """
+    try:
+        import mlflow.telemetry.track
+    except ImportError:
+        yield
+    else:
+        original_func = mlflow.telemetry.track.invoked_from_internal_api
+
+        def mock_invoked_from_internal_api():
+            return True
+
+        try:
+            mlflow.telemetry.track.invoked_from_internal_api = mock_invoked_from_internal_api
+            yield
+        finally:
+            mlflow.telemetry.track.invoked_from_internal_api = original_func
+
+
 # Python's module caching mechanism prevents the re-importation of previously loaded modules by
 # default. Once a module is imported, it's added to `sys.modules`, and subsequent import attempts
 # retrieve the cached module rather than re-importing it.
@@ -1950,7 +1974,7 @@ def _load_model_code_path(code_path: str, model_config: Optional[Union[str, dict
             module = importlib.util.module_from_spec(spec)
             sys.modules[new_module_name] = module
             # Since dbutils will only work in databricks environment, we need to mock it
-            with _mock_dbutils(module.__dict__):
+            with _mock_dbutils(module.__dict__), _avoid_telemetry_tracking():
                 spec.loader.exec_module(module)
         except ImportError as e:
             raise MlflowException(

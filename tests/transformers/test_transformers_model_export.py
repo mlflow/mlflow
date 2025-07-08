@@ -3887,12 +3887,11 @@ def test_log_model_skip_validating_serving_input_for_local_checkpoint(
         mock_validate_input.assert_called_once()
 
 
-def test_log_model_sends_telemetry_record(mock_requests, base_model):
+def test_log_model_sends_telemetry_record(mock_requests, small_qa_pipeline):
     """Test that log_model sends telemetry records."""
     mlflow.transformers.log_model(
-        base_model,
+        small_qa_pipeline,
         name="model",
-        params={"param1": "value1"},
     )
     # Wait for telemetry to be sent
     get_telemetry_client().flush()
@@ -3910,7 +3909,7 @@ def test_log_model_sends_telemetry_record(mock_requests, base_model):
             is_pip_requirements_set=False,
             is_extra_pip_requirements_set=False,
             is_code_paths_set=False,
-            is_params_set=True,
+            is_params_set=False,
             is_metadata_set=False,
         )
     )

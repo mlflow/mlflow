@@ -595,12 +595,13 @@ async def test_save_load_workflow_as_code():
         assert response.json()["predictions"] == batch_result
 
 
-def test_log_model_sends_telemetry_record(mock_requests, linear_model):
+def test_log_model_sends_telemetry_record(mock_requests):
     """Test that log_model sends telemetry records."""
+    index_code_path = "tests/llama_index/sample_code/simple_workflow.py"
     mlflow.llama_index.log_model(
-        linear_model,
+        index_code_path,
         name="model",
-        params={"param1": "value1"},
+        input_example={"topic": "pirates"},
     )
     # Wait for telemetry to be sent
     get_telemetry_client().flush()
@@ -614,11 +615,11 @@ def test_log_model_sends_telemetry_record(mock_requests, linear_model):
     assert data["params"] == asdict(
         LogModelParams(
             flavor="llama_index",
-            model=ModelType.MODEL_OBJECT,
+            model=ModelType.MODEL_PATH,
             is_pip_requirements_set=False,
             is_extra_pip_requirements_set=False,
             is_code_paths_set=False,
-            is_params_set=True,
+            is_params_set=False,
             is_metadata_set=False,
         )
     )

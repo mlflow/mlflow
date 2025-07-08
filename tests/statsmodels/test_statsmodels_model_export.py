@@ -477,13 +477,12 @@ def test_model_log_with_signature_inference():
     assert loaded_model.signature == ols_model_signature()
 
 
-def test_log_model_sends_telemetry_record(mock_requests, ols_model):
+def test_log_model_sends_telemetry_record(mock_requests):
     """Test that log_model sends telemetry records."""
+    ols = ols_model()
     mlflow.statsmodels.log_model(
-        ols_model.model,
+        ols.model,
         name="model",
-        input_example=ols_model.inference_dataframe,
-        params={"param1": "value1"},
     )
     # Wait for telemetry to be sent
     get_telemetry_client().flush()
@@ -501,7 +500,7 @@ def test_log_model_sends_telemetry_record(mock_requests, ols_model):
             is_pip_requirements_set=False,
             is_extra_pip_requirements_set=False,
             is_code_paths_set=False,
-            is_params_set=True,
+            is_params_set=False,
             is_metadata_set=False,
         )
     )

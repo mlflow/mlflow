@@ -1037,12 +1037,11 @@ def test_log_model_with_vector_input_type_signature(spark, spark_model_estimator
 
 def test_log_model_sends_telemetry_record(mock_requests, spark_model_iris):
     """Test that log_model sends telemetry records."""
-    mlflow.spark.log_model(
-        spark_model_iris.model,
-        name="model",
-        input_example=spark_model_iris.inference_dataframe,
-        params={"param1": "value1"},
-    )
+    with mlflow.start_run():
+        mlflow.spark.log_model(
+            spark_model_iris.model,
+            "model",
+        )
     # Wait for telemetry to be sent
     get_telemetry_client().flush()
 
@@ -1059,7 +1058,7 @@ def test_log_model_sends_telemetry_record(mock_requests, spark_model_iris):
             is_pip_requirements_set=False,
             is_extra_pip_requirements_set=False,
             is_code_paths_set=False,
-            is_params_set=True,
+            is_params_set=False,
             is_metadata_set=False,
         )
     )

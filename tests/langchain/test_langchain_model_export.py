@@ -3716,17 +3716,20 @@ def test_predict_with_callbacks_with_tracing(monkeypatch):
         assert trace_info.request_metadata[TraceMetadataKey.MODEL_ID] == model_info.model_id
 
 
-def test_log_model_sends_telemetry_record(mock_requests, model):
+def test_log_model_sends_telemetry_record(mock_requests):
     """Test that log_model sends telemetry records."""
     mlflow.langchain.log_model(
-        model,
+        os.path.abspath("tests/langchain/sample_code/workflow.py"),
         name="model",
         params={"param1": "value1"},
+        input_example={"messages": [{"role": "user", "content": "What is MLflow?"}]},
     )
     # Wait for telemetry to be sent
     get_telemetry_client().flush()
 
     # Check that telemetry record was sent
+    # There could be multiple records, since workflow.py internally
+    # calls autolog
     assert len(mock_requests) == 1
     record = mock_requests[0]
     data = json.loads(record["data"])
@@ -3735,7 +3738,7 @@ def test_log_model_sends_telemetry_record(mock_requests, model):
     assert data["params"] == asdict(
         LogModelParams(
             flavor="langchain",
-            model=ModelType.MODEL_OBJECT,
+            model=ModelType.MODEL_PATH,
             is_pip_requirements_set=False,
             is_extra_pip_requirements_set=False,
             is_code_paths_set=False,

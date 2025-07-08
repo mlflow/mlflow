@@ -620,12 +620,14 @@ def test_inference_params_overlap(tmp_path):
         )
 
 
-def test_log_model_sends_telemetry_record(mock_requests, model_with_fixed_response):
+def test_log_model_sends_telemetry_record(mock_requests):
     """Test that log_model sends telemetry records."""
     mlflow.openai.log_model(
-        model_with_fixed_response,
+        "gpt-4o-mini",
+        "chat.completions",
         name="model",
-        params={"param1": "value1"},
+        temperature=0.9,
+        messages=[{"role": "system", "content": "You are an MLflow expert."}],
     )
     # Wait for telemetry to be sent
     get_telemetry_client().flush()
@@ -639,11 +641,11 @@ def test_log_model_sends_telemetry_record(mock_requests, model_with_fixed_respon
     assert data["params"] == asdict(
         LogModelParams(
             flavor="openai",
-            model=ModelType.MODEL_OBJECT,
+            model=ModelType.MODEL_PATH,
             is_pip_requirements_set=False,
             is_extra_pip_requirements_set=False,
             is_code_paths_set=False,
-            is_params_set=True,
+            is_params_set=False,
             is_metadata_set=False,
         )
     )

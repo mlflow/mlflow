@@ -484,7 +484,7 @@ def test_model_log_with_signature_inference(auto_arima_model):
 def test_log_model_sends_telemetry_record(mock_requests, auto_arima_model):
     """Test that log_model sends telemetry records."""
     mlflow.pmdarima.log_model(
-        auto_arima_model.model,
+        auto_arima_model,
         name="model",
         params={"param1": "value1"},
     )

@@ -401,7 +401,7 @@ def test_log_model_sends_telemetry_record(mock_requests, h2o_iris_model):
     mlflow.h2o.log_model(
         h2o_iris_model.model,
         name="model",
-        input_example=h2o_iris_model.inference_data,
+        input_example=h2o_iris_model.inference_data.as_data_frame().head(3),
         params={"param1": "value1"},
     )
     # Wait for telemetry to be sent

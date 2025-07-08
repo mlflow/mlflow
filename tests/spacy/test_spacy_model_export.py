@@ -486,13 +486,11 @@ def test_model_log_with_metadata(spacy_model_with_data):
     assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"
 
 
-def test_log_model_sends_telemetry_record(mock_requests, spacy_model_multi):
+def test_log_model_sends_telemetry_record(mock_requests, spacy_model_with_data):
     """Test that log_model sends telemetry records."""
     mlflow.spacy.log_model(
-        spacy_model_multi.model,
+        spacy_model_with_data.model,
         name="model",
-        input_example=spacy_model_multi.inference_data,
-        params={"param1": "value1"},
     )
     # Wait for telemetry to be sent
     get_telemetry_client().flush()
@@ -510,7 +508,7 @@ def test_log_model_sends_telemetry_record(mock_requests, spacy_model_multi):
             is_pip_requirements_set=False,
             is_extra_pip_requirements_set=False,
             is_code_paths_set=False,
-            is_params_set=True,
+            is_params_set=False,
             is_metadata_set=False,
         )
     )

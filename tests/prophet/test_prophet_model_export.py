@@ -488,11 +488,12 @@ def test_model_log_with_signature_inference(prophet_model):
 
 def test_log_model_sends_telemetry_record(mock_requests, prophet_model):
     """Test that log_model sends telemetry records."""
+    model = prophet_model.model
+    horizon_df = future_horizon_df(model, FORECAST_HORIZON)
     mlflow.prophet.log_model(
-        prophet_model.model,
+        model,
         name="model",
-        input_example=prophet_model.inference_dataframe,
-        params={"param1": "value1"},
+        input_example=horizon_df,
     )
     # Wait for telemetry to be sent
     get_telemetry_client().flush()
@@ -510,7 +511,7 @@ def test_log_model_sends_telemetry_record(mock_requests, prophet_model):
             is_pip_requirements_set=False,
             is_extra_pip_requirements_set=False,
             is_code_paths_set=False,
-            is_params_set=True,
+            is_params_set=False,
             is_metadata_set=False,
         )
     )

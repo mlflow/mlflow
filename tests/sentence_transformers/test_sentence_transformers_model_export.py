@@ -597,12 +597,12 @@ def test_model_pyfunc_with_dict_input(basic_model, model_path):
     assert emb_multiple_input["usage"]["prompt_tokens"] == 19
 
 
-def test_log_model_sends_telemetry_record(mock_requests, text_similarity_model):
+def test_log_model_sends_telemetry_record(mock_requests, basic_model):
     """Test that log_model sends telemetry records."""
     mlflow.sentence_transformers.log_model(
-        text_similarity_model,
+        basic_model,
         name="model",
-        params={"param1": "value1"},
+        input_example=SENTENCES,
     )
     # Wait for telemetry to be sent
     get_telemetry_client().flush()
@@ -620,7 +620,7 @@ def test_log_model_sends_telemetry_record(mock_requests, text_similarity_model):
             is_pip_requirements_set=False,
             is_extra_pip_requirements_set=False,
             is_code_paths_set=False,
-            is_params_set=True,
+            is_params_set=False,
             is_metadata_set=False,
         )
     )
