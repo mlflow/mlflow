@@ -1458,6 +1458,25 @@ def log_artifacts(
     MlflowClient().log_artifacts(run_id, local_dir, artifact_path)
 
 
+def list_artifacts(artifact_path: Optional[str] = None, run_id: Optional[str] = None) -> list:
+    """
+    List the artifacts of the run. If no run is active, this method will list artifacts
+    of the last active run.
+
+    Args:
+        artifact_path: Path to a directory within the artifact storage. If provided,
+            lists the artifacts in this directory.
+        run_id: ID of the run to list artifacts for. If not specified, artifacts
+            will be listed for the currently active run.
+
+    Returns:
+        List of FileInfo objects representing the artifacts.
+    """
+    from mlflow.entities import FileInfo
+    run_id = run_id or _get_or_start_run().info.run_id
+    return MlflowClient().list_artifacts(run_id, artifact_path)
+
+
 def log_text(text: str, artifact_file: str, run_id: Optional[str] = None) -> None:
     """
     Log text as an artifact.

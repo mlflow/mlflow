@@ -25,6 +25,7 @@ from mlflow.entities import (
     ExperimentTag,
     FileInfo,
     LifecycleStage,
+    LoggedModel,
     Metric,
     Param,
     Run,
@@ -1239,12 +1240,372 @@ class MongoDBStore(AbstractStore):
             
             logger.debug(f"Logged {len(tags)} tags for run {run_id}")
     
+    def log_outputs(self, run_id: str, models):
+        """
+        Log outputs, such as models, to the specified run.
+        
+        Args:
+            run_id: String id for the run
+            models: List of LoggedModelOutput instances to log as outputs of the run.
+        """
+        # Validate run exists
+        run = self.sync_db[self.RUNS_COLLECTION].find_one({"run_uuid": run_id})
+        if not run:
+            raise MlflowException(
+                f"Run with id '{run_id}' not found",
+                error_code=RESOURCE_DOES_NOT_EXIST
+            )
+        
+        current_time = get_current_time_millis()
+        
+        # Process each model output
+        for model in models:
+            try:
+                # Store model output metadata in a dedicated collection
+                model_output_doc = {
+                    "run_uuid": run_id,
+                    "model_id": model.model_id,
+                    "step": model.step,
+                    "output_type": "model",
+                    "logged_time": current_time
+                }
+                
+                # Insert into run_outputs collection
+                self.sync_db["run_outputs"].insert_one(model_output_doc)
+                
+                logger.debug(f"Logged model output for run {run_id}: {model.model_id}")
+                
+            except Exception as e:
+                logger.warning(f"Failed to log model output {model.model_id} for run {run_id}: {e}")
+    
     def record_logged_model(self, run_id: str, mlflow_model):
         """Record a logged model (placeholder implementation)."""
         # This would typically store model metadata in MongoDB
         # For now, we'll just log a debug message
         logger.debug(f"Record logged model for run {run_id}: {mlflow_model}")
         pass
+    
+    def create_logged_model(
+        self,
+        experiment_id: str,
+        name: Optional[str] = None,
+        source_run_id: Optional[str] = None,
+        tags: Optional[List] = None,
+        params: Optional[List] = None,
+        model_type: Optional[str] = None,
+    ):
+        """
+        Create a new logged model in MongoDB.
+        
+        Args:
+            experiment_id: ID of the experiment to which the model belongs.
+            name: Name of the model. If not specified, a random name will be generated.
+            source_run_id: ID of the run that produced the model.
+            tags: Tags to set on the model.
+            params: Parameters to set on the model.
+            model_type: Type of the model.
+            
+        Returns:
+            The created LoggedModel object.
+        """
+        from mlflow.entities import LoggedModel
+        import uuid
+        
+        # Generate model ID
+        model_id = str(uuid.uuid4())
+        
+        # Generate name if not provided
+        if not name:
+            name = f"model_{model_id[:8]}"
+        
+        current_time = get_current_time_millis()
+        
+        # Create logged model document
+        logged_model_doc = {
+            "_id": model_id,
+            "model_id": model_id,
+            "experiment_id": experiment_id,
+            "name": name,
+            "source_run_id": source_run_id,
+            "model_type": model_type,
+            "creation_time": current_time,
+            "last_update_time": current_time,
+            "tags": [],
+            "params": []
+        }
+        
+        # Add tags if provided
+        if tags:
+            for tag in tags:
+                logged_model_doc["tags"].append({
+                    "key": tag.key,
+                    "value": tag.value
+                })
+        
+        # Add params if provided  
+        if params:
+            for param in params:
+                logged_model_doc["params"].append({
+                    "key": param.key,
+                    "value": param.value
+                })
+        
+        # Store in MongoDB
+        self.sync_db["logged_models"].insert_one(logged_model_doc)
+        
+        logger.info(f"Created logged model: {name} (ID: {model_id})")
+        
+        # Return LoggedModel entity
+        artifact_location = f"models:/{model_id}"
+        return LoggedModel(
+            model_id=model_id,
+            experiment_id=experiment_id,
+            name=name,
+            artifact_location=artifact_location,
+            creation_timestamp=current_time,
+            last_updated_timestamp=current_time,
+            source_run_id=source_run_id,
+            model_type=model_type,
+            tags=tags or [],
+            params=params or []
+        )
+    
+    def search_logged_models(
+        self,
+        experiment_ids: List[str],
+        filter_string: Optional[str] = None,
+        datasets: Optional[List[Dict[str, Any]]] = None,
+        max_results: Optional[int] = None,
+        order_by: Optional[List[Dict[str, Any]]] = None,
+        page_token: Optional[str] = None,
+    ) -> PagedList:
+        """
+        Search for logged models in MongoDB.
+        
+        Args:
+            experiment_ids: List of experiment IDs to search within.
+            filter_string: Filter string for model search.
+            datasets: Dataset filters.
+            max_results: Maximum number of results to return.
+            order_by: Order by criteria.
+            page_token: Page token for pagination.
+            
+        Returns:
+            PagedList of LoggedModel objects.
+        """
+        from mlflow.entities import LoggedModel
+        
+        # Build query
+        query = {"experiment_id": {"$in": experiment_ids}}
+        
+        # Apply filter string if provided (basic implementation)
+        if filter_string:
+            # Simple name-based filtering
+            if "name" in filter_string:
+                name_value = filter_string.split("=")[-1].strip("'\"")
+                query["name"] = {"$regex": name_value, "$options": "i"}
+        
+        # Apply sorting
+        sort_criteria = [("creation_time", DESCENDING)]  # Default sort
+        if order_by:
+            sort_criteria = []
+            for order_item in order_by:
+                field = order_item.get("key", "creation_time")
+                direction = DESCENDING if order_item.get("descending", True) else ASCENDING
+                sort_criteria.append((field, direction))
+        
+        # Apply limit
+        limit = max_results or 1000
+        
+        # Execute query
+        cursor = self.sync_db["logged_models"].find(query).sort(sort_criteria).limit(limit)
+        
+        # Convert to LoggedModel objects
+        logged_models = []
+        for doc in cursor:
+            # Convert tags and params back to objects
+            tags = []
+            for tag_doc in doc.get("tags", []):
+                from mlflow.entities import LoggedModelTag
+                tags.append(LoggedModelTag(key=tag_doc["key"], value=tag_doc["value"]))
+            
+            params = []
+            for param_doc in doc.get("params", []):
+                from mlflow.entities import LoggedModelParameter
+                params.append(LoggedModelParameter(key=param_doc["key"], value=param_doc["value"]))
+            
+            logged_model = LoggedModel(
+                model_id=doc["model_id"],
+                experiment_id=doc["experiment_id"],
+                name=doc["name"],
+                artifact_location=f"models:/{doc['model_id']}",
+                creation_timestamp=doc["creation_time"],
+                last_updated_timestamp=doc["last_update_time"],
+                source_run_id=doc.get("source_run_id"),
+                model_type=doc.get("model_type"),
+                tags=tags,
+                params=params
+            )
+            logged_models.append(logged_model)
+        
+        # Return as PagedList
+        return PagedList(logged_models, next_page_token=None)
+    
+    def finalize_logged_model(self, model_id: str, status) -> LoggedModel:
+        """
+        Finalize a model by updating its status.
+        
+        Args:
+            model_id: ID of the model to finalize.
+            status: Final status to set on the model.
+            
+        Returns:
+            The updated LoggedModel object.
+        """
+        from mlflow.entities import LoggedModel, LoggedModelStatus
+        
+        current_time = get_current_time_millis()
+        
+        # Update model status in MongoDB
+        update_doc = {
+            "status": status.to_int() if hasattr(status, 'to_int') else int(status),
+            "last_update_time": current_time
+        }
+        
+        result = self.sync_db["logged_models"].update_one(
+            {"model_id": model_id},
+            {"$set": update_doc}
+        )
+        
+        if result.matched_count == 0:
+            raise MlflowException(
+                f"Logged model with id '{model_id}' not found",
+                error_code=RESOURCE_DOES_NOT_EXIST
+            )
+        
+        # Return updated model
+        return self.get_logged_model(model_id)
+    
+    def set_logged_model_tags(self, model_id: str, tags: List) -> None:
+        """
+        Set tags on the specified logged model.
+        
+        Args:
+            model_id: ID of the model.
+            tags: Tags to set on the model.
+        """
+        # Convert tags to dict format
+        tag_docs = []
+        for tag in tags:
+            tag_docs.append({
+                "key": tag.key,
+                "value": tag.value
+            })
+        
+        # Update model tags in MongoDB
+        result = self.sync_db["logged_models"].update_one(
+            {"model_id": model_id},
+            {
+                "$set": {
+                    "tags": tag_docs,
+                    "last_update_time": get_current_time_millis()
+                }
+            }
+        )
+        
+        if result.matched_count == 0:
+            raise MlflowException(
+                f"Logged model with id '{model_id}' not found",
+                error_code=RESOURCE_DOES_NOT_EXIST
+            )
+    
+    def delete_logged_model_tag(self, model_id: str, key: str) -> None:
+        """
+        Delete a tag from the specified logged model.
+        
+        Args:
+            model_id: ID of the model.
+            key: Key of the tag to delete.
+        """
+        # Get current model
+        model_doc = self.sync_db["logged_models"].find_one({"model_id": model_id})
+        if not model_doc:
+            raise MlflowException(
+                f"Logged model with id '{model_id}' not found",
+                error_code=RESOURCE_DOES_NOT_EXIST
+            )
+        
+        # Remove tag with specified key
+        updated_tags = [tag for tag in model_doc.get("tags", []) if tag["key"] != key]
+        
+        # Update model
+        self.sync_db["logged_models"].update_one(
+            {"model_id": model_id},
+            {
+                "$set": {
+                    "tags": updated_tags,
+                    "last_update_time": get_current_time_millis()
+                }
+            }
+        )
+    
+    def get_logged_model(self, model_id: str) -> LoggedModel:
+        """
+        Fetch the logged model with the specified ID.
+        
+        Args:
+            model_id: ID of the model to fetch.
+            
+        Returns:
+            The fetched LoggedModel object.
+        """
+        from mlflow.entities import LoggedModel, LoggedModelTag, LoggedModelParameter
+        
+        doc = self.sync_db["logged_models"].find_one({"model_id": model_id})
+        if not doc:
+            raise MlflowException(
+                f"Logged model with id '{model_id}' not found",
+                error_code=RESOURCE_DOES_NOT_EXIST
+            )
+        
+        # Convert tags and params back to objects
+        tags = []
+        for tag_doc in doc.get("tags", []):
+            tags.append(LoggedModelTag(key=tag_doc["key"], value=tag_doc["value"]))
+        
+        params = []
+        for param_doc in doc.get("params", []):
+            params.append(LoggedModelParameter(key=param_doc["key"], value=param_doc["value"]))
+        
+        return LoggedModel(
+            model_id=doc["model_id"],
+            experiment_id=doc["experiment_id"],
+            name=doc["name"],
+            artifact_location=f"models:/{doc['model_id']}",
+            creation_timestamp=doc["creation_time"],
+            last_updated_timestamp=doc["last_update_time"],
+            source_run_id=doc.get("source_run_id"),
+            model_type=doc.get("model_type"),
+            tags=tags,
+            params=params
+        )
+    
+    def delete_logged_model(self, model_id: str) -> None:
+        """
+        Delete the logged model with the specified ID.
+        
+        Args:
+            model_id: ID of the model to delete.
+        """
+        result = self.sync_db["logged_models"].delete_one({"model_id": model_id})
+        
+        if result.deleted_count == 0:
+            raise MlflowException(
+                f"Logged model with id '{model_id}' not found",
+                error_code=RESOURCE_DOES_NOT_EXIST
+            )
+        
+        logger.info(f"Deleted logged model: {model_id}")
     
     def list_artifacts(self, run_id: str, path: str = None) -> List[FileInfo]:
         """List artifacts for a run (placeholder implementation)."""

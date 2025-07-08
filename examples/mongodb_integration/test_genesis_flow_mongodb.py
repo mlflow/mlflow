@@ -45,8 +45,13 @@ def setup_mongodb_tracking():
     
     print(f"🔗 Setting up Genesis-Flow with MongoDB tracking URI: {tracking_uri}")
     
+    # Genesis-Flow already has MongoDB support built-in, no need for registry reloading
+    
     # Set tracking URI - Genesis-Flow will handle MongoDB integration directly
     mlflow.set_tracking_uri(tracking_uri)
+    
+    # Set registry URI to use the same MongoDB backend
+    mlflow.set_registry_uri(tracking_uri)
     
     # Optional: Set artifact root (can be local, Azure Blob, or S3)
     artifact_root = os.getenv("MLFLOW_DEFAULT_ARTIFACT_ROOT", "file:///tmp/genesis_flow_artifacts")
