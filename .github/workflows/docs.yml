@@ -64,6 +64,8 @@ jobs:
           yarn install --immutable
       - uses: ./.github/actions/show-versions
       - name: Build docs
+        env:
+          GTM_ID: "GTM-TEST"
         run: |
           yarn build-all -- --no-r
           yarn convert-notebooks
