@@ -1129,7 +1129,7 @@ class MongoDBStore(AbstractStore):
         
         logger.debug(f"Set tag {tag.key}={tag.value} for run {run_id}")
     
-    def get_metric_history(self, run_id: str, metric_key: str) -> List[Metric]:
+    def get_metric_history(self, run_id: str, metric_key: str, max_results: int = None, page_token: str = None) -> List[Metric]:
         """Get the history of a metric for a run."""
         # Validate run exists
         run = self.sync_db[self.RUNS_COLLECTION].find_one({"run_uuid": run_id})
@@ -1140,11 +1140,14 @@ class MongoDBStore(AbstractStore):
             )
         
         # Get all metric values for this key, sorted by timestamp and step
-        metric_docs = list(
-            self.sync_db[self.METRICS_COLLECTION].find(
-                {"run_uuid": run_id, "key": metric_key}
-            ).sort([("timestamp", ASCENDING), ("step", ASCENDING)])
-        )
+        query = {"run_uuid": run_id, "key": metric_key}
+        cursor = self.sync_db[self.METRICS_COLLECTION].find(query).sort([("timestamp", ASCENDING), ("step", ASCENDING)])
+        
+        # Apply max_results limit if specified
+        if max_results is not None:
+            cursor = cursor.limit(max_results)
+            
+        metric_docs = list(cursor)
         
         # Convert to Metric objects
         metrics = [

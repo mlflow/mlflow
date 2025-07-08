@@ -323,7 +323,7 @@ class MongoDBModelRegistryStore(AbstractStore):
 
     def create_model_version(self, name: str, source: str, run_id: Optional[str] = None, 
                            tags: Optional[List] = None, run_link: Optional[str] = None,
-                           description: Optional[str] = None) -> ModelVersion:
+                           description: Optional[str] = None, model_id: Optional[str] = None) -> ModelVersion:
         """
         Create a new model version.
         
@@ -334,6 +334,7 @@ class MongoDBModelRegistryStore(AbstractStore):
             tags: Optional list of tags
             run_link: Optional run link
             description: Optional description
+            model_id: Optional model ID (for compatibility)
             
         Returns:
             ModelVersion: The created model version
