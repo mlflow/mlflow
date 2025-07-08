@@ -45,7 +45,7 @@ class _EnvironmentVariable:
             try:
                 return self.type(val)
             except Exception as e:
-                raise ValueError(f"Failed to convert {val!r} to {self.type} for {self.name}: {e}")
+                raise ValueError(f"Failed to convert {val!r} for {self.name}: {e}")
         return self.default
 
     def __str__(self):
