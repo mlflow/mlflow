@@ -2,6 +2,7 @@ import functools
 import inspect
 import logging
 import time
+from contextlib import contextmanager
 from typing import Any, Callable, Optional
 
 from mlflow.telemetry.client import get_telemetry_client
@@ -24,7 +25,8 @@ def track_api_usage(func: Callable[..., Any]) -> Callable[..., Any]:
         success = True
         start_time = time.time()
         try:
-            return func(*args, **kwargs)
+            with _avoid_telemetry_tracking():
+                return func(*args, **kwargs)
         except Exception:
             success = False
             raise
@@ -37,6 +39,30 @@ def track_api_usage(func: Callable[..., Any]) -> Callable[..., Any]:
                 _logger.debug(f"Failed to record telemetry for function {func.__name__}: {e}")
 
     return wrapper
+
+
+@contextmanager
+def _avoid_telemetry_tracking():
+    """
+    Context manager to avoid telemetry tracking.
+    This needs to be used to avoid tracking nested APIs that are invoked inside the
+    function that we are tracking.
+    """
+    try:
+        global invoked_from_internal_api
+        original_func = invoked_from_internal_api
+
+        def mock_invoked_from_internal_api():
+            return True
+
+        try:
+            invoked_from_internal_api = mock_invoked_from_internal_api
+            yield
+        finally:
+            invoked_from_internal_api = original_func
+    except Exception:
+        _logger.debug("Failed to avoid telemetry tracking", exc_info=True)
+        yield
 
 
 def _generate_telemetry_record(

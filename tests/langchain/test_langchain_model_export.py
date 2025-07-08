@@ -3728,8 +3728,6 @@ def test_log_model_sends_telemetry_record(mock_requests):
     get_telemetry_client().flush()
 
     # Check that telemetry record was sent
-    # There could be multiple records, since workflow.py internally
-    # calls autolog
     assert len(mock_requests) == 1
     record = mock_requests[0]
     data = json.loads(record["data"])
