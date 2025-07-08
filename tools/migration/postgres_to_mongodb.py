@@ -75,15 +75,43 @@ class PostgreSQLToMongoDBMigrator:
         self.mongo_client = None
         self.mongo_db = None
         
-        # Migration state
+        # Migration state - ALL MLflow tables
         self.migration_stats = {
+            # Core tracking tables
             'experiments': {'total': 0, 'migrated': 0, 'errors': 0},
             'runs': {'total': 0, 'migrated': 0, 'errors': 0},
             'metrics': {'total': 0, 'migrated': 0, 'errors': 0},
             'params': {'total': 0, 'migrated': 0, 'errors': 0},
             'tags': {'total': 0, 'migrated': 0, 'errors': 0},
+            
+            # Model registry tables
             'registered_models': {'total': 0, 'migrated': 0, 'errors': 0},
             'model_versions': {'total': 0, 'migrated': 0, 'errors': 0},
+            'registered_model_tags': {'total': 0, 'migrated': 0, 'errors': 0},
+            'model_version_tags': {'total': 0, 'migrated': 0, 'errors': 0},
+            'registered_model_aliases': {'total': 0, 'migrated': 0, 'errors': 0},
+            
+            # Dataset and input tracking
+            'datasets': {'total': 0, 'migrated': 0, 'errors': 0},
+            'inputs': {'total': 0, 'migrated': 0, 'errors': 0},
+            'input_tags': {'total': 0, 'migrated': 0, 'errors': 0},
+            
+            # Experiment-level metadata
+            'experiment_tags': {'total': 0, 'migrated': 0, 'errors': 0},
+            
+            # Metric optimization tables
+            'latest_metrics': {'total': 0, 'migrated': 0, 'errors': 0},
+            
+            # Model logging tables
+            'logged_models': {'total': 0, 'migrated': 0, 'errors': 0},
+            'logged_model_tags': {'total': 0, 'migrated': 0, 'errors': 0},
+            'logged_model_params': {'total': 0, 'migrated': 0, 'errors': 0},
+            'logged_model_metrics': {'total': 0, 'migrated': 0, 'errors': 0},
+            
+            # Tracing tables (MLflow 2.0+)
+            'trace_info': {'total': 0, 'migrated': 0, 'errors': 0},
+            'trace_request_metadata': {'total': 0, 'migrated': 0, 'errors': 0},
+            'trace_tags': {'total': 0, 'migrated': 0, 'errors': 0},
         }
         
         # PostgreSQL to MongoDB field mappings
@@ -165,16 +193,8 @@ class PostgreSQLToMongoDBMigrator:
         
         analysis = {}
         
-        # Define tables to analyze
-        tables = [
-            'experiments',
-            'runs', 
-            'metrics',
-            'params',
-            'tags',
-            'registered_models',
-            'model_versions'
-        ]
+        # Define ALL MLflow tables to analyze
+        tables = list(self.migration_stats.keys())
         
         try:
             with self.pg_conn.cursor() as cursor:
@@ -592,6 +612,152 @@ class PostgreSQLToMongoDBMigrator:
             self.logger.error(f"Error migrating model versions: {e}")
             return False
     
+    def migrate_experiment_tags(self) -> bool:
+        """Migrate experiment_tags table."""
+        return self._migrate_optional_table('experiment_tags', [("experiment_id", 1), ("key", 1)])
+    
+    def migrate_datasets(self) -> bool:
+        """Migrate datasets table."""
+        return self._migrate_optional_table('datasets', [("experiment_id", 1), ("name", 1)])
+    
+    def migrate_inputs(self) -> bool:
+        """Migrate inputs table."""
+        return self._migrate_optional_table('inputs', [("source_type", 1), ("source_id", 1)])
+    
+    def migrate_input_tags(self) -> bool:
+        """Migrate input_tags table."""
+        return self._migrate_optional_table('input_tags', [("input_uuid", 1), ("name", 1)])
+    
+    def migrate_latest_metrics(self) -> bool:
+        """Migrate latest_metrics table."""
+        return self._migrate_optional_table('latest_metrics', [("run_uuid", 1), ("key", 1)])
+    
+    def migrate_registered_model_tags(self) -> bool:
+        """Migrate registered_model_tags table."""
+        return self._migrate_optional_table('registered_model_tags', [("name", 1), ("key", 1)])
+    
+    def migrate_model_version_tags(self) -> bool:
+        """Migrate model_version_tags table."""
+        return self._migrate_optional_table('model_version_tags', [("name", 1), ("version", 1), ("key", 1)])
+    
+    def migrate_registered_model_aliases(self) -> bool:
+        """Migrate registered_model_aliases table."""
+        return self._migrate_optional_table('registered_model_aliases', [("name", 1), ("alias", 1)])
+    
+    def migrate_logged_models(self) -> bool:
+        """Migrate logged_models table."""
+        return self._migrate_optional_table('logged_models', [("run_id", 1), ("model_id", 1)])
+    
+    def migrate_logged_model_tags(self) -> bool:
+        """Migrate logged_model_tags table."""
+        return self._migrate_optional_table('logged_model_tags', [("model_id", 1), ("key", 1)])
+    
+    def migrate_logged_model_params(self) -> bool:
+        """Migrate logged_model_params table."""
+        return self._migrate_optional_table('logged_model_params', [("model_id", 1), ("key", 1)])
+    
+    def migrate_logged_model_metrics(self) -> bool:
+        """Migrate logged_model_metrics table."""
+        return self._migrate_optional_table('logged_model_metrics', [("model_id", 1), ("key", 1)])
+    
+    def migrate_trace_info(self) -> bool:
+        """Migrate trace_info table."""
+        return self._migrate_optional_table('trace_info', [("request_id", 1), ("timestamp_ms", 1)])
+    
+    def migrate_trace_request_metadata(self) -> bool:
+        """Migrate trace_request_metadata table."""
+        return self._migrate_optional_table('trace_request_metadata', [("request_id", 1), ("key", 1)])
+    
+    def migrate_trace_tags(self) -> bool:
+        """Migrate trace_tags table."""
+        return self._migrate_optional_table('trace_tags', [("request_id", 1), ("key", 1)])
+    
+    def _migrate_optional_table(self, table_name: str, indexes: List) -> bool:
+        """Generic migration method for optional tables."""
+        self.logger.info(f"Migrating {table_name}...")
+        
+        if self.dry_run:
+            self.logger.info(f"DRY RUN: Would migrate {table_name}")
+            return True
+        
+        try:
+            # Check if table exists
+            with self.pg_conn.cursor() as cursor:
+                cursor.execute("""
+                    SELECT EXISTS (
+                        SELECT FROM information_schema.tables 
+                        WHERE table_name = %s
+                    );
+                """, (table_name,))
+                
+                if not cursor.fetchone()[0]:
+                    self.logger.info(f"{table_name} table not found, skipping...")
+                    return True
+            
+            # Create MongoDB collection with proper indexes
+            collection = self.mongo_db[table_name]
+            for index in indexes:
+                try:
+                    if len(index) == 2 and isinstance(index[0], str):
+                        # Simple index
+                        collection.create_index(index[0])
+                    else:
+                        # Compound index
+                        collection.create_index(index, unique=True)
+                except Exception as e:
+                    self.logger.warning(f"Could not create index for {table_name}: {e}")
+            
+            # Get all columns for this table
+            with self.pg_conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
+                cursor.execute("""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name = %s AND table_schema = 'public'
+                    ORDER BY ordinal_position
+                """, (table_name,))
+                
+                columns = [row['column_name'] for row in cursor.fetchall()]
+                if not columns:
+                    self.logger.warning(f"No columns found for {table_name}")
+                    return True
+                
+                # Build SELECT query
+                select_query = f"SELECT {', '.join(columns)} FROM {table_name}"
+                
+                cursor.execute(select_query)
+                
+                batch = []
+                for row in cursor:
+                    # Convert row to MongoDB document
+                    doc = {}
+                    for col in columns:
+                        value = row[col]
+                        # Handle type conversions
+                        if col in ['experiment_id', 'version'] and value is not None:
+                            doc[col] = str(value)  # Convert to string for consistency
+                        elif col.endswith('_time') or col.endswith('timestamp') and value is not None:
+                            doc[col] = int(value)  # Ensure timestamps are integers
+                        elif col == 'value' and table_name.endswith('metrics') and value is not None:
+                            doc[col] = float(value)  # Ensure metrics are floats
+                        else:
+                            doc[col] = value
+                    
+                    batch.append(doc)
+                    
+                    if len(batch) >= self.batch_size:
+                        self._insert_batch(collection, batch, table_name)
+                        batch = []
+                
+                if batch:
+                    self._insert_batch(collection, batch, table_name)
+            
+            self.logger.info(f"{table_name} migration completed: {self.migration_stats[table_name]['migrated']} migrated")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error migrating {table_name}: {e}")
+            return False
+    
     def _insert_batch(self, collection, batch: List[Dict], table_name: str):
         """Insert a batch of documents into MongoDB collection."""
         try:
@@ -721,15 +887,43 @@ class PostgreSQLToMongoDBMigrator:
                     self.logger.info("Migration cancelled by user")
                     return False
             
-            # Execute migration steps
+            # Execute migration steps in dependency order
             migration_steps = [
+                # Core tracking tables
                 self.migrate_experiments,
                 self.migrate_runs,
                 self.migrate_metrics,
                 self.migrate_params,
                 self.migrate_tags,
+                
+                # Experiment-level metadata
+                self.migrate_experiment_tags,
+                
+                # Dataset and input tracking
+                self.migrate_datasets,
+                self.migrate_inputs,
+                self.migrate_input_tags,
+                
+                # Metric optimization tables
+                self.migrate_latest_metrics,
+                
+                # Model registry core
                 self.migrate_registered_models,
                 self.migrate_model_versions,
+                self.migrate_registered_model_tags,
+                self.migrate_model_version_tags,
+                self.migrate_registered_model_aliases,
+                
+                # Model logging tables
+                self.migrate_logged_models,
+                self.migrate_logged_model_tags,
+                self.migrate_logged_model_params,
+                self.migrate_logged_model_metrics,
+                
+                # Tracing tables (MLflow 2.0+)
+                self.migrate_trace_info,
+                self.migrate_trace_request_metadata,
+                self.migrate_trace_tags,
             ]
             
             for step in migration_steps:

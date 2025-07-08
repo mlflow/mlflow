@@ -1,0 +1,43 @@
+============================================================
+MLFLOW POSTGRESQL TO MONGODB MIGRATION REPORT
+============================================================
+Migration Date: 2025-07-09 00:30:23
+Source: postgresql://postgres:7HrX26sHIZz8yffytPc0@autonomize-database-1002.cwpqzu4drrfr.us-east-1.rds.amazonaws.com:5432/mlflow
+Destination: mongodb://localhost:27017/mlflow_migrated_from_autonomize
+Batch Size: 1000
+Dry Run: True
+
+MIGRATION SUMMARY:
+----------------------------------------
+⚠️ EXPERIMENTS          Total:      284 | Migrated:        0 | Errors:     0
+⚠️ RUNS                 Total:    6,013 | Migrated:        0 | Errors:     0
+⚠️ METRICS              Total:   57,350 | Migrated:        0 | Errors:     0
+⚠️ PARAMS               Total:   71,003 | Migrated:        0 | Errors:     0
+⚠️ TAGS                 Total:   34,791 | Migrated:        0 | Errors:     0
+⚠️ REGISTERED_MODELS    Total:      212 | Migrated:        0 | Errors:     0
+⚠️ MODEL_VERSIONS       Total:    1,164 | Migrated:        0 | Errors:     0
+⚠️ REGISTERED_MODEL_TAGS Total:       97 | Migrated:        0 | Errors:     0
+⚠️ MODEL_VERSION_TAGS   Total:      130 | Migrated:        0 | Errors:     0
+⚠️ REGISTERED_MODEL_ALIASES Total:       25 | Migrated:        0 | Errors:     0
+⚠️ DATASETS             Total:       83 | Migrated:        0 | Errors:     0
+⚠️ INPUTS               Total:      766 | Migrated:        0 | Errors:     0
+⚠️ INPUT_TAGS           Total:      173 | Migrated:        0 | Errors:     0
+⚠️ EXPERIMENT_TAGS      Total:       77 | Migrated:        0 | Errors:     0
+⚠️ LATEST_METRICS       Total:   17,240 | Migrated:        0 | Errors:     0
+⚠️ LOGGED_MODELS        Total:       55 | Migrated:        0 | Errors:     0
+⚠️ LOGGED_MODEL_TAGS    Total:      203 | Migrated:        0 | Errors:     0
+✅ LOGGED_MODEL_PARAMS  Total:        0 | Migrated:        0 | Errors:     0
+✅ LOGGED_MODEL_METRICS Total:        0 | Migrated:        0 | Errors:     0
+⚠️ TRACE_INFO           Total:    4,756 | Migrated:        0 | Errors:     0
+⚠️ TRACE_REQUEST_METADATA Total:   20,472 | Migrated:        0 | Errors:     0
+⚠️ TRACE_TAGS           Total:   17,445 | Migrated:        0 | Errors:     0
+----------------------------------------
+TOTAL RECORDS:                Total:  232,339 | Migrated:        0 | Errors:     0
+
+🎉 MIGRATION COMPLETED SUCCESSFULLY!
+
+NEXT STEPS:
+1. Validate data integrity using Genesis-Flow
+2. Update application configuration to use MongoDB URI
+3. Test all MLflow operations with new backend
+4. Update artifact storage configuration if needed
