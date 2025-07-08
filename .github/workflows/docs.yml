@@ -69,7 +69,6 @@ jobs:
       - name: Build docs
         env:
           GTM_ID: "GTM-TEST"
-          DOCS_BASE_URL: /latest/
           API_REFERENCE_PREFIX: https://pr-${{ github.event.pull_request.number }}--mlflow-docs-preview.netlify.app/latest/
         run: |
           yarn build-all -- --no-r
