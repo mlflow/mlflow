@@ -134,7 +134,7 @@ def _parse_model_id_if_present(possible_model_uri: Union[str, Path]) -> Optional
 def get_model_name_and_version(client, models_uri):
     (model_id, model_name, model_version, model_stage, model_alias) = _parse_model_uri(models_uri)
     if model_id is not None:
-        return (model_id, None)
+        return model_id, None
     if model_version is not None:
         return model_name, model_version
 
