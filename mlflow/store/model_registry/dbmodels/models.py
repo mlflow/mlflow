@@ -1,8 +1,8 @@
-import json
 import os
 
 from cryptography.fernet import Fernet
 from sqlalchemy import (
+    JSON,
     BigInteger,
     Column,
     ForeignKey,
@@ -248,7 +248,7 @@ class SqlWebhook(Base):
     name = Column(String(256), nullable=False)
     description = Column(String(1000), nullable=True)
     url = Column(String(500), nullable=False)
-    events = Column(Text, nullable=False)  # JSON array of WebhookEvent values
+    events = Column(JSON, nullable=False)  # Array of WebhookEvent values
     status = Column(String(20), nullable=False, default="ACTIVE")
     secret = Column(EncryptedText(), nullable=True)  # Encrypted storage for HMAC secret
     creation_timestamp = Column(BigInteger, default=get_current_time_millis)
@@ -264,9 +264,8 @@ class SqlWebhook(Base):
         )
 
     def to_mlflow_entity(self):
-        # Parse events from JSON string
-        event_strings = json.loads(self.events)
-        events = [WebhookEvent(event) for event in event_strings]
+        # Convert events from JSON array
+        events = [WebhookEvent(event) for event in self.events]
 
         return Webhook(
             webhook_id=self.webhook_id,

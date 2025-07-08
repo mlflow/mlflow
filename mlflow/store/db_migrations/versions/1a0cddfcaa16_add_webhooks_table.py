@@ -32,7 +32,7 @@ def upgrade():
             sa.Column("name", sa.String(length=256), nullable=False),
             sa.Column("description", sa.String(length=1000), nullable=True),
             sa.Column("url", sa.String(length=500), nullable=False),
-            sa.Column("events", sa.Text(), nullable=False),
+            sa.Column("events", sa.JSON(), nullable=False),
             sa.Column("status", sa.String(length=20), nullable=False, server_default="ACTIVE"),
             sa.Column("secret", sa.String(length=1000), nullable=True),  # Stored as encrypted text
             sa.Column("creation_timestamp", sa.BigInteger(), nullable=True),

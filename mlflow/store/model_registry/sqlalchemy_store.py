@@ -1,4 +1,3 @@
-import json
 import logging
 import urllib
 import uuid
@@ -1317,7 +1316,7 @@ class SqlAlchemyStore(AbstractStore):
                 webhook_id=webhook_id,
                 name=name,
                 url=url,
-                events=json.dumps([str(e) for e in events]),  # Store as JSON string
+                events=[str(e) for e in events],  # Store as JSON string
                 description=description,
                 secret=secret,
                 status=str(status or WebhookStatus.ACTIVE),
@@ -1392,8 +1391,7 @@ class SqlAlchemyStore(AbstractStore):
             if url:
                 _validate_webhook_url(url)
             if events:
-                event_strings = [str(e) for e in events]
-                webhook.events = json.dumps(event_strings)
+                webhook.events = [str(e) for e in events]
             if description:
                 webhook.description = description
             if secret:
