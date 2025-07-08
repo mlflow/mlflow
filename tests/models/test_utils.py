@@ -628,7 +628,7 @@ def test_supressed_schema_error(monkeypatch):
     params = {}
     params_schema = None
 
-    monkeypatch.setenv("MLFLOW_DISABLE_SCHEMA_DETAILS", "true")
+    monkeypatch.setenv(MLFLOW_DISABLE_SCHEMA_DETAILS.name, "true")
     suprass_error = pd.DataFrame({"id":[1,2]})
     suprass_error["id"] = suprass_error["id"].astype("float64")
 
