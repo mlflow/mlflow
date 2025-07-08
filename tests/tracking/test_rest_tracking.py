@@ -3039,6 +3039,8 @@ def test_suppress_url_printing(mlflow_client: MlflowClient, monkeypatch):
 
 def test_assessments_end_to_end(mlflow_client):
     """Test complete assessment CRUD workflow using REST API."""
+    mlflow.set_tracking_uri(mlflow_client.tracking_uri)
+
     # Set up experiment and trace
     experiment_id = mlflow_client.create_experiment("assessment_crud_test")
     trace_info = mlflow_client.start_trace(name="test_trace", experiment_id=experiment_id)
@@ -3057,7 +3059,7 @@ def test_assessments_end_to_end(mlflow_client):
 
     # CREATE assessment
     create_response = requests.post(
-        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/traces/{trace_info.request_id}/assessments",
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/traces/{trace_info.request_id}/assessments",
         json=feedback_payload,
     )
     assert create_response.status_code == 200
@@ -3072,7 +3074,7 @@ def test_assessments_end_to_end(mlflow_client):
 
     # GET assessment
     get_response = requests.get(
-        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/traces/{trace_info.request_id}/assessments/{assessment_id}"
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/traces/{trace_info.request_id}/assessments/{assessment_id}"
     )
     assert get_response.status_code == 200
     retrieved = get_response.json()["assessment"]
@@ -3093,7 +3095,7 @@ def test_assessments_end_to_end(mlflow_client):
     }
 
     update_response = requests.patch(
-        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/traces/{trace_info.request_id}/assessments/{assessment_id}",
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/traces/{trace_info.request_id}/assessments/{assessment_id}",
         json=update_payload,
     )
     assert update_response.status_code == 200
@@ -3113,7 +3115,7 @@ def test_assessments_end_to_end(mlflow_client):
     }
 
     override_response = requests.post(
-        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/traces/{trace_info.request_id}/assessments",
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/traces/{trace_info.request_id}/assessments",
         json=override_payload,
     )
     assert override_response.status_code == 200
@@ -3122,14 +3124,14 @@ def test_assessments_end_to_end(mlflow_client):
 
     # Verify original is now invalid
     get_original = requests.get(
-        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/traces/{trace_info.request_id}/assessments/{assessment_id}"
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/traces/{trace_info.request_id}/assessments/{assessment_id}"
     )
     assert get_original.status_code == 200
     assert get_original.json()["assessment"]["valid"] is False
 
     # Verify override is valid
     get_override = requests.get(
-        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/traces/{trace_info.request_id}/assessments/{override_id}"
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/traces/{trace_info.request_id}/assessments/{override_id}"
     )
     assert get_override.status_code == 200
     assert get_override.json()["assessment"]["valid"] is True
@@ -3137,19 +3139,19 @@ def test_assessments_end_to_end(mlflow_client):
 
     # DELETE override assessment (should restore original)
     delete_response = requests.delete(
-        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/traces/{trace_info.request_id}/assessments/{override_id}"
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/traces/{trace_info.request_id}/assessments/{override_id}"
     )
     assert delete_response.status_code == 200
 
     # Verify override is deleted
     get_deleted = requests.get(
-        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/traces/{trace_info.request_id}/assessments/{override_id}"
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/traces/{trace_info.request_id}/assessments/{override_id}"
     )
     assert get_deleted.status_code == 404
 
     # Verify original is restored to valid
     get_restored = requests.get(
-        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/traces/{trace_info.request_id}/assessments/{assessment_id}"
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/traces/{trace_info.request_id}/assessments/{assessment_id}"
     )
     assert get_restored.status_code == 200
     assert get_restored.json()["assessment"]["valid"] is True
@@ -3164,7 +3166,7 @@ def test_assessments_end_to_end(mlflow_client):
     }
 
     expectation_response = requests.post(
-        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/traces/{trace_info.request_id}/assessments",
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/traces/{trace_info.request_id}/assessments",
         json=expectation_payload,
     )
     assert expectation_response.status_code == 200
@@ -3181,6 +3183,6 @@ def test_assessments_end_to_end(mlflow_client):
     # Clean up - delete remaining assessments
     for aid in [assessment_id, expectation_id]:
         delete_resp = requests.delete(
-            f"{mlflow_client.tracking_uri}/api/2.0/mlflow/traces/{trace_info.request_id}/assessments/{aid}"
+            f"{mlflow_client.tracking_uri}/api/3.0/mlflow/traces/{trace_info.request_id}/assessments/{aid}"
         )
         assert delete_resp.status_code == 200
