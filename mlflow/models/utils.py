@@ -46,6 +46,7 @@ from mlflow.utils.proto_json_utils import (
     parse_tf_serving_input,
 )
 from mlflow.utils.uri import get_databricks_profile_uri_from_artifact_uri
+from mlflow.environment_variables import MLFLOW_DISABLE_SCHEMA_DETAILS
 
 try:
     from scipy.sparse import csc_matrix, csr_matrix
@@ -1257,10 +1258,18 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema, flavor: Optiona
         missing_cols = [c for c in input_names if c in missing_cols]
         extra_cols = [c for c in actual_cols if c in extra_cols]
         if missing_cols:
-            message = f"Model is missing inputs {missing_cols}."
-            if extra_cols:
-                message += f" Note that there were extra inputs: {extra_cols}"
-            raise MlflowException(message)
+            # If the user has set MLFLOW_DISABLE_SCHEMA_DETAILS to true, we raise a generic error
+            if os.environ.get("MLFLOW_DISABLE_SCHEMA_DETAILS", "False").lower() != "true":
+                message = f"Model is missing inputs {missing_cols}."
+                if extra_cols:
+                    message += f" Note that there were extra inputs: {extra_cols}."
+                raise MlflowException(message)
+            else:
+                message = "Input schema validation failed. Mismatched or missing input(s)."
+                if extra_cols:
+                    message += " Note that there were extra inputs provided."
+                raise MlflowException(message)
+        
         if extra_cols:
             _logger.warning(
                 "Found extra inputs in the model input that are not defined in the model "

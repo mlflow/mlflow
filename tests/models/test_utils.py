@@ -26,8 +26,11 @@ from mlflow.models.utils import (
     _validate_model_code_from_notebook,
     get_model_version_from_model_uri,
 )
-from mlflow.types import DataType
-from mlflow.types.schema import Array, Object, Property
+from mlflow.types import DataType, Schema
+from mlflow.types.schema import Array, ColSpec, Object, Property
+from mlflow.pyfunc import _validate_prediction_input
+from mlflow.pyfunc import _enforce_schema
+
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 
@@ -616,3 +619,44 @@ def test_validate_and_get_model_code_path_success(tmp_path):
     actual = _validate_and_get_model_code_path(model_path, tmp_path)
 
     assert actual == model_path
+
+def test_supressed_schema_error(monkeypatch):
+    schema = Schema([
+        ColSpec("double", "id"),
+        ColSpec("string", "name"),
+    ])
+    params = {}
+    params_schema = None
+
+    monkeypatch.setenv("MLFLOW_DISABLE_SCHEMA_DETAILS", "true")
+    suprass_error = pd.DataFrame({"id":[1,2]})
+    suprass_error["id"] = suprass_error["id"].astype("float64")
+
+    with pytest.raises(MlflowException) as errorinfo:
+        _validate_prediction_input(suprass_error, params, schema, params_schema)
+    print(str(errorinfo.value))
+
+def test_enforce_schema_with_missing_and_extra_columns(monkeypatch):
+    monkeypatch.setenv("MLFLOW_DISABLE_SCHEMA_DETAILS", "true")
+    
+    schema = Schema([
+        ColSpec("long", "id"),
+        ColSpec("string", "name"),
+    ])
+    
+    input_data = pd.DataFrame({
+        "id": [1, 2],
+        "extra_col": ["mlflow", "oss"]
+    })
+
+    with pytest.raises(MlflowException) as exc_info:
+        _enforce_schema(input_data, schema)
+
+    message = str(exc_info.value)
+    print(str(exc_info.value))
+
+    assert "Input schema validation failed" in message
+    assert "extra inputs provided" in message
+
+
+    
