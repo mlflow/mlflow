@@ -212,7 +212,7 @@ class SqlRegisteredModelAlias(Base):
         return RegisteredModelAlias(self.alias, self.version)
 
 
-class EncryptedText(TypeDecorator):
+class EncryptedString(TypeDecorator):
     """
     A custom SQLAlchemy type that encrypts data before storing in the database
     and decrypts it when retrieving.
@@ -250,7 +250,7 @@ class SqlWebhook(Base):
     url = Column(String(500), nullable=False)
     events = Column(JSON, nullable=False)  # Array of WebhookEvent values
     status = Column(String(20), nullable=False, default="ACTIVE")
-    secret = Column(EncryptedText(), nullable=True)  # Encrypted storage for HMAC secret
+    secret = Column(EncryptedString(), nullable=True)  # Encrypted storage for HMAC secret
     creation_timestamp = Column(BigInteger, default=get_current_time_millis)
     last_updated_timestamp = Column(BigInteger, nullable=True, default=None)
     deleted_timestamp = Column(BigInteger, nullable=True, default=None)  # For soft deletes
