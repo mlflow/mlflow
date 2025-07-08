@@ -1259,15 +1259,15 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema, flavor: Optiona
         extra_cols = [c for c in actual_cols if c in extra_cols]
         if missing_cols:
             # If the user has set MLFLOW_DISABLE_SCHEMA_DETAILS to true, we raise a generic error
-            if os.environ.get("MLFLOW_DISABLE_SCHEMA_DETAILS", "False").lower() != "true":
-                message = f"Model is missing inputs {missing_cols}."
-                if extra_cols:
-                    message += f" Note that there were extra inputs: {extra_cols}."
-                raise MlflowException(message)
-            else:
+            if MLFLOW_DISABLE_SCHEMA_DETAILS.get():
                 message = "Input schema validation failed. Mismatched or missing input(s)."
                 if extra_cols:
                     message += " Note that there were extra inputs provided."
+                raise MlflowException(message)
+            else:
+                message = f"Model is missing inputs {missing_cols}."
+                if extra_cols:
+                    message += f" Note that there were extra inputs: {extra_cols}."
                 raise MlflowException(message)
         
         if extra_cols:

@@ -434,6 +434,7 @@ from mlflow.environment_variables import (
     _MLFLOW_TESTING,
     MLFLOW_MODEL_ENV_DOWNLOADING_TEMP_DIR,
     MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT,
+    MLFLOW_DISABLE_SCHEMA_DETAILS,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature
@@ -732,15 +733,16 @@ def _validate_prediction_input(data: PyFuncInput, params, input_schema, params_s
         try:
             data = _enforce_schema(data, input_schema, flavor)
         except Exception as e:
-           if os.environ.get("MLFLOW_DISABLE_SCHEMA_DETAILS", "False").lower() != "true":
-            # Include error in message for backwards compatibility
-                raise MlflowException.invalid_parameter_value(
+            if MLFLOW_DISABLE_SCHEMA_DETAILS.get():
+                message = "Failed to enforce model input schema. Please check your input data."
+            else:
+                # Include error in message for backwards compatibility
+                message = (
                     f"Failed to enforce schema of data '{data}' "
                     f"with schema '{input_schema}'. "
-                    f"Error: {e}",
+                    f"Error: {e}"
                 )
-           else:
-               raise MlflowException.invalid_parameter_value("Failed to enforce model input schema. Please check your input data.")
+            raise MlflowException.invalid_parameter_value(message)
     params = _enforce_params_schema(params, params_schema)
     if HAS_PYSPARK and isinstance(data, SparkDataFrame):
         _logger.warning(

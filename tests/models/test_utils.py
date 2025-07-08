@@ -30,7 +30,7 @@ from mlflow.types import DataType, Schema
 from mlflow.types.schema import Array, ColSpec, Object, Property
 from mlflow.pyfunc import _validate_prediction_input
 from mlflow.pyfunc import _enforce_schema
-
+from mlflow.environment_variables import MLFLOW_DISABLE_SCHEMA_DETAILS
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_data"])
 
@@ -628,35 +628,31 @@ def test_supressed_schema_error(monkeypatch):
     params = {}
     params_schema = None
 
+<<<<<<< HEAD
     monkeypatch.setenv(MLFLOW_DISABLE_SCHEMA_DETAILS.name, "true")
+=======
+    monkeypatch.setenv(MLFLOW_DISABLE_SCHEMA_DETAILS.name,"true")
+>>>>>>> 5a428d6b7 (suggetsions added  for schema error suppression)
     suprass_error = pd.DataFrame({"id":[1,2]})
     suprass_error["id"] = suprass_error["id"].astype("float64")
 
-    with pytest.raises(MlflowException) as errorinfo:
+    with pytest.raises(MlflowException,
+                       match=r"Failed to enforce model input schema. Please check your input data."):
         _validate_prediction_input(suprass_error, params, schema, params_schema)
-    print(str(errorinfo.value))
 
-def test_enforce_schema_with_missing_and_extra_columns(monkeypatch):
-    monkeypatch.setenv("MLFLOW_DISABLE_SCHEMA_DETAILS", "true")
-    
+def test_enforce_schema_with_missing_and_extra_columns(monkeypatch):    
     schema = Schema([
         ColSpec("long", "id"),
         ColSpec("string", "name"),
     ])
-    
+    monkeypatch.setenv(MLFLOW_DISABLE_SCHEMA_DETAILS.name,"true")
     input_data = pd.DataFrame({
         "id": [1, 2],
         "extra_col": ["mlflow", "oss"]
     })
-
-    with pytest.raises(MlflowException) as exc_info:
+    with pytest.raises(MlflowException,
+                       match=r"Input schema validation failed.*extra inputs provided"):
         _enforce_schema(input_data, schema)
-
-    message = str(exc_info.value)
-    print(str(exc_info.value))
-
-    assert "Input schema validation failed" in message
-    assert "extra inputs provided" in message
 
 
     
