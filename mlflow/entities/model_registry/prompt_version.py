@@ -42,12 +42,14 @@ class PromptVersion(_ModelRegistryEntity):
         name: The name of the prompt.
         version: The version number of the prompt.
         template: The template content of the prompt. Can be either:
+
             - A string containing text with variables enclosed in double curly braces,
               e.g. {{variable}}, which will be replaced with actual values by the `format` method.
               MLflow uses the same variable naming rules as Jinja2:
               https://jinja.palletsprojects.com/en/stable/api/#notes-on-identifiers
             - A list of dictionaries representing chat messages, where each message has
               'role' and 'content' keys (e.g., [{"role": "user", "content": "Hello {{name}}"}])
+
         response_format: Optional Pydantic class or dictionary defining the expected response
             structure. This can be used to specify the schema for structured outputs.
         commit_message: The commit message for the prompt version. Optional.
