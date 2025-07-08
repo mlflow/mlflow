@@ -1316,7 +1316,7 @@ class SqlAlchemyStore(AbstractStore):
                 webhook_id=webhook_id,
                 name=name,
                 url=url,
-                events=[str(e) for e in events],  # Store as JSON string
+                events=[str(e) for e in events],
                 description=description,
                 secret=secret,
                 status=str(status or WebhookStatus.ACTIVE),
@@ -1418,18 +1418,14 @@ class SqlAlchemyStore(AbstractStore):
 
     # Helper methods for webhooks
     def _get_webhook_by_id(self, session: Session, webhook_id: str) -> SqlWebhook:
-        webhook = (
+        if webhook := (
             session.query(SqlWebhook)
             .filter(
                 SqlWebhook.webhook_id == webhook_id,
                 SqlWebhook.deleted_timestamp.is_(None),
             )
             .first()
-        )
+        ):
+            return webhook
 
-        if not webhook:
-            raise MlflowException(
-                f"Webhook with ID {webhook_id} not found.", RESOURCE_DOES_NOT_EXIST
-            )
-
-        return webhook
+        raise MlflowException(f"Webhook with ID {webhook_id} not found.", RESOURCE_DOES_NOT_EXIST)
