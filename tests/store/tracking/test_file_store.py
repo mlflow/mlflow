@@ -1824,6 +1824,21 @@ def test_set_experiment_tags(store):
         store.set_experiment_tag(exp_id, ExperimentTag("should", "notset"))
 
 
+def test_delete_experiment_tags(store):
+    experiments, _, _ = _create_root(store)
+    store.set_experiment_tag(FileStore.DEFAULT_EXPERIMENT_ID, ExperimentTag("tag0", "value0"))
+    store.set_experiment_tag(FileStore.DEFAULT_EXPERIMENT_ID, ExperimentTag("tag1", "value1"))
+    experiment = store.get_experiment(FileStore.DEFAULT_EXPERIMENT_ID)
+    assert len(experiment.tags) == 2
+    assert experiment.tags["tag0"] == "value0"
+    assert experiment.tags["tag1"] == "value1"
+    # test that deleting a tag works
+    store.delete_experiment_tag(FileStore.DEFAULT_EXPERIMENT_ID, "tag0")
+    experiment = store.get_experiment(FileStore.DEFAULT_EXPERIMENT_ID)
+    assert "tag0" not in experiment.tags.keys()
+    assert len(experiment.tags) == 1
+
+
 def test_set_tags(store):
     _, exp_data, _ = _create_root(store)
     run_id = exp_data[FileStore.DEFAULT_EXPERIMENT_ID]["runs"][0]
