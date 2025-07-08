@@ -41,6 +41,7 @@ from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
 from mlflow.sklearn import _SklearnTrainingSession
+from mlflow.telemetry.track import track_api_usage
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.tracking.context import registry as context_registry
@@ -536,6 +537,7 @@ def _autolog_callback(env, metrics_logger, eval_results):
     eval_results.append(res)
 
 
+@track_api_usage
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_input_examples=False,

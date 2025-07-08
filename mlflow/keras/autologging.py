@@ -14,6 +14,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.keras.callback import MlflowCallback
 from mlflow.keras.save import log_model
 from mlflow.keras.utils import get_model_signature
+from mlflow.telemetry.track import track_api_usage
 from mlflow.tracking.context import registry as context_registry
 from mlflow.utils import is_iterator
 from mlflow.utils.autologging_utils import (
@@ -110,6 +111,7 @@ def _log_keras_model(
     )
 
 
+@track_api_usage
 @autologging_integration("keras")
 def autolog(
     log_every_epoch=True,

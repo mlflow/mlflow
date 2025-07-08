@@ -1,3 +1,6 @@
+import json
+from dataclasses import asdict
+
 import pytest
 from autogen_agentchat.agents import AssistantAgent
 from autogen_agentchat.messages import MultiModalMessage
@@ -7,6 +10,8 @@ from autogen_ext.models.replay import ReplayChatCompletionClient
 
 import mlflow
 from mlflow.entities.span import SpanType
+from mlflow.telemetry.client import get_telemetry_client
+from mlflow.telemetry.schemas import AutologParams
 from mlflow.tracing.constant import SpanAttributeKey
 
 from tests.tracing.helper import get_traces
@@ -40,7 +45,7 @@ async def test_autolog_assistant_agent(disable):
         assert trace.info.status == "OK"
         assert len(trace.data.spans) == 3
         span = trace.data.spans[0]
-        assert span.name == "run"
+        assert span.name == "assistant.run"
         assert span.span_type == SpanType.AGENT
         assert span.inputs == {"task": "1+1"}
         messages = span.outputs["messages"]
@@ -67,7 +72,7 @@ async def test_autolog_assistant_agent(disable):
         )
 
         span = trace.data.spans[1]
-        assert span.name == "on_messages"
+        assert span.name == "assistant.on_messages"
         assert span.span_type == SpanType.AGENT
         assert (
             span.outputs["chat_message"].items()
@@ -81,7 +86,7 @@ async def test_autolog_assistant_agent(disable):
         )
 
         span = trace.data.spans[2]
-        assert span.name == "create"
+        assert span.name == "ReplayChatCompletionClient.create"
         assert span.span_type == SpanType.LLM
         assert span.inputs["messages"] == [
             {"content": _SYSTEM_MESSAGE, "type": "SystemMessage"},
@@ -157,7 +162,7 @@ async def test_autolog_tool_agent():
     assert trace.info.status == "OK"
     assert len(trace.data.spans) == 3
     span = trace.data.spans[0]
-    assert span.name == "run"
+    assert span.name == "assistant.run"
     assert span.span_type == SpanType.AGENT
     assert span.inputs == {"task": "1+1"}
     messages = span.outputs["messages"]
@@ -218,7 +223,7 @@ async def test_autolog_tool_agent():
     )
 
     span = trace.data.spans[1]
-    assert span.name == "on_messages"
+    assert span.name == "assistant.on_messages"
     assert span.span_type == SpanType.AGENT
     assert (
         span.outputs["chat_message"].items()
@@ -233,7 +238,7 @@ async def test_autolog_tool_agent():
     assert span.get_attribute("mlflow.chat.tools") == TOOL_ATTRIBUTES
 
     span = trace.data.spans[2]
-    assert span.name == "create"
+    assert span.name == "ReplayChatCompletionClient.create"
     assert span.span_type == SpanType.LLM
     assert span.inputs["messages"] == [
         {"content": _SYSTEM_MESSAGE, "type": "SystemMessage"},
@@ -294,7 +299,7 @@ async def test_autolog_multi_modal():
     assert trace.info.status == "OK"
     assert len(trace.data.spans) == 3
     span = trace.data.spans[0]
-    assert span.name == "run"
+    assert span.name == "assistant.run"
     assert span.span_type == SpanType.AGENT
     assert span.inputs["task"]["content"][0] == "Can you describe the number in the image?"
     assert "data" in span.inputs["task"]["content"][1]
@@ -327,7 +332,7 @@ async def test_autolog_multi_modal():
     )
 
     span = trace.data.spans[1]
-    assert span.name == "on_messages"
+    assert span.name == "assistant.on_messages"
     assert span.span_type == SpanType.AGENT
     assert (
         span.outputs["chat_message"].items()
@@ -341,7 +346,7 @@ async def test_autolog_multi_modal():
     )
 
     span = trace.data.spans[2]
-    assert span.name == "create"
+    assert span.name == "ReplayChatCompletionClient.create"
     assert span.span_type == SpanType.LLM
     assert span.inputs["messages"] == [
         {"content": _SYSTEM_MESSAGE, "type": "SystemMessage"},
@@ -365,3 +370,26 @@ async def test_autolog_multi_modal():
         "output_tokens": 1,
         "total_tokens": 15,
     }
+
+
+def test_autolog_sends_telemetry_record(mock_requests):
+    mlflow.autogen.autolog(log_traces=True, disable=False)
+
+    # Wait for telemetry to be sent
+    get_telemetry_client().flush()
+
+    # Check that telemetry record was sent
+    assert len(mock_requests) == 1
+    autolog_record = mock_requests[0]
+    data = json.loads(autolog_record["data"])
+    assert data["api_module"] == mlflow.autogen.autolog.__module__
+    assert data["api_name"] == "autolog"
+    assert data["params"] == asdict(
+        AutologParams(
+            flavor="autogen",
+            disable=False,
+            log_traces=True,
+            log_models=False,
+        )
+    )
+    assert data["status"] == "success"

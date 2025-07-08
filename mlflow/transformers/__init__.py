@@ -50,6 +50,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
+from mlflow.telemetry.track import track_api_usage
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _get_root_uri_and_artifact_path
 from mlflow.transformers.flavor_config import (
@@ -2894,6 +2895,7 @@ class _TransformersWrapper:
         )
 
 
+@track_api_usage
 @autologging_integration(FLAVOR_NAME)
 def autolog(
     log_input_examples=False,

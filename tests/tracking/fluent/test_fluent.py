@@ -9,6 +9,7 @@ import time
 import uuid
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import asdict
 from importlib import reload
 from itertools import zip_longest
 from unittest import mock
@@ -56,6 +57,8 @@ from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.telemetry.client import get_telemetry_client
+from mlflow.telemetry.schemas import AutologParams
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracking.fluent import (
     _ACTIVE_MODEL_CONTEXT,
@@ -1265,6 +1268,17 @@ def test_set_experiment_tags():
         assert str(exact_expected_tags[tag_key]) == tag_value
 
 
+def test_delete_experiment_tag():
+    with start_run() as active_run:
+        test_experiment = active_run.info.experiment_id
+        mlflow.set_experiment_tag("a", "b")
+        current_experiment = mlflow.tracking.MlflowClient().get_experiment(test_experiment)
+        assert "a" in current_experiment.tags
+        mlflow.delete_experiment_tag("a")
+        finished_experiment = mlflow.tracking.MlflowClient().get_experiment(test_experiment)
+        assert "a" not in finished_experiment.tags
+
+
 @pytest.mark.parametrize("error_code", [RESOURCE_DOES_NOT_EXIST, TEMPORARILY_UNAVAILABLE])
 def test_set_experiment_throws_for_unexpected_error(error_code: int):
     with mock.patch(
@@ -2342,3 +2356,28 @@ def test_clear_active_model():
 def test_set_logged_model_tags_error():
     with pytest.raises(MlflowException, match="You may not have access to the logged model"):
         mlflow.set_logged_model_tags("non-existing-model-id", {"tag": "value"})
+
+
+def test_autolog_sends_telemetry_record(mock_requests):
+    mlflow.autolog(log_models=True, log_traces=True, disable=False)
+
+    # Wait for telemetry to be sent
+    get_telemetry_client().flush()
+
+    # Check that telemetry record was sent
+    assert len(mock_requests) == 1
+    autolog_record = mock_requests[0]
+    data = json.loads(autolog_record["data"])
+    assert data["api_module"] == mlflow.autolog.__module__
+    assert data["api_name"] == "autolog"
+    assert data["params"] == asdict(
+        AutologParams(
+            flavor="mlflow",
+            disable=False,
+            log_traces=True,
+            log_models=True,
+        )
+    )
+    assert data["status"] == "success"
+    # mlflow.autolog has side-effect, we should turn it off to avoid affecting other tests
+    mlflow.autolog(disable=True)

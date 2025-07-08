@@ -5,6 +5,7 @@ from mlflow.pydantic_ai.autolog import (
     patched_async_class_call,
     patched_class_call,
 )
+from mlflow.telemetry.track import track_api_usage
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
@@ -12,6 +13,7 @@ FLAVOR_NAME = "pydantic_ai"
 _logger = logging.getLogger(__name__)
 
 
+@track_api_usage
 @experimental(version="3.0.0")
 @autologging_integration(FLAVOR_NAME)
 def autolog(log_traces: bool = True, disable: bool = False, silent: bool = False):
