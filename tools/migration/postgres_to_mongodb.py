@@ -505,13 +505,13 @@ class PostgreSQLToMongoDBMigrator:
             # Create MongoDB collection with proper indexes
             models_collection = self.mongo_db['registered_models']
             models_collection.create_index("name", unique=True)
-            models_collection.create_index("creation_timestamp")
+            models_collection.create_index("creation_time")
             
             with self.pg_conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
                 cursor.execute("""
-                    SELECT name, creation_timestamp, last_updated_timestamp, description
+                    SELECT name, creation_time, last_updated_time, description
                     FROM registered_models
-                    ORDER BY creation_timestamp
+                    ORDER BY creation_time
                 """)
                 
                 batch = []
@@ -519,8 +519,8 @@ class PostgreSQLToMongoDBMigrator:
                     # Convert PostgreSQL row to MongoDB document
                     doc = {
                         'name': row['name'],
-                        'creation_timestamp': int(row['creation_timestamp']) if row['creation_timestamp'] else None,
-                        'last_updated_timestamp': int(row['last_updated_timestamp']) if row['last_updated_timestamp'] else None,
+                        'creation_time': int(row['creation_time']) if row['creation_time'] else None,
+                        'last_updated_time': int(row['last_updated_time']) if row['last_updated_time'] else None,
                         'description': row['description'],
                         'tags': []  # Will be populated from model registry tags if they exist
                     }
@@ -567,15 +567,16 @@ class PostgreSQLToMongoDBMigrator:
             # Create MongoDB collection with proper indexes
             versions_collection = self.mongo_db['model_versions']
             versions_collection.create_index([("name", 1), ("version", 1)], unique=True)
-            versions_collection.create_index("creation_timestamp")
+            versions_collection.create_index("creation_time")
             versions_collection.create_index("current_stage")
             
             with self.pg_conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cursor:
                 cursor.execute("""
-                    SELECT name, version, creation_timestamp, last_updated_timestamp,
-                           description, user_id, current_stage, source, run_id, run_link
+                    SELECT name, version, creation_time, last_updated_time,
+                           description, user_id, current_stage, source, run_id, run_link,
+                           status, status_message, storage_location
                     FROM model_versions
-                    ORDER BY creation_timestamp
+                    ORDER BY creation_time
                 """)
                 
                 batch = []
@@ -584,14 +585,17 @@ class PostgreSQLToMongoDBMigrator:
                     doc = {
                         'name': row['name'],
                         'version': str(row['version']),
-                        'creation_timestamp': int(row['creation_timestamp']) if row['creation_timestamp'] else None,
-                        'last_updated_timestamp': int(row['last_updated_timestamp']) if row['last_updated_timestamp'] else None,
+                        'creation_time': int(row['creation_time']) if row['creation_time'] else None,
+                        'last_updated_time': int(row['last_updated_time']) if row['last_updated_time'] else None,
                         'description': row['description'],
                         'user_id': row['user_id'],
                         'current_stage': row['current_stage'] or 'None',
                         'source': row['source'],
                         'run_id': row['run_id'],
                         'run_link': row['run_link'],
+                        'status': row['status'],
+                        'status_message': row['status_message'],
+                        'storage_location': row['storage_location'],
                         'tags': []  # Will be populated from model version tags if they exist
                     }
                     
