@@ -1,4 +1,6 @@
+import json
 import time
+from dataclasses import asdict
 from unittest import mock
 
 from pyspark.sql import Row
@@ -7,6 +9,8 @@ from pyspark.sql.types import IntegerType, StructField, StructType
 import mlflow
 import mlflow.spark
 from mlflow.spark.autologging import _SPARK_TABLE_INFO_TAG_NAME
+from mlflow.telemetry.client import get_telemetry_client
+from mlflow.telemetry.schemas import AutologParams
 from mlflow.utils.validation import MAX_TAG_VAL_LENGTH
 
 from tests.spark.autologging.utils import _assert_spark_data_logged
@@ -280,25 +284,24 @@ def test_enabling_autologging_does_not_throw_when_spark_hasnt_been_started(spark
     mlflow.spark.autolog()
 
 
-# TODO: re-enable this test after fixing spark autologging telemetry
-# def test_autolog_sends_telemetry_record(mock_requests):
-#     mlflow.spark.autolog(disable=False)
+def test_autolog_sends_telemetry_record(mock_requests):
+    mlflow.spark.autolog(disable=False)
 
-#     # Wait for telemetry to be sent
-#     get_telemetry_client().flush()
+    # Wait for telemetry to be sent
+    get_telemetry_client().flush()
 
-#     # Check that telemetry record was sent
-#     assert len(mock_requests) == 1
-#     autolog_record = mock_requests[0]
-#     data = json.loads(autolog_record["data"])
-#     assert data["api_module"] == mlflow.spark.autolog.__module__
-#     assert data["api_name"] == "autolog"
-#     assert data["params"] == asdict(
-#         AutologParams(
-#             flavor="spark",
-#             disable=False,
-#             log_traces=False,
-#             log_models=False,
-#         )
-#     )
-#     assert data["status"] == "success"
+    # Check that telemetry record was sent
+    assert len(mock_requests) == 1
+    autolog_record = mock_requests[0]
+    data = json.loads(autolog_record["data"])
+    assert data["api_module"] == mlflow.spark.autolog.__module__
+    assert data["api_name"] == "autolog"
+    assert data["params"] == asdict(
+        AutologParams(
+            flavor="spark",
+            disable=False,
+            log_traces=False,
+            log_models=False,
+        )
+    )
+    assert data["status"] == "success"

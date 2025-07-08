@@ -2368,3 +2368,5 @@ def test_autolog_sends_telemetry_record(mock_requests):
         )
     )
     assert data["status"] == "success"
+    # mlflow.autolog has side-effect, we should turn it off to avoid affecting other tests
+    mlflow.autolog(disable=True)
