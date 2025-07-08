@@ -203,7 +203,7 @@ def test_size_bytes_in_trace_sent_to_mlflow_backend(monkeypatch):
         # Ensure async queue is processed
         exporter._async_queue.flush(terminate=True)
 
-    trace_info = mock_tracing_client.start_trace_v3.call_args[0][0]
+    trace_info = mock_tracing_client.start_trace_v3.call_args[0][0].info
     trace_data = mock_tracing_client._upload_trace_data.call_args[0][1]
 
     # Using pop() to exclude the size of these fields when computing the expected size
