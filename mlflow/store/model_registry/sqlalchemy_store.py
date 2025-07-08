@@ -1387,9 +1387,8 @@ class SqlAlchemyStore(AbstractStore):
                 _validate_webhook_name(name)
                 webhook.name = name
             if url:
-                webhook.url = url
-            if url:
                 _validate_webhook_url(url)
+                webhook.url = url
             if events:
                 webhook.events = [str(e) for e in events]
             if description:
@@ -1418,7 +1417,6 @@ class SqlAlchemyStore(AbstractStore):
             session.flush()
 
     # Helper methods for webhooks
-
     def _get_webhook_by_id(self, session: Session, webhook_id: str) -> SqlWebhook:
         webhook = (
             session.query(SqlWebhook)
