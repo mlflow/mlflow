@@ -44,7 +44,6 @@ def register_prompt(
     If there is no registered prompt with the given name, a new prompt will be created.
     Otherwise, a new version of the existing prompt will be created.
 
-
     Args:
         name: The name of the prompt.
         template: The template content of the prompt. Can be either:
@@ -66,7 +65,6 @@ def register_prompt(
 
         response_format: Optional Pydantic class or dictionary defining the expected response
             structure. This can be used to specify the schema for structured outputs from LLM calls.
-
         commit_message: A message describing the changes made to the prompt, similar to a
             Git commit message. Optional.
         tags: A dictionary of tags associated with the **prompt version**.
@@ -120,6 +118,7 @@ def register_prompt(
             commit_message="Add a greeting to the prompt.",
             tags={"author": "Bob"},
         )
+
     """
     with suppress_genai_migration_warning():
         return registry_api.register_prompt(

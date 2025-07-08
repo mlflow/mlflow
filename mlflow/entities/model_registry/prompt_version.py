@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import re
-from functools import lru_cache
 from typing import Any, Optional, Union
 
 from pydantic import BaseModel, ValidationError
@@ -59,6 +58,7 @@ class PromptVersion(_ModelRegistryEntity):
         aliases: List of aliases for this prompt version. Optional.
         last_updated_timestamp: Timestamp of last update. Optional.
         user_id: User ID that created this prompt version. Optional.
+
     """
 
     def __init__(
@@ -140,17 +140,7 @@ class PromptVersion(_ModelRegistryEntity):
         if self.is_text_prompt:
             return self._tags[PROMPT_TEXT_TAG_KEY]
         else:
-            return self._get_deserialized_template()
-
-    @lru_cache(maxsize=1)
-    def _get_deserialized_template(self) -> list[dict[str, ContentType]]:
-        """
-        Get the deserialized template for chat prompts. Cached to avoid repeated JSON parsing.
-
-        Returns:
-            The deserialized list of chat message dictionaries.
-        """
-        return json.loads(self._tags[PROMPT_TEXT_TAG_KEY])
+            return json.loads(self._tags[PROMPT_TEXT_TAG_KEY])
 
     @property
     def is_text_prompt(self) -> bool:
@@ -174,16 +164,6 @@ class PromptVersion(_ModelRegistryEntity):
         """
         if RESPONSE_FORMAT_TAG_KEY not in self._tags:
             return None
-        return self._get_deserialized_response_format()
-
-    @lru_cache(maxsize=1)
-    def _get_deserialized_response_format(self) -> dict[str, Any]:
-        """
-        Get the deserialized response format. Cached to avoid repeated JSON parsing.
-
-        Returns:
-            The deserialized response format dictionary.
-        """
         return json.loads(self._tags[RESPONSE_FORMAT_TAG_KEY])
 
     def to_single_brace_format(self) -> Union[str, list[dict[str, ContentType]]]:
