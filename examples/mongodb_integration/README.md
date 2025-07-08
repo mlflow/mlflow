@@ -84,6 +84,24 @@ Key benefits:
 - Monitoring and alerting simulation
 - Comprehensive reporting at each stage
 
+### 5. ChatModel Examples (`05_chat_model_example.py`)
+
+**Demonstrates**: ChatModel functionality with MongoDB integration
+- **ChatModel implementations**:
+  - Simple conversational AI model
+  - Advanced model with tool calling capabilities
+  - Streaming response generation
+  - Custom response logic and context handling
+
+**Key Features**:
+- OpenAI-compatible chat completion API
+- Tool calling and function execution
+- Streaming response generation
+- Model evaluation and comparison
+- Registry operations for ChatModels
+- Production deployment patterns
+- Full MongoDB integration for chat model metadata
+
 ## Prerequisites
 
 ### 1. MongoDB Setup
@@ -131,12 +149,13 @@ python 01_model_logging_example.py
 python 02_model_registry_example.py
 python 03_artifacts_datasets_example.py
 python 04_complete_mlflow_workflow.py
+python 05_chat_model_example.py
 ```
 
 ### All Examples Sequentially
 ```bash
 # Run all examples in sequence
-for script in 01_model_logging_example.py 02_model_registry_example.py 03_artifacts_datasets_example.py 04_complete_mlflow_workflow.py; do
+for script in 01_model_logging_example.py 02_model_registry_example.py 03_artifacts_datasets_example.py 04_complete_mlflow_workflow.py 05_chat_model_example.py; do
     echo "Running $script..."
     python $script
     echo "Completed $script"
@@ -196,6 +215,7 @@ Each example uses a dedicated MongoDB database:
 - `genesis_flow_registry`: Model registry examples  
 - `genesis_flow_artifacts`: Artifacts and datasets
 - `genesis_flow_production_classifier`: Complete workflow
+- `genesis_flow_chat_models`: ChatModel examples
 
 ### Collections Schema
 
@@ -312,6 +332,8 @@ Genesis-Flow maintains 100% API compatibility with MLflow:
 - ✅ Experiment and run management
 - ✅ Artifact logging and retrieval
 - ✅ Search and filtering operations
+- ✅ ChatModel functionality with OpenAI compatibility
+- ✅ Tool calling and streaming responses
 
 ## Troubleshooting
 
