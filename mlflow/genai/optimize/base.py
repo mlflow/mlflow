@@ -16,8 +16,8 @@ from mlflow.genai.optimize.types import (
     OptimizerConfig,
     PromptOptimizationResult,
 )
+from mlflow.genai.prompts import load_prompt
 from mlflow.genai.scorers import Scorer
-from mlflow.tracking._model_registry.fluent import load_prompt
 from mlflow.tracking.fluent import log_params, log_table, start_run
 from mlflow.utils.annotations import experimental
 
@@ -145,8 +145,9 @@ def optimize_prompt(
 def _select_optimizer(optimizer_config: OptimizerConfig) -> _BaseOptimizer:
     if optimizer_config.algorithm not in _ALGORITHMS:
         raise ValueError(
-            f"Algorithm {optimizer_config.algorithm} is not supported. "
-            f"Supported algorithms are {_ALGORITHMS}."
+            f"Unsupported algorithm: '{optimizer_config.algorithm}'. "
+            f"Available algorithms: {list(_ALGORITHMS.keys())}. "
+            "Please choose from the supported algorithms above."
         )
 
     return _ALGORITHMS[optimizer_config.algorithm](optimizer_config)
@@ -156,15 +157,16 @@ def _validate_scorers(scorers: list[Scorer]) -> None:
     for scorer in scorers:
         if not isinstance(scorer, Scorer):
             raise MlflowException.invalid_parameter_value(
-                f"Scorer {scorer} is not a valid scorer. Please use the @scorer decorator "
-                "to convert a function into a scorer or inherit from the Scorer class"
+                f"Invalid scorer: {scorer}. Please use @scorer decorator "
+                "on your function or inherit from Scorer class."
             )
 
         signature = inspect.signature(scorer)
         if "trace" in signature.parameters:
             raise MlflowException.invalid_parameter_value(
-                f"Trace input is found in Scorer {scorer}. "
-                "Scorers for optimization can only take inputs, outputs or expectations."
+                f"Invalid scorer parameter: {scorer} contains 'trace' parameter. "
+                "Optimization scorers can only use: inputs, outputs, or expectations. "
+                "Remove 'trace' parameter from your scorer function."
             )
 
 
@@ -179,7 +181,7 @@ def _maybe_start_autolog(
     if optimizer_config.autolog:
         with start_run() as run:
             _logger.info(
-                f"Run `{run.info.run_id}` is created for autologging prompt optimization. "
+                f"🚀 MLflow Run `{run.info.run_id}` started for prompt optimization! "
                 "Watch the run to track the optimization progress."
             )
             log_table(train_data, "train_data.json")

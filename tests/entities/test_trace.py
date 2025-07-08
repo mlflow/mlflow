@@ -94,6 +94,7 @@ def test_json_deserialization(monkeypatch):
                 "mlflow.source.git.repoURL": mock.ANY,
                 "mlflow.user": mock.ANY,
                 "mlflow.trace.sizeBytes": mock.ANY,
+                "mlflow.trace.sizeStats": mock.ANY,
             },
             "tags": {
                 "mlflow.traceName": "predict",
@@ -346,7 +347,7 @@ def test_request_response_smart_truncation():
     # NB: Since MLflow OSS backend still uses v2 tracing schema, the most accurate way to
     # check if the preview is truncated properly is to mock the upload_trace_data call.
     with mock.patch(
-        "mlflow.tracing.export.mlflow_v2.TracingClient._upload_trace_data"
+        "mlflow.tracing.export.mlflow_v3.TracingClient._upload_trace_data"
     ) as mock_upload_trace_data:
         f([{"role": "user", "content": "Hello!" * 1000}])
 
@@ -364,7 +365,7 @@ def test_request_response_smart_truncation_non_chat_format():
         return ["a" * 5000, "b" * 5000, "c" * 5000]
 
     with mock.patch(
-        "mlflow.tracing.export.mlflow_v2.TracingClient._upload_trace_data"
+        "mlflow.tracing.export.mlflow_v3.TracingClient._upload_trace_data"
     ) as mock_upload_trace_data:
         f("start" + "a" * 1000)
 
@@ -385,7 +386,7 @@ def test_request_response_custom_truncation():
         return {"choices": [{"message": {"role": "assistant", "content": "Hi!" * 10000}}]}
 
     with mock.patch(
-        "mlflow.tracing.export.mlflow_v2.TracingClient._upload_trace_data"
+        "mlflow.tracing.export.mlflow_v3.TracingClient._upload_trace_data"
     ) as mock_upload_trace_data:
         f([{"role": "user", "content": "Hello!" * 10000}])
 

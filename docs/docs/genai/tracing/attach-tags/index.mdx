@@ -9,7 +9,6 @@ Tags are mutable key-value pairs that you can attach to traces to add valuable m
 
 MLflow provides the flexibility to add, update, or remove tags at any point—even after a trace is logged—through its APIs or the MLflow UI.
 
-
 ## When to Use Trace Tags
 
 Trace tags are particularly useful for:
@@ -177,6 +176,7 @@ Navigate to the trace details page and click the pencil icon next to tags to edi
 ![Traces tag update](/images/llms/tracing/trace-set-tag.gif)
 
 UI capabilities:
+
 - **Add new tags** by clicking the "+" button
 - **Edit existing tags** by clicking the pencil icon
 - **Delete tags** by clicking the trash icon
@@ -365,15 +365,15 @@ tags = {
 
 ## Common Tag Categories
 
-| Category | Example Tags | Use Case |
-|----------|--------------|----------|
-| **Environment** | `environment: production/staging/dev` | Deployment tracking |
-| **User Context** | `user_id`, `session_id`, `user_segment` | User behavior analysis |
-| **Model Info** | `model_version`, `model_type`, `checkpoint` | Model performance tracking |
-| **Request Type** | `request_type`, `complexity`, `priority` | Request categorization |
-| **Performance** | `latency_tier`, `cost_category`, `sla_tier` | Performance monitoring |
-| **Business Logic** | `feature_flag`, `experiment_variant`, `routing` | A/B testing and routing |
-| **Operational** | `region`, `deployment_id`, `instance_type` | Infrastructure tracking |
+| Category           | Example Tags                                    | Use Case                   |
+| ------------------ | ----------------------------------------------- | -------------------------- |
+| **Environment**    | `environment: production/staging/dev`           | Deployment tracking        |
+| **User Context**   | `user_id`, `session_id`, `user_segment`         | User behavior analysis     |
+| **Model Info**     | `model_version`, `model_type`, `checkpoint`     | Model performance tracking |
+| **Request Type**   | `request_type`, `complexity`, `priority`        | Request categorization     |
+| **Performance**    | `latency_tier`, `cost_category`, `sla_tier`     | Performance monitoring     |
+| **Business Logic** | `feature_flag`, `experiment_variant`, `routing` | A/B testing and routing    |
+| **Operational**    | `region`, `deployment_id`, `instance_type`      | Infrastructure tracking    |
 
 ## Tag Naming Guidelines
 

@@ -120,7 +120,9 @@ def test_log_fn_args_as_params(args, kwargs, expected, start_run):
 def test_log_fn_args_as_params_ignores_unwanted_parameters(
     start_run,
 ):
-    args, kwargs, unlogged = ("arg1", {"arg2": "value"}, ["arg1", "arg2", "arg3"])
+    args = "arg1"
+    kwargs = {"arg2": "value"}
+    unlogged = ["arg1", "arg2", "arg3"]
     log_fn_args_as_params(dummy_fn, args, kwargs, unlogged)
     client = MlflowClient()
     params = client.get_run(mlflow.active_run().info.run_id).data.params

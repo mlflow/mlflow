@@ -133,7 +133,9 @@ def test_autolog_respects_exclusive_flag(setup_sklearn_model):
     model.fit(x, y)
     mlflow.end_run()
     run_data = MlflowClient().get_run(run.info.run_id).data
-    metrics, params, tags = run_data.metrics, run_data.params, run_data.tags
+    metrics = run_data.metrics
+    params = run_data.params
+    tags = run_data.tags
     assert not metrics
     assert not params
     assert all("mlflow." in key for key in tags)
@@ -143,7 +145,8 @@ def test_autolog_respects_exclusive_flag(setup_sklearn_model):
     model.fit(x, y)
     mlflow.end_run()
     run_data = MlflowClient().get_run(run.info.run_id).data
-    metrics, params = run_data.metrics, run_data.params
+    metrics = run_data.metrics
+    params = run_data.params
     assert metrics
     assert params
 
@@ -156,7 +159,9 @@ def test_autolog_respects_disable_flag(setup_sklearn_model):
     model.fit(x, y)
     mlflow.end_run()
     run_data = MlflowClient().get_run(run.info.run_id).data
-    metrics, params, tags = run_data.metrics, run_data.params, run_data.tags
+    metrics = run_data.metrics
+    params = run_data.params
+    tags = run_data.tags
     assert not metrics
     assert not params
     assert all("mlflow." in key for key in tags)
@@ -166,7 +171,8 @@ def test_autolog_respects_disable_flag(setup_sklearn_model):
     model.fit(x, y)
     mlflow.end_run()
     run_data = MlflowClient().get_run(run.info.run_id).data
-    metrics, params = run_data.metrics, run_data.params
+    metrics = run_data.metrics
+    params = run_data.params
     assert metrics
     assert params
 
@@ -214,7 +220,9 @@ def test_autolog_respects_disable_flag_across_import_orders():
         svc.fit(iris.data, iris.target)
         mlflow.end_run()
         run_data = MlflowClient().get_run(run.info.run_id).data
-        metrics, params, tags = run_data.metrics, run_data.params, run_data.tags
+        metrics = run_data.metrics
+        params = run_data.params
+        tags = run_data.tags
         assert not metrics
         assert not params
         assert all("mlflow." in key for key in tags)

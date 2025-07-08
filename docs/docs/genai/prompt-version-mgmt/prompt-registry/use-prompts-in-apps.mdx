@@ -7,16 +7,6 @@ description: Learn how to integrate prompts from the MLflow Prompt Registry into
 
 Once you have created and versioned your prompts in the MLflow Prompt Registry, the next crucial step is to integrate them into your GenAI applications. This page guides you on how to load prompts, bind variables, handle versioning, and ensure complete lineage by linking prompt versions to your logged MLflow Models.
 
-You will learn:
-
-- How to load specific prompt versions or aliases using `mlflow.genai.load_prompt()`.
-- The process of formatting prompts with dynamic data using `prompt.format()`.
-- Strategies for managing prompt versions within your application code.
-- How to use MLflow prompts with other popular frameworks like LangChain or LlamaIndex via `prompt.to_single_brace_format()`.
-- The importance of logging the specific prompt version used when logging an MLflow Model.
-- How this linkage aids reproducibility, debugging, and inspection of models.
-- Best practices for error handling.
-
 ## Loading Prompts from the Registry
 
 The primary way to access a registered prompt in your application code is by using the `mlflow.genai.load_prompt()` function. This function retrieves a specific prompt version (or a version pointed to by an alias) from the registry.
@@ -123,37 +113,3 @@ MLflow is designed to facilitate this. When a model is logged, and that model's 
 - **Debugging**: If a model version starts behaving unexpectedly, you can easily check if a change in an underlying prompt (even if updated via an alias) is the cause.
 - **Auditing and Governance**: Maintain a clear record of which prompts were used for any given model version.
 - **Impact Analysis**: Understand which models might be affected if a particular prompt version is found to be problematic.
-
-### How to Ensure Linkage (Conceptual)
-
-While automatic detection is a goal, explicitly ensuring your model logging code or serving environment correctly captures these dependencies is good practice.
-
-1.  **Consistent URI Usage**: Always use the `prompts:/<name>/<version_or_alias>` URI with `mlflow.genai.load_prompt()` within your model's code.
-2.  **MLflow Model Logging**: When you log your model (e.g., your agent, your LangChain chain) using an appropriate `mlflow.<flavor>.log_model()` function, MLflow flavors designed for GenAI will often inspect the model for these `prompts:/` URIs and record them.
-
-{/* TODO(image): A diagram or UI screenshot illustrating how a logged MLflow Model version in the Model Registry links to specific Prompt versions in the Prompt Registry. */}
-
-## Error Handling
-
-When integrating prompts, implement robust error handling:
-
-- **Prompt Loading**: Handle cases where a prompt name, version, or alias doesn't exist.
-- **Formatting**: Catch errors if variables are missing or mismatched during `prompt.format()`.
-- **Logging**: Ensure that failures during model logging (including prompt linkage) are caught and addressed.
-
-## Key Takeaways
-
-- Use `mlflow.genai.load_prompt(uri="prompts:/<name>/<version_or_alias>")` to fetch prompts from the registry.
-- Populate template variables with `prompt.format(**kwargs)`.
-- Leverage `prompt.to_single_brace_format()` for compatibility with frameworks like LangChain.
-- Logging your application as an MLflow Model should capture the specific prompt versions used, providing crucial lineage and reproducibility.
-- Using aliases (e.g., `prompts:/my-prompt/production`) in your application code allows you to update the underlying prompt version in the registry without redeploying your application.
-- Robust error handling is essential for reliable application behavior.
-
-## Prerequisites
-
-- Application codebase where you intend to use prompts.
-- Access to an MLflow Prompt Registry with registered prompts.
-- Familiarity with MLflow Model Logging concepts if you plan to link prompts to models.
-
-By following these guidelines, you can effectively integrate version-controlled prompts from the MLflow Prompt Registry into your applications, enhancing their maintainability, reliability, and traceability.

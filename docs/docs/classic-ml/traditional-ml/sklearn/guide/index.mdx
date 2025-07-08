@@ -48,12 +48,12 @@ This simple example automatically logs all model parameters, training metrics, t
 
 MLflow's scikit-learn autologging captures comprehensive information about your training process automatically. Here's exactly what gets tracked every time you train a model:
 
-| **Category** | **Information Captured** |
-|--------------|--------------------------|
+| **Category**   | **Information Captured**                              |
+| -------------- | ----------------------------------------------------- |
 | **Parameters** | All parameters from `estimator.get_params(deep=True)` |
-| **Metrics** | Training score, classification/regression metrics |
-| **Tags** | Estimator class name and fully qualified class name |
-| **Artifacts** | Serialized model, model signature, metric information |
+| **Metrics**    | Training score, classification/regression metrics     |
+| **Tags**       | Estimator class name and fully qualified class name   |
+| **Artifacts**  | Serialized model, model signature, metric information |
 
 The autologging system is designed to be comprehensive yet non-intrusive. It captures everything you need for reproducibility without requiring changes to your existing scikit-learn code.
 
@@ -63,12 +63,14 @@ The autologging system is designed to be comprehensive yet non-intrusive. It cap
 Autologging works seamlessly with virtually all scikit-learn estimators and workflows. The integration is designed to handle both simple models and complex meta-estimators:
 
 **Core Estimators:**
+
 - **All estimators** from `sklearn.utils.all_estimators()`
 - **Pipeline** objects with preprocessing and modeling steps
 - **Meta-estimators** like `GridSearchCV` and `RandomizedSearchCV`
 - **Ensemble methods** including `RandomForestClassifier`, `GradientBoostingRegressor`
 
 **Special Handling:**
+
 - Meta-estimators automatically create child runs for parameter search results
 - Pipeline stages are logged with their individual parameters and transformations
 - Cross-validation results are captured and organized for easy comparison

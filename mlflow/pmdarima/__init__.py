@@ -196,7 +196,8 @@ def save_model(
 
         # Split the data into train/test
         train_size = int(0.8 * len(sales_data))
-        train, test = sales_data[:train_size], sales_data[train_size:]
+        train = sales_data[:train_size]
+        test = sales_data[train_size:]
 
         with mlflow.start_run():
             # Create the model
@@ -308,8 +309,7 @@ def log_model(
         artifact_path: Deprecated. Use `name` instead.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
-        registered_model_name: This argument may change or be removed in a
-            future release without warning. If given, create a model
+        registered_model_name: If given, create a model
             version under ``registered_model_name``, also creating a
             registered model if one with the given name does not exist.
         signature: an instance of the :py:class:`ModelSignature <mlflow.models.ModelSignature>`
@@ -376,7 +376,8 @@ def log_model(
 
         # Split the data into train/test
         train_size = int(0.8 * len(sales_data))
-        train, test = sales_data[:train_size], sales_data[train_size:]
+        train = sales_data[:train_size]
+        test = sales_data[train_size:]
 
         with mlflow.start_run():
             # Create the model
@@ -459,7 +460,8 @@ def load_model(model_uri, dst_path=None):
 
         # Split the data into train/test
         train_size = int(0.8 * len(sales_data))
-        train, test = sales_data[:train_size], sales_data[train_size:]
+        train = sales_data[:train_size]
+        test = sales_data[train_size:]
 
         with mlflow.start_run():
             # Create the model

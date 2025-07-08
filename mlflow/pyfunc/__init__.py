@@ -167,10 +167,10 @@ following parameters:
 
   ├── MLmodel
   ├── code
-  │   ├── sklearn_iris.py
+  │   ├── sklearn_iris.py
   │
   ├── data
-  │   └── model.pkl
+  │   └── model.pkl
   └── mlflow_env.yml
 
 ::
@@ -3299,7 +3299,7 @@ def save_model(
                     )
                 except Exception as e:
                     raise MlflowException.invalid_parameter_value(
-                        f"Input example does not match the model signature. Error: {e}"
+                        f"Input example does not match the model signature. {e}"
                     )
 
     with _get_dependencies_schemas() as dependencies_schemas:
@@ -3540,8 +3540,7 @@ def log_model(
             path via ``context.artifacts["my_file"]``.
 
             If ``None``, no artifacts are added to the model.
-        registered_model_name: This argument may change or be removed in a
-            future release without warning. If given, create a model
+        registered_model_name: If given, create a model
             version under ``registered_model_name``, also creating a
             registered model if one with the given name does not exist.
 
