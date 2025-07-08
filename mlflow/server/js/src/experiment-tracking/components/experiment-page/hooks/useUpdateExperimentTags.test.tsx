@@ -1,4 +1,13 @@
-import { renderHook, act, waitFor, render, screen, within } from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
+import {
+  renderHook,
+  act,
+  waitFor,
+  render,
+  screen,
+  within,
+  fastFillInput,
+  renderWithIntl,
+} from '@mlflow/mlflow/src/common/utils/TestUtils.react18';
 import { useUpdateExperimentTags } from './useUpdateExperimentTags';
 import { ExperimentEntity } from '../../../types';
 import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/utils/reactQueryHooks';
@@ -19,6 +28,23 @@ describe('useUpdateExperimentTags', () => {
     jest.spyOn(MlflowService, 'setExperimentTag').mockResolvedValue({});
     jest.spyOn(MlflowService, 'deleteExperimentTag').mockResolvedValue({});
   });
+
+  function renderTestComponent(onSuccess: () => void) {
+    function TestComponent() {
+      const { showEditExperimentTagsModal, EditTagsModal } = useUpdateExperimentTags({ onSuccess });
+      return (
+        <>
+          <button onClick={() => showEditExperimentTagsModal(mockExperiment)}>trigger button</button>
+          {EditTagsModal}
+        </>
+      );
+    }
+    renderWithIntl(
+      <QueryClientProvider client={new QueryClient()}>
+        <TestComponent />
+      </QueryClientProvider>,
+    );
+  }
 
   const renderTestHook = (onSuccess: () => void) =>
     renderHook(() => useUpdateExperimentTags({ onSuccess }), {
@@ -55,48 +81,34 @@ describe('useUpdateExperimentTags', () => {
     expect(onSuccess).not.toHaveBeenCalled();
   });
 
-  // it('should call api services and success callback when edited and saved', async () => {
-  //   const onSuccess = jest.fn();
-  //   const { result, rerender } = renderTestHook(onSuccess);
+  it('should call api services and success callback when edited and saved', async () => {
+    const onSuccess = jest.fn();
+    renderTestComponent(onSuccess);
 
-  //   act(() => {
-  //     result.current.showEditExperimentTagsModal(mockExperiment);
-  //   });
+    await userEvent.click(screen.getByRole('button', { name: 'trigger button' }));
 
-  //   rerender();
+    expect(screen.getByRole('dialog', { name: /Add\/Edit tags/ })).toBeInTheDocument();
+    await userEvent.click(within(screen.getByRole('status', { name: 'tag1' })).getByRole('button'));
 
-  //   const { unmount } = render(<IntlProvider locale="en">{result.current.EditTagsModal}</IntlProvider>);
+    await fastFillInput(within(screen.getByRole('dialog')).getByRole('combobox'), 'tag2');
 
-  //   await userEvent.click(within(screen.getByRole('status', { name: 'tag1' })).getByRole('button'));
+    await userEvent.click(screen.getByText(/Add tag "tag2"/));
+    await fastFillInput(screen.getByLabelText('Value'), 'value2');
+    await userEvent.click(screen.getByLabelText('Add tag'));
 
-  //   await userEvent.click(within(screen.getByRole('dialog')).getByRole('combobox'));
-  //   await userEvent.paste('tag2', {
-  //     clipboardData: { getData: jest.fn() },
-  //   } as any);
-  //   await userEvent.click(screen.getByText(/Add tag "tag2"/));
+    await userEvent.click(screen.getByRole('button', { name: 'Save tags' }));
 
-  //   const valueInput = screen.getByLabelText('Value');
-  //   await userEvent.type(valueInput, 'value2');
-
-  //   await userEvent.click(screen.getByLabelText('Add tag'));
-
-  //   await userEvent.click(screen.getByRole('button', { name: 'Save tags' }));
-
-  //   await waitFor(() => {
-  //     expect(result.current.isLoading).toBe(true);
-  //   });
-
-  //   await waitFor(() => {
-  //     expect(MlflowService.deleteExperimentTag).toHaveBeenCalledWith(mockExperiment.experimentId, 'tag1');
-  //     expect(MlflowService.setExperimentTag).toHaveBeenCalledWith(mockExperiment.experimentId, 'tag2', 'value2');
-  //     expect(onSuccess).toHaveBeenCalled();
-  //   });
-
-  //   await waitFor(() => {
-  //     expect(result.current.isLoading).toBe(false);
-  //   });
-
-  //   expect(result.current.EditTagsModal.props.visible).toBeFalsy();
-  //   unmount();
-  // });
+    await waitFor(() => {
+      expect(MlflowService.deleteExperimentTag).toHaveBeenCalledWith({
+        experiment_id: mockExperiment.experimentId,
+        key: 'tag1',
+      });
+      expect(MlflowService.setExperimentTag).toHaveBeenCalledWith({
+        experiment_id: mockExperiment.experimentId,
+        key: 'tag2',
+        value: 'value2',
+      });
+      expect(onSuccess).toHaveBeenCalled();
+    });
+  });
 });
