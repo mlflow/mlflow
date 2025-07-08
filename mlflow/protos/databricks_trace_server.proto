@@ -319,13 +319,19 @@ message GetTraceDestinationRequest {
 // A TraceDestination contains metadata about where traces for a given trace location are stored/archived
 message TraceDestination {
   // The location of the trace source. Uniquely identifies a TraceDestination
-  optional TraceLocation trace_location = 1 [(validate_required) = true];;
+  optional TraceLocation trace_location = 1 [(validate_required) = true];
 
   // The full qualified name of the spans table: `catalog.schema.table`
-  optional string spans_table_name = 2 [(validate_required) = true];;
+  optional string spans_table_name = 2 [(validate_required) = true];
 
   // The full qualified name of the events table: `catalog.schema.table`
-  optional string events_table_name = 3 [(validate_required) = true];;
+  optional string events_table_name = 3 [(validate_required) = true];
+
+  // The schema version of the spans table.
+  optional string spans_schema_version = 4;
+
+  // The schema version of the events table.
+  optional string events_schema_version = 5;
 }
 
 
