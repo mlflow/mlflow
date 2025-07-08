@@ -1959,18 +1959,43 @@ def test_create_webhook(store):
     assert webhook.secret == "secret123"
 
 
-@pytest.mark.parametrize(
-    ("invalid_name", "expected_match"),
-    [
-        ("", r"Webhook name cannot be empty or just whitespace"),
-        ("   ", r"Webhook name cannot be empty or just whitespace"),
-        ("webhook<script>", r"contains invalid characters"),
-        ("webhook@test", r"contains invalid characters"),
-        ("webhook#hash", r"contains invalid characters"),
-        ("webhook/slash", r"contains invalid characters"),
-        ("webhook\\backslash", r"contains invalid characters"),
-    ],
-)
+# Shared test data for invalid webhook names
+INVALID_WEBHOOK_NAMES = [
+    ("", r"is invalid"),
+    ("   ", r"is invalid"),
+    ("webhook<script>", r"is invalid"),
+    ("webhook@test", r"is invalid"),
+    ("webhook#hash", r"is invalid"),
+    ("webhook/slash", r"is invalid"),
+    ("webhook\\backslash", r"is invalid"),
+    ("-webhook", r"is invalid"),  # Must start with letter or digit
+    ("webhook-", r"is invalid"),  # Must end with letter or digit
+    ("_webhook", r"is invalid"),  # Must start with letter or digit
+    ("webhook_", r"is invalid"),  # Must end with letter or digit
+    (".webhook", r"is invalid"),  # Must start with letter or digit
+    ("webhook.", r"is invalid"),  # Must end with letter or digit
+    ("a" * 64, r"is invalid"),  # Too long (max 63 chars)
+]
+
+
+# Shared test data for valid webhook names
+VALID_WEBHOOK_NAMES = [
+    "a",  # Single character letter
+    "1",  # Single character digit
+    "a1",  # Two characters
+    "1a",  # Start with digit, end with letter
+    "webhook123",  # Alphanumeric
+    "web_hook",  # With underscore
+    "web-hook",  # With hyphen
+    "web.hook",  # With dot
+    "web_hook-123.test",  # Mixed special chars
+    "A" * 63,  # Maximum length
+    "1" + "a" * 61 + "1",  # Maximum length with digit start/end
+    "WebHook123",  # Mixed case
+]
+
+
+@pytest.mark.parametrize(("invalid_name", "expected_match"), INVALID_WEBHOOK_NAMES)
 def test_create_webhook_invalid_names(store, invalid_name, expected_match):
     with pytest.raises(MlflowException, match=expected_match):
         store.create_webhook(
@@ -1978,6 +2003,16 @@ def test_create_webhook_invalid_names(store, invalid_name, expected_match):
             url="https://example.com",
             events=[WebhookEvent.MODEL_VERSION_CREATED],
         )
+
+
+@pytest.mark.parametrize("valid_name", VALID_WEBHOOK_NAMES)
+def test_create_webhook_valid_names(store, valid_name):
+    webhook = store.create_webhook(
+        name=valid_name,
+        url="https://example.com",
+        events=[WebhookEvent.MODEL_VERSION_CREATED],
+    )
+    assert webhook.name == valid_name
 
 
 @pytest.mark.parametrize(
@@ -2005,7 +2040,7 @@ def test_create_webhook_invalid_events(store):
 
     # Test non-list events
     with pytest.raises(MlflowException, match="Webhook events must be a non-empty list"):
-        store.create_webhook(name="test", url="https://example.com", events=None)
+        store.create_webhook(name="test", url="https://example.com", events=())
 
 
 def test_get_webhook(store):
@@ -2125,15 +2160,23 @@ def test_update_webhook_not_found(store):
         )
 
 
-@pytest.mark.parametrize(
-    ("invalid_name", "expected_match"),
-    [
-        ("   ", r"Webhook name cannot be empty or just whitespace"),
-        ("webhook@invalid", r"contains invalid characters"),
-        ("webhook<tag>", r"contains invalid characters"),
-        ("webhook#test", r"contains invalid characters"),
-    ],
-)
+def test_update_webhook_invalid_events(store):
+    # Create a valid webhook first
+    webhook = store.create_webhook(
+        name="test_webhook",
+        url="https://example.com/webhook",
+        events=[WebhookEvent.MODEL_VERSION_CREATED],
+    )
+
+    with pytest.raises(MlflowException, match="Webhook events must be a non-empty list"):
+        store.update_webhook(webhook_id=webhook.webhook_id, events=[])
+
+    # Test non-list events
+    with pytest.raises(MlflowException, match="Webhook events must be a non-empty list"):
+        store.update_webhook(webhook_id=webhook.webhook_id, events=())
+
+
+@pytest.mark.parametrize(("invalid_name", "expected_match"), INVALID_WEBHOOK_NAMES)
 def test_update_webhook_invalid_names(store, invalid_name, expected_match):
     # Create a valid webhook first
     webhook = store.create_webhook(

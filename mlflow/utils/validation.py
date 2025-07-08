@@ -12,6 +12,7 @@ from typing import Optional
 
 from mlflow.entities import Dataset, DatasetInput, InputTag, Param, RunTag
 from mlflow.entities.model_registry.prompt_version import PROMPT_TEXT_TAG_KEY
+from mlflow.entities.webhook import WebhookEvent
 from mlflow.environment_variables import (
     _MLFLOW_WEBHOOK_ALLOWED_SCHEMES,
     MLFLOW_ARTIFACT_LOCATION_MAX_LENGTH,
@@ -664,8 +665,12 @@ def _validate_logged_model_name(name: Optional[str]) -> None:
         )
 
 
-# Only allow characters that are allowed in a URI
-_WEBHOOK_NAME_REGEX = re.compile(r"[A-Za-z0-9._-]+")
+_WEBHOOK_NAME_REGEX = re.compile(
+    r"^(?=.{1,63}$)"  # Total length between 1 and 63 characters
+    r"[a-z0-9]"  # Must start with letter or digit
+    r"([a-z0-9._-]*[a-z0-9])?$",  # Optional middle + end with letter/digit
+    re.IGNORECASE,
+)
 
 
 def _validate_webhook_name(name: str) -> None:
@@ -674,15 +679,11 @@ def _validate_webhook_name(name: str) -> None:
             f"Webhook name must be a string, got {type(name).__name__!r}"
         )
 
-    if not name.strip():
-        raise MlflowException.invalid_parameter_value(
-            f"Webhook name cannot be empty or just whitespace: {name!r}"
-        )
-
     if not _WEBHOOK_NAME_REGEX.fullmatch(name):
         raise MlflowException.invalid_parameter_value(
-            f"Webhook name {name!r} contains invalid characters. Only alphanumeric characters, "
-            "underscores (_), hyphens (-), and periods (.) are allowed."
+            f"Webhook name {name!r} is invalid. It must start and end with a letter or digit, "
+            "be less than 63 characters long, and contain only letters, digits, dots (.), "
+            "underscores (_), and hyphens (-)."
         )
 
 
@@ -706,3 +707,8 @@ def _validate_webhook_url(url: str) -> None:
         raise MlflowException.invalid_parameter_value(
             f"Invalid webhook URL scheme: {parsed_url.scheme!r}. Allowed schemes are: {schemes}."
         )
+
+
+def _validate_webhook_events(events: list[WebhookEvent]) -> None:
+    if not events or not isinstance(events, list):
+        raise MlflowException.invalid_parameter_value("Webhook events must be a non-empty list.")

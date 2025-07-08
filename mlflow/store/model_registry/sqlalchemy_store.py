@@ -54,6 +54,7 @@ from mlflow.utils.validation import (
     _validate_model_version_tag,
     _validate_registered_model_tag,
     _validate_tag_name,
+    _validate_webhook_events,
     _validate_webhook_name,
     _validate_webhook_url,
 )
@@ -1316,10 +1317,10 @@ class SqlAlchemyStore(AbstractStore):
                 webhook_id=webhook_id,
                 name=name,
                 url=url,
-                events=[str(e) for e in events],
+                events=[e.value for e in events],
                 description=description,
                 secret=secret,
-                status=str(status or WebhookStatus.ACTIVE),
+                status=(status or WebhookStatus.ACTIVE).value,
                 creation_timestamp=creation_time,
                 last_updated_timestamp=creation_time,
             )
@@ -1383,20 +1384,21 @@ class SqlAlchemyStore(AbstractStore):
             webhook = self._get_webhook_by_id(session, webhook_id)
 
             # Update fields if provided
-            if name:
+            if name is not None:
                 _validate_webhook_name(name)
                 webhook.name = name
-            if url:
+            if url is not None:
                 _validate_webhook_url(url)
                 webhook.url = url
-            if events:
-                webhook.events = [str(e) for e in events]
-            if description:
+            if events is not None:
+                _validate_webhook_events(events)
+                webhook.events = [e.value for e in events]
+            if description is not None:
                 webhook.description = description
-            if secret:
+            if secret is not None:
                 webhook.secret = secret
-            if status:
-                webhook.status = str(status)
+            if status is not None:
+                webhook.status = status.value
 
             webhook.last_updated_timestamp = get_current_time_millis()
 
