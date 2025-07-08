@@ -59,7 +59,8 @@ jobs:
       - uses: ./.github/actions/setup-node
       - uses: ./.github/actions/setup-python
       - run: |
-          uv pip install --system '..[gateway]' pytest pytest-cov plotly -r ../requirements/doc-requirements.txt
+          uv pip install --system pytest pytest-cov plotly -r ../requirements/doc-requirements.txt
+          uv pip install --system -e '..[gateway]'
       - run: |
           yarn install --immutable
       - uses: ./.github/actions/show-versions
