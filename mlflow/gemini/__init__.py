@@ -78,7 +78,6 @@ def autolog(
                 async_patched_class_call,
             )
 
-
         safe_patch(
             FLAVOR_NAME,
             genai.chats.Chat,

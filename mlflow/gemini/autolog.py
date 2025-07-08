@@ -53,6 +53,7 @@ async def async_patched_class_call(original, self, *args, **kwargs):
         manager.output = output
         return output
 
+
 class TracingSession:
     """Context manager for handling MLflow spans in both sync and async contexts."""
 
@@ -118,21 +119,24 @@ class TracingSession:
                     if messages:
                         set_span_chat_messages(span=self.span, messages=messages)
                 except Exception as e:
-                    _logger.warning(
-                        f"An exception occurred on logging chat attributes for {self.span}. Error: {e}"
-                    )
+                    _logger.warning(f"Failed to set chat attributes for {self.span}. Error: {e}")
 
             # need to convert the response of generate_content for better visualization
             outputs = result.to_dict() if hasattr(result, "to_dict") else result
             self.span.end(outputs=outputs)
 
+
 def _is_genai_model_or_chat(instance) -> bool:
-    return has_genai and isinstance(instance, (
-        genai.models.Models,
-        genai.chats.Chat,
-        genai.models.AsyncModels,
-        genai.chats.AsyncChat,
-    ))
+    return has_genai and isinstance(
+        instance,
+        (
+            genai.models.Models,
+            genai.chats.Chat,
+            genai.models.AsyncModels,
+            genai.chats.AsyncChat,
+        ),
+    )
+
 
 def patched_module_call(original, *args, **kwargs):
     """

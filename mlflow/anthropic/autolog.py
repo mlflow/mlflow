@@ -6,8 +6,6 @@ import mlflow.anthropic
 from mlflow.anthropic.chat import convert_message_to_mlflow_chat, convert_tool_to_mlflow_chat_tool
 from mlflow.entities import SpanType
 from mlflow.entities.span import LiveSpan
-from mlflow.entities.span_event import SpanEvent
-from mlflow.entities.span_status import SpanStatusCode
 from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.utils import (
