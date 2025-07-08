@@ -92,7 +92,7 @@ class ToolCall(BaseModel):
 
 class ChatMessage(BaseModel):
     """
-    A chat request. ``content`` can be a string, or an array of content parts.
+    A chat request. ``content`` can be a string, a dict, or an array of content parts.
 
     A content part is one of the following:
 
