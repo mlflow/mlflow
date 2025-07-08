@@ -1,5 +1,17 @@
 # CHANGELOG
 
+## 3.1.2 (2025-07-08)
+
+MLflow 3.1.2 includes several major features and improvements
+
+Documentation updates:
+
+- [Docs] Update docs font sizing and link coloring (#16281, @BenWilson2)
+
+Small bug fixes and documentation updates:
+
+#16625, @B-Step62; #16573, @daniellok-db; #16554, #16515, @frontsideair
+
 ## 3.1.1 (2025-06-25)
 
 MLflow 3.1.1 includes several major features and improvements
