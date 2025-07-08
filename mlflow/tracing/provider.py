@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Optional
 
 from opentelemetry import context as context_api
 from opentelemetry import trace
+from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
 
 import mlflow
@@ -277,7 +278,10 @@ def _setup_tracer_provider(disabled=False):
         # Default to MLflow Tracking Server
         processor = _get_mlflow_span_processor(tracking_uri=mlflow.get_tracking_uri())
 
-    tracer_provider = TracerProvider()
+    # Setting an empty resource to avoid triggering resource aggregation, which causes
+    # an issue in LiteLLM tracing: https://github.com/mlflow/mlflow/issues/16296
+    # MLflow tracing does not use resource right now.
+    tracer_provider = TracerProvider(resource=Resource.get_empty())
     tracer_provider.add_span_processor(processor)
     _MLFLOW_TRACER_PROVIDER = tracer_provider
 
