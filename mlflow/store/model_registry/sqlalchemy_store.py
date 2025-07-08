@@ -1358,11 +1358,9 @@ class SqlAlchemyStore(AbstractStore):
 
             # Check if there's a next page
             has_next_page = len(webhooks) > max_results
-            if has_next_page:
-                webhooks = webhooks[:max_results]
-
             next_page_token = None
             if has_next_page:
+                webhooks = webhooks[:max_results]
                 next_page_token = SearchUtils.create_page_token(offset + max_results)
 
             return ([w.to_mlflow_entity() for w in webhooks], next_page_token)

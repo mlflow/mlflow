@@ -705,10 +705,17 @@ def _validate_webhook_url(url: str) -> None:
     schemes = _MLFLOW_WEBHOOK_ALLOWED_SCHEMES.get()
     if parsed_url.scheme not in schemes:
         raise MlflowException.invalid_parameter_value(
-            f"Invalid webhook URL scheme: {parsed_url.scheme!r}. Allowed schemes are: {schemes}."
+            f"Invalid webhook URL scheme: {parsed_url.scheme!r}. "
+            f"Allowed schemes are: {', '.join(schemes)}."
         )
 
 
 def _validate_webhook_events(events: list[WebhookEvent]) -> None:
-    if not events or not isinstance(events, list):
-        raise MlflowException.invalid_parameter_value("Webhook events must be a non-empty list.")
+    if (
+        not events
+        or not isinstance(events, list)
+        or not all(isinstance(e, WebhookEvent) for e in events)
+    ):
+        raise MlflowException.invalid_parameter_value(
+            "Webhook events must be a non-empty list of WebhookEvent objects."
+        )

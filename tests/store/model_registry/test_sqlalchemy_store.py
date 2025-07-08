@@ -2042,6 +2042,10 @@ def test_create_webhook_invalid_events(store):
     with pytest.raises(MlflowException, match="Webhook events must be a non-empty list"):
         store.create_webhook(name="test", url="https://example.com", events=())
 
+    # Test list with non-WebhookEvent items
+    with pytest.raises(MlflowException, match="Webhook events must be a non-empty list"):
+        store.create_webhook(name="test", url="https://example.com", events=[1, 2, 3])
+
 
 def test_get_webhook(store):
     events = [WebhookEvent.MODEL_VERSION_CREATED]
@@ -2174,6 +2178,10 @@ def test_update_webhook_invalid_events(store):
     # Test non-list events
     with pytest.raises(MlflowException, match="Webhook events must be a non-empty list"):
         store.update_webhook(webhook_id=webhook.webhook_id, events=())
+
+    # Test list with non-WebhookEvent items
+    with pytest.raises(MlflowException, match="Webhook events must be a non-empty list"):
+        store.update_webhook(webhook_id=webhook.webhook_id, events=[1, 2, 3])
 
 
 @pytest.mark.parametrize(("invalid_name", "expected_match"), INVALID_WEBHOOK_NAMES)
