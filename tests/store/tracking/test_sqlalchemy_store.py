@@ -5659,8 +5659,18 @@ def test_log_batch_logged_model(store: SqlAlchemyStore):
     assert actual_metrics == expected_metrics
 
 
-def test_create_and_get_assessment(store_and_trace_info):
-    store, trace_info = store_and_trace_info
+def test_create_and_get_assessment(store):
+    experiment_id = store.create_experiment("test_assessments")
+    trace_info = TraceInfo(
+        trace_id="tr-123",
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1234,
+        execution_duration=100,
+        state=TraceState.OK,
+        tags={"tag1": "apple", "tag2": "orange"},
+        trace_metadata={"rq1": "foo", "rq2": "bar"},
+    )
+    trace_info = store.start_trace(trace_info)
 
     feedback = Feedback(
         trace_id=trace_info.request_id,
@@ -5730,6 +5740,18 @@ def test_get_assessment_errors(store_and_trace_info):
     with pytest.raises(MlflowException, match=r"Trace with request_id 'fake_trace' not found"):
         store.get_assessment("fake_trace", "fake_assessment")
 
+    experiment_id = store.create_experiment("test_assessments")
+    trace_info = TraceInfo(
+        trace_id="tr-123",
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1234,
+        execution_duration=100,
+        state=TraceState.OK,
+        tags={"tag1": "apple", "tag2": "orange"},
+        trace_metadata={"rq1": "foo", "rq2": "bar"},
+    )
+    trace_info = store.start_trace(trace_info)
+
     with pytest.raises(
         MlflowException,
         match=r"Assessment with ID 'fake_assessment' not found for trace",
@@ -5737,8 +5759,18 @@ def test_get_assessment_errors(store_and_trace_info):
         store.get_assessment(trace_info.request_id, "fake_assessment")
 
 
-def test_update_assessment_feedback(store_and_trace_info):
-    store, trace_info = store_and_trace_info
+def test_update_assessment_feedback(store):
+    experiment_id = store.create_experiment("test_assessments")
+    trace_info = TraceInfo(
+        trace_id="tr-123",
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1234,
+        execution_duration=100,
+        state=TraceState.OK,
+        tags={"tag1": "apple", "tag2": "orange"},
+        trace_metadata={"rq1": "foo", "rq2": "bar"},
+    )
+    trace_info = store.start_trace(trace_info)
 
     original_feedback = Feedback(
         trace_id=trace_info.request_id,
@@ -5783,8 +5815,18 @@ def test_update_assessment_feedback(store_and_trace_info):
     assert retrieved.rationale == "Updated rationale"
 
 
-def test_update_assessment_expectation(store_and_trace_info):
-    store, trace_info = store_and_trace_info
+def test_update_assessment_expectation(store):
+    experiment_id = store.create_experiment("test_assessments")
+    trace_info = TraceInfo(
+        trace_id="tr-123",
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1234,
+        execution_duration=100,
+        state=TraceState.OK,
+        tags={"tag1": "apple", "tag2": "orange"},
+        trace_metadata={"rq1": "foo", "rq2": "bar"},
+    )
+    trace_info = store.start_trace(trace_info)
 
     original_expectation = Expectation(
         trace_id=trace_info.request_id,
@@ -5815,8 +5857,18 @@ def test_update_assessment_expectation(store_and_trace_info):
     assert updated_expectation.source.source_id == "annotator@company.com"
 
 
-def test_update_assessment_partial_fields(store_and_trace_info):
-    store, trace_info = store_and_trace_info
+def test_update_assessment_partial_fields(store):
+    experiment_id = store.create_experiment("test_assessments")
+    trace_info = TraceInfo(
+        trace_id="tr-123",
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1234,
+        execution_duration=100,
+        state=TraceState.OK,
+        tags={"tag1": "apple", "tag2": "orange"},
+        trace_metadata={"rq1": "foo", "rq2": "bar"},
+    )
+    trace_info = store.start_trace(trace_info)
 
     original_feedback = Feedback(
         trace_id=trace_info.request_id,
@@ -5843,8 +5895,18 @@ def test_update_assessment_partial_fields(store_and_trace_info):
     assert updated_feedback.metadata == {"scorer": "automated"}
 
 
-def test_update_assessment_type_validation(store_and_trace_info):
-    store, trace_info = store_and_trace_info
+def test_update_assessment_type_validation(store):
+    experiment_id = store.create_experiment("test_assessments")
+    trace_info = TraceInfo(
+        trace_id="tr-123",
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1234,
+        execution_duration=100,
+        state=TraceState.OK,
+        tags={"tag1": "apple", "tag2": "orange"},
+        trace_metadata={"rq1": "foo", "rq2": "bar"},
+    )
+    trace_info = store.start_trace(trace_info)
 
     feedback = Feedback(
         trace_id=trace_info.request_id,
@@ -5881,8 +5943,18 @@ def test_update_assessment_type_validation(store_and_trace_info):
         )
 
 
-def test_update_assessment_errors(store_and_trace_info):
-    store, trace_info = store_and_trace_info
+def test_update_assessment_errors(store):
+    experiment_id = store.create_experiment("test_assessments")
+    trace_info = TraceInfo(
+        trace_id="tr-123",
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1234,
+        execution_duration=100,
+        state=TraceState.OK,
+        tags={"tag1": "apple", "tag2": "orange"},
+        trace_metadata={"rq1": "foo", "rq2": "bar"},
+    )
+    trace_info = store.start_trace(trace_info)
 
     with pytest.raises(MlflowException, match=r"Trace with request_id 'fake_trace' not found"):
         store.update_assessment(
@@ -5900,8 +5972,18 @@ def test_update_assessment_errors(store_and_trace_info):
         )
 
 
-def test_update_assessment_metadata_merging(store_and_trace_info):
-    store, trace_info = store_and_trace_info
+def test_update_assessment_metadata_merging(store):
+    experiment_id = store.create_experiment("test_assessments")
+    trace_info = TraceInfo(
+        trace_id="tr-123",
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1234,
+        execution_duration=100,
+        state=TraceState.OK,
+        tags={"tag1": "apple", "tag2": "orange"},
+        trace_metadata={"rq1": "foo", "rq2": "bar"},
+    )
+    trace_info = store.start_trace(trace_info)
 
     original = Feedback(
         trace_id=trace_info.request_id,
@@ -5928,8 +6010,18 @@ def test_update_assessment_metadata_merging(store_and_trace_info):
     assert updated.metadata == expected_metadata
 
 
-def test_update_assessment_timestamps(store_and_trace_info):
-    store, trace_info = store_and_trace_info
+def test_update_assessment_timestamps(store):
+    experiment_id = store.create_experiment("test_assessments")
+    trace_info = TraceInfo(
+        trace_id="tr-123",
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1234,
+        execution_duration=100,
+        state=TraceState.OK,
+        tags={"tag1": "apple", "tag2": "orange"},
+        trace_metadata={"rq1": "foo", "rq2": "bar"},
+    )
+    trace_info = store.start_trace(trace_info)
 
     original = Feedback(
         trace_id=trace_info.request_id,
@@ -5954,8 +6046,18 @@ def test_update_assessment_timestamps(store_and_trace_info):
     assert updated.last_update_time_ms > original_update_time
 
 
-def test_create_assessment_with_overrides(store_and_trace_info):
-    store, trace_info = store_and_trace_info
+def test_create_assessment_with_overrides(store):
+    experiment_id = store.create_experiment("test_assessments")
+    trace_info = TraceInfo(
+        trace_id="tr-123",
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1234,
+        execution_duration=100,
+        state=TraceState.OK,
+        tags={"tag1": "apple", "tag2": "orange"},
+        trace_metadata={"rq1": "foo", "rq2": "bar"},
+    )
+    trace_info = store.start_trace(trace_info)
 
     original_feedback = Feedback(
         trace_id=trace_info.request_id,
@@ -5985,8 +6087,18 @@ def test_create_assessment_with_overrides(store_and_trace_info):
     assert retrieved_original.value == "poor"
 
 
-def test_create_assessment_override_nonexistent(store_and_trace_info):
-    store, trace_info = store_and_trace_info
+def test_create_assessment_override_nonexistent(store):
+    experiment_id = store.create_experiment("test_assessments")
+    trace_info = TraceInfo(
+        trace_id="tr-123",
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1234,
+        execution_duration=100,
+        state=TraceState.OK,
+        tags={"tag1": "apple", "tag2": "orange"},
+        trace_metadata={"rq1": "foo", "rq2": "bar"},
+    )
+    trace_info = store.start_trace(trace_info)
 
     override_feedback = Feedback(
         trace_id=trace_info.request_id,
@@ -6002,8 +6114,18 @@ def test_create_assessment_override_nonexistent(store_and_trace_info):
         store.create_assessment(override_feedback)
 
 
-def test_delete_assessment_idempotent(store_and_trace_info):
-    store, trace_info = store_and_trace_info
+def test_delete_assessment_idempotent(store):
+    experiment_id = store.create_experiment("test_assessments")
+    trace_info = TraceInfo(
+        trace_id="tr-123",
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1234,
+        execution_duration=100,
+        state=TraceState.OK,
+        tags={"tag1": "apple", "tag2": "orange"},
+        trace_metadata={"rq1": "foo", "rq2": "bar"},
+    )
+    trace_info = store.start_trace(trace_info)
 
     feedback = Feedback(
         trace_id=trace_info.request_id,
@@ -6029,8 +6151,18 @@ def test_delete_assessment_idempotent(store_and_trace_info):
     store.delete_assessment(trace_info.request_id, "fake_assessment_id")
 
 
-def test_delete_assessment_override_behavior(store_and_trace_info):
-    store, trace_info = store_and_trace_info
+def test_delete_assessment_override_behavior(store):
+    experiment_id = store.create_experiment("test_assessments")
+    trace_info = TraceInfo(
+        trace_id="tr-123",
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1234,
+        execution_duration=100,
+        state=TraceState.OK,
+        tags={"tag1": "apple", "tag2": "orange"},
+        trace_metadata={"rq1": "foo", "rq2": "bar"},
+    )
+    trace_info = store.start_trace(trace_info)
 
     original = store.create_assessment(
         Feedback(
@@ -6061,11 +6193,21 @@ def test_delete_assessment_override_behavior(store_and_trace_info):
     assert store.get_assessment(trace_info.request_id, original.assessment_id).valid is True
 
 
-def test_assessment_with_run_id(store_and_trace_info):
-    store, trace_info = store_and_trace_info
+def test_assessment_with_run_id(store):
+    experiment_id = store.create_experiment("test_assessments")
+    trace_info = TraceInfo(
+        trace_id="tr-123",
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1234,
+        execution_duration=100,
+        state=TraceState.OK,
+        tags={"tag1": "apple", "tag2": "orange"},
+        trace_metadata={"rq1": "foo", "rq2": "bar"},
+    )
+    trace_info = store.start_trace(trace_info)
 
     run = store.create_run(
-        experiment_id=trace_info.experiment_id,
+        experiment_id=experiment_id,
         user_id="test_user",
         start_time=get_current_time_millis(),
         tags=[],
@@ -6087,8 +6229,18 @@ def test_assessment_with_run_id(store_and_trace_info):
     assert retrieved_feedback.run_id == run.info.run_id
 
 
-def test_assessment_with_error(store_and_trace_info):
-    store, trace_info = store_and_trace_info
+def test_assessment_with_error(store):
+    experiment_id = store.create_experiment("test_assessments")
+    trace_info = TraceInfo(
+        trace_id="tr-123",
+        trace_location=trace_location.TraceLocation.from_experiment_id(experiment_id),
+        request_time=1234,
+        execution_duration=100,
+        state=TraceState.OK,
+        tags={"tag1": "apple", "tag2": "orange"},
+        trace_metadata={"rq1": "foo", "rq2": "bar"},
+    )
+    trace_info = store.start_trace(trace_info)
 
     try:
         raise ValueError("Test error message")
