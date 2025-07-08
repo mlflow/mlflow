@@ -1,3 +1,4 @@
+import math
 from typing import Optional
 
 from mlflow.entities._mlflow_object import _MlflowObject
@@ -81,9 +82,10 @@ class Metric(_MlflowObject):
     def to_proto(self):
         metric = ProtoMetric()
         metric.key = self.key
-        metric.value = self.value
         metric.timestamp = self.timestamp
         metric.step = self.step
+        if self.value is not None and not math.isnan(self.value):
+            metric.value = self.value
         if self.model_id:
             metric.model_id = self.model_id
         if self.dataset_name:
@@ -193,7 +195,10 @@ class MetricWithRunId(Metric):
     def to_proto(self):
         metric = ProtoMetricWithRunId()
         metric.key = self.key
-        metric.value = self.value
+        # Only set the value field if it's not None and not NaN
+        # This ensures that optional fields are properly handled in protobuf serialization
+        if self.value is not None and not math.isnan(self.value):
+            metric.value = self.value
         metric.timestamp = self.timestamp
         metric.step = self.step
         metric.run_id = self.run_id
