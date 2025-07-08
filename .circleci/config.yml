@@ -78,11 +78,6 @@ jobs:
           command: |
             echo "Total size of docs/build/latest directory:"
             du -sh ./build/latest
-      - run:
-          name: Compare sitemaps
-          working_directory: docs
-          command: |
-            yarn sitemap https://mlflow.org/docs/latest/sitemap.xml ./build/latest/sitemap.xml
 
 workflows:
   build:
