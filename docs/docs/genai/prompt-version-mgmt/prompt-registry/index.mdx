@@ -69,28 +69,18 @@ import { Package, GitBranch, Tag, LineChart, Users } from "lucide-react";
 
       ```python
       import mlflow
-      from pydantic import BaseModel
 
-      # Text prompt with response format
-      text_template = """\
+      # Use double curly braces for variables in the template
+      initial_template = """\
       Summarize content you are provided with in {{ num_sentences }} sentences.
 
       Sentences: {{ sentences }}
       """
 
-
-      # Define response format for structured output
-      class SummaryResponse(BaseModel):
-          summary: str
-          key_points: list[str]
-          word_count: int
-
-
-      # Register a text prompt
+      # Register a new prompt
       prompt = mlflow.genai.register_prompt(
           name="summarization-prompt",
-          template=text_template,
-          response_format=SummaryResponse,
+          template=initial_template,
           # Optional: Provide a commit message to describe the changes
           commit_message="Initial commit",
           # Optional: Set tags applies to the prompt (across versions)
@@ -99,21 +89,6 @@ import { Package, GitBranch, Tag, LineChart, Users } from "lucide-react";
               "task": "summarization",
               "language": "en",
           },
-      )
-
-      # Chat prompt example
-      chat_template = [
-          {"role": "system", "content": "You are a helpful {{ style }} assistant."},
-          {"role": "user", "content": "{{ question }}"},
-      ]
-
-      # Register a chat prompt
-      chat_prompt = mlflow.genai.register_prompt(
-          name="assistant-prompt",
-          template=chat_template,
-          response_format={"type": "string", "description": "A helpful response"},
-          commit_message="Initial chat prompt",
-          tags={"type": "chat", "style": "friendly"},
       )
 
       # The prompt object contains information about the registered prompt
@@ -153,10 +128,8 @@ This creates a new prompt with the specified template text and metadata. The pro
 
       ```python
       import mlflow
-      from pydantic import BaseModel
 
-      # Update text prompt with enhanced response format
-      new_text_template = """\
+      new_template = """\
       You are an expert summarizer. Condense the following content into exactly {{ num_sentences }} clear and informative sentences that capture the key points.
 
       Sentences: {{ sentences }}
@@ -168,52 +141,14 @@ This creates a new prompt with the specified template text and metadata. The pro
       - Maintain the same level of formality as the original text
       """
 
-
-      # Enhanced response format
-      class EnhancedSummaryResponse(BaseModel):
-          summary: str
-          key_points: list[str]
-          word_count: int
-          confidence_score: float
-          reading_level: str
-
-
-      # Register a new version of an existing text prompt
+      # Register a new version of an existing prompt
       updated_prompt = mlflow.genai.register_prompt(
           name="summarization-prompt",  # Specify the existing prompt name
-          template=new_text_template,
-          response_format=EnhancedSummaryResponse,
-          commit_message="Enhanced with confidence scoring and reading level",
+          template=new_template,
+          commit_message="Improvement",
           tags={
               "author": "author@example.com",
-              "enhanced": "true",
           },
-      )
-
-      # Update chat prompt with additional messages
-      new_chat_template = [
-          {
-              "role": "system",
-              "content": "You are a helpful {{ style }} assistant with expertise in {{ domain }}.",
-          },
-          {"role": "user", "content": "{{ question }}"},
-          {
-              "role": "assistant",
-              "content": "I'll help you with that. Let me provide a detailed response.",
-          },
-          {"role": "user", "content": "Please elaborate on {{ specific_aspect }}."},
-      ]
-
-      # Register a new version of an existing chat prompt
-      updated_chat_prompt = mlflow.genai.register_prompt(
-          name="assistant-prompt",
-          template=new_chat_template,
-          response_format={
-              "type": "object",
-              "properties": {"answer": {"type": "string"}, "sources": {"type": "array"}},
-          },
-          commit_message="Added multi-turn conversation support",
-          tags={"type": "chat", "style": "friendly", "multi_turn": "true"},
       )
       ```
     </div>
@@ -249,10 +184,6 @@ MLflow Projects, MLflow Models, and MLflow Registry.
 # Load the prompt
 prompt = mlflow.genai.load_prompt("prompts:/summarization-prompt/2")
 
-# Check prompt properties
-print(f"Is text prompt: {prompt.is_text_prompt}")
-print(f"Response format: {prompt.response_format}")
-
 # Use the prompt with an LLM
 client = openai.OpenAI()
 response = client.chat.completions.create(
@@ -262,35 +193,6 @@ response = client.chat.completions.create(
             "content": prompt.format(num_sentences=1, sentences=target_text),
         }
     ],
-    model="gpt-4o-mini",
-)
-
-print(response.choices[0].message.content)
-```
-
-For chat prompts, you can load and use them similarly:
-
-```python
-import mlflow
-import openai
-
-# Load the chat prompt
-chat_prompt = mlflow.genai.load_prompt("prompts:/assistant-prompt/2")
-
-# Check prompt properties
-print(f"Is text prompt: {chat_prompt.is_text_prompt}")
-print(f"Response format: {chat_prompt.response_format}")
-
-# Format the chat prompt
-formatted_messages = chat_prompt.format(
-    style="friendly",
-    question="What is MLflow?",
-)
-
-# Use the formatted messages directly with an LLM
-client = openai.OpenAI()
-response = client.chat.completions.create(
-    messages=formatted_messages,
     model="gpt-4o-mini",
 )
 
@@ -329,9 +231,9 @@ print(f"Total prompts across pages: {len(all_prompts)}")
 
 ## Prompt Object
 
-The `PromptVersion` object is the core entity in MLflow Prompt Registry. It represents a versioned template that can contain variables for dynamic content. MLflow now supports two types of prompts: **text prompts** and **chat prompts**.
+The `Prompt` object is the core entity in MLflow Prompt Registry. It represents a versioned template text that can contain variables for dynamic content.
 
-Key attributes of a PromptVersion object:
+Key attributes of a Prompt object:
 
 - `Name`: A unique identifier for the prompt.
 - `Template`: The content of the prompt, which can be either:

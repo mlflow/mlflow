@@ -35,52 +35,30 @@ Once you have loaded a prompt object (which is a `PromptVersion` instance), you 
 ```python
 import mlflow
 
-# Load text prompt
-prompt = mlflow.genai.load_prompt("prompts:/ai_assistant_prompt/1")
+# define a prompt template
+prompt_template = """\
+You are an expert AI assistant. Answer the user's question with clarity, accuracy, and conciseness.
 
-# Check prompt properties
-print(f"Is text prompt: {prompt.is_text_prompt}")
-print(f"Response format: {prompt.response_format}")
+## Question:
+{{question}}
 
-# Format with variables
+## Guidelines:
+- Keep responses factual and to the point.
+- If relevant, provide examples or step-by-step instructions.
+- If the question is ambiguous, clarify before answering.
+
+Respond below:
+"""
+prompt = mlflow.genai.register_prompt(
+    name="ai_assistant_prompt",
+    template=prompt_template,
+    commit_message="Initial version of AI assistant",
+)
+
 question = "What is MLflow?"
-formatted_text = prompt.format(question=question)
-
-# Use with LLM
 response = (
     client.chat.completions.create(
-        messages=[{"role": "user", "content": formatted_text}],
-        model="gpt-4o-mini",
-        temperature=0.1,
-        max_tokens=2000,
-    )
-    .choices[0]
-    .message.content
-)
-```
-
-For chat prompts, you can format them similarly:
-
-```python
-import mlflow
-
-# Load chat prompt
-chat_prompt = mlflow.genai.load_prompt("prompts:/assistant_prompt/1")
-
-# Check prompt properties
-print(f"Is text prompt: {chat_prompt.is_text_prompt}")
-print(f"Response format: {chat_prompt.response_format}")
-
-# Format with variables
-formatted_messages = chat_prompt.format(
-    style="friendly",
-    question="What is MLflow?",
-)
-
-# Use directly with LLM
-response = (
-    client.chat.completions.create(
-        messages=formatted_messages,
+        messages=[{"role": "user", "content": prompt.format(question=question)}],
         model="gpt-4o-mini",
         temperature=0.1,
         max_tokens=2000,
@@ -92,21 +70,27 @@ response = (
 
 ## Using Prompts with Other Frameworks (LangChain, LlamaIndex)
 
-MLflow prompts use the `{{variable}}` double-brace syntax for templating. Some other popular frameworks, like LangChain and LlamaIndex, often expect a single-brace syntax (e.g., `{variable}`). To facilitate seamless integration, the MLflow `PromptVersion` object provides the `prompt.to_single_brace_format()` method. This method returns the prompt template string converted to a single-brace format, ready to be used by these frameworks.
+MLflow prompts use the `{{variable}}` double-brace syntax for templating. Some other popular frameworks, like LangChain and LlamaIndex, often expect a single-brace syntax (e.g., `{variable}`). To facilitate seamless integration, the MLflow `Prompt` object provides the `prompt.to_single_brace_format()` method. This method returns the prompt template string converted to a single-brace format, ready to be used by these frameworks.
 
 ```python
 import mlflow
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_openai import ChatOpenAI
 
-# Load registered text prompt
+# Load registered prompt
 prompt = mlflow.genai.load_prompt("prompts:/summarization-prompt/2")
 
-# Convert to single brace format for LangChain
-langchain_template = prompt.to_single_brace_format()
-
 # Create LangChain prompt object
-langchain_prompt = ChatPromptTemplate.from_template(langchain_template)
+langchain_prompt = ChatPromptTemplate.from_messages(
+    [
+        (
+            # IMPORTANT: Convert prompt template from double to single curly braces format
+            "system",
+            prompt.to_single_brace_format(),
+        ),
+        ("placeholder", "{messages}"),
+    ]
+)
 
 # Define the LangChain chain
 llm = ChatOpenAI()
@@ -114,34 +98,6 @@ chain = langchain_prompt | llm
 
 # Invoke the chain
 response = chain.invoke({"num_sentences": 1, "sentences": "This is a test sentence."})
-print(response)
-```
-
-For chat prompts, you can integrate them with frameworks like this:
-
-```python
-import mlflow
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_openai import ChatOpenAI
-
-# Load registered chat prompt
-chat_prompt = mlflow.genai.load_prompt("prompts:/assistant-prompt/2")
-
-# Format the messages
-formatted_messages = chat_prompt.format(
-    style="friendly",
-    question="What is MLflow?",
-)
-
-# Create LangChain prompt object directly from messages
-langchain_prompt = ChatPromptTemplate.from_messages(formatted_messages)
-
-# Define the LangChain chain
-llm = ChatOpenAI()
-chain = langchain_prompt | llm
-
-# Invoke the chain
-response = chain.invoke({})
 print(response)
 ```
 
