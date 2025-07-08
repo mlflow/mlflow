@@ -1311,6 +1311,18 @@ def test_set_experiment_tag(store: SqlAlchemyStore):
         store.set_experiment_tag(exp_id, entities.ExperimentTag("should", "notset"))
 
 
+def test_delete_experiment_tag(store: SqlAlchemyStore):
+    exp_id = _create_experiments(store, "setExperimentTagExp")
+    tag = entities.ExperimentTag("tag0", "value0")
+    store.set_experiment_tag(exp_id, tag)
+    experiment = store.get_experiment(exp_id)
+    assert experiment.tags["tag0"] == "value0"
+    # test that deleting a tag works
+    store.delete_experiment_tag(exp_id, tag.key)
+    experiment = store.get_experiment(exp_id)
+    assert "tag0" not in experiment.tags
+
+
 def test_set_tag(store: SqlAlchemyStore, monkeypatch):
     run = _run_factory(store)
 

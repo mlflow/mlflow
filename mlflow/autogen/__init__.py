@@ -62,7 +62,8 @@ def autolog(
         if not get_autologging_config(FLAVOR_NAME, "log_traces"):
             return await original(self, *args, **kwargs)
         else:
-            with mlflow.start_span(original.__name__, span_type=SpanType.LLM) as span:
+            name = f"{self.__class__.__name__}.{original.__name__}"
+            with mlflow.start_span(name, span_type=SpanType.LLM) as span:
                 inputs = construct_full_inputs(original, self, *args, **kwargs)
                 span.set_inputs(
                     {key: _convert_value_to_dict(value) for key, value in inputs.items()}
@@ -91,7 +92,9 @@ def autolog(
         if not get_autologging_config(FLAVOR_NAME, "log_traces"):
             return await original(self, *args, **kwargs)
         else:
-            with mlflow.start_span(original.__name__, span_type=SpanType.AGENT) as span:
+            agent_name = getattr(self, "name", self.__class__.__name__)
+            name = f"{agent_name}.{original.__name__}"
+            with mlflow.start_span(name, span_type=SpanType.AGENT) as span:
                 inputs = construct_full_inputs(original, self, *args, **kwargs)
                 span.set_inputs(
                     {key: _convert_value_to_dict(value) for key, value in inputs.items()}

@@ -66,6 +66,7 @@ from mlflow.protos.service_pb2 import (
     CreateLoggedModel,
     CreateRun,
     DeleteExperiment,
+    DeleteExperimentTag,
     DeleteLoggedModel,
     DeleteLoggedModelTag,
     DeleteRun,
@@ -402,6 +403,7 @@ BEFORE_REQUEST_HANDLERS = {
     RestoreExperiment: validate_can_delete_experiment,
     UpdateExperiment: validate_can_update_experiment,
     SetExperimentTag: validate_can_update_experiment,
+    DeleteExperimentTag: validate_can_update_experiment,
     # Routes for runs
     CreateRun: validate_can_update_experiment,
     GetRun: validate_can_read_run,
