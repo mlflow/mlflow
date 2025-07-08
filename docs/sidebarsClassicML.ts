@@ -1,5 +1,5 @@
 import type { SidebarsConfig } from '@docusaurus/plugin-content-docs';
-import { apiReferencePrefix } from './docusaurusConfigUtils';
+import { apiReferencePrefix } from "./docusaurusConfigUtils";
 
 const sidebarsClassicML: SidebarsConfig = {
   classicMLSidebar: [
@@ -16,10 +16,10 @@ const sidebarsClassicML: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Getting Started',
+      label: 'Getting Started 🚀',
       className: 'sidebar-top-level-category',
       items: [
-        {
+         {
           type: 'doc',
           id: 'getting-started/running-notebooks/index',
         },
@@ -59,18 +59,18 @@ const sidebarsClassicML: SidebarsConfig = {
                   type: 'doc',
                   id: 'getting-started/logging-first-model/notebooks/logging-first-model-ipynb',
                   label: 'Logging First Model',
-                },
+                }
               ],
               link: {
                 type: 'doc',
                 id: 'getting-started/logging-first-model/notebooks/index',
-              },
-            },
+              }
+            }
           ],
           link: {
             type: 'doc',
             id: 'getting-started/logging-first-model/index',
-          },
+          }
         },
         {
           type: 'doc',
@@ -94,8 +94,8 @@ const sidebarsClassicML: SidebarsConfig = {
             },
             {
               type: 'doc',
-              id: 'getting-started/registering-first-model/step3-load-model',
-            },
+              id: 'getting-started/registering-first-model/step3-load-model'
+            }
           ],
           link: {
             type: 'doc',
@@ -105,16 +105,16 @@ const sidebarsClassicML: SidebarsConfig = {
         {
           type: 'doc',
           id: 'getting-started/tracking-server-overview/index',
-        },
+        }
       ],
       link: {
         type: 'doc',
         id: 'getting-started/index',
-      },
+      }
     },
     {
       type: 'category',
-      label: 'Machine Learning',
+      label: 'Machine Learning 🤖',
       className: 'sidebar-top-level-category',
       collapsed: false,
       items: [
@@ -124,7 +124,7 @@ const sidebarsClassicML: SidebarsConfig = {
           items: [
             {
               type: 'category',
-              label: 'Tutorials',
+              label: 'Tutorials 🎓',
               items: [
                 {
                   type: 'category',
@@ -158,7 +158,7 @@ const sidebarsClassicML: SidebarsConfig = {
                       link: {
                         type: 'doc',
                         id: 'traditional-ml/tutorials/hyperparameter-tuning/notebooks/index',
-                      },
+                      }
                     },
                   ],
                   link: {
@@ -200,14 +200,14 @@ const sidebarsClassicML: SidebarsConfig = {
                       ],
                       link: {
                         type: 'doc',
-                        id: 'traditional-ml/tutorials/creating-custom-pyfunc/notebooks/index',
-                      },
+                        id: 'traditional-ml/tutorials/creating-custom-pyfunc/notebooks/index'
+                      }
                     },
                   ],
                   link: {
                     type: 'doc',
                     id: 'traditional-ml/tutorials/creating-custom-pyfunc/index',
-                  },
+                  }
                 },
                 {
                   type: 'category',
@@ -224,7 +224,7 @@ const sidebarsClassicML: SidebarsConfig = {
                     id: 'traditional-ml/tutorials/serving-multiple-models-with-pyfunc/index',
                   },
                 },
-              ],
+              ]
             },
             {
               type: 'category',
@@ -238,13 +238,13 @@ const sidebarsClassicML: SidebarsConfig = {
                 {
                   type: 'doc',
                   id: 'traditional-ml/sklearn/guide/index',
-                  label: 'Scikit Learn within MLflow',
+                  label: 'Scikit Learn within MLflow'
                 },
               ],
               link: {
                 type: 'doc',
-                id: 'traditional-ml/sklearn/index',
-              },
+                id: 'traditional-ml/sklearn/index'
+              }
             },
             {
               type: 'category',
@@ -258,13 +258,13 @@ const sidebarsClassicML: SidebarsConfig = {
                 {
                   type: 'doc',
                   id: 'traditional-ml/xgboost/guide/index',
-                  label: 'XGBoost within MLflow',
+                  label: 'XGBoost within MLflow'
                 },
               ],
               link: {
                 type: 'doc',
-                id: 'traditional-ml/xgboost/index',
-              },
+                id: 'traditional-ml/xgboost/index'
+              }
             },
             {
               type: 'category',
@@ -288,23 +288,23 @@ const sidebarsClassicML: SidebarsConfig = {
                 {
                   type: 'doc',
                   id: 'traditional-ml/prophet/guide/index',
-                  label: 'Prophet within MLflow',
+                  label: 'Prophet within MLflow'
                 },
               ],
               link: {
                 type: 'doc',
-                id: 'traditional-ml/prophet/index',
-              },
+                id: 'traditional-ml/prophet/index'
+              }
             },
           ],
           link: {
             type: 'doc',
-            id: 'traditional-ml/index',
-          },
+            id: 'traditional-ml/index'
+          }
         },
         {
           type: 'category',
-          label: 'Deep Learning',
+          label: 'Deep Learning 🕸️',
           items: [
             {
               type: 'category',
@@ -379,7 +379,7 @@ const sidebarsClassicML: SidebarsConfig = {
                 {
                   type: 'doc',
                   id: 'deep-learning/transformers/task/index',
-                  label: 'Transformers Task Types',
+                  label: 'Transformers Task Types'
                 },
                 {
                   type: 'category',
@@ -429,7 +429,7 @@ const sidebarsClassicML: SidebarsConfig = {
                   link: {
                     type: 'doc',
                     id: 'deep-learning/transformers/tutorials/index',
-                  },
+                  }
                 },
               ],
               link: {
@@ -464,18 +464,18 @@ const sidebarsClassicML: SidebarsConfig = {
                     {
                       type: 'doc',
                       id: 'deep-learning/sentence-transformers/tutorials/semantic-similarity/semantic-similarity-sentence-transformers-ipynb',
-                    },
+                    }
                   ],
                   link: {
                     type: 'doc',
-                    id: 'deep-learning/sentence-transformers/tutorials/index',
-                  },
-                },
+                    id: 'deep-learning/sentence-transformers/tutorials/index'
+                  }
+                }
               ],
               link: {
                 type: 'doc',
                 id: 'deep-learning/sentence-transformers/index',
-              },
+              }
             },
             {
               type: 'category',
@@ -495,19 +495,19 @@ const sidebarsClassicML: SidebarsConfig = {
           link: {
             type: 'doc',
             id: 'deep-learning/index',
-          },
-        },
-      ],
+          }
+        }
+      ]
     },
     {
       type: 'category',
-      label: 'Build ',
+      label: 'Build 🔨 ',
       className: 'sidebar-top-level-category',
       collapsed: false,
       items: [
         {
           type: 'category',
-          label: 'MLflow Tracking',
+          label: 'MLflow Tracking 📈',
           items: [
             {
               type: 'category',
@@ -516,51 +516,51 @@ const sidebarsClassicML: SidebarsConfig = {
                 {
                   type: 'doc',
                   id: 'tracking/quickstart/notebooks/tracking_quickstart-ipynb',
-                },
+                }
               ],
               link: {
                 type: 'doc',
                 id: 'tracking/quickstart/index',
-              },
+              }
             },
             {
               type: 'doc',
               id: 'tracking/autolog/index',
-              label: 'Auto Logging',
+              label: 'Auto Logging 🤖',
             },
             {
               type: 'category',
-              label: 'Tracking Server',
+              label: 'Tracking Server 🖥️',
               items: [
                 {
                   type: 'doc',
                   id: 'tracking/artifact-stores/index',
-                  label: 'Artifact Store',
+                  label: 'Artifact Store 📦',
                 },
                 {
                   type: 'doc',
                   id: 'tracking/backend-stores/index',
-                  label: 'Backend Store',
+                  label: 'Backend Store 🗄️',
                 },
                 {
                   type: 'category',
-                  label: 'Tutorials',
+                  label: 'Tutorials 🎓',
                   items: [
                     {
                       type: 'autogenerated',
                       dirName: 'tracking/tutorials',
-                    },
+                    }
                   ],
-                },
+                }
               ],
               link: {
                 type: 'doc',
                 id: 'tracking/server/index',
-              },
+              }
             },
             {
               type: 'category',
-              label: 'Search',
+              label: 'Search 🔍',
               items: [
                 {
                   type: 'doc',
@@ -574,18 +574,18 @@ const sidebarsClassicML: SidebarsConfig = {
                   type: 'doc',
                   id: 'search/search-experiments/index',
                 },
-              ],
+              ]
             },
             {
               type: 'doc',
               id: 'tracking/system-metrics/index',
-              label: 'System Metrics',
+              label: 'System Metrics 🌡️'
             },
             {
               type: 'doc',
               id: 'tracking/tracking-api/index',
-              label: 'Tracking APIs',
-            },
+              label: 'Tracking APIs 🛠️'
+            }
           ],
           link: {
             type: 'doc',
@@ -594,7 +594,7 @@ const sidebarsClassicML: SidebarsConfig = {
         },
         {
           type: 'category',
-          label: 'MLflow Model',
+          label: 'MLflow Model 🧠',
           items: [
             {
               type: 'autogenerated',
@@ -610,13 +610,13 @@ const sidebarsClassicML: SidebarsConfig = {
         {
           type: 'doc',
           id: 'dataset/index',
-          label: 'MLflow Datasets',
-        },
+          label: 'MLflow Datasets 🗃️',
+        }
       ],
     },
     {
       type: 'category',
-      label: 'Evaluate',
+      label: 'Evaluate 🎯',
       className: 'sidebar-top-level-category',
       items: [
         {
@@ -646,17 +646,17 @@ const sidebarsClassicML: SidebarsConfig = {
       ],
       link: {
         type: 'doc',
-        id: 'evaluation/index',
-      },
+        id: 'evaluation/index'
+      }
     },
     {
       type: 'category',
-      label: 'Deploy',
+      label: 'Deploy 🚢',
       className: 'sidebar-top-level-category',
       items: [
         {
           type: 'category',
-          label: 'MLflow Model Registry',
+          label: 'MLflow Model Registry 📚',
           items: [
             {
               type: 'autogenerated',
@@ -666,15 +666,15 @@ const sidebarsClassicML: SidebarsConfig = {
           link: {
             type: 'doc',
             id: 'model-registry/index',
-          },
+          }
         },
         {
           type: 'category',
-          label: 'MLflow Serving',
+          label: 'MLflow Serving ⚙️',
           items: [
             {
               type: 'doc',
-              id: 'deployment/deploy-model-locally/index',
+              id: 'deployment/deploy-model-locally/index'
             },
             {
               type: 'category',
@@ -683,12 +683,12 @@ const sidebarsClassicML: SidebarsConfig = {
                 {
                   type: 'doc',
                   id: 'deployment/deploy-model-to-kubernetes/tutorial',
-                },
+                }
               ],
               link: {
                 type: 'doc',
                 id: 'deployment/deploy-model-to-kubernetes/index',
-              },
+              }
             },
             {
               type: 'doc',
@@ -697,43 +697,43 @@ const sidebarsClassicML: SidebarsConfig = {
           ],
           link: {
             type: 'doc',
-            id: 'deployment/index',
-          },
+            id: 'deployment/index'
+          }
         },
         {
           type: 'doc',
           id: 'docker/index',
-          label: 'Docker',
-        },
+          label: 'Docker'
+        }
       ],
     },
     {
       type: 'category',
-      label: 'Team Collaboration',
+      label: 'Team Collaboration 👥',
       className: 'sidebar-top-level-category',
       collapsed: true,
       items: [
         {
           type: 'link',
           href: '/ml/tracking/#tracking-setup',
-          label: 'Self-Hosting',
+          label: 'Self-Hosting'
         },
         {
           type: 'link',
           href: '/ml/#running-mlflow-anywhere',
-          label: 'Managed Services',
+          label: 'Managed Services'
         },
         {
           type: 'doc',
           id: 'auth/index',
-          label: 'Access Control',
+          label: 'Access Control 🔐',
         },
         {
           type: 'doc',
           id: 'projects/index',
-          label: 'MLflow Projects',
+          label: 'MLflow Projects 📦',
         },
-      ],
+      ]
     },
     {
       type: 'category',
@@ -765,8 +765,8 @@ const sidebarsClassicML: SidebarsConfig = {
           type: 'link',
           label: 'CLI',
           href: `${apiReferencePrefix()}cli.html`,
-        },
-      ],
+        }
+      ]
     },
     {
       type: 'category',
@@ -776,25 +776,25 @@ const sidebarsClassicML: SidebarsConfig = {
       items: [
         {
           type: 'link',
-          label: 'Contributing',
+          label: 'Contributing 🤝',
           href: 'https://github.com/mlflow/mlflow/blob/master/CONTRIBUTING.md',
         },
         {
           type: 'link',
-          label: 'MLflow Blogs',
+          label: 'MLflow Blogs 📰',
           href: 'https://mlflow.org/blog/index.html',
         },
         {
           type: 'doc',
           id: 'plugins/index',
-          label: 'MLflow Plugins',
+          label: 'MLflow Plugins 🔌'
         },
         {
           type: 'doc',
           id: 'tutorials-and-examples/index',
           label: 'External Tutorials',
-        },
-      ],
+        }
+      ]
     },
   ],
 };

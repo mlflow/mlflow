@@ -227,7 +227,6 @@ describe.each(testCases)('RunsCompare $description', ({ setup: testCaseSetup }) 
             hideEmptyCharts={uiState.hideEmptyCharts}
             chartsSearchFilter={uiState.chartsSearchFilter}
             storageKey="some-experiment-id"
-            minWidth={800}
           />
         </ExperimentPageUIStateContextProvider>
       );

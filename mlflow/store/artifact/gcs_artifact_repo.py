@@ -4,7 +4,6 @@ import os
 import posixpath
 import urllib.parse
 from collections import namedtuple
-from typing import Optional
 
 from packaging.version import Version
 
@@ -40,14 +39,8 @@ class GCSArtifactRepository(ArtifactRepository, MultipartUploadMixin):
             credentials as described in https://google-cloud.readthedocs.io/en/latest/core/auth.html
     """
 
-    def __init__(
-        self,
-        artifact_uri: str,
-        tracking_uri: Optional[str] = None,
-        client=None,
-        credential_refresh_def=None,
-    ) -> None:
-        super().__init__(artifact_uri, tracking_uri)
+    def __init__(self, artifact_uri, client=None, credential_refresh_def=None):
+        super().__init__(artifact_uri)
         from google.auth.exceptions import DefaultCredentialsError
         from google.cloud import storage as gcs_storage
         from google.cloud.storage.constants import _DEFAULT_TIMEOUT

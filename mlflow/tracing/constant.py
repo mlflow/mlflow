@@ -4,8 +4,7 @@ class TraceMetadataKey:
     OUTPUTS = "mlflow.traceOutputs"
     SOURCE_RUN = "mlflow.sourceRun"
     MODEL_ID = "mlflow.modelId"
-    # Trace size statistics including total size, number of spans, and max span size
-    SIZE_STATS = "mlflow.trace.sizeStats"
+    SIZE_BYTES = "mlflow.trace.sizeBytes"
     # Aggregated token usage information in a single trace, stored as a dumped JSON string.
     TOKEN_USAGE = "mlflow.trace.tokenUsage"
     # Store the user ID/name of the application request. Do not confuse this with mlflow.user
@@ -13,9 +12,6 @@ class TraceMetadataKey:
     TRACE_USER = "mlflow.trace.user"
     # Store the session ID of the application request.
     TRACE_SESSION = "mlflow.trace.session"
-
-    # Total size of the trace in bytes. Deprecated, use SIZE_STATS instead.
-    SIZE_BYTES = "mlflow.trace.sizeBytes"
 
 
 class TraceTagKey:
@@ -33,15 +29,6 @@ class TokenUsageKey:
     @classmethod
     def all_keys(cls):
         return [cls.INPUT_TOKENS, cls.OUTPUT_TOKENS, cls.TOTAL_TOKENS]
-
-
-class TraceSizeStatsKey:
-    TOTAL_SIZE_BYTES = "total_size_bytes"
-    NUM_SPANS = "num_spans"
-    MAX_SPAN_SIZE_BYTES = "max"
-    P25_SPAN_SIZE_BYTES = "p25"
-    P50_SPAN_SIZE_BYTES = "p50"
-    P75_SPAN_SIZE_BYTES = "p75"
 
 
 # A set of reserved attribute keys

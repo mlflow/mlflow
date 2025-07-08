@@ -34,7 +34,6 @@ import { ExperimentViewRunsTableResizer } from './ExperimentViewRunsTableResizer
 import { RunsChartsSetHighlightContextProvider } from '../../../runs-charts/hooks/useRunsChartTraceHighlight';
 import { useLoggedModelsForExperimentRunsTable } from '../../hooks/useLoggedModelsForExperimentRunsTable';
 import { ExperimentViewRunsRequestError } from '../ExperimentViewRunsRequestError';
-import { useResizableMaxWidth } from '@mlflow/mlflow/src/shared/web-shared/hooks';
 
 export interface ExperimentViewRunsOwnProps {
   isLoading: boolean;
@@ -68,7 +67,6 @@ const createCurrentTime = () => {
 };
 
 const INITIAL_RUN_COLUMN_SIZE = 295;
-const CHARTS_MIN_WIDTH = 350;
 
 export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) => {
   const [compareRunsMode] = useExperimentPageViewMode();
@@ -242,8 +240,6 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
     [experiments],
   );
 
-  const { resizableMaxWidth, ref } = useResizableMaxWidth(CHARTS_MIN_WIDTH);
-
   return (
     <CreateNewRunContextProvider visibleRuns={visibleRuns} refreshRuns={refreshRuns}>
       <RunsChartsSetHighlightContextProvider>
@@ -261,7 +257,6 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
           isLoading={isLoadingRuns}
         />
         <div
-          ref={ref}
           css={{
             minHeight: 225, // This is the exact height for displaying a minimum five rows and table header
             height: '100%',
@@ -274,7 +269,6 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
               onResize={setTableAreaWidth}
               runListHidden={runListHidden}
               width={tableAreaWidth}
-              maxWidth={resizableMaxWidth}
             >
               {tableElement}
             </ExperimentViewRunsTableResizer>
@@ -296,7 +290,6 @@ export const ExperimentViewRuns = React.memo((props: ExperimentViewRunsProps) =>
               globalLineChartConfig={uiState.globalLineChartConfig}
               chartsSearchFilter={uiState.chartsSearchFilter}
               storageKey={configStorageKey}
-              minWidth={CHARTS_MIN_WIDTH}
             />
           )}
           {compareRunsMode === 'ARTIFACT' && (

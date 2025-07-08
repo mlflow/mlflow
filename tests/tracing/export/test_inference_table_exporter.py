@@ -1,4 +1,3 @@
-import json
 from typing import Optional
 from unittest import mock
 
@@ -9,7 +8,7 @@ from mlflow.entities import LiveSpan, Trace
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.protos import service_pb2 as pb
-from mlflow.tracing.constant import TraceMetadataKey, TraceSizeStatsKey
+from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.export.inference_table import (
     _TRACE_BUFFER,
     InferenceTableSpanExporter,
@@ -203,38 +202,25 @@ def test_size_bytes_in_trace_sent_to_mlflow_backend(monkeypatch):
         # Ensure async queue is processed
         exporter._async_queue.flush(terminate=True)
 
-    trace_info = mock_tracing_client.start_trace_v3.call_args[0][0]
-    trace_data = mock_tracing_client._upload_trace_data.call_args[0][1]
-
-    # Using pop() to exclude the size of these fields when computing the expected size
-    size_stats = json.loads(trace_info.trace_metadata.pop(TraceMetadataKey.SIZE_STATS))
-    size_bytes = int(trace_info.trace_metadata.pop(TraceMetadataKey.SIZE_BYTES))
-
-    # The total size of the trace should much with the size of the trace object
-    expected_size_bytes = len(Trace(info=trace_info, data=trace_data).to_json().encode("utf-8"))
-
-    assert size_bytes == expected_size_bytes
-    assert size_stats[TraceSizeStatsKey.TOTAL_SIZE_BYTES] == expected_size_bytes
-    assert size_stats[TraceSizeStatsKey.NUM_SPANS] == 1
-    assert size_stats[TraceSizeStatsKey.MAX_SPAN_SIZE_BYTES] > 0
-
-    # Verify percentile stats are included
-    assert TraceSizeStatsKey.P25_SPAN_SIZE_BYTES in size_stats
-    assert TraceSizeStatsKey.P50_SPAN_SIZE_BYTES in size_stats
-    assert TraceSizeStatsKey.P75_SPAN_SIZE_BYTES in size_stats
-
-    # With only one span, all percentiles should equal the max span size
-    assert (
-        size_stats[TraceSizeStatsKey.P25_SPAN_SIZE_BYTES]
-        == size_stats[TraceSizeStatsKey.MAX_SPAN_SIZE_BYTES]
+    # Verify the trace sent to MLflow backend has SIZE_BYTES
+    assert captured_trace is not None, "Trace was not sent to MLflow backend"
+    assert TraceMetadataKey.SIZE_BYTES in captured_trace.info.trace_metadata, (
+        "SIZE_BYTES missing in trace metadata"
     )
-    assert (
-        size_stats[TraceSizeStatsKey.P50_SPAN_SIZE_BYTES]
-        == size_stats[TraceSizeStatsKey.MAX_SPAN_SIZE_BYTES]
-    )
-    assert (
-        size_stats[TraceSizeStatsKey.P75_SPAN_SIZE_BYTES]
-        == size_stats[TraceSizeStatsKey.MAX_SPAN_SIZE_BYTES]
+
+    # Get the size bytes that were set
+    size_bytes = int(captured_trace.info.trace_metadata[TraceMetadataKey.SIZE_BYTES])
+
+    # Remove the size metadata to calculate the expected size
+    if TraceMetadataKey.SIZE_BYTES in captured_trace.info.trace_metadata:
+        del captured_trace.info.trace_metadata[TraceMetadataKey.SIZE_BYTES]
+
+    # Calculate size exactly the same way the function does
+    expected_size_bytes = len(captured_trace.to_json().encode("utf-8"))
+
+    # Verify that size_bytes matches the expected calculation
+    assert size_bytes == expected_size_bytes, (
+        f"Size bytes mismatch: got {size_bytes}, expected {expected_size_bytes}"
     )
 
 

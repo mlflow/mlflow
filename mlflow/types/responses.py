@@ -96,7 +96,7 @@ class ResponsesAgentStreamEvent(BaseModel):
             ResponseTextDeltaEvent(**self.model_dump_compat())
         elif type == "response.output_text.annotation.added":
             ResponseTextAnnotationDeltaEvent(**self.model_dump_compat())
-        elif type == "error":
+        elif type == "response.error":
             ResponseErrorEvent(**self.model_dump_compat())
         elif type == "response.completed":
             ResponseCompletedEvent(**self.model_dump_compat())

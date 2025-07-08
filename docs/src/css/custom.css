@@ -138,12 +138,6 @@ article ul ul ul {
   --ifm-color-emphasis-hover: #000000;
   --ifm-link-color: #0194e2;
 
-  /* Site-wide shadow colors */
-  --ifm-shadow-light: rgba(0, 0, 0, 0.1);
-  --ifm-shadow-medium: rgba(0, 0, 0, 0.15);
-  --ifm-shadow-heavy: rgba(0, 0, 0, 0.25);
-  --ifm-shadow-tile-hover: 0 10px 30px var(--ifm-shadow-light);
-
   /* Dynamic Coloring based on theme selection */
   --ifm-color-primary: #0194e2;
   --ifm-color-primary-dark: #0086cf;
@@ -216,6 +210,7 @@ a {
 a:hover {
   color: var(--ifm-color-emphasis-hover);
   text-decoration: none;
+  font-weight: bold;
 }
 
 /* Exception for sidebar links which have their own styling */
@@ -333,12 +328,6 @@ code, pre, kbd {
   --ifm-border-color: #9CA3AF;
   --ifm-color-emphasis-hover: #FFFFFF;
   --ifm-link-color: #43c9ed;
-
-  /* Dark mode shadow colors */
-  --ifm-shadow-light: rgba(255, 255, 255, 0.1);
-  --ifm-shadow-medium: rgba(255, 255, 255, 0.15);
-  --ifm-shadow-heavy: rgba(255, 255, 255, 0.25);
-  --ifm-shadow-tile-hover: 0 10px 30px var(--ifm-shadow-light);
 
   /* Inverted shadows */
   --card-shadow1: rgba(162, 162, 162, 0.5);
@@ -612,122 +601,6 @@ html[data-theme='dark'] .menu__link--active {
 
 .center-div {
   margin-inline: auto;
-}
-
-/* --------------------------------
- * 6.1. Modern Landing Page Components
- * -------------------------------- */
-
-/* Hero Section */
-.hero-section {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 4rem 2rem;
-}
-
-.hero-content {
-  display: flex;
-  align-items: center;
-  gap: 4rem;
-  min-height: 400px;
-}
-
-.hero-text {
-  flex: 1;
-  max-width: 600px;
-}
-
-.hero-text h1 {
-  font-size: 3.5rem;
-  font-weight: 300;
-  line-height: 1.1;
-  margin-bottom: 1.5rem;
-  color: var(--ifm-color-emphasis-hover);
-}
-
-.hero-text p {
-  font-size: 1.25rem;
-  line-height: 1.6;
-  color: var(--ifm-border-color);
-  margin-bottom: 2.5rem;
-}
-
-
-.hero-image {
-  flex: 1;
-  max-width: 500px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.hero-image img {
-  width: 100%;
-  height: auto;
-  border-radius: 12px;
-  box-shadow: var(--ifm-shadow-tile-hover);
-}
-
-/* Tiles Grid */
-.tiles-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 2rem;
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 2rem;
-}
-
-/* Responsive Design */
-@media (max-width: 996px) {
-  .hero-content {
-    flex-direction: column;
-    text-align: center;
-    gap: 2rem;
-  }
-  
-  .hero-text h1 {
-    font-size: 2.5rem;
-  }
-  
-  .tiles-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1.5rem;
-  }
-  
-  .why-content {
-    flex-direction: column;
-    gap: 2rem;
-  }
-  
-  .value-prop-badge {
-    justify-content: center;
-  }
-  
-  .feature-highlights {
-    grid-template-columns: 1fr;
-    gap: 1.5rem;
-  }
-}
-
-@media (max-width: 768px) {
-  .hero-section {
-    padding: 2rem 1rem;
-  }
-  
-  .hero-text h1 {
-    font-size: 2rem;
-  }
-  
-  .tiles-grid {
-    grid-template-columns: 1fr;
-    gap: 1rem;
-    padding: 1rem;
-  }
-  
-  .tile-card {
-    padding: 1.5rem;
-  }
 }
 
 /* --------------------------------
