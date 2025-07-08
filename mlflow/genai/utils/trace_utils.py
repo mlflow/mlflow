@@ -4,12 +4,11 @@ from typing import Any, Callable, Optional
 from opentelemetry.trace import NoOpTracer
 
 import mlflow
-from mlflow.entities.span import LiveSpan, Span, SpanType
+from mlflow.entities.span import Span, SpanType
 from mlflow.entities.trace import Trace
 from mlflow.genai.utils.data_validation import check_model_prediction
 from mlflow.tracing.constant import TraceTagKey
 from mlflow.tracing.display.display_handler import IPythonTraceDisplayHandler
-from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking.client import MlflowClient
 
 _logger = logging.getLogger(__name__)
@@ -210,34 +209,3 @@ def clean_up_extra_traces(run_id: str, start_time_ms: int):
             f"Failed to clean up extra traces generated during evaluation. The "
             f"result page might not show the correct list of traces. Error: {e}"
         )
-
-
-def copy_model_serving_trace_to_eval_run(trace_dict: dict[str, Any]):
-    """
-    Copy a trace returned from model serving endpoint to the evaluation run.
-    The copied trace will have a new trace ID and location metadata.
-
-    Args:
-        trace_dict: The trace dictionary returned from model serving endpoint.
-            This can be either V2 or V3 trace.
-    """
-    new_trace_id, new_root_span = None, None
-    spans = [Span.from_dict(span_dict) for span_dict in trace_dict["data"]["spans"]]
-
-    # Create a copy of spans in the current experiment
-    for old_span in spans:
-        new_span = LiveSpan.from_immutable_span(
-            span=old_span,
-            parent_span_id=old_span.parent_id,
-            trace_id=new_trace_id,
-            # Don't close the root span until the end so that we only export the trace
-            # after all spans are copied.
-            end_trace=old_span.parent_id is not None,
-        )
-        InMemoryTraceManager.get_instance().register_span(new_span)
-        if old_span.parent_id is None:
-            new_root_span = new_span
-            new_trace_id = new_span.trace_id
-
-    # Close the root span triggers the trace export.
-    new_root_span.end(end_time_ns=spans[0].end_time_ns)

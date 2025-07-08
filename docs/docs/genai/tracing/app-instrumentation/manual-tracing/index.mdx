@@ -10,9 +10,9 @@ While MLflow's [automatic tracing](/genai/tracing/app-instrumentation/automatic)
 
 Manual tracing is the right choice when you need:
 
-* 🔍 **Fine-Grained Control**: Define exactly which parts of your code to trace
-* ⚙️ **Custom Frameworks**: Instrument proprietary or internal frameworks
-* 🤖 **Advanced Scenarios**: Complex workflows, multi-threaded or async operations, streaming responses with custom aggregation, custom trace metadata and attributes
+- 🔍 **Fine-Grained Control**: Define exactly which parts of your code to trace
+- ⚙️ **Custom Frameworks**: Instrument proprietary or internal frameworks
+- 🤖 **Advanced Scenarios**: Complex workflows, multi-threaded or async operations, streaming responses with custom aggregation, custom trace metadata and attributes
 
 ## Manual Tracing Examples
 
@@ -47,6 +47,7 @@ The manual tracing APIs provide an intuitive way to add tracing with minimal cod
     - Works with async/generator functions
 
     [Learn more about decorators →](/genai/tracing/app-instrumentation/manual-tracing/fluent-apis#decorator)
+
   </TabItem>
   <TabItem value="context-manager" label="Context Manager">
     **Best for**: Tracing code blocks and complex workflows
@@ -73,6 +74,7 @@ The manual tracing APIs provide an intuitive way to add tracing with minimal cod
     - Ideal for non-function code blocks
 
     [Learn more about context managers →](/genai/tracing/app-instrumentation/manual-tracing/fluent-apis#context-manager)
+
   </TabItem>
 </Tabs>
 

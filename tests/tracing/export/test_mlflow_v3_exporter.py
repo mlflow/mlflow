@@ -23,7 +23,7 @@ from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.protos import service_pb2 as pb
-from mlflow.tracing.constant import TraceMetadataKey
+from mlflow.tracing.constant import TraceMetadataKey, TraceSizeStatsKey
 from mlflow.tracing.destination import Databricks
 from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
 from mlflow.tracing.provider import _get_trace_exporter
@@ -81,21 +81,50 @@ def test_export(is_async, monkeypatch):
     mock_call_endpoint.assert_called_once()
     mock_upload_trace_data.assert_called_once()
 
-    # Access the trace that was passed to _start_trace_v3
+    # Access the trace that was passed to _start_trace
     endpoint = mock_call_endpoint.call_args.args[1]
     assert endpoint == "/api/3.0/mlflow/traces"
-    trace_info_dict = trace_info.to_dict()
     trace_data = mock_upload_trace_data.call_args.args[1]
 
     # Basic validation of the trace object
     assert trace_info.trace_id is not None
 
-    assert TraceMetadataKey.SIZE_BYTES in trace_info_dict["trace_metadata"]
-    size_bytes = int(trace_info_dict["trace_metadata"][TraceMetadataKey.SIZE_BYTES])
-    trace_for_expected_size = Trace(info=trace_info, data=trace_data)
-    del trace_for_expected_size.info.trace_metadata[TraceMetadataKey.SIZE_BYTES]
-    actual_size_bytes = len(trace_for_expected_size.to_json().encode("utf-8"))
-    assert size_bytes == actual_size_bytes
+    # Validate the size stats metadata
+    # Using pop() to exclude the size of these fields when computing the expected size
+    size_stats = json.loads(trace_info.trace_metadata.pop(TraceMetadataKey.SIZE_STATS))
+    size_bytes = int(trace_info.trace_metadata.pop(TraceMetadataKey.SIZE_BYTES))
+
+    # The total size of the trace should much with the size of the trace object
+    expected_size_bytes = len(Trace(info=trace_info, data=trace_data).to_json().encode("utf-8"))
+
+    assert size_bytes == expected_size_bytes
+    assert size_stats[TraceSizeStatsKey.TOTAL_SIZE_BYTES] == expected_size_bytes
+    assert size_stats[TraceSizeStatsKey.NUM_SPANS] == 2
+    assert size_stats[TraceSizeStatsKey.MAX_SPAN_SIZE_BYTES] > 0
+
+    # Verify percentile stats are included
+    assert TraceSizeStatsKey.P25_SPAN_SIZE_BYTES in size_stats
+    assert TraceSizeStatsKey.P50_SPAN_SIZE_BYTES in size_stats
+    assert TraceSizeStatsKey.P75_SPAN_SIZE_BYTES in size_stats
+
+    # Verify percentiles are valid integers
+    assert isinstance(size_stats[TraceSizeStatsKey.P25_SPAN_SIZE_BYTES], int)
+    assert isinstance(size_stats[TraceSizeStatsKey.P50_SPAN_SIZE_BYTES], int)
+    assert isinstance(size_stats[TraceSizeStatsKey.P75_SPAN_SIZE_BYTES], int)
+
+    # Verify percentile ordering: P25 <= P50 <= P75 <= max
+    assert (
+        size_stats[TraceSizeStatsKey.P25_SPAN_SIZE_BYTES]
+        <= size_stats[TraceSizeStatsKey.P50_SPAN_SIZE_BYTES]
+    )
+    assert (
+        size_stats[TraceSizeStatsKey.P50_SPAN_SIZE_BYTES]
+        <= size_stats[TraceSizeStatsKey.P75_SPAN_SIZE_BYTES]
+    )
+    assert (
+        size_stats[TraceSizeStatsKey.P75_SPAN_SIZE_BYTES]
+        <= size_stats[TraceSizeStatsKey.MAX_SPAN_SIZE_BYTES]
+    )
 
     # Validate the data was passed to upload_trace_data
     call_args = mock_upload_trace_data.call_args
@@ -134,7 +163,7 @@ def test_export_catch_failure(is_async, monkeypatch):
 
     with (
         mock.patch(
-            "mlflow.tracing.client.TracingClient.start_trace_v3",
+            "mlflow.tracing.client.TracingClient.start_trace",
             side_effect=Exception("Failed to start trace"),
         ),
         mock.patch("mlflow.tracing.export.mlflow_v3._logger") as mock_logger,
@@ -168,7 +197,7 @@ def test_async_bulk_export(monkeypatch):
 
     with (
         mock.patch(
-            "mlflow.tracing.client.TracingClient.start_trace_v3", side_effect=_mock_client_method
+            "mlflow.tracing.client.TracingClient.start_trace", side_effect=_mock_client_method
         ) as mock_start_trace,
         mock.patch(
             "mlflow.tracing.client.TracingClient._upload_trace_data", return_value=None
@@ -211,8 +240,7 @@ def test_prompt_linking_in_mlflow_v3_exporter(is_async, monkeypatch):
     # Mock the prompt linking method and other client methods
     with (
         mock.patch(
-            "mlflow.tracing.client.TracingClient.start_trace_v3",
-            return_value=mock.MagicMock(trace_id="test-trace-id"),
+            "mlflow.tracing.client.TracingClient.start_trace",
         ) as mock_start_trace,
         mock.patch(
             "mlflow.tracing.client.TracingClient._upload_trace_data", return_value=None
@@ -286,7 +314,7 @@ def test_prompt_linking_in_mlflow_v3_exporter(is_async, monkeypatch):
     assert prompt_names == {"test_prompt_1", "test_prompt_2"}
 
     # Verify the trace ID matches
-    assert captured_trace_id == "test-trace-id"
+    assert captured_trace_id == trace_id
 
     # Verify other client methods were also called
     mock_start_trace.assert_called_once()
@@ -314,7 +342,7 @@ def test_prompt_linking_with_empty_prompts_mlflow_v3(is_async, monkeypatch):
     # Mock the client methods
     with (
         mock.patch(
-            "mlflow.tracing.client.TracingClient.start_trace_v3",
+            "mlflow.tracing.client.TracingClient.start_trace",
             return_value=mock.MagicMock(trace_id="test-trace-id"),
         ) as mock_start_trace,
         mock.patch(
@@ -380,7 +408,7 @@ def test_prompt_linking_error_handling_mlflow_v3(monkeypatch):
     # Mock the client methods with prompt linking failing
     with (
         mock.patch(
-            "mlflow.tracing.client.TracingClient.start_trace_v3",
+            "mlflow.tracing.client.TracingClient.start_trace",
             return_value=mock.MagicMock(trace_id="test-trace-id"),
         ) as mock_start_trace,
         mock.patch(

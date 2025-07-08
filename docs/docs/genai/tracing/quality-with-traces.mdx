@@ -4,7 +4,6 @@ import { APILink } from "@site/src/components/APILink";
 
 Traces contain rich information beyond debugging that can drive systematic quality improvements in your GenAI applications. This guide shows advanced techniques for analyzing trace patterns, extracting evaluation datasets from production data, and measuring the impact of quality improvements using programmatic analysis.
 
-
 ## Analyzing Trace Patterns for Quality Insights
 
 Traces provide detailed insights into how your application processes user requests, allowing you to identify patterns of quality issues and opportunities for improvement. The MLflow UI offers basic filtering and visualization, but programmatic analysis unlocks deeper insights into quality patterns.
@@ -124,37 +123,11 @@ For complex decision processes, add reasoning steps by breaking down complex tas
 
 After implementing changes, use MLflow to measure their impact through systematic evaluation and production monitoring.
 
-### Systematic Evaluation Using Curated Datasets
-
-Run systematic evaluations using your curated dataset to compare the original and improved models on real production scenarios:
-
-```python
-import mlflow
-from mlflow.evaluators import evaluate
-
-# Compare the original and improved models on your dataset
-results = mlflow.genai.evaluate(
-    data="evaluation_dataset.csv",
-    model=improved_model,  # Your improved model/application
-    baseline_model=original_model,  # The original version for comparison
-    evaluators=["mlflow_model"],
-    evaluator_config={
-        "custom_metrics": [
-            # Define your quality metrics here
-        ]
-    },
-)
-
-# View the results
-print(results.metrics)
-```
-
 ### Production Monitoring After Improvements
 
 Monitor production traces after deploying improvements by setting up dashboards to track quality metrics over time, monitoring for regressions or unexpected behavior, and continuously collecting new traces to identify emerging issues.
 
 This systematic approach ensures that your improvements have measurable impact and helps identify any unintended consequences of the changes.
-
 
 ## Integration with Quality Improvement Workflows
 

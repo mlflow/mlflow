@@ -1,0 +1,2 @@
+# Exclude vendor/theme CSS files in api_reference directory
+api_reference/**/*.css

@@ -830,6 +830,29 @@ def set_experiment_tag(key: str, value: Any) -> None:
     MlflowClient().set_experiment_tag(experiment_id, key, value)
 
 
+def delete_experiment_tag(key: str) -> None:
+    """
+    Delete a tag from the current experiment.
+
+    Args:
+        key: Name of the tag to be deleted.
+
+    .. code-block:: python
+        :test:
+        :caption: Example
+
+        import mlflow
+
+        exp = mlflow.set_experiment("test-delete-tag")
+        mlflow.set_experiment_tag("release.version", "1.0")
+        mlflow.delete_experiment_tag("release.version")
+        exp = mlflow.get_experiment(exp.experiment_id)
+        assert "release.version" not in exp.tags
+    """
+    experiment_id = _get_experiment_id()
+    MlflowClient().delete_experiment_tag(experiment_id, key)
+
+
 def set_tag(key: str, value: Any, synchronous: Optional[bool] = None) -> Optional[RunOperations]:
     """
     Set a tag under the current run. If no run is active, this method will create a new active
@@ -2884,8 +2907,12 @@ def search_runs(
             "start_time": [],
             "end_time": [],
         }
-        params, metrics, tags = ({}, {}, {})
-        PARAM_NULL, METRIC_NULL, TAG_NULL = (None, np.nan, None)
+        params = {}
+        metrics = {}
+        tags = {}
+        PARAM_NULL = None
+        METRIC_NULL = np.nan
+        TAG_NULL = None
         for i, run in enumerate(runs):
             info["run_id"].append(run.info.run_id)
             info["experiment_id"].append(run.info.experiment_id)

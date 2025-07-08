@@ -1290,7 +1290,7 @@ def autolog(
             the best 5 search parameter sets. If `max_tuning_runs=None`, then
             a child run is created for each search parameter set. Note: The best k
             results is based on ordering in `rank_test_score`. In the case of
-            multi-metric evaluation with a custom scorer, the first scorer’s
+            multi-metric evaluation with a custom scorer, the first scorer's
             `rank_test_score_<scorer_name>` will be used to select the best k
             results. To change metric used for selecting best k results, change
             ordering of dict passed as `scoring` parameter for estimator.

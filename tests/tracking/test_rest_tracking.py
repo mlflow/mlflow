@@ -41,6 +41,9 @@ from mlflow.entities.logged_model_input import LoggedModelInput
 from mlflow.entities.logged_model_output import LoggedModelOutput
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.trace_data import TraceData
+from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
     MLFLOW_SERVER_GRAPHQL_MAX_ALIASES,
@@ -90,7 +93,6 @@ def mlflow_client(request, tmp_path):
         ]
 
     with _init_server(backend_uri, root_artifact_uri=tmp_path.as_uri()) as url:
-        mlflow.set_tracking_uri(backend_uri)
         yield MlflowClient(url)
 
 
@@ -629,6 +631,17 @@ def test_set_experiment_tag_with_empty_string_as_value(mlflow_client):
     )
     mlflow_client.set_experiment_tag(experiment_id, "tag_key", "")
     assert {"tag_key": ""}.items() <= mlflow_client.get_experiment(experiment_id).tags.items()
+
+
+def test_delete_experiment_tag(mlflow_client):
+    experiment_id = mlflow_client.create_experiment("DeleteExperimentTagTest")
+    mlflow_client.set_experiment_tag(experiment_id, "dataset", "imagenet1K")
+    experiment = mlflow_client.get_experiment(experiment_id)
+    assert experiment.tags["dataset"] == "imagenet1K"
+    # test that deleting a tag works
+    mlflow_client.delete_experiment_tag(experiment_id, "dataset")
+    experiment = mlflow_client.get_experiment(experiment_id)
+    assert "dataset" not in experiment.tags
 
 
 def test_delete_tag(mlflow_client):
@@ -2370,24 +2383,23 @@ def test_get_run_and_experiment_graphql(mlflow_client):
     assert json["data"]["mlflowGetRun"]["run"]["modelVersions"][0]["name"] == name
 
 
-def test_start_and_end_trace(mlflow_client):
+def test_legacy_start_and_end_trace_v2(mlflow_client):
     experiment_id = mlflow_client.create_experiment("start end trace")
 
     # Trace CRUD APIs are not directly exposed as public API of MlflowClient,
     # so we use the underlying tracking client to test them.
-    client = mlflow_client._tracing_client
+    store = mlflow_client._tracing_client.store
 
     # Helper function to remove auto-added system tags (mlflow.xxx) from testing
     def _exclude_system_tags(tags: dict[str, str]):
         return {k: v for k, v in tags.items() if not k.startswith("mlflow.")}
 
-    trace_info = client.start_trace(
+    trace_info = store.deprecated_start_trace_v2(
         experiment_id=experiment_id,
         timestamp_ms=1000,
         request_metadata={
             "meta1": "apple",
             "meta2": "grape",
-            TRACE_SCHEMA_VERSION_KEY: "2",
         },
         tags={
             "tag1": "football",
@@ -2409,13 +2421,14 @@ def test_start_and_end_trace(mlflow_client):
         "tag2": "basketball",
     }
 
-    trace_info = client.end_trace(
+    trace_info = store.deprecated_end_trace_v2(
         request_id=trace_info.request_id,
         timestamp_ms=3000,
         status=TraceStatus.OK,
         request_metadata={
             "meta1": "orange",
             "meta3": "banana",
+            TRACE_SCHEMA_VERSION_KEY: "2",
         },
         tags={
             "tag1": "soccer",
@@ -2439,12 +2452,53 @@ def test_start_and_end_trace(mlflow_client):
         "tag3": "tennis",
     }
 
-    assert trace_info == client.get_trace_info(trace_info.request_id)
+
+def test_start_trace(mlflow_client):
+    experiment_id = mlflow_client.create_experiment("start end trace")
+
+    # Trace CRUD APIs are not directly exposed as public API of MlflowClient,
+    # so we use the underlying tracking client to test them.
+    client = mlflow_client._tracing_client
+
+    # Helper function to remove auto-added system tags (mlflow.xxx) from testing
+    def _exclude_system_tags(tags: dict[str, str]):
+        return {k: v for k, v in tags.items() if not k.startswith("mlflow.")}
+
+    trace_info = TraceInfo(
+        trace_id="tr-1234",
+        trace_location=TraceLocation.from_experiment_id(experiment_id),
+        request_time=1000,
+        execution_duration=2000,
+        state=TraceState.OK,
+        trace_metadata={
+            "meta1": "apple",
+            "meta2": "grape",
+            TRACE_SCHEMA_VERSION_KEY: "3",
+        },
+        tags={
+            "tag1": "football",
+            "tag2": "basketball",
+        },
+    )
+    trace_info = client.start_trace(trace_info)
+    assert trace_info.trace_id == "tr-1234"
+    assert trace_info.experiment_id == experiment_id
+    assert trace_info.request_time == 1000
+    assert trace_info.execution_duration == 2000
+    assert trace_info.state == TraceState.OK
+    assert trace_info.trace_metadata == {
+        "meta1": "apple",
+        "meta2": "grape",
+        TRACE_SCHEMA_VERSION_KEY: "3",
+    }
+    assert _exclude_system_tags(trace_info.tags) == {
+        "tag1": "football",
+        "tag2": "basketball",
+    }
+    assert trace_info == client.get_trace_info(trace_info.trace_id)
 
 
 def test_search_traces(mlflow_client):
-    pytest.skip("Rest Store is not migrated to V3 yet")
-
     mlflow.set_tracking_uri(mlflow_client.tracking_uri)
     experiment_id = mlflow_client.create_experiment("search traces")
 
@@ -2489,8 +2543,6 @@ def test_search_traces(mlflow_client):
 
 
 def test_delete_traces(mlflow_client):
-    pytest.skip("Rest Store is not migrated to V3 yet")
-
     mlflow.set_tracking_uri(mlflow_client.tracking_uri)
     experiment_id = mlflow_client.create_experiment("delete traces")
 
@@ -2550,13 +2602,17 @@ def test_set_and_delete_trace_tag(mlflow_client):
 
     # Create test trace
     trace_info = mlflow_client._tracing_client.start_trace(
-        experiment_id=experiment_id,
-        timestamp_ms=1000,
-        request_metadata={},
-        tags={
-            "tag1": "red",
-            "tag2": "blue",
-        },
+        TraceInfo(
+            trace_id="tr-1234",
+            trace_location=TraceLocation.from_experiment_id(experiment_id),
+            request_time=1000,
+            execution_duration=2000,
+            state=TraceState.OK,
+            tags={
+                "tag1": "red",
+                "tag2": "blue",
+            },
+        )
     )
 
     # Validate set tag
@@ -2571,8 +2627,6 @@ def test_set_and_delete_trace_tag(mlflow_client):
 
 
 def test_get_trace_artifact_handler(mlflow_client):
-    pytest.skip("Rest Store is not migrated to V3 yet")
-
     mlflow.set_tracking_uri(mlflow_client.tracking_uri)
 
     experiment_id = mlflow_client.create_experiment("get trace artifact")
@@ -2985,6 +3039,8 @@ def test_suppress_url_printing(mlflow_client: MlflowClient, monkeypatch):
 
 def test_assessments_end_to_end(mlflow_client):
     """Test complete assessment CRUD workflow using REST API."""
+    mlflow.set_tracking_uri(mlflow_client.tracking_uri)
+
     # Set up experiment and trace
     experiment_id = mlflow_client.create_experiment("assessment_crud_test")
     trace_info = mlflow_client.start_trace(name="test_trace", experiment_id=experiment_id)
@@ -3003,7 +3059,7 @@ def test_assessments_end_to_end(mlflow_client):
 
     # CREATE assessment
     create_response = requests.post(
-        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/traces/{trace_info.request_id}/assessments",
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/traces/{trace_info.request_id}/assessments",
         json=feedback_payload,
     )
     assert create_response.status_code == 200
@@ -3018,7 +3074,7 @@ def test_assessments_end_to_end(mlflow_client):
 
     # GET assessment
     get_response = requests.get(
-        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/traces/{trace_info.request_id}/assessments/{assessment_id}"
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/traces/{trace_info.request_id}/assessments/{assessment_id}"
     )
     assert get_response.status_code == 200
     retrieved = get_response.json()["assessment"]
@@ -3039,7 +3095,7 @@ def test_assessments_end_to_end(mlflow_client):
     }
 
     update_response = requests.patch(
-        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/traces/{trace_info.request_id}/assessments/{assessment_id}",
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/traces/{trace_info.request_id}/assessments/{assessment_id}",
         json=update_payload,
     )
     assert update_response.status_code == 200
@@ -3059,7 +3115,7 @@ def test_assessments_end_to_end(mlflow_client):
     }
 
     override_response = requests.post(
-        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/traces/{trace_info.request_id}/assessments",
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/traces/{trace_info.request_id}/assessments",
         json=override_payload,
     )
     assert override_response.status_code == 200
@@ -3068,14 +3124,14 @@ def test_assessments_end_to_end(mlflow_client):
 
     # Verify original is now invalid
     get_original = requests.get(
-        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/traces/{trace_info.request_id}/assessments/{assessment_id}"
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/traces/{trace_info.request_id}/assessments/{assessment_id}"
     )
     assert get_original.status_code == 200
     assert get_original.json()["assessment"]["valid"] is False
 
     # Verify override is valid
     get_override = requests.get(
-        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/traces/{trace_info.request_id}/assessments/{override_id}"
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/traces/{trace_info.request_id}/assessments/{override_id}"
     )
     assert get_override.status_code == 200
     assert get_override.json()["assessment"]["valid"] is True
@@ -3083,19 +3139,19 @@ def test_assessments_end_to_end(mlflow_client):
 
     # DELETE override assessment (should restore original)
     delete_response = requests.delete(
-        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/traces/{trace_info.request_id}/assessments/{override_id}"
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/traces/{trace_info.request_id}/assessments/{override_id}"
     )
     assert delete_response.status_code == 200
 
     # Verify override is deleted
     get_deleted = requests.get(
-        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/traces/{trace_info.request_id}/assessments/{override_id}"
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/traces/{trace_info.request_id}/assessments/{override_id}"
     )
     assert get_deleted.status_code == 404
 
     # Verify original is restored to valid
     get_restored = requests.get(
-        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/traces/{trace_info.request_id}/assessments/{assessment_id}"
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/traces/{trace_info.request_id}/assessments/{assessment_id}"
     )
     assert get_restored.status_code == 200
     assert get_restored.json()["assessment"]["valid"] is True
@@ -3110,7 +3166,7 @@ def test_assessments_end_to_end(mlflow_client):
     }
 
     expectation_response = requests.post(
-        f"{mlflow_client.tracking_uri}/api/2.0/mlflow/traces/{trace_info.request_id}/assessments",
+        f"{mlflow_client.tracking_uri}/api/3.0/mlflow/traces/{trace_info.request_id}/assessments",
         json=expectation_payload,
     )
     assert expectation_response.status_code == 200
@@ -3127,6 +3183,6 @@ def test_assessments_end_to_end(mlflow_client):
     # Clean up - delete remaining assessments
     for aid in [assessment_id, expectation_id]:
         delete_resp = requests.delete(
-            f"{mlflow_client.tracking_uri}/api/2.0/mlflow/traces/{trace_info.request_id}/assessments/{aid}"
+            f"{mlflow_client.tracking_uri}/api/3.0/mlflow/traces/{trace_info.request_id}/assessments/{aid}"
         )
         assert delete_resp.status_code == 200

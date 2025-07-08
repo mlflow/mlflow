@@ -426,6 +426,7 @@ export interface SearchRunsApiResponse {
 
 export interface SearchExperimentsApiResponse {
   experiments: ExperimentEntity[];
+  next_page_token?: string;
 }
 
 export interface GetExperimentApiResponse {

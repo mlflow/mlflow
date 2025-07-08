@@ -22,11 +22,11 @@ This feature helps you improve your prompts automatically by leveraging evaluati
 
 In order to use <APILink fn="mlflow.genai.optimize_prompt" /> API, you need to prepare the following:
 
-| Component | Definition | Example |
-|-----------|------------|---------|
-| **Registered Prompt** | A prompt registered in MLflow. See [Prompt Management](/genai/prompt-version-mgmt/prompt-registry/) for how to register a prompt. | <pre><code>mlflow.register_prompt(name="qa", template="Answer \{\{question\}\}")</code></pre> |
-| **Scorer Objects** | A set of <APILink fn="mlflow.genai.Scorer">Scorer</APILink> objects that evaluate the quality of the prompt. See <APILink fn="mlflow.genai.scorer" /> for how to define a custom scorer. | <pre><code>@scorer<br/>def exact_match(expectations: dict, outputs: dict)<br/>    return expectations == outputs</code></pre> |
-| **Training(+Validation) Data** | A set of training data and optionally validation data containing inputs and expected outputs. | \[\{"inputs": \{"question": "2+2"\}, "expectations": \{"answer": "4"\}}, \{"inputs": \{"question": "2+3"\}, "expectations": \{"answer": "5"\}\}\]|
+| Component                      | Definition                                                                                                                                                                               | Example                                                                                                                                           |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Registered Prompt**          | A prompt registered in MLflow. See [Prompt Management](/genai/prompt-version-mgmt/prompt-registry/) for how to register a prompt.                                                        | <pre><code>mlflow.register_prompt(name="qa", template="Answer \{\{question\}\}")</code></pre>                                                     |
+| **Scorer Objects**             | A set of <APILink fn="mlflow.genai.Scorer">Scorer</APILink> objects that evaluate the quality of the prompt. See <APILink fn="mlflow.genai.scorer" /> for how to define a custom scorer. | <pre><code>@scorer<br/>def exact_match(expectations: dict, outputs: dict)<br/> return expectations == outputs</code></pre>                        |
+| **Training(+Validation) Data** | A set of training data and optionally validation data containing inputs and expected outputs.                                                                                            | \[\{"inputs": \{"question": "2+2"\}, "expectations": \{"answer": "4"\}}, \{"inputs": \{"question": "2+3"\}, "expectations": \{"answer": "5"\}\}\] |
 
 ## Getting Started
 
@@ -176,6 +176,34 @@ You can customize the optimization process using `OptimizerConfig`, which includ
 - **autolog**: Whether to log the optimization parameters, datasets and metrics. If set to True, a MLflow run is automatically created to store them. Default: False
 
 See <APILink fn="mlflow.genai.OptimizerConfig" /> for more details.
+
+## Performance Benchmarks
+
+:::info
+
+We are actively working on the benchmarking.
+These benchmarks results are preliminary and subject to change.
+
+:::
+
+MLflow prompt optimization can improve your application's performance across various tasks. Here are the results from testing MLflow's optimization capabilities on several datasets:
+
+- [**ARC-Challenge**](https://huggingface.co/datasets/allenai/ai2_arc): The ai2_arc dataset contains a set of multiple choice science questions
+- [**GSM8K**](https://huggingface.co/datasets/openai/gsm8k): The gsm8k dataset contains a set of linguistically diverse grade school math word problems
+- [**MATH**](https://huggingface.co/datasets/DigitalLearningGmbH/MATH-lighteval): Competition mathematics problems requiring advanced reasoning and problem-solving skills
+
+| Dataset           | Model           | Baseline | Optimized  |
+| ----------------- | --------------- | -------- | ---------- |
+| **MATH**          | gpt-4.1o-nano   | 17.25%   | **18.48%** |
+| **GSM8K**         | gpt-4.1o-nano   | 21.46%   | **49.89%** |
+| **ARC-Challenge** | gpt-4.1o-nano   | 71.42%   | **89.25%** |
+| **MATH**          | Llama4-maverick | 33.06%   | **33.26%** |
+| **GSM8K**         | Llama4-maverick | 55.80%   | **58.22%** |
+| **ARC-Challenge** | Llama4-maverick | 0.17%    | **93.17%** |
+
+The results above are benchmarks tested against `gpt-4.1o-nano` and `Llama4-maverick` with DSPy's MIPROv2 algorithm and default settings, using specific evaluation metrics for each task.
+The results might change if you use a different model, configuration, dataset, or starting prompt(s).
+These results show that MLflow's prompt optimization can solve many of the challenges, delivering measurable performance gains with minimal effort.
 
 ## FAQ
 

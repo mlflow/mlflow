@@ -418,7 +418,7 @@ class Model:
         # store model id instead of run_id and path to avoid confusion when model gets exported
         self.run_id = run_id
         self.artifact_path = artifact_path
-        self.utc_time_created = str(utc_time_created or datetime.utcnow())
+        self.utc_time_created = str(utc_time_created or datetime.now())
         self.flavors = flavors if flavors is not None else {}
         self.signature = signature
         self.saved_input_example_info = saved_input_example_info
@@ -1432,7 +1432,8 @@ def get_model_info(model_uri: str) -> ModelInfo:
 
         with mlflow.start_run() as run:
             params = {"n_estimators": 3, "random_state": 42}
-            X, y = [[0, 1]], [1]
+            X = [[0, 1]]
+            y = [1]
             signature = mlflow.models.infer_signature(X, y)
             rfr = RandomForestRegressor(**params).fit(X, y)
             mlflow.log_params(params)
