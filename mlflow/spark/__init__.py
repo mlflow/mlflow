@@ -1147,6 +1147,7 @@ class _PyFuncModelWrapper:
         return [x.prediction for x in prediction_df.collect()]
 
 
+# TODO: add @track_api_usage after fixing the issue with _listen_for_spark_activity
 @autologging_integration(FLAVOR_NAME)
 def autolog(disable=False, silent=False):
     """

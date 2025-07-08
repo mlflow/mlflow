@@ -45,6 +45,7 @@ from mlflow.protos.databricks_pb2 import (
     RESOURCE_DOES_NOT_EXIST,
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
+from mlflow.telemetry.track import track_api_usage
 from mlflow.tracing.provider import _get_trace_exporter
 from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking._tracking_service.utils import _resolve_tracking_uri
@@ -2994,6 +2995,7 @@ def _get_experiment_id() -> Optional[str]:
         return _get_experiment_id_from_env() or default_experiment_registry.get_experiment_id()
 
 
+@track_api_usage
 @autologging_integration("mlflow")
 def autolog(
     log_input_examples: bool = False,

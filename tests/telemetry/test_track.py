@@ -154,6 +154,3 @@ def test_track_api_usage_do_not_track_internal_api(mock_requests):
         )
     )
     assert record["duration_ms"] > 0
-
-
-# TODO: apply track_api_usage to APIs and test the record params

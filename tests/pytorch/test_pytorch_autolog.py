@@ -1,3 +1,6 @@
+import json
+from dataclasses import asdict
+
 import pytest
 import pytorch_lightning as pl
 import torch
@@ -16,6 +19,8 @@ import mlflow.pytorch
 from mlflow import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.pytorch._lightning_autolog import _get_optimizer_name
+from mlflow.telemetry.client import get_telemetry_client
+from mlflow.telemetry.schemas import AutologParams
 from mlflow.utils.file_utils import TempDir
 
 NUM_EPOCHS = 20
@@ -753,3 +758,26 @@ def test_automatic_checkpoint_per_epoch_save_best_only_max_monitor_callback():
         ]
         == 2
     )
+
+
+def test_autolog_sends_telemetry_record(mock_requests):
+    mlflow.pytorch.autolog(log_models=True, log_datasets=True, disable=False)
+
+    # Wait for telemetry to be sent
+    get_telemetry_client().flush()
+
+    # Check that telemetry record was sent
+    assert len(mock_requests) == 1
+    autolog_record = mock_requests[0]
+    data = json.loads(autolog_record["data"])
+    assert data["api_module"] == mlflow.pytorch.autolog.__module__
+    assert data["api_name"] == "autolog"
+    assert data["params"] == asdict(
+        AutologParams(
+            flavor="pytorch",
+            disable=False,
+            log_traces=False,
+            log_models=True,
+        )
+    )
+    assert data["status"] == "success"

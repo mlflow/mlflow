@@ -6,12 +6,14 @@ from mlflow.gemini.autolog import (
     patched_class_call,
     patched_module_call,
 )
+from mlflow.telemetry.track import track_api_usage
 from mlflow.utils.annotations import experimental
 from mlflow.utils.autologging_utils import autologging_integration, safe_patch
 
 FLAVOR_NAME = "gemini"
 
 
+@track_api_usage
 @experimental(version="2.19.0")
 @autologging_integration(FLAVOR_NAME)
 def autolog(

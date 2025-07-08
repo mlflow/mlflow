@@ -278,3 +278,27 @@ def test_autologging_truncates_datasource_tag_to_maximum_supported_value(tmp_pat
 def test_enabling_autologging_does_not_throw_when_spark_hasnt_been_started(spark_session):
     spark_session.stop()
     mlflow.spark.autolog()
+
+
+# TODO: re-enable this test after fixing spark autologging telemetry
+# def test_autolog_sends_telemetry_record(mock_requests):
+#     mlflow.spark.autolog(disable=False)
+
+#     # Wait for telemetry to be sent
+#     get_telemetry_client().flush()
+
+#     # Check that telemetry record was sent
+#     assert len(mock_requests) == 1
+#     autolog_record = mock_requests[0]
+#     data = json.loads(autolog_record["data"])
+#     assert data["api_module"] == mlflow.spark.autolog.__module__
+#     assert data["api_name"] == "autolog"
+#     assert data["params"] == asdict(
+#         AutologParams(
+#             flavor="spark",
+#             disable=False,
+#             log_traces=False,
+#             log_models=False,
+#         )
+#     )
+#     assert data["status"] == "success"

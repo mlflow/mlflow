@@ -2,6 +2,7 @@ import functools
 import json
 import os
 import pickle
+from dataclasses import asdict
 from unittest import mock
 from unittest.mock import patch
 
@@ -18,6 +19,8 @@ import mlflow.lightgbm
 from mlflow import MlflowClient
 from mlflow.lightgbm import _autolog_callback
 from mlflow.models import Model
+from mlflow.telemetry.client import get_telemetry_client
+from mlflow.telemetry.schemas import AutologParams
 from mlflow.types.utils import _infer_schema
 from mlflow.utils.autologging_utils import BatchMetricsLogger, picklable_exception_safe_function
 
@@ -812,3 +815,26 @@ def test_lgb_log_datasets_with_valid_set_with_name(bst_params, train_set, valid_
     assert dataset_inputs[0].tags[0].value == "train"
     assert dataset_inputs[1].tags[0].value == "eval"
     assert dataset_inputs[1].dataset.name == "my_valid_set"
+
+
+def test_autolog_sends_telemetry_record(mock_requests):
+    mlflow.lightgbm.autolog(log_models=True, log_datasets=True, disable=False)
+
+    # Wait for telemetry to be sent
+    get_telemetry_client().flush()
+
+    # Check that telemetry record was sent
+    assert len(mock_requests) == 1
+    autolog_record = mock_requests[0]
+    data = json.loads(autolog_record["data"])
+    assert data["api_module"] == mlflow.lightgbm.autolog.__module__
+    assert data["api_name"] == "autolog"
+    assert data["params"] == asdict(
+        AutologParams(
+            flavor="lightgbm",
+            disable=False,
+            log_traces=False,
+            log_models=True,
+        )
+    )
+    assert data["status"] == "success"
