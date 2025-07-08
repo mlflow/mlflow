@@ -72,6 +72,10 @@ jobs:
           API_REFERENCE_PREFIX: https://pr-${{ github.event.pull_request.number }}--mlflow-docs-preview.netlify.app/latest/
         run: |
           yarn build-all -- --no-r
+      - name: Test examples
+        working-directory: docs/api_reference
+        run: |
+          make test-examples
       - name: Move build artifacts
         run: |
           mkdir -p /tmp/docs-build/docs
