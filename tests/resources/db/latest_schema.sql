@@ -47,6 +47,20 @@ CREATE TABLE registered_models (
 )
 
 
+CREATE TABLE webhooks (
+	webhook_id VARCHAR(256) NOT NULL,
+	name VARCHAR(256) NOT NULL,
+	description VARCHAR(1000),
+	url VARCHAR(500) NOT NULL,
+	status VARCHAR(20) DEFAULT 'ACTIVE' NOT NULL,
+	secret VARCHAR(1000),
+	creation_timestamp BIGINT,
+	last_updated_timestamp BIGINT,
+	deleted_timestamp BIGINT,
+	CONSTRAINT webhook_pk PRIMARY KEY (webhook_id)
+)
+
+
 CREATE TABLE datasets (
 	dataset_uuid VARCHAR(36) NOT NULL,
 	experiment_id INTEGER NOT NULL,
@@ -159,6 +173,14 @@ CREATE TABLE trace_info (
 	response_preview VARCHAR(1000),
 	CONSTRAINT trace_info_pk PRIMARY KEY (request_id),
 	CONSTRAINT fk_trace_info_experiment_id FOREIGN KEY(experiment_id) REFERENCES experiments (experiment_id)
+)
+
+
+CREATE TABLE webhook_events (
+	webhook_id VARCHAR(256) NOT NULL,
+	event VARCHAR(50) NOT NULL,
+	CONSTRAINT webhook_event_pk PRIMARY KEY (webhook_id, event),
+	FOREIGN KEY(webhook_id) REFERENCES webhooks (webhook_id) ON DELETE CASCADE
 )
 
 

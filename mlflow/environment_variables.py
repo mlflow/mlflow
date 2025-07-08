@@ -45,11 +45,11 @@ class _EnvironmentVariable:
             try:
                 return self.type(val)
             except Exception as e:
-                raise ValueError(f"Failed to convert {val!r} to {self.type} for {self.name}: {e}")
+                raise ValueError(f"Failed to convert {val!r} for {self.name}: {e}")
         return self.default
 
     def __str__(self):
-        return f"{self.name} (default: {self.default}, type: {self.type.__name__})"
+        return f"{self.name} (default: {self.default})"
 
     def __repr__(self):
         return repr(self.name)
@@ -858,4 +858,15 @@ MLFLOW_SERVER_GRAPHQL_MAX_ROOT_FIELDS = _EnvironmentVariable(
 #: (default: ``10``)
 MLFLOW_SERVER_GRAPHQL_MAX_ALIASES = _EnvironmentVariable(
     "MLFLOW_SERVER_GRAPHQL_MAX_ALIASES", int, 10
+)
+
+
+def _split_strip(s: str) -> list[str]:
+    return [s.strip() for s in s.split(",")]
+
+
+# Specifies the allowed schemes for MLflow webhook URLs.
+# This environment variable is not intended for production use.
+_MLFLOW_WEBHOOK_ALLOWED_SCHEMES = _EnvironmentVariable(
+    "MLFLOW_WEBHOOK_ALLOWED_SCHEMES", _split_strip, ["https"]
 )

@@ -9,6 +9,7 @@ numpy<3
 scipy<2
 pandas<3
 sqlalchemy<3,>=1.4.0
+cryptography<46,>=43.0.0
 gunicorn<24; platform_system != 'Windows'
 waitress<4; platform_system == 'Windows'
 scikit-learn<2
