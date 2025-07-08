@@ -67,6 +67,7 @@ jobs:
       - name: Build docs
         env:
           GTM_ID: "GTM-TEST"
+          API_REFERENCE_PREFIX: https://pr-${{ github.event.pull_request.number }}--mlflow-docs-preview.netlify.app/
         run: |
           yarn build-all -- --no-r
           yarn convert-notebooks
