@@ -1,0 +1,55 @@
+2025-07-09 00:36:39,296 - INFO - Connecting to PostgreSQL: postgresql://postgres:7HrX26sHIZz8yffytPc0@autonomize-database-1002.cwpqzu4drrfr.us-east-1.rds.amazonaws.com:5432/mlflow
+2025-07-09 00:36:42,053 - INFO - PostgreSQL connection successful: PostgreSQL 16.8 on aarch64-unknown-linux-gnu, compiled by gcc (GCC) 7.3.1 20180712 (Red Hat 7.3.1-17), 64-bit
+2025-07-09 00:36:42,054 - INFO - Connecting to MongoDB: mongodb://localhost:27017/mlflow_migrated_from_autonomize
+2025-07-09 00:36:42,068 - INFO - MongoDB connection successful: mlflow_migrated_from_autonomize
+2025-07-09 00:36:42,068 - INFO - Analyzing source data in PostgreSQL...
+2025-07-09 00:36:42,484 - INFO -   experiments: 284 records
+2025-07-09 00:36:42,807 - INFO -   runs: 6,017 records
+2025-07-09 00:36:43,133 - INFO -   metrics: 57,350 records
+2025-07-09 00:36:43,478 - INFO -   params: 71,003 records
+2025-07-09 00:36:43,802 - INFO -   tags: 34,811 records
+2025-07-09 00:36:44,121 - INFO -   registered_models: 212 records
+2025-07-09 00:36:44,457 - INFO -   model_versions: 1,168 records
+2025-07-09 00:36:44,775 - INFO -   registered_model_tags: 97 records
+2025-07-09 00:36:45,096 - INFO -   model_version_tags: 130 records
+2025-07-09 00:36:45,417 - INFO -   registered_model_aliases: 25 records
+2025-07-09 00:36:45,744 - INFO -   datasets: 83 records
+2025-07-09 00:36:46,141 - INFO -   inputs: 767 records
+2025-07-09 00:36:46,460 - INFO -   input_tags: 173 records
+2025-07-09 00:36:46,779 - INFO -   experiment_tags: 77 records
+2025-07-09 00:36:47,100 - INFO -   latest_metrics: 17,240 records
+2025-07-09 00:36:47,448 - INFO -   logged_models: 56 records
+2025-07-09 00:36:47,774 - INFO -   logged_model_tags: 208 records
+2025-07-09 00:36:48,094 - INFO -   logged_model_params: 0 records
+2025-07-09 00:36:48,413 - INFO -   logged_model_metrics: 0 records
+2025-07-09 00:36:48,731 - INFO -   trace_info: 4,756 records
+2025-07-09 00:36:49,053 - INFO -   trace_request_metadata: 20,472 records
+2025-07-09 00:36:49,374 - INFO -   trace_tags: 17,445 records
+2025-07-09 00:36:49,375 - INFO - Total records to migrate: 232,374
+2025-07-09 00:36:49,375 - INFO - Auto-confirming migration of 232,374 records...
+2025-07-09 00:36:49,375 - INFO - Migrating experiments...
+2025-07-09 00:36:50,424 - INFO - Experiments migration completed: 284 migrated
+2025-07-09 00:36:50,424 - INFO - Migrating runs...
+2025-07-09 00:36:52,496 - INFO - Runs migration completed: 6017 migrated
+2025-07-09 00:36:52,496 - INFO - Migrating metrics...
+2025-07-09 00:36:54,611 - INFO - Metrics migration completed: 57350 migrated
+2025-07-09 00:36:54,611 - INFO - Migrating parameters...
+2025-07-09 00:36:56,592 - INFO - Parameters migration completed: 71003 migrated
+2025-07-09 00:36:56,592 - INFO - Migrating tags...
+2025-07-09 00:36:57,950 - INFO - Tags migration completed: 34811 migrated
+2025-07-09 00:36:57,950 - INFO - Migrating experiment_tags...
+2025-07-09 00:36:59,052 - INFO - experiment_tags migration completed: 77 migrated
+2025-07-09 00:36:59,052 - INFO - Migrating datasets...
+2025-07-09 00:37:00,126 - INFO - datasets migration completed: 83 migrated
+2025-07-09 00:37:00,127 - INFO - Migrating inputs...
+2025-07-09 00:37:01,226 - INFO - inputs migration completed: 767 migrated
+2025-07-09 00:37:01,227 - INFO - Migrating input_tags...
+2025-07-09 00:37:02,274 - INFO - input_tags migration completed: 173 migrated
+2025-07-09 00:37:02,274 - INFO - Migrating latest_metrics...
+2025-07-09 00:37:04,073 - INFO - latest_metrics migration completed: 17240 migrated
+2025-07-09 00:37:04,073 - INFO - Migrating registered models...
+2025-07-09 00:37:04,778 - ERROR - Error migrating registered models: column "creation_timestamp" does not exist
+LINE 2:                     SELECT name, creation_timestamp, last_up...
+                                         ^
+
+2025-07-09 00:37:04,778 - ERROR - Migration step failed: migrate_registered_models

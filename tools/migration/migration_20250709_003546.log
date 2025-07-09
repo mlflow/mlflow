@@ -1,0 +1,30 @@
+2025-07-09 00:35:46,114 - INFO - Starting PostgreSQL to MongoDB migration...
+2025-07-09 00:35:46,114 - INFO - Connecting to PostgreSQL: postgresql://postgres:7HrX26sHIZz8yffytPc0@autonomize-database-1002.cwpqzu4drrfr.us-east-1.rds.amazonaws.com:5432/mlflow
+2025-07-09 00:35:51,172 - INFO - PostgreSQL connection successful: PostgreSQL 16.8 on aarch64-unknown-linux-gnu, compiled by gcc (GCC) 7.3.1 20180712 (Red Hat 7.3.1-17), 64-bit
+2025-07-09 00:35:51,172 - INFO - Connecting to MongoDB: mongodb://localhost:27017/mlflow_migrated_from_autonomize
+2025-07-09 00:35:51,182 - INFO - MongoDB connection successful: mlflow_migrated_from_autonomize
+2025-07-09 00:35:51,183 - INFO - Analyzing source data in PostgreSQL...
+2025-07-09 00:35:51,670 - INFO -   experiments: 284 records
+2025-07-09 00:35:51,993 - INFO -   runs: 6,016 records
+2025-07-09 00:35:52,333 - INFO -   metrics: 57,350 records
+2025-07-09 00:35:52,657 - INFO -   params: 71,003 records
+2025-07-09 00:35:52,978 - INFO -   tags: 34,806 records
+2025-07-09 00:35:53,300 - INFO -   registered_models: 212 records
+2025-07-09 00:35:53,626 - INFO -   model_versions: 1,167 records
+2025-07-09 00:35:53,945 - INFO -   registered_model_tags: 97 records
+2025-07-09 00:35:54,265 - INFO -   model_version_tags: 130 records
+2025-07-09 00:35:54,622 - INFO -   registered_model_aliases: 25 records
+2025-07-09 00:35:54,940 - INFO -   datasets: 83 records
+2025-07-09 00:35:55,260 - INFO -   inputs: 767 records
+2025-07-09 00:35:55,580 - INFO -   input_tags: 173 records
+2025-07-09 00:35:55,932 - INFO -   experiment_tags: 77 records
+2025-07-09 00:35:56,253 - INFO -   latest_metrics: 17,240 records
+2025-07-09 00:35:56,571 - INFO -   logged_models: 56 records
+2025-07-09 00:35:56,893 - INFO -   logged_model_tags: 208 records
+2025-07-09 00:35:57,214 - INFO -   logged_model_params: 0 records
+2025-07-09 00:35:57,532 - INFO -   logged_model_metrics: 0 records
+2025-07-09 00:35:57,852 - INFO -   trace_info: 4,756 records
+2025-07-09 00:35:58,175 - INFO -   trace_request_metadata: 20,472 records
+2025-07-09 00:35:58,496 - INFO -   trace_tags: 17,445 records
+2025-07-09 00:35:58,496 - INFO - Total records to migrate: 232,367
+2025-07-09 00:35:58,497 - ERROR - Migration failed: EOF when reading a line
