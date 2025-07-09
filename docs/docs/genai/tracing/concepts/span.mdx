@@ -3,7 +3,6 @@ import TabItem from "@theme/TabItem"
 import ImageBox from "@site/src/components/ImageBox";
 import TabsWrapper from "@site/src/components/TabsWrapper";
 import { APILink } from "@site/src/components/APILink";
-import SpanArchitectureImageUrl from '@site/static/images/llms/tracing/schema/span_architecture.png';
 
 # Spans
 
@@ -12,7 +11,7 @@ import SpanArchitectureImageUrl from '@site/static/images/llms/tracing/schema/sp
 The Span object is a fundamental building block in the [Trace](/genai/tracing/concepts/trace) data model. It is a container for the information about the individual steps of the trace, such as LLM calls, tool execution, retrieval, etc. Spans form a hierarchical tree structure within a single trace, which represents the execution flow of the trace.
 
 <ImageBox
-  src={SpanArchitectureImageUrl}
+  src="/images/llms/tracing/schema/span_architecture.png"
   alt="Example of a Span for a Tool Calling Agent"
   width="80%"
   caption="Example of a Span for a Tool Calling Agent"
