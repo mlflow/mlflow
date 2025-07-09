@@ -620,7 +620,7 @@ def test_validate_and_get_model_code_path_success(tmp_path):
 
     assert actual == model_path
 
-def test_supressed_schema_error(monkeypatch):
+def test_suppress_schema_error(monkeypatch):
     schema = Schema([
         ColSpec("double", "id"),
         ColSpec("string", "name"),
