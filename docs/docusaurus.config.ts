@@ -393,7 +393,7 @@ const config: Config = {
             from: ['/genai/tracing/data-model', '/genai/tracing/trace-instrumentation'],
           },
           {
-            to: '/genai/tracing/tracing/quickstart/python-openai',
+            to: '/genai/tracing/quickstart/python-openai',
             from: ['/genai/tracing/quickstart'],
           },
           // LLM Flavors Redirects
