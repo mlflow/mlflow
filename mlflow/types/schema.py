@@ -341,11 +341,16 @@ class Object(BaseType):
                 "Expected values to be instance of Property"
             )
         # check duplicated property names
-        names = [prop.name for prop in properties]
-        duplicates = {name for name in names if names.count(name) > 1}
+        names = set()
+        duplicates = set()
+        for prop in properties:
+            if prop.name in names:
+                duplicates.add(prop.name)
+            else:
+                names.add(prop.name)
         if len(duplicates) > 0:
             raise MlflowException.invalid_parameter_value(
-                f"Found duplicated property names: {duplicates}"
+                f"Found duplicated property names: `{', '.join(duplicates)}`"
             )
 
     @property
