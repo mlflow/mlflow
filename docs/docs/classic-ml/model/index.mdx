@@ -551,10 +551,10 @@ models in MLflow Model format. These methods produce MLflow Models with the `pyt
 as generic Python functions for inference via <APILink fn="mlflow.pyfunc.load_model" />.
 This loaded PyFunc model can be scored with only DataFrame input. When you load
 MLflow Models with the `h2o` flavor using <APILink fn="mlflow.pyfunc.load_model" />,
-the [h2o.init()](http://docs.h2o.ai/h2o/latest-stable/h2o-py/docs/h2o.html#h2o.init) method is
+the [h2o.init()](https://docs.h2o.ai/h2o/latest-stable/h2o-py/docs/h2o.html#h2o.init) method is
 called. Therefore, the correct version of `h2o(-py)` must be installed in the loader's
 environment. You can customize the arguments given to
-[h2o.init()](http://docs.h2o.ai/h2o/latest-stable/h2o-py/docs/h2o.html#h2o.init) by modifying the
+[h2o.init()](https://docs.h2o.ai/h2o/latest-stable/h2o-py/docs/h2o.html#h2o.init) by modifying the
 `init` entry of the persisted H2O model's YAML configuration file: `model.h2o/h2o.yaml`.
 
 Finally, you can use the <APILink fn="mlflow.h2o.load_model" /> method to load MLflow Models with the
@@ -790,7 +790,7 @@ print(y_pred)
 
 ### CatBoost (`catboost`)
 
-The `catboost` model flavor enables logging of [CatBoost models](https://catboost.ai/docs/concepts/python-reference_catboost.html)
+The `catboost` model flavor enables logging of [CatBoost models](https://catboost.ai/docs/en/concepts/python-reference_catboost)
 in MLflow format via the <APILink fn="mlflow.catboost.save_model" /> and <APILink fn="mlflow.catboost.log_model" /> methods.
 These methods also add the `python_function` flavor to the MLflow Models that they produce, allowing the
 models to be interpreted as generic Python functions for inference via <APILink fn="mlflow.pyfunc.load_model" />.

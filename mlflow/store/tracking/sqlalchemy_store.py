@@ -1284,6 +1284,38 @@ class SqlAlchemyStore(AbstractStore):
                 SqlExperimentTag(experiment_id=experiment_id, key=tag.key, value=tag.value)
             )
 
+    def delete_experiment_tag(self, experiment_id, key):
+        """
+        Delete a tag from the specified experiment
+
+        Args:
+            experiment_id: String ID of the experiment
+            key: String name of the tag to be deleted
+        """
+        with self.ManagedSessionMaker() as session:
+            experiment = self._get_experiment(
+                session, experiment_id, ViewType.ALL
+            ).to_mlflow_entity()
+            self._check_experiment_is_active(experiment)
+            filtered_tags = (
+                session.query(SqlExperimentTag)
+                .filter_by(experiment_id=experiment_id, key=key)
+                .all()
+            )
+            if len(filtered_tags) == 0:
+                raise MlflowException(
+                    f"No tag with name: {key} in experiment with id {experiment_id}",
+                    error_code=RESOURCE_DOES_NOT_EXIST,
+                )
+            elif len(filtered_tags) > 1:
+                raise MlflowException(
+                    "Bad data in database - tags for a specific experiment must have "
+                    "a single unique value. "
+                    "See https://mlflow.org/docs/latest/ml/getting-started/logging-first-model/step3-create-experiment/#notes-on-tags-vs-experiments",
+                    error_code=INVALID_STATE,
+                )
+            session.delete(filtered_tags[0])
+
     def set_tag(self, run_id, tag):
         """
         Set a tag on a run.

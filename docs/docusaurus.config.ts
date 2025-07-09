@@ -87,18 +87,6 @@ const config: Config = {
         fontSize: 16,
       },
     },
-    ...(process.env.PR_PREVIEW
-      ? {
-          announcementBar: {
-            id: 'pr_preview',
-            content:
-              '<strong>⚠️ Reloading the page causes a 404 error. Add /index.html to the URL to avoid it ⚠️</strong>',
-            backgroundColor: '#0194e2',
-            textColor: '#ffffff',
-            isCloseable: true,
-          },
-        }
-      : {}),
     navbar: {
       logo: {
         alt: 'MLflow Logo',
@@ -279,7 +267,7 @@ const config: Config = {
             from: ['/tracing/faq'],
           },
           {
-            to: '/genai/tracing/data-model',
+            to: '/genai/tracing/concepts/trace',
             from: ['/tracing/tracing-schema', '/llms/tracing/tracing-schema'],
           },
           {
@@ -399,9 +387,14 @@ const config: Config = {
             from: ['/tracing/tutorials'],
           },
 
+          // Tracing Redirects
+          {
+            to: '/genai/tracing/concepts/trace',
+            from: ['/genai/tracing/data-model', '/genai/tracing/trace-instrumentation'],
+          },
           // LLM Flavors Redirects
           {
-            to: '/genai/overview',
+            to: '/genai',
             from: [
               '/llms/rag',
               '/llms/rag/notebooks',

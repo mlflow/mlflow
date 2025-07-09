@@ -633,6 +633,17 @@ def test_set_experiment_tag_with_empty_string_as_value(mlflow_client):
     assert {"tag_key": ""}.items() <= mlflow_client.get_experiment(experiment_id).tags.items()
 
 
+def test_delete_experiment_tag(mlflow_client):
+    experiment_id = mlflow_client.create_experiment("DeleteExperimentTagTest")
+    mlflow_client.set_experiment_tag(experiment_id, "dataset", "imagenet1K")
+    experiment = mlflow_client.get_experiment(experiment_id)
+    assert experiment.tags["dataset"] == "imagenet1K"
+    # test that deleting a tag works
+    mlflow_client.delete_experiment_tag(experiment_id, "dataset")
+    experiment = mlflow_client.get_experiment(experiment_id)
+    assert "dataset" not in experiment.tags
+
+
 def test_delete_tag(mlflow_client):
     experiment_id = mlflow_client.create_experiment("DeleteTagExperiment")
     created_run = mlflow_client.create_run(experiment_id)

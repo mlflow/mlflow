@@ -35,7 +35,7 @@ const queryFn = ({ queryKey }: QueryFunctionContext<ExperimentListQueryKey>) => 
   const data = [['max_results', String(pageSize)], ...orderBy];
 
   if (searchFilter) {
-    data.push(['filter', searchFilter]);
+    data.push(['filter', `name ILIKE '%${searchFilter}%'`]);
   }
 
   if (pageToken) {

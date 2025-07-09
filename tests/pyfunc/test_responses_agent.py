@@ -1,3 +1,5 @@
+import pathlib
+import pickle
 from typing import Generator
 
 import pytest
@@ -115,6 +117,68 @@ class SimpleResponsesAgent(ResponsesAgent):
         self, request: ResponsesAgentRequest
     ) -> Generator[ResponsesAgentStreamEvent, None, None]:
         yield from [ResponsesAgentStreamEvent(**r) for r in get_stream_mock_response()]
+
+
+class ResponsesAgentWithContext(ResponsesAgent):
+    def load_context(self, context):
+        predict_path = pathlib.Path(context.artifacts["predict_fn"])
+        self.predict_fn = pickle.loads(predict_path.read_bytes())
+
+    def predict(self, request: ResponsesAgentRequest) -> ResponsesAgentResponse:
+        return ResponsesAgentResponse(
+            output=[
+                {
+                    "type": "message",
+                    "id": "test-id",
+                    "status": "completed",
+                    "role": "assistant",
+                    "content": [
+                        {
+                            "type": "output_text",
+                            "text": self.predict_fn(),
+                        }
+                    ],
+                }
+            ]
+        )
+
+    def predict_stream(
+        self, request: ResponsesAgentRequest
+    ) -> Generator[ResponsesAgentStreamEvent, None, None]:
+        yield ResponsesAgentStreamEvent(
+            type="response.output_item.added",
+            output_index=0,
+            item=self.create_text_output_item(self.predict_fn(), "test-id"),
+        )
+
+
+def mock_responses_predict():
+    return "hello from context"
+
+
+def test_responses_agent_with_context(tmp_path):
+    predict_path = tmp_path / "predict.pkl"
+    predict_path.write_bytes(pickle.dumps(mock_responses_predict))
+
+    model = ResponsesAgentWithContext()
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            name="model",
+            python_model=model,
+            artifacts={"predict_fn": str(predict_path)},
+        )
+
+    loaded_model = mlflow.pyfunc.load_model(model_info.model_uri)
+
+    # Test predict
+    response = loaded_model.predict(RESPONSES_AGENT_INPUT_EXAMPLE)
+    assert response["output"][0]["content"][0]["text"] == "hello from context"
+
+    # Test predict_stream
+    responses = list(loaded_model.predict_stream(RESPONSES_AGENT_INPUT_EXAMPLE))
+    assert len(responses) == 1
+    assert responses[0]["item"]["content"][0]["text"] == "hello from context"
 
 
 def test_responses_agent_save_load_signatures(tmp_path):
