@@ -1,5 +1,5 @@
 """
-Tests for MLflow Databricks trace archival functionality.
+Tests for MLflow tracing databricks archival functionality.
 """
 
 import pytest
@@ -9,19 +9,17 @@ from unittest.mock import Mock, patch, MagicMock
 from mlflow.entities.trace_archive_configuration import TraceArchiveConfiguration
 from mlflow.entities.trace_location import MlflowExperimentLocation, TraceLocation, TraceLocationType
 from mlflow.exceptions import MlflowException
-from mlflow.tracing.archival.databricks import enable_databricks_archival, DatabricksArchivalManager, SUPPORTED_SCHEMA_VERSION
+from mlflow.tracing.archival.databricks import enable_databricks_archival, _validate_schema_versions, _create_genai_trace_view, _do_enable_databricks_archival, SUPPORTED_SCHEMA_VERSION
 
 
 class TestTraceArchival:
     """Test cases for trace archival functionality."""
 
-    @patch("mlflow.tracing.archival.databricks.DatabricksArchivalManager")
-    def test_enable_trace_archival_success(self, mock_manager_class):
+    @patch("mlflow.tracing.archival.databricks._do_enable_databricks_archival")
+    def test_enable_trace_archival_success(self, mock_impl):
         """Test successful trace archival enablement."""
-        # Mock the manager instance
-        mock_manager = Mock()
-        mock_manager.enable_archival.return_value = "catalog.schema.trace_logs_12345"
-        mock_manager_class.return_value = mock_manager
+        # Mock the implementation function
+        mock_impl.return_value = "catalog.schema.trace_logs_12345"
 
         # Call the function
         result = enable_databricks_archival("12345", "catalog", "schema")
@@ -29,91 +27,74 @@ class TestTraceArchival:
         # Verify the result
         assert result == "catalog.schema.trace_logs_12345"
 
-        # Verify manager was created with correct parameters
-        mock_manager_class.assert_called_once_with("12345", "catalog", "schema", "trace_logs")
+        # Verify implementation was called with correct parameters
+        mock_impl.assert_called_once_with("12345", "catalog", "schema", "trace_logs")
 
-        # Verify enable_archival was called
-        mock_manager.enable_archival.assert_called_once()
-
-    @patch("mlflow.tracing.archival.databricks.DatabricksArchivalManager")
-    def test_enable_trace_archival_authentication_failure(self, mock_manager_class):
+    @patch("mlflow.tracing.archival.databricks._do_enable_databricks_archival")
+    def test_enable_trace_archival_authentication_failure(self, mock_impl):
         """Test trace archival when authentication fails."""
-        # Mock manager to raise authentication failure
-        mock_manager = Mock()
-        mock_manager.enable_archival.side_effect = MlflowException("Failed to enable trace archival for experiment 12345: Authentication failed")
-        mock_manager_class.return_value = mock_manager
+        # Mock implementation to raise authentication failure
+        mock_impl.side_effect = MlflowException("Failed to enable trace archival for experiment 12345: Authentication failed")
 
         # Call the function and expect an exception
         with pytest.raises(MlflowException, match="Failed to enable trace archival"):
             enable_databricks_archival("12345", "catalog", "schema")
 
-    @patch("mlflow.tracing.archival.databricks.DatabricksArchivalManager")
-    def test_enable_trace_archival_view_creation_failure(self, mock_manager_class):
+    @patch("mlflow.tracing.archival.databricks._do_enable_databricks_archival")
+    def test_enable_trace_archival_view_creation_failure(self, mock_impl):
         """Test trace archival when view creation fails."""
-        # Mock manager to raise view creation failure
-        mock_manager = Mock()
-        mock_manager.enable_archival.side_effect = MlflowException("Failed to enable trace archival for experiment 12345: View creation failed")
-        mock_manager_class.return_value = mock_manager
+        # Mock implementation to raise view creation failure
+        mock_impl.side_effect = MlflowException("Failed to enable trace archival for experiment 12345: View creation failed")
 
         # Call the function and expect an exception
         with pytest.raises(MlflowException, match="Failed to enable trace archival"):
             enable_databricks_archival("12345", "catalog", "schema")
 
-    @patch("mlflow.tracing.archival.databricks.DatabricksArchivalManager")
-    def test_enable_trace_archival_experiment_tag_failure(self, mock_manager_class):
+    @patch("mlflow.tracing.archival.databricks._do_enable_databricks_archival")
+    def test_enable_trace_archival_experiment_tag_failure(self, mock_impl):
         """Test trace archival when experiment tag setting fails."""
-        # Mock manager to raise experiment tag failure
-        mock_manager = Mock()
-        mock_manager.enable_archival.side_effect = MlflowException("Failed to enable trace archival for experiment 12345: Failed to set experiment tag")
-        mock_manager_class.return_value = mock_manager
+        # Mock implementation to raise experiment tag failure
+        mock_impl.side_effect = MlflowException("Failed to enable trace archival for experiment 12345: Failed to set experiment tag")
 
         # Call the function and expect an exception
         with pytest.raises(MlflowException, match="Failed to enable trace archival"):
             enable_databricks_archival("12345", "catalog", "schema")
 
-    @patch("mlflow.tracing.archival.databricks.DatabricksArchivalManager")
-    def test_enable_trace_archival_api_failure(self, mock_manager_class):
+    @patch("mlflow.tracing.archival.databricks._do_enable_databricks_archival")
+    def test_enable_trace_archival_api_failure(self, mock_impl):
         """Test trace archival enablement when API call fails."""
-        # Mock manager to raise API failure
-        mock_manager = Mock()
-        mock_manager.enable_archival.side_effect = MlflowException("Failed to create trace destination")
-        mock_manager_class.return_value = mock_manager
+        # Mock implementation to raise API failure
+        mock_impl.side_effect = MlflowException("Failed to create trace destination")
 
         # Call the function and expect an exception
         with pytest.raises(MlflowException, match="Failed to create trace destination"):
             enable_databricks_archival("12345", "catalog", "schema")
 
-    @patch("mlflow.tracing.archival.databricks.DatabricksArchivalManager")
-    def test_enable_trace_archival_malformed_response(self, mock_manager_class):
+    @patch("mlflow.tracing.archival.databricks._do_enable_databricks_archival")
+    def test_enable_trace_archival_malformed_response(self, mock_impl):
         """Test trace archival when API returns malformed response."""
-        # Mock manager to raise malformed response error
-        mock_manager = Mock()
-        mock_manager.enable_archival.side_effect = MlflowException("Failed to enable trace archival for experiment 12345: 'events_table_name'")
-        mock_manager_class.return_value = mock_manager
+        # Mock implementation to raise malformed response error
+        mock_impl.side_effect = MlflowException("Failed to enable trace archival for experiment 12345: 'events_table_name'")
 
         # Call the function and expect an exception due to missing key
         with pytest.raises(MlflowException, match="Failed to enable trace archival"):
             enable_databricks_archival("12345", "catalog", "schema")
 
-    @patch("mlflow.tracing.archival.databricks.DatabricksArchivalManager")
-    def test_enable_trace_archival_http_exception(self, mock_manager_class):
+    @patch("mlflow.tracing.archival.databricks._do_enable_databricks_archival")
+    def test_enable_trace_archival_http_exception(self, mock_impl):
         """Test trace archival when HTTP request raises an exception."""
-        # Mock manager to raise HTTP exception
-        mock_manager = Mock()
-        mock_manager.enable_archival.side_effect = MlflowException("Failed to enable trace archival for experiment 12345: Network error")
-        mock_manager_class.return_value = mock_manager
+        # Mock implementation to raise HTTP exception
+        mock_impl.side_effect = MlflowException("Failed to enable trace archival for experiment 12345: Network error")
 
         # Call the function and expect an exception
         with pytest.raises(MlflowException, match="Failed to enable trace archival"):
             enable_databricks_archival("12345", "catalog", "schema")
 
-    @patch("mlflow.tracing.archival.databricks.DatabricksArchivalManager")
-    def test_enable_trace_archival_with_custom_table_prefix(self, mock_manager_class):
+    @patch("mlflow.tracing.archival.databricks._do_enable_databricks_archival")
+    def test_enable_trace_archival_with_custom_table_prefix(self, mock_impl):
         """Test trace archival with custom table prefix."""
-        # Mock the manager instance
-        mock_manager = Mock()
-        mock_manager.enable_archival.return_value = "catalog.schema.trace_logs_12345"
-        mock_manager_class.return_value = mock_manager
+        # Mock the implementation function
+        mock_impl.return_value = "catalog.schema.trace_logs_12345"
 
         # Call with custom table prefix
         result = enable_databricks_archival("12345", "catalog", "schema", table_prefix="custom_prefix")
@@ -121,21 +102,19 @@ class TestTraceArchival:
         # Verify the result
         assert result == "catalog.schema.trace_logs_12345"
         
-        # Verify manager was created with correct parameters including custom prefix
-        mock_manager_class.assert_called_once_with("12345", "catalog", "schema", "custom_prefix")
-
-        # Verify enable_archival was called
-        mock_manager.enable_archival.assert_called_once()
+        # Verify implementation was called with correct parameters including custom prefix
+        mock_impl.assert_called_once_with("12345", "catalog", "schema", "custom_prefix")
 
     def test_enable_trace_archival_http_timeout_handling(self):
         """Test that HTTP timeout is properly configured."""
-        # This test is now handled by the TraceArchivalManager implementation
-        # The timeout logic is tested within the manager's enable_archival method
-        # For integration testing, we can test the manager directly
-        manager = DatabricksArchivalManager("12345", "catalog", "schema")
-        assert manager.experiment_id == "12345"
-        assert manager.catalog == "catalog"
-        assert manager.schema == "schema"
+        # This test is now handled by the implementation function
+        # The timeout logic is tested within the _enable_databricks_archival_impl function
+        # For integration testing, we can test the timeout by mocking the HTTP request
+        with patch("mlflow.tracing.archival.databricks.http_request") as mock_http_request:
+            mock_http_request.side_effect = Exception("Connection timeout")
+            
+            with pytest.raises(MlflowException, match="Failed to enable trace archival"):
+                enable_databricks_archival("12345", "catalog", "schema")
 
     @patch("mlflow.tracing.archival.databricks._get_active_spark_session")
     def test_create_genai_trace_view_with_active_session(self, mock_get_active_session):
@@ -144,9 +123,8 @@ class TestTraceArchival:
         mock_spark = Mock()
         mock_get_active_session.return_value = mock_spark
 
-        # Create manager and call the method
-        manager = DatabricksArchivalManager("12345", "catalog", "schema")
-        manager.create_genai_trace_view(
+        # Call the function directly
+        _create_genai_trace_view(
             "catalog.schema.trace_logs_12345",
             "catalog.schema.spans_table",
             "catalog.schema.events_table"
@@ -170,9 +148,8 @@ class TestTraceArchival:
         mock_spark = Mock()
         mock_builder.getOrCreate.return_value = mock_spark
 
-        # Create manager and call the method
-        manager = DatabricksArchivalManager("12345", "catalog", "schema")
-        manager.create_genai_trace_view(
+        # Call the function directly
+        _create_genai_trace_view(
             "catalog.schema.trace_logs_12345",
             "catalog.schema.spans_table",
             "catalog.schema.events_table"
@@ -192,66 +169,55 @@ class TestTraceArchival:
         # Mock SparkSession.builder.getOrCreate to raise an exception
         mock_builder.getOrCreate.side_effect = Exception("Failed to create Spark session")
 
-        # Create manager and call the method, expect an exception
-        manager = DatabricksArchivalManager("12345", "catalog", "schema")
+        # Call the function directly and expect an exception
         with pytest.raises(MlflowException, match="Failed to create trace archival view"):
-            manager.create_genai_trace_view(
+            _create_genai_trace_view(
                 "catalog.schema.trace_logs_12345",
                 "catalog.schema.spans_table",
                 "catalog.schema.events_table"
             )
 
 
-class TestDatabricksArchivalManager:
-    """Test cases for DatabricksArchivalManager class."""
+class TestDatabricksArchivalFunctions:
+    """Test cases for individual Databricks archival functions."""
 
     def test_validate_schema_versions_success(self):
         """Test successful schema version validation with v1."""
-        manager = DatabricksArchivalManager("12345", "catalog", "schema")
-        
         # Should not raise any exception
-        manager.validate_schema_versions(SUPPORTED_SCHEMA_VERSION, SUPPORTED_SCHEMA_VERSION)
+        _validate_schema_versions(SUPPORTED_SCHEMA_VERSION, SUPPORTED_SCHEMA_VERSION)
 
     def test_validate_schema_versions_unsupported_spans(self):
         """Test schema version validation failure for unsupported spans version."""
-        manager = DatabricksArchivalManager("12345", "catalog", "schema")
-        
         with pytest.raises(MlflowException, match="Unsupported spans table schema version: v2"):
-            manager.validate_schema_versions("v2", SUPPORTED_SCHEMA_VERSION)
+            _validate_schema_versions("v2", SUPPORTED_SCHEMA_VERSION)
 
     def test_validate_schema_versions_unsupported_events(self):
         """Test schema version validation failure for unsupported events version."""
-        manager = DatabricksArchivalManager("12345", "catalog", "schema")
-        
         with pytest.raises(MlflowException, match="Unsupported events table schema version: v2"):
-            manager.validate_schema_versions(SUPPORTED_SCHEMA_VERSION, "v2")
+            _validate_schema_versions(SUPPORTED_SCHEMA_VERSION, "v2")
 
     def test_validate_schema_versions_unsupported_both(self):
         """Test schema version validation failure for both unsupported versions."""
-        manager = DatabricksArchivalManager("12345", "catalog", "schema")
-        
         # Should fail on the spans version first
         with pytest.raises(MlflowException, match="Unsupported spans table schema version: v2"):
-            manager.validate_schema_versions("v2", "v3")
+            _validate_schema_versions("v2", "v3")
 
     def test_validate_schema_versions_different_unsupported_formats(self):
         """Test schema version validation with different unsupported version formats."""
-        manager = DatabricksArchivalManager("12345", "catalog", "schema")
-        
         # Test various unsupported formats
         unsupported_versions = ["1.0", "v1.1", "v0", "2", "beta", ""]
         
         for version in unsupported_versions:
             with pytest.raises(MlflowException, match="Unsupported spans table schema version"):
-                manager.validate_schema_versions(version, SUPPORTED_SCHEMA_VERSION)
+                _validate_schema_versions(version, SUPPORTED_SCHEMA_VERSION)
             
             with pytest.raises(MlflowException, match="Unsupported events table schema version"):
-                manager.validate_schema_versions(SUPPORTED_SCHEMA_VERSION, version)
+                _validate_schema_versions(SUPPORTED_SCHEMA_VERSION, version)
 
     @patch("mlflow.tracing.archival.databricks.http_request")
     @patch("mlflow.tracing.archival.databricks.get_databricks_host_creds")
     def test_enable_archival_schema_version_failure(self, mock_get_creds, mock_http_request):
-        """Test that enable_archival fails when schema versions are unsupported."""
+        """Test that _enable_databricks_archival_impl fails when schema versions are unsupported."""
         # Mock successful HTTP response with unsupported schema version
         mock_response = Mock()
         mock_response.status_code = 200
@@ -267,11 +233,9 @@ class TestDatabricksArchivalManager:
         mock_creds = Mock()
         mock_get_creds.return_value = mock_creds
 
-        # Create manager and expect schema validation to fail
-        manager = DatabricksArchivalManager("12345", "catalog", "schema")
-        
+        # Call the implementation directly and expect schema validation to fail
         with pytest.raises(MlflowException, match="Unsupported spans table schema version: v2"):
-            manager.enable_archival()
+            _do_enable_databricks_archival("12345", "catalog", "schema")
 
 
 class TestTraceArchiveConfigurationEntities:
