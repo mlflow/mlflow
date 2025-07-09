@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import builtins
+import collections
 import datetime as dt
 import json
 import string
@@ -342,7 +343,8 @@ class Object(BaseType):
             )
         # check duplicated property names
         names = [prop.name for prop in properties]
-        duplicates = {name for name in names if names.count(name) > 1}
+        name_counts = collections.Counter(names)
+        duplicates = {name for name, count in name_counts.items() if count > 1}
         if len(duplicates) > 0:
             raise MlflowException.invalid_parameter_value(
                 f"Found duplicated property names: {duplicates}"
