@@ -5,11 +5,13 @@ Trace archival functionality for MLflow that enables archiving traces to Delta t
 import logging
 
 import mlflow
+from mlflow.entities.trace_archive_configuration import TraceArchiveConfiguration
 from mlflow.environment_variables import MLFLOW_HTTP_REQUEST_TIMEOUT
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_trace_server_pb2 import (
     CreateTraceDestinationRequest,
     TraceLocation as ProtoTraceLocation,
+    TraceDestination as ProtoTraceDestination,
 )
 from mlflow.utils.annotations import experimental
 from mlflow.utils.databricks_utils import get_databricks_host_creds
@@ -347,24 +349,30 @@ class DatabricksArchivalManager:
                     f"Status: {res.status_code}, Response: {res.text}"
                 )
             
-            # 3. Parse response to get table names and validate schema versions
+            # 3. Parse response into TraceArchiveConfiguration entity
             response_data = res.json()
-            spans_table_name = response_data["spans_table_name"]
-            events_table_name = response_data["events_table_name"]
-            spans_table_version = response_data["spans_schema_version"]
-            events_table_version = response_data["events_schema_version"]
             
-            _logger.debug(f"Trace destination created with Spans table: {spans_table_name}, "
-                        f"Events table: {events_table_name}, "
-                        f"Spans schema version: {spans_table_version}, "
-                        f"Events schema version: {events_table_version}")
+            # Convert JSON response to protobuf and then to entity
+            proto_response = ProtoTraceDestination()
+            proto_response.trace_location.CopyFrom(proto_trace_location)
+            proto_response.spans_table_name = response_data["spans_table_name"]
+            proto_response.events_table_name = response_data["events_table_name"]
+            proto_response.spans_schema_version = response_data["spans_schema_version"]
+            proto_response.events_schema_version = response_data["events_schema_version"]
+            
+            trace_config = TraceArchiveConfiguration.from_proto(proto_response)
+            
+            _logger.debug(f"Trace destination created with Spans table: {trace_config.spans_table_name}, "
+                        f"Events table: {trace_config.events_table_name}, "
+                        f"Spans schema version: {trace_config.spans_schema_version}, "
+                        f"Events schema version: {trace_config.events_schema_version}")
             
             # 4. Validate schema versions before proceeding
-            self.validate_schema_versions(spans_table_version, events_table_version)
+            self.validate_schema_versions(trace_config.spans_schema_version, trace_config.events_schema_version)
             
             # 5. Create the logical view
             _logger.info(f"Creating trace archival at: {self.trace_archival_location}")
-            self.create_genai_trace_view(self.trace_archival_location, spans_table_name, events_table_name)
+            self.create_genai_trace_view(self.trace_archival_location, trace_config.spans_table_name, trace_config.events_table_name)
             
             # 6. Set experiment tag to track the archival location
             mlflow.set_experiment_tag(MLFLOW_EXPERIMENT_TRACE_ARCHIVAL_TABLE, self.trace_archival_location)

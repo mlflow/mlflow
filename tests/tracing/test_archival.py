@@ -6,7 +6,7 @@ import pytest
 import sys
 from unittest.mock import Mock, patch, MagicMock
 
-from mlflow.entities.trace_destination import TraceDestination
+from mlflow.entities.trace_archive_configuration import TraceArchiveConfiguration
 from mlflow.entities.trace_location import MlflowExperimentLocation, TraceLocation, TraceLocationType
 from mlflow.exceptions import MlflowException
 from mlflow.tracing.archival import enable_databricks_archival, DatabricksArchivalManager, SUPPORTED_SCHEMA_VERSION
@@ -274,30 +274,36 @@ class TestDatabricksArchivalManager:
             manager.enable_archival()
 
 
-class TestTraceDestinationEntities:
-    """Test cases for trace destination entity classes."""
+class TestTraceArchiveConfigurationEntities:
+    """Test cases for trace archive configuration entity classes."""
 
-    def test_trace_destination_entity(self):
-        """Test TraceDestination entity creation and conversion."""
+    def test_trace_archive_configuration_entity(self):
+        """Test TraceArchiveConfiguration entity creation and conversion."""
         trace_location = TraceLocation(
             type=TraceLocationType.MLFLOW_EXPERIMENT,
             mlflow_experiment=MlflowExperimentLocation(experiment_id="12345"),
         )
 
-        destination = TraceDestination(
+        destination = TraceArchiveConfiguration(
             trace_location=trace_location,
             spans_table_name="catalog.schema.spans",
             events_table_name="catalog.schema.events",
+            spans_schema_version="v1",
+            events_schema_version="v1",
         )
 
         # Test to_dict conversion
         dict_result = destination.to_dict()
         assert dict_result["spans_table_name"] == "catalog.schema.spans"
         assert dict_result["events_table_name"] == "catalog.schema.events"
+        assert dict_result["spans_schema_version"] == "v1"
+        assert dict_result["events_schema_version"] == "v1"
         assert "trace_location" in dict_result
 
         # Test from_dict conversion
-        reconstructed = TraceDestination.from_dict(dict_result)
+        reconstructed = TraceArchiveConfiguration.from_dict(dict_result)
         assert reconstructed.spans_table_name == destination.spans_table_name
         assert reconstructed.events_table_name == destination.events_table_name
+        assert reconstructed.spans_schema_version == destination.spans_schema_version
+        assert reconstructed.events_schema_version == destination.events_schema_version
 

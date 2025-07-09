@@ -42,7 +42,7 @@ from mlflow.entities.span_event import SpanEvent
 from mlflow.entities.span_status import SpanStatus, SpanStatusCode
 from mlflow.entities.trace import Trace
 from mlflow.entities.trace_data import TraceData
-from mlflow.entities.trace_destination import TraceDestination
+from mlflow.entities.trace_archive_configuration import TraceArchiveConfiguration
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_location import (
@@ -91,7 +91,7 @@ __all__ = [
     "TraceState",
     "SpanStatusCode",
     "_DatasetSummary",
-    "TraceDestination",
+    "TraceArchiveConfiguration",
     "LoggedModel",
     "LoggedModelInput",
     "LoggedModelOutput",
