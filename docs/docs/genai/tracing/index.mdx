@@ -6,6 +6,8 @@ import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
 import FeatureHighlights from "@site/src/components/FeatureHighlights";
 import { GitMerge, Heart, Zap, Puzzle, LifeBuoy, Users } from "lucide-react";
+import PythonLogoImageUrl from '@site/static/images/logos/python-logo.png';
+import TypescriptLogoImageUrl from '@site/static/images/logos/javascript-typescript-logo.png';
 
 # MLflow Tracing for LLM Observability
 
@@ -165,7 +167,7 @@ MLflow Tracing empowers you throughout the end-to-end lifecycle of a machine lea
 
 <TilesGrid>
   <TileCard
-    image="/images/logos/python-logo.png"
+    image={PythonLogoImageUrl}
     title="Quickstart (Python)"
     description="Get started with MLflow in Python"
     href="/genai/tracing/quickstart"
@@ -173,7 +175,7 @@ MLflow Tracing empowers you throughout the end-to-end lifecycle of a machine lea
     containerHeight={64}
   />
   <TileCard
-    image="/images/logos/javascript-typescript-logo.png"
+    image={TypescriptLogoImageUrl}
     title="Quickstart (JS/TS)"
     description="Get started with MLflow in JavaScript or TypeScript"
     href="/genai/tracing/quickstart"

@@ -5,6 +5,8 @@ import ImageBox from "@site/src/components/ImageBox";
 import TabsWrapper from "@site/src/components/TabsWrapper";
 import FeatureHighlights from "@site/src/components/FeatureHighlights";
 import { ClipboardCheck, UserCheck, Bot, UsersRound } from "lucide-react";
+import FeedbackArchitectureImageUrl from '@site/static/images/llms/tracing/schema/feedback_architecture.png';
+import GenAIHumanFeedbackImageUrl from '@site/static/images/llms/tracing/genai-human-feedback.png';
 
 # Feedback Concepts
 
@@ -15,7 +17,7 @@ import { ClipboardCheck, UserCheck, Bot, UsersRound } from "lucide-react";
 Feedback serves as the bridge between running your application and understanding its quality, enabling you to systematically track performance across different dimensions like correctness, relevance, safety, and adherence to guidelines.
 
 <ImageBox
-  src="/images/llms/tracing/genai-human-feedback.png"
+  src={GenAIHumanFeedbackImageUrl}
   alt="Feedbacks attached to traces"
   width="70%"
   caption="Feedbacks attached to traces"
@@ -49,7 +51,7 @@ Feedback serves as the bridge between running your application and understanding
 ## Core Structure
 
 <div style={{display: 'flex', justifyContent: 'center'}}>
-  <img src="/images/llms/tracing/schema/feedback_architecture.png" alt="Feedback Architecture" style={{width: '60%'}} />
+  <img src={FeedbackArchitectureImageUrl} alt="Feedback Architecture" style={{width: '60%'}} />
 </div>
 
 Feedback is often created by different sources, such as human annotators, LLM judges, or real user's feedback in the application. The <APILink fn="mlflow.entities.Feedback">`Feedback`</APILink> object in MLflow is a standard container for storing these signals along with metadata to track
