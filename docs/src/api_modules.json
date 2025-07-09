@@ -53,5 +53,11 @@
   "mlflow.types": "api_reference/python_api/mlflow.types.html",
   "mlflow.utils": "api_reference/python_api/mlflow.utils.html",
   "mlflow.xgboost": "api_reference/python_api/mlflow.xgboost.html",
-  "mlflow.server.auth": "api_reference/auth/python-api.html"
+  "mlflow.server.auth": "api_reference/auth/python-api.html",
+  "mlflow.server.cli": "api_reference/cli.html",
+  "mlflow.r": "api_reference/R-api.html",
+  "mlflow.java": "api_reference/java_api/index.html",
+  "mlflow.python": "api_reference/python_api/index.html",
+  "mlflow.rest": "api_reference/rest-api.html",
+  "mlflow.llms.deployments.api": "api_reference/llms/deployments/api.html"
 }

@@ -1,6 +1,7 @@
 import Link from "@docusaurus/Link";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
+import { APILink } from "@site/src/components/APILink";
 
 # MLflow Model Serving
 
@@ -24,7 +25,7 @@ MLflow serving transforms your trained models into production-ready inference se
 
 MLflow open-source provides several serving options:
 
-- **Local Serving**: Quick deployment for development and testing using <Link to="/api_reference/cli.html#mlflow-models-serve" target="_blank">`mlflow models serve`</Link>
+- **Local Serving**: Quick deployment for development and testing using <APILink fn="mlflow.server.cli" hash="mlflow-models-serve">`mlflow models serve`</APILink>
 - **Custom PyFunc Models**: Advanced serving with custom preprocessing, postprocessing, and business logic
 - **Docker Deployment**: Containerized serving for consistent deployment across environments
 - **Cloud Platform Integration**: Deploy to AWS SageMaker, Azure ML, and other cloud services
