@@ -332,7 +332,7 @@ def list_scheduled_scorers(  # clint: disable=missing-docstring-param  # noqa: D
             If None, uses the currently active experiment.
 
     Returns:
-        A list of ScheduledScorerConfig objects representing all scheduled scorers configured
+        A list of ScorerScheduleConfig objects representing all scheduled scorers configured
         for the specified experiment.
 
     Example:
@@ -378,7 +378,7 @@ def set_scheduled_scorers(  # clint: disable=missing-docstring-param  # noqa: D4
     or when you want to ensure only specific scorers are active.
 
     Args:
-        scheduled_scorers: A list of ScheduledScorerConfig objects to set as the complete
+        scheduled_scorers: A list of ScorerScheduleConfig objects to set as the complete
             set of scheduled scorers for the experiment. Any existing scheduled scorers
             not in this list will be removed.
         experiment_id: The ID of the MLflow experiment to configure. If None, uses the
