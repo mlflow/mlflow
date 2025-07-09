@@ -22,10 +22,6 @@ jest.mock('./experiment-page/hooks/useUpdateExperimentTags', () => ({
 
 const mountComponent = (props: any) => {
   const mockStore = configureStore([thunk, promiseMiddleware()]);
-  const experimentListViewProps = {
-    searchFilter: '',
-    setSearchFilter: jest.fn(),
-  };
 
   jest.mocked(useExperimentListQuery).mockImplementation(() => ({
     data: props.experiments.slice(25),
@@ -61,7 +57,7 @@ const mountComponent = (props: any) => {
         })}
       >
         <BrowserRouter>
-          <ExperimentListView {...experimentListViewProps} />
+          <ExperimentListView />
         </BrowserRouter>
       </Provider>
     </DesignSystemProvider>,

@@ -29,13 +29,10 @@ import { BulkDeleteExperimentModal } from './modals/BulkDeleteExperimentModal';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 import { useUpdateExperimentTags } from './experiment-page/hooks/useUpdateExperimentTags';
 import { useFieldArray, useForm } from 'react-hook-form';
+import { useSearchFilter } from './experiment-page/hooks/useSearchFilter';
 
-type Props = {
-  searchFilter: string;
-  setSearchFilter: (searchFilter: string) => void;
-};
-
-export const ExperimentListView = ({ searchFilter, setSearchFilter }: Props) => {
+export const ExperimentListView = () => {
+  const [searchFilter, setSearchFilter] = useSearchFilter();
   const {
     data: experiments,
     isLoading,
