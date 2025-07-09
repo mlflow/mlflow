@@ -1,8 +1,9 @@
 import { init } from './core/config';
 import { getLastActiveTraceId, startSpan, trace, withSpan } from './core/api';
 import { flushTraces } from './core/provider';
+import { MlflowClient } from './clients';
 
-export { getLastActiveTraceId, flushTraces, init, startSpan, trace, withSpan };
+export { getLastActiveTraceId, flushTraces, init, startSpan, trace, withSpan, MlflowClient };
 
 // Export entities
 export * from './core/constants';

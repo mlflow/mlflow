@@ -3,7 +3,7 @@
  */
 
 import * as mlflow from 'mlflow-tracing';
-import { MlflowClient } from 'mlflow-tracing/clients';
+import { tracedOpenAI } from '../src';
 import { OpenAI } from 'openai';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
@@ -13,7 +13,7 @@ const TEST_TRACKING_URI = 'http://localhost:5000';
 
 describe('tracedOpenAI', () => {
   let experimentId: string;
-  let client: MlflowClient;
+  let client: mlflow.MlflowClient;
   let server: ReturnType<typeof setupServer>;
 
   beforeAll(async () => {
@@ -22,7 +22,7 @@ describe('tracedOpenAI', () => {
     server.listen();
 
     // Setup MLflow client and experiment
-    client = new MlflowClient({ trackingUri: TEST_TRACKING_URI, host: TEST_TRACKING_URI });
+    client = new mlflow.MlflowClient({ trackingUri: TEST_TRACKING_URI, host: TEST_TRACKING_URI });
 
     // Create a new experiment
     const experimentName = `test-experiment-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
@@ -57,7 +57,7 @@ describe('tracedOpenAI', () => {
   describe('Chat Completions', () => {
     it('should trace chat.completions.create()', async () => {
       const openai = new OpenAI({ apiKey: 'test-key' });
-      const wrappedOpenAI = mlflow.tracedOpenAI(openai);
+      const wrappedOpenAI = tracedOpenAI(openai);
 
       const result = await wrappedOpenAI.chat.completions.create({
         model: 'gpt-4',
@@ -97,7 +97,7 @@ describe('tracedOpenAI', () => {
       );
 
       const openai = new OpenAI({ apiKey: 'test-key' });
-      const wrappedOpenAI = mlflow.tracedOpenAI(openai);
+      const wrappedOpenAI = tracedOpenAI(openai);
 
       await expect(
         wrappedOpenAI.chat.completions.create({
@@ -122,7 +122,7 @@ describe('tracedOpenAI', () => {
 
     it('should trace OpenAI request wrapped in a parent span', async () => {
       const openai = new OpenAI({ apiKey: 'test-key' });
-      const wrappedOpenAI = mlflow.tracedOpenAI(openai);
+      const wrappedOpenAI = tracedOpenAI(openai);
 
       const result = await mlflow.withSpan(
         async (_span) => {
@@ -169,7 +169,7 @@ describe('tracedOpenAI', () => {
   describe('Responses API', () => {
     it('should trace responses.create()', async () => {
       const openai = new OpenAI({ apiKey: 'test-key' });
-      const wrappedOpenAI = mlflow.tracedOpenAI(openai);
+      const wrappedOpenAI = tracedOpenAI(openai);
 
       const response = await wrappedOpenAI.responses.create({
         input: 'Hello!',
@@ -199,7 +199,7 @@ describe('tracedOpenAI', () => {
   describe('Embeddings API', () => {
     it('should trace embeddings.create() with input: %p', async () => {
       const openai = new OpenAI({ apiKey: 'test-key' });
-      const wrappedOpenAI = mlflow.tracedOpenAI(openai);
+      const wrappedOpenAI = tracedOpenAI(openai);
 
       const response = await wrappedOpenAI.embeddings.create({
         model: 'text-embedding-3-small',

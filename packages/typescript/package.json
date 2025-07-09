@@ -1,68 +1,24 @@
 {
-  "name": "mlflow-tracing",
-  "version": "0.1.0",
-  "description": "TypeScript implementation of MLflow Tracing SDK for LLM observability",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/mlflow/mlflow.git"
-  },
-  "homepage": "https://mlflow.org/",
-  "author": {
-    "name": "MLflow",
-    "url": "https://mlflow.org/"
-  },
-  "bugs": {
-    "url": "https://github.com/mlflow/mlflow/issues"
-  },
-  "license": "Apache-2.0",
-  "keywords": [
-    "mlflow",
-    "tracing",
-    "observability",
-    "opentelemetry",
-    "llm",
-    "javascript",
-    "typescript"
+  "name": "mlflow-typescript",
+  "private": true,
+  "description": "TypeScript implementation of MLflow Tracing SDK. This is the root workspace package that includes all the public packages as sub-directories.",
+  "workspaces": [
+    "core",
+    "integrations/*"
   ],
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsc",
-    "test": "jest",
+    "build": "npm run build:subpackages",
+    "build:subpackages": "npm run build:core && npm run build:integrations",
+    "build:core": "cd core && npm run build",
+    "build:integrations": "cd integrations/openai && npm run build",
+    "test": "npm run test:subpackages",
+    "test:subpackages": "npm run test:core && npm run test:integrations",
+    "test:core": "cd core && npm run test",
+    "test:integrations": "cd integrations/openai && npm run test",
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepare": "npm run build"
-  },
-  "dependencies": {
-    "@opentelemetry/api": "^1.9.0",
-    "@opentelemetry/sdk-node": "^0.201.1",
-    "@types/json-bigint": "^1.0.4",
-    "ini": "^5.0.0",
-    "json-bigint": "^1.0.0",
-    "node-cache": "^5.1.2"
-  },
-  "devDependencies": {
-    "@types/ini": "^4.1.1",
-    "@types/jest": "^29.5.3",
-    "@types/node": "^20.4.5",
-    "@typescript-eslint/eslint-plugin": "^6.21.0",
-    "@typescript-eslint/parser": "^6.21.0",
-    "openai": "^4.0.0",
-    "eslint": "^8.57.1",
-    "jest": "^29.6.2",
-    "msw": "^2.10.3",
-    "prettier": "^3.5.3",
-    "ts-jest": "^29.1.1",
-    "tsx": "^4.7.0",
-    "typescript": "^5.8.3",
-    "whatwg-fetch": "^3.6.20"
-  },
-  "engines": {
-    "node": ">=18"
-  },
-  "files": [
-    "dist/"
-  ]
+  }
 }
