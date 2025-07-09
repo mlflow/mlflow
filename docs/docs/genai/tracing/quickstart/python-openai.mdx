@@ -24,7 +24,7 @@ pip install --upgrade mlflow openai>=1.0.0
 
 :::info
 
-The code example in this guide uses OpenAI SDK, however, the contents of this guide are applicable to any other LLM providers, such as Anthropic, Google, Bedrock, and more.
+The code example in this guide uses the OpenAI SDK; however, the contents of this guide are applicable to any other LLM providers, such as Anthropic, Google, Bedrock, and more.
 
 :::
 
@@ -49,7 +49,7 @@ mlflow ui
 
 </TabItem>
 
-<TabItem value="remote" label="Remove MLflow Server">
+<TabItem value="remote" label="Remote MLflow Server">
 
 If you have a remote MLflow tracking server, configure the connection:
 
@@ -84,7 +84,7 @@ This will prompt you for your configuration details (Databricks Host url and a P
 
 :::tip
 
-If you are unsure about how to set up MLflow tracking server, you can start with the cloud-based MLflow powered by Databricks: <ins>[Sign up for free →](https://login.databricks.com/?destination_url=%2Fml%2Fexperiments-signup%3Fsource%3DTRY_MLFLOW&dbx_source=TRY_MLFLOW&signup_experience_step=EXPRESS&provider=MLFLOW&utm_source=mlflow_org&tuuid=a9534f33-78bf-4b81-becc-4334e993251d&rl_aid=e6685d78-9f85-4fed-b64f-08e247f53547&intent=SIGN_UP)</ins>
+If you are unsure about how to set up an MLflow tracking server, you can start with the cloud-based MLflow powered by Databricks: <ins>[Sign up for free →](https://login.databricks.com/?destination_url=%2Fml%2Fexperiments-signup%3Fsource%3DTRY_MLFLOW&dbx_source=TRY_MLFLOW&signup_experience_step=EXPRESS&provider=MLFLOW&utm_source=mlflow_org&tuuid=a9534f33-78bf-4b81-becc-4334e993251d&rl_aid=e6685d78-9f85-4fed-b64f-08e247f53547&intent=SIGN_UP)</ins>
 
 :::
 
@@ -108,7 +108,7 @@ os.environ["OPENAI_API_KEY"] = "your-api-key-here"  # Replace with your actual A
 
 ## Step 2: Trace a single LLM call
 
-Let's start with a simple example of tracing a single LLM call. We first enable automatic tracing for OpenAI API calls by calling `mlflow.openai.autolog()`. After that, every calls to OpenAI API will generate as a trace span, capturing the input, output, latency, token counts, and other metadata.
+Let's start with a simple example of tracing a single LLM call. We first enable automatic tracing for OpenAI API calls by calling `mlflow.openai.autolog()`. After that, every call to OpenAI API will generate a trace span, capturing the input, output, latency, token counts, and other metadata.
 
 ```python
 import mlflow
@@ -130,19 +130,19 @@ response = client.chat.completions.create(
 )
 ```
 
-After running the code above, go to the MLflow UI and select "Traces" tab. It should show the newly created trace.
+After running the code above, go to the MLflow UI and select the "Traces" tab. It should show the newly created trace.
 
 <ImageBox src="/images/llms/tracing/quickstart/single-openai-trace-list.png" alt="Single Trace" />
 
-The table view shows primary metadata of the trace, such as the trace ID, execution duration, token count, source system, status. You can add/remove columns by selecting the columns in the drop down. By clicking on the request row (the linked request text), you can view the detailed spans in the trace.
+The table view shows the primary metadata of the trace, such as the trace ID, execution duration, token count, source system and status. You can add or remove displayed columns by selecting the columns in the drop down. By clicking on the request row (the linked request text), you can view the detailed spans in the trace.
 
 <ImageBox src="/images/llms/tracing/quickstart/single-openai-trace-detail.png" alt="Single Trace Detail" width="80%" />
 
-The "Chat" view in the above screenshot shows the full chat messages exchanged between the user and the model. By clicking other table like "Inputs / Outputs", "Attributes", you can see different aspects of the trace, such as the raw input payload, token usage breakdown, and more.
+The "Chat" view in the above screenshot shows the full chat messages exchanged between the user and the model. By clicking other tables such as "Inputs / Outputs" or "Attributes", you can see different aspects of the trace, including the raw input payload, token usage breakdown, and more.
 
 ## Step 3: Trace a tool calling agent
 
-Next, let's add a bit more complexity to the application. To get the real-time weather information, we will use an external weather API as a tool. The application will include a tool calling flow, not only a simple LLM call. To instrument that custom Python flow, we will use the <APILink fn="mlflow.trace">`@mlflow.trace`</APILink> decorator. The powerful decorator generates a span for the function call and automatically capture the function inputs, outputs, latency, and exceptions.
+Next, let's add a bit more complexity to the application. To get the real-time weather information, we will use an external weather API as a tool. The application will include a tool calling flow, not only a simple LLM call. To instrument that custom Python flow, we will use the <APILink fn="mlflow.trace">`@mlflow.trace`</APILink> decorator. Use of this simple decorator generates a span for the function call and automatically captures the function inputs, outputs, latency, and exceptions.
 
 Let's define a Python function that fetches the weather information from a weather API.
 
@@ -184,7 +184,7 @@ tools = [
 ]
 ```
 
-Lastly, define a simple flow that first ask LLM to get instruction for calling the tool, invoke the tool function, and return the result to the LLM.
+Lastly, define a simple flow that first asks the LLM to get instructions for calling the tool, then invokes the tool function, and lastly returns the result to the LLM.
 
 ```python
 import json
@@ -204,7 +204,7 @@ def run_tool_agent(question: str):
     ai_msg = response.choices[0].message
     messages.append(ai_msg)
 
-    # If the model request tool call(s), invoke the function with the specified arguments
+    # If the model requests tool call(s), invoke the function with the specified arguments
     if tool_calls := ai_msg.tool_calls:
         for tool_call in tool_calls:
             function_name = tool_call.function.name
@@ -249,9 +249,9 @@ The trace shows all LLM invocations and tool calls, organized in a tree structur
 
 ## Step 5: Attach Feedbacks on Traces
 
-As a last step of this quickstart, let's attach a feedback on the generated traces. In the real world development, human feedback is critical to improve the quality of the application.
+As a last step of this quickstart, let's attach feedback on the generated traces. In real world development, human feedback is critical to improve the quality of any LLM-powered application.
 
-To add a feedback on a trace, you can open the trace detail page and click the "Add new Assessment" button on the top right. It will open an input form where you can provide a various feedback values and metadata. For example, we can add a feedback called " Quality" with a integer value (1~5), indicating how good the answer is. Then we can also put the detailed rationale behind the score for future reference.
+To add a feedback to a trace, you can open the trace detail page and click the "Add new Assessment" button on the top right. It will open an input form where you can provide various feedback values and metadata. For example, we can add feedback called "Quality" with an integer value (1~5), indicating how good the answer is. We can also put the detailed rationale behind the score for future reference.
 
 <ImageBox src="/images/llms/tracing/quickstart/openai-trace-feedback-input.png" alt="Feedback Input Form" width="90%" />
 

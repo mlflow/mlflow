@@ -24,9 +24,37 @@ npm install mlflow-openai
 
 :::info
 
-The code example in this guide uses OpenAI SDK, however, the contents of this guide are applicable to any other LLM providers, such as Anthropic, Google, Bedrock, and more.
+The code example in this guide uses the OpenAI SDK; however, the contents of this guide are applicable to any other LLM providers, such as Anthropic, Google, Bedrock, and more.
 
 For other LLM providers that are not natively integrated with auto-tracing, install the `mlflow-tracing` package and wrap the LLM call with the `mlflow.trace` wrapper function instead.
+
+<details>
+<summary>Example of wrapping Anthropic API calls to generate a trace</summary>
+
+```typescript
+import * as mlflow from "mlflow-tracing";
+
+// Instantiate the Anthropic client
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+});
+
+// Wrap the client method with the `mlflow.trace` wrapper.
+const tracedAnthropic = mlflow.trace(
+  anthropic.messages.create,
+  { spanType: mlflow.SpanType.LLM }
+);
+
+// Call the wrapped function just like the original function.
+// MLflow will generate a trace that captures inputs, outputs, latency, and exceptions.
+const response = await tracedAnthropic({
+  model: "claude-sonnet-4-20250514",
+  max_tokens: 1024,
+  messages: [{ role: "user", content: "Hello, Claude" }],
+});
+```
+
+</details>
 
 :::
 
@@ -40,7 +68,7 @@ MLflow logs Traces in a tracking server. Connect your application to the trackin
 <Tabs>
 <TabItem value="python" label="Self Host (pip) " default>
 
-The Typescript package does not contain the tracking server. To start a self-hosted tracking server from Python:
+The Typescript package does not contain the tracking server. To start a self-hosted tracking server from command line using MLflow Python package:
 
 ```bash
 # Install mlflow python package
@@ -58,8 +86,6 @@ mlflow ui --port 5000
 
 The Typescript package does not contain the tracking server. To start a self-hosted tracking server using Docker:
 
-# TODO: Update this
-
 ```bash
 # Pull the latest mlflow docker image
 docker pull mlflow/mlflow:latest
@@ -72,7 +98,7 @@ docker run -p 5000:5000 mlflow/mlflow:latest
 
 </TabItem>
 
-<TabItem value="remote" label="Remove MLflow Server">
+<TabItem value="remote" label="Remote MLflow Server">
 
 If you have a remote MLflow tracking server already running, skip this step.
 
@@ -89,7 +115,7 @@ If you use [Databricks managed MLflow](https://docs.databricks.com/aws/en/mlflow
 
 :::tip
 
-If you are unsure about how to set up MLflow tracking server, you can start with the cloud-based MLflow powered by Databricks: <ins>[Sign up for free →](https://login.databricks.com/?destination_url=%2Fml%2Fexperiments-signup%3Fsource%3DTRY_MLFLOW&dbx_source=TRY_MLFLOW&signup_experience_step=EXPRESS&provider=MLFLOW&utm_source=mlflow_org&tuuid=a9534f33-78bf-4b81-becc-4334e993251d&rl_aid=e6685d78-9f85-4fed-b64f-08e247f53547&intent=SIGN_UP)</ins>
+If you are unsure about how to set up an MLflow tracking server, you can start with the cloud-based MLflow powered by Databricks: <ins>[Sign up for free →](https://login.databricks.com/?destination_url=%2Fml%2Fexperiments-signup%3Fsource%3DTRY_MLFLOW&dbx_source=TRY_MLFLOW&signup_experience_step=EXPRESS&provider=MLFLOW&utm_source=mlflow_org&tuuid=a9534f33-78bf-4b81-becc-4334e993251d&rl_aid=e6685d78-9f85-4fed-b64f-08e247f53547&intent=SIGN_UP)</ins>
 
 :::
 
@@ -128,20 +154,8 @@ Create a new MLflow experiment in the MLflow UI, or choose an existing experimen
 
     <TabItem value="databricks" label="Databricks">
 
-    Method 1: Explicitly set the host and token in the init function.
 
-    ```typescript
-    import { init } from "mlflow-tracing";
-
-    init({
-        trackingUri: "databricks",
-        experimentId: "<your-experiment-id>",
-        host: "<your-databricks-host>",
-        token: "<your-databricks-personal-access-token>",
-    });
-    ```
-
-    Method 2: Use Databricks config file for authentication.
+    **Method 1: Use Databricks config file for authentication.**
 
     ```typescript
     import { init } from "mlflow-tracing";
@@ -154,12 +168,26 @@ Create a new MLflow experiment in the MLflow UI, or choose an existing experimen
     });
     ```
 
-    Method 3: Use environment variables
+    **Method 2: Use environment variables**
 
     ```bash
     export DATABRICKS_HOST=<your-databricks-host>
     export DATABRICKS_TOKEN=<your-databricks-personal-access-token>
     ```
+
+    or create a `.env` file in the root directory of your project and add the following:
+
+    ```bash
+    DATABRICKS_HOST=<your-databricks-host>
+    DATABRICKS_TOKEN=<your-databricks-personal-access-token>
+    ```
+
+    ```typescript
+    // Load environment variables from .env file
+    import 'dotenv/config';
+    ```
+
+    The `init` function will automatically load the above environment variables.
 
     ```typescript
     import { init } from "mlflow-tracing";
@@ -183,7 +211,7 @@ export OPENAI_API_KEY="your-api-key-here"  # Replace with your actual API key
 
 ## Step 2: Trace a single LLM call
 
-Let's start with a simple example of tracing a single LLM call. We first wrap the OpenAI client with the `tracedOpenAI` function. After that, every calls to OpenAI API will generate as a trace span, capturing the input, output, latency, token counts, and other metadata.
+Let's start with a simple example of tracing a single LLM call. We first wrap the OpenAI client with the `tracedOpenAI` function. After that, every call to OpenAI API will generate a trace span, capturing the input, output, latency, token counts, and other metadata.
 
 ```typescript
 import { OpenAI } from "openai";
@@ -202,17 +230,17 @@ const response = await client.chat.completions.create({
 })
 ```
 
-After running the code above, go to the MLflow UI and select "Traces" tab. It should show the newly created trace.
+After running the code above, go to the MLflow UI and select the "Traces" tab. It should show the newly created trace.
 
 <ImageBox src="/images/llms/tracing/quickstart/single-openai-trace-list.png" alt="Single Trace" />
 
-The table view shows primary metadata of the trace, such as the trace ID, execution duration, token count, source system, status. You can add/remove columns by selecting the columns in the drop down.
+The table view shows the primary metadata of the trace, such as the trace ID, execution duration, token count, source system and status. You can add or remove displayed columns by selecting the columns in the drop down.
 
 By clicking on the request row (the linked request text), you can view the detailed spans in the trace.
 
 <ImageBox src="/images/llms/tracing/quickstart/single-openai-trace-detail.png" alt="Single Trace Detail" width="80%" />
 
-The "Chat" view in the above screenshot shows the full chat messages exchanged between the user and the model. By clicking other table like "Inputs / Outputs", "Attributes", you can see different aspects of the trace, such as the raw input payload, token usage breakdown, and more.
+The "Chat" view in the above screenshot shows the full chat messages exchanged between the user and the model. By clicking other tables such as "Inputs / Outputs" or "Attributes", you can see different aspects of the trace, including the raw input payload, token usage breakdown, and more.
 
 ## Step 3: Trace a tool calling agent
 
@@ -256,7 +284,7 @@ const tools = [{
 }];
 ```
 
-Lastly, define a simple flow that first ask LLM to get instruction for calling the tool, invoke the tool function, and return the result to the LLM. This example uses the `mlflow.withSpan` API to create a parent span for the agent flow, but you can also achieve the same by using the `mlflow.trace` API like the previous example.
+Lastly, define a simple flow that first asks the LLM to get instructions for calling the tool, then invokes the tool function, and lastly returns the result to the LLM.. This example uses the `mlflow.withSpan` API to create a parent span for the agent flow, but you can also achieve the same by using the `mlflow.trace` API like the previous example.
 
 ```typescript
 async function runToolAgent(question: string) {
@@ -334,9 +362,9 @@ The trace shows all LLM invocations and tool calls, organized in a tree structur
 
 ## Step 5: Attach Feedbacks on Traces
 
-As a last step of this quickstart, let's attach a feedback on the generated traces. In the real world development, human feedback is critical to improve the quality of the application.
+As a last step of this quickstart, let's attach feedback on the generated traces. In real world development, human feedback is critical to improve the quality of any LLM-powered application.
 
-To add a feedback on a trace, you can open the trace detail page and click the "Add new Assessment" button on the top right. It will open an input form where you can provide a various feedback values and metadata. For example, we can add a feedback called " Quality" with a integer value (1~5), indicating how good the answer is. Then we can also put the detailed rationale behind the score for future reference.
+To add a feedback to a trace, you can open the trace detail page and click the "Add new Assessment" button on the top right. It will open an input form where you can provide various feedback values and metadata. For example, we can add feedback called "Quality" with an integer value (1~5), indicating how good the answer is. We can also put the detailed rationale behind the score for future reference.
 
 <ImageBox src="/images/llms/tracing/quickstart/openai-trace-feedback-input.png" alt="Feedback Input Form" width="90%" />
 
