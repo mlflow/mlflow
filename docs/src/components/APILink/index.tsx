@@ -23,7 +23,7 @@ export function APILink({ fn, children, hash }: { fn: string; children?: React.R
     return <>{children}</>;
   }
 
-  const docLink = `https://mlflow.org/docs/latest/${APIModules[module]}#${hash ?? fn}`; // FIXME
+  const docLink = useBaseUrl(`/${APIModules[module]}#${fn}`);
   return (
     <a href={docLink} target="_blank">
       {children ?? <code>{fn}()</code>}
