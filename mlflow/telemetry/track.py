@@ -48,21 +48,17 @@ def _avoid_telemetry_tracking():
     This needs to be used to avoid tracking nested APIs that are invoked inside the
     function that we are tracking.
     """
+    global invoked_from_internal_api
+    original_func = invoked_from_internal_api
+
+    def mock_invoked_from_internal_api():
+        return True
+
     try:
-        global invoked_from_internal_api
-        original_func = invoked_from_internal_api
-
-        def mock_invoked_from_internal_api():
-            return True
-
-        try:
-            invoked_from_internal_api = mock_invoked_from_internal_api
-            yield
-        finally:
-            invoked_from_internal_api = original_func
-    except Exception:
-        _logger.debug("Failed to avoid telemetry tracking", exc_info=True)
+        invoked_from_internal_api = mock_invoked_from_internal_api
         yield
+    finally:
+        invoked_from_internal_api = original_func
 
 
 def _generate_telemetry_record(
