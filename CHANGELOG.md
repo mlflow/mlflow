@@ -1,5 +1,20 @@
 # CHANGELOG
 
+## 3.1.2 (2025-07-08)
+
+MLflow 3.1.2 is a patch release that includes several bug fixes.
+
+Bug fixes:
+
+- [Tracking] Fix `download_artifacts` ignoring `tracking_uri` parameter (#16461, @harupy)
+- [Models] Fix event type for ResponsesAgent error (#16427, @bbqiu)
+- [Models] Remove falsey chat conversion for LangGraph models (#16601, @B-Step62)
+- [Tracing] Use empty Resource when instantiating OTel provider to fix LiteLLM tracing issue (#16590, @B-Step62)
+
+Small fixes and documentation updates:
+
+#16568, #16454, #16617, #16605, #16569, #16553, #16625, @B-Step62; #16571, #16552, #16452, #16395, #16446, #16420, #16447, #16554, #16515, @frontsideair; #16558, #16443, #16457, @16442, #16449, @harupy; #16509, #16512, #16524, #16514, #16607, @TomeHirata; #16541, @copilot-swe-agent; #16427, @bbqiu; #16573, @daniellok-db; #16470, #16281, @BenWilson2
+
 ## 3.1.1 (2025-06-25)
 
 MLflow 3.1.1 includes several major features and improvements

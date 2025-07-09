@@ -2,6 +2,8 @@ import { APILink } from "@site/src/components/APILink";
 import ImageBox from "@site/src/components/ImageBox";
 import FeatureHighlights from "@site/src/components/FeatureHighlights";
 import { Search, CheckCircle, Activity, Database } from "lucide-react";
+import TraceArchitectureImageUrl from '@site/static/images/llms/tracing/schema/trace_architecture.png';
+import SpanArchitectureImageUrl from '@site/static/images/llms/tracing/schema/span_architecture.png';
 
 # Trace Concepts
 
@@ -87,7 +89,7 @@ Spans in a trace forms a hierarchy through parent-child connections. Each span d
 
 For example, the following picture illustrates a set of spans that are organized in a tree structure in a trace. Each line represents a span, where the tree-structure is formed by the curly edges between lines. For example, the root span is "agent", which links to three children spans: 2 LLm calls and 1 tool handling.
 
-<img src="/images/llms/tracing/schema/span_architecture.png" alt="Span Architecture" style={{width: '80%'}} />
+<img src={SpanArchitectureImageUrl} alt="Span Architecture" style={{width: '80%'}} />
 
 To learn more about the span object and its schema, continue to the [Span Concepts](/genai/tracing/concepts/span) page.
 
