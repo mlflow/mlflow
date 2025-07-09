@@ -21,6 +21,7 @@ module.exports = defineConfig([
     rules: {
       '@docusaurus/no-html-links': 'error',
       'mlflow-docs/valid-notebook-url': 'error',
+      'mlflow-docs/prefer-apilink-component': 'error',
     },
   },
 ]);
