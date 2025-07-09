@@ -3172,7 +3172,7 @@ def save_model(
         )
     elif IS_RESPONSES_AGENT_AVAILABLE and isinstance(python_model, ResponsesAgent):
         input_example = _save_model_responses_agent_helper(
-            python_model, mlflow_model, signature, input_example
+            python_model, mlflow_model, signature, input_example, artifacts, model_config
         )
     elif callable(python_model) or isinstance(python_model, PythonModel):
         model_for_signature_inference = None
@@ -3787,7 +3787,9 @@ def _save_model_chat_agent_helper(python_model, mlflow_model, signature, input_e
     return input_example
 
 
-def _save_model_responses_agent_helper(python_model, mlflow_model, signature, input_example):
+def _save_model_responses_agent_helper(
+    python_model, mlflow_model, signature, input_example, artifacts, model_config
+):
     """Helper method for save_model for ResponsesAgent models
 
     Returns: a dictionary input example
@@ -3833,6 +3835,8 @@ def _save_model_responses_agent_helper(python_model, mlflow_model, signature, in
     else:
         input_example = RESPONSES_AGENT_INPUT_EXAMPLE
     _logger.info("Predicting on input example to validate output")
+    context = PythonModelContext(artifacts, model_config)
+    python_model.load_context(context)
     request = ResponsesAgentRequest(**input_example)
     output = python_model.predict(request)
     try:
