@@ -432,9 +432,9 @@ from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.environment_variables import (
     _MLFLOW_IN_CAPTURE_MODULE_PROCESS,
     _MLFLOW_TESTING,
+    MLFLOW_DISABLE_SCHEMA_DETAILS,
     MLFLOW_MODEL_ENV_DOWNLOADING_TEMP_DIR,
     MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT,
-    MLFLOW_DISABLE_SCHEMA_DETAILS,
 )
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, ModelInputExample, ModelSignature

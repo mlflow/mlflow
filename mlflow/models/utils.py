@@ -21,6 +21,7 @@ import pydantic
 
 import mlflow
 from mlflow.entities import LoggedModel
+from mlflow.environment_variables import MLFLOW_DISABLE_SCHEMA_DETAILS
 from mlflow.exceptions import INVALID_PARAMETER_VALUE, MlflowException
 from mlflow.models import Model
 from mlflow.models.model_config import _set_model_config
@@ -46,7 +47,6 @@ from mlflow.utils.proto_json_utils import (
     parse_tf_serving_input,
 )
 from mlflow.utils.uri import get_databricks_profile_uri_from_artifact_uri
-from mlflow.environment_variables import MLFLOW_DISABLE_SCHEMA_DETAILS
 
 try:
     from scipy.sparse import csc_matrix, csr_matrix
