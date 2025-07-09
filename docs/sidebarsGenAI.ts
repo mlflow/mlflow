@@ -55,7 +55,7 @@ const sidebarsGenAI: SidebarsConfig = {
         },
         {
           type: 'link',
-          href: '/genai/tracing/quickstart',
+          href: '/genai/tracing/quickstart/python-openai',
           label: 'Tracing',
         },
       ],
