@@ -104,7 +104,11 @@ export const createModelVersionApi = (
 ) => ({
   type: CREATE_MODEL_VERSION,
   payload: Services.createModelVersion({
-    name, source: `models:/${loggedModelId}`, run_id: runId, tags, model_id: loggedModelId,
+    name,
+    source: `models:/${loggedModelId}`,
+    run_id: runId,
+    tags,
+    model_id: loggedModelId,
   }),
   meta: { id, name, runId },
 });
