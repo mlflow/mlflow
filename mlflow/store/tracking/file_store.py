@@ -434,6 +434,12 @@ class FileStore(AbstractStore):
     def create_experiment(self, name, artifact_location=None, tags=None):
         self._check_root_dir()
         _validate_experiment_name(name)
+        
+        # Genesis-Flow: Use MLFLOW_ARTIFACT_LOCATION if no artifact location is provided
+        if not artifact_location:
+            from mlflow.environment_variables import MLFLOW_ARTIFACT_LOCATION
+            if MLFLOW_ARTIFACT_LOCATION.defined:
+                artifact_location = MLFLOW_ARTIFACT_LOCATION.get()
 
         if artifact_location:
             _validate_experiment_artifact_location_length(artifact_location)

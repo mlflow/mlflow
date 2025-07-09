@@ -327,8 +327,6 @@ class MLflowMigrationTool:
             return "sqlite"
         elif uri.startswith("mysql://") or uri.startswith("postgresql://"):
             return "sql"
-        elif uri.startswith("mongodb://"):
-            return "mongodb"
         else:
             return "unknown"
     

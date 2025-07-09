@@ -217,10 +217,6 @@ def _get_file_store(store_uri, **_):
     return FileStore(store_uri)
 
 
-def _get_mongodb_store(store_uri, **_):
-    from mlflow.store.model_registry.mongodb_store import MongoDBModelRegistryStore
-    
-    return MongoDBModelRegistryStore(store_uri)
 
 
 def _get_store_registry():
@@ -246,9 +242,6 @@ def _get_store_registry():
 
     for scheme in ["", "file"]:
         _model_registry_store_registry.register(scheme, _get_file_store)
-
-    # Register MongoDB scheme for Genesis-Flow
-    _model_registry_store_registry.register("mongodb", _get_mongodb_store)
 
     _model_registry_store_registry.register_entrypoints()
     return _model_registry_store_registry

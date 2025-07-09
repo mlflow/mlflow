@@ -53,8 +53,6 @@ dependencies = [
   "pyarrow<21,>=4.0.0",
   "scikit-learn<2",  # Core ML framework, used by Genesis platform
   "scipy<2",
-  # MongoDB support (for Phase 3)
-  "motor>=3.3.0,<4.0.0",  # MongoDB async driver
 ]
 [[project.maintainers]]
 name = "Databricks"

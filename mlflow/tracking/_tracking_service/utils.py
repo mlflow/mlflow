@@ -137,6 +137,16 @@ def _get_file_store(store_uri, **_):
 
 def _get_sqlalchemy_store(store_uri, artifact_uri):
     from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+    
+    # Check if this is a PostgreSQL URI that should use Managed Identity
+    if store_uri.startswith("postgresql://") and (
+        "auth_method=managed_identity" in store_uri or
+        os.getenv("MLFLOW_POSTGRES_USE_MANAGED_IDENTITY", "").lower() == "true"
+    ):
+        from mlflow.store.tracking.postgres_managed_identity import get_postgres_store_with_managed_identity
+        if artifact_uri is None:
+            artifact_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
+        return get_postgres_store_with_managed_identity(store_uri, artifact_uri)
 
     if artifact_uri is None:
         artifact_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
@@ -147,12 +157,6 @@ def _get_rest_store(store_uri, **_):
     return RestStore(partial(get_default_host_creds, store_uri))
 
 
-def _get_mongodb_tracking_store(store_uri, artifact_uri=None):
-    from mlflow.store.tracking.mongodb_store import MongoDBStore
-    
-    if artifact_uri is None:
-        artifact_uri = DEFAULT_LOCAL_FILE_AND_ARTIFACT_PATH
-    return MongoDBStore(store_uri, artifact_uri)
 
 
 def _get_databricks_rest_store(store_uri, **_):
@@ -199,8 +203,6 @@ def _register_tracking_stores():
     )
     _tracking_store_registry.register(_OSS_UNITY_CATALOG_SCHEME, _get_databricks_uc_rest_store)
 
-    # Register MongoDB scheme for Genesis-Flow
-    _tracking_store_registry.register("mongodb", _get_mongodb_tracking_store)
 
     for scheme in ["http", "https"]:
         _tracking_store_registry.register(scheme, _get_rest_store)

@@ -29,19 +29,16 @@ logger = logging.getLogger(__name__)
 class DeploymentValidator:
     """Comprehensive deployment validation for Genesis-Flow."""
     
-    def __init__(self, tracking_uri: str, artifact_root: Optional[str] = None,
-                 mongodb_config: Optional[Dict] = None):
+    def __init__(self, tracking_uri: str, artifact_root: Optional[str] = None):
         """
         Initialize deployment validator.
         
         Args:
             tracking_uri: MLflow tracking URI to validate
             artifact_root: Artifact storage root to validate
-            mongodb_config: MongoDB configuration if using MongoDB store
         """
         self.tracking_uri = tracking_uri
         self.artifact_root = artifact_root
-        self.mongodb_config = mongodb_config or {}
         self.validation_results = {
             "timestamp": time.time(),
             "tracking_uri": tracking_uri,
@@ -194,10 +191,7 @@ class DeploymentValidator:
             store_type = self._detect_store_type(self.tracking_uri)
             test_result["details"]["store_type"] = store_type
             
-            if store_type == "mongodb":
-                # Test MongoDB-specific features
-                test_result.update(self._test_mongodb_store())
-            elif store_type == "file":
+            if store_type == "file":
                 # Test file store permissions
                 test_result.update(self._test_file_store())
             elif store_type == "sql":
@@ -211,32 +205,6 @@ class DeploymentValidator:
         
         return test_result
     
-    def _test_mongodb_store(self) -> Dict:
-        """Test MongoDB store specific features."""
-        details = {}
-        issues = []
-        
-        try:
-            from mlflow.store.tracking.mongodb_store import MongoDBStore
-            
-            # Test MongoDB store creation
-            store = MongoDBStore(self.tracking_uri, self.artifact_root or "file:///tmp/mlflow")
-            details["database_name"] = store.database_name
-            details["artifact_root"] = store.default_artifact_root
-            
-            # Test MongoDB connection parameters
-            if self.mongodb_config:
-                if "username" in self.mongodb_config:
-                    details["authentication"] = "enabled"
-                if "ssl" in self.mongodb_config:
-                    details["ssl_enabled"] = self.mongodb_config["ssl"]
-                    
-        except ImportError:
-            issues.append("MongoDB store not available")
-        except Exception as e:
-            issues.append(f"MongoDB store test failed: {str(e)}")
-        
-        return {"details": details, "issues": issues}
     
     def _test_file_store(self) -> Dict:
         """Test file store permissions and structure."""
@@ -497,9 +465,7 @@ class DeploymentValidator:
     
     def _detect_store_type(self, uri: str) -> str:
         """Detect store type from URI."""
-        if uri.startswith("mongodb://") or uri.startswith("mongodb+srv://"):
-            return "mongodb"
-        elif uri.startswith("file://") or uri.startswith("/") or uri.startswith("./"):
+        if uri.startswith("file://") or uri.startswith("/") or uri.startswith("./"):
             return "file"
         elif uri.startswith(("mysql://", "postgresql://", "sqlite://")):
             return "sql"
@@ -551,7 +517,7 @@ class DeploymentValidator:
         # Performance recommendations
         perf_test = self.validation_results["tests"].get("performance", {})
         if perf_test.get("details", {}).get("experiment_creation_time", 0) > 1.0:
-            recommendations.append("Consider using MongoDB store for better performance")
+            recommendations.append("Consider using PostgreSQL or cloud storage for better performance")
         
         # Security recommendations
         security_test = self.validation_results["tests"].get("security", {})
@@ -634,8 +600,6 @@ def main():
                        help="MLflow tracking URI to validate")
     parser.add_argument("--artifact-root",
                        help="Artifact storage root to validate")
-    parser.add_argument("--mongodb-config",
-                       help="MongoDB configuration file (JSON)")
     parser.add_argument("--output", "-o",
                        help="Output file for validation results")
     parser.add_argument("--verbose", "-v", action="store_true",
@@ -650,21 +614,11 @@ def main():
         format='%(asctime)s - %(levelname)s - %(message)s'
     )
     
-    # Load MongoDB config if provided
-    mongodb_config = {}
-    if args.mongodb_config:
-        try:
-            with open(args.mongodb_config, 'r') as f:
-                mongodb_config = json.load(f)
-        except Exception as e:
-            logger.error(f"Failed to load MongoDB config: {e}")
-            sys.exit(1)
     
     # Create validator
     validator = DeploymentValidator(
         tracking_uri=args.tracking_uri,
-        artifact_root=args.artifact_root,
-        mongodb_config=mongodb_config
+        artifact_root=args.artifact_root
     )
     
     try:

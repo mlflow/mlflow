@@ -1,6 +1,6 @@
 # Genesis-Flow
 
-Genesis-Flow is a secure, lightweight, and scalable ML operations platform built as a fork of MLflow. It provides enterprise-grade security features, MongoDB/Azure Cosmos DB integration, and a comprehensive plugin architecture while maintaining 100% API compatibility with standard MLflow.
+Genesis-Flow is a secure, lightweight, and scalable ML operations platform built as a fork of MLflow. It provides enterprise-grade security features, PostgreSQL with Azure Managed Identity support, Google Cloud Storage integration, and a comprehensive plugin architecture while maintaining 100% API compatibility with standard MLflow.
 
 ## 🚀 Key Features
 
@@ -11,8 +11,8 @@ Genesis-Flow is a secure, lightweight, and scalable ML operations platform built
 - **Security patches** for all known vulnerabilities in dependencies
 
 ### Scalable Architecture
-- **MongoDB/Azure Cosmos DB** integration for metadata storage
-- **Azure Blob Storage** support for artifact storage
+- **PostgreSQL with Azure Managed Identity** for secure, passwordless database access
+- **Azure Blob Storage & Google Cloud Storage** support for artifact storage
 - **Hybrid storage** architecture for optimal performance
 - **Multi-tenancy** support with proper data isolation
 
@@ -32,8 +32,8 @@ Genesis-Flow is a secure, lightweight, and scalable ML operations platform built
 
 ### Prerequisites
 - Python 3.8+
-- MongoDB 4.4+ (for MongoDB storage backend)
-- Azure Storage Account (for Azure Blob Storage)
+- PostgreSQL 11+ (optional, for SQL backend)
+- Azure Storage Account or Google Cloud Storage bucket (optional, for cloud artifacts)
 
 ### Quick Install
 
@@ -69,7 +69,7 @@ poetry install --with dev
 ```python
 import mlflow
 
-# Set tracking URI (supports file, MongoDB, etc.)
+# Set tracking URI (supports file, PostgreSQL, etc.)
 mlflow.set_tracking_uri("file:///path/to/mlruns")
 
 # Create experiment
@@ -89,21 +89,37 @@ with mlflow.start_run(experiment_id=experiment_id):
     mlflow.log_artifact("model.pkl")
 ```
 
-### MongoDB Backend
+### PostgreSQL with Managed Identity
 
 ```python
 import mlflow
+import os
 
-# Configure MongoDB tracking store
-mlflow.set_tracking_uri("mongodb://localhost:27017/mlflow_db")
+# Configure PostgreSQL with Azure Managed Identity (no password needed)
+mlflow.set_tracking_uri("postgresql://user@server.postgres.database.azure.com:5432/mlflow?auth_method=managed_identity")
 
-# Use with Azure Cosmos DB
-mlflow.set_tracking_uri("mongodb+srv://username:password@cluster.cosmos.azure.com/mlflow_db")
+# Or use environment variable
+os.environ["MLFLOW_POSTGRES_USE_MANAGED_IDENTITY"] = "true"
+mlflow.set_tracking_uri("postgresql://user@server.postgres.database.azure.com:5432/mlflow")
 
 # Your ML workflow continues normally
 with mlflow.start_run():
     mlflow.log_param("model_type", "random_forest")
     mlflow.log_metric("accuracy", 0.92)
+```
+
+### Google Cloud Storage for Artifacts
+
+```python
+import mlflow
+
+# Use GCS for artifact storage
+mlflow.set_tracking_uri("postgresql://localhost/mlflow")
+mlflow.create_experiment("my_experiment", artifact_location="gs://my-bucket/mlflow-artifacts")
+
+# Log artifacts to GCS
+with mlflow.start_run():
+    mlflow.log_artifact("model.pkl")  # Automatically stored in GCS
 ```
 
 ### Plugin System
@@ -136,8 +152,8 @@ Genesis-Flow supports multiple storage backends:
 | Backend | Metadata | Artifacts | Use Case |
 |---------|----------|-----------|----------|
 | **File Store** | Local files | Local files | Development, testing |
-| **MongoDB** | MongoDB/Cosmos DB | Azure Blob/S3 | Production, scalable |
-| **SQL Database** | PostgreSQL/MySQL | Cloud storage | Enterprise |
+| **PostgreSQL** | PostgreSQL with Managed Identity | Azure Blob/GCS/S3 | Production, secure |
+| **SQL Database** | MySQL/SQLite | Cloud storage | Enterprise |
 
 ### Plugin Architecture
 
@@ -162,12 +178,20 @@ Genesis-Flow supports multiple storage backends:
 
 ```bash
 # Tracking configuration
-export MLFLOW_TRACKING_URI="mongodb://localhost:27017/mlflow_db"
-export MLFLOW_DEFAULT_ARTIFACT_ROOT="azure://container/path"
+export MLFLOW_TRACKING_URI="postgresql://user@server:5432/mlflow"
+export MLFLOW_DEFAULT_ARTIFACT_ROOT="gs://my-bucket/mlflow"
 
-# Azure Storage configuration
-export AZURE_STORAGE_CONNECTION_STRING="DefaultEndpointsProtocol=https;..."
-export AZURE_STORAGE_ACCESS_KEY="your_access_key"
+# Default artifact location for all experiments
+export MLFLOW_ARTIFACT_LOCATION="gs://my-bucket/mlflow-artifacts"
+
+# PostgreSQL with Managed Identity
+export MLFLOW_POSTGRES_USE_MANAGED_IDENTITY=true
+export MLFLOW_POSTGRES_HOST="server.postgres.database.azure.com"
+export MLFLOW_POSTGRES_DATABASE="mlflow"
+export MLFLOW_POSTGRES_USERNAME="user@tenant"
+
+# Google Cloud Storage configuration
+export GOOGLE_APPLICATION_CREDENTIALS="/path/to/service-account.json"
 
 # Security configuration
 export MLFLOW_ENABLE_SECURE_MODEL_LOADING=true
@@ -180,8 +204,8 @@ Create `mlflow.conf`:
 
 ```ini
 [tracking]
-uri = mongodb://localhost:27017/mlflow_db
-default_artifact_root = azure://mlflow-artifacts/
+uri = postgresql://user@server:5432/mlflow
+default_artifact_root = gs://mlflow-artifacts/
 
 [security]
 enable_input_validation = true

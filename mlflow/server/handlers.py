@@ -177,9 +177,6 @@ class TrackingStoreRegistryWrapper(TrackingStoreRegistry):
         super().__init__()
         self.register("", self._get_file_store)
         self.register("file", self._get_file_store)
-        # Register MongoDB support for Genesis-Flow
-        self.register("mongodb", self._get_mongodb_store)
-        self.register("mongodb+srv", self._get_mongodb_store)
         for scheme in DATABASE_ENGINES:
             self.register(scheme, self._get_sqlalchemy_store)
         self.register_entrypoints()
@@ -196,11 +193,6 @@ class TrackingStoreRegistryWrapper(TrackingStoreRegistry):
 
         return SqlAlchemyStore(store_uri, artifact_uri)
     
-    @classmethod
-    def _get_mongodb_store(cls, store_uri, artifact_uri):
-        from mlflow.store.tracking.mongodb_store import MongoDBStore
-
-        return MongoDBStore(store_uri, artifact_uri)
 
 
 class ModelRegistryStoreRegistryWrapper(ModelRegistryStoreRegistry):

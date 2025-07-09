@@ -206,6 +206,11 @@ MLFLOW_KERBEROS_USER = _EnvironmentVariable("MLFLOW_KERBEROS_USER", str, None)
 #: (default: ``None``)
 MLFLOW_PYARROW_EXTRA_CONF = _EnvironmentVariable("MLFLOW_PYARROW_EXTRA_CONF", str, None)
 
+#: Specifies the default artifact location for all experiments.
+#: This is used when creating new experiments without specifying an artifact location.
+#: (default: ``None``)
+MLFLOW_ARTIFACT_LOCATION = _EnvironmentVariable("MLFLOW_ARTIFACT_LOCATION", str, None)
+
 #: Specifies the ``pool_size`` parameter to use for ``sqlalchemy.create_engine`` in the SQLAlchemy
 #: tracking store. See https://docs.sqlalchemy.org/en/14/core/engines.html#sqlalchemy.create_engine.params.pool_size
 #: for more information.
