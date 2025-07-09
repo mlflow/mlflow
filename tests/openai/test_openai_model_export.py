@@ -621,7 +621,6 @@ def test_inference_params_overlap(tmp_path):
 
 
 def test_log_model_sends_telemetry_record(mock_requests):
-    """Test that log_model sends telemetry records."""
     mlflow.openai.log_model(
         "gpt-4o-mini",
         "chat.completions",

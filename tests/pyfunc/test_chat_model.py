@@ -664,8 +664,6 @@ def test_chat_model_without_context_in_predict():
 
 
 def test_log_model_sends_telemetry_record(mock_requests):
-    """Test that log_model sends telemetry records."""
-
     client = get_telemetry_client()
     mlflow.pyfunc.log_model(
         python_model=SimpleChatModel(),

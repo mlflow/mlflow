@@ -123,7 +123,6 @@ def test_save_model_with_signature():
 
 
 def test_log_model_sends_telemetry_record(mock_requests, keras_model_context):
-    """Test that log_model sends telemetry records."""
     mlflow.keras.log_model(
         keras_model_context.model,
         name="model",

@@ -552,7 +552,6 @@ def test_model_log_with_signature_inference(lgb_model):
 
 
 def test_log_model_sends_telemetry_record(mock_requests, lgb_model):
-    """Test that log_model sends telemetry records."""
     mlflow.lightgbm.log_model(
         lgb_model.model,
         name="model",

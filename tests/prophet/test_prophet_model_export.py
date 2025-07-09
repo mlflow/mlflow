@@ -487,7 +487,6 @@ def test_model_log_with_signature_inference(prophet_model):
 
 
 def test_log_model_sends_telemetry_record(mock_requests, prophet_model):
-    """Test that log_model sends telemetry records."""
     model = prophet_model.model
     horizon_df = future_horizon_df(model, FORECAST_HORIZON)
     mlflow.prophet.log_model(

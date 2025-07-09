@@ -491,7 +491,6 @@ def test_predict_stream_success(dummy_model):
 
 
 def test_log_model_sends_telemetry_record(mock_requests, dummy_model):
-    """Test that log_model sends telemetry records."""
     import dspy
 
     # Create a simple dspy module

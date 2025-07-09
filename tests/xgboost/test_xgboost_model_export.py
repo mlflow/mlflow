@@ -691,7 +691,6 @@ def test_exclude_unrecognized_kwargs():
 
 
 def test_log_model_sends_telemetry_record(mock_requests, xgb_model):
-    """Test that log_model sends telemetry records."""
     mlflow.xgboost.log_model(
         xgb_model.model,
         name="model",

@@ -596,7 +596,6 @@ async def test_save_load_workflow_as_code():
 
 
 def test_log_model_sends_telemetry_record(mock_requests):
-    """Test that log_model sends telemetry records."""
     index_code_path = "tests/llama_index/sample_code/simple_workflow.py"
     mlflow.llama_index.log_model(
         index_code_path,

@@ -487,7 +487,6 @@ def test_model_log_with_metadata(spacy_model_with_data):
 
 
 def test_log_model_sends_telemetry_record(mock_requests, spacy_model_with_data):
-    """Test that log_model sends telemetry records."""
     mlflow.spacy.log_model(
         spacy_model_with_data.model,
         name="model",

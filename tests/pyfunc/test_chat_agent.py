@@ -436,8 +436,6 @@ def test_chat_agent_predict_with_params(tmp_path):
 
 
 def test_log_model_sends_telemetry_record(mock_requests):
-    """Test that log_model sends telemetry records."""
-
     client = get_telemetry_client()
     mlflow.pyfunc.log_model(
         python_model=SimpleChatAgent(),

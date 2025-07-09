@@ -127,7 +127,7 @@ def test_track_api_usage_do_not_track_internal_api(mock_requests):
     def test_func():
         mlflow.sklearn.autolog()
 
-    with patch("mlflow.telemetry.track.invoked_from_internal_api", return_value=True):
+    with patch("mlflow.telemetry.track.is_invoked_from_internal_api", return_value=True):
         test_func()
         assert len(mock_requests) == 0
 

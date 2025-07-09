@@ -478,7 +478,6 @@ def test_model_log_with_signature_inference():
 
 
 def test_log_model_sends_telemetry_record(mock_requests):
-    """Test that log_model sends telemetry records."""
     ols = ols_model()
     mlflow.statsmodels.log_model(
         ols.model,

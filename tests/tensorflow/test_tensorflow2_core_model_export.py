@@ -138,7 +138,6 @@ def test_load_with_options(tmp_path, tf2_toy_model):
 
 
 def test_log_model_sends_telemetry_record(mock_requests, tf2_toy_model):
-    """Test that log_model sends telemetry records."""
     mlflow.tensorflow.log_model(tf2_toy_model.model, name="model")
     # Wait for telemetry to be sent
     get_telemetry_client().flush()

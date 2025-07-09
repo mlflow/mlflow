@@ -83,7 +83,6 @@ def test_langgraph_model_invoke_with_dictionary_params(monkeypatch):
 
 
 def test_log_model_sends_telemetry_record(mock_requests):
-    """Test that log_model sends telemetry records."""
     mlflow.langchain.log_model(
         "tests/langgraph/sample_code/langgraph_prebuilt.py",
         name="langgraph",

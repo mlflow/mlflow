@@ -1036,7 +1036,6 @@ def test_log_model_with_vector_input_type_signature(spark, spark_model_estimator
 
 
 def test_log_model_sends_telemetry_record(mock_requests, spark_model_iris):
-    """Test that log_model sends telemetry records."""
     with mlflow.start_run():
         mlflow.spark.log_model(
             spark_model_iris.model,

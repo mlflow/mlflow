@@ -2,14 +2,14 @@ import functools
 import inspect
 import logging
 import time
-from contextlib import contextmanager
 from typing import Any, Callable, Optional
 
 from mlflow.telemetry.client import get_telemetry_client
 from mlflow.telemetry.parser import API_PARSER_MAPPING
 from mlflow.telemetry.schemas import APIRecord, APIStatus
 from mlflow.telemetry.utils import (
-    invoked_from_internal_api,
+    _avoid_telemetry_tracking,
+    is_invoked_from_internal_api,
     is_telemetry_disabled,
 )
 
@@ -19,12 +19,13 @@ _logger = logging.getLogger(__name__)
 def track_api_usage(func: Callable[..., Any]) -> Callable[..., Any]:
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
-        if is_telemetry_disabled() or invoked_from_internal_api():
+        if is_telemetry_disabled() or is_invoked_from_internal_api():
             return func(*args, **kwargs)
 
         success = True
         start_time = time.time()
         try:
+            # avoid tracking telemetry for nested API calls
             with _avoid_telemetry_tracking():
                 return func(*args, **kwargs)
         except Exception:
@@ -39,26 +40,6 @@ def track_api_usage(func: Callable[..., Any]) -> Callable[..., Any]:
                 _logger.debug(f"Failed to record telemetry for function {func.__name__}: {e}")
 
     return wrapper
-
-
-@contextmanager
-def _avoid_telemetry_tracking():
-    """
-    Context manager to avoid telemetry tracking.
-    This needs to be used to avoid tracking nested APIs that are invoked inside the
-    function that we are tracking.
-    """
-    global invoked_from_internal_api
-    original_func = invoked_from_internal_api
-
-    def mock_invoked_from_internal_api():
-        return True
-
-    try:
-        invoked_from_internal_api = mock_invoked_from_internal_api
-        yield
-    finally:
-        invoked_from_internal_api = original_func
 
 
 def _generate_telemetry_record(

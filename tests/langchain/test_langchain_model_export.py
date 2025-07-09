@@ -3717,7 +3717,6 @@ def test_predict_with_callbacks_with_tracing(monkeypatch):
 
 
 def test_log_model_sends_telemetry_record(mock_requests):
-    """Test that log_model sends telemetry records."""
     mlflow.langchain.log_model(
         os.path.abspath("tests/langchain/sample_code/workflow.py"),
         name="model",

@@ -1207,7 +1207,6 @@ def test_passing_params_to_model(data):
 
 
 def test_log_model_sends_telemetry_record(mock_requests, data):
-    """Test that log_model sends telemetry records."""
     model = get_sequential_model()
     train_model(model=model, data=data)
 

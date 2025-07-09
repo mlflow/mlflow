@@ -750,7 +750,6 @@ from mlflow.telemetry.schemas import LogModelParams, ModelType
 
 
 def test_log_model_sends_telemetry_record(mock_requests, spark_model_iris):
-    """Test that log_model sends telemetry records."""
     mlflow.johnsnowlabs.log_model(
         spark_model_iris.model,
         name="model",

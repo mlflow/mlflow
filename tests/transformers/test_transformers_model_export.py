@@ -3888,7 +3888,6 @@ def test_log_model_skip_validating_serving_input_for_local_checkpoint(
 
 
 def test_log_model_sends_telemetry_record(mock_requests, small_qa_pipeline):
-    """Test that log_model sends telemetry records."""
     mlflow.transformers.log_model(
         small_qa_pipeline,
         name="model",

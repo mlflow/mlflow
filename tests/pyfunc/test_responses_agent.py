@@ -427,8 +427,6 @@ def test_responses_agent_trace(
 
 
 def test_log_model_sends_telemetry_record(mock_requests):
-    """Test that log_model sends telemetry records."""
-
     client = get_telemetry_client()
     mlflow.pyfunc.log_model(python_model=SimpleResponsesAgent(), name="model")
     # Wait for telemetry to be sent

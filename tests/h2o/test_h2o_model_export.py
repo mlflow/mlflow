@@ -397,7 +397,6 @@ def test_model_log_with_signature_inference(h2o_iris_model, h2o_iris_model_signa
 
 
 def test_log_model_sends_telemetry_record(mock_requests, h2o_iris_model):
-    """Test that log_model sends telemetry records."""
     mlflow.h2o.log_model(
         h2o_iris_model.model,
         name="model",

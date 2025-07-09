@@ -598,7 +598,6 @@ def test_model_pyfunc_with_dict_input(basic_model, model_path):
 
 
 def test_log_model_sends_telemetry_record(mock_requests, basic_model):
-    """Test that log_model sends telemetry records."""
     mlflow.sentence_transformers.log_model(
         basic_model,
         name="model",

@@ -2667,8 +2667,6 @@ def test_lock_model_requirements_constraints(monkeypatch: pytest.MonkeyPatch, tm
 
 
 def test_log_model_sends_telemetry_record(mock_requests):
-    """Test that log_model sends telemetry records."""
-
     client = get_telemetry_client()
 
     class TestModel(mlflow.pyfunc.PythonModel):

@@ -633,7 +633,6 @@ def test_model_log_with_signature_inference(pd_model, pd_model_signature):
 
 
 def test_log_model_sends_telemetry_record(mock_requests, pd_model):
-    """Test that log_model sends telemetry records."""
     mlflow.paddle.log_model(
         pd_model.model,
         name="model",

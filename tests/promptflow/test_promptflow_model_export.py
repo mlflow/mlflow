@@ -139,7 +139,6 @@ def test_unsupported_class():
 
 
 def test_log_model_sends_telemetry_record(mock_requests):
-    """Test that log_model sends telemetry records."""
     log_promptflow_example_model()
     # Wait for telemetry to be sent
     get_telemetry_client().flush()
