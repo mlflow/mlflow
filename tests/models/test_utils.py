@@ -625,16 +625,12 @@ def test_suppress_schema_error(monkeypatch):
         ColSpec("double", "id"),
         ColSpec("string", "name"),
     ])
-    params = {}
-    params_schema = None
-
     monkeypatch.setenv(MLFLOW_DISABLE_SCHEMA_DETAILS.name,"true")
-    suprass_error = pd.DataFrame({"id":[1,2]})
-    suprass_error["id"] = suprass_error["id"].astype("float64")
+    data = pd.DataFrame({"id": [1, 2]}, dtype="float64")
 
     with pytest.raises(MlflowException,
                        match=r"Failed to enforce model input schema. Please check your input data."):
-        _validate_prediction_input(suprass_error, params, schema, params_schema)
+        _validate_prediction_input(data, None, schema, None)
 
 def test_enforce_schema_with_missing_and_extra_columns(monkeypatch):
     schema = Schema([
