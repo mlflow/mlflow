@@ -7,6 +7,7 @@ import { SpanType } from '../../../src/core/constants';
 
 // NB: 'Completions' represents chat.completions
 const SUPPORTED_MODULES = ['Completions', 'Responses', 'Embeddings'];
+const SUPPORTED_METHODS = ['create']; // chat.completions.create, embeddings.create, responses.create
 
 /**
  * Create a traced version of OpenAI client with MLflow tracing
@@ -53,16 +54,7 @@ export function tracedOpenAI<T = any>(openaiClient: T): T {
  * Determine if a method should be traced based on the target object and property
  */
 function shouldTraceMethod(module: string, methodName: string): boolean {
-  if (!SUPPORTED_MODULES.includes(module)) {
-    return false;
-  }
-
-  // Common OpenAI API methods to trace
-  const tracedMethods = [
-    'create' // chat.completions.create, embeddings.create, responses.create
-  ];
-
-  return tracedMethods.includes(methodName);
+  return SUPPORTED_MODULES.includes(module) && SUPPORTED_METHODS.includes(methodName);
 }
 
 /**

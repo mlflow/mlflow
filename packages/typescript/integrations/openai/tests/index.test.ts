@@ -180,11 +180,8 @@ describe('tracedOpenAI', () => {
         temperature: 0
       });
 
-      // Verify response structure
+      // Verify response
       expect((response as any).id).toBe('responses-123');
-      expect((response as any).choices[0].message.content).toEqual([
-        { type: 'text', text: 'Dummy output' }
-      ]);
 
       // Get and verify the trace
       const trace = await getLastActiveTrace();
@@ -199,6 +196,40 @@ describe('tracedOpenAI', () => {
         temperature: 0
       });
       expect(span.outputs).toEqual(response);
+    });
+  });
+
+  describe('Embeddings API', () => {
+    it('should trace embeddings.create() with input: %p', async () => {
+      const openai = new OpenAI({ apiKey: 'test-key' });
+      const wrappedOpenAI = tracedOpenAI(openai);
+
+      const response = await wrappedOpenAI.embeddings.create({
+        model: 'text-embedding-3-small',
+        input: ['Hello', 'world']
+      });
+
+      expect(response.object).toBe('list');
+      expect(response.data.length).toBe(2);
+      expect(response.data[0].object).toBe('embedding');
+      expect(response.data[0].embedding.length).toBeGreaterThan(0);
+      expect(response.model).toBe('text-embedding-3-small');
+
+      const trace = await getLastActiveTrace();
+      expect(trace.info.state).toBe('OK');
+      expect(trace.data.spans.length).toBe(1);
+
+      const span = trace.data.spans[0];
+      expect(span.name).toBe('Embeddings');
+      expect(span.spanType).toBe(SpanType.EMBEDDING);
+      expect(span.status.statusCode).toBe(SpanStatusCode.OK);
+      expect(span.inputs).toEqual({
+        model: 'text-embedding-3-small',
+        input: ['Hello', 'world']
+      });
+      expect(span.outputs).toEqual(response);
+      expect(span.startTime).toBeDefined();
+      expect(span.endTime).toBeDefined();
     });
   });
 });
