@@ -9,7 +9,7 @@ _STACK_TRACE_TRUNCATION_PREFIX = "[Stack trace is truncated]\n...\n"
 _STACK_TRACE_TRUNCATION_LENGTH = 1000
 
 
-@experimental
+@experimental(version="2.21.0")
 @dataclass
 class AssessmentError(_MlflowObject):
     """

@@ -138,6 +138,22 @@ def construct_db_uri_from_profile(profile):
         return "databricks://" + profile
 
 
+def construct_db_uc_uri_from_profile(profile):
+    """
+    Construct a databricks-uc URI from a profile.
+
+    Args:
+        profile: The profile name, optionally with key_prefix (e.g., "profile" or "scope:key")
+
+    Returns:
+        A databricks-uc URI string, or the scheme alone if no profile is provided
+    """
+    if profile:
+        return f"{_DATABRICKS_UNITY_CATALOG_SCHEME}://{profile}"
+    else:
+        return _DATABRICKS_UNITY_CATALOG_SCHEME
+
+
 # Both scope and key_prefix should not contain special chars for URIs, like '/'
 # and ':'.
 def validate_db_scope_prefix_info(scope, prefix):

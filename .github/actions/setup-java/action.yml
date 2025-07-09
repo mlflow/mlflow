@@ -18,3 +18,8 @@ runs:
       with:
         java-version: ${{ inputs.java-version }}
         distribution: ${{ inputs.distribution }}
+
+    - name: Set MLFLOW_DOCKER_OPENJDK_VERSION
+      shell: bash
+      run: |
+        echo "MLFLOW_DOCKER_OPENJDK_VERSION=${{ inputs.java-version }}" >> $GITHUB_ENV

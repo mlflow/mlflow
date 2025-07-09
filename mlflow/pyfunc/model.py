@@ -831,7 +831,7 @@ if IS_PYDANTIC_V2_OR_NEWER:
         ResponsesAgentStreamEvent,
     )
 
-    @experimental
+    @experimental(version="3.0.0")
     class ResponsesAgent(PythonModel, metaclass=ABCMeta):
         """
         A base class for creating ResponsesAgent models. It can be used as a wrapper around any

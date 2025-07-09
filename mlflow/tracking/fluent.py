@@ -830,6 +830,29 @@ def set_experiment_tag(key: str, value: Any) -> None:
     MlflowClient().set_experiment_tag(experiment_id, key, value)
 
 
+def delete_experiment_tag(key: str) -> None:
+    """
+    Delete a tag from the current experiment.
+
+    Args:
+        key: Name of the tag to be deleted.
+
+    .. code-block:: python
+        :test:
+        :caption: Example
+
+        import mlflow
+
+        exp = mlflow.set_experiment("test-delete-tag")
+        mlflow.set_experiment_tag("release.version", "1.0")
+        mlflow.delete_experiment_tag("release.version")
+        exp = mlflow.get_experiment(exp.experiment_id)
+        assert "release.version" not in exp.tags
+    """
+    experiment_id = _get_experiment_id()
+    MlflowClient().delete_experiment_tag(experiment_id, key)
+
+
 def set_tag(key: str, value: Any, synchronous: Optional[bool] = None) -> Optional[RunOperations]:
     """
     Set a tag under the current run. If no run is active, this method will create a new active
@@ -2101,7 +2124,7 @@ def delete_experiment(experiment_id: str) -> None:
     MlflowClient().delete_experiment(experiment_id)
 
 
-@experimental
+@experimental(version="3.0.0")
 def initialize_logged_model(
     name: Optional[str] = None,
     source_run_id: Optional[str] = None,
@@ -2264,7 +2287,7 @@ def _create_logged_model(
     )
 
 
-@experimental
+@experimental(version="3.0.0")
 def log_model_params(params: dict[str, str], model_id: Optional[str] = None) -> None:
     """
     Log params to the specified logged model.
@@ -2296,7 +2319,7 @@ def log_model_params(params: dict[str, str], model_id: Optional[str] = None) -> 
     MlflowClient().log_model_params(model_id, params)
 
 
-@experimental
+@experimental(version="3.0.0")
 def finalize_logged_model(
     model_id: str, status: Union[Literal["READY", "FAILED"], LoggedModelStatus]
 ) -> LoggedModel:
@@ -2329,7 +2352,7 @@ def finalize_logged_model(
     return MlflowClient().finalize_logged_model(model_id, status)
 
 
-@experimental
+@experimental(version="3.0.0")
 def get_logged_model(model_id: str) -> LoggedModel:
     """
     Get a logged model by ID.
@@ -2361,7 +2384,7 @@ def get_logged_model(model_id: str) -> LoggedModel:
     return MlflowClient().get_logged_model(model_id)
 
 
-@experimental
+@experimental(version="3.0.0")
 def last_logged_model() -> Optional[LoggedModel]:
     """
     Fetches the most recent logged model in the current session.
@@ -2413,7 +2436,7 @@ def search_logged_models(
 ) -> list[LoggedModel]: ...
 
 
-@experimental
+@experimental(version="3.0.0")
 def search_logged_models(
     experiment_ids: Optional[list[str]] = None,
     filter_string: Optional[str] = None,
@@ -2557,7 +2580,7 @@ def search_logged_models(
         )
 
 
-@experimental
+@experimental(version="3.0.0")
 def log_outputs(models: Optional[list[LoggedModelOutput]] = None):
     """
     Log outputs, such as models, to the active run. If there is no active run, a new run will be
@@ -2884,8 +2907,12 @@ def search_runs(
             "start_time": [],
             "end_time": [],
         }
-        params, metrics, tags = ({}, {}, {})
-        PARAM_NULL, METRIC_NULL, TAG_NULL = (None, np.nan, None)
+        params = {}
+        metrics = {}
+        tags = {}
+        PARAM_NULL = None
+        METRIC_NULL = np.nan
+        TAG_NULL = None
         for i, run in enumerate(runs):
             info["run_id"].append(run.info.run_id)
             info["experiment_id"].append(run.info.experiment_id)
@@ -3549,6 +3576,10 @@ def clear_active_model() -> None:
     MLFLOW_ACTIVE_MODEL_ID.unset()
     _MLFLOW_ACTIVE_MODEL_ID.unset()
 
+    # Reset the active model context to avoid the active model ID set by other threads
+    # to be used when creating a new ActiveModelContext
+    _ACTIVE_MODEL_CONTEXT.reset()
     # set_by_user is False because this API clears the state of active model
     # and MLflow might still set the active model in cases like `load_model`
     _ACTIVE_MODEL_CONTEXT.set(ActiveModelContext(set_by_user=False))
+    _logger.info("Active model is cleared")

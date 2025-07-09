@@ -90,10 +90,6 @@ def test_on_start_during_run(monkeypatch):
 
 def test_on_start_with_experiment_id_override(monkeypatch):
     mlflow.set_experiment(experiment_id=DEFAULT_EXPERIMENT_ID)
-
-    mock_logger = mock.MagicMock()
-    monkeypatch.setattr("mlflow.tracing.processor.mlflow_v2._logger", mock_logger)
-
     processor = MlflowV3SpanProcessor(
         span_exporter=mock.MagicMock(), experiment_id="another_experiment"
     )
@@ -133,7 +129,8 @@ def test_on_end():
 
     mock_exporter.export.assert_called_once_with((otel_span,))
     # Trace info should be updated according to the span attributes
-    trace_info = trace_manager.pop_trace("trace_id").info
+    manager_trace = trace_manager.pop_trace("trace_id")
+    trace_info = manager_trace.trace.info
     assert trace_info.status == TraceStatus.OK
     assert trace_info.execution_time_ms == 4
     assert trace_info.tags == {}

@@ -118,7 +118,7 @@ def _supported_classes():
     return supported
 
 
-@experimental
+@experimental(version="2.15.0")
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 @trace_disabled  # Suppress traces while loading model
 def save_model(
@@ -312,7 +312,7 @@ def save_model(
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
-@experimental
+@experimental(version="2.15.0")
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 @trace_disabled  # Suppress traces while loading model
 def log_model(
@@ -430,8 +430,7 @@ def log_model(
                 # the rest of the model definition...
 
         code_paths: {{ code_paths }}
-        registered_model_name: This argument may change or be removed in a
-            future release without warning. If given, create a model
+        registered_model_name: If given, create a model
             version under ``registered_model_name``, also creating a
             registered model if one with the given name does not exist.
         signature: A Model Signature object that describes the input and output Schema of the
@@ -528,7 +527,7 @@ def _load_llama_model(path, flavor_conf):
         return load_index_from_storage(storage_context)
 
 
-@experimental
+@experimental(version="2.15.0")
 @trace_disabled  # Suppress traces while loading model
 def load_model(model_uri, dst_path=None):
     """

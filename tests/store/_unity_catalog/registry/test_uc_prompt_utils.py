@@ -1,4 +1,5 @@
 from mlflow.entities.model_registry.prompt import Prompt
+from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
     Prompt as ProtoPrompt,
 )
@@ -11,7 +12,6 @@ from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
 from mlflow.protos.unity_catalog_prompt_messages_pb2 import (
     PromptVersionTag as ProtoPromptVersionTag,
 )
-from mlflow.store._unity_catalog.registry.prompt_info import PromptInfo
 from mlflow.store._unity_catalog.registry.utils import (
     mlflow_prompt_to_proto,
     mlflow_tags_to_proto,
@@ -67,7 +67,7 @@ def test_proto_info_to_mlflow_prompt_info():
 
     # Test without prompt tags
     prompt_info = proto_info_to_mlflow_prompt_info(proto_info)
-    assert isinstance(prompt_info, PromptInfo)
+    assert isinstance(prompt_info, Prompt)
     assert prompt_info.name == "test_prompt"
     assert prompt_info.description == "Test prompt description"
     assert prompt_info.tags == {"key1": "value1", "key2": "value2"}
@@ -85,51 +85,47 @@ def test_proto_info_to_mlflow_prompt_info():
 
 
 def test_proto_to_mlflow_prompt():
-    # Create test proto version using proper message initialization
+    """Test that proto_to_mlflow_prompt correctly handles the decoupled tag architecture."""
+
+    # Test with version tags - the key behavior we care about
     proto_version = ProtoPromptVersion()
     proto_version.name = "test_prompt"
     proto_version.version = "1"
     proto_version.template = "Hello {{name}}!"
-    proto_version.description = "Test prompt"
-    # Skip timestamp for now as it's a complex protobuf type
+    proto_version.description = "Test description"
 
-    # Add version tags (use PromptVersionTag for prompt versions)
-    tag1 = ProtoPromptVersionTag()
-    tag1.key = "key1"
-    tag1.value = "value1"
-    tag2 = ProtoPromptVersionTag()
-    tag2.key = "key2"
-    tag2.value = "value2"
-    proto_version.tags.extend([tag1, tag2])
+    # Add version tags
+    proto_version.tags.extend(
+        [
+            ProtoPromptVersionTag(key="env", value="production"),
+            ProtoPromptVersionTag(key="author", value="alice"),
+        ]
+    )
 
-    # Test without prompt tags
-    prompt = proto_to_mlflow_prompt(proto_version)
-    assert isinstance(prompt, Prompt)
-    assert prompt.name == "test_prompt"
-    assert prompt.version == 1
-    assert prompt.template == "Hello {{name}}!"
-    assert prompt.commit_message == "Test prompt"
-    assert prompt.version_metadata == {"key1": "value1", "key2": "value2"}
-    assert prompt.tags == {}  # No prompt-level tags
-    assert prompt.aliases == []
+    result = proto_to_mlflow_prompt(proto_version)
 
-    # Test with prompt tags
-    prompt_tags = {"prompt_tag1": "value1", "prompt_tag2": "value2"}
-    prompt = proto_to_mlflow_prompt(proto_version, prompt_tags)
-    # Should have prompt-level tags
-    assert prompt.tags == prompt_tags
-    # Version metadata should still be there
-    assert prompt.version_metadata == {"key1": "value1", "key2": "value2"}
+    # The critical test: version tags should go to tags
+    expected_tags = {"env": "production", "author": "alice"}
+    assert result.tags == expected_tags
+
+    # Test with no tags
+    proto_no_tags = ProtoPromptVersion()
+    proto_no_tags.name = "no_tags_prompt"
+    proto_no_tags.version = "2"
+    proto_no_tags.template = "Simple template"
+
+    result_no_tags = proto_to_mlflow_prompt(proto_no_tags)
+    assert result_no_tags.tags == {}
 
 
 def test_mlflow_prompt_to_proto():
     # Create test prompt (skip timestamp for simplicity)
-    prompt = Prompt(
+    prompt = PromptVersion(
         name="test_prompt",
         version=1,
         template="Hello {{name}}!",
         commit_message="Test prompt",
-        version_metadata={"key1": "value1", "key2": "value2"},
+        tags={"key1": "value1", "key2": "value2"},
         aliases=["production"],
     )
 
@@ -146,7 +142,7 @@ def test_mlflow_prompt_to_proto():
     assert tags_dict == {"key1": "value1", "key2": "value2"}
 
     # Test with empty fields
-    prompt = Prompt(name="test_prompt", version=1, template="Hello {{name}}!")
+    prompt = PromptVersion(name="test_prompt", version=1, template="Hello {{name}}!")
     proto_version = mlflow_prompt_to_proto(prompt)
     assert len(proto_version.tags) == 0
 

@@ -1,6 +1,6 @@
 from mlflow.entities.model_registry._model_registry_entity import _ModelRegistryEntity
 from mlflow.entities.model_registry.model_version import ModelVersion
-from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY
+from mlflow.entities.model_registry.prompt_version import IS_PROMPT_TAG_KEY
 from mlflow.entities.model_registry.registered_model_alias import RegisteredModelAlias
 from mlflow.entities.model_registry.registered_model_deployment_job_state import (
     RegisteredModelDeploymentJobState,

@@ -1,9 +1,12 @@
 from unittest.mock import call, patch
 
+from databricks.rag_eval.evaluation.entities import CategoricalRating as DatabricksCategoricalRating
+
 from mlflow.entities.assessment import Feedback
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.span import SpanType
 from mlflow.genai.judges import meets_guidelines
+from mlflow.genai.judges.databricks import CategoricalRating
 from mlflow.genai.scorers import (
     Correctness,
     ExpectationsGuidelines,
@@ -19,7 +22,9 @@ from mlflow.genai.scorers import (
 def test_retrieval_groundedness(sample_rag_trace):
     with patch(
         "databricks.agents.evals.judges.groundedness",
-        side_effect=lambda *args, **kwargs: Feedback(name="retrieval_groundedness", value="yes"),
+        side_effect=lambda *args, **kwargs: Feedback(
+            name="retrieval_groundedness", value=DatabricksCategoricalRating.YES
+        ),
     ) as mock_groundedness:
         result = RetrievalGroundedness()(trace=sample_rag_trace)
 
@@ -44,6 +49,7 @@ def test_retrieval_groundedness(sample_rag_trace):
     )
     assert len(result) == 2
     assert all(isinstance(f, Feedback) for f in result)
+    assert result[0].value == CategoricalRating.YES
     expected_span_ids = [
         s.span_id for s in sample_rag_trace.search_spans(span_type=SpanType.RETRIEVER)
     ]
@@ -122,7 +128,7 @@ def test_retrieval_relevance_handle_error_feedback(sample_rag_trace):
     mock_responses = [
         # Error feedback
         [
-            Feedback(name="retrieval_relevance", value="yes"),
+            Feedback(name="retrieval_relevance", value=DatabricksCategoricalRating.YES),
             Feedback(name="retrieval_relevance", error=AssessmentError(error_code="test")),
         ],
         # Empty feedback - skip span
@@ -137,7 +143,7 @@ def test_retrieval_relevance_handle_error_feedback(sample_rag_trace):
     assert mock_chunk_relevance.call_count == 2
     assert len(results) == 3
     assert results[0].value == 0.5  # Error feedback is handled as 0.0 relevance
-    assert results[1].value == "yes"
+    assert results[1].value == CategoricalRating.YES
     assert results[2].value is None
     assert results[2].error.error_code == "test"
 
@@ -145,7 +151,9 @@ def test_retrieval_relevance_handle_error_feedback(sample_rag_trace):
 def test_retrieval_sufficiency(sample_rag_trace):
     with patch(
         "databricks.agents.evals.judges.context_sufficiency",
-        side_effect=lambda *args, **kwargs: Feedback(name="retrieval_sufficiency", value="yes"),
+        side_effect=lambda *args, **kwargs: Feedback(
+            name="retrieval_sufficiency", value=DatabricksCategoricalRating.YES
+        ),
     ) as mock_context_sufficiency:
         result = RetrievalSufficiency()(trace=sample_rag_trace)
 
@@ -174,6 +182,7 @@ def test_retrieval_sufficiency(sample_rag_trace):
 
     assert len(result) == 2
     assert all(isinstance(f, Feedback) for f in result)
+    assert all(f.value == CategoricalRating.YES for f in result)
     expected_span_ids = [
         s.span_id for s in sample_rag_trace.search_spans(span_type=SpanType.RETRIEVER)
     ]
@@ -182,7 +191,10 @@ def test_retrieval_sufficiency(sample_rag_trace):
 
 
 def test_retrieval_sufficiency_with_custom_expectations(sample_rag_trace):
-    with patch("databricks.agents.evals.judges.context_sufficiency") as mock_context_sufficiency:
+    with patch(
+        "databricks.agents.evals.judges.context_sufficiency",
+        return_value=Feedback(name="retrieval_sufficiency", value=DatabricksCategoricalRating.YES),
+    ) as mock_context_sufficiency:
         RetrievalSufficiency()(
             trace=sample_rag_trace,
             expectations={"expected_facts": ["fact3"]},
@@ -197,15 +209,15 @@ def test_retrieval_sufficiency_with_custom_expectations(sample_rag_trace):
                     {"content": "content_2", "doc_uri": "url_2"},
                 ],
                 # Expectations stored in the trace is exploded
-                expected_response="expected answer",
                 expected_facts=["fact3"],
+                expected_response="expected answer",
                 assessment_name="retrieval_sufficiency",
             ),
             call(
                 request="{'question': 'query'}",
                 retrieved_context=[{"content": "content_3"}],
-                expected_response="expected answer",
                 expected_facts=["fact3"],
+                expected_response="expected answer",
                 assessment_name="retrieval_sufficiency",
             ),
         ],
@@ -262,7 +274,7 @@ def test_guidelines():
 def test_relevance_to_query():
     with patch(
         "databricks.agents.evals.judges.relevance_to_query",
-        return_value=Feedback(name="relevance_to_query", value="yes"),
+        return_value=Feedback(name="relevance_to_query", value=DatabricksCategoricalRating.YES),
     ) as mock_relevance_to_query:
         result = RelevanceToQuery()(
             inputs={"question": "query"},
@@ -276,7 +288,7 @@ def test_relevance_to_query():
     )
 
     assert result.name == "relevance_to_query"
-    assert result.value == "yes"
+    assert result.value == CategoricalRating.YES
 
 
 def test_safety():

@@ -126,7 +126,7 @@ def get_default_conda_env():
     return _mlflow_conda_env(additional_pip_deps=get_default_pip_requirements())
 
 
-@experimental
+@experimental(version="2.3.0")
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 @docstring_version_compatibility_warning(FLAVOR_NAME)
 @trace_disabled  # Suppress traces for internal predict calls while saving model
@@ -414,7 +414,7 @@ def save_model(
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
-@experimental
+@experimental(version="2.3.0")
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 @docstring_version_compatibility_warning(FLAVOR_NAME)
 @trace_disabled  # Suppress traces for internal predict calls while logging model
@@ -461,8 +461,7 @@ def log_model(
         artifact_path: Deprecated. Use `name` instead.
         conda_env: {{ conda_env }}
         code_paths: {{ code_paths }}
-        registered_model_name: This argument may change or be removed in a
-            future release without warning. If given, create a model
+        registered_model_name: If given, create a model
             version under ``registered_model_name``, also creating a
             registered model if one with the given name does not exist.
         signature: :py:class:`ModelSignature <mlflow.models.ModelSignature>`
@@ -710,7 +709,7 @@ class _LangChainModelWrapper:
                 context.update(**schema)
             return context
 
-    @experimental
+    @experimental(version="2.10.0")
     def _predict_with_callbacks(
         self,
         data: Union[pd.DataFrame, list[Union[str, dict[str, Any]]], Any],
@@ -890,7 +889,7 @@ def _load_model_from_local_fs(local_model_path, model_config_overrides=None):
     return model
 
 
-@experimental
+@experimental(version="2.3.0")
 @docstring_version_compatibility_warning(FLAVOR_NAME)
 @trace_disabled  # Suppress traces while loading model
 def load_model(model_uri, dst_path=None):

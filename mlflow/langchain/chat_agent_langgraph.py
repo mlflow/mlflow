@@ -16,7 +16,7 @@ try:
     except ImportError as e:
         # If LangGraph 0.3.x is installed but langgraph_prebuilt is not,
         # show a friendlier error message
-        if Version(importlib.metadata("langgraph").version) >= Version("0.3.0"):
+        if Version(importlib.metadata.version("langgraph")) >= Version("0.3.0"):
             raise ImportError(
                 "Please install `langgraph-prebuilt>=0.1.2` to use MLflow LangGraph ChatAgent "
                 "helpers with LangGraph 0.3.x.\n"
@@ -40,7 +40,10 @@ from mlflow.types.agent import ChatAgentMessage
 from mlflow.utils.annotations import experimental
 
 
-def _add_agent_messages(left: Union[dict, list[dict]], right: Union[dict, list[dict]]):
+def _add_agent_messages(
+    left: Union[dict[str, Any], list[dict[str, Any]]],
+    right: Union[dict[str, Any], list[dict[str, Any]]],
+):
     if not isinstance(left, list):
         left = [left]
     if not isinstance(right, list):
@@ -69,7 +72,7 @@ def _add_agent_messages(left: Union[dict, list[dict]], right: Union[dict, list[d
     return merged
 
 
-@experimental
+@experimental(version="2.21.0")
 class ChatAgentState(TypedDict):
     """
     Helper class that enables building a LangGraph agent that produces ChatAgent-compatible
@@ -104,7 +107,7 @@ class ChatAgentState(TypedDict):
         from langchain_core.runnables import RunnableConfig, RunnableLambda
         from langchain_core.tools import BaseTool
         from langgraph.graph import END, StateGraph
-        from langgraph.graph.graph import CompiledGraph
+        from langgraph.graph.state import CompiledStateGraph
         from langgraph.prebuilt import ToolNode
         from mlflow.langchain.chat_agent_langgraph import ChatAgentState, ChatAgentToolNode
 
@@ -113,7 +116,7 @@ class ChatAgentState(TypedDict):
             model: LanguageModelLike,
             tools: Union[ToolNode, Sequence[BaseTool]],
             agent_prompt: Optional[str] = None,
-        ) -> CompiledGraph:
+        ) -> CompiledStateGraph:
             model = model.bind_tools(tools)
 
             def routing_logic(state: ChatAgentState):
@@ -264,14 +267,14 @@ class ChatAgentState(TypedDict):
     ChatAgent" section of the docstring of :py:class:`ChatAgent <mlflow.pyfunc.ChatAgent>`.
     """
 
-    messages: Annotated[list, _add_agent_messages]
+    messages: Annotated[list[dict[str, Any]], _add_agent_messages]
     context: Optional[dict[str, Any]]
     custom_inputs: Optional[dict[str, Any]]
     custom_outputs: Optional[dict[str, Any]]
 
 
 def parse_message(
-    msg: AnyMessage, name: Optional[str] = None, attachments: Optional[dict] = None
+    msg: AnyMessage, name: Optional[str] = None, attachments: Optional[dict[str, Any]] = None
 ) -> dict[str, Any]:
     """
     Parse different LangChain message types into their ChatAgentMessage schema dict equivalents
@@ -288,7 +291,7 @@ def parse_message(
     return chat_agent_msg.model_dump_compat(exclude_none=True)
 
 
-@experimental
+@experimental(version="2.21.0")
 class ChatAgentToolNode(ToolNode):
     """
     Helper class to make ToolNodes be compatible with

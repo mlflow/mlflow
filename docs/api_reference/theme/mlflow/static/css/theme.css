@@ -41,6 +41,8 @@ audio:not([controls]) {
 
 html {
   font-size: 100%;
+  font-family: "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans",
+    "Helvetica Neue", sans-serif;
   -webkit-text-size-adjust: 100%;
   -ms-text-size-adjust: 100%;
 }
@@ -5310,6 +5312,8 @@ div[class^="highlight"] pre {
 
 .wy-menu-vertical {
   width: 300px;
+  overflow: auto;
+  flex: 1;
 }
 
 .wy-menu-vertical header,
@@ -5502,25 +5506,12 @@ div[class^="highlight"] pre {
 .wy-menu-vertical a:active {
   background-color: #2980b9;
   cursor: pointer;
-  color: #fff;
-}
-
-.wy-menu-vertical a:active span.toctree-expand {
-  color: #fff;
 }
 
 .wy-side-nav-search {
   display: block;
-  width: 300px;
-  padding: 0.809em;
-  margin-bottom: 0.809em;
+  padding: 16px;
   z-index: 200;
-  background-color: #2980b9;
-  text-align: center;
-  padding: 0.809em;
-  display: block;
-  color: #fcfcfc;
-  margin-bottom: 0.809em;
 }
 
 .wy-side-nav-search input[type="text"] {
@@ -5635,7 +5626,6 @@ div[class^="highlight"] pre {
   top: 0;
   bottom: 0;
   left: 0;
-  padding-bottom: 2em;
   width: 300px;
   overflow-x: hidden;
   overflow-y: hidden;
@@ -5649,11 +5639,12 @@ div[class^="highlight"] pre {
 }
 
 .wy-side-scroll {
-  width: 320px;
   position: relative;
   overflow-x: hidden;
   overflow-y: scroll;
-  height: 100%;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
 }
 
 .wy-nav-top {

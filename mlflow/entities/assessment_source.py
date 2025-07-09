@@ -9,7 +9,7 @@ from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.utils.annotations import experimental
 
 
-@experimental
+@experimental(version="2.21.0")
 @dataclass
 class AssessmentSource(_MlflowObject):
     """
@@ -95,7 +95,7 @@ class AssessmentSource(_MlflowObject):
         )
 
 
-@experimental
+@experimental(version="2.21.0")
 class AssessmentSourceType:
     SOURCE_TYPE_UNSPECIFIED = "SOURCE_TYPE_UNSPECIFIED"
     LLM_JUDGE = "LLM_JUDGE"

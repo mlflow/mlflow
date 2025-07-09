@@ -371,8 +371,8 @@ def test_feedback_from_exception(stack_trace_length):
 
     # Mock traceback.format_tb to simulate long stack trace
     with patch(
-        "mlflow.entities.assessment.traceback.format_tb",
-        return_value=["A" * (stack_trace_length - 9) + "last line"],
+        "mlflow.entities.assessment.get_stacktrace",
+        return_value="A" * (stack_trace_length - 9) + "last line",
     ):
         feedback = Feedback(error=err)
     assert feedback.error.error_code == "ValueError"
@@ -392,3 +392,17 @@ def test_feedback_from_exception(stack_trace_length):
     recovered = Feedback.from_proto(feedback.to_proto())
     assert feedback.error.error_code == recovered.error.error_code
     assert feedback.error.error_message == recovered.error.error_message
+
+
+def test_assessment_value_assignment():
+    feedback = Feedback(name="relevance", value=1.0)
+    assert feedback.value == 1.0
+
+    feedback.value = 0.9
+    assert feedback.value == 0.9
+
+    expectation = Expectation(name="expected_value", value=1.0)
+    assert expectation.value == 1.0
+
+    expectation.value = 0.9
+    assert expectation.value == 0.9

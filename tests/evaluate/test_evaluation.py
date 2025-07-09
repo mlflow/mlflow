@@ -115,7 +115,8 @@ def get_local_artifact_path(run_id, artifact_path):
 @pytest.fixture(scope="module")
 def iris_dataset():
     X, y = get_iris()
-    eval_X, eval_y = X[0::3], y[0::3]
+    eval_X = X[0::3]
+    eval_y = y[0::3]
     constructor_args = {"data": eval_X, "targets": eval_y, "name": "dataset"}
     ds = EvaluationDataset(**constructor_args)
     ds._constructor_args = constructor_args
@@ -125,7 +126,8 @@ def iris_dataset():
 @pytest.fixture(scope="module")
 def diabetes_dataset():
     X, y = get_diabetes_dataset()
-    eval_X, eval_y = X[0::3], y[0::3]
+    eval_X = X[0::3]
+    eval_y = y[0::3]
     constructor_args = {"data": eval_X, "targets": eval_y}
     ds = EvaluationDataset(**constructor_args)
     ds._constructor_args = constructor_args
@@ -144,7 +146,8 @@ def diabetes_spark_dataset():
 @pytest.fixture(scope="module")
 def breast_cancer_dataset():
     X, y = get_breast_cancer_dataset()
-    eval_X, eval_y = X[0::3], y[0::3]
+    eval_X = X[0::3]
+    eval_y = y[0::3]
     constructor_args = {"data": eval_X, "targets": eval_y}
     ds = EvaluationDataset(**constructor_args)
     ds._constructor_args = constructor_args
@@ -255,7 +258,7 @@ def get_spark_linear_regressor_model_uri():
     spark_reg_model = reg.fit(spark_df)
 
     with mlflow.start_run():
-        model_info = mlflow.spark.log_model(spark_reg_model, name="spark_reg_model")
+        model_info = mlflow.spark.log_model(spark_reg_model, artifact_path="spark_reg_model")
         return model_info.model_uri
 
 
@@ -307,7 +310,8 @@ def get_svm_model_url():
 @pytest.fixture
 def iris_pandas_df_dataset():
     X, y = get_iris()
-    eval_X, eval_y = X[0::3], y[0::3]
+    eval_X = X[0::3]
+    eval_y = y[0::3]
     data = pd.DataFrame(
         {
             "f1": eval_X[:, 0],
@@ -326,7 +330,8 @@ def iris_pandas_df_dataset():
 @pytest.fixture
 def iris_pandas_df_num_cols_dataset():
     X, y = get_iris()
-    eval_X, eval_y = X[0::3], y[0::3]
+    eval_X = X[0::3]
+    eval_y = y[0::3]
     data = pd.DataFrame(eval_X)
     data["y"] = eval_y
     constructor_args = {"data": data, "targets": "y"}

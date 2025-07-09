@@ -19,25 +19,6 @@ _FINAL_ANSWER_WITHOUT_TOOL = "Paris"
 _FINAL_ANSWER_WITH_TOOL = "winner"
 
 
-@pytest.fixture(autouse=True)
-def mock_openai_creds(monkeypatch):
-    monkeypatch.setenv("OPENAI_API_KEY", "my-secret-key")
-
-
-@pytest.fixture(autouse=True)
-def mock_gemini_creds(monkeypatch):
-    monkeypatch.setenv("GEMINI_API_KEY", "my-secret-key")
-
-
-@pytest.fixture(autouse=True)
-def reset_mlflow_autolog_and_traces():
-    mlflow.autolog(disable=True)
-    get_traces().clear()
-    yield
-    mlflow.autolog(disable=True)
-    get_traces().clear()
-
-
 def _make_dummy_response_without_tool():
     parts = [TextPart(content=_FINAL_ANSWER_WITHOUT_TOOL)]
     usage = Usage(requests=1, request_tokens=1, response_tokens=1, total_tokens=2)

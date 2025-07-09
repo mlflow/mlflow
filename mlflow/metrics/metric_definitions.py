@@ -71,7 +71,9 @@ def _token_count_eval_fn(predictions, targets=None, metrics=None):
     import tiktoken
 
     # ref: https://github.com/openai/tiktoken/issues/75
-    os.environ["TIKTOKEN_CACHE_DIR"] = ""
+    # Only set TIKTOKEN_CACHE_DIR if not already set by user
+    if "TIKTOKEN_CACHE_DIR" not in os.environ:
+        os.environ["TIKTOKEN_CACHE_DIR"] = ""
     encoding = tiktoken.get_encoding("cl100k_base")
 
     num_tokens = []
@@ -416,7 +418,8 @@ def _precision_at_k_eval_fn(k):
         scores = []
         for target, prediction in zip(targets, predictions):
             # only include the top k retrieved chunks
-            ground_truth, retrieved = set(target), prediction[:k]
+            ground_truth = set(target)
+            retrieved = prediction[:k]
             relevant_doc_count = sum(1 for doc in retrieved if doc in ground_truth)
             if len(retrieved) > 0:
                 scores.append(relevant_doc_count / len(retrieved))
@@ -541,7 +544,8 @@ def _recall_at_k_eval_fn(k):
         scores = []
         for target, prediction in zip(targets, predictions):
             # only include the top k retrieved chunks
-            ground_truth, retrieved = set(target), set(prediction[:k])
+            ground_truth = set(target)
+            retrieved = set(prediction[:k])
             relevant_doc_count = len(ground_truth.intersection(retrieved))
             if len(ground_truth) > 0:
                 scores.append(relevant_doc_count / len(ground_truth))

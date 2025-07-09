@@ -38,7 +38,7 @@ from mlflow.entities import LiveSpan, SpanEvent, SpanType
 from mlflow.entities.document import Document
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.llama_index.chat import get_chat_messages_from_event
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracing.fluent import start_span_no_context
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracing.utils import set_span_chat_messages, set_span_chat_tools
@@ -59,7 +59,6 @@ def set_llama_index_tracer():
     from llama_index.core.instrumentation import get_dispatcher
 
     dsp = get_dispatcher()
-
     span_handler = None
     for handler in dsp.span_handlers:
         if isinstance(handler, MlflowSpanHandler):
@@ -386,6 +385,8 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
     @_handle_event.register
     def _(self, event: LLMCompletionEndEvent, span: LiveSpan):
         span.set_attribute("usage", self._extract_token_usage(event.response))
+        token_counts = self._parse_usage(span)
+        span.set_attribute(SpanAttributeKey.CHAT_USAGE, token_counts)
         self._extract_and_set_chat_messages(span, event)
         self._span_handler.resolve_pending_stream_span(span, event)
 
@@ -398,6 +399,8 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
     @_handle_event.register
     def _(self, event: LLMChatEndEvent, span: LiveSpan):
         span.set_attribute("usage", self._extract_token_usage(event.response))
+        token_counts = self._parse_usage(span)
+        span.set_attribute(SpanAttributeKey.CHAT_USAGE, token_counts)
         self._extract_and_set_chat_messages(span, event)
         self._span_handler.resolve_pending_stream_span(span, event)
 
@@ -441,6 +444,19 @@ class MlflowEventHandler(BaseEventHandler, extra="allow"):
                 if (v := additional_kwargs.get(k)) is not None:
                     usage[k] = v
         return usage
+
+    def _parse_usage(self, span: LiveSpan):
+        try:
+            usage = span.get_attribute("usage")
+            return {
+                TokenUsageKey.INPUT_TOKENS: usage["prompt_tokens"],
+                TokenUsageKey.OUTPUT_TOKENS: usage["completion_tokens"],
+                TokenUsageKey.TOTAL_TOKENS: usage.get(
+                    "total_tokens", usage["prompt_tokens"] + usage["completion_tokens"]
+                ),
+            }
+        except Exception as e:
+            _logger.debug(f"Failed to set TokenUsage to the span: {e}", exc_info=True)
 
     def _extract_and_set_chat_messages(self, span: LiveSpan, event: BaseEvent):
         try:

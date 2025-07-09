@@ -234,14 +234,10 @@ def test_strip_local_version_label():
 
 
 def test_get_installed_version(tmp_path, monkeypatch):
-    import numpy as np
-    import pandas as pd
-    import sklearn
-
     assert _get_installed_version("mlflow") == mlflow.__version__
-    assert _get_installed_version("numpy") == np.__version__
-    assert _get_installed_version("pandas") == pd.__version__
-    assert _get_installed_version("scikit-learn", module="sklearn") == sklearn.__version__
+    assert _get_installed_version("numpy") == version("numpy")
+    assert _get_installed_version("pandas") == version("pandas")
+    assert _get_installed_version("scikit-learn", module="sklearn") == version("scikit-learn")
 
     not_found_package = tmp_path.joinpath("not_found.py")
     not_found_package.write_text("__version__ = '1.2.3'")

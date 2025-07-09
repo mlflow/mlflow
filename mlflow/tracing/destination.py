@@ -5,7 +5,7 @@ from mlflow.exceptions import MlflowException
 from mlflow.utils.annotations import experimental
 
 
-@experimental
+@experimental(version="2.21.0")
 @dataclass
 class TraceDestination:
     """A configuration object for specifying the destination of trace data."""
@@ -16,7 +16,7 @@ class TraceDestination:
         raise NotImplementedError
 
 
-@experimental
+@experimental(version="2.21.0")
 @dataclass
 class MlflowExperiment(TraceDestination):
     """
@@ -40,7 +40,7 @@ class MlflowExperiment(TraceDestination):
         return "experiment"
 
 
-@experimental
+@experimental(version="2.22.0")
 @dataclass
 class Databricks(TraceDestination):
     """

@@ -17,6 +17,11 @@ mlflow.genai
     :undoc-members:
     :show-inheritance:
 
+.. automodule:: mlflow.genai.label_schemas
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 .. automodule:: mlflow.genai.optimize
     :members:
     :undoc-members:

@@ -16,10 +16,10 @@ from mlflow.entities import (
     SpanType,
     Trace,
     TraceData,
-    TraceInfoV2,
+    TraceInfo,
 )
+from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
-from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
 from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
@@ -324,7 +324,7 @@ def test_trace_with_databricks_tracking_uri(databricks_tracking_uri, monkeypatch
         model.predict(2, 5)
         mlflow.flush_trace_async_logging(terminate=True)
 
-    mock_get_store().start_trace_v3.assert_called_once()
+    mock_get_store().start_trace.assert_called_once()
     mock_upload_trace_data.assert_called_once()
 
 
@@ -519,7 +519,7 @@ def test_trace_handle_exception_during_streaming():
     traces = get_traces()
     assert len(traces) == 1
     trace = traces[0]
-    assert trace.info.status == TraceStatus.ERROR
+    assert trace.info.state == TraceState.ERROR
     assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 2}'
 
     # The test model is expected to produce three spans
@@ -579,16 +579,6 @@ def test_trace_ignore_exception(monkeypatch, model):
         _call_model_and_assert_output(model)
 
     assert get_traces() == []
-
-    # Exception during inspecting inputs: trace should be logged without inputs field
-    with mock.patch("inspect.signature", side_effect=ValueError("Some error")) as mock_input_args:
-        _call_model_and_assert_output(model)
-        assert mock_input_args.call_count > 0
-
-    traces = get_traces()
-    assert len(traces) == 1
-    assert traces[0].info.state == TraceState.OK
-    purge_traces()
 
     # Exception during ending span: trace should not be logged.
     tracer = _get_tracer(__name__)
@@ -732,7 +722,7 @@ def test_start_span_context_manager_with_imperative_apis(async_logging_enabled):
     assert trace.info.trace_id is not None
     assert trace.info.experiment_id == _get_experiment_id()
     assert trace.info.execution_time_ms >= 0.1 * 1e3  # at least 0.1 sec
-    assert trace.info.status == TraceStatus.OK
+    assert trace.info.state == TraceState.OK
     assert trace.info.request_metadata[TraceMetadataKey.INPUTS] == '{"x": 1, "y": 2}'
     assert trace.info.request_metadata[TraceMetadataKey.OUTPUTS] == "5"
 
@@ -880,6 +870,7 @@ def test_search_traces(return_type, mock_client):
         page_token=None,
         model_id=None,
         sql_warehouse_id=None,
+        include_spans=True,
     )
 
 
@@ -915,12 +906,15 @@ def test_search_traces_with_pagination(mock_client):
         "max_results": SEARCH_TRACES_DEFAULT_MAX_RESULTS,
         "filter_string": None,
         "order_by": None,
+        "include_spans": True,
+        "model_id": None,
+        "sql_warehouse_id": None,
     }
     mock_client.search_traces.assert_has_calls(
         [
-            mock.call(**common_args, page_token=None, model_id=None, sql_warehouse_id=None),
-            mock.call(**common_args, page_token="token-1", model_id=None, sql_warehouse_id=None),
-            mock.call(**common_args, page_token="token-2", model_id=None, sql_warehouse_id=None),
+            mock.call(**common_args, page_token=None),
+            mock.call(**common_args, page_token="token-1"),
+            mock.call(**common_args, page_token="token-2"),
         ]
     )
 
@@ -939,6 +933,7 @@ def test_search_traces_with_default_experiment_id(mock_client):
         page_token=None,
         model_id=None,
         sql_warehouse_id=None,
+        include_spans=True,
     )
 
 
@@ -970,7 +965,7 @@ def test_search_traces_yields_expected_dataframe_contents(monkeypatch):
     ]
     for idx, trace in enumerate(expected_traces):
         assert df.iloc[idx].trace_id == trace.info.trace_id
-        assert df.iloc[idx].trace.info.trace_id == trace.info.trace_id
+        assert Trace.from_json(df.iloc[idx].trace).info.trace_id == trace.info.trace_id
         assert df.iloc[idx].client_request_id == trace.info.client_request_id
         assert df.iloc[idx].state == trace.info.state
         assert df.iloc[idx].request_time == trace.info.request_time
@@ -988,18 +983,14 @@ def test_search_traces_handles_missing_response_tags_and_metadata(mock_client):
     mock_client.search_traces.return_value = PagedList(
         [
             Trace(
-                info=TraceInfoV2(
-                    request_id=5,
-                    experiment_id="test",
-                    timestamp_ms=1,
-                    execution_time_ms=2,
-                    status=TraceStatus.OK,
+                info=TraceInfo(
+                    trace_id="5",
+                    trace_location=TraceLocation.from_experiment_id("test"),
+                    request_time=1,
+                    execution_duration=2,
+                    state=TraceState.OK,
                 ),
-                data=TraceData(
-                    spans=[],
-                    request="request",
-                    # Response is missing
-                ),
+                data=TraceData(spans=[]),
             )
         ],
         token=None,
@@ -1008,7 +999,8 @@ def test_search_traces_handles_missing_response_tags_and_metadata(mock_client):
     df = mlflow.search_traces()
     assert df["response"].isnull().all()
     assert df["tags"].tolist() == [{}]
-    assert df["trace_metadata"].tolist() == [{}]
+    # trace_metadata should only contain the schema version
+    assert df["trace_metadata"].tolist() == [{TRACE_SCHEMA_VERSION_KEY: str(TRACE_SCHEMA_VERSION)}]
 
 
 @skip_when_testing_trace_sdk
@@ -1457,6 +1449,42 @@ def test_update_current_trace_client_request_id_stringification():
                     assert isinstance(trace.info.client_request_id, str)
 
 
+def test_update_current_trace_with_metadata():
+    """Test that update_current_trace correctly handles metadata parameter."""
+
+    @mlflow.trace
+    def f():
+        mlflow.update_current_trace(
+            metadata={
+                "mlflow.source.name": "inference.py",
+                "mlflow.source.git.commit": "1234567890",
+                "mlflow.source.git.repoURL": "https://github.com/mlflow/mlflow",
+                "non-string-metadata": 123,
+            },
+        )
+
+    f()
+
+    expected_metadata = {
+        "mlflow.source.name": "inference.py",
+        "mlflow.source.git.commit": "1234567890",
+        "mlflow.source.git.repoURL": "https://github.com/mlflow/mlflow",
+        "non-string-metadata": "123",  # Should be stringified
+    }
+
+    # Validate in-memory trace
+    trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
+    for k, v in expected_metadata.items():
+        assert trace.info.trace_metadata[k] == v
+
+    # Validate backend trace
+    traces = get_traces()
+    assert len(traces) == 1
+    assert traces[0].info.status == "OK"
+    for k, v in expected_metadata.items():
+        assert traces[0].info.trace_metadata[k] == v
+
+
 @skip_when_testing_trace_sdk
 def test_update_current_trace_should_not_raise_during_model_logging():
     """
@@ -1903,12 +1931,12 @@ def test_add_trace_raise_for_invalid_trace():
         mlflow.add_trace({"info": {}, "data": {}})
 
     in_progress_trace = Trace(
-        info=TraceInfoV2(
-            request_id="123",
-            status=TraceStatus.IN_PROGRESS,
-            experiment_id="0",
-            timestamp_ms=0,
-            execution_time_ms=0,
+        info=TraceInfo(
+            trace_id="123",
+            trace_location=TraceLocation.from_experiment_id("0"),
+            request_time=0,
+            execution_duration=0,
+            state=TraceState.IN_PROGRESS,
         ),
         data=TraceData(),
     )
@@ -2046,3 +2074,38 @@ def test_set_delete_trace_tag():
     mlflow.delete_trace_tag(request_id=trace_id, key="key3")
     trace = mlflow.get_trace(request_id=trace_id)
     assert "key3" not in trace.info.tags
+
+
+@pytest.mark.parametrize("is_databricks", [True, False])
+def test_search_traces_with_run_id_validates_store_filter_string(is_databricks):
+    # Mock the store
+    mock_store = mock.MagicMock()
+    mock_store.search_traces.return_value = ([], None)  # Return empty results
+    mock_store.get_run.return_value = mock.MagicMock()
+    mock_store.get_run.return_value.info.experiment_id = "test_exp_id"
+
+    test_run_id = "test_run_123"
+
+    with (
+        mock.patch("mlflow.tracing.client._get_store", return_value=mock_store),
+        mock.patch("mlflow.tracing.client.is_databricks_uri", return_value=is_databricks),
+        mock.patch("mlflow.tracking.fluent._get_experiment_id", return_value="test_exp_id"),
+    ):
+        # Call search_traces with run_id but no experiment_ids
+        mlflow.search_traces(run_id=test_run_id)
+
+        # Verify the store was called with the correct filter string
+        if is_databricks:
+            expected_filter_string = f"attribute.run_id = '{test_run_id}'"
+        else:
+            expected_filter_string = f"metadata.{TraceMetadataKey.SOURCE_RUN} = '{test_run_id}'"
+
+        mock_store.search_traces.assert_called()
+
+        # Get the actual arguments passed to the store
+        call_args = mock_store.search_traces.call_args
+        actual_filter_string = call_args[1]["filter_string"]  # using keyword arguments
+
+        assert actual_filter_string == expected_filter_string, (
+            f"Expected filter string '{expected_filter_string}', but got '{actual_filter_string}'"
+        )

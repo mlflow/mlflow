@@ -5,6 +5,7 @@ package mlflow.unitycatalog;
 import "databricks.proto";
 import "scalapb/scalapb.proto";
 import "unity_catalog_prompt_messages.proto";
+import "google/protobuf/empty.proto";
 
 option java_package = "com.databricks.api.proto.managedcatalog";
 option java_generate_equals_and_hash = true;
@@ -15,7 +16,7 @@ option (scalapb.options) = {
 
 
 service UnityCatalogPromptService {
-  rpc CreatePrompt (CreatePromptRequest) returns (CreatePromptResponse) {
+  rpc CreatePrompt (CreatePromptRequest) returns (Prompt) {
     option (rpc) = {
       endpoints: [{
         method: "POST",
@@ -27,7 +28,7 @@ service UnityCatalogPromptService {
     };
   }
 
-  rpc UpdatePrompt (UpdatePromptRequest) returns (UpdatePromptResponse) {
+  rpc UpdatePrompt (UpdatePromptRequest) returns (Prompt) {
     option (rpc) = {
       endpoints: [{
         method: "PATCH",
@@ -39,7 +40,7 @@ service UnityCatalogPromptService {
     };
   }
 
-  rpc DeletePrompt (DeletePromptRequest) returns (DeletePromptResponse) {
+  rpc DeletePrompt (DeletePromptRequest) returns (google.protobuf.Empty) {
     option (rpc) = {
       endpoints: [{
         method: "DELETE",
@@ -51,7 +52,7 @@ service UnityCatalogPromptService {
     };
   }
 
-  rpc GetPrompt (GetPromptRequest) returns (GetPromptResponse) {
+  rpc GetPrompt (GetPromptRequest) returns (Prompt) {
     option (rpc) = {
       endpoints: [{
         method: "GET",
@@ -75,7 +76,7 @@ service UnityCatalogPromptService {
     };
   }
 
-  rpc CreatePromptVersion (CreatePromptVersionRequest) returns (CreatePromptVersionResponse) {
+  rpc CreatePromptVersion (CreatePromptVersionRequest) returns (PromptVersion) {
     option (rpc) = {
       endpoints: [{
         method: "POST",
@@ -87,7 +88,7 @@ service UnityCatalogPromptService {
     };
   }
 
-  rpc UpdatePromptVersion (UpdatePromptVersionRequest) returns (UpdatePromptVersionResponse) {
+  rpc UpdatePromptVersion (UpdatePromptVersionRequest) returns (PromptVersion) {
     option (rpc) = {
       endpoints: [{
         method: "PATCH",
@@ -99,7 +100,7 @@ service UnityCatalogPromptService {
     };
   }
 
-  rpc DeletePromptVersion (DeletePromptVersionRequest) returns (DeletePromptVersionResponse) {
+  rpc DeletePromptVersion (DeletePromptVersionRequest) returns (google.protobuf.Empty) {
     option (rpc) = {
       endpoints: [{
         method: "DELETE",
@@ -111,7 +112,7 @@ service UnityCatalogPromptService {
     };
   }
 
-  rpc GetPromptVersion (GetPromptVersionRequest) returns (GetPromptVersionResponse) {
+  rpc GetPromptVersion (GetPromptVersionRequest) returns (PromptVersion) {
     option (rpc) = {
       endpoints: [{
         method: "GET",
@@ -126,16 +127,22 @@ service UnityCatalogPromptService {
   rpc SearchPromptVersions (SearchPromptVersionsRequest) returns (SearchPromptVersionsResponse) {
     option (rpc) = {
       endpoints: [{
-        method: "GET",
-        path: "/mlflow/unity-catalog/prompts/{name}/versions"
+        method: "POST",
+        path: "/mlflow/unity-catalog/prompts/{name}/versions/search"
         since {major: 2, minor: 0},
       }],
+      error_codes: [
+        INVALID_PARAMETER_VALUE,
+        PERMISSION_DENIED,
+        RESOURCE_DOES_NOT_EXIST,
+        INTERNAL_ERROR
+      ],
       visibility: PUBLIC_UNDOCUMENTED,
       rpc_doc_title: "(Unity Catalog) Search Prompt Versions",
     };
   }
 
-  rpc SetPromptAlias (SetPromptAliasRequest) returns (SetPromptAliasResponse) {
+  rpc SetPromptAlias (SetPromptAliasRequest) returns (google.protobuf.Empty) {
     option (rpc) = {
       endpoints: [{
         method: "POST",
@@ -147,7 +154,7 @@ service UnityCatalogPromptService {
     };
   }
 
-  rpc DeletePromptAlias (DeletePromptAliasRequest) returns (DeletePromptAliasResponse) {
+  rpc DeletePromptAlias (DeletePromptAliasRequest) returns (google.protobuf.Empty) {
     option (rpc) = {
       endpoints: [{
         method: "DELETE",
@@ -159,7 +166,7 @@ service UnityCatalogPromptService {
     };
   }
 
-  rpc GetPromptVersionByAlias (GetPromptVersionByAliasRequest) returns (GetPromptVersionByAliasResponse) {
+  rpc GetPromptVersionByAlias (GetPromptVersionByAliasRequest) returns (PromptVersion) {
     option (rpc) = {
       endpoints: [{
         method: "GET",
@@ -171,7 +178,7 @@ service UnityCatalogPromptService {
     };
   }
 
-  rpc SetPromptTag (SetPromptTagRequest) returns (SetPromptTagResponse) {
+  rpc SetPromptTag (SetPromptTagRequest) returns (google.protobuf.Empty) {
     option (rpc) = {
       endpoints: [{
         method: "POST",
@@ -183,7 +190,7 @@ service UnityCatalogPromptService {
     };
   }
 
-  rpc DeletePromptTag (DeletePromptTagRequest) returns (DeletePromptTagResponse) {
+  rpc DeletePromptTag (DeletePromptTagRequest) returns (google.protobuf.Empty) {
     option (rpc) = {
       endpoints: [{
         method: "DELETE",
@@ -195,7 +202,7 @@ service UnityCatalogPromptService {
     };
   }
 
-  rpc SetPromptVersionTag (SetPromptVersionTagRequest) returns (SetPromptVersionTagResponse) {
+  rpc SetPromptVersionTag (SetPromptVersionTagRequest) returns (google.protobuf.Empty) {
     option (rpc) = {
       endpoints: [{
         method: "POST",
@@ -207,7 +214,7 @@ service UnityCatalogPromptService {
     };
   }
 
-  rpc DeletePromptVersionTag (DeletePromptVersionTagRequest) returns (DeletePromptVersionTagResponse) {
+  rpc DeletePromptVersionTag (DeletePromptVersionTagRequest) returns (google.protobuf.Empty) {
     option (rpc) = {
       endpoints: [{
         method: "DELETE",
@@ -216,6 +223,42 @@ service UnityCatalogPromptService {
       }],
       visibility: PUBLIC_UNDOCUMENTED,
       rpc_doc_title: "(Unity Catalog) Delete Prompt Version Tag",
+    };
+  }
+
+  rpc LinkPromptVersionsToModels (LinkPromptVersionsToModelsRequest) returns (google.protobuf.Empty) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/unity-catalog/prompt-versions/links-to-models"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "(Unity Catalog) Link Prompt Versions to Models",
+    };
+  }
+
+  rpc LinkPromptsToTraces (LinkPromptsToTracesRequest) returns (google.protobuf.Empty) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/unity-catalog/prompt-versions/links-to-traces"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "(Unity Catalog) Link Prompts to Traces",
+    };
+  }
+
+  rpc LinkPromptVersionsToRuns (LinkPromptVersionsToRunsRequest) returns (google.protobuf.Empty) {
+    option (rpc) = {
+      endpoints: [{
+        method: "POST",
+        path: "/mlflow/unity-catalog/prompt-versions/links-to-runs"
+        since {major: 2, minor: 0},
+      }],
+      visibility: PUBLIC_UNDOCUMENTED,
+      rpc_doc_title: "(Unity Catalog) Link Prompt Versions to Runs",
     };
   }
 }

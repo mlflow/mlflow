@@ -9,7 +9,7 @@ from mlflow.utils.annotations import experimental
 OBJECTIVE_FN = Callable[[dict[str, Union[bool, float, str, Feedback, list[Feedback]]]], float]
 
 
-@experimental
+@experimental(version="3.0.0")
 @dataclass
 class PromptOptimizationResult:
     """
@@ -22,7 +22,7 @@ class PromptOptimizationResult:
     prompt: Prompt
 
 
-@experimental
+@experimental(version="3.0.0")
 @dataclass
 class LLMParams:
     """
@@ -43,7 +43,7 @@ class LLMParams:
     temperature: Optional[float] = None
 
 
-@experimental
+@experimental(version="3.0.0")
 @dataclass
 class OptimizerConfig:
     """
@@ -61,6 +61,9 @@ class OptimizerConfig:
             the target LLM will be used as the teacher.
         algorithm: The optimization algorithm to use. Default: "DSPy/MIPROv2"
         verbose: Whether to show optimizer logs during optimization. Default: False
+        autolog: Whether to log the optimization parameters, datasets and metrics.
+            If set to True, a MLflow run is automatically created to store them.
+            Default: False
     """
 
     num_instruction_candidates: int = 6
@@ -69,3 +72,4 @@ class OptimizerConfig:
     optimizer_llm: Optional[LLMParams] = None
     algorithm: str = "DSPy/MIPROv2"
     verbose: bool = False
+    autolog: bool = False

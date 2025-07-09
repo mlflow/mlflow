@@ -14,7 +14,7 @@ from mlflow.tracing.client import TracingClient
 from mlflow.utils.annotations import experimental
 
 
-@experimental
+@experimental(version="3.0.0")
 def get_assessment(trace_id: str, assessment_id: str) -> Assessment:
     """
     .. important::
@@ -33,7 +33,7 @@ def get_assessment(trace_id: str, assessment_id: str) -> Assessment:
     return TracingClient().get_assessment(trace_id, assessment_id)
 
 
-@experimental
+@experimental(version="2.21.0")
 def log_assessment(trace_id: str, assessment: Assessment) -> Assessment:
     """
     .. important::
@@ -137,7 +137,7 @@ def log_assessment(trace_id: str, assessment: Assessment) -> Assessment:
     TracingClient().log_assessment(trace_id, assessment)
 
 
-@experimental
+@experimental(version="3.0.0")
 def log_expectation(
     *,
     trace_id: str,
@@ -178,7 +178,7 @@ def log_expectation(
     return TracingClient().log_assessment(trace_id, assessment)
 
 
-@experimental
+@experimental(version="2.21.0")
 def update_assessment(
     trace_id: str,
     assessment_id: str,
@@ -230,7 +230,7 @@ def update_assessment(
     )
 
 
-@experimental
+@experimental(version="2.21.0")
 def delete_assessment(trace_id: str, assessment_id: str):
     """
     .. important::
@@ -246,14 +246,14 @@ def delete_assessment(trace_id: str, assessment_id: str):
     return TracingClient().delete_assessment(trace_id=trace_id, assessment_id=assessment_id)
 
 
-@experimental
+@experimental(version="2.21.0")
 def log_feedback(
     *,
     trace_id: str,
     name: str = DEFAULT_FEEDBACK_NAME,
     value: Optional[FeedbackValueType] = None,
     source: Optional[AssessmentSource] = None,
-    error: Optional[Union[Expectation, AssessmentError]] = None,
+    error: Optional[Union[Exception, AssessmentError]] = None,
     rationale: Optional[str] = None,
     metadata: Optional[dict[str, Any]] = None,
     span_id: Optional[str] = None,
@@ -281,7 +281,7 @@ def log_feedback(
                 CODE source type
         error: An error object representing any issues encountered while computing the
             feedback, e.g., a timeout error from an LLM judge. Accepts an exception
-            object, or an :py:class:`~mlflow.entities.Expectation` object. Either
+            object, or an :py:class:`~mlflow.entities.AssessmentError` object. Either
             this or `value` must be provided.
         rationale: The rationale / justification for the feedback.
         metadata: Additional metadata for the feedback.
@@ -291,7 +291,6 @@ def log_feedback(
     Returns:
         :py:class:`~mlflow.entities.Assessment`: The created feedback assessment.
     """
-
     assessment = Feedback(
         name=name,
         source=source,
@@ -304,7 +303,7 @@ def log_feedback(
     return TracingClient().log_assessment(trace_id, assessment)
 
 
-@experimental
+@experimental(version="3.0.0")
 def override_feedback(
     *,
     trace_id: str,

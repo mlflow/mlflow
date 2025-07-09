@@ -26,6 +26,6 @@ def _load_pyfunc(local_path: str, model_config: Optional[dict[str, Any]] = None)
     elif IS_RESPONSES_AGENT_AVAILABLE and isinstance(model, ResponsesAgent):
         from mlflow.pyfunc.loaders.responses_agent import _ResponsesAgentPyfuncWrapper
 
-        return _ResponsesAgentPyfuncWrapper(model)
+        return _ResponsesAgentPyfuncWrapper(model, context)
     else:
         return _PythonModelPyfuncWrapper(model, context, signature)

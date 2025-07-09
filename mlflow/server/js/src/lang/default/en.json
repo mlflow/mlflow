@@ -311,6 +311,10 @@
     "defaultMessage": "Filter by {columnNames}",
     "description": "Experiment page > artifact compare view > search input placeholder"
   },
+  "3FZ8dZ": {
+    "defaultMessage": "Rename",
+    "description": "Text for rename button on the experiment view page header"
+  },
   "3Rb4sG": {
     "defaultMessage": "Delete",
     "description": "String for the delete button to delete a particular experiment run"
@@ -454,6 +458,10 @@
   "5xPlEu": {
     "defaultMessage": "Source run",
     "description": "Header title for the source run column in the logged model list table"
+  },
+  "5y4o+l": {
+    "defaultMessage": "Model",
+    "description": "Sidebar button inside the 'new' popover to create new model"
   },
   "5yWkFd": {
     "defaultMessage": "Increase or decrease the confidence level of the language model.",
@@ -731,6 +739,10 @@
     "defaultMessage": "Delete Model Version",
     "description": "Title text for model version deletion modal in model versions view page"
   },
+  "9Bj7oS": {
+    "defaultMessage": "A network error occurred.",
+    "description": "Error message for generic network error"
+  },
   "9CqEWy": {
     "defaultMessage": "Load more",
     "description": "Load more button text to load more experiment runs"
@@ -746,6 +758,10 @@
   "9IN1I8": {
     "defaultMessage": "Select as compared version",
     "description": "Label for selecting compared prompt version in the comparison view"
+  },
+  "9KLNi5": {
+    "defaultMessage": "Delete",
+    "description": "Experiments page list, delete bulk experiments modal primary button"
   },
   "9KXBFn": {
     "defaultMessage": "Tags",
@@ -782,6 +798,14 @@
   "9pJlQd": {
     "defaultMessage": "No prompt versions created",
     "description": "A header for the empty state in the prompt versions table"
+  },
+  "9ut1Fj": {
+    "defaultMessage": "Create",
+    "description": "Label for the create experiment action on the experiments list page"
+  },
+  "9vT4HV": {
+    "defaultMessage": "Filter experiments by name",
+    "description": "Placeholder text inside experiments search bar"
   },
   "9vj5Ap": {
     "defaultMessage": "No metrics recorded",
@@ -866,6 +890,10 @@
   "B8RvlZ": {
     "defaultMessage": "Comparing version {baseline} with version {compared}",
     "description": "Label for comparing prompt versions in the prompt comparison view. Variables {baseline} and {compared} are numeric version numbers being compared."
+  },
+  "BB6In/": {
+    "defaultMessage": "Tags",
+    "description": "Header for the tags column in the experiments table"
   },
   "BCpX6U": {
     "defaultMessage": "Registered models",
@@ -1058,6 +1086,10 @@
   "EpFST9": {
     "defaultMessage": "No trace data recorded",
     "description": "Experiment page > traces data drawer > no trace data recorded empty state"
+  },
+  "Epo8/i": {
+    "defaultMessage": "Delete {count, plural, one {# Experiment} other {# Experiments}}",
+    "description": "Experiments page list, delete bulk experiments modal title"
   },
   "EwAZgg": {
     "defaultMessage": "Edit tags",
@@ -1323,6 +1355,10 @@
     "defaultMessage": "No results. Try using a different keyword or adjusting your filters.",
     "description": "Models table > no results after filtering"
   },
+  "JUTcIz": {
+    "defaultMessage": "Time created",
+    "description": "Header for the time created column in the experiments table"
+  },
   "JYVQuV": {
     "defaultMessage": "Run ID",
     "description": "Run page > Overview > Run ID section label"
@@ -1406,6 +1442,10 @@
   "KzC+38": {
     "defaultMessage": "Prompt template examples",
     "description": "Experiment page > new run modal > prompt examples > modal title"
+  },
+  "L/4iQO": {
+    "defaultMessage": "Delete",
+    "description": "Label for the delete experiments action on the experiments list page"
   },
   "L26D19": {
     "defaultMessage": "X-axis:",
@@ -1687,6 +1727,10 @@
     "defaultMessage": "Delete",
     "description": "Experiment page > traces view controls > Delete button"
   },
+  "QBYbF3": {
+    "defaultMessage": "Prompts",
+    "description": "Sidebar link for prompts tab"
+  },
   "QC5Vjq": {
     "defaultMessage": "Y-axis:",
     "description": "Label where the users can choose the metric of the experiment run to be plotted on the Y-axis"
@@ -1703,9 +1747,17 @@
     "defaultMessage": "Use other parameters or disable run grouping to continue.",
     "description": "Experiment page > compare runs > parallel coordinates chart > unsupported string values warning > description"
   },
+  "QRnRh3": {
+    "defaultMessage": "No experiments found",
+    "description": "Label for the empty state in the experiments table when no experiments are found"
+  },
   "QUMV9L": {
     "defaultMessage": "On",
     "description": "Runs charts > line chart > display points > on setting label"
+  },
+  "QhEnTA": {
+    "defaultMessage": "Name",
+    "description": "Header for the name column in the experiments table"
   },
   "Qi6Etm": {
     "defaultMessage": "Hide all runs",
@@ -1794,6 +1846,10 @@
   "SNvZyR": {
     "defaultMessage": "Time",
     "description": "Label for the time axis on the runs compare chart"
+  },
+  "STEhnv": {
+    "defaultMessage": "Description",
+    "description": "Header for the description column in the experiments table"
   },
   "SZj964": {
     "defaultMessage": "Copy S3 URI to clipboard",
@@ -1899,6 +1955,10 @@
     "defaultMessage": "Examples:",
     "description": "Text header for examples of mlflow search syntax"
   },
+  "U4ox5k": {
+    "defaultMessage": "Experiments",
+    "description": "Sidebar link for experiments tab"
+  },
   "U82iv6": {
     "defaultMessage": "Registered Models",
     "description": "Text for registered model link in the title for model comparison page"
@@ -1999,6 +2059,10 @@
     "defaultMessage": "Deleted traces cannot be restored. Are you sure you want to proceed?",
     "description": "Experiment page > traces view controls > Delete traces modal > Confirmation message"
   },
+  "Vk+30L": {
+    "defaultMessage": "Edit tags",
+    "description": "Label for the edit tags button in the experiment list table"
+  },
   "Vkr4Bs": {
     "defaultMessage": "Add description",
     "description": "experiment page > description modal > title"
@@ -2022,10 +2086,6 @@
   "Vvn8Cb": {
     "defaultMessage": "Open dataset",
     "description": "Text for the HTTP/HF location link in the experiment run dataset drawer"
-  },
-  "VzuUre": {
-    "defaultMessage": "Supported formats: image, text, html, pdf, audio, geojson files",
-    "description": "Text to explain users which formats are supported to display the artifacts"
   },
   "W8bOkn": {
     "defaultMessage": "250",
@@ -2083,6 +2143,10 @@
     "defaultMessage": "Source",
     "description": "Run page > Overview > Run source section label"
   },
+  "Wv3B3G": {
+    "defaultMessage": "Supported formats: image, text, html, pdf, audio, video, geojson files",
+    "description": "Text to explain users which formats are supported to display the artifacts"
+  },
   "WvHAEg": {
     "defaultMessage": "Input an artifact location (optional)",
     "description": "Input placeholder to enter artifact location for create experiment"
@@ -2131,6 +2195,10 @@
     "defaultMessage": "Search metric charts",
     "description": "Run page > Charts tab > Filter metric charts input > placeholder"
   },
+  "Xuz/xh": {
+    "defaultMessage": "Models",
+    "description": "Sidebar link for models tab"
+  },
   "XvzXs3": {
     "defaultMessage": "The parallel coordinates chart shows runs with columns that are either numbers or strings. If a column has string entries, the runs corresponding to the 30 most recent unique values will be shown. Only runs with all relevant metrics and/or parameters will be displayed.",
     "description": "Experiment page > charts > parallel coordinates chart > tooltip explaining what data is expected to be rendered"
@@ -2154,6 +2222,10 @@
   "Y9ZFyN": {
     "defaultMessage": "Download artifact",
     "description": "Link to download the artifact of the experiment"
+  },
+  "YECxws": {
+    "defaultMessage": "Compare",
+    "description": "Label for the compare experiments action on the experiments list page"
   },
   "YINJEO": {
     "defaultMessage": "Metric",
@@ -2198,6 +2270,14 @@
   "YnHiZ6": {
     "defaultMessage": "Relative Time (hours)",
     "description": "Label for the relative axis on the runs compare chart in hours"
+  },
+  "YuWDVj": {
+    "defaultMessage": "Experiment",
+    "description": "Sidebar button inside the 'new' popover to create new experiment"
+  },
+  "YuYnxd": {
+    "defaultMessage": "Delete",
+    "description": "Text for delete button on the experiment view page header"
   },
   "Z5en2d": {
     "defaultMessage": "Versions",
@@ -2263,9 +2343,17 @@
     "defaultMessage": "Compare",
     "description": "Experiment page > artifact compare view > \"compare\" select dropdown label"
   },
+  "ZqHpEG": {
+    "defaultMessage": "Experiments",
+    "description": "Header title for the experiments page"
+  },
   "Zqj4VA": {
     "defaultMessage": "New run name",
     "description": "Experiment page > new run modal > run name input label"
+  },
+  "Zt2Uxi": {
+    "defaultMessage": "Use \"Create experiment\" button in order to create a new experiment",
+    "description": "Guidelines for the user on how to create a new experiment in the experiments list page"
   },
   "ZvJTXB": {
     "defaultMessage": "No tables selected",
@@ -2451,6 +2539,10 @@
     "defaultMessage": "Name",
     "description": "Column title for name column in editable tags table view in MLflow"
   },
+  "cI0kqF": {
+    "defaultMessage": "Add tags",
+    "description": "Label for the add tags button in the experiment list table"
+  },
   "cIV9pX": {
     "defaultMessage": "Permission denied",
     "description": "A title shown on the experiment page if user has no permissions to open the experiment"
@@ -2526,6 +2618,14 @@
   "dYbJha": {
     "defaultMessage": "Please provide run name",
     "description": "Experiment page > new run modal > invalid state - no run name provided"
+  },
+  "dbps6u": {
+    "defaultMessage": "Prompt",
+    "description": "Sidebar button inside the 'new' popover to create new prompt"
+  },
+  "dcoaGS": {
+    "defaultMessage": "No experiments created",
+    "description": "A header for the empty state in the experiments table"
   },
   "ddAFCW": {
     "defaultMessage": "500: Internal server error",
@@ -3011,6 +3111,10 @@
     "defaultMessage": "Get Link",
     "description": "Title text for get-link modal"
   },
+  "l/+0SR": {
+    "defaultMessage": "Last modified",
+    "description": "Header for the last modified column in the experiments table"
+  },
   "lA8QO2": {
     "defaultMessage": "Edit tags",
     "description": "Label for the edit tags button in the registered prompts table"
@@ -3359,6 +3463,10 @@
     "defaultMessage": "{registeredCount}/{loggedCount} logged models are registered",
     "description": "Run page > Header > Register model dropdown > Button tooltip"
   },
+  "qGvbGt": {
+    "defaultMessage": "Install <code>mlflow</code> 3:",
+    "description": "Instruction for installing MLflow 3 to log MLflow 3 models"
+  },
   "qH2cN+": {
     "defaultMessage": "Experiment id copied",
     "description": "Tooltip displayed after experiment id was successfully copied to clipboard"
@@ -3402,10 +3510,6 @@
   "r3/K3V": {
     "defaultMessage": "Make Predictions",
     "description": "Heading text for the prediction section on the registered model from the experiment run"
-  },
-  "r4a52n": {
-    "defaultMessage": "Install <code>mlflow</code> from <code>mlflow-3</code> branch:",
-    "description": "Instruction for installing MLflow from mlflow-3 branch in log MLflow 3 models"
   },
   "r5JI+N": {
     "defaultMessage": "Please select metrics",
@@ -3778,6 +3882,10 @@
   "xmpvlI": {
     "defaultMessage": "Unhide run",
     "description": "A tooltip for the visibility icon button in the runs table next to the hidden run"
+  },
+  "xq0Rde": {
+    "defaultMessage": "New",
+    "description": "Sidebar create popover button to create new experiment, model or prompt"
   },
   "y2oQyU": {
     "defaultMessage": "Model name",

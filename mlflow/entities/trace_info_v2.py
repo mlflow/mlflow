@@ -9,6 +9,7 @@ from mlflow.entities.trace_status import TraceStatus
 from mlflow.protos.service_pb2 import TraceInfo as ProtoTraceInfo
 from mlflow.protos.service_pb2 import TraceRequestMetadata as ProtoTraceRequestMetadata
 from mlflow.protos.service_pb2 import TraceTag as ProtoTraceTag
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY
 
 
 def _truncate_request_metadata(d: dict[str, Any]) -> dict[str, str]:
@@ -56,6 +57,9 @@ class TraceInfoV2(_MlflowObject):
     request_metadata: dict[str, str] = field(default_factory=dict)
     tags: dict[str, str] = field(default_factory=dict)
     assessments: list[Assessment] = field(default_factory=list)
+
+    def __post_init__(self):
+        self.request_metadata[TRACE_SCHEMA_VERSION_KEY] = "2"
 
     def __eq__(self, other):
         if type(other) is type(self):
@@ -140,7 +144,19 @@ class TraceInfoV2(_MlflowObject):
             request_time=self.timestamp_ms,
             execution_duration=self.execution_time_ms,
             state=self.status.to_state(),
-            trace_metadata=self.request_metadata,
+            trace_metadata=self.request_metadata.copy(),
             tags=self.tags,
             assessments=self.assessments,
+        )
+
+    @classmethod
+    def from_v3(cls, trace_info: TraceInfo) -> "TraceInfoV2":
+        return cls(
+            request_id=trace_info.trace_id,
+            experiment_id=trace_info.experiment_id,
+            timestamp_ms=trace_info.request_time,
+            execution_time_ms=trace_info.execution_duration,
+            status=TraceStatus.from_state(trace_info.state),
+            request_metadata=trace_info.trace_metadata.copy(),
+            tags=trace_info.tags,
         )

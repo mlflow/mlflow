@@ -695,7 +695,7 @@ flavors:
     loader_module: mlflow.sklearn
     model_path: model.pkl
     predict_fn: predict
-    python_version: 3.9.18
+    python_version: 3.10.16
   sklearn:
     code: null
     pickled_model: model.pkl
@@ -709,11 +709,11 @@ utc_time_created: '2023-07-04 07:19:43.561797'
     )
     tmp_path.joinpath("python_env.yaml").write_text(
         """
-python: 3.9.18
+python: 3.10.16
 build_dependencies:
-   - pip==23.1.2
-   - setuptools==56.0.0
-   - wheel==0.40.0
+   - pip==25.1.1
+   - setuptools==80.4.0
+   - wheel==0.45.1
 dependencies:
    - -r requirements.txt
 """

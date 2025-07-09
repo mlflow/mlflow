@@ -1,4 +1,5 @@
 import re
+import time
 import warnings
 from unittest import mock
 
@@ -646,3 +647,176 @@ def test_suppress_databricks_retry_after_secs_warnings():
             _DATABRICKS_SDK_RETRY_AFTER_SECS_DEPRECATION_WARNING in str(w.message)
             for w in recorded_warnings
         )
+
+
+def test_databricks_sdk_retry_on_transient_errors():
+    """Test that Databricks SDK retries on transient HTTP errors."""
+    host_creds = MlflowHostCreds("http://example.com", use_databricks_sdk=True)
+
+    call_count = 0
+
+    def mock_do_failing_then_success(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        if call_count <= 2:  # Fail first 2 attempts
+            from databricks.sdk.errors import DatabricksError
+
+            from mlflow.protos.databricks_pb2 import ErrorCode
+
+            raise DatabricksError(
+                error_code=ErrorCode.Name(ErrorCode.INTERNAL_ERROR), message="Transient error"
+            )
+        # Success on 3rd attempt
+        response_mock = mock.MagicMock()
+        response_mock._response = mock.MagicMock()
+        return {"contents": response_mock}
+
+    with mock.patch("mlflow.utils.rest_utils.get_workspace_client") as mock_get_workspace_client:
+        mock_workspace_client = mock.MagicMock()
+        mock_workspace_client.api_client.do = mock_do_failing_then_success
+        mock_get_workspace_client.return_value = mock_workspace_client
+
+        # Use smaller retry timeout to make test run faster
+        response = http_request(
+            host_creds,
+            "/endpoint",
+            "GET",
+            retry_timeout_seconds=10,
+            backoff_factor=0.1,  # Very small backoff for faster test
+        )
+
+        assert call_count == 3  # Should retry 2 times, succeed on 3rd
+        assert response is not None
+
+
+def test_databricks_sdk_retry_max_retries_exceeded():
+    """Test that Databricks SDK stops retrying when max_retries is exceeded."""
+    host_creds = MlflowHostCreds("http://example.com", use_databricks_sdk=True)
+
+    call_count = 0
+
+    def mock_do_always_fail(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        from databricks.sdk.errors import DatabricksError
+
+        raise DatabricksError(error_code="INTERNAL_ERROR", message="Always fails")
+
+    with (
+        mock.patch("mlflow.utils.rest_utils.get_workspace_client") as mock_get_workspace_client,
+        mock.patch("mlflow.utils.rest_utils._logger") as mock_logger,
+    ):
+        mock_workspace_client = mock.MagicMock()
+        mock_workspace_client.api_client.do = mock_do_always_fail
+        mock_get_workspace_client.return_value = mock_workspace_client
+
+        response = http_request(host_creds, "/endpoint", "GET", max_retries=3)
+
+        assert call_count == 4  # Initial call + 3 retries
+        assert response.status_code == 500  # Should return error response
+
+        # Check that max retries warning was logged
+        mock_logger.warning.assert_called()
+        warning_call = mock_logger.warning.call_args[0][0]
+        assert "Max retries (3) exceeded" in warning_call
+
+
+def test_databricks_sdk_retry_timeout_exceeded():
+    """Test that Databricks SDK stops retrying when timeout is exceeded."""
+    host_creds = MlflowHostCreds("http://example.com", use_databricks_sdk=True)
+
+    call_count = 0
+
+    def mock_do_always_fail(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+
+        time.sleep(0.1)  # Small delay to ensure timeout
+        from databricks.sdk.errors import DatabricksError
+
+        raise DatabricksError(error_code="INTERNAL_ERROR", message="Always fails")
+
+    with (
+        mock.patch("mlflow.utils.rest_utils.get_workspace_client") as mock_get_workspace_client,
+        mock.patch("mlflow.utils.rest_utils._logger") as mock_logger,
+    ):
+        mock_workspace_client = mock.MagicMock()
+        mock_workspace_client.api_client.do = mock_do_always_fail
+        mock_get_workspace_client.return_value = mock_workspace_client
+
+        response = http_request(
+            host_creds,
+            "/endpoint",
+            "GET",
+            retry_timeout_seconds=0.2,  # Very short timeout
+            max_retries=10,  # High retry limit that shouldn't be reached
+        )
+
+        assert call_count >= 1  # At least initial call
+        assert response.status_code == 500  # Should return error response
+
+        # Check that timeout warning was logged
+        mock_logger.warning.assert_called()
+        warning_call = mock_logger.warning.call_args[0][0]
+        assert "Retry timeout (0.2s) exceeded" in warning_call
+
+
+def test_databricks_sdk_retry_non_retryable_error():
+    """Test that Databricks SDK doesn't retry on non-retryable errors."""
+    host_creds = MlflowHostCreds("http://example.com", use_databricks_sdk=True)
+
+    call_count = 0
+
+    def mock_do_non_retryable_error(*args, **kwargs):
+        nonlocal call_count
+        call_count += 1
+        from databricks.sdk.errors import DatabricksError
+
+        # Use an error code that maps to 400 (non-retryable)
+        raise DatabricksError(error_code="INVALID_PARAMETER_VALUE", message="Bad request")
+
+    with mock.patch("mlflow.utils.rest_utils.get_workspace_client") as mock_get_workspace_client:
+        mock_workspace_client = mock.MagicMock()
+        mock_workspace_client.api_client.do = mock_do_non_retryable_error
+        mock_get_workspace_client.return_value = mock_workspace_client
+
+        response = http_request(host_creds, "/endpoint", "GET", max_retries=5)
+
+        assert call_count == 1  # Should not retry on non-retryable error
+        assert response.status_code == 400  # Should return 400 for INVALID_PARAMETER_VALUE
+
+
+def test_databricks_sdk_retry_backoff_calculation():
+    """Test that Databricks SDK uses correct exponential backoff timing."""
+    from databricks.sdk.errors import DatabricksError
+
+    from mlflow.utils.request_utils import _TRANSIENT_FAILURE_RESPONSE_CODES
+    from mlflow.utils.rest_utils import _retry_databricks_sdk_call_with_exponential_backoff
+
+    call_count = 0
+
+    def mock_failing_call():
+        nonlocal call_count
+        call_count += 1
+
+        raise DatabricksError(error_code="INTERNAL_ERROR", message="Mock error")
+
+    with mock.patch("mlflow.utils.rest_utils._time_sleep") as mock_sleep:
+        with pytest.raises(DatabricksError, match="Mock error"):
+            _retry_databricks_sdk_call_with_exponential_backoff(
+                call_func=mock_failing_call,
+                retry_codes=_TRANSIENT_FAILURE_RESPONSE_CODES,
+                retry_timeout_seconds=10,
+                backoff_factor=1,  # Use 1 for predictable calculation
+                backoff_jitter=0,  # No jitter for predictable calculation
+                max_retries=3,
+            )
+
+    # Verify sleep was called with correct intervals
+    # attempt 0 (1st retry): 0 seconds (immediate)
+    # attempt 1 (2nd retry): 1 * (2^1) = 2 seconds
+    # attempt 2 (3rd retry): 1 * (2^2) = 4 seconds
+    expected_sleep_times = [0, 2, 4]
+    actual_sleep_times = [call.args[0] for call in mock_sleep.call_args_list]
+    assert actual_sleep_times == expected_sleep_times
+    assert call_count == 4  # Initial + 3 retries

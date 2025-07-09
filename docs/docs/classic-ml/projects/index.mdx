@@ -1,0 +1,767 @@
+# MLflow Projects
+
+MLflow Projects provide a standard format for packaging and sharing reproducible data science code. Based on simple conventions, Projects enable seamless collaboration and automated execution across different environments and platforms.
+
+## Quick Start
+
+### Running Your First Project
+
+Execute any Git repository or local directory as an MLflow Project:
+
+```bash
+# Run a project from GitHub
+mlflow run https://github.com/mlflow/mlflow-example.git -P alpha=0.5
+
+# Run a local project
+mlflow run . -P data_file=data.csv -P regularization=0.1
+
+# Run with specific entry point
+mlflow run . -e validate -P data_file=data.csv
+```
+
+```python
+# Run projects programmatically
+import mlflow
+
+# Execute remote project
+result = mlflow.run(
+    "https://github.com/mlflow/mlflow-example.git",
+    parameters={"alpha": 0.5, "l1_ratio": 0.01},
+    experiment_name="elasticnet_experiment",
+)
+
+# Execute local project
+result = mlflow.run(
+    ".", entry_point="train", parameters={"epochs": 100}, synchronous=True
+)
+```
+
+:::tip Project Structure
+Any directory with a `MLproject` file or containing `.py`/`.sh` files can be run as an MLflow Project. No complex setup required!
+:::
+
+## Core Concepts
+
+### Project Components
+
+Every MLflow Project consists of three key elements:
+
+#### **Project Name**
+
+A human-readable identifier for your project, typically defined in the `MLproject` file.
+
+#### **Entry Points**
+
+Commands that can be executed within the project. Entry points define:
+
+- **Parameters** - Inputs with types and default values
+- **Commands** - What gets executed when the entry point runs
+- **Environment** - The execution context and dependencies
+
+#### **Environment**
+
+The software environment containing all dependencies needed to run the project. MLflow supports multiple environment types:
+
+| Environment                    | Use Case                         | Dependencies      |
+| ------------------------------ | -------------------------------- | ----------------- |
+| **Virtualenv** _(Recommended)_ | Python packages from PyPI        | `python_env.yaml` |
+| **Conda**                      | Python + native libraries        | `conda.yaml`      |
+| **Docker**                     | Complex dependencies, non-Python | Dockerfile        |
+| **System**                     | Use current environment          | None              |
+
+## Project Structure & Configuration
+
+### Convention-Based Projects
+
+Projects without an `MLproject` file use these conventions:
+
+```
+my-project/
+├── train.py              # Executable entry point
+├── validate.sh           # Shell script entry point
+├── conda.yaml           # Optional: Conda environment
+├── python_env.yaml      # Optional: Python environment
+└── data/                # Project data and assets
+```
+
+**Default Behavior:**
+
+- **Name**: Directory name
+- **Entry Points**: Any `.py` or `.sh` file
+- **Environment**: Conda environment from `conda.yaml`, or Python-only environment
+- **Parameters**: Passed via command line as `--key value`
+
+### MLproject File Configuration
+
+For advanced control, create an `MLproject` file:
+
+```yaml
+name: My ML Project
+
+# Environment specification (choose one)
+python_env: python_env.yaml
+# conda_env: conda.yaml
+# docker_env:
+#   image: python:3.9
+
+entry_points:
+  main:
+    parameters:
+      data_file: path
+      regularization: {type: float, default: 0.1}
+      max_epochs: {type: int, default: 100}
+    command: "python train.py --reg {regularization} --epochs {max_epochs} {data_file}"
+
+  validate:
+    parameters:
+      model_path: path
+      test_data: path
+    command: "python validate.py {model_path} {test_data}"
+
+  hyperparameter_search:
+    parameters:
+      search_space: uri
+      n_trials: {type: int, default: 50}
+    command: "python hyperparam_search.py --trials {n_trials} --config {search_space}"
+```
+
+### Parameter Types
+
+MLflow supports four parameter types with automatic validation and transformation:
+
+| Type       | Description      | Example                        | Special Handling                     |
+| ---------- | ---------------- | ------------------------------ | ------------------------------------ |
+| **string** | Text data        | `"hello world"`                | None                                 |
+| **float**  | Decimal numbers  | `0.1`, `3.14`                  | Validation                           |
+| **int**    | Whole numbers    | `42`, `100`                    | Validation                           |
+| **path**   | Local file paths | `data.csv`, `s3://bucket/file` | Downloads remote URIs to local files |
+| **uri**    | Any URI          | `s3://bucket/`, `./local/path` | Converts relative paths to absolute  |
+
+:::note Parameter Resolution
+`path` parameters automatically download remote files (S3, GCS, etc.) to local storage before execution. Use `uri` for applications that can read directly from remote storage.
+:::
+
+## Environment Management
+
+### Python Virtual Environments (Recommended)
+
+Create a `python_env.yaml` file for pure Python dependencies:
+
+```yaml
+# python_env.yaml
+python: "3.9.16"
+
+# Optional: build dependencies
+build_dependencies:
+  - pip
+  - setuptools
+  - wheel==0.37.1
+
+# Runtime dependencies
+dependencies:
+  - mlflow>=2.0.0
+  - scikit-learn==1.2.0
+  - pandas>=1.5.0
+  - numpy>=1.21.0
+```
+
+```yaml
+# MLproject
+name: Python Project
+python_env: python_env.yaml
+
+entry_points:
+  main:
+    command: "python train.py"
+```
+
+### Conda Environments
+
+For projects requiring native libraries or complex dependencies:
+
+```yaml
+# conda.yaml
+name: ml-project
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.9
+  - cudnn=8.2.1  # CUDA libraries
+  - scikit-learn
+  - pip
+  - pip:
+    - mlflow>=2.0.0
+    - tensorflow==2.10.0
+```
+
+```yaml
+# MLproject
+name: Deep Learning Project
+conda_env: conda.yaml
+
+entry_points:
+  train:
+    parameters:
+      gpu_count: {type: int, default: 1}
+    command: "python train_model.py --gpus {gpu_count}"
+```
+
+:::warning Conda Terms
+By using Conda, you agree to [Anaconda's Terms of Service](https://legal.anaconda.com/policies/en/?name=terms-of-service).
+:::
+
+### Docker Environments
+
+For maximum reproducibility and complex system dependencies:
+
+```dockerfile
+# Dockerfile
+FROM python:3.9-slim
+
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install -r requirements.txt
+
+WORKDIR /mlflow/projects/code
+```
+
+```yaml
+# MLproject
+name: Containerized Project
+docker_env:
+  image: my-ml-image:latest
+  volumes: ["/host/data:/container/data"]
+  environment:
+    - ["CUDA_VISIBLE_DEVICES", "0,1"]
+    - "AWS_PROFILE"  # Copy from host
+
+entry_points:
+  train:
+    command: "python distributed_training.py"
+```
+
+**Advanced Docker Options:**
+
+```yaml
+docker_env:
+  image: 012345678910.dkr.ecr.us-west-2.amazonaws.com/ml-training:v1.0
+  volumes:
+    - "/local/data:/data"
+    - "/tmp:/tmp"
+  environment:
+    - ["MODEL_REGISTRY", "s3://my-bucket/models"]
+    - ["EXPERIMENT_NAME", "production-training"]
+    - "MLFLOW_TRACKING_URI"  # Copy from host
+```
+
+### Environment Manager Selection
+
+Control which environment manager to use:
+
+```bash
+# Force virtualenv (ignores conda.yaml)
+mlflow run . --env-manager virtualenv
+
+# Use local environment (no isolation)
+mlflow run . --env-manager local
+
+# Use conda (default if conda.yaml present)
+mlflow run . --env-manager conda
+```
+
+## Execution & Deployment
+
+### Local Execution
+
+```bash
+# Basic execution
+mlflow run .
+
+# With parameters
+mlflow run . -P lr=0.01 -P batch_size=32
+
+# Specific entry point
+mlflow run . -e hyperparameter_search -P n_trials=100
+
+# Custom environment
+mlflow run . --env-manager virtualenv
+```
+
+### Remote Execution
+
+#### Databricks Platform
+
+```bash
+# Run on Databricks cluster
+mlflow run . --backend databricks --backend-config cluster-config.json
+```
+
+```json
+// cluster-config.json
+{
+  "cluster_spec": {
+    "new_cluster": {
+      "node_type_id": "i3.xlarge",
+      "num_workers": 2,
+      "spark_version": "11.3.x-scala2.12"
+    }
+  },
+  "run_name": "distributed-training"
+}
+```
+
+#### Kubernetes Clusters
+
+```bash
+# Run on Kubernetes
+mlflow run . --backend kubernetes --backend-config k8s-config.json
+```
+
+```json
+// k8s-config.json
+{
+  "kube-context": "my-cluster",
+  "repository-uri": "gcr.io/my-project/ml-training",
+  "kube-job-template-path": "k8s-job-template.yaml"
+}
+```
+
+```yaml
+# k8s-job-template.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "{replaced-with-project-name}"
+  namespace: mlflow
+spec:
+  ttlSecondsAfterFinished: 3600
+  backoffLimit: 2
+  template:
+    spec:
+      containers:
+      - name: "{replaced-with-project-name}"
+        image: "{replaced-with-image-uri}"
+        command: ["{replaced-with-entry-point-command}"]
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1000m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+        env:
+        - name: MLFLOW_TRACKING_URI
+          value: "https://my-mlflow-server.com"
+      restartPolicy: Never
+```
+
+### Python API
+
+```python
+import mlflow
+from mlflow.projects import run
+
+# Synchronous execution
+result = run(
+    uri="https://github.com/mlflow/mlflow-example.git",
+    entry_point="main",
+    parameters={"alpha": 0.5},
+    backend="local",
+    synchronous=True,
+)
+
+# Asynchronous execution
+submitted_run = run(
+    uri=".",
+    entry_point="train",
+    parameters={"epochs": 100},
+    backend="databricks",
+    backend_config="cluster-config.json",
+    synchronous=False,
+)
+
+# Monitor progress
+if submitted_run.wait():
+    print("Training completed successfully!")
+    run_data = mlflow.get_run(submitted_run.run_id)
+    print(f"Final accuracy: {run_data.data.metrics['accuracy']}")
+```
+
+## Building Workflows
+
+### Multi-Step Pipelines
+
+Combine multiple projects into sophisticated ML workflows:
+
+```python
+import mlflow
+from mlflow.tracking import MlflowClient
+
+
+def ml_pipeline():
+    client = MlflowClient()
+
+    # Step 1: Data preprocessing
+    prep_run = mlflow.run(
+        "./preprocessing", parameters={"input_path": "s3://bucket/raw-data"}
+    )
+
+    # Wait for completion and get output
+    if prep_run.wait():
+        prep_run_data = client.get_run(prep_run.run_id)
+        processed_data_path = prep_run_data.data.params["output_path"]
+
+        # Step 2: Feature engineering
+        feature_run = mlflow.run(
+            "./feature_engineering", parameters={"data_path": processed_data_path}
+        )
+
+        if feature_run.wait():
+            feature_data = client.get_run(feature_run.run_id)
+            features_path = feature_data.data.params["features_output"]
+
+            # Step 3: Parallel model training
+            model_runs = []
+            algorithms = ["random_forest", "xgboost", "neural_network"]
+
+            for algo in algorithms:
+                run = mlflow.run(
+                    "./training",
+                    entry_point=algo,
+                    parameters={"features_path": features_path, "algorithm": algo},
+                    synchronous=False,  # Run in parallel
+                )
+                model_runs.append(run)
+
+            # Wait for all models and select best
+            best_model = None
+            best_metric = 0
+
+            for run in model_runs:
+                if run.wait():
+                    run_data = client.get_run(run.run_id)
+                    accuracy = run_data.data.metrics.get("accuracy", 0)
+                    if accuracy > best_metric:
+                        best_metric = accuracy
+                        best_model = run.run_id
+
+            # Step 4: Deploy best model
+            if best_model:
+                mlflow.run(
+                    "./deployment",
+                    parameters={"model_run_id": best_model, "stage": "production"},
+                )
+
+
+# Execute pipeline
+ml_pipeline()
+```
+
+### Hyperparameter Optimization
+
+```python
+import mlflow
+import itertools
+from concurrent.futures import ThreadPoolExecutor
+
+
+def hyperparameter_search():
+    # Define parameter grid
+    param_grid = {
+        "learning_rate": [0.01, 0.1, 0.2],
+        "n_estimators": [100, 200, 500],
+        "max_depth": [3, 6, 10],
+    }
+
+    # Generate all combinations
+    param_combinations = [
+        dict(zip(param_grid.keys(), values))
+        for values in itertools.product(*param_grid.values())
+    ]
+
+    def train_model(params):
+        return mlflow.run("./training", parameters=params, synchronous=False)
+
+    # Launch parallel training jobs
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        submitted_runs = list(executor.map(train_model, param_combinations))
+
+    # Collect results
+    results = []
+    for run in submitted_runs:
+        if run.wait():
+            run_data = mlflow.get_run(run.run_id)
+            results.append(
+                {
+                    "run_id": run.run_id,
+                    "params": run_data.data.params,
+                    "metrics": run_data.data.metrics,
+                }
+            )
+
+    # Find best model
+    best_run = max(results, key=lambda x: x["metrics"].get("f1_score", 0))
+    print(f"Best model: {best_run['run_id']}")
+    print(f"Best F1 score: {best_run['metrics']['f1_score']}")
+
+    return best_run
+
+
+# Execute hyperparameter search
+best_model = hyperparameter_search()
+```
+
+## Advanced Features
+
+### Docker Image Building
+
+Build custom images during execution:
+
+```bash
+# Build new image based on project's base image
+mlflow run . --backend kubernetes --build-image
+
+# Use pre-built image
+mlflow run . --backend kubernetes
+```
+
+```python
+# Programmatic image building
+mlflow.run(
+    ".",
+    backend="kubernetes",
+    backend_config="k8s-config.json",
+    build_image=True,  # Creates new image with project code
+    docker_auth={  # Registry authentication
+        "username": "myuser",
+        "password": "mytoken",
+    },
+)
+```
+
+### Git Integration
+
+MLflow automatically tracks Git information:
+
+```bash
+# Run specific commit
+mlflow run https://github.com/mlflow/mlflow-example.git --version <commit hash>
+
+# Run branch
+mlflow run https://github.com/mlflow/mlflow-example.git --version feature-branch
+
+# Run from subdirectory
+mlflow run https://github.com/my-repo.git#subdirectory/my-project
+```
+
+### Environment Variable Propagation
+
+Critical environment variables are automatically passed to execution environments:
+
+```bash
+export MLFLOW_TRACKING_URI="https://my-tracking-server.com"
+export AWS_PROFILE="ml-experiments"
+export CUDA_VISIBLE_DEVICES="0,1"
+
+# These variables are available in the project execution environment
+mlflow run .
+```
+
+### Custom Backend Development
+
+Create custom execution backends:
+
+```python
+# custom_backend.py
+from mlflow.projects.backend import AbstractBackend
+
+
+class MyCustomBackend(AbstractBackend):
+    def run(
+        self,
+        project_uri,
+        entry_point,
+        parameters,
+        version,
+        backend_config,
+        tracking_uri,
+        experiment_id,
+    ):
+        # Custom execution logic
+        # Return SubmittedRun object
+        pass
+```
+
+Register as plugin:
+
+```python
+# setup.py
+setup(
+    entry_points={
+        "mlflow.project_backend": [
+            "my-backend=my_package.custom_backend:MyCustomBackend"
+        ]
+    }
+)
+```
+
+## Best Practices
+
+### Project Organization
+
+```
+ml-project/
+├── MLproject              # Project configuration
+├── python_env.yaml        # Environment dependencies
+├── src/                   # Source code
+│   ├── train.py
+│   ├── evaluate.py
+│   └── utils/
+├── data/                  # Sample/test data
+├── configs/               # Configuration files
+│   ├── model_config.yaml
+│   └── hyperparams.json
+├── tests/                 # Unit tests
+└── README.md             # Project documentation
+```
+
+### Environment Management
+
+**Development Tips:**
+
+- Use **virtualenv** for pure Python projects
+- Use **conda** when you need system libraries (CUDA, Intel MKL)
+- Use **Docker** for complex dependencies or production deployment
+- Pin exact versions in production environments
+
+**Performance Optimization:**
+
+```yaml
+# Fast iteration during development
+python_env: python_env.yaml
+
+entry_points:
+  develop:
+    command: "python train.py"
+
+  production:
+    parameters:
+      full_dataset: {type: path}
+      epochs: {type: int, default: 100}
+    command: "python train.py --data {full_dataset} --epochs {epochs}"
+```
+
+### Parameter Management
+
+```yaml
+# Good: Typed parameters with defaults
+entry_points:
+  train:
+    parameters:
+      learning_rate: {type: float, default: 0.01}
+      batch_size: {type: int, default: 32}
+      data_path: path
+      output_dir: {type: str, default: "./outputs"}
+    command: "python train.py --lr {learning_rate} --batch {batch_size} --data {data_path} --output {output_dir}"
+```
+
+### Reproducibility
+
+```python
+# Include environment info in tracking
+import mlflow
+import platform
+import sys
+
+with mlflow.start_run():
+    # Log environment info
+    mlflow.log_param("python_version", sys.version)
+    mlflow.log_param("platform", platform.platform())
+
+    # Log Git commit if available
+    try:
+        import git
+
+        repo = git.Repo(".")
+        mlflow.log_param("git_commit", repo.head.commit.hexsha)
+    except:
+        pass
+```
+
+## Troubleshooting
+
+### Common Issues
+
+**Docker Permission Denied**
+
+```bash
+# Solution: Add user to docker group or use sudo
+sudo usermod -aG docker $USER
+# Then restart shell/session
+```
+
+**Conda Environment Creation Fails**
+
+```bash
+# Solution: Clean conda cache and retry
+conda clean --all
+mlflow run . --env-manager conda
+```
+
+**Git Authentication for Private Repos**
+
+```bash
+# Solution: Use SSH with key authentication
+mlflow run git@github.com:private/repo.git
+# Or HTTPS with token
+mlflow run https://token:x-oauth-basic@github.com/private/repo.git
+```
+
+**Kubernetes Job Fails**
+
+```bash
+# Debug: Check job status
+kubectl get jobs -n mlflow
+kubectl describe job <job-name> -n mlflow
+kubectl logs -n mlflow job/<job-name>
+```
+
+### Debugging Tips
+
+**Enable Verbose Logging:**
+
+```bash
+export MLFLOW_LOGGING_LEVEL=DEBUG
+mlflow run . -v
+```
+
+**Test Locally First:**
+
+```bash
+# Test with local environment before remote deployment
+mlflow run . --env-manager local
+
+# Then test with environment isolation
+mlflow run . --env-manager virtualenv
+```
+
+**Validate Project Structure:**
+
+```python
+from mlflow.projects import load_project
+
+# Load and inspect project
+project = load_project(".")
+print(f"Project name: {project.name}")
+print(f"Entry points: {list(project._entry_points.keys())}")
+print(f"Environment type: {project.env_type}")
+```
+
+---
+
+**Ready to get started?** Check out our [MLflow Projects Examples](https://github.com/mlflow/mlflow/tree/master/examples) for hands-on tutorials and real-world use cases.

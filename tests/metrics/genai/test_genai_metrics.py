@@ -556,7 +556,7 @@ def test_make_genai_metric_throws_if_grading_context_cols_wrong(grading_cols, ex
                     output="output",
                     score=1,
                     justification="justification",
-                    grading_context={col: "something" for col in example_context_cols},
+                    grading_context=dict.fromkeys(example_context_cols, "something"),
                 )
             ],
             parameters={"temperature": 0.0},

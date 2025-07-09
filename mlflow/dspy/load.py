@@ -48,7 +48,7 @@ def _load_model(model_uri, dst_path=None):
     return loaded_wrapper
 
 
-@experimental
+@experimental(version="2.18.0")
 @trace_disabled  # Suppress traces for internal calls while loading model
 def load_model(model_uri, dst_path=None):
     """

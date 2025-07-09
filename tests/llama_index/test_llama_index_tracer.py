@@ -27,7 +27,7 @@ from mlflow.entities.span import SpanType
 from mlflow.entities.span_status import SpanStatusCode
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.llama_index.tracer import remove_llama_index_tracer, set_llama_index_tracer
-from mlflow.tracing.constant import SpanAttributeKey
+from mlflow.tracing.constant import SpanAttributeKey, TokenUsageKey
 from mlflow.tracking._tracking_service.utils import _use_tracking_uri
 
 from tests.tracing.helper import get_traces, skip_when_testing_trace_sdk
@@ -77,6 +77,12 @@ def test_trace_llm_complete(is_async):
             "prompt_tokens_details": None,
         }.items()
     )
+    assert attr[SpanAttributeKey.CHAT_USAGE] == {
+        TokenUsageKey.INPUT_TOKENS: 5,
+        TokenUsageKey.OUTPUT_TOKENS: 7,
+        TokenUsageKey.TOTAL_TOKENS: 12,
+    }
+
     assert attr["prompt"] == "Hello"
     assert attr["invocation_params"]["model_name"] == model_name
     assert attr["model_dict"]["model"] == model_name
@@ -85,13 +91,18 @@ def test_trace_llm_complete(is_async):
         {"role": "user", "content": "Hello"},
         {"role": "assistant", "content": "Hello"},
     ]
+    assert traces[0].info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 5,
+        TokenUsageKey.OUTPUT_TOKENS: 7,
+        TokenUsageKey.TOTAL_TOKENS: 12,
+    }
 
 
 def test_trace_llm_complete_stream():
     model_name = "gpt-3.5-turbo"
     llm = OpenAI(model=model_name)
 
-    response_gen = llm.stream_complete("Hello")
+    response_gen = llm.stream_complete("Hello", stream_options={"include_usage": True})
     # No trace should be created until the generator is consumed
     assert len(get_traces()) == 0
     assert inspect.isgenerator(response_gen)
@@ -107,7 +118,10 @@ def test_trace_llm_complete_stream():
     assert len(spans) == 1
     assert spans[0].name == "OpenAI.stream_complete"
     assert spans[0].span_type == SpanType.LLM
-    assert spans[0].inputs == {"args": ["Hello"]}
+    assert spans[0].inputs == {
+        "args": ["Hello"],
+        "kwargs": {"stream_options": {"include_usage": True}},
+    }
     assert spans[0].outputs["text"] == "Hello world"
 
     attr = spans[0].attributes
@@ -121,6 +135,11 @@ def test_trace_llm_complete_stream():
             "prompt_tokens_details": None,
         }.items()
     )
+    assert attr[SpanAttributeKey.CHAT_USAGE] == {
+        TokenUsageKey.INPUT_TOKENS: 9,
+        TokenUsageKey.OUTPUT_TOKENS: 12,
+        TokenUsageKey.TOTAL_TOKENS: 21,
+    }
     assert attr["prompt"] == "Hello"
     assert attr["invocation_params"]["model_name"] == model_name
     assert attr["model_dict"]["model"] == model_name
@@ -129,6 +148,11 @@ def test_trace_llm_complete_stream():
         {"role": "user", "content": "Hello"},
         {"content": "Hello world", "role": "assistant"},
     ]
+    assert traces[0].info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 9,
+        TokenUsageKey.OUTPUT_TOKENS: 12,
+        TokenUsageKey.TOTAL_TOKENS: 21,
+    }
 
 
 def _get_llm_input_content_json(content):
@@ -198,6 +222,11 @@ def test_trace_llm_chat(is_async):
             "prompt_tokens_details": None,
         }.items()
     )
+    assert attr[SpanAttributeKey.CHAT_USAGE] == {
+        TokenUsageKey.INPUT_TOKENS: 9,
+        TokenUsageKey.OUTPUT_TOKENS: 12,
+        TokenUsageKey.TOTAL_TOKENS: 21,
+    }
     assert attr["invocation_params"]["model_name"] == llm.metadata.model_name
     assert attr["model_dict"]["model"] == llm.metadata.model_name
     assert attr[SpanAttributeKey.CHAT_MESSAGES] == [
@@ -210,6 +239,11 @@ def test_trace_llm_chat(is_async):
             "content": '[{"role": "system", "content": "Hello"}]',
         },
     ]
+    assert traces[0].info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 9,
+        TokenUsageKey.OUTPUT_TOKENS: 12,
+        TokenUsageKey.TOTAL_TOKENS: 21,
+    }
 
 
 def _get_image_content(image_path):
@@ -300,7 +334,7 @@ def test_trace_llm_chat_stream():
     llm = OpenAI()
     message = ChatMessage(role="system", content="Hello")
 
-    response_gen = llm.stream_chat([message])
+    response_gen = llm.stream_chat([message], stream_options={"include_usage": True})
     # No trace should be created until the generator is consumed
     assert len(get_traces()) == 0
     assert inspect.isgenerator(response_gen)
@@ -321,7 +355,8 @@ def test_trace_llm_chat_stream():
 
     content_json = _get_llm_input_content_json("Hello")
     assert spans[0].inputs == {
-        "messages": [{"role": "system", **content_json, "additional_kwargs": {}}]
+        "messages": [{"role": "system", **content_json, "additional_kwargs": {}}],
+        "kwargs": {"stream_options": {"include_usage": True}},
     }
     # `additional_kwargs` was broken until 0.1.30 release of llama-index-llms-openai
     expected_kwargs = (
@@ -353,6 +388,11 @@ def test_trace_llm_chat_stream():
             "prompt_tokens_details": None,
         }.items()
     )
+    assert attr[SpanAttributeKey.CHAT_USAGE] == {
+        TokenUsageKey.INPUT_TOKENS: 9,
+        TokenUsageKey.OUTPUT_TOKENS: 12,
+        TokenUsageKey.TOTAL_TOKENS: 21,
+    }
     assert attr["invocation_params"]["model_name"] == llm.metadata.model_name
     assert attr["model_dict"]["model"] == llm.metadata.model_name
     assert attr[SpanAttributeKey.CHAT_MESSAGES] == [
@@ -365,6 +405,11 @@ def test_trace_llm_chat_stream():
             "content": "Hello world",
         },
     ]
+    assert traces[0].info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 9,
+        TokenUsageKey.OUTPUT_TOKENS: 12,
+        TokenUsageKey.TOTAL_TOKENS: 21,
+    }
 
 
 @pytest.mark.parametrize("is_stream", [True, False])
@@ -549,7 +594,7 @@ def test_trace_agent():
     tool_span = name_to_span["FunctionTool.call"]
     assert tool_span.span_type == SpanType.TOOL
     assert tool_span.inputs == {"kwargs": {"a": 1, "b": 2}}
-    assert tool_span.outputs["content"] == "3"
+    assert tool_span.outputs.get("raw_output") == 3
     assert tool_span.attributes["name"] == "add"
     assert tool_span.attributes["description"] is not None
     assert tool_span.attributes["parameters"] is not None

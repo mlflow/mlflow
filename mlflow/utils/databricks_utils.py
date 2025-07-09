@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, NamedTuple, Optional, TypeVar
 
 from mlflow.utils.logging_utils import eprint
+from mlflow.utils.request_utils import augmented_raise_for_status
 
 if TYPE_CHECKING:
     from pyspark.sql.connect.session import SparkSession as SparkConnectSession
@@ -30,7 +31,7 @@ from mlflow.legacy_databricks_cli.configure.provider import (
     SparkTaskContextConfigProvider,
 )
 from mlflow.utils._spark_utils import _get_active_spark_session
-from mlflow.utils.rest_utils import MlflowHostCreds
+from mlflow.utils.rest_utils import MlflowHostCreds, http_request
 from mlflow.utils.uri import (
     _DATABRICKS_UNITY_CATALOG_SCHEME,
     get_db_info_from_uri,
@@ -1241,8 +1242,8 @@ class DatabricksRuntimeVersion(NamedTuple):
     minor: int
 
     @classmethod
-    def parse(cls):
-        dbr_version = get_databricks_runtime_version()
+    def parse(cls, databricks_runtime: Optional[str] = None):
+        dbr_version = databricks_runtime or get_databricks_runtime_version()
         try:
             dbr_version_splits = dbr_version.split(".", maxsplit=2)
             if dbr_version_splits[0] == "client":
@@ -1419,3 +1420,17 @@ def get_databricks_local_temp_dir():
         except Exception:
             # fallback
             return entry_point.getReplLocalTempDir()
+
+
+def stage_model_for_databricks_model_serving(model_name: str, model_version: str):
+    response = http_request(
+        host_creds=get_databricks_host_creds(),
+        endpoint="/api/2.0/serving-endpoints:stageDeployment",
+        method="POST",
+        raise_on_status=False,
+        json={
+            "model_name": model_name,
+            "model_version": model_version,
+        },
+    )
+    augmented_raise_for_status(response)

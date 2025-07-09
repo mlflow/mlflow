@@ -24,19 +24,20 @@ from mlflow.types.responses import (
 
 
 def _load_pyfunc(model_path: str, model_config: Optional[dict[str, Any]] = None):
-    _, responses_agent, _ = _load_context_model_and_signature(model_path, model_config)
-    return _ResponsesAgentPyfuncWrapper(responses_agent)
+    context, responses_agent, _ = _load_context_model_and_signature(model_path, model_config)
+    return _ResponsesAgentPyfuncWrapper(responses_agent, context)
 
 
-@experimental
+@experimental(version="3.0.0")
 class _ResponsesAgentPyfuncWrapper:
     """
     Wrapper class that converts dict inputs to pydantic objects accepted by
     :class:`~ResponsesAgent`.
     """
 
-    def __init__(self, responses_agent):
+    def __init__(self, responses_agent, context):
         self.responses_agent = responses_agent
+        self.context = context
 
     def get_raw_model(self):
         """

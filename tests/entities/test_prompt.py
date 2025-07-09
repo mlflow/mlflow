@@ -1,13 +1,18 @@
 import pytest
 
 from mlflow.entities.model_registry.model_version import ModelVersion
-from mlflow.entities.model_registry.prompt import IS_PROMPT_TAG_KEY, PROMPT_TEXT_TAG_KEY, Prompt
+from mlflow.entities.model_registry.prompt_version import (
+    IS_PROMPT_TAG_KEY,
+    PROMPT_TEXT_TAG_KEY,
+    PromptVersion,
+)
 from mlflow.exceptions import MlflowException
+from mlflow.prompt.registry_utils import model_version_to_prompt_version
 from mlflow.protos.model_registry_pb2 import ModelVersionTag
 
 
 def test_prompt_initialization():
-    prompt = Prompt(name="my_prompt", version=1, template="Hello, {{name}}!")
+    prompt = PromptVersion(name="my_prompt", version=1, template="Hello, {{name}}!")
     assert prompt.name == "my_prompt"
     assert prompt.version == 1
     assert prompt.template == "Hello, {{name}}!"
@@ -31,7 +36,7 @@ def test_prompt_initialization():
     ],
 )
 def test_prompt_variables_extraction(template, expected):
-    prompt = Prompt(name="test", version=1, template=template)
+    prompt = PromptVersion(name="test", version=1, template=template)
     assert prompt.variables == expected
 
 
@@ -46,12 +51,12 @@ def test_prompt_variables_extraction(template, expected):
     ],
 )
 def test_prompt_to_single_brace_format(template, expected):
-    prompt = Prompt(name="test", version=1, template=template)
+    prompt = PromptVersion(name="test", version=1, template=template)
     assert prompt.to_single_brace_format() == expected
 
 
 def test_prompt_format():
-    prompt = Prompt(name="test", version=1, template="Hello, {{title}} {{name}}!")
+    prompt = PromptVersion(name="test", version=1, template="Hello, {{title}} {{name}}!")
     result = prompt.format(title="Ms.", name="Alice")
     assert result == "Hello, Ms. Alice!"
 
@@ -83,7 +88,7 @@ def test_prompt_from_model_version():
         aliases=["alias"],
     )
 
-    prompt = Prompt.from_model_version(model_version)
+    prompt = model_version_to_prompt_version(model_version)
     assert prompt.name == "my-prompt"
     assert prompt.version == 1
     assert prompt.description == "test"
@@ -101,7 +106,7 @@ def test_prompt_from_model_version():
     )
 
     with pytest.raises(MlflowException, match="Name `my-prompt` is registered as a model"):
-        Prompt.from_model_version(invalid_model_version)
+        model_version_to_prompt_version(invalid_model_version)
 
     invalid_model_version = ModelVersion(
         name="my-prompt",
@@ -112,4 +117,4 @@ def test_prompt_from_model_version():
     )
 
     with pytest.raises(MlflowException, match="Prompt `my-prompt` does not contain a prompt text"):
-        Prompt.from_model_version(invalid_model_version)
+        model_version_to_prompt_version(invalid_model_version)
