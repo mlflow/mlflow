@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from pydantic import BaseModel, ValidationError
 
@@ -19,7 +19,9 @@ from mlflow.prompt.constants import (
     PROMPT_TYPE_TEXT,
     RESPONSE_FORMAT_TAG_KEY,
 )
-from mlflow.types.chat import ChatMessage, ContentType
+
+if TYPE_CHECKING:
+    from mlflow.types.chat import ContentType
 
 # Alias type
 PromptVersionTag = ModelVersionTag
@@ -67,7 +69,7 @@ class PromptVersion(_ModelRegistryEntity):
         self,
         name: str,
         version: int,
-        template: Union[str, list[dict[str, ContentType]]],
+        template: Union[str, list[dict[str, "ContentType"]]],
         response_format: BaseModel | dict[str, Any] | None = None,
         commit_message: Optional[str] = None,
         creation_timestamp: Optional[int] = None,
@@ -76,6 +78,8 @@ class PromptVersion(_ModelRegistryEntity):
         last_updated_timestamp: Optional[int] = None,
         user_id: Optional[str] = None,
     ):
+        from mlflow.types.chat import ChatMessage
+
         super().__init__()
 
         # Core PromptVersion attributes
