@@ -105,6 +105,7 @@ _logger = logging.getLogger(__name__)
 
 
 run_id_to_system_metrics_monitor = {}
+run_id_to_stdout_logger = {}
 
 
 _active_run_stack = ThreadLocalVariable(default_factory=lambda: [])
@@ -267,6 +268,8 @@ def start_run(
     tags: Optional[dict[str, Any]] = None,
     description: Optional[str] = None,
     log_system_metrics: Optional[bool] = None,
+    log_stdout: Optional[bool] = None,
+    log_stdout_interval: int = 5,
 ) -> ActiveRun:
     """
     Start a new MLflow run, setting it as the active run under which metrics and parameters
@@ -309,6 +312,11 @@ def start_run(
             to MLflow, e.g., cpu/gpu utilization. If None, we will check environment variable
             `MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING` to determine whether to log system metrics.
             System metrics logging is an experimental feature in MLflow 2.8 and subject to change.
+        log_stdout: bool, defaults to None. If True, stdout will be captured and periodically
+            logged to MLflow as an artifact named 'stdout.log'. If False, stdout logging is
+            disabled. If None, stdout logging is disabled by default.
+        log_stdout_interval: int, defaults to 5. The interval in seconds at which to log
+            the captured stdout to MLflow. Only used when log_stdout is True.
 
     Returns:
         :py:class:`mlflow.ActiveRun` object that acts as a context manager wrapping the
@@ -502,6 +510,19 @@ def start_run(
             _logger.error(f"Failed to start system metrics monitoring: {e}.")
 
     active_run_stack.append(ActiveRun(active_run_obj))
+
+    if log_stdout:
+        try:
+            from mlflow.utils.stdout_logging import log_stdout_stream
+
+            # Create a context manager that will be entered when the ActiveRun is used
+            stdout_logger = log_stdout_stream(interval_seconds=log_stdout_interval)
+            run_id_to_stdout_logger[active_run_obj.info.run_id] = stdout_logger
+            # Start the stdout logging
+            stdout_logger.__enter__()
+        except Exception as e:
+            _logger.error(f"Failed to start stdout logging: {e}.")
+
     return active_run_stack[-1]
 
 
@@ -548,6 +569,12 @@ def end_run(status: str = RunStatus.to_string(RunStatus.FINISHED)) -> None:
         if last_active_run_id in run_id_to_system_metrics_monitor:
             system_metrics_monitor = run_id_to_system_metrics_monitor.pop(last_active_run_id)
             system_metrics_monitor.finish()
+        if last_active_run_id in run_id_to_stdout_logger:
+            stdout_logger = run_id_to_stdout_logger.pop(last_active_run_id)
+            try:
+                stdout_logger.__exit__(None, None, None)
+            except Exception as e:
+                _logger.error(f"Failed to stop stdout logging: {e}.")
 
 
 def _safe_end_run():
