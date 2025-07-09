@@ -71,7 +71,7 @@ def _generate_telemetry_record(
             api_module=func.__module__,
             api_name=func.__qualname__,
             params=record_params,
-            status=APIStatus.SUCCESS.value if success else APIStatus.FAILURE.value,
+            status=APIStatus.SUCCESS if success else APIStatus.FAILURE,
             duration_ms=duration_ms,
         )
     except Exception:

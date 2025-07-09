@@ -341,7 +341,7 @@ def reset_telemetry_client():
     yield
     client = get_telemetry_client()
     if client:
-        client._wait_for_consumer_threads(terminate=True)
+        client._wait_for_threads()
     set_telemetry_client()
 
 

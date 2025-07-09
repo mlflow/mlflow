@@ -1,9 +1,10 @@
+import json
 import platform
 import sys
 import uuid
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
+from typing import Any, Optional
 
 from mlflow.version import VERSION
 
@@ -64,8 +65,17 @@ class APIRecord:
     api_module: str
     api_name: str
     params: Optional[BaseParams] = None
-    status: APIStatus = APIStatus.UNKNOWN.value
+    status: APIStatus = APIStatus.UNKNOWN
     duration_ms: Optional[int] = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "api_module": self.api_module,
+            "api_name": self.api_name,
+            "params": json.dumps(self.params) if self.params else None,
+            "status": self.status.value,
+            "duration_ms": self.duration_ms,
+        }
 
 
 @dataclass

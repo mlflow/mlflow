@@ -185,3 +185,16 @@ def _debug(s: str) -> None:
     Debug function to test logging level.
     """
     logging.getLogger(__name__).debug(s)
+
+
+@contextlib.contextmanager
+def _temp_suppress_logs_in_thread():
+    """
+    Context manager to suppress logs in the current thread.
+    """
+    original_value = suppress_logs_in_thread.get()
+    try:
+        suppress_logs_in_thread.set(True)
+        yield
+    finally:
+        suppress_logs_in_thread.set(original_value)
