@@ -1263,13 +1263,12 @@ def _enforce_schema(pf_input: PyFuncInput, input_schema: Schema, flavor: Optiona
                 message = "Input schema validation failed. Mismatched or missing input(s)."
                 if extra_cols:
                     message += " Note that there were extra inputs provided."
-                raise MlflowException(message)
             else:
                 message = f"Model is missing inputs {missing_cols}."
                 if extra_cols:
                     message += f" Note that there were extra inputs: {extra_cols}."
-                raise MlflowException(message)
-        
+            raise MlflowException(message)
+
         if extra_cols:
             _logger.warning(
                 "Found extra inputs in the model input that are not defined in the model "
