@@ -6,6 +6,6 @@
 module.exports = {
   rules: {
     /** Rule to validate NotebookDownloadButton URLs */
-    "valid-notebook-url": require("./rules/valid-notebook-url"),
+    'valid-notebook-url': require('./rules/valid-notebook-url'),
   },
 };
