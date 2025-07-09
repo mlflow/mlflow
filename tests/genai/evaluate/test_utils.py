@@ -156,7 +156,7 @@ def get_test_traces(type=Literal["pandas", "list"]):
     # Add assessments. Since log_assessment API is not supported in OSS MLflow yet, we
     # need to add it to the trace info manually.
     source = AssessmentSource(source_id="test", source_type="HUMAN")
-    trace = traces[0] if type == "list" else traces.iloc[0]["trace"]
+    trace = traces[0] if type == "list" else Trace.from_json(traces.iloc[0]["trace"])
     trace.info.assessments.extend(
         [
             # 1. Expectation with reserved name "expected_response"
@@ -196,7 +196,11 @@ def get_test_traces(type=Literal["pandas", "list"]):
             ),
         ]
     )
-    return [{"trace": trace} for trace in traces] if type == "list" else traces
+    if type == "pandas":
+        traces.at[0, "trace"] = trace.to_json()
+    else:
+        traces = [{"trace": trace} for trace in traces]
+    return traces
 
 
 @pytest.mark.parametrize("input_type", ["list", "pandas"])

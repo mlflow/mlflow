@@ -102,7 +102,7 @@ def _chat_model_to_langchain_message(message: ChatMessage) -> BaseMessage:
         )
 
 
-def _get_tool_calls_from_ai_message(message: AIMessage) -> list[dict]:
+def _get_tool_calls_from_ai_message(message: AIMessage) -> list[dict[str, Any]]:
     # AIMessage does not have tool_calls field in LangChain < 0.1.0.
     if not hasattr(message, "tool_calls"):
         return []
@@ -162,7 +162,7 @@ def convert_lc_generation_to_chat_message(lc_gen: Generation) -> ChatMessage:
     return ChatMessage(role="assistant", content=lc_gen.text)
 
 
-def try_transform_response_to_chat_format(response: Any) -> dict:
+def try_transform_response_to_chat_format(response: Any) -> dict[str, Any]:
     """
     Try to convert the response to the standard chat format and return its dict representation.
 
@@ -262,7 +262,7 @@ def _convert_chat_request_or_throw(chat_request: dict[str, Any]) -> list[Union[B
     return [_chat_model_to_langchain_message(message) for message in model.messages]
 
 
-def _convert_chat_request(chat_request: Union[dict, list[dict]]):
+def _convert_chat_request(chat_request: Union[dict[str, Any], list[dict[str, Any]]]):
     if isinstance(chat_request, list):
         return [_convert_chat_request_or_throw(request) for request in chat_request]
     else:
@@ -283,6 +283,16 @@ def _get_lc_model_input_fields(lc_model) -> set[str]:
 
 
 def _should_transform_request_json_for_chat(lc_model):
+    # Don't convert the request to LangChain's Message format for LangGraph models.
+    # Inputs may have key like "messages", but they are graph state fields, not OAI chat format.
+    try:
+        from langgraph.graph.state import CompiledStateGraph
+
+        if isinstance(lc_model, CompiledStateGraph):
+            return False
+    except ImportError:
+        pass
+
     # Avoid converting the request to LangChain's Message format if the chain
     # is an AgentExecutor, as LangChainChatMessage might not be accepted by the chain
     from langchain.agents import AgentExecutor
@@ -329,7 +339,7 @@ def transform_request_json_for_chat_if_necessary(request_json, lc_model):
             and isinstance(json_message["messages"], list)
         )
 
-    def is_list_of_chat_messages(json_message: list[dict]):
+    def is_list_of_chat_messages(json_message: list[dict[str, Any]]):
         return isinstance(json_message, list) and all(
             json_dict_might_be_chat_request(message) for message in json_message
         )

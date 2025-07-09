@@ -18,17 +18,14 @@ This page introduces the core concepts of version tracking with `LoggedModel`. S
 GenAI applications are composite systems with many moving parts: code (agent logic, tools), configurations (LLM parameters, retrieval settings), and data. Iterating on these components without systematic versioning leads to significant challenges. MLflow `LoggedModel` helps you overcome these by addressing:
 
 1.  **Reproducibility**: Ensures you can recreate any previous application state.
-
     - **Challenge**: Without versioning, it's hard to know which combination of code and configurations produced a specific result, making it difficult to reproduce successes or failures.
     - **Solution**: `LoggedModel` captures or links to the exact code (e.g., Git commit hash) and configurations used for a specific version, ensuring you can always reconstruct it.
 
 2.  **Debugging Regressions**: Simplifies pinpointing changes that cause issues.
-
     - **Challenge**: When application quality drops, identifying which change (in code, configurations, etc.) caused the regression can be a time-consuming and frustrating process.
     - **Solution**: By tracking `LoggedModel` versions, you can easily compare a problematic version against a known good version. This involves examining differences in their linked code (via commit hashes), configurations, evaluation results, and traces to isolate the changes that led to the regression.
 
 3.  **Objective Comparison and Deployment**: Enables data-driven decisions for selecting the best version.
-
     - **Challenge**: Choosing which application version to deploy can be subjective without a clear way to compare performance based on consistent metrics.
     - **Solution**: `LoggedModel` versions can be systematically evaluated (e.g., using `mlflow.genai.evaluate()`). This allows you to compare metrics like quality scores, cost, and latency side-by-side, ensuring you deploy the objectively best version.
 

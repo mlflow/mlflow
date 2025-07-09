@@ -167,10 +167,10 @@ following parameters:
 
   ├── MLmodel
   ├── code
-  │   ├── sklearn_iris.py
+  │   ├── sklearn_iris.py
   │
   ├── data
-  │   └── model.pkl
+  │   └── model.pkl
   └── mlflow_env.yml
 
 ::
@@ -3171,7 +3171,7 @@ def save_model(
         )
     elif IS_RESPONSES_AGENT_AVAILABLE and isinstance(python_model, ResponsesAgent):
         input_example = _save_model_responses_agent_helper(
-            python_model, mlflow_model, signature, input_example
+            python_model, mlflow_model, signature, input_example, artifacts, model_config
         )
     elif callable(python_model) or isinstance(python_model, PythonModel):
         model_for_signature_inference = None
@@ -3299,7 +3299,7 @@ def save_model(
                     )
                 except Exception as e:
                     raise MlflowException.invalid_parameter_value(
-                        f"Input example does not match the model signature. Error: {e}"
+                        f"Input example does not match the model signature. {e}"
                     )
 
     with _get_dependencies_schemas() as dependencies_schemas:
@@ -3540,8 +3540,7 @@ def log_model(
             path via ``context.artifacts["my_file"]``.
 
             If ``None``, no artifacts are added to the model.
-        registered_model_name: This argument may change or be removed in a
-            future release without warning. If given, create a model
+        registered_model_name: If given, create a model
             version under ``registered_model_name``, also creating a
             registered model if one with the given name does not exist.
 
@@ -3786,7 +3785,9 @@ def _save_model_chat_agent_helper(python_model, mlflow_model, signature, input_e
     return input_example
 
 
-def _save_model_responses_agent_helper(python_model, mlflow_model, signature, input_example):
+def _save_model_responses_agent_helper(
+    python_model, mlflow_model, signature, input_example, artifacts, model_config
+):
     """Helper method for save_model for ResponsesAgent models
 
     Returns: a dictionary input example
@@ -3832,6 +3833,8 @@ def _save_model_responses_agent_helper(python_model, mlflow_model, signature, in
     else:
         input_example = RESPONSES_AGENT_INPUT_EXAMPLE
     _logger.info("Predicting on input example to validate output")
+    context = PythonModelContext(artifacts, model_config)
+    python_model.load_context(context)
     request = ResponsesAgentRequest(**input_example)
     output = python_model.predict(request)
     try:

@@ -14,11 +14,11 @@ from mlflow.entities import (
     Metric,
     Run,
     RunInfo,
-    TraceInfoV2,
     ViewType,
 )
 from mlflow.entities.assessment import Assessment, Expectation, Feedback
 from mlflow.entities.trace import Trace
+from mlflow.entities.trace_data import TraceData
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_location import TraceLocation
@@ -37,6 +37,7 @@ from mlflow.protos.service_pb2 import (
     CreateRun,
     DeleteAssessment,
     DeleteExperiment,
+    DeleteExperimentTag,
     DeleteLoggedModel,
     DeleteLoggedModelTag,
     DeleteRun,
@@ -68,7 +69,7 @@ from mlflow.protos.service_pb2 import (
     SearchLoggedModels,
     SearchRuns,
     SearchTraces,
-    SearchTracesV3Request,
+    SearchTracesV3,
     SearchUnifiedTraces,
     SetExperimentTag,
     SetLoggedModelTags,
@@ -88,16 +89,13 @@ from mlflow.store.tracking.abstract_store import AbstractStore
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.rest_utils import (
     _REST_API_PATH_PREFIX,
+    _V3_TRACE_REST_API_PATH_PREFIX,
     call_endpoint,
     extract_api_info_for_service,
-    get_create_assessment_endpoint,
     get_logged_model_endpoint,
-    get_search_traces_v3_endpoint,
-    get_set_trace_tag_endpoint,
     get_single_assessment_endpoint,
     get_single_trace_endpoint,
-    get_trace_assessment_endpoint,
-    get_trace_info_endpoint,
+    get_trace_tag_endpoint,
 )
 
 _METHOD_TO_INFO = extract_api_info_for_service(MlflowService, _REST_API_PATH_PREFIX)
@@ -127,7 +125,7 @@ class RestStore(AbstractStore):
     ):
         if endpoint:
             # Allow customizing the endpoint for compatibility with dynamic endpoints, such as
-            # /mlflow/traces/{request_id}/info.
+            # /mlflow/traces/{trace_id}/info.
             _, method = _METHOD_TO_INFO[api]
         else:
             endpoint, method = _METHOD_TO_INFO[api]
@@ -272,193 +270,108 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(CreateRun, req_body)
         return Run.from_proto(response_proto.run)
 
-    def start_trace(
-        self,
-        experiment_id: str,
-        timestamp_ms: int,
-        request_metadata: dict[str, str],
-        tags: dict[str, str],
-    ) -> TraceInfoV2:
+    def start_trace(self, trace_info: TraceInfo) -> TraceInfo:
         """
-        Start an initial TraceInfo object in the backend store.
+        Create a new trace using the V3 API format.
+
+        NB: The backend API is named "StartTraceV3" for some internal reason, but actually
+        it is supposed to be called at the end of the trace.
 
         Args:
-            experiment_id: String id of the experiment for this run.
-            timestamp_ms: Start time of the trace, in milliseconds since the UNIX epoch.
-            request_metadata: Metadata of the trace.
-            tags: Tags of the trace.
+            trace_info: The TraceInfo object to create in the backend.
 
         Returns:
-            The created TraceInfo object.
+            The returned TraceInfo object from the backend.
         """
-        request_metadata_proto = []
-        for key, value in request_metadata.items():
-            attr = TraceRequestMetadata()
-            attr.key = key
-            attr.value = str(value)
-            request_metadata_proto.append(attr)
-
-        tags_proto = []
-        for key, value in tags.items():
-            tag = TraceTag()
-            tag.key = key
-            tag.value = str(value)
-            tags_proto.append(tag)
-
-        req_body = message_to_json(
-            StartTrace(
-                experiment_id=str(experiment_id),
-                timestamp_ms=timestamp_ms,
-                request_metadata=request_metadata_proto,
-                tags=tags_proto,
-            )
-        )
-        response_proto = self._call_endpoint(StartTrace, req_body)
-        return TraceInfoV2.from_proto(response_proto.trace_info)
-
-    def start_trace_v3(self, trace: Trace) -> TraceInfo:
-        """
-        Start a trace using the V3 API format.
-
-        NB: This method is named "Start" for internal reason in the backend, but actually
-        should be called at the end of the trace. We will migrate this to "CreateTrace"
-        API in the future to avoid confusion.
-
-        Args:
-            trace: The Trace object to create.
-
-        Returns:
-            The returned TraceInfoV3 object from the backend.
-        """
+        # NB: The Databricks backend expects a Trace object, not a TraceInfo object, although
+        # it doesn't use the data field at all. Trace data increases the payload size significantly,
+        # so we create a Trace object with an empty data field here.
+        trace = Trace(info=trace_info, data=TraceData(spans=[]))
         req_body = message_to_json(StartTraceV3(trace=trace.to_proto()))
-        response_proto = self._call_endpoint(
-            # NB: _call_endpoint doesn't handle versioning between v2 and v3 endpoint
-            # yet, so manually passing the v3 endpoint here.
-            StartTraceV3,
-            req_body,
-            endpoint="/api/3.0/mlflow/traces",
-            retry_timeout_seconds=MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT.get(),
-        )
-        return TraceInfo.from_proto(response_proto.trace.trace_info)
 
-    def end_trace(
-        self,
-        request_id: str,
-        timestamp_ms: int,
-        status: TraceStatus,
-        request_metadata: dict[str, str],
-        tags: dict[str, str],
-    ) -> TraceInfoV2:
-        """
-        Update the TraceInfo object in the backend store with the completed trace info.
-
-        Args:
-            request_id: Unique string identifier of the trace.
-            timestamp_ms: End time of the trace, in milliseconds. The execution time field
-                in the TraceInfo will be calculated by subtracting the start time from this.
-            status: Status of the trace.
-            request_metadata: Metadata of the trace. This will be merged with the existing
-                metadata logged during the start_trace call.
-            tags: Tags of the trace. This will be merged with the existing tags logged
-                during the start_trace or set_trace_tag calls.
-
-        Returns:
-            The updated TraceInfo object.
-        """
-        request_metadata_proto = []
-        for key, value in request_metadata.items():
-            attr = TraceRequestMetadata()
-            attr.key = key
-            attr.value = str(value)
-            request_metadata_proto.append(attr)
-
-        tags_proto = []
-        for key, value in tags.items():
-            tag = TraceTag()
-            tag.key = key
-            tag.value = str(value)
-            tags_proto.append(tag)
-
-        req_body = message_to_json(
-            EndTrace(
-                request_id=request_id,
-                timestamp_ms=timestamp_ms,
-                status=status.to_proto(),
-                request_metadata=request_metadata_proto,
-                tags=tags_proto,
+        try:
+            response_proto = self._call_endpoint(
+                # NB: _call_endpoint doesn't handle versioning between v2 and v3 endpoint
+                # yet, so manually passing the v3 endpoint here.
+                StartTraceV3,
+                req_body,
+                endpoint=_V3_TRACE_REST_API_PATH_PREFIX,
+                retry_timeout_seconds=MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT.get(),
             )
+            return TraceInfo.from_proto(response_proto.trace.trace_info)
+        except MlflowException as e:
+            if e.error_code == databricks_pb2.ErrorCode.Name(databricks_pb2.ENDPOINT_NOT_FOUND):
+                _logger.debug(
+                    "Server does not support StartTraceV3 API yet. Falling back to V2 API."
+                )
+                return self._create_trace_v2_fallback(trace_info)
+            raise
+
+    def _create_trace_v2_fallback(self, trace_info: TraceInfo) -> TraceInfo:
+        """
+        Create a new trace using the V2 API format. This is a fallback for the case where the
+        client is v3 but the tracking server does not support v3 yet(<= 3.2.0).
+        """
+        trace_info_v2 = self.deprecated_start_trace_v2(
+            experiment_id=trace_info.experiment_id,
+            timestamp_ms=trace_info.request_time,
+            request_metadata=trace_info.trace_metadata,
+            tags=trace_info.tags,
         )
-        # EndTrace endpoint is a dynamic path built with the request_id
-        # Always use v2 endpoint (not v3) for this endpoint to maintain compatibility
-        endpoint = get_single_trace_endpoint(request_id, use_v3=False)
-        response_proto = self._call_endpoint(EndTrace, req_body, endpoint=endpoint)
-        return TraceInfoV2.from_proto(response_proto.trace_info)
+        self.deprecated_end_trace_v2(
+            request_id=trace_info_v2.request_id,
+            timestamp_ms=trace_info.request_time + trace_info.execution_duration,
+            status=trace_info.status,
+            request_metadata=trace_info.trace_metadata,
+            tags=trace_info.tags,
+        )
+        return trace_info_v2.to_v3()
 
     def _delete_traces(
         self,
         experiment_id: str,
         max_timestamp_millis: Optional[int] = None,
         max_traces: Optional[int] = None,
-        request_ids: Optional[list[str]] = None,
+        trace_ids: Optional[list[str]] = None,
     ) -> int:
         req_body = message_to_json(
             DeleteTraces(
                 experiment_id=experiment_id,
                 max_timestamp_millis=max_timestamp_millis,
                 max_traces=max_traces,
-                request_ids=request_ids,
+                request_ids=trace_ids,
             )
         )
         res = self._call_endpoint(DeleteTraces, req_body)
         return res.traces_deleted
 
-    def get_trace_info(self, request_id, should_query_v3: bool = False):
+    def get_trace_info(self, trace_id: str) -> TraceInfo:
         """
-        Get the trace matching the `request_id`.
+        Get the trace matching the `trace_id`.
 
         Args:
-            request_id: String id of the trace to fetch.
-            should_query_v3: If True, the backend store will query the V3 API for the trace info.
-                TODO: Remove this flag once the V3 API is the default in OSS.
+            trace_id: String id of the trace to fetch.
 
         Returns:
             The fetched Trace object, of type ``mlflow.entities.TraceInfo``.
         """
-        # If explicitly set, use the provided value, otherwise detect based on the tracking URI
-
-        if should_query_v3:
-            trace_v3_req_body = message_to_json(GetTraceInfoV3(trace_id=request_id))
-            trace_v3_endpoint = get_trace_assessment_endpoint(
-                request_id, is_databricks=should_query_v3
-            )
-            try:
-                trace_v3_response_proto = self._call_endpoint(
-                    GetTraceInfoV3, trace_v3_req_body, endpoint=trace_v3_endpoint
-                )
-                return TraceInfo.from_proto(trace_v3_response_proto.trace.trace_info)
-            except Exception:
-                # TraceV3 endpoint is not globally enabled yet; graceful fallback path.
-                _logger.debug(
-                    f"Failed to fetch trace info from V3 API for request ID {request_id!r}.",
-                    exc_info=True,
-                )
-        req_body = message_to_json(GetTraceInfo(request_id=request_id))
-        endpoint = get_trace_info_endpoint(request_id)
-        response_proto = self._call_endpoint(GetTraceInfo, req_body, endpoint=endpoint)
-        return TraceInfoV2.from_proto(response_proto.trace_info)
-
-    def _is_databricks_tracking_uri(self):
-        """
-        Check if the tracking URI associated with this store is a Databricks URI.
-        """
-        from mlflow.tracking._tracking_service.utils import get_tracking_uri
-        from mlflow.utils.uri import is_databricks_uri
-
+        trace_v3_req_body = message_to_json(GetTraceInfoV3(trace_id=trace_id))
+        trace_v3_endpoint = get_single_trace_endpoint(trace_id)
         try:
-            tracking_uri = get_tracking_uri()
-            return is_databricks_uri(tracking_uri)
-        except Exception:
-            return False
+            trace_v3_response_proto = self._call_endpoint(
+                GetTraceInfoV3, trace_v3_req_body, endpoint=trace_v3_endpoint
+            )
+            return TraceInfo.from_proto(trace_v3_response_proto.trace.trace_info)
+        except MlflowException as e:
+            # If the tracking server does not support V3 trace API yet, fallback to V2 API.
+            if e.error_code != databricks_pb2.ErrorCode.Name(databricks_pb2.ENDPOINT_NOT_FOUND):
+                raise
+            _logger.debug("Server does not support GetTraceInfoV3 API yet. Falling back to V2 API.")
+
+        req_body = message_to_json(GetTraceInfo(request_id=trace_id))
+        endpoint = get_single_trace_endpoint(trace_id, use_v3=False)
+        response_proto = self._call_endpoint(GetTraceInfo, req_body, endpoint=endpoint)
+        return TraceInfoV2.from_proto(response_proto.trace_info).to_v3()
 
     def get_online_trace_details(
         self,
@@ -488,59 +401,42 @@ class RestStore(AbstractStore):
         sql_warehouse_id: Optional[str] = None,
     ):
         if sql_warehouse_id is None:
-            is_databricks = self._is_databricks_tracking_uri()
-
-            if is_databricks:
-                # Create trace_locations from experiment_ids for the V3 API
-                trace_locations = []
-                for exp_id in experiment_ids:
-                    try:
-                        location = TraceLocation.from_experiment_id(exp_id)
-                        proto_location = location.to_proto()
-                        trace_locations.append(proto_location)
-                    except Exception as e:
-                        raise MlflowException(
-                            f"Invalid experiment ID format: {exp_id}. Error: {e!s}"
-                        ) from e
-
-                # Create V3 request message using protobuf
-                request = SearchTracesV3Request(
-                    locations=trace_locations,
-                    filter=filter_string,
-                    max_results=max_results,
-                    order_by=order_by,
-                    page_token=page_token,
-                )
-
-                req_body = message_to_json(request)
-                endpoint = get_search_traces_v3_endpoint(is_databricks=is_databricks)
-
+            # Create trace_locations from experiment_ids for the V3 API
+            trace_locations = []
+            for exp_id in experiment_ids:
                 try:
-                    response_proto = self._call_endpoint(
-                        SearchTracesV3Request, req_body, endpoint=endpoint
+                    location = TraceLocation.from_experiment_id(exp_id)
+                    proto_location = location.to_proto()
+                    trace_locations.append(proto_location)
+                except Exception as e:
+                    raise MlflowException(
+                        f"Invalid experiment ID format: {exp_id}. Error: {e!s}"
+                    ) from e
+
+            # Create V3 request message using protobuf
+            request = SearchTracesV3(
+                locations=trace_locations,
+                filter=filter_string,
+                max_results=max_results,
+                order_by=order_by,
+                page_token=page_token,
+            )
+
+            req_body = message_to_json(request)
+            v3_endpoint = f"{_V3_TRACE_REST_API_PATH_PREFIX}/search"
+
+            try:
+                response_proto = self._call_endpoint(SearchTracesV3, req_body, v3_endpoint)
+            except MlflowException as e:
+                if e.error_code == databricks_pb2.ErrorCode.Name(databricks_pb2.ENDPOINT_NOT_FOUND):
+                    _logger.debug(
+                        "Server does not support SearchTracesV3 API yet. Falling back to V2 API."
                     )
-                    trace_infos = [TraceInfo.from_proto(t) for t in response_proto.traces]
-                except Exception as e:
-                    _logger.error(f"Error searching traces: {e!s}")
-                    raise
-            else:
-                # Non-Databricks environment - use V2 request format
-                request = SearchTraces(
-                    experiment_ids=experiment_ids,
-                    filter=filter_string,
-                    max_results=max_results,
-                    order_by=order_by,
-                    page_token=page_token,
-                )
-
-                req_body = message_to_json(request)
-
-                try:
                     response_proto = self._call_endpoint(SearchTraces, req_body)
-                    trace_infos = [TraceInfoV2.from_proto(t).to_v3() for t in response_proto.traces]
-                except Exception as e:
-                    _logger.error(f"Error searching traces: {e!s}")
+                else:
                     raise
+
+            trace_infos = [TraceInfo.from_proto(t) for t in response_proto.traces]
         else:
             response_proto = self._search_unified_traces(
                 model_id=model_id,
@@ -552,7 +448,7 @@ class RestStore(AbstractStore):
                 page_token=page_token,
             )
             # Convert TraceInfo (v2) objects to TraceInfoV3 objects for consistency
-            trace_infos = [TraceInfoV2.from_proto(t).to_v3() for t in response_proto.traces]
+            trace_infos = [TraceInfo.from_proto(t) for t in response_proto.traces]
         return trace_infos, response_proto.next_page_token or None
 
     def _search_unified_traces(
@@ -577,53 +473,42 @@ class RestStore(AbstractStore):
         req_body = message_to_json(request)
         return self._call_endpoint(SearchUnifiedTraces, req_body)
 
-    def set_trace_tag(self, request_id: str, key: str, value: str):
+    def set_trace_tag(self, trace_id: str, key: str, value: str):
         """
-        Set a tag on the trace with the given request_id.
+        Set a tag on the trace with the given trace_id.
 
         Args:
-            request_id: The ID of the trace.
+            trace_id: The ID of the trace.
             key: The string key of the tag.
             value: The string value of the tag.
         """
         # Always use v2 endpoint
         req_body = message_to_json(SetTraceTag(key=key, value=value))
-        self._call_endpoint(
-            SetTraceTag,
-            req_body,
-            endpoint=get_set_trace_tag_endpoint(request_id, is_databricks=False),
-        )
+        self._call_endpoint(SetTraceTag, req_body, endpoint=get_trace_tag_endpoint(trace_id))
 
-    def delete_trace_tag(self, request_id: str, key: str):
+    def delete_trace_tag(self, trace_id: str, key: str):
         """
-        Delete a tag on the trace with the given request_id.
+        Delete a tag on the trace with the given trace_id.
 
         Args:
-            request_id: The ID of the trace.
+            trace_id: The ID of the trace.
             key: The string key of the tag.
         """
         # Always use v2 endpoint
         req_body = message_to_json(DeleteTraceTag(key=key))
-        self._call_endpoint(
-            DeleteTraceTag,
-            req_body,
-            endpoint=get_set_trace_tag_endpoint(request_id, is_databricks=False),
-        )
+        self._call_endpoint(DeleteTraceTag, req_body, endpoint=get_trace_tag_endpoint(trace_id))
 
     def get_assessment(self, trace_id: str, assessment_id: str) -> Assessment:
         """
         Get an assessment entity from the backend store.
         """
-        is_databricks = self._is_databricks_tracking_uri()
         req_body = message_to_json(
             GetAssessmentRequest(trace_id=trace_id, assessment_id=assessment_id)
         )
         response_proto = self._call_endpoint(
             GetAssessmentRequest,
             req_body,
-            endpoint=get_single_assessment_endpoint(
-                trace_id, assessment_id, is_databricks=is_databricks
-            ),
+            endpoint=get_single_assessment_endpoint(trace_id, assessment_id),
         )
         return Assessment.from_proto(response_proto.assessment)
 
@@ -637,14 +522,11 @@ class RestStore(AbstractStore):
         Returns:
             The created Assessment object.
         """
-        is_databricks = self._is_databricks_tracking_uri()
         req_body = message_to_json(CreateAssessment(assessment=assessment.to_proto()))
         response_proto = self._call_endpoint(
             CreateAssessment,
             req_body,
-            endpoint=get_create_assessment_endpoint(
-                assessment.trace_id, is_databricks=is_databricks
-            ),
+            endpoint=f"{_V3_TRACE_REST_API_PATH_PREFIX}/{assessment.trace_id}/assessments",
         )
         return Assessment.from_proto(response_proto.assessment)
 
@@ -675,7 +557,6 @@ class RestStore(AbstractStore):
                 "Exactly one of `expectation` or `feedback` should be specified."
             )
 
-        is_databricks = self._is_databricks_tracking_uri()
         update = UpdateAssessment()
 
         # The assessment object to be sent to the backend (only contains fields to update and IDs)
@@ -706,9 +587,7 @@ class RestStore(AbstractStore):
         response_proto = self._call_endpoint(
             UpdateAssessment,
             req_body,
-            endpoint=get_single_assessment_endpoint(
-                trace_id, assessment_id, is_databricks=is_databricks
-            ),
+            endpoint=get_single_assessment_endpoint(trace_id, assessment_id),
         )
         return Assessment.from_proto(response_proto.assessment)
 
@@ -720,14 +599,11 @@ class RestStore(AbstractStore):
             trace_id: String ID of the trace.
             assessment_id: String ID of the assessment to delete.
         """
-        is_databricks = self._is_databricks_tracking_uri()
         req_body = message_to_json(DeleteAssessment(trace_id=trace_id, assessment_id=assessment_id))
         self._call_endpoint(
             DeleteAssessment,
             req_body,
-            endpoint=get_single_assessment_endpoint(
-                trace_id, assessment_id, is_databricks=is_databricks
-            ),
+            endpoint=get_single_assessment_endpoint(trace_id, assessment_id),
         )
 
     def log_metric(self, run_id: str, metric: Metric):
@@ -778,6 +654,17 @@ class RestStore(AbstractStore):
             SetExperimentTag(experiment_id=experiment_id, key=tag.key, value=tag.value)
         )
         self._call_endpoint(SetExperimentTag, req_body)
+
+    def delete_experiment_tag(self, experiment_id, key):
+        """
+        Delete a tag from the specified experiment
+
+        Args:
+            experiment_id: String ID of the experiment
+            key: String name of the tag to be deleted
+        """
+        req_body = message_to_json(DeleteExperimentTag(experiment_id=experiment_id, key=key))
+        self._call_endpoint(DeleteExperimentTag, req_body)
 
     def set_tag(self, run_id, tag):
         """
@@ -1150,3 +1037,107 @@ class RestStore(AbstractStore):
         """
         req_body = message_to_json(LogOutputs(run_id=run_id, models=[m.to_proto() for m in models]))
         self._call_endpoint(LogOutputs, req_body)
+
+    ############################################################################################
+    # Deprecated MLflow Tracing APIs. Kept for backward compatibility but do not use.
+    ############################################################################################
+    def deprecated_start_trace_v2(
+        self,
+        experiment_id: str,
+        timestamp_ms: int,
+        request_metadata: dict[str, str],
+        tags: dict[str, str],
+    ) -> TraceInfoV2:
+        """
+        DEPRECATED. DO NOT USE.
+
+        Start an initial TraceInfo object in the backend store.
+
+        Args:
+            experiment_id: String id of the experiment for this run.
+            timestamp_ms: Start time of the trace, in milliseconds since the UNIX epoch.
+            request_metadata: Metadata of the trace.
+            tags: Tags of the trace.
+
+        Returns:
+            The created TraceInfo object.
+        """
+        request_metadata_proto = []
+        for key, value in request_metadata.items():
+            attr = TraceRequestMetadata()
+            attr.key = key
+            attr.value = str(value)
+            request_metadata_proto.append(attr)
+
+        tags_proto = []
+        for key, value in tags.items():
+            tag = TraceTag()
+            tag.key = key
+            tag.value = str(value)
+            tags_proto.append(tag)
+
+        req_body = message_to_json(
+            StartTrace(
+                experiment_id=str(experiment_id),
+                timestamp_ms=timestamp_ms,
+                request_metadata=request_metadata_proto,
+                tags=tags_proto,
+            )
+        )
+        response_proto = self._call_endpoint(StartTrace, req_body)
+        return TraceInfoV2.from_proto(response_proto.trace_info)
+
+    def deprecated_end_trace_v2(
+        self,
+        request_id: str,
+        timestamp_ms: int,
+        status: TraceStatus,
+        request_metadata: dict[str, str],
+        tags: dict[str, str],
+    ) -> TraceInfoV2:
+        """
+        DEPRECATED. DO NOT USE.
+
+        Update the TraceInfo object in the backend store with the completed trace info.
+
+        Args:
+            request_id: Unique string identifier of the trace.
+            timestamp_ms: End time of the trace, in milliseconds. The execution time field
+                in the TraceInfo will be calculated by subtracting the start time from this.
+            status: Status of the trace.
+            request_metadata: Metadata of the trace. This will be merged with the existing
+                metadata logged during the start_trace call.
+            tags: Tags of the trace. This will be merged with the existing tags logged
+                during the start_trace or set_trace_tag calls.
+
+        Returns:
+            The updated TraceInfo object.
+        """
+        request_metadata_proto = []
+        for key, value in request_metadata.items():
+            attr = TraceRequestMetadata()
+            attr.key = key
+            attr.value = str(value)
+            request_metadata_proto.append(attr)
+
+        tags_proto = []
+        for key, value in tags.items():
+            tag = TraceTag()
+            tag.key = key
+            tag.value = str(value)
+            tags_proto.append(tag)
+
+        req_body = message_to_json(
+            EndTrace(
+                request_id=request_id,
+                timestamp_ms=timestamp_ms,
+                status=status.to_proto(),
+                request_metadata=request_metadata_proto,
+                tags=tags_proto,
+            )
+        )
+        # EndTrace endpoint is a dynamic path built with the request_id
+        # Always use v2 endpoint (not v3) for this endpoint to maintain compatibility
+        endpoint = f"{_REST_API_PATH_PREFIX}/mlflow/traces/{request_id}"
+        response_proto = self._call_endpoint(EndTrace, req_body, endpoint=endpoint)
+        return TraceInfoV2.from_proto(response_proto.trace_info)

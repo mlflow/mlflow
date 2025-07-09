@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 import pytest
 from pydantic import ValidationError
 
@@ -13,7 +15,9 @@ from mlflow.tracing.constant import (
     TokenUsageKey,
 )
 from mlflow.tracing.utils import (
+    _calculate_percentile,
     aggregate_usage_from_spans,
+    capture_function_input_args,
     construct_full_inputs,
     deduplicate_span_names_in_place,
     encode_span_id,
@@ -21,6 +25,15 @@ from mlflow.tracing.utils import (
 )
 
 from tests.tracing.helper import create_mock_otel_span
+
+
+def test_capture_function_input_args_does_not_raise():
+    # Exception during inspecting inputs: trace should be logged without inputs field
+    with patch("inspect.signature", side_effect=ValueError("Some error")) as mock_input_args:
+        args = capture_function_input_args(lambda: None, (), {})
+
+    assert args is None
+    assert mock_input_args.call_count > 0
 
 
 def test_deduplicate_span_names():
@@ -229,3 +242,40 @@ def test_construct_full_inputs_simple_function():
 
     result = construct_full_inputs(TestClass().func, 1, 2)
     assert result == {"a": 1, "b": 2}
+
+
+def test_calculate_percentile():
+    # Test empty list
+    assert _calculate_percentile([], 0.5) == 0.0
+
+    # Test single element
+    assert _calculate_percentile([100], 0.25) == 100
+    assert _calculate_percentile([100], 0.5) == 100
+    assert _calculate_percentile([100], 0.75) == 100
+
+    # Test two elements
+    assert _calculate_percentile([10, 20], 0.0) == 10
+    assert _calculate_percentile([10, 20], 0.5) == 15  # Linear interpolation
+    assert _calculate_percentile([10, 20], 1.0) == 20
+
+    # Test odd number of elements
+    data = [10, 20, 30, 40, 50]
+    assert _calculate_percentile(data, 0.0) == 10
+    assert _calculate_percentile(data, 0.25) == 20
+    assert _calculate_percentile(data, 0.5) == 30  # Median
+    assert _calculate_percentile(data, 0.75) == 40
+    assert _calculate_percentile(data, 1.0) == 50
+
+    # Test even number of elements
+    data = [10, 20, 30, 40]
+    assert _calculate_percentile(data, 0.0) == 10
+    assert _calculate_percentile(data, 0.25) == 17.5  # Between 10 and 20
+    assert _calculate_percentile(data, 0.5) == 25  # Between 20 and 30
+    assert _calculate_percentile(data, 0.75) == 32.5  # Between 30 and 40
+    assert _calculate_percentile(data, 1.0) == 40
+
+    # Test with larger dataset
+    data = list(range(1, 101))  # 1 to 100
+    assert _calculate_percentile(data, 0.25) == 25.75
+    assert _calculate_percentile(data, 0.5) == 50.5
+    assert _calculate_percentile(data, 0.75) == 75.25

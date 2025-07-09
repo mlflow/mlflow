@@ -3,7 +3,7 @@ import re
 import types
 import warnings
 from functools import wraps
-from typing import Callable, Optional, TypeVar
+from typing import Callable, Optional, TypeVar, overload
 
 from typing_extensions import ParamSpec
 
@@ -30,6 +30,20 @@ def _get_min_indent_of_docstring(docstring_str: str) -> str:
 
 P = ParamSpec("P")
 R = TypeVar("R")
+
+
+@overload
+def experimental(
+    f: Callable[P, R],
+    version: Optional[str] = None,
+) -> Callable[P, R]: ...
+
+
+@overload
+def experimental(
+    f: None = None,
+    version: Optional[str] = None,
+) -> Callable[[Callable[P, R]], Callable[P, R]]: ...
 
 
 def experimental(

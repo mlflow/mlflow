@@ -84,7 +84,6 @@ Each integration automatically captures your application's logic and intermediat
 <br />
 Below are quick-start examples for some of the most popular integrations. Remember to install the necessary packages for each library you intend to use (e.g., `pip install openai langchain langgraph anthropic dspy`).
 
-
 ## Combining Manual and Automatic Tracing
 
 The `@mlflow.trace` decorator can be used in conjunction with auto tracing to create powerful, integrated traces. This is particularly useful for:
@@ -145,6 +144,7 @@ This example requires installing LangChain in addition to the base requirements:
 ```bash
 pip install --upgrade langchain langchain-openai
 ```
+
 :::
 
 ```python
@@ -193,7 +193,6 @@ any data to the MLflow Tracking service regarding traces.
 
 To **enable** tracing (if it had been temporarily disabled), the <APILink fn="mlflow.tracing.enable" /> API will re-enable tracing functionality for instrumented models
 that are invoked.
-
 
 ## Next Steps
 

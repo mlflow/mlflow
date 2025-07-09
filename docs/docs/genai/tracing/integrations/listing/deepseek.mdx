@@ -7,8 +7,7 @@ sidebar_label: DeepSeek
 
 ![Deepseek Tracing via autolog](/images/llms/deepseek/deepseek-tracing-agent.png)
 
-
-[MLflow Tracing](../) provides automatic tracing capability for Deepseek models through the OpenAI SDK integration. Since DeepSeek uses an OpenAI-compatible API format, you can use `mlflow.openai.autolog()` to trace interactions with DeepSeek models.
+[MLflow Tracing](../../) provides automatic tracing capability for Deepseek models through the OpenAI SDK integration. Since DeepSeek uses an OpenAI-compatible API format, you can use `mlflow.openai.autolog()` to trace interactions with DeepSeek models.
 
 ```python
 import mlflow
@@ -18,6 +17,7 @@ mlflow.openai.autolog()
 ```
 
 MLflow trace automatically captures the following information about DeepSeek calls:
+
 - Prompts and completion responses
 - Latencies
 - Model name
@@ -25,14 +25,13 @@ MLflow trace automatically captures the following information about DeepSeek cal
 - Function calling if returned in the response
 - Any exception if raised
 
-
 ## Supported APIs
 
 MLflow supports automatic tracing for the following DeepSeek APIs through the OpenAI integration:
 
-| Chat Completion | Function Calling | Streaming | Async |
-|-----------------|------------------|-----------|-------|
-| ✅              | ✅               | ✅ (*1)   | ✅ (*2)|
+| Chat Completion | Function Calling | Streaming | Async    |
+| --------------- | ---------------- | --------- | -------- |
+| ✅              | ✅               | ✅ (\*1)  | ✅ (\*2) |
 
 (*1) Streaming support requires MLflow 2.15.0 or later.
 (*2) Async support requires MLflow 2.21.0 or later.
@@ -76,7 +75,7 @@ The above example should generate a trace in the `DeepSeek` experiment in the ML
 
 ## Streaming and Async Support
 
-MLflow supports tracing for streaming and async DeepSeek APIs. Visit the [OpenAI Tracing documentation](openai) for example code snippets for tracing streaming and async calls through OpenAI SDK.
+MLflow supports tracing for streaming and async DeepSeek APIs. Visit the [OpenAI Tracing documentation](../openai) for example code snippets for tracing streaming and async calls through OpenAI SDK.
 
 ## Advanced Example: Function Calling Agent
 
@@ -164,6 +163,59 @@ def run_tool_agent(question: str):
 # Run the tool calling agent
 question = "What's the weather like in Paris today?"
 answer = run_tool_agent(question)
+```
+
+## Token usage
+
+MLflow >= 3.2.0 supports token usage tracking for Deepseek models through the OpenAI SDK integration. The token usage for each LLM call will be logged in the `mlflow.chat.tokenUsage` attribute. The total token usage throughout the trace will be
+available in the `token_usage` field of the trace info object.
+
+```python
+import json
+import mlflow
+
+mlflow.openai.autolog()
+
+# Run the tool calling agent defined in the previous section
+question = "What's the weather like in Paris today?"
+answer = run_tool_agent(question)
+
+# Get the trace object just created
+last_trace_id = mlflow.get_last_active_trace_id()
+trace = mlflow.get_trace(trace_id=last_trace_id)
+
+# Print the token usage
+total_usage = trace.info.token_usage
+print("== Total token usage: ==")
+print(f"  Input tokens: {total_usage['input_tokens']}")
+print(f"  Output tokens: {total_usage['output_tokens']}")
+print(f"  Total tokens: {total_usage['total_tokens']}")
+
+# Print the token usage for each LLM call
+print("\n== Detailed usage for each LLM call: ==")
+for span in trace.data.spans:
+    if usage := span.get_attribute("mlflow.chat.tokenUsage"):
+        print(f"{span.name}:")
+        print(f"  Input tokens: {usage['input_tokens']}")
+        print(f"  Output tokens: {usage['output_tokens']}")
+        print(f"  Total tokens: {usage['total_tokens']}")
+```
+
+```bash
+== Total token usage: ==
+  Input tokens: 84
+  Output tokens: 22
+  Total tokens: 106
+
+== Detailed usage for each LLM call: ==
+Completions_1:
+  Input tokens: 45
+  Output tokens: 14
+  Total tokens: 59
+Completions_2:
+  Input tokens: 39
+  Output tokens: 8
+  Total tokens: 47
 ```
 
 ## Disable auto-tracing

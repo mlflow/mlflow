@@ -41,6 +41,9 @@ from mlflow.entities.logged_model_input import LoggedModelInput
 from mlflow.entities.logged_model_output import LoggedModelOutput
 from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.trace_data import TraceData
+from mlflow.entities.trace_info import TraceInfo
+from mlflow.entities.trace_location import TraceLocation
+from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import (
     MLFLOW_SERVER_GRAPHQL_MAX_ALIASES,
@@ -52,6 +55,7 @@ from mlflow.models import Model
 from mlflow.protos.databricks_pb2 import RESOURCE_DOES_NOT_EXIST, ErrorCode
 from mlflow.server.handlers import _get_sampled_steps_from_steps
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
+from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY
 from mlflow.utils import mlflow_tags
 from mlflow.utils.file_utils import TempDir, path_to_local_file_uri
 from mlflow.utils.mlflow_tags import (
@@ -89,7 +93,6 @@ def mlflow_client(request, tmp_path):
         ]
 
     with _init_server(backend_uri, root_artifact_uri=tmp_path.as_uri()) as url:
-        mlflow.set_tracking_uri(backend_uri)
         yield MlflowClient(url)
 
 
@@ -628,6 +631,17 @@ def test_set_experiment_tag_with_empty_string_as_value(mlflow_client):
     )
     mlflow_client.set_experiment_tag(experiment_id, "tag_key", "")
     assert {"tag_key": ""}.items() <= mlflow_client.get_experiment(experiment_id).tags.items()
+
+
+def test_delete_experiment_tag(mlflow_client):
+    experiment_id = mlflow_client.create_experiment("DeleteExperimentTagTest")
+    mlflow_client.set_experiment_tag(experiment_id, "dataset", "imagenet1K")
+    experiment = mlflow_client.get_experiment(experiment_id)
+    assert experiment.tags["dataset"] == "imagenet1K"
+    # test that deleting a tag works
+    mlflow_client.delete_experiment_tag(experiment_id, "dataset")
+    experiment = mlflow_client.get_experiment(experiment_id)
+    assert "dataset" not in experiment.tags
 
 
 def test_delete_tag(mlflow_client):
@@ -2369,18 +2383,18 @@ def test_get_run_and_experiment_graphql(mlflow_client):
     assert json["data"]["mlflowGetRun"]["run"]["modelVersions"][0]["name"] == name
 
 
-def test_start_and_end_trace(mlflow_client):
+def test_legacy_start_and_end_trace_v2(mlflow_client):
     experiment_id = mlflow_client.create_experiment("start end trace")
 
     # Trace CRUD APIs are not directly exposed as public API of MlflowClient,
     # so we use the underlying tracking client to test them.
-    client = mlflow_client._tracing_client
+    store = mlflow_client._tracing_client.store
 
     # Helper function to remove auto-added system tags (mlflow.xxx) from testing
     def _exclude_system_tags(tags: dict[str, str]):
         return {k: v for k, v in tags.items() if not k.startswith("mlflow.")}
 
-    trace_info = client.start_trace(
+    trace_info = store.deprecated_start_trace_v2(
         experiment_id=experiment_id,
         timestamp_ms=1000,
         request_metadata={
@@ -2400,19 +2414,21 @@ def test_start_and_end_trace(mlflow_client):
     assert trace_info.request_metadata == {
         "meta1": "apple",
         "meta2": "grape",
+        TRACE_SCHEMA_VERSION_KEY: "2",
     }
     assert _exclude_system_tags(trace_info.tags) == {
         "tag1": "football",
         "tag2": "basketball",
     }
 
-    trace_info = client.end_trace(
+    trace_info = store.deprecated_end_trace_v2(
         request_id=trace_info.request_id,
         timestamp_ms=3000,
         status=TraceStatus.OK,
         request_metadata={
             "meta1": "orange",
             "meta3": "banana",
+            TRACE_SCHEMA_VERSION_KEY: "2",
         },
         tags={
             "tag1": "soccer",
@@ -2428,6 +2444,7 @@ def test_start_and_end_trace(mlflow_client):
         "meta1": "orange",
         "meta2": "grape",
         "meta3": "banana",
+        TRACE_SCHEMA_VERSION_KEY: "2",
     }
     assert _exclude_system_tags(trace_info.tags) == {
         "tag1": "soccer",
@@ -2435,7 +2452,50 @@ def test_start_and_end_trace(mlflow_client):
         "tag3": "tennis",
     }
 
-    assert trace_info == client.get_trace_info(trace_info.request_id)
+
+def test_start_trace(mlflow_client):
+    experiment_id = mlflow_client.create_experiment("start end trace")
+
+    # Trace CRUD APIs are not directly exposed as public API of MlflowClient,
+    # so we use the underlying tracking client to test them.
+    client = mlflow_client._tracing_client
+
+    # Helper function to remove auto-added system tags (mlflow.xxx) from testing
+    def _exclude_system_tags(tags: dict[str, str]):
+        return {k: v for k, v in tags.items() if not k.startswith("mlflow.")}
+
+    trace_info = TraceInfo(
+        trace_id="tr-1234",
+        trace_location=TraceLocation.from_experiment_id(experiment_id),
+        request_time=1000,
+        execution_duration=2000,
+        state=TraceState.OK,
+        trace_metadata={
+            "meta1": "apple",
+            "meta2": "grape",
+            TRACE_SCHEMA_VERSION_KEY: "3",
+        },
+        tags={
+            "tag1": "football",
+            "tag2": "basketball",
+        },
+    )
+    trace_info = client.start_trace(trace_info)
+    assert trace_info.trace_id == "tr-1234"
+    assert trace_info.experiment_id == experiment_id
+    assert trace_info.request_time == 1000
+    assert trace_info.execution_duration == 2000
+    assert trace_info.state == TraceState.OK
+    assert trace_info.trace_metadata == {
+        "meta1": "apple",
+        "meta2": "grape",
+        TRACE_SCHEMA_VERSION_KEY: "3",
+    }
+    assert _exclude_system_tags(trace_info.tags) == {
+        "tag1": "football",
+        "tag2": "basketball",
+    }
+    assert trace_info == client.get_trace_info(trace_info.trace_id)
 
 
 def test_search_traces(mlflow_client):
@@ -2542,13 +2602,17 @@ def test_set_and_delete_trace_tag(mlflow_client):
 
     # Create test trace
     trace_info = mlflow_client._tracing_client.start_trace(
-        experiment_id=experiment_id,
-        timestamp_ms=1000,
-        request_metadata={},
-        tags={
-            "tag1": "red",
-            "tag2": "blue",
-        },
+        TraceInfo(
+            trace_id="tr-1234",
+            trace_location=TraceLocation.from_experiment_id(experiment_id),
+            request_time=1000,
+            execution_duration=2000,
+            state=TraceState.OK,
+            tags={
+                "tag1": "red",
+                "tag2": "blue",
+            },
+        )
     )
 
     # Validate set tag
