@@ -2,8 +2,7 @@
  * Main tracedOpenAI wrapper function for MLflow tracing integration
  */
 
-import { withSpan } from '../../../src/core/api';
-import { SpanType } from '../../../src/core/constants';
+import { withSpan, LiveSpan, SpanType } from 'mlflow-tracing';
 
 // NB: 'Completions' represents chat.completions
 const SUPPORTED_MODULES = ['Completions', 'Responses', 'Embeddings'];
@@ -79,7 +78,7 @@ function wrapWithTracing(fn: Function, moduleName: string): Function {
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
     return withSpan(
-      async (span) => {
+      async (span: LiveSpan) => {
         span.setInputs(args[0]);
 
         const result = await fn.apply(this, args);

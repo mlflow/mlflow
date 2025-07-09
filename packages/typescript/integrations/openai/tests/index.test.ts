@@ -2,17 +2,14 @@
  * Tests for MLflow OpenAI integration with MSW mock server
  */
 
-import { tracedOpenAI } from '../src';
-import * as mlflow from '../../../src';
-import { Trace } from '../../../src/core/entities/trace';
-import { SpanStatusCode } from '../../../src/core/entities/span_status';
-import { MlflowClient } from '../../../src/clients';
-import { TEST_TRACKING_URI } from '../../../tests/helper';
+import * as mlflow from 'mlflow-tracing';
+import { MlflowClient } from 'mlflow-tracing/clients';
 import { OpenAI } from 'openai';
-import { SpanType } from '../../../src/core/constants';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import { openAIMockHandlers } from './mockOpenAIServer';
+
+const TEST_TRACKING_URI = 'http://localhost:5000';
 
 describe('tracedOpenAI', () => {
   let experimentId: string;
@@ -41,7 +38,7 @@ describe('tracedOpenAI', () => {
     await client.deleteExperiment(experimentId);
   });
 
-  const getLastActiveTrace = async (): Promise<Trace> => {
+  const getLastActiveTrace = async (): Promise<mlflow.Trace> => {
     await mlflow.flushTraces();
     const traceId = mlflow.getLastActiveTraceId();
     const trace = await client.getTrace(traceId!);
@@ -60,7 +57,7 @@ describe('tracedOpenAI', () => {
   describe('Chat Completions', () => {
     it('should trace chat.completions.create()', async () => {
       const openai = new OpenAI({ apiKey: 'test-key' });
-      const wrappedOpenAI = tracedOpenAI(openai);
+      const wrappedOpenAI = mlflow.tracedOpenAI(openai);
 
       const result = await wrappedOpenAI.chat.completions.create({
         model: 'gpt-4',
@@ -72,8 +69,8 @@ describe('tracedOpenAI', () => {
 
       const span = trace.data.spans[0];
       expect(span.name).toBe('Completions');
-      expect(span.spanType).toBe(SpanType.LLM);
-      expect(span.status.statusCode).toBe(SpanStatusCode.OK);
+      expect(span.spanType).toBe(mlflow.SpanType.LLM);
+      expect(span.status.statusCode).toBe(mlflow.SpanStatusCode.OK);
       expect(span.inputs).toEqual({
         model: 'gpt-4',
         messages: [{ role: 'user', content: 'Hello!' }]
@@ -100,7 +97,7 @@ describe('tracedOpenAI', () => {
       );
 
       const openai = new OpenAI({ apiKey: 'test-key' });
-      const wrappedOpenAI = tracedOpenAI(openai);
+      const wrappedOpenAI = mlflow.tracedOpenAI(openai);
 
       await expect(
         wrappedOpenAI.chat.completions.create({
@@ -113,7 +110,7 @@ describe('tracedOpenAI', () => {
       expect(trace.info.state).toBe('ERROR');
 
       const span = trace.data.spans[0];
-      expect(span.status.statusCode).toBe(SpanStatusCode.ERROR);
+      expect(span.status.statusCode).toBe(mlflow.SpanStatusCode.ERROR);
       expect(span.inputs).toEqual({
         model: 'gpt-4',
         messages: [{ role: 'user', content: 'This should fail' }]
@@ -125,7 +122,7 @@ describe('tracedOpenAI', () => {
 
     it('should trace OpenAI request wrapped in a parent span', async () => {
       const openai = new OpenAI({ apiKey: 'test-key' });
-      const wrappedOpenAI = tracedOpenAI(openai);
+      const wrappedOpenAI = mlflow.tracedOpenAI(openai);
 
       const result = await mlflow.withSpan(
         async (_span) => {
@@ -137,7 +134,7 @@ describe('tracedOpenAI', () => {
         },
         {
           name: 'predict',
-          spanType: SpanType.CHAIN,
+          spanType: mlflow.SpanType.CHAIN,
           inputs: 'Hello!'
         }
       );
@@ -148,8 +145,8 @@ describe('tracedOpenAI', () => {
 
       const parentSpan = trace.data.spans[0];
       expect(parentSpan.name).toBe('predict');
-      expect(parentSpan.status.statusCode).toBe(SpanStatusCode.OK);
-      expect(parentSpan.spanType).toBe(SpanType.CHAIN);
+      expect(parentSpan.status.statusCode).toBe(mlflow.SpanStatusCode.OK);
+      expect(parentSpan.spanType).toBe(mlflow.SpanType.CHAIN);
       expect(parentSpan.inputs).toEqual('Hello!');
       expect(parentSpan.outputs).toEqual(result);
       expect(parentSpan.startTime).toBeDefined();
@@ -157,8 +154,8 @@ describe('tracedOpenAI', () => {
 
       const childSpan = trace.data.spans[1];
       expect(childSpan.name).toBe('Completions');
-      expect(childSpan.status.statusCode).toBe(SpanStatusCode.OK);
-      expect(childSpan.spanType).toBe(SpanType.LLM);
+      expect(childSpan.status.statusCode).toBe(mlflow.SpanStatusCode.OK);
+      expect(childSpan.spanType).toBe(mlflow.SpanType.LLM);
       expect(childSpan.inputs).toEqual({
         model: 'gpt-4',
         messages: [{ role: 'user', content: 'Hello!' }]
@@ -172,7 +169,7 @@ describe('tracedOpenAI', () => {
   describe('Responses API', () => {
     it('should trace responses.create()', async () => {
       const openai = new OpenAI({ apiKey: 'test-key' });
-      const wrappedOpenAI = tracedOpenAI(openai);
+      const wrappedOpenAI = mlflow.tracedOpenAI(openai);
 
       const response = await wrappedOpenAI.responses.create({
         input: 'Hello!',
@@ -189,7 +186,7 @@ describe('tracedOpenAI', () => {
       expect(trace.data.spans.length).toBe(1);
 
       const span = trace.data.spans[0];
-      expect(span.spanType).toBe(SpanType.LLM);
+      expect(span.spanType).toBe(mlflow.SpanType.LLM);
       expect(span.inputs).toEqual({
         input: 'Hello!',
         model: 'gpt-4o',
@@ -202,7 +199,7 @@ describe('tracedOpenAI', () => {
   describe('Embeddings API', () => {
     it('should trace embeddings.create() with input: %p', async () => {
       const openai = new OpenAI({ apiKey: 'test-key' });
-      const wrappedOpenAI = tracedOpenAI(openai);
+      const wrappedOpenAI = mlflow.tracedOpenAI(openai);
 
       const response = await wrappedOpenAI.embeddings.create({
         model: 'text-embedding-3-small',
@@ -221,8 +218,8 @@ describe('tracedOpenAI', () => {
 
       const span = trace.data.spans[0];
       expect(span.name).toBe('Embeddings');
-      expect(span.spanType).toBe(SpanType.EMBEDDING);
-      expect(span.status.statusCode).toBe(SpanStatusCode.OK);
+      expect(span.spanType).toBe(mlflow.SpanType.EMBEDDING);
+      expect(span.status.statusCode).toBe(mlflow.SpanStatusCode.OK);
       expect(span.inputs).toEqual({
         model: 'text-embedding-3-small',
         input: ['Hello', 'world']
