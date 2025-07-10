@@ -429,6 +429,33 @@ html[data-genai-theme='true'] {
   flex-wrap: nowrap;
 }
 
+.sign-up-button {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  background-color: #2a2a2a;
+  color: white;
+  padding: 0.4rem 1rem;
+  border-radius: 0.25rem;
+  margin-right: 0.5rem;
+}
+
+/* Override the hover effect for the sign up button */
+.navbar__item.sign-up-button:hover {
+  background-color: #4a4a4a;
+  color: white;
+}
+
+/* Suppress the external link icon in the sign up button */
+.navbar__item.sign-up-button svg {
+  display: none;
+}
+
+/* Suppress underline when hovering over sign up button */
+.navbar__item.sign-up-button::before {
+  display: none;
+}
+
 /* --------------------------------
  * 4. Sidebar Styling
  * -------------------------------- */
