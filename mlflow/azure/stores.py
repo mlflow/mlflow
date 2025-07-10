@@ -212,7 +212,9 @@ def create_store(store_uri: str, artifact_uri: Optional[str] = None):
                 logger.debug("Reusing cached Azure-enabled engine")
 
             # Create the standard MLflow store - it will use our cached engine
-            return SqlAlchemyStore(clean_uri, artifact_uri)
+            # Ensure artifact_uri is not None to avoid "object of type 'NoneType' has no len()" error
+            safe_artifact_uri = artifact_uri if artifact_uri is not None else ""
+            return SqlAlchemyStore(clean_uri, safe_artifact_uri)
 
         except Exception as e:
             logger.error("Failed to create Azure-enabled store via plugin: %s", str(e))
@@ -221,7 +223,9 @@ def create_store(store_uri: str, artifact_uri: Optional[str] = None):
         # Azure auth not enabled, fall back to standard MLflow behavior
         logger.info("Azure authentication not enabled, using standard tracking store")
         from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
-        return SqlAlchemyStore(store_uri, artifact_uri)
+        # Ensure artifact_uri is not None to avoid "object of type 'NoneType' has no len()" error
+        safe_artifact_uri = artifact_uri if artifact_uri is not None else ""
+        return SqlAlchemyStore(store_uri, safe_artifact_uri)
 
 
 # For backward compatibility and testing
