@@ -870,3 +870,5 @@ def _split_strip(s: str) -> list[str]:
 _MLFLOW_WEBHOOK_ALLOWED_SCHEMES = _EnvironmentVariable(
     "MLFLOW_WEBHOOK_ALLOWED_SCHEMES", _split_strip, ["https"]
 )
+
+MLFLOW_DISABLE_SCHEMA_DETAILS = _EnvironmentVariable("MLFLOW_DISABLE_SCHEMA_DETAILS", bool, False)

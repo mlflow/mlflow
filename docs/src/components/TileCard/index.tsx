@@ -3,6 +3,7 @@ import Link from '@docusaurus/Link';
 import clsx from 'clsx';
 import { LucideIcon } from 'lucide-react';
 import styles from './styles.module.css';
+import useBaseUrl from '@docusaurus/useBaseUrl';
 
 export interface TileCardProps {
   /**
@@ -67,7 +68,7 @@ export default function TileCard({
   return (
     <Link href={href} className={clsx(styles.tileCard, className)}>
       <div className={styles.tileIcon} style={containerStyle}>
-        {Icon ? <Icon size={iconSize} /> : <img src={image} alt={title} className={styles.tileImage} />}
+        {Icon ? <Icon size={iconSize} /> : <img src={useBaseUrl(image)} alt={title} className={styles.tileImage} />}
       </div>
       <h3>{title}</h3>
       <p>{description}</p>
