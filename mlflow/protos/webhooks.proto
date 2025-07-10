@@ -159,7 +159,7 @@ message CreateWebhook {
   optional string url = 3 [(validate_required) = true];
 
   // List of event types to subscribe to
-  repeated string events = 4 [(validate_required) = true];
+  repeated WebhookEvent events = 4 [(validate_required) = true];
 
   // Secret key for HMAC signature verification
   optional string secret = 5;
