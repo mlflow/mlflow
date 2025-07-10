@@ -2,7 +2,7 @@ import { spawn } from 'child_process';
 import { tmpdir } from 'os';
 import { mkdtempSync } from 'fs';
 import { join } from 'path';
-import { TEST_PORT, TEST_TRACKING_URI } from './helper';
+import { TEST_PORT, TEST_TRACKING_URI } from './core/tests/helper';
 
 /**
  * Start MLflow Python server. This is necessary for testing Typescript SDK because
@@ -11,7 +11,7 @@ import { TEST_PORT, TEST_TRACKING_URI } from './helper';
 module.exports = async () => {
   const tempDir = mkdtempSync(join(tmpdir(), 'mlflow-test-'));
 
-  const mlflowRoot = join(__dirname, '../../..'); // Use the local dev version
+  const mlflowRoot = join(__dirname, '../..'); // Use the local dev version
 
   // Only start a server if one is not already running
   try {

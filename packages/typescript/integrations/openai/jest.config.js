@@ -8,8 +8,8 @@ module.exports = {
   transform: {
     '^.+\\.tsx?$': ['ts-jest', { tsconfig: 'tsconfig.json' }]
   },
-  globalSetup: '<rootDir>/tests/jest.global-setup.ts',
-  globalTeardown: '<rootDir>/tests/jest.global-teardown.ts',
+  globalSetup: '<rootDir>/../../jest.global-server-setup.ts',
+  globalTeardown: '<rootDir>/../../jest.global-server-teardown.ts',
   testTimeout: 30000,
   forceExit: true,
   detectOpenHandles: true
