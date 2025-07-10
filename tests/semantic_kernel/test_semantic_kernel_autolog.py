@@ -23,7 +23,6 @@ from mlflow.tracing.constant import (
     SpanAttributeKey,
     TokenUsageKey,
 )
-from mlflow.tracing.constant import TraceMetadataKey
 
 from tests.semantic_kernel.resources import (
     _create_and_invoke_chat_agent,
@@ -52,12 +51,6 @@ async def test_sk_invoke_simple(mock_openai):
     assert trace.info.request_id
     assert trace.info.experiment_id == "0"
     assert trace.info.timestamp_ms > 0
-    print("shotintracematedata")
-    print(trace.info.trace_metadata)
-    # assert trace.info.trace_metadata.get(TraceMetadataKey.INPUTS)
-    # assert trace.info.trace_metadata.get(TraceMetadataKey.OUTPUTS)
-    # assert trace.info.trace_metadata.get(TraceMetadataKey.TOKEN_USAGE)
-    # assert trace.info.response_preview
     assert isinstance(trace.data.spans, list)
     assert len(trace.data.spans) >= 2
 
@@ -126,9 +119,6 @@ async def test_sk_invoke_complex(mock_openai):
     traces = get_traces()
     assert len(traces) == 1
     trace = traces[0]
-    # assert trace.info.trace_metadata.get(TraceMetadataKey.INPUTS)
-    # assert trace.info.trace_metadata.get(TraceMetadataKey.OUTPUTS)
-    # assert trace.info.trace_metadata.get(TraceMetadataKey.TOKEN_USAGE)
 
     spans = trace.data.spans
     assert len(spans) == 2

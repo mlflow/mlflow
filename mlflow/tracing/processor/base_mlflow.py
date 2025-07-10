@@ -163,7 +163,6 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
         return tags
 
     def _update_trace_info(self, trace: _Trace, root_span: OTelReadableSpan):
-        print("_update_trace_info called")
         """Update the trace info with the final values from the root span."""
         # The trace/span start time needs adjustment to exclude the latency of
         # the backend API call. We already adjusted the span start time in the
@@ -184,18 +183,12 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
                 ),
             }
         )
-        print(root_span.attributes.get(SpanAttributeKey.INPUTS))
-        print(root_span.attributes.get(SpanAttributeKey.OUTPUTS))
-        print("tracemetadata")
-        print(trace.info.trace_metadata.get(TraceMetadataKey.INPUTS))
-        print(trace.info.trace_metadata.get(TraceMetadataKey.OUTPUTS))
 
         # Aggregate token usage information from all spans
         if usage := aggregate_usage_from_spans(trace.span_dict.values()):
             trace.info.request_metadata[TraceMetadataKey.TOKEN_USAGE] = json.dumps(usage)
 
-    @staticmethod
-    def _truncate_metadata(value: Optional[str]) -> str:
+    def _truncate_metadata(self,value: Optional[str]) -> str:
         """Get truncated value of the attribute if it exceeds the maximum length."""
         if not value:
             return ""
