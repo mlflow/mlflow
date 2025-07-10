@@ -9190,17 +9190,16 @@ public final class Webhooks {
      * New list of events to subscribe to
      * </pre>
      *
-     * <code>repeated string events = 5;</code>
+     * <code>repeated .mlflow.WebhookEvent events = 5;</code>
      * @return A list containing the events.
      */
-    java.util.List<java.lang.String>
-        getEventsList();
+    java.util.List<org.mlflow.api.proto.Webhooks.WebhookEvent> getEventsList();
     /**
      * <pre>
      * New list of events to subscribe to
      * </pre>
      *
-     * <code>repeated string events = 5;</code>
+     * <code>repeated .mlflow.WebhookEvent events = 5;</code>
      * @return The count of events.
      */
     int getEventsCount();
@@ -9209,22 +9208,11 @@ public final class Webhooks {
      * New list of events to subscribe to
      * </pre>
      *
-     * <code>repeated string events = 5;</code>
+     * <code>repeated .mlflow.WebhookEvent events = 5;</code>
      * @param index The index of the element to return.
      * @return The events at the given index.
      */
-    java.lang.String getEvents(int index);
-    /**
-     * <pre>
-     * New list of events to subscribe to
-     * </pre>
-     *
-     * <code>repeated string events = 5;</code>
-     * @param index The index of the value to return.
-     * @return The bytes of the events at the given index.
-     */
-    com.google.protobuf.ByteString
-        getEventsBytes(int index);
+    org.mlflow.api.proto.Webhooks.WebhookEvent getEvents(int index);
 
     /**
      * <pre>
@@ -9295,7 +9283,7 @@ public final class Webhooks {
       name_ = "";
       description_ = "";
       url_ = "";
-      events_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+      events_ = java.util.Collections.emptyList();
       secret_ = "";
       status_ = 1;
     }
@@ -9355,13 +9343,39 @@ public final class Webhooks {
               url_ = bs;
               break;
             }
-            case 42: {
-              com.google.protobuf.ByteString bs = input.readBytes();
-              if (!((mutable_bitField0_ & 0x00000010) != 0)) {
-                events_ = new com.google.protobuf.LazyStringArrayList();
-                mutable_bitField0_ |= 0x00000010;
+            case 40: {
+              int rawValue = input.readEnum();
+              @SuppressWarnings("deprecation")
+              org.mlflow.api.proto.Webhooks.WebhookEvent value = org.mlflow.api.proto.Webhooks.WebhookEvent.valueOf(rawValue);
+              if (value == null) {
+                unknownFields.mergeVarintField(5, rawValue);
+              } else {
+                if (!((mutable_bitField0_ & 0x00000010) != 0)) {
+                  events_ = new java.util.ArrayList<java.lang.Integer>();
+                  mutable_bitField0_ |= 0x00000010;
+                }
+                events_.add(rawValue);
               }
-              events_.add(bs);
+              break;
+            }
+            case 42: {
+              int length = input.readRawVarint32();
+              int oldLimit = input.pushLimit(length);
+              while(input.getBytesUntilLimit() > 0) {
+                int rawValue = input.readEnum();
+                @SuppressWarnings("deprecation")
+                org.mlflow.api.proto.Webhooks.WebhookEvent value = org.mlflow.api.proto.Webhooks.WebhookEvent.valueOf(rawValue);
+                if (value == null) {
+                  unknownFields.mergeVarintField(5, rawValue);
+                } else {
+                  if (!((mutable_bitField0_ & 0x00000010) != 0)) {
+                    events_ = new java.util.ArrayList<java.lang.Integer>();
+                    mutable_bitField0_ |= 0x00000010;
+                  }
+                  events_.add(rawValue);
+                }
+              }
+              input.popLimit(oldLimit);
               break;
             }
             case 50: {
@@ -9398,7 +9412,7 @@ public final class Webhooks {
             e).setUnfinishedMessage(this);
       } finally {
         if (((mutable_bitField0_ & 0x00000010) != 0)) {
-          events_ = events_.getUnmodifiableView();
+          events_ = java.util.Collections.unmodifiableList(events_);
         }
         this.unknownFields = unknownFields.build();
         makeExtensionsImmutable();
@@ -10291,27 +10305,39 @@ public final class Webhooks {
     }
 
     public static final int EVENTS_FIELD_NUMBER = 5;
-    private com.google.protobuf.LazyStringList events_;
+    private java.util.List<java.lang.Integer> events_;
+    private static final com.google.protobuf.Internal.ListAdapter.Converter<
+        java.lang.Integer, org.mlflow.api.proto.Webhooks.WebhookEvent> events_converter_ =
+            new com.google.protobuf.Internal.ListAdapter.Converter<
+                java.lang.Integer, org.mlflow.api.proto.Webhooks.WebhookEvent>() {
+              public org.mlflow.api.proto.Webhooks.WebhookEvent convert(java.lang.Integer from) {
+                @SuppressWarnings("deprecation")
+                org.mlflow.api.proto.Webhooks.WebhookEvent result = org.mlflow.api.proto.Webhooks.WebhookEvent.valueOf(from);
+                return result == null ? org.mlflow.api.proto.Webhooks.WebhookEvent.REGISTERED_MODEL_CREATED : result;
+              }
+            };
     /**
      * <pre>
      * New list of events to subscribe to
      * </pre>
      *
-     * <code>repeated string events = 5;</code>
+     * <code>repeated .mlflow.WebhookEvent events = 5;</code>
      * @return A list containing the events.
      */
-    public com.google.protobuf.ProtocolStringList
-        getEventsList() {
-      return events_;
+    @java.lang.Override
+    public java.util.List<org.mlflow.api.proto.Webhooks.WebhookEvent> getEventsList() {
+      return new com.google.protobuf.Internal.ListAdapter<
+          java.lang.Integer, org.mlflow.api.proto.Webhooks.WebhookEvent>(events_, events_converter_);
     }
     /**
      * <pre>
      * New list of events to subscribe to
      * </pre>
      *
-     * <code>repeated string events = 5;</code>
+     * <code>repeated .mlflow.WebhookEvent events = 5;</code>
      * @return The count of events.
      */
+    @java.lang.Override
     public int getEventsCount() {
       return events_.size();
     }
@@ -10320,25 +10346,13 @@ public final class Webhooks {
      * New list of events to subscribe to
      * </pre>
      *
-     * <code>repeated string events = 5;</code>
+     * <code>repeated .mlflow.WebhookEvent events = 5;</code>
      * @param index The index of the element to return.
      * @return The events at the given index.
      */
-    public java.lang.String getEvents(int index) {
-      return events_.get(index);
-    }
-    /**
-     * <pre>
-     * New list of events to subscribe to
-     * </pre>
-     *
-     * <code>repeated string events = 5;</code>
-     * @param index The index of the value to return.
-     * @return The bytes of the events at the given index.
-     */
-    public com.google.protobuf.ByteString
-        getEventsBytes(int index) {
-      return events_.getByteString(index);
+    @java.lang.Override
+    public org.mlflow.api.proto.Webhooks.WebhookEvent getEvents(int index) {
+      return events_converter_.convert(events_.get(index));
     }
 
     public static final int SECRET_FIELD_NUMBER = 6;
@@ -10455,7 +10469,7 @@ public final class Webhooks {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 4, url_);
       }
       for (int i = 0; i < events_.size(); i++) {
-        com.google.protobuf.GeneratedMessageV3.writeString(output, 5, events_.getRaw(i));
+        output.writeEnum(5, events_.get(i));
       }
       if (((bitField0_ & 0x00000010) != 0)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 6, secret_);
@@ -10487,10 +10501,11 @@ public final class Webhooks {
       {
         int dataSize = 0;
         for (int i = 0; i < events_.size(); i++) {
-          dataSize += computeStringSizeNoTag(events_.getRaw(i));
+          dataSize += com.google.protobuf.CodedOutputStream
+            .computeEnumSizeNoTag(events_.get(i));
         }
         size += dataSize;
-        size += 1 * getEventsList().size();
+        size += 1 * events_.size();
       }
       if (((bitField0_ & 0x00000010) != 0)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(6, secret_);
@@ -10534,8 +10549,7 @@ public final class Webhooks {
         if (!getUrl()
             .equals(other.getUrl())) return false;
       }
-      if (!getEventsList()
-          .equals(other.getEventsList())) return false;
+      if (!events_.equals(other.events_)) return false;
       if (hasSecret() != other.hasSecret()) return false;
       if (hasSecret()) {
         if (!getSecret()
@@ -10574,7 +10588,7 @@ public final class Webhooks {
       }
       if (getEventsCount() > 0) {
         hash = (37 * hash) + EVENTS_FIELD_NUMBER;
-        hash = (53 * hash) + getEventsList().hashCode();
+        hash = (53 * hash) + events_.hashCode();
       }
       if (hasSecret()) {
         hash = (37 * hash) + SECRET_FIELD_NUMBER;
@@ -10729,7 +10743,7 @@ public final class Webhooks {
         bitField0_ = (bitField0_ & ~0x00000004);
         url_ = "";
         bitField0_ = (bitField0_ & ~0x00000008);
-        events_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+        events_ = java.util.Collections.emptyList();
         bitField0_ = (bitField0_ & ~0x00000010);
         secret_ = "";
         bitField0_ = (bitField0_ & ~0x00000020);
@@ -10780,7 +10794,7 @@ public final class Webhooks {
         }
         result.url_ = url_;
         if (((bitField0_ & 0x00000010) != 0)) {
-          events_ = events_.getUnmodifiableView();
+          events_ = java.util.Collections.unmodifiableList(events_);
           bitField0_ = (bitField0_ & ~0x00000010);
         }
         result.events_ = events_;
@@ -11341,31 +11355,32 @@ public final class Webhooks {
         return this;
       }
 
-      private com.google.protobuf.LazyStringList events_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+      private java.util.List<java.lang.Integer> events_ =
+        java.util.Collections.emptyList();
       private void ensureEventsIsMutable() {
         if (!((bitField0_ & 0x00000010) != 0)) {
-          events_ = new com.google.protobuf.LazyStringArrayList(events_);
+          events_ = new java.util.ArrayList<java.lang.Integer>(events_);
           bitField0_ |= 0x00000010;
-         }
+        }
       }
       /**
        * <pre>
        * New list of events to subscribe to
        * </pre>
        *
-       * <code>repeated string events = 5;</code>
+       * <code>repeated .mlflow.WebhookEvent events = 5;</code>
        * @return A list containing the events.
        */
-      public com.google.protobuf.ProtocolStringList
-          getEventsList() {
-        return events_.getUnmodifiableView();
+      public java.util.List<org.mlflow.api.proto.Webhooks.WebhookEvent> getEventsList() {
+        return new com.google.protobuf.Internal.ListAdapter<
+            java.lang.Integer, org.mlflow.api.proto.Webhooks.WebhookEvent>(events_, events_converter_);
       }
       /**
        * <pre>
        * New list of events to subscribe to
        * </pre>
        *
-       * <code>repeated string events = 5;</code>
+       * <code>repeated .mlflow.WebhookEvent events = 5;</code>
        * @return The count of events.
        */
       public int getEventsCount() {
@@ -11376,43 +11391,30 @@ public final class Webhooks {
        * New list of events to subscribe to
        * </pre>
        *
-       * <code>repeated string events = 5;</code>
+       * <code>repeated .mlflow.WebhookEvent events = 5;</code>
        * @param index The index of the element to return.
        * @return The events at the given index.
        */
-      public java.lang.String getEvents(int index) {
-        return events_.get(index);
+      public org.mlflow.api.proto.Webhooks.WebhookEvent getEvents(int index) {
+        return events_converter_.convert(events_.get(index));
       }
       /**
        * <pre>
        * New list of events to subscribe to
        * </pre>
        *
-       * <code>repeated string events = 5;</code>
-       * @param index The index of the value to return.
-       * @return The bytes of the events at the given index.
-       */
-      public com.google.protobuf.ByteString
-          getEventsBytes(int index) {
-        return events_.getByteString(index);
-      }
-      /**
-       * <pre>
-       * New list of events to subscribe to
-       * </pre>
-       *
-       * <code>repeated string events = 5;</code>
+       * <code>repeated .mlflow.WebhookEvent events = 5;</code>
        * @param index The index to set the value at.
        * @param value The events to set.
        * @return This builder for chaining.
        */
       public Builder setEvents(
-          int index, java.lang.String value) {
+          int index, org.mlflow.api.proto.Webhooks.WebhookEvent value) {
         if (value == null) {
-    throw new NullPointerException();
-  }
-  ensureEventsIsMutable();
-        events_.set(index, value);
+          throw new NullPointerException();
+        }
+        ensureEventsIsMutable();
+        events_.set(index, value.getNumber());
         onChanged();
         return this;
       }
@@ -11421,17 +11423,16 @@ public final class Webhooks {
        * New list of events to subscribe to
        * </pre>
        *
-       * <code>repeated string events = 5;</code>
+       * <code>repeated .mlflow.WebhookEvent events = 5;</code>
        * @param value The events to add.
        * @return This builder for chaining.
        */
-      public Builder addEvents(
-          java.lang.String value) {
+      public Builder addEvents(org.mlflow.api.proto.Webhooks.WebhookEvent value) {
         if (value == null) {
-    throw new NullPointerException();
-  }
-  ensureEventsIsMutable();
-        events_.add(value);
+          throw new NullPointerException();
+        }
+        ensureEventsIsMutable();
+        events_.add(value.getNumber());
         onChanged();
         return this;
       }
@@ -11440,15 +11441,16 @@ public final class Webhooks {
        * New list of events to subscribe to
        * </pre>
        *
-       * <code>repeated string events = 5;</code>
+       * <code>repeated .mlflow.WebhookEvent events = 5;</code>
        * @param values The events to add.
        * @return This builder for chaining.
        */
       public Builder addAllEvents(
-          java.lang.Iterable<java.lang.String> values) {
+          java.lang.Iterable<? extends org.mlflow.api.proto.Webhooks.WebhookEvent> values) {
         ensureEventsIsMutable();
-        com.google.protobuf.AbstractMessageLite.Builder.addAll(
-            values, events_);
+        for (org.mlflow.api.proto.Webhooks.WebhookEvent value : values) {
+          events_.add(value.getNumber());
+        }
         onChanged();
         return this;
       }
@@ -11457,31 +11459,12 @@ public final class Webhooks {
        * New list of events to subscribe to
        * </pre>
        *
-       * <code>repeated string events = 5;</code>
+       * <code>repeated .mlflow.WebhookEvent events = 5;</code>
        * @return This builder for chaining.
        */
       public Builder clearEvents() {
-        events_ = com.google.protobuf.LazyStringArrayList.EMPTY;
+        events_ = java.util.Collections.emptyList();
         bitField0_ = (bitField0_ & ~0x00000010);
-        onChanged();
-        return this;
-      }
-      /**
-       * <pre>
-       * New list of events to subscribe to
-       * </pre>
-       *
-       * <code>repeated string events = 5;</code>
-       * @param value The bytes of the events to add.
-       * @return This builder for chaining.
-       */
-      public Builder addEventsBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  ensureEventsIsMutable();
-        events_.add(value);
         onChanged();
         return this;
       }
@@ -14340,48 +14323,48 @@ public final class Webhooks {
       "\201\001\n\nGetWebhook\022\030\n\nwebhook_id\030\001 \001(\tB\004\370\206\031\001" +
       "\032,\n\010Response\022 \n\007webhook\030\001 \001(\0132\017.mlflow.W" +
       "ebhook:+\342?(\n&com.databricks.rpc.RPC[$thi" +
-      "s.Response]\"\373\001\n\rUpdateWebhook\022\030\n\nwebhook" +
+      "s.Response]\"\221\002\n\rUpdateWebhook\022\030\n\nwebhook" +
       "_id\030\001 \001(\tB\004\370\206\031\001\022\014\n\004name\030\002 \001(\t\022\023\n\013descrip" +
-      "tion\030\003 \001(\t\022\013\n\003url\030\004 \001(\t\022\016\n\006events\030\005 \003(\t\022" +
-      "\016\n\006secret\030\006 \001(\t\022%\n\006status\030\007 \001(\0162\025.mlflow" +
-      ".WebhookStatus\032,\n\010Response\022 \n\007webhook\030\001 " +
-      "\001(\0132\017.mlflow.Webhook:+\342?(\n&com.databrick" +
-      "s.rpc.RPC[$this.Response]\"b\n\rDeleteWebho" +
-      "ok\022\030\n\nwebhook_id\030\001 \001(\tB\004\370\206\031\001\032\n\n\010Response" +
-      ":+\342?(\n&com.databricks.rpc.RPC[$this.Resp" +
-      "onse]\"\260\001\n\013TestWebhook\022\030\n\nwebhook_id\030\001 \001(" +
-      "\tB\004\370\206\031\001\022#\n\005event\030\002 \001(\0162\024.mlflow.WebhookE" +
-      "vent\0325\n\010Response\022)\n\006result\030\001 \001(\0132\031.mlflo" +
-      "w.WebhookTestResult:+\342?(\n&com.databricks" +
-      ".rpc.RPC[$this.Response]*)\n\rWebhookStatu" +
-      "s\022\n\n\006ACTIVE\020\001\022\014\n\010DISABLED\020\002*\303\001\n\014WebhookE" +
-      "vent\022\034\n\030REGISTERED_MODEL_CREATED\020\001\022\031\n\025MO" +
-      "DEL_VERSION_CREATED\020\002\022\031\n\025MODEL_VERSION_T" +
-      "AG_SET\020\003\022\035\n\031MODEL_VERSION_TAG_DELETED\020\004\022" +
-      "\037\n\033MODEL_VERSION_ALIAS_CREATED\020\005\022\037\n\033MODE" +
-      "L_VERSION_ALIAS_DELETED\020\0062\265\006\n\016WebhookSer" +
-      "vice\022~\n\rcreateWebhook\022\025.mlflow.CreateWeb" +
-      "hook\032\036.mlflow.CreateWebhook.Response\"6\362\206" +
-      "\0312\n\036\n\004POST\022\020/mlflow/webhooks\032\004\010\002\020\000\020\001*\016Cr" +
-      "eate Webhook\022y\n\014listWebhooks\022\024.mlflow.Li" +
-      "stWebhooks\032\035.mlflow.ListWebhooks.Respons" +
-      "e\"4\362\206\0310\n\035\n\003GET\022\020/mlflow/webhooks\032\004\010\002\020\000\020\001" +
-      "*\rList Webhooks\022~\n\ngetWebhook\022\022.mlflow.G" +
-      "etWebhook\032\033.mlflow.GetWebhook.Response\"?" +
-      "\362\206\031;\n*\n\003GET\022\035/mlflow/webhooks/{webhook_i" +
-      "d}\032\004\010\002\020\000\020\001*\013Get Webhook\022\214\001\n\rupdateWebhoo" +
-      "k\022\025.mlflow.UpdateWebhook\032\036.mlflow.Update" +
-      "Webhook.Response\"D\362\206\031@\n,\n\005PATCH\022\035/mlflow" +
-      "/webhooks/{webhook_id}\032\004\010\002\020\000\020\001*\016Update W" +
-      "ebhook\022\215\001\n\rdeleteWebhook\022\025.mlflow.Delete" +
-      "Webhook\032\036.mlflow.DeleteWebhook.Response\"" +
-      "E\362\206\031A\n-\n\006DELETE\022\035/mlflow/webhooks/{webho" +
-      "ok_id}\032\004\010\002\020\000\020\001*\016Delete Webhook\022\210\001\n\013testW" +
-      "ebhook\022\023.mlflow.TestWebhook\032\034.mlflow.Tes" +
-      "tWebhook.Response\"F\362\206\031B\n0\n\004POST\022\"/mlflow" +
-      "/webhooks/{webhook_id}/test\032\004\010\002\020\000\020\001*\014Tes" +
-      "t WebhookB!\n\024org.mlflow.api.proto\220\001\001\240\001\001\342" +
-      "?\002\020\001"
+      "tion\030\003 \001(\t\022\013\n\003url\030\004 \001(\t\022$\n\006events\030\005 \003(\0162" +
+      "\024.mlflow.WebhookEvent\022\016\n\006secret\030\006 \001(\t\022%\n" +
+      "\006status\030\007 \001(\0162\025.mlflow.WebhookStatus\032,\n\010" +
+      "Response\022 \n\007webhook\030\001 \001(\0132\017.mlflow.Webho" +
+      "ok:+\342?(\n&com.databricks.rpc.RPC[$this.Re" +
+      "sponse]\"b\n\rDeleteWebhook\022\030\n\nwebhook_id\030\001" +
+      " \001(\tB\004\370\206\031\001\032\n\n\010Response:+\342?(\n&com.databri" +
+      "cks.rpc.RPC[$this.Response]\"\260\001\n\013TestWebh" +
+      "ook\022\030\n\nwebhook_id\030\001 \001(\tB\004\370\206\031\001\022#\n\005event\030\002" +
+      " \001(\0162\024.mlflow.WebhookEvent\0325\n\010Response\022)" +
+      "\n\006result\030\001 \001(\0132\031.mlflow.WebhookTestResul" +
+      "t:+\342?(\n&com.databricks.rpc.RPC[$this.Res" +
+      "ponse]*)\n\rWebhookStatus\022\n\n\006ACTIVE\020\001\022\014\n\010D" +
+      "ISABLED\020\002*\303\001\n\014WebhookEvent\022\034\n\030REGISTERED" +
+      "_MODEL_CREATED\020\001\022\031\n\025MODEL_VERSION_CREATE" +
+      "D\020\002\022\031\n\025MODEL_VERSION_TAG_SET\020\003\022\035\n\031MODEL_" +
+      "VERSION_TAG_DELETED\020\004\022\037\n\033MODEL_VERSION_A" +
+      "LIAS_CREATED\020\005\022\037\n\033MODEL_VERSION_ALIAS_DE" +
+      "LETED\020\0062\265\006\n\016WebhookService\022~\n\rcreateWebh" +
+      "ook\022\025.mlflow.CreateWebhook\032\036.mlflow.Crea" +
+      "teWebhook.Response\"6\362\206\0312\n\036\n\004POST\022\020/mlflo" +
+      "w/webhooks\032\004\010\002\020\000\020\001*\016Create Webhook\022y\n\014li" +
+      "stWebhooks\022\024.mlflow.ListWebhooks\032\035.mlflo" +
+      "w.ListWebhooks.Response\"4\362\206\0310\n\035\n\003GET\022\020/m" +
+      "lflow/webhooks\032\004\010\002\020\000\020\001*\rList Webhooks\022~\n" +
+      "\ngetWebhook\022\022.mlflow.GetWebhook\032\033.mlflow" +
+      ".GetWebhook.Response\"?\362\206\031;\n*\n\003GET\022\035/mlfl" +
+      "ow/webhooks/{webhook_id}\032\004\010\002\020\000\020\001*\013Get We" +
+      "bhook\022\214\001\n\rupdateWebhook\022\025.mlflow.UpdateW" +
+      "ebhook\032\036.mlflow.UpdateWebhook.Response\"D" +
+      "\362\206\031@\n,\n\005PATCH\022\035/mlflow/webhooks/{webhook" +
+      "_id}\032\004\010\002\020\000\020\001*\016Update Webhook\022\215\001\n\rdeleteW" +
+      "ebhook\022\025.mlflow.DeleteWebhook\032\036.mlflow.D" +
+      "eleteWebhook.Response\"E\362\206\031A\n-\n\006DELETE\022\035/" +
+      "mlflow/webhooks/{webhook_id}\032\004\010\002\020\000\020\001*\016De" +
+      "lete Webhook\022\210\001\n\013testWebhook\022\023.mlflow.Te" +
+      "stWebhook\032\034.mlflow.TestWebhook.Response\"" +
+      "F\362\206\031B\n0\n\004POST\022\"/mlflow/webhooks/{webhook" +
+      "_id}/test\032\004\010\002\020\000\020\001*\014Test WebhookB!\n\024org.m" +
+      "lflow.api.proto\220\001\001\240\001\001\342?\002\020\001"
     };
     descriptor = com.google.protobuf.Descriptors.FileDescriptor
       .internalBuildGeneratedFileFrom(descriptorData,
