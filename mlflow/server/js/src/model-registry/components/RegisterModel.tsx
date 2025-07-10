@@ -130,6 +130,7 @@ export class RegisterModelImpl extends React.Component<RegisterModelImplProps, R
       this.setState({ confirmLoading: true });
       const { runUuid, modelPath } = this.props;
       const selectedModelName = values[SELECTED_MODEL_FIELD];
+      const source = `models:/${this.props.loggedModelId}`;
       if (selectedModelName === CREATE_NEW_MODEL_OPTION_VALUE) {
         // When user choose to create a new registered model during the registration, we need to
         // 1. Create a new registered model
@@ -139,7 +140,7 @@ export class RegisterModelImpl extends React.Component<RegisterModelImplProps, R
           .then(() =>
             this.props.createModelVersionApi(
               values[MODEL_NAME_FIELD],
-              modelPath,
+              source,
               runUuid,
               [],
               this.createModelVersionRequestId,
@@ -155,7 +156,7 @@ export class RegisterModelImpl extends React.Component<RegisterModelImplProps, R
         return this.props
           .createModelVersionApi(
             selectedModelName,
-            modelPath,
+            source,
             runUuid,
             [],
             this.createModelVersionRequestId,
