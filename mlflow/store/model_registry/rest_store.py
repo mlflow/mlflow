@@ -549,18 +549,18 @@ class RestStore(BaseRestStore):
         name: Optional[str] = None,
         description: Optional[str] = None,
         url: Optional[str] = None,
-        events: Optional[list[str]] = None,
+        events: Optional[list[WebhookEvent]] = None,
         secret: Optional[str] = None,
-        status: Optional[str] = None,
+        status: Optional[WebhookStatus] = None,
     ) -> Webhook:
         req_body = message_to_json(
             UpdateWebhook(
                 name=name,
                 description=description,
                 url=url,
-                events=events,
+                events=[e.to_proto() for e in events] if events else None,
                 secret=secret,
-                status=status,
+                status=status.to_proto() if status else None,
             )
         )
         response_proto = self._call_webhook_endpoint(UpdateWebhook, req_body, webhook_id=webhook_id)
