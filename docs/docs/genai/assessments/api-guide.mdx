@@ -14,6 +14,7 @@ This guide walks you through the complete MLflow Assessments API following the n
 ### Prerequisites
 
 Before using the Feedback and Expectations API, ensure you have:
+
 - MLflow 3.2.0 or later installed
 - An active MLflow tracking server or local tracking setup
 - Traces that have been logged from your GenAI application to an MLflow Experiment
@@ -56,8 +57,10 @@ The MLflow UI provides a visual interface for adding feedback and expectations d
 To add feedback or expectations to a trace, select the trace from your experiment's listing and click the "Add Assessment" button. This opens the entry form where you can choose between creating an expectation (ground truth) or feedback (evaluation).
 
 ![Add Assessment](/images/assessments/add_assessment_ui.png)
-    </TabItem>
-    <TabItem value="add_expectation" label="Add Expectation">
+
+</TabItem>
+<TabItem value="add_expectation" label="Add Expectation">
+
 ### Adding Expectations
 
 Expectations define the ground truth for what your AI should produce. To add an expectation:
@@ -69,8 +72,10 @@ Expectations define the ground truth for what your AI should produce. To add an 
 5. Optionally add rationale to explain the expectation
 
 ![Add Expectation](/images/assessments/add_expectation_ui.png)
-    </TabItem>
-    <TabItem value="add_feedback" label="Add Feedback">
+
+</TabItem>
+<TabItem value="add_feedback" label="Add Feedback">
+
 ### Adding Feedback
 
 Feedback captures evaluations of how well the AI performed. To add feedback:
@@ -91,6 +96,7 @@ You can add multiple feedback entries for the same aspect by clicking the plus (
 
     </TabItem>
     <TabItem value="edit" label="Editing">
+
 ### Editing Feedback and Expectations
 
 To edit an existing entry, click the dropdown menu (⋮) next to it and select "Edit". The UI displays visual indicators when entries have been modified.
@@ -101,12 +107,15 @@ To edit an existing entry, click the dropdown menu (⋮) next to it and select "
 
     </TabItem>
     <TabItem value="view_assessments" label="Viewing">
+
 ### Viewing Feedback and Expectations
 
 The trace detail page displays all feedback and expectations associated with a trace, including source attribution, timestamps, and rationale. This view helps you understand the complete evaluation picture for each trace.
 
 ![Assessments Trace Detail](/images/assessments/assessments_trace_detail_ui.png)
-    </TabItem>
+
+</TabItem>
+
 </Tabs>
 
 ## Logging Feedback and Expectations via API
@@ -414,7 +423,6 @@ mlflow.delete_assessment(
 If deleting a `Feedback` that has been marked as a replacement to an existing feedback using the `override_feedback` API, the original feedback that was marked as invalid will return to a valid state.
 :::
 
-
   </TabItem>
 </Tabs>
 
@@ -463,7 +471,6 @@ Note the difference between override and update:
 - **`update_assessment`**: Modifies the existing feedback or expectation in-place
 
 Use override when you want to preserve the original automated evaluation for training data or analysis. Use update when you want to simply correct a feedback or expectation.
-
 
 ## Best Practices
 

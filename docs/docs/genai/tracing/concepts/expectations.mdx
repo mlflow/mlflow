@@ -16,7 +16,6 @@ import { Target, Users, Shield, GitCompare, MessageSquare, FileText, Book } from
 
 Expectations serve as the foundation for systematic evaluation, enabling you to define clear quality standards and measure how well your application meets them across different scenarios and use cases.
 
-
 ![Expectations in UI](/images/assessments/add_expectation_ui.png)
 
 ## Use Cases
@@ -50,16 +49,16 @@ Expectations are always created by human experts who understand the correct beha
 
 ## Expectation Object Schema
 
-| Field                 | Type                        | Description                                                                                                                                                                                                                                                                                                                                                                                             |
-| --------------------- | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `name`                | `str`                       | A string identifying the specific aspect being defined as ground truth                                                                                                                                                                                                                                                                                                                                  |
-| `value`               | `Any`                       | The expected value, which can be <br/><br/> <ul><li>Text responses (e.g., `"The capital of France is Paris"`)</li><li>Structured data (e.g., `{"category": "complaint", "priority": "high"}`)</li><li>Lists (e.g., `["doc_123", "doc_456"]` for expected retrieval results)</li><li>Any JSON-serializable value representing the desired output</li></ul>                                          |
-| `source`              | `AssessmentSource`          | The source of the expectation, always of type `HUMAN` for expectations. The ID typically identifies the expert who defined the ground truth (e.g., email, username, or team identifier).                                                                                                                                                                                                                |
-| `metadata`            | `Optional[dict[str, str]]`  | Optional key-value pairs providing context about the expectation, such as confidence level, annotation guidelines used, or version information.                                                                                                                                                                                                                                                         |
-| `create_time_ms`      | `int`                       | The timestamp of when the expectation was created, in milliseconds.                                                                                                                                                                                                                                                                                                                                     |
-| `last_update_time_ms` | `int`                       | The timestamp of when the expectation was last updated, in milliseconds.                                                                                                                                                                                                                                                                                                                                |
-| `trace_id`            | `str`                       | The ID of the trace that the expectation is attached to.                                                                                                                                                                                                                                                                                                                                               |
-| `span_id`             | `Optional[str]`             | The ID of the span that the expectation is attached to, if it targets a specific operation within the trace. For example, you can set expectations for what documents should be retrieved in a RAG application.                                                                                                                                                                                         |
+| Field                 | Type                       | Description                                                                                                                                                                                                                                                                                                                                               |
+| --------------------- | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`                | `str`                      | A string identifying the specific aspect being defined as ground truth                                                                                                                                                                                                                                                                                    |
+| `value`               | `Any`                      | The expected value, which can be <br/><br/> <ul><li>Text responses (e.g., `"The capital of France is Paris"`)</li><li>Structured data (e.g., `{"category": "complaint", "priority": "high"}`)</li><li>Lists (e.g., `["doc_123", "doc_456"]` for expected retrieval results)</li><li>Any JSON-serializable value representing the desired output</li></ul> |
+| `source`              | `AssessmentSource`         | The source of the expectation, always of type `HUMAN` for expectations. The ID typically identifies the expert who defined the ground truth (e.g., email, username, or team identifier).                                                                                                                                                                  |
+| `metadata`            | `Optional[dict[str, str]]` | Optional key-value pairs providing context about the expectation, such as confidence level, annotation guidelines used, or version information.                                                                                                                                                                                                           |
+| `create_time_ms`      | `int`                      | The timestamp of when the expectation was created, in milliseconds.                                                                                                                                                                                                                                                                                       |
+| `last_update_time_ms` | `int`                      | The timestamp of when the expectation was last updated, in milliseconds.                                                                                                                                                                                                                                                                                  |
+| `trace_id`            | `str`                      | The ID of the trace that the expectation is attached to.                                                                                                                                                                                                                                                                                                  |
+| `span_id`             | `Optional[str]`            | The ID of the span that the expectation is attached to, if it targets a specific operation within the trace. For example, you can set expectations for what documents should be retrieved in a RAG application.                                                                                                                                           |
 
 ## Expectation Examples
 
@@ -123,13 +122,13 @@ Expectations are always created by human experts who understand the correct beha
 
 While both Expectations and Feedback are types of assessments in MLflow, they serve distinct purposes:
 
-| Aspect | Expectations | Feedback |
-|--------|-------------|----------|
-| **Purpose** | Define what the AI should produce | Evaluate how well the AI performed |
-| **Timing** | Set before or during development | Applied after AI generates output |
-| **Source** | Always from human experts | Can be from humans, LLM judges, or code |
-| **Content** | Ground truth values | Quality scores, pass/fail judgments |
-| **Usage** | Reference point for evaluation | Actual evaluation results |
+| Aspect      | Expectations                      | Feedback                                |
+| ----------- | --------------------------------- | --------------------------------------- |
+| **Purpose** | Define what the AI should produce | Evaluate how well the AI performed      |
+| **Timing**  | Set before or during development  | Applied after AI generates output       |
+| **Source**  | Always from human experts         | Can be from humans, LLM judges, or code |
+| **Content** | Ground truth values               | Quality scores, pass/fail judgments     |
+| **Usage**   | Reference point for evaluation    | Actual evaluation results               |
 
 ## Best Practices
 

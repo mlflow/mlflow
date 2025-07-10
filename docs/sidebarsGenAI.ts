@@ -257,21 +257,21 @@ const sidebarsGenAI: SidebarsConfig = {
           items: [
             {
               type: 'doc',
-              id: 'assessments/feedback'
+              id: 'assessments/feedback',
             },
             {
               type: 'doc',
-              id: 'assessments/expectations'
+              id: 'assessments/expectations',
             },
             {
               type: 'doc',
-              id: 'assessments/api-guide'
-            }
+              id: 'assessments/api-guide',
+            },
           ],
           link: {
             type: 'doc',
-            id: 'assessments/index'
-          }
+            id: 'assessments/index',
+          },
         },
         {
           type: 'doc',

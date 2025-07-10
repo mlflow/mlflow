@@ -49,6 +49,7 @@ Unlike feedback that evaluates what happened, expectations establish what should
     <TabItem value="factual" label="Factual" default>
 
 ### Factual Expectations
+
 For questions with definitive answers:
 
 ```python
@@ -58,7 +59,7 @@ mlflow.log_expectation(
     value="The speed of light in vacuum is 299,792,458 meters per second",
     source=AssessmentSource(
         source_type=AssessmentSourceType.HUMAN,
-        source_id="physics_expert@university.edu"
+        source_id="physics_expert@university.edu",
     ),
 )
 ```
@@ -67,6 +68,7 @@ mlflow.log_expectation(
     <TabItem value="structured" label="Structured">
 
 ### Structured Expectations
+
 For complex outputs with multiple components:
 
 ```python
@@ -77,11 +79,10 @@ mlflow.log_expectation(
         "company": "TechCorp Inc.",
         "sentiment": "positive",
         "key_topics": ["product_launch", "quarterly_earnings", "market_expansion"],
-        "action_required": True
+        "action_required": True,
     },
     source=AssessmentSource(
-        source_type=AssessmentSourceType.HUMAN,
-        source_id="business_analyst@company.com"
+        source_type=AssessmentSourceType.HUMAN, source_id="business_analyst@company.com"
     ),
 )
 ```
@@ -90,6 +91,7 @@ mlflow.log_expectation(
     <TabItem value="behavioral" label="Behavioral">
 
 ### Behavioral Expectations
+
 For defining how the AI should act:
 
 ```python
@@ -100,11 +102,11 @@ mlflow.log_expectation(
         "should_escalate": True,
         "required_elements": ["empathy", "solution_offer", "follow_up"],
         "max_response_length": 150,
-        "tone": "professional_friendly"
+        "tone": "professional_friendly",
     },
     source=AssessmentSource(
         source_type=AssessmentSourceType.HUMAN,
-        source_id="customer_success_lead@company.com"
+        source_id="customer_success_lead@company.com",
     ),
 )
 ```
@@ -113,6 +115,7 @@ mlflow.log_expectation(
     <TabItem value="span_level" label="Span-Level">
 
 ### Span-Level Expectations
+
 For specific operations within your AI pipeline:
 
 ```python
@@ -124,12 +127,13 @@ mlflow.log_expectation(
     value=["policy_doc_2024", "faq_section_3", "user_guide_ch5"],
     source=AssessmentSource(
         source_type=AssessmentSourceType.HUMAN,
-        source_id="information_architect@company.com"
+        source_id="information_architect@company.com",
     ),
 )
 ```
 
     </TabItem>
+
   </Tabs>
 </TabsWrapper>
 
@@ -180,8 +184,7 @@ from mlflow.entities.assessment_source import AssessmentSourceType
 
 # Define your domain expert source
 expert_source = AssessmentSource(
-    source_type=AssessmentSourceType.HUMAN,
-    source_id="domain_expert@company.com"
+    source_type=AssessmentSourceType.HUMAN, source_id="domain_expert@company.com"
 )
 ```
 
@@ -199,9 +202,10 @@ def log_factual_expectation(trace_id, question, correct_answer):
             "question": question,
             "expectation_type": "factual",
             "confidence": "high",
-            "verified_by": "subject_matter_expert"
-        }
+            "verified_by": "subject_matter_expert",
+        },
     )
+
 
 def log_structured_expectation(trace_id, expected_extraction):
     """Log expectation for structured data extraction."""
@@ -213,9 +217,10 @@ def log_structured_expectation(trace_id, expected_extraction):
         metadata={
             "expectation_type": "structured",
             "schema_version": "v1.0",
-            "annotation_guidelines": "company_extraction_standards_v2"
-        }
+            "annotation_guidelines": "company_extraction_standards_v2",
+        },
     )
+
 
 def log_behavioral_expectation(trace_id, expected_behavior):
     """Log expectation for AI behavior patterns."""
@@ -227,8 +232,8 @@ def log_behavioral_expectation(trace_id, expected_behavior):
         metadata={
             "expectation_type": "behavioral",
             "behavior_category": "customer_service",
-            "compliance_requirement": "company_policy_v3"
-        }
+            "compliance_requirement": "company_policy_v3",
+        },
     )
 ```
 
@@ -247,7 +252,7 @@ expected_extraction = {
     "intent": "account_balance_inquiry",
     "account_type": "checking",
     "urgency": "low",
-    "requires_authentication": True
+    "requires_authentication": True,
 }
 log_structured_expectation(trace_id, expected_extraction)
 
@@ -256,7 +261,7 @@ expected_behavior = {
     "should_verify_identity": True,
     "tone": "professional_helpful",
     "should_offer_additional_help": True,
-    "escalation_required": False
+    "escalation_required": False,
 }
 log_behavioral_expectation(trace_id, expected_behavior)
 ```
@@ -279,13 +284,13 @@ def annotate_batch_expectations(annotation_data):
                 value=item["expected_value"],
                 source=AssessmentSource(
                     source_type=AssessmentSourceType.HUMAN,
-                    source_id=item["annotator_id"]
+                    source_id=item["annotator_id"],
                 ),
                 metadata={
                     "batch_id": item["batch_id"],
                     "annotation_session": item["session_id"],
-                    "quality_checked": True
-                }
+                    "quality_checked": True,
+                },
             )
             print(f"✓ Annotated {item['trace_id']}")
         except Exception as e:
@@ -303,16 +308,16 @@ batch_data = [
         "expected_value": "Paris is the capital of France",
         "annotator_id": "expert1@company.com",
         "batch_id": "geography_qa_batch_1",
-        "session_id": "session_2024_01_15"
+        "session_id": "session_2024_01_15",
     },
     {
-        "trace_id": "tr-002", 
+        "trace_id": "tr-002",
         "expectation_name": "expected_answer",
         "expected_value": "The speed of light is 299,792,458 m/s",
         "annotator_id": "expert2@company.com",
         "batch_id": "physics_qa_batch_1",
-        "session_id": "session_2024_01_15"
-    }
+        "session_id": "session_2024_01_15",
+    },
 ]
 ```
 
@@ -348,9 +353,11 @@ annotate_batch_expectations(batch_data)
 ## Best Practices
 
 ### Be Specific and Measurable
+
 Vague expectations lead to inconsistent evaluation. Define clear, specific criteria that can be objectively verified.
 
 ### Document Your Reasoning
+
 Use metadata to explain why an expectation is defined a certain way:
 
 ```python
@@ -360,21 +367,21 @@ mlflow.log_expectation(
     value={
         "primary": "Type 2 Diabetes",
         "risk_factors": ["obesity", "family_history"],
-        "recommended_tests": ["HbA1c", "fasting_glucose"]
+        "recommended_tests": ["HbA1c", "fasting_glucose"],
     },
     metadata={
         "guideline_version": "ADA_2024",
         "confidence": "high",
-        "based_on": "clinical_presentation_and_history"
+        "based_on": "clinical_presentation_and_history",
     },
     source=AssessmentSource(
-        source_type=AssessmentSourceType.HUMAN,
-        source_id="endocrinologist@hospital.org"
+        source_type=AssessmentSourceType.HUMAN, source_id="endocrinologist@hospital.org"
     ),
 )
 ```
 
 ### Consider Multiple Valid Outputs
+
 Some questions have multiple correct answers. Capture this flexibility in your expectations:
 
 ```python
@@ -385,19 +392,19 @@ mlflow.log_expectation(
         "valid_answers": [
             "The capital of the Netherlands is Amsterdam",
             "Amsterdam is the capital of the Netherlands",
-            "The Netherlands' capital is Amsterdam"
+            "The Netherlands' capital is Amsterdam",
         ],
         "must_include": ["Amsterdam", "Netherlands", "capital"],
-        "must_not_include": ["The Hague"]  # Common misconception
+        "must_not_include": ["The Hague"],  # Common misconception
     },
     source=AssessmentSource(
-        source_type=AssessmentSourceType.HUMAN,
-        source_id="geography_teacher@school.edu"
+        source_type=AssessmentSourceType.HUMAN, source_id="geography_teacher@school.edu"
     ),
 )
 ```
 
 ### Maintain Consistency
+
 Use standardized naming and structure across your expectations to enable meaningful analysis and comparison.
 
 ## Integration with Evaluation

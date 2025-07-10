@@ -126,6 +126,7 @@ Implement automated LLM-based evaluation with these steps:
 **1. Set up your evaluation environment:**
 
 ```python
+import json
 import mlflow
 from mlflow.entities import AssessmentSource, AssessmentError
 from mlflow.entities.assessment_source import AssessmentSourceType
@@ -141,14 +142,14 @@ client = openai.OpenAI(api_key="your-api-key")
 def create_evaluation_prompt(user_input, ai_response):
     return f"""
     Evaluate the AI response for helpfulness and accuracy.
-    
+
     User Input: {user_input}
     AI Response: {ai_response}
-    
+
     Rate the response on a scale of 0.0 to 1.0 for:
     1. Helpfulness: How well does it address the user's needs?
     2. Accuracy: Is the information factually correct?
-    
+
     Respond with only a JSON object:
     {{"helpfulness": 0.0-1.0, "accuracy": 0.0-1.0, "rationale": "explanation"}}
     """
@@ -162,17 +163,19 @@ def evaluate_with_llm_judge(trace_id, user_input, ai_response):
         # Get LLM evaluation
         response = client.chat.completions.create(
             model="gpt-4",
-            messages=[{
-                "role": "user", 
-                "content": create_evaluation_prompt(user_input, ai_response)
-            }],
-            temperature=0.0
+            messages=[
+                {
+                    "role": "user",
+                    "content": create_evaluation_prompt(user_input, ai_response),
+                }
+            ],
+            temperature=0.0,
         )
-        
+
         # Parse the evaluation
-        import json
+
         evaluation = json.loads(response.choices[0].message.content)
-        
+
         # Log feedback to MLflow
         mlflow.log_feedback(
             trace_id=trace_id,
@@ -180,23 +183,18 @@ def evaluate_with_llm_judge(trace_id, user_input, ai_response):
             value=evaluation,
             rationale=evaluation.get("rationale", ""),
             source=AssessmentSource(
-                source_type=AssessmentSourceType.LLM_JUDGE,
-                source_id="gpt-4-evaluator"
+                source_type=AssessmentSourceType.LLM_JUDGE, source_id="gpt-4-evaluator"
             ),
         )
-        
+
     except Exception as e:
         # Log evaluation failure
         mlflow.log_feedback(
             trace_id=trace_id,
             name="llm_judge_evaluation",
-            error=AssessmentError(
-                error_code="EVALUATION_FAILED",
-                error_message=str(e)
-            ),
+            error=AssessmentError(error_code="EVALUATION_FAILED", error_message=str(e)),
             source=AssessmentSource(
-                source_type=AssessmentSourceType.LLM_JUDGE,
-                source_id="gpt-4-evaluator"
+                source_type=AssessmentSourceType.LLM_JUDGE, source_id="gpt-4-evaluator"
             ),
         )
 ```
@@ -227,11 +225,13 @@ from mlflow.entities.assessment_source import AssessmentSourceType
 from mlflow.models import make_metric
 
 # Prepare evaluation data
-eval_data = pd.DataFrame({
-    'question': ['What is the capital of France?', 'What is 2+2?'],
-    'trace_id': ['tr-001', 'tr-002'],
-    'ground_truth': ['Paris', '4']
-})
+eval_data = pd.DataFrame(
+    {
+        "question": ["What is the capital of France?", "What is 2+2?"],
+        "trace_id": ["tr-001", "tr-002"],
+        "ground_truth": ["Paris", "4"],
+    }
+)
 ```
 
 **2. Create a custom LLM judge metric:**
@@ -240,35 +240,34 @@ eval_data = pd.DataFrame({
 def llm_judge_metric(predictions, targets, **kwargs):
     """Custom LLM judge for use with mlflow.evaluate()"""
     import openai
-    
+
     client = openai.OpenAI()
     scores = []
-    
+
     for pred, target in zip(predictions, targets):
         prompt = f"""
         Rate the accuracy of this response compared to the ground truth:
         Prediction: {pred}
         Ground Truth: {target}
-        
+
         Respond with only a number from 0.0 to 1.0
         """
-        
+
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.0
+            temperature=0.0,
         )
-        
+
         score = float(response.choices[0].message.content.strip())
         scores.append(score)
-    
+
     return scores
+
 
 # Create the metric
 judge_metric = make_metric(
-    eval_fn=llm_judge_metric,
-    greater_is_better=True,
-    name="llm_judge_accuracy"
+    eval_fn=llm_judge_metric, greater_is_better=True, name="llm_judge_accuracy"
 )
 ```
 
@@ -281,19 +280,19 @@ results = mlflow.evaluate(
     data=eval_data,
     targets="ground_truth",
     model_type="question-answering",
-    extra_metrics=[judge_metric]
+    extra_metrics=[judge_metric],
 )
 
 # Log feedback to traces
 for i, row in eval_data.iterrows():
-    if 'trace_id' in row and pd.notna(row['trace_id']):
+    if "trace_id" in row and pd.notna(row["trace_id"]):
         mlflow.log_feedback(
-            trace_id=row['trace_id'],
+            trace_id=row["trace_id"],
             name="llm_judge_accuracy",
             value=results.metrics[f"llm_judge_accuracy/v1_{i}"],
             source=AssessmentSource(
                 source_type=AssessmentSourceType.LLM_JUDGE,
-                source_id="gpt-4o-mini-evaluator"
+                source_id="gpt-4o-mini-evaluator",
             ),
         )
 ```
@@ -314,28 +313,32 @@ def evaluate_response_compliance(response_text):
         "has_disclaimer": False,
         "appropriate_length": False,
         "contains_prohibited_terms": False,
-        "rationale": []
+        "rationale": [],
     }
-    
+
     # Check for required disclaimer
     if "This is not financial advice" in response_text:
         results["has_disclaimer"] = True
     else:
         results["rationale"].append("Missing required disclaimer")
-    
+
     # Check response length
     if 50 <= len(response_text) <= 500:
         results["appropriate_length"] = True
     else:
-        results["rationale"].append(f"Response length {len(response_text)} outside acceptable range")
-    
+        results["rationale"].append(
+            f"Response length {len(response_text)} outside acceptable range"
+        )
+
     # Check for prohibited terms
     prohibited_terms = ["guaranteed returns", "risk-free", "get rich quick"]
-    found_terms = [term for term in prohibited_terms if term.lower() in response_text.lower()]
+    found_terms = [
+        term for term in prohibited_terms if term.lower() in response_text.lower()
+    ]
     if found_terms:
         results["contains_prohibited_terms"] = True
         results["rationale"].append(f"Contains prohibited terms: {found_terms}")
-    
+
     return results
 ```
 
@@ -345,26 +348,27 @@ def evaluate_response_compliance(response_text):
 def log_compliance_check(trace_id, response_text):
     # Run compliance evaluation
     evaluation = evaluate_response_compliance(response_text)
-    
+
     # Calculate overall compliance score
-    compliance_score = sum([
-        evaluation["has_disclaimer"],
-        evaluation["appropriate_length"],
-        not evaluation["contains_prohibited_terms"]
-    ]) / 3
-    
+    compliance_score = (
+        sum(
+            [
+                evaluation["has_disclaimer"],
+                evaluation["appropriate_length"],
+                not evaluation["contains_prohibited_terms"],
+            ]
+        )
+        / 3
+    )
+
     # Log the feedback
     mlflow.log_feedback(
         trace_id=trace_id,
         name="compliance_check",
-        value={
-            "overall_score": compliance_score,
-            "details": evaluation
-        },
+        value={"overall_score": compliance_score, "details": evaluation},
         rationale="; ".join(evaluation["rationale"]) or "All compliance checks passed",
         source=AssessmentSource(
-            source_type=AssessmentSourceType.CODE,
-            source_id="compliance_validator_v2.1"
+            source_type=AssessmentSourceType.CODE, source_id="compliance_validator_v2.1"
         ),
     )
 ```
@@ -376,7 +380,7 @@ def log_compliance_check(trace_id, response_text):
 with mlflow.start_span(name="financial_advice") as span:
     ai_response = your_ai_model.generate(user_question)
     trace_id = span.trace_id
-    
+
     # Run automated compliance check
     log_compliance_check(trace_id, ai_response)
 ```
@@ -387,9 +391,11 @@ with mlflow.start_span(name="financial_advice") as span:
 ## Feedback Workflows
 
 ### Direct Evaluation
+
 The simplest workflow: feedback is added directly to traces as they're generated. Each source evaluates independently based on its strengths.
 
 ### Human-in-the-Loop Override
+
 When automated feedback is incorrect, humans can override it while preserving the original for analysis:
 
 ```python
@@ -400,8 +406,7 @@ original = mlflow.log_feedback(
     value=False,
     rationale="Potentially unsafe medical advice detected",
     source=AssessmentSource(
-        source_type=AssessmentSourceType.LLM_JUDGE,
-        source_id="safety_classifier"
+        source_type=AssessmentSourceType.LLM_JUDGE, source_id="safety_classifier"
     ),
 )
 
@@ -413,7 +418,7 @@ mlflow.override_feedback(
     rationale="General wellness advice is appropriate and safe",
     source=AssessmentSource(
         source_type=AssessmentSourceType.HUMAN,
-        source_id="medical_reviewer@hospital.com"
+        source_id="medical_reviewer@hospital.com",
     ),
 )
 ```
