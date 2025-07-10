@@ -32,10 +32,10 @@ _disable_telemetry_tracking_var = ContextVar("disable_telemetry_tracking", defau
 
 
 @contextmanager
-def _avoid_telemetry_tracking():
+def _disable_telemetry():
     """
     Context manager to disable telemetry tracking in the following scenarios:
-    1. Circular API calls: When MLflow invokes Databricks Agents APIs, which in turn call back
+    1. Circular API calls: When MLflow invokes `databricks-agents` APIs, which in turn call back
         into MLflow APIs. This prevents telemetry from tracking internal, nested invocations.
     2. Code-based model logging: During model logging, the model file may be executed directly,
         potentially triggering additional telemetry logging inside model file. This context
