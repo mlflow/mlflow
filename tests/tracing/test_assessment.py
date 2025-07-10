@@ -496,10 +496,9 @@ async def test_log_assessment_on_in_progress_trace_async():
     trace = mlflow.get_trace(mlflow.get_last_active_trace_id())
     trace_info = trace.info
     assert len(trace_info.assessments) == 2
-    assert trace_info.assessments[0].name == "feedback"
-    assert trace_info.assessments[0].feedback.value == 1.0
-    assert trace_info.assessments[1].name == "expectation"
-    assert trace_info.assessments[1].expectation.value == "MLflow"
+    assessments = {a.name: a for a in trace_info.assessments}
+    assert assessments["feedback"].feedback.value == 1.0
+    assert assessments["expectation"].expectation.value == "MLflow"
 
 
 def test_log_assessment_on_in_progress_with_span_id():
