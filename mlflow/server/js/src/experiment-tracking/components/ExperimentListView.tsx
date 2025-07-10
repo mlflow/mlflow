@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Theme } from '@emotion/react';
+import { Interpolation, Theme } from '@emotion/react';
 import {
   Button,
   TableFilterLayout,
@@ -11,10 +11,6 @@ import {
   Popover,
   FilterIcon,
   ChevronDownIcon,
-  RHFControlledComponents,
-  NoIcon,
-  CloseIcon,
-  PlusIcon,
 } from '@databricks/design-system';
 import 'react-virtualized/styles.css';
 import Routes from '../routes';
@@ -28,11 +24,15 @@ import { useNavigate } from '../../common/utils/RoutingUtils';
 import { BulkDeleteExperimentModal } from './modals/BulkDeleteExperimentModal';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
 import { useUpdateExperimentTags } from './experiment-page/hooks/useUpdateExperimentTags';
-import { useFieldArray, useForm } from 'react-hook-form';
 import { useSearchFilter } from './experiment-page/hooks/useSearchFilter';
+import { TagFilter, useTagsFilter } from './experiment-page/hooks/useTagsFilter';
+import { ExperimentListViewTagsFilter } from './experiment-page/components/ExperimentListViewTagsFilter';
 
 export const ExperimentListView = () => {
   const [searchFilter, setSearchFilter] = useSearchFilter();
+  const [tagsFilter, setTagsFilter] = useTagsFilter();
+  const [isTagsFilterOpen, setIsTagsFilterOpen] = useState(false);
+
   const {
     data: experiments,
     isLoading,
@@ -44,7 +44,7 @@ export const ExperimentListView = () => {
     pageSizeSelect,
     sorting,
     setSorting,
-  } = useExperimentListQuery({ searchFilter });
+  } = useExperimentListQuery({ searchFilter, tagsFilter });
   const invalidateExperimentList = useInvalidateExperimentList();
 
   const { EditTagsModal, showEditExperimentTagsModal } = useUpdateExperimentTags({
@@ -167,18 +167,29 @@ export const ExperimentListView = () => {
             onClear={handleSearchClear}
             showSearchButton
           />
-          <Popover.Root componentId="mlflow.experiment_list_view.tag_filter">
+          <Popover.Root
+            componentId="mlflow.experiment_list_view.tag_filter"
+            open={isTagsFilterOpen}
+            onOpenChange={setIsTagsFilterOpen}
+          >
             <Popover.Trigger asChild>
               <Button
                 componentId="mlflow.experiment_list_view.tag_filter.trigger"
                 icon={<FilterIcon />}
                 endIcon={<ChevronDownIcon />}
+                type={tagsFilter.length === 0 ? undefined : 'primary'}
               >
                 Tag filter
               </Button>
             </Popover.Trigger>
             <Popover.Content>
-              <TagFilters />
+              <ExperimentListViewTagsFilter
+                tagsFilter={tagsFilter}
+                onSave={(tagsFilter: TagFilter[]) => {
+                  setTagsFilter(tagsFilter);
+                  setIsTagsFilterOpen(false);
+                }}
+              />
             </Popover.Content>
           </Popover.Root>
         </TableFilterLayout>
@@ -219,76 +230,3 @@ export const ExperimentListView = () => {
 };
 
 export default ExperimentListView;
-
-const EMPTY_TAG = { key: '', value: '', operator: 'IS' } as const;
-const OPERATORS = ['IS', 'IS NOT', 'CONTAINS'] as const;
-type Operator = typeof OPERATORS[number];
-type TagFilter = { key: string; value: string; operator: Operator };
-
-function TagFilters() {
-  const { control, handleSubmit } = useForm<{ tagFilters: TagFilter[] }>({
-    defaultValues: { tagFilters: [EMPTY_TAG] },
-  });
-  const { fields, append, remove } = useFieldArray({ control, name: 'tagFilters' });
-  const { theme } = useDesignSystemTheme();
-  const { formatMessage } = useIntl();
-
-  return (
-    <form
-      onSubmit={handleSubmit((data) => console.log(data))}
-      css={{ display: 'flex', flexDirection: 'column', alignItems: 'end', padding: theme.spacing.md }}
-    >
-      <fieldset css={{ display: 'flex', flexDirection: 'column', alignItems: 'start', gap: theme.spacing.sm }}>
-        {fields.map((field, index) => (
-          <div key={field.id} css={{ display: 'flex', gap: theme.spacing.sm }}>
-            <RHFControlledComponents.Input
-              componentId=""
-              name={`tagFilters.${index}.key`}
-              control={control}
-              // aria-label={
-              //   valueRequired
-              //     ? intl.formatMessage({
-              //         defaultMessage: 'Value',
-              //         description: 'Key-value tag editor modal > Value input label (required)',
-              //       })
-              //     : intl.formatMessage({
-              //         defaultMessage: 'Value (optional)',
-              //         description: 'Key-value tag editor modal > Value input label',
-              //       })
-              // }
-              // placeholder={intl.formatMessage({
-              //   defaultMessage: 'Type a value',
-              //   description: 'Key-value tag editor modal > Value input placeholder',
-              // })}
-            />
-            <RHFControlledComponents.LegacySelect
-              name={`tagFilters.${index}.operator`}
-              control={control}
-              options={OPERATORS.map((op) => ({ key: op, value: op }))}
-              css={{ minWidth: '14ch' }}
-            />
-            <RHFControlledComponents.Input componentId="" name={`tagFilters.${index}.value`} control={control} />
-            <Button
-              componentId=""
-              type="tertiary"
-              onClick={() => remove(index)}
-              disabled={fields.length === 1}
-              aria-label={formatMessage({
-                defaultMessage: 'Remove filter',
-                description: 'Button to remove a filter in the tags filter popover for experiments page search by tags',
-              })}
-            >
-              <CloseIcon />
-            </Button>
-          </div>
-        ))}
-        <Button componentId="" onClick={() => append(EMPTY_TAG)} icon={<PlusIcon />}>
-          Add filter
-        </Button>
-      </fieldset>
-      <Button htmlType="submit" componentId="" type="primary">
-        Apply filters
-      </Button>
-    </form>
-  );
-}

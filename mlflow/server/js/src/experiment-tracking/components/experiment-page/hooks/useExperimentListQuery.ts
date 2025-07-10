@@ -5,6 +5,7 @@ import { SearchExperimentsApiResponse } from '../../../types';
 import { useLocalStorage } from '@mlflow/mlflow/src/shared/web-shared/hooks/useLocalStorage';
 import { CursorPaginationProps } from '@databricks/design-system';
 import { SortingState } from '@tanstack/react-table';
+import { TagFilter } from './useTagsFilter';
 
 const STORE_KEY = {
   PAGE_SIZE: 'experiments_page.page_size',
@@ -16,7 +17,7 @@ const ExperimentListQueryKeyHeader = 'experiment_list';
 
 type ExperimentListQueryKey = [
   typeof ExperimentListQueryKeyHeader,
-  { searchFilter?: string; pageToken?: string; pageSize?: number; sorting?: SortingState },
+  { searchFilter?: string; tagsFilter?: TagFilter[]; pageToken?: string; pageSize?: number; sorting?: SortingState },
 ];
 
 export const useInvalidateExperimentList = () => {
@@ -26,17 +27,45 @@ export const useInvalidateExperimentList = () => {
   };
 };
 
+function tagFilterToSql(tagFilter: TagFilter) {
+  switch (tagFilter.operator) {
+    case 'IS':
+      return `tags.\`${tagFilter.key}\` = '${tagFilter.value}'`;
+    case 'IS NOT':
+      return `tags.\`${tagFilter.key}\` != '${tagFilter.value}'`;
+    case 'CONTAINS':
+      return `tags.\`${tagFilter.key}\` ILIKE '${tagFilter.value}'`;
+  }
+}
+
+function getFilters({ searchFilter, tagsFilter }: Pick<ExperimentListQueryKey['1'], 'searchFilter' | 'tagsFilter'>) {
+  const filters = [];
+
+  if (searchFilter) {
+    filters.push(`name ILIKE '%${searchFilter}%'`);
+  }
+
+  for (const tagFilter of tagsFilter ?? []) {
+    filters.push(tagFilterToSql(tagFilter));
+  }
+
+  if (filters.length > 0) {
+    return ['filter', filters.join(' AND ')];
+  } else {
+    return undefined;
+  }
+}
+
 const queryFn = ({ queryKey }: QueryFunctionContext<ExperimentListQueryKey>) => {
-  const [, { searchFilter, pageToken, pageSize, sorting }] = queryKey;
+  const [, { searchFilter, tagsFilter, pageToken, pageSize, sorting }] = queryKey;
 
   // NOTE: REST API docs are not detailed enough, see: mlflow/store/tracking/abstract_store.py#search_experiments
   const orderBy = sorting?.map((column) => ['order_by', `${column.id} ${column.desc ? 'DESC' : 'ASC'}`]) ?? [];
 
-  const data = [['max_results', String(pageSize)], ...orderBy];
+  const data: (string[] | undefined)[] = [['max_results', String(pageSize)], ...orderBy];
 
-  if (searchFilter) {
-    data.push(['filter', `name ILIKE '%${searchFilter}%'`]);
-  }
+  // NOTE: undefined values are fine, they're filtered out by `getBigIntJson` inside `MlflowService`
+  data.push(getFilters({ searchFilter, tagsFilter }));
 
   if (pageToken) {
     data.push(['page_token', pageToken]);
@@ -45,7 +74,10 @@ const queryFn = ({ queryKey }: QueryFunctionContext<ExperimentListQueryKey>) => 
   return MlflowService.searchExperiments(data);
 };
 
-export const useExperimentListQuery = ({ searchFilter }: { searchFilter?: string } = {}) => {
+export const useExperimentListQuery = ({
+  searchFilter,
+  tagsFilter,
+}: { searchFilter?: string; tagsFilter?: TagFilter[] } = {}) => {
   const previousPageTokens = useRef<(string | undefined)[]>([]);
 
   const [currentPageToken, setCurrentPageToken] = useState<string | undefined>(undefined);
@@ -76,7 +108,7 @@ export const useExperimentListQuery = ({ searchFilter }: { searchFilter?: string
     Error,
     SearchExperimentsApiResponse,
     ExperimentListQueryKey
-  >([ExperimentListQueryKeyHeader, { searchFilter, pageToken: currentPageToken, pageSize, sorting }], {
+  >([ExperimentListQueryKeyHeader, { searchFilter, tagsFilter, pageToken: currentPageToken, pageSize, sorting }], {
     queryFn,
     retry: false,
   });
