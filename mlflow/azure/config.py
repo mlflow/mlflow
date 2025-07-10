@@ -85,7 +85,10 @@ class AzureAuthConfig:
         )
 
         # Additional environment variable checks
-        if os.getenv("MLFLOW_POSTGRES_USE_MANAGED_IDENTITY", "false").lower() == "true":
+        # Only override auth method if not explicitly set
+        if (os.getenv("MLFLOW_POSTGRES_USE_MANAGED_IDENTITY", "false").lower() == "true" and 
+            auth_method is None and 
+            os.getenv("MLFLOW_AZURE_AUTH_METHOD") is None):
             self.auth_enabled = True
             self.auth_method = AuthMethod.MANAGED_IDENTITY
 
