@@ -84,6 +84,7 @@ class DatabricksLoggedModelArtifactRepository(ArtifactRepository):
 
     def _download_file(self, remote_file_path: str, local_path: str) -> None:
         try:
+            raise Exception("Simulated failure for testing fallback")  # Simulate failure
             self.databricks_sdk_repo._download_file(remote_file_path, local_path)
         except Exception as e:
             _logger.debug(
