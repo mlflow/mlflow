@@ -39,6 +39,7 @@ from mlflow.entities.multipart_upload import MultipartUploadPart
 from mlflow.entities.trace_info import TraceInfo
 from mlflow.entities.trace_info_v2 import TraceInfoV2
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.entities.webhook import WebhookEvent, WebhookStatus
 from mlflow.environment_variables import (
     MLFLOW_CREATE_MODEL_VERSION_SOURCE_VALIDATION_REGEX,
     MLFLOW_DEPLOYMENTS_TARGET,
@@ -137,6 +138,14 @@ from mlflow.protos.service_pb2 import (
     UpdateRun,
 )
 from mlflow.protos.service_pb2 import Trace as ProtoTrace
+from mlflow.protos.webhooks_pb2 import (
+    CreateWebhook,
+    DeleteWebhook,
+    GetWebhook,
+    ListWebhooks,
+    UpdateWebhook,
+    WebhookService,
+)
 from mlflow.server.validation import _validate_content_type
 from mlflow.store.artifact.artifact_repo import MultipartUploadMixin
 from mlflow.store.artifact.artifact_repository_registry import get_artifact_repository
@@ -2288,6 +2297,102 @@ def _get_model_version_by_alias():
     return _wrap_response(response_message)
 
 
+# Webhook APIs
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _create_webhook():
+    request_message = _get_request_message(
+        CreateWebhook(),
+        schema={
+            "name": [_assert_string, _assert_required],
+            "url": [_assert_string, _assert_required],
+            "events": [_assert_array, _assert_required],
+            "description": [_assert_string],
+            "secret": [_assert_string],
+            "status": [_assert_string],
+        },
+    )
+
+    webhook = _get_model_registry_store().create_webhook(
+        name=request_message.name,
+        url=request_message.url,
+        events=[WebhookEvent.from_proto(e) for e in request_message.events],
+        description=request_message.description,
+        secret=request_message.secret,
+        status=WebhookStatus.from_proto(request_message.status) if request_message.status else None,
+    )
+    response_message = CreateWebhook.Response(webhook=webhook.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _list_webhooks():
+    request_message = _get_request_message(
+        ListWebhooks(),
+        schema={
+            "max_results": [_assert_intlike],
+            "page_token": [_assert_string],
+        },
+    )
+    webhooks, next_page_token = _get_model_registry_store().list_webhooks(
+        max_results=request_message.max_results,
+        page_token=request_message.page_token,
+    )
+    response_message = ListWebhooks.Response(
+        webhooks=[w.to_proto() for w in webhooks],
+        next_page_token=next_page_token,
+    )
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _get_webhook(webhook_id: str):
+    webhook = _get_model_registry_store().get_webhook(webhook_id=webhook_id)
+    response_message = GetWebhook.Response(webhook=webhook.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _update_webhook(webhook_id: str):
+    request_message = _get_request_message(
+        UpdateWebhook(),
+        schema={
+            "name": [_assert_string],
+            "description": [_assert_string],
+            "url": [_assert_string],
+            "events": [_assert_array],
+            "secret": [_assert_string],
+            "status": [_assert_string],
+        },
+    )
+    webhook = _get_model_registry_store().update_webhook(
+        webhook_id=webhook_id,
+        name=request_message.name or None,
+        description=request_message.description or None,
+        url=request_message.url or None,
+        events=(
+            [WebhookEvent.from_proto(e) for e in request_message.events]
+            if request_message.events
+            else None
+        ),
+        secret=request_message.secret or None,
+        status=WebhookStatus.from_proto(request_message.status) if request_message.status else None,
+    )
+    response_message = UpdateWebhook.Response(webhook=webhook.to_proto())
+    return _wrap_response(response_message)
+
+
+@catch_mlflow_exception
+@_disable_if_artifacts_only
+def _delete_webhook(webhook_id: str):
+    _get_model_registry_store().delete_webhook(webhook_id=webhook_id)
+    response_message = DeleteWebhook.Response()
+    return _wrap_response(response_message)
+
+
 # MLflow Artifacts APIs
 
 
@@ -3084,6 +3189,7 @@ def get_endpoints(get_handler=get_handler):
         get_service_endpoints(MlflowService, get_handler)
         + get_service_endpoints(ModelRegistryService, get_handler)
         + get_service_endpoints(MlflowArtifactsService, get_handler)
+        + get_service_endpoints(WebhookService, get_handler)
         + [(_add_static_prefix("/graphql"), _graphql, ["GET", "POST"])]
     )
 
@@ -3138,6 +3244,12 @@ HANDLERS = {
     SetRegisteredModelAlias: _set_registered_model_alias,
     DeleteRegisteredModelAlias: _delete_registered_model_alias,
     GetModelVersionByAlias: _get_model_version_by_alias,
+    # Webhook APIs
+    CreateWebhook: _create_webhook,
+    ListWebhooks: _list_webhooks,
+    GetWebhook: _get_webhook,
+    UpdateWebhook: _update_webhook,
+    DeleteWebhook: _delete_webhook,
     # MLflow Artifacts APIs
     DownloadArtifact: _download_artifact,
     UploadArtifact: _upload_artifact,
