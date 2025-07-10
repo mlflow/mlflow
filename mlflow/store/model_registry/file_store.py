@@ -660,6 +660,7 @@ class FileStore(AbstractStore):
             created in the backend.
 
         """
+        from mlflow.tracking.client import MlflowClient
 
         def next_version(registered_model_name):
             path = self._get_registered_model_path(registered_model_name)
@@ -676,8 +677,6 @@ class FileStore(AbstractStore):
         if urllib.parse.urlparse(source).scheme == "models":
             parsed_model_uri = _parse_model_uri(source)
             try:
-                from mlflow.tracking.client import MlflowClient
-
                 if parsed_model_uri.model_id is not None:
                     # TODO: Propagate tracking URI to file store directly, rather than relying on
                     # global URI (individual MlflowClient instances may have different tracking
@@ -695,7 +694,7 @@ class FileStore(AbstractStore):
                     f"Error: {e}"
                 ) from e
 
-        if run_id is None and model_id is not None:
+        if not run_id and model_id is not None:
             model = MlflowClient().get_logged_model(model_id)
             run_id = model.source_run_id
 

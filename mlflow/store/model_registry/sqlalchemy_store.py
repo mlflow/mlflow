@@ -770,7 +770,7 @@ class SqlAlchemyStore(AbstractStore):
                     f"Error: {e}"
                 ) from e
 
-        if run_id is None and model_id is not None:
+        if not run_id and model_id is not None:
             model = MlflowClient().get_logged_model(model_id)
             run_id = model.source_run_id
 
