@@ -29,23 +29,6 @@ module.exports = {
    */
   create(context) {
     /**
-     * Checks if a path is a raw static asset path that should use useBaseUrl.
-     *
-     * @param {string} path - The path to check
-     * @returns {boolean} True if the path should use useBaseUrl
-     */
-    function isRawStaticPath(path) {
-      // Check if path starts with / and points to common static directories
-      return (
-        path.startsWith('/') &&
-        (path.startsWith('/images/') ||
-          path.startsWith('/img/') ||
-          path.startsWith('/assets/') ||
-          path.startsWith('/static/'))
-      );
-    }
-
-    /**
      * Extracts the string value from various node types.
      *
      * @param {import('estree').Node} node - The node to extract value from
@@ -96,7 +79,7 @@ module.exports = {
         }
 
         // Check if it's a raw static path
-        if (srcValue && isRawStaticPath(srcValue)) {
+        if (srcValue && srcValue.startsWith('/')) {
           context.report({
             node: srcAttr,
             messageId: 'rawImagePath',
