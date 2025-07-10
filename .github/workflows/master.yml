@@ -80,7 +80,8 @@ jobs:
           source .venv/bin/activate
           source ./dev/install-common-deps.sh --ml
           # transformers doesn't support Keras 3 yet. tf-keras needs to be installed as a workaround.
-          pip install tf-keras
+          # datasets 4.0.0 breaks toxicity metric: https://github.com/mlflow/mlflow/actions/runs/16183802228/job/45689474860?pr=16611
+          pip install tf-keras 'datasets<4.0.0'
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Import check
@@ -290,7 +291,8 @@ jobs:
       - name: Install dependencies
         run: |
           source ./dev/install-common-deps.sh
-          pip install pyspark torch transformers langchain langchain-experimental '.[genai]' 'shap<0.47.0' lightgbm xgboost
+          # datasets 4.0.0 breaks toxicity metric: https://github.com/mlflow/mlflow/actions/runs/16184266959/job/45689324793?pr=16622#step:10:357
+          pip install pyspark torch transformers langchain langchain-experimental '.[genai]' 'shap<0.47.0' lightgbm xgboost 'datasets<4.0.0'
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Run tests
@@ -453,6 +455,8 @@ jobs:
           pip install -r requirements/test-requirements.txt
           # transformers doesn't support Keras 3 yet. tf-keras needs to be installed as a workaround.
           pip install tf-keras
+          # datasets 4.0.0 breaks toxicity metric: https://github.com/mlflow/mlflow/actions/runs/16183802228/job/45689474852?pr=16611
+          pip install 'datasets<4.0.0'
       - uses: ./.github/actions/show-versions
       - uses: ./.github/actions/pipdeptree
       - name: Download Hadoop winutils for Spark
