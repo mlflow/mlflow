@@ -9,7 +9,7 @@ from mlflow.protos.databricks_trace_server_pb2 import TraceDestination as ProtoT
 
 @dataclass
 class TraceArchiveConfiguration(_MlflowObject):
-    """Information about where traces are stored/archived.
+    """Information about where traces are stored/archived in Databricks.
 
     Args:
         experiment_id: The ID of the MLflow experiment where traces are archived.
