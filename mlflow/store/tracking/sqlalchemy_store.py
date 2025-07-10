@@ -80,7 +80,7 @@ from mlflow.store.tracking.dbmodels.models import (
     SqlTraceMetadata,
     SqlTraceTag,
 )
-from mlflow.tracing.utils import generate_assessment_id, generate_request_id_v2
+from mlflow.tracing.utils import generate_request_id_v2
 from mlflow.tracking.fluent import _get_experiment_id
 from mlflow.utils.file_utils import local_file_uri_to_path, mkdir
 from mlflow.utils.mlflow_tags import (
@@ -2198,6 +2198,10 @@ class SqlAlchemyStore(AbstractStore):
                 SqlTraceMetadata(request_id=trace_id, key=k, value=v)
                 for k, v in trace_info.trace_metadata.items()
             ]
+            sql_trace_info.assessments = [
+                SqlAssessments.from_mlflow_entity(a) for a in trace_info.assessments
+            ]
+
             session.add(sql_trace_info)
             return sql_trace_info.to_mlflow_entity()
 
@@ -2408,69 +2412,24 @@ class SqlAlchemyStore(AbstractStore):
 
         with self.ManagedSessionMaker() as session:
             self._get_sql_trace_info(session, assessment.trace_id)
+            sql_assessment = SqlAssessments.from_mlflow_entity(assessment)
 
-            assessment_id = generate_assessment_id()
-            creation_timestamp = get_current_time_millis()
-
-            assessment.assessment_id = assessment_id
-            assessment.create_time_ms = creation_timestamp
-            assessment.last_update_time_ms = creation_timestamp
-            assessment.valid = True
-
-            if assessment.overrides:
+            if sql_assessment.overrides:
                 update_count = (
                     session.query(SqlAssessments)
                     .filter(
-                        SqlAssessments.trace_id == assessment.trace_id,
-                        SqlAssessments.assessment_id == assessment.overrides,
+                        SqlAssessments.trace_id == sql_assessment.trace_id,
+                        SqlAssessments.assessment_id == sql_assessment.overrides,
                     )
                     .update({"valid": False})
                 )
 
                 if update_count == 0:
                     raise MlflowException(
-                        f"Assessment with ID '{assessment.overrides}' not found "
+                        f"Assessment with ID '{sql_assessment.overrides}' not found "
                         "for trace '{trace_id}'",
                         RESOURCE_DOES_NOT_EXIST,
                     )
-
-            if assessment.feedback is not None:
-                assessment_type = "feedback"
-                value_json = json.dumps(assessment.feedback.value)
-                error_json = (
-                    json.dumps(assessment.feedback.error.to_dictionary())
-                    if assessment.feedback.error
-                    else None
-                )
-            elif assessment.expectation is not None:
-                assessment_type = "expectation"
-                value_json = json.dumps(assessment.expectation.value)
-                error_json = None
-            else:
-                raise MlflowException.invalid_parameter_value(
-                    "Assessment must have either feedback or expectation value"
-                )
-
-            metadata_json = json.dumps(assessment.metadata) if assessment.metadata else None
-
-            sql_assessment = SqlAssessments(
-                assessment_id=assessment_id,
-                trace_id=assessment.trace_id,
-                name=assessment.name,
-                assessment_type=assessment_type,
-                value=value_json,
-                error=error_json,
-                created_timestamp=creation_timestamp,
-                last_updated_timestamp=creation_timestamp,
-                source_type=assessment.source.source_type,
-                source_id=assessment.source.source_id,
-                run_id=assessment.run_id,
-                span_id=assessment.span_id,
-                rationale=assessment.rationale,
-                overrides=assessment.overrides,
-                valid=True,
-                assessment_metadata=metadata_json,
-            )
 
             session.add(sql_assessment)
             return assessment

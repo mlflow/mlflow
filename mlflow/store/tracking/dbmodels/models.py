@@ -45,7 +45,9 @@ from mlflow.entities.logged_model_status import LoggedModelStatus
 from mlflow.entities.logged_model_tag import LoggedModelTag
 from mlflow.entities.trace_location import TraceLocation
 from mlflow.entities.trace_state import TraceState
+from mlflow.exceptions import MlflowException
 from mlflow.store.db.base_sql_model import Base
+from mlflow.tracing.utils import generate_assessment_id
 from mlflow.utils.mlflow_tags import _get_run_name_from_tags
 from mlflow.utils.time import get_current_time_millis
 
@@ -721,7 +723,7 @@ class SqlTraceInfo(Base):
             client_request_id=self.client_request_id,
             request_preview=self.request_preview,
             response_preview=self.response_preview,
-            assessments=[],  # Implement this once we support assessments in OSS
+            assessments=[a.to_mlflow_entity() for a in self.assessments],
         )
 
 
@@ -927,6 +929,51 @@ class SqlAssessments(Base):
         assessment.assessment_id = self.assessment_id
 
         return assessment
+
+    @classmethod
+    def from_mlflow_entity(cls, assessment: Assessment):
+        if assessment.assessment_id is None:
+            assessment.assessment_id = generate_assessment_id()
+
+        current_timestamp = get_current_time_millis()
+
+        if assessment.feedback is not None:
+            assessment_type = "feedback"
+            value_json = json.dumps(assessment.feedback.value)
+            error_json = (
+                json.dumps(assessment.feedback.error.to_dictionary())
+                if assessment.feedback.error
+                else None
+            )
+        elif assessment.expectation is not None:
+            assessment_type = "expectation"
+            value_json = json.dumps(assessment.expectation.value)
+            error_json = None
+        else:
+            raise MlflowException.invalid_parameter_value(
+                "Assessment must have either feedback or expectation value"
+            )
+
+        metadata_json = json.dumps(assessment.metadata) if assessment.metadata else None
+
+        return SqlAssessments(
+            assessment_id=assessment.assessment_id,
+            trace_id=assessment.trace_id,
+            name=assessment.name,
+            assessment_type=assessment_type,
+            value=value_json,
+            error=error_json,
+            created_timestamp=assessment.create_time_ms or current_timestamp,
+            last_updated_timestamp=assessment.last_update_time_ms or current_timestamp,
+            source_type=assessment.source.source_type,
+            source_id=assessment.source.source_id,
+            run_id=assessment.run_id,
+            span_id=assessment.span_id,
+            rationale=assessment.rationale,
+            overrides=assessment.overrides,
+            valid=True,
+            assessment_metadata=metadata_json,
+        )
 
     def __repr__(self):
         return f"<SqlAssessments({self.assessment_id}, {self.name}, {self.assessment_type})>"
