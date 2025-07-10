@@ -19,6 +19,7 @@ from mlflow.telemetry.constant import (
 from mlflow.telemetry.schemas import APIRecord, TelemetryInfo
 from mlflow.telemetry.utils import is_telemetry_disabled
 from mlflow.utils.logging_utils import suppress_logs_in_thread
+from mlflow.version import IS_TRACING_SDK_ONLY
 
 _logger = logging.getLogger(__name__)
 
@@ -210,7 +211,8 @@ class TelemetryClient:
     # NB: this function should only be called inside consumer thread, to
     # avoid emitting any logs to the main thread
     def _get_telemetry_info(self) -> dict[str, str]:
-        self._update_backend_store()
+        if not IS_TRACING_SDK_ONLY:
+            self._update_backend_store()
         return self.info
 
     def _wait_for_consumer_threads(self, terminate: bool = False) -> None:
