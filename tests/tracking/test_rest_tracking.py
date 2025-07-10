@@ -70,6 +70,7 @@ from mlflow.utils.mlflow_tags import (
 from mlflow.utils.os import is_windows
 from mlflow.utils.proto_json_utils import message_to_json
 from mlflow.utils.time import get_current_time_millis
+
 from tests.helper_functions import get_safe_port
 from tests.integration.utils import invoke_cli_runner
 from tests.tracking.integration_test_utils import (
@@ -87,9 +88,9 @@ def mlflow_client(request, tmp_path):
         backend_uri = tmp_path.joinpath("file").as_uri()
     elif request.param == "sqlalchemy":
         path = tmp_path.joinpath("sqlalchemy.db").as_uri()
-        backend_uri = (
-            "sqlite://" if sys.platform == "win32" else "sqlite:////"
-        ) + path[len("file://") :]
+        backend_uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[
+            len("file://") :
+        ]
 
     with _init_server(backend_uri, root_artifact_uri=tmp_path.as_uri()) as url:
         yield MlflowClient(url)
@@ -118,9 +119,7 @@ def test_create_get_search_experiment(mlflow_client):
     exp = mlflow_client.get_experiment(experiment_id)
     assert exp.name == "My Experiment"
     if is_windows():
-        assert (
-            exp.artifact_location == pathlib.Path.cwd().joinpath("my_location").as_uri()
-        )
+        assert exp.artifact_location == pathlib.Path.cwd().joinpath("my_location").as_uri()
     else:
         assert exp.artifact_location == str(pathlib.Path.cwd().joinpath("my_location"))
     assert len(exp.tags) == 2
@@ -131,16 +130,13 @@ def test_create_get_search_experiment(mlflow_client):
     assert {e.name for e in experiments} == {"My Experiment", "Default"}
     mlflow_client.delete_experiment(experiment_id)
     assert {e.name for e in mlflow_client.search_experiments()} == {"Default"}
-    assert {
-        e.name for e in mlflow_client.search_experiments(view_type=ViewType.ACTIVE_ONLY)
-    } == {"Default"}
-    assert {
-        e.name
-        for e in mlflow_client.search_experiments(view_type=ViewType.DELETED_ONLY)
-    } == {"My Experiment"}
-    assert {
-        e.name for e in mlflow_client.search_experiments(view_type=ViewType.ALL)
-    } == {
+    assert {e.name for e in mlflow_client.search_experiments(view_type=ViewType.ACTIVE_ONLY)} == {
+        "Default"
+    }
+    assert {e.name for e in mlflow_client.search_experiments(view_type=ViewType.DELETED_ONLY)} == {
+        "My Experiment"
+    }
+    assert {e.name for e in mlflow_client.search_experiments(view_type=ViewType.ALL)} == {
         "My Experiment",
         "Default",
     }
@@ -148,9 +144,7 @@ def test_create_get_search_experiment(mlflow_client):
     assert {e.name for e in active_exps_paginated} == {"Default"}
     assert active_exps_paginated.token is None
 
-    all_exps_paginated = mlflow_client.search_experiments(
-        max_results=1, view_type=ViewType.ALL
-    )
+    all_exps_paginated = mlflow_client.search_experiments(max_results=1, view_type=ViewType.ALL)
     first_page_names = {e.name for e in all_exps_paginated}
     all_exps_second_page = mlflow_client.search_experiments(
         max_results=1, view_type=ViewType.ALL, page_token=all_exps_paginated.token
@@ -238,9 +232,7 @@ def test_rename_experiment_cli(mlflow_client, cli_env):
     invoke_cli_runner(
         mlflow.experiments.commands, ["create", "-n", bad_experiment_name], env=cli_env
     )
-    experiment_id = mlflow_client.get_experiment_by_name(
-        bad_experiment_name
-    ).experiment_id
+    experiment_id = mlflow_client.get_experiment_by_name(bad_experiment_name).experiment_id
     assert mlflow_client.get_experiment(experiment_id).name == bad_experiment_name
     invoke_cli_runner(
         mlflow.experiments.commands,
@@ -293,9 +285,7 @@ def test_create_run_all_args(mlflow_client, parent_run_id_kwarg):
             assert tag in run.data.tags
         assert run.data.tags.get(MLFLOW_USER) == user
         assert run.data.tags.get(MLFLOW_PARENT_RUN_ID) == parent_run_id_kwarg or "7"
-        assert [run.info for run in mlflow_client.search_runs([experiment_id])] == [
-            run.info
-        ]
+        assert [run.info for run in mlflow_client.search_runs([experiment_id])] == [run.info]
 
 
 def test_create_run_defaults(mlflow_client):
@@ -316,9 +306,7 @@ def test_log_metrics_params_tags(mlflow_client):
     mlflow_client.log_metric(run_id, key="nan_metric", value=float("nan"))
     mlflow_client.log_metric(run_id, key="inf_metric", value=float("inf"))
     mlflow_client.log_metric(run_id, key="-inf_metric", value=-float("inf"))
-    mlflow_client.log_metric(
-        run_id, key="stepless-metric", value=987.654, timestamp=321
-    )
+    mlflow_client.log_metric(run_id, key="stepless-metric", value=987.654, timestamp=321)
     mlflow_client.log_param(run_id, "param", "value")
     mlflow_client.set_tag(run_id, "taggity", "do-dah")
     run = mlflow_client.get_run(run_id)
@@ -504,9 +492,7 @@ def test_log_param_with_empty_string_as_value(mlflow_client):
     run_id = created_run.info.run_id
 
     mlflow_client.log_param(run_id, "param_key", "")
-    assert {"param_key": ""}.items() <= mlflow_client.get_run(
-        run_id
-    ).data.params.items()
+    assert {"param_key": ""}.items() <= mlflow_client.get_run(run_id).data.params.items()
 
 
 def test_set_tag_with_empty_string_as_value(mlflow_client):
@@ -532,9 +518,7 @@ def test_log_batch_containing_params_and_tags_with_empty_string_values(mlflow_cl
         params=[Param("param_key", "")],
         tags=[RunTag("tag_key", "")],
     )
-    assert {"param_key": ""}.items() <= mlflow_client.get_run(
-        run_id
-    ).data.params.items()
+    assert {"param_key": ""}.items() <= mlflow_client.get_run(run_id).data.params.items()
     assert {"tag_key": ""}.items() <= mlflow_client.get_run(run_id).data.tags.items()
 
 
@@ -645,9 +629,7 @@ def test_set_experiment_tag(mlflow_client):
     assert "dataset" in experiment2.tags
     assert experiment2.tags["dataset"] == "birds200"
     # test can set multi-line tags
-    mlflow_client.set_experiment_tag(
-        experiment_id, "multiline tag", "value2\nvalue2\nvalue2"
-    )
+    mlflow_client.set_experiment_tag(experiment_id, "multiline tag", "value2\nvalue2\nvalue2")
     experiment = mlflow_client.get_experiment(experiment_id)
     assert "multiline tag" in experiment.tags
     assert experiment.tags["multiline tag"] == "value2\nvalue2\nvalue2"
@@ -658,9 +640,7 @@ def test_set_experiment_tag_with_empty_string_as_value(mlflow_client):
         test_set_experiment_tag_with_empty_string_as_value.__name__
     )
     mlflow_client.set_experiment_tag(experiment_id, "tag_key", "")
-    assert {"tag_key": ""}.items() <= mlflow_client.get_experiment(
-        experiment_id
-    ).tags.items()
+    assert {"tag_key": ""}.items() <= mlflow_client.get_experiment(experiment_id).tags.items()
 
 
 def test_delete_experiment_tag(mlflow_client):
@@ -679,9 +659,7 @@ def test_delete_tag(mlflow_client):
     created_run = mlflow_client.create_run(experiment_id)
     run_id = created_run.info.run_id
     mlflow_client.log_metric(run_id, key="metric", value=123.456, timestamp=789, step=2)
-    mlflow_client.log_metric(
-        run_id, key="stepless-metric", value=987.654, timestamp=321
-    )
+    mlflow_client.log_metric(run_id, key="stepless-metric", value=987.654, timestamp=321)
     mlflow_client.log_param(run_id, "param", "value")
     mlflow_client.set_tag(run_id, "taggity", "do-dah")
     run = mlflow_client.get_run(run_id)
@@ -821,9 +799,7 @@ def test_set_terminated_status(mlflow_client):
 def test_artifacts(mlflow_client, tmp_path):
     experiment_id = mlflow_client.create_experiment("Art In Fact")
     experiment_info = mlflow_client.get_experiment(experiment_id)
-    assert experiment_info.artifact_location.startswith(
-        path_to_local_file_uri(str(tmp_path))
-    )
+    assert experiment_info.artifact_location.startswith(path_to_local_file_uri(str(tmp_path)))
     artifact_path = urllib.parse.urlparse(experiment_info.artifact_location).path
     assert posixpath.split(artifact_path)[-1] == experiment_id
 
@@ -861,22 +837,15 @@ def test_artifacts(mlflow_client, tmp_path):
 
 def test_search_pagination(mlflow_client):
     experiment_id = mlflow_client.create_experiment("search_pagination")
-    runs = [
-        mlflow_client.create_run(experiment_id, start_time=1).info.run_id
-        for _ in range(0, 10)
-    ]
+    runs = [mlflow_client.create_run(experiment_id, start_time=1).info.run_id for _ in range(0, 10)]
     runs = sorted(runs)
     result = mlflow_client.search_runs([experiment_id], max_results=4, page_token=None)
     assert [r.info.run_id for r in result] == runs[0:4]
     assert result.token is not None
-    result = mlflow_client.search_runs(
-        [experiment_id], max_results=4, page_token=result.token
-    )
+    result = mlflow_client.search_runs([experiment_id], max_results=4, page_token=result.token)
     assert [r.info.run_id for r in result] == runs[4:8]
     assert result.token is not None
-    result = mlflow_client.search_runs(
-        [experiment_id], max_results=4, page_token=result.token
-    )
+    result = mlflow_client.search_runs([experiment_id], max_results=4, page_token=result.token)
     assert [r.info.run_id for r in result] == runs[8:]
     assert result.token is None
 
@@ -929,9 +898,7 @@ def test_search_experiments(mlflow_client):
     # filter_string
     experiments = mlflow_client.search_experiments(filter_string="attribute.name = 'a'")
     assert [e.name for e in experiments] == ["a"]
-    experiments = mlflow_client.search_experiments(
-        filter_string="attribute.name != 'a'"
-    )
+    experiments = mlflow_client.search_experiments(filter_string="attribute.name != 'a'")
     assert [e.name for e in experiments] == ["Abc", "ab", "Default"]
     experiments = mlflow_client.search_experiments(filter_string="name LIKE 'a%'")
     assert [e.name for e in experiments] == ["ab", "a"]
@@ -939,9 +906,7 @@ def test_search_experiments(mlflow_client):
     assert [e.name for e in experiments] == ["a"]
     experiments = mlflow_client.search_experiments(filter_string="tag.key != 'value'")
     assert [e.name for e in experiments] == ["ab"]
-    experiments = mlflow_client.search_experiments(
-        filter_string="tag.key ILIKE '%alu%'"
-    )
+    experiments = mlflow_client.search_experiments(filter_string="tag.key ILIKE '%alu%'")
     assert [e.name for e in experiments] == ["ab", "a"]
 
     # order_by
@@ -1060,8 +1025,7 @@ def test_get_metric_history_bulk_returns_expected_metrics_in_expected_order(
     )
     assert response_run2_metricB.status_code == 200
     assert response_run2_metricB.json().get("metrics") == [
-        {**metric, "run_id": run_id2, "value": metric["value"] + 1.0}
-        for metric in metricB_history
+        {**metric, "run_id": run_id2, "value": metric["value"] + 1.0} for metric in metricB_history
     ]
 
     response_run1_run2_metricA = requests.get(
@@ -1125,9 +1089,7 @@ def test_get_metric_history_bulk_calls_optimized_impl_when_expected(tmp_path):
     from mlflow.server.handlers import get_metric_history_bulk_handler
 
     path = path_to_local_file_uri(str(tmp_path.joinpath("sqlalchemy.db")))
-    uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[
-        len("file://") :
-    ]
+    uri = ("sqlite://" if sys.platform == "win32" else "sqlite:////") + path[len("file://") :]
     mock_store = mock.Mock(wraps=SqlAlchemyStore(uri, str(tmp_path)))
 
     flask_app = flask.Flask("test_flask_app")
@@ -1146,9 +1108,7 @@ def test_get_metric_history_bulk_calls_optimized_impl_when_expected(tmp_path):
             return self.args_dict.get(key, default)
 
     with (
-        mock.patch(
-            "mlflow.server.handlers._get_tracking_store", return_value=mock_store
-        ),
+        mock.patch("mlflow.server.handlers._get_tracking_store", return_value=mock_store),
         flask_app.test_request_context() as mock_context,
     ):
         run_ids = [str(i) for i in range(10)]
@@ -1315,9 +1275,7 @@ def test_get_metric_history_bulk_interval_rejects_invalid_requests(mlflow_client
     )
 
     assert_response(
-        requests.get(
-            url, params={"run_ids": ["123"], "metric_key": "key", "max_results": 0}
-        ),
+        requests.get(url, params={"run_ids": ["123"], "metric_key": "key", "max_results": 0}),
         "max_results must be between 1 and 2500",
     )
 
@@ -1464,9 +1422,7 @@ def test_get_metric_history_bulk_interval_respects_max_results(mlflow_client):
     ],
 )
 def test_get_sampled_steps_from_steps(min_step, max_step, max_results, nums, expected):
-    assert (
-        _get_sampled_steps_from_steps(min_step, max_step, max_results, nums) == expected
-    )
+    assert _get_sampled_steps_from_steps(min_step, max_step, max_results, nums) == expected
 
 
 def test_search_dataset_handler_rejects_invalid_requests(mlflow_client):
@@ -1917,9 +1873,7 @@ def test_logging_model_with_local_artifact_uri(mlflow_client):
     mlflow.set_tracking_uri(mlflow_client.tracking_uri)
     with mlflow.start_run() as run:
         assert run.info.artifact_uri.startswith("file://")
-        mlflow.sklearn.log_model(
-            LogisticRegression(), name="model", registered_model_name="rmn"
-        )
+        mlflow.sklearn.log_model(LogisticRegression(), name="model", registered_model_name="rmn")
         mlflow.pyfunc.load_model("models:/rmn/1")
 
 
@@ -1995,9 +1949,7 @@ def test_log_inputs(mlflow_client):
         source_type="source_type1",
         source="source1",
     )
-    dataset_inputs1 = [
-        DatasetInput(dataset=dataset1, tags=[InputTag(key="tag1", value="value1")])
-    ]
+    dataset_inputs1 = [DatasetInput(dataset=dataset1, tags=[InputTag(key="tag1", value="value1")])]
 
     mlflow_client.log_inputs(run_id, dataset_inputs1)
     run = mlflow_client.get_run(run_id)
@@ -2196,21 +2148,19 @@ def test_create_promptlab_run_handler_returns_expected_results(mlflow_client):
     assert run_json["run"]["info"]["status"] == "FINISHED"
     assert run_json["run"]["info"]["start_time"] == 456
 
-    assert {"key": "model_route", "value": "my_route"} in run_json["run"]["data"][
+    assert {"key": "model_route", "value": "my_route"} in run_json["run"]["data"]["params"]
+    assert {"key": "prompt_template", "value": "my_prompt_template"} in run_json["run"]["data"][
         "params"
     ]
-    assert {"key": "prompt_template", "value": "my_prompt_template"} in run_json["run"][
-        "data"
-    ]["params"]
     assert {"key": "temperature", "value": "0.1"} in run_json["run"]["data"]["params"]
 
     assert {
         "key": "mlflow.loggedArtifacts",
         "value": '[{"path": "eval_results_table.json", "type": "table"}]',
     } in run_json["run"]["data"]["tags"]
-    assert {"key": "mlflow.runSourceType", "value": "PROMPT_ENGINEERING"} in run_json[
-        "run"
-    ]["data"]["tags"]
+    assert {"key": "mlflow.runSourceType", "value": "PROMPT_ENGINEERING"} in run_json["run"][
+        "data"
+    ]["tags"]
 
 
 def test_gateway_proxy_handler_rejects_invalid_requests(mlflow_client):
@@ -2436,9 +2386,7 @@ def test_graphql_handler_batching_raise_error(mlflow_client):
         },
     )
     assert response.status_code == 200
-    assert (
-        "Query exceeds maximum total selections of 1000" in response.json()["errors"][0]
-    )
+    assert "Query exceeds maximum total selections of 1000" in response.json()["errors"][0]
 
 
 def test_get_experiment_graphql(mlflow_client):
@@ -2464,9 +2412,7 @@ def test_get_run_and_experiment_graphql(mlflow_client):
     experiment_id = mlflow_client.create_experiment(name)
     created_run = mlflow_client.create_run(experiment_id)
     run_id = created_run.info.run_id
-    mlflow_client.create_model_version(
-        "GraphqlTest", "runs:/graphql_test/model", run_id
-    )
+    mlflow_client.create_model_version("GraphqlTest", "runs:/graphql_test/model", run_id)
     response = requests.post(
         f"{mlflow_client.tracking_uri}/graphql",
         json={
@@ -2494,9 +2440,7 @@ def test_get_run_and_experiment_graphql(mlflow_client):
     assert response.status_code == 200
     json = response.json()
     assert json["errors"] is None
-    assert (
-        json["data"]["mlflowGetRun"]["run"]["info"]["status"] == created_run.info.status
-    )
+    assert json["data"]["mlflowGetRun"]["run"]["info"]["status"] == created_run.info.status
     assert json["data"]["mlflowGetRun"]["run"]["experiment"]["name"] == name
     assert json["data"]["mlflowGetRun"]["run"]["modelVersions"][0]["name"] == name
 
@@ -2684,9 +2628,7 @@ def test_delete_traces(mlflow_client):
     assert _is_trace_exists(request_id_1)
     assert _is_trace_exists(request_id_2)
 
-    deleted_count = mlflow_client.delete_traces(
-        experiment_id, max_timestamp_millis=int(1e15)
-    )
+    deleted_count = mlflow_client.delete_traces(experiment_id, max_timestamp_millis=int(1e15))
     assert deleted_count == 2
     assert not _is_trace_exists(request_id_1)
     assert not _is_trace_exists(request_id_2)
@@ -2802,9 +2744,7 @@ def test_get_metric_history_bulk_interval_graphql(mlflow_client):
 
     assert response.status_code == 200
     json = response.json()
-    expected = [
-        {"key": metric_name, "timestamp": mock.ANY, "value": i} for i in range(10)
-    ]
+    expected = [{"key": metric_name, "timestamp": mock.ANY, "value": i} for i in range(10)]
     assert json["data"]["mlflowGetMetricHistoryBulkInterval"]["metrics"] == expected
 
 
@@ -2850,9 +2790,7 @@ def test_list_artifacts_graphql(mlflow_client, tmp_path):
     file_path = tmp_path / "test.txt"
     file_path.write_text("hello world")
     mlflow_client.log_artifact(created_run_id, file_path.absolute().as_posix())
-    mlflow_client.log_artifact(
-        created_run_id, file_path.absolute().as_posix(), "testDir"
-    )
+    mlflow_client.log_artifact(created_run_id, file_path.absolute().as_posix(), "testDir")
 
     response = requests.post(
         f"{mlflow_client.tracking_uri}/graphql",
@@ -2978,8 +2916,7 @@ def test_search_datasets_graphql(mlflow_client):
         ]
     )
     assert (
-        sort_dataset_summaries(json["data"]["mlflowSearchDatasets"]["datasetSummaries"])
-        == expected
+        sort_dataset_summaries(json["data"]["mlflowSearchDatasets"]["datasetSummaries"]) == expected
     )
 
 
@@ -3021,14 +2958,10 @@ def test_log_logged_model_params(mlflow_client: MlflowClient):
 def test_finalize_logged_model(mlflow_client: MlflowClient):
     exp_id = mlflow_client.create_experiment("create_logged_model")
     model = mlflow_client.create_logged_model(exp_id)
-    finalized_model = mlflow_client.finalize_logged_model(
-        model.model_id, LoggedModelStatus.READY
-    )
+    finalized_model = mlflow_client.finalize_logged_model(model.model_id, LoggedModelStatus.READY)
     assert finalized_model.status == LoggedModelStatus.READY
 
-    finalized_model = mlflow_client.finalize_logged_model(
-        model.model_id, LoggedModelStatus.FAILED
-    )
+    finalized_model = mlflow_client.finalize_logged_model(model.model_id, LoggedModelStatus.FAILED)
     assert finalized_model.status == LoggedModelStatus.FAILED
 
 
@@ -3046,9 +2979,7 @@ def test_delete_logged_model(mlflow_client: MlflowClient):
 def test_set_logged_model_tags(mlflow_client: MlflowClient):
     exp_id = mlflow_client.create_experiment("create_logged_model")
     model = mlflow_client.create_logged_model(exp_id)
-    mlflow_client.set_logged_model_tags(
-        model.model_id, {"tag1": "value1", "tag2": "value2"}
-    )
+    mlflow_client.set_logged_model_tags(model.model_id, {"tag1": "value1", "tag2": "value2"})
     loaded_model = mlflow_client.get_logged_model(model.model_id)
     assert loaded_model.tags == {"tag1": "value1", "tag2": "value2"}
 
@@ -3060,9 +2991,7 @@ def test_set_logged_model_tags(mlflow_client: MlflowClient):
 def test_delete_logged_model_tag(mlflow_client: MlflowClient):
     exp_id = mlflow_client.create_experiment("create_logged_model")
     model = mlflow_client.create_logged_model(exp_id)
-    mlflow_client.set_logged_model_tags(
-        model.model_id, {"tag1": "value1", "tag2": "value2"}
-    )
+    mlflow_client.set_logged_model_tags(model.model_id, {"tag1": "value1", "tag2": "value2"})
     mlflow_client.delete_logged_model_tag(model.model_id, "tag1")
     loaded_model = mlflow_client.get_logged_model(model.model_id)
     assert loaded_model.tags == {"tag2": "value2"}
@@ -3111,6 +3040,7 @@ def test_search_logged_models(mlflow_client: MlflowClient):
         experiment_ids=[exp_id],
         datasets=[{"dataset_name": "dataset", "dataset_digest": "123"}],
     )
+
     assert [m.name for m in models] == [model_1.name]
 
     # order_by
