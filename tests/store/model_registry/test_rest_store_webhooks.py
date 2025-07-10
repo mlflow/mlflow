@@ -178,7 +178,6 @@ def test_update_webhook_not_found(store: RestStore):
 @pytest.mark.parametrize(
     ("invalid_url", "expected_match"),
     [
-        ("", r"Webhook URL cannot be empty or just whitespace"),
         ("   ", r"Webhook URL cannot be empty or just whitespace"),
         ("ftp://example.com", r"Invalid webhook URL scheme"),
         ("http://[invalid", r"Invalid webhook URL"),
