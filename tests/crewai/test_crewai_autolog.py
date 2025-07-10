@@ -1068,3 +1068,5 @@ def test_autolog_sends_telemetry_record(mock_requests):
         )
     )
     assert data["status"] == "success"
+    if IS_TRACING_SDK_ONLY:
+        assert data["source_sdk"] == "mlflow-tracing"
