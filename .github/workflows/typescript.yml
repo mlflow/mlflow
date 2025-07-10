@@ -45,20 +45,23 @@ jobs:
           cache-dependency-path: packages/typescript/core/package-lock.json
 
       - name: Install dependencies
-        run: npm ci
+        run: yarn install
 
       - name: Install uv
         # UV is used for installing Python dependencies for the tracking server
         run: curl -LsSf https://astral.sh/uv/install.sh | sh
 
       - name: Run format check
-        run: npm run format:check
+        run: yarn format:check
 
       - name: Run linting
-        run: npm run lint
+        run: yarn lint
 
       - name: Run build
-        run: npm run build
+        run: yarn build
 
-      - name: Run tests
-        run: npm run test
+      - name: Run core tests
+        run: yarn test:core
+
+      - name: Run tests for integrations
+        run: yarn test:integrations
