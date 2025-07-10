@@ -23,7 +23,7 @@ export function APILink({ fn, children, hash }: { fn: string; children?: React.R
     return <>{children}</>;
   }
 
-  const docLink = useBaseUrl(`/${APIModules[module]}#${fn}`);
+  const docLink = useBaseUrl(`/${APIModules[module]}#${hash ?? fn}`);
   return (
     <a href={docLink} target="_blank">
       {children ?? <code>{fn}()</code>}
