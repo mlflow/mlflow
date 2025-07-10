@@ -32,7 +32,6 @@ from mlflow.protos.webhooks_pb2 import (
     DeleteWebhook,
     GetWebhook,
     ListWebhooks,
-    TestWebhook,
     UpdateWebhook,
     WebhookService,
 )
@@ -569,8 +568,3 @@ class RestStore(BaseRestStore):
 
     def delete_webhook(self, webhook_id: str) -> None:
         self._call_webhook_endpoint(DeleteWebhook, webhook_id=webhook_id)
-
-    def test_webhook(self, webhook_id: str):
-        req_body = message_to_json(TestWebhook(id=webhook_id))
-        response_proto = self._call_webhook_endpoint(TestWebhook, req_body)
-        return response_proto.result
