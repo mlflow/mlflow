@@ -1,4 +1,5 @@
 import { useSearchParams } from '@mlflow/mlflow/src/common/utils/RoutingUtils';
+import { useState } from 'react';
 
 export const OPERATORS = ['IS', 'IS NOT', 'CONTAINS'] as const;
 type Operator = typeof OPERATORS[number];
@@ -23,6 +24,8 @@ function deserialize(value: string) {
 }
 
 export function useTagsFilter() {
+  const [isTagsFilterOpen, setIsTagsFilterOpen] = useState(false);
+
   const name = 'experimentTagsFilter';
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -39,7 +42,8 @@ export function useTagsFilter() {
       }
     }
     setSearchParams(searchParams);
+    setIsTagsFilterOpen(false);
   }
 
-  return [tagsFilter, setTagsFilter] as const;
+  return { tagsFilter, setTagsFilter, isTagsFilterOpen, setIsTagsFilterOpen };
 }

@@ -30,8 +30,7 @@ import { ExperimentListViewTagsFilter } from './experiment-page/components/Exper
 
 export const ExperimentListView = () => {
   const [searchFilter, setSearchFilter] = useSearchFilter();
-  const [tagsFilter, setTagsFilter] = useTagsFilter();
-  const [isTagsFilterOpen, setIsTagsFilterOpen] = useState(false);
+  const { tagsFilter, setTagsFilter, isTagsFilterOpen, setIsTagsFilterOpen } = useTagsFilter();
 
   const {
     data: experiments,
@@ -177,19 +176,16 @@ export const ExperimentListView = () => {
                 componentId="mlflow.experiment_list_view.tag_filter.trigger"
                 icon={<FilterIcon />}
                 endIcon={<ChevronDownIcon />}
-                type={tagsFilter.length === 0 ? undefined : 'primary'}
+                type={tagsFilter.length > 0 ? 'primary' : undefined}
               >
-                Tag filter
+                <FormattedMessage
+                  defaultMessage="Tag filter"
+                  description="Button to open the tags filter popover in the experiments page"
+                />
               </Button>
             </Popover.Trigger>
             <Popover.Content>
-              <ExperimentListViewTagsFilter
-                tagsFilter={tagsFilter}
-                onSave={(tagsFilter: TagFilter[]) => {
-                  setTagsFilter(tagsFilter);
-                  setIsTagsFilterOpen(false);
-                }}
-              />
+              <ExperimentListViewTagsFilter tagsFilter={tagsFilter} setTagsFilter={setTagsFilter} />
             </Popover.Content>
           </Popover.Root>
         </TableFilterLayout>

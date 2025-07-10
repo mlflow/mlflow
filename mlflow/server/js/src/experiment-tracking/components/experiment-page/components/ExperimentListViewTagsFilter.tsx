@@ -1,19 +1,19 @@
 import { useFieldArray, useForm } from 'react-hook-form';
 import { OPERATORS, TagFilter } from '../hooks/useTagsFilter';
 import { Button, CloseIcon, PlusIcon, RHFControlledComponents, useDesignSystemTheme } from '@databricks/design-system';
-import { useIntl } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { Interpolation } from '@emotion/react';
 import { Theme } from '@databricks/design-system/dist/theme';
 import { Fragment } from 'react';
 
-const EMPTY_TAG = { key: '', value: '', operator: 'IS' } as const;
+const EMPTY_TAG = { key: '', value: '', operator: 'IS' } satisfies TagFilter;
 
 type Props = {
   tagsFilter: TagFilter[];
-  onSave: (_: TagFilter[]) => void;
+  setTagsFilter: (_: TagFilter[]) => void;
 };
 
-export function ExperimentListViewTagsFilter({ tagsFilter, onSave }: Props) {
+export function ExperimentListViewTagsFilter({ tagsFilter, setTagsFilter }: Props) {
   const { control, handleSubmit } = useForm<{ tagsFilter: TagFilter[] }>({
     defaultValues: { tagsFilter: tagsFilter.length === 0 ? [EMPTY_TAG] : tagsFilter },
   });
@@ -25,9 +25,24 @@ export function ExperimentListViewTagsFilter({ tagsFilter, onSave }: Props) {
     fontWeight: theme.typography.typographyBoldFontWeight,
   };
 
+  const labels = {
+    key: formatMessage({
+      defaultMessage: 'Key',
+      description: 'Tag filter input for key field in the tags filter popover for experiments page search by tags',
+    }),
+    operator: formatMessage({
+      defaultMessage: 'Operator',
+      description: 'Tag filter input for operator field in the tags filter popover for experiments page search by tags',
+    }),
+    value: formatMessage({
+      defaultMessage: 'Value',
+      description: 'Tag filter input for value field in the tags filter popover for experiments page search by tags',
+    }),
+  };
+
   return (
     <form
-      onSubmit={handleSubmit((data) => onSave(data.tagsFilter))}
+      onSubmit={handleSubmit((data) => setTagsFilter(data.tagsFilter))}
       css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.md, padding: theme.spacing.md }}
     >
       <fieldset
@@ -38,30 +53,24 @@ export function ExperimentListViewTagsFilter({ tagsFilter, onSave }: Props) {
         }}
       >
         <label htmlFor={`${fields[0].id}-key`} css={labelStyles}>
-          Key
+          {labels.key}
         </label>
         <label htmlFor={`${fields[0].id}-op`} css={labelStyles}>
-          Opereator
+          {labels.operator}
         </label>
         <label htmlFor={`${fields[0].id}-value`} css={labelStyles}>
-          Value
+          {labels.value}
         </label>
-        <label></label>
+        <label />
         {fields.map((field, index) => (
           <Fragment key={field.id}>
             <RHFControlledComponents.Input
               id={`${field.id}-key`}
-              componentId=""
+              componentId={`mlflow.experiment_list_view.tag_filter.key_input_${index}`}
               name={`tagsFilter.${index}.key`}
               control={control}
-              aria-label={formatMessage({
-                defaultMessage: 'Key',
-                description: '',
-              })}
-              placeholder={formatMessage({
-                defaultMessage: 'Key',
-                description: '',
-              })}
+              aria-label={labels.key}
+              placeholder={labels.key}
               required
             />
             <RHFControlledComponents.LegacySelect
@@ -69,29 +78,20 @@ export function ExperimentListViewTagsFilter({ tagsFilter, onSave }: Props) {
               name={`tagsFilter.${index}.operator`}
               control={control}
               options={OPERATORS.map((op) => ({ key: op, value: op }))}
-              aria-label={formatMessage({
-                defaultMessage: 'Operator',
-                description: '',
-              })}
+              aria-label={labels.operator}
               css={{ minWidth: '14ch' }}
             />
             <RHFControlledComponents.Input
               id={`${field.id}-value`}
-              componentId=""
+              componentId={`mlflow.experiment_list_view.tag_filter.value_input_${index}`}
               name={`tagsFilter.${index}.value`}
               control={control}
-              aria-label={formatMessage({
-                defaultMessage: 'Value',
-                description: '',
-              })}
-              placeholder={formatMessage({
-                defaultMessage: 'Value',
-                description: '',
-              })}
+              aria-label={labels.value}
+              placeholder={labels.value}
               required
             />
             <Button
-              componentId=""
+              componentId={`mlflow.experiment_list_view.tag_filter.remove_filter_button_${index}`}
               type="tertiary"
               onClick={() => remove(index)}
               disabled={fields.length === 1}
@@ -106,15 +106,35 @@ export function ExperimentListViewTagsFilter({ tagsFilter, onSave }: Props) {
         ))}
       </fieldset>
       <div css={{ display: 'flex', justifyContent: 'space-between' }}>
-        <Button componentId="" onClick={() => append(EMPTY_TAG)} icon={<PlusIcon />}>
-          Add filter
+        <Button
+          componentId="mlflow.experiment_list_view.tag_filter.add_filter_button"
+          onClick={() => append(EMPTY_TAG)}
+          icon={<PlusIcon />}
+        >
+          <FormattedMessage
+            defaultMessage="Add filter"
+            description="Button to add a new filter in the tags filter popover for experiments page search by tags"
+          />
         </Button>
         <div css={{ display: 'flex', gap: theme.spacing.sm }}>
-          <Button componentId="" onClick={() => onSave([])}>
-            Clear filters
+          <Button
+            componentId="mlflow.experiment_list_view.tag_filter.clear_filters_button"
+            onClick={() => setTagsFilter([])}
+          >
+            <FormattedMessage
+              defaultMessage="Clear filters"
+              description="Button to clear filters in the tags filter popover for experiments page search by tags"
+            />
           </Button>
-          <Button htmlType="submit" componentId="" type="primary">
-            Apply filters
+          <Button
+            htmlType="submit"
+            componentId="mlflow.experiment_list_view.tag_filter.apply_filters_button"
+            type="primary"
+          >
+            <FormattedMessage
+              defaultMessage="Apply filters"
+              description="Button to apply filters in the tags filter popover for experiments page search by tags"
+            />
           </Button>
         </div>
       </div>
