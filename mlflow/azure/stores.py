@@ -213,7 +213,7 @@ def create_store(store_uri: str, artifact_uri: Optional[str] = None):
 
             # Create the standard MLflow store - it will use our cached engine
             # Ensure artifact_uri is not None to avoid "object of type 'NoneType' has no len()" error
-            safe_artifact_uri = artifact_uri if artifact_uri is not None else ""
+            safe_artifact_uri = artifact_uri if artifact_uri is not None else "./mlflow-artifacts"
             return SqlAlchemyStore(clean_uri, safe_artifact_uri)
 
         except Exception as e:
