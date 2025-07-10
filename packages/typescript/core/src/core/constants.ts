@@ -26,7 +26,10 @@ export const SpanAttributeKey = {
   TRACE_ID: 'mlflow.traceRequestId',
   INPUTS: 'mlflow.spanInputs',
   OUTPUTS: 'mlflow.spanOutputs',
-  SPAN_TYPE: 'mlflow.spanType'
+  SPAN_TYPE: 'mlflow.spanType',
+  // This attribute is used to store token usage information from LLM responses.
+  // Stored in {"input_tokens": int, "output_tokens": int, "total_tokens": int} format.
+  TOKEN_USAGE: 'mlflow.chat.tokenUsage'
 };
 
 /**
@@ -36,7 +39,8 @@ export const TraceMetadataKey = {
   SOURCE_RUN: 'mlflow.sourceRun',
   MODEL_ID: 'mlflow.modelId',
   SIZE_BYTES: 'mlflow.trace.sizeBytes',
-  SCHEMA_VERSION: 'mlflow.traceSchemaVersion'
+  SCHEMA_VERSION: 'mlflow.traceSchemaVersion',
+  TOKEN_USAGE: 'mlflow.trace.tokenUsage'
 };
 
 /**
@@ -65,3 +69,12 @@ export const DEFAULT_SPAN_NAME = 'span';
  * Trace ID for no-op spans
  */
 export const NO_OP_SPAN_TRACE_ID = 'no-op-span-trace-id';
+
+/**
+ * Constants for token usage keys (matching Python TokenUsageKey)
+ */
+export const TokenUsageKey = {
+  INPUT_TOKENS: 'input_tokens',
+  OUTPUT_TOKENS: 'output_tokens',
+  TOTAL_TOKENS: 'total_tokens'
+};

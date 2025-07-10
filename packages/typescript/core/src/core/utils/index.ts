@@ -1,5 +1,7 @@
 import type { HrTime } from '@opentelemetry/api';
-import { LiveSpan } from '../entities/span';
+import { LiveSpan, Span } from '../entities/span';
+import { SpanAttributeKey } from '../constants';
+import { TokenUsage } from '../entities/trace_info';
 
 /**
  * OpenTelemetry Typescript SDK uses a unique timestamp format `HrTime` to represent
@@ -239,4 +241,54 @@ function getParameterNames(func: Function): string[] {
       return name;
     })
     .filter((name): name is string => name != null && name !== '');
+}
+
+/**
+ * Aggregate token usage information from all spans in a trace.
+ *
+ * This function iterates through all spans and extracts token usage from the
+ * SpanAttributeKey.TOKEN_USAGE attribute. It avoids double-counting token usage
+ * when both parent and child spans have usage data (e.g., LangChain ChatOpenAI + OpenAI tracing).
+ *
+ * @param spans - Array of spans to aggregate usage from
+ * @returns Aggregated token usage or null if no usage data exists
+ */
+export function aggregateUsageFromSpans(spans: Span[]): TokenUsage | null {
+  const totalUsage: TokenUsage = {
+    input_tokens: 0,
+    output_tokens: 0,
+    total_tokens: 0
+  };
+  let hasUsageData = false;
+
+  // Track spans that have usage data to avoid double counting
+  const spansWithUsage = new Set<string>();
+
+  for (const span of spans) {
+    const tokenUsageAttr = span.attributes[SpanAttributeKey.TOKEN_USAGE];
+    if (!tokenUsageAttr) {
+      continue;
+    }
+    const tokenUsage = tokenUsageAttr as TokenUsage;
+
+    // Skip if this span's parent also has usage data (avoid double counting)
+    let shouldSkip = false;
+    if (span.parentId) {
+      const parentSpan = spans.find((s) => s.spanId === span.parentId);
+      const parentUsageAttr = parentSpan?.attributes[SpanAttributeKey.TOKEN_USAGE];
+      if (parentUsageAttr) {
+        shouldSkip = true;
+      }
+    }
+
+    if (!shouldSkip) {
+      totalUsage.input_tokens += tokenUsage.input_tokens;
+      totalUsage.output_tokens += tokenUsage.output_tokens;
+      totalUsage.total_tokens += tokenUsage.total_tokens;
+      hasUsageData = true;
+
+      spansWithUsage.add(span.spanId);
+    }
+  }
+  return hasUsageData ? totalUsage : null;
 }

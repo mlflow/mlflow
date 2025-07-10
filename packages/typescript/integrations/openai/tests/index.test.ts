@@ -67,6 +67,12 @@ describe('tracedOpenAI', () => {
       const trace = await getLastActiveTrace();
       expect(trace.info.state).toBe('OK');
 
+      const tokenUsage = trace.info.tokenUsage;
+      expect(tokenUsage).toBeDefined();
+      expect(typeof tokenUsage?.input_tokens).toBe('number');
+      expect(typeof tokenUsage?.output_tokens).toBe('number');
+      expect(typeof tokenUsage?.total_tokens).toBe('number');
+
       const span = trace.data.spans[0];
       expect(span.name).toBe('Completions');
       expect(span.spanType).toBe(mlflow.SpanType.LLM);
@@ -78,6 +84,13 @@ describe('tracedOpenAI', () => {
       expect(span.outputs).toEqual(result);
       expect(span.startTime).toBeDefined();
       expect(span.endTime).toBeDefined();
+
+      // Check that token usage is stored at span level
+      const spanTokenUsage = span.attributes[mlflow.SpanAttributeKey.TOKEN_USAGE];
+      expect(spanTokenUsage).toBeDefined();
+      expect(typeof spanTokenUsage[mlflow.TokenUsageKey.INPUT_TOKENS]).toBe('number');
+      expect(typeof spanTokenUsage[mlflow.TokenUsageKey.OUTPUT_TOKENS]).toBe('number');
+      expect(typeof spanTokenUsage[mlflow.TokenUsageKey.TOTAL_TOKENS]).toBe('number');
     });
 
     it('should handle chat completion errors properly', async () => {
@@ -183,6 +196,9 @@ describe('tracedOpenAI', () => {
       // Get and verify the trace
       const trace = await getLastActiveTrace();
       expect(trace.info.state).toBe('OK');
+      expect(trace.info.tokenUsage?.input_tokens).toBe(response.usage?.input_tokens);
+      expect(trace.info.tokenUsage?.output_tokens).toBe(response.usage?.output_tokens);
+      expect(trace.info.tokenUsage?.total_tokens).toBe(response.usage?.total_tokens);
       expect(trace.data.spans.length).toBe(1);
 
       const span = trace.data.spans[0];
