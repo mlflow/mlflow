@@ -3035,3 +3035,67 @@ def test_suppress_url_printing(mlflow_client: MlflowClient, monkeypatch):
     monkeypatch.setattr(sys, "stdout", captured_output)
     mlflow_client._tracking_client._log_url(run.info.run_id)
     assert captured_output.getvalue() == ""
+
+
+def test_graphql_nan_metric_handling(mlflow_client):
+    """Test that NaN metric values are correctly handled by returning null in GraphQL responses."""
+    experiment_id = mlflow_client.create_experiment("test_graphql_nan_metrics")
+    created_run = mlflow_client.create_run(experiment_id)
+    run_id = created_run.info.run_id
+
+    # Log a normal metric and a NaN metric
+    mlflow_client.log_metric(run_id, key="normal_metric", value=123, timestamp=1, step=1)
+    mlflow_client.log_metric(run_id, key="nan_metric", value=math.nan, timestamp=2, step=2)
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/graphql",
+        json={
+            "query": f"""
+                query testQuery {{
+                    mlflowGetRun(input: {{runId: "{run_id}"}}) {{
+                        run {{
+                            data {{
+                                metrics {{
+                                    key
+                                    value
+                                    timestamp
+                                    step
+                                }}
+                            }}
+                        }}
+                    }}
+                }}
+            """,
+            "operationName": "testQuery",
+        },
+        headers={"content-type": "application/json; charset=utf-8"},
+    )
+
+    assert response.status_code == 200
+    json_response = response.json()
+    assert json_response["errors"] is None
+
+    metrics = json_response["data"]["mlflowGetRun"]["run"]["data"]["metrics"]
+
+    # Find the normal metric and nan metric
+    normal_metric = None
+    nan_metric = None
+    for metric in metrics:
+        if metric["key"] == "normal_metric":
+            normal_metric = metric
+        elif metric["key"] == "nan_metric":
+            nan_metric = metric
+
+    # Verify normal metric has a numeric value
+    assert normal_metric is not None
+    assert normal_metric["key"] == "normal_metric"
+    assert normal_metric["value"] == 123
+    assert normal_metric["timestamp"] == "1"
+    assert normal_metric["step"] == "1"
+
+    # Verify NaN metric has null value
+    assert nan_metric is not None
+    assert nan_metric["key"] == "nan_metric"
+    assert nan_metric["value"] is None
+    assert nan_metric["timestamp"] == "2"
+    assert nan_metric["step"] == "2"
