@@ -14,8 +14,8 @@
 
 ```sh
 # If you have a local clone of the repository
-pip install ./skinny
+pip install ./libs/skinny
 
 # If you want to install the latest version from GitHub
-pip install git+https://github.com/mlflow/mlflow.git#subdirectory=skinny
+pip install git+https://github.com/mlflow/mlflow.git#subdirectory=libs/skinny
 ```
