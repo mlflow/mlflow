@@ -178,6 +178,10 @@ We happily welcome contributions to MLflow! We are also seeking contributions to
 [MLflow Roadmap](https://github.com/mlflow/mlflow/milestone/3). Please see our
 [contribution guide](CONTRIBUTING.md) to learn more about contributing to MLflow.
 
+## Citation
+
+If you use MLflow in your research, please cite it using the "Cite this repository" button at the top of the [GitHub repository page](https://github.com/mlflow/mlflow), which will provide you with citation formats including APA and BibTeX.
+
 ## Core Members
 
 MLflow is currently maintained by the following core members with significant contributions from hundreds of exceptionally talented community members.

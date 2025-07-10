@@ -392,7 +392,6 @@ const config: Config = {
             to: '/genai/tracing/concepts/trace',
             from: ['/genai/tracing/data-model', '/genai/tracing/trace-instrumentation'],
           },
-
           // LLM Flavors Redirects
           {
             to: '/genai',
