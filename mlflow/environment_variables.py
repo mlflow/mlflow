@@ -860,4 +860,6 @@ MLFLOW_SERVER_GRAPHQL_MAX_ALIASES = _EnvironmentVariable(
     "MLFLOW_SERVER_GRAPHQL_MAX_ALIASES", int, 10
 )
 
-MLFLOW_DISABLE_SCHEMA_DETAILS = _EnvironmentVariable("MLFLOW_DISABLE_SCHEMA_DETAILS", bool, False)
+#: Whether to disable schema details in error messages for MLflow schema enforcement.
+#: (default: ``False``)
+MLFLOW_DISABLE_SCHEMA_DETAILS = _BooleanEnvironmentVariable("MLFLOW_DISABLE_SCHEMA_DETAILS", False)
