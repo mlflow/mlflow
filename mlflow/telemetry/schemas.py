@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
 
-from mlflow.version import IS_TRACING_SDK_ONLY, VERSION
+from mlflow.version import IS_MLFLOW_SKINNY, IS_TRACING_SDK_ONLY, VERSION
 
 
 class APIStatus(str, Enum):
@@ -65,11 +65,26 @@ class APIRecord:
     duration_ms: Optional[int] = None
 
 
+class SourceSDK(str, Enum):
+    MLFLOW_TRACING = "mlflow-tracing"
+    MLFLOW = "mlflow"
+    MLFLOW_SKINNY = "mlflow-skinny"
+
+
+def get_source_sdk() -> SourceSDK:
+    if IS_TRACING_SDK_ONLY:
+        return SourceSDK.MLFLOW_TRACING
+    elif IS_MLFLOW_SKINNY:
+        return SourceSDK.MLFLOW_SKINNY
+    else:
+        return SourceSDK.MLFLOW
+
+
 @dataclass
 class TelemetryInfo:
     session_id: str = uuid.uuid4().hex
     mlflow_version: str = VERSION
-    is_tracing_sdk: bool = IS_TRACING_SDK_ONLY
+    source_sdk: str = get_source_sdk().value
     python_version: str = (
         f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
     )
