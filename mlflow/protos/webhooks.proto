@@ -220,7 +220,7 @@ message UpdateWebhook {
   optional string url = 4;
 
   // New list of events to subscribe to
-  repeated string events = 5;
+  repeated WebhookEvent events = 5;
 
   // New secret key for HMAC signature
   optional string secret = 6;
