@@ -9,10 +9,15 @@ import { ExperimentListView } from './ExperimentListView';
 import Fixtures from '../utils/test-utils/Fixtures';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { useExperimentListQuery } from './experiment-page/hooks/useExperimentListQuery';
+import { useUpdateExperimentTags } from './experiment-page/hooks/useUpdateExperimentTags';
 
 jest.mock('./experiment-page/hooks/useExperimentListQuery', () => ({
   useExperimentListQuery: jest.fn(),
   useInvalidateExperimentList: jest.fn(),
+}));
+
+jest.mock('./experiment-page/hooks/useUpdateExperimentTags', () => ({
+  useUpdateExperimentTags: jest.fn(),
 }));
 
 const mountComponent = (props: any) => {
@@ -39,6 +44,12 @@ const mountComponent = (props: any) => {
     sorting: [],
     setSorting: jest.fn(),
   }));
+
+  jest.mocked(useUpdateExperimentTags).mockReturnValue({
+    isLoading: false,
+    EditTagsModal: <span />,
+    showEditExperimentTagsModal: jest.fn(),
+  });
 
   return renderWithIntl(
     <DesignSystemProvider>

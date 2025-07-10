@@ -594,7 +594,7 @@ def test_trace_agent():
     tool_span = name_to_span["FunctionTool.call"]
     assert tool_span.span_type == SpanType.TOOL
     assert tool_span.inputs == {"kwargs": {"a": 1, "b": 2}}
-    assert tool_span.outputs["content"] == "3"
+    assert tool_span.outputs.get("raw_output") == 3
     assert tool_span.attributes["name"] == "add"
     assert tool_span.attributes["description"] is not None
     assert tool_span.attributes["parameters"] is not None

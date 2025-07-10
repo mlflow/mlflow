@@ -1141,7 +1141,7 @@ def test_object_construction_with_errors():
         Property("p2", DataType.binary),
         Property("p2", DataType.boolean),
     ]
-    with pytest.raises(MlflowException, match=r"Found duplicated property names: {'p2'}"):
+    with pytest.raises(MlflowException, match=r"Found duplicated property names: `p2`"):
         Object(properties)
 
 

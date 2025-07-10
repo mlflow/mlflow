@@ -91,10 +91,6 @@
     "defaultMessage": "Models loading",
     "description": "Label for a loading spinner when table containing models is being loaded"
   },
-  "/lsQMU": {
-    "defaultMessage": "<link>Learn more</link>",
-    "description": "Learn more tooltip link to learn more on how to search experiments"
-  },
   "/nPZbt": {
     "defaultMessage": "{totalTokens} total tokens",
     "description": "Experiment page > artifact compare view > results table > total number of evaluated tokens"
@@ -671,10 +667,6 @@
     "defaultMessage": "Contour plots can only be rendered when comparing a group of runs with three or more unique metrics or params. Log more metrics or params to your runs to visualize them using the contour plot.",
     "description": "Text explanation when contour plot is disabled in comparison pages\n              in MLflow"
   },
-  "87ZYjO": {
-    "defaultMessage": "A filter expression over experiment attributes and tags that allows returning a subset of experiments.",
-    "description": "Tooltip string to explain how to search experiments"
-  },
   "88l+j9": {
     "defaultMessage": "Are you sure you want to delete model version {versionNum}? This cannot be undone.",
     "description": "Comment text for model version deletion modal in model versions view\n                 page"
@@ -811,6 +803,10 @@
     "defaultMessage": "Create",
     "description": "Label for the create experiment action on the experiments list page"
   },
+  "9vT4HV": {
+    "defaultMessage": "Filter experiments by name",
+    "description": "Placeholder text inside experiments search bar"
+  },
   "9vj5Ap": {
     "defaultMessage": "No metrics recorded",
     "description": "Run page > Overview > Metrics table > No metrics recorded"
@@ -894,6 +890,10 @@
   "B8RvlZ": {
     "defaultMessage": "Comparing version {baseline} with version {compared}",
     "description": "Label for comparing prompt versions in the prompt comparison view. Variables {baseline} and {compared} are numeric version numbers being compared."
+  },
+  "BB6In/": {
+    "defaultMessage": "Tags",
+    "description": "Header for the tags column in the experiments table"
   },
   "BCpX6U": {
     "defaultMessage": "Registered models",
@@ -2059,6 +2059,10 @@
     "defaultMessage": "Deleted traces cannot be restored. Are you sure you want to proceed?",
     "description": "Experiment page > traces view controls > Delete traces modal > Confirmation message"
   },
+  "Vk+30L": {
+    "defaultMessage": "Edit tags",
+    "description": "Label for the edit tags button in the experiment list table"
+  },
   "Vkr4Bs": {
     "defaultMessage": "Add description",
     "description": "experiment page > description modal > title"
@@ -2082,10 +2086,6 @@
   "Vvn8Cb": {
     "defaultMessage": "Open dataset",
     "description": "Text for the HTTP/HF location link in the experiment run dataset drawer"
-  },
-  "VzuUre": {
-    "defaultMessage": "Supported formats: image, text, html, pdf, audio, geojson files",
-    "description": "Text to explain users which formats are supported to display the artifacts"
   },
   "W8bOkn": {
     "defaultMessage": "250",
@@ -2142,6 +2142,10 @@
   "WmDiY9": {
     "defaultMessage": "Source",
     "description": "Run page > Overview > Run source section label"
+  },
+  "Wv3B3G": {
+    "defaultMessage": "Supported formats: image, text, html, pdf, audio, video, geojson files",
+    "description": "Text to explain users which formats are supported to display the artifacts"
   },
   "WvHAEg": {
     "defaultMessage": "Input an artifact location (optional)",
@@ -2499,10 +2503,6 @@
     "defaultMessage": "Outputs",
     "description": "Table section name for schema outputs in the model comparison page"
   },
-  "c+UXde": {
-    "defaultMessage": "Filter experiments by name, tags or attributes",
-    "description": "Placeholder text inside experiments search bar"
-  },
   "c0slEY": {
     "defaultMessage": "Click into an individual run to see all models associated with it",
     "description": "MLflow experiment detail page > runs table > tooltip on ML \"Models\" column header"
@@ -2538,6 +2538,10 @@
   "cI+F/q": {
     "defaultMessage": "Name",
     "description": "Column title for name column in editable tags table view in MLflow"
+  },
+  "cI0kqF": {
+    "defaultMessage": "Add tags",
+    "description": "Label for the add tags button in the experiment list table"
   },
   "cIV9pX": {
     "defaultMessage": "Permission denied",
