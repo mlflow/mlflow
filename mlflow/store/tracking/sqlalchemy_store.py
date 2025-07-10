@@ -2432,7 +2432,7 @@ class SqlAlchemyStore(AbstractStore):
                     )
 
             session.add(sql_assessment)
-            return assessment
+            return sql_assessment.to_mlflow_entity()
 
     def get_assessment(self, trace_id: str, assessment_id: str) -> Assessment:
         """
