@@ -22,3 +22,5 @@ FLAML<2.3.5
 # `tests/tracing/test_fluent.py::test_mlflow_trace_isolated_from_other_otel_processors`
 # https://github.com/huggingface/transformers/commit/211f2b08751cdee4bd6b84892b91f4a18dbfe305
 transformers<4.53.0
+# datasets 4.0.0 breaks toxicity metric: https://github.com/mlflow/mlflow/actions/runs/16184266959/job/45689324793?pr=16622#step:10:357
+datasets<4.0.0
