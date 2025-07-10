@@ -159,6 +159,11 @@ const sidebarsGenAI: SidebarsConfig = {
               id: 'tracing/concepts/feedback',
               label: 'Feedback',
             },
+            {
+              type: 'doc',
+              id: 'tracing/concepts/expectations',
+              label: 'Expectations',
+            },
           ],
         },
         {
@@ -248,8 +253,16 @@ const sidebarsGenAI: SidebarsConfig = {
       items: [
         {
           type: 'category',
-          label: 'Feedback & Expectations',
+          label: 'Assessments',
           items: [
+            {
+              type: 'doc',
+              id: 'assessments/feedback'
+            },
+            {
+              type: 'doc',
+              id: 'assessments/expectations'
+            },
             {
               type: 'doc',
               id: 'assessments/api-guide'

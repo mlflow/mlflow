@@ -1,5 +1,5 @@
 ---
-sidebar_label: API Guide
+sidebar_label: Assessments API Guide
 ---
 
 import Tabs from '@theme/Tabs';
@@ -7,24 +7,24 @@ import TabItem from '@theme/TabItem';
 
 # Assessments API Guide
 
-This guide walks you through the complete MLflow Assessments API following the natural workflow: from initial setup through advanced evaluation strategies. Each section builds on the previous, showing you how to implement the assessment patterns described in the [main assessments overview](/genai/assessments).
+This guide walks you through the complete MLflow Assessments API following the natural workflow: from initial setup through advanced evaluation strategies. Each section builds on the previous, showing you how to implement the feedback and expectation patterns described in the [main overview](/genai/assessments).
 
 ## Getting Started
 
 ### Prerequisites
 
-Before using the Assessments API, ensure you have:
+Before using the Feedback and Expectations API, ensure you have:
 - MLflow 3.2.0 or later installed
 - An active MLflow tracking server or local tracking setup
-- Traces being logged from your GenAI application
+- Traces that have been logged from your GenAI application to an MLflow Experiment
 
-### Assessment Types and Sources
+### Feedback and Expectation Types
 
-MLflow supports two fundamental assessment types that work together to create a complete evaluation framework:
+MLflow supports two fundamental types that work together to create a complete evaluation framework:
 
-**Expectations** define the ground truth - what your AI should produce for a given input. These always come from human experts who understand the correct answer.
+**Expectations** define the ground truth - what your AI should produce for a given input. These always come from human experts who understand the correct answer (learn more about [expectation concepts](/genai/tracing/concepts/expectations)).
 
-**Feedback** evaluates how well your AI actually performed. This can come from three sources:
+**Feedback** evaluates how well your AI actually performed. This can come from three sources (learn more about [feedback concepts](/genai/tracing/concepts/feedback)):
 
 ```python
 from mlflow.entities import AssessmentSource, AssessmentSourceType
@@ -45,30 +45,73 @@ llm_judge_source = AssessmentSource(
 )
 ```
 
-### Core API: `log_assessment`
+## Logging Feedback and Expectations via the MLflow UI
 
-The `log_assessment` function is the foundational API that accepts any assessment object. The convenience functions `log_expectation` and `log_feedback` use this internally:
+The MLflow UI provides a visual interface for adding feedback and expectations directly to your traces. This approach is ideal for manual review, collaborative evaluation, and situations where domain experts need to contribute without writing code.
 
-```python
-from mlflow.entities import Feedback
+<Tabs>
+    <TabItem value="get_started" label="Get Started" default>
+### Getting Started
 
-# Using log_assessment directly
-feedback = Feedback(
-    name="faithfulness",
-    value=0.9,
-    rationale="The model response is faithful to the input context",
-    metadata={"model": "gpt-4o-mini"},
-)
+To add feedback or expectations to a trace, select the trace from your experiment's listing and click the "Add Assessment" button. This opens the entry form where you can choose between creating an expectation (ground truth) or feedback (evaluation).
 
-assessment = mlflow.log_assessment(trace_id="tr-123", assessment=feedback)
-```
+![Add Assessment](/images/assessments/add_assessment_ui.png)
+    </TabItem>
+    <TabItem value="add_expectation" label="Add Expectation">
+### Adding Expectations
 
-The `log_assessment` API requires the input of either a `Feedback` or `Expectation` object, making it more verbose and lower-level to use than the direct `log_expectation` and `log_feedback` APIs.
-It is recommended to only use `log_assessment` for integration purposes.
+Expectations define the ground truth for what your AI should produce. To add an expectation:
 
-## Assessment Logging
+1. Select "Expectation" in the Assessment Type dropdown
+2. Add a descriptive name (e.g., "expected_answer", "correct_classification")
+3. Choose the appropriate data type for your values
+4. Enter the expected values
+5. Optionally add rationale to explain the expectation
 
-This section covers the core workflow of adding assessments to your traces. Start with expectations to establish ground truth, then add feedback from various sources to evaluate performance.
+![Add Expectation](/images/assessments/add_expectation_ui.png)
+    </TabItem>
+    <TabItem value="add_feedback" label="Add Feedback">
+### Adding Feedback
+
+Feedback captures evaluations of how well the AI performed. To add feedback:
+
+1. Select "Feedback" in the Assessment Type dropdown
+2. Add a specific name for the quality aspect (e.g., "accuracy", "helpfulness")
+3. Choose the appropriate data type
+4. Enter your evaluation value
+5. Optionally add rationale to explain your assessment
+
+![Add Feedback](/images/assessments/add_feedback_ui.png)
+
+### Multiple Feedback Entries
+
+You can add multiple feedback entries for the same aspect by clicking the plus (+) icon next to an existing feedback name. This is useful for gathering multiple perspectives or correcting automated evaluations.
+
+![Additional Feedback](/images/assessments/additional_feedback_ui.png)
+
+    </TabItem>
+    <TabItem value="edit" label="Editing">
+### Editing Feedback and Expectations
+
+To edit an existing entry, click the dropdown menu (⋮) next to it and select "Edit". The UI displays visual indicators when entries have been modified.
+
+![Edit Delete](/images/assessments/edit_delete_ui.png)
+
+![Edit Feedback](/images/assessments/edit_feedback_ui.png)
+
+    </TabItem>
+    <TabItem value="view_assessments" label="Viewing">
+### Viewing Feedback and Expectations
+
+The trace detail page displays all feedback and expectations associated with a trace, including source attribution, timestamps, and rationale. This view helps you understand the complete evaluation picture for each trace.
+
+![Assessments Trace Detail](/images/assessments/assessments_trace_detail_ui.png)
+    </TabItem>
+</Tabs>
+
+## Logging Feedback and Expectations via API
+
+This section covers the core workflow of adding feedback and expectations to your traces. Start with expectations to establish ground truth, then add feedback from various sources to evaluate performance.
 
 <Tabs>
   <TabItem value="expectations" label="📋 Expectations (Ground Truth)" default>
@@ -306,19 +349,19 @@ def safe_automated_evaluation(trace_id, response_text):
   </TabItem>
 </Tabs>
 
-## Assessment Management
+## Managing Feedback and Expectations
 
-Once you have assessments on your traces, you need to retrieve, update, and sometimes delete them. This section covers the core management operations.
+Once you have feedback and expectations on your traces, you need to retrieve, update, and sometimes delete them. This section covers the core management operations.
 
 <Tabs>
   <TabItem value="retrieve" label="🔍 Retrieve" default>
 
-### Getting Assessment Data
+### Getting Feedback and Expectation Data
 
-Retrieve specific assessments to analyze evaluation results:
+Retrieve specific feedback or expectations to analyze evaluation results:
 
 ```python
-# Get a specific assessment by ID
+# Get a specific feedback or expectation by ID
 assessment = mlflow.get_assessment(
     trace_id="tr-1234567890abcdef", assessment_id="a-0987654321abcdef"
 )
@@ -333,9 +376,9 @@ rationale = assessment.rationale if hasattr(assessment, "rationale") else None
   </TabItem>
   <TabItem value="update" label="✏️ Update">
 
-### Modifying Assessments
+### Modifying Feedback and Expectations
 
-Update existing assessments when you need to correct or refine them:
+Update existing feedback or expectations when you need to correct or refine them:
 
 ```python
 from mlflow.entities import Expectation
@@ -356,19 +399,19 @@ mlflow.update_assessment(
   </TabItem>
   <TabItem value="delete" label="🗑️ Delete">
 
-### Removing Assessments
+### Removing Feedback and Expectations
 
-Delete assessments that were logged incorrectly:
+Delete feedback or expectations that were logged incorrectly:
 
 ```python
-# Delete a specific assessment
+# Delete a specific feedback or expectation
 mlflow.delete_assessment(
     trace_id="tr-1234567890abcdef", assessment_id="a-5555666677778888"
 )
 ```
 
 :::note
-If deleting a `Feedback` assessment that has been marked as a replacement to an existing assessment using the `override_feedback` API, the original assessment that was marked as invalid will return to a valid state.
+If deleting a `Feedback` that has been marked as a replacement to an existing feedback using the `override_feedback` API, the original feedback that was marked as invalid will return to a valid state.
 :::
 
 
@@ -377,7 +420,7 @@ If deleting a `Feedback` assessment that has been marked as a replacement to an 
 
 ## Overriding Feedback
 
-The `override_feedback` function allows you to correct automated assessments while preserving the original for audit trails. This is essential for human-in-the-loop evaluation workflows.
+The `override_feedback` function allows you to correct automated feedback while preserving the original for audit trails. This is essential for human-in-the-loop evaluation workflows.
 
 ### Basic Override Example
 
@@ -410,28 +453,28 @@ corrected_feedback = mlflow.override_feedback(
 )
 ```
 
-The process of overriding an existing `Feedback` assessment will mark the original assessment as invalid, but preserve the history of the original assessment.
+The process of overriding an existing `Feedback` will mark the original feedback as invalid, but preserve the history of the original feedback.
 
 ### Override vs Update
 
 Note the difference between override and update:
 
-- **`override_feedback`**: Creates a new assessment that marks the original as invalid but preserves it for analysis
-- **`update_assessment`**: Modifies the existing assessment in-place
+- **`override_feedback`**: Creates a new feedback that marks the original as invalid but preserves it for analysis
+- **`update_assessment`**: Modifies the existing feedback or expectation in-place
 
-Use override when you want to preserve the original automated evaluation for training data or analysis. Use update when you want to simply correct an assessment.
+Use override when you want to preserve the original automated evaluation for training data or analysis. Use update when you want to simply correct a feedback or expectation.
 
 
 ## Best Practices
 
-Following these practices ensures your assessment data is reliable, scalable, and valuable for improving your AI systems.
+Following these practices ensures your feedback and expectation data is reliable, scalable, and valuable for improving your AI systems.
 
 <Tabs>
   <TabItem value="naming" label="📝 Naming" default>
 
-### Consistent Assessment Names
+### Consistent Naming
 
-Use clear, descriptive naming conventions that make assessment data easy to analyze:
+Use clear, descriptive naming conventions that make feedback and expectation data easy to analyze:
 
 ```python
 # Excellent: Descriptive, hierarchical names
@@ -496,5 +539,5 @@ mlflow.log_feedback(
 
 Now that you understand the Assessments API, explore how it integrates with other MLflow capabilities:
 
-- [MLflow Tracing Guide](/genai/tracing) - Learn how assessments integrate with trace data
-- [Evaluation Workflows](/genai/eval-monitor) - Discover systematic evaluation strategies using assessments
+- [MLflow Tracing Guide](/genai/tracing) - Learn how feedback and expectations integrate with trace data
+- [Evaluation Workflows](/genai/eval-monitor) - Discover systematic evaluation strategies using feedback and expectations

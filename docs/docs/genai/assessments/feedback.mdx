@@ -1,0 +1,459 @@
+import { CardGroup, TitleCard } from "@site/src/components/Card";
+import FeatureHighlights from "@site/src/components/FeatureHighlights";
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import { Bot, Code, Users, TrendingUp, Shield, Eye, Database, FileText, Target, Book } from "lucide-react";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+
+# Collecting Automated and Human Feedback
+
+MLflow Feedback provides a comprehensive system for capturing quality evaluations from multiple sources - whether automated AI judges, programmatic rules, or human reviewers. This systematic approach to feedback collection enables you to understand and improve your GenAI application's performance at scale.
+
+## What is Feedback?
+
+Feedback captures evaluations of how well your AI performed. It measures the actual quality of what your AI produced across various dimensions like accuracy, relevance, safety, and helpfulness. Unlike expectations that define what should happen, feedback tells you what actually happened and how well it met your quality standards.
+
+## Sources of Feedback
+
+MLflow supports three types of feedback sources, each with unique strengths. You can use a single source or combine multiple sources for comprehensive quality coverage.
+
+<FeatureHighlights features={[
+  {
+    icon: Bot,
+    title: "LLM Judge Evaluation",
+    description: "AI-powered evaluation at scale. LLM judges provide consistent quality assessments for nuanced dimensions like relevance, tone, and safety without human intervention."
+  },
+  {
+    icon: Code,
+    title: "Programmatic Code Checks",
+    description: "Deterministic rule-based evaluation. Perfect for format validation, compliance checks, and business logic rules that need instant, cost-effective assessment."
+  },
+  {
+    icon: Users,
+    title: "Human Expert Review",
+    description: "Domain expert evaluation for high-stakes content. Human feedback captures nuanced insights that automated systems miss and serves as the gold standard."
+  }
+]} />
+
+## Why Collect Feedback?
+
+Collecting feedback on the quality of GenAI applications is critical to a continuous improvement process, ensuring that your application remains effective and is enhanced over time.
+
+<FeatureHighlights features={[
+  {
+    icon: TrendingUp,
+    title: "Enable Continuous Improvement",
+    description: "Create data-driven improvement cycles by systematically collecting quality signals to identify patterns, fix issues, and enhance AI performance over time."
+  },
+  {
+    icon: Shield,
+    title: "Scale Quality Assurance",
+    description: "Monitor quality at production scale by evaluating every trace instead of small samples, catching issues before they impact users."
+  },
+  {
+    icon: Eye,
+    title: "Build Trust Through Transparency",
+    description: "Show stakeholders exactly how quality is measured and by whom, building confidence in your AI system's reliability through clear attribution."
+  },
+  {
+    icon: Database,
+    title: "Create Training Data",
+    description: "Generate high-quality training datasets from feedback, especially human corrections, to improve both AI applications and evaluation systems."
+  }
+]} />
+
+## How Feedback Works
+
+### Via API
+
+Use the programmatic API when you need to automate feedback collection at scale, integrate with existing systems, or build custom evaluation workflows. The API enables you to collect feedback from all three sources programmatically.
+
+## Step-by-Step Guides
+
+### Add Human Evaluation via UI
+
+The MLflow UI provides an intuitive way to add, edit, and manage feedback directly on traces. This approach is ideal for manual review, collaborative evaluation, and situations where domain experts need to provide feedback without writing code.
+
+#### Adding New Feedback
+
+Follow these steps to manually evaluate AI responses:
+
+1. **Navigate to your experiment** and select the trace you want to evaluate
+2. **Click "Add Assessment"** button on the trace detail page
+3. **Select "Feedback"** from the Assessment Type dropdown
+4. **Enter a descriptive name** (e.g., "response_helpfulness", "accuracy_rating")
+5. **Choose the appropriate data type** (Boolean for pass/fail, Number for ratings, String for categories)
+6. **Enter your evaluation value** (e.g., rating from 1-5, True/False, or descriptive text)
+7. **Add rationale** explaining your evaluation reasoning
+8. **Click "Create"** to record your feedback
+
+![Add Feedback](/images/assessments/add_feedback_ui.png)
+
+The feedback will be immediately attached to the trace with your user information as the source.
+
+#### Editing Existing Feedback
+
+To refine evaluations or correct mistakes:
+
+1. **Locate the feedback entry** you want to modify on the trace detail page
+2. **Click the edit icon** (pencil icon) next to the feedback entry
+3. **Modify the value, rationale, or other fields** as needed
+4. **Click "Create"** to update the feedback
+
+![Edit Feedback](/images/assessments/edit_feedback_ui.png)
+
+#### Adding Additional Feedback to Existing Entries
+
+When multiple reviewers want to provide feedback on the same aspect, or when you want to add corrections to automated evaluations:
+
+1. **Find the existing feedback name** you want to add to
+2. **Click the plus (+) icon** next to the feedback name
+3. **Enter your additional evaluation** with appropriate rationale
+4. **Click "Save"** to add your feedback alongside the existing entries
+
+![Additional Feedback](/images/assessments/additional_feedback_ui.png)
+
+This collaborative approach enables multiple perspectives on the same trace aspect, creating richer evaluation datasets and helping identify cases where evaluators disagree.
+
+### Log Automated Assessment via API
+
+<Tabs>
+  <TabItem value="llm_judge" label="LLM Judge" default>
+
+Implement automated LLM-based evaluation with these steps:
+
+**1. Set up your evaluation environment:**
+
+```python
+import mlflow
+from mlflow.entities import AssessmentSource, AssessmentError
+from mlflow.entities.assessment_source import AssessmentSourceType
+import openai  # or your preferred LLM client
+
+# Configure your LLM client
+client = openai.OpenAI(api_key="your-api-key")
+```
+
+**2. Create your evaluation prompt:**
+
+```python
+def create_evaluation_prompt(user_input, ai_response):
+    return f"""
+    Evaluate the AI response for helpfulness and accuracy.
+    
+    User Input: {user_input}
+    AI Response: {ai_response}
+    
+    Rate the response on a scale of 0.0 to 1.0 for:
+    1. Helpfulness: How well does it address the user's needs?
+    2. Accuracy: Is the information factually correct?
+    
+    Respond with only a JSON object:
+    {{"helpfulness": 0.0-1.0, "accuracy": 0.0-1.0, "rationale": "explanation"}}
+    """
+```
+
+**3. Implement the evaluation function:**
+
+```python
+def evaluate_with_llm_judge(trace_id, user_input, ai_response):
+    try:
+        # Get LLM evaluation
+        response = client.chat.completions.create(
+            model="gpt-4",
+            messages=[{
+                "role": "user", 
+                "content": create_evaluation_prompt(user_input, ai_response)
+            }],
+            temperature=0.0
+        )
+        
+        # Parse the evaluation
+        import json
+        evaluation = json.loads(response.choices[0].message.content)
+        
+        # Log feedback to MLflow
+        mlflow.log_feedback(
+            trace_id=trace_id,
+            name="llm_judge_evaluation",
+            value=evaluation,
+            rationale=evaluation.get("rationale", ""),
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.LLM_JUDGE,
+                source_id="gpt-4-evaluator"
+            ),
+        )
+        
+    except Exception as e:
+        # Log evaluation failure
+        mlflow.log_feedback(
+            trace_id=trace_id,
+            name="llm_judge_evaluation",
+            error=AssessmentError(
+                error_code="EVALUATION_FAILED",
+                error_message=str(e)
+            ),
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.LLM_JUDGE,
+                source_id="gpt-4-evaluator"
+            ),
+        )
+```
+
+**4. Use the evaluation function:**
+
+```python
+# Example usage
+trace_id = "your-trace-id"
+user_question = "What is the capital of France?"
+ai_answer = "The capital of France is Paris."
+
+evaluate_with_llm_judge(trace_id, user_question, ai_answer)
+```
+
+  </TabItem>
+  <TabItem value="evaluate_api" label="MLflow Evaluate API">
+
+For standardized evaluation workflows, you can combine `mlflow.evaluate()` with feedback logging:
+
+**1. Set up your evaluation dataset:**
+
+```python
+import pandas as pd
+import mlflow
+from mlflow.entities import AssessmentSource
+from mlflow.entities.assessment_source import AssessmentSourceType
+from mlflow.models import make_metric
+
+# Prepare evaluation data
+eval_data = pd.DataFrame({
+    'question': ['What is the capital of France?', 'What is 2+2?'],
+    'trace_id': ['tr-001', 'tr-002'],
+    'ground_truth': ['Paris', '4']
+})
+```
+
+**2. Create a custom LLM judge metric:**
+
+```python
+def llm_judge_metric(predictions, targets, **kwargs):
+    """Custom LLM judge for use with mlflow.evaluate()"""
+    import openai
+    
+    client = openai.OpenAI()
+    scores = []
+    
+    for pred, target in zip(predictions, targets):
+        prompt = f"""
+        Rate the accuracy of this response compared to the ground truth:
+        Prediction: {pred}
+        Ground Truth: {target}
+        
+        Respond with only a number from 0.0 to 1.0
+        """
+        
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.0
+        )
+        
+        score = float(response.choices[0].message.content.strip())
+        scores.append(score)
+    
+    return scores
+
+# Create the metric
+judge_metric = make_metric(
+    eval_fn=llm_judge_metric,
+    greater_is_better=True,
+    name="llm_judge_accuracy"
+)
+```
+
+**3. Run evaluation and log feedback:**
+
+```python
+# Run evaluation
+results = mlflow.evaluate(
+    model=your_model,
+    data=eval_data,
+    targets="ground_truth",
+    model_type="question-answering",
+    extra_metrics=[judge_metric]
+)
+
+# Log feedback to traces
+for i, row in eval_data.iterrows():
+    if 'trace_id' in row and pd.notna(row['trace_id']):
+        mlflow.log_feedback(
+            trace_id=row['trace_id'],
+            name="llm_judge_accuracy",
+            value=results.metrics[f"llm_judge_accuracy/v1_{i}"],
+            source=AssessmentSource(
+                source_type=AssessmentSourceType.LLM_JUDGE,
+                source_id="gpt-4o-mini-evaluator"
+            ),
+        )
+```
+
+This approach combines MLflow's standardized evaluation workflow with direct trace integration.
+
+  </TabItem>
+  <TabItem value="code_based" label="Code-Based">
+
+Implement programmatic rule-based evaluation:
+
+**1. Define your evaluation rules:**
+
+```python
+def evaluate_response_compliance(response_text):
+    """Evaluate response against business rules."""
+    results = {
+        "has_disclaimer": False,
+        "appropriate_length": False,
+        "contains_prohibited_terms": False,
+        "rationale": []
+    }
+    
+    # Check for required disclaimer
+    if "This is not financial advice" in response_text:
+        results["has_disclaimer"] = True
+    else:
+        results["rationale"].append("Missing required disclaimer")
+    
+    # Check response length
+    if 50 <= len(response_text) <= 500:
+        results["appropriate_length"] = True
+    else:
+        results["rationale"].append(f"Response length {len(response_text)} outside acceptable range")
+    
+    # Check for prohibited terms
+    prohibited_terms = ["guaranteed returns", "risk-free", "get rich quick"]
+    found_terms = [term for term in prohibited_terms if term.lower() in response_text.lower()]
+    if found_terms:
+        results["contains_prohibited_terms"] = True
+        results["rationale"].append(f"Contains prohibited terms: {found_terms}")
+    
+    return results
+```
+
+**2. Implement the logging function:**
+
+```python
+def log_compliance_check(trace_id, response_text):
+    # Run compliance evaluation
+    evaluation = evaluate_response_compliance(response_text)
+    
+    # Calculate overall compliance score
+    compliance_score = sum([
+        evaluation["has_disclaimer"],
+        evaluation["appropriate_length"],
+        not evaluation["contains_prohibited_terms"]
+    ]) / 3
+    
+    # Log the feedback
+    mlflow.log_feedback(
+        trace_id=trace_id,
+        name="compliance_check",
+        value={
+            "overall_score": compliance_score,
+            "details": evaluation
+        },
+        rationale="; ".join(evaluation["rationale"]) or "All compliance checks passed",
+        source=AssessmentSource(
+            source_type=AssessmentSourceType.CODE,
+            source_id="compliance_validator_v2.1"
+        ),
+    )
+```
+
+**3. Use in your application:**
+
+```python
+# Example usage after your AI generates a response
+with mlflow.start_span(name="financial_advice") as span:
+    ai_response = your_ai_model.generate(user_question)
+    trace_id = span.trace_id
+    
+    # Run automated compliance check
+    log_compliance_check(trace_id, ai_response)
+```
+
+  </TabItem>
+</Tabs>
+
+## Feedback Workflows
+
+### Direct Evaluation
+The simplest workflow: feedback is added directly to traces as they're generated. Each source evaluates independently based on its strengths.
+
+### Human-in-the-Loop Override
+When automated feedback is incorrect, humans can override it while preserving the original for analysis:
+
+```python
+# Original automated feedback
+original = mlflow.log_feedback(
+    trace_id=trace_id,
+    name="safety_check",
+    value=False,
+    rationale="Potentially unsafe medical advice detected",
+    source=AssessmentSource(
+        source_type=AssessmentSourceType.LLM_JUDGE,
+        source_id="safety_classifier"
+    ),
+)
+
+# Human expert disagrees and overrides
+mlflow.override_feedback(
+    trace_id=trace_id,
+    assessment_id=original.assessment_id,
+    value=True,
+    rationale="General wellness advice is appropriate and safe",
+    source=AssessmentSource(
+        source_type=AssessmentSourceType.HUMAN,
+        source_id="medical_reviewer@hospital.com"
+    ),
+)
+```
+
+### Hybrid Evaluation Strategies
+
+**Automated-First with Escalation**: LLM judges evaluate all traces, escalating low-confidence cases to humans.
+
+**Multi-Source Validation**: Critical responses get evaluated by multiple sources for high-confidence assessment.
+
+**Continuous Learning**: Human overrides train better automated evaluators, creating a virtuous improvement cycle.
+
+## Next Steps
+
+<TilesGrid>
+  <TileCard
+    icon={FileText}
+    iconSize={48}
+    title="Feedback API Guide"
+    description="Complete reference for the feedback API with examples"
+    href="/genai/assessments/api-guide"
+    linkText="View API docs →"
+    containerHeight={120}
+  />
+  <TileCard
+    icon={Target}
+    iconSize={48}
+    title="Ground Truth Expectations"
+    description="Learn how to define expected outputs for evaluation"
+    href="/genai/assessments/expectations"
+    linkText="Start annotating →"
+    containerHeight={120}
+  />
+  <TileCard
+    icon={Book}
+    iconSize={48}
+    title="Feedback Concepts"
+    description="Deep dive into feedback architecture and schema"
+    href="/genai/tracing/concepts/feedback"
+    linkText="Learn more →"
+    containerHeight={120}
+  />
+</TilesGrid>
