@@ -17,23 +17,19 @@ from tests.helper_functions import get_safe_port
 def server(tmp_path: Path) -> Generator[str, None, None]:
     port = get_safe_port()
     sqlite_db_path = tmp_path / "mlflow.db"
-
     with subprocess.Popen(
         [
             sys.executable,
             "-m",
             "mlflow",
             "server",
-            "--dev",
             f"--port={port}",
-            "--backend-store-uri",
-            f"sqlite:///{sqlite_db_path}",
+            f"--backend-store-uri=sqlite:///{sqlite_db_path}",
         ],
         cwd=tmp_path,
     ) as process:
-        url = f"http://localhost:{port}"
         try:
-            yield url
+            yield f"http://localhost:{port}"
         finally:
             process.terminate()
 
@@ -68,7 +64,7 @@ def test_create_webhook(store: RestStore):
     )
     assert webhook_with_secret.name == "test_webhook_with_secret"
     assert webhook_with_secret.url == "https://example.com/webhook_with_secret"
-    assert webhook_with_secret.secret == "my_secret"
+    assert webhook_with_secret.secret is None
     assert webhook_with_secret.events == [WebhookEvent.MODEL_VERSION_CREATED]
 
     # Multiple events
@@ -76,36 +72,17 @@ def test_create_webhook(store: RestStore):
         name="test_webhook_multiple_events",
         url="https://example.com/webhook_multiple_events",
         events=[
+            WebhookEvent.MODEL_VERSION_ALIAS_CREATED,
             WebhookEvent.MODEL_VERSION_CREATED,
-            WebhookEvent.MODEL_VERSION_TRANSITIONED_STAGE,
         ],
     )
     assert webhook_multiple_events.name == "test_webhook_multiple_events"
     assert webhook_multiple_events.url == "https://example.com/webhook_multiple_events"
-    assert webhook_multiple_events.events == [
+    assert sorted(webhook_multiple_events.events) == [
+        WebhookEvent.MODEL_VERSION_ALIAS_CREATED,
         WebhookEvent.MODEL_VERSION_CREATED,
-        WebhookEvent.MODEL_VERSION_TRANSITIONED_STAGE,
     ]
-
-
-@pytest.mark.parametrize(
-    ("invalid_url", "expected_match"),
-    [
-        ("", r"Webhook URL cannot be empty or just whitespace"),
-        ("   ", r"Webhook URL cannot be empty or just whitespace"),
-        ("ftp://example.com", r"Invalid webhook URL scheme"),
-        ("http://[invalid", r"Invalid webhook URL"),
-    ],
-)
-def test_update_webhook_invalid_urls(store, invalid_url, expected_match):
-    # Create a valid webhook first
-    webhook = store.create_webhook(
-        name="test_webhook",
-        url="https://example.com/webhook",
-        events=[WebhookEvent.MODEL_VERSION_CREATED],
-    )
-    with pytest.raises(MlflowException, match=expected_match):
-        store.update_webhook(webhook_id=webhook.webhook_id, url=invalid_url)
+    assert webhook_multiple_events.secret is None
 
 
 def test_get_webhook(store: RestStore):
@@ -126,19 +103,27 @@ def test_get_webhook_not_found(store: RestStore):
 
 
 def test_list_webhooks(store: RestStore):
-    # Create multiple webhooks
-    webhook1 = store.create_webhook(
-        name="webhook1", url="https://example.com/1", events=[WebhookEvent.MODEL_VERSION_CREATED]
-    )
-    webhook2 = store.create_webhook(
-        name="webhook2", url="https://example.com/2", events=[WebhookEvent.REGISTERED_MODEL_CREATED]
-    )
-    webhooks, token = store.list_webhooks()
+    # Create more webhooks than max_results
+    created_webhooks = []
+    for i in range(5):
+        webhook = store.create_webhook(
+            name=f"webhook{i}",
+            url=f"https://example.com/{i}",
+            events=[WebhookEvent.MODEL_VERSION_CREATED],
+        )
+        created_webhooks.append(webhook)
+    # Test pagination with max_results=2
+    webhooks, token = store.list_webhooks(max_results=2)
     assert len(webhooks) == 2
-    assert token is None
-    webhook_ids = {w.webhook_id for w in webhooks}
-    assert webhook1.webhook_id in webhook_ids
-    assert webhook2.webhook_id in webhook_ids
+    assert token is not None
+    # Get next page
+    next_webhooks, next_token = store.list_webhooks(max_results=2, page_token=token)
+    assert len(next_webhooks) == 2
+    assert next_token is not None
+    # Verify we don't get duplicates
+    first_page_ids = {w.webhook_id for w in webhooks}
+    second_page_ids = {w.webhook_id for w in next_webhooks}
+    assert first_page_ids.isdisjoint(second_page_ids)
 
 
 def test_update_webhook(store: RestStore):
@@ -188,6 +173,26 @@ def test_update_webhook_partial(store: RestStore):
 def test_update_webhook_not_found(store: RestStore):
     with pytest.raises(MlflowException, match="Webhook with ID nonexistent not found"):
         store.update_webhook(webhook_id="nonexistent", name="new_name")
+
+
+@pytest.mark.parametrize(
+    ("invalid_url", "expected_match"),
+    [
+        ("", r"Webhook URL cannot be empty or just whitespace"),
+        ("   ", r"Webhook URL cannot be empty or just whitespace"),
+        ("ftp://example.com", r"Invalid webhook URL scheme"),
+        ("http://[invalid", r"Invalid webhook URL"),
+    ],
+)
+def test_update_webhook_invalid_urls(store, invalid_url, expected_match):
+    # Create a valid webhook first
+    webhook = store.create_webhook(
+        name="test_webhook",
+        url="https://example.com/webhook",
+        events=[WebhookEvent.MODEL_VERSION_CREATED],
+    )
+    with pytest.raises(MlflowException, match=expected_match):
+        store.update_webhook(webhook_id=webhook.webhook_id, url=invalid_url)
 
 
 def test_delete_webhook(store: RestStore):
