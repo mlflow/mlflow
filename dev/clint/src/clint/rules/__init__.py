@@ -27,6 +27,7 @@ from clint.rules.test_name_typo import TestNameTypo
 from clint.rules.thread_pool_executor_without_thread_name_prefix import (
     ThreadPoolExecutorWithoutThreadNamePrefix,
 )
+from clint.rules.track_api_usage_topmost import TrackApiUsageTopMost
 from clint.rules.typing_extensions import TypingExtensions
 from clint.rules.unknown_mlflow_arguments import UnknownMlflowArguments
 from clint.rules.unknown_mlflow_function import UnknownMlflowFunction
@@ -61,6 +62,7 @@ __all__ = [
     "PytestMarkRepeat",
     "TestNameTypo",
     "ThreadPoolExecutorWithoutThreadNamePrefix",
+    "TrackApiUsageTopMost",
     "TypingExtensions",
     "UnknownMlflowArguments",
     "UnknownMlflowFunction",

@@ -861,3 +861,7 @@ MLFLOW_SERVER_GRAPHQL_MAX_ALIASES = _EnvironmentVariable(
 )
 
 MLFLOW_DISABLE_SCHEMA_DETAILS = _EnvironmentVariable("MLFLOW_DISABLE_SCHEMA_DETAILS", bool, False)
+
+#: Whether to disable telemetry collection in MLflow. If set to True, no telemetry
+#: data will be collected. (default: ``False``)
+MLFLOW_DISABLE_TELEMETRY = _BooleanEnvironmentVariable("MLFLOW_DISABLE_TELEMETRY", False)

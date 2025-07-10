@@ -2,6 +2,7 @@ import json
 import random
 import time
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import asdict
 from operator import itemgetter
 from typing import Any, Optional
 from unittest import mock
@@ -55,6 +56,8 @@ from packaging.version import Version
 
 import mlflow
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.telemetry.client import get_telemetry_client
+from mlflow.telemetry.schemas import AutologParams
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey, TraceMetadataKey
 
 from tests.langchain.conftest import DeterministicDummyEmbeddings
@@ -1229,3 +1232,26 @@ def test_model_loading_set_active_model_id_without_fetching_logged_model():
     assert len(traces) == 1
     model_id = traces[0].info.request_metadata[TraceMetadataKey.MODEL_ID]
     assert model_id == model_info.model_id
+
+
+def test_autolog_sends_telemetry_record(mock_requests):
+    mlflow.langchain.autolog(log_traces=True, disable=False)
+
+    # Wait for telemetry to be sent
+    get_telemetry_client().flush()
+
+    # Check that telemetry record was sent
+    assert len(mock_requests) == 1
+    autolog_record = mock_requests[0]
+    data = json.loads(autolog_record["data"])
+    assert data["api_module"] == mlflow.langchain.autolog.__module__
+    assert data["api_name"] == "autolog"
+    assert data["params"] == asdict(
+        AutologParams(
+            flavor="langchain",
+            disable=False,
+            log_traces=True,
+            log_models=False,
+        )
+    )
+    assert data["status"] == "success"

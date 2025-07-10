@@ -17,6 +17,7 @@ from mlflow.entities import Metric, Param
 from mlflow.entities.dataset_input import DatasetInput
 from mlflow.entities.input_tag import InputTag
 from mlflow.exceptions import MlflowException
+from mlflow.telemetry.track import track_api_usage
 from mlflow.tracking.client import MlflowClient
 from mlflow.utils import (
     _chunk_dict,
@@ -807,6 +808,7 @@ def _infer_spark_model_signature(spark_model, input_example_spark_df):
     return signature
 
 
+@track_api_usage
 @autologging_integration(AUTOLOGGING_INTEGRATION_NAME)
 def autolog(
     log_models=True,

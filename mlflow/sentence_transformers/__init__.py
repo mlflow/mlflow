@@ -17,6 +17,7 @@ from mlflow.models import Model, ModelInputExample, ModelSignature, infer_pip_re
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.signature import _infer_signature_from_input_example
 from mlflow.models.utils import _save_example
+from mlflow.telemetry.track import track_api_usage
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.transformers.llm_inference_utils import (
     _LLM_INFERENCE_TASK_EMBEDDING,
@@ -291,6 +292,7 @@ def _get_transformers_model_name(model_name_or_path):
     return model_name_or_path
 
 
+@track_api_usage
 @docstring_version_compatibility_warning(integration_name=FLAVOR_NAME)
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(

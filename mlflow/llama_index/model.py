@@ -24,6 +24,7 @@ from mlflow.models.utils import (
     _save_example,
     _validate_and_get_model_code_path,
 )
+from mlflow.telemetry.track import track_api_usage
 from mlflow.tracing.provider import trace_disabled
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
@@ -312,6 +313,7 @@ def save_model(
     _PythonEnv.current().to_yaml(os.path.join(path, _PYTHON_ENV_FILE_NAME))
 
 
+@track_api_usage
 @experimental(version="2.15.0")
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 @trace_disabled  # Suppress traces while loading model

@@ -502,6 +502,7 @@ from mlflow.pyfunc.model import (
     get_default_conda_env,  # noqa: F401
     get_default_pip_requirements,
 )
+from mlflow.telemetry.track import track_api_usage
 
 try:
     from mlflow.pyfunc.model import ResponsesAgent
@@ -3369,6 +3370,7 @@ def update_signature_for_type_hint_from_example(input_example: Any, signature: M
         )
 
 
+@track_api_usage
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="scikit-learn"))
 @trace_disabled  # Suppress traces for internal predict calls while logging model
 def log_model(

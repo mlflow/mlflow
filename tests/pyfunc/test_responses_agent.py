@@ -1,5 +1,7 @@
+import json
 import pathlib
 import pickle
+from dataclasses import asdict
 from typing import Generator
 
 import pytest
@@ -23,6 +25,8 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature
 from mlflow.pyfunc.loaders.responses_agent import _ResponsesAgentPyfuncWrapper
 from mlflow.pyfunc.model import _DEFAULT_RESPONSES_AGENT_METADATA_TASK, ResponsesAgent
+from mlflow.telemetry.client import get_telemetry_client
+from mlflow.telemetry.parser import LogModelParams, ModelType
 from mlflow.types.responses import (
     RESPONSES_AGENT_INPUT_EXAMPLE,
     RESPONSES_AGENT_INPUT_SCHEMA,
@@ -484,3 +488,29 @@ def test_responses_agent_trace(
     assert len(spans) == 1
     assert spans[0].name == "predict_stream"
     assert spans[0].attributes[SpanAttributeKey.CHAT_MESSAGES] == expected_chat_messages
+
+
+def test_log_model_sends_telemetry_record(mock_requests):
+    client = get_telemetry_client()
+    mlflow.pyfunc.log_model(python_model=SimpleResponsesAgent(), name="model")
+    # Wait for telemetry to be sent
+    client.flush()
+
+    # Check that telemetry record was sent
+    assert len(mock_requests) == 1
+    record = mock_requests[0]
+    data = json.loads(record["data"])
+    assert data["api_module"] == mlflow.pyfunc.log_model.__module__
+    assert data["api_name"] == "log_model"
+    assert data["params"] == asdict(
+        LogModelParams(
+            flavor="pyfunc",
+            model=ModelType.RESPONSES_AGENT,
+            is_pip_requirements_set=False,
+            is_extra_pip_requirements_set=False,
+            is_code_paths_set=False,
+            is_params_set=False,
+            is_metadata_set=False,
+        )
+    )
+    assert data["status"] == "success"

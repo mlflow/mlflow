@@ -5,6 +5,7 @@ import inspect
 import json
 import pickle
 import re
+from dataclasses import asdict
 from unittest import mock
 
 import joblib
@@ -36,6 +37,8 @@ from mlflow.sklearn.utils import (
     _log_child_runs_info,
     _log_estimator_content,
 )
+from mlflow.telemetry.client import get_telemetry_client
+from mlflow.telemetry.schemas import AutologParams
 from mlflow.types.utils import _infer_schema
 from mlflow.utils import _truncate_dict
 from mlflow.utils.autologging_utils import MlflowAutologgingQueueingClient
@@ -1848,3 +1851,31 @@ def test_autolog_emits_warning_message_when_pos_label_used_for_multilabel():
             "Metric error: Target is multiclass but average='binary'. Please choose another "
             "average setting, one of [None, 'micro', 'macro', 'weighted']."
         )
+
+
+def test_autolog_sends_telemetry_record(mock_requests):
+    mlflow.sklearn.autolog(log_models=True, disable=False)
+
+    with mlflow.start_run():
+        model = sklearn.linear_model.LogisticRegression()
+        X, y = get_iris()
+        model.fit(X, y)
+
+    # Wait for telemetry to be sent
+    get_telemetry_client().flush()
+
+    # Check that telemetry record was sent
+    assert len(mock_requests) == 1
+    autolog_record = mock_requests[0]
+    data = json.loads(autolog_record["data"])
+    assert data["api_module"] == mlflow.sklearn.autolog.__module__
+    assert data["api_name"] == "autolog"
+    assert data["params"] == asdict(
+        AutologParams(
+            flavor="sklearn",
+            disable=False,
+            log_traces=False,
+            log_models=True,
+        )
+    )
+    assert data["status"] == "success"

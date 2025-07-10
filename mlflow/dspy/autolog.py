@@ -4,6 +4,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow.dspy.constant import FLAVOR_NAME
+from mlflow.telemetry.track import track_api_usage
 from mlflow.tracing.provider import trace_disabled
 from mlflow.tracing.utils import construct_full_inputs
 from mlflow.utils.annotations import experimental
@@ -14,6 +15,7 @@ from mlflow.utils.autologging_utils import (
 )
 
 
+@track_api_usage
 @experimental(version="2.18.0")
 def autolog(
     log_traces: bool = True,

@@ -1,4 +1,6 @@
+import json
 import random
+from dataclasses import asdict
 
 import numpy as np
 import optuna
@@ -24,6 +26,8 @@ from transformers import (
 )
 
 import mlflow
+from mlflow.telemetry.client import get_telemetry_client
+from mlflow.telemetry.schemas import AutologParams
 
 
 @pytest.fixture
@@ -576,3 +580,26 @@ def test_trainer_hyperparameter_tuning_functional_does_not_log_sklearn_model(
     runs = client.search_runs([exp.experiment_id])
 
     assert len(runs) == 1
+
+
+def test_autolog_sends_telemetry_record(mock_requests):
+    mlflow.transformers.autolog(log_models=True, log_datasets=True, disable=False)
+
+    # Wait for telemetry to be sent
+    get_telemetry_client().flush()
+
+    # Check that telemetry record was sent
+    assert len(mock_requests) == 1
+    autolog_record = mock_requests[0]
+    data = json.loads(autolog_record["data"])
+    assert data["api_module"] == mlflow.transformers.autolog.__module__
+    assert data["api_name"] == "autolog"
+    assert data["params"] == asdict(
+        AutologParams(
+            flavor="transformers",
+            disable=False,
+            log_traces=False,
+            log_models=True,
+        )
+    )
+    assert data["status"] == "success"

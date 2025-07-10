@@ -71,6 +71,7 @@ include = [
   "mlflow.pydantic_ai*",
   "mlflow.smolagents*",
   "mlflow.store*",
+  "mlflow.telemetry",
   "mlflow.tracing*",
   "mlflow.tracking*",
   "mlflow.types*",

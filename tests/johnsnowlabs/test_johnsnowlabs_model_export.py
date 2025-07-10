@@ -660,6 +660,11 @@ def test_log_model_calls_register_model(tmp_path, jsl_model):
 #
 #     def mock_get_dbutils():
 #         import inspect
+from dataclasses import asdict
+
+from mlflow.telemetry.client import get_telemetry_client
+from mlflow.telemetry.schemas import LogModelParams, ModelType
+
 #
 #         # _get_dbutils is called during run creation and model logging; to avoid breaking run
 #         # creation, we only mock the output if _get_dbutils is called during spark model logging
@@ -742,3 +747,33 @@ def test_log_model_calls_register_model(tmp_path, jsl_model):
 #
 #     reloaded_model = mlflow.pyfunc.load_model(model_uri=model_uri)
 #     assert reloaded_model.metadata.metadata["metadata_key"] == "metadata_value"
+
+
+def test_log_model_sends_telemetry_record(mock_requests, spark_model_iris):
+    mlflow.johnsnowlabs.log_model(
+        spark_model_iris.model,
+        name="model",
+        input_example=spark_model_iris.inference_data,
+        params={"param1": "value1"},
+    )
+    # Wait for telemetry to be sent
+    get_telemetry_client().flush()
+
+    # Check that telemetry record was sent
+    assert len(mock_requests) == 1
+    record = mock_requests[0]
+    data = json.loads(record["data"])
+    assert data["api_module"] == mlflow.johnsnowlabs.log_model.__module__
+    assert data["api_name"] == "log_model"
+    assert data["params"] == asdict(
+        LogModelParams(
+            flavor="johnsnowlabs",
+            model=ModelType.MODEL_OBJECT,
+            is_pip_requirements_set=False,
+            is_extra_pip_requirements_set=False,
+            is_code_paths_set=False,
+            is_params_set=True,
+            is_metadata_set=False,
+        )
+    )
+    assert data["status"] == "success"

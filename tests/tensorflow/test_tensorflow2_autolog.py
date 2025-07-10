@@ -6,6 +6,7 @@ import json
 import os
 import pickle
 import sys
+from dataclasses import asdict
 from pathlib import Path
 from unittest.mock import patch
 
@@ -21,6 +22,8 @@ from mlflow import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
+from mlflow.telemetry.client import get_telemetry_client
+from mlflow.telemetry.schemas import AutologParams
 from mlflow.tensorflow import load_checkpoint
 from mlflow.tensorflow.autologging import _TensorBoard
 from mlflow.tensorflow.callback import MlflowCallback
@@ -1463,3 +1466,26 @@ def test_automatic_checkpoint_per_3_steps_save_best_only_callback(
     assert logged_metrics["global_step"] == 3
 
     assert isinstance(load_checkpoint(run_id=run_id), tf.keras.Sequential)
+
+
+def test_autolog_sends_telemetry_record(mock_requests):
+    mlflow.tensorflow.autolog(log_models=True, log_datasets=True, disable=False)
+
+    # Wait for telemetry to be sent
+    get_telemetry_client().flush()
+
+    # Check that telemetry record was sent
+    assert len(mock_requests) == 1
+    autolog_record = mock_requests[0]
+    data = json.loads(autolog_record["data"])
+    assert data["api_module"] == mlflow.tensorflow.autolog.__module__
+    assert data["api_name"] == "autolog"
+    assert data["params"] == asdict(
+        AutologParams(
+            flavor="tensorflow",
+            disable=False,
+            log_traces=False,
+            log_models=True,
+        )
+    )
+    assert data["status"] == "success"

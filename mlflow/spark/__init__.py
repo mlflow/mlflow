@@ -34,6 +34,7 @@ from mlflow.models.signature import _LOG_MODEL_INFER_SIGNATURE_WARNING_TEMPLATE
 from mlflow.models.utils import _Example, _save_example
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
 from mlflow.store.artifact.databricks_artifact_repo import DatabricksArtifactRepository
+from mlflow.telemetry.track import track_api_usage
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.artifact_utils import (
     _download_artifact_from_uri,
@@ -135,6 +136,7 @@ def get_default_conda_env(is_spark_connect_model=False):
     )
 
 
+@track_api_usage
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="pyspark"))
 def log_model(
     spark_model,
@@ -1147,6 +1149,7 @@ class _PyFuncModelWrapper:
         return [x.prediction for x in prediction_df.collect()]
 
 
+@track_api_usage
 @autologging_integration(FLAVOR_NAME)
 def autolog(disable=False, silent=False):
     """

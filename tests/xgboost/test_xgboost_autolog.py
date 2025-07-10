@@ -2,6 +2,7 @@ import functools
 import json
 import os
 import pickle
+from dataclasses import asdict
 from unittest import mock
 
 import matplotlib as mpl
@@ -18,6 +19,8 @@ import mlflow.xgboost
 from mlflow import MlflowClient
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
+from mlflow.telemetry.client import get_telemetry_client
+from mlflow.telemetry.schemas import AutologParams
 from mlflow.types.utils import _infer_schema
 from mlflow.utils.autologging_utils import BatchMetricsLogger, picklable_exception_safe_function
 from mlflow.xgboost._autolog import IS_TRAINING_CALLBACK_SUPPORTED, autolog_callback
@@ -788,3 +791,26 @@ def test_xgb_log_datasets_with_evals(bst_params, dtrain):
             }
         }
     )
+
+
+def test_autolog_sends_telemetry_record(mock_requests):
+    mlflow.xgboost.autolog(log_models=True, log_datasets=True, disable=False)
+
+    # Wait for telemetry to be sent
+    get_telemetry_client().flush()
+
+    # Check that telemetry record was sent
+    assert len(mock_requests) == 1
+    autolog_record = mock_requests[0]
+    data = json.loads(autolog_record["data"])
+    assert data["api_module"] == mlflow.xgboost.autolog.__module__
+    assert data["api_name"] == "autolog"
+    assert data["params"] == asdict(
+        AutologParams(
+            flavor="xgboost",
+            disable=False,
+            log_traces=False,
+            log_models=True,
+        )
+    )
+    assert data["status"] == "success"
