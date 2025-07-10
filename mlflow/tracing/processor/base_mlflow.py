@@ -188,7 +188,7 @@ class BaseMlflowSpanProcessor(SimpleSpanProcessor):
         if usage := aggregate_usage_from_spans(trace.span_dict.values()):
             trace.info.request_metadata[TraceMetadataKey.TOKEN_USAGE] = json.dumps(usage)
 
-    def _truncate_metadata(self,value: Optional[str]) -> str:
+    def _truncate_metadata(self, value: Optional[str]) -> str:
         """Get truncated value of the attribute if it exceeds the maximum length."""
         if not value:
             return ""
