@@ -12,6 +12,8 @@ import { GitMerge } from "lucide-react";
 New to MLflow Tracing? Checkout the <ins>[Quick Start Guide](/genai/tracing/quickstart/python-openai)</ins> to get started.
 :::
 
+This page provides a comprehensive guide for instrumenting your GenAI applications with MLflow Tracing.
+
 ## 1. Installation
 
 <TabsWrapper>
@@ -38,9 +40,7 @@ The [`mlflow-tracing`](https://pypistats.org/packages/mlflow-tracing) Python pac
 pip install mlflow
 ```
 
-
 :::
-
 
 ## 2. Connect Your Application with MLflow
 
@@ -49,7 +49,7 @@ pip install mlflow
   <TabItem value="local" label="Self-Host MLflow (Local)" default>
     For local development or personal use, locally hosting MLflow is a good option. While this is not recommended for production use, it is the fastest way to get started. For logging traces, we recommend using [SQL Backend](https://mlflow.org/docs/latest/tracking.html#sql-backend) for better performance.
 
-    To start a local MLflow server, run the following command in your terminal:
+    To start a local MLflow server, run the following command in your terminal. Alternatively, you can use the official [Docker image](https://github.com/mlflow/mlflow/pkgs/container/mlflow) to run the server.
 
     ```bash
     # Replace sqlite:/// part with your preferred database URI.
@@ -64,7 +64,7 @@ pip install mlflow
     import mlflow
 
     mlflow.set_tracking_uri("http://127.0.0.1:5000")
-    mlflow.set_experiment("my-tracing-experiment")
+    mlflow.set_experiment("<your-experiment-name>")
     ```
 
     **JS/TS:**
@@ -87,8 +87,8 @@ pip install mlflow
     ```python
     import mlflow
 
-    mlflow.set_tracking_uri("https://your-mlflow-server.com")
-    mlflow.set_experiment("my-tracing-experiment")
+    mlflow.set_tracking_uri("https://<your-mlflow-server>:<port>")
+    mlflow.set_experiment("<your-experiment-name>")
     ```
 
     **JS/TS:**
@@ -97,7 +97,7 @@ pip install mlflow
     import * as mlflow from "mlflow-tracing";
 
     mlflow.init(
-      trackingUri: "https://your-mlflow-server.com",
+      trackingUri: "https://<your-mlflow-server.com>:<port>",
       experimentId: "<your-experiment-id>",  // If no experiment is created yet, create it on UI first.
     );
     ```
@@ -109,22 +109,19 @@ pip install mlflow
     These steps describes using a Databricks Personal Access Token. MLflow also works with the other <ins>[Databricks-supported authentication methods](https://mlflow.org/docs/latest/tracking.html#databricks)</ins>.
     :::
 
-    If you're working on tracing with Databricks, configure your authentication:
+    If you're working on tracing with Databricks, configure your authentication with Databricks CLI or the following environment variables:
 
     ```bash
     export DATABRICKS_HOST="https://your-workspace.databricks.com"
     export DATABRICKS_TOKEN="your-databricks-token"
     ```
 
-    Then set the tracking URI to "databricks" in your application.
+    Then set the tracking URI and the target experiment to store the traces in your application.
 
     **Python:**
     ```python
-    import os
-
-    # Set tracking URI to "databricks"
     mlflow.set_tracking_uri("databricks")
-    mlflow.set_experiment("my-tracing-experiment")
+    mlflow.set_experiment("<your-experiment-name>")
     ```
 
     **JS/TS:**
@@ -137,7 +134,6 @@ pip install mlflow
       experimentId: "<your-experiment-id>",
     );
     ```
-
 
   </TabItem>
   <TabItem value="otel" label="OpenTelemetry">
@@ -166,23 +162,16 @@ pip install mlflow
 </Tabs>
 </TabsWrapper>
 
-
 ## 3. Instrumenting Your Application Logic
 
-MLflow offers different ways to instrument your application logic. Follow the links below to learn more about each approach to instrument your application.
-
-
-* If you are using a framework like LangChain, LangGraph, LlamaIndex, DSPy, etc.. → Use the one-line [Automatic Tracing](#automatic-tracing)
-* If you want to instrument your own Python code → Use the [Manual Tracing](#manual-tracing)
-* If you want to instrument Typescript/Javascript based applications → Use the [Typescript SDK](#typescript-sdk)
-
+MLflow offers different ways to instrument your application logic. Follow the links below to learn more about each approach to instrument your application:
 
 <TilesGrid>
   <TileCard
     image="/images/llms/tracing/app-instrumentation/autolog-logos.png"
     title="Automatic Tracing"
     description="Instrument your application with a single line of code."
-    href="/genai/tracing/app-instrumentation/automatic-tracing"
+    href="/genai/tracing/app-instrumentation/automatic"
     containerHeight={96}
   />
   <TileCard
@@ -201,19 +190,16 @@ MLflow offers different ways to instrument your application logic. Follow the li
   />
 </TilesGrid>
 
-
-## Common Patterns
+## ⚙️ Common Patterns
 
 ### Production Considerations
 
-MLflow Tracing is production ready. We recommend the following best practices for production use:
+MLflow Tracing is production ready, but in order to ensure the scalability and reliability of the tracing system, we recommend the following best practices:
 
-1. Enable [Async Logging](genai/tracing/prod-tracing/#asynchronous-trace-logging) and set up appropriate queue size and timeout.
+1. Enable [Async Logging](/genai/tracing/prod-tracing#asynchronous-trace-logging) and set up appropriate queue size and timeout.
 2. Use the lightweight [`mlflow-tracing`](https://pypistats.org/packages/mlflow-tracing) package for minimizing the package footprint and dependencies.
 3. Use [managed MLflow services](/genai/tracing/prod-tracing#managed-monitoring-with-databricks) for reducing the operational overhead and ensure the scalability of the tracing system.
-4. When using self-hosted MLflow, make sure to use the SQL Backend with scalable database like PostgreSQL.
-
-
+4. When using self-hosted MLflow, make sure to use the **SQL Backend** with scalable database like PostgreSQL. The default file-based backend has scalability limitation and is not recommended for production use.
 
 ### Async Applications
 
@@ -221,17 +207,16 @@ Async programming is effective tool for improving the throughput of your applica
 
 ### Multi-Threaded Applications
 
-Multi-threading is a common strategy for parallelizing IO-bound operations in your application. MLflow Tracing supports [multi-threaded applications](/genai/tracing/app-instrumentation/multi-threading) using context propagation.
+Multi-threading is a common strategy for parallelizing IO-bound operations in your application. MLflow Tracing supports [multi-threaded applications](/genai/tracing/app-instrumentation/manual-tracing#multi-threading) using context propagation.
 
 ### Managing User sessions
 
-Many LLM-based applications are deployed as chat-based applications, where each user session is a separate thread. Grouping traces by user session is a common practice. MLflow Tracing supports [managing user sessions](/genai/tracing/app-instrumentation/manual-tracing#managing-user-sessions).
+Many LLM-based applications are deployed as chat-based applications, where each user session is a separate thread. Grouping traces by user session is a common practice. MLflow Tracing supports [managing user sessions](/genai/tracing/track-users-sessions).
 
 ### Redacting PII Data
 
-Traces can contain sensitive data, such as raw user inputs, internal document contents, etc. MLflow Tracing supports [redacting PII data](/genai/tracing/app-instrumentation/manual-tracing#redacting-pii-data) using flexible masking rules, custom functions, and integration with external PII masking libraries.
+Traces can contain sensitive data, such as raw user inputs, internal document contents, etc. MLflow Tracing supports [redacting PII data](/genai/tracing/observe-with-traces/masking) using flexible masking rules, custom functions, and integration with external PII masking libraries.
 
 ### Collecting User Feedbacks
 
 User feedback is a valuable source of information for improving the user experience of your application. MLflow Tracing supports [collecting user feedback on traces](/genai/tracing/collect-user-feedback) to track and analyze the feedbacks effectively.
-
