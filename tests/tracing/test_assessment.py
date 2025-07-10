@@ -634,3 +634,22 @@ def test_assessment_end_to_end_workflow(store):
     delete_args = store.delete_assessment.call_args[1]
     assert delete_args["trace_id"] == "tr-123"
     assert delete_args["assessment_id"] == "test_id"
+
+
+def test_log_feedback_ai_judge_deprecation_warning(store):
+    with pytest.warns(DeprecationWarning, match="AI_JUDGE is deprecated. Use LLM_JUDGE instead."):
+        ai_judge_source = AssessmentSource(source_type="AI_JUDGE", source_id="gpt-4")
+
+    mlflow.log_feedback(
+        trace_id="tr-1234",
+        name="quality",
+        value=0.8,
+        source=ai_judge_source,
+        rationale="AI evaluation",
+    )
+
+    assert store.create_assessment.call_count == 1
+    call_args = store.create_assessment.call_args
+    assessment = call_args[0][0]
+    assert assessment.source.source_type == "LLM_JUDGE"
+    assert assessment.source.source_id == "gpt-4"
