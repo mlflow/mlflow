@@ -8,15 +8,16 @@
  */
 module.exports = {
   meta: {
-    type: "problem",
+    type: 'problem',
     docs: {
-      description: "Detect raw image paths that should use useBaseUrl in Docusaurus",
-      category: "Possible Errors",
+      description: 'Detect raw image paths that should use useBaseUrl in Docusaurus',
+      category: 'Possible Errors',
     },
     fixable: null,
     schema: [],
     messages: {
-      rawImagePath: 'Raw image path "{{path}}" will break in production. Use one of these methods:\n\n1. Import as ES6 module:\n  import ImageUrl from \'@site/static{{path}}\';\n  <img src={ImageUrl} />\n\n2. Use useBaseUrl:\n  import useBaseUrl from \'@docusaurus/useBaseUrl\';\n  <img src={useBaseUrl(\'{{path}}\')} />\n\nSee: https://docusaurus.io/docs/static-assets#referencing-your-static-asset',
+      rawImagePath:
+        "Raw image path \"{{path}}\" will break in production. Use one of these methods:\n\n1. Import as ES6 module:\n  import ImageUrl from '@site/static{{path}}';\n  <img src={ImageUrl} />\n\n2. Use useBaseUrl:\n  import useBaseUrl from '@docusaurus/useBaseUrl';\n  <img src={useBaseUrl('{{path}}')} />\n\nSee: https://docusaurus.io/docs/static-assets#referencing-your-static-asset",
     },
   },
 
@@ -29,17 +30,18 @@ module.exports = {
   create(context) {
     /**
      * Checks if a path is a raw static asset path that should use useBaseUrl.
-     * 
+     *
      * @param {string} path - The path to check
      * @returns {boolean} True if the path should use useBaseUrl
      */
     function isRawStaticPath(path) {
       // Check if path starts with / and points to common static directories
-      return path.startsWith('/') && (
-        path.startsWith('/images/') ||
-        path.startsWith('/img/') ||
-        path.startsWith('/assets/') ||
-        path.startsWith('/static/')
+      return (
+        path.startsWith('/') &&
+        (path.startsWith('/images/') ||
+          path.startsWith('/img/') ||
+          path.startsWith('/assets/') ||
+          path.startsWith('/static/'))
       );
     }
 
@@ -80,9 +82,7 @@ module.exports = {
         if (elementName !== 'img' && elementName !== 'Image') return;
 
         // Find the src attribute
-        const srcAttr = node.attributes.find(
-          (attr) => attr.type === 'JSXAttribute' && attr.name.name === 'src'
-        );
+        const srcAttr = node.attributes.find((attr) => attr.type === 'JSXAttribute' && attr.name.name === 'src');
 
         if (!srcAttr || !srcAttr.value) return;
 
