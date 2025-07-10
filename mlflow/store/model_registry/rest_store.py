@@ -520,10 +520,10 @@ class RestStore(BaseRestStore):
             CreateWebhook(
                 name=name,
                 url=url,
-                events=events,
+                events=[e.to_proto() for e in events],
                 description=description,
                 secret=secret,
-                status=status,
+                status=status.to_proto() if status else None,
             )
         )
         response_proto = self._call_webhook_endpoint(CreateWebhook, req_body)
