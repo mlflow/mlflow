@@ -144,6 +144,7 @@ if TYPE_CHECKING:
         pyspark,
         pytorch,
         rfunc,
+        semantic_kernel,
         sentence_transformers,
         shap,
         sklearn,
