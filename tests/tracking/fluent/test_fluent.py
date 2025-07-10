@@ -2366,8 +2366,8 @@ def test_autolog_sends_telemetry_record(mock_requests):
 
     # Check that telemetry record was sent
     assert len(mock_requests) == 1
-    autolog_record = mock_requests[0]
-    data = json.loads(autolog_record["data"])
+    record = mock_requests[0]
+    data = json.loads(record["data"])
     assert data["api_module"] == mlflow.autolog.__module__
     assert data["api_name"] == "autolog"
     assert data["params"] == asdict(

@@ -38,6 +38,7 @@ try:
     from langchain_huggingface import HuggingFacePipeline
 except ImportError:
     from langchain_community.llms import HuggingFacePipeline
+from dataclasses import asdict
 from unittest.mock import ANY
 
 from langchain.callbacks.base import BaseCallbackHandler
@@ -97,6 +98,8 @@ from mlflow.models.resources import (
 from mlflow.models.signature import ModelSignature, Schema, infer_signature
 from mlflow.models.utils import load_serving_example
 from mlflow.pyfunc.context import Context
+from mlflow.telemetry.client import get_telemetry_client
+from mlflow.telemetry.schemas import LogModelParams, ModelType
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Object, Property
 
@@ -3711,3 +3714,33 @@ def test_predict_with_callbacks_with_tracing(monkeypatch):
         trace_info = mock_start_trace.call_args[0][0]
         assert trace_info.client_request_id == request_id
         assert trace_info.request_metadata[TraceMetadataKey.MODEL_ID] == model_info.model_id
+
+
+def test_log_model_sends_telemetry_record(mock_requests):
+    mlflow.langchain.log_model(
+        os.path.abspath("tests/langchain/sample_code/workflow.py"),
+        name="model",
+        params={"param1": "value1"},
+        input_example={"messages": [{"role": "user", "content": "What is MLflow?"}]},
+    )
+    # Wait for telemetry to be sent
+    get_telemetry_client().flush()
+
+    # Check that telemetry record was sent
+    assert len(mock_requests) == 1
+    record = mock_requests[0]
+    data = json.loads(record["data"])
+    assert data["api_module"] == mlflow.langchain.log_model.__module__
+    assert data["api_name"] == "log_model"
+    assert data["params"] == asdict(
+        LogModelParams(
+            flavor="langchain",
+            model=ModelType.MODEL_PATH,
+            is_pip_requirements_set=False,
+            is_extra_pip_requirements_set=False,
+            is_code_paths_set=False,
+            is_params_set=True,
+            is_metadata_set=False,
+        )
+    )
+    assert data["status"] == "success"

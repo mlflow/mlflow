@@ -154,3 +154,25 @@ def test_track_api_usage_do_not_track_internal_api(mock_requests):
         )
     )
     assert record["duration_ms"] > 0
+
+
+def test_track_api_usage_do_not_track_internal_api_complex(mock_requests):
+    @track_api_usage
+    def test_func_1():
+        test_func_2()
+
+    def test_func_2():
+        test_func_3()
+
+    @track_api_usage
+    def test_func_3():
+        pass
+
+    test_func_1()
+    get_telemetry_client().flush()
+    assert len(mock_requests) == 1
+    record = extract_record(mock_requests[0])
+    assert record["api_module"] == test_func_1.__module__
+    assert record["api_name"] == test_func_1.__qualname__
+    assert record["params"] is None
+    assert record["status"] == "success"

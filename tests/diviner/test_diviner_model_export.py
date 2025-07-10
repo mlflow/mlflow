@@ -1,6 +1,7 @@
 import json
 import os
 from copy import deepcopy
+from dataclasses import asdict
 from pathlib import Path
 from unittest import mock
 
@@ -18,6 +19,8 @@ from mlflow.models import Model, infer_signature
 from mlflow.models.model import MLMODEL_FILE_NAME
 from mlflow.models.utils import _read_example, load_serving_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
+from mlflow.telemetry.client import get_telemetry_client
+from mlflow.telemetry.schemas import LogModelParams, ModelType
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.model_utils import _get_flavor_configuration
@@ -514,3 +517,32 @@ def test_diviner_model_fit_with_spark_raises_with_invalid_paths(grouped_prophet,
     setattr(mod_model, "_fit_with_spark", True)
     with pytest.raises(MlflowException, match="The save path provided must be a relative"):
         mlflow.diviner._save_diviner_model(mod_model, Path(path))
+
+
+def test_log_model_sends_telemetry_record(mock_requests, grouped_prophet):
+    mlflow.diviner.log_model(
+        grouped_prophet,
+        name="model",
+        params={"param1": "value1"},
+    )
+    # Wait for telemetry to be sent
+    get_telemetry_client().flush()
+
+    # Check that telemetry record was sent
+    assert len(mock_requests) == 1
+    record = mock_requests[0]
+    data = json.loads(record["data"])
+    assert data["api_module"] == mlflow.diviner.log_model.__module__
+    assert data["api_name"] == "log_model"
+    assert data["params"] == asdict(
+        LogModelParams(
+            flavor="diviner",
+            model=ModelType.MODEL_OBJECT,
+            is_pip_requirements_set=False,
+            is_extra_pip_requirements_set=False,
+            is_code_paths_set=False,
+            is_params_set=True,
+            is_metadata_set=False,
+        )
+    )
+    assert data["status"] == "success"

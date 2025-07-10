@@ -1,5 +1,6 @@
 import json
 import os
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 from unittest import mock
@@ -32,6 +33,8 @@ from mlflow.llama_index.pyfunc_wrapper import (
 )
 from mlflow.models.utils import load_serving_example
 from mlflow.pyfunc.scoring_server import CONTENT_TYPE_JSON
+from mlflow.telemetry.client import get_telemetry_client
+from mlflow.telemetry.schemas import LogModelParams, ModelType
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import ColSpec, DataType, Schema
 
@@ -590,3 +593,33 @@ async def test_save_load_workflow_as_code():
         )
         assert response.status_code == 200, response.text
         assert response.json()["predictions"] == batch_result
+
+
+def test_log_model_sends_telemetry_record(mock_requests):
+    index_code_path = "tests/llama_index/sample_code/simple_workflow.py"
+    mlflow.llama_index.log_model(
+        index_code_path,
+        name="model",
+        input_example={"topic": "pirates"},
+    )
+    # Wait for telemetry to be sent
+    get_telemetry_client().flush()
+
+    # Check that telemetry record was sent
+    assert len(mock_requests) == 1
+    record = mock_requests[0]
+    data = json.loads(record["data"])
+    assert data["api_module"] == mlflow.llama_index.log_model.__module__
+    assert data["api_name"] == "log_model"
+    assert data["params"] == asdict(
+        LogModelParams(
+            flavor="llama_index",
+            model=ModelType.MODEL_PATH,
+            is_pip_requirements_set=False,
+            is_extra_pip_requirements_set=False,
+            is_code_paths_set=False,
+            is_params_set=False,
+            is_metadata_set=False,
+        )
+    )
+    assert data["status"] == "success"

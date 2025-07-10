@@ -136,6 +136,7 @@ def get_default_conda_env(is_spark_connect_model=False):
     )
 
 
+@track_api_usage
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name="pyspark"))
 def log_model(
     spark_model,

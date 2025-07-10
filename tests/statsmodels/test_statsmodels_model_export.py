@@ -1,5 +1,6 @@
 import json
 import os
+from dataclasses import asdict
 from pathlib import Path
 from unittest import mock
 
@@ -15,6 +16,8 @@ from mlflow import pyfunc
 from mlflow.models import Model
 from mlflow.models.utils import _read_example, load_serving_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
+from mlflow.telemetry.client import get_telemetry_client
+from mlflow.telemetry.schemas import LogModelParams, ModelType
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
@@ -472,3 +475,32 @@ def test_model_log_with_signature_inference():
 
     loaded_model = Model.load(model_info.model_uri)
     assert loaded_model.signature == ols_model_signature()
+
+
+def test_log_model_sends_telemetry_record(mock_requests):
+    ols = ols_model()
+    mlflow.statsmodels.log_model(
+        ols.model,
+        name="model",
+    )
+    # Wait for telemetry to be sent
+    get_telemetry_client().flush()
+
+    # Check that telemetry record was sent
+    assert len(mock_requests) == 1
+    record = mock_requests[0]
+    data = json.loads(record["data"])
+    assert data["api_module"] == mlflow.statsmodels.log_model.__module__
+    assert data["api_name"] == "log_model"
+    assert data["params"] == asdict(
+        LogModelParams(
+            flavor="statsmodels",
+            model=ModelType.MODEL_OBJECT,
+            is_pip_requirements_set=False,
+            is_extra_pip_requirements_set=False,
+            is_code_paths_set=False,
+            is_params_set=False,
+            is_metadata_set=False,
+        )
+    )
+    assert data["status"] == "success"

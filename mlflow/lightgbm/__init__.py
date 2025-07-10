@@ -270,6 +270,7 @@ def _save_model(lgb_model, model_path):
             cloudpickle.dump(lgb_model, out)
 
 
+@track_api_usage
 @format_docstring(LOG_MODEL_PARAM_DOCS.format(package_name=FLAVOR_NAME))
 def log_model(
     lgb_model,
