@@ -694,6 +694,11 @@ class FileStore(AbstractStore):
                     f"Unable to fetch model from model URI source artifact location '{source}'."
                     f"Error: {e}"
                 ) from e
+
+        if run_id is None and model_id is not None:
+            model = MlflowClient().get_logged_model(model_id)
+            run_id = model.source_run_id
+
         for attempt in range(self.CREATE_MODEL_VERSION_RETRIES):
             try:
                 creation_time = get_current_time_millis()
