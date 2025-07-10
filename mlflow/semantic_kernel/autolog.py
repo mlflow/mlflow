@@ -38,10 +38,8 @@ from mlflow.entities.trace_status import TraceStatus
 from mlflow.tracing.constant import (
     SpanAttributeKey,
     TokenUsageKey,
-    TraceMetadataKey,
 )
 from mlflow.tracing.fluent import start_span_no_context
-from mlflow.tracing.processor.base_mlflow import BaseMlflowSpanProcessor
 from mlflow.tracing.provider import detach_span_from_context, set_span_in_context
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 
@@ -211,7 +209,6 @@ def _semantic_kernel_chat_completion_input_wrapper(original, *args, **kwargs) ->
                 "Span is not found or recording. Skipping registering chat "
                 f"completion attributes to {SpanAttributeKey.INPUTS}."
             )
-
 
     except Exception as e:
         _logger.warning(f"Failed to set inputs attribute: {e}")
