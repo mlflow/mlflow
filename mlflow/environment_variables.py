@@ -875,3 +875,9 @@ def _split_strip(s: str) -> list[str]:
 _MLFLOW_WEBHOOK_ALLOWED_SCHEMES = _EnvironmentVariable(
     "MLFLOW_WEBHOOK_ALLOWED_SCHEMES", _split_strip, ["https"]
 )
+
+
+#: Specifies the secret key used to encrypt webhook secrets in MLflow.
+MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY = _EnvironmentVariable(
+    "MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY", str, None
+)

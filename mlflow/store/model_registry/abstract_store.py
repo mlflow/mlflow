@@ -11,7 +11,7 @@ from mlflow.entities.model_registry.model_version_status import ModelVersionStat
 from mlflow.entities.model_registry.model_version_tag import ModelVersionTag
 from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.entities.model_registry.prompt_version import PromptVersion
-from mlflow.entities.webhook import Webhook, WebhookEvent, WebhookStatus, WebhookTestResult
+from mlflow.entities.webhook import Webhook, WebhookEvent, WebhookStatus
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import (
     IS_PROMPT_TAG_KEY,
@@ -1124,7 +1124,7 @@ class AbstractStore:
         self,
         max_results: Optional[int] = None,
         page_token: Optional[str] = None,
-    ) -> tuple[list[Webhook], Optional[str]]:
+    ) -> PagedList[Webhook]:
         """
         List webhooks in the backend store.
 
@@ -1133,7 +1133,7 @@ class AbstractStore:
             page_token: Token specifying the next page of results.
 
         Returns:
-            A tuple of (list of Webhook objects, next_page_token).
+            A :py:class:`mlflow.store.entities.paged_list.PagedList` of Webhook objects.
         """
         raise NotImplementedError(f"{self.__class__.__name__} does not support list_webhooks")
 
@@ -1175,15 +1175,3 @@ class AbstractStore:
             None
         """
         raise NotImplementedError(f"{self.__class__.__name__} does not support delete_webhook")
-
-    def test_webhook(self, webhook_id: str) -> WebhookTestResult:
-        """
-        Test a webhook by sending a test payload.
-
-        Args:
-            webhook_id: Webhook ID to test.
-
-        Returns:
-            A test result object with success status and response details.
-        """
-        raise NotImplementedError(f"{self.__class__.__name__} does not support test_webhook")
