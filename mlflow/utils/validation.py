@@ -717,5 +717,5 @@ def _validate_webhook_events(events: list[WebhookEvent]) -> None:
         or not all(isinstance(e, WebhookEvent) for e in events)
     ):
         raise MlflowException.invalid_parameter_value(
-            "Webhook events must be a non-empty list of WebhookEvent objects."
+            f"Webhook events must be a non-empty list of WebhookEvent objects: {events}."
         )
