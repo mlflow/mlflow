@@ -1,3 +1,8 @@
+"""
+This test file verifies webhook CRUD operations with the REST client,
+testing both server handlers and the REST client together.
+"""
+
 import subprocess
 import sys
 from pathlib import Path
