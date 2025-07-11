@@ -15,9 +15,10 @@ function serialize(tagFilter: TagFilter) {
 
 function deserialize(value: string) {
   const split = value.split('-');
-  if (split.length === 3 && isOperator(split[1])) {
-    const [key, operator, value] = split;
-    return { key, operator, value } satisfies TagFilter;
+  if (split.length >= 3 && isOperator(split[1])) {
+    // NOTE: key may not have dashes in it, but value may, so we'll join the rest
+    const [key, operator, ...valueParts] = split;
+    return { key, operator, value: valueParts.join('-') } satisfies TagFilter;
   } else {
     return null;
   }
