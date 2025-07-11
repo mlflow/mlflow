@@ -70,6 +70,7 @@ curl -X POST http://localhost:5000/invocations \
 ```
 
 **Using Python:**
+
 ```python
 import requests
 import json
@@ -103,6 +104,7 @@ MLflow serving provides a standardized serving infrastructure that works consist
 <TabItem value="architecture" label="Architecture" default>
 
 **Request Flow:**
+
 1. **Model Artifact Loading**: MLflow loads the model using the appropriate flavor (sklearn, pytorch, tensorflow, etc.)
 2. **Server Initialization**: FastAPI server starts with standardized endpoints (`/invocations`, `/health`, `/version`)
 3. **Request Processing**: Incoming HTTP requests are validated and transformed to the model's expected input format
@@ -113,12 +115,14 @@ MLflow serving provides a standardized serving infrastructure that works consist
 <TabItem value="flavors" label="Model Flavors">
 
 **MLflow Flavor System:**
+
 - Each ML framework has a dedicated MLflow flavor (e.g., `mlflow.sklearn`, `mlflow.pytorch`)
 - Flavors handle framework-specific loading, preprocessing, and prediction logic
 - The serving layer provides a unified interface regardless of the underlying framework
 - Custom flavors can be created for proprietary or specialized models
 
 **Supported Input Formats:**
+
 - `dataframe_split`: Pandas DataFrame format with separate columns and data
 - `dataframe_records`: List of dictionaries (row-oriented)
 - `instances`: Simple list format for basic models
@@ -128,6 +132,7 @@ MLflow serving provides a standardized serving infrastructure that works consist
 <TabItem value="endpoints" label="Standard Endpoints">
 
 **Built-in Endpoints:**
+
 - **`POST /invocations`**: Main prediction endpoint accepting JSON requests
 - **`GET /ping`**: Health check endpoint for monitoring and load balancers
 - **`GET /health`**: Alternative health check endpoint (same as /ping)
@@ -137,6 +142,7 @@ MLflow serving provides a standardized serving infrastructure that works consist
 - **`GET /openapi.json`**: OpenAPI specification in JSON format
 
 **Request/Response Format:**
+
 ```json
 // Request
 {
@@ -383,6 +389,7 @@ mlflow models serve \
 ```
 
 **Alternative serving approaches:**
+
 ```bash
 # Serve by specific version number
 mlflow models serve \

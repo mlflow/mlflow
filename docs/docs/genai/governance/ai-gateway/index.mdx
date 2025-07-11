@@ -154,6 +154,7 @@ mlflow gateway start
 ```
 
 **Default values:**
+
 - Host: `localhost`
 - Port: `5000`
 - Workers: `2`
@@ -167,6 +168,7 @@ Once running, you can:
 Navigate to `http://localhost:5000/` or `http://localhost:5000/docs` to access the interactive API documentation.
 
 **2. Send requests via Python:**
+
 ```python
 from mlflow.deployments import get_deploy_client
 
@@ -178,6 +180,7 @@ print(response)
 ```
 
 **3. Send requests via REST API:**
+
 ```bash
 curl -X POST http://localhost:5000/endpoints/chat/invocations \
   -H "Content-Type: application/json" \
@@ -246,6 +249,7 @@ Understanding these key concepts will help you effectively configure and use the
 **Providers** are the source of your language models (e.g., OpenAI, Anthropic, Cohere). Each provider has specific configuration requirements and supported model types.
 
 **Key Points:**
+
 - Each provider requires specific API keys and configuration
 - Providers support different endpoint types (chat, completions, embeddings)
 - You can use multiple providers simultaneously in a single gateway
@@ -401,17 +405,17 @@ endpoints:
 
 **Supported Provider Types:**
 
-| Provider | Documentation | Notes |
-|----------|--------------|-------|
-| **openai** | [OpenAI](https://platform.openai.com/) | Includes Azure OpenAI integration |
-| **anthropic** | [Anthropic](https://docs.anthropic.com/claude/docs) | Claude models |
-| **cohere** | [Cohere](https://docs.cohere.com/docs) | Command and embedding models |
-| **bedrock** | [Amazon Bedrock](https://aws.amazon.com/bedrock/) | Multiple model providers |
-| **mistral** | [Mistral](https://docs.mistral.ai/) | Mistral family models |
-| **togetherai** | [TogetherAI](https://docs.together.ai/docs/) | Open-source models |
-| **ai21labs** | [AI21 Labs](https://studio.ai21.com/foundation-models) | Jurassic models |
-| **palm** | [PaLM](https://developers.generativeai.google/api/rest/generativelanguage/models/) | Google's PaLM models |
-| **gemini** | [Gemini](https://ai.google.dev/api/models#rest-resource:-models) | Google's Gemini models |
+| Provider       | Documentation                                                                      | Notes                             |
+| -------------- | ---------------------------------------------------------------------------------- | --------------------------------- |
+| **openai**     | [OpenAI](https://platform.openai.com/)                                             | Includes Azure OpenAI integration |
+| **anthropic**  | [Anthropic](https://docs.anthropic.com/claude/docs)                                | Claude models                     |
+| **cohere**     | [Cohere](https://docs.cohere.com/docs)                                             | Command and embedding models      |
+| **bedrock**    | [Amazon Bedrock](https://aws.amazon.com/bedrock/)                                  | Multiple model providers          |
+| **mistral**    | [Mistral](https://docs.mistral.ai/)                                                | Mistral family models             |
+| **togetherai** | [TogetherAI](https://docs.together.ai/docs/)                                       | Open-source models                |
+| **ai21labs**   | [AI21 Labs](https://studio.ai21.com/foundation-models)                             | Jurassic models                   |
+| **palm**       | [PaLM](https://developers.generativeai.google/api/rest/generativelanguage/models/) | Google's PaLM models              |
+| **gemini**     | [Gemini](https://ai.google.dev/api/models#rest-resource:-models)                   | Google's Gemini models            |
 
 :::tip Custom Providers
 Need a provider that's not listed? Create a [custom provider plugin](#deployments-plugin) to integrate your own LLM services.
@@ -421,12 +425,12 @@ Need a provider that's not listed? Create a [custom provider plugin](#deployment
 
 Endpoints are the core interfaces of the AI Gateway, acting as proxies that forward requests to your configured LLM providers. Each endpoint definition includes:
 
-| Field | Description | Example |
-|-------|-------------|---------|
-| **name** | Unique identifier for API calls | `"chat"`, `"completions"` |
-| **endpoint_type** | Operation type | `llm/v1/chat`, `llm/v1/completions`, `llm/v1/embeddings` |
-| **model** | Provider and model specification | See provider configuration |
-| **limit** | Optional rate limiting | `calls: 10, renewal_period: minute` |
+| Field             | Description                      | Example                                                  |
+| ----------------- | -------------------------------- | -------------------------------------------------------- |
+| **name**          | Unique identifier for API calls  | `"chat"`, `"completions"`                                |
+| **endpoint_type** | Operation type                   | `llm/v1/chat`, `llm/v1/completions`, `llm/v1/embeddings` |
+| **model**         | Provider and model specification | See provider configuration                               |
+| **limit**         | Optional rate limiting           | `calls: 10, renewal_period: minute`                      |
 
 Here's an example of an endpoint configuration:
 
@@ -461,6 +465,7 @@ Choose models that match your endpoint type and use case:
 - **Embedding endpoints** (`llm/v1/embeddings`): Specialized embedding models like `text-embedding-ada-002`
 
 **Example embedding endpoint:**
+
 ```yaml
 endpoints:
   - name: embeddings
