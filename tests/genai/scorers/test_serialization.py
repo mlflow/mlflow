@@ -578,29 +578,30 @@ def test_complex_custom_scorer_compatibility():
 
     assert deserialized(inputs="test", outputs="test", expectations={}) is True  # 4 >= 4 * 1.0
 
+
 def test_decorator_scorer_multiple_serialization_round_trips():
     """Test that decorator scorers can be serialized multiple times after deserialization."""
-    
+
     @scorer
     def multi_round_scorer(outputs):
         return len(outputs) > 5
 
     # First serialization
     first_dump = multi_round_scorer.model_dump()
-    
+
     # Deserialize
     recovered = Scorer.model_validate(first_dump)
-    
+
     # Second serialization - this should work now with caching
     second_dump = recovered.model_dump()
-    
+
     # Verify the dumps are identical
     assert first_dump == second_dump
-    
+
     # Third serialization to ensure it's truly reusable
     third_dump = recovered.model_dump()
     assert first_dump == third_dump
-    
+
     # Verify functionality is preserved
     assert recovered(outputs="hello world") is True
     assert recovered(outputs="hi") is False

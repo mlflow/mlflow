@@ -84,10 +84,7 @@ class Scorer(BaseModel):
                 f"Please use the @scorer decorator instead."
             )
 
-        result = asdict(serialized)
-        # Cache the result to avoid re-serialization issues
-        object.__setattr__(self, "_cached_dump", result)
-        return result
+        return asdict(serialized)
 
     def _extract_source_code_info(self) -> dict[str, Optional[str]]:
         """Extract source code information for the original decorated function."""
@@ -175,7 +172,9 @@ class Scorer(BaseModel):
         # Rather than serializing and deserializing the `run` method of `Scorer`, we recreate the
         # Scorer using the original function and the `@scorer` decorator. This should be safe so
         # long as `@scorer` is a stable API.
-        scorer_instance = scorer(recreated_func, name=serialized.name, aggregations=serialized.aggregations)
+        scorer_instance = scorer(
+            recreated_func, name=serialized.name, aggregations=serialized.aggregations
+        )
         # Cache the serialized data to prevent re-serialization issues with dynamic functions
         original_serialized_data = asdict(serialized)
         object.__setattr__(scorer_instance, "_cached_dump", original_serialized_data)
