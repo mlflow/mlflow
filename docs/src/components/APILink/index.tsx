@@ -16,17 +16,17 @@ const getModule = (fn: string) => {
   return null;
 };
 
-export function APILink({ fn, children }: { fn: string; children?: React.ReactNode }) {
+export function APILink({ fn, children, hash }: { fn: string; children?: React.ReactNode; hash?: string }) {
   const module = getModule(fn);
 
   if (!module) {
     return <>{children}</>;
   }
 
-  const docLink = useBaseUrl(`/${APIModules[module]}#${fn}`);
+  const docLink = useBaseUrl(`/${APIModules[module]}#${hash ?? fn}`);
   return (
-    <Link to={docLink} target="_blank">
+    <a href={docLink} target="_blank">
       {children ?? <code>{fn}()</code>}
-    </Link>
+    </a>
   );
 }
