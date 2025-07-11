@@ -2,48 +2,48 @@ import Link from "@docusaurus/Link";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 import { APILink } from "@site/src/components/APILink";
+import TabsWrapper from "@site/src/components/TabsWrapper";
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import FeatureHighlights from "@site/src/components/FeatureHighlights";
+import { Server, Globe, Zap, Settings, Code, Users, BarChart3, Shield } from "lucide-react";
 
 # MLflow Model Serving
 
-MLflow provides comprehensive model serving capabilities to deploy your machine learning models as REST APIs for real-time inference. Whether you're working with MLflow OSS or Databricks Managed MLflow, you can serve models locally, in cloud environments, or through managed endpoints.
+Transform your trained models into production-ready inference servers with MLflow's comprehensive serving capabilities. Deploy locally, in the cloud, or through managed endpoints with standardized REST APIs.
 
-## Overview
-
-MLflow serving transforms your trained models into production-ready inference servers that can handle HTTP requests and return predictions. The serving infrastructure supports various deployment patterns, from local development servers to scalable cloud deployments.
-
-### Key Features
-
-- **🔌 REST API Endpoints**: Automatic generation of standardized REST endpoints for model inference
-- **🧬 Multiple Model Formats**: Support for various ML frameworks through MLflow's flavor system
-- **🧠 Custom Applications**: Build sophisticated serving applications with custom logic and preprocessing
-- **📈 Scalable Deployment**: Deploy to various targets including local servers, cloud platforms, and Kubernetes
-- **🗂️ Model Registry Integration**: Seamless integration with MLflow Model Registry for version management
-
-## Serving Options
-
-### MLflow OSS Serving
-
-MLflow open-source provides several serving options:
-
-- **Local Serving**: Quick deployment for development and testing using <APILink fn="mlflow.server.cli" hash="mlflow-models-serve">`mlflow models serve`</APILink>
-- **Custom PyFunc Models**: Advanced serving with custom preprocessing, postprocessing, and business logic
-- **Docker Deployment**: Containerized serving for consistent deployment across environments
-- **Cloud Platform Integration**: Deploy to AWS SageMaker, Azure ML, and other cloud services
-
-### Databricks Managed MLflow
-
-Databricks provides additional managed serving capabilities:
-
-- **Model Serving Endpoints**: Fully managed, auto-scaling endpoints with built-in monitoring
-- **Foundation Model APIs**: Direct access to foundation models through pay-per-token endpoints
-- **Advanced Security**: Enterprise-grade security with access controls and audit logging
-- **Real-time Monitoring**: Built-in metrics, logging, and performance monitoring
+<FeatureHighlights features={[
+  {
+    icon: Globe,
+    title: "REST API Endpoints",
+    description: "Automatic generation of standardized REST endpoints for model inference with consistent request/response formats."
+  },
+  {
+    icon: Code,
+    title: "Multi-Framework Support",
+    description: "Serve models from any ML framework through MLflow's flavor system with unified deployment patterns."
+  },
+  {
+    icon: Settings,
+    title: "Custom Applications",
+    description: "Build sophisticated serving applications with custom logic, preprocessing, and business rules."
+  },
+  {
+    icon: Zap,
+    title: "Scalable Deployment",
+    description: "Deploy to various targets from local development servers to cloud platforms and Kubernetes clusters."
+  }
+]} />
 
 ## Quick Start
 
-### Basic Model Serving
+Get your model serving in minutes with these simple steps:
 
-For a simple model serving setup:
+<TabsWrapper>
+<Tabs>
+<TabItem value="serve" label="1. Serve Model" default>
+
+Choose your serving approach:
 
 ```bash
 # Serve a logged model
@@ -56,9 +56,12 @@ mlflow models serve -m "models:/<model-name>/<model-version>" -p 5000
 mlflow models serve -m ./path/to/model -p 5000
 ```
 
-### Making Predictions
+Your model will be available at `http://localhost:5000`
 
-Once your model is served, you can make predictions via HTTP requests:
+</TabItem>
+<TabItem value="predict" label="2. Make Predictions">
+
+Send prediction requests via HTTP:
 
 ```bash
 curl -X POST http://localhost:5000/invocations \
@@ -66,227 +69,408 @@ curl -X POST http://localhost:5000/invocations \
   -d '{"inputs": [[1, 2, 3, 4]]}'
 ```
 
-## Architecture
+**Using Python:**
+```python
+import requests
+import json
 
-MLflow serving uses a standardized architecture:
-
-1. **🧠 Model Loading**: Models are loaded using their respective MLflow flavors
-2. **🌐 HTTP Server**: FastAPI-based server handles incoming requests
-3. **🔄 Prediction Pipeline**: Requests are processed through the model's predict method
-4. **📦 Response Formatting**: Results are returned in standardized JSON format
-
-## Best Practices
-
-### Performance Optimization
-
-- Use appropriate hardware resources based on model requirements
-- Implement request batching for improved throughput
-- Consider model quantization for faster inference
-- Monitor memory usage and optimize accordingly
-
-### Security Considerations
-
-- Implement proper authentication and authorization
-- Use HTTPS in production environments
-- Validate input data to prevent security vulnerabilities
-- Regularly update dependencies and monitor for security issues
-
-### Monitoring and Observability
-
-- Set up comprehensive logging for debugging and auditing
-- Monitor key metrics like latency, throughput, and error rates
-- Implement health checks for service reliability
-- Use distributed tracing for complex serving pipelines
-
-## Common Use Cases
-
-<Tabs>
-  <TabItem value="real-time-inference" label="Real-time Inference">
-    Serve models for real-time predictions in web applications, mobile apps, or
-    microservices architectures.
-
-    ```python
-    import requests
-    import json
-
-    # Single prediction
-    data = {
-        "dataframe_split": {
-            "columns": ["feature1", "feature2", "feature3"],
-            "data": [[1.0, 2.0, 3.0]],
-        }
+data = {
+    "dataframe_split": {
+        "columns": ["feature1", "feature2", "feature3", "feature4"],
+        "data": [[1, 2, 3, 4]],
     }
+}
 
-    response = requests.post(
-        "http://localhost:5000/invocations",
-        headers={"Content-Type": "application/json"},
-        data=json.dumps(data),
-    )
-    print(response.json())
-    ```
+response = requests.post(
+    "http://localhost:5000/invocations",
+    headers={"Content-Type": "application/json"},
+    data=json.dumps(data),
+)
 
-  </TabItem>
-  <TabItem value="batch-processing" label="Batch Processing">
-    Use serving endpoints for batch inference on large datasets with controlled
-    resource usage.
+print(response.json())
+```
 
-    ```python
-    import mlflow
-    from pyspark.sql import SparkSession
-    from pyspark.sql.functions import col, struct
-
-    # Parameters
-    model_name = "YOUR_MODEL_NAME"
-    model_version = "YOUR_MODEL_VERSION"
-    input_table = "YOUR_INPUT_TABLE_NAME"
-    output_table = "YOUR_OUTPUT_TABLE_NAME"
-
-    # Load data
-    df = spark.table(input_table)
-
-    # Apply model using Spark UDF
-    model_uri = f"models:/{model_name}/{model_version}"
-    predict_udf = mlflow.pyfunc.spark_udf(spark, model_uri)
-
-    # Make predictions
-    predictions_df = df.withColumn(
-        "prediction", predict_udf(struct([col(c) for c in df.columns]))
-    )
-
-    # Save results
-    predictions_df.write.mode("overwrite").saveAsTable(output_table)
-    ```
-
-    See [Databricks batch inference documentation](https://docs.databricks.com/aws/en/large-language-models/ai-query-batch-inference#batch-llm-inference-using-ai_query) for built-in batch inference support with AI Functions on a deployed serving endpoint.
-
-  </TabItem>
-  <TabItem value="ab-testing" label="A/B Testing">
-    Deploy multiple model versions simultaneously to compare performance and
-    gradually roll out improvements.
-
-    ```python
-    from fastapi import FastAPI, Request
-    from fastapi.responses import JSONResponse
-    import requests
-    import random
-    import json
-    import logging
-    import uvicorn
-
-    app = FastAPI()
-
-    # Model endpoints
-    MODEL_A_URL = "http://localhost:5000/invocations"  # Current model
-    MODEL_B_URL = "http://localhost:5001/invocations"  # New model
-
-    # Traffic split configuration
-    TRAFFIC_SPLIT = {
-        "model_a": 0.8,  # 80% to current model
-        "model_b": 0.2,  # 20% to new model
-    }
-
-
-    @app.post("/predict")
-    async def predict(request: Request):
-        # Route traffic based on split
-        rand = random.random()
-
-        if rand < TRAFFIC_SPLIT["model_a"]:
-            endpoint = MODEL_A_URL
-            model_version = "A"
-        else:
-            endpoint = MODEL_B_URL
-            model_version = "B"
-
-        # Forward request
-        try:
-            req_json = await request.json()
-            response = requests.post(
-                endpoint,
-                headers={"Content-Type": "application/json"},
-                data=json.dumps(req_json),
-                timeout=30,
-            )
-
-            result = response.json()
-
-            # Log for analysis
-            logging.info(f"Model: {model_version}, Request: {req_json}, Response: {result}")
-
-            return JSONResponse(
-                content={"prediction": result, "model_version": model_version}
-            )
-
-        except Exception as e:
-            logging.error(f"Error with model {model_version}: {e}")
-            return JSONResponse(content={"error": str(e)}, status_code=500)
-
-
-    if __name__ == "__main__":
-        uvicorn.run(app, host="0.0.0.0", port=8080)
-    ```
-
-  </TabItem>
-  <TabItem value="multi-model-serving" label="Multi-model Serving">
-    Serve multiple models from a single endpoint for ensemble predictions or
-    model routing based on input characteristics.
-
-    ```python
-    import mlflow
-    import pandas as pd
-    from fastapi import FastAPI, Request
-    from fastapi.responses import JSONResponse
-    import uvicorn
-
-    app = FastAPI()
-
-    # Load specialized models
-    models = {
-        "fraud_detection": mlflow.pyfunc.load_model("models:/<fraud-model-id>"),
-        "recommendation": mlflow.pyfunc.load_model("models:/<recommendation-model-id>"),
-        "classification": mlflow.pyfunc.load_model("models:/<classification-model-id>"),
-    }
-
-
-    def route_request(input_data):
-        """Route request to appropriate model based on input characteristics"""
-
-        # Example routing logic
-        if "transaction_amount" in input_data.columns:
-            return "fraud_detection"
-        elif "user_id" in input_data.columns and "item_id" in input_data.columns:
-            return "recommendation"
-        else:
-            return "classification"
-
-
-    @app.post("/predict")
-    async def smart_predict(request: Request):
-        data = await request.json()
-        input_df = pd.DataFrame(data["data"], columns=data["columns"])
-
-        # Route to appropriate model
-        model_name = route_request(input_df)
-        model = models[model_name]
-
-        # Make prediction
-        prediction = model.predict(input_df)
-
-        return JSONResponse(
-            content={"model_used": model_name, "prediction": prediction.tolist()}
-        )
-
-
-    if __name__ == "__main__":
-        uvicorn.run(app, host="0.0.0.0", port=5000)
-    ```
-
-  </TabItem>
+</TabItem>
 </Tabs>
+</TabsWrapper>
+
+## How It Works
+
+MLflow serving provides a standardized serving infrastructure that works consistently across different ML frameworks:
+
+<TabsWrapper>
+<Tabs>
+<TabItem value="architecture" label="Architecture" default>
+
+**Request Flow:**
+1. **Model Artifact Loading**: MLflow loads the model using the appropriate flavor (sklearn, pytorch, tensorflow, etc.)
+2. **Server Initialization**: FastAPI server starts with standardized endpoints (`/invocations`, `/health`, `/version`)
+3. **Request Processing**: Incoming HTTP requests are validated and transformed to the model's expected input format
+4. **Model Inference**: The model's `predict()` method is called with the processed input
+5. **Response Serialization**: Results are serialized to JSON using MLflow's standardized response format
+
+</TabItem>
+<TabItem value="flavors" label="Model Flavors">
+
+**MLflow Flavor System:**
+- Each ML framework has a dedicated MLflow flavor (e.g., `mlflow.sklearn`, `mlflow.pytorch`)
+- Flavors handle framework-specific loading, preprocessing, and prediction logic
+- The serving layer provides a unified interface regardless of the underlying framework
+- Custom flavors can be created for proprietary or specialized models
+
+**Supported Input Formats:**
+- `dataframe_split`: Pandas DataFrame format with separate columns and data
+- `dataframe_records`: List of dictionaries (row-oriented)
+- `instances`: Simple list format for basic models
+- `inputs`: Flexible format for various input types
+
+</TabItem>
+<TabItem value="endpoints" label="Standard Endpoints">
+
+**Built-in Endpoints:**
+- **`POST /invocations`**: Main prediction endpoint accepting JSON requests
+- **`GET /ping`**: Health check endpoint for monitoring and load balancers
+- **`GET /health`**: Alternative health check endpoint (same as /ping)
+- **`GET /version`**: Returns MLflow version information
+- **`GET /docs`**: Interactive API documentation (Swagger UI)
+- **`GET /redoc`**: Alternative API documentation (ReDoc)
+- **`GET /openapi.json`**: OpenAPI specification in JSON format
+
+**Request/Response Format:**
+```json
+// Request
+{
+  "dataframe_split": {
+    "columns": ["feature1", "feature2"],
+    "data": [[1.0, 2.0], [3.0, 4.0]]
+  }
+}
+
+// Response
+{
+  "predictions": [0.85, 0.92]
+}
+```
+
+</TabItem>
+</Tabs>
+</TabsWrapper>
+
+## MLflow Serving Best Practices
+
+<TabsWrapper>
+<Tabs>
+<TabItem value="model-management" label="Model Management" default>
+
+**Leverage MLflow's model management features:**
+
+- **Use Model Registry**: Register models with versions and aliases for better lifecycle management
+- **Model Metadata**: Include comprehensive metadata during model logging for better serving context
+- **Environment Consistency**: Use `conda.yaml` or `requirements.txt` to ensure consistent dependencies
+- **Model Signatures**: Define input/output schemas to enable request validation and better error handling
+
+```python
+import mlflow
+from mlflow.models.signature import infer_signature
+from mlflow.tracking import MlflowClient
+
+# Log model with signature for better serving
+signature = infer_signature(X_train, model.predict(X_train))
+mlflow.sklearn.log_model(
+    sk_model=model,
+    name="my_model",
+    signature=signature,
+    registered_model_name="production_model",
+)
+
+# Set production alias for easy deployment
+client = MlflowClient()
+client.set_registered_model_alias(
+    name="production_model", alias="champion", version="1"
+)
+```
+
+</TabItem>
+<TabItem value="serving-config" label="Serving Configuration">
+
+**Optimize MLflow serving configuration:**
+
+- **Input Formats**: Use `dataframe_split` format for structured data to leverage pandas optimizations
+- **Batch Processing**: Send multiple samples in a single request to improve throughput
+- **Server Settings**: Configure workers and timeout settings based on model complexity
+- **Environment Variables**: Use MLflow environment variables for configuration
+
+```bash
+# Configure serving with appropriate settings
+export MLFLOW_SCORING_SERVER_REQUEST_TIMEOUT=60
+export GUNICORN_CMD_ARGS="--timeout 60 --workers 4"
+
+mlflow models serve \
+  --model-uri models:/my_model@champion \
+  --port 5000 \
+  --enable-mlserver  # For advanced serving features
+```
+
+</TabItem>
+<TabItem value="custom-pyfunc" label="Custom PyFunc">
+
+**Build efficient custom PyFunc models:**
+
+- **Simplified API**: Modern PyFunc models can omit `context` parameter if not needed (MLflow 2.20.0+)
+- **Optional `load_context()`**: Only implement if you need to load artifacts during initialization
+- **Vectorized Predictions**: Process batches efficiently in the `predict()` method
+- **Type Hints**: Use type hints for better validation and documentation
+
+```python
+import joblib
+import mlflow
+import pandas as pd
+from typing import Union
+
+
+# Simple PyFunc model (no context needed)
+class SimpleModel(mlflow.pyfunc.PythonModel):
+    def predict(self, model_input: pd.DataFrame) -> pd.DataFrame:
+        # Direct prediction logic
+        return model_input * 2
+
+
+# PyFunc model with artifacts (uses load_context)
+class CustomModel(mlflow.pyfunc.PythonModel):
+    def load_context(self, context):
+        # Only needed if you have artifacts to load
+        self.model = joblib.load(context.artifacts["model"])
+        self.preprocessor = joblib.load(context.artifacts["preprocessor"])
+
+    def predict(self, model_input: pd.DataFrame) -> list:
+        # No context parameter needed in modern MLflow
+        processed = self.preprocessor.transform(model_input)
+        return self.model.predict(processed).tolist()
+
+
+# Log model with artifacts
+artifacts = {
+    "model": "path/to/model.joblib",
+    "preprocessor": "path/to/preprocessor.joblib",
+}
+
+mlflow.pyfunc.log_model(
+    name="custom_model", python_model=CustomModel(), artifacts=artifacts
+)
+```
+
+</TabItem>
+<TabItem value="monitoring" label="MLflow Integration">
+
+**Integrate with MLflow tracking and monitoring:**
+
+- **Request Logging**: Use MLflow's built-in request logging for audit trails
+- **Performance Metrics**: Track serving metrics alongside training metrics
+- **Model Performance**: Use MLflow's model evaluation integration for monitoring
+- **Experiment Tracking**: Link serving deployments to training experiments
+
+```python
+# Enable request logging
+import mlflow
+from mlflow.tracking import MlflowClient
+
+# Track serving metrics
+with mlflow.start_run():
+    mlflow.log_metric("requests_per_second", rps)
+    mlflow.log_metric("average_latency", latency)
+    mlflow.log_metric("error_rate", error_rate)
+
+# Use Model Registry for deployment tracking
+client = MlflowClient()
+client.set_registered_model_alias(name="my_model", alias="production", version="1")
+```
+
+</TabItem>
+</Tabs>
+</TabsWrapper>
+
+## Complete Example: Train to Production
+
+Follow this step-by-step guide to go from model training to a deployed REST API:
+
+<TabsWrapper>
+<Tabs>
+<TabItem value="train" label="1. Train & Log" default>
+
+Train a simple model with automatic logging:
+
+```python
+import mlflow
+import mlflow.sklearn
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.datasets import load_iris
+from sklearn.model_selection import train_test_split
+import pandas as pd
+
+# Load sample data
+iris = load_iris()
+X = iris.data
+y = iris.target
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, random_state=42
+)
+
+# Enable sklearn autologging with model registration
+mlflow.sklearn.autolog(registered_model_name="iris_classifier")
+
+# Train model - MLflow automatically logs everything
+with mlflow.start_run() as run:
+    model = RandomForestClassifier(n_estimators=10, random_state=42)
+    model.fit(X_train, y_train)
+
+    # Autologging automatically captures:
+    # - Model artifacts
+    # - Training parameters (n_estimators, random_state, etc.)
+    # - Training metrics (score on training data)
+    # - Model signature (inferred from training data)
+    # - Input example
+
+    # Optional: Log additional custom metrics
+    accuracy = model.score(X_test, y_test)
+    mlflow.log_metric("test_accuracy", accuracy)
+
+    print(f"Run ID: {run.info.run_id}")
+    print("Model automatically logged and registered!")
+```
+
+</TabItem>
+<TabItem value="register" label="2. Promote Model">
+
+Set up model alias for production:
+
+```python
+from mlflow.tracking import MlflowClient
+
+client = MlflowClient()
+
+# Get the latest registered version (autologging creates version 1)
+model_version = client.get_registered_model("iris_classifier").latest_versions[0]
+
+# Set production alias (replaces deprecated stages)
+client.set_registered_model_alias(
+    name="iris_classifier", alias="production", version=model_version.version
+)
+
+print(f"Model version {model_version.version} tagged as 'production'")
+
+# Model URI for serving (using alias)
+model_uri = "models:/iris_classifier@production"
+print(f"Production model URI: {model_uri}")
+```
+
+</TabItem>
+<TabItem value="serve" label="3. Start Server">
+
+Serve the registered model:
+
+```bash
+# Serve using model alias (MLflow 3.x way)
+mlflow models serve \
+  --model-uri "models:/iris_classifier@production" \
+  --port 5000 \
+  --env-manager local
+
+# Server will start at http://localhost:5000
+# Available endpoints:
+# - POST /invocations (predictions)
+# - GET /ping (health check)
+# - GET /version (model info)
+```
+
+**Alternative serving approaches:**
+```bash
+# Serve by specific version number
+mlflow models serve \
+  --model-uri "models:/iris_classifier/1" \
+  --port 5000
+
+# Serve from run URI
+mlflow models serve \
+  --model-uri "runs:/<run-id>/model" \
+  --port 5000
+```
+
+</TabItem>
+<TabItem value="predict" label="4. Make Predictions">
+
+Send requests to your served model:
+
+```python
+import requests
+import json
+import pandas as pd
+
+# Prepare test data (same format as training)
+test_data = {
+    "dataframe_split": {
+        "columns": [
+            "sepal length (cm)",
+            "sepal width (cm)",
+            "petal length (cm)",
+            "petal width (cm)",
+        ],
+        "data": [
+            [5.1, 3.5, 1.4, 0.2],  # setosa
+            [6.2, 2.9, 4.3, 1.3],  # versicolor
+            [7.3, 2.9, 6.3, 1.8],  # virginica
+        ],
+    }
+}
+
+# Make prediction request
+response = requests.post(
+    "http://localhost:5000/invocations",
+    headers={"Content-Type": "application/json"},
+    data=json.dumps(test_data),
+)
+
+# Parse response
+if response.status_code == 200:
+    predictions = response.json()
+    print("Predictions:", predictions)
+    # Output: {"predictions": [0, 1, 2]}
+else:
+    print(f"Error: {response.status_code}, {response.text}")
+
+# Health check
+health = requests.get("http://localhost:5000/ping")
+print("Health status:", health.status_code)  # Should be 200
+
+# Model info
+info = requests.get("http://localhost:5000/version")
+print("Model version info:", info.json())
+```
+
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
 ## Next Steps
 
-- Explore [Custom Applications](./custom-apps) to build advanced serving logic
-- Understand [ResponsesAgent](./responses-agent) for handling complex response patterns
+Ready to build more advanced serving applications? Explore these specialized topics:
 
-For more detailed information about MLflow serving capabilities, refer to the official MLflow documentation and experiment with the examples provided in each section.
+<TilesGrid>
+  <TileCard
+    icon={Code}
+    title="Custom Applications"
+    description="Build sophisticated serving logic with custom preprocessing, routing, and business rules"
+    href="./custom-apps"
+    linkText="Build custom apps →"
+  />
+  <TileCard
+    icon={Users}
+    title="Responses Agents"
+    description="Handle complex response patterns and multi-step inference workflows"
+    href="./responses-agent"
+    linkText="Learn about agents →"
+  />
+</TilesGrid>
+
+:::tip Get Started
+The examples in each section are designed to be practical and ready-to-use. Start with the Quick Start above, then explore the use cases that match your deployment needs.
+:::

@@ -2,6 +2,13 @@ import { APILink } from "@site/src/components/APILink";
 import Link from "@docusaurus/Link";
 import useBaseUrl from "@docusaurus/useBaseUrl";
 import { Table } from "@site/src/components/Table";
+import Tabs from "@theme/Tabs";
+import TabItem from "@theme/TabItem";
+import TabsWrapper from "@site/src/components/TabsWrapper";
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import FeatureHighlights from "@site/src/components/FeatureHighlights";
+import { Shield, Globe, Zap, Settings, Database, Code, Book, Users } from "lucide-react";
 
 # MLflow AI Gateway
 
@@ -9,74 +16,92 @@ import { Table } from "@site/src/components/Table";
 MLflow AI Gateway does not support Windows.
 :::
 
-The MLflow AI Gateway is a powerful tool designed to streamline the usage and management of
-various large language model (LLM) providers, such as OpenAI and Anthropic, within an organization.
-It offers a high-level interface that simplifies the interaction with these services by providing
-a unified endpoint to handle specific LLM related requests.
+MLflow AI Gateway provides a unified interface for deploying and managing multiple LLM providers within your organization. It simplifies interactions with services like OpenAI, Anthropic, and others through a single, secure endpoint.
 
-A major advantage of using the MLflow AI Gateway is its centralized management of API keys.
-By storing these keys in one secure location, organizations can significantly enhance their
-security posture by minimizing the exposure of sensitive API keys throughout the system. It also
-helps to prevent exposing these keys within code or requiring end-users to manage keys safely.
+<FeatureHighlights features={[
+  {
+    icon: Shield,
+    title: "Centralized Security",
+    description: "Store API keys in one secure location, minimizing exposure and enhancing your security posture across the organization."
+  },
+  {
+    icon: Globe,
+    title: "Unified Interface",
+    description: "Access multiple LLM providers through a single endpoint, eliminating the need to integrate with each provider individually."
+  },
+  {
+    icon: Zap,
+    title: "Zero-Downtime Updates",
+    description: "Add, remove, or modify endpoints dynamically without restarting the server or disrupting running applications."
+  },
+  {
+    icon: Settings,
+    title: "Flexible Configuration",
+    description: "Easily configure endpoints and providers through simple YAML files, enabling quick adaptation to changing requirements."
+  }
+]} />
 
-The gateway server is designed to be flexible and adaptable, capable of easily defining and managing endpoints by updating the
-configuration file. This enables the easy incorporation
-of new LLM providers or provider LLM types into the system without necessitating changes to
-applications that interface with the gateway server. This level of adaptability makes the MLflow AI Gateway
-Service an invaluable tool in environments that require agility and quick response to changes.
+The gateway server excels in production environments where organizations need to manage multiple LLM providers securely while maintaining operational flexibility and developer productivity.
 
-This simplification and centralization of language model interactions, coupled with the added
-layer of security for API key management, make the MLflow AI Gateway an ideal choice for
-organizations that use LLMs on a regular basis.
+## Getting Started
 
-## Tutorials and Guides
+Ready to deploy your own AI Gateway? Our comprehensive guides will have you up and running in minutes.
 
-If you're interested in diving right in to a step by step guide that will get you up and running with the MLflow AI Gateway
-as fast as possible, the guides below will be your best first stop.
-
-<Link className="button button--primary" to="/genai/governance/ai-gateway/guides">
-  <span>View the gateway server Getting Started Guide</span>
-</Link>
+<TilesGrid>
+  <TileCard
+    icon={Book}
+    title="Step-by-Step Tutorial"
+    description="Complete walkthrough from installation to querying your first endpoint"
+    href="/genai/governance/ai-gateway/guides"
+    linkText="Start tutorial →"
+  />
+  <TileCard
+    icon={Code}
+    title="API Documentation"
+    description="Comprehensive reference for all endpoints and parameters"
+    href="#deployments-client-api"
+    linkText="View API docs →"
+  />
+  <TileCard
+    icon={Settings}
+    title="Configuration Guide"
+    description="Learn how to configure providers and customize endpoints"
+    href="#deployments-configuration"
+    linkText="Configure gateway →"
+  />
+</TilesGrid>
 
 ## Quickstart \{#deployments-quickstart}
 
-The following guide will assist you in getting up and running, using a 3-endpoint configuration to
-OpenAI services for chat, completions, and embeddings.
+Get your AI Gateway running in minutes with this streamlined setup guide using OpenAI as an example provider.
 
-### Step 1: Install the MLflow AI Gateway
+<TabsWrapper>
+<Tabs>
+<TabItem value="install" label="1. Install" default>
 
-First, you need to install the MLflow AI Gateway on your machine. You can do this using pip from PyPI or from the MLflow repository.
-
-#### Installing from PyPI
+Install the MLflow AI Gateway with GenAI support:
 
 ```sh
 pip install 'mlflow[genai]'
 ```
 
-### Step 2: Set the OpenAI API Key(s) for each provider
+</TabItem>
+<TabItem value="configure" label="2. Configure">
 
-The gateway server needs to communicate with the OpenAI API. To do this, it requires an API key.
-You can create an API key from the OpenAI dashboard.
-
-For this example, we're only connecting with OpenAI. If there are additional providers within the
-configuration, these keys will need to be set as well.
-
-Once you have the key, you can set it as an environment variable in your terminal:
+Set your API keys as environment variables:
 
 ```sh
 export OPENAI_API_KEY=your_api_key_here
 ```
 
-This sets a temporary session-based environment variable. For production use cases, it is advisable
-to store this key in the `.bashrc` or `.zshrc` files so that the key doesn't have to be re-entered upon
-system restart.
+:::tip Production Setup
+For production environments, store API keys in your `.bashrc`, `.zshrc`, or environment management system to ensure persistence across system restarts.
+:::
 
-### Step 3: Create a gateway server Configuration File
+</TabItem>
+<TabItem value="yaml" label="3. Create Config">
 
-Next, you need to create a gateway server configuration file. This is a YAML file where you specify the
-endpoints that the MLflow AI Gateway should expose. Let's create a file with three endpoints using OpenAI as a provider: completions, chat, and embeddings.
-
-For details about the configuration file's parameters (including parameters for other providers besides OpenAI), see the [AI Gateway server Configuration Details](#deployments-configuration-details) section below.
+Create a YAML configuration file (`config.yaml`) with your desired endpoints. This example shows three common endpoint types using OpenAI:
 
 ```yaml
 endpoints:
@@ -108,52 +133,68 @@ endpoints:
         openai_api_key: $OPENAI_API_KEY
 ```
 
-Save this file to a location on the system that is going to be running the MLflow AI Gateway.
+:::tip Configuration Details
+For comprehensive configuration options including other providers, see the [Configuration Guide](#deployments-configuration-details) below.
+:::
 
-### Step 4: Start the gateway server
+</TabItem>
+<TabItem value="start" label="4. Start Server">
 
-You're now ready to start the gateway server!
-
-Use the MLflow AI Gateway `start` command and specify the path to your configuration file:
+Launch your gateway server:
 
 ```sh
-mlflow gateway start --config-path config.yaml --port {port} --host {host} --workers {worker count}
+mlflow gateway start --config-path config.yaml --port 5000 --host localhost --workers 2
 ```
 
-The configuration file can also be set using the `MLFLOW_DEPLOYMENTS_CONFIG` environment variable:
+Alternative environment variable approach:
 
 ```bash
 export MLFLOW_DEPLOYMENTS_CONFIG=/path/to/config.yaml
+mlflow gateway start
 ```
 
-If you do not specify the host, a localhost address will be used.
+**Default values:**
+- Host: `localhost`
+- Port: `5000`
+- Workers: `2`
 
-If you do not specify the port, port 5000 will be used.
+</TabItem>
+<TabItem value="test" label="5. Test & Use">
 
-The worker count for gunicorn defaults to 2 workers.
+Once running, you can:
 
-### Step 5: Access the Interactive API Documentation
+**1. Explore the Interactive API Documentation**
+Navigate to `http://localhost:5000/` or `http://localhost:5000/docs` to access the interactive API documentation.
 
-The MLflow AI Gateway provides an interactive API documentation endpoint that you can use to explore
-and test the exposed endpoints. Navigate to `http://{host}:{port}/` (or `http://{host}:{port}/docs`) in your browser to access it.
+**2. Send requests via Python:**
+```python
+from mlflow.deployments import get_deploy_client
 
-The docs endpoint allow for direct interaction with the endpoints and permits submitting actual requests to the
-provider services by click on the "try it now" option within the endpoint definition entry.
+client = get_deploy_client("http://localhost:5000")
+response = client.predict(
+    endpoint="chat", inputs={"messages": [{"role": "user", "content": "Hello!"}]}
+)
+print(response)
+```
 
-### Step 6: Send Requests Using the Client API
+**3. Send requests via REST API:**
+```bash
+curl -X POST http://localhost:5000/endpoints/chat/invocations \
+  -H "Content-Type: application/json" \
+  -d '{"messages": [{"role": "user", "content": "Hello!"}]}'
+```
 
-See the [Client API](#deployments-client-api) section for further information.
+</TabItem>
+</Tabs>
+</TabsWrapper>
 
-### Step 7: Send Requests to Endpoints via REST API
+## Advanced Features
 
-You can now send requests to the exposed endpoints.
-See the [REST examples](#deployments-rest-api) for guidance on request formatting.
+### Dynamic Endpoint Management
 
-### Step 8: Compare Provider Models
+The AI Gateway supports zero-downtime endpoint updates. Simply modify your configuration file and save—changes are applied automatically without restarting the server.
 
-Here's an example of adding a new model from a provider to determine which model instance is better for a given use case.
-
-Firstly, update the [MLflow AI Gateway config](#deployments-configuration) YAML file with the additional endpoint definition to test:
+**Example: Adding a new model for A/B testing**
 
 ```yaml
 endpoints:
@@ -173,34 +214,68 @@ endpoints:
         openai_api_key: $OPENAI_API_KEY
 ```
 
-This updated configuration adds a new completions endpoint `completions-gpt4` while still preserving the original `completions`
-endpoint that was configured with the `gpt-4o-mini` model.
+### Integration with MLflow Models
 
-Once the configuration file is updated, simply save your changes. The gateway server will automatically create the new endpoint with zero downtime.
+Use gateway endpoints within MLflow Models for advanced application development:
 
-If you no longer need an endpoint, you can delete it from the configuration YAML and save your changes. The gateway server will automatically remove the endpoint.
+```python
+import mlflow
+from mlflow.deployments import get_deploy_client
 
-### Step 9: Use gateway server endpoints for model development
 
-Now that you have created several gateway server endpoints, you can create MLflow Models that query these
-endpoints to build application-specific logic using techniques like prompt engineering. For more
-information, see [gateway server and MLflow Models](#deployments-mlflow-models).
+def my_model_predict(data):
+    client = get_deploy_client("http://localhost:5000")
+    # Add your custom logic here
+    return client.predict(endpoint="chat", inputs=data)
 
-## Concepts \{#deployments-concepts}
 
-There are several concepts that are referred to within the MLflow AI Gateway APIs, the configuration definitions, examples, and documentation.
-Becoming familiar with these terms will help to simplify both configuring new endpoints and using the MLflow AI Gateway APIs.
+# Log as MLflow model for deployment
+mlflow.pyfunc.log_model(name="my_gateway_model", python_model=my_model_predict)
+```
 
-### Providers \{#deployments-providers}
+See [MLflow Models integration](#deployments-mlflow-models) for comprehensive examples.
 
-The MLflow AI Gateway is designed to support a variety of model providers.
-A provider represents the source of the machine learning models, such as OpenAI, Anthropic, and so on.
-Each provider has its specific characteristics and configurations that are encapsulated within the model part of an endpoint in the MLflow AI Gateway.
+## Core Concepts \{#deployments-concepts}
 
-#### Supported Providers
+Understanding these key concepts will help you effectively configure and use the MLflow AI Gateway.
 
-The table below presents supported corresponding endpoint type for each LLM provider within the MLflow AI Gateway.
-Note that ✅ mark does not mean all models from the provider are compatible with the endpoint types. For example, OpenAI provider supports all three endpoint types, but the model `gpt-4` is only compatible with the `llm/v1/chat` endpoint types.
+<TabsWrapper>
+<Tabs>
+<TabItem value="providers" label="Providers" default>
+
+**Providers** are the source of your language models (e.g., OpenAI, Anthropic, Cohere). Each provider has specific configuration requirements and supported model types.
+
+**Key Points:**
+- Each provider requires specific API keys and configuration
+- Providers support different endpoint types (chat, completions, embeddings)
+- You can use multiple providers simultaneously in a single gateway
+
+</TabItem>
+<TabItem value="endpoints" label="Endpoints">
+
+**Endpoints** are the gateway's proxy interfaces that forward requests to your configured providers. Each endpoint has:
+
+- **Name**: Unique identifier used in API calls
+- **Type**: Operation type (`llm/v1/chat`, `llm/v1/completions`, `llm/v1/embeddings`)
+- **Model**: Provider and model specification
+- **Limits**: Optional rate limiting configuration
+
+</TabItem>
+<TabItem value="models" label="Models">
+
+**Models** specify which provider model to use for an endpoint. The configuration includes:
+
+- **Provider**: The service provider (e.g., "openai", "anthropic")
+- **Name**: Specific model name (e.g., "gpt-4o-mini", "claude-3-sonnet")
+- **Config**: Provider-specific settings including API keys
+
+</TabItem>
+</Tabs>
+</TabsWrapper>
+
+### Supported Providers \{#deployments-providers}
+
+The following table shows which endpoint types each provider supports. Note that ✅ indicates provider support, but individual models may have specific compatibility requirements.
 
 <Table>
   <thead>
@@ -324,45 +399,34 @@ endpoints:
       calls: 10
 ```
 
-In the above configuration, `openai` is the _provider_ for the model.
+**Supported Provider Types:**
 
-As of now, the MLflow AI Gateway supports the following providers:
+| Provider | Documentation | Notes |
+|----------|--------------|-------|
+| **openai** | [OpenAI](https://platform.openai.com/) | Includes Azure OpenAI integration |
+| **anthropic** | [Anthropic](https://docs.anthropic.com/claude/docs) | Claude models |
+| **cohere** | [Cohere](https://docs.cohere.com/docs) | Command and embedding models |
+| **bedrock** | [Amazon Bedrock](https://aws.amazon.com/bedrock/) | Multiple model providers |
+| **mistral** | [Mistral](https://docs.mistral.ai/) | Mistral family models |
+| **togetherai** | [TogetherAI](https://docs.together.ai/docs/) | Open-source models |
+| **ai21labs** | [AI21 Labs](https://studio.ai21.com/foundation-models) | Jurassic models |
+| **palm** | [PaLM](https://developers.generativeai.google/api/rest/generativelanguage/models/) | Google's PaLM models |
+| **gemini** | [Gemini](https://ai.google.dev/api/models#rest-resource:-models) | Google's Gemini models |
 
-- **mosaicml**: This is used for models offered by [MosaicML](https://docs.mosaicml.com/en/latest/).
-- **openai**: This is used for models offered by [OpenAI](https://platform.openai.com/) and the [Azure](https://learn.microsoft.com/en-gb/azure/cognitive-services/openai/) integrations for Azure OpenAI and Azure OpenAI with AAD.
-- **anthropic**: This is used for models offered by [Anthropic](https://docs.anthropic.com/claude/docs).
-- **cohere**: This is used for models offered by [Cohere](https://docs.cohere.com/docs).
-- **palm**: This is used for models offered by [PaLM](https://developers.generativeai.google/api/rest/generativelanguage/models/).
-- **huggingface text generation inference**: This is used for models deployed using [Huggingface Text Generation Inference](https://huggingface.co/docs/text-generation-inference/index).
-- **ai21labs**: This is used for models offered by [AI21 Labs](https://studio.ai21.com/foundation-models).
-- **bedrock**: This is used for models offered by [Amazon Bedrock](https://aws.amazon.com/bedrock/).
-- **mistral**: This is used for models offered by [Mistral](https://docs.mistral.ai/).
-- **togetherai**: This is used for models offered by [TogetherAI](https://docs.together.ai/docs/).
-- **gemini**: This is used for models offered by [Gemini](https://ai.google.dev/api/models#rest-resource:-models).
+:::tip Custom Providers
+Need a provider that's not listed? Create a [custom provider plugin](#deployments-plugin) to integrate your own LLM services.
+:::
 
-More providers are being added continually. Check the latest version of the MLflow AI Gateway Docs for the
-most up-to-date list of supported providers.
+## Endpoint Configuration \{#deployments-endpoints}
 
-If you would like to use a LLM model that is not offered by the above providers, or if you
-would like to integrate a private LLM model, you can create a [provider plugin](#deployments-plugin)
-to integrate with the MLflow AI Gateway.
+Endpoints are the core interfaces of the AI Gateway, acting as proxies that forward requests to your configured LLM providers. Each endpoint definition includes:
 
-## Endpoints \{#deployments-endpoints}
-
-_Endpoints_ are central to how the MLflow AI Gateway functions. Each endpoint acts as a proxy endpoint for the
-user, forwarding requests to the underlying [Models](#deployments-models) and [providers](#deployments-providers) specified in the configuration file.
-
-an endpoint in the MLflow AI Gateway consists of the following fields:
-
-- **name**: This is the unique identifier for the endpoint. This will be part of the URL when making API calls via the MLflow AI Gateway.
-- **type**: The type of the endpoint corresponds to the type of language model interaction you desire. For instance, `llm/v1/completions` for text completion operations, `llm/v1/embeddings` for text embeddings, and `llm/v1/chat` for chat operations.
-- **model**: Defines the model to which this endpoint will forward requests. The model contains the following details:
-  - **provider**: Specifies the name of the [provider](#deployments-providers) for this model. For example, `openai` for OpenAI's `GPT-4o` models.
-  - **name**: The name of the model to use. For example, `gpt-4o-mini` for OpenAI's `GPT-4o-Mini` model.
-  - **config**: Contains any additional configuration details required for the model. This includes specifying the API base URL and the API key.
-- **limit**: Specify the rate limit setting this endpoint will follow. The limit field contains the following fields:
-  - **renewal_period**: The time unit of the rate limit, one of [second|minute|hour|day|month|year].
-  - **calls**: The number of calls this endpoint will accept within the specified time unit.
+| Field | Description | Example |
+|-------|-------------|---------|
+| **name** | Unique identifier for API calls | `"chat"`, `"completions"` |
+| **endpoint_type** | Operation type | `llm/v1/chat`, `llm/v1/completions`, `llm/v1/embeddings` |
+| **model** | Provider and model specification | See provider configuration |
+| **limit** | Optional rate limiting | `calls: 10, renewal_period: minute` |
 
 Here's an example of an endpoint configuration:
 
@@ -380,30 +444,23 @@ endpoints:
       calls: 10
 ```
 
-In the example above, a request sent to the completions endpoint would be forwarded to the
-`gpt-4o-mini` model provided by `openai`.
+:::tip Dynamic Updates
+Endpoints can be updated at any time by modifying your configuration file. The gateway automatically applies changes without requiring a restart, enabling zero-downtime endpoint management.
+:::
 
-The endpoints in the configuration file can be updated at any time, and the MLflow AI Gateway will
-automatically update its available endpoints without requiring a restart. This feature provides you
-with the flexibility to add, remove, or modify endpoints as your needs change. It enables 'hot-swapping'
-of endpoints, providing a seamless experience for any applications or services that interact with the MLflow AI Gateway.
+:::warning Unique Names
+Ensure each endpoint name is unique to prevent conflicts. Duplicate names will raise an `MlflowException`.
+:::
 
-When defining endpoints in the configuration file, ensure that each name is unique to prevent conflicts.
-Duplicate endpoint names will raise an `MlflowException`.
+### Model Selection Best Practices
 
-## Models \{#deployments-models}
+Choose models that match your endpoint type and use case:
 
-The `model` section within an `endpoint` specifies which model to use for generating responses.
-This configuration block needs to contain a `name` field which is used to specify the exact model instance to be used.
-Additionally, a [provider](#deployments-providers) needs to be specified, one that you have an authenticated access api key for.
+- **Chat endpoints** (`llm/v1/chat`): Conversational models like GPT-4, Claude, etc.
+- **Completion endpoints** (`llm/v1/completions`): Text generation models
+- **Embedding endpoints** (`llm/v1/embeddings`): Specialized embedding models like `text-embedding-ada-002`
 
-Different endpoint types are often associated with specific models.
-For instance, the `llm/v1/chat` and `llm/v1/completions` endpoints are generally associated with
-conversational models, while `llm/v1/embeddings` endpoints would typically be associated with
-embedding or transformer models. The model you choose should be appropriate for the type of endpoint specified.
-
-Here's an example of a model name configuration within an endpoint:
-
+**Example embedding endpoint:**
 ```yaml
 endpoints:
   - name: embeddings
@@ -415,22 +472,9 @@ endpoints:
         openai_api_key: $OPENAI_API_KEY
 ```
 
-In the above configuration, `text-embedding-ada-002` is the model used for the embeddings endpoint.
-
-When specifying a model, it is critical that the provider supports the model you are requesting.
-For instance, `openai` as a provider supports models like `text-embedding-ada-002`, but other providers
-may not. If the model is not supported by the provider, the MLflow AI Gateway will return an HTTP 4xx error
-when trying to route requests to that model.
-
-:::warning important
-Always check the latest documentation of the specified provider to ensure that the model you want
-to use is supported for the type of endpoint you're configuring.
+:::warning Model Compatibility
+Always verify that your chosen model is supported by the provider and endpoint type. Unsupported combinations will return HTTP 4xx errors.
 :::
-
-Remember, the model you choose directly affects the results of the responses you'll get from the
-API calls. Therefore, choose a model that fits your use-case requirements. For instance,
-for generating conversational responses, you would typically choose a chat model.
-Conversely, for generating embeddings of text, you would choose an embedding model.
 
 ## Configuring the gateway server \{#deployments-configuration}
 
