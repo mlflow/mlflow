@@ -5931,7 +5931,6 @@ class MlflowClient:
         return registry_client.delete_prompt(name)
 
     # Webhook APIs
-
     def create_webhook(
         self,
         name: str,

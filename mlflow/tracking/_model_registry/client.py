@@ -765,7 +765,6 @@ class ModelRegistryClient:
         self.store.delete_prompt_version_tag(name, version, key)
 
     # Webhook APIs
-
     def create_webhook(
         self,
         name: str,
