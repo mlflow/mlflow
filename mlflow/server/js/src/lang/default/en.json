@@ -91,6 +91,10 @@
     "defaultMessage": "Models loading",
     "description": "Label for a loading spinner when table containing models is being loaded"
   },
+  "/k7Xvj": {
+    "defaultMessage": "Key",
+    "description": "Tag filter input for key field in the tags filter popover for experiments page search by tags"
+  },
   "/nPZbt": {
     "defaultMessage": "{totalTokens} total tokens",
     "description": "Experiment page > artifact compare view > results table > total number of evaluated tokens"
@@ -406,6 +410,10 @@
   "53b+wP": {
     "defaultMessage": "Step",
     "description": "Experiment page > view controls > global settings for line chart view > settings for x-axis > label for setting to use step axis in all charts"
+  },
+  "55mClg": {
+    "defaultMessage": "Tag filter",
+    "description": "Button to open the tags filter popover in the experiments page"
   },
   "58xhem": {
     "defaultMessage": "Click to pin the run",
@@ -1347,6 +1355,10 @@
     "defaultMessage": "Last 24 hours",
     "description": "Option for the start select dropdown to filter runs from the last 24 hours"
   },
+  "JDpv0G": {
+    "defaultMessage": "Operator",
+    "description": "Tag filter input for operator field in the tags filter popover for experiments page search by tags"
+  },
   "JGQ5B2": {
     "defaultMessage": "Add",
     "description": "Model registry > model version table > metadata column > 'add' button label"
@@ -1563,6 +1575,10 @@
     "defaultMessage": "Comparing {numRuns} Runs from 1 Experiment",
     "description": "Breadcrumb title for compare runs page with single experiment"
   },
+  "NPlcrl": {
+    "defaultMessage": "Clear filters",
+    "description": "Button to clear filters in the tags filter popover for experiments page search by tags"
+  },
   "NU5iHM": {
     "defaultMessage": "Value",
     "description": "Label for the value column in the logged model details metrics table"
@@ -1626,6 +1642,10 @@
   "OEGyWZ": {
     "defaultMessage": "Predict on a Spark DataFrame.",
     "description": "Code comment which states on how we can predict using spark DataFrame"
+  },
+  "OH7hV5": {
+    "defaultMessage": "Value",
+    "description": "Tag filter input for value field in the tags filter popover for experiments page search by tags"
   },
   "ONIiUE": {
     "defaultMessage": "Show first 20",
@@ -3115,6 +3135,10 @@
     "defaultMessage": "Last modified",
     "description": "Header for the last modified column in the experiments table"
   },
+  "l8Z2nP": {
+    "defaultMessage": "Remove filter",
+    "description": "Button to remove a filter in the tags filter popover for experiments page search by tags"
+  },
   "lA8QO2": {
     "defaultMessage": "Edit tags",
     "description": "Label for the edit tags button in the registered prompts table"
@@ -3527,6 +3551,10 @@
     "defaultMessage": "Permission denied for {modelName}. Error: \"{errorMsg}\"",
     "description": "Permission denied error message on registered model detail page"
   },
+  "rY00Iw": {
+    "defaultMessage": "Add filter",
+    "description": "Button to add a new filter in the tags filter popover for experiments page search by tags"
+  },
   "raa3Ij": {
     "defaultMessage": "Registered Models",
     "description": "Text for link back to model page under the header on the model view page"
@@ -3594,6 +3622,10 @@
   "sTp/V3": {
     "defaultMessage": "Parallel Coordinates Plot",
     "description": "Tab pane title for parallel coordinate plots on the compare runs page"
+  },
+  "sWbj1n": {
+    "defaultMessage": "Apply filters",
+    "description": "Button to apply filters in the tags filter popover for experiments page search by tags"
   },
   "sXqvoN": {
     "defaultMessage": "Ignore column ordering",
