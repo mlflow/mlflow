@@ -3716,6 +3716,10 @@ def test_predict_with_callbacks_with_tracing(monkeypatch):
         assert trace_info.request_metadata[TraceMetadataKey.MODEL_ID] == model_info.model_id
 
 
+@pytest.mark.skipif(
+    Version(langchain.__version__) < Version("0.2.0"),
+    reason="Feature not existing",
+)
 def test_log_model_sends_telemetry_record(mock_requests):
     mlflow.langchain.log_model(
         os.path.abspath("tests/langchain/sample_code/workflow.py"),
