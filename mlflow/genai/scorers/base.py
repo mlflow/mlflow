@@ -68,20 +68,7 @@ class Scorer(BaseModel):
     def model_dump(self, **kwargs) -> dict:
         """Override model_dump to include source code."""
         # Check if this is a decorator scorer
-        if hasattr(self, "_original_func") and self._original_func:
-            # Decorator scorer - extract and store source code
-            source_info = self._extract_source_code_info()
-            # Create serialized scorer with all fields at once
-            serialized = SerializedScorer(
-                name=self.name,
-                aggregations=self.aggregations,
-                mlflow_version=mlflow.__version__,
-                serialization_version=_SERIALIZATION_VERSION,
-                call_source=source_info.get("call_source"),
-                call_signature=source_info.get("call_signature"),
-                original_func_name=source_info.get("original_func_name"),
-            )
-        else:
+        if not getattr(self, "_original_func", None):
             # BuiltInScorer overrides `model_dump`, so this is neither a builtin scorer nor a
             # decorator scorer
             raise MlflowException.invalid_parameter_value(
@@ -93,6 +80,18 @@ class Scorer(BaseModel):
                 f"Please use the @scorer decorator instead."
             )
 
+        # Decorator scorer - extract and store source code
+        source_info = self._extract_source_code_info()
+        # Create serialized scorer with all fields at once
+        serialized = SerializedScorer(
+            name=self.name,
+            aggregations=self.aggregations,
+            mlflow_version=mlflow.__version__,
+            serialization_version=_SERIALIZATION_VERSION,
+            call_source=source_info.get("call_source"),
+            call_signature=source_info.get("call_signature"),
+            original_func_name=source_info.get("original_func_name"),
+        )
         return asdict(serialized)
 
     def _extract_source_code_info(self) -> dict:
