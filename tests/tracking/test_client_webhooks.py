@@ -182,7 +182,7 @@ def test_update_webhook_not_found(client: MlflowClient):
         ("http://[invalid", r"Invalid webhook URL"),
     ],
 )
-def test_update_webhook_invalid_urls(store, invalid_url, expected_match):
+def test_update_webhook_invalid_urls(client: MlflowClient, invalid_url: str, expected_match: str):
     # Create a valid webhook first
     webhook = client.create_webhook(
         name="test_webhook",
