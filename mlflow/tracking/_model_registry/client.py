@@ -14,6 +14,7 @@ from mlflow.entities.model_registry import (
     RegisteredModelTag,
 )
 from mlflow.entities.model_registry.prompt import Prompt
+from mlflow.entities.webhook import Webhook, WebhookEvent, WebhookStatus
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.registry_utils import (
     add_prompt_filter_string,
@@ -762,3 +763,98 @@ class ModelRegistryClient:
             None
         """
         self.store.delete_prompt_version_tag(name, version, key)
+
+    # Webhook APIs
+
+    def create_webhook(
+        self,
+        name: str,
+        url: str,
+        events: list[WebhookEvent],
+        description: Optional[str] = None,
+        secret: Optional[str] = None,
+        status: Optional[WebhookStatus] = None,
+    ) -> Webhook:
+        """
+        Create a new webhook.
+
+        Args:
+            name: Unique name for the webhook.
+            url: Webhook endpoint URL.
+            events: List of event types that trigger this webhook.
+            description: Optional description of the webhook.
+            secret: Optional secret for HMAC signature verification.
+            status: Webhook status (defaults to ACTIVE).
+
+        Returns:
+            A :py:class:`mlflow.entities.webhook.Webhook` object representing the created webhook.
+        """
+        return self.store.create_webhook(name, url, events, description, secret, status)
+
+    def get_webhook(self, webhook_id: str) -> Webhook:
+        """
+        Get webhook instance by ID.
+
+        Args:
+            webhook_id: Webhook ID.
+
+        Returns:
+            A :py:class:`mlflow.entities.webhook.Webhook` object.
+        """
+        return self.store.get_webhook(webhook_id)
+
+    def list_webhooks(
+        self,
+        max_results: Optional[int] = None,
+        page_token: Optional[str] = None,
+    ) -> PagedList[Webhook]:
+        """
+        List webhooks.
+
+        Args:
+            max_results: Maximum number of webhooks to return.
+            page_token: Token specifying the next page of results.
+
+        Returns:
+            A :py:class:`mlflow.store.entities.paged_list.PagedList` of Webhook objects.
+        """
+        return self.store.list_webhooks(max_results, page_token)
+
+    def update_webhook(
+        self,
+        webhook_id: str,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        url: Optional[str] = None,
+        events: Optional[list[WebhookEvent]] = None,
+        secret: Optional[str] = None,
+        status: Optional[WebhookStatus] = None,
+    ) -> Webhook:
+        """
+        Update an existing webhook.
+
+        Args:
+            webhook_id: Webhook ID.
+            name: New webhook name.
+            description: New webhook description.
+            url: New webhook URL.
+            events: New list of event types.
+            secret: New webhook secret.
+            status: New webhook status.
+
+        Returns:
+            A :py:class:`mlflow.entities.webhook.Webhook` object representing the updated webhook.
+        """
+        return self.store.update_webhook(webhook_id, name, description, url, events, secret, status)
+
+    def delete_webhook(self, webhook_id: str) -> None:
+        """
+        Delete a webhook.
+
+        Args:
+            webhook_id: Webhook ID to delete.
+
+        Returns:
+            None
+        """
+        self.store.delete_webhook(webhook_id)

@@ -50,6 +50,7 @@ from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, 
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
 from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, NoOpSpan
 from mlflow.entities.trace_status import TraceStatus
+from mlflow.entities.webhook import Webhook, WebhookEvent, WebhookStatus
 from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.constants import (
@@ -5928,3 +5929,140 @@ class MlflowClient:
 
         # For non-Unity Catalog registries, or if version check passes, delete the prompt
         return registry_client.delete_prompt(name)
+
+    # Webhook APIs
+
+    def create_webhook(
+        self,
+        name: str,
+        url: str,
+        events: list[Union[str, WebhookEvent]],
+        description: Optional[str] = None,
+        secret: Optional[str] = None,
+        status: Optional[Union[str, WebhookStatus]] = None,
+    ) -> Webhook:
+        """
+        Create a new webhook.
+
+        Args:
+            name: Unique name for the webhook.
+            url: Webhook endpoint URL.
+            events: List of event types that trigger this webhook. Can be strings or
+                WebhookEvent enums.
+                Valid event types:
+                - "REGISTERED_MODEL_CREATED"
+                - "MODEL_VERSION_CREATED"
+                - "MODEL_VERSION_TAG_SET"
+                - "MODEL_VERSION_TAG_DELETED"
+                - "MODEL_VERSION_ALIAS_CREATED"
+                - "MODEL_VERSION_ALIAS_DELETED"
+            description: Optional description of the webhook.
+            secret: Optional secret for HMAC signature verification.
+            status: Webhook status (defaults to ACTIVE). Can be string or WebhookStatus enum.
+                Valid statuses: "ACTIVE", "DISABLED"
+
+        Returns:
+            A :py:class:`mlflow.entities.webhook.Webhook` object representing the created webhook.
+        """
+        # Convert string events to WebhookEvent enums
+        converted_events = [
+            WebhookEvent(event) if isinstance(event, str) else event for event in events
+        ]
+        # Convert string status to WebhookStatus enum if needed
+        converted_status = None
+        if status is not None:
+            converted_status = WebhookStatus(status) if isinstance(status, str) else status
+
+        return self._get_registry_client().create_webhook(
+            name, url, converted_events, description, secret, converted_status
+        )
+
+    def get_webhook(self, webhook_id: str) -> Webhook:
+        """
+        Get webhook instance by ID.
+
+        Args:
+            webhook_id: Webhook ID.
+
+        Returns:
+            A :py:class:`mlflow.entities.webhook.Webhook` object.
+        """
+        return self._get_registry_client().get_webhook(webhook_id)
+
+    def list_webhooks(
+        self,
+        max_results: Optional[int] = None,
+        page_token: Optional[str] = None,
+    ) -> PagedList[Webhook]:
+        """
+        List webhooks.
+
+        Args:
+            max_results: Maximum number of webhooks to return.
+            page_token: Token specifying the next page of results.
+
+        Returns:
+            A :py:class:`mlflow.store.entities.paged_list.PagedList` of Webhook objects.
+        """
+        return self._get_registry_client().list_webhooks(max_results, page_token)
+
+    def update_webhook(
+        self,
+        webhook_id: str,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        url: Optional[str] = None,
+        events: Optional[list[Union[str, WebhookEvent]]] = None,
+        secret: Optional[str] = None,
+        status: Optional[Union[str, WebhookStatus]] = None,
+    ) -> Webhook:
+        """
+        Update an existing webhook.
+
+        Args:
+            webhook_id: Webhook ID.
+            name: New webhook name.
+            description: New webhook description.
+            url: New webhook URL.
+            events: New list of event types. Can be strings or WebhookEvent enums.
+                Valid event types:
+                - "REGISTERED_MODEL_CREATED"
+                - "MODEL_VERSION_CREATED"
+                - "MODEL_VERSION_TAG_SET"
+                - "MODEL_VERSION_TAG_DELETED"
+                - "MODEL_VERSION_ALIAS_CREATED"
+                - "MODEL_VERSION_ALIAS_DELETED"
+            secret: New webhook secret.
+            status: New webhook status. Can be string or WebhookStatus enum.
+                Valid statuses: "ACTIVE", "DISABLED"
+
+        Returns:
+            A :py:class:`mlflow.entities.webhook.Webhook` object representing the updated webhook.
+        """
+        # Convert string events to WebhookEvent enums if provided
+        converted_events = None
+        if events is not None:
+            converted_events = [
+                WebhookEvent(event) if isinstance(event, str) else event for event in events
+            ]
+
+        # Convert string status to WebhookStatus enum if provided
+        converted_status = None
+        if status is not None:
+            converted_status = WebhookStatus(status) if isinstance(status, str) else status
+
+        return self._get_registry_client().update_webhook(
+            webhook_id, name, description, url, converted_events, secret, converted_status
+        )
+
+    def delete_webhook(self, webhook_id: str) -> None:
+        """
+        Delete a webhook.
+
+        Args:
+            webhook_id: Webhook ID to delete.
+
+        Returns:
+            None
+        """
+        self._get_registry_client().delete_webhook(webhook_id)
