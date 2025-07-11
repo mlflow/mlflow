@@ -2335,13 +2335,13 @@ def _list_webhooks():
             "page_token": [_assert_string],
         },
     )
-    webhooks, next_page_token = _get_model_registry_store().list_webhooks(
+    webhooks_page = _get_model_registry_store().list_webhooks(
         max_results=request_message.max_results,
         page_token=request_message.page_token,
     )
     response_message = ListWebhooks.Response(
-        webhooks=[w.to_proto() for w in webhooks],
-        next_page_token=next_page_token,
+        webhooks=[w.to_proto() for w in webhooks_page],
+        next_page_token=webhooks_page.token,
     )
     return _wrap_response(response_message)
 

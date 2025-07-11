@@ -118,16 +118,16 @@ def test_list_webhooks(store: RestStore):
         )
         created_webhooks.append(webhook)
     # Test pagination with max_results=2
-    webhooks, token = store.list_webhooks(max_results=2)
-    assert len(webhooks) == 2
-    assert token is not None
+    webhooks_page = store.list_webhooks(max_results=2)
+    assert len(webhooks_page) == 2
+    assert webhooks_page.token is not None
     # Get next page
-    next_webhooks, next_token = store.list_webhooks(max_results=2, page_token=token)
-    assert len(next_webhooks) == 2
-    assert next_token is not None
+    next_webhooks_page = store.list_webhooks(max_results=2, page_token=webhooks_page.token)
+    assert len(next_webhooks_page) == 2
+    assert next_webhooks_page.token is not None
     # Verify we don't get duplicates
-    first_page_ids = {w.webhook_id for w in webhooks}
-    second_page_ids = {w.webhook_id for w in next_webhooks}
+    first_page_ids = {w.webhook_id for w in webhooks_page}
+    second_page_ids = {w.webhook_id for w in next_webhooks_page}
     assert first_page_ids.isdisjoint(second_page_ids)
 
 
@@ -209,8 +209,8 @@ def test_delete_webhook(store: RestStore):
     store.delete_webhook(webhook.webhook_id)
     with pytest.raises(MlflowException, match=r"Webhook with ID .* not found"):
         store.get_webhook(webhook.webhook_id)
-    webhooks, _ = store.list_webhooks()
-    webhook_ids = {w.webhook_id for w in webhooks}
+    webhooks_page = store.list_webhooks()
+    webhook_ids = {w.webhook_id for w in webhooks_page}
     assert webhook.webhook_id not in webhook_ids
 
 

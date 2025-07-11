@@ -1336,7 +1336,7 @@ class SqlAlchemyStore(AbstractStore):
         self,
         max_results: Optional[int] = None,
         page_token: Optional[str] = None,
-    ) -> tuple[list[Webhook], Optional[str]]:
+    ) -> PagedList[Webhook]:
         max_results = max_results or 100
         if max_results < 1 or max_results > 1000:
             raise MlflowException(
@@ -1364,7 +1364,7 @@ class SqlAlchemyStore(AbstractStore):
                 webhooks = webhooks[:max_results]
                 next_page_token = SearchUtils.create_page_token(offset + max_results)
 
-            return ([w.to_mlflow_entity() for w in webhooks], next_page_token)
+            return PagedList([w.to_mlflow_entity() for w in webhooks], next_page_token)
 
     def update_webhook(
         self,

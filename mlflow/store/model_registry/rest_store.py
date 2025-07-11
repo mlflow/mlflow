@@ -537,11 +537,11 @@ class RestStore(BaseRestStore):
         self,
         max_results: Optional[int] = None,
         page_token: Optional[str] = None,
-    ) -> tuple[list[Webhook], Optional[str]]:
+    ) -> PagedList[Webhook]:
         req_body = message_to_json(ListWebhooks(max_results=max_results, page_token=page_token))
         response_proto = self._call_webhook_endpoint(ListWebhooks, req_body)
         webhooks = [Webhook.from_proto(webhook) for webhook in response_proto.webhooks]
-        return webhooks, response_proto.next_page_token
+        return PagedList(webhooks, response_proto.next_page_token)
 
     def update_webhook(
         self,
