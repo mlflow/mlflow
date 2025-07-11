@@ -1235,6 +1235,8 @@ def test_model_loading_set_active_model_id_without_fetching_logged_model():
 
 
 def test_autolog_sends_telemetry_record(mock_requests):
+    from mlflow.tracing.export.mlflow_v3 import MlflowV3SpanExporter
+
     mlflow.langchain.autolog(log_traces=True, disable=False)
 
     # Wait for telemetry to be sent
@@ -1254,4 +1256,16 @@ def test_autolog_sends_telemetry_record(mock_requests):
             log_models=False,
         )
     )
+    assert data["status"] == "success"
+
+    model = create_openai_runnable(temperature=0.9)
+    model.invoke({"product": "MLflow"})
+    get_telemetry_client().flush()
+
+    assert len(mock_requests) == 2
+    record = mock_requests[-1]
+    data = json.loads(record["data"])
+    assert data["api_module"] == MlflowV3SpanExporter.export.__module__
+    assert data["api_name"] == MlflowV3SpanExporter.export.__qualname__
+    assert data["params"] is None
     assert data["status"] == "success"

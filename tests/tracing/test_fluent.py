@@ -2118,9 +2118,10 @@ def test_start_span_sends_telemetry_record(mock_requests):
         pass
     get_telemetry_client().flush()
 
-    assert len(mock_requests) == 1
-    record = mock_requests[0]
-    data = json.loads(record["data"])
+    assert len(mock_requests) >= 1
+    api_names = [json.loads(record["data"])["api_name"] for record in mock_requests]
+    idx = api_names.index("start_span")
+    data = json.loads(mock_requests[idx]["data"])
     assert data["api_module"] == mlflow.start_span.__module__
     assert data["api_name"] == "start_span"
     assert data["params"] is None
