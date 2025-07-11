@@ -112,11 +112,7 @@ client = get_deploy_client("http://localhost:5000")
 # Query a chat endpoint
 response = client.predict(
     endpoint="chat",
-    inputs={
-        "messages": [
-            {"role": "user", "content": "What is MLflow?"}
-        ]
-    }
+    inputs={"messages": [{"role": "user", "content": "What is MLflow?"}]},
 )
 
 print(response["choices"][0]["message"]["content"])
@@ -132,6 +128,7 @@ from mlflow.deployments import get_deploy_client
 # Initialize client
 client = get_deploy_client("http://localhost:5000")
 
+
 # Chat with streaming
 def stream_chat(prompt):
     response = client.predict(
@@ -139,21 +136,20 @@ def stream_chat(prompt):
         inputs={
             "messages": [{"role": "user", "content": prompt}],
             "stream": True,
-            "temperature": 0.7
-        }
+            "temperature": 0.7,
+        },
     )
-    
+
     for chunk in response:
         if chunk["choices"][0]["delta"].get("content"):
             print(chunk["choices"][0]["delta"]["content"], end="")
 
+
 # Generate embeddings
 def get_embeddings(texts):
-    response = client.predict(
-        endpoint="embeddings",
-        inputs={"input": texts}
-    )
+    response = client.predict(endpoint="embeddings", inputs={"input": texts})
     return [item["embedding"] for item in response["data"]]
+
 
 # Example usage
 stream_chat("Explain quantum computing")
@@ -172,8 +168,7 @@ client = get_deploy_client("http://localhost:5000")
 
 try:
     response = client.predict(
-        endpoint="chat",
-        inputs={"messages": [{"role": "user", "content": "Hello"}]}
+        endpoint="chat", inputs={"messages": [{"role": "user", "content": "Hello"}]}
     )
     print(response)
 except MlflowException as e:

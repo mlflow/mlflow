@@ -19,26 +19,22 @@ from mlflow.deployments import get_deploy_client
 app = FastAPI()
 client = get_deploy_client("http://localhost:5000")
 
+
 @app.post("/chat")
 async def chat_endpoint(message: str):
     try:
         response = client.predict(
-            endpoint="chat",
-            inputs={
-                "messages": [{"role": "user", "content": message}]
-            }
+            endpoint="chat", inputs={"messages": [{"role": "user", "content": message}]}
         )
         return {"response": response["choices"][0]["message"]["content"]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.post("/embed")
 async def embed_endpoint(text: str):
     try:
-        response = client.predict(
-            endpoint="embeddings",
-            inputs={"input": text}
-        )
+        response = client.predict(endpoint="embeddings", inputs={"input": text})
         return {"embedding": response["data"][0]["embedding"]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -55,23 +51,21 @@ from mlflow.deployments import get_deploy_client
 app = Flask(__name__)
 client = get_deploy_client("http://localhost:5000")
 
-@app.route('/chat', methods=['POST'])
+
+@app.route("/chat", methods=["POST"])
 def chat():
     try:
         data = request.get_json()
         response = client.predict(
             endpoint="chat",
-            inputs={
-                "messages": [{"role": "user", "content": data["message"]}]
-            }
+            inputs={"messages": [{"role": "user", "content": data["message"]}]},
         )
-        return jsonify({
-            "response": response["choices"][0]["message"]["content"]
-        })
+        return jsonify({"response": response["choices"][0]["message"]["content"]})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     app.run(debug=True)
 ```
 
@@ -84,27 +78,30 @@ import asyncio
 import aiohttp
 import json
 
+
 async def async_query_gateway(endpoint, data):
     async with aiohttp.ClientSession() as session:
         async with session.post(
             f"http://localhost:5000/gateway/{endpoint}/invocations",
             headers={"Content-Type": "application/json"},
-            data=json.dumps(data)
+            data=json.dumps(data),
         ) as response:
             return await response.json()
+
 
 async def main():
     # Concurrent requests
     tasks = [
-        async_query_gateway("chat", {
-            "messages": [{"role": "user", "content": f"Question {i}"}]
-        })
+        async_query_gateway(
+            "chat", {"messages": [{"role": "user", "content": f"Question {i}"}]}
+        )
         for i in range(5)
     ]
-    
+
     responses = await asyncio.gather(*tasks)
     for i, response in enumerate(responses):
         print(f"Response {i}: {response['choices'][0]['message']['content']}")
+
 
 # Run async example
 asyncio.run(main())
@@ -137,7 +134,7 @@ chat = ChatMLflowAIGateway(
     params={
         "temperature": 0.7,
         "top_p": 0.95,
-    }
+    },
 )
 
 # Generate response
@@ -145,7 +142,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 messages = [
     SystemMessage(content="You are a helpful assistant."),
-    HumanMessage(content="What is LangChain?")
+    HumanMessage(content="What is LangChain?"),
 ]
 
 response = chat(messages)
@@ -158,16 +155,12 @@ Use gateway-powered embeddings for vector search, semantic similarity, and RAG a
 
 ```python
 # Embeddings
-embeddings = MlflowAIGatewayEmbeddings(
-    gateway_uri=gateway_uri,
-    route="embeddings"
-)
+embeddings = MlflowAIGatewayEmbeddings(gateway_uri=gateway_uri, route="embeddings")
 
 # Generate embeddings
-text_embeddings = embeddings.embed_documents([
-    "This is a document",
-    "This is another document"
-])
+text_embeddings = embeddings.embed_documents(
+    ["This is a document", "This is another document"]
+)
 
 query_embedding = embeddings.embed_query("This is a query")
 ```
@@ -195,9 +188,7 @@ vectorstore = FAISS.from_documents(docs, embeddings)
 
 # Create QA chain
 qa_chain = RetrievalQA.from_chain_type(
-    llm=chat,
-    chain_type="stuff",
-    retriever=vectorstore.as_retriever()
+    llm=chat, chain_type="stuff", retriever=vectorstore.as_retriever()
 )
 
 # Query the system
@@ -220,9 +211,7 @@ openai.api_key = "not-needed"  # Gateway handles authentication
 # Use standard OpenAI client
 response = openai.ChatCompletion.create(
     model="gpt-3.5-turbo",  # Endpoint name in your gateway config
-    messages=[
-        {"role": "user", "content": "Hello, AI Gateway!"}
-    ]
+    messages=[{"role": "user", "content": "Hello, AI Gateway!"}],
 )
 
 print(response.choices[0].message.content)
@@ -246,7 +235,7 @@ with mlflow.start_run():
     mlflow.pyfunc.log_model(
         name="my_model",
         python_model=MyCustomModel(),
-        registered_model_name="custom-chat-model"
+        registered_model_name="custom-chat-model",
     )
 
 # Deploy the model
@@ -280,21 +269,23 @@ import time
 from mlflow.deployments import get_deploy_client
 from mlflow.exceptions import MlflowException
 
+
 def robust_query(client, endpoint, inputs, max_retries=3):
     for attempt in range(max_retries):
         try:
             return client.predict(endpoint=endpoint, inputs=inputs)
         except MlflowException as e:
             if attempt < max_retries - 1:
-                time.sleep(2 ** attempt)  # Exponential backoff
+                time.sleep(2**attempt)  # Exponential backoff
                 continue
             raise e
 
+
 # Usage
 client = get_deploy_client("http://localhost:5000")
-response = robust_query(client, "chat", {
-    "messages": [{"role": "user", "content": "Hello"}]
-})
+response = robust_query(
+    client, "chat", {"messages": [{"role": "user", "content": "Hello"}]}
+)
 ```
 
 ### Security
@@ -313,6 +304,7 @@ from mlflow.deployments import get_deploy_client
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
 
 def monitored_query(client, endpoint, inputs):
     start_time = time.time()
@@ -337,15 +329,13 @@ import random
 from mlflow.deployments import get_deploy_client
 
 # Multiple gateway instances
-gateway_urls = [
-    "http://gateway1:5000",
-    "http://gateway2:5000", 
-    "http://gateway3:5000"
-]
+gateway_urls = ["http://gateway1:5000", "http://gateway2:5000", "http://gateway3:5000"]
+
 
 def get_client():
     url = random.choice(gateway_urls)
     return get_deploy_client(url)
+
 
 # Use with automatic failover
 def resilient_query(endpoint, inputs, max_retries=3):
@@ -365,20 +355,18 @@ def resilient_query(endpoint, inputs, max_retries=3):
 # Check gateway health via HTTP
 import requests
 
+
 def check_gateway_health(gateway_url):
     try:
         response = requests.get(f"{gateway_url}/health")
         return {
             "status": response.status_code,
             "healthy": response.status_code == 200,
-            "response": response.json() if response.status_code == 200 else None
+            "response": response.json() if response.status_code == 200 else None,
         }
     except requests.RequestException as e:
-        return {
-            "status": "error",
-            "healthy": False,
-            "error": str(e)
-        }
+        return {"status": "error", "healthy": False, "error": str(e)}
+
 
 # Example usage
 health = check_gateway_health("http://localhost:5000")
