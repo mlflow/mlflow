@@ -1,4 +1,5 @@
 import datetime
+import json
 import os
 import random
 import shutil
@@ -55,6 +56,7 @@ from mlflow.pyfunc import (
     spark_udf,
 )
 from mlflow.pyfunc.spark_model_cache import SparkModelCache
+from mlflow.telemetry import get_telemetry_client
 from mlflow.types import ColSpec, Schema, TensorSpec
 from mlflow.types.schema import Array, DataType, Object, Property
 from mlflow.types.utils import _infer_schema
@@ -1744,3 +1746,35 @@ def test_spark_udf_preserve_model_output_type(spark, numpy_type, schema, value):
 
     res = spark_df.withColumn("res", udf("input_col")).toPandas()
     assert res["res"][0] == numpy_type(value)
+
+
+def test_spark_udf_sends_telemetry_record(spark, mock_requests):
+    """Test that spark_udf sends telemetry records."""
+
+    class TestModel(PythonModel):
+        def predict(self, context, model_input, params=None):
+            return [1] * len(model_input)
+
+    with mlflow.start_run():
+        model_info = mlflow.pyfunc.log_model(
+            name="model",
+            python_model=TestModel(),
+        )
+
+    # Create the UDF - this should track the API usage
+    mlflow.pyfunc.spark_udf(
+        spark,
+        model_info.model_uri,
+        result_type="integer",
+    )
+
+    get_telemetry_client().flush()
+
+    # Two records: one for log_model, one for spark_udf
+    assert len(mock_requests) == 2
+    record = mock_requests[1]
+    data = json.loads(record["data"])
+    assert data["api_module"] == spark_udf.__module__
+    assert data["api_name"] == "spark_udf"
+    assert data["params"] is None
+    assert data["status"] == "success"

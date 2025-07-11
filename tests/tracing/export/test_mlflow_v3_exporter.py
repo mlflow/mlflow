@@ -9,6 +9,7 @@ import pytest
 from google.protobuf.json_format import ParseDict
 
 import mlflow
+from mlflow.telemetry.client import get_telemetry_client
 
 
 def join_thread_by_name_prefix(prefix: str, timeout: float = 5.0):
@@ -472,3 +473,28 @@ def test_prompt_linking_error_handling_mlflow_v3(monkeypatch):
     mock_logger.warning.assert_called()
     warning_calls = [call[0][0] for call in mock_logger.warning.call_args_list]
     assert any("Prompt linking failed" in msg for msg in warning_calls)
+
+
+@pytest.mark.parametrize("is_async", [True, False], ids=["async", "sync"])
+def test_export_sends_telemetry_record(mock_requests, is_async, monkeypatch):
+    monkeypatch.setenv("MLFLOW_ENABLE_ASYNC_TRACE_LOGGING", str(is_async))
+
+    @mlflow.trace
+    def foo():
+        pass
+
+    foo()
+    exporter = _get_trace_exporter()
+    assert isinstance(exporter, MlflowV3SpanExporter)
+    if is_async:
+        exporter._async_queue.flush(terminate=True)
+    get_telemetry_client().flush()
+
+    # some for mlflow.trace, one for export
+    assert len(mock_requests) >= 1
+    record = mock_requests[-1]
+    data = json.loads(record["data"])
+    assert data["api_module"] == MlflowV3SpanExporter.export.__module__
+    assert data["api_name"] == MlflowV3SpanExporter.export.__qualname__
+    assert data["params"] is None
+    assert data["status"] == "success"
