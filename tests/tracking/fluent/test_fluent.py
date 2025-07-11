@@ -9,7 +9,6 @@ import time
 import uuid
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import asdict
 from importlib import reload
 from itertools import zip_longest
 from unittest import mock
@@ -57,7 +56,6 @@ from mlflow.store.model_registry import (
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
-from mlflow.telemetry.client import get_telemetry_client
 from mlflow.telemetry.schemas import AutologParams
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracking.fluent import (
@@ -79,7 +77,7 @@ from mlflow.utils.async_logging.async_logging_queue import (
 )
 from mlflow.utils.time import get_current_time_millis
 
-from tests.helper_functions import multi_context
+from tests.helper_functions import multi_context, validate_telemetry_record
 from tests.tracing.helper import get_traces
 
 
@@ -2361,24 +2359,18 @@ def test_set_logged_model_tags_error():
 def test_autolog_sends_telemetry_record(mock_requests):
     mlflow.autolog(log_models=True, log_traces=True, disable=False)
 
-    # Wait for telemetry to be sent
-    get_telemetry_client().flush()
-
-    # Check that telemetry record was sent
-    assert len(mock_requests) == 1
-    record = mock_requests[0]
-    data = json.loads(record["data"])
-    assert data["api_module"] == mlflow.autolog.__module__
-    assert data["api_name"] == "autolog"
-    assert data["params"] == asdict(
-        AutologParams(
-            flavor="mlflow",
-            disable=False,
-            log_traces=True,
-            log_models=True,
-        )
+    validate_telemetry_record(
+        mock_requests,
+        mlflow.autolog,
+        params=(
+            AutologParams(
+                flavor="mlflow",
+                disable=False,
+                log_traces=True,
+                log_models=True,
+            )
+        ),
     )
-    assert data["status"] == "success"
     # mlflow.autolog has side-effect, we should turn it off to avoid affecting other tests
     mlflow.autolog(disable=True)
 
@@ -2386,60 +2378,28 @@ def test_autolog_sends_telemetry_record(mock_requests):
 def test_set_active_model_sends_telemetry_record(mock_requests):
     """Test that set_active_model sends telemetry records."""
     mlflow.set_active_model(name="test_model")
-    get_telemetry_client().flush()
 
-    assert len(mock_requests) == 1
-    record = mock_requests[0]
-    data = json.loads(record["data"])
-    assert data["api_module"] == mlflow.set_active_model.__module__
-    assert data["api_name"] == "set_active_model"
-    assert data["params"] is None
-    assert data["status"] == "success"
+    validate_telemetry_record(mock_requests, mlflow.set_active_model)
 
 
 def test_clear_active_model_sends_telemetry_record(mock_requests):
     """Test that clear_active_model sends telemetry records."""
     mlflow.set_active_model(name="test_model")
     mlflow.clear_active_model()
-    get_telemetry_client().flush()
-
-    assert len(mock_requests) == 2
-    # Check the clear_active_model record (second one)
-    record = mock_requests[1]
-    data = json.loads(record["data"])
-    assert data["api_module"] == mlflow.clear_active_model.__module__
-    assert data["api_name"] == "clear_active_model"
-    assert data["params"] is None
-    assert data["status"] == "success"
+    validate_telemetry_record(mock_requests, mlflow.clear_active_model, idx=1)
 
 
 def test_initialize_logged_model_sends_telemetry_record(mock_requests):
     """Test that initialize_logged_model sends telemetry records."""
     mlflow.initialize_logged_model(name="test_model")
 
-    get_telemetry_client().flush()
-
-    assert len(mock_requests) == 1
-    record = mock_requests[0]
-    data = json.loads(record["data"])
-    assert data["api_module"] == mlflow.initialize_logged_model.__module__
-    assert data["api_name"] == "initialize_logged_model"
-    assert data["params"] is None
-    assert data["status"] == "success"
+    validate_telemetry_record(mock_requests, mlflow.initialize_logged_model)
 
 
 def test_create_external_model_sends_telemetry_record(mock_requests):
     """Test that create_external_model sends telemetry records."""
     mlflow.create_external_model(name="test_external_model")
-    get_telemetry_client().flush()
-
-    assert len(mock_requests) == 1
-    record = mock_requests[0]
-    data = json.loads(record["data"])
-    assert data["api_module"] == mlflow.create_external_model.__module__
-    assert data["api_name"] == "create_external_model"
-    assert data["params"] is None
-    assert data["status"] == "success"
+    validate_telemetry_record(mock_requests, mlflow.create_external_model)
 
 
 def test_log_model_params_sends_telemetry_record(mock_requests):
@@ -2447,16 +2407,7 @@ def test_log_model_params_sends_telemetry_record(mock_requests):
     model = mlflow.initialize_logged_model(name="test_model")
     mlflow.log_model_params(model_id=model.model_id, params={"param1": "value1"})
 
-    get_telemetry_client().flush()
-
-    assert len(mock_requests) == 2
-    # Check the log_model_params record (second one)
-    record = mock_requests[1]
-    data = json.loads(record["data"])
-    assert data["api_module"] == mlflow.log_model_params.__module__
-    assert data["api_name"] == "log_model_params"
-    assert data["params"] is None
-    assert data["status"] == "success"
+    validate_telemetry_record(mock_requests, mlflow.log_model_params, idx=1)
 
 
 def test_set_logged_model_tags_sends_telemetry_record(mock_requests):
@@ -2464,13 +2415,4 @@ def test_set_logged_model_tags_sends_telemetry_record(mock_requests):
     model = mlflow.initialize_logged_model(name="test_model")
     mlflow.set_logged_model_tags(model_id=model.model_id, tags={"tag1": "value1"})
 
-    get_telemetry_client().flush()
-
-    assert len(mock_requests) == 2
-    # Check the set_logged_model_tags record (second one)
-    record = mock_requests[1]
-    data = json.loads(record["data"])
-    assert data["api_module"] == mlflow.set_logged_model_tags.__module__
-    assert data["api_name"] == "set_logged_model_tags"
-    assert data["params"] is None
-    assert data["status"] == "success"
+    validate_telemetry_record(mock_requests, mlflow.set_logged_model_tags, idx=1)

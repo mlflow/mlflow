@@ -2,7 +2,6 @@ import json
 import random
 import time
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import asdict
 from operator import itemgetter
 from typing import Any, Optional
 from unittest import mock
@@ -56,10 +55,10 @@ from packaging.version import Version
 
 import mlflow
 from mlflow.entities.trace_status import TraceStatus
-from mlflow.telemetry.client import get_telemetry_client
 from mlflow.telemetry.schemas import AutologParams
 from mlflow.tracing.constant import TRACE_SCHEMA_VERSION_KEY, SpanAttributeKey, TraceMetadataKey
 
+from tests.helper_functions import validate_telemetry_record
 from tests.langchain.conftest import DeterministicDummyEmbeddings
 from tests.tracing.conftest import async_logging_enabled
 from tests.tracing.helper import (
@@ -1239,33 +1238,20 @@ def test_autolog_sends_telemetry_record(mock_requests):
 
     mlflow.langchain.autolog(log_traces=True, disable=False)
 
-    # Wait for telemetry to be sent
-    get_telemetry_client().flush()
-
-    # Check that telemetry record was sent
-    assert len(mock_requests) == 1
-    autolog_record = mock_requests[0]
-    data = json.loads(autolog_record["data"])
-    assert data["api_module"] == mlflow.langchain.autolog.__module__
-    assert data["api_name"] == "autolog"
-    assert data["params"] == asdict(
-        AutologParams(
-            flavor="langchain",
-            disable=False,
-            log_traces=True,
-            log_models=False,
-        )
+    validate_telemetry_record(
+        mock_requests,
+        mlflow.langchain.autolog,
+        params=(
+            AutologParams(
+                flavor="langchain",
+                disable=False,
+                log_traces=True,
+                log_models=False,
+            )
+        ),
     )
-    assert data["status"] == "success"
 
     model = create_openai_runnable(temperature=0.9)
     model.invoke({"product": "MLflow"})
-    get_telemetry_client().flush()
 
-    assert len(mock_requests) == 2
-    record = mock_requests[-1]
-    data = json.loads(record["data"])
-    assert data["api_module"] == MlflowV3SpanExporter.export.__module__
-    assert data["api_name"] == MlflowV3SpanExporter.export.__qualname__
-    assert data["params"] is None
-    assert data["status"] == "success"
+    validate_telemetry_record(mock_requests, MlflowV3SpanExporter.export, idx=1)

@@ -1,5 +1,4 @@
 import datetime
-import json
 import os
 import random
 import shutil
@@ -56,13 +55,13 @@ from mlflow.pyfunc import (
     spark_udf,
 )
 from mlflow.pyfunc.spark_model_cache import SparkModelCache
-from mlflow.telemetry import get_telemetry_client
 from mlflow.types import ColSpec, Schema, TensorSpec
 from mlflow.types.schema import Array, DataType, Object, Property
 from mlflow.types.utils import _infer_schema
 from mlflow.utils._spark_utils import modified_environ
 
 import tests
+from tests.helper_functions import validate_telemetry_record
 
 prediction = [int(1), int(2), "class1", float(0.1), 0.2, True]
 types = [np.int32, int, str, np.float32, np.double, bool]
@@ -1767,14 +1766,8 @@ def test_spark_udf_sends_telemetry_record(spark, mock_requests):
         model_info.model_uri,
         result_type="integer",
     )
-
-    get_telemetry_client().flush()
-
-    # Two records: one for log_model, one for spark_udf
-    assert len(mock_requests) == 2
-    record = mock_requests[1]
-    data = json.loads(record["data"])
-    assert data["api_module"] == spark_udf.__module__
-    assert data["api_name"] == "spark_udf"
-    assert data["params"] is None
-    assert data["status"] == "success"
+    validate_telemetry_record(
+        mock_requests,
+        mlflow.pyfunc.spark_udf,
+        idx=1,
+    )

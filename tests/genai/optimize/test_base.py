@@ -1,4 +1,3 @@
-import json
 from unittest.mock import patch
 
 import pandas as pd
@@ -12,11 +11,10 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.optimize import optimize_prompt
 from mlflow.genai.optimize.types import LLMParams, OptimizerConfig
 from mlflow.genai.scorers import scorer
-from mlflow.telemetry import get_telemetry_client
 from mlflow.tracking import MlflowClient
 from mlflow.tracking._model_registry.fluent import register_prompt
 
-from tests.helper_functions import avoid_telemetry_tracking
+from tests.helper_functions import avoid_telemetry_tracking, validate_telemetry_record
 
 
 @pytest.fixture
@@ -167,12 +165,4 @@ def test_optimize_prompt_sends_telemetry_record(mock_requests, sample_prompt, sa
             scorers=[sample_scorer],
         )
 
-    get_telemetry_client().flush()
-
-    assert len(mock_requests) == 1
-    record = mock_requests[0]
-    data = json.loads(record["data"])
-    assert data["api_module"] == optimize_prompt.__module__
-    assert data["api_name"] == "optimize_prompt"
-    assert data["params"] is None
-    assert data["status"] == "success"
+    validate_telemetry_record(mock_requests, optimize_prompt)

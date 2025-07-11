@@ -8,7 +8,6 @@ import mlflow
 from mlflow.entities import LiveSpan, Trace
 from mlflow.entities.model_registry import PromptVersion
 from mlflow.entities.trace_info import TraceInfo
-from mlflow.telemetry.client import get_telemetry_client
 from mlflow.tracing.constant import TraceMetadataKey, TraceSizeStatsKey
 from mlflow.tracing.export.inference_table import (
     _TRACE_BUFFER,
@@ -20,6 +19,7 @@ from mlflow.tracing.provider import _get_trace_exporter
 from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracing.utils import generate_trace_id_v3
 
+from tests.helper_functions import validate_telemetry_record
 from tests.tracing.helper import create_mock_otel_span, create_test_trace_info
 
 _OTEL_TRACE_ID = 12345
@@ -517,13 +517,4 @@ def test_export_sends_telemetry_record(mock_requests, mock_databricks_serving_wi
         exporter = _get_trace_exporter()
         assert isinstance(exporter, InferenceTableSpanExporter)
     assert len(_TRACE_BUFFER) == 1
-    get_telemetry_client().flush()
-
-    # one for trace, one for export
-    assert len(mock_requests) == 2
-    record = mock_requests[-1]
-    data = json.loads(record["data"])
-    assert data["api_module"] == InferenceTableSpanExporter.export.__module__
-    assert data["api_name"] == InferenceTableSpanExporter.export.__qualname__
-    assert data["params"] is None
-    assert data["status"] == "success"
+    validate_telemetry_record(mock_requests, InferenceTableSpanExporter.export, idx=1)

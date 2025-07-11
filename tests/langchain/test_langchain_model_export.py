@@ -38,7 +38,6 @@ try:
     from langchain_huggingface import HuggingFacePipeline
 except ImportError:
     from langchain_community.llms import HuggingFacePipeline
-from dataclasses import asdict
 from unittest.mock import ANY
 
 from langchain.callbacks.base import BaseCallbackHandler
@@ -98,12 +97,15 @@ from mlflow.models.resources import (
 from mlflow.models.signature import ModelSignature, Schema, infer_signature
 from mlflow.models.utils import load_serving_example
 from mlflow.pyfunc.context import Context
-from mlflow.telemetry.client import get_telemetry_client
 from mlflow.telemetry.schemas import LogModelParams, ModelType
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Object, Property
 
-from tests.helper_functions import _compare_logged_code_paths, pyfunc_serve_and_score_model
+from tests.helper_functions import (
+    _compare_logged_code_paths,
+    pyfunc_serve_and_score_model,
+    validate_telemetry_record,
+)
 from tests.langchain.conftest import DeterministicDummyEmbeddings
 
 # this kwarg was added in langchain_community 0.0.27, and
@@ -3727,24 +3729,18 @@ def test_log_model_sends_telemetry_record(mock_requests):
         params={"param1": "value1"},
         input_example={"messages": [{"role": "user", "content": "What is MLflow?"}]},
     )
-    # Wait for telemetry to be sent
-    get_telemetry_client().flush()
-
-    # Check that telemetry record was sent
-    assert len(mock_requests) == 1
-    record = mock_requests[0]
-    data = json.loads(record["data"])
-    assert data["api_module"] == mlflow.langchain.log_model.__module__
-    assert data["api_name"] == "log_model"
-    assert data["params"] == asdict(
-        LogModelParams(
-            flavor="langchain",
-            model=ModelType.MODEL_PATH,
-            is_pip_requirements_set=False,
-            is_extra_pip_requirements_set=False,
-            is_code_paths_set=False,
-            is_params_set=True,
-            is_metadata_set=False,
-        )
+    validate_telemetry_record(
+        mock_requests,
+        mlflow.langchain.log_model,
+        params=(
+            LogModelParams(
+                flavor="langchain",
+                model=ModelType.MODEL_PATH,
+                is_pip_requirements_set=False,
+                is_extra_pip_requirements_set=False,
+                is_code_paths_set=False,
+                is_params_set=True,
+                is_metadata_set=False,
+            )
+        ),
     )
-    assert data["status"] == "success"
