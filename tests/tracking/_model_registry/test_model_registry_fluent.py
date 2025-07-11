@@ -21,6 +21,7 @@ from mlflow.protos.databricks_pb2 import (
     INTERNAL_ERROR,
     RESOURCE_ALREADY_EXISTS,
 )
+from mlflow.telemetry import get_telemetry_client
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.utils.databricks_utils import DatabricksRuntimeVersion
 
@@ -1067,3 +1068,34 @@ def test_load_prompt_caching_with_different_parameters():
 
         # Cache should work - either same count or only one additional call
         assert call_count_after_fourth <= call_count_after_third + 1
+
+
+def test_register_prompt_sends_telemetry_record(mock_requests):
+    """Test that register_prompt sends telemetry records."""
+    mlflow.tracking._model_registry.fluent.register_prompt("test_prompt", "test template {{var}}")
+    get_telemetry_client().flush()
+
+    assert len(mock_requests) == 1
+    record = mock_requests[0]
+    data = json.loads(record["data"])
+    assert data["api_module"] == mlflow.tracking._model_registry.fluent.register_prompt.__module__
+    assert data["api_name"] == "register_prompt"
+    assert data["params"] is None
+    assert data["status"] == "success"
+
+
+def test_load_prompt_sends_telemetry_record(mock_requests):
+    """Test that load_prompt sends telemetry records."""
+    mlflow.tracking._model_registry.fluent.register_prompt("test_prompt_load", "test template")
+    mlflow.tracking._model_registry.fluent.load_prompt("test_prompt_load", version=1)
+    get_telemetry_client().flush()
+
+    # Two records: one for register, one for load
+    assert len(mock_requests) == 2
+    # Check the load_prompt record (second one)
+    record = mock_requests[1]
+    data = json.loads(record["data"])
+    assert data["api_module"] == mlflow.tracking._model_registry.fluent.load_prompt.__module__
+    assert data["api_name"] == "load_prompt"
+    assert data["params"] is None
+    assert data["status"] == "success"

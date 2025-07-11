@@ -2048,6 +2048,7 @@ def build_model_env(model_uri, save_path, env_manager=_EnvManager.VIRTUALENV):
             os.remove(tmp_archive_path)
 
 
+@track_api_usage
 def spark_udf(
     spark,
     model_uri,

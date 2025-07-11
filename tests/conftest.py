@@ -24,7 +24,7 @@ from mlflow.utils.os import is_windows
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.autologging.fixtures import enable_test_mode
-from tests.helper_functions import get_safe_port
+from tests.helper_functions import avoid_telemetry_tracking, get_safe_port
 from tests.tracing.helper import purge_traces
 
 if not IS_TRACING_SDK_ONLY:
@@ -333,7 +333,9 @@ def mock_is_in_databricks(request):
 
 @pytest.fixture(autouse=not IS_TRACING_SDK_ONLY)
 def reset_active_model_context():
-    clear_active_model()
+    yield
+    with avoid_telemetry_tracking():
+        clear_active_model()
 
 
 @pytest.fixture(autouse=True)

@@ -21,6 +21,7 @@ def invoked_from_internal_api() -> bool:
         # skip the current frame and the API call frames
         frame = frame.f_back.f_back if frame and frame.f_back else None
         module = inspect.getmodule(frame)
+        # TODO: consider recording if this comes from databricks modules
         return module and module.__name__.startswith("mlflow")
     finally:
         del frame
@@ -28,6 +29,7 @@ def invoked_from_internal_api() -> bool:
 
 # ContextVar to disable telemetry tracking in the current thread.
 # This is thread-local to avoid race conditions when multiple threads are running in parallel.
+# NB: this doesn't work if a nested function spawns a new thread (e.g. mlflow.genai.evaluate)
 _disable_telemetry_tracking_var = ContextVar("disable_telemetry_tracking", default=False)
 
 
