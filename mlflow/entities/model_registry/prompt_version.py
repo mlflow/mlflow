@@ -70,7 +70,7 @@ class PromptVersion(_ModelRegistryEntity):
         name: str,
         version: int,
         template: Union[str, list[dict[str, "ContentType"]]],
-        response_format: BaseModel | dict[str, Any] | None = None,
+        response_format: Optional[Union[BaseModel, dict[str, Any]]] = None,
         commit_message: Optional[str] = None,
         creation_timestamp: Optional[int] = None,
         tags: Optional[dict[str, str]] = None,
@@ -159,7 +159,7 @@ class PromptVersion(_ModelRegistryEntity):
         return self._prompt_type == PROMPT_TYPE_TEXT
 
     @property
-    def response_format(self) -> dict[str, Any] | None:
+    def response_format(self) -> Optional[dict[str, Any]]:
         """
         Return the response format specification for the prompt.
 
@@ -189,7 +189,7 @@ class PromptVersion(_ModelRegistryEntity):
 
     @staticmethod
     def convert_response_format_to_dict(
-        response_format: BaseModel | dict[str, Any],
+        response_format: Union[BaseModel, dict[str, Any]],
     ) -> dict[str, Any]:
         """
         Convert a response format specification to a dictionary representation.

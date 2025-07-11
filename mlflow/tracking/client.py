@@ -102,7 +102,6 @@ from mlflow.tracking._tracking_service.client import TrackingServiceClient
 from mlflow.tracking.artifact_utils import _upload_artifacts_to_databricks
 from mlflow.tracking.multimedia import Image, compress_image_size, convert_to_pil_image
 from mlflow.tracking.registry import UnsupportedModelRegistryStoreURIException
-from mlflow.types.chat import ContentType
 from mlflow.utils import is_uuid
 from mlflow.utils.annotations import deprecated, experimental
 from mlflow.utils.async_logging.run_operations import RunOperations
@@ -131,6 +130,8 @@ if TYPE_CHECKING:
     import pandas
     import PIL
     import plotly
+
+    from mlflow.types.chat import ContentType
 
 
 _logger = logging.getLogger(__name__)
@@ -449,7 +450,7 @@ class MlflowClient:
     def register_prompt(
         self,
         name: str,
-        template: Union[str, list[dict[str, ContentType]]],
+        template: Union[str, list[dict[str, "ContentType"]]],
         response_format: Optional[Union[BaseModel, dict[str, Any]]] = None,
         commit_message: Optional[str] = None,
         tags: Optional[dict[str, str]] = None,

@@ -4,7 +4,7 @@ import logging
 import threading
 import uuid
 import warnings
-from typing import Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from pydantic import BaseModel
 
@@ -37,7 +37,6 @@ from mlflow.tracing.trace_manager import InMemoryTraceManager
 from mlflow.tracking._model_registry import DEFAULT_AWAIT_MAX_SLEEP_SECONDS
 from mlflow.tracking.client import MlflowClient
 from mlflow.tracking.fluent import active_run, get_active_model_id
-from mlflow.types.chat import ContentType
 from mlflow.utils import get_results_from_paginated_fn, mlflow_tags
 from mlflow.utils.databricks_utils import (
     _construct_databricks_uc_registered_model_url,
@@ -48,6 +47,9 @@ from mlflow.utils.databricks_utils import (
 from mlflow.utils.env_pack import EnvPackType, pack_env_for_databricks_model_serving
 from mlflow.utils.logging_utils import eprint
 from mlflow.utils.uri import is_databricks_unity_catalog_uri
+
+if TYPE_CHECKING:
+    from mlflow.types.chat import ContentType
 
 _logger = logging.getLogger(__name__)
 
@@ -535,7 +537,7 @@ def set_model_version_tag(
 @require_prompt_registry
 def register_prompt(
     name: str,
-    template: Union[str, list[dict[str, ContentType]]],
+    template: Union[str, list[dict[str, "ContentType"]]],
     response_format: Optional[Union[BaseModel, dict[str, Any]]] = None,
     commit_message: Optional[str] = None,
     tags: Optional[dict[str, str]] = None,

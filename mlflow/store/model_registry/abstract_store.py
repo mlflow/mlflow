@@ -3,7 +3,7 @@ import logging
 import threading
 from abc import ABCMeta, abstractmethod
 from time import sleep, time
-from typing import Any, Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from pydantic import BaseModel
 
@@ -31,13 +31,15 @@ from mlflow.protos.databricks_pb2 import (
     ErrorCode,
 )
 from mlflow.store.entities.paged_list import PagedList
-from mlflow.types.chat import ContentType
 from mlflow.utils.annotations import developer_stable
 from mlflow.utils.logging_utils import eprint
 
 _logger = logging.getLogger(__name__)
 
 AWAIT_MODEL_VERSION_CREATE_SLEEP_INTERVAL_SECONDS = 3
+
+if TYPE_CHECKING:
+    from mlflow.types.chat import ContentType
 
 
 @developer_stable
@@ -686,7 +688,7 @@ class AbstractStore:
     def create_prompt_version(
         self,
         name: str,
-        template: Union[str, list[dict[str, ContentType]]],
+        template: Union[str, list[dict[str, "ContentType"]]],
         response_format: Optional[Union[BaseModel, dict[str, Any]]] = None,
         description: Optional[str] = None,
         tags: Optional[dict[str, str]] = None,
