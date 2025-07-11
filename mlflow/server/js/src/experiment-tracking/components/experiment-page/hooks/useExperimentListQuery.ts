@@ -34,7 +34,7 @@ function tagFilterToSql(tagFilter: TagFilter) {
     case 'IS NOT':
       return `tags.\`${tagFilter.key}\` != '${tagFilter.value}'`;
     case 'CONTAINS':
-      return `tags.\`${tagFilter.key}\` ILIKE '${tagFilter.value}'`;
+      return `tags.\`${tagFilter.key}\` ILIKE '%${tagFilter.value}%'`;
   }
 }
 
