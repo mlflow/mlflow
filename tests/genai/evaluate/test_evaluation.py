@@ -396,8 +396,11 @@ def test_evaluate_sends_telemetry_record(mock_requests):
     )
     get_telemetry_client().flush()
 
-    assert len(mock_requests) == 1
-    record = mock_requests[0]
+    # there may be more records for functions used inside eval where the functions
+    # are executed in a new thread
+    records_count = len(mock_requests)
+    assert records_count >= 1
+    record = mock_requests[-1]
     data = json.loads(record["data"])
     assert data["api_module"] == mlflow.genai.evaluate.__module__
     assert data["api_name"] == "evaluate"
@@ -418,7 +421,7 @@ def test_evaluate_sends_telemetry_record(mock_requests):
     )
     get_telemetry_client().flush()
 
-    assert len(mock_requests) == 2
+    assert len(mock_requests) >= records_count + 1
     record = mock_requests[-1]
     data = json.loads(record["data"])
     assert data["api_module"] == mlflow.genai.evaluate.__module__

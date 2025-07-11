@@ -2415,8 +2415,9 @@ def test_evaluate_sends_telemetry_record(mock_requests):
 
     get_telemetry_client().flush()
 
-    assert len(mock_requests) == 1
-    record = mock_requests[0]
+    # one for mlflow.trace, one for evaluate
+    assert len(mock_requests) >= 2
+    record = mock_requests[1]
     data = json.loads(record["data"])
     assert data["api_module"] == evaluate.__module__
     assert data["api_name"] == "evaluate"
