@@ -122,12 +122,12 @@ mlflow gateway start \
 
 ### Command Line Options
 
-| Option | Description | Default |
-|--------|-------------|---------|
-| `--config-path` | Path to YAML configuration file | Required |
-| `--port` | Port number for the server | 5000 |
-| `--host` | Host address to bind to | 127.0.0.1 |
-| `--workers` | Number of worker processes | 1 |
+| Option          | Description                     | Default   |
+| --------------- | ------------------------------- | --------- |
+| `--config-path` | Path to YAML configuration file | Required  |
+| `--port`        | Port number for the server      | 5000      |
+| `--host`        | Host address to bind to         | 127.0.0.1 |
+| `--workers`     | Number of worker processes      | 1         |
 
 ## Verification
 
@@ -165,21 +165,27 @@ curl -X POST http://localhost:5000/gateway/chat/invocations \
 ### Common Issues
 
 **Missing API Keys:**
+
 ```
 Error: Provider 'openai' requires 'openai_api_key' configuration
 ```
+
 Solution: Ensure environment variables are set before starting the server.
 
 **Port Conflicts:**
+
 ```
 Error: Port 5000 is already in use
 ```
+
 Solution: Use a different port with `--port` or stop the conflicting process.
 
 **Configuration Errors:**
+
 ```
 Error: Invalid configuration file
 ```
+
 Solution: Check YAML syntax and required fields. Configuration is validated when starting the server.
 
 ### Validation

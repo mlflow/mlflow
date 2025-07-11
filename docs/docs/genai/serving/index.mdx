@@ -106,6 +106,7 @@ When you run `mlflow models serve`, MLflow begins by analyzing your model's meta
 MLflow downloads the model artifacts to a local directory and creates a FastAPI server with standardized endpoints. The server loads your model using the appropriate flavor-specific loading logic. For example, a scikit-learn model is loaded using pickle, while a PyTorch model loads its state dictionary and model class.
 
 The server exposes four key endpoints:
+
 - **`POST /invocations`** - The main prediction endpoint
 - **`GET /ping`** and **`GET /health`** - Health checks for monitoring
 - **`GET /version`** - Returns server and model information
@@ -115,6 +116,7 @@ The server exposes four key endpoints:
 When a prediction request arrives at `/invocations`, MLflow processes it through several validation and transformation steps:
 
 **Input Format Detection**: MLflow automatically detects which input format you're using. It supports multiple formats to accommodate different use cases:
+
 - `dataframe_split`: Pandas DataFrame with separate columns and data arrays
 - `dataframe_records`: List of dictionaries representing rows
 - `instances`: TensorFlow Serving format for individual predictions

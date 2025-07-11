@@ -170,31 +170,35 @@ curl -X POST http://localhost:5000/gateway/chat/invocations \
 
 MLflow AI Gateway supports a comprehensive range of LLM providers:
 
-| Provider | Chat | Completions | Embeddings | Notes |
-|----------|------|-------------|-----------|-------|
-| OpenAI | ✅ | ✅ | ✅ | GPT-3.5, GPT-4, text-embedding models |
-| Azure OpenAI | ✅ | ✅ | ✅ | Enterprise OpenAI with Azure integration |
-| Anthropic | ✅ | ✅ | ❌ | Claude models via Anthropic API |
-| Cohere | ✅ | ✅ | ✅ | Command and embedding models |
-| AWS Bedrock | ✅ | ✅ | ✅ | Claude, Titan, and other Bedrock models |
-| PaLM | ✅ | ✅ | ✅ | Google's PaLM models |
-| MosaicML | ✅ | ✅ | ❌ | MPT models and custom deployments |
-| MLflow Models | ✅ | ✅ | ✅ | Your own deployed MLflow models |
+| Provider      | Chat | Completions | Embeddings | Notes                                    |
+| ------------- | ---- | ----------- | ---------- | ---------------------------------------- |
+| OpenAI        | ✅   | ✅          | ✅         | GPT-3.5, GPT-4, text-embedding models    |
+| Azure OpenAI  | ✅   | ✅          | ✅         | Enterprise OpenAI with Azure integration |
+| Anthropic     | ✅   | ✅          | ❌         | Claude models via Anthropic API          |
+| Cohere        | ✅   | ✅          | ✅         | Command and embedding models             |
+| AWS Bedrock   | ✅   | ✅          | ✅         | Claude, Titan, and other Bedrock models  |
+| PaLM          | ✅   | ✅          | ✅         | Google's PaLM models                     |
+| MosaicML      | ✅   | ✅          | ❌         | MPT models and custom deployments        |
+| MLflow Models | ✅   | ✅          | ✅         | Your own deployed MLflow models          |
 
 ## Core Concepts
 
 Understanding these key concepts will help you effectively use the AI Gateway:
 
 ### Endpoints
+
 Endpoints are named configurations that define how to access a specific model from a provider. Each endpoint specifies the model, provider settings, and access parameters.
 
 ### Providers
+
 Providers are the underlying LLM services (OpenAI, Anthropic, etc.) that actually serve the models. The gateway abstracts away provider-specific details.
 
 ### Routes
+
 Routes define the URL structure for accessing endpoints. The gateway automatically creates routes based on your endpoint configurations.
 
 ### Dynamic Updates
+
 The gateway supports hot-reloading of configurations, allowing you to add, modify, or remove endpoints without restarting the server.
 
 ## Next Steps
