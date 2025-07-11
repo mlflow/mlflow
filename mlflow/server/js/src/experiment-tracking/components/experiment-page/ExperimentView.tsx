@@ -181,6 +181,7 @@ export const ExperimentView = () => {
         requestError={runsRequestError}
         refreshRuns={refreshRuns}
         uiState={uiState}
+        isComparingExperiments={isComparingExperiments}
       />
     );
   };
