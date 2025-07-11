@@ -1,11 +1,14 @@
+import os
 import subprocess
 import sys
 from pathlib import Path
 from typing import Generator
 
 import pytest
+from cryptography.fernet import Fernet
 
 from mlflow.entities.webhook import WebhookEvent, WebhookStatus
+from mlflow.environment_variables import MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY
 from mlflow.exceptions import MlflowException
 from mlflow.tracking import MlflowClient
 
@@ -26,6 +29,8 @@ def server(tmp_path: Path) -> Generator[str, None, None]:
             f"--backend-store-uri=sqlite:///{sqlite_db_path}",
         ],
         cwd=tmp_path,
+        env=os.environ.copy()
+        | {MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY.name: Fernet.generate_key().decode("utf-8")},
     ) as process:
         try:
             yield f"http://localhost:{port}"
