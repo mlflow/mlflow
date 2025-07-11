@@ -16,6 +16,8 @@ class _EnvironmentVariable:
     """
 
     def __init__(self, name, type_, default):
+        if type_ == bool and not isinstance(self, _BooleanEnvironmentVariable):
+            raise ValueError("Use _BooleanEnvironmentVariable instead for boolean variables")
         self.name = name
         self.type = type_
         self.default = default
@@ -637,8 +639,8 @@ MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK = _EnvironmentVariable(
 #: Whether to writing trace to the MLflow backend from a model running in a Databricks
 #: model serving endpoint. If true, the trace will be written to both the MLflow backend
 #: and the Inference Table.
-_MLFLOW_ENABLE_TRACE_DUAL_WRITE_IN_MODEL_SERVING = _EnvironmentVariable(
-    "MLFLOW_ENABLE_TRACE_DUAL_WRITE_IN_MODEL_SERVING", bool, False
+_MLFLOW_ENABLE_TRACE_DUAL_WRITE_IN_MODEL_SERVING = _BooleanEnvironmentVariable(
+    "MLFLOW_ENABLE_TRACE_DUAL_WRITE_IN_MODEL_SERVING", False
 )
 
 # Default addressing style to use for boto client
