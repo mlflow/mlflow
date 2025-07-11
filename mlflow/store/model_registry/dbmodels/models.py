@@ -1,5 +1,3 @@
-import os
-
 from cryptography.fernet import Fernet
 from sqlalchemy import (
     BigInteger,
@@ -24,6 +22,7 @@ from mlflow.entities.model_registry import (
 from mlflow.entities.model_registry.model_version_stages import STAGE_DELETED_INTERNAL, STAGE_NONE
 from mlflow.entities.model_registry.model_version_status import ModelVersionStatus
 from mlflow.entities.webhook import Webhook, WebhookEvent, WebhookStatus
+from mlflow.environment_variables import MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY
 from mlflow.store.db.base_sql_model import Base
 from mlflow.utils.time import get_current_time_millis
 
@@ -224,9 +223,7 @@ class EncryptedString(TypeDecorator):
         super().__init__()
         # Get encryption key from environment variable or generate one
         # In production, this should come from a secure key management service
-        encryption_key = (
-            os.environ.get("MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY") or Fernet.generate_key()
-        )
+        encryption_key = MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY.get() or Fernet.generate_key()
         self.cipher = Fernet(encryption_key)
 
     def process_bind_param(self, value, dialect):
