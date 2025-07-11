@@ -861,6 +861,11 @@ MLFLOW_SERVER_GRAPHQL_MAX_ALIASES = _EnvironmentVariable(
 )
 
 
+#: Whether to disable schema details in error messages for MLflow schema enforcement.
+#: (default: ``False``)
+MLFLOW_DISABLE_SCHEMA_DETAILS = _BooleanEnvironmentVariable("MLFLOW_DISABLE_SCHEMA_DETAILS", False)
+
+
 def _split_strip(s: str) -> list[str]:
     return [s.strip() for s in s.split(",")]
 
@@ -870,5 +875,3 @@ def _split_strip(s: str) -> list[str]:
 _MLFLOW_WEBHOOK_ALLOWED_SCHEMES = _EnvironmentVariable(
     "MLFLOW_WEBHOOK_ALLOWED_SCHEMES", _split_strip, ["https"]
 )
-
-MLFLOW_DISABLE_SCHEMA_DETAILS = _EnvironmentVariable("MLFLOW_DISABLE_SCHEMA_DETAILS", bool, False)

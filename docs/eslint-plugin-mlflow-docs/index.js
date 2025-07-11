@@ -7,5 +7,6 @@ module.exports = {
   rules: {
     /** Rule to validate NotebookDownloadButton URLs */
     'valid-notebook-url': require('./rules/valid-notebook-url'),
+    'prefer-apilink-component': require('./rules/prefer-apilink-component'),
   },
 };
