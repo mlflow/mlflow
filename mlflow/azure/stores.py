@@ -214,7 +214,7 @@ def create_store(store_uri: str, artifact_uri: Optional[str] = None):
             # Create the standard MLflow store - it will use our cached engine
             # Ensure artifact_uri is not None or empty to avoid FileNotFoundError
             logger.debug(f"Raw artifact_uri: {repr(artifact_uri)}")
-            safe_artifact_uri = artifact_uri if artifact_uri and artifact_uri.strip() else "./mlflow-artifacts"
+            safe_artifact_uri = artifact_uri if (artifact_uri and artifact_uri.strip()) else "./mlflow-artifacts"
             logger.debug(f"Safe artifact_uri: {repr(safe_artifact_uri)}")
             return SqlAlchemyStore(clean_uri, safe_artifact_uri)
 
@@ -227,7 +227,7 @@ def create_store(store_uri: str, artifact_uri: Optional[str] = None):
         from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore
         # Ensure artifact_uri is not None or empty to avoid FileNotFoundError
         logger.debug(f"Fallback raw artifact_uri: {repr(artifact_uri)}")
-        safe_artifact_uri = artifact_uri if artifact_uri and artifact_uri.strip() else "./mlflow-artifacts"
+        safe_artifact_uri = artifact_uri if (artifact_uri and artifact_uri.strip()) else "./mlflow-artifacts"
         logger.debug(f"Fallback safe artifact_uri: {repr(safe_artifact_uri)}")
         return SqlAlchemyStore(store_uri, safe_artifact_uri)
 
