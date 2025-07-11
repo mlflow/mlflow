@@ -2,22 +2,11 @@ import { ParagraphSkeleton, Typography, useDesignSystemTheme } from '@databricks
 import { Link } from '../../../../common/utils/RoutingUtils';
 import { usePromptVersionsForRunQuery } from '../../../pages/prompts/hooks/usePromptVersionsForRunQuery';
 import Routes from '../../../routes';
-import { parseLinkedPromptsFromRunTags } from '../../../pages/prompts/utils';
-import type { KeyValueEntity } from '../../../types';
 
-export const RunViewRegisteredPromptsBox = ({
-  tags,
-  runUuid,
-}: {
-  tags: Record<string, KeyValueEntity>;
-  runUuid: string;
-}) => {
+export const RunViewRegisteredPromptsBox = ({ runUuid }: { runUuid: string }) => {
   const { theme } = useDesignSystemTheme();
-  // This part is for supporting prompt versions created using mlflow < 3.1.0
   const { data, error, isLoading } = usePromptVersionsForRunQuery({ runUuid });
-  const promptVersionsFromPromptTags = data?.model_versions || [];
-  const promptVersionsFromRunTags = parseLinkedPromptsFromRunTags(tags);
-  const promptVersions = [...promptVersionsFromPromptTags, ...promptVersionsFromRunTags];
+  const promptVersions = data?.model_versions;
 
   if (isLoading) {
     return <ParagraphSkeleton />;

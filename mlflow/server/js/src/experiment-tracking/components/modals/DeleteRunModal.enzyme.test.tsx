@@ -72,7 +72,7 @@ describe('MyComponent', () => {
     instance = wrapper.instance();
     instance.handleSubmit().then(() => {
       expect(deletedRunIds).toEqual([]);
-      expect(minimalProps.openErrorModal).toBeCalled();
+      expect(minimalProps.openErrorModal).toHaveBeenCalled();
       done();
     });
   });

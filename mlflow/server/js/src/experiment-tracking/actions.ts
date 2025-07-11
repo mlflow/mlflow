@@ -16,7 +16,8 @@ import { fetchEndpoint, jsonBigIntResponseParser } from '../common/utils/FetchUt
 import { stringify as queryStringStringify } from 'qs';
 import { fetchEvaluationTableArtifact } from './sdk/EvaluationArtifactService';
 import type { EvaluationDataReduxState } from './reducers/EvaluationDataReducer';
-import { ArtifactListFilesResponse, EvaluationArtifactTable, KeyValueEntity } from './types';
+import { ArtifactListFilesResponse, EvaluationArtifactTable } from './types';
+import { KeyValueEntity } from '../common/types';
 import { MLFLOW_PUBLISHED_VERSION } from '../common/mlflow-published-version';
 import { MLFLOW_LOGGED_IMAGE_ARTIFACTS_PATH } from './constants';
 import { ErrorWrapper } from '../common/utils/ErrorWrapper';
@@ -402,13 +403,24 @@ export const listArtifactsApi = (runUuid: any, path?: any, id = getUUID()) => {
  * TODO: discard redux, refactor into hooks
  */
 export const LIST_ARTIFACTS_LOGGED_MODEL_API = 'LIST_ARTIFACTS_LOGGED_MODEL_API';
-export const listArtifactsLoggedModelApi = (loggedModelId: any, path?: any, id = getUUID()) => {
-  return {
-    type: LIST_ARTIFACTS_API,
-    payload: MlflowService.listArtifactsLoggedModel({
+export const listArtifactsLoggedModelApi = (
+  loggedModelId: any,
+  path?: any,
+  experimentId?: string,
+  id = getUUID(),
+  entityTags?: Partial<KeyValueEntity>[],
+) => {
+  const getLoggedModelDataFromMLflowAPI = () =>
+    MlflowService.listArtifactsLoggedModel({
       loggedModelId,
       path,
-    }),
+    });
+  const getLoggedModelDataFn = () => {
+    return getLoggedModelDataFromMLflowAPI();
+  };
+  return {
+    type: LIST_ARTIFACTS_LOGGED_MODEL_API,
+    payload: getLoggedModelDataFn(),
     meta: { id: id, loggedModelId, path: path },
   };
 };
@@ -516,7 +528,35 @@ export const setTagApi = (runUuid: any, tagName: any, tagValue: any, id = getUUI
 // TODO: run_uuid is deprecated, use run_id instead
 export const DELETE_TAG_API = 'DELETE_TAG_API';
 const SET_RUN_TAGS_BULK = 'SET_RUN_TAGS_BULK';
+
 /**
+ * Used in new, unified tagging UI
+ */
+export const saveRunTagsApi = (
+  run_uuid: string,
+  newTags: KeyValueEntity[],
+  deletedTags: KeyValueEntity[],
+  id = getUUID(),
+) => {
+  const updateRequests = Promise.all([
+    ...newTags.map(({ key, value }) => MlflowService.setTag({ run_uuid, key, value })),
+    ...deletedTags.map(({ key }) => MlflowService.deleteTag({ run_id: run_uuid, key })),
+  ]);
+
+  return {
+    type: SET_RUN_TAGS_BULK,
+    payload: updateRequests,
+    meta: { id, runUuid: run_uuid, deletedTags, newTags },
+  };
+};
+
+// TODO: remove the action once "databricks.fe.mlflow.useSharedTaggingUI" flag is enabled
+/**
+ * @deprecated
+ *
+ *
+ * Used in old implementation of tags editor
+ *
  * Given lists of existing and new tags, creates and calls
  * multiple requests for setting/deleting tags in a experiment run
  */

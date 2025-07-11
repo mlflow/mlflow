@@ -20,7 +20,6 @@ jest.setTimeout(90000); // increase timeout due to testing heavier tables and ch
 jest.mock('../../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual<typeof import('../../../common/utils/FeatureUtils')>('../../../common/utils/FeatureUtils'),
   isLoggedModelsFilteringAndSortingEnabled: jest.fn(() => true),
-  isExperimentLoggedModelsUIEnabled: jest.fn(() => true),
 }));
 
 // Mock the chart component to save some resources while easily assert that the correct chart is rendered
@@ -86,16 +85,16 @@ describe('ExperimentLoggedModelListPage', () => {
         status_message: 'Pending',
         tags: modelsWithRegisteredVersions.includes(`m-${i + 1}`)
           ? [
-              {
-                key: 'mlflow.modelVersions',
-                value: JSON.stringify([
-                  {
-                    name: 'registered-model-name-' + (i + 1),
-                    version: 1,
-                  },
-                ]),
-              },
-            ]
+            {
+              key: 'mlflow.modelVersions',
+              value: JSON.stringify([
+                {
+                  name: 'registered-model-name-' + (i + 1),
+                  version: 1,
+                },
+              ]),
+            },
+          ]
           : [],
         creation_timestamp_ms: i * 1000,
       },
@@ -300,7 +299,7 @@ describe('ExperimentLoggedModelListPage', () => {
   });
 
   test('should use malformed search query filter and display error message', async () => {
-    jest.spyOn(console, 'error').mockImplementation(() => {});
+    jest.spyOn(console, 'error').mockImplementation(() => { });
     renderTestComponent();
 
     await waitFor(() => {

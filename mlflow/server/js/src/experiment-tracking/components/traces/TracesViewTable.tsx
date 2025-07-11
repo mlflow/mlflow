@@ -188,6 +188,8 @@ export const TracesViewTable = React.memo(
     const intl = useIntl();
     const { theme } = useDesignSystemTheme();
 
+    const showQuickStart = !loading && traces.length === 0 && !usingFilters && !error;
+
     const useStaticColumnsCells = isUnstableNestedComponentsMigrated();
 
     const allColumnsList = useMemo<ColumnListItem[]>(() => {
@@ -200,6 +202,10 @@ export const TracesViewTable = React.memo(
     }, [intl, disabledColumns]);
 
     const columns = useMemo<TracesColumnDef[]>(() => {
+      if (showQuickStart) {
+        return [];
+      }
+
       const columns: TracesColumnDef[] = [
         {
           id: TRACE_TABLE_CHECKBOX_COLUMN_ID,
@@ -217,19 +223,19 @@ export const TracesViewTable = React.memo(
           cell: useStaticColumnsCells
             ? RequestIdCell
             : ({ row: { original } }) => {
-                return (
-                  <Typography.Link
-                    componentId={`${baseComponentId}.traces_table.request_id_link`}
-                    ellipsis
-                    css={{ maxWidth: '100%', textOverflow: 'ellipsis' }}
-                    onClick={() => {
-                      onTraceClicked?.(original);
-                    }}
-                  >
-                    {original.request_id}
-                  </Typography.Link>
-                );
-              },
+              return (
+                <Typography.Link
+                  componentId={`${baseComponentId}.traces_table.request_id_link`}
+                  ellipsis
+                  css={{ maxWidth: '100%', textOverflow: 'ellipsis' }}
+                  onClick={() => {
+                    onTraceClicked?.(original);
+                  }}
+                >
+                  {original.request_id}
+                </Typography.Link>
+              );
+            },
           meta: { styles: { minWidth: 200 } },
         },
         {
@@ -240,19 +246,19 @@ export const TracesViewTable = React.memo(
           cell: useStaticColumnsCells
             ? TraceNameCell
             : ({ row: { original } }) => {
-                return (
-                  <Typography.Link
-                    componentId={`${baseComponentId}.traces_table.trace_name_link`}
-                    ellipsis
-                    css={{ maxWidth: '100%', textOverflow: 'ellipsis' }}
-                    onClick={() => {
-                      onTraceClicked?.(original);
-                    }}
-                  >
-                    {getTraceTagValue(original, TRACE_TAG_NAME_TRACE_NAME)}
-                  </Typography.Link>
-                );
-              },
+              return (
+                <Typography.Link
+                  componentId={`${baseComponentId}.traces_table.trace_name_link`}
+                  ellipsis
+                  css={{ maxWidth: '100%', textOverflow: 'ellipsis' }}
+                  onClick={() => {
+                    onTraceClicked?.(original);
+                  }}
+                >
+                  {getTraceTagValue(original, TRACE_TAG_NAME_TRACE_NAME)}
+                </Typography.Link>
+              );
+            },
           meta: { styles: { minWidth: 150 } },
         },
         {
@@ -298,25 +304,25 @@ export const TracesViewTable = React.memo(
           cell: useStaticColumnsCells
             ? RunNameCell
             : ({ row: { original } }) => {
-                const runId = getTraceInfoRunId(original);
-                if (!runId || !original.experiment_id) {
-                  return null;
-                }
-                const label = original.runName || runId;
-                return (
-                  <Link
-                    css={{
-                      maxWidth: '100%',
-                      textOverflow: 'ellipsis',
-                      display: 'inline-block',
-                      overflow: 'hidden',
-                    }}
-                    to={Routes.getRunPageRoute(original.experiment_id, runId)}
-                  >
-                    {label}
-                  </Link>
-                );
-              },
+              const runId = getTraceInfoRunId(original);
+              if (!runId || !original.experiment_id) {
+                return null;
+              }
+              const label = original.runName || runId;
+              return (
+                <Link
+                  css={{
+                    maxWidth: '100%',
+                    textOverflow: 'ellipsis',
+                    display: 'inline-block',
+                    overflow: 'hidden',
+                  }}
+                  to={Routes.getRunPageRoute(original.experiment_id, runId)}
+                >
+                  {label}
+                </Link>
+              );
+            },
         },
         {
           header: intl.formatMessage(ExperimentViewTracesTableColumnLabels[ExperimentViewTracesTableColumns.source]),
@@ -362,14 +368,14 @@ export const TracesViewTable = React.memo(
           cell: useStaticColumnsCells
             ? TraceTagsCell
             : ({ row: { original } }) => {
-                return (
-                  <TracesViewTableTagCell
-                    tags={original.tags || []}
-                    onAddEditTags={() => onTraceTagsEdit?.(original)}
-                    baseComponentId={baseComponentId}
-                  />
-                );
-              },
+              return (
+                <TracesViewTableTagCell
+                  tags={original.tags || []}
+                  onAddEditTags={() => onTraceTagsEdit?.(original)}
+                  baseComponentId={baseComponentId}
+                />
+              );
+            },
         },
       );
 
@@ -382,11 +388,12 @@ export const TracesViewTable = React.memo(
       hiddenColumns,
       baseComponentId,
       useStaticColumnsCells,
+      showQuickStart,
     ]);
 
     const table = useReactTable<ModelTraceInfoWithRunName>({
       columns,
-      data: traces,
+      data: showQuickStart ? [] : traces,
       state: { sorting, rowSelection },
       getCoreRowModel: getCoreRowModel(),
       getRowId: (row, index) => row.request_id || index.toString(),
@@ -443,21 +450,15 @@ export const TracesViewTable = React.memo(
           />
         );
       }
-      if (!loading && traces.length === 0) {
-        return (
-          <TracesViewTableNoTracesQuickstart
-            baseComponentId={baseComponentId}
-            experimentIds={experimentIds}
-            runUuid={runUuid}
-          />
-        );
-      }
       return null;
     };
 
     // to improve performance, we pass the column sizes as inline styles to the table
     const columnSizeInfo = table.getState().columnSizingInfo;
     const columnSizeVars = React.useMemo(() => {
+      if (showQuickStart) {
+        return {};
+      }
       const headers = table.getFlatHeaders();
       const colSizes: { [key: string]: number } = {};
       headers.forEach((header) => {
@@ -467,7 +468,11 @@ export const TracesViewTable = React.memo(
       return colSizes;
       // we need to recompute this whenever columns get resized or changed
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [columnSizeInfo, columns, table]);
+    }, [columnSizeInfo, columns, table, showQuickStart]);
+
+    if (showQuickStart) {
+      return <TracesViewTableNoTracesQuickstart baseComponentId={baseComponentId} runUuid={runUuid} />;
+    }
 
     return (
       <Table
