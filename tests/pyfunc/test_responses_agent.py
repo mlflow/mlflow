@@ -1,7 +1,5 @@
-import json
 import pathlib
 import pickle
-from dataclasses import asdict
 from typing import Generator
 
 import pytest
@@ -10,6 +8,7 @@ from mlflow.entities.span import SpanType
 from mlflow.tracing.constant import SpanAttributeKey
 from mlflow.utils.pydantic_utils import IS_PYDANTIC_V2_OR_NEWER
 
+from tests.helper_functions import validate_telemetry_record
 from tests.tracing.helper import get_traces
 
 if not IS_PYDANTIC_V2_OR_NEWER:
@@ -25,7 +24,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.models.signature import ModelSignature
 from mlflow.pyfunc.loaders.responses_agent import _ResponsesAgentPyfuncWrapper
 from mlflow.pyfunc.model import _DEFAULT_RESPONSES_AGENT_METADATA_TASK, ResponsesAgent
-from mlflow.telemetry.client import get_telemetry_client
 from mlflow.telemetry.parser import LogModelParams, ModelType
 from mlflow.types.responses import (
     RESPONSES_AGENT_INPUT_EXAMPLE,
@@ -491,26 +489,20 @@ def test_responses_agent_trace(
 
 
 def test_log_model_sends_telemetry_record(mock_requests):
-    client = get_telemetry_client()
     mlflow.pyfunc.log_model(python_model=SimpleResponsesAgent(), name="model")
-    # Wait for telemetry to be sent
-    client.flush()
 
-    # Check that telemetry record was sent
-    assert len(mock_requests) == 1
-    record = mock_requests[0]
-    data = json.loads(record["data"])
-    assert data["api_module"] == mlflow.pyfunc.log_model.__module__
-    assert data["api_name"] == "log_model"
-    assert data["params"] == asdict(
-        LogModelParams(
-            flavor="pyfunc",
-            model=ModelType.RESPONSES_AGENT,
-            is_pip_requirements_set=False,
-            is_extra_pip_requirements_set=False,
-            is_code_paths_set=False,
-            is_params_set=False,
-            is_metadata_set=False,
-        )
+    validate_telemetry_record(
+        mock_requests,
+        mlflow.pyfunc.log_model,
+        params=(
+            LogModelParams(
+                flavor="pyfunc",
+                model=ModelType.RESPONSES_AGENT,
+                is_pip_requirements_set=False,
+                is_extra_pip_requirements_set=False,
+                is_code_paths_set=False,
+                is_params_set=False,
+                is_metadata_set=False,
+            )
+        ),
     )
-    assert data["status"] == "success"

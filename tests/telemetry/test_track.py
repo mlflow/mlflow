@@ -18,6 +18,8 @@ from mlflow.telemetry.schemas import APIStatus, AutologParams
 from mlflow.telemetry.track import track_api_usage
 from mlflow.telemetry.utils import is_telemetry_disabled
 
+from tests.helper_functions import validate_telemetry_record
+
 
 def extract_record(data: str) -> dict[str, Any]:
     return json.loads(data["data"])
@@ -169,10 +171,19 @@ def test_track_api_usage_do_not_track_internal_api_complex(mock_requests):
         pass
 
     test_func_1()
-    get_telemetry_client().flush()
-    assert len(mock_requests) == 1
-    record = extract_record(mock_requests[0])
-    assert record["api_module"] == test_func_1.__module__
-    assert record["api_name"] == test_func_1.__qualname__
-    assert record["params"] is None
-    assert record["status"] == "success"
+    validate_telemetry_record(mock_requests, test_func_1)
+
+
+def test_trace_sends_telemetry_record(mock_requests):
+    @mlflow.trace
+    def test():
+        pass
+
+    validate_telemetry_record(mock_requests, mlflow.trace)
+
+    def test_func():
+        pass
+
+    mlflow.trace(test_func)
+
+    validate_telemetry_record(mock_requests, mlflow.trace, idx=1)

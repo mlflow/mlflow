@@ -14,13 +14,16 @@ from mlflow.genai.scorers import scorer
 from mlflow.tracking import MlflowClient
 from mlflow.tracking._model_registry.fluent import register_prompt
 
+from tests.helper_functions import avoid_telemetry_tracking, validate_telemetry_record
+
 
 @pytest.fixture
 def sample_prompt():
-    return register_prompt(
-        name="test_translation_prompt",
-        template="Translate the following text to {{language}}: {{input_text}}",
-    )
+    with avoid_telemetry_tracking():
+        return register_prompt(
+            name="test_translation_prompt",
+            template="Translate the following text to {{language}}: {{input_text}}",
+        )
 
 
 @pytest.fixture
@@ -142,3 +145,24 @@ def test_optimize_autolog(sample_prompt, sample_data):
     artifacts = [x.path for x in client.list_artifacts(run.info.run_id)]
     assert "train_data.json" in artifacts
     assert "eval_data.json" in artifacts
+
+
+def test_optimize_prompt_sends_telemetry_record(mock_requests, sample_prompt, sample_data):
+    """Test that optimize_prompt sends telemetry records."""
+
+    with patch(
+        "mlflow.genai.optimize.base._DSPyMIPROv2Optimizer.optimize",
+        return_value=PromptVersion(
+            name=sample_prompt.name,
+            template="optimized",
+            version=2,
+        ),
+    ):
+        optimize_prompt(
+            target_llm_params=LLMParams(model_name="test/model"),
+            prompt=f"prompts:/{sample_prompt.name}/{sample_prompt.version}",
+            train_data=sample_data,
+            scorers=[sample_scorer],
+        )
+
+    validate_telemetry_record(mock_requests, optimize_prompt)

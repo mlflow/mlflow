@@ -7,6 +7,7 @@ from mlflow.entities.model_registry.prompt import Prompt
 from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.prompt.registry_utils import require_prompt_registry
 from mlflow.store.entities.paged_list import PagedList
+from mlflow.telemetry.track import track_api_usage
 from mlflow.utils.annotations import experimental
 
 
@@ -22,6 +23,7 @@ def suppress_genai_migration_warning():
         yield
 
 
+@track_api_usage
 @experimental(version="3.0.0")
 @require_prompt_registry
 def register_prompt(
@@ -121,6 +123,7 @@ def search_prompts(
         return registry_api.search_prompts(filter_string=filter_string, max_results=max_results)
 
 
+@track_api_usage
 @experimental(version="3.0.0")
 @require_prompt_registry
 def load_prompt(

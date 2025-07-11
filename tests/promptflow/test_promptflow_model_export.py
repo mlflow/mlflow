@@ -1,5 +1,3 @@
-import json
-from dataclasses import asdict
 from pathlib import Path
 
 import pytest
@@ -11,10 +9,9 @@ from mlflow import MlflowException
 from mlflow.deployments import PredictionsResponse
 from mlflow.models.utils import load_serving_example
 from mlflow.pyfunc.scoring_server import CONTENT_TYPE_JSON
-from mlflow.telemetry.client import get_telemetry_client
 from mlflow.telemetry.schemas import LogModelParams, ModelType
 
-from tests.helper_functions import pyfunc_serve_and_score_model
+from tests.helper_functions import pyfunc_serve_and_score_model, validate_telemetry_record
 
 
 @pytest.fixture(scope="module")
@@ -140,17 +137,11 @@ def test_unsupported_class():
 
 def test_log_model_sends_telemetry_record(mock_requests):
     log_promptflow_example_model()
-    # Wait for telemetry to be sent
-    get_telemetry_client().flush()
 
-    # Check that telemetry record was sent
-    assert len(mock_requests) == 1
-    record = mock_requests[0]
-    data = json.loads(record["data"])
-    assert data["api_module"] == mlflow.promptflow.log_model.__module__
-    assert data["api_name"] == "log_model"
-    assert data["params"] == asdict(
-        LogModelParams(
+    validate_telemetry_record(
+        mock_requests,
+        mlflow.promptflow.log_model,
+        params=LogModelParams(
             flavor="promptflow",
             model=ModelType.MODEL_OBJECT,
             is_pip_requirements_set=False,
@@ -158,6 +149,5 @@ def test_log_model_sends_telemetry_record(mock_requests):
             is_code_paths_set=False,
             is_params_set=False,
             is_metadata_set=False,
-        )
+        ),
     )
-    assert data["status"] == "success"

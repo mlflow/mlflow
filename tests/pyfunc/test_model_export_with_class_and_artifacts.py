@@ -7,7 +7,6 @@ import subprocess
 import sys
 import types
 import uuid
-from dataclasses import asdict
 from pathlib import Path
 from subprocess import PIPE, Popen
 from typing import Any, Dict, List
@@ -53,7 +52,6 @@ from mlflow.models.utils import _read_example
 from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.pyfunc.model import _load_pyfunc
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
-from mlflow.telemetry.client import get_telemetry_client
 from mlflow.telemetry.schemas import LogModelParams, ModelType
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.export.inference_table import pop_trace
@@ -74,6 +72,7 @@ from tests.helper_functions import (
     _mlflow_major_version_string,
     assert_register_model_called_with_local_model_path,
     pyfunc_serve_and_score_model,
+    validate_telemetry_record,
 )
 from tests.tracing.helper import get_traces
 
@@ -2667,8 +2666,6 @@ def test_lock_model_requirements_constraints(monkeypatch: pytest.MonkeyPatch, tm
 
 
 def test_log_model_sends_telemetry_record(mock_requests):
-    client = get_telemetry_client()
-
     class TestModel(mlflow.pyfunc.PythonModel):
         def predict(self, context, model_input):
             return model_input
@@ -2679,27 +2676,22 @@ def test_log_model_sends_telemetry_record(mock_requests):
         name="model",
         params={"param1": "value1"},
     )
-    # Wait for telemetry to be sent
-    client.flush()
 
-    # Check that telemetry record was sent
-    assert len(mock_requests) == 1
-    record = mock_requests[0]
-    data = json.loads(record["data"])
-    assert data["api_module"] == mlflow.pyfunc.log_model.__module__
-    assert data["api_name"] == "log_model"
-    assert data["params"] == asdict(
-        LogModelParams(
-            flavor="pyfunc",
-            model=ModelType.PYTHON_MODEL,
-            is_pip_requirements_set=False,
-            is_extra_pip_requirements_set=False,
-            is_code_paths_set=False,
-            is_params_set=True,
-            is_metadata_set=False,
-        )
+    validate_telemetry_record(
+        mock_requests,
+        mlflow.pyfunc.log_model,
+        params=(
+            LogModelParams(
+                flavor="pyfunc",
+                model=ModelType.PYTHON_MODEL,
+                is_pip_requirements_set=False,
+                is_extra_pip_requirements_set=False,
+                is_code_paths_set=False,
+                is_params_set=True,
+                is_metadata_set=False,
+            )
+        ),
     )
-    assert data["status"] == "success"
 
     # python function
     def predict(model_input):
@@ -2710,21 +2702,19 @@ def test_log_model_sends_telemetry_record(mock_requests):
         name="model",
         input_example=["a", "b", "c"],
     )
-    client.flush()
-    assert len(mock_requests) == 2
-    record = mock_requests[1]
-    data = json.loads(record["data"])
-    assert data["api_module"] == mlflow.pyfunc.log_model.__module__
-    assert data["api_name"] == "log_model"
-    assert data["params"] == asdict(
-        LogModelParams(
-            flavor="pyfunc",
-            model=ModelType.PYTHON_FUNCTION,
-            is_pip_requirements_set=False,
-            is_extra_pip_requirements_set=False,
-            is_code_paths_set=False,
-            is_params_set=False,
-            is_metadata_set=False,
-        )
+    validate_telemetry_record(
+        mock_requests,
+        mlflow.pyfunc.log_model,
+        idx=1,
+        params=(
+            LogModelParams(
+                flavor="pyfunc",
+                model=ModelType.PYTHON_FUNCTION,
+                is_pip_requirements_set=False,
+                is_extra_pip_requirements_set=False,
+                is_code_paths_set=False,
+                is_params_set=False,
+                is_metadata_set=False,
+            )
+        ),
     )
-    assert data["status"] == "success"

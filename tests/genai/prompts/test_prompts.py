@@ -5,6 +5,8 @@ import pytest
 
 import mlflow
 
+from tests.helper_functions import validate_telemetry_record
+
 
 @contextmanager
 def no_future_warning():
@@ -38,3 +40,18 @@ def test_prompt_api_migration_warning():
 
     with pytest.warns(FutureWarning, match="The `mlflow.delete_prompt_alias` API is"):
         mlflow.delete_prompt_alias("test_prompt", "test_alias")
+
+
+def test_register_prompt_sends_telemetry_record(mock_requests):
+    """Test that register_prompt sends telemetry records."""
+    mlflow.genai.register_prompt("test_prompt", "test template {{var}}")
+
+    validate_telemetry_record(mock_requests, mlflow.genai.register_prompt)
+
+
+def test_load_prompt_sends_telemetry_record(mock_requests):
+    """Test that load_prompt sends telemetry records."""
+    mlflow.genai.register_prompt("test_prompt_load", "test template")
+    mlflow.genai.load_prompt("prompts:/test_prompt_load/1")
+
+    validate_telemetry_record(mock_requests, mlflow.genai.load_prompt, idx=1)

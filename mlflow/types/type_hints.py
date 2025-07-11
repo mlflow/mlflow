@@ -10,6 +10,7 @@ import pydantic.fields
 from mlflow.environment_variables import _MLFLOW_IS_IN_SERVING_ENVIRONMENT
 from mlflow.exceptions import MlflowException
 from mlflow.protos.databricks_pb2 import INVALID_PARAMETER_VALUE
+from mlflow.telemetry.track import track_api_usage
 from mlflow.types.schema import (
     COLSPEC_TYPES,
     AnyType,
@@ -374,6 +375,7 @@ def _is_list_type_hint(type_hint: type[Any]) -> bool:
     return type_hint == list or origin_type is list
 
 
+@track_api_usage
 def _infer_schema_from_list_type_hint(type_hint: type[list[Any]]) -> Schema:
     """
     Infer schema from a list type hint.

@@ -118,7 +118,14 @@ class GenaiEvaluateParser(TelemetryParser):
     @classmethod
     def extract_params(
         cls, func: Callable[..., Any], arguments: dict[str, Any]
-    ) -> GenaiEvaluateParams:
+    ) -> Optional[GenaiEvaluateParams]:
+        try:
+            from mlflow.genai.evaluation import evaluate
+        except ImportError:
+            return None
+        if func.__module__ != evaluate.__module__:
+            return None
+
         scorers = arguments.get("scorers", [])
         scorers = [cls.sanitize_scorer_name(scorer) for scorer in scorers]
         is_predict_fn_set = arguments.get("predict_fn") is not None
@@ -143,5 +150,5 @@ class GenaiEvaluateParser(TelemetryParser):
 API_PARSER_MAPPING: dict[str, TelemetryParser] = {
     "log_model": LogModelParser,
     "autolog": AutologParser,
-    "mlflow.genai.evaluate": GenaiEvaluateParser,
+    "evaluate": GenaiEvaluateParser,
 }

@@ -1,7 +1,5 @@
 import asyncio
-import json
 import time
-from dataclasses import asdict
 from typing import Optional
 from unittest import mock
 
@@ -10,10 +8,10 @@ import pytest
 
 import mlflow
 from mlflow.entities.span import SpanType
-from mlflow.telemetry.client import get_telemetry_client
 from mlflow.telemetry.schemas import AutologParams
 from mlflow.utils.databricks_utils import is_in_databricks_runtime
 
+from tests.helper_functions import validate_telemetry_record
 from tests.tracing.helper import get_traces
 
 
@@ -214,21 +212,13 @@ def test_litellm_tracing_disable(is_in_databricks):
 def test_autolog_sends_telemetry_record(mock_requests):
     mlflow.litellm.autolog(log_traces=True, disable=False)
 
-    # Wait for telemetry to be sent
-    get_telemetry_client().flush()
-
-    # Check that telemetry record was sent
-    assert len(mock_requests) == 1
-    autolog_record = mock_requests[0]
-    data = json.loads(autolog_record["data"])
-    assert data["api_module"] == mlflow.litellm.autolog.__module__
-    assert data["api_name"] == "autolog"
-    assert data["params"] == asdict(
-        AutologParams(
+    validate_telemetry_record(
+        mock_requests,
+        mlflow.litellm.autolog,
+        params=AutologParams(
             flavor="litellm",
             disable=False,
             log_traces=True,
             log_models=False,
-        )
+        ),
     )
-    assert data["status"] == "success"

@@ -1,8 +1,6 @@
-import json
 import os
 import pickle
 import types
-from dataclasses import asdict
 
 import cloudpickle
 import numpy as np
@@ -19,14 +17,13 @@ import mlflow.sklearn
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model, infer_signature
 from mlflow.models.utils import _read_example
-from mlflow.telemetry.client import get_telemetry_client
 from mlflow.telemetry.schemas import LogModelParams, ModelType
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.utils.environment import _mlflow_conda_env
 from mlflow.utils.file_utils import TempDir
 from mlflow.utils.model_utils import _get_flavor_configuration
 
-from tests.helper_functions import _assert_pip_requirements
+from tests.helper_functions import _assert_pip_requirements, validate_telemetry_record
 
 
 def _load_pyfunc(path):
@@ -354,8 +351,6 @@ def test_streamable_model_save_load(tmp_path, model_path):
 
 
 def test_log_model_sends_telemetry_record(mock_requests, sklearn_knn_model, tmp_path):
-    client = get_telemetry_client()
-
     sk_model_path = os.path.join(tmp_path, "knn.pkl")
     with open(sk_model_path, "wb") as f:
         pickle.dump(sklearn_knn_model, f)
@@ -367,24 +362,18 @@ def test_log_model_sends_telemetry_record(mock_requests, sklearn_knn_model, tmp_
         code_paths=[__file__],
     )
 
-    # Wait for telemetry to be sent
-    client.flush()
-
-    # Check that telemetry record was sent
-    assert len(mock_requests) == 1
-    record = mock_requests[0]
-    data = json.loads(record["data"])
-    assert data["api_module"] == mlflow.pyfunc.log_model.__module__
-    assert data["api_name"] == "log_model"
-    assert data["params"] == asdict(
-        LogModelParams(
-            flavor="pyfunc",
-            model=ModelType.LOADER_MODULE,
-            is_pip_requirements_set=False,
-            is_extra_pip_requirements_set=False,
-            is_code_paths_set=True,
-            is_params_set=False,
-            is_metadata_set=False,
-        )
+    validate_telemetry_record(
+        mock_requests,
+        mlflow.pyfunc.log_model,
+        params=(
+            LogModelParams(
+                flavor="pyfunc",
+                model=ModelType.LOADER_MODULE,
+                is_pip_requirements_set=False,
+                is_extra_pip_requirements_set=False,
+                is_code_paths_set=True,
+                is_params_set=False,
+                is_metadata_set=False,
+            )
+        ),
     )
-    assert data["status"] == "success"

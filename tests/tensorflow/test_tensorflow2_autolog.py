@@ -6,7 +6,6 @@ import json
 import os
 import pickle
 import sys
-from dataclasses import asdict
 from pathlib import Path
 from unittest.mock import patch
 
@@ -22,7 +21,6 @@ from mlflow import MlflowClient
 from mlflow.exceptions import MlflowException
 from mlflow.models import Model
 from mlflow.models.utils import _read_example
-from mlflow.telemetry.client import get_telemetry_client
 from mlflow.telemetry.schemas import AutologParams
 from mlflow.tensorflow import load_checkpoint
 from mlflow.tensorflow.autologging import _TensorBoard
@@ -34,6 +32,8 @@ from mlflow.utils.autologging_utils import (
     autologging_is_disabled,
 )
 from mlflow.utils.process import _exec_cmd
+
+from tests.helper_functions import validate_telemetry_record
 
 np.random.seed(1337)
 
@@ -1471,21 +1471,15 @@ def test_automatic_checkpoint_per_3_steps_save_best_only_callback(
 def test_autolog_sends_telemetry_record(mock_requests):
     mlflow.tensorflow.autolog(log_models=True, log_datasets=True, disable=False)
 
-    # Wait for telemetry to be sent
-    get_telemetry_client().flush()
-
-    # Check that telemetry record was sent
-    assert len(mock_requests) == 1
-    autolog_record = mock_requests[0]
-    data = json.loads(autolog_record["data"])
-    assert data["api_module"] == mlflow.tensorflow.autolog.__module__
-    assert data["api_name"] == "autolog"
-    assert data["params"] == asdict(
-        AutologParams(
-            flavor="tensorflow",
-            disable=False,
-            log_traces=False,
-            log_models=True,
-        )
+    validate_telemetry_record(
+        mock_requests,
+        mlflow.tensorflow.autolog,
+        params=(
+            AutologParams(
+                flavor="tensorflow",
+                disable=False,
+                log_traces=False,
+                log_models=True,
+            )
+        ),
     )
-    assert data["status"] == "success"

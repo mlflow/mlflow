@@ -5,8 +5,11 @@ import pytest
 
 import mlflow
 from mlflow.entities.span import SpanType
+from mlflow.tracing.processor.otel import OtelSpanProcessor
 from mlflow.tracing.provider import _get_trace_exporter
 from mlflow.utils.os import is_windows
+
+from tests.helper_functions import validate_telemetry_record
 
 # OTLP exporters are not installed in some CI jobs
 try:
@@ -120,3 +123,25 @@ def test_export_to_otel_collector(otel_collector, monkeypatch):
     assert "Span #1" in collector_logs
     assert "Span #2" in collector_logs
     assert "Span #3" not in collector_logs
+
+
+@pytest.mark.skipif(is_windows(), reason="Otel collector docker image does not support Windows")
+def test_export_sends_telemetry_record(mock_requests, otel_collector, monkeypatch):
+    from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "http://127.0.0.1:4317/v1/traces")
+
+    @mlflow.trace
+    def foo():
+        pass
+
+    with mock.patch("mlflow.tracing.fluent.TracingClient", return_value=mock.Mock()):
+        foo()
+        # wait for the span to be exported
+        time.sleep(10)
+
+    exporter = _get_trace_exporter()
+    # processor is OtelSpanProcessor, exporter is OTLPSpanExporter
+    assert isinstance(exporter, OTLPSpanExporter)
+
+    validate_telemetry_record(mock_requests, OtelSpanProcessor.on_end, idx=-1)

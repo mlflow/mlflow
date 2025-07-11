@@ -1,6 +1,5 @@
 import importlib
 import json
-from dataclasses import asdict
 from unittest import mock
 
 import dspy
@@ -11,7 +10,6 @@ from packaging.version import Version
 
 import mlflow
 from mlflow.models import Model, ModelSignature
-from mlflow.telemetry.client import get_telemetry_client
 from mlflow.telemetry.schemas import LogModelParams, ModelType
 from mlflow.types.schema import ColSpec, Schema
 
@@ -21,6 +19,7 @@ from tests.helper_functions import (
     _mlflow_major_version_string,
     expect_status_code,
     pyfunc_serve_and_score_model,
+    validate_telemetry_record,
 )
 
 _DSPY_VERSION = Version(importlib.metadata.version("dspy"))
@@ -510,24 +509,19 @@ def test_log_model_sends_telemetry_record(mock_requests, dummy_model):
         name="model",
         params={"param1": "value1"},
     )
-    # Wait for telemetry to be sent
-    get_telemetry_client().flush()
 
-    # Check that telemetry record was sent
-    assert len(mock_requests) == 1
-    record = mock_requests[0]
-    data = json.loads(record["data"])
-    assert data["api_module"] == mlflow.dspy.log_model.__module__
-    assert data["api_name"] == "log_model"
-    assert data["params"] == asdict(
-        LogModelParams(
-            flavor="dspy",
-            model=ModelType.MODEL_OBJECT,
-            is_pip_requirements_set=False,
-            is_extra_pip_requirements_set=False,
-            is_code_paths_set=False,
-            is_params_set=True,
-            is_metadata_set=False,
-        )
+    validate_telemetry_record(
+        mock_requests,
+        mlflow.dspy.log_model,
+        params=(
+            LogModelParams(
+                flavor="dspy",
+                model=ModelType.MODEL_OBJECT,
+                is_pip_requirements_set=False,
+                is_extra_pip_requirements_set=False,
+                is_code_paths_set=False,
+                is_params_set=True,
+                is_metadata_set=False,
+            )
+        ),
     )
-    assert data["status"] == "success"
