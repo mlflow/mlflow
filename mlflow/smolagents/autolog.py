@@ -89,7 +89,7 @@ def _set_span_attributes(span: LiveSpan, instance):
                     span.set_attribute(key, str(value) if isinstance(value, list) else value)
 
     except Exception as e:
-        _logger.warn("An exception happens when saving span attributes. Exception: %s", e)
+        _logger.warning("An exception happens when saving span attributes. Exception: %s", e)
 
 
 def _get_agent_attributes(instance):
