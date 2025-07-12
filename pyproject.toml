@@ -40,6 +40,7 @@ dependencies = [
   "gunicorn<24; platform_system != 'Windows'",
   "importlib_metadata<9,>=3.7.0,!=4.7.0",
   "matplotlib<4",
+  "narwhals<3,>=1.32.0",
   "numpy<3",
   "opentelemetry-api<3,>=1.9.0",
   "opentelemetry-sdk<3,>=1.9.0",
