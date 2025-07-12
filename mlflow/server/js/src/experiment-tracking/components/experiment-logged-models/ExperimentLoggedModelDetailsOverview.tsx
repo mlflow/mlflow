@@ -213,15 +213,15 @@ export const ExperimentLoggedModelDetailsOverview = ({
             // Use different grid setup for unified details page layout
             usingUnifiedDetailsLayout
               ? {
-                display: 'flex',
-                flexDirection: 'column',
-              }
+                  display: 'flex',
+                  flexDirection: 'column',
+                }
               : {
-                display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
-                gridTemplateRows: '400px 400px',
-                marginBottom: theme.spacing.md,
-              },
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr',
+                  gridTemplateRows: '400px 400px',
+                  marginBottom: theme.spacing.md,
+                },
             { gap: theme.spacing.lg, overflow: 'hidden' },
           ]}
         >

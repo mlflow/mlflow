@@ -51,13 +51,13 @@ describe('ExperimentViewTracesTable', () => {
           hasNextPage={false}
           hasPreviousPage={false}
           loading={loading}
-          onNextPage={() => { }}
-          onPreviousPage={() => { }}
-          onResetFilters={() => { }}
+          onNextPage={() => {}}
+          onPreviousPage={() => {}}
+          onResetFilters={() => {}}
           sorting={[]}
-          setSorting={() => { }}
+          setSorting={() => {}}
           rowSelection={{}}
-          setRowSelection={() => { }}
+          setRowSelection={() => {}}
           disableTokenColumn={disableTokenColumn}
           baseComponentId="test"
           toggleHiddenColumn={mockToggleHiddenColumn}

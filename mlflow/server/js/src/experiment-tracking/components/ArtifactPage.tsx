@@ -236,7 +236,7 @@ export class ArtifactPageImpl extends Component<ArtifactPageImplProps, ArtifactP
     return (
       <RequestStateWrapper
         requestIds={this.listArtifactRequestIds}
-      // eslint-disable-next-line no-trailing-spaces
+        // eslint-disable-next-line no-trailing-spaces
       >
         {this.renderArtifactView}
       </RequestStateWrapper>
@@ -251,7 +251,7 @@ type ArtifactPageOwnProps = Omit<
   | 'listArtifactsApi'
   | 'listArtifactsLoggedModelApi'
   | 'searchModelVersionsApi'
-/* prettier-ignore */
+  /* prettier-ignore */
 >;
 
 const validVolumesPrefix = ['/Volumes/', 'dbfs:/Volumes/'];

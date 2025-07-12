@@ -76,7 +76,7 @@ function assertElementsInOrder(elements: HTMLElement[]) {
 const testCases = [
   {
     description: '',
-    setup: () => { },
+    setup: () => {},
   },
 ];
 describe.each(testCases)('RunsCompare $description', ({ setup: testCaseSetup }) => {

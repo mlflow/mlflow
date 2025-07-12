@@ -193,7 +193,7 @@ describe('PromptsDetailsPage', () => {
   });
 
   it('should display 404 UI component upon showstopper failure', async () => {
-    jest.spyOn(console, 'error').mockImplementation(() => { });
+    jest.spyOn(console, 'error').mockImplementation(() => {});
     server.use(getFailedRegisteredPromptDetailsResponse(404));
 
     renderTestComponent();

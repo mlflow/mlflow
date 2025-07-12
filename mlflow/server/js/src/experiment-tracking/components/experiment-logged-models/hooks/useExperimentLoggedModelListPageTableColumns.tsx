@@ -200,15 +200,15 @@ export const useExperimentLoggedModelListPageTableColumns = ({
           valueGetter: ({ data }) => {
             return data.direction === 'input'
               ? intl.formatMessage({
-                defaultMessage: 'Input',
-                description:
-                  'Label indicating that the logged model was the input of the experiment run. Displayed in logged model list table on the run page.',
-              })
+                  defaultMessage: 'Input',
+                  description:
+                    'Label indicating that the logged model was the input of the experiment run. Displayed in logged model list table on the run page.',
+                })
               : intl.formatMessage({
-                defaultMessage: 'Output',
-                description:
-                  'Label indicating that the logged model was the output of the experiment run Displayed in logged model list table on the run page.',
-              });
+                  defaultMessage: 'Output',
+                  description:
+                    'Label indicating that the logged model was the output of the experiment run Displayed in logged model list table on the run page.',
+                });
           },
           pinned: !disablePinnedColumns ? 'left' : undefined,
           resizable: false,

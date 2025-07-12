@@ -113,13 +113,13 @@ export const ExperimentViewRunsControlsFilters = React.memo(
     const currentLifecycleFilterValue =
       lifecycleFilter === LIFECYCLE_FILTER.ACTIVE
         ? intl.formatMessage({
-          defaultMessage: 'Active',
-          description: 'Linked model dropdown option to show active experiment runs',
-        })
+            defaultMessage: 'Active',
+            description: 'Linked model dropdown option to show active experiment runs',
+          })
         : intl.formatMessage({
-          defaultMessage: 'Deleted',
-          description: 'Linked model dropdown option to show deleted experiment runs',
-        });
+            defaultMessage: 'Deleted',
+            description: 'Linked model dropdown option to show deleted experiment runs',
+          });
 
     const currentStartTimeFilterLabel = intl.formatMessage({
       defaultMessage: 'Time created',
@@ -222,14 +222,14 @@ export const ExperimentViewRunsControlsFilters = React.memo(
                       content={
                         areRunsGrouped
                           ? intl.formatMessage({
-                            defaultMessage: 'Unavailable when runs are grouped',
-                            description: 'Experiment page > view mode switch > evaluation mode disabled tooltip',
-                          })
+                              defaultMessage: 'Unavailable when runs are grouped',
+                              description: 'Experiment page > view mode switch > evaluation mode disabled tooltip',
+                            })
                           : intl.formatMessage({
-                            defaultMessage: 'Artifact evaluation',
-                            description:
-                              'A tooltip for the view mode switcher in the experiment view, corresponding to artifact evaluation view',
-                          })
+                              defaultMessage: 'Artifact evaluation',
+                              description:
+                                'A tooltip for the view mode switcher in the experiment view, corresponding to artifact evaluation view',
+                            })
                       }
                     >
                       <TableIcon />

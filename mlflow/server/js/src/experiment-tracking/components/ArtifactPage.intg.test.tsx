@@ -259,7 +259,7 @@ describe('Artifact page, artifact files rendering integration test', () => {
 describe('Artifact page, artifact list request error handling', () => {
   beforeEach(() => {
     jest.spyOn(MlflowService, 'listArtifacts').mockResolvedValue({});
-    jest.spyOn(console, 'error').mockImplementation(() => { });
+    jest.spyOn(console, 'error').mockImplementation(() => {});
   });
 
   afterEach(() => {

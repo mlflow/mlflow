@@ -142,7 +142,7 @@ describe('RunViewLoggedModelsTable', () => {
   });
 
   it('renders error message when  provided', async () => {
-    jest.spyOn(console, 'error').mockImplementation(() => { });
+    jest.spyOn(console, 'error').mockImplementation(() => {});
 
     const { getByText, queryByText } = renderTestComponent({
       loggedModelsError: new Error('Something went wrong.'),

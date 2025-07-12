@@ -326,14 +326,17 @@ class Utils {
     const gitMatch = sourceName.match(Utils.getGitRegex());
     let url = null;
     if (gitHubMatch) {
-      url = `https://github.com/${gitHubMatch[1]}/${gitHubMatch[2].replace(/.git/, '')}/tree/${sourceVersion}/${gitHubMatch[3]
-        }`;
+      url = `https://github.com/${gitHubMatch[1]}/${gitHubMatch[2].replace(/.git/, '')}/tree/${sourceVersion}/${
+        gitHubMatch[3]
+      }`;
     } else if (gitLabMatch) {
-      url = `https://gitlab.com/${gitLabMatch[1]}/${gitLabMatch[2].replace(/.git/, '')}/-/tree/${sourceVersion}/${gitLabMatch[3]
-        }`;
+      url = `https://gitlab.com/${gitLabMatch[1]}/${gitLabMatch[2].replace(/.git/, '')}/-/tree/${sourceVersion}/${
+        gitLabMatch[3]
+      }`;
     } else if (bitbucketMatch) {
-      url = `https://bitbucket.org/${bitbucketMatch[1]}/${bitbucketMatch[2].replace(/.git/, '')}/src/${sourceVersion}/${bitbucketMatch[3]
-        }`;
+      url = `https://bitbucket.org/${bitbucketMatch[1]}/${bitbucketMatch[2].replace(/.git/, '')}/src/${sourceVersion}/${
+        bitbucketMatch[3]
+      }`;
     } else if (gitMatch) {
       const [, baseUrl, repoDir, fileDir] = gitMatch;
       url = `${baseUrl.replace(/git@/, 'https://')}/${repoDir.replace(/.git/, '')}/tree/${sourceVersion}/${fileDir}`;
@@ -797,11 +800,11 @@ class Utils {
     // Default to displaying all runs, i.e. to deselectedCurves being empty
     const deselectedCurves = params['deselected_curves']
       ? // @ts-expect-error TS(2345): Argument of type 'string | string[] | ParsedQs | P... Remove this comment to see the full error message
-      JSON.parse(params['deselected_curves'])
+        JSON.parse(params['deselected_curves'])
       : [];
     const lastLinearYAxisRange = params['last_linear_y_axis_range']
       ? // @ts-expect-error TS(2345): Argument of type 'string | string[] | ParsedQs | P... Remove this comment to see the full error message
-      JSON.parse(params['last_linear_y_axis_range'])
+        JSON.parse(params['last_linear_y_axis_range'])
       : [];
     return {
       selectedXAxis,

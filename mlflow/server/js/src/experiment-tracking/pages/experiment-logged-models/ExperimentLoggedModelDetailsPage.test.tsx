@@ -232,7 +232,7 @@ describe('ExperimentLoggedModelListPage', () => {
   });
 
   test('should handle "not found" error', async () => {
-    jest.spyOn(console, 'error').mockImplementation(() => { });
+    jest.spyOn(console, 'error').mockImplementation(() => {});
     server.use(
       rest.get('/ajax-api/2.0/mlflow/logged-models/:modelId', (req, res, ctx) =>
         res(

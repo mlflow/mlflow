@@ -62,10 +62,10 @@ const ExperimentLoggedModelListChartsImpl = memo(
 
     const [fullScreenChart, setFullScreenChart] = useState<
       | {
-        config: RunsChartsCardConfig;
-        title: string | ReactNode;
-        subtitle: ReactNode;
-      }
+          config: RunsChartsCardConfig;
+          title: string | ReactNode;
+          subtitle: ReactNode;
+        }
       | undefined
     >(undefined);
 

@@ -7,7 +7,7 @@ import { MlflowLogo } from './MlflowLogo';
 
 export const MlflowHeader = ({
   isDarkTheme = false,
-  setIsDarkTheme = (val: boolean) => { },
+  setIsDarkTheme = (val: boolean) => {},
   sidebarOpen,
   toggleSidebar,
 }: {

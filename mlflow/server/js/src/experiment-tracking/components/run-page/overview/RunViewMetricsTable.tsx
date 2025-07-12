@@ -35,8 +35,8 @@ const { systemMetricsLabel, modelMetricsLabel } = defineMessages({
 
 const metricKeyMatchesFilter =
   (filter: string) =>
-    ({ key }: MetricEntity) =>
-      key.toLowerCase().includes(filter.toLowerCase());
+  ({ key }: MetricEntity) =>
+    key.toLowerCase().includes(filter.toLowerCase());
 
 interface MetricEntityWithLoggedModels extends MetricEntity {
   loggedModels?: LoggedModelProto[];

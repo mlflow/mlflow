@@ -223,19 +223,19 @@ export const TracesViewTable = React.memo(
           cell: useStaticColumnsCells
             ? RequestIdCell
             : ({ row: { original } }) => {
-              return (
-                <Typography.Link
-                  componentId={`${baseComponentId}.traces_table.request_id_link`}
-                  ellipsis
-                  css={{ maxWidth: '100%', textOverflow: 'ellipsis' }}
-                  onClick={() => {
-                    onTraceClicked?.(original);
-                  }}
-                >
-                  {original.request_id}
-                </Typography.Link>
-              );
-            },
+                return (
+                  <Typography.Link
+                    componentId={`${baseComponentId}.traces_table.request_id_link`}
+                    ellipsis
+                    css={{ maxWidth: '100%', textOverflow: 'ellipsis' }}
+                    onClick={() => {
+                      onTraceClicked?.(original);
+                    }}
+                  >
+                    {original.request_id}
+                  </Typography.Link>
+                );
+              },
           meta: { styles: { minWidth: 200 } },
         },
         {
@@ -246,19 +246,19 @@ export const TracesViewTable = React.memo(
           cell: useStaticColumnsCells
             ? TraceNameCell
             : ({ row: { original } }) => {
-              return (
-                <Typography.Link
-                  componentId={`${baseComponentId}.traces_table.trace_name_link`}
-                  ellipsis
-                  css={{ maxWidth: '100%', textOverflow: 'ellipsis' }}
-                  onClick={() => {
-                    onTraceClicked?.(original);
-                  }}
-                >
-                  {getTraceTagValue(original, TRACE_TAG_NAME_TRACE_NAME)}
-                </Typography.Link>
-              );
-            },
+                return (
+                  <Typography.Link
+                    componentId={`${baseComponentId}.traces_table.trace_name_link`}
+                    ellipsis
+                    css={{ maxWidth: '100%', textOverflow: 'ellipsis' }}
+                    onClick={() => {
+                      onTraceClicked?.(original);
+                    }}
+                  >
+                    {getTraceTagValue(original, TRACE_TAG_NAME_TRACE_NAME)}
+                  </Typography.Link>
+                );
+              },
           meta: { styles: { minWidth: 150 } },
         },
         {
@@ -304,25 +304,25 @@ export const TracesViewTable = React.memo(
           cell: useStaticColumnsCells
             ? RunNameCell
             : ({ row: { original } }) => {
-              const runId = getTraceInfoRunId(original);
-              if (!runId || !original.experiment_id) {
-                return null;
-              }
-              const label = original.runName || runId;
-              return (
-                <Link
-                  css={{
-                    maxWidth: '100%',
-                    textOverflow: 'ellipsis',
-                    display: 'inline-block',
-                    overflow: 'hidden',
-                  }}
-                  to={Routes.getRunPageRoute(original.experiment_id, runId)}
-                >
-                  {label}
-                </Link>
-              );
-            },
+                const runId = getTraceInfoRunId(original);
+                if (!runId || !original.experiment_id) {
+                  return null;
+                }
+                const label = original.runName || runId;
+                return (
+                  <Link
+                    css={{
+                      maxWidth: '100%',
+                      textOverflow: 'ellipsis',
+                      display: 'inline-block',
+                      overflow: 'hidden',
+                    }}
+                    to={Routes.getRunPageRoute(original.experiment_id, runId)}
+                  >
+                    {label}
+                  </Link>
+                );
+              },
         },
         {
           header: intl.formatMessage(ExperimentViewTracesTableColumnLabels[ExperimentViewTracesTableColumns.source]),
@@ -368,14 +368,14 @@ export const TracesViewTable = React.memo(
           cell: useStaticColumnsCells
             ? TraceTagsCell
             : ({ row: { original } }) => {
-              return (
-                <TracesViewTableTagCell
-                  tags={original.tags || []}
-                  onAddEditTags={() => onTraceTagsEdit?.(original)}
-                  baseComponentId={baseComponentId}
-                />
-              );
-            },
+                return (
+                  <TracesViewTableTagCell
+                    tags={original.tags || []}
+                    onAddEditTags={() => onTraceTagsEdit?.(original)}
+                    baseComponentId={baseComponentId}
+                  />
+                );
+              },
         },
       );
 

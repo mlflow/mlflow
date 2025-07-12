@@ -191,40 +191,40 @@ export const DetailsOverviewParamsTable = ({ params }: { params: Record<string, 
       isUnstableNestedComponentsMigrated()
         ? staticColumns
         : [
-          {
-            id: 'key',
-            accessorKey: 'key',
-            header: () => (
-              <FormattedMessage
-                defaultMessage="Parameter"
-                description="Run page > Overview > Parameters table > Key column header"
-              />
-            ),
-            enableResizing: true,
-            size: 240,
-          },
-          {
-            id: 'value',
-            header: () => (
-              <FormattedMessage
-                defaultMessage="Value"
-                description="Run page > Overview > Parameters table > Value column header"
-              />
-            ),
-            accessorKey: 'value',
-            enableResizing: false,
-            meta: { styles: { paddingLeft: 0 } },
-            cell: ({ row: { original, getIsExpanded, toggleExpanded } }) => (
-              <ExpandableParamValueCell
-                name={original.key}
-                value={original.value}
-                isExpanded={getIsExpanded()}
-                toggleExpanded={toggleExpanded}
-                autoExpandedRowsList={autoExpandedRowsList.current}
-              />
-            ),
-          },
-        ],
+            {
+              id: 'key',
+              accessorKey: 'key',
+              header: () => (
+                <FormattedMessage
+                  defaultMessage="Parameter"
+                  description="Run page > Overview > Parameters table > Key column header"
+                />
+              ),
+              enableResizing: true,
+              size: 240,
+            },
+            {
+              id: 'value',
+              header: () => (
+                <FormattedMessage
+                  defaultMessage="Value"
+                  description="Run page > Overview > Parameters table > Value column header"
+                />
+              ),
+              accessorKey: 'value',
+              enableResizing: false,
+              meta: { styles: { paddingLeft: 0 } },
+              cell: ({ row: { original, getIsExpanded, toggleExpanded } }) => (
+                <ExpandableParamValueCell
+                  name={original.key}
+                  value={original.value}
+                  isExpanded={getIsExpanded()}
+                  toggleExpanded={toggleExpanded}
+                  autoExpandedRowsList={autoExpandedRowsList.current}
+                />
+              ),
+            },
+          ],
     [],
   );
 

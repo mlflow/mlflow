@@ -85,16 +85,16 @@ describe('ExperimentLoggedModelListPage', () => {
         status_message: 'Pending',
         tags: modelsWithRegisteredVersions.includes(`m-${i + 1}`)
           ? [
-            {
-              key: 'mlflow.modelVersions',
-              value: JSON.stringify([
-                {
-                  name: 'registered-model-name-' + (i + 1),
-                  version: 1,
-                },
-              ]),
-            },
-          ]
+              {
+                key: 'mlflow.modelVersions',
+                value: JSON.stringify([
+                  {
+                    name: 'registered-model-name-' + (i + 1),
+                    version: 1,
+                  },
+                ]),
+              },
+            ]
           : [],
         creation_timestamp_ms: i * 1000,
       },
@@ -299,7 +299,7 @@ describe('ExperimentLoggedModelListPage', () => {
   });
 
   test('should use malformed search query filter and display error message', async () => {
-    jest.spyOn(console, 'error').mockImplementation(() => { });
+    jest.spyOn(console, 'error').mockImplementation(() => {});
     renderTestComponent();
 
     await waitFor(() => {
