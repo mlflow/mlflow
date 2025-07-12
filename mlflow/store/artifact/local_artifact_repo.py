@@ -14,6 +14,7 @@ from mlflow.utils.file_utils import (
     local_file_uri_to_path,
     mkdir,
     relative_path_to_artifact_path,
+    shutil_copytree_without_file_permissions,
 )
 from mlflow.utils.uri import validate_path_is_safe
 
@@ -64,7 +65,7 @@ class LocalArtifactRepository(ArtifactRepository):
         )
         if not os.path.exists(artifact_dir):
             mkdir(artifact_dir)
-        shutil.copytree(src=local_dir, dst=artifact_dir, dirs_exist_ok=True)
+        shutil_copytree_without_file_permissions(local_dir, artifact_dir)
 
     def download_artifacts(self, artifact_path, dst_path=None):
         """
