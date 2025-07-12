@@ -1,5 +1,6 @@
 import functools
 import os
+import signal
 import subprocess
 import sys
 
@@ -47,6 +48,7 @@ def _exec_cmd(
     capture_output=True,
     synchronous=True,
     stream_output=False,
+    terminate_signals=None,
     **kwargs,
 ):
     """A convenience wrapper of `subprocess.Popen` for running a command from a Python script.
@@ -64,6 +66,9 @@ def _exec_cmd(
         stream_output: If True, stream the command's stdout and stderr to `sys.stdout`
             as a unified stream during execution.
             If False, do not stream the command's stdout and stderr to `sys.stdout`.
+        terminate_signals: A list of signals whose handlers will be overridden to terminate the
+            child process when received. This is useful for ensuring that the child process is
+            terminated when the parent process is terminated.
         kwargs: Keyword arguments (except `text`) passed to `subprocess.Popen`.
 
     Returns:
@@ -129,7 +134,18 @@ def _exec_cmd(
         for output_char in iter(lambda: process.stdout.read(1), ""):
             sys.stdout.write(output_char)
 
-    stdout, stderr = process.communicate()
+    original_signal_handlers = {}
+    for sig in terminate_signals or []:
+        original_signal_handlers[sig] = signal.signal(
+            sig, lambda signum, frame: process.terminate()
+        )
+
+    try:
+        stdout, stderr = process.communicate()
+    finally:
+        for sig, handler in original_signal_handlers.items():
+            signal.signal(sig, handler)
+
     returncode = process.poll()
     comp_process = subprocess.CompletedProcess(
         process.args,
