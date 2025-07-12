@@ -22,6 +22,7 @@ from mlflow.entities.model_registry.model_version_stages import (
     STAGE_NONE,
     get_canonical_stage,
 )
+from mlflow.entities.model_registry.webhook import Webhook, WebhookEventTrigger
 from mlflow.environment_variables import MLFLOW_REGISTRY_DIR
 from mlflow.exceptions import MlflowException
 from mlflow.prompt.registry_utils import (
@@ -119,6 +120,7 @@ class FileModelVersion(ModelVersion):
 
 class FileStore(AbstractStore):
     MODELS_FOLDER_NAME = "models"
+    WEBHOOKS_FOLDER_NAME = "webhooks"
     META_DATA_FILE_NAME = "meta.yaml"
     TAGS_FOLDER_NAME = "tags"
     MODEL_VERSION_TAGS_FOLDER_NAME = "tags"
@@ -1057,6 +1059,271 @@ class FileStore(AbstractStore):
             raise MlflowException(
                 f"Registered model alias {alias} not found.", INVALID_PARAMETER_VALUE
             )
+
+    # CRUD API for Webhook objects
+
+    def _get_webhook_path(self, name: str) -> str:
+        self._check_root_dir()
+        _validate_model_name(name)
+        return join(self.root_directory, FileStore.WEBHOOKS_FOLDER_NAME, name)
+
+    def _validate_webhook_does_not_exist(self, name: str) -> None:
+        webhook_path = self._get_webhook_path(name)
+        if exists(webhook_path):
+            raise MlflowException(
+                f"Webhook (name={name}) already exists.",
+                RESOURCE_ALREADY_EXISTS,
+            )
+
+    def _save_webhook_as_meta_file(
+        self,
+        webhook: Webhook,
+        meta_dir: Optional[str] = None,
+        overwrite: bool = True,
+    ) -> None:
+        webhook_dict = dict(webhook)
+        meta_dir = meta_dir or self._get_webhook_path(webhook.name)
+        if overwrite:
+            overwrite_yaml(
+                meta_dir,
+                FileStore.META_DATA_FILE_NAME,
+                webhook_dict,
+            )
+        else:
+            write_yaml(
+                meta_dir,
+                FileStore.META_DATA_FILE_NAME,
+                webhook_dict,
+            )
+
+    def _get_webhook_from_path(self, webhook_path: str) -> Webhook:
+        meta = FileStore._read_yaml(webhook_path, FileStore.META_DATA_FILE_NAME)
+        return Webhook.from_dictionary(meta)
+
+    def _get_all_webhooks_paths(self) -> list[str]:
+        self._check_root_dir()
+        return list_subdirs(
+            join(self.root_directory, FileStore.WEBHOOKS_FOLDER_NAME), full_path=True
+        )
+
+    def _list_all_webhooks(self) -> list[Webhook]:
+        webhooks_paths = self._get_all_webhooks_paths()
+        webhooks: list[Webhook] = []
+        for path in webhooks_paths:
+            webhooks.append(self._get_webhook_from_path(path))
+        return webhooks
+
+    def create_webhook(
+        self,
+        name: str,
+        url: str,
+        event_trigger: WebhookEventTrigger,
+        key: str,
+        value: Optional[str] = None,
+        headers: Optional[dict[str, str]] = None,
+        payload: Optional[dict[str, str]] = None,
+        description: Optional[str] = None,
+    ) -> Webhook:
+        """
+        Create a new webhook.
+
+        Args:
+            name: Name of the new webhook. This is expected to be unique in the backend store.
+            url: URL to send the webhook to.
+            event_trigger: EventTrigger object that specifies the event that triggers the webhook.
+            key (optional): Key to filter on for the event trigger.
+            value (optional): Value to filter on for the event trigger.
+            headers (optional): Header to include in the webhook.
+            payload (optional): Payload to include in the webhook.
+            description (optional): Description of the webhook.
+
+        Returns:
+            A single object of :py:class:`mlflow.entities.model_registry.Webhook`
+            created in the backend.
+
+        """
+
+        self._check_root_dir()
+        _validate_model_name(name)
+        self._validate_webhook_does_not_exist(name)
+        meta_dir = self._get_webhook_path(name)
+        mkdir(meta_dir)
+        creation_time = get_current_time_millis()
+        webhook = Webhook(
+            name=name,
+            creation_timestamp=creation_time,
+            last_updated_timestamp=creation_time,
+            description=description,
+            url=url,
+            event_trigger=event_trigger,
+            key=key,
+            value=value,
+            headers=headers,
+            payload=payload,
+        )
+        webhook.headers = str(webhook.headers).replace("'", '"')
+        webhook.payload = str(webhook.payload).replace("'", '"')
+        self._save_webhook_as_meta_file(webhook, meta_dir=meta_dir, overwrite=False)
+        return webhook
+
+    def update_webhook(self, name: str, description: str) -> Webhook:
+        """
+        Update description of the Webhook.
+
+        Args:
+            name: Webhook name.
+            description: New description.
+
+        Returns:
+            A single updated :py:class:`mlflow.entities.model_registry.Webhook` object.
+
+        """
+        webhook = self.get_webhook(name)
+        updated_time = get_current_time_millis()
+        webhook.description = description
+        webhook.last_updated_timestamp = updated_time
+        self._save_webhook_as_meta_file(webhook)
+        return webhook
+
+    def rename_webhook(self, name: str, new_name: str) -> Webhook:
+        """
+        Rename the Webhook.
+
+        Args:
+            name: Webhook name.
+            new_name: New proposed name.
+
+        Returns:
+            A single updated :py:class:`mlflow.entities.model_registry.Webhook` object.
+
+        """
+        model_path = self._get_webhook_path(name)
+        if not exists(model_path):
+            raise MlflowException(
+                f"Webhook with name={name} not found",
+                RESOURCE_DOES_NOT_EXIST,
+            )
+        webhook = self._get_webhook_from_path(model_path)
+
+        new_meta_dir = self._get_webhook_path(new_name)
+        if not exists(new_meta_dir):
+            mkdir(new_meta_dir)
+            updated_time = get_current_time_millis()
+            webhook.name = new_name
+            webhook.last_updated_timestamp = updated_time
+            self._save_webhook_as_meta_file(webhook, meta_dir=new_meta_dir, overwrite=False)
+            shutil.rmtree(model_path)
+        else:
+            raise MlflowException(
+                f"Webhook (name={new_name}) already exists.",
+                RESOURCE_ALREADY_EXISTS,
+            )
+
+        return webhook
+
+    def delete_webhook(self, name: str) -> None:
+        """
+        Delete the Webhook.
+        Backend raises exception if a Webhook with given name does not exist.
+
+        Args:
+            name: Webhook name.
+
+        Returns:
+            None
+        """
+        meta_dir = self._get_webhook_path(name)
+        if not exists(meta_dir):
+            raise MlflowException(
+                f"Webhook with name={name} not found",
+                RESOURCE_DOES_NOT_EXIST,
+            )
+        shutil.rmtree(meta_dir)
+
+    def get_webhook(self, name: str) -> Webhook:
+        """
+        Get webhook by name.
+
+        Args:
+            name: Webhook name.
+
+        Returns:
+            A single :py:class:`mlflow.entities.model_registry.Webhook` object.
+        """
+        _validate_model_name(name)
+        webhook_path = self._get_webhook_path(name)
+        if not exists(webhook_path):
+            raise MlflowException(
+                f"Webhook with name={name} not found",
+                RESOURCE_DOES_NOT_EXIST,
+            )
+        return self._get_webhook_from_path(webhook_path)
+
+    def list_webhooks(self, max_results: int, page_token: Optional[str]) -> PagedList[Webhook]:
+        """
+        List of all webhooks.
+
+        Args:
+            max_results: Maximum number of webhooks desired.
+            page_token: Token specifying the next page of results. It should be obtained from
+                a ``list_webhooks`` call.
+
+        Returns:
+            A PagedList of :py:class:`mlflow.entities.model_registry.Webhook` objects
+            that satisfy the search expressions. The pagination token for the next page can be
+            obtained via the ``token`` attribute of the object.
+
+        """
+        return self.search_webhooks(max_results=max_results, page_token=page_token)
+
+    def search_webhooks(
+        self,
+        filter_string: Optional[str] = None,
+        max_results: Optional[int] = None,
+        order_by: Optional[list[str]] = None,
+        page_token: Optional[str] = None,
+    ) -> PagedList[Webhook]:
+        """
+        Search for webhooks in backend that satisfy the filter criteria.
+
+        Args:
+            filter_string: Filter query string, defaults to searching all webhooks.
+            max_results: Maximum number of webhooks desired.
+            order_by: List of column names with ASC|DESC annotation, to be used for ordering
+                matching search results.
+            page_token: Token specifying the next page of results. It should be obtained from
+                a ``search_webhooks`` call.
+
+        Returns:
+            A PagedList of :py:class:`mlflow.entities.model_registry.Webhook` objects
+            that satisfy the search expressions. The pagination token for the next page can be
+            obtained via the ``token`` attribute of the object.
+        """
+        if not isinstance(max_results, int) or max_results < 1:
+            raise MlflowException(
+                "Invalid value for max_results. It must be a positive integer,"
+                f" but got {max_results}",
+                INVALID_PARAMETER_VALUE,
+            )
+
+        if max_results > SEARCH_REGISTERED_MODEL_MAX_RESULTS_THRESHOLD:
+            raise MlflowException(
+                "Invalid value for request parameter max_results. It must be at most "
+                f"{SEARCH_REGISTERED_MODEL_MAX_RESULTS_THRESHOLD}, but got value {max_results}",
+                INVALID_PARAMETER_VALUE,
+            )
+
+        webhooks = self._list_all_webhooks()
+        filtered_webhooks = SearchModelUtils.filter(webhooks, filter_string)
+        sorted_webhooks = SearchModelUtils.sort(filtered_webhooks, order_by)
+        start_offset = SearchUtils.parse_start_offset_from_page_token(page_token)
+        final_offset = start_offset + max_results
+
+        paginated_webhooks = sorted_webhooks[start_offset:final_offset]
+        next_page_token = None
+        if final_offset < len(sorted_webhooks):
+            next_page_token = SearchUtils.create_page_token(final_offset)
+        return PagedList(paginated_webhooks, next_page_token)
 
     @staticmethod
     def _read_yaml(root, file_name, retries=2):

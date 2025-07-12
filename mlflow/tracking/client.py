@@ -48,6 +48,7 @@ from mlflow.entities.assessment import (
 from mlflow.entities.assessment_source import AssessmentSource
 from mlflow.entities.model_registry import ModelVersion, Prompt, PromptVersion, RegisteredModel
 from mlflow.entities.model_registry.model_version_stages import ALL_STAGES
+from mlflow.entities.model_registry.webhook import Webhook, WebhookEventTrigger
 from mlflow.entities.span import NO_OP_SPAN_TRACE_ID, NoOpSpan
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.environment_variables import MLFLOW_ENABLE_ASYNC_LOGGING
@@ -80,6 +81,7 @@ from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.model_registry import (
     SEARCH_MODEL_VERSION_MAX_RESULTS_DEFAULT,
     SEARCH_REGISTERED_MODEL_MAX_RESULTS_DEFAULT,
+    SEARCH_WEBHOOKS_MAX_RESULTS_DEFAULT,
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT, SEARCH_TRACES_DEFAULT_MAX_RESULTS
 from mlflow.tracing.client import TracingClient
@@ -5345,6 +5347,166 @@ class MlflowClient:
         rm = self.get_registered_model(name)
         if has_prompt_tag(rm._tags):
             raise _model_not_found(name)
+
+    # Webhooks Methods
+    def create_webhook(
+        self,
+        name: str,
+        url: str,
+        event_trigger: WebhookEventTrigger,
+        key: str,
+        value: Optional[str] = None,
+        headers: Optional[dict[str, str]] = None,
+        payload: Optional[dict[str, str]] = None,
+        description=None,
+    ) -> Webhook:
+        """
+        Create a new webhook in backend store.
+
+        Args:
+            name: Name of the new webhook. This is expected to be unique in the backend store.
+            url: URL to send the webhook to.
+            event_trigger: EventTrigger object that specifies the event that triggers the webhook.
+            key: Key to filter on for the event trigger.
+            value (optional): Value to filter on for the event trigger.
+            headers (optional): Header to include in the webhook.
+            payload (optional): Payload to include in the webhook.
+            description (optional): Description of the webhook.
+
+        Returns:
+            A single object of :py:class:`mlflow.entities.model_registry.Webhook`
+            created by backend.
+
+        .. code-block:: python
+            :caption: Example
+
+            import mlflow
+            from mlflow import MlflowClient
+
+
+            def print_webhook_info(webhook):
+                print(f"name: {webhook.name}")
+                print(f"url: {webhook.url}")
+                print(f"description: {webhook.description}")
+
+
+            name = "SocialMediaTextAnalyzer"
+            tags = {"nlp.framework": "Spark NLP"}
+            desc = "This sentiment analysis model classifies the tone-happy, sad, angry."
+
+            mlflow.set_tracking_uri("sqlite:///mlruns.db")
+            client = MlflowClient()
+            client.create_webhook(name, tags, desc)
+            print_webhook_info(client.get_webhook(name))
+
+        .. code-block:: text
+            :caption: Output
+
+            name: SocialMediaTextAnalyzer
+            tags: {'nlp.framework': 'Spark NLP'}
+            description: This sentiment analysis model classifies the tone-happy, sad, angry.
+
+        """
+        return self._get_registry_client().create_webhook(
+            name, url, event_trigger, key, value, headers, payload, description
+        )
+
+    def rename_webhook(self, name: str, new_name: str) -> Webhook:
+        """Update webhook name.
+
+        Args:
+            name: Name of the webhook to update.
+            new_name: New proposed name for the webhook.
+
+        Returns:
+            A single updated :py:class:`mlflow.entities.model_registry.Webhook` object.
+        """
+        self._get_registry_client().rename_webhook(name, new_name)
+
+    def update_webhook(self, name: str, description: Optional[str] = None) -> Webhook:
+        """
+        Updates metadata for Webhook entity. Input field ``description`` should be non-None.
+        Backend raises exception if a webhook with given name does not exist.
+
+        Args:
+            name: Name of the webhook to update.
+            description: (Optional) New description.
+
+        Returns:
+            A single updated :py:class:`mlflow.entities.model_registry.Webhook` object.
+
+        """
+        if description is None:
+            raise MlflowException("Attempting to update webhook with no new field values.")
+
+        return self._get_registry_client().update_webhook(name=name, description=description)
+
+    def delete_webhook(self, name: str):
+        """
+        Delete webhook.
+        Backend raises exception if a webhook with given name does not exist.
+
+        Args:
+            name: Name of the webhook to delete.
+
+        """
+        self._get_registry_client().delete_webhook(name)
+
+    def search_webhooks(
+        self,
+        filter_string: Optional[str] = None,
+        max_results: int = SEARCH_WEBHOOKS_MAX_RESULTS_DEFAULT,
+        order_by: Optional[list[str]] = None,
+        page_token: Optional[str] = None,
+    ) -> PagedList[Webhook]:
+        """
+        Search for webhooks in backend that satisfy the filter criteria.
+
+        Args:
+            filter_string: Filter query string (e.g., "name = 'a_model_name' and tag.key =
+                'value1'"), defaults to searching for all webhooks. The following
+                identifiers, comparators, and logical operators are supported.
+
+                Identifiers
+                  - ``name``: webhook name.
+                  - ``tags.<tag_key>``: webhook tag. If ``tag_key`` contains spaces, it
+                    must be wrapped with backticks (e.g., "tags.`extra key`").
+
+                Comparators
+                  - ``=``: Equal to.
+                  - ``!=``: Not equal to.
+                  - ``LIKE``: Case-sensitive pattern match.
+                  - ``ILIKE``: Case-insensitive pattern match.
+
+                Logical operators
+                  - ``AND``: Combines two sub-queries and returns True if both of them are True.
+
+            max_results: Maximum number of webhooks desired.
+            order_by: List of column names with ASC|DESC annotation, to be used for ordering
+                matching search results.
+            page_token: Token specifying the next page of results. It should be obtained from
+                a ``search_webhooks`` call.
+
+        Returns:
+            A PagedList of :py:class:`mlflow.entities.model_registry.Webhook` objects
+            that satisfy the search expressions. The pagination token for the next page can be
+            obtained via the ``token`` attribute of the object.
+        """
+        return self._get_registry_client().search_webhooks(
+            filter_string, max_results, order_by, page_token
+        )
+
+    def get_webhook(self, name: str) -> Webhook:
+        """Get a webhook.
+
+        Args:
+            name: Name of the webhook to get.
+
+        Returns:
+            A single :py:class:`mlflow.entities.model_registry.Webhook` object.
+
+        """
+        return self._get_registry_client().get_webhook(name)
 
     @experimental(version="3.0.0")
     def create_logged_model(
