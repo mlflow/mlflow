@@ -466,6 +466,7 @@ class Linter(ast.NodeVisitor):
         self._no_rst(node)
         self._syntax_error_example(node)
         self._mlflow_class_name(node)
+        self._markdown_link(node)
         for deco in node.decorator_list:
             self.visit_decorator(deco)
         with self.resolver.scope():
@@ -511,10 +512,10 @@ class Linter(ast.NodeVisitor):
     def visit_Name(self, node) -> None:
         self.generic_visit(node)
 
-    def _markdown_link(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+    def _markdown_link(self, node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef) -> None:
         if docstring := self._docstring(node):
             if MARKDOWN_LINK_RE.search(docstring.s):
-                self._check(docstring, rules.MarkdownLink())
+                self._check(Location.from_node(docstring), rules.MarkdownLink())
 
     def _pytest_mark_repeat(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         # Only check in test files
