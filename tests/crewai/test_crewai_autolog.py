@@ -9,6 +9,7 @@ from packaging.version import Version
 
 import mlflow
 from mlflow.entities.span import SpanType
+from mlflow.tracing.constant import TokenUsageKey
 from mlflow.version import IS_TRACING_SDK_ONLY
 
 from tests.tracing.helper import get_traces
@@ -291,6 +292,12 @@ def test_kickoff_enable_disable_autolog(simple_agent_1, task_1, autolog):
     }
     assert span_4.outputs is None
 
+    assert traces[0].info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 9,
+        TokenUsageKey.OUTPUT_TOKENS: 12,
+        TokenUsageKey.TOTAL_TOKENS: 21,
+    }
+
     with patch("litellm.completion", return_value=_SIMPLE_CHAT_COMPLETION):
         mlflow.crewai.autolog(disable=True)
         crew.kickoff()
@@ -445,6 +452,12 @@ def test_kickoff_tool_calling(tool_agent_1, task_1_with_tool, autolog):
         }
     }
     assert span_5.outputs is None
+
+    assert traces[0].info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 18,
+        TokenUsageKey.OUTPUT_TOKENS: 24,
+        TokenUsageKey.TOTAL_TOKENS: 42,
+    }
 
 
 def test_multi_tasks(simple_agent_1, simple_agent_2, task_1, task_2, autolog):
@@ -623,6 +636,12 @@ def test_multi_tasks(simple_agent_1, simple_agent_2, task_1, task_2, autolog):
         }
     }
     assert span_8.outputs is None
+
+    assert traces[0].info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 18,
+        TokenUsageKey.OUTPUT_TOKENS: 24,
+        TokenUsageKey.TOTAL_TOKENS: 42,
+    }
 
 
 @pytest.mark.skipif(
@@ -862,6 +881,12 @@ def test_knowledge(simple_agent_1, task_1, monkeypatch, autolog):
     }
     assert span_5.outputs is None
 
+    assert traces[0].info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 9,
+        TokenUsageKey.OUTPUT_TOKENS: 12,
+        TokenUsageKey.TOTAL_TOKENS: 21,
+    }
+
 
 def test_kickoff_for_each(simple_agent_1, task_1, autolog):
     crew = Crew(
@@ -944,6 +969,12 @@ def test_kickoff_for_each(simple_agent_1, task_1, autolog):
         }
     }
     assert span_5.outputs is None
+
+    assert traces[0].info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 36864,
+        TokenUsageKey.OUTPUT_TOKENS: 49152,
+        TokenUsageKey.TOTAL_TOKENS: 86016,
+    }
 
 
 def test_flow(simple_agent_1, task_1, autolog):
@@ -1041,3 +1072,9 @@ def test_flow(simple_agent_1, task_1, autolog):
         }
     }
     assert span_5.outputs is None
+
+    assert traces[0].info.token_usage == {
+        TokenUsageKey.INPUT_TOKENS: 36864,
+        TokenUsageKey.OUTPUT_TOKENS: 49152,
+        TokenUsageKey.TOTAL_TOKENS: 86016,
+    }
