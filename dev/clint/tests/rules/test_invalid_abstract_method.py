@@ -14,6 +14,15 @@ import abc
 
 class AbstractExample(abc.ABC):
     @abc.abstractmethod
+    def bad_abstract_method_has_implementation(self) -> None:
+        return "This should not be here"
+
+    @abc.abstractmethod
+    def bad_abstract_method_multiple_statements(self) -> None:
+        pass
+        ...
+
+    @abc.abstractmethod
     def good_abstract_method_pass(self) -> None:
         pass
 
@@ -24,20 +33,11 @@ class AbstractExample(abc.ABC):
     @abc.abstractmethod
     def good_abstract_method_docstring(self) -> None:
         '''This is a valid docstring'''
-
-    @abc.abstractmethod
-    def bad_abstract_method_implemented(self) -> None:
-        return "This should not be here"
-
-    @abc.abstractmethod
-    def bad_abstract_method_mulitple_statements(self) -> None:
-        pass
-        ...
 """
     )
 
     violations = lint_file(tmp_file, config, index)
     assert len(violations) == 2
     assert all(isinstance(v.rule, InvalidAbstractMethod) for v in violations)
-    assert violations[0].loc == Location(17, 4)
-    assert violations[1].loc == Location(21, 4)
+    assert violations[0].loc == Location(5, 4)
+    assert violations[1].loc == Location(9, 4)
