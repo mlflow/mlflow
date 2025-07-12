@@ -2,20 +2,8 @@ import ExperimentTrackingRoutes from '../../experiment-tracking/routes';
 import { Link } from '../utils/RoutingUtils';
 import { HomePageDocsUrl, Version } from '../constants';
 import { DarkThemeSwitch } from '@mlflow/mlflow/src/common/components/DarkThemeSwitch';
-
-const colors = {
-  headerBg: '#0b3574',
-  headerText: '#e7f1fb',
-  headerActiveLink: '#43C9ED',
-};
-
-const classNames = {
-  activeNavLink: { borderBottom: `4px solid ${colors.headerActiveLink}` },
-};
-
-const isExperimentsActive = (location: Location) => matchPath('/experiments/*', location.pathname);
-const isModelsActive = (location: Location) => matchPath('/models/*', location.pathname);
-const isPromptsActive = (location: Location) => matchPath('/prompts/*', location.pathname);
+import { Button, MenuIcon, useDesignSystemTheme } from '@databricks/design-system';
+import { MlflowLogo } from './MlflowLogo';
 
 export const MlflowHeader = ({
   isDarkTheme = false,
@@ -75,33 +63,6 @@ export const MlflowHeader = ({
         >
           {Version}
         </span>
-      </div>
-      <div
-        css={{
-          display: 'flex',
-          paddingTop: 20,
-          fontSize: 16,
-          gap: 24,
-        }}
-      >
-        <Link
-          to={ExperimentTrackingRoutes.rootRoute}
-          style={isExperimentsActive(location) ? classNames.activeNavLink : undefined}
-        >
-          Experiments
-        </Link>
-        <Link
-          to={ModelRegistryRoutes.modelListPageRoute}
-          style={isModelsActive(location) ? classNames.activeNavLink : undefined}
-        >
-          Models
-        </Link>
-        <Link
-          to={ExperimentTrackingRoutes.promptsPageRoute}
-          style={isPromptsActive(location) ? classNames.activeNavLink : undefined}
-        >
-          Prompts
-        </Link>
       </div>
       <div css={{ flex: 1 }} />
       <div css={{ display: 'flex', gap: theme.spacing.lg, alignItems: 'center' }}>

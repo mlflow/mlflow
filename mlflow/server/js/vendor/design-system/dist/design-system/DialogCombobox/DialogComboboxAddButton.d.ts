@@ -1,0 +1,2 @@
+export declare const DialogComboboxAddButton: ({ children, ...restProps }: React.HTMLAttributes<HTMLButtonElement>) => import("@emotion/react/jsx-runtime").JSX.Element;
+//# sourceMappingURL=DialogComboboxAddButton.d.ts.map

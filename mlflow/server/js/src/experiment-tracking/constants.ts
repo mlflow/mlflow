@@ -76,8 +76,6 @@ export const AUTOML_PROBLEM_TYPE_TAG = `${AUTOML_TAG_PREFIX}.problem_type`;
 
 export const AUTOML_TEST_EVALUATION_METRIC_PREFIX = 'test_';
 
-export const AUTOML_TEST_EVALUATION_METRIC_PREFIX = 'test_';
-
 export const MLFLOW_EXPERIMENT_PRIMARY_METRIC_NAME = 'mlflow.experiment.primaryMetric.name';
 export const MLFLOW_RUN_DATASET_CONTEXT_TAG = 'mlflow.data.context';
 export const MLFLOW_LOGGED_ARTIFACTS_TAG = 'mlflow.loggedArtifacts';
@@ -93,8 +91,6 @@ export const MLFLOW_RUN_GIT_SOURCE_BRANCH_TAG = 'mlflow.source.git.branch';
 export const MLFLOW_PROMPT_VERSION_COUNT_TAG = 'PromptVersionCount';
 
 export const MONITORING_BETA_EXPIRATION_DATE = new Date('2030-06-24T00:00:00');
-
-export const MONITORING_BETA_EXPIRATION_DATE = new Date('2025-06-24T00:00:00');
 
 export enum MLflowRunSourceType {
   PROMPT_ENGINEERING = 'PROMPT_ENGINEERING',
