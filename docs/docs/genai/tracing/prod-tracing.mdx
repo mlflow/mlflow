@@ -293,9 +293,9 @@ export MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT=600
 
 For a high-volume application, you may want to reduce the number of traces exported to the backend. You can configure the sampling ratio to control the number of traces exported.
 
-| Environment Variable                        | Description                                                                                                                                                                                                                                                   | Default Value |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
-| `MLFLOW_TRACE_SAMPLING_RATIO`               | The sampling ratio for traces. When set to `0.0`, no traces will be exported. When set to `1.0`, all traces will be exported.                                                                                                                                  | `1.0`         |
+| Environment Variable          | Description                                                                                                                   | Default Value |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| `MLFLOW_TRACE_SAMPLING_RATIO` | The sampling ratio for traces. When set to `0.0`, no traces will be exported. When set to `1.0`, all traces will be exported. | `1.0`         |
 
 The default value is `1.0`, which means all traces will be exported. When set to less than `1.0`, say `0.1`, only 10% of the traces will be exported. The sampling is done at the trace level, meaning that all spans in some traces will be exported or discarded together.
 
