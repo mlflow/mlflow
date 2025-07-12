@@ -31,4 +31,4 @@ def f(a: int, b: str) -> None:
     violations = lint_file(tmp_file, config, index)
     assert len(violations) == 1
     assert all(isinstance(v.rule, DocstringParamOrder) for v in violations)
-    assert violations[0].loc == Location(lineno=2, col_offset=0)
+    assert violations[0].loc == Location(3, 4)

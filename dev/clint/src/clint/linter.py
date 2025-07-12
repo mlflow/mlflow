@@ -496,14 +496,20 @@ class Linter(ast.NodeVisitor):
                 func_args_set = set(func_args)
                 doc_args_set = set(doc_args)
                 if diff := func_args_set - doc_args_set:
-                    self._check(Location.from_node(node), rules.MissingDocstringParam(diff))
+                    self._check(
+                        Location.from_node(docstring_node), rules.MissingDocstringParam(diff)
+                    )
 
                 if diff := doc_args_set - func_args_set:
-                    self._check(Location.from_node(node), rules.ExtraneousDocstringParam(diff))
+                    self._check(
+                        Location.from_node(docstring_node), rules.ExtraneousDocstringParam(diff)
+                    )
 
                 if func_args_set == doc_args_set and func_args != doc_args:
                     params = [a for a, b in zip(func_args, doc_args) if a != b]
-                    self._check(Location.from_node(node), rules.DocstringParamOrder(params))
+                    self._check(
+                        Location.from_node(docstring_node), rules.DocstringParamOrder(params)
+                    )
 
     def _invalid_abstract_method(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         if rules.InvalidAbstractMethod.check(node, self.resolver):
