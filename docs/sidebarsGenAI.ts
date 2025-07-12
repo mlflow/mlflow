@@ -527,7 +527,7 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Application Serving',
+      label: 'Model Serving',
       className: 'sidebar-top-level-category',
       items: [
         {
@@ -557,18 +557,43 @@ const sidebarsGenAI: SidebarsConfig = {
           items: [
             {
               type: 'doc',
-              id: 'governance/ai-gateway/guides/index',
-              label: 'Getting Started with AI Gateway',
+              id: 'governance/ai-gateway/setup',
+              label: 'Setup',
             },
             {
               type: 'doc',
-              id: 'governance/ai-gateway/guides/step1-create-deployments/index',
-              label: 'Setup the AI Gateway',
+              id: 'governance/ai-gateway/configuration',
+              label: 'Configuration',
             },
             {
               type: 'doc',
-              id: 'governance/ai-gateway/guides/step2-query-deployments/index',
-              label: 'Use the AI Gateway',
+              id: 'governance/ai-gateway/usage',
+              label: 'Usage',
+            },
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/integration',
+              label: 'Integration',
+            },
+            {
+              type: 'category',
+              label: 'Guides',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'governance/ai-gateway/guides/step1-create-deployments/index',
+                  label: 'Setup the AI Gateway',
+                },
+                {
+                  type: 'doc',
+                  id: 'governance/ai-gateway/guides/step2-query-deployments/index',
+                  label: 'Use the AI Gateway',
+                },
+              ],
+              link: {
+                type: 'doc',
+                id: 'governance/ai-gateway/guides/index',
+              },
             },
           ],
           link: {
