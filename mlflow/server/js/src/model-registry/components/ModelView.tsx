@@ -25,8 +25,7 @@ import {
   SegmentedControlGroup,
   SegmentedControlButton,
   DangerModal,
-  Alert,
-  Typography,
+  CursorPagination,
 } from '@databricks/design-system';
 import { KeyValueEntity } from '../../common/types';
 import { Descriptions } from '../../common/components/Descriptions';
