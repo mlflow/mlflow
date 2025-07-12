@@ -6,7 +6,7 @@ from clint.linter import Location, lint_file
 from clint.rules.do_not_disable import DoNotDisable
 
 
-def test_do_not_disable(index: SymbolIndex, config: Config, tmp_path: Path) -> None:
+def test_do_not_disable(index: SymbolIndex, tmp_path: Path) -> None:
     tmp_file = tmp_path / "test.py"
     tmp_file.write_text(
         """
@@ -18,6 +18,7 @@ def test_do_not_disable(index: SymbolIndex, config: Config, tmp_path: Path) -> N
 """
     )
 
+    config = Config(select={DoNotDisable.name})
     violations = lint_file(tmp_file, config, index)
     assert len(violations) == 1
     assert all(isinstance(v.rule, DoNotDisable) for v in violations)

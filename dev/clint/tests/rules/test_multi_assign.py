@@ -6,7 +6,7 @@ from clint.linter import Location, lint_file
 from clint.rules import MultiAssign
 
 
-def test_multi_assign(index: SymbolIndex, config: Config, tmp_path: Path) -> None:
+def test_multi_assign(index: SymbolIndex, tmp_path: Path) -> None:
     tmp_file = tmp_path / "test.py"
     tmp_file.write_text(
         """
@@ -17,6 +17,7 @@ x, y = 1, 2
 a, b = func()
 """
     )
+    config = Config(select={MultiAssign.name})
     results = lint_file(tmp_file, config, index)
     assert len(results) == 1
     assert all(isinstance(r.rule, MultiAssign) for r in results)

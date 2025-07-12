@@ -6,7 +6,7 @@ from clint.linter import Location, lint_file
 from clint.rules.docstring_param_order import DocstringParamOrder
 
 
-def test_docstring_param_order(index: SymbolIndex, config: Config, tmp_path: Path) -> None:
+def test_docstring_param_order(index: SymbolIndex, tmp_path: Path) -> None:
     tmp_file = tmp_path / "test.py"
     tmp_file.write_text(
         """
@@ -28,6 +28,7 @@ def f(a: int, b: str) -> None:
 """
     )
 
+    config = Config(select={DocstringParamOrder.name})
     violations = lint_file(tmp_file, config, index)
     assert len(violations) == 1
     assert all(isinstance(v.rule, DocstringParamOrder) for v in violations)

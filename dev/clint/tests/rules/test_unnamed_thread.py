@@ -6,7 +6,7 @@ from clint.linter import Location, lint_file
 from clint.rules import UnnamedThread
 
 
-def test_unnamed_thread(index: SymbolIndex, config: Config, tmp_path: Path) -> None:
+def test_unnamed_thread(index: SymbolIndex, tmp_path: Path) -> None:
     tmp_file = tmp_path / "test.py"
     tmp_file.write_text(
         """
@@ -19,6 +19,7 @@ threading.Thread(target=lambda: None)
 # threading.Thread(target=lambda: None, name="worker")
 """
     )
+    config = Config(select={UnnamedThread.name})
     results = lint_file(tmp_file, config, index)
     assert len(results) == 1
     assert isinstance(results[0].rule, UnnamedThread)

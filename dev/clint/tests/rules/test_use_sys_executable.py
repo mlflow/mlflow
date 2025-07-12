@@ -6,7 +6,7 @@ from clint.linter import Location, lint_file
 from clint.rules import UseSysExecutable
 
 
-def test_use_sys_executable(index: SymbolIndex, config: Config, tmp_path: Path) -> None:
+def test_use_sys_executable(index: SymbolIndex, tmp_path: Path) -> None:
     tmp_file = tmp_path / "test.py"
     tmp_file.write_text(
         """
@@ -22,6 +22,7 @@ subprocess.run([sys.executable, "-m", "mlflow", "ui"])
 subprocess.check_call([sys.executable, "-m", "mlflow", "ui"])
 """
     )
+    config = Config(select={UseSysExecutable.name})
     results = lint_file(tmp_file, config, index)
     assert len(results) == 2
     assert all(isinstance(r.rule, UseSysExecutable) for r in results)

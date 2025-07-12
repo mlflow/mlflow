@@ -6,7 +6,7 @@ from clint.linter import Location, lint_file
 from clint.rules import ThreadPoolExecutorWithoutThreadNamePrefix
 
 
-def test_thread_pool_executor(index: SymbolIndex, config: Config, tmp_path: Path) -> None:
+def test_thread_pool_executor(index: SymbolIndex, tmp_path: Path) -> None:
     tmp_file = tmp_path / "test.py"
     tmp_file.write_text(
         """
@@ -19,6 +19,7 @@ ThreadPoolExecutor()
 ThreadPoolExecutor(thread_name_prefix="worker")
 """
     )
+    config = Config(select={ThreadPoolExecutorWithoutThreadNamePrefix.name})
     results = lint_file(tmp_file, config, index)
     assert len(results) == 1
     assert isinstance(results[0].rule, ThreadPoolExecutorWithoutThreadNamePrefix)

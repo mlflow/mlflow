@@ -346,6 +346,9 @@ class Linter(ast.NodeVisitor):
         self.ignored_rules = get_ignored_rules_for_file(path, config.per_file_ignores)
 
     def _check(self, loc: Location, rule: rules.Rule) -> None:
+        # Skip rules that are not selected in the config
+        if rule.name not in self.config.select:
+            return
         # Check line-level ignores
         if (lines := self.ignore.get(rule.name)) and loc.lineno in lines:
             return
@@ -813,7 +816,7 @@ def lint_file(path: Path, config: Config, index: SymbolIndex) -> list[Violation]
                         cell_index=cell_idx,
                     )
                 )
-            if not _has_h1_header(cells):
+            if (rules.MissingNotebookH1Header.name in config.select) and not _has_h1_header(cells):
                 violations.append(
                     Violation(
                         rules.MissingNotebookH1Header(),
