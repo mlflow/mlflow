@@ -34,4 +34,4 @@ def good_function(param1: str, param2: int) -> None:
     violations = lint_file(tmp_file, config, index)
     assert len(violations) == 1
     assert all(isinstance(v.rule, ExtraneousDocstringParam) for v in violations)
-    assert violations[0].loc == Location(2, 4)
+    assert violations[0].loc == Location(1, 0)
