@@ -86,6 +86,7 @@ describe('ExperimentViewRuns', () => {
     refreshRuns: jest.fn(),
     requestError: null,
     moreRunsAvailable: false,
+    isComparingExperiments: false,
   };
 
   const queryClient = new QueryClient();

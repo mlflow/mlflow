@@ -37,6 +37,7 @@ type ExperimentViewRunsControlsProps = {
   refreshRuns: () => void;
   uiState: ExperimentPageUIState;
   isLoading: boolean;
+  isComparingExperiments: boolean;
 };
 
 /**
@@ -56,6 +57,7 @@ export const ExperimentViewRunsControls = React.memo(
     refreshRuns,
     uiState,
     isLoading,
+    isComparingExperiments,
   }: ExperimentViewRunsControlsProps) => {
     const [compareRunsMode, setCompareRunsMode] = useExperimentPageViewMode();
 
@@ -111,11 +113,13 @@ export const ExperimentViewRunsControls = React.memo(
           marginBottom: theme.spacing.sm,
         }}
       >
-        <ExperimentViewRunsModeSwitch
-          hideBorder={false}
-          viewState={viewState}
-          runsAreGrouped={Boolean(uiState.groupBy)}
-        />
+        {!isComparingExperiments && (
+          <ExperimentViewRunsModeSwitch
+            hideBorder={false}
+            viewState={viewState}
+            runsAreGrouped={Boolean(uiState.groupBy)}
+          />
+        )}
 
         {showActionButtons && (
           <ExperimentViewRunsControlsActions
