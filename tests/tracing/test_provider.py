@@ -5,8 +5,8 @@ import pytest
 from opentelemetry import trace
 
 import mlflow
-from mlflow.environment_variables import MLFLOW_TRACE_SAMPLING_RATIO
 import mlflow.tracking._tracking_service
+from mlflow.environment_variables import MLFLOW_TRACE_SAMPLING_RATIO
 from mlflow.exceptions import MlflowTracingException
 from mlflow.tracing.destination import Databricks, MlflowExperiment
 from mlflow.tracing.export.inference_table import (
@@ -347,4 +347,6 @@ def test_sampling_ratio(monkeypatch):
         test_function()
 
     traces = get_traces()
-    assert 30 <= len(traces) <= 70, f"Expected around 50 traces with 0.5 sampling, got {len(traces)}"
+    assert 30 <= len(traces) <= 70, (
+        f"Expected around 50 traces with 0.5 sampling, got {len(traces)}"
+    )

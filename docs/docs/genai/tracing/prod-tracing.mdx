@@ -78,7 +78,7 @@ When installing the MLflow Tracing SDK, make sure the environment **does not hav
 
 ### Environment Variable Configuration
 
-Configure the following environment variables in your production environment:
+Configure the following environment variables in your production environment. See [Production Monitoring Configurations](#production-monitoring-configurations) below for more details about these configurations.
 
 ```bash
 # Required: Set MLflow Tracking URI
@@ -91,6 +91,9 @@ export MLFLOW_EXPERIMENT_NAME="production-genai-app"
 export MLFLOW_ENABLE_ASYNC_TRACE_LOGGING=true
 export MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS=10
 export MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE=1000
+
+# Optional: Configure trace sampling ratio (default is 1.0)
+export MLFLOW_TRACE_SAMPLING_RATIO=0.1
 ```
 
 ## Self-Hosted Tracking Server
@@ -285,6 +288,16 @@ export MLFLOW_ASYNC_TRACE_LOGGING_MAX_WORKERS=20
 export MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE=2000
 export MLFLOW_ASYNC_TRACE_LOGGING_RETRY_TIMEOUT=600
 ```
+
+### Sampling Traces
+
+For a high-volume application, you may want to reduce the number of traces exported to the backend. You can configure the sampling ratio to control the number of traces exported.
+
+| Environment Variable                        | Description                                                                                                                                                                                                                                                   | Default Value |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- |
+| `MLFLOW_TRACE_SAMPLING_RATIO`               | The sampling ratio for traces. When set to `0.0`, no traces will be exported. When set to `1.0`, all traces will be exported.                                                                                                                                  | `1.0`         |
+
+The default value is `1.0`, which means all traces will be exported. When set to less than `1.0`, say `0.1`, only 10% of the traces will be exported. The sampling is done at the trace level, meaning that all spans in some traces will be exported or discarded together.
 
 ## Adding Context to Production Traces
 
