@@ -4,7 +4,7 @@ import TabItem from '@theme/TabItem';
 import TabsWrapper from "@site/src/components/TabsWrapper";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
-import { MessageSquare, Target } from "lucide-react";
+import { MessageSquare, Target, Code, FileText, TrendingUp } from "lucide-react";
 
 # Evaluate and Improve Your GenAI Applications
 
@@ -100,20 +100,26 @@ mlflow.log_expectation(
 
 ## Learn More
 
-<CardGroup>
-  <TitleCard
+<TilesGrid>
+  <TileCard
+    icon={Code}
     title="API Guide"
     description="Complete reference for feedback and expectations APIs"
-    link="/genai/assessments/api-guide"
+    href="/genai/assessments/api-guide"
+    linkText="View API docs →"
   />
-  <TitleCard
+  <TileCard
+    icon={FileText}
     title="MLflow Tracing"
     description="Understand how evaluation integrates with traces"
-    link="/genai/tracing"
+    href="/genai/tracing"
+    linkText="Learn tracing →"
   />
-  <TitleCard
+  <TileCard
+    icon={TrendingUp}
     title="Evaluation Workflows"
     description="Build systematic evaluation strategies"
-    link="/genai/eval-monitor"
+    href="/genai/eval-monitor"
+    linkText="Explore workflows →"
   />
-</CardGroup>
+</TilesGrid>

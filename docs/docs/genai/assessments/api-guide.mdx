@@ -4,6 +4,10 @@ sidebar_label: Assessments API Guide
 
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
+import WorkflowSteps from "@site/src/components/WorkflowSteps";
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import { FileText, TrendingUp, ListCheck, Type, Settings, FileInput, MessageSquare } from "lucide-react";
 
 # Assessments API Guide
 
@@ -63,13 +67,37 @@ To add feedback or expectations to a trace, select the trace from your experimen
 
 ### Adding Expectations
 
-Expectations define the ground truth for what your AI should produce. To add an expectation:
+Expectations define the ground truth for what your AI should produce. Follow these steps:
 
-1. Select "Expectation" in the Assessment Type dropdown
-2. Add a descriptive name (e.g., "expected_answer", "correct_classification")
-3. Choose the appropriate data type for your values
-4. Enter the expected values
-5. Optionally add rationale to explain the expectation
+<WorkflowSteps
+  steps={[
+    {
+      icon: ListCheck,
+      title: "Select \"Expectation\" in the Assessment Type dropdown",
+      description: "Choose Assessment Type to define ground truth rather than feedback"
+    },
+    {
+      icon: Type,
+      title: "Add a descriptive name",
+      description: "Use clear names like \"expected_answer\", \"correct_classification\", or \"expected_documents\""
+    },
+    {
+      icon: Settings,
+      title: "Choose the appropriate data type",
+      description: "Select String for text, JSON for structured data, Boolean for binary expectations"
+    },
+    {
+      icon: FileInput,
+      title: "Enter the expected values",
+      description: "Define what the AI should have produced for this specific input"
+    },
+    {
+      icon: MessageSquare,
+      title: "Optionally add rationale to explain the expectation",
+      description: "Document why this is the correct or expected output for future reference"
+    }
+  ]}
+/>
 
 ![Add Expectation](/images/assessments/add_expectation_ui.png)
 
@@ -78,13 +106,37 @@ Expectations define the ground truth for what your AI should produce. To add an 
 
 ### Adding Feedback
 
-Feedback captures evaluations of how well the AI performed. To add feedback:
+Feedback captures evaluations of how well the AI performed. Follow these steps:
 
-1. Select "Feedback" in the Assessment Type dropdown
-2. Add a specific name for the quality aspect (e.g., "accuracy", "helpfulness")
-3. Choose the appropriate data type
-4. Enter your evaluation value
-5. Optionally add rationale to explain your assessment
+<WorkflowSteps
+  steps={[
+    {
+      icon: ListCheck,
+      title: "Select \"Feedback\" in the Assessment Type dropdown",
+      description: "Choose Assessment Type to evaluate quality rather than define expectations"
+    },
+    {
+      icon: Type,
+      title: "Add a specific name for the quality aspect",
+      description: "Use clear names like \"accuracy\", \"helpfulness\", \"relevance\", or \"safety\""
+    },
+    {
+      icon: Settings,
+      title: "Choose the appropriate data type",
+      description: "Select Boolean for pass/fail, Number for ratings, String for categories"
+    },
+    {
+      icon: FileInput,
+      title: "Enter your evaluation value",
+      description: "Provide rating from 1-5, True/False, or descriptive assessment text"
+    },
+    {
+      icon: MessageSquare,
+      title: "Optionally add rationale to explain your assessment",
+      description: "Document why you gave this evaluation for future reference and learning"
+    }
+  ]}
+/>
 
 ![Add Feedback](/images/assessments/add_feedback_ui.png)
 
@@ -546,5 +598,19 @@ mlflow.log_feedback(
 
 Now that you understand the Assessments API, explore how it integrates with other MLflow capabilities:
 
-- [MLflow Tracing Guide](/genai/tracing) - Learn how feedback and expectations integrate with trace data
-- [Evaluation Workflows](/genai/eval-monitor) - Discover systematic evaluation strategies using feedback and expectations
+<TilesGrid>
+  <TileCard
+    icon={FileText}
+    title="MLflow Tracing Guide"
+    description="Learn how feedback and expectations integrate with trace data"
+    href="/genai/tracing"
+    linkText="Learn tracing →"
+  />
+  <TileCard
+    icon={TrendingUp}
+    title="Evaluation Workflows"
+    description="Discover systematic evaluation strategies using feedback and expectations"
+    href="/genai/eval-monitor"
+    linkText="Explore workflows →"
+  />
+</TilesGrid>

@@ -1,11 +1,13 @@
 import { CardGroup, TitleCard } from "@site/src/components/Card";
 import FeatureHighlights from "@site/src/components/FeatureHighlights";
+import ConceptOverview from "@site/src/components/ConceptOverview";
+import WorkflowSteps from "@site/src/components/WorkflowSteps";
 import TabsWrapper from "@site/src/components/TabsWrapper";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
-import { Target, Zap, Database, Shield, Settings, TrendingUp, Users, FileText, MessageSquare, Book } from "lucide-react";
+import { Target, Zap, Database, Shield, Settings, TrendingUp, Users, FileText, MessageSquare, Book, MousePointer, ListCheck, Type, FileInput, Plus } from "lucide-react";
 
 # Annotating Ground Truth with Expectations
 
@@ -155,16 +157,50 @@ Use the programmatic API when you need to automate expectation creation, integra
 
 ### Annotate Human Ground Truth via UI
 
-Follow these steps to define ground truth expectations using the MLflow UI:
-
-1. **Navigate to your experiment** and select the trace containing the interaction you want to annotate
-2. **Click "Add Assessment"** button on the trace detail page
-3. **Select "Expectation"** from the Assessment Type dropdown
-4. **Enter a descriptive name** (e.g., "expected_answer", "correct_classification", "expected_documents")
-5. **Choose the appropriate data type** (String for text, JSON for structured data, Boolean for binary expectations)
-6. **Enter the ground truth value** - what the AI should have produced for this input
-7. **Add rationale** explaining why this is the correct/expected output
-8. **Click "Create"** to record your expectation
+<WorkflowSteps
+  steps={[
+    {
+      icon: MousePointer,
+      title: "Navigate to your experiment",
+      description: "Select the trace containing the interaction you want to annotate"
+    },
+    {
+      icon: Plus,
+      title: "Click \"Add Assessment\" button",
+      description: "Access the assessment creation form on the trace detail page"
+    },
+    {
+      icon: ListCheck,
+      title: "Select \"Expectation\" from dropdown",
+      description: "Choose Assessment Type to define ground truth rather than feedback"
+    },
+    {
+      icon: Type,
+      title: "Enter a descriptive name",
+      description: "Use clear names like \"expected_answer\", \"correct_classification\", or \"expected_documents\""
+    },
+    {
+      icon: Settings,
+      title: "Choose the appropriate data type",
+      description: "Select String for text, JSON for structured data, Boolean for binary expectations"
+    },
+    {
+      icon: FileInput,
+      title: "Enter the ground truth value",
+      description: "Define what the AI should have produced for this specific input"
+    },
+    {
+      icon: MessageSquare,
+      title: "Add rationale explaining correctness",
+      description: "Document why this is the correct or expected output for future reference"
+    },
+    {
+      icon: Target,
+      title: "Click \"Create\" to record expectation",
+      description: "Save your ground truth annotation to establish the quality baseline"
+    }
+  ]}
+/>
 
 The expectation will be immediately attached to the trace, establishing the ground truth reference for future evaluation.
 
@@ -332,7 +368,7 @@ annotate_batch_expectations(batch_data)
 
 ## Expectation Annotation Workflows
 
-<FeatureHighlights features={[
+<ConceptOverview concepts={[
   {
     icon: Settings,
     title: "Development Phase",

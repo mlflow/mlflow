@@ -1,4 +1,5 @@
 import FeatureHighlights from "@site/src/components/FeatureHighlights";
+import ConceptOverview from "@site/src/components/ConceptOverview";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
 import { ThumbsUp, BarChart3, Shield, Target, MessageSquare, FileText, Search, TrendingUp, Clock, Users, Zap, Database, Lock } from "lucide-react";
@@ -185,7 +186,7 @@ MLflow feedback supports various formats to match your application's needs:
 
 ## MLflow Feedback Collection Best Practices
 
-<FeatureHighlights features={[
+<ConceptOverview concepts={[
   {
     icon: TrendingUp,
     title: "Start with Boolean Feedback",
@@ -249,19 +250,3 @@ MLflow feedback supports various formats to match your application's needs:
     containerHeight={120}
   />
 </TilesGrid>
-
-:::tip
-Start with simple boolean feedback and expand to more detailed feedback as you understand your users' needs. The feedback API scales with your requirements while maintaining data consistency.
-:::
-
-## Summary
-
-MLflow Feedback provides a robust, production-ready solution for user feedback collection:
-
-- **Structured data model**: Standardized feedback with clear attribution and rationale
-- **Direct trace integration**: Feedback linked directly to application execution data
-- **Production ready**: Available in OSS MLflow 3.2.0+ with comprehensive API support
-- **Flexible formats**: Support for boolean, numeric, categorical, and structured feedback
-- **Quality insights**: Rich data for understanding and improving application performance
-
-By using MLflow Feedback for user feedback collection, you gain a robust foundation for continuous quality improvement that integrates seamlessly with MLflow's tracing ecosystem. User feedback, combined with comprehensive tracing, provides the observability foundation needed to build and maintain high-quality GenAI applications that truly serve user needs.

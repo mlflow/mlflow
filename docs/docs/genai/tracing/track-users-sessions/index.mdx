@@ -1,6 +1,9 @@
 import { APILink } from "@site/src/components/APILink";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import { Globe, Search, TrendingUp } from "lucide-react";
 
 # Track Users & Sessions
 
@@ -267,8 +270,26 @@ The combination of standard MLflow metadata (`mlflow.trace.user` and `mlflow.tra
 
 ## Next Steps
 
-**[Track Environments & Context](/genai/tracing/track-environments-context)**: Add deployment and version context to your traces
-
-**[Search Traces](/genai/tracing/search-traces)**: Master advanced filtering techniques for user and session analysis
-
-**[Production Monitoring](/genai/tracing/prod-tracing)**: Set up comprehensive production observability with user context
+<TilesGrid>
+  <TileCard
+    icon={Globe}
+    title="Track Environments & Context"
+    description="Add deployment and version context to your traces"
+    href="/genai/tracing/track-environments-context"
+    linkText="Track context →"
+  />
+  <TileCard
+    icon={Search}
+    title="Search Traces"
+    description="Master advanced filtering techniques for user and session analysis"
+    href="/genai/tracing/search-traces"
+    linkText="Learn search →"
+  />
+  <TileCard
+    icon={TrendingUp}
+    title="Production Monitoring"
+    description="Set up comprehensive production observability with user context"
+    href="/genai/tracing/prod-tracing"
+    linkText="Monitor production →"
+  />
+</TilesGrid>
