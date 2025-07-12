@@ -28,7 +28,9 @@ type Props = {
   innerRef: any;
 };
 
-type State = any;
+type State = {
+  selectedModel: any;
+};
 
 export class RegisterModelForm extends React.Component<Props, State> {
   state = {
