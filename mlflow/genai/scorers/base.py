@@ -42,30 +42,40 @@ class SerializedScorer:
     call_signature: Optional[str] = None
     original_func_name: Optional[str] = None
 
+    def __post_init__(self):
+        """Validate that either builtin scorer fields or decorator scorer fields are present."""
+        has_builtin_fields = self.builtin_scorer_class is not None
+        has_decorator_fields = self.call_source is not None
+
+        if not has_builtin_fields and not has_decorator_fields:
+            raise ValueError(
+                "SerializedScorer must have either builtin scorer fields "
+                "(builtin_scorer_class) or decorator scorer fields (call_source) present"
+            )
+
+        if has_builtin_fields and has_decorator_fields:
+            raise ValueError(
+                "SerializedScorer cannot have both builtin scorer fields and "
+                "decorator scorer fields present simultaneously"
+            )
+
 
 @experimental(version="3.0.0")
 class Scorer(BaseModel):
     name: str
     aggregations: Optional[list[str]] = None
 
+    _cached_dump: Optional[dict[str, Any]] = PrivateAttr(default=None)
+
     def model_dump(self, **kwargs) -> dict[str, Any]:
         """Override model_dump to include source code."""
-        # Create serialized scorer with core fields
-        serialized = SerializedScorer(
-            name=self.name,
-            aggregations=self.aggregations,
-            mlflow_version=mlflow.__version__,
-            serialization_version=_SERIALIZATION_VERSION,
-        )
+
+        # Return cached dump if available (prevents re-serialization issues with dynamic functions)
+        if self._cached_dump is not None:
+            return self._cached_dump
 
         # Check if this is a decorator scorer
-        if hasattr(self, "_original_func") and self._original_func:
-            # Decorator scorer - extract and store source code
-            source_info = self._extract_source_code_info()
-            serialized.call_source = source_info.get("call_source")
-            serialized.call_signature = source_info.get("call_signature")
-            serialized.original_func_name = source_info.get("original_func_name")
-        else:
+        if not getattr(self, "_original_func", None):
             # BuiltInScorer overrides `model_dump`, so this is neither a builtin scorer nor a
             # decorator scorer
             raise MlflowException.invalid_parameter_value(
@@ -77,6 +87,19 @@ class Scorer(BaseModel):
                 f"Please use the @scorer decorator instead."
             )
 
+        # Decorator scorer - extract and store source code
+        source_info = self._extract_source_code_info()
+
+        # Create serialized scorer with all fields at once
+        serialized = SerializedScorer(
+            name=self.name,
+            aggregations=self.aggregations,
+            mlflow_version=mlflow.__version__,
+            serialization_version=_SERIALIZATION_VERSION,
+            call_source=source_info.get("call_source"),
+            call_signature=source_info.get("call_signature"),
+            original_func_name=source_info.get("original_func_name"),
+        )
         return asdict(serialized)
 
     def _extract_source_code_info(self) -> dict[str, Optional[str]]:
@@ -165,7 +188,13 @@ class Scorer(BaseModel):
         # Rather than serializing and deserializing the `run` method of `Scorer`, we recreate the
         # Scorer using the original function and the `@scorer` decorator. This should be safe so
         # long as `@scorer` is a stable API.
-        return scorer(recreated_func, name=serialized.name, aggregations=serialized.aggregations)
+        scorer_instance = scorer(
+            recreated_func, name=serialized.name, aggregations=serialized.aggregations
+        )
+        # Cache the serialized data to prevent re-serialization issues with dynamic functions
+        original_serialized_data = asdict(serialized)
+        object.__setattr__(scorer_instance, "_cached_dump", original_serialized_data)
+        return scorer_instance
 
     def run(self, *, inputs=None, outputs=None, expectations=None, trace=None):
         from mlflow.evaluation import Assessment as LegacyAssessment

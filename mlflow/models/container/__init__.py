@@ -91,8 +91,8 @@ def _install_pyfunc_deps(
     server_deps = ["gunicorn[gevent]"]
     if enable_mlserver:
         server_deps = [
-            "'mlserver>=1.2.0,!=1.3.1,<1.4.0'",
-            "'mlserver-mlflow>=1.2.0,!=1.3.1,<1.4.0'",
+            "'mlserver>=1.2.0,!=1.3.1,<2.0.0'",
+            "'mlserver-mlflow>=1.2.0,!=1.3.1,<2.0.0'",
         ]
 
     install_server_deps = [f"pip install {' '.join(server_deps)}"]
