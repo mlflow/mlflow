@@ -1,0 +1,78 @@
+.conceptOverview {
+  margin: 2rem 0;
+}
+
+.overviewTitle {
+  font-size: 1.25rem;
+  margin-bottom: 1.5rem;
+  color: var(--ifm-color-emphasis-900);
+  text-align: center;
+  font-weight: 600;
+}
+
+.conceptGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.conceptCard {
+  border: 1px solid var(--ifm-color-emphasis-200);
+  border-radius: 8px;
+  padding: 1.5rem;
+  background: var(--ifm-background-surface-color);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.conceptHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.conceptIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  background: var(--ifm-color-primary-lightest);
+  color: var(--ifm-color-primary);
+  flex-shrink: 0;
+}
+
+.conceptTitle {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0;
+  color: var(--ifm-color-emphasis-900);
+}
+
+.conceptDescription {
+  color: var(--ifm-color-emphasis-700);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+/* Responsive design */
+@media (min-width: 768px) {
+  .conceptGrid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .conceptGrid {
+    gap: 2rem;
+  }
+
+  .conceptCard {
+    padding: 2rem;
+  }
+}

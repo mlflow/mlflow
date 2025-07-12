@@ -1678,6 +1678,9 @@ class FileStore(AbstractStore):
         self._write_dict_to_trace_sub_folder(
             trace_dir, FileStore.TRACE_TAGS_FOLDER_NAME, trace_info.tags
         )
+        # Save assessments to its own folder
+        for assessment in trace_info.assessments:
+            self.create_assessment(assessment)
 
     def _convert_trace_info_to_dict(self, trace_info: TraceInfo):
         """
@@ -1785,6 +1788,7 @@ class FileStore(AbstractStore):
         trace_info.tags = self._get_dict_from_trace_sub_folder(
             trace_dir, FileStore.TRACE_TAGS_FOLDER_NAME
         )
+        trace_info.assessments = self._load_assessments(trace_info.trace_id)
         return trace_info
 
     def set_trace_tag(self, trace_id: str, key: str, value: str):
@@ -1838,6 +1842,16 @@ class FileStore(AbstractStore):
             data=assessment_dict,
             overwrite=True,
         )
+
+    def _load_assessments(self, trace_id: str) -> list[Assessment]:
+        assessments_dir = self._get_assessments_dir(trace_id)
+        if not exists(assessments_dir):
+            return []
+        assessment_paths = os.listdir(assessments_dir)
+        return [
+            self._load_assessment(trace_id, assessment_path.split(".")[0])
+            for assessment_path in assessment_paths
+        ]
 
     def _load_assessment(self, trace_id: str, assessment_id: str) -> Assessment:
         assessment_path = self._get_assessment_path(trace_id, assessment_id)
