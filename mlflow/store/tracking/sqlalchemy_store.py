@@ -1159,6 +1159,7 @@ class SqlAlchemyStore(AbstractStore):
                 .select_from(SqlDataset)
                 .distinct()
                 .join(SqlInput, SqlInput.source_id == SqlDataset.dataset_uuid)
+                .join(SqlRun, SqlRun.run_uuid == SqlInput.destination_id)
                 .join(
                     SqlInputTag,
                     and_(
@@ -1167,7 +1168,11 @@ class SqlAlchemyStore(AbstractStore):
                     ),
                     isouter=True,
                 )
-                .filter(SqlDataset.experiment_id.in_(experiment_ids))
+                .filter(
+                    SqlRun.experiment_id.in_(experiment_ids),
+                    SqlInput.destination_type == "RUN",
+                    SqlInput.source_type == "DATASET",
+                )
                 .limit(MAX_DATASET_SUMMARIES_RESULTS)
                 .all()
             )
