@@ -20,6 +20,7 @@ import { compact, intersection, isEqual, isUndefined, pick, uniq } from 'lodash'
 import {
   shouldEnableRelativeTimeDateAxis,
   shouldEnableChartExpressions,
+  shouldColorizeMetricTraces,
 } from '../../../../../common/utils/FeatureUtils';
 import { findAbsoluteTimestampRangeForRelativeRange } from '../../utils/findChartStepsByTimestamp';
 import { Figure } from 'react-plotly.js';
@@ -98,6 +99,7 @@ export const RunsChartsLineChartCard = ({
   ...reorderProps
 }: RunsChartsLineChartCardProps) => {
   const { xAxisKey, selectedXAxisMetricKey, lineSmoothness } = useLineChartGlobalConfig(config, globalLineChartConfig);
+  const colorizeMetricTraces = globalLineChartConfig?.colorizeMetricTraces ?? shouldColorizeMetricTraces();
 
   const toggleFullScreenChart = useCallback(() => {
     setFullScreenChart?.({
@@ -342,6 +344,7 @@ export const RunsChartsLineChartCard = ({
           displayPoints={config.displayPoints}
           onSetDownloadHandler={setImageDownloadHandler}
           positionInSection={positionInSection ?? 0}
+          colorizeMetricTraces={colorizeMetricTraces}
         />
       )}
     </div>
