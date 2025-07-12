@@ -48,9 +48,16 @@ class Scorer(BaseModel):
     name: str
     aggregations: Optional[list] = None
 
+    _cached_dump: Optional[dict[str, Any]] = PrivateAttr(default=None)
+
     def model_dump(self, **kwargs) -> dict:
         """Override model_dump to include source code."""
         # Create serialized scorer with core fields
+
+        # Return cached dump if available (prevents re-serialization issues with dynamic functions)
+        if self._cached_dump is not None:
+            return self._cached_dump
+            
         serialized = SerializedScorer(
             name=self.name,
             aggregations=self.aggregations,
@@ -165,7 +172,13 @@ class Scorer(BaseModel):
         # Rather than serializing and deserializing the `run` method of `Scorer`, we recreate the
         # Scorer using the original function and the `@scorer` decorator. This should be safe so
         # long as `@scorer` is a stable API.
-        return scorer(recreated_func, name=serialized.name, aggregations=serialized.aggregations)
+        scorer_instance = scorer(
+            recreated_func, name=serialized.name, aggregations=serialized.aggregations
+        )
+        # Cache the serialized data to prevent re-serialization issues with dynamic functions
+        original_serialized_data = asdict(serialized)
+        object.__setattr__(scorer_instance, "_cached_dump", original_serialized_data)
+        return scorer_instance
 
     def run(self, *, inputs=None, outputs=None, expectations=None, trace=None):
         from mlflow.evaluation import Assessment as LegacyAssessment
