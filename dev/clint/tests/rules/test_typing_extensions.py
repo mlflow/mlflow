@@ -18,11 +18,10 @@ from typing_extensions import Self
 """
     )
 
-    violations = lint_file(
-        tmp_file,
-        config=Config(typing_extensions_allowlist=["typing_extensions.Self"]),
-        index=index,
+    config = Config(
+        select={TypingExtensions.name}, typing_extensions_allowlist=["typing_extensions.Self"]
     )
+    violations = lint_file(tmp_file, config, index)
     assert len(violations) == 1
     assert all(isinstance(v.rule, TypingExtensions) for v in violations)
     assert violations[0].loc == Location(2, 0)
