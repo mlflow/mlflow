@@ -205,15 +205,15 @@ def update_assessment(
 
         This API is currently only available for `Databricks Managed MLflow <https://www.databricks.com/product/managed-mlflow>`_.
 
-    Updates an existing expectation (ground truth) in a Trace.
+    Updates an existing expectation (ground truth) or feedback in a Trace.
 
     Args:
         trace_id: The ID of the trace.
-        assessment_id: The ID of the expectation assessment to update.
+        assessment_id: The ID of the expectation or feedback assessment to update.
         assessment: The updated assessment.
 
     Returns:
-        :py:class:`~mlflow.entities.Assessment`: The updated feedback assessment.
+        :py:class:`~mlflow.entities.Assessment`: The updated feedback or expectation assessment.
 
     Example:
 
