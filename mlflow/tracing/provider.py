@@ -18,8 +18,10 @@ from opentelemetry import context as context_api
 from opentelemetry import trace
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.sampling import TraceIdRatioBased
 
 import mlflow
+from mlflow.environment_variables import MLFLOW_TRACE_SAMPLING_RATIO
 from mlflow.exceptions import MlflowException, MlflowTracingException
 from mlflow.tracing.config import reset_config
 from mlflow.tracing.constant import SpanAttributeKey
@@ -278,10 +280,22 @@ def _setup_tracer_provider(disabled=False):
         # Default to MLflow Tracking Server
         processor = _get_mlflow_span_processor(tracking_uri=mlflow.get_tracking_uri())
 
+    # Configure sampling based on environment variable
+    sampling_ratio = MLFLOW_TRACE_SAMPLING_RATIO.get()
+    sampler = None
+    if sampling_ratio is not None:
+        if not (0.0 <= sampling_ratio <= 1.0):
+            _logger.warning(
+                f"MLFLOW_TRACE_SAMPLING_RATIO must be between 0.0 and 1.0, got {sampling_ratio}. "
+                "Ignoring the invalid value and using default sampling (1.0)."
+            )
+        else:
+            sampler = TraceIdRatioBased(sampling_ratio)
+
     # Setting an empty resource to avoid triggering resource aggregation, which causes
     # an issue in LiteLLM tracing: https://github.com/mlflow/mlflow/issues/16296
     # MLflow tracing does not use resource right now.
-    tracer_provider = TracerProvider(resource=Resource.get_empty())
+    tracer_provider = TracerProvider(resource=Resource.get_empty(), sampler=sampler)
     tracer_provider.add_span_processor(processor)
     _MLFLOW_TRACER_PROVIDER = tracer_provider
 
