@@ -54,6 +54,7 @@ _PYPROJECT_TOML_FILES = {
     "pyproject.release.toml": {
         12: 'version = "{new_version}"',
         30: '  "mlflow-skinny=={new_version}",',
+        31: '  "mlflow-tracing=={new_version}",',
     },
 }
 
@@ -63,7 +64,7 @@ _R_FILES = {
     }
 }
 
-_DIFF_REGEX = re.compile(r"--- (\d+) ----")
+_DIFF_REGEX = re.compile(r"--- (\d+,?\d*) ----")
 
 old_version = Version(get_current_py_version())
 _NEW_PY_VERSION = f"{old_version.major}.{old_version.minor}.{old_version.micro + 1}"
@@ -129,12 +130,7 @@ def test_update_mlflow_versions(
         old_file = Path(filename).read_text().splitlines()
         new_file = (tmp_path / filename).read_text().splitlines()
         diff = list(difflib.context_diff(old_file, new_file, n=0))
-        changed_lines = {
-            # the [2:] is to cut out the "! " at the beginning of diff lines
-            int(_DIFF_REGEX.search(diff_line).group(1)): diff[idx + 1][2:]
-            for idx, diff_line in enumerate(diff)
-            if _DIFF_REGEX.search(diff_line)
-        }
+        changed_lines = _parse_diff_line(diff)
 
         formatted_expected_changes = {
             line_num: change.format(new_version=expected_new_version)
@@ -142,3 +138,23 @@ def test_update_mlflow_versions(
         }
 
         assert changed_lines == formatted_expected_changes
+
+
+def _parse_diff_line(diff: str) -> tuple[int, int]:
+    diff_lines = {}
+    for idx, line in enumerate(diff):
+        match = _DIFF_REGEX.search(line)
+        if not match:
+            continue
+
+        if "," in match.group(1):
+            # multi-line change is represented as [(start,end), line1, line2, ...]
+            start, end = map(int, match.group(1).split(","))
+            for i in range(start, end + 1):
+                # the [2:] is to cut out the "! " at the beginning of diff lines
+                diff_lines[i] = diff[idx + (i - start) + 1][2:]
+        else:
+            # single-line change
+            diff_lines[int(match.group(1))] = diff[idx + 1][2:]
+
+    return diff_lines
