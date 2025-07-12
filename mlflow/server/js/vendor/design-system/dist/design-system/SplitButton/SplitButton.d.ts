@@ -1,5 +1,6 @@
 import type { DropdownMenuProps } from '@radix-ui/react-dropdown-menu';
 import type { DropdownButtonProps } from './Dropdown/DropdownButton';
+import type { ButtonSize } from '../Button';
 import type { DangerouslySetAntdProps, HTMLDataAttributes } from '../types';
 export interface SplitButtonMenuInfo {
     key: React.Key;
@@ -21,6 +22,7 @@ export type SplitButtonProps = Omit<DropdownButtonProps, 'overlay' | 'type' | 's
      * Props to be passed down to DropdownMenu.Root
      */
     dropdownMenuRootProps?: DropdownMenuProps;
+    size?: ButtonSize;
 };
 export declare const SplitButton: React.FC<SplitButtonProps>;
 //# sourceMappingURL=SplitButton.d.ts.map

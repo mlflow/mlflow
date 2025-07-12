@@ -153,13 +153,13 @@ describe('ExperimentViewRuns column utils', () => {
     const setColumnVisibleMock = MOCK_HOOK_PARAMS.columnApi?.setColumnVisible;
 
     // Assert that setColumnVisible() has been called with "true" for metric_1 and param_2...
-    expect(setColumnVisibleMock).toBeCalledWith(makeCanonicalSortKey(COLUMN_TYPES.METRICS, 'metric_1'), true);
-    expect(setColumnVisibleMock).toBeCalledWith(makeCanonicalSortKey(COLUMN_TYPES.PARAMS, 'param_2'), true);
+    expect(setColumnVisibleMock).toHaveBeenCalledWith(makeCanonicalSortKey(COLUMN_TYPES.METRICS, 'metric_1'), true);
+    expect(setColumnVisibleMock).toHaveBeenCalledWith(makeCanonicalSortKey(COLUMN_TYPES.PARAMS, 'param_2'), true);
 
     // ...but has not for the remaining columns
-    expect(setColumnVisibleMock).not.toBeCalledWith(makeCanonicalSortKey(COLUMN_TYPES.METRICS, 'metric_2'), true);
+    expect(setColumnVisibleMock).not.toHaveBeenCalledWith(makeCanonicalSortKey(COLUMN_TYPES.METRICS, 'metric_2'), true);
 
-    expect(setColumnVisibleMock).not.toBeCalledWith(makeCanonicalSortKey(COLUMN_TYPES.PARAMS, 'param_1'), true);
+    expect(setColumnVisibleMock).not.toHaveBeenCalledWith(makeCanonicalSortKey(COLUMN_TYPES.PARAMS, 'param_1'), true);
   });
 
   test('remembers metric/param/tag keys even if they are not in the newly fetched set', () => {

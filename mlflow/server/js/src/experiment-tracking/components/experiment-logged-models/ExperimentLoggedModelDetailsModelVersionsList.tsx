@@ -15,7 +15,7 @@ export const ExperimentLoggedModelDetailsModelVersionsList = ({
 }) => {
   const loggedModels = useMemo(() => [loggedModel], [loggedModel]);
   const { theme } = useDesignSystemTheme();
-  const modelVersions = useExperimentLoggedModelRegisteredVersions({ loggedModels });
+  const { modelVersions } = useExperimentLoggedModelRegisteredVersions({ loggedModels });
 
   if (isEmpty(modelVersions)) {
     return empty ?? <>-</>;

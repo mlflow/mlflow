@@ -1,7 +1,4 @@
-import { useDesignSystemTheme } from '@databricks/design-system';
-import type { KeyValueEntity } from '../../types';
-import ArtifactPage from '../ArtifactPage';
-import { useMediaQuery } from '@databricks/web-shared/hooks';
+import type { KeyValueEntity } from '../../../common/types';
 import { TracesView } from '../traces/TracesView';
 import { useMemo } from 'react';
 import { ExperimentViewTracesTableColumns } from '../traces/TracesView.utils';

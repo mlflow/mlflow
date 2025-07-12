@@ -2,6 +2,7 @@ import type { SerializedStyles } from '@emotion/react';
 import * as Popover from '@radix-ui/react-popover';
 import type { ReactNode } from 'react';
 import React from 'react';
+import type { ButtonSize } from '../Button';
 import type { FormElementValidationState, HTMLDataAttributes } from '../types';
 export interface DialogComboboxTriggerProps extends Popover.PopoverTriggerProps, FormElementValidationState, HTMLDataAttributes {
     minWidth?: number | string;
@@ -19,6 +20,7 @@ export interface DialogComboboxTriggerProps extends Popover.PopoverTriggerProps,
     withChevronIcon?: boolean;
     withInlineLabel?: boolean;
     isBare?: boolean;
+    triggerSize?: ButtonSize;
     renderDisplayedValue?: (value: string) => string | ReactNode;
 }
 export declare const DialogComboboxTrigger: React.ForwardRefExoticComponent<DialogComboboxTriggerProps & React.RefAttributes<HTMLButtonElement>>;

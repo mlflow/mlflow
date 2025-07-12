@@ -21,7 +21,7 @@ export interface RangePickerChangeEventType {
 export interface DatePickerWrapperProps {
     wrapperProps?: HTMLAttributes<HTMLDivElement> & HTMLDataAttributes;
 }
-export interface DatePickerProps extends Omit<InputProps, 'type' | 'suffix' | 'onKeyDown' | 'value' | 'onChange'>, DatePickerWrapperProps {
+export interface DatePickerProps extends Omit<InputProps, 'type' | 'suffix' | 'onKeyDown' | 'value' | 'onChange' | 'max' | 'min'>, DatePickerWrapperProps {
     onChange?: (e: DatePickerChangeEventType) => void;
     onClear?: () => void;
     open?: boolean;
@@ -44,6 +44,8 @@ export interface DatePickerProps extends Omit<InputProps, 'type' | 'suffix' | 'o
     quickActions?: DatePickerQuickActionProps[];
     onOkPress?: () => void;
     okButtonLabel?: string;
+    min?: Date | string | number | undefined;
+    max?: Date | string | number | undefined;
     /**
      * DO NOT USE THIS PROP. This is only for internal use.
      */
@@ -93,6 +95,10 @@ export interface RangePickerProps extends Omit<DayPickerRangeProps, 'mode'>, Dat
     minWidth?: string | number;
     disabled?: boolean;
     quickActions?: RangePickerQuickActionProps[];
+    /**
+     * Allow the user to select a range that has a larger start date than end date or a start date that is after the end date
+     */
+    noRangeValidation?: boolean;
 }
 export interface DateRange extends DayPickerDateRange {
 }

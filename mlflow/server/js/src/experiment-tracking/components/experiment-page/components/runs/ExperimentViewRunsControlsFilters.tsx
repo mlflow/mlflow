@@ -184,48 +184,58 @@ export const ExperimentViewRunsControlsFilters = React.memo(
                 setViewModeInURL(newValue);
               }}
             >
-              <SegmentedControlButton value="TABLE">
-                <Tooltip
-                  componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_201"
-                  content={intl.formatMessage({
-                    defaultMessage: 'Table view',
-                    description: 'Experiment page > control bar > table view toggle button tooltip',
-                  })}
-                >
-                  <ListIcon />
-                </Tooltip>
-              </SegmentedControlButton>
-              <SegmentedControlButton value="CHART">
-                <Tooltip
-                  componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_211"
-                  content={intl.formatMessage({
-                    defaultMessage: 'Chart view',
-                    description: 'Experiment page > control bar > chart view toggle button tooltip',
-                  })}
-                >
-                  <ChartLineIcon />
-                </Tooltip>
-              </SegmentedControlButton>
-              {shouldUseRenamedUnifiedTracesTab() && (
-                <SegmentedControlButton value="ARTIFACT" disabled={areRunsGrouped}>
+              <SegmentedControlButton
+                value="TABLE"
+                icon={
                   <Tooltip
-                    componentId="mlflow.experiment_page.mode.artifact"
-                    content={
-                      areRunsGrouped
-                        ? intl.formatMessage({
-                            defaultMessage: 'Unavailable when runs are grouped',
-                            description: 'Experiment page > view mode switch > evaluation mode disabled tooltip',
-                          })
-                        : intl.formatMessage({
-                            defaultMessage: 'Artifact evaluation',
-                            description:
-                              'A tooltip for the view mode switcher in the experiment view, corresponding to artifact evaluation view',
-                          })
-                    }
+                    componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_201"
+                    content={intl.formatMessage({
+                      defaultMessage: 'Table view',
+                      description: 'Experiment page > control bar > table view toggle button tooltip',
+                    })}
                   >
-                    <TableIcon />
+                    <ListIcon />
                   </Tooltip>
-                </SegmentedControlButton>
+                }
+              />
+              <SegmentedControlButton
+                value="CHART"
+                icon={
+                  <Tooltip
+                    componentId="codegen_mlflow_app_src_experiment-tracking_components_experiment-page_components_runs_experimentviewrunscontrolsfilters.tsx_211"
+                    content={intl.formatMessage({
+                      defaultMessage: 'Chart view',
+                      description: 'Experiment page > control bar > chart view toggle button tooltip',
+                    })}
+                  >
+                    <ChartLineIcon />
+                  </Tooltip>
+                }
+              />
+              {shouldUseRenamedUnifiedTracesTab() && (
+                <SegmentedControlButton
+                  value="ARTIFACT"
+                  disabled={areRunsGrouped}
+                  icon={
+                    <Tooltip
+                      componentId="mlflow.experiment_page.mode.artifact"
+                      content={
+                        areRunsGrouped
+                          ? intl.formatMessage({
+                              defaultMessage: 'Unavailable when runs are grouped',
+                              description: 'Experiment page > view mode switch > evaluation mode disabled tooltip',
+                            })
+                          : intl.formatMessage({
+                              defaultMessage: 'Artifact evaluation',
+                              description:
+                                'A tooltip for the view mode switcher in the experiment view, corresponding to artifact evaluation view',
+                            })
+                      }
+                    >
+                      <TableIcon />
+                    </Tooltip>
+                  }
+                />
               )}
             </SegmentedControlGroup>
           )}

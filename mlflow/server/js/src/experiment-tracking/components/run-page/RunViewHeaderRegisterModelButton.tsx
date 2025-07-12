@@ -16,9 +16,9 @@ import Utils from '../../../common/utils/Utils';
 import { RegisterModel } from '../../../model-registry/components/RegisterModel';
 import { ModelVersionStatusIcons } from '../../../model-registry/constants';
 import { ModelRegistryRoutes } from '../../../model-registry/routes';
-import type { ReduxState } from '../../../redux-types';
 import Routes from '../../routes';
-import { KeyValueEntity, ModelVersionInfoEntity } from '../../types';
+import { ModelVersionInfoEntity } from '../../types';
+import { KeyValueEntity } from '../../../common/types';
 import { ReactComponent as RegisteredModelOkIcon } from '../../../common/static/registered-model-grey-ok.svg';
 import { RunPageModelVersionSummary } from './hooks/useUnifiedRegisteredModelVersionsSummariesForRun';
 

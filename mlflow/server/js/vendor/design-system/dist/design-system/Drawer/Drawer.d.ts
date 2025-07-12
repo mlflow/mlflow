@@ -61,10 +61,15 @@ export interface DrawerContentProps extends AnalyticsEventProps<DesignSystemEven
      */
     hideClose?: boolean;
     /**
+     * If true, clicking outside of the drawer will call onCloseClick
+     * @default false
+     */
+    closeOnClickOutside?: boolean;
+    /**
      * Event handler called when the close button is clicked.
      * The default behavior of closing the drawer can be prevented by calling event.preventDefault.
      */
-    onCloseClick?: React.MouseEventHandler<HTMLButtonElement>;
+    onCloseClick?: React.MouseEventHandler;
     /**
      * Drawer size. When set to small will reduce the padding around the content, title and buttons.
      * @default "default"
@@ -75,7 +80,7 @@ export interface DrawerContentProps extends AnalyticsEventProps<DesignSystemEven
      */
     css?: Interpolation<EmotionTheme>;
 }
-export declare const Content: ({ children, footer, title, width, position: positionOverride, useCustomScrollBehavior, expandContentToFullHeight, disableOpenAutoFocus, onInteractOutside, seeThrough, hideClose, onCloseClick, componentId, analyticsEvents, size, ...props }: DrawerContentProps) => import("@emotion/react/jsx-runtime").JSX.Element;
+export declare const Content: ({ children, footer, title, width, position: positionOverride, useCustomScrollBehavior, expandContentToFullHeight, disableOpenAutoFocus, onInteractOutside, seeThrough, hideClose, closeOnClickOutside, onCloseClick, componentId, analyticsEvents, size, ...props }: DrawerContentProps) => import("@emotion/react/jsx-runtime").JSX.Element;
 export declare function Root(props: Pick<DialogPrimitive.DialogProps, 'onOpenChange' | 'children' | 'open' | 'modal'>): import("@emotion/react/jsx-runtime").JSX.Element;
 export declare function Trigger(props: Omit<DialogPrimitive.DialogTriggerProps, 'asChild'>): import("@emotion/react/jsx-runtime").JSX.Element;
 //# sourceMappingURL=Drawer.d.ts.map

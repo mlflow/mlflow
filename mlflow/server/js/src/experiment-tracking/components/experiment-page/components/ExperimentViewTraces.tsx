@@ -1,6 +1,7 @@
 import { useDesignSystemTheme } from '@databricks/design-system';
 import { TracesView } from '../../traces/TracesView';
 import { ExperimentViewRunsModeSwitch } from './runs/ExperimentViewRunsModeSwitch';
+import { shouldEnableExperimentPageHeaderV2 } from '../../../../common/utils/FeatureUtils';
 
 export const ExperimentViewTraces = ({ experimentIds }: { experimentIds: string[] }) => {
   const { theme } = useDesignSystemTheme();
@@ -8,7 +9,6 @@ export const ExperimentViewTraces = ({ experimentIds }: { experimentIds: string[
     <div
       css={{
         minHeight: 225, // This is the exact height for displaying a minimum five rows and table header
-        marginTop: theme.spacing.sm,
         display: 'flex',
         flexDirection: 'column',
         gap: theme.spacing.sm,
@@ -16,7 +16,7 @@ export const ExperimentViewTraces = ({ experimentIds }: { experimentIds: string[
         overflow: 'hidden',
       }}
     >
-      <ExperimentViewRunsModeSwitch hideBorder={false} />
+      {shouldEnableExperimentPageHeaderV2() ? null : <ExperimentViewRunsModeSwitch hideBorder={false} />}
       <TracesComponent experimentIds={experimentIds} />
     </div>
   );

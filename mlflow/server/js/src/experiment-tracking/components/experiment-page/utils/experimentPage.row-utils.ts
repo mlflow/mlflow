@@ -3,12 +3,12 @@ import { isNumber, isString, keyBy, last, sortBy, uniq } from 'lodash';
 import Utils from '../../../../common/utils/Utils';
 import type {
   ExperimentEntity,
-  KeyValueEntity,
   ModelVersionInfoEntity,
   RunInfoEntity,
   RunDatasetWithTags,
   MetricEntity,
 } from '../../../types';
+import { KeyValueEntity } from '../../../../common/types';
 import type { LoggedModelProto } from '../../../types';
 import {
   RowGroupRenderMetadata,

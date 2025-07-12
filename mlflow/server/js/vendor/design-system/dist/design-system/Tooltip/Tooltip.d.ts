@@ -4,7 +4,7 @@ import type { HTMLAttributes } from 'react';
 import React from 'react';
 import { DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEventProvider';
 import type { AnalyticsEventProps, HTMLDataAttributes } from '../types';
-export interface TooltipProps extends HTMLDataAttributes, Pick<RadixTooltipContentProps, 'side' | 'sideOffset' | 'align' | 'alignOffset' | 'avoidCollisions' | 'collisionPadding' | 'sticky' | 'hideWhenDetached'>, Pick<RadixTooltipRootProps, 'defaultOpen' | 'delayDuration'>, AnalyticsEventProps<DesignSystemEventProviderAnalyticsEventTypes.OnView> {
+export interface TooltipProps extends HTMLDataAttributes, Pick<RadixTooltipContentProps, 'side' | 'sideOffset' | 'align' | 'alignOffset' | 'avoidCollisions' | 'collisionPadding' | 'sticky' | 'hideWhenDetached'>, Pick<RadixTooltipRootProps, 'defaultOpen' | 'delayDuration' | 'open' | 'onOpenChange'>, AnalyticsEventProps<DesignSystemEventProviderAnalyticsEventTypes.OnView> {
     /**
      * The element with which the tooltip should be associated.
      */

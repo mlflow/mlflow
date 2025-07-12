@@ -21,6 +21,7 @@ const graphqlFetch = async (uri: any, options: any): Promise<Response> => {
     ...options.headers,
   });
 
+  // eslint-disable-next-line no-restricted-globals -- See go/spog-fetch
   return fetch(uri, { ...options, headers }).then((res) => res);
 };
 

@@ -1,6 +1,7 @@
 import { Overflow, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { useState } from 'react';
-import type { KeyValueEntity, RunDatasetWithTags, RunInfoEntity } from '../../../types';
+import type { RunDatasetWithTags, RunInfoEntity } from '../../../types';
+import { KeyValueEntity } from '../../../../common/types';
 import {
   DatasetWithRunType,
   ExperimentViewDatasetDrawer,

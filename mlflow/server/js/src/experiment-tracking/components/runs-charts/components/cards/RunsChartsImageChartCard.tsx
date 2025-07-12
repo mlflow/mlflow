@@ -47,14 +47,24 @@ export const RunsChartsImageChartCard = ({
   const [tmpConfig, setTmpConfig] = useState(config);
   const confirmChartCardConfiguration = useConfirmChartCardConfigurationFn();
   const updateStep = useCallback(
-    (step: number) => {
-      confirmChartCardConfiguration({ ...config, step } as RunsChartsImageCardConfig);
+    (newStep: number) => {
+      // Skip updating base chart config if step is the same as current step.
+      if (config.step === newStep) {
+        return;
+      }
+      confirmChartCardConfiguration({ ...config, step: newStep } as RunsChartsImageCardConfig);
     },
     [config, confirmChartCardConfiguration],
   );
-  const tmpStepChange = (step: number) => {
-    setTmpConfig((conf) => ({ ...conf, step }));
-  };
+  const tmpStepChange = useCallback((newStep: number) => {
+    setTmpConfig((currentConfig) => {
+      // Skip updating temporary config if step is the same as current step.
+      if (currentConfig.step === newStep) {
+        return currentConfig;
+      }
+      return { ...currentConfig, step: newStep };
+    });
+  }, []);
 
   const chartName = config.imageKeys.length === 1 ? config.imageKeys[0] : DEFAULT_IMAGE_GRID_CHART_NAME;
 
@@ -68,9 +78,12 @@ export const RunsChartsImageChartCard = ({
 
   const slicedRuns = useMemo(() => chartRunData.filter(({ hidden }) => !hidden).reverse(), [chartRunData]);
 
-  const setCardConfig = (setter: (current: RunsChartsCardConfig) => RunsChartsImageCardConfig) => {
-    confirmChartCardConfiguration(setter(config));
-  };
+  const setCardConfig = useCallback(
+    (setter: (current: RunsChartsCardConfig) => RunsChartsImageCardConfig) => {
+      confirmChartCardConfiguration(setter(config));
+    },
+    [config, confirmChartCardConfiguration],
+  );
 
   const { stepMarks, maxMark, minMark } = useImageSliderStepMarks({
     data: slicedRuns,
@@ -83,8 +96,9 @@ export const RunsChartsImageChartCard = ({
     // If there is only one step mark, set the step to the min mark
     if (stepMarkLength === 1 && tmpConfig.step !== minMark) {
       updateStep(minMark);
+      tmpStepChange(minMark);
     }
-  }, [minMark, stepMarkLength, tmpConfig.step, updateStep]);
+  }, [minMark, stepMarkLength, tmpConfig.step, updateStep, tmpStepChange]);
 
   const shouldDisplayImageLimitIndicator =
     slicedRuns.filter((run) => {

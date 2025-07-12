@@ -11,7 +11,6 @@ import type {
   RunsChartsScatterCardConfig,
 } from '../../runs-charts.types';
 import { RunsChartsRunData } from '../RunsCharts.common';
-import { shouldEnableDifferenceViewCharts } from '../../../../../common/utils/FeatureUtils';
 import { RunsChartsBarChartCard } from './RunsChartsBarChartCard';
 import { RunsChartsLineChartCard } from './RunsChartsLineChartCard';
 import { RunsChartsScatterChartCard } from './RunsChartsScatterChartCard';
@@ -126,7 +125,7 @@ const RunsChartsCardRaw = ({
     );
   }
 
-  if (shouldEnableDifferenceViewCharts() && cardConfig.type === RunsChartType.DIFFERENCE) {
+  if (cardConfig.type === RunsChartType.DIFFERENCE) {
     return (
       <RunsChartsDifferenceChartCard
         config={cardConfig as RunsChartsDifferenceCardConfig}

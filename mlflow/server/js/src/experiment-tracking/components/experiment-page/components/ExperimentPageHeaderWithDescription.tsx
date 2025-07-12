@@ -8,6 +8,9 @@ import { ApolloError } from '@mlflow/mlflow/src/common/utils/graphQLHooks';
 import { getGraphQLErrorMessage } from '../../../../graphql/get-graphql-error';
 import { Alert, useDesignSystemTheme } from '@databricks/design-system';
 import { FormattedMessage } from 'react-intl';
+import { ExperimentViewHeaderV2, ExperimentViewHeaderV2Skeleton } from './header/ExperimentViewHeaderV2';
+import { shouldEnableExperimentPageHeaderV2 } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
+import { ExperimentKind } from '../../../constants';
 
 type GetExperimentReturnType = ReturnType<typeof useGetExperimentQuery>['data'];
 
@@ -19,11 +22,15 @@ export const ExperimentPageHeaderWithDescription = ({
   loading,
   onNoteUpdated,
   error,
+  experimentKindSelector,
+  inferredExperimentKind,
 }: {
   experiment: GetExperimentReturnType;
   loading?: boolean;
   onNoteUpdated?: () => void;
   error: ApolloError | ReturnType<typeof useGetExperimentQuery>['apiError'];
+  experimentKindSelector?: React.ReactNode;
+  inferredExperimentKind?: ExperimentKind;
 }) => {
   const { theme } = useDesignSystemTheme();
   const [showAddDescriptionButton, setShowAddDescriptionButton] = useState(true);
@@ -44,7 +51,7 @@ export const ExperimentPageHeaderWithDescription = ({
   const errorMessage = getGraphQLErrorMessage(error);
 
   if (loading) {
-    return <ExperimentViewHeaderSkeleton />;
+    return shouldEnableExperimentPageHeaderV2() ? <ExperimentViewHeaderV2Skeleton /> : <ExperimentViewHeaderSkeleton />;
   }
 
   if (errorMessage) {
@@ -69,11 +76,20 @@ export const ExperimentPageHeaderWithDescription = ({
   if (experimentEntity) {
     return (
       <>
-        <ExperimentViewHeader
-          experiment={experimentEntity}
-          showAddDescriptionButton={showAddDescriptionButton}
-          setEditing={setEditing}
-        />
+        {shouldEnableExperimentPageHeaderV2() ? (
+          <ExperimentViewHeaderV2
+            experiment={experimentEntity}
+            inferredExperimentKind={inferredExperimentKind}
+            setEditing={setEditing}
+            experimentKindSelector={experimentKindSelector}
+          />
+        ) : (
+          <ExperimentViewHeader
+            experiment={experimentEntity}
+            showAddDescriptionButton={showAddDescriptionButton}
+            setEditing={setEditing}
+          />
+        )}
         <ExperimentViewDescriptionNotes
           experiment={experimentEntity}
           setShowAddDescriptionButton={setShowAddDescriptionButton}

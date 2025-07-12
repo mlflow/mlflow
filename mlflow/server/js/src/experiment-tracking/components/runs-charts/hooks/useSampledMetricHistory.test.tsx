@@ -60,7 +60,7 @@ describe('useSampledMetricHistory (REST)', () => {
     );
 
     await waitFor(() => {
-      expect(getSampledMetricHistoryBulkAction).toBeCalledWith(
+      expect(getSampledMetricHistoryBulkAction).toHaveBeenCalledWith(
         ['run-uuid-1'],
         'metric-a',
         undefined,
@@ -84,6 +84,6 @@ describe('useSampledMetricHistory (REST)', () => {
       },
     );
 
-    expect(getSampledMetricHistoryBulkAction).not.toBeCalled();
+    expect(getSampledMetricHistoryBulkAction).not.toHaveBeenCalled();
   });
 });

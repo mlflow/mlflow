@@ -3,7 +3,7 @@ import React from 'react';
 import { DesignSystemEventProviderAnalyticsEventTypes } from '../../design-system';
 import type { AnalyticsEventValueChangeNoPiiFlagProps } from '../../design-system/types';
 type RadioGroupSize = 'small' | 'medium' | 'large';
-interface RootProps extends Pick<RadioGroupProps, 'defaultValue' | 'value' | 'onValueChange' | 'disabled' | 'name' | 'required' | 'children'>, AnalyticsEventValueChangeNoPiiFlagProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange> {
+interface RootProps extends Pick<RadioGroupProps, 'defaultValue' | 'value' | 'onValueChange' | 'disabled' | 'name' | 'required' | 'children'>, AnalyticsEventValueChangeNoPiiFlagProps<DesignSystemEventProviderAnalyticsEventTypes.OnValueChange | DesignSystemEventProviderAnalyticsEventTypes.OnView> {
     size?: RadioGroupSize;
 }
 export declare const Root: React.ForwardRefExoticComponent<RootProps & React.RefAttributes<HTMLDivElement>>;

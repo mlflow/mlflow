@@ -73,10 +73,7 @@ export const ExperimentViewRunsTableResizer = ({
   );
 };
 
-/**
- * Internal use component: resizer handle for the runs table resizer
- */
-const ExperimentViewRunsTableResizerHandle = React.forwardRef<
+export const ExperimentViewRunsTableResizerHandle = React.forwardRef<
   HTMLDivElement,
   {
     updateRunListHidden: (newValue: boolean) => void;

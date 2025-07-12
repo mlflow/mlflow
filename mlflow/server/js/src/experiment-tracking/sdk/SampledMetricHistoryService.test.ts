@@ -22,7 +22,7 @@ describe('getSampledMetricHistoryBulkAction service function', () => {
   };
   it('should be able to retrieve sampled metric history for all runs', () => {
     runAction({});
-    expect(fetchEndpoint).toBeCalledWith({
+    expect(fetchEndpoint).toHaveBeenCalledWith({
       relativeUrl: expect.stringMatching(
         /get-history-bulk-interval\?run_ids=run_1&run_ids=run_2&metric_key=metric_key/,
       ),
@@ -33,7 +33,7 @@ describe('getSampledMetricHistoryBulkAction service function', () => {
     runAction({
       run_1: { metric_key: { [testRangeKey]: { metricsHistory: [], loading: false } } },
     });
-    expect(fetchEndpoint).toBeCalledWith({
+    expect(fetchEndpoint).toHaveBeenCalledWith({
       relativeUrl: expect.stringMatching(/get-history-bulk-interval\?run_ids=run_2&metric_key=metric_key/),
     });
   });
@@ -41,7 +41,7 @@ describe('getSampledMetricHistoryBulkAction service function', () => {
     runAction({
       run_2: { metric_key: { [testRangeKey]: { error: true, loading: false } } },
     });
-    expect(fetchEndpoint).toBeCalledWith({
+    expect(fetchEndpoint).toHaveBeenCalledWith({
       relativeUrl: expect.stringMatching(/get-history-bulk-interval\?run_ids=run_1&metric_key=metric_key/),
     });
   });

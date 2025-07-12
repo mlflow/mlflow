@@ -1,4 +1,5 @@
-import type { KeyValueEntity, RunDatasetWithTags, RunInfoEntity } from '../../../types';
+import type { RunDatasetWithTags, RunInfoEntity } from '../../../types';
+import { KeyValueEntity } from '../../../../common/types';
 import { Button, DropdownMenu, Typography, useDesignSystemTheme } from '@databricks/design-system';
 import { ExperimentViewDatasetWithContext } from '../../experiment-page/components/runs/ExperimentViewDatasetWithContext';
 import { useState } from 'react';

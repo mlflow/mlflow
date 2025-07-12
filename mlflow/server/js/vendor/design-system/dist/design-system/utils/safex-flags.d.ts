@@ -4,5 +4,6 @@ export declare const useDesignSystemSafexFlags: () => {
     useNewBorderRadii: false;
     useNewLargeAlertSizing: false;
     useNewBorderColors: false;
+    useNewDatePickerInput: false;
 };
 //# sourceMappingURL=safex-flags.d.ts.map

@@ -19,6 +19,7 @@ export async function getArtifactBlob(artifactLocation: any) {
     // TODO: fix types
     headers: new Headers(getDefaultHeaders(document.cookie) as any),
   });
+  // eslint-disable-next-line no-restricted-globals -- See go/spog-fetch
   const response = await fetch(getArtifactRequest);
 
   if (!response.ok) {
@@ -41,6 +42,7 @@ export const getArtifactChunkedText = async (artifactLocation: string) =>
       redirect: 'follow',
       headers: new Headers(getDefaultHeaders(document.cookie) as HeadersInit),
     });
+    // eslint-disable-next-line no-restricted-globals -- See go/spog-fetch
     const response = await fetch(getArtifactRequest);
 
     if (!response.ok) {

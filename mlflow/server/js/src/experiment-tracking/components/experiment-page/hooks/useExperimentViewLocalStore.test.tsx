@@ -7,6 +7,6 @@ jest.mock('../../../../common/utils/LocalStorageUtils');
 describe('useExperimentViewLocalStore', () => {
   it('tests useExperimentViewLocalStore', () => {
     renderHook(() => useExperimentViewLocalStore('123'));
-    expect(LocalStorageUtils.getStoreForComponent).toBeCalledWith('ExperimentView', '123');
+    expect(LocalStorageUtils.getStoreForComponent).toHaveBeenCalledWith('ExperimentView', '123');
   });
 });

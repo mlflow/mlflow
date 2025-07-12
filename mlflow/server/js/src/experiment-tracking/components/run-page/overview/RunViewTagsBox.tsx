@@ -1,14 +1,14 @@
 import { Button, PencilIcon, Spinner, Tooltip, useDesignSystemTheme } from '@databricks/design-system';
+import { shouldUseSharedTaggingUI } from '../../../../common/utils/FeatureUtils';
 import { useEditKeyValueTagsModal } from '../../../../common/hooks/useEditKeyValueTagsModal';
-import { KeyValueEntity } from '../../../types';
+import { KeyValueEntity } from '../../../../common/types';
 import { KeyValueTag } from '../../../../common/components/KeyValueTag';
 import { FormattedMessage, useIntl } from 'react-intl';
 import { keys, values } from 'lodash';
 import { useDispatch } from 'react-redux';
 import { ThunkDispatch } from '../../../../redux-types';
-import { setRunTagsBulkApi } from '../../../actions';
-import { MLFLOW_INTERNAL_PREFIX } from '../../../../common/utils/TagUtils';
-import { useMemo } from 'react';
+import { setRunTagsBulkApi, saveRunTagsApi } from '../../../actions';
+import { useMemo, useState } from 'react';
 import { isUserFacingTag } from '../../../../common/utils/TagUtils';
 
 /**
@@ -23,6 +23,10 @@ export const RunViewTagsBox = ({
   tags: Record<string, KeyValueEntity>;
   onTagsUpdated: () => void;
 }) => {
+  const sharedTaggingUIEnabled = shouldUseSharedTaggingUI();
+
+  const [isSavingTags, setIsSavingTags] = useState(false);
+
   const { theme } = useDesignSystemTheme();
   const dispatch = useDispatch<ThunkDispatch>();
   const intl = useIntl();
@@ -92,6 +96,7 @@ export const RunViewTagsBox = ({
         </>
       )}
       {isLoading && <Spinner size="small" />}
+      {/** Old modal for editing tags */}
       {EditTagsModal}
     </div>
   );

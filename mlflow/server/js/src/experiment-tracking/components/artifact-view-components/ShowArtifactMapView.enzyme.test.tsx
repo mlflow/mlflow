@@ -92,7 +92,7 @@ describe('ShowArtifactMapView', () => {
     instance = wrapper.instance();
     instance.fetchArtifacts = jest.fn();
     wrapper.setProps({ path: 'newpath', runUuid: 'newRunId' });
-    expect(instance.fetchArtifacts).toBeCalled();
-    expect(instance.props.getArtifact).toBeCalled();
+    expect(instance.fetchArtifacts).toHaveBeenCalled();
+    expect(instance.props.getArtifact).toHaveBeenCalled();
   });
 });

@@ -24,13 +24,14 @@ import DeleteRunModal from '../modals/DeleteRunModal';
 import Routes from '../../routes';
 import { RunViewMetricCharts } from './RunViewMetricCharts';
 import {
-  shouldEnableRunDetailsPageTracesTab,
   shouldEnableGraphQLRunDetailsPage,
+  shouldUseGetLoggedModelsBatchAPI,
 } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 import { useMediaQuery } from '@databricks/web-shared/hooks';
 import { RunViewTracesTab } from './RunViewTracesTab';
 import { getGraphQLErrorMessage } from '../../../graphql/get-graphql-error';
 import { useLoggedModelsForExperimentRun } from '../experiment-page/hooks/useLoggedModelsForExperimentRun';
+import { useLoggedModelsForExperimentRunV2 } from '../experiment-page/hooks/useLoggedModelsForExperimentRunV2';
 
 const RunPageLoadingState = () => (
   <PageContainer>
@@ -95,10 +96,26 @@ export const RunPage = () => {
 
   const activeTab = useRunViewActiveTab();
 
-  const { models: loggedModelsV3, isLoading: isLoadingLoggedModels } = useLoggedModelsForExperimentRun(
+  const isUsingGetLoggedModelsApi = shouldUseGetLoggedModelsBatchAPI();
+
+  const loggedModelsForRun = useLoggedModelsForExperimentRun(
     experimentId,
     runUuid,
+    runInputs,
+    runOutputs,
+    !isUsingGetLoggedModelsApi,
   );
+  const loggedModelsForRunV2 = useLoggedModelsForExperimentRunV2({
+    runInputs,
+    runOutputs,
+    enabled: isUsingGetLoggedModelsApi,
+  });
+
+  const {
+    error: loggedModelsError,
+    isLoading: isLoadingLoggedModels,
+    models: loggedModelsV3,
+  } = isUsingGetLoggedModelsApi ? loggedModelsForRunV2 : loggedModelsForRun;
 
   const renderActiveTab = () => {
     if (!runInfo) {
@@ -141,9 +158,7 @@ export const RunPage = () => {
           />
         );
       case RunPageTabName.TRACES:
-        if (shouldEnableRunDetailsPageTracesTab()) {
-          return <RunViewTracesTab runUuid={runUuid} runTags={tags} experimentId={experimentId} />;
-        }
+        return <RunViewTracesTab runUuid={runUuid} runTags={tags} experimentId={experimentId} />;
     }
 
     return (
@@ -160,6 +175,7 @@ export const RunPage = () => {
         registeredModelVersionSummaries={registeredModelVersionSummaries}
         loggedModelsV3={loggedModelsV3}
         isLoadingLoggedModels={isLoadingLoggedModels}
+        loggedModelsError={loggedModelsError ?? undefined}
       />
     );
   };

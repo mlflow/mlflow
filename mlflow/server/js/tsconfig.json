@@ -3,6 +3,7 @@
   "compilerOptions": {
     "module": "ESNext",
     "moduleResolution": "Node",
+    "jsx": "preserve",
     "types": [
       "jest",
       "node",
@@ -13,6 +14,12 @@
     "paths": {
       "@mlflow/mlflow/*": [
         "./*"
+      ],
+      "@databricks/i18n": [
+        "./src/i18n/i18n"
+      ],
+      "@databricks/web-shared/query-client": [
+        "./src/common/utils/reactQueryHooks"
       ],
       "@databricks/web-shared/*": [
         "./src/shared/web-shared/*"
@@ -37,7 +44,6 @@
     "declaration": false,
     "sourceMap": false,
     "declarationMap": false,
-    "jsx": "preserve",
     "isolatedModules": true
   },
   "references": [],

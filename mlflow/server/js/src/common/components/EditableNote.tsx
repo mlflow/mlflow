@@ -8,6 +8,7 @@
 import React, { Component } from 'react';
 import { Alert, Button, LegacyTooltip, useDesignSystemTheme } from '@databricks/design-system';
 import { Prompt } from './Prompt';
+import 'react-mde/lib/styles/css/react-mde-all.css';
 import ReactMde, { SvgIcon } from 'react-mde';
 import { forceAnchorTagNewTab, getMarkdownConverter, sanitizeConvertedHtml } from '../utils/MarkdownUtils';
 import './EditableNote.css';
@@ -111,7 +112,7 @@ export class EditableNoteImpl extends Component<EditableNoteImplProps, EditableN
     // @ts-expect-error TS(2339): Property 'confirmLoading' does not exist on type '... Remove this comment to see the full error message
     const { confirmLoading } = this.state;
     return (
-      <div className="editable-note-actions" data-testid="editable-note-actions">
+      <div className="mlflow-editable-note-actions" data-testid="editable-note-actions">
         <div>
           <Button
             componentId="codegen_mlflow_app_src_common_components_editablenote.tsx_114"

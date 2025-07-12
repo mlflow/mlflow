@@ -9,7 +9,7 @@ export const usePatchLoggedModelsTags = ({ loggedModelId }: { loggedModelId?: st
         tags: entries(variables).map(([key, value]) => ({ key, value })),
       };
 
-      return loggedModelsDataRequest(`ajax-api/2.0/mlflow/logged-models/${loggedModelId}/tags`, 'PATCH', requestBody);
+      return loggedModelsDataRequest(`/ajax-api/2.0/mlflow/logged-models/${loggedModelId}/tags`, 'PATCH', requestBody);
     },
   });
 

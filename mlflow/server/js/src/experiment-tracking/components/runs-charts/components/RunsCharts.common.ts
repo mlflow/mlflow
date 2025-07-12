@@ -2,14 +2,8 @@ import { intersection, throttle, uniq } from 'lodash';
 import { Dash, Layout, Margin } from 'plotly.js';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { PlotParams } from 'react-plotly.js';
-import {
-  ImageEntity,
-  KeyValueEntity,
-  MetricEntitiesByName,
-  MetricEntity,
-  MetricHistoryByName,
-  RunInfoEntity,
-} from '../../../types';
+import { ImageEntity, MetricEntitiesByName, MetricEntity, MetricHistoryByName, RunInfoEntity } from '../../../types';
+import { KeyValueEntity } from '../../../../common/types';
 import { Theme } from '@emotion/react';
 import { LegendLabelData } from './RunsMetricsLegend';
 import { RunGroupParentInfo, RunGroupingAggregateFunction } from '../../experiment-page/utils/experimentPage.row-types';

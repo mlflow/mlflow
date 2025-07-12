@@ -6,7 +6,7 @@ import {
 import { useLazyGetRunQuery } from '../../run-page/hooks/useGetRunQuery';
 import { transformDatasets as transformGraphQLResponseDatasets } from '../../run-page/hooks/useRunDetailsPageData';
 import { keyBy } from 'lodash';
-import type { KeyValueEntity } from '../../../types';
+import type { KeyValueEntity } from '../../../../common/types';
 import { ErrorLogType, ErrorName, PredefinedError } from '@databricks/web-shared/errors';
 import { ErrorCodes } from '../../../../common/constants';
 import { FormattedMessage } from 'react-intl';

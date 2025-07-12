@@ -30,6 +30,11 @@ export declare const List: React.ForwardRefExoticComponent<ListProps & React.Ref
 export interface TriggerProps extends Omit<RadixTabs.TabsTriggerProps, 'asChild'> {
     /** Called when the close tab icon is clicked. The close icon is only displayed when this prop is passed */
     onClose?: (value: string) => void;
+    /** Disallow 'Delete' key to close the tab.
+     * Suppressing the Delete close behavior is not recommended and likely requires additional changes on the calling side to support closing tabs via keyboard navigation.
+     * Ask in #dubois before using. */
+    suppressDeleteClose?: boolean;
+    customizedCloseAriaLabel?: string;
 }
 export declare const Trigger: React.ForwardRefExoticComponent<TriggerProps & React.RefAttributes<HTMLButtonElement>>;
 export declare const Content: React.ForwardRefExoticComponent<Omit<RadixTabs.TabsContentProps, "asChild"> & React.RefAttributes<HTMLDivElement>>;

@@ -4,6 +4,7 @@ import type { ComponentTheme } from '../../theme';
 import { DesignSystemEventProviderAnalyticsEventTypes } from '../DesignSystemEventProvider';
 import type { WithLoadingState } from '../LoadingState/LoadingState';
 import type { AnalyticsEventPropsWithStartInteraction, DangerouslySetAntdProps, HTMLDataAttributes } from '../types';
+export declare const SMALL_BUTTON_HEIGHT = 24;
 export declare const getMemoizedButtonEmotionStyles: (props: Parameters<typeof getButtonEmotionStyles>[0]) => any;
 export declare const getButtonEmotionStyles: ({ theme, classNamePrefix, loading, withIcon, onlyIcon, isAnchor, enableAnimation, size, type, useFocusPseudoClass, forceIconStyles, danger, useNewShadows, useNewBorderRadii, }: {
     theme: ComponentTheme;

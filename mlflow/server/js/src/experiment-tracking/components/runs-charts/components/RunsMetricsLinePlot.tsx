@@ -27,7 +27,6 @@ import {
 import { EMA } from '../../MetricsPlotView';
 import RunsMetricsLegendWrapper from './RunsMetricsLegendWrapper';
 import {
-  shouldEnableChartsOriginalLinesWhenSmoothing,
   shouldEnableRelativeTimeDateAxis,
   shouldEnableChartExpressions,
 } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
@@ -549,18 +548,15 @@ export const RunsMetricsLinePlot = React.memo(
 
     const getTraceAndOriginalTrace = (props: any) => {
       const dataTrace = getDataTraceForRun(props);
-      if (shouldEnableChartsOriginalLinesWhenSmoothing()) {
-        const originalLineProps = {
-          ...props,
-          lineSmoothness: 0,
-          useDefaultHoverBox: false,
-          displayPoints: false,
-          displayOriginalLine: true,
-        };
-        const originalDataTrace = getDataTraceForRun(originalLineProps);
-        return [dataTrace, originalDataTrace];
-      }
-      return [dataTrace];
+      const originalLineProps = {
+        ...props,
+        lineSmoothness: 0,
+        useDefaultHoverBox: false,
+        displayPoints: false,
+        displayOriginalLine: true,
+      };
+      const originalDataTrace = getDataTraceForRun(originalLineProps);
+      return [dataTrace, originalDataTrace];
     };
 
     const plotData = useMemo(() => {

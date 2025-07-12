@@ -1,4 +1,3 @@
-import { shouldEnableRunDetailsPageTracesTab } from '../../../common/utils/FeatureUtils';
 import { useParams } from '../../../common/utils/RoutingUtils';
 import { RunPageTabName } from '../../constants';
 
@@ -15,7 +14,7 @@ export const useRunViewActiveTab = (): RunPageTabName => {
   if (tabParam === 'system-metrics') {
     return RunPageTabName.SYSTEM_METRIC_CHARTS;
   }
-  if (shouldEnableRunDetailsPageTracesTab() && tabParam === 'traces') {
+  if (tabParam === 'traces') {
     return RunPageTabName.TRACES;
   }
   if (tabParam?.match(/^(artifactPath|artifacts)/)) {

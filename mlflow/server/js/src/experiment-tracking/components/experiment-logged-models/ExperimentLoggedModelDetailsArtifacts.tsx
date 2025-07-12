@@ -9,6 +9,7 @@ export const ExperimentLoggedModelDetailsArtifacts = ({ loggedModel }: { loggedM
       artifactRootUri={loggedModel?.info?.artifact_uri ?? ''}
       useAutoHeight
       experimentId={loggedModel?.info?.experiment_id ?? ''}
+      entityTags={loggedModel?.info?.tags}
     />
   </div>
 );

@@ -13,7 +13,8 @@ import _ from 'lodash';
 import { ErrorCodes, SupportPageUrl } from '../constants';
 import { FormattedMessage, IntlShape } from 'react-intl';
 import { ErrorWrapper } from './ErrorWrapper';
-import { KeyValueEntity, RunInfoEntity } from '../../experiment-tracking/types';
+import { RunInfoEntity } from '../../experiment-tracking/types';
+import { KeyValueEntity } from '../types';
 import { NOTE_CONTENT_TAG } from '../../experiment-tracking/utils/NoteUtils';
 
 class Utils {

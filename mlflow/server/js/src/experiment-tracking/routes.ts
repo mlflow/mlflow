@@ -1,6 +1,31 @@
 import { createMLflowRoutePath, generatePath } from '../common/utils/RoutingUtils';
 import { ExperimentPageTabName } from './constants';
 
+/**
+ * Page identifiers for MLflow experiment tracking pages.
+ * Keys should correspond to route paths.
+ */
+export enum PageId {
+  promptsPage = 'mlflow.prompts',
+  promptDetailsPage = 'mlflow.prompts.details',
+  experimentPageTabbed = 'mlflow.experiment.details.tab',
+  experimentLoggedModelDetailsPageTab = 'mlflow.logged-model.details.tab',
+  experimentLoggedModelDetailsPage = 'mlflow.logged-model.details',
+  experimentPage = 'mlflow.experiment.details',
+  // Child routes for experiment page:
+  experimentPageTabRuns = 'mlflow.experiment.tab.runs',
+  experimentPageTabModels = 'mlflow.experiment.tab.models',
+  experimentPageTabTraces = 'mlflow.experiment.tab.traces',
+  // Child routes for experiment page - end
+  experimentPageSearch = 'mlflow.experiment.details.search',
+  compareExperimentsSearch = 'mlflow.experiment.compare',
+  runPageWithTab = 'mlflow.experiment.run.details',
+  runPageDirect = 'mlflow.experiment.run.details.direct',
+  compareRuns = 'mlflow.experiment.run.compare',
+  metricPage = 'mlflow.metric.details',
+  experimentPrompt = 'mlflow.experiment.prompt',
+}
+
 // Route path definitions (used in defining route elements)
 export class RoutePaths {
   static get rootRoute() {
@@ -12,6 +37,17 @@ export class RoutePaths {
   static get experimentPage() {
     return createMLflowRoutePath('/experiments/:experimentId');
   }
+  // Child routes for experiment page:
+  static get experimentPageTabRuns() {
+    return createMLflowRoutePath('/experiments/:experimentId/runs');
+  }
+  static get experimentPageTabTraces() {
+    return createMLflowRoutePath('/experiments/:experimentId/traces');
+  }
+  static get experimentPageTabModels() {
+    return createMLflowRoutePath('/experiments/:experimentId/models');
+  }
+  // Child routes for experiment page - end
   static get experimentLoggedModelDetailsPageTab() {
     return createMLflowRoutePath('/experiments/:experimentId/models/:loggedModelId/:tabName');
   }
@@ -34,6 +70,12 @@ export class RoutePaths {
   }
   static get runPageWithArtifact() {
     return createMLflowRoutePath('/experiments/:experimentId/runs/:runUuid/artifactPath/*');
+  }
+  static get experimentPromptsList() {
+    return createMLflowRoutePath('/experiments/:experimentId/prompts');
+  }
+  static get experimentPrompt() {
+    return createMLflowRoutePath('/experiments/:experimentId/prompts/:promptName');
   }
   static get runPageDirect() {
     return createMLflowRoutePath('/runs/:runUuid');

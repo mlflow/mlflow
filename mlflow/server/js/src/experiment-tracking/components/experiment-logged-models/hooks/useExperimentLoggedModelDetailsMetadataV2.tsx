@@ -10,6 +10,7 @@ import { KeyValueProperty, NoneCell, SecondarySections } from '@databricks/web-s
 import { ExperimentLoggedModelSourceBox } from '../ExperimentLoggedModelSourceBox';
 import { ExperimentLoggedModelAllDatasetsList } from '../ExperimentLoggedModelAllDatasetsList';
 import { ExperimentLoggedModelDetailsModelVersionsList } from '../ExperimentLoggedModelDetailsModelVersionsList';
+import { MLFLOW_LOGGED_MODEL_USER_TAG } from '../../../constants';
 
 enum ExperimentLoggedModelDetailsMetadataSections {
   DETAILS = 'DETAILS',
@@ -37,6 +38,13 @@ export const useExperimentLoggedModelDetailsMetadataV2 = ({
           description: 'Label for the creation timestamp of a logged model on the logged model details page',
         })}
         value={<ExperimentLoggedModelTableDateCell value={loggedModel?.info?.creation_timestamp_ms} />}
+      />
+      <KeyValueProperty
+        keyValue={intl.formatMessage({
+          defaultMessage: 'Created by',
+          description: 'Label for the creator of a logged model on the logged model details page',
+        })}
+        value={loggedModel.info?.tags?.find((tag) => tag.key === MLFLOW_LOGGED_MODEL_USER_TAG)?.value ?? '-'}
       />
       <KeyValueProperty
         keyValue={intl.formatMessage({

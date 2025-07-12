@@ -1,13 +1,16 @@
 import { FormattedMessage } from 'react-intl';
 import { Link } from '../../../common/utils/RoutingUtils';
 import { OverflowMenu, PageHeader } from '../../../shared/building_blocks/PageHeader';
-import Routes from '../../routes';
-import type { ExperimentEntity, KeyValueEntity } from '../../types';
+import Routes, { PageId as ExperimentTrackingPageId } from '../../routes';
+import type { ExperimentEntity } from '../../types';
+import { KeyValueEntity } from '../../../common/types';
 import { RunViewModeSwitch } from './RunViewModeSwitch';
 import Utils from '../../../common/utils/Utils';
 import { RunViewHeaderRegisterModelButton } from './RunViewHeaderRegisterModelButton';
 import type { UseGetRunQueryResponseExperiment } from './hooks/useGetRunQuery';
 import type { RunPageModelVersionSummary } from './hooks/useUnifiedRegisteredModelVersionsSummariesForRun';
+import { ExperimentPageTabName } from '@mlflow/mlflow/src/experiment-tracking/constants';
+import { shouldEnableExperimentPageHeaderV2 } from '../../../common/utils/FeatureUtils';
 
 /**
  * Run details page header component, common for all page view modes
@@ -59,6 +62,19 @@ export const RunViewHeader = ({
   }
 
   const breadcrumbs = [getExperimentPageLink()];
+  if (shouldEnableExperimentPageHeaderV2() && experiment.experimentId) {
+    breadcrumbs.push(
+      <Link
+        to={Routes.getExperimentPageTabRoute(experiment.experimentId, ExperimentPageTabName.Runs)}
+        data-test-id="experiment-observatory-link-runs"
+      >
+        <FormattedMessage
+          defaultMessage="Runs"
+          description="Breadcrumb nav item to link to the list of runs on the parent experiment"
+        />
+      </Link>,
+    );
+  }
 
   const renderRegisterModelButton = () => {
     return (

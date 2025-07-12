@@ -32,7 +32,6 @@ const LAST_MODIFIED_COLUMN_INDEX = 'last_updated_timestamp';
 
 type ModelListViewImplProps = {
   models: any[];
-  endpoints?: any;
   showEditPermissionModal: (...args: any[]) => any;
   permissionLevel: string;
   selectedOwnerFilter: string;

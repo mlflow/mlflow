@@ -20,7 +20,6 @@ jest.setTimeout(90000); // increase timeout due to testing heavier tables and ch
 jest.mock('../../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual<typeof import('../../../common/utils/FeatureUtils')>('../../../common/utils/FeatureUtils'),
   isLoggedModelsFilteringAndSortingEnabled: jest.fn(() => true),
-  isExperimentLoggedModelsUIEnabled: jest.fn(() => true),
 }));
 
 // Mock the chart component to save some resources while easily assert that the correct chart is rendered

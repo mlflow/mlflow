@@ -28,7 +28,6 @@ import { RunsCompare } from './RunsCompare';
 import { useSampledMetricHistory } from '../runs-charts/hooks/useSampledMetricHistory';
 import userEvent from '@testing-library/user-event';
 import { RunsChartsLineChartXAxisType } from '../runs-charts/components/RunsCharts.common';
-import { shouldEnableDifferenceViewCharts } from '../../../common/utils/FeatureUtils';
 import { useState } from 'react';
 import { DesignSystemProvider } from '@databricks/design-system';
 
@@ -51,7 +50,6 @@ jest.mock('../../../common/utils/FeatureUtils', () => ({
   ...jest.requireActual<typeof import('../../../common/utils/FeatureUtils')>('../../../common/utils/FeatureUtils'),
   shouldEnableHidingChartsWithNoData: jest.fn(() => false),
   shouldEnableImageGridCharts: jest.fn(() => true),
-  shouldEnableDifferenceViewCharts: jest.fn(() => false),
 }));
 
 // Mock useIsInViewport hook to simulate that the chart element is in the viewport
@@ -1154,8 +1152,6 @@ describe.each(testCases)('RunsCompare $description', ({ setup: testCaseSetup }) 
   describe('hiding charts with no data', () => {
     // Set up charts
     beforeEach(() => {
-      jest.mocked(shouldEnableDifferenceViewCharts).mockImplementation(() => true);
-
       currentUIState.compareRunCharts = [
         {
           type: RunsChartType.BAR,

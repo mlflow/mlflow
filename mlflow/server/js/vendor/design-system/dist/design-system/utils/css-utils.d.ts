@@ -1,7 +1,7 @@
 import type { CSSObject } from '@emotion/react';
 import type { CSSProperties } from 'react';
 import type { VirtualItem } from 'react-virtual';
-import type { Theme } from '../../theme';
+import { type Theme } from '../../theme';
 import type { TypographyColor, ValidationState } from '../types';
 /**
  * Recursively appends `!important` to all CSS properties in an Emotion `CSSObject`.
@@ -35,6 +35,9 @@ type GetShadowScrollFunction = (theme: Theme, options?: {
 }) => Pick<CSSObject, 'background' | 'backgroundRepeat' | 'backgroundSize' | 'backgroundAttachment'>;
 export declare const getShadowScrollStyles: GetShadowScrollFunction;
 export declare const getBottomOnlyShadowScrollStyles: GetShadowScrollFunction;
+export declare const getHorizontalTabShadowStyles: (theme: Theme, { backgroundColor }?: {
+    backgroundColor?: string;
+}) => Pick<CSSObject, "background" | "backgroundRepeat" | "backgroundSize" | "backgroundAttachment">;
 export declare function getVirtualizedComboboxMenuItemStyles(virtualItem: VirtualItem): CSSProperties;
 export {};
 //# sourceMappingURL=css-utils.d.ts.map

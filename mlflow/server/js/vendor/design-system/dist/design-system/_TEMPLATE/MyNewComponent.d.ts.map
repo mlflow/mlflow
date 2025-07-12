@@ -1,0 +1,1 @@
+{"version":3,"file":"MyNewComponent.d.ts","sourceRoot":"","sources":["../../../src/design-system/_TEMPLATE/MyNewComponent.tsx"],"names":[],"mappings":"AAAA,OAAO,KAAK,EAAE,WAAW,IAAI,eAAe,EAAE,MAAM,MAAM,CAAC;AAK3D,MAAM,WAAW,mBAAoB,SAAQ,eAAe;IAC1D;;;OAGG;IACH,IAAI,CAAC,EAAE,eAAe,CAAC,MAAM,CAAC,CAAC;CAChC;AAED,eAAO,MAAM,cAAc;YAAW,mBAAmB,GAAG,GAAG,CAAC,OAAO;;CAMtE,CAAC"}

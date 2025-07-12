@@ -1,4 +1,4 @@
-.pdf-outer-container {
+.mlflow-pdf-outer-container {
   display: flex;
   justify-content: center;
   align-items: center;
@@ -7,14 +7,14 @@
   padding-left: 16px;
   overflow: hidden;
 }
-.pdf-viewer {
+.mlflow-pdf-viewer {
   display: flex;
   flex-direction: column;
   overflow-y: scroll;
   height: 100%;
 }
 
-.paginator {
+.mlflow-paginator {
   display: flex;
   justify-content: center;
   align-items: center;
@@ -26,7 +26,7 @@
   padding-top: 10px;
 }
 
-.document {
+.mlflow-document {
   display: flex;
   justify-content: center;
   align-items: center;

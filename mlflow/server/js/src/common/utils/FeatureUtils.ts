@@ -15,22 +15,6 @@ export const shouldEnableRunDetailsPageAutoRefresh = () => true;
  */
 export const shouldEnablePromptLab = () => true;
 
-export const shouldUseExperimentPageChartViewAsDefault = () => false;
-
-/**
- * Difference view charts feature
- */
-export const shouldEnableDifferenceViewCharts = () => true;
-
-/**
- * Keeping original lines when smoothing.
- */
-export const shouldEnableChartsOriginalLinesWhenSmoothing = () => false;
-/**
- * Enable to use larger color selection (palette of 400 colors) and murmur hashing of
- * run UUIDs for color assignment
- */
-export const shouldEnableLargerColorSelection = () => false;
 /**
  * Enable chart expressions feature
  */
@@ -51,8 +35,6 @@ export const shouldEnableNewDifferenceViewCharts = () => false;
 export const shouldEnableDifferenceViewChartsV3 = () => false;
 export const shouldEnableMinMaxMetricsOnExperimentPage = () => false;
 
-export const shouldEnableTracingUI = () => true;
-export const shouldEnableRunDetailsPageTracesTab = () => true;
 export const shouldUseCompressedExperimentViewSharedState = () => true;
 export const shouldEnableUnifiedChartDataTraceHighlight = () => true;
 export const shouldUseRegexpBasedAutoRunsSearchFilter = () => true;
@@ -63,9 +45,8 @@ export const shouldUsePredefinedErrorsInExperimentTracking = () => true;
 /**
  * Determines if logged models UI (part of model-centric IA shift) is enabled
  */
-export const isExperimentLoggedModelsUIEnabled = () => true;
-export const isLoggedModelsFilteringAndSortingEnabled = () => true;
-export const isRunPageLoggedModelsTableEnabled = () => isExperimentLoggedModelsUIEnabled();
+export const isLoggedModelsFilteringAndSortingEnabled = () => false;
+export const isRunPageLoggedModelsTableEnabled = () => true;
 
 /**
  * Determines if evaluation results online monitoring UI is enabled
@@ -80,6 +61,53 @@ export const shouldEnableGraphQLRunDetailsPage = () => true;
 export const shouldEnableGraphQLSampledMetrics = () => false;
 export const shouldEnableGraphQLModelVersionsForRunDetails = () => false;
 export const shouldRerunExperimentUISeeding = () => false;
+
+/**
+ * Determines if the V2 experiment page header is enabled.
+ */
+export const shouldEnableExperimentPageHeaderV2 = () => false;
+export const shouldEnableExperimentKindInference = () => false;
+
+/**
+ * Determines if the new prompts tab on DB platform is enabled.
+ */
+export const shouldEnablePromptsTabOnDBPlatform = () => false;
+
+export const shouldEnablePromptTags = () => false;
+
+export const shouldUseSharedTaggingUI = () => false;
+
+export const shouldDisableReproduceRunButton = () => false;
+
+export const shouldUnifyLoggedModelsAndRegisteredModels = () => {
+  return false;
+};
+
+/**
+ * Enables use of GetLoggedModels API allowing to get multiple logged models by their IDs.
+ */
+export const shouldUseGetLoggedModelsBatchAPI = () => {
+  return false;
+};
+
+/**
+ * Enables grouping logged models in UI.
+ * The current supported mode is grouping by source run ID.
+ */
+export const shouldEnableLoggedModelsGrouping = () => {
+  return false;
+};
+
+/**
+ * Uses restructured routes for experiment page: parent+child hierarchy with <Outlet> instead of tab parameter.
+ */
+export const shouldEnableExperimentPageChildRoutes = () => {
+  // This feature depends on the new experiment page header/tabs being enabled.
+  if (!shouldEnableExperimentPageHeaderV2()) {
+    return false;
+  }
+  return false;
+};
 
 /**
  * A flag determining if we should display the new models UI.

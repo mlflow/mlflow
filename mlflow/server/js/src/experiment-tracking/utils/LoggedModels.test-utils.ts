@@ -78,3 +78,12 @@ export const mockSearchLoggedModels = (
       }),
     ),
   );
+
+export const mockGetLoggedModels = (models = getLoggedModelsDemoData('test-experiment')) =>
+  rest.get('/ajax-api/2.0/mlflow/logged-models:batchGet', (req, res, ctx) =>
+    res(
+      ctx.json({
+        models,
+      }),
+    ),
+  );

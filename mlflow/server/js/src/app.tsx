@@ -1,7 +1,10 @@
 import React, { useMemo } from 'react';
 import { ApolloProvider } from '@mlflow/mlflow/src/common/utils/graphQLHooks';
 import { RawIntlProvider } from 'react-intl';
+
+import 'font-awesome/css/font-awesome.css';
 import './index.css';
+
 import { ApplyGlobalStyles } from '@databricks/design-system';
 import '@databricks/design-system/dist/index.css';
 import '@databricks/design-system/dist/index-dark.css';

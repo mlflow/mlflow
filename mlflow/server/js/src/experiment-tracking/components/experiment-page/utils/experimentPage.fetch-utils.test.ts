@@ -24,7 +24,7 @@ describe('experiment page fetch utils', () => {
       fetchModelVersionsForRuns(runsDataPayload, actionCreatorMock, dispatchMock);
 
       // We're chunking by 5 runs so we expect 2 calls for sum of 10 runs
-      expect(actionCreatorMock).toBeCalledTimes(2);
+      expect(actionCreatorMock).toHaveBeenCalledTimes(2);
       expect(actionCreatorMock.mock.calls[0][0]).toEqual({ run_id: ['run_1', 'run_3', 'run_5', 'run_7', 'run_9'] });
       expect(actionCreatorMock.mock.calls[1][0]).toEqual({
         run_id: ['run_11', 'run_13', 'run_15', 'run_17', 'run_19'],

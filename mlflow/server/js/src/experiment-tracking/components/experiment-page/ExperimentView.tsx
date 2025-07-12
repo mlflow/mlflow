@@ -1,7 +1,11 @@
-import { LegacySkeleton } from '@databricks/design-system';
+import { Alert, LegacySkeleton, Typography, useDesignSystemTheme } from '@databricks/design-system';
 
 import { useEffect, useState } from 'react';
 import { ErrorCodes } from '../../../common/constants';
+import NotFoundPage from '../NotFoundPage';
+import { PermissionDeniedView } from '../PermissionDeniedView';
+import { getExperimentApi } from '../../actions';
+import { ExperimentKind } from '../../constants';
 import { ExperimentViewHeaderCompare } from './components/header/ExperimentViewHeaderCompare';
 import { ExperimentViewRuns } from './components/runs/ExperimentViewRuns';
 import { useExperiments } from './hooks/useExperiments';
@@ -13,8 +17,8 @@ import { ExperimentPageUIStateContextProvider } from './contexts/ExperimentPageU
 import { first } from 'lodash';
 import {
   isExperimentEvalResultsMonitoringUIEnabled,
-  isExperimentLoggedModelsUIEnabled,
-  shouldEnableTracingUI,
+  shouldEnableExperimentKindInference,
+  shouldEnableExperimentPageHeaderV2,
   shouldUsePredefinedErrorsInExperimentTracking,
 } from '../../../common/utils/FeatureUtils';
 import { useExperimentPageSearchFacets } from './hooks/useExperimentPageSearchFacets';
@@ -30,15 +34,24 @@ import { ExperimentViewHeader } from './components/header/ExperimentViewHeader';
 import invariant from 'invariant';
 import { useExperimentPageViewMode } from './hooks/useExperimentPageViewMode';
 import { ExperimentViewTraces } from './components/ExperimentViewTraces';
+import { FormattedMessage } from 'react-intl';
 import { ErrorWrapper } from '../../../common/utils/ErrorWrapper';
 import { NotFoundError, PermissionError } from '@databricks/web-shared/errors';
 import { ExperimentViewNotFound } from './components/ExperimentViewNotFound';
 import { ExperimentViewNoPermissionsError } from './components/ExperimentViewNoPermissionsError';
 import { ErrorViewV2 } from '../../../common/components/ErrorViewV2';
+import { ExperimentViewHeaderV2 } from './components/header/ExperimentViewHeaderV2';
+import { ExperimentViewHeaderKindSelector } from './components/header/ExperimentViewHeaderKindSelector';
+import { getExperimentKindFromTags } from '../../utils/ExperimentKindUtils';
+import { useUpdateExperimentKind } from './hooks/useUpdateExperimentKind';
+import { canModifyExperiment } from './utils/experimentPage.common-utils';
+import { useInferExperimentKind } from './hooks/useInferExperimentKind';
+import { ExperimentViewInferredKindModal } from './components/header/ExperimentViewInferredKindModal';
 
 // END-EDGE
-export const ExperimentView = () => {
+export const ExperimentView = ({ showHeader = true }: { showHeader?: boolean }) => {
   const dispatch = useDispatch<ThunkDispatch>();
+  const { theme } = useDesignSystemTheme();
 
   const [searchFacets, experimentIds, isPreview] = useExperimentPageSearchFacets();
   const [viewMode] = useExperimentPageViewMode();
@@ -75,10 +88,7 @@ export const ExperimentView = () => {
   useEffect(() => {
     // If the new tabbed UI is enabled, fetch the experiments only if they are not already loaded.
     // Helps with the smooth page transition.
-    if (
-      (isExperimentLoggedModelsUIEnabled() || isExperimentEvalResultsMonitoringUIEnabled()) &&
-      experimentIds.every((id) => experiments.find((exp) => exp.experimentId === id))
-    ) {
+    if (experimentIds.every((id) => experiments.find((exp) => exp.experimentId === id))) {
       return;
     }
     fetchExperiments(experimentIds);
@@ -105,6 +115,28 @@ export const ExperimentView = () => {
   usePersistExperimentPageViewState(uiState, searchFacets, experimentIds, isViewStateShared || isPreview);
 
   const isViewInitialized = Boolean(!isLoadingExperiment && experiments[0] && runsData && searchFacets);
+
+  const { mutate: updateExperimentKind, isLoading: updatingExperimentKind } = useUpdateExperimentKind(() => {
+    if (isComparingExperiments) {
+      return;
+    }
+    return dispatch(getExperimentApi(experimentIds[0]));
+  });
+
+  const experimentKind = getExperimentKindFromTags(first(experiments)?.tags);
+  const firstExperimentId = first(experiments)?.experimentId;
+
+  const {
+    inferredExperimentKind,
+    isLoading: inferringExperimentType,
+    dismiss,
+  } = useInferExperimentKind({
+    experimentId: firstExperimentId,
+    isLoadingExperiment,
+    enabled: showHeader && !isComparingExperiments && shouldEnableExperimentKindInference() && !experimentKind,
+    experimentTags: first(experiments)?.tags,
+    updateExperimentKind,
+  });
 
   if (
     // Scenario for 404: either request error is resolved to NotFoundError or the code of ErrorWrapper is "RESOURCE_DOES_NOT_EXIST"
@@ -137,15 +169,77 @@ export const ExperimentView = () => {
 
   const isLoading = isLoadingExperiment || !experiments[0];
 
+  const canUpdateExperimentKind = true;
+
+  if (
+    inferredExperimentKind === ExperimentKind.NO_INFERRED_TYPE &&
+    canUpdateExperimentKind &&
+    shouldEnableExperimentKindInference()
+  ) {
+    return (
+      <ExperimentViewInferredKindModal
+        onConfirm={(kind) => {
+          firstExperimentId &&
+            updateExperimentKind(
+              { experimentId: firstExperimentId, kind },
+              {
+                onSettled: dismiss,
+              },
+            );
+        }}
+        onDismiss={dismiss}
+      />
+    );
+  }
+
+  const renderMlflow3PromoBanner = () => {
+    return null;
+  };
+
+  const renderTaskSection = () => {
+    return null;
+  };
+
   const renderExperimentHeader = () => (
     <>
-      <ExperimentViewHeader
-        experiment={firstExperiment}
-        searchFacetsState={searchFacets || undefined}
-        uiState={uiState}
-        showAddDescriptionButton={showAddDescriptionButton}
-        setEditing={setEditing}
-      />
+      {shouldEnableExperimentPageHeaderV2() ? (
+        <>
+          <ExperimentViewHeaderV2
+            experiment={firstExperiment}
+            searchFacetsState={searchFacets || undefined}
+            uiState={uiState}
+            setEditing={setEditing}
+            experimentKindSelector={
+              !isComparingExperiments && firstExperimentId ? (
+                <ExperimentViewHeaderKindSelector
+                  value={experimentKind}
+                  inferredExperimentKind={inferredExperimentKind}
+                  onChange={(kind) => updateExperimentKind({ experimentId: firstExperimentId, kind })}
+                  isUpdating={updatingExperimentKind || inferringExperimentType}
+                  key={inferredExperimentKind}
+                  readOnly={!canUpdateExperimentKind}
+                />
+              ) : null
+            }
+          />
+          <div
+            css={{
+              width: '100%',
+              borderTop: `1px solid ${theme.colors.border}`,
+              marginTop: theme.spacing.sm,
+              marginBottom: theme.spacing.sm,
+            }}
+          />
+        </>
+      ) : (
+        <ExperimentViewHeader
+          experiment={firstExperiment}
+          searchFacetsState={searchFacets || undefined}
+          uiState={uiState}
+          showAddDescriptionButton={showAddDescriptionButton}
+          setEditing={setEditing}
+        />
+      )}
       <div
         style={{
           maxHeight: isMaximized ? 0 : hideableElementHeight,
@@ -165,7 +259,7 @@ export const ExperimentView = () => {
   );
 
   const getRenderedView = () => {
-    if (shouldEnableTracingUI() && viewMode === 'TRACES') {
+    if (viewMode === 'TRACES') {
       return <ExperimentViewTraces experimentIds={experimentIds} />;
     }
 
@@ -190,13 +284,19 @@ export const ExperimentView = () => {
       <div css={styles.experimentViewWrapper}>
         {isLoading ? (
           <LegacySkeleton title paragraph={false} active />
-        ) : (
+        ) : showHeader ? (
           <>
             {isComparingExperiments ? (
               <ExperimentViewHeaderCompare experiments={experiments} />
             ) : (
               renderExperimentHeader()
             )}
+          </>
+        ) : (
+          // When the header is not shown, we still want to render the promo banner and task section
+          <>
+            {renderMlflow3PromoBanner()}
+            {renderTaskSection()}
           </>
         )}
         {getRenderedView()}

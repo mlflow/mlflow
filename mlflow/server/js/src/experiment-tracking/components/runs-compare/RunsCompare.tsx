@@ -1,7 +1,8 @@
 import { TableSkeleton, useDesignSystemTheme } from '@databricks/design-system';
 import { ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { useSelector } from 'react-redux';
-import type { KeyValueEntity, MetricEntitiesByName, ChartSectionConfig, ImageEntity } from '../../types';
+import type { MetricEntitiesByName, ChartSectionConfig, ImageEntity } from '../../types';
+import { KeyValueEntity } from '../../../common/types';
 import { RunsChartsCardConfig } from '../runs-charts/runs-charts.types';
 import { RunsChartType, type SerializedRunsChartsCardConfigCard } from '../runs-charts/runs-charts.types';
 import { RunsChartsConfigureModal } from '../runs-charts/components/RunsChartsConfigureModal';

@@ -48,7 +48,7 @@ export const ExperimentLoggedModelTableDatasetColHeader = ({ columnGroup }: { co
     );
   }
   return (
-    <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs }}>
+    <span css={{ display: 'flex', alignItems: 'center', gap: theme.spacing.xs, overflow: 'hidden' }}>
       Dataset:{' '}
       <Typography.Link
         css={{

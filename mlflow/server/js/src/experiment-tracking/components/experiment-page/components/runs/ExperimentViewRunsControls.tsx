@@ -18,6 +18,7 @@ import { ExperimentViewRunsGroupBySelector } from './ExperimentViewRunsGroupBySe
 import { useUpdateExperimentViewUIState } from '../../contexts/ExperimentPageUIStateContext';
 import { ExperimentPageSearchFacetsState } from '../../models/ExperimentPageSearchFacetsState';
 import { ExperimentViewRunsSortSelectorV2 } from './ExperimentViewRunsSortSelectorV2';
+import { shouldEnableExperimentPageHeaderV2 } from '@mlflow/mlflow/src/common/utils/FeatureUtils';
 
 type ExperimentViewRunsControlsProps = {
   viewState: ExperimentPageViewState;
@@ -111,11 +112,15 @@ export const ExperimentViewRunsControls = React.memo(
           marginBottom: theme.spacing.sm,
         }}
       >
-        <ExperimentViewRunsModeSwitch
-          hideBorder={false}
-          viewState={viewState}
-          runsAreGrouped={Boolean(uiState.groupBy)}
-        />
+        {/* skip mode switcher if v2 header is enabled
+        since the tab selector has been moved into the header */}
+        {shouldEnableExperimentPageHeaderV2() ? null : (
+          <ExperimentViewRunsModeSwitch
+            hideBorder={false}
+            viewState={viewState}
+            runsAreGrouped={Boolean(uiState.groupBy)}
+          />
+        )}
 
         {showActionButtons && (
           <ExperimentViewRunsControlsActions

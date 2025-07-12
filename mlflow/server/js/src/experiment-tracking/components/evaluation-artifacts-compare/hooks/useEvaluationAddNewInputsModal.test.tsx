@@ -87,7 +87,7 @@ describe('useEvaluationAddNewInputsModal', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Submit' }));
 
     // Assert returned data
-    expect(onSuccess).toBeCalledWith({
+    expect(onSuccess).toHaveBeenCalledWith({
       input_a: 'val_a',
       input_b: 'val_b',
       input_c: 'val_c',

@@ -65,7 +65,7 @@ describe('ShowArtifactTextView', () => {
     wrapper = mountWithIntl(<ShowArtifactTextView {...props} />);
     setImmediate(() => {
       wrapper.update();
-      expect(wrapper.find('.ShowArtifactPage').length).toBe(1);
+      expect(wrapper.find('.mlflow-ShowArtifactPage').length).toBe(1);
       expect(wrapper.find('code').length).toBe(1);
       expect(wrapper.find('code').text()).toBe('my text');
       done();
@@ -115,8 +115,8 @@ describe('ShowArtifactTextView', () => {
     instance = wrapper.instance();
     instance.fetchArtifacts = jest.fn();
     wrapper.setProps({ path: 'newpath', runUuid: 'newRunId' });
-    expect(instance.fetchArtifacts).toBeCalled();
-    expect(instance.props.getArtifact).toBeCalled();
+    expect(instance.fetchArtifacts).toHaveBeenCalled();
+    expect(instance.props.getArtifact).toHaveBeenCalled();
   });
 
   test('should render prettified valid json', (done) => {
@@ -127,7 +127,7 @@ describe('ShowArtifactTextView', () => {
     wrapper = mountWithIntl(<ShowArtifactTextView {...props} />);
     setImmediate(() => {
       wrapper.update();
-      expect(wrapper.find('.ShowArtifactPage').length).toBe(1);
+      expect(wrapper.find('.mlflow-ShowArtifactPage').length).toBe(1);
       expect(wrapper.find('code').length).toBe(1);
       expect(wrapper.find('code').text()).toContain('\n');
       expect(wrapper.find('code').text()).toContain('key1');

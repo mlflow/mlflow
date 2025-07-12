@@ -136,7 +136,7 @@ describe('ExperimentViewRuns', () => {
     renderTestComponent();
 
     await waitFor(() => {
-      expect(useExperimentRunRows).toBeCalledWith(
+      expect(useExperimentRunRows).toHaveBeenCalledWith(
         expect.objectContaining({
           metricKeyList: ['m1', 'm2', 'm3'],
           paramKeyList: ['p1', 'p2', 'p3'],
@@ -149,15 +149,14 @@ describe('ExperimentViewRuns', () => {
   });
 
   test('should properly react to the new runs data', async () => {
-    // const wrapper = createWrapper();
     const { rerender } = renderTestComponent();
 
     await waitFor(() => {
-      expect(useExperimentRunRows).toBeCalled();
+      expect(useExperimentRunRows).toHaveBeenCalled();
     });
     // Assert that we're not calling for generating columns/rows
     // while having "newparam" parameter
-    expect(useExperimentRunRows).not.toBeCalledWith(
+    expect(useExperimentRunRows).not.toHaveBeenCalledWith(
       expect.objectContaining({
         paramKeyList: ['p1', 'p2', 'p3', 'newparam'],
       }),
@@ -174,7 +173,7 @@ describe('ExperimentViewRuns', () => {
     await waitFor(() => {
       // Assert that "newparam" parameter is being included in calls
       // for new columns and rows
-      expect(useExperimentRunRows).toBeCalledWith(
+      expect(useExperimentRunRows).toHaveBeenCalledWith(
         expect.objectContaining({
           paramKeyList: ['p1', 'p2', 'p3', 'newparam'],
         }),

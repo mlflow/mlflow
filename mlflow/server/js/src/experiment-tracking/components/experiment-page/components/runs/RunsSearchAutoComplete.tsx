@@ -20,6 +20,7 @@ export type RunsSearchAutoCompleteProps = {
   onSearchFilterChange: (newValue: string) => void;
   onClear: () => void;
   requestError: ErrorWrapper | Error | null;
+  className?: string;
 };
 
 const ATTRIBUTE_OPTIONS = [

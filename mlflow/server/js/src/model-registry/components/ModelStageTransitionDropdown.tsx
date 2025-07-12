@@ -124,7 +124,7 @@ export class ModelStageTransitionDropdown extends React.Component<
     const { currentStage } = this.props;
     return (
       <span>
-        <Dropdown overlay={this.getMenu()} trigger={['click']} className="stage-transition-dropdown">
+        <Dropdown overlay={this.getMenu()} trigger={['click']} className="mlflow-stage-transition-dropdown">
           <span>
             {StageTagComponents[currentStage ?? Stages.NONE]}
             <ChevronDownIcon css={{ cursor: 'pointer', marginLeft: -4 }} />

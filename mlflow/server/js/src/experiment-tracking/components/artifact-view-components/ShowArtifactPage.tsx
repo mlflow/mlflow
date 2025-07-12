@@ -36,6 +36,7 @@ import { Empty, Spacer, useDesignSystemTheme } from '@databricks/design-system';
 import { LazyShowArtifactAudioView } from './LazyShowArtifactAudioView';
 import type { LoggedModelArtifactViewerProps } from './ArtifactViewComponents.types';
 import { LazyShowArtifactVideoView } from './LazyShowArtifactVideoView';
+import { KeyValueEntity } from '../../../common/types';
 
 const MAX_PREVIEW_ARTIFACT_SIZE_MB = 50;
 
@@ -48,18 +49,20 @@ type ShowArtifactPageProps = {
   runTags?: any;
   modelVersions?: any[];
   showArtifactLoggedTableView?: boolean;
+  entityTags?: Partial<KeyValueEntity>[];
 } & LoggedModelArtifactViewerProps;
 
 class ShowArtifactPage extends Component<ShowArtifactPageProps> {
   render() {
     if (this.props.path) {
-      const { loggedModelId, isLoggedModelsMode, path, runUuid, experimentId } = this.props;
+      const { loggedModelId, isLoggedModelsMode, path, runUuid, experimentId, entityTags } = this.props;
       const commonArtifactProps = {
         loggedModelId,
         isLoggedModelsMode,
         path,
         runUuid,
         experimentId,
+        entityTags,
       };
 
       const normalizedExtension = getExtension(this.props.path);
