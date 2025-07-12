@@ -122,6 +122,12 @@ const config: Config = {
           label: 'API Reference',
         },
         {
+          href: 'https://mlflow.org/#get-started',
+          label: 'Sign Up',
+          position: 'right',
+          className: 'sign-up-button',
+        },
+        {
           href: 'https://github.com/mlflow/mlflow',
           label: 'GitHub',
           position: 'right',
