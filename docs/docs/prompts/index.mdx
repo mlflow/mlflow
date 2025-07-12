@@ -56,6 +56,7 @@ import TabItem from "@theme/TabItem";
 
       ```python
       import mlflow
+      from pydantic import BaseModel
 
       # Use double curly braces for variables in the template
       initial_template = """\
@@ -64,10 +65,20 @@ import TabItem from "@theme/TabItem";
       Sentences: {{ sentences }}
       """
 
-      # Register a new prompt
-      prompt = mlflow.genai.register_prompt(
+
+      # Define response format for structured output
+      class SummaryResponse(BaseModel):
+          summary: str
+          key_points: list[str]
+          word_count: int
+
+
+      # Register a text prompt
+      text_prompt = mlflow.genai.register_prompt(
           name="summarization-prompt",
           template=initial_template,
+          # Optional: Provide response format
+          response_format=SummaryResponse,
           # Optional: Provide a commit message to describe the changes
           commit_message="Initial commit",
           # Optional: Specify any additional metadata about the prompt version
@@ -118,6 +129,7 @@ This creates a new prompt with the specified template text and metadata. The pro
 
       ```python
       import mlflow
+      from pydantic import BaseModel
 
       new_template = """\
       You are an expert summarizer. Condense the following content into exactly {{ num_sentences }} clear and informative sentences that capture the key points.
@@ -131,10 +143,21 @@ This creates a new prompt with the specified template text and metadata. The pro
       - Maintain the same level of formality as the original text
       """
 
+
+      # Enhanced response format
+      class EnhancedSummaryResponse(BaseModel):
+          summary: str
+          key_points: list[str]
+          word_count: int
+          confidence_score: float
+          reading_level: str
+
+
       # Register a new version of an existing prompt
-      updated_prompt = mlflow.genai.register_prompt(
+      updated_text_prompt = mlflow.genai.register_prompt(
           name="summarization-prompt",  # Specify the existing prompt name
           template=new_template,
+          response_format=EnhancedSummaryResponse,
           commit_message="Improvement",
           tags={
               "author": "author@example.com",
@@ -234,7 +257,9 @@ The `Prompt` object is the core entity in MLflow Prompt Registry. It represents 
 Key attributes of a Prompt object:
 
 - `Name`: A unique identifier for the prompt.
-- `Template`: The text of the prompt, which can include variables in `{{variable}}` format.
+- `Template`: The content of the prompt, which can be either:
+  - A string containing text with variables in `{{variable}}` format (text prompts)
+  - A list of dictionaries representing chat messages with 'role' and 'content' keys (chat prompts)
 - `Version`: A sequential number representing the revision of the prompt.
 - `Commit Message`: A description of the changes made in the prompt version, similar to Git commit messages.
 - `Version Metadata`: Optional key-value pairs for adding metadata to the prompt version. For example, you may use this for tracking the author of the prompt version.

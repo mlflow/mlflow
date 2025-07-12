@@ -42,10 +42,29 @@ You can initiate a new prompt in the MLflow Prompt Registry in two primary ways:
       Sentences: {{ sentences }}
       """
 
+      # Chat Style template
+      initial_template = [
+          {
+              "role": "system",
+              "content": "Summarize content you are provided with in {{ num_sentences }} sentences.",
+          },
+          {"role": "user", "content": "Sentences: {{ sentences }}"},
+      ]
+
+      # Optional Response Format
+      from pydantic import BaseModel, Field
+
+
+      class ResponseFormat:
+          summary: str = Field(..., description="Summary of the content")
+
+
       # Register a new prompt
       prompt = mlflow.genai.register_prompt(
           name="summarization-prompt",
           template=initial_template,
+          # Optional: Provide Response Format to get structured output
+          response_format=ResponseFormat,
           # Optional: Provide a commit message to describe the changes
           commit_message="Initial commit",
           # Optional: Set tags applies to the prompt (across versions)

@@ -1,6 +1,8 @@
 import warnings
 from contextlib import contextmanager
-from typing import Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
+
+from pydantic import BaseModel
 
 import mlflow.tracking._model_registry.fluent as registry_api
 from mlflow.entities.model_registry.prompt import Prompt
@@ -8,6 +10,9 @@ from mlflow.entities.model_registry.prompt_version import PromptVersion
 from mlflow.prompt.registry_utils import require_prompt_registry
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.utils.annotations import experimental
+
+if TYPE_CHECKING:
+    from mlflow.types.chat import ContentType
 
 
 @contextmanager
@@ -26,7 +31,8 @@ def suppress_genai_migration_warning():
 @require_prompt_registry
 def register_prompt(
     name: str,
-    template: str,
+    template: Union[str, list[dict[str, "ContentType"]]],
+    response_format: Optional[Union[BaseModel, dict[str, Any]]] = None,
     commit_message: Optional[str] = None,
     tags: Optional[dict[str, str]] = None,
 ) -> PromptVersion:
@@ -34,18 +40,21 @@ def register_prompt(
     Register a new :py:class:`Prompt <mlflow.entities.Prompt>` in the MLflow Prompt Registry.
 
     A :py:class:`Prompt <mlflow.entities.Prompt>` is a pair of name and
-    template text at minimum. With MLflow Prompt Registry, you can create, manage, and
+    template content at minimum. With MLflow Prompt Registry, you can create, manage, and
     version control prompts with the MLflow's robust model tracking framework.
 
     If there is no registered prompt with the given name, a new prompt will be created.
     Otherwise, a new version of the existing prompt will be created.
 
-
     Args:
         name: The name of the prompt.
-        template: The template text of the prompt. It can contain variables enclosed in
-            double curly braces, e.g. {variable}, which will be replaced with actual values
-            by the `format` method.
+        template: The template content of the prompt. Can be either:
+
+            - A string containing text with variables enclosed in double curly braces,
+              e.g. {{variable}}, which will be replaced with actual values by the `format` method.
+            - A list of dictionaries representing chat messages, where each message has
+              'role' and 'content' keys (e.g., [{"role": "user", "content": "Hello {{name}}"}])
+
 
             .. note::
 
@@ -58,6 +67,8 @@ def register_prompt(
                     prompt = client.load_prompt("my_prompt")
                     langchain_format = prompt.to_single_brace_format()
 
+        response_format: Optional Pydantic class or dictionary defining the expected response
+            structure. This can be used to specify the schema for structured outputs from LLM calls.
         commit_message: A message describing the changes made to the prompt, similar to a
             Git commit message. Optional.
         tags: A dictionary of tags associated with the **prompt version**.
@@ -73,14 +84,24 @@ def register_prompt(
 
         import mlflow
 
-        # Register a new prompt
+        # Register a text prompt
         mlflow.genai.register_prompt(
-            name="my_prompt",
+            name="greeting_prompt",
             template="Respond to the user's message as a {{style}} AI.",
         )
 
-        # Load the prompt from the registry
-        prompt = mlflow.genai.load_prompt("my_prompt")
+        # Register a chat prompt with multiple messages
+        mlflow.genai.register_prompt(
+            name="assistant_prompt",
+            template=[
+                {"role": "system", "content": "You are a helpful {{style}} assistant."},
+                {"role": "user", "content": "{{question}}"},
+            ],
+            response_format={"type": "object", "properties": {"answer": {"type": "string"}}},
+        )
+
+        # Load and use the prompt
+        prompt = mlflow.genai.load_prompt("greeting_prompt")
 
         # Use the prompt in your application
         import openai
@@ -96,16 +117,18 @@ def register_prompt(
 
         # Update the prompt with a new version
         prompt = mlflow.genai.register_prompt(
-            name="my_prompt",
+            name="greeting_prompt",
             template="Respond to the user's message as a {{style}} AI. {{greeting}}",
             commit_message="Add a greeting to the prompt.",
             tags={"author": "Bob"},
         )
+
     """
     with suppress_genai_migration_warning():
         return registry_api.register_prompt(
             name=name,
             template=template,
+            response_format=response_format,
             commit_message=commit_message,
             tags=tags,
         )
@@ -124,7 +147,9 @@ def search_prompts(
 @experimental(version="3.0.0")
 @require_prompt_registry
 def load_prompt(
-    name_or_uri: str, version: Optional[Union[str, int]] = None, allow_missing: bool = False
+    name_or_uri: str,
+    version: Optional[Union[str, int]] = None,
+    allow_missing: bool = False,
 ) -> PromptVersion:
     """
     Load a :py:class:`Prompt <mlflow.entities.Prompt>` from the MLflow Prompt Registry.
