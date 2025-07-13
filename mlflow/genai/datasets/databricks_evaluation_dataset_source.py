@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 from mlflow.data.dataset_source import DatasetSource
 
@@ -10,24 +10,22 @@ class DatabricksEvaluationDatasetSource(DatasetSource):
     This source is used for datasets managed by the Databricks agents SDK.
     """
 
-    def __init__(self, table_name: Optional[str] = None, dataset_id: Optional[str] = None):
+    def __init__(self, table_name: str, dataset_id: str):
         """
         Args:
             table_name: The UC table name of the dataset
             dataset_id: The unique identifier of the dataset
         """
-        if not table_name and not dataset_id:
-            raise ValueError("Either table_name or dataset_id must be provided")
         self._table_name = table_name
         self._dataset_id = dataset_id
 
     @property
-    def table_name(self) -> Optional[str]:
+    def table_name(self) -> str:
         """The UC table name of the dataset."""
         return self._table_name
 
     @property
-    def dataset_id(self) -> Optional[str]:
+    def dataset_id(self) -> str:
         """The unique identifier of the dataset."""
         return self._dataset_id
 
@@ -66,18 +64,14 @@ class DatabricksEvaluationDatasetSource(DatasetSource):
         """
         Returns a dictionary representation of the source.
         """
-        result = {}
-        if self._table_name is not None:
-            result["table_name"] = self._table_name
-        if self._dataset_id is not None:
-            result["dataset_id"] = self._dataset_id
-        return result
+        return {
+            "table_name": self._table_name,
+            "dataset_id": self._dataset_id,
+        }
 
     @classmethod
     def from_dict(cls, source_dict: dict[str, Any]) -> "DatabricksEvaluationDatasetSource":
         """
         Creates an instance from a dictionary representation.
         """
-        return cls(
-            table_name=source_dict.get("table_name"), dataset_id=source_dict.get("dataset_id")
-        )
+        return cls(table_name=source_dict["table_name"], dataset_id=source_dict["dataset_id"])

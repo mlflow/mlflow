@@ -8,26 +8,12 @@ from mlflow.genai.datasets.databricks_evaluation_dataset_source import (
 
 
 def test_databricks_evaluation_dataset_source_init():
-    # Test with table_name
-    source = DatabricksEvaluationDatasetSource(table_name="catalog.schema.table")
-    assert source.table_name == "catalog.schema.table"
-    assert source.dataset_id is None
-
-    # Test with dataset_id
-    source = DatabricksEvaluationDatasetSource(dataset_id="12345")
-    assert source.table_name is None
-    assert source.dataset_id == "12345"
-
-    # Test with both
+    # Test with both table_name and dataset_id (required)
     source = DatabricksEvaluationDatasetSource(
         table_name="catalog.schema.table", dataset_id="12345"
     )
     assert source.table_name == "catalog.schema.table"
     assert source.dataset_id == "12345"
-
-    # Test without either should raise ValueError
-    with pytest.raises(ValueError, match="Either table_name or dataset_id must be provided"):
-        DatabricksEvaluationDatasetSource()
 
 
 def test_databricks_evaluation_dataset_source_get_source_type():
@@ -35,15 +21,6 @@ def test_databricks_evaluation_dataset_source_get_source_type():
 
 
 def test_databricks_evaluation_dataset_source_to_dict():
-    # Test with table_name only
-    source = DatabricksEvaluationDatasetSource(table_name="catalog.schema.table")
-    assert source.to_dict() == {"table_name": "catalog.schema.table"}
-
-    # Test with dataset_id only
-    source = DatabricksEvaluationDatasetSource(dataset_id="12345")
-    assert source.to_dict() == {"dataset_id": "12345"}
-
-    # Test with both
     source = DatabricksEvaluationDatasetSource(
         table_name="catalog.schema.table", dataset_id="12345"
     )
@@ -54,19 +31,6 @@ def test_databricks_evaluation_dataset_source_to_dict():
 
 
 def test_databricks_evaluation_dataset_source_from_dict():
-    # Test with table_name only
-    source_dict = {"table_name": "catalog.schema.table"}
-    source = DatabricksEvaluationDatasetSource.from_dict(source_dict)
-    assert source.table_name == "catalog.schema.table"
-    assert source.dataset_id is None
-
-    # Test with dataset_id only
-    source_dict = {"dataset_id": "12345"}
-    source = DatabricksEvaluationDatasetSource.from_dict(source_dict)
-    assert source.table_name is None
-    assert source.dataset_id == "12345"
-
-    # Test with both
     source_dict = {"table_name": "catalog.schema.table", "dataset_id": "12345"}
     source = DatabricksEvaluationDatasetSource.from_dict(source_dict)
     assert source.table_name == "catalog.schema.table"
@@ -90,7 +54,9 @@ def test_databricks_evaluation_dataset_source_from_json():
 
 
 def test_databricks_evaluation_dataset_source_load_not_implemented():
-    source = DatabricksEvaluationDatasetSource(table_name="catalog.schema.table")
+    source = DatabricksEvaluationDatasetSource(
+        table_name="catalog.schema.table", dataset_id="12345"
+    )
     with pytest.raises(
         NotImplementedError,
         match="Loading a Databricks Evaluation Dataset from source is not supported",

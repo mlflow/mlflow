@@ -80,7 +80,9 @@ def test_evaluation_dataset_source_with_none():
 
 
 def test_evaluation_dataset_source_with_existing_dataset_source():
-    existing_source = DatabricksEvaluationDatasetSource(table_name="existing.table")
+    existing_source = DatabricksEvaluationDatasetSource(
+        table_name="existing.table", dataset_id="existing-id"
+    )
     dataset = create_dataset_with_source(existing_source)
 
     assert dataset.source is existing_source
