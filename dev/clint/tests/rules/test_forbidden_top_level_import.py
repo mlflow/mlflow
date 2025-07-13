@@ -18,7 +18,10 @@ from foo import bar
 import baz
 """
     )
-    config = Config(forbidden_top_level_imports={"*": ["foo"]})
+    config = Config(
+        select={ForbiddenTopLevelImport.name},
+        forbidden_top_level_imports={"*": ["foo"]},
+    )
     violations = lint_file(tmp_file, config, index)
     assert len(violations) == 2
     assert all(isinstance(v.rule, ForbiddenTopLevelImport) for v in violations)
