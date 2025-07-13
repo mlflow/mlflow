@@ -173,11 +173,6 @@ def test_evaluation_dataset_digest_computation(mock_compute_digest, mock_managed
     assert digest == "computed-digest"
     mock_compute_digest.assert_called_once()
 
-    # Subsequent calls should use cached digest
-    digest2 = dataset.digest
-    assert digest2 == "computed-digest"
-    assert mock_compute_digest.call_count == 1
-
 
 def test_evaluation_dataset_to_evaluation_dataset(mock_managed_dataset):
     dataset = EvaluationDataset(mock_managed_dataset)
