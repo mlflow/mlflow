@@ -61,7 +61,7 @@ class DatabricksEvaluationDatasetSource(DatasetSource):
         """
         Resolves the source from a dictionary representation.
         """
-        raise NotImplementedError("Resolution from a source dataset is not supported")
+        raise NotImplementedError("Resolution from a source dictionary is not supported")
 
     def to_dict(self) -> dict[str, Any]:
         """
