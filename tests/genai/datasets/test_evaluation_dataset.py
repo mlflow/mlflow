@@ -49,7 +49,7 @@ def test_evaluation_dataset_init():
 
 
 def test_evaluation_dataset_properties():
-    dataset = create_dataset_with_source("test-digest")
+    dataset = create_dataset_with_source("any-value")
 
     assert dataset.dataset_id == "test-dataset-id"
     assert dataset.name == "catalog.schema.table"
@@ -64,42 +64,33 @@ def test_evaluation_dataset_properties():
 
 
 def test_evaluation_dataset_source_default():
-    # Test that source returns DatabricksEvaluationDatasetSource with table name and dataset ID
-    # when the managed dataset source is not a DatasetSource
     dataset = create_dataset_with_source("string-value")
 
-    source = dataset.source
-    assert isinstance(source, DatabricksEvaluationDatasetSource)
-    assert source.table_name == "catalog.schema.table"  # Uses dataset.name
-    assert source.dataset_id == "test-dataset-id"
+    assert isinstance(dataset.source, DatabricksEvaluationDatasetSource)
+    assert dataset.source.table_name == "catalog.schema.table"
+    assert dataset.source.dataset_id == "test-dataset-id"
 
 
 def test_evaluation_dataset_source_with_none():
-    # Test that source returns DatabricksEvaluationDatasetSource when managed dataset source is None
     dataset = create_dataset_with_source(None)
 
-    source = dataset.source
-    assert isinstance(source, DatabricksEvaluationDatasetSource)
-    assert source.table_name == "catalog.schema.table"  # Uses dataset.name
-    assert source.dataset_id == "test-dataset-id"
+    assert isinstance(dataset.source, DatabricksEvaluationDatasetSource)
+    assert dataset.source.table_name == "catalog.schema.table"
+    assert dataset.source.dataset_id == "test-dataset-id"
 
 
 def test_evaluation_dataset_source_with_existing_dataset_source():
-    # Test when source is already a DatasetSource object - should return it directly
     existing_source = DatabricksEvaluationDatasetSource(table_name="existing.table")
     dataset = create_dataset_with_source(existing_source)
 
-    source = dataset.source
-    assert source is existing_source
+    assert dataset.source is existing_source
 
 
 def test_evaluation_dataset_source_with_spark_dataset_source():
-    # Test when source is a SparkDatasetSource - should return it directly
     spark_source = SparkDatasetSource(table_name="spark.table")
     dataset = create_dataset_with_source(spark_source)
 
-    source = dataset.source
-    assert source is spark_source
+    assert dataset.source is spark_source
 
 
 def test_evaluation_dataset_to_df():
@@ -119,7 +110,6 @@ def test_evaluation_dataset_to_df():
 
 
 def test_evaluation_dataset_to_mlflow_entity():
-    # Test that _to_mlflow_entity properly serializes the source to JSON
     dataset = create_dataset_with_source("any-value")
 
     entity = dataset._to_mlflow_entity()
@@ -127,7 +117,6 @@ def test_evaluation_dataset_to_mlflow_entity():
     assert entity.digest == "test-digest"
     assert entity.source_type == "databricks-uc-table"
 
-    # Check that source is properly serialized to JSON
     source_dict = json.loads(entity.source)
     assert source_dict["table_name"] == "catalog.schema.table"
     assert source_dict["dataset_id"] == "test-dataset-id"
@@ -136,7 +125,6 @@ def test_evaluation_dataset_to_mlflow_entity():
 
 
 def test_evaluation_dataset_to_mlflow_entity_with_existing_source():
-    # Test that _to_mlflow_entity works with an existing DatasetSource
     existing_source = DatabricksEvaluationDatasetSource(
         table_name="existing.table", dataset_id="existing-id"
     )
@@ -147,7 +135,6 @@ def test_evaluation_dataset_to_mlflow_entity_with_existing_source():
     assert entity.digest == "test-digest"
     assert entity.source_type == "databricks-uc-table"
 
-    # Check that the existing source is properly serialized to JSON
     source_dict = json.loads(entity.source)
     assert source_dict["table_name"] == "existing.table"
     assert source_dict["dataset_id"] == "existing-id"
@@ -194,13 +181,12 @@ def test_evaluation_dataset_digest_computation(mock_compute_digest):
 
 
 def test_evaluation_dataset_to_evaluation_dataset():
-    dataset = create_dataset_with_source("test-digest")
+    dataset = create_dataset_with_source("any-value")
 
     legacy_dataset = dataset.to_evaluation_dataset(
         path="/path/to/data", feature_names=["col1", "col2"]
     )
 
-    # Legacy EvaluationDataset stores data as _features_data
     assert legacy_dataset._features_data.equals(dataset.to_df())
     assert legacy_dataset._path == "/path/to/data"
     assert legacy_dataset._feature_names == ["col1", "col2"]
