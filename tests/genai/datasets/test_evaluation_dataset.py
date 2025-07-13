@@ -55,8 +55,8 @@ def create_dataset_with_source(source_value: Any) -> EvaluationDataset:
     return EvaluationDataset(mock_dataset)
 
 
-def test_evaluation_dataset_properties():
-    dataset = create_dataset_with_source(create_test_source_json())
+def test_evaluation_dataset_properties(mock_managed_dataset):
+    dataset = EvaluationDataset(mock_managed_dataset)
 
     assert dataset.dataset_id == "test-dataset-id"
     assert dataset.name == "catalog.schema.table"
