@@ -102,5 +102,7 @@ def test_databricks_evaluation_dataset_source_can_resolve():
 
 
 def test_databricks_evaluation_dataset_source_resolve_not_implemented():
-    with pytest.raises(NotImplementedError, match="_resolve\\(\\) is not implemented"):
+    with pytest.raises(
+        NotImplementedError, match="Resolution from a source dataset is not supported"
+    ):
         DatabricksEvaluationDatasetSource._resolve({})
