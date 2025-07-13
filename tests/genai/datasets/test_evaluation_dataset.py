@@ -68,6 +68,9 @@ def test_evaluation_dataset_properties(mock_managed_dataset):
     assert dataset.created_by == "test-user"
     assert dataset.last_update_time == "2024-01-02T00:00:00"
     assert dataset.last_updated_by == "test-user-2"
+    assert isinstance(dataset.source, DatabricksEvaluationDatasetSource)
+    assert dataset.source.table_name == "catalog.schema.table"
+    assert dataset.source.dataset_id == "test-dataset-id"
 
 
 def test_evaluation_dataset_source_with_string_source():
