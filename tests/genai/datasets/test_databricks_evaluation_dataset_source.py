@@ -91,7 +91,10 @@ def test_databricks_evaluation_dataset_source_from_json():
 
 def test_databricks_evaluation_dataset_source_load_not_implemented():
     source = DatabricksEvaluationDatasetSource(table_name="catalog.schema.table")
-    with pytest.raises(NotImplementedError, match="load\\(\\) is not implemented"):
+    with pytest.raises(
+        NotImplementedError,
+        match="Loading a Databricks Evaluation Dataset from source is not supported",
+    ):
         source.load()
 
 

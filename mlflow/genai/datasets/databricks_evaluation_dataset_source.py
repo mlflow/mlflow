@@ -43,8 +43,7 @@ class DatabricksEvaluationDatasetSource(DatasetSource):
         the databricks.agents.datasets API.
         """
         raise NotImplementedError(
-            "DatabricksEvaluationDatasetSource.load() is not implemented. "
-            "Please use the databricks.agents.datasets API to load the dataset."
+            "Loading a Databricks Evaluation Dataset from source is not supported"
         )
 
     @staticmethod
