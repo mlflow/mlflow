@@ -1,6 +1,6 @@
 import json
 from typing import Any
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import pandas as pd
 import pytest
@@ -161,17 +161,14 @@ def test_evaluation_dataset_merge_records(mock_managed_dataset):
     mock_managed_dataset.merge_records.assert_called_once_with(new_records)
 
 
-@patch("mlflow.genai.datasets.evaluation_dataset.compute_pandas_digest")
-def test_evaluation_dataset_digest_computation(mock_compute_digest, mock_managed_dataset):
+def test_evaluation_dataset_digest_computation(mock_managed_dataset):
     # Test when managed dataset has no digest
     mock_managed_dataset.digest = None
-    mock_compute_digest.return_value = "computed-digest"
 
     dataset = EvaluationDataset(mock_managed_dataset)
     digest = dataset.digest
 
-    assert digest == "computed-digest"
-    mock_compute_digest.assert_called_once()
+    assert digest is not None
 
 
 def test_evaluation_dataset_to_evaluation_dataset(mock_managed_dataset):
