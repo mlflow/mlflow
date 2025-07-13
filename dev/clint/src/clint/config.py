@@ -6,9 +6,12 @@ from pathlib import Path
 
 import tomli
 
+from clint.rules import ALL_RULES
+
 
 @dataclass
 class Config:
+    select: set[str] = field(default_factory=set)
     exclude: list[str] = field(default_factory=list)
     # Path -> List of modules that should not be imported globally under that path
     forbidden_top_level_imports: dict[str, list[str]] = field(default_factory=dict)
@@ -34,6 +37,13 @@ class Config:
         per_file_ignores: dict[re.Pattern[str], list[str]] = {}
         for pattern, rules in per_file_ignores_raw.items():
             per_file_ignores[re.compile(pattern)] = set(rules)
+
+        select = clint.get("select")
+        if select is None:
+            select = ALL_RULES
+        else:
+            if unknown_rules := set(select) - ALL_RULES:
+                raise ValueError(f"Unknown rules in 'select': {unknown_rules}")
 
         return cls(
             exclude=clint.get("exclude", []),
