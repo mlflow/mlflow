@@ -54,9 +54,6 @@ def sample_data():
 
 @pytest.mark.parametrize("dummy_scorer", [AlwaysYesScorer(name="always_yes"), scorer(always_yes)])
 def test_scorer_existence_in_metrics(sample_data, dummy_scorer, is_in_databricks):
-    if not is_in_databricks:
-        pytest.skip("OSS GenAI evaluator doesn't support metrics aggregation yet")
-
     result = mlflow.genai.evaluate(data=sample_data, scorers=[dummy_scorer])
     assert any("always_yes" in metric for metric in result.metrics.keys())
 
@@ -65,9 +62,6 @@ def test_scorer_existence_in_metrics(sample_data, dummy_scorer, is_in_databricks
     "dummy_scorer", [AlwaysYesScorer(name="always_no"), scorer(name="always_no")(always_yes)]
 )
 def test_scorer_name_works(sample_data, dummy_scorer, is_in_databricks):
-    if not is_in_databricks:
-        pytest.skip("OSS GenAI evaluator doesn't support metrics aggregation yet")
-
     _SCORER_NAME = "always_no"
     result = mlflow.genai.evaluate(data=sample_data, scorers=[dummy_scorer])
     assert any(_SCORER_NAME in metric for metric in result.metrics.keys())
@@ -249,9 +243,6 @@ def test_trace_passed_correctly(is_in_databricks):
     ],
 )
 def test_scorer_on_genai_evaluate(sample_data, scorer_return, is_in_databricks):
-    if not is_in_databricks:
-        pytest.skip("OSS GenAI evaluator doesn't support metrics aggregation yet")
-
     @scorer
     def dummy_scorer(inputs, outputs):
         return scorer_return

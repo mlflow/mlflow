@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import traceback
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Callable, Optional
@@ -10,15 +11,16 @@ from typing import Any, Callable, Optional
 import pandas as pd
 
 import mlflow
-import mlflow.tracing.constant as tracing_constant
 from mlflow.entities.assessment import Assessment, Feedback
 from mlflow.entities.assessment_error import AssessmentError
 from mlflow.entities.trace import Trace
 from mlflow.genai.evaluation import context
 from mlflow.genai.evaluation.entities import EvalItem, EvalResult, EvaluationResult
 from mlflow.genai.evaluation.utils import make_code_type_assessment_source, standardize_scorer_value
+from mlflow.genai.scorers.aggregation import compute_aggregated_metrics
 from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.utils.trace_utils import create_minimal_trace
+from mlflow.tracing.constant import AssessmentMetadataKey
 
 _logger = logging.getLogger(__name__)
 
@@ -50,7 +52,7 @@ def run(
 
     with ThreadPoolExecutor(
         # TODO: Add new MLflow environment variable for this
-        max_workers=10,  # env_vars.RAG_EVAL_MAX_WORKERS.get()
+        max_workers=os.environ.get("RAG_EVAL_MAX_WORKERS", 10),
         thread_name_prefix="MlflowGenAIEvalHarness",
     ) as executor:
         futures = [
@@ -66,12 +68,15 @@ def run(
         # TODO: Port the fancy tqdm progress bar from the DBX agent harness.
         eval_results = [future.result() for future in as_completed(futures)]
 
+    # Aggregate metrics and log to MLflow run
+    aggregated_metrics = compute_aggregated_metrics(eval_results, scorers=scorers)
+    mlflow.log_metrics(aggregated_metrics)
+
     eval_results_df = pd.DataFrame([result.to_pd_series() for result in eval_results])
     return EvaluationResult(
         run_id=run_id,
         result_df=eval_results_df,
-        # TODO: Support metrics aggregation
-        metrics={},
+        metrics=aggregated_metrics,
     )
 
 
@@ -177,7 +182,7 @@ def _log_assessments(
         if run_id is not None:
             assessment.metadata = {
                 **(assessment.metadata or {}),
-                tracing_constant.AssessmentMetadataKey.SOURCE_RUN_ID: run_id,
+                AssessmentMetadataKey.SOURCE_RUN_ID: run_id,
             }
         mlflow.log_assessment(trace_id=assessment.trace_id, assessment=assessment)
 

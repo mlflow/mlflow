@@ -63,7 +63,7 @@ class SerializedScorer:
 @experimental(version="3.0.0")
 class Scorer(BaseModel):
     name: str
-    aggregations: Optional[list[str]] = None
+    aggregations: Optional[list[str | Callable[..., float]]] = None
 
     _cached_dump: Optional[dict[str, Any]] = PrivateAttr(default=None)
 
