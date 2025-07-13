@@ -38,6 +38,7 @@ import { RunsChartsSetHighlightContextProvider } from '../../../runs-charts/hook
 import { useLoggedModelsForExperimentRunsTable } from '../../hooks/useLoggedModelsForExperimentRunsTable';
 import { ExperimentViewRunsRequestError } from '../ExperimentViewRunsRequestError';
 import { useLoggedModelsForExperimentRunsTableV2 } from '../../hooks/useLoggedModelsForExperimentRunsTableV2';
+import { useResizableMaxWidth } from '@mlflow/mlflow/src/shared/web-shared/hooks/useResizableMaxWidth';
 
 export interface ExperimentViewRunsOwnProps {
   isLoading: boolean;

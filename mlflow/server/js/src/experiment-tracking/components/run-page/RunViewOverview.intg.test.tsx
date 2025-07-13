@@ -18,6 +18,7 @@ import { QueryClient, QueryClientProvider } from '@mlflow/mlflow/src/common/util
 import type { LoggedModelProto } from '../../types';
 import { type RunPageModelVersionSummary } from './hooks/useUnifiedRegisteredModelVersionsSummariesForRun';
 import { useExperimentTrackingDetailsPageLayoutStyles } from '../../hooks/useExperimentTrackingDetailsPageLayoutStyles';
+import { LINKED_PROMPTS_TAG_KEY } from '../../pages/prompts/utils';
 
 jest.mock('../../hooks/useExperimentTrackingDetailsPageLayoutStyles', () => ({
   useExperimentTrackingDetailsPageLayoutStyles: jest.fn(),
@@ -34,6 +35,7 @@ jest.mock('../../actions', () => ({
 
 const testPromptName = 'test-prompt';
 const testPromptVersion = 1;
+const testPromptName2 = 'test-prompt-2';
 
 jest.mock('../../pages/prompts/hooks/usePromptVersionsForRunQuery', () => ({
   usePromptVersionsForRunQuery: jest.fn(() => ({

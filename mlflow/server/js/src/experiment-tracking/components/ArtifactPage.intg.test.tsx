@@ -17,7 +17,6 @@ import type { KeyValueEntity } from '../../common/types';
 // eslint-disable-next-line import/no-nodejs-modules
 import { readFileSync } from 'fs';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
-import { isExperimentLoggedModelsUIEnabled } from '../../common/utils/FeatureUtils';
 
 jest.setTimeout(30000); // Larger timeout for integration testing
 
@@ -120,7 +119,6 @@ describe('Artifact page, artifact files rendering integration test', () => {
   beforeEach(() => {
     jest.spyOn(MlflowService, 'listArtifacts').mockResolvedValue({});
     jest.spyOn(Services, 'searchRegisteredModels').mockResolvedValue({ registered_models: [] });
-    jest.mocked(isExperimentLoggedModelsUIEnabled).mockReturnValue(false);
   });
   it.each(artifactTestCases)('renders artifact file: %s', async (fileName) => {
     const fileContents = loadLocalArtifactFixtureFile(fileName);

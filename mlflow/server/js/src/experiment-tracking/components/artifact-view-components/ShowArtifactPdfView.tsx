@@ -66,8 +66,18 @@ class ShowArtifactPdfView extends Component<Props, State> {
     this.fetchPdf();
   }
 
+  resetPDFState() {
+    this.setState({
+      pdfData: undefined,
+      loading: true,
+      currentPage: 1,
+      numPages: 1,
+    });
+  }
+
   componentDidUpdate(prevProps: Props) {
     if (this.props.path !== prevProps.path || this.props.runUuid !== prevProps.runUuid) {
+      this.resetPDFState();
       this.fetchPdf();
     }
   }

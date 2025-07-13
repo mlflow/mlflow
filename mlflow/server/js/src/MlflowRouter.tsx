@@ -20,6 +20,7 @@ import { getRouteDefs as getModelRegistryRouteDefs } from './model-registry/rout
 import { getRouteDefs as getCommonRouteDefs } from './common/route-defs';
 import { useInitializeExperimentRunColors } from './experiment-tracking/components/experiment-page/hooks/useExperimentRunColor';
 import { shouldEnableExperimentPageChildRoutes } from './common/utils/FeatureUtils';
+import { MlflowSidebar } from './common/components/MlflowSidebar';
 
 /**
  * This is the MLflow default entry/landing route.
@@ -46,22 +47,52 @@ const MlflowRootRoute = ({
 }) => {
   useInitializeExperimentRunColors();
 
+  const [showSidebar, setShowSidebar] = useState(true);
+  const { theme } = useDesignSystemTheme();
+
   return (
     <>
       <ErrorModal />
       <AppErrorBoundary>
-        <MlflowHeader isDarkTheme={isDarkTheme} setIsDarkTheme={setIsDarkTheme} />
-        <React.Suspense fallback={<LegacySkeleton />}>
-          {useChildRoutesOutlet ? (
-            <Outlet />
-          ) : (
-            <Routes>
-              {routes?.map(({ element, pageId, path }) => (
-                <Route key={pageId} path={path} element={element} />
-              ))}
-            </Routes>
-          )}
-        </React.Suspense>
+        <MlflowHeader
+          isDarkTheme={isDarkTheme}
+          setIsDarkTheme={setIsDarkTheme}
+          sidebarOpen={showSidebar}
+          toggleSidebar={() => setShowSidebar((isOpen) => !isOpen)}
+        />
+        <div
+          css={{
+            backgroundColor: theme.colors.backgroundSecondary,
+            display: 'flex',
+            flexDirection: 'row',
+            flexGrow: 1,
+            minHeight: 0,
+          }}
+        >
+          {showSidebar && <MlflowSidebar />}
+          <main
+            css={{
+              width: '100%',
+              backgroundColor: theme.colors.backgroundPrimary,
+              margin: theme.spacing.sm,
+              borderRadius: theme.borders.borderRadiusMd,
+              boxShadow: theme.shadows.md,
+              overflowX: 'auto',
+            }}
+          >
+            <React.Suspense fallback={<LegacySkeleton />}>
+              {useChildRoutesOutlet ? (
+                <Outlet />
+              ) : (
+                <Routes>
+                  {routes?.map(({ element, pageId, path }) => (
+                    <Route key={pageId} path={path} element={element} />
+                  ))}
+                </Routes>
+              )}
+            </React.Suspense>
+          </main>
+        </div>
       </AppErrorBoundary>
     </>
   );
