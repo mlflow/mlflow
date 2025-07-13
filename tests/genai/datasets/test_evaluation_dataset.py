@@ -3,6 +3,7 @@ from typing import Any
 from unittest.mock import Mock, patch
 
 import pandas as pd
+import pytest
 
 from mlflow.data.spark_dataset_source import SparkDatasetSource
 from mlflow.genai.datasets.databricks_evaluation_dataset_source import (
@@ -42,14 +43,19 @@ def create_mock_managed_dataset(source_value: Any) -> Mock:
     return mock_dataset
 
 
+@pytest.fixture
+def mock_managed_dataset() -> Mock:
+    """Create a mock Databricks Agent Evaluation ManagedDataset for testing."""
+    return create_mock_managed_dataset(create_test_source_json())
+
+
 def create_dataset_with_source(source_value: Any) -> EvaluationDataset:
     """Factory function to create EvaluationDataset with specific source value."""
     mock_dataset = create_mock_managed_dataset(source_value)
     return EvaluationDataset(mock_dataset)
 
 
-def test_evaluation_dataset_init():
-    mock_managed_dataset = create_mock_managed_dataset(create_test_source_json())
+def test_evaluation_dataset_init(mock_managed_dataset):
     dataset = EvaluationDataset(mock_managed_dataset)
     assert dataset._dataset is mock_managed_dataset
     assert dataset._df is None
@@ -103,8 +109,7 @@ def test_evaluation_dataset_source_with_spark_dataset_source():
     assert dataset.source is spark_source
 
 
-def test_evaluation_dataset_to_df():
-    mock_managed_dataset = create_mock_managed_dataset(create_test_source_json())
+def test_evaluation_dataset_to_df(mock_managed_dataset):
     dataset = EvaluationDataset(mock_managed_dataset)
 
     # First call should fetch from managed dataset
@@ -119,8 +124,8 @@ def test_evaluation_dataset_to_df():
     assert mock_managed_dataset.to_df.call_count == 1  # Still only called once
 
 
-def test_evaluation_dataset_to_mlflow_entity():
-    dataset = create_dataset_with_source(create_test_source_json())
+def test_evaluation_dataset_to_mlflow_entity(mock_managed_dataset):
+    dataset = EvaluationDataset(mock_managed_dataset)
 
     entity = dataset._to_mlflow_entity()
     assert entity.name == "catalog.schema.table"
@@ -152,8 +157,7 @@ def test_evaluation_dataset_to_mlflow_entity_with_existing_source():
     assert entity.profile == "test-profile"
 
 
-def test_evaluation_dataset_set_profile():
-    mock_managed_dataset = create_mock_managed_dataset(create_test_source_json())
+def test_evaluation_dataset_set_profile(mock_managed_dataset):
     dataset = EvaluationDataset(mock_managed_dataset)
 
     new_dataset = dataset.set_profile("new-profile")
@@ -161,8 +165,7 @@ def test_evaluation_dataset_set_profile():
     mock_managed_dataset.set_profile.assert_called_once_with("new-profile")
 
 
-def test_evaluation_dataset_merge_records():
-    mock_managed_dataset = create_mock_managed_dataset(create_test_source_json())
+def test_evaluation_dataset_merge_records(mock_managed_dataset):
     dataset = EvaluationDataset(mock_managed_dataset)
 
     new_records = [{"col1": 4, "col2": "d"}]
@@ -172,9 +175,8 @@ def test_evaluation_dataset_merge_records():
 
 
 @patch("mlflow.genai.datasets.evaluation_dataset.compute_pandas_digest")
-def test_evaluation_dataset_digest_computation(mock_compute_digest):
+def test_evaluation_dataset_digest_computation(mock_compute_digest, mock_managed_dataset):
     # Test when managed dataset has no digest
-    mock_managed_dataset = create_mock_managed_dataset(create_test_source_json())
     mock_managed_dataset.digest = None
     mock_compute_digest.return_value = "computed-digest"
 
@@ -190,8 +192,8 @@ def test_evaluation_dataset_digest_computation(mock_compute_digest):
     assert mock_compute_digest.call_count == 1
 
 
-def test_evaluation_dataset_to_evaluation_dataset():
-    dataset = create_dataset_with_source(create_test_source_json())
+def test_evaluation_dataset_to_evaluation_dataset(mock_managed_dataset):
+    dataset = EvaluationDataset(mock_managed_dataset)
 
     legacy_dataset = dataset.to_evaluation_dataset(
         path="/path/to/data", feature_names=["col1", "col2"]

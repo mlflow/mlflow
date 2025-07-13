@@ -13,7 +13,7 @@ class DatabricksEvaluationDatasetSource(DatasetSource):
     def __init__(self, table_name: str, dataset_id: str):
         """
         Args:
-            table_name: The UC table name of the dataset
+            table_name: The three-level UC table name of the dataset
             dataset_id: The unique identifier of the dataset
         """
         self._table_name = table_name
