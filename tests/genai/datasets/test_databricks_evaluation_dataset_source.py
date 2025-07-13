@@ -8,7 +8,6 @@ from mlflow.genai.datasets.databricks_evaluation_dataset_source import (
 
 
 def test_databricks_evaluation_dataset_source_init():
-    # Test with both table_name and dataset_id (required)
     source = DatabricksEvaluationDatasetSource(
         table_name="catalog.schema.table", dataset_id="12345"
     )
