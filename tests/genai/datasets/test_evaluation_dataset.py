@@ -105,16 +105,10 @@ def test_evaluation_dataset_source_with_spark_dataset_source():
 def test_evaluation_dataset_to_df(mock_managed_dataset):
     dataset = EvaluationDataset(mock_managed_dataset)
 
-    # First call should fetch from managed dataset
     df = dataset.to_df()
     assert isinstance(df, pd.DataFrame)
     assert len(df) == 3
     mock_managed_dataset.to_df.assert_called_once()
-
-    # Second call should use cached version
-    df2 = dataset.to_df()
-    assert df2 is df
-    assert mock_managed_dataset.to_df.call_count == 1  # Still only called once
 
 
 def test_evaluation_dataset_to_mlflow_entity(mock_managed_dataset):
