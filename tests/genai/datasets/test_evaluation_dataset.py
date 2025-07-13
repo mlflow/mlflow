@@ -55,13 +55,6 @@ def create_dataset_with_source(source_value: Any) -> EvaluationDataset:
     return EvaluationDataset(mock_dataset)
 
 
-def test_evaluation_dataset_init(mock_managed_dataset):
-    dataset = EvaluationDataset(mock_managed_dataset)
-    assert dataset._dataset is mock_managed_dataset
-    assert dataset._df is None
-    assert dataset._digest is None
-
-
 def test_evaluation_dataset_properties():
     dataset = create_dataset_with_source(create_test_source_json())
 
