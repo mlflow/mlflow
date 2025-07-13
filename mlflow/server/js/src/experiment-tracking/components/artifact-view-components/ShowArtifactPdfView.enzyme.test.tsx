@@ -66,8 +66,8 @@ describe('ShowArtifactPdfView', () => {
   });
 
   test('should render PDF in container', () => {
-    wrapper.setState({ loading: false });
     wrapper.setProps({ path: 'fake.pdf', runUuid: 'fakeRunId' });
+    wrapper.setState({ loading: false });
     expect(wrapper.find('.mlflow-pdf-outer-container')).toHaveLength(1);
     expect(wrapper.find('.mlflow-pdf-viewer')).toHaveLength(1);
     expect(wrapper.find('.mlflow-paginator')).toHaveLength(1);

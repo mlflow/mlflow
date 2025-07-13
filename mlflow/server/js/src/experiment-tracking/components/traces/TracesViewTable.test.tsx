@@ -195,7 +195,8 @@ describe('ExperimentViewTracesTable', () => {
     });
 
     async function openColumnSelector(hiddenColumns: string[] = []) {
-      renderTestComponent({ hiddenColumns });
+      const mockTraces = [generateMockTrace('test-trace')];
+      renderTestComponent({ traces: mockTraces, hiddenColumns });
       const columnSelectorButton = screen.getByRole('button', { name: /select columns/i });
       await user.click(columnSelectorButton);
     }
