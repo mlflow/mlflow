@@ -525,7 +525,7 @@ class Linter(ast.NodeVisitor):
         if not self.path.name.startswith("test_"):
             return
 
-        if deco := rules.PytestMarkRepeat.check(node, self.resolver):
+        if deco := rules.PytestMarkRepeat.check(node.decorator_list, self.resolver):
             self._check(Location.from_node(deco), rules.PytestMarkRepeat())
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:

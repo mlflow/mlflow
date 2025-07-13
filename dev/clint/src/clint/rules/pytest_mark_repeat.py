@@ -14,11 +14,11 @@ class PytestMarkRepeat(Rule):
         )
 
     @staticmethod
-    def check(node: ast.FunctionDef | ast.AsyncFunctionDef, resolver: Resolver) -> ast.expr | None:
+    def check(decorator_list: list[ast.expr], resolver: Resolver) -> ast.expr | None:
         """
         Returns the decorator node if it is a `@pytest.mark.repeat` decorator.
         """
-        for deco in node.decorator_list:
+        for deco in decorator_list:
             if (res := resolver.resolve(deco)) and res == ["pytest", "mark", "repeat"]:
                 return deco
         return None
