@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import os
 import traceback
+import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Any, Callable, Optional
 
@@ -20,6 +21,7 @@ from mlflow.genai.evaluation.utils import make_code_type_assessment_source, stan
 from mlflow.genai.scorers.aggregation import compute_aggregated_metrics
 from mlflow.genai.scorers.base import Scorer
 from mlflow.genai.utils.trace_utils import create_minimal_trace
+from mlflow.pyfunc.context import Context, set_prediction_context
 from mlflow.tracing.constant import AssessmentMetadataKey
 
 _logger = logging.getLogger(__name__)
@@ -31,6 +33,7 @@ def run(
     dataset: pd.DataFrame,
     predict_fn=None,
     scorers=None,
+    run_id: Optional[str] = None,
 ) -> EvaluationResult:
     """
     Runs GenAI evaluation harness to the given dataset.
@@ -47,8 +50,7 @@ def run(
     """
     eval_items = [EvalItem.from_dataset_row(row) for row in dataset.to_dict(orient="records")]
 
-    ctx = context.get_context()
-    run_id = ctx.get_mlflow_run_id()
+    run_id = context.get_context().get_mlflow_run_id() if run_id is None else run_id
 
     with ThreadPoolExecutor(
         # TODO: Add new MLflow environment variable for this
@@ -94,14 +96,26 @@ def _run_single(
         ctx = context.get_context()
         ctx.set_mlflow_run_id(run_id)
 
-    # When static dataset (a pair of inputs and outputs) is given, we create a minimal trace
-    # with root span only, to log the assessments on it.
-    #
-    # TODO: Support two more patterns that are currently supported in the DBX agent harness.
-    #  1. predict_fn is given
-    #  2. traces are given as dataset
-    minimal_trace = create_minimal_trace(eval_item)
-    eval_item.trace = minimal_trace
+    # TODO: Support another patten that are currently supported in the DBX agent harness,
+    # which is when traces are given as dataset
+    if predict_fn:
+        # NB: Setting prediction context let us retrieve the trace by a custom ID. Setting
+        # is_evaluate=True disables async trace logging to make sure the trace is available.
+        eval_request_id = str(uuid.uuid4())
+        with set_prediction_context(Context(request_id=eval_request_id, is_evaluate=True)):
+            try:
+                eval_item.outputs = predict_fn(eval_item.inputs)
+            except Exception as e:
+                eval_item.error_message = (
+                    f"Failed to invoke the predict_fn with {eval_item.inputs}: {e}"
+                )
+
+        eval_item.trace = mlflow.get_trace(eval_request_id, silent=True)
+    else:
+        # When static dataset (a pair of inputs and outputs) is given, we create a minimal
+        # trace with root span only, to log the assessments on it.
+        minimal_trace = create_minimal_trace(eval_item)
+        eval_item.trace = minimal_trace
 
     # Execute the scorers
     assessments = _compute_eval_scores(eval_item=eval_item, scorers=scorers)

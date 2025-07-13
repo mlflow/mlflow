@@ -587,7 +587,7 @@ def start_span_no_context(
 
 
 @request_id_backward_compatible
-def get_trace(trace_id: str) -> Optional[Trace]:
+def get_trace(trace_id: str, silent=False) -> Optional[Trace]:
     """
     Get a trace by the given request ID if it exists.
 
@@ -597,7 +597,8 @@ def get_trace(trace_id: str) -> Optional[Trace]:
 
     Args:
         trace_id: The ID of the trace.
-
+        silent: If True, suppress the warning message when the trace is not found. The API will
+            return None without any warning. Default to False.
 
     .. code-block:: python
         :test:
@@ -621,11 +622,12 @@ def get_trace(trace_id: str) -> Optional[Trace]:
     try:
         return TracingClient().get_trace(trace_id)
     except MlflowException as e:
-        _logger.warning(
-            f"Failed to get trace from the tracking store: {e}"
-            "For full traceback, set logging level to debug.",
-            exc_info=_logger.isEnabledFor(logging.DEBUG),
-        )
+        if not silent:
+            _logger.warning(
+                f"Failed to get trace from the tracking store: {e}"
+                "For full traceback, set logging level to debug.",
+                exc_info=_logger.isEnabledFor(logging.DEBUG),
+            )
         return None
 
 

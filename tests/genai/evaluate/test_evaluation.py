@@ -144,9 +144,6 @@ def test_evaluate_with_static_dataset(is_in_databricks):
 
 @pytest.mark.parametrize("is_predict_fn_traced", [True, False])
 def test_evaluate_with_predict_fn(is_predict_fn_traced, is_in_databricks):
-    if not is_in_databricks:
-        pytest.skip("OSS genai evaluator doesn't support predict_fn yet")
-
     model_id = mlflow.set_active_model(name="test-model-id").model_id
 
     data = [
@@ -383,11 +380,6 @@ def test_evaluate_with_managed_dataset(is_in_databricks):
 
 @mock.patch("mlflow.deployments.get_deploy_client")
 def test_model_from_deployment_endpoint(mock_get_deploy_client, is_in_databricks):
-    if not is_in_databricks:
-        pytest.skip(
-            "OSS genai evaluator doesn't support model from deployment endpoint evaluation yet"
-        )
-
     mock_client = mock_get_deploy_client.return_value
     mock_client.predict.return_value = _DUMMY_CHAT_RESPONSE
 

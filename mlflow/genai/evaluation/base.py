@@ -279,13 +279,14 @@ def _evaluate_oss(data, scorers, predict_fn, model_id):
 
     # TODO: Log input dataset to the run
     with (
-        _start_run_or_reuse_active_run(),
+        _start_run_or_reuse_active_run() as run_id,
         _set_active_model(model_id=model_id) if model_id else nullcontext(),
     ):
         return harness.run(
             predict_fn=predict_fn,
             dataset=data,
             scorers=scorers,
+            run_id=run_id,
         )
         # TODO: Support logging aggregated metrics to the logged model
 

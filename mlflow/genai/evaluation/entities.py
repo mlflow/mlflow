@@ -59,7 +59,7 @@ class EvalItem:
             trace = trace if isinstance(trace, Trace) else Trace.from_json(trace)
 
         # Extract expectations column from the dataset.
-        expectations = row.get(InputDatasetColumn.EXPECTATIONS)
+        expectations = row.get(InputDatasetColumn.EXPECTATIONS, {})
 
         return cls(
             request_id=request_id,
