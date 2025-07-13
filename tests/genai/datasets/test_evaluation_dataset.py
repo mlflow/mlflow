@@ -11,7 +11,15 @@ from mlflow.genai.datasets.databricks_evaluation_dataset_source import (
 from mlflow.genai.datasets.evaluation_dataset import EvaluationDataset
 
 
-def create_mock_managed_dataset(source_value: Any = "test-digest") -> Mock:
+def create_test_source_json(table_name: str = "main.default.testtable") -> str:
+    """Create a JSON string source value consistent with Databricks managed evaluation datasets.
+
+    This format matches the behavior of Databricks managed evaluation datasets as of July 2025.
+    """
+    return json.dumps({"table_name": table_name})
+
+
+def create_mock_managed_dataset(source_value: Any) -> Mock:
     """Create a mock Databricks Agent Evaluation ManagedDataset for testing"""
     mock_dataset = Mock()
     mock_dataset.dataset_id = "test-dataset-id"
@@ -41,7 +49,7 @@ def create_dataset_with_source(source_value: Any) -> EvaluationDataset:
 
 
 def test_evaluation_dataset_init():
-    mock_managed_dataset = create_mock_managed_dataset()
+    mock_managed_dataset = create_mock_managed_dataset(create_test_source_json())
     dataset = EvaluationDataset(mock_managed_dataset)
     assert dataset._dataset is mock_managed_dataset
     assert dataset._df is None
@@ -49,7 +57,7 @@ def test_evaluation_dataset_init():
 
 
 def test_evaluation_dataset_properties():
-    dataset = create_dataset_with_source("any-value")
+    dataset = create_dataset_with_source(create_test_source_json())
 
     assert dataset.dataset_id == "test-dataset-id"
     assert dataset.name == "catalog.schema.table"
@@ -63,7 +71,7 @@ def test_evaluation_dataset_properties():
     assert dataset.last_updated_by == "test-user-2"
 
 
-def test_evaluation_dataset_source_default():
+def test_evaluation_dataset_source_with_string_source():
     dataset = create_dataset_with_source("string-value")
 
     assert isinstance(dataset.source, DatabricksEvaluationDatasetSource)
@@ -96,7 +104,7 @@ def test_evaluation_dataset_source_with_spark_dataset_source():
 
 
 def test_evaluation_dataset_to_df():
-    mock_managed_dataset = create_mock_managed_dataset()
+    mock_managed_dataset = create_mock_managed_dataset(create_test_source_json())
     dataset = EvaluationDataset(mock_managed_dataset)
 
     # First call should fetch from managed dataset
@@ -112,7 +120,7 @@ def test_evaluation_dataset_to_df():
 
 
 def test_evaluation_dataset_to_mlflow_entity():
-    dataset = create_dataset_with_source("any-value")
+    dataset = create_dataset_with_source(create_test_source_json())
 
     entity = dataset._to_mlflow_entity()
     assert entity.name == "catalog.schema.table"
@@ -145,7 +153,7 @@ def test_evaluation_dataset_to_mlflow_entity_with_existing_source():
 
 
 def test_evaluation_dataset_set_profile():
-    mock_managed_dataset = create_mock_managed_dataset()
+    mock_managed_dataset = create_mock_managed_dataset(create_test_source_json())
     dataset = EvaluationDataset(mock_managed_dataset)
 
     new_dataset = dataset.set_profile("new-profile")
@@ -154,7 +162,7 @@ def test_evaluation_dataset_set_profile():
 
 
 def test_evaluation_dataset_merge_records():
-    mock_managed_dataset = create_mock_managed_dataset()
+    mock_managed_dataset = create_mock_managed_dataset(create_test_source_json())
     dataset = EvaluationDataset(mock_managed_dataset)
 
     new_records = [{"col1": 4, "col2": "d"}]
@@ -166,7 +174,7 @@ def test_evaluation_dataset_merge_records():
 @patch("mlflow.genai.datasets.evaluation_dataset.compute_pandas_digest")
 def test_evaluation_dataset_digest_computation(mock_compute_digest):
     # Test when managed dataset has no digest
-    mock_managed_dataset = create_mock_managed_dataset()
+    mock_managed_dataset = create_mock_managed_dataset(create_test_source_json())
     mock_managed_dataset.digest = None
     mock_compute_digest.return_value = "computed-digest"
 
@@ -183,7 +191,7 @@ def test_evaluation_dataset_digest_computation(mock_compute_digest):
 
 
 def test_evaluation_dataset_to_evaluation_dataset():
-    dataset = create_dataset_with_source("any-value")
+    dataset = create_dataset_with_source(create_test_source_json())
 
     legacy_dataset = dataset.to_evaluation_dataset(
         path="/path/to/data", feature_names=["col1", "col2"]
