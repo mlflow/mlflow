@@ -44,8 +44,10 @@ class Config:
         else:
             if unknown_rules := set(select) - ALL_RULES:
                 raise ValueError(f"Unknown rules in 'select': {unknown_rules}")
+            select = set(select)
 
         return cls(
+            select=select,
             exclude=clint.get("exclude", []),
             forbidden_top_level_imports=clint.get("forbidden-top-level-imports", {}),
             typing_extensions_allowlist=clint.get("typing-extensions-allowlist", []),
