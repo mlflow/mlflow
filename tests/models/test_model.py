@@ -713,3 +713,14 @@ def test_logged_model_status():
             )
     logged_model = mlflow.last_logged_model()
     assert logged_model.status == "FAILED"
+
+
+def test_get_model_info_with_logged_model():
+    def model(model_input: list[str]) -> list[str]:
+        return model_input
+
+    model_info = mlflow.pyfunc.log_model(
+        name="test_model", python_model=model, input_example=["a", "b", "c"]
+    )
+    model_info = mlflow.models.get_model_info(model_info.model_uri)
+    assert model_info.model_id == model_info.model_id
