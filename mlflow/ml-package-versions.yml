@@ -225,7 +225,7 @@ semantic_kernel:
     install_dev: |
       pip install git+https://github.com/microsoft/semantic-kernel.git@main#subdirectory=python
 
-  models:
+  autologging:
     minimum: "1.34.0"
     maximum: "1.34.0"
     python:
@@ -234,6 +234,7 @@ semantic_kernel:
       ">= 1.34.0": ["pydantic>=2.0"]
     run: |
       pytest tests/semantic_kernel/test_semantic_kernel_autolog.py
+    test_tracing_sdk: true
 
 spacy:
   package_info:
