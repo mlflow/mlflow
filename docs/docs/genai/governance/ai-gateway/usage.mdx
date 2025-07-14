@@ -1,0 +1,258 @@
+# AI Gateway Usage
+
+import TilesGrid from "@site/src/components/TilesGrid";
+import TileCard from "@site/src/components/TileCard";
+import { Settings, Book, Home } from "lucide-react";
+
+Learn how to query your AI Gateway endpoints, integrate with applications, and leverage different APIs and tools.
+
+## Basic Querying
+
+### REST API Requests
+
+The gateway exposes REST endpoints that follow OpenAI-compatible patterns. Each endpoint accepts JSON payloads and returns structured responses. Use these when integrating with applications that don't have MLflow client libraries:
+
+```bash
+# Chat completions
+curl -X POST http://localhost:5000/gateway/chat/invocations \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [
+      {"role": "user", "content": "Hello, how are you?"}
+    ]
+  }'
+
+# Text completions
+curl -X POST http://localhost:5000/gateway/completions/invocations \
+  -H "Content-Type: application/json" \
+  -d '{
+    "prompt": "The future of AI is",
+    "max_tokens": 100
+  }'
+
+# Embeddings
+curl -X POST http://localhost:5000/gateway/embeddings/invocations \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": "Text to embed"
+  }'
+```
+
+### Query Parameters
+
+These parameters control model behavior and are supported across most providers. Different models may support different subsets of these parameters:
+
+#### Chat Completions
+
+```json
+{
+  "messages": [
+    {"role": "system", "content": "You are a helpful assistant."},
+    {"role": "user", "content": "What is machine learning?"}
+  ],
+  "temperature": 0.7,
+  "max_tokens": 150,
+  "top_p": 0.9,
+  "frequency_penalty": 0.0,
+  "presence_penalty": 0.0,
+  "stop": ["\n\n"],
+  "stream": false
+}
+```
+
+#### Text Completions
+
+```json
+{
+  "prompt": "Once upon a time",
+  "temperature": 0.8,
+  "max_tokens": 100,
+  "top_p": 1.0,
+  "frequency_penalty": 0.0,
+  "presence_penalty": 0.0,
+  "stop": [".", "!"],
+  "stream": false
+}
+```
+
+#### Embeddings
+
+```json
+{
+  "input": ["Text to embed", "Another text"],
+  "encoding_format": "float"
+}
+```
+
+### Streaming Responses
+
+Enable streaming for real-time response generation:
+
+```bash
+curl -X POST http://localhost:5000/gateway/chat/invocations \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [{"role": "user", "content": "Write a story"}],
+    "stream": true
+  }'
+```
+
+## Python Client Integration
+
+### MLflow Deployments Client
+
+The MLflow deployments client provides a Python interface that handles authentication, error handling, and response parsing. Use this when building Python applications:
+
+```python
+from mlflow.deployments import get_deploy_client
+
+# Create a client for the gateway
+client = get_deploy_client("http://localhost:5000")
+
+# Query a chat endpoint
+response = client.predict(
+    endpoint="chat",
+    inputs={"messages": [{"role": "user", "content": "What is MLflow?"}]},
+)
+
+print(response["choices"][0]["message"]["content"])
+```
+
+### Advanced Client Usage
+
+Build reusable functions for common operations like streaming responses and batch embedding generation:
+
+```python
+from mlflow.deployments import get_deploy_client
+
+# Initialize client
+client = get_deploy_client("http://localhost:5000")
+
+
+# Chat with streaming
+def stream_chat(prompt):
+    response = client.predict(
+        endpoint="chat",
+        inputs={
+            "messages": [{"role": "user", "content": prompt}],
+            "stream": True,
+            "temperature": 0.7,
+        },
+    )
+
+    for chunk in response:
+        if chunk["choices"][0]["delta"].get("content"):
+            print(chunk["choices"][0]["delta"]["content"], end="")
+
+
+# Generate embeddings
+def get_embeddings(texts):
+    response = client.predict(endpoint="embeddings", inputs={"input": texts})
+    return [item["embedding"] for item in response["data"]]
+
+
+# Example usage
+stream_chat("Explain quantum computing")
+embeddings = get_embeddings(["Hello world", "MLflow AI Gateway"])
+```
+
+### Error Handling
+
+Proper error handling helps you distinguish between network issues, authentication problems, and model-specific errors:
+
+```python
+from mlflow.deployments import get_deploy_client
+from mlflow.exceptions import MlflowException
+
+client = get_deploy_client("http://localhost:5000")
+
+try:
+    response = client.predict(
+        endpoint="chat", inputs={"messages": [{"role": "user", "content": "Hello"}]}
+    )
+    print(response)
+except MlflowException as e:
+    print(f"MLflow error: {e}")
+except Exception as e:
+    print(f"Unexpected error: {e}")
+```
+
+## Streaming Responses
+
+For long-form content generation, enable streaming to receive partial responses as they're generated instead of waiting for the complete response:
+
+```bash
+curl -X POST http://localhost:5000/gateway/chat/invocations \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [{"role": "user", "content": "Write a story"}],
+    "stream": true
+  }'
+```
+
+## API Reference
+
+### Gateway Management
+
+Query the gateway's current configuration and available endpoints programmatically:
+
+```python
+from mlflow.deployments import get_deploy_client
+
+client = get_deploy_client("http://localhost:5000")
+
+# List available endpoints
+endpoints = client.list_endpoints()
+for endpoint in endpoints:
+    print(f"Endpoint: {endpoint['name']}")
+
+# Get endpoint details
+endpoint_info = client.get_endpoint("chat")
+print(f"Model: {endpoint_info.get('model', {}).get('name', 'N/A')}")
+print(f"Provider: {endpoint_info.get('model', {}).get('provider', 'N/A')}")
+
+# Note: Route creation, updates, and deletion are typically done
+# through configuration file changes, not programmatically
+```
+
+### Health Monitoring
+
+Monitor gateway availability and responsiveness for production deployments:
+
+```python
+import requests
+
+try:
+    response = requests.get("http://localhost:5000/health")
+    print(f"Status: {response.status_code}")
+    if response.status_code == 200:
+        print("Gateway is healthy")
+except requests.RequestException as e:
+    print(f"Health check failed: {e}")
+```
+
+## Next Steps
+
+<TilesGrid>
+  <TileCard
+    icon={Settings}
+    title="Integration Guide"
+    description="Integrate with applications, frameworks, and production systems"
+    href="/genai/governance/ai-gateway/integration"
+    linkText="Learn integrations →"
+  />
+  <TileCard
+    icon={Book}
+    title="Tutorial"
+    description="Complete step-by-step walkthrough from setup to deployment"
+    href="/genai/governance/ai-gateway/guides"
+    linkText="Follow tutorial →"
+  />
+  <TileCard
+    icon={Home}
+    title="Configuration Guide"
+    description="Learn how to configure providers and advanced settings"
+    href="/genai/governance/ai-gateway/configuration"
+    linkText="Configure providers →"
+  />
+</TilesGrid>

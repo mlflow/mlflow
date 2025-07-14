@@ -1133,6 +1133,29 @@ class FileStore(AbstractStore):
         make_containing_dirs(tag_path)
         write_to(tag_path, self._writeable_value(tag.value))
 
+    def delete_experiment_tag(self, experiment_id, key):
+        """
+        Delete a tag from the specified experiment
+
+        Args:
+            experiment_id: String ID of the experiment
+            key: String name of the tag to be deleted
+        """
+        experiment = self.get_experiment(experiment_id)
+        if experiment.lifecycle_stage != LifecycleStage.ACTIVE:
+            raise MlflowException(
+                f"The experiment {experiment.experiment_id} must be in the 'active' "
+                "lifecycle_stage to delete tags",
+                error_code=databricks_pb2.INVALID_PARAMETER_VALUE,
+            )
+        tag_path = self._get_experiment_tag_path(experiment_id, key)
+        if not exists(tag_path):
+            raise MlflowException(
+                f"No tag with name: {key} in experiment with id {experiment_id}",
+                error_code=RESOURCE_DOES_NOT_EXIST,
+            )
+        os.remove(tag_path)
+
     def set_tag(self, run_id, tag):
         _validate_run_id(run_id)
         _validate_tag_name(tag.key)

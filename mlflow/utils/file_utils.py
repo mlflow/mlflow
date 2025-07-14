@@ -826,7 +826,8 @@ def shutil_copytree_without_file_permissions(src_dir, dst_dir):
             # For each directory <dirname> immediately under <dirpath>, create an equivalently-named
             # directory under the destination directory
             abs_dir_path = os.path.join(dst_dir, relative_dir_path)
-            os.mkdir(abs_dir_path)
+            if not os.path.exists(abs_dir_path):
+                os.mkdir(abs_dir_path)
         for filename in filenames:
             # For each file with name <filename> immediately under <dirpath>, copy that file to
             # the appropriate location in the destination directory

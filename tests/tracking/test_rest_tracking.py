@@ -112,7 +112,9 @@ def create_experiments(client, names):
 
 def test_create_get_search_experiment(mlflow_client):
     experiment_id = mlflow_client.create_experiment(
-        "My Experiment", artifact_location="my_location", tags={"key1": "val1", "key2": "val2"}
+        "My Experiment",
+        artifact_location="my_location",
+        tags={"key1": "val1", "key2": "val2"},
     )
     exp = mlflow_client.get_experiment(experiment_id)
     assert exp.name == "My Experiment"
@@ -200,7 +202,9 @@ def test_delete_restore_experiment(mlflow_client):
 def test_delete_restore_experiment_cli(mlflow_client, cli_env):
     experiment_name = "DeleteriousCLI"
     invoke_cli_runner(
-        mlflow.experiments.commands, ["create", "--experiment-name", experiment_name], env=cli_env
+        mlflow.experiments.commands,
+        ["create", "--experiment-name", experiment_name],
+        env=cli_env,
     )
     experiment_id = mlflow_client.get_experiment_by_name(experiment_name).experiment_id
     assert mlflow_client.get_experiment(experiment_id).lifecycle_stage == "active"
@@ -232,7 +236,13 @@ def test_rename_experiment_cli(mlflow_client, cli_env):
     assert mlflow_client.get_experiment(experiment_id).name == bad_experiment_name
     invoke_cli_runner(
         mlflow.experiments.commands,
-        ["rename", "--experiment-id", str(experiment_id), "--new-name", good_experiment_name],
+        [
+            "rename",
+            "--experiment-id",
+            str(experiment_id),
+            "--new-name",
+            good_experiment_name,
+        ],
         env=cli_env,
     )
     assert mlflow_client.get_experiment(experiment_id).name == good_experiment_name
@@ -633,6 +643,17 @@ def test_set_experiment_tag_with_empty_string_as_value(mlflow_client):
     assert {"tag_key": ""}.items() <= mlflow_client.get_experiment(experiment_id).tags.items()
 
 
+def test_delete_experiment_tag(mlflow_client):
+    experiment_id = mlflow_client.create_experiment("DeleteExperimentTagTest")
+    mlflow_client.set_experiment_tag(experiment_id, "dataset", "imagenet1K")
+    experiment = mlflow_client.get_experiment(experiment_id)
+    assert experiment.tags["dataset"] == "imagenet1K"
+    # test that deleting a tag works
+    mlflow_client.delete_experiment_tag(experiment_id, "dataset")
+    experiment = mlflow_client.get_experiment(experiment_id)
+    assert "dataset" not in experiment.tags
+
+
 def test_delete_tag(mlflow_client):
     experiment_id = mlflow_client.create_experiment("DeleteTagExperiment")
     created_run = mlflow_client.create_run(experiment_id)
@@ -712,7 +733,10 @@ def test_log_batch_validation(mlflow_client):
     response = _send_rest_tracking_post_request(
         mlflow_client.tracking_uri,
         "/api/2.0/mlflow/runs/log-batch",
-        {"run_id": run_id, "metrics": [{"key": "mae", "value": 2.5, "timestamp": 123456789}]},
+        {
+            "run_id": run_id,
+            "metrics": [{"key": "mae", "value": 2.5, "timestamp": 123456789}],
+        },
     )
 
     assert response.status_code == 200
@@ -829,7 +853,8 @@ def test_search_pagination(mlflow_client):
 def test_search_validation(mlflow_client):
     experiment_id = mlflow_client.create_experiment("search_validation")
     with pytest.raises(
-        MlflowException, match=r"Invalid value 123456789 for parameter 'max_results' supplied"
+        MlflowException,
+        match=r"Invalid value 123456789 for parameter 'max_results' supplied",
     ):
         mlflow_client.search_runs([experiment_id], max_results=123456789)
 
@@ -950,7 +975,9 @@ def test_get_metric_history_bulk_rejects_invalid_requests(mlflow_client):
     )
 
 
-def test_get_metric_history_bulk_returns_expected_metrics_in_expected_order(mlflow_client):
+def test_get_metric_history_bulk_returns_expected_metrics_in_expected_order(
+    mlflow_client,
+):
     experiment_id = mlflow_client.create_experiment("get metric history bulk")
     created_run1 = mlflow_client.create_run(experiment_id)
     run_id1 = created_run1.info.run_id
@@ -1046,7 +1073,11 @@ def test_get_metric_history_bulk_respects_max_results(mlflow_client):
 
     response_limited = requests.get(
         f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history-bulk",
-        params={"run_id": [run_id], "metric_key": "metricA", "max_results": max_results},
+        params={
+            "run_id": [run_id],
+            "metric_key": "metricA",
+            "max_results": max_results,
+        },
     )
     assert response_limited.status_code == 200
     assert response_limited.json().get("metrics") == [
@@ -1145,7 +1176,11 @@ def test_get_metric_history_with_page_token(mlflow_client):
 
     first_response = requests.get(
         f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history",
-        params={"run_id": run_id, "metric_key": "test_metric", "max_results": page_size},
+        params={
+            "run_id": run_id,
+            "metric_key": "test_metric",
+            "max_results": page_size,
+        },
     )
     assert first_response.status_code == 200
     first_data = first_response.json()
@@ -1201,7 +1236,11 @@ def test_get_metric_history_with_page_token(mlflow_client):
     # Test with invalid page_token
     response = requests.get(
         f"{mlflow_client.tracking_uri}/ajax-api/2.0/mlflow/metrics/get-history",
-        params={"run_id": run_id, "metric_key": "test_metric", "page_token": "invalid_token"},
+        params={
+            "run_id": run_id,
+            "metric_key": "test_metric",
+            "page_token": "invalid_token",
+        },
     )
     assert response.status_code == 400
     response_data = response.json()
@@ -1229,7 +1268,8 @@ def test_get_metric_history_bulk_interval_rejects_invalid_requests(mlflow_client
 
     assert_response(
         requests.get(
-            url, params={"run_ids": [f"id_{i}" for i in range(1000)], "metric_key": "key"}
+            url,
+            params={"run_ids": [f"id_{i}" for i in range(1000)], "metric_key": "key"},
         ),
         "GetMetricHistoryBulkInterval request must specify at most 100 run_ids.",
     )
@@ -1265,7 +1305,13 @@ def test_get_metric_history_bulk_interval_rejects_invalid_requests(mlflow_client
 
     assert_response(
         requests.get(
-            url, params={"run_ids": ["123"], "metric_key": "key", "start_step": 1, "max_results": 5}
+            url,
+            params={
+                "run_ids": ["123"],
+                "metric_key": "key",
+                "start_step": 1,
+                "max_results": 5,
+            },
         ),
         "If either start step or end step are specified, both must be specified.",
     )
@@ -1319,11 +1365,18 @@ def test_get_metric_history_bulk_interval_respects_max_results(mlflow_client):
         mlflow_client.log_metric(run_id2, **metric)
     response_limited = requests.get(
         url,
-        params={"run_ids": [run_id1, run_id2], "metric_key": "metricA", "max_results": 5},
+        params={
+            "run_ids": [run_id1, run_id2],
+            "metric_key": "metricA",
+            "max_results": 5,
+        },
     )
     expected_steps = [0, 4, 8, 9, 12, 16, 19]
     expected_metrics = []
-    for run_id, metric_history in [(run_id1, metric_history), (run_id2, metric_history2)]:
+    for run_id, metric_history in [
+        (run_id1, metric_history),
+        (run_id2, metric_history2),
+    ]:
         expected_metrics.extend(
             [
                 {**metric, "run_id": run_id}
@@ -1420,7 +1473,8 @@ def test_search_dataset_handler_returns_expected_results(mlflow_client):
     )
     dataset_inputs1 = [
         DatasetInput(
-            dataset=dataset1, tags=[InputTag(key=MLFLOW_DATASET_CONTEXT, value="training")]
+            dataset=dataset1,
+            tags=[InputTag(key=MLFLOW_DATASET_CONTEXT, value="training")],
         )
     ]
     mlflow_client.log_inputs(run_id, dataset_inputs1)
@@ -1848,7 +1902,10 @@ def test_log_input(mlflow_client, tmp_path):
             {"name": "c", "type": "long", "required": True},
         ]
     }
-    assert json.loads(dataset_inputs[0].dataset.profile) == {"num_rows": 2, "num_elements": 6}
+    assert json.loads(dataset_inputs[0].dataset.profile) == {
+        "num_rows": 2,
+        "num_elements": 6,
+    }
 
     assert len(dataset_inputs[0].tags) == 2
     assert dataset_inputs[0].tags[0].key == "foo"
@@ -1942,7 +1999,23 @@ def test_log_inputs_model(mlflow_client):
     experiment_id = mlflow_client.create_experiment("log inputs test")
     run = mlflow_client.create_run(experiment_id)
     model = mlflow_client.create_logged_model(experiment_id=experiment_id)
-    mlflow_client.log_inputs(run.info.run_id, models=[LoggedModelInput(model_id=model.model_id)])
+    dataset = Dataset(
+        name="name1",
+        digest="digest1",
+        source_type="source_type1",
+        source="source1",
+    )
+    dataset_inputs = [
+        DatasetInput(
+            dataset=dataset,
+            tags=[InputTag(key=MLFLOW_DATASET_CONTEXT, value="training")],
+        )
+    ]
+    mlflow_client.log_inputs(
+        run.info.run_id,
+        models=[LoggedModelInput(model_id=model.model_id)],
+        datasets=dataset_inputs,
+    )
     run = mlflow_client.get_run(run.info.run_id)
     assert len(run.inputs.model_inputs) == 1
 
@@ -2964,13 +3037,16 @@ def test_search_logged_models(mlflow_client: MlflowClient):
         model_id=model_1.model_id,
     )
     models = mlflow_client.search_logged_models(
-        experiment_ids=[exp_id], datasets=[{"dataset_name": "dataset", "dataset_digest": "123"}]
+        experiment_ids=[exp_id],
+        datasets=[{"dataset_name": "dataset", "dataset_digest": "123"}],
     )
+
     assert [m.name for m in models] == [model_1.name]
 
     # order_by
     models = mlflow_client.search_logged_models(
-        experiment_ids=[exp_id], order_by=[{"field_name": "creation_timestamp", "ascending": False}]
+        experiment_ids=[exp_id],
+        order_by=[{"field_name": "creation_timestamp", "ascending": False}],
     )
     assert [m.name for m in models] == [model_2.name, model_1.name]
 
@@ -3024,3 +3100,67 @@ def test_suppress_url_printing(mlflow_client: MlflowClient, monkeypatch):
     monkeypatch.setattr(sys, "stdout", captured_output)
     mlflow_client._tracking_client._log_url(run.info.run_id)
     assert captured_output.getvalue() == ""
+
+
+def test_graphql_nan_metric_handling(mlflow_client):
+    """Test that NaN metric values are correctly handled by returning null in GraphQL responses."""
+    experiment_id = mlflow_client.create_experiment("test_graphql_nan_metrics")
+    created_run = mlflow_client.create_run(experiment_id)
+    run_id = created_run.info.run_id
+
+    # Log a normal metric and a NaN metric
+    mlflow_client.log_metric(run_id, key="normal_metric", value=123, timestamp=1, step=1)
+    mlflow_client.log_metric(run_id, key="nan_metric", value=math.nan, timestamp=2, step=2)
+
+    response = requests.post(
+        f"{mlflow_client.tracking_uri}/graphql",
+        json={
+            "query": f"""
+                query testQuery {{
+                    mlflowGetRun(input: {{runId: "{run_id}"}}) {{
+                        run {{
+                            data {{
+                                metrics {{
+                                    key
+                                    value
+                                    timestamp
+                                    step
+                                }}
+                            }}
+                        }}
+                    }}
+                }}
+            """,
+            "operationName": "testQuery",
+        },
+        headers={"content-type": "application/json; charset=utf-8"},
+    )
+
+    assert response.status_code == 200
+    json_response = response.json()
+    assert json_response["errors"] is None
+
+    metrics = json_response["data"]["mlflowGetRun"]["run"]["data"]["metrics"]
+
+    # Find the normal metric and nan metric
+    normal_metric = None
+    nan_metric = None
+    for metric in metrics:
+        if metric["key"] == "normal_metric":
+            normal_metric = metric
+        elif metric["key"] == "nan_metric":
+            nan_metric = metric
+
+    # Verify normal metric has a numeric value
+    assert normal_metric is not None
+    assert normal_metric["key"] == "normal_metric"
+    assert normal_metric["value"] == 123
+    assert normal_metric["timestamp"] == "1"
+    assert normal_metric["step"] == "1"
+
+    # Verify NaN metric has null value
+    assert nan_metric is not None
+    assert nan_metric["key"] == "nan_metric"
+    assert nan_metric["value"] is None
+    assert nan_metric["timestamp"] == "2"
+    assert nan_metric["step"] == "2"

@@ -91,9 +91,9 @@
     "defaultMessage": "Models loading",
     "description": "Label for a loading spinner when table containing models is being loaded"
   },
-  "/lsQMU": {
-    "defaultMessage": "<link>Learn more</link>",
-    "description": "Learn more tooltip link to learn more on how to search experiments"
+  "/k7Xvj": {
+    "defaultMessage": "Key",
+    "description": "Tag filter input for key field in the tags filter popover for experiments page search by tags"
   },
   "/nPZbt": {
     "defaultMessage": "{totalTokens} total tokens",
@@ -410,6 +410,10 @@
   "53b+wP": {
     "defaultMessage": "Step",
     "description": "Experiment page > view controls > global settings for line chart view > settings for x-axis > label for setting to use step axis in all charts"
+  },
+  "55mClg": {
+    "defaultMessage": "Tag filter",
+    "description": "Button to open the tags filter popover in the experiments page"
   },
   "58xhem": {
     "defaultMessage": "Click to pin the run",
@@ -811,6 +815,10 @@
     "defaultMessage": "Create",
     "description": "Label for the create experiment action on the experiments list page"
   },
+  "9vT4HV": {
+    "defaultMessage": "Filter experiments by name",
+    "description": "Placeholder text inside experiments search bar"
+  },
   "9vj5Ap": {
     "defaultMessage": "No metrics recorded",
     "description": "Run page > Overview > Metrics table > No metrics recorded"
@@ -894,6 +902,10 @@
   "B8RvlZ": {
     "defaultMessage": "Comparing version {baseline} with version {compared}",
     "description": "Label for comparing prompt versions in the prompt comparison view. Variables {baseline} and {compared} are numeric version numbers being compared."
+  },
+  "BB6In/": {
+    "defaultMessage": "Tags",
+    "description": "Header for the tags column in the experiments table"
   },
   "BCpX6U": {
     "defaultMessage": "Registered models",
@@ -1347,6 +1359,10 @@
     "defaultMessage": "Last 24 hours",
     "description": "Option for the start select dropdown to filter runs from the last 24 hours"
   },
+  "JDpv0G": {
+    "defaultMessage": "Operator",
+    "description": "Tag filter input for operator field in the tags filter popover for experiments page search by tags"
+  },
   "JGQ5B2": {
     "defaultMessage": "Add",
     "description": "Model registry > model version table > metadata column > 'add' button label"
@@ -1563,6 +1579,10 @@
     "defaultMessage": "Comparing {numRuns} Runs from 1 Experiment",
     "description": "Breadcrumb title for compare runs page with single experiment"
   },
+  "NPlcrl": {
+    "defaultMessage": "Clear filters",
+    "description": "Button to clear filters in the tags filter popover for experiments page search by tags"
+  },
   "NU5iHM": {
     "defaultMessage": "Value",
     "description": "Label for the value column in the logged model details metrics table"
@@ -1626,6 +1646,10 @@
   "OEGyWZ": {
     "defaultMessage": "Predict on a Spark DataFrame.",
     "description": "Code comment which states on how we can predict using spark DataFrame"
+  },
+  "OH7hV5": {
+    "defaultMessage": "Value",
+    "description": "Tag filter input for value field in the tags filter popover for experiments page search by tags"
   },
   "ONIiUE": {
     "defaultMessage": "Show first 20",
@@ -2059,6 +2083,10 @@
     "defaultMessage": "Deleted traces cannot be restored. Are you sure you want to proceed?",
     "description": "Experiment page > traces view controls > Delete traces modal > Confirmation message"
   },
+  "Vk+30L": {
+    "defaultMessage": "Edit tags",
+    "description": "Label for the edit tags button in the experiment list table"
+  },
   "Vkr4Bs": {
     "defaultMessage": "Add description",
     "description": "experiment page > description modal > title"
@@ -2082,10 +2110,6 @@
   "Vvn8Cb": {
     "defaultMessage": "Open dataset",
     "description": "Text for the HTTP/HF location link in the experiment run dataset drawer"
-  },
-  "VzuUre": {
-    "defaultMessage": "Supported formats: image, text, html, pdf, audio, geojson files",
-    "description": "Text to explain users which formats are supported to display the artifacts"
   },
   "W8bOkn": {
     "defaultMessage": "250",
@@ -2142,6 +2166,10 @@
   "WmDiY9": {
     "defaultMessage": "Source",
     "description": "Run page > Overview > Run source section label"
+  },
+  "Wv3B3G": {
+    "defaultMessage": "Supported formats: image, text, html, pdf, audio, video, geojson files",
+    "description": "Text to explain users which formats are supported to display the artifacts"
   },
   "WvHAEg": {
     "defaultMessage": "Input an artifact location (optional)",
@@ -2538,6 +2566,10 @@
   "cI+F/q": {
     "defaultMessage": "Name",
     "description": "Column title for name column in editable tags table view in MLflow"
+  },
+  "cI0kqF": {
+    "defaultMessage": "Add tags",
+    "description": "Label for the add tags button in the experiment list table"
   },
   "cIV9pX": {
     "defaultMessage": "Permission denied",
@@ -3111,6 +3143,10 @@
     "defaultMessage": "Last modified",
     "description": "Header for the last modified column in the experiments table"
   },
+  "l8Z2nP": {
+    "defaultMessage": "Remove filter",
+    "description": "Button to remove a filter in the tags filter popover for experiments page search by tags"
+  },
   "lA8QO2": {
     "defaultMessage": "Edit tags",
     "description": "Label for the edit tags button in the registered prompts table"
@@ -3523,6 +3559,10 @@
     "defaultMessage": "Permission denied for {modelName}. Error: \"{errorMsg}\"",
     "description": "Permission denied error message on registered model detail page"
   },
+  "rY00Iw": {
+    "defaultMessage": "Add filter",
+    "description": "Button to add a new filter in the tags filter popover for experiments page search by tags"
+  },
   "raa3Ij": {
     "defaultMessage": "Registered Models",
     "description": "Text for link back to model page under the header on the model view page"
@@ -3590,6 +3630,10 @@
   "sTp/V3": {
     "defaultMessage": "Parallel Coordinates Plot",
     "description": "Tab pane title for parallel coordinate plots on the compare runs page"
+  },
+  "sWbj1n": {
+    "defaultMessage": "Apply filters",
+    "description": "Button to apply filters in the tags filter popover for experiments page search by tags"
   },
   "sXqvoN": {
     "defaultMessage": "Ignore column ordering",
