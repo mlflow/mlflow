@@ -12,7 +12,7 @@ Seamlessly integrate [MLflow Tracing](https://github.com/mlflow/mlflow/tree/main
 npm install mlflow-openai
 ```
 
-The package already includes the [mlflow-tracing](https://github.com/mlflow/mlflow/tree/main/packages/typescript) package as a dependency, so you don't need to install it separately.
+The package includes the [`mlflow-tracing`](https://github.com/mlflow/mlflow/tree/main/packages/typescript) package and `openai` package as peer dependencies. Depending on your package manager, you may need to install these two packages separately.
 
 ## Quickstart
 

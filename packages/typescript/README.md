@@ -74,7 +74,8 @@ const getWeather = mlflow.trace(
     (city: string) => {
         return `The weather in ${city} is sunny`;
     },
-    // trace option
+    // Pass options to set span name. See https://mlflow.org/docs/latest/genai/tracing/app-instrumentation/typescript-sdk
+    // for the full list of options.
     { name: 'get-weather' }
 );
 getWeather('San Francisco');
@@ -82,7 +83,7 @@ getWeather('San Francisco');
 
 
 // Alternatively, start and end span manually
-const span = mlflow.startSpan('my-span');
+const span = mlflow.startSpan({ name: 'my-span' });
 span.end();
 ```
 
