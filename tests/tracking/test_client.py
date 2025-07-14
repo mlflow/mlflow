@@ -2449,9 +2449,9 @@ def test_start_span_sends_telemetry_record(mock_requests, tracking_uri):
     client.end_trace(trace_id=root.trace_id, outputs="")
     get_telemetry_client().flush()
 
-    # one for start_span, one for span export
-    assert len(mock_requests) == 2
-    record = mock_requests[0]
+    # one for start_trace, one for start_span, one for span export
+    assert len(mock_requests) == 3
+    record = mock_requests[1]
     data = json.loads(record["data"])
     assert data["api_module"] == client.start_span.__module__
     assert data["api_name"] == "MlflowClient.start_span"
