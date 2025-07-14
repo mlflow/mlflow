@@ -1,5 +1,15 @@
 import type { TraceLocation, TraceLocationType } from './trace_location';
 import type { TraceState } from './trace_state';
+import { TraceMetadataKey } from '../constants';
+
+/**
+ * Interface for token usage information
+ */
+export interface TokenUsage {
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+}
 
 /**
  * Metadata about a trace, such as its ID, location, timestamp, etc.
@@ -122,6 +132,26 @@ export class TraceInfo {
       trace_metadata: this.traceMetadata,
       tags: this.tags,
       assessments: this.assessments
+    };
+  }
+
+  /**
+   * Get aggregated token usage information for this trace.
+   * Returns null if no token usage data is available.
+   * @returns Token usage object or null
+   */
+  get tokenUsage(): TokenUsage | null {
+    const tokenUsageJson = this.traceMetadata[TraceMetadataKey.TOKEN_USAGE];
+
+    if (!tokenUsageJson) {
+      return null;
+    }
+
+    const usage = JSON.parse(tokenUsageJson) as TokenUsage;
+    return {
+      input_tokens: usage.input_tokens,
+      output_tokens: usage.output_tokens,
+      total_tokens: usage.total_tokens
     };
   }
 
