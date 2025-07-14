@@ -679,8 +679,7 @@ class Model:
         model metadata.
         """
         if logged_model is None:
-            client = mlflow.MlflowClient()
-            logged_model = client.get_logged_model(model_id=self.model_id)
+            logged_model = mlflow.get_logged_model(model_id=self.model_id)
         return ModelInfo(
             artifact_path=self.artifact_path,
             flavors=self.flavors,
