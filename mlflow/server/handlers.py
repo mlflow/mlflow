@@ -170,6 +170,7 @@ from mlflow.utils.validation import (
     invalid_value,
     missing_value,
 )
+from mlflow.webhooks.dispatch import dispatch_webhook
 
 _logger = logging.getLogger(__name__)
 _tracking_store = None
@@ -1776,6 +1777,22 @@ def _create_registered_model():
         description=request_message.description,
     )
     response_message = CreateRegisteredModel.Response(registered_model=registered_model.to_proto())
+
+    try:
+        dispatch_webhook(
+            event=WebhookEvent.REGISTERED_MODEL_CREATED,
+            payload={
+                "name": request_message.name,
+                "tags": {t.key: t.value for t in request_message.tags},
+                "description": request_message.description,
+            },
+            store=_get_model_registry_store(),
+        )
+    except Exception as e:
+        _logger.warning(
+            "Failed to dispatch webhook for registered model creation: %s", e, exc_info=True
+        )
+
     return _wrap_response(response_message)
 
 
@@ -2031,7 +2048,8 @@ def _create_model_version():
             )
 
     # If the model version is a prompt, we don't validate the source
-    if not _is_prompt_request(request_message):
+    is_prompt = _is_prompt_request(request_message)
+    if not is_prompt:
         if request_message.model_id:
             _validate_source_model(request_message.source, request_message.model_id)
         else:
@@ -2046,19 +2064,41 @@ def _create_model_version():
         description=request_message.description,
         model_id=request_message.model_id,
     )
-    if not _is_prompt_request(request_message) and request_message.model_id:
+    if not is_prompt and request_message.model_id:
         tracking_store = _get_tracking_store()
         tracking_store.set_model_versions_tags(
             name=request_message.name,
             version=model_version.version,
             model_id=request_message.model_id,
         )
+
+    if not is_prompt:
+        try:
+            dispatch_webhook(
+                event=WebhookEvent.MODEL_VERSION_CREATED,
+                payload={
+                    "name": request_message.name,
+                    "version": str(model_version.version),
+                    "source": request_message.source,
+                    "run_id": request_message.run_id or None,
+                    "tags": {t.key: t.value for t in request_message.tags},
+                    "description": request_message.description or None,
+                },
+                store=_get_model_registry_store(),
+            )
+        except Exception:
+            _logger.warning("Failed to dispatch webhook for model version creation", exc_info=True)
     response_message = CreateModelVersion.Response(model_version=model_version.to_proto())
     return _wrap_response(response_message)
 
 
 def _is_prompt_request(request_message):
     return any(tag.key == IS_PROMPT_TAG_KEY for tag in request_message.tags)
+
+
+def _is_prompt(name: str) -> bool:
+    rm = _get_model_registry_store().get_registered_model(name=name)
+    return any(k == IS_PROMPT_TAG_KEY and v == "true" for (k, v) in rm.tags.items())
 
 
 @catch_mlflow_exception
@@ -2222,6 +2262,24 @@ def _set_model_version_tag():
     _get_model_registry_store().set_model_version_tag(
         name=request_message.name, version=request_message.version, tag=tag
     )
+
+    if not _is_prompt(request_message.name):
+        try:
+            dispatch_webhook(
+                event=WebhookEvent.MODEL_VERSION_TAG_SET,
+                payload={
+                    "name": request_message.name,
+                    "version": request_message.version,
+                    "key": request_message.key,
+                    "value": request_message.value,
+                },
+                store=_get_model_registry_store(),
+            )
+        except Exception as e:
+            _logger.warning(
+                "Failed to dispatch webhook for model version tag set: %s", e, exc_info=True
+            )
+
     return _wrap_response(SetModelVersionTag.Response())
 
 
@@ -2241,6 +2299,21 @@ def _delete_model_version_tag():
         version=request_message.version,
         key=request_message.key,
     )
+
+    if not _is_prompt(request_message.name):
+        try:
+            dispatch_webhook(
+                event=WebhookEvent.MODEL_VERSION_TAG_DELETED,
+                payload={
+                    "name": request_message.name,
+                    "version": request_message.version,
+                    "key": request_message.key,
+                },
+                store=_get_model_registry_store(),
+            )
+        except Exception:
+            _logger.warning("Failed to dispatch webhook for model version tag set", exc_info=True)
+
     return _wrap_response(DeleteModelVersionTag.Response())
 
 
@@ -2260,6 +2333,21 @@ def _set_registered_model_alias():
         alias=request_message.alias,
         version=request_message.version,
     )
+
+    if not _is_prompt(request_message.name):
+        try:
+            dispatch_webhook(
+                event=WebhookEvent.MODEL_VERSION_ALIAS_CREATED,
+                payload={
+                    "name": request_message.name,
+                    "alias": request_message.alias,
+                    "version": request_message.version,
+                },
+                store=_get_model_registry_store(),
+            )
+        except Exception:
+            _logger.warning("Failed to dispatch webhook for model version alias set", exc_info=True)
+
     return _wrap_response(SetRegisteredModelAlias.Response())
 
 
@@ -2276,6 +2364,22 @@ def _delete_registered_model_alias():
     _get_model_registry_store().delete_registered_model_alias(
         name=request_message.name, alias=request_message.alias
     )
+
+    if not _is_prompt(request_message.name):
+        try:
+            dispatch_webhook(
+                event=WebhookEvent.MODEL_VERSION_ALIAS_DELETED,
+                payload={
+                    "name": request_message.name,
+                    "alias": request_message.alias,
+                },
+                store=_get_model_registry_store(),
+            )
+        except Exception:
+            _logger.warning(
+                "Failed to dispatch webhook for model version alias deletion", exc_info=True
+            )
+
     return _wrap_response(DeleteRegisteredModelAlias.Response())
 
 
