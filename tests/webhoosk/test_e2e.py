@@ -6,6 +6,7 @@ import time
 from pathlib import Path
 from typing import Any, Generator
 
+import psutil
 import pytest
 import requests
 from cryptography.fernet import Fernet
@@ -15,8 +16,6 @@ from mlflow import MlflowClient
 from mlflow.entities.webhook import WebhookEvent
 
 from tests.helper_functions import get_safe_port
-
-SECRET = "test_webhook_secret"
 
 
 def wait_until_ready(health_endpoint: str, max_attempts: int = 10) -> None:
@@ -34,8 +33,7 @@ def wait_until_ready(health_endpoint: str, max_attempts: int = 10) -> None:
 def _run_mlflow_server(tmp_path: Path) -> Generator[str, None, None]:
     port = get_safe_port()
     backend_store_uri = f"sqlite:///{tmp_path / 'mlflow.db'}"
-
-    process = subprocess.Popen(
+    with subprocess.Popen(
         [
             sys.executable,
             "-m",
@@ -45,7 +43,6 @@ def _run_mlflow_server(tmp_path: Path) -> Generator[str, None, None]:
             "--workers=1",
             f"--backend-store-uri={backend_store_uri}",
             f"--default-artifact-root=file://{tmp_path}/artifacts",
-            "--dev",
         ],
         cwd=tmp_path,
         env=(
@@ -55,19 +52,18 @@ def _run_mlflow_server(tmp_path: Path) -> Generator[str, None, None]:
                 "MLFLOW_WEBHOOK_SECRET_ENCRYPTION_KEY": Fernet.generate_key().decode(),
             }
         ),
-    )
-
-    try:
-        url = f"http://localhost:{port}"
-        wait_until_ready(f"{url}/health")
-        yield url
-    finally:
-        process.terminate()
+    ) as prc:
         try:
-            process.wait(timeout=10)
-        except subprocess.TimeoutExpired:
-            process.kill()
-            process.wait()
+            url = f"http://localhost:{port}"
+            wait_until_ready(f"{url}/health")
+            yield url
+        finally:
+            # Kill the mlflow server process
+            prc.terminate()
+            # Kill the gunicorn processes spawned by mlflow server
+            proc = psutil.Process(prc.pid)
+            for child in proc.children(recursive=True):
+                child.terminate()
 
 
 class AppClient:
@@ -91,7 +87,7 @@ class AppClient:
 def _run_app(tmp_path: Path) -> Generator[AppClient, None, None]:
     port = get_safe_port()
     app_path = Path(__file__).parent / "app.py"
-    process = subprocess.Popen(
+    with subprocess.Popen(
         [
             sys.executable,
             "-m",
@@ -102,19 +98,13 @@ def _run_app(tmp_path: Path) -> Generator[AppClient, None, None]:
             str(port),
         ],
         cwd=tmp_path,
-    )
-
-    try:
-        url = f"http://localhost:{port}"
-        wait_until_ready(f"{url}/health")
-        yield AppClient(url)
-    finally:
-        process.terminate()
+    ) as prc:
         try:
-            process.wait(timeout=10)
-        except subprocess.TimeoutExpired:
-            process.kill()
-            process.wait()
+            url = f"http://localhost:{port}"
+            wait_until_ready(f"{url}/health")
+            yield AppClient(url)
+        finally:
+            prc.terminate()
 
 
 @pytest.fixture(scope="module")
@@ -135,9 +125,12 @@ def mlflow_server(
 
 @pytest.fixture(scope="module")
 def mlflow_client(mlflow_server: str) -> mlflow.MlflowClient:
-    mlflow.set_tracking_uri(mlflow_server)
-    mlflow.set_registry_uri(mlflow_server)
-    return mlflow.MlflowClient(tracking_uri=mlflow_server, registry_uri=mlflow_server)
+    with pytest.MonkeyPatch.context() as mp:
+        # Disable retries to fail fast
+        mp.setenv("MLFLOW_HTTP_REQUEST_MAX_RETRIES", "0")
+        mlflow.set_tracking_uri(mlflow_server)
+        mlflow.set_registry_uri(mlflow_server)
+        return mlflow.MlflowClient(tracking_uri=mlflow_server, registry_uri=mlflow_server)
 
 
 @pytest.fixture(autouse=True)
