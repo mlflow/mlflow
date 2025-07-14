@@ -21,9 +21,8 @@ async def insecure_webhook(request: Request):
         "payload": await request.json(),
         "headers": dict(request.headers),
     }
-    with LOG_FILE.open("ab") as f:
-        f.write(json.dumps(webhook_data).encode("utf-8"))
-        f.write(b"\n")
+    with LOG_FILE.open("a") as f:
+        f.write(json.dumps(webhook_data) + "\n")
 
     return {"status": "received"}
 
@@ -31,7 +30,8 @@ async def insecure_webhook(request: Request):
 @app.delete("/logs")
 async def clear_logs():
     if LOG_FILE.exists():
-        LOG_FILE.unlink()
+        # Clear contents
+        LOG_FILE.open("w").close()
     return {"status": "logs cleared"}
 
 
@@ -40,10 +40,6 @@ async def get_logs():
     if not LOG_FILE.exists():
         return {"logs": []}
 
-    logs = []
     with LOG_FILE.open("r") as f:
-        for line in f:
-            if line.strip():
-                logs.append(json.loads(line.strip()))
-
-    return {"logs": logs}
+        logs = [json.loads(s) for line in f if (s := line.strip())]
+        return {"logs": logs}
