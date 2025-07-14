@@ -1,7 +1,9 @@
 import json
+import sys
 from pathlib import Path
 
 import fastapi
+import uvicorn
 from fastapi import Request
 
 LOG_FILE = Path("logs.jsonl")
@@ -43,3 +45,8 @@ async def get_logs():
     with LOG_FILE.open("r") as f:
         logs = [json.loads(s) for line in f if (s := line.strip())]
         return {"logs": logs}
+
+
+if __name__ == "__main__":
+    port = sys.argv[1]
+    uvicorn.run(app, host="0.0.0.0", port=int(port))

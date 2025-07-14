@@ -89,11 +89,7 @@ def _run_app(tmp_path: Path) -> Generator[AppClient, None, None]:
     with subprocess.Popen(
         [
             sys.executable,
-            "-m",
-            "fastapi",
-            "run",
             app_path,
-            "--port",
             str(port),
         ],
         cwd=tmp_path,
