@@ -8,6 +8,9 @@
  * bundles Infima by default. Infima is a CSS framework designed to
  * work well for content-centric websites.
  */
+:root {
+  --color-brand-red: #eb1700;
+}
 
 /* --------------------------------
  * 0. Override tailwinds reset of li and ul elements styling
