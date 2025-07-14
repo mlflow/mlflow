@@ -1,36 +1,37 @@
 import React, { useState } from 'react';
-import { Theme } from '@emotion/react';
+import { Interpolation, Theme } from '@emotion/react';
 import {
   Button,
   TableFilterLayout,
   TableFilterInput,
   Spacer,
   Header,
-  Popover,
-  InfoIcon,
-  Typography,
   Alert,
   useDesignSystemTheme,
+  Popover,
+  FilterIcon,
+  ChevronDownIcon,
 } from '@databricks/design-system';
 import 'react-virtualized/styles.css';
 import Routes from '../routes';
 import { CreateExperimentModal } from './modals/CreateExperimentModal';
 import { useExperimentListQuery, useInvalidateExperimentList } from './experiment-page/hooks/useExperimentListQuery';
 import { RowSelectionState } from '@tanstack/react-table';
-import { defineMessage, FormattedMessage, useIntl } from 'react-intl';
+import { FormattedMessage, useIntl } from 'react-intl';
 import { ScrollablePageWrapper } from '../../common/components/ScrollablePageWrapper';
-import { ExperimentSearchSyntaxDocUrl } from '../../common/constants';
 import { ExperimentListTable } from './ExperimentListTable';
 import { useNavigate } from '../../common/utils/RoutingUtils';
 import { BulkDeleteExperimentModal } from './modals/BulkDeleteExperimentModal';
 import { ErrorWrapper } from '../../common/utils/ErrorWrapper';
+import { useUpdateExperimentTags } from './experiment-page/hooks/useUpdateExperimentTags';
+import { useSearchFilter } from './experiment-page/hooks/useSearchFilter';
+import { TagFilter, useTagsFilter } from './experiment-page/hooks/useTagsFilter';
+import { ExperimentListViewTagsFilter } from './experiment-page/components/ExperimentListViewTagsFilter';
 
-type Props = {
-  searchFilter: string;
-  setSearchFilter: (searchFilter: string) => void;
-};
+export const ExperimentListView = () => {
+  const [searchFilter, setSearchFilter] = useSearchFilter();
+  const { tagsFilter, setTagsFilter, isTagsFilterOpen, setIsTagsFilterOpen } = useTagsFilter();
 
-export const ExperimentListView = ({ searchFilter, setSearchFilter }: Props) => {
   const {
     data: experiments,
     isLoading,
@@ -42,8 +43,12 @@ export const ExperimentListView = ({ searchFilter, setSearchFilter }: Props) => 
     pageSizeSelect,
     sorting,
     setSorting,
-  } = useExperimentListQuery({ searchFilter });
+  } = useExperimentListQuery({ searchFilter, tagsFilter });
   const invalidateExperimentList = useInvalidateExperimentList();
+
+  const { EditTagsModal, showEditExperimentTagsModal } = useUpdateExperimentTags({
+    onSuccess: invalidateExperimentList,
+  });
 
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [searchInput, setSearchInput] = useState('');
@@ -151,7 +156,7 @@ export const ExperimentListView = ({ searchFilter, setSearchFilter }: Props) => 
           <TableFilterInput
             data-testid="search-experiment-input"
             placeholder={intl.formatMessage({
-              defaultMessage: 'Filter experiments by name, tags or attributes',
+              defaultMessage: 'Filter experiments by name',
               description: 'Placeholder text inside experiments search bar',
             })}
             componentId="mlflow.experiment_list_view.search"
@@ -160,8 +165,29 @@ export const ExperimentListView = ({ searchFilter, setSearchFilter }: Props) => 
             onSubmit={handleSearchSubmit}
             onClear={handleSearchClear}
             showSearchButton
-            suffix={<ModelSearchInputHelpTooltip />}
           />
+          <Popover.Root
+            componentId="mlflow.experiment_list_view.tag_filter"
+            open={isTagsFilterOpen}
+            onOpenChange={setIsTagsFilterOpen}
+          >
+            <Popover.Trigger asChild>
+              <Button
+                componentId="mlflow.experiment_list_view.tag_filter.trigger"
+                icon={<FilterIcon />}
+                endIcon={<ChevronDownIcon />}
+                type={tagsFilter.length > 0 ? 'primary' : undefined}
+              >
+                <FormattedMessage
+                  defaultMessage="Tag filter"
+                  description="Button to open the tags filter popover in the experiments page"
+                />
+              </Button>
+            </Popover.Trigger>
+            <Popover.Content>
+              <ExperimentListViewTagsFilter tagsFilter={tagsFilter} setTagsFilter={setTagsFilter} />
+            </Popover.Content>
+          </Popover.Root>
         </TableFilterLayout>
         <ExperimentListTable
           experiments={experiments}
@@ -177,6 +203,7 @@ export const ExperimentListView = ({ searchFilter, setSearchFilter }: Props) => 
             pageSizeSelect,
           }}
           sortingProps={{ sorting, setSorting }}
+          onEditTags={showEditExperimentTagsModal}
         />
       </div>
       <CreateExperimentModal
@@ -193,83 +220,9 @@ export const ExperimentListView = ({ searchFilter, setSearchFilter }: Props) => 
           setRowSelection({});
         }}
       />
+      {EditTagsModal}
     </ScrollablePageWrapper>
   );
 };
 
 export default ExperimentListView;
-
-const ModelSearchInputHelpTooltip = () => {
-  const { formatMessage } = useIntl();
-  const tooltipIntroMessage = defineMessage({
-    defaultMessage:
-      'A filter expression over experiment attributes and tags that allows returning a subset of experiments.',
-    description: 'Tooltip string to explain how to search experiments',
-  });
-
-  // Tooltips are not expected to contain links.
-  const labelText = formatMessage(tooltipIntroMessage, { newline: ' ', whereBold: 'WHERE' });
-
-  return (
-    <Popover.Root componentId="mlflow.experiment_list_view.searchbox.help_popover.root">
-      <Popover.Trigger
-        aria-label={labelText}
-        css={{ border: 0, background: 'none', padding: 0, lineHeight: 0, cursor: 'pointer' }}
-      >
-        <InfoIcon />
-      </Popover.Trigger>
-      <Popover.Content align="start">
-        <div>
-          <FormattedMessage {...tooltipIntroMessage} />
-          <Typography.Paragraph>
-            The syntax is a subset of SQL that supports ANDing together binary operations between an attribute or tag,
-            and a constant.
-          </Typography.Paragraph>
-          <Typography.Paragraph>
-            <FormattedMessage
-              defaultMessage="<link>Learn more</link>"
-              description="Learn more tooltip link to learn more on how to search experiments"
-              values={{
-                link: (chunks) => (
-                  <Typography.Link
-                    componentId="mlflow.experiment_list_view.searchbox.help_popover.syntax_url"
-                    href={ExperimentSearchSyntaxDocUrl + '#syntax'}
-                    openInNewTab
-                  >
-                    {chunks}
-                  </Typography.Link>
-                ),
-              }}
-            />
-          </Typography.Paragraph>
-          <Typography.Paragraph>
-            <FormattedMessage
-              defaultMessage="Examples:"
-              description="Text header for examples of mlflow search syntax"
-            />
-          </Typography.Paragraph>
-          <ul>
-            <li>
-              <Typography.Text code>attributes.name = 'x'</Typography.Text>
-              <Typography.Text> or </Typography.Text>
-              <Typography.Text code>name = 'x'</Typography.Text>
-            </li>
-            <li>
-              <Typography.Text code>attributes.name LIKE 'x%'</Typography.Text>
-            </li>
-            <li>
-              <Typography.Text code>tags.group != 'x'</Typography.Text>
-            </li>
-            <li>
-              <Typography.Text code>tags.group ILIKE '%x%'</Typography.Text>
-            </li>
-            <li>
-              <Typography.Text code>attributes.name LIKE 'x%' AND tags.group = 'y'</Typography.Text>
-            </li>
-          </ul>
-        </div>
-        <Popover.Arrow />
-      </Popover.Content>
-    </Popover.Root>
-  );
-};

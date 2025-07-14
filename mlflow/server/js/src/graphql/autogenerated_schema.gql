@@ -113,12 +113,12 @@ enum MlflowRunStatus {
 }
 
 type MlflowRunData {
-  metrics: [MlflowMetric!]
+  metrics: [MlflowMetricExtension!]
   params: [MlflowParam!]
   tags: [MlflowRunTag!]
 }
 
-type MlflowMetric {
+type MlflowMetricExtension {
   key: String
   value: Float
   timestamp: LongString

@@ -17,7 +17,8 @@ class ScorerScheduleConfig:
     A scheduled scorer configuration for automated monitoring of generative AI applications.
 
     Scheduled scorers are used to automatically evaluate traces logged to MLflow experiments
-    by production applications. They are part of [Databricks Lakehouse Monitoring for GenAI](https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/monitoring),
+    by production applications. They are part of `Databricks Lakehouse Monitoring for GenAI
+    <https://docs.databricks.com/aws/en/generative-ai/agent-evaluation/monitoring>`_,
     which helps track quality metrics like groundedness, safety, and guideline adherence
     alongside operational metrics like volume, latency, and cost.
 

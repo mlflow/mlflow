@@ -9,18 +9,19 @@ import { ExperimentListView } from './ExperimentListView';
 import Fixtures from '../utils/test-utils/Fixtures';
 import { DesignSystemProvider } from '@databricks/design-system';
 import { useExperimentListQuery } from './experiment-page/hooks/useExperimentListQuery';
+import { useUpdateExperimentTags } from './experiment-page/hooks/useUpdateExperimentTags';
 
 jest.mock('./experiment-page/hooks/useExperimentListQuery', () => ({
   useExperimentListQuery: jest.fn(),
   useInvalidateExperimentList: jest.fn(),
 }));
 
+jest.mock('./experiment-page/hooks/useUpdateExperimentTags', () => ({
+  useUpdateExperimentTags: jest.fn(),
+}));
+
 const mountComponent = (props: any) => {
   const mockStore = configureStore([thunk, promiseMiddleware()]);
-  const experimentListViewProps = {
-    searchFilter: '',
-    setSearchFilter: jest.fn(),
-  };
 
   jest.mocked(useExperimentListQuery).mockImplementation(() => ({
     data: props.experiments.slice(25),
@@ -40,6 +41,12 @@ const mountComponent = (props: any) => {
     setSorting: jest.fn(),
   }));
 
+  jest.mocked(useUpdateExperimentTags).mockReturnValue({
+    isLoading: false,
+    EditTagsModal: <span />,
+    showEditExperimentTagsModal: jest.fn(),
+  });
+
   return renderWithIntl(
     <DesignSystemProvider>
       <Provider
@@ -50,7 +57,7 @@ const mountComponent = (props: any) => {
         })}
       >
         <BrowserRouter>
-          <ExperimentListView {...experimentListViewProps} />
+          <ExperimentListView />
         </BrowserRouter>
       </Provider>
     </DesignSystemProvider>,
