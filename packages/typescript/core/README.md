@@ -2,9 +2,9 @@
 
 This is the core package of the [MLflow Typescript SDK](https://github.com/mlflow/mlflow/tree/main/packages/typescript). It is a skinny package that includes the core tracing functionality and manual instrumentation.
 
-|Package|NPM|Description|
-|---|---|---|
-|[mlflow-tracing](./packages/typescript/core)|[![npm package](https://img.shields.io/npm/v/mlflow-tracing?style=flat-square)](https://www.npmjs.com/package/mlflow-tracing) |The core tracing functionality and manual instrumentation.|
+| Package                                      | NPM                                                                                                                           | Description                                                |
+| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| [mlflow-tracing](./packages/typescript/core) | [![npm package](https://img.shields.io/npm/v/mlflow-tracing?style=flat-square)](https://www.npmjs.com/package/mlflow-tracing) | The core tracing functionality and manual instrumentation. |
 
 ## Installation
 
@@ -41,16 +41,14 @@ Create a trace:
 // MLflow will automatically record the function name, arguments, return value,
 // latency, and exception information to the span.
 const getWeather = mlflow.trace(
-    (city: string) => {
-        return `The weather in ${city} is sunny`;
-    },
-    // Pass options to set span name. See https://mlflow.org/docs/latest/genai/tracing/app-instrumentation/typescript-sdk
-    // for the full list of options.
-    { name: 'get-weather' }
+  (city: string) => {
+    return `The weather in ${city} is sunny`;
+  },
+  // Pass options to set span name. See https://mlflow.org/docs/latest/genai/tracing/app-instrumentation/typescript-sdk
+  // for the full list of options.
+  { name: 'get-weather' }
 );
 getWeather('San Francisco');
-
-
 
 // Alternatively, start and end span manually
 const span = mlflow.startSpan({ name: 'my-span' });

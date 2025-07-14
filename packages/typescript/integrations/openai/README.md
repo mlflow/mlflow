@@ -2,9 +2,9 @@
 
 Seamlessly integrate [MLflow Tracing](https://github.com/mlflow/mlflow/tree/main/packages/typescript) with OpenAI to automatically trace your OpenAI API calls.
 
-|Package|NPM|Description|
-|---|---|---|
-|[mlflow-openai](./packages/typescript/integrations/openai)|[![npm package](https://img.shields.io/npm/v/mlflow-tracing-openai?style=flat-square)](https://www.npmjs.com/package/mlflow-tracing-openai) |Auto-instrumentation integration for OpenAI.|
+| Package                                                    | NPM                                                                                                                                         | Description                                  |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| [mlflow-openai](./packages/typescript/integrations/openai) | [![npm package](https://img.shields.io/npm/v/mlflow-tracing-openai?style=flat-square)](https://www.npmjs.com/package/mlflow-tracing-openai) | Auto-instrumentation integration for OpenAI. |
 
 ## Installation
 
@@ -39,20 +39,20 @@ mlflow.init({
 Create a trace:
 
 ```typescript
-import { OpenAI } from "openai";
-import { tracedOpenAI } from "mlflow-openai";
+import { OpenAI } from 'openai';
+import { tracedOpenAI } from 'mlflow-openai';
 
 // Wrap the OpenAI client with the tracedOpenAI function
 const client = tracedOpenAI(new OpenAI());
 
 // Invoke the client as usual
 const response = await client.chat.completions.create({
-    model: "o4-mini",
-    messages: [
-        {"role": "system", "content": "You are a helpful weather assistant."},
-        {"role": "user", "content": "What's the weather like in Seattle?"},
-    ],
-})
+  model: 'o4-mini',
+  messages: [
+    { role: 'system', content: 'You are a helpful weather assistant.' },
+    { role: 'user', content: "What's the weather like in Seattle?" }
+  ]
+});
 ```
 
 View traces in MLflow UI:

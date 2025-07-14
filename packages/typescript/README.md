@@ -9,7 +9,6 @@
 </h1>
 <h2 align="center" style="border-bottom: none"></h2>
 
-
 <p align="center">
   <a href="https://github.com/mlflow/mlflow"><img src="https://img.shields.io/github/stars/mlflow/mlflow?style=social" alt="stars"></a>
   <a href="https://www.npmjs.com/package/mlflow-tracing"><img src="https://img.shields.io/npm/v/mlflow-tracing.svg" alt="version"></a>
@@ -22,15 +21,12 @@ MLflow Typescript SDK is a variant of the [MLflow Python SDK](https://github.com
 > [!IMPORTANT]
 > MLflow Typescript SDK is catching up with the Python SDK. Currently only support [Tracing]() and [Feedback Collection]() features. Please raise an issue in Github if you need a feature that is not supported.
 
-
-
 ## Packages
 
-|Package|NPM|Description|
-|---|---|---|
-|[mlflow-tracing](./packages/typescript/core)|[![npm package](https://img.shields.io/npm/v/mlflow-tracing?style=flat-square)](https://www.npmjs.com/package/mlflow-tracing) |The core tracing functionality and manual instrumentation.|
-|[mlflow-openai](./packages/typescript/integrations/openai)|[![npm package](https://img.shields.io/npm/v/mlflow-tracing-openai?style=flat-square)](https://www.npmjs.com/package/mlflow-tracing-openai) |Auto-instrumentation integration for OpenAI.|
-
+| Package                                                    | NPM                                                                                                                                         | Description                                                |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| [mlflow-tracing](./packages/typescript/core)               | [![npm package](https://img.shields.io/npm/v/mlflow-tracing?style=flat-square)](https://www.npmjs.com/package/mlflow-tracing)               | The core tracing functionality and manual instrumentation. |
+| [mlflow-openai](./packages/typescript/integrations/openai) | [![npm package](https://img.shields.io/npm/v/mlflow-tracing-openai?style=flat-square)](https://www.npmjs.com/package/mlflow-tracing-openai) | Auto-instrumentation integration for OpenAI.               |
 
 ## Installation
 
@@ -40,7 +36,6 @@ npm install mlflow-tracing
 
 > [!NOTE]
 > MLflow Typescript SDK requires Node.js 20 or higher.
-
 
 ## Quickstart
 
@@ -71,16 +66,14 @@ Create a trace:
 // MLflow will automatically record the function name, arguments, return value,
 // latency, and exception information to the span.
 const getWeather = mlflow.trace(
-    (city: string) => {
-        return `The weather in ${city} is sunny`;
-    },
-    // Pass options to set span name. See https://mlflow.org/docs/latest/genai/tracing/app-instrumentation/typescript-sdk
-    // for the full list of options.
-    { name: 'get-weather' }
+  (city: string) => {
+    return `The weather in ${city} is sunny`;
+  },
+  // Pass options to set span name. See https://mlflow.org/docs/latest/genai/tracing/app-instrumentation/typescript-sdk
+  // for the full list of options.
+  { name: 'get-weather' }
 );
 getWeather('San Francisco');
-
-
 
 // Alternatively, start and end span manually
 const span = mlflow.startSpan({ name: 'my-span' });
@@ -222,8 +215,6 @@ This comprehensive data capture enables you to create realistic test scenarios, 
 </table>
 
 </details>
-
-
 
 ## Documentation 📘
 
