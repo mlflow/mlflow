@@ -595,6 +595,10 @@ async def test_save_load_workflow_as_code():
         assert response.json()["predictions"] == batch_result
 
 
+@pytest.mark.skipif(
+    Version(llama_index.core.__version__) < Version("0.11.0"),
+    reason="Workflow was introduced in 0.11.0",
+)
 def test_log_model_sends_telemetry_record(mock_requests):
     index_code_path = "tests/llama_index/sample_code/simple_workflow.py"
     mlflow.llama_index.log_model(
