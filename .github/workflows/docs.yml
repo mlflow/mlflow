@@ -16,6 +16,7 @@ on:
       - reopened
       - ready_for_review
     paths:
+      - mlflow/**
       - docs/**
       - .github/workflows/docs.yml
 
@@ -55,21 +56,39 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: ./.github/actions/setup-java
       - uses: ./.github/actions/setup-node
       - uses: ./.github/actions/setup-python
       - run: |
-          uv pip install --system .. -r ../requirements/doc-requirements.txt
+          uv pip install --system pytest pytest-cov plotly -r ../requirements/doc-requirements.txt
+          uv pip install --system -e '..[gateway]'
       - run: |
           yarn install --immutable
-      - name: Build docs
-        run: |
+      - uses: ./.github/actions/show-versions
+      - run: |
           yarn convert-notebooks
-          yarn build
+      - name: Build docs
+        env:
+          GTM_ID: "GTM-TEST"
+          API_REFERENCE_PREFIX: https://pr-${{ github.event.pull_request.number }}--mlflow-docs-preview.netlify.app/docs/
+        run: |
+          yarn build-all -- --no-r
+      - name: Test examples
+        working-directory: docs/api_reference
+        run: |
+          make test-examples
+      - name: Check sitemap
+        run: |
+          yarn sitemap https://mlflow.org/docs/latest/sitemap.xml ./build/latest/sitemap.xml
+      - name: Move build artifacts
+        run: |
+          mkdir -p /tmp/docs-build/docs
+          mv build/latest /tmp/docs-build/docs/latest
       - name: Upload build artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: docs-build-${{ github.run_id }}
-          path: docs/build
+          path: /tmp/docs-build
           retention-days: 1
           if-no-files-found: error
 
@@ -87,3 +106,21 @@ jobs:
           path: /tmp/pr_number.txt
           retention-days: 1
           if-no-files-found: error
+
+  r:
+    if: github.event_name != 'pull_request' || github.event.pull_request.draft == false
+    permissions:
+      contents: read
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Build docs
+        working-directory: docs/api_reference
+        run: |
+          ./build-rdoc.sh
+          if [ -n "$(git status --porcelain)" ]; then
+            echo "The following files have changed:"
+            git status --porcelain
+            exit 1
+          fi

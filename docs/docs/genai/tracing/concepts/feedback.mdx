@@ -5,6 +5,7 @@ import ImageBox from "@site/src/components/ImageBox";
 import TabsWrapper from "@site/src/components/TabsWrapper";
 import FeatureHighlights from "@site/src/components/FeatureHighlights";
 import { ClipboardCheck, UserCheck, Bot, UsersRound } from "lucide-react";
+import FeedbackArchitectureImageUrl from '@site/static/images/llms/tracing/schema/feedback_architecture.png';
 
 # Feedback Concepts
 
@@ -49,7 +50,7 @@ Feedback serves as the bridge between running your application and understanding
 ## Core Structure
 
 <div style={{display: 'flex', justifyContent: 'center'}}>
-  <img src="/images/llms/tracing/schema/feedback_architecture.png" alt="Feedback Architecture" style={{width: '60%'}} />
+  <img src={FeedbackArchitectureImageUrl} alt="Feedback Architecture" style={{width: '60%'}} />
 </div>
 
 Feedback is often created by different sources, such as human annotators, LLM judges, or real user's feedback in the application. The <APILink fn="mlflow.entities.Feedback">`Feedback`</APILink> object in MLflow is a standard container for storing these signals along with metadata to track

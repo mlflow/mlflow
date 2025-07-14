@@ -54,25 +54,9 @@ const sidebarsGenAI: SidebarsConfig = {
           label: 'Evaluate your GenAI App',
         },
         {
-          type: 'category',
+          type: 'link',
+          href: '/genai/tracing/quickstart/python-openai',
           label: 'Tracing',
-          items: [
-            {
-              type: 'doc',
-              id: 'getting-started/tracing/index',
-              label: 'Overview',
-            },
-            {
-              type: 'doc',
-              id: 'getting-started/tracing/tracing-ide',
-              label: 'Tracing a GenAI App (IDE)',
-            },
-            {
-              type: 'doc',
-              id: 'getting-started/tracing/tracing-notebook',
-              label: 'Tracing a GenAI App (Notebook)',
-            },
-          ],
         },
       ],
       link: {
@@ -86,9 +70,20 @@ const sidebarsGenAI: SidebarsConfig = {
       className: 'sidebar-top-level-category',
       items: [
         {
-          type: 'doc',
-          id: 'tracing/quickstart',
+          type: 'category',
           label: 'Quickstart',
+          items: [
+            {
+              type: 'doc',
+              id: 'tracing/quickstart/python-openai',
+              label: 'Getting Started (Python)',
+            },
+            {
+              type: 'doc',
+              id: 'tracing/quickstart/typescript-openai',
+              label: 'Getting Started (TS/JS)',
+            },
+          ],
         },
         {
           type: 'category',
@@ -532,7 +527,7 @@ const sidebarsGenAI: SidebarsConfig = {
     },
     {
       type: 'category',
-      label: 'Application Serving',
+      label: 'Model Serving',
       className: 'sidebar-top-level-category',
       items: [
         {
@@ -562,18 +557,43 @@ const sidebarsGenAI: SidebarsConfig = {
           items: [
             {
               type: 'doc',
-              id: 'governance/ai-gateway/guides/index',
-              label: 'Getting Started with AI Gateway',
+              id: 'governance/ai-gateway/setup',
+              label: 'Setup',
             },
             {
               type: 'doc',
-              id: 'governance/ai-gateway/guides/step1-create-deployments/index',
-              label: 'Setup the AI Gateway',
+              id: 'governance/ai-gateway/configuration',
+              label: 'Configuration',
             },
             {
               type: 'doc',
-              id: 'governance/ai-gateway/guides/step2-query-deployments/index',
-              label: 'Use the AI Gateway',
+              id: 'governance/ai-gateway/usage',
+              label: 'Usage',
+            },
+            {
+              type: 'doc',
+              id: 'governance/ai-gateway/integration',
+              label: 'Integration',
+            },
+            {
+              type: 'category',
+              label: 'Guides',
+              items: [
+                {
+                  type: 'doc',
+                  id: 'governance/ai-gateway/guides/step1-create-deployments/index',
+                  label: 'Setup the AI Gateway',
+                },
+                {
+                  type: 'doc',
+                  id: 'governance/ai-gateway/guides/step2-query-deployments/index',
+                  label: 'Use the AI Gateway',
+                },
+              ],
+              link: {
+                type: 'doc',
+                id: 'governance/ai-gateway/guides/index',
+              },
             },
           ],
           link: {
