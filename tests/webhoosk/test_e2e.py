@@ -11,7 +11,6 @@ import pytest
 import requests
 from cryptography.fernet import Fernet
 
-import mlflow
 from mlflow import MlflowClient
 from mlflow.entities.webhook import WebhookEvent
 
@@ -124,19 +123,15 @@ def mlflow_server(
 
 
 @pytest.fixture(scope="module")
-def mlflow_client(mlflow_server: str) -> mlflow.MlflowClient:
+def mlflow_client(mlflow_server: str) -> MlflowClient:
     with pytest.MonkeyPatch.context() as mp:
         # Disable retries to fail fast
         mp.setenv("MLFLOW_HTTP_REQUEST_MAX_RETRIES", "0")
-        mlflow.set_tracking_uri(mlflow_server)
-        mlflow.set_registry_uri(mlflow_server)
-        return mlflow.MlflowClient(tracking_uri=mlflow_server, registry_uri=mlflow_server)
+        return MlflowClient(tracking_uri=mlflow_server, registry_uri=mlflow_server)
 
 
 @pytest.fixture(autouse=True)
-def cleanup(
-    mlflow_client: mlflow.MlflowClient, app_client: AppClient
-) -> Generator[None, None, None]:
+def cleanup(mlflow_client: MlflowClient, app_client: AppClient) -> Generator[None, None, None]:
     yield
 
     for webhook in mlflow_client.list_webhooks():
