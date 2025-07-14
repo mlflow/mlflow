@@ -11,13 +11,12 @@ import { FeedbackGroup } from './FeedbackGroup';
 import type { Assessment, FeedbackAssessment } from '../ModelTrace.types';
 import { useModelTraceExplorerViewState } from '../ModelTraceExplorerViewStateContext';
 
-type GroupedFeedbacks = {
-  // Map of JSON-stringified value : list of assessments with that value
-  [assessmentName: string]: { [value: string]: FeedbackAssessment[] };
-};
+type GroupedFeedbacksByValue = { [value: string]: FeedbackAssessment[] };
+
+type GroupedFeedbacks = [assessmentName: string, feedbacks: GroupedFeedbacksByValue][];
 
 const groupFeedbacks = (feedbacks: FeedbackAssessment[]): GroupedFeedbacks => {
-  const aggregated: GroupedFeedbacks = {};
+  const aggregated: Record<string, GroupedFeedbacksByValue> = {};
   feedbacks.forEach((feedback) => {
     if (feedback.valid === false) {
       return;
@@ -42,7 +41,7 @@ const groupFeedbacks = (feedbacks: FeedbackAssessment[]): GroupedFeedbacks => {
     }
   });
 
-  return aggregated;
+  return Object.entries(aggregated).toSorted(([leftName], [rightName]) => leftName.localeCompare(rightName));
 };
 
 export const AssessmentsPane = ({
@@ -61,6 +60,9 @@ export const AssessmentsPane = ({
     [assessments],
   );
   const groupedFeedbacks = useMemo(() => groupFeedbacks(feedbacks), [feedbacks]);
+  const sortedExpectations = expectations.toSorted((left, right) =>
+    left.assessment_name.localeCompare(right.assessment_name),
+  );
 
   return (
     <div
@@ -102,10 +104,10 @@ export const AssessmentsPane = ({
           </Tooltip>
         )}
       </div>
-      {Object.entries(groupedFeedbacks).map(([name, valuesMap]) => (
+      {groupedFeedbacks.map(([name, valuesMap]) => (
         <FeedbackGroup key={name} name={name} valuesMap={valuesMap} traceId={traceId} activeSpanId={activeSpanId} />
       ))}
-      {expectations.length > 0 && (
+      {sortedExpectations.length > 0 && (
         <>
           <Typography.Text color="secondary" css={{ marginBottom: theme.spacing.sm }}>
             <FormattedMessage
@@ -116,7 +118,7 @@ export const AssessmentsPane = ({
           <div
             css={{ display: 'flex', flexDirection: 'column', gap: theme.spacing.sm, marginBottom: theme.spacing.sm }}
           >
-            {expectations.map((expectation) => (
+            {sortedExpectations.map((expectation) => (
               <ExpectationItem expectation={expectation} key={expectation.assessment_id} />
             ))}
           </div>
