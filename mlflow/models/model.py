@@ -678,7 +678,8 @@ class Model:
         Create a :py:class:`ModelInfo <mlflow.models.model.ModelInfo>` instance that contains the
         model metadata.
         """
-        logged_model = logged_model or mlflow.get_logged_model(model_id=self.model_id)
+        if logged_model is None and self.model_id is not None:
+            logged_model = mlflow.get_logged_model(model_id=self.model_id)
         return ModelInfo(
             artifact_path=self.artifact_path,
             flavors=self.flavors,
