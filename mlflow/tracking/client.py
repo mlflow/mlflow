@@ -5944,7 +5944,7 @@ class MlflowClient:
         Create a new webhook.
 
         Args:
-            name: Unique name for the webhook.
+            name: Name for the webhook.
             url: Webhook endpoint URL.
             events: List of event types that trigger this webhook. Can be strings or
                 WebhookEvent enums.
@@ -5963,17 +5963,17 @@ class MlflowClient:
         Returns:
             A :py:class:`mlflow.entities.webhook.Webhook` object representing the created webhook.
         """
-        # Convert string events to WebhookEvent enums
-        converted_events = [
-            WebhookEvent(event) if isinstance(event, str) else event for event in events
-        ]
-        # Convert string status to WebhookStatus enum if needed
-        converted_status = None
+        events = [WebhookEvent(e) if isinstance(e, str) else e for e in events]
         if status is not None:
-            converted_status = WebhookStatus(status) if isinstance(status, str) else status
+            status = WebhookStatus(status) if isinstance(status, str) else status
 
         return self._get_registry_client().create_webhook(
-            name, url, converted_events, description, secret, converted_status
+            name=name,
+            url=url,
+            events=events,
+            description=description,
+            secret=secret,
+            status=status,
         )
 
     def get_webhook(self, webhook_id: str) -> Webhook:
@@ -6038,20 +6038,20 @@ class MlflowClient:
         Returns:
             A :py:class:`mlflow.entities.webhook.Webhook` object representing the updated webhook.
         """
-        # Convert string events to WebhookEvent enums if provided
-        converted_events = None
         if events is not None:
-            converted_events = [
-                WebhookEvent(event) if isinstance(event, str) else event for event in events
-            ]
+            events = [WebhookEvent(e) if isinstance(e, str) else e for e in events]
 
-        # Convert string status to WebhookStatus enum if provided
-        converted_status = None
         if status is not None:
-            converted_status = WebhookStatus(status) if isinstance(status, str) else status
+            status = WebhookStatus(status) if isinstance(status, str) else status
 
         return self._get_registry_client().update_webhook(
-            webhook_id, name, description, url, converted_events, secret, converted_status
+            webhook_id=webhook_id,
+            name=name,
+            description=description,
+            url=url,
+            events=events,
+            secret=secret,
+            status=status,
         )
 
     def delete_webhook(self, webhook_id: str) -> None:
