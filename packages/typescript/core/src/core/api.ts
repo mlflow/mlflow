@@ -1,4 +1,4 @@
-import { trace as otelTrace, context, Span as ApiSpan } from '@opentelemetry/api';
+import { trace as otelTrace, context, Span as ApiSpan, INVALID_TRACEID } from '@opentelemetry/api';
 import { Span as OTelSpan } from '@opentelemetry/sdk-trace-node';
 import { DEFAULT_SPAN_NAME, SpanType } from './constants';
 import { createMlflowSpan, LiveSpan, NoOpSpan } from './entities/span';
@@ -267,7 +267,7 @@ export function getLastActiveTraceId(): string | undefined {
  * `withSpan`. If a span is created with the `startSpan` API, it won't be
  * attached to the global context so this function will not return it.
  *
- * @returns The current active span if exists, otherwise undefined.
+ * @returns The current active span if exists, otherwise null.
  *
  * @example
  * ```typescript
@@ -280,12 +280,12 @@ export function getLastActiveTraceId(): string | undefined {
  * tracedFunc();
  * ```
  */
-export function getCurrentActiveSpan(): LiveSpan | undefined {
+export function getCurrentActiveSpan(): LiveSpan | null {
   const otelSpan = otelTrace.getActiveSpan();
 
   // If no active span or it's a NonRecordingSpan, return undefined
-  if (!otelSpan || otelSpan.spanContext().traceId === '00000000000000000000000000000000') {
-    return undefined;
+  if (!otelSpan || otelSpan.spanContext().traceId === INVALID_TRACEID) {
+    return null;
   }
 
   const traceManager = InMemoryTraceManager.getInstance();
@@ -293,11 +293,11 @@ export function getCurrentActiveSpan(): LiveSpan | undefined {
   const mlflowTraceId = traceManager.getMlflowTraceIdFromOtelId(otelTraceId);
 
   if (!mlflowTraceId) {
-    return undefined;
+    return null;
   }
 
   const spanId = otelSpan.spanContext().spanId;
-  return traceManager.getSpan(mlflowTraceId, spanId) || undefined;
+  return traceManager.getSpan(mlflowTraceId, spanId) || null;
 }
 
 /**
@@ -378,7 +378,13 @@ export interface UpdateCurrentTraceOptions {
  * });
  * ```
  */
-export function updateCurrentTrace(options: UpdateCurrentTraceOptions): void {
+export function updateCurrentTrace({
+  tags,
+  metadata,
+  clientRequestId,
+  requestPreview,
+  responsePreview
+}: UpdateCurrentTraceOptions): void {
   const activeSpan = getCurrentActiveSpan();
 
   if (!activeSpan) {
@@ -390,10 +396,10 @@ export function updateCurrentTrace(options: UpdateCurrentTraceOptions): void {
   }
 
   // Validate string parameters
-  if (options.requestPreview !== undefined && typeof options.requestPreview !== 'string') {
+  if (requestPreview !== undefined && typeof requestPreview !== 'string') {
     throw new Error('The `requestPreview` parameter must be a string.');
   }
-  if (options.responsePreview !== undefined && typeof options.responsePreview !== 'string') {
+  if (responsePreview !== undefined && typeof responsePreview !== 'string') {
     throw new Error('The `responsePreview` parameter must be a string.');
   }
 
@@ -407,19 +413,19 @@ export function updateCurrentTrace(options: UpdateCurrentTraceOptions): void {
   }
 
   // Update trace info properties
-  if (options.requestPreview != null) {
-    trace.info.requestPreview = options.requestPreview;
+  if (requestPreview !== undefined) {
+    trace.info.requestPreview = requestPreview;
   }
-  if (options.responsePreview != null) {
-    trace.info.responsePreview = options.responsePreview;
+  if (responsePreview !== undefined) {
+    trace.info.responsePreview = responsePreview;
   }
-  if (options.tags != null) {
-    Object.assign(trace.info.tags, options.tags);
+  if (tags !== undefined) {
+    Object.assign(trace.info.tags, tags);
   }
-  if (options.metadata != null) {
-    Object.assign(trace.info.traceMetadata, options.metadata);
+  if (metadata !== undefined) {
+    Object.assign(trace.info.traceMetadata, metadata);
   }
-  if (options.clientRequestId != null) {
-    trace.info.clientRequestId = String(options.clientRequestId);
+  if (clientRequestId !== undefined) {
+    trace.info.clientRequestId = String(clientRequestId);
   }
 }

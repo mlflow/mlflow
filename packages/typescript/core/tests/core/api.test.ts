@@ -712,14 +712,14 @@ describe('API', () => {
   describe('getCurrentActiveSpan', () => {
     it('should return undefined when no span is active', () => {
       const activeSpan = mlflow.getCurrentActiveSpan();
-      expect(activeSpan).toBeUndefined();
+      expect(activeSpan).toBeNull();
     });
 
     it('should return the current active span within withSpan context', () => {
       void mlflow.withSpan(
         (span) => {
           const activeSpan = mlflow.getCurrentActiveSpan();
-          expect(activeSpan).toBeDefined();
+          expect(activeSpan).not.toBeNull();
           expect(activeSpan?.spanId).toBe(span.spanId);
           expect(activeSpan?.traceId).toBe(span.traceId);
         },
@@ -730,7 +730,7 @@ describe('API', () => {
     it('should return the current active span within traced function', () => {
       const tracedFunc = mlflow.trace(() => {
         const activeSpan = mlflow.getCurrentActiveSpan();
-        expect(activeSpan).toBeDefined();
+        expect(activeSpan).not.toBeNull();
         expect(activeSpan?.name).toBe('span'); // Default span name when function name is not available
         return 'result';
       });
