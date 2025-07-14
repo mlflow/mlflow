@@ -286,7 +286,7 @@ def _setup_tracer_provider(disabled=False):
     if sampling_ratio is not None:
         if not (0.0 <= sampling_ratio <= 1.0):
             _logger.warning(
-                f"MLFLOW_TRACE_SAMPLING_RATIO must be between 0.0 and 1.0, got {sampling_ratio}. "
+                f"{MLFLOW_TRACE_SAMPLING_RATIO} must be between 0.0 and 1.0, got {sampling_ratio}. "
                 "Ignoring the invalid value and using default sampling (1.0)."
             )
         else:
