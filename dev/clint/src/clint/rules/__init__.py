@@ -35,7 +35,11 @@ from clint.rules.unnamed_thread import UnnamedThread
 from clint.rules.unparameterized_generic_type import UnparameterizedGenericType
 from clint.rules.use_sys_executable import UseSysExecutable
 
+ALL_RULES = {rule.name for rule in Rule.__subclasses__()}
+
+
 __all__ = [
+    "ALL_RULES",
     "Rule",
     "DoNotDisable",
     "DocstringParamOrder",

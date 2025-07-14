@@ -346,6 +346,9 @@ class Linter(ast.NodeVisitor):
         self.ignored_rules = get_ignored_rules_for_file(path, config.per_file_ignores)
 
     def _check(self, loc: Location, rule: rules.Rule) -> None:
+        # Skip rules that are not selected in the config
+        if rule.name not in self.config.select:
+            return
         # Check line-level ignores
         if (lines := self.ignore.get(rule.name)) and loc.lineno in lines:
             return
@@ -471,6 +474,7 @@ class Linter(ast.NodeVisitor):
         self._syntax_error_example(node)
         self._mlflow_class_name(node)
         self.visit_decorators(node.decorator_list)
+        self._markdown_link(node)
         with self.resolver.scope():
             self.generic_visit(node)
         self.stack.pop()
@@ -514,18 +518,18 @@ class Linter(ast.NodeVisitor):
     def visit_Name(self, node) -> None:
         self.generic_visit(node)
 
-    def _markdown_link(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+    def _markdown_link(self, node: ast.FunctionDef | ast.AsyncFunctionDef | ast.ClassDef) -> None:
         if docstring := self._docstring(node):
             if MARKDOWN_LINK_RE.search(docstring.s):
-                self._check(docstring, rules.MarkdownLink())
+                self._check(Location.from_node(docstring), rules.MarkdownLink())
 
     def _pytest_mark_repeat(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         # Only check in test files
         if not self.path.name.startswith("test_"):
             return
 
-        if rules.PytestMarkRepeat.check(node, self.resolver):
-            self._check(Location.from_node(node), rules.PytestMarkRepeat())
+        if deco := rules.PytestMarkRepeat.check(node.decorator_list, self.resolver):
+            self._check(Location.from_node(deco), rules.PytestMarkRepeat())
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         self._test_name_typo(node)
@@ -813,7 +817,7 @@ def lint_file(path: Path, config: Config, index: SymbolIndex) -> list[Violation]
                         cell_index=cell_idx,
                     )
                 )
-            if not _has_h1_header(cells):
+            if (rules.MissingNotebookH1Header.name in config.select) and not _has_h1_header(cells):
                 violations.append(
                     Violation(
                         rules.MissingNotebookH1Header(),
