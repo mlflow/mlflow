@@ -1,11 +1,14 @@
 from typing import TYPE_CHECKING, Optional, Union
 
 from mlflow.data import Dataset
+from mlflow.data.dataset_source import DatasetSource
 from mlflow.data.digest_utils import compute_pandas_digest
 from mlflow.data.evaluation_dataset import EvaluationDataset as LegacyEvaluationDataset
 from mlflow.data.pyfunc_dataset_mixin import PyFuncConvertibleDatasetMixin
-from mlflow.data.spark_dataset_source import SparkDatasetSource
 from mlflow.entities import Dataset as DatasetEntity
+from mlflow.genai.datasets.databricks_evaluation_dataset_source import (
+    DatabricksEvaluationDatasetSource,
+)
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -56,11 +59,11 @@ class EvaluationDataset(Dataset, PyFuncConvertibleDatasetMixin):
         return self._dataset.profile
 
     @property
-    def source(self) -> Optional[str]:
+    def source(self) -> DatasetSource:
         """Source information for the dataset."""
-        # NB: The managed Dataset entity in Agent SDK doesn't propagate the source
-        # information. So we use the table name as the fallback source.
-        return self._dataset.source or SparkDatasetSource(table_name=self.name)
+        if isinstance(self._dataset.source, DatasetSource):
+            return self._dataset.source
+        return DatabricksEvaluationDatasetSource(table_name=self.name, dataset_id=self.dataset_id)
 
     @property
     def source_type(self) -> Optional[str]:
