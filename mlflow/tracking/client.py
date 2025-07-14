@@ -1085,6 +1085,7 @@ class MlflowClient:
             sql_warehouse_id=sql_warehouse_id,
         )
 
+    @track_api_usage
     def start_trace(
         self,
         name: str,

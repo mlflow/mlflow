@@ -30,10 +30,11 @@ from mlflow.pyfunc.model import ChatAgent, ChatModel, _FunctionPythonModel
 from mlflow.pyfunc.scoring_server import CONTENT_TYPE_JSON
 from mlflow.pyfunc.utils import pyfunc
 from mlflow.pyfunc.utils.environment import _simulate_serving_environment
+from mlflow.telemetry.client import get_telemetry_client
 from mlflow.types.agent import ChatAgentMessage, ChatAgentResponse, ChatContext
 from mlflow.types.llm import ChatMessage, ChatParams
 from mlflow.types.schema import AnyType, Array, ColSpec, DataType, Map, Object, Property, Schema
-from mlflow.types.type_hints import TypeFromExample
+from mlflow.types.type_hints import TypeFromExample, _infer_schema_from_list_type_hint
 from mlflow.utils.env_manager import VIRTUALENV
 from mlflow.utils.pydantic_utils import model_dump_compat
 
@@ -1173,3 +1174,45 @@ def test_load_context_type_hint():
     new_data = ["New", "Data"]
     prediction = pyfunc_model.predict(new_data)
     assert prediction == new_data
+
+
+def test_pyfunc_decorator_sends_telemetry_record(mock_requests):
+    @pyfunc
+    def predict(model_input: list[str]) -> list[str]:
+        return model_input
+
+    get_telemetry_client().flush()
+    assert len(mock_requests) == 2
+    record = mock_requests[0]
+    data = json.loads(record["data"])
+    assert data["api_module"] == _infer_schema_from_list_type_hint.__module__
+    assert data["api_name"] == _infer_schema_from_list_type_hint.__qualname__
+    assert data["params"] is None
+    assert data["status"] == "success"
+    record = mock_requests[1]
+    data = json.loads(record["data"])
+    assert data["api_module"] == pyfunc.__module__
+    assert data["api_name"] == pyfunc.__qualname__
+    assert data["params"] is None
+    assert data["status"] == "success"
+
+
+def test_type_hints_sends_telemetry_record(mock_requests):
+    class TestModel(mlflow.pyfunc.PythonModel):
+        def predict(self, model_input: list[str]) -> list[str]:
+            return model_input
+
+    get_telemetry_client().flush()
+    assert len(mock_requests) == 1
+    record = mock_requests[0]
+    data = json.loads(record["data"])
+    assert data["api_module"] == _infer_schema_from_list_type_hint.__module__
+    assert data["api_name"] == _infer_schema_from_list_type_hint.__qualname__
+    assert data["params"] is None
+    assert data["status"] == "success"
+
+    model = TestModel()
+    model.predict(["x", "y", "z"])
+    get_telemetry_client().flush()
+    # running the predict function doesn't generate new telemetry record
+    assert len(mock_requests) == 1

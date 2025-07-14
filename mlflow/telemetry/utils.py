@@ -1,7 +1,9 @@
 import inspect
 import os
+from collections import defaultdict
 from contextlib import contextmanager
 from contextvars import ContextVar
+from functools import lru_cache
 
 from mlflow.environment_variables import MLFLOW_DISABLE_TELEMETRY
 
@@ -14,8 +16,32 @@ def is_telemetry_disabled() -> bool:
     )
 
 
-# TODO: add whitelist for APIs that's only invoked by MLflow, e.g. MlflowV2SpanExporter.export
-def invoked_from_internal_api() -> bool:
+@lru_cache(maxsize=1)
+def _get_whitelist() -> dict[str, list[str]]:
+    """
+    Whitelist for APIs that are only invoked by MLflow but should be tracked.
+    """
+    whitelist = defaultdict(list)
+    try:
+        from mlflow.pyfunc.utils.data_validation import _infer_schema_from_list_type_hint
+
+        whitelist[_infer_schema_from_list_type_hint.__module__].append(
+            _infer_schema_from_list_type_hint.__qualname__
+        )
+    except ImportError:
+        pass
+
+    return whitelist
+
+
+def invoked_from_internal_api(func) -> bool:
+    # If the function is in whitelist, we always return True
+    if func.__qualname__ in _get_whitelist().get(func.__module__, []):
+        return False
+
+    if _disable_telemetry_tracking_var.get():
+        return True
+
     frame = inspect.currentframe()
     try:
         # skip the current frame and the API call frames
