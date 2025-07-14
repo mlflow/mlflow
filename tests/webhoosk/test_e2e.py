@@ -224,10 +224,8 @@ def test_model_version_tag_set(mlflow_client: MlflowClient, app_client: AppClien
     assert logs[0]["payload"] == {
         "name": "model_version_tag_set",
         "version": model_version.version,
-        "source": "s3://bucket/path/to/model",
-        "run_id": "1234567890abcdef",
-        "description": "test_description",
-        "tags": {"test_tag_key": "test_tag_value"},
+        "key": "test_tag_key",
+        "value": "new_value",
     }
 
 
@@ -257,7 +255,7 @@ def test_model_version_tag_deleted(mlflow_client: MlflowClient, app_client: AppC
     assert len(logs) == 1
     assert logs[0]["endpoint"] == "/insecure-webhook"
     assert logs[0]["payload"] == {
-        "name": "model_version_tag_set",
+        "name": registered_model.name,
         "version": model_version.version,
         "key": "test_tag_key",
     }
