@@ -6,7 +6,7 @@ from clint.linter import lint_file
 from clint.rules import TrackApiUsageTopMost
 
 
-def test_track_api_usage_topmost_check(index: SymbolIndex, config: Config, tmp_path: Path) -> None:
+def test_track_api_usage_topmost_check(index: SymbolIndex, tmp_path: Path) -> None:
     tmp_file = tmp_path / "file.py"
     tmp_file.write_text(
         """
@@ -49,6 +49,7 @@ def some_function():
     pass
 """
     )
+    config = Config(select={TrackApiUsageTopMost.name})
     violations = lint_file(tmp_file, config, index)
     assert all(isinstance(v.rule, TrackApiUsageTopMost) for v in violations)
     assert len(violations) == 3
