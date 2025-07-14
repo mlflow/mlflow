@@ -3,7 +3,6 @@ import os
 from collections import defaultdict
 from contextlib import contextmanager
 from contextvars import ContextVar
-from functools import lru_cache
 
 from mlflow.environment_variables import MLFLOW_DISABLE_TELEMETRY
 
@@ -16,7 +15,6 @@ def is_telemetry_disabled() -> bool:
     )
 
 
-@lru_cache(maxsize=1)
 def _get_whitelist() -> dict[str, list[str]]:
     """
     Whitelist for APIs that are only invoked by MLflow but should be tracked.
