@@ -102,58 +102,11 @@ def collect_thumbs_feedback(trace_id, is_helpful, user_id):
 
 
 # Example: Collect feedback on a trace
-# In practice, you'd get this trace_id from your application's tracing
-trace_id = "tr-abc123def456"  # Replace with actual trace ID
+trace_id = mlflow.get_last_active_trace_id()
 collect_thumbs_feedback(trace_id, True, "user_123")
 ```
 
-### 3. Add More Detailed Quality Feedback
-
-Collect structured feedback for deeper insights:
-
-```python
-def collect_detailed_feedback(trace_id, rating, comments, user_id):
-    """Collect detailed feedback with ratings and comments."""
-    # Log the numeric rating
-    mlflow.log_feedback(
-        trace_id=trace_id,
-        name="quality_rating",
-        value=rating,  # 1-5 scale
-        rationale=f"User provided rating: {rating}/5. Comments: {comments}",
-        source=AssessmentSource(
-            source_type=AssessmentSourceType.HUMAN, source_id=user_id
-        ),
-    )
-
-    # Log structured feedback for analysis
-    mlflow.log_feedback(
-        trace_id=trace_id,
-        name="quality_breakdown",
-        value={
-            "rating": rating,
-            "is_helpful": rating >= 4,
-            "category": "excellent" if rating >= 4 else "needs_improvement",
-            "user_comments": comments,
-        },
-        rationale=f"Structured feedback from user rating: {rating}/5",
-        source=AssessmentSource(
-            source_type=AssessmentSourceType.HUMAN, source_id=user_id
-        ),
-    )
-
-    print(f"✓ Detailed feedback recorded: {rating}/5 stars")
-
-
-# Example detailed feedback using the same trace ID
-collect_detailed_feedback(
-    trace_id="tr-abc123def456",  # Same trace from previous step
-    rating=4,
-    comments="Good explanation, but could use more examples",
-    user_id="user_123",
-)
-```
-
-### 4. View Feedback in MLflow UI
+### 3. View Feedback in MLflow UI
 
 After collecting feedback, you can view it in the MLflow UI:
 
@@ -161,7 +114,7 @@ After collecting feedback, you can view it in the MLflow UI:
 
 The trace detail page shows all feedback attached to your traces, making it easy to analyze user satisfaction and identify patterns in your application's performance.
 
-### 5. Adding and Updating Feedback via UI
+### 4. Adding and Updating Feedback via UI
 
 Users can also provide feedback directly through the MLflow UI:
 
@@ -202,12 +155,7 @@ MLflow feedback supports various formats to match your application's needs:
     title: "Use Consistent Naming Conventions",
     description: "Standardize feedback names like 'user_satisfaction' or 'quality_rating' across traces. This enables MLflow's search and aggregation features to provide meaningful insights across your application."
   },
-  {
-    icon: Zap,
-    title: "Leverage Structured Feedback",
-    description: "Use MLflow's structured feedback values to capture multiple dimensions in a single log call. This reduces API calls while maintaining rich context for analysis."
-  },
-  {
+   {
     icon: Lock,
     title: "Use Source Attribution Properly",
     description: "Set meaningful source_id values in AssessmentSource objects for tracking feedback providers. MLflow preserves complete audit trails with timestamps and source attribution."

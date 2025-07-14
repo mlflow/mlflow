@@ -10,12 +10,79 @@
   font-weight: 600;
 }
 
+/* Layout containers */
+.workflowStandalone {
+  display: block;
+}
+
 .stepsContainer {
   display: flex;
   flex-direction: column;
   gap: 0;
   max-width: 700px;
   margin: 0 auto;
+}
+
+.screenshotContainer {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 1.5rem;
+  background: var(--ifm-background-surface-color);
+  border-radius: 12px;
+  border: 1px solid var(--ifm-color-emphasis-200);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  margin-bottom: 1rem;
+  max-width: 900px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.stepsHeader {
+  margin-bottom: 1rem;
+  max-width: 900px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.toggleButton {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 1rem 1.5rem;
+  background: var(--ifm-background-surface-color);
+  border: 2px solid var(--ifm-color-emphasis-300);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--ifm-color-emphasis-800);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.toggleButton:hover {
+  background: var(--ifm-color-emphasis-100);
+  border-color: var(--ifm-color-primary);
+  color: var(--ifm-color-primary);
+}
+
+.toggleButton:focus {
+  outline: 2px solid var(--ifm-color-primary);
+  outline-offset: 2px;
+}
+
+.toggleText {
+  flex: 1;
+  text-align: left;
+}
+
+.screenshotImage {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .stepItem {
@@ -92,6 +159,16 @@
 
 /* Responsive design */
 @media (max-width: 768px) {
+  .screenshotContainer {
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+  
+  .toggleButton {
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+  }
+  
   .stepsContainer {
     max-width: 100%;
     padding: 0 1rem;

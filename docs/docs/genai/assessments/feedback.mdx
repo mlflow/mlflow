@@ -1,20 +1,25 @@
+---
+sidebar_label: Feedback Collection
+---
+
 import { CardGroup, TitleCard } from "@site/src/components/Card";
 import FeatureHighlights from "@site/src/components/FeatureHighlights";
 import ConceptOverview from "@site/src/components/ConceptOverview";
 import WorkflowSteps from "@site/src/components/WorkflowSteps";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
+import ImageBox from "@site/src/components/ImageBox";
 import { Bot, Code, Users, TrendingUp, Shield, Eye, Database, FileText, Target, Book, MousePointer, Plus, ListCheck, Type, Settings, FileInput, MessageSquare, Search, Edit, Save, MoreVertical } from "lucide-react";
 import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 
-# Collecting Automated and Human Feedback
+# Feedback Collection
 
 MLflow Feedback provides a comprehensive system for capturing quality evaluations from multiple sources - whether automated AI judges, programmatic rules, or human reviewers. This systematic approach to feedback collection enables you to understand and improve your GenAI application's performance at scale.
 
 ## What is Feedback?
 
-Feedback captures evaluations of how well your AI performed. It measures the actual quality of what your AI produced across various dimensions like accuracy, relevance, safety, and helpfulness. Unlike expectations that define what should happen, feedback tells you what actually happened and how well it met your quality standards.
+[Feedback](/genai/tracing/concepts/feedback) captures evaluations of how well your AI performed. It measures the actual quality of what your AI produced across various dimensions like accuracy, relevance, safety, and helpfulness. Unlike [expectations](/genai/assessments/expectations) that define what should happen, feedback tells you what actually happened and how well it met your quality standards.
 
 ## Prerequisites
 
@@ -27,6 +32,26 @@ Before using feedback collection in MLflow, ensure you have:
 ## Sources of Feedback
 
 MLflow supports three types of feedback sources, each with unique strengths. You can use a single source or combine multiple sources for comprehensive quality coverage.
+
+<ConceptOverview concepts={[
+  {
+    icon: Bot,
+    title: "LLM Judge Evaluation",
+    description: "AI-powered evaluation at scale. LLM judges provide consistent quality assessments for nuanced dimensions like relevance, tone, and safety without human intervention."
+  },
+  {
+    icon: Code,
+    title: "Programmatic Code Checks",
+    description: "Deterministic rule-based evaluation. Perfect for format validation, compliance checks, and business logic rules that need instant, cost-effective assessment."
+  },
+  {
+    icon: Users,
+    title: "Human Expert Review",
+    description: "Domain expert evaluation for high-stakes content. Human feedback captures nuanced insights that automated systems miss and serves as the gold standard."
+  }
+]} />
+
+Using the feedback sources within the Python APIs is done as follows:
 
 ```python
 from mlflow.entities import AssessmentSource, AssessmentSourceType
@@ -47,23 +72,7 @@ llm_judge_source = AssessmentSource(
 )
 ```
 
-<ConceptOverview concepts={[
-  {
-    icon: Bot,
-    title: "LLM Judge Evaluation",
-    description: "AI-powered evaluation at scale. LLM judges provide consistent quality assessments for nuanced dimensions like relevance, tone, and safety without human intervention."
-  },
-  {
-    icon: Code,
-    title: "Programmatic Code Checks",
-    description: "Deterministic rule-based evaluation. Perfect for format validation, compliance checks, and business logic rules that need instant, cost-effective assessment."
-  },
-  {
-    icon: Users,
-    title: "Human Expert Review",
-    description: "Domain expert evaluation for high-stakes content. Human feedback captures nuanced insights that automated systems miss and serves as the gold standard."
-  }
-]} />
+
 
 ## Why Collect Feedback?
 
@@ -149,9 +158,11 @@ The MLflow UI provides an intuitive way to add, edit, and manage feedback direct
       description: "Save your evaluation to build quality insights over time"
     }
   ]}
+  screenshot={{
+    src: "/images/assessments/add_feedback_ui.png",
+    alt: "Add Feedback"
+  }}
 />
-
-![Add Feedback](/images/assessments/add_feedback_ui.png)
 
 The feedback will be immediately attached to the trace with your user information as the source.
 
@@ -187,9 +198,11 @@ To refine evaluations or correct mistakes:
       description: "Save your changes to preserve the updated evaluation, or click \"Cancel\" to discard changes"
     }
   ]}
+  screenshot={{
+    src: "/images/assessments/edit_feedback_ui.png",
+    alt: "Edit Feedback"
+  }}
 />
-
-![Edit Feedback](/images/assessments/edit_feedback_ui.png)
 
 #### Adding Additional Feedback to Existing Entries
 
@@ -218,9 +231,11 @@ When multiple reviewers want to provide feedback on the same aspect, or when you
       description: "Your evaluation will be added to the collection of perspectives, or click \"Cancel\" to discard"
     }
   ]}
+  screenshot={{
+    src: "/images/assessments/additional_feedback_ui.png",
+    alt: "Additional Feedback"
+  }}
 />
-
-![Additional Feedback](/images/assessments/additional_feedback_ui.png)
 
 This collaborative approach enables multiple perspectives on the same trace aspect, creating richer evaluation datasets and helping identify cases where evaluators disagree.
 
@@ -319,96 +334,7 @@ evaluate_with_llm_judge(trace_id, user_question, ai_answer)
 ```
 
   </TabItem>
-  <TabItem value="evaluate_api" label="MLflow Evaluate API">
-
-For standardized evaluation workflows, you can combine `mlflow.evaluate()` with feedback logging:
-
-**1. Set up your evaluation dataset:**
-
-```python
-import pandas as pd
-import mlflow
-from mlflow.entities import AssessmentSource
-from mlflow.entities.assessment_source import AssessmentSourceType
-from mlflow.models import make_metric
-
-# Prepare evaluation data
-eval_data = pd.DataFrame(
-    {
-        "question": ["What is the capital of France?", "What is 2+2?"],
-        "trace_id": ["tr-001", "tr-002"],
-        "ground_truth": ["Paris", "4"],
-    }
-)
-```
-
-**2. Create a custom LLM judge metric:**
-
-```python
-def llm_judge_metric(predictions, targets, **kwargs):
-    """Custom LLM judge for use with mlflow.evaluate()"""
-    import openai
-
-    client = openai.OpenAI()
-    scores = []
-
-    for pred, target in zip(predictions, targets):
-        prompt = f"""
-        Rate the accuracy of this response compared to the ground truth:
-        Prediction: {pred}
-        Ground Truth: {target}
-
-        Respond with only a number from 0.0 to 1.0
-        """
-
-        response = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.0,
-        )
-
-        score = float(response.choices[0].message.content.strip())
-        scores.append(score)
-
-    return scores
-
-
-# Create the metric
-judge_metric = make_metric(
-    eval_fn=llm_judge_metric, greater_is_better=True, name="llm_judge_accuracy"
-)
-```
-
-**3. Run evaluation and log feedback:**
-
-```python
-# Run evaluation
-results = mlflow.evaluate(
-    model=your_model,
-    data=eval_data,
-    targets="ground_truth",
-    model_type="question-answering",
-    extra_metrics=[judge_metric],
-)
-
-# Log feedback to traces
-for i, row in eval_data.iterrows():
-    if "trace_id" in row and pd.notna(row["trace_id"]):
-        mlflow.log_feedback(
-            trace_id=row["trace_id"],
-            name="llm_judge_accuracy",
-            value=results.metrics[f"llm_judge_accuracy/v1_{i}"],
-            source=AssessmentSource(
-                source_type=AssessmentSourceType.LLM_JUDGE,
-                source_id="gpt-4o-mini-evaluator",
-            ),
-        )
-```
-
-This approach combines MLflow's standardized evaluation workflow with direct trace integration.
-
-  </TabItem>
-  <TabItem value="code_based" label="Code-Based">
+  <TabItem value="code_based" label="Heuristics Metrics">
 
 Implement programmatic rule-based evaluation:
 
@@ -496,48 +422,6 @@ with mlflow.start_span(name="financial_advice") as span:
   </TabItem>
 </Tabs>
 
-## Feedback Workflows
-
-### Direct Evaluation
-
-The simplest workflow: feedback is added directly to traces as they're generated. Each source evaluates independently based on its strengths.
-
-### Human-in-the-Loop Override
-
-When automated feedback is incorrect, humans can override it while preserving the original for analysis:
-
-```python
-# Original automated feedback
-original = mlflow.log_feedback(
-    trace_id=trace_id,
-    name="safety_check",
-    value=False,
-    rationale="Potentially unsafe medical advice detected",
-    source=AssessmentSource(
-        source_type=AssessmentSourceType.LLM_JUDGE, source_id="safety_classifier"
-    ),
-)
-
-# Human expert disagrees and overrides
-mlflow.override_feedback(
-    trace_id=trace_id,
-    assessment_id=original.assessment_id,
-    value=True,
-    rationale="General wellness advice is appropriate and safe",
-    source=AssessmentSource(
-        source_type=AssessmentSourceType.HUMAN,
-        source_id="medical_reviewer@hospital.com",
-    ),
-)
-```
-
-### Hybrid Evaluation Strategies
-
-**Automated-First with Escalation**: LLM judges evaluate all traces, escalating low-confidence cases to humans.
-
-**Multi-Source Validation**: Critical responses get evaluated by multiple sources for high-confidence assessment.
-
-**Continuous Learning**: Human overrides train better automated evaluators, creating a virtuous improvement cycle.
 
 ## Managing Feedback
 
@@ -705,7 +589,7 @@ mlflow.log_feedback(
     description="Deep dive into feedback architecture and schema"
     href="/genai/tracing/concepts/feedback"
     linkText="Learn concepts →"
-    containerHeight={120}
+    containerHeight={64}
   />
   <TileCard
     icon={Target}
@@ -714,7 +598,7 @@ mlflow.log_feedback(
     description="Learn how to define expected outputs for evaluation"
     href="/genai/assessments/expectations"
     linkText="Start annotating →"
-    containerHeight={120}
+    containerHeight={64}
   />
   <TileCard
     icon={Book}
@@ -723,6 +607,6 @@ mlflow.log_feedback(
     description="Deep dive into feedback architecture and schema"
     href="/genai/tracing/concepts/feedback"
     linkText="Learn more →"
-    containerHeight={120}
+    containerHeight={64}
   />
 </TilesGrid>

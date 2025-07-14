@@ -1,3 +1,7 @@
+---
+sidebar_label: Ground Truth Expectations
+---
+
 import { CardGroup, TitleCard } from "@site/src/components/Card";
 import FeatureHighlights from "@site/src/components/FeatureHighlights";
 import ConceptOverview from "@site/src/components/ConceptOverview";
@@ -9,15 +13,15 @@ import Tabs from "@theme/Tabs";
 import TabItem from "@theme/TabItem";
 import { Target, Zap, Database, Shield, Settings, TrendingUp, Users, FileText, MessageSquare, Book, MousePointer, ListCheck, Type, FileInput, Plus } from "lucide-react";
 
-# Annotating Ground Truth with Expectations
+# Ground Truth Expectations
 
 MLflow Expectations provide a systematic way to capture ground truth - the correct or desired outputs that your AI should produce. By establishing these reference points, you create the foundation for meaningful evaluation and continuous improvement of your GenAI applications.
 
 ## What are Expectations?
 
-Expectations define the "gold standard" for what your AI should produce given specific inputs. They represent the correct answer, desired behavior, or ideal output as determined by domain experts. Think of expectations as the answer key against which actual AI performance is measured.
+[Expectations](/genai/tracing/concepts/expectations) define the "gold standard" for what your AI should produce given specific inputs. They represent the correct answer, desired behavior, or ideal output as determined by domain experts. Think of expectations as the answer key against which actual AI performance is measured.
 
-Unlike feedback that evaluates what happened, expectations establish what should happen. They're always created by humans who have the expertise to define correct outcomes.
+Unlike [feedback](/genai/assessments/feedback) that evaluates what happened, expectations establish what should happen. They're always created by humans who have the expertise to define correct outcomes.
 
 ## Prerequisites
 
@@ -147,23 +151,11 @@ mlflow.log_expectation(
   </Tabs>
 </TabsWrapper>
 
-## How to Add Expectations
-
-### Within the MLflow UI
-
-The MLflow UI provides an intuitive way to add expectations directly to traces. From any trace detail page, click "Add Assessment" and select "Expectation" to define your ground truth.
-
-![Add Expectation](/images/assessments/add_expectation_ui.png)
-
-The UI approach is ideal for domain experts who need to define ground truth without writing code, and for collaborative annotation workflows where multiple stakeholders contribute different perspectives.
-
-### Via API
-
-Use the programmatic API when you need to automate expectation creation, integrate with existing annotation tools, or build custom ground truth collection workflows.
-
 ## Step-by-Step Guides
 
-### Annotate Human Ground Truth via UI
+### Add Ground Truth Annotation via UI
+
+The MLflow UI provides an intuitive way to add expectations directly to traces. This approach is ideal for domain experts who need to define ground truth without writing code, and for collaborative annotation workflows where multiple stakeholders contribute different perspectives.
 
 <WorkflowSteps
   steps={[
@@ -208,11 +200,17 @@ Use the programmatic API when you need to automate expectation creation, integra
       description: "Save your ground truth annotation to establish the quality baseline"
     }
   ]}
+  screenshot={{
+    src: "/images/assessments/add_expectation_ui.png",
+    alt: "Add Expectation"
+  }}
 />
 
 The expectation will be immediately attached to the trace, establishing the ground truth reference for future evaluation.
 
 ### Log Ground Truth via API
+
+Use the programmatic API when you need to automate expectation creation, integrate with existing annotation tools, or build custom ground truth collection workflows.
 
 <Tabs>
   <TabItem value="single" label="Single Annotations" default>
@@ -376,6 +374,8 @@ annotate_batch_expectations(batch_data)
 
 ## Expectation Annotation Workflows
 
+Different stages of your AI development lifecycle require different approaches to expectation annotation. The following workflows help you systematically create and maintain ground truth expectations that align with your development process and quality goals.
+
 <ConceptOverview concepts={[
   {
     icon: Settings,
@@ -420,29 +420,6 @@ mlflow.log_expectation(
     },
     source=AssessmentSource(
         source_type=AssessmentSourceType.HUMAN, source_id="endocrinologist@hospital.org"
-    ),
-)
-```
-
-### Consider Multiple Valid Outputs
-
-Some questions have multiple correct answers. Capture this flexibility in your expectations:
-
-```python
-mlflow.log_expectation(
-    trace_id=trace_id,
-    name="acceptable_responses",
-    value={
-        "valid_answers": [
-            "The capital of the Netherlands is Amsterdam",
-            "Amsterdam is the capital of the Netherlands",
-            "The Netherlands' capital is Amsterdam",
-        ],
-        "must_include": ["Amsterdam", "Netherlands", "capital"],
-        "must_not_include": ["The Hague"],  # Common misconception
-    },
-    source=AssessmentSource(
-        source_type=AssessmentSourceType.HUMAN, source_id="geography_teacher@school.edu"
     ),
 )
 ```
@@ -522,7 +499,7 @@ Expectations are most powerful when combined with systematic evaluation:
     description="Deep dive into expectations architecture and schema"
     href="/genai/tracing/concepts/expectations"
     linkText="Learn more →"
-    containerHeight={120}
+    containerHeight={64}
   />
   <TileCard
     icon={MessageSquare}
@@ -531,7 +508,7 @@ Expectations are most powerful when combined with systematic evaluation:
     description="Learn how to collect quality evaluations from multiple sources"
     href="/genai/assessments/feedback"
     linkText="Start collecting →"
-    containerHeight={120}
+    containerHeight={64}
   />
   <TileCard
     icon={Book}
@@ -540,6 +517,6 @@ Expectations are most powerful when combined with systematic evaluation:
     description="Deep dive into expectations architecture and schema"
     href="/genai/tracing/concepts/expectations"
     linkText="Learn more →"
-    containerHeight={120}
+    containerHeight={64}
   />
 </TilesGrid>

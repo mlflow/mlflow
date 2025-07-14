@@ -247,22 +247,14 @@ const sidebarsGenAI: SidebarsConfig = {
       className: 'sidebar-top-level-category',
       items: [
         {
-          type: 'category',
-          label: 'Assessments',
-          items: [
-            {
-              type: 'doc',
-              id: 'assessments/feedback',
-            },
-            {
-              type: 'doc',
-              id: 'assessments/expectations',
-            },
-          ],
-          link: {
-            type: 'doc',
-            id: 'assessments/index',
-          },
+          type: 'doc',
+          id: 'assessments/feedback',
+          label: 'Feedback Collection',
+        },
+        {
+          type: 'doc',
+          id: 'assessments/expectations',
+          label: 'Ground Truth Expectations',
         },
         {
           type: 'doc',

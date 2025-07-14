@@ -69,6 +69,7 @@
 
 @media (min-width: 1024px) {
   .conceptGrid {
+    grid-template-columns: repeat(3, 1fr);
     gap: 2rem;
   }
 
