@@ -60,6 +60,7 @@ async def test_sk_invoke_simple(mock_openai):
     assert root_span is not None
     assert SpanAttributeKey.REQUEST_ID in root_span.attributes
     assert child_span is not None
+    assert child_span.name == "chat.completions gpt-4o-mini"
     assert "gen_ai.operation.name" in child_span.attributes
 
     inputs = child_span.get_attribute(SpanAttributeKey.INPUTS)
@@ -110,6 +111,10 @@ async def test_sk_invoke_simple_with_sk_initialization_of_tracer(
     assert isinstance(trace.data.spans, list)
     assert len(trace.data.spans) == 2
 
+    assert trace.data.request
+    assert trace.data.response
+    assert trace.info.tags.get("mlflow.traceName")
+
 
 @pytest.mark.asyncio
 async def test_sk_invoke_complex(mock_openai):
@@ -119,6 +124,10 @@ async def test_sk_invoke_complex(mock_openai):
     traces = get_traces()
     assert len(traces) == 1
     trace = traces[0]
+
+    assert trace.data.request
+    assert trace.data.response
+    assert trace.info.tags.get("mlflow.traceName")
 
     spans = trace.data.spans
     assert len(spans) == 2

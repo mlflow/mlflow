@@ -252,6 +252,19 @@ def _semantic_kernel_chat_completion_response_wrapper(original, *args, **kwargs)
         _logger.warning(f"Failed to set outputs attribute: {e}")
 
 
+def _trace_wrapper(original, *args, **kwargs):
+    from mlflow.tracing.constant import SpanAttributeKey
+
+    span = get_current_span()
+    if span and span.is_recording():
+        span.set_attribute(SpanAttributeKey.FUNCTION_NAME, original.__qualname__)
+        span.set_attribute(SpanAttributeKey.INPUTS, str(args))
+    result = original(*args, **kwargs)
+    if span and span.is_recording():
+        span.set_attribute(SpanAttributeKey.OUTPUTS, str(result))
+    return result
+
+
 def _semantic_kernel_chat_completion_error_wrapper(original, *args, **kwargs) -> None:
     current_span = (args[0] if args else kwargs.get("current_span")) or get_current_span()
     error = args[1] if len(args) > 1 else kwargs.get("error")
