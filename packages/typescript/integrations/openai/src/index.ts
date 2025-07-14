@@ -2,12 +2,15 @@
  * Main tracedOpenAI wrapper function for MLflow tracing integration
  */
 
+import { CompletionUsage } from 'openai/resources/index';
+import { ResponseUsage } from 'openai/resources/responses/responses';
 import { withSpan, LiveSpan, SpanAttributeKey, SpanType, TokenUsage } from 'mlflow-tracing';
-import { OpenAIUsage } from './types';
 
 // NB: 'Completions' represents chat.completions
 const SUPPORTED_MODULES = ['Completions', 'Responses', 'Embeddings'];
 const SUPPORTED_METHODS = ['create']; // chat.completions.create, embeddings.create, responses.create
+
+type OpenAIUsage = CompletionUsage | ResponseUsage;
 
 /**
  * Create a traced version of OpenAI client with MLflow tracing
