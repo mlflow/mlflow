@@ -7,7 +7,6 @@ import pandas as pd
 import pytest
 
 import mlflow
-from mlflow.entities.assessment import Expectation, Feedback
 from mlflow.entities.assessment_source import AssessmentSource
 from mlflow.entities.span import SpanType
 from mlflow.entities.trace import Trace
@@ -151,56 +150,48 @@ def get_test_traces(type=Literal["pandas", "list"]):
     model = TestModel()
 
     model.predict("What is MLflow?")
-    traces = mlflow.search_traces(return_type=type, order_by=["timestamp_ms ASC"])
+    trace_id = mlflow.get_last_active_trace_id()
 
     # Add assessments. Since log_assessment API is not supported in OSS MLflow yet, we
     # need to add it to the trace info manually.
     source = AssessmentSource(source_id="test", source_type="HUMAN")
-    trace = traces[0] if type == "list" else Trace.from_json(traces.iloc[0]["trace"])
-    trace.info.assessments.extend(
-        [
-            # 1. Expectation with reserved name "expected_response"
-            Expectation(
-                name="expected_response",
-                source=source,
-                trace_id=trace.info.trace_id,
-                value="expected response for first question",
-            ),
-            # 2. Expectation with reserved name "expected_facts"
-            Expectation(
-                name="expected_facts",
-                source=source,
-                trace_id=trace.info.trace_id,
-                value=["fact1", "fact2"],
-            ),
-            # 3. Expectation with reserved name "guidelines"
-            Expectation(
-                name="guidelines",
-                source=source,
-                trace_id=trace.info.trace_id,
-                value=["Be polite", "Be kind"],
-            ),
-            # 4. Expectation with custom name "ground_truth"
-            Expectation(
-                name="my_custom_expectation",
-                source=source,
-                trace_id=trace.info.trace_id,
-                value="custom expectation for the first question",
-            ),
-            # 5. Non-expectation assessment
-            Feedback(
-                name="feedback",
-                source=source,
-                trace_id=trace.info.trace_id,
-                value="some feedback",
-            ),
-        ]
+    # 1. Expectation with reserved name "expected_response"
+    mlflow.log_expectation(
+        trace_id=trace_id,
+        name="expected_response",
+        value="expected response for first question",
+        source=source,
     )
-    if type == "pandas":
-        traces.at[0, "trace"] = trace.to_json()
-    else:
-        traces = [{"trace": trace} for trace in traces]
-    return traces
+    # 2. Expectation with reserved name "expected_facts"
+    mlflow.log_expectation(
+        trace_id=trace_id,
+        name="expected_facts",
+        value=["fact1", "fact2"],
+        source=source,
+    )
+    # 3. Expectation with reserved name "guidelines"
+    mlflow.log_expectation(
+        trace_id=trace_id,
+        name="guidelines",
+        value=["Be polite", "Be kind"],
+        source=source,
+    )
+    # 4. Expectation with custom name "my_custom_expectation"
+    mlflow.log_expectation(
+        trace_id=trace_id,
+        name="my_custom_expectation",
+        value="custom expectation for the first question",
+        source=source,
+    )
+    # 5. Non-expectation assessment
+    mlflow.log_feedback(
+        trace_id=trace_id,
+        name="feedback",
+        value="some feedback",
+        source=source,
+    )
+    traces = mlflow.search_traces(return_type=type, order_by=["timestamp_ms ASC"])
+    return [{"trace": trace} for trace in traces] if type == "list" else traces
 
 
 @pytest.mark.parametrize("input_type", ["list", "pandas"])
