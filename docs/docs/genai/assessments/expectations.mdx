@@ -19,6 +19,14 @@ Expectations define the "gold standard" for what your AI should produce given sp
 
 Unlike feedback that evaluates what happened, expectations establish what should happen. They're always created by humans who have the expertise to define correct outcomes.
 
+## Prerequisites
+
+Before using the Expectations API, ensure you have:
+
+- MLflow 3.2.0 or later installed
+- An active MLflow tracking server or local tracking setup
+- Traces that have been logged from your GenAI application to an MLflow Experiment
+
 ## Why Annotate Ground Truth?
 
 <FeatureHighlights features={[
@@ -443,6 +451,58 @@ mlflow.log_expectation(
 
 Use standardized naming and structure across your expectations to enable meaningful analysis and comparison.
 
+## Managing Expectations
+
+Once you've defined expectations for your traces, you may need to retrieve, update, or delete them to maintain accurate ground truth data.
+
+### Retrieving Expectations
+
+Retrieve specific expectations to analyze your ground truth data:
+
+```python
+# Get a specific expectation by ID
+expectation = mlflow.get_assessment(
+    trace_id="tr-1234567890abcdef", assessment_id="a-0987654321abcdef"
+)
+
+# Access expectation details
+name = expectation.name
+value = expectation.value
+source_type = expectation.source.source_type
+metadata = expectation.metadata if hasattr(expectation, "metadata") else None
+```
+
+### Updating Expectations
+
+Update existing expectations when ground truth needs refinement:
+
+```python
+from mlflow.entities import Expectation
+
+# Update expectation with corrected information
+updated_expectation = Expectation(
+    name="expected_answer",
+    value="The capital of France is Paris, located in the Île-de-France region"
+)
+
+mlflow.update_assessment(
+    trace_id="tr-1234567890abcdef",
+    assessment_id="a-0987654321abcdef",
+    assessment=updated_expectation,
+)
+```
+
+### Deleting Expectations
+
+Remove expectations that were logged incorrectly:
+
+```python
+# Delete specific expectation
+mlflow.delete_assessment(
+    trace_id="tr-1234567890abcdef", assessment_id="a-5555666677778888"
+)
+```
+
 ## Integration with Evaluation
 
 Expectations are most powerful when combined with systematic evaluation:
@@ -456,12 +516,12 @@ Expectations are most powerful when combined with systematic evaluation:
 
 <TilesGrid>
   <TileCard
-    icon={FileText}
+    icon={Book}
     iconSize={48}
-    title="Expectations API Guide"
-    description="Complete reference for the expectations API with examples"
-    href="/genai/assessments/api-guide"
-    linkText="View API docs →"
+    title="Expectations Concepts"
+    description="Deep dive into expectations architecture and schema"
+    href="/genai/tracing/concepts/expectations"
+    linkText="Learn more →"
     containerHeight={120}
   />
   <TileCard

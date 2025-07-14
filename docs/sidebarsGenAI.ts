@@ -258,10 +258,6 @@ const sidebarsGenAI: SidebarsConfig = {
               type: 'doc',
               id: 'assessments/expectations',
             },
-            {
-              type: 'doc',
-              id: 'assessments/api-guide',
-            },
           ],
           link: {
             type: 'doc',
