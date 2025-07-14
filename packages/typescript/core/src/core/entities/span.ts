@@ -346,33 +346,37 @@ export class LiveSpan extends Span {
     status?: SpanStatus | SpanStatusCode;
     endTimeNs?: number;
   }): void {
-    if (options?.outputs != null) {
-      this.setOutputs(options.outputs);
+    try {
+      if (options?.outputs != null) {
+        this.setOutputs(options.outputs);
+      }
+
+      if (options?.attributes != null) {
+        this.setAttributes(options.attributes);
+      }
+
+      if (options?.status != null) {
+        this.setStatus(options.status);
+      }
+
+      // NB: In OpenTelemetry, status code remains UNSET if not explicitly set
+      // by the user. However, there is not way to set the status when using
+      // `trace` function wrapper. Therefore, we just automatically set the status
+      // to OK if it is not ERROR.
+      if (this.status.statusCode !== SpanStatusCode.ERROR) {
+        this.setStatus(SpanStatusCode.OK);
+      }
+
+      // OTel SDK default end time to current time if not provided
+      const endTime = options?.endTimeNs ? convertNanoSecondsToHrTime(options.endTimeNs) : undefined;
+      this._span.end(endTime);
+
+      // Set the last active trace ID
+      const traceManager = InMemoryTraceManager.getInstance();
+      traceManager.lastActiveTraceId = this.traceId;
+    } catch (error) {
+      console.error(`Failed to end span ${this.spanId}: ${error}.`);
     }
-
-    if (options?.attributes != null) {
-      this.setAttributes(options.attributes);
-    }
-
-    if (options?.status != null) {
-      this.setStatus(options.status);
-    }
-
-    // NB: In OpenTelemetry, status code remains UNSET if not explicitly set
-    // by the user. However, there is not way to set the status when using
-    // `trace` function wrapper. Therefore, we just automatically set the status
-    // to OK if it is not ERROR.
-    if (this.status.statusCode !== SpanStatusCode.ERROR) {
-      this.setStatus(SpanStatusCode.OK);
-    }
-
-    // OTel SDK default end time to current time if not provided
-    const endTime = options?.endTimeNs ? convertNanoSecondsToHrTime(options.endTimeNs) : undefined;
-    this._span.end(endTime);
-
-    // Set the last active trace ID
-    const traceManager = InMemoryTraceManager.getInstance();
-    traceManager.lastActiveTraceId = this.traceId;
   }
 }
 

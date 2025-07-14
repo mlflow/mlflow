@@ -108,19 +108,30 @@ export function withSpan<T>(
 
   // Use startActiveSpan to automatically manage context and parent-child relationships
   return tracer.startActiveSpan(spanName, { startTime }, (otelSpan: ApiSpan) => {
-    // Create and register the MLflow span
-    const mlflowSpan = createAndRegisterMlflowSpan(
-      otelSpan,
-      spanOptions.spanType,
-      spanOptions.inputs,
-      spanOptions.attributes
-    );
+    let mlflowSpan: Span;
+
+    try {
+      // Create and register the MLflow span
+      mlflowSpan = createAndRegisterMlflowSpan(
+        otelSpan,
+        spanOptions.spanType,
+        spanOptions.inputs,
+        spanOptions.attributes
+      );
+    } catch (error) {
+      console.debug('Failed to create and register MLflow span', error);
+      mlflowSpan = new NoOpSpan();
+    }
 
     // Expression function to handle errors consistently
-    const handleSpanError = (error: Error): never => {
+    const handleError = (error: Error): never => {
+      try {
       mlflowSpan.setStatus(SpanStatusCode.ERROR, error.message);
-      mlflowSpan.recordException(error);
-      mlflowSpan.end();
+        mlflowSpan.recordException(error);
+        mlflowSpan.end();
+      } catch (error) {
+        console.debug('Failed to set status or record exception on MLflow span', error);
+      }
       throw error;
     };
 
@@ -139,7 +150,7 @@ export function withSpan<T>(
             mlflowSpan.end();
             return value;
           })
-          .catch(handleSpanError);
+          .catch(handleError);
       } else {
         // Synchronous execution
         if (mlflowSpan.outputs === undefined) {
@@ -150,7 +161,7 @@ export function withSpan<T>(
       }
     } catch (error) {
       // Handle synchronous errors
-      return handleSpanError(error as Error);
+      return handleError(error as Error);
     }
   });
 }
@@ -222,11 +233,19 @@ function createAndRegisterMlflowSpan(
 export function trace<T extends (...args: any[]) => any>(func: T, options?: TraceOptions): T {
   // Create a wrapper function that preserves the original function's properties
   const wrapper = function (this: any, ...args: Parameters<T>): ReturnType<T> {
+    let inputs: any;
+    try {
+      inputs = mapArgsToObject(func, args);
+    } catch (error) {
+      console.debug('Failed to map arguments values to names', error);
+      inputs = args;
+    }
+
     const spanOptions: Omit<SpanOptions, 'parent'> = {
       name: options?.name || func.name || DEFAULT_SPAN_NAME,
       spanType: options?.spanType,
       attributes: options?.attributes,
-      inputs: mapArgsToObject(func, args)
+      inputs: inputs
     };
 
     // eslint-disable-next-line @typescript-eslint/no-unsafe-return
