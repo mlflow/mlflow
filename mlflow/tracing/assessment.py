@@ -205,11 +205,11 @@ def update_assessment(
 
     Args:
         trace_id: The ID of the trace.
-        assessment_id: The ID of the expectation assessment to update.
+        assessment_id: The ID of the expectation or feedback assessment to update.
         assessment: The updated assessment.
 
     Returns:
-        :py:class:`~mlflow.entities.Assessment`: The updated feedback assessment.
+        :py:class:`~mlflow.entities.Assessment`: The updated feedback or expectation assessment.
 
     Example:
 

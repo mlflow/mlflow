@@ -594,7 +594,6 @@ def test_search_traces_with_assessments():
         return_type="list",
         order_by=["timestamp_ms"],
     )
-
     # Verify the results
     assert len(traces) == 2
     assert len(traces[0].info.assessments) == 3
@@ -615,3 +614,26 @@ def test_search_traces_with_assessments():
     assert assessment.trace_id == span_2.trace_id
     assert assessment.name == "feedback_3"
     assert assessment.value == 1.0
+
+
+@pytest.mark.parametrize("source_type", ["AI_JUDGE", AssessmentSourceType.AI_JUDGE])
+def test_log_feedback_ai_judge_deprecation_warning(trace_id, source_type):
+    with pytest.warns(DeprecationWarning, match="AI_JUDGE is deprecated. Use LLM_JUDGE instead."):
+        ai_judge_source = AssessmentSource(source_type=source_type, source_id="gpt-4")
+
+    mlflow.log_feedback(
+        trace_id=trace_id,
+        name="quality",
+        value=0.8,
+        source=ai_judge_source,
+        rationale="AI evaluation",
+    )
+
+    trace = mlflow.get_trace(trace_id)
+    assert len(trace.info.assessments) == 1
+    assessment = trace.info.assessments[0]
+    assert assessment.source.source_type == AssessmentSourceType.LLM_JUDGE
+    assert assessment.source.source_id == "gpt-4"
+    assert assessment.name == "quality"
+    assert assessment.feedback.value == 0.8
+    assert assessment.rationale == "AI evaluation"
