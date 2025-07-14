@@ -234,7 +234,6 @@ semantic_kernel:
       ">= 1.34.0": ["pydantic>=2.0,<2.12"]
     run: |
       pytest tests/semantic_kernel/test_semantic_kernel_autolog.py
-    test_tracing_sdk: true
 
 spacy:
   package_info:
