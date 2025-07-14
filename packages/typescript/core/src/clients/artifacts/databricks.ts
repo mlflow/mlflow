@@ -108,12 +108,12 @@ export class DatabricksArtifactsClient implements ArtifactsClient {
       case 'GCP_SIGNED_URL':
         await this.uploadToSignedUrl(credentials.signed_uri, data, headers, credentials.type);
         break;
-      // TODO: Implement Azure upload
       case 'AZURE_SAS_URI':
+        await this.uploadToAzureBlob(credentials.signed_uri, data, headers);
+        break;
       case 'AZURE_ADLS_GEN2_SAS_URI':
-        throw new Error(
-          `Azure upload not yet implemented for credential type: ${credentials.type}`
-        );
+        await this.uploadToAzureAdlsGen2(credentials.signed_uri, data, headers);
+        break;
       default:
         throw new Error(`Unsupported credential type: ${credentials.type as string}`);
     }
@@ -142,6 +142,101 @@ export class DatabricksArtifactsClient implements ArtifactsClient {
       }
     } catch (error) {
       throw new Error(`Failed to upload to ${credentialType}: ${(error as Error).message}`);
+    }
+  }
+
+  /**
+   * Upload data to Azure Blob Storage using SAS URI
+   * Uses simple PUT for all uploads since traces rarely exceed 100MB
+   * https://learn.microsoft.com/en-us/azure/storage/common/storage-sas-overview
+   */
+  private async uploadToAzureBlob(
+    sasUri: string,
+    data: string,
+    headers: Record<string, string>
+  ): Promise<void> {
+    try {
+      const response = await fetch(sasUri, {
+        method: 'PUT',
+        headers: {
+          ...headers,
+          'x-ms-blob-type': 'BlockBlob',
+          'Content-Type': 'application/json'
+        },
+        body: data
+      });
+
+      if (!response.ok) {
+        throw new Error(`Azure Blob upload failed: ${response.status} ${response.statusText}`);
+      }
+    } catch (error) {
+      throw new Error(`Failed to upload to Azure Blob Storage: ${(error as Error).message}`);
+    }
+  }
+
+  /**
+   * Upload data to Azure Data Lake Storage Gen2 using SAS URI
+   * https://learn.microsoft.com/en-us/rest/api/storageservices/data-lake-storage-gen2
+   */
+  private async uploadToAzureAdlsGen2(
+    sasUri: string,
+    data: string,
+    headers: Record<string, string>
+  ): Promise<void> {
+    try {
+      const dataBuffer = new TextEncoder().encode(data);
+
+      // ADLS Gen2 uses a different API pattern - create file then append data
+      // Create the file
+      const createUrl = `${sasUri}&resource=file`;
+      const createResponse = await fetch(createUrl, {
+        method: 'PUT',
+        headers: {
+          ...headers,
+          'Content-Length': '0'
+        }
+      });
+
+      if (!createResponse.ok) {
+        throw new Error(
+          `Azure ADLS Gen2 file creation failed: ${createResponse.status} ${createResponse.statusText}`
+        );
+      }
+
+      // Append data to the file
+      const appendUrl = `${sasUri}&action=append&position=0`;
+      const appendResponse = await fetch(appendUrl, {
+        method: 'PATCH',
+        headers: {
+          ...headers,
+          'Content-Type': 'application/octet-stream'
+        },
+        body: dataBuffer
+      });
+
+      if (!appendResponse.ok) {
+        throw new Error(
+          `Azure ADLS Gen2 data append failed: ${appendResponse.status} ${appendResponse.statusText}`
+        );
+      }
+
+      // Flush the data to complete the upload
+      const flushUrl = `${sasUri}&action=flush&position=${dataBuffer.length}`;
+      const flushResponse = await fetch(flushUrl, {
+        method: 'PATCH',
+        headers: {
+          ...headers,
+          'Content-Length': '0'
+        }
+      });
+
+      if (!flushResponse.ok) {
+        throw new Error(
+          `Azure ADLS Gen2 flush failed: ${flushResponse.status} ${flushResponse.statusText}`
+        );
+      }
+    } catch (error) {
+      throw new Error(`Failed to upload to Azure ADLS Gen2: ${(error as Error).message}`);
     }
   }
 

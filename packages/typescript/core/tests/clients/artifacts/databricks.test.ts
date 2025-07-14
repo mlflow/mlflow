@@ -64,10 +64,7 @@ describe('DatabricksArtifactsClient', () => {
         })
       );
 
-      await client.uploadTraceData(traceInfo, traceData);
-
-      // Verify that the upload completed without errors
-      expect(true).toBe(true); // Test passes if no errors thrown
+      await expect(client.uploadTraceData(traceInfo, traceData)).resolves.toBeUndefined();
     });
 
     it('should get upload credentials and upload to GCP signed URL', async () => {
@@ -102,13 +99,10 @@ describe('DatabricksArtifactsClient', () => {
         })
       );
 
-      await client.uploadTraceData(traceInfo, traceData);
-
-      // Verify that the upload completed without errors
-      expect(true).toBe(true); // Test passes if no errors thrown
+      await expect(client.uploadTraceData(traceInfo, traceData)).resolves.toBeUndefined();
     });
 
-    it('should throw error for unsupported Azure credential types', async () => {
+    it('should get upload credentials and upload to Azure Blob Storage', async () => {
       const traceInfo = new TraceInfo({
         traceId: 'tr-azure-789',
         traceLocation: {
@@ -136,11 +130,14 @@ describe('DatabricksArtifactsClient', () => {
         )
       );
 
-      await expect(client.uploadTraceData(traceInfo, traceData)).rejects.toThrow(
-        'Azure upload not yet implemented for credential type: AZURE_SAS_URI'
+      // Mock Azure Blob Storage upload
+      server.use(
+        http.put('https://storage.azure.com/traces/tr-azure-789', () => {
+          return new HttpResponse(null, { status: 201 });
+        })
       );
 
-      // Test passes if error is thrown as expected
+      await expect(client.uploadTraceData(traceInfo, traceData)).resolves.toBeUndefined();
     });
 
     it('should handle upload failures', async () => {
@@ -358,47 +355,98 @@ describe('DatabricksArtifactsClient', () => {
           })
         );
 
-        await client.uploadTraceData(traceInfo, traceData);
-
-        // Verify that the upload completed without errors
-        expect(true).toBe(true);
+        await expect(client.uploadTraceData(traceInfo, traceData)).resolves.toBeUndefined();
       });
     });
 
-    const azureTypes = ['AZURE_SAS_URI', 'AZURE_ADLS_GEN2_SAS_URI'];
-
-    azureTypes.forEach((type) => {
-      it(`should throw not implemented error for ${type}`, async () => {
-        const traceInfo = new TraceInfo({
-          traceId: `tr-${type}`,
-          traceLocation: {
-            type: TraceLocationType.MLFLOW_EXPERIMENT,
-            mlflowExperiment: { experimentId: '0' }
-          },
-          state: TraceState.OK,
-          requestTime: 12000
-        });
-
-        const traceData = new TraceData([]);
-
-        server.use(
-          http.get(
-            `${testHost}/api/2.0/mlflow/traces/tr-${type}/credentials-for-data-upload`,
-            () => {
-              return HttpResponse.json({
-                credential_info: {
-                  type: type as any,
-                  signed_uri: 'https://storage.azure.com/file?sas=token'
-                }
-              });
-            }
-          )
-        );
-
-        await expect(client.uploadTraceData(traceInfo, traceData)).rejects.toThrow(
-          `Azure upload not yet implemented for credential type: ${type}`
-        );
+    it('should successfully upload to Azure Blob Storage with AZURE_SAS_URI', async () => {
+      const traceInfo = new TraceInfo({
+        traceId: 'tr-AZURE_SAS_URI',
+        traceLocation: {
+          type: TraceLocationType.MLFLOW_EXPERIMENT,
+          mlflowExperiment: { experimentId: '0' }
+        },
+        state: TraceState.OK,
+        requestTime: 12000
       });
+
+      const traceData = new TraceData([]);
+
+      server.use(
+        http.get(
+          `${testHost}/api/2.0/mlflow/traces/tr-AZURE_SAS_URI/credentials-for-data-upload`,
+          () => {
+            return HttpResponse.json({
+              credential_info: {
+                type: 'AZURE_SAS_URI' as any,
+                signed_uri: 'https://storage.azure.com/file?sas=token'
+              }
+            });
+          }
+        )
+      );
+
+      // Mock Azure Blob Storage upload
+      server.use(
+        http.put('https://storage.azure.com/file', () => {
+          return new HttpResponse(null, { status: 201 });
+        })
+      );
+
+      await expect(client.uploadTraceData(traceInfo, traceData)).resolves.toBeUndefined();
+    });
+
+    it('should successfully upload to Azure ADLS Gen2 with AZURE_ADLS_GEN2_SAS_URI', async () => {
+      const traceInfo = new TraceInfo({
+        traceId: 'tr-AZURE_ADLS_GEN2_SAS_URI',
+        traceLocation: {
+          type: TraceLocationType.MLFLOW_EXPERIMENT,
+          mlflowExperiment: { experimentId: '0' }
+        },
+        state: TraceState.OK,
+        requestTime: 12000
+      });
+
+      const traceData = new TraceData([]);
+
+      server.use(
+        http.get(
+          `${testHost}/api/2.0/mlflow/traces/tr-AZURE_ADLS_GEN2_SAS_URI/credentials-for-data-upload`,
+          () => {
+            return HttpResponse.json({
+              credential_info: {
+                type: 'AZURE_ADLS_GEN2_SAS_URI' as any,
+                signed_uri: 'https://storage.azure.com/file?sas=token'
+              }
+            });
+          }
+        )
+      );
+
+      // Mock Azure ADLS Gen2 operations (create, append, flush)
+      server.use(
+        // Create file
+        http.put('https://storage.azure.com/file', ({ request }) => {
+          const url = new URL(request.url);
+          if (url.searchParams.get('resource') === 'file') {
+            return new HttpResponse(null, { status: 201 });
+          }
+          return new HttpResponse(null, { status: 404 });
+        }),
+        // Append data
+        http.patch('https://storage.azure.com/file', ({ request }) => {
+          const url = new URL(request.url);
+          if (url.searchParams.get('action') === 'append') {
+            return new HttpResponse(null, { status: 202 });
+          }
+          if (url.searchParams.get('action') === 'flush') {
+            return new HttpResponse(null, { status: 200 });
+          }
+          return new HttpResponse(null, { status: 404 });
+        })
+      );
+
+      await expect(client.uploadTraceData(traceInfo, traceData)).resolves.toBeUndefined();
     });
   });
 });
