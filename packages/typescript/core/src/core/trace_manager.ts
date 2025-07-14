@@ -28,8 +28,13 @@ class _Trace {
     if (root_span) {
       // Accessing the OTel span directly get serialized value directly.
       // TODO: Implement the smart truncation logic.
-      this.info.requestPreview = root_span._span.attributes[SpanAttributeKey.INPUTS] as string;
-      this.info.responsePreview = root_span._span.attributes[SpanAttributeKey.OUTPUTS] as string;
+      // Only set previews if they haven't been explicitly set by updateCurrentTrace
+      if (!this.info.requestPreview) {
+        this.info.requestPreview = root_span._span.attributes[SpanAttributeKey.INPUTS] as string;
+      }
+      if (!this.info.responsePreview) {
+        this.info.responsePreview = root_span._span.attributes[SpanAttributeKey.OUTPUTS] as string;
+      }
     }
 
     return new Trace(this.info, traceData);
