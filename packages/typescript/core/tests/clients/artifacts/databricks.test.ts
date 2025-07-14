@@ -64,10 +64,7 @@ describe('DatabricksArtifactsClient', () => {
         })
       );
 
-      await client.uploadTraceData(traceInfo, traceData);
-
-      // Verify that the upload completed without errors
-      expect(true).toBe(true); // Test passes if no errors thrown
+      await expect(client.uploadTraceData(traceInfo, traceData)).resolves.toBeUndefined();
     });
 
     it('should get upload credentials and upload to GCP signed URL', async () => {
@@ -102,10 +99,7 @@ describe('DatabricksArtifactsClient', () => {
         })
       );
 
-      await client.uploadTraceData(traceInfo, traceData);
-
-      // Verify that the upload completed without errors
-      expect(true).toBe(true); // Test passes if no errors thrown
+      await expect(client.uploadTraceData(traceInfo, traceData)).resolves.toBeUndefined();
     });
 
     it('should get upload credentials and upload to Azure Blob Storage', async () => {
@@ -143,10 +137,7 @@ describe('DatabricksArtifactsClient', () => {
         })
       );
 
-      await client.uploadTraceData(traceInfo, traceData);
-
-      // Test passes if no error is thrown
-      expect(true).toBe(true);
+      await expect(client.uploadTraceData(traceInfo, traceData)).resolves.toBeUndefined();
     });
 
     it('should handle upload failures', async () => {
@@ -364,10 +355,7 @@ describe('DatabricksArtifactsClient', () => {
           })
         );
 
-        await client.uploadTraceData(traceInfo, traceData);
-
-        // Verify that the upload completed without errors
-        expect(true).toBe(true);
+        await expect(client.uploadTraceData(traceInfo, traceData)).resolves.toBeUndefined();
       });
     });
 
@@ -405,10 +393,7 @@ describe('DatabricksArtifactsClient', () => {
         })
       );
 
-      await client.uploadTraceData(traceInfo, traceData);
-
-      // Test passes if no error is thrown
-      expect(true).toBe(true);
+      await expect(client.uploadTraceData(traceInfo, traceData)).resolves.toBeUndefined();
     });
 
     it('should successfully upload to Azure ADLS Gen2 with AZURE_ADLS_GEN2_SAS_URI', async () => {
@@ -461,10 +446,7 @@ describe('DatabricksArtifactsClient', () => {
         })
       );
 
-      await client.uploadTraceData(traceInfo, traceData);
-
-      // Test passes if no error is thrown
-      expect(true).toBe(true);
+      await expect(client.uploadTraceData(traceInfo, traceData)).resolves.toBeUndefined();
     });
   });
 });

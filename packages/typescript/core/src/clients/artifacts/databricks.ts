@@ -148,6 +148,7 @@ export class DatabricksArtifactsClient implements ArtifactsClient {
   /**
    * Upload data to Azure Blob Storage using SAS URI
    * Uses simple PUT for all uploads since traces rarely exceed 100MB
+   * https://learn.microsoft.com/en-us/azure/storage/common/storage-sas-overview
    */
   private async uploadToAzureBlob(
     sasUri: string,
@@ -175,6 +176,7 @@ export class DatabricksArtifactsClient implements ArtifactsClient {
 
   /**
    * Upload data to Azure Data Lake Storage Gen2 using SAS URI
+   * https://learn.microsoft.com/en-us/rest/api/storageservices/data-lake-storage-gen2
    */
   private async uploadToAzureAdlsGen2(
     sasUri: string,
