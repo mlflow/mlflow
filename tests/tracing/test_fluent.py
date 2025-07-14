@@ -24,6 +24,7 @@ from mlflow.environment_variables import MLFLOW_TRACKING_USERNAME
 from mlflow.exceptions import MlflowException
 from mlflow.store.entities.paged_list import PagedList
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
+from mlflow.telemetry import get_telemetry_client
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import (
     TRACE_SCHEMA_VERSION,
@@ -2109,3 +2110,44 @@ def test_search_traces_with_run_id_validates_store_filter_string(is_databricks):
         assert actual_filter_string == expected_filter_string, (
             f"Expected filter string '{expected_filter_string}', but got '{actual_filter_string}'"
         )
+
+
+def test_start_span_sends_telemetry_record(mock_requests):
+    """Test that start_span sends telemetry records."""
+    with mlflow.start_span("test"):
+        pass
+    get_telemetry_client().flush()
+
+    assert len(mock_requests) == 1
+    record = mock_requests[0]
+    data = json.loads(record["data"])
+    assert data["api_module"] == mlflow.start_span.__module__
+    assert data["api_name"] == "start_span"
+    assert data["params"] is None
+    assert data["status"] == "success"
+
+
+def test_search_traces_sends_telemetry_record(mock_requests):
+    """Test that search_traces sends telemetry records."""
+    mlflow.search_traces()
+    client = get_telemetry_client()
+    client.flush()
+
+    assert len(mock_requests) == 1
+    record = mock_requests[0]
+    data = json.loads(record["data"])
+    assert data["api_module"] == mlflow.search_traces.__module__
+    assert data["api_name"] == "search_traces"
+    assert data["params"] is None
+    assert data["status"] == "success"
+
+    with pytest.raises(MlflowException, match=r"not found"):
+        mlflow.search_traces(run_id="test_run_id")
+    client.flush()
+    assert len(mock_requests) == 2
+    record = mock_requests[1]
+    data = json.loads(record["data"])
+    assert data["api_module"] == mlflow.search_traces.__module__
+    assert data["api_name"] == "search_traces"
+    assert data["params"] is None
+    assert data["status"] == "failure"

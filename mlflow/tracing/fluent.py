@@ -20,6 +20,7 @@ from mlflow.entities.trace_state import TraceState
 from mlflow.entities.trace_status import TraceStatus
 from mlflow.exceptions import MlflowException
 from mlflow.store.tracking import SEARCH_TRACES_DEFAULT_MAX_RESULTS
+from mlflow.telemetry.track import track_api_usage
 from mlflow.tracing import provider
 from mlflow.tracing.client import TracingClient
 from mlflow.tracing.constant import (
@@ -58,6 +59,7 @@ _LAST_ACTIVE_TRACE_ID_THREAD_LOCAL = ContextVar("last_active_trace_id", default=
 _EVAL_REQUEST_ID_TO_TRACE_ID = TTLCache(maxsize=10000, ttl=3600)
 
 
+@track_api_usage
 def trace(
     func: Optional[Callable[..., Any]] = None,
     name: Optional[str] = None,
@@ -395,6 +397,7 @@ def _wrap_function_safe(fn: Callable[..., Any], wrapper: Callable[..., Any]) -> 
     return wrapped
 
 
+@track_api_usage
 @contextlib.contextmanager
 def start_span(
     name: str = "span",
@@ -629,6 +632,7 @@ def get_trace(trace_id: str) -> Optional[Trace]:
         return None
 
 
+@track_api_usage
 def search_traces(
     experiment_ids: Optional[list[str]] = None,
     filter_string: Optional[str] = None,

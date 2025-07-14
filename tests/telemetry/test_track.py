@@ -176,3 +176,32 @@ def test_track_api_usage_do_not_track_internal_api_complex(mock_requests):
     assert record["api_name"] == test_func_1.__qualname__
     assert record["params"] is None
     assert record["status"] == "success"
+
+
+def test_trace_sends_telemetry_record(mock_requests):
+    @mlflow.trace
+    def test():
+        pass
+
+    get_telemetry_client().flush()
+    assert len(mock_requests) == 1
+    record = mock_requests[0]
+    data = json.loads(record["data"])
+    assert data["api_module"] == mlflow.trace.__module__
+    assert data["api_name"] == "trace"
+    assert data["params"] is None
+    assert data["status"] == "success"
+
+    def test_func():
+        pass
+
+    mlflow.trace(test_func)
+
+    get_telemetry_client().flush()
+    assert len(mock_requests) == 2
+    record = mock_requests[1]
+    data = json.loads(record["data"])
+    assert data["api_module"] == mlflow.trace.__module__
+    assert data["api_name"] == "trace"
+    assert data["status"] == "success"
+    assert data["params"] is None

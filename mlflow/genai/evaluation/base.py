@@ -21,6 +21,7 @@ from mlflow.models.evaluation.base import (
     EvaluationResult,
     _is_model_deployment_endpoint_uri,
 )
+from mlflow.telemetry.track import track_api_usage
 from mlflow.tracing.constant import (
     DATABRICKS_OPTIONS_KEY,
     DATABRICKS_OUTPUT_KEY,
@@ -37,6 +38,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+@track_api_usage
 @experimental(version="3.0.0")
 def evaluate(
     data: "EvaluationDatasetTypes",

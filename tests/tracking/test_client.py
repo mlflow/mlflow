@@ -46,6 +46,7 @@ from mlflow.store.model_registry.sqlalchemy_store import (
 )
 from mlflow.store.tracking import SEARCH_MAX_RESULTS_DEFAULT
 from mlflow.store.tracking.sqlalchemy_store import SqlAlchemyStore as SqlAlchemyTrackingStore
+from mlflow.telemetry import get_telemetry_client
 from mlflow.tracing.constant import TraceMetadataKey
 from mlflow.tracing.provider import _get_tracer, trace_disabled
 from mlflow.tracking import set_registry_uri
@@ -65,6 +66,7 @@ from mlflow.utils.mlflow_tags import (
     MLFLOW_USER,
 )
 
+from tests.helper_functions import avoid_telemetry_tracking
 from tests.tracing.conftest import async_logging_enabled  # noqa: F401
 from tests.tracing.helper import create_test_trace_info, get_traces
 
@@ -386,7 +388,7 @@ def test_client_delete_traces(mock_store):
 
 
 @pytest.fixture(params=["file", "sqlalchemy"])
-def tracking_uri(request, tmp_path):
+def tracking_uri(request, tmp_path, monkeypatch):
     """Set an MLflow Tracking URI with different type of backend."""
     if "MLFLOW_SKINNY" in os.environ and request.param == "sqlalchemy":
         pytest.skip("SQLAlchemy store is not available in skinny.")
@@ -403,9 +405,10 @@ def tracking_uri(request, tmp_path):
 
     # NB: MLflow tracer does not handle the change of tracking URI well,
     # so we need to reset the tracer to switch the tracking URI during testing.
-    mlflow.tracing.disable()
-    mlflow.set_tracking_uri(tracking_uri)
-    mlflow.tracing.enable()
+    with avoid_telemetry_tracking():
+        mlflow.tracing.disable()
+        mlflow.set_tracking_uri(tracking_uri)
+        mlflow.tracing.enable()
 
     yield tracking_uri
 
@@ -2383,3 +2386,114 @@ def test_load_prompt_with_alias_uri(tracking_uri):
         MlflowException, match=r"Prompt (.*) does not exist.|Prompt alias (.*) not found."
     ):
         client.load_prompt("prompts:/alias_prompt@production")
+
+
+def test_search_traces_sends_telemetry_record(mock_requests, tracking_uri):
+    """Test that search_traces sends telemetry records."""
+    exp_id = mlflow.create_experiment("test")
+    client = MlflowClient(tracking_uri=tracking_uri)
+    client.search_traces(experiment_ids=[exp_id])
+    get_telemetry_client().flush()
+
+    assert len(mock_requests) == 1
+    record = mock_requests[0]
+    data = json.loads(record["data"])
+    assert data["api_module"] == client.search_traces.__module__
+    assert data["api_name"] == "MlflowClient.search_traces"
+    assert data["params"] is None
+    assert data["status"] == "success"
+    assert data["backend_store_scheme"] == "sqlite" if tracking_uri.startswith("sqlite") else "file"
+
+
+def test_register_prompt_sends_telemetry_record(mock_requests, tracking_uri):
+    """Test that register_prompt sends telemetry records."""
+    client = MlflowClient(tracking_uri=tracking_uri)
+    client.register_prompt("test_prompt", "test template {{var}}")
+    get_telemetry_client().flush()
+
+    assert len(mock_requests) == 1
+    record = mock_requests[0]
+    data = json.loads(record["data"])
+    assert data["api_module"] == client.register_prompt.__module__
+    assert data["api_name"] == "MlflowClient.register_prompt"
+    assert data["params"] is None
+    assert data["status"] == "success"
+
+
+def test_load_prompt_sends_telemetry_record(mock_requests, tracking_uri):
+    """Test that load_prompt sends telemetry records."""
+    client = MlflowClient(tracking_uri=tracking_uri)
+    client.register_prompt("test_prompt_load", "test template")
+    client.load_prompt("test_prompt_load", version=1)
+    get_telemetry_client().flush()
+
+    # Two records: one for register, one for load
+    assert len(mock_requests) == 2
+    # Check the load_prompt record (second one)
+    record = mock_requests[1]
+    data = json.loads(record["data"])
+    assert data["api_module"] == client.load_prompt.__module__
+    assert data["api_name"] == "MlflowClient.load_prompt"
+    assert data["params"] is None
+    assert data["status"] == "success"
+
+
+def test_start_span_sends_telemetry_record(mock_requests, tracking_uri):
+    """Test that start_span sends telemetry records."""
+    client = MlflowClient(tracking_uri)
+    experiment_id = client.create_experiment("test_experiment")
+
+    root = client.start_trace(name="root", experiment_id=experiment_id, inputs=[])
+    span = client.start_span(name="child", trace_id=root.trace_id, parent_id=root.span_id, inputs=0)
+    client.end_span(trace_id=root.trace_id, span_id=span.span_id, outputs=False)
+    client.end_trace(trace_id=root.trace_id, outputs="")
+    get_telemetry_client().flush()
+
+    assert len(mock_requests) == 1
+    record = mock_requests[0]
+    data = json.loads(record["data"])
+    assert data["api_module"] == client.start_span.__module__
+    assert data["api_name"] == "MlflowClient.start_span"
+    assert data["params"] is None
+    assert data["status"] == "success"
+
+
+def test_log_model_params_sends_telemetry_record(mock_requests, tracking_uri):
+    """Test that log_model_params sends telemetry records."""
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    model = mlflow.initialize_logged_model(name="test_model")
+    client.log_model_params(
+        model_id=model.model_id,
+        params={"param1": "value1"},
+    )
+
+    get_telemetry_client().flush()
+
+    # Two records: one for initialize_logged_model, one for log_model_params
+    assert len(mock_requests) == 2
+    record = mock_requests[1]
+    data = json.loads(record["data"])
+    assert data["api_module"] == client.log_model_params.__module__
+    assert data["api_name"] == "MlflowClient.log_model_params"
+    assert data["params"] is None
+    assert data["status"] == "success"
+
+
+def test_set_logged_model_tags_sends_telemetry_record(mock_requests, tracking_uri):
+    """Test that set_logged_model_tags sends telemetry records."""
+    client = MlflowClient(tracking_uri=tracking_uri)
+
+    model = mlflow.initialize_logged_model(name="test_model")
+    client.set_logged_model_tags(model_id=model.model_id, tags={"tag1": "value1"})
+
+    get_telemetry_client().flush()
+
+    # Two records: one for initialize_logged_model, one for set_logged_model_tags
+    assert len(mock_requests) == 2
+    record = mock_requests[1]
+    data = json.loads(record["data"])
+    assert data["api_module"] == client.set_logged_model_tags.__module__
+    assert data["api_name"] == "MlflowClient.set_logged_model_tags"
+    assert data["params"] is None
+    assert data["status"] == "success"

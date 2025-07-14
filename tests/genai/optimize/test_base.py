@@ -1,3 +1,4 @@
+import json
 from unittest.mock import patch
 
 import pandas as pd
@@ -11,16 +12,20 @@ from mlflow.exceptions import MlflowException
 from mlflow.genai.optimize import optimize_prompt
 from mlflow.genai.optimize.types import LLMParams, OptimizerConfig
 from mlflow.genai.scorers import scorer
+from mlflow.telemetry import get_telemetry_client
 from mlflow.tracking import MlflowClient
 from mlflow.tracking._model_registry.fluent import register_prompt
+
+from tests.helper_functions import avoid_telemetry_tracking
 
 
 @pytest.fixture
 def sample_prompt():
-    return register_prompt(
-        name="test_translation_prompt",
-        template="Translate the following text to {{language}}: {{input_text}}",
-    )
+    with avoid_telemetry_tracking():
+        return register_prompt(
+            name="test_translation_prompt",
+            template="Translate the following text to {{language}}: {{input_text}}",
+        )
 
 
 @pytest.fixture
@@ -142,3 +147,32 @@ def test_optimize_autolog(sample_prompt, sample_data):
     artifacts = [x.path for x in client.list_artifacts(run.info.run_id)]
     assert "train_data.json" in artifacts
     assert "eval_data.json" in artifacts
+
+
+def test_optimize_prompt_sends_telemetry_record(mock_requests, sample_prompt, sample_data):
+    """Test that optimize_prompt sends telemetry records."""
+
+    with patch(
+        "mlflow.genai.optimize.base._DSPyMIPROv2Optimizer.optimize",
+        return_value=PromptVersion(
+            name=sample_prompt.name,
+            template="optimized",
+            version=2,
+        ),
+    ):
+        optimize_prompt(
+            target_llm_params=LLMParams(model_name="test/model"),
+            prompt=f"prompts:/{sample_prompt.name}/{sample_prompt.version}",
+            train_data=sample_data,
+            scorers=[sample_scorer],
+        )
+
+    get_telemetry_client().flush()
+
+    assert len(mock_requests) == 1
+    record = mock_requests[0]
+    data = json.loads(record["data"])
+    assert data["api_module"] == optimize_prompt.__module__
+    assert data["api_name"] == "optimize_prompt"
+    assert data["params"] is None
+    assert data["status"] == "success"
