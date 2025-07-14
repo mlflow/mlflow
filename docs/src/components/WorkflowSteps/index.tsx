@@ -26,19 +26,11 @@ const WorkflowSteps: React.FC<WorkflowStepsProps> = ({ steps, title, screenshot,
       {title && <h3 className={styles.workflowTitle}>{title}</h3>}
       {screenshot && (
         <div className={styles.screenshotContainer}>
-          <img 
-            src={screenshot.src} 
-            alt={screenshot.alt}
-            className={styles.screenshotImage}
-          />
+          <img src={screenshot.src} alt={screenshot.alt} className={styles.screenshotImage} />
         </div>
       )}
       <div className={styles.stepsHeader}>
-        <button
-          className={styles.toggleButton}
-          onClick={() => setIsExpanded(!isExpanded)}
-          aria-expanded={isExpanded}
-        >
+        <button className={styles.toggleButton} onClick={() => setIsExpanded(!isExpanded)} aria-expanded={isExpanded}>
           <span className={styles.toggleText}>
             {isExpanded ? 'Hide' : 'Show'} Step-by-Step Instructions ({steps.length} steps)
           </span>

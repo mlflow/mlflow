@@ -72,8 +72,6 @@ llm_judge_source = AssessmentSource(
 )
 ```
 
-
-
 ## Why Collect Feedback?
 
 Collecting feedback on the quality of GenAI applications is critical to a continuous improvement process, ensuring that your application remains effective and is enhanced over time.
@@ -422,7 +420,6 @@ with mlflow.start_span(name="financial_advice") as span:
   </TabItem>
 </Tabs>
 
-
 ## Managing Feedback
 
 Once you've collected feedback on your traces, you'll need to retrieve, update, and sometimes delete it. These operations are essential for maintaining accurate evaluation data.
@@ -455,7 +452,7 @@ from mlflow.entities import Feedback
 updated_feedback = Feedback(
     name="response_quality",
     value=0.9,
-    rationale="Updated after additional review - response is more comprehensive than initially evaluated"
+    rationale="Updated after additional review - response is more comprehensive than initially evaluated",
 )
 
 mlflow.update_assessment(
@@ -542,21 +539,16 @@ Provide specific source information for audit trails:
 ```python
 # Excellent: Version-specific, environment-aware
 source = AssessmentSource(
-    source_type=AssessmentSourceType.CODE, 
-    source_id="response_validator_v2.1_prod"
+    source_type=AssessmentSourceType.CODE, source_id="response_validator_v2.1_prod"
 )
 
 # Good: Individual attribution
 source = AssessmentSource(
-    source_type=AssessmentSourceType.HUMAN, 
-    source_id="expert@company.com"
+    source_type=AssessmentSourceType.HUMAN, source_id="expert@company.com"
 )
 
 # Poor: Generic, untraceable
-source = AssessmentSource(
-    source_type=AssessmentSourceType.CODE, 
-    source_id="validator"
-)
+source = AssessmentSource(source_type=AssessmentSourceType.CODE, source_id="validator")
 ```
 
 ### Rich Metadata
