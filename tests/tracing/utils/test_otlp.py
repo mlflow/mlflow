@@ -1,4 +1,3 @@
-import json
 import time
 from unittest import mock
 
@@ -6,10 +5,11 @@ import pytest
 
 import mlflow
 from mlflow.entities.span import SpanType
-from mlflow.telemetry.client import get_telemetry_client
 from mlflow.tracing.processor.otel import OtelSpanProcessor
 from mlflow.tracing.provider import _get_trace_exporter
 from mlflow.utils.os import is_windows
+
+from tests.helper_functions import validate_telemetry_record
 
 # OTLP exporters are not installed in some CI jobs
 try:
@@ -143,13 +143,5 @@ def test_export_sends_telemetry_record(mock_requests, otel_collector, monkeypatc
     exporter = _get_trace_exporter()
     # processor is OtelSpanProcessor, exporter is OTLPSpanExporter
     assert isinstance(exporter, OTLPSpanExporter)
-    get_telemetry_client().flush()
 
-    # one for mlflow.trace, one for span export
-    assert len(mock_requests) == 2
-    record = mock_requests[-1]
-    data = json.loads(record["data"])
-    assert data["api_module"] == OtelSpanProcessor.on_end.__module__
-    assert data["api_name"] == OtelSpanProcessor.on_end.__qualname__
-    assert data["params"] is None
-    assert data["status"] == "success"
+    validate_telemetry_record(mock_requests, OtelSpanProcessor.on_end, idx=-1)

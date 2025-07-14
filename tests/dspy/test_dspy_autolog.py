@@ -1,7 +1,6 @@
 import importlib
 import json
 import time
-from dataclasses import asdict
 from unittest import mock
 
 import dspy
@@ -19,11 +18,11 @@ from packaging.version import Version
 import mlflow
 from mlflow.entities import SpanType
 from mlflow.entities.trace import Trace
-from mlflow.telemetry.client import get_telemetry_client
 from mlflow.telemetry.schemas import AutologParams
 from mlflow.tracing.constant import SpanAttributeKey, TraceMetadataKey
 from mlflow.version import IS_TRACING_SDK_ONLY
 
+from tests.helper_functions import validate_telemetry_record
 from tests.tracing.helper import get_traces, score_in_model_serving, skip_when_testing_trace_sdk
 
 if not IS_TRACING_SDK_ONLY:
@@ -982,21 +981,15 @@ def test_model_loading_set_active_model_id_without_fetching_logged_model():
 def test_autolog_sends_telemetry_record(mock_requests):
     mlflow.dspy.autolog(log_traces=True, disable=False)
 
-    # Wait for telemetry to be sent
-    get_telemetry_client().flush()
-
-    # Check that telemetry record was sent
-    assert len(mock_requests) == 1
-    autolog_record = mock_requests[0]
-    data = json.loads(autolog_record["data"])
-    assert data["api_module"] == mlflow.dspy.autolog.__module__
-    assert data["api_name"] == "autolog"
-    assert data["params"] == asdict(
-        AutologParams(
-            flavor="dspy",
-            disable=False,
-            log_traces=True,
-            log_models=False,
-        )
+    validate_telemetry_record(
+        mock_requests,
+        mlflow.dspy.autolog,
+        params=(
+            AutologParams(
+                flavor="dspy",
+                disable=False,
+                log_traces=True,
+                log_models=False,
+            )
+        ),
     )
-    assert data["status"] == "success"

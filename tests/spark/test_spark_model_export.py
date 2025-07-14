@@ -3,7 +3,6 @@ import json
 import logging
 import os
 from collections import namedtuple
-from dataclasses import asdict
 from pathlib import Path
 from unittest import mock
 
@@ -34,7 +33,6 @@ from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
 from mlflow.store.artifact.unity_catalog_models_artifact_repo import (
     UnityCatalogModelsArtifactRepository,
 )
-from mlflow.telemetry.client import get_telemetry_client
 from mlflow.telemetry.schemas import LogModelParams, ModelType
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import DataType
@@ -50,6 +48,7 @@ from tests.helper_functions import (
     _mlflow_major_version_string,
     assert_register_model_called_with_local_model_path,
     score_model_in_sagemaker_docker_container,
+    validate_telemetry_record,
 )
 from tests.pyfunc.test_spark import get_spark_session, score_model_as_udf
 from tests.store.artifact.constants import MODELS_ARTIFACT_REPOSITORY
@@ -1041,17 +1040,10 @@ def test_log_model_sends_telemetry_record(mock_requests, spark_model_iris):
             spark_model_iris.model,
             "model",
         )
-    # Wait for telemetry to be sent
-    get_telemetry_client().flush()
-
-    # Check that telemetry record was sent
-    assert len(mock_requests) == 1
-    record = mock_requests[0]
-    data = json.loads(record["data"])
-    assert data["api_module"] == mlflow.spark.log_model.__module__
-    assert data["api_name"] == "log_model"
-    assert data["params"] == asdict(
-        LogModelParams(
+    validate_telemetry_record(
+        mock_requests,
+        mlflow.spark.log_model,
+        params=LogModelParams(
             flavor="spark",
             model=ModelType.MODEL_OBJECT,
             is_pip_requirements_set=False,
@@ -1059,6 +1051,5 @@ def test_log_model_sends_telemetry_record(mock_requests, spark_model_iris):
             is_code_paths_set=False,
             is_params_set=False,
             is_metadata_set=False,
-        )
+        ),
     )
-    assert data["status"] == "success"

@@ -1,7 +1,5 @@
 import asyncio
 import base64
-import json
-from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
@@ -12,10 +10,10 @@ from anthropic.types import Message, TextBlock, ToolUseBlock, Usage
 
 import mlflow.anthropic
 from mlflow.entities.span import SpanType
-from mlflow.telemetry.client import get_telemetry_client
 from mlflow.telemetry.schemas import AutologParams
 from mlflow.tracing.constant import SpanAttributeKey
 
+from tests.helper_functions import validate_telemetry_record
 from tests.tracing.helper import get_traces
 
 DUMMY_CREATE_MESSAGE_REQUEST = {
@@ -493,21 +491,13 @@ def test_messages_autolog_with_thinking(is_async):
 def test_autolog_sends_telemetry_record(mock_requests):
     mlflow.anthropic.autolog(log_traces=True, disable=False)
 
-    # Wait for telemetry to be sent
-    get_telemetry_client().flush()
-
-    # Check that telemetry record was sent
-    assert len(mock_requests) == 1
-    autolog_record = mock_requests[0]
-    data = json.loads(autolog_record["data"])
-    assert data["api_module"] == mlflow.anthropic.autolog.__module__
-    assert data["api_name"] == "autolog"
-    assert data["params"] == asdict(
-        AutologParams(
+    validate_telemetry_record(
+        mock_requests,
+        mlflow.anthropic.autolog,
+        params=AutologParams(
             flavor="anthropic",
             disable=False,
             log_traces=True,
             log_models=False,
-        )
+        ),
     )
-    assert data["status"] == "success"

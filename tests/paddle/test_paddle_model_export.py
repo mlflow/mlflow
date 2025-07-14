@@ -1,7 +1,6 @@
 import json
 import os
 from collections import namedtuple
-from dataclasses import asdict
 from unittest import mock
 
 import numpy as np
@@ -22,7 +21,6 @@ from mlflow import pyfunc
 from mlflow.models import Model, ModelSignature
 from mlflow.models.utils import _read_example, load_serving_example
 from mlflow.store.artifact.s3_artifact_repo import S3ArtifactRepository
-from mlflow.telemetry.client import get_telemetry_client
 from mlflow.telemetry.schemas import LogModelParams, ModelType
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types import DataType
@@ -38,6 +36,7 @@ from tests.helper_functions import (
     _mlflow_major_version_string,
     assert_register_model_called_with_local_model_path,
     pyfunc_serve_and_score_model,
+    validate_telemetry_record,
 )
 
 ModelWithData = namedtuple("ModelWithData", ["model", "inference_dataframe"])
@@ -639,17 +638,11 @@ def test_log_model_sends_telemetry_record(mock_requests, pd_model):
         input_example=pd_model.inference_dataframe,
         params={"param1": "value1"},
     )
-    # Wait for telemetry to be sent
-    get_telemetry_client().flush()
 
-    # Check that telemetry record was sent
-    assert len(mock_requests) == 1
-    record = mock_requests[0]
-    data = json.loads(record["data"])
-    assert data["api_module"] == mlflow.paddle.log_model.__module__
-    assert data["api_name"] == "log_model"
-    assert data["params"] == asdict(
-        LogModelParams(
+    validate_telemetry_record(
+        mock_requests,
+        mlflow.paddle.log_model,
+        params=LogModelParams(
             flavor="paddle",
             model=ModelType.MODEL_OBJECT,
             is_pip_requirements_set=False,
@@ -657,6 +650,5 @@ def test_log_model_sends_telemetry_record(mock_requests, pd_model):
             is_code_paths_set=False,
             is_params_set=True,
             is_metadata_set=False,
-        )
+        ),
     )
-    assert data["status"] == "success"

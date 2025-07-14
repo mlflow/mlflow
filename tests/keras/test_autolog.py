@@ -1,6 +1,5 @@
 import json
 import math
-from dataclasses import asdict
 
 import keras
 import numpy as np
@@ -8,11 +7,12 @@ import pytest
 
 import mlflow
 from mlflow.models import Model
-from mlflow.telemetry.client import get_telemetry_client
 from mlflow.telemetry.schemas import AutologParams
 from mlflow.tracking.fluent import flush_async_logging
 from mlflow.types import Schema, TensorSpec
 from mlflow.utils.autologging_utils import AUTOLOGGING_INTEGRATIONS
+
+from tests.helper_functions import validate_telemetry_record
 
 
 @pytest.fixture(autouse=True)
@@ -238,21 +238,15 @@ def test_autolog_sends_telemetry_record(mock_requests):
         log_models=True, log_datasets=True, log_input_examples=False, disable=False
     )
 
-    # Wait for telemetry to be sent
-    get_telemetry_client().flush()
-
-    # Check that telemetry record was sent
-    assert len(mock_requests) == 1
-    autolog_record = mock_requests[0]
-    data = json.loads(autolog_record["data"])
-    assert data["api_module"] == mlflow.keras.autolog.__module__
-    assert data["api_name"] == "autolog"
-    assert data["params"] == asdict(
-        AutologParams(
-            flavor="keras",
-            disable=False,
-            log_traces=False,
-            log_models=True,
-        )
+    validate_telemetry_record(
+        mock_requests,
+        mlflow.keras.autolog,
+        params=(
+            AutologParams(
+                flavor="keras",
+                disable=False,
+                log_traces=False,
+                log_models=True,
+            )
+        ),
     )
-    assert data["status"] == "success"

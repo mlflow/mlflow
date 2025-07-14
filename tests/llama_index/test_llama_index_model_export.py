@@ -1,6 +1,5 @@
 import json
 import os
-from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 from unittest import mock
@@ -33,12 +32,11 @@ from mlflow.llama_index.pyfunc_wrapper import (
 )
 from mlflow.models.utils import load_serving_example
 from mlflow.pyfunc.scoring_server import CONTENT_TYPE_JSON
-from mlflow.telemetry.client import get_telemetry_client
 from mlflow.telemetry.schemas import LogModelParams, ModelType
 from mlflow.tracking.artifact_utils import _download_artifact_from_uri
 from mlflow.types.schema import ColSpec, DataType, Schema
 
-from tests.helper_functions import pyfunc_scoring_endpoint
+from tests.helper_functions import pyfunc_scoring_endpoint, validate_telemetry_record
 
 _EMBEDDING_DIM = 1536
 _TEST_QUERY = "Spell llamaindex"
@@ -606,24 +604,19 @@ def test_log_model_sends_telemetry_record(mock_requests):
         name="model",
         input_example={"topic": "pirates"},
     )
-    # Wait for telemetry to be sent
-    get_telemetry_client().flush()
 
-    # Check that telemetry record was sent
-    assert len(mock_requests) == 1
-    record = mock_requests[0]
-    data = json.loads(record["data"])
-    assert data["api_module"] == mlflow.llama_index.log_model.__module__
-    assert data["api_name"] == "log_model"
-    assert data["params"] == asdict(
-        LogModelParams(
-            flavor="llama_index",
-            model=ModelType.MODEL_PATH,
-            is_pip_requirements_set=False,
-            is_extra_pip_requirements_set=False,
-            is_code_paths_set=False,
-            is_params_set=False,
-            is_metadata_set=False,
-        )
+    validate_telemetry_record(
+        mock_requests,
+        mlflow.llama_index.log_model,
+        params=(
+            LogModelParams(
+                flavor="llama_index",
+                model=ModelType.MODEL_PATH,
+                is_pip_requirements_set=False,
+                is_extra_pip_requirements_set=False,
+                is_code_paths_set=False,
+                is_params_set=False,
+                is_metadata_set=False,
+            )
+        ),
     )
-    assert data["status"] == "success"

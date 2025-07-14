@@ -9,7 +9,8 @@ import pytest
 from google.protobuf.json_format import ParseDict
 
 import mlflow
-from mlflow.telemetry.client import get_telemetry_client
+
+from tests.helper_functions import validate_telemetry_record
 
 
 def join_thread_by_name_prefix(prefix: str, timeout: float = 5.0):
@@ -488,13 +489,4 @@ def test_export_sends_telemetry_record(mock_requests, is_async, monkeypatch):
     assert isinstance(exporter, MlflowV3SpanExporter)
     if is_async:
         exporter._async_queue.flush(terminate=True)
-    get_telemetry_client().flush()
-
-    # some for mlflow.trace, one for export
-    assert len(mock_requests) >= 1
-    record = mock_requests[-1]
-    data = json.loads(record["data"])
-    assert data["api_module"] == MlflowV3SpanExporter.export.__module__
-    assert data["api_name"] == MlflowV3SpanExporter.export.__qualname__
-    assert data["params"] is None
-    assert data["status"] == "success"
+    validate_telemetry_record(mock_requests, MlflowV3SpanExporter.export, idx=-1)

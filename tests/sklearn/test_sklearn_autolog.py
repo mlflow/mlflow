@@ -5,7 +5,6 @@ import inspect
 import json
 import pickle
 import re
-from dataclasses import asdict
 from unittest import mock
 
 import joblib
@@ -37,7 +36,6 @@ from mlflow.sklearn.utils import (
     _log_child_runs_info,
     _log_estimator_content,
 )
-from mlflow.telemetry.client import get_telemetry_client
 from mlflow.telemetry.schemas import AutologParams
 from mlflow.types.utils import _infer_schema
 from mlflow.utils import _truncate_dict
@@ -49,6 +47,8 @@ from mlflow.utils.validation import (
     MAX_PARAM_VAL_LENGTH,
     MAX_PARAMS_TAGS_PER_BATCH,
 )
+
+from tests.helper_functions import validate_telemetry_record
 
 FIT_FUNC_NAMES = ["fit", "fit_transform", "fit_predict"]
 TRAINING_SCORE = "training_score"
@@ -1861,21 +1861,15 @@ def test_autolog_sends_telemetry_record(mock_requests):
         X, y = get_iris()
         model.fit(X, y)
 
-    # Wait for telemetry to be sent
-    get_telemetry_client().flush()
-
-    # Check that telemetry record was sent
-    assert len(mock_requests) == 1
-    autolog_record = mock_requests[0]
-    data = json.loads(autolog_record["data"])
-    assert data["api_module"] == mlflow.sklearn.autolog.__module__
-    assert data["api_name"] == "autolog"
-    assert data["params"] == asdict(
-        AutologParams(
-            flavor="sklearn",
-            disable=False,
-            log_traces=False,
-            log_models=True,
-        )
+    validate_telemetry_record(
+        mock_requests,
+        mlflow.sklearn.autolog,
+        params=(
+            AutologParams(
+                flavor="sklearn",
+                disable=False,
+                log_traces=False,
+                log_models=True,
+            )
+        ),
     )
-    assert data["status"] == "success"

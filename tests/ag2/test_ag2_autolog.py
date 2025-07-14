@@ -1,7 +1,5 @@
 import contextlib
-import json
 import time
-from dataclasses import asdict
 from unittest.mock import patch
 
 import pytest
@@ -12,11 +10,10 @@ from openai.types.chat.chat_completion import ChatCompletionMessage, Choice
 
 import mlflow
 from mlflow.entities.span import SpanType
-from mlflow.telemetry.client import get_telemetry_client
 from mlflow.telemetry.schemas import AutologParams
 from mlflow.tracing.constant import SpanAttributeKey
 
-from tests.helper_functions import start_mock_openai_server
+from tests.helper_functions import start_mock_openai_server, validate_telemetry_record
 from tests.tracing.helper import get_traces
 
 
@@ -379,21 +376,15 @@ def test_autogen_logger_catch_exception(llm_config):
 def test_autolog_sends_telemetry_record(mock_requests):
     mlflow.ag2.autolog(log_traces=True, disable=False)
 
-    # Wait for telemetry to be sent
-    get_telemetry_client().flush()
-
-    # Check that telemetry record was sent
-    assert len(mock_requests) == 1
-    autolog_record = mock_requests[0]
-    data = json.loads(autolog_record["data"])
-    assert data["api_module"] == mlflow.ag2.autolog.__module__
-    assert data["api_name"] == "autolog"
-    assert data["params"] == asdict(
-        AutologParams(
-            flavor="ag2",
-            disable=False,
-            log_traces=True,
-            log_models=False,
-        )
+    validate_telemetry_record(
+        mock_requests,
+        mlflow.ag2.autolog,
+        params=(
+            AutologParams(
+                flavor="ag2",
+                disable=False,
+                log_traces=True,
+                log_models=False,
+            )
+        ),
     )
-    assert data["status"] == "success"

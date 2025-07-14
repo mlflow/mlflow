@@ -1,10 +1,10 @@
 import json
-from dataclasses import asdict
 
 import mlflow
-from mlflow.telemetry.client import get_telemetry_client
 from mlflow.telemetry.parser import LogModelParams, ModelType
 from mlflow.types.schema import Object, ParamSchema, ParamSpec, Property
+
+from tests.helper_functions import validate_telemetry_record
 
 
 def test_langgraph_save_as_code():
@@ -88,24 +88,19 @@ def test_log_model_sends_telemetry_record(mock_requests):
         name="langgraph",
         input_example={"messages": [{"role": "user", "content": "what is the weather in sf?"}]},
     )
-    # Wait for telemetry to be sent
-    get_telemetry_client().flush()
 
-    # Check that telemetry record was sent
-    assert len(mock_requests) == 1
-    record = mock_requests[0]
-    data = json.loads(record["data"])
-    assert data["api_module"] == mlflow.langchain.log_model.__module__
-    assert data["api_name"] == "log_model"
-    assert data["params"] == asdict(
-        LogModelParams(
-            flavor="langchain",
-            model=ModelType.MODEL_PATH,
-            is_pip_requirements_set=False,
-            is_extra_pip_requirements_set=False,
-            is_code_paths_set=False,
-            is_params_set=False,
-            is_metadata_set=False,
-        )
+    validate_telemetry_record(
+        mock_requests,
+        mlflow.langchain.log_model,
+        params=(
+            LogModelParams(
+                flavor="langchain",
+                model=ModelType.MODEL_PATH,
+                is_pip_requirements_set=False,
+                is_extra_pip_requirements_set=False,
+                is_code_paths_set=False,
+                is_params_set=False,
+                is_metadata_set=False,
+            )
+        ),
     )
-    assert data["status"] == "success"

@@ -38,7 +38,7 @@ from mlflow.types.type_hints import TypeFromExample, _infer_schema_from_list_typ
 from mlflow.utils.env_manager import VIRTUALENV
 from mlflow.utils.pydantic_utils import model_dump_compat
 
-from tests.helper_functions import pyfunc_serve_and_score_model
+from tests.helper_functions import pyfunc_serve_and_score_model, validate_telemetry_record
 
 
 @pytest.fixture(scope="module")
@@ -1181,20 +1181,18 @@ def test_pyfunc_decorator_sends_telemetry_record(mock_requests):
     def predict(model_input: list[str]) -> list[str]:
         return model_input
 
-    get_telemetry_client().flush()
-    assert len(mock_requests) == 2
-    record = mock_requests[0]
-    data = json.loads(record["data"])
-    assert data["api_module"] == _infer_schema_from_list_type_hint.__module__
-    assert data["api_name"] == _infer_schema_from_list_type_hint.__qualname__
-    assert data["params"] is None
-    assert data["status"] == "success"
-    record = mock_requests[1]
-    data = json.loads(record["data"])
-    assert data["api_module"] == pyfunc.__module__
-    assert data["api_name"] == pyfunc.__qualname__
-    assert data["params"] is None
-    assert data["status"] == "success"
+    # Check first telemetry record (_infer_schema_from_list_type_hint)
+    validate_telemetry_record(
+        mock_requests,
+        _infer_schema_from_list_type_hint,
+    )
+
+    # Check second telemetry record (pyfunc decorator)
+    validate_telemetry_record(
+        mock_requests,
+        pyfunc,
+        idx=1,
+    )
 
 
 def test_type_hints_sends_telemetry_record(mock_requests):
@@ -1202,14 +1200,10 @@ def test_type_hints_sends_telemetry_record(mock_requests):
         def predict(self, model_input: list[str]) -> list[str]:
             return model_input
 
-    get_telemetry_client().flush()
-    assert len(mock_requests) == 1
-    record = mock_requests[0]
-    data = json.loads(record["data"])
-    assert data["api_module"] == _infer_schema_from_list_type_hint.__module__
-    assert data["api_name"] == _infer_schema_from_list_type_hint.__qualname__
-    assert data["params"] is None
-    assert data["status"] == "success"
+    validate_telemetry_record(
+        mock_requests,
+        _infer_schema_from_list_type_hint,
+    )
 
     model = TestModel()
     model.predict(["x", "y", "z"])
