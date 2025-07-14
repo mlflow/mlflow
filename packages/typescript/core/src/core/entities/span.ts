@@ -368,14 +368,16 @@ export class LiveSpan extends Span {
       }
 
       // OTel SDK default end time to current time if not provided
-      const endTime = options?.endTimeNs ? convertNanoSecondsToHrTime(options.endTimeNs) : undefined;
+      const endTime = options?.endTimeNs
+        ? convertNanoSecondsToHrTime(options.endTimeNs)
+        : undefined;
       this._span.end(endTime);
 
       // Set the last active trace ID
       const traceManager = InMemoryTraceManager.getInstance();
       traceManager.lastActiveTraceId = this.traceId;
     } catch (error) {
-      console.error(`Failed to end span ${this.spanId}: ${error}.`);
+      console.error(`Failed to end span ${this.spanId}: ${String(error)}.`);
     }
   }
 }

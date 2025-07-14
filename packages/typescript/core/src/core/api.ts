@@ -108,7 +108,7 @@ export function withSpan<T>(
 
   // Use startActiveSpan to automatically manage context and parent-child relationships
   return tracer.startActiveSpan(spanName, { startTime }, (otelSpan: ApiSpan) => {
-    let mlflowSpan: Span;
+    let mlflowSpan: LiveSpan | NoOpSpan;
 
     try {
       // Create and register the MLflow span
@@ -126,7 +126,7 @@ export function withSpan<T>(
     // Expression function to handle errors consistently
     const handleError = (error: Error): never => {
       try {
-      mlflowSpan.setStatus(SpanStatusCode.ERROR, error.message);
+        mlflowSpan.setStatus(SpanStatusCode.ERROR, error.message);
         mlflowSpan.recordException(error);
         mlflowSpan.end();
       } catch (error) {

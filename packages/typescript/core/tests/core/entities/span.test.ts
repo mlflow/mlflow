@@ -179,6 +179,33 @@ describe('Span', () => {
     });
   });
 
+  describe('Exception Safety', () => {
+    it('should handle exceptions in span.end() gracefully', () => {
+      const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+      const traceId = 'tr-12345';
+      const span = tracer.startSpan('test-span');
+
+      try {
+        const mlflowSpan = createMlflowSpan(span, traceId) as LiveSpan;
+
+        // Mock the underlying OTel span to throw on end()
+        // eslint-disable-next-line @typescript-eslint/unbound-method
+        const originalEnd = span.end;
+        span.end = jest.fn(() => {
+          throw new Error('OTel span.end() failed');
+        });
+
+        expect(() => mlflowSpan.end()).not.toThrow();
+
+        // Restore original end method
+        span.end = originalEnd;
+      } finally {
+        span.end();
+        consoleErrorSpy.mockRestore();
+      }
+    });
+  });
+
   describe('JSON Serialization', () => {
     it('should produce correct JSON format for toJson()', () => {
       const traceId = 'tr-12345';
