@@ -1,9 +1,8 @@
+import functools
 import inspect
 import logging
 import time
-from typing import Any, Callable, Optional
-
-import wrapt
+from typing import Any, Callable, Optional, TypeVar, cast
 
 from mlflow.telemetry.client import get_telemetry_client
 from mlflow.telemetry.parser import API_PARSER_MAPPING
@@ -16,28 +15,33 @@ from mlflow.telemetry.utils import (
 
 _logger = logging.getLogger(__name__)
 
+F = TypeVar("F", bound=Callable[..., Any])
 
-@wrapt.decorator
-def track_api_usage(wrapped, instance, args, kwargs):
-    if is_telemetry_disabled() or invoked_from_internal_api(wrapped):
-        return wrapped(*args, **kwargs)
 
-    success = True
-    start_time = time.time()
-    try:
-        # disable telemetry for nested API calls
-        with _disable_telemetry():
-            return wrapped(*args, **kwargs)
-    except Exception:
-        success = False
-        raise
-    finally:
+def track_api_usage(func: F) -> F:
+    @functools.wraps(func)
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        if is_telemetry_disabled() or invoked_from_internal_api(func):
+            return func(*args, **kwargs)
+
+        success = True
+        start_time = time.time()
         try:
-            duration_ms = int((time.time() - start_time) * 1000)
-            if record := _generate_telemetry_record(wrapped, args, kwargs, success, duration_ms):
-                get_telemetry_client().add_record(record)
-        except Exception as e:
-            _logger.debug(f"Failed to record telemetry for function {wrapped.__name__}: {e}")
+            # disable telemetry for nested API calls
+            with _disable_telemetry():
+                return func(*args, **kwargs)
+        except Exception:
+            success = False
+            raise
+        finally:
+            try:
+                duration_ms = int((time.time() - start_time) * 1000)
+                if record := _generate_telemetry_record(func, args, kwargs, success, duration_ms):
+                    get_telemetry_client().add_record(record)
+            except Exception as e:
+                _logger.debug(f"Failed to record telemetry for function {func.__name__}: {e}")
+
+    return cast(F, wrapper)
 
 
 def _generate_telemetry_record(
