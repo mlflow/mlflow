@@ -1,9 +1,10 @@
+import json
 import platform
 import sys
 import uuid
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from enum import Enum
-from typing import Optional
+from typing import Any, Optional
 
 from mlflow.version import IS_MLFLOW_SKINNY, IS_TRACING_SDK_ONLY, VERSION
 
@@ -32,6 +33,9 @@ class BaseParams:
     """
     Base class for params that are logged to telemetry.
     """
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
 
 
 @dataclass
@@ -64,8 +68,18 @@ class APIRecord:
     api_module: str
     api_name: str
     params: Optional[BaseParams] = None
-    status: APIStatus = APIStatus.UNKNOWN.value
+    status: APIStatus = APIStatus.UNKNOWN
     duration_ms: Optional[int] = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "api_module": self.api_module,
+            "api_name": self.api_name,
+            # dump params to string so we can parse them easily in ETL pipeline
+            "params": json.dumps(self.params.to_dict()) if self.params else None,
+            "status": self.status.value,
+            "duration_ms": self.duration_ms,
+        }
 
 
 class SourceSDK(str, Enum):
@@ -83,11 +97,21 @@ def get_source_sdk() -> SourceSDK:
         return SourceSDK.MLFLOW
 
 
+class TelemetrySchemaVersion(str, Enum):
+    """
+    Telemetry schema version used to track current telemetry schema version.
+    Add new enum value when the schema is evolved.
+    """
+
+    V1 = "v1"
+
+
 @dataclass
 class TelemetryInfo:
     session_id: str = uuid.uuid4().hex
-    mlflow_version: str = VERSION
     source_sdk: str = get_source_sdk().value
+    version: str = VERSION
+    schema_version: str = TelemetrySchemaVersion.V1.value
     python_version: str = (
         f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
     )

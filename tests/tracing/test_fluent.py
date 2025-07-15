@@ -2120,7 +2120,7 @@ def test_start_span_sends_telemetry_record(mock_requests):
     get_telemetry_client().flush()
 
     assert len(mock_requests) >= 1
-    api_names = [json.loads(record["data"])["api_name"] for record in mock_requests]
+    api_names = [record["data"]["api_name"] for record in mock_requests]
     idx = api_names.index("start_span")
     validate_telemetry_record(mock_requests, mlflow.start_span, idx=idx)
 

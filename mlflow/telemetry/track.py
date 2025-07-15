@@ -21,9 +21,12 @@ R = TypeVar("R")
 
 
 def track_api_usage(func: Callable[P, R]) -> Callable[P, R]:
+    if is_telemetry_disabled():
+        return func
+
     @functools.wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
-        if is_telemetry_disabled() or should_skip_telemetry(func):
+        if should_skip_telemetry(func):
             return func(*args, **kwargs)
 
         success = True
@@ -75,7 +78,7 @@ def _generate_telemetry_record(
             api_module=func.__module__,
             api_name=func.__qualname__,
             params=record_params,
-            status=APIStatus.SUCCESS.value if success else APIStatus.FAILURE.value,
+            status=APIStatus.SUCCESS if success else APIStatus.FAILURE,
             duration_ms=duration_ms,
         )
     except Exception:
