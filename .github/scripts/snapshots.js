@@ -59,7 +59,7 @@ module.exports = async ({ github, context, artifacts }) => {
     name: `Nightly Build ${new Date().toISOString().split("T")[0]}`,
     body: `This is an automated nightly build of MLflow.\n\n**Last updated:** ${new Date().toUTCString()}\n\n**Note:** This release is automatically updated daily with the latest changes from the master branch.`,
     prerelease: true,
-    make_latest: false,
+    make_latest: "false",
   });
   release = newRelease;
   console.log(`Created new release: ${release.id}`);
