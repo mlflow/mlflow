@@ -347,9 +347,9 @@ def compare_signatures(base_branch: str = "master") -> list[Error]:
                             line=param_error.lineno,
                             column=param_error.col_offset + 1,
                             lines=[
-                                "[Non-blocking]",
+                                "[Non-blocking | Ignore if not public API]",
                                 param_error.message,
-                                f"This breaks existing `{func_name}` calls.",
+                                f"This change will break existing `{func_name}` calls.",
                                 "If this is not intended, please fix it.",
                             ],
                         )
