@@ -12,4 +12,5 @@ This page hosts the API documentation for MLflow.
     auth/rest-api
     R-api
     java_api/index
+    typescript_api/index
     rest-api

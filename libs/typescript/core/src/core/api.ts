@@ -18,8 +18,19 @@ import { SpanStatusCode } from './entities/span_status';
  * @param parent The parent span object.
  */
 export interface SpanOptions {
+  /**
+   * The name of the span.
+   */
   name: string;
+
+  /**
+   * The type of the span. 
+   */
   spanType?: SpanType;
+
+  /**
+   * The inputs of the span.
+   */
   inputs?: any;
   attributes?: Record<string, any>;
   startTimeNs?: number;

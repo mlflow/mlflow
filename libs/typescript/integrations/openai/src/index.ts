@@ -17,6 +17,19 @@ type OpenAIUsage = CompletionUsage | ResponseUsage;
  * @param openaiClient - The OpenAI client instance to trace
  * @param config - Optional configuration for tracing
  * @returns Traced OpenAI client with tracing capabilities
+ *
+ * @example
+ * const openai = new OpenAI({ apiKey: 'test-key' });
+ * const wrappedOpenAI = tracedOpenAI(openai);
+ *
+ * const response = await wrappedOpenAI.chat.completions.create({
+ *   messages: [{ role: 'user', content: 'Hello!' }],
+ *   model: 'gpt-4o-mini',
+ *   temperature: 0.5
+ * });
+ *
+ * // The trace for the LLM call will be logged to MLflow
+ *
  */
 export function tracedOpenAI<T = any>(openaiClient: T): T {
   /**

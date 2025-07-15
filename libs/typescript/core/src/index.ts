@@ -29,4 +29,4 @@ export type { Trace } from './core/entities/trace';
 export type { TraceInfo, TokenUsage } from './core/entities/trace_info';
 export type { TraceData } from './core/entities/trace_data';
 export { SpanStatusCode } from './core/entities/span_status';
-export type { UpdateCurrentTraceOptions } from './core/api';
+export type { UpdateCurrentTraceOptions, SpanOptions, TraceOptions } from './core/api';
