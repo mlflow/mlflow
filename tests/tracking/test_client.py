@@ -2449,8 +2449,9 @@ def test_start_span_sends_telemetry_record(mock_requests, tracking_uri):
     client.end_trace(trace_id=root.trace_id, outputs="")
     get_telemetry_client().flush()
 
-    assert len(mock_requests) == 1
-    record = mock_requests[0]
+    # one for start_trace, one for start_span, one for span export
+    assert len(mock_requests) == 3
+    record = mock_requests[1]
     data = json.loads(record["data"])
     assert data["api_module"] == client.start_span.__module__
     assert data["api_name"] == "MlflowClient.start_span"
@@ -2495,5 +2496,20 @@ def test_set_logged_model_tags_sends_telemetry_record(mock_requests, tracking_ur
     data = json.loads(record["data"])
     assert data["api_module"] == client.set_logged_model_tags.__module__
     assert data["api_name"] == "MlflowClient.set_logged_model_tags"
+    assert data["params"] is None
+    assert data["status"] == "success"
+
+
+def test_start_trace_sends_telemetry_record(mock_requests, tracking_uri):
+    """Test that start_trace sends telemetry records."""
+    client = MlflowClient(tracking_uri=tracking_uri)
+    client.start_trace(name="test_trace")
+    get_telemetry_client().flush()
+
+    assert len(mock_requests) == 1
+    record = mock_requests[0]
+    data = json.loads(record["data"])
+    assert data["api_module"] == client.start_trace.__module__
+    assert data["api_name"] == "MlflowClient.start_trace"
     assert data["params"] is None
     assert data["status"] == "success"

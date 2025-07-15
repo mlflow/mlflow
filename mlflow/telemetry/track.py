@@ -2,29 +2,28 @@ import functools
 import inspect
 import logging
 import time
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, ParamSpec, TypeVar
 
 from mlflow.telemetry.client import get_telemetry_client
 from mlflow.telemetry.parser import API_PARSER_MAPPING
 from mlflow.telemetry.schemas import APIRecord, APIStatus
 from mlflow.telemetry.utils import (
     _disable_telemetry,
-    _disable_telemetry_tracking_var,
-    invoked_from_internal_api,
     is_telemetry_disabled,
+    should_skip_telemetry,
 )
 
 _logger = logging.getLogger(__name__)
 
 
-def track_api_usage(func: Callable[..., Any]) -> Callable[..., Any]:
+P = ParamSpec("P")
+R = TypeVar("R")
+
+
+def track_api_usage(func: Callable[P, R]) -> Callable[P, R]:
     @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        if (
-            is_telemetry_disabled()
-            or _disable_telemetry_tracking_var.get()
-            or invoked_from_internal_api()
-        ):
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+        if is_telemetry_disabled() or should_skip_telemetry(func):
             return func(*args, **kwargs)
 
         success = True
@@ -39,8 +38,11 @@ def track_api_usage(func: Callable[..., Any]) -> Callable[..., Any]:
         finally:
             try:
                 duration_ms = int((time.time() - start_time) * 1000)
-                if record := _generate_telemetry_record(func, args, kwargs, success, duration_ms):
-                    get_telemetry_client().add_record(record)
+                client = get_telemetry_client()
+                if client and (
+                    record := _generate_telemetry_record(func, args, kwargs, success, duration_ms)
+                ):
+                    client.add_record(record)
             except Exception as e:
                 _logger.debug(f"Failed to record telemetry for function {func.__name__}: {e}")
 

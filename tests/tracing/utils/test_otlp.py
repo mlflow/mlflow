@@ -1,3 +1,4 @@
+import json
 import time
 from unittest import mock
 
@@ -5,6 +6,8 @@ import pytest
 
 import mlflow
 from mlflow.entities.span import SpanType
+from mlflow.telemetry.client import get_telemetry_client
+from mlflow.tracing.processor.otel import OtelSpanProcessor
 from mlflow.tracing.provider import _get_trace_exporter
 from mlflow.utils.os import is_windows
 
@@ -120,3 +123,33 @@ def test_export_to_otel_collector(otel_collector, monkeypatch):
     assert "Span #1" in collector_logs
     assert "Span #2" in collector_logs
     assert "Span #3" not in collector_logs
+
+
+@pytest.mark.skipif(is_windows(), reason="Otel collector docker image does not support Windows")
+def test_export_sends_telemetry_record(mock_requests, otel_collector, monkeypatch):
+    from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+
+    monkeypatch.setenv("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT", "http://127.0.0.1:4317/v1/traces")
+
+    @mlflow.trace
+    def foo():
+        pass
+
+    foo()
+    # otel collector takes 5 seconds to start
+    # wait for another 5 seconds to make sure the span is exported
+    time.sleep(10)
+
+    exporter = _get_trace_exporter()
+    # processor is OtelSpanProcessor, exporter is OTLPSpanExporter
+    assert isinstance(exporter, OTLPSpanExporter)
+    get_telemetry_client().flush()
+
+    # one for mlflow.trace, one for span export
+    assert len(mock_requests) == 2
+    record = mock_requests[-1]
+    data = json.loads(record["data"])
+    assert data["api_module"] == OtelSpanProcessor.on_end.__module__
+    assert data["api_name"] == OtelSpanProcessor.on_end.__qualname__
+    assert data["params"] is None
+    assert data["status"] == "success"
