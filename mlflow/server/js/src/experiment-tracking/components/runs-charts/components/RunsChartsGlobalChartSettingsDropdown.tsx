@@ -18,8 +18,7 @@ export const RunsChartsGlobalChartSettingsDropdown = ({
 }) => {
   const { theme } = useDesignSystemTheme();
   const intl = useIntl();
-  const { lineSmoothness, selectedXAxisMetricKey, xAxisKey } = globalLineChartConfig || {};
-
+  const { lineSmoothness, selectedXAxisMetricKey, xAxisKey, colorizeMetricTraces } = globalLineChartConfig || {};
   const updateGlobalLineChartSettings = useCallback(
     (newSettings: Partial<RunsChartsGlobalLineChartConfig>) =>
       updateUIState((state) => ({
@@ -163,6 +162,24 @@ export const RunsChartsGlobalChartSettingsDropdown = ({
             />
           </div>
         </DropdownMenu.Group>
+        <DropdownMenu.CheckboxItem
+          componentId="global_colorize_metric_traces_toggle"
+          checked={colorizeMetricTraces}
+          onCheckedChange={() => updateGlobalLineChartSettings({ colorizeMetricTraces: !colorizeMetricTraces })}
+        >
+          <DropdownMenu.ItemIndicator />
+          {colorizeMetricTraces ? (
+            <FormattedMessage
+              defaultMessage="Switch to dashed lines"
+              description="Runs charts > global settings > label when colorized lines are active"
+            />
+          ) : (
+            <FormattedMessage
+              defaultMessage="Colorize metric lines"
+              description="Runs charts > global settings > label when dashed lines are active"
+            />
+          )}
+        </DropdownMenu.CheckboxItem>
       </DropdownMenu.Content>
     </DropdownMenu.Root>
   );

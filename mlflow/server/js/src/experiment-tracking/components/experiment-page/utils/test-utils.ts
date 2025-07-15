@@ -23,6 +23,7 @@ export const createBaseUIState = (): ExperimentPageUIState => ({
     xAxisKey: RunsChartsLineChartXAxisType.STEP,
     lineSmoothness: 0,
     selectedXAxisMetricKey: '',
+    colorizeMetricTraces: true,
   },
   isAccordionReordered: false,
   autoRefreshEnabled: false,
