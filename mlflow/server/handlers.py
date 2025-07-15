@@ -1797,10 +1797,8 @@ def _create_registered_model():
             ),
             store=store,
         )
-    except Exception as e:
-        _logger.warning(
-            "Failed to dispatch webhook for registered model creation: %s", e, exc_info=True
-        )
+    except Exception:
+        _logger.warning("Failed to dispatch webhook for registered model creation", exc_info=True)
 
     return _wrap_response(response_message)
 
@@ -2081,6 +2079,7 @@ def _create_model_version():
             version=model_version.version,
             model_id=request_message.model_id,
         )
+    response_message = CreateModelVersion.Response(model_version=model_version.to_proto())
 
     if not is_prompt:
         try:
@@ -2098,7 +2097,7 @@ def _create_model_version():
             )
         except Exception:
             _logger.warning("Failed to dispatch webhook for model version creation", exc_info=True)
-    response_message = CreateModelVersion.Response(model_version=model_version.to_proto())
+
     return _wrap_response(response_message)
 
 
@@ -2284,10 +2283,8 @@ def _set_model_version_tag():
                 ),
                 store=store,
             )
-        except Exception as e:
-            _logger.warning(
-                "Failed to dispatch webhook for model version tag set: %s", e, exc_info=True
-            )
+        except Exception:
+            _logger.warning("Failed to dispatch webhook for model version tag set", exc_info=True)
 
     return _wrap_response(SetModelVersionTag.Response())
 
