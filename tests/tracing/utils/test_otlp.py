@@ -135,10 +135,10 @@ def test_export_sends_telemetry_record(mock_requests, otel_collector, monkeypatc
     def foo():
         pass
 
-    with mock.patch("mlflow.tracing.fluent.TracingClient", return_value=mock.Mock()):
-        foo()
-        # wait for the span to be exported
-        time.sleep(10)
+    foo()
+    # otel collector takes 5 seconds to start
+    # wait for another 5 seconds to make sure the span is exported
+    time.sleep(10)
 
     exporter = _get_trace_exporter()
     # processor is OtelSpanProcessor, exporter is OTLPSpanExporter

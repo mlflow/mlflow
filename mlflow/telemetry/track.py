@@ -2,7 +2,7 @@ import functools
 import inspect
 import logging
 import time
-from typing import Any, Callable, Optional, TypeVar, cast
+from typing import Any, Callable, Optional, ParamSpec, TypeVar
 
 from mlflow.telemetry.client import get_telemetry_client
 from mlflow.telemetry.parser import API_PARSER_MAPPING
@@ -18,9 +18,13 @@ _logger = logging.getLogger(__name__)
 F = TypeVar("F", bound=Callable[..., Any])
 
 
-def track_api_usage(func: F) -> F:
+P = ParamSpec("P")
+R = TypeVar("R")
+
+
+def track_api_usage(func: Callable[P, R]) -> Callable[P, R]:
     @functools.wraps(func)
-    def wrapper(*args: Any, **kwargs: Any) -> Any:
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
         if is_telemetry_disabled() or invoked_from_internal_api(func):
             return func(*args, **kwargs)
 
@@ -36,12 +40,15 @@ def track_api_usage(func: F) -> F:
         finally:
             try:
                 duration_ms = int((time.time() - start_time) * 1000)
-                if record := _generate_telemetry_record(func, args, kwargs, success, duration_ms):
-                    get_telemetry_client().add_record(record)
+                client = get_telemetry_client()
+                if client and (
+                    record := _generate_telemetry_record(func, args, kwargs, success, duration_ms)
+                ):
+                    client.add_record(record)
             except Exception as e:
                 _logger.debug(f"Failed to record telemetry for function {func.__name__}: {e}")
 
-    return cast(F, wrapper)
+    return wrapper
 
 
 def _generate_telemetry_record(
