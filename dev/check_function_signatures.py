@@ -349,7 +349,7 @@ def compare_signatures(base_branch: str = "master") -> list[Error]:
                             lines=[
                                 "[Non-blocking | Ignore if not public API]",
                                 param_error.message,
-                                f"This change breaks existing `{func_name}` calls.",
+                                f"This change will break existing `{func_name}` calls.",
                                 "If this is not intended, please fix it.",
                             ],
                         )
