@@ -15,6 +15,7 @@ from mlflow import MlflowClient
 from mlflow.entities.webhook import WebhookEvent
 
 from tests.helper_functions import get_safe_port
+from tests.webhooks.app import WEBHOOK_SECRET
 
 
 def wait_until_ready(health_endpoint: str, max_attempts: int = 10) -> None:
@@ -311,7 +312,7 @@ def test_webhook_with_secret(mlflow_client: MlflowClient, app_client: AppClient)
         name="secure_webhook",
         url=app_client.get_url("/secure-webhook"),
         events=[WebhookEvent.REGISTERED_MODEL_CREATED],
-        secret="test-secret-key",  # This matches WEBHOOK_SECRET in app.py
+        secret=WEBHOOK_SECRET,
     )
 
     registered_model = mlflow_client.create_registered_model(
