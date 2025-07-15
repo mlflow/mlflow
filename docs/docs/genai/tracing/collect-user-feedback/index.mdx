@@ -2,7 +2,11 @@ import FeatureHighlights from "@site/src/components/FeatureHighlights";
 import ConceptOverview from "@site/src/components/ConceptOverview";
 import TilesGrid from "@site/src/components/TilesGrid";
 import TileCard from "@site/src/components/TileCard";
+import ImageBox from "@site/src/components/ImageBox";
 import { ThumbsUp, BarChart3, Shield, Target, MessageSquare, FileText, Search, TrendingUp, Clock, Users, Zap, Database, Lock } from "lucide-react";
+import AssessmentsTraceDetailImageUrl from '@site/static/images/assessments/assessments_trace_detail_ui.png';
+import AddFeedbackImageUrl from '@site/static/images/assessments/add_feedback_ui.png';
+import AdditionalFeedbackImageUrl from '@site/static/images/assessments/additional_feedback_ui.png';
 
 # Collect User Feedback
 
@@ -110,7 +114,11 @@ collect_thumbs_feedback(trace_id, True, "user_123")
 
 After collecting feedback, you can view it in the MLflow UI:
 
-![Feedback in MLflow UI](/images/assessments/assessments_trace_detail_ui.png)
+<ImageBox
+  src={AssessmentsTraceDetailImageUrl}
+  alt="Feedback in MLflow UI"
+  width="90%"
+/>
 
 The trace detail page shows all feedback attached to your traces, making it easy to analyze user satisfaction and identify patterns in your application's performance.
 
@@ -119,10 +127,20 @@ The trace detail page shows all feedback attached to your traces, making it easy
 Users can also provide feedback directly through the MLflow UI:
 
 **Creating New Feedback:**
-![Create Feedback](/images/assessments/add_feedback_ui.png)
+
+<ImageBox
+  src={AddFeedbackImageUrl}
+  alt="Create Feedback"
+  width="90%"
+/>
 
 **Adding Additional Feedback:**
-![Additional Feedback](/images/assessments/additional_feedback_ui.png)
+
+<ImageBox
+  src={AdditionalFeedbackImageUrl}
+  alt="Additional Feedback"
+  width="90%"
+/>
 
 This collaborative approach enables both programmatic feedback collection and manual review workflows.
 
