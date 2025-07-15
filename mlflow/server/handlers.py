@@ -171,6 +171,14 @@ from mlflow.utils.validation import (
     missing_value,
 )
 from mlflow.webhooks.dispatch import dispatch_webhook
+from mlflow.webhooks.types import (
+    ModelVersionAliasCreatedPayload,
+    ModelVersionAliasDeletedPayload,
+    ModelVersionCreatedPayload,
+    ModelVersionTagDeletedPayload,
+    ModelVersionTagSetPayload,
+    RegisteredModelCreatedPayload,
+)
 
 _logger = logging.getLogger(__name__)
 _tracking_store = None
@@ -1781,11 +1789,11 @@ def _create_registered_model():
     try:
         dispatch_webhook(
             event=WebhookEvent.REGISTERED_MODEL_CREATED,
-            payload={
-                "name": request_message.name,
-                "tags": {t.key: t.value for t in request_message.tags},
-                "description": request_message.description,
-            },
+            payload=RegisteredModelCreatedPayload(
+                name=request_message.name,
+                tags={t.key: t.value for t in request_message.tags},
+                description=request_message.description,
+            ),
             store=_get_model_registry_store(),
         )
     except Exception as e:
@@ -2076,14 +2084,14 @@ def _create_model_version():
         try:
             dispatch_webhook(
                 event=WebhookEvent.MODEL_VERSION_CREATED,
-                payload={
-                    "name": request_message.name,
-                    "version": str(model_version.version),
-                    "source": request_message.source,
-                    "run_id": request_message.run_id or None,
-                    "tags": {t.key: t.value for t in request_message.tags},
-                    "description": request_message.description or None,
-                },
+                payload=ModelVersionCreatedPayload(
+                    name=request_message.name,
+                    version=str(model_version.version),
+                    source=request_message.source,
+                    run_id=request_message.run_id or None,
+                    tags={t.key: t.value for t in request_message.tags},
+                    description=request_message.description or None,
+                ),
                 store=_get_model_registry_store(),
             )
         except Exception:
@@ -2267,12 +2275,12 @@ def _set_model_version_tag():
         try:
             dispatch_webhook(
                 event=WebhookEvent.MODEL_VERSION_TAG_SET,
-                payload={
-                    "name": request_message.name,
-                    "version": request_message.version,
-                    "key": request_message.key,
-                    "value": request_message.value,
-                },
+                payload=ModelVersionTagSetPayload(
+                    name=request_message.name,
+                    version=request_message.version,
+                    key=request_message.key,
+                    value=request_message.value,
+                ),
                 store=_get_model_registry_store(),
             )
         except Exception as e:
@@ -2304,11 +2312,11 @@ def _delete_model_version_tag():
         try:
             dispatch_webhook(
                 event=WebhookEvent.MODEL_VERSION_TAG_DELETED,
-                payload={
-                    "name": request_message.name,
-                    "version": request_message.version,
-                    "key": request_message.key,
-                },
+                payload=ModelVersionTagDeletedPayload(
+                    name=request_message.name,
+                    version=request_message.version,
+                    key=request_message.key,
+                ),
                 store=_get_model_registry_store(),
             )
         except Exception:
@@ -2338,11 +2346,11 @@ def _set_registered_model_alias():
         try:
             dispatch_webhook(
                 event=WebhookEvent.MODEL_VERSION_ALIAS_CREATED,
-                payload={
-                    "name": request_message.name,
-                    "alias": request_message.alias,
-                    "version": request_message.version,
-                },
+                payload=ModelVersionAliasCreatedPayload(
+                    name=request_message.name,
+                    alias=request_message.alias,
+                    version=request_message.version,
+                ),
                 store=_get_model_registry_store(),
             )
         except Exception:
@@ -2369,10 +2377,10 @@ def _delete_registered_model_alias():
         try:
             dispatch_webhook(
                 event=WebhookEvent.MODEL_VERSION_ALIAS_DELETED,
-                payload={
-                    "name": request_message.name,
-                    "alias": request_message.alias,
-                },
+                payload=ModelVersionAliasDeletedPayload(
+                    name=request_message.name,
+                    alias=request_message.alias,
+                ),
                 store=_get_model_registry_store(),
             )
         except Exception:
