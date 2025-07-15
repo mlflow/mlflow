@@ -2108,7 +2108,7 @@ def _is_prompt_request(request_message):
 
 def _is_prompt(name: str) -> bool:
     rm = _get_model_registry_store().get_registered_model(name=name)
-    return rm._is_prompt
+    return rm._is_prompt()
 
 
 @catch_mlflow_exception
