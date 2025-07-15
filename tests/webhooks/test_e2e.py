@@ -39,7 +39,6 @@ def _run_mlflow_server(tmp_path: Path) -> Generator[str, None, None]:
             "mlflow",
             "server",
             f"--port={port}",
-            "--workers=1",
             f"--backend-store-uri={backend_store_uri}",
             f"--default-artifact-root=file://{tmp_path}/artifacts",
         ],
@@ -58,9 +57,14 @@ def _run_mlflow_server(tmp_path: Path) -> Generator[str, None, None]:
             yield url
         finally:
             # Kill the gunicorn processes spawned by mlflow server
-            proc = psutil.Process(prc.pid)
-            for child in proc.children(recursive=True):
-                child.terminate()
+            try:
+                proc = psutil.Process(prc.pid)
+            except psutil.NoSuchProcess:
+                # Handle case where the process did not start correctly
+                pass
+            else:
+                for child in proc.children(recursive=True):
+                    child.terminate()
 
             # Kill the mlflow server process
             prc.terminate()
