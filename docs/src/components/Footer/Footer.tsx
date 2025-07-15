@@ -1,17 +1,12 @@
-import { cva, type VariantProps, cx } from 'class-variance-authority';
+import { cva } from 'class-variance-authority';
 import { useColorMode } from '@docusaurus/theme-common';
 
 import LogoDark from '@site/static/images/mlflow-logo-white.svg';
 import LogoLight from '@site/static/images/mlflow-logo-black.svg';
-import BlueBg from '@site/static/images/footer-blue-bg.png';
-import RedBg from '@site/static/images/footer-red-bg.png';
-import ColorfulBg from '@site/static/images/footer-colorful-bg.png';
-import BlueBgLight from '@site/static/images/footer-blue-bg-light.png';
-import RedBgLight from '@site/static/images/footer-red-bg-light.png';
-import ColorfulBgLight from '@site/static/images/footer-colorful-bg-light.png';
 import useBaseUrl from '@docusaurus/useBaseUrl';
 
 import { FooterMenuItem } from '../FooterMenuItem/FooterMenuItem';
+import { GradientWrapper, type Variant } from '../GradientWrapper/GradientWrapper';
 
 const footerVariants = cva(
   'pb-30 flex flex-col pt-30 bg-bottom bg-no-repeat bg-cover bg-size-[auto_360px] 2xl:bg-size-[100%_360px]',
@@ -25,50 +20,22 @@ const footerVariants = cva(
   },
 );
 
-const getBackgroundImage = (variant: 'blue' | 'red' | 'colorful', isDarkMode: boolean) => {
-  if (isDarkMode) {
-    switch (variant) {
-      case 'blue':
-        return BlueBg;
-      case 'red':
-        return RedBg;
-      case 'colorful':
-        return ColorfulBg;
-    }
-  } else {
-    switch (variant) {
-      case 'blue':
-        return BlueBgLight;
-      case 'red':
-        return RedBgLight;
-      case 'colorful':
-        return ColorfulBgLight;
-    }
-  }
-};
-
 const getLogo = (isDarkMode: boolean) => {
   return isDarkMode ? LogoDark : LogoLight;
 };
 
-const getBackgroundGradient = (isDarkMode: boolean) => {
-  if (isDarkMode) {
-    return `linear-gradient(#0e1414 60%, #0c141400 90% 100%)`;
-  } else {
-    return `linear-gradient(#ffffff 60%, #ffffff00 90% 100%)`;
-  }
-};
-
-export const Footer = ({ variant }: { variant: 'blue' | 'red' | 'colorful' }) => {
+export const Footer = ({ variant }: { variant: Variant }) => {
   const { colorMode } = useColorMode();
   const isDarkMode = colorMode === 'dark';
   const Logo = getLogo(isDarkMode);
-  const backgroundGradient = getBackgroundGradient(isDarkMode);
 
   return (
-    <footer
-      className={cx(footerVariants({ theme: colorMode }))}
-      style={{ backgroundImage: `${backgroundGradient},url(${getBackgroundImage(variant, isDarkMode)})` }}
+    <GradientWrapper
+      variant={variant}
+      isFooter
+      className={footerVariants({ theme: colorMode })}
+      element="footer"
+      height={360}
     >
       <div className="flex flex-row justify-between items-start md:items-center px-6 lg:px-20 gap-10 xs:gap-0 max-w-container">
         <div className="flex flex-col gap-8">
@@ -97,6 +64,6 @@ export const Footer = ({ variant }: { variant: 'blue' | 'red' | 'colorful' }) =>
           </FooterMenuItem>
         </div>
       </div>
-    </footer>
+    </GradientWrapper>
   );
 };

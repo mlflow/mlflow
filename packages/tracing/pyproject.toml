@@ -18,9 +18,9 @@ classifiers = [
   "Topic :: Software Development :: Libraries :: Python Modules",
   "License :: OSI Approved :: Apache Software License",
   "Operating System :: OS Independent",
-  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
 ]
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
   "cachetools<6,>=5.0.0",
   "databricks-sdk<1,>=0.20.0",
