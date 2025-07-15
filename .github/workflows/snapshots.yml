@@ -1,0 +1,46 @@
+name: snapshots
+
+on:
+  schedule:
+    - cron: "0 0 * * *" # Runs daily at midnight UTC
+  workflow_dispatch: # Allows manual triggering
+  pull_request: # for testing
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write # Needed to push tags and create releases
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0 # Fetch all history for tags
+      - uses: ./.github/actions/setup-python
+      - uses: ./.github/actions/setup-node
+
+      - name: Install dependencies
+        run: |
+          pip install build
+
+      - name: Build distribution files
+        id: build-dist
+        run: |
+          python dev/build.py --sha $(git rev-parse HEAD)
+          wheel_path=$(find dist -type f -name "*.whl")
+          echo "wheel_path=${wheel_path}" >> $GITHUB_OUTPUT
+
+      - name: Upload wheel to nightly release
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+        with:
+          script: |
+            const script = require('./.github/scripts/snapshots.js');
+            await script({
+              github,
+              context,
+              artifacts: ['${{ steps.build-dist.outputs.wheel_path }}']
+            });
