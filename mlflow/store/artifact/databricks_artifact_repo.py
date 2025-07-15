@@ -261,6 +261,8 @@ class DatabricksArtifactRepository(CloudArtifactRepository):
     def upload_trace_data(self, trace_data: str) -> None:
         cred = self._get_upload_trace_data_cred_info()
         with write_local_temp_trace_data_file(trace_data) as temp_file:
+            # Upload trace data synchronously to avoid ThreadPoolExecutor deadlock during Python
+            # interpreter shutdown, which causes "cannot schedule new futures after shutdown" error.
             if cred.type == ArtifactCredentialType.AZURE_ADLS_GEN2_SAS_URI:
                 self._azure_adls_gen2_upload_file(
                     credentials=cred,
