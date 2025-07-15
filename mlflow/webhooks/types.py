@@ -12,7 +12,7 @@ class RegisteredModelCreatedPayload(TypedDict):
 
     name: str
     tags: dict[str, str]
-    description: str
+    description: Optional[str]
 
 
 class ModelVersionCreatedPayload(TypedDict):

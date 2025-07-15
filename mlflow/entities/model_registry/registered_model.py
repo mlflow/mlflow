@@ -92,6 +92,11 @@ class RegisteredModel(_ModelRegistryEntity):
         return {k: v for k, v in self._tags.items() if k != IS_PROMPT_TAG_KEY}
 
     @property
+    def _is_prompt(self):
+        """Boolean. Indicates if the registered model is a prompt."""
+        return self._tags.get(IS_PROMPT_TAG_KEY, "false").lower() == "true"
+
+    @property
     def aliases(self):
         """Dictionary of aliases (string) -> version for the current registered model."""
         return self._aliases
